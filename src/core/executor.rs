@@ -293,7 +293,18 @@ fn apply_single_resource(
     }
 }
 
-/// Apply all planned changes for a single machine.
+/// Log a tripwire event if tripwire is enabled.
+fn log_tripwire(
+    state_dir: &std::path::Path,
+    machine: &str,
+    tripwire: bool,
+    event: ProvenanceEvent,
+) {
+    if tripwire {
+        let _ = eventlog::append_event(state_dir, machine, event);
+    }
+}
+
 fn apply_machine(
     cfg: &ApplyConfig,
     machine_name: &str,
@@ -309,24 +320,21 @@ fn apply_machine(
         .remove(machine_name)
         .unwrap_or_else(|| state::new_lock(machine_name, &machine.hostname));
 
-    // Log apply start
-    if cfg.config.policy.tripwire {
-        let _ = eventlog::append_event(
-            cfg.state_dir,
-            machine_name,
-            ProvenanceEvent::ApplyStarted {
-                machine: machine_name.to_string(),
-                run_id: run_id.clone(),
-                forjar_version: env!("CARGO_PKG_VERSION").to_string(),
-            },
-        );
-    }
+    log_tripwire(
+        cfg.state_dir,
+        machine_name,
+        cfg.config.policy.tripwire,
+        ProvenanceEvent::ApplyStarted {
+            machine: machine_name.to_string(),
+            run_id: run_id.clone(),
+            forjar_version: env!("CARGO_PKG_VERSION").to_string(),
+        },
+    );
 
     let mut converged = 0u32;
     let mut unchanged = 0u32;
     let mut failed = 0u32;
 
-    // Filter and apply changes for this machine
     let machine_changes: Vec<_> = plan
         .changes
         .iter()
@@ -357,29 +365,24 @@ fn apply_machine(
 
     // Rebind lock from ctx for finalization
     let lock = ctx.lock;
-
-    // Update lock metadata and save
     lock.generated_at = eventlog::now_iso8601();
     if cfg.config.policy.lock_file {
         state::save_lock(cfg.state_dir, lock)?;
     }
 
-    // Log apply completion
-    let total_seconds = machine_start.elapsed().as_secs_f64();
-    if cfg.config.policy.tripwire {
-        let _ = eventlog::append_event(
-            cfg.state_dir,
-            machine_name,
-            ProvenanceEvent::ApplyCompleted {
-                machine: machine_name.to_string(),
-                run_id,
-                resources_converged: converged,
-                resources_unchanged: unchanged,
-                resources_failed: failed,
-                total_seconds,
-            },
-        );
-    }
+    log_tripwire(
+        cfg.state_dir,
+        machine_name,
+        cfg.config.policy.tripwire,
+        ProvenanceEvent::ApplyCompleted {
+            machine: machine_name.to_string(),
+            run_id,
+            resources_converged: converged,
+            resources_unchanged: unchanged,
+            resources_failed: failed,
+            total_seconds: machine_start.elapsed().as_secs_f64(),
+        },
+    );
 
     Ok(ApplyResult {
         machine: machine_name.to_string(),
@@ -392,17 +395,14 @@ fn apply_machine(
 
 /// Collect all unique machine names referenced by resources.
 fn collect_machines(config: &ForjarConfig) -> Vec<String> {
-    let mut machines = Vec::new();
-    let mut seen = std::collections::HashSet::new();
-
+    let mut machines: Vec<String> = Vec::new();
     for resource in config.resources.values() {
         for m in resource.machine.to_vec() {
-            if seen.insert(m.clone()) {
+            if !machines.iter().any(|existing| existing == &m) {
                 machines.push(m);
             }
         }
     }
-
     machines
 }
 

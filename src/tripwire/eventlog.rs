@@ -163,9 +163,25 @@ mod tests {
 
     #[test]
     fn test_fj015_is_leap() {
+        // BH-MUT-0001: Each assertion kills a specific mutation of
+        // `(y % 4 == 0 && y % 100 != 0) || y % 400 == 0`
+
+        // Divisible by 400 → leap (kills: remove `|| y % 400 == 0`)
         assert!(is_leap(2000));
-        assert!(is_leap(2024));
+        assert!(is_leap(1600));
+
+        // Divisible by 100 but NOT 400 → NOT leap (kills: flip `y % 100 != 0`)
         assert!(!is_leap(1900));
+        assert!(!is_leap(2100));
+
+        // Divisible by 4 but NOT 100 → leap (kills: flip `y % 4 == 0`, flip `&&` to `||`)
+        assert!(is_leap(2024));
+        assert!(is_leap(2028));
+        assert!(is_leap(1996));
+
+        // NOT divisible by 4 → NOT leap (kills: negate entire expression)
         assert!(!is_leap(2023));
+        assert!(!is_leap(2025));
+        assert!(!is_leap(2026));
     }
 }
