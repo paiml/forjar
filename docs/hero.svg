@@ -1,0 +1,100 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 280">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0f172a;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1e293b;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#f97316;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#fb923c;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="hash" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#22d3ee;stop-opacity:0.6" />
+      <stop offset="100%" style="stop-color:#06b6d4;stop-opacity:0.2" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="900" height="280" rx="12" fill="url(#bg)" />
+
+  <!-- Grid pattern (subtle) -->
+  <g opacity="0.04" stroke="#94a3b8" stroke-width="0.5">
+    <line x1="0" y1="40" x2="900" y2="40" />
+    <line x1="0" y1="80" x2="900" y2="80" />
+    <line x1="0" y1="120" x2="900" y2="120" />
+    <line x1="0" y1="160" x2="900" y2="160" />
+    <line x1="0" y1="200" x2="900" y2="200" />
+    <line x1="0" y1="240" x2="900" y2="240" />
+  </g>
+
+  <!-- Anvil icon (forjar = forge) -->
+  <g transform="translate(60, 70)">
+    <!-- Anvil body -->
+    <path d="M20 100 L30 40 L90 30 L120 30 L130 50 L140 100 Z"
+          fill="url(#accent)" opacity="0.9" />
+    <!-- Anvil face -->
+    <rect x="25" y="25" width="100" height="10" rx="3" fill="#fdba74" opacity="0.7" />
+    <!-- Anvil horn -->
+    <path d="M120 30 Q145 25 160 35 L130 50 Z" fill="#ea580c" opacity="0.8" />
+    <!-- Hammer -->
+    <g transform="rotate(-30, 75, 10)">
+      <rect x="60" y="-40" width="8" height="50" rx="2" fill="#94a3b8" opacity="0.7" />
+      <rect x="50" y="-50" width="28" height="16" rx="3" fill="#cbd5e1" opacity="0.8" />
+    </g>
+    <!-- Sparks -->
+    <circle cx="85" cy="20" r="2" fill="#fbbf24" opacity="0.9">
+      <animate attributeName="opacity" values="0.9;0.2;0.9" dur="1.5s" repeatCount="indefinite" />
+    </circle>
+    <circle cx="100" cy="12" r="1.5" fill="#fbbf24" opacity="0.7">
+      <animate attributeName="opacity" values="0.7;0.1;0.7" dur="2s" repeatCount="indefinite" />
+    </circle>
+    <circle cx="70" cy="15" r="1.5" fill="#fbbf24" opacity="0.8">
+      <animate attributeName="opacity" values="0.8;0.3;0.8" dur="1.8s" repeatCount="indefinite" />
+    </circle>
+  </g>
+
+  <!-- Title -->
+  <text x="240" y="110" font-family="system-ui, -apple-system, sans-serif" font-size="64" font-weight="800" fill="#f8fafc" letter-spacing="-2">
+    forjar
+  </text>
+
+  <!-- Subtitle -->
+  <text x="240" y="150" font-family="system-ui, -apple-system, sans-serif" font-size="20" fill="#94a3b8" font-weight="400">
+    Rust-native Infrastructure as Code
+  </text>
+
+  <!-- Tags -->
+  <g transform="translate(240, 175)">
+    <rect x="0" y="0" width="110" height="28" rx="14" fill="#1e293b" stroke="#f97316" stroke-width="1.5" />
+    <text x="55" y="19" font-family="ui-monospace, monospace" font-size="12" fill="#f97316" text-anchor="middle">bare-metal</text>
+
+    <rect x="120" y="0" width="130" height="28" rx="14" fill="#1e293b" stroke="#22d3ee" stroke-width="1.5" />
+    <text x="185" y="19" font-family="ui-monospace, monospace" font-size="12" fill="#22d3ee" text-anchor="middle">BLAKE3 state</text>
+
+    <rect x="260" y="0" width="130" height="28" rx="14" fill="#1e293b" stroke="#a78bfa" stroke-width="1.5" />
+    <text x="325" y="19" font-family="ui-monospace, monospace" font-size="12" fill="#a78bfa" text-anchor="middle">provenance</text>
+
+    <rect x="400" y="0" width="100" height="28" rx="14" fill="#1e293b" stroke="#4ade80" stroke-width="1.5" />
+    <text x="450" y="19" font-family="ui-monospace, monospace" font-size="12" fill="#4ade80" text-anchor="middle">idempotent</text>
+  </g>
+
+  <!-- Hash visualization (right side) -->
+  <g transform="translate(700, 50)" opacity="0.15">
+    <text font-family="ui-monospace, monospace" font-size="11" fill="#22d3ee">
+      <tspan x="0" dy="0">blake3:a7f2c9</tspan>
+      <tspan x="0" dy="16">blake3:3e81d0</tspan>
+      <tspan x="0" dy="16">blake3:f4b2a1</tspan>
+      <tspan x="0" dy="16">blake3:0c9e7f</tspan>
+      <tspan x="0" dy="16">blake3:d15fa3</tspan>
+      <tspan x="0" dy="16">blake3:82c4e6</tspan>
+      <tspan x="0" dy="16">blake3:59b0d2</tspan>
+      <tspan x="0" dy="16">blake3:1a6f8c</tspan>
+      <tspan x="0" dy="16">blake3:e73b94</tspan>
+      <tspan x="0" dy="16">blake3:4d0ea7</tspan>
+      <tspan x="0" dy="16">blake3:b6c5f1</tspan>
+    </text>
+  </g>
+
+  <!-- Bottom accent line -->
+  <rect x="0" y="274" width="900" height="6" rx="0" fill="url(#accent)" opacity="0.8" />
+</svg>

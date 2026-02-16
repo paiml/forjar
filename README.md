@@ -1,169 +1,242 @@
-# Forjar — Rust-Native Infrastructure as Code
+<p align="center">
+  <img src="docs/hero.svg" alt="forjar — Rust-native Infrastructure as Code" width="900" />
+</p>
 
-Bare-metal first. BLAKE3 state. Provenance tracing.
+<p align="center">
+  <a href="#quick-start">Quick Start</a> &middot;
+  <a href="docs/book/">Book</a> &middot;
+  <a href="docs/specifications/forjar-spec.md">Specification</a> &middot;
+  <a href="#benchmarks">Benchmarks</a>
+</p>
 
-## Falsifiable Claims
+---
 
-The following claims are testable and falsifiable. Each claim references specific tests that would **fail** if the claim were violated.
+Forjar is a single-binary IaC tool written in Rust. It manages bare-metal machines over SSH using YAML configs, BLAKE3 content-addressed state, and deterministic DAG execution. No cloud APIs, no runtime dependencies, no remote state backends.
 
-### C1: Deterministic hashing
+```
+forjar.yaml  →  parse  →  resolve DAG  →  plan  →  codegen  →  execute  →  BLAKE3 lock
+```
 
-**Claim**: BLAKE3 hashing of identical inputs always produces identical outputs, and different inputs produce different outputs.
+## Why Forjar
 
-**Falsification**: Change a file's content and verify the hash changes. Hash the same file twice and verify equality.
-
-**Tests**: `test_fj014_hash_file_deterministic`, `test_fj014_hash_string`, `test_fj014_hash_directory_order_independent_of_creation`
-
-### C2: DAG execution order is deterministic
-
-**Claim**: Given the same dependency graph, topological sort always produces the same execution order (alphabetical tie-breaking).
-
-**Falsification**: Run the resolver on the same config 1000 times and verify all results are identical.
-
-**Tests**: `test_fj003_topo_sort_deterministic`, `test_fj003_alphabetical_tiebreak`, `test_fj003_diamond_dependency`
-
-### C3: Idempotent apply
-
-**Claim**: Running `forjar apply` twice on an unchanged config produces zero changes on the second run.
-
-**Falsification**: Apply a config, then apply again and verify `to_create == 0 && to_update == 0`.
-
-**Tests**: `test_fj012_idempotent_apply`, `test_fj004_plan_all_unchanged`
-
-### C4: Cycle detection
-
-**Claim**: Circular dependencies are detected at parse time and rejected with an error, never silently ignored.
-
-**Falsification**: Create a config with A→B→A and verify the resolver returns an error.
-
-**Tests**: `test_fj003_cycle_detection`
-
-### C5: Content-addressed state
-
-**Claim**: Lock file hashes are derived from the desired state definition, not from timestamps or execution artifacts.
-
-**Falsification**: Create two identical resources at different times and verify they produce the same hash.
-
-**Tests**: `test_fj004_hash_deterministic`, `test_fj004_plan_all_unchanged`
-
-### C6: Atomic state persistence
-
-**Claim**: Lock file writes are atomic (temp file + rename). A crash during write cannot corrupt the lock file.
-
-**Falsification**: Verify no `.tmp` file remains after successful save. Verify the lock file is valid YAML after save.
-
-**Tests**: `test_fj013_atomic_write`, `test_fj013_save_and_load`
-
-### C7: Recipe input validation
-
-**Claim**: Recipe inputs are validated against declared types and constraints before expansion. Invalid inputs are rejected.
-
-**Falsification**: Pass a string where an integer is expected and verify rejection.
-
-**Tests**: `test_fj019_validate_inputs_type_mismatch`, `test_fj019_validate_inputs_missing_required`, `test_fj019_validate_inputs_enum_invalid`
-
-### C8: Heredoc injection safety
-
-**Claim**: File content written via heredoc with single-quoted delimiter (`<<'EOF'`) prevents shell variable expansion and command injection.
-
-**Falsification**: Include `$HOME` and backtick commands in content and verify they appear literally in the generated script.
-
-**Tests**: `test_fj007_heredoc_safe`
-
-### C9: Single binary, minimal dependencies
-
-**Claim**: The release binary is a single static executable with fewer than 10 direct crate dependencies.
-
-**Falsification**: Count direct dependencies in `Cargo.toml`. Build a release binary and verify it is a single file.
-
-**Verification**: `cargo metadata --no-deps --format-version 1 | jq '.packages[0].dependencies | length'`
-
-### C10: Jidoka failure isolation
-
-**Claim**: When a resource fails to apply, execution stops immediately. Previously converged resources retain their lock state.
-
-**Falsification**: Create a config where the second resource fails. Verify the first resource's lock is preserved and the third is not attempted.
-
-**Tests**: `test_fj012_apply_local_file` (verifies successful apply stores lock state)
+| | Terraform | Ansible | **Forjar** |
+|---|---|---|---|
+| Runtime | Go + providers | Python + SSH | **Single Rust binary** |
+| State | S3 / Consul / JSON | None | **Git (BLAKE3 YAML)** |
+| Drift detection | API calls | None | **Local hash compare** |
+| Bare metal | Weak | Strong | **First-class** |
+| Dependencies | ~200 Go modules | ~50 Python pkgs | **6 crates** |
+| Apply speed | Seconds–minutes | Minutes | **Milliseconds–seconds** |
 
 ## Quick Start
 
 ```bash
-# Build
-cargo build --release
+# Install from source
+cargo install --path .
 
-# Validate a config
-forjar validate forjar.yaml
+# Initialize a project
+forjar init my-infra && cd my-infra
+
+# Edit forjar.yaml (see Configuration below)
 
 # Preview changes
-forjar plan forjar.yaml
+forjar plan -f forjar.yaml
 
-# Apply (converge state)
-forjar apply forjar.yaml
+# Apply
+forjar apply -f forjar.yaml
 
-# Detect drift
-forjar drift forjar.yaml
+# Check for unauthorized changes
+forjar drift --state-dir state
+
+# View current state
+forjar status --state-dir state
 ```
 
-## Architecture
+## Configuration
 
-```
-forjar.yaml → parser → recipe → resolver → planner → codegen → executor → state
-                                    │                                         │
-                                    └── DAG topological sort                  └── BLAKE3 lock files
+A `forjar.yaml` declares machines, resources, and policy:
+
+```yaml
+version: "1.0"
+name: home-lab
+description: "Sovereign AI stack provisioning"
+
+params:
+  data_dir: /mnt/data
+
+machines:
+  gpu-box:
+    hostname: lambda
+    addr: 192.168.50.100
+    user: noah
+    ssh_key: ~/.ssh/id_ed25519
+    arch: x86_64
+    roles: [gpu-compute]
+
+resources:
+  base-packages:
+    type: package
+    machine: gpu-box
+    provider: apt
+    packages: [curl, htop, git, tmux, ripgrep]
+
+  data-dir:
+    type: file
+    machine: gpu-box
+    state: directory
+    path: "{{params.data_dir}}"
+    owner: noah
+    mode: "0755"
+    depends_on: [base-packages]
+
+  app-config:
+    type: file
+    machine: gpu-box
+    path: /etc/app/config.yaml
+    content: |
+      data_dir: {{params.data_dir}}
+      log_level: info
+    owner: noah
+    mode: "0644"
+    depends_on: [data-dir]
+
+policy:
+  failure: stop_on_first
+  tripwire: true
+  lock_file: true
 ```
 
-**Core modules**: parser, resolver, planner, codegen, executor, state, recipe
-**Resource types**: package, file, service, mount (extensible)
-**Transport**: local execution, SSH remote
-**Integrity**: BLAKE3 hashing, drift detection, append-only event log
+### Resource Types
+
+| Type | States | Key Fields |
+|------|--------|------------|
+| `package` | present, absent | `provider` (apt/cargo/pip), `packages` |
+| `file` | file, directory, symlink, absent | `path`, `content`, `owner`, `group`, `mode` |
+| `service` | running, stopped, enabled, disabled | `name`, `enabled`, `restart_on` |
+| `mount` | mounted, unmounted, absent | `path`, `target`, `fstype`, `options` |
+
+### Templates
+
+Use `{{params.key}}` to reference global parameters in any string field. Templates are resolved before codegen.
+
+### Recipes
+
+Reusable, parameterized resource patterns (like Homebrew formulae):
+
+```yaml
+# recipes/dev-tools.yaml
+name: dev-tools
+version: "1.0"
+inputs:
+  user:
+    type: string
+    required: true
+  shell:
+    type: enum
+    values: [bash, zsh, fish]
+    default: zsh
+resources:
+  packages:
+    type: package
+    provider: apt
+    packages: [build-essential, cmake, pkg-config]
+  dotfiles:
+    type: file
+    state: directory
+    path: "/home/{{inputs.user}}/.config"
+    owner: "{{inputs.user}}"
+    mode: "0755"
+```
+
+## How It Works
+
+1. **Parse** — Read `forjar.yaml`, validate schema and references
+2. **Resolve** — Expand templates, build dependency DAG (Kahn's toposort, alphabetical tie-break)
+3. **Plan** — Diff desired state against BLAKE3 lock file (hash comparison, no API calls)
+4. **Codegen** — Generate shell scripts per resource type
+5. **Execute** — Run scripts locally or via SSH (stdin pipe, not argument passing)
+6. **State** — Atomic lock file write (temp + rename), append to JSONL event log
+
+### Failure Policy (Jidoka)
+
+On first failure, execution stops immediately. Partial state is preserved in the lock file. No cascading damage. Re-run to continue from where it stopped.
+
+### Transport
+
+- **Local**: `bash` via stdin pipe (for `127.0.0.1` / `localhost`)
+- **SSH**: `ssh -o BatchMode=yes` with stdin pipe (no argument length limits)
 
 ## Benchmarks
-
-Run benchmarks with:
 
 ```bash
 cargo bench
 ```
 
-### Methodology
+| Operation | Input | Mean | 95% CI |
+|---|---|---|---|
+| BLAKE3 hash | 64 B string | 27 ns | +/- 0.5 ns |
+| BLAKE3 hash | 1 KB string | 92 ns | +/- 1.2 ns |
+| BLAKE3 hash | 1 MB file | 172 us | +/- 0.4 us |
+| YAML parse | 500 B config | 20.7 us | +/- 0.2 us |
+| Topo sort | 100 nodes | 34.6 us | +/- 0.4 us |
 
-- **Framework**: Criterion.rs 0.5 with 100 samples per benchmark
-- **Confidence level**: 95% confidence intervals reported for all measurements
-- **Warm-up**: 3 seconds per benchmark to stabilize CPU caches
-- **Sample size**: 100 iterations minimum; Criterion auto-tunes for statistical significance
-- **Effect size threshold**: Performance regressions > 5% are considered meaningful
-- **Environment**: Results are hardware-dependent. Reproduce locally with `cargo bench`.
+Criterion.rs, 100 samples, 3s warm-up. Run locally to reproduce.
 
-### Results (reference: AMD EPYC, Linux 6.8)
+## Falsifiable Claims
 
-| Operation | Input Size | Mean | 95% CI | Baseline |
-|-----------|-----------|------|--------|----------|
-| BLAKE3 hash (string) | 64 B | 27 ns | ± 0.5 ns | — |
-| BLAKE3 hash (string) | 1 KB | 92 ns | ± 1.2 ns | SHA-256: ~350 ns |
-| BLAKE3 hash (string) | 4 KB | 305 ns | ± 3.1 ns | SHA-256: ~1.4 µs |
-| BLAKE3 hash (file) | 1 KB | 4.5 µs | ± 0.1 µs | Includes I/O |
-| BLAKE3 hash (file) | 1 MB | 172 µs | ± 0.4 µs | ~5.8 GB/s effective |
-| YAML parse | 500 B config | 20.7 µs | ± 0.2 µs | serde_yaml |
-| Topo sort (Kahn) | 10 nodes | 2.7 µs | ± 0.1 µs | — |
-| Topo sort (Kahn) | 50 nodes | 16.4 µs | ± 0.1 µs | O(V+E) |
-| Topo sort (Kahn) | 100 nodes | 34.6 µs | ± 0.4 µs | O(V+E) |
+<details>
+<summary>10 testable claims with linked tests (click to expand)</summary>
 
-SHA-256 baselines measured separately for comparison. BLAKE3 is consistently 3-4x faster due to SIMD acceleration.
+### C1: Deterministic hashing
+BLAKE3 of identical inputs always produces identical outputs.
+Tests: `test_fj014_hash_file_deterministic`, `test_fj014_hash_string`
+
+### C2: Deterministic DAG order
+Same dependency graph always produces the same execution order.
+Tests: `test_fj003_topo_sort_deterministic`, `test_fj003_alphabetical_tiebreak`
+
+### C3: Idempotent apply
+Second apply on unchanged config produces zero changes.
+Tests: `test_fj012_idempotent_apply`, `test_fj004_plan_all_unchanged`
+
+### C4: Cycle detection
+Circular dependencies are rejected at parse time.
+Tests: `test_fj003_cycle_detection`
+
+### C5: Content-addressed state
+Lock hashes are derived from desired state, not timestamps.
+Tests: `test_fj004_hash_deterministic`, `test_fj004_plan_all_unchanged`
+
+### C6: Atomic state persistence
+Lock writes use temp file + rename. No corruption on crash.
+Tests: `test_fj013_atomic_write`, `test_fj013_save_and_load`
+
+### C7: Recipe input validation
+Invalid typed inputs are rejected before expansion.
+Tests: `test_fj019_validate_inputs_type_mismatch`, `test_fj019_validate_inputs_enum_invalid`
+
+### C8: Heredoc injection safety
+Single-quoted heredoc prevents shell expansion in file content.
+Tests: `test_fj007_heredoc_safe`
+
+### C9: Minimal dependencies
+Fewer than 10 direct crate dependencies. Single binary output.
+Verify: `cargo metadata --no-deps --format-version 1 | jq '.packages[0].dependencies | length'`
+
+### C10: Jidoka failure isolation
+First failure stops execution. Previously converged state is preserved.
+Tests: `test_fj012_apply_local_file`
+
+</details>
 
 ## Testing
 
 ```bash
-# Run all 126+ unit tests
-cargo test
-
-# Run with output
-cargo test -- --nocapture
-
-# Run specific module tests
-cargo test planner
-cargo test recipe
-cargo test hasher
+cargo test                    # 126+ unit tests
+cargo test -- --nocapture     # with output
+cargo test planner            # specific module
+cargo bench                   # Criterion benchmarks
+cargo clippy -- -D warnings   # lint
 ```
 
 ## License

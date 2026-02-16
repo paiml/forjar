@@ -121,12 +121,11 @@ fn bench_topo_sort(c: &mut Criterion) {
                 }
 
                 // Kahn's algorithm
-                let mut queue: std::collections::BinaryHeap<std::cmp::Reverse<String>> =
-                    in_degree
-                        .iter()
-                        .filter(|(_, &d)| d == 0)
-                        .map(|(k, _)| std::cmp::Reverse(k.clone()))
-                        .collect();
+                let mut queue: std::collections::BinaryHeap<std::cmp::Reverse<String>> = in_degree
+                    .iter()
+                    .filter(|(_, &d)| d == 0)
+                    .map(|(k, _)| std::cmp::Reverse(k.clone()))
+                    .collect();
 
                 let mut order = Vec::with_capacity(n);
                 while let Some(std::cmp::Reverse(node)) = queue.pop() {
