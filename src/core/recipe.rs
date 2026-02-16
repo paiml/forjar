@@ -109,7 +109,31 @@ pub fn validate_inputs(
     Ok(resolved)
 }
 
-/// Validate a single input value against its declared type.
+/// Validate an integer input value against optional min/max bounds.
+fn validate_int(
+    name: &str,
+    value: &serde_yaml_ng::Value,
+    decl: &RecipeInput,
+) -> Result<String, String> {
+    let n = match value {
+        serde_yaml_ng::Value::Number(n) => n
+            .as_i64()
+            .ok_or_else(|| format!("input '{}' must be an integer", name))?,
+        _ => return Err(format!("input '{}' must be an integer", name)),
+    };
+    if let Some(min) = decl.min {
+        if n < min {
+            return Err(format!("input '{}' must be >= {}", name, min));
+        }
+    }
+    if let Some(max) = decl.max {
+        if n > max {
+            return Err(format!("input '{}' must be <= {}", name, max));
+        }
+    }
+    Ok(n.to_string())
+}
+
 fn validate_input_type(
     name: &str,
     type_name: &str,
@@ -121,35 +145,15 @@ fn validate_input_type(
             serde_yaml_ng::Value::String(s) => Ok(s.clone()),
             other => Ok(format!("{:?}", other)),
         },
-        "int" => {
-            let n = match value {
-                serde_yaml_ng::Value::Number(n) => n
-                    .as_i64()
-                    .ok_or_else(|| format!("input '{}' must be an integer", name))?,
-                _ => return Err(format!("input '{}' must be an integer", name)),
-            };
-            if let Some(min) = decl.min {
-                if n < min {
-                    return Err(format!("input '{}' must be >= {}", name, min));
-                }
-            }
-            if let Some(max) = decl.max {
-                if n > max {
-                    return Err(format!("input '{}' must be <= {}", name, max));
-                }
-            }
-            Ok(n.to_string())
-        }
+        "int" => validate_int(name, value, decl),
         "bool" => match value {
             serde_yaml_ng::Value::Bool(b) => Ok(b.to_string()),
             _ => Err(format!("input '{}' must be a boolean", name)),
         },
         "path" => match value {
-            serde_yaml_ng::Value::String(s) => {
-                if !s.starts_with('/') {
-                    return Err(format!("input '{}' must be an absolute path", name));
-                }
-                Ok(s.clone())
+            serde_yaml_ng::Value::String(s) if s.starts_with('/') => Ok(s.clone()),
+            serde_yaml_ng::Value::String(_) => {
+                Err(format!("input '{}' must be an absolute path", name))
             }
             _ => Err(format!("input '{}' must be a path string", name)),
         },
