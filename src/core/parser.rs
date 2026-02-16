@@ -69,10 +69,7 @@ pub fn validate_config(config: &ForjarConfig) -> Vec<ValidationError> {
         for dep in &resource.depends_on {
             if !config.resources.contains_key(dep) {
                 errors.push(ValidationError {
-                    message: format!(
-                        "resource '{}' depends on unknown resource '{}'",
-                        id, dep
-                    ),
+                    message: format!("resource '{}' depends on unknown resource '{}'", id, dep),
                 });
             }
             if dep == id {
@@ -113,10 +110,7 @@ pub fn validate_config(config: &ForjarConfig) -> Vec<ValidationError> {
             ResourceType::Mount => {
                 if resource.source.is_none() && resource.path.is_none() {
                     errors.push(ValidationError {
-                        message: format!(
-                            "resource '{}' (mount) needs source and target path",
-                            id
-                        ),
+                        message: format!("resource '{}' (mount) needs source and target path", id),
                     });
                 }
             }
@@ -150,7 +144,11 @@ resources:
         let config = parse_config(yaml).unwrap();
         assert_eq!(config.name, "test");
         let errors = validate_config(&config);
-        assert!(errors.is_empty(), "unexpected errors: {:?}", errors.iter().map(|e| &e.message).collect::<Vec<_>>());
+        assert!(
+            errors.is_empty(),
+            "unexpected errors: {:?}",
+            errors.iter().map(|e| &e.message).collect::<Vec<_>>()
+        );
     }
 
     #[test]
@@ -203,7 +201,9 @@ resources:
 "#;
         let config = parse_config(yaml).unwrap();
         let errors = validate_config(&config);
-        assert!(errors.iter().any(|e| e.message.contains("unknown resource")));
+        assert!(errors
+            .iter()
+            .any(|e| e.message.contains("unknown resource")));
     }
 
     #[test]
@@ -225,7 +225,9 @@ resources:
 "#;
         let config = parse_config(yaml).unwrap();
         let errors = validate_config(&config);
-        assert!(errors.iter().any(|e| e.message.contains("depends on itself")));
+        assert!(errors
+            .iter()
+            .any(|e| e.message.contains("depends on itself")));
     }
 
     #[test]
@@ -273,12 +275,16 @@ resources:
     fn test_fj002_parse_file() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("forjar.yaml");
-        std::fs::write(&path, r#"
+        std::fs::write(
+            &path,
+            r#"
 version: "1.0"
 name: file-test
 machines: {}
 resources: {}
-"#).unwrap();
+"#,
+        )
+        .unwrap();
         let config = parse_config_file(&path).unwrap();
         assert_eq!(config.name, "file-test");
     }

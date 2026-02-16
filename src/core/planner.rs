@@ -60,13 +60,16 @@ fn determine_action(
     machine_name: &str,
     locks: &std::collections::HashMap<String, StateLock>,
 ) -> PlanAction {
-    let state = resource.state.as_deref().unwrap_or(match resource.resource_type {
-        ResourceType::Package => "present",
-        ResourceType::File => "file",
-        ResourceType::Service => "running",
-        ResourceType::Mount => "mounted",
-        _ => "present",
-    });
+    let state = resource
+        .state
+        .as_deref()
+        .unwrap_or(match resource.resource_type {
+            ResourceType::Package => "present",
+            ResourceType::File => "file",
+            ResourceType::Service => "running",
+            ResourceType::Mount => "mounted",
+            _ => "present",
+        });
 
     // Check if this is a destroy action
     if state == "absent" {

@@ -159,7 +159,10 @@ mod tests {
     #[test]
     fn test_fj003_resolve_params() {
         let mut params = HashMap::new();
-        params.insert("name".to_string(), serde_yaml::Value::String("world".to_string()));
+        params.insert(
+            "name".to_string(),
+            serde_yaml::Value::String("world".to_string()),
+        );
         let machines = indexmap::IndexMap::new();
         let result = resolve_template("hello {{params.name}}", &params, &machines).unwrap();
         assert_eq!(result, "hello world");
@@ -169,14 +172,17 @@ mod tests {
     fn test_fj003_resolve_machine_addr() {
         let params = HashMap::new();
         let mut machines = indexmap::IndexMap::new();
-        machines.insert("lambda".to_string(), Machine {
-            hostname: "lambda-box".to_string(),
-            addr: "192.168.1.1".to_string(),
-            user: "noah".to_string(),
-            arch: "x86_64".to_string(),
-            ssh_key: None,
-            roles: vec![],
-        });
+        machines.insert(
+            "lambda".to_string(),
+            Machine {
+                hostname: "lambda-box".to_string(),
+                addr: "192.168.1.1".to_string(),
+                user: "noah".to_string(),
+                arch: "x86_64".to_string(),
+                ssh_key: None,
+                roles: vec![],
+            },
+        );
         let result = resolve_template("ssh {{machine.lambda.addr}}", &params, &machines).unwrap();
         assert_eq!(result, "ssh 192.168.1.1");
     }

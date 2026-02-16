@@ -29,15 +29,20 @@ pub fn save_lock(state_dir: &Path, lock: &StateLock) -> Result<(), String> {
             .map_err(|e| format!("cannot create dir {}: {}", parent.display(), e))?;
     }
 
-    let yaml = serde_yaml::to_string(lock)
-        .map_err(|e| format!("serialize error: {}", e))?;
+    let yaml = serde_yaml::to_string(lock).map_err(|e| format!("serialize error: {}", e))?;
 
     // Atomic write: temp file + rename
     let tmp_path = path.with_extension("lock.yaml.tmp");
     std::fs::write(&tmp_path, &yaml)
         .map_err(|e| format!("cannot write {}: {}", tmp_path.display(), e))?;
-    std::fs::rename(&tmp_path, &path)
-        .map_err(|e| format!("cannot rename {} → {}: {}", tmp_path.display(), path.display(), e))?;
+    std::fs::rename(&tmp_path, &path).map_err(|e| {
+        format!(
+            "cannot rename {} → {}: {}",
+            tmp_path.display(),
+            path.display(),
+            e
+        )
+    })?;
 
     Ok(())
 }
@@ -121,10 +126,7 @@ mod tests {
         save_lock(dir.path(), &lock).unwrap();
 
         // Verify temp file is cleaned up
-        let tmp = dir
-            .path()
-            .join("test")
-            .join("state.lock.yaml.tmp");
+        let tmp = dir.path().join("test").join("state.lock.yaml.tmp");
         assert!(!tmp.exists());
 
         // Verify actual file exists

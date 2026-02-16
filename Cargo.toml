@@ -2,7 +2,7 @@
 name = "forjar"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.80.0"
+rust-version = "1.85.0"
 authors = ["Pragmatic AI Labs"]
 description = "Rust-native Infrastructure as Code — bare-metal first, BLAKE3 state, provenance tracing"
 license = "MIT OR Apache-2.0"
@@ -21,6 +21,11 @@ indexmap = { version = "2.7", features = ["serde"] }
 
 [dev-dependencies]
 tempfile = "3"
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "core_bench"
+harness = false
 
 [profile.release]
 opt-level = 3

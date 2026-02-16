@@ -525,7 +525,10 @@ policy:
         assert_eq!(config.machines.len(), 1);
         assert_eq!(config.machines["lambda"].hostname, "lambda-box");
         assert_eq!(config.resources.len(), 1);
-        assert_eq!(config.resources["test-pkg"].resource_type, ResourceType::Package);
+        assert_eq!(
+            config.resources["test-pkg"].resource_type,
+            ResourceType::Package
+        );
     }
 
     #[test]
@@ -605,7 +608,10 @@ addr: 1.2.3.4
         let yaml = serde_yaml::to_string(&lock).unwrap();
         let lock2: StateLock = serde_yaml::from_str(&yaml).unwrap();
         assert_eq!(lock2.machine, "lambda");
-        assert_eq!(lock2.resources["test-pkg"].status, ResourceStatus::Converged);
+        assert_eq!(
+            lock2.resources["test-pkg"].status,
+            ResourceStatus::Converged
+        );
     }
 
     #[test]
@@ -622,7 +628,10 @@ addr: 1.2.3.4
 
     #[test]
     fn test_fj001_yaml_value_to_string() {
-        assert_eq!(yaml_value_to_string(&serde_yaml::Value::String("hello".into())), "hello");
+        assert_eq!(
+            yaml_value_to_string(&serde_yaml::Value::String("hello".into())),
+            "hello"
+        );
         assert_eq!(yaml_value_to_string(&serde_yaml::Value::Bool(true)), "true");
         assert_eq!(yaml_value_to_string(&serde_yaml::Value::Null), "");
     }

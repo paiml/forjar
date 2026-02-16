@@ -171,7 +171,10 @@ fn validate_input_type(
 }
 
 /// Resolve `{{inputs.X}}` templates in a string.
-fn resolve_input_template(template: &str, inputs: &HashMap<String, String>) -> Result<String, String> {
+fn resolve_input_template(
+    template: &str,
+    inputs: &HashMap<String, String>,
+) -> Result<String, String> {
     let mut result = template.to_string();
     let mut start = 0;
 
@@ -433,10 +436,7 @@ resources: {}
 "#;
         let recipe = parse_recipe(yaml).unwrap();
         let mut provided = HashMap::new();
-        provided.insert(
-            "enabled".to_string(),
-            serde_yaml::Value::Bool(true),
-        );
+        provided.insert("enabled".to_string(), serde_yaml::Value::Bool(true));
         let resolved = validate_inputs(&recipe.recipe, &provided).unwrap();
         assert_eq!(resolved["enabled"], "true");
     }
@@ -461,7 +461,11 @@ resources: {}
         // Check input resolution
         let exports = &expanded["nfs/exports"];
         assert!(exports.content.as_ref().unwrap().contains("/mnt/raid"));
-        assert!(exports.content.as_ref().unwrap().contains("192.168.50.0/24"));
+        assert!(exports
+            .content
+            .as_ref()
+            .unwrap()
+            .contains("192.168.50.0/24"));
 
         // Check namespaced depends_on
         assert!(exports.depends_on.contains(&"nfs/packages".to_string()));
@@ -480,14 +484,8 @@ resources: {}
             serde_yaml::Value::String("/mnt/data".to_string()),
         );
 
-        let expanded = expand_recipe(
-            "nfs",
-            &recipe,
-            &machine,
-            &inputs,
-            &["base-pkg".to_string()],
-        )
-        .unwrap();
+        let expanded =
+            expand_recipe("nfs", &recipe, &machine, &inputs, &["base-pkg".to_string()]).unwrap();
 
         // First resource should have external dependency
         let first = &expanded["nfs/packages"];

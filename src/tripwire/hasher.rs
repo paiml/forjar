@@ -7,8 +7,8 @@ const STREAM_BUF_SIZE: usize = 65536;
 
 /// Hash a file's contents. Returns `"blake3:{hex}"`.
 pub fn hash_file(path: &Path) -> Result<String, String> {
-    let mut file = std::fs::File::open(path)
-        .map_err(|e| format!("cannot open {}: {}", path.display(), e))?;
+    let mut file =
+        std::fs::File::open(path).map_err(|e| format!("cannot open {}: {}", path.display(), e))?;
     let mut hasher = blake3::Hasher::new();
     let mut buf = [0u8; STREAM_BUF_SIZE];
     loop {
@@ -33,21 +33,29 @@ pub fn hash_string(s: &str) -> String {
 pub fn hash_directory(path: &Path) -> Result<String, String> {
     let mut entries: Vec<(String, String)> = Vec::new();
 
-    fn walk(base: &Path, current: &Path, entries: &mut Vec<(String, String)>) -> Result<(), String> {
+    fn walk(
+        base: &Path,
+        current: &Path,
+        entries: &mut Vec<(String, String)>,
+    ) -> Result<(), String> {
         let read_dir = std::fs::read_dir(current)
             .map_err(|e| format!("cannot read dir {}: {}", current.display(), e))?;
-        let mut children: Vec<std::fs::DirEntry> = read_dir
-            .filter_map(|e| e.ok())
-            .collect();
+        let mut children: Vec<std::fs::DirEntry> = read_dir.filter_map(|e| e.ok()).collect();
         children.sort_by_key(|e| e.file_name());
 
         for entry in children {
-            let ft = entry.file_type().map_err(|e| format!("stat error: {}", e))?;
+            let ft = entry
+                .file_type()
+                .map_err(|e| format!("stat error: {}", e))?;
             if ft.is_symlink() {
                 continue;
             }
             let path = entry.path();
-            let rel = path.strip_prefix(base).unwrap().to_string_lossy().to_string();
+            let rel = path
+                .strip_prefix(base)
+                .unwrap()
+                .to_string_lossy()
+                .to_string();
             if ft.is_file() {
                 let hash = hash_file(&path)?;
                 entries.push((rel, hash));
@@ -134,7 +142,10 @@ mod tests {
         std::fs::write(d2.path().join("a.txt"), "aaa").unwrap();
         std::fs::write(d2.path().join("b.txt"), "bbb").unwrap();
 
-        assert_eq!(hash_directory(d1.path()).unwrap(), hash_directory(d2.path()).unwrap());
+        assert_eq!(
+            hash_directory(d1.path()).unwrap(),
+            hash_directory(d2.path()).unwrap()
+        );
     }
 
     #[test]

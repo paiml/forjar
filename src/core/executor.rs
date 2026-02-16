@@ -186,14 +186,10 @@ fn apply_machine(
 
                 // Live state hash for drift detection (stored in details)
                 let live_hash = match codegen::state_query_script(&resolved) {
-                    Ok(query) => {
-                        match transport::exec_script(machine, &query) {
-                            Ok(qout) if qout.success() => {
-                                Some(hasher::hash_string(&qout.stdout))
-                            }
-                            _ => None,
-                        }
-                    }
+                    Ok(query) => match transport::exec_script(machine, &query) {
+                        Ok(qout) if qout.success() => Some(hasher::hash_string(&qout.stdout)),
+                        _ => None,
+                    },
                     Err(_) => None,
                 };
 
@@ -370,16 +366,19 @@ fn build_resource_details(resource: &Resource) -> HashMap<String, serde_yaml::Va
     }
     if let Some(ref content) = resource.content {
         let hash = hasher::hash_string(content);
-        details.insert(
-            "content_hash".to_string(),
-            serde_yaml::Value::String(hash),
-        );
+        details.insert("content_hash".to_string(), serde_yaml::Value::String(hash));
     }
     if let Some(ref owner) = resource.owner {
-        details.insert("owner".to_string(), serde_yaml::Value::String(owner.clone()));
+        details.insert(
+            "owner".to_string(),
+            serde_yaml::Value::String(owner.clone()),
+        );
     }
     if let Some(ref group) = resource.group {
-        details.insert("group".to_string(), serde_yaml::Value::String(group.clone()));
+        details.insert(
+            "group".to_string(),
+            serde_yaml::Value::String(group.clone()),
+        );
     }
     if let Some(ref mode) = resource.mode {
         details.insert("mode".to_string(), serde_yaml::Value::String(mode.clone()));

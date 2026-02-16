@@ -22,9 +22,8 @@ impl ExecOutput {
 /// Execute a purified shell script on a machine.
 /// Dispatches to local or SSH based on address.
 pub fn exec_script(machine: &Machine, script: &str) -> Result<ExecOutput, String> {
-    let is_local = machine.addr == "127.0.0.1"
-        || machine.addr == "localhost"
-        || is_local_addr(&machine.addr);
+    let is_local =
+        machine.addr == "127.0.0.1" || machine.addr == "localhost" || is_local_addr(&machine.addr);
 
     if is_local {
         local::exec_local(script)

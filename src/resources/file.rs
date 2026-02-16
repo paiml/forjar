@@ -8,10 +8,22 @@ pub fn check_script(resource: &Resource) -> String {
     let state = resource.state.as_deref().unwrap_or("file");
 
     match state {
-        "directory" => format!("test -d '{}' && echo 'exists:directory' || echo 'missing:directory'", path),
-        "absent" => format!("test -e '{}' && echo 'exists:present' || echo 'missing:absent'", path),
-        "symlink" => format!("test -L '{}' && echo 'exists:symlink' || echo 'missing:symlink'", path),
-        _ => format!("test -f '{}' && echo 'exists:file' || echo 'missing:file'", path),
+        "directory" => format!(
+            "test -d '{}' && echo 'exists:directory' || echo 'missing:directory'",
+            path
+        ),
+        "absent" => format!(
+            "test -e '{}' && echo 'exists:present' || echo 'missing:absent'",
+            path
+        ),
+        "symlink" => format!(
+            "test -L '{}' && echo 'exists:symlink' || echo 'missing:symlink'",
+            path
+        ),
+        _ => format!(
+            "test -f '{}' && echo 'exists:file' || echo 'missing:file'",
+            path
+        ),
     }
 }
 

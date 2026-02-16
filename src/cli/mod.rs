@@ -125,10 +125,7 @@ pub fn dispatch(cmd: Commands) -> Result<(), String> {
             state_dir,
             tripwire,
         } => cmd_drift(&state_dir, machine.as_deref(), tripwire),
-        Commands::Status {
-            state_dir,
-            machine,
-        } => cmd_status(&state_dir, machine.as_deref()),
+        Commands::Status { state_dir, machine } => cmd_status(&state_dir, machine.as_deref()),
     }
 }
 
@@ -139,8 +136,7 @@ fn cmd_init(path: &Path) -> Result<(), String> {
     }
 
     let state_dir = path.join("state");
-    std::fs::create_dir_all(&state_dir)
-        .map_err(|e| format!("cannot create state dir: {}", e))?;
+    std::fs::create_dir_all(&state_dir).map_err(|e| format!("cannot create state dir: {}", e))?;
 
     let template = r#"version: "1.0"
 name: my-infrastructure
@@ -336,10 +332,7 @@ fn cmd_drift(
                 println!("  No drift detected.");
             } else {
                 for f in &findings {
-                    println!(
-                        "  DRIFTED: {} ({})",
-                        f.resource_id, f.detail
-                    );
+                    println!("  DRIFTED: {} ({})", f.resource_id, f.detail);
                     println!("    Expected: {}", f.expected_hash);
                     println!("    Actual:   {}", f.actual_hash);
                 }
@@ -391,7 +384,10 @@ fn cmd_status(state_dir: &Path, machine_filter: Option<&str>) -> Result<(), Stri
                     .duration_seconds
                     .map(|d| format!(" ({:.2}s)", d))
                     .unwrap_or_default();
-                println!("    {}: {} [{}]{}", id, rl.status, rl.resource_type, duration);
+                println!(
+                    "    {}: {} [{}]{}",
+                    id, rl.status, rl.resource_type, duration
+                );
             }
             println!();
         }

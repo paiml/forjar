@@ -5,7 +5,7 @@
 //! 2. An "apply" script that converges to desired state
 //! 3. A "hash" function that computes the BLAKE3 of observable state
 
-pub mod package;
 pub mod file;
-pub mod service;
 pub mod mount;
+pub mod package;
+pub mod service;

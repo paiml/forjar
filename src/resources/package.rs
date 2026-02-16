@@ -11,7 +11,12 @@ pub fn check_script(resource: &Resource) -> String {
         "apt" => {
             let checks: Vec<String> = packages
                 .iter()
-                .map(|p| format!("dpkg -l '{}' >/dev/null 2>&1 && echo 'installed:{}' || echo 'missing:{}'", p, p, p))
+                .map(|p| {
+                    format!(
+                        "dpkg -l '{}' >/dev/null 2>&1 && echo 'installed:{}' || echo 'missing:{}'",
+                        p, p, p
+                    )
+                })
                 .collect();
             checks.join("\n")
         }
