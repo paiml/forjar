@@ -231,4 +231,69 @@ mod tests {
         let script = apply_script(&r);
         assert!(script.contains("unsupported"));
     }
+
+    /// BH-MUT-0001: Kill mutation of cargo check_script boolean logic.
+    /// Verify installed/missing output format to catch && / || flip.
+    #[test]
+    fn test_fj006_cargo_check_output_format() {
+        let mut r = make_apt_resource(&["ripgrep"]);
+        r.provider = Some("cargo".to_string());
+        let script = check_script(&r);
+        // Must contain both installed AND missing branches — flipping && to || would break
+        assert!(script.contains("echo 'installed:ripgrep'"));
+        assert!(script.contains("echo 'missing:ripgrep'"));
+    }
+
+    /// BH-MUT-0001: Kill mutation of apt check_script boolean logic.
+    #[test]
+    fn test_fj006_apt_check_output_format() {
+        let r = make_apt_resource(&["curl"]);
+        let script = check_script(&r);
+        assert!(script.contains("echo 'installed:curl'"));
+        assert!(script.contains("echo 'missing:curl'"));
+    }
+
+    /// BH-MUT-0002: Kill mutation of cargo state_query_script boolean logic.
+    #[test]
+    fn test_fj006_state_query_cargo_output_format() {
+        let mut r = make_apt_resource(&["pmat"]);
+        r.provider = Some("cargo".to_string());
+        let script = state_query_script(&r);
+        assert!(script.contains("echo 'pmat=installed'"));
+        assert!(script.contains("echo 'pmat=MISSING'"));
+    }
+
+    /// BH-MUT-0003: Kill mutation of apt state_query_script format.
+    #[test]
+    fn test_fj006_state_query_apt_output_format() {
+        let r = make_apt_resource(&["vim"]);
+        let script = state_query_script(&r);
+        assert!(script.contains("vim"));
+        assert!(script.contains("vim=MISSING"));
+        assert!(script.contains("dpkg-query -W"));
+    }
+
+    /// BH-MUT: Multi-package list preserves order.
+    #[test]
+    fn test_fj006_multi_package_check_preserves_all() {
+        let r = make_apt_resource(&["a", "b", "c"]);
+        let script = check_script(&r);
+        // All packages present in output
+        assert!(script.contains("dpkg -l 'a'"));
+        assert!(script.contains("dpkg -l 'b'"));
+        assert!(script.contains("dpkg -l 'c'"));
+        // Verify newline separation (multi-line script)
+        assert_eq!(script.matches('\n').count(), 2);
+    }
+
+    /// BH-MUT: cargo install uses conditional check before installing.
+    #[test]
+    fn test_fj006_cargo_install_conditional() {
+        let mut r = make_apt_resource(&["tool"]);
+        r.provider = Some("cargo".to_string());
+        let script = apply_script(&r);
+        // Must check if already installed before installing
+        assert!(script.contains("if ! command -v 'tool'"));
+        assert!(script.contains("cargo install 'tool'"));
+    }
 }

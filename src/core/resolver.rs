@@ -113,8 +113,12 @@ pub fn build_execution_order(config: &ForjarConfig) -> Result<Vec<String>, Strin
             if !config.resources.contains_key(dep) {
                 return Err(format!("resource '{}' depends on unknown '{}'", id, dep));
             }
-            adjacency.get_mut(dep).unwrap().push(id.clone());
-            *in_degree.get_mut(id).unwrap() += 1;
+            if let Some(adj) = adjacency.get_mut(dep) {
+                adj.push(id.clone());
+            }
+            if let Some(deg) = in_degree.get_mut(id) {
+                *deg += 1;
+            }
         }
     }
 
@@ -132,15 +136,14 @@ pub fn build_execution_order(config: &ForjarConfig) -> Result<Vec<String>, Strin
 
     let mut order = Vec::new();
     while let Some(current) = queue.pop_front() {
-        order.push(current.clone());
-
         let mut next_ready: Vec<String> = Vec::new();
         if let Some(neighbors) = adjacency.get(&current) {
             for neighbor in neighbors {
-                let degree = in_degree.get_mut(neighbor).unwrap();
-                *degree -= 1;
-                if *degree == 0 {
-                    next_ready.push(neighbor.clone());
+                if let Some(deg) = in_degree.get_mut(neighbor) {
+                    *deg -= 1;
+                    if *deg == 0 {
+                        next_ready.push(neighbor.clone());
+                    }
                 }
             }
         }
@@ -148,6 +151,7 @@ pub fn build_execution_order(config: &ForjarConfig) -> Result<Vec<String>, Strin
         for id in next_ready {
             queue.push_back(id);
         }
+        order.push(current); // move instead of clone
     }
 
     if order.len() != resource_ids.len() {
