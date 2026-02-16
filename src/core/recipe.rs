@@ -540,4 +540,60 @@ resources: {}
         let result = resolve_input_template("{{inputs.a}}-{{inputs.b}}", &inputs).unwrap();
         assert_eq!(result, "X-Y");
     }
+
+    /// BH-MUT-0002: Kills mutation of `first && !external_depends_on.is_empty()`.
+    /// When external_depends_on is empty, no resource should get external deps.
+    #[test]
+    fn test_fj019_expand_empty_external_deps_not_injected() {
+        let recipe = parse_recipe(RECIPE_YAML).unwrap();
+        let machine = MachineTarget::Single("m1".to_string());
+        let mut inputs = HashMap::new();
+        inputs.insert(
+            "export_path".to_string(),
+            serde_yaml_ng::Value::String("/mnt/data".to_string()),
+        );
+
+        let expanded = expand_recipe("nfs", &recipe, &machine, &inputs, &[]).unwrap();
+
+        // With empty external deps, first resource should only have its own deps
+        let first = &expanded["nfs/packages"];
+        assert!(
+            first.depends_on.is_empty(),
+            "first resource should have no deps when external_depends_on is empty"
+        );
+    }
+
+    /// BH-MUT-0002: Kills mutation that would inject external deps into non-first resources.
+    /// Only the first resource in a recipe should get external dependencies.
+    #[test]
+    fn test_fj019_expand_external_deps_only_on_first_resource() {
+        let recipe = parse_recipe(RECIPE_YAML).unwrap();
+        let machine = MachineTarget::Single("m1".to_string());
+        let mut inputs = HashMap::new();
+        inputs.insert(
+            "export_path".to_string(),
+            serde_yaml_ng::Value::String("/mnt/data".to_string()),
+        );
+
+        let expanded =
+            expand_recipe("nfs", &recipe, &machine, &inputs, &["base-pkg".to_string()]).unwrap();
+
+        // First resource gets external dep
+        let first = &expanded["nfs/packages"];
+        assert!(first.depends_on.contains(&"base-pkg".to_string()));
+
+        // Second resource should NOT have external dep (only its namespaced internal dep)
+        let second = &expanded["nfs/exports"];
+        assert!(
+            !second.depends_on.contains(&"base-pkg".to_string()),
+            "non-first resource should not get external dependencies"
+        );
+
+        // Third resource should NOT have external dep either
+        let third = &expanded["nfs/service"];
+        assert!(
+            !third.depends_on.contains(&"base-pkg".to_string()),
+            "non-first resource should not get external dependencies"
+        );
+    }
 }

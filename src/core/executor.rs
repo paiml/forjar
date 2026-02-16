@@ -92,6 +92,207 @@ pub fn apply(cfg: &ApplyConfig) -> Result<Vec<ApplyResult>, String> {
     Ok(results)
 }
 
+/// Outcome of applying a single resource.
+enum ResourceOutcome {
+    /// Resource converged successfully.
+    Converged,
+    /// Resource was unchanged (NoOp, not forced).
+    Unchanged,
+    /// Resource was skipped (filtered out or not found).
+    Skipped,
+    /// Resource failed; includes whether to stop (jidoka).
+    Failed { should_stop: bool },
+}
+
+/// Shared context for recording resource outcomes.
+struct RecordCtx<'a> {
+    lock: &'a mut StateLock,
+    state_dir: &'a std::path::Path,
+    machine_name: &'a str,
+    tripwire: bool,
+    failure_policy: &'a FailurePolicy,
+}
+
+/// Record a successful resource application into the lock and event log.
+fn record_success(
+    ctx: &mut RecordCtx,
+    resource_id: &str,
+    resource: &Resource,
+    resolved: &Resource,
+    machine: &Machine,
+    duration: f64,
+) {
+    let desired_hash = planner::hash_desired_state(resolved);
+
+    // Live state hash for drift detection
+    let live_hash = match codegen::state_query_script(resolved) {
+        Ok(query) => match transport::exec_script(machine, &query) {
+            Ok(qout) if qout.success() => Some(hasher::hash_string(&qout.stdout)),
+            _ => None,
+        },
+        Err(_) => None,
+    };
+
+    let mut details = build_resource_details(resolved);
+    if let Some(ref lh) = live_hash {
+        details.insert(
+            "live_hash".to_string(),
+            serde_yaml_ng::Value::String(lh.clone()),
+        );
+    }
+
+    ctx.lock.resources.insert(
+        resource_id.to_string(),
+        ResourceLock {
+            resource_type: resource.resource_type.clone(),
+            status: ResourceStatus::Converged,
+            applied_at: Some(eventlog::now_iso8601()),
+            duration_seconds: Some(duration),
+            hash: desired_hash.clone(),
+            details,
+        },
+    );
+
+    if ctx.tripwire {
+        let _ = eventlog::append_event(
+            ctx.state_dir,
+            ctx.machine_name,
+            ProvenanceEvent::ResourceConverged {
+                machine: ctx.machine_name.to_string(),
+                resource: resource_id.to_string(),
+                duration_seconds: duration,
+                hash: desired_hash,
+            },
+        );
+    }
+}
+
+/// Record a resource failure into the lock and event log. Returns true if jidoka should stop.
+fn record_failure(
+    ctx: &mut RecordCtx,
+    resource_id: &str,
+    resource_type: &ResourceType,
+    duration: f64,
+    error: &str,
+) -> bool {
+    ctx.lock.resources.insert(
+        resource_id.to_string(),
+        ResourceLock {
+            resource_type: resource_type.clone(),
+            status: ResourceStatus::Failed,
+            applied_at: Some(eventlog::now_iso8601()),
+            duration_seconds: Some(duration),
+            hash: String::new(),
+            details: HashMap::new(),
+        },
+    );
+
+    if ctx.tripwire {
+        let _ = eventlog::append_event(
+            ctx.state_dir,
+            ctx.machine_name,
+            ProvenanceEvent::ResourceFailed {
+                machine: ctx.machine_name.to_string(),
+                resource: resource_id.to_string(),
+                error: error.to_string(),
+            },
+        );
+    }
+
+    if *ctx.failure_policy == FailurePolicy::StopOnFirst {
+        eprintln!(
+            "JIDOKA: stopping after failure on {}/{}: {}",
+            ctx.machine_name, resource_id, error
+        );
+        return true;
+    }
+
+    false
+}
+
+/// Apply a single planned change, returning its outcome.
+fn apply_single_resource(
+    cfg: &ApplyConfig,
+    change: &PlannedChange,
+    machine: &Machine,
+    ctx: &mut RecordCtx,
+) -> Result<ResourceOutcome, String> {
+    if let Some(filter) = cfg.resource_filter {
+        if change.resource_id != filter {
+            return Ok(ResourceOutcome::Skipped);
+        }
+    }
+
+    if change.action == PlanAction::NoOp && !cfg.force {
+        return Ok(ResourceOutcome::Unchanged);
+    }
+
+    let resource = match cfg.config.resources.get(&change.resource_id) {
+        Some(r) => r,
+        None => return Ok(ResourceOutcome::Skipped),
+    };
+
+    // Log resource start
+    if ctx.tripwire {
+        let _ = eventlog::append_event(
+            ctx.state_dir,
+            ctx.machine_name,
+            ProvenanceEvent::ResourceStarted {
+                machine: ctx.machine_name.to_string(),
+                resource: change.resource_id.clone(),
+                action: change.action.to_string(),
+            },
+        );
+    }
+
+    let resource_start = Instant::now();
+
+    // Resolve templates
+    let resolved =
+        resolver::resolve_resource_templates(resource, &cfg.config.params, &cfg.config.machines)?;
+
+    // Generate apply script and execute
+    let script = codegen::apply_script(&resolved)?;
+    let output = transport::exec_script(machine, &script);
+    let duration = resource_start.elapsed().as_secs_f64();
+
+    match output {
+        Ok(out) if out.success() => {
+            record_success(
+                ctx,
+                &change.resource_id,
+                resource,
+                &resolved,
+                machine,
+                duration,
+            );
+            Ok(ResourceOutcome::Converged)
+        }
+        Ok(out) => {
+            let error = format!("exit code {}: {}", out.exit_code, out.stderr.trim());
+            let should_stop = record_failure(
+                ctx,
+                &change.resource_id,
+                &resource.resource_type,
+                duration,
+                &error,
+            );
+            Ok(ResourceOutcome::Failed { should_stop })
+        }
+        Err(e) => {
+            let error = format!("transport error: {}", e);
+            let should_stop = record_failure(
+                ctx,
+                &change.resource_id,
+                &resource.resource_type,
+                duration,
+                &error,
+            );
+            Ok(ResourceOutcome::Failed { should_stop })
+        }
+    }
+}
+
 /// Apply all planned changes for a single machine.
 fn apply_machine(
     cfg: &ApplyConfig,
@@ -125,194 +326,42 @@ fn apply_machine(
     let mut unchanged = 0u32;
     let mut failed = 0u32;
 
-    // Filter changes for this machine
+    // Filter and apply changes for this machine
     let machine_changes: Vec<_> = plan
         .changes
         .iter()
         .filter(|c| c.machine == machine_name)
         .collect();
 
+    let mut ctx = RecordCtx {
+        lock: &mut lock,
+        state_dir: cfg.state_dir,
+        machine_name,
+        tripwire: cfg.config.policy.tripwire,
+        failure_policy: &cfg.config.policy.failure,
+    };
+
     for change in &machine_changes {
-        if let Some(filter) = cfg.resource_filter {
-            if change.resource_id != filter {
-                continue;
-            }
-        }
-
-        if change.action == PlanAction::NoOp && !cfg.force {
-            unchanged += 1;
-            continue;
-        }
-
-        let resource = match cfg.config.resources.get(&change.resource_id) {
-            Some(r) => r,
-            None => continue,
-        };
-
-        // Log resource start
-        if cfg.config.policy.tripwire {
-            let _ = eventlog::append_event(
-                cfg.state_dir,
-                machine_name,
-                ProvenanceEvent::ResourceStarted {
-                    machine: machine_name.to_string(),
-                    resource: change.resource_id.clone(),
-                    action: change.action.to_string(),
-                },
-            );
-        }
-
-        let resource_start = Instant::now();
-
-        // Resolve templates
-        let resolved = resolver::resolve_resource_templates(
-            resource,
-            &cfg.config.params,
-            &cfg.config.machines,
-        )?;
-
-        // Generate apply script
-        let script = codegen::apply_script(&resolved)?;
-
-        // Execute
-        let output = transport::exec_script(machine, &script);
-
-        let duration = resource_start.elapsed().as_secs_f64();
-
-        match output {
-            Ok(out) if out.success() => {
-                // Desired state hash for planner comparison (idempotency)
-                let desired_hash = planner::hash_desired_state(&resolved);
-
-                // Live state hash for drift detection (stored in details)
-                let live_hash = match codegen::state_query_script(&resolved) {
-                    Ok(query) => match transport::exec_script(machine, &query) {
-                        Ok(qout) if qout.success() => Some(hasher::hash_string(&qout.stdout)),
-                        _ => None,
-                    },
-                    Err(_) => None,
-                };
-
-                let mut details = build_resource_details(&resolved);
-                if let Some(ref lh) = live_hash {
-                    details.insert(
-                        "live_hash".to_string(),
-                        serde_yaml_ng::Value::String(lh.clone()),
-                    );
-                }
-
-                lock.resources.insert(
-                    change.resource_id.clone(),
-                    ResourceLock {
-                        resource_type: resource.resource_type.clone(),
-                        status: ResourceStatus::Converged,
-                        applied_at: Some(eventlog::now_iso8601()),
-                        duration_seconds: Some(duration),
-                        hash: desired_hash.clone(),
-                        details,
-                    },
-                );
-
-                if cfg.config.policy.tripwire {
-                    let _ = eventlog::append_event(
-                        cfg.state_dir,
-                        machine_name,
-                        ProvenanceEvent::ResourceConverged {
-                            machine: machine_name.to_string(),
-                            resource: change.resource_id.clone(),
-                            duration_seconds: duration,
-                            hash: desired_hash,
-                        },
-                    );
-                }
-
-                converged += 1;
-            }
-            Ok(out) => {
-                // Non-zero exit
-                let error = format!("exit code {}: {}", out.exit_code, out.stderr.trim());
-
-                lock.resources.insert(
-                    change.resource_id.clone(),
-                    ResourceLock {
-                        resource_type: resource.resource_type.clone(),
-                        status: ResourceStatus::Failed,
-                        applied_at: Some(eventlog::now_iso8601()),
-                        duration_seconds: Some(duration),
-                        hash: String::new(),
-                        details: HashMap::new(),
-                    },
-                );
-
-                if cfg.config.policy.tripwire {
-                    let _ = eventlog::append_event(
-                        cfg.state_dir,
-                        machine_name,
-                        ProvenanceEvent::ResourceFailed {
-                            machine: machine_name.to_string(),
-                            resource: change.resource_id.clone(),
-                            error: error.clone(),
-                        },
-                    );
-                }
-
+        match apply_single_resource(cfg, change, machine, &mut ctx)? {
+            ResourceOutcome::Converged => converged += 1,
+            ResourceOutcome::Unchanged => unchanged += 1,
+            ResourceOutcome::Skipped => {}
+            ResourceOutcome::Failed { should_stop } => {
                 failed += 1;
-
-                // Jidoka: stop on first failure
-                if cfg.config.policy.failure == FailurePolicy::StopOnFirst {
-                    eprintln!(
-                        "JIDOKA: stopping after failure on {}/{}: {}",
-                        machine_name, change.resource_id, error
-                    );
-                    break;
-                }
-            }
-            Err(e) => {
-                let error = format!("transport error: {}", e);
-
-                lock.resources.insert(
-                    change.resource_id.clone(),
-                    ResourceLock {
-                        resource_type: resource.resource_type.clone(),
-                        status: ResourceStatus::Failed,
-                        applied_at: Some(eventlog::now_iso8601()),
-                        duration_seconds: Some(duration),
-                        hash: String::new(),
-                        details: HashMap::new(),
-                    },
-                );
-
-                if cfg.config.policy.tripwire {
-                    let _ = eventlog::append_event(
-                        cfg.state_dir,
-                        machine_name,
-                        ProvenanceEvent::ResourceFailed {
-                            machine: machine_name.to_string(),
-                            resource: change.resource_id.clone(),
-                            error: error.clone(),
-                        },
-                    );
-                }
-
-                failed += 1;
-
-                if cfg.config.policy.failure == FailurePolicy::StopOnFirst {
-                    eprintln!(
-                        "JIDOKA: stopping after transport error on {}/{}: {}",
-                        machine_name, change.resource_id, error
-                    );
+                if should_stop {
                     break;
                 }
             }
         }
     }
 
-    // Update lock metadata
-    lock.generated_at = eventlog::now_iso8601();
+    // Rebind lock from ctx for finalization
+    let lock = ctx.lock;
 
-    // Save lock
+    // Update lock metadata and save
+    lock.generated_at = eventlog::now_iso8601();
     if cfg.config.policy.lock_file {
-        state::save_lock(cfg.state_dir, &lock)?;
+        state::save_lock(cfg.state_dir, lock)?;
     }
 
     // Log apply completion
