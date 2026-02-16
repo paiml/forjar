@@ -64,4 +64,37 @@ mod tests {
         assert!(!is_local_addr("192.168.1.100"));
         assert!(!is_local_addr("10.0.0.1"));
     }
+
+    /// BH-MUT-0001: Kill mutation of exec_script local dispatch.
+    /// Verify local execution works for 127.0.0.1 and localhost addresses.
+    #[test]
+    fn test_transport_exec_local_127() {
+        let machine = Machine {
+            hostname: "local".to_string(),
+            addr: "127.0.0.1".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+        };
+        let out = exec_script(&machine, "echo ok").unwrap();
+        assert!(out.success());
+        assert_eq!(out.stdout.trim(), "ok");
+    }
+
+    /// BH-MUT-0001: Verify localhost also dispatches locally.
+    #[test]
+    fn test_transport_exec_local_localhost() {
+        let machine = Machine {
+            hostname: "local".to_string(),
+            addr: "localhost".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+        };
+        let out = exec_script(&machine, "echo local").unwrap();
+        assert!(out.success());
+        assert_eq!(out.stdout.trim(), "local");
+    }
 }

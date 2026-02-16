@@ -393,4 +393,28 @@ resources:
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("failed to read"));
     }
+
+    /// BH-MUT-0001: Kill mutation of `machine_name != "localhost"`.
+    /// localhost should be accepted even when not in machines map.
+    #[test]
+    fn test_fj002_localhost_accepted_without_definition() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines: {}
+resources:
+  pkg:
+    type: package
+    machine: localhost
+    provider: apt
+    packages: [curl]
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        // No "unknown machine" error for localhost
+        assert!(
+            !errors.iter().any(|e| e.message.contains("unknown machine")),
+            "localhost should be accepted without explicit definition"
+        );
+    }
 }

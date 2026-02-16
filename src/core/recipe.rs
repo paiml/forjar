@@ -762,6 +762,29 @@ resources: {}
         assert_eq!(resolved.options.as_deref(), Some("ro,hard"));
     }
 
+    /// BH-MUT-0001: Kill mutation of `!decl.choices.is_empty() && !decl.choices.contains(s)`.
+    /// Valid enum choice should be accepted.
+    #[test]
+    fn test_fj019_validate_enum_valid_choice() {
+        let yaml = r#"
+recipe:
+  name: test
+  inputs:
+    proto:
+      type: enum
+      choices: [tcp, udp]
+resources: {}
+"#;
+        let recipe = parse_recipe(yaml).unwrap();
+        let mut provided = HashMap::new();
+        provided.insert(
+            "proto".to_string(),
+            serde_yaml_ng::Value::String("tcp".to_string()),
+        );
+        let resolved = validate_inputs(&recipe.recipe, &provided).unwrap();
+        assert_eq!(resolved["proto"], "tcp");
+    }
+
     #[test]
     fn test_fj019_validate_string_non_string_coercion() {
         let yaml = r#"
