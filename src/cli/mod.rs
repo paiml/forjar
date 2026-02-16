@@ -496,4 +496,316 @@ resources:
         .unwrap();
         cmd_plan(&config, None, None).unwrap();
     }
+
+    #[test]
+    fn test_fj017_plan_with_machine_filter() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config,
+            r#"
+version: "1.0"
+name: test
+machines:
+  a:
+    hostname: a
+    addr: 1.1.1.1
+  b:
+    hostname: b
+    addr: 2.2.2.2
+resources:
+  pkg-a:
+    type: package
+    machine: a
+    provider: apt
+    packages: [curl]
+  pkg-b:
+    type: package
+    machine: b
+    provider: apt
+    packages: [wget]
+"#,
+        )
+        .unwrap();
+        cmd_plan(&config, Some("a"), None).unwrap();
+    }
+
+    #[test]
+    fn test_fj017_plan_validation_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config,
+            r#"
+version: "2.0"
+name: ""
+machines: {}
+resources: {}
+"#,
+        )
+        .unwrap();
+        let result = cmd_plan(&config, None, None);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("validation"));
+    }
+
+    #[test]
+    fn test_fj017_apply_dry_run() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        let state = dir.path().join("state");
+        std::fs::create_dir_all(&state).unwrap();
+        std::fs::write(
+            &config,
+            r#"
+version: "1.0"
+name: test
+machines:
+  local:
+    hostname: localhost
+    addr: 127.0.0.1
+resources:
+  test-file:
+    type: file
+    machine: local
+    path: /tmp/forjar-cli-dry-run.txt
+    content: "test"
+"#,
+        )
+        .unwrap();
+        cmd_apply(&config, &state, None, None, false, true).unwrap();
+    }
+
+    #[test]
+    fn test_fj017_apply_real() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        let state = dir.path().join("state");
+        std::fs::create_dir_all(&state).unwrap();
+        std::fs::write(
+            &config,
+            r#"
+version: "1.0"
+name: test
+machines:
+  local:
+    hostname: localhost
+    addr: 127.0.0.1
+resources:
+  test-file:
+    type: file
+    machine: local
+    path: /tmp/forjar-cli-apply-test.txt
+    content: "hello from cli test"
+policy:
+  tripwire: true
+  lock_file: true
+"#,
+        )
+        .unwrap();
+        cmd_apply(&config, &state, None, None, false, false).unwrap();
+
+        // Verify file was created
+        assert!(std::path::Path::new("/tmp/forjar-cli-apply-test.txt").exists());
+
+        // Verify lock was saved
+        let lock = crate::core::state::load_lock(&state, "local").unwrap();
+        assert!(lock.is_some());
+
+        let _ = std::fs::remove_file("/tmp/forjar-cli-apply-test.txt");
+    }
+
+    #[test]
+    fn test_fj017_apply_validation_error() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        let state = dir.path().join("state");
+        std::fs::write(
+            &config,
+            r#"
+version: "2.0"
+name: ""
+machines: {}
+resources: {}
+"#,
+        )
+        .unwrap();
+        let result = cmd_apply(&config, &state, None, None, false, false);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("validation"));
+    }
+
+    #[test]
+    fn test_fj017_drift_empty_state() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = dir.path().join("state");
+        std::fs::create_dir_all(&state).unwrap();
+        cmd_drift(&state, None, false).unwrap();
+    }
+
+    #[test]
+    fn test_fj017_drift_with_lock() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = dir.path().join("state");
+
+        // Create a lock with a file resource
+        let test_file = dir.path().join("tracked.txt");
+        std::fs::write(&test_file, "stable content").unwrap();
+        let hash = crate::tripwire::hasher::hash_file(&test_file).unwrap();
+
+        let mut resources = indexmap::IndexMap::new();
+        let mut details = std::collections::HashMap::new();
+        details.insert(
+            "path".to_string(),
+            serde_yaml_ng::Value::String(test_file.to_str().unwrap().to_string()),
+        );
+        details.insert(
+            "content_hash".to_string(),
+            serde_yaml_ng::Value::String(hash),
+        );
+        resources.insert(
+            "tracked-file".to_string(),
+            crate::core::types::ResourceLock {
+                resource_type: crate::core::types::ResourceType::File,
+                status: crate::core::types::ResourceStatus::Converged,
+                applied_at: Some("2026-01-01T00:00:00Z".to_string()),
+                duration_seconds: Some(0.1),
+                hash: "blake3:x".to_string(),
+                details,
+            },
+        );
+        let lock = crate::core::types::StateLock {
+            schema: "1.0".to_string(),
+            machine: "testbox".to_string(),
+            hostname: "testbox".to_string(),
+            generated_at: "2026-01-01T00:00:00Z".to_string(),
+            generator: "forjar 0.1.0".to_string(),
+            blake3_version: "1.8".to_string(),
+            resources,
+        };
+        crate::core::state::save_lock(&state, &lock).unwrap();
+
+        // No drift expected
+        cmd_drift(&state, None, false).unwrap();
+    }
+
+    #[test]
+    fn test_fj017_drift_with_actual_drift_tripwire() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = dir.path().join("state");
+
+        let test_file = dir.path().join("drifted.txt");
+        std::fs::write(&test_file, "original").unwrap();
+
+        let mut resources = indexmap::IndexMap::new();
+        let mut details = std::collections::HashMap::new();
+        details.insert(
+            "path".to_string(),
+            serde_yaml_ng::Value::String(test_file.to_str().unwrap().to_string()),
+        );
+        details.insert(
+            "content_hash".to_string(),
+            serde_yaml_ng::Value::String("blake3:wrong_hash".to_string()),
+        );
+        resources.insert(
+            "drifted-file".to_string(),
+            crate::core::types::ResourceLock {
+                resource_type: crate::core::types::ResourceType::File,
+                status: crate::core::types::ResourceStatus::Converged,
+                applied_at: Some("2026-01-01T00:00:00Z".to_string()),
+                duration_seconds: Some(0.1),
+                hash: "blake3:x".to_string(),
+                details,
+            },
+        );
+        let lock = crate::core::types::StateLock {
+            schema: "1.0".to_string(),
+            machine: "driftbox".to_string(),
+            hostname: "driftbox".to_string(),
+            generated_at: "2026-01-01T00:00:00Z".to_string(),
+            generator: "forjar 0.1.0".to_string(),
+            blake3_version: "1.8".to_string(),
+            resources,
+        };
+        crate::core::state::save_lock(&state, &lock).unwrap();
+
+        // Tripwire mode should error on drift
+        let result = cmd_drift(&state, None, true);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("drift"));
+    }
+
+    #[test]
+    fn test_fj017_drift_machine_filter() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = dir.path().join("state");
+        std::fs::create_dir_all(state.join("alpha")).unwrap();
+        std::fs::create_dir_all(state.join("beta")).unwrap();
+
+        cmd_drift(&state, Some("alpha"), false).unwrap();
+    }
+
+    #[test]
+    fn test_fj017_status_with_lock() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = dir.path().join("state");
+
+        let lock = crate::core::state::new_lock("mybox", "mybox-host");
+        crate::core::state::save_lock(&state, &lock).unwrap();
+
+        cmd_status(&state, None).unwrap();
+    }
+
+    #[test]
+    fn test_fj017_status_machine_filter() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = dir.path().join("state");
+
+        let lock = crate::core::state::new_lock("target", "target-host");
+        crate::core::state::save_lock(&state, &lock).unwrap();
+
+        cmd_status(&state, Some("target")).unwrap();
+        cmd_status(&state, Some("nonexistent")).unwrap();
+    }
+
+    #[test]
+    fn test_fj017_dispatch_init() {
+        let dir = tempfile::tempdir().unwrap();
+        let sub = dir.path().join("dispatch-test");
+        std::fs::create_dir_all(&sub).unwrap();
+        dispatch(Commands::Init { path: sub.clone() }).unwrap();
+        assert!(sub.join("forjar.yaml").exists());
+    }
+
+    #[test]
+    fn test_fj017_dispatch_validate() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config,
+            r#"
+version: "1.0"
+name: test
+machines: {}
+resources: {}
+"#,
+        )
+        .unwrap();
+        dispatch(Commands::Validate {
+            file: config.clone(),
+        })
+        .unwrap();
+    }
+
+    #[test]
+    fn test_fj017_dispatch_status() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = dir.path().join("state");
+        std::fs::create_dir_all(&state).unwrap();
+        dispatch(Commands::Status {
+            state_dir: state,
+            machine: None,
+        })
+        .unwrap();
+    }
 }
