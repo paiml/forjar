@@ -353,4 +353,105 @@ resources:
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("cycle"));
     }
+
+    #[test]
+    fn test_fj003_resolve_all_fields() {
+        let mut params = HashMap::new();
+        params.insert(
+            "dir".to_string(),
+            serde_yaml_ng::Value::String("/data".to_string()),
+        );
+        let mut machines = indexmap::IndexMap::new();
+        machines.insert(
+            "m1".to_string(),
+            Machine {
+                hostname: "m1-box".to_string(),
+                addr: "10.0.0.1".to_string(),
+                user: "deploy".to_string(),
+                arch: "aarch64".to_string(),
+                ssh_key: None,
+                roles: vec![],
+            },
+        );
+
+        let resource = Resource {
+            resource_type: ResourceType::File,
+            machine: MachineTarget::Single("m1".to_string()),
+            state: None,
+            depends_on: vec![],
+            provider: None,
+            packages: vec![],
+            path: Some("{{params.dir}}/config".to_string()),
+            content: Some("host={{machine.m1.hostname}}".to_string()),
+            source: Some("{{machine.m1.addr}}:/src".to_string()),
+            target: Some("{{params.dir}}/link".to_string()),
+            owner: Some("{{machine.m1.user}}".to_string()),
+            group: None,
+            mode: None,
+            name: Some("{{machine.m1.hostname}}-svc".to_string()),
+            enabled: None,
+            restart_on: vec![],
+            fs_type: None,
+            options: Some("{{machine.m1.arch}}".to_string()),
+        };
+
+        let resolved = resolve_resource_templates(&resource, &params, &machines).unwrap();
+        assert_eq!(resolved.path.as_deref(), Some("/data/config"));
+        assert_eq!(resolved.content.as_deref(), Some("host=m1-box"));
+        assert_eq!(resolved.source.as_deref(), Some("10.0.0.1:/src"));
+        assert_eq!(resolved.target.as_deref(), Some("/data/link"));
+        assert_eq!(resolved.owner.as_deref(), Some("deploy"));
+        assert_eq!(resolved.name.as_deref(), Some("m1-box-svc"));
+        assert_eq!(resolved.options.as_deref(), Some("aarch64"));
+    }
+
+    #[test]
+    fn test_fj003_resolve_machine_fields() {
+        let params = HashMap::new();
+        let mut machines = indexmap::IndexMap::new();
+        machines.insert(
+            "srv".to_string(),
+            Machine {
+                hostname: "srv-01".to_string(),
+                addr: "192.168.1.1".to_string(),
+                user: "admin".to_string(),
+                arch: "x86_64".to_string(),
+                ssh_key: None,
+                roles: vec![],
+            },
+        );
+
+        // Test all machine field branches
+        assert_eq!(
+            resolve_template("{{machine.srv.hostname}}", &params, &machines).unwrap(),
+            "srv-01"
+        );
+        assert_eq!(
+            resolve_template("{{machine.srv.user}}", &params, &machines).unwrap(),
+            "admin"
+        );
+        assert_eq!(
+            resolve_template("{{machine.srv.arch}}", &params, &machines).unwrap(),
+            "x86_64"
+        );
+
+        // Unknown field
+        let err = resolve_template("{{machine.srv.bogus}}", &params, &machines);
+        assert!(err.is_err());
+        assert!(err.unwrap_err().contains("unknown machine field"));
+
+        // Invalid machine ref format
+        let err = resolve_template("{{machine.srv}}", &params, &machines);
+        assert!(err.is_err());
+        assert!(err.unwrap_err().contains("invalid machine ref"));
+    }
+
+    #[test]
+    fn test_fj003_resolve_unknown_template_var() {
+        let params = HashMap::new();
+        let machines = indexmap::IndexMap::new();
+        let err = resolve_template("{{bogus.var}}", &params, &machines);
+        assert!(err.is_err());
+        assert!(err.unwrap_err().contains("unknown template variable"));
+    }
 }

@@ -135,4 +135,211 @@ mod tests {
         let findings = detect_drift(&lock);
         assert!(findings.is_empty());
     }
+
+    #[test]
+    fn test_fj016_detect_drift_converged_file_with_drift() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("config.txt");
+        std::fs::write(&file, "original").unwrap();
+        let hash = hasher::hash_string("original-content"); // mismatched hash
+
+        let mut resources = indexmap::IndexMap::new();
+        let mut details = std::collections::HashMap::new();
+        details.insert(
+            "path".to_string(),
+            serde_yaml_ng::Value::String(file.to_str().unwrap().to_string()),
+        );
+        details.insert(
+            "content_hash".to_string(),
+            serde_yaml_ng::Value::String(hash),
+        );
+        resources.insert(
+            "config".to_string(),
+            crate::core::types::ResourceLock {
+                resource_type: ResourceType::File,
+                status: ResourceStatus::Converged,
+                applied_at: Some("2026-01-01T00:00:00Z".to_string()),
+                duration_seconds: Some(0.1),
+                hash: "blake3:xyz".to_string(),
+                details,
+            },
+        );
+
+        let lock = StateLock {
+            schema: "1.0".to_string(),
+            machine: "test".to_string(),
+            hostname: "test-box".to_string(),
+            generated_at: "2026-01-01T00:00:00Z".to_string(),
+            generator: "forjar 0.1.0".to_string(),
+            blake3_version: "1.8".to_string(),
+            resources,
+        };
+
+        let findings = detect_drift(&lock);
+        assert_eq!(findings.len(), 1);
+        assert_eq!(findings[0].resource_id, "config");
+        assert!(findings[0].detail.contains("content changed"));
+    }
+
+    #[test]
+    fn test_fj016_detect_drift_no_drift_when_matching() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("stable.txt");
+        std::fs::write(&file, "stable content").unwrap();
+        let content_hash = hasher::hash_file(&file).unwrap();
+
+        let mut resources = indexmap::IndexMap::new();
+        let mut details = std::collections::HashMap::new();
+        details.insert(
+            "path".to_string(),
+            serde_yaml_ng::Value::String(file.to_str().unwrap().to_string()),
+        );
+        details.insert(
+            "content_hash".to_string(),
+            serde_yaml_ng::Value::String(content_hash),
+        );
+        resources.insert(
+            "stable".to_string(),
+            crate::core::types::ResourceLock {
+                resource_type: ResourceType::File,
+                status: ResourceStatus::Converged,
+                applied_at: None,
+                duration_seconds: None,
+                hash: "blake3:x".to_string(),
+                details,
+            },
+        );
+
+        let lock = StateLock {
+            schema: "1.0".to_string(),
+            machine: "test".to_string(),
+            hostname: "test-box".to_string(),
+            generated_at: "2026-01-01T00:00:00Z".to_string(),
+            generator: "forjar 0.1.0".to_string(),
+            blake3_version: "1.8".to_string(),
+            resources,
+        };
+
+        let findings = detect_drift(&lock);
+        assert!(
+            findings.is_empty(),
+            "no drift expected when file hash matches"
+        );
+    }
+
+    #[test]
+    fn test_fj016_detect_drift_skips_non_converged() {
+        let mut resources = indexmap::IndexMap::new();
+        let mut details = std::collections::HashMap::new();
+        details.insert(
+            "path".to_string(),
+            serde_yaml_ng::Value::String("/nonexistent".to_string()),
+        );
+        details.insert(
+            "content_hash".to_string(),
+            serde_yaml_ng::Value::String("blake3:abc".to_string()),
+        );
+        resources.insert(
+            "failed-file".to_string(),
+            crate::core::types::ResourceLock {
+                resource_type: ResourceType::File,
+                status: ResourceStatus::Failed,
+                applied_at: None,
+                duration_seconds: None,
+                hash: "blake3:abc".to_string(),
+                details,
+            },
+        );
+
+        let lock = StateLock {
+            schema: "1.0".to_string(),
+            machine: "test".to_string(),
+            hostname: "test-box".to_string(),
+            generated_at: "2026-01-01T00:00:00Z".to_string(),
+            generator: "forjar 0.1.0".to_string(),
+            blake3_version: "1.8".to_string(),
+            resources,
+        };
+
+        let findings = detect_drift(&lock);
+        assert!(
+            findings.is_empty(),
+            "non-converged resources should be skipped"
+        );
+    }
+
+    #[test]
+    fn test_fj016_detect_drift_skips_non_file_types() {
+        let mut resources = indexmap::IndexMap::new();
+        resources.insert(
+            "my-pkg".to_string(),
+            crate::core::types::ResourceLock {
+                resource_type: crate::core::types::ResourceType::Package,
+                status: ResourceStatus::Converged,
+                applied_at: None,
+                duration_seconds: None,
+                hash: "blake3:abc".to_string(),
+                details: std::collections::HashMap::new(),
+            },
+        );
+
+        let lock = StateLock {
+            schema: "1.0".to_string(),
+            machine: "test".to_string(),
+            hostname: "test-box".to_string(),
+            generated_at: "2026-01-01T00:00:00Z".to_string(),
+            generator: "forjar 0.1.0".to_string(),
+            blake3_version: "1.8".to_string(),
+            resources,
+        };
+
+        let findings = detect_drift(&lock);
+        assert!(findings.is_empty(), "package resources should be skipped");
+    }
+
+    #[test]
+    fn test_fj016_detect_drift_missing_path_detail() {
+        let mut resources = indexmap::IndexMap::new();
+        resources.insert(
+            "no-path".to_string(),
+            crate::core::types::ResourceLock {
+                resource_type: ResourceType::File,
+                status: ResourceStatus::Converged,
+                applied_at: None,
+                duration_seconds: None,
+                hash: "blake3:abc".to_string(),
+                details: std::collections::HashMap::new(), // no "path" key
+            },
+        );
+
+        let lock = StateLock {
+            schema: "1.0".to_string(),
+            machine: "test".to_string(),
+            hostname: "test-box".to_string(),
+            generated_at: "2026-01-01T00:00:00Z".to_string(),
+            generator: "forjar 0.1.0".to_string(),
+            blake3_version: "1.8".to_string(),
+            resources,
+        };
+
+        let findings = detect_drift(&lock);
+        assert!(findings.is_empty(), "missing path detail should be skipped");
+    }
+
+    #[test]
+    fn test_fj016_check_file_drift_directory() {
+        let dir = tempfile::tempdir().unwrap();
+        let subdir = dir.path().join("mydir");
+        std::fs::create_dir(&subdir).unwrap();
+        let hash = hasher::hash_directory(&subdir).unwrap();
+
+        // No drift when hash matches
+        let result = check_file_drift("dir-resource", subdir.to_str().unwrap(), &hash);
+        assert!(result.is_none());
+
+        // Create a file inside — hash changes
+        std::fs::write(subdir.join("new.txt"), "surprise").unwrap();
+        let result = check_file_drift("dir-resource", subdir.to_str().unwrap(), &hash);
+        assert!(result.is_some());
+    }
 }

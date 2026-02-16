@@ -133,4 +133,13 @@ mod tests {
         assert!(script.contains("sed"));
         assert!(script.contains("fstab"));
     }
+
+    #[test]
+    fn test_fj009_state_query_script() {
+        let r = make_mount_resource();
+        let script = state_query_script(&r);
+        assert!(script.contains("mountpoint -q '/mnt/lambda-raid'"));
+        assert!(script.contains("findmnt"));
+        assert!(script.contains("UNMOUNTED"));
+    }
 }

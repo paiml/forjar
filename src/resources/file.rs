@@ -187,4 +187,49 @@ mod tests {
         // Single-quoted heredoc delimiter prevents variable expansion
         assert!(script.contains("<<'FORJAR_EOF'"));
     }
+
+    #[test]
+    fn test_fj007_check_script_directory() {
+        let mut r = make_file_resource("/data/dir", None);
+        r.state = Some("directory".to_string());
+        let script = check_script(&r);
+        assert!(script.contains("test -d '/data/dir'"));
+        assert!(script.contains("exists:directory"));
+    }
+
+    #[test]
+    fn test_fj007_check_script_absent() {
+        let mut r = make_file_resource("/tmp/gone", None);
+        r.state = Some("absent".to_string());
+        let script = check_script(&r);
+        assert!(script.contains("test -e '/tmp/gone'"));
+        assert!(script.contains("exists:present"));
+    }
+
+    #[test]
+    fn test_fj007_check_script_symlink() {
+        let mut r = make_file_resource("/usr/bin/tool", None);
+        r.state = Some("symlink".to_string());
+        let script = check_script(&r);
+        assert!(script.contains("test -L '/usr/bin/tool'"));
+        assert!(script.contains("exists:symlink"));
+    }
+
+    #[test]
+    fn test_fj007_state_query_script() {
+        let r = make_file_resource("/etc/config", None);
+        let script = state_query_script(&r);
+        assert!(script.contains("/etc/config"));
+        assert!(script.contains("stat"));
+        assert!(script.contains("MISSING"));
+    }
+
+    #[test]
+    fn test_fj007_apply_file_owner_no_group() {
+        let mut r = make_file_resource("/etc/test.conf", Some("data"));
+        r.group = None;
+        let script = apply_script(&r);
+        assert!(script.contains("chown 'root' '/etc/test.conf'"));
+        assert!(!script.contains("chown 'root:"));
+    }
 }

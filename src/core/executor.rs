@@ -692,4 +692,159 @@ resources:
         let _ = std::fs::remove_file("/tmp/forjar-test-filter-a.txt");
         let _ = std::fs::remove_file("/tmp/forjar-test-filter-b.txt");
     }
+
+    #[test]
+    fn test_fj012_record_failure_stop_on_first() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut lock = state::new_lock("test", "test-box");
+        let mut ctx = RecordCtx {
+            lock: &mut lock,
+            state_dir: dir.path(),
+            machine_name: "test",
+            tripwire: true,
+            failure_policy: &FailurePolicy::StopOnFirst,
+        };
+
+        let should_stop = record_failure(
+            &mut ctx,
+            "failing-pkg",
+            &ResourceType::Package,
+            0.5,
+            "exit code 1: not found",
+        );
+
+        assert!(should_stop, "StopOnFirst should return true");
+        let rl = &ctx.lock.resources["failing-pkg"];
+        assert_eq!(rl.status, ResourceStatus::Failed);
+        assert_eq!(rl.hash, "");
+        assert!(rl.duration_seconds.unwrap() > 0.0);
+    }
+
+    #[test]
+    fn test_fj012_record_failure_continue() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut lock = state::new_lock("test", "test-box");
+        let mut ctx = RecordCtx {
+            lock: &mut lock,
+            state_dir: dir.path(),
+            machine_name: "test",
+            tripwire: false,
+            failure_policy: &FailurePolicy::ContinueIndependent,
+        };
+
+        let should_stop = record_failure(
+            &mut ctx,
+            "failing-pkg",
+            &ResourceType::Package,
+            1.0,
+            "exit code 2: error",
+        );
+
+        assert!(!should_stop, "Continue policy should return false");
+        assert_eq!(
+            ctx.lock.resources["failing-pkg"].status,
+            ResourceStatus::Failed
+        );
+    }
+
+    #[test]
+    fn test_fj012_record_failure_with_tripwire_logging() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut lock = state::new_lock("test", "test-box");
+        let mut ctx = RecordCtx {
+            lock: &mut lock,
+            state_dir: dir.path(),
+            machine_name: "test",
+            tripwire: true,
+            failure_policy: &FailurePolicy::ContinueIndependent,
+        };
+
+        record_failure(
+            &mut ctx,
+            "broken-svc",
+            &ResourceType::Service,
+            2.0,
+            "transport error: connection refused",
+        );
+
+        // Verify event log was written
+        let events_path = dir.path().join("test").join("events.jsonl");
+        assert!(events_path.exists(), "tripwire event log should be written");
+        let content = std::fs::read_to_string(&events_path).unwrap();
+        assert!(content.contains("broken-svc"));
+        assert!(content.contains("resource_failed"));
+    }
+
+    #[test]
+    fn test_fj012_record_success_writes_lock_and_event() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut lock = state::new_lock("test", "test-box");
+        let resource = Resource {
+            resource_type: ResourceType::File,
+            machine: MachineTarget::Single("test".to_string()),
+            state: None,
+            depends_on: vec![],
+            provider: None,
+            packages: vec![],
+            path: Some("/tmp/forjar-record-success-test.txt".to_string()),
+            content: Some("test content".to_string()),
+            source: None,
+            target: None,
+            owner: None,
+            group: None,
+            mode: None,
+            name: None,
+            enabled: None,
+            restart_on: vec![],
+            fs_type: None,
+            options: None,
+        };
+        let machine = Machine {
+            hostname: "localhost".to_string(),
+            addr: "127.0.0.1".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+        };
+        let mut ctx = RecordCtx {
+            lock: &mut lock,
+            state_dir: dir.path(),
+            machine_name: "test",
+            tripwire: true,
+            failure_policy: &FailurePolicy::StopOnFirst,
+        };
+
+        record_success(&mut ctx, "test-file", &resource, &resource, &machine, 0.1);
+
+        let rl = &ctx.lock.resources["test-file"];
+        assert_eq!(rl.status, ResourceStatus::Converged);
+        assert!(rl.hash.starts_with("blake3:"));
+        assert!(rl.details.contains_key("path"));
+        assert!(rl.details.contains_key("content_hash"));
+
+        // Verify event log
+        let events_path = dir.path().join("test").join("events.jsonl");
+        assert!(events_path.exists());
+        let content = std::fs::read_to_string(&events_path).unwrap();
+        assert!(content.contains("resource_converged"));
+    }
+
+    #[test]
+    fn test_fj012_resource_filter() {
+        let config = local_config();
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = ApplyConfig {
+            config: &config,
+            state_dir: dir.path(),
+            force: false,
+            dry_run: false,
+            machine_filter: None,
+            resource_filter: Some("nonexistent-resource"),
+        };
+        let results = apply(&cfg).unwrap();
+        // Resource filter doesn't match — everything skipped
+        assert_eq!(results[0].resources_converged, 0);
+        assert_eq!(results[0].resources_unchanged, 0);
+    }
 }

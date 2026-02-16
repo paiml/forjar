@@ -196,4 +196,39 @@ mod tests {
         assert!(script.contains("'lib; rm -rf /'"));
         // The semicolon is inside quotes — safe
     }
+
+    #[test]
+    fn test_fj006_state_query_cargo() {
+        let mut r = make_apt_resource(&["batuta", "renacer"]);
+        r.provider = Some("cargo".to_string());
+        let script = state_query_script(&r);
+        assert!(script.contains("command -v 'batuta'"));
+        assert!(script.contains("command -v 'renacer'"));
+        assert!(script.contains("installed"));
+    }
+
+    #[test]
+    fn test_fj006_state_query_unknown_provider() {
+        let mut r = make_apt_resource(&["tool"]);
+        r.provider = Some("pip".to_string());
+        let script = state_query_script(&r);
+        assert!(script.contains("unknown"));
+    }
+
+    #[test]
+    fn test_fj006_check_unsupported_provider() {
+        let mut r = make_apt_resource(&["foo"]);
+        r.provider = Some("brew".to_string());
+        let script = check_script(&r);
+        assert!(script.contains("unsupported provider"));
+    }
+
+    #[test]
+    fn test_fj006_apply_unsupported_combo() {
+        let mut r = make_apt_resource(&["foo"]);
+        r.provider = Some("pip".to_string());
+        r.state = Some("present".to_string());
+        let script = apply_script(&r);
+        assert!(script.contains("unsupported"));
+    }
 }

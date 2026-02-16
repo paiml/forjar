@@ -294,4 +294,95 @@ resources: {}
         let result = parse_config("not: [valid: yaml: {{");
         assert!(result.is_err());
     }
+
+    #[test]
+    fn test_fj002_empty_name() {
+        let yaml = r#"
+version: "1.0"
+name: ""
+machines: {}
+resources: {}
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(errors
+            .iter()
+            .any(|e| e.message.contains("name must not be empty")));
+    }
+
+    #[test]
+    fn test_fj002_service_no_name() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  svc:
+    type: service
+    machine: m1
+    state: running
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(errors.iter().any(|e| e.message.contains("no name")));
+    }
+
+    #[test]
+    fn test_fj002_package_no_provider() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  pkg:
+    type: package
+    machine: m1
+    packages: [curl]
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(errors.iter().any(|e| e.message.contains("no provider")));
+    }
+
+    #[test]
+    fn test_fj002_mount_no_source_or_path() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  mnt:
+    type: mount
+    machine: m1
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(errors
+            .iter()
+            .any(|e| e.message.contains("source and target path")));
+    }
+
+    #[test]
+    fn test_fj002_validation_error_display() {
+        let err = ValidationError {
+            message: "test error".to_string(),
+        };
+        assert_eq!(format!("{}", err), "test error");
+    }
+
+    #[test]
+    fn test_fj002_parse_config_file_missing() {
+        let result = parse_config_file(std::path::Path::new("/nonexistent/forjar.yaml"));
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("failed to read"));
+    }
 }

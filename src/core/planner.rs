@@ -436,6 +436,110 @@ resources:
     }
 
     #[test]
+    fn test_fj004_describe_action_file() {
+        let r = Resource {
+            resource_type: ResourceType::File,
+            machine: MachineTarget::Single("m1".to_string()),
+            state: None,
+            depends_on: vec![],
+            provider: None,
+            packages: vec![],
+            path: Some("/etc/conf".to_string()),
+            content: None,
+            source: None,
+            target: None,
+            owner: None,
+            group: None,
+            mode: None,
+            name: None,
+            enabled: None,
+            restart_on: vec![],
+            fs_type: None,
+            options: None,
+        };
+        assert!(describe_action("f", &r, &PlanAction::Create).contains("/etc/conf"));
+        assert!(describe_action("f", &r, &PlanAction::Update).contains("update"));
+        assert!(describe_action("f", &r, &PlanAction::Destroy).contains("destroy"));
+        assert!(describe_action("f", &r, &PlanAction::NoOp).contains("no changes"));
+    }
+
+    #[test]
+    fn test_fj004_describe_action_service() {
+        let r = Resource {
+            resource_type: ResourceType::Service,
+            machine: MachineTarget::Single("m1".to_string()),
+            state: None,
+            depends_on: vec![],
+            provider: None,
+            packages: vec![],
+            path: None,
+            content: None,
+            source: None,
+            target: None,
+            owner: None,
+            group: None,
+            mode: None,
+            name: Some("nginx".to_string()),
+            enabled: None,
+            restart_on: vec![],
+            fs_type: None,
+            options: None,
+        };
+        assert!(describe_action("svc", &r, &PlanAction::Create).contains("nginx"));
+    }
+
+    #[test]
+    fn test_fj004_describe_action_mount() {
+        let r = Resource {
+            resource_type: ResourceType::Mount,
+            machine: MachineTarget::Single("m1".to_string()),
+            state: None,
+            depends_on: vec![],
+            provider: None,
+            packages: vec![],
+            path: Some("/mnt/data".to_string()),
+            content: None,
+            source: None,
+            target: None,
+            owner: None,
+            group: None,
+            mode: None,
+            name: None,
+            enabled: None,
+            restart_on: vec![],
+            fs_type: None,
+            options: None,
+        };
+        assert!(describe_action("mnt", &r, &PlanAction::Create).contains("/mnt/data"));
+    }
+
+    #[test]
+    fn test_fj004_absent_not_in_lock_is_noop() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 127.0.0.1
+resources:
+  gone-file:
+    type: file
+    machine: m1
+    path: /tmp/gone
+    state: absent
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let order = vec!["gone-file".to_string()];
+        let locks = HashMap::new(); // no lock — resource never existed
+        let plan = plan(&config, &order, &locks);
+        assert_eq!(
+            plan.unchanged, 1,
+            "absent resource not in lock should be NoOp"
+        );
+    }
+
+    #[test]
     fn test_fj004_multi_machine() {
         let yaml = r#"
 version: "1.0"

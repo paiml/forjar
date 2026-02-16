@@ -132,4 +132,12 @@ mod tests {
         let script = apply_script(&r);
         assert!(script.contains("systemctl reload-or-restart"));
     }
+
+    #[test]
+    fn test_fj008_state_query_script() {
+        let r = make_service_resource("nginx", "running");
+        let script = state_query_script(&r);
+        assert!(script.contains("systemctl is-active 'nginx'"));
+        assert!(script.contains("systemctl is-enabled 'nginx'"));
+    }
 }
