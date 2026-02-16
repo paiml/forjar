@@ -16,7 +16,7 @@ pub fn load_lock(state_dir: &Path, machine: &str) -> Result<Option<StateLock>, S
     }
     let content = std::fs::read_to_string(&path)
         .map_err(|e| format!("cannot read {}: {}", path.display(), e))?;
-    let lock: StateLock = serde_yaml::from_str(&content)
+    let lock: StateLock = serde_yaml_ng::from_str(&content)
         .map_err(|e| format!("invalid lock file {}: {}", path.display(), e))?;
     Ok(Some(lock))
 }
@@ -29,7 +29,7 @@ pub fn save_lock(state_dir: &Path, lock: &StateLock) -> Result<(), String> {
             .map_err(|e| format!("cannot create dir {}: {}", parent.display(), e))?;
     }
 
-    let yaml = serde_yaml::to_string(lock).map_err(|e| format!("serialize error: {}", e))?;
+    let yaml = serde_yaml_ng::to_string(lock).map_err(|e| format!("serialize error: {}", e))?;
 
     // Atomic write: temp file + rename
     let tmp_path = path.with_extension("lock.yaml.tmp");

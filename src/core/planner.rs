@@ -23,12 +23,9 @@ pub fn plan(
         };
 
         // Resolve templates before hashing so planner hash matches executor hash
-        let resolved = resolver::resolve_resource_templates(
-            resource,
-            &config.params,
-            &config.machines,
-        )
-        .unwrap_or_else(|_| resource.clone());
+        let resolved =
+            resolver::resolve_resource_templates(resource, &config.params, &config.machines)
+                .unwrap_or_else(|_| resource.clone());
 
         for machine_name in resource.machine.to_vec() {
             let action = determine_action(resource_id, &resolved, &machine_name, locks);
@@ -216,7 +213,7 @@ resources:
     state: running
     depends_on: [conf]
 "#;
-        serde_yaml::from_str(yaml).unwrap()
+        serde_yaml_ng::from_str(yaml).unwrap()
     }
 
     #[test]
@@ -320,7 +317,7 @@ resources:
     path: /tmp/gone
     state: absent
 "#;
-        let config: ForjarConfig = serde_yaml::from_str(yaml).unwrap();
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
         let order = vec!["old-file".to_string()];
 
         let mut resources = indexmap::IndexMap::new();
@@ -457,7 +454,7 @@ resources:
     provider: cargo
     packages: [batuta]
 "#;
-        let config: ForjarConfig = serde_yaml::from_str(yaml).unwrap();
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
         let order = vec!["tools".to_string()];
         let locks = HashMap::new();
         let plan = plan(&config, &order, &locks);

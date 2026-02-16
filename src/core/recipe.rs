@@ -56,7 +56,7 @@ pub struct RecipeInput {
     #[serde(default)]
     pub description: Option<String>,
     #[serde(default)]
-    pub default: Option<serde_yaml::Value>,
+    pub default: Option<serde_yaml_ng::Value>,
     #[serde(default)]
     pub min: Option<i64>,
     #[serde(default)]
@@ -80,13 +80,13 @@ pub fn load_recipe(path: &Path) -> Result<RecipeFile, String> {
 
 /// Parse a recipe from a YAML string.
 pub fn parse_recipe(yaml: &str) -> Result<RecipeFile, String> {
-    serde_yaml::from_str(yaml).map_err(|e| format!("recipe parse error: {}", e))
+    serde_yaml_ng::from_str(yaml).map_err(|e| format!("recipe parse error: {}", e))
 }
 
 /// Validate recipe inputs against their declarations.
 pub fn validate_inputs(
     recipe: &RecipeMetadata,
-    provided: &HashMap<String, serde_yaml::Value>,
+    provided: &HashMap<String, serde_yaml_ng::Value>,
 ) -> Result<HashMap<String, String>, String> {
     let mut resolved = HashMap::new();
 
@@ -113,17 +113,17 @@ pub fn validate_inputs(
 fn validate_input_type(
     name: &str,
     type_name: &str,
-    value: &serde_yaml::Value,
+    value: &serde_yaml_ng::Value,
     decl: &RecipeInput,
 ) -> Result<String, String> {
     match type_name {
         "string" => match value {
-            serde_yaml::Value::String(s) => Ok(s.clone()),
+            serde_yaml_ng::Value::String(s) => Ok(s.clone()),
             other => Ok(format!("{:?}", other)),
         },
         "int" => {
             let n = match value {
-                serde_yaml::Value::Number(n) => n
+                serde_yaml_ng::Value::Number(n) => n
                     .as_i64()
                     .ok_or_else(|| format!("input '{}' must be an integer", name))?,
                 _ => return Err(format!("input '{}' must be an integer", name)),
@@ -141,11 +141,11 @@ fn validate_input_type(
             Ok(n.to_string())
         }
         "bool" => match value {
-            serde_yaml::Value::Bool(b) => Ok(b.to_string()),
+            serde_yaml_ng::Value::Bool(b) => Ok(b.to_string()),
             _ => Err(format!("input '{}' must be a boolean", name)),
         },
         "path" => match value {
-            serde_yaml::Value::String(s) => {
+            serde_yaml_ng::Value::String(s) => {
                 if !s.starts_with('/') {
                     return Err(format!("input '{}' must be an absolute path", name));
                 }
@@ -154,7 +154,7 @@ fn validate_input_type(
             _ => Err(format!("input '{}' must be a path string", name)),
         },
         "enum" => match value {
-            serde_yaml::Value::String(s) => {
+            serde_yaml_ng::Value::String(s) => {
                 if !decl.choices.is_empty() && !decl.choices.contains(s) {
                     return Err(format!(
                         "input '{}' must be one of: {}",
@@ -231,7 +231,7 @@ pub fn expand_recipe(
     recipe_id: &str,
     recipe_file: &RecipeFile,
     machine: &MachineTarget,
-    provided_inputs: &HashMap<String, serde_yaml::Value>,
+    provided_inputs: &HashMap<String, serde_yaml_ng::Value>,
     external_depends_on: &[String],
 ) -> Result<IndexMap<String, Resource>, String> {
     // Validate inputs
@@ -355,7 +355,7 @@ resources:
         let mut provided = HashMap::new();
         provided.insert(
             "export_path".to_string(),
-            serde_yaml::Value::String("/mnt/data".to_string()),
+            serde_yaml_ng::Value::String("/mnt/data".to_string()),
         );
         let resolved = validate_inputs(&recipe.recipe, &provided).unwrap();
         assert_eq!(resolved["export_path"], "/mnt/data");
@@ -378,7 +378,7 @@ resources:
         let mut provided = HashMap::new();
         provided.insert(
             "export_path".to_string(),
-            serde_yaml::Value::String("relative/path".to_string()),
+            serde_yaml_ng::Value::String("relative/path".to_string()),
         );
         let result = validate_inputs(&recipe.recipe, &provided);
         assert!(result.is_err());
@@ -391,11 +391,11 @@ resources:
         let mut provided = HashMap::new();
         provided.insert(
             "export_path".to_string(),
-            serde_yaml::Value::String("/mnt/data".to_string()),
+            serde_yaml_ng::Value::String("/mnt/data".to_string()),
         );
         provided.insert(
             "port".to_string(),
-            serde_yaml::Value::Number(serde_yaml::Number::from(80)),
+            serde_yaml_ng::Value::Number(serde_yaml_ng::Number::from(80)),
         );
         let result = validate_inputs(&recipe.recipe, &provided);
         assert!(result.is_err());
@@ -417,7 +417,7 @@ resources: {}
         let mut provided = HashMap::new();
         provided.insert(
             "protocol".to_string(),
-            serde_yaml::Value::String("icmp".to_string()),
+            serde_yaml_ng::Value::String("icmp".to_string()),
         );
         let result = validate_inputs(&recipe.recipe, &provided);
         assert!(result.is_err());
@@ -436,7 +436,7 @@ resources: {}
 "#;
         let recipe = parse_recipe(yaml).unwrap();
         let mut provided = HashMap::new();
-        provided.insert("enabled".to_string(), serde_yaml::Value::Bool(true));
+        provided.insert("enabled".to_string(), serde_yaml_ng::Value::Bool(true));
         let resolved = validate_inputs(&recipe.recipe, &provided).unwrap();
         assert_eq!(resolved["enabled"], "true");
     }
@@ -448,7 +448,7 @@ resources: {}
         let mut inputs = HashMap::new();
         inputs.insert(
             "export_path".to_string(),
-            serde_yaml::Value::String("/mnt/raid".to_string()),
+            serde_yaml_ng::Value::String("/mnt/raid".to_string()),
         );
 
         let expanded = expand_recipe("nfs", &recipe, &machine, &inputs, &[]).unwrap();
@@ -481,7 +481,7 @@ resources: {}
         let mut inputs = HashMap::new();
         inputs.insert(
             "export_path".to_string(),
-            serde_yaml::Value::String("/mnt/data".to_string()),
+            serde_yaml_ng::Value::String("/mnt/data".to_string()),
         );
 
         let expanded =
@@ -506,7 +506,7 @@ resources: {}
         let mut inputs = HashMap::new();
         inputs.insert(
             "export_path".to_string(),
-            serde_yaml::Value::String("/mnt/data".to_string()),
+            serde_yaml_ng::Value::String("/mnt/data".to_string()),
         );
 
         let expanded = expand_recipe("nfs", &recipe, &machine, &inputs, &[]).unwrap();

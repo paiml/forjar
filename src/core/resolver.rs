@@ -10,7 +10,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 /// Resolve all template variables in a string.
 pub fn resolve_template(
     template: &str,
-    params: &HashMap<String, serde_yaml::Value>,
+    params: &HashMap<String, serde_yaml_ng::Value>,
     machines: &indexmap::IndexMap<String, Machine>,
 ) -> Result<String, String> {
     let mut result = template.to_string();
@@ -58,7 +58,7 @@ pub fn resolve_template(
 /// Resolve all templates in a resource's string fields.
 pub fn resolve_resource_templates(
     resource: &Resource,
-    params: &HashMap<String, serde_yaml::Value>,
+    params: &HashMap<String, serde_yaml_ng::Value>,
     machines: &indexmap::IndexMap<String, Machine>,
 ) -> Result<Resource, String> {
     let mut resolved = resource.clone();
@@ -176,7 +176,7 @@ mod tests {
         let mut params = HashMap::new();
         params.insert(
             "name".to_string(),
-            serde_yaml::Value::String("world".to_string()),
+            serde_yaml_ng::Value::String("world".to_string()),
         );
         let machines = indexmap::IndexMap::new();
         let result = resolve_template("hello {{params.name}}", &params, &machines).unwrap();
@@ -214,8 +214,8 @@ mod tests {
     #[test]
     fn test_fj003_resolve_multiple() {
         let mut params = HashMap::new();
-        params.insert("a".to_string(), serde_yaml::Value::String("X".to_string()));
-        params.insert("b".to_string(), serde_yaml::Value::String("Y".to_string()));
+        params.insert("a".to_string(), serde_yaml_ng::Value::String("X".to_string()));
+        params.insert("b".to_string(), serde_yaml_ng::Value::String("Y".to_string()));
         let machines = indexmap::IndexMap::new();
         let result = resolve_template("{{params.a}}-{{params.b}}", &params, &machines).unwrap();
         assert_eq!(result, "X-Y");
@@ -247,7 +247,7 @@ resources:
     name: svc
     depends_on: [b]
 "#;
-        let config: ForjarConfig = serde_yaml::from_str(yaml).unwrap();
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
         let order = build_execution_order(&config).unwrap();
         assert_eq!(order, vec!["a", "b", "c"]);
     }
@@ -273,7 +273,7 @@ resources:
     provider: apt
     packages: [y]
 "#;
-        let config: ForjarConfig = serde_yaml::from_str(yaml).unwrap();
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
         let order = build_execution_order(&config).unwrap();
         // Alphabetical tie-breaking: alpha before beta
         assert_eq!(order, vec!["alpha", "beta"]);
@@ -310,7 +310,7 @@ resources:
     name: svc
     depends_on: [left, right]
 "#;
-        let config: ForjarConfig = serde_yaml::from_str(yaml).unwrap();
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
         let order = build_execution_order(&config).unwrap();
         assert_eq!(order[0], "top");
         assert_eq!(order[3], "bottom");
@@ -342,7 +342,7 @@ resources:
     packages: [y]
     depends_on: [a]
 "#;
-        let config: ForjarConfig = serde_yaml::from_str(yaml).unwrap();
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
         let result = build_execution_order(&config);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("cycle"));

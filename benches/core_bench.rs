@@ -91,7 +91,7 @@ resources:
 
     c.bench_function("yaml_parse_config", |b| {
         b.iter(|| {
-            let config: serde_yaml::Value = serde_yaml::from_str(black_box(yaml)).unwrap();
+            let config: serde_yaml_ng::Value = serde_yaml_ng::from_str(black_box(yaml)).unwrap();
             black_box(config);
         });
     });

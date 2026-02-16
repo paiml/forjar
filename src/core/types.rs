@@ -27,7 +27,7 @@ pub struct ForjarConfig {
 
     /// Global parameters (templatable)
     #[serde(default)]
-    pub params: HashMap<String, serde_yaml::Value>,
+    pub params: HashMap<String, serde_yaml_ng::Value>,
 
     /// Machine inventory
     #[serde(default)]
@@ -318,7 +318,7 @@ pub struct ResourceLock {
 
     /// Resource-specific details
     #[serde(default)]
-    pub details: HashMap<String, serde_yaml::Value>,
+    pub details: HashMap<String, serde_yaml_ng::Value>,
 }
 
 /// Resource convergence status.
@@ -475,13 +475,13 @@ pub struct ApplyResult {
 // Template helper
 // ============================================================================
 
-/// Convert a serde_yaml::Value to a string for template resolution.
-pub fn yaml_value_to_string(val: &serde_yaml::Value) -> String {
+/// Convert a serde_yaml_ng::Value to a string for template resolution.
+pub fn yaml_value_to_string(val: &serde_yaml_ng::Value) -> String {
     match val {
-        serde_yaml::Value::String(s) => s.clone(),
-        serde_yaml::Value::Number(n) => n.to_string(),
-        serde_yaml::Value::Bool(b) => b.to_string(),
-        serde_yaml::Value::Null => String::new(),
+        serde_yaml_ng::Value::String(s) => s.clone(),
+        serde_yaml_ng::Value::Number(n) => n.to_string(),
+        serde_yaml_ng::Value::Bool(b) => b.to_string(),
+        serde_yaml_ng::Value::Null => String::new(),
         other => format!("{:?}", other),
     }
 }
@@ -519,7 +519,7 @@ policy:
   tripwire: true
   lock_file: true
 "#;
-        let config: ForjarConfig = serde_yaml::from_str(yaml).unwrap();
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
         assert_eq!(config.version, "1.0");
         assert_eq!(config.name, "test-infra");
         assert_eq!(config.machines.len(), 1);
@@ -537,7 +537,7 @@ policy:
 hostname: test
 addr: 1.2.3.4
 "#;
-        let m: Machine = serde_yaml::from_str(yaml).unwrap();
+        let m: Machine = serde_yaml_ng::from_str(yaml).unwrap();
         assert_eq!(m.user, "root");
         assert_eq!(m.arch, "x86_64");
         assert!(m.roles.is_empty());
@@ -552,7 +552,7 @@ addr: 1.2.3.4
     #[test]
     fn test_fj001_machine_target_multiple() {
         let yaml = r#"[intel, jetson]"#;
-        let t: MachineTarget = serde_yaml::from_str(yaml).unwrap();
+        let t: MachineTarget = serde_yaml_ng::from_str(yaml).unwrap();
         assert_eq!(t.to_vec(), vec!["intel", "jetson"]);
     }
 
@@ -605,8 +605,8 @@ addr: 1.2.3.4
                 },
             )]),
         };
-        let yaml = serde_yaml::to_string(&lock).unwrap();
-        let lock2: StateLock = serde_yaml::from_str(&yaml).unwrap();
+        let yaml = serde_yaml_ng::to_string(&lock).unwrap();
+        let lock2: StateLock = serde_yaml_ng::from_str(&yaml).unwrap();
         assert_eq!(lock2.machine, "lambda");
         assert_eq!(
             lock2.resources["test-pkg"].status,
@@ -629,11 +629,11 @@ addr: 1.2.3.4
     #[test]
     fn test_fj001_yaml_value_to_string() {
         assert_eq!(
-            yaml_value_to_string(&serde_yaml::Value::String("hello".into())),
+            yaml_value_to_string(&serde_yaml_ng::Value::String("hello".into())),
             "hello"
         );
-        assert_eq!(yaml_value_to_string(&serde_yaml::Value::Bool(true)), "true");
-        assert_eq!(yaml_value_to_string(&serde_yaml::Value::Null), "");
+        assert_eq!(yaml_value_to_string(&serde_yaml_ng::Value::Bool(true)), "true");
+        assert_eq!(yaml_value_to_string(&serde_yaml_ng::Value::Null), "");
     }
 
     #[test]
@@ -657,7 +657,7 @@ resources:
 policy:
   failure: stop_on_first
 "#;
-        let config: ForjarConfig = serde_yaml::from_str(yaml).unwrap();
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
         let targets = config.resources["tools"].machine.to_vec();
         assert_eq!(targets, vec!["a", "b"]);
     }

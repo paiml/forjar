@@ -197,7 +197,7 @@ fn apply_machine(
                 if let Some(ref lh) = live_hash {
                     details.insert(
                         "live_hash".to_string(),
-                        serde_yaml::Value::String(lh.clone()),
+                        serde_yaml_ng::Value::String(lh.clone()),
                     );
                 }
 
@@ -358,35 +358,35 @@ fn collect_machines(config: &ForjarConfig) -> Vec<String> {
 }
 
 /// Build resource-specific details for the lock entry.
-fn build_resource_details(resource: &Resource) -> HashMap<String, serde_yaml::Value> {
+fn build_resource_details(resource: &Resource) -> HashMap<String, serde_yaml_ng::Value> {
     let mut details = HashMap::new();
 
     if let Some(ref path) = resource.path {
-        details.insert("path".to_string(), serde_yaml::Value::String(path.clone()));
+        details.insert("path".to_string(), serde_yaml_ng::Value::String(path.clone()));
     }
     if let Some(ref content) = resource.content {
         let hash = hasher::hash_string(content);
-        details.insert("content_hash".to_string(), serde_yaml::Value::String(hash));
+        details.insert("content_hash".to_string(), serde_yaml_ng::Value::String(hash));
     }
     if let Some(ref owner) = resource.owner {
         details.insert(
             "owner".to_string(),
-            serde_yaml::Value::String(owner.clone()),
+            serde_yaml_ng::Value::String(owner.clone()),
         );
     }
     if let Some(ref group) = resource.group {
         details.insert(
             "group".to_string(),
-            serde_yaml::Value::String(group.clone()),
+            serde_yaml_ng::Value::String(group.clone()),
         );
     }
     if let Some(ref mode) = resource.mode {
-        details.insert("mode".to_string(), serde_yaml::Value::String(mode.clone()));
+        details.insert("mode".to_string(), serde_yaml_ng::Value::String(mode.clone()));
     }
     if let Some(ref name) = resource.name {
         details.insert(
             "service_name".to_string(),
-            serde_yaml::Value::String(name.clone()),
+            serde_yaml_ng::Value::String(name.clone()),
         );
     }
 
@@ -417,7 +417,7 @@ policy:
   tripwire: true
   lock_file: true
 "#;
-        serde_yaml::from_str(yaml).unwrap()
+        serde_yaml_ng::from_str(yaml).unwrap()
     }
 
     #[test]
@@ -451,7 +451,7 @@ resources:
     provider: apt
     packages: [y]
 "#;
-        let config: ForjarConfig = serde_yaml::from_str(yaml).unwrap();
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
         let machines = collect_machines(&config);
         assert_eq!(machines, vec!["a", "b"]);
     }
@@ -617,7 +617,7 @@ resources:
     path: /tmp/forjar-test-filter-b.txt
     content: "b"
 "#;
-        let config: ForjarConfig = serde_yaml::from_str(yaml).unwrap();
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
         let dir = tempfile::tempdir().unwrap();
         let cfg = ApplyConfig {
             config: &config,
