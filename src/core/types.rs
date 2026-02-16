@@ -664,4 +664,14 @@ policy:
         let targets = config.resources["tools"].machine.to_vec();
         assert_eq!(targets, vec!["a", "b"]);
     }
+
+    #[test]
+    fn test_fj001_resource_type_display_all() {
+        assert_eq!(ResourceType::File.to_string(), "file");
+        assert_eq!(ResourceType::User.to_string(), "user");
+        assert_eq!(ResourceType::Docker.to_string(), "docker");
+        assert_eq!(ResourceType::Pepita.to_string(), "pepita");
+        assert_eq!(ResourceType::Network.to_string(), "network");
+        assert_eq!(ResourceType::Cron.to_string(), "cron");
+    }
 }

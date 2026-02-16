@@ -541,6 +541,37 @@ resources:
         assert!(details.contains_key("content_hash"));
         assert!(details.contains_key("owner"));
         assert!(details.contains_key("mode"));
+        assert!(details.contains_key("group"));
+    }
+
+    #[test]
+    fn test_fj012_build_resource_details_service() {
+        let r = Resource {
+            resource_type: ResourceType::Service,
+            machine: MachineTarget::Single("m".to_string()),
+            state: None,
+            depends_on: vec![],
+            provider: None,
+            packages: vec![],
+            path: None,
+            content: None,
+            source: None,
+            target: None,
+            owner: None,
+            group: None,
+            mode: None,
+            name: Some("nginx".to_string()),
+            enabled: None,
+            restart_on: vec![],
+            fs_type: None,
+            options: None,
+        };
+        let details = build_resource_details(&r);
+        assert!(details.contains_key("service_name"));
+        assert_eq!(
+            details["service_name"],
+            serde_yaml_ng::Value::String("nginx".to_string())
+        );
     }
 
     #[test]

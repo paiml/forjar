@@ -596,4 +596,150 @@ resources: {}
             "non-first resource should not get external dependencies"
         );
     }
+
+    #[test]
+    fn test_fj019_validate_int_non_number() {
+        let yaml = r#"
+recipe:
+  name: test
+  inputs:
+    count:
+      type: int
+resources: {}
+"#;
+        let recipe = parse_recipe(yaml).unwrap();
+        let mut provided = HashMap::new();
+        provided.insert(
+            "count".to_string(),
+            serde_yaml_ng::Value::String("not-a-number".to_string()),
+        );
+        let result = validate_inputs(&recipe.recipe, &provided);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("integer"));
+    }
+
+    #[test]
+    fn test_fj019_validate_int_max() {
+        let yaml = r#"
+recipe:
+  name: test
+  inputs:
+    count:
+      type: int
+      max: 10
+resources: {}
+"#;
+        let recipe = parse_recipe(yaml).unwrap();
+        let mut provided = HashMap::new();
+        provided.insert(
+            "count".to_string(),
+            serde_yaml_ng::Value::Number(serde_yaml_ng::Number::from(100)),
+        );
+        let result = validate_inputs(&recipe.recipe, &provided);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("<= 10"));
+    }
+
+    #[test]
+    fn test_fj019_validate_bool_non_bool() {
+        let yaml = r#"
+recipe:
+  name: test
+  inputs:
+    flag:
+      type: bool
+resources: {}
+"#;
+        let recipe = parse_recipe(yaml).unwrap();
+        let mut provided = HashMap::new();
+        provided.insert(
+            "flag".to_string(),
+            serde_yaml_ng::Value::String("yes".to_string()),
+        );
+        let result = validate_inputs(&recipe.recipe, &provided);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("boolean"));
+    }
+
+    #[test]
+    fn test_fj019_validate_path_non_string() {
+        let yaml = r#"
+recipe:
+  name: test
+  inputs:
+    dir:
+      type: path
+resources: {}
+"#;
+        let recipe = parse_recipe(yaml).unwrap();
+        let mut provided = HashMap::new();
+        provided.insert(
+            "dir".to_string(),
+            serde_yaml_ng::Value::Number(serde_yaml_ng::Number::from(42)),
+        );
+        let result = validate_inputs(&recipe.recipe, &provided);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("path string"));
+    }
+
+    #[test]
+    fn test_fj019_validate_enum_non_string() {
+        let yaml = r#"
+recipe:
+  name: test
+  inputs:
+    proto:
+      type: enum
+      choices: [tcp, udp]
+resources: {}
+"#;
+        let recipe = parse_recipe(yaml).unwrap();
+        let mut provided = HashMap::new();
+        provided.insert("proto".to_string(), serde_yaml_ng::Value::Bool(true));
+        let result = validate_inputs(&recipe.recipe, &provided);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("must be a string"));
+    }
+
+    #[test]
+    fn test_fj019_validate_unknown_type() {
+        let yaml = r#"
+recipe:
+  name: test
+  inputs:
+    x:
+      type: float
+resources: {}
+"#;
+        let recipe = parse_recipe(yaml).unwrap();
+        let mut provided = HashMap::new();
+        provided.insert(
+            "x".to_string(),
+            serde_yaml_ng::Value::String("1.0".to_string()),
+        );
+        let result = validate_inputs(&recipe.recipe, &provided);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("unknown input type"));
+    }
+
+    #[test]
+    fn test_fj019_validate_string_non_string_coercion() {
+        let yaml = r#"
+recipe:
+  name: test
+  inputs:
+    label:
+      type: string
+resources: {}
+"#;
+        let recipe = parse_recipe(yaml).unwrap();
+        let mut provided = HashMap::new();
+        provided.insert(
+            "label".to_string(),
+            serde_yaml_ng::Value::Number(serde_yaml_ng::Number::from(42)),
+        );
+        // String type should coerce non-string values via Debug format
+        let resolved = validate_inputs(&recipe.recipe, &provided).unwrap();
+        assert!(!resolved["label"].is_empty());
+    }
 }

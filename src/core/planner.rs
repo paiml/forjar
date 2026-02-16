@@ -514,6 +514,42 @@ resources:
     }
 
     #[test]
+    fn test_fj004_hash_includes_all_fields() {
+        let r1 = Resource {
+            resource_type: ResourceType::Mount,
+            machine: MachineTarget::Single("m1".to_string()),
+            state: Some("mounted".to_string()),
+            depends_on: vec![],
+            provider: None,
+            packages: vec![],
+            path: Some("/mnt/data".to_string()),
+            content: None,
+            source: Some("192.168.1.1:/data".to_string()),
+            target: Some("/mnt/target".to_string()),
+            owner: Some("root".to_string()),
+            group: Some("root".to_string()),
+            mode: Some("0755".to_string()),
+            name: Some("data-mount".to_string()),
+            enabled: None,
+            restart_on: vec![],
+            fs_type: Some("nfs".to_string()),
+            options: Some("ro,hard".to_string()),
+        };
+        // Changing any field should change the hash
+        let mut r2 = r1.clone();
+        r2.fs_type = Some("ext4".to_string());
+        assert_ne!(hash_desired_state(&r1), hash_desired_state(&r2));
+
+        let mut r3 = r1.clone();
+        r3.options = Some("rw".to_string());
+        assert_ne!(hash_desired_state(&r1), hash_desired_state(&r3));
+
+        let mut r4 = r1.clone();
+        r4.name = Some("other-mount".to_string());
+        assert_ne!(hash_desired_state(&r1), hash_desired_state(&r4));
+    }
+
+    #[test]
     fn test_fj004_absent_not_in_lock_is_noop() {
         let yaml = r#"
 version: "1.0"
