@@ -7,6 +7,9 @@
 use super::types::*;
 use std::collections::{HashMap, HashSet, VecDeque};
 
+/// DAG representation: (in-degree per node, adjacency list).
+type Dag = (HashMap<String, usize>, HashMap<String, Vec<String>>);
+
 /// Resolve all template variables in a string.
 pub fn resolve_template(
     template: &str,
@@ -98,16 +101,39 @@ pub fn resolve_resource_templates(
 /// Uses Kahn's algorithm with alphabetical tie-breaking for determinism.
 pub fn build_execution_order(config: &ForjarConfig) -> Result<Vec<String>, String> {
     let resource_ids: Vec<String> = config.resources.keys().cloned().collect();
+    let (mut in_degree, mut adjacency) = build_dag(config, &resource_ids)?;
+    let order = kahn_sort(&resource_ids, &mut in_degree, &mut adjacency);
+
+    if order.len() != resource_ids.len() {
+        let remaining: HashSet<_> = resource_ids.iter().collect();
+        let ordered: HashSet<_> = order.iter().collect();
+        let cycle_members: Vec<_> = remaining.difference(&ordered).collect();
+        return Err(format!(
+            "dependency cycle detected involving: {}",
+            cycle_members
+                .iter()
+                .map(|s| s.as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
+        ));
+    }
+
+    Ok(order)
+}
+
+/// Build adjacency list and in-degree map from resource dependencies.
+fn build_dag(
+    config: &ForjarConfig,
+    resource_ids: &[String],
+) -> Result<Dag, String> {
     let mut in_degree: HashMap<String, usize> = HashMap::new();
     let mut adjacency: HashMap<String, Vec<String>> = HashMap::new();
 
-    // Initialize
-    for id in &resource_ids {
+    for id in resource_ids {
         in_degree.insert(id.clone(), 0);
         adjacency.insert(id.clone(), Vec::new());
     }
 
-    // Build edges from depends_on
     for (id, resource) in &config.resources {
         for dep in &resource.depends_on {
             if !config.resources.contains_key(dep) {
@@ -122,7 +148,15 @@ pub fn build_execution_order(config: &ForjarConfig) -> Result<Vec<String>, Strin
         }
     }
 
-    // Kahn's algorithm with sorted tie-breaking
+    Ok((in_degree, adjacency))
+}
+
+/// Run Kahn's algorithm with alphabetical tie-breaking.
+fn kahn_sort(
+    _resource_ids: &[String],
+    in_degree: &mut HashMap<String, usize>,
+    adjacency: &mut HashMap<String, Vec<String>>,
+) -> Vec<String> {
     let mut queue: VecDeque<String> = VecDeque::new();
     let mut zero_degree: Vec<String> = in_degree
         .iter()
@@ -151,24 +185,10 @@ pub fn build_execution_order(config: &ForjarConfig) -> Result<Vec<String>, Strin
         for id in next_ready {
             queue.push_back(id);
         }
-        order.push(current); // move instead of clone
+        order.push(current);
     }
 
-    if order.len() != resource_ids.len() {
-        let remaining: HashSet<_> = resource_ids.iter().collect();
-        let ordered: HashSet<_> = order.iter().collect();
-        let cycle_members: Vec<_> = remaining.difference(&ordered).collect();
-        return Err(format!(
-            "dependency cycle detected involving: {}",
-            cycle_members
-                .iter()
-                .map(|s| s.as_str())
-                .collect::<Vec<_>>()
-                .join(", ")
-        ));
-    }
-
-    Ok(order)
+    order
 }
 
 #[cfg(test)]

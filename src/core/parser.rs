@@ -37,88 +37,96 @@ pub fn parse_config(yaml: &str) -> Result<ForjarConfig, String> {
 pub fn validate_config(config: &ForjarConfig) -> Vec<ValidationError> {
     let mut errors = Vec::new();
 
-    // Version check
     if config.version != "1.0" {
         errors.push(ValidationError {
             message: format!("version must be \"1.0\", got \"{}\"", config.version),
         });
     }
 
-    // Name check
     if config.name.is_empty() {
         errors.push(ValidationError {
             message: "name must not be empty".to_string(),
         });
     }
 
-    // Validate each resource
     for (id, resource) in &config.resources {
-        // Machine references
-        for machine_name in resource.machine.to_vec() {
-            if !config.machines.contains_key(&machine_name) && machine_name != "localhost" {
-                errors.push(ValidationError {
-                    message: format!(
-                        "resource '{}' references unknown machine '{}'",
-                        id, machine_name
-                    ),
-                });
-            }
-        }
-
-        // depends_on references
-        for dep in &resource.depends_on {
-            if !config.resources.contains_key(dep) {
-                errors.push(ValidationError {
-                    message: format!("resource '{}' depends on unknown resource '{}'", id, dep),
-                });
-            }
-            if dep == id {
-                errors.push(ValidationError {
-                    message: format!("resource '{}' depends on itself", id),
-                });
-            }
-        }
-
-        // Type-specific validation
-        match resource.resource_type {
-            ResourceType::Package => {
-                if resource.packages.is_empty() {
-                    errors.push(ValidationError {
-                        message: format!("resource '{}' (package) has no packages", id),
-                    });
-                }
-                if resource.provider.is_none() {
-                    errors.push(ValidationError {
-                        message: format!("resource '{}' (package) has no provider", id),
-                    });
-                }
-            }
-            ResourceType::File => {
-                if resource.path.is_none() {
-                    errors.push(ValidationError {
-                        message: format!("resource '{}' (file) has no path", id),
-                    });
-                }
-            }
-            ResourceType::Service => {
-                if resource.name.is_none() {
-                    errors.push(ValidationError {
-                        message: format!("resource '{}' (service) has no name", id),
-                    });
-                }
-            }
-            ResourceType::Mount => {
-                if resource.source.is_none() && resource.path.is_none() {
-                    errors.push(ValidationError {
-                        message: format!("resource '{}' (mount) needs source and target path", id),
-                    });
-                }
-            }
-            _ => {} // Phase 2+ types — no validation yet
-        }
+        validate_resource_refs(config, id, resource, &mut errors);
+        validate_resource_type(id, resource, &mut errors);
     }
 
     errors
+}
+
+/// Validate machine and dependency references for a single resource.
+fn validate_resource_refs(
+    config: &ForjarConfig,
+    id: &str,
+    resource: &Resource,
+    errors: &mut Vec<ValidationError>,
+) {
+    for machine_name in resource.machine.to_vec() {
+        if !config.machines.contains_key(&machine_name) && machine_name != "localhost" {
+            errors.push(ValidationError {
+                message: format!(
+                    "resource '{}' references unknown machine '{}'",
+                    id, machine_name
+                ),
+            });
+        }
+    }
+
+    for dep in &resource.depends_on {
+        if !config.resources.contains_key(dep) {
+            errors.push(ValidationError {
+                message: format!("resource '{}' depends on unknown resource '{}'", id, dep),
+            });
+        }
+        if dep == id {
+            errors.push(ValidationError {
+                message: format!("resource '{}' depends on itself", id),
+            });
+        }
+    }
+}
+
+/// Validate type-specific required fields for a resource.
+fn validate_resource_type(id: &str, resource: &Resource, errors: &mut Vec<ValidationError>) {
+    match resource.resource_type {
+        ResourceType::Package => {
+            if resource.packages.is_empty() {
+                errors.push(ValidationError {
+                    message: format!("resource '{}' (package) has no packages", id),
+                });
+            }
+            if resource.provider.is_none() {
+                errors.push(ValidationError {
+                    message: format!("resource '{}' (package) has no provider", id),
+                });
+            }
+        }
+        ResourceType::File => {
+            if resource.path.is_none() {
+                errors.push(ValidationError {
+                    message: format!("resource '{}' (file) has no path", id),
+                });
+            }
+        }
+        ResourceType::Service => {
+            if resource.name.is_none() {
+                errors.push(ValidationError {
+                    message: format!("resource '{}' (service) has no name", id),
+                });
+            }
+        }
+        ResourceType::Mount => {
+            if resource.source.is_none() && resource.path.is_none() {
+                errors.push(ValidationError {
+                    message: format!("resource '{}' (mount) needs source and target path", id),
+                });
+            }
+        }
+        _ => {}
+    }
 }
 
 #[cfg(test)]
