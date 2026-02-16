@@ -362,11 +362,17 @@ fn build_resource_details(resource: &Resource) -> HashMap<String, serde_yaml_ng:
     let mut details = HashMap::new();
 
     if let Some(ref path) = resource.path {
-        details.insert("path".to_string(), serde_yaml_ng::Value::String(path.clone()));
+        details.insert(
+            "path".to_string(),
+            serde_yaml_ng::Value::String(path.clone()),
+        );
     }
     if let Some(ref content) = resource.content {
         let hash = hasher::hash_string(content);
-        details.insert("content_hash".to_string(), serde_yaml_ng::Value::String(hash));
+        details.insert(
+            "content_hash".to_string(),
+            serde_yaml_ng::Value::String(hash),
+        );
     }
     if let Some(ref owner) = resource.owner {
         details.insert(
@@ -381,7 +387,10 @@ fn build_resource_details(resource: &Resource) -> HashMap<String, serde_yaml_ng:
         );
     }
     if let Some(ref mode) = resource.mode {
-        details.insert("mode".to_string(), serde_yaml_ng::Value::String(mode.clone()));
+        details.insert(
+            "mode".to_string(),
+            serde_yaml_ng::Value::String(mode.clone()),
+        );
     }
     if let Some(ref name) = resource.name {
         details.insert(

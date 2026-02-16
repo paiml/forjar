@@ -214,8 +214,14 @@ mod tests {
     #[test]
     fn test_fj003_resolve_multiple() {
         let mut params = HashMap::new();
-        params.insert("a".to_string(), serde_yaml_ng::Value::String("X".to_string()));
-        params.insert("b".to_string(), serde_yaml_ng::Value::String("Y".to_string()));
+        params.insert(
+            "a".to_string(),
+            serde_yaml_ng::Value::String("X".to_string()),
+        );
+        params.insert(
+            "b".to_string(),
+            serde_yaml_ng::Value::String("Y".to_string()),
+        );
         let machines = indexmap::IndexMap::new();
         let result = resolve_template("{{params.a}}-{{params.b}}", &params, &machines).unwrap();
         assert_eq!(result, "X-Y");

@@ -632,7 +632,10 @@ addr: 1.2.3.4
             yaml_value_to_string(&serde_yaml_ng::Value::String("hello".into())),
             "hello"
         );
-        assert_eq!(yaml_value_to_string(&serde_yaml_ng::Value::Bool(true)), "true");
+        assert_eq!(
+            yaml_value_to_string(&serde_yaml_ng::Value::Bool(true)),
+            "true"
+        );
         assert_eq!(yaml_value_to_string(&serde_yaml_ng::Value::Null), "");
     }
 
