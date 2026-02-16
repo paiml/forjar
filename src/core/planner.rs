@@ -576,6 +576,30 @@ resources:
     }
 
     #[test]
+    fn test_fj004_determine_action_default_state_non_standard_type() {
+        // Exercises the `_ => "present"` default state branch for non-standard
+        // resource types (User, Docker, Network, etc.)
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 127.0.0.1
+resources:
+  my-user:
+    type: user
+    machine: m1
+    name: deploy
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let order = vec!["my-user".to_string()];
+        let locks = HashMap::new();
+        let plan = plan(&config, &order, &locks);
+        assert_eq!(plan.to_create, 1);
+    }
+
+    #[test]
     fn test_fj004_multi_machine() {
         let yaml = r#"
 version: "1.0"

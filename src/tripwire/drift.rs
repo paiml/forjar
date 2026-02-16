@@ -327,6 +327,87 @@ mod tests {
     }
 
     #[test]
+    fn test_fj016_detect_drift_non_string_path_skipped() {
+        // Exercises the `_ => continue` branch when path is not a String
+        let mut resources = indexmap::IndexMap::new();
+        let mut details = std::collections::HashMap::new();
+        details.insert(
+            "path".to_string(),
+            serde_yaml_ng::Value::Number(serde_yaml_ng::Number::from(42)),
+        );
+        details.insert(
+            "content_hash".to_string(),
+            serde_yaml_ng::Value::String("blake3:abc".to_string()),
+        );
+        resources.insert(
+            "bad-path".to_string(),
+            crate::core::types::ResourceLock {
+                resource_type: ResourceType::File,
+                status: ResourceStatus::Converged,
+                applied_at: None,
+                duration_seconds: None,
+                hash: "blake3:abc".to_string(),
+                details,
+            },
+        );
+
+        let lock = StateLock {
+            schema: "1.0".to_string(),
+            machine: "test".to_string(),
+            hostname: "test-box".to_string(),
+            generated_at: "2026-01-01T00:00:00Z".to_string(),
+            generator: "forjar 0.1.0".to_string(),
+            blake3_version: "1.8".to_string(),
+            resources,
+        };
+
+        let findings = detect_drift(&lock);
+        assert!(
+            findings.is_empty(),
+            "non-string path value should be skipped"
+        );
+    }
+
+    #[test]
+    fn test_fj016_detect_drift_non_string_content_hash_skipped() {
+        // Exercises the `_ => continue` branch when content_hash is not a String
+        let mut resources = indexmap::IndexMap::new();
+        let mut details = std::collections::HashMap::new();
+        details.insert(
+            "path".to_string(),
+            serde_yaml_ng::Value::String("/tmp/test.txt".to_string()),
+        );
+        details.insert("content_hash".to_string(), serde_yaml_ng::Value::Bool(true));
+        resources.insert(
+            "bad-hash".to_string(),
+            crate::core::types::ResourceLock {
+                resource_type: ResourceType::File,
+                status: ResourceStatus::Converged,
+                applied_at: None,
+                duration_seconds: None,
+                hash: "blake3:abc".to_string(),
+                details,
+            },
+        );
+
+        let lock = StateLock {
+            schema: "1.0".to_string(),
+            machine: "test".to_string(),
+            hostname: "test-box".to_string(),
+            generated_at: "2026-01-01T00:00:00Z".to_string(),
+            generator: "forjar 0.1.0".to_string(),
+            blake3_version: "1.8".to_string(),
+            resources,
+        };
+
+        let findings = detect_drift(&lock);
+        assert!(
+            findings.is_empty(),
+            "non-string content_hash should be skipped"
+        );
+    }
+
+    #[test]
     fn test_fj016_check_file_drift_directory() {
         let dir = tempfile::tempdir().unwrap();
         let subdir = dir.path().join("mydir");

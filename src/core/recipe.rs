@@ -723,6 +723,42 @@ resources: {}
     }
 
     #[test]
+    fn test_fj019_resolve_resource_inputs_target_and_options() {
+        use crate::core::types::{MachineTarget, Resource, ResourceType};
+
+        let resource = Resource {
+            resource_type: ResourceType::Mount,
+            machine: MachineTarget::Single("m1".to_string()),
+            state: None,
+            depends_on: vec![],
+            provider: None,
+            packages: vec![],
+            path: Some("/mnt/{{inputs.vol}}".to_string()),
+            content: None,
+            source: Some("{{inputs.server}}:/data".to_string()),
+            target: Some("/mnt/{{inputs.vol}}/sub".to_string()),
+            owner: None,
+            group: None,
+            mode: None,
+            name: None,
+            enabled: None,
+            restart_on: vec![],
+            fs_type: None,
+            options: Some("ro,{{inputs.extra}}".to_string()),
+        };
+        let mut inputs = HashMap::new();
+        inputs.insert("vol".to_string(), "raid".to_string());
+        inputs.insert("server".to_string(), "nas01".to_string());
+        inputs.insert("extra".to_string(), "hard".to_string());
+
+        let resolved = resolve_resource_inputs(&resource, &inputs).unwrap();
+        assert_eq!(resolved.path.as_deref(), Some("/mnt/raid"));
+        assert_eq!(resolved.source.as_deref(), Some("nas01:/data"));
+        assert_eq!(resolved.target.as_deref(), Some("/mnt/raid/sub"));
+        assert_eq!(resolved.options.as_deref(), Some("ro,hard"));
+    }
+
+    #[test]
     fn test_fj019_validate_string_non_string_coercion() {
         let yaml = r#"
 recipe:
