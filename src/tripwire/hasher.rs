@@ -53,7 +53,7 @@ pub fn hash_directory(path: &Path) -> Result<String, String> {
             let path = entry.path();
             let rel = path
                 .strip_prefix(base)
-                .unwrap()
+                .map_err(|e| format!("path prefix error: {}", e))?
                 .to_string_lossy()
                 .to_string();
             if ft.is_file() {
