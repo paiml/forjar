@@ -1,6 +1,6 @@
 //! FJ-017: CLI subcommands — plan, apply, drift, status, init, validate.
 
-use crate::core::{executor, parser, planner, resolver, state};
+use crate::core::{executor, parser, planner, resolver, state, types};
 use crate::tripwire::drift;
 use clap::Subcommand;
 use std::path::{Path, PathBuf};
@@ -34,6 +34,10 @@ pub enum Commands {
         /// Target specific resource
         #[arg(short, long)]
         resource: Option<String>,
+
+        /// State directory
+        #[arg(long, default_value = "state")]
+        state_dir: PathBuf,
     },
 
     /// Converge infrastructure to desired state
@@ -103,7 +107,8 @@ pub fn dispatch(cmd: Commands) -> Result<(), String> {
             file,
             machine,
             resource,
-        } => cmd_plan(&file, machine.as_deref(), resource.as_deref()),
+            state_dir,
+        } => cmd_plan(&file, &state_dir, machine.as_deref(), resource.as_deref()),
         Commands::Apply {
             file,
             machine,
@@ -184,22 +189,59 @@ fn cmd_validate(file: &Path) -> Result<(), String> {
 
 fn cmd_plan(
     file: &Path,
+    state_dir: &Path,
     machine_filter: Option<&str>,
     _resource_filter: Option<&str>,
 ) -> Result<(), String> {
-    let config = parser::parse_config_file(file)?;
-    let errors = parser::validate_config(&config);
-    if !errors.is_empty() {
-        for e in &errors {
-            eprintln!("  ERROR: {}", e);
-        }
-        return Err("validation failed".to_string());
-    }
-
+    let config = parse_and_validate(file)?;
     let execution_order = resolver::build_execution_order(&config)?;
-    let locks = std::collections::HashMap::new(); // TODO: load from state dir
+
+    // Load existing locks so plan shows accurate Create vs Update vs NoOp
+    let locks = load_machine_locks(&config, state_dir, machine_filter)?;
     let plan = planner::plan(&config, &execution_order, &locks);
 
+    print_plan(&plan, machine_filter);
+    Ok(())
+}
+
+/// Parse and validate a forjar config file, returning errors if invalid.
+fn parse_and_validate(file: &Path) -> Result<types::ForjarConfig, String> {
+    let config = parser::parse_config_file(file)?;
+    let errors = parser::validate_config(&config);
+    if errors.is_empty() {
+        return Ok(config);
+    }
+    for e in &errors {
+        eprintln!("  ERROR: {}", e);
+    }
+    Err("validation failed".to_string())
+}
+
+/// Load lock files for machines referenced in the config.
+fn load_machine_locks(
+    config: &types::ForjarConfig,
+    state_dir: &Path,
+    machine_filter: Option<&str>,
+) -> Result<std::collections::HashMap<String, types::StateLock>, String> {
+    let mut locks = std::collections::HashMap::new();
+    if !state_dir.exists() {
+        return Ok(locks);
+    }
+    for machine_name in config.machines.keys() {
+        if let Some(filter) = machine_filter {
+            if machine_name != filter {
+                continue;
+            }
+        }
+        if let Some(lock) = state::load_lock(state_dir, machine_name)? {
+            locks.insert(machine_name.clone(), lock);
+        }
+    }
+    Ok(locks)
+}
+
+/// Display a plan to stdout.
+fn print_plan(plan: &types::ExecutionPlan, machine_filter: Option<&str>) {
     println!("Planning: {} ({} resources)", plan.name, plan.changes.len());
     println!();
 
@@ -210,17 +252,15 @@ fn cmd_plan(
                 continue;
             }
         }
-
         if change.machine != current_machine {
-            current_machine = change.machine.clone();
+            current_machine.clone_from(&change.machine);
             println!("{}:", current_machine);
         }
-
         let symbol = match change.action {
-            crate::core::types::PlanAction::Create => "+",
-            crate::core::types::PlanAction::Update => "~",
-            crate::core::types::PlanAction::Destroy => "-",
-            crate::core::types::PlanAction::NoOp => " ",
+            types::PlanAction::Create => "+",
+            types::PlanAction::Update => "~",
+            types::PlanAction::Destroy => "-",
+            types::PlanAction::NoOp => " ",
         };
         println!("  {} {}", symbol, change.description);
     }
@@ -230,8 +270,6 @@ fn cmd_plan(
         "Plan: {} to add, {} to change, {} to destroy, {} unchanged.",
         plan.to_create, plan.to_update, plan.to_destroy, plan.unchanged
     );
-
-    Ok(())
 }
 
 fn cmd_apply(
@@ -242,14 +280,7 @@ fn cmd_apply(
     force: bool,
     dry_run: bool,
 ) -> Result<(), String> {
-    let config = parser::parse_config_file(file)?;
-    let errors = parser::validate_config(&config);
-    if !errors.is_empty() {
-        for e in &errors {
-            eprintln!("  ERROR: {}", e);
-        }
-        return Err("validation failed".to_string());
-    }
+    let config = parse_and_validate(file)?;
 
     let cfg = executor::ApplyConfig {
         config: &config,
@@ -494,13 +525,17 @@ resources:
 "#,
         )
         .unwrap();
-        cmd_plan(&config, None, None).unwrap();
+        let state = dir.path().join("state");
+        std::fs::create_dir_all(&state).unwrap();
+        cmd_plan(&config, &state, None, None).unwrap();
     }
 
     #[test]
     fn test_fj017_plan_with_machine_filter() {
         let dir = tempfile::tempdir().unwrap();
         let config = dir.path().join("forjar.yaml");
+        let state = dir.path().join("state");
+        std::fs::create_dir_all(&state).unwrap();
         std::fs::write(
             &config,
             r#"
@@ -527,13 +562,14 @@ resources:
 "#,
         )
         .unwrap();
-        cmd_plan(&config, Some("a"), None).unwrap();
+        cmd_plan(&config, &state, Some("a"), None).unwrap();
     }
 
     #[test]
     fn test_fj017_plan_validation_error() {
         let dir = tempfile::tempdir().unwrap();
         let config = dir.path().join("forjar.yaml");
+        let state = dir.path().join("state");
         std::fs::write(
             &config,
             r#"
@@ -544,7 +580,7 @@ resources: {}
 "#,
         )
         .unwrap();
-        let result = cmd_plan(&config, None, None);
+        let result = cmd_plan(&config, &state, None, None);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("validation"));
     }
@@ -831,10 +867,13 @@ resources:
 "#,
         )
         .unwrap();
+        let state = dir.path().join("state");
+        std::fs::create_dir_all(&state).unwrap();
         dispatch(Commands::Plan {
             file: config,
             machine: None,
             resource: None,
+            state_dir: state,
         })
         .unwrap();
     }
