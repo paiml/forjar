@@ -59,6 +59,11 @@ forjar.yaml                    (human-authored desired state)
        │
        ▼
 ┌─────────────┐
+│   recipe    │                load recipes, validate inputs, expand into resources
+└──────┬──────┘
+       │
+       ▼
+┌─────────────┐
 │  resolver   │                resolve templates, compute dependency DAG
 └──────┬──────┘
        │
@@ -115,6 +120,7 @@ src/
     codegen.rs          Rust AST → bashrs-compatible provisioning code
     executor.rs         SSH dispatch, parallel apply
     state.rs            Lock file management (BLAKE3 content-addressed)
+    recipe.rs           Recipe loading, input validation, expansion into resources
   tripwire/
     mod.rs              Provenance tracing orchestration
     tracer.rs           renacer integration — syscall capture per apply
@@ -380,7 +386,257 @@ isolation:
     cpus: 4
 ```
 
-### 3.3 Template Variables
+### 3.3 Recipes
+
+Recipes are reusable, parameterized infrastructure patterns — the forjar equivalent of Nix flakes, Homebrew formulae, or Ansible roles. A recipe bundles resources into a sharable, composable unit with typed inputs.
+
+#### 3.3.1 Design Philosophy
+
+| Decision | Forjar | Nix | Homebrew | Why |
+|----------|--------|-----|----------|-----|
+| Recipe language | **YAML** | Custom functional lang | Ruby DSL | Zero learning curve |
+| Composition | `include` + inputs | Flake inputs + overlays | Taps | Simple, sufficient |
+| Sharing | Git repos | Flake registries | Taps (git repos) | Git-native, sovereign |
+| Parameterization | Typed YAML inputs | Module options | Formula DSL | Declarative, no code |
+| Isolation | None (bare-metal) | `/nix/store/<hash>` | `/usr/local/Cellar` | Trust the OS |
+| Rollback | `git revert` | Atomic generations | None | State lives in git |
+
+#### 3.3.2 Recipe File Format
+
+A recipe is a standalone YAML file declaring inputs and resources:
+
+```yaml
+# recipes/nfs-server.yaml
+recipe:
+  name: nfs-server
+  version: "1.0"
+  description: "NFS server with exports and firewall"
+  author: "Pragmatic AI Labs"
+  license: "MIT"
+
+  inputs:
+    export_path:
+      type: string
+      description: "Directory to export via NFS"
+    allowed_network:
+      type: string
+      default: "192.168.50.0/24"
+      description: "Network CIDR allowed to mount"
+    options:
+      type: string
+      default: "rw,sync,no_subtree_check"
+      description: "NFS export options"
+    read_only:
+      type: bool
+      default: false
+
+  # Recipes this recipe depends on (resolved first)
+  requires: []
+
+resources:
+  nfs-packages:
+    type: package
+    provider: apt
+    packages: [nfs-kernel-server, nfs-common]
+
+  export-dir:
+    type: file
+    state: directory
+    path: "{{inputs.export_path}}"
+    owner: root
+    mode: "0755"
+
+  exports-file:
+    type: file
+    path: /etc/exports
+    content: |
+      {{inputs.export_path}} {{inputs.allowed_network}}({{inputs.options}})
+    depends_on: [export-dir]
+
+  nfs-service:
+    type: service
+    name: nfs-kernel-server
+    state: running
+    enabled: true
+    restart_on: [exports-file]
+    depends_on: [nfs-packages, exports-file]
+```
+
+#### 3.3.3 Recipe Input Types
+
+| Type | YAML Value | Validation |
+|------|------------|------------|
+| `string` | Any string | Non-empty if required |
+| `int` | Integer | Optional min/max |
+| `bool` | true/false | Must be boolean |
+| `list` | YAML sequence | Optional min/max length |
+| `path` | String | Must start with `/` |
+| `enum` | String | Must be one of `choices` |
+
+Example with constraints:
+
+```yaml
+inputs:
+  port:
+    type: int
+    default: 8080
+    min: 1024
+    max: 65535
+  protocol:
+    type: enum
+    choices: [tcp, udp]
+    default: tcp
+  mount_points:
+    type: list
+    min_length: 1
+    description: "Paths to mount"
+```
+
+#### 3.3.4 Recipe Sources
+
+Recipes can be loaded from three sources:
+
+```yaml
+# In forjar.yaml
+recipes:
+  # 1. Local path (relative to forjar.yaml)
+  - path: recipes/nfs-server.yaml
+
+  # 2. Local directory (all .yaml files in directory)
+  - path: recipes/
+
+  # 3. Git repository (cloned to .forjar/recipes/<name>/)
+  - git: github.com/paiml/forjar-recipes
+    ref: v1.0.0                    # tag, branch, or commit SHA
+    path: recipes/                 # subdirectory within the repo
+```
+
+Git-based recipe sources are analogous to Homebrew taps:
+- `brew tap paiml/tools` → `git: github.com/paiml/forjar-recipes`
+- `brew install batuta` → `recipe: nfs-server` with inputs
+- Recipes are cached locally in `.forjar/recipes/` and pinned by SHA in the lock file
+
+#### 3.3.5 Using Recipes in forjar.yaml
+
+A recipe is instantiated as a resource of `type: recipe`:
+
+```yaml
+resources:
+  raid-nfs:
+    type: recipe
+    recipe: nfs-server
+    machine: lambda
+    inputs:
+      export_path: /mnt/nvme-raid0
+      allowed_network: "192.168.50.0/24"
+    depends_on: [some-other-resource]
+
+  # Regular resources alongside recipes
+  tools:
+    type: package
+    machine: lambda
+    provider: cargo
+    packages: [batuta]
+    depends_on: [raid-nfs]
+```
+
+When the config is loaded, recipe resources are **expanded** into their constituent resources with namespaced IDs:
+
+```
+raid-nfs                    →  raid-nfs/nfs-packages
+                               raid-nfs/export-dir
+                               raid-nfs/exports-file
+                               raid-nfs/nfs-service
+```
+
+The `machine` target from the recipe resource propagates to all inner resources. External `depends_on` references to the recipe ID (`raid-nfs`) become dependencies on the recipe's **last** resource in topo order.
+
+#### 3.3.6 Recipe Composition
+
+Recipes can require other recipes:
+
+```yaml
+# recipes/nfs-client-mount.yaml
+recipe:
+  name: nfs-client-mount
+  version: "1.0"
+  inputs:
+    server_addr:
+      type: string
+    remote_path:
+      type: path
+    local_path:
+      type: path
+    mount_options:
+      type: string
+      default: "ro,hard,intr"
+  requires:
+    - recipe: nfs-client-pkg
+
+resources:
+  mount-point:
+    type: file
+    state: directory
+    path: "{{inputs.local_path}}"
+
+  nfs-mount:
+    type: mount
+    source: "{{inputs.server_addr}}:{{inputs.remote_path}}"
+    path: "{{inputs.local_path}}"
+    fstype: nfs
+    options: "{{inputs.mount_options}}"
+    depends_on: [mount-point]
+```
+
+#### 3.3.7 Recipe Registry Structure
+
+A recipe registry is a git repo with this structure:
+
+```
+forjar-recipes/
+  registry.yaml              # metadata index
+  recipes/
+    nfs-server.yaml
+    nfs-client.yaml
+    docker-host.yaml
+    rust-toolchain.yaml
+    gpu-drivers.yaml
+    ...
+```
+
+`registry.yaml`:
+
+```yaml
+name: paiml-recipes
+version: "1.0"
+description: "Pragmatic AI Labs infrastructure recipes"
+recipes:
+  - name: nfs-server
+    path: recipes/nfs-server.yaml
+    tags: [networking, storage]
+  - name: docker-host
+    path: recipes/docker-host.yaml
+    tags: [containers]
+  - name: gpu-drivers
+    path: recipes/gpu-drivers.yaml
+    tags: [gpu, nvidia]
+    arch: [x86_64]
+```
+
+#### 3.3.8 Comparison to Alternatives
+
+| Capability | Nix Flakes | Homebrew Taps | Ansible Roles | **Forjar Recipes** |
+|------------|-----------|---------------|---------------|-------------------|
+| Format | Nix lang | Ruby DSL | YAML + Jinja2 | **Pure YAML** |
+| Inputs | Module options (typed) | Formula DSL | `defaults/main.yml` | **Typed YAML inputs** |
+| Sharing | FlakeHub, git | GitHub taps | Ansible Galaxy | **Git repos** |
+| Lock pinning | `flake.lock` (SHA) | None | `requirements.yml` | **forjar.lock.yaml (SHA)** |
+| Composition | `inputs.follows` | None | `meta/dependencies` | **`requires` + `depends_on`** |
+| Namespacing | Flake outputs | Formula names | Role name prefix | **`recipe-id/resource-id`** |
+| Customization | Overlays | None | Variables | **Input overrides** |
+| Learning curve | Very steep | Low | Medium | **Minimal (YAML only)** |
+
+### 3.4 Template Variables
 
 | Pattern | Resolves To |
 |---------|-------------|
@@ -767,6 +1023,7 @@ Options:
 | FJ-016 | `tripwire/drift.rs` — drift detection | M |
 | FJ-017 | `cli/` — all subcommands | M |
 | FJ-018 | Integration test: lambda + intel NFS setup | M |
+| FJ-019 | `core/recipe.rs` — recipe loading, input validation, expansion | M |
 
 ### Phase 2: Containers + Parallel (v0.2)
 
@@ -905,6 +1162,9 @@ assert_cmd = "2"
 | I8 | No raw shell execution — all shell is bashrs-purified | codegen pipeline |
 | I9 | State never leaves the git repo — no remote backends | state module |
 | I10 | Every apply is traceable to a git commit | tripwire/eventlog |
+| I11 | Recipes expand deterministically — same inputs always produce same resources | recipe module |
+| I12 | Recipe inputs are validated against declared types before expansion | recipe module |
+| I13 | Git-pinned recipes are locked by SHA for reproducibility | state module |
 
 ---
 
