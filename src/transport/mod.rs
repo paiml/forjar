@@ -60,6 +60,8 @@ mod tests {
     fn test_transport_local_detection() {
         assert!(is_local_addr("127.0.0.1"));
         assert!(is_local_addr("localhost"));
+        assert!(is_local_addr("::1"));
         assert!(!is_local_addr("192.168.1.100"));
+        assert!(!is_local_addr("10.0.0.1"));
     }
 }

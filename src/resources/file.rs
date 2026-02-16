@@ -232,4 +232,26 @@ mod tests {
         assert!(script.contains("chown 'root' '/etc/test.conf'"));
         assert!(!script.contains("chown 'root:"));
     }
+
+    #[test]
+    fn test_fj007_apply_directory_owner_and_group() {
+        let mut r = make_file_resource("/data/exports", None);
+        r.state = Some("directory".to_string());
+        r.owner = Some("nfs".to_string());
+        r.group = Some("nfs".to_string());
+        r.mode = None;
+        let script = apply_script(&r);
+        assert!(script.contains("mkdir -p '/data/exports'"));
+        assert!(script.contains("chown 'nfs:nfs' '/data/exports'"));
+    }
+
+    #[test]
+    fn test_fj007_apply_file_at_root_no_mkdir() {
+        // File at root path (/) should NOT have `mkdir -p '/'`
+        let mut r = make_file_resource("/init", Some("boot script"));
+        r.owner = None;
+        let script = apply_script(&r);
+        assert!(script.contains("cat > '/init'"));
+        assert!(!script.contains("mkdir -p '/'"));
+    }
 }

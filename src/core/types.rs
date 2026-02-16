@@ -575,12 +575,16 @@ addr: 1.2.3.4
     #[test]
     fn test_fj001_resource_status_display() {
         assert_eq!(ResourceStatus::Converged.to_string(), "CONVERGED");
+        assert_eq!(ResourceStatus::Failed.to_string(), "FAILED");
         assert_eq!(ResourceStatus::Drifted.to_string(), "DRIFTED");
+        assert_eq!(ResourceStatus::Unknown.to_string(), "UNKNOWN");
     }
 
     #[test]
     fn test_fj001_plan_action_display() {
         assert_eq!(PlanAction::Create.to_string(), "CREATE");
+        assert_eq!(PlanAction::Update.to_string(), "UPDATE");
+        assert_eq!(PlanAction::Destroy.to_string(), "DESTROY");
         assert_eq!(PlanAction::NoOp.to_string(), "NO-OP");
     }
 
@@ -633,10 +637,19 @@ addr: 1.2.3.4
             "hello"
         );
         assert_eq!(
+            yaml_value_to_string(&serde_yaml_ng::Value::Number(serde_yaml_ng::Number::from(
+                42
+            ))),
+            "42"
+        );
+        assert_eq!(
             yaml_value_to_string(&serde_yaml_ng::Value::Bool(true)),
             "true"
         );
         assert_eq!(yaml_value_to_string(&serde_yaml_ng::Value::Null), "");
+        // Sequence/Mapping falls through to Debug format
+        let seq = serde_yaml_ng::Value::Sequence(vec![serde_yaml_ng::Value::Null]);
+        assert!(!yaml_value_to_string(&seq).is_empty());
     }
 
     #[test]

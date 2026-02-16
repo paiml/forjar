@@ -203,6 +203,24 @@ mod tests {
     }
 
     #[test]
+    fn test_fj005_state_query_file() {
+        let mut r = make_package();
+        r.resource_type = ResourceType::File;
+        r.path = Some("/etc/conf".to_string());
+        let script = state_query_script(&r).unwrap();
+        assert!(script.contains("stat") || script.contains("/etc/conf"));
+    }
+
+    #[test]
+    fn test_fj005_state_query_service() {
+        let mut r = make_package();
+        r.resource_type = ResourceType::Service;
+        r.name = Some("nginx".to_string());
+        let script = state_query_script(&r).unwrap();
+        assert!(script.contains("nginx"));
+    }
+
+    #[test]
     fn test_fj005_unsupported_type() {
         let mut r = make_package();
         r.resource_type = ResourceType::Docker;
