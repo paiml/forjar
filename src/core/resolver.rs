@@ -75,6 +75,21 @@ pub fn resolve_resource_templates(
     if let Some(ref target) = resolved.target {
         resolved.target = Some(resolve_template(target, params, machines)?);
     }
+    if let Some(ref owner) = resolved.owner {
+        resolved.owner = Some(resolve_template(owner, params, machines)?);
+    }
+    if let Some(ref group) = resolved.group {
+        resolved.group = Some(resolve_template(group, params, machines)?);
+    }
+    if let Some(ref mode) = resolved.mode {
+        resolved.mode = Some(resolve_template(mode, params, machines)?);
+    }
+    if let Some(ref name) = resolved.name {
+        resolved.name = Some(resolve_template(name, params, machines)?);
+    }
+    if let Some(ref options) = resolved.options {
+        resolved.options = Some(resolve_template(options, params, machines)?);
+    }
 
     Ok(resolved)
 }

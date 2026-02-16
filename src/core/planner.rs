@@ -1,5 +1,6 @@
 //! FJ-004: Plan generation — diff desired state against lock state.
 
+use super::resolver;
 use super::types::*;
 use crate::tripwire::hasher;
 
@@ -21,8 +22,16 @@ pub fn plan(
             None => continue,
         };
 
+        // Resolve templates before hashing so planner hash matches executor hash
+        let resolved = resolver::resolve_resource_templates(
+            resource,
+            &config.params,
+            &config.machines,
+        )
+        .unwrap_or_else(|_| resource.clone());
+
         for machine_name in resource.machine.to_vec() {
-            let action = determine_action(resource_id, resource, &machine_name, locks);
+            let action = determine_action(resource_id, &resolved, &machine_name, locks);
             let description = describe_action(resource_id, resource, &action);
 
             match action {
