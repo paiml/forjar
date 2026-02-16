@@ -576,6 +576,54 @@ resources:
     }
 
     #[test]
+    fn test_fj004_determine_action_mount_default_state() {
+        // Exercises `ResourceType::Mount => "mounted"` default state branch
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 127.0.0.1
+resources:
+  nfs-share:
+    type: mount
+    machine: m1
+    source: "nas:/data"
+    path: /mnt/data
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let order = vec!["nfs-share".to_string()];
+        let locks = HashMap::new();
+        let plan = plan(&config, &order, &locks);
+        assert_eq!(plan.to_create, 1);
+    }
+
+    #[test]
+    fn test_fj004_determine_action_service_default_state() {
+        // Exercises `ResourceType::Service => "running"` default state branch
+        // (no explicit state field)
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 127.0.0.1
+resources:
+  web:
+    type: service
+    machine: m1
+    name: nginx
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let order = vec!["web".to_string()];
+        let locks = HashMap::new();
+        let plan = plan(&config, &order, &locks);
+        assert_eq!(plan.to_create, 1);
+    }
+
+    #[test]
     fn test_fj004_determine_action_default_state_non_standard_type() {
         // Exercises the `_ => "present"` default state branch for non-standard
         // resource types (User, Docker, Network, etc.)

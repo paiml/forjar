@@ -162,4 +162,33 @@ mod tests {
         let result = hash_file(Path::new("/nonexistent/file.txt"));
         assert!(result.is_err());
     }
+
+    #[test]
+    fn test_fj014_hash_directory_with_symlink_and_subdirs() {
+        let dir = tempfile::tempdir().unwrap();
+        // File in root
+        std::fs::write(dir.path().join("root.txt"), "root").unwrap();
+        // Subdirectory with file
+        std::fs::create_dir(dir.path().join("sub")).unwrap();
+        std::fs::write(dir.path().join("sub").join("nested.txt"), "nested").unwrap();
+        // Symlink — should be skipped
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(dir.path().join("root.txt"), dir.path().join("link.txt"))
+            .unwrap();
+
+        let h = hash_directory(dir.path()).unwrap();
+        assert!(h.starts_with("blake3:"));
+
+        // Verify symlink doesn't affect hash: remove symlink, hash should be same
+        #[cfg(unix)]
+        {
+            let h_with_link = h.clone();
+            std::fs::remove_file(dir.path().join("link.txt")).unwrap();
+            let h_without_link = hash_directory(dir.path()).unwrap();
+            assert_eq!(
+                h_with_link, h_without_link,
+                "symlink should not affect hash"
+            );
+        }
+    }
 }
