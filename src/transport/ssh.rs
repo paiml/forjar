@@ -17,10 +17,10 @@ pub fn exec_ssh(machine: &Machine, script: &str) -> Result<ExecOutput, String> {
         .args(["-o", "StrictHostKeyChecking=accept-new"]);
 
     if let Some(ref key) = machine.ssh_key {
-        // Expand ~ to home directory
-        let expanded = if key.starts_with("~/") {
+        // Expand ~ to home directory (CB-506: avoid byte indexing)
+        let expanded = if let Some(rest) = key.strip_prefix("~/") {
             if let Ok(home) = std::env::var("HOME") {
-                format!("{}{}", home, &key[1..])
+                format!("{}/{}", home, rest)
             } else {
                 key.clone()
             }
@@ -63,9 +63,9 @@ mod tests {
     fn test_fj011_ssh_key_expansion() {
         // Test that ~ expansion works (unit test, no actual SSH)
         let key = "~/.ssh/id_ed25519";
-        let expanded = if key.starts_with("~/") {
+        let expanded = if let Some(rest) = key.strip_prefix("~/") {
             if let Ok(home) = std::env::var("HOME") {
-                format!("{}{}", home, &key[1..])
+                format!("{}/{}", home, rest)
             } else {
                 key.to_string()
             }

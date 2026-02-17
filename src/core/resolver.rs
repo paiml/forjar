@@ -5,6 +5,7 @@
 //! using Kahn's algorithm with deterministic (alphabetical) tie-breaking.
 
 use super::types::*;
+use std::borrow::Cow;
 use std::collections::{HashMap, HashSet, VecDeque};
 
 /// DAG representation: (in-degree per node, adjacency list).
@@ -27,11 +28,13 @@ pub fn resolve_template(
         let close = open + close + 2;
         let key = result[open + 2..close - 2].trim();
 
-        let value = if let Some(param_key) = key.strip_prefix("params.") {
-            params
-                .get(param_key)
-                .map(yaml_value_to_string)
-                .ok_or_else(|| format!("unknown param: {}", param_key))?
+        let value: Cow<str> = if let Some(param_key) = key.strip_prefix("params.") {
+            Cow::Owned(
+                params
+                    .get(param_key)
+                    .map(yaml_value_to_string)
+                    .ok_or_else(|| format!("unknown param: {}", param_key))?,
+            )
         } else if key.starts_with("machine.") {
             let parts: Vec<&str> = key.splitn(3, '.').collect();
             if parts.len() != 3 {
@@ -40,13 +43,13 @@ pub fn resolve_template(
             let machine = machines
                 .get(parts[1])
                 .ok_or_else(|| format!("unknown machine: {}", parts[1]))?;
-            match parts[2] {
-                "addr" => machine.addr.clone(),
-                "hostname" => machine.hostname.clone(),
-                "user" => machine.user.clone(),
-                "arch" => machine.arch.clone(),
+            Cow::Borrowed(match parts[2] {
+                "addr" => &machine.addr,
+                "hostname" => &machine.hostname,
+                "user" => &machine.user,
+                "arch" => &machine.arch,
                 _ => return Err(format!("unknown machine field: {}", parts[2])),
-            }
+            })
         } else {
             return Err(format!("unknown template variable: {}", key));
         };

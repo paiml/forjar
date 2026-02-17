@@ -25,7 +25,10 @@ pub fn plan(
         // Resolve templates before hashing so planner hash matches executor hash
         let resolved =
             resolver::resolve_resource_templates(resource, &config.params, &config.machines)
-                .unwrap_or_else(|_| resource.clone());
+                .unwrap_or_else(|e| {
+                    eprintln!("warning: template resolution failed for {}: {}", resource_id, e);
+                    resource.clone()
+                });
 
         for machine_name in resource.machine.to_vec() {
             let action = determine_action(resource_id, &resolved, &machine_name, locks);
@@ -108,44 +111,44 @@ fn determine_action(
 
 /// Compute a hash of the desired state for comparison.
 pub fn hash_desired_state(resource: &Resource) -> String {
-    let mut components = Vec::new();
-    components.push(resource.resource_type.to_string());
+    let type_str = resource.resource_type.to_string();
+    let mut components: Vec<&str> = vec![&type_str];
 
     if let Some(ref s) = resource.state {
-        components.push(s.clone());
+        components.push(s);
     }
     if let Some(ref p) = resource.provider {
-        components.push(p.clone());
+        components.push(p);
     }
     for pkg in &resource.packages {
-        components.push(pkg.clone());
+        components.push(pkg);
     }
     if let Some(ref path) = resource.path {
-        components.push(path.clone());
+        components.push(path);
     }
     if let Some(ref content) = resource.content {
-        components.push(content.clone());
+        components.push(content);
     }
     if let Some(ref source) = resource.source {
-        components.push(source.clone());
+        components.push(source);
     }
     if let Some(ref name) = resource.name {
-        components.push(name.clone());
+        components.push(name);
     }
     if let Some(ref owner) = resource.owner {
-        components.push(owner.clone());
+        components.push(owner);
     }
     if let Some(ref group) = resource.group {
-        components.push(group.clone());
+        components.push(group);
     }
     if let Some(ref mode) = resource.mode {
-        components.push(mode.clone());
+        components.push(mode);
     }
     if let Some(ref fs_type) = resource.fs_type {
-        components.push(fs_type.clone());
+        components.push(fs_type);
     }
     if let Some(ref options) = resource.options {
-        components.push(options.clone());
+        components.push(options);
     }
 
     let joined = components.join("\0");
