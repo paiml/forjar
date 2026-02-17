@@ -1,0 +1,9 @@
+[thresholds]
+min_tdg_grade = "A"
+max_complexity = 10
+min_coverage = 95.0
+max_dead_code_pct = 5.0
+max_muda_score = 40
+
+[enforcement]
+fail_on_regression = true
