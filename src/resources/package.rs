@@ -43,13 +43,15 @@ pub fn apply_script(resource: &Resource) -> String {
             let joined = pkg_list.join(" ");
             format!(
                 "set -euo pipefail\n\
+                 SUDO=\"\"\n\
+                 [ \"$(id -u)\" -ne 0 ] && SUDO=\"sudo\"\n\
                  NEED_INSTALL=0\n\
                  for pkg in {joined}; do\n\
                    dpkg -l \"$pkg\" >/dev/null 2>&1 || NEED_INSTALL=1\n\
                  done\n\
                  if [ \"$NEED_INSTALL\" = \"1\" ]; then\n\
-                   apt-get update -qq\n\
-                   DEBIAN_FRONTEND=noninteractive apt-get install -y -qq {joined}\n\
+                   $SUDO apt-get update -qq\n\
+                   DEBIAN_FRONTEND=noninteractive $SUDO apt-get install -y -qq {joined}\n\
                  fi\n\
                  # Postcondition: all packages installed\n\
                  for pkg in {joined}; do\n\
@@ -62,12 +64,14 @@ pub fn apply_script(resource: &Resource) -> String {
             let joined = pkg_list.join(" ");
             format!(
                 "set -euo pipefail\n\
+                 SUDO=\"\"\n\
+                 [ \"$(id -u)\" -ne 0 ] && SUDO=\"sudo\"\n\
                  NEED_REMOVE=0\n\
                  for pkg in {joined}; do\n\
                    dpkg -l \"$pkg\" >/dev/null 2>&1 && NEED_REMOVE=1\n\
                  done\n\
                  if [ \"$NEED_REMOVE\" = \"1\" ]; then\n\
-                   DEBIAN_FRONTEND=noninteractive apt-get remove -y -qq {joined}\n\
+                   DEBIAN_FRONTEND=noninteractive $SUDO apt-get remove -y -qq {joined}\n\
                  fi"
             )
         }
@@ -83,7 +87,10 @@ pub fn apply_script(resource: &Resource) -> String {
                 .collect();
             format!("set -euo pipefail\n{}", installs.join("\n"))
         }
-        (other_provider, other_state) => format!("echo 'unsupported: provider={}, state={}'", other_provider, other_state),
+        (other_provider, other_state) => format!(
+            "echo 'unsupported: provider={}, state={}'",
+            other_provider, other_state
+        ),
     }
 }
 
@@ -155,6 +162,7 @@ mod tests {
         assert!(script.contains("'curl'"));
         assert!(script.contains("set -euo pipefail"));
         assert!(script.contains("DEBIAN_FRONTEND=noninteractive"));
+        assert!(script.contains("$SUDO apt-get"));
     }
 
     #[test]
@@ -163,6 +171,15 @@ mod tests {
         r.state = Some("absent".to_string());
         let script = apply_script(&r);
         assert!(script.contains("apt-get remove"));
+        assert!(script.contains("$SUDO apt-get"));
+    }
+
+    #[test]
+    fn test_fj006_apply_apt_sudo_detection() {
+        let r = make_apt_resource(&["curl"]);
+        let script = apply_script(&r);
+        assert!(script.contains("SUDO=\"\""));
+        assert!(script.contains("id -u"));
     }
 
     #[test]

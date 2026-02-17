@@ -170,7 +170,7 @@ mod tests {
     fn test_fj005_apply_dispatches_package() {
         let r = make_package();
         let script = apply_script(&r).unwrap();
-        assert!(script.contains("apt-get install"));
+        assert!(script.contains("$SUDO apt-get install"));
     }
 
     #[test]
