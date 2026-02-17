@@ -785,6 +785,28 @@ resources: {}
         assert_eq!(resolved["proto"], "tcp");
     }
 
+    /// BH-MUT-0001: Kill mutation of `!decl.choices.is_empty()`.
+    /// Enum with empty choices list should accept any string value.
+    #[test]
+    fn test_fj019_validate_enum_empty_choices_accepts_any() {
+        let yaml = r#"
+recipe:
+  name: test
+  inputs:
+    mode:
+      type: enum
+resources: {}
+"#;
+        let recipe = parse_recipe(yaml).unwrap();
+        let mut provided = HashMap::new();
+        provided.insert(
+            "mode".to_string(),
+            serde_yaml_ng::Value::String("anything-goes".to_string()),
+        );
+        let resolved = validate_inputs(&recipe.recipe, &provided).unwrap();
+        assert_eq!(resolved["mode"], "anything-goes");
+    }
+
     #[test]
     fn test_fj019_validate_string_non_string_coercion() {
         let yaml = r#"
