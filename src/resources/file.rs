@@ -20,10 +20,11 @@ pub fn check_script(resource: &Resource) -> String {
             "test -L '{}' && echo 'exists:symlink' || echo 'missing:symlink'",
             path
         ),
-        _ => format!(
+        "file" => format!(
             "test -f '{}' && echo 'exists:file' || echo 'missing:file'",
             path
         ),
+        other => format!("echo 'unsupported file state: {}'", other),
     }
 }
 
@@ -55,7 +56,7 @@ pub fn apply_script(resource: &Resource) -> String {
             let target = resource.target.as_deref().unwrap_or("/dev/null");
             lines.push(format!("ln -sfn '{}' '{}'", target, path));
         }
-        _ => {
+        "file" => {
             // Regular file
             if let Some(parent) = std::path::Path::new(path).parent() {
                 if parent != std::path::Path::new("/") {
@@ -79,6 +80,9 @@ pub fn apply_script(resource: &Resource) -> String {
             if let Some(ref mode) = resource.mode {
                 lines.push(format!("chmod '{}' '{}'", mode, path));
             }
+        }
+        other => {
+            lines.push(format!("echo 'unsupported file state: {}'", other));
         }
     }
 

@@ -1,3 +1,6 @@
 msrv = "1.85.0"
 too-many-arguments-threshold = 6
 type-complexity-threshold = 250
+disallowed-methods = [
+    { path = "std::env::set_var", reason = "not thread-safe; use test fixtures" },
+]

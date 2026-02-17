@@ -64,12 +64,12 @@ pub fn detect_drift(lock: &StateLock) -> Vec<DriftFinding> {
             if let Some(path_val) = rl.details.get("path") {
                 let path = match path_val {
                     serde_yaml_ng::Value::String(s) => s.as_str(),
-                    _ => continue,
+                    _non_string => continue,
                 };
                 if let Some(content_hash) = rl.details.get("content_hash") {
                     let expected = match content_hash {
                         serde_yaml_ng::Value::String(s) => s.as_str(),
-                        _ => continue,
+                        _non_string => continue,
                     };
                     if let Some(finding) = check_file_drift(id, path, expected) {
                         findings.push(finding);

@@ -27,7 +27,7 @@ pub fn check_script(resource: &Resource) -> String {
                 .collect();
             checks.join("\n")
         }
-        _ => format!("echo 'unsupported provider: {}'", provider),
+        other => format!("echo 'unsupported provider: {}'", other),
     }
 }
 
@@ -83,7 +83,7 @@ pub fn apply_script(resource: &Resource) -> String {
                 .collect();
             format!("set -euo pipefail\n{}", installs.join("\n"))
         }
-        _ => format!("echo 'unsupported: provider={}, state={}'", provider, state),
+        (other_provider, other_state) => format!("echo 'unsupported: provider={}, state={}'", other_provider, other_state),
     }
 }
 
@@ -107,7 +107,7 @@ pub fn state_query_script(resource: &Resource) -> String {
                 .collect();
             queries.join("\n")
         }
-        _ => "echo 'unknown'".to_string(),
+        other => format!("echo 'unsupported provider: {}'", other),
     }
 }
 
@@ -212,7 +212,7 @@ mod tests {
         let mut r = make_apt_resource(&["tool"]);
         r.provider = Some("pip".to_string());
         let script = state_query_script(&r);
-        assert!(script.contains("unknown"));
+        assert!(script.contains("unsupported provider: pip"));
     }
 
     #[test]
