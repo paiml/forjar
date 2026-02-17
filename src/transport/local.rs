@@ -63,4 +63,17 @@ mod tests {
         assert!(out.success());
         assert!(out.stderr.contains("err"));
     }
+
+    #[test]
+    fn test_fj010_local_signal_killed() {
+        // Process killed by signal has no exit code; unwrap_or(-1) returns -1
+        let out = exec_local("kill -9 $$").unwrap();
+        assert_eq!(out.exit_code, -1);
+    }
+
+    #[test]
+    fn test_fj010_local_pipefail() {
+        let out = exec_local("set -euo pipefail\nfalse | true").unwrap();
+        assert!(!out.success(), "pipefail should catch false in pipeline");
+    }
 }

@@ -162,6 +162,40 @@ mod tests {
     }
 
     #[test]
+    fn test_fj015_append_resource_failed_event() {
+        let dir = tempfile::tempdir().unwrap();
+        let event = ProvenanceEvent::ResourceFailed {
+            machine: "test".to_string(),
+            resource: "bad-pkg".to_string(),
+            error: "apt failed".to_string(),
+        };
+        append_event(dir.path(), "test", event).unwrap();
+
+        let content = std::fs::read_to_string(dir.path().join("test/events.jsonl")).unwrap();
+        assert!(content.contains("resource_failed"));
+        assert!(content.contains("bad-pkg"));
+        assert!(content.contains("apt failed"));
+    }
+
+    #[test]
+    fn test_fj015_append_apply_completed_event() {
+        let dir = tempfile::tempdir().unwrap();
+        let event = ProvenanceEvent::ApplyCompleted {
+            machine: "m1".to_string(),
+            run_id: "r-xyz".to_string(),
+            resources_converged: 4,
+            resources_unchanged: 0,
+            resources_failed: 1,
+            total_seconds: 12.5,
+        };
+        append_event(dir.path(), "m1", event).unwrap();
+
+        let content = std::fs::read_to_string(dir.path().join("m1/events.jsonl")).unwrap();
+        assert!(content.contains("apply_completed"));
+        assert!(content.contains("r-xyz"));
+    }
+
+    #[test]
     fn test_fj015_is_leap() {
         // BH-MUT-0001: Each assertion kills a specific mutation of
         // `(y % 4 == 0 && y % 100 != 0) || y % 400 == 0`

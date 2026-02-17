@@ -250,6 +250,32 @@ mod tests {
     }
 
     #[test]
+    fn test_fj007_check_script_unknown_state() {
+        let mut r = make_file_resource("/tmp/test", None);
+        r.state = Some("custom-state".to_string());
+        let script = check_script(&r);
+        assert!(script.contains("unsupported file state: custom-state"));
+    }
+
+    #[test]
+    fn test_fj007_apply_script_unknown_state() {
+        let mut r = make_file_resource("/tmp/test", None);
+        r.state = Some("custom-state".to_string());
+        let script = apply_script(&r);
+        assert!(script.contains("unsupported file state: custom-state"));
+    }
+
+    #[test]
+    fn test_fj007_check_script_explicit_file_state() {
+        // Verify explicit "file" state works the same as default
+        let mut r = make_file_resource("/etc/conf", None);
+        r.state = Some("file".to_string());
+        let script = check_script(&r);
+        assert!(script.contains("test -f '/etc/conf'"));
+        assert!(script.contains("exists:file"));
+    }
+
+    #[test]
     fn test_fj007_apply_file_at_root_no_mkdir() {
         // File at root path (/) should NOT have `mkdir -p '/'`
         let mut r = make_file_resource("/init", Some("boot script"));
