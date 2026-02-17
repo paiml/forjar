@@ -26,7 +26,10 @@ pub fn plan(
         let resolved =
             resolver::resolve_resource_templates(resource, &config.params, &config.machines)
                 .unwrap_or_else(|e| {
-                    eprintln!("warning: template resolution failed for {}: {}", resource_id, e);
+                    eprintln!(
+                        "warning: template resolution failed for {}: {}",
+                        resource_id, e
+                    );
                     resource.clone()
                 });
 
@@ -77,7 +80,11 @@ fn determine_action(
             ResourceType::File => "file",
             ResourceType::Service => "running",
             ResourceType::Mount => "mounted",
-            _ => "present",
+            ResourceType::User
+            | ResourceType::Docker
+            | ResourceType::Pepita
+            | ResourceType::Network
+            | ResourceType::Cron => "present",
         });
 
     // Check if this is a destroy action
@@ -175,7 +182,11 @@ fn describe_action(resource_id: &str, resource: &Resource, action: &PlanAction) 
                 let path = resource.path.as_deref().unwrap_or("?");
                 format!("{}: mount {}", resource_id, path)
             }
-            _ => format!("{}: create", resource_id),
+            ResourceType::User
+            | ResourceType::Docker
+            | ResourceType::Pepita
+            | ResourceType::Network
+            | ResourceType::Cron => format!("{}: create", resource_id),
         },
         PlanAction::Update => format!("{}: update (state changed)", resource_id),
         PlanAction::Destroy => format!("{}: destroy", resource_id),
