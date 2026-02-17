@@ -97,4 +97,29 @@ mod tests {
         assert!(out.success());
         assert_eq!(out.stdout.trim(), "local");
     }
+
+    #[test]
+    fn test_transport_exec_output_success() {
+        let ok = ExecOutput { exit_code: 0, stdout: "ok".into(), stderr: "".into() };
+        assert!(ok.success());
+        let fail = ExecOutput { exit_code: 1, stdout: "".into(), stderr: "err".into() };
+        assert!(!fail.success());
+        let sig = ExecOutput { exit_code: 137, stdout: "".into(), stderr: "killed".into() };
+        assert!(!sig.success());
+    }
+
+    #[test]
+    fn test_transport_query_delegates() {
+        let machine = Machine {
+            hostname: "local".to_string(),
+            addr: "127.0.0.1".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+        };
+        let out = query(&machine, "echo query-test").unwrap();
+        assert!(out.success());
+        assert_eq!(out.stdout.trim(), "query-test");
+    }
 }

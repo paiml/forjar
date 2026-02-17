@@ -122,10 +122,7 @@ pub fn build_execution_order(config: &ForjarConfig) -> Result<Vec<String>, Strin
 }
 
 /// Build adjacency list and in-degree map from resource dependencies.
-fn build_dag(
-    config: &ForjarConfig,
-    resource_ids: &[String],
-) -> Result<Dag, String> {
+fn build_dag(config: &ForjarConfig, resource_ids: &[String]) -> Result<Dag, String> {
     let mut in_degree: HashMap<String, usize> = HashMap::new();
     let mut adjacency: HashMap<String, Vec<String>> = HashMap::new();
 
