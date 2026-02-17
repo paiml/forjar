@@ -648,6 +648,31 @@ resources:
     }
 
     #[test]
+    fn test_fj004_plan_with_broken_template_fallback() {
+        // Template resolution error triggers fallback to unresolved resource
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  config:
+    type: file
+    machine: m1
+    path: /etc/test
+    content: "{{params.missing_key}}"
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let order = vec!["config".to_string()];
+        let locks = HashMap::new();
+        // Should not panic — falls back to unresolved resource
+        let plan = plan(&config, &order, &locks);
+        assert_eq!(plan.to_create, 1);
+    }
+
+    #[test]
     fn test_fj004_multi_machine() {
         let yaml = r#"
 version: "1.0"

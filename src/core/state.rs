@@ -144,6 +144,27 @@ mod tests {
     }
 
     #[test]
+    fn test_fj013_load_corrupted_yaml() {
+        let dir = tempfile::tempdir().unwrap();
+        let machine_dir = dir.path().join("broken");
+        std::fs::create_dir_all(&machine_dir).unwrap();
+        std::fs::write(machine_dir.join("state.lock.yaml"), "not: [valid: yaml: {{").unwrap();
+        let result = load_lock(dir.path(), "broken");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("invalid lock file"));
+    }
+
+    #[test]
+    fn test_fj013_save_lock_creates_dirs() {
+        let dir = tempfile::tempdir().unwrap();
+        let lock = make_lock();
+        // state_dir/test/ doesn't exist yet; save_lock should create it
+        save_lock(dir.path(), &lock).unwrap();
+        assert!(dir.path().join("test").exists());
+        assert!(lock_file_path(dir.path(), "test").exists());
+    }
+
+    #[test]
     fn test_fj013_roundtrip_preserves_order() {
         let dir = tempfile::tempdir().unwrap();
         let mut lock = make_lock();

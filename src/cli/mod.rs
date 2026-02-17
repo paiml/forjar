@@ -1064,4 +1064,83 @@ resources:
         // Second apply — should be unchanged (NoOp)
         cmd_apply(&config, &state, None, None, false, false).unwrap();
     }
+
+    #[test]
+    fn test_fj017_load_machine_locks_missing_state_dir() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = serde_yaml_ng::from_str::<types::ForjarConfig>(
+            r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources: {}
+"#,
+        )
+        .unwrap();
+        // State dir doesn't exist → returns empty map
+        let missing = dir.path().join("nonexistent");
+        let locks = load_machine_locks(&config, &missing, None).unwrap();
+        assert!(locks.is_empty());
+    }
+
+    #[test]
+    fn test_fj017_print_plan_update_and_destroy_symbols() {
+        // Exercises the Update (~) and Destroy (-) match arms in print_plan
+        let plan = types::ExecutionPlan {
+            name: "symbol-test".to_string(),
+            changes: vec![
+                types::PlannedChange {
+                    resource_id: "r1".to_string(),
+                    machine: "m1".to_string(),
+                    resource_type: types::ResourceType::File,
+                    action: types::PlanAction::Update,
+                    description: "update /etc/conf".to_string(),
+                },
+                types::PlannedChange {
+                    resource_id: "r2".to_string(),
+                    machine: "m1".to_string(),
+                    resource_type: types::ResourceType::File,
+                    action: types::PlanAction::Destroy,
+                    description: "destroy /tmp/old".to_string(),
+                },
+            ],
+            execution_order: vec!["r1".to_string(), "r2".to_string()],
+            to_create: 0,
+            to_update: 1,
+            to_destroy: 1,
+            unchanged: 0,
+        };
+        // Just verify it doesn't panic — output goes to stdout
+        print_plan(&plan, None);
+    }
+
+    #[test]
+    fn test_fj017_plan_nonexistent_state_dir() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config,
+            r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  pkg:
+    type: package
+    machine: m1
+    provider: apt
+    packages: [curl]
+"#,
+        )
+        .unwrap();
+        // Plan with nonexistent state dir → everything shows as Create
+        let missing = dir.path().join("no-state");
+        cmd_plan(&config, &missing, None, None).unwrap();
+    }
 }
