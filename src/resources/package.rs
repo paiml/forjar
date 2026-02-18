@@ -80,8 +80,8 @@ pub fn apply_script(resource: &Resource) -> String {
                 .iter()
                 .map(|p| {
                     format!(
-                        "if ! command -v '{}' >/dev/null 2>&1; then\n  cargo install '{}'\nfi",
-                        p, p
+                        "cargo install --force '{}'",
+                        p
                     )
                 })
                 .collect();
@@ -195,7 +195,22 @@ mod tests {
         let mut r = make_apt_resource(&["batuta"]);
         r.provider = Some("cargo".to_string());
         let script = apply_script(&r);
-        assert!(script.contains("cargo install 'batuta'"));
+        assert!(script.contains("cargo install --force 'batuta'"));
+    }
+
+    /// PMAT-007: cargo install must use --force for idempotent convergence.
+    /// Without --force, `cargo install` fails when a binary already exists
+    /// (e.g. from a previous symlink or workspace build).
+    #[test]
+    fn test_fj007_cargo_install_uses_force() {
+        let mut r = make_apt_resource(&["trueno-rag-cli"]);
+        r.provider = Some("cargo".to_string());
+        let script = apply_script(&r);
+        assert!(
+            script.contains("cargo install --force"),
+            "cargo install must use --force for idempotent installs, got: {}",
+            script
+        );
     }
 
     #[test]
@@ -305,12 +320,12 @@ mod tests {
 
     /// BH-MUT: cargo install uses conditional check before installing.
     #[test]
-    fn test_fj006_cargo_install_conditional() {
+    fn test_fj006_cargo_install_unconditional_force() {
         let mut r = make_apt_resource(&["tool"]);
         r.provider = Some("cargo".to_string());
         let script = apply_script(&r);
-        // Must check if already installed before installing
-        assert!(script.contains("if ! command -v 'tool'"));
-        assert!(script.contains("cargo install 'tool'"));
+        // --force makes install idempotent — no conditional check needed
+        assert!(script.contains("cargo install --force 'tool'"));
+        assert!(!script.contains("if !"), "should not have conditional check with --force");
     }
 }
