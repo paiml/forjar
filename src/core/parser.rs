@@ -7,6 +7,7 @@
 //! - Required fields per resource type
 
 use super::types::*;
+use super::recipe;
 use std::path::Path;
 
 /// Validation error.
@@ -208,8 +209,80 @@ fn validate_resource_type(id: &str, resource: &Resource, errors: &mut Vec<Valida
                 });
             }
         }
+        ResourceType::Recipe => {
+            if resource.recipe.is_none() {
+                errors.push(ValidationError {
+                    message: format!("resource '{}' (recipe) has no recipe name", id),
+                });
+            }
+        }
         _ => {}
     }
+}
+
+/// Parse, validate, and expand recipes in a config file.
+/// This is the main entry point for loading a config for plan/apply.
+pub fn parse_and_validate(path: &Path) -> Result<ForjarConfig, String> {
+    let mut config = parse_config_file(path)?;
+    let errors = validate_config(&config);
+    if !errors.is_empty() {
+        return Err(format!(
+            "validation errors:\n{}",
+            errors
+                .iter()
+                .map(|e| format!("  - {}", e))
+                .collect::<Vec<_>>()
+                .join("\n")
+        ));
+    }
+    expand_recipes(&mut config, path.parent())?;
+    Ok(config)
+}
+
+/// Expand recipe resources into their constituent resources.
+/// Recipe resources (type: recipe) are replaced with the expanded resources
+/// from the referenced recipe file.
+pub fn expand_recipes(config: &mut ForjarConfig, config_dir: Option<&Path>) -> Result<(), String> {
+    let base_dir = config_dir.unwrap_or_else(|| Path::new("."));
+    let mut expanded = indexmap::IndexMap::new();
+
+    for (id, resource) in &config.resources {
+        if resource.resource_type != ResourceType::Recipe {
+            expanded.insert(id.clone(), resource.clone());
+            continue;
+        }
+
+        let recipe_name = resource
+            .recipe
+            .as_deref()
+            .ok_or_else(|| format!("recipe resource '{}' has no recipe name", id))?;
+
+        // Look for recipe file relative to config directory
+        let recipe_path = base_dir.join("recipes").join(format!("{}.yaml", recipe_name));
+        if !recipe_path.exists() {
+            return Err(format!(
+                "recipe '{}' not found at {}",
+                recipe_name,
+                recipe_path.display()
+            ));
+        }
+
+        let recipe_file = recipe::load_recipe(&recipe_path)?;
+        let expanded_resources = recipe::expand_recipe(
+            id,
+            &recipe_file,
+            &resource.machine,
+            &resource.inputs,
+            &resource.depends_on,
+        )?;
+
+        for (res_id, res) in expanded_resources {
+            expanded.insert(res_id, res);
+        }
+    }
+
+    config.resources = expanded;
+    Ok(())
 }
 
 #[cfg(test)]
@@ -823,5 +896,166 @@ resources:
             !errors.iter().any(|e| e.message.contains("unknown machine")),
             "localhost should be accepted without explicit definition"
         );
+    }
+
+    // ── Recipe expansion integration tests ────────────────────
+
+    #[test]
+    fn test_expand_recipes_replaces_recipe_resources() {
+        // Write a recipe file to a temp dir
+        let dir = tempfile::tempdir().unwrap();
+        let recipes_dir = dir.path().join("recipes");
+        std::fs::create_dir_all(&recipes_dir).unwrap();
+        std::fs::write(
+            recipes_dir.join("test-recipe.yaml"),
+            r#"
+recipe:
+  name: test-recipe
+  inputs:
+    greeting:
+      type: string
+      default: hello
+resources:
+  config-file:
+    type: file
+    path: /etc/test.conf
+    content: "{{inputs.greeting}} world"
+"#,
+        )
+        .unwrap();
+
+        // Build a config with a recipe resource
+        let yaml = r#"
+version: "1.0"
+name: recipe-test
+machines:
+  m1:
+    hostname: box
+    addr: 1.2.3.4
+resources:
+  setup:
+    type: recipe
+    machine: m1
+    recipe: test-recipe
+    inputs:
+      greeting: hi
+"#;
+        let mut config = parse_config(yaml).unwrap();
+        expand_recipes(&mut config, Some(dir.path())).unwrap();
+
+        // Recipe resource should be replaced by expanded resources
+        assert!(!config.resources.contains_key("setup"));
+        assert!(config.resources.contains_key("setup/config-file"));
+
+        let file_res = &config.resources["setup/config-file"];
+        assert_eq!(file_res.resource_type, ResourceType::File);
+        assert_eq!(file_res.content.as_deref(), Some("hi world"));
+        assert_eq!(file_res.machine.to_vec(), vec!["m1"]);
+    }
+
+    #[test]
+    fn test_expand_recipes_missing_recipe_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let recipes_dir = dir.path().join("recipes");
+        std::fs::create_dir_all(&recipes_dir).unwrap();
+
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: box
+    addr: 1.2.3.4
+resources:
+  setup:
+    type: recipe
+    machine: m1
+    recipe: nonexistent
+"#;
+        let mut config = parse_config(yaml).unwrap();
+        let result = expand_recipes(&mut config, Some(dir.path()));
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("not found"));
+    }
+
+    #[test]
+    fn test_expand_recipes_preserves_non_recipe_resources() {
+        let dir = tempfile::tempdir().unwrap();
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: box
+    addr: 1.2.3.4
+resources:
+  pkg:
+    type: package
+    machine: m1
+    provider: apt
+    packages: [curl]
+"#;
+        let mut config = parse_config(yaml).unwrap();
+        expand_recipes(&mut config, Some(dir.path())).unwrap();
+
+        // Non-recipe resources pass through unchanged
+        assert!(config.resources.contains_key("pkg"));
+        assert_eq!(config.resources.len(), 1);
+    }
+
+    #[test]
+    fn test_expand_recipes_external_deps_propagated() {
+        let dir = tempfile::tempdir().unwrap();
+        let recipes_dir = dir.path().join("recipes");
+        std::fs::create_dir_all(&recipes_dir).unwrap();
+        std::fs::write(
+            recipes_dir.join("dep-test.yaml"),
+            r#"
+recipe:
+  name: dep-test
+resources:
+  first:
+    type: package
+    provider: apt
+    packages: [nginx]
+  second:
+    type: file
+    path: /etc/test
+    content: test
+    depends_on: [first]
+"#,
+        )
+        .unwrap();
+
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: box
+    addr: 1.2.3.4
+resources:
+  base:
+    type: package
+    machine: m1
+    provider: apt
+    packages: [curl]
+  my-recipe:
+    type: recipe
+    machine: m1
+    recipe: dep-test
+    depends_on:
+      - base
+"#;
+        let mut config = parse_config(yaml).unwrap();
+        expand_recipes(&mut config, Some(dir.path())).unwrap();
+
+        assert_eq!(config.resources.len(), 3); // base + 2 expanded
+        let first = &config.resources["my-recipe/first"];
+        assert!(first.depends_on.contains(&"base".to_string()));
+
+        let second = &config.resources["my-recipe/second"];
+        assert!(second.depends_on.contains(&"my-recipe/first".to_string()));
+        assert!(!second.depends_on.contains(&"base".to_string()));
     }
 }

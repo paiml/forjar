@@ -442,6 +442,8 @@ resources:
             port: None,
             action: None,
             from_addr: None,
+            recipe: None,
+            inputs: HashMap::new(),
         };
 
         let resolved = resolve_resource_templates(&resource, &params, &machines).unwrap();
@@ -557,6 +559,8 @@ resources:
                     port: None,
                     action: None,
                     from_addr: None,
+                    recipe: None,
+                    inputs: HashMap::new(),
                 },
             );
         }

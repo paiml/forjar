@@ -84,7 +84,8 @@ fn determine_action(
             | ResourceType::Docker
             | ResourceType::Pepita
             | ResourceType::Network
-            | ResourceType::Cron => "present",
+            | ResourceType::Cron
+            | ResourceType::Recipe => "present",
         });
 
     // Check if this is a destroy action
@@ -186,7 +187,8 @@ fn describe_action(resource_id: &str, resource: &Resource, action: &PlanAction) 
             | ResourceType::Docker
             | ResourceType::Pepita
             | ResourceType::Network
-            | ResourceType::Cron => format!("{}: create", resource_id),
+            | ResourceType::Cron
+            | ResourceType::Recipe => format!("{}: create", resource_id),
         },
         PlanAction::Update => format!("{}: update (state changed)", resource_id),
         PlanAction::Destroy => format!("{}: destroy", resource_id),
@@ -434,6 +436,8 @@ resources:
             port: None,
             action: None,
             from_addr: None,
+            recipe: None,
+            inputs: HashMap::new(),
         };
         let h1 = hash_desired_state(&r);
         let h2 = hash_desired_state(&r);
@@ -480,6 +484,8 @@ resources:
             port: None,
             action: None,
             from_addr: None,
+            recipe: None,
+            inputs: HashMap::new(),
         };
         let desc = describe_action("test-pkg", &r, &PlanAction::Create);
         assert!(desc.contains("curl, wget"));
@@ -524,6 +530,8 @@ resources:
             port: None,
             action: None,
             from_addr: None,
+            recipe: None,
+            inputs: HashMap::new(),
         };
         assert!(describe_action("f", &r, &PlanAction::Create).contains("/etc/conf"));
         assert!(describe_action("f", &r, &PlanAction::Update).contains("update"));
@@ -570,6 +578,8 @@ resources:
             port: None,
             action: None,
             from_addr: None,
+            recipe: None,
+            inputs: HashMap::new(),
         };
         assert!(describe_action("svc", &r, &PlanAction::Create).contains("nginx"));
     }
@@ -613,6 +623,8 @@ resources:
             port: None,
             action: None,
             from_addr: None,
+            recipe: None,
+            inputs: HashMap::new(),
         };
         assert!(describe_action("mnt", &r, &PlanAction::Create).contains("/mnt/data"));
     }
@@ -656,6 +668,8 @@ resources:
             port: None,
             action: None,
             from_addr: None,
+            recipe: None,
+            inputs: HashMap::new(),
         };
         // Changing any field should change the hash
         let mut r2 = r1.clone();

@@ -44,6 +44,8 @@ fn main() {
         port: None,
         action: None,
         from_addr: None,
+        recipe: None,
+        inputs: std::collections::HashMap::new(),
     };
 
     println!("-- Check script --");
@@ -91,6 +93,8 @@ fn main() {
         port: None,
         action: None,
         from_addr: None,
+        recipe: None,
+        inputs: std::collections::HashMap::new(),
     };
 
     println!("-- Apply script --");
@@ -134,6 +138,8 @@ fn main() {
         port: None,
         action: None,
         from_addr: None,
+        recipe: None,
+        inputs: std::collections::HashMap::new(),
     };
 
     println!("-- Apply script (base64 transfer) --");
@@ -177,6 +183,8 @@ fn main() {
         port: None,
         action: None,
         from_addr: None,
+        recipe: None,
+        inputs: std::collections::HashMap::new(),
     };
 
     println!("-- Apply script --");
@@ -220,6 +228,8 @@ fn main() {
         port: None,
         action: None,
         from_addr: None,
+        recipe: None,
+        inputs: std::collections::HashMap::new(),
     };
 
     println!("-- Apply script --");
@@ -263,6 +273,8 @@ fn main() {
         port: None,
         action: None,
         from_addr: None,
+        recipe: None,
+        inputs: std::collections::HashMap::new(),
     };
 
     println!("-- Check script --");
@@ -308,6 +320,8 @@ fn main() {
         port: None,
         action: None,
         from_addr: None,
+        recipe: None,
+        inputs: std::collections::HashMap::new(),
     };
 
     println!("-- Apply script --");
@@ -351,6 +365,8 @@ fn main() {
         port: None,
         action: None,
         from_addr: None,
+        recipe: None,
+        inputs: std::collections::HashMap::new(),
     };
 
     println!("-- Apply script --");
@@ -394,6 +410,8 @@ fn main() {
         port: Some("22".to_string()),
         action: Some("allow".to_string()),
         from_addr: Some("10.0.0.0/8".to_string()),
+        recipe: None,
+        inputs: std::collections::HashMap::new(),
     };
 
     println!("-- Apply script --");

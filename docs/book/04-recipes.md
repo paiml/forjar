@@ -4,29 +4,27 @@ Recipes are reusable, parameterized resource patterns. Think Homebrew formulae f
 
 ## Recipe File Format
 
+Recipe files live in `recipes/` next to your `forjar.yaml`:
+
 ```yaml
 # recipes/web-server.yaml
-name: web-server
-version: "1.0"
-description: "Nginx web server with config"
-
-inputs:
-  domain:
-    type: string
-    required: true
-    description: "Server domain name"
-  port:
-    type: int
-    default: 80
-    min: 1
-    max: 65535
-  ssl:
-    type: bool
-    default: false
-  log_level:
-    type: enum
-    choices: [error, warn, info, debug]
-    default: warn
+recipe:
+  name: web-server
+  version: "1.0"
+  description: "Nginx web server with config"
+  inputs:
+    domain:
+      type: string
+      description: "Server domain name"
+    port:
+      type: int
+      default: 80
+      min: 1
+      max: 65535
+    log_level:
+      type: enum
+      choices: [error, warn, info, debug]
+      default: warn
 
 resources:
   nginx-pkg:
@@ -42,7 +40,10 @@ resources:
         listen {{inputs.port}};
         server_name {{inputs.domain}};
         error_log /var/log/nginx/error.log {{inputs.log_level}};
+        root /var/www/{{inputs.domain}};
       }
+    owner: root
+    group: root
     mode: "0644"
     depends_on: [nginx-pkg]
 
@@ -63,8 +64,7 @@ resources:
 | `int` | `min`, `max` | `port: 8080` |
 | `bool` | — | `ssl: true` |
 | `path` | Must start with `/` | `cert: /etc/ssl/cert.pem` |
-| `enum` | `choices` (required) | `log_level: warn` |
-| `list` | `min_length`, `max_length` | `tags: [a, b]` |
+| `enum` | `choices` | `log_level: warn` |
 
 All inputs support:
 - `default: value` (used when input not provided)
@@ -84,33 +84,57 @@ machines:
     addr: 10.0.0.1
 
 resources:
+  base-tools:
+    type: package
+    machine: web1
+    provider: apt
+    packages: [curl, jq]
+
   web:
     type: recipe
     machine: web1
     recipe: web-server
+    depends_on:
+      - base-tools
     inputs:
       domain: example.com
       port: 443
-      ssl: true
       log_level: info
 ```
 
 ## How Expansion Works
 
-When forjar loads the config:
+When forjar loads the config (via `validate`, `plan`, `apply`, `drift`, etc.):
 
-1. Recipe YAML is parsed and validated
-2. Inputs are type-checked against declared types (`string`, `int`, `bool`, `path`, `enum`)
-3. Missing inputs get default values
-4. Required inputs without defaults produce errors
-5. Resources are expanded with namespace prefix: `web/nginx-pkg`, `web/site-config`, `web/nginx-svc`
-6. `{{inputs.X}}` templates are resolved with validated values
-7. Expanded resources are merged into the main resource set
-8. External `depends_on` on the recipe ID resolves to the recipe's last resource
+1. Config YAML is parsed and validated
+2. Recipe resources (`type: recipe`) are detected
+3. Recipe file is loaded from `recipes/{name}.yaml` relative to the config
+4. Inputs are type-checked against declared types
+5. Missing inputs get default values; required inputs without defaults produce errors
+6. Resources are expanded with namespace prefix: `web/nginx-pkg`, `web/site-config`, `web/nginx-svc`
+7. `{{inputs.X}}` templates are resolved with validated values
+8. External `depends_on` from the recipe resource are injected into the first expanded resource
+9. Internal `depends_on` references are namespaced automatically
+10. Expanded resources replace the recipe resource in the config
+
+The expansion happens in the `parse_and_validate` pipeline, so all downstream commands (plan, apply, drift, graph) see the fully expanded resources.
+
+## Viewing Expanded Resources
+
+```bash
+# Show expanded plan
+forjar plan -f forjar.yaml --state-dir state/
+
+# Show dependency graph (Mermaid format)
+forjar graph -f forjar.yaml
+
+# Validate config (shows expanded resource count)
+forjar validate -f forjar.yaml
+```
 
 ## Namespacing
 
-Recipe resources are namespaced by the resource ID that references them. If you declare:
+Recipe resources are namespaced by the resource ID that references them:
 
 ```yaml
 resources:
@@ -120,9 +144,9 @@ resources:
     inputs: { domain: example.com }
 ```
 
-The expanded resources become: `web/nginx-pkg`, `web/site-config`, `web/nginx-svc`.
+Expanded resources: `web/nginx-pkg`, `web/site-config`, `web/nginx-svc`.
 
-Internal `depends_on` references are also namespaced automatically.
+Internal `depends_on` and `restart_on` references are also namespaced automatically.
 
 ## Composition
 
@@ -130,16 +154,16 @@ Recipes can require other recipes:
 
 ```yaml
 # recipes/app-stack.yaml
-name: app-stack
-version: "1.0"
-requires:
-  - recipes/web-server.yaml
-  - recipes/database.yaml
+recipe:
+  name: app-stack
+  version: "1.0"
+  requires:
+    - recipe: web-server
+    - recipe: database
 
-inputs:
-  app_name:
-    type: string
-    required: true
+  inputs:
+    app_name:
+      type: string
 
 resources:
   app-config:

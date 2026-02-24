@@ -109,8 +109,7 @@ pub fn update_global_lock(
     machine_results: &[(String, usize, usize, usize)], // (name, total, converged, failed)
 ) -> Result<(), String> {
     use crate::tripwire::eventlog::now_iso8601;
-    let mut lock = load_global_lock(state_dir)?
-        .unwrap_or_else(|| new_global_lock(config_name));
+    let mut lock = load_global_lock(state_dir)?.unwrap_or_else(|| new_global_lock(config_name));
     lock.name = config_name.to_string();
     lock.last_apply = now_iso8601();
     lock.generator = format!("forjar {}", env!("CARGO_PKG_VERSION"));

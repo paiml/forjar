@@ -1,0 +1,53 @@
+# Recipe: web-server — Nginx with site config
+#
+# Inputs:
+#   domain (string, required) — server domain name
+#   port (int, default: 80) — listen port
+#   log_level (enum, default: warn) — error_log level
+
+recipe:
+  name: web-server
+  version: "1.0"
+  description: "Nginx web server with site configuration"
+  inputs:
+    domain:
+      type: string
+      description: "Server domain name"
+    port:
+      type: int
+      default: 80
+      min: 1
+      max: 65535
+    log_level:
+      type: enum
+      choices: [error, warn, info, debug]
+      default: warn
+
+resources:
+  nginx-pkg:
+    type: package
+    provider: apt
+    packages: [nginx]
+
+  site-config:
+    type: file
+    path: "/etc/nginx/sites-enabled/{{inputs.domain}}"
+    content: |
+      server {
+        listen {{inputs.port}};
+        server_name {{inputs.domain}};
+        error_log /var/log/nginx/error.log {{inputs.log_level}};
+        root /var/www/{{inputs.domain}};
+      }
+    owner: root
+    group: root
+    mode: "0644"
+    depends_on: [nginx-pkg]
+
+  nginx-svc:
+    type: service
+    name: nginx
+    state: running
+    enabled: true
+    restart_on: [site-config]
+    depends_on: [site-config]

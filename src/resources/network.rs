@@ -119,6 +119,8 @@ mod tests {
             port: Some(port.to_string()),
             action: Some(action.to_string()),
             from_addr: None,
+            recipe: None,
+            inputs: std::collections::HashMap::new(),
         }
     }
 

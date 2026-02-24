@@ -292,6 +292,15 @@ pub struct Resource {
     /// Source IP/CIDR (for firewall rules)
     #[serde(rename = "from", default)]
     pub from_addr: Option<String>,
+
+    // -- Recipe fields --
+    /// Recipe name (for type: recipe)
+    #[serde(default)]
+    pub recipe: Option<String>,
+
+    /// Recipe inputs (for type: recipe)
+    #[serde(default)]
+    pub inputs: HashMap<String, serde_yaml_ng::Value>,
 }
 
 /// Resource type enum.
@@ -307,6 +316,7 @@ pub enum ResourceType {
     Pepita,
     Network,
     Cron,
+    Recipe,
 }
 
 impl fmt::Display for ResourceType {
@@ -321,6 +331,7 @@ impl fmt::Display for ResourceType {
             Self::Pepita => write!(f, "pepita"),
             Self::Network => write!(f, "network"),
             Self::Cron => write!(f, "cron"),
+            Self::Recipe => write!(f, "recipe"),
         }
     }
 }

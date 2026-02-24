@@ -1127,7 +1127,7 @@ Options:
 | FJ-016 | `tripwire/drift.rs` — drift detection (file + non-file via state_query_script) | M |
 | FJ-017 | `cli/` — all subcommands | M |
 | FJ-018 | Integration test: lambda + intel NFS setup | M |
-| FJ-019 | `core/recipe.rs` — recipe loading, input validation, expansion | M |
+| FJ-019 | `core/recipe.rs` — recipe loading, input validation, expansion + CLI pipeline wiring (`parse_and_validate`) | **Done** |
 | FJ-020 | Provable contracts integration — YAML contracts, binding.yaml, `#[contract]` annotations, falsification tests | M |
 | FJ-021 | `transport/container.rs` — container exec + ephemeral lifecycle | M |
 | FJ-022 | Dogfood configs + end-to-end container verification workflow | S |

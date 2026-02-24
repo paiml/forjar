@@ -673,6 +673,8 @@ resources:
             port: None,
             action: None,
             from_addr: None,
+            recipe: None,
+            inputs: HashMap::new(),
         };
         let details = build_resource_details(&r, &local_machine());
         assert!(details.contains_key("path"));
@@ -728,6 +730,8 @@ resources:
             port: None,
             action: None,
             from_addr: None,
+            recipe: None,
+            inputs: HashMap::new(),
         };
         let details = build_resource_details(&r, &local_machine());
         assert!(details.contains_key("service_name"));
@@ -1012,6 +1016,8 @@ resources:
             port: None,
             action: None,
             from_addr: None,
+            recipe: None,
+            inputs: HashMap::new(),
         };
         let machine = Machine {
             hostname: "localhost".to_string(),

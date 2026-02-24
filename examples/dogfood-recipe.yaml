@@ -1,0 +1,64 @@
+# Dogfood config: test recipe expansion in the CLI pipeline.
+#
+# Demonstrates type: recipe resources being expanded into their
+# constituent package/file/service resources before planning and execution.
+#
+# Prerequisites:
+#   docker build -t forjar-test-target -f tests/Dockerfile.test-target .
+#
+# Usage:
+#   # Validate (expand recipes, validate, show plan)
+#   cargo run -- validate -f examples/dogfood-recipe.yaml
+#
+#   # Apply with recipe expansion
+#   cargo run -- apply -f examples/dogfood-recipe.yaml --state-dir /tmp/dogfood-recipe
+#
+#   # Check plan output
+#   cargo run -- plan -f examples/dogfood-recipe.yaml
+#
+#   # Cleanup
+#   docker rm -f forjar-dogfood-recipe
+
+version: "1.0"
+name: dogfood-recipe
+
+machines:
+  test-box:
+    hostname: test-box
+    addr: container
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-dogfood-recipe
+      ephemeral: false
+      privileged: false
+      init: true
+
+resources:
+  # ── Base packages (non-recipe, runs first) ──────────
+  base-tools:
+    type: package
+    machine: test-box
+    provider: apt
+    packages:
+      - curl
+      - jq
+
+  # ── Recipe: web-server ──────────────────────────────
+  # This gets expanded into web/nginx-pkg, web/site-config, web/nginx-svc
+  web:
+    type: recipe
+    machine: test-box
+    recipe: web-server
+    depends_on:
+      - base-tools
+    inputs:
+      domain: "dogfood.local"
+      port: 8080
+      log_level: info
+
+policy:
+  failure: stop_on_first
+  tripwire: true
+  lock_file: true

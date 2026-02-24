@@ -157,10 +157,7 @@ pub fn detect_drift_full(
                     resource_type: rl.resource_type.clone(),
                     expected_hash: stored_live_hash.to_string(),
                     actual_hash: "ERROR".to_string(),
-                    detail: format!(
-                        "state query failed: {}",
-                        out.stderr.trim()
-                    ),
+                    detail: format!("state query failed: {}", out.stderr.trim()),
                 });
                 continue;
             }

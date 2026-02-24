@@ -109,6 +109,8 @@ mod tests {
             port: None,
             action: None,
             from_addr: None,
+            recipe: None,
+            inputs: std::collections::HashMap::new(),
         }
     }
 

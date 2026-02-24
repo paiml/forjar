@@ -286,23 +286,15 @@ policy:
 }
 
 fn cmd_validate(file: &Path) -> Result<(), String> {
-    let config = parser::parse_config_file(file)?;
-    let errors = parser::validate_config(&config);
+    let config = parse_and_validate(file)?;
 
-    if errors.is_empty() {
-        println!(
-            "OK: {} ({} machines, {} resources)",
-            config.name,
-            config.machines.len(),
-            config.resources.len()
-        );
-        Ok(())
-    } else {
-        for e in &errors {
-            eprintln!("  ERROR: {}", e);
-        }
-        Err(format!("{} validation error(s)", errors.len()))
-    }
+    println!(
+        "OK: {} ({} machines, {} resources)",
+        config.name,
+        config.machines.len(),
+        config.resources.len()
+    );
+    Ok(())
 }
 
 fn cmd_plan(
@@ -338,17 +330,9 @@ fn cmd_plan(
     Ok(())
 }
 
-/// Parse and validate a forjar config file, returning errors if invalid.
+/// Parse, validate, and expand recipes in a forjar config file.
 fn parse_and_validate(file: &Path) -> Result<types::ForjarConfig, String> {
-    let config = parser::parse_config_file(file)?;
-    let errors = parser::validate_config(&config);
-    if errors.is_empty() {
-        return Ok(config);
-    }
-    for e in &errors {
-        eprintln!("  ERROR: {}", e);
-    }
-    Err("validation failed".to_string())
+    parser::parse_and_validate(file)
 }
 
 /// Load lock files for machines referenced in the config.
@@ -532,7 +516,7 @@ fn cmd_drift(
 ) -> Result<(), String> {
     // Load config to get machine definitions (needed for container transport drift)
     let config = if config_path.exists() {
-        Some(parser::parse_config_file(config_path)?)
+        Some(parse_and_validate(config_path)?)
     } else {
         None
     };
@@ -971,7 +955,10 @@ fn cmd_graph(file: &Path, format: &str) -> Result<(), String> {
 fn cmd_status(state_dir: &Path, machine_filter: Option<&str>) -> Result<(), String> {
     // Show global lock summary if it exists
     if let Some(global) = state::load_global_lock(state_dir)? {
-        println!("Project: {} (last apply: {})", global.name, global.last_apply);
+        println!(
+            "Project: {} (last apply: {})",
+            global.name, global.last_apply
+        );
         println!("Generator: {}", global.generator);
         println!();
     }

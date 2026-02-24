@@ -771,6 +771,8 @@ resources: {}
             port: None,
             action: None,
             from_addr: None,
+            recipe: None,
+            inputs: HashMap::new(),
         };
         let mut inputs = HashMap::new();
         inputs.insert("vol".to_string(), "raid".to_string());
