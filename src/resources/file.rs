@@ -5,8 +5,7 @@ use base64::Engine;
 
 /// Read a local file and return its base64-encoded content.
 fn source_file_base64(path: &str) -> Result<String, String> {
-    let bytes =
-        std::fs::read(path).map_err(|e| format!("{}: {}", path, e))?;
+    let bytes = std::fs::read(path).map_err(|e| format!("{}: {}", path, e))?;
     Ok(base64::engine::general_purpose::STANDARD.encode(&bytes))
 }
 
@@ -75,13 +74,13 @@ pub fn apply_script(resource: &Resource) -> String {
                 // Read local file and base64-encode for safe transport
                 match source_file_base64(source) {
                     Ok(b64) => {
-                        lines.push(format!(
-                            "echo '{}' | base64 -d > '{}'",
-                            b64, path
-                        ));
+                        lines.push(format!("echo '{}' | base64 -d > '{}'", b64, path));
                     }
                     Err(e) => {
-                        lines.push(format!("echo 'ERROR: cannot read source file: {}'; exit 1", e));
+                        lines.push(format!(
+                            "echo 'ERROR: cannot read source file: {}'; exit 1",
+                            e
+                        ));
                     }
                 }
             } else if let Some(ref content) = resource.content {

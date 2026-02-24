@@ -1,6 +1,7 @@
 //! FJ-017: CLI subcommands — plan, apply, drift, status, init, validate, history.
 
-use crate::core::{executor, parser, planner, resolver, state, types};
+use crate::core::{codegen, executor, parser, planner, resolver, state, types};
+use crate::transport;
 use crate::tripwire::{drift, eventlog};
 use clap::Subcommand;
 use std::path::{Path, PathBuf};
@@ -132,6 +133,25 @@ pub enum Commands {
         json: bool,
     },
 
+    /// Remove all managed resources (reverse order)
+    Destroy {
+        /// Path to forjar.yaml
+        #[arg(short, long, default_value = "forjar.yaml")]
+        file: PathBuf,
+
+        /// Target specific machine
+        #[arg(short, long)]
+        machine: Option<String>,
+
+        /// Skip confirmation prompt
+        #[arg(long)]
+        yes: bool,
+
+        /// State directory
+        #[arg(long, default_value = "state")]
+        state_dir: PathBuf,
+    },
+
     /// Show resource dependency graph
     Graph {
         /// Path to forjar.yaml
@@ -197,6 +217,12 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             json,
             verbose,
         ),
+        Commands::Destroy {
+            file,
+            machine,
+            yes,
+            state_dir,
+        } => cmd_destroy(&file, &state_dir, machine.as_deref(), yes, verbose),
         Commands::Status { state_dir, machine } => cmd_status(&state_dir, machine.as_deref()),
         Commands::History {
             state_dir,
@@ -658,6 +684,130 @@ fn cmd_history(
     Ok(())
 }
 
+fn cmd_destroy(
+    file: &Path,
+    state_dir: &Path,
+    machine_filter: Option<&str>,
+    yes: bool,
+    verbose: bool,
+) -> Result<(), String> {
+    if !yes {
+        return Err(
+            "destroy requires --yes flag to confirm removal of all managed resources".to_string(),
+        );
+    }
+
+    let config = parse_and_validate(file)?;
+    let execution_order = resolver::build_execution_order(&config)?;
+
+    // Reverse order for teardown (dependents first)
+    let reverse_order: Vec<String> = execution_order.into_iter().rev().collect();
+
+    if verbose {
+        eprintln!(
+            "Destroying {} resources in reverse order",
+            reverse_order.len()
+        );
+    }
+
+    let all_machines = executor::collect_machines(&config);
+    let mut destroyed = 0u32;
+    let mut failed = 0u32;
+
+    for resource_id in &reverse_order {
+        let resource = match config.resources.get(resource_id) {
+            Some(r) => r,
+            None => continue,
+        };
+
+        let machine_name = match &resource.machine {
+            types::MachineTarget::Single(m) => m.as_str(),
+            types::MachineTarget::Multiple(ms) => {
+                if ms.is_empty() {
+                    continue;
+                }
+                ms[0].as_str()
+            }
+        };
+
+        if let Some(filter) = machine_filter {
+            if machine_name != filter {
+                continue;
+            }
+        }
+
+        // Clone resource and set state to absent
+        let mut destroy_resource = resource.clone();
+        destroy_resource.state = Some("absent".to_string());
+
+        let machine = config.machines.get(machine_name);
+
+        let script = match codegen::apply_script(&destroy_resource) {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("  SKIP {}: codegen error: {}", resource_id, e);
+                failed += 1;
+                continue;
+            }
+        };
+
+        if let Some(m) = machine {
+            if m.is_container_transport() {
+                let _ = crate::transport::container::ensure_container(m);
+            }
+            match transport::exec_script(m, &script) {
+                Ok(out) if out.success() => {
+                    println!("  - {} ({})", resource_id, resource.resource_type);
+                    destroyed += 1;
+                }
+                Ok(out) => {
+                    eprintln!(
+                        "  FAIL {}: exit {}: {}",
+                        resource_id,
+                        out.exit_code,
+                        out.stderr.trim()
+                    );
+                    failed += 1;
+                }
+                Err(e) => {
+                    eprintln!("  FAIL {}: {}", resource_id, e);
+                    failed += 1;
+                }
+            }
+        } else {
+            eprintln!("  SKIP {}: machine '{}' not found", resource_id, machine_name);
+            failed += 1;
+        }
+    }
+
+    // Clean up state files
+    if failed == 0 {
+        for machine_name in &all_machines {
+            if let Some(filter) = machine_filter {
+                if machine_name != filter {
+                    continue;
+                }
+            }
+            let lock_path = state_dir.join(machine_name).join("state.lock.yaml");
+            if lock_path.exists() {
+                let _ = std::fs::remove_file(&lock_path);
+            }
+        }
+    }
+
+    println!();
+    if failed > 0 {
+        println!(
+            "Destroy completed with errors: {} destroyed, {} failed",
+            destroyed, failed
+        );
+        return Err(format!("{} resource(s) failed to destroy", failed));
+    }
+
+    println!("Destroy complete: {} resources removed.", destroyed);
+    Ok(())
+}
+
 fn cmd_graph(file: &Path, format: &str) -> Result<(), String> {
     let config = parse_and_validate(file)?;
 
@@ -697,7 +847,12 @@ fn cmd_graph(file: &Path, format: &str) -> Result<(), String> {
             }
             println!("}}");
         }
-        other => return Err(format!("unknown graph format '{}': use mermaid or dot", other)),
+        other => {
+            return Err(format!(
+                "unknown graph format '{}': use mermaid or dot",
+                other
+            ))
+        }
     }
 
     Ok(())
@@ -1853,5 +2008,208 @@ resources: {}
             false,
         )
         .unwrap();
+    }
+
+    #[test]
+    fn test_fj061_destroy_requires_yes() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        let state = dir.path().join("state");
+        std::fs::create_dir_all(&state).unwrap();
+        std::fs::write(
+            &config,
+            r#"
+version: "1.0"
+name: test
+machines:
+  local:
+    hostname: localhost
+    addr: 127.0.0.1
+resources:
+  f:
+    type: file
+    machine: local
+    path: /tmp/forjar-destroy-test.txt
+    content: "x"
+"#,
+        )
+        .unwrap();
+        let result = cmd_destroy(&config, &state, None, false, false);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("--yes"));
+    }
+
+    #[test]
+    fn test_fj061_destroy_local_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        let state = dir.path().join("state");
+        std::fs::create_dir_all(&state).unwrap();
+
+        let target = dir.path().join("destroy-me.txt");
+        std::fs::write(
+            &config,
+            format!(
+                r#"
+version: "1.0"
+name: destroy-test
+machines:
+  local:
+    hostname: localhost
+    addr: 127.0.0.1
+resources:
+  victim:
+    type: file
+    machine: local
+    path: {}
+    content: "will be destroyed"
+"#,
+                target.display()
+            ),
+        )
+        .unwrap();
+
+        // First, apply so the file exists and state is saved
+        cmd_apply(&config, &state, None, None, false, false, false, &[], false).unwrap();
+        assert!(target.exists());
+        assert!(state.join("local").join("state.lock.yaml").exists());
+
+        // Now destroy
+        cmd_destroy(&config, &state, None, true, false).unwrap();
+
+        // File should be removed
+        assert!(!target.exists());
+
+        // State lock should be cleaned up
+        assert!(!state.join("local").join("state.lock.yaml").exists());
+    }
+
+    #[test]
+    fn test_fj061_destroy_verbose() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        let state = dir.path().join("state");
+        std::fs::create_dir_all(&state).unwrap();
+
+        let target = dir.path().join("destroy-verbose.txt");
+        std::fs::write(
+            &config,
+            format!(
+                r#"
+version: "1.0"
+name: verbose-destroy
+machines:
+  local:
+    hostname: localhost
+    addr: 127.0.0.1
+resources:
+  f:
+    type: file
+    machine: local
+    path: {}
+    content: "verbose test"
+"#,
+                target.display()
+            ),
+        )
+        .unwrap();
+
+        cmd_apply(&config, &state, None, None, false, false, false, &[], false).unwrap();
+        cmd_destroy(&config, &state, None, true, true).unwrap();
+        assert!(!target.exists());
+    }
+
+    #[test]
+    fn test_fj061_destroy_machine_filter() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        let state = dir.path().join("state");
+        std::fs::create_dir_all(&state).unwrap();
+
+        let target_a = dir.path().join("file-a.txt");
+        let target_b = dir.path().join("file-b.txt");
+        std::fs::write(
+            &config,
+            format!(
+                r#"
+version: "1.0"
+name: filter-test
+machines:
+  local-a:
+    hostname: localhost
+    addr: 127.0.0.1
+  local-b:
+    hostname: localhost
+    addr: 127.0.0.1
+resources:
+  fa:
+    type: file
+    machine: local-a
+    path: {}
+    content: "a"
+  fb:
+    type: file
+    machine: local-b
+    path: {}
+    content: "b"
+"#,
+                target_a.display(),
+                target_b.display()
+            ),
+        )
+        .unwrap();
+
+        cmd_apply(&config, &state, None, None, false, false, false, &[], false).unwrap();
+        assert!(target_a.exists());
+        assert!(target_b.exists());
+
+        // Only destroy machine local-a
+        cmd_destroy(&config, &state, Some("local-a"), true, false).unwrap();
+        assert!(!target_a.exists());
+        assert!(target_b.exists()); // b should still exist
+    }
+
+    #[test]
+    fn test_fj061_dispatch_destroy() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        let state = dir.path().join("state");
+        std::fs::create_dir_all(&state).unwrap();
+
+        let target = dir.path().join("dispatch-destroy.txt");
+        std::fs::write(
+            &config,
+            format!(
+                r#"
+version: "1.0"
+name: dispatch-test
+machines:
+  local:
+    hostname: localhost
+    addr: 127.0.0.1
+resources:
+  f:
+    type: file
+    machine: local
+    path: {}
+    content: "dispatch"
+"#,
+                target.display()
+            ),
+        )
+        .unwrap();
+
+        cmd_apply(&config, &state, None, None, false, false, false, &[], false).unwrap();
+        dispatch(
+            Commands::Destroy {
+                file: config,
+                machine: None,
+                yes: true,
+                state_dir: state,
+            },
+            false,
+        )
+        .unwrap();
+        assert!(!target.exists());
     }
 }

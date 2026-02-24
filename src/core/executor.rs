@@ -136,8 +136,7 @@ fn apply_machines_parallel(
                 if let Some(l) = machine_lock {
                     single_lock_map.insert(machine_name.to_string(), l);
                 }
-                let result =
-                    apply_machine(cfg, machine_name, machine, plan, &mut single_lock_map);
+                let result = apply_machine(cfg, machine_name, machine, plan, &mut single_lock_map);
 
                 // Put the lock back
                 if let Some((k, v)) = single_lock_map.into_iter().next() {
@@ -483,7 +482,7 @@ fn apply_machine(
 }
 
 /// Collect all unique machine names referenced by resources.
-fn collect_machines(config: &ForjarConfig) -> Vec<String> {
+pub fn collect_machines(config: &ForjarConfig) -> Vec<String> {
     let mut machines: Vec<String> = Vec::new();
     for resource in config.resources.values() {
         for m in resource.machine.to_vec() {
