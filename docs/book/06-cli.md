@@ -184,6 +184,32 @@ forjar destroy -f <FILE> [-m MACHINE] [--yes] [--state-dir DIR]
 
 Resources are removed in reverse topological order (dependents first). On success, state lock files are cleaned up. Requires `--yes` flag as a safety gate.
 
+### `forjar import`
+
+Scan a machine and generate a forjar.yaml from its current state.
+
+```bash
+forjar import --addr <HOST> [--user USER] [--name NAME] [--output FILE] [--scan types]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--addr` | — | Machine address (IP, hostname, or `localhost`) |
+| `--user` | `root` | SSH user |
+| `--name` | derived from addr | Machine name in config |
+| `--output` | `forjar.yaml` | Output file path |
+| `--scan` | `packages,files,services` | Comma-separated scan types |
+
+Scans installed packages (dpkg), enabled services (systemctl), and config files (/etc/*.conf). The generated config should be reviewed and customized before applying.
+
+```bash
+# Import from a remote machine
+forjar import --addr 10.0.0.1 --name prod-web --output prod-web.yaml
+
+# Import just packages from localhost
+forjar import --addr localhost --scan packages -v
+```
+
 ## Exit Codes
 
 | Code | Meaning |

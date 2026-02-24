@@ -168,6 +168,29 @@ pub enum Commands {
         state_dir: PathBuf,
     },
 
+    /// Import existing infrastructure from a machine into forjar.yaml
+    Import {
+        /// Machine address (IP, hostname, or 'localhost')
+        #[arg(short, long)]
+        addr: String,
+
+        /// SSH user
+        #[arg(short, long, default_value = "root")]
+        user: String,
+
+        /// Machine name (used as key in machines section)
+        #[arg(short, long)]
+        name: Option<String>,
+
+        /// Output file
+        #[arg(short, long, default_value = "forjar.yaml")]
+        output: PathBuf,
+
+        /// What to scan
+        #[arg(long, value_delimiter = ',', default_value = "packages,files,services")]
+        scan: Vec<String>,
+    },
+
     /// Show resource dependency graph
     Graph {
         /// Path to forjar.yaml
@@ -255,6 +278,13 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             json,
         } => cmd_history(&state_dir, machine.as_deref(), limit, json),
         Commands::Graph { file, format } => cmd_graph(&file, &format),
+        Commands::Import {
+            addr,
+            user,
+            name,
+            output,
+            scan,
+        } => cmd_import(&addr, &user, name.as_deref(), &output, &scan, verbose),
     }
 }
 
@@ -288,6 +318,194 @@ policy:
     println!("Initialized forjar project at {}", path.display());
     println!("  Created: {}", config_path.display());
     println!("  Created: {}/", state_dir.display());
+    Ok(())
+}
+
+fn cmd_import(
+    addr: &str,
+    user: &str,
+    name: Option<&str>,
+    output: &Path,
+    scan: &[String],
+    verbose: bool,
+) -> Result<(), String> {
+    let machine_name = name.unwrap_or_else(|| {
+        if addr == "localhost" || addr == "127.0.0.1" {
+            "localhost"
+        } else {
+            addr.split('.').next().unwrap_or("imported")
+        }
+    });
+
+    let machine = types::Machine {
+        hostname: machine_name.to_string(),
+        addr: addr.to_string(),
+        user: user.to_string(),
+        arch: "x86_64".to_string(),
+        ssh_key: None,
+        roles: vec![],
+        transport: None,
+        container: None,
+    };
+
+    let scan_set: std::collections::HashSet<&str> = scan.iter().map(|s| s.as_str()).collect();
+
+    let mut resources_yaml = String::new();
+    let mut resource_count = 0;
+
+    // Scan packages
+    if scan_set.contains("packages") {
+        if verbose {
+            eprintln!("Scanning installed packages on {}...", addr);
+        }
+        let script = "dpkg-query -W -f='${Package}\\n' 2>/dev/null | sort | head -100";
+        match transport::exec_script(&machine, script) {
+            Ok(output) => {
+                let packages: Vec<&str> = output
+                    .stdout
+                    .lines()
+                    .filter(|l| !l.is_empty())
+                    .take(50)
+                    .collect();
+                if !packages.is_empty() {
+                    resources_yaml.push_str("  imported-packages:\n");
+                    resources_yaml.push_str("    type: package\n");
+                    resources_yaml
+                        .push_str(&format!("    machine: {}\n", machine_name));
+                    resources_yaml.push_str("    provider: apt\n");
+                    resources_yaml.push_str("    packages:\n");
+                    for pkg in &packages {
+                        resources_yaml.push_str(&format!("      - {}\n", pkg));
+                    }
+                    resources_yaml.push('\n');
+                    resource_count += 1;
+                    if verbose {
+                        eprintln!("  Found {} packages", packages.len());
+                    }
+                }
+            }
+            Err(e) => {
+                if verbose {
+                    eprintln!("  Package scan failed: {}", e);
+                }
+            }
+        }
+    }
+
+    // Scan services
+    if scan_set.contains("services") {
+        if verbose {
+            eprintln!("Scanning enabled services on {}...", addr);
+        }
+        let script =
+            "systemctl list-unit-files --type=service --state=enabled --no-legend 2>/dev/null \
+             | awk '{print $1}' | sed 's/\\.service$//' | sort";
+        match transport::exec_script(&machine, script) {
+            Ok(output) => {
+                let services: Vec<&str> = output
+                    .stdout
+                    .lines()
+                    .filter(|l| !l.is_empty() && !l.starts_with("UNIT"))
+                    .collect();
+                for svc in &services {
+                    let id = format!("svc-{}", svc.replace('.', "-"));
+                    resources_yaml.push_str(&format!("  {}:\n", id));
+                    resources_yaml.push_str("    type: service\n");
+                    resources_yaml
+                        .push_str(&format!("    machine: {}\n", machine_name));
+                    resources_yaml.push_str(&format!("    name: {}\n", svc));
+                    resources_yaml.push_str("    state: running\n");
+                    resources_yaml.push_str("    enabled: true\n\n");
+                    resource_count += 1;
+                }
+                if verbose {
+                    eprintln!("  Found {} enabled services", services.len());
+                }
+            }
+            Err(e) => {
+                if verbose {
+                    eprintln!("  Service scan failed: {}", e);
+                }
+            }
+        }
+    }
+
+    // Scan managed config files (common paths)
+    if scan_set.contains("files") {
+        if verbose {
+            eprintln!("Scanning config files on {}...", addr);
+        }
+        let script = "find /etc -maxdepth 2 -name '*.conf' -type f 2>/dev/null | sort | head -20";
+        match transport::exec_script(&machine, script) {
+            Ok(output) => {
+                let files: Vec<&str> = output.stdout.lines().filter(|l| !l.is_empty()).collect();
+                for file_path in &files {
+                    let basename = std::path::Path::new(file_path)
+                        .file_stem()
+                        .and_then(|s| s.to_str())
+                        .unwrap_or("config");
+                    let id = format!("file-{}", basename.replace('.', "-"));
+                    resources_yaml.push_str(&format!("  {}:\n", id));
+                    resources_yaml.push_str("    type: file\n");
+                    resources_yaml
+                        .push_str(&format!("    machine: {}\n", machine_name));
+                    resources_yaml.push_str(&format!("    path: {}\n", file_path));
+                    resources_yaml.push_str("    # content: TODO — fill from source or template\n");
+                    resources_yaml.push_str("    owner: root\n");
+                    resources_yaml.push_str("    group: root\n");
+                    resources_yaml.push_str("    mode: \"0644\"\n\n");
+                    resource_count += 1;
+                }
+                if verbose {
+                    eprintln!("  Found {} config files", files.len());
+                }
+            }
+            Err(e) => {
+                if verbose {
+                    eprintln!("  File scan failed: {}", e);
+                }
+            }
+        }
+    }
+
+    // Generate output YAML
+    let config_yaml = format!(
+        r#"# Generated by: forjar import --addr {}
+# Review and customize before applying.
+version: "1.0"
+name: imported-{}
+
+machines:
+  {}:
+    hostname: {}
+    addr: {}
+    user: {}
+
+resources:
+{}
+policy:
+  failure: stop_on_first
+  tripwire: true
+  lock_file: true
+"#,
+        addr,
+        machine_name,
+        machine_name,
+        machine_name,
+        addr,
+        user,
+        resources_yaml,
+    );
+
+    std::fs::write(output, &config_yaml)
+        .map_err(|e| format!("cannot write {}: {}", output.display(), e))?;
+
+    println!(
+        "Imported {} resources from {} → {}",
+        resource_count,
+        addr,
+        output.display()
+    );
     Ok(())
 }
 
@@ -2777,5 +2995,52 @@ resources:
 
         // Clean up
         let _ = std::fs::remove_file(&target);
+    }
+
+    #[test]
+    fn test_fj065_import_localhost() {
+        let dir = tempfile::tempdir().unwrap();
+        let output = dir.path().join("imported.yaml");
+
+        // Import just packages from localhost (most likely to succeed in test env)
+        cmd_import(
+            "localhost",
+            "root",
+            Some("test-machine"),
+            &output,
+            &["packages".to_string()],
+            false,
+        )
+        .unwrap();
+
+        // Output file should exist and be valid YAML
+        assert!(output.exists());
+        let content = std::fs::read_to_string(&output).unwrap();
+        assert!(content.contains("version: \"1.0\""));
+        assert!(content.contains("test-machine"));
+        assert!(content.contains("addr: localhost"));
+    }
+
+    #[test]
+    fn test_fj065_import_generates_valid_config() {
+        let dir = tempfile::tempdir().unwrap();
+        let output = dir.path().join("imported.yaml");
+
+        cmd_import(
+            "localhost",
+            "root",
+            Some("local"),
+            &output,
+            &["packages".to_string()],
+            false,
+        )
+        .unwrap();
+
+        // The generated YAML should parse as a valid forjar config
+        let content = std::fs::read_to_string(&output).unwrap();
+        // Parse the YAML (strip comments that aren't YAML-compatible)
+        let config: types::ForjarConfig = serde_yaml_ng::from_str(&content).unwrap();
+        assert_eq!(config.version, "1.0");
+        assert!(config.machines.contains_key("local"));
     }
 }

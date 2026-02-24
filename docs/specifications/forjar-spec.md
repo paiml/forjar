@@ -1175,6 +1175,7 @@ Options:
 | FJ-062 | Secrets management — `{{secrets.KEY}}` templates resolved from `FORJAR_SECRET_*` env vars | **Done** |
 | FJ-063 | MCP integration via paiml-mcp-agent-toolkit |
 | FJ-064 | Cross-architecture support (x86_64 ↔ aarch64) |
+| FJ-065 | `forjar import` — scan machine and generate forjar.yaml | **Done** |
 
 ---
 
@@ -1435,8 +1436,8 @@ When bindings are verified, the build emits `CONTRACT_*` environment variables c
 
 ## 14. Open Questions
 
-1. **Secrets**: Encrypt in git (age/sops-style) or external vault? Leaning toward age encryption with key in SSH agent.
+1. ~~**Secrets**: Encrypt in git (age/sops-style) or external vault?~~ **Resolved**: Environment variable-based secrets (`FORJAR_SECRET_*` → `{{secrets.KEY}}`). Age encryption deferred to future.
 2. **Rollback**: Should `forjar rollback` replay the previous state, or just show the diff? Terraform doesn't rollback — it just re-applies desired state.
-3. **Import**: Should `forjar import` be able to adopt existing infrastructure (scan a machine and generate forjar.yaml)?  This would accelerate adoption.
+3. ~~**Import**: Should `forjar import` be able to adopt existing infrastructure?~~ **Resolved**: `forjar import --addr <host>` scans packages, services, and config files, generates forjar.yaml.
 4. **Multi-repo**: Should machines be able to be managed by multiple forjar repos? Leaning no — one repo per fleet, sovereignty principle.
 5. **Systemd in containers**: Service resources require systemd. Should forjar detect when running inside a container without systemd and skip/warn, or require `--privileged` containers with systemd init? Docker's `--init` provides PID 1 reaping but not systemd.
