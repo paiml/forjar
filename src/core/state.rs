@@ -1,6 +1,7 @@
 //! FJ-013: Lock file management — load, save (atomic), path derivation.
 
 use super::types::StateLock;
+use provable_contracts_macros::contract;
 use std::path::{Path, PathBuf};
 
 /// Derive the lock file path for a machine within the state directory.
@@ -22,6 +23,7 @@ pub fn load_lock(state_dir: &Path, machine: &str) -> Result<Option<StateLock>, S
 }
 
 /// Save a lock file atomically (write to temp, then rename).
+#[contract("execution-safety-v1", equation = "atomic_write")]
 pub fn save_lock(state_dir: &Path, lock: &StateLock) -> Result<(), String> {
     let path = lock_file_path(state_dir, &lock.machine);
     if let Some(parent) = path.parent() {
@@ -65,6 +67,7 @@ pub fn new_lock(machine: &str, hostname: &str) -> StateLock {
 mod tests {
     use super::*;
     use crate::core::types::{ResourceLock, ResourceStatus, ResourceType};
+    use proptest::prelude::*;
     use std::collections::HashMap;
 
     fn make_lock() -> StateLock {
@@ -183,5 +186,33 @@ mod tests {
         let loaded = load_lock(dir.path(), "test").unwrap().unwrap();
         let keys: Vec<_> = loaded.resources.keys().collect();
         assert_eq!(keys, vec!["test-pkg", "aaa-first"]);
+    }
+
+    // ── Falsification tests (Execution Safety Contract) ─────────
+
+    proptest! {
+        /// FALSIFY-ES-001: Atomic write leaves no temp file after success.
+        #[test]
+        fn falsify_es_001_atomic_write_no_temp(machine in "[a-z]{1,8}", hostname in "[a-z]{1,12}") {
+            let dir = tempfile::tempdir().unwrap();
+            let lock = StateLock {
+                schema: "1.0".to_string(),
+                machine: machine.clone(),
+                hostname,
+                generated_at: "2026-02-24T00:00:00Z".to_string(),
+                generator: "forjar 0.1.0".to_string(),
+                blake3_version: "1.8".to_string(),
+                resources: indexmap::IndexMap::new(),
+            };
+            save_lock(dir.path(), &lock).unwrap();
+
+            // Temp file must not exist
+            let tmp = dir.path().join(&machine).join("state.lock.yaml.tmp");
+            prop_assert!(!tmp.exists(), "temp file must not remain after save_lock");
+
+            // Actual file must exist
+            let actual = lock_file_path(dir.path(), &machine);
+            prop_assert!(actual.exists(), "lock file must exist after save_lock");
+        }
     }
 }

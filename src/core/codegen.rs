@@ -7,8 +7,10 @@
 
 use super::types::{Resource, ResourceType};
 use crate::resources;
+use provable_contracts_macros::contract;
 
 /// Generate a check script for a resource.
+#[contract("codegen-dispatch-v1", equation = "check_script")]
 pub fn check_script(resource: &Resource) -> Result<String, String> {
     match &resource.resource_type {
         ResourceType::Package => Ok(resources::package::check_script(resource)),
@@ -20,6 +22,7 @@ pub fn check_script(resource: &Resource) -> Result<String, String> {
 }
 
 /// Generate an apply script for a resource.
+#[contract("codegen-dispatch-v1", equation = "apply_script")]
 pub fn apply_script(resource: &Resource) -> Result<String, String> {
     match &resource.resource_type {
         ResourceType::Package => Ok(resources::package::apply_script(resource)),
@@ -31,6 +34,7 @@ pub fn apply_script(resource: &Resource) -> Result<String, String> {
 }
 
 /// Generate a state query script for a resource.
+#[contract("codegen-dispatch-v1", equation = "state_query_script")]
 pub fn state_query_script(resource: &Resource) -> Result<String, String> {
     match &resource.resource_type {
         ResourceType::Package => Ok(resources::package::state_query_script(resource)),
@@ -227,5 +231,66 @@ mod tests {
         assert!(check_script(&r).is_err());
         assert!(apply_script(&r).is_err());
         assert!(state_query_script(&r).is_err());
+    }
+
+    // ── Falsification tests (Codegen Dispatch Contract) ─────────
+
+    /// FALSIFY-CD-001: All Phase 1 types produce Ok for all three functions.
+    #[test]
+    fn falsify_cd_001_dispatch_completeness() {
+        let resources = [make_package(), make_file(), make_service(), make_mount()];
+        for r in &resources {
+            assert!(
+                check_script(r).is_ok(),
+                "check_script failed for {:?}",
+                r.resource_type
+            );
+            assert!(
+                apply_script(r).is_ok(),
+                "apply_script failed for {:?}",
+                r.resource_type
+            );
+            assert!(
+                state_query_script(r).is_ok(),
+                "state_query_script failed for {:?}",
+                r.resource_type
+            );
+        }
+    }
+
+    /// FALSIFY-CD-002: Dispatch is symmetric — same types handled by all three functions.
+    #[test]
+    fn falsify_cd_002_dispatch_symmetry() {
+        let all_types = [
+            ResourceType::Package,
+            ResourceType::File,
+            ResourceType::Service,
+            ResourceType::Mount,
+            ResourceType::Docker,
+            ResourceType::User,
+            ResourceType::Network,
+            ResourceType::Cron,
+            ResourceType::Pepita,
+        ];
+
+        for rt in &all_types {
+            let mut r = make_package();
+            r.resource_type = rt.clone();
+
+            let check_ok = check_script(&r).is_ok();
+            let apply_ok = apply_script(&r).is_ok();
+            let query_ok = state_query_script(&r).is_ok();
+
+            assert_eq!(
+                check_ok, apply_ok,
+                "check/apply asymmetry for {:?}: check={}, apply={}",
+                rt, check_ok, apply_ok
+            );
+            assert_eq!(
+                apply_ok, query_ok,
+                "apply/query asymmetry for {:?}: apply={}, query={}",
+                rt, apply_ok, query_ok
+            );
+        }
     }
 }

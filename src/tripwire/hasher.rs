@@ -1,11 +1,13 @@
 //! FJ-014: BLAKE3 state hashing for resources, files, and directories.
 
+use provable_contracts_macros::contract;
 use std::io::Read;
 use std::path::Path;
 
 const STREAM_BUF_SIZE: usize = 65536;
 
 /// Hash a file's contents. Returns `"blake3:{hex}"`.
+#[contract("blake3-state-v1", equation = "hash_file")]
 pub fn hash_file(path: &Path) -> Result<String, String> {
     let mut file =
         std::fs::File::open(path).map_err(|e| format!("cannot open {}: {}", path.display(), e))?;
@@ -24,6 +26,7 @@ pub fn hash_file(path: &Path) -> Result<String, String> {
 }
 
 /// Hash a string. Returns `"blake3:{hex}"`.
+#[contract("blake3-state-v1", equation = "hash_string")]
 pub fn hash_string(s: &str) -> String {
     format!("blake3:{}", blake3::hash(s.as_bytes()).to_hex())
 }
@@ -79,6 +82,7 @@ pub fn hash_directory(path: &Path) -> Result<String, String> {
 }
 
 /// Compute a composite hash from multiple component hashes.
+#[contract("blake3-state-v1", equation = "composite_hash")]
 pub fn composite_hash(components: &[&str]) -> String {
     let mut hasher = blake3::Hasher::new();
     for c in components {
@@ -91,6 +95,7 @@ pub fn composite_hash(components: &[&str]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
 
     #[test]
     fn test_fj014_hash_file() {
@@ -189,6 +194,35 @@ mod tests {
                 h_with_link, h_without_link,
                 "symlink should not affect hash"
             );
+        }
+    }
+
+    // ── Falsification tests (BLAKE3 State Contract) ─────────────
+
+    proptest! {
+        /// FALSIFY-B3-001: hash_string always produces "blake3:" prefix + 64 hex chars.
+        #[test]
+        fn falsify_b3_001_hash_string_prefix_format(s in ".*") {
+            let h = hash_string(&s);
+            prop_assert!(h.starts_with("blake3:"), "missing blake3: prefix");
+            prop_assert_eq!(h.len(), 71, "expected 7 prefix + 64 hex = 71 chars");
+        }
+
+        /// FALSIFY-B3-002: hash_string is deterministic.
+        #[test]
+        fn falsify_b3_002_hash_string_determinism(s in ".*") {
+            let h1 = hash_string(&s);
+            let h2 = hash_string(&s);
+            prop_assert_eq!(h1, h2, "hash_string must be deterministic");
+        }
+
+        /// FALSIFY-B3-003: composite_hash is order-sensitive.
+        #[test]
+        fn falsify_b3_003_composite_order_sensitivity(a in "[a-z]{1,8}", b in "[a-z]{1,8}") {
+            prop_assume!(a != b);
+            let h_ab = composite_hash(&[&a, &b]);
+            let h_ba = composite_hash(&[&b, &a]);
+            prop_assert_ne!(h_ab, h_ba, "composite_hash must be order-sensitive");
         }
     }
 }

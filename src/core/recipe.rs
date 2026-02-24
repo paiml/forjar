@@ -7,6 +7,7 @@
 
 use super::types::{MachineTarget, Resource};
 use indexmap::IndexMap;
+use provable_contracts_macros::contract;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
@@ -84,6 +85,7 @@ pub fn parse_recipe(yaml: &str) -> Result<RecipeFile, String> {
 }
 
 /// Validate recipe inputs against their declarations.
+#[contract("recipe-determinism-v1", equation = "validate_inputs")]
 pub fn validate_inputs(
     recipe: &RecipeMetadata,
     provided: &HashMap<String, serde_yaml_ng::Value>,
@@ -231,6 +233,7 @@ fn resolve_resource_inputs(
 ///
 /// Given a recipe resource in the config (type: recipe), load and expand it
 /// into individual resources with IDs like `recipe-id/resource-name`.
+#[contract("recipe-determinism-v1", equation = "expand_recipe")]
 pub fn expand_recipe(
     recipe_id: &str,
     recipe_file: &RecipeFile,
@@ -305,6 +308,7 @@ pub fn recipe_terminal_id(recipe_id: &str, recipe_file: &RecipeFile) -> Option<S
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
 
     const RECIPE_YAML: &str = r#"
 recipe:
@@ -826,5 +830,119 @@ resources: {}
         // String type should coerce non-string values via Debug format
         let resolved = validate_inputs(&recipe.recipe, &provided).unwrap();
         assert!(!resolved["label"].is_empty());
+    }
+
+    // ── Falsification tests (Recipe Determinism Contract) ───────
+
+    proptest! {
+        /// FALSIFY-RD-001: expand_recipe is deterministic — same args always produce same output.
+        #[test]
+        fn falsify_rd_001_expansion_determinism(path in "/[a-z]{1,8}") {
+            let recipe = parse_recipe(RECIPE_YAML).unwrap();
+            let machine = MachineTarget::Single("m1".to_string());
+            let mut inputs = HashMap::new();
+            inputs.insert(
+                "export_path".to_string(),
+                serde_yaml_ng::Value::String(path),
+            );
+
+            let e1 = expand_recipe("nfs", &recipe, &machine, &inputs, &[]).unwrap();
+            let e2 = expand_recipe("nfs", &recipe, &machine, &inputs, &[]).unwrap();
+
+            // Compare keys and resource fields
+            let keys1: Vec<_> = e1.keys().collect();
+            let keys2: Vec<_> = e2.keys().collect();
+            prop_assert_eq!(keys1, keys2, "expansion keys must be deterministic");
+
+            for key in e1.keys() {
+                prop_assert_eq!(
+                    e1[key].content.as_deref(),
+                    e2[key].content.as_deref(),
+                    "content must be deterministic for {}",
+                    key
+                );
+                prop_assert_eq!(
+                    &e1[key].depends_on,
+                    &e2[key].depends_on,
+                    "depends_on must be deterministic for {}",
+                    key
+                );
+            }
+        }
+
+        /// FALSIFY-RD-002: validate_int rejects values outside [min, max].
+        #[test]
+        fn falsify_rd_002_int_bounds(n in -100i64..100, min in -50i64..0, max in 1i64..50) {
+            let decl = RecipeInput {
+                input_type: "int".to_string(),
+                description: None,
+                default: None,
+                min: Some(min),
+                max: Some(max),
+                choices: vec![],
+            };
+            let value = serde_yaml_ng::Value::Number(serde_yaml_ng::Number::from(n));
+            let result = validate_int("test", &value, &decl);
+
+            if n < min {
+                prop_assert!(result.is_err(), "n={} < min={} should be rejected", n, min);
+            } else if n > max {
+                prop_assert!(result.is_err(), "n={} > max={} should be rejected", n, max);
+            } else {
+                prop_assert!(result.is_ok(), "n={} in [{}, {}] should be accepted", n, min, max);
+            }
+        }
+
+        /// FALSIFY-RD-003: path validation rejects non-absolute paths.
+        #[test]
+        fn falsify_rd_003_path_validation(s in "[a-z]{1,20}") {
+            // Non-absolute path (doesn't start with /)
+            let decl = RecipeInput {
+                input_type: "path".to_string(),
+                description: None,
+                default: None,
+                min: None,
+                max: None,
+                choices: vec![],
+            };
+            let value = serde_yaml_ng::Value::String(s);
+            let result = validate_input_type("test", "path", &value, &decl);
+            prop_assert!(result.is_err(), "non-absolute path must be rejected");
+        }
+
+        /// FALSIFY-RD-004: external deps only injected into first resource.
+        #[test]
+        fn falsify_rd_004_external_deps_placement(
+            dep in "[a-z]{1,8}",
+        ) {
+            let recipe = parse_recipe(RECIPE_YAML).unwrap();
+            let machine = MachineTarget::Single("m1".to_string());
+            let mut inputs = HashMap::new();
+            inputs.insert(
+                "export_path".to_string(),
+                serde_yaml_ng::Value::String("/mnt/data".to_string()),
+            );
+
+            let expanded = expand_recipe(
+                "nfs", &recipe, &machine, &inputs, &[dep.clone()],
+            ).unwrap();
+
+            let first_key = expanded.keys().next().unwrap();
+            prop_assert!(
+                expanded[first_key].depends_on.contains(&dep),
+                "first resource must have external dep"
+            );
+
+            // Non-first resources must NOT have external dep
+            for (i, (key, resource)) in expanded.iter().enumerate() {
+                if i > 0 {
+                    prop_assert!(
+                        !resource.depends_on.contains(&dep),
+                        "resource {} at position {} must not have external dep",
+                        key, i
+                    );
+                }
+            }
+        }
     }
 }

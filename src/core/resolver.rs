@@ -5,6 +5,7 @@
 //! using Kahn's algorithm with deterministic (alphabetical) tie-breaking.
 
 use super::types::*;
+use provable_contracts_macros::contract;
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet, VecDeque};
 
@@ -102,6 +103,7 @@ pub fn resolve_resource_templates(
 
 /// Build a topological execution order from resource dependencies.
 /// Uses Kahn's algorithm with alphabetical tie-breaking for determinism.
+#[contract("dag-ordering-v1", equation = "topological_sort")]
 pub fn build_execution_order(config: &ForjarConfig) -> Result<Vec<String>, String> {
     let resource_ids: Vec<String> = config.resources.keys().cloned().collect();
     let (mut in_degree, mut adjacency) = build_dag(config, &resource_ids)?;
@@ -194,6 +196,7 @@ fn kahn_sort(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
 
     #[test]
     fn test_fj003_resolve_params() {
@@ -477,5 +480,134 @@ resources:
         let err = resolve_template("{{bogus.var}}", &params, &machines);
         assert!(err.is_err());
         assert!(err.unwrap_err().contains("unknown template variable"));
+    }
+
+    // ── Falsification tests (DAG Ordering Contract) ─────────────
+
+    /// Helper: build a ForjarConfig from a set of resource names and dependency edges.
+    fn dag_config(names: &[&str], edges: &[(&str, &str)]) -> ForjarConfig {
+        let mut resources = indexmap::IndexMap::new();
+        for name in names {
+            let mut deps = vec![];
+            for (from, to) in edges {
+                if to == name {
+                    deps.push(from.to_string());
+                }
+            }
+            resources.insert(
+                name.to_string(),
+                Resource {
+                    resource_type: ResourceType::Package,
+                    machine: MachineTarget::Single("m1".to_string()),
+                    state: None,
+                    depends_on: deps,
+                    provider: Some("apt".to_string()),
+                    packages: vec!["x".to_string()],
+                    path: None,
+                    content: None,
+                    source: None,
+                    target: None,
+                    owner: None,
+                    group: None,
+                    mode: None,
+                    name: None,
+                    enabled: None,
+                    restart_on: vec![],
+                    fs_type: None,
+                    options: None,
+                },
+            );
+        }
+        let mut machines = indexmap::IndexMap::new();
+        machines.insert(
+            "m1".to_string(),
+            Machine {
+                hostname: "m1".to_string(),
+                addr: "1.1.1.1".to_string(),
+                user: "root".to_string(),
+                arch: "x86_64".to_string(),
+                ssh_key: None,
+                roles: vec![],
+            },
+        );
+        ForjarConfig {
+            version: "1.0".to_string(),
+            name: "test".to_string(),
+            description: None,
+            params: HashMap::new(),
+            machines,
+            resources,
+            policy: Policy::default(),
+        }
+    }
+
+    proptest! {
+        /// FALSIFY-DAG-001: Topological ordering — every dependency appears before its dependent.
+        #[test]
+        fn falsify_dag_001_topo_ordering(
+            n in 2..6usize,
+            edge_seed in prop::collection::vec((0..5usize, 0..5usize), 0..4),
+        ) {
+            let names: Vec<String> = (0..n).map(|i| format!("r{}", i)).collect();
+            let name_refs: Vec<&str> = names.iter().map(|s| s.as_str()).collect();
+            // Build valid DAG edges (only forward edges to avoid cycles)
+            let edges: Vec<(&str, &str)> = edge_seed.iter()
+                .filter_map(|&(a, b)| {
+                    let a = a % n;
+                    let b = b % n;
+                    if a < b { Some((name_refs[a], name_refs[b])) } else { None }
+                })
+                .collect();
+
+            let config = dag_config(&name_refs, &edges);
+            let order = build_execution_order(&config).unwrap();
+
+            // Verify: for every edge (a -> b), a appears before b
+            for (dep, dependent) in &edges {
+                let pos_dep = order.iter().position(|x| x == dep).unwrap();
+                let pos_dependent = order.iter().position(|x| x == dependent).unwrap();
+                prop_assert!(pos_dep < pos_dependent,
+                    "dependency {} (pos {}) must appear before {} (pos {})",
+                    dep, pos_dep, dependent, pos_dependent);
+            }
+        }
+
+        /// FALSIFY-DAG-002: Cycle detection returns Err.
+        #[test]
+        fn falsify_dag_002_cycle_detection(n in 2..5usize) {
+            // Create a cycle: r0 -> r1 -> ... -> r(n-1) -> r0
+            let names: Vec<String> = (0..n).map(|i| format!("r{}", i)).collect();
+            let name_refs: Vec<&str> = names.iter().map(|s| s.as_str()).collect();
+            let edges: Vec<(&str, &str)> = (0..n)
+                .map(|i| (name_refs[i], name_refs[(i + 1) % n]))
+                .collect();
+
+            let config = dag_config(&name_refs, &edges);
+            let result = build_execution_order(&config);
+            prop_assert!(result.is_err(), "cycle must be detected");
+            prop_assert!(result.unwrap_err().contains("cycle"), "error must mention 'cycle'");
+        }
+
+        /// FALSIFY-DAG-003: Deterministic output — same graph always produces same order.
+        #[test]
+        fn falsify_dag_003_determinism(
+            n in 2..6usize,
+            edge_seed in prop::collection::vec((0..5usize, 0..5usize), 0..4),
+        ) {
+            let names: Vec<String> = (0..n).map(|i| format!("r{}", i)).collect();
+            let name_refs: Vec<&str> = names.iter().map(|s| s.as_str()).collect();
+            let edges: Vec<(&str, &str)> = edge_seed.iter()
+                .filter_map(|&(a, b)| {
+                    let a = a % n;
+                    let b = b % n;
+                    if a < b { Some((name_refs[a], name_refs[b])) } else { None }
+                })
+                .collect();
+
+            let config = dag_config(&name_refs, &edges);
+            let order1 = build_execution_order(&config).unwrap();
+            let order2 = build_execution_order(&config).unwrap();
+            prop_assert_eq!(order1, order2, "build_execution_order must be deterministic");
+        }
     }
 }

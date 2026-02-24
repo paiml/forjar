@@ -454,6 +454,7 @@ fn build_resource_details(resource: &Resource) -> HashMap<String, serde_yaml_ng:
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
 
     fn local_config() -> ForjarConfig {
         let yaml = r#"
@@ -877,5 +878,45 @@ resources:
         // Resource filter doesn't match — everything skipped
         assert_eq!(results[0].resources_converged, 0);
         assert_eq!(results[0].resources_unchanged, 0);
+    }
+
+    // ── Falsification tests (Execution Safety Contract) ─────────
+
+    proptest! {
+        /// FALSIFY-ES-002: Jidoka StopOnFirst returns should_stop=true.
+        #[test]
+        fn falsify_es_002_jidoka_stop_on_first(error in ".{1,50}") {
+            let dir = tempfile::tempdir().unwrap();
+            let mut lock = state::new_lock("test", "test-box");
+            let mut ctx = RecordCtx {
+                lock: &mut lock,
+                state_dir: dir.path(),
+                machine_name: "test",
+                tripwire: false,
+                failure_policy: &FailurePolicy::StopOnFirst,
+            };
+            let should_stop = record_failure(
+                &mut ctx, "res", &ResourceType::Package, 0.1, &error,
+            );
+            prop_assert!(should_stop, "StopOnFirst must return true");
+        }
+
+        /// FALSIFY-ES-003: ContinueIndependent returns should_stop=false.
+        #[test]
+        fn falsify_es_003_jidoka_continue(error in ".{1,50}") {
+            let dir = tempfile::tempdir().unwrap();
+            let mut lock = state::new_lock("test", "test-box");
+            let mut ctx = RecordCtx {
+                lock: &mut lock,
+                state_dir: dir.path(),
+                machine_name: "test",
+                tripwire: false,
+                failure_policy: &FailurePolicy::ContinueIndependent,
+            };
+            let should_stop = record_failure(
+                &mut ctx, "res", &ResourceType::Package, 0.1, &error,
+            );
+            prop_assert!(!should_stop, "ContinueIndependent must return false");
+        }
     }
 }
