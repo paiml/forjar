@@ -53,7 +53,12 @@ policy:
 
     // 1. Parse
     let config = parser::parse_config(yaml).expect("YAML parse failed");
-    println!("Parsed: {} ({} machines, {} resources)", config.name, config.machines.len(), config.resources.len());
+    println!(
+        "Parsed: {} ({} machines, {} resources)",
+        config.name,
+        config.machines.len(),
+        config.resources.len()
+    );
 
     // 2. Validate
     let errors = parser::validate_config(&config);

@@ -56,7 +56,11 @@ resources:
     // 1. Parse recipe
     let recipe_file = recipe::parse_recipe(recipe_yaml).expect("Recipe parse failed");
     let meta = &recipe_file.recipe;
-    println!("Recipe: {} v{}", meta.name, meta.version.as_deref().unwrap_or("unversioned"));
+    println!(
+        "Recipe: {} v{}",
+        meta.name,
+        meta.version.as_deref().unwrap_or("unversioned")
+    );
     println!("Inputs:");
     for (name, input) in &meta.inputs {
         let default = input

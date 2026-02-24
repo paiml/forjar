@@ -416,12 +416,18 @@ fn build_resource_details(resource: &Resource) -> HashMap<String, serde_yaml_ng:
             serde_yaml_ng::Value::String(path.clone()),
         );
     }
-    if let Some(ref content) = resource.content {
-        let hash = hasher::hash_string(content);
-        details.insert(
-            "content_hash".to_string(),
-            serde_yaml_ng::Value::String(hash),
-        );
+    if let Some(ref _content) = resource.content {
+        // Hash the actual file on disk (not the in-memory content string).
+        // The heredoc-based apply adds a trailing newline, so hash_string(content)
+        // would differ from hash_file(path) — causing false drift detection.
+        if let Some(ref path) = resource.path {
+            if let Ok(hash) = hasher::hash_file(std::path::Path::new(path)) {
+                details.insert(
+                    "content_hash".to_string(),
+                    serde_yaml_ng::Value::String(hash),
+                );
+            }
+        }
     }
     if let Some(ref owner) = resource.owner {
         details.insert(
@@ -517,6 +523,9 @@ resources:
 
     #[test]
     fn test_fj012_build_resource_details() {
+        let dir = tempfile::tempdir().unwrap();
+        let file_path = dir.path().join("test.txt");
+        std::fs::write(&file_path, "hello").unwrap();
         let r = Resource {
             resource_type: ResourceType::File,
             machine: MachineTarget::Single("m".to_string()),
@@ -524,7 +533,7 @@ resources:
             depends_on: vec![],
             provider: None,
             packages: vec![],
-            path: Some("/etc/test".to_string()),
+            path: Some(file_path.to_str().unwrap().to_string()),
             content: Some("hello".to_string()),
             source: None,
             target: None,
@@ -543,6 +552,10 @@ resources:
         assert!(details.contains_key("owner"));
         assert!(details.contains_key("mode"));
         assert!(details.contains_key("group"));
+        // content_hash should match hash_file (not hash_string)
+        let expected = hasher::hash_file(&file_path).unwrap();
+        let actual = details["content_hash"].as_str().unwrap();
+        assert_eq!(actual, expected, "content_hash must use hash_file for drift consistency");
     }
 
     #[test]
@@ -810,6 +823,8 @@ resources:
     #[test]
     fn test_fj012_record_success_writes_lock_and_event() {
         let dir = tempfile::tempdir().unwrap();
+        let managed_file = dir.path().join("managed.txt");
+        std::fs::write(&managed_file, "test content").unwrap();
         let mut lock = state::new_lock("test", "test-box");
         let resource = Resource {
             resource_type: ResourceType::File,
@@ -818,7 +833,7 @@ resources:
             depends_on: vec![],
             provider: None,
             packages: vec![],
-            path: Some("/tmp/forjar-record-success-test.txt".to_string()),
+            path: Some(managed_file.to_str().unwrap().to_string()),
             content: Some("test content".to_string()),
             source: None,
             target: None,
