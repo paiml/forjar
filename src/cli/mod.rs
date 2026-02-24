@@ -106,6 +106,10 @@ pub enum Commands {
         #[arg(long)]
         alert_cmd: Option<String>,
 
+        /// Auto-remediate: re-apply drifted resources to restore desired state
+        #[arg(long)]
+        auto_remediate: bool,
+
         /// Output drift report as JSON
         #[arg(long)]
         json: bool,
@@ -219,6 +223,7 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             state_dir,
             tripwire,
             alert_cmd,
+            auto_remediate,
             json,
         } => cmd_drift(
             &file,
@@ -226,6 +231,7 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             machine.as_deref(),
             tripwire,
             alert_cmd.as_deref(),
+            auto_remediate,
             json,
             verbose,
         ),
@@ -506,6 +512,7 @@ fn cmd_drift(
     machine_filter: Option<&str>,
     tripwire_mode: bool,
     alert_cmd: Option<&str>,
+    auto_remediate: bool,
     json: bool,
     verbose: bool,
 ) -> Result<(), String> {
@@ -612,6 +619,29 @@ fn cmd_drift(
             if !status.success() {
                 eprintln!("alert-cmd exited with code {}", status.code().unwrap_or(-1));
             }
+        }
+    }
+
+    // Auto-remediate: re-apply with --force to restore desired state
+    if auto_remediate && total_drift > 0 {
+        if !json {
+            println!();
+            println!("Auto-remediating {} drifted resource(s)...", total_drift);
+        }
+        cmd_apply(
+            config_path,
+            state_dir,
+            machine_filter,
+            None,  // no resource filter — force re-applies all
+            true,  // force
+            false, // not dry-run
+            false, // tripwire on
+            &[],   // no param overrides
+            false, // no auto-commit
+            verbose,
+        )?;
+        if !json {
+            println!("Remediation complete.");
         }
     }
 
@@ -1258,6 +1288,7 @@ resources: {}
             None,
             false,
             false,
+            false,
         )
         .unwrap();
     }
@@ -1313,6 +1344,7 @@ resources: {}
             None,
             false,
             false,
+            false,
         )
         .unwrap();
     }
@@ -1366,6 +1398,7 @@ resources: {}
             None,
             false,
             false,
+            false,
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("drift"));
@@ -1384,6 +1417,7 @@ resources: {}
             Some("alpha"),
             false,
             None,
+            false,
             false,
             false,
         )
@@ -1550,6 +1584,7 @@ resources:
                 state_dir: state,
                 tripwire: false,
                 alert_cmd: None,
+                auto_remediate: false,
                 json: false,
             },
             false,
@@ -1659,6 +1694,7 @@ resources:
             None,
             false,
             None,
+            false,
             false,
             false,
         )
@@ -1909,6 +1945,7 @@ resources:
             None,
             false,
             None,
+            false,
             true,
             false,
         )
@@ -2532,6 +2569,7 @@ resources:
             Some(&alert_cmd),
             false,
             false,
+            false,
         )
         .unwrap();
 
@@ -2557,10 +2595,86 @@ resources:
             Some(&alert_cmd),
             false,
             false,
+            false,
         )
         .unwrap();
 
         // Alert should NOT have fired
         assert!(!alert_marker.exists());
+    }
+
+    #[test]
+    fn test_drift_auto_remediate() {
+        // Create a file resource, apply, tamper, then drift --auto-remediate
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        let state = dir.path().join("state");
+        std::fs::create_dir_all(&state).unwrap();
+
+        let target = dir
+            .path()
+            .join("auto-remediate-test.txt")
+            .to_string_lossy()
+            .to_string();
+        std::fs::write(
+            &config,
+            format!(
+                r#"version: "1.0"
+name: remediation-test
+machines:
+  local:
+    hostname: localhost
+    addr: 127.0.0.1
+resources:
+  test-file:
+    type: file
+    machine: local
+    path: {}
+    content: "original content"
+    mode: "0644"
+"#,
+                target
+            ),
+        )
+        .unwrap();
+
+        // Apply to create the file
+        cmd_apply(
+            &config,
+            &state,
+            None,
+            None,
+            false,
+            false,
+            false,
+            &[],
+            false,
+            false,
+        )
+        .unwrap();
+        assert!(std::path::Path::new(&target).exists());
+
+        // Tamper with the file
+        std::fs::write(&target, "tampered content").unwrap();
+
+        // Drift with auto-remediate should detect and fix
+        cmd_drift(
+            &config,
+            &state,
+            None,
+            false,
+            None,
+            true, // auto_remediate
+            false,
+            false,
+        )
+        .unwrap();
+
+        // File should be restored to original content
+        let content = std::fs::read_to_string(&target).unwrap();
+        assert_eq!(content.trim(), "original content");
+
+        // Clean up
+        let _ = std::fs::remove_file(&target);
     }
 }

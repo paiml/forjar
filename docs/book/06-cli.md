@@ -109,6 +109,7 @@ forjar drift -f <FILE> [-m MACHINE] [--state-dir DIR] [--tripwire] [--alert-cmd 
 | `--state-dir` | `state` | Directory for lock files |
 | `--tripwire` | false | Exit non-zero on any drift (for CI/cron) |
 | `--alert-cmd` | — | Run command on drift detection (sets `$FORJAR_DRIFT_COUNT`) |
+| `--auto-remediate` | false | Auto-fix drift: force re-apply all resources to restore desired state |
 | `--json` | false | Output drift report as JSON |
 
 Drift detection covers **all resource types**:

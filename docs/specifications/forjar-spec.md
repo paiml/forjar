@@ -1163,7 +1163,7 @@ Options:
 | FJ-050 | `tripwire/tracer.rs` — full renacer syscall tracing |
 | FJ-051 | ML drift anomaly detection via aprender |
 | FJ-052 | Cost-aware scheduling (prefer cheap machines) |
-| FJ-053 | Auto-remediation (detect drift → auto-apply) |
+| FJ-053 | Auto-remediation (`--auto-remediate` on drift → force re-apply) | **Done** |
 | FJ-054 | pmat compliance gates (pre/post apply) |
 
 ### Phase 5: Polish (v0.5)
