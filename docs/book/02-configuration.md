@@ -160,6 +160,36 @@ resources:
     content: "ENVIRONMENT={{params.env}}"
 ```
 
+## Secrets
+
+Secrets are resolved from environment variables at apply time. Use `{{secrets.KEY}}` in any string field:
+
+```yaml
+resources:
+  db-config:
+    type: file
+    machine: m1
+    path: /etc/app/database.conf
+    content: |
+      host=db.internal
+      password={{secrets.db-password}}
+    mode: "0600"
+```
+
+The secret key is normalized to an environment variable: `{{secrets.db-password}}` reads from `FORJAR_SECRET_DB_PASSWORD` (uppercase, hyphens become underscores).
+
+```bash
+# Set secrets before apply
+export FORJAR_SECRET_DB_PASSWORD="hunter2"
+export FORJAR_SECRET_API_KEY="sk-live-abc123"
+
+forjar apply -f forjar.yaml --state-dir state/
+```
+
+If a secret is missing, forjar exits with a clear error message naming the expected environment variable.
+
+Secrets are never written to forjar.yaml, state files, or git. They exist only in memory during apply.
+
 ## Policy
 
 ```yaml

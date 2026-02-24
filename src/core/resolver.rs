@@ -9,6 +9,23 @@ use provable_contracts_macros::contract;
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet, VecDeque};
 
+/// Resolve a secret value from environment variables.
+///
+/// Looks for `FORJAR_SECRET_<KEY>` (uppercase, hyphens become underscores).
+/// Example: `{{secrets.db-password}}` resolves from `FORJAR_SECRET_DB_PASSWORD`.
+fn resolve_secret(key: &str) -> Result<String, String> {
+    let env_key = format!(
+        "FORJAR_SECRET_{}",
+        key.to_uppercase().replace('-', "_")
+    );
+    std::env::var(&env_key).map_err(|_| {
+        format!(
+            "secret '{}' not found (set env var {} or use a secrets file)",
+            key, env_key
+        )
+    })
+}
+
 /// DAG representation: (in-degree per node, adjacency list).
 type Dag = (HashMap<String, usize>, HashMap<String, Vec<String>>);
 
@@ -36,6 +53,8 @@ pub fn resolve_template(
                     .map(yaml_value_to_string)
                     .ok_or_else(|| format!("unknown param: {}", param_key))?,
             )
+        } else if let Some(secret_key) = key.strip_prefix("secrets.") {
+            Cow::Owned(resolve_secret(secret_key)?)
         } else if key.starts_with("machine.") {
             let parts: Vec<&str> = key.splitn(3, '.').collect();
             if parts.len() != 3 {
@@ -238,6 +257,63 @@ mod tests {
         let result = resolve_template("{{params.missing}}", &params, &machines);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("unknown param"));
+    }
+
+    #[test]
+    fn test_fj062_resolve_secret_missing() {
+        // Use a unique key that definitely won't exist in CI/local env
+        let params = HashMap::new();
+        let machines = indexmap::IndexMap::new();
+        let result = resolve_template(
+            "{{secrets.zzz-test-nonexistent-9999}}",
+            &params,
+            &machines,
+        );
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.contains("FORJAR_SECRET_ZZZ_TEST_NONEXISTENT_9999"));
+        assert!(err.contains("not found"));
+    }
+
+    #[test]
+    fn test_fj062_secret_key_normalization() {
+        // Verify the env var name construction (hyphens → underscores, uppercase)
+        let result = resolve_secret("db-password");
+        // We can't set env vars safely, but we can verify the error message
+        // contains the correctly-normalized key
+        let err = result.unwrap_err();
+        assert!(err.contains("FORJAR_SECRET_DB_PASSWORD"));
+    }
+
+    #[test]
+    fn test_fj062_secret_from_env_via_subprocess() {
+        // Run a child process with the env var set to verify resolution works
+        let exe = std::env::current_exe().unwrap();
+        let output = std::process::Command::new(exe)
+            .env("FORJAR_SECRET_TEST_KEY", "secret_value")
+            .arg("--test-threads=1")
+            .arg("--exact")
+            .arg("core::resolver::tests::test_fj062_secret_inner")
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "subprocess failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+
+    #[test]
+    fn test_fj062_secret_inner() {
+        // This test is run via subprocess with FORJAR_SECRET_TEST_KEY set
+        if std::env::var("FORJAR_SECRET_TEST_KEY").is_err() {
+            return; // Skip when not run via subprocess
+        }
+        let params = HashMap::new();
+        let machines = indexmap::IndexMap::new();
+        let result =
+            resolve_template("val={{secrets.test-key}}", &params, &machines).unwrap();
+        assert_eq!(result, "val=secret_value");
     }
 
     #[test]

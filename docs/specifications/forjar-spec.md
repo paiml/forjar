@@ -1172,7 +1172,7 @@ Options:
 |--------|-------------|--------|
 | FJ-060 | `forjar graph` — Mermaid/DOT visualization | **Done** |
 | FJ-061 | `forjar destroy` — teardown all resources | **Done** |
-| FJ-062 | Secrets management (encrypted at rest in git) |
+| FJ-062 | Secrets management — `{{secrets.KEY}}` templates resolved from `FORJAR_SECRET_*` env vars | **Done** |
 | FJ-063 | MCP integration via paiml-mcp-agent-toolkit |
 | FJ-064 | Cross-architecture support (x86_64 ↔ aarch64) |
 

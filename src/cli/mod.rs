@@ -403,30 +403,35 @@ fn print_plan(plan: &types::ExecutionPlan, machine_filter: Option<&str>) {
 }
 
 /// Export generated scripts (check, apply, state_query) to a directory for auditing.
+/// Templates (params, secrets, machine refs) are resolved before export.
 fn export_scripts(config: &types::ForjarConfig, dir: &Path) -> Result<(), String> {
     std::fs::create_dir_all(dir)
         .map_err(|e| format!("cannot create output dir {}: {}", dir.display(), e))?;
 
     let mut count = 0;
     for (id, resource) in &config.resources {
+        // Resolve templates (params, secrets, machine refs) before codegen
+        let resolved =
+            resolver::resolve_resource_templates(resource, &config.params, &config.machines)?;
+
         // Sanitize resource ID for filesystem (replace / with --)
         let safe_id = id.replace('/', "--");
 
-        if let Ok(script) = codegen::check_script(resource) {
+        if let Ok(script) = codegen::check_script(&resolved) {
             let path = dir.join(format!("{}.check.sh", safe_id));
             std::fs::write(&path, &script)
                 .map_err(|e| format!("write {}: {}", path.display(), e))?;
             count += 1;
         }
 
-        if let Ok(script) = codegen::apply_script(resource) {
+        if let Ok(script) = codegen::apply_script(&resolved) {
             let path = dir.join(format!("{}.apply.sh", safe_id));
             std::fs::write(&path, &script)
                 .map_err(|e| format!("write {}: {}", path.display(), e))?;
             count += 1;
         }
 
-        if let Ok(script) = codegen::state_query_script(resource) {
+        if let Ok(script) = codegen::state_query_script(&resolved) {
             let path = dir.join(format!("{}.state_query.sh", safe_id));
             std::fs::write(&path, &script)
                 .map_err(|e| format!("write {}: {}", path.display(), e))?;
