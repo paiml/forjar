@@ -131,6 +131,17 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
     },
+
+    /// Show resource dependency graph
+    Graph {
+        /// Path to forjar.yaml
+        #[arg(short, long, default_value = "forjar.yaml")]
+        file: PathBuf,
+
+        /// Output format: mermaid (default) or dot
+        #[arg(long, default_value = "mermaid")]
+        format: String,
+    },
 }
 
 /// Dispatch a CLI command.
@@ -193,6 +204,7 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             limit,
             json,
         } => cmd_history(&state_dir, machine.as_deref(), limit, json),
+        Commands::Graph { file, format } => cmd_graph(&file, &format),
     }
 }
 
@@ -641,6 +653,51 @@ fn cmd_history(
                 _ => {}
             }
         }
+    }
+
+    Ok(())
+}
+
+fn cmd_graph(file: &Path, format: &str) -> Result<(), String> {
+    let config = parse_and_validate(file)?;
+
+    match format {
+        "mermaid" => {
+            println!("graph TD");
+            for (id, resource) in &config.resources {
+                let machine = match &resource.machine {
+                    types::MachineTarget::Single(m) => m.clone(),
+                    types::MachineTarget::Multiple(ms) => ms.join(","),
+                };
+                println!(
+                    "    {}[\"{}: {} ({})\"]",
+                    id, id, resource.resource_type, machine
+                );
+                for dep in &resource.depends_on {
+                    println!("    {} --> {}", dep, id);
+                }
+            }
+        }
+        "dot" => {
+            println!("digraph forjar {{");
+            println!("    rankdir=TB;");
+            println!("    node [shape=box, style=rounded];");
+            for (id, resource) in &config.resources {
+                let machine = match &resource.machine {
+                    types::MachineTarget::Single(m) => m.clone(),
+                    types::MachineTarget::Multiple(ms) => ms.join(","),
+                };
+                println!(
+                    "    \"{}\" [label=\"{}: {} ({})\"];",
+                    id, id, resource.resource_type, machine
+                );
+                for dep in &resource.depends_on {
+                    println!("    \"{}\" -> \"{}\";", dep, id);
+                }
+            }
+            println!("}}");
+        }
+        other => return Err(format!("unknown graph format '{}': use mermaid or dot", other)),
     }
 
     Ok(())
@@ -1693,6 +1750,105 @@ resources:
                 machine: None,
                 limit: 10,
                 json: false,
+            },
+            false,
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn test_fj060_graph_mermaid() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config,
+            r#"
+version: "1.0"
+name: graph-test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  base-pkg:
+    type: package
+    machine: m1
+    provider: apt
+    packages: [curl]
+  config:
+    type: file
+    machine: m1
+    path: /etc/conf
+    content: "test"
+    depends_on: [base-pkg]
+"#,
+        )
+        .unwrap();
+        cmd_graph(&config, "mermaid").unwrap();
+    }
+
+    #[test]
+    fn test_fj060_graph_dot() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config,
+            r#"
+version: "1.0"
+name: dot-test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  pkg:
+    type: package
+    machine: m1
+    provider: apt
+    packages: [git]
+"#,
+        )
+        .unwrap();
+        cmd_graph(&config, "dot").unwrap();
+    }
+
+    #[test]
+    fn test_fj060_graph_invalid_format() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config,
+            r#"
+version: "1.0"
+name: test
+machines: {}
+resources: {}
+"#,
+        )
+        .unwrap();
+        let result = cmd_graph(&config, "svg");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("unknown graph format"));
+    }
+
+    #[test]
+    fn test_fj060_dispatch_graph() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config,
+            r#"
+version: "1.0"
+name: test
+machines: {}
+resources: {}
+"#,
+        )
+        .unwrap();
+        dispatch(
+            Commands::Graph {
+                file: config,
+                format: "mermaid".to_string(),
             },
             false,
         )
