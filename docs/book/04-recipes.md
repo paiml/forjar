@@ -16,16 +16,16 @@ inputs:
     required: true
     description: "Server domain name"
   port:
-    type: integer
+    type: int
     default: 80
     min: 1
     max: 65535
   ssl:
-    type: boolean
+    type: bool
     default: false
   log_level:
     type: enum
-    values: [error, warn, info, debug]
+    choices: [error, warn, info, debug]
     default: warn
 
 resources:
@@ -59,14 +59,14 @@ resources:
 
 | Type | Constraints | Example |
 |------|------------|---------|
-| `string` | `min_length`, `max_length`, `pattern` | `domain: "example.com"` |
-| `integer` | `min`, `max` | `port: 8080` |
-| `boolean` | — | `ssl: true` |
-| `path` | `must_exist` | `cert: /etc/ssl/cert.pem` |
-| `enum` | `values` (required) | `log_level: warn` |
+| `string` | — | `domain: "example.com"` |
+| `int` | `min`, `max` | `port: 8080` |
+| `bool` | — | `ssl: true` |
+| `path` | Must start with `/` | `cert: /etc/ssl/cert.pem` |
+| `enum` | `choices` (required) | `log_level: warn` |
+| `list` | `min_length`, `max_length` | `tags: [a, b]` |
 
 All inputs support:
-- `required: true|false` (default: false)
 - `default: value` (used when input not provided)
 - `description: "..."` (documentation)
 
@@ -87,7 +87,7 @@ resources:
   web:
     type: recipe
     machine: web1
-    source: recipes/web-server.yaml
+    recipe: web-server
     inputs:
       domain: example.com
       port: 443
@@ -100,12 +100,13 @@ resources:
 When forjar loads the config:
 
 1. Recipe YAML is parsed and validated
-2. Inputs are type-checked against declarations
+2. Inputs are type-checked against declared types (`string`, `int`, `bool`, `path`, `enum`)
 3. Missing inputs get default values
-4. Required inputs without values produce errors
+4. Required inputs without defaults produce errors
 5. Resources are expanded with namespace prefix: `web/nginx-pkg`, `web/site-config`, `web/nginx-svc`
-6. `{{inputs.X}}` templates are resolved with provided values
+6. `{{inputs.X}}` templates are resolved with validated values
 7. Expanded resources are merged into the main resource set
+8. External `depends_on` on the recipe ID resolves to the recipe's last resource
 
 ## Namespacing
 
@@ -115,7 +116,7 @@ Recipe resources are namespaced by the resource ID that references them. If you 
 resources:
   web:
     type: recipe
-    source: recipes/web-server.yaml
+    recipe: web-server
     inputs: { domain: example.com }
 ```
 

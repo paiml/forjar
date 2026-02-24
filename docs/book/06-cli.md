@@ -47,7 +47,7 @@ Checks:
 Show execution plan (what would change).
 
 ```bash
-forjar plan -f <FILE> [-m MACHINE] [-r RESOURCE]
+forjar plan -f <FILE> [-m MACHINE] [-r RESOURCE] [--state-dir DIR]
 ```
 
 | Flag | Default | Description |
@@ -55,6 +55,7 @@ forjar plan -f <FILE> [-m MACHINE] [-r RESOURCE]
 | `-f, --file` | `forjar.yaml` | Config file path |
 | `-m, --machine` | all | Filter to specific machine |
 | `-r, --resource` | all | Filter to specific resource |
+| `--state-dir` | `state` | Directory for lock files |
 
 Output symbols:
 - `+` Create (new resource)

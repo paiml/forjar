@@ -9,7 +9,7 @@ resources:
   dev-tools:
     type: package
     machine: m1
-    provider: apt          # apt | cargo | pip
+    provider: apt          # apt | cargo | uv
     packages: [curl, git, htop]
     state: present         # present (default) | absent
 ```
@@ -18,9 +18,9 @@ resources:
 
 | Provider | Install Command | Remove Command |
 |----------|----------------|----------------|
-| `apt` | `apt-get install -y` | `apt-get remove -y` |
-| `cargo` | `cargo install` | `cargo uninstall` |
-| `pip` | `pip install` | `pip uninstall -y` |
+| `apt` | `apt-get install -y` (auto-sudo if non-root) | `apt-get remove -y` |
+| `cargo` | `cargo install --force` | — |
+| `uv` | `uv tool install --force` | `uv tool uninstall` |
 
 ## File
 
@@ -151,8 +151,8 @@ resources:
   data-mount:
     type: mount
     machine: m1
+    source: /dev/sdb1
     path: /mnt/data
-    target: /dev/sdb1
     fstype: ext4
     options: "defaults,noatime"
     state: mounted         # mounted | unmounted | absent
@@ -165,8 +165,8 @@ resources:
   nfs-share:
     type: mount
     machine: m1
+    source: "192.168.1.10:/exports/data"
     path: /mnt/nfs
-    target: "192.168.1.10:/exports/data"
     fstype: nfs
     options: "rw,soft,intr"
     state: mounted
@@ -176,8 +176,8 @@ resources:
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
+| `source` | string | required | Device or NFS path |
 | `path` | string | required | Mount point |
-| `target` | string | required | Device or NFS path |
 | `fstype` | string | — | Filesystem type (ext4, nfs, etc.) |
 | `options` | string | — | Mount options |
 | `state` | string | `mounted` | mounted, unmounted, absent |

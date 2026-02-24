@@ -209,8 +209,8 @@ resources:
   nfs-data:
     type: mount
     machine: gpu-box
+    source: "192.168.1.10:/exports/data"
     path: /mnt/shared
-    target: "192.168.1.10:/exports/data"
     fstype: nfs
     options: "rw,soft,intr,timeo=30"
     state: mounted

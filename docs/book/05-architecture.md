@@ -47,6 +47,7 @@ forjar.yaml
 src/
   main.rs                CLI entry point
   lib.rs                 Library root
+  build.rs               Compile-time contract binding verification
   cli/
     mod.rs               Subcommand dispatch (init, validate, plan, apply, drift, status)
   core/
@@ -60,7 +61,7 @@ src/
     recipe.rs            Recipe loading, input validation, namespaced expansion
   resources/
     mod.rs               Resource type registry
-    package.rs           apt/cargo/pip package management
+    package.rs           apt/cargo/uv package management
     file.rs              File, directory, symlink, absent
     service.rs           systemd service management
     mount.rs             NFS/bind mount management
@@ -156,3 +157,39 @@ Every apply operation appends events to `state/{machine}/events.jsonl`:
 ```
 
 Append-only. Never modified. Git-friendly.
+
+## Provable Contracts
+
+Forjar integrates with the `provable-contracts` framework for formal invariant verification. Ten core functions are annotated with `#[contract]` attributes that bind them to YAML contract equations.
+
+### Verification Layers
+
+| Layer | Mechanism | When |
+|-------|-----------|------|
+| Compile-time | `build.rs` verifies all 13 bindings | Every `cargo build` |
+| Falsification | 15 proptest-based tests | Every `cargo test` |
+| Model checking | Kani harnesses (Phase 2) | `cargo kani` |
+
+### Contract Coverage
+
+| Contract | Invariants | Functions |
+|----------|-----------|-----------|
+| `blake3-state-v1` | I3: Content addressing | `hash_string`, `hash_file`, `composite_hash` |
+| `dag-ordering-v1` | I5: Topological sort | `build_execution_order` |
+| `execution-safety-v1` | I4, I7: Atomicity + Jidoka | `save_lock` |
+| `recipe-determinism-v1` | I11, I12: Expansion + validation | `validate_inputs`, `expand_recipe` |
+| `codegen-dispatch-v1` | I2: Dispatch completeness | `check_script`, `apply_script`, `state_query_script` |
+
+### Annotation Example
+
+```rust
+use provable_contracts_macros::contract;
+
+#[contract("blake3-state-v1", equation = "hash_string")]
+pub fn hash_string(input: &str) -> String {
+    let hash = blake3::hash(input.as_bytes());
+    format!("blake3:{}", hash.to_hex())
+}
+```
+
+The `build.rs` reads `binding.yaml` and sets `CONTRACT_*` env vars consumed by the proc macro at compile time. Missing bindings produce compile warnings.
