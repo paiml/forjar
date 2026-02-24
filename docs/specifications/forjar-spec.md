@@ -130,7 +130,7 @@ src/
     eventlog.rs         Append-only JSONL provenance log
   resources/
     mod.rs              Resource type registry
-    package.rs          apt/cargo/pip package management
+    package.rs          apt/cargo/uv package management
     service.rs          systemd service management
     file.rs             File/directory/symlink management
     mount.rs            NFS/bind mount management
@@ -153,7 +153,10 @@ src/
 |-----------|--------|---------------|
 | `blake3` | External | No stack alternative. Pure Rust, no C deps, audited. |
 | `serde` | External | Foundational serialization. No alternative. |
-| `serde_yaml` | External | YAML parsing requirement. No stack alternative. |
+| `serde_yaml_ng` | External | YAML parsing (`serde_yaml` successor, actively maintained). |
+| `serde_json` | External | JSON serialization for event logs. |
+| `indexmap` | External | Insertion-ordered maps for deterministic lock file output. |
+| `clap` | External | CLI argument parsing with derive macros. |
 | `bashrs` | Stack | Shell purification — core to the provability thesis. |
 | `copia` | Stack | Delta sync for file transfer to remote machines. |
 | `renacer` | Stack | Syscall tracing for provenance. |
@@ -161,6 +164,8 @@ src/
 | `duende` | Stack | Daemon management. |
 | `repartir` | Stack | Parallel dispatch to multiple machines (Phase 2). |
 | `pmat` | Stack | Compliance gates. |
+| `provable-contracts` | Stack | Formal invariant verification — compile-time contract enforcement. |
+| `provable-contracts-macros` | Stack | `#[contract]` proc macro for function-level binding. |
 | `aprender` | Stack | ML-based drift anomaly detection (Phase 4). |
 
 **Banned**: tokio (use std threads + ssh binary), reqwest, hyper, tonic, any cloud SDK.
@@ -298,7 +303,7 @@ policy:
 ```yaml
 type: package
 machine: <name | [names]>
-provider: apt | cargo | pip
+provider: apt | cargo | uv
 packages: [list]
 state: present | absent          # default: present
 version: <optional constraint>
@@ -1010,7 +1015,7 @@ Options:
 | FJ-003 | `core/resolver.rs` — template resolution + DAG | S |
 | FJ-004 | `core/planner.rs` — desired vs current state diff | M |
 | FJ-005 | `core/codegen.rs` — Rust AST generation for resources | L |
-| FJ-006 | `resources/package.rs` — apt + cargo providers | M |
+| FJ-006 | `resources/package.rs` — apt + cargo + uv providers | M |
 | FJ-007 | `resources/file.rs` — file/directory/symlink | M |
 | FJ-008 | `resources/service.rs` — systemd management | S |
 | FJ-009 | `resources/mount.rs` — NFS + bind mounts | S |
@@ -1024,48 +1029,49 @@ Options:
 | FJ-017 | `cli/` — all subcommands | M |
 | FJ-018 | Integration test: lambda + intel NFS setup | M |
 | FJ-019 | `core/recipe.rs` — recipe loading, input validation, expansion | M |
+| FJ-020 | Provable contracts integration — YAML contracts, binding.yaml, `#[contract]` annotations, falsification tests | M |
 
 ### Phase 2: Containers + Parallel (v0.2)
 
 | Ticket | Description |
 |--------|-------------|
-| FJ-020 | `resources/docker.rs` — container lifecycle |
-| FJ-021 | `resources/user.rs` — user/group management |
-| FJ-022 | `resources/network.rs` — firewall rules |
-| FJ-023 | `resources/cron.rs` — scheduled tasks |
-| FJ-024 | Parallel multi-machine apply via repartir |
-| FJ-025 | `copia` delta sync for large file transfers |
-| FJ-026 | bashrs integration — full shell purification pipeline |
+| FJ-030 | `resources/docker.rs` — container lifecycle |
+| FJ-031 | `resources/user.rs` — user/group management |
+| FJ-032 | `resources/network.rs` — firewall rules |
+| FJ-033 | `resources/cron.rs` — scheduled tasks |
+| FJ-034 | Parallel multi-machine apply via repartir |
+| FJ-035 | `copia` delta sync for large file transfers |
+| FJ-036 | bashrs integration — full shell purification pipeline |
 
 ### Phase 3: Kernel Isolation (v0.3)
 
 | Ticket | Description |
 |--------|-------------|
-| FJ-030 | `resources/pepita.rs` — kernel namespace isolation |
-| FJ-031 | pepita cgroup management (memory, CPU, GPU) |
-| FJ-032 | Overlay filesystem via pepita |
-| FJ-033 | Network namespace isolation |
-| FJ-034 | Migration path: Docker → pepita |
+| FJ-040 | `resources/pepita.rs` — kernel namespace isolation |
+| FJ-041 | pepita cgroup management (memory, CPU, GPU) |
+| FJ-042 | Overlay filesystem via pepita |
+| FJ-043 | Network namespace isolation |
+| FJ-044 | Migration path: Docker → pepita |
 
 ### Phase 4: Intelligence (v0.4)
 
 | Ticket | Description |
 |--------|-------------|
-| FJ-040 | `tripwire/tracer.rs` — full renacer syscall tracing |
-| FJ-041 | ML drift anomaly detection via aprender |
-| FJ-042 | Cost-aware scheduling (prefer cheap machines) |
-| FJ-043 | Auto-remediation (detect drift → auto-apply) |
-| FJ-044 | pmat compliance gates (pre/post apply) |
+| FJ-050 | `tripwire/tracer.rs` — full renacer syscall tracing |
+| FJ-051 | ML drift anomaly detection via aprender |
+| FJ-052 | Cost-aware scheduling (prefer cheap machines) |
+| FJ-053 | Auto-remediation (detect drift → auto-apply) |
+| FJ-054 | pmat compliance gates (pre/post apply) |
 
 ### Phase 5: Polish (v0.5)
 
 | Ticket | Description |
 |--------|-------------|
-| FJ-050 | `forjar graph` — Mermaid/DOT visualization |
-| FJ-051 | `forjar destroy` — teardown all resources |
-| FJ-052 | Secrets management (encrypted at rest in git) |
-| FJ-053 | MCP integration via paiml-mcp-agent-toolkit |
-| FJ-054 | Cross-architecture support (x86_64 ↔ aarch64) |
+| FJ-060 | `forjar graph` — Mermaid/DOT visualization |
+| FJ-061 | `forjar destroy` — teardown all resources |
+| FJ-062 | Secrets management (encrypted at rest in git) |
+| FJ-063 | MCP integration via paiml-mcp-agent-toolkit |
+| FJ-064 | Cross-architecture support (x86_64 ↔ aarch64) |
 
 ---
 
@@ -1114,6 +1120,16 @@ Against real machines (gated behind `--features live-test`):
 2. Create NFS export on lambda → mount on intel → verify
 3. Full 3-machine convergence
 
+### 10.4 Formal Verification
+
+Provable-contracts integration provides three verification layers:
+
+1. **Compile-time**: `build.rs` calls `verify_bindings()` — build fails if binding gaps exist
+2. **Falsification**: proptest-based tests derived from contract proof obligations
+3. **Bounded model checking**: Kani harnesses for pure-functional invariants (Phase 2)
+
+Contract YAML files live in `../provable-contracts/contracts/forjar/`.
+
 ---
 
 ## 11. Project Bootstrap
@@ -1124,7 +1140,7 @@ Against real machines (gated behind `--features live-test`):
 name = "forjar"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.80.0"
+rust-version = "1.85.0"
 authors = ["Pragmatic AI Labs"]
 description = "Rust-native Infrastructure as Code — bare-metal first, BLAKE3 state, provenance tracing"
 license = "MIT OR Apache-2.0"
@@ -1135,12 +1151,19 @@ categories = ["command-line-utilities", "development-tools"]
 [dependencies]
 blake3 = "1.8"
 serde = { version = "1.0", features = ["derive"] }
-serde_yaml = "0.9"
+serde_yaml_ng = "0.10"
+serde_json = "1.0"
 clap = { version = "4", features = ["derive"] }
+indexmap = { version = "2.7", features = ["serde"] }
+provable-contracts-macros = { path = "../provable-contracts/crates/provable-contracts-macros" }
+
+[build-dependencies]
+provable-contracts = { path = "../provable-contracts/crates/provable-contracts" }
 
 [dev-dependencies]
 tempfile = "3"
-assert_cmd = "2"
+criterion = { version = "0.5", features = ["html_reports"] }
+proptest = "1"
 
 # Stack crates added as needed per phase
 # bashrs, copia, renacer, repartir, pepita, duende, pmat, aprender
@@ -1150,25 +1173,99 @@ assert_cmd = "2"
 
 ## 12. Invariants
 
-| ID | Invariant | Enforced By |
-|----|-----------|-------------|
-| I1 | Every apply produces a state lock committed to git | executor + state module |
-| I2 | Every shell command is generated from Rust, never hand-written | codegen + bashrs |
-| I3 | State hashes are BLAKE3 content-addressed | hasher module |
-| I4 | Lock files are written atomically (temp + rename) | state module |
-| I5 | Resource ordering respects dependency DAG | resolver + Kahn's toposort |
-| I6 | Drift detection compares live state to lock hashes | tripwire/drift |
-| I7 | Jidoka: stop on first failure, preserve partial state | executor |
-| I8 | No raw shell execution — all shell is bashrs-purified | codegen pipeline |
-| I9 | State never leaves the git repo — no remote backends | state module |
-| I10 | Every apply is traceable to a git commit | tripwire/eventlog |
-| I11 | Recipes expand deterministically — same inputs always produce same resources | recipe module |
-| I12 | Recipe inputs are validated against declared types before expansion | recipe module |
-| I13 | Git-pinned recipes are locked by SHA for reproducibility | state module |
+| ID | Invariant | Enforced By | Contract |
+|----|-----------|-------------|----------|
+| I1 | Every apply produces a state lock committed to git | executor + state module | — |
+| I2 | Every shell command is generated from Rust, never hand-written | codegen + bashrs | `codegen-dispatch-v1.yaml` |
+| I3 | State hashes are BLAKE3 content-addressed | hasher module | `blake3-state-v1.yaml` |
+| I4 | Lock files are written atomically (temp + rename) | state module | `execution-safety-v1.yaml` |
+| I5 | Resource ordering respects dependency DAG | resolver + Kahn's toposort | `dag-ordering-v1.yaml` |
+| I6 | Drift detection compares live state to lock hashes | tripwire/drift | — |
+| I7 | Jidoka: stop on first failure, preserve partial state | executor | `execution-safety-v1.yaml` |
+| I8 | No raw shell execution — all shell is bashrs-purified | codegen pipeline | — |
+| I9 | State never leaves the git repo — no remote backends | state module | — |
+| I10 | Every apply is traceable to a git commit | tripwire/eventlog | — |
+| I11 | Recipes expand deterministically — same inputs always produce same resources | recipe module | `recipe-determinism-v1.yaml` |
+| I12 | Recipe inputs are validated against declared types before expansion | recipe module | `recipe-determinism-v1.yaml` |
+| I13 | Git-pinned recipes are locked by SHA for reproducibility | state module | — |
 
 ---
 
-## 13. Open Questions
+## 13. Provable Contracts
+
+### 13.1 Overview
+
+Forjar integrates with the `provable-contracts` framework to provide formal verification of core invariants. Every critical function is annotated with a `#[contract]` attribute that binds it to a YAML contract equation. The build system verifies binding completeness at compile time.
+
+### 13.2 Contract Architecture
+
+```
+provable-contracts/contracts/forjar/
+├── blake3-state-v1.yaml          I3: BLAKE3 content-addressed hashing
+├── dag-ordering-v1.yaml          I5: Topological sort correctness
+├── execution-safety-v1.yaml      I4, I7: Atomic writes + jidoka policy
+├── recipe-determinism-v1.yaml    I11, I12: Deterministic expansion + input validation
+├── codegen-dispatch-v1.yaml      I2: Script generation dispatch completeness
+└── binding.yaml                  13 bindings mapping equations → forjar functions
+```
+
+### 13.3 Verification Layers
+
+| Layer | Mechanism | When |
+|-------|-----------|------|
+| L1 | `build.rs` binding verification | Every `cargo build` |
+| L2 | Proptest falsification tests | Every `cargo test` |
+| L3 | Kani bounded model checking | Phase 2 (`cargo kani`) |
+
+### 13.4 Annotated Functions
+
+| Module | Function | Contract | Equation |
+|--------|----------|----------|----------|
+| `tripwire::hasher` | `hash_string` | `blake3-state-v1` | `hash_string` |
+| `tripwire::hasher` | `hash_file` | `blake3-state-v1` | `hash_file` |
+| `tripwire::hasher` | `composite_hash` | `blake3-state-v1` | `composite_hash` |
+| `core::resolver` | `build_execution_order` | `dag-ordering-v1` | `topological_sort` |
+| `core::state` | `save_lock` | `execution-safety-v1` | `atomic_write` |
+| `core::recipe` | `validate_inputs` | `recipe-determinism-v1` | `validate_inputs` |
+| `core::recipe` | `expand_recipe` | `recipe-determinism-v1` | `expand_recipe` |
+| `core::codegen` | `check_script` | `codegen-dispatch-v1` | `check_script` |
+| `core::codegen` | `apply_script` | `codegen-dispatch-v1` | `apply_script` |
+| `core::codegen` | `state_query_script` | `codegen-dispatch-v1` | `state_query_script` |
+
+### 13.5 Build Integration
+
+`build.rs` conditionally loads `binding.yaml` when the sibling `provable-contracts` repo is present:
+
+```rust
+fn main() {
+    let binding_path = "../provable-contracts/contracts/forjar/binding.yaml";
+    if std::path::Path::new(binding_path).exists() {
+        provable_contracts::build_helper::verify_bindings(
+            binding_path,
+            provable_contracts::build_helper::BindingPolicy::WarnOnGaps,
+        );
+    }
+}
+```
+
+When bindings are verified, the build emits `CONTRACT_*` environment variables consumed by `#[contract]` proc macros at compile time. Missing bindings produce compile warnings (WarnOnGaps policy).
+
+### 13.6 Falsification Tests
+
+15 proptest-based falsification tests validate contract proof obligations:
+
+| Module | Tests | Obligations Tested |
+|--------|-------|--------------------|
+| `hasher.rs` | 3 | Prefix format, determinism, composite order-sensitivity |
+| `resolver.rs` | 3 | Topological ordering, cycle detection, determinism |
+| `state.rs` | 1 | Atomic write leaves no temp file |
+| `executor.rs` | 2 | Jidoka stop/continue policy dispatch |
+| `recipe.rs` | 4 | Expansion determinism, int bounds, path validation, external deps |
+| `codegen.rs` | 2 | Dispatch completeness, dispatch symmetry |
+
+---
+
+## 14. Open Questions
 
 1. **Secrets**: Encrypt in git (age/sops-style) or external vault? Leaning toward age encryption with key in SSH agent.
 2. **Rollback**: Should `forjar rollback` replay the previous state, or just show the diff? Terraform doesn't rollback — it just re-applies desired state.
