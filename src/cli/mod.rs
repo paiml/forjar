@@ -498,6 +498,20 @@ fn cmd_apply(
         total_converged, total_unchanged
     );
 
+    // Update global lock file
+    let machine_results: Vec<_> = results
+        .iter()
+        .map(|r| {
+            (
+                r.machine.clone(),
+                (r.resources_converged + r.resources_unchanged + r.resources_failed) as usize,
+                r.resources_converged as usize,
+                r.resources_failed as usize,
+            )
+        })
+        .collect();
+    state::update_global_lock(state_dir, &config.name, &machine_results)?;
+
     if auto_commit && total_converged > 0 {
         git_commit_state(state_dir, &config.name, total_converged)?;
     }
@@ -955,6 +969,13 @@ fn cmd_graph(file: &Path, format: &str) -> Result<(), String> {
 }
 
 fn cmd_status(state_dir: &Path, machine_filter: Option<&str>) -> Result<(), String> {
+    // Show global lock summary if it exists
+    if let Some(global) = state::load_global_lock(state_dir)? {
+        println!("Project: {} (last apply: {})", global.name, global.last_apply);
+        println!("Generator: {}", global.generator);
+        println!();
+    }
+
     let entries = std::fs::read_dir(state_dir)
         .map_err(|e| format!("cannot read state dir {}: {}", state_dir.display(), e))?;
 
@@ -2659,14 +2680,8 @@ resources:
 
         // Drift with auto-remediate should detect and fix
         cmd_drift(
-            &config,
-            &state,
-            None,
-            false,
-            None,
-            true, // auto_remediate
-            false,
-            false,
+            &config, &state, None, false, None, true, // auto_remediate
+            false, false,
         )
         .unwrap();
 

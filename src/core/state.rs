@@ -1,6 +1,6 @@
 //! FJ-013: Lock file management — load, save (atomic), path derivation.
 
-use super::types::StateLock;
+use super::types::{GlobalLock, MachineSummary, StateLock};
 use provable_contracts_macros::contract;
 use std::path::{Path, PathBuf};
 
@@ -47,6 +47,87 @@ pub fn save_lock(state_dir: &Path, lock: &StateLock) -> Result<(), String> {
     })?;
 
     Ok(())
+}
+
+/// Path to the global lock file.
+pub fn global_lock_path(state_dir: &Path) -> PathBuf {
+    state_dir.join("forjar.lock.yaml")
+}
+
+/// Load the global lock file. Returns None if it doesn't exist.
+pub fn load_global_lock(state_dir: &Path) -> Result<Option<GlobalLock>, String> {
+    let path = global_lock_path(state_dir);
+    if !path.exists() {
+        return Ok(None);
+    }
+    let content = std::fs::read_to_string(&path)
+        .map_err(|e| format!("cannot read {}: {}", path.display(), e))?;
+    let lock: GlobalLock = serde_yaml_ng::from_str(&content)
+        .map_err(|e| format!("invalid global lock {}: {}", path.display(), e))?;
+    Ok(Some(lock))
+}
+
+/// Save the global lock file atomically.
+pub fn save_global_lock(state_dir: &Path, lock: &GlobalLock) -> Result<(), String> {
+    std::fs::create_dir_all(state_dir)
+        .map_err(|e| format!("cannot create dir {}: {}", state_dir.display(), e))?;
+
+    let path = global_lock_path(state_dir);
+    let yaml = serde_yaml_ng::to_string(lock).map_err(|e| format!("serialize error: {}", e))?;
+
+    let tmp_path = path.with_extension("lock.yaml.tmp");
+    std::fs::write(&tmp_path, &yaml)
+        .map_err(|e| format!("cannot write {}: {}", tmp_path.display(), e))?;
+    std::fs::rename(&tmp_path, &path).map_err(|e| {
+        format!(
+            "cannot rename {} → {}: {}",
+            tmp_path.display(),
+            path.display(),
+            e
+        )
+    })?;
+
+    Ok(())
+}
+
+/// Create a new GlobalLock with machine summaries.
+pub fn new_global_lock(name: &str) -> GlobalLock {
+    use crate::tripwire::eventlog::now_iso8601;
+    GlobalLock {
+        schema: "1.0".to_string(),
+        name: name.to_string(),
+        last_apply: now_iso8601(),
+        generator: format!("forjar {}", env!("CARGO_PKG_VERSION")),
+        machines: indexmap::IndexMap::new(),
+    }
+}
+
+/// Update global lock with results from an apply.
+pub fn update_global_lock(
+    state_dir: &Path,
+    config_name: &str,
+    machine_results: &[(String, usize, usize, usize)], // (name, total, converged, failed)
+) -> Result<(), String> {
+    use crate::tripwire::eventlog::now_iso8601;
+    let mut lock = load_global_lock(state_dir)?
+        .unwrap_or_else(|| new_global_lock(config_name));
+    lock.name = config_name.to_string();
+    lock.last_apply = now_iso8601();
+    lock.generator = format!("forjar {}", env!("CARGO_PKG_VERSION"));
+
+    for (name, total, converged, failed) in machine_results {
+        lock.machines.insert(
+            name.clone(),
+            MachineSummary {
+                resources: *total,
+                converged: *converged,
+                failed: *failed,
+                last_apply: now_iso8601(),
+            },
+        );
+    }
+
+    save_global_lock(state_dir, &lock)
 }
 
 /// Create a new empty StateLock for a machine.
@@ -214,5 +295,60 @@ mod tests {
             let actual = lock_file_path(dir.path(), &machine);
             prop_assert!(actual.exists(), "lock file must exist after save_lock");
         }
+    }
+
+    #[test]
+    fn test_fj013_global_lock_roundtrip() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut lock = new_global_lock("test-infra");
+        lock.machines.insert(
+            "lambda".to_string(),
+            MachineSummary {
+                resources: 5,
+                converged: 4,
+                failed: 1,
+                last_apply: "2026-02-24T00:00:00Z".to_string(),
+            },
+        );
+        save_global_lock(dir.path(), &lock).unwrap();
+
+        let loaded = load_global_lock(dir.path()).unwrap().unwrap();
+        assert_eq!(loaded.name, "test-infra");
+        assert_eq!(loaded.schema, "1.0");
+        assert_eq!(loaded.machines.len(), 1);
+        assert_eq!(loaded.machines["lambda"].resources, 5);
+        assert_eq!(loaded.machines["lambda"].converged, 4);
+        assert_eq!(loaded.machines["lambda"].failed, 1);
+    }
+
+    #[test]
+    fn test_fj013_global_lock_missing() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = load_global_lock(dir.path()).unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_fj013_update_global_lock() {
+        let dir = tempfile::tempdir().unwrap();
+        let results = vec![
+            ("web".to_string(), 3_usize, 2_usize, 0_usize),
+            ("db".to_string(), 5, 5, 0),
+        ];
+        update_global_lock(dir.path(), "my-infra", &results).unwrap();
+
+        let loaded = load_global_lock(dir.path()).unwrap().unwrap();
+        assert_eq!(loaded.name, "my-infra");
+        assert_eq!(loaded.machines.len(), 2);
+        assert_eq!(loaded.machines["web"].resources, 3);
+        assert_eq!(loaded.machines["web"].converged, 2);
+        assert_eq!(loaded.machines["db"].resources, 5);
+        assert_eq!(loaded.machines["db"].converged, 5);
+    }
+
+    #[test]
+    fn test_fj013_global_lock_path() {
+        let p = global_lock_path(Path::new("/state"));
+        assert_eq!(p, PathBuf::from("/state/forjar.lock.yaml"));
     }
 }

@@ -401,6 +401,41 @@ pub enum FailurePolicy {
 // State / Lock file
 // ============================================================================
 
+/// Global lock file (state/forjar.lock.yaml).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GlobalLock {
+    /// Schema version
+    pub schema: String,
+
+    /// Config name
+    pub name: String,
+
+    /// Last apply timestamp
+    pub last_apply: String,
+
+    /// Generator version
+    pub generator: String,
+
+    /// Per-machine summary
+    pub machines: IndexMap<String, MachineSummary>,
+}
+
+/// Per-machine summary in the global lock.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MachineSummary {
+    /// Number of resources
+    pub resources: usize,
+
+    /// Number converged
+    pub converged: usize,
+
+    /// Number failed
+    pub failed: usize,
+
+    /// Last apply timestamp
+    pub last_apply: String,
+}
+
 /// Per-machine state lock file.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StateLock {
