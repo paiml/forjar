@@ -152,6 +152,33 @@ forjar history [--state-dir DIR] [-m MACHINE] [-n LIMIT] [--json]
 
 Reads `state/{machine}/events.jsonl` and displays apply start/complete events in reverse chronological order.
 
+### `forjar show`
+
+Show the fully resolved config (recipes expanded, templates resolved, secrets injected).
+
+```bash
+forjar show -f <FILE> [-r RESOURCE] [--json]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-f, --file` | `forjar.yaml` | Config file path |
+| `-r, --resource` | all | Show specific resource only |
+| `--json` | false | Output as JSON instead of YAML |
+
+Useful for debugging template resolution, recipe expansion, and secrets injection without running apply.
+
+```bash
+# Show full resolved config
+forjar show -f forjar.yaml
+
+# Show single resource (e.g., from a recipe)
+forjar show -f forjar.yaml -r web/site-config
+
+# Pipe to jq for structured queries
+forjar show -f forjar.yaml --json | jq '.resources | keys'
+```
+
 ### `forjar graph`
 
 Show resource dependency graph.

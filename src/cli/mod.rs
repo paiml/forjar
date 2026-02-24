@@ -191,6 +191,21 @@ pub enum Commands {
         scan: Vec<String>,
     },
 
+    /// Show fully resolved config (recipes expanded, templates resolved)
+    Show {
+        /// Path to forjar.yaml
+        #[arg(short, long, default_value = "forjar.yaml")]
+        file: PathBuf,
+
+        /// Show specific resource only
+        #[arg(short, long)]
+        resource: Option<String>,
+
+        /// Output as JSON instead of YAML
+        #[arg(long)]
+        json: bool,
+    },
+
     /// Show resource dependency graph
     Graph {
         /// Path to forjar.yaml
@@ -277,6 +292,11 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             limit,
             json,
         } => cmd_history(&state_dir, machine.as_deref(), limit, json),
+        Commands::Show {
+            file,
+            resource,
+            json,
+        } => cmd_show(&file, resource.as_deref(), json),
         Commands::Graph { file, format } => cmd_graph(&file, &format),
         Commands::Import {
             addr,
@@ -370,8 +390,7 @@ fn cmd_import(
                 if !packages.is_empty() {
                     resources_yaml.push_str("  imported-packages:\n");
                     resources_yaml.push_str("    type: package\n");
-                    resources_yaml
-                        .push_str(&format!("    machine: {}\n", machine_name));
+                    resources_yaml.push_str(&format!("    machine: {}\n", machine_name));
                     resources_yaml.push_str("    provider: apt\n");
                     resources_yaml.push_str("    packages:\n");
                     for pkg in &packages {
@@ -411,8 +430,7 @@ fn cmd_import(
                     let id = format!("svc-{}", svc.replace('.', "-"));
                     resources_yaml.push_str(&format!("  {}:\n", id));
                     resources_yaml.push_str("    type: service\n");
-                    resources_yaml
-                        .push_str(&format!("    machine: {}\n", machine_name));
+                    resources_yaml.push_str(&format!("    machine: {}\n", machine_name));
                     resources_yaml.push_str(&format!("    name: {}\n", svc));
                     resources_yaml.push_str("    state: running\n");
                     resources_yaml.push_str("    enabled: true\n\n");
@@ -447,8 +465,7 @@ fn cmd_import(
                     let id = format!("file-{}", basename.replace('.', "-"));
                     resources_yaml.push_str(&format!("  {}:\n", id));
                     resources_yaml.push_str("    type: file\n");
-                    resources_yaml
-                        .push_str(&format!("    machine: {}\n", machine_name));
+                    resources_yaml.push_str(&format!("    machine: {}\n", machine_name));
                     resources_yaml.push_str(&format!("    path: {}\n", file_path));
                     resources_yaml.push_str("    # content: TODO — fill from source or template\n");
                     resources_yaml.push_str("    owner: root\n");
@@ -488,13 +505,7 @@ policy:
   tripwire: true
   lock_file: true
 "#,
-        addr,
-        machine_name,
-        machine_name,
-        machine_name,
-        addr,
-        user,
-        resources_yaml,
+        addr, machine_name, machine_name, machine_name, addr, user, resources_yaml,
     );
 
     std::fs::write(output, &config_yaml)
@@ -506,6 +517,42 @@ policy:
         addr,
         output.display()
     );
+    Ok(())
+}
+
+fn cmd_show(file: &Path, resource_filter: Option<&str>, json: bool) -> Result<(), String> {
+    let mut config = parse_and_validate(file)?;
+
+    // Resolve templates in all resources
+    for (_id, resource) in config.resources.iter_mut() {
+        *resource =
+            resolver::resolve_resource_templates(resource, &config.params, &config.machines)?;
+    }
+
+    if let Some(resource_id) = resource_filter {
+        let resource = config
+            .resources
+            .get(resource_id)
+            .ok_or_else(|| format!("resource '{}' not found", resource_id))?;
+        if json {
+            let output = serde_json::to_string_pretty(resource)
+                .map_err(|e| format!("JSON error: {}", e))?;
+            println!("{}", output);
+        } else {
+            let output = serde_yaml_ng::to_string(resource)
+                .map_err(|e| format!("YAML error: {}", e))?;
+            println!("{}:\n{}", resource_id, output);
+        }
+    } else if json {
+        let output =
+            serde_json::to_string_pretty(&config).map_err(|e| format!("JSON error: {}", e))?;
+        println!("{}", output);
+    } else {
+        let output =
+            serde_yaml_ng::to_string(&config).map_err(|e| format!("YAML error: {}", e))?;
+        println!("{}", output);
+    }
+
     Ok(())
 }
 
@@ -3042,5 +3089,91 @@ resources:
         let config: types::ForjarConfig = serde_yaml_ng::from_str(&content).unwrap();
         assert_eq!(config.version, "1.0");
         assert!(config.machines.contains_key("local"));
+    }
+
+    #[test]
+    fn test_fj017_show_full_config() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config,
+            r#"
+version: "1.0"
+name: show-test
+params:
+  env: staging
+machines:
+  m1:
+    hostname: box
+    addr: 1.2.3.4
+resources:
+  conf:
+    type: file
+    machine: m1
+    path: /etc/{{params.env}}.conf
+    content: "env={{params.env}}"
+"#,
+        )
+        .unwrap();
+        // Should resolve templates without error
+        cmd_show(&config, None, false).unwrap();
+    }
+
+    #[test]
+    fn test_fj017_show_specific_resource() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config,
+            r#"
+version: "1.0"
+name: show-test
+machines:
+  m1:
+    hostname: box
+    addr: 1.2.3.4
+resources:
+  pkg:
+    type: package
+    machine: m1
+    provider: apt
+    packages: [curl]
+  conf:
+    type: file
+    machine: m1
+    path: /etc/test
+    content: hello
+"#,
+        )
+        .unwrap();
+        // Show specific resource
+        cmd_show(&config, Some("conf"), false).unwrap();
+    }
+
+    #[test]
+    fn test_fj017_show_missing_resource() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config,
+            r#"
+version: "1.0"
+name: show-test
+machines:
+  m1:
+    hostname: box
+    addr: 1.2.3.4
+resources:
+  pkg:
+    type: package
+    machine: m1
+    provider: apt
+    packages: [curl]
+"#,
+        )
+        .unwrap();
+        let result = cmd_show(&config, Some("nonexistent"), false);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("not found"));
     }
 }
