@@ -79,7 +79,7 @@ JSON mode outputs the full `ExecutionPlan` with changes, actions, and summary co
 Converge infrastructure to desired state.
 
 ```bash
-forjar apply -f <FILE> [-m MACHINE] [-r RESOURCE] [--force] [--dry-run] [--state-dir DIR]
+forjar apply -f <FILE> [-m MACHINE] [-r RESOURCE] [--force] [--dry-run] [--no-tripwire] [-p KEY=VALUE] [--state-dir DIR]
 ```
 
 | Flag | Default | Description |
@@ -89,6 +89,8 @@ forjar apply -f <FILE> [-m MACHINE] [-r RESOURCE] [--force] [--dry-run] [--state
 | `-r, --resource` | all | Filter to specific resource |
 | `--force` | false | Re-apply all resources (ignore cache) |
 | `--dry-run` | false | Show plan without executing |
+| `--no-tripwire` | false | Skip provenance event logging (faster) |
+| `-p, --param` | — | Override parameter: `-p env=production` |
 | `--state-dir` | `state` | Directory for lock files |
 
 ### `forjar drift`
