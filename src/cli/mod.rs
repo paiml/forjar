@@ -66,6 +66,14 @@ pub enum Commands {
         #[arg(long)]
         dry_run: bool,
 
+        /// Skip provenance tracing (faster, less safe)
+        #[arg(long)]
+        no_tripwire: bool,
+
+        /// Override a parameter (KEY=VALUE)
+        #[arg(short, long = "param", value_name = "KEY=VALUE")]
+        params: Vec<String>,
+
         /// State directory
         #[arg(long, default_value = "state")]
         state_dir: PathBuf,
@@ -150,6 +158,8 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             resource,
             force,
             dry_run,
+            no_tripwire,
+            params,
             state_dir,
         } => cmd_apply(
             &file,
@@ -158,6 +168,8 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             resource.as_deref(),
             force,
             dry_run,
+            no_tripwire,
+            &params,
             verbose,
         ),
         Commands::Drift {
@@ -166,7 +178,14 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             state_dir,
             tripwire,
             json,
-        } => cmd_drift(&file, &state_dir, machine.as_deref(), tripwire, json, verbose),
+        } => cmd_drift(
+            &file,
+            &state_dir,
+            machine.as_deref(),
+            tripwire,
+            json,
+            verbose,
+        ),
         Commands::Status { state_dir, machine } => cmd_status(&state_dir, machine.as_deref()),
         Commands::History {
             state_dir,
@@ -331,6 +350,23 @@ fn print_plan(plan: &types::ExecutionPlan, machine_filter: Option<&str>) {
     );
 }
 
+/// Parse KEY=VALUE param overrides and merge into config.
+fn apply_param_overrides(
+    config: &mut types::ForjarConfig,
+    overrides: &[String],
+) -> Result<(), String> {
+    for kv in overrides {
+        let (key, value) = kv
+            .split_once('=')
+            .ok_or_else(|| format!("invalid param '{}': expected KEY=VALUE", kv))?;
+        config.params.insert(
+            key.to_string(),
+            serde_yaml_ng::Value::String(value.to_string()),
+        );
+    }
+    Ok(())
+}
+
 #[allow(clippy::too_many_arguments)]
 fn cmd_apply(
     file: &Path,
@@ -339,9 +375,11 @@ fn cmd_apply(
     resource_filter: Option<&str>,
     force: bool,
     dry_run: bool,
+    no_tripwire: bool,
+    param_overrides: &[String],
     verbose: bool,
 ) -> Result<(), String> {
-    let config = parse_and_validate(file)?;
+    let mut config = parse_and_validate(file)?;
     if verbose {
         eprintln!(
             "Applying {} ({} machines, {} resources)",
@@ -350,6 +388,10 @@ fn cmd_apply(
             config.resources.len()
         );
     }
+    if no_tripwire {
+        config.policy.tripwire = false;
+    }
+    apply_param_overrides(&mut config, param_overrides)?;
 
     let cfg = executor::ApplyConfig {
         config: &config,
@@ -828,7 +870,7 @@ resources:
 "#,
         )
         .unwrap();
-        cmd_apply(&config, &state, None, None, false, true, false).unwrap();
+        cmd_apply(&config, &state, None, None, false, true, false, &[], false).unwrap();
     }
 
     #[test]
@@ -858,7 +900,7 @@ policy:
 "#,
         )
         .unwrap();
-        cmd_apply(&config, &state, None, None, false, false, false).unwrap();
+        cmd_apply(&config, &state, None, None, false, false, false, &[], false).unwrap();
 
         // Verify file was created
         assert!(std::path::Path::new("/tmp/forjar-cli-apply-test.txt").exists());
@@ -885,7 +927,7 @@ resources: {}
 "#,
         )
         .unwrap();
-        let result = cmd_apply(&config, &state, None, None, false, false, false);
+        let result = cmd_apply(&config, &state, None, None, false, false, false, &[], false);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("validation"));
     }
@@ -895,7 +937,15 @@ resources: {}
         let dir = tempfile::tempdir().unwrap();
         let state = dir.path().join("state");
         std::fs::create_dir_all(&state).unwrap();
-        cmd_drift(Path::new("nonexistent.yaml"), &state, None, false, false, false).unwrap();
+        cmd_drift(
+            Path::new("nonexistent.yaml"),
+            &state,
+            None,
+            false,
+            false,
+            false,
+        )
+        .unwrap();
     }
 
     #[test]
@@ -941,7 +991,15 @@ resources: {}
         crate::core::state::save_lock(&state, &lock).unwrap();
 
         // No drift expected
-        cmd_drift(Path::new("nonexistent.yaml"), &state, None, false, false, false).unwrap();
+        cmd_drift(
+            Path::new("nonexistent.yaml"),
+            &state,
+            None,
+            false,
+            false,
+            false,
+        )
+        .unwrap();
     }
 
     #[test]
@@ -985,7 +1043,14 @@ resources: {}
         crate::core::state::save_lock(&state, &lock).unwrap();
 
         // Tripwire mode should error on drift
-        let result = cmd_drift(Path::new("nonexistent.yaml"), &state, None, true, false, false);
+        let result = cmd_drift(
+            Path::new("nonexistent.yaml"),
+            &state,
+            None,
+            true,
+            false,
+            false,
+        );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("drift"));
     }
@@ -997,7 +1062,15 @@ resources: {}
         std::fs::create_dir_all(state.join("alpha")).unwrap();
         std::fs::create_dir_all(state.join("beta")).unwrap();
 
-        cmd_drift(Path::new("nonexistent.yaml"), &state, Some("alpha"), false, false, false).unwrap();
+        cmd_drift(
+            Path::new("nonexistent.yaml"),
+            &state,
+            Some("alpha"),
+            false,
+            false,
+            false,
+        )
+        .unwrap();
     }
 
     #[test]
@@ -1046,9 +1119,12 @@ resources: {}
 "#,
         )
         .unwrap();
-        dispatch(Commands::Validate {
-            file: config.clone(),
-        }, false)
+        dispatch(
+            Commands::Validate {
+                file: config.clone(),
+            },
+            false,
+        )
         .unwrap();
     }
 
@@ -1057,10 +1133,13 @@ resources: {}
         let dir = tempfile::tempdir().unwrap();
         let state = dir.path().join("state");
         std::fs::create_dir_all(&state).unwrap();
-        dispatch(Commands::Status {
-            state_dir: state,
-            machine: None,
-        }, false)
+        dispatch(
+            Commands::Status {
+                state_dir: state,
+                machine: None,
+            },
+            false,
+        )
         .unwrap();
     }
 
@@ -1088,13 +1167,16 @@ resources:
         .unwrap();
         let state = dir.path().join("state");
         std::fs::create_dir_all(&state).unwrap();
-        dispatch(Commands::Plan {
-            file: config,
-            machine: None,
-            resource: None,
-            state_dir: state,
-            json: false,
-        }, false)
+        dispatch(
+            Commands::Plan {
+                file: config,
+                machine: None,
+                resource: None,
+                state_dir: state,
+                json: false,
+            },
+            false,
+        )
         .unwrap();
     }
 
@@ -1122,14 +1204,19 @@ resources:
 "#,
         )
         .unwrap();
-        dispatch(Commands::Apply {
-            file: config,
-            machine: None,
-            resource: None,
-            force: false,
-            dry_run: true,
-            state_dir: state,
-        }, false)
+        dispatch(
+            Commands::Apply {
+                file: config,
+                machine: None,
+                resource: None,
+                force: false,
+                dry_run: true,
+                no_tripwire: false,
+                params: vec![],
+                state_dir: state,
+            },
+            false,
+        )
         .unwrap();
     }
 
@@ -1138,13 +1225,16 @@ resources:
         let dir = tempfile::tempdir().unwrap();
         let state = dir.path().join("state");
         std::fs::create_dir_all(&state).unwrap();
-        dispatch(Commands::Drift {
-            file: dir.path().join("forjar.yaml"),
-            machine: None,
-            state_dir: state,
-            tripwire: false,
-            json: false,
-        }, false)
+        dispatch(
+            Commands::Drift {
+                file: dir.path().join("forjar.yaml"),
+                machine: None,
+                state_dir: state,
+                tripwire: false,
+                json: false,
+            },
+            false,
+        )
         .unwrap();
     }
 
@@ -1244,7 +1334,15 @@ resources:
         crate::core::state::save_lock(&state, &lock).unwrap();
 
         // tripwire_mode=false: drift detected but should still be Ok(())
-        cmd_drift(Path::new("nonexistent.yaml"), &state, None, false, false, false).unwrap();
+        cmd_drift(
+            Path::new("nonexistent.yaml"),
+            &state,
+            None,
+            false,
+            false,
+            false,
+        )
+        .unwrap();
     }
 
     #[test]
@@ -1279,11 +1377,11 @@ resources:
         )
         .unwrap();
 
-        cmd_apply(&config, &state, None, None, false, false, false).unwrap();
+        cmd_apply(&config, &state, None, None, false, false, false, &[], false).unwrap();
         assert!(target.exists());
 
         // Second apply — should be unchanged (NoOp)
-        cmd_apply(&config, &state, None, None, false, false, false).unwrap();
+        cmd_apply(&config, &state, None, None, false, false, false, &[], false).unwrap();
     }
 
     #[test]
@@ -1461,7 +1559,15 @@ resources:
         crate::core::state::save_lock(&state, &lock).unwrap();
 
         // JSON drift output should not panic
-        cmd_drift(Path::new("nonexistent.yaml"), &state, None, false, true, false).unwrap();
+        cmd_drift(
+            Path::new("nonexistent.yaml"),
+            &state,
+            None,
+            false,
+            true,
+            false,
+        )
+        .unwrap();
     }
 
     #[test]
