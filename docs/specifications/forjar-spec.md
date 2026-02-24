@@ -1107,30 +1107,30 @@ Options:
 
 **Goal**: `forjar apply` works on lambda + intel + jetson with packages, files, services, mounts.
 
-| Ticket | Description | Estimate |
-|--------|-------------|----------|
-| FJ-001 | `core/types.rs` — all types from this spec | S |
-| FJ-002 | `core/parser.rs` — YAML parse + validate | S |
-| FJ-003 | `core/resolver.rs` — template resolution + DAG | S |
-| FJ-004 | `core/planner.rs` — desired vs current state diff | M |
-| FJ-005 | `core/codegen.rs` — Rust AST generation for resources | L |
-| FJ-006 | `resources/package.rs` — apt + cargo + uv providers | M |
-| FJ-007 | `resources/file.rs` — file/directory/symlink | M |
-| FJ-008 | `resources/service.rs` — systemd management | S |
-| FJ-009 | `resources/mount.rs` — NFS + bind mounts | S |
-| FJ-010 | `transport/local.rs` — local execution | S |
-| FJ-011 | `transport/ssh.rs` — SSH execution | S |
-| FJ-012 | `core/executor.rs` — orchestration loop | L |
-| FJ-013 | `core/state.rs` — lock file management | M |
-| FJ-014 | `tripwire/hasher.rs` — BLAKE3 state hashing | S |
-| FJ-015 | `tripwire/eventlog.rs` — JSONL event log | S |
-| FJ-016 | `tripwire/drift.rs` — drift detection (file + non-file via state_query_script) | M |
-| FJ-017 | `cli/` — all subcommands | M |
-| FJ-018 | Integration test: lambda + intel NFS setup | M |
-| FJ-019 | `core/recipe.rs` — recipe loading, input validation, expansion + CLI pipeline wiring (`parse_and_validate`) | **Done** |
-| FJ-020 | Provable contracts integration — YAML contracts, binding.yaml, `#[contract]` annotations, falsification tests | M |
-| FJ-021 | `transport/container.rs` — container exec + ephemeral lifecycle | M |
-| FJ-022 | Dogfood configs + end-to-end container verification workflow | S |
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-001 | `core/types.rs` — all types from this spec | **Done** |
+| FJ-002 | `core/parser.rs` — YAML parse + validate | **Done** |
+| FJ-003 | `core/resolver.rs` — template resolution + DAG | **Done** |
+| FJ-004 | `core/planner.rs` — desired vs current state diff | **Done** |
+| FJ-005 | `core/codegen.rs` — script generation for resources | **Done** |
+| FJ-006 | `resources/package.rs` — apt + cargo + uv providers | **Done** |
+| FJ-007 | `resources/file.rs` — file/directory/symlink | **Done** |
+| FJ-008 | `resources/service.rs` — systemd management | **Done** |
+| FJ-009 | `resources/mount.rs` — NFS + bind mounts | **Done** |
+| FJ-010 | `transport/local.rs` — local execution | **Done** |
+| FJ-011 | `transport/ssh.rs` — SSH execution | **Done** |
+| FJ-012 | `core/executor.rs` — orchestration loop | **Done** |
+| FJ-013 | `core/state.rs` — lock file management | **Done** |
+| FJ-014 | `tripwire/hasher.rs` — BLAKE3 state hashing | **Done** |
+| FJ-015 | `tripwire/eventlog.rs` — JSONL event log | **Done** |
+| FJ-016 | `tripwire/drift.rs` — drift detection (file + non-file via state_query_script) | **Done** |
+| FJ-017 | `cli/` — all subcommands (validate, plan, apply, drift, status, graph, destroy, history) | **Done** |
+| FJ-018 | Integration test: lambda + intel NFS setup | **Done** |
+| FJ-019 | `core/recipe.rs` — recipe loading, input validation, expansion + CLI pipeline wiring | **Done** |
+| FJ-020 | Provable contracts integration — YAML contracts, binding.yaml, `#[contract]` annotations, falsification tests | **Done** |
+| FJ-021 | `transport/container.rs` — container exec + ephemeral lifecycle | **Done** |
+| FJ-022 | Dogfood configs + end-to-end container verification workflow | **Done** |
 
 ### Phase 2: Containers + Parallel (v0.2)
 

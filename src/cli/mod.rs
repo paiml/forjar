@@ -43,6 +43,10 @@ pub enum Commands {
         /// Output plan as JSON
         #[arg(long)]
         json: bool,
+
+        /// Write generated scripts to directory for auditing
+        #[arg(long)]
+        output_dir: Option<PathBuf>,
     },
 
     /// Converge infrastructure to desired state
@@ -187,6 +191,7 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             resource,
             state_dir,
             json,
+            output_dir,
         } => cmd_plan(
             &file,
             &state_dir,
@@ -194,6 +199,7 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             resource.as_deref(),
             json,
             verbose,
+            output_dir.as_deref(),
         ),
         Commands::Apply {
             file,
@@ -297,6 +303,7 @@ fn cmd_validate(file: &Path) -> Result<(), String> {
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn cmd_plan(
     file: &Path,
     state_dir: &Path,
@@ -304,6 +311,7 @@ fn cmd_plan(
     _resource_filter: Option<&str>,
     json: bool,
     verbose: bool,
+    output_dir: Option<&Path>,
 ) -> Result<(), String> {
     let config = parse_and_validate(file)?;
     if verbose {
@@ -319,6 +327,10 @@ fn cmd_plan(
     // Load existing locks so plan shows accurate Create vs Update vs NoOp
     let locks = load_machine_locks(&config, state_dir, machine_filter)?;
     let plan = planner::plan(&config, &execution_order, &locks);
+
+    if let Some(dir) = output_dir {
+        export_scripts(&config, dir)?;
+    }
 
     if json {
         let output =
@@ -388,6 +400,42 @@ fn print_plan(plan: &types::ExecutionPlan, machine_filter: Option<&str>) {
         "Plan: {} to add, {} to change, {} to destroy, {} unchanged.",
         plan.to_create, plan.to_update, plan.to_destroy, plan.unchanged
     );
+}
+
+/// Export generated scripts (check, apply, state_query) to a directory for auditing.
+fn export_scripts(config: &types::ForjarConfig, dir: &Path) -> Result<(), String> {
+    std::fs::create_dir_all(dir)
+        .map_err(|e| format!("cannot create output dir {}: {}", dir.display(), e))?;
+
+    let mut count = 0;
+    for (id, resource) in &config.resources {
+        // Sanitize resource ID for filesystem (replace / with --)
+        let safe_id = id.replace('/', "--");
+
+        if let Ok(script) = codegen::check_script(resource) {
+            let path = dir.join(format!("{}.check.sh", safe_id));
+            std::fs::write(&path, &script)
+                .map_err(|e| format!("write {}: {}", path.display(), e))?;
+            count += 1;
+        }
+
+        if let Ok(script) = codegen::apply_script(resource) {
+            let path = dir.join(format!("{}.apply.sh", safe_id));
+            std::fs::write(&path, &script)
+                .map_err(|e| format!("write {}: {}", path.display(), e))?;
+            count += 1;
+        }
+
+        if let Ok(script) = codegen::state_query_script(resource) {
+            let path = dir.join(format!("{}.state_query.sh", safe_id));
+            std::fs::write(&path, &script)
+                .map_err(|e| format!("write {}: {}", path.display(), e))?;
+            count += 1;
+        }
+    }
+
+    println!("Exported {} scripts to {}", count, dir.display());
+    Ok(())
 }
 
 /// Parse KEY=VALUE param overrides and merge into config.
@@ -1104,7 +1152,7 @@ resources:
         .unwrap();
         let state = dir.path().join("state");
         std::fs::create_dir_all(&state).unwrap();
-        cmd_plan(&config, &state, None, None, false, false).unwrap();
+        cmd_plan(&config, &state, None, None, false, false, None).unwrap();
     }
 
     #[test]
@@ -1139,7 +1187,7 @@ resources:
 "#,
         )
         .unwrap();
-        cmd_plan(&config, &state, Some("a"), None, false, false).unwrap();
+        cmd_plan(&config, &state, Some("a"), None, false, false, None).unwrap();
     }
 
     #[test]
@@ -1157,7 +1205,7 @@ resources: {}
 "#,
         )
         .unwrap();
-        let result = cmd_plan(&config, &state, None, None, false, false);
+        let result = cmd_plan(&config, &state, None, None, false, false, None);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("validation"));
     }
@@ -1533,6 +1581,7 @@ resources:
                 resource: None,
                 state_dir: state,
                 json: false,
+                output_dir: None,
             },
             false,
         )
@@ -1848,7 +1897,7 @@ resources:
         .unwrap();
         // Plan with nonexistent state dir → everything shows as Create
         let missing = dir.path().join("no-state");
-        cmd_plan(&config, &missing, None, None, false, false).unwrap();
+        cmd_plan(&config, &missing, None, None, false, false, None).unwrap();
     }
 
     #[test]
@@ -1876,7 +1925,7 @@ resources:
         )
         .unwrap();
         // json=true should not panic (output goes to stdout)
-        cmd_plan(&config, &state, None, None, true, false).unwrap();
+        cmd_plan(&config, &state, None, None, true, false, None).unwrap();
     }
 
     #[test]
@@ -1903,7 +1952,52 @@ resources:
 "#,
         )
         .unwrap();
-        cmd_plan(&config, &state, None, None, false, true).unwrap();
+        cmd_plan(&config, &state, None, None, false, true, None).unwrap();
+    }
+
+    #[test]
+    fn test_fj017_plan_output_dir() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        let state = dir.path().join("state");
+        let output = dir.path().join("scripts");
+        std::fs::create_dir_all(&state).unwrap();
+        std::fs::write(
+            &config,
+            r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: box
+    addr: 1.2.3.4
+resources:
+  pkg:
+    type: package
+    machine: m1
+    provider: apt
+    packages: [curl]
+  conf:
+    type: file
+    machine: m1
+    path: /etc/test.conf
+    content: "hello"
+"#,
+        )
+        .unwrap();
+        cmd_plan(&config, &state, None, None, false, false, Some(&output)).unwrap();
+
+        // Should have created scripts for both resources
+        assert!(output.exists());
+        assert!(output.join("pkg.check.sh").exists());
+        assert!(output.join("pkg.apply.sh").exists());
+        assert!(output.join("pkg.state_query.sh").exists());
+        assert!(output.join("conf.check.sh").exists());
+        assert!(output.join("conf.apply.sh").exists());
+
+        // Verify script content is non-empty
+        let check = std::fs::read_to_string(output.join("pkg.check.sh")).unwrap();
+        assert!(check.contains("dpkg"));
     }
 
     #[test]

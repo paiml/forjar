@@ -56,7 +56,7 @@ Checks:
 Show execution plan (what would change).
 
 ```bash
-forjar plan -f <FILE> [-m MACHINE] [-r RESOURCE] [--state-dir DIR] [--json]
+forjar plan -f <FILE> [-m MACHINE] [-r RESOURCE] [--state-dir DIR] [--json] [--output-dir DIR]
 ```
 
 | Flag | Default | Description |
@@ -66,6 +66,7 @@ forjar plan -f <FILE> [-m MACHINE] [-r RESOURCE] [--state-dir DIR] [--json]
 | `-r, --resource` | all | Filter to specific resource |
 | `--state-dir` | `state` | Directory for lock files |
 | `--json` | false | Output plan as JSON |
+| `--output-dir` | — | Write generated scripts to directory for auditing |
 
 Output symbols (text mode):
 - `+` Create (new resource)
@@ -74,6 +75,8 @@ Output symbols (text mode):
 - ` ` No-op (unchanged)
 
 JSON mode outputs the full `ExecutionPlan` with changes, actions, and summary counts.
+
+The `--output-dir` flag writes all generated scripts (check, apply, state_query) per resource to the specified directory. Useful for auditing, code review, and offline inspection of what forjar would execute.
 
 ### `forjar apply`
 
