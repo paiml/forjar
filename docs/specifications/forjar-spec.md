@@ -1140,7 +1140,7 @@ Options:
 | FJ-031 | `resources/user.rs` — user/group management | **Done** |
 | FJ-032 | `resources/network.rs` — firewall rules (ufw) | **Done** |
 | FJ-033 | `resources/cron.rs` — scheduled tasks (crontab) | **Done** |
-| FJ-034 | Parallel multi-machine apply via repartir | |
+| FJ-034 | Parallel multi-machine apply via `std::thread::scope` | **Done** |
 | FJ-035 | `copia` delta sync for large file transfers | |
 | FJ-036 | bashrs integration — full shell purification pipeline | |
 

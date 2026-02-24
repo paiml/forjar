@@ -1,7 +1,7 @@
-//! FJ-017: CLI subcommands — plan, apply, drift, status, init, validate.
+//! FJ-017: CLI subcommands — plan, apply, drift, status, init, validate, history.
 
 use crate::core::{executor, parser, planner, resolver, state, types};
-use crate::tripwire::drift;
+use crate::tripwire::{drift, eventlog};
 use clap::Subcommand;
 use std::path::{Path, PathBuf};
 
@@ -38,6 +38,10 @@ pub enum Commands {
         /// State directory
         #[arg(long, default_value = "state")]
         state_dir: PathBuf,
+
+        /// Output plan as JSON
+        #[arg(long)]
+        json: bool,
     },
 
     /// Converge infrastructure to desired state
@@ -84,6 +88,10 @@ pub enum Commands {
         /// Exit non-zero on any drift (for CI/cron)
         #[arg(long)]
         tripwire: bool,
+
+        /// Output drift report as JSON
+        #[arg(long)]
+        json: bool,
     },
 
     /// Show current state from lock files
@@ -96,10 +104,29 @@ pub enum Commands {
         #[arg(short, long)]
         machine: Option<String>,
     },
+
+    /// Show apply history from event logs
+    History {
+        /// State directory
+        #[arg(long, default_value = "state")]
+        state_dir: PathBuf,
+
+        /// Show history for specific machine
+        #[arg(short, long)]
+        machine: Option<String>,
+
+        /// Show last N applies (default: 10)
+        #[arg(short = 'n', long, default_value = "10")]
+        limit: usize,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 /// Dispatch a CLI command.
-pub fn dispatch(cmd: Commands) -> Result<(), String> {
+pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
     match cmd {
         Commands::Init { path } => cmd_init(&path),
         Commands::Validate { file } => cmd_validate(&file),
@@ -108,7 +135,15 @@ pub fn dispatch(cmd: Commands) -> Result<(), String> {
             machine,
             resource,
             state_dir,
-        } => cmd_plan(&file, &state_dir, machine.as_deref(), resource.as_deref()),
+            json,
+        } => cmd_plan(
+            &file,
+            &state_dir,
+            machine.as_deref(),
+            resource.as_deref(),
+            json,
+            verbose,
+        ),
         Commands::Apply {
             file,
             machine,
@@ -123,14 +158,22 @@ pub fn dispatch(cmd: Commands) -> Result<(), String> {
             resource.as_deref(),
             force,
             dry_run,
+            verbose,
         ),
         Commands::Drift {
             file,
             machine,
             state_dir,
             tripwire,
-        } => cmd_drift(&file, &state_dir, machine.as_deref(), tripwire),
+            json,
+        } => cmd_drift(&file, &state_dir, machine.as_deref(), tripwire, json, verbose),
         Commands::Status { state_dir, machine } => cmd_status(&state_dir, machine.as_deref()),
+        Commands::History {
+            state_dir,
+            machine,
+            limit,
+            json,
+        } => cmd_history(&state_dir, machine.as_deref(), limit, json),
     }
 }
 
@@ -192,15 +235,31 @@ fn cmd_plan(
     state_dir: &Path,
     machine_filter: Option<&str>,
     _resource_filter: Option<&str>,
+    json: bool,
+    verbose: bool,
 ) -> Result<(), String> {
     let config = parse_and_validate(file)?;
+    if verbose {
+        eprintln!(
+            "Planning {} ({} machines, {} resources)",
+            config.name,
+            config.machines.len(),
+            config.resources.len()
+        );
+    }
     let execution_order = resolver::build_execution_order(&config)?;
 
     // Load existing locks so plan shows accurate Create vs Update vs NoOp
     let locks = load_machine_locks(&config, state_dir, machine_filter)?;
     let plan = planner::plan(&config, &execution_order, &locks);
 
-    print_plan(&plan, machine_filter);
+    if json {
+        let output =
+            serde_json::to_string_pretty(&plan).map_err(|e| format!("JSON error: {}", e))?;
+        println!("{}", output);
+    } else {
+        print_plan(&plan, machine_filter);
+    }
     Ok(())
 }
 
@@ -272,6 +331,7 @@ fn print_plan(plan: &types::ExecutionPlan, machine_filter: Option<&str>) {
     );
 }
 
+#[allow(clippy::too_many_arguments)]
 fn cmd_apply(
     file: &Path,
     state_dir: &Path,
@@ -279,8 +339,17 @@ fn cmd_apply(
     resource_filter: Option<&str>,
     force: bool,
     dry_run: bool,
+    verbose: bool,
 ) -> Result<(), String> {
     let config = parse_and_validate(file)?;
+    if verbose {
+        eprintln!(
+            "Applying {} ({} machines, {} resources)",
+            config.name,
+            config.machines.len(),
+            config.resources.len()
+        );
+    }
 
     let cfg = executor::ApplyConfig {
         config: &config,
@@ -332,11 +401,14 @@ fn cmd_apply(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn cmd_drift(
     config_path: &Path,
     state_dir: &Path,
     machine_filter: Option<&str>,
     tripwire_mode: bool,
+    json: bool,
+    verbose: bool,
 ) -> Result<(), String> {
     // Load config to get machine definitions (needed for container transport drift)
     let config = if config_path.exists() {
@@ -359,6 +431,7 @@ fn cmd_drift(
         .map_err(|e| format!("cannot read state dir {}: {}", state_dir.display(), e))?;
 
     let mut total_drift = 0;
+    let mut all_findings: Vec<serde_json::Value> = Vec::new();
 
     for entry in entries.flatten() {
         let name = entry.file_name().to_string_lossy().to_string();
@@ -373,7 +446,12 @@ fn cmd_drift(
         }
 
         if let Some(lock) = state::load_lock(state_dir, &name)? {
-            println!("Checking {} ({} resources)...", name, lock.resources.len());
+            if verbose {
+                eprintln!("Checking {} ({} resources)...", name, lock.resources.len());
+            }
+            if !json {
+                println!("Checking {} ({} resources)...", name, lock.resources.len());
+            }
 
             // Use transport-aware drift for container machines
             let machine = config.as_ref().and_then(|c| c.machines.get(&name));
@@ -383,26 +461,144 @@ fn cmd_drift(
             };
 
             if findings.is_empty() {
-                println!("  No drift detected.");
+                if !json {
+                    println!("  No drift detected.");
+                }
             } else {
                 for f in &findings {
-                    println!("  DRIFTED: {} ({})", f.resource_id, f.detail);
-                    println!("    Expected: {}", f.expected_hash);
-                    println!("    Actual:   {}", f.actual_hash);
+                    if json {
+                        all_findings.push(serde_json::json!({
+                            "machine": name,
+                            "resource": f.resource_id,
+                            "detail": f.detail,
+                            "expected_hash": f.expected_hash,
+                            "actual_hash": f.actual_hash,
+                        }));
+                    } else {
+                        println!("  DRIFTED: {} ({})", f.resource_id, f.detail);
+                        println!("    Expected: {}", f.expected_hash);
+                        println!("    Actual:   {}", f.actual_hash);
+                    }
                 }
                 total_drift += findings.len();
             }
         }
     }
 
-    if total_drift > 0 {
+    if json {
+        let report = serde_json::json!({
+            "drift_count": total_drift,
+            "findings": all_findings,
+        });
+        let output =
+            serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {}", e))?;
+        println!("{}", output);
+    } else if total_drift > 0 {
         println!();
         println!("Drift detected: {} resource(s)", total_drift);
-        if tripwire_mode {
-            return Err(format!("{} drift finding(s)", total_drift));
-        }
     } else {
         println!("No drift detected.");
+    }
+
+    if tripwire_mode && total_drift > 0 {
+        return Err(format!("{} drift finding(s)", total_drift));
+    }
+
+    Ok(())
+}
+
+fn cmd_history(
+    state_dir: &Path,
+    machine_filter: Option<&str>,
+    limit: usize,
+    json: bool,
+) -> Result<(), String> {
+    let entries = std::fs::read_dir(state_dir)
+        .map_err(|e| format!("cannot read state dir {}: {}", state_dir.display(), e))?;
+
+    let mut all_events: Vec<types::TimestampedEvent> = Vec::new();
+
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().to_string();
+        if let Some(filter) = machine_filter {
+            if name != filter {
+                continue;
+            }
+        }
+        if !entry.path().is_dir() {
+            continue;
+        }
+
+        let log_path = eventlog::event_log_path(state_dir, &name);
+        if !log_path.exists() {
+            continue;
+        }
+
+        let content = std::fs::read_to_string(&log_path)
+            .map_err(|e| format!("cannot read {}: {}", log_path.display(), e))?;
+
+        for line in content.lines() {
+            if line.trim().is_empty() {
+                continue;
+            }
+            if let Ok(event) = serde_json::from_str::<types::TimestampedEvent>(line) {
+                all_events.push(event);
+            }
+        }
+    }
+
+    // Sort by timestamp descending (most recent first)
+    all_events.sort_by(|a, b| b.ts.cmp(&a.ts));
+
+    // Filter to apply_started/apply_completed events for summary, then limit
+    let apply_events: Vec<&types::TimestampedEvent> = all_events
+        .iter()
+        .filter(|e| {
+            matches!(
+                e.event,
+                types::ProvenanceEvent::ApplyStarted { .. }
+                    | types::ProvenanceEvent::ApplyCompleted { .. }
+            )
+        })
+        .take(limit)
+        .collect();
+
+    if json {
+        let output = serde_json::to_string_pretty(&apply_events)
+            .map_err(|e| format!("JSON error: {}", e))?;
+        println!("{}", output);
+    } else if apply_events.is_empty() {
+        println!("No apply history found. Run `forjar apply` first.");
+    } else {
+        for event in &apply_events {
+            match &event.event {
+                types::ProvenanceEvent::ApplyStarted {
+                    machine, run_id, ..
+                } => {
+                    println!("{} started  {} ({})", event.ts, machine, run_id);
+                }
+                types::ProvenanceEvent::ApplyCompleted {
+                    machine,
+                    run_id,
+                    resources_converged,
+                    resources_unchanged,
+                    resources_failed,
+                    total_seconds,
+                } => {
+                    println!(
+                        "{} complete {} ({}) — {} converged, {} unchanged, {} failed ({:.1}s)",
+                        event.ts,
+                        machine,
+                        run_id,
+                        resources_converged,
+                        resources_unchanged,
+                        resources_failed,
+                        total_seconds
+                    );
+                }
+                _ => {}
+            }
+        }
     }
 
     Ok(())
@@ -550,7 +746,7 @@ resources:
         .unwrap();
         let state = dir.path().join("state");
         std::fs::create_dir_all(&state).unwrap();
-        cmd_plan(&config, &state, None, None).unwrap();
+        cmd_plan(&config, &state, None, None, false, false).unwrap();
     }
 
     #[test]
@@ -585,7 +781,7 @@ resources:
 "#,
         )
         .unwrap();
-        cmd_plan(&config, &state, Some("a"), None).unwrap();
+        cmd_plan(&config, &state, Some("a"), None, false, false).unwrap();
     }
 
     #[test]
@@ -603,7 +799,7 @@ resources: {}
 "#,
         )
         .unwrap();
-        let result = cmd_plan(&config, &state, None, None);
+        let result = cmd_plan(&config, &state, None, None, false, false);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("validation"));
     }
@@ -632,7 +828,7 @@ resources:
 "#,
         )
         .unwrap();
-        cmd_apply(&config, &state, None, None, false, true).unwrap();
+        cmd_apply(&config, &state, None, None, false, true, false).unwrap();
     }
 
     #[test]
@@ -662,7 +858,7 @@ policy:
 "#,
         )
         .unwrap();
-        cmd_apply(&config, &state, None, None, false, false).unwrap();
+        cmd_apply(&config, &state, None, None, false, false, false).unwrap();
 
         // Verify file was created
         assert!(std::path::Path::new("/tmp/forjar-cli-apply-test.txt").exists());
@@ -689,7 +885,7 @@ resources: {}
 "#,
         )
         .unwrap();
-        let result = cmd_apply(&config, &state, None, None, false, false);
+        let result = cmd_apply(&config, &state, None, None, false, false, false);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("validation"));
     }
@@ -699,7 +895,7 @@ resources: {}
         let dir = tempfile::tempdir().unwrap();
         let state = dir.path().join("state");
         std::fs::create_dir_all(&state).unwrap();
-        cmd_drift(Path::new("nonexistent.yaml"), &state, None, false).unwrap();
+        cmd_drift(Path::new("nonexistent.yaml"), &state, None, false, false, false).unwrap();
     }
 
     #[test]
@@ -745,7 +941,7 @@ resources: {}
         crate::core::state::save_lock(&state, &lock).unwrap();
 
         // No drift expected
-        cmd_drift(Path::new("nonexistent.yaml"), &state, None, false).unwrap();
+        cmd_drift(Path::new("nonexistent.yaml"), &state, None, false, false, false).unwrap();
     }
 
     #[test]
@@ -789,7 +985,7 @@ resources: {}
         crate::core::state::save_lock(&state, &lock).unwrap();
 
         // Tripwire mode should error on drift
-        let result = cmd_drift(Path::new("nonexistent.yaml"), &state, None, true);
+        let result = cmd_drift(Path::new("nonexistent.yaml"), &state, None, true, false, false);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("drift"));
     }
@@ -801,7 +997,7 @@ resources: {}
         std::fs::create_dir_all(state.join("alpha")).unwrap();
         std::fs::create_dir_all(state.join("beta")).unwrap();
 
-        cmd_drift(Path::new("nonexistent.yaml"), &state, Some("alpha"), false).unwrap();
+        cmd_drift(Path::new("nonexistent.yaml"), &state, Some("alpha"), false, false, false).unwrap();
     }
 
     #[test]
@@ -832,7 +1028,7 @@ resources: {}
         let dir = tempfile::tempdir().unwrap();
         let sub = dir.path().join("dispatch-test");
         std::fs::create_dir_all(&sub).unwrap();
-        dispatch(Commands::Init { path: sub.clone() }).unwrap();
+        dispatch(Commands::Init { path: sub.clone() }, false).unwrap();
         assert!(sub.join("forjar.yaml").exists());
     }
 
@@ -852,7 +1048,7 @@ resources: {}
         .unwrap();
         dispatch(Commands::Validate {
             file: config.clone(),
-        })
+        }, false)
         .unwrap();
     }
 
@@ -864,7 +1060,7 @@ resources: {}
         dispatch(Commands::Status {
             state_dir: state,
             machine: None,
-        })
+        }, false)
         .unwrap();
     }
 
@@ -897,7 +1093,8 @@ resources:
             machine: None,
             resource: None,
             state_dir: state,
-        })
+            json: false,
+        }, false)
         .unwrap();
     }
 
@@ -932,7 +1129,7 @@ resources:
             force: false,
             dry_run: true,
             state_dir: state,
-        })
+        }, false)
         .unwrap();
     }
 
@@ -946,7 +1143,8 @@ resources:
             machine: None,
             state_dir: state,
             tripwire: false,
-        })
+            json: false,
+        }, false)
         .unwrap();
     }
 
@@ -1046,7 +1244,7 @@ resources:
         crate::core::state::save_lock(&state, &lock).unwrap();
 
         // tripwire_mode=false: drift detected but should still be Ok(())
-        cmd_drift(Path::new("nonexistent.yaml"), &state, None, false).unwrap();
+        cmd_drift(Path::new("nonexistent.yaml"), &state, None, false, false, false).unwrap();
     }
 
     #[test]
@@ -1081,11 +1279,11 @@ resources:
         )
         .unwrap();
 
-        cmd_apply(&config, &state, None, None, false, false).unwrap();
+        cmd_apply(&config, &state, None, None, false, false, false).unwrap();
         assert!(target.exists());
 
         // Second apply — should be unchanged (NoOp)
-        cmd_apply(&config, &state, None, None, false, false).unwrap();
+        cmd_apply(&config, &state, None, None, false, false, false).unwrap();
     }
 
     #[test]
@@ -1164,6 +1362,234 @@ resources:
         .unwrap();
         // Plan with nonexistent state dir → everything shows as Create
         let missing = dir.path().join("no-state");
-        cmd_plan(&config, &missing, None, None).unwrap();
+        cmd_plan(&config, &missing, None, None, false, false).unwrap();
+    }
+
+    #[test]
+    fn test_fj017_plan_json_output() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        let state = dir.path().join("state");
+        std::fs::create_dir_all(&state).unwrap();
+        std::fs::write(
+            &config,
+            r#"
+version: "1.0"
+name: json-test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  pkg:
+    type: package
+    machine: m1
+    provider: apt
+    packages: [curl]
+"#,
+        )
+        .unwrap();
+        // json=true should not panic (output goes to stdout)
+        cmd_plan(&config, &state, None, None, true, false).unwrap();
+    }
+
+    #[test]
+    fn test_fj017_plan_verbose() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        let state = dir.path().join("state");
+        std::fs::create_dir_all(&state).unwrap();
+        std::fs::write(
+            &config,
+            r#"
+version: "1.0"
+name: verbose-test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  pkg:
+    type: package
+    machine: m1
+    provider: apt
+    packages: [curl]
+"#,
+        )
+        .unwrap();
+        cmd_plan(&config, &state, None, None, false, true).unwrap();
+    }
+
+    #[test]
+    fn test_fj017_drift_json_output() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = dir.path().join("state");
+
+        let test_file = dir.path().join("drifted-json.txt");
+        std::fs::write(&test_file, "current").unwrap();
+
+        let mut resources = indexmap::IndexMap::new();
+        let mut details = std::collections::HashMap::new();
+        details.insert(
+            "path".to_string(),
+            serde_yaml_ng::Value::String(test_file.to_str().unwrap().to_string()),
+        );
+        details.insert(
+            "content_hash".to_string(),
+            serde_yaml_ng::Value::String("blake3:wrong_hash".to_string()),
+        );
+        resources.insert(
+            "drifted-file".to_string(),
+            crate::core::types::ResourceLock {
+                resource_type: crate::core::types::ResourceType::File,
+                status: crate::core::types::ResourceStatus::Converged,
+                applied_at: Some("2026-01-01T00:00:00Z".to_string()),
+                duration_seconds: Some(0.1),
+                hash: "blake3:x".to_string(),
+                details,
+            },
+        );
+        let lock = crate::core::types::StateLock {
+            schema: "1.0".to_string(),
+            machine: "jsonbox".to_string(),
+            hostname: "jsonbox".to_string(),
+            generated_at: "2026-01-01T00:00:00Z".to_string(),
+            generator: "forjar 0.1.0".to_string(),
+            blake3_version: "1.8".to_string(),
+            resources,
+        };
+        crate::core::state::save_lock(&state, &lock).unwrap();
+
+        // JSON drift output should not panic
+        cmd_drift(Path::new("nonexistent.yaml"), &state, None, false, true, false).unwrap();
+    }
+
+    #[test]
+    fn test_fj017_history_empty() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = dir.path().join("state");
+        std::fs::create_dir_all(&state).unwrap();
+        cmd_history(&state, None, 10, false).unwrap();
+    }
+
+    #[test]
+    fn test_fj017_history_with_events() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = dir.path().join("state");
+
+        // Write some events
+        crate::tripwire::eventlog::append_event(
+            &state,
+            "m1",
+            crate::core::types::ProvenanceEvent::ApplyStarted {
+                machine: "m1".to_string(),
+                run_id: "r-001".to_string(),
+                forjar_version: "0.1.0".to_string(),
+            },
+        )
+        .unwrap();
+        crate::tripwire::eventlog::append_event(
+            &state,
+            "m1",
+            crate::core::types::ProvenanceEvent::ApplyCompleted {
+                machine: "m1".to_string(),
+                run_id: "r-001".to_string(),
+                resources_converged: 3,
+                resources_unchanged: 0,
+                resources_failed: 0,
+                total_seconds: 5.2,
+            },
+        )
+        .unwrap();
+
+        cmd_history(&state, None, 10, false).unwrap();
+    }
+
+    #[test]
+    fn test_fj017_history_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = dir.path().join("state");
+
+        crate::tripwire::eventlog::append_event(
+            &state,
+            "m1",
+            crate::core::types::ProvenanceEvent::ApplyStarted {
+                machine: "m1".to_string(),
+                run_id: "r-002".to_string(),
+                forjar_version: "0.1.0".to_string(),
+            },
+        )
+        .unwrap();
+
+        cmd_history(&state, None, 10, true).unwrap();
+    }
+
+    #[test]
+    fn test_fj017_history_machine_filter() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = dir.path().join("state");
+
+        crate::tripwire::eventlog::append_event(
+            &state,
+            "alpha",
+            crate::core::types::ProvenanceEvent::ApplyStarted {
+                machine: "alpha".to_string(),
+                run_id: "r-a".to_string(),
+                forjar_version: "0.1.0".to_string(),
+            },
+        )
+        .unwrap();
+        crate::tripwire::eventlog::append_event(
+            &state,
+            "beta",
+            crate::core::types::ProvenanceEvent::ApplyStarted {
+                machine: "beta".to_string(),
+                run_id: "r-b".to_string(),
+                forjar_version: "0.1.0".to_string(),
+            },
+        )
+        .unwrap();
+
+        // Only show alpha
+        cmd_history(&state, Some("alpha"), 10, false).unwrap();
+    }
+
+    #[test]
+    fn test_fj017_history_limit() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = dir.path().join("state");
+
+        for i in 0..5 {
+            crate::tripwire::eventlog::append_event(
+                &state,
+                "m1",
+                crate::core::types::ProvenanceEvent::ApplyStarted {
+                    machine: "m1".to_string(),
+                    run_id: format!("r-{}", i),
+                    forjar_version: "0.1.0".to_string(),
+                },
+            )
+            .unwrap();
+        }
+
+        // Limit to 2
+        cmd_history(&state, None, 2, false).unwrap();
+    }
+
+    #[test]
+    fn test_fj017_dispatch_history() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = dir.path().join("state");
+        std::fs::create_dir_all(&state).unwrap();
+        dispatch(
+            Commands::History {
+                state_dir: state,
+                machine: None,
+                limit: 10,
+                json: false,
+            },
+            false,
+        )
+        .unwrap();
     }
 }

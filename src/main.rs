@@ -9,13 +9,17 @@ use clap::Parser;
     about = "Rust-native Infrastructure as Code — bare-metal first, BLAKE3 state, provenance tracing"
 )]
 struct Cli {
+    /// Enable verbose output
+    #[arg(short, long, global = true)]
+    verbose: bool,
+
     #[command(subcommand)]
     command: forjar::cli::Commands,
 }
 
 fn main() {
     let cli = Cli::parse();
-    if let Err(e) = forjar::cli::dispatch(cli.command) {
+    if let Err(e) = forjar::cli::dispatch(cli.command, cli.verbose) {
         eprintln!("error: {}", e);
         std::process::exit(1);
     }

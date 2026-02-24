@@ -474,7 +474,8 @@ impl fmt::Display for ResourceStatus {
 // ============================================================================
 
 /// Action to take on a resource.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum PlanAction {
     Create,
     Update,
@@ -494,7 +495,7 @@ impl fmt::Display for PlanAction {
 }
 
 /// A single planned change.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct PlannedChange {
     /// Resource ID
     pub resource_id: String,
@@ -513,7 +514,7 @@ pub struct PlannedChange {
 }
 
 /// Full execution plan.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ExecutionPlan {
     /// Config name
     pub name: String,
