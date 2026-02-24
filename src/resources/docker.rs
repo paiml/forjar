@@ -41,14 +41,8 @@ pub fn apply_script(resource: &Resource) -> String {
             ];
 
             // Stop and remove existing container if it exists
-            lines.push(format!(
-                "docker stop '{}' 2>/dev/null || true",
-                name
-            ));
-            lines.push(format!(
-                "docker rm '{}' 2>/dev/null || true",
-                name
-            ));
+            lines.push(format!("docker stop '{}' 2>/dev/null || true", name));
+            lines.push(format!("docker rm '{}' 2>/dev/null || true", name));
 
             // Build run command
             let mut run_args = vec!["docker run -d".to_string()];

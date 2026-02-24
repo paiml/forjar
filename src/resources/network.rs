@@ -59,11 +59,7 @@ pub fn apply_script(resource: &Resource) -> String {
                     comment
                 ));
             } else {
-                lines.push(format!(
-                    "$SUDO ufw {} {}",
-                    action,
-                    rule_parts.join(" ")
-                ));
+                lines.push(format!("$SUDO ufw {} {}", action, rule_parts.join(" ")));
             }
         }
     }

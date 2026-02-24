@@ -11,6 +11,7 @@ use super::types::*;
 use crate::transport;
 use crate::tripwire::{eventlog, hasher};
 use std::collections::HashMap;
+use std::sync::Mutex;
 use std::time::Instant;
 
 /// Configuration for an apply run.
@@ -57,41 +58,106 @@ pub fn apply(cfg: &ApplyConfig) -> Result<Vec<ApplyResult>, String> {
         }]);
     }
 
-    // Execute plan per machine
+    // Filter machines
+    let target_machines: Vec<&String> = all_machines
+        .iter()
+        .filter(|m| cfg.machine_filter.is_none_or(|f| *m == f))
+        .collect();
+
+    let localhost_machine = Machine {
+        hostname: "localhost".to_string(),
+        addr: "127.0.0.1".to_string(),
+        user: "root".to_string(),
+        arch: "x86_64".to_string(),
+        ssh_key: None,
+        roles: vec![],
+        transport: None,
+        container: None,
+    };
+
+    // Execute plan per machine (parallel or sequential)
+    if cfg.config.policy.parallel_machines && target_machines.len() > 1 {
+        apply_machines_parallel(cfg, &target_machines, &localhost_machine, &plan, &mut locks)
+    } else {
+        apply_machines_sequential(cfg, &target_machines, &localhost_machine, &plan, &mut locks)
+    }
+}
+
+/// Sequential machine apply (default).
+fn apply_machines_sequential(
+    cfg: &ApplyConfig,
+    target_machines: &[&String],
+    localhost_machine: &Machine,
+    plan: &ExecutionPlan,
+    locks: &mut HashMap<String, StateLock>,
+) -> Result<Vec<ApplyResult>, String> {
     let mut results = Vec::new();
-
-    for machine_name in &all_machines {
-        if let Some(filter) = cfg.machine_filter {
-            if machine_name != filter {
-                continue;
-            }
-        }
-
-        let machine = match cfg.config.machines.get(machine_name) {
+    for machine_name in target_machines {
+        let machine = match cfg.config.machines.get(*machine_name) {
             Some(m) => m,
-            None => {
-                if machine_name == "localhost" {
-                    &Machine {
-                        hostname: "localhost".to_string(),
-                        addr: "127.0.0.1".to_string(),
-                        user: "root".to_string(),
-                        arch: "x86_64".to_string(),
-                        ssh_key: None,
-                        roles: vec![],
-                        transport: None,
-                        container: None,
-                    }
-                } else {
-                    continue;
-                }
-            }
+            None if *machine_name == "localhost" => localhost_machine,
+            None => continue,
         };
-
-        let result = apply_machine(cfg, machine_name, machine, &plan, &mut locks)?;
+        let result = apply_machine(cfg, machine_name, machine, plan, locks)?;
         results.push(result);
     }
-
     Ok(results)
+}
+
+/// Parallel machine apply (FJ-034) — uses std::thread::scope for zero-copy sharing.
+fn apply_machines_parallel(
+    cfg: &ApplyConfig,
+    target_machines: &[&String],
+    localhost_machine: &Machine,
+    plan: &ExecutionPlan,
+    locks: &mut HashMap<String, StateLock>,
+) -> Result<Vec<ApplyResult>, String> {
+    // Extract per-machine locks so each thread can take its own
+    let lock_mutex = Mutex::new(std::mem::take(locks));
+    let results_mutex: Mutex<Vec<Result<ApplyResult, String>>> = Mutex::new(Vec::new());
+
+    std::thread::scope(|s| {
+        for machine_name in target_machines {
+            let machine = match cfg.config.machines.get(*machine_name) {
+                Some(m) => m,
+                None if *machine_name == "localhost" => localhost_machine,
+                None => continue,
+            };
+
+            // Take this machine's lock out of the shared map
+            let machine_lock = lock_mutex.lock().unwrap().remove(machine_name.as_str());
+
+            // Borrow the mutexes; move only per-thread owned data
+            let lock_ref = &lock_mutex;
+            let results_ref = &results_mutex;
+
+            s.spawn(move || {
+                let mut single_lock_map = HashMap::new();
+                if let Some(l) = machine_lock {
+                    single_lock_map.insert(machine_name.to_string(), l);
+                }
+                let result =
+                    apply_machine(cfg, machine_name, machine, plan, &mut single_lock_map);
+
+                // Put the lock back
+                if let Some((k, v)) = single_lock_map.into_iter().next() {
+                    lock_ref.lock().unwrap().insert(k, v);
+                }
+
+                results_ref.lock().unwrap().push(result);
+            });
+        }
+    });
+
+    // Restore locks
+    *locks = lock_mutex.into_inner().unwrap();
+
+    // Collect results, returning first error if any
+    let mut all_results = Vec::new();
+    for result in results_mutex.into_inner().unwrap() {
+        all_results.push(result?);
+    }
+    Ok(all_results)
 }
 
 /// Outcome of applying a single resource.
@@ -994,6 +1060,111 @@ resources:
         // Resource filter doesn't match — everything skipped
         assert_eq!(results[0].resources_converged, 0);
         assert_eq!(results[0].resources_unchanged, 0);
+    }
+
+    #[test]
+    fn test_fj034_parallel_multi_machine() {
+        let yaml = r#"
+version: "1.0"
+name: parallel-test
+machines:
+  m1:
+    hostname: m1
+    addr: 127.0.0.1
+  m2:
+    hostname: m2
+    addr: 127.0.0.1
+resources:
+  f1:
+    type: file
+    machine: m1
+    path: /tmp/forjar-test-parallel-m1.txt
+    content: "m1"
+  f2:
+    type: file
+    machine: m2
+    path: /tmp/forjar-test-parallel-m2.txt
+    content: "m2"
+policy:
+  parallel_machines: true
+  lock_file: true
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        assert!(config.policy.parallel_machines);
+
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = ApplyConfig {
+            config: &config,
+            state_dir: dir.path(),
+            force: false,
+            dry_run: false,
+            machine_filter: None,
+            resource_filter: None,
+        };
+        let results = apply(&cfg).unwrap();
+        assert_eq!(results.len(), 2);
+
+        // Both machines should converge
+        let total_converged: u32 = results.iter().map(|r| r.resources_converged).sum();
+        assert_eq!(total_converged, 2, "both files should converge");
+
+        // Verify files exist
+        assert!(
+            std::path::Path::new("/tmp/forjar-test-parallel-m1.txt").exists(),
+            "m1 file should exist"
+        );
+        assert!(
+            std::path::Path::new("/tmp/forjar-test-parallel-m2.txt").exists(),
+            "m2 file should exist"
+        );
+
+        // Idempotency with parallel
+        let r2 = apply(&cfg).unwrap();
+        let total_unchanged: u32 = r2.iter().map(|r| r.resources_unchanged).sum();
+        assert_eq!(total_unchanged, 2, "both files should be unchanged");
+
+        // Verify locks saved for both machines
+        assert!(state::load_lock(dir.path(), "m1").unwrap().is_some());
+        assert!(state::load_lock(dir.path(), "m2").unwrap().is_some());
+
+        let _ = std::fs::remove_file("/tmp/forjar-test-parallel-m1.txt");
+        let _ = std::fs::remove_file("/tmp/forjar-test-parallel-m2.txt");
+    }
+
+    #[test]
+    fn test_fj034_single_machine_skips_parallel() {
+        // Even with parallel_machines=true, single machine stays sequential
+        let yaml = r#"
+version: "1.0"
+name: single-machine
+machines:
+  m1:
+    hostname: m1
+    addr: 127.0.0.1
+resources:
+  f:
+    type: file
+    machine: m1
+    path: /tmp/forjar-test-single-parallel.txt
+    content: "single"
+policy:
+  parallel_machines: true
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = ApplyConfig {
+            config: &config,
+            state_dir: dir.path(),
+            force: false,
+            dry_run: false,
+            machine_filter: None,
+            resource_filter: None,
+        };
+        let results = apply(&cfg).unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].resources_converged, 1);
+
+        let _ = std::fs::remove_file("/tmp/forjar-test-single-parallel.txt");
     }
 
     // ── Falsification tests (Execution Safety Contract) ─────────

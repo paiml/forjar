@@ -598,7 +598,9 @@ resources:
 "#;
         let config = parse_config(yaml).unwrap();
         let errors = validate_config(&config);
-        assert!(errors.iter().any(|e| e.message.contains("(user) has no name")));
+        assert!(errors
+            .iter()
+            .any(|e| e.message.contains("(user) has no name")));
     }
 
     #[test]
@@ -618,7 +620,9 @@ resources:
 "#;
         let config = parse_config(yaml).unwrap();
         let errors = validate_config(&config);
-        assert!(errors.iter().any(|e| e.message.contains("(docker) has no name")));
+        assert!(errors
+            .iter()
+            .any(|e| e.message.contains("(docker) has no name")));
     }
 
     #[test]
@@ -638,7 +642,9 @@ resources:
 "#;
         let config = parse_config(yaml).unwrap();
         let errors = validate_config(&config);
-        assert!(errors.iter().any(|e| e.message.contains("(docker) has no image")));
+        assert!(errors
+            .iter()
+            .any(|e| e.message.contains("(docker) has no image")));
     }
 
     #[test]
@@ -659,7 +665,9 @@ resources:
 "#;
         let config = parse_config(yaml).unwrap();
         let errors = validate_config(&config);
-        assert!(errors.iter().any(|e| e.message.contains("(cron) has no schedule")));
+        assert!(errors
+            .iter()
+            .any(|e| e.message.contains("(cron) has no schedule")));
     }
 
     #[test]
@@ -680,7 +688,9 @@ resources:
 "#;
         let config = parse_config(yaml).unwrap();
         let errors = validate_config(&config);
-        assert!(errors.iter().any(|e| e.message.contains("(cron) has no command")));
+        assert!(errors
+            .iter()
+            .any(|e| e.message.contains("(cron) has no command")));
     }
 
     #[test]
@@ -701,7 +711,9 @@ resources:
 "#;
         let config = parse_config(yaml).unwrap();
         let errors = validate_config(&config);
-        assert!(errors.iter().any(|e| e.message.contains("(network) has no port")));
+        assert!(errors
+            .iter()
+            .any(|e| e.message.contains("(network) has no port")));
     }
 
     #[test]

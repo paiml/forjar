@@ -79,16 +79,8 @@ pub fn apply_script(resource: &Resource) -> String {
                 modify_args.push(format!("--groups '{}'", groups_str));
             }
 
-            let create_cmd = format!(
-                "$SUDO useradd {} '{}'",
-                create_args.join(" "),
-                username
-            );
-            let modify_cmd = format!(
-                "$SUDO usermod {} '{}'",
-                modify_args.join(" "),
-                username
-            );
+            let create_cmd = format!("$SUDO useradd {} '{}'", create_args.join(" "), username);
+            let modify_cmd = format!("$SUDO usermod {} '{}'", modify_args.join(" "), username);
 
             lines.push(format!(
                 "if ! id '{}' >/dev/null 2>&1; then\n  {}\nelse\n  {}\nfi",
@@ -104,10 +96,7 @@ pub fn apply_script(resource: &Resource) -> String {
                     .unwrap_or_else(|| format!("/home/{}", username));
 
                 lines.push(format!("$SUDO mkdir -p '{}'/.ssh", home_dir));
-                lines.push(format!(
-                    "$SUDO chmod 700 '{}'/.ssh",
-                    home_dir
-                ));
+                lines.push(format!("$SUDO chmod 700 '{}'/.ssh", home_dir));
 
                 let keys = resource
                     .ssh_authorized_keys
@@ -121,7 +110,10 @@ pub fn apply_script(resource: &Resource) -> String {
                      $SUDO mv /tmp/forjar-authkeys '{}'/.ssh/authorized_keys\n\
                      $SUDO chmod 600 '{}'/.ssh/authorized_keys\n\
                      $SUDO chown -R '{}':'{}' '{}'/.ssh",
-                    keys, home_dir, home_dir, username,
+                    keys,
+                    home_dir,
+                    home_dir,
+                    username,
                     resource.group.as_deref().unwrap_or(username),
                     home_dir
                 ));
@@ -262,9 +254,7 @@ mod tests {
     #[test]
     fn test_fj031_apply_with_ssh_keys() {
         let mut r = make_user_resource("deploy");
-        r.ssh_authorized_keys = vec![
-            "ssh-ed25519 AAAA... deploy@host".to_string(),
-        ];
+        r.ssh_authorized_keys = vec!["ssh-ed25519 AAAA... deploy@host".to_string()];
         let script = apply_script(&r);
         assert!(script.contains("mkdir -p '/home/deploy'/.ssh"));
         assert!(script.contains("chmod 700"));
