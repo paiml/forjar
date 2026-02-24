@@ -45,13 +45,13 @@ pub struct ForjarConfig {
 // Machines
 // ============================================================================
 
-/// A managed machine (bare-metal, VM, or edge device).
+/// A managed machine (bare-metal, VM, container, or edge device).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Machine {
     /// Machine hostname
     pub hostname: String,
 
-    /// Network address (IP or DNS)
+    /// Network address (IP, DNS, or `container` sentinel)
     pub addr: String,
 
     /// SSH user
@@ -69,6 +69,61 @@ pub struct Machine {
     /// Roles for this machine (informational)
     #[serde(default)]
     pub roles: Vec<String>,
+
+    /// Explicit transport override: `container`. If omitted, inferred from `addr`.
+    #[serde(default)]
+    pub transport: Option<String>,
+
+    /// Container configuration (required when `transport: container`)
+    #[serde(default)]
+    pub container: Option<ContainerConfig>,
+}
+
+/// Container execution target configuration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContainerConfig {
+    /// Container runtime: `docker` or `podman` (default: `docker`)
+    #[serde(default = "default_runtime")]
+    pub runtime: String,
+
+    /// OCI image (required for ephemeral containers)
+    #[serde(default)]
+    pub image: Option<String>,
+
+    /// Container name (auto-generated from machine key if omitted)
+    #[serde(default)]
+    pub name: Option<String>,
+
+    /// Destroy container after apply (default: true)
+    #[serde(default = "default_true")]
+    pub ephemeral: bool,
+
+    /// Run with `--privileged` flag (default: false)
+    #[serde(default)]
+    pub privileged: bool,
+
+    /// Run with `--init` for PID 1 reaping (default: true)
+    #[serde(default = "default_true")]
+    pub init: bool,
+}
+
+fn default_runtime() -> String {
+    "docker".to_string()
+}
+
+impl Machine {
+    /// Returns true if this machine uses container transport.
+    pub fn is_container_transport(&self) -> bool {
+        self.transport.as_deref() == Some("container") || self.addr == "container"
+    }
+
+    /// Returns the effective container name (explicit or derived from hostname).
+    pub fn container_name(&self) -> String {
+        self.container
+            .as_ref()
+            .and_then(|c| c.name.clone())
+            .unwrap_or_else(|| format!("forjar-{}", self.hostname))
+    }
 }
 
 fn default_user() -> String {
@@ -541,6 +596,110 @@ addr: 1.2.3.4
         assert_eq!(m.user, "root");
         assert_eq!(m.arch, "x86_64");
         assert!(m.roles.is_empty());
+        assert!(m.transport.is_none());
+        assert!(m.container.is_none());
+    }
+
+    #[test]
+    fn test_fj001_container_config_defaults() {
+        let yaml = r#"
+runtime: docker
+image: ubuntu:22.04
+"#;
+        let c: ContainerConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        assert_eq!(c.runtime, "docker");
+        assert_eq!(c.image.as_deref(), Some("ubuntu:22.04"));
+        assert!(c.name.is_none());
+        assert!(c.ephemeral);
+        assert!(!c.privileged);
+        assert!(c.init);
+    }
+
+    #[test]
+    fn test_fj001_container_machine_parse() {
+        let yaml = r#"
+hostname: test-box
+addr: container
+transport: container
+container:
+  runtime: docker
+  image: ubuntu:22.04
+  name: forjar-test
+  ephemeral: true
+  privileged: false
+  init: true
+"#;
+        let m: Machine = serde_yaml_ng::from_str(yaml).unwrap();
+        assert_eq!(m.transport.as_deref(), Some("container"));
+        assert!(m.is_container_transport());
+        let c = m.container.unwrap();
+        assert_eq!(c.runtime, "docker");
+        assert_eq!(c.image.as_deref(), Some("ubuntu:22.04"));
+        assert_eq!(c.name.as_deref(), Some("forjar-test"));
+    }
+
+    #[test]
+    fn test_fj001_machine_container_name_derived() {
+        let m = Machine {
+            hostname: "test-box".to_string(),
+            addr: "container".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: Some("container".to_string()),
+            container: Some(ContainerConfig {
+                runtime: "docker".to_string(),
+                image: Some("ubuntu:22.04".to_string()),
+                name: None,
+                ephemeral: true,
+                privileged: false,
+                init: true,
+            }),
+        };
+        assert_eq!(m.container_name(), "forjar-test-box");
+    }
+
+    #[test]
+    fn test_fj001_is_container_transport() {
+        // Explicit transport field
+        let m1 = Machine {
+            hostname: "t".to_string(),
+            addr: "1.2.3.4".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: Some("container".to_string()),
+            container: None,
+        };
+        assert!(m1.is_container_transport());
+
+        // Sentinel addr
+        let m2 = Machine {
+            hostname: "t".to_string(),
+            addr: "container".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: None,
+            container: None,
+        };
+        assert!(m2.is_container_transport());
+
+        // Normal machine
+        let m3 = Machine {
+            hostname: "t".to_string(),
+            addr: "10.0.0.1".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: None,
+            container: None,
+        };
+        assert!(!m3.is_container_transport());
     }
 
     #[test]

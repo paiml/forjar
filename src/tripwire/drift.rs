@@ -1,6 +1,6 @@
 //! FJ-016: Drift detection — compare live state to lock hashes.
 
-use crate::core::types::{ResourceStatus, ResourceType, StateLock};
+use crate::core::types::{Machine, ResourceStatus, ResourceType, StateLock};
 use crate::tripwire::hasher;
 use std::path::Path;
 
@@ -50,8 +50,72 @@ pub fn check_file_drift(
     }
 }
 
+/// Check a file resource for drift via transport (for container/remote machines).
+/// Runs `cat <path>` on the target and hashes the output.
+pub fn check_file_drift_via_transport(
+    resource_id: &str,
+    path: &str,
+    expected_hash: &str,
+    machine: &Machine,
+) -> Option<DriftFinding> {
+    let script = format!(
+        "set -euo pipefail\nif [ -d '{}' ]; then echo '__DIR__'; else cat '{}'; fi",
+        path, path
+    );
+    match crate::transport::exec_script(machine, &script) {
+        Ok(out) if out.success() => {
+            let actual = if out.stdout.trim() == "__DIR__" {
+                // For directories, hash the listing instead
+                let ls_script = format!("ls -la '{}'", path);
+                match crate::transport::exec_script(machine, &ls_script) {
+                    Ok(ls_out) if ls_out.success() => hasher::hash_string(&ls_out.stdout),
+                    _ => return None,
+                }
+            } else {
+                hasher::hash_string(&out.stdout)
+            };
+
+            if actual != expected_hash {
+                Some(DriftFinding {
+                    resource_id: resource_id.to_string(),
+                    resource_type: ResourceType::File,
+                    expected_hash: expected_hash.to_string(),
+                    actual_hash: actual,
+                    detail: format!("{} content changed", path),
+                })
+            } else {
+                None
+            }
+        }
+        Ok(out) => Some(DriftFinding {
+            resource_id: resource_id.to_string(),
+            resource_type: ResourceType::File,
+            expected_hash: expected_hash.to_string(),
+            actual_hash: "MISSING".to_string(),
+            detail: format!("{} not accessible: {}", path, out.stderr.trim()),
+        }),
+        Err(e) => Some(DriftFinding {
+            resource_id: resource_id.to_string(),
+            resource_type: ResourceType::File,
+            expected_hash: expected_hash.to_string(),
+            actual_hash: "ERROR".to_string(),
+            detail: format!("transport error: {}", e),
+        }),
+    }
+}
+
 /// Check all file-type resources in a lock for drift.
+/// Uses local filesystem hashing (for local machines without transport context).
 pub fn detect_drift(lock: &StateLock) -> Vec<DriftFinding> {
+    detect_drift_impl(lock, None)
+}
+
+/// Check all file-type resources in a lock for drift, using transport for remote/container machines.
+pub fn detect_drift_with_machine(lock: &StateLock, machine: &Machine) -> Vec<DriftFinding> {
+    detect_drift_impl(lock, Some(machine))
+}
+
+fn detect_drift_impl(lock: &StateLock, machine: Option<&Machine>) -> Vec<DriftFinding> {
     let mut findings = Vec::new();
 
     for (id, rl) in &lock.resources {
@@ -59,7 +123,6 @@ pub fn detect_drift(lock: &StateLock) -> Vec<DriftFinding> {
             continue;
         }
 
-        // Only file-type drift is detectable locally (package/service require remote query — Phase 2)
         if rl.resource_type == ResourceType::File {
             if let Some(path_val) = rl.details.get("path") {
                 let path = match path_val {
@@ -71,8 +134,17 @@ pub fn detect_drift(lock: &StateLock) -> Vec<DriftFinding> {
                         serde_yaml_ng::Value::String(s) => s.as_str(),
                         _non_string => continue,
                     };
-                    if let Some(finding) = check_file_drift(id, path, expected) {
-                        findings.push(finding);
+
+                    // Use transport for container/remote machines, local hash for local
+                    let finding = match machine {
+                        Some(m) if m.is_container_transport() => {
+                            check_file_drift_via_transport(id, path, expected, m)
+                        }
+                        _ => check_file_drift(id, path, expected),
+                    };
+
+                    if let Some(f) = finding {
+                        findings.push(f);
                     }
                 }
             }

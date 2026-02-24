@@ -54,6 +54,10 @@ pub fn validate_config(config: &ForjarConfig) -> Vec<ValidationError> {
         validate_resource_type(id, resource, &mut errors);
     }
 
+    for (key, machine) in &config.machines {
+        validate_machine(key, machine, &mut errors);
+    }
+
     errors
 }
 
@@ -84,6 +88,37 @@ fn validate_resource_refs(
         if dep == id {
             errors.push(ValidationError {
                 message: format!("resource '{}' depends on itself", id),
+            });
+        }
+    }
+}
+
+/// Validate machine configuration (container transport rules).
+fn validate_machine(key: &str, machine: &Machine, errors: &mut Vec<ValidationError>) {
+    if machine.is_container_transport() && machine.container.is_none() {
+        errors.push(ValidationError {
+            message: format!(
+                "machine '{}' uses container transport but has no 'container' block",
+                key
+            ),
+        });
+    }
+
+    if let Some(ref container) = machine.container {
+        if container.runtime != "docker" && container.runtime != "podman" {
+            errors.push(ValidationError {
+                message: format!(
+                    "machine '{}' container runtime must be 'docker' or 'podman', got '{}'",
+                    key, container.runtime
+                ),
+            });
+        }
+        if container.ephemeral && container.image.is_none() {
+            errors.push(ValidationError {
+                message: format!(
+                    "machine '{}' is ephemeral but has no container image",
+                    key
+                ),
             });
         }
     }
@@ -385,6 +420,118 @@ resources:
             message: "test error".to_string(),
         };
         assert_eq!(format!("{}", err), "test error");
+    }
+
+    #[test]
+    fn test_fj002_container_transport_requires_container_block() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  test-box:
+    hostname: test-box
+    addr: container
+    transport: container
+resources: {}
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(errors
+            .iter()
+            .any(|e| e.message.contains("no 'container' block")));
+    }
+
+    #[test]
+    fn test_fj002_container_ephemeral_requires_image() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  test-box:
+    hostname: test-box
+    addr: container
+    transport: container
+    container:
+      runtime: docker
+      ephemeral: true
+resources: {}
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(errors
+            .iter()
+            .any(|e| e.message.contains("ephemeral but has no container image")));
+    }
+
+    #[test]
+    fn test_fj002_container_invalid_runtime() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  test-box:
+    hostname: test-box
+    addr: container
+    transport: container
+    container:
+      runtime: lxc
+      image: ubuntu:22.04
+resources: {}
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(errors
+            .iter()
+            .any(|e| e.message.contains("must be 'docker' or 'podman'")));
+    }
+
+    #[test]
+    fn test_fj002_container_valid_config() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  test-box:
+    hostname: test-box
+    addr: container
+    transport: container
+    container:
+      runtime: docker
+      image: ubuntu:22.04
+      ephemeral: true
+resources: {}
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(
+            errors.is_empty(),
+            "unexpected errors: {:?}",
+            errors.iter().map(|e| &e.message).collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn test_fj002_container_podman_valid() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  test-box:
+    hostname: test-box
+    addr: container
+    transport: container
+    container:
+      runtime: podman
+      image: ubuntu:22.04
+resources: {}
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(
+            errors.is_empty(),
+            "unexpected errors: {:?}",
+            errors.iter().map(|e| &e.message).collect::<Vec<_>>()
+        );
     }
 
     #[test]

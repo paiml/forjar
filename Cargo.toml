@@ -39,6 +39,9 @@ proptest = "1"
 name = "core_bench"
 harness = false
 
+[features]
+container-test = []
+
 [profile.release]
 opt-level = 3
 lto = true

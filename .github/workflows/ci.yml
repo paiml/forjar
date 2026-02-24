@@ -20,6 +20,15 @@ jobs:
       - run: cargo test --all-targets
       - run: cargo clippy --all-targets -- -D warnings
 
+  container-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: docker build -t forjar-test-target -f tests/Dockerfile.test-target .
+      - run: cargo test --features container-test
+
   fmt:
     runs-on: ubuntu-latest
     steps:

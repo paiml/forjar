@@ -223,6 +223,8 @@ mod tests {
                 arch: "x86_64".to_string(),
                 ssh_key: None,
                 roles: vec![],
+                transport: None,
+                container: None,
             },
         );
         let result = resolve_template("ssh {{machine.lambda.addr}}", &params, &machines).unwrap();
@@ -398,6 +400,8 @@ resources:
                 arch: "aarch64".to_string(),
                 ssh_key: None,
                 roles: vec![],
+                transport: None,
+                container: None,
             },
         );
 
@@ -445,6 +449,8 @@ resources:
                 arch: "x86_64".to_string(),
                 ssh_key: None,
                 roles: vec![],
+                transport: None,
+                container: None,
             },
         );
 
@@ -528,6 +534,8 @@ resources:
                 arch: "x86_64".to_string(),
                 ssh_key: None,
                 roles: vec![],
+                transport: None,
+                container: None,
             },
         );
         ForjarConfig {

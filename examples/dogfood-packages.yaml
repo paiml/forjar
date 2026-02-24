@@ -1,0 +1,75 @@
+# Dogfood config: test package + file resources with dependency DAG.
+#
+# Exercises: apt codegen against real dpkg, cross-resource dependencies,
+# idempotency, state hashing, and drift detection.
+#
+# Prerequisites:
+#   docker build -t forjar-test-target -f tests/Dockerfile.test-target .
+#
+# Usage:
+#   # First apply — all resources converge
+#   cargo run -- apply -f examples/dogfood-packages.yaml --state-dir /tmp/dogfood-pkg
+#
+#   # Idempotency proof — zero changes on second apply
+#   cargo run -- apply -f examples/dogfood-packages.yaml --state-dir /tmp/dogfood-pkg
+#
+#   # Drift detection
+#   cargo run -- drift -f examples/dogfood-packages.yaml --state-dir /tmp/dogfood-pkg
+#
+#   # Cleanup
+#   docker rm -f forjar-dogfood-pkg
+
+version: "1.0"
+name: dogfood-packages
+
+machines:
+  test-box:
+    hostname: test-box
+    addr: container
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-dogfood-pkg
+      ephemeral: false
+      privileged: false
+      init: true
+
+resources:
+  # ── Packages ──────────────────────────────────────
+  dev-tools:
+    type: package
+    machine: test-box
+    provider: apt
+    packages:
+      - curl
+      - jq
+      - tree
+
+  # ── Files (depend on packages) ────────────────────
+  tool-config:
+    type: file
+    machine: test-box
+    path: /etc/forjar-tools.conf
+    content: |
+      # Managed by forjar — dogfood test
+      curl_installed=true
+      jq_installed=true
+    owner: root
+    group: root
+    mode: "0644"
+    depends_on:
+      - dev-tools
+
+  data-dir:
+    type: file
+    machine: test-box
+    path: /data/dogfood
+    state: directory
+    owner: root
+    mode: "0755"
+
+policy:
+  failure: stop_on_first
+  tripwire: true
+  lock_file: true

@@ -78,6 +78,8 @@ pub fn apply(cfg: &ApplyConfig) -> Result<Vec<ApplyResult>, String> {
                         arch: "x86_64".to_string(),
                         ssh_key: None,
                         roles: vec![],
+                        transport: None,
+                        container: None,
                     }
                 } else {
                     continue;
@@ -133,7 +135,7 @@ fn record_success(
         Err(_) => None,
     };
 
-    let mut details = build_resource_details(resolved);
+    let mut details = build_resource_details(resolved, machine);
     if let Some(ref lh) = live_hash {
         details.insert(
             "live_hash".to_string(),
@@ -315,6 +317,11 @@ fn apply_machine(
     let machine_start = Instant::now();
     let run_id = eventlog::generate_run_id();
 
+    // Container lifecycle: ensure container is running before apply
+    if machine.is_container_transport() && !cfg.dry_run {
+        transport::container::ensure_container(machine)?;
+    }
+
     // Initialize or load lock
     let mut lock = locks
         .remove(machine_name)
@@ -384,13 +391,26 @@ fn apply_machine(
         },
     );
 
-    Ok(ApplyResult {
+    let result = ApplyResult {
         machine: machine_name.to_string(),
         resources_converged: converged,
         resources_unchanged: unchanged,
         resources_failed: failed,
         total_duration: machine_start.elapsed(),
-    })
+    };
+
+    // Container lifecycle: cleanup ephemeral containers after apply
+    if machine.is_container_transport() && !cfg.dry_run {
+        if let Some(ref container) = machine.container {
+            if container.ephemeral {
+                if let Err(e) = transport::container::cleanup_container(machine) {
+                    eprintln!("warning: container cleanup failed for {}: {}", machine_name, e);
+                }
+            }
+        }
+    }
+
+    Ok(result)
 }
 
 /// Collect all unique machine names referenced by resources.
@@ -407,7 +427,11 @@ fn collect_machines(config: &ForjarConfig) -> Vec<String> {
 }
 
 /// Build resource-specific details for the lock entry.
-fn build_resource_details(resource: &Resource) -> HashMap<String, serde_yaml_ng::Value> {
+/// For container/remote machines, reads file content via transport instead of local filesystem.
+fn build_resource_details(
+    resource: &Resource,
+    machine: &Machine,
+) -> HashMap<String, serde_yaml_ng::Value> {
     let mut details = HashMap::new();
 
     if let Some(ref path) = resource.path {
@@ -416,15 +440,23 @@ fn build_resource_details(resource: &Resource) -> HashMap<String, serde_yaml_ng:
             serde_yaml_ng::Value::String(path.clone()),
         );
     }
-    if let Some(ref _content) = resource.content {
-        // Hash the actual file on disk (not the in-memory content string).
-        // The heredoc-based apply adds a trailing newline, so hash_string(content)
-        // would differ from hash_file(path) — causing false drift detection.
+    if resource.content.is_some() {
         if let Some(ref path) = resource.path {
-            if let Ok(hash) = hasher::hash_file(std::path::Path::new(path)) {
+            let hash = if machine.is_container_transport() {
+                // Read file content via transport for container machines
+                let script = format!("cat '{}'", path);
+                transport::exec_script(machine, &script)
+                    .ok()
+                    .filter(|out| out.success())
+                    .map(|out| hasher::hash_string(&out.stdout))
+            } else {
+                // Local filesystem hash
+                hasher::hash_file(std::path::Path::new(path)).ok()
+            };
+            if let Some(h) = hash {
                 details.insert(
                     "content_hash".to_string(),
-                    serde_yaml_ng::Value::String(hash),
+                    serde_yaml_ng::Value::String(h),
                 );
             }
         }
@@ -461,6 +493,19 @@ fn build_resource_details(resource: &Resource) -> HashMap<String, serde_yaml_ng:
 mod tests {
     use super::*;
     use proptest::prelude::*;
+
+    fn local_machine() -> Machine {
+        Machine {
+            hostname: "localhost".to_string(),
+            addr: "127.0.0.1".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: None,
+            container: None,
+        }
+    }
 
     fn local_config() -> ForjarConfig {
         let yaml = r#"
@@ -546,7 +591,7 @@ resources:
             fs_type: None,
             options: None,
         };
-        let details = build_resource_details(&r);
+        let details = build_resource_details(&r, &local_machine());
         assert!(details.contains_key("path"));
         assert!(details.contains_key("content_hash"));
         assert!(details.contains_key("owner"));
@@ -555,7 +600,10 @@ resources:
         // content_hash should match hash_file (not hash_string)
         let expected = hasher::hash_file(&file_path).unwrap();
         let actual = details["content_hash"].as_str().unwrap();
-        assert_eq!(actual, expected, "content_hash must use hash_file for drift consistency");
+        assert_eq!(
+            actual, expected,
+            "content_hash must use hash_file for drift consistency"
+        );
     }
 
     #[test]
@@ -580,7 +628,7 @@ resources:
             fs_type: None,
             options: None,
         };
-        let details = build_resource_details(&r);
+        let details = build_resource_details(&r, &local_machine());
         assert!(details.contains_key("service_name"));
         assert_eq!(
             details["service_name"],
@@ -853,6 +901,8 @@ resources:
             arch: "x86_64".to_string(),
             ssh_key: None,
             roles: vec![],
+            transport: None,
+            container: None,
         };
         let mut ctx = RecordCtx {
             lock: &mut lock,

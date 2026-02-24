@@ -1,5 +1,6 @@
-//! FJ-010/011: Transport abstraction — local and SSH execution.
+//! FJ-010/011/021: Transport abstraction — local, SSH, and container execution.
 
+pub mod container;
 pub mod local;
 pub mod ssh;
 
@@ -20,8 +21,13 @@ impl ExecOutput {
 }
 
 /// Execute a purified shell script on a machine.
-/// Dispatches to local or SSH based on address.
+/// Dispatches to container, local, or SSH based on transport/address.
 pub fn exec_script(machine: &Machine, script: &str) -> Result<ExecOutput, String> {
+    // Container transport takes priority
+    if machine.is_container_transport() {
+        return container::exec_container(machine, script);
+    }
+
     let is_local =
         machine.addr == "127.0.0.1" || machine.addr == "localhost" || is_local_addr(&machine.addr);
 
@@ -76,6 +82,8 @@ mod tests {
             arch: "x86_64".to_string(),
             ssh_key: None,
             roles: vec![],
+            transport: None,
+            container: None,
         };
         let out = exec_script(&machine, "echo ok").unwrap();
         assert!(out.success());
@@ -92,6 +100,8 @@ mod tests {
             arch: "x86_64".to_string(),
             ssh_key: None,
             roles: vec![],
+            transport: None,
+            container: None,
         };
         let out = exec_script(&machine, "echo local").unwrap();
         assert!(out.success());
@@ -129,6 +139,8 @@ mod tests {
             arch: "x86_64".to_string(),
             ssh_key: None,
             roles: vec![],
+            transport: None,
+            container: None,
         };
         let out = query(&machine, "echo query-test").unwrap();
         assert!(out.success());

@@ -1,0 +1,51 @@
+# Dogfood config: test forjar resources inside a container.
+#
+# Prerequisites:
+#   docker build -t forjar-test-target -f tests/Dockerfile.test-target .
+#
+# Usage:
+#   cargo run -- apply -f examples/dogfood-container.yaml --state-dir /tmp/dogfood-state
+#   cargo run -- drift -f examples/dogfood-container.yaml --state-dir /tmp/dogfood-state
+
+version: "1.0"
+name: dogfood-container
+
+machines:
+  test-box:
+    hostname: test-box
+    addr: container
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-dogfood
+      ephemeral: true
+      privileged: false
+      init: true
+
+resources:
+  # ── File resources ──────────────────────────────────
+  config-file:
+    type: file
+    machine: test-box
+    path: /etc/forjar-test.conf
+    content: |
+      # Managed by forjar
+      setting=value
+      enabled=true
+    owner: root
+    group: root
+    mode: "0644"
+
+  data-dir:
+    type: file
+    machine: test-box
+    path: /data/forjar-test
+    state: directory
+    owner: root
+    mode: "0755"
+
+policy:
+  failure: stop_on_first
+  tripwire: true
+  lock_file: true

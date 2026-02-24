@@ -1,0 +1,18 @@
+# Test target container for forjar container transport integration tests.
+# Provides a minimal Ubuntu environment with bash, coreutils, and sudo.
+#
+# Build: docker build -t forjar-test-target -f tests/Dockerfile.test-target .
+# Usage: Used automatically by container-test integration tests.
+
+FROM ubuntu:22.04
+
+RUN apt-get update -qq && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq \
+        bash \
+        coreutils \
+        sudo \
+        iproute2 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Keep container alive for exec-based transport
+CMD ["sleep", "infinity"]

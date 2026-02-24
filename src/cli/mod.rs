@@ -125,11 +125,11 @@ pub fn dispatch(cmd: Commands) -> Result<(), String> {
             dry_run,
         ),
         Commands::Drift {
-            file: _,
+            file,
             machine,
             state_dir,
             tripwire,
-        } => cmd_drift(&state_dir, machine.as_deref(), tripwire),
+        } => cmd_drift(&file, &state_dir, machine.as_deref(), tripwire),
         Commands::Status { state_dir, machine } => cmd_status(&state_dir, machine.as_deref()),
     }
 }
@@ -333,10 +333,27 @@ fn cmd_apply(
 }
 
 fn cmd_drift(
+    config_path: &Path,
     state_dir: &Path,
     machine_filter: Option<&str>,
     tripwire_mode: bool,
 ) -> Result<(), String> {
+    // Load config to get machine definitions (needed for container transport drift)
+    let config = if config_path.exists() {
+        Some(parser::parse_config_file(config_path)?)
+    } else {
+        None
+    };
+
+    // For container machines, ensure containers are running for drift checks
+    if let Some(ref cfg) = config {
+        for (_, machine) in &cfg.machines {
+            if machine.is_container_transport() {
+                crate::transport::container::ensure_container(machine)?;
+            }
+        }
+    }
+
     // List machine directories in state/
     let entries = std::fs::read_dir(state_dir)
         .map_err(|e| format!("cannot read state dir {}: {}", state_dir.display(), e))?;
@@ -357,7 +374,13 @@ fn cmd_drift(
 
         if let Some(lock) = state::load_lock(state_dir, &name)? {
             println!("Checking {} ({} resources)...", name, lock.resources.len());
-            let findings = drift::detect_drift(&lock);
+
+            // Use transport-aware drift for container machines
+            let machine = config.as_ref().and_then(|c| c.machines.get(&name));
+            let findings = match machine {
+                Some(m) => drift::detect_drift_with_machine(&lock, m),
+                None => drift::detect_drift(&lock),
+            };
 
             if findings.is_empty() {
                 println!("  No drift detected.");
@@ -676,7 +699,7 @@ resources: {}
         let dir = tempfile::tempdir().unwrap();
         let state = dir.path().join("state");
         std::fs::create_dir_all(&state).unwrap();
-        cmd_drift(&state, None, false).unwrap();
+        cmd_drift(Path::new("nonexistent.yaml"), &state, None, false).unwrap();
     }
 
     #[test]
@@ -722,7 +745,7 @@ resources: {}
         crate::core::state::save_lock(&state, &lock).unwrap();
 
         // No drift expected
-        cmd_drift(&state, None, false).unwrap();
+        cmd_drift(Path::new("nonexistent.yaml"), &state, None, false).unwrap();
     }
 
     #[test]
@@ -766,7 +789,7 @@ resources: {}
         crate::core::state::save_lock(&state, &lock).unwrap();
 
         // Tripwire mode should error on drift
-        let result = cmd_drift(&state, None, true);
+        let result = cmd_drift(Path::new("nonexistent.yaml"), &state, None, true);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("drift"));
     }
@@ -778,7 +801,7 @@ resources: {}
         std::fs::create_dir_all(state.join("alpha")).unwrap();
         std::fs::create_dir_all(state.join("beta")).unwrap();
 
-        cmd_drift(&state, Some("alpha"), false).unwrap();
+        cmd_drift(Path::new("nonexistent.yaml"), &state, Some("alpha"), false).unwrap();
     }
 
     #[test]
@@ -1023,7 +1046,7 @@ resources:
         crate::core::state::save_lock(&state, &lock).unwrap();
 
         // tripwire_mode=false: drift detected but should still be Ok(())
-        cmd_drift(&state, None, false).unwrap();
+        cmd_drift(Path::new("nonexistent.yaml"), &state, None, false).unwrap();
     }
 
     #[test]

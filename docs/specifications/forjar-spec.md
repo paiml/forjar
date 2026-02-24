@@ -25,7 +25,7 @@ Forjar treats the machine as a **knowable system**. It uses Rust to generate pro
 | **Provable** | Every shell command is generated from Rust and purified by bashrs. No raw `sh -c`. |
 | **Auditable** | Every apply produces a renacer syscall trace and BLAKE3 state snapshot. Tripwire built in. |
 | **Fast** | Rust binary, BLAKE3 diffing in microseconds, parallel SSH, copia delta sync. |
-| **Bare-metal first** | Manages real machines over SSH. Docker and pepita kernels are provisioning targets, not providers. |
+| **Bare-metal first** | Manages real machines over SSH. Containers are execution targets for testing and isolation. Docker/pepita kernel management is Phase 2+. |
 | **Ephemeral** | Any machine can be destroyed and rebuilt from the repo alone. |
 | **Jidoka** | Stop on first failure. Partial state is preserved. No cascading damage. |
 
@@ -136,9 +136,10 @@ src/
     cron.rs             Scheduled task management (Phase 2)
     pepita.rs           Kernel namespace isolation (Phase 3)
   transport/
-    mod.rs              Transport abstraction
+    mod.rs              Transport abstraction + dispatch
     local.rs            Local execution (this machine)
     ssh.rs              SSH execution (remote machines)
+    container.rs        Container execution (docker/podman exec)
 ```
 
 ### 2.3 Dependency Policy
@@ -213,6 +214,19 @@ machines:
     ssh_key: ~/.ssh/id_ed25519
     roles:
       - edge-inference
+
+  # Container execution target (for testing/CI)
+  test-box:
+    hostname: test-box
+    addr: container
+    transport: container
+    container:
+      runtime: docker
+      image: ubuntu:22.04
+      name: forjar-test
+      ephemeral: true
+      privileged: false
+      init: true
 
 # Resource declarations
 resources:
@@ -637,7 +651,26 @@ recipes:
 | Customization | Overlays | None | Variables | **Input overrides** |
 | Learning curve | Very steep | Low | Medium | **Minimal (YAML only)** |
 
-### 3.4 Template Variables
+### 3.4 Machine Fields
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `hostname` | string | required | Machine hostname |
+| `addr` | string | required | Network address — IP, DNS, or `container` sentinel |
+| `user` | string | `root` | SSH user |
+| `arch` | string | `x86_64` | CPU architecture |
+| `ssh_key` | string | — | Path to SSH private key |
+| `roles` | [string] | `[]` | Informational role tags |
+| `transport` | string | — | Explicit transport: `container`. If omitted, inferred from `addr`. |
+| `container` | object | — | Container config (required when `transport: container`) |
+| `container.runtime` | string | `docker` | `docker` or `podman` |
+| `container.image` | string | — | OCI image (required for ephemeral containers) |
+| `container.name` | string | `forjar-{key}` | Container name |
+| `container.ephemeral` | bool | `true` | Destroy container after apply |
+| `container.privileged` | bool | `false` | Run with `--privileged` |
+| `container.init` | bool | `true` | Run with `--init` for PID 1 reaping |
+
+### 3.5 Template Variables
 
 | Pattern | Resolves To |
 |---------|-------------|
@@ -900,17 +933,60 @@ The shell is:
 
 ### 6.4 Transport
 
-Phase 1 uses the SSH binary directly (no libssh2 dependency):
+Forjar supports three execution transports. Transport selection follows a priority chain:
+
+| Priority | Condition | Transport | Dispatch |
+|----------|-----------|-----------|----------|
+| 1 | `transport: container` or `addr: container` | Container | `docker exec -i <name> bash` |
+| 2 | `addr` is `127.0.0.1`, `localhost`, or local hostname | Local | `bash` (stdin pipe) |
+| 3 | All other addresses | SSH | `ssh user@addr bash` (stdin pipe) |
+
+All three transports share the same mechanism: **pipe a shell script to bash stdin, capture stdout/stderr/exit_code**.
+
+#### Container Transport
 
 ```rust
-fn ssh_exec(machine: &Machine, script: &str) -> Result<Output> {
+fn exec_container(machine: &Machine, script: &str) -> Result<ExecOutput> {
+    Command::new(&config.runtime)  // "docker" or "podman"
+        .args(["exec", "-i", &container_name, "bash"])
+        .stdin(Stdio::piped())     // pipe purified shell to stdin
+        .output()
+}
+```
+
+Container lifecycle:
+1. **Ensure** — `docker run -d --name <name> --init <image> sleep infinity`
+2. **Exec** — `docker exec -i <name> bash` (one per resource apply)
+3. **Cleanup** — `docker rm -f <name>` (ephemeral only, even on failure)
+
+#### Ephemeral vs Attached Containers
+
+| Mode | `ephemeral` | Behavior |
+|------|-------------|----------|
+| Ephemeral | `true` (default) | Container created before apply, destroyed after |
+| Attached | `false` | Container must already exist; forjar only execs into it |
+
+#### Local Transport
+
+```rust
+fn exec_local(script: &str) -> Result<ExecOutput> {
+    Command::new("bash")
+        .stdin(Stdio::piped())
+        .output()
+}
+```
+
+#### SSH Transport
+
+```rust
+fn exec_ssh(machine: &Machine, script: &str) -> Result<ExecOutput> {
     Command::new("ssh")
         .args(["-o", "BatchMode=yes"])
         .args(["-o", "ConnectTimeout=5"])
         .args(["-i", &machine.ssh_key])
         .arg(format!("{}@{}", machine.user, machine.addr))
-        .arg("sh")
-        .stdin(Stdio::piped())  // pipe purified shell to stdin
+        .arg("bash")
+        .stdin(Stdio::piped())
         .output()
 }
 ```
@@ -1027,6 +1103,8 @@ Options:
 | FJ-018 | Integration test: lambda + intel NFS setup | M |
 | FJ-019 | `core/recipe.rs` — recipe loading, input validation, expansion | M |
 | FJ-020 | Provable contracts integration — YAML contracts, binding.yaml, `#[contract]` annotations, falsification tests | M |
+| FJ-021 | `transport/container.rs` — container exec + ephemeral lifecycle | M |
+| FJ-022 | Dogfood configs + end-to-end container verification workflow | S |
 
 ### Phase 2: Containers + Parallel (v0.2)
 
@@ -1039,6 +1117,8 @@ Options:
 | FJ-034 | Parallel multi-machine apply via repartir |
 | FJ-035 | `copia` delta sync for large file transfers |
 | FJ-036 | bashrs integration — full shell purification pipeline |
+
+> **Note**: FJ-030 (`resources/docker.rs`) manages containers *as resources* (deploying containers on machines). This is distinct from FJ-021 which uses containers *as transport targets* (running forjar scripts inside containers).
 
 ### Phase 3: Kernel Isolation (v0.3)
 
@@ -1126,6 +1206,67 @@ Provable-contracts integration provides three verification layers:
 3. **Bounded model checking**: Kani harnesses for pure-functional invariants (Phase 2)
 
 Contract YAML files live in `../provable-contracts/contracts/forjar/`.
+
+### 10.5 Container Integration Tests
+
+Container transport tests verify all resource types work inside Docker/Podman containers:
+
+**Test target**: `tests/Dockerfile.test-target` (Ubuntu 22.04 + bash + coreutils + sudo)
+
+**Test matrix** (feature-gated: `--features container-test`):
+
+| Test | Description |
+|------|-------------|
+| Container lifecycle | ensure → exec → cleanup |
+| File resource in container | Create file, verify content |
+| Transport dispatch | `exec_script` routes to container |
+| Idempotent ensure | Second ensure is a no-op |
+
+**Running**:
+```bash
+docker build -t forjar-test-target -f tests/Dockerfile.test-target .
+cargo test --features container-test
+```
+
+### 10.6 Dogfood Workflow
+
+Container transport enables end-to-end dogfooding of all Phase 1 resource types without root or host pollution. Three dogfood configs exercise progressively deeper code paths:
+
+| Config | Resources | What it proves |
+|--------|-----------|----------------|
+| `examples/dogfood-container.yaml` | file, directory | File codegen, state hashing, lock persistence |
+| `examples/dogfood-packages.yaml` | package (apt), file, dependency DAG | Package codegen against real dpkg, cross-resource dependencies, idempotency |
+
+**Dogfood verification workflow** (run after any codegen, transport, or executor change):
+
+```bash
+# 1. Build test target
+docker build -t forjar-test-target -f tests/Dockerfile.test-target .
+
+# 2. First apply — all resources converge
+cargo run -- apply -f examples/dogfood-packages.yaml --state-dir /tmp/dogfood-state
+
+# 3. Idempotency proof — second apply, zero changes
+cargo run -- apply -f examples/dogfood-packages.yaml --state-dir /tmp/dogfood-state
+
+# 4. Drift detection — verify lock state matches live state
+cargo run -- drift -f examples/dogfood-packages.yaml --state-dir /tmp/dogfood-state
+```
+
+**What each dogfood config exercises**:
+
+**`dogfood-container.yaml`** (file resources only):
+- File creation with content, owner, group, mode
+- Directory creation with permissions
+- BLAKE3 content hashing against real files
+- State lock persistence and idempotency
+
+**`dogfood-packages.yaml`** (packages + files + dependency DAG):
+- `apt-get install` codegen against real dpkg inside container
+- `dpkg -l` check-before-act idempotency pattern
+- Cross-resource dependency ordering (package → file)
+- Package state query for hash computation
+- Full executor loop: codegen → transport → hash → state → events
 
 ---
 
@@ -1268,3 +1409,4 @@ When bindings are verified, the build emits `CONTRACT_*` environment variables c
 2. **Rollback**: Should `forjar rollback` replay the previous state, or just show the diff? Terraform doesn't rollback — it just re-applies desired state.
 3. **Import**: Should `forjar import` be able to adopt existing infrastructure (scan a machine and generate forjar.yaml)?  This would accelerate adoption.
 4. **Multi-repo**: Should machines be able to be managed by multiple forjar repos? Leaning no — one repo per fleet, sovereignty principle.
+5. **Systemd in containers**: Service resources require systemd. Should forjar detect when running inside a container without systemd and skip/warn, or require `--privileged` containers with systemd init? Docker's `--init` provides PID 1 reaping but not systemd.
