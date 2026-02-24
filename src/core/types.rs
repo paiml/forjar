@@ -216,6 +216,78 @@ pub struct Resource {
     /// Mount options string
     #[serde(default)]
     pub options: Option<String>,
+
+    // -- User fields --
+    /// User ID (UID)
+    #[serde(default)]
+    pub uid: Option<u32>,
+
+    /// Login shell
+    #[serde(default)]
+    pub shell: Option<String>,
+
+    /// Home directory
+    #[serde(default)]
+    pub home: Option<String>,
+
+    /// Supplementary groups
+    #[serde(default)]
+    pub groups: Vec<String>,
+
+    /// SSH authorized keys
+    #[serde(default)]
+    pub ssh_authorized_keys: Vec<String>,
+
+    /// System user flag (--system)
+    #[serde(default)]
+    pub system_user: bool,
+
+    // -- Cron fields --
+    /// Cron schedule expression (e.g., "0 * * * *")
+    #[serde(default)]
+    pub schedule: Option<String>,
+
+    /// Command to execute
+    #[serde(default)]
+    pub command: Option<String>,
+
+    // -- Docker fields --
+    /// Container image
+    #[serde(default)]
+    pub image: Option<String>,
+
+    /// Port mappings (e.g., ["8080:80", "443:443"])
+    #[serde(default)]
+    pub ports: Vec<String>,
+
+    /// Environment variables (e.g., ["KEY=value"])
+    #[serde(default)]
+    pub environment: Vec<String>,
+
+    /// Volume mounts (e.g., ["/host:/container"])
+    #[serde(default)]
+    pub volumes: Vec<String>,
+
+    /// Docker restart policy
+    #[serde(default)]
+    pub restart: Option<String>,
+
+    // -- Network fields --
+    /// Network protocol (tcp/udp)
+    #[serde(default)]
+    pub protocol: Option<String>,
+
+    /// Port number or range
+    #[serde(default)]
+    pub port: Option<String>,
+
+    /// Network action (allow/deny)
+    #[serde(default)]
+    pub action: Option<String>,
+
+    /// Source IP/CIDR (for firewall rules)
+    #[serde(rename = "from", default)]
+    pub from_addr: Option<String>,
 }
 
 /// Resource type enum.

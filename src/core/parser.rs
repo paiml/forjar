@@ -157,6 +157,49 @@ fn validate_resource_type(id: &str, resource: &Resource, errors: &mut Vec<Valida
                 });
             }
         }
+        ResourceType::User => {
+            if resource.name.is_none() {
+                errors.push(ValidationError {
+                    message: format!("resource '{}' (user) has no name", id),
+                });
+            }
+        }
+        ResourceType::Docker => {
+            if resource.name.is_none() {
+                errors.push(ValidationError {
+                    message: format!("resource '{}' (docker) has no name", id),
+                });
+            }
+            if resource.image.is_none() && resource.state.as_deref() != Some("absent") {
+                errors.push(ValidationError {
+                    message: format!("resource '{}' (docker) has no image", id),
+                });
+            }
+        }
+        ResourceType::Cron => {
+            if resource.name.is_none() {
+                errors.push(ValidationError {
+                    message: format!("resource '{}' (cron) has no name", id),
+                });
+            }
+            if resource.schedule.is_none() && resource.state.as_deref() != Some("absent") {
+                errors.push(ValidationError {
+                    message: format!("resource '{}' (cron) has no schedule", id),
+                });
+            }
+            if resource.command.is_none() && resource.state.as_deref() != Some("absent") {
+                errors.push(ValidationError {
+                    message: format!("resource '{}' (cron) has no command", id),
+                });
+            }
+        }
+        ResourceType::Network => {
+            if resource.port.is_none() {
+                errors.push(ValidationError {
+                    message: format!("resource '{}' (network) has no port", id),
+                });
+            }
+        }
         _ => {}
     }
 }
@@ -539,6 +582,182 @@ resources: {}
     }
 
     /// BH-MUT-0001: Kill mutation of `machine_name != "localhost"`.
+    #[test]
+    fn test_fj002_user_no_name() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  u:
+    type: user
+    machine: m1
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(errors.iter().any(|e| e.message.contains("(user) has no name")));
+    }
+
+    #[test]
+    fn test_fj002_docker_no_name() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  d:
+    type: docker
+    machine: m1
+    image: nginx:latest
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(errors.iter().any(|e| e.message.contains("(docker) has no name")));
+    }
+
+    #[test]
+    fn test_fj002_docker_no_image() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  d:
+    type: docker
+    machine: m1
+    name: web
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(errors.iter().any(|e| e.message.contains("(docker) has no image")));
+    }
+
+    #[test]
+    fn test_fj002_cron_no_schedule() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  c:
+    type: cron
+    machine: m1
+    name: job
+    command: /bin/true
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(errors.iter().any(|e| e.message.contains("(cron) has no schedule")));
+    }
+
+    #[test]
+    fn test_fj002_cron_no_command() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  c:
+    type: cron
+    machine: m1
+    name: job
+    schedule: "0 * * * *"
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(errors.iter().any(|e| e.message.contains("(cron) has no command")));
+    }
+
+    #[test]
+    fn test_fj002_network_no_port() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  fw:
+    type: network
+    machine: m1
+    action: allow
+    protocol: tcp
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(errors.iter().any(|e| e.message.contains("(network) has no port")));
+    }
+
+    #[test]
+    fn test_fj002_user_valid() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  deploy-user:
+    type: user
+    machine: m1
+    name: deploy
+    shell: /bin/bash
+    groups: [docker, sudo]
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(
+            errors.is_empty(),
+            "unexpected errors: {:?}",
+            errors.iter().map(|e| &e.message).collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn test_fj002_docker_valid() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  web:
+    type: docker
+    machine: m1
+    name: web
+    image: nginx:latest
+    ports: ["8080:80"]
+    environment: ["ENV=prod"]
+    restart: unless-stopped
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(
+            errors.is_empty(),
+            "unexpected errors: {:?}",
+            errors.iter().map(|e| &e.message).collect::<Vec<_>>()
+        );
+    }
+
     /// localhost should be accepted even when not in machines map.
     #[test]
     fn test_fj002_localhost_accepted_without_definition() {

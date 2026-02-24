@@ -1,0 +1,236 @@
+//! FJ-030: Docker container resource handler.
+//!
+//! Manages Docker containers as resources: pull, run, stop, remove.
+//! This is distinct from container *transport* (FJ-021) — this manages
+//! containers deployed ON machines, not containers used AS machines.
+
+use crate::core::types::Resource;
+
+/// Generate shell script to check if a container is running.
+pub fn check_script(resource: &Resource) -> String {
+    let name = resource.name.as_deref().unwrap_or("unknown");
+    format!(
+        "docker inspect -f '{{{{.State.Running}}}}' '{}' 2>/dev/null && echo 'exists:{}' || echo 'missing:{}'",
+        name, name, name
+    )
+}
+
+/// Generate shell script to manage a container.
+pub fn apply_script(resource: &Resource) -> String {
+    let name = resource.name.as_deref().unwrap_or("unknown");
+    let state = resource.state.as_deref().unwrap_or("running");
+    let image = resource.image.as_deref().unwrap_or("unknown");
+
+    match state {
+        "absent" => format!(
+            "set -euo pipefail\n\
+             docker stop '{}' 2>/dev/null || true\n\
+             docker rm '{}' 2>/dev/null || true",
+            name, name
+        ),
+        "stopped" => format!(
+            "set -euo pipefail\n\
+             docker stop '{}' 2>/dev/null || true",
+            name
+        ),
+        _ => {
+            // "running" or "present"
+            let mut lines = vec![
+                "set -euo pipefail".to_string(),
+                format!("docker pull '{}'", image),
+            ];
+
+            // Stop and remove existing container if it exists
+            lines.push(format!(
+                "docker stop '{}' 2>/dev/null || true",
+                name
+            ));
+            lines.push(format!(
+                "docker rm '{}' 2>/dev/null || true",
+                name
+            ));
+
+            // Build run command
+            let mut run_args = vec!["docker run -d".to_string()];
+            run_args.push(format!("--name '{}'", name));
+
+            if let Some(ref restart) = resource.restart {
+                run_args.push(format!("--restart '{}'", restart));
+            }
+
+            for port in &resource.ports {
+                run_args.push(format!("-p '{}'", port));
+            }
+
+            for env in &resource.environment {
+                run_args.push(format!("-e '{}'", env));
+            }
+
+            for vol in &resource.volumes {
+                run_args.push(format!("-v '{}'", vol));
+            }
+
+            run_args.push(format!("'{}'", image));
+
+            // Append command if specified
+            if let Some(ref cmd) = resource.command {
+                run_args.push(cmd.clone());
+            }
+
+            lines.push(run_args.join(" \\\n  "));
+
+            lines.join("\n")
+        }
+    }
+}
+
+/// Generate shell to query container state (for BLAKE3 hashing).
+pub fn state_query_script(resource: &Resource) -> String {
+    let name = resource.name.as_deref().unwrap_or("unknown");
+    format!(
+        "docker inspect '{}' 2>/dev/null && echo 'container={}' || echo 'container=MISSING:{}'",
+        name, name, name
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::core::types::{MachineTarget, ResourceType};
+
+    fn make_docker_resource(name: &str, image: &str) -> Resource {
+        Resource {
+            resource_type: ResourceType::Docker,
+            machine: MachineTarget::Single("m1".to_string()),
+            state: Some("running".to_string()),
+            depends_on: vec![],
+            provider: None,
+            packages: vec![],
+            path: None,
+            content: None,
+            source: None,
+            target: None,
+            owner: None,
+            group: None,
+            mode: None,
+            name: Some(name.to_string()),
+            enabled: None,
+            restart_on: vec![],
+            fs_type: None,
+            options: None,
+            uid: None,
+            shell: None,
+            home: None,
+            groups: vec![],
+            ssh_authorized_keys: vec![],
+            system_user: false,
+            schedule: None,
+            command: None,
+            image: Some(image.to_string()),
+            ports: vec![],
+            environment: vec![],
+            volumes: vec![],
+            restart: None,
+            protocol: None,
+            port: None,
+            action: None,
+            from_addr: None,
+        }
+    }
+
+    #[test]
+    fn test_fj030_check_container() {
+        let r = make_docker_resource("web", "nginx:latest");
+        let script = check_script(&r);
+        assert!(script.contains("docker inspect"));
+        assert!(script.contains("'web'"));
+        assert!(script.contains("exists:web"));
+        assert!(script.contains("missing:web"));
+    }
+
+    #[test]
+    fn test_fj030_apply_running() {
+        let r = make_docker_resource("web", "nginx:latest");
+        let script = apply_script(&r);
+        assert!(script.contains("set -euo pipefail"));
+        assert!(script.contains("docker pull 'nginx:latest'"));
+        assert!(script.contains("docker run -d"));
+        assert!(script.contains("--name 'web'"));
+        assert!(script.contains("'nginx:latest'"));
+    }
+
+    #[test]
+    fn test_fj030_apply_with_ports() {
+        let mut r = make_docker_resource("web", "nginx:latest");
+        r.ports = vec!["8080:80".to_string(), "443:443".to_string()];
+        let script = apply_script(&r);
+        assert!(script.contains("-p '8080:80'"));
+        assert!(script.contains("-p '443:443'"));
+    }
+
+    #[test]
+    fn test_fj030_apply_with_env() {
+        let mut r = make_docker_resource("app", "myapp:v1");
+        r.environment = vec!["DB_HOST=localhost".to_string()];
+        let script = apply_script(&r);
+        assert!(script.contains("-e 'DB_HOST=localhost'"));
+    }
+
+    #[test]
+    fn test_fj030_apply_with_volumes() {
+        let mut r = make_docker_resource("db", "postgres:15");
+        r.volumes = vec!["/data/pg:/var/lib/postgresql/data".to_string()];
+        let script = apply_script(&r);
+        assert!(script.contains("-v '/data/pg:/var/lib/postgresql/data'"));
+    }
+
+    #[test]
+    fn test_fj030_apply_with_restart() {
+        let mut r = make_docker_resource("web", "nginx:latest");
+        r.restart = Some("unless-stopped".to_string());
+        let script = apply_script(&r);
+        assert!(script.contains("--restart 'unless-stopped'"));
+    }
+
+    #[test]
+    fn test_fj030_apply_absent() {
+        let mut r = make_docker_resource("old", "nginx:latest");
+        r.state = Some("absent".to_string());
+        let script = apply_script(&r);
+        assert!(script.contains("docker stop 'old'"));
+        assert!(script.contains("docker rm 'old'"));
+    }
+
+    #[test]
+    fn test_fj030_apply_stopped() {
+        let mut r = make_docker_resource("app", "myapp:v1");
+        r.state = Some("stopped".to_string());
+        let script = apply_script(&r);
+        assert!(script.contains("docker stop 'app'"));
+        assert!(!script.contains("docker run"));
+    }
+
+    #[test]
+    fn test_fj030_state_query() {
+        let r = make_docker_resource("web", "nginx:latest");
+        let script = state_query_script(&r);
+        assert!(script.contains("docker inspect 'web'"));
+        assert!(script.contains("container=MISSING:web"));
+    }
+
+    /// Verify single-quoting prevents injection.
+    #[test]
+    fn test_fj030_quoted_names() {
+        let r = make_docker_resource("web; rm -rf /", "nginx:latest");
+        let script = apply_script(&r);
+        assert!(script.contains("'web; rm -rf /'"));
+    }
+
+    #[test]
+    fn test_fj030_apply_with_command() {
+        let mut r = make_docker_resource("worker", "myapp:v1");
+        r.command = Some("./worker --queue=default".to_string());
+        let script = apply_script(&r);
+        assert!(script.contains("./worker --queue=default"));
+    }
+}

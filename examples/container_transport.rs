@@ -71,7 +71,10 @@ policy:
     // 2. Show container machine details
     let machine = config.machines.get("test-box").expect("machine not found");
     println!("\nMachine: test-box");
-    println!("  is_container_transport: {}", machine.is_container_transport());
+    println!(
+        "  is_container_transport: {}",
+        machine.is_container_transport()
+    );
     println!("  container_name: {}", machine.container_name());
     if let Some(ref c) = machine.container {
         println!("  runtime: {}", c.runtime);

@@ -17,7 +17,11 @@ pub fn check_script(resource: &Resource) -> Result<String, String> {
         ResourceType::File => Ok(resources::file::check_script(resource)),
         ResourceType::Service => Ok(resources::service::check_script(resource)),
         ResourceType::Mount => Ok(resources::mount::check_script(resource)),
-        other => Err(format!("codegen not implemented for {} (Phase 2+)", other)),
+        ResourceType::User => Ok(resources::user::check_script(resource)),
+        ResourceType::Docker => Ok(resources::docker::check_script(resource)),
+        ResourceType::Cron => Ok(resources::cron::check_script(resource)),
+        ResourceType::Network => Ok(resources::network::check_script(resource)),
+        other => Err(format!("codegen not implemented for {} (Phase 3+)", other)),
     }
 }
 
@@ -29,7 +33,11 @@ pub fn apply_script(resource: &Resource) -> Result<String, String> {
         ResourceType::File => Ok(resources::file::apply_script(resource)),
         ResourceType::Service => Ok(resources::service::apply_script(resource)),
         ResourceType::Mount => Ok(resources::mount::apply_script(resource)),
-        other => Err(format!("codegen not implemented for {} (Phase 2+)", other)),
+        ResourceType::User => Ok(resources::user::apply_script(resource)),
+        ResourceType::Docker => Ok(resources::docker::apply_script(resource)),
+        ResourceType::Cron => Ok(resources::cron::apply_script(resource)),
+        ResourceType::Network => Ok(resources::network::apply_script(resource)),
+        other => Err(format!("codegen not implemented for {} (Phase 3+)", other)),
     }
 }
 
@@ -41,7 +49,11 @@ pub fn state_query_script(resource: &Resource) -> Result<String, String> {
         ResourceType::File => Ok(resources::file::state_query_script(resource)),
         ResourceType::Service => Ok(resources::service::state_query_script(resource)),
         ResourceType::Mount => Ok(resources::mount::state_query_script(resource)),
-        other => Err(format!("codegen not implemented for {} (Phase 2+)", other)),
+        ResourceType::User => Ok(resources::user::state_query_script(resource)),
+        ResourceType::Docker => Ok(resources::docker::state_query_script(resource)),
+        ResourceType::Cron => Ok(resources::cron::state_query_script(resource)),
+        ResourceType::Network => Ok(resources::network::state_query_script(resource)),
+        other => Err(format!("codegen not implemented for {} (Phase 3+)", other)),
     }
 }
 
@@ -70,6 +82,23 @@ mod tests {
             restart_on: vec![],
             fs_type: None,
             options: None,
+            uid: None,
+            shell: None,
+            home: None,
+            groups: vec![],
+            ssh_authorized_keys: vec![],
+            system_user: false,
+            schedule: None,
+            command: None,
+            image: None,
+            ports: vec![],
+            environment: vec![],
+            volumes: vec![],
+            restart: None,
+            protocol: None,
+            port: None,
+            action: None,
+            from_addr: None,
         }
     }
 
@@ -93,6 +122,23 @@ mod tests {
             restart_on: vec![],
             fs_type: None,
             options: None,
+            uid: None,
+            shell: None,
+            home: None,
+            groups: vec![],
+            ssh_authorized_keys: vec![],
+            system_user: false,
+            schedule: None,
+            command: None,
+            image: None,
+            ports: vec![],
+            environment: vec![],
+            volumes: vec![],
+            restart: None,
+            protocol: None,
+            port: None,
+            action: None,
+            from_addr: None,
         }
     }
 
@@ -116,6 +162,23 @@ mod tests {
             restart_on: vec![],
             fs_type: None,
             options: None,
+            uid: None,
+            shell: None,
+            home: None,
+            groups: vec![],
+            ssh_authorized_keys: vec![],
+            system_user: false,
+            schedule: None,
+            command: None,
+            image: None,
+            ports: vec![],
+            environment: vec![],
+            volumes: vec![],
+            restart: None,
+            protocol: None,
+            port: None,
+            action: None,
+            from_addr: None,
         }
     }
 
@@ -139,6 +202,23 @@ mod tests {
             restart_on: vec![],
             fs_type: Some("nfs".to_string()),
             options: Some("ro,hard".to_string()),
+            uid: None,
+            shell: None,
+            home: None,
+            groups: vec![],
+            ssh_authorized_keys: vec![],
+            system_user: false,
+            schedule: None,
+            command: None,
+            image: None,
+            ports: vec![],
+            environment: vec![],
+            volumes: vec![],
+            restart: None,
+            protocol: None,
+            port: None,
+            action: None,
+            from_addr: None,
         }
     }
 
@@ -227,7 +307,7 @@ mod tests {
     #[test]
     fn test_fj005_unsupported_type() {
         let mut r = make_package();
-        r.resource_type = ResourceType::Docker;
+        r.resource_type = ResourceType::Pepita;
         assert!(check_script(&r).is_err());
         assert!(apply_script(&r).is_err());
         assert!(state_query_script(&r).is_err());
