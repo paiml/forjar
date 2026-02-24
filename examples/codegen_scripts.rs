@@ -177,4 +177,174 @@ fn main() {
 
     println!("-- Apply script --");
     println!("{}", codegen::apply_script(&mnt).unwrap());
+
+    println!("\n=== User Resource ===\n");
+    let usr = Resource {
+        resource_type: ResourceType::User,
+        machine: MachineTarget::Single("local".to_string()),
+        state: None,
+        depends_on: vec![],
+        provider: None,
+        packages: vec![],
+        path: None,
+        content: None,
+        source: None,
+        target: None,
+        owner: None,
+        group: None,
+        mode: None,
+        name: Some("deploy".to_string()),
+        enabled: None,
+        restart_on: vec![],
+        fs_type: None,
+        options: None,
+        uid: None,
+        shell: Some("/bin/bash".to_string()),
+        home: Some("/home/deploy".to_string()),
+        groups: vec!["docker".to_string(), "sudo".to_string()],
+        ssh_authorized_keys: vec![],
+        system_user: false,
+        schedule: None,
+        command: None,
+        image: None,
+        ports: vec![],
+        environment: vec![],
+        volumes: vec![],
+        restart: None,
+        protocol: None,
+        port: None,
+        action: None,
+        from_addr: None,
+    };
+
+    println!("-- Check script --");
+    println!("{}", codegen::check_script(&usr).unwrap());
+    println!("\n-- Apply script --");
+    println!("{}", codegen::apply_script(&usr).unwrap());
+
+    println!("\n=== Docker Resource ===\n");
+    let docker = Resource {
+        resource_type: ResourceType::Docker,
+        machine: MachineTarget::Single("local".to_string()),
+        state: Some("running".to_string()),
+        depends_on: vec![],
+        provider: None,
+        packages: vec![],
+        path: None,
+        content: None,
+        source: None,
+        target: None,
+        owner: None,
+        group: None,
+        mode: None,
+        name: Some("web".to_string()),
+        enabled: None,
+        restart_on: vec![],
+        fs_type: None,
+        options: None,
+        uid: None,
+        shell: None,
+        home: None,
+        groups: vec![],
+        ssh_authorized_keys: vec![],
+        system_user: false,
+        schedule: None,
+        command: None,
+        image: Some("nginx:latest".to_string()),
+        ports: vec!["8080:80".to_string()],
+        environment: vec!["ENV=production".to_string()],
+        volumes: vec![],
+        restart: Some("unless-stopped".to_string()),
+        protocol: None,
+        port: None,
+        action: None,
+        from_addr: None,
+    };
+
+    println!("-- Apply script --");
+    println!("{}", codegen::apply_script(&docker).unwrap());
+
+    println!("\n=== Cron Resource ===\n");
+    let cron = Resource {
+        resource_type: ResourceType::Cron,
+        machine: MachineTarget::Single("local".to_string()),
+        state: None,
+        depends_on: vec![],
+        provider: None,
+        packages: vec![],
+        path: None,
+        content: None,
+        source: None,
+        target: None,
+        owner: Some("root".to_string()),
+        group: None,
+        mode: None,
+        name: Some("db-backup".to_string()),
+        enabled: None,
+        restart_on: vec![],
+        fs_type: None,
+        options: None,
+        uid: None,
+        shell: None,
+        home: None,
+        groups: vec![],
+        ssh_authorized_keys: vec![],
+        system_user: false,
+        schedule: Some("0 2 * * *".to_string()),
+        command: Some("/opt/scripts/backup-db.sh".to_string()),
+        image: None,
+        ports: vec![],
+        environment: vec![],
+        volumes: vec![],
+        restart: None,
+        protocol: None,
+        port: None,
+        action: None,
+        from_addr: None,
+    };
+
+    println!("-- Apply script --");
+    println!("{}", codegen::apply_script(&cron).unwrap());
+
+    println!("\n=== Network Resource (ufw) ===\n");
+    let fw = Resource {
+        resource_type: ResourceType::Network,
+        machine: MachineTarget::Single("local".to_string()),
+        state: None,
+        depends_on: vec![],
+        provider: None,
+        packages: vec![],
+        path: None,
+        content: None,
+        source: None,
+        target: None,
+        owner: None,
+        group: None,
+        mode: None,
+        name: Some("ssh-access".to_string()),
+        enabled: None,
+        restart_on: vec![],
+        fs_type: None,
+        options: None,
+        uid: None,
+        shell: None,
+        home: None,
+        groups: vec![],
+        ssh_authorized_keys: vec![],
+        system_user: false,
+        schedule: None,
+        command: None,
+        image: None,
+        ports: vec![],
+        environment: vec![],
+        volumes: vec![],
+        restart: None,
+        protocol: Some("tcp".to_string()),
+        port: Some("22".to_string()),
+        action: Some("allow".to_string()),
+        from_addr: Some("10.0.0.0/8".to_string()),
+    };
+
+    println!("-- Apply script --");
+    println!("{}", codegen::apply_script(&fw).unwrap());
 }

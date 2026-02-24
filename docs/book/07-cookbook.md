@@ -216,6 +216,113 @@ resources:
     state: mounted
 ```
 
+## User Management
+
+```yaml
+resources:
+  deploy-user:
+    type: user
+    machine: web1
+    name: deploy
+    shell: /bin/bash
+    home: /home/deploy
+    groups: [docker, sudo]
+    ssh_authorized_keys:
+      - "ssh-ed25519 AAAA... deploy@workstation"
+
+  prometheus-user:
+    type: user
+    machine: web1
+    name: prometheus
+    system_user: true
+    shell: /usr/sbin/nologin
+```
+
+## Docker Containers
+
+```yaml
+resources:
+  postgres:
+    type: docker
+    machine: web1
+    name: postgres
+    image: postgres:16
+    state: running
+    ports: ["5432:5432"]
+    volumes: ["/data/pg:/var/lib/postgresql/data"]
+    environment: ["POSTGRES_PASSWORD=secret"]
+    restart: unless-stopped
+
+  redis:
+    type: docker
+    machine: web1
+    name: redis
+    image: redis:7-alpine
+    state: running
+    ports: ["6379:6379"]
+    restart: unless-stopped
+    depends_on: [postgres]
+```
+
+## Cron Jobs
+
+```yaml
+resources:
+  db-backup:
+    type: cron
+    machine: web1
+    name: db-backup
+    schedule: "0 2 * * *"
+    command: /opt/scripts/backup-db.sh
+    owner: postgres
+    depends_on: [postgres]
+
+  log-rotate:
+    type: cron
+    machine: web1
+    name: log-rotate
+    schedule: "0 0 * * 0"
+    command: /usr/sbin/logrotate /etc/logrotate.conf
+```
+
+## Firewall Rules
+
+```yaml
+resources:
+  allow-ssh:
+    type: network
+    machine: web1
+    name: ssh-access
+    port: "22"
+    protocol: tcp
+    action: allow
+    from: 10.0.0.0/8
+
+  allow-http:
+    type: network
+    machine: web1
+    name: http-access
+    port: "80"
+    protocol: tcp
+    action: allow
+
+  allow-https:
+    type: network
+    machine: web1
+    name: https-access
+    port: "443"
+    protocol: tcp
+    action: allow
+
+  deny-mysql:
+    type: network
+    machine: web1
+    name: block-mysql
+    port: "3306"
+    protocol: tcp
+    action: deny
+```
+
 ## Container Dogfood (Local Development)
 
 Test package, file, and service resources locally using a Docker container — no SSH or root required:

@@ -90,7 +90,7 @@ Resources declare the desired state of infrastructure components. Each resource 
 ```yaml
 resources:
   resource-id:
-    type: package|file|service|mount
+    type: package|file|service|mount|user|docker|cron|network
     machine: machine-id       # Single machine or list
     state: ...                # Desired state (type-specific)
     depends_on: [other-id]    # Execution ordering

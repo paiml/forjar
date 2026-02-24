@@ -65,6 +65,10 @@ src/
     file.rs              File, directory, symlink, absent
     service.rs           systemd service management
     mount.rs             NFS/bind mount management
+    user.rs              User/group management (useradd/usermod)
+    docker.rs            Docker container lifecycle
+    cron.rs              Crontab scheduled tasks
+    network.rs           Firewall rules (ufw)
   transport/
     mod.rs               Transport dispatch (container > local > SSH)
     local.rs             Local bash execution

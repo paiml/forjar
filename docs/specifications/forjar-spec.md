@@ -25,7 +25,7 @@ Forjar treats the machine as a **knowable system**. It uses Rust to generate pro
 | **Provable** | Every shell command is generated from Rust and purified by bashrs. No raw `sh -c`. |
 | **Auditable** | Every apply produces a renacer syscall trace and BLAKE3 state snapshot. Tripwire built in. |
 | **Fast** | Rust binary, BLAKE3 diffing in microseconds, parallel SSH, copia delta sync. |
-| **Bare-metal first** | Manages real machines over SSH. Containers are execution targets for testing and isolation. Docker/pepita kernel management is Phase 2+. |
+| **Bare-metal first** | Manages real machines over SSH. Containers serve as execution targets (transport) and managed resources (docker type). Pepita kernel isolation is Phase 3. |
 | **Ephemeral** | Any machine can be destroyed and rebuilt from the repo alone. |
 | **Jidoka** | Stop on first failure. Partial state is preserved. No cascading damage. |
 
@@ -130,10 +130,10 @@ src/
     service.rs          systemd service management
     file.rs             File/directory/symlink management
     mount.rs            NFS/bind mount management
-    user.rs             User/group management (Phase 2)
-    docker.rs           Container management (Phase 2)
-    network.rs          Firewall/interface management (Phase 2)
-    cron.rs             Scheduled task management (Phase 2)
+    user.rs             User/group management
+    docker.rs           Container resource management
+    network.rs          Firewall rule management (ufw)
+    cron.rs             Scheduled task management (crontab)
     pepita.rs           Kernel namespace isolation (Phase 3)
   transport/
     mod.rs              Transport abstraction + dispatch
@@ -372,7 +372,7 @@ ssh_authorized_keys:
   - <key string>
 ```
 
-#### `docker` (Phase 2)
+#### `docker`
 
 ```yaml
 type: docker
@@ -382,8 +382,34 @@ image: <image:tag>
 state: running | stopped | absent
 ports: ["8080:80"]
 volumes: ["/host:/container"]
-env:
-  KEY: value
+environment: ["KEY=value"]
+restart: unless-stopped     # Docker restart policy
+command: <optional command>
+```
+
+#### `cron`
+
+```yaml
+type: cron
+machine: <name>
+name: <job identifier>      # Used as forjar tag in crontab
+state: present | absent
+schedule: "0 * * * *"       # Standard cron expression
+command: /usr/local/bin/backup.sh
+owner: root                  # Crontab user (default: root)
+```
+
+#### `network`
+
+```yaml
+type: network
+machine: <name>
+name: <rule comment>         # Optional ufw rule comment
+state: present | absent
+port: "22"                   # Port number or range
+protocol: tcp                # tcp | udp (default: tcp)
+action: allow                # allow | deny
+from: 192.168.1.0/24        # Optional source CIDR
 ```
 
 #### `pepita` (Phase 3)
@@ -1108,15 +1134,15 @@ Options:
 
 ### Phase 2: Containers + Parallel (v0.2)
 
-| Ticket | Description |
-|--------|-------------|
-| FJ-030 | `resources/docker.rs` — container lifecycle |
-| FJ-031 | `resources/user.rs` — user/group management |
-| FJ-032 | `resources/network.rs` — firewall rules |
-| FJ-033 | `resources/cron.rs` — scheduled tasks |
-| FJ-034 | Parallel multi-machine apply via repartir |
-| FJ-035 | `copia` delta sync for large file transfers |
-| FJ-036 | bashrs integration — full shell purification pipeline |
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-030 | `resources/docker.rs` — container lifecycle | **Done** |
+| FJ-031 | `resources/user.rs` — user/group management | **Done** |
+| FJ-032 | `resources/network.rs` — firewall rules (ufw) | **Done** |
+| FJ-033 | `resources/cron.rs` — scheduled tasks (crontab) | **Done** |
+| FJ-034 | Parallel multi-machine apply via repartir | |
+| FJ-035 | `copia` delta sync for large file transfers | |
+| FJ-036 | bashrs integration — full shell purification pipeline | |
 
 > **Note**: FJ-030 (`resources/docker.rs`) manages containers *as resources* (deploying containers on machines). This is distinct from FJ-021 which uses containers *as transport targets* (running forjar scripts inside containers).
 
