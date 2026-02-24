@@ -928,23 +928,24 @@ forjar <COMMAND> [OPTIONS]
 
 Commands:
   init        Initialize a new forjar project
+  validate    Parse and validate forjar.yaml without connecting
   plan        Show execution plan (diff desired vs current)
   apply       Converge infrastructure to desired state
   drift       Detect unauthorized changes (tripwire)
   status      Show current state from lock files
-  destroy     Remove all managed resources
-  validate    Parse and validate forjar.yaml without connecting
-  history     Show apply history from event logs
-  graph       Show resource dependency graph
+  destroy     Remove all managed resources (Phase 5)
+  history     Show apply history from event logs (Phase 5)
+  graph       Show resource dependency graph (Phase 5)
 ```
 
 ### 7.2 Global Options
 
 ```
 -f, --file <PATH>       Path to forjar.yaml (default: ./forjar.yaml)
--m, --machine <NAME>    Target specific machine(s) (comma-separated)
--v, --verbose           Enable verbose output
---no-color              Disable colored output
+-m, --machine <NAME>    Target specific machine
+--state-dir <PATH>      State directory (default: ./state)
+-v, --verbose           Enable verbose output (Phase 2)
+--no-color              Disable colored output (Phase 2)
 ```
 
 ### 7.3 `forjar plan`
@@ -967,10 +968,10 @@ Options:
   -m, --machine <NAME>   Apply to specific machine only
   -r, --resource <ID>    Apply specific resource only
   --force                Force re-apply all resources (ignore cache)
-  --auto-commit          Git commit state after successful apply
   --dry-run              Show what would be executed without running
-  --no-tripwire          Skip provenance tracing (faster, less safe)
-  -p, --param KEY=VALUE  Override a parameter
+  --auto-commit          Git commit state after successful apply (Phase 2)
+  --no-tripwire          Skip provenance tracing (faster, less safe) (Phase 2)
+  -p, --param KEY=VALUE  Override a parameter (Phase 2)
 ```
 
 ### 7.5 `forjar drift`
@@ -981,8 +982,8 @@ forjar drift [OPTIONS]
 Options:
   -m, --machine <NAME>       Check specific machine only
   --tripwire                 Exit non-zero on any drift (for cron/CI)
-  --alert-cmd <CMD>          Run command on drift detection
-  --json                     Output drift report as JSON
+  --alert-cmd <CMD>          Run command on drift detection (Phase 2)
+  --json                     Output drift report as JSON (Phase 2)
 ```
 
 ### 7.6 `forjar history`
