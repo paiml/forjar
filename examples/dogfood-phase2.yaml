@@ -67,6 +67,16 @@ resources:
     mode: "0755"
     depends_on: [app-user]
 
+  # ── Source file transfer (FJ-035) ──────────────
+  app-entrypoint:
+    type: file
+    machine: test-box
+    path: /opt/app/entrypoint.sh
+    source: examples/files/app-entrypoint.sh
+    owner: appservice
+    mode: "0755"
+    depends_on: [app-dir]
+
   # ── Cron jobs ───────────────────────────────────
   health-check:
     type: cron

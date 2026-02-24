@@ -142,6 +142,14 @@ fn validate_resource_type(id: &str, resource: &Resource, errors: &mut Vec<Valida
                     message: format!("resource '{}' (file) has no path", id),
                 });
             }
+            if resource.content.is_some() && resource.source.is_some() {
+                errors.push(ValidationError {
+                    message: format!(
+                        "resource '{}' (file) has both content and source (pick one)",
+                        id
+                    ),
+                });
+            }
         }
         ResourceType::Service => {
             if resource.name.is_none() {
@@ -352,6 +360,30 @@ resources:
         let config = parse_config(yaml).unwrap();
         let errors = validate_config(&config);
         assert!(errors.iter().any(|e| e.message.contains("no path")));
+    }
+
+    #[test]
+    fn test_fj035_file_content_and_source_exclusive() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  f:
+    type: file
+    machine: m1
+    path: /etc/config
+    content: "inline content"
+    source: /local/path/config.txt
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(errors
+            .iter()
+            .any(|e| e.message.contains("both content and source")));
     }
 
     #[test]

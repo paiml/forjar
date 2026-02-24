@@ -1,6 +1,14 @@
 //! FJ-007: File/directory resource handler.
 
 use crate::core::types::Resource;
+use base64::Engine;
+
+/// Read a local file and return its base64-encoded content.
+fn source_file_base64(path: &str) -> Result<String, String> {
+    let bytes =
+        std::fs::read(path).map_err(|e| format!("{}: {}", path, e))?;
+    Ok(base64::engine::general_purpose::STANDARD.encode(&bytes))
+}
 
 /// Generate shell to check file state.
 pub fn check_script(resource: &Resource) -> String {
@@ -63,7 +71,20 @@ pub fn apply_script(resource: &Resource) -> String {
                     lines.push(format!("mkdir -p '{}'", parent.display()));
                 }
             }
-            if let Some(ref content) = resource.content {
+            if let Some(ref source) = resource.source {
+                // Read local file and base64-encode for safe transport
+                match source_file_base64(source) {
+                    Ok(b64) => {
+                        lines.push(format!(
+                            "echo '{}' | base64 -d > '{}'",
+                            b64, path
+                        ));
+                    }
+                    Err(e) => {
+                        lines.push(format!("echo 'ERROR: cannot read source file: {}'; exit 1", e));
+                    }
+                }
+            } else if let Some(ref content) = resource.content {
                 // Write content via heredoc (safe, no injection)
                 lines.push(format!(
                     "cat > '{}' <<'FORJAR_EOF'\n{}\nFORJAR_EOF",
@@ -300,5 +321,64 @@ mod tests {
         let script = apply_script(&r);
         assert!(script.contains("cat > '/init'"));
         assert!(!script.contains("mkdir -p '/'"));
+    }
+
+    #[test]
+    fn test_fj035_source_file_base64() {
+        // Create a temp file to use as source
+        let dir = tempfile::tempdir().unwrap();
+        let source_path = dir.path().join("config.txt");
+        std::fs::write(&source_path, "hello world\n").unwrap();
+
+        let mut r = make_file_resource("/etc/app/config.txt", None);
+        r.source = Some(source_path.to_str().unwrap().to_string());
+        let script = apply_script(&r);
+
+        // Should use base64 decode pipeline
+        assert!(script.contains("base64 -d"));
+        assert!(script.contains("/etc/app/config.txt"));
+        // Should contain the base64 encoding of "hello world\n"
+        let expected_b64 = base64::engine::general_purpose::STANDARD.encode(b"hello world\n");
+        assert!(script.contains(&expected_b64));
+    }
+
+    #[test]
+    fn test_fj035_source_file_missing() {
+        let mut r = make_file_resource("/etc/app/config.txt", None);
+        r.source = Some("/nonexistent/path/file.txt".to_string());
+        let script = apply_script(&r);
+        assert!(script.contains("ERROR: cannot read source file"));
+    }
+
+    #[test]
+    fn test_fj035_source_takes_precedence_over_content() {
+        // When both source and content are set, source wins (though validator rejects this)
+        let dir = tempfile::tempdir().unwrap();
+        let source_path = dir.path().join("from-source.txt");
+        std::fs::write(&source_path, "from source").unwrap();
+
+        let mut r = make_file_resource("/etc/test", Some("from content"));
+        r.source = Some(source_path.to_str().unwrap().to_string());
+        let script = apply_script(&r);
+
+        // Source path is checked first, so base64 should be used
+        assert!(script.contains("base64 -d"));
+        assert!(!script.contains("FORJAR_EOF"));
+    }
+
+    #[test]
+    fn test_fj035_source_binary_file() {
+        // Verify binary content is safely transferred via base64
+        let dir = tempfile::tempdir().unwrap();
+        let source_path = dir.path().join("binary.bin");
+        let binary_data: Vec<u8> = (0..=255).collect();
+        std::fs::write(&source_path, &binary_data).unwrap();
+
+        let mut r = make_file_resource("/opt/bin/data.bin", None);
+        r.source = Some(source_path.to_str().unwrap().to_string());
+        let script = apply_script(&r);
+
+        assert!(script.contains("base64 -d"));
+        assert!(script.contains("/opt/bin/data.bin"));
     }
 }
