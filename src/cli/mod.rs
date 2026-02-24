@@ -75,6 +75,10 @@ pub enum Commands {
         #[arg(short, long = "param", value_name = "KEY=VALUE")]
         params: Vec<String>,
 
+        /// Git commit state after successful apply
+        #[arg(long)]
+        auto_commit: bool,
+
         /// State directory
         #[arg(long, default_value = "state")]
         state_dir: PathBuf,
@@ -97,6 +101,10 @@ pub enum Commands {
         /// Exit non-zero on any drift (for CI/cron)
         #[arg(long)]
         tripwire: bool,
+
+        /// Run command on drift detection
+        #[arg(long)]
+        alert_cmd: Option<String>,
 
         /// Output drift report as JSON
         #[arg(long)]
@@ -191,6 +199,7 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             dry_run,
             no_tripwire,
             params,
+            auto_commit,
             state_dir,
         } => cmd_apply(
             &file,
@@ -201,6 +210,7 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             dry_run,
             no_tripwire,
             &params,
+            auto_commit,
             verbose,
         ),
         Commands::Drift {
@@ -208,12 +218,14 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             machine,
             state_dir,
             tripwire,
+            alert_cmd,
             json,
         } => cmd_drift(
             &file,
             &state_dir,
             machine.as_deref(),
             tripwire,
+            alert_cmd.as_deref(),
             json,
             verbose,
         ),
@@ -415,6 +427,7 @@ fn cmd_apply(
     dry_run: bool,
     no_tripwire: bool,
     param_overrides: &[String],
+    auto_commit: bool,
     verbose: bool,
 ) -> Result<(), String> {
     let mut config = parse_and_validate(file)?;
@@ -478,6 +491,11 @@ fn cmd_apply(
         "Apply complete: {} converged, {} unchanged.",
         total_converged, total_unchanged
     );
+
+    if auto_commit && total_converged > 0 {
+        git_commit_state(state_dir, &config.name, total_converged)?;
+    }
+
     Ok(())
 }
 
@@ -487,6 +505,7 @@ fn cmd_drift(
     state_dir: &Path,
     machine_filter: Option<&str>,
     tripwire_mode: bool,
+    alert_cmd: Option<&str>,
     json: bool,
     verbose: bool,
 ) -> Result<(), String> {
@@ -580,10 +599,53 @@ fn cmd_drift(
         println!("No drift detected.");
     }
 
+    // Run alert command on drift detection
+    if total_drift > 0 {
+        if let Some(cmd) = alert_cmd {
+            let status = std::process::Command::new("sh")
+                .arg("-c")
+                .arg(cmd)
+                .env("FORJAR_DRIFT_COUNT", total_drift.to_string())
+                .status()
+                .map_err(|e| format!("alert-cmd failed to execute: {}", e))?;
+            if !status.success() {
+                eprintln!("alert-cmd exited with code {}", status.code().unwrap_or(-1));
+            }
+        }
+    }
+
     if tripwire_mode && total_drift > 0 {
         return Err(format!("{} drift finding(s)", total_drift));
     }
 
+    Ok(())
+}
+
+/// Git commit state directory after successful apply.
+fn git_commit_state(state_dir: &Path, config_name: &str, converged: u32) -> Result<(), String> {
+    let msg = format!(
+        "forjar: {} — {} resource(s) converged",
+        config_name, converged
+    );
+    // Find the git repo root from state_dir's parent
+    let repo_root = state_dir.parent().unwrap_or(Path::new("."));
+    let status = std::process::Command::new("git")
+        .current_dir(repo_root)
+        .args(["add", "state"])
+        .status()
+        .map_err(|e| format!("git add failed: {}", e))?;
+    if !status.success() {
+        return Err("git add state/ failed".to_string());
+    }
+    let status = std::process::Command::new("git")
+        .current_dir(repo_root)
+        .args(["commit", "--no-verify", "-m", &msg])
+        .status()
+        .map_err(|e| format!("git commit failed: {}", e))?;
+    if !status.success() {
+        return Err("git commit failed".to_string());
+    }
+    println!("Auto-committed state: {}", msg);
     Ok(())
 }
 
@@ -775,7 +837,10 @@ fn cmd_destroy(
                 }
             }
         } else {
-            eprintln!("  SKIP {}: machine '{}' not found", resource_id, machine_name);
+            eprintln!(
+                "  SKIP {}: machine '{}' not found",
+                resource_id, machine_name
+            );
             failed += 1;
         }
     }
@@ -1082,7 +1147,7 @@ resources:
 "#,
         )
         .unwrap();
-        cmd_apply(&config, &state, None, None, false, true, false, &[], false).unwrap();
+        cmd_apply(&config, &state, None, None, false, true, false, &[], false, false).unwrap();
     }
 
     #[test]
@@ -1112,7 +1177,7 @@ policy:
 "#,
         )
         .unwrap();
-        cmd_apply(&config, &state, None, None, false, false, false, &[], false).unwrap();
+        cmd_apply(&config, &state, None, None, false, false, false, &[], false, false).unwrap();
 
         // Verify file was created
         assert!(std::path::Path::new("/tmp/forjar-cli-apply-test.txt").exists());
@@ -1139,7 +1204,7 @@ resources: {}
 "#,
         )
         .unwrap();
-        let result = cmd_apply(&config, &state, None, None, false, false, false, &[], false);
+        let result = cmd_apply(&config, &state, None, None, false, false, false, &[], false, false);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("validation"));
     }
@@ -1154,6 +1219,7 @@ resources: {}
             &state,
             None,
             false,
+            None,
             false,
             false,
         )
@@ -1208,6 +1274,7 @@ resources: {}
             &state,
             None,
             false,
+            None,
             false,
             false,
         )
@@ -1260,6 +1327,7 @@ resources: {}
             &state,
             None,
             true,
+            None,
             false,
             false,
         );
@@ -1279,6 +1347,7 @@ resources: {}
             &state,
             Some("alpha"),
             false,
+            None,
             false,
             false,
         )
@@ -1425,6 +1494,7 @@ resources:
                 dry_run: true,
                 no_tripwire: false,
                 params: vec![],
+                auto_commit: false,
                 state_dir: state,
             },
             false,
@@ -1443,6 +1513,7 @@ resources:
                 machine: None,
                 state_dir: state,
                 tripwire: false,
+                alert_cmd: None,
                 json: false,
             },
             false,
@@ -1551,6 +1622,7 @@ resources:
             &state,
             None,
             false,
+            None,
             false,
             false,
         )
@@ -1589,11 +1661,11 @@ resources:
         )
         .unwrap();
 
-        cmd_apply(&config, &state, None, None, false, false, false, &[], false).unwrap();
+        cmd_apply(&config, &state, None, None, false, false, false, &[], false, false).unwrap();
         assert!(target.exists());
 
         // Second apply — should be unchanged (NoOp)
-        cmd_apply(&config, &state, None, None, false, false, false, &[], false).unwrap();
+        cmd_apply(&config, &state, None, None, false, false, false, &[], false, false).unwrap();
     }
 
     #[test]
@@ -1776,6 +1848,7 @@ resources:
             &state,
             None,
             false,
+            None,
             true,
             false,
         )
@@ -2070,7 +2143,7 @@ resources:
         .unwrap();
 
         // First, apply so the file exists and state is saved
-        cmd_apply(&config, &state, None, None, false, false, false, &[], false).unwrap();
+        cmd_apply(&config, &state, None, None, false, false, false, &[], false, false).unwrap();
         assert!(target.exists());
         assert!(state.join("local").join("state.lock.yaml").exists());
 
@@ -2114,7 +2187,7 @@ resources:
         )
         .unwrap();
 
-        cmd_apply(&config, &state, None, None, false, false, false, &[], false).unwrap();
+        cmd_apply(&config, &state, None, None, false, false, false, &[], false, false).unwrap();
         cmd_destroy(&config, &state, None, true, true).unwrap();
         assert!(!target.exists());
     }
@@ -2159,7 +2232,7 @@ resources:
         )
         .unwrap();
 
-        cmd_apply(&config, &state, None, None, false, false, false, &[], false).unwrap();
+        cmd_apply(&config, &state, None, None, false, false, false, &[], false, false).unwrap();
         assert!(target_a.exists());
         assert!(target_b.exists());
 
@@ -2199,7 +2272,7 @@ resources:
         )
         .unwrap();
 
-        cmd_apply(&config, &state, None, None, false, false, false, &[], false).unwrap();
+        cmd_apply(&config, &state, None, None, false, false, false, &[], false, false).unwrap();
         dispatch(
             Commands::Destroy {
                 file: config,
@@ -2211,5 +2284,163 @@ resources:
         )
         .unwrap();
         assert!(!target.exists());
+    }
+
+    #[test]
+    fn test_auto_commit_in_git_repo() {
+        // auto_commit=true in a temp dir that IS a git repo
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        let state = dir.path().join("state");
+        std::fs::create_dir_all(&state).unwrap();
+
+        // Init git repo in temp dir
+        std::process::Command::new("git")
+            .args(["init"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+        std::process::Command::new("git")
+            .args(["config", "user.email", "test@test.com"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+        std::process::Command::new("git")
+            .args(["config", "user.name", "Test"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+        // Initial commit so the repo is in a valid state
+        std::fs::write(dir.path().join(".gitkeep"), "").unwrap();
+        std::process::Command::new("git")
+            .args(["add", ".gitkeep"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+        std::process::Command::new("git")
+            .args(["commit", "-m", "init"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+
+        let target = dir.path().join("auto-commit.txt");
+        std::fs::write(
+            &config,
+            format!(
+                r#"
+version: "1.0"
+name: autocommit-test
+machines:
+  local:
+    hostname: localhost
+    addr: 127.0.0.1
+resources:
+  f:
+    type: file
+    machine: local
+    path: {}
+    content: "auto commit test"
+"#,
+                target.display()
+            ),
+        )
+        .unwrap();
+
+        // auto_commit=true (second to last arg)
+        cmd_apply(&config, &state, None, None, false, false, false, &[], true, false).unwrap();
+        assert!(target.exists());
+
+        // Verify git committed the state
+        let output = std::process::Command::new("git")
+            .args(["log", "--oneline", "-1"])
+            .current_dir(dir.path())
+            .output()
+            .unwrap();
+        let log = String::from_utf8_lossy(&output.stdout);
+        assert!(log.contains("forjar:"));
+    }
+
+    #[test]
+    fn test_drift_alert_cmd() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = dir.path().join("state");
+
+        let test_file = dir.path().join("drift-alert.txt");
+        std::fs::write(&test_file, "current").unwrap();
+
+        let alert_marker = dir.path().join("alert-fired");
+
+        let mut resources = indexmap::IndexMap::new();
+        let mut details = std::collections::HashMap::new();
+        details.insert(
+            "path".to_string(),
+            serde_yaml_ng::Value::String(test_file.to_str().unwrap().to_string()),
+        );
+        details.insert(
+            "content_hash".to_string(),
+            serde_yaml_ng::Value::String("blake3:wrong_hash".to_string()),
+        );
+        resources.insert(
+            "drifted-file".to_string(),
+            crate::core::types::ResourceLock {
+                resource_type: crate::core::types::ResourceType::File,
+                status: crate::core::types::ResourceStatus::Converged,
+                applied_at: Some("2026-01-01T00:00:00Z".to_string()),
+                duration_seconds: Some(0.1),
+                hash: "blake3:x".to_string(),
+                details,
+            },
+        );
+        let lock = crate::core::types::StateLock {
+            schema: "1.0".to_string(),
+            machine: "alertbox".to_string(),
+            hostname: "alertbox".to_string(),
+            generated_at: "2026-01-01T00:00:00Z".to_string(),
+            generator: "forjar 0.1.0".to_string(),
+            blake3_version: "1.8".to_string(),
+            resources,
+        };
+        crate::core::state::save_lock(&state, &lock).unwrap();
+
+        // alert_cmd touches a file when drift detected
+        let alert_cmd = format!("touch {}", alert_marker.display());
+        cmd_drift(
+            Path::new("nonexistent.yaml"),
+            &state,
+            None,
+            false,
+            Some(&alert_cmd),
+            false,
+            false,
+        )
+        .unwrap();
+
+        // Verify alert command ran
+        assert!(alert_marker.exists());
+    }
+
+    #[test]
+    fn test_drift_alert_cmd_not_fired_when_no_drift() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = dir.path().join("state");
+        std::fs::create_dir_all(&state).unwrap();
+
+        let alert_marker = dir.path().join("should-not-exist");
+        let alert_cmd = format!("touch {}", alert_marker.display());
+
+        // Empty state dir — no drift
+        cmd_drift(
+            Path::new("nonexistent.yaml"),
+            &state,
+            None,
+            false,
+            Some(&alert_cmd),
+            false,
+            false,
+        )
+        .unwrap();
+
+        // Alert should NOT have fired
+        assert!(!alert_marker.exists());
     }
 }
