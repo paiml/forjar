@@ -741,6 +741,7 @@ resources: {}
             depends_on: vec![],
             provider: None,
             packages: vec![],
+            version: None,
             path: Some("/mnt/{{inputs.vol}}".to_string()),
             content: None,
             source: Some("{{inputs.server}}:/data".to_string()),

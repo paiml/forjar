@@ -84,6 +84,7 @@ mod tests {
             depends_on: vec![],
             provider: None,
             packages: vec![],
+            version: None,
             path: Some("/mnt/lambda-raid".to_string()),
             content: None,
             source: Some("192.168.50.50:/mnt/nvme-raid0".to_string()),

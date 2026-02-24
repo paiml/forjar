@@ -12,15 +12,29 @@ resources:
     provider: apt          # apt | cargo | uv
     packages: [curl, git, htop]
     state: present         # present (default) | absent
+    version: "1.2.3"       # optional version pin
 ```
 
 ### Providers
 
-| Provider | Install Command | Remove Command |
-|----------|----------------|----------------|
-| `apt` | `apt-get install -y` (auto-sudo if non-root) | `apt-get remove -y` |
-| `cargo` | `cargo install --force` | — |
-| `uv` | `uv tool install --force` | `uv tool uninstall` |
+| Provider | Install Command | Version Syntax | Remove Command |
+|----------|----------------|----------------|----------------|
+| `apt` | `apt-get install -y` (auto-sudo if non-root) | `package=version` | `apt-get remove -y` |
+| `cargo` | `cargo install --force` | `package@version` | — |
+| `uv` | `uv tool install --force` | `package==version` | `uv tool uninstall` |
+
+### Version Pinning
+
+Pin all packages in a resource to a specific version:
+
+```yaml
+  nginx:
+    type: package
+    machine: web-server
+    provider: apt
+    packages: [nginx]
+    version: "1.18.0-0ubuntu1"
+```
 
 ## File
 

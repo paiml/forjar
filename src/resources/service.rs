@@ -79,6 +79,7 @@ mod tests {
             depends_on: vec![],
             provider: None,
             packages: vec![],
+            version: None,
             path: None,
             content: None,
             source: None,

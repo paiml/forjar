@@ -43,17 +43,27 @@ pub fn apply_script(resource: &Resource) -> String {
     let provider = resource.provider.as_deref().unwrap_or("apt");
     let packages = &resource.packages;
     let state = resource.state.as_deref().unwrap_or("present");
+    let version = resource.version.as_deref();
 
     match (provider, state) {
         ("apt", "present") => {
-            let pkg_list: Vec<String> = packages.iter().map(|p| format!("'{}'", p)).collect();
+            // For apt: package=version pins to exact version
+            let pkg_list: Vec<String> = packages
+                .iter()
+                .map(|p| match version {
+                    Some(v) => format!("'{}={}'", p, v),
+                    None => format!("'{}'", p),
+                })
+                .collect();
+            let check_list: Vec<String> = packages.iter().map(|p| format!("'{}'", p)).collect();
             let joined = pkg_list.join(" ");
+            let check_joined = check_list.join(" ");
             format!(
                 "set -euo pipefail\n\
                  SUDO=\"\"\n\
                  [ \"$(id -u)\" -ne 0 ] && SUDO=\"sudo\"\n\
                  NEED_INSTALL=0\n\
-                 for pkg in {joined}; do\n\
+                 for pkg in {check_joined}; do\n\
                    dpkg -l \"$pkg\" >/dev/null 2>&1 || NEED_INSTALL=1\n\
                  done\n\
                  if [ \"$NEED_INSTALL\" = \"1\" ]; then\n\
@@ -61,7 +71,7 @@ pub fn apply_script(resource: &Resource) -> String {
                    DEBIAN_FRONTEND=noninteractive $SUDO apt-get install -y -qq {joined}\n\
                  fi\n\
                  # Postcondition: all packages installed\n\
-                 for pkg in {joined}; do\n\
+                 for pkg in {check_joined}; do\n\
                    dpkg -l \"$pkg\" >/dev/null 2>&1\n\
                  done"
             )
@@ -83,16 +93,24 @@ pub fn apply_script(resource: &Resource) -> String {
             )
         }
         ("cargo", "present") => {
+            // For cargo: cargo install package@version
             let installs: Vec<String> = packages
                 .iter()
-                .map(|p| format!("cargo install --force '{}'", p))
+                .map(|p| match version {
+                    Some(v) => format!("cargo install --force '{}@{}'", p, v),
+                    None => format!("cargo install --force '{}'", p),
+                })
                 .collect();
             format!("set -euo pipefail\n{}", installs.join("\n"))
         }
         ("uv", "present") => {
+            // For uv: uv tool install package==version
             let installs: Vec<String> = packages
                 .iter()
-                .map(|p| format!("uv tool install --force '{}'", p))
+                .map(|p| match version {
+                    Some(v) => format!("uv tool install --force '{}=={}'", p, v),
+                    None => format!("uv tool install --force '{}'", p),
+                })
                 .collect();
             format!("set -euo pipefail\n{}", installs.join("\n"))
         }
@@ -154,6 +172,7 @@ mod tests {
             depends_on: vec![],
             provider: Some("apt".to_string()),
             packages: packages.iter().map(|s| s.to_string()).collect(),
+            version: None,
             path: None,
             content: None,
             source: None,
@@ -428,5 +447,42 @@ mod tests {
             !script.contains("if !"),
             "should not have conditional check with --force"
         );
+    }
+
+    #[test]
+    fn test_fj006_apt_version_constraint() {
+        let mut r = make_apt_resource(&["nginx"]);
+        r.version = Some("1.18.0-0ubuntu1".to_string());
+        let script = apply_script(&r);
+        assert!(script.contains("'nginx=1.18.0-0ubuntu1'"));
+        // Check commands still use unversioned name
+        assert!(script.contains("dpkg -l \"$pkg\""));
+    }
+
+    #[test]
+    fn test_fj006_cargo_version_constraint() {
+        let mut r = make_apt_resource(&["batuta"]);
+        r.provider = Some("cargo".to_string());
+        r.version = Some("0.3.0".to_string());
+        let script = apply_script(&r);
+        assert!(script.contains("cargo install --force 'batuta@0.3.0'"));
+    }
+
+    #[test]
+    fn test_fj006_uv_version_constraint() {
+        let mut r = make_apt_resource(&["ruff"]);
+        r.provider = Some("uv".to_string());
+        r.version = Some("0.4.0".to_string());
+        let script = apply_script(&r);
+        assert!(script.contains("uv tool install --force 'ruff==0.4.0'"));
+    }
+
+    #[test]
+    fn test_fj006_no_version_unchanged() {
+        // Without version, scripts should be the same as before
+        let r = make_apt_resource(&["curl"]);
+        let script = apply_script(&r);
+        assert!(script.contains("'curl'"));
+        assert!(!script.contains("curl="));
     }
 }

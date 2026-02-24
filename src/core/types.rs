@@ -166,6 +166,10 @@ pub struct Resource {
     #[serde(default)]
     pub packages: Vec<String>,
 
+    /// Package version constraint (e.g., "1.2.3", ">=1.0")
+    #[serde(default)]
+    pub version: Option<String>,
+
     // -- File fields --
     /// File/mount path
     #[serde(default)]

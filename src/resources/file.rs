@@ -139,6 +139,7 @@ mod tests {
             depends_on: vec![],
             provider: None,
             packages: vec![],
+            version: None,
             path: Some(path.to_string()),
             content: content.map(|s| s.to_string()),
             source: None,
