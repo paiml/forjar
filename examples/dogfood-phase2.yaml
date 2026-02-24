@@ -1,0 +1,83 @@
+# Dogfood config: test Phase 2 resource types (user + cron) in a container.
+#
+# Exercises: user creation with groups, cron job management, plus file
+# resources as dependencies. Docker and network resources need privileged
+# access / host Docker socket, so those are tested separately.
+#
+# Prerequisites:
+#   docker build -t forjar-test-target -f tests/Dockerfile.test-target .
+#
+# Usage:
+#   cargo run -- apply -f examples/dogfood-phase2.yaml --state-dir /tmp/dogfood-p2
+#   cargo run -- apply -f examples/dogfood-phase2.yaml --state-dir /tmp/dogfood-p2   # idempotency
+#   cargo run -- drift -f examples/dogfood-phase2.yaml --state-dir /tmp/dogfood-p2
+#   docker rm -f forjar-dogfood-p2
+
+version: "1.0"
+name: dogfood-phase2
+
+machines:
+  test-box:
+    hostname: test-box
+    addr: container
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-dogfood-p2
+      ephemeral: false
+      privileged: false
+      init: true
+
+resources:
+  # ── User management ─────────────────────────────
+  deploy-user:
+    type: user
+    machine: test-box
+    name: deploy
+    shell: /bin/bash
+    home: /home/deploy
+    groups: [staff]
+
+  app-user:
+    type: user
+    machine: test-box
+    name: appservice
+    system_user: true
+    shell: /usr/sbin/nologin
+
+  # ── Files (depend on users) ─────────────────────
+  deploy-config:
+    type: file
+    machine: test-box
+    path: /home/deploy/.profile
+    content: |
+      # Managed by forjar
+      export PATH="$HOME/bin:$PATH"
+    owner: deploy
+    mode: "0644"
+    depends_on: [deploy-user]
+
+  app-dir:
+    type: file
+    machine: test-box
+    path: /opt/app
+    state: directory
+    owner: appservice
+    mode: "0755"
+    depends_on: [app-user]
+
+  # ── Cron jobs ───────────────────────────────────
+  health-check:
+    type: cron
+    machine: test-box
+    name: health-check
+    schedule: "*/5 * * * *"
+    command: /usr/bin/true
+    owner: root
+    depends_on: [app-dir]
+
+policy:
+  failure: stop_on_first
+  tripwire: true
+  lock_file: true
