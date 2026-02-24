@@ -113,7 +113,7 @@ policy:
 | `package` | present, absent | `provider` (apt/cargo/uv), `packages` |
 | `file` | file, directory, symlink, absent | `path`, `content`, `owner`, `group`, `mode` |
 | `service` | running, stopped, enabled, disabled | `name`, `enabled`, `restart_on` |
-| `mount` | mounted, unmounted, absent | `path`, `target`, `fstype`, `options` |
+| `mount` | mounted, unmounted, absent | `source`, `path`, `fstype`, `options` |
 
 ### Templates
 

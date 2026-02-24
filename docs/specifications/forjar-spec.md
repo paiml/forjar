@@ -104,41 +104,37 @@ forjar.yaml                    (human-authored desired state)
 src/
   main.rs               CLI entry point
   lib.rs                Public API
+  build.rs              Compile-time contract binding verification
   cli/
-    mod.rs              Subcommand dispatch
-    plan.rs             `forjar plan`
-    apply.rs            `forjar apply`
-    drift.rs            `forjar drift`
-    status.rs           `forjar status`
-    init.rs             `forjar init`
+    mod.rs              Subcommand dispatch (plan, apply, drift, status, init, validate)
   core/
     mod.rs              Re-exports
     types.rs            All types (Machine, Resource, State, Lock)
     parser.rs           YAML parsing + validation
     resolver.rs         Template resolution, dependency DAG
     planner.rs          Desired vs current state diffing
-    codegen.rs          Rust AST → bashrs-compatible provisioning code
-    executor.rs         SSH dispatch, parallel apply
+    codegen.rs          Script generation — dispatch to resource handlers
+    executor.rs         Orchestration loop, Jidoka policy
     state.rs            Lock file management (BLAKE3 content-addressed)
     recipe.rs           Recipe loading, input validation, expansion into resources
   tripwire/
     mod.rs              Provenance tracing orchestration
-    tracer.rs           renacer integration — syscall capture per apply
     hasher.rs           BLAKE3 file/directory/state hashing
-    snapshot.rs         Pre/post apply filesystem snapshots
     drift.rs            Drift detection (hash current vs lock)
     eventlog.rs         Append-only JSONL provenance log
+    tracer.rs           renacer integration — syscall capture per apply (Phase 4)
+    snapshot.rs         Pre/post apply filesystem snapshots (Phase 4)
   resources/
     mod.rs              Resource type registry
     package.rs          apt/cargo/uv package management
     service.rs          systemd service management
     file.rs             File/directory/symlink management
     mount.rs            NFS/bind mount management
-    user.rs             User/group management
+    user.rs             User/group management (Phase 2)
     docker.rs           Container management (Phase 2)
+    network.rs          Firewall/interface management (Phase 2)
+    cron.rs             Scheduled task management (Phase 2)
     pepita.rs           Kernel namespace isolation (Phase 3)
-    network.rs          Firewall/interface management
-    cron.rs             Scheduled task management
   transport/
     mod.rs              Transport abstraction
     local.rs            Local execution (this machine)
@@ -272,7 +268,7 @@ resources:
     type: mount
     machine: intel
     source: "192.168.50.50:{{params.raid_path}}"
-    target: /mnt/lambda-raid
+    path: /mnt/lambda-raid
     fstype: nfs
     options: ro,hard,intr
     depends_on:
@@ -342,7 +338,7 @@ restart_on:                       # restart when these resources change
 type: mount
 machine: <name>
 source: <device or nfs path>
-target: /mount/point
+path: /mount/point
 fstype: nfs | ext4 | xfs | bind
 options: <mount options string>
 state: mounted | unmounted | absent
@@ -732,7 +728,7 @@ Every resource gets a composite BLAKE3 hash computed from its **observable state
 | `package` | Package name + installed version |
 | `file` | Content hash + owner + group + mode |
 | `service` | Active state + enabled state |
-| `mount` | Source + target + fstype + options + mounted state |
+| `mount` | Source + path + fstype + options + mounted state |
 | `user` | UID + GID + groups + shell + home |
 
 The machine-level hash is a BLAKE3 of all resource hashes (sorted by resource ID).
