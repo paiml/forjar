@@ -1262,6 +1262,7 @@ Container transport enables end-to-end dogfooding of all Phase 1 resource types 
 |--------|-----------|----------------|
 | `examples/dogfood-container.yaml` | file, directory | File codegen, state hashing, lock persistence |
 | `examples/dogfood-packages.yaml` | package (apt), file, dependency DAG | Package codegen against real dpkg, cross-resource dependencies, idempotency |
+| `examples/dogfood-phase2.yaml` | user, file (source), cron, dependency DAG | Phase 2 resource types, base64 source transfer, user management, cron |
 
 **Dogfood verification workflow** (run after any codegen, transport, or executor change):
 
@@ -1270,13 +1271,16 @@ Container transport enables end-to-end dogfooding of all Phase 1 resource types 
 docker build -t forjar-test-target -f tests/Dockerfile.test-target .
 
 # 2. First apply — all resources converge
-cargo run -- apply -f examples/dogfood-packages.yaml --state-dir /tmp/dogfood-state
+cargo run -- apply -f examples/dogfood-phase2.yaml --state-dir /tmp/dogfood-state
 
 # 3. Idempotency proof — second apply, zero changes
-cargo run -- apply -f examples/dogfood-packages.yaml --state-dir /tmp/dogfood-state
+cargo run -- apply -f examples/dogfood-phase2.yaml --state-dir /tmp/dogfood-state
 
 # 4. Drift detection — verify lock state matches live state
-cargo run -- drift -f examples/dogfood-packages.yaml --state-dir /tmp/dogfood-state
+cargo run -- drift -f examples/dogfood-phase2.yaml --state-dir /tmp/dogfood-state
+
+# 5. Destroy — reverse teardown and state cleanup
+cargo run -- destroy -f examples/dogfood-phase2.yaml --state-dir /tmp/dogfood-state --yes
 ```
 
 **What each dogfood config exercises**:
