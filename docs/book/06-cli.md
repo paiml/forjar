@@ -79,7 +79,7 @@ JSON mode outputs the full `ExecutionPlan` with changes, actions, and summary co
 Converge infrastructure to desired state.
 
 ```bash
-forjar apply -f <FILE> [-m MACHINE] [-r RESOURCE] [--force] [--dry-run] [--no-tripwire] [-p KEY=VALUE] [--state-dir DIR]
+forjar apply -f <FILE> [-m MACHINE] [-r RESOURCE] [--force] [--dry-run] [--no-tripwire] [-p KEY=VALUE] [--auto-commit] [--state-dir DIR]
 ```
 
 | Flag | Default | Description |
@@ -91,6 +91,7 @@ forjar apply -f <FILE> [-m MACHINE] [-r RESOURCE] [--force] [--dry-run] [--no-tr
 | `--dry-run` | false | Show plan without executing |
 | `--no-tripwire` | false | Skip provenance event logging (faster) |
 | `-p, --param` | — | Override parameter: `-p env=production` |
+| `--auto-commit` | false | Git commit state after successful apply |
 | `--state-dir` | `state` | Directory for lock files |
 
 ### `forjar drift`
@@ -98,7 +99,7 @@ forjar apply -f <FILE> [-m MACHINE] [-r RESOURCE] [--force] [--dry-run] [--no-tr
 Detect unauthorized changes (tripwire).
 
 ```bash
-forjar drift -f <FILE> [-m MACHINE] [--state-dir DIR] [--tripwire] [--json]
+forjar drift -f <FILE> [-m MACHINE] [--state-dir DIR] [--tripwire] [--alert-cmd CMD] [--json]
 ```
 
 | Flag | Default | Description |
@@ -107,6 +108,7 @@ forjar drift -f <FILE> [-m MACHINE] [--state-dir DIR] [--tripwire] [--json]
 | `-m, --machine` | all | Filter to specific machine |
 | `--state-dir` | `state` | Directory for lock files |
 | `--tripwire` | false | Exit non-zero on any drift (for CI/cron) |
+| `--alert-cmd` | — | Run command on drift detection (sets `$FORJAR_DRIFT_COUNT`) |
 | `--json` | false | Output drift report as JSON |
 
 JSON mode outputs `{ "drift_count": N, "findings": [...] }` with machine, resource, expected/actual hash for each finding.

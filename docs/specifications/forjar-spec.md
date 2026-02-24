@@ -1071,7 +1071,7 @@ Options:
   -r, --resource <ID>    Apply specific resource only
   --force                Force re-apply all resources (ignore cache)
   --dry-run              Show what would be executed without running
-  --auto-commit          Git commit state after successful apply (Phase 2)
+  --auto-commit          Git commit state after successful apply
   --no-tripwire          Skip provenance tracing (faster, less safe)
   -p, --param KEY=VALUE  Override a parameter
 ```
@@ -1084,7 +1084,7 @@ forjar drift [OPTIONS]
 Options:
   -m, --machine <NAME>       Check specific machine only
   --tripwire                 Exit non-zero on any drift (for cron/CI)
-  --alert-cmd <CMD>          Run command on drift detection (Phase 2)
+  --alert-cmd <CMD>          Run command on drift detection (sets $FORJAR_DRIFT_COUNT)
   --json                     Output drift report as JSON
 ```
 
