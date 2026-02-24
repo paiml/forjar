@@ -1,4 +1,4 @@
-//! FJ-006: Package resource handler (apt + cargo).
+//! FJ-006: Package resource handler (apt + cargo + uv).
 
 use crate::core::types::Resource;
 
@@ -24,6 +24,13 @@ pub fn check_script(resource: &Resource) -> String {
             let checks: Vec<String> = packages
                 .iter()
                 .map(|p| format!("command -v '{}' >/dev/null 2>&1 && echo 'installed:{}' || echo 'missing:{}'", p, p, p))
+                .collect();
+            checks.join("\n")
+        }
+        "uv" => {
+            let checks: Vec<String> = packages
+                .iter()
+                .map(|p| format!("uv tool list 2>/dev/null | grep -q '^{}' && echo 'installed:{}' || echo 'missing:{}'", p, p, p))
                 .collect();
             checks.join("\n")
         }
@@ -78,14 +85,23 @@ pub fn apply_script(resource: &Resource) -> String {
         ("cargo", "present") => {
             let installs: Vec<String> = packages
                 .iter()
-                .map(|p| {
-                    format!(
-                        "cargo install --force '{}'",
-                        p
-                    )
-                })
+                .map(|p| format!("cargo install --force '{}'", p))
                 .collect();
             format!("set -euo pipefail\n{}", installs.join("\n"))
+        }
+        ("uv", "present") => {
+            let installs: Vec<String> = packages
+                .iter()
+                .map(|p| format!("uv tool install --force '{}'", p))
+                .collect();
+            format!("set -euo pipefail\n{}", installs.join("\n"))
+        }
+        ("uv", "absent") => {
+            let removals: Vec<String> = packages
+                .iter()
+                .map(|p| format!("uv tool uninstall '{}' 2>/dev/null || true", p))
+                .collect();
+            format!("set -euo pipefail\n{}", removals.join("\n"))
         }
         (other_provider, other_state) => format!(
             "echo 'unsupported: provider={}, state={}'",
@@ -111,6 +127,13 @@ pub fn state_query_script(resource: &Resource) -> String {
             let queries: Vec<String> = packages
                 .iter()
                 .map(|p| format!("command -v '{}' >/dev/null 2>&1 && echo '{}=installed' || echo '{}=MISSING'", p, p, p))
+                .collect();
+            queries.join("\n")
+        }
+        "uv" => {
+            let queries: Vec<String> = packages
+                .iter()
+                .map(|p| format!("uv tool list 2>/dev/null | grep -q '^{}' && echo '{}=installed' || echo '{}=MISSING'", p, p, p))
                 .collect();
             queries.join("\n")
         }
@@ -242,9 +265,9 @@ mod tests {
     #[test]
     fn test_fj006_state_query_unknown_provider() {
         let mut r = make_apt_resource(&["tool"]);
-        r.provider = Some("pip".to_string());
+        r.provider = Some("brew".to_string());
         let script = state_query_script(&r);
-        assert!(script.contains("unsupported provider: pip"));
+        assert!(script.contains("unsupported provider: brew"));
     }
 
     #[test]
@@ -258,10 +281,68 @@ mod tests {
     #[test]
     fn test_fj006_apply_unsupported_combo() {
         let mut r = make_apt_resource(&["foo"]);
-        r.provider = Some("pip".to_string());
+        r.provider = Some("brew".to_string());
         r.state = Some("present".to_string());
         let script = apply_script(&r);
         assert!(script.contains("unsupported"));
+    }
+
+    #[test]
+    fn test_fj006_uv_check() {
+        let mut r = make_apt_resource(&["ruff", "mypy"]);
+        r.provider = Some("uv".to_string());
+        let script = check_script(&r);
+        assert!(script.contains("uv tool list"));
+        assert!(script.contains("grep -q '^ruff'"));
+        assert!(script.contains("echo 'installed:ruff'"));
+        assert!(script.contains("echo 'missing:mypy'"));
+    }
+
+    #[test]
+    fn test_fj006_uv_install() {
+        let mut r = make_apt_resource(&["ruff"]);
+        r.provider = Some("uv".to_string());
+        let script = apply_script(&r);
+        assert!(script.contains("set -euo pipefail"));
+        assert!(script.contains("uv tool install --force 'ruff'"));
+    }
+
+    #[test]
+    fn test_fj006_uv_absent() {
+        let mut r = make_apt_resource(&["ruff"]);
+        r.provider = Some("uv".to_string());
+        r.state = Some("absent".to_string());
+        let script = apply_script(&r);
+        assert!(script.contains("uv tool uninstall 'ruff'"));
+    }
+
+    #[test]
+    fn test_fj006_uv_state_query() {
+        let mut r = make_apt_resource(&["ruff", "mypy"]);
+        r.provider = Some("uv".to_string());
+        let script = state_query_script(&r);
+        assert!(script.contains("uv tool list"));
+        assert!(script.contains("echo 'ruff=installed'"));
+        assert!(script.contains("echo 'mypy=MISSING'"));
+    }
+
+    #[test]
+    fn test_fj006_uv_install_multi() {
+        let mut r = make_apt_resource(&["ruff", "mypy", "black"]);
+        r.provider = Some("uv".to_string());
+        let script = apply_script(&r);
+        assert!(script.contains("uv tool install --force 'ruff'"));
+        assert!(script.contains("uv tool install --force 'mypy'"));
+        assert!(script.contains("uv tool install --force 'black'"));
+    }
+
+    /// Verify single-quoting prevents injection in uv provider.
+    #[test]
+    fn test_fj006_uv_quoted_packages() {
+        let mut r = make_apt_resource(&["ruff; rm -rf /"]);
+        r.provider = Some("uv".to_string());
+        let script = apply_script(&r);
+        assert!(script.contains("'ruff; rm -rf /'"));
     }
 
     /// BH-MUT-0001: Kill mutation of cargo check_script boolean logic.
@@ -326,6 +407,9 @@ mod tests {
         let script = apply_script(&r);
         // --force makes install idempotent — no conditional check needed
         assert!(script.contains("cargo install --force 'tool'"));
-        assert!(!script.contains("if !"), "should not have conditional check with --force");
+        assert!(
+            !script.contains("if !"),
+            "should not have conditional check with --force"
+        );
     }
 }

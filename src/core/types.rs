@@ -103,7 +103,7 @@ pub struct Resource {
     pub depends_on: Vec<String>,
 
     // -- Package fields --
-    /// Package provider (apt, cargo, pip)
+    /// Package provider (apt, cargo, uv)
     #[serde(default)]
     pub provider: Option<String>,
 

@@ -100,11 +100,23 @@ mod tests {
 
     #[test]
     fn test_transport_exec_output_success() {
-        let ok = ExecOutput { exit_code: 0, stdout: "ok".into(), stderr: "".into() };
+        let ok = ExecOutput {
+            exit_code: 0,
+            stdout: "ok".into(),
+            stderr: "".into(),
+        };
         assert!(ok.success());
-        let fail = ExecOutput { exit_code: 1, stdout: "".into(), stderr: "err".into() };
+        let fail = ExecOutput {
+            exit_code: 1,
+            stdout: "".into(),
+            stderr: "err".into(),
+        };
         assert!(!fail.success());
-        let sig = ExecOutput { exit_code: 137, stdout: "".into(), stderr: "killed".into() };
+        let sig = ExecOutput {
+            exit_code: 137,
+            stdout: "".into(),
+            stderr: "killed".into(),
+        };
         assert!(!sig.success());
     }
 
