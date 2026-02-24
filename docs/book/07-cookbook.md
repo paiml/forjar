@@ -215,3 +215,72 @@ resources:
     options: "rw,soft,intr,timeo=30"
     state: mounted
 ```
+
+## Container Dogfood (Local Development)
+
+Test package, file, and service resources locally using a Docker container — no SSH or root required:
+
+```yaml
+version: "1.0"
+name: dogfood
+description: "Local dogfood via container transport"
+
+machines:
+  test-box:
+    hostname: test-box
+    addr: container
+    transport: container
+    container:
+      runtime: docker
+      image: ubuntu:22.04
+      name: forjar-dogfood
+      ephemeral: false       # Keep alive for drift testing
+      privileged: false
+      init: true
+
+resources:
+  base-packages:
+    type: package
+    machine: test-box
+    provider: apt
+    packages: [curl, jq, tree]
+
+  app-config:
+    type: file
+    machine: test-box
+    path: /etc/forjar/config.yaml
+    content: |
+      version: 1.0
+      environment: dogfood
+    owner: root
+    mode: "0644"
+    depends_on: [base-packages]
+
+  motd:
+    type: file
+    machine: test-box
+    path: /etc/motd
+    content: "Managed by forjar"
+    depends_on: [base-packages]
+```
+
+Dogfood workflow:
+
+```bash
+# Apply and verify convergence
+cargo run -- apply -f dogfood.yaml --state-dir /tmp/dogfood
+
+# Prove idempotency (second apply should show 0 converged)
+cargo run -- apply -f dogfood.yaml --state-dir /tmp/dogfood
+
+# Check for drift (should be clean)
+cargo run -- drift -f dogfood.yaml --state-dir /tmp/dogfood
+
+# Tamper and detect
+docker exec forjar-dogfood bash -c "echo tampered > /etc/motd"
+cargo run -- drift -f dogfood.yaml --state-dir /tmp/dogfood
+# => DRIFT DETECTED for motd
+
+# Remediate
+cargo run -- apply -f dogfood.yaml --state-dir /tmp/dogfood --force
+```

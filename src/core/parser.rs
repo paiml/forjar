@@ -115,10 +115,7 @@ fn validate_machine(key: &str, machine: &Machine, errors: &mut Vec<ValidationErr
         }
         if container.ephemeral && container.image.is_none() {
             errors.push(ValidationError {
-                message: format!(
-                    "machine '{}' is ephemeral but has no container image",
-                    key
-                ),
+                message: format!("machine '{}' is ephemeral but has no container image", key),
             });
         }
     }

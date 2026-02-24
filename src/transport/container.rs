@@ -23,12 +23,7 @@ pub fn exec_container(machine: &Machine, script: &str) -> Result<ExecOutput, Str
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .map_err(|e| {
-            format!(
-                "failed to exec in container '{}': {}",
-                container_name, e
-            )
-        })?;
+        .map_err(|e| format!("failed to exec in container '{}': {}", container_name, e))?;
 
     if let Some(ref mut stdin) = child.stdin {
         stdin

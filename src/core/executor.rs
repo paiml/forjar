@@ -404,7 +404,10 @@ fn apply_machine(
         if let Some(ref container) = machine.container {
             if container.ephemeral {
                 if let Err(e) = transport::container::cleanup_container(machine) {
-                    eprintln!("warning: container cleanup failed for {}: {}", machine_name, e);
+                    eprintln!(
+                        "warning: container cleanup failed for {}: {}",
+                        machine_name, e
+                    );
                 }
             }
         }
@@ -454,10 +457,7 @@ fn build_resource_details(
                 hasher::hash_file(std::path::Path::new(path)).ok()
             };
             if let Some(h) = hash {
-                details.insert(
-                    "content_hash".to_string(),
-                    serde_yaml_ng::Value::String(h),
-                );
+                details.insert("content_hash".to_string(), serde_yaml_ng::Value::String(h));
             }
         }
     }

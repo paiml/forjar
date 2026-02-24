@@ -32,7 +32,7 @@ forjar.yaml
      │
      ▼
 ┌─────────┐
-│ executor │  Run scripts via local bash or SSH
+│ executor │  Run scripts via local bash, SSH, or container exec
 └────┬─────┘
      │
      ▼
@@ -66,9 +66,10 @@ src/
     service.rs           systemd service management
     mount.rs             NFS/bind mount management
   transport/
-    mod.rs               Transport dispatch (local vs SSH)
+    mod.rs               Transport dispatch (container > local > SSH)
     local.rs             Local bash execution
     ssh.rs               SSH execution (stdin pipe, no libssh2)
+    container.rs         Container execution (docker/podman exec -i)
   tripwire/
     hasher.rs            BLAKE3 file/directory/string hashing
     drift.rs             Drift detection (hash comparison)
@@ -113,6 +114,16 @@ No API calls needed. Just local hash comparison.
 
 ## Transport
 
+All three transports share the same mechanism: pipe a shell script to bash stdin, capture stdout/stderr/exit_code. Transport selection is automatic based on machine configuration.
+
+### Selection Priority
+
+| Priority | Condition | Transport |
+|----------|-----------|-----------|
+| 1 | `transport: container` or `addr: container` | Container exec |
+| 2 | `addr: 127.0.0.1` or `addr: localhost` | Local bash |
+| 3 | Any other address | SSH |
+
 ### Local Execution
 
 For machines with `addr: 127.0.0.1` or `addr: localhost`:
@@ -123,12 +134,25 @@ bash <<< "generated script piped to stdin"
 
 ### SSH Execution
 
-For all other addresses:
+For remote machines:
 
 ```
 ssh -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new \
     [-i key_path] user@addr bash <<< "script piped to stdin"
 ```
+
+### Container Execution
+
+For container machines (`transport: container`):
+
+```
+docker exec -i <container-name> bash <<< "script piped to stdin"
+```
+
+The executor manages container lifecycle automatically:
+1. `ensure_container` — inspect, create if needed (`docker run -d --name <name> --init <image> sleep infinity`)
+2. `exec_container` — pipe script to `docker exec -i <name> bash`
+3. `cleanup_container` — `docker rm -f <name>` (ephemeral mode only, runs even on failure)
 
 Scripts are piped to `stdin` (not passed as arguments) to avoid:
 - Argument length limits

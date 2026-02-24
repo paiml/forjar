@@ -53,6 +53,36 @@ machines:
     addr: 127.0.0.1
 ```
 
+### Container Machine
+
+Use `transport: container` to execute inside a Docker or Podman container:
+
+```yaml
+machines:
+  test-box:
+    hostname: test-box
+    addr: container
+    transport: container
+    container:
+      runtime: docker       # docker | podman (default: docker)
+      image: ubuntu:22.04   # Required for ephemeral containers
+      name: forjar-test     # Auto-generated from key if omitted
+      ephemeral: true       # Destroy after apply (default: true)
+      privileged: false     # --privileged flag (default: false)
+      init: true            # --init for PID 1 reaping (default: true)
+```
+
+Container transport uses the same stdin-pipe mechanism as local and SSH (`docker exec -i <name> bash`). The container lifecycle is managed automatically:
+
+1. **ensure** — create and start the container if not already running
+2. **exec** — pipe generated scripts to bash inside the container
+3. **cleanup** — remove the container after apply (ephemeral mode only)
+
+Container machines are useful for:
+- Local dogfooding and development without polluting the host
+- CI integration testing of package, service, and mount resources
+- Isolated environments that can be recreated on every run
+
 ## Resources
 
 Resources declare the desired state of infrastructure components. Each resource has a unique ID and a `type`.
