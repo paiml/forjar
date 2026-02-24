@@ -156,6 +156,23 @@ forjar graph -f <FILE> [--format mermaid|dot]
 
 Mermaid output can be pasted into GitHub markdown or rendered with mermaid-cli. DOT output is compatible with Graphviz.
 
+### `forjar destroy`
+
+Remove all managed resources (reverse teardown).
+
+```bash
+forjar destroy -f <FILE> [-m MACHINE] [--yes] [--state-dir DIR]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-f, --file` | `forjar.yaml` | Config file path |
+| `-m, --machine` | all | Filter to specific machine |
+| `--yes` | false | **Required** — confirm destructive operation |
+| `--state-dir` | `state` | Directory for lock files |
+
+Resources are removed in reverse topological order (dependents first). On success, state lock files are cleaned up. Requires `--yes` flag as a safety gate.
+
 ## Exit Codes
 
 | Code | Meaning |

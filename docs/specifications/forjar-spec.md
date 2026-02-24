@@ -1171,7 +1171,7 @@ Options:
 | Ticket | Description | Status |
 |--------|-------------|--------|
 | FJ-060 | `forjar graph` — Mermaid/DOT visualization | **Done** |
-| FJ-061 | `forjar destroy` — teardown all resources | |
+| FJ-061 | `forjar destroy` — teardown all resources | **Done** |
 | FJ-062 | Secrets management (encrypted at rest in git) |
 | FJ-063 | MCP integration via paiml-mcp-agent-toolkit |
 | FJ-064 | Cross-architecture support (x86_64 ↔ aarch64) |
