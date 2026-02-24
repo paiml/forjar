@@ -552,11 +552,12 @@ fn cmd_drift(
                 println!("Checking {} ({} resources)...", name, lock.resources.len());
             }
 
-            // Use transport-aware drift for container machines
+            // Use full drift detection when config is available (checks all resource types)
             let machine = config.as_ref().and_then(|c| c.machines.get(&name));
-            let findings = match machine {
-                Some(m) => drift::detect_drift_with_machine(&lock, m),
-                None => drift::detect_drift(&lock),
+            let findings = match (machine, config.as_ref()) {
+                (Some(m), Some(cfg)) => drift::detect_drift_full(&lock, m, &cfg.resources),
+                (Some(m), None) => drift::detect_drift_with_machine(&lock, m),
+                _ => drift::detect_drift(&lock),
             };
 
             if findings.is_empty() {
@@ -1147,7 +1148,19 @@ resources:
 "#,
         )
         .unwrap();
-        cmd_apply(&config, &state, None, None, false, true, false, &[], false, false).unwrap();
+        cmd_apply(
+            &config,
+            &state,
+            None,
+            None,
+            false,
+            true,
+            false,
+            &[],
+            false,
+            false,
+        )
+        .unwrap();
     }
 
     #[test]
@@ -1177,7 +1190,19 @@ policy:
 "#,
         )
         .unwrap();
-        cmd_apply(&config, &state, None, None, false, false, false, &[], false, false).unwrap();
+        cmd_apply(
+            &config,
+            &state,
+            None,
+            None,
+            false,
+            false,
+            false,
+            &[],
+            false,
+            false,
+        )
+        .unwrap();
 
         // Verify file was created
         assert!(std::path::Path::new("/tmp/forjar-cli-apply-test.txt").exists());
@@ -1204,7 +1229,18 @@ resources: {}
 "#,
         )
         .unwrap();
-        let result = cmd_apply(&config, &state, None, None, false, false, false, &[], false, false);
+        let result = cmd_apply(
+            &config,
+            &state,
+            None,
+            None,
+            false,
+            false,
+            false,
+            &[],
+            false,
+            false,
+        );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("validation"));
     }
@@ -1661,11 +1697,35 @@ resources:
         )
         .unwrap();
 
-        cmd_apply(&config, &state, None, None, false, false, false, &[], false, false).unwrap();
+        cmd_apply(
+            &config,
+            &state,
+            None,
+            None,
+            false,
+            false,
+            false,
+            &[],
+            false,
+            false,
+        )
+        .unwrap();
         assert!(target.exists());
 
         // Second apply — should be unchanged (NoOp)
-        cmd_apply(&config, &state, None, None, false, false, false, &[], false, false).unwrap();
+        cmd_apply(
+            &config,
+            &state,
+            None,
+            None,
+            false,
+            false,
+            false,
+            &[],
+            false,
+            false,
+        )
+        .unwrap();
     }
 
     #[test]
@@ -2143,7 +2203,19 @@ resources:
         .unwrap();
 
         // First, apply so the file exists and state is saved
-        cmd_apply(&config, &state, None, None, false, false, false, &[], false, false).unwrap();
+        cmd_apply(
+            &config,
+            &state,
+            None,
+            None,
+            false,
+            false,
+            false,
+            &[],
+            false,
+            false,
+        )
+        .unwrap();
         assert!(target.exists());
         assert!(state.join("local").join("state.lock.yaml").exists());
 
@@ -2187,7 +2259,19 @@ resources:
         )
         .unwrap();
 
-        cmd_apply(&config, &state, None, None, false, false, false, &[], false, false).unwrap();
+        cmd_apply(
+            &config,
+            &state,
+            None,
+            None,
+            false,
+            false,
+            false,
+            &[],
+            false,
+            false,
+        )
+        .unwrap();
         cmd_destroy(&config, &state, None, true, true).unwrap();
         assert!(!target.exists());
     }
@@ -2232,7 +2316,19 @@ resources:
         )
         .unwrap();
 
-        cmd_apply(&config, &state, None, None, false, false, false, &[], false, false).unwrap();
+        cmd_apply(
+            &config,
+            &state,
+            None,
+            None,
+            false,
+            false,
+            false,
+            &[],
+            false,
+            false,
+        )
+        .unwrap();
         assert!(target_a.exists());
         assert!(target_b.exists());
 
@@ -2272,7 +2368,19 @@ resources:
         )
         .unwrap();
 
-        cmd_apply(&config, &state, None, None, false, false, false, &[], false, false).unwrap();
+        cmd_apply(
+            &config,
+            &state,
+            None,
+            None,
+            false,
+            false,
+            false,
+            &[],
+            false,
+            false,
+        )
+        .unwrap();
         dispatch(
             Commands::Destroy {
                 file: config,
@@ -2347,7 +2455,19 @@ resources:
         .unwrap();
 
         // auto_commit=true (second to last arg)
-        cmd_apply(&config, &state, None, None, false, false, false, &[], true, false).unwrap();
+        cmd_apply(
+            &config,
+            &state,
+            None,
+            None,
+            false,
+            false,
+            false,
+            &[],
+            true,
+            false,
+        )
+        .unwrap();
         assert!(target.exists());
 
         // Verify git committed the state

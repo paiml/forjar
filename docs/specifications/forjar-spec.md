@@ -1124,7 +1124,7 @@ Options:
 | FJ-013 | `core/state.rs` — lock file management | M |
 | FJ-014 | `tripwire/hasher.rs` — BLAKE3 state hashing | S |
 | FJ-015 | `tripwire/eventlog.rs` — JSONL event log | S |
-| FJ-016 | `tripwire/drift.rs` — drift detection | M |
+| FJ-016 | `tripwire/drift.rs` — drift detection (file + non-file via state_query_script) | M |
 | FJ-017 | `cli/` — all subcommands | M |
 | FJ-018 | Integration test: lambda + intel NFS setup | M |
 | FJ-019 | `core/recipe.rs` — recipe loading, input validation, expansion | M |

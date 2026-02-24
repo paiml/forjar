@@ -1,6 +1,6 @@
 //! FJ-016: Drift detection — compare live state to lock hashes.
 
-use crate::core::types::{Machine, ResourceStatus, ResourceType, StateLock};
+use crate::core::types::{Machine, Resource, ResourceStatus, ResourceType, StateLock};
 use crate::tripwire::hasher;
 use std::path::Path;
 
@@ -113,6 +113,81 @@ pub fn detect_drift(lock: &StateLock) -> Vec<DriftFinding> {
 /// Check all file-type resources in a lock for drift, using transport for remote/container machines.
 pub fn detect_drift_with_machine(lock: &StateLock, machine: &Machine) -> Vec<DriftFinding> {
     detect_drift_impl(lock, Some(machine))
+}
+
+/// Full drift detection: files via hash comparison, non-file resources via state_query_script.
+/// Requires the config resources to reconstruct state query scripts.
+pub fn detect_drift_full(
+    lock: &StateLock,
+    machine: &Machine,
+    resources: &indexmap::IndexMap<String, Resource>,
+) -> Vec<DriftFinding> {
+    let mut findings = detect_drift_impl(lock, Some(machine));
+
+    // Check non-file resources by re-running state_query_script and comparing live_hash
+    for (id, rl) in &lock.resources {
+        if rl.status != ResourceStatus::Converged {
+            continue;
+        }
+        if rl.resource_type == ResourceType::File {
+            continue; // already handled by detect_drift_impl
+        }
+
+        let stored_live_hash = match rl.details.get("live_hash") {
+            Some(serde_yaml_ng::Value::String(s)) => s.as_str(),
+            _ => continue, // no live_hash to compare against
+        };
+
+        // Look up the resource config to build a state query script
+        let resource = match resources.get(id) {
+            Some(r) => r,
+            None => continue,
+        };
+
+        let query = match crate::core::codegen::state_query_script(resource) {
+            Ok(q) => q,
+            Err(_) => continue,
+        };
+
+        let actual_hash = match crate::transport::exec_script(machine, &query) {
+            Ok(out) if out.success() => hasher::hash_string(&out.stdout),
+            Ok(out) => {
+                findings.push(DriftFinding {
+                    resource_id: id.clone(),
+                    resource_type: rl.resource_type.clone(),
+                    expected_hash: stored_live_hash.to_string(),
+                    actual_hash: "ERROR".to_string(),
+                    detail: format!(
+                        "state query failed: {}",
+                        out.stderr.trim()
+                    ),
+                });
+                continue;
+            }
+            Err(e) => {
+                findings.push(DriftFinding {
+                    resource_id: id.clone(),
+                    resource_type: rl.resource_type.clone(),
+                    expected_hash: stored_live_hash.to_string(),
+                    actual_hash: "ERROR".to_string(),
+                    detail: format!("transport error: {}", e),
+                });
+                continue;
+            }
+        };
+
+        if actual_hash != stored_live_hash {
+            findings.push(DriftFinding {
+                resource_id: id.clone(),
+                resource_type: rl.resource_type.clone(),
+                expected_hash: stored_live_hash.to_string(),
+                actual_hash,
+                detail: format!("{} state changed", rl.resource_type),
+            });
+        }
+    }
+
+    findings
 }
 
 fn detect_drift_impl(lock: &StateLock, machine: Option<&Machine>) -> Vec<DriftFinding> {
@@ -494,5 +569,142 @@ mod tests {
         std::fs::write(subdir.join("new.txt"), "surprise").unwrap();
         let result = check_file_drift("dir-resource", subdir.to_str().unwrap(), &hash);
         assert!(result.is_some());
+    }
+
+    #[test]
+    fn test_fj016_full_drift_skips_non_file_without_live_hash() {
+        // Non-file resource without live_hash should be skipped by detect_drift_full
+        let mut resources = indexmap::IndexMap::new();
+        resources.insert(
+            "my-pkg".to_string(),
+            crate::core::types::ResourceLock {
+                resource_type: ResourceType::Package,
+                status: ResourceStatus::Converged,
+                applied_at: None,
+                duration_seconds: None,
+                hash: "blake3:abc".to_string(),
+                details: std::collections::HashMap::new(), // no live_hash
+            },
+        );
+        let lock = StateLock {
+            schema: "1.0".to_string(),
+            machine: "test".to_string(),
+            hostname: "test-box".to_string(),
+            generated_at: "2026-01-01T00:00:00Z".to_string(),
+            generator: "forjar 0.1.0".to_string(),
+            blake3_version: "1.8".to_string(),
+            resources,
+        };
+
+        // Local machine (127.0.0.1) — no real transport needed since there's no live_hash
+        let machine = Machine {
+            hostname: "test-box".to_string(),
+            addr: "127.0.0.1".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: None,
+            container: None,
+        };
+
+        let config_resources = indexmap::IndexMap::new();
+        let findings = detect_drift_full(&lock, &machine, &config_resources);
+        assert!(
+            findings.is_empty(),
+            "non-file resources without live_hash should be skipped"
+        );
+    }
+
+    #[test]
+    fn test_fj016_full_drift_skips_non_converged() {
+        // Non-converged resources should be skipped regardless of type
+        let mut resources = indexmap::IndexMap::new();
+        let mut details = std::collections::HashMap::new();
+        details.insert(
+            "live_hash".to_string(),
+            serde_yaml_ng::Value::String("blake3:xxx".to_string()),
+        );
+        resources.insert(
+            "failed-pkg".to_string(),
+            crate::core::types::ResourceLock {
+                resource_type: ResourceType::Package,
+                status: ResourceStatus::Failed,
+                applied_at: None,
+                duration_seconds: None,
+                hash: "blake3:abc".to_string(),
+                details,
+            },
+        );
+        let lock = StateLock {
+            schema: "1.0".to_string(),
+            machine: "test".to_string(),
+            hostname: "test-box".to_string(),
+            generated_at: "2026-01-01T00:00:00Z".to_string(),
+            generator: "forjar 0.1.0".to_string(),
+            blake3_version: "1.8".to_string(),
+            resources,
+        };
+        let machine = Machine {
+            hostname: "test-box".to_string(),
+            addr: "127.0.0.1".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: None,
+            container: None,
+        };
+        let config_resources = indexmap::IndexMap::new();
+        let findings = detect_drift_full(&lock, &machine, &config_resources);
+        assert!(findings.is_empty(), "failed resources should be skipped");
+    }
+
+    #[test]
+    fn test_fj016_full_drift_skips_missing_resource_config() {
+        // Resource with live_hash but not in config should be skipped
+        let mut resources = indexmap::IndexMap::new();
+        let mut details = std::collections::HashMap::new();
+        details.insert(
+            "live_hash".to_string(),
+            serde_yaml_ng::Value::String("blake3:xxx".to_string()),
+        );
+        resources.insert(
+            "orphan-pkg".to_string(),
+            crate::core::types::ResourceLock {
+                resource_type: ResourceType::Package,
+                status: ResourceStatus::Converged,
+                applied_at: None,
+                duration_seconds: None,
+                hash: "blake3:abc".to_string(),
+                details,
+            },
+        );
+        let lock = StateLock {
+            schema: "1.0".to_string(),
+            machine: "test".to_string(),
+            hostname: "test-box".to_string(),
+            generated_at: "2026-01-01T00:00:00Z".to_string(),
+            generator: "forjar 0.1.0".to_string(),
+            blake3_version: "1.8".to_string(),
+            resources,
+        };
+        let machine = Machine {
+            hostname: "test-box".to_string(),
+            addr: "127.0.0.1".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: None,
+            container: None,
+        };
+        // Empty config — resource not found
+        let config_resources = indexmap::IndexMap::new();
+        let findings = detect_drift_full(&lock, &machine, &config_resources);
+        assert!(
+            findings.is_empty(),
+            "resources not in config should be skipped"
+        );
     }
 }

@@ -111,6 +111,10 @@ forjar drift -f <FILE> [-m MACHINE] [--state-dir DIR] [--tripwire] [--alert-cmd 
 | `--alert-cmd` | — | Run command on drift detection (sets `$FORJAR_DRIFT_COUNT`) |
 | `--json` | false | Output drift report as JSON |
 
+Drift detection covers **all resource types**:
+- **File** resources: BLAKE3 hash of file content on disk vs lock
+- **Non-file** resources (package, service, mount, user, cron, docker, network): re-runs the resource's `state_query_script` via transport and compares the BLAKE3 hash of the output against the `live_hash` stored at apply time
+
 JSON mode outputs `{ "drift_count": N, "findings": [...] }` with machine, resource, expected/actual hash for each finding.
 
 ### `forjar status`
