@@ -1037,7 +1037,7 @@ Commands:
   status      Show current state from lock files
   destroy     Remove all managed resources (Phase 5)
   history     Show apply history from event logs
-  graph       Show resource dependency graph (Phase 5)
+  graph       Show resource dependency graph (Mermaid or DOT)
 ```
 
 ### 7.2 Global Options
@@ -1168,10 +1168,10 @@ Options:
 
 ### Phase 5: Polish (v0.5)
 
-| Ticket | Description |
-|--------|-------------|
-| FJ-060 | `forjar graph` — Mermaid/DOT visualization |
-| FJ-061 | `forjar destroy` — teardown all resources |
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-060 | `forjar graph` — Mermaid/DOT visualization | **Done** |
+| FJ-061 | `forjar destroy` — teardown all resources | |
 | FJ-062 | Secrets management (encrypted at rest in git) |
 | FJ-063 | MCP integration via paiml-mcp-agent-toolkit |
 | FJ-064 | Cross-architecture support (x86_64 ↔ aarch64) |

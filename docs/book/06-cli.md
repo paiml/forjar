@@ -141,6 +141,21 @@ forjar history [--state-dir DIR] [-m MACHINE] [-n LIMIT] [--json]
 
 Reads `state/{machine}/events.jsonl` and displays apply start/complete events in reverse chronological order.
 
+### `forjar graph`
+
+Show resource dependency graph.
+
+```bash
+forjar graph -f <FILE> [--format mermaid|dot]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-f, --file` | `forjar.yaml` | Config file path |
+| `--format` | `mermaid` | Output format: `mermaid` or `dot` |
+
+Mermaid output can be pasted into GitHub markdown or rendered with mermaid-cli. DOT output is compatible with Graphviz.
+
 ## Exit Codes
 
 | Code | Meaning |
