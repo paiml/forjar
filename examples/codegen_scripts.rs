@@ -94,6 +94,48 @@ fn main() {
     println!("-- Apply script --");
     println!("{}", codegen::apply_script(&file).unwrap());
 
+    println!("\n=== File Resource (source transfer) ===\n");
+    let source_file = Resource {
+        resource_type: ResourceType::File,
+        machine: MachineTarget::Single("local".to_string()),
+        state: None,
+        depends_on: vec![],
+        provider: None,
+        packages: vec![],
+        path: Some("/opt/app/entrypoint.sh".to_string()),
+        content: None,
+        source: Some("examples/files/app-entrypoint.sh".to_string()),
+        target: None,
+        owner: Some("app".to_string()),
+        group: None,
+        mode: Some("0755".to_string()),
+        name: None,
+        enabled: None,
+        restart_on: vec![],
+        fs_type: None,
+        options: None,
+        uid: None,
+        shell: None,
+        home: None,
+        groups: vec![],
+        ssh_authorized_keys: vec![],
+        system_user: false,
+        schedule: None,
+        command: None,
+        image: None,
+        ports: vec![],
+        environment: vec![],
+        volumes: vec![],
+        restart: None,
+        protocol: None,
+        port: None,
+        action: None,
+        from_addr: None,
+    };
+
+    println!("-- Apply script (base64 transfer) --");
+    println!("{}", codegen::apply_script(&source_file).unwrap());
+
     println!("\n=== Service Resource ===\n");
     let svc = Resource {
         resource_type: ResourceType::Service,

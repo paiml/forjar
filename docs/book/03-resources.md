@@ -45,6 +45,25 @@ resources:
 
 Content is written via heredoc (`<<'FORJAR_EOF'`) — shell variable expansion is prevented.
 
+### Source File Transfer
+
+Instead of inline content, use `source` to transfer a local file:
+
+```yaml
+resources:
+  entrypoint:
+    type: file
+    machine: m1
+    path: /opt/app/entrypoint.sh
+    source: scripts/entrypoint.sh    # local path, read at apply time
+    owner: app
+    mode: "0755"
+```
+
+The file is base64-encoded locally and decoded on the remote machine via `base64 -d`. This works with all transports (local, SSH, container) and handles binary files safely.
+
+`content` and `source` are mutually exclusive — use one or the other.
+
 ### Directory
 
 ```yaml
@@ -90,7 +109,8 @@ Removes the file or directory with `rm -rf`.
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `path` | string | required | Absolute file path |
-| `content` | string | — | Inline file content |
+| `content` | string | — | Inline file content (mutually exclusive with source) |
+| `source` | string | — | Local file path to transfer (mutually exclusive with content) |
 | `state` | string | `file` | file, directory, symlink, absent |
 | `target` | string | — | Symlink target (state=symlink only) |
 | `owner` | string | — | File owner |

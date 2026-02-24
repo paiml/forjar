@@ -1141,7 +1141,7 @@ Options:
 | FJ-032 | `resources/network.rs` — firewall rules (ufw) | **Done** |
 | FJ-033 | `resources/cron.rs` — scheduled tasks (crontab) | **Done** |
 | FJ-034 | Parallel multi-machine apply via `std::thread::scope` | **Done** |
-| FJ-035 | `copia` delta sync for large file transfers | |
+| FJ-035 | Source file transfer via base64 transport | **Done** |
 | FJ-036 | bashrs integration — full shell purification pipeline | |
 
 > **Note**: FJ-030 (`resources/docker.rs`) manages containers *as resources* (deploying containers on machines). This is distinct from FJ-021 which uses containers *as transport targets* (running forjar scripts inside containers).
