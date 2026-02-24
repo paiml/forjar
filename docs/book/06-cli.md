@@ -3,8 +3,16 @@
 ## Global Usage
 
 ```
-forjar <COMMAND> [OPTIONS]
+forjar [OPTIONS] <COMMAND>
 ```
+
+### Global Options
+
+| Flag | Description |
+|------|-------------|
+| `-v, --verbose` | Enable verbose output (diagnostic info to stderr) |
+| `-h, --help` | Print help |
+| `-V, --version` | Print version |
 
 ## Commands
 
@@ -47,7 +55,7 @@ Checks:
 Show execution plan (what would change).
 
 ```bash
-forjar plan -f <FILE> [-m MACHINE] [-r RESOURCE] [--state-dir DIR]
+forjar plan -f <FILE> [-m MACHINE] [-r RESOURCE] [--state-dir DIR] [--json]
 ```
 
 | Flag | Default | Description |
@@ -56,12 +64,15 @@ forjar plan -f <FILE> [-m MACHINE] [-r RESOURCE] [--state-dir DIR]
 | `-m, --machine` | all | Filter to specific machine |
 | `-r, --resource` | all | Filter to specific resource |
 | `--state-dir` | `state` | Directory for lock files |
+| `--json` | false | Output plan as JSON |
 
-Output symbols:
+Output symbols (text mode):
 - `+` Create (new resource)
 - `~` Update (state changed)
 - `-` Destroy (state=absent)
 - ` ` No-op (unchanged)
+
+JSON mode outputs the full `ExecutionPlan` with changes, actions, and summary counts.
 
 ### `forjar apply`
 
@@ -85,7 +96,7 @@ forjar apply -f <FILE> [-m MACHINE] [-r RESOURCE] [--force] [--dry-run] [--state
 Detect unauthorized changes (tripwire).
 
 ```bash
-forjar drift -f <FILE> [-m MACHINE] [--state-dir DIR] [--tripwire]
+forjar drift -f <FILE> [-m MACHINE] [--state-dir DIR] [--tripwire] [--json]
 ```
 
 | Flag | Default | Description |
@@ -94,6 +105,9 @@ forjar drift -f <FILE> [-m MACHINE] [--state-dir DIR] [--tripwire]
 | `-m, --machine` | all | Filter to specific machine |
 | `--state-dir` | `state` | Directory for lock files |
 | `--tripwire` | false | Exit non-zero on any drift (for CI/cron) |
+| `--json` | false | Output drift report as JSON |
+
+JSON mode outputs `{ "drift_count": N, "findings": [...] }` with machine, resource, expected/actual hash for each finding.
 
 ### `forjar status`
 
@@ -107,6 +121,23 @@ forjar status [--state-dir DIR] [-m MACHINE]
 |------|---------|-------------|
 | `--state-dir` | `state` | Directory for lock files |
 | `-m, --machine` | all | Filter to specific machine |
+
+### `forjar history`
+
+Show apply history from event logs.
+
+```bash
+forjar history [--state-dir DIR] [-m MACHINE] [-n LIMIT] [--json]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--state-dir` | `state` | Directory for lock files |
+| `-m, --machine` | all | Filter to specific machine |
+| `-n, --limit` | `10` | Show last N apply events |
+| `--json` | false | Output as JSON |
+
+Reads `state/{machine}/events.jsonl` and displays apply start/complete events in reverse chronological order.
 
 ## Exit Codes
 

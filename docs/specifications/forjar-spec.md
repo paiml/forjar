@@ -1036,7 +1036,7 @@ Commands:
   drift       Detect unauthorized changes (tripwire)
   status      Show current state from lock files
   destroy     Remove all managed resources (Phase 5)
-  history     Show apply history from event logs (Phase 5)
+  history     Show apply history from event logs
   graph       Show resource dependency graph (Phase 5)
 ```
 
@@ -1046,7 +1046,7 @@ Commands:
 -f, --file <PATH>       Path to forjar.yaml (default: ./forjar.yaml)
 -m, --machine <NAME>    Target specific machine
 --state-dir <PATH>      State directory (default: ./state)
--v, --verbose           Enable verbose output (Phase 2)
+-v, --verbose           Enable verbose output
 --no-color              Disable colored output (Phase 2)
 ```
 
@@ -1085,7 +1085,7 @@ Options:
   -m, --machine <NAME>       Check specific machine only
   --tripwire                 Exit non-zero on any drift (for cron/CI)
   --alert-cmd <CMD>          Run command on drift detection (Phase 2)
-  --json                     Output drift report as JSON (Phase 2)
+  --json                     Output drift report as JSON
 ```
 
 ### 7.6 `forjar history`
