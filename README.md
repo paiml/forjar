@@ -110,7 +110,7 @@ policy:
 
 | Type | States | Key Fields |
 |------|--------|------------|
-| `package` | present, absent | `provider` (apt/cargo/pip), `packages` |
+| `package` | present, absent | `provider` (apt/cargo/uv), `packages` |
 | `file` | file, directory, symlink, absent | `path`, `content`, `owner`, `group`, `mode` |
 | `service` | running, stopped, enabled, disabled | `name`, `enabled`, `restart_on` |
 | `mount` | mounted, unmounted, absent | `path`, `target`, `fstype`, `options` |
@@ -232,7 +232,7 @@ Tests: `test_fj012_apply_local_file`
 ## Testing
 
 ```bash
-cargo test                    # 126+ unit tests
+cargo test                    # 254 unit tests
 cargo test -- --nocapture     # with output
 cargo test planner            # specific module
 cargo bench                   # Criterion benchmarks
