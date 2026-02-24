@@ -11,6 +11,7 @@ forjar [OPTIONS] <COMMAND>
 | Flag | Description |
 |------|-------------|
 | `-v, --verbose` | Enable verbose output (diagnostic info to stderr) |
+| `--no-color` | Disable colored output (also honors `NO_COLOR` env) |
 | `-h, --help` | Print help |
 | `-V, --version` | Print version |
 
