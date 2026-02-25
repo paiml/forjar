@@ -1299,7 +1299,7 @@ Statistical anomaly detection from event history. Analyzes per-resource metrics:
 | FJ-041 | pepita cgroup management (memory, CPU, GPU) — cgroups v2 memory.max + cpuset.cpus in FJ-040 | **Done** |
 | FJ-042 | Overlay filesystem via pepita — overlayfs mount/unmount in FJ-040 | **Done** |
 | FJ-043 | Network namespace isolation — ip netns add/del in FJ-040 | **Done** |
-| FJ-044 | Migration path: Docker → pepita |
+| FJ-044 | Migration path: Docker → pepita — `forjar migrate` CLI, `core/migrate.rs` docker_to_pepita() conversion, 16 tests | **Done** |
 
 ### Phase 4: Intelligence (v0.4)
 
