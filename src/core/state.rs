@@ -350,4 +350,80 @@ mod tests {
         let p = global_lock_path(Path::new("/state"));
         assert_eq!(p, PathBuf::from("/state/forjar.lock.yaml"));
     }
+
+    #[test]
+    fn test_fj013_update_global_lock_idempotent() {
+        // Calling update_global_lock twice should overwrite, not duplicate
+        let dir = tempfile::tempdir().unwrap();
+        let results1 = vec![("web".to_string(), 3_usize, 2_usize, 1_usize)];
+        update_global_lock(dir.path(), "infra", &results1).unwrap();
+
+        let results2 = vec![("web".to_string(), 3_usize, 3_usize, 0_usize)];
+        update_global_lock(dir.path(), "infra", &results2).unwrap();
+
+        let loaded = load_global_lock(dir.path()).unwrap().unwrap();
+        assert_eq!(loaded.machines.len(), 1);
+        assert_eq!(loaded.machines["web"].converged, 3);
+        assert_eq!(loaded.machines["web"].failed, 0);
+    }
+
+    #[test]
+    fn test_fj013_update_global_lock_adds_new_machines() {
+        let dir = tempfile::tempdir().unwrap();
+        let results1 = vec![("web".to_string(), 3_usize, 3_usize, 0_usize)];
+        update_global_lock(dir.path(), "infra", &results1).unwrap();
+
+        let results2 = vec![("db".to_string(), 5_usize, 5_usize, 0_usize)];
+        update_global_lock(dir.path(), "infra", &results2).unwrap();
+
+        let loaded = load_global_lock(dir.path()).unwrap().unwrap();
+        assert_eq!(loaded.machines.len(), 2);
+        assert!(loaded.machines.contains_key("web"));
+        assert!(loaded.machines.contains_key("db"));
+    }
+
+    #[test]
+    fn test_fj013_save_lock_overwrite() {
+        let dir = tempfile::tempdir().unwrap();
+        let lock1 = make_lock();
+        save_lock(dir.path(), &lock1).unwrap();
+
+        let mut lock2 = make_lock();
+        lock2.resources.clear();
+        save_lock(dir.path(), &lock2).unwrap();
+
+        let loaded = load_lock(dir.path(), "test").unwrap().unwrap();
+        assert!(
+            loaded.resources.is_empty(),
+            "overwrite should replace all resources"
+        );
+    }
+
+    #[test]
+    fn test_fj013_new_lock_version() {
+        let lock = new_lock("m", "h");
+        assert_eq!(lock.schema, "1.0");
+        assert_eq!(lock.blake3_version, "1.8");
+        assert!(lock.generator.starts_with("forjar "));
+    }
+
+    #[test]
+    fn test_fj013_global_lock_corrupted() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("forjar.lock.yaml"), "{{broken yaml").unwrap();
+        let result = load_global_lock(dir.path());
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("invalid global lock"));
+    }
+
+    #[test]
+    fn test_fj013_global_lock_atomic_no_temp() {
+        let dir = tempfile::tempdir().unwrap();
+        let lock = new_global_lock("test");
+        save_global_lock(dir.path(), &lock).unwrap();
+
+        let tmp = dir.path().join("forjar.lock.yaml.tmp");
+        assert!(!tmp.exists(), "temp file must be cleaned up");
+        assert!(global_lock_path(dir.path()).exists());
+    }
 }
