@@ -555,4 +555,61 @@ mod tests {
     fn test_fj132_is_local_addr_empty_string() {
         assert!(!is_local_addr(""));
     }
+
+    // ── FJ-036: Transport script execution coverage ─────────────────
+
+    #[test]
+    fn test_fj036_local_script_echo() {
+        let machine = Machine {
+            hostname: "local".to_string(),
+            addr: "127.0.0.1".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: None,
+            container: None,
+            cost: 0,
+        };
+        let out = exec_script(&machine, "echo 'hello from forjar'").unwrap();
+        assert!(out.success());
+        assert_eq!(out.exit_code, 0);
+        assert_eq!(out.stdout.trim(), "hello from forjar");
+        assert!(out.stderr.is_empty() || out.stderr.trim().is_empty());
+    }
+
+    #[test]
+    fn test_fj036_local_script_exit_code() {
+        let machine = Machine {
+            hostname: "local".to_string(),
+            addr: "127.0.0.1".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: None,
+            container: None,
+            cost: 0,
+        };
+        let out = exec_script(&machine, "exit 1").unwrap();
+        assert!(!out.success());
+        assert_eq!(out.exit_code, 1);
+    }
+
+    #[test]
+    fn test_fj036_is_local_addr_comprehensive() {
+        // All standard local address variants
+        assert!(is_local_addr("127.0.0.1"), "IPv4 loopback must be local");
+        assert!(is_local_addr("localhost"), "localhost must be local");
+        assert!(is_local_addr("::1"), "IPv6 loopback must be local");
+
+        // Non-local addresses must return false
+        assert!(!is_local_addr("0.0.0.0"), "0.0.0.0 is not treated as local");
+        assert!(!is_local_addr("192.168.1.1"), "private IP must not be local");
+        assert!(!is_local_addr("10.0.0.1"), "10.x must not be local");
+        assert!(!is_local_addr("8.8.8.8"), "public IP must not be local");
+        assert!(!is_local_addr("google.com"), "domain must not be local");
+        assert!(!is_local_addr(""), "empty string must not be local");
+        assert!(!is_local_addr("127.0.0.2"), "127.0.0.2 is not explicitly local");
+    }
 }

@@ -3891,4 +3891,147 @@ resources:
         assert!(machines.contains(&"db".to_string()));
         assert_eq!(machines.len(), 2);
     }
+
+    // ── FJ-036: Dry-run and force-reapply coverage ──────────────────
+
+    #[test]
+    fn test_fj036_dry_run_produces_no_side_effects() {
+        let yaml = r#"
+version: "1.0"
+name: dry-run-test
+machines:
+  local:
+    hostname: localhost
+    addr: 127.0.0.1
+resources:
+  test-file:
+    type: file
+    machine: local
+    path: /tmp/forjar-test-fj036-dry-run.txt
+    content: "should not be created"
+policy:
+  lock_file: true
+  tripwire: true
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let dir = tempfile::tempdir().unwrap();
+
+        // Ensure target file does not exist before
+        let _ = std::fs::remove_file("/tmp/forjar-test-fj036-dry-run.txt");
+
+        let cfg = ApplyConfig {
+            config: &config,
+            state_dir: dir.path(),
+            force: false,
+            dry_run: true,
+            machine_filter: None,
+            resource_filter: None,
+            tag_filter: None,
+            timeout_secs: None,
+        };
+        let results = apply(&cfg).unwrap();
+
+        // Dry run should return exactly one synthetic result
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].machine, "dry-run");
+        assert_eq!(results[0].resources_converged, 0);
+        assert_eq!(results[0].resources_failed, 0);
+
+        // No lock file should have been written for any machine
+        let lock = state::load_lock(dir.path(), "local").unwrap();
+        assert!(lock.is_none(), "dry_run must not create a lock file");
+
+        // Target file must not have been created
+        assert!(
+            !std::path::Path::new("/tmp/forjar-test-fj036-dry-run.txt").exists(),
+            "dry_run must not create the managed file"
+        );
+
+        // No event log should exist
+        let events_path = dir.path().join("local").join("events.jsonl");
+        assert!(
+            !events_path.exists(),
+            "dry_run must not write event logs"
+        );
+    }
+
+    #[test]
+    fn test_fj036_force_reapply_changes_action() {
+        let yaml = r#"
+version: "1.0"
+name: force-test
+machines:
+  local:
+    hostname: localhost
+    addr: 127.0.0.1
+resources:
+  test-file:
+    type: file
+    machine: local
+    path: /tmp/forjar-test-fj036-force.txt
+    content: "force test content"
+policy:
+  lock_file: true
+  tripwire: true
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let dir = tempfile::tempdir().unwrap();
+
+        // First apply — should converge
+        let cfg1 = ApplyConfig {
+            config: &config,
+            state_dir: dir.path(),
+            force: false,
+            dry_run: false,
+            machine_filter: None,
+            resource_filter: None,
+            tag_filter: None,
+            timeout_secs: None,
+        };
+        let r1 = apply(&cfg1).unwrap();
+        assert_eq!(r1[0].resources_converged, 1);
+        assert_eq!(r1[0].resources_unchanged, 0);
+
+        // Second apply without force — should be unchanged (idempotent)
+        let cfg2 = ApplyConfig {
+            config: &config,
+            state_dir: dir.path(),
+            force: false,
+            dry_run: false,
+            machine_filter: None,
+            resource_filter: None,
+            tag_filter: None,
+            timeout_secs: None,
+        };
+        let r2 = apply(&cfg2).unwrap();
+        assert_eq!(r2[0].resources_unchanged, 1);
+        assert_eq!(r2[0].resources_converged, 0);
+
+        // Third apply WITH force — should re-converge even though nothing changed
+        let cfg3 = ApplyConfig {
+            config: &config,
+            state_dir: dir.path(),
+            force: true,
+            dry_run: false,
+            machine_filter: None,
+            resource_filter: None,
+            tag_filter: None,
+            timeout_secs: None,
+        };
+        let r3 = apply(&cfg3).unwrap();
+        assert_eq!(
+            r3[0].resources_converged, 1,
+            "force=true must re-apply even when state matches"
+        );
+        assert_eq!(
+            r3[0].resources_unchanged, 0,
+            "force=true must not skip any resource"
+        );
+
+        // Lock should still be valid after force apply
+        let lock = state::load_lock(dir.path(), "local").unwrap();
+        assert!(lock.is_some(), "lock file must exist after force apply");
+
+        let _ = std::fs::remove_file("/tmp/forjar-test-fj036-force.txt");
+    }
 }
