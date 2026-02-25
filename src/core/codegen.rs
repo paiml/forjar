@@ -663,4 +663,105 @@ mod tests {
             );
         }
     }
+
+    #[test]
+    fn test_fj132_check_script_all_types_succeed() {
+        let resources = [
+            make_package(),
+            make_file(),
+            make_service(),
+            make_mount(),
+            {
+                let mut r = make_package();
+                r.resource_type = ResourceType::User;
+                r.name = Some("testuser".to_string());
+                r
+            },
+            {
+                let mut r = make_package();
+                r.resource_type = ResourceType::Docker;
+                r.name = Some("app".to_string());
+                r.image = Some("nginx".to_string());
+                r
+            },
+            {
+                let mut r = make_package();
+                r.resource_type = ResourceType::Cron;
+                r.name = Some("backup".to_string());
+                r.schedule = Some("0 2 * * *".to_string());
+                r.command = Some("tar czf /backup.tar.gz /data".to_string());
+                r
+            },
+            {
+                let mut r = make_package();
+                r.resource_type = ResourceType::Network;
+                r.port = Some("443".to_string());
+                r
+            },
+        ];
+        for r in &resources {
+            let result = check_script(r);
+            assert!(
+                result.is_ok(),
+                "check_script for {:?} should succeed: {:?}",
+                r.resource_type,
+                result.err()
+            );
+        }
+    }
+
+    #[test]
+    fn test_fj132_state_query_all_types_succeed() {
+        let resources = [
+            make_package(),
+            make_file(),
+            make_service(),
+            make_mount(),
+            {
+                let mut r = make_package();
+                r.resource_type = ResourceType::User;
+                r.name = Some("u".to_string());
+                r
+            },
+            {
+                let mut r = make_package();
+                r.resource_type = ResourceType::Docker;
+                r.name = Some("c".to_string());
+                r.image = Some("img".to_string());
+                r
+            },
+            {
+                let mut r = make_package();
+                r.resource_type = ResourceType::Cron;
+                r.name = Some("j".to_string());
+                r.schedule = Some("* * * * *".to_string());
+                r.command = Some("echo".to_string());
+                r
+            },
+            {
+                let mut r = make_package();
+                r.resource_type = ResourceType::Network;
+                r.port = Some("80".to_string());
+                r
+            },
+        ];
+        for r in &resources {
+            let result = state_query_script(r);
+            assert!(
+                result.is_ok(),
+                "state_query for {:?} should succeed: {:?}",
+                r.resource_type,
+                result.err()
+            );
+        }
+    }
+
+    #[test]
+    fn test_fj132_codegen_pepita_unsupported() {
+        let mut r = make_package();
+        r.resource_type = ResourceType::Pepita;
+        assert!(check_script(&r).is_err());
+        assert!(apply_script(&r).is_err());
+        assert!(state_query_script(&r).is_err());
+    }
 }

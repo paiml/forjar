@@ -691,3 +691,111 @@ Despite YAML's complexity pitfalls, it was chosen because:
 | Nix | Steep learning curve; requires Nix toolchain |
 | TOML | Poor multi-line string support; awkward for nested structures |
 | JSON | No comments; verbose; poor ergonomics for human editing |
+
+## Transport Layer
+
+### Transport Abstraction
+
+All three transports share a single interface:
+
+```rust
+pub fn exec_script(machine: &Machine, script: &str) -> Result<ScriptOutput, String>
+```
+
+The dispatch logic:
+1. **Container** (`transport == "container"`): `docker exec -i <name> bash`
+2. **Local** (`addr == "127.0.0.1"` or `"localhost"`): Direct `bash -c`
+3. **SSH** (everything else): `ssh -o StrictHostKeyChecking=no user@addr bash`
+
+### Script Piping Pattern
+
+Every transport uses the same mechanism — pipe the script to bash's stdin:
+
+```
+echo "#!/bin/bash\nset -euo pipefail\n<script>" | bash
+```
+
+This is critical for:
+- **Security**: No script files left on target machines
+- **Atomicity**: Entire script executes in one process
+- **Cleanup**: No artifacts to remove after execution
+
+### Container Lifecycle
+
+Container transport has an additional lifecycle:
+
+```
+ensure_container() → exec_script() → cleanup_container()
+```
+
+- **Ephemeral** (default): Container created before first resource, destroyed after all resources complete
+- **Attached**: Container must already be running, not destroyed after
+
+### SSH Multiplexing
+
+For multi-resource machines, SSH connections are reused via `ControlMaster`:
+
+```
+ssh -o ControlMaster=auto -o ControlPath=/tmp/forjar-%h -o ControlPersist=60
+```
+
+This avoids the TCP+SSH handshake overhead per resource.
+
+## Concurrency Model
+
+### Sequential by Default
+
+Resources are applied in topological order (from DAG) within each machine. Cross-machine parallelism is supported via the `parallel` policy:
+
+```yaml
+policy:
+  parallel: true       # Apply machines in parallel
+  failure: continue    # Don't stop on first failure
+```
+
+### Error Accumulation
+
+When `failure: continue_independent` is set, forjar collects all errors and reports them together:
+
+```
+✗ web: 2 failed, 3 converged
+  - nginx-conf: permission denied
+  - ssl-cert: file not found
+✓ db: 5 converged
+```
+
+The executor tracks which resources depend on failed ones and skips them transitively.
+
+## Contract System
+
+### Compile-Time Verification
+
+Forjar uses `provable_contracts_macros` to verify bindings at compile time:
+
+```rust
+#[contract("dag-ordering-v1", equation = "topological_sort")]
+pub fn build_execution_order(config: &ForjarConfig) -> Result<Vec<String>, String> { ... }
+```
+
+The `build.rs` script verifies all 13 contract bindings exist and are correctly annotated. This ensures:
+- Critical algorithms (DAG sort, hash computation, script generation) are marked
+- Refactoring doesn't accidentally remove or rename contracted functions
+- CI catches contract violations before deployment
+
+### Current Contracts
+
+| Contract | Equation | Function |
+|----------|----------|----------|
+| dag-ordering-v1 | topological_sort | `build_execution_order` |
+| state-lock-v1 | atomic_update | `update_lock` |
+| hash-desired-v1 | composite_hash | `hash_desired_state` |
+| hash-file-v1 | blake3_file | `hash_file` |
+| codegen-v1 | check_script | `check_script` |
+| codegen-v1 | apply_script | `apply_script` |
+| codegen-v1 | state_query | `state_query_script` |
+| drift-v1 | detect_drift | `detect_drift` |
+| exec-v1 | apply_machine | `apply_machine` |
+| parse-v1 | validate | `validate_config` |
+| transport-v1 | exec_script | `exec_script` |
+| eventlog-v1 | append_event | `append_event` |
+| plan-v1 | plan | `plan` |
