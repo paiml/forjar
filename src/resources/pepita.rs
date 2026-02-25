@@ -80,7 +80,10 @@ fn apply_absent(name: &str, resource: &Resource) -> String {
 
     // Remove network namespace
     if resource.netns {
-        lines.push(format!("ip netns del 'forjar-{}' 2>/dev/null || true", name));
+        lines.push(format!(
+            "ip netns del 'forjar-{}' 2>/dev/null || true",
+            name
+        ));
     }
 
     // Remove cgroup
@@ -117,17 +120,11 @@ fn apply_present(name: &str, resource: &Resource) -> String {
         lines.push(format!("mkdir -p '{}'", cgroup_path));
 
         if let Some(limit) = resource.memory_limit {
-            lines.push(format!(
-                "echo '{}' > '{}/memory.max'",
-                limit, cgroup_path
-            ));
+            lines.push(format!("echo '{}' > '{}/memory.max'", limit, cgroup_path));
         }
 
         if let Some(ref cpuset) = resource.cpuset {
-            lines.push(format!(
-                "echo '{}' > '{}/cpuset.cpus'",
-                cpuset, cgroup_path
-            ));
+            lines.push(format!("echo '{}' > '{}/cpuset.cpus'", cpuset, cgroup_path));
         }
     }
 
@@ -143,7 +140,10 @@ fn apply_present(name: &str, resource: &Resource) -> String {
             .as_deref()
             .unwrap_or("/tmp/forjar-work");
 
-        lines.push(format!("mkdir -p '{}' '{}' '{}' '{}'", lower, upper, work, merged));
+        lines.push(format!(
+            "mkdir -p '{}' '{}' '{}' '{}'",
+            lower, upper, work, merged
+        ));
         lines.push(format!(
             "mount -t overlay overlay -o lowerdir='{}',upperdir='{}',workdir='{}' '{}'",
             lower, upper, work, merged
@@ -154,10 +154,7 @@ fn apply_present(name: &str, resource: &Resource) -> String {
     if resource.netns {
         let ns_name = format!("forjar-{}", name);
         lines.push(format!("ip netns add '{}' 2>/dev/null || true", ns_name));
-        lines.push(format!(
-            "ip netns exec '{}' ip link set lo up",
-            ns_name
-        ));
+        lines.push(format!("ip netns exec '{}' ip link set lo up", ns_name));
     }
 
     // Set up seccomp (informational — actual filtering is at exec time)
@@ -432,7 +429,10 @@ mod tests {
         r.netns = true;
         r.overlay_merged = Some("/m".to_string());
         let script = apply_script(&r);
-        assert!(script.contains("|| true"), "absent teardown must tolerate missing resources");
+        assert!(
+            script.contains("|| true"),
+            "absent teardown must tolerate missing resources"
+        );
     }
 
     #[test]
@@ -543,7 +543,13 @@ mod tests {
         r.state = Some("absent".to_string());
         r.netns = true;
         let script = apply_script(&r);
-        assert!(!script.contains("ip netns add"), "absent must not create namespace");
-        assert!(script.contains("ip netns del"), "absent must delete namespace");
+        assert!(
+            !script.contains("ip netns add"),
+            "absent must not create namespace"
+        );
+        assert!(
+            script.contains("ip netns del"),
+            "absent must delete namespace"
+        );
     }
 }

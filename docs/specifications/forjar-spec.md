@@ -1305,8 +1305,8 @@ Statistical anomaly detection from event history. Analyzes per-resource metrics:
 
 | Ticket | Description |
 |--------|-------------|
-| FJ-050 | `tripwire/tracer.rs` — full renacer syscall tracing |
-| FJ-051 | ML drift anomaly detection via aprender |
+| FJ-050 | `tripwire/tracer.rs` — renacer-compatible trace provenance (TraceSession, TraceSpan, W3C trace/span IDs, Lamport clock, JSONL output) | **Done** |
+| FJ-051 | ML drift anomaly detection — ADWIN adaptive windowing, isolation scoring, EWMA z-score, detect_anomalies() bulk analysis | **Done** |
 | FJ-052 | Cost-aware scheduling — `cost` field on machines, sorted execution order | **Done** |
 | FJ-053 | Auto-remediation (`--auto-remediate` on drift → force re-apply) | **Done** |
 | FJ-054 | Pre/post apply hooks (`policy.pre_apply` / `policy.post_apply`) | **Done** |

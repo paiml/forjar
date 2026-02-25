@@ -67,7 +67,10 @@ impl TraceSession {
     pub fn start(run_id: &str) -> Self {
         // Derive trace ID from run_id (deterministic for reproducibility)
         let trace_id = format!("{:0>32}", format!("{:x}", hash_str(run_id)));
-        let run_span_id = format!("{:0>16}", format!("{:x}", hash_str(&format!("{}-root", run_id))));
+        let run_span_id = format!(
+            "{:0>16}",
+            format!("{:x}", hash_str(&format!("{}-root", run_id)))
+        );
 
         Self {
             trace_id,
@@ -109,7 +112,10 @@ impl TraceSession {
         let clock = self.tick();
         let span_id = format!(
             "{:0>16}",
-            format!("{:x}", hash_str(&format!("{}-{}-{}", self.trace_id, resource_id, clock)))
+            format!(
+                "{:x}",
+                hash_str(&format!("{}-{}-{}", self.trace_id, resource_id, clock))
+            )
         );
 
         let span = TraceSpan {
@@ -181,8 +187,7 @@ impl TraceSession {
 pub fn write_trace(state_dir: &Path, machine: &str, session: &TraceSession) -> Result<(), String> {
     let path = trace_path(state_dir, machine);
     if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)
-            .map_err(|e| format!("cannot create trace dir: {}", e))?;
+        std::fs::create_dir_all(parent).map_err(|e| format!("cannot create trace dir: {}", e))?;
     }
 
     let mut output = String::new();
@@ -333,7 +338,15 @@ mod tests {
     #[test]
     fn test_fj050_finalize_failed_run() {
         let mut session = TraceSession::start("r-test");
-        session.record_span("bad", "package", "m1", "create", Duration::from_secs(1), 1, None);
+        session.record_span(
+            "bad",
+            "package",
+            "m1",
+            "create",
+            Duration::from_secs(1),
+            1,
+            None,
+        );
         let root = session.finalize();
         assert_eq!(root.exit_code, 1, "root should be failed when child failed");
     }
@@ -368,7 +381,15 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let mut session = TraceSession::start("r-test");
         session.record_noop("r1", "file", "m1");
-        session.record_span("r2", "package", "m1", "create", Duration::from_millis(50), 0, None);
+        session.record_span(
+            "r2",
+            "package",
+            "m1",
+            "create",
+            Duration::from_millis(50),
+            0,
+            None,
+        );
 
         write_trace(dir.path(), "m1", &session).unwrap();
 
@@ -434,9 +455,33 @@ mod tests {
     #[test]
     fn test_fj050_multiple_failures() {
         let mut session = TraceSession::start("r-test");
-        session.record_span("ok", "file", "m1", "create", Duration::from_millis(10), 0, None);
-        session.record_span("bad1", "package", "m1", "create", Duration::from_millis(20), 1, None);
-        session.record_span("bad2", "service", "m1", "create", Duration::from_millis(30), 2, None);
+        session.record_span(
+            "ok",
+            "file",
+            "m1",
+            "create",
+            Duration::from_millis(10),
+            0,
+            None,
+        );
+        session.record_span(
+            "bad1",
+            "package",
+            "m1",
+            "create",
+            Duration::from_millis(20),
+            1,
+            None,
+        );
+        session.record_span(
+            "bad2",
+            "service",
+            "m1",
+            "create",
+            Duration::from_millis(30),
+            2,
+            None,
+        );
         let root = session.finalize();
         assert_eq!(root.exit_code, 1);
     }

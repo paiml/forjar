@@ -84,6 +84,8 @@ src/
     hasher.rs            BLAKE3 file/directory/string hashing
     drift.rs             Drift detection (hash comparison)
     eventlog.rs          Append-only JSONL provenance log
+    tracer.rs            Renacer-compatible trace provenance (FJ-050)
+    anomaly.rs           ML-inspired drift anomaly detection (FJ-051)
 ```
 
 ## DAG Resolution
@@ -628,6 +630,96 @@ Forjar generates shell scripts for isolation (matching the architecture of all o
 4. **No runtime dependency** — the pepita crate is not required at apply time
 
 The pepita crate's types (`JailerConfig`, `MicroVm`) inform the resource schema design but aren't linked as a runtime dependency.
+
+## Trace Provenance (FJ-050)
+
+The tracer module (`tripwire/tracer.rs`) generates renacer-compatible trace records during apply execution. Each apply run produces a trace session with W3C-compatible identifiers and causal ordering.
+
+### Trace Structure
+
+```
+TraceSession (one per apply run)
+├── trace_id: 32-char hex (W3C format)
+├── run_span_id: 16-char hex (root span)
+├── logical_clock: Lamport counter
+│
+├── TraceSpan: apply:nginx-config  (clock=1)
+├── TraceSpan: apply:app-service   (clock=2)
+├── TraceSpan: apply:db-mount      (clock=3)
+└── Root span: forjar:apply        (clock=4, aggregates child results)
+```
+
+### Key Design Decisions
+
+1. **Deterministic IDs** — Trace and span IDs are derived from run_id using FNV-1a hash, not random UUIDs. Same run_id always produces the same trace_id, enabling reproducible debugging.
+
+2. **Lamport logical clock** — Each span gets a monotonically increasing clock value. This provides causal ordering even when wall-clock timestamps are unreliable across machines.
+
+3. **JSONL output** — Trace spans are written to `state/{machine}/trace.jsonl` as newline-delimited JSON, compatible with renacer's SpanRecord schema for external analysis tools.
+
+4. **No runtime dependency** — The tracer is a pure-Rust implementation inspired by renacer's API but does not link the renacer crate.
+
+### Span Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `trace_id` | string | W3C trace ID (32 hex chars) |
+| `span_id` | string | Span ID (16 hex chars) |
+| `parent_span_id` | string? | Parent span (root span for children) |
+| `name` | string | `apply:{resource_id}` or `forjar:apply` |
+| `start_time` | string | ISO 8601 timestamp |
+| `duration_us` | u64 | Duration in microseconds |
+| `exit_code` | i32 | 0 = success |
+| `resource_type` | string | file, package, service, etc. |
+| `machine` | string | Target machine |
+| `action` | string | create, update, delete, noop |
+| `content_hash` | string? | BLAKE3 hash after apply |
+| `logical_clock` | u64 | Lamport clock value |
+
+## Anomaly Detection (FJ-051)
+
+The anomaly module (`tripwire/anomaly.rs`) provides ML-inspired statistical analysis of infrastructure drift patterns, inspired by the aprender crate's algorithms.
+
+### Detection Algorithms
+
+**ADWIN (Adaptive Windowing)** — Detects concept drift in streaming data. Maintains a sliding window of observations and tests whether the distribution has shifted by comparing means across window splits. Based on Bifet & Gavalda 2007.
+
+```
+Window: [0.0, 0.0, 0.0, ..., 1.0, 1.0, 1.0]
+         ├── left half ──┤  ├── right half ──┤
+         mean_left ≈ 0.0     mean_right ≈ 1.0
+
+Epsilon bound: √((1/2m) × ln(2/δ))
+If |mean_left - mean_right| > epsilon → drift detected
+```
+
+**Isolation Scoring** — Rank-based anomaly scores combined with z-score magnitude. For each resource metric, computes what fraction of the population is closer to the mean than the target value. Higher score = more anomalous.
+
+**EWMA Z-Score** — Exponentially weighted moving average with z-score for streaming anomaly detection. Recent observations get more weight, making it sensitive to recent drift while being robust to historical patterns.
+
+### Detection Pipeline
+
+```
+Event log (events.jsonl)
+    │
+    ▼
+Count per resource: (converge_count, fail_count, drift_count)
+    │
+    ├── Isolation score on converge frequency → high churn detection
+    ├── Isolation score on failure frequency  → high failure rate
+    └── Drift event count                     → direct flagging
+    │
+    ▼
+Sorted AnomalyFindings (score descending)
+```
+
+### Drift Status
+
+| Status | Threshold | Meaning |
+|--------|-----------|---------|
+| Stable | score ≤ 0.5 | Normal behavior |
+| Warning | 0.5 < score ≤ 0.8 | Monitor closely |
+| Drift | score > 0.8 | Investigate immediately |
 
 ## Extension Points
 

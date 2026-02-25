@@ -41,7 +41,10 @@ pub fn docker_to_pepita(id: &str, docker: &Resource) -> MigrationResult {
         }
         Some("absent") => pepita.state = Some("absent".to_string()),
         Some(other) => {
-            warnings.push(format!("{}: unknown Docker state '{}' — defaulting to 'present'", id, other));
+            warnings.push(format!(
+                "{}: unknown Docker state '{}' — defaulting to 'present'",
+                id, other
+            ));
             pepita.state = Some("present".to_string());
         }
     }
@@ -192,7 +195,10 @@ mod tests {
         assert_eq!(result.resource.resource_type, ResourceType::Pepita);
         assert_eq!(result.resource.name.as_deref(), Some("web"));
         assert_eq!(result.resource.state.as_deref(), Some("present"));
-        assert!(result.resource.image.is_none(), "docker image should be cleared");
+        assert!(
+            result.resource.image.is_none(),
+            "docker image should be cleared"
+        );
     }
 
     #[test]
@@ -299,7 +305,10 @@ mod tests {
         assert!(result.resource.restart.is_none());
         assert!(result.resource.image.is_none());
         assert_eq!(result.resource.depends_on, vec!["db"]);
-        assert!(result.warnings.len() >= 4, "should have warnings for ports, image, volumes, env, restart");
+        assert!(
+            result.warnings.len() >= 4,
+            "should have warnings for ports, image, volumes, env, restart"
+        );
     }
 
     #[test]

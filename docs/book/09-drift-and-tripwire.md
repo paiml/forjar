@@ -222,7 +222,7 @@ Common drift causes and their signatures:
 
 ## Anomaly Detection
 
-Beyond simple drift, `forjar anomaly` analyzes event history to find resources with suspicious patterns:
+Beyond simple drift, `forjar anomaly` analyzes event history to find resources with suspicious patterns using ML-inspired algorithms from the aprender ecosystem.
 
 ```bash
 forjar anomaly --state-dir state
@@ -230,16 +230,19 @@ forjar anomaly --state-dir state
 
 ### What It Detects
 
-**High churn** — Resources that converge abnormally often (z-score > 1.5). This suggests a resource is being externally modified and re-converged repeatedly.
+**High churn** — Resources that converge abnormally often, detected via rank-based isolation scoring. A resource with a converge count far from the population norm receives a high isolation score. This suggests the resource is being externally modified and re-converged repeatedly.
 
-The z-score calculation:
-1. Count `resource_converged` events per resource across all machines
-2. Compute mean and standard deviation of converge counts
-3. Flag resources where `(count - mean) / stddev > 1.5`
+**High failure rate** — Resources with disproportionately many failures, detected via isolation scoring on failure counts. Indicates a persistent configuration problem or unreliable handler.
 
-**High failure rate** — Resources with more than 20% failure rate (minimum 2 failures). Indicates a persistent configuration problem.
+**Drift events** — Any resource that has had drift detected in its history is automatically flagged with a minimum score of 0.7.
 
-**Drift events** — Any resource that has had drift detected in its history.
+### Detection Algorithms
+
+**ADWIN (Adaptive Windowing)** — For streaming analysis, forjar uses an ADWIN detector that maintains a sliding window of observations and tests for distribution shifts. Based on Bifet & Gavalda 2007, this adapts its window size automatically to detect both abrupt and gradual drift.
+
+**Isolation Scoring** — Each resource's metrics are scored against the population using a combination of rank-based scoring (robust to outliers) and z-score magnitude. Score range: 0.0 (normal) to 1.0 (extreme anomaly).
+
+**EWMA Z-Score** — Exponentially weighted moving average z-score gives more weight to recent observations. Useful for detecting recent regressions without being thrown off by historical patterns.
 
 ```
 ANOMALIES: 2 finding(s)
@@ -276,6 +279,47 @@ forjar anomaly --json | jq '.anomalies[] | select(.type == "high_failure_rate" a
 | High churn | Check who/what is modifying the resource between applies | Lock down SSH, add file immutability, or increase check interval |
 | High failure rate | Check resource error logs in events.jsonl | Fix underlying issue (package repo, permissions, network) |
 | Drift detected | Compare expected vs actual hash | Re-apply or update config to match reality |
+
+## Trace Provenance
+
+Every `forjar apply` generates a renacer-compatible trace session that records the causal ordering and timing of resource applications. Traces are stored as JSONL at `state/{machine}/trace.jsonl`.
+
+### Trace Structure
+
+Each apply run creates a trace session with:
+- **Trace ID** — W3C-compatible 32-char hex identifier, deterministically derived from the run ID
+- **Root span** — `forjar:apply` span covering the entire run
+- **Child spans** — One `apply:{resource_id}` span per resource, linked to the root via parent_span_id
+- **Lamport clock** — Monotonically increasing logical clock for causal ordering
+
+### Reading Traces
+
+```bash
+# View trace for a machine
+cat state/web-server/trace.jsonl | jq .
+
+# Find slowest resources (>1 second)
+cat state/web-server/trace.jsonl | jq 'select(.duration_us > 1000000) | {name, duration_us}'
+
+# Find failed resources
+cat state/web-server/trace.jsonl | jq 'select(.exit_code != 0)'
+
+# Reconstruct causal order
+cat state/web-server/trace.jsonl | jq -s 'sort_by(.logical_clock) | .[] | {name, logical_clock, action}'
+```
+
+### Trace Fields
+
+| Field | Description |
+|-------|-------------|
+| `trace_id` | W3C trace ID (32 hex chars, same for all spans in a run) |
+| `span_id` | Unique span ID (16 hex chars) |
+| `parent_span_id` | Root span ID (null for root span) |
+| `name` | `apply:{resource_id}` or `forjar:apply` |
+| `duration_us` | Duration in microseconds |
+| `exit_code` | 0 = success, non-zero = failure |
+| `logical_clock` | Lamport clock value for causal ordering |
+| `content_hash` | BLAKE3 hash after apply (if available) |
 
 ## Event Log
 

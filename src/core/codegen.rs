@@ -25,7 +25,9 @@ pub fn check_script(resource: &Resource) -> Result<String, String> {
         ResourceType::Cron => Ok(resources::cron::check_script(resource)),
         ResourceType::Network => Ok(resources::network::check_script(resource)),
         ResourceType::Pepita => Ok(resources::pepita::check_script(resource)),
-        ResourceType::Recipe => Err("codegen not implemented for recipe (expand first)".to_string()),
+        ResourceType::Recipe => {
+            Err("codegen not implemented for recipe (expand first)".to_string())
+        }
     }
 }
 
@@ -42,7 +44,9 @@ pub fn apply_script(resource: &Resource) -> Result<String, String> {
         ResourceType::Cron => Ok(resources::cron::apply_script(resource)),
         ResourceType::Network => Ok(resources::network::apply_script(resource)),
         ResourceType::Pepita => Ok(resources::pepita::apply_script(resource)),
-        ResourceType::Recipe => Err("codegen not implemented for recipe (expand first)".to_string()),
+        ResourceType::Recipe => {
+            Err("codegen not implemented for recipe (expand first)".to_string())
+        }
     }
 }
 
@@ -59,7 +63,9 @@ pub fn state_query_script(resource: &Resource) -> Result<String, String> {
         ResourceType::Cron => Ok(resources::cron::state_query_script(resource)),
         ResourceType::Network => Ok(resources::network::state_query_script(resource)),
         ResourceType::Pepita => Ok(resources::pepita::state_query_script(resource)),
-        ResourceType::Recipe => Err("codegen not implemented for recipe (expand first)".to_string()),
+        ResourceType::Recipe => {
+            Err("codegen not implemented for recipe (expand first)".to_string())
+        }
     }
 }
 

@@ -433,6 +433,42 @@ forjar anomaly --json
 forjar anomaly -m web-server
 ```
 
+### `forjar migrate`
+
+Migrate Docker resources to pepita kernel isolation.
+
+```bash
+forjar migrate -f <CONFIG> [-o <OUTPUT>]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-f, --file` | required | Input config file with Docker resources |
+| `-o, --output` | none | Output file for migrated config (prints to stdout if omitted) |
+
+Converts Docker container resources to pepita kernel isolation resources:
+- Docker `image` → overlay_lower hint (with warning)
+- Docker `ports` → `netns: true` (network namespace isolation)
+- Docker `volumes` → bind mount warnings
+- Docker `state: running` → `state: present`
+- Docker `state: stopped` → `state: absent`
+- Docker restart/environment → warnings with migration guidance
+
+Non-Docker resources are passed through unchanged.
+
+```bash
+# Preview migration (stdout)
+forjar migrate -f docker-infra.yaml
+
+# Write migrated config to file
+forjar migrate -f docker-infra.yaml -o pepita-infra.yaml
+
+# Review warnings, then apply
+forjar migrate -f docker-infra.yaml -o new.yaml
+forjar validate -f new.yaml
+forjar plan -f new.yaml
+```
+
 ## Command Cheat Sheet
 
 Quick reference for the most common workflows:
