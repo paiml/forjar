@@ -806,6 +806,249 @@ forjar apply -f forjar.yaml --state-dir state/
 diff /tmp/before.yaml state/web/state.lock.yaml
 ```
 
+## bashrs Validation Failures
+
+Forjar integrates the `bashrs` shell analysis library to lint every generated script (check, apply, state_query) before execution. When `forjar lint` or `forjar validate` reports bashrs diagnostics, use this section to diagnose and resolve them.
+
+### Understanding Diagnostic Codes
+
+bashrs diagnostics use a prefix convention that indicates the category of the finding:
+
+| Prefix | Meaning | Typical Cause |
+|--------|---------|---------------|
+| **SEC** | Security violation | Unquoted variable expansion, injection risk |
+| **DET** | Non-determinism | Use of `date`, `$$`, `$RANDOM` in scripts |
+| **IDEM** | Idempotency violation | Creates resources without checking existence first |
+| **SC** | ShellCheck-equivalent | Common shell scripting mistakes (e.g., `read` without `-r`) |
+
+### SEC002: Unquoted Variable ($SUDO Pattern)
+
+The most common finding in forjar-generated scripts is SEC002 on the `$SUDO` privilege escalation pattern:
+
+```
+warn: bashrs: web-packages/apply [SEC002] unquoted variable: $SUDO
+```
+
+This is expected and safe. Package, user, cron, and network resource handlers generate the following pattern:
+
+```bash
+SUDO=""
+if [ "$(id -u)" -ne 0 ]; then SUDO="sudo"; fi
+$SUDO apt-get install -y curl
+```
+
+When running as root, `$SUDO` is empty and disappears cleanly from the command line. bashrs classifies this as a warning (not an error) because the pattern is recognized as safe. Handlers that produce zero-diagnostic scripts include file, directory, symlink, service, and mount -- these use only static, single-quoted arguments with no dynamic variable expansion.
+
+No action is required for SEC002 warnings on `$SUDO`. They will not block validation or apply.
+
+### DET Warnings: Non-Deterministic Commands
+
+DET-prefixed diagnostics indicate commands whose output varies between runs. In infrastructure scripts, non-determinism can cause false drift detection.
+
+```
+warn: bashrs: my-resource/apply [DET001] non-deterministic command: date
+```
+
+If you see DET warnings on your own custom scripts (via `command:` fields), audit whether the non-determinism affects state hashing. For forjar-generated scripts, DET warnings should not appear -- if they do, file a bug.
+
+### Syntax Errors in Custom Content
+
+If a file resource uses `content:` with embedded shell fragments that happen to be parseable, bashrs may flag syntax issues:
+
+```
+error: bashrs: config-file/apply [SC1009] parse error near unexpected token
+```
+
+This typically means the heredoc content triggered a parser edge case. Check that heredoc delimiters use single quotes (`'FORJAR_EOF'`) to prevent variable expansion inside the content block.
+
+### Using `forjar lint --json` for Machine-Readable Diagnostics
+
+For CI pipelines and automated processing, use the `--json` flag:
+
+```bash
+forjar lint -f forjar.yaml --json
+```
+
+Output:
+
+```json
+{
+  "warnings": 3,
+  "findings": [
+    "bashrs: web-packages/apply [SEC002] unquoted variable: $SUDO",
+    "bashrs: deploy-user/apply [SEC002] unquoted variable: $SUDO",
+    "bashrs script lint: 0 error(s), 4 warning(s) across 6 resources"
+  ]
+}
+```
+
+In CI, you can parse this output to enforce policies:
+
+```bash
+# Fail CI if bashrs reports any errors (not warnings)
+ERRORS=$(forjar lint -f forjar.yaml --json | jq '.findings[] | select(contains("error(s)"))')
+if echo "$ERRORS" | grep -q "[1-9].*error(s)"; then
+    echo "FAIL: bashrs reported lint errors"
+    exit 1
+fi
+```
+
+The JSON output includes all lint findings (unused machines, untagged resources, duplicate content) alongside bashrs diagnostics, so a single `forjar lint --json` call covers the full lint surface.
+
+### Debugging a Failing Purification
+
+If `forjar apply` fails with a `bashrs purify:` or `bashrs parse:` error, the generated script could not pass through the full purification pipeline (parse, AST purification, reformat). To debug:
+
+```bash
+# Export scripts for inspection
+forjar plan -f forjar.yaml --output-dir /tmp/debug-scripts/
+
+# Manually inspect the failing script
+cat /tmp/debug-scripts/<machine>/<resource>.sh
+
+# Check for common issues:
+# - Unbalanced quotes
+# - Unclosed heredocs
+# - Bash syntax not supported by bashrs parser
+```
+
+## Common Container Transport Issues
+
+### Container Exec Failures
+
+When `forjar apply` reports an error during container script execution, the issue is usually in the container runtime layer, not the script itself.
+
+**"failed to exec in container 'forjar-X': No such file or directory"**
+
+The container runtime binary (`docker` or `podman`) is not in PATH, or the container does not exist:
+
+```bash
+# Verify the runtime is installed
+which docker && docker --version
+# or
+which podman && podman --version
+
+# Check if the container is running
+docker ps --filter name=forjar-X
+
+# If missing, forjar may not have created it yet. Run ensure manually:
+docker run -d --init --name forjar-X ubuntu:22.04 sleep infinity
+```
+
+**"failed to exec in container 'forjar-X': <stderr output>"**
+
+The container exists but the command inside failed. Common causes:
+
+1. **No bash in the image**: Forjar pipes scripts to `bash` inside the container. Alpine and distroless images lack bash.
+
+   ```bash
+   # Test bash availability
+   docker exec forjar-X bash -c 'echo ok'
+   # If "bash: not found", use a different base image
+   ```
+
+2. **Missing coreutils**: Scripts use `cat`, `chmod`, `chown`, `mkdir`. Minimal images may lack these.
+
+3. **Package manager not available**: Package resources assume `apt-get`, `yum`, or `dnf` depending on `provider:`. Verify the image includes the package manager.
+
+### Ephemeral Container Cleanup
+
+Ephemeral containers (`ephemeral: true`, the default) are created before apply and destroyed afterward. Issues with cleanup:
+
+**Stale containers from interrupted runs:**
+
+```bash
+# List forjar containers
+docker ps -a --filter name=forjar-
+
+# Remove stale containers manually
+docker rm -f forjar-test-box forjar-web-server
+
+# Then re-run
+forjar apply -f forjar.yaml --state-dir state/
+```
+
+**Cleanup fails but apply succeeded:**
+
+Cleanup errors are non-fatal. If the container was created with a different runtime than configured (e.g., switched from docker to podman), cleanup will fail because the wrong runtime is called:
+
+```bash
+# Check which runtime the container was created with
+docker inspect forjar-X 2>/dev/null && echo "docker" || podman inspect forjar-X 2>/dev/null && echo "podman"
+
+# Remove with the correct runtime
+docker rm -f forjar-X
+```
+
+**Non-ephemeral containers are never cleaned up:**
+
+When `ephemeral: false`, forjar attaches to an existing container and never removes it. If you see "container not found" errors, ensure the named container is running before apply:
+
+```bash
+docker ps --filter name=my-persistent-container
+# If not running:
+docker start my-persistent-container
+```
+
+### Runtime Not Found
+
+**"failed to start container 'forjar-X': executable file not found in $PATH"**
+
+The `runtime:` field in your container config references a binary that does not exist:
+
+```yaml
+container:
+  runtime: docker    # Must be 'docker' or 'podman'
+  image: ubuntu:22.04
+```
+
+Verify:
+
+```bash
+# Check if docker is available
+command -v docker
+
+# For rootless docker
+export DOCKER_HOST=unix:///run/user/$(id -u)/docker.sock
+docker info
+
+# For podman, ensure it's installed
+command -v podman
+```
+
+If using a non-standard path, provide the full path:
+
+```yaml
+container:
+  runtime: /usr/local/bin/podman
+```
+
+**Runtime is installed but the daemon is not running:**
+
+```bash
+# Docker
+sudo systemctl start docker
+sudo systemctl status docker
+
+# Podman (daemonless — usually just works)
+podman info
+```
+
+### Container Image Pull Failures
+
+If `ensure_container` fails because the image is not available locally:
+
+```bash
+# Pull the image manually
+docker pull ubuntu:22.04
+
+# For private registries, authenticate first
+docker login registry.example.com
+docker pull registry.example.com/my-image:latest
+```
+
+Then re-run `forjar apply`. Forjar does not pull images automatically -- the image must be available locally before container creation.
+
 ## Getting Help
 
 ```bash

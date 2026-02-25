@@ -826,6 +826,238 @@ cargo test drift
 cargo test test_fj005_check_script -- --nocapture
 ```
 
+## bashrs Purifier Testing
+
+Forjar generates shell scripts for every resource (check, apply, state_query). The `bashrs` integration ensures these scripts are safe before execution. Testing the purifier pipeline validates that codegen output passes lint, parse, and purification stages.
+
+### The Codegen-Purifier-Assert Pattern
+
+Every codegen function should have a corresponding test that feeds its output through bashrs validation. The standard pattern is:
+
+```rust
+#[test]
+fn test_fj036_codegen_file_check_validates() {
+    use crate::core::codegen;
+    let r = make_test_resource(crate::core::types::ResourceType::File);
+    let script = codegen::check_script(&r).unwrap();
+    assert!(validate_script(&script).is_ok(), "file check failed bashrs");
+}
+```
+
+The three steps are:
+
+1. **Codegen**: Call `check_script()`, `apply_script()`, or `state_query_script()` with a test resource
+2. **Purifier**: Pass the generated script through `validate_script()` (lint-only) or `purify_script()` (full AST pipeline)
+3. **Assert**: Verify the script passes without errors
+
+### Testing All Three Script Types
+
+Each resource type generates three scripts. Test all of them:
+
+```rust
+#[test]
+fn test_fj036_codegen_service_all_validate() {
+    use crate::core::codegen;
+    let mut r = make_test_resource(crate::core::types::ResourceType::Service);
+    r.name = Some("nginx".to_string());
+    r.state = Some("running".to_string());
+    r.enabled = Some(true);
+    for (kind, result) in [
+        ("check", codegen::check_script(&r)),
+        ("apply", codegen::apply_script(&r)),
+        ("state_query", codegen::state_query_script(&r)),
+    ] {
+        let script = result.unwrap();
+        assert!(
+            validate_script(&script).is_ok(),
+            "service {kind} failed bashrs"
+        );
+    }
+}
+```
+
+### Validation Levels
+
+The purifier exposes three levels of strictness. Choose the appropriate one for your test:
+
+| Function | What It Checks | When to Use |
+|----------|---------------|-------------|
+| `validate_script()` | Lint errors only (warnings pass) | Standard codegen validation |
+| `lint_script()` | Returns all diagnostics (errors + warnings) | Audit diagnostic counts |
+| `purify_script()` | Full parse, AST purification, reformat, re-validate | Strongest guarantee; tests AST round-trip |
+
+For most codegen tests, `validate_script()` is sufficient. Use `purify_script()` when testing scripts that must survive the full bashrs pipeline (e.g., scripts that will be exported for manual review).
+
+### Testing Diagnostic Expectations
+
+Some resource types intentionally produce bashrs warnings. For example, package scripts use the `$SUDO` pattern which triggers SEC002:
+
+```rust
+#[test]
+fn test_fj036_lint_codegen_package_has_diagnostics() {
+    use crate::core::codegen;
+    let mut r = make_test_resource(crate::core::types::ResourceType::Package);
+    r.provider = Some("apt".to_string());
+    r.packages = vec!["curl".to_string()];
+    let script = codegen::apply_script(&r).unwrap();
+    let result = lint_script(&script);
+    // Package scripts have $SUDO pattern — expect some diagnostics
+    assert!(
+        !result.diagnostics.is_empty(),
+        "apt scripts should have lint findings"
+    );
+}
+```
+
+This tests the inverse: that known-safe patterns produce warnings (not errors) and that the warning count is stable.
+
+### Adding Tests for New Resource Types
+
+When adding a new resource handler, follow this checklist:
+
+1. Create a `make_test_resource()` fixture for the new type
+2. Write `test_fj036_codegen_<type>_check_validates` — check script passes `validate_script()`
+3. Write `test_fj036_codegen_<type>_apply_validates` — apply script passes `validate_script()`
+4. Write `test_fj036_codegen_<type>_state_query_validates` — state query passes `validate_script()`
+5. If the handler uses `$SUDO`, write a diagnostic count test
+6. If the handler generates heredocs, test with content containing shell metacharacters
+
+### Running Purifier Tests
+
+```bash
+# Run all purifier tests
+cargo test purifier
+
+# Run all FJ-036 codegen integration tests
+cargo test test_fj036
+
+# Run with output to see diagnostic details
+cargo test test_fj036 -- --nocapture
+```
+
+## Falsification Testing Methodology
+
+Forjar uses a falsification-first testing methodology for critical invariants. Instead of testing that code "works correctly," falsification tests attempt to disprove a stated contract. If the test cannot falsify the property across thousands of random inputs, the property holds with high confidence.
+
+### The FALSIFY Naming Convention
+
+Falsification tests follow the naming pattern `FALSIFY-<DOMAIN>-<SEQ>`:
+
+| Domain | Full Name | Module |
+|--------|-----------|--------|
+| **B3** | BLAKE3 State Contract | `src/tripwire/hasher.rs` |
+| **DAG** | DAG Ordering Contract | `src/core/resolver.rs` |
+| **CD** | Codegen Dispatch Contract | `src/core/codegen.rs` |
+| **ES** | Execution Safety Contract | `src/core/state.rs`, `src/core/executor.rs` |
+| **RD** | Recipe Determinism Contract | `src/core/recipe.rs` |
+
+Each FALSIFY test has a doc comment stating the exact property being tested:
+
+```rust
+/// FALSIFY-B3-001: hash_string always produces "blake3:" prefix + 64 hex chars.
+#[test]
+fn falsify_b3_001_hash_string_prefix_format(s in ".*") {
+    let h = hash_string(&s);
+    prop_assert!(h.starts_with("blake3:"), "missing prefix");
+    prop_assert_eq!(h.len(), 71, "expected 7 prefix + 64 hex = 71 chars");
+}
+```
+
+### How proptest Drives Falsification
+
+FALSIFY tests use the `proptest` crate to generate random inputs. proptest attempts to find counterexamples that violate the stated property:
+
+```rust
+proptest! {
+    /// FALSIFY-B3-002: hash_string is deterministic.
+    #[test]
+    fn falsify_b3_002_hash_string_determinism(s in ".*") {
+        let h1 = hash_string(&s);
+        let h2 = hash_string(&s);
+        prop_assert_eq!(h1, h2, "hash_string must be deterministic");
+    }
+}
+```
+
+By default, proptest runs 256 cases per test. For critical properties, this provides strong evidence that the invariant holds. If proptest finds a counterexample, it shrinks the input to the minimal failing case, making debugging straightforward.
+
+### Key Falsification Properties in Forjar
+
+**BLAKE3 hashing (FALSIFY-B3-\*)**:
+- B3-001: Output format is always `blake3:` + 64 hex characters
+- B3-002: Same input always produces the same hash
+- B3-003: `composite_hash` is order-sensitive (hash(a,b) != hash(b,a))
+
+**DAG ordering (FALSIFY-DAG-\*)**:
+- DAG-001: Every dependency appears before its dependent in topological order
+- DAG-002: Cycles are always detected and return `Err`
+- DAG-003: Same graph always produces the same ordering (deterministic tie-breaking)
+
+**Codegen dispatch (FALSIFY-CD-\*)**:
+- CD-001: All Phase 1 resource types produce `Ok` for check, apply, and state_query
+- CD-002: Dispatch is symmetric -- every type handled by `check_script` is also handled by `apply_script` and `state_query_script`
+
+**Execution safety (FALSIFY-ES-\*)**:
+- ES-001: Atomic write leaves no temp file after success
+- ES-002: Jidoka `StopOnFirst` error policy always returns `should_stop=true`
+- ES-003: Jidoka `ContinueIndependent` policy returns `should_stop=false`
+
+**Recipe determinism (FALSIFY-RD-\*)**:
+- RD-001: `expand_recipe` is deterministic -- same arguments always produce same output
+- RD-002: `validate_int` rejects values outside declared `[min, max]`
+- RD-003: Path validation rejects non-absolute paths
+- RD-004: External dependencies are only injected into the first expanded resource
+
+### Writing New Falsification Tests
+
+When adding a new critical invariant, follow this structure:
+
+1. **Name it**: Choose the domain prefix (or create a new one) and assign the next sequence number
+2. **State the property**: Write a doc comment that precisely describes what should never be violated
+3. **Choose the input strategy**: Use proptest's `in` syntax to describe the input domain
+4. **Assert with `prop_assert!`**: Use proptest assertions, not `assert!`, for proper shrinking
+
+```rust
+proptest! {
+    /// FALSIFY-XX-NNN: <precise statement of the property>.
+    #[test]
+    fn falsify_xx_nnn_description(input in "<regex-strategy>") {
+        let result = function_under_test(&input);
+        prop_assert!(<condition>, "violation: {}", result);
+    }
+}
+```
+
+Use `prop_assume!()` to skip inputs that are not relevant to the property (e.g., skip identical values when testing order sensitivity).
+
+### Running Falsification Tests
+
+```bash
+# Run all falsification tests
+cargo test falsify
+
+# Run a specific domain
+cargo test falsify_b3
+cargo test falsify_dag
+cargo test falsify_es
+
+# Increase case count for higher confidence (slow)
+PROPTEST_CASES=10000 cargo test falsify
+
+# Show shrunk counterexamples on failure
+cargo test falsify -- --nocapture
+```
+
+### Relationship to Regular Tests
+
+Falsification tests complement, but do not replace, deterministic unit tests. The `test_fj<NNN>_*` tests verify specific, known scenarios. The `falsify_*` tests probe for unknown edge cases through random generation. Both are required for critical modules.
+
+| Test Type | Convention | Purpose | Input |
+|-----------|-----------|---------|-------|
+| Unit | `test_fj003_resolve_params` | Known scenario verification | Fixed inputs |
+| Falsification | `falsify_b3_001_hash_prefix` | Property violation search | Random inputs |
+| Integration | `test_fj036_codegen_*_validates` | Cross-module contract | Constructed fixtures |
+
 ## Coverage Workflow
 
 ### Measuring Coverage

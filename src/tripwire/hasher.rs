@@ -430,4 +430,141 @@ mod tests {
         let h_str = hash_string("only");
         assert_ne!(h, h_str, "composite(x) != hash_string(x) due to separator");
     }
+
+    // --- FJ-036: Hasher determinism and coverage tests ---
+
+    #[test]
+    fn test_fj036_hash_desired_state_deterministic() {
+        use crate::core::planner::hash_desired_state;
+        use crate::core::types::{MachineTarget, Resource, ResourceType};
+        use std::collections::HashMap;
+
+        let r = Resource {
+            resource_type: ResourceType::Package,
+            machine: MachineTarget::Single("m1".to_string()),
+            state: Some("present".to_string()),
+            depends_on: vec![],
+            provider: Some("apt".to_string()),
+            packages: vec!["curl".to_string()],
+            version: None,
+            path: None,
+            content: None,
+            source: None,
+            target: None,
+            owner: None,
+            group: None,
+            mode: None,
+            name: None,
+            enabled: None,
+            restart_on: vec![],
+            fs_type: None,
+            options: None,
+            uid: None,
+            shell: None,
+            home: None,
+            groups: vec![],
+            ssh_authorized_keys: vec![],
+            system_user: false,
+            schedule: None,
+            command: None,
+            image: None,
+            ports: vec![],
+            environment: vec![],
+            volumes: vec![],
+            restart: None,
+            protocol: None,
+            port: None,
+            action: None,
+            from_addr: None,
+            recipe: None,
+            inputs: HashMap::new(),
+            arch: vec![],
+            tags: vec![],
+        };
+        let h1 = hash_desired_state(&r);
+        let h2 = hash_desired_state(&r);
+        assert_eq!(h1, h2, "hash_desired_state must be deterministic");
+        assert!(h1.starts_with("blake3:"));
+    }
+
+    #[test]
+    fn test_fj036_hash_desired_state_changes_on_content() {
+        use crate::core::planner::hash_desired_state;
+        use crate::core::types::{MachineTarget, Resource, ResourceType};
+        use std::collections::HashMap;
+
+        let r1 = Resource {
+            resource_type: ResourceType::File,
+            machine: MachineTarget::Single("m1".to_string()),
+            state: Some("present".to_string()),
+            depends_on: vec![],
+            provider: None,
+            packages: vec![],
+            version: None,
+            path: Some("/etc/app.conf".to_string()),
+            content: Some("original content".to_string()),
+            source: None,
+            target: None,
+            owner: None,
+            group: None,
+            mode: None,
+            name: None,
+            enabled: None,
+            restart_on: vec![],
+            fs_type: None,
+            options: None,
+            uid: None,
+            shell: None,
+            home: None,
+            groups: vec![],
+            ssh_authorized_keys: vec![],
+            system_user: false,
+            schedule: None,
+            command: None,
+            image: None,
+            ports: vec![],
+            environment: vec![],
+            volumes: vec![],
+            restart: None,
+            protocol: None,
+            port: None,
+            action: None,
+            from_addr: None,
+            recipe: None,
+            inputs: HashMap::new(),
+            arch: vec![],
+            tags: vec![],
+        };
+        let r2 = Resource {
+            content: Some("changed content".to_string()),
+            ..r1.clone()
+        };
+        let h1 = hash_desired_state(&r1);
+        let h2 = hash_desired_state(&r2);
+        assert_ne!(
+            h1, h2,
+            "hash must differ when resource content changes"
+        );
+    }
+
+    #[test]
+    fn test_fj036_hash_directory_empty() {
+        let dir = tempfile::tempdir().unwrap();
+        let h = hash_directory(dir.path()).unwrap();
+        assert!(
+            !h.is_empty(),
+            "hash of empty directory must be non-empty"
+        );
+        assert!(h.starts_with("blake3:"));
+        assert_eq!(h.len(), 71); // "blake3:" + 64 hex chars
+    }
+
+    #[test]
+    fn test_fj036_hash_string_deterministic() {
+        let input = "forjar determinism check";
+        let h1 = hash_string(input);
+        let h2 = hash_string(input);
+        assert_eq!(h1, h2, "hash_string must produce identical output for same input");
+        assert!(h1.starts_with("blake3:"));
+    }
 }

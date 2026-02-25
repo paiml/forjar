@@ -771,4 +771,92 @@ mod tests {
         assert_eq!(loaded_a.hostname, "host-a");
         assert_eq!(loaded_b.hostname, "host-b");
     }
+
+    // --- FJ-036: State roundtrip and path construction tests ---
+
+    #[test]
+    fn test_fj036_save_and_load_lock_roundtrip() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut lock = make_lock();
+        lock.machine = "roundtrip-box".to_string();
+        lock.hostname = "rt-host".to_string();
+        lock.schema = "1.0".to_string();
+        lock.blake3_version = "1.8".to_string();
+        lock.resources.insert(
+            "extra-svc".to_string(),
+            ResourceLock {
+                resource_type: ResourceType::Service,
+                status: ResourceStatus::Failed,
+                applied_at: Some("2026-02-25T12:00:00Z".to_string()),
+                duration_seconds: Some(2.75),
+                hash: "blake3:roundtrip".to_string(),
+                details: HashMap::new(),
+            },
+        );
+        save_lock(dir.path(), &lock).unwrap();
+
+        let loaded = load_lock(dir.path(), "roundtrip-box").unwrap().unwrap();
+        assert_eq!(loaded.machine, "roundtrip-box");
+        assert_eq!(loaded.hostname, "rt-host");
+        assert_eq!(loaded.schema, "1.0");
+        assert_eq!(loaded.blake3_version, "1.8");
+        assert_eq!(loaded.resources.len(), lock.resources.len());
+        assert_eq!(
+            loaded.resources["extra-svc"].status,
+            ResourceStatus::Failed
+        );
+        assert_eq!(
+            loaded.resources["extra-svc"].duration_seconds,
+            Some(2.75)
+        );
+        assert_eq!(
+            loaded.resources["extra-svc"].hash,
+            "blake3:roundtrip"
+        );
+    }
+
+    #[test]
+    fn test_fj036_load_lock_nonexistent_returns_none() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = load_lock(dir.path(), "no-such-machine").unwrap();
+        assert!(
+            result.is_none(),
+            "loading a lock for a nonexistent machine must return None"
+        );
+    }
+
+    #[test]
+    fn test_fj036_lock_path_construction() {
+        let state_dir = Path::new("/var/lib/forjar/state");
+        let machine = "web-prod";
+        let p = lock_file_path(state_dir, machine);
+        assert_eq!(
+            p,
+            PathBuf::from("/var/lib/forjar/state/web-prod/state.lock.yaml"),
+            "lock path must be state_dir/machine/state.lock.yaml"
+        );
+    }
+
+    #[test]
+    fn test_fj036_save_lock_creates_state_dir() {
+        let dir = tempfile::tempdir().unwrap();
+        let deep_state = dir.path().join("nonexistent").join("deep").join("state");
+        // The deep_state directory does not exist yet
+        assert!(!deep_state.exists());
+
+        let lock = make_lock();
+        save_lock(&deep_state, &lock).unwrap();
+
+        // save_lock should have created the machine subdirectory inside deep_state
+        let expected_dir = deep_state.join("test");
+        assert!(
+            expected_dir.exists(),
+            "save_lock must create the state directory hierarchy"
+        );
+        let expected_file = lock_file_path(&deep_state, "test");
+        assert!(
+            expected_file.exists(),
+            "lock file must exist after save_lock"
+        );
+    }
 }
