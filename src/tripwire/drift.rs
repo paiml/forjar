@@ -603,6 +603,7 @@ mod tests {
             roles: vec![],
             transport: None,
             container: None,
+            cost: 0,
         };
 
         let config_resources = indexmap::IndexMap::new();
@@ -651,6 +652,7 @@ mod tests {
             roles: vec![],
             transport: None,
             container: None,
+            cost: 0,
         };
         let config_resources = indexmap::IndexMap::new();
         let findings = detect_drift_full(&lock, &machine, &config_resources);
@@ -695,6 +697,7 @@ mod tests {
             roles: vec![],
             transport: None,
             container: None,
+            cost: 0,
         };
         // Empty config — resource not found
         let config_resources = indexmap::IndexMap::new();

@@ -150,6 +150,7 @@ mod tests {
                 privileged: false,
                 init: true,
             }),
+            cost: 0,
         }
     }
 
@@ -164,6 +165,7 @@ mod tests {
             roles: vec![],
             transport: Some("container".to_string()),
             container: None,
+            cost: 0,
         };
         let result = exec_container(&machine, "echo hi");
         assert!(result.is_err());
@@ -181,6 +183,7 @@ mod tests {
             roles: vec![],
             transport: Some("container".to_string()),
             container: None,
+            cost: 0,
         };
         let result = ensure_container(&machine);
         assert!(result.is_err());
@@ -197,6 +200,7 @@ mod tests {
             roles: vec![],
             transport: Some("container".to_string()),
             container: None,
+            cost: 0,
         };
         let result = cleanup_container(&machine);
         assert!(result.is_err());
@@ -226,6 +230,7 @@ mod tests {
                 privileged: false,
                 init: true,
             }),
+            cost: 0,
         };
         // ensure_container on a non-existent container with no image should fail
         // (unless the container already exists, which it won't in unit tests)

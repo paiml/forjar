@@ -84,6 +84,7 @@ mod tests {
             roles: vec![],
             transport: None,
             container: None,
+            cost: 0,
         };
         let out = exec_script(&machine, "echo ok").unwrap();
         assert!(out.success());
@@ -102,6 +103,7 @@ mod tests {
             roles: vec![],
             transport: None,
             container: None,
+            cost: 0,
         };
         let out = exec_script(&machine, "echo local").unwrap();
         assert!(out.success());
@@ -141,6 +143,7 @@ mod tests {
             roles: vec![],
             transport: None,
             container: None,
+            cost: 0,
         };
         let out = query(&machine, "echo query-test").unwrap();
         assert!(out.success());

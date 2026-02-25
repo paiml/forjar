@@ -389,6 +389,7 @@ fn cmd_import(
         roles: vec![],
         transport: None,
         container: None,
+        cost: 0,
     };
 
     let scan_set: std::collections::HashSet<&str> = scan.iter().map(|s| s.as_str()).collect();

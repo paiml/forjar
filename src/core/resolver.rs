@@ -241,6 +241,7 @@ mod tests {
                 roles: vec![],
                 transport: None,
                 container: None,
+                cost: 0,
             },
         );
         let result = resolve_template("ssh {{machine.lambda.addr}}", &params, &machines).unwrap();
@@ -470,6 +471,7 @@ resources:
                 roles: vec![],
                 transport: None,
                 container: None,
+                cost: 0,
             },
         );
 
@@ -540,6 +542,7 @@ resources:
                 roles: vec![],
                 transport: None,
                 container: None,
+                cost: 0,
             },
         );
 
@@ -646,6 +649,7 @@ resources:
                 roles: vec![],
                 transport: None,
                 container: None,
+                cost: 0,
             },
         );
         ForjarConfig {

@@ -58,11 +58,18 @@ pub fn apply(cfg: &ApplyConfig) -> Result<Vec<ApplyResult>, String> {
         }]);
     }
 
-    // Filter machines
-    let target_machines: Vec<&String> = all_machines
+    // Filter machines and sort by cost (FJ-052: cheaper machines first)
+    let mut target_machines: Vec<&String> = all_machines
         .iter()
         .filter(|m| cfg.machine_filter.is_none_or(|f| *m == f))
         .collect();
+    target_machines.sort_by_key(|m| {
+        cfg.config
+            .machines
+            .get(*m)
+            .map(|machine| machine.cost)
+            .unwrap_or(0)
+    });
 
     let localhost_machine = Machine {
         hostname: "localhost".to_string(),
@@ -73,6 +80,7 @@ pub fn apply(cfg: &ApplyConfig) -> Result<Vec<ApplyResult>, String> {
         roles: vec![],
         transport: None,
         container: None,
+        cost: 0,
     };
 
     // Execute plan per machine (parallel or sequential)
@@ -574,6 +582,7 @@ mod tests {
             roles: vec![],
             transport: None,
             container: None,
+            cost: 0,
         }
     }
 
@@ -1036,6 +1045,7 @@ resources:
             roles: vec![],
             transport: None,
             container: None,
+            cost: 0,
         };
         let mut ctx = RecordCtx {
             lock: &mut lock,
@@ -1276,6 +1286,7 @@ resources:
             roles: vec![],
             transport: None,
             container: None,
+            cost: 0,
         };
         let resource = Resource {
             resource_type: ResourceType::File,
@@ -1337,6 +1348,7 @@ resources:
             roles: vec![],
             transport: None,
             container: None,
+            cost: 0,
         };
         let arch = ["aarch64".to_string()];
         assert!(arch.contains(&machine.arch));
@@ -1353,9 +1365,83 @@ resources:
             roles: vec![],
             transport: None,
             container: None,
+            cost: 0,
         };
         let arch: Vec<String> = vec![];
         // Empty arch means "runs on all architectures"
         assert!(arch.is_empty() || arch.contains(&machine.arch));
+    }
+
+    // ── FJ-052: Cost-aware scheduling ─────────────────────────────
+
+    #[test]
+    fn test_fj052_cost_field_default_zero() {
+        let yaml = r#"
+version: "1.0"
+name: cost-test
+machines:
+  m1:
+    hostname: box
+    addr: 1.2.3.4
+resources: {}
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        assert_eq!(config.machines["m1"].cost, 0);
+    }
+
+    #[test]
+    fn test_fj052_cost_field_parsed() {
+        let yaml = r#"
+version: "1.0"
+name: cost-test
+machines:
+  cheap:
+    hostname: cheap
+    addr: 10.0.0.1
+    cost: 1
+  expensive:
+    hostname: expensive
+    addr: 10.0.0.2
+    cost: 10
+resources: {}
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        assert_eq!(config.machines["cheap"].cost, 1);
+        assert_eq!(config.machines["expensive"].cost, 10);
+    }
+
+    #[test]
+    fn test_fj052_machines_sorted_by_cost() {
+        let yaml = r#"
+version: "1.0"
+name: cost-test
+machines:
+  expensive:
+    hostname: expensive
+    addr: 10.0.0.3
+    cost: 100
+  medium:
+    hostname: medium
+    addr: 10.0.0.2
+    cost: 50
+  cheap:
+    hostname: cheap
+    addr: 10.0.0.1
+    cost: 1
+resources:
+  f:
+    type: file
+    machine: [expensive, medium, cheap]
+    path: /tmp/test
+    content: hello
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let all_machines: Vec<String> = config.machines.keys().cloned().collect();
+        let mut sorted: Vec<&String> = all_machines.iter().collect();
+        sorted.sort_by_key(|m| config.machines.get(*m).map(|machine| machine.cost).unwrap_or(0));
+
+        assert_eq!(sorted[0], "cheap");
+        assert_eq!(sorted[1], "medium");
+        assert_eq!(sorted[2], "expensive");
     }
 }

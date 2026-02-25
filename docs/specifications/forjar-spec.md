@@ -1162,7 +1162,7 @@ Options:
 |--------|-------------|
 | FJ-050 | `tripwire/tracer.rs` — full renacer syscall tracing |
 | FJ-051 | ML drift anomaly detection via aprender |
-| FJ-052 | Cost-aware scheduling (prefer cheap machines) |
+| FJ-052 | Cost-aware scheduling — `cost` field on machines, sorted execution order | **Done** |
 | FJ-053 | Auto-remediation (`--auto-remediate` on drift → force re-apply) | **Done** |
 | FJ-054 | Pre/post apply hooks (`policy.pre_apply` / `policy.post_apply`) | **Done** |
 

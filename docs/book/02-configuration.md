@@ -40,7 +40,26 @@ machines:
     arch: x86_64              # Optional. Default: x86_64
     ssh_key: ~/.ssh/id_ed25519  # Optional. SSH private key path
     roles: [gpu-compute]      # Optional. Informational tags
+    cost: 10                  # Optional. Cost weight (default: 0, lower = preferred)
 ```
+
+### Cost-Aware Scheduling
+
+Machines with a lower `cost` value are applied first. This is useful when you have a mix of cheap on-prem machines and expensive cloud instances — forjar will converge cheaper machines first:
+
+```yaml
+machines:
+  on-prem:
+    hostname: rack-01
+    addr: 192.168.1.10
+    cost: 1               # cheap, runs first
+  cloud-gpu:
+    hostname: gpu-instance
+    addr: 10.0.0.50
+    cost: 100             # expensive, runs last
+```
+
+If `cost` is omitted, it defaults to 0. Machines with equal cost maintain their original order.
 
 ### Local Machine
 

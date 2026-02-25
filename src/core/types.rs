@@ -77,6 +77,10 @@ pub struct Machine {
     /// Container configuration (required when `transport: container`)
     #[serde(default)]
     pub container: Option<ContainerConfig>,
+
+    /// Relative cost weight (lower = cheaper, preferred first). Default: 0.
+    #[serde(default)]
+    pub cost: u32,
 }
 
 /// Container execution target configuration.
@@ -793,6 +797,7 @@ container:
                 privileged: false,
                 init: true,
             }),
+            cost: 0,
         };
         assert_eq!(m.container_name(), "forjar-test-box");
     }
@@ -809,6 +814,7 @@ container:
             roles: vec![],
             transport: Some("container".to_string()),
             container: None,
+            cost: 0,
         };
         assert!(m1.is_container_transport());
 
@@ -822,6 +828,7 @@ container:
             roles: vec![],
             transport: None,
             container: None,
+            cost: 0,
         };
         assert!(m2.is_container_transport());
 
@@ -835,6 +842,7 @@ container:
             roles: vec![],
             transport: None,
             container: None,
+            cost: 0,
         };
         assert!(!m3.is_container_transport());
     }
