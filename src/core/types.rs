@@ -1402,4 +1402,100 @@ roles: [gpu-compute, training, inference]
         assert_eq!(m.roles.len(), 3);
         assert_eq!(m.roles[0], "gpu-compute");
     }
+
+    // --- FJ-132: Types edge case tests ---
+
+    #[test]
+    fn test_fj132_machine_target_to_vec_single() {
+        let t = MachineTarget::Single("web".to_string());
+        assert_eq!(t.to_vec(), vec!["web".to_string()]);
+    }
+
+    #[test]
+    fn test_fj132_machine_target_to_vec_multiple() {
+        let t = MachineTarget::Multiple(vec!["web".into(), "db".into(), "cache".into()]);
+        assert_eq!(t.to_vec(), vec!["web", "db", "cache"]);
+    }
+
+    #[test]
+    fn test_fj132_resource_type_clone() {
+        let rt = ResourceType::Docker;
+        let cloned = rt.clone();
+        assert_eq!(format!("{}", rt), format!("{}", cloned));
+    }
+
+    #[test]
+    fn test_fj132_resource_status_all_variants_display() {
+        // Verify all four variants have non-empty Display output
+        for status in &[
+            ResourceStatus::Converged,
+            ResourceStatus::Failed,
+            ResourceStatus::Drifted,
+            ResourceStatus::Unknown,
+        ] {
+            let s = format!("{}", status);
+            assert!(!s.is_empty(), "ResourceStatus display should not be empty");
+        }
+    }
+
+    #[test]
+    fn test_fj132_plan_action_all_variants() {
+        // Verify all four variants have non-empty Display output
+        for action in &[
+            PlanAction::Create,
+            PlanAction::Update,
+            PlanAction::Destroy,
+            PlanAction::NoOp,
+        ] {
+            let s = format!("{}", action);
+            assert!(!s.is_empty(), "PlanAction display should not be empty");
+        }
+    }
+
+    #[test]
+    fn test_fj132_resource_defaults() {
+        // A resource with minimal fields should have sensible defaults
+        let yaml = r#"
+type: file
+machine: m1
+path: /tmp/test
+"#;
+        let r: Resource = serde_yaml_ng::from_str(yaml).unwrap();
+        assert!(r.packages.is_empty());
+        assert!(r.depends_on.is_empty());
+        assert!(r.restart_on.is_empty());
+        assert!(r.tags.is_empty());
+        assert!(r.arch.is_empty());
+        assert!(r.ports.is_empty());
+        assert!(r.volumes.is_empty());
+        assert!(r.environment.is_empty());
+        assert!(r.ssh_authorized_keys.is_empty());
+        assert!(r.groups.is_empty());
+    }
+
+    #[test]
+    fn test_fj132_container_config_ephemeral_default_true() {
+        let yaml = r#"
+runtime: docker
+image: ubuntu:22.04
+"#;
+        let c: ContainerConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        assert!(c.ephemeral, "ephemeral should default to true");
+        assert!(c.init, "init should default to true");
+        assert!(!c.privileged, "privileged should default to false");
+    }
+
+    #[test]
+    fn test_fj132_yaml_value_to_string_null() {
+        let val = serde_yaml_ng::Value::Null;
+        assert_eq!(yaml_value_to_string(&val), "");
+    }
+
+    #[test]
+    fn test_fj132_yaml_value_to_string_bool() {
+        let val = serde_yaml_ng::Value::Bool(true);
+        assert_eq!(yaml_value_to_string(&val), "true");
+        let val = serde_yaml_ng::Value::Bool(false);
+        assert_eq!(yaml_value_to_string(&val), "false");
+    }
 }

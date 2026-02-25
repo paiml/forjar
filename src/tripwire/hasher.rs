@@ -370,4 +370,64 @@ mod tests {
             prop_assert_ne!(h_ab, h_ba, "composite_hash must be order-sensitive");
         }
     }
+
+    // --- FJ-132: Hasher edge case tests ---
+
+    #[test]
+    fn test_fj132_hash_string_empty() {
+        let h = hash_string("");
+        assert!(h.starts_with("blake3:"));
+        assert_eq!(h.len(), 71);
+    }
+
+    #[test]
+    fn test_fj132_hash_string_unicode() {
+        let h = hash_string("Hello 世界 🌍");
+        assert!(h.starts_with("blake3:"));
+        assert_eq!(h.len(), 71);
+    }
+
+    #[test]
+    fn test_fj132_hash_file_large() {
+        // Test with a file larger than the stream buffer
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("large.bin");
+        let content = "x".repeat(STREAM_BUF_SIZE * 3 + 42);
+        std::fs::write(&path, &content).unwrap();
+        let h = hash_file(&path).unwrap();
+        assert!(h.starts_with("blake3:"));
+        assert_eq!(h.len(), 71);
+    }
+
+    #[test]
+    fn test_fj132_hash_directory_with_multiple_files() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("a.txt"), "alpha").unwrap();
+        std::fs::write(dir.path().join("b.txt"), "beta").unwrap();
+        std::fs::write(dir.path().join("c.txt"), "gamma").unwrap();
+        let h = hash_directory(dir.path()).unwrap();
+        assert!(h.starts_with("blake3:"));
+
+        // Changing one file changes the hash
+        std::fs::write(dir.path().join("b.txt"), "beta-changed").unwrap();
+        let h2 = hash_directory(dir.path()).unwrap();
+        assert_ne!(h, h2, "modifying a file should change directory hash");
+    }
+
+    #[test]
+    fn test_fj132_composite_hash_empty() {
+        let h: String = composite_hash(&[]);
+        assert!(h.starts_with("blake3:"));
+        assert_eq!(h.len(), 71);
+    }
+
+    #[test]
+    fn test_fj132_composite_hash_single_element() {
+        let h = composite_hash(&["only"]);
+        assert!(h.starts_with("blake3:"));
+        // Single element composite should differ from hash_string of same value
+        // because composite joins with \0
+        let h_str = hash_string("only");
+        assert_ne!(h, h_str, "composite(x) != hash_string(x) due to separator");
+    }
 }
