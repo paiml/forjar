@@ -5974,4 +5974,81 @@ resources:
         );
         assert!(err.is_err());
     }
+
+    #[test]
+    fn test_fj132_discover_machines_empty_dir() {
+        let dir = tempfile::tempdir().unwrap();
+        let machines = discover_machines(dir.path());
+        assert!(machines.is_empty());
+    }
+
+    #[test]
+    fn test_fj132_discover_machines_with_locks() {
+        let dir = tempfile::tempdir().unwrap();
+        // Machine with state.lock.yaml — should be discovered
+        let web_dir = dir.path().join("web");
+        std::fs::create_dir_all(&web_dir).unwrap();
+        std::fs::write(web_dir.join("state.lock.yaml"), "schema: '1.0'").unwrap();
+        // Machine without lock — should NOT be discovered
+        let nolock_dir = dir.path().join("orphan");
+        std::fs::create_dir_all(&nolock_dir).unwrap();
+        // Plain file — should NOT be discovered
+        std::fs::write(dir.path().join("readme.txt"), "ignore").unwrap();
+        let machines = discover_machines(dir.path());
+        assert_eq!(machines, vec!["web"]);
+    }
+
+    #[test]
+    fn test_fj132_discover_machines_sorted() {
+        let dir = tempfile::tempdir().unwrap();
+        for name in ["zeta", "alpha", "mid"] {
+            let m_dir = dir.path().join(name);
+            std::fs::create_dir_all(&m_dir).unwrap();
+            std::fs::write(m_dir.join("state.lock.yaml"), "schema: '1.0'").unwrap();
+        }
+        let machines = discover_machines(dir.path());
+        assert_eq!(machines, vec!["alpha", "mid", "zeta"]);
+    }
+
+    #[test]
+    fn test_fj132_apply_param_overrides_basic() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines: {}
+resources: {}
+"#;
+        let mut config: types::ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let overrides = vec!["env=production".to_string(), "port=8080".to_string()];
+        apply_param_overrides(&mut config, &overrides).unwrap();
+        assert_eq!(
+            config.params.get("env").unwrap(),
+            &serde_yaml_ng::Value::String("production".to_string())
+        );
+        assert_eq!(
+            config.params.get("port").unwrap(),
+            &serde_yaml_ng::Value::String("8080".to_string())
+        );
+    }
+
+    #[test]
+    fn test_fj132_apply_param_overrides_invalid() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines: {}
+resources: {}
+"#;
+        let mut config: types::ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let overrides = vec!["no-equals-sign".to_string()];
+        let result = apply_param_overrides(&mut config, &overrides);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("expected KEY=VALUE"));
+    }
+
+    #[test]
+    fn test_fj132_discover_machines_nonexistent_dir() {
+        let machines = discover_machines(std::path::Path::new("/nonexistent/path/state"));
+        assert!(machines.is_empty(), "nonexistent dir should return empty");
+    }
 }
