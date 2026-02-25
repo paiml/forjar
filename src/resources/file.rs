@@ -462,4 +462,67 @@ mod tests {
             "SHA256 fallback when blake3sum unavailable"
         );
     }
+
+    // --- FJ-132: File resource edge case tests ---
+
+    #[test]
+    fn test_fj132_apply_heredoc_hard_quoted() {
+        // Content should use hard-quoted heredoc to prevent variable expansion
+        let r = make_file_resource("/etc/test", Some("$HOME ${PATH} $(whoami)"));
+        let script = apply_script(&r);
+        assert!(
+            script.contains("FORJAR_EOF"),
+            "should use FORJAR_EOF heredoc marker"
+        );
+        // The content itself should appear literally, not expanded
+        assert!(script.contains("$HOME"));
+        assert!(script.contains("${PATH}"));
+    }
+
+    #[test]
+    fn test_fj132_apply_directory_uses_mkdir() {
+        let mut r = make_file_resource("/opt/app/data", None);
+        r.state = Some("directory".to_string());
+        let script = apply_script(&r);
+        assert!(script.contains("mkdir -p '/opt/app/data'"));
+        assert!(!script.contains("cat >"), "directory should not write file content");
+    }
+
+    #[test]
+    fn test_fj132_apply_absent_uses_rm() {
+        let mut r = make_file_resource("/etc/old.conf", None);
+        r.state = Some("absent".to_string());
+        let script = apply_script(&r);
+        assert!(script.contains("rm -rf '/etc/old.conf'"));
+    }
+
+    #[test]
+    fn test_fj132_check_directory_state() {
+        let mut r = make_file_resource("/opt/app", None);
+        r.state = Some("directory".to_string());
+        let script = check_script(&r);
+        assert!(script.contains("test -d '/opt/app'"), "directory check should use test -d");
+    }
+
+    #[test]
+    fn test_fj132_check_symlink_state() {
+        let mut r = make_file_resource("/usr/bin/link", None);
+        r.state = Some("symlink".to_string());
+        r.target = Some("/opt/bin/tool".to_string());
+        let script = check_script(&r);
+        assert!(script.contains("test -L '/usr/bin/link'"), "symlink check should use test -L");
+    }
+
+    #[test]
+    fn test_fj132_source_missing_file_generates_error() {
+        // Source pointing to nonexistent file should generate error script
+        let mut r = make_file_resource("/opt/app/binary", None);
+        r.source = Some("nonexistent-builds/app".to_string());
+        r.content = None;
+        let script = apply_script(&r);
+        assert!(
+            script.contains("ERROR: cannot read source file"),
+            "missing source file should generate error in script"
+        );
+    }
 }

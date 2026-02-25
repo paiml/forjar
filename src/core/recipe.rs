@@ -1194,4 +1194,124 @@ resources: {}
             }
         }
     }
+
+    // --- FJ-132: Recipe edge case tests ---
+
+    #[test]
+    fn test_fj132_expand_recipe_namespaces_resource_ids() {
+        let recipe = parse_recipe(RECIPE_YAML).unwrap();
+        let machine = MachineTarget::Single("test".to_string());
+        let mut inputs = HashMap::new();
+        inputs.insert(
+            "export_path".to_string(),
+            serde_yaml_ng::Value::String("/mnt/data".to_string()),
+        );
+        inputs.insert(
+            "network".to_string(),
+            serde_yaml_ng::Value::String("10.0.0.0/8".to_string()),
+        );
+        let expanded = expand_recipe("web", &recipe, &machine, &inputs, &[]).unwrap();
+        for key in expanded.keys() {
+            assert!(
+                key.starts_with("web/"),
+                "expanded key '{}' should be namespaced with 'web/'",
+                key
+            );
+        }
+    }
+
+    #[test]
+    fn test_fj132_expand_recipe_sets_machine() {
+        let recipe = parse_recipe(RECIPE_YAML).unwrap();
+        let machine = MachineTarget::Single("prod-web".to_string());
+        let mut inputs = HashMap::new();
+        inputs.insert(
+            "export_path".to_string(),
+            serde_yaml_ng::Value::String("/mnt".to_string()),
+        );
+        inputs.insert(
+            "network".to_string(),
+            serde_yaml_ng::Value::String("10.0.0.0/8".to_string()),
+        );
+        let expanded = expand_recipe("stack", &recipe, &machine, &inputs, &[]).unwrap();
+        for resource in expanded.values() {
+            match &resource.machine {
+                MachineTarget::Single(name) => assert_eq!(name, "prod-web"),
+                _ => panic!("expected Single machine target"),
+            }
+        }
+    }
+
+    #[test]
+    fn test_fj132_validate_input_valid() {
+        let recipe = parse_recipe(RECIPE_YAML).unwrap();
+        let mut inputs = HashMap::new();
+        inputs.insert(
+            "export_path".to_string(),
+            serde_yaml_ng::Value::String("/mnt".to_string()),
+        );
+        inputs.insert(
+            "network".to_string(),
+            serde_yaml_ng::Value::String("10.0.0.0/8".to_string()),
+        );
+        let result = validate_inputs(&recipe.recipe, &inputs);
+        assert!(result.is_ok(), "valid inputs should pass validation");
+    }
+
+    #[test]
+    fn test_fj132_expand_namespaces_depends_on() {
+        // Internal depends_on should be namespaced
+        let recipe = parse_recipe(RECIPE_YAML).unwrap();
+        let machine = MachineTarget::Single("m".to_string());
+        let mut inputs = HashMap::new();
+        inputs.insert(
+            "export_path".to_string(),
+            serde_yaml_ng::Value::String("/mnt".to_string()),
+        );
+        inputs.insert(
+            "network".to_string(),
+            serde_yaml_ng::Value::String("10.0.0.0/8".to_string()),
+        );
+        let expanded = expand_recipe("nfs", &recipe, &machine, &inputs, &[]).unwrap();
+        // service depends on [packages, exports] → [nfs/packages, nfs/exports]
+        let svc = &expanded["nfs/service"];
+        assert!(
+            svc.depends_on.contains(&"nfs/packages".to_string()),
+            "internal deps should be namespaced"
+        );
+        assert!(
+            svc.depends_on.contains(&"nfs/exports".to_string()),
+            "internal deps should be namespaced"
+        );
+    }
+
+    #[test]
+    fn test_fj132_expand_namespaces_restart_on() {
+        // Internal restart_on should also be namespaced
+        let recipe = parse_recipe(RECIPE_YAML).unwrap();
+        let machine = MachineTarget::Single("m".to_string());
+        let mut inputs = HashMap::new();
+        inputs.insert(
+            "export_path".to_string(),
+            serde_yaml_ng::Value::String("/mnt".to_string()),
+        );
+        inputs.insert(
+            "network".to_string(),
+            serde_yaml_ng::Value::String("10.0.0.0/8".to_string()),
+        );
+        let expanded = expand_recipe("nfs", &recipe, &machine, &inputs, &[]).unwrap();
+        let svc = &expanded["nfs/service"];
+        assert!(
+            svc.restart_on.contains(&"nfs/exports".to_string()),
+            "restart_on should be namespaced: {:?}",
+            svc.restart_on
+        );
+    }
+
+    #[test]
+    fn test_fj132_resolve_input_preserves_non_template() {
+        // Non-template strings should pass through unchanged
+        let result = resolve_input_template("no templates here", &HashMap::new()).unwrap();
+        assert_eq!(result, "no templates here");
+    }
 }
