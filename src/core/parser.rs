@@ -196,10 +196,7 @@ fn validate_resource_type(id: &str, resource: &Resource, errors: &mut Vec<Valida
             }
             if resource.state.as_deref() == Some("symlink") && resource.target.is_none() {
                 errors.push(ValidationError {
-                    message: format!(
-                        "resource '{}' (file) state=symlink requires a target",
-                        id
-                    ),
+                    message: format!("resource '{}' (file) state=symlink requires a target", id),
                 });
             }
         }
@@ -291,10 +288,32 @@ fn validate_resource_type(id: &str, resource: &Resource, errors: &mut Vec<Valida
                     message: format!("resource '{}' (cron) has no schedule", id),
                 });
             }
+            if let Some(ref sched) = resource.schedule {
+                let fields: Vec<&str> = sched.split_whitespace().collect();
+                if fields.len() != 5 {
+                    errors.push(ValidationError {
+                        message: format!(
+                            "resource '{}' (cron) schedule '{}' must have exactly 5 fields (min hour dom mon dow)",
+                            id, sched
+                        ),
+                    });
+                }
+            }
             if resource.command.is_none() && resource.state.as_deref() != Some("absent") {
                 errors.push(ValidationError {
                     message: format!("resource '{}' (cron) has no command", id),
                 });
+            }
+            if let Some(ref state) = resource.state {
+                let valid = ["present", "absent"];
+                if !valid.contains(&state.as_str()) {
+                    errors.push(ValidationError {
+                        message: format!(
+                            "resource '{}' (cron) has invalid state '{}' (expected: present, absent)",
+                            id, state
+                        ),
+                    });
+                }
             }
         }
         ResourceType::Network => {
@@ -1319,7 +1338,9 @@ resources:
 "#;
         let config = parse_config(yaml).unwrap();
         let errors = validate_config(&config);
-        assert!(errors.iter().any(|e| e.message.contains("invalid state 'bogus'")));
+        assert!(errors
+            .iter()
+            .any(|e| e.message.contains("invalid state 'bogus'")));
     }
 
     #[test]
@@ -1340,7 +1361,9 @@ resources:
 "#;
         let config = parse_config(yaml).unwrap();
         let errors = validate_config(&config);
-        assert!(errors.iter().any(|e| e.message.contains("symlink requires a target")));
+        assert!(errors
+            .iter()
+            .any(|e| e.message.contains("symlink requires a target")));
     }
 
     #[test]
@@ -1392,7 +1415,9 @@ resources:
 "#;
         let config = parse_config(yaml).unwrap();
         let errors = validate_config(&config);
-        assert!(errors.iter().any(|e| e.message.contains("invalid state 'restarting'")));
+        assert!(errors
+            .iter()
+            .any(|e| e.message.contains("invalid state 'restarting'")));
     }
 
     #[test]
@@ -1444,7 +1469,9 @@ resources:
 "#;
         let config = parse_config(yaml).unwrap();
         let errors = validate_config(&config);
-        assert!(errors.iter().any(|e| e.message.contains("invalid state 'attached'")));
+        assert!(errors
+            .iter()
+            .any(|e| e.message.contains("invalid state 'attached'")));
     }
 
     #[test]
@@ -1486,7 +1513,9 @@ resources:
 "#;
         let config = parse_config(yaml).unwrap();
         let errors = validate_config(&config);
-        assert!(errors.iter().any(|e| e.message.contains("invalid protocol 'sctp'")));
+        assert!(errors
+            .iter()
+            .any(|e| e.message.contains("invalid protocol 'sctp'")));
     }
 
     #[test]
@@ -1507,7 +1536,9 @@ resources:
 "#;
         let config = parse_config(yaml).unwrap();
         let errors = validate_config(&config);
-        assert!(errors.iter().any(|e| e.message.contains("invalid action 'block'")));
+        assert!(errors
+            .iter()
+            .any(|e| e.message.contains("invalid action 'block'")));
     }
 
     #[test]
@@ -1529,6 +1560,135 @@ resources:
 "#;
         let config = parse_config(yaml).unwrap();
         let errors = validate_config(&config);
-        assert!(errors.iter().any(|e| e.message.contains("invalid state 'paused'")));
+        assert!(errors
+            .iter()
+            .any(|e| e.message.contains("invalid state 'paused'")));
+    }
+
+    #[test]
+    fn test_cron_schedule_must_have_5_fields() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  job:
+    type: cron
+    machine: m1
+    name: bad-job
+    schedule: "0 2 * *"
+    command: /usr/bin/backup
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(errors
+            .iter()
+            .any(|e| e.message.contains("must have exactly 5 fields")));
+    }
+
+    #[test]
+    fn test_cron_valid_schedule() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  job:
+    type: cron
+    machine: m1
+    name: good-job
+    schedule: "0 2 * * *"
+    command: /usr/bin/backup
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(
+            !errors.iter().any(|e| e.message.contains("5 fields")),
+            "valid 5-field schedule should pass"
+        );
+    }
+
+    #[test]
+    fn test_cron_invalid_state() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  job:
+    type: cron
+    machine: m1
+    name: bad
+    schedule: "* * * * *"
+    command: echo hi
+    state: disabled
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(errors
+            .iter()
+            .any(|e| e.message.contains("invalid state 'disabled'")));
+    }
+
+    #[test]
+    fn test_cron_absent_skips_schedule_and_command() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  old-job:
+    type: cron
+    machine: m1
+    name: old-job
+    state: absent
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        // state=absent should not require schedule or command
+        assert!(
+            !errors.iter().any(|e| e.message.contains("no schedule")),
+            "absent cron should not require schedule"
+        );
+        assert!(
+            !errors.iter().any(|e| e.message.contains("no command")),
+            "absent cron should not require command"
+        );
+    }
+
+    #[test]
+    fn test_cron_schedule_too_many_fields() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  job:
+    type: cron
+    machine: m1
+    name: bad-job
+    schedule: "0 2 * * * *"
+    command: echo hi
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(errors
+            .iter()
+            .any(|e| e.message.contains("must have exactly 5 fields")));
     }
 }
