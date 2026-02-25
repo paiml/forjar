@@ -1,4 +1,5 @@
-//! FJ-017: CLI subcommands — plan, apply, drift, status, init, validate, history.
+//! FJ-017: CLI subcommands — init, validate, plan, apply, drift, status, history,
+//! destroy, import, show, graph, check, diff, fmt, lint, rollback, anomaly.
 
 use crate::core::{codegen, executor, parser, planner, resolver, state, types};
 use crate::transport;

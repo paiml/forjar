@@ -106,7 +106,7 @@ src/
   lib.rs                Public API
   build.rs              Compile-time contract binding verification
   cli/
-    mod.rs              Subcommand dispatch (init, validate, plan, apply, drift, status, history, destroy, import, show, graph, check, diff, fmt, lint)
+    mod.rs              Subcommand dispatch (init, validate, plan, apply, drift, status, history, destroy, import, show, graph, check, diff, fmt, lint, rollback, anomaly)
   core/
     mod.rs              Re-exports
     types.rs            All types (Machine, Resource, State, Lock)
@@ -1044,6 +1044,7 @@ Commands:
   fmt         Format (normalize) a forjar.yaml config file
   lint        Lint config for best practices beyond validation
   rollback    Rollback to a previous config revision from git history
+  anomaly     Detect anomalous resource behavior from event history
 ```
 
 ### 7.2 Global Options
