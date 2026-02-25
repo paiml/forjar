@@ -543,3 +543,223 @@ Status Values:
   Drifted    — live state differs from lock (detected by drift check)
   Unknown    — no lock entry exists
 ```
+
+## Script Generation
+
+Forjar generates three types of shell scripts for each resource. Understanding these scripts helps with debugging and auditing.
+
+### Check Scripts
+
+Check scripts verify preconditions before applying. They exit 0 if the resource already exists in the desired state:
+
+```bash
+# Package check (apt)
+dpkg-query -W -f='${Status}\n' curl 2>/dev/null | grep -q '^install ok installed$'
+
+# File check
+test -f '/etc/app/config.yaml' && \
+  echo "$(cat '/etc/app/config.yaml' | b3sum --no-names)" | \
+  grep -q 'expected_hash'
+
+# Service check
+systemctl is-active --quiet nginx
+
+# Mount check
+mountpoint -q /mnt/data
+```
+
+### Apply Scripts
+
+Apply scripts converge the resource to its desired state. They are idempotent — running them multiple times produces the same result:
+
+```bash
+# Package apply (apt, non-root)
+sudo DEBIAN_FRONTEND=noninteractive apt-get install -y 'curl' 'git' 'htop'
+
+# File apply (content via heredoc)
+mkdir -p "$(dirname '/etc/app/config.yaml')"
+cat <<'FORJAR_EOF' > '/etc/app/config.yaml'
+database:
+  host: localhost
+  port: 5432
+FORJAR_EOF
+chown 'app:app' '/etc/app/config.yaml'
+chmod '0640' '/etc/app/config.yaml'
+
+# Service apply
+systemctl start nginx
+systemctl enable nginx
+
+# Mount apply
+mkdir -p '/mnt/data'
+mount -t ext4 -o 'defaults,noatime' '/dev/sdb1' '/mnt/data'
+```
+
+### State Query Scripts
+
+State query scripts capture the current live state for drift detection. Their output is BLAKE3-hashed:
+
+```bash
+# Package state query
+dpkg-query -W -f='${Package}=${Version}\n' curl git htop 2>/dev/null || echo 'MISSING'
+
+# Service state query
+systemctl show 'nginx' --property=ActiveState,SubState,UnitFileState 2>/dev/null || echo 'MISSING'
+
+# User state query
+id 'deploy' >/dev/null 2>&1 && {
+  echo "user=deploy"
+  echo "uid=$(id -u 'deploy')"
+  echo "shell=$(getent passwd 'deploy' | cut -d: -f7)"
+} || echo 'user=MISSING'
+
+# Cron state query
+crontab -l -u root 2>/dev/null | grep 'forjar:nightly-backup' || echo 'MISSING'
+```
+
+### Script Security
+
+All generated scripts follow these security principles:
+
+| Principle | Implementation |
+|-----------|---------------|
+| **No shell injection** | All user values are single-quoted in generated scripts |
+| **No variable expansion** | File content uses heredocs with `<<'FORJAR_EOF'` (hard-quoted) |
+| **Sudo auto-detection** | `$SUDO` prefix is set to `sudo` when user != root, empty otherwise |
+| **Idempotent operations** | `install -y` (apt), `mkdir -p`, `mount` checks `mountpoint` first |
+| **Binary-safe transfers** | `source` files are base64-encoded locally and decoded remotely |
+
+## Resource Ordering Guarantees
+
+### DAG Construction
+
+Resources are ordered using a Directed Acyclic Graph (DAG) built from `depends_on` declarations. The algorithm is Kahn's topological sort with alphabetical tie-breaking for determinism:
+
+```
+Input: Resources {A, B, C, D}
+  B depends_on: [A]
+  C depends_on: [A]
+  D depends_on: [B, C]
+
+DAG edges: A → B, A → C, B → D, C → D
+
+Topological sort: [A, B, C, D]
+  (B before C due to alphabetical tie-breaking)
+```
+
+### Execution Within a Machine
+
+All resources targeting the same machine are executed sequentially in topological order. This ensures:
+
+1. Dependencies are satisfied before dependents run
+2. Error propagation stops dependent resources (with `stop_on_first` policy)
+3. Side effects from one resource are visible to the next
+
+### Cross-Machine Independence
+
+Resources on different machines are independent — machine A's resources don't wait for machine B. This enables future parallel machine execution (planned for `parallel_machines: true` policy).
+
+## Resource Type Details
+
+### Package Provider Comparison
+
+| Feature | `apt` | `cargo` | `uv` |
+|---------|-------|---------|------|
+| **Sudo** | Auto-added for non-root | Not used | Not used |
+| **Version pin** | `package=version` | `package@version` | `package==version` |
+| **Remove** | `apt-get remove -y` | Not supported | `uv tool uninstall` |
+| **State query** | `dpkg-query -W` | `cargo install --list` | `uv tool list` |
+| **Env variable** | `DEBIAN_FRONTEND=noninteractive` | None | None |
+
+### File Encoding Pipeline
+
+When using `source` (file transfer), the encoding pipeline is:
+
+```
+Local machine:
+  1. Read source file as bytes
+  2. Base64-encode the bytes
+  3. Generate script: echo '<base64>' | base64 -d > '<path>'
+
+Remote machine (via transport):
+  4. Receive script via stdin pipe
+  5. base64 -d decodes the content
+  6. Write to target path
+  7. Apply owner/group/mode
+```
+
+This handles binary files (executables, images, compressed archives) safely through any transport.
+
+### Service Restart Semantics
+
+The `restart_on` field creates a conditional restart trigger:
+
+```yaml
+  nginx:
+    type: service
+    state: running
+    restart_on: [nginx-conf, ssl-cert]
+    depends_on: [nginx-conf, ssl-cert]
+```
+
+During apply:
+1. If `nginx-conf` or `ssl-cert` was **actually changed** (action = Create or Update), nginx is restarted
+2. If both are **unchanged** (action = NoOp), nginx is not restarted
+3. The restart happens after the service's own apply script (start/enable)
+
+This prevents unnecessary service restarts when only re-running `forjar apply` without config changes.
+
+### Docker Container Lifecycle
+
+Docker resources follow a replace-on-change strategy:
+
+```
+On apply (state: running):
+  1. docker pull <image>            # Always pull latest
+  2. docker stop <name> 2>/dev/null  # Stop if exists
+  3. docker rm <name> 2>/dev/null    # Remove if exists
+  4. docker run -d --name <name> \   # Start fresh
+       --restart <policy> \
+       -p <ports> -v <volumes> \
+       -e <env> <image> [command]
+
+On apply (state: stopped):
+  1. docker stop <name>
+
+On apply (state: absent):
+  1. docker stop <name> 2>/dev/null
+  2. docker rm <name>
+```
+
+This ensures containers always run the latest image version with the correct configuration.
+
+### Network Rule Idempotency
+
+UFW rules are managed idempotently using rule comments:
+
+```bash
+# Apply: add rule only if not already present
+$SUDO ufw allow from '10.0.0.0/8' to any port '22' proto 'tcp' comment 'ssh-access'
+
+# Absent: delete by matching the rule specification
+$SUDO ufw delete allow from '10.0.0.0/8' to any port '22' proto 'tcp'
+```
+
+UFW deduplicates rules automatically — adding the same rule twice is a no-op.
+
+### Cron Job Tagging
+
+Cron jobs are tagged with comments for idempotent updates:
+
+```crontab
+# forjar:nightly-backup
+0 2 * * * /usr/local/bin/backup.sh
+```
+
+When updating a cron job, forjar:
+1. Reads the existing crontab
+2. Removes lines between `# forjar:{name}` markers
+3. Appends the updated entry
+4. Writes the new crontab atomically
+
+This prevents duplicate entries and enables clean removal with `state: absent`.

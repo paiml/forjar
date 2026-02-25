@@ -501,3 +501,227 @@ echo ""
 echo "=== Anomaly Detection ==="
 forjar anomaly --state-dir state --json | jq -r '.anomalies[] | "  ⚠ \(.resource): \(.type) (z-score: \(.z_score))"'
 ```
+
+## Drift Detection Architecture
+
+### Hashing Strategy
+
+Forjar uses a two-tier hashing approach to balance precision with performance:
+
+**Tier 1: Desired State Hash** (`hash` field in lock)
+
+The desired state hash captures the intent — what the resource *should* be. It's computed from the resource definition in `forjar.yaml`:
+
+```
+hash = blake3(
+    type + name + state + path + content + source + owner + group +
+    mode + target + packages + provider + version + image + ports +
+    volumes + environment + restart + command + schedule + shell +
+    home + from_addr + protocol + action + fs_type + options + restart_on
+)
+```
+
+This hash changes when you modify the config file. The planner uses it to determine whether a resource needs re-applying (Create vs NoOp).
+
+**Tier 2: Live State Hash** (`live_hash` field in details)
+
+The live state hash captures reality — what the resource *actually is*. It's computed from the resource's state query output:
+
+```
+live_hash = blake3(state_query_script_stdout)
+```
+
+This hash changes when someone or something modifies the live system. Drift detection uses it to determine whether reality still matches the last known state.
+
+### Hash Collision Safety
+
+BLAKE3 produces 256-bit (32-byte) hashes, giving a collision probability of approximately 1 in 2^128 for random inputs. This is effectively zero for infrastructure management purposes — you're more likely to have a cosmic ray flip a bit in your CPU than encounter a BLAKE3 collision.
+
+### Streaming Hashing
+
+For file resources, forjar uses a 64KB streaming buffer to compute BLAKE3 hashes without loading entire files into memory:
+
+```rust
+// Simplified hashing pipeline
+let mut hasher = blake3::Hasher::new();
+let mut buf = [0u8; 65536];
+loop {
+    let n = reader.read(&mut buf)?;
+    if n == 0 { break; }
+    hasher.update(&buf[..n]);
+}
+format!("blake3:{}", hasher.finalize().to_hex())
+```
+
+This handles multi-gigabyte files efficiently with constant memory usage.
+
+## Event Log Internals
+
+### Log Format
+
+Events are stored as newline-delimited JSON (JSONL) at `state/{machine}/events.jsonl`. Each line is a self-contained JSON object:
+
+```json
+{"ts":"2026-01-15T10:30:00Z","event":"apply_started","run_id":"a1b2c3","version":"0.1.0"}
+{"ts":"2026-01-15T10:30:01Z","event":"resource_started","resource":"nginx-pkg","type":"package"}
+{"ts":"2026-01-15T10:30:03Z","event":"resource_converged","resource":"nginx-pkg","hash":"blake3:abc...","duration_seconds":2.1}
+{"ts":"2026-01-15T10:30:05Z","event":"apply_completed","resources_converged":1,"resources_failed":0}
+```
+
+### Event Schema
+
+| Field | Type | Present In | Description |
+|-------|------|-----------|-------------|
+| `ts` | ISO 8601 | All events | Timestamp with timezone |
+| `event` | string | All events | Event type identifier |
+| `run_id` | string | `apply_started` | Unique run identifier |
+| `version` | string | `apply_started` | Forjar version |
+| `resource` | string | Resource events | Resource ID |
+| `type` | string | `resource_started` | Resource type |
+| `hash` | string | `resource_converged` | BLAKE3 hash after apply |
+| `duration_seconds` | float | `resource_converged` | Wall-clock time |
+| `error` | string | `resource_failed` | Error message |
+| `resources_converged` | int | `apply_completed` | Count |
+| `resources_failed` | int | `apply_completed` | Count |
+
+### Log Rotation
+
+Event logs grow over time. Forjar does not automatically rotate logs — use standard tools:
+
+```bash
+# Rotate logs older than 90 days
+find state/ -name "events.jsonl" -mtime +90 -exec truncate -s 0 {} \;
+
+# Archive and compress
+for f in state/*/events.jsonl; do
+    machine=$(basename $(dirname "$f"))
+    cp "$f" "archive/${machine}-$(date -I).jsonl"
+    gzip "archive/${machine}-$(date -I).jsonl"
+    truncate -s 0 "$f"
+done
+```
+
+### Log Analysis Queries
+
+Common analysis patterns using `jq`:
+
+```bash
+# Average convergence time per resource type
+cat state/web/events.jsonl | \
+  jq -s '[.[] | select(.event == "resource_converged")] |
+         group_by(.type) |
+         map({type: .[0].type, avg_seconds: ([.[].duration_seconds] | add / length)})'
+
+# Find slowest resources (>5s)
+cat state/web/events.jsonl | \
+  jq 'select(.event == "resource_converged" and .duration_seconds > 5)'
+
+# Count failures by resource
+cat state/web/events.jsonl | \
+  jq -s '[.[] | select(.event == "resource_failed")] |
+         group_by(.resource) |
+         map({resource: .[0].resource, failures: length})'
+
+# Timeline of a specific run
+RUN_ID="a1b2c3"
+cat state/web/events.jsonl | \
+  jq "select(.run_id == \"$RUN_ID\" or .event == \"apply_started\")"
+```
+
+## Tripwire Integration
+
+### What is Tripwire Mode?
+
+Tripwire mode turns drift detection into a binary signal: **clean** (exit 0) or **drifted** (exit 1). This is designed for CI/CD gates and monitoring systems that need a clear pass/fail signal.
+
+```bash
+# CI gate: block deploy if drift detected
+forjar drift -f forjar.yaml --tripwire
+if [ $? -ne 0 ]; then
+    echo "Drift detected — resolve before deploying"
+    exit 1
+fi
+```
+
+### Tripwire vs Anomaly Detection
+
+| Feature | Tripwire | Anomaly |
+|---------|----------|---------|
+| **Focus** | Current state deviation | Historical patterns |
+| **Signal** | Binary (drifted/clean) | Scored (z-score, rate) |
+| **Speed** | Fast (single check) | Slower (history analysis) |
+| **Use case** | CI gate, cron alert | Weekly review, capacity planning |
+| **Data needed** | Lock file + live state | Event log history |
+
+Use tripwire for real-time alerts. Use anomaly detection for trend analysis and root cause investigation.
+
+### Provenance Chain
+
+The combination of lock files, event logs, and drift detection creates a complete provenance chain:
+
+```
+1. Config change → git commit → forjar plan → hash comparison
+2. forjar apply → event log → lock file update
+3. Drift check → live hash vs lock hash → finding report
+4. Anomaly scan → event pattern analysis → churn/failure alerts
+```
+
+Every change to infrastructure is traceable:
+- **Who** changed it: git history + event log
+- **What** changed: BLAKE3 hash comparison
+- **When** it changed: event timestamps
+- **Whether** it drifted: drift detection findings
+
+## Advanced Drift Patterns
+
+### Incremental Drift Detection
+
+For large fleets, check drift incrementally by machine or tag:
+
+```bash
+# Check one machine at a time (reduces blast radius)
+for machine in web db cache monitor; do
+    echo "Checking $machine..."
+    forjar drift -f forjar.yaml -m "$machine" --json > "/tmp/drift-$machine.json"
+    count=$(jq '.findings | length' "/tmp/drift-$machine.json")
+    if [ "$count" -gt 0 ]; then
+        echo "  DRIFT: $count finding(s) on $machine"
+    else
+        echo "  CLEAN"
+    fi
+done
+
+# Check by tag for targeted verification
+forjar drift -f forjar.yaml --tag critical --tripwire
+```
+
+### Drift Suppression
+
+Some drift is expected — for example, log files that rotate or tmp directories that grow. Handle expected drift by:
+
+1. **Not managing volatile paths**: Don't declare resources for files that change legitimately
+2. **Using `state: directory`**: Directory resources check existence, not contents
+3. **Separate configs**: Split volatile resources into a separate config with relaxed monitoring
+
+### Drift Metrics for Prometheus
+
+Export drift data to Prometheus for monitoring dashboards:
+
+```bash
+#!/bin/bash
+# drift-exporter.sh — run as a cron job
+METRICS_FILE="/var/lib/prometheus/node-exporter/forjar_drift.prom"
+
+drift_json=$(forjar drift -f forjar.yaml --json 2>/dev/null)
+drift_count=$(echo "$drift_json" | jq '.findings | length')
+last_check=$(date +%s)
+
+cat > "$METRICS_FILE" <<EOF
+# HELP forjar_drift_findings_total Number of resources with detected drift
+# TYPE forjar_drift_findings_total gauge
+forjar_drift_findings_total $drift_count
+# HELP forjar_drift_last_check_timestamp_seconds Unix timestamp of last drift check
+# TYPE forjar_drift_last_check_timestamp_seconds gauge
+forjar_drift_last_check_timestamp_seconds $last_check
+EOF
+```

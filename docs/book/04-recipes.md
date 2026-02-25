@@ -467,6 +467,50 @@ resources:
 
 This expands to 6 resources with the correct dependency chain: `my-app/packages` → `my-app/app-dir` → ... → `my-app/nginx-svc`.
 
+### SSL/TLS Certificate Recipe
+
+A recipe that manages TLS certificates with renewal logic:
+
+```yaml
+# recipes/tls-cert.yaml
+recipe:
+  name: tls-cert
+  version: "1.0"
+  description: "TLS certificate with auto-renewal via certbot"
+  inputs:
+    domain:
+      type: string
+      description: "Domain name for the certificate"
+    email:
+      type: string
+      description: "Email for Let's Encrypt notifications"
+    webroot:
+      type: path
+      default: /var/www/html
+      description: "Webroot for ACME challenge"
+
+resources:
+  certbot-pkg:
+    type: package
+    provider: apt
+    packages: [certbot]
+
+  cert-dir:
+    type: file
+    state: directory
+    path: "/etc/letsencrypt/live/{{inputs.domain}}"
+    mode: "0700"
+    depends_on: [certbot-pkg]
+
+  renewal-cron:
+    type: cron
+    name: "certbot-renew-{{inputs.domain}}"
+    schedule: "0 3 * * 1"
+    command: "certbot renew --webroot -w {{inputs.webroot}} --quiet"
+    owner: root
+    depends_on: [certbot-pkg]
+```
+
 ### Recipe with External Dependencies
 
 Recipes can declare dependencies on resources outside the recipe:
@@ -534,3 +578,230 @@ The expansion pipeline processes recipes in this order:
 3. Replace recipe resources with expanded resources
 4. Validate expanded config (deps, machines, types)
 ```
+
+## Recipe Testing
+
+### Unit Testing a Recipe
+
+Test a recipe in isolation using a container machine:
+
+```yaml
+# test-web-server.yaml
+version: "1.0"
+name: test-web-server-recipe
+machines:
+  test:
+    hostname: test
+    addr: container
+    transport: container
+    container:
+      runtime: docker
+      image: ubuntu:22.04
+      ephemeral: true
+
+resources:
+  web:
+    type: recipe
+    machine: test
+    recipe: web-server
+    inputs:
+      domain: test.local
+      port: 8080
+      log_level: debug
+```
+
+```bash
+# Validate recipe expansion
+forjar validate -f test-web-server.yaml
+
+# Apply to container
+forjar apply -f test-web-server.yaml --state-dir /tmp/recipe-test
+
+# Check for drift (should be clean immediately after apply)
+forjar drift -f test-web-server.yaml --state-dir /tmp/recipe-test
+```
+
+### Recipe CI Pipeline
+
+Add recipe validation to CI:
+
+```yaml
+# .github/workflows/recipe-test.yml
+name: Recipe Tests
+on: [pull_request]
+jobs:
+  validate-recipes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build forjar
+        run: cargo build --release
+      - name: Validate all configs that use recipes
+        run: |
+          for config in examples/*.yaml; do
+            echo "Validating $config..."
+            ./target/release/forjar validate -f "$config"
+          done
+      - name: Test recipe expansion
+        run: |
+          ./target/release/forjar plan -f examples/recipe-example.yaml --state-dir /tmp/state
+```
+
+### Recipe Development Workflow
+
+The recommended workflow for creating and iterating on recipes:
+
+```
+1. Write recipe YAML in recipes/
+2. Create a test config with container machine
+3. forjar validate -f test-config.yaml
+4. forjar plan -f test-config.yaml --state-dir /tmp/test
+5. forjar apply -f test-config.yaml --state-dir /tmp/test
+6. forjar drift -f test-config.yaml --state-dir /tmp/test
+7. Iterate on recipe, re-apply until clean
+8. Move test config inputs to production config
+```
+
+## Recipe Internals
+
+### Input Type Coercion
+
+Recipe inputs are type-checked at parse time. The coercion rules:
+
+| Declared Type | YAML Value | Result |
+|---------------|-----------|--------|
+| `string` | `"hello"` | `"hello"` |
+| `string` | `42` | `"42"` (auto-coerced) |
+| `int` | `42` | `42` |
+| `int` | `"42"` | Error: expected int |
+| `bool` | `true` | `true` |
+| `bool` | `"yes"` | Error: expected bool |
+| `path` | `"/etc/app"` | `"/etc/app"` |
+| `path` | `"relative/path"` | Error: must be absolute |
+| `enum` | `"warn"` | `"warn"` (if in choices) |
+| `enum` | `"verbose"` | Error: not in choices |
+
+### Template Resolution Order
+
+Templates inside recipes are resolved in two passes:
+
+**Pass 1: Recipe-level** (`{{inputs.X}}`)
+- Resolved during recipe expansion
+- Uses values from the calling config's `inputs:` block
+- Results in concrete values before the resource enters the main config
+
+**Pass 2: Config-level** (`{{params.X}}`, `{{secrets.X}}`, `{{machine.X.Y}}`)
+- Resolved during the main template resolution phase
+- Uses the calling config's `params:`, `secrets`, and `machines:` blocks
+- Happens after recipe expansion
+
+This means a recipe can mix both template types:
+
+```yaml
+# In a recipe resource
+content: |
+  app_name={{inputs.app_name}}
+  environment={{params.env}}
+  db_host={{machine.db.addr}}
+  api_key={{secrets.api-key}}
+```
+
+`{{inputs.app_name}}` is resolved in Pass 1. The rest are resolved in Pass 2.
+
+### Namespace Collision Prevention
+
+Recipe namespacing prevents ID collisions when the same recipe is used multiple times:
+
+```yaml
+resources:
+  web1-stack:
+    type: recipe
+    machine: web1
+    recipe: web-server
+    inputs: { domain: a.com }
+  web2-stack:
+    type: recipe
+    machine: web2
+    recipe: web-server
+    inputs: { domain: b.com }
+```
+
+Expanded IDs:
+- `web1-stack/nginx-pkg` (machine: web1)
+- `web1-stack/site-config` (machine: web1)
+- `web2-stack/nginx-pkg` (machine: web2)
+- `web2-stack/site-config` (machine: web2)
+
+Internal `depends_on` and `restart_on` references are also namespaced. If the recipe has `depends_on: [nginx-pkg]`, it becomes `depends_on: [web1-stack/nginx-pkg]` after expansion.
+
+### Recipe File Resolution
+
+Forjar searches for recipe files relative to the config file's directory:
+
+```
+forjar.yaml          ← config file
+recipes/
+  web-server.yaml    ← found via "recipe: web-server"
+  database.yaml      ← found via "recipe: database"
+  monitoring.yaml    ← found via "recipe: monitoring"
+```
+
+If `forjar.yaml` is at `/opt/infra/forjar.yaml`, then `recipe: web-server` loads `/opt/infra/recipes/web-server.yaml`.
+
+## Recipe Anti-Patterns
+
+### Avoid: Recipes Without Inputs
+
+```yaml
+# BAD — recipe with no parameterization (just use regular resources)
+recipe:
+  name: static-config
+  version: "1.0"
+  # No inputs — this recipe does the same thing every time
+
+# GOOD — add inputs for the parts that vary
+recipe:
+  name: configurable-stack
+  inputs:
+    app_name: { type: string }
+    port: { type: int, default: 8080 }
+```
+
+If a recipe has zero inputs, it's just adding indirection. Use regular resources instead.
+
+### Avoid: Deeply Nested Dependencies
+
+```yaml
+# BAD — 10-resource chain with serial dependencies
+resources:
+  step-1: { depends_on: [] }
+  step-2: { depends_on: [step-1] }
+  step-3: { depends_on: [step-2] }
+  # ... 7 more steps ...
+
+# GOOD — use parallel-safe dependency structure
+resources:
+  packages: {}
+  config-a: { depends_on: [packages] }
+  config-b: { depends_on: [packages] }
+  service-a: { depends_on: [config-a] }
+  service-b: { depends_on: [config-b] }
+```
+
+Prefer wide DAGs (many resources depending on one) over deep chains (serial sequences). Wide DAGs enable future parallel execution.
+
+### Avoid: Environment-Specific Recipes
+
+```yaml
+# BAD — separate recipes for each environment
+recipe: web-server-production
+recipe: web-server-staging
+
+# GOOD — one recipe, parameterize differences
+recipe: web-server
+inputs:
+  log_level: { type: enum, choices: [error, warn, info, debug] }
+  port: { type: int }
+```
+
+Use inputs to handle environment differences, not separate recipe files.
