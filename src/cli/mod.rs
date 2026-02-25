@@ -6535,4 +6535,137 @@ resources: {}
             &serde_yaml_ng::Value::String("host=db port=5432".to_string())
         );
     }
+
+    // ── FJ-036 tests ────────────────────────────────────────────
+
+    #[test]
+    fn test_fj036_cmd_lint_bashrs_reports() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("forjar.yaml");
+        // Config with a package resource — codegen will produce scripts
+        // that bashrs can lint for shell safety diagnostics
+        let yaml = r#"
+version: "1.0"
+name: lint-bashrs
+machines:
+  m1:
+    hostname: box
+    addr: 1.2.3.4
+resources:
+  pkg:
+    type: package
+    machine: m1
+    provider: apt
+    packages: [curl, wget]
+  conf:
+    type: file
+    machine: m1
+    path: /etc/app.conf
+    content: "key=value"
+"#;
+        std::fs::write(&file, yaml).unwrap();
+        // cmd_lint should succeed and produce bashrs diagnostics summary
+        let result = cmd_lint(&file, true);
+        assert!(
+            result.is_ok(),
+            "cmd_lint should succeed: {:?}",
+            result.err()
+        );
+    }
+
+    #[test]
+    fn test_fj036_cmd_validate_valid_config() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("forjar.yaml");
+        let yaml = r#"
+version: "1.0"
+name: valid-project
+machines:
+  web:
+    hostname: web-01
+    addr: 10.0.0.1
+  db:
+    hostname: db-01
+    addr: 10.0.0.2
+resources:
+  web-pkg:
+    type: package
+    machine: web
+    provider: apt
+    packages: [nginx]
+  db-pkg:
+    type: package
+    machine: db
+    provider: apt
+    packages: [postgresql]
+  app-config:
+    type: file
+    machine: web
+    path: /etc/nginx/nginx.conf
+    content: "server {}"
+    depends_on: [web-pkg]
+"#;
+        std::fs::write(&file, yaml).unwrap();
+        let result = cmd_validate(&file);
+        assert!(
+            result.is_ok(),
+            "valid config should pass validation: {:?}",
+            result.err()
+        );
+    }
+
+    #[test]
+    fn test_fj036_cmd_init_creates_state_dir() {
+        let dir = tempfile::tempdir().unwrap();
+        let project = dir.path().join("fj036-project");
+        std::fs::create_dir_all(&project).unwrap();
+
+        cmd_init(&project).unwrap();
+
+        // Verify state directory was created
+        assert!(
+            project.join("state").is_dir(),
+            "cmd_init must create state/ directory"
+        );
+        // Verify forjar.yaml was created
+        assert!(
+            project.join("forjar.yaml").exists(),
+            "cmd_init must create forjar.yaml"
+        );
+        // Verify the generated config is valid YAML that parses
+        let content = std::fs::read_to_string(project.join("forjar.yaml")).unwrap();
+        let config: types::ForjarConfig = serde_yaml_ng::from_str(&content).unwrap();
+        assert_eq!(config.version, "1.0");
+    }
+
+    #[test]
+    fn test_fj036_discover_container_machines() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = dir.path();
+
+        // Create a container-transport machine directory with a state.lock.yaml
+        let container_dir = state.join("docker-box");
+        std::fs::create_dir_all(&container_dir).unwrap();
+        std::fs::write(container_dir.join("state.lock.yaml"), "schema: '1.0'").unwrap();
+
+        // Create another machine directory (non-container, but discover_machines
+        // only checks for state.lock.yaml presence, not transport type)
+        let ssh_dir = state.join("ssh-box");
+        std::fs::create_dir_all(&ssh_dir).unwrap();
+        std::fs::write(ssh_dir.join("state.lock.yaml"), "schema: '1.0'").unwrap();
+
+        let machines = discover_machines(state);
+        assert_eq!(machines.len(), 2);
+        assert!(
+            machines.contains(&"docker-box".to_string()),
+            "container transport machine should be discovered"
+        );
+        assert!(
+            machines.contains(&"ssh-box".to_string()),
+            "ssh transport machine should also be discovered"
+        );
+        // discover_machines returns sorted results
+        assert_eq!(machines[0], "docker-box");
+        assert_eq!(machines[1], "ssh-box");
+    }
 }
