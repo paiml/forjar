@@ -294,6 +294,29 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
     },
+
+    /// Rollback to a previous config revision from git history
+    Rollback {
+        /// Path to forjar.yaml
+        #[arg(short, long, default_value = "forjar.yaml")]
+        file: PathBuf,
+
+        /// Git revision to rollback to (default: HEAD~1)
+        #[arg(short = 'n', long, default_value = "1")]
+        revision: u32,
+
+        /// Target specific machine
+        #[arg(short, long)]
+        machine: Option<String>,
+
+        /// Show what would change without applying
+        #[arg(long)]
+        dry_run: bool,
+
+        /// State directory
+        #[arg(long, default_value = "state")]
+        state_dir: PathBuf,
+    },
 }
 
 /// Dispatch a CLI command.
@@ -413,6 +436,13 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
         ),
         Commands::Fmt { file, check } => cmd_fmt(&file, check),
         Commands::Lint { file, json } => cmd_lint(&file, json),
+        Commands::Rollback {
+            file,
+            revision,
+            machine,
+            dry_run,
+            state_dir,
+        } => cmd_rollback(&file, &state_dir, revision, machine.as_deref(), dry_run, verbose),
     }
 }
 
@@ -533,6 +563,108 @@ fn cmd_lint(file: &Path, json: bool) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+/// Rollback to a previous config revision from git history.
+///
+/// Uses `git show HEAD~N:<file>` to fetch the previous forjar.yaml,
+/// then re-applies it with --force to converge to the prior desired state.
+fn cmd_rollback(
+    file: &Path,
+    state_dir: &Path,
+    revision: u32,
+    machine_filter: Option<&str>,
+    dry_run: bool,
+    verbose: bool,
+) -> Result<(), String> {
+    // Resolve the file path relative to git repo
+    let file_str = file.to_string_lossy();
+
+    // Fetch the previous config from git
+    let git_ref = format!("HEAD~{}:{}", revision, file_str);
+    let output = std::process::Command::new("git")
+        .args(["show", &git_ref])
+        .output()
+        .map_err(|e| format!("git show failed: {}", e))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!(
+            "cannot read {} from git history (HEAD~{}): {}",
+            file_str,
+            revision,
+            stderr.trim()
+        ));
+    }
+
+    let previous_yaml = String::from_utf8_lossy(&output.stdout);
+
+    // Parse the previous config
+    let previous_config: types::ForjarConfig = serde_yaml_ng::from_str(&previous_yaml)
+        .map_err(|e| format!("cannot parse previous config (HEAD~{}): {}", revision, e))?;
+
+    // Parse the current config for comparison
+    let current_config = parse_and_validate(file)?;
+
+    // Show what changed between current and previous
+    let mut changes = Vec::new();
+    for (id, prev_resource) in &previous_config.resources {
+        if let Some(cur_resource) = current_config.resources.get(id) {
+            // Resource exists in both — check if it changed
+            let prev_yaml = serde_yaml_ng::to_string(prev_resource)
+                .unwrap_or_default();
+            let cur_yaml = serde_yaml_ng::to_string(cur_resource)
+                .unwrap_or_default();
+            if prev_yaml != cur_yaml {
+                changes.push(format!("  ~ {} (modified)", id));
+            }
+        } else {
+            // Resource was in previous but not current — it was removed
+            changes.push(format!("  + {} (will be re-added from HEAD~{})", id, revision));
+        }
+    }
+    for id in current_config.resources.keys() {
+        if !previous_config.resources.contains_key(id) {
+            changes.push(format!("  - {} (exists now but not in HEAD~{}, will remain)", id, revision));
+        }
+    }
+
+    if changes.is_empty() {
+        println!("No config changes between HEAD and HEAD~{}. Nothing to rollback.", revision);
+        return Ok(());
+    }
+
+    println!("Rollback to HEAD~{} ({}):", revision, previous_config.name);
+    for c in &changes {
+        println!("{}", c);
+    }
+    println!();
+
+    if dry_run {
+        println!("Dry run: {} change(s) would be applied.", changes.len());
+        return Ok(());
+    }
+
+    // Write the previous config to a temp file and apply with --force
+    let temp_config = std::env::temp_dir().join("forjar-rollback.yaml");
+    std::fs::write(&temp_config, previous_yaml.as_bytes())
+        .map_err(|e| format!("cannot write temp config: {}", e))?;
+
+    println!("Applying previous config with --force...");
+    cmd_apply(
+        &temp_config,
+        state_dir,
+        machine_filter,
+        None,  // no resource filter
+        None,  // no tag filter
+        true,  // force — re-apply everything
+        false, // not dry-run (we already checked above)
+        false, // tripwire on
+        &[],   // no param overrides
+        false, // no auto-commit
+        None,  // no timeout
+        verbose,
+    )
 }
 
 fn cmd_fmt(file: &Path, check: bool) -> Result<(), String> {
@@ -4537,5 +4669,45 @@ resources:
             found_cross_machine,
             "should detect cross-machine dependency"
         );
+    }
+
+    #[test]
+    fn test_rollback_no_git_history() {
+        // A file that doesn't exist in git history should fail gracefully
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("nonexistent.yaml");
+        std::fs::write(&file, "version: \"1.0\"\nname: test\nmachines: {}\nresources: {}\n")
+            .unwrap();
+        let state = dir.path().join("state");
+        std::fs::create_dir_all(&state).unwrap();
+
+        let result = cmd_rollback(&file, &state, 1, None, true, false);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("cannot read"));
+    }
+
+    #[test]
+    fn test_rollback_dispatch() {
+        // Verify the Rollback command variant is accepted by dispatch
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("forjar.yaml");
+        std::fs::write(&file, "version: \"1.0\"\nname: rb\nmachines: {}\nresources: {}\n")
+            .unwrap();
+        let state = dir.path().join("state");
+        std::fs::create_dir_all(&state).unwrap();
+
+        // Dispatch dry-run rollback — will fail because no git history,
+        // but verifies the dispatch path is wired correctly
+        let result = dispatch(
+            Commands::Rollback {
+                file,
+                revision: 1,
+                machine: None,
+                dry_run: true,
+                state_dir: state,
+            },
+            false,
+        );
+        assert!(result.is_err()); // Expected: no git history
     }
 }

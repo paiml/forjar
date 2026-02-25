@@ -1043,6 +1043,7 @@ Commands:
   diff        Compare two state snapshots
   fmt         Format (normalize) a forjar.yaml config file
   lint        Lint config for best practices beyond validation
+  rollback    Rollback to a previous config revision from git history
 ```
 
 ### 7.2 Global Options
@@ -1201,6 +1202,21 @@ Detects:
 - Cross-machine dependencies (resource depends on resource targeting different machines)
 - Package resources with empty package lists
 
+### 7.13 `forjar rollback`
+
+```
+forjar rollback [OPTIONS]
+
+Options:
+  -f, --file <PATH>      Config file path (default: forjar.yaml)
+  -n, --revision <N>     Git revisions back to rollback to (default: 1)
+  -m, --machine <NAME>   Filter to specific machine
+  --dry-run              Show what would change without applying
+  --state-dir <PATH>     State directory (default: state)
+```
+
+Reads the previous config from `git show HEAD~N:<file>`, compares against current, and re-applies with `--force`.
+
 ---
 
 ## 8. Phased Implementation
@@ -1293,6 +1309,8 @@ Detects:
 | FJ-077 | Drift dry-run — `--dry-run` flag to list checks without connecting | **Done** |
 | FJ-078 | Drift auto-remediate — `--auto-remediate` force re-applies drifted resources | **Done** |
 | FJ-079 | Plan output-dir — `--output-dir` writes generated scripts for audit | **Done** |
+| FJ-080 | `forjar rollback` — restore previous config from git history + force re-apply | **Done** |
+| FJ-081 | Systemd detection guard — graceful skip for service resources in non-systemd environments | **Done** |
 
 ---
 
@@ -1555,7 +1573,7 @@ When bindings are verified, the build emits `CONTRACT_*` environment variables c
 ## 14. Open Questions
 
 1. ~~**Secrets**: Encrypt in git (age/sops-style) or external vault?~~ **Resolved**: Environment variable-based secrets (`FORJAR_SECRET_*` → `{{secrets.KEY}}`). Age encryption deferred to future.
-2. **Rollback**: Should `forjar rollback` replay the previous state, or just show the diff? Terraform doesn't rollback — it just re-applies desired state. **Planned**: FJ-080 — read previous lock files from git history and re-apply via existing pipeline.
+2. ~~**Rollback**: Should `forjar rollback` replay the previous state, or just show the diff?~~ **Resolved**: `forjar rollback -n N` reads previous `forjar.yaml` from `git show HEAD~N`, compares changes, and re-applies with `--force`. Supports `--dry-run` for safe preview (FJ-080).
 3. ~~**Import**: Should `forjar import` be able to adopt existing infrastructure?~~ **Resolved**: `forjar import --addr <host>` scans packages, services, and config files, generates forjar.yaml (FJ-065).
 4. ~~**Multi-repo**: Should machines be able to be managed by multiple forjar repos?~~ **Resolved**: No — one repo per fleet, sovereignty principle. Enforced by convention; lint warns on cross-machine dependencies.
-5. **Systemd in containers**: Service resources require systemd. Should forjar detect when running inside a container without systemd and skip/warn? **Planned**: FJ-081 — runtime detection of systemd availability, graceful skip/warn for non-systemd containers.
+5. ~~**Systemd in containers**: Service resources require systemd. Should forjar detect when running inside a container without systemd and skip/warn?~~ **Resolved**: All service scripts now include a systemd guard (`command -v systemctl`) that gracefully exits 0 with a `FORJAR_WARN` message when systemd is unavailable (FJ-081).

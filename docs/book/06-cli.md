@@ -357,6 +357,38 @@ forjar lint -f forjar.yaml
 forjar lint -f forjar.yaml --json
 ```
 
+### `forjar rollback`
+
+Rollback to a previous config revision from git history.
+
+```bash
+forjar rollback -f <FILE> [-n REVISION] [-m MACHINE] [--dry-run] [--state-dir DIR]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-f, --file` | `forjar.yaml` | Config file path |
+| `-n, --revision` | `1` | How many git revisions back to rollback (HEAD~N) |
+| `-m, --machine` | all | Filter to specific machine |
+| `--dry-run` | false | Show what would change without applying |
+| `--state-dir` | `state` | Directory for lock files |
+
+Reads the previous `forjar.yaml` from `git show HEAD~N:<file>`, compares it to the current config, and re-applies the old config with `--force` to converge to the previous desired state.
+
+```bash
+# Preview what rollback would change
+forjar rollback --dry-run
+
+# Rollback to previous version
+forjar rollback
+
+# Rollback to 3 versions ago
+forjar rollback -n 3
+
+# Rollback specific machine only
+forjar rollback -m web-server
+```
+
 ## Exit Codes
 
 | Code | Meaning |
