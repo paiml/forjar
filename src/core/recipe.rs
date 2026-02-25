@@ -976,8 +976,7 @@ resources:
 "#;
         let recipe = parse_recipe(yaml).unwrap();
         let machine = MachineTarget::Single("m1".to_string());
-        let expanded =
-            expand_recipe("app", &recipe, &machine, &HashMap::new(), &[]).unwrap();
+        let expanded = expand_recipe("app", &recipe, &machine, &HashMap::new(), &[]).unwrap();
         let cfg = &expanded["app/cfg"];
         assert_eq!(cfg.path.as_deref(), Some("/etc/my-app/config"));
         assert_eq!(cfg.content.as_deref(), Some("port=8080"));

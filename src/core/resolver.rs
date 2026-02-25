@@ -1037,8 +1037,7 @@ resources:
             serde_yaml_ng::Value::String("Y".to_string()),
         );
         let machines = indexmap::IndexMap::new();
-        let result =
-            resolve_template("{{params.a}}{{params.b}}", &params, &machines).unwrap();
+        let result = resolve_template("{{params.a}}{{params.b}}", &params, &machines).unwrap();
         assert_eq!(result, "XY");
     }
 
