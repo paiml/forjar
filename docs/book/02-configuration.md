@@ -93,14 +93,127 @@ machines:
 
 Container transport uses the same stdin-pipe mechanism as local and SSH (`docker exec -i <name> bash`). The container lifecycle is managed automatically:
 
-1. **ensure** — create and start the container if not already running
-2. **exec** — pipe generated scripts to bash inside the container
-3. **cleanup** — remove the container after apply (ephemeral mode only)
+1. **ensure** -- create and start the container if not already running
+2. **exec** -- pipe generated scripts to bash inside the container
+3. **cleanup** -- remove the container after apply (ephemeral mode only)
 
 Container machines are useful for:
 - Local dogfooding and development without polluting the host
 - CI integration testing of package, service, and mount resources
 - Isolated environments that can be recreated on every run
+
+## Machine Configuration Reference
+
+### Machine Fields
+
+Every machine entry supports the following fields:
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `hostname` | string | required | Machine hostname (used in display output and container naming) |
+| `addr` | string | required | Network address: IP, DNS name, `127.0.0.1`/`localhost` for local, or `container` for container transport |
+| `user` | string | `root` | SSH user for remote connections. Ignored for local and container transport. |
+| `arch` | string | `x86_64` | CPU architecture. Used for `arch:` filtering on resources. Must be one of: `x86_64`, `aarch64`, `armv7l`, `riscv64`, `s390x`, `ppc64le`. |
+| `ssh_key` | string | -- | Path to SSH private key file. Supports `~` expansion. Ignored for local and container transport. |
+| `roles` | [string] | [] | Informational tags for the machine. Not used in execution logic; useful for documentation and filtering. |
+| `transport` | string | -- | Explicit transport override. Set to `container` for container execution. When omitted, transport is inferred: `127.0.0.1`/`localhost` uses local, everything else uses SSH. |
+| `container` | object | -- | Container configuration block. Required when `transport: container`. See below. |
+| `cost` | integer | 0 | Relative cost weight for scheduling order. Lower values are applied first. Useful for prioritizing cheap on-prem machines over expensive cloud instances. |
+
+### Container Transport Fields
+
+The `container:` block configures how forjar manages the container lifecycle. All fields have sensible defaults, so a minimal container machine only needs `image`:
+
+```yaml
+machines:
+  minimal-container:
+    hostname: test
+    addr: container
+    transport: container
+    container:
+      image: ubuntu:22.04
+```
+
+Full field reference:
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `runtime` | string | `docker` | Container runtime executable. Must be `docker` or `podman`. Forjar calls `<runtime> run`, `<runtime> exec`, `<runtime> stop`, and `<runtime> rm` using this value. |
+| `image` | string | -- | OCI image to use when creating the container. Required when `ephemeral: true`. For non-ephemeral containers that already exist, this can be omitted. |
+| `name` | string | `forjar-<hostname>` | Container name passed to `--name`. When omitted, forjar generates it from the machine key as `forjar-<hostname>`. Must be unique across all container machines. |
+| `ephemeral` | bool | `true` | When true, the container is destroyed (`docker rm -f`) after apply completes. When false, the container persists between runs. Ephemeral containers guarantee a clean state on every apply. |
+| `privileged` | bool | `false` | When true, passes `--privileged` to `docker run`. Required for resources that need raw device access (e.g., mount resources, certain service configurations). Use sparingly -- it disables most container security isolation. |
+| `init` | bool | `true` | When true, passes `--init` to `docker run`, which runs `tini` as PID 1 inside the container. This ensures proper signal forwarding and zombie process reaping. Recommended for all containers that run services. |
+
+### Transport Inference
+
+When `transport` is not explicitly set, forjar infers it from the `addr` field:
+
+| `addr` Value | Inferred Transport | Mechanism |
+|-------------|-------------------|-----------|
+| `127.0.0.1` | local | Direct shell execution (`bash -c`) |
+| `localhost` | local | Direct shell execution (`bash -c`) |
+| `container` | container | `docker exec -i <name> bash` |
+| anything else | SSH | `ssh -i <key> <user>@<addr> bash` |
+
+You can override this inference by setting `transport` explicitly. For example, to SSH into localhost (useful for testing SSH transport):
+
+```yaml
+machines:
+  ssh-local:
+    hostname: local-via-ssh
+    addr: 127.0.0.1
+    transport: ssh            # Force SSH even for localhost
+    ssh_key: ~/.ssh/id_ed25519
+```
+
+### Container Lifecycle Examples
+
+**Ephemeral CI testing** -- container created fresh, destroyed after apply:
+
+```yaml
+machines:
+  ci-test:
+    hostname: ci-test
+    addr: container
+    transport: container
+    container:
+      runtime: docker
+      image: ubuntu:22.04
+      ephemeral: true
+      init: true
+```
+
+**Persistent development container** -- container survives between runs:
+
+```yaml
+machines:
+  dev-box:
+    hostname: dev-box
+    addr: container
+    transport: container
+    container:
+      runtime: podman
+      image: fedora:39
+      name: forjar-dev
+      ephemeral: false
+      init: true
+```
+
+**Privileged container for mount testing:**
+
+```yaml
+machines:
+  mount-test:
+    hostname: mount-test
+    addr: container
+    transport: container
+    container:
+      runtime: docker
+      image: ubuntu:22.04
+      privileged: true
+      init: true
+```
 
 ## Resources
 
@@ -678,38 +791,143 @@ Available machine fields: `hostname`, `addr`, `user`, `arch`, `ssh_key`.
 | Unclosed template | `{{params.name` | `unclosed template at position N` |
 | Unknown type | `{{foobar.baz}}` | `unknown template variable type: foobar` |
 
-## Validation Pipeline
+## Configuration Validation Pipeline
 
-Forjar validates configs in multiple stages:
+Forjar validates configs through a multi-stage pipeline before any machine is touched. The `forjar validate` command runs the first two stages. The `forjar plan` and `forjar apply` commands run all four.
 
-### Stage 1: YAML Parsing
-
-Structural validation — correct types, required fields present:
-
-```bash
-forjar validate -f config.yaml
-# ✓ YAML structure valid
-# ✓ Version: 1.0
-# ✓ 3 machines, 12 resources
+```
+forjar.yaml
+    |
+    v
+[Stage 1: Parser]         YAML deserialization -> ForjarConfig struct
+    |                      Fails on malformed YAML, unknown fields, wrong types
+    v
+[Stage 2: Validator]       Structural + semantic checks (accumulates ALL errors)
+    |                      Fails on missing fields, bad references, cycles
+    v
+[Stage 3: Recipe Expander] Inline recipe resources, validate inputs
+    |                      Fails on missing recipe files, type mismatches
+    v
+[Stage 4: Resolver]        Template resolution + DAG construction
+    |                      Fails on missing params/secrets/machines, unclosed templates
+    v
+[Stage 5: Purifier]        bashrs lint on generated scripts (Invariant I8)
+                           Fails on Error-severity shell diagnostics
 ```
 
-### Stage 2: Semantic Validation
+### Stage 1: Parser (`parser::parse_config`)
 
-Cross-reference checks:
+The parser deserializes YAML into Rust structs using `serde_yaml_ng`. This stage catches:
 
-- Every resource references a machine that exists in the `machines:` block
-- Every `depends_on` target exists as a resource ID
-- No dependency cycles (detected via topological sort)
-- Resource type-specific field requirements (e.g., `file` needs `path`)
-- Container transport has required `container:` block
-
-### Stage 3: Template Resolution
-
-All templates resolve to concrete values:
+- Malformed YAML syntax (unclosed quotes, bad indentation, tab characters)
+- Unknown or misspelled top-level keys
+- Type mismatches (e.g., `version: 1.0` as float instead of string `"1.0"`)
+- Missing required fields in the YAML schema
 
 ```bash
-forjar plan -f config.yaml
-# Shows resolved values and execution order
+$ forjar validate -f broken.yaml
+YAML parse error: machines.web: missing field `hostname` at line 5 column 3
+```
+
+The parser produces a `ForjarConfig` struct containing `machines`, `resources`, `params`, and `policy` -- all strongly typed.
+
+### Stage 2: Validator (`parser::validate_config`)
+
+The validator performs cross-reference and constraint checks on the parsed config. It accumulates ALL errors before reporting, so you see every problem at once rather than fixing them one at a time.
+
+**Machine validation:**
+
+| Check | Error Example |
+|-------|--------------|
+| Version must be `"1.0"` | `version must be "1.0", got "2.0"` |
+| Name must be non-empty | `name must not be empty` |
+| Architecture must be recognized | `machine 'gpu' has invalid arch 'arm64' (expected: x86_64, aarch64, ...)` |
+| Container transport requires container block | `machine 'test' has transport=container but no container config` |
+| Ephemeral containers require an image | `machine 'test' container is ephemeral but has no image` |
+| Container runtime must be docker or podman | `machine 'test' container runtime 'lxc' invalid (expected: docker, podman)` |
+
+**Resource validation (per type):**
+
+| Type | Checks |
+|------|--------|
+| `package` | Must have `provider`. Must have non-empty `packages` list. |
+| `file` | Must have `path`. Cannot have both `content` and `source`. State must be `file`/`directory`/`symlink`/`absent`. Symlink requires `target`. |
+| `service` | Must have `name`. State must be `running`/`stopped`/`enabled`/`disabled`. |
+| `mount` | Must have `source` and `path`. State must be `mounted`/`unmounted`/`absent`. |
+| `user` | Must have `name`. State must be `present`/`absent`. |
+| `docker` | Must have `name`. Must have `image` (unless state=absent). State must be `running`/`stopped`/`absent`. |
+| `cron` | Must have `name`, `schedule`, `command` (unless state=absent). Schedule must have exactly 5 fields. State must be `present`/`absent`. |
+| `network` | Must have `port`. Protocol must be `tcp`/`udp`. Action must be `allow`/`deny`/`reject`. State must be `present`/`absent`. |
+
+**Dependency validation:**
+
+| Check | Error |
+|-------|-------|
+| Resource references a valid machine | `resource 'X' references unknown machine 'Y'` |
+| `depends_on` targets exist | `resource 'X' depends on unknown resource 'Y'` |
+| No self-dependencies | `resource 'X' depends on itself` |
+| No cycles | `dependency cycle detected involving: A, B, C` |
+
+All errors are collected into a list and returned together:
+
+```bash
+$ forjar validate -f broken.yaml
+validation errors:
+  - resource 'web-pkg' (package) has no packages
+  - resource 'web-pkg' (package) has no provider
+  - resource 'nginx-conf' references unknown machine 'web-server'
+  - resource 'backup' (cron) schedule '0 2 *' must have exactly 5 fields
+```
+
+### Stage 3: Recipe Expander (`parser::expand_recipes`)
+
+If any resource has `type: recipe`, the expander loads the referenced recipe file, validates the provided inputs against the recipe's input schema, and inlines the expanded resources into the config. This stage catches:
+
+- Missing recipe file on disk
+- Required recipe inputs not provided
+- Input type mismatches (string where int expected)
+- Integer inputs outside declared min/max bounds
+- Enum inputs not in the declared choices list
+- Path inputs that are not absolute
+
+### Stage 4: Resolver (`resolver::resolve_templates` + `resolver::build_execution_order`)
+
+The resolver performs two tasks:
+
+**Template resolution** -- replaces `{{params.X}}`, `{{secrets.X}}`, and `{{machine.NAME.FIELD}}` with concrete values. Errors at this stage:
+
+| Error | Cause |
+|-------|-------|
+| `unknown param: X` | `{{params.X}}` references a key not in the `params:` block |
+| `secret 'X' not found (set env var FORJAR_SECRET_X)` | `{{secrets.X}}` but the environment variable is not set |
+| `unknown machine: X` | `{{machine.X.addr}}` references a machine not in the inventory |
+| `unknown machine field: cost` | `{{machine.web.cost}}` references a field not available for templating |
+| `unclosed template at position N` | `{{params.name` without closing `}}` |
+
+**DAG construction** -- builds a Directed Acyclic Graph from `depends_on` edges and computes a topological sort using Kahn's algorithm with alphabetical tie-breaking for deterministic execution order.
+
+### Stage 5: Purifier (`purifier::validate_script`)
+
+After codegen produces check, apply, and state_query scripts for each resource, the purifier validates them through the bashrs linter. Scripts must pass with zero Error-severity diagnostics. Warning-level findings (such as the `$SUDO` unquoted variable pattern in package/user/cron/network handlers) are acceptable and do not block execution.
+
+This stage is Invariant I8: no raw shell execution. All generated shell is bashrs-validated before being piped to any transport.
+
+### Running Validation
+
+```bash
+# Validate only (stages 1-3, no secrets needed)
+forjar validate -f forjar.yaml
+
+# Plan (stages 1-5, secrets needed if templates reference them)
+forjar plan -f forjar.yaml --state-dir state/
+
+# Both report errors and exit non-zero on failure
+```
+
+On success, `forjar validate` prints:
+
+```
+OK: production-stack (2 machines, 12 resources)
 ```
 
 ### Common Validation Errors

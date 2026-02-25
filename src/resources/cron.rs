@@ -322,4 +322,56 @@ mod tests {
         assert!(check.contains("crontab -u 'www-data'"));
         assert!(query.contains("crontab -u 'www-data'"));
     }
+
+    // ── FJ-036: Cron resource handler tests ─────────────────────
+
+    #[test]
+    fn test_fj036_cron_apply_contains_schedule() {
+        let mut r = make_cron_resource("nightly-backup");
+        r.schedule = Some("30 2 * * *".to_string());
+        r.command = Some("/opt/backup/run.sh".to_string());
+        let script = apply_script(&r);
+        assert!(
+            script.contains("30 2 * * *"),
+            "apply script must include the schedule string"
+        );
+        assert!(
+            script.contains("/opt/backup/run.sh"),
+            "apply script must include the command"
+        );
+    }
+
+    #[test]
+    fn test_fj036_cron_apply_absent_removes() {
+        let mut r = make_cron_resource("stale-job");
+        r.state = Some("absent".to_string());
+        let script = apply_script(&r);
+        assert!(
+            script.contains("grep -v '# forjar:stale-job'"),
+            "absent state must generate crontab removal via grep -v"
+        );
+        assert!(
+            script.contains("crontab -u 'root' -"),
+            "absent state must reinstall filtered crontab"
+        );
+        // Absent must NOT contain schedule/command in the output
+        assert!(
+            !script.contains("0 * * * *"),
+            "absent should not emit schedule"
+        );
+    }
+
+    #[test]
+    fn test_fj036_cron_state_query_lists_crontab() {
+        let r = make_cron_resource("hourly-sync");
+        let script = state_query_script(&r);
+        assert!(
+            script.contains("crontab -u 'root' -l"),
+            "state_query must use 'crontab -l' to list entries"
+        );
+        assert!(
+            script.contains("forjar:hourly-sync"),
+            "state_query must filter by forjar tag"
+        );
+    }
 }

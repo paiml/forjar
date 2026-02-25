@@ -298,6 +298,147 @@ resources:
 | `stopped` | `docker stop` |
 | `absent` | `docker stop` + `docker rm` |
 
+### Port Mappings
+
+Expose container ports to the host using `host:container` syntax:
+
+```yaml
+resources:
+  reverse-proxy:
+    type: docker
+    machine: m1
+    name: traefik
+    image: traefik:v3.0
+    state: running
+    ports:
+      - "80:80"           # HTTP
+      - "443:443"         # HTTPS
+      - "8080:8080"       # Dashboard
+    restart: unless-stopped
+```
+
+Each entry in `ports` maps to a `-p` flag in the generated `docker run` command. The format follows Docker's standard `[host_ip:]host_port:container_port[/protocol]` syntax. All port values are single-quoted in the generated script to prevent injection.
+
+### Volume Mounts
+
+Persist data across container restarts with host-to-container volume mappings:
+
+```yaml
+resources:
+  database:
+    type: docker
+    machine: m1
+    name: postgres
+    image: postgres:16
+    state: running
+    volumes:
+      - "/data/pg:/var/lib/postgresql/data"   # Data directory
+      - "/etc/pg/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro"  # Read-only config
+    environment:
+      - "POSTGRES_PASSWORD={{secrets.db-password}}"
+    restart: unless-stopped
+```
+
+Volume entries map to `-v` flags. The standard Docker volume syntax applies: `host_path:container_path[:options]`. Options include `ro` (read-only), `rw` (read-write, default), and propagation flags.
+
+### Environment Variables
+
+Pass configuration to containers via environment variables:
+
+```yaml
+resources:
+  api-server:
+    type: docker
+    machine: m1
+    name: api
+    image: myapp/api:v2.1
+    state: running
+    ports: ["8080:8080"]
+    environment:
+      - "NODE_ENV=production"
+      - "DATABASE_URL=postgresql://app:{{secrets.db-password}}@{{machine.db.addr}}:5432/myapp"
+      - "REDIS_URL=redis://{{machine.cache.addr}}:6379"
+      - "LOG_LEVEL=info"
+    restart: on-failure
+```
+
+Environment variables support template resolution -- `{{params.*}}`, `{{secrets.*}}`, and `{{machine.*.*}}` references are resolved before script generation. Each entry maps to a `-e` flag.
+
+### Restart Policies
+
+Control container restart behavior on failure or host reboot:
+
+```yaml
+resources:
+  worker:
+    type: docker
+    machine: m1
+    name: background-worker
+    image: myapp/worker:v2.1
+    state: running
+    restart: on-failure       # Restart only on non-zero exit
+    command: "./worker --queue=default --concurrency=4"
+
+  monitoring:
+    type: docker
+    machine: m1
+    name: prometheus
+    image: prom/prometheus:v2.51.0
+    state: running
+    ports: ["9090:9090"]
+    volumes:
+      - "/etc/prometheus:/etc/prometheus:ro"
+      - "/data/prometheus:/prometheus"
+    restart: always           # Always restart, including on host reboot
+```
+
+| Restart Policy | Behavior |
+|---------------|----------|
+| `no` | Never restart (default Docker behavior) |
+| `always` | Always restart, including on daemon startup |
+| `unless-stopped` | Like `always`, but not if explicitly stopped |
+| `on-failure` | Restart only on non-zero exit code |
+
+When `restart` is omitted from the forjar resource, no `--restart` flag is passed to Docker, which means Docker's default (`no`) applies.
+
+### Complete Docker Example
+
+A full-stack deployment combining multiple Docker resources with dependencies:
+
+```yaml
+resources:
+  app-data:
+    type: file
+    machine: m1
+    state: directory
+    path: /data/app
+    mode: "0755"
+
+  redis:
+    type: docker
+    machine: m1
+    name: redis
+    image: redis:7-alpine
+    state: running
+    ports: ["6379:6379"]
+    volumes: ["/data/app/redis:/data"]
+    restart: unless-stopped
+    command: "redis-server --appendonly yes"
+
+  app:
+    type: docker
+    machine: m1
+    name: app
+    image: myapp:{{params.app_version}}
+    state: running
+    ports: ["8080:8080"]
+    environment:
+      - "REDIS_URL=redis://localhost:6379"
+      - "SECRET_KEY={{secrets.app-secret}}"
+    restart: unless-stopped
+    depends_on: [redis, app-data]
+```
+
 ### Docker Fields
 
 | Field | Type | Default | Description |
@@ -306,10 +447,10 @@ resources:
 | `image` | string | required | OCI image (e.g. `nginx:latest`) |
 | `state` | string | `running` | running, stopped, absent |
 | `ports` | [string] | [] | Port mappings (`host:container`) |
-| `volumes` | [string] | [] | Volume mounts (`host:container`) |
+| `volumes` | [string] | [] | Volume mounts (`host:container[:options]`) |
 | `environment` | [string] | [] | Environment variables (`KEY=VALUE`) |
-| `restart` | string | — | Restart policy (no, always, unless-stopped, on-failure) |
-| `command` | string | — | Override container command |
+| `restart` | string | -- | Restart policy (no, always, unless-stopped, on-failure) |
+| `command` | string | -- | Override container command |
 
 ## Cron
 
@@ -543,6 +684,139 @@ Status Values:
   Drifted    — live state differs from lock (detected by drift check)
   Unknown    — no lock entry exists
 ```
+
+## Resource Script Anatomy
+
+Every resource handler in forjar produces exactly three shell scripts. Understanding this three-script pattern is essential for debugging, auditing, and extending forjar.
+
+### The Three-Script Pattern
+
+| Script | Purpose | Exit Behavior |
+|--------|---------|---------------|
+| **check** | Read current state, report whether resource exists | Outputs `exists:<id>` or `missing:<id>` |
+| **apply** | Converge the resource to its desired state | Exits 0 on success, non-zero on failure |
+| **state_query** | Capture observable state for BLAKE3 hashing | Outputs key=value pairs or `MISSING` |
+
+The executor runs them in order: check first (to determine if apply is needed), then apply (to converge), then state_query (to record the post-apply state in the lock file).
+
+### Concrete Example: File Resource
+
+Consider this file resource declaration:
+
+```yaml
+resources:
+  app-config:
+    type: file
+    machine: web
+    path: /etc/app/config.yaml
+    content: |
+      database:
+        host: db.internal
+        port: 5432
+    owner: app
+    group: app
+    mode: "0640"
+```
+
+Forjar generates the following three scripts:
+
+**check script** -- determines whether the file already exists:
+
+```bash
+test -f '/etc/app/config.yaml' && echo 'exists:file' || echo 'missing:file'
+```
+
+**apply script** -- converges the file to its desired state:
+
+```bash
+set -euo pipefail
+mkdir -p '/etc/app'
+cat > '/etc/app/config.yaml' <<'FORJAR_EOF'
+database:
+  host: db.internal
+  port: 5432
+FORJAR_EOF
+chown 'app:app' '/etc/app/config.yaml'
+chmod '0640' '/etc/app/config.yaml'
+```
+
+Key details: `set -euo pipefail` ensures any failure aborts the script immediately. The heredoc uses hard-quoting (`<<'FORJAR_EOF'`) to prevent shell variable expansion in the content. Parent directories are created with `mkdir -p` before writing. Ownership and permissions are applied after the write.
+
+**state_query script** -- captures the live file state for drift detection:
+
+```bash
+if [ -e '/etc/app/config.yaml' ]; then
+  stat -c 'owner=%U group=%G mode=%a size=%s' '/etc/app/config.yaml' 2>/dev/null || \
+  stat -f 'owner=%Su group=%Sg mode=%Lp size=%z' '/etc/app/config.yaml' 2>/dev/null
+  if [ -f '/etc/app/config.yaml' ]; then
+    cat '/etc/app/config.yaml' | blake3sum 2>/dev/null || sha256sum '/etc/app/config.yaml' | cut -d' ' -f1
+  fi
+else
+  echo 'MISSING'
+fi
+```
+
+The state query uses Linux `stat -c` format with a macOS `stat -f` fallback. Content is hashed with BLAKE3 (preferred) or SHA-256 (fallback). The output of this script is itself BLAKE3-hashed and stored in the lock file for future drift comparison.
+
+### Pattern Across Resource Types
+
+Every resource handler follows the same structure. Here is how the three-script pattern maps across types:
+
+| Type | check | apply | state_query |
+|------|-------|-------|-------------|
+| **file** | `test -f` / `test -d` / `test -L` | heredoc write, `mkdir -p`, `chown`, `chmod` | `stat` + content hash |
+| **package** | `dpkg -l` / `command -v` / `uv tool list` | `apt-get install` / `cargo install` / `uv tool install` | `dpkg-query -W` / version check |
+| **service** | `systemctl is-active` + `is-enabled` | `systemctl start/stop/enable/disable` | `systemctl show` properties |
+| **mount** | `mountpoint -q` | `mount -t` + fstab entry | `findmnt -n` |
+| **user** | `id <user>` | `useradd` / `usermod` / `userdel` | `id` + `getent passwd` |
+| **docker** | `docker inspect` | `docker pull` + `docker run -d` | `docker inspect` |
+| **cron** | `crontab -l` + `grep forjar:<name>` | crontab filter + append | `crontab -l` + `grep -A1` |
+| **network** | `ufw status numbered` + grep | `ufw allow/deny/reject` | `ufw status verbose` |
+
+## bashrs Lint Compliance
+
+Forjar integrates with [bashrs](https://crates.io/crates/bashrs) for shell script validation and purification. The bashrs pipeline provides three levels of safety:
+
+1. **`validate_script()`** -- lint-based validation that fails only on Error-severity diagnostics (warnings pass)
+2. **`lint_script()`** -- full linter pass returning all diagnostics including warnings
+3. **`purify_script()`** -- parse to AST, purify (injection prevention, proper quoting, determinism), reformat
+
+### Clean Handlers
+
+The following resource handlers produce scripts that pass bashrs lint with zero diagnostics:
+
+| Handler | Why Clean |
+|---------|-----------|
+| **file** | Uses only POSIX builtins (`test`, `mkdir`, `cat`, `chown`, `chmod`, `stat`). No variable expansion in user content (hard-quoted heredoc `<<'FORJAR_EOF'`). No sudo pattern needed. |
+| **service** | Uses `systemctl` commands with single-quoted arguments. The systemd guard (`command -v systemctl`) is clean POSIX. Conditional logic uses `if ! systemctl is-active --quiet`. |
+| **mount** | Uses `mountpoint`, `mount`, `umount`, `findmnt`, `grep`, `sed`. All arguments are single-quoted. No dynamic variable patterns. |
+
+These handlers pass both `validate_script()` (zero errors) and full `lint_script()` (zero or near-zero diagnostics). Their generated scripts can also be round-tripped through `purify_script()` (parse, purify AST, reformat) without semantic changes.
+
+### Handlers with Known Lint Patterns
+
+The remaining handlers use the `$SUDO` auto-detection pattern, which produces bashrs lint warnings (not errors). The pattern looks like this:
+
+```bash
+SUDO=""
+[ "$(id -u)" -ne 0 ] && SUDO="sudo"
+$SUDO apt-get install -y 'curl'
+```
+
+The `$SUDO` variable is intentionally unquoted when used as a command prefix. When the user is root, `$SUDO` expands to an empty string and the command runs directly. When non-root, it expands to `sudo`. bashrs flags the unquoted `$SUDO` usage as a warning (similar to ShellCheck SC2086), but forjar's `validate_script()` passes these scripts because it filters on Error severity only -- warnings are acceptable in generated scripts.
+
+| Handler | Lint Pattern | Reason |
+|---------|-------------|--------|
+| **package** | `$SUDO` in apt install/remove | Non-root users need sudo for apt-get. The `SUDO` variable is set conditionally based on `id -u`. |
+| **user** | `$SUDO` in useradd/usermod/userdel/groupadd | User management commands require root privileges. SSH key deployment also uses `$SUDO mkdir`, `$SUDO mv`, `$SUDO chmod`, `$SUDO chown`. |
+| **cron** | `$SUDO` in crontab read/write | Editing another user's crontab (`crontab -u <user>`) requires root. Both present and absent states pipe through `$SUDO crontab -u <user> -`. |
+| **network** | `$SUDO` in ufw enable/allow/deny/delete | All ufw operations require root. The handler also runs `$SUDO ufw --force enable` to ensure the firewall is active before adding rules. |
+
+### Validation vs. Purification
+
+For generated scripts, forjar uses `validate_script()` (lint-only, errors block) rather than `purify_script()` (full AST round-trip). The reason is that purification reformats the script, which can change whitespace and ordering in ways that affect the BLAKE3 content hash used for drift detection. Validation provides the safety guarantee (no shell injection, no syntax errors) without altering the script bytes.
+
+The purifier is available for user-facing script auditing (`forjar plan --output-dir`) where deterministic formatting is desirable.
 
 ## Script Generation
 

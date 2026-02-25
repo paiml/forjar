@@ -355,4 +355,61 @@ mod tests {
         assert!(script.contains("'rw,soft,intr'"));
         assert!(script.contains("192.168.1.10:/exports/data"));
     }
+
+    // ── FJ-036: Mount resource handler tests ────────────────────
+
+    #[test]
+    fn test_fj036_mount_apply_creates_mountpoint() {
+        let mut r = make_mount_resource();
+        r.path = Some("/data/warehouse".to_string());
+        r.source = Some("10.0.0.1:/exports/warehouse".to_string());
+        let script = apply_script(&r);
+        assert!(
+            script.contains("mkdir -p '/data/warehouse'"),
+            "apply must create the mountpoint directory before mounting"
+        );
+        let mkdir_idx = script.find("mkdir -p '/data/warehouse'").unwrap();
+        let mount_idx = script.find("mount -t").unwrap();
+        assert!(
+            mkdir_idx < mount_idx,
+            "mkdir must precede mount command in the script"
+        );
+    }
+
+    #[test]
+    fn test_fj036_mount_apply_adds_fstab() {
+        let mut r = make_mount_resource();
+        r.path = Some("/mnt/shared".to_string());
+        r.source = Some("nas:/vol1".to_string());
+        r.fs_type = Some("nfs4".to_string());
+        r.options = Some("rw,noatime".to_string());
+        let script = apply_script(&r);
+        assert!(
+            script.contains("/etc/fstab"),
+            "apply must reference /etc/fstab"
+        );
+        assert!(
+            script.contains("nas:/vol1 /mnt/shared nfs4 rw,noatime 0 0"),
+            "apply must add correctly formatted fstab entry"
+        );
+        assert!(
+            script.contains("grep -q '/mnt/shared' /etc/fstab"),
+            "apply must check fstab idempotently before appending"
+        );
+    }
+
+    #[test]
+    fn test_fj036_mount_state_query_contains_mountpoint() {
+        let mut r = make_mount_resource();
+        r.path = Some("/srv/nfs-data".to_string());
+        let script = state_query_script(&r);
+        assert!(
+            script.contains("mountpoint -q '/srv/nfs-data'"),
+            "state_query must check the mountpoint"
+        );
+        assert!(
+            script.contains("findmnt -n -o SOURCE,FSTYPE,OPTIONS '/srv/nfs-data'"),
+            "state_query must query mount details for the mountpoint"
+        );
+    }
 }
