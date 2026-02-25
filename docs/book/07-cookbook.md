@@ -391,3 +391,158 @@ cargo run -- drift -f dogfood.yaml --state-dir /tmp/dogfood
 # Remediate
 cargo run -- apply -f dogfood.yaml --state-dir /tmp/dogfood --force
 ```
+
+## Emergency Rollback
+
+When a bad config change reaches production, rollback to the previous known-good state:
+
+```bash
+# 1. Preview what rollback would change (no machines contacted)
+forjar rollback -f forjar.yaml --dry-run
+
+# 2. Rollback to the previous config (HEAD~1)
+forjar rollback -f forjar.yaml
+
+# 3. Or go further back
+forjar rollback -f forjar.yaml -n 3
+
+# 4. Rollback only a specific machine
+forjar rollback -f forjar.yaml -m web-server
+
+# 5. Verify drift is clean after rollback
+forjar drift -f forjar.yaml --tripwire
+```
+
+Rollback reads the previous `forjar.yaml` from git history, compares it to the current config, and re-applies the old version with `--force`.
+
+## CI/CD Integration
+
+Use forjar in CI pipelines for automated infrastructure validation and deployment:
+
+```yaml
+# .github/workflows/infra.yml
+name: Infrastructure
+on:
+  push:
+    paths: ['forjar.yaml', 'recipes/**']
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate config
+        run: forjar validate -f forjar.yaml
+
+      - name: Lint config
+        run: forjar lint -f forjar.yaml
+
+      - name: Check formatting
+        run: forjar fmt -f forjar.yaml --check
+
+      - name: Preview plan
+        run: forjar plan -f forjar.yaml --json
+
+  deploy:
+    needs: validate
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply
+        run: forjar apply -f forjar.yaml --auto-commit
+
+      - name: Verify no drift
+        run: forjar drift -f forjar.yaml --tripwire
+```
+
+### Scheduled Drift Detection
+
+```yaml
+# .github/workflows/drift.yml
+name: Drift Watch
+on:
+  schedule:
+    - cron: '0 */6 * * *'  # every 6 hours
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check for drift
+        run: forjar drift -f forjar.yaml --tripwire --json
+
+      - name: Anomaly report
+        run: forjar anomaly --min-events 1 --json
+```
+
+## Anomaly-Driven Maintenance
+
+Use anomaly detection to identify resources that need attention:
+
+```bash
+# Find resources with unusual behavior patterns
+forjar anomaly --min-events 3
+
+# Lower threshold for newer deployments
+forjar anomaly --min-events 1
+
+# JSON output for alerting systems
+forjar anomaly --json | jq '.findings[] | .resource + ": " + (.reasons | join(", "))'
+
+# Common patterns and what they mean:
+#   "high churn (z=3.9)"     → Resource re-converging too often, check dependencies
+#   "high failure rate (80%)" → Resource consistently failing, investigate root cause
+#   "2 drift event(s)"       → Someone is making manual changes, enforce via drift --tripwire
+```
+
+Combine with scheduled drift checks for proactive maintenance:
+
+```bash
+#!/bin/bash
+# maintenance.sh — run weekly
+
+# 1. Check for drift
+forjar drift -f forjar.yaml --tripwire --json > /tmp/drift-report.json
+
+# 2. Auto-remediate if drift found
+DRIFT_COUNT=$(jq '.drift_count' /tmp/drift-report.json)
+if [ "$DRIFT_COUNT" -gt 0 ]; then
+    echo "Found $DRIFT_COUNT drifted resources, remediating..."
+    forjar drift -f forjar.yaml --auto-remediate
+fi
+
+# 3. Check for anomalous patterns
+forjar anomaly --json > /tmp/anomaly-report.json
+ANOMALIES=$(jq '.anomalies' /tmp/anomaly-report.json)
+if [ "$ANOMALIES" -gt 0 ]; then
+    echo "WARNING: $ANOMALIES anomalous resources found"
+    jq '.findings[]' /tmp/anomaly-report.json
+fi
+```
+
+## Source File Deployment
+
+Deploy local scripts or config files to remote machines using `source` instead of inline `content`:
+
+```yaml
+resources:
+  deploy-script:
+    type: file
+    machine: web1
+    path: /opt/app/deploy.sh
+    source: scripts/deploy.sh     # Local file, transferred at apply time
+    owner: deploy
+    mode: "0755"
+
+  nginx-config:
+    type: file
+    machine: [web1, web2]
+    path: /etc/nginx/sites-available/app.conf
+    source: configs/nginx-app.conf
+    owner: root
+    mode: "0644"
+```
+
+Files are base64-encoded locally and decoded on the remote machine, supporting binary files and all transports.
