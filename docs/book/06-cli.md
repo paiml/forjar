@@ -305,6 +305,29 @@ forjar check -f forjar.yaml --json
 
 Exits non-zero if any check fails. Useful for pre-flight validation in CI/CD pipelines before running `apply`.
 
+### `forjar fmt`
+
+Format (normalize) a forjar.yaml config file.
+
+```bash
+forjar fmt -f <FILE> [--check]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-f, --file` | `forjar.yaml` | Config file path |
+| `--check` | false | Check formatting without writing (exit non-zero if unformatted) |
+
+```bash
+# Format a config file in place
+forjar fmt -f forjar.yaml
+
+# Check formatting (useful in CI)
+forjar fmt -f forjar.yaml --check
+```
+
+Parses the YAML, validates it, and re-serializes in canonical format. Idempotent — running twice produces the same output. Use `--check` in CI to enforce consistent formatting.
+
 ## Exit Codes
 
 | Code | Meaning |

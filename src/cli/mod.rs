@@ -268,6 +268,17 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
     },
+
+    /// Format (normalize) a forjar.yaml config file
+    Fmt {
+        /// Path to forjar.yaml
+        #[arg(short, long, default_value = "forjar.yaml")]
+        file: PathBuf,
+
+        /// Check formatting without writing (exit non-zero if unformatted)
+        #[arg(long)]
+        check: bool,
+    },
 }
 
 /// Dispatch a CLI command.
@@ -383,7 +394,40 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             json,
             verbose,
         ),
+        Commands::Fmt { file, check } => cmd_fmt(&file, check),
     }
+}
+
+fn cmd_fmt(file: &Path, check: bool) -> Result<(), String> {
+    let original =
+        std::fs::read_to_string(file).map_err(|e| format!("cannot read {}: {}", file.display(), e))?;
+
+    // Parse into ForjarConfig to validate + normalize
+    let config: types::ForjarConfig =
+        serde_yaml_ng::from_str(&original).map_err(|e| format!("YAML parse error: {}", e))?;
+
+    // Re-serialize to canonical YAML
+    let formatted =
+        serde_yaml_ng::to_string(&config).map_err(|e| format!("YAML serialize error: {}", e))?;
+
+    if check {
+        if original.trim() != formatted.trim() {
+            println!("{} is not formatted", file.display());
+            return Err("file is not formatted".to_string());
+        }
+        println!("{} is formatted", file.display());
+        return Ok(());
+    }
+
+    if original.trim() == formatted.trim() {
+        println!("{} already formatted", file.display());
+        return Ok(());
+    }
+
+    std::fs::write(file, &formatted)
+        .map_err(|e| format!("cannot write {}: {}", file.display(), e))?;
+    println!("Formatted {}", file.display());
+    Ok(())
 }
 
 fn cmd_init(path: &Path) -> Result<(), String> {
@@ -1455,7 +1499,7 @@ fn cmd_drift(
             false, // tripwire on
             &[],   // no param overrides
             false, // no auto-commit
-            None, // no timeout
+            None,  // no timeout
             verbose,
         )?;
         if !json {
@@ -4022,5 +4066,71 @@ resources:
         )
         .unwrap();
         cmd_check(&config, None, None, None, true, false).unwrap();
+    }
+
+    #[test]
+    fn test_fmt_normalizes_yaml() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("test.yaml");
+        // Manually-written YAML with inconsistent spacing
+        std::fs::write(
+            &file,
+            r#"version: "1.0"
+name: fmt-test
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+resources:
+  f:
+    type: file
+    machine: m
+    path: /tmp/fmt-test
+    content: hello
+"#,
+        )
+        .unwrap();
+
+        // Check should fail (not yet canonical)
+        let result = cmd_fmt(&file, true);
+        assert!(result.is_err());
+
+        // Format it
+        cmd_fmt(&file, false).unwrap();
+
+        // Check should now pass
+        cmd_fmt(&file, true).unwrap();
+    }
+
+    #[test]
+    fn test_fmt_idempotent() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("test.yaml");
+        std::fs::write(
+            &file,
+            r#"version: "1.0"
+name: idempotent-test
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+resources:
+  f:
+    type: file
+    machine: m
+    path: /tmp/test
+    content: hello
+"#,
+        )
+        .unwrap();
+
+        // Format it twice
+        cmd_fmt(&file, false).unwrap();
+        let after_first = std::fs::read_to_string(&file).unwrap();
+
+        cmd_fmt(&file, false).unwrap();
+        let after_second = std::fs::read_to_string(&file).unwrap();
+
+        assert_eq!(after_first, after_second);
     }
 }
