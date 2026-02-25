@@ -347,4 +347,149 @@ mod tests {
         assert!(!is_leap(2025));
         assert!(!is_leap(2026));
     }
+
+    // ── FJ-128: Eventlog edge case tests ────────────────────────
+
+    #[test]
+    fn test_fj015_timestamp_year_plausible() {
+        let ts = now_iso8601();
+        let year: i64 = ts[0..4].parse().unwrap();
+        assert!(
+            (2025..=2100).contains(&year),
+            "year should be plausible: {}",
+            year
+        );
+    }
+
+    #[test]
+    fn test_fj015_timestamp_month_range() {
+        let ts = now_iso8601();
+        let month: u32 = ts[5..7].parse().unwrap();
+        assert!((1..=12).contains(&month), "month should be 1-12: {}", month);
+    }
+
+    #[test]
+    fn test_fj015_timestamp_day_range() {
+        let ts = now_iso8601();
+        let day: u32 = ts[8..10].parse().unwrap();
+        assert!((1..=31).contains(&day), "day should be 1-31: {}", day);
+    }
+
+    #[test]
+    fn test_fj015_timestamp_hour_range() {
+        let ts = now_iso8601();
+        let hour: u32 = ts[11..13].parse().unwrap();
+        assert!(hour < 24, "hour should be 0-23: {}", hour);
+    }
+
+    #[test]
+    fn test_fj015_append_resource_started_event() {
+        let dir = tempfile::tempdir().unwrap();
+        let event = ProvenanceEvent::ResourceStarted {
+            machine: "m".to_string(),
+            resource: "nginx-config".to_string(),
+            action: "UPDATE".to_string(),
+        };
+        append_event(dir.path(), "m", event).unwrap();
+        let content = std::fs::read_to_string(dir.path().join("m/events.jsonl")).unwrap();
+        assert!(content.contains("resource_started"));
+        assert!(content.contains("UPDATE"));
+        assert!(content.contains("nginx-config"));
+    }
+
+    #[test]
+    fn test_fj015_append_all_event_types_roundtrip() {
+        // Verify all ProvenanceEvent variants serialize to valid JSON with expected tags
+        let dir = tempfile::tempdir().unwrap();
+        let events: Vec<(ProvenanceEvent, &str)> = vec![
+            (
+                ProvenanceEvent::ApplyStarted {
+                    machine: "m".to_string(),
+                    run_id: "r-1".to_string(),
+                    forjar_version: "0.1.0".to_string(),
+                },
+                "apply_started",
+            ),
+            (
+                ProvenanceEvent::ResourceStarted {
+                    machine: "m".to_string(),
+                    resource: "r".to_string(),
+                    action: "CREATE".to_string(),
+                },
+                "resource_started",
+            ),
+            (
+                ProvenanceEvent::ResourceConverged {
+                    machine: "m".to_string(),
+                    resource: "r".to_string(),
+                    duration_seconds: 0.5,
+                    hash: "blake3:abc".to_string(),
+                },
+                "resource_converged",
+            ),
+            (
+                ProvenanceEvent::ResourceFailed {
+                    machine: "m".to_string(),
+                    resource: "r".to_string(),
+                    error: "fail".to_string(),
+                },
+                "resource_failed",
+            ),
+            (
+                ProvenanceEvent::ApplyCompleted {
+                    machine: "m".to_string(),
+                    run_id: "r-1".to_string(),
+                    resources_converged: 1,
+                    resources_unchanged: 0,
+                    resources_failed: 0,
+                    total_seconds: 1.0,
+                },
+                "apply_completed",
+            ),
+            (
+                ProvenanceEvent::DriftDetected {
+                    machine: "m".to_string(),
+                    resource: "r".to_string(),
+                    expected_hash: "blake3:aaa".to_string(),
+                    actual_hash: "blake3:bbb".to_string(),
+                },
+                "drift_detected",
+            ),
+        ];
+        for (event, expected_tag) in events {
+            append_event(dir.path(), "m", event).unwrap();
+            let content = std::fs::read_to_string(dir.path().join("m/events.jsonl")).unwrap();
+            assert!(
+                content.contains(expected_tag),
+                "event log should contain tag '{}': {}",
+                expected_tag,
+                content,
+            );
+        }
+    }
+
+    #[test]
+    fn test_fj015_generate_run_id_prefix_length() {
+        for _ in 0..10 {
+            let id = generate_run_id();
+            assert_eq!(
+                id.len(),
+                14,
+                "run ID should be r- + 12 hex = 14 chars: {}",
+                id
+            );
+        }
+    }
+
+    #[test]
+    fn test_fj015_is_leap_boundary_years() {
+        // Edge cases around century boundaries
+        assert!(!is_leap(1800));
+        assert!(!is_leap(1700));
+        assert!(is_leap(400));
+        assert!(is_leap(800));
+        assert!(!is_leap(100));
+        assert!(!is_leap(200));
+        assert!(!is_leap(300));
+    }
 }
