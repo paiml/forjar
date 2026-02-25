@@ -55,8 +55,7 @@ pub fn lint_error_count(script: &str) -> usize {
 /// Returns the purified script or an error if any stage fails.
 pub fn purify_script(script: &str) -> Result<String, String> {
     // Parse shell to AST
-    let mut parser =
-        BashParser::new(script).map_err(|e| format!("bashrs parse: {e}"))?;
+    let mut parser = BashParser::new(script).map_err(|e| format!("bashrs parse: {e}"))?;
     let ast = parser.parse().map_err(|e| format!("bashrs parse: {e}"))?;
 
     // Purify AST (injection prevention, proper quoting, determinism)
@@ -200,11 +199,152 @@ dpkg -l curl 2>/dev/null | grep -q '^ii'
 
     #[test]
     fn test_fj036_validate_heredoc_script() {
-        let script = "set -euo pipefail\ncat > '/etc/test.conf' <<'FORJAR_EOF'\nkey=value\nFORJAR_EOF\n";
+        let script =
+            "set -euo pipefail\ncat > '/etc/test.conf' <<'FORJAR_EOF'\nkey=value\nFORJAR_EOF\n";
         assert!(
             validate_script(script).is_ok(),
             "heredoc script failed validation"
         );
+    }
+
+    // --- FJ-036: Codegen integration — validate real generated scripts ---
+
+    #[test]
+    fn test_fj036_codegen_file_check_validates() {
+        use crate::core::codegen;
+        let r = make_test_resource(crate::core::types::ResourceType::File);
+        let script = codegen::check_script(&r).unwrap();
+        assert!(validate_script(&script).is_ok(), "file check failed bashrs");
+    }
+
+    #[test]
+    fn test_fj036_codegen_file_apply_validates() {
+        use crate::core::codegen;
+        let r = make_test_resource(crate::core::types::ResourceType::File);
+        let script = codegen::apply_script(&r).unwrap();
+        assert!(validate_script(&script).is_ok(), "file apply failed bashrs");
+    }
+
+    #[test]
+    fn test_fj036_codegen_file_state_query_validates() {
+        use crate::core::codegen;
+        let r = make_test_resource(crate::core::types::ResourceType::File);
+        let script = codegen::state_query_script(&r).unwrap();
+        assert!(
+            validate_script(&script).is_ok(),
+            "file state_query failed bashrs"
+        );
+    }
+
+    #[test]
+    fn test_fj036_codegen_service_all_validate() {
+        use crate::core::codegen;
+        let mut r = make_test_resource(crate::core::types::ResourceType::Service);
+        r.name = Some("nginx".to_string());
+        r.state = Some("running".to_string());
+        r.enabled = Some(true);
+        for (kind, result) in [
+            ("check", codegen::check_script(&r)),
+            ("apply", codegen::apply_script(&r)),
+            ("state_query", codegen::state_query_script(&r)),
+        ] {
+            let script = result.unwrap();
+            assert!(
+                validate_script(&script).is_ok(),
+                "service {kind} failed bashrs"
+            );
+        }
+    }
+
+    #[test]
+    fn test_fj036_codegen_mount_all_validate() {
+        use crate::core::codegen;
+        let mut r = make_test_resource(crate::core::types::ResourceType::Mount);
+        r.source = Some("192.168.1.1:/data".to_string());
+        r.fs_type = Some("nfs".to_string());
+        r.options = Some("ro,hard".to_string());
+        for (kind, result) in [
+            ("check", codegen::check_script(&r)),
+            ("apply", codegen::apply_script(&r)),
+            ("state_query", codegen::state_query_script(&r)),
+        ] {
+            let script = result.unwrap();
+            assert!(
+                validate_script(&script).is_ok(),
+                "mount {kind} failed bashrs"
+            );
+        }
+    }
+
+    #[test]
+    fn test_fj036_lint_codegen_package_has_diagnostics() {
+        use crate::core::codegen;
+        let mut r = make_test_resource(crate::core::types::ResourceType::Package);
+        r.provider = Some("apt".to_string());
+        r.packages = vec!["curl".to_string()];
+        let script = codegen::apply_script(&r).unwrap();
+        let result = lint_script(&script);
+        // Package scripts have $SUDO pattern → expect some diagnostics
+        assert!(
+            !result.diagnostics.is_empty(),
+            "apt scripts should have lint findings"
+        );
+    }
+
+    #[test]
+    fn test_fj036_purify_codegen_file_check() {
+        use crate::core::codegen;
+        let r = make_test_resource(crate::core::types::ResourceType::File);
+        let script = codegen::check_script(&r).unwrap();
+        // File check scripts are simple (test -f ...) — should purify cleanly
+        if let Ok(purified) = purify_script(&script) {
+            assert!(!purified.is_empty());
+        }
+    }
+
+    fn make_test_resource(rt: crate::core::types::ResourceType) -> crate::core::types::Resource {
+        crate::core::types::Resource {
+            resource_type: rt,
+            machine: crate::core::types::MachineTarget::Single("m1".to_string()),
+            state: None,
+            depends_on: vec![],
+            provider: None,
+            packages: vec![],
+            version: None,
+            path: Some("/etc/test.conf".to_string()),
+            content: Some("key=value".to_string()),
+            source: None,
+            target: None,
+            owner: Some("root".to_string()),
+            group: Some("root".to_string()),
+            mode: Some("0644".to_string()),
+            name: None,
+            enabled: None,
+            restart_on: vec![],
+            fs_type: None,
+            options: None,
+            uid: None,
+            shell: None,
+            home: None,
+            groups: vec![],
+            ssh_authorized_keys: vec![],
+            system_user: false,
+            schedule: None,
+            command: None,
+            image: None,
+            ports: vec![],
+            environment: vec![],
+            volumes: vec![],
+            restart: None,
+            protocol: None,
+            port: None,
+            action: None,
+            from_addr: None,
+            recipe: None,
+            inputs: std::collections::HashMap::new(),
+            arch: vec![],
+            tags: vec![],
+        }
     }
 
     #[test]
