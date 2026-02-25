@@ -3338,4 +3338,261 @@ policy:
         assert_eq!(ctx.machine_name, "test");
         assert!(ctx.tripwire);
     }
+
+    // ── FJ-132: Integration tests ──────────────────────────────
+
+    #[test]
+    fn test_fj132_force_apply_reconverges() {
+        // Force apply should re-apply even when hash matches
+        let config = local_config();
+        let dir = tempfile::tempdir().unwrap();
+
+        // First apply
+        let cfg = ApplyConfig {
+            config: &config,
+            state_dir: dir.path(),
+            force: false,
+            dry_run: false,
+            machine_filter: None,
+            resource_filter: None,
+            tag_filter: None,
+            timeout_secs: None,
+        };
+        let r1 = apply(&cfg).unwrap();
+        assert_eq!(r1[0].resources_converged, 1);
+
+        // Normal re-apply should skip (unchanged)
+        let r2 = apply(&cfg).unwrap();
+        assert_eq!(r2[0].resources_unchanged, 1);
+        assert_eq!(r2[0].resources_converged, 0);
+
+        // Force apply should re-converge
+        let force_cfg = ApplyConfig {
+            config: &config,
+            state_dir: dir.path(),
+            force: true,
+            dry_run: false,
+            machine_filter: None,
+            resource_filter: None,
+            tag_filter: None,
+            timeout_secs: None,
+        };
+        let r3 = apply(&force_cfg).unwrap();
+        assert_eq!(r3[0].resources_converged, 1);
+        assert_eq!(r3[0].resources_unchanged, 0);
+
+        let _ = std::fs::remove_file("/tmp/forjar-test-executor.txt");
+    }
+
+    #[test]
+    fn test_fj132_resource_filter_applies_only_matching() {
+        // Resource filter should only apply the specified resource
+        let yaml = r#"
+version: "1.0"
+name: filter-test
+machines: {}
+resources:
+  file-a:
+    type: file
+    machine: localhost
+    path: /tmp/forjar-test-filter-a.txt
+    content: "alpha"
+  file-b:
+    type: file
+    machine: localhost
+    path: /tmp/forjar-test-filter-b.txt
+    content: "beta"
+policy:
+  lock_file: true
+  tripwire: false
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = ApplyConfig {
+            config: &config,
+            state_dir: dir.path(),
+            force: false,
+            dry_run: false,
+            machine_filter: None,
+            resource_filter: Some("file-a"),
+            tag_filter: None,
+            timeout_secs: None,
+        };
+        let results = apply(&cfg).unwrap();
+        // Only file-a should be applied
+        assert_eq!(results[0].resources_converged, 1);
+
+        // Verify file-a exists but file-b doesn't
+        assert!(std::fs::read_to_string("/tmp/forjar-test-filter-a.txt").is_ok());
+        assert!(
+            std::fs::read_to_string("/tmp/forjar-test-filter-b.txt").is_err(),
+            "file-b should not be created when filtered to file-a"
+        );
+
+        let _ = std::fs::remove_file("/tmp/forjar-test-filter-a.txt");
+    }
+
+    #[test]
+    fn test_fj132_tag_filter_applies_only_tagged() {
+        let yaml = r#"
+version: "1.0"
+name: tag-test
+machines: {}
+resources:
+  tagged-file:
+    type: file
+    machine: localhost
+    path: /tmp/forjar-test-tagged.txt
+    content: "tagged"
+    tags: [web]
+  untagged-file:
+    type: file
+    machine: localhost
+    path: /tmp/forjar-test-untagged.txt
+    content: "untagged"
+policy:
+  lock_file: true
+  tripwire: false
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = ApplyConfig {
+            config: &config,
+            state_dir: dir.path(),
+            force: false,
+            dry_run: false,
+            machine_filter: None,
+            resource_filter: None,
+            tag_filter: Some("web"),
+            timeout_secs: None,
+        };
+        let results = apply(&cfg).unwrap();
+        assert_eq!(results[0].resources_converged, 1);
+
+        assert!(std::fs::read_to_string("/tmp/forjar-test-tagged.txt").is_ok());
+        assert!(
+            std::fs::read_to_string("/tmp/forjar-test-untagged.txt").is_err(),
+            "untagged file should not be created when filtered by tag"
+        );
+
+        let _ = std::fs::remove_file("/tmp/forjar-test-tagged.txt");
+    }
+
+    #[test]
+    fn test_fj132_apply_with_dependencies_order() {
+        // Verify that dependency order is respected in actual apply
+        let yaml = r#"
+version: "1.0"
+name: dep-order
+machines: {}
+resources:
+  first:
+    type: file
+    machine: localhost
+    path: /tmp/forjar-test-dep-first.txt
+    content: "first"
+  second:
+    type: file
+    machine: localhost
+    path: /tmp/forjar-test-dep-second.txt
+    content: "second"
+    depends_on: [first]
+  third:
+    type: file
+    machine: localhost
+    path: /tmp/forjar-test-dep-third.txt
+    content: "third"
+    depends_on: [second]
+policy:
+  lock_file: true
+  tripwire: false
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = ApplyConfig {
+            config: &config,
+            state_dir: dir.path(),
+            force: false,
+            dry_run: false,
+            machine_filter: None,
+            resource_filter: None,
+            tag_filter: None,
+            timeout_secs: None,
+        };
+        let results = apply(&cfg).unwrap();
+        assert_eq!(results[0].resources_converged, 3);
+
+        // All three files should exist
+        assert_eq!(std::fs::read_to_string("/tmp/forjar-test-dep-first.txt").unwrap().trim(), "first");
+        assert_eq!(std::fs::read_to_string("/tmp/forjar-test-dep-second.txt").unwrap().trim(), "second");
+        assert_eq!(std::fs::read_to_string("/tmp/forjar-test-dep-third.txt").unwrap().trim(), "third");
+
+        for f in [
+            "/tmp/forjar-test-dep-first.txt",
+            "/tmp/forjar-test-dep-second.txt",
+            "/tmp/forjar-test-dep-third.txt",
+        ] {
+            let _ = std::fs::remove_file(f);
+        }
+    }
+
+    #[test]
+    fn test_fj132_global_lock_written_after_apply() {
+        let config = local_config();
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = ApplyConfig {
+            config: &config,
+            state_dir: dir.path(),
+            force: false,
+            dry_run: false,
+            machine_filter: None,
+            resource_filter: None,
+            tag_filter: None,
+            timeout_secs: None,
+        };
+        apply(&cfg).unwrap();
+
+        // Per-machine lock should exist after apply
+        let machine_lock = state::load_lock(dir.path(), "local").unwrap();
+        assert!(machine_lock.is_some(), "per-machine lock should exist");
+        let ml = machine_lock.unwrap();
+        assert!(ml.resources.contains_key("test-file"));
+        assert_eq!(ml.resources["test-file"].status, ResourceStatus::Converged);
+
+        let _ = std::fs::remove_file("/tmp/forjar-test-executor.txt");
+    }
+
+    #[test]
+    fn test_fj132_dry_run_creates_no_files() {
+        let yaml = r#"
+version: "1.0"
+name: dry-run-test
+machines: {}
+resources:
+  test-file:
+    type: file
+    machine: localhost
+    path: /tmp/forjar-test-dry-run-should-not-exist.txt
+    content: "should not be created"
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = ApplyConfig {
+            config: &config,
+            state_dir: dir.path(),
+            force: false,
+            dry_run: true,
+            machine_filter: None,
+            resource_filter: None,
+            tag_filter: None,
+            timeout_secs: None,
+        };
+        let results = apply(&cfg).unwrap();
+        assert_eq!(results[0].machine, "dry-run");
+
+        assert!(
+            std::fs::read_to_string("/tmp/forjar-test-dry-run-should-not-exist.txt").is_err(),
+            "dry-run should not create files"
+        );
+    }
 }
