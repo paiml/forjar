@@ -215,3 +215,169 @@ resources:
 | `fstype` | string | — | Filesystem type (ext4, nfs, etc.) |
 | `options` | string | — | Mount options |
 | `state` | string | `mounted` | mounted, unmounted, absent |
+
+## User
+
+Manage local system users and groups via `useradd`/`usermod`/`userdel`.
+
+```yaml
+resources:
+  deploy-user:
+    type: user
+    machine: m1
+    name: deploy
+    shell: /bin/bash
+    home: /home/deploy
+    groups: [docker, sudo]
+    ssh_authorized_keys:
+      - "ssh-ed25519 AAAA... deploy@workstation"
+```
+
+### System Users
+
+```yaml
+resources:
+  prometheus:
+    type: user
+    machine: m1
+    name: prometheus
+    system_user: true
+    shell: /usr/sbin/nologin
+```
+
+System users are created with `--system` and do not get a home directory by default.
+
+### Remove a User
+
+```yaml
+resources:
+  old-user:
+    type: user
+    machine: m1
+    name: olduser
+    state: absent
+```
+
+### User Fields
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `name` | string | required | Username |
+| `state` | string | `present` | present, absent |
+| `uid` | integer | — | Explicit UID |
+| `group` | string | — | Primary group (--gid) |
+| `groups` | [string] | [] | Supplementary groups (auto-created if missing) |
+| `shell` | string | — | Login shell |
+| `home` | string | `/home/{name}` | Home directory |
+| `system_user` | bool | false | Create as system user (--system) |
+| `ssh_authorized_keys` | [string] | [] | SSH public keys for ~/.ssh/authorized_keys |
+
+## Docker
+
+Manage Docker containers as deployed resources. This is distinct from container *transport* (using containers as execution targets) — this manages containers running ON machines.
+
+```yaml
+resources:
+  web:
+    type: docker
+    machine: m1
+    name: web
+    image: nginx:latest
+    state: running
+    ports: ["8080:80", "443:443"]
+    volumes: ["/data/web:/usr/share/nginx/html"]
+    environment: ["NGINX_HOST=example.com"]
+    restart: unless-stopped
+```
+
+### Docker States
+
+| State | Action |
+|-------|--------|
+| `running` | Pull image, stop/remove existing, `docker run -d` |
+| `stopped` | `docker stop` |
+| `absent` | `docker stop` + `docker rm` |
+
+### Docker Fields
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `name` | string | required | Container name |
+| `image` | string | required | OCI image (e.g. `nginx:latest`) |
+| `state` | string | `running` | running, stopped, absent |
+| `ports` | [string] | [] | Port mappings (`host:container`) |
+| `volumes` | [string] | [] | Volume mounts (`host:container`) |
+| `environment` | [string] | [] | Environment variables (`KEY=VALUE`) |
+| `restart` | string | — | Restart policy (no, always, unless-stopped, on-failure) |
+| `command` | string | — | Override container command |
+
+## Cron
+
+Manage scheduled tasks via crontab entries. Jobs are tagged with `# forjar:{name}` comments for idempotent updates.
+
+```yaml
+resources:
+  backup:
+    type: cron
+    machine: m1
+    name: nightly-backup
+    schedule: "0 2 * * *"
+    command: /usr/local/bin/backup.sh
+    owner: root
+```
+
+### Remove a Cron Job
+
+```yaml
+resources:
+  old-job:
+    type: cron
+    machine: m1
+    name: old-job
+    state: absent
+    owner: root
+```
+
+### Cron Fields
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `name` | string | required | Job identifier (used as tag in crontab) |
+| `state` | string | `present` | present, absent |
+| `schedule` | string | `* * * * *` | Cron schedule expression |
+| `command` | string | required | Command to execute |
+| `owner` | string | `root` | Crontab user |
+
+## Network
+
+Manage firewall rules via ufw (Uncomplicated Firewall).
+
+```yaml
+resources:
+  allow-ssh:
+    type: network
+    machine: m1
+    name: ssh-access
+    port: "22"
+    protocol: tcp
+    action: allow
+    from_addr: 192.168.1.0/24
+```
+
+### Network States
+
+| State | Action |
+|-------|--------|
+| `present` | Add ufw rule (enables ufw if not active) |
+| `absent` | `ufw delete` the rule |
+
+### Network Fields
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `name` | string | — | Rule comment |
+| `state` | string | `present` | present, absent |
+| `port` | string | required | Port number |
+| `protocol` | string | `tcp` | tcp, udp |
+| `action` | string | `allow` | allow, deny, reject |
+| `from_addr` | string | — | Source address/CIDR (e.g. `192.168.1.0/24`) |

@@ -361,6 +361,5 @@ forjar lint -f forjar.yaml --json
 
 | Code | Meaning |
 |------|---------|
-| 0 | Success |
-| 1 | Error (validation, apply failure, etc.) |
-| 1 | Drift detected (with `--tripwire` flag) |
+| 0 | Success (no errors, no drift with `--tripwire`) |
+| 1 | Error (validation failure, apply failure, drift detected with `--tripwire`, unformatted file with `fmt --check`) |
