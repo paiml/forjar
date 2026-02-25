@@ -489,4 +489,82 @@ mod tests {
         assert!(script.contains("'curl'"));
         assert!(!script.contains("curl="));
     }
+
+    #[test]
+    fn test_fj006_default_provider_is_apt() {
+        let mut r = make_apt_resource(&["curl"]);
+        r.provider = None; // Default
+        let script = apply_script(&r);
+        assert!(
+            script.contains("apt-get install"),
+            "default provider should be apt"
+        );
+    }
+
+    #[test]
+    fn test_fj006_default_state_is_present() {
+        let mut r = make_apt_resource(&["curl"]);
+        r.state = None; // Default
+        let script = apply_script(&r);
+        assert!(
+            script.contains("apt-get install"),
+            "default state should be present (install)"
+        );
+        assert!(!script.contains("apt-get remove"));
+    }
+
+    #[test]
+    fn test_fj006_apt_idempotent_check() {
+        // apt apply has pre-check: only runs install if needed
+        let r = make_apt_resource(&["curl"]);
+        let script = apply_script(&r);
+        assert!(
+            script.contains("NEED_INSTALL=0"),
+            "must have idempotent check"
+        );
+        assert!(
+            script.contains("NEED_INSTALL=1"),
+            "must set flag when package missing"
+        );
+    }
+
+    #[test]
+    fn test_fj006_apt_postcondition_verify() {
+        // apt apply verifies all packages installed after install
+        let r = make_apt_resource(&["curl", "wget"]);
+        let script = apply_script(&r);
+        // Postcondition check at end
+        let last_dpkg = script.rfind("dpkg -l").unwrap();
+        let install = script.find("apt-get install").unwrap();
+        assert!(
+            last_dpkg > install,
+            "postcondition check must come after install"
+        );
+    }
+
+    #[test]
+    fn test_fj006_uv_absent_tolerant() {
+        // uv uninstall uses `|| true` to tolerate already-absent packages
+        let mut r = make_apt_resource(&["ruff"]);
+        r.provider = Some("uv".to_string());
+        r.state = Some("absent".to_string());
+        let script = apply_script(&r);
+        assert!(
+            script.contains("|| true"),
+            "uv uninstall should tolerate already-absent"
+        );
+    }
+
+    #[test]
+    fn test_fj006_cargo_absent_unsupported() {
+        // cargo provider doesn't support absent state
+        let mut r = make_apt_resource(&["tool"]);
+        r.provider = Some("cargo".to_string());
+        r.state = Some("absent".to_string());
+        let script = apply_script(&r);
+        assert!(
+            script.contains("unsupported"),
+            "cargo absent should be unsupported"
+        );
+    }
 }

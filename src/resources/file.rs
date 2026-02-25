@@ -385,4 +385,81 @@ mod tests {
         assert!(script.contains("base64 -d"));
         assert!(script.contains("/opt/bin/data.bin"));
     }
+
+    #[test]
+    fn test_fj007_apply_file_creates_parent_dir() {
+        let r = make_file_resource("/etc/app/nested/config.yaml", Some("key: val"));
+        let script = apply_script(&r);
+        assert!(script.contains("mkdir -p '/etc/app/nested'"));
+        let mkdir_idx = script.find("mkdir -p").unwrap();
+        let cat_idx = script.find("cat >").unwrap();
+        assert!(
+            mkdir_idx < cat_idx,
+            "mkdir must precede cat in apply script"
+        );
+    }
+
+    #[test]
+    fn test_fj007_apply_pipefail() {
+        let r = make_file_resource("/etc/test", Some("data"));
+        let script = apply_script(&r);
+        assert!(
+            script.starts_with("set -euo pipefail"),
+            "apply scripts must start with pipefail"
+        );
+    }
+
+    #[test]
+    fn test_fj007_apply_file_no_content_no_source() {
+        // File with neither content nor source — just ownership/mode
+        let mut r = make_file_resource("/etc/test", None);
+        r.source = None;
+        let script = apply_script(&r);
+        assert!(!script.contains("cat >"));
+        assert!(!script.contains("base64"));
+        // But chown/chmod still happen
+        assert!(script.contains("chown 'root:root'"));
+        assert!(script.contains("chmod '0644'"));
+    }
+
+    #[test]
+    fn test_fj007_apply_file_no_mode() {
+        let mut r = make_file_resource("/etc/test", Some("data"));
+        r.mode = None;
+        let script = apply_script(&r);
+        assert!(!script.contains("chmod"), "no chmod when mode is None");
+    }
+
+    #[test]
+    fn test_fj007_apply_file_no_owner() {
+        let mut r = make_file_resource("/etc/test", Some("data"));
+        r.owner = None;
+        r.group = None;
+        let script = apply_script(&r);
+        assert!(!script.contains("chown"), "no chown when owner is None");
+    }
+
+    #[test]
+    fn test_fj007_symlink_default_target() {
+        // Symlink without explicit target uses /dev/null
+        let mut r = make_file_resource("/usr/bin/link", None);
+        r.state = Some("symlink".to_string());
+        r.target = None;
+        let script = apply_script(&r);
+        assert!(script.contains("ln -sfn '/dev/null' '/usr/bin/link'"));
+    }
+
+    #[test]
+    fn test_fj007_state_query_has_fallback() {
+        // state_query_script should have both Linux stat and macOS stat fallback
+        let r = make_file_resource("/etc/test", None);
+        let script = state_query_script(&r);
+        assert!(script.contains("stat -c"), "Linux stat format");
+        assert!(script.contains("stat -f"), "macOS stat fallback");
+        assert!(script.contains("blake3sum"), "BLAKE3 hash check");
+        assert!(
+            script.contains("sha256sum"),
+            "SHA256 fallback when blake3sum unavailable"
+        );
+    }
 }
