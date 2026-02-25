@@ -1,7 +1,7 @@
 //! FJ-017: CLI subcommands — init, validate, plan, apply, drift, status, history,
-//! destroy, import, show, graph, check, diff, fmt, lint, rollback, anomaly.
+//! destroy, import, show, graph, check, diff, fmt, lint, rollback, anomaly, migrate.
 
-use crate::core::{codegen, executor, parser, planner, resolver, state, types};
+use crate::core::{codegen, executor, migrate, parser, planner, resolver, state, types};
 use crate::transport;
 use crate::tripwire::{drift, eventlog};
 use clap::Subcommand;
@@ -338,6 +338,17 @@ pub enum Commands {
         json: bool,
     },
 
+    /// Migrate Docker resources to pepita kernel isolation (FJ-044)
+    Migrate {
+        /// Path to forjar.yaml
+        #[arg(short, long, default_value = "forjar.yaml")]
+        file: PathBuf,
+
+        /// Write migrated config to file (default: stdout)
+        #[arg(short, long)]
+        output: Option<PathBuf>,
+    },
+
     /// Start MCP server (pforge integration, FJ-063)
     Mcp,
 }
@@ -479,8 +490,59 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             min_events,
             json,
         } => cmd_anomaly(&state_dir, machine.as_deref(), min_events, json),
+        Commands::Migrate { file, output } => cmd_migrate(&file, output.as_deref()),
         Commands::Mcp => cmd_mcp(),
     }
+}
+
+fn cmd_migrate(file: &Path, output: Option<&Path>) -> Result<(), String> {
+    let config = parse_and_validate(file)?;
+
+    // Count docker resources
+    let docker_count = config
+        .resources
+        .values()
+        .filter(|r| r.resource_type == types::ResourceType::Docker)
+        .count();
+
+    if docker_count == 0 {
+        println!("No Docker resources found in {}", file.display());
+        return Ok(());
+    }
+
+    let (migrated, warnings) = migrate::migrate_config(&config);
+
+    // Print warnings
+    if !warnings.is_empty() {
+        eprintln!("Migration warnings:");
+        for w in &warnings {
+            eprintln!("  ⚠ {}", w);
+        }
+        eprintln!();
+    }
+
+    // Serialize migrated config
+    let yaml = serde_yaml_ng::to_string(&migrated)
+        .map_err(|e| format!("Failed to serialize migrated config: {}", e))?;
+
+    if let Some(out_path) = output {
+        std::fs::write(out_path, &yaml)
+            .map_err(|e| format!("Failed to write {}: {}", out_path.display(), e))?;
+        println!(
+            "Migrated {} Docker resource(s) → pepita in {}",
+            docker_count,
+            out_path.display()
+        );
+    } else {
+        print!("{}", yaml);
+    }
+
+    println!(
+        "Migration complete: {} resource(s) converted, {} warning(s)",
+        docker_count,
+        warnings.len()
+    );
+    Ok(())
 }
 
 fn cmd_mcp() -> Result<(), String> {

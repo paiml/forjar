@@ -2,6 +2,7 @@
 
 pub mod codegen;
 pub mod executor;
+pub mod migrate;
 pub mod parser;
 pub mod planner;
 pub mod purifier;

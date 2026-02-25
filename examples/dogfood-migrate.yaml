@@ -1,0 +1,39 @@
+version: "1.0"
+name: dogfood-migrate
+description: "Docker resources for testing FJ-044 migration to pepita"
+
+machines:
+  localhost:
+    hostname: localhost
+    addr: 127.0.0.1
+
+resources:
+  # Docker resources to be migrated to pepita
+  web:
+    type: docker
+    machine: localhost
+    name: web-server
+    image: nginx:latest
+    state: running
+    ports: ["8080:80", "443:443"]
+    volumes: ["/data/web:/usr/share/nginx/html"]
+    environment: ["NGINX_HOST=example.com"]
+    restart: unless-stopped
+
+  api:
+    type: docker
+    machine: localhost
+    name: api-service
+    image: myapp:v2
+    state: running
+    ports: ["3000:3000"]
+    environment: ["NODE_ENV=production", "DB_HOST=localhost"]
+    restart: always
+    depends_on: [web]
+
+  # Non-docker resource (should be preserved)
+  dev-tools:
+    type: package
+    machine: localhost
+    provider: apt
+    packages: [curl, jq]
