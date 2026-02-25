@@ -417,6 +417,98 @@ mod tests {
     }
 
     #[test]
+    fn test_fj013_save_lock_multiple_resources() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut lock = make_lock();
+        lock.resources.insert(
+            "conf-file".to_string(),
+            ResourceLock {
+                resource_type: ResourceType::File,
+                status: ResourceStatus::Converged,
+                applied_at: Some("2026-02-25T10:00:00Z".to_string()),
+                duration_seconds: Some(0.1),
+                hash: "blake3:def456".to_string(),
+                details: HashMap::new(),
+            },
+        );
+        lock.resources.insert(
+            "web-svc".to_string(),
+            ResourceLock {
+                resource_type: ResourceType::Service,
+                status: ResourceStatus::Failed,
+                applied_at: Some("2026-02-25T10:00:01Z".to_string()),
+                duration_seconds: Some(5.0),
+                hash: "blake3:ghi789".to_string(),
+                details: HashMap::new(),
+            },
+        );
+        save_lock(dir.path(), &lock).unwrap();
+
+        let loaded = load_lock(dir.path(), "test").unwrap().unwrap();
+        assert_eq!(loaded.resources.len(), 3);
+        assert_eq!(loaded.resources["conf-file"].status, ResourceStatus::Converged);
+        assert_eq!(loaded.resources["web-svc"].status, ResourceStatus::Failed);
+    }
+
+    #[test]
+    fn test_fj013_lock_file_path_special_chars() {
+        let p = lock_file_path(Path::new("/var/lib/forjar/state"), "web-server-01");
+        assert_eq!(
+            p,
+            PathBuf::from("/var/lib/forjar/state/web-server-01/state.lock.yaml")
+        );
+    }
+
+    #[test]
+    fn test_fj013_new_global_lock_empty_machines() {
+        let lock = new_global_lock("my-infra");
+        assert_eq!(lock.schema, "1.0");
+        assert_eq!(lock.name, "my-infra");
+        assert!(lock.machines.is_empty());
+        assert!(lock.last_apply.contains('T'));
+        assert!(lock.generator.starts_with("forjar "));
+    }
+
+    #[test]
+    fn test_fj013_update_global_lock_empty_results() {
+        let dir = tempfile::tempdir().unwrap();
+        let results: Vec<(String, usize, usize, usize)> = vec![];
+        update_global_lock(dir.path(), "infra", &results).unwrap();
+
+        let loaded = load_global_lock(dir.path()).unwrap().unwrap();
+        assert_eq!(loaded.name, "infra");
+        assert!(loaded.machines.is_empty());
+    }
+
+    #[test]
+    fn test_fj013_save_load_lock_with_details() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut details = HashMap::new();
+        details.insert(
+            "content_hash".to_string(),
+            serde_yaml_ng::Value::String("blake3:aaa".to_string()),
+        );
+        details.insert(
+            "service_name".to_string(),
+            serde_yaml_ng::Value::String("nginx".to_string()),
+        );
+
+        let mut lock = make_lock();
+        lock.resources.get_mut("test-pkg").unwrap().details = details;
+        save_lock(dir.path(), &lock).unwrap();
+
+        let loaded = load_lock(dir.path(), "test").unwrap().unwrap();
+        assert_eq!(
+            loaded.resources["test-pkg"].details["content_hash"],
+            serde_yaml_ng::Value::String("blake3:aaa".to_string())
+        );
+        assert_eq!(
+            loaded.resources["test-pkg"].details["service_name"],
+            serde_yaml_ng::Value::String("nginx".to_string())
+        );
+    }
+
+    #[test]
     fn test_fj013_global_lock_atomic_no_temp() {
         let dir = tempfile::tempdir().unwrap();
         let lock = new_global_lock("test");
