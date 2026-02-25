@@ -1,9 +1,9 @@
 //! FJ-017: CLI subcommands — init, validate, plan, apply, drift, status, history,
-//! destroy, import, show, graph, check, diff, fmt, lint, rollback, anomaly, migrate.
+//! destroy, import, show, graph, check, diff, fmt, lint, rollback, anomaly, trace, migrate.
 
 use crate::core::{codegen, executor, migrate, parser, planner, resolver, state, types};
 use crate::transport;
-use crate::tripwire::{anomaly, drift, eventlog};
+use crate::tripwire::{anomaly, drift, eventlog, tracer};
 use clap::Subcommand;
 use std::path::{Path, PathBuf};
 
@@ -338,6 +338,21 @@ pub enum Commands {
         json: bool,
     },
 
+    /// View trace provenance data from apply runs (FJ-050)
+    Trace {
+        /// State directory
+        #[arg(long, default_value = "state")]
+        state_dir: PathBuf,
+
+        /// Target specific machine
+        #[arg(short, long)]
+        machine: Option<String>,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+
     /// Migrate Docker resources to pepita kernel isolation (FJ-044)
     Migrate {
         /// Path to forjar.yaml
@@ -490,6 +505,11 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             min_events,
             json,
         } => cmd_anomaly(&state_dir, machine.as_deref(), min_events, json),
+        Commands::Trace {
+            state_dir,
+            machine,
+            json,
+        } => cmd_trace(&state_dir, machine.as_deref(), json),
         Commands::Migrate { file, output } => cmd_migrate(&file, output.as_deref()),
         Commands::Mcp => cmd_mcp(),
     }
@@ -828,10 +848,107 @@ fn cmd_anomaly(
             );
         }
         println!();
-        println!(
-            "Anomaly detection: {} anomaly(ies) found.",
-            findings.len()
-        );
+        println!("Anomaly detection: {} anomaly(ies) found.", findings.len());
+    }
+
+    Ok(())
+}
+
+/// View trace provenance data from apply runs (FJ-050).
+fn cmd_trace(state_dir: &Path, machine_filter: Option<&str>, json: bool) -> Result<(), String> {
+    let entries = std::fs::read_dir(state_dir)
+        .map_err(|e| format!("cannot read state dir {}: {}", state_dir.display(), e))?;
+
+    let mut all_spans = Vec::new();
+
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().to_string();
+        if let Some(filter) = machine_filter {
+            if name != filter {
+                continue;
+            }
+        }
+        if !entry.path().is_dir() {
+            continue;
+        }
+
+        match tracer::read_trace(state_dir, &name) {
+            Ok(spans) => {
+                for span in spans {
+                    all_spans.push((name.clone(), span));
+                }
+            }
+            Err(_) => continue,
+        }
+    }
+
+    if all_spans.is_empty() {
+        if json {
+            println!("{{\"traces\":0,\"spans\":[]}}");
+        } else {
+            println!("No trace data found.");
+        }
+        return Ok(());
+    }
+
+    // Sort by logical clock
+    all_spans.sort_by_key(|(_, span)| span.logical_clock);
+
+    if json {
+        let json_spans: Vec<serde_json::Value> = all_spans
+            .iter()
+            .map(|(machine, span)| {
+                serde_json::json!({
+                    "machine": machine,
+                    "trace_id": span.trace_id,
+                    "span_id": span.span_id,
+                    "parent_span_id": span.parent_span_id,
+                    "name": span.name,
+                    "start_time": span.start_time,
+                    "duration_us": span.duration_us,
+                    "exit_code": span.exit_code,
+                    "resource_type": span.resource_type,
+                    "action": span.action,
+                    "content_hash": span.content_hash,
+                    "logical_clock": span.logical_clock,
+                })
+            })
+            .collect();
+        let report = serde_json::json!({
+            "traces": all_spans.iter().map(|(_, s)| &s.trace_id).collect::<std::collections::HashSet<_>>().len(),
+            "spans": json_spans,
+        });
+        let output =
+            serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {}", e))?;
+        println!("{}", output);
+    } else {
+        // Group by trace_id
+        let mut by_trace: std::collections::HashMap<&str, Vec<&(String, tracer::TraceSpan)>> =
+            std::collections::HashMap::new();
+        for item in &all_spans {
+            by_trace.entry(&item.1.trace_id).or_default().push(item);
+        }
+
+        for (trace_id, spans) in &by_trace {
+            println!("Trace: {}  ({} spans)", trace_id, spans.len());
+            for (machine, span) in spans.iter() {
+                let duration = if span.duration_us > 1_000_000 {
+                    format!("{:.1}s", span.duration_us as f64 / 1_000_000.0)
+                } else if span.duration_us > 1_000 {
+                    format!("{:.1}ms", span.duration_us as f64 / 1_000.0)
+                } else if span.duration_us > 0 {
+                    format!("{}us", span.duration_us)
+                } else {
+                    "0".to_string()
+                };
+                let status = if span.exit_code == 0 { "ok" } else { "FAIL" };
+                println!(
+                    "  [{:>3}] {} {} — {} {} ({})",
+                    span.logical_clock, machine, span.name, span.action, status, duration
+                );
+            }
+            println!();
+        }
     }
 
     Ok(())
@@ -6811,5 +6928,70 @@ resources:
             result.is_ok(),
             "cmd_fmt check should succeed on already-formatted config"
         );
+    }
+
+    // ── FJ-135: forjar trace CLI tests ──────────────────────────
+
+    #[test]
+    fn test_fj135_cmd_trace_empty_state() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = cmd_trace(dir.path(), None, false);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj135_cmd_trace_empty_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = cmd_trace(dir.path(), None, true);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj135_cmd_trace_with_data() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut session = crate::tripwire::tracer::TraceSession::start("r-test-trace");
+        session.record_noop("r1", "file", "m1");
+        session.record_span(
+            "r2",
+            "package",
+            "m1",
+            "create",
+            std::time::Duration::from_millis(100),
+            0,
+            None,
+        );
+        crate::tripwire::tracer::write_trace(dir.path(), "m1", &session).unwrap();
+
+        let result = cmd_trace(dir.path(), None, false);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj135_cmd_trace_json_with_data() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut session = crate::tripwire::tracer::TraceSession::start("r-test-json");
+        session.record_noop("r1", "file", "m1");
+        crate::tripwire::tracer::write_trace(dir.path(), "m1", &session).unwrap();
+
+        let result = cmd_trace(dir.path(), None, true);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj135_cmd_trace_machine_filter() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut session = crate::tripwire::tracer::TraceSession::start("r-filter");
+        session.record_noop("r1", "file", "web");
+        crate::tripwire::tracer::write_trace(dir.path(), "web", &session).unwrap();
+
+        // Filter to nonexistent machine — should find nothing
+        let result = cmd_trace(dir.path(), Some("nonexistent"), false);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj135_cmd_trace_nonexistent_dir() {
+        let result = cmd_trace(Path::new("/tmp/forjar-nonexistent-12345"), None, false);
+        assert!(result.is_err());
     }
 }

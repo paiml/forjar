@@ -1393,6 +1393,7 @@ Statistical anomaly detection from event history. Analyzes per-resource metrics:
 | FJ-036 | bashrs integration — shell purification pipeline. Added `bashrs = "6.64.0"` dependency, created `core/purifier.rs` with three safety levels (validate/lint/purify), integrated bashrs script lint into `forjar lint` CLI, upgraded Rust 1.85→1.87. 1062→1118 tests (56 new), book 8,957→10,530 lines. Architecture chapter + spec updated, I8 invariant enforced. All 16 examples pass, 8 dogfood configs lint cleanly. | **Done** |
 | FJ-133 | Wire FJ-050 tracer into executor — TraceSession in apply_machine(), record_span per resource, write_trace to state_dir, gated by tripwire policy. 3 integration tests (trace written, trace not written, span fields). Book: trace provenance + anomaly architecture sections. Example: `trace_provenance.rs`. | **Done** |
 | FJ-134 | Wire FJ-051 anomaly module into cmd_anomaly CLI — replace inline z-score with detect_anomalies(), isolation_score(), DriftStatus. 1 integration test. Book: forjar migrate CLI docs. Example: `anomaly_detection.rs`. All 19 examples pass, 10 dogfood configs validate. 1297→1301 tests. | **Done** |
+| FJ-135 | `forjar trace` CLI command — view trace provenance data (text + JSON), machine filtering, grouped by trace_id, sorted by logical clock. Removes dead `_total_mean` variable. 6 tests, book updates. 1301→1307 tests. | **Done** |
 
 ---
 

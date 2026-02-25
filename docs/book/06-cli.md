@@ -414,9 +414,9 @@ forjar anomaly [--state-dir DIR] [-m MACHINE] [--min-events N] [--json]
 | `--min-events` | `3` | Minimum events to consider (ignore resources with fewer) |
 | `--json` | false | Output as JSON |
 
-Analyzes event logs to find resources with:
-- **High churn**: Abnormally high converge frequency (z-score > 1.5)
-- **High failure rate**: More than 20% failures (with at least 2 failures)
+Analyzes event logs using ML-inspired anomaly detection (FJ-051):
+- **High churn**: Abnormally high converge frequency via isolation scoring
+- **High failure rate**: Disproportionate failures via isolation scoring
 - **Drift events**: Any drift detected in history
 
 ```bash
@@ -431,6 +431,45 @@ forjar anomaly --json
 
 # Filter to specific machine
 forjar anomaly -m web-server
+```
+
+### `forjar trace`
+
+View trace provenance data from apply runs (FJ-050).
+
+```bash
+forjar trace [--state-dir DIR] [-m MACHINE] [--json]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--state-dir` | `state` | Directory for state/lock files |
+| `-m, --machine` | all | Filter to specific machine |
+| `--json` | false | Output as JSON |
+
+Shows W3C-compatible trace spans recorded during `forjar apply`, including causal ordering via Lamport logical clocks, duration, exit codes, and resource metadata.
+
+```bash
+# View all traces
+forjar trace --state-dir state
+
+# View traces for specific machine
+forjar trace -m web-server
+
+# JSON output for analysis tools
+forjar trace --json | jq '.spans[] | select(.exit_code != 0)'
+
+# Find slowest resources
+forjar trace --json | jq '.spans | sort_by(-.duration_us) | .[0:5]'
+```
+
+Example output:
+
+```
+Trace: 00000000000000005ce9737d21745945  (3 spans)
+  [  1] web apply:data-dir — create ok (122.1ms)
+  [  2] web apply:dev-tools — create ok (19.0s)
+  [  3] web apply:tool-config — create ok (165.7ms)
 ```
 
 ### `forjar migrate`

@@ -89,8 +89,6 @@ impl AdwinDetector {
             return DriftStatus::Stable;
         }
 
-        let _total_mean = self.sum / n as f64;
-
         // Try splits at different points
         let mut max_cut = 0.0;
         for split in (n / 4)..=(3 * n / 4) {
