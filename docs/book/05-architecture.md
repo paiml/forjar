@@ -163,6 +163,40 @@ Scripts are piped to `stdin` (not passed as arguments) to avoid:
 - Shell metacharacter injection
 - Command-line visibility in `ps`
 
+### Container Lifecycle
+
+The executor manages the full container lifecycle during `apply`:
+
+```
+apply_machine("test-box")
+    │
+    ├── ensure_container()
+    │   ├── docker inspect -f '{{.State.Running}}' forjar-test-box
+    │   │   ├── "true" → container already running, skip creation
+    │   │   └── failure/false → create new container
+    │   │       └── docker run -d --name forjar-test-box [--init] [--privileged] ubuntu:22.04 sleep infinity
+    │   └── return Ok(())
+    │
+    ├── for resource in execution_order:
+    │   └── exec_container()
+    │       └── docker exec -i forjar-test-box bash <<< "check/apply script"
+    │
+    └── cleanup_container()  (ephemeral only, runs even on failure)
+        └── docker rm -f forjar-test-box
+```
+
+**Ephemeral containers** (`ephemeral: true`, the default) are created fresh for each apply run and destroyed afterward. This guarantees a clean environment for CI/CD testing.
+
+**Attached containers** (`ephemeral: false`) persist between applies. The executor verifies the container is running but does not destroy it. Use this for long-lived dev environments.
+
+**Container naming**: If `container.name` is set, that name is used directly. Otherwise, the name is derived as `forjar-{machine-key}` (e.g., machine key `test-box` becomes `forjar-test-box`).
+
+**Runtime selection**: Set `container.runtime` to `docker` (default) or `podman`. The runtime binary is used for all lifecycle operations (inspect, run, exec, rm).
+
+**Flags**:
+- `--init` (default: true) — adds a PID 1 init process for proper signal handling and zombie reaping
+- `--privileged` (default: false) — grants full host capabilities (needed for systemd-in-container testing)
+
 ## Atomic State
 
 Lock files are written atomically:
@@ -185,6 +219,32 @@ Every apply operation appends events to `state/{machine}/events.jsonl`:
 ```
 
 Append-only. Never modified. Git-friendly.
+
+### Event Types
+
+| Event | Fields | Description |
+|-------|--------|-------------|
+| `apply_started` | `machine`, `run_id`, `forjar_version` | Apply run begins |
+| `resource_started` | `machine`, `resource`, `action` | Resource execution begins |
+| `resource_converged` | `machine`, `resource`, `duration_seconds`, `hash` | Resource applied successfully |
+| `resource_unchanged` | `machine`, `resource`, `hash` | Resource already at desired state |
+| `resource_failed` | `machine`, `resource`, `error` | Resource execution failed |
+| `apply_completed` | `machine`, `run_id`, `resources_converged`, `resources_unchanged`, `resources_failed`, `total_seconds` | Apply run ends |
+
+Every event has a `ts` field (ISO 8601 UTC timestamp, e.g., `2026-02-25T14:30:00Z`).
+
+### Querying Events
+
+```bash
+# Last 20 events
+forjar history -n 20
+
+# JSON output for dashboards
+forjar history --json | jq '.events[] | {ts: .ts, event: .event}'
+
+# Anomaly detection (z-score on resource churn)
+forjar anomaly --state-dir state --json | jq '.anomalies'
+```
 
 ## Provable Contracts
 
