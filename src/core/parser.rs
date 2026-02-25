@@ -2691,7 +2691,9 @@ resources: {}
         let config = parse_config(yaml).unwrap();
         let errors = validate_config(&config);
         assert!(
-            errors.iter().any(|e| e.message.contains("no 'container' block")),
+            errors
+                .iter()
+                .any(|e| e.message.contains("no 'container' block")),
             "container transport without container block should error"
         );
     }
@@ -2714,7 +2716,9 @@ resources: {}
         let config = parse_config(yaml).unwrap();
         let errors = validate_config(&config);
         assert!(
-            errors.iter().any(|e| e.message.contains("docker' or 'podman'")),
+            errors
+                .iter()
+                .any(|e| e.message.contains("docker' or 'podman'")),
             "invalid runtime should error"
         );
     }
@@ -2737,7 +2741,9 @@ resources: {}
         let config = parse_config(yaml).unwrap();
         let errors = validate_config(&config);
         assert!(
-            errors.iter().any(|e| e.message.contains("ephemeral but has no container image")),
+            errors
+                .iter()
+                .any(|e| e.message.contains("ephemeral but has no container image")),
             "ephemeral without image should error"
         );
     }
@@ -2762,7 +2768,9 @@ resources:
         let config = parse_config(yaml).unwrap();
         let errors = validate_config(&config);
         assert!(
-            errors.iter().any(|e| e.message.contains("both content and source")),
+            errors
+                .iter()
+                .any(|e| e.message.contains("both content and source")),
             "file with both content and source should error"
         );
     }
@@ -2786,7 +2794,9 @@ resources:
         let config = parse_config(yaml).unwrap();
         let errors = validate_config(&config);
         assert!(
-            errors.iter().any(|e| e.message.contains("symlink requires a target")),
+            errors
+                .iter()
+                .any(|e| e.message.contains("symlink requires a target")),
             "symlink without target should error"
         );
     }
@@ -2830,7 +2840,9 @@ resources:
         let config = parse_config(yaml).unwrap();
         let errors = validate_config(&config);
         assert!(
-            errors.iter().any(|e| e.message.contains("invalid state 'restarted'")),
+            errors
+                .iter()
+                .any(|e| e.message.contains("invalid state 'restarted'")),
             "invalid service state should error"
         );
     }

@@ -1974,6 +1974,10 @@ resources:
             },
         );
         let action = determine_action("my-pkg", &resource, "web", &locks);
-        assert_eq!(action, PlanAction::Update, "failed resources should be retried");
+        assert_eq!(
+            action,
+            PlanAction::Update,
+            "failed resources should be retried"
+        );
     }
 }

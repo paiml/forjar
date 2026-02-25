@@ -1606,7 +1606,8 @@ image: ubuntu:22.04
     #[test]
     fn test_fj132_machine_target_single_deserialization() {
         let yaml = "machine: web";
-        let r: Resource = serde_yaml_ng::from_str(&format!("type: file\n{}\npath: /tmp/x", yaml)).unwrap();
+        let r: Resource =
+            serde_yaml_ng::from_str(&format!("type: file\n{}\npath: /tmp/x", yaml)).unwrap();
         match &r.machine {
             MachineTarget::Single(name) => assert_eq!(name, "web"),
             MachineTarget::Multiple(_) => panic!("expected Single"),
