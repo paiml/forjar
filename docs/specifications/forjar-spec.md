@@ -1375,6 +1375,7 @@ Statistical anomaly detection from event history. Analyzes per-resource metrics:
 | FJ-124 | User/docker edge case tests — user.rs (+4: no name default, system_user+home, ssh chown with primary group, modify branch carries all fields), docker.rs (+4: no name default, no image default, multiple ports/env/volumes, absent no pull/run). 8 tests, 716→724. | **Done** |
 | FJ-125 | Expand State Management chapter (Ch. 8, 243→392 lines) — composite hashing, hash stability, hashing by resource type, state inspection commands, state comparison, selective force apply, monorepo patterns, state cleanup. Expand Testing & CI chapter (Ch. 10, 284→462 lines) — script auditing, template review, canary deploys, idempotency testing, drift testing, GitOps workflow, post-merge CI job. | **Done** |
 | FJ-126 | Extend template resolution to all resource string fields — command, schedule, port, protocol, action, from_addr, image, shell, home, restart, version, plus list fields (ports, environment, volumes, packages). 7 tests, full_stack_deploy example. 724→731. | **Done** |
+| FJ-127 | Fix hash_desired_state to include Phase 2 fields — image, command, schedule, restart, port, protocol, action, from_addr, shell, home, target, version, enabled, ports, environment, volumes, restart_on. Without this fix, changing a Docker image, cron schedule, or firewall port would NOT trigger an update. 7 tests, 731→738. | **Done** |
 
 ---
 
