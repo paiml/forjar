@@ -55,12 +55,13 @@ pub fn exec_script_timeout(
                 let result = exec_script(&machine, &script);
                 let _ = tx.send(result);
             });
-            rx.recv_timeout(std::time::Duration::from_secs(secs)).map_err(|_| {
-                format!(
-                    "transport timeout: script on '{}' exceeded {}s limit",
-                    hostname, secs
-                )
-            })?
+            rx.recv_timeout(std::time::Duration::from_secs(secs))
+                .map_err(|_| {
+                    format!(
+                        "transport timeout: script on '{}' exceeded {}s limit",
+                        hostname, secs
+                    )
+                })?
         }
         None => exec_script(machine, script),
     }
