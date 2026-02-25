@@ -227,4 +227,48 @@ mod tests {
         let script = state_query_script(&r);
         assert!(script.contains("crontab -u 'deploy' -l"));
     }
+
+    // ── Edge-case tests (FJ-123) ─────────────────────────────────
+
+    #[test]
+    fn test_fj033_no_name_defaults_to_unknown() {
+        let mut r = make_cron_resource("placeholder");
+        r.name = None;
+        let check = check_script(&r);
+        assert!(check.contains("forjar:unknown"));
+        let apply = apply_script(&r);
+        assert!(apply.contains("# forjar:unknown"));
+        let query = state_query_script(&r);
+        assert!(query.contains("forjar:unknown"));
+    }
+
+    #[test]
+    fn test_fj033_no_owner_defaults_to_root() {
+        let mut r = make_cron_resource("job");
+        r.owner = None;
+        let script = apply_script(&r);
+        assert!(script.contains("crontab -u 'root'"));
+    }
+
+    #[test]
+    fn test_fj033_absent_ignores_schedule_and_command() {
+        // In absent state, schedule/command are irrelevant — script should only grep -v
+        let mut r = make_cron_resource("old-job");
+        r.state = Some("absent".to_string());
+        r.schedule = Some("0 3 * * *".to_string());
+        r.command = Some("/bin/cleanup".to_string());
+        let script = apply_script(&r);
+        assert!(!script.contains("0 3 * * *"), "absent should not include schedule");
+        assert!(!script.contains("/bin/cleanup"), "absent should not include command");
+        assert!(script.contains("grep -v '# forjar:old-job'"));
+    }
+
+    #[test]
+    fn test_fj033_apply_cmd_tag_idempotency() {
+        // Verify forjar-cmd tag is also filtered out on re-apply (prevents duplication)
+        let r = make_cron_resource("backup");
+        let script = apply_script(&r);
+        assert!(script.contains("grep -v '# forjar-cmd:backup'"));
+        assert!(script.contains("echo '# forjar-cmd:backup'"));
+    }
 }

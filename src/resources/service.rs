@@ -267,4 +267,50 @@ mod tests {
         assert!(!script.contains("systemctl start"));
         assert!(!script.contains("systemctl enable 'svc'\nfi"));
     }
+
+    // ── Edge-case tests (FJ-123) ─────────────────────────────────
+
+    #[test]
+    fn test_fj008_invalid_state_no_op() {
+        // Unknown state like "restarted" hits the _ => {} branch — no start/stop emitted
+        let r = make_service_resource("svc", "restarted");
+        let script = apply_script(&r);
+        assert!(!script.contains("systemctl start"));
+        assert!(!script.contains("systemctl stop"));
+        // But enabled/disabled still emitted
+        assert!(script.contains("systemctl enable"));
+    }
+
+    #[test]
+    fn test_fj008_restart_on_with_disabled() {
+        // Service with restart_on + disabled: reload-or-restart still emitted
+        let mut r = make_service_resource("svc", "running");
+        r.enabled = Some(false);
+        r.restart_on = vec!["config-file".to_string()];
+        let script = apply_script(&r);
+        assert!(script.contains("systemctl reload-or-restart 'svc'"));
+        assert!(script.contains("systemctl disable"));
+    }
+
+    #[test]
+    fn test_fj008_no_name_defaults_to_unknown() {
+        let mut r = make_service_resource("placeholder", "running");
+        r.name = None;
+        let script = apply_script(&r);
+        assert!(script.contains("systemctl start 'unknown'"));
+        let check = check_script(&r);
+        assert!(check.contains("is-active 'unknown'"));
+        let query = state_query_script(&r);
+        assert!(query.contains("is-active 'unknown'"));
+    }
+
+    #[test]
+    fn test_fj008_multiple_restart_on_single_reload() {
+        // Multiple restart_on deps should still produce only one reload-or-restart
+        let mut r = make_service_resource("app", "running");
+        r.restart_on = vec!["cfg1".to_string(), "cfg2".to_string()];
+        let script = apply_script(&r);
+        let count = script.matches("systemctl reload-or-restart").count();
+        assert_eq!(count, 1, "should emit exactly one reload-or-restart");
+    }
 }

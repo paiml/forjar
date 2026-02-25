@@ -249,4 +249,49 @@ mod tests {
             "mount script must start with safety flags"
         );
     }
+
+    // ── Edge-case tests (FJ-123) ─────────────────────────────────
+
+    #[test]
+    fn test_fj009_all_defaults() {
+        // No source, no path, no fstype, no options — all defaults
+        let mut r = make_mount_resource();
+        r.source = None;
+        r.path = None;
+        r.fs_type = None;
+        r.options = None;
+        let script = apply_script(&r);
+        assert!(script.contains("mount -t 'auto' -o 'defaults' 'none' '/mnt/unknown'"));
+    }
+
+    #[test]
+    fn test_fj009_unknown_state_no_op() {
+        // Unknown state hits _ => {} — only pipefail emitted
+        let mut r = make_mount_resource();
+        r.state = Some("remounted".to_string());
+        let script = apply_script(&r);
+        assert!(!script.contains("mount -t"));
+        assert!(!script.contains("umount"));
+        assert!(script.starts_with("set -euo pipefail"));
+    }
+
+    #[test]
+    fn test_fj009_absent_no_path_uses_default() {
+        let mut r = make_mount_resource();
+        r.state = Some("absent".to_string());
+        r.path = None;
+        let script = apply_script(&r);
+        assert!(script.contains("umount '/mnt/unknown'"));
+        assert!(script.contains("sed -i"));
+        assert!(script.contains("/mnt/unknown"));
+    }
+
+    #[test]
+    fn test_fj009_state_query_no_path() {
+        let mut r = make_mount_resource();
+        r.path = None;
+        let script = state_query_script(&r);
+        assert!(script.contains("mountpoint -q '/mnt/unknown'"));
+        assert!(script.contains("UNMOUNTED"));
+    }
 }

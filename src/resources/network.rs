@@ -263,4 +263,52 @@ mod tests {
             "apply script must start with safety flags"
         );
     }
+
+    // ── Edge-case tests (FJ-123) ─────────────────────────────────
+
+    #[test]
+    fn test_fj032_absent_with_from_addr() {
+        // Absent state with from_addr should include from clause in delete
+        let mut r = make_network_resource("22", "deny");
+        r.state = Some("absent".to_string());
+        r.from_addr = Some("192.168.1.100".to_string());
+        let script = apply_script(&r);
+        assert!(script.contains("ufw delete deny"));
+        assert!(script.contains("from '192.168.1.100'"));
+    }
+
+    #[test]
+    fn test_fj032_all_defaults() {
+        // No port, no protocol, no action — all defaults
+        let mut r = make_network_resource("80", "allow");
+        r.port = None;
+        r.protocol = None;
+        r.action = None;
+        let script = apply_script(&r);
+        assert!(script.contains("ufw allow"));
+        assert!(script.contains("port '0'"));
+        assert!(script.contains("proto 'tcp'"));
+    }
+
+    #[test]
+    fn test_fj032_present_no_comment_without_name() {
+        // Without name, no comment clause should appear
+        let r = make_network_resource("443", "allow");
+        assert!(r.name.is_none());
+        let script = apply_script(&r);
+        assert!(!script.contains("comment"));
+    }
+
+    #[test]
+    fn test_fj032_ufw_force_enable_always() {
+        // ufw --force enable should appear in all apply states
+        let r = make_network_resource("80", "allow");
+        let script = apply_script(&r);
+        assert!(script.contains("$SUDO ufw --force enable"));
+
+        let mut r2 = make_network_resource("80", "allow");
+        r2.state = Some("absent".to_string());
+        let script2 = apply_script(&r2);
+        assert!(script2.contains("$SUDO ufw --force enable"));
+    }
 }
