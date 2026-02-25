@@ -237,6 +237,39 @@ forjar import --addr 10.0.0.1 --name prod-web --output prod-web.yaml
 forjar import --addr localhost --scan packages -v
 ```
 
+### `forjar diff`
+
+Compare two state snapshots to see what changed between applies.
+
+```bash
+forjar diff <FROM> <TO> [-m MACHINE] [--json]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `FROM` | — | First state directory (older) |
+| `TO` | — | Second state directory (newer) |
+| `-m, --machine` | all | Filter to specific machine |
+| `--json` | false | Output as JSON |
+
+Output symbols (text mode):
+- `+` Resource added
+- `-` Resource removed
+- `~` Resource changed (hash or status differs)
+
+```bash
+# Compare before/after state
+forjar diff state-before/ state-after/
+
+# JSON output for scripting
+forjar diff state-v1/ state-v2/ --json
+
+# Filter to one machine
+forjar diff state-v1/ state-v2/ -m web-server
+```
+
+Useful for auditing what changed across apply runs, reviewing infrastructure changes, and debugging state drift.
+
 ## Exit Codes
 
 | Code | Meaning |

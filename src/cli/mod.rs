@@ -216,6 +216,23 @@ pub enum Commands {
         #[arg(long, default_value = "mermaid")]
         format: String,
     },
+
+    /// Compare two state snapshots (show what changed between applies)
+    Diff {
+        /// First state directory (older)
+        from: PathBuf,
+
+        /// Second state directory (newer)
+        to: PathBuf,
+
+        /// Filter to specific machine
+        #[arg(short, long)]
+        machine: Option<String>,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 /// Dispatch a CLI command.
@@ -305,6 +322,12 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             output,
             scan,
         } => cmd_import(&addr, &user, name.as_deref(), &output, &scan, verbose),
+        Commands::Diff {
+            from,
+            to,
+            machine,
+            json,
+        } => cmd_diff(&from, &to, machine.as_deref(), json),
     }
 }
 
@@ -553,6 +576,207 @@ fn cmd_show(file: &Path, resource_filter: Option<&str>, json: bool) -> Result<()
     }
 
     Ok(())
+}
+
+fn cmd_diff(
+    from: &Path,
+    to: &Path,
+    machine_filter: Option<&str>,
+    json: bool,
+) -> Result<(), String> {
+    // Discover machines from both state directories
+    let from_machines = discover_machines(from);
+    let to_machines = discover_machines(to);
+    let mut all_machines: Vec<String> = from_machines
+        .iter()
+        .chain(to_machines.iter())
+        .cloned()
+        .collect();
+    all_machines.sort();
+    all_machines.dedup();
+
+    if let Some(filter) = machine_filter {
+        all_machines.retain(|m| m == filter);
+    }
+
+    if all_machines.is_empty() {
+        return Err("no machines found in either state directory".to_string());
+    }
+
+    let mut total_added = 0usize;
+    let mut total_removed = 0usize;
+    let mut total_changed = 0usize;
+    let mut total_unchanged = 0usize;
+    let mut json_machines = Vec::new();
+
+    for machine_name in &all_machines {
+        let from_lock = state::load_lock(from, machine_name)?;
+        let to_lock = state::load_lock(to, machine_name)?;
+
+        let from_resources = from_lock
+            .as_ref()
+            .map(|l| &l.resources)
+            .cloned()
+            .unwrap_or_default();
+        let to_resources = to_lock
+            .as_ref()
+            .map(|l| &l.resources)
+            .cloned()
+            .unwrap_or_default();
+
+        let mut diffs = Vec::new();
+
+        // Resources added (in to, not in from)
+        for (id, to_res) in &to_resources {
+            if !from_resources.contains_key(id) {
+                diffs.push(ResourceDiff {
+                    resource: id.clone(),
+                    change: DiffChange::Added,
+                    from_hash: None,
+                    to_hash: Some(to_res.hash.clone()),
+                    from_status: None,
+                    to_status: Some(format!("{:?}", to_res.status)),
+                });
+                total_added += 1;
+            }
+        }
+
+        // Resources removed (in from, not in to)
+        for (id, from_res) in &from_resources {
+            if !to_resources.contains_key(id) {
+                diffs.push(ResourceDiff {
+                    resource: id.clone(),
+                    change: DiffChange::Removed,
+                    from_hash: Some(from_res.hash.clone()),
+                    to_hash: None,
+                    from_status: Some(format!("{:?}", from_res.status)),
+                    to_status: None,
+                });
+                total_removed += 1;
+            }
+        }
+
+        // Resources changed (in both, different hash or status)
+        for (id, from_res) in &from_resources {
+            if let Some(to_res) = to_resources.get(id) {
+                if from_res.hash != to_res.hash || from_res.status != to_res.status {
+                    diffs.push(ResourceDiff {
+                        resource: id.clone(),
+                        change: DiffChange::Changed,
+                        from_hash: Some(from_res.hash.clone()),
+                        to_hash: Some(to_res.hash.clone()),
+                        from_status: Some(format!("{:?}", from_res.status)),
+                        to_status: Some(format!("{:?}", to_res.status)),
+                    });
+                    total_changed += 1;
+                } else {
+                    total_unchanged += 1;
+                }
+            }
+        }
+
+        // Sort diffs by resource name for determinism
+        diffs.sort_by(|a, b| a.resource.cmp(&b.resource));
+
+        if json {
+            json_machines.push(serde_json::json!({
+                "machine": machine_name,
+                "diffs": diffs.iter().map(|d| serde_json::json!({
+                    "resource": d.resource,
+                    "change": format!("{:?}", d.change).to_lowercase(),
+                    "from_hash": d.from_hash,
+                    "to_hash": d.to_hash,
+                    "from_status": d.from_status,
+                    "to_status": d.to_status,
+                })).collect::<Vec<_>>(),
+            }));
+        } else if !diffs.is_empty() {
+            println!("Machine: {}", machine_name);
+            for d in &diffs {
+                let symbol = match d.change {
+                    DiffChange::Added => "+",
+                    DiffChange::Removed => "-",
+                    DiffChange::Changed => "~",
+                };
+                print!("  {} {}", symbol, d.resource);
+                match d.change {
+                    DiffChange::Added => {
+                        println!(" ({})", d.to_status.as_deref().unwrap_or("?"));
+                    }
+                    DiffChange::Removed => {
+                        println!(" (was {})", d.from_status.as_deref().unwrap_or("?"));
+                    }
+                    DiffChange::Changed => {
+                        println!(
+                            " ({} → {})",
+                            d.from_status.as_deref().unwrap_or("?"),
+                            d.to_status.as_deref().unwrap_or("?")
+                        );
+                    }
+                }
+            }
+            println!();
+        }
+    }
+
+    if json {
+        let report = serde_json::json!({
+            "from": from.display().to_string(),
+            "to": to.display().to_string(),
+            "summary": {
+                "added": total_added,
+                "removed": total_removed,
+                "changed": total_changed,
+                "unchanged": total_unchanged,
+            },
+            "machines": json_machines,
+        });
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&report)
+                .map_err(|e| format!("JSON error: {}", e))?
+        );
+    } else {
+        println!(
+            "Diff: {} added, {} removed, {} changed, {} unchanged",
+            total_added, total_removed, total_changed, total_unchanged
+        );
+    }
+
+    Ok(())
+}
+
+#[derive(Debug)]
+enum DiffChange {
+    Added,
+    Removed,
+    Changed,
+}
+
+struct ResourceDiff {
+    resource: String,
+    change: DiffChange,
+    from_hash: Option<String>,
+    to_hash: Option<String>,
+    from_status: Option<String>,
+    to_status: Option<String>,
+}
+
+/// Discover machine names from a state directory by listing subdirectories that contain state.lock.yaml.
+fn discover_machines(state_dir: &Path) -> Vec<String> {
+    let mut machines = Vec::new();
+    if let Ok(entries) = std::fs::read_dir(state_dir) {
+        for entry in entries.flatten() {
+            if entry.path().is_dir() {
+                let name = entry.file_name().to_string_lossy().to_string();
+                if entry.path().join("state.lock.yaml").exists() {
+                    machines.push(name);
+                }
+            }
+        }
+    }
+    machines.sort();
+    machines
 }
 
 fn cmd_validate(file: &Path) -> Result<(), String> {
@@ -1370,6 +1594,7 @@ fn cmd_status(state_dir: &Path, machine_filter: Option<&str>) -> Result<(), Stri
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashMap;
 
     #[test]
     fn test_fj017_init() {
@@ -3252,5 +3477,186 @@ policy:
         let config: types::ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
         assert_eq!(config.policy.pre_apply.as_deref(), Some("echo before"));
         assert_eq!(config.policy.post_apply.as_deref(), Some("echo after"));
+    }
+
+    // ── forjar diff tests ──────────────────────────────────────────
+
+    fn make_state_dir_with_lock(
+        dir: &Path,
+        machine: &str,
+        resources: Vec<(&str, &str, types::ResourceStatus)>,
+    ) {
+        let mut res_map = indexmap::IndexMap::new();
+        for (id, hash, status) in resources {
+            res_map.insert(
+                id.to_string(),
+                types::ResourceLock {
+                    resource_type: types::ResourceType::File,
+                    status,
+                    applied_at: Some("2026-02-25T00:00:00Z".to_string()),
+                    duration_seconds: Some(0.1),
+                    hash: hash.to_string(),
+                    details: HashMap::new(),
+                },
+            );
+        }
+        let lock = types::StateLock {
+            schema: "1.0".to_string(),
+            machine: machine.to_string(),
+            hostname: "test-host".to_string(),
+            generated_at: "2026-02-25T00:00:00Z".to_string(),
+            generator: "forjar 0.1.0".to_string(),
+            blake3_version: "1.8".to_string(),
+            resources: res_map,
+        };
+        state::save_lock(dir, &lock).unwrap();
+    }
+
+    #[test]
+    fn test_diff_added_resource() {
+        let from_dir = tempfile::tempdir().unwrap();
+        let to_dir = tempfile::tempdir().unwrap();
+        make_state_dir_with_lock(
+            from_dir.path(),
+            "m1",
+            vec![("pkg", "blake3:aaa", types::ResourceStatus::Converged)],
+        );
+        make_state_dir_with_lock(
+            to_dir.path(),
+            "m1",
+            vec![
+                ("pkg", "blake3:aaa", types::ResourceStatus::Converged),
+                ("conf", "blake3:bbb", types::ResourceStatus::Converged),
+            ],
+        );
+        cmd_diff(from_dir.path(), to_dir.path(), None, false).unwrap();
+    }
+
+    #[test]
+    fn test_diff_removed_resource() {
+        let from_dir = tempfile::tempdir().unwrap();
+        let to_dir = tempfile::tempdir().unwrap();
+        make_state_dir_with_lock(
+            from_dir.path(),
+            "m1",
+            vec![
+                ("pkg", "blake3:aaa", types::ResourceStatus::Converged),
+                ("conf", "blake3:bbb", types::ResourceStatus::Converged),
+            ],
+        );
+        make_state_dir_with_lock(
+            to_dir.path(),
+            "m1",
+            vec![("pkg", "blake3:aaa", types::ResourceStatus::Converged)],
+        );
+        cmd_diff(from_dir.path(), to_dir.path(), None, false).unwrap();
+    }
+
+    #[test]
+    fn test_diff_changed_hash() {
+        let from_dir = tempfile::tempdir().unwrap();
+        let to_dir = tempfile::tempdir().unwrap();
+        make_state_dir_with_lock(
+            from_dir.path(),
+            "m1",
+            vec![("pkg", "blake3:aaa", types::ResourceStatus::Converged)],
+        );
+        make_state_dir_with_lock(
+            to_dir.path(),
+            "m1",
+            vec![("pkg", "blake3:bbb", types::ResourceStatus::Converged)],
+        );
+        cmd_diff(from_dir.path(), to_dir.path(), None, false).unwrap();
+    }
+
+    #[test]
+    fn test_diff_no_changes() {
+        let from_dir = tempfile::tempdir().unwrap();
+        let to_dir = tempfile::tempdir().unwrap();
+        make_state_dir_with_lock(
+            from_dir.path(),
+            "m1",
+            vec![("pkg", "blake3:aaa", types::ResourceStatus::Converged)],
+        );
+        make_state_dir_with_lock(
+            to_dir.path(),
+            "m1",
+            vec![("pkg", "blake3:aaa", types::ResourceStatus::Converged)],
+        );
+        cmd_diff(from_dir.path(), to_dir.path(), None, false).unwrap();
+    }
+
+    #[test]
+    fn test_diff_json_output() {
+        let from_dir = tempfile::tempdir().unwrap();
+        let to_dir = tempfile::tempdir().unwrap();
+        make_state_dir_with_lock(
+            from_dir.path(),
+            "m1",
+            vec![("pkg", "blake3:aaa", types::ResourceStatus::Converged)],
+        );
+        make_state_dir_with_lock(
+            to_dir.path(),
+            "m1",
+            vec![
+                ("pkg", "blake3:bbb", types::ResourceStatus::Converged),
+                ("svc", "blake3:ccc", types::ResourceStatus::Converged),
+            ],
+        );
+        cmd_diff(from_dir.path(), to_dir.path(), None, true).unwrap();
+    }
+
+    #[test]
+    fn test_diff_machine_filter() {
+        let from_dir = tempfile::tempdir().unwrap();
+        let to_dir = tempfile::tempdir().unwrap();
+        make_state_dir_with_lock(
+            from_dir.path(),
+            "m1",
+            vec![("pkg", "blake3:aaa", types::ResourceStatus::Converged)],
+        );
+        make_state_dir_with_lock(
+            from_dir.path(),
+            "m2",
+            vec![("svc", "blake3:bbb", types::ResourceStatus::Converged)],
+        );
+        make_state_dir_with_lock(
+            to_dir.path(),
+            "m1",
+            vec![("pkg", "blake3:changed", types::ResourceStatus::Converged)],
+        );
+        make_state_dir_with_lock(
+            to_dir.path(),
+            "m2",
+            vec![("svc", "blake3:bbb", types::ResourceStatus::Converged)],
+        );
+        // Filtering to m1 should only show m1's changes
+        cmd_diff(from_dir.path(), to_dir.path(), Some("m1"), false).unwrap();
+    }
+
+    #[test]
+    fn test_diff_empty_state_dirs() {
+        let from_dir = tempfile::tempdir().unwrap();
+        let to_dir = tempfile::tempdir().unwrap();
+        let result = cmd_diff(from_dir.path(), to_dir.path(), None, false);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("no machines found"));
+    }
+
+    #[test]
+    fn test_discover_machines() {
+        let dir = tempfile::tempdir().unwrap();
+        make_state_dir_with_lock(
+            dir.path(),
+            "alpha",
+            vec![("f", "blake3:x", types::ResourceStatus::Converged)],
+        );
+        make_state_dir_with_lock(
+            dir.path(),
+            "beta",
+            vec![("f", "blake3:y", types::ResourceStatus::Converged)],
+        );
+        let machines = discover_machines(dir.path());
+        assert_eq!(machines, vec!["alpha", "beta"]);
     }
 }
