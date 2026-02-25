@@ -2472,4 +2472,148 @@ mod tests {
         );
         assert_ne!(finding.actual_hash, "blake3:wrong");
     }
+
+    #[test]
+    fn test_fj132_detect_drift_empty_lock() {
+        let lock = StateLock {
+            schema: "1.0".to_string(),
+            machine: "test".to_string(),
+            hostname: "test".to_string(),
+            generated_at: "now".to_string(),
+            generator: "test".to_string(),
+            blake3_version: "1.8".to_string(),
+            resources: indexmap::IndexMap::new(),
+        };
+        let findings = detect_drift(&lock);
+        assert!(findings.is_empty(), "empty lock should produce no drift");
+    }
+
+    #[test]
+    fn test_fj132_detect_drift_skips_non_converged() {
+        let mut resources = indexmap::IndexMap::new();
+        let mut details = std::collections::HashMap::new();
+        details.insert(
+            "path".to_string(),
+            serde_yaml_ng::Value::String("/etc/test.conf".to_string()),
+        );
+        details.insert(
+            "content_hash".to_string(),
+            serde_yaml_ng::Value::String("blake3:abc".to_string()),
+        );
+        resources.insert(
+            "failed-file".to_string(),
+            crate::core::types::ResourceLock {
+                resource_type: ResourceType::File,
+                status: ResourceStatus::Failed,
+                applied_at: None,
+                duration_seconds: None,
+                hash: "blake3:desired".to_string(),
+                details,
+            },
+        );
+        let lock = StateLock {
+            schema: "1.0".to_string(),
+            machine: "test".to_string(),
+            hostname: "test".to_string(),
+            generated_at: "now".to_string(),
+            generator: "test".to_string(),
+            blake3_version: "1.8".to_string(),
+            resources,
+        };
+        let findings = detect_drift(&lock);
+        assert!(findings.is_empty(), "failed resources should be skipped");
+    }
+
+    #[test]
+    fn test_fj132_detect_drift_file_without_path_skipped() {
+        // File resource with content_hash but missing path should be skipped
+        let mut resources = indexmap::IndexMap::new();
+        let mut details = std::collections::HashMap::new();
+        details.insert(
+            "content_hash".to_string(),
+            serde_yaml_ng::Value::String("blake3:abc".to_string()),
+        );
+        // No "path" key
+        resources.insert(
+            "no-path-file".to_string(),
+            crate::core::types::ResourceLock {
+                resource_type: ResourceType::File,
+                status: ResourceStatus::Converged,
+                applied_at: None,
+                duration_seconds: None,
+                hash: "blake3:desired".to_string(),
+                details,
+            },
+        );
+        let lock = StateLock {
+            schema: "1.0".to_string(),
+            machine: "test".to_string(),
+            hostname: "test".to_string(),
+            generated_at: "now".to_string(),
+            generator: "test".to_string(),
+            blake3_version: "1.8".to_string(),
+            resources,
+        };
+        let findings = detect_drift(&lock);
+        assert!(
+            findings.is_empty(),
+            "file without path in details should be skipped"
+        );
+    }
+
+    #[test]
+    fn test_fj132_drift_finding_fields_complete() {
+        let finding = DriftFinding {
+            resource_id: "my-config".to_string(),
+            resource_type: ResourceType::File,
+            expected_hash: "blake3:expected".to_string(),
+            actual_hash: "blake3:actual".to_string(),
+            detail: "file content changed".to_string(),
+        };
+        assert_eq!(finding.resource_id, "my-config");
+        assert_eq!(finding.resource_type, ResourceType::File);
+        assert_ne!(finding.expected_hash, finding.actual_hash);
+        assert!(!finding.detail.is_empty());
+    }
+
+    #[test]
+    fn test_fj132_detect_drift_matching_hash_no_drift() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("stable.txt");
+        std::fs::write(&file, "stable content").unwrap();
+        let hash = hasher::hash_file(&file).unwrap();
+
+        let mut resources = indexmap::IndexMap::new();
+        let mut details = std::collections::HashMap::new();
+        details.insert(
+            "path".to_string(),
+            serde_yaml_ng::Value::String(file.to_str().unwrap().to_string()),
+        );
+        details.insert(
+            "content_hash".to_string(),
+            serde_yaml_ng::Value::String(hash.clone()),
+        );
+        resources.insert(
+            "stable-file".to_string(),
+            crate::core::types::ResourceLock {
+                resource_type: ResourceType::File,
+                status: ResourceStatus::Converged,
+                applied_at: None,
+                duration_seconds: None,
+                hash: "blake3:desired".to_string(),
+                details,
+            },
+        );
+        let lock = StateLock {
+            schema: "1.0".to_string(),
+            machine: "test".to_string(),
+            hostname: "test".to_string(),
+            generated_at: "now".to_string(),
+            generator: "test".to_string(),
+            blake3_version: "1.8".to_string(),
+            resources,
+        };
+        let findings = detect_drift(&lock);
+        assert!(findings.is_empty(), "matching hash should produce no drift");
+    }
 }

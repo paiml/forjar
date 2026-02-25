@@ -1493,4 +1493,128 @@ resources:
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("unknown template variable"));
     }
+
+    #[test]
+    fn test_fj132_resolve_secret_missing() {
+        // Use a key that won't exist in any CI/local env
+        let result = resolve_secret("zzz-nonexistent-key-12345");
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.contains("FORJAR_SECRET_ZZZ_NONEXISTENT_KEY_12345"));
+        assert!(err.contains("not found"));
+    }
+
+    #[test]
+    fn test_fj132_resolve_secret_env_key_format() {
+        // Verify the env key derivation: hyphens → underscores, uppercase
+        let result = resolve_secret("my-db-pass");
+        // Will fail because env var doesn't exist, but error message shows the derived key
+        let err = result.unwrap_err();
+        assert!(
+            err.contains("FORJAR_SECRET_MY_DB_PASS"),
+            "should derive FORJAR_SECRET_MY_DB_PASS from 'my-db-pass'"
+        );
+    }
+
+    #[test]
+    fn test_fj132_resolve_resource_templates_list_fields() {
+        let mut params = HashMap::new();
+        params.insert(
+            "port".to_string(),
+            serde_yaml_ng::Value::String("8080".to_string()),
+        );
+        let machines = indexmap::IndexMap::new();
+        let mut resource = make_base_resource();
+        resource.resource_type = ResourceType::Docker;
+        resource.ports = vec!["{{params.port}}:{{params.port}}".to_string()];
+        resource.environment = vec!["PORT={{params.port}}".to_string()];
+        let resolved = resolve_resource_templates(&resource, &params, &machines).unwrap();
+        assert_eq!(resolved.ports, vec!["8080:8080"]);
+        assert_eq!(resolved.environment, vec!["PORT=8080"]);
+    }
+
+    #[test]
+    fn test_fj132_build_dag_unknown_dependency() {
+        let mut resources = indexmap::IndexMap::new();
+        let mut r = make_base_resource();
+        r.depends_on = vec!["nonexistent".to_string()];
+        resources.insert("my-file".to_string(), r);
+        let config = ForjarConfig {
+            version: "1.0".to_string(),
+            name: "test".to_string(),
+            description: None,
+            params: HashMap::new(),
+            machines: indexmap::IndexMap::new(),
+            resources,
+            policy: Policy::default(),
+        };
+        let result = build_execution_order(&config);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("unknown"));
+    }
+
+    #[test]
+    fn test_fj132_kahn_sort_diamond_dependency() {
+        // A -> B, A -> C, B -> D, C -> D (diamond shape)
+        let mut resources = indexmap::IndexMap::new();
+        let mut r_a = make_base_resource();
+        r_a.resource_type = ResourceType::Package;
+        resources.insert("a".to_string(), r_a);
+        let mut r_b = make_base_resource();
+        r_b.resource_type = ResourceType::Package;
+        r_b.depends_on = vec!["a".to_string()];
+        resources.insert("b".to_string(), r_b);
+        let mut r_c = make_base_resource();
+        r_c.resource_type = ResourceType::Package;
+        r_c.depends_on = vec!["a".to_string()];
+        resources.insert("c".to_string(), r_c);
+        let mut r_d = make_base_resource();
+        r_d.resource_type = ResourceType::Package;
+        r_d.depends_on = vec!["b".to_string(), "c".to_string()];
+        resources.insert("d".to_string(), r_d);
+        let config = ForjarConfig {
+            version: "1.0".to_string(),
+            name: "test".to_string(),
+            description: None,
+            params: HashMap::new(),
+            machines: indexmap::IndexMap::new(),
+            resources,
+            policy: Policy::default(),
+        };
+        let order = build_execution_order(&config).unwrap();
+        assert_eq!(order, vec!["a", "b", "c", "d"]);
+    }
+
+    #[test]
+    fn test_fj132_build_execution_order_empty() {
+        let config = ForjarConfig {
+            version: "1.0".to_string(),
+            name: "test".to_string(),
+            description: None,
+            params: HashMap::new(),
+            machines: indexmap::IndexMap::new(),
+            resources: indexmap::IndexMap::new(),
+            policy: Policy::default(),
+        };
+        let order = build_execution_order(&config).unwrap();
+        assert!(order.is_empty());
+    }
+
+    #[test]
+    fn test_fj132_unclosed_template() {
+        let params = HashMap::new();
+        let machines = indexmap::IndexMap::new();
+        let result = resolve_template("hello {{params.name", &params, &machines);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("unclosed template"));
+    }
+
+    #[test]
+    fn test_fj132_resolve_template_secret_missing_error() {
+        let params = HashMap::new();
+        let machines = indexmap::IndexMap::new();
+        let result = resolve_template("token={{secrets.zzz-missing-99}}", &params, &machines);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("FORJAR_SECRET_ZZZ_MISSING_99"));
+    }
 }
