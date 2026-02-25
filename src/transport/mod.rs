@@ -279,18 +279,16 @@ mod tests {
         // With container transport, exec_script dispatches to container, not local
         // /bin/echo as runtime won't run bash properly, so it will fail or produce empty output
         let result = exec_script(&machine, "echo should-not-reach-local");
-        match result {
-            Ok(out) => {
-                // If /bin/echo handled it, stdout won't contain "should-not-reach-local"
-                // because echo doesn't execute bash
-                assert_ne!(
-                    out.stdout.trim(),
-                    "should-not-reach-local",
-                    "container transport should intercept before local dispatch"
-                );
-            }
-            Err(_) => {} // Expected: /bin/echo can't exec bash
+        if let Ok(out) = result {
+            // If /bin/echo handled it, stdout won't contain "should-not-reach-local"
+            // because echo doesn't execute bash
+            assert_ne!(
+                out.stdout.trim(),
+                "should-not-reach-local",
+                "container transport should intercept before local dispatch"
+            );
         }
+        // Err is expected: /bin/echo can't exec bash
     }
 
     #[test]

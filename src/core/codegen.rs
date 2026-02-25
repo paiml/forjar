@@ -1,9 +1,12 @@
 //! FJ-005: Script generation — dispatch to resource handlers.
+//! FJ-036: bashrs purification pipeline integrated (Invariant I8).
 //!
 //! Each resource type produces three scripts:
 //! - check: read current state
 //! - apply: converge to desired state
 //! - state_query: query observable state for BLAKE3 hashing
+//!
+//! All scripts can be validated/purified via `core::purifier`.
 
 use super::types::{Resource, ResourceType};
 use crate::resources;

@@ -2,7 +2,7 @@
 name = "forjar"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.85.0"
+rust-version = "1.87.0"
 authors = ["Pragmatic AI Labs"]
 description = "Rust-native Infrastructure as Code — bare-metal first, BLAKE3 state, provenance tracing"
 license = "MIT OR Apache-2.0"
@@ -27,6 +27,7 @@ clap = { version = "4", features = ["derive"] }
 indexmap = { version = "2.7", features = ["serde"] }
 provable-contracts-macros = { path = "../provable-contracts/crates/provable-contracts-macros" }
 base64 = "0.22.1"
+bashrs = "6.64.0"
 
 [build-dependencies]
 provable-contracts = { path = "../provable-contracts/crates/provable-contracts" }

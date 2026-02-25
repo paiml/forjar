@@ -4,6 +4,7 @@ pub mod codegen;
 pub mod executor;
 pub mod parser;
 pub mod planner;
+pub mod purifier;
 pub mod recipe;
 pub mod resolver;
 pub mod state;
