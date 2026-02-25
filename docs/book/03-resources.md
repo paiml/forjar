@@ -381,3 +381,165 @@ resources:
 | `protocol` | string | `tcp` | tcp, udp |
 | `action` | string | `allow` | allow, deny, reject |
 | `from_addr` | string | — | Source address/CIDR (e.g. `192.168.1.0/24`) |
+
+## Common Patterns
+
+### Template Resolution in Resources
+
+All string fields in resources support `{{params.X}}` and `{{secrets.X}}` templates. This enables environment-specific configs from a single YAML source:
+
+```yaml
+params:
+  env: production
+  app_port: "8080"
+
+resources:
+  app-config:
+    type: file
+    machine: web
+    path: /etc/app/config.yaml
+    content: |
+      environment: {{params.env}}
+      port: {{params.app_port}}
+      database_url: postgresql://app:{{secrets.db_pass}}@{{machine.db.addr}}:5432/app
+
+  app-firewall:
+    type: network
+    machine: web
+    port: "{{params.app_port}}"
+    action: allow
+    protocol: tcp
+```
+
+Templates are resolved just before codegen — the planner sees the resolved values, so changing a parameter value changes the BLAKE3 hash and triggers an update.
+
+### Multi-Machine Resources
+
+A single resource can target multiple machines using array syntax:
+
+```yaml
+resources:
+  base-packages:
+    type: package
+    machine: [web, db, monitor]
+    provider: apt
+    packages: [curl, htop, jq]
+```
+
+This creates one logical resource that applies to all three machines. The executor runs it once per target machine. Each machine gets its own lock entry.
+
+### Dependency Chains
+
+Use `depends_on` to enforce ordering across resources:
+
+```yaml
+resources:
+  create-dirs:
+    type: file
+    machine: web
+    state: directory
+    path: /opt/app
+    mode: "0755"
+
+  deploy-binary:
+    type: file
+    machine: web
+    path: /opt/app/server
+    source: builds/server
+    mode: "0755"
+    depends_on: [create-dirs]
+
+  app-service:
+    type: service
+    machine: web
+    name: app
+    state: running
+    enabled: true
+    restart_on: [deploy-binary]
+    depends_on: [deploy-binary]
+```
+
+The DAG ensures: `create-dirs` → `deploy-binary` → `app-service`. Forjar detects cycles at plan time and reports the participants.
+
+### Architecture-Filtered Resources
+
+Target specific CPU architectures to handle heterogeneous fleets:
+
+```yaml
+resources:
+  arm-packages:
+    type: package
+    machine: edge-cluster
+    provider: apt
+    packages: [libraspberrypi-bin]
+    arch: [aarch64]
+
+  x86-packages:
+    type: package
+    machine: edge-cluster
+    provider: apt
+    packages: [intel-gpu-tools]
+    arch: [x86_64]
+
+  universal-packages:
+    type: package
+    machine: edge-cluster
+    provider: apt
+    packages: [curl, jq]
+    # No arch filter → applies on all architectures
+```
+
+Valid architectures: `x86_64`, `aarch64`, `armv7l`, `riscv64`, `s390x`, `ppc64le`.
+
+### Tagged Resources
+
+Tags enable selective apply and filtering:
+
+```yaml
+resources:
+  nginx:
+    type: package
+    machine: web
+    provider: apt
+    packages: [nginx]
+    tags: [web, critical]
+
+  monitoring-agent:
+    type: package
+    machine: web
+    provider: apt
+    packages: [datadog-agent]
+    tags: [monitoring]
+```
+
+```bash
+# Apply only web-tagged resources
+forjar apply -f forjar.yaml --tag web
+
+# Check only monitoring resources
+forjar check -f forjar.yaml --tag monitoring
+```
+
+### Resource State Lifecycle
+
+Every resource goes through a defined lifecycle during apply:
+
+```
+Plan Phase:
+  desired hash = blake3(all resource fields)
+  lock hash    = previous apply hash (or missing)
+  action       = Create | Update | NoOp | Destroy
+
+Apply Phase:
+  1. Generate check script  → verify preconditions
+  2. Generate apply script  → converge to desired state
+  3. Execute via transport   → local/SSH/container
+  4. Record in lock file     → blake3 hash + status
+  5. Append to event log     → provenance trail
+
+Status Values:
+  Converged  — resource matches desired state
+  Failed     — apply script returned non-zero exit
+  Drifted    — live state differs from lock (detected by drift check)
+  Unknown    — no lock entry exists
+```

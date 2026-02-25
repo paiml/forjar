@@ -346,3 +346,105 @@ pub fn hash_string(input: &str) -> String {
 ```
 
 The `build.rs` reads `binding.yaml` and sets `CONTRACT_*` env vars consumed by the proc macro at compile time. Missing bindings produce compile warnings.
+
+## Error Handling Architecture
+
+Forjar uses a layered error model — each layer validates its scope and returns descriptive errors to the layer above:
+
+```
+CLI Layer (cli/mod.rs)
+  ├── parse_and_validate() → config or error string
+  ├── apply() → Vec<ApplyResult> or error string
+  └── user-facing error formatting + exit codes
+
+Parser Layer (parser.rs)
+  ├── YAML parse errors → "cannot read" / "invalid YAML"
+  ├── Structural validation → Vec<ValidationError>
+  └── Compound error formatting: "validation errors:\n  - error1\n  - error2"
+
+Executor Layer (executor.rs)
+  ├── Transport errors → "transport error: {details}"
+  ├── Script failures → "exit code {N}: {stderr}"
+  └── Jidoka (stop-on-first) vs continue-independent policy
+
+State Layer (state.rs)
+  ├── Read errors → "cannot read {path}: {io_error}"
+  ├── YAML parse errors → "invalid lock file {path}: {parse_error}"
+  └── Write errors → "cannot write" / "cannot rename"
+```
+
+### Validation Error Accumulation
+
+The parser collects ALL validation errors before reporting, rather than stopping at the first error. This gives users a complete picture:
+
+```bash
+$ forjar validate -f broken.yaml
+validation errors:
+  - resource 'web-pkg' (package) has no packages
+  - resource 'web-pkg' (package) has no provider
+  - resource 'nginx-conf' references unknown machine 'web-server'
+  - resource 'backup' (cron) schedule '0 2 *' must have exactly 5 fields
+```
+
+### Jidoka (Stop-on-First)
+
+Named after the Toyota Production System principle of "stop and fix," the default failure policy halts execution on the first resource failure:
+
+```
+FailurePolicy::StopOnFirst  (default)
+  → First resource fails → stop applying → preserve partial state
+  → Event log records: resource_failed, then apply_completed
+
+FailurePolicy::ContinueIndependent
+  → First resource fails → continue with non-dependent resources
+  → All independent resources still get applied
+  → Final apply_completed shows converged + failed counts
+```
+
+This prevents cascading failures. A failed package install won't trigger service restarts or mount operations that depend on it.
+
+## Testing Architecture
+
+Forjar's test suite validates every layer independently and in integration:
+
+### Test Categories
+
+| Category | Count | Location | What It Tests |
+|----------|-------|----------|---------------|
+| Unit tests | ~700 | `#[cfg(test)]` in each module | Individual functions |
+| Falsification tests | ~15 | `proptest!` blocks | Invariant properties with random input |
+| Integration tests | ~50 | `executor.rs` tests | Full apply→drift→reapply cycles |
+| Contract tests | 13 | `build.rs` binding verification | Compile-time invariants |
+| Examples | 15 | `examples/*.rs` | Runnable API demonstrations |
+
+### Script Safety Testing
+
+Every resource handler generates three script types, and every script is tested:
+
+```
+check_script(resource)       → precondition verification
+apply_script(resource)       → state convergence
+state_query_script(resource) → live state query for drift
+
+Tests verify:
+  ✓ All scripts begin with set -euo pipefail
+  ✓ SUDO detection: SUDO="" ; [ "$(id -u)" -ne 0 ] && SUDO="sudo"
+  ✓ Heredoc quoting prevents variable expansion: <<'FORJAR_EOF'
+  ✓ All resource fields appear in generated scripts
+  ✓ Absent state produces cleanup commands
+```
+
+### Drift Detection Testing
+
+The test suite includes end-to-end drift validation:
+
+```
+1. Apply a file resource (creates file on disk)
+2. Verify detect_drift returns empty (no drift)
+3. Tamper with the file content externally
+4. Verify detect_drift finds the change
+5. Force re-apply to fix the drift
+6. Verify detect_drift returns empty again
+```
+
+This cycle runs in isolated temp directories and verifies the full BLAKE3 hashing pipeline from apply through drift detection.
