@@ -337,6 +337,9 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
     },
+
+    /// Start MCP server (pforge integration, FJ-063)
+    Mcp,
 }
 
 /// Dispatch a CLI command.
@@ -476,7 +479,14 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             min_events,
             json,
         } => cmd_anomaly(&state_dir, machine.as_deref(), min_events, json),
+        Commands::Mcp => cmd_mcp(),
     }
+}
+
+fn cmd_mcp() -> Result<(), String> {
+    let rt = tokio::runtime::Runtime::new()
+        .map_err(|e| format!("Failed to create tokio runtime: {}", e))?;
+    rt.block_on(crate::mcp::serve())
 }
 
 fn cmd_lint(file: &Path, json: bool) -> Result<(), String> {

@@ -28,6 +28,12 @@ indexmap = { version = "2.7", features = ["serde"] }
 provable-contracts-macros = { path = "../provable-contracts/crates/provable-contracts-macros" }
 base64 = "0.22.1"
 bashrs = "6.64.0"
+pforge-runtime = "0.1.4"
+pforge-config = "0.1.4"
+tokio = { version = "1.35", features = ["rt-multi-thread", "macros"] }
+async-trait = "0.1"
+schemars = { version = "0.8", features = ["derive"] }
+rustc-hash = "2"
 
 [build-dependencies]
 provable-contracts = { path = "../provable-contracts/crates/provable-contracts" }
