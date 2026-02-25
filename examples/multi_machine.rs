@@ -132,14 +132,21 @@ resources:
         }
         std::process::exit(1);
     }
-    println!("Config: {} machines, {} resources", config.machines.len(), config.resources.len());
+    println!(
+        "Config: {} machines, {} resources",
+        config.machines.len(),
+        config.resources.len()
+    );
 
     // Show machines sorted by cost
     println!("\nMachines (sorted by cost):");
     let mut machines: Vec<_> = config.machines.iter().collect();
     machines.sort_by_key(|(_, m)| m.cost);
     for (name, machine) in &machines {
-        println!("  {} (addr: {}, cost: {})", name, machine.addr, machine.cost);
+        println!(
+            "  {} (addr: {}, cost: {})",
+            name, machine.addr, machine.cost
+        );
     }
 
     // Build execution order (DAG toposort)
@@ -162,8 +169,10 @@ resources:
 
     // Plan
     let plan = planner::plan(&config, &order, &HashMap::new(), None);
-    println!("\nPlan: {} create, {} update, {} destroy, {} unchanged",
-        plan.to_create, plan.to_update, plan.to_destroy, plan.unchanged);
+    println!(
+        "\nPlan: {} create, {} update, {} destroy, {} unchanged",
+        plan.to_create, plan.to_update, plan.to_destroy, plan.unchanged
+    );
 
     // Show dependency graph
     println!("\nDependency edges:");

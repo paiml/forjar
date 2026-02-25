@@ -247,8 +247,14 @@ mod tests {
         r.state = None;
         r.enabled = None;
         let script = apply_script(&r);
-        assert!(script.contains("systemctl start"), "default state should be running");
-        assert!(script.contains("systemctl enable"), "default enabled should be true");
+        assert!(
+            script.contains("systemctl start"),
+            "default state should be running"
+        );
+        assert!(
+            script.contains("systemctl enable"),
+            "default enabled should be true"
+        );
     }
 
     #[test]

@@ -205,7 +205,10 @@ mod tests {
         r.schedule = None;
         r.command = None;
         let script = apply_script(&r);
-        assert!(script.contains("* * * * *"), "default schedule should be every minute");
+        assert!(
+            script.contains("* * * * *"),
+            "default schedule should be every minute"
+        );
         assert!(script.contains("true"), "default command should be 'true'");
     }
 

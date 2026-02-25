@@ -87,7 +87,11 @@ resources:
             resolver::resolve_resource_templates(resource, &config.params, &config.machines)
                 .expect("resolve failed");
 
-        println!("--- {} ({}) ---", name, resource.state.as_deref().unwrap_or("present"));
+        println!(
+            "--- {} ({}) ---",
+            name,
+            resource.state.as_deref().unwrap_or("present")
+        );
 
         match codegen::check_script(&resolved) {
             Ok(script) => println!("Check:\n{}\n", indent(&script)),
@@ -109,5 +113,8 @@ resources:
 }
 
 fn indent(s: &str) -> String {
-    s.lines().map(|l| format!("  {}", l)).collect::<Vec<_>>().join("\n")
+    s.lines()
+        .map(|l| format!("  {}", l))
+        .collect::<Vec<_>>()
+        .join("\n")
 }

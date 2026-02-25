@@ -249,7 +249,10 @@ mod tests {
             let parsed: serde_json::Value = serde_json::from_str(line)
                 .unwrap_or_else(|e| panic!("invalid JSON: {} in line: {}", e, line));
             assert!(parsed["ts"].is_string(), "every event must have ts field");
-            assert!(parsed["event"].is_string(), "every event must have event field");
+            assert!(
+                parsed["event"].is_string(),
+                "every event must have event field"
+            );
         }
     }
 
