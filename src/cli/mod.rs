@@ -6051,4 +6051,95 @@ resources: {}
         let machines = discover_machines(std::path::Path::new("/nonexistent/path/state"));
         assert!(machines.is_empty(), "nonexistent dir should return empty");
     }
+
+    #[test]
+    fn test_fj132_cmd_init_creates_project() {
+        let dir = tempfile::tempdir().unwrap();
+        cmd_init(dir.path()).unwrap();
+        assert!(dir.path().join("forjar.yaml").exists());
+        assert!(dir.path().join("state").is_dir());
+        // Config should be valid YAML
+        let content = std::fs::read_to_string(dir.path().join("forjar.yaml")).unwrap();
+        let _config: types::ForjarConfig = serde_yaml_ng::from_str(&content).unwrap();
+    }
+
+    #[test]
+    fn test_fj132_cmd_init_refuses_existing() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("forjar.yaml"), "version: '1.0'").unwrap();
+        let result = cmd_init(dir.path());
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("already exists"));
+    }
+
+    #[test]
+    fn test_fj132_cmd_fmt_already_formatted() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("test.yaml");
+        let yaml = r#"version: "1.0"
+name: test
+machines: {}
+resources: {}
+"#;
+        // Write, parse, re-serialize to get canonical form
+        let config: types::ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let formatted = serde_yaml_ng::to_string(&config).unwrap();
+        std::fs::write(&file, &formatted).unwrap();
+        // Should succeed and not modify
+        cmd_fmt(&file, false).unwrap();
+    }
+
+    #[test]
+    fn test_fj132_cmd_fmt_check_mode() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("test.yaml");
+        // Write canonical YAML
+        let yaml = r#"version: "1.0"
+name: test
+machines: {}
+resources: {}
+"#;
+        let config: types::ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let formatted = serde_yaml_ng::to_string(&config).unwrap();
+        std::fs::write(&file, &formatted).unwrap();
+        // Check mode should succeed for already-formatted file
+        cmd_fmt(&file, true).unwrap();
+    }
+
+    #[test]
+    fn test_fj132_cmd_validate_valid_config() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("forjar.yaml");
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  local:
+    hostname: local
+    addr: 127.0.0.1
+resources:
+  pkg:
+    type: package
+    machine: local
+    provider: apt
+    packages: [curl]
+"#;
+        std::fs::write(&file, yaml).unwrap();
+        cmd_validate(&file).unwrap();
+    }
+
+    #[test]
+    fn test_fj132_cmd_validate_invalid_config() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("forjar.yaml");
+        let yaml = r#"
+version: "2.0"
+name: test
+machines: {}
+resources: {}
+"#;
+        std::fs::write(&file, yaml).unwrap();
+        let result = cmd_validate(&file);
+        assert!(result.is_err());
+    }
 }

@@ -725,3 +725,77 @@ forjar_drift_findings_total $drift_count
 forjar_drift_last_check_timestamp_seconds $last_check
 EOF
 ```
+
+## Drift Detection Internals
+
+### Two-Tier Hash Architecture
+
+Forjar uses two types of hashes for drift detection:
+
+**Tier 1: Desired-State Hash** (`hash` field in lock)
+- Computed from configuration fields (path, content, mode, owner, etc.)
+- Changes only when you edit `forjar.yaml`
+- Used by the planner to decide if a resource needs re-applying
+
+**Tier 2: Live-State Hash** (`content_hash` or `live_hash` in details)
+- Computed from actual state on the target machine
+- Changes when someone modifies the machine out-of-band
+- Used by drift detection to find unauthorized changes
+
+### File Drift Detection Flow
+
+```
+1. Load lock file → get content_hash for each file resource
+2. For each converged file:
+   a. Read actual file on target (via transport)
+   b. Compute BLAKE3 hash of actual content
+   c. Compare with stored content_hash
+   d. If different → DriftFinding
+```
+
+For local machines, file hashing is done directly. For SSH and container targets, the hash is computed remotely via a state_query script.
+
+### Non-File Drift Detection
+
+Services, packages, mounts, and other resource types don't have file content to hash. Instead, forjar:
+
+1. Re-runs the `state_query_script` for the resource type
+2. Hashes the script output (stdout)
+3. Compares with the stored `live_hash`
+
+This catches changes like:
+- Package version upgrades
+- Service state changes (started → stopped)
+- Mount option modifications
+- Firewall rule deletions
+
+### Drift Finding Structure
+
+Each drift finding contains:
+
+| Field | Description |
+|-------|-------------|
+| `resource_id` | Name of the drifted resource |
+| `resource_type` | File, Package, Service, etc. |
+| `expected_hash` | Hash from last successful apply |
+| `actual_hash` | Hash of current live state |
+| `detail` | Human-readable description |
+
+### When Drift is Not Detected
+
+Drift detection has known limitations:
+
+- **Permissions-only changes**: If file content is identical but permissions changed, drift is only detected for file resources with a mode field
+- **Symlink targets**: A symlink pointing to a different file but same content appears unchanged
+- **Service restart without state change**: A service that crashed and restarted may report the same state
+- **New resources**: Resources added to config but never applied don't appear in drift results
+
+### Drift vs Anomaly
+
+| Aspect | Drift | Anomaly |
+|--------|-------|---------|
+| What it checks | Current state vs. last apply | Event patterns over time |
+| Data source | Live machine state | events.jsonl history |
+| Detects | Unauthorized changes | Flaky resources, regressions |
+| Frequency | On-demand or scheduled | Continuous monitoring |
+| Example finding | "File content changed" | "Resource failed 5 times in 7 days" |
