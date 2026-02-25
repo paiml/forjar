@@ -1331,6 +1331,8 @@ Statistical anomaly detection from event history. Analyzes per-resource metrics:
 | FJ-080 | `forjar rollback` — restore previous config from git history + force re-apply | **Done** |
 | FJ-081 | Systemd detection guard — graceful skip for service resources in non-systemd environments | **Done** |
 | FJ-082 | `forjar anomaly` — statistical drift anomaly detection from event history (z-score churn, failure rate, drift events) | **Done** |
+| FJ-083 | Parser validation hardening — state enum validation for file/service/mount/docker, protocol/action validation for network, symlink target requirement | **Done** |
+| FJ-084 | `forjar import` — add `users` and `cron` scan types for user/crontab discovery | **Done** |
 
 ---
 

@@ -181,6 +181,27 @@ fn validate_resource_type(id: &str, resource: &Resource, errors: &mut Vec<Valida
                     ),
                 });
             }
+            if let Some(ref state) = resource.state {
+                let valid = ["file", "directory", "symlink", "absent"];
+                if !valid.contains(&state.as_str()) {
+                    errors.push(ValidationError {
+                        message: format!(
+                            "resource '{}' (file) has invalid state '{}' (expected: {})",
+                            id,
+                            state,
+                            valid.join(", ")
+                        ),
+                    });
+                }
+            }
+            if resource.state.as_deref() == Some("symlink") && resource.target.is_none() {
+                errors.push(ValidationError {
+                    message: format!(
+                        "resource '{}' (file) state=symlink requires a target",
+                        id
+                    ),
+                });
+            }
         }
         ResourceType::Service => {
             if resource.name.is_none() {
@@ -188,12 +209,43 @@ fn validate_resource_type(id: &str, resource: &Resource, errors: &mut Vec<Valida
                     message: format!("resource '{}' (service) has no name", id),
                 });
             }
+            if let Some(ref state) = resource.state {
+                let valid = ["running", "stopped", "enabled", "disabled"];
+                if !valid.contains(&state.as_str()) {
+                    errors.push(ValidationError {
+                        message: format!(
+                            "resource '{}' (service) has invalid state '{}' (expected: {})",
+                            id,
+                            state,
+                            valid.join(", ")
+                        ),
+                    });
+                }
+            }
         }
         ResourceType::Mount => {
-            if resource.source.is_none() && resource.path.is_none() {
+            if resource.source.is_none() {
                 errors.push(ValidationError {
-                    message: format!("resource '{}' (mount) needs source and target path", id),
+                    message: format!("resource '{}' (mount) has no source", id),
                 });
+            }
+            if resource.path.is_none() {
+                errors.push(ValidationError {
+                    message: format!("resource '{}' (mount) has no path", id),
+                });
+            }
+            if let Some(ref state) = resource.state {
+                let valid = ["mounted", "unmounted", "absent"];
+                if !valid.contains(&state.as_str()) {
+                    errors.push(ValidationError {
+                        message: format!(
+                            "resource '{}' (mount) has invalid state '{}' (expected: {})",
+                            id,
+                            state,
+                            valid.join(", ")
+                        ),
+                    });
+                }
             }
         }
         ResourceType::User => {
@@ -213,6 +265,19 @@ fn validate_resource_type(id: &str, resource: &Resource, errors: &mut Vec<Valida
                 errors.push(ValidationError {
                     message: format!("resource '{}' (docker) has no image", id),
                 });
+            }
+            if let Some(ref state) = resource.state {
+                let valid = ["running", "stopped", "absent"];
+                if !valid.contains(&state.as_str()) {
+                    errors.push(ValidationError {
+                        message: format!(
+                            "resource '{}' (docker) has invalid state '{}' (expected: {})",
+                            id,
+                            state,
+                            valid.join(", ")
+                        ),
+                    });
+                }
             }
         }
         ResourceType::Cron => {
@@ -237,6 +302,28 @@ fn validate_resource_type(id: &str, resource: &Resource, errors: &mut Vec<Valida
                 errors.push(ValidationError {
                     message: format!("resource '{}' (network) has no port", id),
                 });
+            }
+            if let Some(ref proto) = resource.protocol {
+                let valid = ["tcp", "udp"];
+                if !valid.contains(&proto.as_str()) {
+                    errors.push(ValidationError {
+                        message: format!(
+                            "resource '{}' (network) has invalid protocol '{}' (expected: tcp, udp)",
+                            id, proto
+                        ),
+                    });
+                }
+            }
+            if let Some(ref action) = resource.action {
+                let valid = ["allow", "deny", "reject"];
+                if !valid.contains(&action.as_str()) {
+                    errors.push(ValidationError {
+                        message: format!(
+                            "resource '{}' (network) has invalid action '{}' (expected: allow, deny, reject)",
+                            id, action
+                        ),
+                    });
+                }
             }
         }
         ResourceType::Recipe => {
@@ -586,9 +673,8 @@ resources:
 "#;
         let config = parse_config(yaml).unwrap();
         let errors = validate_config(&config);
-        assert!(errors
-            .iter()
-            .any(|e| e.message.contains("source and target path")));
+        assert!(errors.iter().any(|e| e.message.contains("has no source")));
+        assert!(errors.iter().any(|e| e.message.contains("has no path")));
     }
 
     #[test]
@@ -1213,5 +1299,236 @@ resources: {}
             "aarch64 should be valid, got: {:?}",
             errors
         );
+    }
+
+    #[test]
+    fn test_file_invalid_state() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  f:
+    type: file
+    machine: m1
+    path: /tmp/x
+    state: bogus
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(errors.iter().any(|e| e.message.contains("invalid state 'bogus'")));
+    }
+
+    #[test]
+    fn test_file_symlink_requires_target() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  link:
+    type: file
+    machine: m1
+    path: /usr/local/bin/tool
+    state: symlink
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(errors.iter().any(|e| e.message.contains("symlink requires a target")));
+    }
+
+    #[test]
+    fn test_file_valid_states() {
+        for state in &["file", "directory", "symlink", "absent"] {
+            let yaml = format!(
+                r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  f:
+    type: file
+    machine: m1
+    path: /tmp/x
+    state: {}
+    target: /tmp/y
+"#,
+                state
+            );
+            let config = parse_config(&yaml).unwrap();
+            let errors = validate_config(&config);
+            let state_errors: Vec<_> = errors
+                .iter()
+                .filter(|e| e.message.contains("invalid state"))
+                .collect();
+            assert!(state_errors.is_empty(), "state '{}' should be valid", state);
+        }
+    }
+
+    #[test]
+    fn test_service_invalid_state() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  svc:
+    type: service
+    machine: m1
+    name: nginx
+    state: restarting
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(errors.iter().any(|e| e.message.contains("invalid state 'restarting'")));
+    }
+
+    #[test]
+    fn test_service_valid_states() {
+        for state in &["running", "stopped", "enabled", "disabled"] {
+            let yaml = format!(
+                r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  svc:
+    type: service
+    machine: m1
+    name: nginx
+    state: {}
+"#,
+                state
+            );
+            let config = parse_config(&yaml).unwrap();
+            let errors = validate_config(&config);
+            let state_errors: Vec<_> = errors
+                .iter()
+                .filter(|e| e.message.contains("invalid state"))
+                .collect();
+            assert!(state_errors.is_empty(), "state '{}' should be valid", state);
+        }
+    }
+
+    #[test]
+    fn test_mount_invalid_state() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  mnt:
+    type: mount
+    machine: m1
+    source: /dev/sda1
+    path: /mnt/data
+    state: attached
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(errors.iter().any(|e| e.message.contains("invalid state 'attached'")));
+    }
+
+    #[test]
+    fn test_mount_missing_source_only() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  mnt:
+    type: mount
+    machine: m1
+    path: /mnt/data
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(errors.iter().any(|e| e.message.contains("has no source")));
+        assert!(!errors.iter().any(|e| e.message.contains("has no path")));
+    }
+
+    #[test]
+    fn test_network_invalid_protocol() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  fw:
+    type: network
+    machine: m1
+    port: "22"
+    protocol: sctp
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(errors.iter().any(|e| e.message.contains("invalid protocol 'sctp'")));
+    }
+
+    #[test]
+    fn test_network_invalid_action() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  fw:
+    type: network
+    machine: m1
+    port: "80"
+    action: block
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(errors.iter().any(|e| e.message.contains("invalid action 'block'")));
+    }
+
+    #[test]
+    fn test_docker_invalid_state() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  db:
+    type: docker
+    machine: m1
+    name: postgres
+    image: postgres:16
+    state: paused
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(errors.iter().any(|e| e.message.contains("invalid state 'paused'")));
     }
 }
