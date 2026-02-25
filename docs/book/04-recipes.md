@@ -378,3 +378,159 @@ Forjar searches for recipe files in this order:
 - **Namespace awareness**: External `depends_on` uses plain IDs; internal uses are auto-namespaced
 - **Version your recipes**: Increment `recipe.version` when inputs or behavior change
 - **Test locally first**: Use container transport to verify recipe expansion end-to-end before deploying to production
+
+## Advanced Recipe Patterns
+
+### Multi-Service Recipe
+
+A recipe can compose multiple services with internal dependencies:
+
+```yaml
+# recipes/app-stack.yaml
+recipe:
+  name: app-stack
+  version: "2.0"
+  description: "Full application stack: nginx + app + redis"
+  inputs:
+    app_name:
+      type: string
+      description: "Application name (used for paths and service names)"
+    app_port:
+      type: int
+      default: 8080
+    redis_port:
+      type: int
+      default: 6379
+
+resources:
+  packages:
+    type: package
+    provider: apt
+    packages: [nginx, redis-server]
+
+  app-dir:
+    type: file
+    state: directory
+    path: "/opt/{{inputs.app_name}}"
+    mode: "0755"
+    depends_on: [packages]
+
+  nginx-config:
+    type: file
+    path: "/etc/nginx/sites-enabled/{{inputs.app_name}}"
+    content: |
+      upstream app {
+        server 127.0.0.1:{{inputs.app_port}};
+      }
+      server {
+        listen 80;
+        location / { proxy_pass http://app; }
+      }
+    depends_on: [packages]
+
+  redis-config:
+    type: file
+    path: /etc/redis/redis.conf
+    content: |
+      bind 127.0.0.1
+      port {{inputs.redis_port}}
+      maxmemory 256mb
+    depends_on: [packages]
+
+  nginx-svc:
+    type: service
+    name: nginx
+    state: running
+    restart_on: [nginx-config]
+    depends_on: [nginx-config]
+
+  redis-svc:
+    type: service
+    name: redis-server
+    state: running
+    restart_on: [redis-config]
+    depends_on: [redis-config]
+```
+
+Use it:
+
+```yaml
+resources:
+  my-app:
+    type: recipe
+    machine: web-server
+    recipe: app-stack
+    inputs:
+      app_name: myapp
+      app_port: 3000
+```
+
+This expands to 6 resources with the correct dependency chain: `my-app/packages` → `my-app/app-dir` → ... → `my-app/nginx-svc`.
+
+### Recipe with External Dependencies
+
+Recipes can declare dependencies on resources outside the recipe:
+
+```yaml
+# forjar.yaml
+resources:
+  base-packages:
+    type: package
+    machine: web
+    provider: apt
+    packages: [curl, jq]
+
+  web:
+    type: recipe
+    machine: web
+    recipe: web-server
+    depends_on: [base-packages]
+    inputs:
+      domain: example.com
+```
+
+The `depends_on: [base-packages]` on the recipe resource makes ALL expanded resources depend on `base-packages`. This is the mechanism for cross-recipe dependencies.
+
+### Reusing Recipes Across Machines
+
+The same recipe can be instantiated multiple times with different parameters:
+
+```yaml
+resources:
+  staging-web:
+    type: recipe
+    machine: staging
+    recipe: web-server
+    inputs:
+      domain: staging.example.com
+      port: 8080
+      log_level: debug
+
+  production-web:
+    type: recipe
+    machine: production
+    recipe: web-server
+    inputs:
+      domain: www.example.com
+      port: 80
+      log_level: error
+```
+
+Each instantiation creates a namespaced set of resources: `staging-web/nginx-pkg`, `staging-web/site-config`, etc. This prevents ID collisions.
+
+### Recipe Expansion Order
+
+The expansion pipeline processes recipes in this order:
+
+```
+1. Load forjar.yaml
+2. For each recipe resource:
+   a. Load recipes/{name}.yaml
+   b. Validate inputs against declared schema
+   c. Resolve {{inputs.X}} templates in resource fields
+   d. Namespace resource IDs: "{parent-id}/{resource-id}"
+   e. Set machine field from parent recipe resource
+   f. Add external depends_on to first resource in chain
+3. Replace recipe resources with expanded resources
+4. Validate expanded config (deps, machines, types)
+```
