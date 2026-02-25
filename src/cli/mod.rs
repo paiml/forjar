@@ -1106,7 +1106,10 @@ fn cmd_import(
                     resources_yaml.push_str("    type: file\n");
                     resources_yaml.push_str(&format!("    machine: {}\n", machine_name));
                     resources_yaml.push_str(&format!("    path: {}\n", file_path));
-                    resources_yaml.push_str("    # content: TODO — fill from source or template\n");
+                    resources_yaml.push_str(&format!(
+                        "    # source: configs{}\n",
+                        file_path
+                    ));
                     resources_yaml.push_str("    owner: root\n");
                     resources_yaml.push_str("    group: root\n");
                     resources_yaml.push_str("    mode: \"0644\"\n\n");
