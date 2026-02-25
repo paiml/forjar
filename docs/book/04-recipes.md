@@ -181,3 +181,135 @@ Recipes are plain YAML files. Share them via:
 - **Copy**: Just copy the YAML file
 
 No package manager needed. No registry. Just files.
+
+## Step-by-Step: Writing a Recipe
+
+Walk through creating a "monitoring agent" recipe from scratch.
+
+### 1. Create the recipe file
+
+```yaml
+# recipes/monitoring.yaml
+recipe:
+  name: monitoring
+  version: "1.0"
+  description: "Node exporter + Prometheus scrape endpoint"
+  inputs:
+    metrics_port:
+      type: int
+      default: 9100
+      min: 1024
+      max: 65535
+    retention_days:
+      type: int
+      default: 7
+```
+
+### 2. Define resources inside the recipe
+
+```yaml
+resources:
+  node-exporter-pkg:
+    type: package
+    provider: apt
+    packages: [prometheus-node-exporter]
+
+  config:
+    type: file
+    path: /etc/default/prometheus-node-exporter
+    content: |
+      ARGS="--web.listen-address=:{{inputs.metrics_port}}"
+    mode: "0644"
+    depends_on: [node-exporter-pkg]
+
+  service:
+    type: service
+    name: prometheus-node-exporter
+    state: running
+    enabled: true
+    restart_on: [config]
+    depends_on: [config]
+
+  firewall:
+    type: network
+    port: "{{inputs.metrics_port}}"
+    protocol: tcp
+    action: allow
+    depends_on: [service]
+```
+
+### 3. Use the recipe in your config
+
+```yaml
+version: "1.0"
+name: fleet
+machines:
+  web1: { hostname: web1, addr: 10.0.0.1 }
+  web2: { hostname: web2, addr: 10.0.0.2 }
+  db1:  { hostname: db1,  addr: 10.0.0.3 }
+
+resources:
+  web1-mon:
+    type: recipe
+    machine: web1
+    recipe: monitoring
+    inputs: { metrics_port: 9100 }
+
+  web2-mon:
+    type: recipe
+    machine: web2
+    recipe: monitoring
+    inputs: { metrics_port: 9100 }
+
+  db-mon:
+    type: recipe
+    machine: db1
+    recipe: monitoring
+    inputs: { metrics_port: 9200, retention_days: 30 }
+```
+
+### 4. Verify expansion
+
+```bash
+# Validate the config (recipes are expanded during validation)
+forjar validate -f forjar.yaml
+
+# See the full dependency graph
+forjar graph -f forjar.yaml
+
+# Preview the plan
+forjar plan -f forjar.yaml --state-dir state/
+```
+
+The expanded resources will be:
+- `web1-mon/node-exporter-pkg`
+- `web1-mon/config`
+- `web1-mon/service`
+- `web1-mon/firewall`
+- `web2-mon/node-exporter-pkg` (same pattern)
+- `db-mon/node-exporter-pkg` (with port 9200)
+
+### 5. Test locally
+
+```bash
+# Use a container transport for safe testing
+# Add to machines:
+#   test:
+#     hostname: test
+#     addr: container
+#     transport: container
+#     container:
+#       runtime: docker
+#       image: ubuntu:22.04
+
+forjar apply -f forjar.yaml --state-dir state/
+forjar drift -f forjar.yaml --state-dir state/
+```
+
+## Best Practices
+
+- **One concern per recipe**: A recipe for "monitoring", not "monitoring + logging + alerting"
+- **Sensible defaults**: Every input should have a default unless it's truly unique per use
+- **Document inputs**: The `description` field shows up in error messages and validation output
+- **Test expansion**: Run `forjar validate` after adding a recipe to catch input type mismatches early
+- **Namespace awareness**: External `depends_on` uses plain IDs; internal uses are auto-namespaced
