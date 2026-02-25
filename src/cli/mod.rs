@@ -670,7 +670,10 @@ fn cmd_anomaly(
         if json {
             println!("{{\"anomalies\":0,\"findings\":[]}}");
         } else {
-            println!("No resources with enough history (min {} events).", min_events);
+            println!(
+                "No resources with enough history (min {} events).",
+                min_events
+            );
         }
         return Ok(());
     }
@@ -748,7 +751,10 @@ fn cmd_anomaly(
             serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {}", e))?;
         println!("{}", output);
     } else if findings.is_empty() {
-        println!("No anomalies detected ({} resources analyzed).", active.len());
+        println!(
+            "No anomalies detected ({} resources analyzed).",
+            active.len()
+        );
     } else {
         println!();
         println!(
@@ -915,11 +921,48 @@ fn cmd_init(path: &Path) -> Result<(), String> {
 name: my-infrastructure
 description: "Managed by forjar"
 
-params: {}
+params:
+  env: development
 
-machines: {}
+machines:
+  localhost:
+    hostname: localhost
+    addr: 127.0.0.1
+  # remote-server:
+  #   hostname: my-server
+  #   addr: 10.0.0.1
+  #   user: root
+  #   ssh_key: ~/.ssh/id_ed25519
 
-resources: {}
+resources:
+  # Example: install packages
+  base-packages:
+    type: package
+    machine: localhost
+    provider: apt
+    packages: [curl, git, htop]
+
+  # Example: manage a config file
+  # app-config:
+  #   type: file
+  #   machine: localhost
+  #   path: /etc/myapp/config.yaml
+  #   content: |
+  #     environment: {{params.env}}
+  #     log_level: info
+  #   owner: root
+  #   mode: "0644"
+  #   depends_on: [base-packages]
+
+  # Example: manage a service
+  # app-service:
+  #   type: service
+  #   machine: localhost
+  #   name: myapp
+  #   state: running
+  #   enabled: true
+  #   restart_on: [app-config]
+  #   depends_on: [app-config]
 
 policy:
   failure: stop_on_first
@@ -4940,25 +4983,31 @@ resources:
 
         // Write events with high failure rate: 1 converge, 4 failures
         let mut events = String::new();
-        events.push_str(&serde_json::to_string(&types::TimestampedEvent {
-            ts: "2026-02-25T00:00:00Z".to_string(),
-            event: types::ProvenanceEvent::ResourceConverged {
-                machine: "m1".to_string(),
-                resource: "flaky-pkg".to_string(),
-                duration_seconds: 1.0,
-                hash: "abc".to_string(),
-            },
-        }).unwrap());
-        events.push('\n');
-        for _ in 0..4 {
-            events.push_str(&serde_json::to_string(&types::TimestampedEvent {
-                ts: "2026-02-25T00:01:00Z".to_string(),
-                event: types::ProvenanceEvent::ResourceFailed {
+        events.push_str(
+            &serde_json::to_string(&types::TimestampedEvent {
+                ts: "2026-02-25T00:00:00Z".to_string(),
+                event: types::ProvenanceEvent::ResourceConverged {
                     machine: "m1".to_string(),
                     resource: "flaky-pkg".to_string(),
-                    error: "install failed".to_string(),
+                    duration_seconds: 1.0,
+                    hash: "abc".to_string(),
                 },
-            }).unwrap());
+            })
+            .unwrap(),
+        );
+        events.push('\n');
+        for _ in 0..4 {
+            events.push_str(
+                &serde_json::to_string(&types::TimestampedEvent {
+                    ts: "2026-02-25T00:01:00Z".to_string(),
+                    event: types::ProvenanceEvent::ResourceFailed {
+                        machine: "m1".to_string(),
+                        resource: "flaky-pkg".to_string(),
+                        error: "install failed".to_string(),
+                    },
+                })
+                .unwrap(),
+            );
             events.push('\n');
         }
 
@@ -4979,26 +5028,32 @@ resources:
         let mut events = String::new();
         // 2 converges + 1 drift = 3 events (meets min_events=3)
         for _ in 0..2 {
-            events.push_str(&serde_json::to_string(&types::TimestampedEvent {
-                ts: "2026-02-25T00:00:00Z".to_string(),
-                event: types::ProvenanceEvent::ResourceConverged {
-                    machine: "web".to_string(),
-                    resource: "config-file".to_string(),
-                    duration_seconds: 0.5,
-                    hash: "def".to_string(),
-                },
-            }).unwrap());
+            events.push_str(
+                &serde_json::to_string(&types::TimestampedEvent {
+                    ts: "2026-02-25T00:00:00Z".to_string(),
+                    event: types::ProvenanceEvent::ResourceConverged {
+                        machine: "web".to_string(),
+                        resource: "config-file".to_string(),
+                        duration_seconds: 0.5,
+                        hash: "def".to_string(),
+                    },
+                })
+                .unwrap(),
+            );
             events.push('\n');
         }
-        events.push_str(&serde_json::to_string(&types::TimestampedEvent {
-            ts: "2026-02-25T01:00:00Z".to_string(),
-            event: types::ProvenanceEvent::DriftDetected {
-                machine: "web".to_string(),
-                resource: "config-file".to_string(),
-                expected_hash: "aaa".to_string(),
-                actual_hash: "bbb".to_string(),
-            },
-        }).unwrap());
+        events.push_str(
+            &serde_json::to_string(&types::TimestampedEvent {
+                ts: "2026-02-25T01:00:00Z".to_string(),
+                event: types::ProvenanceEvent::DriftDetected {
+                    machine: "web".to_string(),
+                    resource: "config-file".to_string(),
+                    expected_hash: "aaa".to_string(),
+                    actual_hash: "bbb".to_string(),
+                },
+            })
+            .unwrap(),
+        );
         events.push('\n');
 
         std::fs::write(machine_dir.join("events.jsonl"), &events).unwrap();
@@ -5017,15 +5072,18 @@ resources:
         // Write 3 converge events for one resource (no anomaly, just normal)
         let mut events = String::new();
         for _ in 0..3 {
-            events.push_str(&serde_json::to_string(&types::TimestampedEvent {
-                ts: "2026-02-25T00:00:00Z".to_string(),
-                event: types::ProvenanceEvent::ResourceConverged {
-                    machine: "srv".to_string(),
-                    resource: "pkg".to_string(),
-                    duration_seconds: 1.0,
-                    hash: "xyz".to_string(),
-                },
-            }).unwrap());
+            events.push_str(
+                &serde_json::to_string(&types::TimestampedEvent {
+                    ts: "2026-02-25T00:00:00Z".to_string(),
+                    event: types::ProvenanceEvent::ResourceConverged {
+                        machine: "srv".to_string(),
+                        resource: "pkg".to_string(),
+                        duration_seconds: 1.0,
+                        hash: "xyz".to_string(),
+                    },
+                })
+                .unwrap(),
+            );
             events.push('\n');
         }
 
@@ -5048,14 +5106,17 @@ resources:
         // Events only on m2
         let mut events = String::new();
         for _ in 0..5 {
-            events.push_str(&serde_json::to_string(&types::TimestampedEvent {
-                ts: "2026-02-25T00:00:00Z".to_string(),
-                event: types::ProvenanceEvent::ResourceFailed {
-                    machine: "m2".to_string(),
-                    resource: "bad-svc".to_string(),
-                    error: "timeout".to_string(),
-                },
-            }).unwrap());
+            events.push_str(
+                &serde_json::to_string(&types::TimestampedEvent {
+                    ts: "2026-02-25T00:00:00Z".to_string(),
+                    event: types::ProvenanceEvent::ResourceFailed {
+                        machine: "m2".to_string(),
+                        resource: "bad-svc".to_string(),
+                        error: "timeout".to_string(),
+                    },
+                })
+                .unwrap(),
+            );
             events.push('\n');
         }
         std::fs::write(m2.join("events.jsonl"), &events).unwrap();
