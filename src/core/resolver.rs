@@ -1123,7 +1123,10 @@ resources:
 
     #[test]
     fn test_resolve_port_template() {
-        let params = HashMap::from([("port".to_string(), serde_yaml_ng::Value::String("8080".to_string()))]);
+        let params = HashMap::from([(
+            "port".to_string(),
+            serde_yaml_ng::Value::String("8080".to_string()),
+        )]);
         let machines = indexmap::IndexMap::new();
         let mut r = make_base_resource();
         r.port = Some("{{params.port}}".to_string());
@@ -1133,17 +1136,26 @@ resources:
 
     #[test]
     fn test_resolve_command_template() {
-        let params = HashMap::from([("host".to_string(), serde_yaml_ng::Value::String("localhost".to_string()))]);
+        let params = HashMap::from([(
+            "host".to_string(),
+            serde_yaml_ng::Value::String("localhost".to_string()),
+        )]);
         let machines = indexmap::IndexMap::new();
         let mut r = make_base_resource();
         r.command = Some("curl http://{{params.host}}/health".to_string());
         let resolved = resolve_resource_templates(&r, &params, &machines).unwrap();
-        assert_eq!(resolved.command.as_deref(), Some("curl http://localhost/health"));
+        assert_eq!(
+            resolved.command.as_deref(),
+            Some("curl http://localhost/health")
+        );
     }
 
     #[test]
     fn test_resolve_image_template() {
-        let params = HashMap::from([("tag".to_string(), serde_yaml_ng::Value::String("v2.1".to_string()))]);
+        let params = HashMap::from([(
+            "tag".to_string(),
+            serde_yaml_ng::Value::String("v2.1".to_string()),
+        )]);
         let machines = indexmap::IndexMap::new();
         let mut r = make_base_resource();
         r.image = Some("myapp:{{params.tag}}".to_string());
@@ -1153,7 +1165,10 @@ resources:
 
     #[test]
     fn test_resolve_ports_list_template() {
-        let params = HashMap::from([("port".to_string(), serde_yaml_ng::Value::String("9090".to_string()))]);
+        let params = HashMap::from([(
+            "port".to_string(),
+            serde_yaml_ng::Value::String("9090".to_string()),
+        )]);
         let machines = indexmap::IndexMap::new();
         let mut r = make_base_resource();
         r.ports = vec!["{{params.port}}:8080".to_string(), "443:443".to_string()];
@@ -1163,7 +1178,10 @@ resources:
 
     #[test]
     fn test_resolve_environment_list_template() {
-        let params = HashMap::from([("env".to_string(), serde_yaml_ng::Value::String("prod".to_string()))]);
+        let params = HashMap::from([(
+            "env".to_string(),
+            serde_yaml_ng::Value::String("prod".to_string()),
+        )]);
         let machines = indexmap::IndexMap::new();
         let mut r = make_base_resource();
         r.environment = vec!["APP_ENV={{params.env}}".to_string()];
@@ -1173,7 +1191,10 @@ resources:
 
     #[test]
     fn test_resolve_volumes_list_template() {
-        let params = HashMap::from([("data".to_string(), serde_yaml_ng::Value::String("/data/app".to_string()))]);
+        let params = HashMap::from([(
+            "data".to_string(),
+            serde_yaml_ng::Value::String("/data/app".to_string()),
+        )]);
         let machines = indexmap::IndexMap::new();
         let mut r = make_base_resource();
         r.volumes = vec!["{{params.data}}:/app/data:ro".to_string()];
@@ -1183,7 +1204,10 @@ resources:
 
     #[test]
     fn test_resolve_packages_list_template() {
-        let params = HashMap::from([("pkg".to_string(), serde_yaml_ng::Value::String("htop".to_string()))]);
+        let params = HashMap::from([(
+            "pkg".to_string(),
+            serde_yaml_ng::Value::String("htop".to_string()),
+        )]);
         let machines = indexmap::IndexMap::new();
         let mut r = make_base_resource();
         r.packages = vec!["curl".to_string(), "{{params.pkg}}".to_string()];

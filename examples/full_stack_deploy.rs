@@ -123,7 +123,11 @@ policy:
         }
         std::process::exit(1);
     }
-    println!("Parsed: {} ({} resources)", config.name, config.resources.len());
+    println!(
+        "Parsed: {} ({} resources)",
+        config.name,
+        config.resources.len()
+    );
 
     // 2. Resolve templates per-resource
     let params = config.params.clone();
