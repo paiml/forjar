@@ -1368,6 +1368,9 @@ Statistical anomaly detection from event history. Analyzes per-resource metrics:
 | FJ-117 | Codegen dispatch tests — unsupported type error quality, recipe non-dispatchable, all Phase 1 check scripts nonempty, all Phase 1 state_query scripts nonempty (4 tests) | **Done** |
 | FJ-118 | Resolver + recipe edge case tests — unclosed template, passthrough, mixed types, unknown machine, numeric/bool params, group/mode resolution, fan-out/fan-in DAGs, unknown dep, whitespace templates, consecutive templates. Recipe: no-inputs, unclosed template, unknown input ref, terminal ID on empty, nonexistent file, invalid YAML, multiple external deps, all-defaults expansion, content field, RecipeSource derive, optional metadata, requires parsing (27 tests) | **Done** |
 | FJ-119 | Expand Getting Started book chapter (Ch. 1, 113→374 lines) — core concepts table, validate-first workflow, multi-resource example with dependencies, graph visualization, filtering, dry-run, state inspection, script auditing, parameters, secrets, cross-arch support | **Done** |
+| FJ-120 | Planner edge case tests — arch filter skip, arch filter with lock, multi-machine partial lock, empty execution order, nonexistent resource skipped, describe action fallbacks, content hash sensitivity, combined arch+tag filter (11 tests) | **Done** |
+| FJ-121 | Eventlog/hasher edge cases — drift_detected event, nested dir creation, run ID hex format, path special chars. Hasher: directory not found, exact buffer boundary, deep nesting, composite determinism, single-char diff (9 tests) | **Done** |
+| FJ-122 | Expand Cookbook chapter (Ch. 7, 548→742 lines) — partial failure recovery, lock file management, auditing and compliance, script auditing workflow, multi-environment promotion, cross-architecture fleet | **Done** |
 
 ---
 

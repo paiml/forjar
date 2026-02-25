@@ -546,3 +546,197 @@ resources:
 ```
 
 Files are base64-encoded locally and decoded on the remote machine, supporting binary files and all transports.
+
+## Partial Failure Recovery
+
+When an apply fails partway through, forjar saves partial state. The next apply only re-runs what failed:
+
+```bash
+# First apply — nginx-pkg succeeds, site-config fails (typo in content)
+forjar apply -f forjar.yaml --state-dir state/
+# Output: web1: 1 converged, 0 unchanged, 1 failed
+
+# Check status to see what's in the lock
+forjar status --state-dir state/
+# nginx-pkg: Converged
+# site-config: Failed
+
+# Fix the typo in forjar.yaml, then re-apply
+forjar apply -f forjar.yaml --state-dir state/
+# Only site-config and its dependents re-run
+# nginx-pkg shows as "unchanged" (hash still matches)
+```
+
+If you need to force re-apply everything (e.g., after manual machine changes):
+
+```bash
+forjar apply -f forjar.yaml --state-dir state/ --force
+```
+
+## Lock File Management
+
+Lock files live in `state/{machine}/state.lock.yaml`. Each contains BLAKE3 hashes of every managed resource:
+
+```bash
+# View current lock state
+cat state/web1/state.lock.yaml
+
+# Compare two machines
+diff state/web1/state.lock.yaml state/web2/state.lock.yaml
+
+# Compare state across time (git history)
+forjar diff state-backup/ state/
+```
+
+If a lock file becomes corrupted (e.g., disk error, interrupted write):
+
+```bash
+# Delete the corrupted lock — next apply will re-apply all resources
+rm state/web1/state.lock.yaml
+
+# Or selectively force one resource
+forjar apply -f forjar.yaml -r nginx-pkg --force --state-dir state/
+```
+
+Lock files are designed to be disposable. Deleting them just means the next apply re-converges everything — resources are idempotent, so this is always safe.
+
+## Auditing and Compliance
+
+Every apply generates provenance events. Use them for compliance and debugging:
+
+```bash
+# View apply history for a machine
+forjar history --state-dir state/ -m web1 -n 20
+
+# Export as JSON for SIEM integration
+forjar history --state-dir state/ --json > /tmp/history.json
+
+# Check which resources have unusual patterns
+forjar anomaly --state-dir state/ --min-events 3
+
+# Compare two state snapshots
+forjar diff state-before/ state-after/ --json
+```
+
+Event log format (`state/{machine}/events.jsonl`):
+
+```json
+{"ts":"2026-02-25T14:30:00Z","event":"apply_started","machine":"web1","run_id":"r-abc123","forjar_version":"0.1.0"}
+{"ts":"2026-02-25T14:30:01Z","event":"resource_converged","machine":"web1","resource":"nginx-pkg","duration_seconds":1.2,"hash":"blake3:..."}
+{"ts":"2026-02-25T14:30:02Z","event":"apply_completed","machine":"web1","run_id":"r-abc123","resources_converged":3,"resources_failed":0,"total_seconds":2.1}
+```
+
+## Script Auditing Workflow
+
+Before applying to production, audit the generated scripts:
+
+```bash
+# Write all scripts to an audit directory
+forjar plan -f forjar.yaml --output-dir /tmp/audit/
+
+# Review each script
+ls /tmp/audit/
+# web1/nginx-pkg.check.sh
+# web1/nginx-pkg.apply.sh
+# web1/nginx-pkg.state_query.sh
+# web1/site-config.check.sh
+# ...
+
+# Diff against previous audit
+diff -r /tmp/audit-old/ /tmp/audit/
+
+# Run check scripts manually for verification
+ssh deploy@web1 bash < /tmp/audit/web1/nginx-pkg.check.sh
+```
+
+## Multi-Environment Promotion
+
+Use parameters to manage staging → production promotion:
+
+```yaml
+version: "1.0"
+name: my-app
+params:
+  env: staging
+  replicas: "1"
+  log_level: debug
+
+machines:
+  app:
+    hostname: app
+    addr: 10.0.0.1
+
+resources:
+  app-config:
+    type: file
+    machine: app
+    path: /etc/myapp/config.yaml
+    content: |
+      environment: {{params.env}}
+      replicas: {{params.replicas}}
+      log_level: {{params.log_level}}
+    mode: "0640"
+```
+
+```bash
+# Deploy to staging (defaults)
+forjar apply -f forjar.yaml --state-dir state-staging/
+
+# Promote to production (override params)
+forjar apply -f forjar.yaml --state-dir state-prod/ \
+  -p env=production -p replicas=3 -p log_level=warn
+```
+
+## Cross-Architecture Fleet
+
+Manage mixed x86_64 and aarch64 fleets with architecture-specific resources:
+
+```yaml
+version: "1.0"
+name: mixed-fleet
+
+machines:
+  x86-srv:
+    hostname: x86
+    addr: 10.0.0.1
+    arch: x86_64
+  arm-srv:
+    hostname: arm
+    addr: 10.0.0.2
+    arch: aarch64
+
+resources:
+  # Applies to ALL machines
+  common-tools:
+    type: package
+    machine: [x86-srv, arm-srv]
+    provider: apt
+    packages: [curl, htop, jq]
+
+  # Only applies to x86_64 machines
+  intel-microcode:
+    type: package
+    machine: [x86-srv, arm-srv]
+    provider: apt
+    packages: [intel-microcode]
+    arch: [x86_64]
+    depends_on: [common-tools]
+
+  # Only applies to aarch64 machines
+  arm-firmware:
+    type: package
+    machine: [x86-srv, arm-srv]
+    provider: apt
+    packages: [linux-firmware]
+    arch: [aarch64]
+    depends_on: [common-tools]
+```
+
+Verify with plan:
+
+```bash
+forjar plan -f fleet.yaml --state-dir state/
+# x86-srv: common-tools, intel-microcode (2 resources)
+# arm-srv: common-tools, arm-firmware (2 resources)
+# intel-microcode is skipped on arm, arm-firmware is skipped on x86
+```
