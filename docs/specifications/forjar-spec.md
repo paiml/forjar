@@ -1352,6 +1352,12 @@ Statistical anomaly detection from event history. Analyzes per-resource metrics:
 | FJ-101 | SSH transport tests — arg counting (with/without key), BatchMode verification, ConnectTimeout value, StrictHostKeyChecking, DNS hostname, nonstandard user (7 tests) | **Done** |
 | FJ-102 | Transport dispatch tests — container priority over local, timeout hostname in error, IPv6 loopback, remote addr detection, stream capture, multiline scripts, exit codes (6 tests) | **Done** |
 | FJ-103 | Architecture book — container lifecycle diagram (ensure→exec→cleanup), ephemeral vs attached modes, naming, runtime selection, event type reference table | **Done** |
+| FJ-104 | Drift detection tests — DriftFinding fields, detail messages, detect_drift_with_machine local path, multiple files, directory drift, missing content_hash, non-string live_hash (9 tests) | **Done** |
+| FJ-105 | State management tests + example — idempotent update, machine addition, overwrite, version, corrupted global lock, atomic temp cleanup (6 tests + runnable example) | **Done** |
+| FJ-106 | File resource tests — parent dir creation ordering, pipefail, no content/source, no mode/owner, symlink default, state_query fallback (7 tests) | **Done** |
+| FJ-107 | Package resource tests — default provider/state, idempotent check, postcondition verify, uv absent tolerance, cargo absent (6 tests) | **Done** |
+| FJ-108 | Docker resource tests — stop-before-run ordering, tolerant absent/stopped, default state, all-options combined (5 tests) | **Done** |
+| FJ-109 | User resource tests — custom SSH home, absent idempotent, userdel fallback, SSH permissions, multiple keys, group-before-user ordering (6 tests) | **Done** |
 
 ---
 
