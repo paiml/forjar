@@ -737,3 +737,118 @@ jobs:
           git commit -m "forjar: deploy $(date -I)" || true
           git push
 ```
+
+## Property-Based Testing
+
+Forjar uses `proptest` for property-based testing in critical paths:
+
+### Hash Properties
+
+```rust
+proptest! {
+    #[test]
+    fn hash_deterministic(s in ".*") {
+        let h1 = hash_string(&s);
+        let h2 = hash_string(&s);
+        assert_eq!(h1, h2, "same input must produce same hash");
+    }
+
+    #[test]
+    fn hash_prefix(s in ".*") {
+        let h = hash_string(&s);
+        assert!(h.starts_with("blake3:"), "hash must have blake3: prefix");
+    }
+}
+```
+
+### Template Resolution Properties
+
+```rust
+proptest! {
+    #[test]
+    fn no_template_no_change(s in "[^{]*") {
+        // Strings without {{ are returned unchanged
+        let result = resolve_template(&s, &params, &machines).unwrap();
+        assert_eq!(result, s);
+    }
+}
+```
+
+### DAG Properties
+
+```rust
+proptest! {
+    #[test]
+    fn topological_order_contains_all(resources in resource_set(1..10)) {
+        let order = build_execution_order(&config).unwrap();
+        assert_eq!(order.len(), resources.len());
+    }
+}
+```
+
+## Test Organization
+
+### Test Categories
+
+| Category | Location | Count | What it Tests |
+|----------|----------|-------|---------------|
+| Unit | `src/*/tests` | ~800 | Individual functions |
+| Integration | `src/core/executor.rs` | ~80 | Multi-component workflows |
+| Property | Various `proptest!` blocks | ~50 | Invariant properties |
+| Dogfood | `examples/dogfood-*.yaml` | 8 configs | Real-world validation |
+| Examples | `examples/*.rs` | 15 | API documentation |
+
+### Naming Conventions
+
+Tests follow the pattern `test_<ticket>_<description>`:
+
+```rust
+#[test]
+fn test_fj003_resolve_params() { ... }        // FJ-003: Template resolution
+fn test_fj005_check_script_package() { ... }   // FJ-005: Codegen
+fn test_fj016_detect_drift_file() { ... }      // FJ-016: Drift detection
+fn test_fj132_hash_sensitivity() { ... }       // FJ-132: Coverage push
+```
+
+### Running Specific Test Categories
+
+```bash
+# Run all tests for a specific ticket
+cargo test test_fj003
+
+# Run tests for a specific module
+cargo test core::parser
+
+# Run tests matching a pattern
+cargo test drift
+
+# Run with output for debugging
+cargo test test_fj005_check_script -- --nocapture
+```
+
+## Coverage Workflow
+
+### Measuring Coverage
+
+```bash
+# Summary coverage report
+cargo llvm-cov --summary-only
+
+# HTML report for detailed analysis
+cargo llvm-cov --html
+open target/llvm-cov/html/index.html
+
+# Coverage for specific test
+cargo llvm-cov --test integration -- test_name
+```
+
+### Coverage Targets
+
+| Module | Target | Rationale |
+|--------|--------|-----------|
+| core/parser.rs | 95% | Config correctness is critical |
+| core/resolver.rs | 90% | Template bugs cause silent failures |
+| core/planner.rs | 90% | Wrong plan = wrong apply |
+| resources/* | 85% | Script generation must be correct |
+| transport/* | 80% | I/O-heavy, some paths need real SSH |
+| cli/* | 70% | UI code, harder to unit test |

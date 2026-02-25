@@ -727,3 +727,90 @@ forjar completions fish > ~/.config/fish/completions/forjar.fish
 | `FORJAR_STATE_DIR` | Default state directory (alternative to `--state-dir`) |
 | `FORJAR_LOG_LEVEL` | Log verbosity: `error`, `warn`, `info`, `debug`, `trace` |
 | `NO_COLOR` | Disable colored output (standard convention) |
+
+## Command Patterns
+
+### Pipeline Workflows
+
+Chain commands for common workflows:
+
+```bash
+# Validate → Plan → Apply (full pipeline)
+forjar validate -f forjar.yaml && \
+forjar plan -f forjar.yaml --state-dir state/ && \
+forjar apply -f forjar.yaml --state-dir state/
+
+# Drift check → Auto-remediate
+forjar drift -f forjar.yaml --state-dir state/ --tripwire || \
+forjar apply -f forjar.yaml --state-dir state/ --force
+```
+
+### Multi-Environment Management
+
+```bash
+# Apply to staging first, then production
+forjar apply -f forjar.yaml --state-dir state-staging/ -p env=staging
+forjar drift -f forjar.yaml --state-dir state-staging/ --tripwire
+# If staging looks good:
+forjar apply -f forjar.yaml --state-dir state-production/ -p env=production
+```
+
+### Script Auditing
+
+```bash
+# Export all scripts for security review
+forjar plan -f forjar.yaml --output-dir /tmp/audit/
+
+# Review specific resource scripts
+cat /tmp/audit/check_nginx-conf.sh
+cat /tmp/audit/apply_nginx-conf.sh
+
+# Run a check script manually
+bash /tmp/audit/check_nginx-conf.sh && echo "Already converged" || echo "Needs apply"
+```
+
+### Selective Application
+
+```bash
+# Apply only to specific machine
+forjar apply -f forjar.yaml --state-dir state/ -m web-server
+
+# Apply only tagged resources
+forjar apply -f forjar.yaml --state-dir state/ --tag critical
+
+# Apply only specific resource
+forjar apply -f forjar.yaml --state-dir state/ -r nginx-conf
+```
+
+### Import and Bootstrap
+
+```bash
+# Import existing machine state (no changes made)
+forjar import -f forjar.yaml -m web-01 --state-dir state/
+
+# Initialize a new project
+forjar init ./my-infra
+cd my-infra
+# Edit forjar.yaml, then:
+forjar validate -f forjar.yaml
+forjar apply -f forjar.yaml --state-dir state/
+```
+
+## Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | Success |
+| 1 | Error (validation, apply failure, etc.) |
+| 2 | Drift detected (for `drift` command) |
+
+Scripts can use exit codes for automation:
+
+```bash
+if forjar drift -f forjar.yaml --state-dir state/ 2>/dev/null; then
+    echo "No drift detected"
+else
+    echo "Drift found — reconverging"
+    forjar apply -f forjar.yaml --state-dir state/
+fi
+```

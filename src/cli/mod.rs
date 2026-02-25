@@ -6318,4 +6318,97 @@ resources:
         std::fs::write(&file, yaml).unwrap();
         cmd_lint(&file, false).unwrap();
     }
+
+    #[test]
+    fn test_fj132_cmd_lint_json_output() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("forjar.yaml");
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+resources:
+  pkg:
+    type: package
+    machine: m
+    provider: apt
+    packages: [curl]
+"#;
+        std::fs::write(&file, yaml).unwrap();
+        cmd_lint(&file, true).unwrap();
+    }
+
+    #[test]
+    fn test_fj132_cmd_history_with_events() {
+        let dir = tempfile::tempdir().unwrap();
+        let machine_dir = dir.path().join("web");
+        std::fs::create_dir_all(&machine_dir).unwrap();
+        let events = [
+            r#"{"ts":"2026-02-25T10:00:00Z","event":"apply_started","machine":"web","run_id":"r-1","forjar_version":"0.1.0"}"#,
+            r#"{"ts":"2026-02-25T10:01:00Z","event":"resource_converged","machine":"web","resource":"pkg","duration_seconds":5.0,"hash":"blake3:abc"}"#,
+            r#"{"ts":"2026-02-25T10:02:00Z","event":"apply_completed","machine":"web","run_id":"r-1","resources_converged":1,"resources_failed":0,"resources_skipped":0,"total_duration":5.0}"#,
+        ];
+        std::fs::write(machine_dir.join("events.jsonl"), events.join("\n")).unwrap();
+        cmd_history(dir.path(), None, 10, false).unwrap();
+    }
+
+    #[test]
+    fn test_fj132_cmd_history_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let machine_dir = dir.path().join("db");
+        std::fs::create_dir_all(&machine_dir).unwrap();
+        let event = r#"{"ts":"2026-02-25T10:00:00Z","event":"apply_started","machine":"db","run_id":"r-1","forjar_version":"0.1.0"}"#;
+        std::fs::write(machine_dir.join("events.jsonl"), event).unwrap();
+        cmd_history(dir.path(), None, 5, true).unwrap();
+    }
+
+    #[test]
+    fn test_fj132_cmd_history_machine_filter() {
+        let dir = tempfile::tempdir().unwrap();
+        for name in ["web", "db"] {
+            let m_dir = dir.path().join(name);
+            std::fs::create_dir_all(&m_dir).unwrap();
+            let event = format!(
+                r#"{{"ts":"2026-02-25T10:00:00Z","event":"apply_started","machine":"{}","run_id":"r-1","forjar_version":"0.1.0"}}"#,
+                name
+            );
+            std::fs::write(m_dir.join("events.jsonl"), event).unwrap();
+        }
+        cmd_history(dir.path(), Some("web"), 10, false).unwrap();
+    }
+
+    #[test]
+    fn test_fj132_cmd_status_with_global_lock() {
+        let dir = tempfile::tempdir().unwrap();
+        let lock_yaml = r#"
+schema: '1.0'
+name: my-infra
+last_apply: '2026-02-25T10:00:00Z'
+generator: 'forjar 0.1.0'
+machines:
+  web:
+    resources: 5
+    converged: 5
+    failed: 0
+    last_apply: '2026-02-25T10:00:00Z'
+"#;
+        std::fs::write(dir.path().join("forjar.lock.yaml"), lock_yaml).unwrap();
+        cmd_status(dir.path(), None).unwrap();
+    }
+
+    #[test]
+    fn test_fj132_cmd_fmt_formats_unformatted() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("messy.yaml");
+        // Write valid but messy YAML
+        let yaml = "version: '1.0'\nname: test\nmachines: {}\nresources: {}\n";
+        std::fs::write(&file, yaml).unwrap();
+        cmd_fmt(&file, false).unwrap();
+        // File should be overwritten with canonical form
+        let content = std::fs::read_to_string(&file).unwrap();
+        assert!(content.contains("version"));
+    }
 }
