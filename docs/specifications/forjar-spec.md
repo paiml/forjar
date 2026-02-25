@@ -1348,6 +1348,10 @@ Statistical anomaly detection from event history. Analyzes per-resource metrics:
 | FJ-097 | Event logging example — provenance event lifecycle, JSONL reading, run ID generation | **Done** |
 | FJ-098 | Eventlog tests — run ID uniqueness, directory creation, JSON validity, timestamp format | **Done** |
 | FJ-099 | Testing & CI/CD book chapter — Ch. 10 covering validation pyramid, container testing, GitHub Actions, monitoring | **Done** |
+| FJ-100 | Container transport tests — exec error messages, fake runtime, name derivation, podman runtime, init/privileged flags, ensure/cleanup lifecycle with /bin/echo runtime, precise error message assertions (13 tests) | **Done** |
+| FJ-101 | SSH transport tests — arg counting (with/without key), BatchMode verification, ConnectTimeout value, StrictHostKeyChecking, DNS hostname, nonstandard user (7 tests) | **Done** |
+| FJ-102 | Transport dispatch tests — container priority over local, timeout hostname in error, IPv6 loopback, remote addr detection, stream capture, multiline scripts, exit codes (6 tests) | **Done** |
+| FJ-103 | Architecture book — container lifecycle diagram (ensure→exec→cleanup), ephemeral vs attached modes, naming, runtime selection, event type reference table | **Done** |
 
 ---
 
