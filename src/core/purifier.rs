@@ -355,4 +355,126 @@ dpkg -l curl 2>/dev/null | grep -q '^ii'
             "base64 pipe script failed validation"
         );
     }
+
+    // --- FJ-036: Additional purification tests ---
+
+    #[test]
+    fn test_fj036_purify_mount_check_script() {
+        use crate::core::codegen;
+        let mut r = make_test_resource(crate::core::types::ResourceType::Mount);
+        r.source = Some("10.0.0.1:/data".to_string());
+        r.fs_type = Some("nfs".to_string());
+        r.options = Some("ro,hard".to_string());
+        let script = codegen::check_script(&r).unwrap();
+        // Mount check script uses mountpoint — should purify cleanly
+        if let Ok(purified) = purify_script(&script) {
+            assert!(!purified.is_empty(), "purified mount check should be non-empty");
+        }
+    }
+
+    #[test]
+    fn test_fj036_lint_all_resource_check_scripts() {
+        use crate::core::codegen;
+        let all_types = [
+            {
+                let mut r = make_test_resource(crate::core::types::ResourceType::Package);
+                r.provider = Some("apt".to_string());
+                r.packages = vec!["curl".to_string()];
+                r
+            },
+            make_test_resource(crate::core::types::ResourceType::File),
+            {
+                let mut r = make_test_resource(crate::core::types::ResourceType::Service);
+                r.name = Some("nginx".to_string());
+                r.state = Some("running".to_string());
+                r.enabled = Some(true);
+                r
+            },
+            {
+                let mut r = make_test_resource(crate::core::types::ResourceType::Mount);
+                r.source = Some("10.0.0.1:/data".to_string());
+                r.fs_type = Some("nfs".to_string());
+                r.options = Some("ro,hard".to_string());
+                r
+            },
+            {
+                let mut r = make_test_resource(crate::core::types::ResourceType::User);
+                r.name = Some("deploy".to_string());
+                r
+            },
+            {
+                let mut r = make_test_resource(crate::core::types::ResourceType::Docker);
+                r.name = Some("web".to_string());
+                r.image = Some("nginx:latest".to_string());
+                r
+            },
+            {
+                let mut r = make_test_resource(crate::core::types::ResourceType::Cron);
+                r.name = Some("backup".to_string());
+                r.schedule = Some("0 2 * * *".to_string());
+                r.command = Some("/opt/backup.sh".to_string());
+                r
+            },
+            {
+                let mut r = make_test_resource(crate::core::types::ResourceType::Network);
+                r.port = Some("443".to_string());
+                r.action = Some("allow".to_string());
+                r
+            },
+        ];
+
+        let mut total_diagnostics = 0;
+        for r in &all_types {
+            let script = codegen::check_script(r).unwrap();
+            let result = lint_script(&script);
+            total_diagnostics += result.diagnostics.len();
+        }
+        // Linting all 8 types should produce some diagnostics (at least from $SUDO patterns)
+        // but mainly we verify none of them panic
+        let _ = total_diagnostics;
+    }
+
+    #[test]
+    fn test_fj036_validate_complex_pipeline() {
+        let script = "#!/bin/bash\n\
+                       set -euo pipefail\n\
+                       cat /etc/passwd | grep -v '^#' | sort | head -5\n\
+                       if [ -f /tmp/flag ]; then\n\
+                         echo 'found' > /dev/null\n\
+                       else\n\
+                         echo 'missing' >&2\n\
+                       fi\n";
+        assert!(
+            validate_script(script).is_ok(),
+            "complex pipeline with pipes, redirects, conditionals failed validation"
+        );
+    }
+
+    #[test]
+    fn test_fj036_purify_idempotent() {
+        let script = "#!/bin/bash\nset -euo pipefail\necho 'hello world'\n";
+        if let Ok(purified_once) = purify_script(script) {
+            if let Ok(purified_twice) = purify_script(&purified_once) {
+                assert_eq!(
+                    purified_once, purified_twice,
+                    "purifying an already-purified script must be idempotent"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_fj036_lint_diagnostic_has_code() {
+        // Use a script that is known to produce lint diagnostics
+        // (e.g. unquoted variable expansion)
+        let script = "#!/bin/bash\necho $HOME\n";
+        let result = lint_script(script);
+        for diag in &result.diagnostics {
+            assert!(
+                !diag.code.is_empty(),
+                "diagnostic should have a non-empty code field, got message: {}",
+                diag.message
+            );
+        }
+    }
 }

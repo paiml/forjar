@@ -567,4 +567,37 @@ mod tests {
             "cargo absent should be unsupported"
         );
     }
+
+    // --- FJ-036: Additional package tests ---
+
+    #[test]
+    fn test_fj036_package_cargo_install_with_version() {
+        let mut r = make_apt_resource(&["ripgrep"]);
+        r.provider = Some("cargo".to_string());
+        r.version = Some("14.1.0".to_string());
+        let script = apply_script(&r);
+        assert!(
+            script.contains("cargo install --force 'ripgrep@14.1.0'"),
+            "cargo install with version must use @version syntax: {script}"
+        );
+    }
+
+    #[test]
+    fn test_fj036_package_uv_install() {
+        let mut r = make_apt_resource(&["ruff", "black"]);
+        r.provider = Some("uv".to_string());
+        let script = apply_script(&r);
+        assert!(
+            script.contains("uv tool install --force 'ruff'"),
+            "uv provider must generate uv tool install: {script}"
+        );
+        assert!(
+            script.contains("uv tool install --force 'black'"),
+            "uv provider must install all packages: {script}"
+        );
+        assert!(
+            script.contains("set -euo pipefail"),
+            "uv install must start with safety flags: {script}"
+        );
+    }
 }

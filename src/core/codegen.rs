@@ -767,4 +767,51 @@ mod tests {
         assert!(apply_script(&r).is_err());
         assert!(state_query_script(&r).is_err());
     }
+
+    // --- FJ-036: Additional codegen tests ---
+
+    #[test]
+    fn test_fj036_check_script_user_contains_name() {
+        let mut r = make_package();
+        r.resource_type = ResourceType::User;
+        r.name = Some("operator".to_string());
+        let script = check_script(&r).unwrap();
+        assert!(
+            script.contains("operator"),
+            "user check script must reference the username 'operator': {script}"
+        );
+    }
+
+    #[test]
+    fn test_fj036_apply_docker_volumes_escaped() {
+        let mut r = make_package();
+        r.resource_type = ResourceType::Docker;
+        r.name = Some("db".to_string());
+        r.image = Some("postgres:15".to_string());
+        r.volumes = vec![
+            "/host/path with spaces:/container/data".to_string(),
+            "/var/log:/logs".to_string(),
+        ];
+        let script = apply_script(&r).unwrap();
+        // Volumes must be single-quoted to prevent shell word splitting
+        assert!(
+            script.contains("-v '/host/path with spaces:/container/data'"),
+            "volume with spaces must be properly quoted: {script}"
+        );
+        assert!(
+            script.contains("-v '/var/log:/logs'"),
+            "second volume must be properly quoted: {script}"
+        );
+    }
+
+    #[test]
+    fn test_fj036_state_query_mount_contains_findmnt() {
+        let mut r = make_mount();
+        r.path = Some("/mnt/nfs-share".to_string());
+        let script = state_query_script(&r).unwrap();
+        assert!(
+            script.contains("findmnt"),
+            "mount state_query must use findmnt to query mount details: {script}"
+        );
+    }
 }

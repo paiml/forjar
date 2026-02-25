@@ -482,6 +482,191 @@ ls /tmp/audit/
 
 Every script is a plain shell file — no hidden behavior.
 
+## bashrs Purification Overview
+
+Forjar does not blindly execute shell commands. Every generated script passes through
+[bashrs](https://crates.io/crates/bashrs), a Rust-native shell analysis library that
+parses, lints, and optionally rewrites shell code before it reaches any machine.
+
+### Why Shell Safety Matters
+
+Configuration management tools generate shell scripts from user-supplied YAML. Without
+validation, a mistyped path, an unquoted variable, or a missing error guard can cause
+silent data loss or partial convergence. bashrs closes that gap by treating generated
+shell as untrusted input and proving it safe before execution.
+
+### Three Levels of Safety
+
+Forjar's purifier (`src/core/purifier.rs`) exposes three functions, each stricter than
+the last:
+
+| Function | What It Does | When It Fails |
+|----------|-------------|---------------|
+| `validate_script()` | Runs the bashrs linter; fails on Error-severity diagnostics only | Syntax errors, unsafe constructs |
+| `lint_script()` | Full linter pass; returns all diagnostics (errors and warnings) | Never fails -- returns a diagnostic list |
+| `purify_script()` | Parse to AST, purify (quoting, injection prevention), reformat, then validate | Parse failures, purification errors, post-purification lint errors |
+
+During `forjar apply`, every check, apply, and state_query script is validated through
+`validate_script()` before being piped to the target machine. If validation fails, the
+resource is marked as failed and execution halts (Jidoka).
+
+### Running `forjar lint` for Script Diagnostics
+
+The `forjar lint` command runs all standard config checks *and* generates every
+resource's shell scripts, feeding each through the bashrs linter:
+
+```bash
+forjar lint -f forjar.yaml
+```
+
+Sample output:
+
+```
+  warn: bashrs: base-packages/apply [SC2086] Double quote to prevent globbing
+  warn: bashrs: base-packages/apply [SC2059] Use %s with printf
+  warn: bashrs script lint: 0 error(s), 2 warning(s) across 3 resources
+No lint errors found.
+```
+
+Warnings are informational -- they do not block apply. Errors are blockers. To get
+machine-readable output, pass `--json`:
+
+```bash
+forjar lint -f forjar.yaml --json
+```
+
+This produces a JSON object with a `warnings` array and a `warnings_count` field,
+suitable for CI integration.
+
+### Inspecting Purified Output
+
+To see what bashrs does to a generated script, audit the scripts first, then run them
+through the purifier example:
+
+```bash
+# 1. Write generated scripts to disk
+forjar plan -f forjar.yaml --output-dir /tmp/audit/
+
+# 2. Inspect a specific script
+cat /tmp/audit/web-server/base-packages.apply.sh
+```
+
+The generated script will already begin with `set -euo pipefail` and include the
+`SUDO` auto-detection preamble. bashrs validates that these guards are syntactically
+correct and that no downstream commands bypass them.
+
+## First Drift Detection
+
+After your first successful `forjar apply`, you have a lock file recording what was
+applied. This walkthrough shows how drift detection catches unauthorized changes.
+
+### Step 1: Start with a Clean Apply
+
+Apply your config to establish the baseline:
+
+```bash
+forjar apply -f forjar.yaml --state-dir state/
+```
+
+Confirm everything is converged:
+
+```bash
+forjar status --state-dir state/
+```
+
+At this point, the lock file in `state/{machine}/state.lock.yaml` contains a BLAKE3
+hash of every managed resource's desired state.
+
+### Step 2: Simulate a Manual Change
+
+Suppose someone edits a managed file directly on the target machine. For a local or
+container test, you can simulate this:
+
+```bash
+# If using container transport:
+docker exec test-box sh -c 'echo "rogue line" >> /etc/nginx/sites-enabled/mysite'
+
+# If using local transport (managing localhost):
+echo "rogue line" >> /etc/nginx/sites-enabled/mysite
+```
+
+This modifies a file that forjar manages, without going through `forjar apply`.
+
+### Step 3: Run Drift Detection
+
+```bash
+forjar drift -f forjar.yaml --state-dir state/
+```
+
+Output:
+
+```
+DRIFT DETECTED: 1 finding(s)
+
+web-server:
+  site-config (file):
+    expected: blake3:7f83b1657ff1fc53b...
+    actual:   blake3:a9c4e2d18f03bb7e1...
+    path: /etc/nginx/sites-enabled/mysite
+
+Summary: 1 drifted, 2 unchanged.
+```
+
+Forjar re-reads the file on the target machine, computes a fresh BLAKE3 hash, and
+compares it to the hash stored in the lock file. The mismatch is reported with both
+hashes so you can audit exactly what changed.
+
+### Step 4: Understand the Report
+
+Each drift finding includes:
+
+| Field | Meaning |
+|-------|---------|
+| **Resource ID** | The resource name from your config (e.g., `site-config`) |
+| **Type** | Resource type (`file`, `service`, `package`, etc.) |
+| **Expected hash** | BLAKE3 hash recorded during the last successful apply |
+| **Actual hash** | BLAKE3 hash computed from the live machine state |
+| **Details** | Resource-specific context (file path, service name, etc.) |
+
+For non-file resources (packages, services, mounts), forjar re-runs the
+`state_query_script` on the machine and hashes its output. If someone manually stopped
+a service or removed a package, the query output will differ from the stored hash.
+
+### Step 5: Resolve the Drift
+
+You have two options:
+
+**Option A: Re-apply to restore desired state**
+
+```bash
+forjar apply -f forjar.yaml --state-dir state/
+```
+
+This overwrites the manual change with the declared desired state. The lock file hash
+is updated to match.
+
+**Option B: Accept the change and update config**
+
+If the manual change was intentional, update `forjar.yaml` to reflect the new desired
+state, then apply:
+
+```bash
+$EDITOR forjar.yaml   # update the resource definition
+forjar apply -f forjar.yaml --state-dir state/
+```
+
+### Step 6: Automate with Tripwire Mode
+
+For CI or cron-based monitoring, use `--tripwire` to exit non-zero when drift is
+found:
+
+```bash
+forjar drift -f forjar.yaml --state-dir state/ --tripwire
+echo $?   # 0 = no drift, 1 = drift detected
+```
+
+This integrates into any CI pipeline or monitoring system that checks exit codes.
+
 ## Local Development Workflow
 
 A typical development cycle:

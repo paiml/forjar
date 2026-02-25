@@ -805,3 +805,495 @@ inputs:
 ```
 
 Use inputs to handle environment differences, not separate recipe files.
+
+## Recipe Testing with bashrs
+
+Every resource forjar manages produces shell scripts (check, apply, state_query). When
+those resources originate from a recipe, the generated scripts carry the same shell
+safety requirements as any other resource. bashrs validates recipe-generated scripts
+through the same purification pipeline described in the architecture chapter.
+
+### Why Recipe Scripts Need Validation
+
+Recipes introduce an extra layer of template expansion. A recipe's `{{inputs.X}}`
+values are injected into shell script templates before execution. If an input contains
+shell metacharacters, whitespace, or unexpected values, the resulting script could
+break or behave unsafely. bashrs catches these problems statically.
+
+### Validating Recipe Scripts with `forjar lint`
+
+The `forjar lint` command generates scripts for all resources -- including expanded
+recipe resources -- and passes each through the bashrs linter:
+
+```bash
+forjar lint -f forjar.yaml
+```
+
+Sample output for a config using the `web-server` recipe:
+
+```
+  warn: bashrs: web/nginx-pkg/apply [SC2086] Double quote to prevent globbing
+  warn: bashrs: web/site-config/apply [SC2059] Use %s with printf
+  warn: bashrs script lint: 0 error(s), 2 warning(s) across 3 resources
+No lint errors found.
+```
+
+The resource IDs in the output use the namespaced form (`web/nginx-pkg`,
+`web/site-config`) so you can trace each diagnostic back to the recipe resource that
+produced it.
+
+### Auditing Expanded Scripts
+
+Write the generated scripts to disk for manual review:
+
+```bash
+forjar plan -f forjar.yaml --output-dir /tmp/audit/
+ls /tmp/audit/web-server/
+```
+
+Output:
+
+```
+web/nginx-pkg.check.sh
+web/nginx-pkg.apply.sh
+web/nginx-pkg.state_query.sh
+web/site-config.check.sh
+web/site-config.apply.sh
+web/site-config.state_query.sh
+web/nginx-svc.check.sh
+web/nginx-svc.apply.sh
+web/nginx-svc.state_query.sh
+```
+
+Each script is a standalone shell file. Open any of them to see exactly what would
+execute on the target machine after recipe expansion and template resolution.
+
+### The Purification Pipeline for Recipe Scripts
+
+When `forjar apply` runs, recipe-generated scripts pass through this pipeline:
+
+```
+1. Recipe expansion     — {{inputs.X}} resolved from caller's inputs block
+2. Template resolution  — {{params.X}}, {{secrets.X}} resolved from config
+3. Script generation    — codegen produces check/apply/state_query shell
+4. bashrs validation    — validate_script() checks for Error-severity issues
+5. Transport execution  — script piped to bash on target machine
+```
+
+If step 4 fails, the resource is marked as failed, execution halts for that machine
+(Jidoka), and the error is recorded in the event log.
+
+### Testing Recipe Inputs for Shell Safety
+
+When writing a recipe, test it with edge-case inputs to verify that the generated
+scripts remain valid shell:
+
+```yaml
+# test-edge-cases.yaml
+version: "1.0"
+name: recipe-edge-test
+machines:
+  test:
+    hostname: test
+    addr: container
+    transport: container
+    container:
+      runtime: docker
+      image: ubuntu:22.04
+      ephemeral: true
+
+resources:
+  # Test with spaces in domain (should produce valid shell)
+  edge-web:
+    type: recipe
+    machine: test
+    recipe: web-server
+    inputs:
+      domain: "my site.example.com"
+      port: 8080
+      log_level: debug
+```
+
+Run lint to check whether the expanded scripts handle the space correctly:
+
+```bash
+forjar lint -f test-edge-cases.yaml
+```
+
+If bashrs reports errors, the recipe's template needs quoting fixes in its resource
+definitions. For example, ensure file paths in the recipe use single-quoted heredocs
+rather than unquoted variable expansion.
+
+### CI Integration for Recipe Script Validation
+
+Add bashrs validation to your recipe CI pipeline:
+
+```yaml
+# .github/workflows/recipe-lint.yml
+name: Recipe Script Lint
+on: [pull_request]
+jobs:
+  lint-recipes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build forjar
+        run: cargo build --release
+      - name: Lint all configs (includes bashrs script checks)
+        run: |
+          for config in examples/*.yaml; do
+            echo "Linting $config..."
+            ./target/release/forjar lint -f "$config" --json | \
+              jq -e '.warnings_count == 0' || echo "WARN: $config has lint findings"
+          done
+      - name: Fail on script errors
+        run: |
+          for config in examples/*.yaml; do
+            # --json output includes bashrs diagnostics
+            errors=$(./target/release/forjar lint -f "$config" --json | \
+              jq '.warnings | map(select(startswith("bashrs") and contains("Error"))) | length')
+            if [ "$errors" -gt 0 ]; then
+              echo "ERROR: $config has $errors bashrs errors"
+              exit 1
+            fi
+          done
+```
+
+This catches recipe script problems before they reach production machines.
+
+## Recipe Composition Patterns
+
+Recipes become powerful when composed together to build complete infrastructure stacks.
+This section covers patterns for combining multiple recipes into cohesive deployments.
+
+### Pattern 1: Web Stack (Package + Config + Service)
+
+The most common composition is a web application stack built from three focused
+recipes:
+
+```yaml
+# recipes/base-packages.yaml
+recipe:
+  name: base-packages
+  version: "1.0"
+  description: "Common packages for all machines"
+  inputs:
+    extras:
+      type: string
+      default: ""
+      description: "Space-separated list of additional packages"
+
+resources:
+  core:
+    type: package
+    provider: apt
+    packages: [curl, jq, htop, unzip]
+```
+
+```yaml
+# recipes/nginx-site.yaml
+recipe:
+  name: nginx-site
+  version: "1.0"
+  description: "Nginx virtual host with optional SSL"
+  inputs:
+    domain:
+      type: string
+    port:
+      type: int
+      default: 80
+    upstream_port:
+      type: int
+      default: 8080
+
+resources:
+  nginx-pkg:
+    type: package
+    provider: apt
+    packages: [nginx]
+
+  site-config:
+    type: file
+    path: "/etc/nginx/sites-enabled/{{inputs.domain}}"
+    content: |
+      upstream app {
+        server 127.0.0.1:{{inputs.upstream_port}};
+      }
+      server {
+        listen {{inputs.port}};
+        server_name {{inputs.domain}};
+        location / { proxy_pass http://app; }
+      }
+    owner: root
+    mode: "0644"
+    depends_on: [nginx-pkg]
+
+  nginx-svc:
+    type: service
+    name: nginx
+    state: running
+    enabled: true
+    restart_on: [site-config]
+    depends_on: [site-config]
+```
+
+```yaml
+# recipes/app-service.yaml
+recipe:
+  name: app-service
+  version: "1.0"
+  description: "Systemd-managed application service"
+  inputs:
+    app_name:
+      type: string
+    app_port:
+      type: int
+      default: 8080
+    app_binary:
+      type: path
+      default: /usr/local/bin/app
+
+resources:
+  app-dir:
+    type: file
+    state: directory
+    path: "/opt/{{inputs.app_name}}"
+    mode: "0755"
+
+  unit-file:
+    type: file
+    path: "/etc/systemd/system/{{inputs.app_name}}.service"
+    content: |
+      [Unit]
+      Description={{inputs.app_name}}
+      After=network.target
+
+      [Service]
+      ExecStart={{inputs.app_binary}} --port {{inputs.app_port}}
+      WorkingDirectory=/opt/{{inputs.app_name}}
+      Restart=on-failure
+
+      [Install]
+      WantedBy=multi-user.target
+    owner: root
+    mode: "0644"
+    depends_on: [app-dir]
+
+  app-svc:
+    type: service
+    name: "{{inputs.app_name}}"
+    state: running
+    enabled: true
+    restart_on: [unit-file]
+    depends_on: [unit-file]
+```
+
+Compose them in `forjar.yaml`:
+
+```yaml
+version: "1.0"
+name: web-stack
+machines:
+  web1:
+    hostname: web1
+    addr: 10.0.0.1
+    user: deploy
+    ssh_key: ~/.ssh/id_ed25519
+
+resources:
+  base:
+    type: recipe
+    machine: web1
+    recipe: base-packages
+    inputs: {}
+
+  app:
+    type: recipe
+    machine: web1
+    recipe: app-service
+    depends_on: [base]
+    inputs:
+      app_name: myapi
+      app_port: 3000
+      app_binary: /usr/local/bin/myapi
+
+  frontend:
+    type: recipe
+    machine: web1
+    recipe: nginx-site
+    depends_on: [app]
+    inputs:
+      domain: api.example.com
+      port: 80
+      upstream_port: 3000
+```
+
+The resulting DAG:
+
+```
+base/core
+  |
+  v
+app/app-dir -> app/unit-file -> app/app-svc
+                                     |
+                                     v
+                          frontend/nginx-pkg -> frontend/site-config -> frontend/nginx-svc
+```
+
+The `depends_on` on each recipe resource creates a sequential chain: base packages
+install first, then the application deploys, then nginx configures itself as a reverse
+proxy.
+
+### Pattern 2: Layered Infrastructure (Base + Role + App)
+
+Separate concerns into layers that apply in order:
+
+```yaml
+version: "1.0"
+name: production
+machines:
+  web1: { hostname: web1, addr: 10.0.0.1, user: deploy }
+  web2: { hostname: web2, addr: 10.0.0.2, user: deploy }
+  db1:  { hostname: db1,  addr: 10.0.0.3, user: deploy }
+
+resources:
+  # Layer 1: Base (all machines)
+  web1-base:
+    type: recipe
+    machine: web1
+    recipe: base-packages
+    inputs: {}
+  web2-base:
+    type: recipe
+    machine: web2
+    recipe: base-packages
+    inputs: {}
+  db1-base:
+    type: recipe
+    machine: db1
+    recipe: base-packages
+    inputs: {}
+
+  # Layer 2: Role-specific recipes
+  web1-nginx:
+    type: recipe
+    machine: web1
+    recipe: nginx-site
+    depends_on: [web1-base]
+    inputs:
+      domain: www.example.com
+      upstream_port: 3000
+  web2-nginx:
+    type: recipe
+    machine: web2
+    recipe: nginx-site
+    depends_on: [web2-base]
+    inputs:
+      domain: www.example.com
+      upstream_port: 3000
+
+  # Layer 3: Application-specific resources
+  web1-app:
+    type: recipe
+    machine: web1
+    recipe: app-service
+    depends_on: [web1-nginx]
+    inputs:
+      app_name: frontend
+      app_port: 3000
+  web2-app:
+    type: recipe
+    machine: web2
+    recipe: app-service
+    depends_on: [web2-nginx]
+    inputs:
+      app_name: frontend
+      app_port: 3000
+```
+
+Each layer depends on the one below it. The base recipe runs on every machine. The
+role recipe (nginx) runs only on web servers. The app recipe runs last.
+
+### Pattern 3: Sidecar Composition (App + Monitoring + Logging)
+
+Attach cross-cutting concerns as sibling recipes that share a common base dependency:
+
+```yaml
+resources:
+  base:
+    type: recipe
+    machine: web1
+    recipe: base-packages
+    inputs: {}
+
+  app:
+    type: recipe
+    machine: web1
+    recipe: app-service
+    depends_on: [base]
+    inputs:
+      app_name: myapi
+      app_port: 3000
+
+  monitoring:
+    type: recipe
+    machine: web1
+    recipe: monitoring
+    depends_on: [base]
+    inputs:
+      metrics_port: 9100
+
+  logging:
+    type: recipe
+    machine: web1
+    recipe: logging
+    depends_on: [base]
+    inputs:
+      log_path: /var/log/myapi
+      retention_days: 14
+```
+
+The dependency graph is wide, not deep:
+
+```
+        base/core
+       /    |    \
+      v     v     v
+    app  monitoring  logging
+```
+
+The app, monitoring, and logging recipes all depend on `base` but not on each other.
+This is the preferred structure: it enables future parallel execution and keeps each
+recipe independently testable.
+
+### Composition Guidelines
+
+| Guideline | Rationale |
+|-----------|-----------|
+| Use `depends_on` on recipe resources to define inter-recipe ordering | External deps are injected into the first expanded resource |
+| Keep recipes independent when possible | Wide DAGs are faster and easier to debug than deep chains |
+| One recipe per concern (packages, config, service) | Smaller recipes compose more flexibly than monolithic ones |
+| Use consistent input naming across recipes | `app_name`, `port`, `domain` reappearing across recipes reduces cognitive load |
+| Test composed stacks with container transport | Validates the full expansion and dependency chain before production |
+
+### Verifying Composition
+
+After composing recipes, verify the expanded dependency graph:
+
+```bash
+# Visualize the full DAG (Mermaid format)
+forjar graph -f forjar.yaml
+
+# Validate all recipe inputs and expansions
+forjar validate -f forjar.yaml
+
+# Preview the plan to see resource ordering
+forjar plan -f forjar.yaml --state-dir state/
+
+# Lint all generated scripts (includes bashrs checks)
+forjar lint -f forjar.yaml
+```
+
+The graph command is particularly useful for composed stacks. It shows every expanded
+resource and its dependency edges, making it straightforward to verify that the
+execution order matches your intent.
