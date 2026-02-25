@@ -1,14 +1,27 @@
-//! FJ-008: Systemd service resource handler.
+//! FJ-008/081: Systemd service resource handler.
+//!
+//! Generates shell scripts for systemd service management.
+//! Includes runtime systemd detection (FJ-081) — gracefully skips
+//! when systemctl is unavailable (e.g. inside containers without systemd).
 
 use crate::core::types::Resource;
+
+/// Shell preamble that detects systemd availability.
+/// If systemctl is not found, prints a warning and exits 0 (skip).
+const SYSTEMD_GUARD: &str = "\
+if ! command -v systemctl >/dev/null 2>&1; then\n  \
+  echo 'FORJAR_WARN: systemctl not found — skipping service resource (no systemd)'\n  \
+  exit 0\n\
+fi";
 
 /// Generate shell to check service state.
 pub fn check_script(resource: &Resource) -> String {
     let name = resource.name.as_deref().unwrap_or("unknown");
     format!(
-        "systemctl is-active '{}' 2>/dev/null && echo 'active:{}' || echo 'inactive:{}'\n\
+        "{}\n\
+         systemctl is-active '{}' 2>/dev/null && echo 'active:{}' || echo 'inactive:{}'\n\
          systemctl is-enabled '{}' 2>/dev/null && echo 'enabled:{}' || echo 'disabled:{}'",
-        name, name, name, name, name, name
+        SYSTEMD_GUARD, name, name, name, name, name, name
     )
 }
 
@@ -18,7 +31,10 @@ pub fn apply_script(resource: &Resource) -> String {
     let state = resource.state.as_deref().unwrap_or("running");
     let enabled = resource.enabled.unwrap_or(true);
 
-    let mut lines = vec!["set -euo pipefail".to_string()];
+    let mut lines = vec![
+        "set -euo pipefail".to_string(),
+        SYSTEMD_GUARD.to_string(),
+    ];
 
     match state {
         "running" => {
@@ -60,9 +76,10 @@ pub fn apply_script(resource: &Resource) -> String {
 pub fn state_query_script(resource: &Resource) -> String {
     let name = resource.name.as_deref().unwrap_or("unknown");
     format!(
-        "echo \"active=$(systemctl is-active '{}' 2>/dev/null || echo 'unknown')\"\n\
+        "{}\n\
+         echo \"active=$(systemctl is-active '{}' 2>/dev/null || echo 'unknown')\"\n\
          echo \"enabled=$(systemctl is-enabled '{}' 2>/dev/null || echo 'unknown')\"",
-        name, name
+        SYSTEMD_GUARD, name, name
     )
 }
 
@@ -122,6 +139,7 @@ mod tests {
         let script = check_script(&r);
         assert!(script.contains("systemctl is-active 'nfs-kernel-server'"));
         assert!(script.contains("systemctl is-enabled 'nfs-kernel-server'"));
+        assert!(script.contains("command -v systemctl"), "must include systemd guard");
     }
 
     #[test]
@@ -161,5 +179,24 @@ mod tests {
         let script = state_query_script(&r);
         assert!(script.contains("systemctl is-active 'nginx'"));
         assert!(script.contains("systemctl is-enabled 'nginx'"));
+        assert!(script.contains("command -v systemctl"), "must include systemd guard");
+    }
+
+    /// FJ-081: Verify all service scripts include systemd detection guard.
+    #[test]
+    fn test_fj081_systemd_guard_in_all_scripts() {
+        let r = make_service_resource("test-svc", "running");
+
+        let check = check_script(&r);
+        assert!(check.contains("FORJAR_WARN: systemctl not found"));
+        assert!(check.contains("exit 0"));
+
+        let apply = apply_script(&r);
+        assert!(apply.contains("FORJAR_WARN: systemctl not found"));
+        assert!(apply.contains("exit 0"));
+
+        let query = state_query_script(&r);
+        assert!(query.contains("FORJAR_WARN: systemctl not found"));
+        assert!(query.contains("exit 0"));
     }
 }

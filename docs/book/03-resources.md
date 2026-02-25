@@ -133,7 +133,7 @@ Removes the file or directory with `rm -rf`.
 
 ## Service
 
-Manage systemd services.
+Manage systemd services. Includes automatic systemd detection — if `systemctl` is not available (e.g. inside containers without systemd), service resources are gracefully skipped with a warning rather than failing.
 
 ```yaml
 resources:
