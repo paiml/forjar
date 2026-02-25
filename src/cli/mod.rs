@@ -279,6 +279,17 @@ pub enum Commands {
         #[arg(long)]
         check: bool,
     },
+
+    /// Lint config for best practices (beyond validation)
+    Lint {
+        /// Path to forjar.yaml
+        #[arg(short, long, default_value = "forjar.yaml")]
+        file: PathBuf,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 /// Dispatch a CLI command.
@@ -395,12 +406,107 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             verbose,
         ),
         Commands::Fmt { file, check } => cmd_fmt(&file, check),
+        Commands::Lint { file, json } => cmd_lint(&file, json),
     }
 }
 
+fn cmd_lint(file: &Path, json: bool) -> Result<(), String> {
+    let config = parse_and_validate(file)?;
+
+    let mut warnings: Vec<String> = Vec::new();
+
+    // 1. Unused machines (defined but not referenced by any resource)
+    let mut referenced_machines = std::collections::HashSet::new();
+    for resource in config.resources.values() {
+        for m in resource.machine.to_vec() {
+            referenced_machines.insert(m);
+        }
+    }
+    for machine_name in config.machines.keys() {
+        if !referenced_machines.contains(machine_name) {
+            warnings.push(format!(
+                "machine '{}' is defined but not referenced by any resource",
+                machine_name
+            ));
+        }
+    }
+
+    // 2. Resources without tags (harder to filter selectively)
+    let mut untagged = 0usize;
+    for (id, resource) in &config.resources {
+        if resource.tags.is_empty() {
+            untagged += 1;
+            if config.resources.len() > 3 {
+                warnings.push(format!("resource '{}' has no tags", id));
+            }
+        }
+    }
+    if untagged > 0 && config.resources.len() > 3 && untagged == config.resources.len() {
+        // Deduplicate: replace individual warnings with a summary
+        warnings.retain(|w| !w.starts_with("resource '") || !w.ends_with("has no tags"));
+        warnings.push(format!("all {} resources have no tags — consider adding tags for selective filtering", untagged));
+    }
+
+    // 3. Duplicate content across file resources
+    let mut content_map: std::collections::HashMap<&str, Vec<&str>> = std::collections::HashMap::new();
+    for (id, resource) in &config.resources {
+        if let Some(ref content) = resource.content {
+            content_map.entry(content.as_str()).or_default().push(id.as_str());
+        }
+    }
+    for ids in content_map.values() {
+        if ids.len() > 1 {
+            warnings.push(format!(
+                "resources {} have identical content — consider using a recipe or template",
+                ids.join(", ")
+            ));
+        }
+    }
+
+    // 4. Resources with depends_on referencing non-existent resources
+    for (id, resource) in &config.resources {
+        for dep in &resource.depends_on {
+            if !config.resources.contains_key(dep) {
+                warnings.push(format!(
+                    "resource '{}' depends on '{}' which does not exist",
+                    id, dep
+                ));
+            }
+        }
+    }
+
+    // 5. Empty packages list for package resources
+    for (id, resource) in &config.resources {
+        if resource.resource_type == types::ResourceType::Package && resource.packages.is_empty() {
+            warnings.push(format!("package resource '{}' has no packages listed", id));
+        }
+    }
+
+    // Output
+    if json {
+        let report = serde_json::json!({
+            "warnings": warnings.len(),
+            "findings": warnings,
+        });
+        let output =
+            serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {}", e))?;
+        println!("{}", output);
+    } else if warnings.is_empty() {
+        println!("No lint warnings found.");
+    } else {
+        for w in &warnings {
+            println!("  warn: {}", w);
+        }
+        println!();
+        println!("Lint: {} warning(s)", warnings.len());
+    }
+
+    Ok(())
+}
+
 fn cmd_fmt(file: &Path, check: bool) -> Result<(), String> {
-    let original =
-        std::fs::read_to_string(file).map_err(|e| format!("cannot read {}: {}", file.display(), e))?;
+    let original = std::fs::read_to_string(file)
+        .map_err(|e| format!("cannot read {}: {}", file.display(), e))?;
 
     // Parse into ForjarConfig to validate + normalize
     let config: types::ForjarConfig =
@@ -4132,5 +4238,87 @@ resources:
         let after_second = std::fs::read_to_string(&file).unwrap();
 
         assert_eq!(after_first, after_second);
+    }
+
+    #[test]
+    fn test_lint_unused_machine() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("test.yaml");
+        std::fs::write(
+            &file,
+            r#"version: "1.0"
+name: lint-test
+machines:
+  used:
+    hostname: used
+    addr: 127.0.0.1
+  unused:
+    hostname: unused
+    addr: 10.0.0.1
+resources:
+  f:
+    type: file
+    machine: used
+    path: /tmp/test
+    content: hello
+"#,
+        )
+        .unwrap();
+
+        // Lint should succeed but print warnings (it returns Ok)
+        cmd_lint(&file, false).unwrap();
+    }
+
+    #[test]
+    fn test_lint_json_output() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("test.yaml");
+        std::fs::write(
+            &file,
+            r#"version: "1.0"
+name: lint-json
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+  orphan:
+    hostname: orphan
+    addr: 10.0.0.2
+resources:
+  f:
+    type: file
+    machine: m
+    path: /tmp/test
+    content: hello
+"#,
+        )
+        .unwrap();
+
+        cmd_lint(&file, true).unwrap();
+    }
+
+    #[test]
+    fn test_lint_clean_config() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("test.yaml");
+        std::fs::write(
+            &file,
+            r#"version: "1.0"
+name: clean
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+resources:
+  f:
+    type: file
+    machine: m
+    path: /tmp/test
+    content: hello
+"#,
+        )
+        .unwrap();
+
+        cmd_lint(&file, false).unwrap();
     }
 }

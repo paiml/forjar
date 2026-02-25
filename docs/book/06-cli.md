@@ -328,6 +328,34 @@ forjar fmt -f forjar.yaml --check
 
 Parses the YAML, validates it, and re-serializes in canonical format. Idempotent — running twice produces the same output. Use `--check` in CI to enforce consistent formatting.
 
+### `forjar lint`
+
+Check config for best practice warnings beyond basic validation.
+
+```bash
+forjar lint -f <FILE> [--json]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-f, --file` | `forjar.yaml` | Config file path |
+| `--json` | false | Output as JSON |
+
+Detects:
+- Unused machines (defined but not referenced by any resource)
+- Resources without tags (when config has many resources)
+- Duplicate content across file resources
+- Dependencies on non-existent resources
+- Package resources with empty package lists
+
+```bash
+# Lint a config file
+forjar lint -f forjar.yaml
+
+# JSON output for CI
+forjar lint -f forjar.yaml --json
+```
+
 ## Exit Codes
 
 | Code | Meaning |
