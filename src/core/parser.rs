@@ -2234,9 +2234,7 @@ resources:
         let config = parse_config(yaml).unwrap();
         let errors = validate_config(&config);
         assert!(
-            !errors
-                .iter()
-                .any(|e| e.message.contains("unknown machine")),
+            !errors.iter().any(|e| e.message.contains("unknown machine")),
             "'localhost' should be accepted without being in machines map"
         );
     }

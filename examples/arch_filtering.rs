@@ -65,7 +65,12 @@ resources:
     let config = parser::parse_config(yaml).expect("parse failed");
     let errors = parser::validate_config(&config);
     assert!(errors.is_empty(), "validation errors: {:?}", errors);
-    println!("Config: {} ({} machines, {} resources)", config.name, config.machines.len(), config.resources.len());
+    println!(
+        "Config: {} ({} machines, {} resources)",
+        config.name,
+        config.machines.len(),
+        config.resources.len()
+    );
 
     // Show machine architectures
     println!("\nMachines:");
@@ -111,7 +116,10 @@ resources:
         "\nSummary: {} create, {} update, {} destroy, {} unchanged",
         plan.to_create, plan.to_update, plan.to_destroy, plan.unchanged
     );
-    assert_eq!(plan.to_create, 6, "expected 6 creates (arch filtering skips 2)");
+    assert_eq!(
+        plan.to_create, 6,
+        "expected 6 creates (arch filtering skips 2)"
+    );
 
     println!("\nArch filtering works correctly.");
 }

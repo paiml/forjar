@@ -375,7 +375,11 @@ mod tests {
             cost: 0,
         };
         let err = exec_script_timeout(&machine, "sleep 10", Some(1)).unwrap_err();
-        assert!(err.contains("1s"), "error should include timeout value: {}", err);
+        assert!(
+            err.contains("1s"),
+            "error should include timeout value: {}",
+            err
+        );
     }
 
     #[test]

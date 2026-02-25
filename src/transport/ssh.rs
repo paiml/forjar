@@ -283,10 +283,19 @@ mod tests {
         // Every SSH option must be preceded by -o
         let m = make_machine("10.0.0.1", "root", None);
         let args = build_ssh_args(&m);
-        let option_values = ["BatchMode=yes", "ConnectTimeout=5", "StrictHostKeyChecking=accept-new"];
+        let option_values = [
+            "BatchMode=yes",
+            "ConnectTimeout=5",
+            "StrictHostKeyChecking=accept-new",
+        ];
         for opt in &option_values {
             let pos = args.iter().position(|a| a == opt).unwrap();
-            assert_eq!(args[pos - 1], "-o", "option '{}' must be preceded by -o", opt);
+            assert_eq!(
+                args[pos - 1],
+                "-o",
+                "option '{}' must be preceded by -o",
+                opt
+            );
         }
     }
 
