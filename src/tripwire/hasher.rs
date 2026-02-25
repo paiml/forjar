@@ -294,6 +294,54 @@ mod tests {
         assert_ne!(h1, h2, "directory hash should change when file is added");
     }
 
+    #[test]
+    fn test_fj014_hash_directory_not_found() {
+        let result = hash_directory(Path::new("/nonexistent/directory"));
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("cannot read dir"));
+    }
+
+    #[test]
+    fn test_fj014_hash_file_exact_buffer_size() {
+        // Test file size exactly at STREAM_BUF_SIZE boundary
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("exact.bin");
+        let content = "x".repeat(STREAM_BUF_SIZE);
+        std::fs::write(&path, &content).unwrap();
+        let h = hash_file(&path).unwrap();
+        assert!(h.starts_with("blake3:"));
+        assert_eq!(h.len(), 71);
+    }
+
+    #[test]
+    fn test_fj014_hash_directory_deep_nesting() {
+        let dir = tempfile::tempdir().unwrap();
+        let deep = dir.path().join("a").join("b").join("c");
+        std::fs::create_dir_all(&deep).unwrap();
+        std::fs::write(deep.join("deep.txt"), "deep content").unwrap();
+        let h = hash_directory(dir.path()).unwrap();
+        assert!(h.starts_with("blake3:"));
+        // Hash should differ from empty dir
+        let empty = tempfile::tempdir().unwrap();
+        let h_empty = hash_directory(empty.path()).unwrap();
+        assert_ne!(h, h_empty);
+    }
+
+    #[test]
+    fn test_fj014_composite_hash_deterministic() {
+        let components = &["a", "b", "c"];
+        let h1 = composite_hash(components);
+        let h2 = composite_hash(components);
+        assert_eq!(h1, h2, "composite_hash must be deterministic");
+    }
+
+    #[test]
+    fn test_fj014_hash_string_differs_by_single_char() {
+        let h1 = hash_string("abc");
+        let h2 = hash_string("abd");
+        assert_ne!(h1, h2, "single char difference must produce different hash");
+    }
+
     // ── Falsification tests (BLAKE3 State Contract) ─────────────
 
     proptest! {

@@ -270,6 +270,61 @@ mod tests {
     }
 
     #[test]
+    fn test_fj015_append_drift_detected_event() {
+        let dir = tempfile::tempdir().unwrap();
+        let event = ProvenanceEvent::DriftDetected {
+            machine: "web1".to_string(),
+            resource: "config-file".to_string(),
+            expected_hash: "blake3:aaa".to_string(),
+            actual_hash: "blake3:bbb".to_string(),
+        };
+        append_event(dir.path(), "web1", event).unwrap();
+
+        let content = std::fs::read_to_string(dir.path().join("web1/events.jsonl")).unwrap();
+        assert!(content.contains("drift_detected"));
+        assert!(content.contains("blake3:aaa"));
+        assert!(content.contains("blake3:bbb"));
+    }
+
+    #[test]
+    fn test_fj015_append_creates_nested_dirs() {
+        let dir = tempfile::tempdir().unwrap();
+        // State dir structure: base/machine/events.jsonl
+        // When machine dir doesn't exist, create_dir_all creates it
+        let state_dir = dir.path().join("deep").join("nested").join("state");
+        let event = ProvenanceEvent::ApplyStarted {
+            machine: "m".to_string(),
+            run_id: "r-1".to_string(),
+            forjar_version: "0.1.0".to_string(),
+        };
+        append_event(&state_dir, "m", event).unwrap();
+        assert!(state_dir.join("m/events.jsonl").exists());
+    }
+
+    #[test]
+    fn test_fj015_run_id_hex_format() {
+        let id = generate_run_id();
+        // Format: r-XXXXXXXXXXXX (r- + 12 hex chars)
+        assert!(id.starts_with("r-"));
+        let hex_part = &id[2..];
+        assert_eq!(hex_part.len(), 12);
+        assert!(
+            hex_part.chars().all(|c| c.is_ascii_hexdigit()),
+            "run ID hex part must be valid hex: {}",
+            hex_part
+        );
+    }
+
+    #[test]
+    fn test_fj015_event_log_path_special_chars() {
+        let p = event_log_path(Path::new("/var/lib/forjar/state"), "web-server-01");
+        assert_eq!(
+            p,
+            PathBuf::from("/var/lib/forjar/state/web-server-01/events.jsonl")
+        );
+    }
+
+    #[test]
     fn test_fj015_is_leap() {
         // BH-MUT-0001: Each assertion kills a specific mutation of
         // `(y % 4 == 0 && y % 100 != 0) || y % 400 == 0`
