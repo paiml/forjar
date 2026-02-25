@@ -6142,4 +6142,180 @@ resources: {}
         let result = cmd_validate(&file);
         assert!(result.is_err());
     }
+
+    #[test]
+    fn test_fj132_cmd_graph_mermaid() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("forjar.yaml");
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+resources:
+  pkg:
+    type: package
+    machine: m
+    provider: apt
+    packages: [nginx]
+  conf:
+    type: file
+    machine: m
+    path: /etc/nginx/nginx.conf
+    content: "server {}"
+    depends_on: [pkg]
+"#;
+        std::fs::write(&file, yaml).unwrap();
+        cmd_graph(&file, "mermaid").unwrap();
+    }
+
+    #[test]
+    fn test_fj132_cmd_graph_dot() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("forjar.yaml");
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+resources:
+  pkg:
+    type: package
+    machine: m
+    provider: apt
+    packages: [curl]
+"#;
+        std::fs::write(&file, yaml).unwrap();
+        cmd_graph(&file, "dot").unwrap();
+    }
+
+    #[test]
+    fn test_fj132_cmd_graph_unknown_format() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("forjar.yaml");
+        let yaml = r#"
+version: "1.0"
+name: test
+machines: {}
+resources: {}
+"#;
+        std::fs::write(&file, yaml).unwrap();
+        let result = cmd_graph(&file, "svg");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("unknown graph format"));
+    }
+
+    #[test]
+    fn test_fj132_cmd_show_all_resources() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("forjar.yaml");
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+resources:
+  pkg:
+    type: package
+    machine: m
+    provider: apt
+    packages: [curl]
+"#;
+        std::fs::write(&file, yaml).unwrap();
+        cmd_show(&file, None, false).unwrap();
+    }
+
+    #[test]
+    fn test_fj132_cmd_show_specific_resource() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("forjar.yaml");
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+resources:
+  my-file:
+    type: file
+    machine: m
+    path: /etc/test.conf
+    content: "hello"
+"#;
+        std::fs::write(&file, yaml).unwrap();
+        cmd_show(&file, Some("my-file"), false).unwrap();
+    }
+
+    #[test]
+    fn test_fj132_cmd_show_json_output() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("forjar.yaml");
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+resources:
+  pkg:
+    type: package
+    machine: m
+    provider: apt
+    packages: [git]
+"#;
+        std::fs::write(&file, yaml).unwrap();
+        cmd_show(&file, None, true).unwrap();
+    }
+
+    #[test]
+    fn test_fj132_cmd_show_missing_resource() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("forjar.yaml");
+        let yaml = r#"
+version: "1.0"
+name: test
+machines: {}
+resources: {}
+"#;
+        std::fs::write(&file, yaml).unwrap();
+        let result = cmd_show(&file, Some("nonexistent"), false);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("not found"));
+    }
+
+    #[test]
+    fn test_fj132_cmd_status_empty_state() {
+        let dir = tempfile::tempdir().unwrap();
+        cmd_status(dir.path(), None).unwrap();
+    }
+
+    #[test]
+    fn test_fj132_cmd_lint_valid() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("forjar.yaml");
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+resources:
+  pkg:
+    type: package
+    machine: m
+    provider: apt
+    packages: [curl]
+"#;
+        std::fs::write(&file, yaml).unwrap();
+        cmd_lint(&file, false).unwrap();
+    }
 }
