@@ -389,6 +389,40 @@ forjar rollback -n 3
 forjar rollback -m web-server
 ```
 
+### `forjar anomaly`
+
+Detect anomalous resource behavior from event history.
+
+```bash
+forjar anomaly [--state-dir DIR] [-m MACHINE] [--min-events N] [--json]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--state-dir` | `state` | Directory for lock files |
+| `-m, --machine` | all | Filter to specific machine |
+| `--min-events` | `3` | Minimum events to consider (ignore resources with fewer) |
+| `--json` | false | Output as JSON |
+
+Analyzes event logs to find resources with:
+- **High churn**: Abnormally high converge frequency (z-score > 1.5)
+- **High failure rate**: More than 20% failures (with at least 2 failures)
+- **Drift events**: Any drift detected in history
+
+```bash
+# Check all machines
+forjar anomaly --state-dir state
+
+# Lower threshold for small deployments
+forjar anomaly --min-events 1
+
+# JSON output for CI/monitoring
+forjar anomaly --json
+
+# Filter to specific machine
+forjar anomaly -m web-server
+```
+
 ## Exit Codes
 
 | Code | Meaning |

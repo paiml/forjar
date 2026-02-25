@@ -1217,6 +1217,24 @@ Options:
 
 Reads the previous config from `git show HEAD~N:<file>`, compares against current, and re-applies with `--force`.
 
+### 7.14 `forjar anomaly`
+
+```
+forjar anomaly [OPTIONS]
+
+Options:
+  --state-dir <PATH>     State directory (default: state)
+  -m, --machine <NAME>   Filter to specific machine
+  --min-events <N>       Minimum events to consider (default: 3)
+  --json                 Output as JSON
+```
+
+Statistical anomaly detection from event history. Analyzes per-resource metrics:
+
+- **High churn** (z-score > 1.5): Resources converging far more often than average
+- **High failure rate** (>20%): Resources failing more than 1 in 5 applies
+- **Drift events**: Any drift detected in history
+
 ---
 
 ## 8. Phased Implementation
@@ -1311,6 +1329,7 @@ Reads the previous config from `git show HEAD~N:<file>`, compares against curren
 | FJ-079 | Plan output-dir — `--output-dir` writes generated scripts for audit | **Done** |
 | FJ-080 | `forjar rollback` — restore previous config from git history + force re-apply | **Done** |
 | FJ-081 | Systemd detection guard — graceful skip for service resources in non-systemd environments | **Done** |
+| FJ-082 | `forjar anomaly` — statistical drift anomaly detection from event history (z-score churn, failure rate, drift events) | **Done** |
 
 ---
 

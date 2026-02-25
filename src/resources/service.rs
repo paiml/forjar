@@ -31,10 +31,7 @@ pub fn apply_script(resource: &Resource) -> String {
     let state = resource.state.as_deref().unwrap_or("running");
     let enabled = resource.enabled.unwrap_or(true);
 
-    let mut lines = vec![
-        "set -euo pipefail".to_string(),
-        SYSTEMD_GUARD.to_string(),
-    ];
+    let mut lines = vec!["set -euo pipefail".to_string(), SYSTEMD_GUARD.to_string()];
 
     match state {
         "running" => {
@@ -139,7 +136,10 @@ mod tests {
         let script = check_script(&r);
         assert!(script.contains("systemctl is-active 'nfs-kernel-server'"));
         assert!(script.contains("systemctl is-enabled 'nfs-kernel-server'"));
-        assert!(script.contains("command -v systemctl"), "must include systemd guard");
+        assert!(
+            script.contains("command -v systemctl"),
+            "must include systemd guard"
+        );
     }
 
     #[test]
@@ -179,7 +179,10 @@ mod tests {
         let script = state_query_script(&r);
         assert!(script.contains("systemctl is-active 'nginx'"));
         assert!(script.contains("systemctl is-enabled 'nginx'"));
-        assert!(script.contains("command -v systemctl"), "must include systemd guard");
+        assert!(
+            script.contains("command -v systemctl"),
+            "must include systemd guard"
+        );
     }
 
     /// FJ-081: Verify all service scripts include systemd detection guard.

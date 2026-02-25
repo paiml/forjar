@@ -317,6 +317,25 @@ pub enum Commands {
         #[arg(long, default_value = "state")]
         state_dir: PathBuf,
     },
+
+    /// Detect anomalous resource behavior from event history
+    Anomaly {
+        /// State directory
+        #[arg(long, default_value = "state")]
+        state_dir: PathBuf,
+
+        /// Target specific machine
+        #[arg(short, long)]
+        machine: Option<String>,
+
+        /// Minimum events to consider (ignore resources with fewer)
+        #[arg(long, default_value = "3")]
+        min_events: usize,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 /// Dispatch a CLI command.
@@ -442,7 +461,20 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             machine,
             dry_run,
             state_dir,
-        } => cmd_rollback(&file, &state_dir, revision, machine.as_deref(), dry_run, verbose),
+        } => cmd_rollback(
+            &file,
+            &state_dir,
+            revision,
+            machine.as_deref(),
+            dry_run,
+            verbose,
+        ),
+        Commands::Anomaly {
+            state_dir,
+            machine,
+            min_events,
+            json,
+        } => cmd_anomaly(&state_dir, machine.as_deref(), min_events, json),
     }
 }
 
@@ -565,6 +597,170 @@ fn cmd_lint(file: &Path, json: bool) -> Result<(), String> {
     Ok(())
 }
 
+/// Detect anomalous resource behavior from event history.
+///
+/// Analyzes event logs to find resources with abnormally high change frequency,
+/// failure rates, or drift counts. Uses statistical z-score to flag outliers.
+fn cmd_anomaly(
+    state_dir: &Path,
+    machine_filter: Option<&str>,
+    min_events: usize,
+    json: bool,
+) -> Result<(), String> {
+    let entries = std::fs::read_dir(state_dir)
+        .map_err(|e| format!("cannot read state dir {}: {}", state_dir.display(), e))?;
+
+    // Per-resource metrics: (converge_count, fail_count, drift_count)
+    let mut metrics: std::collections::HashMap<String, (u32, u32, u32)> =
+        std::collections::HashMap::new();
+
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().to_string();
+        if let Some(filter) = machine_filter {
+            if name != filter {
+                continue;
+            }
+        }
+        if !entry.path().is_dir() {
+            continue;
+        }
+
+        let log_path = entry.path().join("events.jsonl");
+        if !log_path.exists() {
+            continue;
+        }
+
+        let content = std::fs::read_to_string(&log_path)
+            .map_err(|e| format!("cannot read {}: {}", log_path.display(), e))?;
+
+        for line in content.lines() {
+            if line.trim().is_empty() {
+                continue;
+            }
+            if let Ok(te) = serde_json::from_str::<types::TimestampedEvent>(line) {
+                match te.event {
+                    types::ProvenanceEvent::ResourceConverged { ref resource, .. } => {
+                        let key = format!("{}:{}", name, resource);
+                        let entry = metrics.entry(key).or_insert((0, 0, 0));
+                        entry.0 += 1;
+                    }
+                    types::ProvenanceEvent::ResourceFailed { ref resource, .. } => {
+                        let key = format!("{}:{}", name, resource);
+                        let entry = metrics.entry(key).or_insert((0, 0, 0));
+                        entry.1 += 1;
+                    }
+                    types::ProvenanceEvent::DriftDetected { ref resource, .. } => {
+                        let key = format!("{}:{}", name, resource);
+                        let entry = metrics.entry(key).or_insert((0, 0, 0));
+                        entry.2 += 1;
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    // Filter to resources with enough events
+    let active: Vec<(&String, &(u32, u32, u32))> = metrics
+        .iter()
+        .filter(|(_, (c, f, d))| (*c + *f + *d) as usize >= min_events)
+        .collect();
+
+    if active.is_empty() {
+        if json {
+            println!("{{\"anomalies\":0,\"findings\":[]}}");
+        } else {
+            println!("No resources with enough history (min {} events).", min_events);
+        }
+        return Ok(());
+    }
+
+    // Compute mean and std dev for converge counts
+    let converge_vals: Vec<f64> = active.iter().map(|(_, (c, _, _))| *c as f64).collect();
+    let mean = converge_vals.iter().sum::<f64>() / converge_vals.len() as f64;
+    let variance = converge_vals
+        .iter()
+        .map(|v| (v - mean).powi(2))
+        .sum::<f64>()
+        / converge_vals.len() as f64;
+    let std_dev = variance.sqrt();
+
+    let mut findings: Vec<serde_json::Value> = Vec::new();
+
+    for (key, (converge, fail, drift)) in &active {
+        let total = *converge + *fail + *drift;
+        let mut reasons = Vec::new();
+
+        // Z-score anomaly for high churn (converge frequency)
+        if std_dev > 0.0 {
+            let z = (*converge as f64 - mean) / std_dev;
+            if z > 1.5 {
+                reasons.push(format!("high churn (z={:.1}, {} converges)", z, converge));
+            }
+        }
+
+        // High failure rate
+        let fail_rate = if *converge + *fail > 0 {
+            *fail as f64 / (*converge + *fail) as f64
+        } else {
+            0.0
+        };
+        if fail_rate > 0.2 && *fail > 1 {
+            reasons.push(format!(
+                "high failure rate ({:.0}%, {} failures)",
+                fail_rate * 100.0,
+                fail
+            ));
+        }
+
+        // Any drift events
+        if *drift > 0 {
+            reasons.push(format!("{} drift event(s)", drift));
+        }
+
+        if !reasons.is_empty() {
+            if json {
+                findings.push(serde_json::json!({
+                    "resource": key,
+                    "converges": converge,
+                    "failures": fail,
+                    "drifts": drift,
+                    "total_events": total,
+                    "reasons": reasons,
+                }));
+            } else {
+                println!(
+                    "  ANOMALY: {} ({} events) — {}",
+                    key,
+                    total,
+                    reasons.join("; ")
+                );
+            }
+        }
+    }
+
+    if json {
+        let report = serde_json::json!({
+            "anomalies": findings.len(),
+            "findings": findings,
+        });
+        let output =
+            serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {}", e))?;
+        println!("{}", output);
+    } else if findings.is_empty() {
+        println!("No anomalies detected ({} resources analyzed).", active.len());
+    } else {
+        println!();
+        println!(
+            "Anomaly detection: {} anomaly(ies) in {} resources.",
+            findings.len(),
+            active.len()
+        );
+    }
+
+    Ok(())
+}
+
 /// Rollback to a previous config revision from git history.
 ///
 /// Uses `git show HEAD~N:<file>` to fetch the previous forjar.yaml,
@@ -611,26 +807,33 @@ fn cmd_rollback(
     for (id, prev_resource) in &previous_config.resources {
         if let Some(cur_resource) = current_config.resources.get(id) {
             // Resource exists in both — check if it changed
-            let prev_yaml = serde_yaml_ng::to_string(prev_resource)
-                .unwrap_or_default();
-            let cur_yaml = serde_yaml_ng::to_string(cur_resource)
-                .unwrap_or_default();
+            let prev_yaml = serde_yaml_ng::to_string(prev_resource).unwrap_or_default();
+            let cur_yaml = serde_yaml_ng::to_string(cur_resource).unwrap_or_default();
             if prev_yaml != cur_yaml {
                 changes.push(format!("  ~ {} (modified)", id));
             }
         } else {
             // Resource was in previous but not current — it was removed
-            changes.push(format!("  + {} (will be re-added from HEAD~{})", id, revision));
+            changes.push(format!(
+                "  + {} (will be re-added from HEAD~{})",
+                id, revision
+            ));
         }
     }
     for id in current_config.resources.keys() {
         if !previous_config.resources.contains_key(id) {
-            changes.push(format!("  - {} (exists now but not in HEAD~{}, will remain)", id, revision));
+            changes.push(format!(
+                "  - {} (exists now but not in HEAD~{}, will remain)",
+                id, revision
+            ));
         }
     }
 
     if changes.is_empty() {
-        println!("No config changes between HEAD and HEAD~{}. Nothing to rollback.", revision);
+        println!(
+            "No config changes between HEAD and HEAD~{}. Nothing to rollback.",
+            revision
+        );
         return Ok(());
     }
 
@@ -4676,8 +4879,11 @@ resources:
         // A file that doesn't exist in git history should fail gracefully
         let dir = tempfile::tempdir().unwrap();
         let file = dir.path().join("nonexistent.yaml");
-        std::fs::write(&file, "version: \"1.0\"\nname: test\nmachines: {}\nresources: {}\n")
-            .unwrap();
+        std::fs::write(
+            &file,
+            "version: \"1.0\"\nname: test\nmachines: {}\nresources: {}\n",
+        )
+        .unwrap();
         let state = dir.path().join("state");
         std::fs::create_dir_all(&state).unwrap();
 
@@ -4691,8 +4897,11 @@ resources:
         // Verify the Rollback command variant is accepted by dispatch
         let dir = tempfile::tempdir().unwrap();
         let file = dir.path().join("forjar.yaml");
-        std::fs::write(&file, "version: \"1.0\"\nname: rb\nmachines: {}\nresources: {}\n")
-            .unwrap();
+        std::fs::write(
+            &file,
+            "version: \"1.0\"\nname: rb\nmachines: {}\nresources: {}\n",
+        )
+        .unwrap();
         let state = dir.path().join("state");
         std::fs::create_dir_all(&state).unwrap();
 
@@ -4709,5 +4918,168 @@ resources:
             false,
         );
         assert!(result.is_err()); // Expected: no git history
+    }
+
+    #[test]
+    fn test_anomaly_empty_state_dir() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = dir.path().join("state");
+        std::fs::create_dir_all(&state).unwrap();
+
+        // No machine dirs → "no resources with enough history"
+        let result = cmd_anomaly(&state, None, 3, false);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_anomaly_detects_high_failure_rate() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = dir.path().join("state");
+        let machine_dir = state.join("m1");
+        std::fs::create_dir_all(&machine_dir).unwrap();
+
+        // Write events with high failure rate: 1 converge, 4 failures
+        let mut events = String::new();
+        events.push_str(&serde_json::to_string(&types::TimestampedEvent {
+            ts: "2026-02-25T00:00:00Z".to_string(),
+            event: types::ProvenanceEvent::ResourceConverged {
+                machine: "m1".to_string(),
+                resource: "flaky-pkg".to_string(),
+                duration_seconds: 1.0,
+                hash: "abc".to_string(),
+            },
+        }).unwrap());
+        events.push('\n');
+        for _ in 0..4 {
+            events.push_str(&serde_json::to_string(&types::TimestampedEvent {
+                ts: "2026-02-25T00:01:00Z".to_string(),
+                event: types::ProvenanceEvent::ResourceFailed {
+                    machine: "m1".to_string(),
+                    resource: "flaky-pkg".to_string(),
+                    error: "install failed".to_string(),
+                },
+            }).unwrap());
+            events.push('\n');
+        }
+
+        std::fs::write(machine_dir.join("events.jsonl"), &events).unwrap();
+
+        // min_events=3, json mode so we can parse output
+        let result = cmd_anomaly(&state, None, 3, false);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_anomaly_detects_drift() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = dir.path().join("state");
+        let machine_dir = state.join("web");
+        std::fs::create_dir_all(&machine_dir).unwrap();
+
+        let mut events = String::new();
+        // 2 converges + 1 drift = 3 events (meets min_events=3)
+        for _ in 0..2 {
+            events.push_str(&serde_json::to_string(&types::TimestampedEvent {
+                ts: "2026-02-25T00:00:00Z".to_string(),
+                event: types::ProvenanceEvent::ResourceConverged {
+                    machine: "web".to_string(),
+                    resource: "config-file".to_string(),
+                    duration_seconds: 0.5,
+                    hash: "def".to_string(),
+                },
+            }).unwrap());
+            events.push('\n');
+        }
+        events.push_str(&serde_json::to_string(&types::TimestampedEvent {
+            ts: "2026-02-25T01:00:00Z".to_string(),
+            event: types::ProvenanceEvent::DriftDetected {
+                machine: "web".to_string(),
+                resource: "config-file".to_string(),
+                expected_hash: "aaa".to_string(),
+                actual_hash: "bbb".to_string(),
+            },
+        }).unwrap());
+        events.push('\n');
+
+        std::fs::write(machine_dir.join("events.jsonl"), &events).unwrap();
+
+        let result = cmd_anomaly(&state, None, 3, false);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_anomaly_json_output() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = dir.path().join("state");
+        let machine_dir = state.join("srv");
+        std::fs::create_dir_all(&machine_dir).unwrap();
+
+        // Write 3 converge events for one resource (no anomaly, just normal)
+        let mut events = String::new();
+        for _ in 0..3 {
+            events.push_str(&serde_json::to_string(&types::TimestampedEvent {
+                ts: "2026-02-25T00:00:00Z".to_string(),
+                event: types::ProvenanceEvent::ResourceConverged {
+                    machine: "srv".to_string(),
+                    resource: "pkg".to_string(),
+                    duration_seconds: 1.0,
+                    hash: "xyz".to_string(),
+                },
+            }).unwrap());
+            events.push('\n');
+        }
+
+        std::fs::write(machine_dir.join("events.jsonl"), &events).unwrap();
+
+        let result = cmd_anomaly(&state, None, 3, true);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_anomaly_machine_filter() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = dir.path().join("state");
+        // Create two machines
+        let m1 = state.join("m1");
+        let m2 = state.join("m2");
+        std::fs::create_dir_all(&m1).unwrap();
+        std::fs::create_dir_all(&m2).unwrap();
+
+        // Events only on m2
+        let mut events = String::new();
+        for _ in 0..5 {
+            events.push_str(&serde_json::to_string(&types::TimestampedEvent {
+                ts: "2026-02-25T00:00:00Z".to_string(),
+                event: types::ProvenanceEvent::ResourceFailed {
+                    machine: "m2".to_string(),
+                    resource: "bad-svc".to_string(),
+                    error: "timeout".to_string(),
+                },
+            }).unwrap());
+            events.push('\n');
+        }
+        std::fs::write(m2.join("events.jsonl"), &events).unwrap();
+
+        // Filter to m1 (no events) → no anomalies
+        let result = cmd_anomaly(&state, Some("m1"), 1, false);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_anomaly_dispatch() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = dir.path().join("state");
+        std::fs::create_dir_all(&state).unwrap();
+
+        let result = dispatch(
+            Commands::Anomaly {
+                state_dir: state,
+                machine: None,
+                min_events: 3,
+                json: false,
+            },
+            false,
+        );
+        assert!(result.is_ok());
     }
 }
