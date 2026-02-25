@@ -3,7 +3,7 @@
 
 use crate::core::{codegen, executor, migrate, parser, planner, resolver, state, types};
 use crate::transport;
-use crate::tripwire::{drift, eventlog};
+use crate::tripwire::{anomaly, drift, eventlog};
 use clap::Subcommand;
 use std::path::{Path, PathBuf};
 
@@ -771,107 +771,66 @@ fn cmd_anomaly(
         }
     }
 
-    // Filter to resources with enough events
-    let active: Vec<(&String, &(u32, u32, u32))> = metrics
-        .iter()
-        .filter(|(_, (c, f, d))| (*c + *f + *d) as usize >= min_events)
+    // Convert metrics HashMap to Vec for detect_anomalies()
+    let metrics_vec: Vec<(String, u32, u32, u32)> = metrics
+        .into_iter()
+        .map(|(k, (c, f, d))| (k, c, f, d))
         .collect();
 
-    if active.is_empty() {
+    // FJ-051: Use anomaly module for detection
+    let findings = anomaly::detect_anomalies(&metrics_vec, min_events);
+
+    if findings.is_empty() {
         if json {
             println!("{{\"anomalies\":0,\"findings\":[]}}");
         } else {
+            let total = metrics_vec.len();
             println!(
-                "No resources with enough history (min {} events).",
-                min_events
+                "No anomalies detected ({} resources analyzed, min {} events).",
+                total, min_events
             );
         }
         return Ok(());
     }
 
-    // Compute mean and std dev for converge counts
-    let converge_vals: Vec<f64> = active.iter().map(|(_, (c, _, _))| *c as f64).collect();
-    let mean = converge_vals.iter().sum::<f64>() / converge_vals.len() as f64;
-    let variance = converge_vals
-        .iter()
-        .map(|v| (v - mean).powi(2))
-        .sum::<f64>()
-        / converge_vals.len() as f64;
-    let std_dev = variance.sqrt();
-
-    let mut findings: Vec<serde_json::Value> = Vec::new();
-
-    for (key, (converge, fail, drift)) in &active {
-        let total = *converge + *fail + *drift;
-        let mut reasons = Vec::new();
-
-        // Z-score anomaly for high churn (converge frequency)
-        if std_dev > 0.0 {
-            let z = (*converge as f64 - mean) / std_dev;
-            if z > 1.5 {
-                reasons.push(format!("high churn (z={:.1}, {} converges)", z, converge));
-            }
-        }
-
-        // High failure rate
-        let fail_rate = if *converge + *fail > 0 {
-            *fail as f64 / (*converge + *fail) as f64
-        } else {
-            0.0
-        };
-        if fail_rate > 0.2 && *fail > 1 {
-            reasons.push(format!(
-                "high failure rate ({:.0}%, {} failures)",
-                fail_rate * 100.0,
-                fail
-            ));
-        }
-
-        // Any drift events
-        if *drift > 0 {
-            reasons.push(format!("{} drift event(s)", drift));
-        }
-
-        if !reasons.is_empty() {
-            if json {
-                findings.push(serde_json::json!({
-                    "resource": key,
-                    "converges": converge,
-                    "failures": fail,
-                    "drifts": drift,
-                    "total_events": total,
-                    "reasons": reasons,
-                }));
-            } else {
-                println!(
-                    "  ANOMALY: {} ({} events) — {}",
-                    key,
-                    total,
-                    reasons.join("; ")
-                );
-            }
-        }
-    }
-
     if json {
+        let json_findings: Vec<serde_json::Value> = findings
+            .iter()
+            .map(|f| {
+                serde_json::json!({
+                    "resource": f.resource,
+                    "score": f.score,
+                    "status": format!("{:?}", f.status),
+                    "reasons": f.reasons,
+                })
+            })
+            .collect();
         let report = serde_json::json!({
-            "anomalies": findings.len(),
-            "findings": findings,
+            "anomalies": json_findings.len(),
+            "findings": json_findings,
         });
         let output =
             serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {}", e))?;
         println!("{}", output);
-    } else if findings.is_empty() {
-        println!(
-            "No anomalies detected ({} resources analyzed).",
-            active.len()
-        );
     } else {
+        for finding in &findings {
+            let status_label = match finding.status {
+                anomaly::DriftStatus::Drift => "DRIFT",
+                anomaly::DriftStatus::Warning => "WARNING",
+                anomaly::DriftStatus::Stable => "STABLE",
+            };
+            println!(
+                "  ANOMALY: {} [{}] (score={:.2}) — {}",
+                finding.resource,
+                status_label,
+                finding.score,
+                finding.reasons.join("; ")
+            );
+        }
         println!();
         println!(
-            "Anomaly detection: {} anomaly(ies) in {} resources.",
-            findings.len(),
-            active.len()
+            "Anomaly detection: {} anomaly(ies) found.",
+            findings.len()
         );
     }
 
