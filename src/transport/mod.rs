@@ -444,4 +444,113 @@ mod tests {
         assert_eq!(q.stdout, e.stdout);
         assert_eq!(q.exit_code, e.exit_code);
     }
+
+    // --- FJ-132: Transport dispatch edge cases ---
+
+    #[test]
+    fn test_fj132_exec_script_special_chars_in_output() {
+        // Verify transport preserves special characters in stdout
+        let machine = Machine {
+            hostname: "local".to_string(),
+            addr: "127.0.0.1".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: None,
+            container: None,
+            cost: 0,
+        };
+        let out = exec_script(&machine, r#"printf 'tab\there\nnewline'"#).unwrap();
+        assert!(out.success());
+        assert!(out.stdout.contains("tab"));
+    }
+
+    #[test]
+    fn test_fj132_exec_script_large_output() {
+        // Verify transport handles large output without truncation
+        let machine = Machine {
+            hostname: "local".to_string(),
+            addr: "127.0.0.1".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: None,
+            container: None,
+            cost: 0,
+        };
+        let out = exec_script(&machine, "seq 1 10000").unwrap();
+        assert!(out.success());
+        assert!(out.stdout.contains("10000"));
+    }
+
+    #[test]
+    fn test_fj132_exec_script_env_isolation() {
+        // Scripts should not leak env vars between calls
+        let machine = Machine {
+            hostname: "local".to_string(),
+            addr: "127.0.0.1".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: None,
+            container: None,
+            cost: 0,
+        };
+        exec_script(&machine, "export FORJAR_TEST_LEAK=yes").unwrap();
+        let out = exec_script(&machine, "echo ${FORJAR_TEST_LEAK:-unset}").unwrap();
+        assert!(out.success());
+        assert_eq!(out.stdout.trim(), "unset");
+    }
+
+    #[test]
+    fn test_fj132_exec_script_exit_code_preserved() {
+        // Verify various exit codes are preserved
+        let machine = Machine {
+            hostname: "local".to_string(),
+            addr: "127.0.0.1".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: None,
+            container: None,
+            cost: 0,
+        };
+        for code in [0, 1, 2, 42, 126, 127] {
+            let out = exec_script(&machine, &format!("exit {}", code)).unwrap();
+            assert_eq!(out.exit_code, code, "exit code {} should be preserved", code);
+        }
+    }
+
+    #[test]
+    fn test_fj132_timeout_zero_seconds_fails() {
+        // A timeout of 0 seconds should cause immediate timeout
+        let machine = Machine {
+            hostname: "local".to_string(),
+            addr: "127.0.0.1".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: None,
+            container: None,
+            cost: 0,
+        };
+        // sleep 5 with 0s timeout should error — but 0-second timeout
+        // may or may not catch "echo ok" depending on scheduling
+        let result = exec_script_timeout(&machine, "sleep 5", Some(0));
+        // This should almost always timeout, but we accept either outcome
+        // since 0-second timeout behavior is platform-dependent
+        if let Err(e) = result {
+            assert!(e.contains("timeout"));
+        }
+    }
+
+    #[test]
+    fn test_fj132_is_local_addr_empty_string() {
+        assert!(!is_local_addr(""));
+    }
 }

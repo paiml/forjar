@@ -632,4 +632,131 @@ mod tests {
             ResourceStatus::Converged
         );
     }
+
+    // --- FJ-132: State edge case tests ---
+
+    #[test]
+    fn test_fj132_save_lock_with_duration() {
+        // Verify duration_seconds field persists through roundtrip
+        let dir = tempfile::tempdir().unwrap();
+        let mut lock = new_lock("m1", "host1");
+        lock.resources.insert(
+            "timed-res".to_string(),
+            ResourceLock {
+                resource_type: ResourceType::File,
+                status: ResourceStatus::Converged,
+                applied_at: Some("2026-01-01T00:00:00Z".to_string()),
+                duration_seconds: Some(1.234),
+                hash: "blake3:abc123".to_string(),
+                details: HashMap::new(),
+            },
+        );
+        save_lock(dir.path(), &lock).unwrap();
+        let loaded = load_lock(dir.path(), "m1").unwrap().unwrap();
+        assert_eq!(loaded.resources["timed-res"].duration_seconds, Some(1.234));
+    }
+
+    #[test]
+    fn test_fj132_save_lock_unicode_hostname() {
+        // Machine names and hostnames may contain unusual characters
+        let dir = tempfile::tempdir().unwrap();
+        let lock = new_lock("edge-node-01", "räck-ünit");
+        save_lock(dir.path(), &lock).unwrap();
+        let loaded = load_lock(dir.path(), "edge-node-01").unwrap().unwrap();
+        assert_eq!(loaded.hostname, "räck-ünit");
+    }
+
+    #[test]
+    fn test_fj132_lock_file_path_consistency() {
+        // Verify path derivation is consistent
+        let dir = Path::new("/tmp/forjar-state");
+        let p1 = lock_file_path(dir, "web");
+        let p2 = lock_file_path(dir, "web");
+        assert_eq!(p1, p2);
+        assert!(p1.ends_with("web/state.lock.yaml"));
+    }
+
+    #[test]
+    fn test_fj132_update_global_lock_preserves_existing_machines() {
+        // Updating with new machines should keep old ones
+        let dir = tempfile::tempdir().unwrap();
+        let results1 = vec![("web".to_string(), 5usize, 5usize, 0usize)];
+        update_global_lock(dir.path(), "test-config", &results1).unwrap();
+
+        let results2 = vec![("db".to_string(), 3usize, 2usize, 1usize)];
+        update_global_lock(dir.path(), "test-config", &results2).unwrap();
+
+        let lock = load_global_lock(dir.path()).unwrap().unwrap();
+        assert!(lock.machines.contains_key("web"), "web should be preserved");
+        assert!(lock.machines.contains_key("db"), "db should be added");
+        assert_eq!(lock.machines["web"].converged, 5);
+        assert_eq!(lock.machines["db"].failed, 1);
+    }
+
+    #[test]
+    fn test_fj132_new_lock_fields_populated() {
+        let lock = new_lock("prod-1", "prod-host");
+        assert_eq!(lock.schema, "1.0");
+        assert_eq!(lock.machine, "prod-1");
+        assert_eq!(lock.hostname, "prod-host");
+        assert_eq!(lock.blake3_version, "1.8");
+        assert!(lock.generator.starts_with("forjar "));
+        assert!(!lock.generated_at.is_empty());
+        assert!(lock.resources.is_empty());
+    }
+
+    #[test]
+    fn test_fj132_global_lock_schema_version() {
+        let lock = new_global_lock("my-infra");
+        assert_eq!(lock.schema, "1.0");
+        assert_eq!(lock.name, "my-infra");
+        assert!(lock.machines.is_empty());
+    }
+
+    #[test]
+    fn test_fj132_save_lock_with_many_details() {
+        // Resources can have arbitrary string→serde_yaml::Value details
+        let dir = tempfile::tempdir().unwrap();
+        let mut details = HashMap::new();
+        details.insert("path".to_string(), serde_yaml_ng::Value::String("/etc/app.conf".to_string()));
+        details.insert("content_hash".to_string(), serde_yaml_ng::Value::String("blake3:deadbeef".to_string()));
+        details.insert("owner".to_string(), serde_yaml_ng::Value::String("root".to_string()));
+        details.insert("mode".to_string(), serde_yaml_ng::Value::String("0644".to_string()));
+
+        let mut lock = new_lock("m1", "h1");
+        lock.resources.insert(
+            "config".to_string(),
+            ResourceLock {
+                resource_type: ResourceType::File,
+                status: ResourceStatus::Converged,
+                applied_at: None,
+                duration_seconds: None,
+                hash: "blake3:abc".to_string(),
+                details,
+            },
+        );
+        save_lock(dir.path(), &lock).unwrap();
+        let loaded = load_lock(dir.path(), "m1").unwrap().unwrap();
+        let d = &loaded.resources["config"].details;
+        assert_eq!(d.len(), 4);
+        assert_eq!(
+            d["path"],
+            serde_yaml_ng::Value::String("/etc/app.conf".to_string())
+        );
+    }
+
+    #[test]
+    fn test_fj132_concurrent_save_different_machines() {
+        // Two independent machine locks can be saved without conflict
+        let dir = tempfile::tempdir().unwrap();
+        let lock_a = new_lock("machine-a", "host-a");
+        let lock_b = new_lock("machine-b", "host-b");
+        save_lock(dir.path(), &lock_a).unwrap();
+        save_lock(dir.path(), &lock_b).unwrap();
+
+        let loaded_a = load_lock(dir.path(), "machine-a").unwrap().unwrap();
+        let loaded_b = load_lock(dir.path(), "machine-b").unwrap().unwrap();
+        assert_eq!(loaded_a.hostname, "host-a");
+        assert_eq!(loaded_b.hostname, "host-b");
+    }
 }
