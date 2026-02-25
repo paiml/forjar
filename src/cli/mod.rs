@@ -5702,4 +5702,276 @@ resources:
         assert_eq!(config.version, "1.0");
         assert_eq!(config.name, "my-infrastructure");
     }
+
+    // ── FJ-131: cmd_graph tests ───────────────────────────────────
+
+    fn write_simple_config(dir: &std::path::Path) -> std::path::PathBuf {
+        let config_path = dir.join("forjar.yaml");
+        std::fs::write(
+            &config_path,
+            r#"
+version: "1.0"
+name: graph-test
+machines:
+  web:
+    hostname: web
+    addr: 1.1.1.1
+resources:
+  setup:
+    type: file
+    machine: web
+    path: /tmp/setup
+    state: directory
+  app:
+    type: file
+    machine: web
+    path: /tmp/setup/app.conf
+    content: "config"
+    depends_on: [setup]
+"#,
+        )
+        .unwrap();
+        config_path
+    }
+
+    #[test]
+    fn test_fj131_cmd_graph_mermaid() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = write_simple_config(dir.path());
+        // Should succeed without error
+        cmd_graph(&config_path, "mermaid").unwrap();
+    }
+
+    #[test]
+    fn test_fj131_cmd_graph_dot() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = write_simple_config(dir.path());
+        cmd_graph(&config_path, "dot").unwrap();
+    }
+
+    #[test]
+    fn test_fj131_cmd_graph_unknown_format() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = write_simple_config(dir.path());
+        let err = cmd_graph(&config_path, "svg").unwrap_err();
+        assert!(err.contains("unknown graph format"));
+        assert!(err.contains("svg"));
+    }
+
+    #[test]
+    fn test_fj131_cmd_graph_invalid_config() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join("forjar.yaml");
+        std::fs::write(&config_path, "not valid yaml {{{{").unwrap();
+        let err = cmd_graph(&config_path, "mermaid");
+        assert!(err.is_err());
+    }
+
+    // ── FJ-131: cmd_diff tests ────────────────────────────────────
+
+    #[test]
+    fn test_fj131_cmd_diff_empty_state_dirs() {
+        let from = tempfile::tempdir().unwrap();
+        let to = tempfile::tempdir().unwrap();
+        let err = cmd_diff(from.path(), to.path(), None, false).unwrap_err();
+        assert!(err.contains("no machines found"));
+    }
+
+    #[test]
+    fn test_fj131_cmd_diff_same_state() {
+        let state = tempfile::tempdir().unwrap();
+        // Create a machine state directory with a lock
+        let machine_dir = state.path().join("web");
+        std::fs::create_dir_all(&machine_dir).unwrap();
+        let lock = types::StateLock {
+            schema: "1.0".to_string(),
+            machine: "web".to_string(),
+            hostname: "web-box".to_string(),
+            generated_at: "2026-02-25T00:00:00Z".to_string(),
+            generator: "forjar 0.1.0".to_string(),
+            blake3_version: "1.8".to_string(),
+            resources: {
+                let mut r = indexmap::IndexMap::new();
+                r.insert(
+                    "test-file".to_string(),
+                    types::ResourceLock {
+                        resource_type: types::ResourceType::File,
+                        status: types::ResourceStatus::Converged,
+                        applied_at: Some("2026-02-25T00:00:00Z".to_string()),
+                        duration_seconds: Some(0.1),
+                        hash: "blake3:abc123".to_string(),
+                        details: HashMap::new(),
+                    },
+                );
+                r
+            },
+        };
+        state::save_lock(state.path(), &lock).unwrap();
+
+        // Diff same directory against itself → no differences
+        cmd_diff(state.path(), state.path(), None, false).unwrap();
+    }
+
+    #[test]
+    fn test_fj131_cmd_diff_added_resource() {
+        let from_dir = tempfile::tempdir().unwrap();
+        let to_dir = tempfile::tempdir().unwrap();
+
+        // "from" has empty lock for web
+        let from_machine = from_dir.path().join("web");
+        std::fs::create_dir_all(&from_machine).unwrap();
+        let from_lock = types::StateLock {
+            schema: "1.0".to_string(),
+            machine: "web".to_string(),
+            hostname: "web-box".to_string(),
+            generated_at: "2026-02-25T00:00:00Z".to_string(),
+            generator: "forjar 0.1.0".to_string(),
+            blake3_version: "1.8".to_string(),
+            resources: indexmap::IndexMap::new(),
+        };
+        state::save_lock(from_dir.path(), &from_lock).unwrap();
+
+        // "to" has one resource
+        let to_machine = to_dir.path().join("web");
+        std::fs::create_dir_all(&to_machine).unwrap();
+        let mut to_lock = from_lock.clone();
+        to_lock.resources.insert(
+            "new-file".to_string(),
+            types::ResourceLock {
+                resource_type: types::ResourceType::File,
+                status: types::ResourceStatus::Converged,
+                applied_at: Some("2026-02-25T01:00:00Z".to_string()),
+                duration_seconds: Some(0.2),
+                hash: "blake3:def456".to_string(),
+                details: HashMap::new(),
+            },
+        );
+        state::save_lock(to_dir.path(), &to_lock).unwrap();
+
+        cmd_diff(from_dir.path(), to_dir.path(), None, false).unwrap();
+    }
+
+    #[test]
+    fn test_fj131_cmd_diff_json_output() {
+        let from_dir = tempfile::tempdir().unwrap();
+        let to_dir = tempfile::tempdir().unwrap();
+
+        // Both have web machine
+        let from_lock = types::StateLock {
+            schema: "1.0".to_string(),
+            machine: "web".to_string(),
+            hostname: "web-box".to_string(),
+            generated_at: "2026-02-25T00:00:00Z".to_string(),
+            generator: "forjar 0.1.0".to_string(),
+            blake3_version: "1.8".to_string(),
+            resources: indexmap::IndexMap::new(),
+        };
+        state::save_lock(from_dir.path(), &from_lock).unwrap();
+        state::save_lock(to_dir.path(), &from_lock).unwrap();
+
+        // JSON output should not error
+        cmd_diff(from_dir.path(), to_dir.path(), None, true).unwrap();
+    }
+
+    #[test]
+    fn test_fj131_cmd_diff_machine_filter() {
+        let from_dir = tempfile::tempdir().unwrap();
+        let to_dir = tempfile::tempdir().unwrap();
+
+        // Create two machines
+        for name in ["web", "db"] {
+            let lock = types::StateLock {
+                schema: "1.0".to_string(),
+                machine: name.to_string(),
+                hostname: format!("{}-box", name),
+                generated_at: "2026-02-25T00:00:00Z".to_string(),
+                generator: "forjar 0.1.0".to_string(),
+                blake3_version: "1.8".to_string(),
+                resources: indexmap::IndexMap::new(),
+            };
+            state::save_lock(from_dir.path(), &lock).unwrap();
+            state::save_lock(to_dir.path(), &lock).unwrap();
+        }
+
+        // Filter to only "web" — should succeed
+        cmd_diff(from_dir.path(), to_dir.path(), Some("web"), false).unwrap();
+    }
+
+    // ── FJ-131: cmd_anomaly tests ─────────────────────────────────
+
+    #[test]
+    fn test_fj131_cmd_anomaly_empty_state() {
+        let dir = tempfile::tempdir().unwrap();
+        // No machine directories → should succeed with no output
+        cmd_anomaly(dir.path(), None, 1, false).unwrap();
+    }
+
+    #[test]
+    fn test_fj131_cmd_anomaly_no_events() {
+        let dir = tempfile::tempdir().unwrap();
+        // Create machine dir but no events.jsonl
+        std::fs::create_dir_all(dir.path().join("web")).unwrap();
+        cmd_anomaly(dir.path(), None, 1, false).unwrap();
+    }
+
+    #[test]
+    fn test_fj131_cmd_anomaly_with_events() {
+        let dir = tempfile::tempdir().unwrap();
+        let machine_dir = dir.path().join("web");
+        std::fs::create_dir_all(&machine_dir).unwrap();
+
+        // Write some events
+        let events = [
+            r#"{"ts":"2026-02-25T00:00:00Z","event":"resource_converged","machine":"web","resource":"pkg","duration_seconds":1.0,"hash":"blake3:abc"}"#,
+            r#"{"ts":"2026-02-25T01:00:00Z","event":"resource_converged","machine":"web","resource":"pkg","duration_seconds":1.0,"hash":"blake3:abc"}"#,
+            r#"{"ts":"2026-02-25T02:00:00Z","event":"resource_converged","machine":"web","resource":"pkg","duration_seconds":1.0,"hash":"blake3:abc"}"#,
+        ];
+        std::fs::write(machine_dir.join("events.jsonl"), events.join("\n")).unwrap();
+
+        cmd_anomaly(dir.path(), None, 1, false).unwrap();
+    }
+
+    #[test]
+    fn test_fj131_cmd_anomaly_json_output() {
+        let dir = tempfile::tempdir().unwrap();
+        let machine_dir = dir.path().join("web");
+        std::fs::create_dir_all(&machine_dir).unwrap();
+
+        let events = [
+            r#"{"ts":"2026-02-25T00:00:00Z","event":"resource_converged","machine":"web","resource":"pkg","duration_seconds":1.0,"hash":"blake3:abc"}"#,
+            r#"{"ts":"2026-02-25T01:00:00Z","event":"resource_failed","machine":"web","resource":"pkg","error":"timeout"}"#,
+        ];
+        std::fs::write(machine_dir.join("events.jsonl"), events.join("\n")).unwrap();
+
+        cmd_anomaly(dir.path(), None, 1, true).unwrap();
+    }
+
+    #[test]
+    fn test_fj131_cmd_anomaly_machine_filter() {
+        let dir = tempfile::tempdir().unwrap();
+        // Create two machine dirs
+        for name in ["web", "db"] {
+            let machine_dir = dir.path().join(name);
+            std::fs::create_dir_all(&machine_dir).unwrap();
+            let event = format!(
+                r#"{{"ts":"2026-02-25T00:00:00Z","event":"resource_converged","machine":"{}","resource":"pkg","duration_seconds":1.0,"hash":"blake3:abc"}}"#,
+                name
+            );
+            std::fs::write(machine_dir.join("events.jsonl"), event).unwrap();
+        }
+
+        // Filter to only "web"
+        cmd_anomaly(dir.path(), Some("web"), 1, false).unwrap();
+    }
+
+    #[test]
+    fn test_fj131_cmd_anomaly_nonexistent_state_dir() {
+        let err = cmd_anomaly(
+            std::path::Path::new("/tmp/nonexistent-forjar-state"),
+            None,
+            1,
+            false,
+        );
+        assert!(err.is_err());
+    }
 }
