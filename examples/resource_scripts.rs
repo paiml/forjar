@@ -52,17 +52,17 @@ fn make_resource(rt: ResourceType) -> Resource {
         inputs: std::collections::HashMap::new(),
         arch: vec![],
         tags: vec![],
-            chroot_dir: None,
-            namespace_uid: None,
-            namespace_gid: None,
-            seccomp: false,
-            netns: false,
-            cpuset: None,
-            memory_limit: None,
-            overlay_lower: None,
-            overlay_upper: None,
-            overlay_work: None,
-            overlay_merged: None,
+        chroot_dir: None,
+        namespace_uid: None,
+        namespace_gid: None,
+        seccomp: false,
+        netns: false,
+        cpuset: None,
+        memory_limit: None,
+        overlay_lower: None,
+        overlay_upper: None,
+        overlay_work: None,
+        overlay_merged: None,
     }
 }
 
@@ -144,5 +144,20 @@ fn main() {
     net.action = Some("allow".to_string());
     print_scripts("Network (ufw)", &net);
 
-    println!("All 8 resource types × 3 script types demonstrated.");
+    // Pepita: kernel namespace isolation
+    let mut pepita = make_resource(ResourceType::Pepita);
+    pepita.name = Some("sandbox".to_string());
+    pepita.state = Some("present".to_string());
+    pepita.chroot_dir = Some("/var/sandbox".to_string());
+    pepita.netns = true;
+    pepita.seccomp = true;
+    pepita.cpuset = Some("0-3".to_string());
+    pepita.memory_limit = Some(536870912); // 512 MiB
+    pepita.overlay_lower = Some("/base".to_string());
+    pepita.overlay_upper = Some("/var/sandbox/upper".to_string());
+    pepita.overlay_work = Some("/var/sandbox/work".to_string());
+    pepita.overlay_merged = Some("/var/sandbox/merged".to_string());
+    print_scripts("Pepita (kernel isolation)", &pepita);
+
+    println!("All 9 resource types × 3 script types demonstrated.");
 }

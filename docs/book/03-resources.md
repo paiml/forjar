@@ -523,6 +523,132 @@ resources:
 | `action` | string | `allow` | allow, deny, reject |
 | `from_addr` | string | — | Source address/CIDR (e.g. `192.168.1.0/24`) |
 
+## Pepita (Kernel Isolation)
+
+Manage Linux kernel namespace isolation without a container runtime. Pepita resources use kernel primitives (cgroups v2, overlayfs, network namespaces, chroot, seccomp) for bare-metal isolation.
+
+```yaml
+resources:
+  sandbox:
+    type: pepita
+    machine: m1
+    name: sandbox
+    state: present
+    memory_limit: 536870912    # 512 MiB
+    cpuset: "0-3"
+    netns: true
+    seccomp: true
+    chroot_dir: /var/lib/forjar/sandbox
+```
+
+### Pepita States
+
+| State | Action |
+|-------|--------|
+| `present` | Create cgroups, mount overlayfs, add network namespace, create chroot |
+| `absent` | Unmount overlayfs, delete namespace, remove cgroup, remove chroot |
+
+### Cgroup Resource Limits
+
+Control memory and CPU allocation via cgroups v2:
+
+```yaml
+resources:
+  worker-limits:
+    type: pepita
+    machine: m1
+    name: worker
+    memory_limit: 1073741824   # 1 GiB in bytes
+    cpuset: "0,2,4"            # Bind to CPUs 0, 2, 4
+```
+
+Generated script:
+
+```bash
+set -euo pipefail
+mkdir -p '/sys/fs/cgroup/forjar-worker'
+echo '1073741824' > '/sys/fs/cgroup/forjar-worker/memory.max'
+echo '0,2,4' > '/sys/fs/cgroup/forjar-worker/cpuset.cpus'
+```
+
+### Network Namespace Isolation
+
+Isolate network stacks per workload:
+
+```yaml
+resources:
+  isolated-net:
+    type: pepita
+    machine: m1
+    name: isolated
+    netns: true
+```
+
+Creates `forjar-isolated` network namespace with loopback interface:
+
+```bash
+ip netns add 'forjar-isolated' 2>/dev/null || true
+ip netns exec 'forjar-isolated' ip link set lo up
+```
+
+### Overlay Filesystem
+
+Copy-on-write filesystem layers — write changes to upper layer without modifying the base:
+
+```yaml
+resources:
+  build-env:
+    type: pepita
+    machine: m1
+    name: build
+    overlay_lower: /base/rootfs
+    overlay_upper: /var/forjar/upper
+    overlay_work: /var/forjar/work
+    overlay_merged: /mnt/build
+```
+
+### Full Sandbox
+
+Combine all isolation features:
+
+```yaml
+resources:
+  full-sandbox:
+    type: pepita
+    machine: m1
+    name: sandbox
+    state: present
+    chroot_dir: /var/sandbox
+    namespace_uid: 65534
+    namespace_gid: 65534
+    seccomp: true
+    netns: true
+    cpuset: "0-1"
+    memory_limit: 536870912
+    overlay_lower: /base
+    overlay_upper: /var/sandbox/upper
+    overlay_work: /var/sandbox/work
+    overlay_merged: /var/sandbox/merged
+```
+
+### Pepita Fields
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `name` | string | required | Isolation domain name |
+| `state` | string | `present` | present, absent |
+| `chroot_dir` | string | — | Chroot directory path |
+| `namespace_uid` | u32 | — | UID for user namespace mapping |
+| `namespace_gid` | u32 | — | GID for user namespace mapping |
+| `seccomp` | bool | `false` | Enable seccomp syscall filtering |
+| `netns` | bool | `false` | Create network namespace |
+| `cpuset` | string | — | CPU set binding (e.g., `"0-3"` or `"0,2,4"`) |
+| `memory_limit` | u64 | — | Memory limit in bytes |
+| `overlay_lower` | string | `/` | Overlay lower (read-only) directory |
+| `overlay_upper` | string | `/tmp/forjar-upper` | Overlay upper (writable) directory |
+| `overlay_work` | string | `/tmp/forjar-work` | Overlay work directory |
+| `overlay_merged` | string | — | Overlay merged mount point (enables overlayfs) |
+
 ## Common Patterns
 
 ### Template Resolution in Resources
@@ -1037,3 +1163,26 @@ When updating a cron job, forjar:
 4. Writes the new crontab atomically
 
 This prevents duplicate entries and enables clean removal with `state: absent`.
+
+### Pepita Isolation Lifecycle
+
+Pepita resources follow a create-or-teardown strategy using kernel primitives:
+
+```
+On apply (state: present):
+  1. mkdir -p <chroot_dir>                    # Create chroot
+  2. mkdir -p /sys/fs/cgroup/forjar-<name>    # Create cgroup
+  3. echo <limit> > cgroup/memory.max         # Set memory limit
+  4. echo <cpus> > cgroup/cpuset.cpus         # Bind CPUs
+  5. mount -t overlay overlay <merged>        # Mount overlayfs
+  6. ip netns add forjar-<name>               # Create network namespace
+  7. ip netns exec forjar-<name> ip link set lo up
+
+On apply (state: absent):
+  1. umount <merged>                          # Unmount overlay
+  2. ip netns del forjar-<name>               # Delete namespace
+  3. rmdir /sys/fs/cgroup/forjar-<name>       # Remove cgroup
+  4. rm -rf <chroot_dir>                      # Remove chroot
+```
+
+All teardown steps use `|| true` to tolerate already-removed resources. This is distinct from Docker container management (FJ-030) — pepita uses kernel interfaces directly without a container runtime.

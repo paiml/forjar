@@ -1,0 +1,56 @@
+version: "1.0"
+name: dogfood-pepita
+description: "Dogfood config for pepita kernel isolation resources"
+
+machines:
+  localhost:
+    hostname: localhost
+    addr: 127.0.0.1
+
+resources:
+  # FJ-040: Basic cgroup memory limit
+  worker-limits:
+    type: pepita
+    machine: localhost
+    name: worker
+    state: present
+    memory_limit: 536870912    # 512 MiB
+    cpuset: "0-1"
+
+  # FJ-043: Network namespace isolation
+  isolated-net:
+    type: pepita
+    machine: localhost
+    name: isolated
+    state: present
+    netns: true
+    depends_on: [worker-limits]
+
+  # FJ-042: Overlay filesystem
+  build-overlay:
+    type: pepita
+    machine: localhost
+    name: build
+    state: present
+    overlay_lower: /base
+    overlay_upper: /tmp/forjar-upper
+    overlay_work: /tmp/forjar-work
+    overlay_merged: /mnt/build
+    depends_on: [worker-limits]
+
+  # Full sandbox combining all features
+  full-sandbox:
+    type: pepita
+    machine: localhost
+    name: sandbox
+    state: present
+    chroot_dir: /var/sandbox
+    seccomp: true
+    netns: true
+    cpuset: "0-3"
+    memory_limit: 1073741824   # 1 GiB
+    overlay_lower: /
+    overlay_upper: /var/sandbox/upper
+    overlay_work: /var/sandbox/work
+    overlay_merged: /var/sandbox/merged
+    depends_on: [isolated-net, build-overlay]

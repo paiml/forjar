@@ -1293,12 +1293,12 @@ Statistical anomaly detection from event history. Analyzes per-resource metrics:
 
 ### Phase 3: Kernel Isolation (v0.3)
 
-| Ticket | Description |
-|--------|-------------|
-| FJ-040 | `resources/pepita.rs` — kernel namespace isolation |
-| FJ-041 | pepita cgroup management (memory, CPU, GPU) |
-| FJ-042 | Overlay filesystem via pepita |
-| FJ-043 | Network namespace isolation |
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-040 | `resources/pepita.rs` — kernel namespace isolation (cgroups v2, overlayfs, netns, chroot, seccomp), 24 tests | **Done** |
+| FJ-041 | pepita cgroup management (memory, CPU, GPU) — cgroups v2 memory.max + cpuset.cpus in FJ-040 | **Done** |
+| FJ-042 | Overlay filesystem via pepita — overlayfs mount/unmount in FJ-040 | **Done** |
+| FJ-043 | Network namespace isolation — ip netns add/del in FJ-040 | **Done** |
 | FJ-044 | Migration path: Docker → pepita |
 
 ### Phase 4: Intelligence (v0.4)

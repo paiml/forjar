@@ -581,6 +581,54 @@ Each machine has its own:
 
 No shared mutable state between machines during apply.
 
+## Kernel Isolation (FJ-040)
+
+### Pepita Resource Architecture
+
+The pepita resource type provides bare-metal kernel isolation using Linux primitives. Unlike Docker (which requires a container runtime), pepita generates shell scripts that directly interact with kernel interfaces:
+
+```
+forjar.yaml (type: pepita)
+    │
+    ▼
+┌─────────┐
+│ codegen  │  Generate isolation scripts
+└────┬─────┘
+     │
+     ▼
+┌────────────────────────────────────────┐
+│ Kernel Interfaces                      │
+│                                        │
+│  cgroups v2 ─── memory.max, cpuset    │
+│  overlayfs  ─── lowerdir/upperdir     │
+│  netns      ─── ip netns add/exec     │
+│  chroot     ─── mkdir + chroot(2)     │
+│  seccomp    ─── syscall filtering     │
+└────────────────────────────────────────┘
+```
+
+### Isolation Feature Matrix
+
+| Feature | Kernel Interface | Apply Script | Teardown Script |
+|---------|-----------------|-------------|-----------------|
+| Memory limits | cgroups v2 `memory.max` | `echo <bytes> > cgroup/memory.max` | `rmdir cgroup/` |
+| CPU binding | cgroups v2 `cpuset.cpus` | `echo <cpus> > cgroup/cpuset.cpus` | `rmdir cgroup/` |
+| Filesystem | overlayfs | `mount -t overlay` | `umount <merged>` |
+| Network | network namespaces | `ip netns add` | `ip netns del` |
+| Filesystem root | chroot | `mkdir -p <dir>` | `rm -rf <dir>` |
+| Syscall filter | seccomp-bpf | Informational flag | — |
+
+### Design Decision: Shell Scripts vs pepita Crate
+
+Forjar generates shell scripts for isolation (matching the architecture of all other resource types) rather than linking the pepita crate directly. This ensures:
+
+1. **Uniform execution model** — all resources are shell scripts piped through transport
+2. **Auditability** — generated scripts can be reviewed before apply
+3. **Transport agnostic** — isolation scripts work over SSH, container exec, or local bash
+4. **No runtime dependency** — the pepita crate is not required at apply time
+
+The pepita crate's types (`JailerConfig`, `MicroVm`) inform the resource schema design but aren't linked as a runtime dependency.
+
 ## Extension Points
 
 ### Resource Type Registry
