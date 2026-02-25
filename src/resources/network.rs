@@ -354,4 +354,58 @@ mod tests {
         let script = apply_script(&r);
         assert!(script.contains("port '65535'"));
     }
+
+    // ── FJ-036: Additional network resource tests ────────────────
+
+    #[test]
+    fn test_fj036_network_apply_with_comment() {
+        // When name (comment) and from_addr are set, both appear in the ufw rule
+        let mut r = make_network_resource("5432", "allow");
+        r.name = Some("postgres-access".to_string());
+        r.from_addr = Some("10.0.1.0/24".to_string());
+        let script = apply_script(&r);
+        assert!(
+            script.contains("comment 'postgres-access'"),
+            "comment must appear in ufw rule"
+        );
+        assert!(
+            script.contains("from '10.0.1.0/24'"),
+            "from_addr must appear in ufw rule"
+        );
+        assert!(
+            script.contains("ufw allow"),
+            "action must be allow"
+        );
+        assert!(
+            script.contains("port '5432'"),
+            "port must be present in rule"
+        );
+    }
+
+    #[test]
+    fn test_fj036_network_check_contains_ufw_status() {
+        // check_script must query ufw status to determine rule existence
+        let r = make_network_resource("443", "allow");
+        let script = check_script(&r);
+        assert!(
+            script.contains("ufw status"),
+            "check script must query ufw status"
+        );
+        assert!(
+            script.contains("443/tcp"),
+            "check script must include port/protocol pattern"
+        );
+        assert!(
+            script.contains("allow"),
+            "check script must include action in grep pattern"
+        );
+        assert!(
+            script.contains("exists:443"),
+            "check script must emit exists token"
+        );
+        assert!(
+            script.contains("missing:443"),
+            "check script must emit missing token"
+        );
+    }
 }

@@ -434,4 +434,95 @@ mod tests {
         assert!(script.contains("--gid 'appgrp'"));
         assert!(script.contains("--groups 'docker'"));
     }
+
+    // ── FJ-036: Additional user resource tests ───────────────────
+
+    #[test]
+    fn test_fj036_user_apply_with_ssh_keys() {
+        // SSH key deployment should create .ssh dir and write authorized_keys
+        let mut r = make_user_resource("operator");
+        r.ssh_authorized_keys = vec![
+            "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA operator@workstation".to_string(),
+            "ssh-rsa AAAAB3NzaC1yc2EAAAA operator@laptop".to_string(),
+        ];
+        let script = apply_script(&r);
+        // Must create .ssh directory
+        assert!(
+            script.contains("mkdir -p '/home/operator'/.ssh"),
+            "must create .ssh directory"
+        );
+        // Must set correct permissions on .ssh dir
+        assert!(
+            script.contains("chmod 700 '/home/operator'/.ssh"),
+            "must set .ssh dir to 700"
+        );
+        // Must deploy both keys
+        assert!(
+            script.contains("ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAA operator@workstation"),
+            "must include ed25519 key"
+        );
+        assert!(
+            script.contains("ssh-rsa AAAAB3NzaC1yc2EAAAA operator@laptop"),
+            "must include rsa key"
+        );
+        // Must set correct permissions on authorized_keys
+        assert!(
+            script.contains("chmod 600") && script.contains("authorized_keys"),
+            "must set authorized_keys to 600"
+        );
+        // Must set ownership
+        assert!(
+            script.contains("chown -R 'operator'"),
+            "must set ownership to user"
+        );
+    }
+
+    #[test]
+    fn test_fj036_user_apply_system_user() {
+        // system_user=true must add --system flag and must NOT add --create-home
+        let mut r = make_user_resource("nodeexporter");
+        r.system_user = true;
+        let script = apply_script(&r);
+        assert!(
+            script.contains("--system"),
+            "system_user=true must add --system flag to useradd"
+        );
+        assert!(
+            !script.contains("--create-home"),
+            "system users should not get --create-home by default"
+        );
+        assert!(
+            script.contains("useradd --system"),
+            "system flag must be part of useradd command"
+        );
+    }
+
+    #[test]
+    fn test_fj036_user_check_absent() {
+        // state=absent must generate userdel, not useradd/usermod
+        let mut r = make_user_resource("staleuser");
+        r.state = Some("absent".to_string());
+        let script = apply_script(&r);
+        assert!(
+            script.contains("userdel"),
+            "absent state must generate userdel"
+        );
+        assert!(
+            script.contains("'staleuser'"),
+            "userdel must reference the username"
+        );
+        assert!(
+            !script.contains("useradd"),
+            "absent state must not create user"
+        );
+        assert!(
+            !script.contains("usermod"),
+            "absent state must not modify user"
+        );
+        // Should check if user exists before deleting
+        assert!(
+            script.contains("if id 'staleuser'"),
+            "absent must check existence before deleting"
+        );
+    }
 }

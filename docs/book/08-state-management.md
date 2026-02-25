@@ -219,6 +219,82 @@ Cron:    hash(type, name, schedule, command, owner)
 Network: hash(type, port, protocol, action, from_addr)
 ```
 
+## Bashrs Script Validation in State Pipeline
+
+Forjar enforces shell safety through bashrs purification (FJ-036). Every shell script that forjar generates passes through a validation pipeline before execution. This validation is part of the state management lifecycle because the scripts that produce state transitions must themselves be correct.
+
+### Where Validation Fits
+
+The apply pipeline follows this sequence:
+
+```
+1. Config parse     → forjar.yaml → Resource structs
+2. Codegen          → Resource → shell scripts (check, apply, state_query)
+3. Script validation → purifier::validate_script() — lint for errors
+4. Transport exec   → run script on target machine via local or SSH
+5. Hash & store     → BLAKE3 hash output, write to state.lock.yaml
+```
+
+Step 3 is the bashrs gate. If a generated script contains Error-severity lint diagnostics, the apply is aborted before any changes reach the target machine. Warning-severity diagnostics are permitted because generated scripts may use patterns that trigger informational warnings (for example, `read` without `-r`).
+
+### Validation Levels
+
+The purifier module (`src/core/purifier.rs`) provides three levels of shell safety:
+
+| Function | Behavior | Use Case |
+|----------|----------|----------|
+| `validate_script(script)` | Lint-only, fails on Error severity | Pre-execution gate in apply pipeline |
+| `lint_script(script)` | Full lint pass, returns all diagnostics | Diagnostic reporting, CI checks |
+| `purify_script(script)` | Parse, purify AST, reformat, validate | Strongest guarantee, injection prevention |
+
+### Code Example
+
+The following shows how codegen output flows through validation before execution and state capture:
+
+```rust
+use forjar::core::{codegen, purifier};
+use forjar::core::types::Resource;
+
+fn apply_resource_with_validation(resource: &Resource) -> Result<String, String> {
+    // Step 1: Generate the apply script from the resource definition
+    let script = codegen::apply_script(resource)?;
+
+    // Step 2: Validate through bashrs linter (errors only)
+    purifier::validate_script(&script)?;
+
+    // Step 3: Execute the validated script via transport
+    let output = transport::execute(&script)?;
+
+    // Step 4: Hash the output for state storage
+    let hash = blake3_hash(&output);
+
+    // The hash is stored in state.lock.yaml as the resource's live_hash
+    Ok(hash)
+}
+```
+
+For the strongest safety guarantee, use `purify_script()` which parses the shell into an AST, applies purification transforms (proper quoting, injection prevention, deterministic ordering), reformats the AST back to shell, and validates the result:
+
+```rust
+// Full purification pipeline: parse → purify AST → reformat → validate
+let purified = purifier::purify_script(&script)?;
+// purified is now safe to execute — injection vectors removed
+```
+
+### State Query Scripts
+
+State query scripts are also validated before execution. These scripts capture the live state of a resource (for example, `dpkg -l curl` for a package or `systemctl is-active nginx` for a service). The BLAKE3 hash of the state query output becomes the `live_hash` stored in the lock file. If the state query script itself were malformed, the captured hash would be meaningless.
+
+```
+codegen::state_query_script(resource)
+  → purifier::validate_script(script)
+  → transport::execute(script)
+  → blake3::hash(output)
+  → store as details.live_hash in state.lock.yaml
+```
+
+This ensures that every hash recorded in the state lock was produced by a validated script, maintaining the integrity of drift detection.
+
 ## Atomic Writes
 
 Lock files are written atomically using a write-then-rename pattern:
@@ -417,6 +493,61 @@ resources:                       # Map of resource_id → ResourceLock
       live_hash: blake3:...      # Hash of state_query output
 ```
 
+### State Lock Schema Reference
+
+The following tables document every field in the `StateLock` and `ResourceLock` Rust structs (defined in `src/core/types.rs`). These structs are serialized directly to YAML for the per-machine lock files.
+
+#### StateLock Fields
+
+| Field | Rust Type | YAML Key | Default | Description |
+|-------|-----------|----------|---------|-------------|
+| `schema` | `String` | `schema` | (required) | Lock file format version, currently `"1.0"` |
+| `machine` | `String` | `machine` | (required) | Machine key from the forjar.yaml config |
+| `hostname` | `String` | `hostname` | (required) | Machine hostname as declared in config |
+| `generated_at` | `String` | `generated_at` | (required) | ISO 8601 UTC timestamp of lock generation |
+| `generator` | `String` | `generator` | (required) | Generator string, e.g. `"forjar 0.1.0"` |
+| `blake3_version` | `String` | `blake3_version` | (required) | BLAKE3 library version used for hashing, e.g. `"1.8"` |
+| `resources` | `IndexMap<String, ResourceLock>` | `resources` | (required) | Ordered map of resource ID to resource lock entry |
+
+#### ResourceLock Fields
+
+| Field | Rust Type | YAML Key | Default | Description |
+|-------|-----------|----------|---------|-------------|
+| `resource_type` | `ResourceType` | `type` | (required) | Resource type enum: `file`, `package`, `service`, `mount`, `user`, `docker`, `cron`, `network` |
+| `status` | `ResourceStatus` | `status` | (required) | Convergence status: `converged`, `failed`, `drifted`, or `unknown` |
+| `applied_at` | `Option<String>` | `applied_at` | `null` | ISO 8601 timestamp of last apply, absent if never applied |
+| `duration_seconds` | `Option<f64>` | `duration_seconds` | `null` | Wall-clock duration of last apply in seconds |
+| `hash` | `String` | `hash` | (required) | BLAKE3 composite hash of the resource's desired state |
+| `details` | `HashMap<String, Value>` | `details` | `{}` | Resource-type-specific metadata (path, content_hash, live_hash, etc.) |
+
+#### GlobalLock Fields
+
+| Field | Rust Type | YAML Key | Default | Description |
+|-------|-----------|----------|---------|-------------|
+| `schema` | `String` | `schema` | (required) | Lock file format version, currently `"1.0"` |
+| `name` | `String` | `name` | (required) | Infrastructure name from forjar.yaml |
+| `last_apply` | `String` | `last_apply` | (required) | ISO 8601 timestamp of the most recent apply |
+| `generator` | `String` | `generator` | (required) | Generator string, e.g. `"forjar 0.1.0"` |
+| `machines` | `IndexMap<String, MachineSummary>` | `machines` | (required) | Ordered map of machine name to summary |
+
+#### MachineSummary Fields
+
+| Field | Rust Type | YAML Key | Default | Description |
+|-------|-----------|----------|---------|-------------|
+| `resources` | `usize` | `resources` | (required) | Total number of managed resources |
+| `converged` | `usize` | `converged` | (required) | Number of resources successfully applied |
+| `failed` | `usize` | `failed` | (required) | Number of resources that failed to apply |
+| `last_apply` | `String` | `last_apply` | (required) | ISO 8601 timestamp of the machine's last apply |
+
+#### ResourceStatus Enum
+
+| Value | Rust Variant | Display | Description |
+|-------|-------------|---------|-------------|
+| `converged` | `ResourceStatus::Converged` | `CONVERGED` | Resource matches desired state |
+| `failed` | `ResourceStatus::Failed` | `FAILED` | Last apply attempt failed |
+| `drifted` | `ResourceStatus::Drifted` | `DRIFTED` | Live state differs from recorded state |
+| `unknown` | `ResourceStatus::Unknown` | `UNKNOWN` | No prior state recorded |
+
 ### Status Lifecycle
 
 Resources transition through these statuses:
@@ -530,6 +661,72 @@ The event log (`events.jsonl`) is append-only:
 ```
 
 `O_APPEND` guarantees atomic appends on POSIX — even concurrent writers produce valid JSONL. Events are never modified or deleted by forjar.
+
+## Concurrent Access Protection
+
+Forjar's state files are designed to be safe under concurrent access, even though forjar itself does not use file locking. Safety comes from two mechanisms: atomic writes for lock files and append-only semantics for event logs.
+
+### Lock File Atomicity
+
+The `state::save_lock()` function (in `src/core/state.rs`) writes lock files using a temp-file-and-rename pattern:
+
+```rust
+// Simplified from src/core/state.rs
+pub fn save_lock(state_dir: &Path, lock: &StateLock) -> Result<(), String> {
+    let path = lock_file_path(state_dir, &lock.machine);
+    let yaml = serde_yaml_ng::to_string(lock)?;
+
+    // Write to temporary file first
+    let tmp_path = path.with_extension("lock.yaml.tmp");
+    std::fs::write(&tmp_path, &yaml)?;
+
+    // Atomic rename — either old or new content is visible, never partial
+    std::fs::rename(&tmp_path, &path)?;
+    Ok(())
+}
+```
+
+The `rename()` system call is atomic on all POSIX filesystems. This means that any process reading the lock file will see either the complete old version or the complete new version. There is no window where a partial write is visible.
+
+If two forjar processes write to the same machine's lock file simultaneously, the last rename wins. The result is always a valid, complete lock file. No corruption occurs because neither process can produce a partial write through rename.
+
+### Event Log Append Safety
+
+The event log uses `OpenOptions::new().append(true)` which maps to the POSIX `O_APPEND` flag:
+
+```rust
+// Simplified from src/tripwire/eventlog.rs
+let mut file = std::fs::OpenOptions::new()
+    .create(true)
+    .append(true)
+    .open(&path)?;
+use std::io::Write;
+writeln!(file, "{}", json)?;
+```
+
+The `O_APPEND` flag guarantees that each write positions the file offset at the end of the file atomically before writing. This means concurrent appenders produce interleaved but never overlapping writes. Each JSON line remains intact.
+
+### Concurrent Machine Safety
+
+Each machine has its own subdirectory under the state directory:
+
+```
+state/
+  machine-a/state.lock.yaml    # Only written by machine-a apply
+  machine-a/events.jsonl        # Only appended by machine-a events
+  machine-b/state.lock.yaml    # Independent — no conflict with machine-a
+  machine-b/events.jsonl
+```
+
+Because lock files are keyed by machine name and stored in separate directories, applying to different machines concurrently (for example, with `policy.parallel_machines: true`) never causes cross-machine file conflicts. Each machine's state is fully isolated.
+
+### What Is Not Protected
+
+Forjar does not implement advisory or mandatory file locking. Running two `forjar apply` commands against the same machine simultaneously can result in a last-write-wins scenario for the lock file. The lock file will be valid (atomic rename guarantees this), but it may reflect only one of the two applies. To avoid this:
+
+- Do not run concurrent applies against the same machine
+- Use CI/CD serialization (job queues) for production applies
+- The event log will contain entries from both runs, providing a full audit trail even in the race condition case
 
 ## Advanced State Operations
 
@@ -745,3 +942,77 @@ schema: '1.0'
 ```
 
 Forjar validates the schema version on load. Future versions may introduce `schema: '2.0'` with migration support.
+
+## Migration Guide
+
+When a new version of forjar changes the lock file format, the `schema` field drives forward compatibility. This section describes what happens during version transitions and how to handle them.
+
+### Schema Version Contract
+
+Every lock file begins with a `schema` field:
+
+```yaml
+schema: '1.0'
+```
+
+Forjar checks this field when loading a lock file. The behavior depends on the relationship between the lock file's schema version and the running forjar version's expected schema:
+
+| Lock Schema | Forjar Expected | Behavior |
+|-------------|-----------------|----------|
+| `1.0` | `1.0` | Normal operation, no migration needed |
+| `1.0` | `2.0` | Auto-migrate: forjar reads the old format and writes the new format on next save |
+| `2.0` | `1.0` | Error: forjar refuses to load a lock file from a newer schema it does not understand |
+| Missing | Any | Error: malformed lock file, must be rebuilt |
+
+### What Triggers a Format Change
+
+Lock file format changes are reserved for structural changes to the schema itself. The following do not require a schema version bump:
+
+- Adding new resource types (the `type` field is an enum that extends without breaking existing entries)
+- Adding new keys to the `details` map (details is a `HashMap<String, Value>` and tolerates unknown keys)
+- Adding new event types to the event log (JSONL consumers ignore unknown event tags)
+
+A schema version bump would be required for:
+
+- Renaming or removing existing top-level fields (`machine`, `hostname`, `resources`, etc.)
+- Changing the structure of `ResourceLock` (for example, splitting `hash` into separate fields)
+- Changing the serialization format from YAML to another format
+
+### Upgrade Procedure
+
+When upgrading forjar to a version with a new lock schema:
+
+```bash
+# 1. Back up current state
+cp -r state/ state-backup-$(date +%Y%m%d)/
+
+# 2. Upgrade forjar binary
+cargo install forjar
+
+# 3. Run apply — forjar auto-migrates lock files on write
+forjar apply -f forjar.yaml
+
+# 4. Verify the migrated state
+forjar status -f forjar.yaml
+forjar drift -f forjar.yaml
+```
+
+The apply command reads the old-format lock, builds the in-memory `StateLock` struct, and writes it back in the new format. No separate migration command is needed because the Rust structs always reflect the current schema, and `serde` handles deserialization of the old format through default values and optional fields.
+
+### Downgrade Considerations
+
+Downgrading forjar to an older version after a schema migration is not supported. The older binary will refuse to load lock files with a schema version it does not recognize. If you need to downgrade:
+
+```bash
+# Restore from backup
+rm -rf state/
+cp -r state-backup-20260225/ state/
+
+# Or rebuild state from scratch with the older version
+rm -rf state/
+forjar apply -f forjar.yaml --force
+```
+
+### Event Log Compatibility
+
+The event log (`events.jsonl`) does not have a schema version. Each line is a self-contained JSON object with an `event` field that identifies its type. Consumers should ignore unknown event types rather than failing. This design means the event log format is forward-compatible indefinitely — new event types can be added without breaking existing log parsers.

@@ -403,4 +403,90 @@ mod tests {
         let s2 = apply_script(&r);
         assert_eq!(s1, s2, "apply_script must be idempotent");
     }
+
+    // ── FJ-036: Additional docker resource tests ─────────────────
+
+    #[test]
+    fn test_fj036_docker_apply_absent_removes() {
+        // state=absent must generate docker stop + docker rm, not pull/run
+        let mut r = make_docker_resource("stale-app", "myapp:old");
+        r.state = Some("absent".to_string());
+        let script = apply_script(&r);
+        assert!(
+            script.contains("docker rm 'stale-app'"),
+            "absent must generate docker rm"
+        );
+        assert!(
+            script.contains("docker stop 'stale-app'"),
+            "absent must generate docker stop before rm"
+        );
+        assert!(
+            !script.contains("docker pull"),
+            "absent must not pull image"
+        );
+        assert!(
+            !script.contains("docker run"),
+            "absent must not run container"
+        );
+    }
+
+    #[test]
+    fn test_fj036_docker_check_running_container() {
+        // check_script should reference both name and inspect command
+        let r = make_docker_resource("api-server", "api:v2");
+        let script = check_script(&r);
+        assert!(
+            script.contains("docker inspect"),
+            "check should use docker inspect"
+        );
+        assert!(
+            script.contains("'api-server'"),
+            "check should reference container name"
+        );
+        assert!(
+            script.contains("State.Running"),
+            "check should query running state"
+        );
+        assert!(
+            script.contains("exists:api-server"),
+            "check should emit exists token"
+        );
+        assert!(
+            script.contains("missing:api-server"),
+            "check should emit missing token"
+        );
+    }
+
+    #[test]
+    fn test_fj036_docker_apply_with_ports_and_volumes() {
+        // Ports and volumes should both appear in the generated run command
+        let mut r = make_docker_resource("webapp", "myapp:latest");
+        r.ports = vec!["8080:80".to_string(), "8443:443".to_string()];
+        r.volumes = vec![
+            "/host/data:/container/data".to_string(),
+            "/host/logs:/var/log/app".to_string(),
+        ];
+        let script = apply_script(&r);
+        assert!(script.contains("-p '8080:80'"), "first port mapping missing");
+        assert!(
+            script.contains("-p '8443:443'"),
+            "second port mapping missing"
+        );
+        assert!(
+            script.contains("-v '/host/data:/container/data'"),
+            "first volume mapping missing"
+        );
+        assert!(
+            script.contains("-v '/host/logs:/var/log/app'"),
+            "second volume mapping missing"
+        );
+        assert!(
+            script.contains("docker run -d"),
+            "must run in detached mode"
+        );
+        assert!(
+            script.contains("--name 'webapp'"),
+            "must name the container"
+        );
+    }
 }
