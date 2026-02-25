@@ -460,3 +460,280 @@ jobs:
 9. **Test templates separately** — Use `forjar show --json` to verify template resolution before applying.
 
 10. **Set up scheduled drift checks** — A cron job running `forjar drift --tripwire` catches unauthorized changes within minutes.
+
+## Testing Patterns
+
+### Unit Testing Configs
+
+Test individual config files without applying them:
+
+```bash
+#!/bin/bash
+# test-configs.sh — validate all config variants
+
+set -euo pipefail
+
+for config in configs/*.yaml; do
+    echo "Testing: $config"
+    forjar validate -f "$config" || { echo "FAIL: $config"; exit 1; }
+    forjar lint -f "$config" || { echo "LINT FAIL: $config"; exit 1; }
+    forjar plan -f "$config" --state-dir /dev/null 2>/dev/null || true
+    echo "  OK"
+done
+
+echo "All configs valid."
+```
+
+### Snapshot Testing
+
+Compare plan output against a known-good baseline:
+
+```bash
+#!/bin/bash
+# snapshot-test.sh
+
+# Generate current plan
+forjar plan -f forjar.yaml --state-dir state/ > /tmp/current-plan.txt
+
+# Compare to baseline
+if diff -q snapshots/expected-plan.txt /tmp/current-plan.txt > /dev/null 2>&1; then
+    echo "Plan matches snapshot."
+else
+    echo "Plan changed!"
+    diff snapshots/expected-plan.txt /tmp/current-plan.txt
+    echo ""
+    echo "If this is expected, update the snapshot:"
+    echo "  cp /tmp/current-plan.txt snapshots/expected-plan.txt"
+    exit 1
+fi
+```
+
+### Container Integration Test Matrix
+
+Test all resource types in containers:
+
+```yaml
+# test-matrix.yaml
+version: "1.0"
+name: integration-tests
+
+machines:
+  test:
+    hostname: test
+    addr: container
+    transport: container
+    container:
+      runtime: docker
+      image: ubuntu:22.04
+      ephemeral: true
+      privileged: true    # Needed for service tests
+
+resources:
+  # Package install
+  test-packages:
+    type: package
+    machine: test
+    provider: apt
+    packages: [curl, jq]
+
+  # File creation
+  test-file:
+    type: file
+    machine: test
+    path: /etc/test/config.yaml
+    content: "test: true"
+    mode: "0644"
+    depends_on: [test-packages]
+
+  # Directory creation
+  test-dir:
+    type: file
+    machine: test
+    state: directory
+    path: /opt/test-app
+    mode: "0755"
+
+  # User creation
+  test-user:
+    type: user
+    machine: test
+    name: testuser
+    shell: /bin/bash
+    home: /home/testuser
+```
+
+Run the test matrix:
+
+```bash
+# Apply
+forjar apply -f test-matrix.yaml --state-dir /tmp/test-state/
+
+# Verify idempotency
+forjar apply -f test-matrix.yaml --state-dir /tmp/test-state/
+# Should show: 0 converged, N unchanged, 0 failed
+
+# Check for drift
+forjar drift -f test-matrix.yaml --state-dir /tmp/test-state/
+
+# Clean up (ephemeral: true handles container cleanup)
+```
+
+### Testing Recipes in Isolation
+
+Test recipes independently before using them in production configs:
+
+```yaml
+# test-recipe.yaml
+version: "1.0"
+name: recipe-test
+
+machines:
+  test:
+    hostname: test
+    addr: container
+    transport: container
+    container:
+      image: ubuntu:22.04
+      ephemeral: true
+
+resources:
+  web:
+    type: recipe
+    machine: test
+    recipe: web-server
+    inputs:
+      domain: test.example.com
+      port: 8080
+      log_level: debug
+```
+
+```bash
+# Validate recipe expansion
+forjar validate -f test-recipe.yaml
+
+# View expanded resources
+forjar graph -f test-recipe.yaml
+
+# Apply in container
+forjar apply -f test-recipe.yaml --state-dir /tmp/recipe-test/
+```
+
+## Monitoring and Alerting
+
+### Prometheus Metrics
+
+Export forjar drift status as Prometheus metrics:
+
+```bash
+#!/bin/bash
+# forjar-exporter.sh — run as a cron job, write to textfile collector
+
+METRICS_FILE="/var/lib/prometheus/node-exporter/forjar.prom"
+
+drift_json=$(forjar drift -f /opt/infra/forjar.yaml --state-dir /opt/infra/state/ --json 2>/dev/null)
+drift_count=$(echo "$drift_json" | jq '.findings | length' 2>/dev/null || echo 0)
+
+cat > "$METRICS_FILE" <<EOF
+# HELP forjar_drift_count Number of resources with detected drift
+# TYPE forjar_drift_count gauge
+forjar_drift_count $drift_count
+EOF
+```
+
+### Slack/Discord Notifications
+
+Alert when drift is detected:
+
+```bash
+#!/bin/bash
+# drift-alert.sh — called by forjar drift --alert-cmd
+
+WEBHOOK_URL="https://hooks.slack.com/services/..."
+DRIFT_COUNT="${FORJAR_DRIFT_COUNT:-0}"
+
+if [ "$DRIFT_COUNT" -gt 0 ]; then
+    curl -s -X POST "$WEBHOOK_URL" \
+        -H 'Content-type: application/json' \
+        -d "{\"text\": \"Forjar drift alert: $DRIFT_COUNT resources drifted\"}"
+fi
+```
+
+Use with forjar:
+
+```bash
+forjar drift -f forjar.yaml --state-dir state/ --alert-cmd "./drift-alert.sh"
+```
+
+## GitOps Workflow
+
+### Pull Request Validation
+
+Run forjar in CI on every pull request:
+
+```yaml
+# .github/workflows/validate.yml
+name: Validate Infrastructure
+on: [pull_request]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install forjar
+        run: cargo install forjar
+
+      - name: Validate
+        run: forjar validate -f forjar.yaml
+
+      - name: Lint
+        run: forjar lint -f forjar.yaml
+
+      - name: Format check
+        run: forjar fmt -f forjar.yaml --check
+
+      - name: Preview plan
+        run: |
+          forjar plan -f forjar.yaml --state-dir state/
+        # Plan output appears in CI logs for review
+```
+
+### Auto-Deploy on Merge
+
+Deploy automatically when changes merge to main:
+
+```yaml
+# .github/workflows/deploy.yml
+name: Deploy Infrastructure
+on:
+  push:
+    branches: [main]
+    paths: ['forjar.yaml', 'recipes/**']
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+
+      - name: Install and apply
+        run: |
+          cargo install forjar
+          forjar drift -f forjar.yaml --state-dir state/ --tripwire || true
+          forjar apply -f forjar.yaml --state-dir state/
+          forjar drift -f forjar.yaml --state-dir state/ --tripwire
+
+      - name: Commit state
+        run: |
+          git add state/
+          git commit -m "forjar: deploy $(date -I)" || true
+          git push
+```
