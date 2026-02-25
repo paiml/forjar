@@ -236,7 +236,10 @@ mod tests {
         std::fs::write(&path, content).unwrap();
         let file_hash = hash_file(&path).unwrap();
         let string_hash = hash_string(content);
-        assert_eq!(file_hash, string_hash, "file hash should equal string hash of same content");
+        assert_eq!(
+            file_hash, string_hash,
+            "file hash should equal string hash of same content"
+        );
     }
 
     #[test]
@@ -275,7 +278,10 @@ mod tests {
         let h1 = hash_directory(dir.path()).unwrap();
         std::fs::write(dir.path().join("f.txt"), "modified").unwrap();
         let h2 = hash_directory(dir.path()).unwrap();
-        assert_ne!(h1, h2, "directory hash should change when file content changes");
+        assert_ne!(
+            h1, h2,
+            "directory hash should change when file content changes"
+        );
     }
 
     #[test]

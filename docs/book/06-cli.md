@@ -50,6 +50,13 @@ Checks:
 - Resources reference valid machines
 - Dependencies reference valid resources
 - No circular dependencies
+- File state is valid (file, directory, symlink, absent)
+- Service state is valid (running, stopped, enabled, disabled)
+- Mount state is valid (mounted, unmounted, absent)
+- Docker state is valid (running, stopped, absent)
+- Network protocol is valid (tcp, udp) and action is valid (allow, deny, reject)
+- Cron schedule has exactly 5 fields (min hour dom mon dow)
+- Symlink resources have a target field
 
 ### `forjar plan`
 

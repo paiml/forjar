@@ -1333,6 +1333,9 @@ Statistical anomaly detection from event history. Analyzes per-resource metrics:
 | FJ-082 | `forjar anomaly` — statistical drift anomaly detection from event history (z-score churn, failure rate, drift events) | **Done** |
 | FJ-083 | Parser validation hardening — state enum validation for file/service/mount/docker, protocol/action validation for network, symlink target requirement | **Done** |
 | FJ-084 | `forjar import` — add `users` and `cron` scan types for user/crontab discovery | **Done** |
+| FJ-085 | SSH transport — refactor `build_ssh_args()` + 10 unit tests for command construction, key expansion, argument ordering | **Done** |
+| FJ-086 | Cron schedule validation — 5-field check, state validation (present/absent), absent skips required fields | **Done** |
+| FJ-087 | BLAKE3 hasher edge case tests — empty files, large streaming, file-vs-string consistency, directory change detection | **Done** |
 
 ---
 
