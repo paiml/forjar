@@ -14,10 +14,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 /// Looks for `FORJAR_SECRET_<KEY>` (uppercase, hyphens become underscores).
 /// Example: `{{secrets.db-password}}` resolves from `FORJAR_SECRET_DB_PASSWORD`.
 fn resolve_secret(key: &str) -> Result<String, String> {
-    let env_key = format!(
-        "FORJAR_SECRET_{}",
-        key.to_uppercase().replace('-', "_")
-    );
+    let env_key = format!("FORJAR_SECRET_{}", key.to_uppercase().replace('-', "_"));
     std::env::var(&env_key).map_err(|_| {
         format!(
             "secret '{}' not found (set env var {} or use a secrets file)",
@@ -264,11 +261,7 @@ mod tests {
         // Use a unique key that definitely won't exist in CI/local env
         let params = HashMap::new();
         let machines = indexmap::IndexMap::new();
-        let result = resolve_template(
-            "{{secrets.zzz-test-nonexistent-9999}}",
-            &params,
-            &machines,
-        );
+        let result = resolve_template("{{secrets.zzz-test-nonexistent-9999}}", &params, &machines);
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert!(err.contains("FORJAR_SECRET_ZZZ_TEST_NONEXISTENT_9999"));
@@ -311,8 +304,7 @@ mod tests {
         }
         let params = HashMap::new();
         let machines = indexmap::IndexMap::new();
-        let result =
-            resolve_template("val={{secrets.test-key}}", &params, &machines).unwrap();
+        let result = resolve_template("val={{secrets.test-key}}", &params, &machines).unwrap();
         assert_eq!(result, "val=secret_value");
     }
 

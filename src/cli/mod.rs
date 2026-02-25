@@ -535,12 +535,12 @@ fn cmd_show(file: &Path, resource_filter: Option<&str>, json: bool) -> Result<()
             .get(resource_id)
             .ok_or_else(|| format!("resource '{}' not found", resource_id))?;
         if json {
-            let output = serde_json::to_string_pretty(resource)
-                .map_err(|e| format!("JSON error: {}", e))?;
+            let output =
+                serde_json::to_string_pretty(resource).map_err(|e| format!("JSON error: {}", e))?;
             println!("{}", output);
         } else {
-            let output = serde_yaml_ng::to_string(resource)
-                .map_err(|e| format!("YAML error: {}", e))?;
+            let output =
+                serde_yaml_ng::to_string(resource).map_err(|e| format!("YAML error: {}", e))?;
             println!("{}:\n{}", resource_id, output);
         }
     } else if json {
@@ -548,8 +548,7 @@ fn cmd_show(file: &Path, resource_filter: Option<&str>, json: bool) -> Result<()
             serde_json::to_string_pretty(&config).map_err(|e| format!("JSON error: {}", e))?;
         println!("{}", output);
     } else {
-        let output =
-            serde_yaml_ng::to_string(&config).map_err(|e| format!("YAML error: {}", e))?;
+        let output = serde_yaml_ng::to_string(&config).map_err(|e| format!("YAML error: {}", e))?;
         println!("{}", output);
     }
 
@@ -708,6 +707,34 @@ fn export_scripts(config: &types::ForjarConfig, dir: &Path) -> Result<(), String
     Ok(())
 }
 
+/// Run a local shell hook command. Returns Ok if the command succeeds, Err if it fails.
+fn run_hook(name: &str, command: &str, verbose: bool) -> Result<(), String> {
+    if verbose {
+        eprintln!("Running {} hook: {}", name, command);
+    }
+    let output = std::process::Command::new("sh")
+        .arg("-c")
+        .arg(command)
+        .output()
+        .map_err(|e| format!("{} hook failed to start: {}", name, e))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(format!(
+            "{} hook failed (exit {}): {}",
+            name,
+            output.status.code().unwrap_or(-1),
+            stderr.trim()
+        ));
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    if !stdout.is_empty() {
+        print!("{}", stdout);
+    }
+    Ok(())
+}
+
 /// Parse KEY=VALUE param overrides and merge into config.
 fn apply_param_overrides(
     config: &mut types::ForjarConfig,
@@ -751,6 +778,13 @@ fn cmd_apply(
         config.policy.tripwire = false;
     }
     apply_param_overrides(&mut config, param_overrides)?;
+
+    // Run pre_apply hook (abort on failure)
+    if let Some(ref hook) = config.policy.pre_apply {
+        if !dry_run {
+            run_hook("pre_apply", hook, verbose)?;
+        }
+    }
 
     let cfg = executor::ApplyConfig {
         config: &config,
@@ -816,6 +850,13 @@ fn cmd_apply(
 
     if auto_commit && total_converged > 0 {
         git_commit_state(state_dir, &config.name, total_converged)?;
+    }
+
+    // Run post_apply hook (informational — doesn't affect exit code)
+    if let Some(ref hook) = config.policy.post_apply {
+        if let Err(e) = run_hook("post_apply", hook, verbose) {
+            eprintln!("Warning: {}", e);
+        }
     }
 
     Ok(())
@@ -3175,5 +3216,41 @@ resources:
         let result = cmd_show(&config, Some("nonexistent"), false);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("not found"));
+    }
+
+    #[test]
+    fn test_fj054_run_hook_success() {
+        run_hook("test", "echo hello", false).unwrap();
+    }
+
+    #[test]
+    fn test_fj054_run_hook_failure() {
+        let result = run_hook("test", "exit 1", false);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("failed"));
+    }
+
+    #[test]
+    fn test_fj054_run_hook_nonzero_exit() {
+        let result = run_hook("pre_apply", "exit 42", false);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("exit 42"));
+    }
+
+    #[test]
+    fn test_fj054_policy_hooks_parsed() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines: {}
+resources: {}
+policy:
+  failure: stop_on_first
+  pre_apply: "echo before"
+  post_apply: "echo after"
+"#;
+        let config: types::ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        assert_eq!(config.policy.pre_apply.as_deref(), Some("echo before"));
+        assert_eq!(config.policy.post_apply.as_deref(), Some("echo after"));
     }
 }

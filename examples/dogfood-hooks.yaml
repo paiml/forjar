@@ -1,0 +1,45 @@
+# Dogfood config: test pre/post apply hooks.
+#
+# Demonstrates policy hooks that run local commands before and after apply.
+# pre_apply exits non-zero → apply aborts. post_apply is informational.
+#
+# Prerequisites:
+#   docker build -t forjar-test-target -f tests/Dockerfile.test-target .
+#
+# Usage:
+#   # Apply with hooks
+#   cargo run -- apply -f examples/dogfood-hooks.yaml --state-dir /tmp/dogfood-hooks -v
+#
+#   # Cleanup
+#   docker rm -f forjar-dogfood-hooks
+
+version: "1.0"
+name: dogfood-hooks
+
+machines:
+  test-box:
+    hostname: test-box
+    addr: container
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-dogfood-hooks
+      ephemeral: false
+      privileged: false
+      init: true
+
+resources:
+  greeting:
+    type: file
+    machine: test-box
+    path: /etc/forjar-greeting
+    content: "Hello from hooks dogfood!"
+    owner: root
+    mode: "0644"
+
+policy:
+  failure: stop_on_first
+  tripwire: true
+  pre_apply: "echo '[hook] Pre-apply: validating config...' && date"
+  post_apply: "echo '[hook] Post-apply: apply finished at' && date"

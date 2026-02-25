@@ -6,8 +6,8 @@
 //! - depends_on references must exist
 //! - Required fields per resource type
 
-use super::types::*;
 use super::recipe;
+use super::types::*;
 use std::path::Path;
 
 /// Validation error.
@@ -258,7 +258,9 @@ pub fn expand_recipes(config: &mut ForjarConfig, config_dir: Option<&Path>) -> R
             .ok_or_else(|| format!("recipe resource '{}' has no recipe name", id))?;
 
         // Look for recipe file relative to config directory
-        let recipe_path = base_dir.join("recipes").join(format!("{}.yaml", recipe_name));
+        let recipe_path = base_dir
+            .join("recipes")
+            .join(format!("{}.yaml", recipe_name));
         if !recipe_path.exists() {
             return Err(format!(
                 "recipe '{}' not found at {}",

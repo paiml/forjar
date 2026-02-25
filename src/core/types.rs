@@ -382,6 +382,14 @@ pub struct Policy {
     /// Persist BLAKE3 state after apply
     #[serde(default = "default_true")]
     pub lock_file: bool,
+
+    /// Command to run locally before apply (exit non-zero aborts)
+    #[serde(default)]
+    pub pre_apply: Option<String>,
+
+    /// Command to run locally after successful apply
+    #[serde(default)]
+    pub post_apply: Option<String>,
 }
 
 impl Default for Policy {
@@ -391,6 +399,8 @@ impl Default for Policy {
             parallel_machines: false,
             tripwire: true,
             lock_file: true,
+            pre_apply: None,
+            post_apply: None,
         }
     }
 }

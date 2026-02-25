@@ -198,9 +198,26 @@ policy:
   parallel_machines: false     # Concurrent machine execution (future)
   tripwire: true               # Enable provenance event logging
   lock_file: true              # Persist BLAKE3 state after apply
+  pre_apply: "echo 'validating...' && ./scripts/check-env.sh"
+  post_apply: "echo 'done!' && ./scripts/notify-slack.sh"
 ```
 
 ### Failure Policies
 
 - **stop_on_first** (default): Jidoka. Stop immediately on first failure. Partial state preserved.
 - **continue_independent**: Continue applying resources that don't depend on the failed one.
+
+### Apply Hooks
+
+Run local shell commands before and after apply:
+
+```yaml
+policy:
+  pre_apply: "echo 'Pre-flight check' && ./validate.sh"
+  post_apply: "echo 'Apply complete' && date"
+```
+
+- **pre_apply**: Runs before any resources are applied. If the command exits non-zero, the apply is **aborted**. Use for pre-flight validation, environment checks, or approval gates.
+- **post_apply**: Runs after a successful apply. Informational only — a non-zero exit logs a warning but does not change the apply's exit code. Use for notifications, logging, or cleanup.
+
+Hooks are skipped during `--dry-run`.
