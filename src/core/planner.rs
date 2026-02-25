@@ -1980,4 +1980,136 @@ resources:
             "failed resources should be retried"
         );
     }
+
+    // ── FJ-036 tests ─────────────────────────────────────────────
+
+    #[test]
+    fn test_fj036_plan_all_noop_when_converged() {
+        // Config where all resources have matching hashes -> plan shows all NoOp
+        let config = make_config();
+        let order = vec!["pkg".to_string(), "conf".to_string(), "svc".to_string()];
+
+        // Build locks with matching hashes for every resource
+        let mut resources = indexmap::IndexMap::new();
+        for id in &order {
+            let resource = &config.resources[id];
+            resources.insert(
+                id.clone(),
+                ResourceLock {
+                    resource_type: resource.resource_type.clone(),
+                    status: ResourceStatus::Converged,
+                    applied_at: None,
+                    duration_seconds: None,
+                    hash: hash_desired_state(resource),
+                    details: HashMap::new(),
+                },
+            );
+        }
+        let lock = StateLock {
+            schema: "1.0".to_string(),
+            machine: "m1".to_string(),
+            hostname: "m1".to_string(),
+            generated_at: "2026-01-01T00:00:00Z".to_string(),
+            generator: "forjar".to_string(),
+            blake3_version: "1.8".to_string(),
+            resources,
+        };
+        let mut locks = HashMap::new();
+        locks.insert("m1".to_string(), lock);
+
+        let p = plan(&config, &order, &locks, None);
+
+        assert_eq!(p.unchanged, 3, "all 3 resources should be unchanged");
+        assert_eq!(p.to_create, 0, "nothing to create");
+        assert_eq!(p.to_update, 0, "nothing to update");
+        assert_eq!(p.to_destroy, 0, "nothing to destroy");
+        assert_eq!(p.changes.len(), 3, "all 3 resources should appear in plan");
+        assert!(
+            p.changes.iter().all(|c| c.action == PlanAction::NoOp),
+            "every action should be NoOp"
+        );
+    }
+
+    #[test]
+    fn test_fj036_plan_respects_resource_filter() {
+        // With 3 resources, filter execution_order to 1, verify only that 1 appears in plan
+        let config = make_config();
+        let locks = HashMap::new();
+
+        // Only include "conf" in execution order (not pkg or svc)
+        let filtered_order = vec!["conf".to_string()];
+        let p = plan(&config, &filtered_order, &locks, None);
+
+        assert_eq!(
+            p.changes.len(),
+            1,
+            "only 1 resource should appear in plan"
+        );
+        assert_eq!(
+            p.changes[0].resource_id, "conf",
+            "the planned resource should be 'conf'"
+        );
+        assert_eq!(
+            p.changes[0].action,
+            PlanAction::Create,
+            "conf should be Create since no locks exist"
+        );
+    }
+
+    #[test]
+    fn test_fj036_plan_absent_resource_destroy() {
+        // Resource with state=absent that exists in lock -> plan shows Destroy action
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 127.0.0.1
+resources:
+  old-config:
+    type: file
+    machine: m1
+    path: /etc/old.conf
+    state: absent
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let order = vec!["old-config".to_string()];
+
+        // Create a lock entry for this resource (it exists on the machine)
+        let mut lock_resources = indexmap::IndexMap::new();
+        lock_resources.insert(
+            "old-config".to_string(),
+            ResourceLock {
+                resource_type: ResourceType::File,
+                status: ResourceStatus::Converged,
+                applied_at: None,
+                duration_seconds: None,
+                hash: "blake3:some_existing_hash".to_string(),
+                details: HashMap::new(),
+            },
+        );
+        let lock = StateLock {
+            schema: "1.0".to_string(),
+            machine: "m1".to_string(),
+            hostname: "m1".to_string(),
+            generated_at: "2026-01-01T00:00:00Z".to_string(),
+            generator: "forjar".to_string(),
+            blake3_version: "1.8".to_string(),
+            resources: lock_resources,
+        };
+        let mut locks = HashMap::new();
+        locks.insert("m1".to_string(), lock);
+
+        let p = plan(&config, &order, &locks, None);
+
+        assert_eq!(p.to_destroy, 1, "should have 1 destroy action");
+        assert_eq!(p.changes.len(), 1);
+        assert_eq!(
+            p.changes[0].action,
+            PlanAction::Destroy,
+            "absent resource with existing lock should be Destroy"
+        );
+        assert_eq!(p.changes[0].resource_id, "old-config");
+    }
 }

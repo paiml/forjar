@@ -1314,4 +1314,123 @@ resources: {}
         let result = resolve_input_template("no templates here", &HashMap::new()).unwrap();
         assert_eq!(result, "no templates here");
     }
+
+    // ── FJ-036 tests ─────────────────────────────────────────────
+
+    #[test]
+    fn test_fj036_expand_recipe_namespaces_resources() {
+        // Verify recipe expansion produces namespaced resource IDs (recipe-name/resource-id format)
+        let yaml = r#"
+recipe:
+  name: mystack
+  inputs:
+    dir:
+      type: path
+resources:
+  install:
+    type: package
+    provider: apt
+    packages: [nginx]
+  config:
+    type: file
+    path: /etc/nginx/nginx.conf
+    content: "root {{inputs.dir}}"
+    depends_on: [install]
+"#;
+        let recipe = parse_recipe(yaml).unwrap();
+        let machine = MachineTarget::Single("web1".to_string());
+        let mut inputs = HashMap::new();
+        inputs.insert(
+            "dir".to_string(),
+            serde_yaml_ng::Value::String("/var/www".to_string()),
+        );
+
+        let expanded = expand_recipe("mystack", &recipe, &machine, &inputs, &[]).unwrap();
+
+        // Every key must follow the recipe-name/resource-id pattern
+        assert_eq!(expanded.len(), 2);
+        for key in expanded.keys() {
+            assert!(
+                key.starts_with("mystack/"),
+                "expected namespaced key 'mystack/...', got '{}'",
+                key
+            );
+            assert!(
+                key.contains('/'),
+                "key '{}' must contain '/' separator",
+                key
+            );
+        }
+        assert!(expanded.contains_key("mystack/install"));
+        assert!(expanded.contains_key("mystack/config"));
+    }
+
+    #[test]
+    fn test_fj036_validate_inputs_rejects_wrong_type() {
+        // Passing a string for an int-typed input must fail
+        let yaml = r#"
+recipe:
+  name: test
+  inputs:
+    count:
+      type: int
+resources: {}
+"#;
+        let recipe = parse_recipe(yaml).unwrap();
+        let mut provided = HashMap::new();
+        provided.insert(
+            "count".to_string(),
+            serde_yaml_ng::Value::String("not-an-integer".to_string()),
+        );
+        let result = validate_inputs(&recipe.recipe, &provided);
+        assert!(
+            result.is_err(),
+            "string value for int input should be rejected"
+        );
+        let err = result.unwrap_err();
+        assert!(
+            err.contains("integer"),
+            "error should mention integer type: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn test_fj036_expand_recipe_inherits_machine() {
+        // Expanded resources must get the machine from the recipe caller
+        let recipe = parse_recipe(RECIPE_YAML).unwrap();
+        let machine = MachineTarget::Single("staging-box".to_string());
+        let mut inputs = HashMap::new();
+        inputs.insert(
+            "export_path".to_string(),
+            serde_yaml_ng::Value::String("/mnt/staging".to_string()),
+        );
+
+        let expanded = expand_recipe("nfs", &recipe, &machine, &inputs, &[]).unwrap();
+
+        // Every expanded resource must inherit the caller's machine
+        for (key, resource) in &expanded {
+            let machines = resource.machine.to_vec();
+            assert_eq!(
+                machines,
+                vec!["staging-box"],
+                "resource '{}' should inherit machine 'staging-box', got {:?}",
+                key,
+                machines
+            );
+        }
+    }
+
+    #[test]
+    fn test_fj036_load_recipe_file_missing() {
+        // Loading a recipe from a nonexistent path must produce an error
+        let result = load_recipe(Path::new("/tmp/does-not-exist/recipe-fj036.yaml"));
+        assert!(result.is_err(), "missing file should produce an error");
+        let err = result.unwrap_err();
+        assert!(
+            err.contains("cannot read recipe"),
+            "error should mention cannot read recipe: {}",
+            err
+        );
+    }
 }

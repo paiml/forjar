@@ -814,3 +814,121 @@ else
     forjar apply -f forjar.yaml --state-dir state/
 fi
 ```
+
+## bashrs Lint Integration
+
+Starting with FJ-036, `forjar lint` includes **bashrs script diagnostics** alongside the config-level lint checks described above. When you run `forjar lint`, forjar generates all three scripts (check, apply, state_query) for every resource in the config and runs each through the bashrs linter. The results are merged into the lint report.
+
+### What Gets Checked
+
+For each resource in the config, forjar calls `codegen::check_script`, `codegen::apply_script`, and `codegen::state_query_script` to produce the shell scripts that would be executed during `forjar apply`. Each script is then passed to `purifier::lint_script()`, which runs the bashrs linter and returns diagnostics with severity levels and diagnostic codes.
+
+Error-severity diagnostics are reported individually by resource and script kind. Warning-severity diagnostics are counted in aggregate. The summary line at the end shows total errors and warnings across all resources.
+
+### Diagnostic Code Prefixes
+
+bashrs diagnostics use prefixed codes that indicate the category of the finding:
+
+| Prefix | Category | Meaning |
+|--------|----------|---------|
+| **SEC** | Security | Injection risk, unquoted variable expansion, unsafe eval patterns |
+| **DET** | Determinism | Non-deterministic commands (date, random, pid) that break reproducibility |
+| **IDEM** | Idempotency | Operations that create or modify without checking current state first |
+| **SC** | ShellCheck | Standard ShellCheck-equivalent rules (SC2162, SC2086, etc.) |
+
+SEC-prefixed findings identify shell injection vectors and unsafe variable handling. DET-prefixed findings flag commands whose output varies between runs, which matters for hash-based drift detection. IDEM-prefixed findings flag operations that are not idempotent, meaning running them twice may produce different results.
+
+### Example Output
+
+Running `forjar lint` on a config with package and file resources:
+
+```
+$ forjar lint -f forjar.yaml
+  warn: bashrs: web-packages/apply [SEC002] unquoted variable: $SUDO
+  warn: bashrs: deploy-user/apply [SEC002] unquoted variable: $SUDO
+  warn: bashrs script lint: 0 error(s), 4 warning(s) across 6 resources
+
+Lint: 3 warning(s)
+```
+
+In this example, the SEC002 warnings come from the `$SUDO` privilege escalation pattern used by package, user, cron, and network resource handlers. This pattern is intentional -- when `$SUDO` is empty (running as root), the empty expansion causes it to disappear cleanly. bashrs reports it as a warning rather than an error because the pattern is recognized as safe.
+
+Handlers that produce zero-diagnostic scripts include file, directory, symlink, service, and mount. These handlers use only static, single-quoted arguments with no dynamic variable expansion.
+
+### JSON Output
+
+With `--json`, bashrs diagnostics appear in the `findings` array alongside config-level warnings:
+
+```bash
+forjar lint -f forjar.yaml --json
+```
+
+```json
+{
+  "warnings": 3,
+  "findings": [
+    "bashrs: web-packages/apply [SEC002] unquoted variable: $SUDO",
+    "bashrs: deploy-user/apply [SEC002] unquoted variable: $SUDO",
+    "bashrs script lint: 0 error(s), 4 warning(s) across 6 resources"
+  ]
+}
+```
+
+### CI Integration
+
+In CI pipelines, `forjar lint` returns exit code 0 even when warnings are present (warnings are informational). To fail on any bashrs error-severity finding, combine lint with validation:
+
+```bash
+# Validate structure + lint for style and script safety
+forjar validate -f forjar.yaml && forjar lint -f forjar.yaml
+```
+
+If bashrs reports Error-severity diagnostics (as opposed to warnings), those are included as individual lint findings. Since `forjar apply` also validates scripts before execution via `validate_script()`, Error-severity bashrs findings will block apply regardless, but catching them at lint time provides earlier feedback.
+
+## Exit Code Reference
+
+Forjar uses a minimal set of exit codes. The main binary (`src/main.rs`) dispatches to command handlers; if any handler returns `Err`, the process exits with code 1. Success always returns code 0. The `drift` command with `--tripwire` uses code 2 to signal drift detection without implying an error in the tool itself.
+
+| Code | Meaning | Commands |
+|------|---------|----------|
+| 0 | Success: operation completed without errors or findings | All commands |
+| 1 | Error: validation failure, apply failure, parse error, I/O error, or unformatted file (`fmt --check`) | All commands |
+| 2 | Drift detected: live state does not match lock file (not an error in forjar itself) | `drift --tripwire` |
+
+### Per-Command Details
+
+| Command | Exit 0 | Exit 1 | Exit 2 |
+|---------|--------|--------|--------|
+| `init` | Project initialized | Directory creation failed | -- |
+| `validate` | Config is valid | Parse error, schema violation, cycle detected | -- |
+| `plan` | Plan generated | Config invalid, state directory unreadable | -- |
+| `apply` | All resources converged or unchanged | Any resource failed, config invalid, transport error | -- |
+| `drift` | No drift found | Config invalid, state unreadable, transport error | Drift detected (`--tripwire`) |
+| `status` | Status displayed | State directory missing or unreadable | -- |
+| `history` | Events displayed | Event log missing or corrupt | -- |
+| `show` | Resolved config displayed | Config invalid, template resolution failure | -- |
+| `graph` | Graph generated | Config invalid | -- |
+| `destroy` | Resources removed | `--yes` not provided, transport error | -- |
+| `import` | Config generated | Connection failed, scan error | -- |
+| `diff` | Diff displayed | State directories missing or unreadable | -- |
+| `check` | All checks passed | Any check failed, transport error | -- |
+| `fmt` | File formatted (or already formatted) | Parse error; unformatted file with `--check` | -- |
+| `lint` | Lint completed (warnings are informational) | Config invalid | -- |
+| `rollback` | Rollback applied | Git history unavailable, apply failure | -- |
+| `anomaly` | Analysis completed | State directory unreadable | -- |
+
+### Scripting with Exit Codes
+
+```bash
+# Gate deployment on validation + drift check
+forjar validate -f forjar.yaml || exit 1
+forjar drift -f forjar.yaml --tripwire
+case $? in
+    0) echo "Clean — proceeding with deploy" ;;
+    2) echo "Drift detected — investigate before deploying"; exit 1 ;;
+    *) echo "Error running drift check"; exit 1 ;;
+esac
+forjar apply -f forjar.yaml
+```
+
+The distinction between exit code 1 (tool error) and exit code 2 (drift signal) allows scripts to differentiate between "forjar failed to run" and "forjar ran successfully and found drift."
