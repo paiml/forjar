@@ -571,14 +571,8 @@ mod tests {
             "absent state must emit rm -rf with the path"
         );
         // absent should not emit chown or chmod
-        assert!(
-            !script.contains("chown"),
-            "absent should not emit chown"
-        );
-        assert!(
-            !script.contains("chmod"),
-            "absent should not emit chmod"
-        );
+        assert!(!script.contains("chown"), "absent should not emit chown");
+        assert!(!script.contains("chmod"), "absent should not emit chmod");
     }
 
     #[test]
@@ -589,7 +583,9 @@ mod tests {
         r.target = Some("/etc/nginx/sites-available/mysite".to_string());
         let script = apply_script(&r);
         assert!(
-            script.contains("ln -sfn '/etc/nginx/sites-available/mysite' '/etc/nginx/sites-enabled/mysite'"),
+            script.contains(
+                "ln -sfn '/etc/nginx/sites-available/mysite' '/etc/nginx/sites-enabled/mysite'"
+            ),
             "symlink state must emit ln -sfn with target then path"
         );
     }

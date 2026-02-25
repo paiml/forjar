@@ -40,11 +40,7 @@ fn main() {
     for (name, _) in &tools {
         if let Some(schema) = registry.get_input_schema(name) {
             let json = serde_json::to_string(&schema).unwrap_or_default();
-            println!(
-                "  {} → {} bytes",
-                name,
-                json.len()
-            );
+            println!("  {} → {} bytes", name, json.len());
         }
     }
 

@@ -412,4 +412,84 @@ mod tests {
             "state_query must query mount details for the mountpoint"
         );
     }
+
+    // -- Coverage boost tests --
+
+    #[test]
+    fn test_mount_check_mounted() {
+        let mut r = make_mount_resource();
+        r.path = Some("/mnt/backup-vol".to_string());
+        let script = check_script(&r);
+        assert!(
+            script.contains("mountpoint -q '/mnt/backup-vol'"),
+            "check must use mountpoint -q on the target: {script}"
+        );
+        assert!(
+            script.contains("mounted:/mnt/backup-vol"),
+            "check must emit mounted token: {script}"
+        );
+        assert!(
+            script.contains("unmounted:/mnt/backup-vol"),
+            "check must emit unmounted token: {script}"
+        );
+    }
+
+    #[test]
+    fn test_mount_absent_cleanup() {
+        let mut r = make_mount_resource();
+        r.path = Some("/mnt/old-share".to_string());
+        r.state = Some("absent".to_string());
+        let script = apply_script(&r);
+        assert!(
+            script.contains("set -euo pipefail"),
+            "absent script must have safety flags: {script}"
+        );
+        assert!(
+            script.contains("umount '/mnt/old-share'"),
+            "absent must generate umount: {script}"
+        );
+        assert!(
+            script.contains("sed -i"),
+            "absent must use sed to remove fstab entry: {script}"
+        );
+        assert!(
+            script.contains("/mnt/old-share"),
+            "sed pattern must reference the mount path: {script}"
+        );
+        assert!(
+            script.contains("fstab"),
+            "absent must reference /etc/fstab: {script}"
+        );
+        assert!(
+            !script.contains("mount -t"),
+            "absent must not mount anything: {script}"
+        );
+        assert!(
+            !script.contains("mkdir"),
+            "absent must not create directories: {script}"
+        );
+    }
+
+    #[test]
+    fn test_mount_bind_type() {
+        let mut r = make_mount_resource();
+        r.path = Some("/srv/container-data".to_string());
+        r.source = Some("/data/volumes/app1".to_string());
+        r.fs_type = Some("none".to_string());
+        r.options = Some("rbind".to_string());
+        r.state = None;
+        let script = apply_script(&r);
+        assert!(
+            script.contains("mount -t 'none' -o 'rbind' '/data/volumes/app1' '/srv/container-data'"),
+            "bind mount must use correct fstype, options, source, and target: {script}"
+        );
+        assert!(
+            script.contains("mkdir -p '/srv/container-data'"),
+            "bind mount must create target directory: {script}"
+        );
+        assert!(
+            script.contains("/data/volumes/app1 /srv/container-data none rbind 0 0"),
+            "fstab entry must have correct format for bind mount: {script}"
+        );
+    }
 }

@@ -2131,7 +2131,10 @@ resources:
 
         let p = plan(&config, &order, &locks, None);
 
-        assert_eq!(p.unchanged, 1, "absent resource with no lock should be NoOp (counted as unchanged)");
+        assert_eq!(
+            p.unchanged, 1,
+            "absent resource with no lock should be NoOp (counted as unchanged)"
+        );
         assert_eq!(p.to_destroy, 0, "nothing to destroy when no lock exists");
         assert_eq!(p.changes.len(), 1);
         assert_eq!(p.changes[0].action, PlanAction::NoOp);
@@ -2171,7 +2174,10 @@ resources:
 
         let p = plan(&config, &order, &locks, None);
 
-        assert_eq!(p.unchanged, 1, "converged resource with matching hash should be NoOp");
+        assert_eq!(
+            p.unchanged, 1,
+            "converged resource with matching hash should be NoOp"
+        );
         assert_eq!(p.to_update, 0);
         assert_eq!(p.to_create, 0);
         assert_eq!(p.changes[0].action, PlanAction::NoOp);
@@ -2208,7 +2214,10 @@ resources:
 
         let p = plan(&config, &order, &locks, None);
 
-        assert_eq!(p.to_update, 1, "converged resource with mismatched hash should be Update");
+        assert_eq!(
+            p.to_update, 1,
+            "converged resource with mismatched hash should be Update"
+        );
         assert_eq!(p.unchanged, 0);
         assert_eq!(p.changes[0].action, PlanAction::Update);
     }

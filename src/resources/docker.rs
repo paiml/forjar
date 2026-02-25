@@ -492,4 +492,96 @@ mod tests {
             "must name the container"
         );
     }
+
+    // -- Coverage boost tests --
+
+    #[test]
+    fn test_docker_check_running() {
+        let r = make_docker_resource("redis-cache", "redis:7-alpine");
+        let script = check_script(&r);
+        assert!(
+            script.contains("docker inspect -f"),
+            "check must use docker inspect: {script}"
+        );
+        assert!(
+            script.contains("State.Running"),
+            "check must query running state: {script}"
+        );
+        assert!(
+            script.contains("'redis-cache'"),
+            "check must reference container name: {script}"
+        );
+        assert!(
+            script.contains("exists:redis-cache"),
+            "check must emit exists token: {script}"
+        );
+        assert!(
+            script.contains("missing:redis-cache"),
+            "check must emit missing token: {script}"
+        );
+    }
+
+    #[test]
+    fn test_docker_state_query_with_network() {
+        let mut r = make_docker_resource("api", "api-server:v3");
+        r.restart = Some("on-failure:5".to_string());
+        let query = state_query_script(&r);
+        assert!(
+            query.contains("docker inspect 'api'"),
+            "state_query must inspect container: {query}"
+        );
+        assert!(
+            query.contains("container=api"),
+            "state_query must emit container token: {query}"
+        );
+        assert!(
+            query.contains("container=MISSING:api"),
+            "state_query must emit missing token: {query}"
+        );
+
+        let apply = apply_script(&r);
+        assert!(
+            apply.contains("--restart 'on-failure:5'"),
+            "apply must include restart policy: {apply}"
+        );
+    }
+
+    #[test]
+    fn test_docker_apply_stop_then_run() {
+        let mut r = make_docker_resource("app-server", "myapp:v2");
+        r.state = Some("running".to_string());
+        r.ports = vec!["3000:3000".to_string()];
+        r.environment = vec!["NODE_ENV=production".to_string()];
+        r.restart = Some("always".to_string());
+        let script = apply_script(&r);
+
+        let pull_idx = script.find("docker pull 'myapp:v2'").unwrap();
+        let stop_idx = script.find("docker stop 'app-server'").unwrap();
+        let rm_idx = script.find("docker rm 'app-server'").unwrap();
+        let run_idx = script.find("docker run -d").unwrap();
+        assert!(pull_idx < stop_idx, "pull must come before stop");
+        assert!(stop_idx < rm_idx, "stop must come before rm");
+        assert!(rm_idx < run_idx, "rm must come before run");
+
+        assert!(
+            script.contains("--name 'app-server'"),
+            "run must name the container: {script}"
+        );
+        assert!(
+            script.contains("--restart 'always'"),
+            "run must set restart policy: {script}"
+        );
+        assert!(
+            script.contains("-p '3000:3000'"),
+            "run must map port: {script}"
+        );
+        assert!(
+            script.contains("-e 'NODE_ENV=production'"),
+            "run must set env: {script}"
+        );
+        assert!(
+            script.contains("'myapp:v2'"),
+            "run must reference image: {script}"
+        );
+    }
 }

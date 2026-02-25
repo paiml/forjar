@@ -6702,7 +6702,10 @@ resources:
         )
         .unwrap();
         let result = cmd_lint(&config, false);
-        assert!(result.is_ok(), "cmd_lint should succeed on a valid config with file resource");
+        assert!(
+            result.is_ok(),
+            "cmd_lint should succeed on a valid config with file resource"
+        );
     }
 
     #[test]
@@ -6743,7 +6746,10 @@ resources:
         let state = dir.path().join("state");
         std::fs::create_dir_all(&state).unwrap();
         let result = cmd_status(&state, None);
-        assert!(result.is_ok(), "cmd_status on empty state dir should succeed");
+        assert!(
+            result.is_ok(),
+            "cmd_status on empty state dir should succeed"
+        );
     }
 
     #[test]
@@ -6751,7 +6757,10 @@ resources:
         let dir = tempfile::tempdir().unwrap();
         let missing = dir.path().join("nonexistent.yaml");
         let result = cmd_validate(&missing);
-        assert!(result.is_err(), "cmd_validate should fail for a nonexistent file");
+        assert!(
+            result.is_err(),
+            "cmd_validate should fail for a nonexistent file"
+        );
     }
 
     #[test]
@@ -6777,6 +6786,9 @@ resources:
         let formatted = serde_yaml_ng::to_string(&parsed).unwrap();
         std::fs::write(&config_path, &formatted).unwrap();
         let result = cmd_fmt(&config_path, true);
-        assert!(result.is_ok(), "cmd_fmt check should succeed on already-formatted config");
+        assert!(
+            result.is_ok(),
+            "cmd_fmt check should succeed on already-formatted config"
+        );
     }
 }

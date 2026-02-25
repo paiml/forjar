@@ -487,25 +487,39 @@ dpkg -l curl 2>/dev/null | grep -q '^ii'
     fn test_fj036_purify_simple_echo() {
         let script = "echo hello";
         let result = purify_script(script);
-        assert!(result.is_ok(), "purify 'echo hello' failed: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "purify 'echo hello' failed: {:?}",
+            result.err()
+        );
         let purified = result.unwrap();
         assert!(!purified.is_empty(), "purified script should not be empty");
         // Purified script should still be valid shell
-        assert!(validate_script(&purified).is_ok(), "purified output should validate");
+        assert!(
+            validate_script(&purified).is_ok(),
+            "purified output should validate"
+        );
     }
 
     #[test]
     fn test_fj036_validate_empty_script_ok() {
         // Empty string should validate without error — no statements means no errors
         let result = validate_script("");
-        assert!(result.is_ok(), "empty script should validate OK, got: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "empty script should validate OK, got: {:?}",
+            result.err()
+        );
     }
 
     #[test]
     fn test_fj036_lint_error_count_zero_on_clean() {
         // A simple echo should produce zero lint errors
         let errors = lint_error_count("echo hello");
-        assert_eq!(errors, 0, "clean 'echo hello' should have 0 lint errors, got {errors}");
+        assert_eq!(
+            errors, 0,
+            "clean 'echo hello' should have 0 lint errors, got {errors}"
+        );
     }
 
     #[test]
@@ -513,7 +527,11 @@ dpkg -l curl 2>/dev/null | grep -q '^ii'
         // Purifying "x=1; echo $x" should still contain the variable x
         let script = "x=1; echo $x";
         let result = purify_script(script);
-        assert!(result.is_ok(), "purify assignment failed: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "purify assignment failed: {:?}",
+            result.err()
+        );
         let purified = result.unwrap();
         assert!(
             purified.contains("x"),

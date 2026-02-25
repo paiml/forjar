@@ -4041,8 +4041,14 @@ policy:
         assert_eq!(m.arch, "x86_64");
         assert!(m.ssh_key.is_none(), "local machine should have no ssh_key");
         assert!(m.roles.is_empty(), "local machine should have no roles");
-        assert!(m.transport.is_none(), "local machine should have no transport override");
-        assert!(m.container.is_none(), "local machine should have no container config");
+        assert!(
+            m.transport.is_none(),
+            "local machine should have no transport override"
+        );
+        assert!(
+            m.container.is_none(),
+            "local machine should have no container config"
+        );
         assert_eq!(m.cost, 0, "local machine should have zero cost");
     }
 
@@ -4101,10 +4107,18 @@ resources:
 "#;
         let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
         let machines = collect_machines(&config);
-        assert_eq!(machines.len(), 3, "should collect 3 unique machines: {:?}", machines);
+        assert_eq!(
+            machines.len(),
+            3,
+            "should collect 3 unique machines: {:?}",
+            machines
+        );
         assert!(machines.contains(&"web".to_string()), "should contain web");
         assert!(machines.contains(&"db".to_string()), "should contain db");
-        assert!(machines.contains(&"cache".to_string()), "should contain cache");
+        assert!(
+            machines.contains(&"cache".to_string()),
+            "should contain cache"
+        );
 
         // Verify machine_filter works in ApplyConfig (dry-run) — only "db" processed
         let dir = tempfile::tempdir().unwrap();
