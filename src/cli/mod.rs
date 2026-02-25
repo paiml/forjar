@@ -217,6 +217,25 @@ pub enum Commands {
         format: String,
     },
 
+    /// Run check scripts to verify pre-conditions without applying
+    Check {
+        /// Path to forjar.yaml
+        #[arg(short, long, default_value = "forjar.yaml")]
+        file: PathBuf,
+
+        /// Target specific machine
+        #[arg(short, long)]
+        machine: Option<String>,
+
+        /// Target specific resource
+        #[arg(short, long)]
+        resource: Option<String>,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+
     /// Compare two state snapshots (show what changed between applies)
     Diff {
         /// First state directory (older)
@@ -328,6 +347,12 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             machine,
             json,
         } => cmd_diff(&from, &to, machine.as_deref(), json),
+        Commands::Check {
+            file,
+            machine,
+            resource,
+            json,
+        } => cmd_check(&file, machine.as_deref(), resource.as_deref(), json, verbose),
     }
 }
 
@@ -577,6 +602,173 @@ fn cmd_show(file: &Path, resource_filter: Option<&str>, json: bool) -> Result<()
     }
 
     Ok(())
+}
+
+fn cmd_check(
+    file: &Path,
+    machine_filter: Option<&str>,
+    resource_filter: Option<&str>,
+    json: bool,
+    verbose: bool,
+) -> Result<(), String> {
+    let config = parse_and_validate(file)?;
+
+    if verbose {
+        eprintln!(
+            "Checking {} ({} machines, {} resources)",
+            config.name,
+            config.machines.len(),
+            config.resources.len()
+        );
+    }
+
+    // Build execution order
+    let execution_order = resolver::build_execution_order(&config)?;
+
+    let localhost_machine = types::Machine {
+        hostname: "localhost".to_string(),
+        addr: "127.0.0.1".to_string(),
+        user: "root".to_string(),
+        arch: "x86_64".to_string(),
+        ssh_key: None,
+        roles: vec![],
+        transport: None,
+        container: None,
+        cost: 0,
+    };
+
+    let mut total_pass = 0usize;
+    let mut total_fail = 0usize;
+    let mut total_skip = 0usize;
+    let mut json_results = Vec::new();
+
+    for resource_id in &execution_order {
+        let resource = match config.resources.get(resource_id) {
+            Some(r) => r,
+            None => continue,
+        };
+
+        if let Some(filter) = resource_filter {
+            if resource_id != filter {
+                continue;
+            }
+        }
+
+        let resolved =
+            resolver::resolve_resource_templates(resource, &config.params, &config.machines)?;
+
+        let check_script = match codegen::check_script(&resolved) {
+            Ok(s) => s,
+            Err(_) => {
+                total_skip += 1;
+                if !json {
+                    println!("  ? {} (no check script)", resource_id);
+                }
+                continue;
+            }
+        };
+
+        for machine_name in resource.machine.to_vec() {
+            if let Some(filter) = machine_filter {
+                if machine_name != filter {
+                    continue;
+                }
+            }
+
+            let machine = config
+                .machines
+                .get(&machine_name)
+                .unwrap_or(&localhost_machine);
+
+            // FJ-064: arch filter
+            if !resource.arch.is_empty() && !resource.arch.contains(&machine.arch) {
+                total_skip += 1;
+                continue;
+            }
+
+            // Ensure container is running for check
+            if machine.is_container_transport() {
+                transport::container::ensure_container(machine)?;
+            }
+
+            let output = transport::exec_script(machine, &check_script);
+            match output {
+                Ok(out) if out.success() => {
+                    total_pass += 1;
+                    if json {
+                        json_results.push(serde_json::json!({
+                            "resource": resource_id,
+                            "machine": machine_name,
+                            "status": "pass",
+                            "exit_code": 0,
+                        }));
+                    } else {
+                        println!("  ok {} ({})", resource_id, machine_name);
+                    }
+                }
+                Ok(out) => {
+                    total_fail += 1;
+                    if json {
+                        json_results.push(serde_json::json!({
+                            "resource": resource_id,
+                            "machine": machine_name,
+                            "status": "fail",
+                            "exit_code": out.exit_code,
+                            "stderr": out.stderr.trim(),
+                        }));
+                    } else {
+                        println!(
+                            "  FAIL {} ({}) — exit {}",
+                            resource_id, machine_name, out.exit_code
+                        );
+                        if !out.stderr.trim().is_empty() {
+                            for line in out.stderr.trim().lines() {
+                                println!("       {}", line);
+                            }
+                        }
+                    }
+                }
+                Err(e) => {
+                    total_fail += 1;
+                    if json {
+                        json_results.push(serde_json::json!({
+                            "resource": resource_id,
+                            "machine": machine_name,
+                            "status": "error",
+                            "error": e,
+                        }));
+                    } else {
+                        println!("  FAIL {} ({}) — {}", resource_id, machine_name, e);
+                    }
+                }
+            }
+        }
+    }
+
+    if json {
+        let report = serde_json::json!({
+            "pass": total_pass,
+            "fail": total_fail,
+            "skip": total_skip,
+            "results": json_results,
+        });
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&report)
+                .map_err(|e| format!("JSON error: {}", e))?
+        );
+    } else {
+        println!(
+            "\nCheck: {} pass, {} fail, {} skip",
+            total_pass, total_fail, total_skip
+        );
+    }
+
+    if total_fail > 0 {
+        Err(format!("{} check(s) failed", total_fail))
+    } else {
+        Ok(())
+    }
 }
 
 fn cmd_diff(
@@ -3658,5 +3850,97 @@ policy:
         );
         let machines = discover_machines(dir.path());
         assert_eq!(machines, vec!["alpha", "beta"]);
+    }
+
+    // ── forjar check tests ─────────────────────────────────────────
+
+    #[test]
+    fn test_check_local_file_pass() {
+        let dir = tempfile::tempdir().unwrap();
+        // Create the file that check will verify
+        let target = dir.path().join("check-test.txt");
+        std::fs::write(&target, "hello").unwrap();
+
+        let config = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config,
+            format!(
+                r#"
+version: "1.0"
+name: check-test
+machines:
+  local:
+    hostname: localhost
+    addr: 127.0.0.1
+resources:
+  f:
+    type: file
+    machine: local
+    path: {}
+    content: hello
+"#,
+                target.display()
+            ),
+        )
+        .unwrap();
+        // File exists → check should pass
+        cmd_check(&config, None, None, false, false).unwrap();
+    }
+
+    #[test]
+    fn test_check_local_file_missing_still_runs() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config,
+            r#"
+version: "1.0"
+name: check-test
+machines:
+  local:
+    hostname: localhost
+    addr: 127.0.0.1
+resources:
+  f:
+    type: file
+    machine: local
+    path: /tmp/forjar-check-nonexistent-12345678
+    content: hello
+"#,
+        )
+        .unwrap();
+        // Check script reports status (exits 0 even for missing file)
+        cmd_check(&config, None, None, false, false).unwrap();
+    }
+
+    #[test]
+    fn test_check_json_output() {
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("check-json-test.txt");
+        std::fs::write(&target, "hello").unwrap();
+
+        let config = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config,
+            format!(
+                r#"
+version: "1.0"
+name: check-test
+machines:
+  local:
+    hostname: localhost
+    addr: 127.0.0.1
+resources:
+  f:
+    type: file
+    machine: local
+    path: {}
+    content: hello
+"#,
+                target.display()
+            ),
+        )
+        .unwrap();
+        cmd_check(&config, None, None, true, false).unwrap();
     }
 }

@@ -270,6 +270,34 @@ forjar diff state-v1/ state-v2/ -m web-server
 
 Useful for auditing what changed across apply runs, reviewing infrastructure changes, and debugging state drift.
 
+### `forjar check`
+
+Run check scripts against live machines to verify pre-conditions without applying.
+
+```bash
+forjar check -f <FILE> [-m MACHINE] [-r RESOURCE] [--json]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-f, --file` | `forjar.yaml` | Config file path |
+| `-m, --machine` | all | Filter to specific machine |
+| `-r, --resource` | all | Filter to specific resource |
+| `--json` | false | Output as JSON |
+
+```bash
+# Check all resources
+forjar check -f forjar.yaml -v
+
+# Check a specific resource
+forjar check -f forjar.yaml -r nginx-config
+
+# JSON output for CI pipelines
+forjar check -f forjar.yaml --json
+```
+
+Exits non-zero if any check fails. Useful for pre-flight validation in CI/CD pipelines before running `apply`.
+
 ## Exit Codes
 
 | Code | Meaning |
