@@ -1259,4 +1259,238 @@ resources:
             tags: vec![],
         }
     }
+
+    // ── FJ-131: resolver field coverage tests ─────────────────
+
+    fn test_params() -> HashMap<String, serde_yaml_ng::Value> {
+        HashMap::from([(
+            "val".to_string(),
+            serde_yaml_ng::Value::String("resolved".to_string()),
+        )])
+    }
+
+    #[test]
+    fn test_fj131_resolve_source_field() {
+        let params = test_params();
+        let machines = indexmap::IndexMap::new();
+        let mut r = make_base_resource();
+        r.source = Some("/data/{{params.val}}/file.txt".to_string());
+        let resolved = resolve_resource_templates(&r, &params, &machines).unwrap();
+        assert_eq!(resolved.source.as_deref(), Some("/data/resolved/file.txt"));
+    }
+
+    #[test]
+    fn test_fj131_resolve_target_field() {
+        let params = test_params();
+        let machines = indexmap::IndexMap::new();
+        let mut r = make_base_resource();
+        r.target = Some("/opt/{{params.val}}/bin".to_string());
+        let resolved = resolve_resource_templates(&r, &params, &machines).unwrap();
+        assert_eq!(resolved.target.as_deref(), Some("/opt/resolved/bin"));
+    }
+
+    #[test]
+    fn test_fj131_resolve_options_field() {
+        let params = test_params();
+        let machines = indexmap::IndexMap::new();
+        let mut r = make_base_resource();
+        r.options = Some("rw,{{params.val}}".to_string());
+        let resolved = resolve_resource_templates(&r, &params, &machines).unwrap();
+        assert_eq!(resolved.options.as_deref(), Some("rw,resolved"));
+    }
+
+    #[test]
+    fn test_fj131_resolve_protocol_field() {
+        let params = HashMap::from([(
+            "proto".to_string(),
+            serde_yaml_ng::Value::String("tcp".to_string()),
+        )]);
+        let machines = indexmap::IndexMap::new();
+        let mut r = make_base_resource();
+        r.protocol = Some("{{params.proto}}".to_string());
+        let resolved = resolve_resource_templates(&r, &params, &machines).unwrap();
+        assert_eq!(resolved.protocol.as_deref(), Some("tcp"));
+    }
+
+    #[test]
+    fn test_fj131_resolve_action_field() {
+        let params = HashMap::from([(
+            "act".to_string(),
+            serde_yaml_ng::Value::String("allow".to_string()),
+        )]);
+        let machines = indexmap::IndexMap::new();
+        let mut r = make_base_resource();
+        r.action = Some("{{params.act}}".to_string());
+        let resolved = resolve_resource_templates(&r, &params, &machines).unwrap();
+        assert_eq!(resolved.action.as_deref(), Some("allow"));
+    }
+
+    #[test]
+    fn test_fj131_resolve_from_addr_field() {
+        let params = HashMap::from([(
+            "cidr".to_string(),
+            serde_yaml_ng::Value::String("10.0.0.0/24".to_string()),
+        )]);
+        let machines = indexmap::IndexMap::new();
+        let mut r = make_base_resource();
+        r.from_addr = Some("{{params.cidr}}".to_string());
+        let resolved = resolve_resource_templates(&r, &params, &machines).unwrap();
+        assert_eq!(resolved.from_addr.as_deref(), Some("10.0.0.0/24"));
+    }
+
+    #[test]
+    fn test_fj131_resolve_shell_field() {
+        let params = test_params();
+        let machines = indexmap::IndexMap::new();
+        let mut r = make_base_resource();
+        r.shell = Some("/bin/{{params.val}}".to_string());
+        let resolved = resolve_resource_templates(&r, &params, &machines).unwrap();
+        assert_eq!(resolved.shell.as_deref(), Some("/bin/resolved"));
+    }
+
+    #[test]
+    fn test_fj131_resolve_home_field() {
+        let params = HashMap::from([(
+            "user".to_string(),
+            serde_yaml_ng::Value::String("deploy".to_string()),
+        )]);
+        let machines = indexmap::IndexMap::new();
+        let mut r = make_base_resource();
+        r.home = Some("/home/{{params.user}}".to_string());
+        let resolved = resolve_resource_templates(&r, &params, &machines).unwrap();
+        assert_eq!(resolved.home.as_deref(), Some("/home/deploy"));
+    }
+
+    #[test]
+    fn test_fj131_resolve_restart_field() {
+        let params = HashMap::from([(
+            "policy".to_string(),
+            serde_yaml_ng::Value::String("unless-stopped".to_string()),
+        )]);
+        let machines = indexmap::IndexMap::new();
+        let mut r = make_base_resource();
+        r.restart = Some("{{params.policy}}".to_string());
+        let resolved = resolve_resource_templates(&r, &params, &machines).unwrap();
+        assert_eq!(resolved.restart.as_deref(), Some("unless-stopped"));
+    }
+
+    #[test]
+    fn test_fj131_resolve_version_field() {
+        let params = HashMap::from([(
+            "ver".to_string(),
+            serde_yaml_ng::Value::String("2.1.0".to_string()),
+        )]);
+        let machines = indexmap::IndexMap::new();
+        let mut r = make_base_resource();
+        r.version = Some("{{params.ver}}".to_string());
+        let resolved = resolve_resource_templates(&r, &params, &machines).unwrap();
+        assert_eq!(resolved.version.as_deref(), Some("2.1.0"));
+    }
+
+    #[test]
+    fn test_fj131_resolve_machine_hostname_field() {
+        let params = HashMap::new();
+        let mut machines = indexmap::IndexMap::new();
+        machines.insert(
+            "db".to_string(),
+            Machine {
+                hostname: "db-primary".to_string(),
+                addr: "10.0.0.5".to_string(),
+                user: "postgres".to_string(),
+                arch: "aarch64".to_string(),
+                ssh_key: None,
+                roles: vec![],
+                transport: None,
+                container: None,
+                cost: 0,
+            },
+        );
+        let result = resolve_template("host={{machine.db.hostname}}", &params, &machines).unwrap();
+        assert_eq!(result, "host=db-primary");
+    }
+
+    #[test]
+    fn test_fj131_resolve_machine_user_field() {
+        let params = HashMap::new();
+        let mut machines = indexmap::IndexMap::new();
+        machines.insert(
+            "db".to_string(),
+            Machine {
+                hostname: "db".to_string(),
+                addr: "10.0.0.5".to_string(),
+                user: "postgres".to_string(),
+                arch: "x86_64".to_string(),
+                ssh_key: None,
+                roles: vec![],
+                transport: None,
+                container: None,
+                cost: 0,
+            },
+        );
+        let result = resolve_template("user={{machine.db.user}}", &params, &machines).unwrap();
+        assert_eq!(result, "user=postgres");
+    }
+
+    #[test]
+    fn test_fj131_resolve_machine_arch_field() {
+        let params = HashMap::new();
+        let mut machines = indexmap::IndexMap::new();
+        machines.insert(
+            "arm".to_string(),
+            Machine {
+                hostname: "arm".to_string(),
+                addr: "10.0.0.6".to_string(),
+                user: "root".to_string(),
+                arch: "aarch64".to_string(),
+                ssh_key: None,
+                roles: vec![],
+                transport: None,
+                container: None,
+                cost: 0,
+            },
+        );
+        let result = resolve_template("arch={{machine.arm.arch}}", &params, &machines).unwrap();
+        assert_eq!(result, "arch=aarch64");
+    }
+
+    #[test]
+    fn test_fj131_resolve_machine_invalid_field() {
+        let params = HashMap::new();
+        let mut machines = indexmap::IndexMap::new();
+        machines.insert(
+            "m".to_string(),
+            Machine {
+                hostname: "m".to_string(),
+                addr: "1.1.1.1".to_string(),
+                user: "root".to_string(),
+                arch: "x86_64".to_string(),
+                ssh_key: None,
+                roles: vec![],
+                transport: None,
+                container: None,
+                cost: 0,
+            },
+        );
+        let result = resolve_template("{{machine.m.cost}}", &params, &machines);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("unknown machine field"));
+    }
+
+    #[test]
+    fn test_fj131_resolve_machine_ref_too_few_parts() {
+        let params = HashMap::new();
+        let machines = indexmap::IndexMap::new();
+        let result = resolve_template("{{machine.only}}", &params, &machines);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("invalid machine ref"));
+    }
+
+    #[test]
+    fn test_fj131_resolve_unknown_template_type() {
+        let params = HashMap::new();
+        let machines = indexmap::IndexMap::new();
+        let result = resolve_template("{{foobar.baz}}", &params, &machines);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("unknown template variable"));
+    }
 }
