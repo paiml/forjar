@@ -348,3 +348,156 @@ b3sum /etc/nginx/nginx.conf
 5. **Use `--alert-cmd` for production** — Don't just log drift; alert your team.
 
 6. **Review before remediating** — `forjar drift --json` lets you review what changed before running `--auto-remediate`.
+
+## Drift Detection Internals
+
+### Hash Comparison Pipeline
+
+The drift detection pipeline follows this sequence for each resource in the lock file:
+
+```
+For each resource in state.lock.yaml:
+  1. Skip if status != Converged (failed/drifted resources are excluded)
+  2. Determine resource type:
+     ├── File resource:
+     │   a. Read details.path from lock
+     │   b. Read details.content_hash from lock
+     │   c. Compute blake3(file_contents) on disk
+     │   d. Compare: lock hash vs live hash
+     │   e. If different → DriftFinding { resource_id, detail: "content changed" }
+     │
+     └── Non-file resource (service, package, user, etc.):
+         a. Read details.live_hash from lock
+         b. Re-run state_query_script via transport (local/SSH/container)
+         c. Compute blake3(script_stdout)
+         d. Compare: lock live_hash vs current output hash
+         e. If different → DriftFinding { resource_id, detail: "state changed" }
+```
+
+### Directory Drift Detection
+
+Directory resources use composite hashing — all files in the directory are included:
+
+```
+hash_directory(path):
+  1. Walk directory recursively (sorted by path)
+  2. Skip symlinks
+  3. For each regular file: compute blake3(contents)
+  4. Concatenate: "relative_path\0hash\0" for all files
+  5. Final hash = blake3(concatenated string)
+```
+
+This means adding, removing, or modifying any file inside a managed directory triggers drift detection.
+
+### Skip Conditions
+
+Drift detection skips resources in these cases:
+
+| Condition | Reason |
+|-----------|--------|
+| `status == Failed` | Resource never converged — no baseline to compare |
+| `status == Unknown` | No previous state recorded |
+| Missing `path` (file resources) | Cannot hash without a path |
+| Missing `content_hash` (file resources) | No baseline hash to compare |
+| Missing `live_hash` (non-file resources) | No baseline to compare |
+| Non-string hash values | Corrupt or malformed lock entry |
+
+### Full vs Local Drift Detection
+
+Forjar provides two drift detection modes:
+
+```bash
+# Local-only (fast): checks files on the local filesystem
+forjar drift -f forjar.yaml --state-dir ./state
+
+# Full (via transport): re-runs state_query_script on remote machines
+forjar drift -f forjar.yaml --state-dir ./state --full
+```
+
+Local drift checks only file resources (because they're on disk). Full drift uses the transport layer to re-query all resource types via their state_query scripts.
+
+## Operational Workflows
+
+### Pre-Deploy Drift Check
+
+Before applying new changes, check for unauthorized modifications:
+
+```bash
+#!/bin/bash
+# pre-deploy.sh — run before forjar apply
+
+echo "=== Checking for drift ==="
+drift_output=$(forjar drift -f forjar.yaml --state-dir ./state --json 2>&1)
+drift_count=$(echo "$drift_output" | jq '.findings | length')
+
+if [ "$drift_count" -gt 0 ]; then
+    echo "WARNING: $drift_count resources have drifted:"
+    echo "$drift_output" | jq -r '.findings[] | "  - \(.resource_id): \(.detail)"'
+    echo ""
+    echo "Options:"
+    echo "  1. Review changes: forjar drift --json | jq '.findings'"
+    echo "  2. Accept drift: forjar apply --force"
+    echo "  3. Remediate: forjar drift --auto-remediate"
+    exit 1
+fi
+
+echo "No drift detected. Safe to apply."
+forjar apply -f forjar.yaml --state-dir ./state
+```
+
+### CI Drift Monitoring
+
+Add a scheduled CI job to detect drift between deploys:
+
+```yaml
+# .github/workflows/drift-monitor.yml
+name: Drift Monitor
+on:
+  schedule:
+    - cron: '0 */6 * * *'  # Every 6 hours
+
+jobs:
+  check-drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install forjar
+        run: cargo install --path .
+      - name: Check drift
+        run: |
+          forjar drift -f forjar.yaml --state-dir ./state --json > drift.json
+          FINDINGS=$(jq '.findings | length' drift.json)
+          if [ "$FINDINGS" -gt 0 ]; then
+            echo "::warning::$FINDINGS resources have drifted"
+            jq -r '.findings[] | "::warning::\(.resource_id): \(.detail)"' drift.json
+          fi
+```
+
+### Multi-Machine Drift Report
+
+For fleets with many machines, generate a summary report:
+
+```bash
+# drift-report.sh — weekly drift summary
+echo "=== Fleet Drift Report $(date -I) ==="
+
+for machine_dir in state/*/; do
+    machine=$(basename "$machine_dir")
+    lock_file="$machine_dir/state.lock.yaml"
+
+    if [ ! -f "$lock_file" ]; then
+        echo "  $machine: no lock file (never applied)"
+        continue
+    fi
+
+    # Count resources by status
+    converged=$(grep -c "status: converged" "$lock_file" 2>/dev/null || echo 0)
+    failed=$(grep -c "status: failed" "$lock_file" 2>/dev/null || echo 0)
+
+    echo "  $machine: $converged converged, $failed failed"
+done
+
+echo ""
+echo "=== Anomaly Detection ==="
+forjar anomaly --state-dir state --json | jq -r '.anomalies[] | "  ⚠ \(.resource): \(.type) (z-score: \(.z_score))"'
+```
