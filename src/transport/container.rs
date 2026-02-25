@@ -280,7 +280,11 @@ mod tests {
         // the command will return non-zero — still produces ExecOutput
         match result {
             Ok(out) => assert!(!out.success(), "/bin/false should fail"),
-            Err(e) => assert!(e.contains("forjar-fake"), "error should reference container: {}", e),
+            Err(e) => assert!(
+                e.contains("forjar-fake"),
+                "error should reference container: {}",
+                e
+            ),
         }
     }
 
@@ -402,7 +406,10 @@ mod tests {
         // So ensure_container will proceed to run, where `echo run -d --name ... --init --privileged ...`
         // will succeed (exit 0) since echo always succeeds
         let result = ensure_container(&machine);
-        assert!(result.is_ok(), "ensure with /bin/echo runtime should succeed");
+        assert!(
+            result.is_ok(),
+            "ensure with /bin/echo runtime should succeed"
+        );
     }
 
     #[test]
@@ -473,10 +480,7 @@ mod tests {
             cost: 0,
         };
         let err = exec_container(&machine, "echo").unwrap_err();
-        assert_eq!(
-            err,
-            "machine 'precise-host' has no container config"
-        );
+        assert_eq!(err, "machine 'precise-host' has no container config");
     }
 
     #[test]
@@ -493,10 +497,7 @@ mod tests {
             cost: 0,
         };
         let err = ensure_container(&machine).unwrap_err();
-        assert_eq!(
-            err,
-            "machine 'precise-host' has no container config"
-        );
+        assert_eq!(err, "machine 'precise-host' has no container config");
     }
 
     #[test]
@@ -513,9 +514,6 @@ mod tests {
             cost: 0,
         };
         let err = cleanup_container(&machine).unwrap_err();
-        assert_eq!(
-            err,
-            "machine 'precise-host' has no container config"
-        );
+        assert_eq!(err, "machine 'precise-host' has no container config");
     }
 }
