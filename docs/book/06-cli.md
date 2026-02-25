@@ -106,7 +106,7 @@ forjar apply -f <FILE> [-m MACHINE] [-r RESOURCE] [-t TAG] [--force] [--dry-run]
 Detect unauthorized changes (tripwire).
 
 ```bash
-forjar drift -f <FILE> [-m MACHINE] [--state-dir DIR] [--tripwire] [--alert-cmd CMD] [--json]
+forjar drift -f <FILE> [-m MACHINE] [--state-dir DIR] [--tripwire] [--alert-cmd CMD] [--dry-run] [--json]
 ```
 
 | Flag | Default | Description |
@@ -117,6 +117,7 @@ forjar drift -f <FILE> [-m MACHINE] [--state-dir DIR] [--tripwire] [--alert-cmd 
 | `--tripwire` | false | Exit non-zero on any drift (for CI/cron) |
 | `--alert-cmd` | — | Run command on drift detection (sets `$FORJAR_DRIFT_COUNT`) |
 | `--auto-remediate` | false | Auto-fix drift: force re-apply all resources to restore desired state |
+| `--dry-run` | false | List resources that would be checked without connecting to machines |
 | `--json` | false | Output drift report as JSON |
 
 Drift detection covers **all resource types**:

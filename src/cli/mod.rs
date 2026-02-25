@@ -126,6 +126,10 @@ pub enum Commands {
         #[arg(long)]
         auto_remediate: bool,
 
+        /// Show what would be checked without connecting to machines
+        #[arg(long)]
+        dry_run: bool,
+
         /// Output drift report as JSON
         #[arg(long)]
         json: bool,
@@ -348,6 +352,7 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             tripwire,
             alert_cmd,
             auto_remediate,
+            dry_run,
             json,
         } => cmd_drift(
             &file,
@@ -356,6 +361,7 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             tripwire,
             alert_cmd.as_deref(),
             auto_remediate,
+            dry_run,
             json,
             verbose,
         ),
@@ -1504,6 +1510,7 @@ fn cmd_drift(
     tripwire_mode: bool,
     alert_cmd: Option<&str>,
     auto_remediate: bool,
+    dry_run: bool,
     json: bool,
     verbose: bool,
 ) -> Result<(), String> {
@@ -1513,6 +1520,11 @@ fn cmd_drift(
     } else {
         None
     };
+
+    // Dry-run: list what would be checked without connecting to machines
+    if dry_run {
+        return cmd_drift_dry_run(state_dir, machine_filter, json);
+    }
 
     // For container machines, ensure containers are running for drift checks
     if let Some(ref cfg) = config {
@@ -1640,6 +1652,65 @@ fn cmd_drift(
 
     if tripwire_mode && total_drift > 0 {
         return Err(format!("{} drift finding(s)", total_drift));
+    }
+
+    Ok(())
+}
+
+/// Dry-run mode for drift: lists resources that would be checked without connecting.
+fn cmd_drift_dry_run(
+    state_dir: &Path,
+    machine_filter: Option<&str>,
+    json: bool,
+) -> Result<(), String> {
+    let entries = std::fs::read_dir(state_dir)
+        .map_err(|e| format!("cannot read state dir {}: {}", state_dir.display(), e))?;
+
+    let mut checks: Vec<serde_json::Value> = Vec::new();
+    let mut total = 0usize;
+
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().to_string();
+        if let Some(filter) = machine_filter {
+            if name != filter {
+                continue;
+            }
+        }
+        if !entry.path().is_dir() {
+            continue;
+        }
+        if let Some(lock) = state::load_lock(state_dir, &name)? {
+            if !json {
+                println!("Machine: {} ({} resources)", name, lock.resources.len());
+            }
+            for (res_id, res_state) in &lock.resources {
+                total += 1;
+                if json {
+                    checks.push(serde_json::json!({
+                        "machine": name,
+                        "resource": res_id,
+                        "status": res_state.status,
+                        "hash": res_state.hash,
+                    }));
+                } else {
+                    println!("  would check: {} (status: {})", res_id, res_state.status);
+                }
+            }
+        }
+    }
+
+    if json {
+        let report = serde_json::json!({
+            "dry_run": true,
+            "total_checks": total,
+            "checks": checks,
+        });
+        let output =
+            serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {}", e))?;
+        println!("{}", output);
+    } else {
+        println!();
+        println!("Dry run: {} resource(s) would be checked", total);
     }
 
     Ok(())
@@ -2297,6 +2368,7 @@ resources: {}
             false,
             None,
             false,
+            false, // dry_run
             false,
             false,
         )
@@ -2353,6 +2425,7 @@ resources: {}
             false,
             None,
             false,
+            false, // dry_run
             false,
             false,
         )
@@ -2407,6 +2480,7 @@ resources: {}
             true,
             None,
             false,
+            false, // dry_run
             false,
             false,
         );
@@ -2428,6 +2502,7 @@ resources: {}
             false,
             None,
             false,
+            false, // dry_run
             false,
             false,
         )
@@ -2599,6 +2674,7 @@ resources:
                 tripwire: false,
                 alert_cmd: None,
                 auto_remediate: false,
+                dry_run: false,
                 json: false,
             },
             false,
@@ -2709,6 +2785,7 @@ resources:
             false,
             None,
             false,
+            false, // dry_run
             false,
             false,
         )
@@ -3019,6 +3096,7 @@ resources:
             false,
             None,
             false,
+            false, // dry_run
             true,
             false,
         )
@@ -3651,6 +3729,7 @@ resources:
             false,
             Some(&alert_cmd),
             false,
+            false, // dry_run
             false,
             false,
         )
@@ -3677,6 +3756,7 @@ resources:
             false,
             Some(&alert_cmd),
             false,
+            false, // dry_run
             false,
             false,
         )
@@ -3745,7 +3825,7 @@ resources:
         // Drift with auto-remediate should detect and fix
         cmd_drift(
             &config, &state, None, false, None, true, // auto_remediate
-            false, false,
+            false, false, false,
         )
         .unwrap();
 
@@ -3755,6 +3835,61 @@ resources:
 
         // Clean up
         let _ = std::fs::remove_file(&target);
+    }
+
+    #[test]
+    fn test_drift_dry_run_lists_resources() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = dir.path().join("state");
+
+        // Create a lock with two resources
+        let mut resources = indexmap::IndexMap::new();
+        resources.insert(
+            "web-config".to_string(),
+            crate::core::types::ResourceLock {
+                resource_type: crate::core::types::ResourceType::File,
+                status: crate::core::types::ResourceStatus::Converged,
+                applied_at: None,
+                duration_seconds: None,
+                hash: "abc123".to_string(),
+                details: std::collections::HashMap::new(),
+            },
+        );
+        resources.insert(
+            "db-config".to_string(),
+            crate::core::types::ResourceLock {
+                resource_type: crate::core::types::ResourceType::File,
+                status: crate::core::types::ResourceStatus::Converged,
+                applied_at: None,
+                duration_seconds: None,
+                hash: "def456".to_string(),
+                details: std::collections::HashMap::new(),
+            },
+        );
+        let lock = crate::core::types::StateLock {
+            schema: "1.0".to_string(),
+            machine: "local".to_string(),
+            hostname: "local".to_string(),
+            generated_at: "2026-01-01T00:00:00Z".to_string(),
+            generator: "forjar 0.1.0".to_string(),
+            blake3_version: "1.8".to_string(),
+            resources,
+        };
+        crate::core::state::save_lock(&state, &lock).unwrap();
+
+        // Dry-run should succeed without connecting to any machine
+        cmd_drift(
+            Path::new("nonexistent.yaml"),
+            &state,
+            None,
+            false,
+            None,
+            false,
+            true, // dry_run
+            false,
+            false,
+        )
+        .unwrap();
     }
 
     #[test]
@@ -4398,6 +4533,9 @@ resources:
                 }
             }
         }
-        assert!(found_cross_machine, "should detect cross-machine dependency");
+        assert!(
+            found_cross_machine,
+            "should detect cross-machine dependency"
+        );
     }
 }
