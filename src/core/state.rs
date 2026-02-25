@@ -521,4 +521,115 @@ mod tests {
         assert!(!tmp.exists(), "temp file must be cleaned up");
         assert!(global_lock_path(dir.path()).exists());
     }
+
+    // ── FJ-131: State edge case tests ─────────────────────────────
+
+    #[test]
+    fn test_fj131_update_global_lock_overwrites_machine_stats() {
+        // Updating a machine should overwrite its stats completely
+        let dir = tempfile::tempdir().unwrap();
+        let results1 = vec![("web".to_string(), 10_usize, 8_usize, 2_usize)];
+        update_global_lock(dir.path(), "infra", &results1).unwrap();
+
+        let results2 = vec![("web".to_string(), 10_usize, 10_usize, 0_usize)];
+        update_global_lock(dir.path(), "infra", &results2).unwrap();
+
+        let loaded = load_global_lock(dir.path()).unwrap().unwrap();
+        assert_eq!(loaded.machines["web"].converged, 10);
+        assert_eq!(loaded.machines["web"].failed, 0);
+    }
+
+    #[test]
+    fn test_fj131_new_lock_generator_format() {
+        let lock = new_lock("m", "h");
+        // Generator should contain "forjar" and a version
+        assert!(lock.generator.starts_with("forjar "));
+        // Version is from CARGO_PKG_VERSION
+        let version_part = lock.generator.strip_prefix("forjar ").unwrap();
+        assert!(
+            !version_part.is_empty(),
+            "should have version after 'forjar '"
+        );
+    }
+
+    #[test]
+    fn test_fj131_new_global_lock_generator_format() {
+        let lock = new_global_lock("test");
+        assert!(lock.generator.starts_with("forjar "));
+        assert_eq!(lock.schema, "1.0");
+    }
+
+    #[test]
+    fn test_fj131_save_lock_deep_state_dir() {
+        // Save to a deeply nested state directory that doesn't exist
+        let dir = tempfile::tempdir().unwrap();
+        let deep = dir.path().join("a").join("b").join("c");
+        let lock = make_lock();
+        // save_lock creates the machine subdirectory, but the parent must exist
+        // Let's create the deep path first then save into it
+        std::fs::create_dir_all(&deep).unwrap();
+        save_lock(&deep, &lock).unwrap();
+
+        let loaded = load_lock(&deep, "test").unwrap().unwrap();
+        assert_eq!(loaded.machine, "test");
+    }
+
+    #[test]
+    fn test_fj131_update_global_lock_changes_name() {
+        // Calling update_global_lock with a different name should update it
+        let dir = tempfile::tempdir().unwrap();
+        let results = vec![("web".to_string(), 3_usize, 3_usize, 0_usize)];
+        update_global_lock(dir.path(), "old-name", &results).unwrap();
+
+        let results2: Vec<(String, usize, usize, usize)> = vec![];
+        update_global_lock(dir.path(), "new-name", &results2).unwrap();
+
+        let loaded = load_global_lock(dir.path()).unwrap().unwrap();
+        assert_eq!(loaded.name, "new-name");
+        // Previous machine data should still be present
+        assert!(loaded.machines.contains_key("web"));
+    }
+
+    #[test]
+    fn test_fj131_lock_roundtrip_preserves_all_status_types() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut lock = make_lock();
+        lock.resources.insert(
+            "drifted-res".to_string(),
+            ResourceLock {
+                resource_type: ResourceType::Package,
+                status: ResourceStatus::Drifted,
+                applied_at: None,
+                duration_seconds: None,
+                hash: "blake3:xxx".to_string(),
+                details: HashMap::new(),
+            },
+        );
+        lock.resources.insert(
+            "unknown-res".to_string(),
+            ResourceLock {
+                resource_type: ResourceType::Service,
+                status: ResourceStatus::Unknown,
+                applied_at: None,
+                duration_seconds: None,
+                hash: "".to_string(),
+                details: HashMap::new(),
+            },
+        );
+        save_lock(dir.path(), &lock).unwrap();
+
+        let loaded = load_lock(dir.path(), "test").unwrap().unwrap();
+        assert_eq!(
+            loaded.resources["drifted-res"].status,
+            ResourceStatus::Drifted
+        );
+        assert_eq!(
+            loaded.resources["unknown-res"].status,
+            ResourceStatus::Unknown
+        );
+        assert_eq!(
+            loaded.resources["test-pkg"].status,
+            ResourceStatus::Converged
+        );
+    }
 }

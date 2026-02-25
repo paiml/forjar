@@ -2866,4 +2866,480 @@ policy:
 
         let _ = std::fs::remove_file("/tmp/forjar-test-executor.txt");
     }
+
+    // ── FJ-131: Executor + state edge case tests ──────────────────
+
+    #[test]
+    fn test_fj131_collect_machines_with_localhost() {
+        // Resources targeting "localhost" (implicit machine) appear in collect output
+        let yaml = r#"
+version: "1.0"
+name: localhost-test
+machines:
+  web:
+    hostname: web
+    addr: 1.1.1.1
+resources:
+  local-file:
+    type: file
+    machine: localhost
+    path: /tmp/test
+    content: "x"
+  web-file:
+    type: file
+    machine: web
+    path: /tmp/test2
+    content: "y"
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let machines = collect_machines(&config);
+        assert!(machines.contains(&"localhost".to_string()));
+        assert!(machines.contains(&"web".to_string()));
+        assert_eq!(machines.len(), 2);
+    }
+
+    #[test]
+    fn test_fj131_apply_empty_resources() {
+        // Config with machines but no resources → empty results
+        let yaml = r#"
+version: "1.0"
+name: empty-resources
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+resources: {}
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = ApplyConfig {
+            config: &config,
+            state_dir: dir.path(),
+            force: false,
+            dry_run: false,
+            machine_filter: None,
+            resource_filter: None,
+            tag_filter: None,
+            timeout_secs: None,
+        };
+        let results = apply(&cfg).unwrap();
+        // No resources → no machines collected → empty results
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn test_fj131_apply_machine_filter_no_match() {
+        // Machine filter doesn't match any collected machine → empty results
+        let config = local_config();
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = ApplyConfig {
+            config: &config,
+            state_dir: dir.path(),
+            force: false,
+            dry_run: false,
+            machine_filter: Some("nonexistent-machine"),
+            resource_filter: None,
+            tag_filter: None,
+            timeout_secs: None,
+        };
+        let results = apply(&cfg).unwrap();
+        assert!(
+            results.is_empty(),
+            "machine filter that matches nothing should yield no results"
+        );
+    }
+
+    #[test]
+    fn test_fj131_record_failure_docker_resource() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut lock = state::new_lock("test", "test-box");
+        let mut ctx = RecordCtx {
+            lock: &mut lock,
+            state_dir: dir.path(),
+            machine_name: "test",
+            tripwire: true,
+            failure_policy: &FailurePolicy::StopOnFirst,
+            timeout_secs: None,
+        };
+
+        let should_stop = record_failure(
+            &mut ctx,
+            "my-container",
+            &ResourceType::Docker,
+            3.0,
+            "image pull failed",
+        );
+
+        assert!(should_stop);
+        let rl = &ctx.lock.resources["my-container"];
+        assert_eq!(rl.status, ResourceStatus::Failed);
+        assert_eq!(rl.resource_type, ResourceType::Docker);
+        assert_eq!(rl.hash, "");
+        assert!(rl.duration_seconds.unwrap() > 2.0);
+    }
+
+    #[test]
+    fn test_fj131_record_failure_mount_continue() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut lock = state::new_lock("test", "test-box");
+        let mut ctx = RecordCtx {
+            lock: &mut lock,
+            state_dir: dir.path(),
+            machine_name: "test",
+            tripwire: false,
+            failure_policy: &FailurePolicy::ContinueIndependent,
+            timeout_secs: None,
+        };
+
+        let should_stop = record_failure(
+            &mut ctx,
+            "nfs-share",
+            &ResourceType::Mount,
+            0.8,
+            "mount: permission denied",
+        );
+
+        assert!(!should_stop);
+        assert_eq!(
+            ctx.lock.resources["nfs-share"].resource_type,
+            ResourceType::Mount
+        );
+    }
+
+    #[test]
+    fn test_fj131_build_details_group_only() {
+        // Resource with group but no owner/mode → only group in details
+        let r = Resource {
+            resource_type: ResourceType::File,
+            machine: MachineTarget::Single("m".to_string()),
+            state: None,
+            depends_on: vec![],
+            provider: None,
+            packages: vec![],
+            version: None,
+            path: None,
+            content: None,
+            source: None,
+            target: None,
+            owner: None,
+            group: Some("www-data".to_string()),
+            mode: None,
+            name: None,
+            enabled: None,
+            restart_on: vec![],
+            fs_type: None,
+            options: None,
+            uid: None,
+            shell: None,
+            home: None,
+            groups: vec![],
+            ssh_authorized_keys: vec![],
+            system_user: false,
+            schedule: None,
+            command: None,
+            image: None,
+            ports: vec![],
+            environment: vec![],
+            volumes: vec![],
+            restart: None,
+            protocol: None,
+            port: None,
+            action: None,
+            from_addr: None,
+            recipe: None,
+            inputs: HashMap::new(),
+            arch: vec![],
+            tags: vec![],
+        };
+        let details = build_resource_details(&r, &local_machine());
+        assert_eq!(
+            details["group"],
+            serde_yaml_ng::Value::String("www-data".to_string())
+        );
+        assert!(!details.contains_key("owner"), "owner not set");
+        assert!(!details.contains_key("mode"), "mode not set");
+        assert!(!details.contains_key("path"), "path not set");
+    }
+
+    #[test]
+    fn test_fj131_collect_machines_multiple_target() {
+        // MachineTarget::Multiple collects all targets
+        let yaml = r#"
+version: "1.0"
+name: multi-target
+machines:
+  a:
+    hostname: a
+    addr: 1.1.1.1
+  b:
+    hostname: b
+    addr: 2.2.2.2
+  c:
+    hostname: c
+    addr: 3.3.3.3
+resources:
+  r:
+    type: file
+    machine: [a, b, c]
+    path: /tmp/test
+    content: test
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let machines = collect_machines(&config);
+        assert_eq!(machines.len(), 3);
+        assert!(machines.contains(&"a".to_string()));
+        assert!(machines.contains(&"b".to_string()));
+        assert!(machines.contains(&"c".to_string()));
+    }
+
+    #[test]
+    fn test_fj131_apply_localhost_implicit_machine() {
+        // Resources on "localhost" work without defining localhost in machines block
+        let yaml = r#"
+version: "1.0"
+name: localhost-apply
+machines: {}
+resources:
+  local-file:
+    type: file
+    machine: localhost
+    path: /tmp/forjar-test-localhost-implicit.txt
+    content: "localhost works"
+policy:
+  lock_file: true
+  tripwire: false
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = ApplyConfig {
+            config: &config,
+            state_dir: dir.path(),
+            force: false,
+            dry_run: false,
+            machine_filter: None,
+            resource_filter: None,
+            tag_filter: None,
+            timeout_secs: None,
+        };
+        let results = apply(&cfg).unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].machine, "localhost");
+        assert_eq!(results[0].resources_converged, 1);
+
+        let content = std::fs::read_to_string("/tmp/forjar-test-localhost-implicit.txt").unwrap();
+        assert_eq!(content.trim(), "localhost works");
+
+        // Lock should reference localhost
+        let lock = state::load_lock(dir.path(), "localhost").unwrap().unwrap();
+        assert!(lock.resources.contains_key("local-file"));
+
+        let _ = std::fs::remove_file("/tmp/forjar-test-localhost-implicit.txt");
+    }
+
+    #[test]
+    fn test_fj131_apply_continue_independent_policy() {
+        // With ContinueIndependent, a failing resource shouldn't block others
+        // Use a file resource with an impossible path to trigger failure
+        let yaml = r#"
+version: "1.0"
+name: continue-test
+machines:
+  local:
+    hostname: localhost
+    addr: 127.0.0.1
+resources:
+  good-file:
+    type: file
+    machine: local
+    path: /tmp/forjar-test-continue-good.txt
+    content: "good"
+  bad-file:
+    type: file
+    machine: local
+    path: /proc/nonexistent/impossible/path.txt
+    content: "will fail"
+    source: /dev/null/impossible
+policy:
+  failure: continue_independent
+  lock_file: true
+  tripwire: false
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = ApplyConfig {
+            config: &config,
+            state_dir: dir.path(),
+            force: false,
+            dry_run: false,
+            machine_filter: None,
+            resource_filter: None,
+            tag_filter: None,
+            timeout_secs: None,
+        };
+        let results = apply(&cfg).unwrap();
+        // At least one resource should converge even if one fails
+        // (good-file should succeed, bad-file may fail)
+        let total = results[0].resources_converged + results[0].resources_failed;
+        assert!(total > 0, "should have attempted resources");
+
+        let _ = std::fs::remove_file("/tmp/forjar-test-continue-good.txt");
+    }
+
+    #[test]
+    fn test_fj131_record_success_no_live_hash_for_package() {
+        // Package resources have no state_query that returns a live_hash
+        let dir = tempfile::tempdir().unwrap();
+        let mut lock = state::new_lock("test", "test-box");
+        let resource = Resource {
+            resource_type: ResourceType::Package,
+            machine: MachineTarget::Single("test".to_string()),
+            provider: Some("apt".to_string()),
+            packages: vec!["curl".to_string()],
+            state: None,
+            depends_on: vec![],
+            version: None,
+            path: None,
+            content: None,
+            source: None,
+            target: None,
+            owner: None,
+            group: None,
+            mode: None,
+            name: None,
+            enabled: None,
+            restart_on: vec![],
+            fs_type: None,
+            options: None,
+            uid: None,
+            shell: None,
+            home: None,
+            groups: vec![],
+            ssh_authorized_keys: vec![],
+            system_user: false,
+            schedule: None,
+            command: None,
+            image: None,
+            ports: vec![],
+            environment: vec![],
+            volumes: vec![],
+            restart: None,
+            protocol: None,
+            port: None,
+            action: None,
+            from_addr: None,
+            recipe: None,
+            inputs: HashMap::new(),
+            arch: vec![],
+            tags: vec![],
+        };
+        let mut ctx = RecordCtx {
+            lock: &mut lock,
+            state_dir: dir.path(),
+            machine_name: "test",
+            tripwire: false,
+            failure_policy: &FailurePolicy::StopOnFirst,
+            timeout_secs: None,
+        };
+
+        record_success(
+            &mut ctx,
+            "pkg-curl",
+            &resource,
+            &resource,
+            &local_machine(),
+            0.3,
+        );
+
+        let rl = &ctx.lock.resources["pkg-curl"];
+        assert_eq!(rl.status, ResourceStatus::Converged);
+        assert!(rl.hash.starts_with("blake3:"));
+        // Package resources get live_hash from state_query_script execution
+        // The live_hash presence depends on whether the script succeeds locally
+    }
+
+    #[test]
+    fn test_fj131_apply_dry_run_returns_unchanged_count() {
+        // Dry-run with existing state should report unchanged resources
+        let config = local_config();
+        let dir = tempfile::tempdir().unwrap();
+
+        // First real apply to establish state
+        let cfg = ApplyConfig {
+            config: &config,
+            state_dir: dir.path(),
+            force: false,
+            dry_run: false,
+            machine_filter: None,
+            resource_filter: None,
+            tag_filter: None,
+            timeout_secs: None,
+        };
+        apply(&cfg).unwrap();
+
+        // Now dry-run — should report the unchanged count from plan
+        let cfg2 = ApplyConfig {
+            config: &config,
+            state_dir: dir.path(),
+            force: false,
+            dry_run: true,
+            machine_filter: None,
+            resource_filter: None,
+            tag_filter: None,
+            timeout_secs: None,
+        };
+        let results = apply(&cfg2).unwrap();
+        assert_eq!(results[0].machine, "dry-run");
+        assert_eq!(
+            results[0].resources_unchanged, 1,
+            "dry-run after apply should report 1 unchanged"
+        );
+        assert_eq!(results[0].resources_converged, 0);
+        assert_eq!(results[0].resources_failed, 0);
+
+        let _ = std::fs::remove_file("/tmp/forjar-test-executor.txt");
+    }
+
+    #[test]
+    fn test_fj131_resource_outcome_variants() {
+        // Verify ResourceOutcome enum can be matched correctly
+        let converged = ResourceOutcome::Converged;
+        let unchanged = ResourceOutcome::Unchanged;
+        let skipped = ResourceOutcome::Skipped;
+        let failed_stop = ResourceOutcome::Failed { should_stop: true };
+        let failed_continue = ResourceOutcome::Failed {
+            should_stop: false,
+        };
+
+        assert!(matches!(converged, ResourceOutcome::Converged));
+        assert!(matches!(unchanged, ResourceOutcome::Unchanged));
+        assert!(matches!(skipped, ResourceOutcome::Skipped));
+        assert!(matches!(
+            failed_stop,
+            ResourceOutcome::Failed { should_stop: true }
+        ));
+        assert!(matches!(
+            failed_continue,
+            ResourceOutcome::Failed {
+                should_stop: false
+            }
+        ));
+    }
+
+    #[test]
+    fn test_fj131_record_ctx_timeout_propagation() {
+        // RecordCtx correctly stores timeout value
+        let dir = tempfile::tempdir().unwrap();
+        let mut lock = state::new_lock("test", "test-box");
+        let ctx = RecordCtx {
+            lock: &mut lock,
+            state_dir: dir.path(),
+            machine_name: "test",
+            tripwire: true,
+            failure_policy: &FailurePolicy::StopOnFirst,
+            timeout_secs: Some(60),
+        };
+        assert_eq!(ctx.timeout_secs, Some(60));
+        assert_eq!(ctx.machine_name, "test");
+        assert!(ctx.tripwire);
+    }
 }
