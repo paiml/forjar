@@ -433,6 +433,115 @@ forjar anomaly --json
 forjar anomaly -m web-server
 ```
 
+## Command Cheat Sheet
+
+Quick reference for the most common workflows:
+
+```bash
+# First time setup
+forjar init my-project
+cd my-project
+
+# Edit → Validate → Plan → Apply cycle
+$EDITOR forjar.yaml
+forjar validate -f forjar.yaml
+forjar plan -f forjar.yaml --state-dir state/
+forjar apply -f forjar.yaml --state-dir state/
+
+# Verify idempotency (should report 0 converged)
+forjar apply -f forjar.yaml --state-dir state/
+
+# Check for unauthorized changes
+forjar drift -f forjar.yaml --state-dir state/
+
+# View what happened
+forjar history --state-dir state/ -n 10
+forjar status --state-dir state/
+
+# Debug a specific resource
+forjar show -f forjar.yaml -r <resource-id> --json
+forjar plan -f forjar.yaml --output-dir /tmp/scripts/
+
+# Clean up / format
+forjar fmt -f forjar.yaml
+forjar lint -f forjar.yaml
+```
+
+## Pipeline Patterns
+
+### CI Validation Gate
+
+Run in CI before merging config changes:
+
+```bash
+#!/bin/bash
+set -euo pipefail
+
+# Validate config syntax and structure
+forjar validate -f forjar.yaml
+
+# Lint for style issues
+forjar lint -f forjar.yaml
+
+# Preview changes (informational)
+forjar plan -f forjar.yaml --state-dir state/
+
+# Check for formatting issues
+forjar fmt -f forjar.yaml --check
+```
+
+### Production Deploy Pipeline
+
+```bash
+#!/bin/bash
+set -euo pipefail
+
+# 1. Check for drift before applying
+forjar drift -f forjar.yaml --state-dir state/ --tripwire || {
+    echo "Drift detected — review before deploying"
+    exit 1
+}
+
+# 2. Apply changes
+forjar apply -f forjar.yaml --state-dir state/
+
+# 3. Verify state
+forjar status --state-dir state/
+
+# 4. Commit state changes
+git add state/
+git commit -m "forjar: deploy $(date -I)"
+```
+
+### Scheduled Drift Monitor
+
+```bash
+#!/bin/bash
+# Run via cron or systemd timer
+
+forjar drift -f forjar.yaml --state-dir state/ --tripwire \
+  --alert-cmd "/opt/scripts/notify.sh" \
+  --json > /var/log/forjar-drift.json 2>&1
+
+# --tripwire exits non-zero on drift
+# --alert-cmd runs notify script with $FORJAR_DRIFT_COUNT
+```
+
+## Global Flags
+
+These flags work with all commands:
+
+| Flag | Description |
+|------|-------------|
+| `-f, --file` | Path to forjar.yaml config file |
+| `--state-dir` | Path to state directory (default: `state`) |
+| `-m, --machine` | Filter to specific machine |
+| `-r, --resource` | Filter to specific resource |
+| `-t, --tag` | Filter to resources with specific tag |
+| `--json` | Output in JSON format (for scripting) |
+| `--verbose` | Increase output verbosity |
+| `--quiet` | Suppress non-error output |
+
 ## Exit Codes
 
 | Code | Meaning |

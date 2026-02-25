@@ -398,6 +398,254 @@ When something goes wrong, work through this checklist:
 6. **Test locally**: Add a `localhost` machine and test resources locally first
 7. **Use containers**: Add a container machine for safe, isolated testing
 
+## Container Transport Issues
+
+### "docker: command not found"
+
+Container transport requires Docker (or Podman) installed on the host:
+
+```bash
+# Check Docker is available
+docker --version
+
+# For Podman, set runtime:
+#   container:
+#     runtime: podman
+```
+
+### Container Fails to Start
+
+If `forjar apply` fails during container creation:
+
+```bash
+# Manual container test
+docker run -d --name forjar-test --init ubuntu:22.04 sleep infinity
+docker exec forjar-test bash -c "echo ok"
+docker rm -f forjar-test
+```
+
+Common causes:
+- Image not available locally (`docker pull ubuntu:22.04`)
+- Port conflicts from previous runs (`docker rm -f forjar-<machine-key>`)
+- Insufficient disk space for container images
+
+### systemd Inside Containers
+
+Some resources (services) need systemd, which requires `privileged: true`:
+
+```yaml
+machines:
+  test:
+    hostname: test
+    addr: container
+    transport: container
+    container:
+      image: ubuntu:22.04
+      privileged: true    # Needed for systemctl
+```
+
+Without `privileged`, service resources will fail with `systemctl` errors.
+
+## Recipe Errors
+
+### "recipe file not found: recipes/X.yaml"
+
+Recipe files must be at `recipes/{name}.yaml` relative to your `forjar.yaml`:
+
+```
+my-project/
+  forjar.yaml           # References recipe: web-server
+  recipes/
+    web-server.yaml     # Must exist here
+```
+
+### "input 'Y' is required but not provided"
+
+A recipe input has no default and wasn't provided:
+
+```yaml
+# Recipe definition
+recipe:
+  inputs:
+    domain:
+      type: string      # No default — required
+
+# Usage — must provide the input
+resources:
+  web:
+    type: recipe
+    recipe: web-server
+    inputs:
+      domain: example.com   # Required
+```
+
+### "input 'Y' value Z exceeds max"
+
+An integer input is out of its declared range:
+
+```yaml
+# Recipe declares min/max
+recipe:
+  inputs:
+    port:
+      type: int
+      min: 1
+      max: 65535
+
+# Usage — value must be within range
+inputs:
+  port: 70000    # Error: exceeds max 65535
+```
+
+### Recipe Expansion Debug
+
+To see how recipes expand:
+
+```bash
+# Validate shows expanded resource count
+forjar validate -f forjar.yaml
+
+# Graph shows namespaced resources
+forjar graph -f forjar.yaml
+
+# Plan shows all expanded resources with actions
+forjar plan -f forjar.yaml --state-dir state/
+```
+
+## Drift Detection Issues
+
+### False Drift on Package Resources
+
+Package drift can be triggered by automatic updates (unattended-upgrades):
+
+```bash
+# Check if drift is real
+forjar drift -f forjar.yaml --json | jq '.findings[]'
+
+# Pin package versions to prevent drift
+resources:
+  my-pkg:
+    type: package
+    provider: apt
+    packages: [nginx=1.24.0-1]    # Pin version
+```
+
+### Drift After Manual Changes
+
+If someone edits a managed file manually:
+
+```bash
+# See what drifted
+forjar drift -f forjar.yaml --state-dir state/
+
+# Option 1: Restore to desired state
+forjar apply -f forjar.yaml --state-dir state/ --force
+
+# Option 2: Accept the change — update your config to match
+# Edit forjar.yaml, then apply
+```
+
+### No Drift Detected (But Expected)
+
+Drift detection only works for resources with `status: converged` in the lock file:
+- Failed resources are skipped (no baseline to compare)
+- Resources never applied are skipped (no hash recorded)
+- Resources with missing `content_hash` or `live_hash` are skipped
+
+```bash
+# Check lock file for resource status
+cat state/<machine>/state.lock.yaml | grep -A2 "resource-name"
+```
+
+## Performance Issues
+
+### Slow Apply on Many Resources
+
+Forjar applies resources sequentially per machine (to respect dependency order). For configs with many independent resources:
+
+```bash
+# Use parallel machine execution
+forjar apply -f forjar.yaml --parallel
+
+# Or target specific resources
+forjar apply -f forjar.yaml -r slow-resource
+```
+
+### Large File Hashing
+
+BLAKE3 hashes files using a 64KB streaming buffer, so memory usage is constant regardless of file size. If hashing seems slow, check:
+
+```bash
+# File size
+ls -lh /path/to/large/file
+
+# Disk I/O
+iostat -x 1 3
+```
+
+### Event Log Size
+
+Event logs grow unbounded. For long-running systems:
+
+```bash
+# Check sizes
+du -sh state/*/events.jsonl
+
+# Rotate (keep last 1000 entries)
+for f in state/*/events.jsonl; do
+  tail -1000 "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+done
+```
+
+## Error Exit Codes
+
+| Exit Code | Meaning |
+|-----------|---------|
+| 0 | Success |
+| 1 | General error (validation, transport, config) |
+| 1 | Drift detected (with `--tripwire` flag) |
+| 2 | CLI argument error |
+
+## Common Patterns That Cause Issues
+
+### Circular Dependencies
+
+```yaml
+# This causes a cycle error:
+resources:
+  a:
+    depends_on: [b]
+  b:
+    depends_on: [a]
+```
+
+Fix: Remove one direction of the dependency, or introduce a shared dependency.
+
+### Missing Machine for Multi-Machine Resources
+
+```yaml
+resources:
+  pkg:
+    type: package
+    machine: [web, db, missing-machine]   # Error if missing-machine undefined
+```
+
+Fix: Define all machines in the `machines:` block, or remove the unknown reference.
+
+### Template Resolution Failures
+
+```yaml
+params:
+  env: production
+
+resources:
+  config:
+    type: file
+    content: "env={{params.evn}}"   # Typo: 'evn' not 'env'
+```
+
+Unresolved templates pass through unchanged — the file will literally contain `{{params.evn}}`. Check for typos in template references.
+
 ## Getting Help
 
 ```bash
@@ -413,4 +661,7 @@ forjar apply -f forjar.yaml --dry-run
 
 # Verbose output
 forjar apply -f forjar.yaml --verbose
+
+# Inspect generated scripts
+forjar plan -f forjar.yaml --output-dir /tmp/audit/
 ```
