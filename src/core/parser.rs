@@ -2470,7 +2470,9 @@ resources:
             .find(|e| e.message.contains("invalid state"))
             .expect("should have invalid state error");
         // Error message should list all valid states
-        assert!(file_err.message.contains("file, directory, symlink, absent"));
+        assert!(file_err
+            .message
+            .contains("file, directory, symlink, absent"));
     }
 
     #[test]

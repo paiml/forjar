@@ -3306,9 +3306,7 @@ policy:
         let unchanged = ResourceOutcome::Unchanged;
         let skipped = ResourceOutcome::Skipped;
         let failed_stop = ResourceOutcome::Failed { should_stop: true };
-        let failed_continue = ResourceOutcome::Failed {
-            should_stop: false,
-        };
+        let failed_continue = ResourceOutcome::Failed { should_stop: false };
 
         assert!(matches!(converged, ResourceOutcome::Converged));
         assert!(matches!(unchanged, ResourceOutcome::Unchanged));
@@ -3319,9 +3317,7 @@ policy:
         ));
         assert!(matches!(
             failed_continue,
-            ResourceOutcome::Failed {
-                should_stop: false
-            }
+            ResourceOutcome::Failed { should_stop: false }
         ));
     }
 

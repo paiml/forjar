@@ -1734,7 +1734,10 @@ mod tests {
         let hash = hasher::hash_directory(&sub).unwrap();
 
         let result = check_file_drift("dir-resource", sub.to_str().unwrap(), &hash);
-        assert!(result.is_none(), "directory with matching hash should not drift");
+        assert!(
+            result.is_none(),
+            "directory with matching hash should not drift"
+        );
     }
 
     #[test]
@@ -1870,10 +1873,7 @@ mod tests {
             serde_yaml_ng::Value::String(file.to_str().unwrap().to_string()),
         );
         // content_hash is a bool instead of string
-        details.insert(
-            "content_hash".to_string(),
-            serde_yaml_ng::Value::Bool(true),
-        );
+        details.insert("content_hash".to_string(), serde_yaml_ng::Value::Bool(true));
         resources.insert(
             "bad-hash".to_string(),
             crate::core::types::ResourceLock {
@@ -1897,7 +1897,10 @@ mod tests {
         };
 
         let findings = detect_drift(&lock);
-        assert!(findings.is_empty(), "non-string content_hash should be skipped");
+        assert!(
+            findings.is_empty(),
+            "non-string content_hash should be skipped"
+        );
     }
 
     #[test]
@@ -1936,7 +1939,10 @@ mod tests {
         };
 
         let findings = detect_drift(&lock);
-        assert!(findings.is_empty(), "missing content_hash should be skipped");
+        assert!(
+            findings.is_empty(),
+            "missing content_hash should be skipped"
+        );
     }
 
     #[test]
@@ -1966,7 +1972,10 @@ mod tests {
 
         // detect_drift (not detect_drift_full) only checks files
         let findings = detect_drift(&lock);
-        assert!(findings.is_empty(), "service resources should be skipped by detect_drift");
+        assert!(
+            findings.is_empty(),
+            "service resources should be skipped by detect_drift"
+        );
     }
 
     #[test]
