@@ -1498,4 +1498,132 @@ image: ubuntu:22.04
         let val = serde_yaml_ng::Value::Bool(false);
         assert_eq!(yaml_value_to_string(&val), "false");
     }
+
+    #[test]
+    fn test_fj132_machine_is_container_transport() {
+        let m = Machine {
+            hostname: "box".to_string(),
+            addr: "container".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: Some("container".to_string()),
+            container: None,
+            cost: 0,
+        };
+        assert!(m.is_container_transport());
+    }
+
+    #[test]
+    fn test_fj132_machine_is_not_container_transport() {
+        let m = Machine {
+            hostname: "web".to_string(),
+            addr: "10.0.0.1".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: None,
+            container: None,
+            cost: 0,
+        };
+        assert!(!m.is_container_transport());
+    }
+
+    #[test]
+    fn test_fj132_machine_container_name_explicit() {
+        let m = Machine {
+            hostname: "box".to_string(),
+            addr: "container".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: Some("container".to_string()),
+            container: Some(ContainerConfig {
+                runtime: "docker".to_string(),
+                image: Some("ubuntu:22.04".to_string()),
+                name: Some("my-custom-name".to_string()),
+                ephemeral: true,
+                privileged: false,
+                init: true,
+            }),
+            cost: 0,
+        };
+        assert_eq!(m.container_name(), "my-custom-name");
+    }
+
+    #[test]
+    fn test_fj132_machine_container_name_derived() {
+        let m = Machine {
+            hostname: "test-box".to_string(),
+            addr: "container".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: Some("container".to_string()),
+            container: Some(ContainerConfig {
+                runtime: "docker".to_string(),
+                image: Some("ubuntu:22.04".to_string()),
+                name: None,
+                ephemeral: true,
+                privileged: false,
+                init: true,
+            }),
+            cost: 0,
+        };
+        assert_eq!(m.container_name(), "forjar-test-box");
+    }
+
+    #[test]
+    fn test_fj132_resource_type_display_all() {
+        let types = [
+            (ResourceType::Package, "package"),
+            (ResourceType::File, "file"),
+            (ResourceType::Service, "service"),
+            (ResourceType::Mount, "mount"),
+            (ResourceType::User, "user"),
+            (ResourceType::Docker, "docker"),
+            (ResourceType::Cron, "cron"),
+            (ResourceType::Network, "network"),
+        ];
+        for (rt, expected) in &types {
+            assert_eq!(format!("{}", rt), *expected);
+        }
+    }
+
+    #[test]
+    fn test_fj132_policy_defaults() {
+        let policy = Policy::default();
+        assert!(matches!(policy.failure, FailurePolicy::StopOnFirst));
+        assert!(policy.tripwire);
+        assert!(policy.lock_file);
+        assert!(!policy.parallel_machines);
+    }
+
+    #[test]
+    fn test_fj132_machine_target_single_deserialization() {
+        let yaml = "machine: web";
+        let r: Resource = serde_yaml_ng::from_str(&format!("type: file\n{}\npath: /tmp/x", yaml)).unwrap();
+        match &r.machine {
+            MachineTarget::Single(name) => assert_eq!(name, "web"),
+            MachineTarget::Multiple(_) => panic!("expected Single"),
+        }
+    }
+
+    #[test]
+    fn test_fj132_machine_target_multiple_deserialization() {
+        let yaml = "type: file\nmachine: [web, db]\npath: /tmp/x";
+        let r: Resource = serde_yaml_ng::from_str(yaml).unwrap();
+        match &r.machine {
+            MachineTarget::Multiple(names) => {
+                assert_eq!(names.len(), 2);
+                assert_eq!(names[0], "web");
+                assert_eq!(names[1], "db");
+            }
+            MachineTarget::Single(_) => panic!("expected Multiple"),
+        }
+    }
 }

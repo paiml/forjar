@@ -740,3 +740,158 @@ forjar plan -f fleet.yaml --state-dir state/
 # arm-srv: common-tools, arm-firmware (2 resources)
 # intel-microcode is skipped on arm, arm-firmware is skipped on x86
 ```
+
+## Recipe: Log Rotation
+
+A reusable recipe for setting up logrotate:
+
+```yaml
+# recipes/logrotate.yaml
+recipe:
+  name: logrotate
+  inputs:
+    app_name: { required: true }
+    log_path: { required: true }
+    rotate_count: { default: "7" }
+    max_size: { default: "100M" }
+
+resources:
+  logrotate-conf:
+    type: file
+    path: /etc/logrotate.d/{{inputs.app_name}}
+    content: |
+      {{inputs.log_path}} {
+        daily
+        rotate {{inputs.rotate_count}}
+        maxsize {{inputs.max_size}}
+        compress
+        delaycompress
+        missingok
+        notifempty
+        create 0640 root adm
+      }
+    mode: "0644"
+```
+
+Usage:
+
+```yaml
+resources:
+  nginx-logs:
+    type: recipe
+    machine: web
+    recipe: logrotate
+    inputs:
+      app_name: nginx
+      log_path: "/var/log/nginx/*.log"
+      rotate_count: "14"
+      max_size: "500M"
+
+  app-logs:
+    type: recipe
+    machine: web
+    recipe: logrotate
+    inputs:
+      app_name: myapp
+      log_path: "/var/log/myapp/*.log"
+```
+
+## Recipe: SSH Hardening
+
+```yaml
+# recipes/ssh-hardening.yaml
+recipe:
+  name: ssh-hardening
+  inputs:
+    port: { default: "22" }
+    allow_groups: { default: "ssh-users" }
+
+resources:
+  sshd-config:
+    type: file
+    path: /etc/ssh/sshd_config.d/99-hardening.conf
+    content: |
+      Port {{inputs.port}}
+      PermitRootLogin no
+      PasswordAuthentication no
+      PubkeyAuthentication yes
+      AllowGroups {{inputs.allow_groups}}
+      MaxAuthTries 3
+      LoginGraceTime 20
+      ClientAliveInterval 300
+      ClientAliveCountMax 2
+    mode: "0644"
+
+  sshd-restart:
+    type: service
+    name: sshd
+    state: running
+    enabled: true
+    restart_on: [sshd-config]
+    depends_on: [sshd-config]
+```
+
+## Pattern: Staged Rollout
+
+Apply changes to canary machines first, then the fleet:
+
+```yaml
+machines:
+  canary:
+    hostname: web-01
+    addr: 10.0.1.1
+    roles: [web, canary]
+  web-02:
+    hostname: web-02
+    addr: 10.0.1.2
+    roles: [web]
+  web-03:
+    hostname: web-03
+    addr: 10.0.1.3
+    roles: [web]
+```
+
+```bash
+# Step 1: Apply to canary only
+forjar apply -f forjar.yaml --state-dir state/ -m canary
+
+# Step 2: Verify canary
+forjar drift -f forjar.yaml --state-dir state/ -m canary --tripwire
+
+# Step 3: Apply to remaining machines
+forjar apply -f forjar.yaml --state-dir state/ -m web-02
+forjar apply -f forjar.yaml --state-dir state/ -m web-03
+```
+
+## Pattern: Config Templating Per Environment
+
+Use params to template environment-specific values:
+
+```yaml
+params:
+  env: "{{params.env}}"  # Override with -p env=production
+  log_level: info
+
+resources:
+  app-config:
+    type: file
+    machine: web
+    path: /etc/myapp/config.yaml
+    content: |
+      environment: {{params.env}}
+      log_level: {{params.log_level}}
+      database:
+        host: db-{{params.env}}.internal
+        pool_size: 10
+    mode: "0640"
+    owner: app
+    group: app
+```
+
+```bash
+# Staging
+forjar apply -f forjar.yaml --state-dir state-staging/ -p env=staging -p log_level=debug
+
+# Production
+forjar apply -f forjar.yaml --state-dir state-prod/ -p env=production -p log_level=warn
+```
