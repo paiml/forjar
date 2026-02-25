@@ -1365,6 +1365,9 @@ Statistical anomaly detection from event history. Analyzes per-resource metrics:
 | FJ-114 | Executor edge case tests — record_success without tripwire, service details, record_failure tripwire off, build_resource_details variants, collect_machines dedup/order, dry-run+filter, tag-filtered apply, log_tripwire toggle, apply duration (14 tests) | **Done** |
 | FJ-115 | Transport edge case tests — local: empty script, env vars, heredoc, exit code range, large output, set -euo. SSH: -o pairing, key ordering, bash-last, success method, relative path. Dispatch: timeout seconds, empty script, Debug/Clone, query alias (16 tests) | **Done** |
 | FJ-116 | Drift detection edge cases — transport-based drift (local, drift, missing, directory), mixed resources, failed resource skip, empty file hash, wrong hash format, Debug/Clone (8 tests) | **Done** |
+| FJ-117 | Codegen dispatch tests — unsupported type error quality, recipe non-dispatchable, all Phase 1 check scripts nonempty, all Phase 1 state_query scripts nonempty (4 tests) | **Done** |
+| FJ-118 | Resolver + recipe edge case tests — unclosed template, passthrough, mixed types, unknown machine, numeric/bool params, group/mode resolution, fan-out/fan-in DAGs, unknown dep, whitespace templates, consecutive templates. Recipe: no-inputs, unclosed template, unknown input ref, terminal ID on empty, nonexistent file, invalid YAML, multiple external deps, all-defaults expansion, content field, RecipeSource derive, optional metadata, requires parsing (27 tests) | **Done** |
+| FJ-119 | Expand Getting Started book chapter (Ch. 1, 113→374 lines) — core concepts table, validate-first workflow, multi-resource example with dependencies, graph visualization, filtering, dry-run, state inspection, script auditing, parameters, secrets, cross-arch support | **Done** |
 
 ---
 
