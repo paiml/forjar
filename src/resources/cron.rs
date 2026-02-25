@@ -258,8 +258,14 @@ mod tests {
         r.schedule = Some("0 3 * * *".to_string());
         r.command = Some("/bin/cleanup".to_string());
         let script = apply_script(&r);
-        assert!(!script.contains("0 3 * * *"), "absent should not include schedule");
-        assert!(!script.contains("/bin/cleanup"), "absent should not include command");
+        assert!(
+            !script.contains("0 3 * * *"),
+            "absent should not include schedule"
+        );
+        assert!(
+            !script.contains("/bin/cleanup"),
+            "absent should not include command"
+        );
         assert!(script.contains("grep -v '# forjar:old-job'"));
     }
 

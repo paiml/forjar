@@ -446,7 +446,10 @@ mod tests {
 
         let loaded = load_lock(dir.path(), "test").unwrap().unwrap();
         assert_eq!(loaded.resources.len(), 3);
-        assert_eq!(loaded.resources["conf-file"].status, ResourceStatus::Converged);
+        assert_eq!(
+            loaded.resources["conf-file"].status,
+            ResourceStatus::Converged
+        );
         assert_eq!(loaded.resources["web-svc"].status, ResourceStatus::Failed);
     }
 

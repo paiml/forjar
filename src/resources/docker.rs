@@ -315,7 +315,11 @@ mod tests {
     #[test]
     fn test_fj030_multiple_ports_env_volumes() {
         let mut r = make_docker_resource("app", "myapp:v1");
-        r.ports = vec!["80:80".to_string(), "443:443".to_string(), "8080:8080".to_string()];
+        r.ports = vec![
+            "80:80".to_string(),
+            "443:443".to_string(),
+            "8080:8080".to_string(),
+        ];
         r.environment = vec!["A=1".to_string(), "B=2".to_string()];
         r.volumes = vec!["/a:/a".to_string(), "/b:/b".to_string()];
         let script = apply_script(&r);
