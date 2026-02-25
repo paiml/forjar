@@ -14,3 +14,4 @@ Comprehensive documentation for forjar, the Rust-native Infrastructure as Code t
 8. [State Management](08-state-management.md) — Lock files, BLAKE3 hashing, drift detection, event logs
 9. [Drift Detection & Tripwire](09-drift-and-tripwire.md) — Drift detection, auto-remediation, anomaly detection, event logs
 10. [Testing & CI/CD Integration](10-testing-and-ci.md) — Validation pyramid, container testing, GitHub Actions, monitoring
+11. [Troubleshooting](11-troubleshooting.md) — Common errors, SSH issues, state corruption, resource debugging
