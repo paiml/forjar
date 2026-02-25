@@ -303,3 +303,153 @@ policy:
 - **post_apply**: Runs after a successful apply. Informational only — a non-zero exit logs a warning but does not change the apply's exit code. Use for notifications, logging, or cleanup.
 
 Hooks are skipped during `--dry-run`.
+
+## Cross-Machine References
+
+Use `{{machine.NAME.FIELD}}` to reference properties of other machines in templates:
+
+```yaml
+params:
+  app_port: "8080"
+
+machines:
+  db:
+    hostname: db-primary
+    addr: 10.0.0.5
+  web:
+    hostname: web-frontend
+    addr: 10.0.0.10
+
+resources:
+  db-config:
+    type: file
+    machine: web
+    path: /etc/app/database.conf
+    content: |
+      db_host={{machine.db.addr}}
+      db_hostname={{machine.db.hostname}}
+```
+
+Available machine fields: `addr`, `hostname`, `user`, `arch`.
+
+## Template Syntax Reference
+
+| Syntax | Source | Example | Resolved Value |
+|--------|--------|---------|----------------|
+| `{{params.X}}` | `params:` block | `{{params.env}}` | `production` |
+| `{{secrets.X}}` | `FORJAR_SECRET_*` env vars | `{{secrets.db-pass}}` | env value |
+| `{{machine.NAME.FIELD}}` | Machine properties | `{{machine.db.addr}}` | `10.0.0.5` |
+
+Templates are resolved in all string fields: `content`, `path`, `source`, `target`, `owner`, `group`, `mode`, `name`, `options`, `command`, `schedule`, `port`, `protocol`, `action`, `from_addr`, `image`, `shell`, `home`, `restart`, `version`. List fields are also resolved: `ports`, `environment`, `volumes`, `packages`.
+
+Unresolved templates (no matching param/secret/machine) pass through unchanged — they are not treated as errors.
+
+## Validation Rules
+
+`forjar validate` checks your config for errors before apply. These rules are enforced:
+
+### Machine Validation
+
+| Rule | Error If Violated |
+|------|-------------------|
+| Valid architecture | `arch` must be one of: `x86_64`, `aarch64`, `armv7l`, `riscv64`, `s390x`, `ppc64le` |
+| Container transport | `transport: container` requires a `container:` block |
+| Ephemeral image | `ephemeral: true` requires `container.image` |
+| Container runtime | `container.runtime` must be `docker` or `podman` |
+
+### Resource Validation
+
+| Type | Required Fields | Additional Rules |
+|------|----------------|-----------------|
+| `package` | `provider`, `packages` (non-empty) | — |
+| `file` | `path` | Cannot have both `content` and `source`. State must be `file`/`directory`/`symlink`/`absent`. Symlink requires `target`. |
+| `service` | `name` | State must be `running`/`stopped`/`enabled`/`disabled`. |
+| `mount` | `source`, `path` | State must be `mounted`/`unmounted`/`absent`. |
+| `user` | `name` | State must be `present`/`absent`. |
+| `docker` | `name`, `image` (unless absent) | State must be `running`/`stopped`/`absent`. |
+| `cron` | `name`, `schedule`, `command` (unless absent) | Schedule must have exactly 5 fields (min hour dom mon dow). State must be `present`/`absent`. |
+| `network` | `port` | State must be `present`/`absent`. Protocol must be `tcp`/`udp`. Action must be `allow`/`deny`/`reject`. |
+
+### Dependency Validation
+
+| Rule | Error |
+|------|-------|
+| Unknown machine | Resource references a machine not in `machines:` |
+| Unknown dependency | `depends_on` references a resource that doesn't exist |
+| Self-dependency | Resource depends on itself |
+| Circular dependency | Cycle detected in dependency graph (e.g., A → B → C → A) |
+
+## Complete Example
+
+A full config exercising multiple features:
+
+```yaml
+version: "1.0"
+name: production-stack
+description: "Web + DB servers with monitoring"
+
+params:
+  env: production
+  app_port: "8080"
+
+machines:
+  web:
+    hostname: web-01
+    addr: 10.0.0.10
+    ssh_key: ~/.ssh/deploy_ed25519
+    roles: [frontend]
+    cost: 1
+  db:
+    hostname: db-01
+    addr: 10.0.0.20
+    ssh_key: ~/.ssh/deploy_ed25519
+    roles: [database]
+    cost: 1
+
+resources:
+  base-packages:
+    type: package
+    machine: [web, db]
+    provider: apt
+    packages: [curl, htop, jq]
+    tags: [base]
+
+  app-config:
+    type: file
+    machine: web
+    path: /etc/app/config.env
+    content: |
+      ENVIRONMENT={{params.env}}
+      PORT={{params.app_port}}
+      DB_HOST={{machine.db.addr}}
+      DB_PASSWORD={{secrets.db-password}}
+    mode: "0600"
+    owner: www-data
+    depends_on: [base-packages]
+    tags: [web, critical]
+
+  nginx:
+    type: service
+    machine: web
+    name: nginx
+    state: running
+    restart_on: [app-config]
+    depends_on: [app-config]
+    tags: [web]
+
+  firewall:
+    type: network
+    machine: web
+    port: "{{params.app_port}}"
+    protocol: tcp
+    action: allow
+    name: app-http
+    tags: [web, security]
+
+policy:
+  failure: stop_on_first
+  tripwire: true
+  lock_file: true
+  pre_apply: "echo 'Deploying {{params.env}}...'"
+  post_apply: "echo 'Deploy complete at $(date)'"
+```

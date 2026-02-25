@@ -324,6 +324,80 @@ cd my-infra && forjar validate
 forjar import --scan services --scan users --scan cron --name my-server
 ```
 
+## Drift Detection Issues
+
+### "no findings" when drift should exist
+
+Drift detection only checks resources with `status: converged` in the lock file. If a resource failed during apply, it won't be drift-checked.
+
+```bash
+# Check lock file status
+cat state/web-server/state.lock.yaml | grep status
+
+# Force re-apply, then check drift
+forjar apply -f forjar.yaml --force
+forjar drift -f forjar.yaml
+```
+
+### Drift detected immediately after apply
+
+This usually means the apply script doesn't produce the exact content expected. Common causes:
+- File content has a trailing newline that wasn't in the YAML `content` field
+- Package auto-generates config files that modify managed files
+- Systemd restarts change service state between apply and drift check
+
+### Anomaly detection shows high churn
+
+Resources that converge repeatedly (z-score > 1.5) indicate external modification:
+
+```bash
+# Identify high-churn resources
+forjar anomaly --state-dir state --json | jq '.anomalies[] | select(.type == "high_churn")'
+
+# Common fixes:
+# 1. Add "Managed by forjar — do not edit" comments to files
+# 2. Disable unattended-upgrades for managed packages
+# 3. Coordinate with monitoring tools that restart services
+```
+
+## Performance Issues
+
+### Apply takes too long
+
+```bash
+# Profile which resources take the most time
+cat state/web-server/events.jsonl | jq 'select(.event == "resource_converged") | {resource, duration_seconds}' | sort -t: -k2 -n
+
+# Common bottlenecks:
+# - Package installs (apt update is slow)
+# - Large file transfers
+# - Service restarts with health checks
+```
+
+### SSH connection timeouts
+
+Forjar uses `ConnectTimeout=5` by default. For slow networks:
+
+```bash
+# Increase timeout per-command
+forjar apply -f forjar.yaml --timeout 30
+
+# Or check SSH connectivity directly
+ssh -o BatchMode=yes -o ConnectTimeout=5 user@host echo ok
+```
+
+## Debugging Checklist
+
+When something goes wrong, work through this checklist:
+
+1. **Validate first**: `forjar validate -f forjar.yaml` — catches 90% of config errors
+2. **Check the plan**: `forjar plan -f forjar.yaml` — shows what would change
+3. **Dry run**: `forjar apply -f forjar.yaml --dry-run` — previews without executing
+4. **Check events**: `cat state/<machine>/events.jsonl | jq .` — see what happened
+5. **Check lock**: `cat state/<machine>/state.lock.yaml` — see stored state
+6. **Test locally**: Add a `localhost` machine and test resources locally first
+7. **Use containers**: Add a container machine for safe, isolated testing
+
 ## Getting Help
 
 ```bash

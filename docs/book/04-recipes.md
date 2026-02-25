@@ -306,6 +306,69 @@ forjar apply -f forjar.yaml --state-dir state/
 forjar drift -f forjar.yaml --state-dir state/
 ```
 
+## Input Validation
+
+Forjar validates recipe inputs at parse time, before any resources are applied.
+
+### Type Checking Rules
+
+| Input Type | Validation | Error Example |
+|------------|-----------|---------------|
+| `string` | Any non-null string value | `input 'domain' expected string, got null` |
+| `int` | Must parse as integer, must satisfy `min`/`max` | `input 'port' value 70000 exceeds max 65535` |
+| `bool` | Must be `true` or `false` | `input 'ssl' expected bool, got 'yes'` |
+| `path` | Must start with `/` | `input 'cert' path must be absolute, got 'cert.pem'` |
+| `enum` | Must be one of `choices` | `input 'level' must be one of [error, warn, info, debug], got 'verbose'` |
+
+### Missing Input Handling
+
+When a recipe input is not provided by the caller:
+
+1. If the input has a `default:` value, it is used automatically
+2. If the input has no default, forjar reports a validation error
+
+```
+Error: recipe 'web-server' input 'domain' is required but not provided
+```
+
+### Extra Input Detection
+
+Inputs not declared in the recipe are flagged as warnings:
+
+```
+Warning: recipe 'web-server' received unknown input 'typo_domain' — ignored
+```
+
+## Debugging Recipes
+
+### Expansion Tracing
+
+Use `forjar show` to inspect individual expanded resources:
+
+```bash
+# Show a specific expanded resource as JSON
+forjar show -f forjar.yaml -r web/nginx-pkg --json
+
+# List all expanded resources from the plan
+forjar plan -f forjar.yaml --state-dir state/
+```
+
+### Common Errors
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `recipe file not found: recipes/X.yaml` | Recipe YAML doesn't exist | Create `recipes/X.yaml` relative to `forjar.yaml` |
+| `input 'Y' is required but not provided` | Missing required input with no default | Add `Y:` to `inputs:` block |
+| `input 'Y' value Z exceeds max` | Int input out of range | Use a value within min/max bounds |
+| `resource 'web' has type 'recipe' but no recipe name` | Missing `recipe:` field | Add `recipe: <name>` to the resource |
+| `circular dependency: web/a → web/b → web/a` | Cycle in recipe's internal deps | Fix `depends_on` inside the recipe file |
+
+### Recipe File Discovery
+
+Forjar searches for recipe files in this order:
+1. `recipes/{name}.yaml` relative to the config file's directory
+2. The current working directory's `recipes/` folder
+
 ## Best Practices
 
 - **One concern per recipe**: A recipe for "monitoring", not "monitoring + logging + alerting"
@@ -313,3 +376,5 @@ forjar drift -f forjar.yaml --state-dir state/
 - **Document inputs**: The `description` field shows up in error messages and validation output
 - **Test expansion**: Run `forjar validate` after adding a recipe to catch input type mismatches early
 - **Namespace awareness**: External `depends_on` uses plain IDs; internal uses are auto-namespaced
+- **Version your recipes**: Increment `recipe.version` when inputs or behavior change
+- **Test locally first**: Use container transport to verify recipe expansion end-to-end before deploying to production
