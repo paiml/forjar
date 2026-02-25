@@ -232,4 +232,60 @@ mod tests {
         let script = apply_script(&r);
         assert!(script.contains("./worker --queue=default"));
     }
+
+    #[test]
+    fn test_fj030_apply_running_stops_existing() {
+        // Running state should stop+rm existing before creating new
+        let r = make_docker_resource("web", "nginx:latest");
+        let script = apply_script(&r);
+        let stop_idx = script.find("docker stop 'web'").unwrap();
+        let rm_idx = script.find("docker rm 'web'").unwrap();
+        let run_idx = script.find("docker run -d").unwrap();
+        assert!(stop_idx < run_idx, "stop must come before run");
+        assert!(rm_idx < run_idx, "rm must come before run");
+    }
+
+    #[test]
+    fn test_fj030_absent_tolerant() {
+        // absent uses || true to tolerate already-absent containers
+        let mut r = make_docker_resource("gone", "nginx:latest");
+        r.state = Some("absent".to_string());
+        let script = apply_script(&r);
+        assert!(script.contains("|| true"));
+    }
+
+    #[test]
+    fn test_fj030_stopped_tolerant() {
+        let mut r = make_docker_resource("app", "myapp:v1");
+        r.state = Some("stopped".to_string());
+        let script = apply_script(&r);
+        assert!(script.contains("|| true"));
+    }
+
+    #[test]
+    fn test_fj030_default_state_is_running() {
+        let mut r = make_docker_resource("app", "myapp:v1");
+        r.state = None;
+        let script = apply_script(&r);
+        assert!(
+            script.contains("docker run -d"),
+            "default state should be running"
+        );
+    }
+
+    #[test]
+    fn test_fj030_apply_all_options() {
+        let mut r = make_docker_resource("full", "myapp:v1");
+        r.ports = vec!["8080:80".to_string()];
+        r.environment = vec!["KEY=val".to_string()];
+        r.volumes = vec!["/data:/app/data".to_string()];
+        r.restart = Some("always".to_string());
+        r.command = Some("./start".to_string());
+        let script = apply_script(&r);
+        assert!(script.contains("-p '8080:80'"));
+        assert!(script.contains("-e 'KEY=val'"));
+        assert!(script.contains("-v '/data:/app/data'"));
+        assert!(script.contains("--restart 'always'"));
+        assert!(script.contains("./start"));
+    }
 }

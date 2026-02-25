@@ -309,4 +309,76 @@ mod tests {
         let script = apply_script(&r);
         assert!(script.contains("'user; rm -rf /'"));
     }
+
+    #[test]
+    fn test_fj031_ssh_keys_custom_home() {
+        let mut r = make_user_resource("app");
+        r.home = Some("/opt/app".to_string());
+        r.ssh_authorized_keys = vec!["ssh-rsa AAAA...".to_string()];
+        let script = apply_script(&r);
+        assert!(
+            script.contains("mkdir -p '/opt/app'/.ssh"),
+            "should use custom home dir for .ssh"
+        );
+    }
+
+    #[test]
+    fn test_fj031_absent_idempotent() {
+        // absent should check if user exists before deleting
+        let mut r = make_user_resource("gone");
+        r.state = Some("absent".to_string());
+        let script = apply_script(&r);
+        assert!(
+            script.contains("if id 'gone'"),
+            "absent should check existence first"
+        );
+    }
+
+    #[test]
+    fn test_fj031_absent_userdel_fallback() {
+        // userdel -r can fail (mailbox), fallback to userdel without -r
+        let mut r = make_user_resource("gone");
+        r.state = Some("absent".to_string());
+        let script = apply_script(&r);
+        assert!(script.contains("userdel -r 'gone'"));
+        assert!(script.contains("|| $SUDO userdel 'gone'"));
+    }
+
+    #[test]
+    fn test_fj031_ssh_key_permissions() {
+        let mut r = make_user_resource("deploy");
+        r.ssh_authorized_keys = vec!["ssh-ed25519 KEY".to_string()];
+        let script = apply_script(&r);
+        assert!(script.contains("chmod 700"), ".ssh dir should be 700");
+        assert!(
+            script.contains("chmod 600"),
+            "authorized_keys should be 600"
+        );
+        assert!(
+            script.contains("chown -R 'deploy'"),
+            "ssh dir should be owned by user"
+        );
+    }
+
+    #[test]
+    fn test_fj031_multiple_ssh_keys() {
+        let mut r = make_user_resource("deploy");
+        r.ssh_authorized_keys = vec![
+            "ssh-ed25519 KEY1 deploy@laptop".to_string(),
+            "ssh-rsa KEY2 deploy@desktop".to_string(),
+        ];
+        let script = apply_script(&r);
+        assert!(script.contains("ssh-ed25519 KEY1"));
+        assert!(script.contains("ssh-rsa KEY2"));
+    }
+
+    #[test]
+    fn test_fj031_group_ensures_before_create() {
+        let mut r = make_user_resource("app");
+        r.groups = vec!["docker".to_string()];
+        let script = apply_script(&r);
+        let groupadd_idx = script.find("groupadd").unwrap();
+        let useradd_idx = script.find("useradd").unwrap();
+        assert!(groupadd_idx < useradd_idx, "groupadd must precede useradd");
+    }
 }
