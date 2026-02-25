@@ -1,0 +1,62 @@
+forge:
+  name: forjar-mcp
+  version: 0.1.0
+  transport: stdio
+  optimization: release
+
+tools:
+  - type: native
+    name: forjar_validate
+    description: "Validate a forjar.yaml configuration file"
+    handler:
+      path: handlers::validate
+    params: {}
+    timeout_ms: 30000
+
+  - type: native
+    name: forjar_plan
+    description: "Show execution plan for infrastructure changes"
+    handler:
+      path: handlers::plan
+    params: {}
+    timeout_ms: 60000
+
+  - type: native
+    name: forjar_drift
+    description: "Detect configuration drift from desired state"
+    handler:
+      path: handlers::drift
+    params: {}
+    timeout_ms: 60000
+
+  - type: native
+    name: forjar_lint
+    description: "Lint forjar config for best practices and shell safety"
+    handler:
+      path: handlers::lint
+    params: {}
+    timeout_ms: 30000
+
+  - type: native
+    name: forjar_graph
+    description: "Generate resource dependency graph (Mermaid/DOT)"
+    handler:
+      path: handlers::graph
+    params: {}
+    timeout_ms: 10000
+
+  - type: native
+    name: forjar_show
+    description: "Show fully resolved config with templates expanded"
+    handler:
+      path: handlers::show
+    params: {}
+    timeout_ms: 30000
+
+  - type: native
+    name: forjar_status
+    description: "Show current state from lock files"
+    handler:
+      path: handlers::status
+    params: {}
+    timeout_ms: 10000
