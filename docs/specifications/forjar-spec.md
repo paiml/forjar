@@ -1174,7 +1174,7 @@ Options:
 | FJ-061 | `forjar destroy` — teardown all resources | **Done** |
 | FJ-062 | Secrets management — `{{secrets.KEY}}` templates resolved from `FORJAR_SECRET_*` env vars | **Done** |
 | FJ-063 | MCP integration via paiml-mcp-agent-toolkit |
-| FJ-064 | Cross-architecture support (x86_64 ↔ aarch64) |
+| FJ-064 | Cross-architecture support — `arch` field on resources + machines, validation, plan/apply filtering | **Done** |
 | FJ-065 | `forjar import` — scan machine and generate forjar.yaml | **Done** |
 
 ---

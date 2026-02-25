@@ -94,6 +94,7 @@ resources:
     machine: machine-id       # Single machine or list
     state: ...                # Desired state (type-specific)
     depends_on: [other-id]    # Execution ordering
+    arch: [x86_64, aarch64]   # Optional. Only apply to matching architectures
 ```
 
 ### Machine Targeting
@@ -136,6 +137,31 @@ resources:
 ```
 
 Forjar builds a DAG from dependencies and executes in topological order (Kahn's algorithm with alphabetical tie-breaking for determinism).
+
+### Architecture Filtering
+
+Resources can be restricted to specific CPU architectures using the `arch` field:
+
+```yaml
+resources:
+  gpu-driver:
+    type: package
+    machine: [x86-box, arm-box]
+    provider: apt
+    packages: [nvidia-driver]
+    arch: [x86_64]          # Only install on x86_64 machines
+
+  arm-firmware:
+    type: file
+    machine: [x86-box, arm-box]
+    path: /etc/arm-firmware.conf
+    content: "..."
+    arch: [aarch64]         # Only deploy on ARM machines
+```
+
+When `arch` is omitted or empty, the resource applies to all architectures. When specified, forjar skips the resource during both `plan` and `apply` if the target machine's `arch` doesn't match.
+
+Recognized architectures: `x86_64`, `aarch64`, `armv7l`, `riscv64`, `s390x`, `ppc64le`.
 
 ## Parameters
 

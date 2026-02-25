@@ -34,6 +34,15 @@ pub fn plan(
                 });
 
         for machine_name in resource.machine.to_vec() {
+            // FJ-064: Skip resource if arch filter doesn't match machine
+            if !resource.arch.is_empty() {
+                if let Some(machine) = config.machines.get(&machine_name) {
+                    if !resource.arch.contains(&machine.arch) {
+                        continue;
+                    }
+                }
+            }
+
             let action = determine_action(resource_id, &resolved, &machine_name, locks);
             let description = describe_action(resource_id, resource, &action);
 
@@ -438,6 +447,7 @@ resources:
             from_addr: None,
             recipe: None,
             inputs: HashMap::new(),
+            arch: vec![],
         };
         let h1 = hash_desired_state(&r);
         let h2 = hash_desired_state(&r);
@@ -486,6 +496,7 @@ resources:
             from_addr: None,
             recipe: None,
             inputs: HashMap::new(),
+            arch: vec![],
         };
         let desc = describe_action("test-pkg", &r, &PlanAction::Create);
         assert!(desc.contains("curl, wget"));
@@ -532,6 +543,7 @@ resources:
             from_addr: None,
             recipe: None,
             inputs: HashMap::new(),
+            arch: vec![],
         };
         assert!(describe_action("f", &r, &PlanAction::Create).contains("/etc/conf"));
         assert!(describe_action("f", &r, &PlanAction::Update).contains("update"));
@@ -580,6 +592,7 @@ resources:
             from_addr: None,
             recipe: None,
             inputs: HashMap::new(),
+            arch: vec![],
         };
         assert!(describe_action("svc", &r, &PlanAction::Create).contains("nginx"));
     }
@@ -625,6 +638,7 @@ resources:
             from_addr: None,
             recipe: None,
             inputs: HashMap::new(),
+            arch: vec![],
         };
         assert!(describe_action("mnt", &r, &PlanAction::Create).contains("/mnt/data"));
     }
@@ -670,6 +684,7 @@ resources:
             from_addr: None,
             recipe: None,
             inputs: HashMap::new(),
+            arch: vec![],
         };
         // Changing any field should change the hash
         let mut r2 = r1.clone();

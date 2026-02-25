@@ -10,6 +10,10 @@ use super::recipe;
 use super::types::*;
 use std::path::Path;
 
+/// Recognized CPU architectures for the `arch` field.
+const KNOWN_ARCHITECTURES: &[&str] =
+    &["x86_64", "aarch64", "armv7l", "riscv64", "s390x", "ppc64le"];
+
 /// Validation error.
 #[derive(Debug, Clone)]
 pub struct ValidationError {
@@ -80,6 +84,20 @@ fn validate_resource_refs(
         }
     }
 
+    // FJ-064: Validate arch filter values
+    for arch in &resource.arch {
+        if !KNOWN_ARCHITECTURES.contains(&arch.as_str()) {
+            errors.push(ValidationError {
+                message: format!(
+                    "resource '{}' has unknown arch '{}' (expected one of: {})",
+                    id,
+                    arch,
+                    KNOWN_ARCHITECTURES.join(", ")
+                ),
+            });
+        }
+    }
+
     for dep in &resource.depends_on {
         if !config.resources.contains_key(dep) {
             errors.push(ValidationError {
@@ -94,8 +112,20 @@ fn validate_resource_refs(
     }
 }
 
-/// Validate machine configuration (container transport rules).
+/// Validate machine configuration (container transport rules, arch).
 fn validate_machine(key: &str, machine: &Machine, errors: &mut Vec<ValidationError>) {
+    // FJ-064: Validate machine arch
+    if !KNOWN_ARCHITECTURES.contains(&machine.arch.as_str()) {
+        errors.push(ValidationError {
+            message: format!(
+                "machine '{}' has unknown arch '{}' (expected one of: {})",
+                key,
+                machine.arch,
+                KNOWN_ARCHITECTURES.join(", ")
+            ),
+        });
+    }
+
     if machine.is_container_transport() && machine.container.is_none() {
         errors.push(ValidationError {
             message: format!(
@@ -1059,5 +1089,129 @@ resources:
         let second = &config.resources["my-recipe/second"];
         assert!(second.depends_on.contains(&"my-recipe/first".to_string()));
         assert!(!second.depends_on.contains(&"base".to_string()));
+    }
+
+    // ── FJ-064: Cross-architecture tests ───────────────────────────
+
+    #[test]
+    fn test_fj064_resource_arch_filter_parsed() {
+        let yaml = r#"
+version: "1.0"
+name: arch-test
+machines:
+  m1:
+    hostname: box
+    addr: 1.2.3.4
+resources:
+  gpu-driver:
+    type: package
+    machine: m1
+    provider: apt
+    packages: [nvidia-driver]
+    arch: [x86_64]
+"#;
+        let config = parse_config(yaml).unwrap();
+        assert_eq!(config.resources["gpu-driver"].arch, vec!["x86_64"]);
+    }
+
+    #[test]
+    fn test_fj064_resource_arch_multi() {
+        let yaml = r#"
+version: "1.0"
+name: arch-test
+machines:
+  m1:
+    hostname: box
+    addr: 1.2.3.4
+resources:
+  common:
+    type: package
+    machine: m1
+    provider: apt
+    packages: [curl]
+    arch: [x86_64, aarch64]
+"#;
+        let config = parse_config(yaml).unwrap();
+        assert_eq!(config.resources["common"].arch, vec!["x86_64", "aarch64"]);
+    }
+
+    #[test]
+    fn test_fj064_resource_arch_empty_default() {
+        let yaml = r#"
+version: "1.0"
+name: arch-test
+machines:
+  m1:
+    hostname: box
+    addr: 1.2.3.4
+resources:
+  pkg:
+    type: package
+    machine: m1
+    provider: apt
+    packages: [curl]
+"#;
+        let config = parse_config(yaml).unwrap();
+        assert!(config.resources["pkg"].arch.is_empty());
+    }
+
+    #[test]
+    fn test_fj064_invalid_resource_arch() {
+        let yaml = r#"
+version: "1.0"
+name: arch-test
+machines:
+  m1:
+    hostname: box
+    addr: 1.2.3.4
+resources:
+  pkg:
+    type: package
+    machine: m1
+    provider: apt
+    packages: [curl]
+    arch: [sparc]
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(errors.iter().any(|e| e.message.contains("sparc")));
+    }
+
+    #[test]
+    fn test_fj064_invalid_machine_arch() {
+        let yaml = r#"
+version: "1.0"
+name: arch-test
+machines:
+  m1:
+    hostname: box
+    addr: 1.2.3.4
+    arch: mips
+resources: {}
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(errors.iter().any(|e| e.message.contains("mips")));
+    }
+
+    #[test]
+    fn test_fj064_valid_machine_arch_aarch64() {
+        let yaml = r#"
+version: "1.0"
+name: arch-test
+machines:
+  edge:
+    hostname: jetson
+    addr: 10.0.0.1
+    arch: aarch64
+resources: {}
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(
+            errors.is_empty(),
+            "aarch64 should be valid, got: {:?}",
+            errors
+        );
     }
 }

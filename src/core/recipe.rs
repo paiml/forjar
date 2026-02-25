@@ -773,6 +773,7 @@ resources: {}
             from_addr: None,
             recipe: None,
             inputs: HashMap::new(),
+            arch: vec![],
         };
         let mut inputs = HashMap::new();
         inputs.insert("vol".to_string(), "raid".to_string());

@@ -46,6 +46,7 @@ fn main() {
         from_addr: None,
         recipe: None,
         inputs: std::collections::HashMap::new(),
+        arch: vec![],
     };
 
     println!("-- Check script --");
@@ -95,6 +96,7 @@ fn main() {
         from_addr: None,
         recipe: None,
         inputs: std::collections::HashMap::new(),
+        arch: vec![],
     };
 
     println!("-- Apply script --");
@@ -140,6 +142,7 @@ fn main() {
         from_addr: None,
         recipe: None,
         inputs: std::collections::HashMap::new(),
+        arch: vec![],
     };
 
     println!("-- Apply script (base64 transfer) --");
@@ -185,6 +188,7 @@ fn main() {
         from_addr: None,
         recipe: None,
         inputs: std::collections::HashMap::new(),
+        arch: vec![],
     };
 
     println!("-- Apply script --");
@@ -230,6 +234,7 @@ fn main() {
         from_addr: None,
         recipe: None,
         inputs: std::collections::HashMap::new(),
+        arch: vec![],
     };
 
     println!("-- Apply script --");
@@ -275,6 +280,7 @@ fn main() {
         from_addr: None,
         recipe: None,
         inputs: std::collections::HashMap::new(),
+        arch: vec![],
     };
 
     println!("-- Check script --");
@@ -322,6 +328,7 @@ fn main() {
         from_addr: None,
         recipe: None,
         inputs: std::collections::HashMap::new(),
+        arch: vec![],
     };
 
     println!("-- Apply script --");
@@ -367,6 +374,7 @@ fn main() {
         from_addr: None,
         recipe: None,
         inputs: std::collections::HashMap::new(),
+        arch: vec![],
     };
 
     println!("-- Apply script --");
@@ -412,6 +420,7 @@ fn main() {
         from_addr: Some("10.0.0.0/8".to_string()),
         recipe: None,
         inputs: std::collections::HashMap::new(),
+        arch: vec![],
     };
 
     println!("-- Apply script --");

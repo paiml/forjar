@@ -512,6 +512,7 @@ resources:
             from_addr: None,
             recipe: None,
             inputs: HashMap::new(),
+            arch: vec![],
         };
 
         let resolved = resolve_resource_templates(&resource, &params, &machines).unwrap();
@@ -629,6 +630,7 @@ resources:
                     from_addr: None,
                     recipe: None,
                     inputs: HashMap::new(),
+                    arch: vec![],
                 },
             );
         }

@@ -132,6 +132,7 @@ mod tests {
             from_addr: None,
             recipe: None,
             inputs: std::collections::HashMap::new(),
+            arch: vec![],
         }
     }
 

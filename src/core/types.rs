@@ -301,6 +301,10 @@ pub struct Resource {
     /// Recipe inputs (for type: recipe)
     #[serde(default)]
     pub inputs: HashMap<String, serde_yaml_ng::Value>,
+
+    /// Architecture filter — only apply to machines with matching arch
+    #[serde(default)]
+    pub arch: Vec<String>,
 }
 
 /// Resource type enum.

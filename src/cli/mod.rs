@@ -733,8 +733,7 @@ fn cmd_diff(
         });
         println!(
             "{}",
-            serde_json::to_string_pretty(&report)
-                .map_err(|e| format!("JSON error: {}", e))?
+            serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {}", e))?
         );
     } else {
         println!(

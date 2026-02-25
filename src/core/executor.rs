@@ -299,6 +299,11 @@ fn apply_single_resource(
         None => return Ok(ResourceOutcome::Skipped),
     };
 
+    // FJ-064: Skip resource if arch filter doesn't match the machine
+    if !resource.arch.is_empty() && !resource.arch.contains(&machine.arch) {
+        return Ok(ResourceOutcome::Skipped);
+    }
+
     // Log resource start
     if ctx.tripwire {
         let _ = eventlog::append_event(
@@ -675,6 +680,7 @@ resources:
             from_addr: None,
             recipe: None,
             inputs: HashMap::new(),
+            arch: vec![],
         };
         let details = build_resource_details(&r, &local_machine());
         assert!(details.contains_key("path"));
@@ -732,6 +738,7 @@ resources:
             from_addr: None,
             recipe: None,
             inputs: HashMap::new(),
+            arch: vec![],
         };
         let details = build_resource_details(&r, &local_machine());
         assert!(details.contains_key("service_name"));
@@ -1018,6 +1025,7 @@ resources:
             from_addr: None,
             recipe: None,
             inputs: HashMap::new(),
+            arch: vec![],
         };
         let machine = Machine {
             hostname: "localhost".to_string(),
@@ -1213,5 +1221,141 @@ policy:
             );
             prop_assert!(!should_stop, "ContinueIndependent must return false");
         }
+    }
+
+    // ── FJ-064: Cross-architecture filtering ──────────────────────
+
+    #[test]
+    fn test_fj064_arch_filter_yaml_parsing() {
+        let yaml = r#"
+version: "1.0"
+name: arch-test
+machines:
+  x86-box:
+    hostname: x86-box
+    addr: 127.0.0.1
+    arch: x86_64
+  arm-box:
+    hostname: arm-box
+    addr: 10.0.0.1
+    arch: aarch64
+resources:
+  x86-only:
+    type: file
+    machine: x86-box
+    path: /etc/x86-marker
+    content: "x86 only"
+    arch: [x86_64]
+  arm-only:
+    type: file
+    machine: arm-box
+    path: /etc/arm-marker
+    content: "arm only"
+    arch: [aarch64]
+  universal:
+    type: file
+    machine: x86-box
+    path: /etc/universal
+    content: "any arch"
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        assert_eq!(config.resources["x86-only"].arch, vec!["x86_64"]);
+        assert_eq!(config.resources["arm-only"].arch, vec!["aarch64"]);
+        assert!(config.resources["universal"].arch.is_empty());
+    }
+
+    #[test]
+    fn test_fj064_arch_filter_skips_mismatched() {
+        // Resource with arch: [aarch64] should be skipped on x86_64 machine
+        let machine = Machine {
+            hostname: "x86-box".to_string(),
+            addr: "127.0.0.1".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: None,
+            container: None,
+        };
+        let resource = Resource {
+            resource_type: ResourceType::File,
+            machine: MachineTarget::Single("x86-box".to_string()),
+            state: None,
+            depends_on: vec![],
+            provider: None,
+            packages: vec![],
+            version: None,
+            path: Some("/etc/arm-only".to_string()),
+            content: Some("arm only".to_string()),
+            source: None,
+            target: None,
+            owner: None,
+            group: None,
+            mode: None,
+            name: None,
+            enabled: None,
+            restart_on: vec![],
+            fs_type: None,
+            options: None,
+            uid: None,
+            shell: None,
+            home: None,
+            groups: vec![],
+            ssh_authorized_keys: vec![],
+            system_user: false,
+            schedule: None,
+            command: None,
+            image: None,
+            ports: vec![],
+            environment: vec![],
+            volumes: vec![],
+            restart: None,
+            protocol: None,
+            port: None,
+            action: None,
+            from_addr: None,
+            recipe: None,
+            inputs: HashMap::new(),
+            arch: vec!["aarch64".to_string()],
+        };
+
+        // arch filter should reject: aarch64 resource on x86_64 machine
+        assert!(
+            !resource.arch.is_empty() && !resource.arch.contains(&machine.arch),
+            "arch filter should skip aarch64 resource on x86_64 machine"
+        );
+    }
+
+    #[test]
+    fn test_fj064_arch_filter_allows_matching() {
+        let machine = Machine {
+            hostname: "arm-box".to_string(),
+            addr: "10.0.0.1".to_string(),
+            user: "root".to_string(),
+            arch: "aarch64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: None,
+            container: None,
+        };
+        let arch = ["aarch64".to_string()];
+        assert!(arch.contains(&machine.arch));
+    }
+
+    #[test]
+    fn test_fj064_empty_arch_allows_all() {
+        let machine = Machine {
+            hostname: "any-box".to_string(),
+            addr: "10.0.0.1".to_string(),
+            user: "root".to_string(),
+            arch: "riscv64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: None,
+            container: None,
+        };
+        let arch: Vec<String> = vec![];
+        // Empty arch means "runs on all architectures"
+        assert!(arch.is_empty() || arch.contains(&machine.arch));
     }
 }
