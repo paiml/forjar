@@ -524,10 +524,7 @@ mod tests {
     #[test]
     fn test_fj132_event_log_path_with_dots() {
         let p = event_log_path(Path::new("/state"), "machine.with.dots");
-        assert_eq!(
-            p,
-            PathBuf::from("/state/machine.with.dots/events.jsonl")
-        );
+        assert_eq!(p, PathBuf::from("/state/machine.with.dots/events.jsonl"));
     }
 
     #[test]

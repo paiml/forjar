@@ -1609,6 +1609,178 @@ resources:
         assert_ne!(h1, h2, "restart_on change must change hash");
     }
 
+    // ── FJ-132: Additional planner tests ────────────────────────
+
+    #[test]
+    fn test_fj132_plan_tag_filter_excludes_untagged() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 127.0.0.1
+resources:
+  tagged:
+    type: file
+    machine: m1
+    path: /tmp/tagged
+    content: "tagged"
+    tags: [web]
+  untagged:
+    type: file
+    machine: m1
+    path: /tmp/untagged
+    content: "untagged"
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let order = vec!["tagged".to_string(), "untagged".to_string()];
+        let locks = HashMap::new();
+        let p = plan(&config, &order, &locks, Some("web"));
+        // Only tagged resource should appear in plan
+        assert_eq!(p.to_create, 1);
+        assert_eq!(p.changes.len(), 1);
+        assert_eq!(p.changes[0].resource_id, "tagged");
+    }
+
+    #[test]
+    fn test_fj132_plan_tag_filter_no_match() {
+        let config = make_config();
+        let order = vec!["pkg".to_string(), "conf".to_string(), "svc".to_string()];
+        let locks = HashMap::new();
+        let p = plan(&config, &order, &locks, Some("nonexistent-tag"));
+        assert_eq!(p.to_create, 0);
+        assert_eq!(p.changes.len(), 0);
+    }
+
+    #[test]
+    fn test_fj132_plan_arch_filter_skips_mismatched() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  x86:
+    hostname: x86
+    addr: 127.0.0.1
+    arch: x86_64
+  arm:
+    hostname: arm
+    addr: 10.0.0.1
+    arch: aarch64
+resources:
+  intel-only:
+    type: file
+    machine: [x86, arm]
+    path: /tmp/intel
+    content: "intel"
+    arch: [x86_64]
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let order = vec!["intel-only".to_string()];
+        let locks = HashMap::new();
+        let p = plan(&config, &order, &locks, None);
+        // Should create for x86 but skip arm
+        assert_eq!(p.to_create, 1);
+        assert_eq!(p.changes.len(), 1);
+    }
+
+    #[test]
+    fn test_fj132_plan_empty_order() {
+        let config = make_config();
+        let order: Vec<String> = vec![];
+        let locks = HashMap::new();
+        let p = plan(&config, &order, &locks, None);
+        assert_eq!(p.to_create, 0);
+        assert_eq!(p.to_update, 0);
+        assert_eq!(p.unchanged, 0);
+        assert_eq!(p.changes.len(), 0);
+    }
+
+    #[test]
+    fn test_fj132_plan_order_with_unknown_resource() {
+        let config = make_config();
+        let order = vec!["nonexistent".to_string()];
+        let locks = HashMap::new();
+        let p = plan(&config, &order, &locks, None);
+        // Unknown resource ID should be silently skipped
+        assert_eq!(p.to_create, 0);
+        assert_eq!(p.changes.len(), 0);
+    }
+
+    #[test]
+    fn test_fj132_plan_mixed_actions() {
+        // Config with one new resource and one unchanged resource
+        let config = make_config();
+        let order = vec!["pkg".to_string(), "conf".to_string()];
+
+        let mut resources = indexmap::IndexMap::new();
+        // pkg matches its hash — unchanged
+        resources.insert(
+            "pkg".to_string(),
+            ResourceLock {
+                resource_type: ResourceType::Package,
+                status: ResourceStatus::Converged,
+                applied_at: None,
+                duration_seconds: None,
+                hash: hash_desired_state(&config.resources["pkg"]),
+                details: HashMap::new(),
+            },
+        );
+        let lock = StateLock {
+            schema: "1.0".to_string(),
+            machine: "m1".to_string(),
+            hostname: "m1".to_string(),
+            generated_at: "2026-01-01T00:00:00Z".to_string(),
+            generator: "forjar".to_string(),
+            blake3_version: "1.8".to_string(),
+            resources,
+        };
+        let mut locks = HashMap::new();
+        locks.insert("m1".to_string(), lock);
+
+        let p = plan(&config, &order, &locks, None);
+        assert_eq!(p.unchanged, 1, "pkg should be unchanged");
+        assert_eq!(p.to_create, 1, "conf should be created");
+    }
+
+    #[test]
+    fn test_fj132_describe_action_user_type() {
+        let r = make_base_resource(ResourceType::User);
+        let desc = describe_action("myuser", &r, &PlanAction::Create);
+        assert_eq!(desc, "myuser: create");
+    }
+
+    #[test]
+    fn test_fj132_describe_action_cron_type() {
+        let r = make_base_resource(ResourceType::Cron);
+        let desc = describe_action("backup-job", &r, &PlanAction::Create);
+        assert_eq!(desc, "backup-job: create");
+    }
+
+    #[test]
+    fn test_fj132_describe_action_network_type() {
+        let r = make_base_resource(ResourceType::Network);
+        let desc = describe_action("fw-rule", &r, &PlanAction::Create);
+        assert_eq!(desc, "fw-rule: create");
+    }
+
+    #[test]
+    fn test_fj132_hash_deterministic() {
+        // Same resource hashed twice should produce identical hash
+        let r = make_base_resource(ResourceType::Package);
+        let h1 = hash_desired_state(&r);
+        let h2 = hash_desired_state(&r);
+        assert_eq!(h1, h2, "hashing must be deterministic");
+    }
+
+    #[test]
+    fn test_fj132_hash_format() {
+        let r = make_base_resource(ResourceType::File);
+        let h = hash_desired_state(&r);
+        assert!(h.starts_with("blake3:"), "hash should have blake3: prefix");
+        assert_eq!(h.len(), 71, "blake3 hash should be 71 chars");
+    }
+
     fn make_base_resource(rt: ResourceType) -> Resource {
         Resource {
             resource_type: rt,

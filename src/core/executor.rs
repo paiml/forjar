@@ -3387,26 +3387,33 @@ policy:
     #[test]
     fn test_fj132_resource_filter_applies_only_matching() {
         // Resource filter should only apply the specified resource
-        let yaml = r#"
+        let output_dir = tempfile::tempdir().unwrap();
+        let path_a = output_dir.path().join("filter-a.txt");
+        let path_b = output_dir.path().join("filter-b.txt");
+        let yaml = format!(
+            r#"
 version: "1.0"
 name: filter-test
-machines: {}
+machines: {{}}
 resources:
   file-a:
     type: file
     machine: localhost
-    path: /tmp/forjar-test-filter-a.txt
+    path: "{}"
     content: "alpha"
   file-b:
     type: file
     machine: localhost
-    path: /tmp/forjar-test-filter-b.txt
+    path: "{}"
     content: "beta"
 policy:
   lock_file: true
   tripwire: false
-"#;
-        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+"#,
+            path_a.display(),
+            path_b.display()
+        );
+        let config: ForjarConfig = serde_yaml_ng::from_str(&yaml).unwrap();
         let dir = tempfile::tempdir().unwrap();
         let cfg = ApplyConfig {
             config: &config,
@@ -3423,38 +3430,40 @@ policy:
         assert_eq!(results[0].resources_converged, 1);
 
         // Verify file-a exists but file-b doesn't
-        assert!(std::fs::read_to_string("/tmp/forjar-test-filter-a.txt").is_ok());
-        assert!(
-            std::fs::read_to_string("/tmp/forjar-test-filter-b.txt").is_err(),
-            "file-b should not be created when filtered to file-a"
-        );
-
-        let _ = std::fs::remove_file("/tmp/forjar-test-filter-a.txt");
+        assert!(path_a.exists(), "file-a should be created");
+        assert!(!path_b.exists(), "file-b should not be created when filtered to file-a");
     }
 
     #[test]
     fn test_fj132_tag_filter_applies_only_tagged() {
-        let yaml = r#"
+        let output_dir = tempfile::tempdir().unwrap();
+        let path_tagged = output_dir.path().join("tagged.txt");
+        let path_untagged = output_dir.path().join("untagged.txt");
+        let yaml = format!(
+            r#"
 version: "1.0"
 name: tag-test
-machines: {}
+machines: {{}}
 resources:
   tagged-file:
     type: file
     machine: localhost
-    path: /tmp/forjar-test-tagged.txt
+    path: "{}"
     content: "tagged"
     tags: [web]
   untagged-file:
     type: file
     machine: localhost
-    path: /tmp/forjar-test-untagged.txt
+    path: "{}"
     content: "untagged"
 policy:
   lock_file: true
   tripwire: false
-"#;
-        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+"#,
+            path_tagged.display(),
+            path_untagged.display()
+        );
+        let config: ForjarConfig = serde_yaml_ng::from_str(&yaml).unwrap();
         let dir = tempfile::tempdir().unwrap();
         let cfg = ApplyConfig {
             config: &config,
@@ -3469,45 +3478,49 @@ policy:
         let results = apply(&cfg).unwrap();
         assert_eq!(results[0].resources_converged, 1);
 
-        assert!(std::fs::read_to_string("/tmp/forjar-test-tagged.txt").is_ok());
-        assert!(
-            std::fs::read_to_string("/tmp/forjar-test-untagged.txt").is_err(),
-            "untagged file should not be created when filtered by tag"
-        );
-
-        let _ = std::fs::remove_file("/tmp/forjar-test-tagged.txt");
+        assert!(path_tagged.exists(), "tagged file should be created");
+        assert!(!path_untagged.exists(), "untagged file should not be created when filtered by tag");
     }
 
     #[test]
     fn test_fj132_apply_with_dependencies_order() {
         // Verify that dependency order is respected in actual apply
-        let yaml = r#"
+        let output_dir = tempfile::tempdir().unwrap();
+        let path_first = output_dir.path().join("first.txt");
+        let path_second = output_dir.path().join("second.txt");
+        let path_third = output_dir.path().join("third.txt");
+        let yaml = format!(
+            r#"
 version: "1.0"
 name: dep-order
-machines: {}
+machines: {{}}
 resources:
   first:
     type: file
     machine: localhost
-    path: /tmp/forjar-test-dep-first.txt
+    path: "{}"
     content: "first"
   second:
     type: file
     machine: localhost
-    path: /tmp/forjar-test-dep-second.txt
+    path: "{}"
     content: "second"
     depends_on: [first]
   third:
     type: file
     machine: localhost
-    path: /tmp/forjar-test-dep-third.txt
+    path: "{}"
     content: "third"
     depends_on: [second]
 policy:
   lock_file: true
   tripwire: false
-"#;
-        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+"#,
+            path_first.display(),
+            path_second.display(),
+            path_third.display()
+        );
+        let config: ForjarConfig = serde_yaml_ng::from_str(&yaml).unwrap();
         let dir = tempfile::tempdir().unwrap();
         let cfg = ApplyConfig {
             config: &config,
@@ -3523,17 +3536,9 @@ policy:
         assert_eq!(results[0].resources_converged, 3);
 
         // All three files should exist
-        assert_eq!(std::fs::read_to_string("/tmp/forjar-test-dep-first.txt").unwrap().trim(), "first");
-        assert_eq!(std::fs::read_to_string("/tmp/forjar-test-dep-second.txt").unwrap().trim(), "second");
-        assert_eq!(std::fs::read_to_string("/tmp/forjar-test-dep-third.txt").unwrap().trim(), "third");
-
-        for f in [
-            "/tmp/forjar-test-dep-first.txt",
-            "/tmp/forjar-test-dep-second.txt",
-            "/tmp/forjar-test-dep-third.txt",
-        ] {
-            let _ = std::fs::remove_file(f);
-        }
+        assert_eq!(std::fs::read_to_string(&path_first).unwrap().trim(), "first");
+        assert_eq!(std::fs::read_to_string(&path_second).unwrap().trim(), "second");
+        assert_eq!(std::fs::read_to_string(&path_third).unwrap().trim(), "third");
     }
 
     #[test]

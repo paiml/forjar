@@ -2089,7 +2089,10 @@ mod tests {
         };
 
         let findings = detect_drift_with_machine(&lock, &machine);
-        assert!(findings.is_empty(), "no drift for matching file with local machine");
+        assert!(
+            findings.is_empty(),
+            "no drift for matching file with local machine"
+        );
     }
 
     #[test]
@@ -2186,7 +2189,10 @@ mod tests {
         };
 
         let findings = detect_drift(&lock);
-        assert!(findings.is_empty(), "drifted status resources should be skipped");
+        assert!(
+            findings.is_empty(),
+            "drifted status resources should be skipped"
+        );
     }
 
     #[test]
@@ -2224,7 +2230,10 @@ mod tests {
         };
 
         let findings = detect_drift(&lock);
-        assert!(findings.is_empty(), "unknown status resources should be skipped");
+        assert!(
+            findings.is_empty(),
+            "unknown status resources should be skipped"
+        );
     }
 
     #[test]
@@ -2282,7 +2291,10 @@ mod tests {
 
         let config_resources = indexmap::IndexMap::new();
         let findings = detect_drift_full(&lock, &machine, &config_resources);
-        assert!(findings.is_empty(), "matching file should not trigger drift in full mode");
+        assert!(
+            findings.is_empty(),
+            "matching file should not trigger drift in full mode"
+        );
     }
 
     #[test]
@@ -2326,7 +2338,10 @@ mod tests {
 
         let config_resources = indexmap::IndexMap::new();
         let findings = detect_drift_full(&lock, &machine, &config_resources);
-        assert!(findings.is_empty(), "service without live_hash should be skipped");
+        assert!(
+            findings.is_empty(),
+            "service without live_hash should be skipped"
+        );
     }
 
     #[test]
@@ -2374,7 +2389,10 @@ mod tests {
 
         let config_resources = indexmap::IndexMap::new();
         let findings = detect_drift_full(&lock, &machine, &config_resources);
-        assert!(findings.is_empty(), "non-string live_hash should be skipped");
+        assert!(
+            findings.is_empty(),
+            "non-string live_hash should be skipped"
+        );
     }
 
     #[test]
@@ -2423,7 +2441,10 @@ mod tests {
         // Empty config resources — the lock has a resource that config doesn't
         let config_resources = indexmap::IndexMap::new();
         let findings = detect_drift_full(&lock, &machine, &config_resources);
-        assert!(findings.is_empty(), "orphaned lock resource should be skipped");
+        assert!(
+            findings.is_empty(),
+            "orphaned lock resource should be skipped"
+        );
     }
 
     #[test]
@@ -2445,7 +2466,10 @@ mod tests {
         // Use a wrong hash — result should show the real hash (no error)
         let result = check_file_drift("test", file.to_str().unwrap(), "blake3:wrong");
         let finding = result.unwrap();
-        assert!(finding.actual_hash.starts_with("blake3:"), "actual hash should be valid blake3");
+        assert!(
+            finding.actual_hash.starts_with("blake3:"),
+            "actual hash should be valid blake3"
+        );
         assert_ne!(finding.actual_hash, "blake3:wrong");
     }
 }
