@@ -129,17 +129,9 @@ impl AdwinDetector {
     /// Get current detection stats.
     pub fn stats(&self) -> DriftStats {
         let n = self.window.len() as u64;
-        let mean = if n > 0 {
-            self.sum / n as f64
-        } else {
-            0.0
-        };
+        let mean = if n > 0 { self.sum / n as f64 } else { 0.0 };
         let variance = if n > 1 {
-            self.window
-                .iter()
-                .map(|v| (v - mean).powi(2))
-                .sum::<f64>()
-                / (n - 1) as f64
+            self.window.iter().map(|v| (v - mean).powi(2)).sum::<f64>() / (n - 1) as f64
         } else {
             0.0
         };
@@ -202,7 +194,10 @@ pub fn isolation_score(values: &[f64], target: f64) -> f64 {
     // Rank-based isolation: what fraction of the population is closer to the mean?
     // This is robust to outliers inflating std_dev.
     let distance = (target - mean).abs();
-    let closer_count = values.iter().filter(|&&v| (v - mean).abs() < distance).count();
+    let closer_count = values
+        .iter()
+        .filter(|&&v| (v - mean).abs() < distance)
+        .count();
     let rank_score = closer_count as f64 / n;
 
     // Also compute z-score for magnitude
@@ -329,7 +324,11 @@ pub fn detect_anomalies(
     }
 
     // Sort by score descending
-    findings.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+    findings.sort_by(|a, b| {
+        b.score
+            .partial_cmp(&a.score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     findings
 }
 
@@ -437,14 +436,20 @@ mod tests {
     fn test_fj051_isolation_score_identical() {
         let values = vec![5.0, 5.0, 5.0, 5.0];
         let score = isolation_score(&values, 5.0);
-        assert!(score < f64::EPSILON, "identical values at target should be 0");
+        assert!(
+            score < f64::EPSILON,
+            "identical values at target should be 0"
+        );
     }
 
     #[test]
     fn test_fj051_isolation_score_identical_outlier() {
         let values = vec![5.0, 5.0, 5.0, 5.0];
         let score = isolation_score(&values, 10.0);
-        assert!((score - 1.0).abs() < f64::EPSILON, "deviation from identical population = 1.0");
+        assert!(
+            (score - 1.0).abs() < f64::EPSILON,
+            "deviation from identical population = 1.0"
+        );
     }
 
     // ── EWMA z-score tests ──────────────────────────────────────
@@ -479,7 +484,10 @@ mod tests {
             ("r3".to_string(), 5, 0, 0),
         ];
         let findings = detect_anomalies(&metrics, 3);
-        assert!(findings.is_empty(), "uniform metrics should have no anomalies");
+        assert!(
+            findings.is_empty(),
+            "uniform metrics should have no anomalies"
+        );
     }
 
     #[test]
@@ -546,9 +554,9 @@ mod tests {
     #[test]
     fn test_fj051_findings_sorted_by_score() {
         let metrics = vec![
-            ("low".to_string(), 5, 0, 1),   // drift only
+            ("low".to_string(), 5, 0, 1),     // drift only
             ("high".to_string(), 100, 10, 5), // churn + fail + drift
-            ("mid".to_string(), 5, 5, 0),    // some failures
+            ("mid".to_string(), 5, 5, 0),     // some failures
         ];
         let findings = detect_anomalies(&metrics, 3);
         if findings.len() >= 2 {
