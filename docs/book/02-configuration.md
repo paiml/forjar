@@ -453,3 +453,143 @@ policy:
   pre_apply: "echo 'Deploying {{params.env}}...'"
   post_apply: "echo 'Deploy complete at $(date)'"
 ```
+
+## Configuration Validation
+
+Forjar validates configs at multiple levels before any machine is touched.
+
+### Structural Validation
+
+These checks run during `forjar validate`:
+
+| Check | Example Error |
+|-------|--------------|
+| Version must be "1.0" | `version must be "1.0"` |
+| Resource references valid machine | `resource 'X' references unknown machine 'Y'` |
+| Dependencies reference valid resources | `resource 'X' depends on unknown resource 'Y'` |
+| No self-dependencies | `resource 'X' depends on itself` |
+| No circular dependencies | `dependency cycle detected involving: A, B, C` |
+| Package has provider | `resource 'X' (package) has no provider` |
+| Package has packages list | `resource 'X' (package) has no packages` |
+| File doesn't have both content and source | `resource 'X' (file) has both content and source` |
+| Symlink has target | `resource 'X' (file) state=symlink requires a target` |
+| Service has valid state | `resource 'X' (service) state 'Y' invalid` |
+| Mount has valid state | `resource 'X' (mount) state 'Y' invalid` |
+| Cron has schedule | `resource 'X' (cron) missing schedule` |
+| Network has valid protocol | `resource 'X' (network) protocol must be tcp or udp` |
+
+### Error Accumulation
+
+Validation collects ALL errors before reporting — it doesn't stop at the first error:
+
+```bash
+$ forjar validate -f broken.yaml
+validation errors:
+  - resource 'web-pkg' (package) has no packages
+  - resource 'web-pkg' (package) has no provider
+  - resource 'nginx-conf' references unknown machine 'web-server'
+  - resource 'backup' (cron) schedule '0 2 *' must have exactly 5 fields
+```
+
+This gives you a complete picture of what needs fixing, rather than a whack-a-mole experience.
+
+### Recipe Validation
+
+When recipes are present, additional validation occurs:
+
+| Check | Example Error |
+|-------|--------------|
+| Recipe file exists | `recipe file not found: recipes/X.yaml` |
+| Required inputs provided | `recipe 'X' input 'Y' is required but not provided` |
+| Input types match | `recipe 'X' input 'Y' expected int, got string` |
+| Int inputs within bounds | `recipe 'X' input 'Y' value 70000 exceeds max 65535` |
+| Enum inputs in choices | `recipe 'X' input 'Y' must be one of [a, b, c]` |
+| Path inputs absolute | `recipe 'X' input 'Y' path must be absolute` |
+
+## Minimal Configuration
+
+The smallest valid config:
+
+```yaml
+version: "1.0"
+name: minimal
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+resources:
+  test:
+    type: file
+    machine: m
+    path: /tmp/test.txt
+    content: "hello"
+```
+
+Or using the implicit localhost (no machines block needed):
+
+```yaml
+version: "1.0"
+name: minimal
+machines: {}
+resources:
+  test:
+    type: file
+    machine: localhost
+    path: /tmp/test.txt
+    content: "hello"
+```
+
+## Configuration Anti-Patterns
+
+### Avoid: Hardcoded Secrets
+
+```yaml
+# BAD — secrets in plain text
+resources:
+  db-config:
+    content: "password=hunter2"
+
+# GOOD — use secret references
+resources:
+  db-config:
+    content: "password={{secrets.db-password}}"
+```
+
+### Avoid: Implicit Dependencies
+
+```yaml
+# BAD — config file needs nginx installed, but no depends_on
+resources:
+  nginx-pkg:
+    type: package
+    packages: [nginx]
+  nginx-conf:
+    type: file
+    path: /etc/nginx/nginx.conf
+    content: "..."
+    # Missing: depends_on: [nginx-pkg]
+```
+
+Without `depends_on`, alphabetical tie-breaking determines order — `nginx-conf` runs before `nginx-pkg` because "c" < "p". The config file write would fail if the directory doesn't exist yet.
+
+### Avoid: Overly Broad Multi-Machine Targeting
+
+```yaml
+# BAD — all machines get the same config
+resources:
+  config:
+    type: file
+    machine: [web, db, cache, monitor]
+    content: "..."
+
+# GOOD — use recipes for machine-specific configs
+resources:
+  web-stack:
+    type: recipe
+    machine: web
+    recipe: web-server
+  db-stack:
+    type: recipe
+    machine: db
+    recipe: database
+```

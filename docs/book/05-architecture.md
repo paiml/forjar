@@ -448,3 +448,101 @@ The test suite includes end-to-end drift validation:
 ```
 
 This cycle runs in isolated temp directories and verifies the full BLAKE3 hashing pipeline from apply through drift detection.
+
+## Security Model
+
+### Script Injection Prevention
+
+All generated scripts use defensive patterns to prevent injection:
+
+```bash
+# Heredoc with single quotes prevents variable expansion
+cat <<'FORJAR_EOF' > /etc/config
+user-provided content here — $VARS and $(commands) are literal
+FORJAR_EOF
+
+# Values are single-quoted in commands
+chown 'user':'group' '/path/to/file'
+systemctl start 'service-name'
+```
+
+Scripts are piped to `stdin` (not passed as arguments) to avoid:
+- **Argument length limits** — scripts can be arbitrarily long
+- **Shell metacharacter injection** — no interpretation of special chars in `ps` output
+- **Command-line visibility** — secrets in scripts aren't visible in process listings
+
+### Secret Handling
+
+Secrets flow through environment variables, never stored in config:
+
+```
+FORJAR_SECRET_DB_PASSWORD → {{secrets.db-password}} → resolved at template time
+```
+
+The resolution happens in memory. Resolved values appear in generated scripts (which are piped to stdin), but never in:
+- Config files on disk
+- Lock files (only hashes are stored)
+- Event logs (only event metadata)
+- Command-line arguments
+
+### Transport Security
+
+| Transport | Authentication | Encryption |
+|-----------|---------------|------------|
+| Local | Process user | N/A (same machine) |
+| SSH | Key-based (BatchMode=yes) | SSH tunnel |
+| Container | Docker socket | N/A (same host) |
+
+SSH connections use `StrictHostKeyChecking=accept-new` (accept on first connection, reject changes) and `ConnectTimeout=5` to prevent hanging on unreachable hosts.
+
+## Concurrency Model
+
+### Per-Machine Sequential Execution
+
+Within a single machine, resources execute sequentially in dependency order. This is by design — resource operations are not thread-safe on the target machine (e.g., two concurrent `apt-get install` calls would conflict).
+
+### Cross-Machine Parallelism
+
+When `--parallel` is specified, machines execute concurrently. Each machine gets its own thread with an independent execution context:
+
+```
+Machine A: pkg → config → service  (sequential)
+Machine B: pkg → config → service  (sequential, concurrent with A)
+Machine C: user → ssh-keys         (sequential, concurrent with A and B)
+```
+
+### State Isolation
+
+Each machine has its own:
+- Lock file (`state/{machine}/state.lock.yaml`)
+- Event log (`state/{machine}/events.jsonl`)
+- Transport connection (separate SSH session per machine)
+
+No shared mutable state between machines during apply.
+
+## Extension Points
+
+### Resource Type Registry
+
+Adding a new resource type requires:
+
+1. Create `src/resources/new_type.rs` with three functions:
+   - `check_script(resource) → String`
+   - `apply_script(resource) → String`
+   - `state_query_script(resource) → String`
+
+2. Add the type to `ResourceType` enum in `types.rs`
+
+3. Add dispatch arms in `codegen.rs` for all three functions
+
+4. Add validation rules in `parser.rs`
+
+5. The contract system (`build.rs`) will flag missing dispatch arms at compile time
+
+### Custom Transport
+
+Adding a new transport follows the same pattern as container:
+
+1. Create `src/transport/new_transport.rs` with `exec_script(machine, script) → Result`
+2. Add dispatch in `transport/mod.rs`
+3. Add validation in `parser.rs` for the new transport type
