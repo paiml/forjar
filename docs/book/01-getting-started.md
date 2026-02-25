@@ -668,6 +668,74 @@ forjar apply -f forjar.yaml --state-dir state/
 forjar drift -f forjar.yaml --state-dir state/
 ```
 
+## Understanding the Apply Lifecycle
+
+When you run `forjar apply`, the following steps happen in order:
+
+### 1. Parse and Validate
+
+Config files are loaded, YAML is parsed, and structural validation runs. This catches typos, missing fields, and invalid references immediately — before any machine is touched.
+
+### 2. Template Resolution
+
+All `{{params.key}}`, `{{secrets.key}}`, and `{{machine.name.field}}` templates are resolved to concrete values. Missing params or secrets cause an immediate error.
+
+### 3. Recipe Expansion
+
+Recipe resources are replaced with their expanded child resources. Namespacing prevents ID collisions (e.g., `web/nginx-conf`). Dependencies are rewritten to use namespaced IDs.
+
+### 4. DAG Construction
+
+A directed acyclic graph is built from `depends_on` edges. Cycles are detected and reported. Kahn's algorithm computes a topological execution order with alphabetical tie-breaking for determinism.
+
+### 5. Script Generation
+
+For each resource, three shell scripts are generated:
+- **check**: Determines if the resource is already in the desired state
+- **apply**: Converges the resource to the desired state
+- **state_query**: Captures live state for drift detection
+
+### 6. Transport and Execution
+
+Scripts are piped to `bash` on the target machine via the appropriate transport (local, SSH, or container exec). Check runs first — if it returns 0 (already converged), apply is skipped.
+
+### 7. State Recording
+
+Results are written to the state directory:
+- Per-machine lock files with resource hashes and status
+- Global lock file summarizing the fleet
+- Event log entries for auditing
+
+### 8. Drift Detection (Optional)
+
+After apply, or on a schedule, `forjar drift` re-checks each resource:
+- **Files**: BLAKE3 hash of actual content vs. stored hash
+- **Other types**: Re-run state_query and compare output hash
+
+## Key Concepts
+
+### Idempotency
+
+Every forjar operation is idempotent. Running `apply` twice with the same config produces the same result. The check script prevents redundant work — if a file already has the right content, it's not rewritten.
+
+### Content Hashing
+
+Forjar uses BLAKE3 hashing for all integrity checks. The `hash` field in lock files represents the desired-state hash (computed from config fields). The `content_hash` field represents the actual file content on disk.
+
+### Transport Abstraction
+
+All three transports (local, SSH, container) share the same interface: pipe a shell script to `bash` stdin, capture stdout/stderr/exit_code. This means any resource type works on any transport without modification.
+
+```
+Local:     bash -c 'script'
+SSH:       ssh user@host bash
+Container: docker exec -i name bash
+```
+
+### State as Truth
+
+The state directory is the single source of truth for what was last applied. Without state, forjar treats every resource as new and applies everything. With state, only changed resources are applied.
+
 ## Next Steps
 
 - [Configuration Reference](02-configuration.md) — Complete `forjar.yaml` schema

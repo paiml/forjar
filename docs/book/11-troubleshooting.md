@@ -646,6 +646,166 @@ resources:
 
 Unresolved templates pass through unchanged — the file will literally contain `{{params.evn}}`. Check for typos in template references.
 
+## Container Transport Issues
+
+### Docker Not Found
+
+```
+transport error: failed to execute docker exec: No such file or directory
+```
+
+The container runtime binary isn't in PATH. Verify installation:
+
+```bash
+which docker    # Should return /usr/bin/docker or similar
+docker info     # Should show Docker daemon info
+```
+
+For rootless Docker, ensure the socket is accessible. For Podman, set `runtime: podman` in the container config.
+
+### Container Not Running
+
+```
+container 'forjar-test' is not running
+```
+
+For ephemeral containers, forjar auto-starts them with `docker run -d --init --name <name> <image> sleep infinity`. If this fails:
+
+```bash
+# Check if container exists but is stopped
+docker ps -a --filter name=forjar-test
+
+# Check Docker daemon logs
+journalctl -u docker --since "5 minutes ago"
+
+# Manually test container creation
+docker run -d --init --name test-container ubuntu:22.04 sleep infinity
+docker exec -i test-container bash -c 'echo OK'
+docker rm -f test-container
+```
+
+### Privileged Operations in Containers
+
+Some resource types need elevated permissions:
+
+| Resource | Requires | Solution |
+|----------|----------|----------|
+| Package (apt) | Root | Use root user (default) |
+| Service (systemctl) | systemd | Use `--privileged --init` or skip in container |
+| Mount | CAP_SYS_ADMIN | Use `privileged: true` in container config |
+| File | Write permission | Use root user (default) |
+
+For systemd-dependent services in containers, use an image with systemd pre-configured:
+
+```yaml
+machines:
+  test-box:
+    hostname: test-box
+    addr: container
+    transport: container
+    container:
+      runtime: docker
+      image: jrei/systemd-ubuntu:22.04
+      privileged: true
+      init: false   # systemd replaces init
+```
+
+## Performance Issues
+
+### Slow Applies
+
+If applies take longer than expected:
+
+1. **Check script execution time**: Use `--verbose` to see per-resource timing
+2. **Package manager mirrors**: Slow apt/yum mirrors dominate apply time
+3. **Large file transfers**: Base64-encoded files in shell scripts are slower for large files
+4. **Sequential execution**: Resources without dependencies run in dependency order, not parallel
+
+```bash
+# Time individual resources
+forjar apply -f forjar.yaml --state-dir state/ --verbose 2>&1 | \
+  grep "duration"
+```
+
+### State Directory Growth
+
+Event logs (`events.jsonl`) grow unbounded. For long-running deployments:
+
+```bash
+# Check state directory size
+du -sh state/
+
+# Count events per machine
+for f in state/*/events.jsonl; do
+  echo "$(wc -l < "$f") events in $f"
+done
+
+# Trim to last 1000 events per machine
+for f in state/*/events.jsonl; do
+  tail -n 1000 "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+done
+```
+
+## Debugging Techniques
+
+### Script Inspection
+
+Export generated scripts for manual review:
+
+```bash
+# Export all scripts to a directory
+forjar plan -f forjar.yaml --output-dir /tmp/audit/
+
+# Review what would be executed
+ls /tmp/audit/
+# check_nginx-conf.sh  apply_nginx-conf.sh  state_query_nginx-conf.sh
+
+# Run a check script manually
+bash /tmp/audit/check_nginx-conf.sh
+echo "exit code: $?"
+```
+
+### Dry Run Analysis
+
+```bash
+# See what would change without touching anything
+forjar apply -f forjar.yaml --state-dir state/ --dry-run
+
+# Output shows:
+# ✓ nginx-pkg: unchanged (hash match)
+# → nginx-conf: would apply (hash changed)
+# ✓ nginx-svc: unchanged
+```
+
+### Event Log Queries
+
+```bash
+# Find all failures in the last 24 hours
+jq 'select(.event == "resource_failed")' state/web/events.jsonl
+
+# Count events by type
+jq -r '.event' state/web/events.jsonl | sort | uniq -c | sort -rn
+
+# Find longest-running resources
+jq -r 'select(.duration_seconds != null) | "\(.duration_seconds)s \(.resource_id)"' \
+  state/web/events.jsonl | sort -rn | head -5
+```
+
+### Diff Between Applies
+
+Compare lock files to see what changed between applies:
+
+```bash
+# Save before-state
+cp state/web/state.lock.yaml /tmp/before.yaml
+
+# Run apply
+forjar apply -f forjar.yaml --state-dir state/
+
+# Diff
+diff /tmp/before.yaml state/web/state.lock.yaml
+```
+
 ## Getting Help
 
 ```bash

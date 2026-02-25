@@ -581,4 +581,63 @@ mod tests {
         assert!(db_log.contains("r-2"));
         assert!(!db_log.contains("r-1"));
     }
+
+    #[test]
+    fn test_fj132_event_log_path_construction() {
+        let state_dir = Path::new("/tmp/forjar-state");
+        let path = event_log_path(state_dir, "web-01");
+        assert_eq!(path, PathBuf::from("/tmp/forjar-state/web-01/events.jsonl"));
+    }
+
+    #[test]
+    fn test_fj132_generate_run_id_format() {
+        let id = generate_run_id();
+        assert!(id.starts_with("r-"), "should start with 'r-'");
+        assert!(id.len() > 2, "should have hex digits after prefix");
+        // Verify hex digits
+        assert!(id[2..].chars().all(|c| c.is_ascii_hexdigit()));
+    }
+
+    #[test]
+    fn test_fj132_append_event_creates_directory() {
+        let dir = tempfile::tempdir().unwrap();
+        let event = ProvenanceEvent::ApplyStarted {
+            machine: "new-machine".to_string(),
+            run_id: "run-123".to_string(),
+            forjar_version: "0.1.0".to_string(),
+        };
+        // Directory doesn't exist yet — append_event should create it
+        append_event(dir.path(), "new-machine", event).unwrap();
+        assert!(dir.path().join("new-machine/events.jsonl").exists());
+    }
+
+    #[test]
+    fn test_fj132_append_multiple_events_jsonl_format() {
+        let dir = tempfile::tempdir().unwrap();
+        for i in 0..3 {
+            let event = ProvenanceEvent::ResourceConverged {
+                machine: "m".to_string(),
+                resource: format!("r-{}", i),
+                duration_seconds: 0.1,
+                hash: "blake3:abc".to_string(),
+            };
+            append_event(dir.path(), "m", event).unwrap();
+        }
+        let content = std::fs::read_to_string(dir.path().join("m/events.jsonl")).unwrap();
+        let lines: Vec<&str> = content.trim().lines().collect();
+        assert_eq!(lines.len(), 3, "should have 3 JSONL lines");
+        // Each line should be valid JSON
+        for line in &lines {
+            let parsed: serde_json::Value = serde_json::from_str(line).unwrap();
+            assert!(parsed.is_object());
+        }
+    }
+
+    #[test]
+    fn test_fj132_is_leap_year() {
+        assert!(is_leap(2000), "2000 is leap (div by 400)");
+        assert!(!is_leap(1900), "1900 is not leap (div by 100 but not 400)");
+        assert!(is_leap(2024), "2024 is leap (div by 4)");
+        assert!(!is_leap(2023), "2023 is not leap");
+    }
 }
