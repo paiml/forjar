@@ -182,6 +182,44 @@ OnUnitActiveSec=15min
 WantedBy=timers.target
 ```
 
+## Drift Investigation Workflow
+
+When drift is detected, follow this workflow to diagnose and resolve:
+
+```bash
+# 1. Detect drift
+forjar drift -f forjar.yaml --json > /tmp/drift-report.json
+
+# 2. Inspect findings
+cat /tmp/drift-report.json | jq '.findings[] | {resource: .resource, detail: .detail}'
+
+# 3. Check event history for the drifted resource
+forjar history -m web-server -n 20 | grep config-file
+
+# 4. Compare expected vs actual
+forjar show -f forjar.yaml -r config-file --json | jq '.content'
+ssh web-server "cat /etc/nginx/nginx.conf"
+
+# 5. Decide: remediate or accept
+# Option A: Restore desired state
+forjar apply -f forjar.yaml --force -r config-file
+
+# Option B: Update config to match live state
+# Edit forjar.yaml, then apply
+```
+
+### Root Cause Analysis
+
+Common drift causes and their signatures:
+
+| Pattern | Likely Cause | Resolution |
+|---------|-------------|------------|
+| Single file drifts repeatedly | Manual edits by operators | Add comment "Managed by forjar — do not edit" |
+| Package version changes | Auto-updates (unattended-upgrades) | Pin version in config |
+| Service state toggles | External monitoring restarts | Coordinate with monitoring team |
+| Multiple resources drift together | Ansible/puppet overlap | Remove competing tool |
+| Drift only on one machine | SSH'd in and made changes | Audit SSH access logs |
+
 ## Anomaly Detection
 
 Beyond simple drift, `forjar anomaly` analyzes event history to find resources with suspicious patterns:
@@ -193,6 +231,11 @@ forjar anomaly --state-dir state
 ### What It Detects
 
 **High churn** — Resources that converge abnormally often (z-score > 1.5). This suggests a resource is being externally modified and re-converged repeatedly.
+
+The z-score calculation:
+1. Count `resource_converged` events per resource across all machines
+2. Compute mean and standard deviation of converge counts
+3. Flag resources where `(count - mean) / stddev > 1.5`
 
 **High failure rate** — Resources with more than 20% failure rate (minimum 2 failures). Indicates a persistent configuration problem.
 
@@ -216,8 +259,23 @@ ANOMALIES: 2 finding(s)
 ### JSON Output for Monitoring
 
 ```bash
+# All anomalies
+forjar anomaly --json | jq '.anomalies'
+
+# Only high-churn resources
 forjar anomaly --json | jq '.anomalies[] | select(.type == "high_churn")'
+
+# Resources with failure rate > 30%
+forjar anomaly --json | jq '.anomalies[] | select(.type == "high_failure_rate" and .rate > 30)'
 ```
+
+### Responding to Anomalies
+
+| Anomaly Type | Investigation | Fix |
+|-------------|--------------|-----|
+| High churn | Check who/what is modifying the resource between applies | Lock down SSH, add file immutability, or increase check interval |
+| High failure rate | Check resource error logs in events.jsonl | Fix underlying issue (package repo, permissions, network) |
+| Drift detected | Compare expected vs actual hash | Re-apply or update config to match reality |
 
 ## Event Log
 

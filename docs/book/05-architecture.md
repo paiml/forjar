@@ -99,22 +99,87 @@ Algorithm:
 4. If |order| != |nodes|: cycle detected → error
 ```
 
+### Worked Example
+
+Given these resources:
+
+```yaml
+resources:
+  packages:    { depends_on: [] }
+  config:      { depends_on: [packages] }
+  service:     { depends_on: [config] }
+  firewall:    { depends_on: [] }
+  monitoring:  { depends_on: [service, firewall] }
+```
+
+Step-by-step:
+
+```
+Initial in-degrees:  packages=0, config=1, service=1, firewall=0, monitoring=2
+Heap (degree 0):     [firewall, packages]    ← alphabetical
+
+Pop "firewall" → order: [firewall]
+  monitoring: 2→1
+Heap: [packages]
+
+Pop "packages" → order: [firewall, packages]
+  config: 1→0 → push to heap
+Heap: [config]
+
+Pop "config" → order: [firewall, packages, config]
+  service: 1→0 → push to heap
+Heap: [service]
+
+Pop "service" → order: [firewall, packages, config, service]
+  monitoring: 1→0 → push to heap
+Heap: [monitoring]
+
+Pop "monitoring" → order: [firewall, packages, config, service, monitoring]
+
+Final: firewall → packages → config → service → monitoring
+```
+
+This is deterministic — the same config always produces the same order. Alphabetical tie-breaking means `firewall` runs before `packages` even though both have zero dependencies.
+
+### Cycle Detection
+
+If resources form a cycle (`A → B → C → A`), Kahn's algorithm detects this when the output length doesn't match the input count. The error message includes the cycle participants:
+
+```
+Error: dependency cycle detected involving: A, B, C
+```
+
+## Template Resolution
+
+Templates use `{{...}}` syntax and are resolved before codegen:
+
+| Template | Source | Example |
+|----------|--------|---------|
+| `{{params.X}}` | `params:` block in config | `{{params.env}}` → `production` |
+| `{{secrets.X}}` | `FORJAR_SECRET_*` env vars | `{{secrets.db-pass}}` → `hunter2` |
+| `{{machine.NAME.FIELD}}` | Machine properties | `{{machine.web.addr}}` → `10.0.0.5` |
+
+Resolution is applied to all string fields — content, path, name, command, port, image, environment variables, and more. Templates that don't match any known pattern are passed through unchanged.
+
 ## BLAKE3 Content Addressing
 
-Every resource's desired state is hashed to a BLAKE3 digest:
+Every resource's desired state is hashed to a BLAKE3 composite digest. All relevant fields are included:
 
 ```
-hash = blake3(resource_type + "\0" + state + "\0" + provider + "\0" + ... + mode)
+hash = blake3(type + "\0" + state + "\0" + provider + "\0" + packages + "\0"
+            + path + "\0" + content + "\0" + name + "\0" + owner + "\0"
+            + mode + "\0" + image + "\0" + ports + "\0" + command + "\0"
+            + schedule + "\0" + port + "\0" + protocol + ...)
 ```
 
-Format: `"blake3:{64 hex chars}"`
+Format: `"blake3:{64 hex chars}"` (71 characters total)
 
 This hash is stored in the lock file. On the next `apply`, the planner computes the hash of the desired state and compares:
 - **Match**: Skip (no-op)
 - **Mismatch**: Update (re-apply)
 - **Missing**: Create (first apply)
 
-No API calls needed. Just local hash comparison.
+No API calls needed. Just local hash comparison. Changing any field — content, permissions, image tag, port number, cron schedule — produces a different hash and triggers an update.
 
 ## Transport
 
