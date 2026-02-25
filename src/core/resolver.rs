@@ -821,6 +821,228 @@ resources:
             prop_assert!(result.unwrap_err().contains("cycle"), "error must mention 'cycle'");
         }
 
+    }
+
+    // ── Additional edge case tests ──────────────────────────────
+
+    #[test]
+    fn test_fj003_unclosed_template() {
+        let params = HashMap::new();
+        let machines = indexmap::IndexMap::new();
+        let err = resolve_template("hello {{params.name", &params, &machines);
+        assert!(err.is_err());
+        assert!(err.unwrap_err().contains("unclosed template"));
+    }
+
+    #[test]
+    fn test_fj003_no_template_passthrough() {
+        let params = HashMap::new();
+        let machines = indexmap::IndexMap::new();
+        let result = resolve_template("plain string no templates", &params, &machines).unwrap();
+        assert_eq!(result, "plain string no templates");
+    }
+
+    #[test]
+    fn test_fj003_empty_string_passthrough() {
+        let params = HashMap::new();
+        let machines = indexmap::IndexMap::new();
+        let result = resolve_template("", &params, &machines).unwrap();
+        assert_eq!(result, "");
+    }
+
+    #[test]
+    fn test_fj003_mixed_template_types() {
+        // Mix params and machine refs in one string
+        let mut params = HashMap::new();
+        params.insert(
+            "port".to_string(),
+            serde_yaml_ng::Value::String("8080".to_string()),
+        );
+        let mut machines = indexmap::IndexMap::new();
+        machines.insert(
+            "web".to_string(),
+            Machine {
+                hostname: "web-01".to_string(),
+                addr: "10.0.0.1".to_string(),
+                user: "deploy".to_string(),
+                arch: "x86_64".to_string(),
+                ssh_key: None,
+                roles: vec![],
+                transport: None,
+                container: None,
+                cost: 0,
+            },
+        );
+        let result = resolve_template(
+            "http://{{machine.web.addr}}:{{params.port}}",
+            &params,
+            &machines,
+        )
+        .unwrap();
+        assert_eq!(result, "http://10.0.0.1:8080");
+    }
+
+    #[test]
+    fn test_fj003_unknown_machine_name() {
+        let params = HashMap::new();
+        let machines = indexmap::IndexMap::new();
+        let err = resolve_template("{{machine.ghost.addr}}", &params, &machines);
+        assert!(err.is_err());
+        assert!(err.unwrap_err().contains("unknown machine"));
+    }
+
+    #[test]
+    fn test_fj003_numeric_param_value() {
+        let mut params = HashMap::new();
+        params.insert(
+            "count".to_string(),
+            serde_yaml_ng::Value::Number(serde_yaml_ng::Number::from(42)),
+        );
+        let machines = indexmap::IndexMap::new();
+        let result = resolve_template("total={{params.count}}", &params, &machines).unwrap();
+        assert_eq!(result, "total=42");
+    }
+
+    #[test]
+    fn test_fj003_boolean_param_value() {
+        let mut params = HashMap::new();
+        params.insert("flag".to_string(), serde_yaml_ng::Value::Bool(true));
+        let machines = indexmap::IndexMap::new();
+        let result = resolve_template("debug={{params.flag}}", &params, &machines).unwrap();
+        assert_eq!(result, "debug=true");
+    }
+
+    #[test]
+    fn test_fj003_resolve_resource_templates_group_and_mode() {
+        let mut params = HashMap::new();
+        params.insert(
+            "grp".to_string(),
+            serde_yaml_ng::Value::String("www-data".to_string()),
+        );
+        params.insert(
+            "perm".to_string(),
+            serde_yaml_ng::Value::String("0644".to_string()),
+        );
+        let machines = indexmap::IndexMap::new();
+
+        let resource = Resource {
+            resource_type: ResourceType::File,
+            machine: MachineTarget::Single("m1".to_string()),
+            state: None,
+            depends_on: vec![],
+            provider: None,
+            packages: vec![],
+            version: None,
+            path: None,
+            content: None,
+            source: None,
+            target: None,
+            owner: None,
+            group: Some("{{params.grp}}".to_string()),
+            mode: Some("{{params.perm}}".to_string()),
+            name: None,
+            enabled: None,
+            restart_on: vec![],
+            fs_type: None,
+            options: None,
+            uid: None,
+            shell: None,
+            home: None,
+            groups: vec![],
+            ssh_authorized_keys: vec![],
+            system_user: false,
+            schedule: None,
+            command: None,
+            image: None,
+            ports: vec![],
+            environment: vec![],
+            volumes: vec![],
+            restart: None,
+            protocol: None,
+            port: None,
+            action: None,
+            from_addr: None,
+            recipe: None,
+            inputs: HashMap::new(),
+            arch: vec![],
+            tags: vec![],
+        };
+
+        let resolved = resolve_resource_templates(&resource, &params, &machines).unwrap();
+        assert_eq!(resolved.group.as_deref(), Some("www-data"));
+        assert_eq!(resolved.mode.as_deref(), Some("0644"));
+    }
+
+    #[test]
+    fn test_fj003_wide_fan_out_dag() {
+        // One node depended on by many
+        let config = dag_config(
+            &["root", "a", "b", "c", "d"],
+            &[("root", "a"), ("root", "b"), ("root", "c"), ("root", "d")],
+        );
+        let order = build_execution_order(&config).unwrap();
+        assert_eq!(order[0], "root");
+        // a, b, c, d in alphabetical order after root
+        assert_eq!(order[1], "a");
+        assert_eq!(order[2], "b");
+        assert_eq!(order[3], "c");
+        assert_eq!(order[4], "d");
+    }
+
+    #[test]
+    fn test_fj003_wide_fan_in_dag() {
+        // Many nodes converging to one
+        let config = dag_config(
+            &["a", "b", "c", "leaf"],
+            &[("a", "leaf"), ("b", "leaf"), ("c", "leaf")],
+        );
+        let order = build_execution_order(&config).unwrap();
+        // a, b, c independent — alphabetical
+        assert_eq!(order[0], "a");
+        assert_eq!(order[1], "b");
+        assert_eq!(order[2], "c");
+        assert_eq!(order[3], "leaf");
+    }
+
+    #[test]
+    fn test_fj003_dag_unknown_dependency() {
+        let config = dag_config(&["a"], &[("nonexistent", "a")]);
+        let result = build_execution_order(&config);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("unknown"));
+    }
+
+    #[test]
+    fn test_fj003_template_with_whitespace() {
+        // Templates with spaces around the key should still resolve
+        let mut params = HashMap::new();
+        params.insert(
+            "name".to_string(),
+            serde_yaml_ng::Value::String("val".to_string()),
+        );
+        let machines = indexmap::IndexMap::new();
+        let result = resolve_template("{{ params.name }}", &params, &machines).unwrap();
+        assert_eq!(result, "val");
+    }
+
+    #[test]
+    fn test_fj003_consecutive_templates() {
+        let mut params = HashMap::new();
+        params.insert(
+            "a".to_string(),
+            serde_yaml_ng::Value::String("X".to_string()),
+        );
+        params.insert(
+            "b".to_string(),
+            serde_yaml_ng::Value::String("Y".to_string()),
+        );
+        let machines = indexmap::IndexMap::new();
+        let result =
+            resolve_template("{{params.a}}{{params.b}}", &params, &machines).unwrap();
+        assert_eq!(result, "XY");
+    }
+
+    proptest! {
         /// FALSIFY-DAG-003: Deterministic output — same graph always produces same order.
         #[test]
         fn falsify_dag_003_determinism(

@@ -854,6 +854,234 @@ resources: {}
         assert!(!resolved["label"].is_empty());
     }
 
+    // ── Additional edge case tests ────────────────────────────
+
+    #[test]
+    fn test_fj019_recipe_no_inputs() {
+        let yaml = r#"
+recipe:
+  name: simple
+  version: "1.0"
+resources:
+  pkg:
+    type: package
+    provider: apt
+    packages: [curl]
+"#;
+        let recipe = parse_recipe(yaml).unwrap();
+        assert!(recipe.recipe.inputs.is_empty());
+        let resolved = validate_inputs(&recipe.recipe, &HashMap::new()).unwrap();
+        assert!(resolved.is_empty());
+    }
+
+    #[test]
+    fn test_fj019_unclosed_input_template() {
+        let mut inputs = HashMap::new();
+        inputs.insert("name".to_string(), "world".to_string());
+        let result = resolve_input_template("{{inputs.name", &inputs);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("unclosed template"));
+    }
+
+    #[test]
+    fn test_fj019_unknown_input_reference() {
+        let inputs = HashMap::new();
+        let result = resolve_input_template("{{inputs.ghost}}", &inputs);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("unknown input"));
+    }
+
+    #[test]
+    fn test_fj019_no_template_passthrough() {
+        let inputs = HashMap::new();
+        let result = resolve_input_template("plain string", &inputs).unwrap();
+        assert_eq!(result, "plain string");
+    }
+
+    #[test]
+    fn test_fj019_empty_template_passthrough() {
+        let inputs = HashMap::new();
+        let result = resolve_input_template("", &inputs).unwrap();
+        assert_eq!(result, "");
+    }
+
+    #[test]
+    fn test_fj019_terminal_id_empty_resources() {
+        let yaml = r#"
+recipe:
+  name: empty
+resources: {}
+"#;
+        let recipe = parse_recipe(yaml).unwrap();
+        let terminal = recipe_terminal_id("x", &recipe);
+        assert!(terminal.is_none());
+    }
+
+    #[test]
+    fn test_fj019_load_recipe_nonexistent_file() {
+        let result = load_recipe(Path::new("/nonexistent/recipe.yaml"));
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("cannot read recipe"));
+    }
+
+    #[test]
+    fn test_fj019_parse_recipe_invalid_yaml() {
+        let result = parse_recipe(":::not valid yaml[[[");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("recipe parse error"));
+    }
+
+    #[test]
+    fn test_fj019_expand_multiple_external_deps() {
+        let recipe = parse_recipe(RECIPE_YAML).unwrap();
+        let machine = MachineTarget::Single("m1".to_string());
+        let mut inputs = HashMap::new();
+        inputs.insert(
+            "export_path".to_string(),
+            serde_yaml_ng::Value::String("/mnt/data".to_string()),
+        );
+
+        let expanded = expand_recipe(
+            "nfs",
+            &recipe,
+            &machine,
+            &inputs,
+            &["dep-a".to_string(), "dep-b".to_string()],
+        )
+        .unwrap();
+
+        let first = &expanded["nfs/packages"];
+        assert!(first.depends_on.contains(&"dep-a".to_string()));
+        assert!(first.depends_on.contains(&"dep-b".to_string()));
+    }
+
+    #[test]
+    fn test_fj019_expand_all_defaults() {
+        // Recipe where all inputs have defaults — provide nothing
+        let yaml = r#"
+recipe:
+  name: defaults-only
+  inputs:
+    port:
+      type: int
+      default: 8080
+    name:
+      type: string
+      default: "my-app"
+resources:
+  cfg:
+    type: file
+    path: "/etc/{{inputs.name}}/config"
+    content: "port={{inputs.port}}"
+"#;
+        let recipe = parse_recipe(yaml).unwrap();
+        let machine = MachineTarget::Single("m1".to_string());
+        let expanded =
+            expand_recipe("app", &recipe, &machine, &HashMap::new(), &[]).unwrap();
+        let cfg = &expanded["app/cfg"];
+        assert_eq!(cfg.path.as_deref(), Some("/etc/my-app/config"));
+        assert_eq!(cfg.content.as_deref(), Some("port=8080"));
+    }
+
+    #[test]
+    fn test_fj019_resolve_resource_inputs_content_field() {
+        use crate::core::types::{MachineTarget, Resource, ResourceType};
+
+        let resource = Resource {
+            resource_type: ResourceType::File,
+            machine: MachineTarget::Single("m1".to_string()),
+            state: None,
+            depends_on: vec![],
+            provider: None,
+            packages: vec![],
+            version: None,
+            path: None,
+            content: Some("user={{inputs.user}}".to_string()),
+            source: None,
+            target: None,
+            owner: None,
+            group: None,
+            mode: None,
+            name: None,
+            enabled: None,
+            restart_on: vec![],
+            fs_type: None,
+            options: None,
+            uid: None,
+            shell: None,
+            home: None,
+            groups: vec![],
+            ssh_authorized_keys: vec![],
+            system_user: false,
+            schedule: None,
+            command: None,
+            image: None,
+            ports: vec![],
+            environment: vec![],
+            volumes: vec![],
+            restart: None,
+            protocol: None,
+            port: None,
+            action: None,
+            from_addr: None,
+            recipe: None,
+            inputs: HashMap::new(),
+            arch: vec![],
+            tags: vec![],
+        };
+        let mut inputs = HashMap::new();
+        inputs.insert("user".to_string(), "admin".to_string());
+        let resolved = resolve_resource_inputs(&resource, &inputs).unwrap();
+        assert_eq!(resolved.content.as_deref(), Some("user=admin"));
+    }
+
+    #[test]
+    fn test_fj019_recipe_source_debug_clone() {
+        let local = RecipeSource::Local {
+            path: "recipes/test.yaml".to_string(),
+        };
+        let cloned = local.clone();
+        let _ = format!("{:?}", cloned);
+
+        let git = RecipeSource::Git {
+            git: "https://github.com/example/recipes.git".to_string(),
+            r#ref: Some("main".to_string()),
+            path: Some("nfs.yaml".to_string()),
+        };
+        let cloned = git.clone();
+        let _ = format!("{:?}", cloned);
+    }
+
+    #[test]
+    fn test_fj019_recipe_metadata_optional_fields() {
+        let yaml = r#"
+recipe:
+  name: minimal
+resources: {}
+"#;
+        let recipe = parse_recipe(yaml).unwrap();
+        assert!(recipe.recipe.version.is_none());
+        assert!(recipe.recipe.description.is_none());
+        assert!(recipe.recipe.requires.is_empty());
+    }
+
+    #[test]
+    fn test_fj019_recipe_with_requires() {
+        let yaml = r#"
+recipe:
+  name: app-stack
+  requires:
+    - recipe: web-server
+    - recipe: database
+  inputs: {}
+resources: {}
+"#;
+        let recipe = parse_recipe(yaml).unwrap();
+        assert_eq!(recipe.recipe.requires.len(), 2);
+        assert_eq!(recipe.recipe.requires[0].recipe, "web-server");
+        assert_eq!(recipe.recipe.requires[1].recipe, "database");
+    }
+
     // ── Falsification tests (Recipe Determinism Contract) ───────
 
     proptest! {
