@@ -581,6 +581,115 @@ resources:
         assert!(err.unwrap_err().contains("unknown template variable"));
     }
 
+    #[test]
+    fn test_fj003_self_dependency_is_cycle() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  self-ref:
+    type: package
+    machine: m1
+    provider: apt
+    packages: [x]
+    depends_on: [self-ref]
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let result = build_execution_order(&config);
+        assert!(result.is_err(), "self-dependency must be detected as cycle");
+        assert!(result.unwrap_err().contains("cycle"));
+    }
+
+    #[test]
+    fn test_fj003_transitive_3_level_chain() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  database:
+    type: package
+    machine: m1
+    provider: apt
+    packages: [postgresql]
+  schema:
+    type: file
+    machine: m1
+    path: /etc/schema.sql
+    depends_on: [database]
+  app:
+    type: service
+    machine: m1
+    name: app
+    depends_on: [schema]
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let order = build_execution_order(&config).unwrap();
+        let pos_db = order.iter().position(|x| x == "database").unwrap();
+        let pos_schema = order.iter().position(|x| x == "schema").unwrap();
+        let pos_app = order.iter().position(|x| x == "app").unwrap();
+        assert!(pos_db < pos_schema, "database before schema");
+        assert!(pos_schema < pos_app, "schema before app");
+    }
+
+    #[test]
+    fn test_fj003_empty_depends_on_vs_missing() {
+        // Both empty depends_on and missing depends_on should work the same
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  explicit-empty:
+    type: package
+    machine: m1
+    provider: apt
+    packages: [x]
+    depends_on: []
+  implicit-empty:
+    type: package
+    machine: m1
+    provider: apt
+    packages: [y]
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let order = build_execution_order(&config).unwrap();
+        assert_eq!(order.len(), 2);
+        // Both should be independent — alphabetical tie-break
+        assert_eq!(order[0], "explicit-empty");
+        assert_eq!(order[1], "implicit-empty");
+    }
+
+    #[test]
+    fn test_fj003_single_resource_no_deps() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  solo:
+    type: file
+    machine: m1
+    path: /tmp/solo
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let order = build_execution_order(&config).unwrap();
+        assert_eq!(order, vec!["solo"]);
+    }
+
     // ── Falsification tests (DAG Ordering Contract) ─────────────
 
     /// Helper: build a ForjarConfig from a set of resource names and dependency edges.

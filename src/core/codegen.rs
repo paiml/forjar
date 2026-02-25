@@ -358,6 +358,63 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_fj005_dispatch_user() {
+        let mut r = make_package();
+        r.resource_type = ResourceType::User;
+        r.name = Some("deploy".to_string());
+        assert!(check_script(&r).unwrap().contains("deploy"));
+        assert!(apply_script(&r).unwrap().contains("useradd"));
+        assert!(state_query_script(&r).unwrap().contains("deploy"));
+    }
+
+    #[test]
+    fn test_fj005_dispatch_docker() {
+        let mut r = make_package();
+        r.resource_type = ResourceType::Docker;
+        r.image = Some("nginx:latest".to_string());
+        r.name = Some("web".to_string());
+        assert!(check_script(&r).unwrap().contains("docker"));
+        assert!(apply_script(&r).unwrap().contains("docker"));
+        assert!(state_query_script(&r).unwrap().contains("docker"));
+    }
+
+    #[test]
+    fn test_fj005_dispatch_cron() {
+        let mut r = make_package();
+        r.resource_type = ResourceType::Cron;
+        r.schedule = Some("0 2 * * *".to_string());
+        r.command = Some("/opt/backup.sh".to_string());
+        assert!(check_script(&r).unwrap().contains("crontab"));
+        assert!(apply_script(&r).unwrap().contains("backup.sh"));
+        assert!(state_query_script(&r).unwrap().contains("crontab"));
+    }
+
+    #[test]
+    fn test_fj005_dispatch_network() {
+        let mut r = make_package();
+        r.resource_type = ResourceType::Network;
+        r.port = Some("443".to_string());
+        r.action = Some("allow".to_string());
+        assert!(check_script(&r).unwrap().contains("ufw"));
+        assert!(apply_script(&r).unwrap().contains("ufw"));
+        assert!(state_query_script(&r).unwrap().contains("ufw"));
+    }
+
+    #[test]
+    fn test_fj005_apply_scripts_contain_pipefail() {
+        // All apply scripts should start with set -euo pipefail
+        let resources = [make_package(), make_file(), make_service(), make_mount()];
+        for r in &resources {
+            let script = apply_script(r).unwrap();
+            assert!(
+                script.contains("set -euo pipefail"),
+                "apply script for {:?} must contain pipefail",
+                r.resource_type
+            );
+        }
+    }
+
     /// FALSIFY-CD-002: Dispatch is symmetric — same types handled by all three functions.
     #[test]
     fn falsify_cd_002_dispatch_symmetry() {
