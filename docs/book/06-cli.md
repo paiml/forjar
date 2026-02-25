@@ -84,7 +84,7 @@ The `--output-dir` flag writes all generated scripts (check, apply, state_query)
 Converge infrastructure to desired state.
 
 ```bash
-forjar apply -f <FILE> [-m MACHINE] [-r RESOURCE] [-t TAG] [--force] [--dry-run] [--no-tripwire] [-p KEY=VALUE] [--auto-commit] [--state-dir DIR]
+forjar apply -f <FILE> [-m MACHINE] [-r RESOURCE] [-t TAG] [--force] [--dry-run] [--no-tripwire] [-p KEY=VALUE] [--auto-commit] [--timeout SECS] [--state-dir DIR]
 ```
 
 | Flag | Default | Description |
@@ -98,6 +98,7 @@ forjar apply -f <FILE> [-m MACHINE] [-r RESOURCE] [-t TAG] [--force] [--dry-run]
 | `--no-tripwire` | false | Skip provenance event logging (faster) |
 | `-p, --param` | — | Override parameter: `-p env=production` |
 | `--auto-commit` | false | Git commit state after successful apply |
+| `--timeout` | — | Timeout per transport operation (seconds) |
 | `--state-dir` | `state` | Directory for lock files |
 
 ### `forjar drift`

@@ -23,6 +23,7 @@ pub struct ApplyConfig<'a> {
     pub machine_filter: Option<&'a str>,
     pub resource_filter: Option<&'a str>,
     pub tag_filter: Option<&'a str>,
+    pub timeout_secs: Option<u64>,
 }
 
 /// Execute the apply loop.
@@ -187,6 +188,7 @@ struct RecordCtx<'a> {
     machine_name: &'a str,
     tripwire: bool,
     failure_policy: &'a FailurePolicy,
+    timeout_secs: Option<u64>,
 }
 
 /// Record a successful resource application into the lock and event log.
@@ -202,7 +204,7 @@ fn record_success(
 
     // Live state hash for drift detection
     let live_hash = match codegen::state_query_script(resolved) {
-        Ok(query) => match transport::exec_script(machine, &query) {
+        Ok(query) => match transport::exec_script_timeout(machine, &query, ctx.timeout_secs) {
             Ok(qout) if qout.success() => Some(hasher::hash_string(&qout.stdout)),
             _ => None,
         },
@@ -341,7 +343,7 @@ fn apply_single_resource(
 
     // Generate apply script and execute
     let script = codegen::apply_script(&resolved)?;
-    let output = transport::exec_script(machine, &script);
+    let output = transport::exec_script_timeout(machine, &script, cfg.timeout_secs);
     let duration = resource_start.elapsed().as_secs_f64();
 
     match output {
@@ -440,6 +442,7 @@ fn apply_machine(
         machine_name,
         tripwire: cfg.config.policy.tripwire,
         failure_policy: &cfg.config.policy.failure,
+        timeout_secs: cfg.timeout_secs,
     };
 
     for change in &machine_changes {
@@ -779,6 +782,7 @@ resources:
             machine_filter: None,
             resource_filter: None,
             tag_filter: None,
+            timeout_secs: None,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results.len(), 1);
@@ -797,6 +801,7 @@ resources:
             machine_filter: None,
             resource_filter: None,
             tag_filter: None,
+            timeout_secs: None,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results.len(), 1);
@@ -827,6 +832,7 @@ resources:
             machine_filter: None,
             resource_filter: None,
             tag_filter: None,
+            timeout_secs: None,
         };
         let r1 = apply(&cfg).unwrap();
         assert_eq!(r1[0].resources_converged, 1);
@@ -840,6 +846,7 @@ resources:
             machine_filter: None,
             resource_filter: None,
             tag_filter: None,
+            timeout_secs: None,
         };
         let r2 = apply(&cfg2).unwrap();
         assert_eq!(r2[0].resources_unchanged, 1);
@@ -862,6 +869,7 @@ resources:
             machine_filter: None,
             resource_filter: None,
             tag_filter: None,
+            timeout_secs: None,
         };
         apply(&cfg).unwrap();
 
@@ -874,6 +882,7 @@ resources:
             machine_filter: None,
             resource_filter: None,
             tag_filter: None,
+            timeout_secs: None,
         };
         let r2 = apply(&cfg2).unwrap();
         assert_eq!(r2[0].resources_converged, 1);
@@ -915,6 +924,7 @@ resources:
             machine_filter: Some("a"),
             resource_filter: None,
             tag_filter: None,
+            timeout_secs: None,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results.len(), 1);
@@ -934,6 +944,7 @@ resources:
             machine_name: "test",
             tripwire: true,
             failure_policy: &FailurePolicy::StopOnFirst,
+            timeout_secs: None,
         };
 
         let should_stop = record_failure(
@@ -961,6 +972,7 @@ resources:
             machine_name: "test",
             tripwire: false,
             failure_policy: &FailurePolicy::ContinueIndependent,
+            timeout_secs: None,
         };
 
         let should_stop = record_failure(
@@ -988,6 +1000,7 @@ resources:
             machine_name: "test",
             tripwire: true,
             failure_policy: &FailurePolicy::ContinueIndependent,
+            timeout_secs: None,
         };
 
         record_failure(
@@ -1071,6 +1084,7 @@ resources:
             machine_name: "test",
             tripwire: true,
             failure_policy: &FailurePolicy::StopOnFirst,
+            timeout_secs: None,
         };
 
         record_success(&mut ctx, "test-file", &resource, &resource, &machine, 0.1);
@@ -1100,6 +1114,7 @@ resources:
             machine_filter: None,
             resource_filter: Some("nonexistent-resource"),
             tag_filter: None,
+            timeout_secs: None,
         };
         let results = apply(&cfg).unwrap();
         // Resource filter doesn't match — everything skipped
@@ -1146,6 +1161,7 @@ policy:
             machine_filter: None,
             resource_filter: None,
             tag_filter: None,
+            timeout_secs: None,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results.len(), 2);
@@ -1206,6 +1222,7 @@ policy:
             machine_filter: None,
             resource_filter: None,
             tag_filter: None,
+            timeout_secs: None,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results.len(), 1);
@@ -1228,6 +1245,7 @@ policy:
                 machine_name: "test",
                 tripwire: false,
                 failure_policy: &FailurePolicy::StopOnFirst,
+                timeout_secs: None,
             };
             let should_stop = record_failure(
                 &mut ctx, "res", &ResourceType::Package, 0.1, &error,
@@ -1246,6 +1264,7 @@ policy:
                 machine_name: "test",
                 tripwire: false,
                 failure_policy: &FailurePolicy::ContinueIndependent,
+                timeout_secs: None,
             };
             let should_stop = record_failure(
                 &mut ctx, "res", &ResourceType::Package, 0.1, &error,
@@ -1505,6 +1524,7 @@ resources:
             machine_filter: None,
             resource_filter: None,
             tag_filter: Some("web"),
+            timeout_secs: None,
         };
         let results = apply(&cfg).unwrap();
         // Only the tagged resource should be applied
@@ -1544,6 +1564,7 @@ resources:
             machine_filter: None,
             resource_filter: None,
             tag_filter: None,
+            timeout_secs: None,
         };
         let results = apply(&cfg).unwrap();
         // Both resources applied

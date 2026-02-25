@@ -91,6 +91,10 @@ pub enum Commands {
         #[arg(long)]
         auto_commit: bool,
 
+        /// Timeout per transport operation (seconds)
+        #[arg(long)]
+        timeout: Option<u64>,
+
         /// State directory
         #[arg(long, default_value = "state")]
         state_dir: PathBuf,
@@ -299,6 +303,7 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             no_tripwire,
             params,
             auto_commit,
+            timeout,
             state_dir,
         } => cmd_apply(
             &file,
@@ -311,6 +316,7 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             no_tripwire,
             &params,
             auto_commit,
+            timeout,
             verbose,
         ),
         Commands::Drift {
@@ -1213,6 +1219,7 @@ fn cmd_apply(
     no_tripwire: bool,
     param_overrides: &[String],
     auto_commit: bool,
+    timeout_secs: Option<u64>,
     verbose: bool,
 ) -> Result<(), String> {
     let mut config = parse_and_validate(file)?;
@@ -1244,6 +1251,7 @@ fn cmd_apply(
         machine_filter,
         resource_filter,
         tag_filter,
+        timeout_secs,
     };
 
     let results = executor::apply(&cfg)?;
@@ -1447,6 +1455,7 @@ fn cmd_drift(
             false, // tripwire on
             &[],   // no param overrides
             false, // no auto-commit
+            None, // no timeout
             verbose,
         )?;
         if !json {
@@ -2009,6 +2018,7 @@ resources:
             false,
             &[],
             false,
+            None, // no timeout
             false,
         )
         .unwrap();
@@ -2052,6 +2062,7 @@ policy:
             false,
             &[],
             false,
+            None, // no timeout
             false,
         )
         .unwrap();
@@ -2092,6 +2103,7 @@ resources: {}
             false,
             &[],
             false,
+            None, // no timeout
             false,
         );
         assert!(result.is_err());
@@ -2392,6 +2404,7 @@ resources:
                 params: vec![],
                 auto_commit: false,
                 state_dir: state,
+                timeout: None,
             },
             false,
         )
@@ -2570,6 +2583,7 @@ resources:
             false,
             &[],
             false,
+            None, // no timeout
             false,
         )
         .unwrap();
@@ -2587,6 +2601,7 @@ resources:
             false,
             &[],
             false,
+            None, // no timeout
             false,
         )
         .unwrap();
@@ -2756,7 +2771,17 @@ resources:
 "#,
         )
         .unwrap();
-        cmd_plan(&config, &state, None, None, None, false, false, Some(&output)).unwrap();
+        cmd_plan(
+            &config,
+            &state,
+            None,
+            None,
+            None,
+            false,
+            false,
+            Some(&output),
+        )
+        .unwrap();
 
         // Should have created scripts for both resources
         assert!(output.exists());
@@ -3124,6 +3149,7 @@ resources:
             false,
             &[],
             false,
+            None, // no timeout
             false,
         )
         .unwrap();
@@ -3181,6 +3207,7 @@ resources:
             false,
             &[],
             false,
+            None, // no timeout
             false,
         )
         .unwrap();
@@ -3239,6 +3266,7 @@ resources:
             false,
             &[],
             false,
+            None, // no timeout
             false,
         )
         .unwrap();
@@ -3292,6 +3320,7 @@ resources:
             false,
             &[],
             false,
+            None, // no timeout
             false,
         )
         .unwrap();
@@ -3380,6 +3409,7 @@ resources:
             false,
             &[],
             true,
+            None, // no timeout
             false,
         )
         .unwrap();
@@ -3528,6 +3558,7 @@ resources:
             false,
             &[],
             false,
+            None, // no timeout
             false,
         )
         .unwrap();
