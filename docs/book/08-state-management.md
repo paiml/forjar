@@ -608,3 +608,140 @@ for name, resource in lock["resources"].items():
 yq '.resources | to_entries[] | select(.value.status == "failed") | .key' \
   state/web-server/state.lock.yaml
 ```
+
+## State Internals
+
+### Atomic Writes
+
+Lock files are written atomically using a temp-file-and-rename pattern:
+
+1. Write to `state/{machine}/state.lock.yaml.tmp`
+2. Flush and sync to disk
+3. Rename `*.tmp` → `state.lock.yaml` (atomic on POSIX)
+
+This ensures a power failure or crash never leaves a corrupted lock file. The worst case is a stale-but-valid previous lock file.
+
+### Hash Computation
+
+Each resource's `hash` field is the BLAKE3 hash of its **desired state** — all configuration fields that affect what should be applied. This includes:
+
+| Resource Type | Fields Hashed |
+|--------------|---------------|
+| File | path, content/source, owner, group, mode, state |
+| Package | packages list, provider, version, state |
+| Service | name, enabled, state |
+| Mount | path, target, fs_type, options, state |
+| User | name, uid, shell, home, groups, system_user, ssh_authorized_keys |
+| Cron | name, schedule, command |
+| Docker | name, image, ports, environment, volumes, restart |
+| Network | name, port, protocol, action, from_addr |
+
+The hash format is `blake3:<hex>` (e.g., `blake3:a1b2c3d4...`). When the desired-state hash matches the stored hash, the resource is skipped (unchanged).
+
+### Content Hash vs Desired-State Hash
+
+Two different hashes serve different purposes:
+
+- **`hash`**: Hash of the desired state in the config file. Changes when you edit your `forjar.yaml`.
+- **`content_hash`** (in details): Hash of the actual file content on disk. Changes when someone modifies the file on the machine.
+
+Drift detection compares `content_hash` against the live file to detect out-of-band changes. The `hash` field determines whether a new apply is needed.
+
+### Live Hash
+
+For non-file resources (packages, services, etc.), the `live_hash` in details captures the hash of the `state_query_script` output at apply time. This enables drift detection for all resource types:
+
+```yaml
+resources:
+  nginx-svc:
+    type: service
+    status: converged
+    hash: "blake3:abc..."
+    details:
+      live_hash: "blake3:def..."
+```
+
+On drift check, forjar re-runs the state query script and compares the new output hash against the stored `live_hash`. Any difference indicates configuration drift.
+
+## Event Log Deep Dive
+
+### Event Schema
+
+Each line in `events.jsonl` is a self-contained JSON object:
+
+```json
+{
+  "timestamp": "2026-02-25T14:30:00.123Z",
+  "event": "resource_converged",
+  "resource_id": "nginx-conf",
+  "resource_type": "file",
+  "hash": "blake3:abc123...",
+  "duration_seconds": 0.42,
+  "machine": "web-01"
+}
+```
+
+### Event Types
+
+| Event | When | Key Fields |
+|-------|------|------------|
+| `resource_converged` | Apply succeeded | resource_id, hash, duration |
+| `resource_failed` | Apply failed | resource_id, error, duration |
+| `resource_skipped` | Hash unchanged | resource_id, reason |
+| `drift_detected` | Drift check found changes | resource_id, expected_hash, actual_hash |
+
+### Log Rotation
+
+Event logs grow indefinitely by design — they're an audit trail. For large deployments, manage with standard log rotation:
+
+```bash
+# Rotate logs older than 90 days
+find state/ -name "events.jsonl" -exec sh -c '
+  tail -n 10000 "$1" > "$1.tmp" && mv "$1.tmp" "$1"
+' _ {} \;
+```
+
+Or archive to a centralized logging system:
+
+```bash
+# Ship to your log aggregator
+for f in state/*/events.jsonl; do
+  machine=$(basename $(dirname "$f"))
+  cat "$f" | jq -c '. + {machine: "'$machine'"}' | \
+    curl -X POST -d @- https://logs.example.com/ingest
+done
+```
+
+## State Recovery
+
+### Rebuilding from Scratch
+
+If state files are lost, `forjar import` reconstructs them from live machine state:
+
+```bash
+# Re-import all machines
+forjar import -f forjar.yaml --state-dir state/
+
+# Verify reconstruction
+forjar drift -f forjar.yaml --state-dir state/
+```
+
+Import runs `state_query_script` for each resource and captures the current live state. The resulting lock file reflects what is actually deployed, not what the config says should be deployed.
+
+### Handling Conflicts
+
+When the lock file says a resource is converged but drift detection finds changes:
+
+1. **If the config hasn't changed**: Someone modified the machine out-of-band. Run `forjar apply` to reconverge.
+2. **If the config changed**: Run `forjar apply` — the new desired-state hash will trigger a re-apply.
+3. **If you want to accept the drift**: Run `forjar import` to capture the current state as the new baseline.
+
+### State File Compatibility
+
+Lock files include a `schema` field for forward compatibility:
+
+```yaml
+schema: '1.0'
+```
+
+Forjar validates the schema version on load. Future versions may introduce `schema: '2.0'` with migration support.

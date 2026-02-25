@@ -593,3 +593,177 @@ resources:
     machine: db
     recipe: database
 ```
+
+## Template Resolution
+
+### How Templates Work
+
+Forjar resolves `{{...}}` templates in two passes during the planning phase — before any scripts are generated.
+
+**Template types:**
+
+| Syntax | Source | Example |
+|--------|--------|---------|
+| `{{params.key}}` | `params:` block | `{{params.domain}}` → `example.com` |
+| `{{secrets.key}}` | Environment variable | `{{secrets.db-pass}}` → `FORJAR_SECRET_DB_PASS` |
+| `{{machine.name.field}}` | Machine inventory | `{{machine.web.addr}}` → `192.168.1.10` |
+
+### Parameter Types
+
+Params are YAML values coerced to strings during template resolution:
+
+```yaml
+params:
+  domain: example.com       # String → "example.com"
+  port: 8080                 # Integer → "8080"
+  debug: true                # Boolean → "true"
+  ratio: 0.75                # Float → "0.75"
+```
+
+### Secret Resolution
+
+Secrets are never stored in config files. Instead, they reference environment variables:
+
+```yaml
+resources:
+  db-config:
+    type: file
+    path: /etc/myapp/db.conf
+    content: |
+      host=db.internal
+      password={{secrets.db-password}}
+```
+
+At apply time, forjar looks for `FORJAR_SECRET_DB_PASSWORD` (uppercase, hyphens become underscores). If the variable is not set, the apply fails with a clear error message pointing to the expected variable name.
+
+```bash
+# Set secrets before apply
+export FORJAR_SECRET_DB_PASSWORD="hunter2"
+export FORJAR_SECRET_API_TOKEN="sk-live-abc123"
+forjar apply -f production.yaml --state-dir state/
+```
+
+### Machine Field References
+
+Access any machine field in templates:
+
+```yaml
+machines:
+  primary-db:
+    hostname: db-01
+    addr: 10.0.1.50
+    user: postgres
+    arch: x86_64
+
+resources:
+  db-proxy-config:
+    type: file
+    machine: web
+    path: /etc/pgbouncer/pgbouncer.ini
+    content: |
+      [databases]
+      mydb = host={{machine.primary-db.addr}} port=5432 user={{machine.primary-db.user}}
+```
+
+Available machine fields: `hostname`, `addr`, `user`, `arch`, `ssh_key`.
+
+### Template Error Handling
+
+| Error | When | Message |
+|-------|------|---------|
+| Unknown param | `{{params.missing}}` | `unknown param: missing` |
+| Missing secret | `{{secrets.key}}` without env var | `secret 'key' not found (set env var FORJAR_SECRET_KEY ...)` |
+| Unknown machine | `{{machine.bogus.addr}}` | `unknown machine: bogus` |
+| Invalid field | `{{machine.web.cost}}` | `unknown machine field: cost` |
+| Unclosed template | `{{params.name` | `unclosed template at position N` |
+| Unknown type | `{{foobar.baz}}` | `unknown template variable type: foobar` |
+
+## Validation Pipeline
+
+Forjar validates configs in multiple stages:
+
+### Stage 1: YAML Parsing
+
+Structural validation — correct types, required fields present:
+
+```bash
+forjar validate -f config.yaml
+# ✓ YAML structure valid
+# ✓ Version: 1.0
+# ✓ 3 machines, 12 resources
+```
+
+### Stage 2: Semantic Validation
+
+Cross-reference checks:
+
+- Every resource references a machine that exists in the `machines:` block
+- Every `depends_on` target exists as a resource ID
+- No dependency cycles (detected via topological sort)
+- Resource type-specific field requirements (e.g., `file` needs `path`)
+- Container transport has required `container:` block
+
+### Stage 3: Template Resolution
+
+All templates resolve to concrete values:
+
+```bash
+forjar plan -f config.yaml
+# Shows resolved values and execution order
+```
+
+### Common Validation Errors
+
+```
+error: resource 'nginx-conf' depends on unknown 'nginx-package'
+  hint: available resources: nginx-pkg, ssl-cert, firewall
+
+error: dependency cycle detected involving: a, b, c
+  hint: resource 'a' depends_on 'b', 'b' depends_on 'c', 'c' depends_on 'a'
+
+error: resource 'db-config' references unknown machine 'database'
+  hint: available machines: web, db, cache
+```
+
+## Multi-File Configuration
+
+### Splitting Large Configs
+
+For large infrastructures, split configs by concern:
+
+```bash
+# Apply multiple config files
+forjar apply -f machines.yaml -f web-resources.yaml -f db-resources.yaml
+
+# Or use shell glob
+forjar apply -f configs/*.yaml
+```
+
+Each file is parsed and merged. Machines from all files form a unified inventory, and resources from all files are combined into a single execution plan.
+
+### Config Organization Patterns
+
+**By machine role:**
+```
+configs/
+  machines.yaml          # All machine definitions
+  web.yaml               # Web server resources
+  database.yaml          # Database resources
+  monitoring.yaml        # Monitoring resources
+```
+
+**By environment:**
+```
+configs/
+  base.yaml              # Shared resources
+  staging.yaml           # Staging overrides
+  production.yaml        # Production machines + resources
+```
+
+**By team:**
+```
+configs/
+  infra/machines.yaml    # Platform team owns machines
+  app/web-deploy.yaml    # App team owns deployments
+  security/firewall.yaml # Security team owns rules
+```
