@@ -814,4 +814,73 @@ mod tests {
             "mount state_query must use findmnt to query mount details: {script}"
         );
     }
+
+    #[test]
+    fn test_codegen_package_absent() {
+        let mut r = make_package();
+        r.state = Some("absent".to_string());
+        let script = apply_script(&r).unwrap();
+        assert!(
+            script.contains("apt-get remove"),
+            "package with state=absent should generate removal script: {script}"
+        );
+    }
+
+    #[test]
+    fn test_codegen_file_with_owner_and_mode() {
+        let mut r = make_file();
+        r.owner = Some("www-data".to_string());
+        r.mode = Some("0644".to_string());
+        r.content = Some("hello".to_string());
+        let script = apply_script(&r).unwrap();
+        assert!(
+            script.contains("chown 'www-data"),
+            "file script should set owner to www-data: {script}"
+        );
+        assert!(
+            script.contains("chmod '0644'"),
+            "file script should set mode to 0644: {script}"
+        );
+        assert!(
+            script.contains("hello"),
+            "file script should contain content 'hello': {script}"
+        );
+    }
+
+    #[test]
+    fn test_codegen_mount_with_options() {
+        let mut r = make_mount();
+        r.source = Some("/dev/sdb1".to_string());
+        r.fs_type = Some("ext4".to_string());
+        r.options = Some("noatime,errors=remount-ro".to_string());
+        let script = apply_script(&r).unwrap();
+        assert!(
+            script.contains("mount -t 'ext4'"),
+            "mount script should contain fstype ext4: {script}"
+        );
+        assert!(
+            script.contains("noatime,errors=remount-ro"),
+            "mount script should contain options: {script}"
+        );
+        assert!(
+            script.contains("/dev/sdb1"),
+            "mount script should reference the device: {script}"
+        );
+    }
+
+    #[test]
+    fn test_codegen_service_disabled() {
+        let mut r = make_service();
+        r.state = Some("stopped".to_string());
+        r.enabled = Some(false);
+        let script = apply_script(&r).unwrap();
+        assert!(
+            script.contains("systemctl stop"),
+            "stopped service should generate stop command: {script}"
+        );
+        assert!(
+            script.contains("systemctl disable"),
+            "disabled service should generate disable command: {script}"
+        );
+    }
 }

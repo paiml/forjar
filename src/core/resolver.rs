@@ -1617,4 +1617,81 @@ resources:
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("FORJAR_SECRET_ZZZ_MISSING_99"));
     }
+
+    #[test]
+    fn test_resolve_template_nested_braces() {
+        let mut params = HashMap::new();
+        params.insert(
+            "x".to_string(),
+            serde_yaml_ng::Value::String("value".to_string()),
+        );
+        let machines = indexmap::IndexMap::new();
+        let result = resolve_template("{{params.x}}_suffix", &params, &machines).unwrap();
+        assert_eq!(result, "value_suffix");
+    }
+
+    #[test]
+    fn test_resolve_template_multiple() {
+        let mut params = HashMap::new();
+        params.insert(
+            "a".to_string(),
+            serde_yaml_ng::Value::String("hello".to_string()),
+        );
+        params.insert(
+            "b".to_string(),
+            serde_yaml_ng::Value::String("world".to_string()),
+        );
+        let machines = indexmap::IndexMap::new();
+        let result =
+            resolve_template("{{params.a}}-{{params.b}}", &params, &machines).unwrap();
+        assert_eq!(result, "hello-world");
+    }
+
+    #[test]
+    fn test_build_execution_order_empty() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources: {}
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let order = build_execution_order(&config).unwrap();
+        assert!(order.is_empty());
+    }
+
+    #[test]
+    fn test_build_execution_order_no_deps() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  alpha:
+    type: package
+    machine: m1
+    provider: apt
+    packages: [curl]
+  beta:
+    type: file
+    machine: m1
+    path: /tmp/beta.txt
+    content: "beta content"
+  gamma:
+    type: service
+    machine: m1
+    name: gamma-svc
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let order = build_execution_order(&config).unwrap();
+        assert_eq!(order.len(), 3);
+        // Alphabetical tie-breaking with no deps
+        assert_eq!(order, vec!["alpha", "beta", "gamma"]);
+    }
 }

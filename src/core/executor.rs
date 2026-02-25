@@ -4031,4 +4031,94 @@ policy:
 
         let _ = std::fs::remove_file("/tmp/forjar-test-fj036-force.txt");
     }
+
+    #[test]
+    fn test_executor_local_machine_defaults() {
+        let m = local_machine();
+        assert_eq!(m.hostname, "localhost");
+        assert_eq!(m.addr, "127.0.0.1");
+        assert_eq!(m.user, "root");
+        assert_eq!(m.arch, "x86_64");
+        assert!(m.ssh_key.is_none(), "local machine should have no ssh_key");
+        assert!(m.roles.is_empty(), "local machine should have no roles");
+        assert!(m.transport.is_none(), "local machine should have no transport override");
+        assert!(m.container.is_none(), "local machine should have no container config");
+        assert_eq!(m.cost, 0, "local machine should have zero cost");
+    }
+
+    #[test]
+    fn test_executor_local_config_minimal() {
+        let config = local_config();
+        assert_eq!(config.name, "test");
+        assert_eq!(config.version, "1.0");
+        assert!(
+            config.machines.contains_key("local"),
+            "config should contain machine 'local'"
+        );
+        assert!(
+            config.resources.contains_key("test-file"),
+            "config should contain resource 'test-file'"
+        );
+        let r = &config.resources["test-file"];
+        assert_eq!(r.resource_type, ResourceType::File);
+        assert_eq!(r.path.as_deref(), Some("/tmp/forjar-test-executor.txt"));
+        assert_eq!(r.content.as_deref(), Some("hello from forjar"));
+        assert!(config.policy.tripwire, "policy.tripwire should be true");
+        assert!(config.policy.lock_file, "policy.lock_file should be true");
+    }
+
+    #[test]
+    fn test_executor_collect_machines_filters_by_name() {
+        let yaml = r#"
+version: "1.0"
+name: filter-test
+machines:
+  web:
+    hostname: web
+    addr: 10.0.0.1
+  db:
+    hostname: db
+    addr: 10.0.0.2
+  cache:
+    hostname: cache
+    addr: 10.0.0.3
+resources:
+  r1:
+    type: file
+    machine: web
+    path: /tmp/a
+    content: a
+  r2:
+    type: file
+    machine: db
+    path: /tmp/b
+    content: b
+  r3:
+    type: file
+    machine: [web, cache]
+    path: /tmp/c
+    content: c
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let machines = collect_machines(&config);
+        assert_eq!(machines.len(), 3, "should collect 3 unique machines: {:?}", machines);
+        assert!(machines.contains(&"web".to_string()), "should contain web");
+        assert!(machines.contains(&"db".to_string()), "should contain db");
+        assert!(machines.contains(&"cache".to_string()), "should contain cache");
+
+        // Verify machine_filter works in ApplyConfig (dry-run) — only "db" processed
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = ApplyConfig {
+            config: &config,
+            state_dir: dir.path(),
+            force: false,
+            dry_run: true,
+            machine_filter: Some("db"),
+            resource_filter: None,
+            tag_filter: None,
+            timeout_secs: None,
+        };
+        let results = apply(&cfg).unwrap();
+        assert_eq!(results[0].machine, "dry-run");
+    }
 }

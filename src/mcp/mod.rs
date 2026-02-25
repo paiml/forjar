@@ -186,11 +186,10 @@ impl Handler for PlanHandler {
         let path = PathBuf::from(&input.path);
         let state_dir = PathBuf::from(input.state_dir.as_deref().unwrap_or("state"));
 
-        let config = parser::parse_and_validate(&path)
-            .map_err(pforge_runtime::Error::Handler)?;
+        let config = parser::parse_and_validate(&path).map_err(pforge_runtime::Error::Handler)?;
 
-        let order = resolver::build_execution_order(&config)
-            .map_err(pforge_runtime::Error::Handler)?;
+        let order =
+            resolver::build_execution_order(&config).map_err(pforge_runtime::Error::Handler)?;
 
         // Load locks for all machines
         let mut locks = std::collections::HashMap::new();
@@ -200,12 +199,7 @@ impl Handler for PlanHandler {
             }
         }
 
-        let exec_plan = planner::plan(
-            &config,
-            &order,
-            &locks,
-            input.tag.as_deref(),
-        );
+        let exec_plan = planner::plan(&config, &order, &locks, input.tag.as_deref());
 
         let mut changes: Vec<PlannedChangeOutput> = exec_plan
             .changes
@@ -243,8 +237,7 @@ impl Handler for DriftHandler {
         let path = PathBuf::from(&input.path);
         let state_dir = PathBuf::from(input.state_dir.as_deref().unwrap_or("state"));
 
-        let config = parser::parse_and_validate(&path)
-            .map_err(pforge_runtime::Error::Handler)?;
+        let config = parser::parse_and_validate(&path).map_err(pforge_runtime::Error::Handler)?;
 
         let mut findings = Vec::new();
 
@@ -282,8 +275,7 @@ impl Handler for LintHandler {
     async fn handle(&self, input: Self::Input) -> pforge_runtime::Result<Self::Output> {
         let path = PathBuf::from(&input.path);
 
-        let config = parser::parse_and_validate(&path)
-            .map_err(pforge_runtime::Error::Handler)?;
+        let config = parser::parse_and_validate(&path).map_err(pforge_runtime::Error::Handler)?;
 
         let mut warnings = Vec::new();
         let mut error_count = 0;
@@ -354,8 +346,7 @@ impl Handler for GraphHandler {
         let path = PathBuf::from(&input.path);
         let fmt = input.format.as_deref().unwrap_or("mermaid");
 
-        let config = parser::parse_and_validate(&path)
-            .map_err(pforge_runtime::Error::Handler)?;
+        let config = parser::parse_and_validate(&path).map_err(pforge_runtime::Error::Handler)?;
 
         let mut graph = String::new();
         match fmt {
@@ -401,8 +392,7 @@ impl Handler for ShowHandler {
     async fn handle(&self, input: Self::Input) -> pforge_runtime::Result<Self::Output> {
         let path = PathBuf::from(&input.path);
 
-        let config = parser::parse_and_validate(&path)
-            .map_err(pforge_runtime::Error::Handler)?;
+        let config = parser::parse_and_validate(&path).map_err(pforge_runtime::Error::Handler)?;
 
         let config_value = if let Some(ref r) = input.resource {
             if let Some(resource) = config.resources.get(r) {
@@ -962,5 +952,133 @@ mod tests {
         };
         let output = handler.handle(input).await.unwrap();
         assert!(!output.drifted);
+    }
+
+    #[tokio::test]
+    async fn test_fj063_lint_handler_clean_config() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config_path,
+            "version: \"1.0\"\nname: test\nmachines:\n  local:\n    hostname: localhost\n    addr: 127.0.0.1\nresources:\n  app-dir:\n    type: file\n    machine: local\n    path: /opt/app\n    state: directory\n",
+        )
+        .unwrap();
+
+        let handler = LintHandler;
+        let input = LintInput {
+            path: config_path.to_str().unwrap().to_string(),
+        };
+        let output = handler.handle(input).await.unwrap();
+        // No unused-machine warnings (structural lint is clean)
+        let structural_warnings: Vec<_> = output
+            .warnings
+            .iter()
+            .filter(|w| w.contains("Machine") || w.contains("[ERROR]"))
+            .collect();
+        assert!(
+            structural_warnings.is_empty(),
+            "expected no structural warnings, got: {:?}",
+            structural_warnings
+        );
+        assert_eq!(output.error_count, 0);
+    }
+
+    #[tokio::test]
+    async fn test_fj063_validate_handler_multiple_resources() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config_path,
+            "version: \"1.0\"\nname: test\nmachines:\n  local:\n    hostname: localhost\n    addr: 127.0.0.1\nresources:\n  web-pkg:\n    type: package\n    provider: apt\n    packages: [nginx]\n  web-conf:\n    type: file\n    path: /etc/nginx/nginx.conf\n    content: \"worker_processes 4;\"\n    depends_on: [web-pkg]\n  web-svc:\n    type: service\n    name: nginx\n    depends_on: [web-conf]\n",
+        )
+        .unwrap();
+
+        let handler = ValidateHandler;
+        let input = ValidateInput {
+            path: config_path.to_str().unwrap().to_string(),
+        };
+        let output = handler.handle(input).await.unwrap();
+        assert!(output.valid);
+        assert_eq!(output.resource_count, 3);
+        assert_eq!(output.machine_count, 1);
+        assert!(output.errors.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_fj063_graph_handler_dependencies() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config_path,
+            "version: \"1.0\"\nname: test\nmachines:\n  local:\n    hostname: localhost\n    addr: 127.0.0.1\nresources:\n  step-a:\n    type: package\n    provider: apt\n    packages: [curl]\n  step-b:\n    type: file\n    path: /tmp/b.txt\n    content: hello\n    depends_on: [step-a]\n  step-c:\n    type: service\n    name: myapp\n    depends_on: [step-b]\n",
+        )
+        .unwrap();
+
+        let handler = GraphHandler;
+        let input = GraphInput {
+            path: config_path.to_str().unwrap().to_string(),
+            format: None,
+        };
+        let output = handler.handle(input).await.unwrap();
+        assert_eq!(output.format, "mermaid");
+        // Verify all three resources appear
+        assert!(output.graph.contains("step-a"));
+        assert!(output.graph.contains("step-b"));
+        assert!(output.graph.contains("step-c"));
+        // Verify the dependency chain edges: a->b and b->c
+        assert!(output.graph.contains("step-a --> step-b"));
+        assert!(output.graph.contains("step-b --> step-c"));
+    }
+
+    #[tokio::test]
+    async fn test_fj063_status_handler_with_state() {
+        let dir = tempfile::tempdir().unwrap();
+        let state_dir = dir.path().join("state");
+        std::fs::create_dir_all(&state_dir).unwrap();
+
+        // StatusHandler reads .json files from state_dir
+        let state_json = serde_json::json!({
+            "version": "1.0",
+            "machine": "local",
+            "resources": {
+                "test-pkg": {
+                    "resource_type": "Package",
+                    "status": "Converged",
+                    "hash": "abc123",
+                    "details": {}
+                }
+            }
+        });
+        std::fs::write(
+            state_dir.join("local.json"),
+            serde_json::to_string_pretty(&state_json).unwrap(),
+        )
+        .unwrap();
+
+        let handler = StatusHandler;
+        let input = StatusInput {
+            state_dir: Some(state_dir.to_str().unwrap().to_string()),
+            machine: None,
+        };
+        let output = handler.handle(input).await.unwrap();
+        assert_eq!(output.machines.len(), 1);
+        assert_eq!(output.machines[0].name, "local");
+    }
+
+    #[tokio::test]
+    async fn test_fj063_plan_handler_invalid_config() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join("forjar.yaml");
+        std::fs::write(&config_path, "this is not valid yaml: [[[").unwrap();
+
+        let handler = PlanHandler;
+        let input = PlanInput {
+            path: config_path.to_str().unwrap().to_string(),
+            state_dir: None,
+            resource: None,
+            tag: None,
+        };
+        let result = handler.handle(input).await;
+        assert!(result.is_err(), "expected error for invalid config");
     }
 }
