@@ -2675,4 +2675,170 @@ resources:
             "expanded resource should be present"
         );
     }
+
+    #[test]
+    fn test_fj132_validate_container_no_block() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  box:
+    hostname: box
+    addr: container
+    transport: container
+resources: {}
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(
+            errors.iter().any(|e| e.message.contains("no 'container' block")),
+            "container transport without container block should error"
+        );
+    }
+
+    #[test]
+    fn test_fj132_validate_container_bad_runtime() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  box:
+    hostname: box
+    addr: container
+    transport: container
+    container:
+      runtime: lxc
+      image: ubuntu:22.04
+resources: {}
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(
+            errors.iter().any(|e| e.message.contains("docker' or 'podman'")),
+            "invalid runtime should error"
+        );
+    }
+
+    #[test]
+    fn test_fj132_validate_ephemeral_no_image() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  box:
+    hostname: box
+    addr: container
+    transport: container
+    container:
+      runtime: docker
+      ephemeral: true
+resources: {}
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(
+            errors.iter().any(|e| e.message.contains("ephemeral but has no container image")),
+            "ephemeral without image should error"
+        );
+    }
+
+    #[test]
+    fn test_fj132_validate_file_both_content_and_source() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+resources:
+  bad-file:
+    type: file
+    machine: m
+    path: /etc/test.conf
+    content: "inline"
+    source: /builds/app.conf
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(
+            errors.iter().any(|e| e.message.contains("both content and source")),
+            "file with both content and source should error"
+        );
+    }
+
+    #[test]
+    fn test_fj132_validate_symlink_no_target() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+resources:
+  bad-link:
+    type: file
+    machine: m
+    path: /usr/local/bin/myapp
+    state: symlink
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(
+            errors.iter().any(|e| e.message.contains("symlink requires a target")),
+            "symlink without target should error"
+        );
+    }
+
+    #[test]
+    fn test_fj132_validate_unknown_arch() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+    arch: mips64
+resources: {}
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(
+            errors.iter().any(|e| e.message.contains("unknown arch")),
+            "unknown architecture should error"
+        );
+    }
+
+    #[test]
+    fn test_fj132_validate_service_invalid_state() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+resources:
+  svc:
+    type: service
+    machine: m
+    name: nginx
+    state: restarted
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(
+            errors.iter().any(|e| e.message.contains("invalid state 'restarted'")),
+            "invalid service state should error"
+        );
+    }
+
+    #[test]
+    fn test_fj132_parse_config_invalid_yaml() {
+        let result = parse_config("{{{{bad yaml");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("YAML parse error"));
+    }
 }
