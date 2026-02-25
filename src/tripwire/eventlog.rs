@@ -492,4 +492,96 @@ mod tests {
         assert!(!is_leap(200));
         assert!(!is_leap(300));
     }
+
+    // ── FJ-132: Additional eventlog edge case tests ─────────────
+
+    #[test]
+    fn test_fj132_append_event_idempotent_dir_creation() {
+        // Appending to same machine twice should not fail on existing dir
+        let dir = tempfile::tempdir().unwrap();
+        let event1 = ProvenanceEvent::ApplyStarted {
+            machine: "m".to_string(),
+            run_id: "r-1".to_string(),
+            forjar_version: "0.1.0".to_string(),
+        };
+        let event2 = ProvenanceEvent::ApplyCompleted {
+            machine: "m".to_string(),
+            run_id: "r-1".to_string(),
+            resources_converged: 1,
+            resources_unchanged: 0,
+            resources_failed: 0,
+            total_seconds: 1.0,
+        };
+        append_event(dir.path(), "m", event1).unwrap();
+        append_event(dir.path(), "m", event2).unwrap();
+        let content = std::fs::read_to_string(dir.path().join("m/events.jsonl")).unwrap();
+        let lines: Vec<_> = content.lines().collect();
+        assert_eq!(lines.len(), 2);
+        assert!(lines[0].contains("apply_started"));
+        assert!(lines[1].contains("apply_completed"));
+    }
+
+    #[test]
+    fn test_fj132_event_log_path_with_dots() {
+        let p = event_log_path(Path::new("/state"), "machine.with.dots");
+        assert_eq!(
+            p,
+            PathBuf::from("/state/machine.with.dots/events.jsonl")
+        );
+    }
+
+    #[test]
+    fn test_fj132_timestamp_minute_range() {
+        let ts = now_iso8601();
+        let minute: u32 = ts[14..16].parse().unwrap();
+        assert!(minute < 60, "minute should be 0-59: {}", minute);
+    }
+
+    #[test]
+    fn test_fj132_timestamp_second_range() {
+        let ts = now_iso8601();
+        let second: u32 = ts[17..19].parse().unwrap();
+        assert!(second < 60, "second should be 0-59: {}", second);
+    }
+
+    #[test]
+    fn test_fj132_event_json_has_ts_field() {
+        let dir = tempfile::tempdir().unwrap();
+        let event = ProvenanceEvent::ResourceConverged {
+            machine: "m".to_string(),
+            resource: "r".to_string(),
+            duration_seconds: 0.1,
+            hash: "blake3:abc".to_string(),
+        };
+        append_event(dir.path(), "m", event).unwrap();
+        let content = std::fs::read_to_string(dir.path().join("m/events.jsonl")).unwrap();
+        let parsed: serde_json::Value = serde_json::from_str(content.trim()).unwrap();
+        assert!(parsed["ts"].is_string());
+        let ts = parsed["ts"].as_str().unwrap();
+        assert!(ts.ends_with('Z'));
+        assert!(ts.contains('T'));
+    }
+
+    #[test]
+    fn test_fj132_multiple_machines_separate_logs() {
+        let dir = tempfile::tempdir().unwrap();
+        let event1 = ProvenanceEvent::ApplyStarted {
+            machine: "web".to_string(),
+            run_id: "r-1".to_string(),
+            forjar_version: "0.1.0".to_string(),
+        };
+        let event2 = ProvenanceEvent::ApplyStarted {
+            machine: "db".to_string(),
+            run_id: "r-2".to_string(),
+            forjar_version: "0.1.0".to_string(),
+        };
+        append_event(dir.path(), "web", event1).unwrap();
+        append_event(dir.path(), "db", event2).unwrap();
+        let web_log = std::fs::read_to_string(dir.path().join("web/events.jsonl")).unwrap();
+        let db_log = std::fs::read_to_string(dir.path().join("db/events.jsonl")).unwrap();
+        assert!(web_log.contains("r-1"));
+        assert!(!web_log.contains("r-2"));
+        assert!(db_log.contains("r-2"));
+        assert!(!db_log.contains("r-1"));
+    }
 }

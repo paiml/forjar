@@ -311,4 +311,47 @@ mod tests {
         let script2 = apply_script(&r2);
         assert!(script2.contains("$SUDO ufw --force enable"));
     }
+
+    // ── FJ-132: Additional network edge case tests ─────────────
+
+    #[test]
+    fn test_fj132_check_script_action_in_pattern() {
+        // check_script should include the action in its grep pattern
+        let r = make_network_resource("443", "deny");
+        let script = check_script(&r);
+        assert!(script.contains("deny.*443/tcp"));
+    }
+
+    #[test]
+    fn test_fj132_apply_absent_with_udp() {
+        let mut r = make_network_resource("53", "allow");
+        r.state = Some("absent".to_string());
+        r.protocol = Some("udp".to_string());
+        let script = apply_script(&r);
+        assert!(script.contains("ufw delete allow"));
+        assert!(script.contains("proto 'udp'"));
+    }
+
+    #[test]
+    fn test_fj132_apply_absent_idempotent() {
+        // Delete rule should use || true for idempotency
+        let mut r = make_network_resource("80", "allow");
+        r.state = Some("absent".to_string());
+        let script = apply_script(&r);
+        assert!(script.contains("|| true"), "delete should be idempotent");
+    }
+
+    #[test]
+    fn test_fj132_state_query_port_in_pattern() {
+        let r = make_network_resource("8443", "allow");
+        let script = state_query_script(&r);
+        assert!(script.contains("grep '8443'"));
+    }
+
+    #[test]
+    fn test_fj132_apply_high_port() {
+        let r = make_network_resource("65535", "allow");
+        let script = apply_script(&r);
+        assert!(script.contains("port '65535'"));
+    }
 }

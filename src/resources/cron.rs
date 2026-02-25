@@ -277,4 +277,49 @@ mod tests {
         assert!(script.contains("grep -v '# forjar-cmd:backup'"));
         assert!(script.contains("echo '# forjar-cmd:backup'"));
     }
+
+    // ── FJ-132: Additional cron edge case tests ─────────────────
+
+    #[test]
+    fn test_fj132_check_script_default_name() {
+        let mut r = make_cron_resource("placeholder");
+        r.name = None;
+        let script = check_script(&r);
+        assert!(script.contains("forjar:unknown"));
+    }
+
+    #[test]
+    fn test_fj132_state_query_default_owner() {
+        let mut r = make_cron_resource("job");
+        r.owner = None;
+        let script = state_query_script(&r);
+        assert!(script.contains("crontab -u 'root' -l"));
+    }
+
+    #[test]
+    fn test_fj132_apply_special_chars_in_command() {
+        let mut r = make_cron_resource("log-rotate");
+        r.command = Some("/usr/sbin/logrotate /etc/logrotate.d/*.conf".to_string());
+        let script = apply_script(&r);
+        assert!(script.contains("/usr/sbin/logrotate /etc/logrotate.d/*.conf"));
+    }
+
+    #[test]
+    fn test_fj132_apply_five_field_schedule() {
+        let mut r = make_cron_resource("weekly");
+        r.schedule = Some("0 3 * * 0".to_string());
+        let script = apply_script(&r);
+        assert!(script.contains("0 3 * * 0"));
+    }
+
+    #[test]
+    fn test_fj132_check_and_query_same_user() {
+        // check_script and state_query_script should use the same user
+        let mut r = make_cron_resource("sync");
+        r.owner = Some("www-data".to_string());
+        let check = check_script(&r);
+        let query = state_query_script(&r);
+        assert!(check.contains("crontab -u 'www-data'"));
+        assert!(query.contains("crontab -u 'www-data'"));
+    }
 }
