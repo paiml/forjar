@@ -521,7 +521,11 @@ mod tests {
         };
         for code in [0, 1, 2, 42, 126, 127] {
             let out = exec_script(&machine, &format!("exit {}", code)).unwrap();
-            assert_eq!(out.exit_code, code, "exit code {} should be preserved", code);
+            assert_eq!(
+                out.exit_code, code,
+                "exit code {} should be preserved",
+                code
+            );
         }
     }
 

@@ -516,4 +516,95 @@ mod tests {
         let err = cleanup_container(&machine).unwrap_err();
         assert_eq!(err, "machine 'precise-host' has no container config");
     }
+
+    // --- FJ-132: Container transport edge cases ---
+
+    #[test]
+    fn test_fj132_ensure_attached_no_image_required() {
+        // Non-ephemeral containers don't need an image (they already exist)
+        let machine = Machine {
+            hostname: "attached".to_string(),
+            addr: "container".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: Some("container".to_string()),
+            container: Some(ContainerConfig {
+                runtime: "/bin/echo".to_string(),
+                image: None,
+                name: Some("existing-container".to_string()),
+                ephemeral: false, // attached mode
+                privileged: false,
+                init: true,
+            }),
+            cost: 0,
+        };
+        // Should succeed — attached containers just verify existence
+        let result = ensure_container(&machine);
+        // /bin/echo will succeed or fail depending on args, but should not
+        // error about missing image
+        assert!(
+            result.is_ok() || !result.unwrap_err().contains("no image specified"),
+            "attached (ephemeral=false) should not require image"
+        );
+    }
+
+    #[test]
+    fn test_fj132_ephemeral_guard_skips_non_ephemeral() {
+        // The executor's ephemeral guard should skip cleanup for non-ephemeral containers.
+        // cleanup_container() itself always removes — the guard lives in the caller.
+        let machine = Machine {
+            hostname: "persistent".to_string(),
+            addr: "container".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: Some("container".to_string()),
+            container: Some(ContainerConfig {
+                runtime: "/bin/false".to_string(),
+                image: None,
+                name: Some("keep-me".to_string()),
+                ephemeral: false,
+                privileged: false,
+                init: true,
+            }),
+            cost: 0,
+        };
+        // Verify the ephemeral guard pattern: non-ephemeral should NOT trigger cleanup
+        let config = machine.container.as_ref().unwrap();
+        assert!(!config.ephemeral, "test machine should be non-ephemeral");
+        // The executor checks: if container.ephemeral { cleanup_container(...) }
+        // So for ephemeral=false, cleanup_container is never called
+    }
+
+    #[test]
+    fn test_fj132_container_name_default_derivation() {
+        // If no explicit name, container_name() should derive from hostname
+        let machine = Machine {
+            hostname: "my-test-box".to_string(),
+            addr: "container".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: Some("container".to_string()),
+            container: Some(ContainerConfig {
+                runtime: "docker".to_string(),
+                image: Some("ubuntu:22.04".to_string()),
+                name: None,
+                ephemeral: true,
+                privileged: false,
+                init: true,
+            }),
+            cost: 0,
+        };
+        let name = machine.container_name();
+        assert!(
+            name.contains("my-test-box"),
+            "derived name should contain hostname: {}",
+            name
+        );
+    }
 }

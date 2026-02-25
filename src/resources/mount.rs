@@ -303,8 +303,14 @@ mod tests {
         let r = make_mount_resource();
         let script = state_query_script(&r);
         assert!(script.contains("mountpoint -q"), "should check if mounted");
-        assert!(script.contains("findmnt"), "should use findmnt for mounted info");
-        assert!(script.contains("UNMOUNTED"), "should have unmounted fallback");
+        assert!(
+            script.contains("findmnt"),
+            "should use findmnt for mounted info"
+        );
+        assert!(
+            script.contains("UNMOUNTED"),
+            "should have unmounted fallback"
+        );
     }
 
     #[test]

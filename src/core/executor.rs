@@ -3701,7 +3701,10 @@ policy:
         };
         let results = apply(&cfg).unwrap();
         // No results for non-matching machine
-        assert!(results.is_empty(), "no results expected for non-matching machine filter");
+        assert!(
+            results.is_empty(),
+            "no results expected for non-matching machine filter"
+        );
         assert!(!file_path.exists(), "file should not be created");
     }
 

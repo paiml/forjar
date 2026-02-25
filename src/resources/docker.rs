@@ -345,9 +345,18 @@ mod tests {
         // Empty lists should not produce spurious flags
         let r = make_docker_resource("web", "nginx:latest");
         let script = apply_script(&r);
-        assert!(!script.contains("-p '"), "empty ports should not add -p flags");
-        assert!(!script.contains("-e '"), "empty env should not add -e flags");
-        assert!(!script.contains("-v '"), "empty volumes should not add -v flags");
+        assert!(
+            !script.contains("-p '"),
+            "empty ports should not add -p flags"
+        );
+        assert!(
+            !script.contains("-e '"),
+            "empty env should not add -e flags"
+        );
+        assert!(
+            !script.contains("-v '"),
+            "empty volumes should not add -v flags"
+        );
     }
 
     #[test]
@@ -356,22 +365,34 @@ mod tests {
         let mut r = make_docker_resource("web", "nginx:latest");
         r.restart = None;
         let script = apply_script(&r);
-        assert!(!script.contains("--restart"), "no restart policy = no --restart flag");
+        assert!(
+            !script.contains("--restart"),
+            "no restart policy = no --restart flag"
+        );
     }
 
     #[test]
     fn test_fj132_state_query_contains_inspect() {
         let r = make_docker_resource("web", "nginx:latest");
         let script = state_query_script(&r);
-        assert!(script.contains("docker inspect"), "state_query should use docker inspect");
-        assert!(script.contains("'web'"), "state_query should reference container name");
+        assert!(
+            script.contains("docker inspect"),
+            "state_query should use docker inspect"
+        );
+        assert!(
+            script.contains("'web'"),
+            "state_query should reference container name"
+        );
     }
 
     #[test]
     fn test_fj132_check_script_format() {
         let r = make_docker_resource("web", "nginx:latest");
         let script = check_script(&r);
-        assert!(script.contains("docker inspect"), "check should inspect container");
+        assert!(
+            script.contains("docker inspect"),
+            "check should inspect container"
+        );
         assert!(script.contains("'web'"), "check should reference name");
     }
 

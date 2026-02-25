@@ -718,10 +718,22 @@ mod tests {
         // Resources can have arbitrary string→serde_yaml::Value details
         let dir = tempfile::tempdir().unwrap();
         let mut details = HashMap::new();
-        details.insert("path".to_string(), serde_yaml_ng::Value::String("/etc/app.conf".to_string()));
-        details.insert("content_hash".to_string(), serde_yaml_ng::Value::String("blake3:deadbeef".to_string()));
-        details.insert("owner".to_string(), serde_yaml_ng::Value::String("root".to_string()));
-        details.insert("mode".to_string(), serde_yaml_ng::Value::String("0644".to_string()));
+        details.insert(
+            "path".to_string(),
+            serde_yaml_ng::Value::String("/etc/app.conf".to_string()),
+        );
+        details.insert(
+            "content_hash".to_string(),
+            serde_yaml_ng::Value::String("blake3:deadbeef".to_string()),
+        );
+        details.insert(
+            "owner".to_string(),
+            serde_yaml_ng::Value::String("root".to_string()),
+        );
+        details.insert(
+            "mode".to_string(),
+            serde_yaml_ng::Value::String("0644".to_string()),
+        );
 
         let mut lock = new_lock("m1", "h1");
         lock.resources.insert(

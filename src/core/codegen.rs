@@ -603,10 +603,7 @@ mod tests {
         r.port = Some("443".to_string());
         r.action = Some("allow".to_string());
         let script = state_query_script(&r).unwrap();
-        assert!(
-            script.contains("ufw"),
-            "network state_query should use ufw"
-        );
+        assert!(script.contains("ufw"), "network state_query should use ufw");
     }
 
     #[test]
