@@ -197,6 +197,97 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_fj014_hash_empty_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("empty.txt");
+        std::fs::write(&path, "").unwrap();
+        let h = hash_file(&path).unwrap();
+        assert!(h.starts_with("blake3:"));
+        assert_eq!(h.len(), 71); // prefix + 64 hex
+    }
+
+    #[test]
+    fn test_fj014_hash_empty_string() {
+        let h = hash_string("");
+        assert!(h.starts_with("blake3:"));
+        assert_eq!(h.len(), 71);
+        // Empty string should produce a consistent hash
+        let h2 = hash_string("");
+        assert_eq!(h, h2);
+    }
+
+    #[test]
+    fn test_fj014_hash_empty_directory() {
+        let dir = tempfile::tempdir().unwrap();
+        let h = hash_directory(dir.path()).unwrap();
+        assert!(h.starts_with("blake3:"));
+        // Empty dir should have a consistent hash
+        let h2 = hash_directory(dir.path()).unwrap();
+        assert_eq!(h, h2);
+    }
+
+    #[test]
+    fn test_fj014_hash_file_vs_string_consistency() {
+        // Hashing a file should produce the same result as hashing its content string
+        let dir = tempfile::tempdir().unwrap();
+        let content = "test content for consistency check";
+        let path = dir.path().join("consistency.txt");
+        std::fs::write(&path, content).unwrap();
+        let file_hash = hash_file(&path).unwrap();
+        let string_hash = hash_string(content);
+        assert_eq!(file_hash, string_hash, "file hash should equal string hash of same content");
+    }
+
+    #[test]
+    fn test_fj014_hash_large_content() {
+        // Test streaming hash with content larger than STREAM_BUF_SIZE (64KB)
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("large.bin");
+        let content = "x".repeat(100_000); // 100KB > 64KB buffer
+        std::fs::write(&path, &content).unwrap();
+        let h = hash_file(&path).unwrap();
+        assert!(h.starts_with("blake3:"));
+        // Verify determinism for large files
+        let h2 = hash_file(&path).unwrap();
+        assert_eq!(h, h2);
+    }
+
+    #[test]
+    fn test_fj014_composite_hash_empty() {
+        let h = composite_hash(&[]);
+        assert!(h.starts_with("blake3:"));
+        // Empty composite should be deterministic
+        let h2 = composite_hash(&[]);
+        assert_eq!(h, h2);
+    }
+
+    #[test]
+    fn test_fj014_composite_hash_single() {
+        let h = composite_hash(&["only-one"]);
+        assert!(h.starts_with("blake3:"));
+    }
+
+    #[test]
+    fn test_fj014_hash_directory_content_change() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("f.txt"), "original").unwrap();
+        let h1 = hash_directory(dir.path()).unwrap();
+        std::fs::write(dir.path().join("f.txt"), "modified").unwrap();
+        let h2 = hash_directory(dir.path()).unwrap();
+        assert_ne!(h1, h2, "directory hash should change when file content changes");
+    }
+
+    #[test]
+    fn test_fj014_hash_directory_file_added() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("a.txt"), "aaa").unwrap();
+        let h1 = hash_directory(dir.path()).unwrap();
+        std::fs::write(dir.path().join("b.txt"), "bbb").unwrap();
+        let h2 = hash_directory(dir.path()).unwrap();
+        assert_ne!(h1, h2, "directory hash should change when file is added");
+    }
+
     // ── Falsification tests (BLAKE3 State Contract) ─────────────
 
     proptest! {
