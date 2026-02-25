@@ -1,9 +1,9 @@
 # Forjar — Rust-Native Infrastructure as Code
 
-**Version**: 0.1.0-spec
-**Status**: Draft
+**Version**: 0.6.0-spec
+**Status**: Active
 **Author**: Noah Gift / Pragmatic AI Labs
-**Date**: 2026-02-16
+**Date**: 2026-02-25
 
 ---
 
@@ -79,12 +79,12 @@ forjar.yaml                    (human-authored desired state)
        │
        ▼
 ┌─────────────┐
-│   bashrs    │                transpile Rust AST → purified POSIX shell
+│   bashrs    │                transpile Rust AST → purified POSIX shell (FJ-036: pending)
 └──────┬──────┘
        │
        ▼
 ┌─────────────┐
-│  executor   │                SSH dispatch + renacer trace + BLAKE3 snapshot
+│  executor   │                transport dispatch + BLAKE3 snapshot
 └──────┬──────┘
        │
        ▼
@@ -106,7 +106,7 @@ src/
   lib.rs                Public API
   build.rs              Compile-time contract binding verification
   cli/
-    mod.rs              Subcommand dispatch (plan, apply, drift, status, init, validate)
+    mod.rs              Subcommand dispatch (init, validate, plan, apply, drift, status, history, destroy, import, show, graph, check, diff, fmt, lint)
   core/
     mod.rs              Re-exports
     types.rs            All types (Machine, Resource, State, Lock)
@@ -148,24 +148,23 @@ src/
 
 | Dependency | Source | Justification |
 |-----------|--------|---------------|
-| `blake3` | External | No stack alternative. Pure Rust, no C deps, audited. |
-| `serde` | External | Foundational serialization. No alternative. |
-| `serde_yaml_ng` | External | YAML parsing (`serde_yaml` successor, actively maintained). |
-| `serde_json` | External | JSON serialization for event logs. |
-| `indexmap` | External | Insertion-ordered maps for deterministic lock file output. |
-| `clap` | External | CLI argument parsing with derive macros. |
-| `bashrs` | Stack | Shell purification — core to the provability thesis. |
-| `copia` | Stack | Delta sync for file transfer to remote machines. |
-| `renacer` | Stack | Syscall tracing for provenance. |
-| `pepita` | Stack | Kernel interfaces (Phase 3). |
-| `duende` | Stack | Daemon management. |
-| `repartir` | Stack | Parallel dispatch to multiple machines (Phase 2). |
-| `pmat` | Stack | Compliance gates. |
-| `provable-contracts` | Stack | Formal invariant verification — compile-time contract enforcement. |
-| `provable-contracts-macros` | Stack | `#[contract]` proc macro for function-level binding. |
-| `aprender` | Stack | ML-based drift anomaly detection (Phase 4). |
+| `blake3` | External | No stack alternative. Pure Rust, no C deps, audited. **Integrated.** |
+| `serde` | External | Foundational serialization. No alternative. **Integrated.** |
+| `serde_yaml_ng` | External | YAML parsing (`serde_yaml` successor, actively maintained). **Integrated.** |
+| `serde_json` | External | JSON serialization for event logs. **Integrated.** |
+| `indexmap` | External | Insertion-ordered maps for deterministic lock file output. **Integrated.** |
+| `clap` | External | CLI argument parsing with derive macros. **Integrated.** |
+| `base64` | External | Source file transfer encoding (FJ-035). **Integrated.** |
+| `provable-contracts` | Stack | Formal invariant verification — compile-time contract enforcement. **Integrated.** |
+| `provable-contracts-macros` | Stack | `#[contract]` proc macro for function-level binding. **Integrated.** |
+| `bashrs` | Stack | Shell purification — core to the provability thesis. *Phase 2, pending.* |
+| `pepita` | Stack | Kernel interfaces. *Phase 3, pending.* |
+| `renacer` | Stack | Syscall tracing for provenance. *Phase 4, pending.* |
+| `aprender` | Stack | ML-based drift anomaly detection. *Phase 4, pending.* |
 
 **Banned**: tokio (use std threads + ssh binary), reqwest, hyper, tonic, any cloud SDK.
+
+**Deferred**: copia (delta sync — base64 sufficient for now), repartir (parallel dispatch — std::thread::scope sufficient), duende (daemon management — not needed), pmat (compliance gates — external tool).
 
 ---
 
@@ -327,7 +326,7 @@ machine: <name>
 path: /absolute/path
 state: file | directory | absent | symlink
 content: <inline string>          # for state=file
-source: <local path>              # alternative to content (uses copia delta sync)
+source: <local path>              # alternative to content (base64 transfer via FJ-035)
 target: <symlink target>          # for state=symlink
 owner: <user>
 group: <group>
@@ -1035,19 +1034,24 @@ Commands:
   apply       Converge infrastructure to desired state
   drift       Detect unauthorized changes (tripwire)
   status      Show current state from lock files
-  destroy     Remove all managed resources (Phase 5)
   history     Show apply history from event logs
+  destroy     Remove all managed resources (reverse order)
+  import      Import existing infrastructure from a machine
+  show        Show fully resolved config (recipes, templates, secrets)
   graph       Show resource dependency graph (Mermaid or DOT)
+  check       Run check scripts to verify pre-conditions
+  diff        Compare two state snapshots
+  fmt         Format (normalize) a forjar.yaml config file
+  lint        Lint config for best practices beyond validation
 ```
 
 ### 7.2 Global Options
 
 ```
--f, --file <PATH>       Path to forjar.yaml (default: ./forjar.yaml)
--m, --machine <NAME>    Target specific machine
---state-dir <PATH>      State directory (default: ./state)
--v, --verbose           Enable verbose output
---no-color              Disable colored output (Phase 2)
+-v, --verbose           Enable verbose output (diagnostic info to stderr)
+    --no-color          Disable colored output (also honors NO_COLOR env)
+-h, --help              Print help
+-V, --version           Print version
 ```
 
 ### 7.3 `forjar plan`
@@ -1056,9 +1060,13 @@ Commands:
 forjar plan [OPTIONS]
 
 Options:
+  -f, --file <PATH>      Config file path (default: forjar.yaml)
   -m, --machine <NAME>   Plan for specific machine only
   -r, --resource <ID>    Plan for specific resource only
+  -t, --tag <TAG>        Filter to resources with this tag
+  --state-dir <PATH>     State directory (default: state)
   --json                 Output plan as JSON
+  --output-dir <DIR>     Write generated scripts to directory for auditing
 ```
 
 ### 7.4 `forjar apply`
@@ -1067,13 +1075,17 @@ Options:
 forjar apply [OPTIONS]
 
 Options:
+  -f, --file <PATH>      Config file path (default: forjar.yaml)
   -m, --machine <NAME>   Apply to specific machine only
   -r, --resource <ID>    Apply specific resource only
+  -t, --tag <TAG>        Filter to resources with this tag
   --force                Force re-apply all resources (ignore cache)
   --dry-run              Show what would be executed without running
   --auto-commit          Git commit state after successful apply
   --no-tripwire          Skip provenance tracing (faster, less safe)
   -p, --param KEY=VALUE  Override a parameter
+  --timeout <SECS>       Timeout per transport operation (seconds)
+  --state-dir <PATH>     State directory (default: state)
 ```
 
 ### 7.5 `forjar drift`
@@ -1082,9 +1094,13 @@ Options:
 forjar drift [OPTIONS]
 
 Options:
+  -f, --file <PATH>          Config file path (default: forjar.yaml)
   -m, --machine <NAME>       Check specific machine only
+  --state-dir <PATH>         State directory (default: state)
   --tripwire                 Exit non-zero on any drift (for cron/CI)
   --alert-cmd <CMD>          Run command on drift detection (sets $FORJAR_DRIFT_COUNT)
+  --auto-remediate           Auto-fix drift: force re-apply all drifted resources
+  --dry-run                  List resources that would be checked without connecting
   --json                     Output drift report as JSON
 ```
 
@@ -1094,10 +1110,96 @@ Options:
 forjar history [OPTIONS]
 
 Options:
+  --state-dir <PATH>     State directory (default: state)
   -m, --machine <NAME>   Show history for specific machine
   -n, --limit <N>        Show last N applies (default: 10)
   --json                 Output as JSON
 ```
+
+### 7.7 `forjar check`
+
+```
+forjar check [OPTIONS]
+
+Options:
+  -f, --file <PATH>      Config file path (default: forjar.yaml)
+  -m, --machine <NAME>   Filter to specific machine
+  -r, --resource <ID>    Filter to specific resource
+  --tag <TAG>            Filter to resources with this tag
+  --json                 Output as JSON
+```
+
+Runs check scripts against live machines to verify pre-conditions without applying. Exits non-zero if any check fails.
+
+### 7.8 `forjar show`
+
+```
+forjar show [OPTIONS]
+
+Options:
+  -f, --file <PATH>      Config file path (default: forjar.yaml)
+  -r, --resource <ID>    Show specific resource only
+  --json                 Output as JSON instead of YAML
+```
+
+Shows the fully resolved config (recipes expanded, templates resolved, secrets injected). Useful for debugging.
+
+### 7.9 `forjar import`
+
+```
+forjar import [OPTIONS]
+
+Options:
+  --addr <HOST>          Machine address (IP, hostname, or localhost)
+  --user <USER>          SSH user (default: root)
+  --name <NAME>          Machine name in config (derived from addr if omitted)
+  --output <FILE>        Output file path (default: forjar.yaml)
+  --scan <TYPES>         Comma-separated scan types (default: packages,files,services)
+```
+
+Scans installed packages (dpkg), enabled services (systemctl), and config files (/etc/*.conf). The generated config should be reviewed and customized before applying.
+
+### 7.10 `forjar diff`
+
+```
+forjar diff <FROM> <TO> [OPTIONS]
+
+Options:
+  -m, --machine <NAME>   Filter to specific machine
+  --json                 Output as JSON
+```
+
+Compares two state snapshots to show what changed between applies. Output symbols: `+` added, `-` removed, `~` changed.
+
+### 7.11 `forjar fmt`
+
+```
+forjar fmt [OPTIONS]
+
+Options:
+  -f, --file <PATH>      Config file path (default: forjar.yaml)
+  --check                Check formatting without writing (exit non-zero if unformatted)
+```
+
+Parses YAML, validates, and re-serializes in canonical format. Idempotent.
+
+### 7.12 `forjar lint`
+
+```
+forjar lint [OPTIONS]
+
+Options:
+  -f, --file <PATH>      Config file path (default: forjar.yaml)
+  --json                 Output as JSON
+```
+
+Detects:
+- Unused machines (defined but not referenced)
+- Resources without tags (when config has many resources)
+- Duplicate content across file resources
+- Dependencies on non-existent resources
+- Cross-machine dependencies (resource depends on resource targeting different machines)
+- Package resources with empty package lists
 
 ---
 
@@ -1173,9 +1275,24 @@ Options:
 | FJ-060 | `forjar graph` — Mermaid/DOT visualization | **Done** |
 | FJ-061 | `forjar destroy` — teardown all resources | **Done** |
 | FJ-062 | Secrets management — `{{secrets.KEY}}` templates resolved from `FORJAR_SECRET_*` env vars | **Done** |
-| FJ-063 | MCP integration via paiml-mcp-agent-toolkit |
+| FJ-063 | MCP integration via paiml-mcp-agent-toolkit | |
 | FJ-064 | Cross-architecture support — `arch` field on resources + machines, validation, plan/apply filtering | **Done** |
 | FJ-065 | `forjar import` — scan machine and generate forjar.yaml | **Done** |
+
+### Phase 6: Developer Experience (v0.6)
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-070 | `forjar show` — resolved config viewer (recipes, templates, secrets) | **Done** |
+| FJ-071 | `forjar check` — pre-condition verification without apply | **Done** |
+| FJ-072 | `forjar diff` — compare two state snapshots | **Done** |
+| FJ-073 | `forjar fmt` — canonical YAML normalization with `--check` mode | **Done** |
+| FJ-074 | `forjar lint` — best practice warnings (unused machines, untagged resources, duplicate content, broken deps, cross-machine deps, empty packages) | **Done** |
+| FJ-075 | Resource tags — `tags: [web, critical]` field + `--tag` filtering on plan/apply/check | **Done** |
+| FJ-076 | Transport timeout — `--timeout` flag for per-resource script execution limits | **Done** |
+| FJ-077 | Drift dry-run — `--dry-run` flag to list checks without connecting | **Done** |
+| FJ-078 | Drift auto-remediate — `--auto-remediate` force re-applies drifted resources | **Done** |
+| FJ-079 | Plan output-dir — `--output-dir` writes generated scripts for audit | **Done** |
 
 ---
 
@@ -1324,6 +1441,7 @@ serde_yaml_ng = "0.10"
 serde_json = "1.0"
 clap = { version = "4", features = ["derive"] }
 indexmap = { version = "2.7", features = ["serde"] }
+base64 = "0.22.1"
 provable-contracts-macros = { path = "../provable-contracts/crates/provable-contracts-macros" }
 
 [build-dependencies]
@@ -1334,8 +1452,8 @@ tempfile = "3"
 criterion = { version = "0.5", features = ["html_reports"] }
 proptest = "1"
 
-# Stack crates added as needed per phase
-# bashrs, copia, renacer, repartir, pepita, duende, pmat, aprender
+[features]
+container-test = []
 ```
 
 ---
@@ -1437,7 +1555,7 @@ When bindings are verified, the build emits `CONTRACT_*` environment variables c
 ## 14. Open Questions
 
 1. ~~**Secrets**: Encrypt in git (age/sops-style) or external vault?~~ **Resolved**: Environment variable-based secrets (`FORJAR_SECRET_*` → `{{secrets.KEY}}`). Age encryption deferred to future.
-2. **Rollback**: Should `forjar rollback` replay the previous state, or just show the diff? Terraform doesn't rollback — it just re-applies desired state.
-3. ~~**Import**: Should `forjar import` be able to adopt existing infrastructure?~~ **Resolved**: `forjar import --addr <host>` scans packages, services, and config files, generates forjar.yaml.
-4. **Multi-repo**: Should machines be able to be managed by multiple forjar repos? Leaning no — one repo per fleet, sovereignty principle.
-5. **Systemd in containers**: Service resources require systemd. Should forjar detect when running inside a container without systemd and skip/warn, or require `--privileged` containers with systemd init? Docker's `--init` provides PID 1 reaping but not systemd.
+2. **Rollback**: Should `forjar rollback` replay the previous state, or just show the diff? Terraform doesn't rollback — it just re-applies desired state. **Planned**: FJ-080 — read previous lock files from git history and re-apply via existing pipeline.
+3. ~~**Import**: Should `forjar import` be able to adopt existing infrastructure?~~ **Resolved**: `forjar import --addr <host>` scans packages, services, and config files, generates forjar.yaml (FJ-065).
+4. ~~**Multi-repo**: Should machines be able to be managed by multiple forjar repos?~~ **Resolved**: No — one repo per fleet, sovereignty principle. Enforced by convention; lint warns on cross-machine dependencies.
+5. **Systemd in containers**: Service resources require systemd. Should forjar detect when running inside a container without systemd and skip/warn? **Planned**: FJ-081 — runtime detection of systemd availability, graceful skip/warn for non-systemd containers.
