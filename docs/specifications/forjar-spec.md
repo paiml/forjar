@@ -1374,6 +1374,7 @@ Statistical anomaly detection from event history. Analyzes per-resource metrics:
 | FJ-123 | Resource module edge case tests — service.rs (+4: invalid state no-op, restart_on+disabled, no name default, multiple restart_on), mount.rs (+4: all defaults, unknown state, absent no path, state query no path), cron.rs (+4: no name default, no owner default, absent ignores schedule, cmd tag idempotency), network.rs (+4: absent with from_addr, all defaults, no comment without name, ufw force enable always). 16 tests, 700→716. | **Done** |
 | FJ-124 | User/docker edge case tests — user.rs (+4: no name default, system_user+home, ssh chown with primary group, modify branch carries all fields), docker.rs (+4: no name default, no image default, multiple ports/env/volumes, absent no pull/run). 8 tests, 716→724. | **Done** |
 | FJ-125 | Expand State Management chapter (Ch. 8, 243→392 lines) — composite hashing, hash stability, hashing by resource type, state inspection commands, state comparison, selective force apply, monorepo patterns, state cleanup. Expand Testing & CI chapter (Ch. 10, 284→462 lines) — script auditing, template review, canary deploys, idempotency testing, drift testing, GitOps workflow, post-merge CI job. | **Done** |
+| FJ-126 | Extend template resolution to all resource string fields — command, schedule, port, protocol, action, from_addr, image, shell, home, restart, version, plus list fields (ports, environment, volumes, packages). 7 tests, full_stack_deploy example. 724→731. | **Done** |
 
 ---
 
