@@ -2108,4 +2108,108 @@ resources:
         );
         assert_eq!(p.changes[0].resource_id, "old-config");
     }
+
+    #[test]
+    fn test_plan_absent_resource_no_lock() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 127.0.0.1
+resources:
+  gone-file:
+    type: file
+    machine: m1
+    path: /tmp/gone.txt
+    state: absent
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let order = vec!["gone-file".to_string()];
+        let locks = HashMap::new();
+
+        let p = plan(&config, &order, &locks, None);
+
+        assert_eq!(p.unchanged, 1, "absent resource with no lock should be NoOp (counted as unchanged)");
+        assert_eq!(p.to_destroy, 0, "nothing to destroy when no lock exists");
+        assert_eq!(p.changes.len(), 1);
+        assert_eq!(p.changes[0].action, PlanAction::NoOp);
+    }
+
+    #[test]
+    fn test_plan_converged_hash_match() {
+        let config = make_config();
+        let order = vec!["conf".to_string()];
+
+        let resource = &config.resources["conf"];
+        let desired_hash = hash_desired_state(resource);
+
+        let mut resources = indexmap::IndexMap::new();
+        resources.insert(
+            "conf".to_string(),
+            ResourceLock {
+                resource_type: ResourceType::File,
+                status: ResourceStatus::Converged,
+                applied_at: None,
+                duration_seconds: None,
+                hash: desired_hash,
+                details: HashMap::new(),
+            },
+        );
+        let lock = StateLock {
+            schema: "1.0".to_string(),
+            machine: "m1".to_string(),
+            hostname: "m1".to_string(),
+            generated_at: "2026-01-01T00:00:00Z".to_string(),
+            generator: "forjar".to_string(),
+            blake3_version: "1.8".to_string(),
+            resources,
+        };
+        let mut locks = HashMap::new();
+        locks.insert("m1".to_string(), lock);
+
+        let p = plan(&config, &order, &locks, None);
+
+        assert_eq!(p.unchanged, 1, "converged resource with matching hash should be NoOp");
+        assert_eq!(p.to_update, 0);
+        assert_eq!(p.to_create, 0);
+        assert_eq!(p.changes[0].action, PlanAction::NoOp);
+    }
+
+    #[test]
+    fn test_plan_converged_hash_mismatch() {
+        let config = make_config();
+        let order = vec!["conf".to_string()];
+
+        let mut resources = indexmap::IndexMap::new();
+        resources.insert(
+            "conf".to_string(),
+            ResourceLock {
+                resource_type: ResourceType::File,
+                status: ResourceStatus::Converged,
+                applied_at: None,
+                duration_seconds: None,
+                hash: "blake3:old_stale_hash_that_does_not_match".to_string(),
+                details: HashMap::new(),
+            },
+        );
+        let lock = StateLock {
+            schema: "1.0".to_string(),
+            machine: "m1".to_string(),
+            hostname: "m1".to_string(),
+            generated_at: "2026-01-01T00:00:00Z".to_string(),
+            generator: "forjar".to_string(),
+            blake3_version: "1.8".to_string(),
+            resources,
+        };
+        let mut locks = HashMap::new();
+        locks.insert("m1".to_string(), lock);
+
+        let p = plan(&config, &order, &locks, None);
+
+        assert_eq!(p.to_update, 1, "converged resource with mismatched hash should be Update");
+        assert_eq!(p.unchanged, 0);
+        assert_eq!(p.changes[0].action, PlanAction::Update);
+    }
 }

@@ -6678,4 +6678,105 @@ resources:
         assert_eq!(machines[0], "docker-box");
         assert_eq!(machines[1], "ssh-box");
     }
+
+    #[test]
+    fn test_fj017_cmd_lint_clean_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config,
+            r#"
+version: "1.0"
+name: test
+machines:
+  local:
+    hostname: localhost
+    addr: 127.0.0.1
+resources:
+  my-config:
+    type: file
+    machine: local
+    path: /etc/app.conf
+    content: "key=value"
+"#,
+        )
+        .unwrap();
+        let result = cmd_lint(&config, false);
+        assert!(result.is_ok(), "cmd_lint should succeed on a valid config with file resource");
+    }
+
+    #[test]
+    fn test_fj017_cmd_graph_dot_format() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config,
+            r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  pkg:
+    type: package
+    machine: m1
+    provider: apt
+    packages: [curl]
+  conf:
+    type: file
+    machine: m1
+    path: /etc/test.conf
+    content: "hello"
+    depends_on: [pkg]
+"#,
+        )
+        .unwrap();
+        let result = cmd_graph(&config, "dot");
+        assert!(result.is_ok(), "cmd_graph with dot format should succeed");
+    }
+
+    #[test]
+    fn test_fj017_cmd_status_empty_dir() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = dir.path().join("state");
+        std::fs::create_dir_all(&state).unwrap();
+        let result = cmd_status(&state, None);
+        assert!(result.is_ok(), "cmd_status on empty state dir should succeed");
+    }
+
+    #[test]
+    fn test_fj017_cmd_validate_missing_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let missing = dir.path().join("nonexistent.yaml");
+        let result = cmd_validate(&missing);
+        assert!(result.is_err(), "cmd_validate should fail for a nonexistent file");
+    }
+
+    #[test]
+    fn test_fj017_cmd_fmt_check_valid() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join("forjar.yaml");
+        // Write a config, parse it, re-serialize to canonical form, then write that
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  pkg:
+    type: package
+    machine: m1
+    provider: apt
+    packages: [curl]
+"#;
+        let parsed: types::ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let formatted = serde_yaml_ng::to_string(&parsed).unwrap();
+        std::fs::write(&config_path, &formatted).unwrap();
+        let result = cmd_fmt(&config_path, true);
+        assert!(result.is_ok(), "cmd_fmt check should succeed on already-formatted config");
+    }
 }

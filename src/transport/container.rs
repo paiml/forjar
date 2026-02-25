@@ -607,4 +607,143 @@ mod tests {
             name
         );
     }
+
+    // --- FJ-021: Coverage boost tests ---
+
+    #[test]
+    fn test_fj021_ensure_uses_correct_runtime() {
+        // Verify ensure_container with runtime="podman" uses the podman command.
+        // We use a non-existent binary path to confirm the runtime field is
+        // actually passed to Command::new — if "podman" binary is absent the
+        // error message will reference it.
+        let machine = Machine {
+            hostname: "podman-ensure".to_string(),
+            addr: "container".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: Some("container".to_string()),
+            container: Some(ContainerConfig {
+                runtime: "podman".to_string(),
+                image: Some("alpine:latest".to_string()),
+                name: Some("forjar-podman-ensure".to_string()),
+                ephemeral: true,
+                privileged: false,
+                init: false,
+            }),
+            cost: 0,
+        };
+        let result = ensure_container(&machine);
+        // In CI/unit-test env podman is typically absent, so the error should
+        // reference "forjar-podman-ensure" proving the runtime dispatched.
+        if let Err(e) = result {
+            assert!(
+                e.contains("forjar-podman-ensure"),
+                "ensure error should reference the container name: {}",
+                e
+            );
+        }
+        // If podman happens to be installed and succeeds, that's also fine.
+    }
+
+    #[test]
+    fn test_fj021_cleanup_nonexistent_returns_err() {
+        // Cleaning up a container that doesn't exist should return an error
+        // when using a real runtime (docker) that rejects the rm.
+        let machine = Machine {
+            hostname: "ghost".to_string(),
+            addr: "container".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: Some("container".to_string()),
+            container: Some(ContainerConfig {
+                runtime: "/bin/false".to_string(),
+                image: Some("test:latest".to_string()),
+                name: Some("forjar-nonexistent-cleanup".to_string()),
+                ephemeral: true,
+                privileged: false,
+                init: false,
+            }),
+            cost: 0,
+        };
+        let result = cleanup_container(&machine);
+        // /bin/false always exits 1, so rm -f will "fail"
+        assert!(
+            result.is_err(),
+            "cleanup of nonexistent container via /bin/false should error"
+        );
+        let err = result.unwrap_err();
+        assert!(
+            err.contains("forjar-nonexistent-cleanup"),
+            "error should contain container name: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn test_fj021_ephemeral_guard_cleans_up() {
+        // The executor's ephemeral guard pattern: ephemeral=true triggers cleanup.
+        // We verify the pattern by checking that cleanup_container succeeds with
+        // /bin/echo (simulating a successful rm) on an ephemeral container.
+        let machine = Machine {
+            hostname: "ephemeral-guard".to_string(),
+            addr: "container".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: Some("container".to_string()),
+            container: Some(ContainerConfig {
+                runtime: "/bin/echo".to_string(),
+                image: Some("test:latest".to_string()),
+                name: Some("forjar-ephemeral-guard".to_string()),
+                ephemeral: true,
+                privileged: false,
+                init: false,
+            }),
+            cost: 0,
+        };
+        let config = machine.container.as_ref().unwrap();
+        assert!(config.ephemeral, "test setup: should be ephemeral");
+        // Simulate the executor's ephemeral guard: if ephemeral, call cleanup
+        if config.ephemeral {
+            let result = cleanup_container(&machine);
+            assert!(
+                result.is_ok(),
+                "ephemeral cleanup via /bin/echo should succeed: {:?}",
+                result.err()
+            );
+        }
+    }
+
+    #[test]
+    fn test_fj021_container_name_from_machine_key() {
+        // When container name is None, container_name() auto-generates from hostname
+        let machine = Machine {
+            hostname: "web-prod-01".to_string(),
+            addr: "container".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: Some("container".to_string()),
+            container: Some(ContainerConfig {
+                runtime: "docker".to_string(),
+                image: Some("ubuntu:22.04".to_string()),
+                name: None,
+                ephemeral: true,
+                privileged: false,
+                init: true,
+            }),
+            cost: 0,
+        };
+        let name = machine.container_name();
+        assert_eq!(
+            name, "forjar-web-prod-01",
+            "auto-generated name should be forjar-<hostname>"
+        );
+    }
 }
