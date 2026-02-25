@@ -1076,6 +1076,8 @@ MCP clients to discover tool parameters without documentation.
 | `forjar_graph` | Generate dependency graph | `{ path, format? }` |
 | `forjar_show` | Show resolved config | `{ path, resource? }` |
 | `forjar_status` | Show state from locks | `{ state_dir?, machine? }` |
+| `forjar_trace` | View trace provenance data | `{ state_dir?, machine? }` |
+| `forjar_anomaly` | ML-inspired anomaly detection | `{ state_dir?, machine?, min_events? }` |
 
 ### Starting the MCP Server
 

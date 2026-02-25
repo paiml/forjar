@@ -19,19 +19,13 @@ fn main() {
     for _ in 0..50 {
         detector.add_element(0.0);
     }
-    println!(
-        "After 50 stable observations: {:?}",
-        detector.status()
-    );
+    println!("After 50 stable observations: {:?}", detector.status());
 
     // Phase 2: sudden shift (all ones = drift events)
     for _ in 0..50 {
         detector.add_element(1.0);
     }
-    println!(
-        "After 50 drift observations:  {:?}",
-        detector.status()
-    );
+    println!("After 50 drift observations:  {:?}", detector.status());
 
     let stats = detector.stats();
     println!(
@@ -55,10 +49,7 @@ fn main() {
 
     // Score an extreme outlier
     let extreme_score = anomaly::isolation_score(&population, 1000.0);
-    println!(
-        "Score for extreme value (1000): {:.3}\n",
-        extreme_score
-    );
+    println!("Score for extreme value (1000): {:.3}\n", extreme_score);
 
     // ── EWMA Z-Score ────────────────────────────────────────────
     println!("--- EWMA Z-Score ---\n");
@@ -70,10 +61,7 @@ fn main() {
     println!("Z-score for target=1.5 (normal): {:.2}", z_normal);
 
     let z_anomaly = anomaly::ewma_zscore(&history, 20.0, alpha);
-    println!(
-        "Z-score for target=20.0 (anomaly): {:.2}\n",
-        z_anomaly
-    );
+    println!("Z-score for target=20.0 (anomaly): {:.2}\n", z_anomaly);
 
     // ── Bulk Anomaly Detection ──────────────────────────────────
     println!("--- Bulk Anomaly Detection ---\n");
@@ -128,14 +116,8 @@ fn main() {
         relaxed.add_element(0.5);
     }
 
-    println!(
-        "Sensitive (delta=0.0001): {:?}",
-        sensitive.status()
-    );
-    println!(
-        "Relaxed   (delta=0.1):   {:?}",
-        relaxed.status()
-    );
+    println!("Sensitive (delta=0.0001): {:?}", sensitive.status());
+    println!("Relaxed   (delta=0.1):   {:?}", relaxed.status());
 
     println!("\n=== Anomaly Detection Example Complete ===");
 }

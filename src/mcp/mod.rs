@@ -1,7 +1,7 @@
 //! FJ-063: MCP integration via pforge.
 //!
 //! Exposes forjar operations as MCP tools: validate, plan, drift,
-//! lint, graph, show, status. Uses pforge-runtime HandlerRegistry for
+//! lint, graph, show, status, trace, anomaly. Uses pforge-runtime HandlerRegistry for
 //! O(1) dispatch and pforge McpServer for protocol handling.
 
 use pforge_config::{ForgeConfig, ForgeMetadata, OptimizationLevel, ParamSchema, TransportType};
@@ -10,8 +10,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-use crate::core::{codegen, parser, planner, resolver, state};
-use crate::tripwire::drift;
+use crate::core::{codegen, parser, planner, resolver, state, types};
+use crate::tripwire::{anomaly, drift, tracer};
 
 // ── Input / Output types ────────────────────────────────────────────
 
@@ -141,6 +141,60 @@ pub struct MachineStatusOutput {
     pub resource_count: usize,
 }
 
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct TraceInput {
+    /// State directory (default: "state")
+    pub state_dir: Option<String>,
+    /// Filter to specific machine
+    pub machine: Option<String>,
+}
+
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct TraceOutput {
+    pub trace_count: usize,
+    pub spans: Vec<TraceSpanOutput>,
+}
+
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct TraceSpanOutput {
+    pub machine: String,
+    pub trace_id: String,
+    pub span_id: String,
+    pub parent_span_id: Option<String>,
+    pub name: String,
+    pub start_time: String,
+    pub duration_us: u64,
+    pub exit_code: i32,
+    pub resource_type: String,
+    pub action: String,
+    pub content_hash: Option<String>,
+    pub logical_clock: u64,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct AnomalyInput {
+    /// State directory (default: "state")
+    pub state_dir: Option<String>,
+    /// Filter to specific machine
+    pub machine: Option<String>,
+    /// Minimum events to consider a resource (default: 3)
+    pub min_events: Option<usize>,
+}
+
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct AnomalyOutput {
+    pub anomaly_count: usize,
+    pub findings: Vec<AnomalyFindingOutput>,
+}
+
+#[derive(Debug, Serialize, JsonSchema)]
+pub struct AnomalyFindingOutput {
+    pub resource: String,
+    pub score: f64,
+    pub status: String,
+    pub reasons: Vec<String>,
+}
+
 // ── Handlers ────────────────────────────────────────────────────────
 
 pub struct ValidateHandler;
@@ -150,6 +204,8 @@ pub struct LintHandler;
 pub struct GraphHandler;
 pub struct ShowHandler;
 pub struct StatusHandler;
+pub struct TraceHandler;
+pub struct AnomalyHandler;
 
 #[async_trait::async_trait]
 impl Handler for ValidateHandler {
@@ -470,6 +526,164 @@ impl Handler for StatusHandler {
     }
 }
 
+#[async_trait::async_trait]
+impl Handler for TraceHandler {
+    type Input = TraceInput;
+    type Output = TraceOutput;
+    type Error = pforge_runtime::Error;
+
+    async fn handle(&self, input: Self::Input) -> pforge_runtime::Result<Self::Output> {
+        let state_dir = PathBuf::from(input.state_dir.as_deref().unwrap_or("state"));
+
+        let mut all_spans = Vec::new();
+
+        if state_dir.exists() {
+            let entries = std::fs::read_dir(&state_dir)
+                .map_err(|e| pforge_runtime::Error::Handler(e.to_string()))?;
+
+            for entry in entries.flatten() {
+                let name = entry.file_name().to_string_lossy().to_string();
+                if let Some(ref filter) = input.machine {
+                    if &name != filter {
+                        continue;
+                    }
+                }
+                if !entry.path().is_dir() {
+                    continue;
+                }
+
+                if let Ok(spans) = tracer::read_trace(&state_dir, &name) {
+                    for span in spans {
+                        all_spans.push((name.clone(), span));
+                    }
+                }
+            }
+        }
+
+        all_spans.sort_by_key(|(_, span)| span.logical_clock);
+
+        let trace_count = {
+            let ids: std::collections::HashSet<&str> =
+                all_spans.iter().map(|(_, s)| s.trace_id.as_str()).collect();
+            ids.len()
+        };
+
+        let spans = all_spans
+            .into_iter()
+            .map(|(machine, span)| TraceSpanOutput {
+                machine,
+                trace_id: span.trace_id,
+                span_id: span.span_id,
+                parent_span_id: span.parent_span_id,
+                name: span.name,
+                start_time: span.start_time,
+                duration_us: span.duration_us,
+                exit_code: span.exit_code,
+                resource_type: span.resource_type,
+                action: span.action,
+                content_hash: span.content_hash,
+                logical_clock: span.logical_clock,
+            })
+            .collect();
+
+        Ok(TraceOutput {
+            trace_count,
+            spans,
+        })
+    }
+}
+
+#[async_trait::async_trait]
+impl Handler for AnomalyHandler {
+    type Input = AnomalyInput;
+    type Output = AnomalyOutput;
+    type Error = pforge_runtime::Error;
+
+    async fn handle(&self, input: Self::Input) -> pforge_runtime::Result<Self::Output> {
+        let state_dir = PathBuf::from(input.state_dir.as_deref().unwrap_or("state"));
+        let min_events = input.min_events.unwrap_or(3);
+
+        let mut metrics: std::collections::HashMap<String, (u32, u32, u32)> =
+            std::collections::HashMap::new();
+
+        if state_dir.exists() {
+            let entries = std::fs::read_dir(&state_dir)
+                .map_err(|e| pforge_runtime::Error::Handler(e.to_string()))?;
+
+            for entry in entries.flatten() {
+                let name = entry.file_name().to_string_lossy().to_string();
+                if let Some(ref filter) = input.machine {
+                    if &name != filter {
+                        continue;
+                    }
+                }
+                if !entry.path().is_dir() {
+                    continue;
+                }
+
+                let log_path = entry.path().join("events.jsonl");
+                if !log_path.exists() {
+                    continue;
+                }
+
+                let content = std::fs::read_to_string(&log_path)
+                    .map_err(|e| pforge_runtime::Error::Handler(e.to_string()))?;
+
+                for line in content.lines() {
+                    if line.trim().is_empty() {
+                        continue;
+                    }
+                    if let Ok(te) = serde_json::from_str::<types::TimestampedEvent>(line) {
+                        match te.event {
+                            types::ProvenanceEvent::ResourceConverged {
+                                ref resource, ..
+                            } => {
+                                let key = format!("{}:{}", name, resource);
+                                metrics.entry(key).or_insert((0, 0, 0)).0 += 1;
+                            }
+                            types::ProvenanceEvent::ResourceFailed {
+                                ref resource, ..
+                            } => {
+                                let key = format!("{}:{}", name, resource);
+                                metrics.entry(key).or_insert((0, 0, 0)).1 += 1;
+                            }
+                            types::ProvenanceEvent::DriftDetected {
+                                ref resource, ..
+                            } => {
+                                let key = format!("{}:{}", name, resource);
+                                metrics.entry(key).or_insert((0, 0, 0)).2 += 1;
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+            }
+        }
+
+        let metrics_vec: Vec<(String, u32, u32, u32)> = metrics
+            .into_iter()
+            .map(|(k, (c, f, d))| (k, c, f, d))
+            .collect();
+
+        let findings = anomaly::detect_anomalies(&metrics_vec, min_events);
+
+        let output_findings = findings
+            .iter()
+            .map(|f| AnomalyFindingOutput {
+                resource: f.resource.clone(),
+                score: f.score,
+                status: format!("{:?}", f.status),
+                reasons: f.reasons.clone(),
+            })
+            .collect::<Vec<_>>();
+
+        Ok(AnomalyOutput {
+            anomaly_count: output_findings.len(),
+            findings: output_findings,
+        })
+    }
+}
+
 // ── Registry + Server ───────────────────────────────────────────────
 
 /// Build a HandlerRegistry with all forjar MCP tools.
@@ -482,6 +696,8 @@ pub fn build_registry() -> HandlerRegistry {
     registry.register("forjar_graph", GraphHandler);
     registry.register("forjar_show", ShowHandler);
     registry.register("forjar_status", StatusHandler);
+    registry.register("forjar_trace", TraceHandler);
+    registry.register("forjar_anomaly", AnomalyHandler);
     registry
 }
 
@@ -569,8 +785,29 @@ fn build_forge_config() -> ForgeConfig {
                     path: "handlers::status".to_string(),
                     inline: None,
                 },
-                params: empty_params,
+                params: empty_params.clone(),
                 timeout_ms: Some(10000),
+            },
+            ToolDef::Native {
+                name: "forjar_trace".to_string(),
+                description: "View trace provenance data from apply runs".to_string(),
+                handler: HandlerRef {
+                    path: "handlers::trace".to_string(),
+                    inline: None,
+                },
+                params: empty_params.clone(),
+                timeout_ms: Some(30000),
+            },
+            ToolDef::Native {
+                name: "forjar_anomaly".to_string(),
+                description: "Detect anomalous resource behavior using ML-inspired analysis"
+                    .to_string(),
+                handler: HandlerRef {
+                    path: "handlers::anomaly".to_string(),
+                    inline: None,
+                },
+                params: empty_params,
+                timeout_ms: Some(30000),
             },
         ],
         resources: vec![],
@@ -595,6 +832,8 @@ pub async fn serve() -> Result<(), String> {
         reg.register("forjar_graph", GraphHandler);
         reg.register("forjar_show", ShowHandler);
         reg.register("forjar_status", StatusHandler);
+        reg.register("forjar_trace", TraceHandler);
+        reg.register("forjar_anomaly", AnomalyHandler);
     }
 
     server
@@ -610,7 +849,7 @@ mod tests {
     #[test]
     fn test_fj063_build_registry_has_all_tools() {
         let registry = build_registry();
-        assert_eq!(registry.len(), 7);
+        assert_eq!(registry.len(), 9);
         assert!(registry.has_handler("forjar_validate"));
         assert!(registry.has_handler("forjar_plan"));
         assert!(registry.has_handler("forjar_drift"));
@@ -618,6 +857,8 @@ mod tests {
         assert!(registry.has_handler("forjar_graph"));
         assert!(registry.has_handler("forjar_show"));
         assert!(registry.has_handler("forjar_status"));
+        assert!(registry.has_handler("forjar_trace"));
+        assert!(registry.has_handler("forjar_anomaly"));
     }
 
     #[test]
@@ -631,7 +872,7 @@ mod tests {
     fn test_fj063_forge_config_metadata() {
         let config = build_forge_config();
         assert_eq!(config.forge.name, "forjar-mcp");
-        assert_eq!(config.tools.len(), 7);
+        assert_eq!(config.tools.len(), 9);
     }
 
     #[test]
@@ -645,6 +886,8 @@ mod tests {
         assert!(names.contains(&"forjar_graph"));
         assert!(names.contains(&"forjar_show"));
         assert!(names.contains(&"forjar_status"));
+        assert!(names.contains(&"forjar_trace"));
+        assert!(names.contains(&"forjar_anomaly"));
     }
 
     #[tokio::test]
@@ -1080,5 +1323,163 @@ mod tests {
         };
         let result = handler.handle(input).await;
         assert!(result.is_err(), "expected error for invalid config");
+    }
+
+    #[tokio::test]
+    async fn test_fj063_trace_handler_empty() {
+        let dir = tempfile::tempdir().unwrap();
+        let handler = TraceHandler;
+        let input = TraceInput {
+            state_dir: Some(dir.path().to_str().unwrap().to_string()),
+            machine: None,
+        };
+        let output = handler.handle(input).await.unwrap();
+        assert_eq!(output.trace_count, 0);
+        assert!(output.spans.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_fj063_trace_handler_with_data() {
+        let dir = tempfile::tempdir().unwrap();
+        let machine_dir = dir.path().join("web1");
+        std::fs::create_dir_all(&machine_dir).unwrap();
+
+        let mut session = tracer::TraceSession::start("r-test");
+        session.record_span(
+            "nginx-config",
+            "file",
+            "web1",
+            "create",
+            std::time::Duration::from_millis(100),
+            0,
+            Some("blake3:abc"),
+        );
+        session.record_noop("app-config", "file", "web1");
+        tracer::write_trace(dir.path(), "web1", &session).unwrap();
+
+        let handler = TraceHandler;
+        let input = TraceInput {
+            state_dir: Some(dir.path().to_str().unwrap().to_string()),
+            machine: None,
+        };
+        let output = handler.handle(input).await.unwrap();
+        assert_eq!(output.trace_count, 1);
+        assert_eq!(output.spans.len(), 2);
+        assert_eq!(output.spans[0].name, "apply:nginx-config");
+        assert_eq!(output.spans[1].name, "apply:app-config");
+    }
+
+    #[tokio::test]
+    async fn test_fj063_trace_handler_machine_filter() {
+        let dir = tempfile::tempdir().unwrap();
+        for m in &["web1", "web2"] {
+            let machine_dir = dir.path().join(m);
+            std::fs::create_dir_all(&machine_dir).unwrap();
+            let mut session = tracer::TraceSession::start(&format!("r-{}", m));
+            session.record_noop("pkg", "package", m);
+            tracer::write_trace(dir.path(), m, &session).unwrap();
+        }
+
+        let handler = TraceHandler;
+        let input = TraceInput {
+            state_dir: Some(dir.path().to_str().unwrap().to_string()),
+            machine: Some("web1".to_string()),
+        };
+        let output = handler.handle(input).await.unwrap();
+        assert_eq!(output.spans.len(), 1);
+        assert_eq!(output.spans[0].machine, "web1");
+    }
+
+    #[tokio::test]
+    async fn test_fj063_trace_handler_nonexistent_dir() {
+        let handler = TraceHandler;
+        let input = TraceInput {
+            state_dir: Some("/nonexistent/trace/dir".to_string()),
+            machine: None,
+        };
+        let output = handler.handle(input).await.unwrap();
+        assert_eq!(output.trace_count, 0);
+        assert!(output.spans.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_fj063_anomaly_handler_empty() {
+        let dir = tempfile::tempdir().unwrap();
+        let handler = AnomalyHandler;
+        let input = AnomalyInput {
+            state_dir: Some(dir.path().to_str().unwrap().to_string()),
+            machine: None,
+            min_events: None,
+        };
+        let output = handler.handle(input).await.unwrap();
+        assert_eq!(output.anomaly_count, 0);
+        assert!(output.findings.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_fj063_anomaly_handler_nonexistent_dir() {
+        let handler = AnomalyHandler;
+        let input = AnomalyInput {
+            state_dir: Some("/nonexistent/anomaly/dir".to_string()),
+            machine: None,
+            min_events: None,
+        };
+        let output = handler.handle(input).await.unwrap();
+        assert_eq!(output.anomaly_count, 0);
+    }
+
+    #[tokio::test]
+    async fn test_fj063_anomaly_handler_with_events() {
+        let dir = tempfile::tempdir().unwrap();
+        let machine_dir = dir.path().join("local");
+        std::fs::create_dir_all(&machine_dir).unwrap();
+
+        // Write event log with anomalous data
+        let mut events = String::new();
+        // Normal resources: 5 converges each
+        for resource in &["pkg-a", "pkg-b", "pkg-c", "pkg-d", "pkg-e"] {
+            for _ in 0..5 {
+                let event = serde_json::json!({
+                    "ts": "2026-02-25T12:00:00Z",
+                    "event": "resource_converged",
+                    "machine": "local",
+                    "resource": resource,
+                    "duration_seconds": 0.1,
+                    "hash": "abc123"
+                });
+                events.push_str(&serde_json::to_string(&event).unwrap());
+                events.push('\n');
+            }
+        }
+        // Anomalous: 500 converges (high churn)
+        for _ in 0..500 {
+            let event = serde_json::json!({
+                "ts": "2026-02-25T12:00:00Z",
+                "event": "resource_converged",
+                "machine": "local",
+                "resource": "churn-pkg",
+                "duration_seconds": 0.1,
+                "hash": "abc123"
+            });
+            events.push_str(&serde_json::to_string(&event).unwrap());
+            events.push('\n');
+        }
+        std::fs::write(machine_dir.join("events.jsonl"), events).unwrap();
+
+        let handler = AnomalyHandler;
+        let input = AnomalyInput {
+            state_dir: Some(dir.path().to_str().unwrap().to_string()),
+            machine: None,
+            min_events: Some(3),
+        };
+        let output = handler.handle(input).await.unwrap();
+        assert!(output.anomaly_count > 0, "should detect high churn anomaly");
+        assert!(
+            output
+                .findings
+                .iter()
+                .any(|f| f.resource.contains("churn-pkg")),
+            "churn-pkg should be flagged"
+        );
     }
 }

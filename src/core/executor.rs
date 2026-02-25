@@ -4385,10 +4385,7 @@ resources:
 
         // Parse the trace spans
         let spans = tracer::read_trace(dir.path(), "localhost").unwrap();
-        assert!(
-            !spans.is_empty(),
-            "trace should contain at least one span"
-        );
+        assert!(!spans.is_empty(), "trace should contain at least one span");
 
         // All spans should have the same trace ID
         let trace_id = &spans[0].trace_id;

@@ -1318,7 +1318,7 @@ Statistical anomaly detection from event history. Analyzes per-resource metrics:
 | FJ-060 | `forjar graph` — Mermaid/DOT visualization | **Done** |
 | FJ-061 | `forjar destroy` — teardown all resources | **Done** |
 | FJ-062 | Secrets management — `{{secrets.KEY}}` templates resolved from `FORJAR_SECRET_*` env vars | **Done** |
-| FJ-063 | MCP integration via pforge — 7 tool handlers (validate, plan, drift, lint, graph, show, status), `forjar mcp` CLI, pforge-runtime HandlerRegistry + McpServer, 21 tests | **Done** |
+| FJ-063 | MCP integration via pforge — 9 tool handlers (validate, plan, drift, lint, graph, show, status, trace, anomaly), `forjar mcp` CLI, pforge-runtime HandlerRegistry + McpServer, 33 tests | **Done** |
 | FJ-064 | Cross-architecture support — `arch` field on resources + machines, validation, plan/apply filtering | **Done** |
 | FJ-065 | `forjar import` — scan machine and generate forjar.yaml | **Done** |
 
@@ -1394,6 +1394,7 @@ Statistical anomaly detection from event history. Analyzes per-resource metrics:
 | FJ-133 | Wire FJ-050 tracer into executor — TraceSession in apply_machine(), record_span per resource, write_trace to state_dir, gated by tripwire policy. 3 integration tests (trace written, trace not written, span fields). Book: trace provenance + anomaly architecture sections. Example: `trace_provenance.rs`. | **Done** |
 | FJ-134 | Wire FJ-051 anomaly module into cmd_anomaly CLI — replace inline z-score with detect_anomalies(), isolation_score(), DriftStatus. 1 integration test. Book: forjar migrate CLI docs. Example: `anomaly_detection.rs`. All 19 examples pass, 10 dogfood configs validate. 1297→1301 tests. | **Done** |
 | FJ-135 | `forjar trace` CLI command — view trace provenance data (text + JSON), machine filtering, grouped by trace_id, sorted by logical clock. Removes dead `_total_mean` variable. 6 tests, book updates. 1301→1307 tests. | **Done** |
+| FJ-136 | MCP trace+anomaly handlers — `forjar_trace` and `forjar_anomaly` MCP tool handlers, TraceHandler reads trace.jsonl + AnomalyHandler reads events.jsonl with ML detection, 7 new tests, book updates. 1307→1314 tests. | **Done** |
 
 ---
 
