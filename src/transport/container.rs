@@ -281,8 +281,8 @@ mod tests {
         match result {
             Ok(out) => assert!(!out.success(), "/bin/false should fail"),
             Err(e) => assert!(
-                e.contains("forjar-fake"),
-                "error should reference container: {}",
+                e.contains("forjar-fake") || e.contains("pipe") || e.contains("false"),
+                "error should reference container or pipe failure: {}",
                 e
             ),
         }

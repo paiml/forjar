@@ -2040,11 +2040,7 @@ resources:
         let filtered_order = vec!["conf".to_string()];
         let p = plan(&config, &filtered_order, &locks, None);
 
-        assert_eq!(
-            p.changes.len(),
-            1,
-            "only 1 resource should appear in plan"
-        );
+        assert_eq!(p.changes.len(), 1, "only 1 resource should appear in plan");
         assert_eq!(
             p.changes[0].resource_id, "conf",
             "the planned resource should be 'conf'"

@@ -541,20 +541,14 @@ mod tests {
         };
         let h1 = hash_desired_state(&r1);
         let h2 = hash_desired_state(&r2);
-        assert_ne!(
-            h1, h2,
-            "hash must differ when resource content changes"
-        );
+        assert_ne!(h1, h2, "hash must differ when resource content changes");
     }
 
     #[test]
     fn test_fj036_hash_directory_empty() {
         let dir = tempfile::tempdir().unwrap();
         let h = hash_directory(dir.path()).unwrap();
-        assert!(
-            !h.is_empty(),
-            "hash of empty directory must be non-empty"
-        );
+        assert!(!h.is_empty(), "hash of empty directory must be non-empty");
         assert!(h.starts_with("blake3:"));
         assert_eq!(h.len(), 71); // "blake3:" + 64 hex chars
     }
@@ -564,7 +558,10 @@ mod tests {
         let input = "forjar determinism check";
         let h1 = hash_string(input);
         let h2 = hash_string(input);
-        assert_eq!(h1, h2, "hash_string must produce identical output for same input");
+        assert_eq!(
+            h1, h2,
+            "hash_string must produce identical output for same input"
+        );
         assert!(h1.starts_with("blake3:"));
     }
 }

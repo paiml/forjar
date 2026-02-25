@@ -2616,4 +2616,108 @@ mod tests {
         let findings = detect_drift(&lock);
         assert!(findings.is_empty(), "matching hash should produce no drift");
     }
+
+    // ── FJ-036: Drift detection tests ─────────────────────────────
+
+    #[test]
+    fn test_fj036_drift_with_changed_hash() {
+        // Lock stores hash A for a file, but the file now has different content (hash B).
+        // Drift must be detected.
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("config.conf");
+        std::fs::write(&file, "version=1").unwrap();
+        let hash_a = hasher::hash_file(&file).unwrap();
+
+        // Modify the file so it now has hash B
+        std::fs::write(&file, "version=2").unwrap();
+        let hash_b = hasher::hash_file(&file).unwrap();
+        assert_ne!(hash_a, hash_b, "precondition: hashes must differ");
+
+        let mut resources = indexmap::IndexMap::new();
+        let mut details = std::collections::HashMap::new();
+        details.insert(
+            "path".to_string(),
+            serde_yaml_ng::Value::String(file.to_str().unwrap().to_string()),
+        );
+        details.insert(
+            "content_hash".to_string(),
+            serde_yaml_ng::Value::String(hash_a.clone()),
+        );
+        resources.insert(
+            "config-file".to_string(),
+            crate::core::types::ResourceLock {
+                resource_type: ResourceType::File,
+                status: ResourceStatus::Converged,
+                applied_at: Some("2026-02-25T00:00:00Z".to_string()),
+                duration_seconds: Some(0.05),
+                hash: "blake3:desired".to_string(),
+                details,
+            },
+        );
+
+        let lock = StateLock {
+            schema: "1.0".to_string(),
+            machine: "test".to_string(),
+            hostname: "test-box".to_string(),
+            generated_at: "2026-02-25T00:00:00Z".to_string(),
+            generator: "forjar 0.1.0".to_string(),
+            blake3_version: "1.8".to_string(),
+            resources,
+        };
+
+        let findings = detect_drift(&lock);
+        assert_eq!(findings.len(), 1, "drift must be detected when hash changed");
+        assert_eq!(findings[0].resource_id, "config-file");
+        assert_eq!(findings[0].expected_hash, hash_a);
+        assert_eq!(findings[0].actual_hash, hash_b);
+        assert!(
+            findings[0].detail.contains("content changed"),
+            "detail should mention content changed"
+        );
+    }
+
+    #[test]
+    fn test_fj036_drift_absent_resource_no_drift() {
+        // A file resource that was converged as absent has no content_hash in details.
+        // The file does not exist on disk. Drift detection should skip it (no drift).
+        let mut resources = indexmap::IndexMap::new();
+        let mut details = std::collections::HashMap::new();
+        // Absent resources store state and path but no content_hash
+        details.insert(
+            "path".to_string(),
+            serde_yaml_ng::Value::String("/etc/removed/old.conf".to_string()),
+        );
+        details.insert(
+            "state".to_string(),
+            serde_yaml_ng::Value::String("absent".to_string()),
+        );
+        // No content_hash key — absent resources have nothing to hash
+        resources.insert(
+            "removed-config".to_string(),
+            crate::core::types::ResourceLock {
+                resource_type: ResourceType::File,
+                status: ResourceStatus::Converged,
+                applied_at: Some("2026-02-25T00:00:00Z".to_string()),
+                duration_seconds: Some(0.01),
+                hash: "blake3:desired".to_string(),
+                details,
+            },
+        );
+
+        let lock = StateLock {
+            schema: "1.0".to_string(),
+            machine: "test".to_string(),
+            hostname: "test-box".to_string(),
+            generated_at: "2026-02-25T00:00:00Z".to_string(),
+            generator: "forjar 0.1.0".to_string(),
+            blake3_version: "1.8".to_string(),
+            resources,
+        };
+
+        let findings = detect_drift(&lock);
+        assert!(
+            findings.is_empty(),
+            "absent resource with no content_hash and no file on disk should not report drift"
+        );
+    }
 }

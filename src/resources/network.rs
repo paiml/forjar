@@ -372,10 +372,7 @@ mod tests {
             script.contains("from '10.0.1.0/24'"),
             "from_addr must appear in ufw rule"
         );
-        assert!(
-            script.contains("ufw allow"),
-            "action must be allow"
-        );
+        assert!(script.contains("ufw allow"), "action must be allow");
         assert!(
             script.contains("port '5432'"),
             "port must be present in rule"

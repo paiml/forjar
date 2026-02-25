@@ -364,4 +364,64 @@ mod tests {
         );
         assert!(script.contains("systemctl stop"));
     }
+
+    // ── FJ-036: Additional service tests ─────────────────────────────
+
+    #[test]
+    fn test_fj036_service_apply_enable_true() {
+        // enabled=true must generate `systemctl enable`
+        let mut r = make_service_resource("caddy", "running");
+        r.enabled = Some(true);
+        let script = apply_script(&r);
+        assert!(
+            script.contains("systemctl enable 'caddy'"),
+            "enabled=true must emit systemctl enable"
+        );
+        assert!(
+            !script.contains("systemctl disable"),
+            "enabled=true must not emit disable"
+        );
+    }
+
+    #[test]
+    fn test_fj036_service_apply_stopped() {
+        // state="stopped" must generate `systemctl stop`
+        let r = make_service_resource("redis", "stopped");
+        let script = apply_script(&r);
+        assert!(
+            script.contains("systemctl stop 'redis'"),
+            "state=stopped must emit systemctl stop with service name"
+        );
+        assert!(
+            !script.contains("systemctl start"),
+            "state=stopped must not emit start"
+        );
+    }
+
+    #[test]
+    fn test_fj036_service_apply_restart_on() {
+        // restart_on deps should cause reload-or-restart to appear
+        let mut r = make_service_resource("myapp", "running");
+        r.restart_on = vec!["etc-myapp-conf".to_string(), "myapp-env".to_string()];
+        let script = apply_script(&r);
+        assert!(
+            script.contains("systemctl reload-or-restart 'myapp'"),
+            "restart_on with deps must trigger reload-or-restart"
+        );
+    }
+
+    #[test]
+    fn test_fj036_service_state_query_active() {
+        // state_query must check is-active for the named service
+        let r = make_service_resource("postgresql", "running");
+        let script = state_query_script(&r);
+        assert!(
+            script.contains("systemctl is-active 'postgresql'"),
+            "state_query must check is-active for the service"
+        );
+        assert!(
+            script.contains("active="),
+            "state_query must capture active state into variable"
+        );
+    }
 }

@@ -2955,7 +2955,9 @@ resources:
         let config = parse_config(yaml).unwrap();
         let errors = validate_config(&config);
         assert!(
-            errors.iter().any(|e| e.message.contains("depends on itself")),
+            errors
+                .iter()
+                .any(|e| e.message.contains("depends on itself")),
             "resource depending on itself should produce error, got: {:?}",
             errors.iter().map(|e| &e.message).collect::<Vec<_>>()
         );

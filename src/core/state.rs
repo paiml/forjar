@@ -801,18 +801,9 @@ mod tests {
         assert_eq!(loaded.schema, "1.0");
         assert_eq!(loaded.blake3_version, "1.8");
         assert_eq!(loaded.resources.len(), lock.resources.len());
-        assert_eq!(
-            loaded.resources["extra-svc"].status,
-            ResourceStatus::Failed
-        );
-        assert_eq!(
-            loaded.resources["extra-svc"].duration_seconds,
-            Some(2.75)
-        );
-        assert_eq!(
-            loaded.resources["extra-svc"].hash,
-            "blake3:roundtrip"
-        );
+        assert_eq!(loaded.resources["extra-svc"].status, ResourceStatus::Failed);
+        assert_eq!(loaded.resources["extra-svc"].duration_seconds, Some(2.75));
+        assert_eq!(loaded.resources["extra-svc"].hash, "blake3:roundtrip");
     }
 
     #[test]

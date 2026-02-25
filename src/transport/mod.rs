@@ -605,11 +605,17 @@ mod tests {
 
         // Non-local addresses must return false
         assert!(!is_local_addr("0.0.0.0"), "0.0.0.0 is not treated as local");
-        assert!(!is_local_addr("192.168.1.1"), "private IP must not be local");
+        assert!(
+            !is_local_addr("192.168.1.1"),
+            "private IP must not be local"
+        );
         assert!(!is_local_addr("10.0.0.1"), "10.x must not be local");
         assert!(!is_local_addr("8.8.8.8"), "public IP must not be local");
         assert!(!is_local_addr("google.com"), "domain must not be local");
         assert!(!is_local_addr(""), "empty string must not be local");
-        assert!(!is_local_addr("127.0.0.2"), "127.0.0.2 is not explicitly local");
+        assert!(
+            !is_local_addr("127.0.0.2"),
+            "127.0.0.2 is not explicitly local"
+        );
     }
 }

@@ -467,7 +467,10 @@ mod tests {
             "/host/logs:/var/log/app".to_string(),
         ];
         let script = apply_script(&r);
-        assert!(script.contains("-p '8080:80'"), "first port mapping missing");
+        assert!(
+            script.contains("-p '8080:80'"),
+            "first port mapping missing"
+        );
         assert!(
             script.contains("-p '8443:443'"),
             "second port mapping missing"

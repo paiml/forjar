@@ -368,7 +368,10 @@ dpkg -l curl 2>/dev/null | grep -q '^ii'
         let script = codegen::check_script(&r).unwrap();
         // Mount check script uses mountpoint — should purify cleanly
         if let Ok(purified) = purify_script(&script) {
-            assert!(!purified.is_empty(), "purified mount check should be non-empty");
+            assert!(
+                !purified.is_empty(),
+                "purified mount check should be non-empty"
+            );
         }
     }
 

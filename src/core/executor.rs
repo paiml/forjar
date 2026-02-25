@@ -3949,10 +3949,7 @@ policy:
 
         // No event log should exist
         let events_path = dir.path().join("local").join("events.jsonl");
-        assert!(
-            !events_path.exists(),
-            "dry_run must not write event logs"
-        );
+        assert!(!events_path.exists(), "dry_run must not write event logs");
     }
 
     #[test]

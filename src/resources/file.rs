@@ -534,4 +534,96 @@ mod tests {
             "missing source file should generate error in script"
         );
     }
+
+    // ── FJ-036: Additional file resource tests ───────────────────────
+
+    #[test]
+    fn test_fj036_file_apply_directory() {
+        // state="directory" must generate mkdir -p
+        let mut r = make_file_resource("/var/lib/myapp/data", None);
+        r.state = Some("directory".to_string());
+        r.owner = Some("app".to_string());
+        r.group = Some("app".to_string());
+        r.mode = Some("0750".to_string());
+        let script = apply_script(&r);
+        assert!(
+            script.contains("mkdir -p '/var/lib/myapp/data'"),
+            "directory state must emit mkdir -p"
+        );
+        assert!(
+            script.contains("chown 'app:app' '/var/lib/myapp/data'"),
+            "directory with owner:group must emit chown"
+        );
+        assert!(
+            script.contains("chmod '0750' '/var/lib/myapp/data'"),
+            "directory with mode must emit chmod"
+        );
+    }
+
+    #[test]
+    fn test_fj036_file_apply_absent() {
+        // state="absent" must generate rm -rf
+        let mut r = make_file_resource("/etc/legacy/old.conf", None);
+        r.state = Some("absent".to_string());
+        let script = apply_script(&r);
+        assert!(
+            script.contains("rm -rf '/etc/legacy/old.conf'"),
+            "absent state must emit rm -rf with the path"
+        );
+        // absent should not emit chown or chmod
+        assert!(
+            !script.contains("chown"),
+            "absent should not emit chown"
+        );
+        assert!(
+            !script.contains("chmod"),
+            "absent should not emit chmod"
+        );
+    }
+
+    #[test]
+    fn test_fj036_file_apply_symlink() {
+        // state="symlink" must generate ln -sfn with target
+        let mut r = make_file_resource("/etc/nginx/sites-enabled/mysite", None);
+        r.state = Some("symlink".to_string());
+        r.target = Some("/etc/nginx/sites-available/mysite".to_string());
+        let script = apply_script(&r);
+        assert!(
+            script.contains("ln -sfn '/etc/nginx/sites-available/mysite' '/etc/nginx/sites-enabled/mysite'"),
+            "symlink state must emit ln -sfn with target then path"
+        );
+    }
+
+    #[test]
+    fn test_fj036_file_check_directory() {
+        // check for directory must use test -d
+        let mut r = make_file_resource("/var/data", None);
+        r.state = Some("directory".to_string());
+        let script = check_script(&r);
+        assert!(
+            script.contains("test -d '/var/data'"),
+            "directory check must use test -d"
+        );
+        assert!(
+            script.contains("exists:directory"),
+            "directory check must report exists:directory on success"
+        );
+        assert!(
+            script.contains("missing:directory"),
+            "directory check must report missing:directory on failure"
+        );
+    }
+
+    #[test]
+    fn test_fj036_file_apply_chown_group() {
+        // chown must include owner:group when both are set
+        let mut r = make_file_resource("/etc/app/config.yaml", Some("port: 8080"));
+        r.owner = Some("deploy".to_string());
+        r.group = Some("www-data".to_string());
+        let script = apply_script(&r);
+        assert!(
+            script.contains("chown 'deploy:www-data' '/etc/app/config.yaml'"),
+            "chown must include owner:group format when both are provided"
+        );
+    }
 }
