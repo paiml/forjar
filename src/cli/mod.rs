@@ -576,6 +576,44 @@ fn cmd_lint(file: &Path, json: bool) -> Result<(), String> {
         }
     }
 
+    // 7. bashrs script lint (FJ-036) — lint generated scripts for shell safety
+    let mut script_errors = 0usize;
+    let mut script_warnings_count = 0usize;
+    for (id, resource) in &config.resources {
+        for (kind, result) in [
+            ("check", codegen::check_script(resource)),
+            ("apply", codegen::apply_script(resource)),
+            ("state_query", codegen::state_query_script(resource)),
+        ] {
+            if let Ok(script) = result {
+                let lint_result = crate::core::purifier::lint_script(&script);
+                for d in &lint_result.diagnostics {
+                    use bashrs::linter::Severity;
+                    match d.severity {
+                        Severity::Error => {
+                            script_errors += 1;
+                            warnings.push(format!(
+                                "bashrs: {}/{} [{}] {}",
+                                id, kind, d.code, d.message
+                            ));
+                        }
+                        _ => {
+                            script_warnings_count += 1;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if script_errors > 0 || script_warnings_count > 0 {
+        warnings.push(format!(
+            "bashrs script lint: {} error(s), {} warning(s) across {} resources",
+            script_errors,
+            script_warnings_count,
+            config.resources.len()
+        ));
+    }
+
     // Output
     if json {
         let report = serde_json::json!({
