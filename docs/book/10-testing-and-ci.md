@@ -267,6 +267,178 @@ forjar history -n 20
 forjar history --json | jq '.events[] | {ts: .ts, event: .event}'
 ```
 
+## Script Auditing
+
+Before running generated scripts on production machines, review them:
+
+```bash
+# Export all scripts to a directory
+forjar plan -f forjar.yaml --output-dir /tmp/audit-scripts
+
+# Review structure
+tree /tmp/audit-scripts/
+# /tmp/audit-scripts/
+# ├── intel/
+# │   ├── bash-aliases.sh
+# │   ├── cargo-tools.sh
+# │   └── nfs-mount.sh
+# └── web-server/
+#     ├── nginx-config.sh
+#     └── ssl-cert.sh
+
+# Audit a specific script
+cat /tmp/audit-scripts/web-server/nginx-config.sh
+```
+
+Every script starts with `set -euo pipefail` for safety. File resources use heredocs with single-quoted delimiters to prevent variable expansion. Service resources include systemd detection guards.
+
+### Reviewing Templates
+
+Templates are resolved before script generation. To verify resolution:
+
+```bash
+# Show resolved config (templates expanded)
+forjar show -f forjar.yaml --json | jq '.resources["nginx-config"].content'
+
+# Compare raw config vs resolved
+diff <(grep content forjar.yaml) <(forjar show -f forjar.yaml --json | jq -r '.resources["nginx-config"].content')
+```
+
+## Testing Strategies
+
+### Canary Deploys
+
+Use tags to test changes on a subset of machines first:
+
+```yaml
+resources:
+  nginx-config:
+    type: file
+    machine: all-webservers
+    path: /etc/nginx/nginx.conf
+    content: |
+      worker_processes auto;
+    tags: [web, canary]
+
+  nginx-service:
+    type: service
+    machine: all-webservers
+    name: nginx
+    restart_on: [nginx-config]
+    tags: [web, canary]
+```
+
+```bash
+# Deploy to canary first
+forjar apply -f forjar.yaml --tag canary -m canary-web1
+
+# Verify
+forjar drift -f forjar.yaml --tripwire -m canary-web1
+
+# If good, deploy to all
+forjar apply -f forjar.yaml --tag web
+```
+
+### Idempotency Testing
+
+Verify that applying twice produces no changes:
+
+```bash
+# First apply
+forjar apply -f forjar.yaml --state-dir /tmp/idem-test
+
+# Second apply — should show 0 changes
+OUTPUT=$(forjar apply -f forjar.yaml --state-dir /tmp/idem-test 2>&1)
+echo "$OUTPUT"
+
+# Verify
+if echo "$OUTPUT" | grep -q "0 changed"; then
+  echo "PASS: Idempotent"
+else
+  echo "FAIL: Not idempotent"
+  exit 1
+fi
+```
+
+### Drift Testing
+
+Intentionally introduce drift and verify detection:
+
+```bash
+# Apply config
+forjar apply -f forjar.yaml
+
+# Introduce drift (modify a managed file)
+ssh web-server "echo 'rogue change' >> /etc/nginx/nginx.conf"
+
+# Detect drift
+forjar drift -f forjar.yaml -m web-server
+
+# Auto-remediate
+forjar drift -f forjar.yaml --auto-remediate -m web-server
+
+# Verify drift is resolved
+forjar drift -f forjar.yaml --tripwire -m web-server
+```
+
+## GitOps Workflow
+
+### PR-Based Infrastructure Changes
+
+```
+Developer                    CI                          Production
+    │                        │                               │
+    ├── edit forjar.yaml ──► │                               │
+    │                        ├── validate ──► ✓               │
+    │                        ├── lint ──► ✓                   │
+    │                        ├── plan ──► PR comment          │
+    │                        ├── graph ──► PR summary         │
+    │   ◄── review plan ─── │                               │
+    │                        │                               │
+    ├── merge PR ──────────► │                               │
+    │                        ├── apply ──────────────────────► │
+    │                        ├── drift --tripwire ──────────► │
+    │                        ├── commit state ──► git          │
+    │                        │                               │
+```
+
+### Post-Merge CI Job
+
+```yaml
+name: Deploy Infrastructure
+
+on:
+  push:
+    branches: [main]
+    paths: ['forjar.yaml', 'recipes/**']
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install forjar
+        run: cargo install forjar
+
+      - name: Apply changes
+        run: |
+          forjar apply -f forjar.yaml \
+            --state-dir state/ \
+            --auto-commit
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_KEY }}
+
+      - name: Post-apply drift check
+        run: |
+          forjar drift -f forjar.yaml \
+            --state-dir state/ --tripwire
+
+      - name: Push state
+        run: |
+          git push origin main
+```
+
 ## Testing Best Practices
 
 1. **Validate on every PR** — `forjar validate && forjar lint && forjar fmt --check` in CI.
@@ -282,3 +454,9 @@ forjar history --json | jq '.events[] | {ts: .ts, event: .event}'
 6. **Audit scripts before apply** — `forjar plan --output-dir` lets you review the exact shell scripts before they run on your machines.
 
 7. **Use tags for staged rollouts** — `forjar apply --tag canary` applies only to canary resources first.
+
+8. **Keep state in git** — Commit state after every apply. This gives you rollback, audit trail, and diff for free.
+
+9. **Test templates separately** — Use `forjar show --json` to verify template resolution before applying.
+
+10. **Set up scheduled drift checks** — A cron job running `forjar drift --tripwire` catches unauthorized changes within minutes.

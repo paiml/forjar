@@ -182,6 +182,43 @@ forjar history --json
 forjar anomaly --min-events 1
 ```
 
+## Composite Hashing
+
+Forjar uses composite hashing to create a single fingerprint for each resource's desired configuration. The composite hash combines the resource type with all relevant fields:
+
+```
+composite_hash("file", path, content, owner, group, mode) → blake3:a1b2c3...
+```
+
+This means the hash changes when **any** field changes — not just content. For example, changing a file's `mode` from `0644` to `0755` produces a different composite hash even though the file content is identical.
+
+### Hash Stability
+
+Hash comparison drives the planner's decision logic:
+
+| Previous Hash | Current Hash | Action |
+|---------------|--------------|--------|
+| None (new) | blake3:abc... | CREATE |
+| blake3:abc... | blake3:abc... | SKIP (converged) |
+| blake3:abc... | blake3:xyz... | UPDATE |
+
+This prevents unnecessary re-applies. If you re-run `forjar apply` with no config changes, every resource is skipped because the composite hashes match.
+
+### Hashing by Resource Type
+
+Each resource type contributes different fields to its composite hash:
+
+```
+File:    hash(type, path, content, source, owner, group, mode)
+Package: hash(type, provider, packages, version)
+Service: hash(type, name, state, enabled, restart_on)
+Mount:   hash(type, path, source, fs_type, options, state)
+User:    hash(type, name, uid, shell, home, groups, ssh_keys)
+Docker:  hash(type, name, image, ports, env, volumes, restart)
+Cron:    hash(type, name, schedule, command, owner)
+Network: hash(type, port, protocol, action, from_addr)
+```
+
 ## Atomic Writes
 
 Lock files are written atomically using a write-then-rename pattern:
@@ -189,22 +226,103 @@ Lock files are written atomically using a write-then-rename pattern:
 1. Write to `state.lock.yaml.tmp`
 2. Rename to `state.lock.yaml`
 
-This prevents partial writes from corrupting state if forjar is interrupted.
+This prevents partial writes from corrupting state if forjar is interrupted. The rename is atomic on all POSIX filesystems — either the old or new state is visible, never a partial write.
+
+## State Inspection
+
+### Show Command
+
+View the current state of a specific resource or machine:
+
+```bash
+# Show all resources on a machine
+forjar show -f forjar.yaml -m intel
+
+# JSON output for scripting
+forjar show -f forjar.yaml --json
+
+# Filter by resource
+forjar show -f forjar.yaml -r bash-aliases
+```
+
+### Status Command
+
+Quick summary of all machines:
+
+```bash
+forjar status -f forjar.yaml --state-dir state
+```
+
+Output shows per-machine counts: converged, failed, and drifted resources.
+
+### Diff Command
+
+Compare two state directories to see what changed between applies:
+
+```bash
+# Compare current state with a backup
+forjar diff state/ state-backup/
+
+# Compare before and after an apply
+cp -r state/ /tmp/state-before/
+forjar apply -f forjar.yaml
+forjar diff /tmp/state-before/ state/
+```
 
 ## Recovery
 
 ### Partial Apply Failure
 
-If `forjar apply` fails midway:
-- Successfully converged resources are recorded in the lock
-- Failed resources are recorded with `status: failed`
-- Re-running `forjar apply` will retry failed resources and skip converged ones
+If `forjar apply` fails midway (jidoka — stop on first failure):
+
+1. Successfully converged resources are recorded in the lock with `status: converged`
+2. The failed resource is recorded with `status: failed` and error details
+3. Remaining resources are not attempted (no cascading damage)
+
+Re-running `forjar apply` will:
+- **Skip** converged resources (hash matches)
+- **Retry** the failed resource
+- **Continue** with remaining resources
+
+```bash
+# View what failed
+forjar status -f forjar.yaml
+
+# Retry
+forjar apply -f forjar.yaml
+
+# Force re-apply everything (including converged)
+forjar apply -f forjar.yaml --force
+```
 
 ### Corrupted Lock File
 
-If a lock file becomes corrupted:
-- Delete the lock file: `rm state/{machine}/state.lock.yaml`
-- Re-run `forjar apply --force` to rebuild state from scratch
+If a lock file becomes corrupted or desynchronized:
+
+```bash
+# Option 1: Delete and rebuild from scratch
+rm state/{machine}/state.lock.yaml
+forjar apply -f forjar.yaml --force
+
+# Option 2: Delete a single machine's state
+rm -rf state/web-server/
+forjar apply -f forjar.yaml -m web-server
+
+# Option 3: Import current live state
+forjar import -f forjar.yaml -m web-server --state-dir state
+```
+
+### Selective Force Apply
+
+Force re-apply specific resources without touching others:
+
+```bash
+# Re-apply only tagged resources
+forjar apply -f forjar.yaml --force --tag web
+
+# Re-apply a single resource
+forjar apply -f forjar.yaml --force -r nginx-config
+```
 
 ### Rollback
 
@@ -241,3 +359,34 @@ This enables:
 - **Rollback**: `forjar rollback` reads previous configs from git
 - **Diff**: `forjar diff state-v1/ state-v2/` compares state snapshots
 - **Team collaboration**: State is shared via the repository
+
+### State in Monorepos
+
+For teams managing multiple environments from one repo:
+
+```
+infra/
+  forjar.yaml            # Production config
+  forjar-staging.yaml    # Staging config
+  state/
+    prod-web/            # Production state
+    staging-web/         # Staging state
+```
+
+Each environment uses a separate `--state-dir` or separate machine names. State files never conflict because they're keyed by machine name.
+
+### State Cleanup
+
+Over time, event logs grow. To manage size:
+
+```bash
+# Check event log sizes
+du -sh state/*/events.jsonl
+
+# Archive old events (keep last 1000 lines per machine)
+for f in state/*/events.jsonl; do
+  tail -1000 "$f" > "$f.tmp" && mv "$f.tmp" "$f"
+done
+```
+
+Lock files are small (typically < 10KB) and do not grow over time — they represent current state only.
