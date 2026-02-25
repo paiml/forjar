@@ -9,6 +9,7 @@ pub fn plan(
     config: &ForjarConfig,
     execution_order: &[String],
     locks: &std::collections::HashMap<String, StateLock>,
+    tag_filter: Option<&str>,
 ) -> ExecutionPlan {
     let mut changes = Vec::new();
     let mut to_create = 0u32;
@@ -21,6 +22,13 @@ pub fn plan(
             Some(r) => r,
             None => continue,
         };
+
+        // Tag filtering: skip resource if tag filter specified and resource doesn't have the tag
+        if let Some(tag) = tag_filter {
+            if !resource.tags.iter().any(|t| t == tag) {
+                continue;
+            }
+        }
 
         // Resolve templates before hashing so planner hash matches executor hash
         let resolved =
@@ -246,7 +254,7 @@ resources:
         let config = make_config();
         let order = vec!["pkg".to_string(), "conf".to_string(), "svc".to_string()];
         let locks = HashMap::new();
-        let plan = plan(&config, &order, &locks);
+        let plan = plan(&config, &order, &locks, None);
 
         assert_eq!(plan.to_create, 3);
         assert_eq!(plan.to_update, 0);
@@ -288,7 +296,7 @@ resources:
         let mut locks = HashMap::new();
         locks.insert("m1".to_string(), lock);
 
-        let plan = plan(&config, &order, &locks);
+        let plan = plan(&config, &order, &locks, None);
         assert_eq!(plan.unchanged, 3);
         assert_eq!(plan.to_create, 0);
     }
@@ -322,7 +330,7 @@ resources:
         let mut locks = HashMap::new();
         locks.insert("m1".to_string(), lock);
 
-        let plan = plan(&config, &order, &locks);
+        let plan = plan(&config, &order, &locks, None);
         assert_eq!(plan.to_update, 1);
     }
 
@@ -369,7 +377,7 @@ resources:
         let mut locks = HashMap::new();
         locks.insert("m1".to_string(), lock);
 
-        let plan = plan(&config, &order, &locks);
+        let plan = plan(&config, &order, &locks, None);
         assert_eq!(plan.to_destroy, 1);
     }
 
@@ -402,7 +410,7 @@ resources:
         let mut locks = HashMap::new();
         locks.insert("m1".to_string(), lock);
 
-        let plan = plan(&config, &order, &locks);
+        let plan = plan(&config, &order, &locks, None);
         assert_eq!(plan.to_update, 1);
     }
 
@@ -448,6 +456,7 @@ resources:
             recipe: None,
             inputs: HashMap::new(),
             arch: vec![],
+            tags: vec![],
         };
         let h1 = hash_desired_state(&r);
         let h2 = hash_desired_state(&r);
@@ -497,6 +506,7 @@ resources:
             recipe: None,
             inputs: HashMap::new(),
             arch: vec![],
+            tags: vec![],
         };
         let desc = describe_action("test-pkg", &r, &PlanAction::Create);
         assert!(desc.contains("curl, wget"));
@@ -544,6 +554,7 @@ resources:
             recipe: None,
             inputs: HashMap::new(),
             arch: vec![],
+            tags: vec![],
         };
         assert!(describe_action("f", &r, &PlanAction::Create).contains("/etc/conf"));
         assert!(describe_action("f", &r, &PlanAction::Update).contains("update"));
@@ -593,6 +604,7 @@ resources:
             recipe: None,
             inputs: HashMap::new(),
             arch: vec![],
+            tags: vec![],
         };
         assert!(describe_action("svc", &r, &PlanAction::Create).contains("nginx"));
     }
@@ -639,6 +651,7 @@ resources:
             recipe: None,
             inputs: HashMap::new(),
             arch: vec![],
+            tags: vec![],
         };
         assert!(describe_action("mnt", &r, &PlanAction::Create).contains("/mnt/data"));
     }
@@ -685,6 +698,7 @@ resources:
             recipe: None,
             inputs: HashMap::new(),
             arch: vec![],
+            tags: vec![],
         };
         // Changing any field should change the hash
         let mut r2 = r1.clone();
@@ -719,7 +733,7 @@ resources:
         let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
         let order = vec!["gone-file".to_string()];
         let locks = HashMap::new(); // no lock — resource never existed
-        let plan = plan(&config, &order, &locks);
+        let plan = plan(&config, &order, &locks, None);
         assert_eq!(
             plan.unchanged, 1,
             "absent resource not in lock should be NoOp"
@@ -746,7 +760,7 @@ resources:
         let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
         let order = vec!["nfs-share".to_string()];
         let locks = HashMap::new();
-        let plan = plan(&config, &order, &locks);
+        let plan = plan(&config, &order, &locks, None);
         assert_eq!(plan.to_create, 1);
     }
 
@@ -770,7 +784,7 @@ resources:
         let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
         let order = vec!["web".to_string()];
         let locks = HashMap::new();
-        let plan = plan(&config, &order, &locks);
+        let plan = plan(&config, &order, &locks, None);
         assert_eq!(plan.to_create, 1);
     }
 
@@ -794,7 +808,7 @@ resources:
         let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
         let order = vec!["my-user".to_string()];
         let locks = HashMap::new();
-        let plan = plan(&config, &order, &locks);
+        let plan = plan(&config, &order, &locks, None);
         assert_eq!(plan.to_create, 1);
     }
 
@@ -819,7 +833,7 @@ resources:
         let order = vec!["config".to_string()];
         let locks = HashMap::new();
         // Should not panic — falls back to unresolved resource
-        let plan = plan(&config, &order, &locks);
+        let plan = plan(&config, &order, &locks, None);
         assert_eq!(plan.to_create, 1);
     }
 
@@ -845,9 +859,70 @@ resources:
         let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
         let order = vec!["tools".to_string()];
         let locks = HashMap::new();
-        let plan = plan(&config, &order, &locks);
+        let plan = plan(&config, &order, &locks, None);
         // One resource on two machines = 2 planned changes
         assert_eq!(plan.changes.len(), 2);
         assert_eq!(plan.to_create, 2);
+    }
+
+    #[test]
+    fn test_tag_filter_excludes_untagged_from_plan() {
+        let yaml = r#"
+version: "1.0"
+name: tag-plan-test
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+resources:
+  tagged:
+    type: file
+    machine: m
+    path: /tmp/tagged
+    content: "yes"
+    tags: [web, critical]
+  untagged:
+    type: file
+    machine: m
+    path: /tmp/untagged
+    content: "no"
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let order = vec!["tagged".to_string(), "untagged".to_string()];
+        let locks = HashMap::new();
+
+        // With tag filter: only tagged resource
+        let filtered = plan(&config, &order, &locks, Some("web"));
+        assert_eq!(filtered.changes.len(), 1);
+        assert_eq!(filtered.changes[0].resource_id, "tagged");
+
+        // Without tag filter: both resources
+        let unfiltered = plan(&config, &order, &locks, None);
+        assert_eq!(unfiltered.changes.len(), 2);
+    }
+
+    #[test]
+    fn test_tag_filter_no_matches_empty_plan() {
+        let yaml = r#"
+version: "1.0"
+name: tag-plan-empty
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+resources:
+  f:
+    type: file
+    machine: m
+    path: /tmp/test
+    content: "hello"
+    tags: [web]
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let order = vec!["f".to_string()];
+        let locks = HashMap::new();
+
+        let plan = plan(&config, &order, &locks, Some("db"));
+        assert_eq!(plan.changes.len(), 0);
     }
 }

@@ -77,7 +77,7 @@ policy:
 
     // 4. Plan (no existing state → everything is Create)
     let locks = HashMap::new();
-    let plan = planner::plan(&config, &order, &locks);
+    let plan = planner::plan(&config, &order, &locks, None);
     println!("\nPlan: {}", plan.name);
     for change in &plan.changes {
         let symbol = match change.action {

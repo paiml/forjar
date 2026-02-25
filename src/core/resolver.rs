@@ -515,6 +515,7 @@ resources:
             recipe: None,
             inputs: HashMap::new(),
             arch: vec![],
+            tags: vec![],
         };
 
         let resolved = resolve_resource_templates(&resource, &params, &machines).unwrap();
@@ -634,6 +635,7 @@ resources:
                     recipe: None,
                     inputs: HashMap::new(),
                     arch: vec![],
+                    tags: vec![],
                 },
             );
         }

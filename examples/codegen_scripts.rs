@@ -47,6 +47,7 @@ fn main() {
         recipe: None,
         inputs: std::collections::HashMap::new(),
         arch: vec![],
+        tags: vec![],
     };
 
     println!("-- Check script --");
@@ -97,6 +98,7 @@ fn main() {
         recipe: None,
         inputs: std::collections::HashMap::new(),
         arch: vec![],
+        tags: vec![],
     };
 
     println!("-- Apply script --");
@@ -143,6 +145,7 @@ fn main() {
         recipe: None,
         inputs: std::collections::HashMap::new(),
         arch: vec![],
+        tags: vec![],
     };
 
     println!("-- Apply script (base64 transfer) --");
@@ -189,6 +192,7 @@ fn main() {
         recipe: None,
         inputs: std::collections::HashMap::new(),
         arch: vec![],
+        tags: vec![],
     };
 
     println!("-- Apply script --");
@@ -235,6 +239,7 @@ fn main() {
         recipe: None,
         inputs: std::collections::HashMap::new(),
         arch: vec![],
+        tags: vec![],
     };
 
     println!("-- Apply script --");
@@ -281,6 +286,7 @@ fn main() {
         recipe: None,
         inputs: std::collections::HashMap::new(),
         arch: vec![],
+        tags: vec![],
     };
 
     println!("-- Check script --");
@@ -329,6 +335,7 @@ fn main() {
         recipe: None,
         inputs: std::collections::HashMap::new(),
         arch: vec![],
+        tags: vec![],
     };
 
     println!("-- Apply script --");
@@ -375,6 +382,7 @@ fn main() {
         recipe: None,
         inputs: std::collections::HashMap::new(),
         arch: vec![],
+        tags: vec![],
     };
 
     println!("-- Apply script --");
@@ -421,6 +429,7 @@ fn main() {
         recipe: None,
         inputs: std::collections::HashMap::new(),
         arch: vec![],
+        tags: vec![],
     };
 
     println!("-- Apply script --");

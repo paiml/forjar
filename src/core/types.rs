@@ -309,6 +309,10 @@ pub struct Resource {
     /// Architecture filter — only apply to machines with matching arch
     #[serde(default)]
     pub arch: Vec<String>,
+
+    /// Tags for selective filtering (e.g., `tags: [web, critical]`)
+    #[serde(default)]
+    pub tags: Vec<String>,
 }
 
 /// Resource type enum.

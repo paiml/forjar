@@ -1,0 +1,39 @@
+version: "1.0"
+name: dogfood-tags
+
+machines:
+  test-box:
+    hostname: test-box
+    addr: container
+    transport: container
+    container:
+      image: ubuntu:22.04
+      name: forjar-tags-test
+
+resources:
+  web-config:
+    type: file
+    machine: test-box
+    path: /etc/app/web.conf
+    content: "listen 80;\n"
+    tags: [web, critical]
+
+  db-config:
+    type: file
+    machine: test-box
+    path: /etc/app/db.conf
+    content: "port=5432\n"
+    tags: [db, critical]
+
+  log-config:
+    type: file
+    machine: test-box
+    path: /etc/app/log.conf
+    content: "level=info\n"
+    tags: [web]
+
+  untagged-file:
+    type: file
+    machine: test-box
+    path: /etc/app/misc.conf
+    content: "misc=true\n"

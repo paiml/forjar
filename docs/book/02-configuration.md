@@ -114,6 +114,7 @@ resources:
     state: ...                # Desired state (type-specific)
     depends_on: [other-id]    # Execution ordering
     arch: [x86_64, aarch64]   # Optional. Only apply to matching architectures
+    tags: [web, critical]     # Optional. Labels for selective filtering
 ```
 
 ### Machine Targeting
@@ -181,6 +182,42 @@ resources:
 When `arch` is omitted or empty, the resource applies to all architectures. When specified, forjar skips the resource during both `plan` and `apply` if the target machine's `arch` doesn't match.
 
 Recognized architectures: `x86_64`, `aarch64`, `armv7l`, `riscv64`, `s390x`, `ppc64le`.
+
+### Resource Tags
+
+Tags allow selective filtering of resources during `plan`, `apply`, and `check`:
+
+```yaml
+resources:
+  web-config:
+    type: file
+    machine: web-server
+    path: /etc/nginx/nginx.conf
+    content: "..."
+    tags: [web, critical]
+
+  db-config:
+    type: file
+    machine: db-server
+    path: /etc/postgres/pg.conf
+    content: "..."
+    tags: [db, critical]
+```
+
+Use `--tag` on the CLI to filter:
+
+```bash
+# Only apply resources tagged "web"
+forjar apply -f forjar.yaml --tag web
+
+# Plan only critical resources
+forjar plan -f forjar.yaml --tag critical
+
+# Check only db resources
+forjar check -f forjar.yaml --tag db
+```
+
+When `--tag` is omitted, all resources are included. When specified, only resources with that tag are planned/applied/checked. Resources without any tags are excluded when `--tag` is used.
 
 ## Parameters
 

@@ -22,6 +22,7 @@ pub struct ApplyConfig<'a> {
     pub dry_run: bool,
     pub machine_filter: Option<&'a str>,
     pub resource_filter: Option<&'a str>,
+    pub tag_filter: Option<&'a str>,
 }
 
 /// Execute the apply loop.
@@ -46,7 +47,7 @@ pub fn apply(cfg: &ApplyConfig) -> Result<Vec<ApplyResult>, String> {
     }
 
     // Generate plan
-    let plan = planner::plan(cfg.config, &execution_order, &locks);
+    let plan = planner::plan(cfg.config, &execution_order, &locks, cfg.tag_filter);
 
     if cfg.dry_run {
         return Ok(vec![ApplyResult {
@@ -310,6 +311,13 @@ fn apply_single_resource(
     // FJ-064: Skip resource if arch filter doesn't match the machine
     if !resource.arch.is_empty() && !resource.arch.contains(&machine.arch) {
         return Ok(ResourceOutcome::Skipped);
+    }
+
+    // Tag filtering: skip resource if --tag specified and resource doesn't have the tag
+    if let Some(tag) = cfg.tag_filter {
+        if !resource.tags.iter().any(|t| t == tag) {
+            return Ok(ResourceOutcome::Skipped);
+        }
     }
 
     // Log resource start
@@ -690,6 +698,7 @@ resources:
             recipe: None,
             inputs: HashMap::new(),
             arch: vec![],
+            tags: vec![],
         };
         let details = build_resource_details(&r, &local_machine());
         assert!(details.contains_key("path"));
@@ -748,6 +757,7 @@ resources:
             recipe: None,
             inputs: HashMap::new(),
             arch: vec![],
+            tags: vec![],
         };
         let details = build_resource_details(&r, &local_machine());
         assert!(details.contains_key("service_name"));
@@ -768,6 +778,7 @@ resources:
             dry_run: true,
             machine_filter: None,
             resource_filter: None,
+            tag_filter: None,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results.len(), 1);
@@ -785,6 +796,7 @@ resources:
             dry_run: false,
             machine_filter: None,
             resource_filter: None,
+            tag_filter: None,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results.len(), 1);
@@ -814,6 +826,7 @@ resources:
             dry_run: false,
             machine_filter: None,
             resource_filter: None,
+            tag_filter: None,
         };
         let r1 = apply(&cfg).unwrap();
         assert_eq!(r1[0].resources_converged, 1);
@@ -826,6 +839,7 @@ resources:
             dry_run: false,
             machine_filter: None,
             resource_filter: None,
+            tag_filter: None,
         };
         let r2 = apply(&cfg2).unwrap();
         assert_eq!(r2[0].resources_unchanged, 1);
@@ -847,6 +861,7 @@ resources:
             dry_run: false,
             machine_filter: None,
             resource_filter: None,
+            tag_filter: None,
         };
         apply(&cfg).unwrap();
 
@@ -858,6 +873,7 @@ resources:
             dry_run: false,
             machine_filter: None,
             resource_filter: None,
+            tag_filter: None,
         };
         let r2 = apply(&cfg2).unwrap();
         assert_eq!(r2[0].resources_converged, 1);
@@ -898,6 +914,7 @@ resources:
             dry_run: false,
             machine_filter: Some("a"),
             resource_filter: None,
+            tag_filter: None,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results.len(), 1);
@@ -1035,6 +1052,7 @@ resources:
             recipe: None,
             inputs: HashMap::new(),
             arch: vec![],
+            tags: vec![],
         };
         let machine = Machine {
             hostname: "localhost".to_string(),
@@ -1081,6 +1099,7 @@ resources:
             dry_run: false,
             machine_filter: None,
             resource_filter: Some("nonexistent-resource"),
+            tag_filter: None,
         };
         let results = apply(&cfg).unwrap();
         // Resource filter doesn't match — everything skipped
@@ -1126,6 +1145,7 @@ policy:
             dry_run: false,
             machine_filter: None,
             resource_filter: None,
+            tag_filter: None,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results.len(), 2);
@@ -1185,6 +1205,7 @@ policy:
             dry_run: false,
             machine_filter: None,
             resource_filter: None,
+            tag_filter: None,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results.len(), 1);
@@ -1328,6 +1349,7 @@ resources:
             recipe: None,
             inputs: HashMap::new(),
             arch: vec!["aarch64".to_string()],
+            tags: vec![],
         };
 
         // arch filter should reject: aarch64 resource on x86_64 machine
@@ -1438,10 +1460,138 @@ resources:
         let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
         let all_machines: Vec<String> = config.machines.keys().cloned().collect();
         let mut sorted: Vec<&String> = all_machines.iter().collect();
-        sorted.sort_by_key(|m| config.machines.get(*m).map(|machine| machine.cost).unwrap_or(0));
+        sorted.sort_by_key(|m| {
+            config
+                .machines
+                .get(*m)
+                .map(|machine| machine.cost)
+                .unwrap_or(0)
+        });
 
         assert_eq!(sorted[0], "cheap");
         assert_eq!(sorted[1], "medium");
         assert_eq!(sorted[2], "expensive");
+    }
+
+    #[test]
+    fn test_tag_filter_skips_untagged_resources() {
+        let yaml = r#"
+version: "1.0"
+name: tag-test
+machines:
+  local:
+    hostname: local
+    addr: 127.0.0.1
+resources:
+  tagged-file:
+    type: file
+    machine: local
+    path: /tmp/forjar-tag-test.txt
+    content: "tagged"
+    tags: [web, critical]
+  untagged-file:
+    type: file
+    machine: local
+    path: /tmp/forjar-tag-test2.txt
+    content: "untagged"
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = ApplyConfig {
+            config: &config,
+            state_dir: dir.path(),
+            force: false,
+            dry_run: false,
+            machine_filter: None,
+            resource_filter: None,
+            tag_filter: Some("web"),
+        };
+        let results = apply(&cfg).unwrap();
+        // Only the tagged resource should be applied
+        assert_eq!(results[0].resources_converged, 1);
+        let _ = std::fs::remove_file("/tmp/forjar-tag-test.txt");
+    }
+
+    #[test]
+    fn test_tag_filter_none_applies_all() {
+        let yaml = r#"
+version: "1.0"
+name: tag-test-all
+machines:
+  local:
+    hostname: local
+    addr: 127.0.0.1
+resources:
+  a:
+    type: file
+    machine: local
+    path: /tmp/forjar-tag-all-a.txt
+    content: "a"
+    tags: [web]
+  b:
+    type: file
+    machine: local
+    path: /tmp/forjar-tag-all-b.txt
+    content: "b"
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = ApplyConfig {
+            config: &config,
+            state_dir: dir.path(),
+            force: false,
+            dry_run: false,
+            machine_filter: None,
+            resource_filter: None,
+            tag_filter: None,
+        };
+        let results = apply(&cfg).unwrap();
+        // Both resources applied
+        assert_eq!(results[0].resources_converged, 2);
+        let _ = std::fs::remove_file("/tmp/forjar-tag-all-a.txt");
+        let _ = std::fs::remove_file("/tmp/forjar-tag-all-b.txt");
+    }
+
+    #[test]
+    fn test_tags_parsed_from_yaml() {
+        let yaml = r#"
+version: "1.0"
+name: tags-parse
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+resources:
+  f:
+    type: file
+    machine: m
+    path: /tmp/test
+    content: test
+    tags: [web, critical, db]
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let resource = config.resources.get("f").unwrap();
+        assert_eq!(resource.tags, vec!["web", "critical", "db"]);
+    }
+
+    #[test]
+    fn test_tags_default_empty() {
+        let yaml = r#"
+version: "1.0"
+name: tags-empty
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+resources:
+  f:
+    type: file
+    machine: m
+    path: /tmp/test
+    content: test
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let resource = config.resources.get("f").unwrap();
+        assert!(resource.tags.is_empty());
     }
 }

@@ -106,6 +106,7 @@ mod tests {
             recipe: None,
             inputs: std::collections::HashMap::new(),
             arch: vec![],
+            tags: vec![],
         }
     }
 

@@ -56,7 +56,7 @@ Checks:
 Show execution plan (what would change).
 
 ```bash
-forjar plan -f <FILE> [-m MACHINE] [-r RESOURCE] [--state-dir DIR] [--json] [--output-dir DIR]
+forjar plan -f <FILE> [-m MACHINE] [-r RESOURCE] [-t TAG] [--state-dir DIR] [--json] [--output-dir DIR]
 ```
 
 | Flag | Default | Description |
@@ -64,6 +64,7 @@ forjar plan -f <FILE> [-m MACHINE] [-r RESOURCE] [--state-dir DIR] [--json] [--o
 | `-f, --file` | `forjar.yaml` | Config file path |
 | `-m, --machine` | all | Filter to specific machine |
 | `-r, --resource` | all | Filter to specific resource |
+| `-t, --tag` | all | Filter to resources with this tag |
 | `--state-dir` | `state` | Directory for lock files |
 | `--json` | false | Output plan as JSON |
 | `--output-dir` | — | Write generated scripts to directory for auditing |
@@ -83,7 +84,7 @@ The `--output-dir` flag writes all generated scripts (check, apply, state_query)
 Converge infrastructure to desired state.
 
 ```bash
-forjar apply -f <FILE> [-m MACHINE] [-r RESOURCE] [--force] [--dry-run] [--no-tripwire] [-p KEY=VALUE] [--auto-commit] [--state-dir DIR]
+forjar apply -f <FILE> [-m MACHINE] [-r RESOURCE] [-t TAG] [--force] [--dry-run] [--no-tripwire] [-p KEY=VALUE] [--auto-commit] [--state-dir DIR]
 ```
 
 | Flag | Default | Description |
@@ -91,6 +92,7 @@ forjar apply -f <FILE> [-m MACHINE] [-r RESOURCE] [--force] [--dry-run] [--no-tr
 | `-f, --file` | `forjar.yaml` | Config file path |
 | `-m, --machine` | all | Filter to specific machine |
 | `-r, --resource` | all | Filter to specific resource |
+| `-t, --tag` | all | Filter to resources with this tag |
 | `--force` | false | Re-apply all resources (ignore cache) |
 | `--dry-run` | false | Show plan without executing |
 | `--no-tripwire` | false | Skip provenance event logging (faster) |
@@ -275,7 +277,7 @@ Useful for auditing what changed across apply runs, reviewing infrastructure cha
 Run check scripts against live machines to verify pre-conditions without applying.
 
 ```bash
-forjar check -f <FILE> [-m MACHINE] [-r RESOURCE] [--json]
+forjar check -f <FILE> [-m MACHINE] [-r RESOURCE] [--tag TAG] [--json]
 ```
 
 | Flag | Default | Description |
@@ -283,6 +285,7 @@ forjar check -f <FILE> [-m MACHINE] [-r RESOURCE] [--json]
 | `-f, --file` | `forjar.yaml` | Config file path |
 | `-m, --machine` | all | Filter to specific machine |
 | `-r, --resource` | all | Filter to specific resource |
+| `--tag` | all | Filter to resources with this tag |
 | `--json` | false | Output as JSON |
 
 ```bash
@@ -291,6 +294,9 @@ forjar check -f forjar.yaml -v
 
 # Check a specific resource
 forjar check -f forjar.yaml -r nginx-config
+
+# Check only web-tagged resources
+forjar check -f forjar.yaml --tag web
 
 # JSON output for CI pipelines
 forjar check -f forjar.yaml --json

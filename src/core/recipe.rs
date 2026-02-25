@@ -774,6 +774,7 @@ resources: {}
             recipe: None,
             inputs: HashMap::new(),
             arch: vec![],
+            tags: vec![],
         };
         let mut inputs = HashMap::new();
         inputs.insert("vol".to_string(), "raid".to_string());

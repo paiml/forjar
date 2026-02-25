@@ -36,6 +36,10 @@ pub enum Commands {
         #[arg(short, long)]
         resource: Option<String>,
 
+        /// Filter to resources with this tag
+        #[arg(short, long)]
+        tag: Option<String>,
+
         /// State directory
         #[arg(long, default_value = "state")]
         state_dir: PathBuf,
@@ -62,6 +66,10 @@ pub enum Commands {
         /// Target specific resource
         #[arg(short, long)]
         resource: Option<String>,
+
+        /// Filter to resources with this tag
+        #[arg(short, long)]
+        tag: Option<String>,
 
         /// Force re-apply all resources
         #[arg(long)]
@@ -231,6 +239,10 @@ pub enum Commands {
         #[arg(short, long)]
         resource: Option<String>,
 
+        /// Filter to resources with this tag
+        #[arg(long)]
+        tag: Option<String>,
+
         /// Output as JSON
         #[arg(long)]
         json: bool,
@@ -263,6 +275,7 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             file,
             machine,
             resource,
+            tag,
             state_dir,
             json,
             output_dir,
@@ -271,6 +284,7 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             &state_dir,
             machine.as_deref(),
             resource.as_deref(),
+            tag.as_deref(),
             json,
             verbose,
             output_dir.as_deref(),
@@ -279,6 +293,7 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             file,
             machine,
             resource,
+            tag,
             force,
             dry_run,
             no_tripwire,
@@ -290,6 +305,7 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             &state_dir,
             machine.as_deref(),
             resource.as_deref(),
+            tag.as_deref(),
             force,
             dry_run,
             no_tripwire,
@@ -351,8 +367,16 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             file,
             machine,
             resource,
+            tag,
             json,
-        } => cmd_check(&file, machine.as_deref(), resource.as_deref(), json, verbose),
+        } => cmd_check(
+            &file,
+            machine.as_deref(),
+            resource.as_deref(),
+            tag.as_deref(),
+            json,
+            verbose,
+        ),
     }
 }
 
@@ -608,6 +632,7 @@ fn cmd_check(
     file: &Path,
     machine_filter: Option<&str>,
     resource_filter: Option<&str>,
+    tag_filter: Option<&str>,
     json: bool,
     verbose: bool,
 ) -> Result<(), String> {
@@ -650,6 +675,14 @@ fn cmd_check(
 
         if let Some(filter) = resource_filter {
             if resource_id != filter {
+                continue;
+            }
+        }
+
+        // Tag filtering: skip resource if --tag specified and resource doesn't have the tag
+        if let Some(tag) = tag_filter {
+            if !resource.tags.iter().any(|t| t == tag) {
+                total_skip += 1;
                 continue;
             }
         }
@@ -754,8 +787,7 @@ fn cmd_check(
         });
         println!(
             "{}",
-            serde_json::to_string_pretty(&report)
-                .map_err(|e| format!("JSON error: {}", e))?
+            serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {}", e))?
         );
     } else {
         println!(
@@ -989,6 +1021,7 @@ fn cmd_plan(
     state_dir: &Path,
     machine_filter: Option<&str>,
     _resource_filter: Option<&str>,
+    tag_filter: Option<&str>,
     json: bool,
     verbose: bool,
     output_dir: Option<&Path>,
@@ -1006,7 +1039,7 @@ fn cmd_plan(
 
     // Load existing locks so plan shows accurate Create vs Update vs NoOp
     let locks = load_machine_locks(&config, state_dir, machine_filter)?;
-    let plan = planner::plan(&config, &execution_order, &locks);
+    let plan = planner::plan(&config, &execution_order, &locks, tag_filter);
 
     if let Some(dir) = output_dir {
         export_scripts(&config, dir)?;
@@ -1174,6 +1207,7 @@ fn cmd_apply(
     state_dir: &Path,
     machine_filter: Option<&str>,
     resource_filter: Option<&str>,
+    tag_filter: Option<&str>,
     force: bool,
     dry_run: bool,
     no_tripwire: bool,
@@ -1209,6 +1243,7 @@ fn cmd_apply(
         dry_run,
         machine_filter,
         resource_filter,
+        tag_filter,
     };
 
     let results = executor::apply(&cfg)?;
@@ -1406,6 +1441,7 @@ fn cmd_drift(
             state_dir,
             machine_filter,
             None,  // no resource filter — force re-applies all
+            None,  // no tag filter
             true,  // force
             false, // not dry-run
             false, // tripwire on
@@ -1880,7 +1916,7 @@ resources:
         .unwrap();
         let state = dir.path().join("state");
         std::fs::create_dir_all(&state).unwrap();
-        cmd_plan(&config, &state, None, None, false, false, None).unwrap();
+        cmd_plan(&config, &state, None, None, None, false, false, None).unwrap();
     }
 
     #[test]
@@ -1915,7 +1951,7 @@ resources:
 "#,
         )
         .unwrap();
-        cmd_plan(&config, &state, Some("a"), None, false, false, None).unwrap();
+        cmd_plan(&config, &state, Some("a"), None, None, false, false, None).unwrap();
     }
 
     #[test]
@@ -1933,7 +1969,7 @@ resources: {}
 "#,
         )
         .unwrap();
-        let result = cmd_plan(&config, &state, None, None, false, false, None);
+        let result = cmd_plan(&config, &state, None, None, None, false, false, None);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("validation"));
     }
@@ -1965,6 +2001,7 @@ resources:
         cmd_apply(
             &config,
             &state,
+            None,
             None,
             None,
             false,
@@ -2009,6 +2046,7 @@ policy:
             &state,
             None,
             None,
+            None,
             false,
             false,
             false,
@@ -2046,6 +2084,7 @@ resources: {}
         let result = cmd_apply(
             &config,
             &state,
+            None,
             None,
             None,
             false,
@@ -2307,6 +2346,7 @@ resources:
                 file: config,
                 machine: None,
                 resource: None,
+                tag: None,
                 state_dir: state,
                 json: false,
                 output_dir: None,
@@ -2345,6 +2385,7 @@ resources:
                 file: config,
                 machine: None,
                 resource: None,
+                tag: None,
                 force: false,
                 dry_run: true,
                 no_tripwire: false,
@@ -2523,6 +2564,7 @@ resources:
             &state,
             None,
             None,
+            None,
             false,
             false,
             false,
@@ -2537,6 +2579,7 @@ resources:
         cmd_apply(
             &config,
             &state,
+            None,
             None,
             None,
             false,
@@ -2625,7 +2668,7 @@ resources:
         .unwrap();
         // Plan with nonexistent state dir → everything shows as Create
         let missing = dir.path().join("no-state");
-        cmd_plan(&config, &missing, None, None, false, false, None).unwrap();
+        cmd_plan(&config, &missing, None, None, None, false, false, None).unwrap();
     }
 
     #[test]
@@ -2653,7 +2696,7 @@ resources:
         )
         .unwrap();
         // json=true should not panic (output goes to stdout)
-        cmd_plan(&config, &state, None, None, true, false, None).unwrap();
+        cmd_plan(&config, &state, None, None, None, true, false, None).unwrap();
     }
 
     #[test]
@@ -2680,7 +2723,7 @@ resources:
 "#,
         )
         .unwrap();
-        cmd_plan(&config, &state, None, None, false, true, None).unwrap();
+        cmd_plan(&config, &state, None, None, None, false, true, None).unwrap();
     }
 
     #[test]
@@ -2713,7 +2756,7 @@ resources:
 "#,
         )
         .unwrap();
-        cmd_plan(&config, &state, None, None, false, false, Some(&output)).unwrap();
+        cmd_plan(&config, &state, None, None, None, false, false, Some(&output)).unwrap();
 
         // Should have created scripts for both resources
         assert!(output.exists());
@@ -3075,6 +3118,7 @@ resources:
             &state,
             None,
             None,
+            None,
             false,
             false,
             false,
@@ -3129,6 +3173,7 @@ resources:
         cmd_apply(
             &config,
             &state,
+            None,
             None,
             None,
             false,
@@ -3188,6 +3233,7 @@ resources:
             &state,
             None,
             None,
+            None,
             false,
             false,
             false,
@@ -3238,6 +3284,7 @@ resources:
         cmd_apply(
             &config,
             &state,
+            None,
             None,
             None,
             false,
@@ -3325,6 +3372,7 @@ resources:
         cmd_apply(
             &config,
             &state,
+            None,
             None,
             None,
             false,
@@ -3472,6 +3520,7 @@ resources:
         cmd_apply(
             &config,
             &state,
+            None,
             None,
             None,
             false,
@@ -3884,7 +3933,7 @@ resources:
         )
         .unwrap();
         // File exists → check should pass
-        cmd_check(&config, None, None, false, false).unwrap();
+        cmd_check(&config, None, None, None, false, false).unwrap();
     }
 
     #[test]
@@ -3910,7 +3959,7 @@ resources:
         )
         .unwrap();
         // Check script reports status (exits 0 even for missing file)
-        cmd_check(&config, None, None, false, false).unwrap();
+        cmd_check(&config, None, None, None, false, false).unwrap();
     }
 
     #[test]
@@ -3941,6 +3990,6 @@ resources:
             ),
         )
         .unwrap();
-        cmd_check(&config, None, None, true, false).unwrap();
+        cmd_check(&config, None, None, None, true, false).unwrap();
     }
 }
