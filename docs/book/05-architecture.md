@@ -860,3 +860,99 @@ The `build.rs` script verifies all 13 contract bindings exist and are correctly 
 | transport-v1 | exec_script | `exec_script` |
 | eventlog-v1 | append_event | `append_event` |
 | plan-v1 | plan | `plan` |
+| mcp-v1 | forjar_validate | `ValidateHandler` |
+| mcp-v1 | forjar_plan | `PlanHandler` |
+| mcp-v1 | forjar_drift | `DriftHandler` |
+
+## MCP Integration (FJ-063)
+
+Forjar exposes its operations as MCP (Model Context Protocol) tools via the
+pforge framework. This enables AI agents and LLM-powered tools to manage
+infrastructure through the same validated pipeline as the CLI.
+
+### Architecture
+
+```
+┌─────────────────────────────────┐
+│  AI Agent (Claude, etc.)        │
+│  MCP Client                     │
+└──────────┬──────────────────────┘
+           │ MCP Protocol (stdio)
+           ▼
+┌─────────────────────────────────┐
+│  pforge McpServer               │
+│  └── pmcp protocol handler      │
+│  └── HandlerRegistry (O(1))     │
+└──────────┬──────────────────────┘
+           │ dispatch(tool, params)
+           ▼
+┌─────────────────────────────────┐
+│  forjar MCP Handlers            │
+│  ├── ValidateHandler            │
+│  ├── PlanHandler                │
+│  ├── DriftHandler               │
+│  ├── LintHandler                │
+│  ├── GraphHandler               │
+│  ├── ShowHandler                │
+│  └── StatusHandler              │
+└──────────┬──────────────────────┘
+           │ calls forjar core
+           ▼
+┌─────────────────────────────────┐
+│  parser → resolver → planner    │
+│  → codegen → executor           │
+└─────────────────────────────────┘
+```
+
+### Tool Registry
+
+Each handler implements the pforge `Handler` trait with typed input/output:
+
+```rust
+#[async_trait]
+impl Handler for ValidateHandler {
+    type Input = ValidateInput;    // { path: String }
+    type Output = ValidateOutput;  // { valid, resource_count, errors }
+    type Error = pforge_runtime::Error;
+
+    async fn handle(&self, input: Self::Input) -> Result<Self::Output> {
+        let config = parser::parse_and_validate(&PathBuf::from(&input.path))?;
+        Ok(ValidateOutput { valid: true, ... })
+    }
+}
+```
+
+JSON Schema is auto-generated from the Rust types via `schemars`, enabling
+MCP clients to discover tool parameters without documentation.
+
+### Available Tools
+
+| Tool | Description | Input |
+|------|-------------|-------|
+| `forjar_validate` | Validate forjar.yaml | `{ path }` |
+| `forjar_plan` | Show execution plan | `{ path, state_dir?, resource?, tag? }` |
+| `forjar_drift` | Detect configuration drift | `{ path, state_dir?, machine? }` |
+| `forjar_lint` | Lint config + shell safety | `{ path }` |
+| `forjar_graph` | Generate dependency graph | `{ path, format? }` |
+| `forjar_show` | Show resolved config | `{ path, resource? }` |
+| `forjar_status` | Show state from locks | `{ state_dir?, machine? }` |
+
+### Starting the MCP Server
+
+```bash
+forjar mcp
+```
+
+This starts a stdio MCP server using pforge's McpServer. Configure in
+your MCP client (e.g., Claude Desktop, VS Code) with:
+
+```json
+{
+  "mcpServers": {
+    "forjar": {
+      "command": "forjar",
+      "args": ["mcp"]
+    }
+  }
+}
+```

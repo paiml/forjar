@@ -106,7 +106,9 @@ src/
   lib.rs                Public API
   build.rs              Compile-time contract binding verification
   cli/
-    mod.rs              Subcommand dispatch (init, validate, plan, apply, drift, status, history, destroy, import, show, graph, check, diff, fmt, lint, rollback, anomaly)
+    mod.rs              Subcommand dispatch (init, validate, plan, apply, drift, status, history, destroy, import, show, graph, check, diff, fmt, lint, rollback, anomaly, mcp)
+  mcp/
+    mod.rs              MCP server via pforge — 7 tool handlers, registry, ForgeConfig
   core/
     mod.rs              Re-exports
     types.rs            All types (Machine, Resource, State, Lock)
@@ -157,12 +159,18 @@ src/
 | `base64` | External | Source file transfer encoding (FJ-035). **Integrated.** |
 | `provable-contracts` | Stack | Formal invariant verification — compile-time contract enforcement. **Integrated.** |
 | `provable-contracts-macros` | Stack | `#[contract]` proc macro for function-level binding. **Integrated.** |
-| `bashrs` | Stack | Shell purification — core to the provability thesis. *Phase 2, pending.* |
+| `bashrs` | Stack | Shell purification — core to the provability thesis. **Integrated.** |
+| `pforge-runtime` | Stack | MCP server framework — O(1) handler dispatch, protocol handling. **Integrated.** |
+| `pforge-config` | Stack | MCP config types — ForgeConfig, ToolDef, ParamSchema. **Integrated.** |
+| `tokio` | External | Async runtime for MCP server (FJ-063). Required by pforge. **Integrated.** |
+| `async-trait` | External | Async trait support for MCP handlers. **Integrated.** |
+| `schemars` | External | JSON Schema generation for MCP tool introspection. **Integrated.** |
+| `rustc-hash` | External | Fast FxHash for pforge handler registry. **Integrated.** |
 | `pepita` | Stack | Kernel interfaces. *Phase 3, pending.* |
 | `renacer` | Stack | Syscall tracing for provenance. *Phase 4, pending.* |
 | `aprender` | Stack | ML-based drift anomaly detection. *Phase 4, pending.* |
 
-**Banned**: tokio (use std threads + ssh binary), reqwest, hyper, tonic, any cloud SDK.
+**Banned**: reqwest, hyper, tonic, any cloud SDK. tokio allowed only for MCP server (FJ-063).
 
 **Deferred**: copia (delta sync — base64 sufficient for now), repartir (parallel dispatch — std::thread::scope sufficient), duende (daemon management — not needed), pmat (compliance gates — external tool).
 
@@ -1310,7 +1318,7 @@ Statistical anomaly detection from event history. Analyzes per-resource metrics:
 | FJ-060 | `forjar graph` — Mermaid/DOT visualization | **Done** |
 | FJ-061 | `forjar destroy` — teardown all resources | **Done** |
 | FJ-062 | Secrets management — `{{secrets.KEY}}` templates resolved from `FORJAR_SECRET_*` env vars | **Done** |
-| FJ-063 | MCP integration via paiml-mcp-agent-toolkit | |
+| FJ-063 | MCP integration via pforge — 7 tool handlers (validate, plan, drift, lint, graph, show, status), `forjar mcp` CLI, pforge-runtime HandlerRegistry + McpServer, 21 tests | **Done** |
 | FJ-064 | Cross-architecture support — `arch` field on resources + machines, validation, plan/apply filtering | **Done** |
 | FJ-065 | `forjar import` — scan machine and generate forjar.yaml | **Done** |
 

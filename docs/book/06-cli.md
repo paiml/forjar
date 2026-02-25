@@ -932,3 +932,31 @@ forjar apply -f forjar.yaml
 ```
 
 The distinction between exit code 1 (tool error) and exit code 2 (drift signal) allows scripts to differentiate between "forjar failed to run" and "forjar ran successfully and found drift."
+
+### `forjar mcp`
+
+Start the MCP (Model Context Protocol) server using pforge. This enables
+AI agents to manage infrastructure through the same validated pipeline.
+
+```bash
+forjar mcp
+```
+
+The server runs on stdio transport and exposes 7 tools:
+`forjar_validate`, `forjar_plan`, `forjar_drift`, `forjar_lint`,
+`forjar_graph`, `forjar_show`, `forjar_status`.
+
+Configure in your MCP client:
+
+```json
+{
+  "mcpServers": {
+    "forjar": {
+      "command": "forjar",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+See Architecture chapter for full tool reference and handler details.
