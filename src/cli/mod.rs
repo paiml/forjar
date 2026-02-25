@@ -6411,4 +6411,90 @@ machines:
         let content = std::fs::read_to_string(&file).unwrap();
         assert!(content.contains("version"));
     }
+
+    #[test]
+    fn test_fj132_export_scripts_creates_files() {
+        let dir = tempfile::tempdir().unwrap();
+        let output_dir = dir.path().join("scripts");
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+resources:
+  my-pkg:
+    type: package
+    machine: m
+    provider: apt
+    packages: [curl]
+  my-file:
+    type: file
+    machine: m
+    path: /etc/test.conf
+    content: "hello"
+"#;
+        let config: types::ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        export_scripts(&config, &output_dir).unwrap();
+        assert!(output_dir.join("my-pkg.check.sh").exists());
+        assert!(output_dir.join("my-pkg.apply.sh").exists());
+        assert!(output_dir.join("my-file.check.sh").exists());
+        assert!(output_dir.join("my-file.apply.sh").exists());
+    }
+
+    #[test]
+    fn test_fj132_export_scripts_sanitizes_slashes() {
+        let dir = tempfile::tempdir().unwrap();
+        let output_dir = dir.path().join("scripts");
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+resources:
+  web/config:
+    type: file
+    machine: m
+    path: /etc/nginx/nginx.conf
+    content: "server {}"
+"#;
+        let config: types::ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        export_scripts(&config, &output_dir).unwrap();
+        // Slashes should be replaced with --
+        assert!(output_dir.join("web--config.check.sh").exists());
+        assert!(output_dir.join("web--config.apply.sh").exists());
+    }
+
+    #[test]
+    fn test_fj132_run_hook_success() {
+        let result = run_hook("test", "true", false);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj132_run_hook_failure() {
+        let result = run_hook("test", "false", false);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_fj132_apply_param_overrides_with_equals_in_value() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines: {}
+resources: {}
+"#;
+        let mut config: types::ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let overrides = vec!["conn=host=db port=5432".to_string()];
+        apply_param_overrides(&mut config, &overrides).unwrap();
+        // split_once only splits on first =, so value contains "host=db port=5432"
+        assert_eq!(
+            config.params.get("conn").unwrap(),
+            &serde_yaml_ng::Value::String("host=db port=5432".to_string())
+        );
+    }
 }
