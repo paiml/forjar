@@ -925,4 +925,419 @@ resources:
         let plan = plan(&config, &order, &locks, Some("db"));
         assert_eq!(plan.changes.len(), 0);
     }
+
+    #[test]
+    fn test_fj004_arch_filter_skips_mismatched_machine() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  x86:
+    hostname: x86
+    addr: 1.1.1.1
+    arch: x86_64
+  arm:
+    hostname: arm
+    addr: 2.2.2.2
+    arch: aarch64
+resources:
+  intel-only:
+    type: package
+    machine: [x86, arm]
+    provider: apt
+    packages: [intel-microcode]
+    arch: [x86_64]
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let order = vec!["intel-only".to_string()];
+        let locks = HashMap::new();
+        let plan = plan(&config, &order, &locks, None);
+        // Only x86 should get a planned change, arm is skipped
+        assert_eq!(plan.changes.len(), 1);
+        assert_eq!(plan.changes[0].machine, "x86");
+    }
+
+    #[test]
+    fn test_fj004_arch_filter_with_existing_lock() {
+        // Even if arm has a lock entry, arch filter still skips it
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  x86:
+    hostname: x86
+    addr: 1.1.1.1
+    arch: x86_64
+  arm:
+    hostname: arm
+    addr: 2.2.2.2
+    arch: aarch64
+resources:
+  intel-only:
+    type: package
+    machine: [x86, arm]
+    provider: apt
+    packages: [intel-microcode]
+    arch: [x86_64]
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let order = vec!["intel-only".to_string()];
+
+        // Simulate arm having a converged lock for this resource
+        let mut arm_resources = indexmap::IndexMap::new();
+        arm_resources.insert(
+            "intel-only".to_string(),
+            ResourceLock {
+                resource_type: ResourceType::Package,
+                status: ResourceStatus::Converged,
+                applied_at: None,
+                duration_seconds: None,
+                hash: "blake3:old".to_string(),
+                details: HashMap::new(),
+            },
+        );
+        let mut locks = HashMap::new();
+        locks.insert(
+            "arm".to_string(),
+            StateLock {
+                schema: "1.0".to_string(),
+                machine: "arm".to_string(),
+                hostname: "arm".to_string(),
+                generated_at: "2026-01-01T00:00:00Z".to_string(),
+                generator: "forjar".to_string(),
+                blake3_version: "1.8".to_string(),
+                resources: arm_resources,
+            },
+        );
+
+        let plan = plan(&config, &order, &locks, None);
+        // arm skipped by arch filter, x86 is create
+        assert_eq!(plan.changes.len(), 1);
+        assert_eq!(plan.changes[0].machine, "x86");
+        assert_eq!(plan.changes[0].action, PlanAction::Create);
+    }
+
+    #[test]
+    fn test_fj004_multi_machine_partial_lock() {
+        // One machine converged, other is new
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  a:
+    hostname: a
+    addr: 1.1.1.1
+  b:
+    hostname: b
+    addr: 2.2.2.2
+resources:
+  pkg:
+    type: package
+    machine: [a, b]
+    provider: apt
+    packages: [curl]
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let order = vec!["pkg".to_string()];
+        let resource = &config.resources["pkg"];
+
+        let mut a_resources = indexmap::IndexMap::new();
+        a_resources.insert(
+            "pkg".to_string(),
+            ResourceLock {
+                resource_type: ResourceType::Package,
+                status: ResourceStatus::Converged,
+                applied_at: None,
+                duration_seconds: None,
+                hash: hash_desired_state(resource),
+                details: HashMap::new(),
+            },
+        );
+        let mut locks = HashMap::new();
+        locks.insert(
+            "a".to_string(),
+            StateLock {
+                schema: "1.0".to_string(),
+                machine: "a".to_string(),
+                hostname: "a".to_string(),
+                generated_at: "2026-01-01T00:00:00Z".to_string(),
+                generator: "forjar".to_string(),
+                blake3_version: "1.8".to_string(),
+                resources: a_resources,
+            },
+        );
+
+        let plan = plan(&config, &order, &locks, None);
+        assert_eq!(plan.changes.len(), 2);
+        // a is unchanged, b is create
+        assert_eq!(plan.unchanged, 1);
+        assert_eq!(plan.to_create, 1);
+    }
+
+    #[test]
+    fn test_fj004_empty_execution_order() {
+        let config = make_config();
+        let order: Vec<String> = vec![];
+        let locks = HashMap::new();
+        let plan = plan(&config, &order, &locks, None);
+        assert_eq!(plan.changes.len(), 0);
+        assert_eq!(plan.to_create, 0);
+    }
+
+    #[test]
+    fn test_fj004_nonexistent_resource_in_order_skipped() {
+        let config = make_config();
+        let order = vec!["nonexistent".to_string(), "pkg".to_string()];
+        let locks = HashMap::new();
+        let plan = plan(&config, &order, &locks, None);
+        // Only pkg should be planned
+        assert_eq!(plan.changes.len(), 1);
+        assert_eq!(plan.changes[0].resource_id, "pkg");
+    }
+
+    #[test]
+    fn test_fj004_describe_action_file_no_path() {
+        // File with no path should show "?"
+        let r = Resource {
+            resource_type: ResourceType::File,
+            machine: MachineTarget::Single("m1".to_string()),
+            state: None,
+            depends_on: vec![],
+            provider: None,
+            packages: vec![],
+            version: None,
+            path: None,
+            content: None,
+            source: None,
+            target: None,
+            owner: None,
+            group: None,
+            mode: None,
+            name: None,
+            enabled: None,
+            restart_on: vec![],
+            fs_type: None,
+            options: None,
+            uid: None,
+            shell: None,
+            home: None,
+            groups: vec![],
+            ssh_authorized_keys: vec![],
+            system_user: false,
+            schedule: None,
+            command: None,
+            image: None,
+            ports: vec![],
+            environment: vec![],
+            volumes: vec![],
+            restart: None,
+            protocol: None,
+            port: None,
+            action: None,
+            from_addr: None,
+            recipe: None,
+            inputs: HashMap::new(),
+            arch: vec![],
+            tags: vec![],
+        };
+        let desc = describe_action("f", &r, &PlanAction::Create);
+        assert!(desc.contains("?"), "missing path should show ?");
+    }
+
+    #[test]
+    fn test_fj004_describe_action_service_no_name() {
+        let r = Resource {
+            resource_type: ResourceType::Service,
+            machine: MachineTarget::Single("m1".to_string()),
+            state: None,
+            depends_on: vec![],
+            provider: None,
+            packages: vec![],
+            version: None,
+            path: None,
+            content: None,
+            source: None,
+            target: None,
+            owner: None,
+            group: None,
+            mode: None,
+            name: None,
+            enabled: None,
+            restart_on: vec![],
+            fs_type: None,
+            options: None,
+            uid: None,
+            shell: None,
+            home: None,
+            groups: vec![],
+            ssh_authorized_keys: vec![],
+            system_user: false,
+            schedule: None,
+            command: None,
+            image: None,
+            ports: vec![],
+            environment: vec![],
+            volumes: vec![],
+            restart: None,
+            protocol: None,
+            port: None,
+            action: None,
+            from_addr: None,
+            recipe: None,
+            inputs: HashMap::new(),
+            arch: vec![],
+            tags: vec![],
+        };
+        let desc = describe_action("svc", &r, &PlanAction::Create);
+        assert!(desc.contains("?"), "missing name should show ?");
+    }
+
+    #[test]
+    fn test_fj004_describe_action_docker_type() {
+        let r = Resource {
+            resource_type: ResourceType::Docker,
+            machine: MachineTarget::Single("m1".to_string()),
+            state: None,
+            depends_on: vec![],
+            provider: None,
+            packages: vec![],
+            version: None,
+            path: None,
+            content: None,
+            source: None,
+            target: None,
+            owner: None,
+            group: None,
+            mode: None,
+            name: None,
+            enabled: None,
+            restart_on: vec![],
+            fs_type: None,
+            options: None,
+            uid: None,
+            shell: None,
+            home: None,
+            groups: vec![],
+            ssh_authorized_keys: vec![],
+            system_user: false,
+            schedule: None,
+            command: None,
+            image: None,
+            ports: vec![],
+            environment: vec![],
+            volumes: vec![],
+            restart: None,
+            protocol: None,
+            port: None,
+            action: None,
+            from_addr: None,
+            recipe: None,
+            inputs: HashMap::new(),
+            arch: vec![],
+            tags: vec![],
+        };
+        let desc = describe_action("dock", &r, &PlanAction::Create);
+        assert!(desc.contains("create"), "Docker create should say create");
+    }
+
+    #[test]
+    fn test_fj004_hash_content_change_changes_hash() {
+        let r1 = Resource {
+            resource_type: ResourceType::File,
+            machine: MachineTarget::Single("m1".to_string()),
+            state: None,
+            depends_on: vec![],
+            provider: None,
+            packages: vec![],
+            version: None,
+            path: Some("/etc/test".to_string()),
+            content: Some("version=1".to_string()),
+            source: None,
+            target: None,
+            owner: None,
+            group: None,
+            mode: None,
+            name: None,
+            enabled: None,
+            restart_on: vec![],
+            fs_type: None,
+            options: None,
+            uid: None,
+            shell: None,
+            home: None,
+            groups: vec![],
+            ssh_authorized_keys: vec![],
+            system_user: false,
+            schedule: None,
+            command: None,
+            image: None,
+            ports: vec![],
+            environment: vec![],
+            volumes: vec![],
+            restart: None,
+            protocol: None,
+            port: None,
+            action: None,
+            from_addr: None,
+            recipe: None,
+            inputs: HashMap::new(),
+            arch: vec![],
+            tags: vec![],
+        };
+        let mut r2 = r1.clone();
+        r2.content = Some("version=2".to_string());
+        assert_ne!(
+            hash_desired_state(&r1),
+            hash_desired_state(&r2),
+            "content change must change hash"
+        );
+    }
+
+    #[test]
+    fn test_fj004_plan_name_from_config() {
+        let config = make_config();
+        let order = vec![];
+        let locks = HashMap::new();
+        let plan = plan(&config, &order, &locks, None);
+        assert_eq!(plan.name, "test");
+    }
+
+    #[test]
+    fn test_fj004_arch_and_tag_filter_combined() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  x86:
+    hostname: x86
+    addr: 1.1.1.1
+    arch: x86_64
+  arm:
+    hostname: arm
+    addr: 2.2.2.2
+    arch: aarch64
+resources:
+  driver:
+    type: package
+    machine: [x86, arm]
+    provider: apt
+    packages: [intel-microcode]
+    arch: [x86_64]
+    tags: [infra]
+  generic:
+    type: file
+    machine: [x86, arm]
+    path: /etc/test
+    content: hello
+    tags: [infra]
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let order = vec!["driver".to_string(), "generic".to_string()];
+        let locks = HashMap::new();
+
+        // Tag filter "infra" + arch filter: driver only on x86, generic on both
+        let plan = plan(&config, &order, &locks, Some("infra"));
+        assert_eq!(plan.changes.len(), 3); // driver:x86, generic:x86, generic:arm
+        assert_eq!(plan.to_create, 3);
+    }
 }
