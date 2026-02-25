@@ -31,6 +31,11 @@ forjar.yaml
 └────┬─────┘
      │
      ▼
+┌──────────┐
+│ purifier │  bashrs validation + purification (FJ-036)
+└────┬─────┘
+     │
+     ▼
 ┌─────────┐
 │ executor │  Run scripts via local bash, SSH, or container exec
 └────┬─────┘
@@ -56,6 +61,7 @@ src/
     resolver.rs          Template resolution + Kahn's topological sort
     planner.rs           Desired-state diffing via BLAKE3 hash comparison
     codegen.rs           Shell script generation (dispatches to resources/)
+    purifier.rs          bashrs shell validation + purification (FJ-036)
     executor.rs          Orchestration loop (the main apply logic)
     state.rs             Lock file load/save (atomic write via temp+rename)
     recipe.rs            Recipe loading, input validation, namespaced expansion
@@ -180,6 +186,61 @@ This hash is stored in the lock file. On the next `apply`, the planner computes 
 - **Missing**: Create (first apply)
 
 No API calls needed. Just local hash comparison. Changing any field — content, permissions, image tag, port number, cron schedule — produces a different hash and triggers an update.
+
+## Shell Purification (FJ-036)
+
+Every shell script forjar generates passes through the **bashrs** purification pipeline. This enforces Invariant I8: no raw shell execution.
+
+### Three Safety Levels
+
+| Level | Function | Purpose |
+|-------|----------|---------|
+| **Validate** | `purifier::validate_script()` | Lint-based check; fails on Error-severity diagnostics |
+| **Lint** | `purifier::lint_script()` | Full diagnostic pass; returns all findings with severity |
+| **Purify** | `purifier::purify_script()` | Parse → purify AST → reformat (strongest guarantee) |
+
+### bashrs Integration Points
+
+1. **`core/purifier.rs`** — Thin wrapper around `bashrs::linter`, `bashrs::validation`, `bashrs::bash_parser`, and `bashrs::bash_transpiler`
+2. **`forjar lint`** — Runs bashrs linter on all generated scripts (check, apply, state_query) and reports SEC/DET/IDEM violations
+3. **`examples/shell_purifier.rs`** — Demonstrates all three safety levels
+
+### Diagnostic Categories
+
+bashrs diagnostics follow ShellCheck conventions with additional categories:
+
+| Prefix | Meaning | Example |
+|--------|---------|---------|
+| **SEC** | Security violation (injection, unquoted vars) | SEC002: Unquoted variable |
+| **DET** | Non-determinism (date, random, pid) | DET001: Non-deterministic command |
+| **IDEM** | Idempotency violation (creates without checking) | IDEM001: Non-idempotent operation |
+| **SC** | ShellCheck-equivalent rules | SC2162: read without -r |
+
+### Example: Validating Generated Scripts
+
+```rust
+use forjar::core::{codegen, purifier};
+
+let script = codegen::check_script(&resource).unwrap();
+match purifier::validate_script(&script) {
+    Ok(()) => println!("Script is clean"),
+    Err(e) => eprintln!("Lint errors: {e}"),
+}
+
+// Full purification (parse → purify → reformat)
+let purified = purifier::purify_script(&script).unwrap();
+```
+
+### Known Patterns
+
+The `$SUDO` privilege escalation idiom intentionally uses unquoted expansion:
+```bash
+SUDO=""
+[ "$(id -u)" -ne 0 ] && SUDO="sudo"
+$SUDO apt-get install -y curl    # $SUDO disappears when empty
+```
+
+This triggers SEC002 but is a safe, standard shell pattern. bashrs reports it as a known warning in `forjar lint` output.
 
 ## Transport
 

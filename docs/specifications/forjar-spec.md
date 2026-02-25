@@ -79,7 +79,7 @@ forjar.yaml                    (human-authored desired state)
        │
        ▼
 ┌─────────────┐
-│   bashrs    │                transpile Rust AST → purified POSIX shell (FJ-036: pending)
+│   bashrs    │                validate + purify shell scripts (FJ-036: done)
 └──────┬──────┘
        │
        ▼
@@ -1279,7 +1279,7 @@ Statistical anomaly detection from event history. Analyzes per-resource metrics:
 | FJ-033 | `resources/cron.rs` — scheduled tasks (crontab) | **Done** |
 | FJ-034 | Parallel multi-machine apply via `std::thread::scope` | **Done** |
 | FJ-035 | Source file transfer via base64 transport | **Done** |
-| FJ-036 | bashrs integration — full shell purification pipeline | |
+| FJ-036 | bashrs integration — shell purification pipeline | **Done** |
 
 > **Note**: FJ-030 (`resources/docker.rs`) manages containers *as resources* (deploying containers on machines). This is distinct from FJ-021 which uses containers *as transport targets* (running forjar scripts inside containers).
 
@@ -1557,7 +1557,7 @@ container-test = []
 | I5 | Resource ordering respects dependency DAG | resolver + Kahn's toposort | `dag-ordering-v1.yaml` |
 | I6 | Drift detection compares live state to lock hashes | tripwire/drift | — |
 | I7 | Jidoka: stop on first failure, preserve partial state | executor | `execution-safety-v1.yaml` |
-| I8 | No raw shell execution — all shell is bashrs-purified | codegen pipeline | — |
+| I8 | All shell is bashrs-validated; `forjar lint` reports bashrs diagnostics | codegen + purifier | — |
 | I9 | State never leaves the git repo — no remote backends | state module | — |
 | I10 | Every apply is traceable to a git commit | tripwire/eventlog | — |
 | I11 | Recipes expand deterministically — same inputs always produce same resources | recipe module | `recipe-determinism-v1.yaml` |
