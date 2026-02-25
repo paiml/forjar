@@ -164,4 +164,89 @@ mod tests {
         assert!(script.contains("findmnt"));
         assert!(script.contains("UNMOUNTED"));
     }
+
+    #[test]
+    fn test_fj009_apply_creates_mount_point_dir() {
+        let r = make_mount_resource();
+        let script = apply_script(&r);
+        // mkdir -p must come before mount
+        let mkdir_idx = script.find("mkdir -p").unwrap();
+        let mount_idx = script.find("mount -t").unwrap();
+        assert!(
+            mkdir_idx < mount_idx,
+            "mkdir must precede mount in apply script"
+        );
+    }
+
+    #[test]
+    fn test_fj009_apply_bind_mount() {
+        let mut r = make_mount_resource();
+        r.source = Some("/srv/data".to_string());
+        r.fs_type = Some("none".to_string());
+        r.options = Some("bind".to_string());
+        let script = apply_script(&r);
+        assert!(script.contains("mount -t 'none' -o 'bind' '/srv/data'"));
+    }
+
+    #[test]
+    fn test_fj009_apply_default_options() {
+        let mut r = make_mount_resource();
+        r.options = None;
+        let script = apply_script(&r);
+        assert!(script.contains("-o 'defaults'"));
+    }
+
+    #[test]
+    fn test_fj009_apply_default_fstype() {
+        let mut r = make_mount_resource();
+        r.fs_type = None;
+        let script = apply_script(&r);
+        assert!(script.contains("-t 'auto'"));
+    }
+
+    #[test]
+    fn test_fj009_fstab_entry_format() {
+        let r = make_mount_resource();
+        let script = apply_script(&r);
+        // Verify fstab entry has correct fields: source target fstype options dump pass
+        assert!(script.contains(
+            "192.168.50.50:/mnt/nvme-raid0 /mnt/lambda-raid nfs ro,hard,intr 0 0"
+        ));
+    }
+
+    #[test]
+    fn test_fj009_fstab_idempotency() {
+        let r = make_mount_resource();
+        let script = apply_script(&r);
+        // Should check if already in fstab before adding
+        assert!(script.contains("grep -q '/mnt/lambda-raid' /etc/fstab"));
+    }
+
+    #[test]
+    fn test_fj009_absent_removes_fstab_entry() {
+        let mut r = make_mount_resource();
+        r.state = Some("absent".to_string());
+        let script = apply_script(&r);
+        assert!(script.contains("sed -i"));
+        assert!(script.contains("/mnt/lambda-raid"));
+        assert!(script.contains("fstab"));
+    }
+
+    #[test]
+    fn test_fj009_check_script_default_path() {
+        let mut r = make_mount_resource();
+        r.path = None;
+        let script = check_script(&r);
+        assert!(script.contains("/mnt/unknown"));
+    }
+
+    #[test]
+    fn test_fj009_apply_pipefail() {
+        let r = make_mount_resource();
+        let script = apply_script(&r);
+        assert!(
+            script.starts_with("set -euo pipefail"),
+            "mount script must start with safety flags"
+        );
+    }
 }

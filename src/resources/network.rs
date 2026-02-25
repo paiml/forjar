@@ -195,4 +195,72 @@ mod tests {
         assert!(script.contains("SUDO=\"\""));
         assert!(script.contains("$SUDO ufw"));
     }
+
+    #[test]
+    fn test_fj032_apply_reject() {
+        let r = make_network_resource("25", "reject");
+        let script = apply_script(&r);
+        assert!(script.contains("ufw reject"));
+        assert!(script.contains("port '25'"));
+    }
+
+    #[test]
+    fn test_fj032_apply_udp_protocol() {
+        let mut r = make_network_resource("53", "allow");
+        r.protocol = Some("udp".to_string());
+        let script = apply_script(&r);
+        assert!(script.contains("proto 'udp'"));
+        assert!(script.contains("port '53'"));
+    }
+
+    #[test]
+    fn test_fj032_absent_with_source() {
+        let mut r = make_network_resource("22", "allow");
+        r.state = Some("absent".to_string());
+        r.from_addr = Some("10.0.0.0/8".to_string());
+        let script = apply_script(&r);
+        assert!(script.contains("ufw delete allow"));
+        assert!(script.contains("from '10.0.0.0/8'"));
+        assert!(script.contains("port '22'"));
+    }
+
+    #[test]
+    fn test_fj032_check_script_default_protocol() {
+        let mut r = make_network_resource("80", "allow");
+        r.protocol = None;
+        let script = check_script(&r);
+        // Should default to tcp
+        assert!(script.contains("80/tcp"));
+    }
+
+    #[test]
+    fn test_fj032_state_query_default_port() {
+        let mut r = make_network_resource("443", "allow");
+        r.port = None;
+        let script = state_query_script(&r);
+        assert!(script.contains("rule=MISSING:0"));
+    }
+
+    #[test]
+    fn test_fj032_apply_from_cidr_range() {
+        let mut r = make_network_resource("5432", "allow");
+        r.from_addr = Some("172.16.0.0/12".to_string());
+        let script = apply_script(&r);
+        assert!(script.contains("from '172.16.0.0/12'"));
+        assert!(script.contains("port '5432'"));
+        // from comes before to
+        let from_idx = script.find("from '172.16.0.0/12'").unwrap();
+        let to_idx = script.find("to any port").unwrap();
+        assert!(from_idx < to_idx, "from must come before to in ufw rule");
+    }
+
+    #[test]
+    fn test_fj032_apply_script_pipefail() {
+        let r = make_network_resource("22", "allow");
+        let script = apply_script(&r);
+        assert!(
+            script.starts_with("set -euo pipefail"),
+            "apply script must start with safety flags"
+        );
+    }
 }
