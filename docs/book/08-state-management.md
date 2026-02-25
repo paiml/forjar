@@ -390,3 +390,221 @@ done
 ```
 
 Lock files are small (typically < 10KB) and do not grow over time — they represent current state only.
+
+## State File Internals
+
+### Lock File Schema
+
+Every lock file follows this schema:
+
+```yaml
+schema: '1.0'                    # Lock file format version
+machine: web-server              # Machine key from config
+hostname: web1                   # Machine hostname
+generated_at: 2026-02-25T14:00:00Z  # ISO 8601 UTC timestamp
+generator: forjar 0.1.0         # Generator string
+blake3_version: '1.8'           # BLAKE3 library version
+resources:                       # Map of resource_id → ResourceLock
+  resource-name:
+    type: file                   # Resource type
+    status: converged            # converged | failed | drifted | unknown
+    applied_at: 2026-02-25T14:00:01Z
+    duration_seconds: 0.54
+    hash: blake3:...             # Composite hash of desired state
+    details:                     # Type-specific metadata
+      path: /etc/nginx/nginx.conf
+      content_hash: blake3:...   # Hash of actual file contents
+      live_hash: blake3:...      # Hash of state_query output
+```
+
+### Status Lifecycle
+
+Resources transition through these statuses:
+
+```
+                  ┌──────────┐
+    first apply → │ converged │ ← successful re-apply
+                  └─────┬─────┘
+                        │
+                  drift detected
+                        │
+                  ┌─────▼─────┐
+                  │  drifted   │
+                  └─────┬─────┘
+                        │
+                  re-apply (--force)
+                        │
+                  ┌─────▼─────┐
+                  │ converged  │
+                  └────────────┘
+
+    apply failure → ┌──────┐
+                    │ failed│ → retry → converged
+                    └──────┘
+
+    no prior state → ┌─────────┐
+                     │ unknown  │ → first apply → converged
+                     └──────────┘
+```
+
+### Details by Resource Type
+
+Each resource type stores different metadata in the `details` map:
+
+| Resource Type | Details Fields |
+|---------------|---------------|
+| **File** | `path`, `content_hash`, `live_hash`, `owner`, `group`, `mode` |
+| **Package** | `live_hash` |
+| **Service** | `service_name`, `live_hash` |
+| **Mount** | `mount_path`, `live_hash` |
+| **User** | `username`, `live_hash` |
+| **Docker** | `container_name`, `live_hash` |
+| **Cron** | `cron_name`, `live_hash` |
+| **Network** | `live_hash` |
+
+The `live_hash` is the BLAKE3 hash of the `state_query_script` output at apply time. During drift detection, forjar re-runs the state query and compares the new output hash against `live_hash`.
+
+### Global Lock Schema
+
+The global lock (`forjar.lock.yaml`) aggregates per-machine summaries:
+
+```yaml
+schema: '1.0'
+name: my-infrastructure          # Config name
+last_apply: 2026-02-25T14:00:00Z
+generator: forjar 0.1.0
+machines:
+  web-server:
+    resources: 8                 # Total resource count
+    converged: 7                 # Successfully applied
+    failed: 1                    # Failed to apply
+    last_apply: 2026-02-25T14:00:05Z
+```
+
+## State Consistency Guarantees
+
+### Atomic Write Protocol
+
+Forjar ensures lock files are never corrupted, even during crashes:
+
+```
+1. Serialize ResourceLock → YAML string
+2. Write to state.lock.yaml.tmp (temp file)
+3. fsync() to flush to disk
+4. rename() temp → state.lock.yaml (atomic on POSIX)
+```
+
+If forjar crashes between steps 2 and 4, the temp file remains and the original lock is untouched. On the next apply, forjar reads the intact original lock.
+
+### Partial Apply State
+
+When jidoka stops execution after a failure:
+
+```
+Resources:  A(ok) → B(ok) → C(FAIL) → D(skipped) → E(skipped)
+
+Lock file after partial apply:
+  A: status: converged, hash: blake3:...
+  B: status: converged, hash: blake3:...
+  C: status: failed, hash: blake3:...
+  D: (not present — never attempted)
+  E: (not present — never attempted)
+```
+
+On the next `forjar apply`:
+- A and B are **skipped** (hashes match)
+- C is **retried** (status is failed)
+- D and E are **attempted** for the first time
+
+This means partial applies are always safe to re-run.
+
+### Event Log Durability
+
+The event log (`events.jsonl`) is append-only:
+
+```
+1. Serialize event → JSON string
+2. Open events.jsonl with O_APPEND
+3. Write JSON line + newline
+4. Close file
+```
+
+`O_APPEND` guarantees atomic appends on POSIX — even concurrent writers produce valid JSONL. Events are never modified or deleted by forjar.
+
+## Advanced State Operations
+
+### Comparing States Over Time
+
+Use `forjar diff` to see what changed between applies:
+
+```bash
+# Save a snapshot before changing config
+cp -r state/ /tmp/state-before/
+
+# Make config changes and apply
+forjar apply -f forjar.yaml --state-dir state/
+
+# See what changed
+forjar diff /tmp/state-before/ state/
+```
+
+Output:
+
+```
+DIFF: 2 change(s)
+
+  web-server/nginx-config:
+    status: converged → converged
+    hash: blake3:a1b2... → blake3:c3d4...
+    detail: content changed
+
+  web-server/new-resource:
+    status: (none) → converged
+    detail: added
+```
+
+### Importing Live State
+
+If you're adopting forjar on an existing machine, import the current state without making changes:
+
+```bash
+forjar import -f forjar.yaml -m web-server --state-dir state/
+```
+
+This runs state_query scripts to capture the current live hashes and creates a lock file without applying anything. Subsequent `forjar apply` runs will only change resources whose desired state differs from what was captured.
+
+### State Directory Per Environment
+
+For multi-environment setups, use separate state directories:
+
+```bash
+# Staging
+forjar apply -f staging.yaml --state-dir state-staging/
+
+# Production
+forjar apply -f production.yaml --state-dir state-production/
+
+# Compare staging vs production
+forjar diff state-staging/ state-production/
+```
+
+### Programmatic State Access
+
+Lock files are plain YAML — parse them with any YAML library:
+
+```python
+import yaml
+
+with open("state/web-server/state.lock.yaml") as f:
+    lock = yaml.safe_load(f)
+
+for name, resource in lock["resources"].items():
+    if resource["status"] == "failed":
+        print(f"FAILED: {name}")
+```
+
+```bash
+# jq-style queries with yq
+yq '.resources | to_entries[] | select(.value.status == "failed") | .key' \
+  state/web-server/state.lock.yaml
+```

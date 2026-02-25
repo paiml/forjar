@@ -365,6 +365,309 @@ resources:
 
 The `intel-microcode` resource only applies to `x86-box` — it's silently skipped on `arm-box`.
 
+## Container Testing
+
+You don't need real machines to test your configs. Use container transport to test locally with Docker:
+
+```yaml
+version: "1.0"
+name: dev-test
+
+machines:
+  test-box:
+    hostname: test-box
+    addr: container
+    transport: container
+    container:
+      runtime: docker
+      image: ubuntu:22.04
+      ephemeral: true         # destroy after apply
+      init: true              # PID 1 reaping
+
+resources:
+  base-packages:
+    type: package
+    machine: test-box
+    provider: apt
+    packages: [curl, htop, git]
+
+  welcome-msg:
+    type: file
+    machine: test-box
+    path: /etc/motd
+    content: "Welcome to the test box!"
+    mode: "0644"
+    depends_on: [base-packages]
+```
+
+Run it:
+
+```bash
+# Validate first
+forjar validate -f forjar.yaml
+
+# Apply to a fresh container
+forjar apply -f forjar.yaml --state-dir state/
+
+# Check state
+forjar status --state-dir state/
+
+# Re-apply — should be a no-op
+forjar apply -f forjar.yaml --state-dir state/
+```
+
+With `ephemeral: true`, the container is created fresh and destroyed after each apply — giving you a clean environment every time.
+
+## What Happens Under the Hood
+
+When you run `forjar apply`, here's exactly what happens:
+
+```
+1. Parse YAML          → Load forjar.yaml, validate schema
+2. Expand Recipes      → Resolve recipe resources into concrete resources
+3. Resolve Templates   → Replace {{params.X}}, {{secrets.X}}, {{machine.X.Y}}
+4. Build DAG           → Topological sort with alphabetical tie-breaking
+5. Plan                → Compare BLAKE3 hashes: desired vs lock file
+6. Generate Scripts    → Create check/apply/state_query shell scripts
+7. Execute             → Pipe scripts to bash on each machine (local/SSH/container)
+8. Record State        → Atomic write to state.lock.yaml + append events.jsonl
+```
+
+### Script Generation
+
+For every resource, forjar generates three shell scripts:
+
+| Script | Purpose | Example |
+|--------|---------|---------|
+| **check** | Verify preconditions | `dpkg -s curl > /dev/null 2>&1` |
+| **apply** | Converge to desired state | `apt-get install -y curl htop git` |
+| **state_query** | Capture live state for drift detection | `dpkg-query -W -f='${Package}=${Version}\n' curl htop git` |
+
+All scripts begin with `set -euo pipefail` for strict error handling, and include automatic `sudo` detection:
+
+```bash
+SUDO="" ; [ "$(id -u)" -ne 0 ] && SUDO="sudo"
+```
+
+### Transport Selection
+
+Forjar automatically selects how to execute scripts based on machine config:
+
+| Machine Address | Transport | Command |
+|-----------------|-----------|---------|
+| `container` or `transport: container` | Container | `docker exec -i <name> bash` |
+| `127.0.0.1` or `localhost` | Local | `bash` |
+| Any other address | SSH | `ssh user@addr bash` |
+
+Scripts are always piped to `stdin` — never passed as command-line arguments. This avoids shell metacharacter injection and argument length limits.
+
+## Auditing Scripts Before Apply
+
+For security-sensitive environments, inspect the generated scripts before running them:
+
+```bash
+# Write scripts to a directory for review
+forjar plan -f forjar.yaml --output-dir /tmp/audit/
+
+# Review the generated scripts
+ls /tmp/audit/
+# web-server/
+#   base-packages.check.sh
+#   base-packages.apply.sh
+#   base-packages.state_query.sh
+#   site-config.check.sh
+#   site-config.apply.sh
+#   ...
+```
+
+Every script is a plain shell file — no hidden behavior.
+
+## Local Development Workflow
+
+A typical development cycle:
+
+```bash
+# 1. Initialize project
+forjar init my-infra && cd my-infra
+
+# 2. Edit config
+$EDITOR forjar.yaml
+
+# 3. Validate (catches errors without SSH)
+forjar validate -f forjar.yaml
+
+# 4. Preview changes
+forjar plan -f forjar.yaml --state-dir state/
+
+# 5. Visualize dependencies
+forjar graph -f forjar.yaml
+
+# 6. Apply
+forjar apply -f forjar.yaml --state-dir state/
+
+# 7. Verify idempotency
+forjar apply -f forjar.yaml --state-dir state/
+
+# 8. Check for drift later
+forjar drift -f forjar.yaml --state-dir state/
+
+# 9. Commit state for audit trail
+git add state/ forjar.yaml && git commit -m "forjar: initial apply"
+```
+
+### Lint and Format
+
+Keep your config clean:
+
+```bash
+# Format YAML consistently
+forjar fmt -f forjar.yaml
+
+# Check for style issues and common mistakes
+forjar lint -f forjar.yaml
+```
+
+### Troubleshooting a Failed Apply
+
+When a resource fails:
+
+```bash
+# See what failed
+forjar status --state-dir state/
+
+# Check event log for error details
+forjar history --state-dir state/ -n 10
+
+# Fix the config and retry — only the failed resource re-runs
+forjar apply -f forjar.yaml --state-dir state/
+
+# Force re-apply everything if needed
+forjar apply -f forjar.yaml --state-dir state/ --force
+```
+
+## Project Structure
+
+A complete forjar project looks like this:
+
+```
+my-infra/
+  forjar.yaml               # Main config (desired state)
+  recipes/                   # Reusable resource patterns
+    web-server.yaml
+    monitoring.yaml
+  state/                     # Managed by forjar (commit to git)
+    forjar.lock.yaml         # Global lock summary
+    web-server/
+      state.lock.yaml        # Per-machine resource hashes
+      events.jsonl           # Append-only audit trail
+    db-server/
+      state.lock.yaml
+      events.jsonl
+```
+
+| File | Purpose | Git? |
+|------|---------|------|
+| `forjar.yaml` | Desired state declaration | Yes |
+| `recipes/*.yaml` | Reusable templates | Yes |
+| `state/*.lock.yaml` | Lock files (current state) | Yes |
+| `state/*/events.jsonl` | Audit log | Yes |
+
+## Multi-Machine Example
+
+A realistic config managing a web server and database:
+
+```yaml
+version: "1.0"
+name: production
+
+params:
+  env: production
+
+machines:
+  web:
+    hostname: web1
+    addr: 10.0.0.1
+    user: deploy
+    ssh_key: ~/.ssh/id_ed25519
+  db:
+    hostname: db1
+    addr: 10.0.0.2
+    user: deploy
+    ssh_key: ~/.ssh/id_ed25519
+
+resources:
+  # Web server
+  web-packages:
+    type: package
+    machine: web
+    provider: apt
+    packages: [nginx, certbot]
+
+  web-config:
+    type: file
+    machine: web
+    path: /etc/nginx/sites-enabled/app
+    content: |
+      server {
+        listen 80;
+        server_name app.example.com;
+        root /var/www/app;
+      }
+    owner: root
+    mode: "0644"
+    depends_on: [web-packages]
+
+  web-service:
+    type: service
+    machine: web
+    name: nginx
+    state: running
+    enabled: true
+    restart_on: [web-config]
+    depends_on: [web-config]
+
+  # Database server
+  db-packages:
+    type: package
+    machine: db
+    provider: apt
+    packages: [postgresql-16]
+
+  db-service:
+    type: service
+    machine: db
+    name: postgresql
+    state: running
+    enabled: true
+    depends_on: [db-packages]
+
+  # Deploy user on both machines
+  deploy-user:
+    type: user
+    machine: [web, db]
+    name: deploy
+    shell: /bin/bash
+    home: /home/deploy
+    ssh_authorized_keys:
+      - "ssh-ed25519 AAAA... deploy@laptop"
+```
+
+Apply:
+
+```bash
+# Preview all changes
+forjar plan -f forjar.yaml --state-dir state/
+
+# Apply to web only
+forjar apply -f forjar.yaml --state-dir state/ -m web
+
+# Apply everything
+forjar apply -f forjar.yaml --state-dir state/
+
+# Check for drift across the fleet
+forjar drift -f forjar.yaml --state-dir state/
+```
+
 ## Next Steps
 
 - [Configuration Reference](02-configuration.md) — Complete `forjar.yaml` schema
