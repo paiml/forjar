@@ -5218,4 +5218,488 @@ resources:
         );
         assert!(result.is_ok());
     }
+
+    // ── Import scan type tests ─────────────────────────────────
+
+    #[test]
+    fn test_fj065_import_services_scan() {
+        let dir = tempfile::tempdir().unwrap();
+        let output = dir.path().join("imported.yaml");
+
+        // Import services from localhost
+        cmd_import(
+            "localhost",
+            "root",
+            Some("svc-box"),
+            &output,
+            &["services".to_string()],
+            false,
+        )
+        .unwrap();
+
+        let content = std::fs::read_to_string(&output).unwrap();
+        assert!(content.contains("version: \"1.0\""));
+        assert!(content.contains("svc-box"));
+    }
+
+    #[test]
+    fn test_fj065_import_users_scan() {
+        let dir = tempfile::tempdir().unwrap();
+        let output = dir.path().join("imported.yaml");
+
+        cmd_import(
+            "localhost",
+            "root",
+            Some("user-box"),
+            &output,
+            &["users".to_string()],
+            false,
+        )
+        .unwrap();
+
+        let content = std::fs::read_to_string(&output).unwrap();
+        assert!(content.contains("version: \"1.0\""));
+        assert!(content.contains("user-box"));
+    }
+
+    #[test]
+    fn test_fj065_import_files_scan() {
+        let dir = tempfile::tempdir().unwrap();
+        let output = dir.path().join("imported.yaml");
+
+        cmd_import(
+            "localhost",
+            "root",
+            Some("file-box"),
+            &output,
+            &["files".to_string()],
+            false,
+        )
+        .unwrap();
+
+        let content = std::fs::read_to_string(&output).unwrap();
+        assert!(content.contains("version: \"1.0\""));
+        assert!(content.contains("file-box"));
+    }
+
+    #[test]
+    fn test_fj065_import_cron_scan() {
+        let dir = tempfile::tempdir().unwrap();
+        let output = dir.path().join("imported.yaml");
+
+        cmd_import(
+            "localhost",
+            "root",
+            Some("cron-box"),
+            &output,
+            &["cron".to_string()],
+            false,
+        )
+        .unwrap();
+
+        let content = std::fs::read_to_string(&output).unwrap();
+        assert!(content.contains("version: \"1.0\""));
+        assert!(content.contains("cron-box"));
+    }
+
+    #[test]
+    fn test_fj065_import_multi_scan() {
+        let dir = tempfile::tempdir().unwrap();
+        let output = dir.path().join("imported.yaml");
+
+        cmd_import(
+            "localhost",
+            "root",
+            Some("multi-box"),
+            &output,
+            &[
+                "packages".to_string(),
+                "services".to_string(),
+                "users".to_string(),
+            ],
+            false,
+        )
+        .unwrap();
+
+        let content = std::fs::read_to_string(&output).unwrap();
+        assert!(content.contains("version: \"1.0\""));
+        assert!(content.contains("multi-box"));
+    }
+
+    #[test]
+    fn test_fj065_import_verbose() {
+        let dir = tempfile::tempdir().unwrap();
+        let output = dir.path().join("imported.yaml");
+
+        cmd_import(
+            "localhost",
+            "root",
+            Some("verbose-box"),
+            &output,
+            &["packages".to_string()],
+            true, // verbose
+        )
+        .unwrap();
+
+        assert!(output.exists());
+    }
+
+    #[test]
+    fn test_fj065_import_default_name_localhost() {
+        let dir = tempfile::tempdir().unwrap();
+        let output = dir.path().join("imported.yaml");
+
+        cmd_import(
+            "localhost",
+            "root",
+            None, // name derived from addr
+            &output,
+            &["packages".to_string()],
+            false,
+        )
+        .unwrap();
+
+        let content = std::fs::read_to_string(&output).unwrap();
+        assert!(content.contains("localhost"));
+    }
+
+    #[test]
+    fn test_fj065_import_default_name_ip() {
+        let dir = tempfile::tempdir().unwrap();
+        let output = dir.path().join("imported.yaml");
+
+        // Use 127.0.0.1 — name should default to "localhost"
+        cmd_import(
+            "127.0.0.1",
+            "root",
+            None,
+            &output,
+            &["packages".to_string()],
+            false,
+        )
+        .unwrap();
+
+        let content = std::fs::read_to_string(&output).unwrap();
+        assert!(content.contains("localhost"));
+    }
+
+    // ── Show command tests ─────────────────────────────────────
+
+    #[test]
+    fn test_fj017_show_json_output() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config,
+            r#"
+version: "1.0"
+name: json-show-test
+machines:
+  m1:
+    hostname: box
+    addr: 1.2.3.4
+resources:
+  pkg:
+    type: package
+    machine: m1
+    provider: apt
+    packages: [curl]
+"#,
+        )
+        .unwrap();
+        // JSON output should succeed
+        cmd_show(&config, None, true).unwrap();
+    }
+
+    #[test]
+    fn test_fj017_show_specific_resource_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config,
+            r#"
+version: "1.0"
+name: show-test
+machines:
+  m1:
+    hostname: box
+    addr: 1.2.3.4
+resources:
+  pkg:
+    type: package
+    machine: m1
+    provider: apt
+    packages: [curl]
+"#,
+        )
+        .unwrap();
+        cmd_show(&config, Some("pkg"), true).unwrap();
+    }
+
+    // ── Fmt edge cases ─────────────────────────────────────────
+
+    #[test]
+    fn test_fj017_fmt_check_unformatted() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        // Write with extra whitespace and comments (not canonical)
+        std::fs::write(
+            &config,
+            r#"version:   "1.0"
+name:    my-infra
+machines:
+  m1:
+    hostname:   box
+    addr: 1.2.3.4
+resources:
+  pkg:
+    type: package
+    machine: m1
+    provider: apt
+    packages: [curl]
+"#,
+        )
+        .unwrap();
+        // check mode should detect non-canonical format
+        let result = cmd_fmt(&config, true);
+        assert!(result.is_err(), "unformatted file should fail check mode");
+    }
+
+    #[test]
+    fn test_fj017_fmt_write_then_check() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config,
+            r#"version:   "1.0"
+name:    my-infra
+machines:
+  m1:
+    hostname:   box
+    addr: 1.2.3.4
+resources:
+  pkg:
+    type: package
+    machine: m1
+    provider: apt
+    packages: [curl]
+"#,
+        )
+        .unwrap();
+        // Format the file
+        cmd_fmt(&config, false).unwrap();
+        // Now check mode should pass
+        cmd_fmt(&config, true).unwrap();
+    }
+
+    // ── Check command tests ────────────────────────────────────
+
+    #[test]
+    fn test_fj017_check_machine_filter() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config,
+            r#"
+version: "1.0"
+name: check-test
+machines:
+  local:
+    hostname: local
+    addr: 127.0.0.1
+resources:
+  pkg:
+    type: package
+    machine: local
+    provider: apt
+    packages: [curl]
+"#,
+        )
+        .unwrap();
+        // Check with machine filter
+        cmd_check(&config, Some("local"), None, None, false, false).unwrap();
+    }
+
+    #[test]
+    fn test_fj017_check_resource_filter() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config,
+            r#"
+version: "1.0"
+name: check-test
+machines:
+  local:
+    hostname: local
+    addr: 127.0.0.1
+resources:
+  pkg1:
+    type: package
+    machine: local
+    provider: apt
+    packages: [curl]
+  pkg2:
+    type: package
+    machine: local
+    provider: apt
+    packages: [wget]
+"#,
+        )
+        .unwrap();
+        // Check only specific resource
+        cmd_check(&config, None, Some("pkg1"), None, false, false).unwrap();
+    }
+
+    #[test]
+    fn test_fj017_check_json_output() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config,
+            r#"
+version: "1.0"
+name: check-test
+machines:
+  local:
+    hostname: local
+    addr: 127.0.0.1
+resources:
+  conf:
+    type: file
+    machine: local
+    path: /tmp/forjar-check-test.txt
+    content: hello
+"#,
+        )
+        .unwrap();
+        // JSON output
+        cmd_check(&config, None, None, None, true, false).unwrap();
+    }
+
+    // ── Rollback error tests ───────────────────────────────────
+
+    #[test]
+    fn test_fj017_rollback_invalid_config_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("nonexistent.yaml");
+        let state = dir.path().join("state");
+        std::fs::create_dir_all(&state).unwrap();
+
+        // Rollback with nonexistent config should fail
+        let result = cmd_rollback(&config, &state, 1, None, true, false);
+        assert!(result.is_err());
+    }
+
+    // ── Apply with param overrides ─────────────────────────────
+
+    #[test]
+    fn test_fj017_apply_with_param_override() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = dir.path().join("state");
+        let config = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config,
+            r#"
+version: "1.0"
+name: param-test
+params:
+  env: dev
+machines:
+  local:
+    hostname: local
+    addr: 127.0.0.1
+resources:
+  conf:
+    type: file
+    machine: local
+    path: /tmp/forjar-param-test.txt
+    content: "env={{params.env}}"
+"#,
+        )
+        .unwrap();
+        // Apply with param override in dry-run
+        cmd_apply(
+            &config,
+            &state,
+            None,
+            None,
+            None,
+            false,
+            true, // dry-run
+            false,
+            &["env=prod".to_string()],
+            false,
+            None,
+            false,
+        )
+        .unwrap();
+    }
+
+    // ── Lint edge cases ────────────────────────────────────────
+
+    #[test]
+    fn test_fj017_lint_duplicate_content() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config,
+            r#"
+version: "1.0"
+name: lint-dup
+machines:
+  m1:
+    hostname: box
+    addr: 1.2.3.4
+resources:
+  file-a:
+    type: file
+    machine: m1
+    path: /etc/a.conf
+    content: "same content"
+  file-b:
+    type: file
+    machine: m1
+    path: /etc/b.conf
+    content: "same content"
+  file-c:
+    type: file
+    machine: m1
+    path: /etc/c.conf
+    content: "same content"
+"#,
+        )
+        .unwrap();
+        // Lint should detect duplicate content
+        cmd_lint(&config, false).unwrap();
+    }
+
+    // ── Init edge case ────────────────────────────────────────
+
+    #[test]
+    fn test_fj017_init_creates_state_dir() {
+        let dir = tempfile::tempdir().unwrap();
+        let project = dir.path().join("new-project");
+        std::fs::create_dir_all(&project).unwrap();
+
+        cmd_init(&project).unwrap();
+
+        assert!(project.join("forjar.yaml").exists());
+        assert!(project.join("state").exists());
+    }
+
+    #[test]
+    fn test_fj017_init_template_is_valid() {
+        let dir = tempfile::tempdir().unwrap();
+        let project = dir.path().join("valid-init");
+        std::fs::create_dir_all(&project).unwrap();
+
+        cmd_init(&project).unwrap();
+
+        // The template should parse as valid ForjarConfig
+        let content = std::fs::read_to_string(project.join("forjar.yaml")).unwrap();
+        let config: types::ForjarConfig = serde_yaml_ng::from_str(&content).unwrap();
+        assert_eq!(config.version, "1.0");
+        assert_eq!(config.name, "my-infrastructure");
+    }
 }
