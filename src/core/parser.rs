@@ -1691,4 +1691,653 @@ resources:
             .iter()
             .any(|e| e.message.contains("must have exactly 5 fields")));
     }
+
+    // ── Edge-case / compound-validation tests ──────────────────────────
+
+    #[test]
+    fn test_fj002_deep_dependency_cycle_5_nodes() {
+        // A→B→C→D→E→A: validate_resource_refs won't catch multi-hop cycles
+        // (cycle detection happens in DAG sort), but self-dep and missing-dep
+        // should still work. Here we verify no false-positive validation errors
+        // when all refs are valid (cycle is a planning-time error, not parse-time).
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  a:
+    type: file
+    machine: m1
+    path: /a
+    depends_on: [b]
+  b:
+    type: file
+    machine: m1
+    path: /b
+    depends_on: [c]
+  c:
+    type: file
+    machine: m1
+    path: /c
+    depends_on: [d]
+  d:
+    type: file
+    machine: m1
+    path: /d
+    depends_on: [e]
+  e:
+    type: file
+    machine: m1
+    path: /e
+    depends_on: [a]
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        // Parser validates refs, not cycles. All refs exist → no errors.
+        assert!(
+            errors.is_empty(),
+            "cycle detection is planning-time, not parse-time: {:?}",
+            errors.iter().map(|e| &e.message).collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn test_fj002_diamond_dependency_valid() {
+        // Diamond: A depends on B and C; B and C both depend on D.
+        // This is valid and should produce no errors.
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  a:
+    type: file
+    machine: m1
+    path: /a
+    depends_on: [b, c]
+  b:
+    type: file
+    machine: m1
+    path: /b
+    depends_on: [d]
+  c:
+    type: file
+    machine: m1
+    path: /c
+    depends_on: [d]
+  d:
+    type: file
+    machine: m1
+    path: /d
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(errors.is_empty(), "diamond pattern is valid: {:?}", errors);
+    }
+
+    #[test]
+    fn test_fj002_multiple_validation_errors_same_config() {
+        // A config with many errors at once — all should be collected.
+        let yaml = r#"
+version: "2.0"
+name: ""
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  bad-pkg:
+    type: package
+    machine: m1
+  bad-file:
+    type: file
+    machine: m1
+  bad-svc:
+    type: service
+    machine: m1
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        let msgs: Vec<&str> = errors.iter().map(|e| e.message.as_str()).collect();
+        // version error
+        assert!(msgs.iter().any(|m| m.contains("version must be")));
+        // name error
+        assert!(msgs.iter().any(|m| m.contains("name must not be empty")));
+        // package missing packages + provider
+        assert!(msgs.iter().any(|m| m.contains("no packages")));
+        assert!(msgs.iter().any(|m| m.contains("no provider")));
+        // file missing path
+        assert!(msgs.iter().any(|m| m.contains("no path")));
+        // service missing name
+        assert!(msgs.iter().any(|m| m.contains("(service) has no name")));
+        // At least 6 errors total
+        assert!(
+            errors.len() >= 6,
+            "expected >= 6 errors, got {}",
+            errors.len()
+        );
+    }
+
+    #[test]
+    fn test_fj002_docker_absent_skips_image_requirement() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  old-container:
+    type: docker
+    machine: m1
+    name: old-container
+    state: absent
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(
+            !errors.iter().any(|e| e.message.contains("no image")),
+            "docker state=absent should not require image"
+        );
+    }
+
+    #[test]
+    fn test_fj002_docker_running_requires_image() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  no-image:
+    type: docker
+    machine: m1
+    name: no-image
+    state: running
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(
+            errors.iter().any(|e| e.message.contains("no image")),
+            "docker state=running must require image"
+        );
+    }
+
+    #[test]
+    fn test_fj002_mount_both_missing_gives_two_errors() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  bad-mount:
+    type: mount
+    machine: m1
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        let mount_errors: Vec<_> = errors
+            .iter()
+            .filter(|e| e.message.contains("bad-mount"))
+            .collect();
+        assert!(
+            mount_errors.iter().any(|e| e.message.contains("no source")),
+            "should report missing source"
+        );
+        assert!(
+            mount_errors.iter().any(|e| e.message.contains("no path")),
+            "should report missing path"
+        );
+        assert!(
+            mount_errors.len() >= 2,
+            "mount with both missing should produce >=2 errors"
+        );
+    }
+
+    #[test]
+    fn test_fj002_network_reject_is_valid_action() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  fw-rule:
+    type: network
+    machine: m1
+    port: 443
+    protocol: tcp
+    action: reject
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(
+            !errors.iter().any(|e| e.message.contains("invalid action")),
+            "'reject' should be a valid network action"
+        );
+    }
+
+    #[test]
+    fn test_fj002_network_invalid_protocol() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  fw:
+    type: network
+    machine: m1
+    port: 80
+    protocol: icmp
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(errors
+            .iter()
+            .any(|e| e.message.contains("invalid protocol")));
+    }
+
+    #[test]
+    fn test_fj002_recipe_missing_recipe_name() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  my-recipe:
+    type: recipe
+    machine: m1
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(
+            errors.iter().any(|e| e.message.contains("no recipe name")),
+            "recipe without recipe field should error"
+        );
+    }
+
+    #[test]
+    fn test_fj002_unknown_arch_in_resource() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  pkg:
+    type: package
+    machine: m1
+    packages: [vim]
+    provider: apt
+    arch: [mips64]
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(
+            errors.iter().any(|e| e.message.contains("unknown arch")),
+            "mips64 should be an unknown arch"
+        );
+    }
+
+    #[test]
+    fn test_fj002_unknown_arch_in_machine() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+    arch: sparc64
+resources: {}
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(
+            errors.iter().any(|e| e.message.contains("unknown arch")),
+            "sparc64 should be an unknown machine arch"
+        );
+    }
+
+    #[test]
+    fn test_fj002_container_transport_missing_block() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  test-box:
+    hostname: test-box
+    addr: container
+    transport: container
+resources: {}
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(
+            errors
+                .iter()
+                .any(|e| e.message.contains("no 'container' block")),
+            "container transport without container block should error"
+        );
+    }
+
+    #[test]
+    fn test_fj002_container_runtime_containerd_rejected() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  test-box:
+    hostname: test-box
+    addr: container
+    transport: container
+    container:
+      runtime: containerd
+      image: ubuntu:22.04
+resources: {}
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(errors
+            .iter()
+            .any(|e| e.message.contains("must be 'docker' or 'podman'")));
+    }
+
+    #[test]
+    fn test_fj002_container_ephemeral_no_image() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  test-box:
+    hostname: test-box
+    addr: container
+    transport: container
+    container:
+      runtime: docker
+      ephemeral: true
+resources: {}
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(
+            errors
+                .iter()
+                .any(|e| e.message.contains("ephemeral but has no container image")),
+            "ephemeral container without image should error"
+        );
+    }
+
+    #[test]
+    fn test_fj002_self_dependency_detected() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  loopy:
+    type: file
+    machine: m1
+    path: /etc/loopy
+    depends_on: [loopy]
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(
+            errors
+                .iter()
+                .any(|e| e.message.contains("depends on itself")),
+            "self-dependency should be caught"
+        );
+    }
+
+    #[test]
+    fn test_fj002_depends_on_unknown_resource() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  web:
+    type: file
+    machine: m1
+    path: /etc/nginx.conf
+    depends_on: [ghost-resource]
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(errors
+            .iter()
+            .any(|e| e.message.contains("unknown resource 'ghost-resource'")));
+    }
+
+    #[test]
+    fn test_fj002_file_both_content_and_source() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  both:
+    type: file
+    machine: m1
+    path: /etc/both
+    content: "hello"
+    source: ./local.txt
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(errors
+            .iter()
+            .any(|e| e.message.contains("both content and source")));
+    }
+
+    #[test]
+    fn test_fj002_file_symlink_without_target() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  link:
+    type: file
+    machine: m1
+    path: /usr/local/bin/myapp
+    state: symlink
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(
+            errors
+                .iter()
+                .any(|e| e.message.contains("symlink requires a target")),
+            "symlink without target should error"
+        );
+    }
+
+    #[test]
+    fn test_fj002_all_valid_arch_values_accepted() {
+        for arch in &["x86_64", "aarch64", "armv7l", "riscv64", "s390x", "ppc64le"] {
+            let yaml = format!(
+                r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+    arch: {}
+resources: {{}}
+"#,
+                arch
+            );
+            let config = parse_config(&yaml).unwrap();
+            let errors = validate_config(&config);
+            assert!(
+                errors.is_empty(),
+                "arch '{}' should be valid but got errors: {:?}",
+                arch,
+                errors.iter().map(|e| &e.message).collect::<Vec<_>>()
+            );
+        }
+    }
+
+    #[test]
+    fn test_fj002_localhost_machine_ref_always_valid() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  local-file:
+    type: file
+    machine: localhost
+    path: /tmp/local
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(
+            !errors
+                .iter()
+                .any(|e| e.message.contains("unknown machine")),
+            "'localhost' should be accepted without being in machines map"
+        );
+    }
+
+    #[test]
+    fn test_fj002_service_invalid_state() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  svc:
+    type: service
+    machine: m1
+    name: nginx
+    state: restarted
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(
+            errors.iter().any(|e| e.message.contains("invalid state")),
+            "'restarted' is not a valid service state"
+        );
+    }
+
+    #[test]
+    fn test_fj002_mount_invalid_state() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  mnt:
+    type: mount
+    machine: m1
+    source: /dev/sda1
+    path: /mnt/data
+    state: enabled
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(
+            errors.iter().any(|e| e.message.contains("invalid state")),
+            "'enabled' is not a valid mount state"
+        );
+    }
+
+    #[test]
+    fn test_fj002_cron_invalid_state() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  job:
+    type: cron
+    machine: m1
+    name: bad-job
+    schedule: "0 2 * * *"
+    command: echo hi
+    state: running
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(
+            errors.iter().any(|e| e.message.contains("invalid state")),
+            "'running' is not a valid cron state"
+        );
+    }
+
+    #[test]
+    fn test_fj002_docker_invalid_state() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  c:
+    type: docker
+    machine: m1
+    name: c
+    image: nginx
+    state: paused
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(
+            errors.iter().any(|e| e.message.contains("invalid state")),
+            "'paused' is not a valid docker state"
+        );
+    }
 }
