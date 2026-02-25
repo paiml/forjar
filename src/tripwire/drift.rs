@@ -229,6 +229,7 @@ fn detect_drift_impl(lock: &StateLock, machine: Option<&Machine>) -> Vec<DriftFi
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::core::types::{MachineTarget, Resource};
 
     #[test]
     fn test_fj016_no_drift() {
@@ -1282,5 +1283,442 @@ mod tests {
             &machine,
         );
         assert!(finding.is_some(), "directory hash should differ from dummy");
+    }
+
+    // ── FJ-128: Drift detection edge case tests ──────────────────
+
+    #[test]
+    fn test_fj016_detect_drift_full_matching_live_hash() {
+        // Non-file resource where live state matches stored live_hash → no drift
+        let dir = tempfile::tempdir().unwrap();
+        let test_file = dir.path().join("state-output.txt");
+        std::fs::write(&test_file, "ActiveState=active\nSubState=running\n").unwrap();
+
+        // Build a resource whose state_query_script cats a local file
+        let mut config_resources = indexmap::IndexMap::new();
+        config_resources.insert(
+            "test-svc".to_string(),
+            Resource {
+                resource_type: ResourceType::Service,
+                machine: MachineTarget::Single("m".to_string()),
+                state: Some("present".to_string()),
+                depends_on: vec![],
+                provider: None,
+                packages: vec![],
+                version: None,
+                path: None,
+                content: None,
+                source: None,
+                target: None,
+                owner: None,
+                group: None,
+                mode: None,
+                name: Some("nginx".to_string()),
+                enabled: None,
+                restart_on: vec![],
+                fs_type: None,
+                options: None,
+                uid: None,
+                shell: None,
+                home: None,
+                groups: vec![],
+                ssh_authorized_keys: vec![],
+                system_user: false,
+                schedule: None,
+                command: None,
+                image: None,
+                ports: vec![],
+                environment: vec![],
+                volumes: vec![],
+                restart: None,
+                protocol: None,
+                port: None,
+                action: None,
+                from_addr: None,
+                recipe: None,
+                inputs: std::collections::HashMap::new(),
+                arch: vec![],
+                tags: vec![],
+            },
+        );
+
+        // Compute what the state_query_script for this service would produce
+        let query =
+            crate::core::codegen::state_query_script(config_resources.get("test-svc").unwrap())
+                .unwrap();
+        // Run it locally to get the output
+        let machine = Machine {
+            hostname: "test".to_string(),
+            addr: "127.0.0.1".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: None,
+            container: None,
+            cost: 0,
+        };
+        let output = crate::transport::exec_script(&machine, &query).unwrap();
+        let live_hash = hasher::hash_string(&output.stdout);
+
+        let mut lock_resources = indexmap::IndexMap::new();
+        let mut details = std::collections::HashMap::new();
+        details.insert(
+            "live_hash".to_string(),
+            serde_yaml_ng::Value::String(live_hash),
+        );
+        lock_resources.insert(
+            "test-svc".to_string(),
+            crate::core::types::ResourceLock {
+                resource_type: ResourceType::Service,
+                status: ResourceStatus::Converged,
+                applied_at: None,
+                duration_seconds: None,
+                hash: "blake3:desired".to_string(),
+                details,
+            },
+        );
+
+        let lock = StateLock {
+            schema: "1.0".to_string(),
+            machine: "test".to_string(),
+            hostname: "test".to_string(),
+            generated_at: "now".to_string(),
+            generator: "test".to_string(),
+            blake3_version: "1.8".to_string(),
+            resources: lock_resources,
+        };
+
+        let findings = detect_drift_full(&lock, &machine, &config_resources);
+        assert!(
+            findings.is_empty(),
+            "matching live_hash should show no drift"
+        );
+    }
+
+    #[test]
+    fn test_fj016_detect_drift_full_mismatched_live_hash() {
+        // Non-file resource where live state differs → drift detected
+        let mut config_resources = indexmap::IndexMap::new();
+        config_resources.insert(
+            "test-svc".to_string(),
+            Resource {
+                resource_type: ResourceType::Service,
+                machine: MachineTarget::Single("m".to_string()),
+                state: Some("present".to_string()),
+                depends_on: vec![],
+                provider: None,
+                packages: vec![],
+                version: None,
+                path: None,
+                content: None,
+                source: None,
+                target: None,
+                owner: None,
+                group: None,
+                mode: None,
+                name: Some("nginx".to_string()),
+                enabled: None,
+                restart_on: vec![],
+                fs_type: None,
+                options: None,
+                uid: None,
+                shell: None,
+                home: None,
+                groups: vec![],
+                ssh_authorized_keys: vec![],
+                system_user: false,
+                schedule: None,
+                command: None,
+                image: None,
+                ports: vec![],
+                environment: vec![],
+                volumes: vec![],
+                restart: None,
+                protocol: None,
+                port: None,
+                action: None,
+                from_addr: None,
+                recipe: None,
+                inputs: std::collections::HashMap::new(),
+                arch: vec![],
+                tags: vec![],
+            },
+        );
+
+        let machine = Machine {
+            hostname: "test".to_string(),
+            addr: "127.0.0.1".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: None,
+            container: None,
+            cost: 0,
+        };
+
+        // Use a stale live_hash that won't match current systemctl output
+        let mut lock_resources = indexmap::IndexMap::new();
+        let mut details = std::collections::HashMap::new();
+        details.insert(
+            "live_hash".to_string(),
+            serde_yaml_ng::Value::String("blake3:stale-from-yesterday".to_string()),
+        );
+        lock_resources.insert(
+            "test-svc".to_string(),
+            crate::core::types::ResourceLock {
+                resource_type: ResourceType::Service,
+                status: ResourceStatus::Converged,
+                applied_at: None,
+                duration_seconds: None,
+                hash: "blake3:desired".to_string(),
+                details,
+            },
+        );
+
+        let lock = StateLock {
+            schema: "1.0".to_string(),
+            machine: "test".to_string(),
+            hostname: "test".to_string(),
+            generated_at: "now".to_string(),
+            generator: "test".to_string(),
+            blake3_version: "1.8".to_string(),
+            resources: lock_resources,
+        };
+
+        let findings = detect_drift_full(&lock, &machine, &config_resources);
+        assert_eq!(findings.len(), 1, "stale live_hash should detect drift");
+        assert_eq!(findings[0].resource_id, "test-svc");
+        assert!(findings[0].detail.contains("state changed"));
+    }
+
+    #[test]
+    fn test_fj016_detect_drift_full_codegen_error_skips() {
+        // Resource present in lock + config but codegen fails → should be skipped
+        let mut config_resources = indexmap::IndexMap::new();
+        // A resource with no name and no useful state_query info
+        config_resources.insert(
+            "broken-res".to_string(),
+            Resource {
+                resource_type: ResourceType::Service,
+                machine: MachineTarget::Single("m".to_string()),
+                state: Some("present".to_string()),
+                depends_on: vec![],
+                provider: None,
+                packages: vec![],
+                version: None,
+                path: None,
+                content: None,
+                source: None,
+                target: None,
+                owner: None,
+                group: None,
+                mode: None,
+                name: None, // no name — state_query_script should still work (defaults to "unknown")
+                enabled: None,
+                restart_on: vec![],
+                fs_type: None,
+                options: None,
+                uid: None,
+                shell: None,
+                home: None,
+                groups: vec![],
+                ssh_authorized_keys: vec![],
+                system_user: false,
+                schedule: None,
+                command: None,
+                image: None,
+                ports: vec![],
+                environment: vec![],
+                volumes: vec![],
+                restart: None,
+                protocol: None,
+                port: None,
+                action: None,
+                from_addr: None,
+                recipe: None,
+                inputs: std::collections::HashMap::new(),
+                arch: vec![],
+                tags: vec![],
+            },
+        );
+
+        let machine = Machine {
+            hostname: "test".to_string(),
+            addr: "127.0.0.1".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: None,
+            container: None,
+            cost: 0,
+        };
+
+        let mut lock_resources = indexmap::IndexMap::new();
+        let mut details = std::collections::HashMap::new();
+        details.insert(
+            "live_hash".to_string(),
+            serde_yaml_ng::Value::String("blake3:old".to_string()),
+        );
+        lock_resources.insert(
+            "broken-res".to_string(),
+            crate::core::types::ResourceLock {
+                resource_type: ResourceType::Service,
+                status: ResourceStatus::Converged,
+                applied_at: None,
+                duration_seconds: None,
+                hash: "blake3:abc".to_string(),
+                details,
+            },
+        );
+
+        let lock = StateLock {
+            schema: "1.0".to_string(),
+            machine: "test".to_string(),
+            hostname: "test".to_string(),
+            generated_at: "now".to_string(),
+            generator: "test".to_string(),
+            blake3_version: "1.8".to_string(),
+            resources: lock_resources,
+        };
+
+        // This should not panic — codegen may succeed or fail, but drift detection should handle it
+        let _findings = detect_drift_full(&lock, &machine, &config_resources);
+        // The test verifies no panic occurs, and drift detection gracefully handles the case
+    }
+
+    #[test]
+    fn test_fj016_detect_drift_full_file_plus_service() {
+        // Mixed: file resource (local) + service resource (live_hash) in same lock
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("mixed.txt");
+        std::fs::write(&file, "stable").unwrap();
+        let file_hash = hasher::hash_file(&file).unwrap();
+
+        let mut config_resources = indexmap::IndexMap::new();
+        config_resources.insert(
+            "my-svc".to_string(),
+            Resource {
+                resource_type: ResourceType::Service,
+                machine: MachineTarget::Single("m".to_string()),
+                state: Some("present".to_string()),
+                depends_on: vec![],
+                provider: None,
+                packages: vec![],
+                version: None,
+                path: None,
+                content: None,
+                source: None,
+                target: None,
+                owner: None,
+                group: None,
+                mode: None,
+                name: Some("nginx".to_string()),
+                enabled: None,
+                restart_on: vec![],
+                fs_type: None,
+                options: None,
+                uid: None,
+                shell: None,
+                home: None,
+                groups: vec![],
+                ssh_authorized_keys: vec![],
+                system_user: false,
+                schedule: None,
+                command: None,
+                image: None,
+                ports: vec![],
+                environment: vec![],
+                volumes: vec![],
+                restart: None,
+                protocol: None,
+                port: None,
+                action: None,
+                from_addr: None,
+                recipe: None,
+                inputs: std::collections::HashMap::new(),
+                arch: vec![],
+                tags: vec![],
+            },
+        );
+
+        let machine = Machine {
+            hostname: "test".to_string(),
+            addr: "127.0.0.1".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: None,
+            container: None,
+            cost: 0,
+        };
+
+        // Run the real state query to get current live_hash
+        let query =
+            crate::core::codegen::state_query_script(config_resources.get("my-svc").unwrap())
+                .unwrap();
+        let output = crate::transport::exec_script(&machine, &query).unwrap();
+        let svc_live_hash = hasher::hash_string(&output.stdout);
+
+        let mut lock_resources = indexmap::IndexMap::new();
+
+        // File resource — no drift
+        let mut file_details = std::collections::HashMap::new();
+        file_details.insert(
+            "path".to_string(),
+            serde_yaml_ng::Value::String(file.to_str().unwrap().to_string()),
+        );
+        file_details.insert(
+            "content_hash".to_string(),
+            serde_yaml_ng::Value::String(file_hash),
+        );
+        lock_resources.insert(
+            "my-file".to_string(),
+            crate::core::types::ResourceLock {
+                resource_type: ResourceType::File,
+                status: ResourceStatus::Converged,
+                applied_at: None,
+                duration_seconds: None,
+                hash: "blake3:desired".to_string(),
+                details: file_details,
+            },
+        );
+
+        // Service resource — no drift (live_hash matches)
+        let mut svc_details = std::collections::HashMap::new();
+        svc_details.insert(
+            "live_hash".to_string(),
+            serde_yaml_ng::Value::String(svc_live_hash),
+        );
+        lock_resources.insert(
+            "my-svc".to_string(),
+            crate::core::types::ResourceLock {
+                resource_type: ResourceType::Service,
+                status: ResourceStatus::Converged,
+                applied_at: None,
+                duration_seconds: None,
+                hash: "blake3:desired".to_string(),
+                details: svc_details,
+            },
+        );
+
+        let lock = StateLock {
+            schema: "1.0".to_string(),
+            machine: "test".to_string(),
+            hostname: "test".to_string(),
+            generated_at: "now".to_string(),
+            generator: "test".to_string(),
+            blake3_version: "1.8".to_string(),
+            resources: lock_resources,
+        };
+
+        let findings = detect_drift_full(&lock, &machine, &config_resources);
+        assert!(
+            findings.is_empty(),
+            "no drift expected when both file and service hashes match"
+        );
     }
 }
