@@ -1336,6 +1336,13 @@ Statistical anomaly detection from event history. Analyzes per-resource metrics:
 | FJ-085 | SSH transport — refactor `build_ssh_args()` + 10 unit tests for command construction, key expansion, argument ordering | **Done** |
 | FJ-086 | Cron schedule validation — 5-field check, state validation (present/absent), absent skips required fields | **Done** |
 | FJ-087 | BLAKE3 hasher edge case tests — empty files, large streaming, file-vs-string consistency, directory change detection | **Done** |
+| FJ-088 | Network resource tests — reject action, UDP protocol, CIDR ranges, absent+source, default protocol/port, pipefail | **Done** |
+| FJ-089 | Mount resource tests — bind mount, default options/fstype, fstab format/idempotency, mkdir ordering, absent cleanup | **Done** |
+| FJ-090 | Codegen dispatch tests — user/docker/cron/network dispatch + pipefail safety verification for all apply scripts | **Done** |
+| FJ-091 | Resolver DAG tests — self-dependency cycle, 3-level transitive chain, empty vs missing depends_on, single resource | **Done** |
+| FJ-092 | User management example — user creation, SSH keys, groups, system users, user removal (state: absent) | **Done** |
+| FJ-093 | Multi-machine example — 3-machine NFS+app+monitor with cross-machine deps, cost scheduling, template resolution | **Done** |
+| FJ-094 | Drift & tripwire book chapter — Ch. 9 covering BLAKE3 drift, auto-remediation, anomaly detection, event logs | **Done** |
 
 ---
 

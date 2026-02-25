@@ -175,4 +175,53 @@ mod tests {
         assert!(s2.contains("# forjar:job-b"));
         assert!(!s1.contains("# forjar:job-b"));
     }
+
+    #[test]
+    fn test_fj033_apply_preserves_existing_entries() {
+        // Apply should filter out existing forjar entries before re-adding
+        let r = make_cron_resource("backup");
+        let script = apply_script(&r);
+        assert!(
+            script.contains("grep -v '# forjar:backup'"),
+            "must remove old entry before re-adding"
+        );
+    }
+
+    #[test]
+    fn test_fj033_absent_preserves_other_entries() {
+        // Absent should only remove the matching forjar entry
+        let mut r = make_cron_resource("old-job");
+        r.state = Some("absent".to_string());
+        let script = apply_script(&r);
+        assert!(script.contains("grep -v '# forjar:old-job'"));
+        assert!(script.contains("grep -v '# forjar-cmd:old-job'"));
+        // Should re-install the filtered crontab
+        assert!(script.contains("crontab -u 'root' -"));
+    }
+
+    #[test]
+    fn test_fj033_default_schedule_and_command() {
+        let mut r = make_cron_resource("defaults");
+        r.schedule = None;
+        r.command = None;
+        let script = apply_script(&r);
+        assert!(script.contains("* * * * *"), "default schedule should be every minute");
+        assert!(script.contains("true"), "default command should be 'true'");
+    }
+
+    #[test]
+    fn test_fj033_check_custom_user() {
+        let mut r = make_cron_resource("sync");
+        r.owner = Some("www-data".to_string());
+        let script = check_script(&r);
+        assert!(script.contains("crontab -u 'www-data' -l"));
+    }
+
+    #[test]
+    fn test_fj033_state_query_custom_user() {
+        let mut r = make_cron_resource("sync");
+        r.owner = Some("deploy".to_string());
+        let script = state_query_script(&r);
+        assert!(script.contains("crontab -u 'deploy' -l"));
+    }
 }

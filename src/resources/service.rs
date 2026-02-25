@@ -202,4 +202,63 @@ mod tests {
         assert!(query.contains("FORJAR_WARN: systemctl not found"));
         assert!(query.contains("exit 0"));
     }
+
+    #[test]
+    fn test_fj008_apply_pipefail() {
+        let r = make_service_resource("nginx", "running");
+        let script = apply_script(&r);
+        assert!(
+            script.starts_with("set -euo pipefail"),
+            "service apply must start with pipefail"
+        );
+    }
+
+    #[test]
+    fn test_fj008_apply_idempotent_start() {
+        // start should check is-active first (conditional)
+        let r = make_service_resource("nginx", "running");
+        let script = apply_script(&r);
+        assert!(script.contains("if ! systemctl is-active --quiet"));
+        assert!(script.contains("systemctl start 'nginx'"));
+    }
+
+    #[test]
+    fn test_fj008_apply_idempotent_stop() {
+        // stop should check is-active first (conditional)
+        let r = make_service_resource("nginx", "stopped");
+        let script = apply_script(&r);
+        assert!(script.contains("if systemctl is-active --quiet"));
+        assert!(script.contains("systemctl stop 'nginx'"));
+    }
+
+    #[test]
+    fn test_fj008_apply_idempotent_enable() {
+        // enable should check is-enabled first
+        let r = make_service_resource("nginx", "running");
+        let script = apply_script(&r);
+        assert!(script.contains("if ! systemctl is-enabled --quiet"));
+        assert!(script.contains("systemctl enable 'nginx'"));
+    }
+
+    #[test]
+    fn test_fj008_default_state_and_enabled() {
+        // Default: state=running, enabled=true
+        let mut r = make_service_resource("svc", "running");
+        r.state = None;
+        r.enabled = None;
+        let script = apply_script(&r);
+        assert!(script.contains("systemctl start"), "default state should be running");
+        assert!(script.contains("systemctl enable"), "default enabled should be true");
+    }
+
+    #[test]
+    fn test_fj008_stopped_and_disabled() {
+        let mut r = make_service_resource("svc", "stopped");
+        r.enabled = Some(false);
+        let script = apply_script(&r);
+        assert!(script.contains("systemctl stop"));
+        assert!(script.contains("systemctl disable"));
+        assert!(!script.contains("systemctl start"));
+        assert!(!script.contains("systemctl enable 'svc'\nfi"));
+    }
 }
