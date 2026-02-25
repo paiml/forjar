@@ -381,4 +381,57 @@ mod tests {
         let useradd_idx = script.find("useradd").unwrap();
         assert!(groupadd_idx < useradd_idx, "groupadd must precede useradd");
     }
+
+    // ── Edge-case tests (FJ-124) ─────────────────────────────────
+
+    #[test]
+    fn test_fj031_no_name_defaults_to_unknown() {
+        let mut r = make_user_resource("placeholder");
+        r.name = None;
+        let check = check_script(&r);
+        assert!(check.contains("id 'unknown'"));
+        let apply = apply_script(&r);
+        assert!(apply.contains("useradd") && apply.contains("'unknown'"));
+        let query = state_query_script(&r);
+        assert!(query.contains("id 'unknown'"));
+    }
+
+    #[test]
+    fn test_fj031_system_user_with_explicit_home() {
+        // system_user + explicit home: gets --system AND --home-dir
+        let mut r = make_user_resource("prometheus");
+        r.system_user = true;
+        r.home = Some("/opt/prometheus".to_string());
+        let script = apply_script(&r);
+        assert!(script.contains("--system"));
+        assert!(script.contains("--home-dir '/opt/prometheus'"));
+    }
+
+    #[test]
+    fn test_fj031_ssh_keys_chown_uses_primary_group() {
+        // When primary group is set, chown should use it instead of username
+        let mut r = make_user_resource("deploy");
+        r.group = Some("deployers".to_string());
+        r.ssh_authorized_keys = vec!["ssh-ed25519 KEY".to_string()];
+        let script = apply_script(&r);
+        assert!(script.contains("chown -R 'deploy':'deployers'"));
+    }
+
+    #[test]
+    fn test_fj031_modify_branch_carries_all_fields() {
+        // Existing user path (usermod) should carry shell, home, uid, gid, groups
+        let mut r = make_user_resource("app");
+        r.shell = Some("/bin/fish".to_string());
+        r.home = Some("/opt/app".to_string());
+        r.uid = Some(2000);
+        r.group = Some("appgrp".to_string());
+        r.groups = vec!["docker".to_string()];
+        let script = apply_script(&r);
+        // usermod branch
+        assert!(script.contains("usermod --shell '/bin/fish'"));
+        assert!(script.contains("usermod") && script.contains("--home '/opt/app'"));
+        assert!(script.contains("--uid 2000"));
+        assert!(script.contains("--gid 'appgrp'"));
+        assert!(script.contains("--groups 'docker'"));
+    }
 }

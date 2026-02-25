@@ -288,4 +288,49 @@ mod tests {
         assert!(script.contains("--restart 'always'"));
         assert!(script.contains("./start"));
     }
+
+    // ── Edge-case tests (FJ-124) ─────────────────────────────────
+
+    #[test]
+    fn test_fj030_no_name_defaults_to_unknown() {
+        let mut r = make_docker_resource("placeholder", "nginx:latest");
+        r.name = None;
+        let check = check_script(&r);
+        assert!(check.contains("'unknown'"));
+        let apply = apply_script(&r);
+        assert!(apply.contains("--name 'unknown'"));
+        let query = state_query_script(&r);
+        assert!(query.contains("docker inspect 'unknown'"));
+    }
+
+    #[test]
+    fn test_fj030_no_image_defaults_to_unknown() {
+        let mut r = make_docker_resource("web", "placeholder");
+        r.image = None;
+        let script = apply_script(&r);
+        assert!(script.contains("docker pull 'unknown'"));
+        assert!(script.contains("'unknown'")); // image arg in run
+    }
+
+    #[test]
+    fn test_fj030_multiple_ports_env_volumes() {
+        let mut r = make_docker_resource("app", "myapp:v1");
+        r.ports = vec!["80:80".to_string(), "443:443".to_string(), "8080:8080".to_string()];
+        r.environment = vec!["A=1".to_string(), "B=2".to_string()];
+        r.volumes = vec!["/a:/a".to_string(), "/b:/b".to_string()];
+        let script = apply_script(&r);
+        assert_eq!(script.matches("-p '").count(), 3);
+        assert_eq!(script.matches("-e '").count(), 2);
+        assert_eq!(script.matches("-v '").count(), 2);
+    }
+
+    #[test]
+    fn test_fj030_absent_no_run_no_pull() {
+        // absent should only stop+rm, never pull or run
+        let mut r = make_docker_resource("old", "nginx:latest");
+        r.state = Some("absent".to_string());
+        let script = apply_script(&r);
+        assert!(!script.contains("docker pull"));
+        assert!(!script.contains("docker run"));
+    }
 }

@@ -1371,6 +1371,7 @@ Statistical anomaly detection from event history. Analyzes per-resource metrics:
 | FJ-120 | Planner edge case tests — arch filter skip, arch filter with lock, multi-machine partial lock, empty execution order, nonexistent resource skipped, describe action fallbacks, content hash sensitivity, combined arch+tag filter (11 tests) | **Done** |
 | FJ-121 | Eventlog/hasher edge cases — drift_detected event, nested dir creation, run ID hex format, path special chars. Hasher: directory not found, exact buffer boundary, deep nesting, composite determinism, single-char diff (9 tests) | **Done** |
 | FJ-122 | Expand Cookbook chapter (Ch. 7, 548→742 lines) — partial failure recovery, lock file management, auditing and compliance, script auditing workflow, multi-environment promotion, cross-architecture fleet | **Done** |
+| FJ-123 | Resource module edge case tests — service.rs (+4: invalid state no-op, restart_on+disabled, no name default, multiple restart_on), mount.rs (+4: all defaults, unknown state, absent no path, state query no path), cron.rs (+4: no name default, no owner default, absent ignores schedule, cmd tag idempotency), network.rs (+4: absent with from_addr, all defaults, no comment without name, ufw force enable always). 16 tests, 700→716. | **Done** |
 
 ---
 
