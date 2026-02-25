@@ -415,6 +415,122 @@ mod tests {
         }
     }
 
+    #[test]
+    fn test_fj005_unsupported_type_error_message() {
+        let mut r = make_package();
+        r.resource_type = ResourceType::Pepita;
+        let err = check_script(&r).unwrap_err();
+        assert!(
+            err.contains("Phase 3+"),
+            "error should mention Phase 3+: {}",
+            err
+        );
+        assert!(
+            err.contains("pepita"),
+            "error should name the type: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn test_fj005_recipe_type_not_dispatchable() {
+        let mut r = make_package();
+        r.resource_type = ResourceType::Recipe;
+        assert!(
+            check_script(&r).is_err(),
+            "recipe type should not be directly dispatchable"
+        );
+        assert!(apply_script(&r).is_err());
+        assert!(state_query_script(&r).is_err());
+    }
+
+    #[test]
+    fn test_fj005_all_phase1_check_scripts_nonempty() {
+        let types_and_resources = [
+            make_package(),
+            make_file(),
+            make_service(),
+            make_mount(),
+            {
+                let mut r = make_package();
+                r.resource_type = ResourceType::User;
+                r.name = Some("u".to_string());
+                r
+            },
+            {
+                let mut r = make_package();
+                r.resource_type = ResourceType::Docker;
+                r.name = Some("c".to_string());
+                r.image = Some("img".to_string());
+                r
+            },
+            {
+                let mut r = make_package();
+                r.resource_type = ResourceType::Cron;
+                r.name = Some("j".to_string());
+                r.schedule = Some("0 * * * *".to_string());
+                r.command = Some("echo".to_string());
+                r
+            },
+            {
+                let mut r = make_package();
+                r.resource_type = ResourceType::Network;
+                r.port = Some("80".to_string());
+                r
+            },
+        ];
+        for r in &types_and_resources {
+            let script = check_script(r).unwrap();
+            assert!(
+                !script.is_empty(),
+                "check_script for {:?} should not be empty",
+                r.resource_type
+            );
+        }
+    }
+
+    #[test]
+    fn test_fj005_all_phase1_state_query_scripts_nonempty() {
+        let types_and_resources = [
+            make_package(),
+            make_file(),
+            make_service(),
+            make_mount(),
+            {
+                let mut r = make_package();
+                r.resource_type = ResourceType::User;
+                r.name = Some("u".to_string());
+                r
+            },
+            {
+                let mut r = make_package();
+                r.resource_type = ResourceType::Docker;
+                r.name = Some("c".to_string());
+                r
+            },
+            {
+                let mut r = make_package();
+                r.resource_type = ResourceType::Cron;
+                r.name = Some("j".to_string());
+                r
+            },
+            {
+                let mut r = make_package();
+                r.resource_type = ResourceType::Network;
+                r.port = Some("80".to_string());
+                r
+            },
+        ];
+        for r in &types_and_resources {
+            let script = state_query_script(r).unwrap();
+            assert!(
+                !script.is_empty(),
+                "state_query_script for {:?} should not be empty",
+                r.resource_type
+            );
+        }
+    }
+
     /// FALSIFY-CD-002: Dispatch is symmetric — same types handled by all three functions.
     #[test]
     fn falsify_cd_002_dispatch_symmetry() {
