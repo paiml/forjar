@@ -76,4 +76,49 @@ mod tests {
         let out = exec_local("set -euo pipefail\nfalse | true").unwrap();
         assert!(!out.success(), "pipefail should catch false in pipeline");
     }
+
+    #[test]
+    fn test_fj010_local_empty_script() {
+        let out = exec_local("").unwrap();
+        assert!(out.success());
+        assert!(out.stdout.is_empty());
+    }
+
+    #[test]
+    fn test_fj010_local_environment_variables() {
+        let out = exec_local("FORJAR_TEST=yes; echo $FORJAR_TEST").unwrap();
+        assert!(out.success());
+        assert_eq!(out.stdout.trim(), "yes");
+    }
+
+    #[test]
+    fn test_fj010_local_heredoc() {
+        let out = exec_local("cat <<'EOF'\nhello heredoc\nEOF").unwrap();
+        assert!(out.success());
+        assert_eq!(out.stdout.trim(), "hello heredoc");
+    }
+
+    #[test]
+    fn test_fj010_local_exit_code_range() {
+        for code in [0, 1, 2, 126, 127, 255] {
+            let out = exec_local(&format!("exit {}", code)).unwrap();
+            assert_eq!(out.exit_code, code);
+        }
+    }
+
+    #[test]
+    fn test_fj010_local_large_output() {
+        // Generate 1000 lines
+        let out = exec_local("seq 1 1000").unwrap();
+        assert!(out.success());
+        assert_eq!(out.stdout.lines().count(), 1000);
+    }
+
+    #[test]
+    fn test_fj010_local_set_euo() {
+        // set -euo pipefail is standard forjar preamble
+        let out = exec_local("set -euo pipefail\necho ok").unwrap();
+        assert!(out.success());
+        assert_eq!(out.stdout.trim(), "ok");
+    }
 }

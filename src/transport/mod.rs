@@ -360,4 +360,84 @@ mod tests {
         assert!(!out.success());
         assert_eq!(out.exit_code, 77);
     }
+
+    #[test]
+    fn test_transport_timeout_error_includes_seconds() {
+        let machine = Machine {
+            hostname: "slow".to_string(),
+            addr: "127.0.0.1".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: None,
+            container: None,
+            cost: 0,
+        };
+        let err = exec_script_timeout(&machine, "sleep 10", Some(1)).unwrap_err();
+        assert!(err.contains("1s"), "error should include timeout value: {}", err);
+    }
+
+    #[test]
+    fn test_transport_exec_empty_script() {
+        let machine = Machine {
+            hostname: "local".to_string(),
+            addr: "127.0.0.1".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: None,
+            container: None,
+            cost: 0,
+        };
+        let out = exec_script(&machine, "").unwrap();
+        assert!(out.success());
+    }
+
+    #[test]
+    fn test_transport_exec_output_debug() {
+        // ExecOutput should derive Debug
+        let out = ExecOutput {
+            exit_code: 0,
+            stdout: "test".to_string(),
+            stderr: "".to_string(),
+        };
+        let debug = format!("{:?}", out);
+        assert!(debug.contains("exit_code: 0"));
+    }
+
+    #[test]
+    fn test_transport_exec_output_clone() {
+        // ExecOutput should derive Clone
+        let out = ExecOutput {
+            exit_code: 42,
+            stdout: "test".to_string(),
+            stderr: "err".to_string(),
+        };
+        let cloned = out.clone();
+        assert_eq!(cloned.exit_code, 42);
+        assert_eq!(cloned.stdout, "test");
+        assert_eq!(cloned.stderr, "err");
+    }
+
+    #[test]
+    fn test_transport_query_is_readonly_alias() {
+        // query() is just an alias for exec_script — verify same output
+        let machine = Machine {
+            hostname: "local".to_string(),
+            addr: "127.0.0.1".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: None,
+            container: None,
+            cost: 0,
+        };
+        let q = query(&machine, "echo q").unwrap();
+        let e = exec_script(&machine, "echo q").unwrap();
+        assert_eq!(q.stdout, e.stdout);
+        assert_eq!(q.exit_code, e.exit_code);
+    }
 }

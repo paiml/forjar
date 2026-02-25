@@ -277,4 +277,52 @@ mod tests {
         let args = build_ssh_args(&m);
         assert!(args.contains(&"deploy-bot@10.0.0.1".to_string()));
     }
+
+    #[test]
+    fn test_fj011_build_args_all_options_are_dash_o() {
+        // Every SSH option must be preceded by -o
+        let m = make_machine("10.0.0.1", "root", None);
+        let args = build_ssh_args(&m);
+        let option_values = ["BatchMode=yes", "ConnectTimeout=5", "StrictHostKeyChecking=accept-new"];
+        for opt in &option_values {
+            let pos = args.iter().position(|a| a == opt).unwrap();
+            assert_eq!(args[pos - 1], "-o", "option '{}' must be preceded by -o", opt);
+        }
+    }
+
+    #[test]
+    fn test_fj011_build_args_key_before_user_host() {
+        // -i key must come before user@host
+        let m = make_machine("10.0.0.1", "root", Some("/root/.ssh/key"));
+        let args = build_ssh_args(&m);
+        let key_idx = args.iter().position(|a| a == "-i").unwrap();
+        let user_idx = args.iter().position(|a| a == "root@10.0.0.1").unwrap();
+        assert!(key_idx < user_idx, "-i must come before user@host");
+    }
+
+    #[test]
+    fn test_fj011_build_args_bash_is_last() {
+        // "bash" must always be the last argument
+        let m = make_machine("10.0.0.1", "root", Some("/root/.ssh/key"));
+        let args = build_ssh_args(&m);
+        assert_eq!(args.last().unwrap(), "bash");
+    }
+
+    #[test]
+    fn test_fj011_exec_output_success_zero() {
+        let output = ExecOutput {
+            exit_code: 0,
+            stdout: "ok".to_string(),
+            stderr: String::new(),
+        };
+        assert!(output.success());
+    }
+
+    #[test]
+    fn test_fj011_key_expansion_relative_path() {
+        // A relative path (not starting with ~ or /) should be unchanged
+        let m = make_machine("10.0.0.1", "root", Some("keys/deploy.pem"));
+        let args = build_ssh_args(&m);
+        assert!(args.contains(&"keys/deploy.pem".to_string()));
+    }
 }
