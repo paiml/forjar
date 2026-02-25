@@ -570,6 +570,17 @@ resources:
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            chroot_dir: None,
+            namespace_uid: None,
+            namespace_gid: None,
+            seccomp: false,
+            netns: false,
+            cpuset: None,
+            memory_limit: None,
+            overlay_lower: None,
+            overlay_upper: None,
+            overlay_work: None,
+            overlay_merged: None,
         };
 
         let resolved = resolve_resource_templates(&resource, &params, &machines).unwrap();
@@ -799,6 +810,17 @@ resources:
                     inputs: HashMap::new(),
                     arch: vec![],
                     tags: vec![],
+            chroot_dir: None,
+            namespace_uid: None,
+            namespace_gid: None,
+            seccomp: false,
+            netns: false,
+            cpuset: None,
+            memory_limit: None,
+            overlay_lower: None,
+            overlay_upper: None,
+            overlay_work: None,
+            overlay_merged: None,
                 },
             );
         }
@@ -1020,6 +1042,17 @@ resources:
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            chroot_dir: None,
+            namespace_uid: None,
+            namespace_gid: None,
+            seccomp: false,
+            netns: false,
+            cpuset: None,
+            memory_limit: None,
+            overlay_lower: None,
+            overlay_upper: None,
+            overlay_work: None,
+            overlay_merged: None,
         };
 
         let resolved = resolve_resource_templates(&resource, &params, &machines).unwrap();
@@ -1257,6 +1290,17 @@ resources:
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            chroot_dir: None,
+            namespace_uid: None,
+            namespace_gid: None,
+            seccomp: false,
+            netns: false,
+            cpuset: None,
+            memory_limit: None,
+            overlay_lower: None,
+            overlay_upper: None,
+            overlay_work: None,
+            overlay_merged: None,
         }
     }
 

@@ -480,6 +480,17 @@ mod tests {
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            chroot_dir: None,
+            namespace_uid: None,
+            namespace_gid: None,
+            seccomp: false,
+            netns: false,
+            cpuset: None,
+            memory_limit: None,
+            overlay_lower: None,
+            overlay_upper: None,
+            overlay_work: None,
+            overlay_merged: None,
         };
         let h1 = hash_desired_state(&r);
         let h2 = hash_desired_state(&r);
@@ -534,6 +545,17 @@ mod tests {
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            chroot_dir: None,
+            namespace_uid: None,
+            namespace_gid: None,
+            seccomp: false,
+            netns: false,
+            cpuset: None,
+            memory_limit: None,
+            overlay_lower: None,
+            overlay_upper: None,
+            overlay_work: None,
+            overlay_merged: None,
         };
         let r2 = Resource {
             content: Some("changed content".to_string()),

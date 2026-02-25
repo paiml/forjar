@@ -313,6 +313,51 @@ pub struct Resource {
     /// Tags for selective filtering (e.g., `tags: [web, critical]`)
     #[serde(default)]
     pub tags: Vec<String>,
+
+    // -- Pepita fields (FJ-040: kernel namespace isolation) --
+    /// Chroot directory for filesystem isolation
+    #[serde(default)]
+    pub chroot_dir: Option<String>,
+
+    /// User ID for namespace (uid mapping)
+    #[serde(default)]
+    pub namespace_uid: Option<u32>,
+
+    /// Group ID for namespace (gid mapping)
+    #[serde(default)]
+    pub namespace_gid: Option<u32>,
+
+    /// Enable seccomp syscall filtering
+    #[serde(default)]
+    pub seccomp: bool,
+
+    /// Enable network namespace isolation
+    #[serde(default)]
+    pub netns: bool,
+
+    /// CPU set binding (e.g., "0-3" or "0,2,4")
+    #[serde(default)]
+    pub cpuset: Option<String>,
+
+    /// Memory limit in bytes
+    #[serde(default)]
+    pub memory_limit: Option<u64>,
+
+    /// Overlay filesystem lower directory
+    #[serde(default)]
+    pub overlay_lower: Option<String>,
+
+    /// Overlay filesystem upper directory
+    #[serde(default)]
+    pub overlay_upper: Option<String>,
+
+    /// Overlay filesystem work directory
+    #[serde(default)]
+    pub overlay_work: Option<String>,
+
+    /// Overlay filesystem merged mount point
+    #[serde(default)]
+    pub overlay_merged: Option<String>,
 }
 
 /// Resource type enum.

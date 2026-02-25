@@ -1339,6 +1339,17 @@ mod tests {
                 inputs: std::collections::HashMap::new(),
                 arch: vec![],
                 tags: vec![],
+            chroot_dir: None,
+            namespace_uid: None,
+            namespace_gid: None,
+            seccomp: false,
+            netns: false,
+            cpuset: None,
+            memory_limit: None,
+            overlay_lower: None,
+            overlay_upper: None,
+            overlay_work: None,
+            overlay_merged: None,
             },
         );
 
@@ -1443,6 +1454,17 @@ mod tests {
                 inputs: std::collections::HashMap::new(),
                 arch: vec![],
                 tags: vec![],
+            chroot_dir: None,
+            namespace_uid: None,
+            namespace_gid: None,
+            seccomp: false,
+            netns: false,
+            cpuset: None,
+            memory_limit: None,
+            overlay_lower: None,
+            overlay_upper: None,
+            overlay_work: None,
+            overlay_merged: None,
             },
         );
 
@@ -1541,6 +1563,17 @@ mod tests {
                 inputs: std::collections::HashMap::new(),
                 arch: vec![],
                 tags: vec![],
+            chroot_dir: None,
+            namespace_uid: None,
+            namespace_gid: None,
+            seccomp: false,
+            netns: false,
+            cpuset: None,
+            memory_limit: None,
+            overlay_lower: None,
+            overlay_upper: None,
+            overlay_work: None,
+            overlay_merged: None,
             },
         );
 
@@ -1641,6 +1674,17 @@ mod tests {
                 inputs: std::collections::HashMap::new(),
                 arch: vec![],
                 tags: vec![],
+            chroot_dir: None,
+            namespace_uid: None,
+            namespace_gid: None,
+            seccomp: false,
+            netns: false,
+            cpuset: None,
+            memory_limit: None,
+            overlay_lower: None,
+            overlay_upper: None,
+            overlay_work: None,
+            overlay_merged: None,
             },
         );
 
@@ -2666,7 +2710,11 @@ mod tests {
         };
 
         let findings = detect_drift(&lock);
-        assert_eq!(findings.len(), 1, "drift must be detected when hash changed");
+        assert_eq!(
+            findings.len(),
+            1,
+            "drift must be detected when hash changed"
+        );
         assert_eq!(findings[0].resource_id, "config-file");
         assert_eq!(findings[0].expected_hash, hash_a);
         assert_eq!(findings[0].actual_hash, hash_b);

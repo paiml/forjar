@@ -24,7 +24,8 @@ pub fn check_script(resource: &Resource) -> Result<String, String> {
         ResourceType::Docker => Ok(resources::docker::check_script(resource)),
         ResourceType::Cron => Ok(resources::cron::check_script(resource)),
         ResourceType::Network => Ok(resources::network::check_script(resource)),
-        other => Err(format!("codegen not implemented for {} (Phase 3+)", other)),
+        ResourceType::Pepita => Ok(resources::pepita::check_script(resource)),
+        ResourceType::Recipe => Err("codegen not implemented for recipe (expand first)".to_string()),
     }
 }
 
@@ -40,7 +41,8 @@ pub fn apply_script(resource: &Resource) -> Result<String, String> {
         ResourceType::Docker => Ok(resources::docker::apply_script(resource)),
         ResourceType::Cron => Ok(resources::cron::apply_script(resource)),
         ResourceType::Network => Ok(resources::network::apply_script(resource)),
-        other => Err(format!("codegen not implemented for {} (Phase 3+)", other)),
+        ResourceType::Pepita => Ok(resources::pepita::apply_script(resource)),
+        ResourceType::Recipe => Err("codegen not implemented for recipe (expand first)".to_string()),
     }
 }
 
@@ -56,7 +58,8 @@ pub fn state_query_script(resource: &Resource) -> Result<String, String> {
         ResourceType::Docker => Ok(resources::docker::state_query_script(resource)),
         ResourceType::Cron => Ok(resources::cron::state_query_script(resource)),
         ResourceType::Network => Ok(resources::network::state_query_script(resource)),
-        other => Err(format!("codegen not implemented for {} (Phase 3+)", other)),
+        ResourceType::Pepita => Ok(resources::pepita::state_query_script(resource)),
+        ResourceType::Recipe => Err("codegen not implemented for recipe (expand first)".to_string()),
     }
 }
 
@@ -107,6 +110,17 @@ mod tests {
             inputs: std::collections::HashMap::new(),
             arch: vec![],
             tags: vec![],
+            chroot_dir: None,
+            namespace_uid: None,
+            namespace_gid: None,
+            seccomp: false,
+            netns: false,
+            cpuset: None,
+            memory_limit: None,
+            overlay_lower: None,
+            overlay_upper: None,
+            overlay_work: None,
+            overlay_merged: None,
         }
     }
 
@@ -152,6 +166,17 @@ mod tests {
             inputs: std::collections::HashMap::new(),
             arch: vec![],
             tags: vec![],
+            chroot_dir: None,
+            namespace_uid: None,
+            namespace_gid: None,
+            seccomp: false,
+            netns: false,
+            cpuset: None,
+            memory_limit: None,
+            overlay_lower: None,
+            overlay_upper: None,
+            overlay_work: None,
+            overlay_merged: None,
         }
     }
 
@@ -197,6 +222,17 @@ mod tests {
             inputs: std::collections::HashMap::new(),
             arch: vec![],
             tags: vec![],
+            chroot_dir: None,
+            namespace_uid: None,
+            namespace_gid: None,
+            seccomp: false,
+            netns: false,
+            cpuset: None,
+            memory_limit: None,
+            overlay_lower: None,
+            overlay_upper: None,
+            overlay_work: None,
+            overlay_merged: None,
         }
     }
 
@@ -242,6 +278,17 @@ mod tests {
             inputs: std::collections::HashMap::new(),
             arch: vec![],
             tags: vec![],
+            chroot_dir: None,
+            namespace_uid: None,
+            namespace_gid: None,
+            seccomp: false,
+            netns: false,
+            cpuset: None,
+            memory_limit: None,
+            overlay_lower: None,
+            overlay_upper: None,
+            overlay_work: None,
+            overlay_merged: None,
         }
     }
 
@@ -328,12 +375,14 @@ mod tests {
     }
 
     #[test]
-    fn test_fj005_unsupported_type() {
+    fn test_fj005_pepita_supported() {
         let mut r = make_package();
         r.resource_type = ResourceType::Pepita;
-        assert!(check_script(&r).is_err());
-        assert!(apply_script(&r).is_err());
-        assert!(state_query_script(&r).is_err());
+        r.name = Some("sandbox".to_string());
+        r.netns = true;
+        assert!(check_script(&r).is_ok());
+        assert!(apply_script(&r).is_ok());
+        assert!(state_query_script(&r).is_ok());
     }
 
     // ── Falsification tests (Codegen Dispatch Contract) ─────────
@@ -419,20 +468,13 @@ mod tests {
     }
 
     #[test]
-    fn test_fj005_unsupported_type_error_message() {
+    fn test_fj040_pepita_codegen_check() {
         let mut r = make_package();
         r.resource_type = ResourceType::Pepita;
-        let err = check_script(&r).unwrap_err();
-        assert!(
-            err.contains("Phase 3+"),
-            "error should mention Phase 3+: {}",
-            err
-        );
-        assert!(
-            err.contains("pepita"),
-            "error should name the type: {}",
-            err
-        );
+        r.name = Some("jail".to_string());
+        r.chroot_dir = Some("/var/jail".to_string());
+        let script = check_script(&r).unwrap();
+        assert!(script.contains("chroot:present:jail"));
     }
 
     #[test]
@@ -760,12 +802,13 @@ mod tests {
     }
 
     #[test]
-    fn test_fj132_codegen_pepita_unsupported() {
+    fn test_fj040_pepita_codegen_apply_netns() {
         let mut r = make_package();
         r.resource_type = ResourceType::Pepita;
-        assert!(check_script(&r).is_err());
-        assert!(apply_script(&r).is_err());
-        assert!(state_query_script(&r).is_err());
+        r.name = Some("net-sandbox".to_string());
+        r.netns = true;
+        let script = apply_script(&r).unwrap();
+        assert!(script.contains("ip netns add 'forjar-net-sandbox'"));
     }
 
     // --- FJ-036: Additional codegen tests ---

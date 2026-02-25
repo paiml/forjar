@@ -345,6 +345,37 @@ fn validate_resource_type(id: &str, resource: &Resource, errors: &mut Vec<Valida
                 }
             }
         }
+        ResourceType::Pepita => {
+            if resource.name.is_none() {
+                errors.push(ValidationError {
+                    message: format!("resource '{}' (pepita) has no name", id),
+                });
+            }
+            if let Some(ref state) = resource.state {
+                let valid = ["present", "absent"];
+                if !valid.contains(&state.as_str()) {
+                    errors.push(ValidationError {
+                        message: format!(
+                            "resource '{}' (pepita) has invalid state '{}' (expected: present, absent)",
+                            id, state
+                        ),
+                    });
+                }
+            }
+            if resource.overlay_merged.is_some()
+                && resource.overlay_lower.is_none()
+                && resource.overlay_upper.is_none()
+            {
+                // overlay_merged without explicit dirs uses defaults — valid but warn-worthy
+            }
+            if let Some(ref cpuset) = resource.cpuset {
+                if cpuset.is_empty() {
+                    errors.push(ValidationError {
+                        message: format!("resource '{}' (pepita) has empty cpuset", id),
+                    });
+                }
+            }
+        }
         ResourceType::Recipe => {
             if resource.recipe.is_none() {
                 errors.push(ValidationError {
@@ -352,7 +383,6 @@ fn validate_resource_type(id: &str, resource: &Resource, errors: &mut Vec<Valida
                 });
             }
         }
-        _ => {}
     }
 }
 

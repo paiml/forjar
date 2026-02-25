@@ -118,6 +118,17 @@ mod tests {
             inputs: std::collections::HashMap::new(),
             arch: vec![],
             tags: vec![],
+            chroot_dir: None,
+            namespace_uid: None,
+            namespace_gid: None,
+            seccomp: false,
+            netns: false,
+            cpuset: None,
+            memory_limit: None,
+            overlay_lower: None,
+            overlay_upper: None,
+            overlay_work: None,
+            overlay_merged: None,
         }
     }
 
@@ -480,7 +491,8 @@ mod tests {
         r.state = None;
         let script = apply_script(&r);
         assert!(
-            script.contains("mount -t 'none' -o 'rbind' '/data/volumes/app1' '/srv/container-data'"),
+            script
+                .contains("mount -t 'none' -o 'rbind' '/data/volumes/app1' '/srv/container-data'"),
             "bind mount must use correct fstype, options, source, and target: {script}"
         );
         assert!(

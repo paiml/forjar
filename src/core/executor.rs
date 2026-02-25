@@ -702,6 +702,17 @@ resources:
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            chroot_dir: None,
+            namespace_uid: None,
+            namespace_gid: None,
+            seccomp: false,
+            netns: false,
+            cpuset: None,
+            memory_limit: None,
+            overlay_lower: None,
+            overlay_upper: None,
+            overlay_work: None,
+            overlay_merged: None,
         };
         let details = build_resource_details(&r, &local_machine());
         assert!(details.contains_key("path"));
@@ -761,6 +772,17 @@ resources:
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            chroot_dir: None,
+            namespace_uid: None,
+            namespace_gid: None,
+            seccomp: false,
+            netns: false,
+            cpuset: None,
+            memory_limit: None,
+            overlay_lower: None,
+            overlay_upper: None,
+            overlay_work: None,
+            overlay_merged: None,
         };
         let details = build_resource_details(&r, &local_machine());
         assert!(details.contains_key("service_name"));
@@ -1066,6 +1088,17 @@ resources:
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            chroot_dir: None,
+            namespace_uid: None,
+            namespace_gid: None,
+            seccomp: false,
+            netns: false,
+            cpuset: None,
+            memory_limit: None,
+            overlay_lower: None,
+            overlay_upper: None,
+            overlay_work: None,
+            overlay_merged: None,
         };
         let machine = Machine {
             hostname: "localhost".to_string(),
@@ -1369,6 +1402,17 @@ resources:
             inputs: HashMap::new(),
             arch: vec!["aarch64".to_string()],
             tags: vec![],
+            chroot_dir: None,
+            namespace_uid: None,
+            namespace_gid: None,
+            seccomp: false,
+            netns: false,
+            cpuset: None,
+            memory_limit: None,
+            overlay_lower: None,
+            overlay_upper: None,
+            overlay_work: None,
+            overlay_merged: None,
         };
 
         // arch filter should reject: aarch64 resource on x86_64 machine
@@ -1665,6 +1709,17 @@ resources:
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            chroot_dir: None,
+            namespace_uid: None,
+            namespace_gid: None,
+            seccomp: false,
+            netns: false,
+            cpuset: None,
+            memory_limit: None,
+            overlay_lower: None,
+            overlay_upper: None,
+            overlay_work: None,
+            overlay_merged: None,
         };
         let mut ctx = RecordCtx {
             lock: &mut lock,
@@ -1728,6 +1783,17 @@ resources:
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            chroot_dir: None,
+            namespace_uid: None,
+            namespace_gid: None,
+            seccomp: false,
+            netns: false,
+            cpuset: None,
+            memory_limit: None,
+            overlay_lower: None,
+            overlay_upper: None,
+            overlay_work: None,
+            overlay_merged: None,
         };
         let mut ctx = RecordCtx {
             lock: &mut lock,
@@ -1813,6 +1879,17 @@ resources:
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            chroot_dir: None,
+            namespace_uid: None,
+            namespace_gid: None,
+            seccomp: false,
+            netns: false,
+            cpuset: None,
+            memory_limit: None,
+            overlay_lower: None,
+            overlay_upper: None,
+            overlay_work: None,
+            overlay_merged: None,
         };
         let details = build_resource_details(&resource, &local_machine());
         assert!(details.contains_key("path"));
@@ -1871,6 +1948,17 @@ resources:
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            chroot_dir: None,
+            namespace_uid: None,
+            namespace_gid: None,
+            seccomp: false,
+            netns: false,
+            cpuset: None,
+            memory_limit: None,
+            overlay_lower: None,
+            overlay_upper: None,
+            overlay_work: None,
+            overlay_merged: None,
         };
         let details = build_resource_details(&resource, &local_machine());
         assert!(
@@ -1928,6 +2016,17 @@ resources:
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            chroot_dir: None,
+            namespace_uid: None,
+            namespace_gid: None,
+            seccomp: false,
+            netns: false,
+            cpuset: None,
+            memory_limit: None,
+            overlay_lower: None,
+            overlay_upper: None,
+            overlay_work: None,
+            overlay_merged: None,
         };
         let details = build_resource_details(&resource, &local_machine());
         assert!(
@@ -1979,6 +2078,17 @@ resources:
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            chroot_dir: None,
+            namespace_uid: None,
+            namespace_gid: None,
+            seccomp: false,
+            netns: false,
+            cpuset: None,
+            memory_limit: None,
+            overlay_lower: None,
+            overlay_upper: None,
+            overlay_work: None,
+            overlay_merged: None,
         };
         let details = build_resource_details(&resource, &local_machine());
         assert_eq!(
@@ -2261,6 +2371,17 @@ resources:
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            chroot_dir: None,
+            namespace_uid: None,
+            namespace_gid: None,
+            seccomp: false,
+            netns: false,
+            cpuset: None,
+            memory_limit: None,
+            overlay_lower: None,
+            overlay_upper: None,
+            overlay_work: None,
+            overlay_merged: None,
         };
         let details = build_resource_details(&r, &local_machine());
         assert!(
@@ -2313,6 +2434,17 @@ resources:
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            chroot_dir: None,
+            namespace_uid: None,
+            namespace_gid: None,
+            seccomp: false,
+            netns: false,
+            cpuset: None,
+            memory_limit: None,
+            overlay_lower: None,
+            overlay_upper: None,
+            overlay_work: None,
+            overlay_merged: None,
         };
         let details = build_resource_details(&r, &local_machine());
         assert!(details.contains_key("path"));
@@ -3050,6 +3182,17 @@ resources: {}
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            chroot_dir: None,
+            namespace_uid: None,
+            namespace_gid: None,
+            seccomp: false,
+            netns: false,
+            cpuset: None,
+            memory_limit: None,
+            overlay_lower: None,
+            overlay_upper: None,
+            overlay_work: None,
+            overlay_merged: None,
         };
         let details = build_resource_details(&r, &local_machine());
         assert_eq!(
@@ -3231,6 +3374,17 @@ policy:
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            chroot_dir: None,
+            namespace_uid: None,
+            namespace_gid: None,
+            seccomp: false,
+            netns: false,
+            cpuset: None,
+            memory_limit: None,
+            overlay_lower: None,
+            overlay_upper: None,
+            overlay_work: None,
+            overlay_merged: None,
         };
         let mut ctx = RecordCtx {
             lock: &mut lock,

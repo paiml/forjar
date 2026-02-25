@@ -11,5 +11,6 @@ pub mod file;
 pub mod mount;
 pub mod network;
 pub mod package;
+pub mod pepita;
 pub mod service;
 pub mod user;

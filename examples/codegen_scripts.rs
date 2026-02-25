@@ -48,6 +48,17 @@ fn main() {
         inputs: std::collections::HashMap::new(),
         arch: vec![],
         tags: vec![],
+            chroot_dir: None,
+            namespace_uid: None,
+            namespace_gid: None,
+            seccomp: false,
+            netns: false,
+            cpuset: None,
+            memory_limit: None,
+            overlay_lower: None,
+            overlay_upper: None,
+            overlay_work: None,
+            overlay_merged: None,
     };
 
     println!("-- Check script --");
@@ -99,6 +110,17 @@ fn main() {
         inputs: std::collections::HashMap::new(),
         arch: vec![],
         tags: vec![],
+            chroot_dir: None,
+            namespace_uid: None,
+            namespace_gid: None,
+            seccomp: false,
+            netns: false,
+            cpuset: None,
+            memory_limit: None,
+            overlay_lower: None,
+            overlay_upper: None,
+            overlay_work: None,
+            overlay_merged: None,
     };
 
     println!("-- Apply script --");
@@ -146,6 +168,17 @@ fn main() {
         inputs: std::collections::HashMap::new(),
         arch: vec![],
         tags: vec![],
+            chroot_dir: None,
+            namespace_uid: None,
+            namespace_gid: None,
+            seccomp: false,
+            netns: false,
+            cpuset: None,
+            memory_limit: None,
+            overlay_lower: None,
+            overlay_upper: None,
+            overlay_work: None,
+            overlay_merged: None,
     };
 
     println!("-- Apply script (base64 transfer) --");
@@ -193,6 +226,17 @@ fn main() {
         inputs: std::collections::HashMap::new(),
         arch: vec![],
         tags: vec![],
+            chroot_dir: None,
+            namespace_uid: None,
+            namespace_gid: None,
+            seccomp: false,
+            netns: false,
+            cpuset: None,
+            memory_limit: None,
+            overlay_lower: None,
+            overlay_upper: None,
+            overlay_work: None,
+            overlay_merged: None,
     };
 
     println!("-- Apply script --");
@@ -240,6 +284,17 @@ fn main() {
         inputs: std::collections::HashMap::new(),
         arch: vec![],
         tags: vec![],
+            chroot_dir: None,
+            namespace_uid: None,
+            namespace_gid: None,
+            seccomp: false,
+            netns: false,
+            cpuset: None,
+            memory_limit: None,
+            overlay_lower: None,
+            overlay_upper: None,
+            overlay_work: None,
+            overlay_merged: None,
     };
 
     println!("-- Apply script --");
@@ -287,6 +342,17 @@ fn main() {
         inputs: std::collections::HashMap::new(),
         arch: vec![],
         tags: vec![],
+            chroot_dir: None,
+            namespace_uid: None,
+            namespace_gid: None,
+            seccomp: false,
+            netns: false,
+            cpuset: None,
+            memory_limit: None,
+            overlay_lower: None,
+            overlay_upper: None,
+            overlay_work: None,
+            overlay_merged: None,
     };
 
     println!("-- Check script --");
@@ -336,6 +402,17 @@ fn main() {
         inputs: std::collections::HashMap::new(),
         arch: vec![],
         tags: vec![],
+            chroot_dir: None,
+            namespace_uid: None,
+            namespace_gid: None,
+            seccomp: false,
+            netns: false,
+            cpuset: None,
+            memory_limit: None,
+            overlay_lower: None,
+            overlay_upper: None,
+            overlay_work: None,
+            overlay_merged: None,
     };
 
     println!("-- Apply script --");
@@ -383,6 +460,17 @@ fn main() {
         inputs: std::collections::HashMap::new(),
         arch: vec![],
         tags: vec![],
+            chroot_dir: None,
+            namespace_uid: None,
+            namespace_gid: None,
+            seccomp: false,
+            netns: false,
+            cpuset: None,
+            memory_limit: None,
+            overlay_lower: None,
+            overlay_upper: None,
+            overlay_work: None,
+            overlay_merged: None,
     };
 
     println!("-- Apply script --");
@@ -430,6 +518,17 @@ fn main() {
         inputs: std::collections::HashMap::new(),
         arch: vec![],
         tags: vec![],
+            chroot_dir: None,
+            namespace_uid: None,
+            namespace_gid: None,
+            seccomp: false,
+            netns: false,
+            cpuset: None,
+            memory_limit: None,
+            overlay_lower: None,
+            overlay_upper: None,
+            overlay_work: None,
+            overlay_merged: None,
     };
 
     println!("-- Apply script --");
