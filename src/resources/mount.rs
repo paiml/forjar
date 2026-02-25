@@ -294,4 +294,59 @@ mod tests {
         assert!(script.contains("mountpoint -q '/mnt/unknown'"));
         assert!(script.contains("UNMOUNTED"));
     }
+
+    // --- FJ-132: Mount edge case tests ---
+
+    #[test]
+    fn test_fj132_state_query_mounted_branch() {
+        // state_query_script should have both mounted and unmounted branches
+        let r = make_mount_resource();
+        let script = state_query_script(&r);
+        assert!(script.contains("mountpoint -q"), "should check if mounted");
+        assert!(script.contains("findmnt"), "should use findmnt for mounted info");
+        assert!(script.contains("UNMOUNTED"), "should have unmounted fallback");
+    }
+
+    #[test]
+    fn test_fj132_apply_unmounted_conditional() {
+        // unmounted state should check mountpoint before unmounting
+        let mut r = make_mount_resource();
+        r.state = Some("unmounted".to_string());
+        let script = apply_script(&r);
+        assert!(script.contains("umount"), "should attempt umount");
+        assert!(!script.contains("mount -t"), "should not attempt mounting");
+    }
+
+    #[test]
+    fn test_fj132_fstab_grep_idempotency() {
+        // mounted state should grep fstab before appending
+        let r = make_mount_resource();
+        let script = apply_script(&r);
+        assert!(
+            script.contains("grep -q"),
+            "should check fstab before appending"
+        );
+        assert!(script.contains("/etc/fstab"), "should reference fstab");
+    }
+
+    #[test]
+    fn test_fj132_check_script_idempotent() {
+        let r = make_mount_resource();
+        let s1 = check_script(&r);
+        let s2 = check_script(&r);
+        assert_eq!(s1, s2, "check_script must be idempotent");
+    }
+
+    #[test]
+    fn test_fj132_apply_nfs_mount() {
+        // NFS mounts should use the nfs fstype
+        let mut r = make_mount_resource();
+        r.source = Some("192.168.1.10:/exports/data".to_string());
+        r.fs_type = Some("nfs".to_string());
+        r.options = Some("rw,soft,intr".to_string());
+        let script = apply_script(&r);
+        assert!(script.contains("mount -t 'nfs'"));
+        assert!(script.contains("'rw,soft,intr'"));
+        assert!(script.contains("192.168.1.10:/exports/data"));
+    }
 }

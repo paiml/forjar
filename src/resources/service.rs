@@ -313,4 +313,55 @@ mod tests {
         let count = script.matches("systemctl reload-or-restart").count();
         assert_eq!(count, 1, "should emit exactly one reload-or-restart");
     }
+
+    // --- FJ-132: Service edge case tests ---
+
+    #[test]
+    fn test_fj132_check_script_idempotent() {
+        // check_script output should be identical across calls
+        let r = make_service_resource("nginx", "running");
+        let s1 = check_script(&r);
+        let s2 = check_script(&r);
+        assert_eq!(s1, s2, "check_script must be idempotent");
+    }
+
+    #[test]
+    fn test_fj132_state_query_captures_active_and_enabled() {
+        // state_query_script should capture both active and enabled state
+        let r = make_service_resource("nginx", "running");
+        let script = state_query_script(&r);
+        assert!(
+            script.contains("systemctl is-active 'nginx'"),
+            "state_query should check is-active"
+        );
+        assert!(
+            script.contains("systemctl is-enabled 'nginx'"),
+            "state_query should check is-enabled"
+        );
+    }
+
+    #[test]
+    fn test_fj132_apply_running_enabled_explicit() {
+        // Explicitly verify the golden path: running + enabled=true
+        let mut r = make_service_resource("app", "running");
+        r.enabled = Some(true);
+        let script = apply_script(&r);
+        assert!(script.contains("systemctl start 'app'"));
+        assert!(script.contains("systemctl enable 'app'"));
+        assert!(!script.contains("systemctl stop"));
+        assert!(!script.contains("systemctl disable"));
+    }
+
+    #[test]
+    fn test_fj132_restart_on_stopped_service() {
+        // restart_on should still emit reload-or-restart even when state=stopped
+        let mut r = make_service_resource("worker", "stopped");
+        r.restart_on = vec!["config".to_string()];
+        let script = apply_script(&r);
+        assert!(
+            script.contains("systemctl reload-or-restart 'worker'"),
+            "restart_on should trigger even for stopped services"
+        );
+        assert!(script.contains("systemctl stop"));
+    }
 }

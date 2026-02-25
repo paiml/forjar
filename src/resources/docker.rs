@@ -337,4 +337,49 @@ mod tests {
         assert!(!script.contains("docker pull"));
         assert!(!script.contains("docker run"));
     }
+
+    // --- FJ-132: Docker edge case tests ---
+
+    #[test]
+    fn test_fj132_apply_empty_ports_env_volumes() {
+        // Empty lists should not produce spurious flags
+        let r = make_docker_resource("web", "nginx:latest");
+        let script = apply_script(&r);
+        assert!(!script.contains("-p '"), "empty ports should not add -p flags");
+        assert!(!script.contains("-e '"), "empty env should not add -e flags");
+        assert!(!script.contains("-v '"), "empty volumes should not add -v flags");
+    }
+
+    #[test]
+    fn test_fj132_apply_no_restart_no_flag() {
+        // No restart policy should not add --restart flag
+        let mut r = make_docker_resource("web", "nginx:latest");
+        r.restart = None;
+        let script = apply_script(&r);
+        assert!(!script.contains("--restart"), "no restart policy = no --restart flag");
+    }
+
+    #[test]
+    fn test_fj132_state_query_contains_inspect() {
+        let r = make_docker_resource("web", "nginx:latest");
+        let script = state_query_script(&r);
+        assert!(script.contains("docker inspect"), "state_query should use docker inspect");
+        assert!(script.contains("'web'"), "state_query should reference container name");
+    }
+
+    #[test]
+    fn test_fj132_check_script_format() {
+        let r = make_docker_resource("web", "nginx:latest");
+        let script = check_script(&r);
+        assert!(script.contains("docker inspect"), "check should inspect container");
+        assert!(script.contains("'web'"), "check should reference name");
+    }
+
+    #[test]
+    fn test_fj132_apply_scripts_idempotent() {
+        let r = make_docker_resource("web", "nginx:latest");
+        let s1 = apply_script(&r);
+        let s2 = apply_script(&r);
+        assert_eq!(s1, s2, "apply_script must be idempotent");
+    }
 }
