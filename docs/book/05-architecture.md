@@ -546,3 +546,148 @@ Adding a new transport follows the same pattern as container:
 1. Create `src/transport/new_transport.rs` with `exec_script(machine, script) → Result`
 2. Add dispatch in `transport/mod.rs`
 3. Add validation in `parser.rs` for the new transport type
+
+## Error Handling Strategy
+
+### Error Accumulation
+
+Validation collects ALL errors before reporting. This is critical for UX — users should see every problem at once, not play whack-a-mole:
+
+```rust
+// Parser validates all resources, collecting errors
+let mut errors: Vec<String> = Vec::new();
+for (id, resource) in &config.resources {
+    if let Err(e) = validate_resource(id, resource) {
+        errors.push(e);
+    }
+}
+if !errors.is_empty() {
+    return Err(format!("validation errors:\n  - {}", errors.join("\n  - ")));
+}
+```
+
+### Error Propagation by Phase
+
+| Phase | Error Behavior |
+|-------|---------------|
+| Parse | Fail immediately on invalid YAML syntax |
+| Validate | Accumulate all errors, report together |
+| Resolve | Fail on first unresolvable template (future: accumulate) |
+| Plan | Pure computation, cannot fail (returns empty plan for unknown states) |
+| Apply | Configurable via policy: `stop_on_first` or `continue_independent` |
+| Drift | Accumulate all findings, report together |
+
+### Failure Policy Deep Dive
+
+**stop_on_first** (default, Jidoka-inspired):
+```
+Resource A → Converged
+Resource B → Failed ← STOP HERE
+Resource C → Skipped (never attempted)
+```
+
+Partial state is saved — A's lock entry is written, B is marked Failed, C has no entry.
+
+**continue_independent**:
+```
+Resource A → Converged
+Resource B → Failed
+Resource C → Converged (C doesn't depend on B, so it continues)
+Resource D → Skipped (D depends on B, which failed)
+```
+
+Only resources in the failed resource's dependency subtree are skipped. Independent branches continue executing.
+
+## Data Flow
+
+### Apply Data Flow
+
+The complete data flow during `forjar apply`:
+
+```
+forjar.yaml
+    │
+    ▼
+Parse (YAML → ForjarConfig)
+    │
+    ▼
+Validate (structural checks, accumulate errors)
+    │
+    ▼
+Expand Recipes (type: recipe → expanded resources)
+    │
+    ▼
+Resolve Templates ({{params.X}}, {{secrets.X}}, {{machine.X.Y}})
+    │
+    ▼
+Build DAG (Kahn's topological sort)
+    │
+    ▼
+Plan (compare hash_desired vs lock_hash → Create/Update/NoOp/Destroy)
+    │
+    ▼
+For each machine:
+    │
+    ├── Load lock (state/{machine}/state.lock.yaml)
+    │
+    ├── For each resource (in topo order):
+    │   ├── Codegen: check_script → apply_script → state_query_script
+    │   ├── Transport: exec_script(machine, script)
+    │   ├── Hash: blake3(applied state)
+    │   └── Record: lock entry + event log
+    │
+    ├── Save lock (atomic write)
+    └── Update global lock
+```
+
+### State File Hierarchy
+
+```
+state/
+├── forjar.lock.yaml          # Global lock: machine summaries
+├── web-server/
+│   ├── state.lock.yaml       # Per-machine: resource hashes + status
+│   └── events.jsonl          # Append-only event log
+├── db-server/
+│   ├── state.lock.yaml
+│   └── events.jsonl
+└── cache-server/
+    ├── state.lock.yaml
+    └── events.jsonl
+```
+
+## Design Decisions
+
+### Why Shell Scripts?
+
+Forjar generates shell scripts rather than using a remote API or agent. This is a deliberate design choice:
+
+1. **Zero dependencies on target** — Needs only `bash` and standard Unix utilities. No agent, no runtime, no package manager.
+2. **Auditable** — Every action is a readable shell command. Run `forjar plan --show-scripts` to see exactly what will execute.
+3. **Transportable** — Same script works over SSH, inside containers, or locally. The transport layer just pipes stdin.
+4. **Debuggable** — If something fails, you can copy the script and run it manually on the target machine.
+
+### Why BLAKE3?
+
+BLAKE3 was chosen over SHA-256 for:
+- **Speed**: 4-14x faster depending on hardware (SIMD-accelerated)
+- **Streaming**: Built-in streaming support with constant memory
+- **Deterministic**: No initialization vector variations
+- **Modern**: Released 2020, security-audited, no known weaknesses
+
+### Why YAML?
+
+Despite YAML's complexity pitfalls, it was chosen because:
+- Infrastructure engineers already know YAML from Kubernetes, Ansible, Docker Compose
+- Multi-line strings (for `content` fields) are natural
+- Comments are supported (unlike JSON)
+- Mature Rust parsing ecosystem (serde_yaml_ng)
+
+### Why Not HCL/Nix/TOML?
+
+| Format | Why Not |
+|--------|---------|
+| HCL | Terraform lock-in perception; complex interpolation syntax |
+| Nix | Steep learning curve; requires Nix toolchain |
+| TOML | Poor multi-line string support; awkward for nested structures |
+| JSON | No comments; verbose; poor ergonomics for human editing |

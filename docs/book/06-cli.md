@@ -548,3 +548,182 @@ These flags work with all commands:
 |------|---------|
 | 0 | Success (no errors, no drift with `--tripwire`) |
 | 1 | Error (validation failure, apply failure, drift detected with `--tripwire`, unformatted file with `fmt --check`) |
+
+## Command Reference
+
+### forjar validate
+
+Validates configuration without touching any machine. Checks:
+- YAML syntax
+- Schema compliance (version, machines, resources)
+- Resource type-specific field requirements
+- Machine references
+- Dependency graph (cycles, unknown refs, self-deps)
+- Recipe expansion and input validation
+
+```bash
+# Validate a config file
+forjar validate -f forjar.yaml
+
+# Validate with verbose output (shows expanded resources)
+forjar validate -f forjar.yaml --verbose
+
+# Validate in CI (non-zero exit on failure)
+forjar validate -f forjar.yaml || exit 1
+```
+
+### forjar plan
+
+Shows what would change without applying. Compares desired state hashes against the lock file:
+
+```bash
+# Basic plan
+forjar plan -f forjar.yaml --state-dir state/
+
+# Plan specific machine
+forjar plan -f forjar.yaml --state-dir state/ -m web-server
+
+# Plan with JSON output
+forjar plan -f forjar.yaml --state-dir state/ --json
+
+# Plan only tagged resources
+forjar plan -f forjar.yaml --state-dir state/ --tag critical
+```
+
+Plan output symbols:
+- `+` — Resource will be created (no previous hash)
+- `~` — Resource will be updated (hash changed)
+- `-` — Resource will be destroyed (state: absent)
+- ` ` — Resource is unchanged (hash matches)
+
+### forjar apply
+
+Executes the plan — converges infrastructure to desired state:
+
+```bash
+# Standard apply
+forjar apply -f forjar.yaml --state-dir state/
+
+# Force re-apply everything (ignore hash comparison)
+forjar apply -f forjar.yaml --state-dir state/ --force
+
+# Dry run — show plan only, don't execute
+forjar apply -f forjar.yaml --state-dir state/ --dry-run
+
+# Apply with timeout (per-resource)
+forjar apply -f forjar.yaml --state-dir state/ --timeout 120
+
+# Apply specific resource only
+forjar apply -f forjar.yaml --state-dir state/ -r nginx-config
+```
+
+### forjar drift
+
+Detects unauthorized changes by comparing live state to lock file:
+
+```bash
+# Basic drift check
+forjar drift -f forjar.yaml --state-dir state/
+
+# Tripwire mode (non-zero exit on drift)
+forjar drift -f forjar.yaml --state-dir state/ --tripwire
+
+# Full drift (re-query all resource types via transport)
+forjar drift -f forjar.yaml --state-dir state/ --full
+
+# Auto-remediate (re-apply drifted resources)
+forjar drift -f forjar.yaml --state-dir state/ --auto-remediate
+
+# With custom alert
+forjar drift -f forjar.yaml --state-dir state/ --alert-cmd ./notify.sh
+```
+
+### forjar anomaly
+
+Analyzes event log history for suspicious patterns:
+
+```bash
+# Run anomaly detection
+forjar anomaly --state-dir state/
+
+# JSON output for monitoring integration
+forjar anomaly --state-dir state/ --json
+```
+
+### forjar history
+
+Shows the event log for a machine:
+
+```bash
+# Last 10 events
+forjar history --state-dir state/
+
+# Last 50 events for specific machine
+forjar history --state-dir state/ -m web-server -n 50
+
+# JSON output
+forjar history --state-dir state/ --json
+```
+
+### forjar graph
+
+Generates a dependency graph in Mermaid format:
+
+```bash
+# Output Mermaid diagram
+forjar graph -f forjar.yaml
+
+# Render in terminal (requires mmdc/mermaid-cli)
+forjar graph -f forjar.yaml | mmdc -o graph.png
+```
+
+### forjar fmt
+
+Formats forjar.yaml for consistent style:
+
+```bash
+# Format in-place
+forjar fmt -f forjar.yaml
+
+# Check formatting (CI mode — non-zero exit if unformatted)
+forjar fmt -f forjar.yaml --check
+```
+
+## Shell Completion
+
+### Bash
+
+```bash
+# Generate completion script
+forjar completions bash > /etc/bash_completion.d/forjar
+
+# Or in user directory
+forjar completions bash > ~/.local/share/bash-completion/completions/forjar
+```
+
+### Zsh
+
+```zsh
+# Generate completion script
+forjar completions zsh > ~/.zfunc/_forjar
+
+# Add to .zshrc
+fpath=(~/.zfunc $fpath)
+autoload -Uz compinit && compinit
+```
+
+### Fish
+
+```fish
+forjar completions fish > ~/.config/fish/completions/forjar.fish
+```
+
+## Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `FORJAR_SECRET_*` | Secret values referenced by `{{secrets.X}}` templates |
+| `FORJAR_CONFIG` | Default config file path (alternative to `-f`) |
+| `FORJAR_STATE_DIR` | Default state directory (alternative to `--state-dir`) |
+| `FORJAR_LOG_LEVEL` | Log verbosity: `error`, `warn`, `info`, `debug`, `trace` |
+| `NO_COLOR` | Disable colored output (standard convention) |
