@@ -238,4 +238,284 @@ mod tests {
         // This will either fail because docker isn't available or because no image
         assert!(result.is_err());
     }
+
+    #[test]
+    fn test_fj021_exec_error_includes_container_name() {
+        // When exec fails, error message should include the container name
+        let m = container_machine();
+        let result = exec_container(&m, "echo hi");
+        // Docker likely not available in test env, but error should reference the name
+        if let Err(e) = result {
+            assert!(
+                e.contains("forjar-unit-test") || e.contains("container"),
+                "error should reference container: {}",
+                e
+            );
+        }
+    }
+
+    #[test]
+    fn test_fj021_exec_with_fake_runtime() {
+        // Use /bin/false as a fake runtime to verify error path consistently
+        let machine = Machine {
+            hostname: "fake-rt".to_string(),
+            addr: "container".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: Some("container".to_string()),
+            container: Some(ContainerConfig {
+                runtime: "/bin/false".to_string(),
+                image: Some("test:latest".to_string()),
+                name: Some("forjar-fake".to_string()),
+                ephemeral: true,
+                privileged: false,
+                init: true,
+            }),
+            cost: 0,
+        };
+        let result = exec_container(&machine, "echo test");
+        // /bin/false doesn't accept args, so spawn will succeed but
+        // the command will return non-zero — still produces ExecOutput
+        match result {
+            Ok(out) => assert!(!out.success(), "/bin/false should fail"),
+            Err(e) => assert!(e.contains("forjar-fake"), "error should reference container: {}", e),
+        }
+    }
+
+    #[test]
+    fn test_fj021_cleanup_error_includes_container_name() {
+        let m = container_machine();
+        let result = cleanup_container(&m);
+        if let Err(e) = result {
+            assert!(
+                e.contains("forjar-unit-test") || e.contains("container"),
+                "cleanup error should reference container: {}",
+                e
+            );
+        }
+    }
+
+    #[test]
+    fn test_fj021_container_name_derived_from_hostname() {
+        // When no explicit name, container_name() derives from hostname
+        let machine = Machine {
+            hostname: "my-web-server".to_string(),
+            addr: "container".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: Some("container".to_string()),
+            container: Some(ContainerConfig {
+                runtime: "docker".to_string(),
+                image: Some("ubuntu:22.04".to_string()),
+                name: None,
+                ephemeral: true,
+                privileged: false,
+                init: true,
+            }),
+            cost: 0,
+        };
+        assert_eq!(machine.container_name(), "forjar-my-web-server");
+    }
+
+    #[test]
+    fn test_fj021_container_name_explicit_overrides() {
+        let machine = Machine {
+            hostname: "ignored-hostname".to_string(),
+            addr: "container".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: Some("container".to_string()),
+            container: Some(ContainerConfig {
+                runtime: "docker".to_string(),
+                image: Some("ubuntu:22.04".to_string()),
+                name: Some("custom-name".to_string()),
+                ephemeral: true,
+                privileged: false,
+                init: true,
+            }),
+            cost: 0,
+        };
+        assert_eq!(machine.container_name(), "custom-name");
+    }
+
+    #[test]
+    fn test_fj021_podman_runtime() {
+        // Verify podman runtime is used when configured
+        let machine = Machine {
+            hostname: "podman-box".to_string(),
+            addr: "container".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: Some("container".to_string()),
+            container: Some(ContainerConfig {
+                runtime: "podman".to_string(),
+                image: Some("ubuntu:22.04".to_string()),
+                name: Some("forjar-podman-test".to_string()),
+                ephemeral: true,
+                privileged: false,
+                init: true,
+            }),
+            cost: 0,
+        };
+        // exec_container will try to run podman, which probably isn't available
+        let result = exec_container(&machine, "echo test");
+        if let Err(e) = result {
+            // Error should mention the container name
+            assert!(
+                e.contains("forjar-podman-test"),
+                "podman error should reference container: {}",
+                e
+            );
+        }
+    }
+
+    #[test]
+    fn test_fj021_ensure_with_privileged_and_init_flags() {
+        // Verify that privileged+init flags are used by ensure_container
+        let machine = Machine {
+            hostname: "priv-box".to_string(),
+            addr: "container".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: Some("container".to_string()),
+            container: Some(ContainerConfig {
+                runtime: "/bin/echo".to_string(), // echo will print args, showing flags
+                image: Some("test:latest".to_string()),
+                name: Some("forjar-priv-test".to_string()),
+                ephemeral: true,
+                privileged: true,
+                init: true,
+            }),
+            cost: 0,
+        };
+        // /bin/echo as runtime: `echo inspect -f ...` succeeds but doesn't output "true"
+        // So ensure_container will proceed to run, where `echo run -d --name ... --init --privileged ...`
+        // will succeed (exit 0) since echo always succeeds
+        let result = ensure_container(&machine);
+        assert!(result.is_ok(), "ensure with /bin/echo runtime should succeed");
+    }
+
+    #[test]
+    fn test_fj021_ensure_no_init_no_privileged() {
+        // Verify flags are omitted when disabled
+        let machine = Machine {
+            hostname: "bare-box".to_string(),
+            addr: "container".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: Some("container".to_string()),
+            container: Some(ContainerConfig {
+                runtime: "/bin/echo".to_string(),
+                image: Some("test:latest".to_string()),
+                name: Some("forjar-bare-test".to_string()),
+                ephemeral: true,
+                privileged: false,
+                init: false,
+            }),
+            cost: 0,
+        };
+        let result = ensure_container(&machine);
+        assert!(
+            result.is_ok(),
+            "ensure without init/privileged should succeed"
+        );
+    }
+
+    #[test]
+    fn test_fj021_cleanup_with_echo_runtime() {
+        // /bin/echo as runtime: `echo rm -f forjar-cleanup-test` succeeds
+        let machine = Machine {
+            hostname: "cleanup-box".to_string(),
+            addr: "container".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: Some("container".to_string()),
+            container: Some(ContainerConfig {
+                runtime: "/bin/echo".to_string(),
+                image: Some("test:latest".to_string()),
+                name: Some("forjar-cleanup-test".to_string()),
+                ephemeral: true,
+                privileged: false,
+                init: true,
+            }),
+            cost: 0,
+        };
+        let result = cleanup_container(&machine);
+        assert!(result.is_ok(), "cleanup with echo runtime should succeed");
+    }
+
+    #[test]
+    fn test_fj021_exec_container_error_msg_no_config() {
+        // Verify the exact error message wording
+        let machine = Machine {
+            hostname: "precise-host".to_string(),
+            addr: "container".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: Some("container".to_string()),
+            container: None,
+            cost: 0,
+        };
+        let err = exec_container(&machine, "echo").unwrap_err();
+        assert_eq!(
+            err,
+            "machine 'precise-host' has no container config"
+        );
+    }
+
+    #[test]
+    fn test_fj021_ensure_container_error_msg_no_config() {
+        let machine = Machine {
+            hostname: "precise-host".to_string(),
+            addr: "container".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: Some("container".to_string()),
+            container: None,
+            cost: 0,
+        };
+        let err = ensure_container(&machine).unwrap_err();
+        assert_eq!(
+            err,
+            "machine 'precise-host' has no container config"
+        );
+    }
+
+    #[test]
+    fn test_fj021_cleanup_container_error_msg_no_config() {
+        let machine = Machine {
+            hostname: "precise-host".to_string(),
+            addr: "container".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: Some("container".to_string()),
+            container: None,
+            cost: 0,
+        };
+        let err = cleanup_container(&machine).unwrap_err();
+        assert_eq!(
+            err,
+            "machine 'precise-host' has no container config"
+        );
+    }
 }

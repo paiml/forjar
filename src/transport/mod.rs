@@ -232,4 +232,132 @@ mod tests {
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("timeout"));
     }
+
+    #[test]
+    fn test_transport_timeout_error_includes_hostname() {
+        let machine = Machine {
+            hostname: "slow-box".to_string(),
+            addr: "127.0.0.1".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: None,
+            container: None,
+            cost: 0,
+        };
+        let err = exec_script_timeout(&machine, "sleep 10", Some(1)).unwrap_err();
+        assert!(
+            err.contains("slow-box"),
+            "timeout error should include hostname: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn test_transport_container_dispatch_priority() {
+        // Container transport takes priority even if addr is a valid IP
+        use crate::core::types::ContainerConfig;
+        let machine = Machine {
+            hostname: "hybrid".to_string(),
+            addr: "127.0.0.1".to_string(), // Would normally be local
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: Some("container".to_string()),
+            container: Some(ContainerConfig {
+                runtime: "/bin/echo".to_string(),
+                image: Some("test:latest".to_string()),
+                name: Some("forjar-dispatch-test".to_string()),
+                ephemeral: true,
+                privileged: false,
+                init: true,
+            }),
+            cost: 0,
+        };
+        // With container transport, exec_script dispatches to container, not local
+        // /bin/echo as runtime won't run bash properly, so it will fail or produce empty output
+        let result = exec_script(&machine, "echo should-not-reach-local");
+        match result {
+            Ok(out) => {
+                // If /bin/echo handled it, stdout won't contain "should-not-reach-local"
+                // because echo doesn't execute bash
+                assert_ne!(
+                    out.stdout.trim(),
+                    "should-not-reach-local",
+                    "container transport should intercept before local dispatch"
+                );
+            }
+            Err(_) => {} // Expected: /bin/echo can't exec bash
+        }
+    }
+
+    #[test]
+    fn test_transport_ipv6_loopback_is_local() {
+        assert!(is_local_addr("::1"));
+    }
+
+    #[test]
+    fn test_transport_remote_addr_not_local() {
+        assert!(!is_local_addr("8.8.8.8"));
+        assert!(!is_local_addr("google.com"));
+        assert!(!is_local_addr("192.168.1.1"));
+    }
+
+    #[test]
+    fn test_transport_exec_captures_both_streams() {
+        let machine = Machine {
+            hostname: "local".to_string(),
+            addr: "127.0.0.1".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: None,
+            container: None,
+            cost: 0,
+        };
+        let out = exec_script(&machine, "echo OUT; echo ERR >&2").unwrap();
+        assert!(out.success());
+        assert_eq!(out.stdout.trim(), "OUT");
+        assert!(out.stderr.contains("ERR"));
+    }
+
+    #[test]
+    fn test_transport_exec_multiline_script() {
+        let machine = Machine {
+            hostname: "local".to_string(),
+            addr: "127.0.0.1".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: None,
+            container: None,
+            cost: 0,
+        };
+        let script = "A=hello\nB=world\necho \"$A $B\"";
+        let out = exec_script(&machine, script).unwrap();
+        assert!(out.success());
+        assert_eq!(out.stdout.trim(), "hello world");
+    }
+
+    #[test]
+    fn test_transport_exec_nonzero_exit_code() {
+        let machine = Machine {
+            hostname: "local".to_string(),
+            addr: "127.0.0.1".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: None,
+            container: None,
+            cost: 0,
+        };
+        let out = exec_script(&machine, "exit 77").unwrap();
+        assert!(!out.success());
+        assert_eq!(out.exit_code, 77);
+    }
 }

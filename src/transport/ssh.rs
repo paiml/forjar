@@ -217,4 +217,64 @@ mod tests {
         // No -c flag present
         assert!(!args.contains(&"-c".to_string()));
     }
+
+    #[test]
+    fn test_fj011_build_args_count_without_key() {
+        // Without key: -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new user@host bash
+        let m = make_machine("10.0.0.1", "root", None);
+        let args = build_ssh_args(&m);
+        assert_eq!(args.len(), 8, "6 option args + user@host + bash");
+    }
+
+    #[test]
+    fn test_fj011_build_args_count_with_key() {
+        // With key adds -i <keypath> = 2 more args
+        let m = make_machine("10.0.0.1", "root", Some("/root/.ssh/key"));
+        let args = build_ssh_args(&m);
+        assert_eq!(args.len(), 10, "6 option args + -i key + user@host + bash");
+    }
+
+    #[test]
+    fn test_fj011_batch_mode_prevents_password_prompt() {
+        // BatchMode=yes is critical: prevents SSH from prompting for passwords
+        // which would hang the process in non-interactive mode
+        let m = make_machine("10.0.0.1", "root", None);
+        let args = build_ssh_args(&m);
+        let batch_pos = args.iter().position(|a| a == "BatchMode=yes").unwrap();
+        // Must be preceded by -o
+        assert_eq!(args[batch_pos - 1], "-o");
+    }
+
+    #[test]
+    fn test_fj011_connect_timeout_value() {
+        // ConnectTimeout=5 prevents hangs on unreachable machines
+        let m = make_machine("10.0.0.1", "root", None);
+        let args = build_ssh_args(&m);
+        assert!(
+            args.contains(&"ConnectTimeout=5".to_string()),
+            "must set 5s connect timeout"
+        );
+    }
+
+    #[test]
+    fn test_fj011_strict_host_key_accept_new() {
+        // accept-new: accept first-time keys, reject changed keys
+        let m = make_machine("10.0.0.1", "root", None);
+        let args = build_ssh_args(&m);
+        assert!(args.contains(&"StrictHostKeyChecking=accept-new".to_string()));
+    }
+
+    #[test]
+    fn test_fj011_dns_hostname_addr() {
+        let m = make_machine("db.prod.internal", "admin", None);
+        let args = build_ssh_args(&m);
+        assert!(args.contains(&"admin@db.prod.internal".to_string()));
+    }
+
+    #[test]
+    fn test_fj011_nonstandard_user() {
+        let m = make_machine("10.0.0.1", "deploy-bot", None);
+        let args = build_ssh_args(&m);
+        assert!(args.contains(&"deploy-bot@10.0.0.1".to_string()));
+    }
 }
