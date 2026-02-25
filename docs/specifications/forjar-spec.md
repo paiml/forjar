@@ -1343,6 +1343,11 @@ Statistical anomaly detection from event history. Analyzes per-resource metrics:
 | FJ-092 | User management example — user creation, SSH keys, groups, system users, user removal (state: absent) | **Done** |
 | FJ-093 | Multi-machine example — 3-machine NFS+app+monitor with cross-machine deps, cost scheduling, template resolution | **Done** |
 | FJ-094 | Drift & tripwire book chapter — Ch. 9 covering BLAKE3 drift, auto-remediation, anomaly detection, event logs | **Done** |
+| FJ-095 | Service resource tests — pipefail safety, idempotent start/stop/enable guards, stopped+disabled combination | **Done** |
+| FJ-096 | Cron resource tests — entry preservation, absent cleanup, default schedule/command, custom user in check/query | **Done** |
+| FJ-097 | Event logging example — provenance event lifecycle, JSONL reading, run ID generation | **Done** |
+| FJ-098 | Eventlog tests — run ID uniqueness, directory creation, JSON validity, timestamp format | **Done** |
+| FJ-099 | Testing & CI/CD book chapter — Ch. 10 covering validation pyramid, container testing, GitHub Actions, monitoring | **Done** |
 
 ---
 
