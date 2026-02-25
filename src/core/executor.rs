@@ -1615,4 +1615,426 @@ resources:
         let resource = config.resources.get("f").unwrap();
         assert!(resource.tags.is_empty());
     }
+
+    // ── Edge-case tests ────────────────────────────────────────────────
+
+    #[test]
+    fn test_fj012_record_success_without_tripwire() {
+        let dir = tempfile::tempdir().unwrap();
+        let managed_file = dir.path().join("no-trip.txt");
+        std::fs::write(&managed_file, "content").unwrap();
+        let mut lock = state::new_lock("test", "test-box");
+        let resource = Resource {
+            resource_type: ResourceType::File,
+            machine: MachineTarget::Single("test".to_string()),
+            path: Some(managed_file.to_str().unwrap().to_string()),
+            content: Some("content".to_string()),
+            state: None, depends_on: vec![], provider: None, packages: vec![],
+            version: None, source: None, target: None, owner: None, group: None,
+            mode: None, name: None, enabled: None, restart_on: vec![],
+            fs_type: None, options: None, uid: None, shell: None, home: None,
+            groups: vec![], ssh_authorized_keys: vec![], system_user: false,
+            schedule: None, command: None, image: None, ports: vec![],
+            environment: vec![], volumes: vec![], restart: None, protocol: None,
+            port: None, action: None, from_addr: None, recipe: None,
+            inputs: HashMap::new(), arch: vec![], tags: vec![],
+        };
+        let mut ctx = RecordCtx {
+            lock: &mut lock,
+            state_dir: dir.path(),
+            machine_name: "test",
+            tripwire: false,
+            failure_policy: &FailurePolicy::StopOnFirst,
+            timeout_secs: None,
+        };
+
+        record_success(&mut ctx, "f", &resource, &resource, &local_machine(), 0.5);
+
+        assert_eq!(ctx.lock.resources["f"].status, ResourceStatus::Converged);
+        // No event log should be written when tripwire is off
+        let events_path = dir.path().join("test").join("events.jsonl");
+        assert!(!events_path.exists(), "no event log without tripwire");
+    }
+
+    #[test]
+    fn test_fj012_record_success_service_resource() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut lock = state::new_lock("test", "test-box");
+        let resource = Resource {
+            resource_type: ResourceType::Service,
+            machine: MachineTarget::Single("test".to_string()),
+            name: Some("nginx".to_string()),
+            state: Some("running".to_string()),
+            path: None, content: None, source: None, target: None,
+            depends_on: vec![], provider: None, packages: vec![],
+            version: None, owner: None, group: None, mode: None,
+            enabled: Some(true), restart_on: vec![], fs_type: None,
+            options: None, uid: None, shell: None, home: None,
+            groups: vec![], ssh_authorized_keys: vec![], system_user: false,
+            schedule: None, command: None, image: None, ports: vec![],
+            environment: vec![], volumes: vec![], restart: None, protocol: None,
+            port: None, action: None, from_addr: None, recipe: None,
+            inputs: HashMap::new(), arch: vec![], tags: vec![],
+        };
+        let mut ctx = RecordCtx {
+            lock: &mut lock,
+            state_dir: dir.path(),
+            machine_name: "test",
+            tripwire: false,
+            failure_policy: &FailurePolicy::StopOnFirst,
+            timeout_secs: None,
+        };
+
+        record_success(&mut ctx, "svc", &resource, &resource, &local_machine(), 1.5);
+
+        let rl = &ctx.lock.resources["svc"];
+        assert_eq!(rl.status, ResourceStatus::Converged);
+        assert!(rl.details.contains_key("service_name"));
+        assert_eq!(
+            rl.details["service_name"],
+            serde_yaml_ng::Value::String("nginx".to_string())
+        );
+    }
+
+    #[test]
+    fn test_fj012_record_failure_tripwire_off() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut lock = state::new_lock("test", "test-box");
+        let mut ctx = RecordCtx {
+            lock: &mut lock,
+            state_dir: dir.path(),
+            machine_name: "test",
+            tripwire: false,
+            failure_policy: &FailurePolicy::ContinueIndependent,
+            timeout_secs: None,
+        };
+
+        record_failure(&mut ctx, "f", &ResourceType::File, 0.1, "broke");
+
+        assert_eq!(ctx.lock.resources["f"].status, ResourceStatus::Failed);
+        let events_path = dir.path().join("test").join("events.jsonl");
+        assert!(!events_path.exists(), "no event log without tripwire");
+    }
+
+    #[test]
+    fn test_fj012_build_details_file_no_content() {
+        // File with path but no content → no content_hash
+        let resource = Resource {
+            resource_type: ResourceType::File,
+            machine: MachineTarget::Single("test".to_string()),
+            path: Some("/etc/some.conf".to_string()),
+            content: None,
+            source: None, target: None, state: None,
+            depends_on: vec![], provider: None, packages: vec![],
+            version: None, owner: Some("root".to_string()),
+            group: None, mode: Some("0644".to_string()),
+            name: None, enabled: None, restart_on: vec![],
+            fs_type: None, options: None, uid: None, shell: None,
+            home: None, groups: vec![], ssh_authorized_keys: vec![],
+            system_user: false, schedule: None, command: None,
+            image: None, ports: vec![], environment: vec![],
+            volumes: vec![], restart: None, protocol: None,
+            port: None, action: None, from_addr: None, recipe: None,
+            inputs: HashMap::new(), arch: vec![], tags: vec![],
+        };
+        let details = build_resource_details(&resource, &local_machine());
+        assert!(details.contains_key("path"));
+        assert!(details.contains_key("owner"));
+        assert!(details.contains_key("mode"));
+        assert!(!details.contains_key("content_hash"), "no content → no hash");
+    }
+
+    #[test]
+    fn test_fj012_build_details_file_with_content_and_real_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let file_path = dir.path().join("real.txt");
+        std::fs::write(&file_path, "real content").unwrap();
+
+        let resource = Resource {
+            resource_type: ResourceType::File,
+            machine: MachineTarget::Single("test".to_string()),
+            path: Some(file_path.to_str().unwrap().to_string()),
+            content: Some("real content".to_string()),
+            source: None, target: None, state: None,
+            depends_on: vec![], provider: None, packages: vec![],
+            version: None, owner: None, group: None, mode: None,
+            name: None, enabled: None, restart_on: vec![],
+            fs_type: None, options: None, uid: None, shell: None,
+            home: None, groups: vec![], ssh_authorized_keys: vec![],
+            system_user: false, schedule: None, command: None,
+            image: None, ports: vec![], environment: vec![],
+            volumes: vec![], restart: None, protocol: None,
+            port: None, action: None, from_addr: None, recipe: None,
+            inputs: HashMap::new(), arch: vec![], tags: vec![],
+        };
+        let details = build_resource_details(&resource, &local_machine());
+        assert!(details.contains_key("content_hash"), "real file should have content_hash");
+        let hash = details["content_hash"].as_str().unwrap();
+        assert!(hash.starts_with("blake3:"), "hash should be blake3-prefixed");
+    }
+
+    #[test]
+    fn test_fj012_build_details_nonexistent_file_no_hash() {
+        // content is set but the file doesn't exist → no content_hash
+        let resource = Resource {
+            resource_type: ResourceType::File,
+            machine: MachineTarget::Single("test".to_string()),
+            path: Some("/tmp/does-not-exist-forjar-test.txt".to_string()),
+            content: Some("ghost".to_string()),
+            source: None, target: None, state: None,
+            depends_on: vec![], provider: None, packages: vec![],
+            version: None, owner: None, group: None, mode: None,
+            name: None, enabled: None, restart_on: vec![],
+            fs_type: None, options: None, uid: None, shell: None,
+            home: None, groups: vec![], ssh_authorized_keys: vec![],
+            system_user: false, schedule: None, command: None,
+            image: None, ports: vec![], environment: vec![],
+            volumes: vec![], restart: None, protocol: None,
+            port: None, action: None, from_addr: None, recipe: None,
+            inputs: HashMap::new(), arch: vec![], tags: vec![],
+        };
+        let details = build_resource_details(&resource, &local_machine());
+        assert!(!details.contains_key("content_hash"), "nonexistent file → no hash");
+    }
+
+    #[test]
+    fn test_fj012_build_details_all_fields() {
+        let resource = Resource {
+            resource_type: ResourceType::File,
+            machine: MachineTarget::Single("test".to_string()),
+            path: Some("/etc/app.conf".to_string()),
+            owner: Some("app".to_string()),
+            group: Some("app".to_string()),
+            mode: Some("0600".to_string()),
+            name: Some("app-config".to_string()),
+            content: None, source: None, target: None, state: None,
+            depends_on: vec![], provider: None, packages: vec![],
+            version: None, enabled: None, restart_on: vec![],
+            fs_type: None, options: None, uid: None, shell: None,
+            home: None, groups: vec![], ssh_authorized_keys: vec![],
+            system_user: false, schedule: None, command: None,
+            image: None, ports: vec![], environment: vec![],
+            volumes: vec![], restart: None, protocol: None,
+            port: None, action: None, from_addr: None, recipe: None,
+            inputs: HashMap::new(), arch: vec![], tags: vec![],
+        };
+        let details = build_resource_details(&resource, &local_machine());
+        assert_eq!(details["path"], serde_yaml_ng::Value::String("/etc/app.conf".to_string()));
+        assert_eq!(details["owner"], serde_yaml_ng::Value::String("app".to_string()));
+        assert_eq!(details["group"], serde_yaml_ng::Value::String("app".to_string()));
+        assert_eq!(details["mode"], serde_yaml_ng::Value::String("0600".to_string()));
+        assert_eq!(details["service_name"], serde_yaml_ng::Value::String("app-config".to_string()));
+    }
+
+    #[test]
+    fn test_fj012_collect_machines_deduplicates() {
+        let yaml = r#"
+version: "1.0"
+name: dedup
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  a:
+    type: file
+    machine: m1
+    path: /a
+  b:
+    type: file
+    machine: m1
+    path: /b
+  c:
+    type: file
+    machine: m1
+    path: /c
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let machines = collect_machines(&config);
+        assert_eq!(machines.len(), 1, "3 resources on same machine → 1 entry");
+        assert_eq!(machines[0], "m1");
+    }
+
+    #[test]
+    fn test_fj012_collect_machines_preserves_order() {
+        let yaml = r#"
+version: "1.0"
+name: order
+machines:
+  web:
+    hostname: web
+    addr: 1.1.1.1
+  db:
+    hostname: db
+    addr: 2.2.2.2
+  cache:
+    hostname: cache
+    addr: 3.3.3.3
+resources:
+  a:
+    type: file
+    machine: web
+    path: /a
+  b:
+    type: file
+    machine: cache
+    path: /b
+  c:
+    type: file
+    machine: db
+    path: /c
+  d:
+    type: file
+    machine: web
+    path: /d
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let machines = collect_machines(&config);
+        assert_eq!(machines, vec!["web", "cache", "db"]);
+    }
+
+    #[test]
+    fn test_fj012_dry_run_with_machine_filter() {
+        let yaml = r#"
+version: "1.0"
+name: filter-test
+machines:
+  web:
+    hostname: web
+    addr: 1.1.1.1
+  db:
+    hostname: db
+    addr: 2.2.2.2
+resources:
+  web-pkg:
+    type: file
+    machine: web
+    path: /tmp/web
+    content: web
+  db-pkg:
+    type: file
+    machine: db
+    path: /tmp/db
+    content: db
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = ApplyConfig {
+            config: &config,
+            state_dir: dir.path(),
+            force: false,
+            dry_run: true,
+            machine_filter: Some("web"),
+            resource_filter: None,
+            tag_filter: None,
+            timeout_secs: None,
+        };
+        let results = apply(&cfg).unwrap();
+        // Dry run returns a single result
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].machine, "dry-run");
+    }
+
+    #[test]
+    fn test_fj012_apply_with_tag_filter() {
+        let yaml = r#"
+version: "1.0"
+name: tag-apply
+machines:
+  local:
+    hostname: localhost
+    addr: 127.0.0.1
+resources:
+  tagged:
+    type: file
+    machine: local
+    path: /tmp/forjar-tagged-test.txt
+    content: "tagged content"
+    tags: [deploy]
+  untagged:
+    type: file
+    machine: local
+    path: /tmp/forjar-untagged-test.txt
+    content: "untagged content"
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = ApplyConfig {
+            config: &config,
+            state_dir: dir.path(),
+            force: false,
+            dry_run: false,
+            machine_filter: None,
+            resource_filter: None,
+            tag_filter: Some("deploy"),
+            timeout_secs: None,
+        };
+        let results = apply(&cfg).unwrap();
+        // Only the tagged resource should be applied
+        assert_eq!(results[0].resources_converged, 1);
+        // The tagged file should exist
+        assert!(
+            std::path::Path::new("/tmp/forjar-tagged-test.txt").exists(),
+            "tagged file should be created"
+        );
+        // Clean up
+        let _ = std::fs::remove_file("/tmp/forjar-tagged-test.txt");
+        let _ = std::fs::remove_file("/tmp/forjar-untagged-test.txt");
+    }
+
+    #[test]
+    fn test_fj012_log_tripwire_enabled() {
+        let dir = tempfile::tempdir().unwrap();
+        log_tripwire(
+            dir.path(),
+            "machine1",
+            true,
+            ProvenanceEvent::ApplyStarted {
+                machine: "machine1".to_string(),
+                run_id: "test-run".to_string(),
+                forjar_version: "0.1.0".to_string(),
+            },
+        );
+        let events = dir.path().join("machine1").join("events.jsonl");
+        assert!(events.exists(), "tripwire=true should write event");
+    }
+
+    #[test]
+    fn test_fj012_log_tripwire_disabled() {
+        let dir = tempfile::tempdir().unwrap();
+        log_tripwire(
+            dir.path(),
+            "machine1",
+            false,
+            ProvenanceEvent::ApplyStarted {
+                machine: "machine1".to_string(),
+                run_id: "test-run".to_string(),
+                forjar_version: "0.1.0".to_string(),
+            },
+        );
+        let events = dir.path().join("machine1").join("events.jsonl");
+        assert!(!events.exists(), "tripwire=false should NOT write event");
+    }
+
+    #[test]
+    fn test_fj012_apply_result_duration_positive() {
+        let config = local_config();
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = ApplyConfig {
+            config: &config,
+            state_dir: dir.path(),
+            force: false,
+            dry_run: false,
+            machine_filter: None,
+            resource_filter: None,
+            tag_filter: None,
+            timeout_secs: None,
+        };
+        let results = apply(&cfg).unwrap();
+        for r in &results {
+            assert!(r.total_duration.as_secs_f64() >= 0.0);
+        }
+        // Clean up the test file
+        let _ = std::fs::remove_file("/tmp/forjar-test-executor.txt");
+    }
 }
