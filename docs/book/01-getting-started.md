@@ -736,6 +736,56 @@ Container: docker exec -i name bash
 
 The state directory is the single source of truth for what was last applied. Without state, forjar treats every resource as new and applies everything. With state, only changed resources are applied.
 
+## Comparison with Other Tools
+
+### Forjar vs Ansible
+
+| Aspect | Forjar | Ansible |
+|--------|--------|---------|
+| Language | Rust (single binary) | Python + deps |
+| Config format | YAML | YAML + Jinja2 |
+| Agent required | No (bash only) | No (Python on target) |
+| State tracking | BLAKE3 hash files | No built-in state |
+| Drift detection | Yes (file + service) | No native drift |
+| Speed | Fast (parallel BLAKE3) | Slower (Python overhead) |
+
+### Forjar vs Terraform
+
+| Aspect | Forjar | Terraform |
+|--------|--------|-----------|
+| Focus | Machine configuration | Cloud infrastructure |
+| State | Local file-based | Remote state backends |
+| Resources | Packages, files, services | Cloud APIs (AWS, GCP) |
+| Transport | SSH / container / local | Provider APIs |
+| Language | YAML | HCL |
+
+### Forjar vs Chef/Puppet
+
+| Aspect | Forjar | Chef/Puppet |
+|--------|--------|-------------|
+| Architecture | Agentless | Agent-based |
+| State | BLAKE3 hashes | Agent catalog |
+| DSL | YAML | Ruby / Puppet DSL |
+| Binary size | ~5 MB | 100+ MB runtime |
+| Learning curve | YAML + bash | Custom DSL |
+
+## FAQ
+
+**Q: Can forjar manage cloud resources (EC2, S3)?**
+A: No. Forjar manages machine configuration, not cloud infrastructure. Use Terraform for cloud resources and forjar for what runs on those machines.
+
+**Q: Does forjar support Windows?**
+A: Not currently. Forjar generates bash scripts and targets Unix-like systems. Windows support (PowerShell generation) is a potential Phase 3+ feature.
+
+**Q: Can I use forjar with Docker containers?**
+A: Yes! Container transport (`transport: container`) lets you apply resources inside Docker or Podman containers. This is ideal for testing and CI.
+
+**Q: How does forjar handle secrets?**
+A: Secrets are never stored in config files. Use `{{secrets.key}}` templates that resolve from environment variables at apply time (`FORJAR_SECRET_KEY`).
+
+**Q: What happens if an apply fails halfway?**
+A: State is recorded per-resource. Successfully applied resources are marked as converged, failed ones as failed. Re-running apply only retries failed resources.
+
 ## Next Steps
 
 - [Configuration Reference](02-configuration.md) — Complete `forjar.yaml` schema
