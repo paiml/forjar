@@ -1,25 +1,15 @@
-# Dogfood config: test Phase 2 resource types (user + cron) in a container.
-#
-# Exercises: user creation with groups, cron job management, plus file
-# resources as dependencies. Docker and network resources need privileged
-# access / host Docker socket, so those are tested separately.
-#
-# Prerequisites:
-#   docker build -t forjar-test-target -f tests/Dockerfile.test-target .
-#
-# Usage:
-#   cargo run -- apply -f examples/dogfood-phase2.yaml --state-dir /tmp/dogfood-p2
-#   cargo run -- apply -f examples/dogfood-phase2.yaml --state-dir /tmp/dogfood-p2   # idempotency
-#   cargo run -- drift -f examples/dogfood-phase2.yaml --state-dir /tmp/dogfood-p2
-#   docker rm -f forjar-dogfood-p2
-
-version: "1.0"
+version: '1.0'
 name: dogfood-phase2
-
+description: null
+params: {}
 machines:
   test-box:
     hostname: test-box
     addr: container
+    user: root
+    arch: x86_64
+    ssh_key: null
+    roles: []
     transport: container
     container:
       runtime: docker
@@ -28,66 +18,265 @@ machines:
       ephemeral: false
       privileged: false
       init: true
-
+    cost: 0
 resources:
-  # ── User management ─────────────────────────────
   deploy-user:
     type: user
     machine: test-box
+    state: null
+    depends_on: []
+    provider: null
+    packages: []
+    version: null
+    path: null
+    content: null
+    source: null
+    target: null
+    owner: null
+    group: null
+    mode: null
     name: deploy
+    enabled: null
+    restart_on: []
+    fstype: null
+    options: null
+    uid: null
     shell: /bin/bash
     home: /home/deploy
-    groups: [staff]
-
+    groups:
+    - staff
+    ssh_authorized_keys: []
+    system_user: false
+    schedule: null
+    command: null
+    image: null
+    ports: []
+    environment: []
+    volumes: []
+    restart: null
+    protocol: null
+    port: null
+    action: null
+    from: null
+    recipe: null
+    inputs: {}
+    arch: []
+    tags: []
   app-user:
     type: user
     machine: test-box
+    state: null
+    depends_on: []
+    provider: null
+    packages: []
+    version: null
+    path: null
+    content: null
+    source: null
+    target: null
+    owner: null
+    group: null
+    mode: null
     name: appservice
-    system_user: true
+    enabled: null
+    restart_on: []
+    fstype: null
+    options: null
+    uid: null
     shell: /usr/sbin/nologin
-
-  # ── Files (depend on users) ─────────────────────
+    home: null
+    groups: []
+    ssh_authorized_keys: []
+    system_user: true
+    schedule: null
+    command: null
+    image: null
+    ports: []
+    environment: []
+    volumes: []
+    restart: null
+    protocol: null
+    port: null
+    action: null
+    from: null
+    recipe: null
+    inputs: {}
+    arch: []
+    tags: []
   deploy-config:
     type: file
     machine: test-box
+    state: null
+    depends_on:
+    - deploy-user
+    provider: null
+    packages: []
+    version: null
     path: /home/deploy/.profile
     content: |
       # Managed by forjar
       export PATH="$HOME/bin:$PATH"
+    source: null
+    target: null
     owner: deploy
-    mode: "0644"
-    depends_on: [deploy-user]
-
+    group: null
+    mode: '0644'
+    name: null
+    enabled: null
+    restart_on: []
+    fstype: null
+    options: null
+    uid: null
+    shell: null
+    home: null
+    groups: []
+    ssh_authorized_keys: []
+    system_user: false
+    schedule: null
+    command: null
+    image: null
+    ports: []
+    environment: []
+    volumes: []
+    restart: null
+    protocol: null
+    port: null
+    action: null
+    from: null
+    recipe: null
+    inputs: {}
+    arch: []
+    tags: []
   app-dir:
     type: file
     machine: test-box
-    path: /opt/app
     state: directory
+    depends_on:
+    - app-user
+    provider: null
+    packages: []
+    version: null
+    path: /opt/app
+    content: null
+    source: null
+    target: null
     owner: appservice
-    mode: "0755"
-    depends_on: [app-user]
-
-  # ── Source file transfer (FJ-035) ──────────────
+    group: null
+    mode: '0755'
+    name: null
+    enabled: null
+    restart_on: []
+    fstype: null
+    options: null
+    uid: null
+    shell: null
+    home: null
+    groups: []
+    ssh_authorized_keys: []
+    system_user: false
+    schedule: null
+    command: null
+    image: null
+    ports: []
+    environment: []
+    volumes: []
+    restart: null
+    protocol: null
+    port: null
+    action: null
+    from: null
+    recipe: null
+    inputs: {}
+    arch: []
+    tags: []
   app-entrypoint:
     type: file
     machine: test-box
+    state: null
+    depends_on:
+    - app-dir
+    provider: null
+    packages: []
+    version: null
     path: /opt/app/entrypoint.sh
+    content: null
     source: examples/files/app-entrypoint.sh
+    target: null
     owner: appservice
-    mode: "0755"
-    depends_on: [app-dir]
-
-  # ── Cron jobs ───────────────────────────────────
+    group: null
+    mode: '0755'
+    name: null
+    enabled: null
+    restart_on: []
+    fstype: null
+    options: null
+    uid: null
+    shell: null
+    home: null
+    groups: []
+    ssh_authorized_keys: []
+    system_user: false
+    schedule: null
+    command: null
+    image: null
+    ports: []
+    environment: []
+    volumes: []
+    restart: null
+    protocol: null
+    port: null
+    action: null
+    from: null
+    recipe: null
+    inputs: {}
+    arch: []
+    tags: []
   health-check:
     type: cron
     machine: test-box
-    name: health-check
-    schedule: "*/5 * * * *"
-    command: /usr/bin/true
+    state: null
+    depends_on:
+    - app-dir
+    provider: null
+    packages: []
+    version: null
+    path: null
+    content: null
+    source: null
+    target: null
     owner: root
-    depends_on: [app-dir]
-
+    group: null
+    mode: null
+    name: health-check
+    enabled: null
+    restart_on: []
+    fstype: null
+    options: null
+    uid: null
+    shell: null
+    home: null
+    groups: []
+    ssh_authorized_keys: []
+    system_user: false
+    schedule: '*/5 * * * *'
+    command: /usr/bin/true
+    image: null
+    ports: []
+    environment: []
+    volumes: []
+    restart: null
+    protocol: null
+    port: null
+    action: null
+    from: null
+    recipe: null
+    inputs: {}
+    arch: []
+    tags: []
 policy:
   failure: stop_on_first
+  parallel_machines: false
   tripwire: true
   lock_file: true
+  pre_apply: null
+  post_apply: null

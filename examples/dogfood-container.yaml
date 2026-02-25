@@ -1,19 +1,15 @@
-# Dogfood config: test forjar resources inside a container.
-#
-# Prerequisites:
-#   docker build -t forjar-test-target -f tests/Dockerfile.test-target .
-#
-# Usage:
-#   cargo run -- apply -f examples/dogfood-container.yaml --state-dir /tmp/dogfood-state
-#   cargo run -- drift -f examples/dogfood-container.yaml --state-dir /tmp/dogfood-state
-
-version: "1.0"
+version: '1.0'
 name: dogfood-container
-
+description: null
+params: {}
 machines:
   test-box:
     hostname: test-box
     addr: container
+    user: root
+    arch: x86_64
+    ssh_key: null
+    roles: []
     transport: container
     container:
       runtime: docker
@@ -22,30 +18,97 @@ machines:
       ephemeral: true
       privileged: false
       init: true
-
+    cost: 0
 resources:
-  # ── File resources ──────────────────────────────────
   config-file:
     type: file
     machine: test-box
+    state: null
+    depends_on: []
+    provider: null
+    packages: []
+    version: null
     path: /etc/forjar-test.conf
     content: |
       # Managed by forjar
       setting=value
       enabled=true
+    source: null
+    target: null
     owner: root
     group: root
-    mode: "0644"
-
+    mode: '0644'
+    name: null
+    enabled: null
+    restart_on: []
+    fstype: null
+    options: null
+    uid: null
+    shell: null
+    home: null
+    groups: []
+    ssh_authorized_keys: []
+    system_user: false
+    schedule: null
+    command: null
+    image: null
+    ports: []
+    environment: []
+    volumes: []
+    restart: null
+    protocol: null
+    port: null
+    action: null
+    from: null
+    recipe: null
+    inputs: {}
+    arch: []
+    tags: []
   data-dir:
     type: file
     machine: test-box
-    path: /data/forjar-test
     state: directory
+    depends_on: []
+    provider: null
+    packages: []
+    version: null
+    path: /data/forjar-test
+    content: null
+    source: null
+    target: null
     owner: root
-    mode: "0755"
-
+    group: null
+    mode: '0755'
+    name: null
+    enabled: null
+    restart_on: []
+    fstype: null
+    options: null
+    uid: null
+    shell: null
+    home: null
+    groups: []
+    ssh_authorized_keys: []
+    system_user: false
+    schedule: null
+    command: null
+    image: null
+    ports: []
+    environment: []
+    volumes: []
+    restart: null
+    protocol: null
+    port: null
+    action: null
+    from: null
+    recipe: null
+    inputs: {}
+    arch: []
+    tags: []
 policy:
   failure: stop_on_first
+  parallel_machines: false
   tripwire: true
   lock_file: true
+  pre_apply: null
+  post_apply: null

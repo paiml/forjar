@@ -1,25 +1,15 @@
-# Dogfood config: test pre/post apply hooks.
-#
-# Demonstrates policy hooks that run local commands before and after apply.
-# pre_apply exits non-zero → apply aborts. post_apply is informational.
-#
-# Prerequisites:
-#   docker build -t forjar-test-target -f tests/Dockerfile.test-target .
-#
-# Usage:
-#   # Apply with hooks
-#   cargo run -- apply -f examples/dogfood-hooks.yaml --state-dir /tmp/dogfood-hooks -v
-#
-#   # Cleanup
-#   docker rm -f forjar-dogfood-hooks
-
-version: "1.0"
+version: '1.0'
 name: dogfood-hooks
-
+description: null
+params: {}
 machines:
   test-box:
     hostname: test-box
     addr: container
+    user: root
+    arch: x86_64
+    ssh_key: null
+    roles: []
     transport: container
     container:
       runtime: docker
@@ -28,18 +18,53 @@ machines:
       ephemeral: false
       privileged: false
       init: true
-
+    cost: 0
 resources:
   greeting:
     type: file
     machine: test-box
+    state: null
+    depends_on: []
+    provider: null
+    packages: []
+    version: null
     path: /etc/forjar-greeting
-    content: "Hello from hooks dogfood!"
+    content: Hello from hooks dogfood!
+    source: null
+    target: null
     owner: root
-    mode: "0644"
-
+    group: null
+    mode: '0644'
+    name: null
+    enabled: null
+    restart_on: []
+    fstype: null
+    options: null
+    uid: null
+    shell: null
+    home: null
+    groups: []
+    ssh_authorized_keys: []
+    system_user: false
+    schedule: null
+    command: null
+    image: null
+    ports: []
+    environment: []
+    volumes: []
+    restart: null
+    protocol: null
+    port: null
+    action: null
+    from: null
+    recipe: null
+    inputs: {}
+    arch: []
+    tags: []
 policy:
   failure: stop_on_first
+  parallel_machines: false
   tripwire: true
-  pre_apply: "echo '[hook] Pre-apply: validating config...' && date"
-  post_apply: "echo '[hook] Post-apply: apply finished at' && date"
+  lock_file: true
+  pre_apply: 'echo ''[hook] Pre-apply: validating config...'' && date'
+  post_apply: 'echo ''[hook] Post-apply: apply finished at'' && date'

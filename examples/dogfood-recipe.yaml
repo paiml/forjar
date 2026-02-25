@@ -1,31 +1,15 @@
-# Dogfood config: test recipe expansion in the CLI pipeline.
-#
-# Demonstrates type: recipe resources being expanded into their
-# constituent package/file/service resources before planning and execution.
-#
-# Prerequisites:
-#   docker build -t forjar-test-target -f tests/Dockerfile.test-target .
-#
-# Usage:
-#   # Validate (expand recipes, validate, show plan)
-#   cargo run -- validate -f examples/dogfood-recipe.yaml
-#
-#   # Apply with recipe expansion
-#   cargo run -- apply -f examples/dogfood-recipe.yaml --state-dir /tmp/dogfood-recipe
-#
-#   # Check plan output
-#   cargo run -- plan -f examples/dogfood-recipe.yaml
-#
-#   # Cleanup
-#   docker rm -f forjar-dogfood-recipe
-
-version: "1.0"
+version: '1.0'
 name: dogfood-recipe
-
+description: null
+params: {}
 machines:
   test-box:
     hostname: test-box
     addr: container
+    user: root
+    arch: x86_64
+    ssh_key: null
+    roles: []
     transport: container
     container:
       runtime: docker
@@ -34,31 +18,100 @@ machines:
       ephemeral: false
       privileged: false
       init: true
-
+    cost: 0
 resources:
-  # ── Base packages (non-recipe, runs first) ──────────
   base-tools:
     type: package
     machine: test-box
+    state: null
+    depends_on: []
     provider: apt
     packages:
-      - curl
-      - jq
-
-  # ── Recipe: web-server ──────────────────────────────
-  # This gets expanded into web/nginx-pkg, web/site-config, web/nginx-svc
+    - curl
+    - jq
+    version: null
+    path: null
+    content: null
+    source: null
+    target: null
+    owner: null
+    group: null
+    mode: null
+    name: null
+    enabled: null
+    restart_on: []
+    fstype: null
+    options: null
+    uid: null
+    shell: null
+    home: null
+    groups: []
+    ssh_authorized_keys: []
+    system_user: false
+    schedule: null
+    command: null
+    image: null
+    ports: []
+    environment: []
+    volumes: []
+    restart: null
+    protocol: null
+    port: null
+    action: null
+    from: null
+    recipe: null
+    inputs: {}
+    arch: []
+    tags: []
   web:
     type: recipe
     machine: test-box
-    recipe: web-server
+    state: null
     depends_on:
-      - base-tools
+    - base-tools
+    provider: null
+    packages: []
+    version: null
+    path: null
+    content: null
+    source: null
+    target: null
+    owner: null
+    group: null
+    mode: null
+    name: null
+    enabled: null
+    restart_on: []
+    fstype: null
+    options: null
+    uid: null
+    shell: null
+    home: null
+    groups: []
+    ssh_authorized_keys: []
+    system_user: false
+    schedule: null
+    command: null
+    image: null
+    ports: []
+    environment: []
+    volumes: []
+    restart: null
+    protocol: null
+    port: null
+    action: null
+    from: null
+    recipe: web-server
     inputs:
-      domain: "dogfood.local"
-      port: 8080
       log_level: info
-
+      port: 8080
+      domain: dogfood.local
+    arch: []
+    tags: []
 policy:
   failure: stop_on_first
+  parallel_machines: false
   tripwire: true
   lock_file: true
+  pre_apply: null
+  post_apply: null

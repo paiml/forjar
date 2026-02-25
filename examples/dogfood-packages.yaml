@@ -1,31 +1,15 @@
-# Dogfood config: test package + file resources with dependency DAG.
-#
-# Exercises: apt codegen against real dpkg, cross-resource dependencies,
-# idempotency, state hashing, and drift detection.
-#
-# Prerequisites:
-#   docker build -t forjar-test-target -f tests/Dockerfile.test-target .
-#
-# Usage:
-#   # First apply — all resources converge
-#   cargo run -- apply -f examples/dogfood-packages.yaml --state-dir /tmp/dogfood-pkg
-#
-#   # Idempotency proof — zero changes on second apply
-#   cargo run -- apply -f examples/dogfood-packages.yaml --state-dir /tmp/dogfood-pkg
-#
-#   # Drift detection
-#   cargo run -- drift -f examples/dogfood-packages.yaml --state-dir /tmp/dogfood-pkg
-#
-#   # Cleanup
-#   docker rm -f forjar-dogfood-pkg
-
-version: "1.0"
+version: '1.0'
 name: dogfood-packages
-
+description: null
+params: {}
 machines:
   test-box:
     hostname: test-box
     addr: container
+    user: root
+    arch: x86_64
+    ssh_key: null
+    roles: []
     transport: container
     container:
       runtime: docker
@@ -34,42 +18,142 @@ machines:
       ephemeral: false
       privileged: false
       init: true
-
+    cost: 0
 resources:
-  # ── Packages ──────────────────────────────────────
   dev-tools:
     type: package
     machine: test-box
+    state: null
+    depends_on: []
     provider: apt
     packages:
-      - curl
-      - jq
-      - tree
-
-  # ── Files (depend on packages) ────────────────────
+    - curl
+    - jq
+    - tree
+    version: null
+    path: null
+    content: null
+    source: null
+    target: null
+    owner: null
+    group: null
+    mode: null
+    name: null
+    enabled: null
+    restart_on: []
+    fstype: null
+    options: null
+    uid: null
+    shell: null
+    home: null
+    groups: []
+    ssh_authorized_keys: []
+    system_user: false
+    schedule: null
+    command: null
+    image: null
+    ports: []
+    environment: []
+    volumes: []
+    restart: null
+    protocol: null
+    port: null
+    action: null
+    from: null
+    recipe: null
+    inputs: {}
+    arch: []
+    tags: []
   tool-config:
     type: file
     machine: test-box
+    state: null
+    depends_on:
+    - dev-tools
+    provider: null
+    packages: []
+    version: null
     path: /etc/forjar-tools.conf
     content: |
       # Managed by forjar — dogfood test
       curl_installed=true
       jq_installed=true
+    source: null
+    target: null
     owner: root
     group: root
-    mode: "0644"
-    depends_on:
-      - dev-tools
-
+    mode: '0644'
+    name: null
+    enabled: null
+    restart_on: []
+    fstype: null
+    options: null
+    uid: null
+    shell: null
+    home: null
+    groups: []
+    ssh_authorized_keys: []
+    system_user: false
+    schedule: null
+    command: null
+    image: null
+    ports: []
+    environment: []
+    volumes: []
+    restart: null
+    protocol: null
+    port: null
+    action: null
+    from: null
+    recipe: null
+    inputs: {}
+    arch: []
+    tags: []
   data-dir:
     type: file
     machine: test-box
-    path: /data/dogfood
     state: directory
+    depends_on: []
+    provider: null
+    packages: []
+    version: null
+    path: /data/dogfood
+    content: null
+    source: null
+    target: null
     owner: root
-    mode: "0755"
-
+    group: null
+    mode: '0755'
+    name: null
+    enabled: null
+    restart_on: []
+    fstype: null
+    options: null
+    uid: null
+    shell: null
+    home: null
+    groups: []
+    ssh_authorized_keys: []
+    system_user: false
+    schedule: null
+    command: null
+    image: null
+    ports: []
+    environment: []
+    volumes: []
+    restart: null
+    protocol: null
+    port: null
+    action: null
+    from: null
+    recipe: null
+    inputs: {}
+    arch: []
+    tags: []
 policy:
   failure: stop_on_first
+  parallel_machines: false
   tripwire: true
   lock_file: true
+  pre_apply: null
+  post_apply: null

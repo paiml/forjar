@@ -1,39 +1,202 @@
-version: "1.0"
+version: '1.0'
 name: dogfood-tags
-
+description: null
+params: {}
 machines:
   test-box:
     hostname: test-box
     addr: container
+    user: root
+    arch: x86_64
+    ssh_key: null
+    roles: []
     transport: container
     container:
+      runtime: docker
       image: ubuntu:22.04
       name: forjar-tags-test
-
+      ephemeral: true
+      privileged: false
+      init: true
+    cost: 0
 resources:
   web-config:
     type: file
     machine: test-box
+    state: null
+    depends_on: []
+    provider: null
+    packages: []
+    version: null
     path: /etc/app/web.conf
-    content: "listen 80;\n"
-    tags: [web, critical]
-
+    content: |
+      listen 80;
+    source: null
+    target: null
+    owner: null
+    group: null
+    mode: null
+    name: null
+    enabled: null
+    restart_on: []
+    fstype: null
+    options: null
+    uid: null
+    shell: null
+    home: null
+    groups: []
+    ssh_authorized_keys: []
+    system_user: false
+    schedule: null
+    command: null
+    image: null
+    ports: []
+    environment: []
+    volumes: []
+    restart: null
+    protocol: null
+    port: null
+    action: null
+    from: null
+    recipe: null
+    inputs: {}
+    arch: []
+    tags:
+    - web
+    - critical
   db-config:
     type: file
     machine: test-box
+    state: null
+    depends_on: []
+    provider: null
+    packages: []
+    version: null
     path: /etc/app/db.conf
-    content: "port=5432\n"
-    tags: [db, critical]
-
+    content: |
+      port=5432
+    source: null
+    target: null
+    owner: null
+    group: null
+    mode: null
+    name: null
+    enabled: null
+    restart_on: []
+    fstype: null
+    options: null
+    uid: null
+    shell: null
+    home: null
+    groups: []
+    ssh_authorized_keys: []
+    system_user: false
+    schedule: null
+    command: null
+    image: null
+    ports: []
+    environment: []
+    volumes: []
+    restart: null
+    protocol: null
+    port: null
+    action: null
+    from: null
+    recipe: null
+    inputs: {}
+    arch: []
+    tags:
+    - db
+    - critical
   log-config:
     type: file
     machine: test-box
+    state: null
+    depends_on: []
+    provider: null
+    packages: []
+    version: null
     path: /etc/app/log.conf
-    content: "level=info\n"
-    tags: [web]
-
+    content: |
+      level=info
+    source: null
+    target: null
+    owner: null
+    group: null
+    mode: null
+    name: null
+    enabled: null
+    restart_on: []
+    fstype: null
+    options: null
+    uid: null
+    shell: null
+    home: null
+    groups: []
+    ssh_authorized_keys: []
+    system_user: false
+    schedule: null
+    command: null
+    image: null
+    ports: []
+    environment: []
+    volumes: []
+    restart: null
+    protocol: null
+    port: null
+    action: null
+    from: null
+    recipe: null
+    inputs: {}
+    arch: []
+    tags:
+    - web
   untagged-file:
     type: file
     machine: test-box
+    state: null
+    depends_on: []
+    provider: null
+    packages: []
+    version: null
     path: /etc/app/misc.conf
-    content: "misc=true\n"
+    content: |
+      misc=true
+    source: null
+    target: null
+    owner: null
+    group: null
+    mode: null
+    name: null
+    enabled: null
+    restart_on: []
+    fstype: null
+    options: null
+    uid: null
+    shell: null
+    home: null
+    groups: []
+    ssh_authorized_keys: []
+    system_user: false
+    schedule: null
+    command: null
+    image: null
+    ports: []
+    environment: []
+    volumes: []
+    restart: null
+    protocol: null
+    port: null
+    action: null
+    from: null
+    recipe: null
+    inputs: {}
+    arch: []
+    tags: []
+policy:
+  failure: stop_on_first
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  pre_apply: null
+  post_apply: null

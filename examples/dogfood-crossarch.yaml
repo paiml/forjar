@@ -1,73 +1,221 @@
-# Dogfood config: test cross-architecture resource filtering.
-#
-# Demonstrates arch-aware resource targeting — resources with an
-# `arch:` filter are only applied to machines with matching architecture.
-#
-# Prerequisites:
-#   docker build -t forjar-test-target -f tests/Dockerfile.test-target .
-#
-# Usage:
-#   cargo run -- plan -f examples/dogfood-crossarch.yaml --state-dir /tmp/dogfood-crossarch -v
-#   cargo run -- validate -f examples/dogfood-crossarch.yaml
-
-version: "1.0"
+version: '1.0'
 name: dogfood-crossarch
-
+description: null
+params: {}
 machines:
   x86-box:
     hostname: x86-box
     addr: container
-    transport: container
+    user: root
     arch: x86_64
+    ssh_key: null
+    roles: []
+    transport: container
     container:
       runtime: docker
       image: forjar-test-target
       name: forjar-crossarch-x86
       ephemeral: false
+      privileged: false
       init: true
-
+    cost: 0
   arm-box:
     hostname: arm-box
     addr: container
-    transport: container
+    user: root
     arch: aarch64
+    ssh_key: null
+    roles: []
+    transport: container
     container:
       runtime: docker
       image: forjar-test-target
       name: forjar-crossarch-arm
       ephemeral: false
+      privileged: false
       init: true
-
+    cost: 0
 resources:
-  # Applied to both architectures (no arch filter)
   universal-config:
     type: file
-    machine: [x86-box, arm-box]
+    machine:
+    - x86-box
+    - arm-box
+    state: null
+    depends_on: []
+    provider: null
+    packages: []
+    version: null
     path: /etc/forjar-arch-test
-    content: "arch={{machine.x86-box.arch}}"
+    content: arch={{machine.x86-box.arch}}
+    source: null
+    target: null
     owner: root
-    mode: "0644"
-
-  # x86_64 only
+    group: null
+    mode: '0644'
+    name: null
+    enabled: null
+    restart_on: []
+    fstype: null
+    options: null
+    uid: null
+    shell: null
+    home: null
+    groups: []
+    ssh_authorized_keys: []
+    system_user: false
+    schedule: null
+    command: null
+    image: null
+    ports: []
+    environment: []
+    volumes: []
+    restart: null
+    protocol: null
+    port: null
+    action: null
+    from: null
+    recipe: null
+    inputs: {}
+    arch: []
+    tags: []
   x86-driver:
     type: file
-    machine: [x86-box, arm-box]
+    machine:
+    - x86-box
+    - arm-box
+    state: null
+    depends_on: []
+    provider: null
+    packages: []
+    version: null
     path: /etc/x86-driver.conf
-    content: "Intel GPU driver config"
-    arch: [x86_64]
-
-  # aarch64 only
+    content: Intel GPU driver config
+    source: null
+    target: null
+    owner: null
+    group: null
+    mode: null
+    name: null
+    enabled: null
+    restart_on: []
+    fstype: null
+    options: null
+    uid: null
+    shell: null
+    home: null
+    groups: []
+    ssh_authorized_keys: []
+    system_user: false
+    schedule: null
+    command: null
+    image: null
+    ports: []
+    environment: []
+    volumes: []
+    restart: null
+    protocol: null
+    port: null
+    action: null
+    from: null
+    recipe: null
+    inputs: {}
+    arch:
+    - x86_64
+    tags: []
   arm-firmware:
     type: file
-    machine: [x86-box, arm-box]
+    machine:
+    - x86-box
+    - arm-box
+    state: null
+    depends_on: []
+    provider: null
+    packages: []
+    version: null
     path: /etc/arm-firmware.conf
-    content: "ARM firmware config"
-    arch: [aarch64]
-
-  # Multi-arch (x86_64 and aarch64)
+    content: ARM firmware config
+    source: null
+    target: null
+    owner: null
+    group: null
+    mode: null
+    name: null
+    enabled: null
+    restart_on: []
+    fstype: null
+    options: null
+    uid: null
+    shell: null
+    home: null
+    groups: []
+    ssh_authorized_keys: []
+    system_user: false
+    schedule: null
+    command: null
+    image: null
+    ports: []
+    environment: []
+    volumes: []
+    restart: null
+    protocol: null
+    port: null
+    action: null
+    from: null
+    recipe: null
+    inputs: {}
+    arch:
+    - aarch64
+    tags: []
   multi-arch-tool:
     type: file
-    machine: [x86-box, arm-box]
+    machine:
+    - x86-box
+    - arm-box
+    state: null
+    depends_on: []
+    provider: null
+    packages: []
+    version: null
     path: /etc/multi-arch-tool.conf
-    content: "Runs on x86 and arm"
-    arch: [x86_64, aarch64]
+    content: Runs on x86 and arm
+    source: null
+    target: null
+    owner: null
+    group: null
+    mode: null
+    name: null
+    enabled: null
+    restart_on: []
+    fstype: null
+    options: null
+    uid: null
+    shell: null
+    home: null
+    groups: []
+    ssh_authorized_keys: []
+    system_user: false
+    schedule: null
+    command: null
+    image: null
+    ports: []
+    environment: []
+    volumes: []
+    restart: null
+    protocol: null
+    port: null
+    action: null
+    from: null
+    recipe: null
+    inputs: {}
+    arch:
+    - x86_64
+    - aarch64
+    tags: []
+policy:
+  failure: stop_on_first
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  pre_apply: null
+  post_apply: null
