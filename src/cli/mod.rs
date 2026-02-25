@@ -1106,10 +1106,7 @@ fn cmd_import(
                     resources_yaml.push_str("    type: file\n");
                     resources_yaml.push_str(&format!("    machine: {}\n", machine_name));
                     resources_yaml.push_str(&format!("    path: {}\n", file_path));
-                    resources_yaml.push_str(&format!(
-                        "    # source: configs{}\n",
-                        file_path
-                    ));
+                    resources_yaml.push_str(&format!("    # source: configs{}\n", file_path));
                     resources_yaml.push_str("    owner: root\n");
                     resources_yaml.push_str("    group: root\n");
                     resources_yaml.push_str("    mode: \"0644\"\n\n");
@@ -1122,6 +1119,80 @@ fn cmd_import(
             Err(e) => {
                 if verbose {
                     eprintln!("  File scan failed: {}", e);
+                }
+            }
+        }
+    }
+
+    // Scan users (non-system, UID >= 1000)
+    if scan_set.contains("users") {
+        if verbose {
+            eprintln!("Scanning local users on {}...", addr);
+        }
+        let script = "awk -F: '$3 >= 1000 && $3 < 65534 {print $1\":\"$6\":\"$7}' /etc/passwd";
+        match transport::exec_script(&machine, script) {
+            Ok(output) => {
+                let users: Vec<&str> = output.stdout.lines().filter(|l| !l.is_empty()).collect();
+                for user_line in &users {
+                    let parts: Vec<&str> = user_line.split(':').collect();
+                    if parts.len() >= 3 {
+                        let uname = parts[0];
+                        let home = parts[1];
+                        let shell = parts[2];
+                        let id = format!("user-{}", uname);
+                        resources_yaml.push_str(&format!("  {}:\n", id));
+                        resources_yaml.push_str("    type: user\n");
+                        resources_yaml.push_str(&format!("    machine: {}\n", machine_name));
+                        resources_yaml.push_str(&format!("    name: {}\n", uname));
+                        resources_yaml.push_str(&format!("    home: {}\n", home));
+                        resources_yaml.push_str(&format!("    shell: {}\n\n", shell));
+                        resource_count += 1;
+                    }
+                }
+                if verbose {
+                    eprintln!("  Found {} users", users.len());
+                }
+            }
+            Err(e) => {
+                if verbose {
+                    eprintln!("  User scan failed: {}", e);
+                }
+            }
+        }
+    }
+
+    // Scan cron jobs (root crontab)
+    if scan_set.contains("cron") {
+        if verbose {
+            eprintln!("Scanning cron jobs on {}...", addr);
+        }
+        let script = "crontab -l 2>/dev/null | grep -v '^#' | grep -v '^$' || true";
+        match transport::exec_script(&machine, script) {
+            Ok(output) => {
+                let jobs: Vec<&str> = output.stdout.lines().filter(|l| !l.is_empty()).collect();
+                for (i, job) in jobs.iter().enumerate() {
+                    let parts: Vec<&str> = job.splitn(6, ' ').collect();
+                    if parts.len() >= 6 {
+                        let schedule = parts[..5].join(" ");
+                        let command = parts[5];
+                        let id = format!("cron-job-{}", i + 1);
+                        resources_yaml.push_str(&format!("  {}:\n", id));
+                        resources_yaml.push_str("    type: cron\n");
+                        resources_yaml.push_str(&format!("    machine: {}\n", machine_name));
+                        resources_yaml.push_str(&format!("    name: imported-cron-{}\n", i + 1));
+                        resources_yaml.push_str(&format!("    schedule: \"{}\"\n", schedule));
+                        resources_yaml.push_str(&format!("    command: {}\n", command));
+                        resources_yaml.push_str("    owner: root\n\n");
+                        resource_count += 1;
+                    }
+                }
+                if verbose {
+                    eprintln!("  Found {} cron jobs", jobs.len());
+                }
+            }
+            Err(e) => {
+                if verbose {
+                    eprintln!("  Cron scan failed: {}", e);
                 }
             }
         }

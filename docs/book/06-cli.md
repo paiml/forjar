@@ -231,7 +231,7 @@ forjar import --addr <HOST> [--user USER] [--name NAME] [--output FILE] [--scan 
 | `--output` | `forjar.yaml` | Output file path |
 | `--scan` | `packages,files,services` | Comma-separated scan types |
 
-Scans installed packages (dpkg), enabled services (systemctl), and config files (/etc/*.conf). The generated config should be reviewed and customized before applying.
+Scan types: `packages` (dpkg), `services` (systemctl), `files` (/etc/*.conf), `users` (non-system users), `cron` (root crontab). The generated config should be reviewed and customized before applying.
 
 ```bash
 # Import from a remote machine
@@ -239,6 +239,9 @@ forjar import --addr 10.0.0.1 --name prod-web --output prod-web.yaml
 
 # Import just packages from localhost
 forjar import --addr localhost --scan packages -v
+
+# Import users and cron jobs
+forjar import --addr localhost --scan users,cron -v
 ```
 
 ### `forjar diff`
