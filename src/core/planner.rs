@@ -175,6 +175,62 @@ pub fn hash_desired_state(resource: &Resource) -> String {
     if let Some(ref options) = resource.options {
         components.push(options);
     }
+    if let Some(ref target) = resource.target {
+        components.push(target);
+    }
+    if let Some(ref version) = resource.version {
+        components.push(version);
+    }
+    // Phase 2 resource fields
+    if let Some(ref image) = resource.image {
+        components.push(image);
+    }
+    if let Some(ref command) = resource.command {
+        components.push(command);
+    }
+    if let Some(ref schedule) = resource.schedule {
+        components.push(schedule);
+    }
+    if let Some(ref restart) = resource.restart {
+        components.push(restart);
+    }
+    if let Some(ref port) = resource.port {
+        components.push(port);
+    }
+    if let Some(ref protocol) = resource.protocol {
+        components.push(protocol);
+    }
+    if let Some(ref action) = resource.action {
+        components.push(action);
+    }
+    if let Some(ref from_addr) = resource.from_addr {
+        components.push(from_addr);
+    }
+    if let Some(ref shell) = resource.shell {
+        components.push(shell);
+    }
+    if let Some(ref home) = resource.home {
+        components.push(home);
+    }
+    if let Some(ref enabled) = resource.enabled {
+        if *enabled {
+            components.push("enabled");
+        } else {
+            components.push("disabled");
+        }
+    }
+    for p in &resource.ports {
+        components.push(p);
+    }
+    for e in &resource.environment {
+        components.push(e);
+    }
+    for v in &resource.volumes {
+        components.push(v);
+    }
+    for r in &resource.restart_on {
+        components.push(r);
+    }
 
     let joined = components.join("\0");
     hasher::hash_string(&joined)
@@ -1339,5 +1395,122 @@ resources:
         let plan = plan(&config, &order, &locks, Some("infra"));
         assert_eq!(plan.changes.len(), 3); // driver:x86, generic:x86, generic:arm
         assert_eq!(plan.to_create, 3);
+    }
+
+    // ── Phase 2 field hash sensitivity (FJ-127) ─────────────────
+
+    #[test]
+    fn test_hash_sensitive_to_image() {
+        let mut r = make_base_resource(ResourceType::Docker);
+        r.image = Some("myapp:v1".to_string());
+        let h1 = hash_desired_state(&r);
+        r.image = Some("myapp:v2".to_string());
+        let h2 = hash_desired_state(&r);
+        assert_ne!(h1, h2, "image change must change hash");
+    }
+
+    #[test]
+    fn test_hash_sensitive_to_schedule() {
+        let mut r = make_base_resource(ResourceType::Cron);
+        r.schedule = Some("0 * * * *".to_string());
+        let h1 = hash_desired_state(&r);
+        r.schedule = Some("*/5 * * * *".to_string());
+        let h2 = hash_desired_state(&r);
+        assert_ne!(h1, h2, "schedule change must change hash");
+    }
+
+    #[test]
+    fn test_hash_sensitive_to_port() {
+        let mut r = make_base_resource(ResourceType::Network);
+        r.port = Some("80".to_string());
+        let h1 = hash_desired_state(&r);
+        r.port = Some("443".to_string());
+        let h2 = hash_desired_state(&r);
+        assert_ne!(h1, h2, "port change must change hash");
+    }
+
+    #[test]
+    fn test_hash_sensitive_to_restart_policy() {
+        let mut r = make_base_resource(ResourceType::Docker);
+        r.restart = Some("always".to_string());
+        let h1 = hash_desired_state(&r);
+        r.restart = Some("unless-stopped".to_string());
+        let h2 = hash_desired_state(&r);
+        assert_ne!(h1, h2, "restart policy change must change hash");
+    }
+
+    #[test]
+    fn test_hash_sensitive_to_enabled() {
+        let mut r = make_base_resource(ResourceType::Service);
+        r.enabled = Some(true);
+        let h1 = hash_desired_state(&r);
+        r.enabled = Some(false);
+        let h2 = hash_desired_state(&r);
+        assert_ne!(h1, h2, "enabled change must change hash");
+    }
+
+    #[test]
+    fn test_hash_sensitive_to_ports_list() {
+        let mut r = make_base_resource(ResourceType::Docker);
+        r.ports = vec!["8080:80".to_string()];
+        let h1 = hash_desired_state(&r);
+        r.ports = vec!["8080:80".to_string(), "443:443".to_string()];
+        let h2 = hash_desired_state(&r);
+        assert_ne!(h1, h2, "ports list change must change hash");
+    }
+
+    #[test]
+    fn test_hash_sensitive_to_environment() {
+        let mut r = make_base_resource(ResourceType::Docker);
+        r.environment = vec!["KEY=val1".to_string()];
+        let h1 = hash_desired_state(&r);
+        r.environment = vec!["KEY=val2".to_string()];
+        let h2 = hash_desired_state(&r);
+        assert_ne!(h1, h2, "environment change must change hash");
+    }
+
+    fn make_base_resource(rt: ResourceType) -> Resource {
+        Resource {
+            resource_type: rt,
+            machine: MachineTarget::Single("m1".to_string()),
+            state: None,
+            depends_on: vec![],
+            provider: None,
+            packages: vec![],
+            version: None,
+            path: None,
+            content: None,
+            source: None,
+            target: None,
+            owner: None,
+            group: None,
+            mode: None,
+            name: None,
+            enabled: None,
+            restart_on: vec![],
+            fs_type: None,
+            options: None,
+            uid: None,
+            shell: None,
+            home: None,
+            groups: vec![],
+            ssh_authorized_keys: vec![],
+            system_user: false,
+            schedule: None,
+            command: None,
+            image: None,
+            ports: vec![],
+            environment: vec![],
+            volumes: vec![],
+            restart: None,
+            protocol: None,
+            port: None,
+            action: None,
+            from_addr: None,
+            recipe: None,
+            inputs: HashMap::new(),
+            arch: vec![],
+            tags: vec![],
+        }
     }
 }
