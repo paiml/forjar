@@ -114,6 +114,11 @@ policy:
 | `file` | file, directory, symlink, absent | `path`, `content`, `owner`, `group`, `mode` |
 | `service` | running, stopped, enabled, disabled | `name`, `enabled`, `restart_on` |
 | `mount` | mounted, unmounted, absent | `source`, `path`, `fstype`, `options` |
+| `user` | present, absent | `name`, `groups`, `shell`, `home`, `ssh_keys` |
+| `docker` | running, stopped, absent | `image`, `ports`, `environment`, `volumes` |
+| `cron` | present, absent | `name`, `schedule`, `command`, `user` |
+| `network` | present, absent | `port`, `protocol`, `action`, `from_addr` |
+| `pepita` | present, absent | `name`, `cgroups`, `overlayfs`, `netns`, `seccomp` |
 
 ### Templates
 

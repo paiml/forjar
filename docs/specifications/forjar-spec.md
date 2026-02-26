@@ -41,7 +41,7 @@ Forjar treats the machine as a **knowable system**. It uses Rust to generate pro
 | Shell safety | None | None | None | **bashrs purification** |
 | Speed | Seconds-minutes | Seconds-minutes | Minutes | **Milliseconds-seconds** |
 | Bare metal | Weak (provisioner hacks) | Weak | Strong | **First-class** |
-| External deps | ~200 Go modules | ~500 npm/pip packages | ~50 Python packages | **< 5 crates** |
+| External deps | ~200 Go modules | ~500 npm/pip packages | ~50 Python packages | **14 crates** |
 
 ---
 
@@ -1528,13 +1528,21 @@ cargo run -- destroy -f examples/dogfood-phase2.yaml --state-dir /tmp/dogfood-st
 name = "forjar"
 version = "0.1.0"
 edition = "2021"
-rust-version = "1.85.0"
+rust-version = "1.87.0"
 authors = ["Pragmatic AI Labs"]
 description = "Rust-native Infrastructure as Code — bare-metal first, BLAKE3 state, provenance tracing"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/paiml/forjar"
+homepage = "https://paiml.com"
 keywords = ["iac", "infrastructure", "devops", "provisioning", "bare-metal"]
 categories = ["command-line-utilities", "development-tools"]
+exclude = ["benches/", ".pmat/", "state/", "docs/", "examples/", "target/", "*.profraw", "*.profdata"]
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
 
 [dependencies]
 blake3 = "1.8"
@@ -1544,6 +1552,13 @@ serde_json = "1.0"
 clap = { version = "4", features = ["derive"] }
 indexmap = { version = "2.7", features = ["serde"] }
 base64 = "0.22.1"
+bashrs = "6.64.0"                   # Shell script validation + purification (FJ-036)
+pforge-runtime = "0.1.4"            # MCP server runtime (FJ-063)
+pforge-config = "0.1.4"             # MCP configuration types (FJ-063)
+tokio = { version = "1.35", features = ["rt-multi-thread", "macros"] }  # Async runtime for MCP
+async-trait = "0.1"                 # Async trait support for MCP handlers
+schemars = { version = "0.8", features = ["derive"] }  # JSON schema for MCP tool inputs
+rustc-hash = "2"                    # Fast hashing for MCP config maps
 provable-contracts-macros = { path = "../provable-contracts/crates/provable-contracts-macros" }
 
 [build-dependencies]
@@ -1554,8 +1569,18 @@ tempfile = "3"
 criterion = { version = "0.5", features = ["html_reports"] }
 proptest = "1"
 
+[[bench]]
+name = "core_bench"
+harness = false
+
 [features]
 container-test = []
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
 ```
 
 ---

@@ -586,10 +586,7 @@ impl Handler for TraceHandler {
             })
             .collect();
 
-        Ok(TraceOutput {
-            trace_count,
-            spans,
-        })
+        Ok(TraceOutput { trace_count, spans })
     }
 }
 
@@ -635,21 +632,15 @@ impl Handler for AnomalyHandler {
                     }
                     if let Ok(te) = serde_json::from_str::<types::TimestampedEvent>(line) {
                         match te.event {
-                            types::ProvenanceEvent::ResourceConverged {
-                                ref resource, ..
-                            } => {
+                            types::ProvenanceEvent::ResourceConverged { ref resource, .. } => {
                                 let key = format!("{}:{}", name, resource);
                                 metrics.entry(key).or_insert((0, 0, 0)).0 += 1;
                             }
-                            types::ProvenanceEvent::ResourceFailed {
-                                ref resource, ..
-                            } => {
+                            types::ProvenanceEvent::ResourceFailed { ref resource, .. } => {
                                 let key = format!("{}:{}", name, resource);
                                 metrics.entry(key).or_insert((0, 0, 0)).1 += 1;
                             }
-                            types::ProvenanceEvent::DriftDetected {
-                                ref resource, ..
-                            } => {
+                            types::ProvenanceEvent::DriftDetected { ref resource, .. } => {
                                 let key = format!("{}:{}", name, resource);
                                 metrics.entry(key).or_insert((0, 0, 0)).2 += 1;
                             }

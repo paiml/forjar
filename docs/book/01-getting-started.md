@@ -16,7 +16,7 @@ Verify:
 forjar --help
 ```
 
-You should see forjar's subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`.
+You should see forjar's 20 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`.
 
 ## Your First Project
 
