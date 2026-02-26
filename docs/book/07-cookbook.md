@@ -1024,12 +1024,32 @@ forjar secrets encrypt "shared-secret" \
   -r age1carol...
 ```
 
+### Secret Rotation (FJ-201)
+
+Rotate all secrets in a config to new recipients:
+
+```bash
+# Rotate all secrets to a new key (requires --re-encrypt safety flag)
+forjar secrets rotate -f forjar.yaml \
+  -r age1newkey... \
+  --re-encrypt \
+  --state-dir state/
+# Output: rotated 5 secret(s) in forjar.yaml to 1 recipient(s)
+```
+
+Rotation events are logged to `state/__secrets__/events.jsonl`:
+
+```json
+{"ts":"2026-02-26T12:00:00Z","event":"secret_rotated","file":"forjar.yaml","marker_count":5,"new_recipients":["age1newkey..."]}
+```
+
 Best practices:
 - Use `ENC[age,...]` markers for secrets committed to git
 - Use `{{secrets.*}}` env vars for CI/CD secrets (GitHub Actions, etc.)
 - Keep identity files out of git (`.gitignore`)
 - Use multi-recipient encryption for team access
-- Use `forjar secrets rekey` when rotating keys or adding team members
+- Use `forjar secrets rotate --re-encrypt` when rotating keys or adding team members
+- Rotation events are logged to events.jsonl for audit compliance
 - Use `forjar lint` to detect hardcoded secrets (checks for common patterns)
 
 ## Performance Monitoring
