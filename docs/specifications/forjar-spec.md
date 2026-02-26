@@ -1670,6 +1670,21 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 | FJ-256 | `forjar lock` — generate lock file without applying. Reads config, resolves templates, computes BLAKE3 hashes for desired state, writes lock file. Useful for CI pipelines that validate state without executing. `--verify` flag checks lock matches config (exit 1 on mismatch). `--json` flag for machine-readable output. 9 tests (1688→1697). | **Done** |
 | FJ-257 | Parallel apply within machines — execute independent resources concurrently on the same machine using `std::thread::scope`. Respects DAG dependencies (only parallelize resources with no inter-dependencies). `policy.parallel_resources: true` opt-in. Speedup: 2-4x for configs with many independent resources. | Done |
 
+### Phase 12: Production Fleet DX (v1.2)
+
+**Goal**: Harden forjar for multi-team fleet management with colored output, retry resilience, state snapshots, lifecycle hooks, and schema export. Focus on the "day 2" operations that distinguish a production tool from a prototype.
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-260 | `forjar snapshot` — save/list/restore named state snapshots. `forjar snapshot save <name>` copies `state/` to `state/snapshots/<name>/`. `forjar snapshot list` shows available snapshots with timestamps. `forjar snapshot restore <name>` replaces current state. Pre-change checkpoint pattern for safe rollbacks. | Planned |
+| FJ-261 | SSH retry with exponential backoff — transport-level retry on transient failures (connection refused, timeout, broken pipe). `policy.ssh_retries: 3` opt-in (default 1 = no retry). Backoff: 200ms × 2^attempt. Max 3 retries. Logs each retry attempt. | Planned |
+| FJ-262 | Apply report with per-resource timing — after apply, write structured summary to `state/<machine>/last-apply.yaml` with per-resource duration, script size, exit code, hash before/after. `forjar apply --report` prints human-readable report. `--json` for CI. | Planned |
+| FJ-263 | Colored CLI output — ANSI colors for plan (green=create, yellow=update, red=destroy, dim=noop), status, drift, doctor. No new deps (inline ANSI escape codes). Respects `NO_COLOR` env var and `--no-color` global flag. `--color=always/auto/never`. | Planned |
+| FJ-264 | `forjar schema` — export JSON Schema for `forjar.yaml`. Generated from `ForjarConfig` struct via code, not serde. Enables IDE autocomplete (VS Code YAML extension), external validation, and documentation. No new deps. | Planned |
+| FJ-265 | Resource lifecycle hooks — `pre_apply` and `post_apply` string fields on resources. Shell commands run on the target machine before/after the resource's main script. `pre_apply` failure skips the resource (does not apply). Use case: backup config before overwrite, restart service after config deploy. | Planned |
+| FJ-266 | State locking — prevent concurrent applies to the same state directory. `state/.forjar.lock` PID file created on apply start, removed on completion. `--force-unlock` flag for stuck locks. Stale lock detection (PID no longer running). | Planned |
+| FJ-267 | `forjar watch` — watch `forjar.yaml` for changes and auto-plan. Filesystem polling (no inotify dep) at 2s interval. Prints updated plan on each change. `Ctrl-C` to stop. Useful during config development. `--apply` flag auto-applies on change (dangerous, requires `--yes`). | Planned |
+
 ---
 
 ## 9. Performance Targets
