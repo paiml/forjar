@@ -1357,6 +1357,51 @@ The app, monitoring, and logging recipes all depend on `base` but not on each ot
 This is the preferred structure: it enables future parallel execution and keeps each
 recipe independently testable.
 
+### Pattern 4: Sovereign AI Stack (Multi-Machine Composition)
+
+The most complex composition: GPU inference + distributed workers + observability across multiple machines:
+
+```yaml
+# examples/dogfood-sovereign-stack.yaml
+machines:
+  gpu-box:       { addr: container, roles: [gpu-compute] }
+  worker-1:      { addr: container, roles: [worker] }
+  monitor:       { addr: container, roles: [observability] }
+
+resources:
+  observability:
+    type: recipe
+    machine: monitor
+    recipe: renacer-observability
+    inputs: { grafana_port: 3000, jaeger_port: 16686 }
+
+  worker:
+    type: recipe
+    machine: worker-1
+    recipe: repartir-worker
+    inputs: { listen_port: 9000, tls_cert: certs/cert.pem, tls_key: certs/key.pem }
+
+  inference:
+    type: recipe
+    machine: gpu-box
+    recipe: apr-inference-server
+    inputs: { model_source: "TheBloke/Llama-2-7B-GGUF", port: 8080 }
+
+  coordination:
+    type: recipe
+    machine: monitor
+    recipe: sovereign-ai-stack
+    inputs: { model_source: "TheBloke/Llama-2-7B-GGUF", api_port: 8080 }
+```
+
+This expands to **33 resources** across 3 machines with `parallel_machines: true`:
+
+```
+gpu-box (8 resources):   GPU driver → model → systemd unit → service → firewall
+worker-1 (10 resources): TLS certs → config → systemd unit → service → firewall
+monitor (15 resources):  Jaeger → Grafana → renacer → coordination → health cron
+```
+
 ### Composition Guidelines
 
 | Guideline | Rationale |
