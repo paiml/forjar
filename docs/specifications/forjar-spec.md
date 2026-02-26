@@ -155,7 +155,7 @@ src/
     local.rs            Local execution (this machine)
     ssh.rs              SSH execution (remote machines)
     container.rs        Container execution (docker/podman exec)
-    pepita.rs           Kernel namespace execution (FJ-230, planned)
+    pepita.rs           Kernel namespace execution (FJ-230)
 ```
 
 ### 2.3 Dependency Policy
@@ -251,7 +251,7 @@ machines:
       privileged: false
       init: true
 
-  # Pepita kernel namespace target (zero Docker dependency, planned FJ-230)
+  # Pepita kernel namespace target (zero Docker dependency, FJ-230)
   isolated-box:
     hostname: isolated-box
     transport: pepita
@@ -463,7 +463,7 @@ isolation:
     cpus: 4
 ```
 
-#### `model` (Planned — FJ-240)
+#### `model` (Done — FJ-240)
 
 ```yaml
 type: model
@@ -478,7 +478,7 @@ cache_dir: ~/.cache/apr                        # model cache directory
 state: present | absent
 ```
 
-#### `gpu` (Planned — FJ-241)
+#### `gpu` (Done — FJ-241)
 
 ```yaml
 type: gpu
@@ -760,7 +760,7 @@ recipes:
 | `container.ephemeral` | bool | `true` | Destroy container after apply |
 | `container.privileged` | bool | `false` | Run with `--privileged` |
 | `container.init` | bool | `true` | Run with `--init` for PID 1 reaping |
-| `pepita` | object | — | Pepita namespace config (required when `transport: pepita`). Planned: FJ-230. |
+| `pepita` | object | — | Pepita namespace config (required when `transport: pepita`). Done: FJ-230. |
 | `pepita.rootfs` | string | — | Base rootfs path or `debootstrap:<suite>` (e.g., `debootstrap:jammy`) |
 | `pepita.cgroups.memory_mb` | int | `2048` | Memory limit in MB (cgroup v2 `memory.max`) |
 | `pepita.cgroups.cpus` | int | `2` | CPU limit (cgroup v2 `cpuset.cpus`) |
@@ -1034,7 +1034,7 @@ Forjar supports four execution transports. Transport selection follows a priorit
 
 | Priority | Condition | Transport | Dispatch | Status |
 |----------|-----------|-----------|----------|--------|
-| 1 | `transport: pepita` | Pepita | `nsenter --target <pid> -- bash` (stdin pipe) | Planned (FJ-230) |
+| 1 | `transport: pepita` | Pepita | `nsenter --target <pid> -- bash` (stdin pipe) | Done (FJ-230) |
 | 2 | `transport: container` or `addr: container` | Container | `docker exec -i <name> bash` | Done (FJ-021) |
 | 3 | `addr` is `127.0.0.1`, `localhost`, or local hostname | Local | `bash` (stdin pipe) | Done (FJ-010) |
 | 4 | All other addresses | SSH | `ssh user@addr bash` (stdin pipe) | Done (FJ-011) |
@@ -1091,7 +1091,7 @@ fn exec_ssh(machine: &Machine, script: &str) -> Result<ExecOutput> {
 
 Script is piped to stdin, never passed as an argument (prevents arg-length limits and injection).
 
-#### Pepita Transport (Planned — FJ-230)
+#### Pepita Transport (Done — FJ-230)
 
 Pepita transport uses Linux kernel namespaces directly — no Docker daemon, no container runtime, no image registry. The execution target is a `unshare(2)` / `clone(2)` namespace with an overlayfs rootfs.
 
