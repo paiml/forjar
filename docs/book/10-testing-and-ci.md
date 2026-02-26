@@ -806,7 +806,7 @@ proptest! {
 
 | Category | Location | Count | What it Tests |
 |----------|----------|-------|---------------|
-| Unit | `src/*/tests` | ~800 | Individual functions |
+| Unit | `src/*/tests` | ~1200 | Individual functions |
 | Integration | `src/core/executor.rs` | ~80 | Multi-component workflows |
 | Property | Various `proptest!` blocks | ~50 | Invariant properties |
 | Dogfood | `examples/dogfood-*.yaml` | 13 configs | Real-world validation |

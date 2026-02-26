@@ -388,7 +388,7 @@ Forjar integrates with the `provable-contracts` framework for formal invariant v
 |-------|-----------|------|
 | Compile-time | `build.rs` verifies all 13 bindings | Every `cargo build` |
 | Falsification | 15 proptest-based tests | Every `cargo test` |
-| Model checking | Kani harnesses (Phase 2) | `cargo kani` |
+| Model checking | Kani harnesses (Deferred) | `cargo kani` |
 
 ### Contract Coverage
 
@@ -478,11 +478,11 @@ Forjar's test suite validates every layer independently and in integration:
 
 | Category | Count | Location | What It Tests |
 |----------|-------|----------|---------------|
-| Unit tests | ~700 | `#[cfg(test)]` in each module | Individual functions |
+| Unit tests | ~1200 | `#[cfg(test)]` in each module | Individual functions |
 | Falsification tests | ~15 | `proptest!` blocks | Invariant properties with random input |
-| Integration tests | ~50 | `executor.rs` tests | Full apply→drift→reapply cycles |
+| Integration tests | ~80 | `executor.rs` tests | Full apply→drift→reapply cycles |
 | Contract tests | 13 | `build.rs` binding verification | Compile-time invariants |
-| Examples | 15 | `examples/*.rs` | Runnable API demonstrations |
+| Examples | 19 | `examples/*.rs` | Runnable API demonstrations |
 
 ### Script Safety Testing
 
@@ -852,13 +852,16 @@ state/
 ├── forjar.lock.yaml          # Global lock: machine summaries
 ├── web-server/
 │   ├── state.lock.yaml       # Per-machine: resource hashes + status
-│   └── events.jsonl          # Append-only event log
+│   ├── events.jsonl          # Append-only event log
+│   └── trace.jsonl           # W3C trace spans + Lamport clocks
 ├── db-server/
 │   ├── state.lock.yaml
-│   └── events.jsonl
+│   ├── events.jsonl
+│   └── trace.jsonl
 └── cache-server/
     ├── state.lock.yaml
-    └── events.jsonl
+    ├── events.jsonl
+    └── trace.jsonl
 ```
 
 ## Design Decisions
