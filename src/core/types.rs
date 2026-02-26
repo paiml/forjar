@@ -51,6 +51,10 @@ pub struct ForjarConfig {
     /// FJ-223: External data sources resolved at plan time
     #[serde(default)]
     pub data: IndexMap<String, DataSource>,
+
+    /// FJ-254: Config includes — merge multiple YAML files
+    #[serde(default)]
+    pub includes: Vec<String>,
 }
 
 /// FJ-223: External data source definition.

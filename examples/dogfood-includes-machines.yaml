@@ -1,0 +1,18 @@
+# FJ-254: Included machines file for dogfood-includes.yaml
+version: "1.0"
+name: included-machines
+
+params:
+  region: us-east-1
+  hostname: web-prod
+
+machines:
+  test-box:
+    hostname: test-box
+    addr: container
+    transport: container
+    arch: x86_64
+    container:
+      image: ubuntu:22.04
+
+resources: {}

@@ -1,0 +1,25 @@
+# FJ-254: Config includes dogfood config
+# Demonstrates merging multiple config files.
+# Machines are defined in a separate include.
+version: "1.0"
+name: dogfood-includes
+
+includes:
+  - dogfood-includes-machines.yaml
+
+params:
+  env: production
+
+resources:
+  banner:
+    type: file
+    machine: test-box
+    path: /etc/forjar/banner.txt
+    content: "env={{params.env}} region={{params.region}}"
+
+  config:
+    type: file
+    machine: test-box
+    path: /etc/forjar/config.yaml
+    content: "host={{params.hostname}}"
+    depends_on: [banner]

@@ -1177,6 +1177,7 @@ resources:
             outputs: indexmap::IndexMap::new(),
             policies: vec![],
             data: indexmap::IndexMap::new(),
+            includes: vec![],
         }
     }
 
@@ -1957,6 +1958,7 @@ resources:
             outputs: indexmap::IndexMap::new(),
             policies: vec![],
             data: indexmap::IndexMap::new(),
+            includes: vec![],
         };
         let result = build_execution_order(&config);
         assert!(result.is_err());
@@ -1993,6 +1995,7 @@ resources:
             outputs: indexmap::IndexMap::new(),
             policies: vec![],
             data: indexmap::IndexMap::new(),
+            includes: vec![],
         };
         let order = build_execution_order(&config).unwrap();
         assert_eq!(order, vec!["a", "b", "c", "d"]);
@@ -2011,6 +2014,7 @@ resources:
             outputs: indexmap::IndexMap::new(),
             policies: vec![],
             data: indexmap::IndexMap::new(),
+            includes: vec![],
         };
         let order = build_execution_order(&config).unwrap();
         assert!(order.is_empty());
@@ -2496,7 +2500,10 @@ resources: {}
     #[test]
     fn test_fj250_default_with_value() {
         let p = params_with("name", "alice");
-        assert_eq!(resolve("{{default(params.name, \"fallback\")}}", &p), "alice");
+        assert_eq!(
+            resolve("{{default(params.name, \"fallback\")}}", &p),
+            "alice"
+        );
     }
 
     #[test]
@@ -2584,11 +2591,7 @@ resources: {}
     fn test_fj250_env_function() {
         // HOME should always be set
         let p = HashMap::new();
-        let result = resolve_template(
-            "{{env(\"HOME\")}}",
-            &p,
-            &indexmap::IndexMap::new(),
-        );
+        let result = resolve_template("{{env(\"HOME\")}}", &p, &indexmap::IndexMap::new());
         assert!(result.is_ok());
         assert!(!result.unwrap().is_empty());
     }
@@ -2608,11 +2611,7 @@ resources: {}
     #[test]
     fn test_fj250_unknown_function() {
         let p = HashMap::new();
-        let result = resolve_template(
-            "{{bogus(\"x\")}}",
-            &p,
-            &indexmap::IndexMap::new(),
-        );
+        let result = resolve_template("{{bogus(\"x\")}}", &p, &indexmap::IndexMap::new());
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("unknown template function"));
     }
@@ -2632,7 +2631,10 @@ resources: {}
     #[test]
     fn test_fj250_replace_multiple_occurrences() {
         let p = params_with("s", "a.b.c.d");
-        assert_eq!(resolve("{{replace(params.s, \".\", \"/\")}}", &p), "a/b/c/d");
+        assert_eq!(
+            resolve("{{replace(params.s, \".\", \"/\")}}", &p),
+            "a/b/c/d"
+        );
     }
 
     #[test]
