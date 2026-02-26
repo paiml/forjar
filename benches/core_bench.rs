@@ -343,7 +343,11 @@ resources:
     std::fs::write(&config_path, &yaml).unwrap();
 
     // Pre-populate lock files for all 3 machines so plan sees "no changes"
-    for (machine_name, hostname) in [("web", "web.example.com"), ("db", "db.example.com"), ("cache", "cache.example.com")] {
+    for (machine_name, hostname) in [
+        ("web", "web.example.com"),
+        ("db", "db.example.com"),
+        ("cache", "cache.example.com"),
+    ] {
         let machine_dir = state_dir.join(machine_name);
         std::fs::create_dir_all(&machine_dir).unwrap();
 

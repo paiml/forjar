@@ -596,8 +596,7 @@ fn cmd_mcp() -> Result<(), String> {
 
 fn cmd_mcp_schema() -> Result<(), String> {
     let schema = crate::mcp::export_schema();
-    let json =
-        serde_json::to_string_pretty(&schema).map_err(|e| format!("JSON error: {}", e))?;
+    let json = serde_json::to_string_pretty(&schema).map_err(|e| format!("JSON error: {}", e))?;
     println!("{}", json);
     Ok(())
 }

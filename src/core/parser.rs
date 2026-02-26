@@ -3044,13 +3044,18 @@ resources:
     port: "443"
     protocol: tcp
     action: allow
+  sandbox:
+    type: pepita
+    machine: m1
+    name: sandbox
+    state: present
 "#;
         let config = parse_config(yaml).unwrap();
-        assert_eq!(config.resources.len(), 8);
+        assert_eq!(config.resources.len(), 9);
         let errors = validate_config(&config);
         assert!(
             errors.is_empty(),
-            "config with all 8 resource types should validate: {:?}",
+            "config with all 9 resource types should validate: {:?}",
             errors.iter().map(|e| &e.message).collect::<Vec<_>>()
         );
         // Verify each resource type parsed correctly
@@ -3073,6 +3078,10 @@ resources:
         assert_eq!(
             config.resources["firewall"].resource_type,
             ResourceType::Network
+        );
+        assert_eq!(
+            config.resources["sandbox"].resource_type,
+            ResourceType::Pepita
         );
     }
 }
