@@ -36,6 +36,8 @@ pub struct ApplyConfig<'a> {
     pub retry: u32,
     /// FJ-290: Override parallel execution (None = use policy)
     pub parallel: Option<bool>,
+    /// FJ-304: Per-resource timeout in seconds (kill if exceeded)
+    pub resource_timeout: Option<u64>,
 }
 
 /// Execute the apply loop.
@@ -670,7 +672,8 @@ fn apply_machine(
         machine_name,
         tripwire: cfg.config.policy.tripwire,
         failure_policy: &cfg.config.policy.failure,
-        timeout_secs: cfg.timeout_secs,
+        // FJ-304: per-resource timeout overrides global transport timeout
+        timeout_secs: cfg.resource_timeout.or(cfg.timeout_secs),
     };
 
     // FJ-216/FJ-290: Execute resources — parallel waves or sequential
@@ -1600,6 +1603,7 @@ resources:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results.len(), 1);
@@ -1624,6 +1628,7 @@ resources:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results.len(), 1);
@@ -1660,6 +1665,7 @@ resources:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let r1 = apply(&cfg).unwrap();
         assert_eq!(r1[0].resources_converged, 1);
@@ -1679,6 +1685,7 @@ resources:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let r2 = apply(&cfg2).unwrap();
         assert_eq!(r2[0].resources_unchanged, 1);
@@ -1707,6 +1714,7 @@ resources:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         apply(&cfg).unwrap();
 
@@ -1725,6 +1733,7 @@ resources:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let r2 = apply(&cfg2).unwrap();
         assert_eq!(r2[0].resources_converged, 1);
@@ -1772,6 +1781,7 @@ resources:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results.len(), 1);
@@ -1996,6 +2006,7 @@ resources:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let results = apply(&cfg).unwrap();
         // Resource filter doesn't match — everything skipped
@@ -2048,6 +2059,7 @@ policy:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results.len(), 2);
@@ -2114,6 +2126,7 @@ policy:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results.len(), 1);
@@ -2452,6 +2465,7 @@ resources:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let results = apply(&cfg).unwrap();
         // Only the tagged resource should be applied
@@ -2497,6 +2511,7 @@ resources:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let results = apply(&cfg).unwrap();
         // Both resources applied
@@ -3210,6 +3225,7 @@ resources:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let results = apply(&cfg).unwrap();
         // Dry run returns a single result
@@ -3255,6 +3271,7 @@ resources:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let results = apply(&cfg).unwrap();
         // Only the tagged resource should be applied
@@ -3321,6 +3338,7 @@ resources:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let results = apply(&cfg).unwrap();
         for r in &results {
@@ -3512,6 +3530,7 @@ resources:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results.len(), 1);
@@ -3556,6 +3575,7 @@ policy:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let results = apply(&cfg).unwrap();
         // Resource should be skipped due to arch mismatch
@@ -3588,6 +3608,7 @@ policy:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let r1 = apply(&cfg).unwrap();
         assert_eq!(r1[0].resources_converged, 1);
@@ -3607,6 +3628,7 @@ policy:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let r2 = apply(&cfg2).unwrap();
         assert_eq!(
@@ -3652,6 +3674,7 @@ policy:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results[0].resources_converged, 1);
@@ -3698,6 +3721,7 @@ policy:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results[0].resources_converged, 1);
@@ -3776,6 +3800,7 @@ policy:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         apply(&cfg).unwrap();
 
@@ -3811,6 +3836,7 @@ policy:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         apply(&cfg).unwrap();
 
@@ -3854,6 +3880,7 @@ policy:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let r1 = apply(&cfg).unwrap();
         assert_eq!(r1[0].resources_converged, 1);
@@ -3884,6 +3911,7 @@ policy:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let r2 = apply(&cfg2).unwrap();
         assert_eq!(r2[0].resources_converged, 1);
@@ -3941,6 +3969,7 @@ policy:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results[0].resources_converged, 2);
@@ -4012,6 +4041,7 @@ policy:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let r1 = apply(&cfg_a).unwrap();
         assert_eq!(r1[0].resources_converged, 1);
@@ -4038,6 +4068,7 @@ policy:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let r2 = apply(&cfg_b).unwrap();
         assert_eq!(
@@ -4073,6 +4104,7 @@ policy:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         apply(&cfg).unwrap();
 
@@ -4167,6 +4199,7 @@ resources: {}
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let results = apply(&cfg).unwrap();
         // No resources → no machines collected → empty results
@@ -4192,6 +4225,7 @@ resources: {}
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let results = apply(&cfg).unwrap();
         assert!(
@@ -4404,6 +4438,7 @@ policy:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results.len(), 1);
@@ -4464,6 +4499,7 @@ policy:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let results = apply(&cfg).unwrap();
         // At least one resource should converge even if one fails
@@ -4595,6 +4631,7 @@ policy:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         apply(&cfg).unwrap();
 
@@ -4613,6 +4650,7 @@ policy:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let results = apply(&cfg2).unwrap();
         assert_eq!(results[0].machine, "dry-run");
@@ -4689,6 +4727,7 @@ policy:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let r1 = apply(&cfg).unwrap();
         assert_eq!(r1[0].resources_converged, 1);
@@ -4713,6 +4752,7 @@ policy:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let r3 = apply(&force_cfg).unwrap();
         assert_eq!(r3[0].resources_converged, 1);
@@ -4766,6 +4806,7 @@ policy:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let results = apply(&cfg).unwrap();
         // Only file-a should be applied
@@ -4824,6 +4865,7 @@ policy:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results[0].resources_converged, 1);
@@ -4889,6 +4931,7 @@ policy:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results[0].resources_converged, 3);
@@ -4926,6 +4969,7 @@ policy:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         apply(&cfg).unwrap();
 
@@ -4973,6 +5017,7 @@ resources:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results[0].machine, "dry-run");
@@ -5022,6 +5067,7 @@ policy:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let r1 = apply(&cfg).unwrap();
         assert_eq!(r1[0].resources_converged, 1);
@@ -5070,6 +5116,7 @@ policy:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let results = apply(&cfg).unwrap();
         // No results for non-matching machine
@@ -5132,6 +5179,7 @@ policy:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results[0].resources_converged, 3);
@@ -5178,6 +5226,7 @@ policy:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let results = apply(&cfg).unwrap();
         assert!(
@@ -5226,6 +5275,7 @@ policy:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         apply(&cfg).unwrap();
 
@@ -5244,6 +5294,7 @@ policy:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let results = apply(&cfg_force).unwrap();
         assert_eq!(
@@ -5325,6 +5376,7 @@ policy:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let results = apply(&cfg).unwrap();
 
@@ -5386,6 +5438,7 @@ policy:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let r1 = apply(&cfg1).unwrap();
         assert_eq!(r1[0].resources_converged, 1);
@@ -5406,6 +5459,7 @@ policy:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let r2 = apply(&cfg2).unwrap();
         assert_eq!(r2[0].resources_unchanged, 1);
@@ -5426,6 +5480,7 @@ policy:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let r3 = apply(&cfg3).unwrap();
         assert_eq!(
@@ -5548,6 +5603,7 @@ resources:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results[0].machine, "dry-run");
@@ -5589,6 +5645,7 @@ resources:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
 
         let results = apply(&cfg).unwrap();
@@ -5647,6 +5704,7 @@ resources:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
 
         let _results = apply(&cfg).unwrap();
@@ -5694,6 +5752,7 @@ resources:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
 
         let _results = apply(&cfg).unwrap();
@@ -5898,6 +5957,7 @@ resources:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let r1 = apply(&cfg1).unwrap();
         assert_eq!(r1[0].resources_converged, 2);
@@ -5944,6 +6004,7 @@ resources:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let r3 = apply(&cfg3).unwrap();
         // config changed → converges. app unchanged but triggers: [config] → also converges
@@ -5995,6 +6056,7 @@ resources:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let r1 = apply(&cfg).unwrap();
         assert_eq!(r1[0].resources_converged, 2);
@@ -6052,6 +6114,7 @@ resources:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let r1 = apply(&cfg1).unwrap();
         assert_eq!(r1[0].resources_converged, 3);
@@ -6073,6 +6136,7 @@ resources:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let r2 = apply(&cfg2).unwrap();
         // db-config changed (converged), app-config unchanged, service triggered
@@ -6124,6 +6188,7 @@ resources:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let r1 = apply(&cfg).unwrap();
         assert_eq!(r1[0].resources_converged, 2);
@@ -6171,6 +6236,7 @@ resources:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let r2 = apply(&cfg2).unwrap();
         assert_eq!(
@@ -6235,6 +6301,7 @@ policy:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let results = apply(&cfg).unwrap();
         // All 3 machines should converge (2 in first batch, 1 in second)
@@ -6294,6 +6361,7 @@ policy:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results.len(), 2);
@@ -6341,6 +6409,7 @@ policy:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results.len(), 1);
@@ -6417,6 +6486,7 @@ policy:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results.len(), 2);
@@ -6472,6 +6542,7 @@ policy:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results.len(), 1);
@@ -6533,6 +6604,7 @@ policy:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results[0].resources_converged, 2);
@@ -6593,6 +6665,7 @@ policy:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results[0].resources_converged, 3);
@@ -6647,6 +6720,7 @@ policy:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         // First apply
         let results1 = apply(&cfg).unwrap();
@@ -6748,6 +6822,7 @@ policy:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         apply(&cfg).unwrap();
 
@@ -6806,6 +6881,7 @@ resources:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results[0].resources_converged, 1);
@@ -6852,6 +6928,7 @@ resources:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let results = apply(&cfg).unwrap();
         // pre_apply failure → resource skipped, not applied
@@ -6901,6 +6978,7 @@ resources:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results[0].resources_converged, 1);
@@ -6948,6 +7026,7 @@ resources:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let results = apply(&cfg).unwrap();
         // post_apply failure → resource marked as failed
@@ -7000,6 +7079,7 @@ resources:
             progress: false,
             retry: 0,
             parallel: None,
+            resource_timeout: None,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results[0].resources_converged, 1);
