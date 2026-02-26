@@ -4376,19 +4376,14 @@ fn cmd_lock(
             let existing = state::load_lock(state_dir, machine_name)?;
             match existing {
                 None => {
-                    mismatches.push(format!(
-                        "{}: no existing lock file",
-                        machine_name
-                    ));
+                    mismatches.push(format!("{}: no existing lock file", machine_name));
                 }
                 Some(existing_lock) => {
                     for (res_id, new_res_lock) in &lock.resources {
                         match existing_lock.resources.get(res_id) {
                             None => {
-                                mismatches.push(format!(
-                                    "{}:{}: not in lock file",
-                                    machine_name, res_id
-                                ));
+                                mismatches
+                                    .push(format!("{}:{}: not in lock file", machine_name, res_id));
                             }
                             Some(existing_res) => {
                                 if existing_res.hash != new_res_lock.hash {
@@ -4432,8 +4427,7 @@ fn cmd_lock(
             });
             println!(
                 "{}",
-                serde_json::to_string_pretty(&result)
-                    .map_err(|e| format!("JSON error: {}", e))?
+                serde_json::to_string_pretty(&result).map_err(|e| format!("JSON error: {}", e))?
             );
         } else if mismatches.is_empty() {
             println!(
@@ -4467,8 +4461,7 @@ fn cmd_lock(
             });
             println!(
                 "{}",
-                serde_json::to_string_pretty(&result)
-                    .map_err(|e| format!("JSON error: {}", e))?
+                serde_json::to_string_pretty(&result).map_err(|e| format!("JSON error: {}", e))?
             );
         } else {
             println!(
@@ -11015,8 +11008,7 @@ resources:
         let lock1 = state::load_lock(&state1, "box1").unwrap().unwrap();
         let lock2 = state::load_lock(&state2, "box1").unwrap().unwrap();
         assert_eq!(
-            lock1.resources["myfile"].hash,
-            lock2.resources["myfile"].hash,
+            lock1.resources["myfile"].hash, lock2.resources["myfile"].hash,
             "lock hashes must be deterministic"
         );
     }
@@ -11203,8 +11195,7 @@ resources:
         let lock1 = state::load_lock(&state1, "m1").unwrap().unwrap();
         let lock2 = state::load_lock(&state2, "m1").unwrap().unwrap();
         assert_ne!(
-            lock1.resources["f"].hash,
-            lock2.resources["f"].hash,
+            lock1.resources["f"].hash, lock2.resources["f"].hash,
             "different content must produce different hashes"
         );
     }

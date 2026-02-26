@@ -1378,3 +1378,22 @@ forjar output -f other.yaml      # different config
 | `--json` | Output as JSON |
 
 Output values support `{{params.*}}` and `{{machine.NAME.FIELD}}` template variables, resolved at display time.
+
+### `forjar lock`
+
+Generate a lock file from config without applying anything to machines. Resolves templates, computes BLAKE3 hashes for all desired-state resources, and writes the lock file. Use `--verify` in CI to assert that the committed lock matches the current config.
+
+```bash
+forjar lock -f forjar.yaml                  # generate lock files
+forjar lock -f forjar.yaml --verify         # verify lock matches config (exit 1 on mismatch)
+forjar lock -f forjar.yaml --json           # JSON output
+```
+
+| Flag | Description |
+|------|-------------|
+| `-f PATH` | Path to forjar.yaml (default: `forjar.yaml`) |
+| `--state-dir PATH` | State directory to write lock files into (default: `state`) |
+| `--verify` | Compare computed hashes against existing lock; exit 1 if mismatch |
+| `--json` | Output as JSON |
+
+`forjar lock` is useful in CI pipelines where you want to pre-compute and commit the expected lock file, then verify on each run that config and lock stay in sync — without executing any apply against real machines.
