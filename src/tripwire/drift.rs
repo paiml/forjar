@@ -604,6 +604,7 @@ mod tests {
             roles: vec![],
             transport: None,
             container: None,
+            pepita: None,
             cost: 0,
         };
 
@@ -653,6 +654,7 @@ mod tests {
             roles: vec![],
             transport: None,
             container: None,
+            pepita: None,
             cost: 0,
         };
         let config_resources = indexmap::IndexMap::new();
@@ -698,6 +700,7 @@ mod tests {
             roles: vec![],
             transport: None,
             container: None,
+            pepita: None,
             cost: 0,
         };
         // Empty config — resource not found
@@ -797,6 +800,7 @@ mod tests {
             roles: vec![],
             transport: None,
             container: None,
+            pepita: None,
             cost: 0,
         };
 
@@ -850,6 +854,7 @@ mod tests {
             roles: vec![],
             transport: None,
             container: None,
+            pepita: None,
             cost: 0,
         };
 
@@ -1010,6 +1015,7 @@ mod tests {
             roles: vec![],
             transport: None,
             container: None,
+            pepita: None,
             cost: 0,
         };
         let config_resources = indexmap::IndexMap::new();
@@ -1057,6 +1063,7 @@ mod tests {
             roles: vec![],
             transport: None,
             container: None,
+            pepita: None,
             cost: 0,
         };
 
@@ -1080,6 +1087,7 @@ mod tests {
             roles: vec![],
             transport: None,
             container: None,
+            pepita: None,
             cost: 0,
         };
 
@@ -1106,6 +1114,7 @@ mod tests {
             roles: vec![],
             transport: None,
             container: None,
+            pepita: None,
             cost: 0,
         };
 
@@ -1273,6 +1282,7 @@ mod tests {
             roles: vec![],
             transport: None,
             container: None,
+            pepita: None,
             cost: 0,
         };
         // Using a directory path should work via transport (ls -la)
@@ -1371,6 +1381,7 @@ mod tests {
             roles: vec![],
             transport: None,
             container: None,
+            pepita: None,
             cost: 0,
         };
         let output = crate::transport::exec_script(&machine, &query).unwrap();
@@ -1485,6 +1496,7 @@ mod tests {
             roles: vec![],
             transport: None,
             container: None,
+            pepita: None,
             cost: 0,
         };
 
@@ -1598,6 +1610,7 @@ mod tests {
             roles: vec![],
             transport: None,
             container: None,
+            pepita: None,
             cost: 0,
         };
 
@@ -1713,6 +1726,7 @@ mod tests {
             roles: vec![],
             transport: None,
             container: None,
+            pepita: None,
             cost: 0,
         };
 
@@ -2145,6 +2159,7 @@ mod tests {
             roles: vec![],
             transport: None,
             container: None,
+            pepita: None,
             cost: 0,
         };
 
@@ -2205,6 +2220,7 @@ mod tests {
             roles: vec![],
             transport: None,
             container: None,
+            pepita: None,
             cost: 0,
         };
 
@@ -2346,6 +2362,7 @@ mod tests {
             roles: vec![],
             transport: None,
             container: None,
+            pepita: None,
             cost: 0,
         };
 
@@ -2393,6 +2410,7 @@ mod tests {
             roles: vec![],
             transport: None,
             container: None,
+            pepita: None,
             cost: 0,
         };
 
@@ -2444,6 +2462,7 @@ mod tests {
             roles: vec![],
             transport: None,
             container: None,
+            pepita: None,
             cost: 0,
         };
 
@@ -2495,6 +2514,7 @@ mod tests {
             roles: vec![],
             transport: None,
             container: None,
+            pepita: None,
             cost: 0,
         };
 

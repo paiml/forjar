@@ -182,6 +182,10 @@ pub struct Machine {
     #[serde(default)]
     pub container: Option<ContainerConfig>,
 
+    /// FJ-230: Pepita transport configuration (required when `transport: pepita`)
+    #[serde(default)]
+    pub pepita: Option<PepitaTransportConfig>,
+
     /// Relative cost weight (lower = cheaper, preferred first). Default: 0.
     #[serde(default)]
     pub cost: u32,
@@ -219,6 +223,41 @@ fn default_runtime() -> String {
     "docker".to_string()
 }
 
+/// FJ-230: Pepita kernel namespace transport configuration.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PepitaTransportConfig {
+    /// Root filesystem: path to base rootfs or `debootstrap:jammy`
+    pub rootfs: String,
+
+    /// cgroup v2 memory limit in MB (optional)
+    #[serde(default)]
+    pub memory_mb: Option<u64>,
+
+    /// cgroup v2 CPU limit (optional)
+    #[serde(default)]
+    pub cpus: Option<f64>,
+
+    /// Network mode: `isolated` (new netns) or `host` (share host netns)
+    #[serde(default = "default_pepita_network")]
+    pub network: String,
+
+    /// Filesystem mode: `overlay` (overlayfs) or `bind` (bind mount)
+    #[serde(default = "default_pepita_filesystem")]
+    pub filesystem: String,
+
+    /// Destroy namespace after apply (default: true)
+    #[serde(default = "default_true")]
+    pub ephemeral: bool,
+}
+
+fn default_pepita_network() -> String {
+    "isolated".to_string()
+}
+
+fn default_pepita_filesystem() -> String {
+    "overlay".to_string()
+}
+
 impl Machine {
     /// Returns true if this machine uses container transport.
     pub fn is_container_transport(&self) -> bool {
@@ -231,6 +270,16 @@ impl Machine {
             .as_ref()
             .and_then(|c| c.name.clone())
             .unwrap_or_else(|| format!("forjar-{}", self.hostname))
+    }
+
+    /// Returns true if this machine uses pepita (kernel namespace) transport.
+    pub fn is_pepita_transport(&self) -> bool {
+        self.transport.as_deref() == Some("pepita") || self.addr == "pepita"
+    }
+
+    /// Returns the effective pepita namespace name (derived from hostname).
+    pub fn pepita_name(&self) -> String {
+        format!("forjar-ns-{}", self.hostname)
     }
 }
 
@@ -1039,6 +1088,7 @@ container:
                 privileged: false,
                 init: true,
             }),
+            pepita: None,
             cost: 0,
         };
         assert_eq!(m.container_name(), "forjar-test-box");
@@ -1056,6 +1106,7 @@ container:
             roles: vec![],
             transport: Some("container".to_string()),
             container: None,
+            pepita: None,
             cost: 0,
         };
         assert!(m1.is_container_transport());
@@ -1070,6 +1121,7 @@ container:
             roles: vec![],
             transport: None,
             container: None,
+            pepita: None,
             cost: 0,
         };
         assert!(m2.is_container_transport());
@@ -1084,6 +1136,7 @@ container:
             roles: vec![],
             transport: None,
             container: None,
+            pepita: None,
             cost: 0,
         };
         assert!(!m3.is_container_transport());
@@ -1384,6 +1437,7 @@ ssh_key: ~/.ssh/deploy_ed25519
             roles: vec![],
             transport: None,
             container: None,
+            pepita: None,
             cost: 0,
         };
         assert_eq!(m.container_name(), "forjar-bare-metal");
@@ -1748,6 +1802,7 @@ image: ubuntu:22.04
             roles: vec![],
             transport: Some("container".to_string()),
             container: None,
+            pepita: None,
             cost: 0,
         };
         assert!(m.is_container_transport());
@@ -1764,6 +1819,7 @@ image: ubuntu:22.04
             roles: vec![],
             transport: None,
             container: None,
+            pepita: None,
             cost: 0,
         };
         assert!(!m.is_container_transport());
@@ -1787,6 +1843,7 @@ image: ubuntu:22.04
                 privileged: false,
                 init: true,
             }),
+            pepita: None,
             cost: 0,
         };
         assert_eq!(m.container_name(), "my-custom-name");
@@ -1810,6 +1867,7 @@ image: ubuntu:22.04
                 privileged: false,
                 init: true,
             }),
+            pepita: None,
             cost: 0,
         };
         assert_eq!(m.container_name(), "forjar-test-box");

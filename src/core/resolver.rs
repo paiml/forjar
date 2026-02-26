@@ -416,6 +416,7 @@ mod tests {
                 roles: vec![],
                 transport: None,
                 container: None,
+                pepita: None,
                 cost: 0,
             },
         );
@@ -646,6 +647,7 @@ resources:
                 roles: vec![],
                 transport: None,
                 container: None,
+                pepita: None,
                 cost: 0,
             },
         );
@@ -733,6 +735,7 @@ resources:
                 roles: vec![],
                 transport: None,
                 container: None,
+                pepita: None,
                 cost: 0,
             },
         );
@@ -965,6 +968,7 @@ resources:
                 roles: vec![],
                 transport: None,
                 container: None,
+                pepita: None,
                 cost: 0,
             },
         );
@@ -1078,6 +1082,7 @@ resources:
                 roles: vec![],
                 transport: None,
                 container: None,
+                pepita: None,
                 cost: 0,
             },
         );
@@ -1586,6 +1591,7 @@ resources:
                 roles: vec![],
                 transport: None,
                 container: None,
+                pepita: None,
                 cost: 0,
             },
         );
@@ -1608,6 +1614,7 @@ resources:
                 roles: vec![],
                 transport: None,
                 container: None,
+                pepita: None,
                 cost: 0,
             },
         );
@@ -1630,6 +1637,7 @@ resources:
                 roles: vec![],
                 transport: None,
                 container: None,
+                pepita: None,
                 cost: 0,
             },
         );
@@ -1652,6 +1660,7 @@ resources:
                 roles: vec![],
                 transport: None,
                 container: None,
+                pepita: None,
                 cost: 0,
             },
         );

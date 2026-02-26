@@ -1,7 +1,8 @@
-//! FJ-010/011/021: Transport abstraction — local, SSH, and container execution.
+//! FJ-010/011/021/230: Transport abstraction — local, SSH, container, and pepita execution.
 
 pub mod container;
 pub mod local;
+pub mod pepita;
 pub mod ssh;
 
 use crate::core::types::Machine;
@@ -21,9 +22,15 @@ impl ExecOutput {
 }
 
 /// Execute a purified shell script on a machine.
-/// Dispatches to container, local, or SSH based on transport/address.
+/// Dispatches to pepita, container, local, or SSH based on transport/address.
+/// Priority: pepita > container > local > SSH.
 pub fn exec_script(machine: &Machine, script: &str) -> Result<ExecOutput, String> {
-    // Container transport takes priority
+    // Pepita (kernel namespace) transport takes highest priority
+    if machine.is_pepita_transport() {
+        return pepita::exec_pepita(machine, script);
+    }
+
+    // Container transport takes priority over local/SSH
     if machine.is_container_transport() {
         return container::exec_container(machine, script);
     }
@@ -113,6 +120,7 @@ mod tests {
             roles: vec![],
             transport: None,
             container: None,
+            pepita: None,
             cost: 0,
         };
         let out = exec_script(&machine, "echo ok").unwrap();
@@ -132,6 +140,7 @@ mod tests {
             roles: vec![],
             transport: None,
             container: None,
+            pepita: None,
             cost: 0,
         };
         let out = exec_script(&machine, "echo local").unwrap();
@@ -172,6 +181,7 @@ mod tests {
             roles: vec![],
             transport: None,
             container: None,
+            pepita: None,
             cost: 0,
         };
         let out = query(&machine, "echo query-test").unwrap();
@@ -190,6 +200,7 @@ mod tests {
             roles: vec![],
             transport: None,
             container: None,
+            pepita: None,
             cost: 0,
         };
         let out = exec_script_timeout(&machine, "echo ok", None).unwrap();
@@ -208,6 +219,7 @@ mod tests {
             roles: vec![],
             transport: None,
             container: None,
+            pepita: None,
             cost: 0,
         };
         let out = exec_script_timeout(&machine, "echo fast", Some(10)).unwrap();
@@ -226,6 +238,7 @@ mod tests {
             roles: vec![],
             transport: None,
             container: None,
+            pepita: None,
             cost: 0,
         };
         let result = exec_script_timeout(&machine, "sleep 10", Some(1));
@@ -244,6 +257,7 @@ mod tests {
             roles: vec![],
             transport: None,
             container: None,
+            pepita: None,
             cost: 0,
         };
         let err = exec_script_timeout(&machine, "sleep 10", Some(1)).unwrap_err();
@@ -274,6 +288,7 @@ mod tests {
                 privileged: false,
                 init: true,
             }),
+            pepita: None,
             cost: 0,
         };
         // With container transport, exec_script dispatches to container, not local
@@ -314,6 +329,7 @@ mod tests {
             roles: vec![],
             transport: None,
             container: None,
+            pepita: None,
             cost: 0,
         };
         let out = exec_script(&machine, "echo OUT; echo ERR >&2").unwrap();
@@ -333,6 +349,7 @@ mod tests {
             roles: vec![],
             transport: None,
             container: None,
+            pepita: None,
             cost: 0,
         };
         let script = "A=hello\nB=world\necho \"$A $B\"";
@@ -352,6 +369,7 @@ mod tests {
             roles: vec![],
             transport: None,
             container: None,
+            pepita: None,
             cost: 0,
         };
         let out = exec_script(&machine, "exit 77").unwrap();
@@ -370,6 +388,7 @@ mod tests {
             roles: vec![],
             transport: None,
             container: None,
+            pepita: None,
             cost: 0,
         };
         let err = exec_script_timeout(&machine, "sleep 10", Some(1)).unwrap_err();
@@ -391,6 +410,7 @@ mod tests {
             roles: vec![],
             transport: None,
             container: None,
+            pepita: None,
             cost: 0,
         };
         let out = exec_script(&machine, "").unwrap();
@@ -435,6 +455,7 @@ mod tests {
             roles: vec![],
             transport: None,
             container: None,
+            pepita: None,
             cost: 0,
         };
         let q = query(&machine, "echo q").unwrap();
@@ -457,6 +478,7 @@ mod tests {
             roles: vec![],
             transport: None,
             container: None,
+            pepita: None,
             cost: 0,
         };
         let out = exec_script(&machine, r#"printf 'tab\there\nnewline'"#).unwrap();
@@ -476,6 +498,7 @@ mod tests {
             roles: vec![],
             transport: None,
             container: None,
+            pepita: None,
             cost: 0,
         };
         let out = exec_script(&machine, "seq 1 10000").unwrap();
@@ -495,6 +518,7 @@ mod tests {
             roles: vec![],
             transport: None,
             container: None,
+            pepita: None,
             cost: 0,
         };
         exec_script(&machine, "export FORJAR_TEST_LEAK=yes").unwrap();
@@ -515,6 +539,7 @@ mod tests {
             roles: vec![],
             transport: None,
             container: None,
+            pepita: None,
             cost: 0,
         };
         for code in [0, 1, 2, 42, 126, 127] {
@@ -539,6 +564,7 @@ mod tests {
             roles: vec![],
             transport: None,
             container: None,
+            pepita: None,
             cost: 0,
         };
         // sleep 5 with 0s timeout should error — but 0-second timeout
@@ -569,6 +595,7 @@ mod tests {
             roles: vec![],
             transport: None,
             container: None,
+            pepita: None,
             cost: 0,
         };
         let out = exec_script(&machine, "echo 'hello from forjar'").unwrap();
@@ -589,6 +616,7 @@ mod tests {
             roles: vec![],
             transport: None,
             container: None,
+            pepita: None,
             cost: 0,
         };
         let out = exec_script(&machine, "exit 1").unwrap();

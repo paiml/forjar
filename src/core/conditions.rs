@@ -141,6 +141,7 @@ mod tests {
             roles: vec!["web".to_string(), "gpu".to_string()],
             transport: None,
             container: None,
+            pepita: None,
             cost: 0,
         }
     }

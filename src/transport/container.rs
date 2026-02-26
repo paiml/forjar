@@ -150,6 +150,7 @@ mod tests {
                 privileged: false,
                 init: true,
             }),
+            pepita: None,
             cost: 0,
         }
     }
@@ -165,6 +166,7 @@ mod tests {
             roles: vec![],
             transport: Some("container".to_string()),
             container: None,
+            pepita: None,
             cost: 0,
         };
         let result = exec_container(&machine, "echo hi");
@@ -183,6 +185,7 @@ mod tests {
             roles: vec![],
             transport: Some("container".to_string()),
             container: None,
+            pepita: None,
             cost: 0,
         };
         let result = ensure_container(&machine);
@@ -200,6 +203,7 @@ mod tests {
             roles: vec![],
             transport: Some("container".to_string()),
             container: None,
+            pepita: None,
             cost: 0,
         };
         let result = cleanup_container(&machine);
@@ -230,6 +234,7 @@ mod tests {
                 privileged: false,
                 init: true,
             }),
+            pepita: None,
             cost: 0,
         };
         // ensure_container on a non-existent container with no image should fail
@@ -273,6 +278,7 @@ mod tests {
                 privileged: false,
                 init: true,
             }),
+            pepita: None,
             cost: 0,
         };
         let result = exec_container(&machine, "echo test");
@@ -320,6 +326,7 @@ mod tests {
                 privileged: false,
                 init: true,
             }),
+            pepita: None,
             cost: 0,
         };
         assert_eq!(machine.container_name(), "forjar-my-web-server");
@@ -343,6 +350,7 @@ mod tests {
                 privileged: false,
                 init: true,
             }),
+            pepita: None,
             cost: 0,
         };
         assert_eq!(machine.container_name(), "custom-name");
@@ -367,6 +375,7 @@ mod tests {
                 privileged: false,
                 init: true,
             }),
+            pepita: None,
             cost: 0,
         };
         // exec_container will try to run podman, which probably isn't available
@@ -400,6 +409,7 @@ mod tests {
                 privileged: true,
                 init: true,
             }),
+            pepita: None,
             cost: 0,
         };
         // /bin/echo as runtime: `echo inspect -f ...` succeeds but doesn't output "true"
@@ -431,6 +441,7 @@ mod tests {
                 privileged: false,
                 init: false,
             }),
+            pepita: None,
             cost: 0,
         };
         let result = ensure_container(&machine);
@@ -459,6 +470,7 @@ mod tests {
                 privileged: false,
                 init: true,
             }),
+            pepita: None,
             cost: 0,
         };
         let result = cleanup_container(&machine);
@@ -477,6 +489,7 @@ mod tests {
             roles: vec![],
             transport: Some("container".to_string()),
             container: None,
+            pepita: None,
             cost: 0,
         };
         let err = exec_container(&machine, "echo").unwrap_err();
@@ -494,6 +507,7 @@ mod tests {
             roles: vec![],
             transport: Some("container".to_string()),
             container: None,
+            pepita: None,
             cost: 0,
         };
         let err = ensure_container(&machine).unwrap_err();
@@ -511,6 +525,7 @@ mod tests {
             roles: vec![],
             transport: Some("container".to_string()),
             container: None,
+            pepita: None,
             cost: 0,
         };
         let err = cleanup_container(&machine).unwrap_err();
@@ -538,6 +553,7 @@ mod tests {
                 privileged: false,
                 init: true,
             }),
+            pepita: None,
             cost: 0,
         };
         // Should succeed — attached containers just verify existence
@@ -570,6 +586,7 @@ mod tests {
                 privileged: false,
                 init: true,
             }),
+            pepita: None,
             cost: 0,
         };
         // Verify the ephemeral guard pattern: non-ephemeral should NOT trigger cleanup
@@ -598,6 +615,7 @@ mod tests {
                 privileged: false,
                 init: true,
             }),
+            pepita: None,
             cost: 0,
         };
         let name = machine.container_name();
@@ -632,6 +650,7 @@ mod tests {
                 privileged: false,
                 init: false,
             }),
+            pepita: None,
             cost: 0,
         };
         let result = ensure_container(&machine);
@@ -667,6 +686,7 @@ mod tests {
                 privileged: false,
                 init: false,
             }),
+            pepita: None,
             cost: 0,
         };
         let result = cleanup_container(&machine);
@@ -704,6 +724,7 @@ mod tests {
                 privileged: false,
                 init: false,
             }),
+            pepita: None,
             cost: 0,
         };
         let config = machine.container.as_ref().unwrap();
@@ -738,6 +759,7 @@ mod tests {
                 privileged: false,
                 init: true,
             }),
+            pepita: None,
             cost: 0,
         };
         let name = machine.container_name();

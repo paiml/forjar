@@ -693,11 +693,7 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             verbose,
         ),
         Commands::Fmt { file, check } => cmd_fmt(&file, check),
-        Commands::Lint {
-            file,
-            json,
-            strict,
-        } => cmd_lint(&file, json, strict),
+        Commands::Lint { file, json, strict } => cmd_lint(&file, json, strict),
         Commands::Rollback {
             file,
             revision,
@@ -1685,6 +1681,7 @@ fn cmd_import(
         roles: vec![],
         transport: None,
         container: None,
+        pepita: None,
         cost: 0,
     };
 
@@ -1980,6 +1977,7 @@ fn cmd_check(
         roles: vec![],
         transport: None,
         container: None,
+        pepita: None,
         cost: 0,
     };
 

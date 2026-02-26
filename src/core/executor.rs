@@ -83,6 +83,7 @@ pub fn apply(cfg: &ApplyConfig) -> Result<Vec<ApplyResult>, String> {
         roles: vec![],
         transport: None,
         container: None,
+        pepita: None,
         cost: 0,
     };
 
@@ -204,7 +205,10 @@ fn apply_machines_rolling(
 
         // FJ-222: Check max_fail_percentage after each batch
         if let Some(max_pct) = cfg.config.policy.max_fail_percentage {
-            let failed = all_results.iter().filter(|r| r.resources_failed > 0).count();
+            let failed = all_results
+                .iter()
+                .filter(|r| r.resources_failed > 0)
+                .count();
             let pct = (failed as f64 / total_machines as f64 * 100.0) as u8;
             if pct > max_pct {
                 return Err(format!(
@@ -878,6 +882,7 @@ mod tests {
             roles: vec![],
             transport: None,
             container: None,
+            pepita: None,
             cost: 0,
         }
     }
@@ -1406,6 +1411,7 @@ resources:
             roles: vec![],
             transport: None,
             container: None,
+            pepita: None,
             cost: 0,
         };
         let mut ctx = RecordCtx {
@@ -1656,6 +1662,7 @@ resources:
             roles: vec![],
             transport: None,
             container: None,
+            pepita: None,
             cost: 0,
         };
         let resource = Resource {
@@ -1734,6 +1741,7 @@ resources:
             roles: vec![],
             transport: None,
             container: None,
+            pepita: None,
             cost: 0,
         };
         let arch = ["aarch64".to_string()];
@@ -1751,6 +1759,7 @@ resources:
             roles: vec![],
             transport: None,
             container: None,
+            pepita: None,
             cost: 0,
         };
         let arch: Vec<String> = vec![];
