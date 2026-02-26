@@ -1556,6 +1556,7 @@ Runs inline performance benchmarks against spec §9 targets: validate (< 10ms), 
 | FJ-148 | Spec §7.1 commands block: add trace/migrate/mcp/bench (17→21 commands). Add §7.15-7.18 CLI subsections. Fix §4.1 state tree: remove unimplemented `snapshots/`, add `trace.jsonl`. Fix Phase 4 table missing `Status` column. Fix Kani "Phase 2" → "Deferred". | **Done** |
 | FJ-149 | Book Ch. 5 module map: add mcp/mod.rs, migrate.rs, pepita.rs (3 missing modules). CLI description 6→21 subcommands. MCP diagram: add TraceHandler + AnomalyHandler (7→9 handlers). Ch. 8 state directory: add trace.jsonl. | **Done** |
 | FJ-150 | Examples README: add supporting assets section documenting files/ and recipes/ subdirs. | **Done** |
+| FJ-151 | Fix 6 stale counts across book + spec: pepita in book/README, examples 15→19, tests ~700→~1200, Kani Deferred, trace.jsonl in state hierarchy, spec exclude list sync. | **Done** |
 
 ### Phase 7: Secrets & Conditionals (v0.7)
 

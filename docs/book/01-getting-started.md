@@ -1041,7 +1041,7 @@ cargo bench
 A: No. Forjar manages machine configuration, not cloud infrastructure. Use Terraform for cloud resources and forjar for what runs on those machines.
 
 **Q: Does forjar support Windows?**
-A: Not currently. Forjar generates bash scripts and targets Unix-like systems. Windows support (PowerShell generation) is a potential Phase 3+ feature.
+A: Not currently. Forjar generates bash scripts and targets Unix-like systems. Windows support (PowerShell generation) may be considered in a future version.
 
 **Q: Can I use forjar with Docker containers?**
 A: Yes! Container transport (`transport: container`) lets you apply resources inside Docker or Podman containers. This is ideal for testing and CI.
