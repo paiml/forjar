@@ -1017,9 +1017,10 @@ AI agents to manage infrastructure through the same validated pipeline.
 forjar mcp
 ```
 
-The server runs on stdio transport and exposes 7 tools:
+The server runs on stdio transport and exposes 9 tools:
 `forjar_validate`, `forjar_plan`, `forjar_drift`, `forjar_lint`,
-`forjar_graph`, `forjar_show`, `forjar_status`.
+`forjar_graph`, `forjar_show`, `forjar_status`, `forjar_trace`,
+`forjar_anomaly`.
 
 Configure in your MCP client:
 
@@ -1035,3 +1036,37 @@ Configure in your MCP client:
 ```
 
 See Architecture chapter for full tool reference and handler details.
+
+### `forjar bench`
+
+Run inline performance benchmarks that validate spec §9 targets.
+
+```bash
+forjar bench
+forjar bench --iterations 10000
+forjar bench --json
+```
+
+| Flag | Description |
+|------|-------------|
+| `--iterations N` | Iterations per benchmark (default: 1000) |
+| `--json` | Output results as JSON |
+
+Benchmarks:
+- **validate** — Parse + validate a 3-machine, 20-resource config
+- **plan** — Full plan pipeline: parse → DAG → diff
+- **drift** — Load lock + drift detection on 100 resources
+- **blake3** — BLAKE3 hash of a 4KB string
+
+Example output:
+
+```
+Forjar Performance Benchmarks (1000 iterations)
+
+  Operation                         Average       Target
+  --------------------------------------------------------
+  validate (3m, 20r)                 62.0µs       < 10ms
+  plan (3m, 20r)                     84.0µs         < 2s
+  drift (100 resources)             356.0µs         < 1s
+  blake3 hash (4KB)                   0.5µs        < 1µs
+```

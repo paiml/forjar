@@ -25,7 +25,7 @@ Forjar treats the machine as a **knowable system**. It uses Rust to generate pro
 | **Provable** | Every shell command is generated from Rust and purified by bashrs. No raw `sh -c`. |
 | **Auditable** | Every apply produces a renacer syscall trace and BLAKE3 state snapshot. Tripwire built in. |
 | **Fast** | Rust binary, BLAKE3 diffing in microseconds, parallel SSH, copia delta sync. |
-| **Bare-metal first** | Manages real machines over SSH. Containers serve as execution targets (transport) and managed resources (docker type). Pepita kernel isolation is Phase 3. |
+| **Bare-metal first** | Manages real machines over SSH. Containers serve as execution targets (transport) and managed resources (docker type). Pepita kernel isolation provides cgroups v2, overlayfs, netns, chroot, and seccomp (FJ-040). |
 | **Ephemeral** | Any machine can be destroyed and rebuilt from the repo alone. |
 | **Jidoka** | Stop on first failure. Partial state is preserved. No cascading damage. |
 
@@ -124,8 +124,8 @@ src/
     hasher.rs           BLAKE3 file/directory/state hashing
     drift.rs            Drift detection (hash current vs lock)
     eventlog.rs         Append-only JSONL provenance log
-    tracer.rs           renacer integration — syscall capture per apply (Phase 4)
-    snapshot.rs         Pre/post apply filesystem snapshots (Phase 4)
+    tracer.rs           W3C-compatible trace provenance (FJ-050)
+    anomaly.rs          ML-inspired drift anomaly detection (FJ-051)
   resources/
     mod.rs              Resource type registry
     package.rs          apt/cargo/uv package management
@@ -136,7 +136,7 @@ src/
     docker.rs           Container resource management
     network.rs          Firewall rule management (ufw)
     cron.rs             Scheduled task management (crontab)
-    pepita.rs           Kernel namespace isolation (Phase 3)
+    pepita.rs           Kernel namespace isolation (FJ-040)
   transport/
     mod.rs              Transport abstraction + dispatch
     local.rs            Local execution (this machine)
@@ -166,9 +166,9 @@ src/
 | `async-trait` | External | Async trait support for MCP handlers. **Integrated.** |
 | `schemars` | External | JSON Schema generation for MCP tool introspection. **Integrated.** |
 | `rustc-hash` | External | Fast FxHash for pforge handler registry. **Integrated.** |
-| `pepita` | Stack | Kernel interfaces. *Phase 3, pending.* |
-| `renacer` | Stack | Syscall tracing for provenance. *Phase 4, pending.* |
-| `aprender` | Stack | ML-based drift anomaly detection. *Phase 4, pending.* |
+| `pepita` | Stack | Kernel interfaces. *Implemented inline in `resources/pepita.rs` (FJ-040).* |
+| `renacer` | Stack | Syscall tracing for provenance. *Implemented inline in `tripwire/tracer.rs` (FJ-050).* |
+| `aprender` | Stack | ML-based drift anomaly detection. *Implemented inline in `tripwire/anomaly.rs` (FJ-051).* |
 
 **Banned**: reqwest, hyper, tonic, any cloud SDK. tokio allowed only for MCP server (FJ-063).
 
@@ -419,7 +419,7 @@ action: allow                # allow | deny
 from: 192.168.1.0/24        # Optional source CIDR
 ```
 
-#### `pepita` (Phase 3)
+#### `pepita` (FJ-040)
 
 ```yaml
 type: pepita
@@ -1397,6 +1397,7 @@ Statistical anomaly detection from event history. Analyzes per-resource metrics:
 | FJ-136 | MCP trace+anomaly handlers — `forjar_trace` and `forjar_anomaly` MCP tool handlers, TraceHandler reads trace.jsonl + AnomalyHandler reads events.jsonl with ML detection, 7 new tests, book updates. 1307→1314 tests. | **Done** |
 | FJ-137 | Documentation sync — CLI command list (15→20), README resource table (4→9 types), spec §11 Cargo.toml sync (8→15 deps, rust-version 1.85→1.87), spec §1.3 dep count correction. | **Done** |
 | FJ-138 | Performance benchmarks — Criterion benchmarks for spec §9 targets (validate 62µs, plan 84µs, drift 356µs), validate scaling (5/20/50/100 resources), binary 13MB, cold start 1.8ms. Book Ch. 10 benchmark docs with regression detection workflow. | **Done** |
+| FJ-139 | `forjar bench` CLI command — inline performance benchmarks (validate, plan, drift, BLAKE3), `--iterations` and `--json` flags, CleanupGuard tempdir. Stale Phase labels fixed in spec deps/design principles/module tree. Book Ch. 6 bench docs + MCP tool count 7→9. 2 tests, 1314→1316. | **Done** |
 
 ---
 

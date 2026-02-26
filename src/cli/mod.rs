@@ -1,5 +1,6 @@
 //! FJ-017: CLI subcommands — init, validate, plan, apply, drift, status, history,
-//! destroy, import, show, graph, check, diff, fmt, lint, rollback, anomaly, trace, migrate.
+//! destroy, import, show, graph, check, diff, fmt, lint, rollback, anomaly, trace,
+//! migrate, mcp, bench.
 
 use crate::core::{codegen, executor, migrate, parser, planner, resolver, state, types};
 use crate::transport;
@@ -366,6 +367,17 @@ pub enum Commands {
 
     /// Start MCP server (pforge integration, FJ-063)
     Mcp,
+
+    /// Run performance benchmarks (spec §9 targets)
+    Bench {
+        /// Number of iterations per benchmark (default: 1000)
+        #[arg(long, default_value = "1000")]
+        iterations: usize,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 /// Dispatch a CLI command.
@@ -512,6 +524,7 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
         } => cmd_trace(&state_dir, machine.as_deref(), json),
         Commands::Migrate { file, output } => cmd_migrate(&file, output.as_deref()),
         Commands::Mcp => cmd_mcp(),
+        Commands::Bench { iterations, json } => cmd_bench(iterations, json),
     }
 }
 
@@ -569,6 +582,202 @@ fn cmd_mcp() -> Result<(), String> {
     let rt = tokio::runtime::Runtime::new()
         .map_err(|e| format!("Failed to create tokio runtime: {}", e))?;
     rt.block_on(crate::mcp::serve())
+}
+
+/// Run inline performance benchmarks (FJ-139).
+fn cmd_bench(iterations: usize, json: bool) -> Result<(), String> {
+    use crate::core::{planner, resolver, state, types::*};
+    use crate::tripwire::{drift as tripwire_drift, hasher};
+    use std::time::Instant;
+
+    let bench_id = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+    let bench_dir = std::env::temp_dir().join(format!("forjar-bench-{}-{}", std::process::id(), bench_id));
+    std::fs::create_dir_all(&bench_dir).map_err(|e| format!("cannot create tempdir: {}", e))?;
+
+    // Ensure cleanup on exit
+    struct CleanupGuard(std::path::PathBuf);
+    impl Drop for CleanupGuard {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+    let _guard = CleanupGuard(bench_dir.clone());
+    let dir = bench_dir;
+
+    // Build a realistic 3-machine, 20-resource config
+    let mut yaml = String::from(
+        "version: \"1.0\"\nname: bench\nmachines:\n  web:\n    hostname: web\n    addr: 10.0.1.1\n  db:\n    hostname: db\n    addr: 10.0.1.2\n  cache:\n    hostname: cache\n    addr: 10.0.1.3\nresources:\n",
+    );
+    for i in 0..8 {
+        yaml.push_str(&format!(
+            "  web-pkg-{i}:\n    type: package\n    machine: web\n    provider: apt\n    packages: [pkg-{i}]\n"
+        ));
+    }
+    for i in 0..6 {
+        yaml.push_str(&format!(
+            "  db-file-{i}:\n    type: file\n    machine: db\n    path: /etc/db/conf-{i}.yml\n    content: \"value-{i}\"\n"
+        ));
+    }
+    for i in 0..4 {
+        yaml.push_str(&format!(
+            "  cache-svc-{i}:\n    type: service\n    machine: cache\n    name: svc-{i}\n"
+        ));
+    }
+    for i in 0..2 {
+        yaml.push_str(&format!(
+            "  web-mount-{i}:\n    type: mount\n    machine: web\n    source: /dev/sda{}\n    path: /mnt/data-{i}\n",
+            i + 1
+        ));
+    }
+
+    let config_path = dir.join("forjar.yaml");
+    std::fs::write(&config_path, &yaml).map_err(|e| format!("write error: {}", e))?;
+
+    // Build a 100-resource lock file for drift bench
+    let state_dir = dir.join("state");
+    let mut resources = indexmap::IndexMap::new();
+    for i in 0..100 {
+        resources.insert(
+            format!("file-{i:03}"),
+            ResourceLock {
+                resource_type: ResourceType::File,
+                status: ResourceStatus::Converged,
+                applied_at: None,
+                duration_seconds: None,
+                hash: hasher::hash_string(&format!("content-{i}")),
+                details: std::collections::HashMap::new(),
+            },
+        );
+    }
+    let lock = StateLock {
+        schema: "1.0".to_string(),
+        machine: "bench-host".to_string(),
+        hostname: "bench-host".to_string(),
+        generated_at: "2026-02-26T00:00:00Z".to_string(),
+        generator: "forjar-bench".to_string(),
+        blake3_version: "1.8".to_string(),
+        resources,
+    };
+    state::save_lock(&state_dir, &lock).map_err(|e| format!("lock error: {}", e))?;
+
+    struct BenchResult {
+        name: &'static str,
+        target: &'static str,
+        iterations: usize,
+        total_us: u128,
+    }
+
+    impl BenchResult {
+        fn avg_us(&self) -> f64 {
+            self.total_us as f64 / self.iterations as f64
+        }
+        fn avg_display(&self) -> String {
+            let us = self.avg_us();
+            if us > 1_000_000.0 {
+                format!("{:.1}s", us / 1_000_000.0)
+            } else if us > 1_000.0 {
+                format!("{:.1}ms", us / 1_000.0)
+            } else {
+                format!("{:.1}µs", us)
+            }
+        }
+    }
+
+    let mut results = Vec::new();
+
+    // 1. Validate benchmark
+    let start = Instant::now();
+    for _ in 0..iterations {
+        let _ = parser::parse_and_validate(&config_path).unwrap();
+    }
+    results.push(BenchResult {
+        name: "validate (3m, 20r)",
+        target: "< 10ms",
+        iterations,
+        total_us: start.elapsed().as_micros(),
+    });
+
+    // 2. Plan benchmark
+    let start = Instant::now();
+    for _ in 0..iterations {
+        let config = parser::parse_and_validate(&config_path).unwrap();
+        let order = resolver::build_execution_order(&config).unwrap();
+        let locks = std::collections::HashMap::new();
+        let _ = planner::plan(&config, &order, &locks, None);
+    }
+    results.push(BenchResult {
+        name: "plan (3m, 20r)",
+        target: "< 2s",
+        iterations,
+        total_us: start.elapsed().as_micros(),
+    });
+
+    // 3. Drift benchmark
+    let start = Instant::now();
+    for _ in 0..iterations {
+        let lock_data = state::load_lock(&state_dir, "bench-host")
+            .unwrap()
+            .unwrap();
+        let _ = tripwire_drift::detect_drift(&lock_data);
+    }
+    results.push(BenchResult {
+        name: "drift (100 resources)",
+        target: "< 1s",
+        iterations,
+        total_us: start.elapsed().as_micros(),
+    });
+
+    // 4. BLAKE3 hash benchmark
+    let data = "x".repeat(4096);
+    let start = Instant::now();
+    for _ in 0..iterations {
+        let _ = hasher::hash_string(&data);
+    }
+    results.push(BenchResult {
+        name: "blake3 hash (4KB)",
+        target: "< 1µs",
+        iterations,
+        total_us: start.elapsed().as_micros(),
+    });
+
+    if json {
+        let json_results: Vec<serde_json::Value> = results
+            .iter()
+            .map(|r| {
+                serde_json::json!({
+                    "name": r.name,
+                    "target": r.target,
+                    "iterations": r.iterations,
+                    "avg_us": r.avg_us(),
+                    "total_us": r.total_us,
+                })
+            })
+            .collect();
+        let output =
+            serde_json::to_string_pretty(&json_results).map_err(|e| format!("JSON: {}", e))?;
+        println!("{}", output);
+    } else {
+        println!("Forjar Performance Benchmarks ({} iterations)\n", iterations);
+        println!(
+            "  {:<28} {:>12} {:>12}",
+            "Operation", "Average", "Target"
+        );
+        println!("  {}", "-".repeat(56));
+        for r in &results {
+            println!(
+                "  {:<28} {:>12} {:>12}",
+                r.name,
+                r.avg_display(),
+                r.target
+            );
+        }
+        println!();
+    }
+
+    Ok(())
 }
 
 fn cmd_lint(file: &Path, json: bool) -> Result<(), String> {
@@ -6993,5 +7202,17 @@ resources:
     fn test_fj135_cmd_trace_nonexistent_dir() {
         let result = cmd_trace(Path::new("/tmp/forjar-nonexistent-12345"), None, false);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_fj139_cmd_bench_runs() {
+        let result = cmd_bench(10, false);
+        assert!(result.is_ok(), "bench should succeed: {:?}", result);
+    }
+
+    #[test]
+    fn test_fj139_cmd_bench_json() {
+        let result = cmd_bench(10, true);
+        assert!(result.is_ok(), "bench JSON should succeed: {:?}", result);
     }
 }
