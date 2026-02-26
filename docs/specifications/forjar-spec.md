@@ -1553,7 +1553,9 @@ Runs inline performance benchmarks against spec §9 targets: validate (< 10ms), 
 | FJ-145 | Add missing `bench_spec9_apply_no_changes` Criterion benchmark (194µs, < 500ms target, 2577x margin). All 5 spec §9 targets now have benchmarks. CI jobs documented in book Ch. 10. README test count 1316→1327. | **Done** |
 | FJ-146 | Fix 8→9 resource types in parser test + spec FJ-113 ticket description. Rustfmt cleanup on bench and CLI. | **Done** |
 | FJ-147 | Fix dep count 14→15 in spec §1.3 + README. Update README C9 falsifiable claim (10→20 threshold). Expand §1.3 competitive table with 6 new feature rows (secrets, conditionals, multi-env, state surgery, policy, rolling deploy) showing roadmap. Add Phases 7-9 roadmap to spec (FJ-200 through FJ-226). | **Done** |
-| FJ-148 | Spec §7.1 commands block: add trace/migrate/mcp/bench (17→21 commands). Add §7.15-7.18 CLI subsections. Fix §4.1 state tree: remove unimplemented `snapshots/`, add `trace.jsonl`. Fix Phase 4 table missing `Status` column. Fix Kani "Phase 2" → "Deferred". Add FJ-230 pepita transport. Add Phase 10 sovereign AI stack (FJ-240 through FJ-248). | **Done** |
+| FJ-148 | Spec §7.1 commands block: add trace/migrate/mcp/bench (17→21 commands). Add §7.15-7.18 CLI subsections. Fix §4.1 state tree: remove unimplemented `snapshots/`, add `trace.jsonl`. Fix Phase 4 table missing `Status` column. Fix Kani "Phase 2" → "Deferred". | **Done** |
+| FJ-149 | Book Ch. 5 module map: add mcp/mod.rs, migrate.rs, pepita.rs (3 missing modules). CLI description 6→21 subcommands. MCP diagram: add TraceHandler + AnomalyHandler (7→9 handlers). Ch. 8 state directory: add trace.jsonl. | **Done** |
+| FJ-150 | Examples README: add supporting assets section documenting files/ and recipes/ subdirs. | **Done** |
 
 ### Phase 7: Secrets & Conditionals (v0.7)
 

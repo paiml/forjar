@@ -46,6 +46,13 @@ Validate any config with `cargo run -- validate -f examples/<config>`.
 | `dogfood-secrets.yaml` | file | Template interpolation with `{{params.*}}` |
 | `dogfood-hooks.yaml` | file | Pre/post apply hooks, lifecycle callbacks |
 
+## Supporting Assets
+
+| Path | Used By | Description |
+|------|---------|-------------|
+| `files/app-entrypoint.sh` | `dogfood-phase2.yaml` | Source file for base64 transfer testing (`source:` field) |
+| `recipes/web-server.yaml` | `dogfood-recipe.yaml`, `recipe_expansion.rs` | Reusable recipe with typed inputs for recipe expansion testing |
+
 ## Quick Start
 
 ```bash
