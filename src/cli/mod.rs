@@ -594,6 +594,29 @@ pub enum Commands {
     /// FJ-264: Export JSON Schema for forjar.yaml
     Schema,
 
+    /// FJ-267: Watch config for changes and auto-plan
+    Watch {
+        /// Path to forjar.yaml
+        #[arg(short, long, default_value = "forjar.yaml")]
+        file: PathBuf,
+
+        /// State directory
+        #[arg(long, default_value = "state")]
+        state_dir: PathBuf,
+
+        /// Polling interval in seconds
+        #[arg(long, default_value = "2")]
+        interval: u64,
+
+        /// Auto-apply on change (requires --yes)
+        #[arg(long)]
+        apply: bool,
+
+        /// Confirm auto-apply (required with --apply)
+        #[arg(long)]
+        yes: bool,
+    },
+
     /// FJ-256: Generate lock file without applying
     Lock {
         /// Path to forjar.yaml
@@ -1042,6 +1065,13 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
         Commands::Doctor { file, json } => cmd_doctor(file.as_deref(), json),
         Commands::Completion { shell } => cmd_completion(shell),
         Commands::Schema => cmd_schema(),
+        Commands::Watch {
+            file,
+            state_dir,
+            interval,
+            apply,
+            yes,
+        } => cmd_watch(&file, &state_dir, interval, apply, yes),
         Commands::Lock {
             file,
             state_dir,
@@ -1868,7 +1898,7 @@ fn cmd_rollback(
         None,  // no env_file
         None,  // no workspace
         false, // no report
-    false, // no force_unlock
+        false, // no force_unlock
     )
 }
 
@@ -3726,7 +3756,7 @@ fn cmd_drift(
             None,  // no env_file
             None,  // no workspace
             false, // no report
-        false, // no force_unlock
+            false, // no force_unlock
         )?;
         if !json {
             println!("Remediation complete.");
@@ -4510,6 +4540,123 @@ fn cmd_completion(shell: CompletionShell) -> Result<(), String> {
 }
 
 /// FJ-264: Export JSON Schema for forjar.yaml.
+/// FJ-267: Watch config file for changes and auto-plan (or auto-apply).
+fn cmd_watch(
+    file: &Path,
+    state_dir: &Path,
+    interval_secs: u64,
+    auto_apply: bool,
+    yes: bool,
+) -> Result<(), String> {
+    if auto_apply && !yes {
+        return Err("--apply requires --yes to confirm automatic apply".to_string());
+    }
+
+    let interval = std::time::Duration::from_secs(interval_secs.max(1));
+    let mut last_content: Vec<u8> = Vec::new();
+
+    println!(
+        "Watching {} (poll every {}s, {}). Ctrl-C to stop.",
+        file.display(),
+        interval_secs,
+        if auto_apply { "auto-apply" } else { "plan-only" }
+    );
+
+    loop {
+        // Read file and compare content
+        let content = match std::fs::read(file) {
+            Ok(c) => c,
+            Err(e) => {
+                eprintln!("watch: cannot read {}: {}", file.display(), e);
+                std::thread::sleep(interval);
+                continue;
+            }
+        };
+
+        if content != last_content {
+            if !last_content.is_empty() {
+                println!("\n{} changed — re-planning...", file.display());
+            }
+            last_content = content;
+
+            // Parse and plan
+            match parse_and_validate(file) {
+                Ok(config) => {
+                    let execution_order = match resolver::build_execution_order(&config) {
+                        Ok(o) => o,
+                        Err(e) => {
+                            eprintln!("watch: resolve error: {}", e);
+                            std::thread::sleep(interval);
+                            continue;
+                        }
+                    };
+                    let locks = load_all_locks(state_dir, &config);
+                    let plan = planner::plan(&config, &execution_order, &locks, None);
+                    print_plan(&plan, None, Some(&config));
+
+                    if auto_apply && (plan.to_create > 0 || plan.to_update > 0 || plan.to_destroy > 0) {
+                        println!("\nAuto-applying...");
+                        let cfg = executor::ApplyConfig {
+                            config: &config,
+                            state_dir,
+                            force: false,
+                            dry_run: false,
+                            machine_filter: None,
+                            resource_filter: None,
+                            tag_filter: None,
+                            timeout_secs: None,
+                            force_unlock: false,
+                        };
+                        match executor::apply(&cfg) {
+                            Ok(results) => {
+                                let total_converged: u32 =
+                                    results.iter().map(|r| r.resources_converged).sum();
+                                let total_unchanged: u32 =
+                                    results.iter().map(|r| r.resources_unchanged).sum();
+                                println!(
+                                    "{}",
+                                    green(&format!(
+                                        "Apply complete: {} converged, {} unchanged.",
+                                        total_converged, total_unchanged
+                                    ))
+                                );
+                            }
+                            Err(e) => eprintln!("{}", red(&format!("Apply error: {}", e))),
+                        }
+                    }
+                }
+                Err(e) => eprintln!("watch: parse error: {}", e),
+            }
+        }
+
+        std::thread::sleep(interval);
+    }
+}
+
+/// Load all machine locks for planning (used by watch).
+fn load_all_locks(
+    state_dir: &Path,
+    config: &types::ForjarConfig,
+) -> std::collections::HashMap<String, types::StateLock> {
+    let mut locks = std::collections::HashMap::new();
+    for machine_name in config.machines.keys() {
+        if let Ok(Some(lock)) = state::load_lock(state_dir, machine_name) {
+            locks.insert(machine_name.clone(), lock);
+        }
+    }
+    // Also check for "localhost" resources
+    if config
+        .resources
+        .values()
+        .any(|r| matches!(&r.machine, types::MachineTarget::Single(m) if m == "local" || m == "localhost"))
+    {
+        if let Ok(Some(lock)) = state::load_lock(state_dir, "local") {
+            locks.insert("local".to_string(), lock);
+        }
+    }
+    locks
+}
+
 fn cmd_schema() -> Result<(), String> {
     let machine_schema = serde_json::json!({
         "type": "object",
@@ -5496,7 +5643,7 @@ resources:
             None,  // no env_file
             None,  // no workspace
             false, // no report
-        false, // no force_unlock
+            false, // no force_unlock
         )
         .unwrap();
     }
@@ -5545,7 +5692,7 @@ policy:
             None,  // no env_file
             None,  // no workspace
             false, // no report
-        false, // no force_unlock
+            false, // no force_unlock
         )
         .unwrap();
 
@@ -5591,7 +5738,7 @@ resources: {}
             None,  // no env_file
             None,  // no workspace
             false, // no report
-        false, // no force_unlock
+            false, // no force_unlock
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("validation"));
@@ -5912,7 +6059,7 @@ resources:
                 workspace: None,
                 check: false,
                 report: false,
-            force_unlock: false,
+                force_unlock: false,
             },
             false,
             true,
@@ -6104,7 +6251,7 @@ resources:
             None,  // no env_file
             None,  // no workspace
             false, // no report
-        false, // no force_unlock
+            false, // no force_unlock
         )
         .unwrap();
         assert!(target.exists());
@@ -6127,7 +6274,7 @@ resources:
             None,  // no env_file
             None,  // no workspace
             false, // no report
-        false, // no force_unlock
+            false, // no force_unlock
         )
         .unwrap();
     }
@@ -6696,7 +6843,7 @@ resources:
             None,  // no env_file
             None,  // no workspace
             false, // no report
-        false, // no force_unlock
+            false, // no force_unlock
         )
         .unwrap();
         assert!(target.exists());
@@ -6759,7 +6906,7 @@ resources:
             None,  // no env_file
             None,  // no workspace
             false, // no report
-        false, // no force_unlock
+            false, // no force_unlock
         )
         .unwrap();
         cmd_destroy(&config, &state, None, true, true).unwrap();
@@ -6823,7 +6970,7 @@ resources:
             None,  // no env_file
             None,  // no workspace
             false, // no report
-        false, // no force_unlock
+            false, // no force_unlock
         )
         .unwrap();
         assert!(target_a.exists());
@@ -6882,7 +7029,7 @@ resources:
             None,  // no env_file
             None,  // no workspace
             false, // no report
-        false, // no force_unlock
+            false, // no force_unlock
         )
         .unwrap();
         dispatch(
@@ -6977,7 +7124,7 @@ resources:
             None,  // no env_file
             None,  // no workspace
             false, // no report
-        false, // no force_unlock
+            false, // no force_unlock
         )
         .unwrap();
         assert!(target.exists());
@@ -7135,7 +7282,7 @@ resources:
             None,  // no env_file
             None,  // no workspace
             false, // no report
-        false, // no force_unlock
+            false, // no force_unlock
         )
         .unwrap();
         assert!(std::path::Path::new(&target).exists());
@@ -8507,7 +8654,7 @@ resources:
             None,  // no env_file
             None,  // no workspace
             false, // no report
-        false, // no force_unlock
+            false, // no force_unlock
         )
         .unwrap();
     }
@@ -9771,7 +9918,7 @@ resources:
             None,  // no env_file
             None,  // no workspace
             false, // no report
-        false, // no force_unlock
+            false, // no force_unlock
         );
         assert!(result.is_ok());
     }
@@ -9853,7 +10000,7 @@ resources:
                 workspace: None,
                 check: false,
                 report: false,
-            force_unlock: false,
+                force_unlock: false,
             },
             false,
             true,
@@ -10389,7 +10536,7 @@ resources:
             Some(env.as_path()),
             None,  // no workspace
             false, // no report
-        false, // no force_unlock
+            false, // no force_unlock
         )
         .unwrap();
     }
@@ -10973,7 +11120,7 @@ resources:
                 workspace: None,
                 check: true,
                 report: false,
-            force_unlock: false,
+                force_unlock: false,
             },
             false,
             true,
@@ -11026,7 +11173,7 @@ resources:
                 workspace: None,
                 check: false,
                 report: false,
-            force_unlock: false,
+                force_unlock: false,
             },
             false,
             true,
@@ -12332,5 +12479,98 @@ resources:
         });
         assert_eq!(policy["ssh_retries"], 1);
         assert_eq!(policy["tripwire"], true);
+    }
+
+    // ========================================================================
+    // FJ-267: forjar watch
+    // ========================================================================
+
+    #[test]
+    fn test_fj267_watch_requires_yes_with_apply() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join("forjar.yaml");
+        std::fs::write(&config_path, "version: \"1.0\"\nname: test\nmachines:\n  local:\n    hostname: localhost\n    addr: 127.0.0.1\nresources:\n  test:\n    type: file\n    machine: local\n    path: /tmp/fj267-test.txt\n    content: test\n").unwrap();
+        let result = dispatch(
+            Commands::Watch {
+                file: config_path,
+                state_dir: dir.path().join("state"),
+                interval: 2,
+                apply: true,
+                yes: false,
+            },
+            false,
+            true,
+        );
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("--yes"));
+    }
+
+    #[test]
+    fn test_fj267_watch_command_parse() {
+        // Verify Watch command variant has correct fields
+        let cmd = Commands::Watch {
+            file: PathBuf::from("forjar.yaml"),
+            state_dir: PathBuf::from("state"),
+            interval: 5,
+            apply: false,
+            yes: false,
+        };
+        match cmd {
+            Commands::Watch { interval, apply, .. } => {
+                assert_eq!(interval, 5);
+                assert!(!apply);
+            }
+            _ => panic!("expected Watch"),
+        }
+    }
+
+    #[test]
+    fn test_fj267_load_all_locks() {
+        let dir = tempfile::tempdir().unwrap();
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  local:
+    hostname: localhost
+    addr: 127.0.0.1
+resources:
+  test:
+    type: file
+    machine: local
+    path: /tmp/fj267-lock.txt
+    content: "test"
+"#;
+        let config: types::ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let locks = load_all_locks(dir.path(), &config);
+        // No locks exist yet
+        assert!(locks.is_empty());
+    }
+
+    #[test]
+    fn test_fj267_load_all_locks_with_existing() {
+        let dir = tempfile::tempdir().unwrap();
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  srv:
+    hostname: srv
+    addr: 192.168.1.1
+resources:
+  test:
+    type: file
+    machine: srv
+    path: /tmp/test.txt
+    content: "test"
+"#;
+        let config: types::ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        // Create a lock for "srv"
+        let lock = state::new_lock("srv", "srv");
+        state::save_lock(dir.path(), &lock).unwrap();
+
+        let locks = load_all_locks(dir.path(), &config);
+        assert_eq!(locks.len(), 1);
+        assert!(locks.contains_key("srv"));
     }
 }
