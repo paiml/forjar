@@ -285,6 +285,10 @@ pub enum Commands {
         /// Output status as JSON
         #[arg(long)]
         json: bool,
+
+        /// Config file — enriches JSON with resource_group, tags, depends_on
+        #[arg(short, long)]
+        file: Option<PathBuf>,
     },
 
     /// Show apply history from event logs
@@ -1051,7 +1055,8 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             state_dir,
             machine,
             json,
-        } => cmd_status(&state_dir, machine.as_deref(), json),
+            file,
+        } => cmd_status(&state_dir, machine.as_deref(), json, file.as_deref()),
         Commands::History {
             state_dir,
             machine,
@@ -4905,8 +4910,20 @@ fn cmd_graph(file: &Path, format: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn cmd_status(state_dir: &Path, machine_filter: Option<&str>, json: bool) -> Result<(), String> {
+fn cmd_status(
+    state_dir: &Path,
+    machine_filter: Option<&str>,
+    json: bool,
+    config_file: Option<&Path>,
+) -> Result<(), String> {
     let global = state::load_global_lock(state_dir)?;
+
+    // Optionally load config for enriched output
+    let config = if let Some(f) = config_file {
+        Some(parser::parse_and_validate(f)?)
+    } else {
+        None
+    };
 
     let entries = std::fs::read_dir(state_dir)
         .map_err(|e| format!("cannot read state dir {}: {}", state_dir.display(), e))?;
@@ -4931,9 +4948,59 @@ fn cmd_status(state_dir: &Path, machine_filter: Option<&str>, json: bool) -> Res
     }
 
     if json {
+        let machine_values: Vec<serde_json::Value> = machines
+            .iter()
+            .map(|lock| {
+                let resources: serde_json::Map<String, serde_json::Value> = lock
+                    .resources
+                    .iter()
+                    .map(|(id, rl)| {
+                        let mut entry = serde_json::json!({
+                            "type": rl.resource_type,
+                            "status": rl.status,
+                            "hash": &rl.hash,
+                        });
+                        if let Some(ref at) = rl.applied_at {
+                            entry["applied_at"] = serde_json::json!(at);
+                        }
+                        if let Some(dur) = rl.duration_seconds {
+                            entry["duration_seconds"] = serde_json::json!(dur);
+                        }
+                        if !rl.details.is_empty() {
+                            entry["details"] = serde_json::json!(rl.details);
+                        }
+                        // Enrich from config if available
+                        if let Some(ref cfg) = config {
+                            if let Some(res) = cfg.resources.get(id) {
+                                if let Some(ref rg) = res.resource_group {
+                                    entry["resource_group"] = serde_json::json!(rg);
+                                }
+                                if !res.tags.is_empty() {
+                                    entry["tags"] = serde_json::json!(res.tags);
+                                }
+                                if !res.depends_on.is_empty() {
+                                    entry["depends_on"] = serde_json::json!(res.depends_on);
+                                }
+                            }
+                        }
+                        (id.clone(), entry)
+                    })
+                    .collect();
+                serde_json::json!({
+                    "machine": lock.machine,
+                    "hostname": lock.hostname,
+                    "generated_at": lock.generated_at,
+                    "generator": lock.generator,
+                    "blake3_version": lock.blake3_version,
+                    "resource_count": lock.resources.len(),
+                    "resources": resources,
+                })
+            })
+            .collect();
+
         let output = serde_json::json!({
             "global": global,
-            "machines": machines,
+            "machines": machine_values,
         });
         println!(
             "{}",
@@ -4961,9 +5028,29 @@ fn cmd_status(state_dir: &Path, machine_filter: Option<&str>, json: bool) -> Res
                         .duration_seconds
                         .map(|d| format!(" ({:.2}s)", d))
                         .unwrap_or_default();
+                    let extras = if let Some(ref cfg) = config {
+                        if let Some(res) = cfg.resources.get(id) {
+                            let mut parts = Vec::new();
+                            if let Some(ref rg) = res.resource_group {
+                                parts.push(format!("group={}", rg));
+                            }
+                            if !res.tags.is_empty() {
+                                parts.push(format!("tags={}", res.tags.join(",")));
+                            }
+                            if parts.is_empty() {
+                                String::new()
+                            } else {
+                                format!(" ({})", parts.join(", "))
+                            }
+                        } else {
+                            String::new()
+                        }
+                    } else {
+                        String::new()
+                    };
                     println!(
-                        "    {}: {} [{}]{}",
-                        id, rl.status, rl.resource_type, duration
+                        "    {}: {} [{}]{}{}",
+                        id, rl.status, rl.resource_type, duration, extras
                     );
                 }
                 println!();
@@ -6455,7 +6542,7 @@ resources: {}
     fn test_fj017_status_empty() {
         let dir = tempfile::tempdir().unwrap();
         std::fs::create_dir_all(dir.path().join("state")).unwrap();
-        cmd_status(&dir.path().join("state"), None, false).unwrap();
+        cmd_status(&dir.path().join("state"), None, false, None).unwrap();
     }
 
     #[test]
@@ -6887,7 +6974,7 @@ resources: {}
         let lock = crate::core::state::new_lock("mybox", "mybox-host");
         crate::core::state::save_lock(&state, &lock).unwrap();
 
-        cmd_status(&state, None, false).unwrap();
+        cmd_status(&state, None, false, None).unwrap();
     }
 
     #[test]
@@ -6898,8 +6985,8 @@ resources: {}
         let lock = crate::core::state::new_lock("target", "target-host");
         crate::core::state::save_lock(&state, &lock).unwrap();
 
-        cmd_status(&state, Some("target"), false).unwrap();
-        cmd_status(&state, Some("nonexistent"), false).unwrap();
+        cmd_status(&state, Some("target"), false, None).unwrap();
+        cmd_status(&state, Some("nonexistent"), false, None).unwrap();
     }
 
     #[test]
@@ -6946,6 +7033,7 @@ resources: {}
                 state_dir: state,
                 machine: None,
                 json: false,
+                file: None,
             },
             false,
             true,
@@ -7119,7 +7207,7 @@ resources:
         crate::core::state::save_lock(&state, &lock).unwrap();
 
         // Exercises the full resource iteration path with duration display
-        cmd_status(&state, None, false).unwrap();
+        cmd_status(&state, None, false, None).unwrap();
     }
 
     #[test]
@@ -7130,7 +7218,7 @@ resources:
         std::fs::create_dir_all(&state).unwrap();
         // Create a regular file inside state/ — should be skipped
         std::fs::write(state.join("not-a-machine"), "junk").unwrap();
-        cmd_status(&state, None, false).unwrap();
+        cmd_status(&state, None, false, None).unwrap();
     }
 
     #[test]
@@ -10405,7 +10493,7 @@ resources: {}
     #[test]
     fn test_fj132_cmd_status_empty_state() {
         let dir = tempfile::tempdir().unwrap();
-        cmd_status(dir.path(), None, false).unwrap();
+        cmd_status(dir.path(), None, false, None).unwrap();
     }
 
     #[test]
@@ -10507,7 +10595,7 @@ machines:
     last_apply: '2026-02-25T10:00:00Z'
 "#;
         std::fs::write(dir.path().join("forjar.lock.yaml"), lock_yaml).unwrap();
-        cmd_status(dir.path(), None, false).unwrap();
+        cmd_status(dir.path(), None, false, None).unwrap();
     }
 
     #[test]
@@ -10808,7 +10896,7 @@ resources:
         let dir = tempfile::tempdir().unwrap();
         let state = dir.path().join("state");
         std::fs::create_dir_all(&state).unwrap();
-        let result = cmd_status(&state, None, false);
+        let result = cmd_status(&state, None, false, None);
         assert!(
             result.is_ok(),
             "cmd_status on empty state dir should succeed"
@@ -10940,7 +11028,7 @@ resources:
         let state = dir.path().join("state");
         std::fs::create_dir_all(&state).unwrap();
         // Should succeed and produce valid JSON even with no machines
-        let result = cmd_status(&state, None, true);
+        let result = cmd_status(&state, None, true, None);
         assert!(result.is_ok());
     }
 
@@ -10960,7 +11048,7 @@ blake3_version: "1.8"
 resources: {}
 "#;
         std::fs::write(machine_dir.join("forjar-lock.yaml"), lock).unwrap();
-        let result = cmd_status(&state, None, true);
+        let result = cmd_status(&state, None, true, None);
         assert!(result.is_ok());
     }
 
@@ -11046,6 +11134,7 @@ resources:
                 state_dir: state,
                 machine: None,
                 json: true,
+                file: None,
             },
             false,
             true,
@@ -14728,5 +14817,100 @@ resources:
             }
             _ => panic!("expected Diff"),
         }
+    }
+
+    // ── FJ-292: status --json enriched output ──
+
+    #[test]
+    fn test_fj292_status_file_flag_parse() {
+        let cmd = Commands::Status {
+            state_dir: PathBuf::from("state"),
+            machine: None,
+            json: true,
+            file: Some(PathBuf::from("forjar.yaml")),
+        };
+        match cmd {
+            Commands::Status { file, json, .. } => {
+                assert!(json);
+                assert_eq!(file, Some(PathBuf::from("forjar.yaml")));
+            }
+            _ => panic!("expected Status"),
+        }
+    }
+
+    #[test]
+    fn test_fj292_status_json_enriched() {
+        use crate::core::state;
+        use crate::core::types::{ResourceLock, ResourceStatus, ResourceType, StateLock};
+        use indexmap::IndexMap;
+        use std::collections::HashMap;
+
+        let dir = tempfile::tempdir().unwrap();
+        let state_dir = dir.path().join("state");
+        std::fs::create_dir_all(&state_dir).unwrap();
+
+        // Create a machine lock
+        let mut resources = IndexMap::new();
+        resources.insert(
+            "web-pkg".to_string(),
+            ResourceLock {
+                resource_type: ResourceType::Package,
+                status: ResourceStatus::Converged,
+                applied_at: Some("2026-02-26T00:00:00Z".to_string()),
+                duration_seconds: Some(1.5),
+                hash: "abc123def456".to_string(),
+                details: HashMap::new(),
+            },
+        );
+        let lock = StateLock {
+            schema: "1".to_string(),
+            machine: "local".to_string(),
+            hostname: "local".to_string(),
+            generated_at: "2026-02-26T00:00:00Z".to_string(),
+            generator: "forjar-test".to_string(),
+            blake3_version: "1.5.0".to_string(),
+            resources,
+        };
+
+        // Save machine lock
+        let machine_dir = state_dir.join("local");
+        std::fs::create_dir_all(&machine_dir).unwrap();
+        state::save_lock(&state_dir, &lock).unwrap();
+
+        // Create a config file with resource_group and tags
+        let config_path = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config_path,
+            r#"
+version: "1.0"
+name: test
+machines:
+  local:
+    hostname: local
+    addr: 127.0.0.1
+resources:
+  web-pkg:
+    type: package
+    machine: local
+    provider: apt
+    packages: [curl]
+    resource_group: web
+    tags: [critical, frontend]
+"#,
+        )
+        .unwrap();
+
+        // Call status with config file — should enrich JSON
+        let result = cmd_status(&state_dir, None, true, Some(config_path.as_path()));
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj292_status_no_file_still_works() {
+        let dir = tempfile::tempdir().unwrap();
+        let state_dir = dir.path().join("state");
+        std::fs::create_dir_all(&state_dir).unwrap();
+        let result = cmd_status(&state_dir, None, false, None);
+        assert!(result.is_ok());
     }
 }
