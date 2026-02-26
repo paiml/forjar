@@ -186,6 +186,10 @@ cargo bench
 | BLAKE3 hash | 1 MB file | 172 us | +/- 0.4 us |
 | YAML parse | 500 B config | 20.7 us | +/- 0.2 us |
 | Topo sort | 100 nodes | 34.6 us | +/- 0.4 us |
+| Copia signature | 1 MB file | 294 us | +/- 0.3 us |
+| Copia signature | 4 MB file | 1.19 ms | +/- 0.01 ms |
+| Copia delta | 4 MB, 2% change | 1.18 ms | +/- 0.01 ms |
+| Copia patch gen | 1 MB, 10% change | 60 us | +/- 0.3 us |
 
 Criterion.rs, 100 samples, 3s warm-up. Run locally to reproduce.
 
