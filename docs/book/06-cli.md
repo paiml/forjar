@@ -1124,3 +1124,21 @@ forjar state-rm legacy --force
 | `--state-dir PATH` | State directory (default: `state`) |
 | `--machine NAME` | Target specific machine |
 | `--force` | Skip dependency check |
+
+### `forjar output`
+
+Show resolved output values from the `outputs:` block in forjar.yaml.
+
+```bash
+forjar output                    # all outputs
+forjar output app_url            # single key
+forjar output --json             # JSON format
+forjar output -f other.yaml      # different config
+```
+
+| Flag | Description |
+|------|-------------|
+| `-f PATH` | Path to forjar.yaml (default: `forjar.yaml`) |
+| `--json` | Output as JSON |
+
+Output values support `{{params.*}}` and `{{machine.NAME.FIELD}}` template variables, resolved at display time.
