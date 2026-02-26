@@ -1078,3 +1078,49 @@ Forjar Performance Benchmarks (1000 iterations)
   drift (100 resources)             356.0µs         < 1s
   blake3 hash (4KB)                   0.5µs        < 1µs
 ```
+
+### `forjar state-list`
+
+Tabular view of all resources in state with type, status, hash prefix, and timestamp.
+
+```bash
+forjar state-list
+forjar state-list --machine web01
+forjar state-list --json
+```
+
+| Flag | Description |
+|------|-------------|
+| `--state-dir PATH` | State directory (default: `state`) |
+| `--machine NAME` | Filter to specific machine |
+| `--json` | Output as JSON array |
+
+### `forjar state-mv`
+
+Rename a resource in state without re-applying. Preserves hash and metadata.
+
+```bash
+forjar state-mv old-resource-id new-resource-id
+forjar state-mv old-name new-name --machine web01
+```
+
+| Flag | Description |
+|------|-------------|
+| `--state-dir PATH` | State directory (default: `state`) |
+| `--machine NAME` | Target specific machine |
+
+### `forjar state-rm`
+
+Remove a resource from state without destroying it on the machine.
+
+```bash
+forjar state-rm deprecated-resource
+forjar state-rm old-config --machine web01
+forjar state-rm legacy --force
+```
+
+| Flag | Description |
+|------|-------------|
+| `--state-dir PATH` | State directory (default: `state`) |
+| `--machine NAME` | Target specific machine |
+| `--force` | Skip dependency check |

@@ -54,7 +54,7 @@ src/
   lib.rs                 Library root
   build.rs               Compile-time contract binding verification
   cli/
-    mod.rs               21 subcommands (init through bench)
+    mod.rs               24 subcommands (init through state-rm)
   mcp/
     mod.rs               MCP server via pforge — 9 tool handlers (FJ-063)
   core/

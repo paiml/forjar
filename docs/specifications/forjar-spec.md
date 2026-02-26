@@ -112,7 +112,7 @@ src/
   lib.rs                Public API
   build.rs              Compile-time contract binding verification
   cli/
-    mod.rs              Subcommand dispatch (init, validate, plan, apply, drift, status, history, destroy, import, show, graph, check, diff, fmt, lint, rollback, anomaly, trace, migrate, mcp, bench)
+    mod.rs              Subcommand dispatch (init, validate, plan, apply, drift, status, history, destroy, import, show, graph, check, diff, fmt, lint, rollback, anomaly, trace, migrate, mcp, bench, state-list, state-mv, state-rm)
   mcp/
     mod.rs              MCP server via pforge — 9 tool handlers, registry, ForgeConfig
   core/
@@ -1596,9 +1596,9 @@ Shows current state from lock files: project name, last apply, per-machine resou
 |--------|-------------|--------|
 | FJ-210 | Workspaces — `forjar workspace new/list/select/delete <name>`. Per-workspace state directory (`state/<workspace>/<machine>/`). `{{workspace}}` template variable. Config-level `environments:` block with per-env param overrides. `-w <name>` flag on plan/apply/drift. | Planned |
 | FJ-211 | Environment variable files — `env_file: envs/production.yaml` field on workspace. Loads param overrides from external YAML. Supports `--env-file` CLI override. | Planned |
-| FJ-212 | `forjar state mv <old-id> <new-id>` — rename a resource in state without re-applying. Updates lock file resource key, preserves hash and metadata. Validates new ID doesn't conflict. | Planned |
-| FJ-213 | `forjar state rm <resource-id>` — remove a resource from state without destroying it on the machine. Warns if other resources depend on it. `--force` to skip dependency check. | Planned |
-| FJ-214 | `forjar state list` — tabular view of all resources in state with type, status, hash prefix, last applied timestamp. `--machine` filter. `--json` output. | Planned |
+| FJ-212 | `forjar state-mv <old-id> <new-id>` — rename a resource in state without re-applying. Updates lock file resource key, preserves hash and metadata. Validates new ID doesn't conflict. `--machine` filter. 6 tests. | **Done** |
+| FJ-213 | `forjar state-rm <resource-id>` — remove a resource from state without destroying it on the machine. Warns if other resources reference it via details. `--force` to skip dependency check. `--machine` filter. 5 tests. | **Done** |
+| FJ-214 | `forjar state-list` — tabular view of all resources in state with type, status, hash prefix, last applied timestamp. `--machine` filter. `--json` output. 6 tests. | **Done** |
 | FJ-215 | Output values — `outputs:` top-level block in forjar.yaml. `forjar output <key>` CLI. Cross-config references via `forjar output --config other.yaml <key>`. Outputs written to `state/outputs.yaml`. | Planned |
 | FJ-216 | Parallel intra-machine execution — resources within the same machine that have no dependency relationship execute concurrently via `std::thread::scope`. Respects DAG: only independent siblings run in parallel. `policy.parallel_resources: true` (default: false). | Planned |
 
