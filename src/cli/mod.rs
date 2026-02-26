@@ -3455,23 +3455,45 @@ fn export_scripts(config: &types::ForjarConfig, dir: &Path) -> Result<(), String
         // Sanitize resource ID for filesystem (replace / with --)
         let safe_id = id.replace('/', "--");
 
+        // FJ-297: Build metadata header for exported scripts
+        let machine_str = match &resource.machine {
+            types::MachineTarget::Single(m) => m.clone(),
+            types::MachineTarget::Multiple(ms) => ms.join(","),
+        };
+        let mut header = format!(
+            "# forjar: {} ({})\n# machine: {}\n# type: {}\n",
+            id, config.name, machine_str, resource.resource_type
+        );
+        if let Some(ref rg) = resource.resource_group {
+            header.push_str(&format!("# group: {}\n", rg));
+        }
+        if !resource.tags.is_empty() {
+            header.push_str(&format!("# tags: {}\n", resource.tags.join(", ")));
+        }
+        if !resource.depends_on.is_empty() {
+            header.push_str(&format!(
+                "# depends_on: {}\n",
+                resource.depends_on.join(", ")
+            ));
+        }
+
         if let Ok(script) = codegen::check_script(&resolved) {
             let path = dir.join(format!("{}.check.sh", safe_id));
-            std::fs::write(&path, &script)
+            std::fs::write(&path, format!("{}{}", header, script))
                 .map_err(|e| format!("write {}: {}", path.display(), e))?;
             count += 1;
         }
 
         if let Ok(script) = codegen::apply_script(&resolved) {
             let path = dir.join(format!("{}.apply.sh", safe_id));
-            std::fs::write(&path, &script)
+            std::fs::write(&path, format!("{}{}", header, script))
                 .map_err(|e| format!("write {}: {}", path.display(), e))?;
             count += 1;
         }
 
         if let Ok(script) = codegen::state_query_script(&resolved) {
             let path = dir.join(format!("{}.state_query.sh", safe_id));
-            std::fs::write(&path, &script)
+            std::fs::write(&path, format!("{}{}", header, script))
                 .map_err(|e| format!("write {}: {}", path.display(), e))?;
             count += 1;
         }
@@ -4750,8 +4772,7 @@ fn cmd_history(
         });
         println!(
             "{}",
-            serde_json::to_string_pretty(&output)
-                .map_err(|e| format!("JSON error: {}", e))?
+            serde_json::to_string_pretty(&output).map_err(|e| format!("JSON error: {}", e))?
         );
     } else if apply_events.is_empty() {
         println!("No apply history found. Run `forjar apply` first.");
@@ -15222,5 +15243,46 @@ resources:
         std::fs::create_dir_all(&state_dir).unwrap();
         let result = cmd_history(&state_dir, None, 10, true, None);
         assert!(result.is_ok());
+    }
+
+    // ── FJ-297: plan --output-dir metadata headers ──
+
+    #[test]
+    fn test_fj297_export_scripts_metadata_header() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config_path,
+            r#"
+version: "1.0"
+name: header-test
+machines:
+  local:
+    hostname: local
+    addr: 127.0.0.1
+resources:
+  web-cfg:
+    type: file
+    machine: local
+    path: /tmp/fj297/test.txt
+    content: "hello"
+    resource_group: frontend
+    tags: [web, critical]
+    depends_on: []
+"#,
+        )
+        .unwrap();
+
+        let config = parser::parse_and_validate(&config_path).unwrap();
+        let out_dir = dir.path().join("scripts");
+        export_scripts(&config, &out_dir).unwrap();
+
+        // Check that the apply script has metadata header
+        let apply = std::fs::read_to_string(out_dir.join("web-cfg.apply.sh")).unwrap();
+        assert!(apply.contains("# forjar: web-cfg (header-test)"));
+        assert!(apply.contains("# machine: local"));
+        assert!(apply.contains("# type: file"));
+        assert!(apply.contains("# group: frontend"));
+        assert!(apply.contains("# tags: web, critical"));
     }
 }
