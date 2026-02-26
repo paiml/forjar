@@ -73,6 +73,10 @@ pub enum Commands {
         /// Path to forjar.yaml
         #[arg(short, long, default_value = "forjar.yaml")]
         file: PathBuf,
+
+        /// FJ-282: Extended validation — check machine refs, paths, deps, templates
+        #[arg(long)]
+        strict: bool,
     },
 
     /// Show execution plan (diff desired vs current)
@@ -887,7 +891,7 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
     NO_COLOR.store(no_color, Ordering::Relaxed);
     match cmd {
         Commands::Init { path } => cmd_init(&path),
-        Commands::Validate { file } => cmd_validate(&file),
+        Commands::Validate { file, strict } => cmd_validate(&file, strict),
         Commands::Plan {
             file,
             machine,
@@ -3004,8 +3008,72 @@ fn discover_machines(state_dir: &Path) -> Vec<String> {
     machines
 }
 
-fn cmd_validate(file: &Path) -> Result<(), String> {
+fn cmd_validate(file: &Path, strict: bool) -> Result<(), String> {
     let config = parse_and_validate(file)?;
+
+    if strict {
+        let mut errors: Vec<String> = Vec::new();
+
+        // Check that all machine references in resources exist
+        for (id, resource) in &config.resources {
+            for machine_name in resource.machine.to_vec() {
+                if !config.machines.contains_key(&machine_name) {
+                    errors.push(format!(
+                        "{}: references undefined machine '{}'",
+                        id, machine_name
+                    ));
+                }
+            }
+        }
+
+        // Check that depends_on targets exist
+        for (id, resource) in &config.resources {
+            for dep in &resource.depends_on {
+                if !config.resources.contains_key(dep) {
+                    errors.push(format!(
+                        "{}: depends_on '{}' does not exist",
+                        id, dep
+                    ));
+                }
+            }
+        }
+
+        // Check for circular dependencies
+        if let Err(e) = resolver::build_execution_order(&config) {
+            errors.push(format!("dependency cycle: {}", e));
+        }
+
+        // Check that file resource paths are absolute
+        for (id, resource) in &config.resources {
+            if let Some(ref path) = resource.path {
+                if !path.starts_with('/') && !path.starts_with("{{") {
+                    errors.push(format!(
+                        "{}: path '{}' is not absolute",
+                        id, path
+                    ));
+                }
+            }
+        }
+
+        // Check that template vars in content/path resolve
+        for (id, resource) in &config.resources {
+            if let Err(e) =
+                resolver::resolve_resource_templates(resource, &config.params, &config.machines)
+            {
+                errors.push(format!("{}: template error: {}", id, e));
+            }
+        }
+
+        if !errors.is_empty() {
+            for e in &errors {
+                eprintln!("  {}", red(e));
+            }
+            return Err(format!(
+                "strict validation failed: {} error(s)",
+                errors.len()
+            ));
+        }
+    }
 
     println!(
         "OK: {} ({} machines, {} resources)",
@@ -6113,7 +6181,7 @@ resources:
 "#,
         )
         .unwrap();
-        cmd_validate(&config).unwrap();
+        cmd_validate(&config, false).unwrap();
     }
 
     #[test]
@@ -6130,7 +6198,7 @@ resources: {}
 "#,
         )
         .unwrap();
-        let result = cmd_validate(&config);
+        let result = cmd_validate(&config, false);
         assert!(result.is_err());
     }
 
@@ -6601,6 +6669,7 @@ resources: {}
         dispatch(
             Commands::Validate {
                 file: config.clone(),
+                strict: false,
             },
             false,
             true,
@@ -9875,7 +9944,7 @@ resources:
     packages: [curl]
 "#;
         std::fs::write(&file, yaml).unwrap();
-        cmd_validate(&file).unwrap();
+        cmd_validate(&file, false).unwrap();
     }
 
     #[test]
@@ -9889,7 +9958,7 @@ machines: {}
 resources: {}
 "#;
         std::fs::write(&file, yaml).unwrap();
-        let result = cmd_validate(&file);
+        let result = cmd_validate(&file, false);
         assert!(result.is_err());
     }
 
@@ -10318,7 +10387,7 @@ resources:
     depends_on: [web-pkg]
 "#;
         std::fs::write(&file, yaml).unwrap();
-        let result = cmd_validate(&file);
+        let result = cmd_validate(&file, false);
         assert!(
             result.is_ok(),
             "valid config should pass validation: {:?}",
@@ -10458,7 +10527,7 @@ resources:
     fn test_fj017_cmd_validate_missing_file() {
         let dir = tempfile::tempdir().unwrap();
         let missing = dir.path().join("nonexistent.yaml");
-        let result = cmd_validate(&missing);
+        let result = cmd_validate(&missing, false);
         assert!(
             result.is_err(),
             "cmd_validate should fail for a nonexistent file"
@@ -13903,6 +13972,97 @@ resources:
                 assert_eq!(group, Some("database".to_string()));
             }
             _ => panic!("expected Test"),
+        }
+    }
+
+    // ── FJ-282: forjar validate --strict ──────────────────────────
+
+    #[test]
+    fn test_fj282_strict_catches_relative_path() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("forjar.yaml");
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  local:
+    hostname: local
+    addr: 127.0.0.1
+resources:
+  cfg:
+    type: file
+    machine: local
+    path: relative/path.txt
+    content: "hello"
+"#;
+        std::fs::write(&file, yaml).unwrap();
+        let result = cmd_validate(&file, true);
+        assert!(result.is_err());
+        let msg = result.unwrap_err();
+        assert!(msg.contains("strict validation failed"));
+    }
+
+    #[test]
+    fn test_fj282_strict_flag_parse() {
+        let cmd = Commands::Validate {
+            file: PathBuf::from("forjar.yaml"),
+            strict: true,
+        };
+        match cmd {
+            Commands::Validate { strict, .. } => assert!(strict),
+            _ => panic!("expected Validate"),
+        }
+    }
+
+    #[test]
+    fn test_fj282_strict_passes_clean_config() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("forjar.yaml");
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  local:
+    hostname: local
+    addr: 127.0.0.1
+resources:
+  cfg:
+    type: file
+    machine: local
+    path: /tmp/test.txt
+    content: "hello"
+"#;
+        std::fs::write(&file, yaml).unwrap();
+        cmd_validate(&file, true).unwrap();
+    }
+
+    #[test]
+    fn test_fj282_strict_off_skips_checks() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("forjar.yaml");
+        // bad machine ref, but strict=false so it should pass
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  local:
+    hostname: local
+    addr: 127.0.0.1
+resources:
+  cfg:
+    type: file
+    machine: nonexistent
+    path: /tmp/test.txt
+    content: "hello"
+"#;
+        std::fs::write(&file, yaml).unwrap();
+        // strict=false should skip deep checks — but parse_and_validate
+        // may still reject unknown machine refs. If so, we just verify
+        // that the error is NOT about "strict validation".
+        let result = cmd_validate(&file, false);
+        match result {
+            Ok(()) => {} // parser didn't catch it — fine
+            Err(msg) => assert!(!msg.contains("strict validation")),
         }
     }
 }

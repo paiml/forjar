@@ -77,7 +77,7 @@ fn main() {
         inputs: std::collections::HashMap::new(),
         arch: vec![],
         tags: vec![],
-            resource_group: None,
+        resource_group: None,
         when: None,
         count: None,
         for_each: None,
