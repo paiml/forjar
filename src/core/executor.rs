@@ -622,39 +622,255 @@ fn apply_machine(
                     }
                 }
             } else {
-                // Multiple independent resources — execute sequentially but mark as parallel-eligible
-                // NOTE: True thread::scope parallelism within a single machine requires
-                // Arc<Mutex<RecordCtx>> which adds complexity. For now, we execute waves
-                // sequentially but validate the wave structure for future parallel execution.
-                for resource_id in wave {
-                    if let Some(change) = machine_changes
-                        .iter()
-                        .find(|c| c.resource_id == *resource_id)
-                    {
-                        let outcome = apply_and_record_outcome(
-                            cfg,
-                            change,
+                // FJ-257: Multiple independent resources — execute transport I/O in parallel,
+                // record outcomes sequentially. Within a wave, resources have no inter-dependencies
+                // so their scripts can safely execute concurrently on the same machine.
+                let wave_changes: Vec<&PlannedChange> = wave
+                    .iter()
+                    .filter_map(|id| {
+                        machine_changes
+                            .iter()
+                            .find(|c| c.resource_id == *id)
+                            .copied()
+                    })
+                    .collect();
+
+                // Phase 1: Pre-check and prepare (sequential, fast)
+                struct PreparedResource {
+                    change_idx: usize,
+                    resolved: Resource,
+                    use_copia: bool,
+                }
+                let mut prepared: Vec<PreparedResource> = Vec::new();
+                let mut skipped_or_unchanged: Vec<(usize, ResourceOutcome)> = Vec::new();
+
+                for (idx, change) in wave_changes.iter().enumerate() {
+                    // Resource filter
+                    if let Some(filter) = cfg.resource_filter {
+                        if change.resource_id != filter {
+                            skipped_or_unchanged.push((idx, ResourceOutcome::Skipped));
+                            continue;
+                        }
+                    }
+                    let resource = match cfg.config.resources.get(&change.resource_id) {
+                        Some(r) => r,
+                        None => {
+                            skipped_or_unchanged.push((idx, ResourceOutcome::Skipped));
+                            continue;
+                        }
+                    };
+                    // Trigger check
+                    let triggered = !resource.triggers.is_empty()
+                        && resource
+                            .triggers
+                            .iter()
+                            .any(|t| converged_resources.contains(t));
+                    if change.action == PlanAction::NoOp && !cfg.force && !triggered {
+                        skipped_or_unchanged.push((idx, ResourceOutcome::Unchanged));
+                        continue;
+                    }
+                    // Arch filter
+                    if !resource.arch.is_empty() && !resource.arch.contains(&machine.arch) {
+                        skipped_or_unchanged.push((idx, ResourceOutcome::Skipped));
+                        continue;
+                    }
+                    // Tag filter
+                    if let Some(tag) = cfg.tag_filter {
+                        if !resource.tags.iter().any(|t| t == tag) {
+                            skipped_or_unchanged.push((idx, ResourceOutcome::Skipped));
+                            continue;
+                        }
+                    }
+                    // When condition
+                    if let Some(ref when_expr) = resource.when {
+                        match conditions::evaluate_when(
+                            when_expr,
+                            &cfg.config.params,
                             machine,
-                            &mut ctx,
-                            &mut trace_session,
-                            machine_name,
-                            &converged_resources,
-                        )?;
-                        match outcome {
-                            ResourceOutcome::Converged => {
-                                converged += 1;
-                                converged_resources.insert(change.resource_id.clone());
+                        ) {
+                            Ok(false) | Err(_) => {
+                                skipped_or_unchanged.push((idx, ResourceOutcome::Skipped));
+                                continue;
                             }
-                            ResourceOutcome::Unchanged => unchanged += 1,
-                            ResourceOutcome::Skipped => {}
-                            ResourceOutcome::Failed { should_stop } => {
-                                failed += 1;
-                                if should_stop {
-                                    break 'wave_loop;
-                                }
+                            Ok(true) => {}
+                        }
+                    }
+                    // Log resource start
+                    if ctx.tripwire {
+                        let _ = eventlog::append_event(
+                            ctx.state_dir,
+                            ctx.machine_name,
+                            ProvenanceEvent::ResourceStarted {
+                                machine: ctx.machine_name.to_string(),
+                                resource: change.resource_id.clone(),
+                                action: change.action.to_string(),
+                            },
+                        );
+                    }
+                    // Resolve templates
+                    let resolved = resolver::resolve_resource_templates(
+                        resource,
+                        &cfg.config.params,
+                        &cfg.config.machines,
+                    )?;
+                    let use_copia = resolved.resource_type == ResourceType::File
+                        && resolved.source.is_some()
+                        && copia::is_eligible(resolved.source.as_ref().unwrap());
+                    prepared.push(PreparedResource {
+                        change_idx: idx,
+                        resolved,
+                        use_copia,
+                    });
+                }
+
+                // Phase 2: Execute transport I/O in parallel (the expensive part)
+                let exec_results: Vec<(usize, f64, Result<transport::ExecOutput, String>)> =
+                    std::thread::scope(|s| {
+                        let handles: Vec<_> = prepared
+                            .iter()
+                            .map(|prep| {
+                                s.spawn(move || {
+                                    let start = Instant::now();
+                                    let output = if prep.use_copia {
+                                        copia_apply_file(
+                                            machine,
+                                            &prep.resolved,
+                                            cfg.timeout_secs,
+                                        )
+                                    } else {
+                                        codegen::apply_script(&prep.resolved)
+                                            .and_then(|script| {
+                                                transport::exec_script_timeout(
+                                                    machine,
+                                                    &script,
+                                                    cfg.timeout_secs,
+                                                )
+                                            })
+                                    };
+                                    let duration = start.elapsed().as_secs_f64();
+                                    (prep.change_idx, duration, output)
+                                })
+                            })
+                            .collect();
+                        handles
+                            .into_iter()
+                            .map(|h| h.join().unwrap())
+                            .collect()
+                    });
+
+                // Phase 3: Record outcomes sequentially (fast, touches lock + event log)
+                // First handle skipped/unchanged
+                for (idx, outcome) in &skipped_or_unchanged {
+                    let change = wave_changes[*idx];
+                    let resource_rt = cfg
+                        .config
+                        .resources
+                        .get(&change.resource_id)
+                        .map(|r| format!("{:?}", r.resource_type))
+                        .unwrap_or_default()
+                        .to_lowercase();
+                    if let ResourceOutcome::Unchanged = outcome {
+                        unchanged += 1;
+                        trace_session.record_noop(
+                            &change.resource_id,
+                            &resource_rt,
+                            machine_name,
+                        );
+                    }
+                }
+
+                // Then handle executed resources
+                let mut stop = false;
+                for (idx, duration, output) in exec_results {
+                    let change = wave_changes[idx];
+                    let resource = cfg.config.resources.get(&change.resource_id).unwrap();
+                    let prep = prepared
+                        .iter()
+                        .find(|p| p.change_idx == idx)
+                        .unwrap();
+
+                    match output {
+                        Ok(out) if out.success() => {
+                            record_success(
+                                &mut ctx,
+                                &change.resource_id,
+                                resource,
+                                &prep.resolved,
+                                machine,
+                                duration,
+                            );
+                            converged += 1;
+                            converged_resources.insert(change.resource_id.clone());
+
+                            let rt = format!("{:?}", resource.resource_type).to_lowercase();
+                            let action = if change.action == PlanAction::Create {
+                                "create"
+                            } else {
+                                "update"
+                            };
+                            trace_session.record_span(
+                                &change.resource_id,
+                                &rt,
+                                machine_name,
+                                action,
+                                std::time::Duration::from_secs_f64(duration),
+                                0,
+                                None,
+                            );
+                        }
+                        Ok(out) => {
+                            let error =
+                                format!("exit code {}: {}", out.exit_code, out.stderr.trim());
+                            let should_stop = record_failure(
+                                &mut ctx,
+                                &change.resource_id,
+                                &resource.resource_type,
+                                duration,
+                                &error,
+                            );
+                            failed += 1;
+                            let rt = format!("{:?}", resource.resource_type).to_lowercase();
+                            trace_session.record_span(
+                                &change.resource_id,
+                                &rt,
+                                machine_name,
+                                "create",
+                                std::time::Duration::from_secs_f64(duration),
+                                1,
+                                None,
+                            );
+                            if should_stop {
+                                stop = true;
+                            }
+                        }
+                        Err(e) => {
+                            let error = format!("transport error: {}", e);
+                            let should_stop = record_failure(
+                                &mut ctx,
+                                &change.resource_id,
+                                &resource.resource_type,
+                                duration,
+                                &error,
+                            );
+                            failed += 1;
+                            let rt = format!("{:?}", resource.resource_type).to_lowercase();
+                            trace_session.record_span(
+                                &change.resource_id,
+                                &rt,
+                                machine_name,
+                                "create",
+                                std::time::Duration::from_secs_f64(duration),
+                                1,
+                                None,
+                            );
+                            if should_stop {
+                                stop = true;
                             }
                         }
                     }
+                }
+                if stop {
+                    break 'wave_loop;
                 }
             }
         }
@@ -5640,5 +5856,318 @@ policy:
 
         let _ = std::fs::remove_file("/tmp/forjar-s1-m1.txt");
         let _ = std::fs::remove_file("/tmp/forjar-s1-m2.txt");
+    }
+
+    // ── FJ-257: Parallel apply within machines ───────────────────
+
+    #[test]
+    fn test_fj257_parallel_apply_independent_resources() {
+        // Two independent file resources on localhost with parallel_resources: true
+        let dir = tempfile::tempdir().unwrap();
+        let state_dir = dir.path().join("state");
+        let path_a = format!("/tmp/forjar-fj257-a-{}.txt", std::process::id());
+        let path_b = format!("/tmp/forjar-fj257-b-{}.txt", std::process::id());
+        let yaml = format!(
+            r#"
+version: "1.0"
+name: parallel-test
+machines:
+  local:
+    hostname: local
+    addr: 127.0.0.1
+resources:
+  file-a:
+    type: file
+    machine: local
+    path: {path_a}
+    content: "aaa"
+  file-b:
+    type: file
+    machine: local
+    path: {path_b}
+    content: "bbb"
+policy:
+  parallel_resources: true
+"#
+        );
+        let config: ForjarConfig = serde_yaml_ng::from_str(&yaml).unwrap();
+        let cfg = ApplyConfig {
+            config: &config,
+            state_dir: &state_dir,
+            force: false,
+            dry_run: false,
+            machine_filter: None,
+            resource_filter: None,
+            tag_filter: None,
+            timeout_secs: None,
+        };
+        let results = apply(&cfg).unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].resources_converged, 2);
+        assert_eq!(results[0].resources_failed, 0);
+
+        // Verify files were created
+        assert!(std::path::Path::new(&path_a).exists());
+        assert!(std::path::Path::new(&path_b).exists());
+
+        let _ = std::fs::remove_file(&path_a);
+        let _ = std::fs::remove_file(&path_b);
+    }
+
+    #[test]
+    fn test_fj257_parallel_apply_with_deps_respects_order() {
+        // base → app dependency: base must complete before app starts.
+        // With parallel_resources: true, these should be in separate waves.
+        let dir = tempfile::tempdir().unwrap();
+        let state_dir = dir.path().join("state");
+        let path_base = format!("/tmp/forjar-fj257-base-{}.txt", std::process::id());
+        let path_app = format!("/tmp/forjar-fj257-app-{}.txt", std::process::id());
+        let yaml = format!(
+            r#"
+version: "1.0"
+name: deps-parallel-test
+machines:
+  local:
+    hostname: local
+    addr: 127.0.0.1
+resources:
+  base:
+    type: file
+    machine: local
+    path: {path_base}
+    content: "base"
+  app:
+    type: file
+    machine: local
+    path: {path_app}
+    content: "app"
+    depends_on: [base]
+policy:
+  parallel_resources: true
+"#
+        );
+        let config: ForjarConfig = serde_yaml_ng::from_str(&yaml).unwrap();
+        let cfg = ApplyConfig {
+            config: &config,
+            state_dir: &state_dir,
+            force: false,
+            dry_run: false,
+            machine_filter: None,
+            resource_filter: None,
+            tag_filter: None,
+            timeout_secs: None,
+        };
+        let results = apply(&cfg).unwrap();
+        assert_eq!(results[0].resources_converged, 2);
+        assert_eq!(results[0].resources_failed, 0);
+
+        let _ = std::fs::remove_file(&path_base);
+        let _ = std::fs::remove_file(&path_app);
+    }
+
+    #[test]
+    fn test_fj257_parallel_apply_three_independent() {
+        // Three independent resources should all be in one wave
+        let dir = tempfile::tempdir().unwrap();
+        let state_dir = dir.path().join("state");
+        let path_a = format!("/tmp/forjar-fj257-3a-{}.txt", std::process::id());
+        let path_b = format!("/tmp/forjar-fj257-3b-{}.txt", std::process::id());
+        let path_c = format!("/tmp/forjar-fj257-3c-{}.txt", std::process::id());
+        let yaml = format!(
+            r#"
+version: "1.0"
+name: three-parallel
+machines:
+  local:
+    hostname: local
+    addr: 127.0.0.1
+resources:
+  a:
+    type: file
+    machine: local
+    path: {path_a}
+    content: "a"
+  b:
+    type: file
+    machine: local
+    path: {path_b}
+    content: "b"
+  c:
+    type: file
+    machine: local
+    path: {path_c}
+    content: "c"
+policy:
+  parallel_resources: true
+"#
+        );
+        let config: ForjarConfig = serde_yaml_ng::from_str(&yaml).unwrap();
+        let cfg = ApplyConfig {
+            config: &config,
+            state_dir: &state_dir,
+            force: false,
+            dry_run: false,
+            machine_filter: None,
+            resource_filter: None,
+            tag_filter: None,
+            timeout_secs: None,
+        };
+        let results = apply(&cfg).unwrap();
+        assert_eq!(results[0].resources_converged, 3);
+
+        let _ = std::fs::remove_file(&path_a);
+        let _ = std::fs::remove_file(&path_b);
+        let _ = std::fs::remove_file(&path_c);
+    }
+
+    #[test]
+    fn test_fj257_parallel_apply_idempotent() {
+        // Second apply with parallel_resources should produce 0 converged (all unchanged)
+        let dir = tempfile::tempdir().unwrap();
+        let state_dir = dir.path().join("state");
+        let path_a = format!("/tmp/forjar-fj257-idem-a-{}.txt", std::process::id());
+        let path_b = format!("/tmp/forjar-fj257-idem-b-{}.txt", std::process::id());
+        let yaml = format!(
+            r#"
+version: "1.0"
+name: idempotent-parallel
+machines:
+  local:
+    hostname: local
+    addr: 127.0.0.1
+resources:
+  a:
+    type: file
+    machine: local
+    path: {path_a}
+    content: "a"
+  b:
+    type: file
+    machine: local
+    path: {path_b}
+    content: "b"
+policy:
+  parallel_resources: true
+"#
+        );
+        let config: ForjarConfig = serde_yaml_ng::from_str(&yaml).unwrap();
+        let cfg = ApplyConfig {
+            config: &config,
+            state_dir: &state_dir,
+            force: false,
+            dry_run: false,
+            machine_filter: None,
+            resource_filter: None,
+            tag_filter: None,
+            timeout_secs: None,
+        };
+        // First apply
+        let results1 = apply(&cfg).unwrap();
+        assert_eq!(results1[0].resources_converged, 2);
+
+        // Second apply — should be unchanged
+        let results2 = apply(&cfg).unwrap();
+        assert_eq!(results2[0].resources_converged, 0);
+        assert_eq!(results2[0].resources_unchanged, 2);
+
+        let _ = std::fs::remove_file(&path_a);
+        let _ = std::fs::remove_file(&path_b);
+    }
+
+    #[test]
+    fn test_fj257_compute_waves_diamond_dag() {
+        // Diamond: a → b, a → c, b → d, c → d
+        // Waves: [a], [b, c], [d]
+        let yaml = r#"
+version: "1.0"
+name: diamond
+machines:
+  m1:
+    hostname: m1
+    addr: 1.2.3.4
+resources:
+  a:
+    type: file
+    machine: m1
+    path: /a
+  b:
+    type: file
+    machine: m1
+    path: /b
+    depends_on: [a]
+  c:
+    type: file
+    machine: m1
+    path: /c
+    depends_on: [a]
+  d:
+    type: file
+    machine: m1
+    path: /d
+    depends_on: [b, c]
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let waves = compute_resource_waves(&config, &["a", "b", "c", "d"]);
+        assert_eq!(waves.len(), 3);
+        assert_eq!(waves[0], vec!["a"]);
+        assert_eq!(waves[1].len(), 2);
+        assert!(waves[1].contains(&"b".to_string()));
+        assert!(waves[1].contains(&"c".to_string()));
+        assert_eq!(waves[2], vec!["d"]);
+    }
+
+    #[test]
+    fn test_fj257_parallel_apply_lock_file_written() {
+        // Verify lock file is properly written after parallel apply
+        let dir = tempfile::tempdir().unwrap();
+        let state_dir = dir.path().join("state");
+        let path_a = format!("/tmp/forjar-fj257-lock-a-{}.txt", std::process::id());
+        let path_b = format!("/tmp/forjar-fj257-lock-b-{}.txt", std::process::id());
+        let yaml = format!(
+            r#"
+version: "1.0"
+name: lock-parallel
+machines:
+  local:
+    hostname: local
+    addr: 127.0.0.1
+resources:
+  a:
+    type: file
+    machine: local
+    path: {path_a}
+    content: "a"
+  b:
+    type: file
+    machine: local
+    path: {path_b}
+    content: "b"
+policy:
+  parallel_resources: true
+"#
+        );
+        let config: ForjarConfig = serde_yaml_ng::from_str(&yaml).unwrap();
+        let cfg = ApplyConfig {
+            config: &config,
+            state_dir: &state_dir,
+            force: false,
+            dry_run: false,
+            machine_filter: None,
+            resource_filter: None,
+            tag_filter: None,
+            timeout_secs: None,
+        };
+        apply(&cfg).unwrap();
+
+        // Verify lock file has both resources
+        let lock = state::load_lock(&state_dir, "local").unwrap().unwrap();
+        assert_eq!(lock.resources.len(), 2);
+        assert!(lock.resources.contains_key("a"));
+        assert!(lock.resources.contains_key("b"));
+        assert_eq!(lock.resources["a"].status, ResourceStatus::Converged);
+        assert_eq!(lock.resources["b"].status, ResourceStatus::Converged);
+
+        let _ = std::fs::remove_file(&path_a);
+        let _ = std::fs::remove_file(&path_b);
     }
 }
