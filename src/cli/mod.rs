@@ -621,6 +621,16 @@ pub enum Commands {
         yes: bool,
     },
 
+    /// FJ-271: Show full resolution chain for a resource
+    Explain {
+        /// Path to forjar.yaml
+        #[arg(short, long, default_value = "forjar.yaml")]
+        file: PathBuf,
+
+        /// Resource ID to explain
+        resource: String,
+    },
+
     /// FJ-256: Generate lock file without applying
     Lock {
         /// Path to forjar.yaml
@@ -1078,6 +1088,7 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             apply,
             yes,
         } => cmd_watch(&file, &state_dir, interval, apply, yes),
+        Commands::Explain { file, resource } => cmd_explain(&file, &resource),
         Commands::Lock {
             file,
             state_dir,
@@ -4702,6 +4713,86 @@ fn load_all_locks(
         }
     }
     locks
+}
+
+/// FJ-271: Explain a resource — show raw YAML, resolved templates, codegen script, transport.
+fn cmd_explain(file: &Path, resource_id: &str) -> Result<(), String> {
+    let config = parse_and_validate(file)?;
+
+    let resource = config
+        .resources
+        .get(resource_id)
+        .ok_or_else(|| format!("resource '{}' not found", resource_id))?;
+
+    // Step 1: Raw YAML
+    println!("{}", bold("1. Raw Resource Definition"));
+    println!("{}", dim("─────────────────────────────"));
+    let raw_yaml =
+        serde_yaml_ng::to_string(resource).map_err(|e| format!("serialize error: {}", e))?;
+    println!("{}", raw_yaml);
+
+    // Step 2: Template Resolution
+    let machine_name = match &resource.machine {
+        types::MachineTarget::Single(m) => m.clone(),
+        types::MachineTarget::Multiple(ms) => ms.first().cloned().unwrap_or_default(),
+    };
+    let resolved =
+        resolver::resolve_resource_templates(resource, &config.params, &config.machines)?;
+
+    println!("{}", bold("2. After Template Resolution"));
+    println!("{}", dim("─────────────────────────────"));
+    let resolved_yaml =
+        serde_yaml_ng::to_string(&resolved).map_err(|e| format!("serialize error: {}", e))?;
+    println!("{}", resolved_yaml);
+
+    // Step 3: Generated Script
+    println!("{}", bold("3. Generated Shell Script"));
+    println!("{}", dim("─────────────────────────────"));
+    match codegen::apply_script(&resolved) {
+        Ok(script) => println!("{}", script),
+        Err(e) => println!("{}", red(&format!("codegen error: {}", e))),
+    }
+
+    // Step 4: Transport
+    println!("{}", bold("4. Transport"));
+    println!("{}", dim("─────────────────────────────"));
+    let transport_type = if machine_name == "local" || machine_name == "localhost" {
+        "local (bash stdin pipe)"
+    } else if config
+        .machines
+        .get(&machine_name)
+        .is_some_and(|m| m.is_container_transport())
+    {
+        "container (docker/podman exec -i)"
+    } else if config
+        .machines
+        .get(&machine_name)
+        .is_some_and(|m| m.addr == "127.0.0.1" || m.addr == "localhost")
+    {
+        "local (bash stdin pipe)"
+    } else {
+        "ssh (ssh -o BatchMode=yes stdin pipe)"
+    };
+    println!("machine: {}", machine_name);
+    println!("transport: {}", transport_type);
+    if let Some(m) = config.machines.get(&machine_name) {
+        println!("addr: {}", m.addr);
+        if let Some(ref key) = m.ssh_key {
+            println!("ssh_key: {}", key);
+        }
+    }
+
+    // Step 5: Dependencies
+    if !resource.depends_on.is_empty() {
+        println!();
+        println!("{}", bold("5. Dependencies"));
+        println!("{}", dim("─────────────────────────────"));
+        for dep in &resource.depends_on {
+            println!("  → {}", dep);
+        }
+    }
+
+    Ok(())
 }
 
 fn cmd_schema() -> Result<(), String> {
@@ -12722,6 +12813,71 @@ resources:
                 assert_eq!(output.as_deref(), Some("events"));
             }
             _ => panic!("expected Apply"),
+        }
+    }
+
+    // ========================================================================
+    // FJ-271: forjar explain
+    // ========================================================================
+
+    #[test]
+    fn test_fj271_explain_resource_not_found() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join("forjar.yaml");
+        std::fs::write(&config_path, "version: \"1.0\"\nname: test\nmachines:\n  local:\n    hostname: localhost\n    addr: 127.0.0.1\nresources:\n  test:\n    type: file\n    machine: local\n    path: /tmp/test.txt\n    content: test\n").unwrap();
+        let result = dispatch(
+            Commands::Explain {
+                file: config_path,
+                resource: "nonexistent".to_string(),
+            },
+            false,
+            true,
+        );
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("not found"));
+    }
+
+    #[test]
+    fn test_fj271_explain_valid_resource() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join("forjar.yaml");
+        std::fs::write(&config_path, "version: \"1.0\"\nname: test\nmachines:\n  local:\n    hostname: localhost\n    addr: 127.0.0.1\nresources:\n  test:\n    type: file\n    machine: local\n    path: /tmp/explain-test.txt\n    content: hello\n").unwrap();
+        let result = dispatch(
+            Commands::Explain {
+                file: config_path,
+                resource: "test".to_string(),
+            },
+            false,
+            true,
+        );
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj271_explain_with_templates() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join("forjar.yaml");
+        std::fs::write(&config_path, "version: \"1.0\"\nname: test\nparams:\n  dir: /opt/app\nmachines:\n  local:\n    hostname: localhost\n    addr: 127.0.0.1\nresources:\n  cfg:\n    type: file\n    machine: local\n    path: \"{{params.dir}}/config.txt\"\n    content: test\n").unwrap();
+        let result = dispatch(
+            Commands::Explain {
+                file: config_path,
+                resource: "cfg".to_string(),
+            },
+            false,
+            true,
+        );
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj271_explain_command_parse() {
+        let cmd = Commands::Explain {
+            file: PathBuf::from("forjar.yaml"),
+            resource: "my-resource".to_string(),
+        };
+        match cmd {
+            Commands::Explain { resource, .. } => assert_eq!(resource, "my-resource"),
+            _ => panic!("expected Explain"),
         }
     }
 }
