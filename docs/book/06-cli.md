@@ -1463,3 +1463,42 @@ Removes a snapshot. Use `--force` to skip confirmation.
 **Use case**: Before a major config change, save a snapshot. If the apply fails or causes issues, restore the snapshot to revert state without re-running the previous converge.
 
 `forjar lock` is useful in CI pipelines where you want to pre-compute and commit the expected lock file, then verify on each run that config and lock stay in sync — without executing any apply against real machines.
+
+### `forjar schema`
+
+Export the JSON Schema for `forjar.yaml` to stdout. The schema describes every valid field, type, and constraint for machines, resources, and policy configuration.
+
+```bash
+forjar schema
+```
+
+No arguments or flags are required. The schema is printed as JSON to stdout.
+
+#### Use Cases
+
+**Save to file for IDE integration:**
+
+```bash
+forjar schema > forjar-schema.json
+```
+
+**VS Code YAML extension** — add to `.vscode/settings.json`:
+
+```json
+{
+  "yaml.schemas": {
+    "./forjar-schema.json": "forjar.yaml"
+  }
+}
+```
+
+This gives you inline validation, field completion, and hover documentation as you edit `forjar.yaml`.
+
+**CI validation** — validate config against the schema without connecting to machines:
+
+```bash
+forjar schema > /tmp/schema.json
+# Use any JSON Schema validator
+```
+
+The schema covers the complete `ForjarConfig` structure: `version`, `name`, `description`, `params`, `machines`, `resources` (all 11 types with their fields), `policy`, `recipes`, and `includes`.

@@ -112,7 +112,7 @@ src/
   lib.rs                Public API
   build.rs              Compile-time contract binding verification
   cli/
-    mod.rs              Subcommand dispatch (init, validate, plan, apply, drift, status, history, destroy, import, show, graph, check, diff, fmt, lint, rollback, anomaly, trace, migrate, mcp, bench, state-list, state-mv, state-rm, output)
+    mod.rs              Subcommand dispatch (init, validate, plan, apply, drift, status, history, destroy, import, show, graph, check, diff, fmt, lint, rollback, anomaly, trace, migrate, mcp, bench, state-list, state-mv, state-rm, output, schema)
   mcp/
     mod.rs              MCP server via pforge — 9 tool handlers, registry, ForgeConfig
   core/
@@ -491,6 +491,35 @@ persistence_mode: true                   # nvidia-persistenced (default: true)
 compute_mode: default                    # default | exclusive_process | prohibited
 memory_limit_mb: 8192                    # optional cgroup GPU memory limit
 state: present | absent
+```
+
+#### Common Resource Fields
+
+All resource types support the following optional fields in addition to their type-specific fields:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `depends_on` | list | Resources that must be applied before this one |
+| `tags` | list | Arbitrary tags for filtering (`--tag` on plan/apply/check) |
+| `when` | string | Conditional expression — resource is skipped if false |
+| `for_each` | list | Expand resource per item (`{{item}}` template) |
+| `count` | integer | Expand resource N times (`{{index}}` template) |
+| `arch` | list | Architecture filter — resource only applies on matching machines |
+| `pre_apply` | string | Shell command run on the target machine **before** the main apply script. If it exits non-zero, the resource is skipped (apply does not run). Use case: backup a config file before overwrite. |
+| `post_apply` | string | Shell command run on the target machine **after** a successful apply script. If it exits non-zero, the resource is marked as failed. Use case: restart a service after deploying its config. |
+
+```yaml
+# Lifecycle hooks example
+resources:
+  nginx-config:
+    type: file
+    machine: web1
+    path: /etc/nginx/sites-enabled/app
+    content: |
+      server { listen 80; }
+    pre_apply: "cp /etc/nginx/sites-enabled/app /etc/nginx/sites-enabled/app.bak"
+    post_apply: "systemctl reload nginx"
+    depends_on: [nginx-pkg]
 ```
 
 ### 3.3 Recipes
@@ -1158,6 +1187,7 @@ Commands:
   migrate     Migrate Docker resources to pepita kernel isolation
   mcp         Start MCP server (pforge integration)
   bench       Run performance benchmarks (spec §9 targets)
+  schema      Export JSON Schema for forjar.yaml
 ```
 
 ### 7.2 Global Options
@@ -1410,6 +1440,27 @@ Options:
 ```
 
 Shows current state from lock files: project name, last apply, per-machine resource status, types, durations. With `--json`, outputs all state as structured JSON for scripting/CI integration.
+
+### 7.20 `forjar schema`
+
+```
+forjar schema
+```
+
+Exports a JSON Schema for `forjar.yaml` to stdout. The schema is generated from the `ForjarConfig` struct via code (not serde derive). Validates machine, resource, and policy schemas. No arguments required.
+
+Use cases:
+- **IDE autocomplete**: Point the VS Code YAML extension at the schema for inline validation and completion
+- **External validation**: Pipe config through `jsonschema` or similar tools in CI
+- **Documentation**: Machine-readable description of every field, type, and constraint
+
+```bash
+# Write schema to file
+forjar schema > forjar-schema.json
+
+# Use with VS Code YAML extension (add to .vscode/settings.json):
+# "yaml.schemas": { "./forjar-schema.json": "forjar.yaml" }
+```
 
 ---
 
@@ -1680,8 +1731,8 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 | FJ-261 | SSH retry with exponential backoff — transport-level retry on transient failures (connection refused, timeout, broken pipe). `policy.ssh_retries: 3` opt-in (default 1 = no retry). Backoff: 200ms × 2^attempt. Max 3 retries. Logs each retry attempt. | **Done** — 12 tests (1713→1725) |
 | FJ-262 | Apply report with per-resource timing — after apply, write structured summary to `state/<machine>/last-apply.yaml` with per-resource duration, script size, exit code, hash before/after. `forjar apply --report` prints human-readable report. `--json` for CI. | **Done** — 7 tests (1725→1732) |
 | FJ-263 | Colored CLI output — ANSI colors for plan (green=create, yellow=update, red=destroy, dim=noop), status, drift, doctor. No new deps (inline ANSI escape codes). Respects `NO_COLOR` env var and `--no-color` global flag. `--color=always/auto/never`. | **Done** — 8 tests (1732→1740) |
-| FJ-264 | `forjar schema` — export JSON Schema for `forjar.yaml`. Generated from `ForjarConfig` struct via code, not serde. Enables IDE autocomplete (VS Code YAML extension), external validation, and documentation. No new deps. | Planned |
-| FJ-265 | Resource lifecycle hooks — `pre_apply` and `post_apply` string fields on resources. Shell commands run on the target machine before/after the resource's main script. `pre_apply` failure skips the resource (does not apply). Use case: backup config before overwrite, restart service after config deploy. | Planned |
+| FJ-264 | `forjar schema` — export JSON Schema for `forjar.yaml`. Generated from `ForjarConfig` struct via code, not serde. Enables IDE autocomplete (VS Code YAML extension), external validation, and documentation. No new deps. | **Done** — 5 tests (1740→1745) |
+| FJ-265 | Resource lifecycle hooks — `pre_apply` and `post_apply` string fields on resources. Shell commands run on the target machine before/after the resource's main script. `pre_apply` failure skips the resource (does not apply). `post_apply` failure marks resource as failed. Use case: backup config before overwrite, restart service after config deploy. | **Done** — 7 tests (1745→1752) |
 | FJ-266 | State locking — prevent concurrent applies to the same state directory. `state/.forjar.lock` PID file created on apply start, removed on completion. `--force-unlock` flag for stuck locks. Stale lock detection (PID no longer running). | Planned |
 | FJ-267 | `forjar watch` — watch `forjar.yaml` for changes and auto-plan. Filesystem polling (no inotify dep) at 2s interval. Prints updated plan on each change. `Ctrl-C` to stop. Useful during config development. `--apply` flag auto-applies on change (dangerous, requires `--yes`). | Planned |
 

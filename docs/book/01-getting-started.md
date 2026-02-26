@@ -16,7 +16,7 @@ Verify:
 forjar --help
 ```
 
-You should see forjar's 32 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`.
+You should see forjar's 33 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`.
 
 ## Your First Project
 
@@ -211,6 +211,26 @@ Key patterns:
 - **`depends_on`** ensures ordering: nginx-pkg installs before site-config writes, which happens before nginx-svc starts
 - **`restart_on`** tells the service to restart when the config file changes
 - **`owner`/`group`/`mode`** set file permissions
+
+### Lifecycle Hooks
+
+Any resource can declare `pre_apply` and `post_apply` shell commands that run on the target machine before and after the main apply script:
+
+```yaml
+resources:
+  site-config:
+    type: file
+    machine: web1
+    path: /etc/nginx/sites-enabled/mysite
+    content: |
+      server { listen 80; server_name example.com; }
+    pre_apply: "cp /etc/nginx/sites-enabled/mysite /tmp/mysite.bak"
+    post_apply: "systemctl reload nginx"
+    depends_on: [nginx-pkg]
+```
+
+- **`pre_apply`**: Runs before the resource is applied. If it exits non-zero, the resource is skipped entirely (the main apply script does not run). Use this to back up files, check preconditions, or acquire locks.
+- **`post_apply`**: Runs after a successful apply. If it exits non-zero, the resource is marked as failed. Use this to restart services, send notifications, or run smoke tests.
 
 ## Visualize Dependencies
 
