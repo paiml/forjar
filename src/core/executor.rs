@@ -86,8 +86,18 @@ pub fn apply(cfg: &ApplyConfig) -> Result<Vec<ApplyResult>, String> {
         cost: 0,
     };
 
-    // Execute plan per machine (parallel or sequential)
-    if cfg.config.policy.parallel_machines && target_machines.len() > 1 {
+    // FJ-222: Rolling deploys — batch machines when serial is set
+    if let Some(batch_size) = cfg.config.policy.serial {
+        let batch_size = batch_size.max(1);
+        apply_machines_rolling(
+            cfg,
+            &target_machines,
+            &localhost_machine,
+            &plan,
+            &mut locks,
+            batch_size,
+        )
+    } else if cfg.config.policy.parallel_machines && target_machines.len() > 1 {
         apply_machines_parallel(cfg, &target_machines, &localhost_machine, &plan, &mut locks)
     } else {
         apply_machines_sequential(cfg, &target_machines, &localhost_machine, &plan, &mut locks)
@@ -167,6 +177,44 @@ fn apply_machines_parallel(
     for result in results_mutex.into_inner().unwrap() {
         all_results.push(result?);
     }
+    Ok(all_results)
+}
+
+/// FJ-222: Rolling deploy — apply machines in batches of `batch_size`.
+/// Within each batch, machines run in parallel if `parallel_machines` is true.
+/// After each batch, checks `max_fail_percentage` and aborts if exceeded.
+fn apply_machines_rolling(
+    cfg: &ApplyConfig,
+    target_machines: &[&String],
+    localhost_machine: &Machine,
+    plan: &ExecutionPlan,
+    locks: &mut HashMap<String, StateLock>,
+    batch_size: usize,
+) -> Result<Vec<ApplyResult>, String> {
+    let mut all_results = Vec::new();
+    let total_machines = target_machines.len();
+
+    for batch in target_machines.chunks(batch_size) {
+        let batch_results = if cfg.config.policy.parallel_machines && batch.len() > 1 {
+            apply_machines_parallel(cfg, batch, localhost_machine, plan, locks)?
+        } else {
+            apply_machines_sequential(cfg, batch, localhost_machine, plan, locks)?
+        };
+        all_results.extend(batch_results);
+
+        // FJ-222: Check max_fail_percentage after each batch
+        if let Some(max_pct) = cfg.config.policy.max_fail_percentage {
+            let failed = all_results.iter().filter(|r| r.resources_failed > 0).count();
+            let pct = (failed as f64 / total_machines as f64 * 100.0) as u8;
+            if pct > max_pct {
+                return Err(format!(
+                    "rolling deploy aborted: {}% failure rate exceeds max_fail_percentage {}%",
+                    pct, max_pct
+                ));
+            }
+        }
+    }
+
     Ok(all_results)
 }
 
@@ -5157,5 +5205,231 @@ resources:
             r2[0].resources_converged, 2,
             "config changed + app triggered"
         );
+    }
+
+    // ========================================================================
+    // FJ-222: Rolling deploys
+    // ========================================================================
+
+    #[test]
+    fn test_fj222_serial_batches_machines() {
+        let yaml = r#"
+version: "1.0"
+name: rolling-test
+machines:
+  m1:
+    hostname: m1
+    addr: 127.0.0.1
+  m2:
+    hostname: m2
+    addr: 127.0.0.1
+  m3:
+    hostname: m3
+    addr: 127.0.0.1
+resources:
+  f1:
+    type: file
+    machine: m1
+    path: /tmp/forjar-rolling-m1.txt
+    content: "m1"
+  f2:
+    type: file
+    machine: m2
+    path: /tmp/forjar-rolling-m2.txt
+    content: "m2"
+  f3:
+    type: file
+    machine: m3
+    path: /tmp/forjar-rolling-m3.txt
+    content: "m3"
+policy:
+  serial: 2
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        assert_eq!(config.policy.serial, Some(2));
+
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = ApplyConfig {
+            config: &config,
+            state_dir: dir.path(),
+            force: false,
+            dry_run: false,
+            machine_filter: None,
+            resource_filter: None,
+            tag_filter: None,
+            timeout_secs: None,
+        };
+        let results = apply(&cfg).unwrap();
+        // All 3 machines should converge (2 in first batch, 1 in second)
+        assert_eq!(results.len(), 3);
+        let total: u32 = results.iter().map(|r| r.resources_converged).sum();
+        assert_eq!(total, 3);
+
+        let _ = std::fs::remove_file("/tmp/forjar-rolling-m1.txt");
+        let _ = std::fs::remove_file("/tmp/forjar-rolling-m2.txt");
+        let _ = std::fs::remove_file("/tmp/forjar-rolling-m3.txt");
+    }
+
+    #[test]
+    fn test_fj222_serial_with_parallel() {
+        // serial + parallel_machines: batches run in parallel
+        let yaml = r#"
+version: "1.0"
+name: rolling-parallel
+machines:
+  m1:
+    hostname: m1
+    addr: 127.0.0.1
+  m2:
+    hostname: m2
+    addr: 127.0.0.1
+resources:
+  f1:
+    type: file
+    machine: m1
+    path: /tmp/forjar-rp-m1.txt
+    content: "m1"
+  f2:
+    type: file
+    machine: m2
+    path: /tmp/forjar-rp-m2.txt
+    content: "m2"
+policy:
+  serial: 2
+  parallel_machines: true
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        assert_eq!(config.policy.serial, Some(2));
+        assert!(config.policy.parallel_machines);
+
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = ApplyConfig {
+            config: &config,
+            state_dir: dir.path(),
+            force: false,
+            dry_run: false,
+            machine_filter: None,
+            resource_filter: None,
+            tag_filter: None,
+            timeout_secs: None,
+        };
+        let results = apply(&cfg).unwrap();
+        assert_eq!(results.len(), 2);
+
+        let _ = std::fs::remove_file("/tmp/forjar-rp-m1.txt");
+        let _ = std::fs::remove_file("/tmp/forjar-rp-m2.txt");
+    }
+
+    #[test]
+    fn test_fj222_max_fail_percentage_yaml() {
+        let yaml = r#"
+version: "1.0"
+name: fail-pct
+machines:
+  m1:
+    hostname: m1
+    addr: 127.0.0.1
+resources:
+  f:
+    type: file
+    machine: m1
+    path: /tmp/forjar-pct.txt
+    content: "ok"
+policy:
+  serial: 1
+  max_fail_percentage: 50
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        assert_eq!(config.policy.max_fail_percentage, Some(50));
+        assert_eq!(config.policy.serial, Some(1));
+
+        // With one machine and no failures, this should succeed
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = ApplyConfig {
+            config: &config,
+            state_dir: dir.path(),
+            force: false,
+            dry_run: false,
+            machine_filter: None,
+            resource_filter: None,
+            tag_filter: None,
+            timeout_secs: None,
+        };
+        let results = apply(&cfg).unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].resources_failed, 0);
+
+        let _ = std::fs::remove_file("/tmp/forjar-pct.txt");
+    }
+
+    #[test]
+    fn test_fj222_serial_default_none() {
+        let yaml = r#"
+version: "1.0"
+name: no-serial
+machines:
+  m1:
+    hostname: m1
+    addr: 127.0.0.1
+resources:
+  f:
+    type: file
+    machine: m1
+    path: /tmp/forjar-nosrl.txt
+    content: "x"
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        assert_eq!(config.policy.serial, None);
+        assert_eq!(config.policy.max_fail_percentage, None);
+
+        let _ = std::fs::remove_file("/tmp/forjar-nosrl.txt");
+    }
+
+    #[test]
+    fn test_fj222_serial_one_is_sequential() {
+        // serial: 1 means one machine at a time (fully sequential)
+        let yaml = r#"
+version: "1.0"
+name: serial-one
+machines:
+  m1:
+    hostname: m1
+    addr: 127.0.0.1
+  m2:
+    hostname: m2
+    addr: 127.0.0.1
+resources:
+  f1:
+    type: file
+    machine: m1
+    path: /tmp/forjar-s1-m1.txt
+    content: "m1"
+  f2:
+    type: file
+    machine: m2
+    path: /tmp/forjar-s1-m2.txt
+    content: "m2"
+policy:
+  serial: 1
+  parallel_machines: true
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        // serial:1 with parallel_machines:true — batches of 1, so effectively sequential
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = ApplyConfig {
+            config: &config,
+            state_dir: dir.path(),
+            force: false,
+            dry_run: false,
+            machine_filter: None,
+            resource_filter: None,
+            tag_filter: None,
+            timeout_secs: None,
+        };
+        let results = apply(&cfg).unwrap();
+        assert_eq!(results.len(), 2);
+
+        let _ = std::fs::remove_file("/tmp/forjar-s1-m1.txt");
+        let _ = std::fs::remove_file("/tmp/forjar-s1-m2.txt");
     }
 }

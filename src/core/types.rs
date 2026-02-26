@@ -586,6 +586,17 @@ pub struct Policy {
     #[serde(default)]
     pub post_apply: Option<String>,
 
+    /// FJ-222: Rolling deploys — apply to N machines at a time, waiting for
+    /// convergence before advancing to the next batch. When combined with
+    /// `parallel_machines: true`, `serial` controls the batch size.
+    #[serde(default)]
+    pub serial: Option<usize>,
+
+    /// FJ-222: Abort rollout if cumulative failure rate exceeds this percentage.
+    /// Checked after each batch. Range: 0–100.
+    #[serde(default)]
+    pub max_fail_percentage: Option<u8>,
+
     /// FJ-225: Notification hooks — shell commands run after apply/drift
     #[serde(default)]
     pub notify: NotifyConfig,
@@ -620,6 +631,8 @@ impl Default for Policy {
             lock_file: true,
             pre_apply: None,
             post_apply: None,
+            serial: None,
+            max_fail_percentage: None,
             notify: NotifyConfig::default(),
         }
     }
