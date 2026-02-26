@@ -49,6 +49,7 @@ Validate any config with `cargo run -- validate -f examples/<config>`.
 | `dogfood-iteration.yaml` | file | Resource iteration: `count:` ({{index}}), `for_each:` ({{item}}) |
 | `dogfood-outputs.yaml` | file | Output values: `outputs:` block, template resolution, `--json` |
 | `dogfood-policies.yaml` | file, package | Policy-as-code: require/deny/warn rules, plan-time enforcement |
+| `dogfood-data.yaml` | file | Data sources: `data:` block, file/command/dns types, `{{data.*}}` templates |
 
 ## Supporting Assets
 

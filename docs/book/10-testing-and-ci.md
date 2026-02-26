@@ -224,7 +224,7 @@ The forjar repository runs 5 CI jobs on every push and pull request:
 | **test** | `cargo test --all-targets` + `cargo clippy` | Regressions, type errors, lint warnings |
 | **container-test** | Build test-target Docker image + `cargo test --features container-test` | Container transport regressions |
 | **fmt** | `cargo fmt --check` | Style violations |
-| **dogfood** | Validate all 13 dogfood configs, run all 19 examples, verify MCP schema | Codegen regressions, parser changes, example breakage |
+| **dogfood** | Validate all 18 dogfood configs, run all 19 examples, verify MCP schema | Codegen regressions, parser changes, example breakage |
 | **bench** | `cargo bench --no-run` + `forjar bench --iterations 10 --json` | Compile errors in benchmarks, smoke-test performance |
 
 The dogfood job is particularly valuable — it validates that every resource type's codegen produces parseable configs and that all examples demonstrate working code paths. Any change to parser validation, resource handlers, or template resolution that breaks a dogfood config or example will fail this job.

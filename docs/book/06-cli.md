@@ -607,6 +607,45 @@ Rule types:
 
 Filters: `resource_type` limits to one resource type; `tag` limits to resources with a specific tag.
 
+## Data Sources
+
+Define external data sources in the `data:` block. Values are resolved once at plan time and available as `{{data.key}}` templates:
+
+```yaml
+data:
+  hostname:
+    type: command
+    value: "hostname -f"
+  app_version:
+    type: file
+    value: "VERSION"
+    default: "0.0.0"
+  dns_addr:
+    type: dns
+    value: "api.example.com"
+    default: "127.0.0.1"
+
+resources:
+  config:
+    type: file
+    machine: web
+    path: /etc/app/config.yaml
+    content: |
+      hostname: {{data.hostname}}
+      version: {{data.app_version}}
+      api_addr: {{data.dns_addr}}
+```
+
+Data source types:
+
+| Type | Behavior |
+|------|----------|
+| `file` | Read file contents (trimmed). Falls back to `default` if missing. |
+| `command` | Run shell command, capture stdout (trimmed). Falls back to `default` on failure. |
+| `dns` | Resolve hostname to IP address. Falls back to `default` on failure. |
+
+Data sources are evaluated before template resolution, so `{{data.*}}` variables work anywhere `{{params.*}}` works.
+
 ## Environment Files
 
 Use `--env-file` to load param overrides from an external YAML file. This enables

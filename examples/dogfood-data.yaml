@@ -1,0 +1,48 @@
+version: "1.0"
+name: dogfood-data
+description: "FJ-223: Data sources — file, command, dns types with {{data.*}} templates"
+
+params:
+  base_dir: /opt/app
+
+data:
+  build_host:
+    type: command
+    value: "hostname -f"
+    default: "localhost"
+  app_version:
+    type: file
+    value: "VERSION"
+    default: "0.0.0-dev"
+  dns_addr:
+    type: dns
+    value: "localhost"
+    default: "127.0.0.1"
+
+machines:
+  local:
+    hostname: localhost
+    addr: 127.0.0.1
+
+resources:
+  app-config:
+    type: file
+    machine: local
+    path: "{{params.base_dir}}/config.yaml"
+    content: |
+      build_host: {{data.build_host}}
+      version: {{data.app_version}}
+      api_addr: {{data.dns_addr}}
+    owner: root
+    mode: "0644"
+    tags: [config, data-sources]
+
+  version-file:
+    type: file
+    machine: local
+    path: "{{params.base_dir}}/VERSION"
+    content: "{{data.app_version}}"
+    owner: root
+    mode: "0644"
+    tags: [config, data-sources]
+    depends_on: [app-config]
