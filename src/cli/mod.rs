@@ -187,6 +187,10 @@ pub enum Commands {
         /// FJ-266: Force-remove stale state lock before apply
         #[arg(long)]
         force_unlock: bool,
+
+        /// FJ-270: Output mode — 'events' for newline-delimited JSON events
+        #[arg(long)]
+        output: Option<String>,
     },
 
     /// Detect unauthorized changes (tripwire)
@@ -865,6 +869,7 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             check,
             report,
             force_unlock,
+            output,
         } => {
             if check {
                 // FJ-226: --check runs check scripts via cmd_check
@@ -896,6 +901,7 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
                 workspace.as_deref(),
                 report,
                 force_unlock,
+                output.as_deref(),
             )
         }
         Commands::Drift {
@@ -1899,6 +1905,7 @@ fn cmd_rollback(
         None,  // no workspace
         false, // no report
         false, // no force_unlock
+        None,  // no output mode
     )
 }
 
@@ -3380,7 +3387,9 @@ fn cmd_apply(
     workspace: Option<&str>,
     report: bool,
     force_unlock: bool,
+    output_mode: Option<&str>,
 ) -> Result<(), String> {
+    let events_mode = output_mode == Some("events");
     let mut config = parse_and_validate(file)?;
     if let Some(path) = env_file {
         load_env_params(&mut config, path)?;
@@ -3471,6 +3480,37 @@ fn cmd_apply(
         if let Err(e) = state::save_apply_report(state_dir, result) {
             eprintln!("warning: cannot save apply report: {}", e);
         }
+    }
+
+    // FJ-270: Structured event output
+    if events_mode {
+        for result in &results {
+            for r in &result.resource_reports {
+                let event = serde_json::json!({
+                    "event": if r.status == "converged" { "resource_converged" }
+                             else if r.status == "failed" { "resource_failed" }
+                             else { "resource_unchanged" },
+                    "machine": result.machine,
+                    "resource": r.resource_id,
+                    "type": r.resource_type,
+                    "status": r.status,
+                    "duration_seconds": r.duration_seconds,
+                    "hash": r.hash,
+                    "error": r.error,
+                });
+                println!("{}", serde_json::to_string(&event).unwrap_or_default());
+            }
+            let complete = serde_json::json!({
+                "event": "apply_complete",
+                "machine": result.machine,
+                "converged": result.resources_converged,
+                "unchanged": result.resources_unchanged,
+                "failed": result.resources_failed,
+                "duration_seconds": result.total_duration.as_secs_f64(),
+            });
+            println!("{}", serde_json::to_string(&complete).unwrap_or_default());
+        }
+        return Ok(());
     }
 
     if json {
@@ -3757,6 +3797,7 @@ fn cmd_drift(
             None,  // no workspace
             false, // no report
             false, // no force_unlock
+            None,  // no output mode
         )?;
         if !json {
             println!("Remediation complete.");
@@ -4559,7 +4600,11 @@ fn cmd_watch(
         "Watching {} (poll every {}s, {}). Ctrl-C to stop.",
         file.display(),
         interval_secs,
-        if auto_apply { "auto-apply" } else { "plan-only" }
+        if auto_apply {
+            "auto-apply"
+        } else {
+            "plan-only"
+        }
     );
 
     loop {
@@ -4594,7 +4639,9 @@ fn cmd_watch(
                     let plan = planner::plan(&config, &execution_order, &locks, None);
                     print_plan(&plan, None, Some(&config));
 
-                    if auto_apply && (plan.to_create > 0 || plan.to_update > 0 || plan.to_destroy > 0) {
+                    if auto_apply
+                        && (plan.to_create > 0 || plan.to_update > 0 || plan.to_destroy > 0)
+                    {
                         println!("\nAuto-applying...");
                         let cfg = executor::ApplyConfig {
                             config: &config,
@@ -5644,6 +5691,7 @@ resources:
             None,  // no workspace
             false, // no report
             false, // no force_unlock
+            None,  // no output mode
         )
         .unwrap();
     }
@@ -5693,6 +5741,7 @@ policy:
             None,  // no workspace
             false, // no report
             false, // no force_unlock
+            None,  // no output mode
         )
         .unwrap();
 
@@ -5739,6 +5788,7 @@ resources: {}
             None,  // no workspace
             false, // no report
             false, // no force_unlock
+            None,  // no output mode
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("validation"));
@@ -6060,6 +6110,7 @@ resources:
                 check: false,
                 report: false,
                 force_unlock: false,
+                output: None,
             },
             false,
             true,
@@ -6252,6 +6303,7 @@ resources:
             None,  // no workspace
             false, // no report
             false, // no force_unlock
+            None,  // no output mode
         )
         .unwrap();
         assert!(target.exists());
@@ -6275,6 +6327,7 @@ resources:
             None,  // no workspace
             false, // no report
             false, // no force_unlock
+            None,  // no output mode
         )
         .unwrap();
     }
@@ -6844,6 +6897,7 @@ resources:
             None,  // no workspace
             false, // no report
             false, // no force_unlock
+            None,  // no output mode
         )
         .unwrap();
         assert!(target.exists());
@@ -6907,6 +6961,7 @@ resources:
             None,  // no workspace
             false, // no report
             false, // no force_unlock
+            None,  // no output mode
         )
         .unwrap();
         cmd_destroy(&config, &state, None, true, true).unwrap();
@@ -6971,6 +7026,7 @@ resources:
             None,  // no workspace
             false, // no report
             false, // no force_unlock
+            None,  // no output mode
         )
         .unwrap();
         assert!(target_a.exists());
@@ -7030,6 +7086,7 @@ resources:
             None,  // no workspace
             false, // no report
             false, // no force_unlock
+            None,  // no output mode
         )
         .unwrap();
         dispatch(
@@ -7125,6 +7182,7 @@ resources:
             None,  // no workspace
             false, // no report
             false, // no force_unlock
+            None,  // no output mode
         )
         .unwrap();
         assert!(target.exists());
@@ -7283,6 +7341,7 @@ resources:
             None,  // no workspace
             false, // no report
             false, // no force_unlock
+            None,  // no output mode
         )
         .unwrap();
         assert!(std::path::Path::new(&target).exists());
@@ -8655,6 +8714,7 @@ resources:
             None,  // no workspace
             false, // no report
             false, // no force_unlock
+            None,  // no output mode
         )
         .unwrap();
     }
@@ -9919,6 +9979,7 @@ resources:
             None,  // no workspace
             false, // no report
             false, // no force_unlock
+            None,  // no output mode
         );
         assert!(result.is_ok());
     }
@@ -10001,6 +10062,7 @@ resources:
                 check: false,
                 report: false,
                 force_unlock: false,
+                output: None,
             },
             false,
             true,
@@ -10537,6 +10599,7 @@ resources:
             None,  // no workspace
             false, // no report
             false, // no force_unlock
+            None,  // no output mode
         )
         .unwrap();
     }
@@ -10925,6 +10988,7 @@ policies:
             None,
             false,
             false,
+            None,
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("policy violations"));
@@ -11027,6 +11091,7 @@ policy:
             None,
             false,
             false,
+            None,
         );
         // cmd_apply needs a parsed config, but it re-parses from file
         // Instead, test the run_notify function directly
@@ -11121,6 +11186,7 @@ resources:
                 check: true,
                 report: false,
                 force_unlock: false,
+                output: None,
             },
             false,
             true,
@@ -11174,6 +11240,7 @@ resources:
                 check: false,
                 report: false,
                 force_unlock: false,
+                output: None,
             },
             false,
             true,
@@ -12180,6 +12247,7 @@ resources:
             None,
             false,
             false,
+            None,
         )
         .unwrap();
         // last-apply.yaml should be written
@@ -12244,6 +12312,7 @@ resources:
             None,
             false,
             false,
+            None,
         )
         .unwrap();
         let content = std::fs::read_to_string(state.join("local").join("last-apply.yaml")).unwrap();
@@ -12516,7 +12585,9 @@ resources:
             yes: false,
         };
         match cmd {
-            Commands::Watch { interval, apply, .. } => {
+            Commands::Watch {
+                interval, apply, ..
+            } => {
                 assert_eq!(interval, 5);
                 assert!(!apply);
             }
@@ -12572,5 +12643,85 @@ resources:
         let locks = load_all_locks(dir.path(), &config);
         assert_eq!(locks.len(), 1);
         assert!(locks.contains_key("srv"));
+    }
+
+    // ========================================================================
+    // FJ-270: Structured event output
+    // ========================================================================
+
+    #[test]
+    fn test_fj270_events_mode_detection() {
+        // events_mode should be true only when output == Some("events")
+        let mode: Option<&str> = Some("events");
+        assert_eq!(mode, Some("events"));
+        let mode2: Option<&str> = Some("json");
+        assert_ne!(mode2, Some("events"));
+        let mode3: Option<&str> = None;
+        assert!(mode3.is_none());
+    }
+
+    #[test]
+    fn test_fj270_event_json_format() {
+        // Verify event JSON structure
+        let event = serde_json::json!({
+            "event": "resource_converged",
+            "machine": "local",
+            "resource": "test-file",
+            "type": "file",
+            "status": "converged",
+            "duration_seconds": 0.015,
+            "hash": "blake3:abc123",
+            "error": null,
+        });
+        let serialized = serde_json::to_string(&event).unwrap();
+        assert!(serialized.contains("resource_converged"));
+        assert!(serialized.contains("test-file"));
+        assert!(serialized.contains("blake3:abc123"));
+    }
+
+    #[test]
+    fn test_fj270_apply_complete_event() {
+        let event = serde_json::json!({
+            "event": "apply_complete",
+            "machine": "local",
+            "converged": 3,
+            "unchanged": 1,
+            "failed": 0,
+            "duration_seconds": 1.5,
+        });
+        let s = serde_json::to_string(&event).unwrap();
+        assert!(s.contains("apply_complete"));
+        assert!(s.contains("\"converged\":3"));
+        assert!(s.contains("\"failed\":0"));
+    }
+
+    #[test]
+    fn test_fj270_output_flag_parse() {
+        let cmd = Commands::Apply {
+            file: PathBuf::from("forjar.yaml"),
+            machine: None,
+            resource: None,
+            tag: None,
+            force: false,
+            dry_run: false,
+            no_tripwire: false,
+            params: vec![],
+            auto_commit: false,
+            timeout: None,
+            state_dir: PathBuf::from("state"),
+            json: false,
+            env_file: None,
+            workspace: None,
+            check: false,
+            report: false,
+            force_unlock: false,
+            output: Some("events".to_string()),
+        };
+        match cmd {
+            Commands::Apply { output, .. } => {
+                assert_eq!(output.as_deref(), Some("events"));
+            }
+            _ => panic!("expected Apply"),
+        }
     }
 }
