@@ -331,6 +331,10 @@ pub enum Commands {
         /// Output as JSON
         #[arg(long)]
         json: bool,
+
+        /// FJ-221: Enable built-in policy rules (no_root_owner, require_tags, etc.)
+        #[arg(long)]
+        strict: bool,
     },
 
     /// Rollback to a previous config revision from git history
@@ -689,7 +693,11 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             verbose,
         ),
         Commands::Fmt { file, check } => cmd_fmt(&file, check),
-        Commands::Lint { file, json } => cmd_lint(&file, json),
+        Commands::Lint {
+            file,
+            json,
+            strict,
+        } => cmd_lint(&file, json, strict),
         Commands::Rollback {
             file,
             revision,
@@ -1006,7 +1014,7 @@ fn cmd_bench(iterations: usize, json: bool) -> Result<(), String> {
     Ok(())
 }
 
-fn cmd_lint(file: &Path, json: bool) -> Result<(), String> {
+fn cmd_lint(file: &Path, json: bool, strict: bool) -> Result<(), String> {
     let config = parse_and_validate(file)?;
 
     let mut warnings: Vec<String> = Vec::new();
@@ -1100,6 +1108,55 @@ fn cmd_lint(file: &Path, json: bool) -> Result<(), String> {
     for (id, resource) in &config.resources {
         if resource.resource_type == types::ResourceType::Package && resource.packages.is_empty() {
             warnings.push(format!("package resource '{}' has no packages listed", id));
+        }
+    }
+
+    // FJ-221: Built-in strict policy rules
+    if strict {
+        // no_root_owner: file resources must not be owned by root (unless tagged "system")
+        for (id, resource) in &config.resources {
+            if resource.resource_type == types::ResourceType::File
+                && resource.owner.as_deref() == Some("root")
+                && !resource.tags.iter().any(|t| t == "system")
+            {
+                warnings.push(format!(
+                    "strict: file '{}' is owned by root — tag as 'system' or use a non-root owner",
+                    id
+                ));
+            }
+        }
+
+        // require_tags: all resources must have tags
+        for (id, resource) in &config.resources {
+            if resource.tags.is_empty() {
+                warnings.push(format!("strict: resource '{}' has no tags", id));
+            }
+        }
+
+        // no_privileged_containers: container machines must not use --privileged
+        for (name, machine) in &config.machines {
+            if let Some(ref container) = machine.container {
+                if container.privileged {
+                    warnings.push(format!(
+                        "strict: machine '{}' uses privileged container mode",
+                        name
+                    ));
+                }
+            }
+        }
+
+        // require_ssh_key: non-local machines must have ssh_key
+        for (name, machine) in &config.machines {
+            if machine.addr != "127.0.0.1"
+                && machine.addr != "localhost"
+                && machine.addr != "container"
+                && machine.ssh_key.is_none()
+            {
+                warnings.push(format!(
+                    "strict: machine '{}' has no ssh_key configured",
+                    name
+                ));
+            }
         }
     }
 
@@ -6267,7 +6324,7 @@ resources:
         .unwrap();
 
         // Lint should succeed but print warnings (it returns Ok)
-        cmd_lint(&file, false).unwrap();
+        cmd_lint(&file, false, false).unwrap();
     }
 
     #[test]
@@ -6295,7 +6352,7 @@ resources:
         )
         .unwrap();
 
-        cmd_lint(&file, true).unwrap();
+        cmd_lint(&file, true, false).unwrap();
     }
 
     #[test]
@@ -6320,7 +6377,7 @@ resources:
         )
         .unwrap();
 
-        cmd_lint(&file, false).unwrap();
+        cmd_lint(&file, false, false).unwrap();
     }
 
     #[test]
@@ -6355,7 +6412,7 @@ resources:
         .unwrap();
 
         // Capture output via JSON mode to inspect warnings
-        let result = cmd_lint(&file, true);
+        let result = cmd_lint(&file, true, false);
         assert!(result.is_ok());
         // The warning should mention cross-machine dependency
         // We re-run logic here to check the warning was generated
@@ -7062,7 +7119,7 @@ resources:
         )
         .unwrap();
         // Lint should detect duplicate content
-        cmd_lint(&config, false).unwrap();
+        cmd_lint(&config, false, false).unwrap();
     }
 
     // ── Init edge case ────────────────────────────────────────
@@ -7707,7 +7764,7 @@ resources:
     packages: [curl]
 "#;
         std::fs::write(&file, yaml).unwrap();
-        cmd_lint(&file, false).unwrap();
+        cmd_lint(&file, false, false).unwrap();
     }
 
     #[test]
@@ -7729,7 +7786,7 @@ resources:
     packages: [curl]
 "#;
         std::fs::write(&file, yaml).unwrap();
-        cmd_lint(&file, true).unwrap();
+        cmd_lint(&file, true, false).unwrap();
     }
 
     #[test]
@@ -7918,7 +7975,7 @@ resources:
 "#;
         std::fs::write(&file, yaml).unwrap();
         // cmd_lint should succeed and produce bashrs diagnostics summary
-        let result = cmd_lint(&file, true);
+        let result = cmd_lint(&file, true, false);
         assert!(
             result.is_ok(),
             "cmd_lint should succeed: {:?}",
@@ -8044,7 +8101,7 @@ resources:
 "#,
         )
         .unwrap();
-        let result = cmd_lint(&config, false);
+        let result = cmd_lint(&config, false, false);
         assert!(
             result.is_ok(),
             "cmd_lint should succeed on a valid config with file resource"
@@ -9526,5 +9583,184 @@ resources:
             false,
         );
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj221_strict_no_root_owner() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &file,
+            r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: localhost
+    addr: 127.0.0.1
+resources:
+  cfg:
+    type: file
+    machine: m1
+    path: /etc/app.conf
+    content: "hello"
+    owner: root
+"#,
+        )
+        .unwrap();
+        // Non-strict: no warning about root owner
+        cmd_lint(&file, false, false).unwrap();
+        // TODO: can't easily capture stdout in tests, but verify it compiles and runs
+        // Strict mode adds warnings
+        cmd_lint(&file, false, true).unwrap();
+    }
+
+    #[test]
+    fn test_fj221_strict_root_with_system_tag() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &file,
+            r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: localhost
+    addr: 127.0.0.1
+resources:
+  cfg:
+    type: file
+    machine: m1
+    path: /etc/system.conf
+    content: "system config"
+    owner: root
+    tags: [system]
+"#,
+        )
+        .unwrap();
+        // Root owner with "system" tag should NOT produce a no_root_owner warning
+        cmd_lint(&file, false, true).unwrap();
+    }
+
+    #[test]
+    fn test_fj221_strict_require_tags() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &file,
+            r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: localhost
+    addr: 127.0.0.1
+resources:
+  a:
+    type: file
+    machine: m1
+    path: /tmp/a
+    content: "a"
+  b:
+    type: file
+    machine: m1
+    path: /tmp/b
+    content: "b"
+    tags: [web]
+"#,
+        )
+        .unwrap();
+        // Strict mode should warn about resource 'a' having no tags
+        cmd_lint(&file, false, true).unwrap();
+    }
+
+    #[test]
+    fn test_fj221_strict_require_ssh_key() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &file,
+            r#"
+version: "1.0"
+name: test
+machines:
+  remote:
+    hostname: web01
+    addr: 10.0.0.1
+  local:
+    hostname: localhost
+    addr: 127.0.0.1
+resources:
+  cfg:
+    type: file
+    machine: local
+    path: /tmp/test.txt
+    content: "test"
+    tags: [test]
+"#,
+        )
+        .unwrap();
+        // Strict: remote machine without ssh_key should warn
+        cmd_lint(&file, false, true).unwrap();
+    }
+
+    #[test]
+    fn test_fj221_strict_no_privileged_containers() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &file,
+            r#"
+version: "1.0"
+name: test
+machines:
+  test-box:
+    hostname: test-box
+    addr: container
+    transport: container
+    container:
+      runtime: docker
+      image: ubuntu:22.04
+      privileged: true
+resources:
+  cfg:
+    type: file
+    machine: test-box
+    path: /tmp/test.txt
+    content: "test"
+    tags: [test]
+"#,
+        )
+        .unwrap();
+        // Strict: privileged container should warn
+        cmd_lint(&file, false, true).unwrap();
+    }
+
+    #[test]
+    fn test_fj221_strict_json_output() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &file,
+            r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: localhost
+    addr: 127.0.0.1
+resources:
+  cfg:
+    type: file
+    machine: m1
+    path: /tmp/test.txt
+    content: "test"
+    owner: root
+"#,
+        )
+        .unwrap();
+        // JSON + strict should not crash
+        cmd_lint(&file, true, true).unwrap();
     }
 }
