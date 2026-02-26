@@ -1665,7 +1665,7 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 | FJ-251 | `forjar doctor` — pre-flight system checker. Validates: bash ≥ 4.0, ssh available (if SSH machines configured), docker/podman available (if container machines), age identity accessible (if `ENC[age,...]` markers present), state dir writable, git repo clean. Color-coded pass/warn/fail output. `--json` flag for CI. 7 tests (1646→1653). | **Done** |
 | FJ-252 | SSH connection multiplexing — `ControlMaster auto` + `ControlPath` + `ControlPersist=60s` for same-machine connection reuse. Reduces SSH handshake overhead from O(n) to O(1) per machine per apply. `transport/ssh.rs` manages ControlMaster lifecycle (start/stop/stop_all). Transparent fallback: mux args only injected when control socket exists. 13 tests (1653→1666). | **Done** |
 | FJ-253 | Shell completions — `forjar completion bash/zsh/fish` via `clap_complete`. Generates shell-specific completion scripts from derive-based CLI. 5 tests (1666→1671). New dep: clap_complete. | **Done** |
-| FJ-254 | Config includes — `includes: [base.yaml, overrides.yaml]` field in forjar.yaml. Merge multiple config files for DRY multi-environment setups. Later files override earlier ones. `params`, `machines`, `resources` merge by key. `policy` is replaced wholesale. Validation runs on merged config. | Planned |
+| FJ-254 | Config includes — `includes: [base.yaml, overrides.yaml]` field in `ForjarConfig`. Merges params/machines/resources by key (later wins), policy replaced wholesale. Validation on merged config. 11 tests (1671→1682). Dogfood: dogfood-includes.yaml + dogfood-includes-machines.yaml. | **Done** |
 | FJ-255 | Content diff in plan output — `forjar plan` shows unified diff for file content changes, package version diffs, service state transitions. Color-coded additions/removals. `--no-diff` flag to suppress. Diff limited to 50 lines per resource (truncate with `[... N more lines]`). | Planned |
 | FJ-256 | `forjar lock` — generate lock file without applying. Reads config, resolves templates, computes BLAKE3 hashes for desired state, writes lock file. Useful for CI pipelines that validate state without executing. `--verify` flag checks lock matches config (exit 1 on mismatch). | Planned |
 | FJ-257 | Parallel apply within machines — execute independent resources concurrently on the same machine using `std::thread::scope`. Respects DAG dependencies (only parallelize resources with no inter-dependencies). `policy.parallel_resources: true` opt-in. Speedup: 2-4x for configs with many independent resources. | Planned |
@@ -1757,7 +1757,7 @@ cargo test --features container-test
 
 ### 10.6 Dogfood Workflow
 
-26 dogfood configs exercise all 11 resource types and cross-cutting features. Container transport configs enable end-to-end testing without root or host pollution; localhost configs validate codegen and planning.
+28 dogfood configs exercise all 11 resource types and cross-cutting features. Container transport configs enable end-to-end testing without root or host pollution; localhost configs validate codegen and planning.
 
 | Config | Resource types | What it proves |
 |--------|---------------|----------------|
@@ -1787,6 +1787,7 @@ cargo test --features container-test
 | `dogfood-renacer.yaml` | recipe | Observability stack recipe (renacer-observability), 10 resources |
 | `dogfood-sovereign-stack.yaml` | recipe | Multi-machine sovereign AI stack, 3 machines, 33 resources |
 | `dogfood-template-funcs.yaml` | file | Template functions: upper/lower/trim/default/replace/env/b3sum/join/split, nested calls |
+| `dogfood-includes.yaml` | file | Config includes: merge params/machines/resources from included files |
 
 **Dogfood verification workflow** (run after any codegen, transport, or executor change):
 

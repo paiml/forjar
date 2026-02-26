@@ -25,7 +25,37 @@ policy:                   # Optional. Execution policy
   failure: stop_on_first
   tripwire: true
   lock_file: true
+
+includes:                 # Optional. Merge other config files
+  - base.yaml
+  - overrides.yaml
 ```
+
+## Config Includes
+
+Split large configs into multiple files using `includes:`:
+
+```yaml
+# main.yaml
+version: "1.0"
+name: production
+includes:
+  - machines.yaml
+  - packages.yaml
+resources:
+  app-config:
+    type: file
+    machine: web
+    path: /etc/app/config.yaml
+    content: "env={{params.env}}"
+```
+
+Merge rules:
+- `params`, `machines`, `resources`, `outputs`, `data` — merge by key (later overrides earlier)
+- `policy` — replaced wholesale from the last include
+- `policies` — concatenated (all rules apply)
+- Includes are resolved relative to the main config file's directory
+- Includes are single-level (included files' `includes` are not processed)
 
 ## Machines
 
