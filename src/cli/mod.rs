@@ -235,6 +235,10 @@ pub enum Commands {
         /// FJ-304: Per-resource timeout in seconds (kill script if exceeded)
         #[arg(long)]
         resource_timeout: Option<u64>,
+
+        /// FJ-310: Auto-rollback to previous state on any resource failure
+        #[arg(long)]
+        rollback_on_failure: bool,
     },
 
     /// Detect unauthorized changes (tripwire)
@@ -1004,6 +1008,7 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             yes,
             parallel,
             resource_timeout,
+            rollback_on_failure,
         } => {
             if check {
                 // FJ-226: --check runs check scripts via cmd_check
@@ -1043,6 +1048,7 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
                 yes,
                 parallel,
                 resource_timeout,
+                rollback_on_failure,
             )
         }
         Commands::Drift {
@@ -1240,7 +1246,11 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             apply,
             yes,
         } => cmd_watch(&file, &state_dir, interval, apply, yes),
-        Commands::Explain { file, resource, json } => cmd_explain(&file, &resource, json),
+        Commands::Explain {
+            file,
+            resource,
+            json,
+        } => cmd_explain(&file, &resource, json),
         Commands::Env { file, json } => cmd_env(&file, json),
         Commands::Test {
             file,
@@ -2092,7 +2102,8 @@ fn cmd_rollback(
         0,     // no retry
         true,  // yes (skip prompt)
         false,
-        None, // no resource_timeout
+        None,  // no resource_timeout
+        false, // no rollback_on_failure
     )
 }
 
@@ -4055,6 +4066,7 @@ fn cmd_apply(
     yes: bool,
     parallel: bool,
     resource_timeout: Option<u64>,
+    rollback_on_failure: bool,
 ) -> Result<(), String> {
     use std::time::Instant;
     let t_total = Instant::now();
@@ -4155,6 +4167,7 @@ fn cmd_apply(
         retry,
         parallel: if parallel { Some(true) } else { None },
         resource_timeout,
+        rollback_on_failure,
     };
 
     let t_apply = Instant::now();
@@ -4561,7 +4574,8 @@ fn cmd_drift(
             0,     // no retry
             true,  // yes (skip prompt)
             false,
-            None, // no resource_timeout
+            None,  // no resource_timeout
+            false, // no rollback_on_failure
         )?;
         if !json {
             println!("Remediation complete.");
@@ -5702,6 +5716,7 @@ fn cmd_watch(
                             retry: 0,
                             parallel: None,
                             resource_timeout: None,
+                            rollback_on_failure: false,
                         };
                         match executor::apply(&cfg) {
                             Ok(results) => {
@@ -6961,6 +6976,7 @@ resources:
             true,  // yes (skip prompt)
             false,
             None,
+            false,
         )
         .unwrap();
     }
@@ -7018,6 +7034,7 @@ policy:
             true,  // yes (skip prompt)
             false,
             None,
+            false,
         )
         .unwrap();
 
@@ -7072,6 +7089,7 @@ resources: {}
             true,  // yes (skip prompt)
             false,
             None,
+            false,
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("validation"));
@@ -7407,6 +7425,7 @@ resources:
                 parallel: false,
                 timing: false,
                 resource_timeout: None,
+                rollback_on_failure: false,
             },
             false,
             true,
@@ -7607,6 +7626,7 @@ resources:
             true,  // yes (skip prompt)
             false,
             None,
+            false,
         )
         .unwrap();
         assert!(target.exists());
@@ -7638,6 +7658,7 @@ resources:
             true,  // yes (skip prompt)
             false,
             None,
+            false,
         )
         .unwrap();
     }
@@ -8256,6 +8277,7 @@ resources:
             true,  // yes (skip prompt)
             false,
             None,
+            false,
         )
         .unwrap();
         assert!(target.exists());
@@ -8327,6 +8349,7 @@ resources:
             true,  // yes (skip prompt)
             false,
             None,
+            false,
         )
         .unwrap();
         cmd_destroy(&config, &state, None, true, true).unwrap();
@@ -8399,6 +8422,7 @@ resources:
             true,  // yes (skip prompt)
             false,
             None,
+            false,
         )
         .unwrap();
         assert!(target_a.exists());
@@ -8466,6 +8490,7 @@ resources:
             true,  // yes (skip prompt)
             false,
             None,
+            false,
         )
         .unwrap();
         dispatch(
@@ -8569,6 +8594,7 @@ resources:
             true,  // yes (skip prompt)
             false,
             None,
+            false,
         )
         .unwrap();
         assert!(target.exists());
@@ -8735,6 +8761,7 @@ resources:
             true,  // yes (skip prompt)
             false,
             None,
+            false,
         )
         .unwrap();
         assert!(std::path::Path::new(&target).exists());
@@ -10115,6 +10142,7 @@ resources:
             true,  // yes (skip prompt)
             false,
             None,
+            false,
         )
         .unwrap();
     }
@@ -11387,6 +11415,7 @@ resources:
             true,  // yes (skip prompt)
             false,
             None,
+            false,
         );
         assert!(result.is_ok());
     }
@@ -11479,6 +11508,7 @@ resources:
                 parallel: false,
                 timing: false,
                 resource_timeout: None,
+                rollback_on_failure: false,
             },
             false,
             true,
@@ -12024,6 +12054,7 @@ resources:
             true,  // yes (skip prompt)
             false,
             None,
+            false,
         )
         .unwrap();
     }
@@ -12421,6 +12452,7 @@ policies:
             true,
             false,
             None,
+            false,
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("policy violations"));
@@ -12531,6 +12563,7 @@ policy:
             true,
             false,
             None,
+            false,
         );
         // cmd_apply needs a parsed config, but it re-parses from file
         // Instead, test the run_notify function directly
@@ -12633,6 +12666,7 @@ resources:
                 parallel: false,
                 timing: false,
                 resource_timeout: None,
+                rollback_on_failure: false,
             },
             false,
             true,
@@ -12694,6 +12728,7 @@ resources:
                 parallel: false,
                 timing: false,
                 resource_timeout: None,
+                rollback_on_failure: false,
             },
             false,
             true,
@@ -13736,6 +13771,7 @@ resources:
             true,
             false,
             None,
+            false,
         )
         .unwrap();
         // last-apply.yaml should be written
@@ -13808,6 +13844,7 @@ resources:
             true,
             false,
             None,
+            false,
         )
         .unwrap();
         let content = std::fs::read_to_string(state.join("local").join("last-apply.yaml")).unwrap();
@@ -14218,6 +14255,7 @@ resources:
             parallel: false,
             timing: false,
             resource_timeout: None,
+            rollback_on_failure: false,
         };
         match cmd {
             Commands::Apply { output, .. } => {
@@ -14240,7 +14278,7 @@ resources:
             Commands::Explain {
                 file: config_path,
                 resource: "nonexistent".to_string(),
-            json: false,
+                json: false,
             },
             false,
             true,
@@ -14258,7 +14296,7 @@ resources:
             Commands::Explain {
                 file: config_path,
                 resource: "test".to_string(),
-            json: false,
+                json: false,
             },
             false,
             true,
@@ -14275,7 +14313,7 @@ resources:
             Commands::Explain {
                 file: config_path,
                 resource: "cfg".to_string(),
-            json: false,
+                json: false,
             },
             false,
             true,
@@ -14288,7 +14326,7 @@ resources:
         let cmd = Commands::Explain {
             file: PathBuf::from("forjar.yaml"),
             resource: "my-resource".to_string(),
-        json: false,
+            json: false,
         };
         match cmd {
             Commands::Explain { resource, .. } => assert_eq!(resource, "my-resource"),
@@ -14328,6 +14366,7 @@ resources:
             parallel: false,
             timing: false,
             resource_timeout: None,
+            rollback_on_failure: false,
         };
         match cmd {
             Commands::Apply { progress, .. } => assert!(progress),
@@ -14363,6 +14402,7 @@ resources:
             parallel: false,
             timing: false,
             resource_timeout: None,
+            rollback_on_failure: false,
         };
         match cmd {
             Commands::Apply { progress, .. } => assert!(!progress),
@@ -14402,6 +14442,7 @@ resources:
             parallel: false,
             timing: true,
             resource_timeout: None,
+            rollback_on_failure: false,
         };
         match cmd {
             Commands::Apply { timing, .. } => assert!(timing),
@@ -14437,6 +14478,7 @@ resources:
             parallel: false,
             timing: false,
             resource_timeout: None,
+            rollback_on_failure: false,
         };
         match cmd {
             Commands::Apply { timing, .. } => assert!(!timing),
@@ -14680,6 +14722,7 @@ resources:
             parallel: false,
             timing: false,
             resource_timeout: None,
+            rollback_on_failure: false,
         };
         match cmd {
             Commands::Apply { group, .. } => {
@@ -14829,6 +14872,7 @@ resources:
             parallel: false,
             timing: false,
             resource_timeout: None,
+            rollback_on_failure: false,
         };
         match cmd {
             Commands::Apply { retry, .. } => assert_eq!(retry, 3),
@@ -14864,6 +14908,7 @@ resources:
             parallel: false,
             timing: false,
             resource_timeout: None,
+            rollback_on_failure: false,
         };
         match cmd {
             Commands::Apply { retry, .. } => assert_eq!(retry, 0),
@@ -15010,6 +15055,7 @@ resources:
             parallel: false,
             timing: false,
             resource_timeout: None,
+            rollback_on_failure: false,
         };
         match cmd {
             Commands::Apply { yes, .. } => assert!(yes),
@@ -15045,6 +15091,7 @@ resources:
             parallel: false,
             timing: false,
             resource_timeout: None,
+            rollback_on_failure: false,
         };
         match cmd {
             Commands::Apply { yes, .. } => assert!(!yes),
@@ -15103,6 +15150,7 @@ resources:
             parallel: true,
             timing: false,
             resource_timeout: None,
+            rollback_on_failure: false,
         };
         match cmd {
             Commands::Apply { parallel, .. } => assert!(parallel),
@@ -15279,6 +15327,7 @@ resources:
             true,    // yes
             false,   // parallel
             None,    // resource_timeout
+            false,   // rollback_on_failure
         );
         assert!(result.is_ok());
     }
@@ -15508,6 +15557,7 @@ resources:
             yes: false,
             parallel: false,
             resource_timeout: Some(30),
+            rollback_on_failure: false,
         };
         match cmd {
             Commands::Apply {
@@ -15650,5 +15700,92 @@ resources:
             Commands::Explain { json, .. } => assert!(json),
             _ => panic!("expected Explain"),
         }
+    }
+
+    // ── FJ-310: apply --rollback-on-failure ──
+
+    #[test]
+    fn test_fj310_rollback_flag_parse() {
+        let cmd = Commands::Apply {
+            file: PathBuf::from("f.yaml"),
+            state_dir: PathBuf::from("state"),
+            machine: None,
+            resource: None,
+            tag: None,
+            group: None,
+            force: false,
+            dry_run: false,
+            no_tripwire: false,
+            params: vec![],
+            auto_commit: false,
+            timeout: None,
+            json: false,
+            env_file: None,
+            workspace: None,
+            check: false,
+            report: false,
+            force_unlock: false,
+            output: None,
+            progress: false,
+            timing: false,
+            retry: 0,
+            yes: false,
+            parallel: false,
+            resource_timeout: None,
+            rollback_on_failure: true,
+        };
+        match cmd {
+            Commands::Apply {
+                rollback_on_failure,
+                ..
+            } => assert!(rollback_on_failure),
+            _ => panic!("expected Apply"),
+        }
+    }
+
+    #[test]
+    fn test_fj310_rollback_config_wired() {
+        // Verify rollback_on_failure is in ApplyConfig
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config_path,
+            r#"
+version: "1.0"
+name: rollback-test
+machines:
+  local:
+    hostname: localhost
+    addr: 127.0.0.1
+resources:
+  f:
+    type: file
+    machine: local
+    path: /tmp/fj310-rollback.txt
+    content: hello
+"#,
+        )
+        .unwrap();
+        let config = parse_and_validate(&config_path).unwrap();
+        let state_dir = dir.path().join("state");
+        std::fs::create_dir_all(&state_dir).unwrap();
+        let cfg = executor::ApplyConfig {
+            config: &config,
+            state_dir: &state_dir,
+            force: false,
+            dry_run: false,
+            machine_filter: None,
+            resource_filter: None,
+            tag_filter: None,
+            group_filter: None,
+            timeout_secs: None,
+            force_unlock: false,
+            progress: false,
+            retry: 0,
+            parallel: None,
+            resource_timeout: None,
+            rollback_on_failure: true,
+        };
+        assert!(cfg.rollback_on_failure);
     }
 }
