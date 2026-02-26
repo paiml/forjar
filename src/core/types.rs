@@ -585,6 +585,29 @@ pub struct Policy {
     /// Command to run locally after successful apply
     #[serde(default)]
     pub post_apply: Option<String>,
+
+    /// FJ-225: Notification hooks — shell commands run after apply/drift
+    #[serde(default)]
+    pub notify: NotifyConfig,
+}
+
+/// FJ-225: Notification hooks configuration.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct NotifyConfig {
+    /// Command to run after successful apply.
+    /// Template variables: `{{machine}}`, `{{converged}}`, `{{unchanged}}`, `{{failed}}`
+    #[serde(default)]
+    pub on_success: Option<String>,
+
+    /// Command to run after apply with failures.
+    /// Template variables: `{{machine}}`, `{{converged}}`, `{{unchanged}}`, `{{failed}}`
+    #[serde(default)]
+    pub on_failure: Option<String>,
+
+    /// Command to run when drift is detected.
+    /// Template variables: `{{machine}}`, `{{drift_count}}`
+    #[serde(default)]
+    pub on_drift: Option<String>,
 }
 
 impl Default for Policy {
@@ -597,6 +620,7 @@ impl Default for Policy {
             lock_file: true,
             pre_apply: None,
             post_apply: None,
+            notify: NotifyConfig::default(),
         }
     }
 }
