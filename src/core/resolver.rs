@@ -4,7 +4,7 @@
 //! Builds a DAG from explicit depends_on edges and computes topological order
 //! using Kahn's algorithm with deterministic (alphabetical) tie-breaking.
 
-use super::types::*;
+use super::{secrets, types::*};
 use provable_contracts_macros::contract;
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet, VecDeque};
@@ -80,6 +80,12 @@ pub fn resolve_template(
 
         result.replace_range(open..close, &value);
         start = open + value.len();
+    }
+
+    // FJ-200: Decrypt any ENC[age,...] markers after template resolution
+    if secrets::has_encrypted_markers(&result) {
+        let identities = secrets::load_identities(None)?;
+        result = secrets::decrypt_all(&result, &identities)?;
     }
 
     Ok(result)
@@ -712,12 +718,12 @@ resources:
             quantization: None,
             checksum: None,
             cache_dir: None,
-        driver_version: None,
-        cuda_version: None,
-        devices: vec![],
-        persistence_mode: None,
-        compute_mode: None,
-        gpu_memory_limit_mb: None,
+            driver_version: None,
+            cuda_version: None,
+            devices: vec![],
+            persistence_mode: None,
+            compute_mode: None,
+            gpu_memory_limit_mb: None,
         };
 
         let resolved = resolve_resource_templates(&resource, &params, &machines).unwrap();
@@ -967,12 +973,12 @@ resources:
                     quantization: None,
                     checksum: None,
                     cache_dir: None,
-                driver_version: None,
-                cuda_version: None,
-                devices: vec![],
-                persistence_mode: None,
-                compute_mode: None,
-                gpu_memory_limit_mb: None,
+                    driver_version: None,
+                    cuda_version: None,
+                    devices: vec![],
+                    persistence_mode: None,
+                    compute_mode: None,
+                    gpu_memory_limit_mb: None,
                 },
             );
         }
@@ -1218,12 +1224,12 @@ resources:
             quantization: None,
             checksum: None,
             cache_dir: None,
-        driver_version: None,
-        cuda_version: None,
-        devices: vec![],
-        persistence_mode: None,
-        compute_mode: None,
-        gpu_memory_limit_mb: None,
+            driver_version: None,
+            cuda_version: None,
+            devices: vec![],
+            persistence_mode: None,
+            compute_mode: None,
+            gpu_memory_limit_mb: None,
         };
 
         let resolved = resolve_resource_templates(&resource, &params, &machines).unwrap();
@@ -1480,12 +1486,12 @@ resources:
             quantization: None,
             checksum: None,
             cache_dir: None,
-        driver_version: None,
-        cuda_version: None,
-        devices: vec![],
-        persistence_mode: None,
-        compute_mode: None,
-        gpu_memory_limit_mb: None,
+            driver_version: None,
+            cuda_version: None,
+            devices: vec![],
+            persistence_mode: None,
+            compute_mode: None,
+            gpu_memory_limit_mb: None,
         }
     }
 

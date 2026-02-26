@@ -2,7 +2,7 @@
 //! destroy, import, show, graph, check, diff, fmt, lint, rollback, anomaly, trace,
 //! migrate, mcp, bench.
 
-use crate::core::{codegen, executor, migrate, parser, planner, resolver, state, types};
+use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
 use crate::transport;
 use crate::tripwire::{anomaly, drift, eventlog, tracer};
 use clap::Subcommand;
@@ -505,6 +505,10 @@ pub enum Commands {
     /// FJ-210: Manage workspaces (isolated state directories)
     #[command(subcommand)]
     Workspace(WorkspaceCmd),
+
+    /// FJ-200: Manage age-encrypted secrets
+    #[command(subcommand)]
+    Secrets(SecretsCmd),
 }
 
 /// FJ-210: Workspace subcommands.
@@ -537,6 +541,59 @@ pub enum WorkspaceCmd {
 
     /// Show current active workspace
     Current,
+}
+
+/// FJ-200: Secrets subcommands — age-encrypted secret management.
+#[derive(Subcommand, Debug)]
+pub enum SecretsCmd {
+    /// Encrypt a value with age recipients
+    Encrypt {
+        /// Plaintext value to encrypt
+        value: String,
+
+        /// Age recipient public key (age1...)
+        #[arg(short, long, required = true)]
+        recipient: Vec<String>,
+    },
+
+    /// Decrypt an ENC[age,...] marker
+    Decrypt {
+        /// Encrypted marker (ENC[age,...])
+        value: String,
+
+        /// Path to age identity file
+        #[arg(short, long)]
+        identity: Option<PathBuf>,
+    },
+
+    /// Generate a new age identity (keypair)
+    Keygen,
+
+    /// Decrypt and display all secrets in a forjar.yaml
+    View {
+        /// Path to forjar.yaml
+        #[arg(short, long, default_value = "forjar.yaml")]
+        file: PathBuf,
+
+        /// Path to age identity file
+        #[arg(short, long)]
+        identity: Option<PathBuf>,
+    },
+
+    /// Re-encrypt all ENC[age,...] markers with new recipients
+    Rekey {
+        /// Path to forjar.yaml
+        #[arg(short, long, default_value = "forjar.yaml")]
+        file: PathBuf,
+
+        /// Path to current age identity file (for decryption)
+        #[arg(short, long)]
+        identity: Option<PathBuf>,
+
+        /// New recipient public keys (age1...)
+        #[arg(short, long, required = true)]
+        recipient: Vec<String>,
+    },
 }
 
 /// Dispatch a CLI command.
@@ -753,6 +810,19 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             WorkspaceCmd::Select { name } => cmd_workspace_select(&name),
             WorkspaceCmd::Delete { name, yes } => cmd_workspace_delete(&name, yes),
             WorkspaceCmd::Current => cmd_workspace_current(),
+        },
+        Commands::Secrets(sub) => match sub {
+            SecretsCmd::Encrypt { value, recipient } => cmd_secrets_encrypt(&value, &recipient),
+            SecretsCmd::Decrypt { value, identity } => {
+                cmd_secrets_decrypt(&value, identity.as_deref())
+            }
+            SecretsCmd::Keygen => cmd_secrets_keygen(),
+            SecretsCmd::View { file, identity } => cmd_secrets_view(&file, identity.as_deref()),
+            SecretsCmd::Rekey {
+                file,
+                identity,
+                recipient,
+            } => cmd_secrets_rekey(&file, identity.as_deref(), &recipient),
         },
     }
 }
@@ -2710,7 +2780,108 @@ fn cmd_workspace_current() -> Result<(), String> {
     Ok(())
 }
 
-/// FJ-220: Evaluate policy rules and report violations.
+// ─── FJ-200: Secrets commands ─────────────────────────────────────
+
+fn cmd_secrets_encrypt(value: &str, recipients: &[String]) -> Result<(), String> {
+    let recipient_refs: Vec<&str> = recipients.iter().map(|r| r.as_str()).collect();
+    let encrypted = secrets::encrypt(value, &recipient_refs)?;
+    println!("{}", encrypted);
+    Ok(())
+}
+
+fn cmd_secrets_decrypt(value: &str, identity_path: Option<&Path>) -> Result<(), String> {
+    let identities = secrets::load_identities(identity_path)?;
+    let plaintext = secrets::decrypt_marker(value, &identities)?;
+    println!("{}", plaintext);
+    Ok(())
+}
+
+fn cmd_secrets_keygen() -> Result<(), String> {
+    use age::secrecy::ExposeSecret;
+    let identity = secrets::generate_identity();
+    let recipient = secrets::identity_to_recipient(&identity);
+    let key_str = identity.to_string();
+    eprintln!("# created: {}", chrono_date());
+    eprintln!("# public key: {}", recipient);
+    println!("{}", key_str.expose_secret());
+    Ok(())
+}
+
+fn cmd_secrets_view(file: &Path, identity_path: Option<&Path>) -> Result<(), String> {
+    let content = std::fs::read_to_string(file)
+        .map_err(|e| format!("cannot read '{}': {}", file.display(), e))?;
+    if !secrets::has_encrypted_markers(&content) {
+        println!("{}", content);
+        return Ok(());
+    }
+    let identities = secrets::load_identities(identity_path)?;
+    let decrypted = secrets::decrypt_all(&content, &identities)?;
+    println!("{}", decrypted);
+    Ok(())
+}
+
+fn cmd_secrets_rekey(
+    file: &Path,
+    identity_path: Option<&Path>,
+    new_recipients: &[String],
+) -> Result<(), String> {
+    let content = std::fs::read_to_string(file)
+        .map_err(|e| format!("cannot read '{}': {}", file.display(), e))?;
+    if !secrets::has_encrypted_markers(&content) {
+        println!("no ENC[age,...] markers found in {}", file.display());
+        return Ok(());
+    }
+
+    let identities = secrets::load_identities(identity_path)?;
+    let recipient_refs: Vec<&str> = new_recipients.iter().map(|r| r.as_str()).collect();
+
+    // Find all markers, decrypt each, re-encrypt with new recipients
+    let mut result = content.clone();
+    // Process from right to left to preserve positions
+    let markers = find_enc_markers(&result);
+    for (start, end) in markers.into_iter().rev() {
+        let marker = &result[start..end].to_string();
+        let plaintext = secrets::decrypt_marker(marker, &identities)?;
+        let re_encrypted = secrets::encrypt(&plaintext, &recipient_refs)?;
+        result.replace_range(start..end, &re_encrypted);
+    }
+
+    std::fs::write(file, &result)
+        .map_err(|e| format!("cannot write '{}': {}", file.display(), e))?;
+    let count = find_enc_markers(&result).len();
+    println!("re-encrypted {} secret(s) in {}", count, file.display());
+    Ok(())
+}
+
+fn find_enc_markers(s: &str) -> Vec<(usize, usize)> {
+    let prefix = "ENC[age,";
+    let suffix = "]";
+    let mut markers = Vec::new();
+    let mut start = 0;
+    while let Some(pos) = s[start..].find(prefix) {
+        let abs_start = start + pos;
+        let after_prefix = abs_start + prefix.len();
+        if let Some(end_pos) = s[after_prefix..].find(suffix) {
+            let abs_end = after_prefix + end_pos + suffix.len();
+            markers.push((abs_start, abs_end));
+            start = abs_end;
+        } else {
+            break;
+        }
+    }
+    markers
+}
+
+fn chrono_date() -> String {
+    // Simple date without chrono dependency
+    let output = std::process::Command::new("date").arg("+%Y-%m-%d").output();
+    match output {
+        Ok(o) => String::from_utf8_lossy(&o.stdout).trim().to_string(),
+        Err(_) => "unknown".to_string(),
+    }
+}
+
+// FJ-220: Evaluate policy rules and report violations.
 fn cmd_policy(file: &Path, json: bool) -> Result<(), String> {
     let config = parse_and_validate(file)?;
     let violations = parser::evaluate_policies(&config);

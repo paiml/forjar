@@ -34,6 +34,7 @@ tokio = { version = "1.35", features = ["rt-multi-thread", "macros"] }
 async-trait = "0.1"
 schemars = { version = "0.8", features = ["derive"] }
 rustc-hash = "2"
+age = { version = "0.11", default-features = false }
 
 [build-dependencies]
 provable-contracts = { path = "../provable-contracts/crates/provable-contracts" }
