@@ -1,6 +1,6 @@
 //! FJ-017: CLI subcommands — init, validate, plan, apply, drift, status, history,
 //! destroy, import, show, graph, check, diff, fmt, lint, rollback, anomaly, trace,
-//! migrate, mcp, bench.
+//! migrate, mcp, bench, doctor.
 
 use crate::core::types::ProvenanceEvent;
 use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
@@ -510,6 +510,17 @@ pub enum Commands {
     /// FJ-200: Manage age-encrypted secrets
     #[command(subcommand)]
     Secrets(SecretsCmd),
+
+    /// FJ-251: Pre-flight system checker
+    Doctor {
+        /// Path to forjar.yaml (optional — checks system basics without it)
+        #[arg(short, long)]
+        file: Option<PathBuf>,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 /// FJ-210: Workspace subcommands.
@@ -861,6 +872,7 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
                 &state_dir,
             ),
         },
+        Commands::Doctor { file, json } => cmd_doctor(file.as_deref(), json),
     }
 }
 
@@ -4152,6 +4164,310 @@ fn cmd_output(file: &Path, key: Option<&str>, json: bool) -> Result<(), String> 
     }
 
     Ok(())
+}
+
+// FJ-251: forjar doctor — pre-flight system checker
+fn cmd_doctor(file: Option<&Path>, json: bool) -> Result<(), String> {
+    use std::process::Command;
+
+    #[derive(Debug)]
+    struct Check {
+        name: String,
+        status: CheckStatus,
+        detail: String,
+    }
+
+    #[derive(Debug, PartialEq)]
+    enum CheckStatus {
+        Pass,
+        Warn,
+        Fail,
+    }
+
+    let mut checks: Vec<Check> = Vec::new();
+
+    // 1. bash >= 4.0
+    match Command::new("bash").arg("--version").output() {
+        Ok(out) => {
+            let ver = String::from_utf8_lossy(&out.stdout);
+            // Extract version number from "GNU bash, version X.Y.Z..."
+            let version_str = ver
+                .lines()
+                .next()
+                .unwrap_or("")
+                .to_string();
+            if let Some(pos) = version_str.find("version ") {
+                let after = &version_str[pos + 8..];
+                let major: u32 = after
+                    .chars()
+                    .take_while(|c| c.is_ascii_digit())
+                    .collect::<String>()
+                    .parse()
+                    .unwrap_or(0);
+                if major >= 4 {
+                    checks.push(Check {
+                        name: "bash".to_string(),
+                        status: CheckStatus::Pass,
+                        detail: format!("bash {}", &after[..after.find(|c: char| c.is_whitespace() || c == '(').unwrap_or(after.len())]),
+                    });
+                } else {
+                    checks.push(Check {
+                        name: "bash".to_string(),
+                        status: CheckStatus::Fail,
+                        detail: format!("bash {} (need >= 4.0)", major),
+                    });
+                }
+            } else {
+                checks.push(Check {
+                    name: "bash".to_string(),
+                    status: CheckStatus::Warn,
+                    detail: "cannot parse bash version".to_string(),
+                });
+            }
+        }
+        Err(_) => {
+            checks.push(Check {
+                name: "bash".to_string(),
+                status: CheckStatus::Fail,
+                detail: "bash not found in PATH".to_string(),
+            });
+        }
+    }
+
+    // 2. Parse config if provided to determine what else to check
+    let config: Option<types::ForjarConfig> = if let Some(f) = file {
+        match parser::parse_and_validate(f) {
+            Ok(c) => Some(c),
+            Err(e) => {
+                checks.push(Check {
+                    name: "config".to_string(),
+                    status: CheckStatus::Fail,
+                    detail: format!("parse error: {}", e),
+                });
+                None
+            }
+        }
+    } else {
+        None
+    };
+
+    let has_ssh_machines = config
+        .as_ref()
+        .map(|c| {
+            c.machines.values().any(|m| {
+                m.transport.as_deref() != Some("container")
+                    && m.addr != "127.0.0.1"
+                    && m.addr != "localhost"
+                    && m.addr != "container"
+            })
+        })
+        .unwrap_or(false);
+
+    let has_container_machines = config
+        .as_ref()
+        .map(|c| {
+            c.machines.values().any(|m| {
+                m.transport.as_deref() == Some("container") || m.addr == "container"
+            })
+        })
+        .unwrap_or(false);
+
+    let has_enc_markers = file
+        .and_then(|f| std::fs::read_to_string(f).ok())
+        .map(|content| secrets::has_encrypted_markers(&content))
+        .unwrap_or(false);
+
+    // 3. ssh (only if SSH machines configured)
+    if has_ssh_machines {
+        match Command::new("ssh").arg("-V").output() {
+            Ok(out) => {
+                let ver = String::from_utf8_lossy(&out.stderr);
+                let version_line = ver.lines().next().unwrap_or("ssh available").to_string();
+                checks.push(Check {
+                    name: "ssh".to_string(),
+                    status: CheckStatus::Pass,
+                    detail: version_line,
+                });
+            }
+            Err(_) => {
+                checks.push(Check {
+                    name: "ssh".to_string(),
+                    status: CheckStatus::Fail,
+                    detail: "ssh not found (needed for remote machines)".to_string(),
+                });
+            }
+        }
+    }
+
+    // 4. docker/podman (only if container machines configured)
+    if has_container_machines {
+        let runtime = config
+            .as_ref()
+            .and_then(|c| {
+                c.machines.values().find_map(|m| {
+                    m.container.as_ref().map(|ct| ct.runtime.clone())
+                })
+            })
+            .unwrap_or_else(|| "docker".to_string());
+
+        match Command::new(&runtime).arg("--version").output() {
+            Ok(out) => {
+                let ver = String::from_utf8_lossy(&out.stdout);
+                let version_line = ver.lines().next().unwrap_or(&runtime).trim().to_string();
+                checks.push(Check {
+                    name: runtime.clone(),
+                    status: CheckStatus::Pass,
+                    detail: version_line,
+                });
+            }
+            Err(_) => {
+                checks.push(Check {
+                    name: runtime.clone(),
+                    status: CheckStatus::Fail,
+                    detail: format!("{} not found (needed for container machines)", runtime),
+                });
+            }
+        }
+    }
+
+    // 5. age identity (only if ENC markers present)
+    if has_enc_markers {
+        match secrets::load_identities(None) {
+            Ok(ids) if !ids.is_empty() => {
+                checks.push(Check {
+                    name: "age".to_string(),
+                    status: CheckStatus::Pass,
+                    detail: format!("{} identity loaded", ids.len()),
+                });
+            }
+            Ok(_) => {
+                checks.push(Check {
+                    name: "age".to_string(),
+                    status: CheckStatus::Fail,
+                    detail: "no age identity (set FORJAR_AGE_KEY or use --identity)".to_string(),
+                });
+            }
+            Err(e) => {
+                checks.push(Check {
+                    name: "age".to_string(),
+                    status: CheckStatus::Fail,
+                    detail: format!("age identity error: {}", e),
+                });
+            }
+        }
+    }
+
+    // 6. state dir writable
+    let state_dir = Path::new("state");
+    if state_dir.exists() {
+        let test_path = state_dir.join(".doctor-probe");
+        match std::fs::write(&test_path, "probe") {
+            Ok(()) => {
+                let _ = std::fs::remove_file(&test_path);
+                checks.push(Check {
+                    name: "state-dir".to_string(),
+                    status: CheckStatus::Pass,
+                    detail: format!("{} writable", state_dir.display()),
+                });
+            }
+            Err(e) => {
+                checks.push(Check {
+                    name: "state-dir".to_string(),
+                    status: CheckStatus::Fail,
+                    detail: format!("{} not writable: {}", state_dir.display(), e),
+                });
+            }
+        }
+    } else {
+        checks.push(Check {
+            name: "state-dir".to_string(),
+            status: CheckStatus::Warn,
+            detail: format!("{} does not exist (will be created on apply)", state_dir.display()),
+        });
+    }
+
+    // 7. git repo clean
+    match Command::new("git").args(["status", "--porcelain"]).output() {
+        Ok(out) if out.status.success() => {
+            let output = String::from_utf8_lossy(&out.stdout);
+            if output.trim().is_empty() {
+                checks.push(Check {
+                    name: "git".to_string(),
+                    status: CheckStatus::Pass,
+                    detail: "working tree clean".to_string(),
+                });
+            } else {
+                let line_count = output.lines().count();
+                checks.push(Check {
+                    name: "git".to_string(),
+                    status: CheckStatus::Warn,
+                    detail: format!("{} uncommitted changes", line_count),
+                });
+            }
+        }
+        Ok(_) => {
+            checks.push(Check {
+                name: "git".to_string(),
+                status: CheckStatus::Warn,
+                detail: "not a git repository".to_string(),
+            });
+        }
+        Err(_) => {
+            checks.push(Check {
+                name: "git".to_string(),
+                status: CheckStatus::Warn,
+                detail: "git not found in PATH".to_string(),
+            });
+        }
+    }
+
+    // Output
+    if json {
+        println!("[");
+        for (i, c) in checks.iter().enumerate() {
+            let status_str = match c.status {
+                CheckStatus::Pass => "pass",
+                CheckStatus::Warn => "warn",
+                CheckStatus::Fail => "fail",
+            };
+            let comma = if i + 1 < checks.len() { "," } else { "" };
+            println!(
+                "  {{\"name\":\"{}\",\"status\":\"{}\",\"detail\":\"{}\"}}{}",
+                c.name,
+                status_str,
+                c.detail.replace('\"', "\\\""),
+                comma
+            );
+        }
+        println!("]");
+    } else {
+        for c in &checks {
+            let icon = match c.status {
+                CheckStatus::Pass => "pass",
+                CheckStatus::Warn => "warn",
+                CheckStatus::Fail => "FAIL",
+            };
+            println!("[{:>4}] {}: {}", icon, c.name, c.detail);
+        }
+
+        let pass_count = checks.iter().filter(|c| c.status == CheckStatus::Pass).count();
+        let warn_count = checks.iter().filter(|c| c.status == CheckStatus::Warn).count();
+        let fail_count = checks.iter().filter(|c| c.status == CheckStatus::Fail).count();
+        println!(
+            "\n{} checks: {} pass, {} warn, {} fail",
+            checks.len(),
+            pass_count,
+            warn_count,
+            fail_count
+        );
+    }
+
+    let has_failures = checks.iter().any(|c| c.status == CheckStatus::Fail);
+    if has_failures {
+        Err("doctor found failures".to_string())
+    } else {
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -10023,5 +10339,140 @@ resources:
         .unwrap();
         // JSON + strict should not crash
         cmd_lint(&file, true, true).unwrap();
+    }
+
+    // FJ-251: Doctor tests
+
+    #[test]
+    fn test_fj251_doctor_no_config() {
+        // Doctor without config should check system basics and succeed
+        let result = cmd_doctor(None, false);
+        assert!(result.is_ok(), "doctor without config should pass on dev machine");
+    }
+
+    #[test]
+    fn test_fj251_doctor_json_output() {
+        // JSON mode should not crash
+        let result = cmd_doctor(None, true);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj251_doctor_with_local_config() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &file,
+            r#"
+version: "1.0"
+name: test
+machines:
+  local:
+    hostname: local
+    addr: 127.0.0.1
+resources:
+  cfg:
+    type: file
+    machine: local
+    path: /tmp/test.txt
+    content: "test"
+"#,
+        )
+        .unwrap();
+        let result = cmd_doctor(Some(&file), false);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj251_doctor_with_ssh_config() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &file,
+            r#"
+version: "1.0"
+name: test
+machines:
+  remote:
+    hostname: remote
+    addr: 10.0.0.1
+    user: deploy
+resources:
+  cfg:
+    type: file
+    machine: remote
+    path: /tmp/test.txt
+    content: "test"
+"#,
+        )
+        .unwrap();
+        // Should check for ssh (which exists on dev machine)
+        let result = cmd_doctor(Some(&file), false);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj251_doctor_with_container_config() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &file,
+            r#"
+version: "1.0"
+name: test
+machines:
+  test-box:
+    hostname: test-box
+    addr: container
+    transport: container
+    container:
+      image: ubuntu:22.04
+resources:
+  cfg:
+    type: file
+    machine: test-box
+    path: /tmp/test.txt
+    content: "test"
+"#,
+        )
+        .unwrap();
+        // May fail if docker not installed, but should not crash
+        let _result = cmd_doctor(Some(&file), false);
+    }
+
+    #[test]
+    fn test_fj251_doctor_bad_config() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("forjar.yaml");
+        std::fs::write(&file, "invalid yaml: [[[").unwrap();
+        let result = cmd_doctor(Some(&file), false);
+        // Should report failure for bad config
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_fj251_doctor_json_with_config() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &file,
+            r#"
+version: "1.0"
+name: test
+machines:
+  local:
+    hostname: local
+    addr: 127.0.0.1
+resources:
+  cfg:
+    type: file
+    machine: local
+    path: /tmp/test.txt
+    content: "test"
+"#,
+        )
+        .unwrap();
+        let result = cmd_doctor(Some(&file), true);
+        assert!(result.is_ok());
     }
 }
