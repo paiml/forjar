@@ -390,6 +390,59 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
     },
+
+    /// List all resources in state with type, status, hash prefix (FJ-214)
+    #[command(name = "state-list")]
+    StateList {
+        /// State directory
+        #[arg(long, default_value = "state")]
+        state_dir: PathBuf,
+
+        /// Filter to specific machine
+        #[arg(short, long)]
+        machine: Option<String>,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Rename a resource in state without re-applying (FJ-212)
+    #[command(name = "state-mv")]
+    StateMv {
+        /// Current resource ID
+        old_id: String,
+
+        /// New resource ID
+        new_id: String,
+
+        /// State directory
+        #[arg(long, default_value = "state")]
+        state_dir: PathBuf,
+
+        /// Target machine (required if multiple machines have this resource)
+        #[arg(short, long)]
+        machine: Option<String>,
+    },
+
+    /// Remove a resource from state without destroying it on the machine (FJ-213)
+    #[command(name = "state-rm")]
+    StateRm {
+        /// Resource ID to remove
+        resource_id: String,
+
+        /// State directory
+        #[arg(long, default_value = "state")]
+        state_dir: PathBuf,
+
+        /// Target machine (required if multiple machines have this resource)
+        #[arg(short, long)]
+        machine: Option<String>,
+
+        /// Skip dependency check and force removal
+        #[arg(long)]
+        force: bool,
+    },
 }
 
 /// Dispatch a CLI command.
@@ -549,6 +602,23 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             }
         }
         Commands::Bench { iterations, json } => cmd_bench(iterations, json),
+        Commands::StateList {
+            state_dir,
+            machine,
+            json,
+        } => cmd_state_list(&state_dir, machine.as_deref(), json),
+        Commands::StateMv {
+            old_id,
+            new_id,
+            state_dir,
+            machine,
+        } => cmd_state_mv(&state_dir, &old_id, &new_id, machine.as_deref()),
+        Commands::StateRm {
+            resource_id,
+            state_dir,
+            machine,
+            force,
+        } => cmd_state_rm(&state_dir, &resource_id, machine.as_deref(), force),
     }
 }
 
@@ -2980,6 +3050,249 @@ fn cmd_status(state_dir: &Path, machine_filter: Option<&str>, json: bool) -> Res
                 println!();
             }
         }
+    }
+
+    Ok(())
+}
+
+// ============================================================================
+// FJ-214: state-list — tabular view of all resources in state
+// ============================================================================
+
+fn cmd_state_list(state_dir: &Path, machine_filter: Option<&str>, json: bool) -> Result<(), String> {
+    use crate::core::state;
+
+    if !state_dir.exists() {
+        if json {
+            println!("[]");
+        } else {
+            println!("No state directory found.");
+        }
+        return Ok(());
+    }
+
+    let machines = list_state_machines(state_dir)?;
+    let mut all_rows: Vec<serde_json::Value> = Vec::new();
+
+    for machine_name in &machines {
+        if let Some(filter) = machine_filter {
+            if machine_name != filter {
+                continue;
+            }
+        }
+
+        let lock = match state::load_lock(state_dir, machine_name) {
+            Ok(Some(l)) => l,
+            _ => continue,
+        };
+
+        for (res_id, res_lock) in &lock.resources {
+            all_rows.push(serde_json::json!({
+                "machine": lock.machine,
+                "resource": res_id,
+                "type": res_lock.resource_type.to_string(),
+                "status": format!("{:?}", res_lock.status).to_lowercase(),
+                "hash": &res_lock.hash[..12.min(res_lock.hash.len())],
+                "applied_at": res_lock.applied_at.as_deref().unwrap_or("-"),
+            }));
+        }
+    }
+
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&all_rows).unwrap_or_else(|_| "[]".to_string())
+        );
+    } else if all_rows.is_empty() {
+        println!("No resources in state.");
+    } else {
+        println!(
+            "{:<15} {:<25} {:<10} {:<10} {:<14} APPLIED AT",
+            "MACHINE", "RESOURCE", "TYPE", "STATUS", "HASH"
+        );
+        for row in &all_rows {
+            println!(
+                "{:<15} {:<25} {:<10} {:<10} {:<14} {}",
+                row["machine"].as_str().unwrap_or("-"),
+                row["resource"].as_str().unwrap_or("-"),
+                row["type"].as_str().unwrap_or("-"),
+                row["status"].as_str().unwrap_or("-"),
+                row["hash"].as_str().unwrap_or("-"),
+                row["applied_at"].as_str().unwrap_or("-"),
+            );
+        }
+        println!("\n{} resources across {} machines.",
+            all_rows.len(),
+            all_rows.iter()
+                .map(|r| r["machine"].as_str().unwrap_or(""))
+                .collect::<std::collections::HashSet<_>>()
+                .len()
+        );
+    }
+
+    Ok(())
+}
+
+/// List machine names from state directory subdirectories.
+fn list_state_machines(state_dir: &Path) -> Result<Vec<String>, String> {
+    let mut machines = Vec::new();
+    let entries = std::fs::read_dir(state_dir)
+        .map_err(|e| format!("cannot read state dir: {}", e))?;
+    for entry in entries.flatten() {
+        if entry.path().is_dir() {
+            let name = entry.file_name().to_string_lossy().to_string();
+            // Skip hidden dirs and non-machine dirs
+            if !name.starts_with('.') {
+                machines.push(name);
+            }
+        }
+    }
+    machines.sort();
+    Ok(machines)
+}
+
+// ============================================================================
+// FJ-212: state-mv — rename a resource in state
+// ============================================================================
+
+fn cmd_state_mv(
+    state_dir: &Path,
+    old_id: &str,
+    new_id: &str,
+    machine_filter: Option<&str>,
+) -> Result<(), String> {
+    use crate::core::state;
+
+    if old_id == new_id {
+        return Err("old and new resource IDs are the same".to_string());
+    }
+
+    if !state_dir.exists() {
+        return Err("state directory does not exist".to_string());
+    }
+
+    let machines = list_state_machines(state_dir)?;
+    let mut moved = false;
+
+    for machine_name in &machines {
+        if let Some(filter) = machine_filter {
+            if machine_name != filter {
+                continue;
+            }
+        }
+
+        let mut lock = match state::load_lock(state_dir, machine_name) {
+            Ok(Some(l)) => l,
+            _ => continue,
+        };
+
+        if !lock.resources.contains_key(old_id) {
+            continue;
+        }
+
+        if lock.resources.contains_key(new_id) {
+            return Err(format!(
+                "resource '{}' already exists on machine '{}'",
+                new_id, lock.machine
+            ));
+        }
+
+        // Move the resource entry
+        if let Some(resource_lock) = lock.resources.swap_remove(old_id) {
+            lock.resources.insert(new_id.to_string(), resource_lock);
+        }
+
+        state::save_lock(state_dir, &lock)
+            .map_err(|e| format!("failed to save lock: {}", e))?;
+
+        println!("Renamed '{}' → '{}' on machine '{}'", old_id, new_id, lock.machine);
+        moved = true;
+    }
+
+    if !moved {
+        return Err(format!("resource '{}' not found in state", old_id));
+    }
+
+    Ok(())
+}
+
+// ============================================================================
+// FJ-213: state-rm — remove a resource from state
+// ============================================================================
+
+fn cmd_state_rm(
+    state_dir: &Path,
+    resource_id: &str,
+    machine_filter: Option<&str>,
+    force: bool,
+) -> Result<(), String> {
+    use crate::core::state;
+
+    if !state_dir.exists() {
+        return Err("state directory does not exist".to_string());
+    }
+
+    let machines = list_state_machines(state_dir)?;
+    let mut removed = false;
+
+    for machine_name in &machines {
+        if let Some(filter) = machine_filter {
+            if machine_name != filter {
+                continue;
+            }
+        }
+
+        let mut lock = match state::load_lock(state_dir, machine_name) {
+            Ok(Some(l)) => l,
+            _ => continue,
+        };
+
+        if !lock.resources.contains_key(resource_id) {
+            continue;
+        }
+
+        // Check for dependents (other resources whose details reference this one)
+        if !force {
+            let dependents: Vec<String> = lock
+                .resources
+                .keys()
+                .filter(|k| *k != resource_id)
+                .filter(|k| {
+                    lock.resources[*k]
+                        .details
+                        .values()
+                        .any(|v| {
+                            v.as_str()
+                                .map(|s| s.contains(resource_id))
+                                .unwrap_or(false)
+                        })
+                })
+                .cloned()
+                .collect();
+
+            if !dependents.is_empty() {
+                return Err(format!(
+                    "resource '{}' may be referenced by: {}. Use --force to skip this check.",
+                    resource_id,
+                    dependents.join(", ")
+                ));
+            }
+        }
+
+        lock.resources.swap_remove(resource_id);
+
+        state::save_lock(state_dir, &lock)
+            .map_err(|e| format!("failed to save lock: {}", e))?;
+
+        println!(
+            "Removed '{}' from state on machine '{}' (resource still exists on machine)",
+            resource_id, lock.machine
+        );
+        removed = true;
+    }
+
+    if !removed {
+        return Err(format!("resource '{}' not found in state", resource_id));
     }
 
     Ok(())
@@ -7443,5 +7756,233 @@ resources:
             false,
         )
         .unwrap();
+    }
+
+    // ================================================================
+    // FJ-214: state-list tests
+    // ================================================================
+
+    fn make_test_lock(machine: &str, resources: indexmap::IndexMap<String, types::ResourceLock>) -> types::StateLock {
+        types::StateLock {
+            schema: "1.0".to_string(),
+            machine: machine.to_string(),
+            hostname: machine.to_string(),
+            generated_at: "2026-01-01T00:00:00Z".to_string(),
+            generator: "forjar 0.1.0".to_string(),
+            blake3_version: "1.8".to_string(),
+            resources,
+        }
+    }
+
+    fn make_test_resource_lock(rtype: types::ResourceType) -> types::ResourceLock {
+        types::ResourceLock {
+            resource_type: rtype,
+            status: types::ResourceStatus::Converged,
+            applied_at: Some("2026-01-15T10:30:00Z".to_string()),
+            duration_seconds: Some(0.5),
+            hash: "blake3:abcdef123456".to_string(),
+            details: HashMap::new(),
+        }
+    }
+
+    #[test]
+    fn test_fj214_state_list_empty() {
+        let dir = tempfile::tempdir().unwrap();
+        cmd_state_list(dir.path(), None, false).unwrap();
+    }
+
+    #[test]
+    fn test_fj214_state_list_empty_json() {
+        let dir = tempfile::tempdir().unwrap();
+        cmd_state_list(dir.path(), None, true).unwrap();
+    }
+
+    #[test]
+    fn test_fj214_state_list_nonexistent_dir() {
+        cmd_state_list(Path::new("/tmp/nonexistent-state-dir"), None, false).unwrap();
+    }
+
+    #[test]
+    fn test_fj214_state_list_with_resources() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut resources = indexmap::IndexMap::new();
+        resources.insert("pkg".to_string(), make_test_resource_lock(types::ResourceType::Package));
+        resources.insert("cfg".to_string(), make_test_resource_lock(types::ResourceType::File));
+        let lock = make_test_lock("web01", resources);
+        state::save_lock(dir.path(), &lock).unwrap();
+
+        cmd_state_list(dir.path(), None, false).unwrap();
+    }
+
+    #[test]
+    fn test_fj214_state_list_json_output() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut resources = indexmap::IndexMap::new();
+        resources.insert("pkg".to_string(), make_test_resource_lock(types::ResourceType::Package));
+        let lock = make_test_lock("web01", resources);
+        state::save_lock(dir.path(), &lock).unwrap();
+
+        cmd_state_list(dir.path(), None, true).unwrap();
+    }
+
+    #[test]
+    fn test_fj214_state_list_machine_filter() {
+        let dir = tempfile::tempdir().unwrap();
+
+        let mut r1 = indexmap::IndexMap::new();
+        r1.insert("pkg".to_string(), make_test_resource_lock(types::ResourceType::Package));
+        state::save_lock(dir.path(), &make_test_lock("web01", r1)).unwrap();
+
+        let mut r2 = indexmap::IndexMap::new();
+        r2.insert("db".to_string(), make_test_resource_lock(types::ResourceType::Package));
+        state::save_lock(dir.path(), &make_test_lock("db01", r2)).unwrap();
+
+        // Filter to web01 only
+        cmd_state_list(dir.path(), Some("web01"), false).unwrap();
+        // Filter to nonexistent
+        cmd_state_list(dir.path(), Some("nonexistent"), false).unwrap();
+    }
+
+    // ================================================================
+    // FJ-212: state-mv tests
+    // ================================================================
+
+    #[test]
+    fn test_fj212_state_mv_basic() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut resources = indexmap::IndexMap::new();
+        resources.insert("old-name".to_string(), make_test_resource_lock(types::ResourceType::File));
+        state::save_lock(dir.path(), &make_test_lock("web01", resources)).unwrap();
+
+        cmd_state_mv(dir.path(), "old-name", "new-name", None).unwrap();
+
+        let lock = state::load_lock(dir.path(), "web01").unwrap().unwrap();
+        assert!(!lock.resources.contains_key("old-name"));
+        assert!(lock.resources.contains_key("new-name"));
+    }
+
+    #[test]
+    fn test_fj212_state_mv_same_id() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = cmd_state_mv(dir.path(), "same", "same", None);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("same"));
+    }
+
+    #[test]
+    fn test_fj212_state_mv_not_found() {
+        let dir = tempfile::tempdir().unwrap();
+        let resources = indexmap::IndexMap::new();
+        state::save_lock(dir.path(), &make_test_lock("web01", resources)).unwrap();
+
+        let result = cmd_state_mv(dir.path(), "missing", "new", None);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("not found"));
+    }
+
+    #[test]
+    fn test_fj212_state_mv_conflict() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut resources = indexmap::IndexMap::new();
+        resources.insert("a".to_string(), make_test_resource_lock(types::ResourceType::File));
+        resources.insert("b".to_string(), make_test_resource_lock(types::ResourceType::File));
+        state::save_lock(dir.path(), &make_test_lock("web01", resources)).unwrap();
+
+        let result = cmd_state_mv(dir.path(), "a", "b", None);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("already exists"));
+    }
+
+    #[test]
+    fn test_fj212_state_mv_no_state_dir() {
+        let result = cmd_state_mv(Path::new("/tmp/nonexistent-state"), "a", "b", None);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_fj212_state_mv_preserves_metadata() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut resources = indexmap::IndexMap::new();
+        let mut res = make_test_resource_lock(types::ResourceType::Package);
+        res.hash = "blake3:deadbeef".to_string();
+        resources.insert("old-pkg".to_string(), res);
+        state::save_lock(dir.path(), &make_test_lock("web01", resources)).unwrap();
+
+        cmd_state_mv(dir.path(), "old-pkg", "new-pkg", None).unwrap();
+
+        let lock = state::load_lock(dir.path(), "web01").unwrap().unwrap();
+        assert_eq!(lock.resources["new-pkg"].hash, "blake3:deadbeef");
+        assert_eq!(lock.resources["new-pkg"].resource_type, types::ResourceType::Package);
+    }
+
+    // ================================================================
+    // FJ-213: state-rm tests
+    // ================================================================
+
+    #[test]
+    fn test_fj213_state_rm_basic() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut resources = indexmap::IndexMap::new();
+        resources.insert("pkg".to_string(), make_test_resource_lock(types::ResourceType::Package));
+        resources.insert("cfg".to_string(), make_test_resource_lock(types::ResourceType::File));
+        state::save_lock(dir.path(), &make_test_lock("web01", resources)).unwrap();
+
+        cmd_state_rm(dir.path(), "pkg", None, false).unwrap();
+
+        let lock = state::load_lock(dir.path(), "web01").unwrap().unwrap();
+        assert!(!lock.resources.contains_key("pkg"));
+        assert!(lock.resources.contains_key("cfg"));
+    }
+
+    #[test]
+    fn test_fj213_state_rm_not_found() {
+        let dir = tempfile::tempdir().unwrap();
+        let resources = indexmap::IndexMap::new();
+        state::save_lock(dir.path(), &make_test_lock("web01", resources)).unwrap();
+
+        let result = cmd_state_rm(dir.path(), "missing", None, false);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("not found"));
+    }
+
+    #[test]
+    fn test_fj213_state_rm_force() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut resources = indexmap::IndexMap::new();
+        resources.insert("pkg".to_string(), make_test_resource_lock(types::ResourceType::Package));
+        state::save_lock(dir.path(), &make_test_lock("web01", resources)).unwrap();
+
+        cmd_state_rm(dir.path(), "pkg", None, true).unwrap();
+
+        let lock = state::load_lock(dir.path(), "web01").unwrap().unwrap();
+        assert!(lock.resources.is_empty());
+    }
+
+    #[test]
+    fn test_fj213_state_rm_no_state_dir() {
+        let result = cmd_state_rm(Path::new("/tmp/nonexistent-state"), "pkg", None, false);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_fj213_state_rm_machine_filter() {
+        let dir = tempfile::tempdir().unwrap();
+
+        let mut r1 = indexmap::IndexMap::new();
+        r1.insert("pkg".to_string(), make_test_resource_lock(types::ResourceType::Package));
+        state::save_lock(dir.path(), &make_test_lock("web01", r1)).unwrap();
+
+        let mut r2 = indexmap::IndexMap::new();
+        r2.insert("pkg".to_string(), make_test_resource_lock(types::ResourceType::Package));
+        state::save_lock(dir.path(), &make_test_lock("db01", r2)).unwrap();
+
+        // Remove only from web01
+        cmd_state_rm(dir.path(), "pkg", Some("web01"), false).unwrap();
+
+        let lock_web = state::load_lock(dir.path(), "web01").unwrap().unwrap();
+        assert!(lock_web.resources.is_empty());
+
+        let lock_db = state::load_lock(dir.path(), "db01").unwrap().unwrap();
+        assert!(lock_db.resources.contains_key("pkg"));
     }
 }
