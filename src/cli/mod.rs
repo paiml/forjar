@@ -292,6 +292,10 @@ pub enum Commands {
         /// Output as JSON
         #[arg(long)]
         json: bool,
+
+        /// FJ-284: Show only events from the last duration (e.g., 24h, 7d, 30m)
+        #[arg(long)]
+        since: Option<String>,
     },
 
     /// Remove all managed resources (reverse order)
@@ -1027,7 +1031,8 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             machine,
             limit,
             json,
-        } => cmd_history(&state_dir, machine.as_deref(), limit, json),
+            since,
+        } => cmd_history(&state_dir, machine.as_deref(), limit, json, since.as_deref()),
         Commands::Show {
             file,
             resource,
@@ -2008,7 +2013,7 @@ fn cmd_rollback(
         None,  // no output mode
         false, // no progress
         false, // no timing
-            0, // no retry
+        0,     // no retry
     )
 }
 
@@ -4286,7 +4291,7 @@ fn cmd_drift(
             None,  // no output mode
             false, // no progress
             false, // no timing
-            0, // no retry
+            0,     // no retry
         )?;
         if !json {
             println!("Remediation complete.");
@@ -4401,11 +4406,31 @@ fn git_commit_state(state_dir: &Path, config_name: &str, converged: u32) -> Resu
     Ok(())
 }
 
+/// FJ-284: Parse a human duration string like "24h", "7d", "30m" into seconds.
+fn parse_duration_secs(s: &str) -> Result<u64, String> {
+    let s = s.trim();
+    if s.len() < 2 {
+        return Err(format!("invalid duration: '{}'", s));
+    }
+    let (num, unit) = s.split_at(s.len() - 1);
+    let n: u64 = num
+        .parse()
+        .map_err(|_| format!("invalid duration number: '{}'", num))?;
+    match unit {
+        "s" => Ok(n),
+        "m" => Ok(n * 60),
+        "h" => Ok(n * 3600),
+        "d" => Ok(n * 86400),
+        _ => Err(format!("unknown duration unit '{}' (use s/m/h/d)", unit)),
+    }
+}
+
 fn cmd_history(
     state_dir: &Path,
     machine_filter: Option<&str>,
     limit: usize,
     json: bool,
+    since: Option<&str>,
 ) -> Result<(), String> {
     let entries = std::fs::read_dir(state_dir)
         .map_err(|e| format!("cannot read state dir {}: {}", state_dir.display(), e))?;
@@ -4443,6 +4468,76 @@ fn cmd_history(
 
     // Sort by timestamp descending (most recent first)
     all_events.sort_by(|a, b| b.ts.cmp(&a.ts));
+
+    // FJ-284: --since time filter
+    if let Some(since_str) = since {
+        let secs = parse_duration_secs(since_str)?;
+        let now = std::time::SystemTime::now();
+        let cutoff = now
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(|e| format!("time error: {}", e))?
+            .as_secs()
+            .saturating_sub(secs);
+        // Format cutoff as ISO 8601 UTC — matches event timestamp format
+        let cutoff_dt = std::time::UNIX_EPOCH + std::time::Duration::from_secs(cutoff);
+        let cutoff_str = {
+            let d = cutoff_dt
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs();
+            // Manual UTC formatting: days since epoch → Y-M-D H:M:S
+            let secs_in_day = 86400u64;
+            let mut days = d / secs_in_day;
+            let rem = d % secs_in_day;
+            let hh = rem / 3600;
+            let mm = (rem % 3600) / 60;
+            let ss = rem % 60;
+            // Gregorian calendar from days since 1970-01-01
+            let mut y = 1970i64;
+            loop {
+                let dy = if y % 4 == 0 && (y % 100 != 0 || y % 400 == 0) {
+                    366
+                } else {
+                    365
+                };
+                if days < dy {
+                    break;
+                }
+                days -= dy;
+                y += 1;
+            }
+            let leap = y % 4 == 0 && (y % 100 != 0 || y % 400 == 0);
+            let mdays = [
+                31,
+                if leap { 29 } else { 28 },
+                31,
+                30,
+                31,
+                30,
+                31,
+                31,
+                30,
+                31,
+                30,
+                31,
+            ];
+            let mut mo = 0usize;
+            while mo < 12 && days >= mdays[mo] {
+                days -= mdays[mo];
+                mo += 1;
+            }
+            format!(
+                "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}",
+                y,
+                mo + 1,
+                days + 1,
+                hh,
+                mm,
+                ss
+            )
+        };
+        all_events.retain(|e| e.ts.as_str() >= cutoff_str.as_str());
+    }
 
     // Filter to apply_started/apply_completed events for summary, then limit
     let apply_events: Vec<&types::TimestampedEvent> = all_events
@@ -5180,7 +5275,7 @@ fn cmd_watch(
                             timeout_secs: None,
                             force_unlock: false,
                             progress: false,
-            retry: 0,
+                            retry: 0,
                         };
                         match executor::apply(&cfg) {
                             Ok(results) => {
@@ -6360,7 +6455,7 @@ resources:
             None,  // no output mode
             false, // no progress
             false, // no timing
-            0, // no retry
+            0,     // no retry
         )
         .unwrap();
     }
@@ -6414,7 +6509,7 @@ policy:
             None,  // no output mode
             false, // no progress
             false, // no timing
-            0, // no retry
+            0,     // no retry
         )
         .unwrap();
 
@@ -6465,7 +6560,7 @@ resources: {}
             None,  // no output mode
             false, // no progress
             false, // no timing
-            0, // no retry
+            0,     // no retry
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("validation"));
@@ -6792,7 +6887,7 @@ resources:
                 force_unlock: false,
                 output: None,
                 progress: false,
-            retry: 0,
+                retry: 0,
                 timing: false,
             },
             false,
@@ -6990,7 +7085,7 @@ resources:
             None,  // no output mode
             false, // no progress
             false, // no timing
-            0, // no retry
+            0,     // no retry
         )
         .unwrap();
         assert!(target.exists());
@@ -7018,7 +7113,7 @@ resources:
             None,  // no output mode
             false, // no progress
             false, // no timing
-            0, // no retry
+            0,     // no retry
         )
         .unwrap();
     }
@@ -7285,7 +7380,7 @@ resources:
         let dir = tempfile::tempdir().unwrap();
         let state = dir.path().join("state");
         std::fs::create_dir_all(&state).unwrap();
-        cmd_history(&state, None, 10, false).unwrap();
+        cmd_history(&state, None, 10, false, None).unwrap();
     }
 
     #[test]
@@ -7318,7 +7413,7 @@ resources:
         )
         .unwrap();
 
-        cmd_history(&state, None, 10, false).unwrap();
+        cmd_history(&state, None, 10, false, None).unwrap();
     }
 
     #[test]
@@ -7337,7 +7432,7 @@ resources:
         )
         .unwrap();
 
-        cmd_history(&state, None, 10, true).unwrap();
+        cmd_history(&state, None, 10, true, None).unwrap();
     }
 
     #[test]
@@ -7367,7 +7462,7 @@ resources:
         .unwrap();
 
         // Only show alpha
-        cmd_history(&state, Some("alpha"), 10, false).unwrap();
+        cmd_history(&state, Some("alpha"), 10, false, None).unwrap();
     }
 
     #[test]
@@ -7389,7 +7484,7 @@ resources:
         }
 
         // Limit to 2
-        cmd_history(&state, None, 2, false).unwrap();
+        cmd_history(&state, None, 2, false, None).unwrap();
     }
 
     #[test]
@@ -7403,6 +7498,7 @@ resources:
                 machine: None,
                 limit: 10,
                 json: false,
+                since: None,
             },
             false,
             true,
@@ -7627,7 +7723,7 @@ resources:
             None,  // no output mode
             false, // no progress
             false, // no timing
-            0, // no retry
+            0,     // no retry
         )
         .unwrap();
         assert!(target.exists());
@@ -7695,7 +7791,7 @@ resources:
             None,  // no output mode
             false, // no progress
             false, // no timing
-            0, // no retry
+            0,     // no retry
         )
         .unwrap();
         cmd_destroy(&config, &state, None, true, true).unwrap();
@@ -7764,7 +7860,7 @@ resources:
             None,  // no output mode
             false, // no progress
             false, // no timing
-            0, // no retry
+            0,     // no retry
         )
         .unwrap();
         assert!(target_a.exists());
@@ -7828,7 +7924,7 @@ resources:
             None,  // no output mode
             false, // no progress
             false, // no timing
-            0, // no retry
+            0,     // no retry
         )
         .unwrap();
         dispatch(
@@ -7928,7 +8024,7 @@ resources:
             None,  // no output mode
             false, // no progress
             false, // no timing
-            0, // no retry
+            0,     // no retry
         )
         .unwrap();
         assert!(target.exists());
@@ -8091,7 +8187,7 @@ resources:
             None,  // no output mode
             false, // no progress
             false, // no timing
-            0, // no retry
+            0,     // no retry
         )
         .unwrap();
         assert!(std::path::Path::new(&target).exists());
@@ -9468,7 +9564,7 @@ resources:
             None,  // no output mode
             false, // no progress
             false, // no timing
-            0, // no retry
+            0,     // no retry
         )
         .unwrap();
     }
@@ -10189,7 +10285,7 @@ resources:
             r#"{"ts":"2026-02-25T10:02:00Z","event":"apply_completed","machine":"web","run_id":"r-1","resources_converged":1,"resources_failed":0,"resources_skipped":0,"total_duration":5.0}"#,
         ];
         std::fs::write(machine_dir.join("events.jsonl"), events.join("\n")).unwrap();
-        cmd_history(dir.path(), None, 10, false).unwrap();
+        cmd_history(dir.path(), None, 10, false, None).unwrap();
     }
 
     #[test]
@@ -10199,7 +10295,7 @@ resources:
         std::fs::create_dir_all(&machine_dir).unwrap();
         let event = r#"{"ts":"2026-02-25T10:00:00Z","event":"apply_started","machine":"db","run_id":"r-1","forjar_version":"0.1.0"}"#;
         std::fs::write(machine_dir.join("events.jsonl"), event).unwrap();
-        cmd_history(dir.path(), None, 5, true).unwrap();
+        cmd_history(dir.path(), None, 5, true, None).unwrap();
     }
 
     #[test]
@@ -10214,7 +10310,7 @@ resources:
             );
             std::fs::write(m_dir.join("events.jsonl"), event).unwrap();
         }
-        cmd_history(dir.path(), Some("web"), 10, false).unwrap();
+        cmd_history(dir.path(), Some("web"), 10, false, None).unwrap();
     }
 
     #[test]
@@ -10737,7 +10833,7 @@ resources:
             None,  // no output mode
             false, // no progress
             false, // no timing
-            0, // no retry
+            0,     // no retry
         );
         assert!(result.is_ok());
     }
@@ -10823,7 +10919,7 @@ resources:
                 force_unlock: false,
                 output: None,
                 progress: false,
-            retry: 0,
+                retry: 0,
                 timing: false,
             },
             false,
@@ -11365,7 +11461,7 @@ resources:
             None,  // no output mode
             false, // no progress
             false, // no timing
-            0, // no retry
+            0,     // no retry
         )
         .unwrap();
     }
@@ -11963,7 +12059,7 @@ resources:
                 force_unlock: false,
                 output: None,
                 progress: false,
-            retry: 0,
+                retry: 0,
                 timing: false,
             },
             false,
@@ -12021,7 +12117,7 @@ resources:
                 force_unlock: false,
                 output: None,
                 progress: false,
-            retry: 0,
+                retry: 0,
                 timing: false,
             },
             false,
@@ -14163,5 +14259,46 @@ resources:
             Commands::Apply { retry, .. } => assert_eq!(retry, 0),
             _ => panic!("expected Apply"),
         }
+    }
+
+    // ── FJ-284: forjar history --since ──────────────────────────
+
+    #[test]
+    fn test_fj284_parse_duration_secs() {
+        assert_eq!(parse_duration_secs("30m").unwrap(), 1800);
+        assert_eq!(parse_duration_secs("24h").unwrap(), 86400);
+        assert_eq!(parse_duration_secs("7d").unwrap(), 604800);
+        assert_eq!(parse_duration_secs("60s").unwrap(), 60);
+    }
+
+    #[test]
+    fn test_fj284_parse_duration_invalid() {
+        assert!(parse_duration_secs("abc").is_err());
+        assert!(parse_duration_secs("10x").is_err());
+        assert!(parse_duration_secs("").is_err());
+    }
+
+    #[test]
+    fn test_fj284_since_flag_parse() {
+        let cmd = Commands::History {
+            state_dir: PathBuf::from("state"),
+            machine: None,
+            limit: 10,
+            json: false,
+            since: Some("24h".to_string()),
+        };
+        match cmd {
+            Commands::History { since, .. } => {
+                assert_eq!(since, Some("24h".to_string()));
+            }
+            _ => panic!("expected History"),
+        }
+    }
+
+    #[test]
+    fn test_fj284_history_since_empty_state() {
+        let dir = tempfile::tempdir().unwrap();
+        // --since with no events should succeed (empty result)
+        cmd_history(dir.path(), None, 10, false, Some("1h")).unwrap();
     }
 }
