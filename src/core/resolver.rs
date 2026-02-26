@@ -67,6 +67,13 @@ pub fn resolve_template(
                 "arch" => &machine.arch,
                 _ => return Err(format!("unknown machine field: {}", parts[2])),
             })
+        } else if let Some(data_key) = key.strip_prefix("data.") {
+            Cow::Owned(
+                params
+                    .get(&format!("__data__{}", data_key))
+                    .map(yaml_value_to_string)
+                    .ok_or_else(|| format!("unknown data source: {}", data_key))?,
+            )
         } else {
             return Err(format!("unknown template variable: {}", key));
         };
@@ -76,6 +83,66 @@ pub fn resolve_template(
     }
 
     Ok(result)
+}
+
+/// FJ-223: Resolve all data sources and inject values into config params.
+/// Data sources are stored with `__data__` prefix to avoid conflicts.
+pub fn resolve_data_sources(config: &mut ForjarConfig) -> Result<(), String> {
+    for (key, source) in &config.data {
+        let value = match source.source_type {
+            DataSourceType::File => std::fs::read_to_string(&source.value)
+                .map(|s| s.trim().to_string())
+                .or_else(|e| {
+                    source
+                        .default
+                        .clone()
+                        .ok_or_else(|| format!("data source '{}' file error: {}", key, e))
+                }),
+            DataSourceType::Command => {
+                let output = std::process::Command::new("sh")
+                    .arg("-c")
+                    .arg(&source.value)
+                    .output()
+                    .map_err(|e| format!("data source '{}' command error: {}", key, e))?;
+                if output.status.success() {
+                    Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+                } else {
+                    source.default.clone().ok_or_else(|| {
+                        format!(
+                            "data source '{}' command failed (exit {})",
+                            key,
+                            output.status.code().unwrap_or(-1)
+                        )
+                    })
+                }
+            }
+            DataSourceType::Dns => {
+                use std::net::ToSocketAddrs;
+                let addr_str = format!("{}:0", source.value);
+                match addr_str.to_socket_addrs() {
+                    Ok(mut addrs) => {
+                        if let Some(addr) = addrs.next() {
+                            Ok(addr.ip().to_string())
+                        } else {
+                            source.default.clone().ok_or_else(|| {
+                                format!("data source '{}' DNS: no addresses", key)
+                            })
+                        }
+                    }
+                    Err(e) => source
+                        .default
+                        .clone()
+                        .ok_or_else(|| format!("data source '{}' DNS error: {}", key, e)),
+                }
+            }
+        }?;
+
+        config.params.insert(
+            format!("__data__{}", key),
+            serde_yaml_ng::Value::String(value),
+        );
+    }
+    Ok(())
 }
 
 /// Resolve all templates in a resource's string fields.
@@ -908,6 +975,7 @@ resources:
             policy: Policy::default(),
             outputs: indexmap::IndexMap::new(),
             policies: vec![],
+            data: indexmap::IndexMap::new(),
         }
     }
 
@@ -1660,6 +1728,7 @@ resources:
             policy: Policy::default(),
             outputs: indexmap::IndexMap::new(),
             policies: vec![],
+            data: indexmap::IndexMap::new(),
         };
         let result = build_execution_order(&config);
         assert!(result.is_err());
@@ -1695,6 +1764,7 @@ resources:
             policy: Policy::default(),
             outputs: indexmap::IndexMap::new(),
             policies: vec![],
+            data: indexmap::IndexMap::new(),
         };
         let order = build_execution_order(&config).unwrap();
         assert_eq!(order, vec!["a", "b", "c", "d"]);
@@ -1712,6 +1782,7 @@ resources:
             policy: Policy::default(),
             outputs: indexmap::IndexMap::new(),
             policies: vec![],
+            data: indexmap::IndexMap::new(),
         };
         let order = build_execution_order(&config).unwrap();
         assert!(order.is_empty());
@@ -1955,5 +2026,213 @@ resources:
         // Wave 1: pkg-a + pkg-b (both depend only on base)
         assert!(waves[1].contains(&"pkg-a".to_string()));
         assert!(waves[1].contains(&"pkg-b".to_string()));
+    }
+
+    // ================================================================
+    // FJ-223: Data source tests
+    // ================================================================
+
+    #[test]
+    fn test_fj223_data_source_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let data_file = dir.path().join("version.txt");
+        std::fs::write(&data_file, "1.2.3\n").unwrap();
+
+        let yaml = format!(
+            r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.2.3.4
+resources:
+  cfg:
+    type: file
+    machine: m1
+    path: /etc/version
+    content: "v={{{{data.app_version}}}}"
+data:
+  app_version:
+    type: file
+    value: "{}"
+"#,
+            data_file.display()
+        );
+        let mut config: ForjarConfig = serde_yaml_ng::from_str(&yaml).unwrap();
+        resolve_data_sources(&mut config).unwrap();
+
+        // Should have injected __data__app_version
+        let val = config.params.get("__data__app_version").unwrap();
+        assert_eq!(yaml_value_to_string(val), "1.2.3");
+    }
+
+    #[test]
+    fn test_fj223_data_source_command() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.2.3.4
+resources: {}
+data:
+  hostname:
+    type: command
+    value: "echo test-host"
+"#;
+        let mut config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        resolve_data_sources(&mut config).unwrap();
+
+        let val = config.params.get("__data__hostname").unwrap();
+        assert_eq!(yaml_value_to_string(val), "test-host");
+    }
+
+    #[test]
+    fn test_fj223_data_source_file_with_default() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.2.3.4
+resources: {}
+data:
+  missing:
+    type: file
+    value: /nonexistent/file
+    default: "fallback"
+"#;
+        let mut config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        resolve_data_sources(&mut config).unwrap();
+
+        let val = config.params.get("__data__missing").unwrap();
+        assert_eq!(yaml_value_to_string(val), "fallback");
+    }
+
+    #[test]
+    fn test_fj223_data_source_file_no_default_fails() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.2.3.4
+resources: {}
+data:
+  missing:
+    type: file
+    value: /nonexistent/file
+"#;
+        let mut config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let result = resolve_data_sources(&mut config);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("file error"));
+    }
+
+    #[test]
+    fn test_fj223_data_template_resolution() {
+        let dir = tempfile::tempdir().unwrap();
+        let data_file = dir.path().join("env.txt");
+        std::fs::write(&data_file, "production").unwrap();
+
+        let yaml = format!(
+            r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.2.3.4
+resources:
+  cfg:
+    type: file
+    machine: m1
+    path: /etc/env.conf
+    content: "env={{{{data.env}}}}"
+data:
+  env:
+    type: file
+    value: "{}"
+"#,
+            data_file.display()
+        );
+        let mut config: ForjarConfig = serde_yaml_ng::from_str(&yaml).unwrap();
+        resolve_data_sources(&mut config).unwrap();
+
+        // Now resolve the template
+        let resolved = resolve_template(
+            "env={{data.env}}",
+            &config.params,
+            &config.machines,
+        )
+        .unwrap();
+        assert_eq!(resolved, "env=production");
+    }
+
+    #[test]
+    fn test_fj223_data_source_command_with_default() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.2.3.4
+resources: {}
+data:
+  fail:
+    type: command
+    value: "exit 1"
+    default: "fallback"
+"#;
+        let mut config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        resolve_data_sources(&mut config).unwrap();
+
+        let val = config.params.get("__data__fail").unwrap();
+        assert_eq!(yaml_value_to_string(val), "fallback");
+    }
+
+    #[test]
+    fn test_fj223_data_source_dns() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.2.3.4
+resources: {}
+data:
+  loopback:
+    type: dns
+    value: localhost
+"#;
+        let mut config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        resolve_data_sources(&mut config).unwrap();
+
+        let val = config.params.get("__data__loopback").unwrap();
+        let ip = yaml_value_to_string(val);
+        assert!(ip == "127.0.0.1" || ip == "::1", "got: {}", ip);
+    }
+
+    #[test]
+    fn test_fj223_no_data_sources() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.2.3.4
+resources: {}
+"#;
+        let mut config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        resolve_data_sources(&mut config).unwrap();
+        // No __data__ keys added
+        assert!(!config.params.keys().any(|k| k.starts_with("__data__")));
     }
 }

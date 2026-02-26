@@ -2281,6 +2281,7 @@ fn cmd_plan(
         load_env_params(&mut config, path)?;
     }
     inject_workspace_param(&mut config, workspace);
+    resolver::resolve_data_sources(&mut config)?;
     if verbose {
         eprintln!(
             "Planning {} ({} machines, {} resources)",
@@ -2625,8 +2626,7 @@ fn cmd_policy(file: &Path, json: bool) -> Result<(), String> {
             .collect();
         println!(
             "{}",
-            serde_json::to_string_pretty(&output)
-                .map_err(|e| format!("JSON error: {}", e))?
+            serde_json::to_string_pretty(&output).map_err(|e| format!("JSON error: {}", e))?
         );
     } else {
         if violations.is_empty() {
@@ -2660,9 +2660,12 @@ fn cmd_policy(file: &Path, json: bool) -> Result<(), String> {
     }
 
     // Fail on any deny/require violations
-    let has_deny = violations
-        .iter()
-        .any(|v| matches!(v.severity, types::PolicyRuleType::Deny | types::PolicyRuleType::Require));
+    let has_deny = violations.iter().any(|v| {
+        matches!(
+            v.severity,
+            types::PolicyRuleType::Deny | types::PolicyRuleType::Require
+        )
+    });
     if has_deny {
         return Err("policy violations block apply".to_string());
     }
@@ -2708,6 +2711,7 @@ fn cmd_apply(
         load_env_params(&mut config, path)?;
     }
     inject_workspace_param(&mut config, workspace);
+    resolver::resolve_data_sources(&mut config)?;
     if verbose {
         eprintln!(
             "Applying {} ({} machines, {} resources)",

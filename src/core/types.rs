@@ -47,6 +47,37 @@ pub struct ForjarConfig {
     /// FJ-220: Policy rules for plan-time enforcement
     #[serde(default)]
     pub policies: Vec<PolicyRule>,
+
+    /// FJ-223: External data sources resolved at plan time
+    #[serde(default)]
+    pub data: IndexMap<String, DataSource>,
+}
+
+/// FJ-223: External data source definition.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DataSource {
+    /// Source type: `file`, `command`, or `dns`
+    #[serde(rename = "type")]
+    pub source_type: DataSourceType,
+
+    /// For `file`: path to read. For `command`: shell command. For `dns`: hostname.
+    pub value: String,
+
+    /// Optional default if the data source fails (prevents hard errors)
+    #[serde(default)]
+    pub default: Option<String>,
+}
+
+/// Data source type.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DataSourceType {
+    /// Read content from a local file
+    File,
+    /// Run shell command and capture stdout
+    Command,
+    /// Resolve DNS hostname to IP
+    Dns,
 }
 
 /// FJ-220: A policy rule for plan-time enforcement.
