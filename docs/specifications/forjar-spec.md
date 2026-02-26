@@ -1600,7 +1600,7 @@ Shows current state from lock files: project name, last apply, per-machine resou
 | FJ-213 | `forjar state-rm <resource-id>` — remove a resource from state without destroying it on the machine. Warns if other resources reference it via details. `--force` to skip dependency check. `--machine` filter. 5 tests. | **Done** |
 | FJ-214 | `forjar state-list` — tabular view of all resources in state with type, status, hash prefix, last applied timestamp. `--machine` filter. `--json` output. 6 tests. | **Done** |
 | FJ-215 | Output values — `outputs:` top-level block in forjar.yaml with `value:` (template) and `description:` fields. `forjar output` CLI shows all resolved outputs; `forjar output <key>` shows one value. Template resolution via `{{params.*}}` and `{{machine.NAME.FIELD}}`. `--json` output. 7 tests, dogfood-outputs.yaml (16th config). | **Done** |
-| FJ-216 | Parallel intra-machine execution — resources within the same machine that have no dependency relationship execute concurrently via `std::thread::scope`. Respects DAG: only independent siblings run in parallel. `policy.parallel_resources: true` (default: false). | Planned |
+| FJ-216 | Parallel intra-machine execution — resources grouped into DAG-level waves via `compute_parallel_waves()`. All resources in a wave have no inter-dependencies. Wave-based execution in `apply_machine` with jidoka break support. `policy.parallel_resources: true` (default: false). `compute_resource_waves()` handles per-machine subsets. 9 tests (4 resolver + 5 executor). | **Done** |
 
 ### Phase 9: Policy & Fleet Operations (v0.9)
 
