@@ -1,0 +1,35 @@
+version: "1.0"
+name: dogfood-renacer
+description: "Dogfood: renacer observability stack deployment"
+
+machines:
+  monitor:
+    hostname: monitor
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-dogfood-renacer
+      ephemeral: true
+      privileged: false
+      init: true
+
+resources:
+  observability:
+    type: recipe
+    machine: monitor
+    recipe: renacer-observability
+    inputs:
+      otlp_endpoint: "http://localhost:4317"
+      grafana_port: 3000
+      jaeger_port: 16686
+      retention_days: 7
+      user: renacer
+
+policy:
+  failure: stop_on_first
+  tripwire: true
+  lock_file: true

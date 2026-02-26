@@ -1,0 +1,148 @@
+# Recipe: renacer-observability — Syscall tracing + OTLP + Grafana stack
+#
+# Deploys a complete observability stack for forjar infrastructure:
+#   1. renacer syscall tracer (package resource)
+#   2. Jaeger all-in-one for distributed tracing (docker resource)
+#   3. Grafana with Tempo datasource (docker resource)
+#   4. Grafana provisioning config (file resource)
+#   5. Firewall rules for all ports (network resources)
+#
+# Inputs:
+#   otlp_endpoint (string) — OTLP gRPC endpoint for trace export
+#   grafana_port (int, default: 3000) — Grafana web UI port
+#   jaeger_port (int, default: 16686) — Jaeger web UI port
+#   retention_days (int, default: 7) — trace retention period
+#   user (string, default: renacer) — service account
+
+recipe:
+  name: renacer-observability
+  version: "1.0"
+  description: "Renacer observability stack — syscall tracing, Jaeger, Grafana"
+  inputs:
+    otlp_endpoint:
+      type: string
+      description: "OTLP gRPC endpoint (e.g., http://localhost:4317)"
+      default: "http://localhost:4317"
+    grafana_port:
+      type: int
+      default: 3000
+      min: 1
+      max: 65535
+    jaeger_port:
+      type: int
+      default: 16686
+      min: 1
+      max: 65535
+    retention_days:
+      type: int
+      default: 7
+      min: 1
+      max: 365
+    user:
+      type: string
+      default: renacer
+
+resources:
+  obs-user:
+    type: user
+    name: "{{inputs.user}}"
+    shell: /usr/sbin/nologin
+    home: /opt/renacer
+    system_user: true
+    depends_on: []
+
+  obs-data-dir:
+    type: file
+    state: directory
+    path: /opt/renacer
+    owner: "{{inputs.user}}"
+    mode: "0755"
+    depends_on: [obs-user]
+
+  obs-grafana-data:
+    type: file
+    state: directory
+    path: /opt/renacer/grafana
+    owner: "472"
+    group: "472"
+    mode: "0755"
+    depends_on: [obs-data-dir]
+
+  renacer-pkg:
+    type: package
+    provider: cargo
+    packages: [renacer]
+    depends_on: []
+
+  jaeger:
+    type: docker
+    name: forjar-jaeger
+    image: jaegertracing/all-in-one:1.54
+    state: running
+    ports:
+      - "{{inputs.jaeger_port}}:16686"
+      - "4317:4317"
+      - "4318:4318"
+    environment:
+      - "COLLECTOR_OTLP_ENABLED=true"
+      - "SPAN_STORAGE_TYPE=badger"
+      - "BADGER_EPHEMERAL=false"
+      - "BADGER_DIRECTORY_VALUE=/badger/data"
+      - "BADGER_DIRECTORY_KEY=/badger/key"
+    volumes:
+      - "/opt/renacer/jaeger:/badger"
+    restart: unless-stopped
+    depends_on: [obs-data-dir]
+
+  grafana-provisioning:
+    type: file
+    path: /opt/renacer/grafana/provisioning/datasources/tempo.yaml
+    content: |
+      apiVersion: 1
+      datasources:
+        - name: Jaeger
+          type: jaeger
+          access: proxy
+          url: http://forjar-jaeger:16686
+          isDefault: true
+          editable: false
+    owner: "472"
+    mode: "0644"
+    depends_on: [obs-grafana-data]
+
+  grafana:
+    type: docker
+    name: forjar-grafana
+    image: grafana/grafana:10.3.1
+    state: running
+    ports:
+      - "{{inputs.grafana_port}}:3000"
+    environment:
+      - "GF_SECURITY_ADMIN_PASSWORD=forjar"
+      - "GF_USERS_ALLOW_SIGN_UP=false"
+    volumes:
+      - "/opt/renacer/grafana:/var/lib/grafana"
+      - "/opt/renacer/grafana/provisioning:/etc/grafana/provisioning"
+    restart: unless-stopped
+    depends_on: [grafana-provisioning, jaeger]
+
+  firewall-grafana:
+    type: network
+    port: "{{inputs.grafana_port}}"
+    protocol: tcp
+    action: allow
+    depends_on: [grafana]
+
+  firewall-jaeger:
+    type: network
+    port: "{{inputs.jaeger_port}}"
+    protocol: tcp
+    action: allow
+    depends_on: [jaeger]
+
+  firewall-otlp:
+    type: network
+    port: "4317"
+    protocol: tcp
+    action: allow
+    depends_on: [jaeger]
