@@ -1377,6 +1377,62 @@ forjar explain cfg --json
 #   "transport": "local", "apply_script": "...", "check_script": "..." }
 ```
 
+## Rollback on Failure
+
+Auto-restore previous state when any resource fails during apply:
+
+```bash
+forjar apply -f forjar.yaml --rollback-on-failure
+# On failure: restores last-known-good lock files automatically
+```
+
+## Strict Validation Enhancements
+
+Lint-grade validation catches unused params, missing descriptions, and duplicate tags:
+
+```bash
+forjar validate -f forjar.yaml --strict
+# WARN: unused param 'old_port' (not referenced by any resource)
+# WARN: missing project description
+```
+
+## Plan Cost Estimation
+
+Show estimated change cost before applying — weighted by resource type, with destructive action warnings:
+
+```bash
+forjar plan -f forjar.yaml --cost
+# Estimated cost: 12 units (3 packages × 3, 2 files × 1, 1 service × 3)
+# WARNING: High destructive cost (15 units) — review carefully
+```
+
+## Max Parallel Execution
+
+Cap concurrent resource execution per wave to prevent resource exhaustion:
+
+```bash
+forjar apply -f forjar.yaml --max-parallel 4
+# Executes at most 4 resources concurrently per wave
+```
+
+## Live Status Watch
+
+Live-updating status dashboard that refreshes on interval:
+
+```bash
+forjar status --state-dir state --watch 5
+# Refreshes every 5 seconds (Ctrl+C to stop)
+```
+
+## Webhook Notifications
+
+POST JSON results to a webhook URL after apply completes:
+
+```bash
+forjar apply -f forjar.yaml --notify https://hooks.example.com/forjar
+# POSTs: { "name": "home-lab", "total_converged": 5, "total_failed": 0, "duration_ms": 1234 }
+```
+
 ## Next Steps
 
 - [Configuration Reference](02-configuration.md) — Complete `forjar.yaml` schema

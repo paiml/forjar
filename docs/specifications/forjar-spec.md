@@ -1798,14 +1798,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-310 | `forjar apply --rollback-on-failure` — auto-rollback to previous state on any resource failure. Restore last-known-good lock. | Planned |
-| FJ-311 | `forjar validate --strict` enhancements — warn on unused params, missing descriptions, duplicate tags. Lint-grade validation. | Planned |
-| FJ-312 | `forjar plan --cost` — show estimated change cost (resource weight × count). Prevent accidental mass-destructive applies. | Planned |
-| FJ-313 | `forjar apply --max-parallel N` — cap concurrent wave execution. Prevent resource exhaustion on large fleets. | Planned |
-| FJ-314 | `forjar status --watch` — live-updating status dashboard (re-poll every N seconds). For ops monitoring. | Planned |
-| FJ-315 | `forjar drift --auto-remediate` — automatically re-apply drifted resources. Daemon-friendly self-healing mode. | Planned |
-| FJ-316 | `forjar graph --output dot` — export DAG in Graphviz DOT format for external visualization tools. | Planned |
-| FJ-317 | `forjar apply --notify webhook` — POST JSON results to a webhook URL after apply completes. CI/CD integration. | Planned |
+| FJ-310 | `forjar apply --rollback-on-failure` — auto-rollback to previous state on any resource failure. Restore last-known-good lock. | Done |
+| FJ-311 | `forjar validate --strict` enhancements — warn on unused params, missing descriptions, duplicate tags. Lint-grade validation. | Done |
+| FJ-312 | `forjar plan --cost` — show estimated change cost (resource weight × count). Prevent accidental mass-destructive applies. | Done |
+| FJ-313 | `forjar apply --max-parallel N` — cap concurrent wave execution. Prevent resource exhaustion on large fleets. | Done |
+| FJ-314 | `forjar status --watch` — live-updating status dashboard (re-poll every N seconds). For ops monitoring. | Done |
+| FJ-315 | `forjar drift --auto-remediate` — automatically re-apply drifted resources. Daemon-friendly self-healing mode. | Done (pre-existing) |
+| FJ-316 | `forjar graph --output dot` — export DAG in Graphviz DOT format for external visualization tools. | Done (pre-existing) |
+| FJ-317 | `forjar apply --notify webhook` — POST JSON results to a webhook URL after apply completes. CI/CD integration. | Done |
+
+### Phase 18 — v1.8: Fleet Management & Multi-Machine
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-320 | `forjar apply --machine <name>` — target single machine in multi-machine config. Skip others. | Planned |
+| FJ-321 | `forjar status --machine <name>` — per-machine status filtering. Show only one machine's resources. | Planned |
+| FJ-322 | `forjar drift --machine <name>` — per-machine drift check. Skip SSH to unrelated hosts. | Planned |
+| FJ-323 | `forjar plan --machine <name>` — per-machine plan output. Show only changes for one machine. | Planned |
+| FJ-324 | `forjar apply --rolling N` — rolling deployment: apply to N machines at a time, stop on failure. Zero-downtime fleet updates. | Planned |
+| FJ-325 | `forjar apply --canary <machine>` — canary deployment: apply to one machine first, pause for confirmation, then apply to rest. | Planned |
+| FJ-326 | `forjar inventory` — list all machines with connection status (reachable/unreachable). Fleet health overview. | Planned |
+| FJ-327 | `forjar apply --retry-failed` — re-run only previously failed resources. Resume from partial apply without re-running converged resources. | Planned |
 
 ---
 
