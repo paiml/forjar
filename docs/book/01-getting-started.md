@@ -16,7 +16,7 @@ Verify:
 forjar --help
 ```
 
-You should see forjar's 34 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`.
+You should see forjar's 38 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`.
 
 ## Your First Project
 
@@ -1071,6 +1071,85 @@ A: Secrets are never stored in config files. Use `{{secrets.key}}` templates tha
 
 **Q: What happens if an apply fails halfway?**
 A: State is recorded per-resource. Successfully applied resources are marked as converged, failed ones as failed. Re-running apply only retries failed resources.
+
+## Testing Resources
+
+Use `forjar test` to run check scripts and see a summary table:
+
+```bash
+forjar test -f forjar.yaml
+```
+
+Output:
+
+```
+RESOURCE               TYPE  MACHINE  STATUS  DURATION
+--------------------------------------------------------------------------
+nginx-pkg              package  web     pass      0.003s
+nginx-conf             file     web     pass      0.002s
+nginx-svc              service  web     FAIL      0.001s
+  exit 1
+--------------------------------------------------------------------------
+2 pass, 1 fail, 0 skip (0.006s)
+```
+
+JSON output for CI: `forjar test -f forjar.yaml --json`
+
+## Apply Timing
+
+See where time is spent during apply with `--timing`:
+
+```bash
+forjar apply -f forjar.yaml --timing
+```
+
+Output includes a timing breakdown:
+
+```
+Timing Breakdown
+----------------------------------------
+  Parse + resolve           0.001s
+  Apply                     2.345s
+----------------------------------------
+  Total                     2.346s
+```
+
+## Unified Diff in Plan
+
+When resources are being updated, `forjar plan` shows a unified diff:
+
+```
+local:
+  ~ config: update (state changed)
+    ---
+    - host: staging.example.com
+    + host: production.example.com
+    - port: 8080
+    + port: 443
+    ---
+```
+
+## ASCII Dependency Graph
+
+Use `forjar graph --format ascii` for a terminal-friendly view:
+
+```bash
+forjar graph -f forjar.yaml --format ascii
+```
+
+Output:
+
+```
+Dependency Graph
+
+  * data-dir (file, gpu-box)
+  * app-config (file, gpu-box) <- [data-dir]
+  * app-service (service, gpu-box) <- [app-config]
+
+3 resources in execution order.
+```
+
+Also available: `--format mermaid` (default) and `--format dot` (Graphviz).
 
 ## Next Steps
 

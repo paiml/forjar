@@ -1744,14 +1744,14 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-270 | Structured event output — `forjar apply --output events` emits newline-delimited JSON events during apply (resource_started, resource_converged, resource_failed, apply_complete). Machine-parseable for CI pipelines and monitoring integration. | Planned |
-| FJ-271 | `forjar explain <resource>` — show the full resolution chain for a resource: raw YAML → template expansion → codegen script → transport command. Debugging tool for understanding what forjar will actually do. | Planned |
-| FJ-272 | Apply progress indicator — during apply, print `[3/12]` resource progress counter before each resource name. Shows position in execution order. Useful for long-running applies with many resources. | Planned |
-| FJ-273 | `forjar test` — run `check` scripts for all resources and report pass/fail. Like `--check` but dedicated command with summary table output. Exit code 0 = all pass, 1 = failures. CI integration: `forjar test -f forjar.yaml --json`. | Planned |
-| FJ-274 | Dry-run diff improvements — `forjar plan --diff` shows unified diff of content changes (file resources). Currently shows `+ content: ...` but not the actual diff between old and new content. Uses lock file to get previous content hash. | Planned |
-| FJ-275 | Resource dependency visualization — `forjar graph --format dot` outputs Graphviz DOT format for the dependency graph. `forjar graph --format mermaid` for Mermaid diagrams. Complements existing `forjar graph` ASCII output. | Planned |
-| FJ-276 | Apply timing summary — after apply, show wall-clock time breakdown: parse, resolve, plan, execute, state. Identifies bottlenecks. `--timing` flag. | Planned |
-| FJ-277 | `forjar env` — show resolved environment: forjar version, Rust version, OS, arch, state dir, config path, active workspace, param count, machine count, resource count. Debugging aid for support requests. | Planned |
+| FJ-270 | Structured event output — `forjar apply --output events` emits newline-delimited JSON events during apply (resource_started, resource_converged, resource_failed, apply_complete). Machine-parseable for CI pipelines and monitoring integration. | Done |
+| FJ-271 | `forjar explain <resource>` — show the full resolution chain for a resource: raw YAML → template expansion → codegen script → transport command. Debugging tool for understanding what forjar will actually do. | Done |
+| FJ-272 | Apply progress indicator — during apply, print `[3/12]` resource progress counter before each resource name. Shows position in execution order. Useful for long-running applies with many resources. | Done |
+| FJ-273 | `forjar test` — run `check` scripts for all resources and report pass/fail. Like `--check` but dedicated command with summary table output. Exit code 0 = all pass, 1 = failures. CI integration: `forjar test -f forjar.yaml --json`. | Done |
+| FJ-274 | Dry-run diff improvements — `forjar plan` shows unified diff of content changes (file resources). For updates, reads current file and shows line-by-line `-`/`+` diff between old and new content. | Done |
+| FJ-275 | Resource dependency visualization — `forjar graph --format ascii` outputs colored ASCII tree with execution order and dependency arrows. Complements existing `mermaid` and `dot` formats. | Done |
+| FJ-276 | Apply timing summary — after apply, show wall-clock time breakdown: parse+resolve, apply. `--timing` flag. | Done |
+| FJ-277 | `forjar env` — show resolved environment: forjar version, OS, arch, config path, project name, machine/resource/param counts. Debugging aid for support requests. JSON output with `--json`. | Done |
 
 ---
 
