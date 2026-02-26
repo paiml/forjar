@@ -1595,7 +1595,7 @@ Shows current state from lock files: project name, last apply, per-machine resou
 | Ticket | Description | Status |
 |--------|-------------|--------|
 | FJ-210 | Workspaces — `forjar workspace new/list/select/delete <name>`. Per-workspace state directory (`state/<workspace>/<machine>/`). `{{workspace}}` template variable. Config-level `environments:` block with per-env param overrides. `-w <name>` flag on plan/apply/drift. | Planned |
-| FJ-211 | Environment variable files — `env_file: envs/production.yaml` field on workspace. Loads param overrides from external YAML. Supports `--env-file` CLI override. | Planned |
+| FJ-211 | Environment variable files — `--env-file <path>` flag on plan/apply/drift. Loads param overrides from external YAML file. Env file params override config defaults; `--param` CLI flags override env file. `load_env_params()` helper. 8 tests. | **Done** |
 | FJ-212 | `forjar state-mv <old-id> <new-id>` — rename a resource in state without re-applying. Updates lock file resource key, preserves hash and metadata. Validates new ID doesn't conflict. `--machine` filter. 6 tests. | **Done** |
 | FJ-213 | `forjar state-rm <resource-id>` — remove a resource from state without destroying it on the machine. Warns if other resources reference it via details. `--force` to skip dependency check. `--machine` filter. 5 tests. | **Done** |
 | FJ-214 | `forjar state-list` — tabular view of all resources in state with type, status, hash prefix, last applied timestamp. `--machine` filter. `--json` output. 6 tests. | **Done** |

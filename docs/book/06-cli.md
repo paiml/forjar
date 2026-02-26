@@ -63,7 +63,7 @@ Checks:
 Show execution plan (what would change).
 
 ```bash
-forjar plan -f <FILE> [-m MACHINE] [-r RESOURCE] [-t TAG] [--state-dir DIR] [--json] [--output-dir DIR]
+forjar plan -f <FILE> [-m MACHINE] [-r RESOURCE] [-t TAG] [--state-dir DIR] [--json] [--output-dir DIR] [--env-file PATH]
 ```
 
 | Flag | Default | Description |
@@ -75,6 +75,7 @@ forjar plan -f <FILE> [-m MACHINE] [-r RESOURCE] [-t TAG] [--state-dir DIR] [--j
 | `--state-dir` | `state` | Directory for lock files |
 | `--json` | false | Output plan as JSON |
 | `--output-dir` | — | Write generated scripts to directory for auditing |
+| `--env-file` | — | Load param overrides from external YAML file |
 
 Output symbols (text mode):
 - `+` Create (new resource)
@@ -91,7 +92,7 @@ The `--output-dir` flag writes all generated scripts (check, apply, state_query)
 Converge infrastructure to desired state.
 
 ```bash
-forjar apply -f <FILE> [-m MACHINE] [-r RESOURCE] [-t TAG] [--force] [--dry-run] [--no-tripwire] [-p KEY=VALUE] [--auto-commit] [--timeout SECS] [--state-dir DIR] [--json]
+forjar apply -f <FILE> [-m MACHINE] [-r RESOURCE] [-t TAG] [--force] [--dry-run] [--no-tripwire] [-p KEY=VALUE] [--auto-commit] [--timeout SECS] [--state-dir DIR] [--json] [--env-file PATH]
 ```
 
 | Flag | Default | Description |
@@ -108,13 +109,14 @@ forjar apply -f <FILE> [-m MACHINE] [-r RESOURCE] [-t TAG] [--force] [--dry-run]
 | `--timeout` | — | Timeout per transport operation (seconds) |
 | `--state-dir` | `state` | Directory for lock files |
 | `--json` | false | Output apply results as JSON |
+| `--env-file` | — | Load param overrides from external YAML file |
 
 ### `forjar drift`
 
 Detect unauthorized changes (tripwire).
 
 ```bash
-forjar drift -f <FILE> [-m MACHINE] [--state-dir DIR] [--tripwire] [--alert-cmd CMD] [--dry-run] [--json]
+forjar drift -f <FILE> [-m MACHINE] [--state-dir DIR] [--tripwire] [--alert-cmd CMD] [--dry-run] [--json] [--env-file PATH]
 ```
 
 | Flag | Default | Description |
@@ -127,6 +129,7 @@ forjar drift -f <FILE> [-m MACHINE] [--state-dir DIR] [--tripwire] [--alert-cmd 
 | `--auto-remediate` | false | Auto-fix drift: force re-apply all resources to restore desired state |
 | `--dry-run` | false | List resources that would be checked without connecting to machines |
 | `--json` | false | Output drift report as JSON |
+| `--env-file` | — | Load param overrides from external YAML file |
 
 Drift detection covers **all resource types**:
 - **File** resources: BLAKE3 hash of file content on disk vs lock
@@ -509,6 +512,40 @@ forjar migrate -f docker-infra.yaml -o new.yaml
 forjar validate -f new.yaml
 forjar plan -f new.yaml
 ```
+
+## Environment Files
+
+Use `--env-file` to load param overrides from an external YAML file. This enables
+environment-specific configurations without modifying `forjar.yaml`:
+
+```yaml
+# envs/production.yaml
+data_dir: /mnt/prod/data
+log_level: warn
+replicas: "3"
+
+# envs/staging.yaml
+data_dir: /tmp/staging
+log_level: debug
+replicas: "1"
+```
+
+```bash
+# Plan with production params
+forjar plan -f forjar.yaml --env-file envs/production.yaml
+
+# Apply staging
+forjar apply -f forjar.yaml --env-file envs/staging.yaml
+
+# Drift check with production params
+forjar drift -f forjar.yaml --env-file envs/production.yaml --state-dir state
+```
+
+**Param precedence** (last wins):
+
+1. `params:` in `forjar.yaml` (base defaults)
+2. `--env-file` values (environment overrides)
+3. `--param KEY=VALUE` flags (CLI overrides)
 
 ## Command Cheat Sheet
 
