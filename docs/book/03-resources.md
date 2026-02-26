@@ -701,6 +701,44 @@ When `checksum` is set, `forjar drift` detects unauthorized model file changes b
 - Unauthorized model swaps (e.g., replacing a quantized model with a different version)
 - Accidental overwrites
 
+## GPU
+
+Manages NVIDIA GPU hardware — driver installation, CUDA toolkit, persistence mode, and compute mode.
+
+```yaml
+resources:
+  gpu-driver:
+    type: gpu
+    machine: gpu-box
+    name: gpu0
+    driver_version: "535"
+    cuda_version: "12.3"
+    devices: [0, 1]
+    persistence_mode: true
+    compute_mode: exclusive_process
+```
+
+### GPU States
+
+- **present** (default): Install driver and CUDA toolkit, enable persistence, set compute mode
+- **absent**: Remove NVIDIA drivers
+
+### GPU Fields
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `name` | string | `gpu0` | GPU resource identifier |
+| `driver_version` | string | required | NVIDIA driver version (e.g., `535`) |
+| `cuda_version` | string | — | CUDA toolkit version (e.g., `12.3`) |
+| `devices` | [integer] | all | GPU device indices |
+| `persistence_mode` | bool | `true` | Enable `nvidia-persistenced` service |
+| `compute_mode` | string | `default` | `default`, `exclusive_process`, or `prohibited` |
+| `gpu_memory_limit_mb` | integer | — | cgroup GPU memory limit in MB |
+
+### State Query
+
+GPU state is queried via `nvidia-smi --query-gpu=driver_version,compute_mode,memory.total`. This enables drift detection — if someone manually changes the driver version or compute mode, forjar detects it.
+
 ## Common Patterns
 
 ### Template Resolution in Resources

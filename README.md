@@ -120,6 +120,7 @@ policy:
 | `network` | present, absent | `port`, `protocol`, `action`, `from_addr` |
 | `pepita` | present, absent | `name`, `cgroups`, `overlayfs`, `netns`, `seccomp` |
 | `model` | present, absent | `name`, `source`, `format`, `quantization`, `checksum`, `cache_dir` |
+| `gpu` | present, absent | `driver_version`, `cuda_version`, `devices`, `persistence_mode`, `compute_mode` |
 
 ### Templates
 
@@ -238,7 +239,7 @@ Tests: `test_fj012_apply_local_file`
 ## Testing
 
 ```bash
-cargo test                    # 1548 unit tests
+cargo test                    # 1558 unit tests
 cargo test -- --nocapture     # with output
 cargo test planner            # specific module
 cargo bench                   # Criterion benchmarks
