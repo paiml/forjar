@@ -4185,12 +4185,15 @@ fn cmd_apply(
     }
 
     if json {
+        // FJ-300: Full JSON apply output with timing and config metadata
         let output = serde_json::json!({
+            "name": config.name,
             "machines": &results,
             "summary": {
                 "total_converged": total_converged,
                 "total_unchanged": total_unchanged,
                 "total_failed": total_failed,
+                "total_duration_seconds": dur_apply.as_secs_f64(),
             }
         });
         println!(
