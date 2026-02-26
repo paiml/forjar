@@ -499,9 +499,21 @@ policy:
   lock_file: true              # Persist BLAKE3 state after apply
   serial: 2                    # Rolling deploy: 2 machines per batch
   max_fail_percentage: 20      # Abort if >20% of machines fail
+  ssh_retries: 3               # Retry SSH on transient failure (default 1 = no retry, max 4)
   pre_apply: "echo 'validating...' && ./scripts/check-env.sh"
   post_apply: "echo 'done!' && ./scripts/notify-slack.sh"
 ```
+
+### SSH Retry
+
+Retry transient SSH failures (connection refused, timeout, broken pipe) with exponential backoff:
+
+```yaml
+policy:
+  ssh_retries: 3    # Up to 3 attempts (200ms, 400ms backoff between retries)
+```
+
+Backoff schedule: 200ms × 2^attempt. Default 1 (no retry). Capped at 4. Non-SSH targets (local, container) are never retried.
 
 ### Failure Policies
 

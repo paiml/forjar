@@ -1396,4 +1396,59 @@ forjar lock -f forjar.yaml --json           # JSON output
 | `--verify` | Compare computed hashes against existing lock; exit 1 if mismatch |
 | `--json` | Output as JSON |
 
+### `forjar snapshot`
+
+Save, list, and restore named state snapshots for safe rollbacks and checkpoint-based workflows.
+
+#### Save a snapshot
+
+```bash
+forjar snapshot save pre-upgrade
+forjar snapshot save production-2024-02-26
+forjar snapshot save --state-dir /var/forjar/state backup-name
+```
+
+Copies the entire `state/` directory to `state/snapshots/<name>/`, preserving lock files and event logs for later restore.
+
+#### List available snapshots
+
+```bash
+forjar snapshot list
+forjar snapshot list --json
+```
+
+Shows all snapshots with creation timestamps. Sample output:
+
+```
+Snapshots:
+  pre-upgrade           created 2024-02-26 14:32:15
+  production-2024-02-26 created 2024-02-26 13:45:22
+```
+
+#### Restore a snapshot
+
+```bash
+forjar snapshot restore pre-upgrade
+forjar snapshot restore production-2024-02-26 --state-dir /var/forjar/state
+```
+
+Replaces the current `state/` with the saved snapshot. The previous state is preserved in `state/snapshots/_previous/` for emergency recovery.
+
+#### Delete a snapshot
+
+```bash
+forjar snapshot delete pre-upgrade
+forjar snapshot delete old-backup --force
+```
+
+Removes a snapshot. Use `--force` to skip confirmation.
+
+| Flag | Description |
+|------|-------------|
+| `--state-dir PATH` | State directory (default: `state`) |
+| `--json` | Output as JSON |
+| `--force` | Skip confirmation prompts |
+
+**Use case**: Before a major config change, save a snapshot. If the apply fails or causes issues, restore the snapshot to revert state without re-running the previous converge.
+
 `forjar lock` is useful in CI pipelines where you want to pre-compute and commit the expected lock file, then verify on each run that config and lock stay in sync — without executing any apply against real machines.

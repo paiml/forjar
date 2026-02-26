@@ -712,7 +712,9 @@ mod tests {
 
     #[test]
     fn test_fj261_is_transient_ssh_error_connection_refused() {
-        assert!(is_transient_ssh_error("ssh: connect to host 10.0.0.1 port 22: Connection refused"));
+        assert!(is_transient_ssh_error(
+            "ssh: connect to host 10.0.0.1 port 22: Connection refused"
+        ));
     }
 
     #[test]
@@ -722,7 +724,9 @@ mod tests {
 
     #[test]
     fn test_fj261_is_transient_ssh_error_timeout() {
-        assert!(is_transient_ssh_error("transport timeout: script on 'box' exceeded 30s limit"));
+        assert!(is_transient_ssh_error(
+            "transport timeout: script on 'box' exceeded 30s limit"
+        ));
     }
 
     #[test]
@@ -732,12 +736,16 @@ mod tests {
 
     #[test]
     fn test_fj261_is_transient_ssh_error_no_route() {
-        assert!(is_transient_ssh_error("ssh: connect to host 10.0.0.1: No route to host"));
+        assert!(is_transient_ssh_error(
+            "ssh: connect to host 10.0.0.1: No route to host"
+        ));
     }
 
     #[test]
     fn test_fj261_is_transient_ssh_error_spawn_failure() {
-        assert!(is_transient_ssh_error("failed to spawn ssh to 10.0.0.1: ..."));
+        assert!(is_transient_ssh_error(
+            "failed to spawn ssh to 10.0.0.1: ..."
+        ));
     }
 
     #[test]
