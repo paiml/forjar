@@ -151,8 +151,7 @@ pub fn save_apply_report(state_dir: &Path, result: &ApplyResult) -> Result<(), S
     let path = dir.join("last-apply.yaml");
     let yaml =
         serde_yaml_ng::to_string(result).map_err(|e| format!("serialize report error: {}", e))?;
-    std::fs::write(&path, &yaml)
-        .map_err(|e| format!("cannot write {}: {}", path.display(), e))?;
+    std::fs::write(&path, &yaml).map_err(|e| format!("cannot write {}: {}", path.display(), e))?;
     Ok(())
 }
 

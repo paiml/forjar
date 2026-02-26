@@ -92,7 +92,7 @@ The `--output-dir` flag writes all generated scripts (check, apply, state_query)
 Converge infrastructure to desired state.
 
 ```bash
-forjar apply -f <FILE> [-m MACHINE] [-r RESOURCE] [-t TAG] [--force] [--dry-run] [--check] [--no-tripwire] [-p KEY=VALUE] [--auto-commit] [--timeout SECS] [--state-dir DIR] [--json] [--env-file PATH]
+forjar apply -f <FILE> [-m MACHINE] [-r RESOURCE] [-t TAG] [--force] [--dry-run] [--check] [--no-tripwire] [-p KEY=VALUE] [--auto-commit] [--timeout SECS] [--state-dir DIR] [--json] [--report] [--env-file PATH]
 ```
 
 | Flag | Default | Description |
@@ -110,6 +110,7 @@ forjar apply -f <FILE> [-m MACHINE] [-r RESOURCE] [-t TAG] [--force] [--dry-run]
 | `--state-dir` | `state` | Directory for lock files |
 | `--json` | false | Output apply results as JSON |
 | `--env-file` | — | Load param overrides from external YAML file |
+| `--report` | false | Print per-resource timing report after apply |
 | `--check` | false | Run check scripts instead of apply (exit 0=converged, non-zero=needs changes) |
 
 ### `forjar drift`
@@ -929,6 +930,16 @@ forjar apply -f forjar.yaml --state-dir state/ --timeout 120
 # Apply specific resource only
 forjar apply -f forjar.yaml --state-dir state/ -r nginx-config
 ```
+
+### forjar apply --report
+
+Print per-resource timing report after apply:
+
+```bash
+forjar apply -f forjar.yaml --report
+```
+
+Shows resource ID, type, status, and duration for each resource. Combine with `--json` for machine-readable output that includes a `resource_reports` array. Apply reports are also persisted to `state/<machine>/last-apply.yaml`.
 
 ### forjar drift
 

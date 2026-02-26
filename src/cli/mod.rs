@@ -3647,12 +3647,7 @@ fn cmd_drift(
                             "actual_hash": f.actual_hash,
                         }));
                     } else {
-                        println!(
-                            "  {}: {} ({})",
-                            red("DRIFTED"),
-                            f.resource_id,
-                            f.detail
-                        );
+                        println!("  {}: {} ({})", red("DRIFTED"), f.resource_id, f.detail);
                         println!("    Expected: {}", f.expected_hash);
                         println!("    Actual:   {}", f.actual_hash);
                     }
