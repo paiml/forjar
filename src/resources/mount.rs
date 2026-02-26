@@ -95,6 +95,7 @@ mod tests {
             name: None,
             enabled: None,
             restart_on: vec![],
+            triggers: vec![],
             fs_type: Some("nfs".to_string()),
             options: Some("ro,hard,intr".to_string()),
             uid: None,

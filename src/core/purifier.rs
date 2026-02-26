@@ -321,6 +321,7 @@ dpkg -l curl 2>/dev/null | grep -q '^ii'
             name: None,
             enabled: None,
             restart_on: vec![],
+            triggers: vec![],
             fs_type: None,
             options: None,
             uid: None,

@@ -124,9 +124,10 @@ pub fn resolve_data_sources(config: &mut ForjarConfig) -> Result<(), String> {
                         if let Some(addr) = addrs.next() {
                             Ok(addr.ip().to_string())
                         } else {
-                            source.default.clone().ok_or_else(|| {
-                                format!("data source '{}' DNS: no addresses", key)
-                            })
+                            source
+                                .default
+                                .clone()
+                                .ok_or_else(|| format!("data source '{}' DNS: no addresses", key))
                         }
                     }
                     Err(e) => source
@@ -667,6 +668,7 @@ resources:
             name: Some("{{machine.m1.hostname}}-svc".to_string()),
             enabled: None,
             restart_on: vec![],
+            triggers: vec![],
             fs_type: None,
             options: Some("{{machine.m1.arch}}".to_string()),
             uid: None,
@@ -910,6 +912,7 @@ resources:
                     name: None,
                     enabled: None,
                     restart_on: vec![],
+                    triggers: vec![],
                     fs_type: None,
                     options: None,
                     uid: None,
@@ -1148,6 +1151,7 @@ resources:
             name: None,
             enabled: None,
             restart_on: vec![],
+            triggers: vec![],
             fs_type: None,
             options: None,
             uid: None,
@@ -1399,6 +1403,7 @@ resources:
             name: None,
             enabled: None,
             restart_on: vec![],
+            triggers: vec![],
             fs_type: None,
             options: None,
             uid: None,
@@ -2164,12 +2169,8 @@ data:
         resolve_data_sources(&mut config).unwrap();
 
         // Now resolve the template
-        let resolved = resolve_template(
-            "env={{data.env}}",
-            &config.params,
-            &config.machines,
-        )
-        .unwrap();
+        let resolved =
+            resolve_template("env={{data.env}}", &config.params, &config.machines).unwrap();
         assert_eq!(resolved, "env=production");
     }
 

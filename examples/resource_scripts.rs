@@ -29,6 +29,7 @@ fn make_resource(rt: ResourceType) -> Resource {
         name: None,
         enabled: None,
         restart_on: vec![],
+        triggers: vec![],
         fs_type: None,
         options: None,
         uid: None,

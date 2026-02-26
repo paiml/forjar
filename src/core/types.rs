@@ -320,6 +320,12 @@ pub struct Resource {
     #[serde(default)]
     pub restart_on: Vec<String>,
 
+    /// FJ-224: General-purpose triggers — force re-apply when listed resources change.
+    /// Unlike `depends_on` (execution order) and `restart_on` (service-specific),
+    /// triggers work on any resource type.
+    #[serde(default)]
+    pub triggers: Vec<String>,
+
     // -- Mount fields --
     /// Mount source (device or NFS path)
     #[serde(rename = "fstype", default)]

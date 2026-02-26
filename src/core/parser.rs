@@ -119,6 +119,29 @@ fn validate_resource_refs(
         }
     }
 
+    // FJ-224: Validate triggers — must reference existing resources
+    for trigger in &resource.triggers {
+        if !config.resources.contains_key(trigger) {
+            let trigger_resource = config.resources.get(trigger);
+            let will_expand = trigger_resource
+                .map(|r| r.count.is_some() || r.for_each.is_some())
+                .unwrap_or(false);
+            if !will_expand {
+                errors.push(ValidationError {
+                    message: format!(
+                        "resource '{}' triggers on unknown resource '{}'",
+                        id, trigger
+                    ),
+                });
+            }
+        }
+        if trigger == id {
+            errors.push(ValidationError {
+                message: format!("resource '{}' triggers on itself", id),
+            });
+        }
+    }
+
     // FJ-203/FJ-204: Validate count and for_each
     if resource.count.is_some() && resource.for_each.is_some() {
         errors.push(ValidationError {
@@ -4083,5 +4106,108 @@ policies:
         // cfg has no tags, pkg has tags
         assert_eq!(violations.len(), 1);
         assert_eq!(violations[0].resource_id, "cfg");
+    }
+
+    #[test]
+    fn test_fj224_triggers_valid() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: localhost
+    addr: 127.0.0.1
+resources:
+  config:
+    type: file
+    machine: m1
+    path: /etc/app.conf
+    content: "hello"
+  app:
+    type: service
+    machine: m1
+    name: app
+    depends_on: [config]
+    triggers: [config]
+"#;
+        let config = parse_config(yaml).unwrap();
+        assert!(config.resources["app"]
+            .triggers
+            .contains(&"config".to_string()));
+    }
+
+    #[test]
+    fn test_fj224_triggers_unknown_resource() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: localhost
+    addr: 127.0.0.1
+resources:
+  app:
+    type: service
+    machine: m1
+    name: app
+    triggers: [ghost-resource]
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(
+            errors
+                .iter()
+                .any(|e| e.message.contains("triggers on unknown resource")),
+            "errors: {:?}",
+            errors
+        );
+    }
+
+    #[test]
+    fn test_fj224_triggers_self_reference() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: localhost
+    addr: 127.0.0.1
+resources:
+  app:
+    type: file
+    machine: m1
+    path: /tmp/app
+    content: "x"
+    triggers: [app]
+"#;
+        let config = parse_config(yaml).unwrap();
+        let errors = validate_config(&config);
+        assert!(
+            errors
+                .iter()
+                .any(|e| e.message.contains("triggers on itself")),
+            "errors: {:?}",
+            errors
+        );
+    }
+
+    #[test]
+    fn test_fj224_empty_triggers() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: localhost
+    addr: 127.0.0.1
+resources:
+  app:
+    type: file
+    machine: m1
+    path: /tmp/app
+    content: "hello"
+"#;
+        let config = parse_config(yaml).unwrap();
+        assert!(config.resources["app"].triggers.is_empty());
     }
 }

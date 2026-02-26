@@ -164,6 +164,7 @@ mod tests {
             name: Some(name.to_string()),
             enabled: None,
             restart_on: vec![],
+            triggers: vec![],
             fs_type: None,
             options: None,
             uid: None,
