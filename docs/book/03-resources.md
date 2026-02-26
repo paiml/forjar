@@ -787,6 +787,47 @@ forjar apply -f forjar.yaml --tag web
 forjar check -f forjar.yaml --tag monitoring
 ```
 
+### Conditional Resources
+
+The `when:` field makes a resource conditional. Resources with a false `when:` expression are excluded from the plan and execution entirely.
+
+```yaml
+resources:
+  # Only on x86_64 machines
+  cuda-driver:
+    type: package
+    machine: gpu-server
+    provider: apt
+    packages: [nvidia-driver-535]
+    when: '{{machine.arch}} == "x86_64"'
+
+  # Only in non-production environments
+  debug-tools:
+    type: package
+    machine: web
+    provider: apt
+    packages: [strace, ltrace]
+    when: '{{params.env}} != "production"'
+
+  # Only on machines with the gpu role
+  gpu-config:
+    type: file
+    machine: gpu-server
+    path: /etc/gpu.conf
+    content: "gpu=enabled"
+    when: '{{machine.roles}} contains "gpu"'
+
+  # Feature flag — disabled until ready
+  new-feature:
+    type: file
+    machine: web
+    path: /etc/feature.conf
+    content: "v2=true"
+    when: "false"
+```
+
+Supported operators: `==`, `!=`, `contains`. Template variables: `{{machine.arch}}`, `{{machine.hostname}}`, `{{machine.addr}}`, `{{machine.user}}`, `{{machine.roles}}`, `{{params.*}}`.
+
 ### Resource State Lifecycle
 
 Every resource goes through a defined lifecycle during apply:

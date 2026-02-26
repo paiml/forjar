@@ -45,6 +45,7 @@ Validate any config with `cargo run -- validate -f examples/<config>`.
 | `dogfood-tags.yaml` | file | Resource tagging, tag-filtered operations |
 | `dogfood-secrets.yaml` | file | Template interpolation with `{{params.*}}` |
 | `dogfood-hooks.yaml` | file | Pre/post apply hooks, lifecycle callbacks |
+| `dogfood-conditions.yaml` | file, package | Conditional resources (`when:` field), expression evaluation |
 
 ## Supporting Assets
 

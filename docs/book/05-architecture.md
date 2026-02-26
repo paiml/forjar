@@ -68,6 +68,7 @@ src/
     state.rs             Lock file load/save (atomic write via temp+rename)
     recipe.rs            Recipe loading, input validation, namespaced expansion
     migrate.rs           Docker-to-pepita resource migration (FJ-044)
+    conditions.rs        When-expression evaluation for conditional resources (FJ-202)
   resources/
     mod.rs               Resource type registry
     package.rs           apt/cargo/uv package management
