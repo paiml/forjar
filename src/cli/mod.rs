@@ -5,6 +5,7 @@
 use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
 use crate::transport;
 use crate::tripwire::{anomaly, drift, eventlog, tracer};
+use crate::core::types::ProvenanceEvent;
 use clap::Subcommand;
 use std::path::{Path, PathBuf};
 
@@ -594,6 +595,29 @@ pub enum SecretsCmd {
         #[arg(short, long, required = true)]
         recipient: Vec<String>,
     },
+
+    /// FJ-201: Rotate all secrets — decrypt and re-encrypt with new keys
+    Rotate {
+        /// Path to forjar.yaml
+        #[arg(short, long, default_value = "forjar.yaml")]
+        file: PathBuf,
+
+        /// Path to current age identity file (for decryption)
+        #[arg(short, long)]
+        identity: Option<PathBuf>,
+
+        /// New recipient public keys (age1...)
+        #[arg(short, long, required = true)]
+        recipient: Vec<String>,
+
+        /// Re-encrypt in place (required flag to prevent accidents)
+        #[arg(long)]
+        re_encrypt: bool,
+
+        /// State directory for audit logging
+        #[arg(long, default_value = "state")]
+        state_dir: PathBuf,
+    },
 }
 
 /// Dispatch a CLI command.
@@ -823,6 +847,13 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
                 identity,
                 recipient,
             } => cmd_secrets_rekey(&file, identity.as_deref(), &recipient),
+            SecretsCmd::Rotate {
+                file,
+                identity,
+                recipient,
+                re_encrypt,
+                state_dir,
+            } => cmd_secrets_rotate(&file, identity.as_deref(), &recipient, re_encrypt, &state_dir),
         },
     }
 }
@@ -2870,6 +2901,60 @@ fn find_enc_markers(s: &str) -> Vec<(usize, usize)> {
         }
     }
     markers
+}
+
+fn cmd_secrets_rotate(
+    file: &Path,
+    identity_path: Option<&Path>,
+    new_recipients: &[String],
+    re_encrypt: bool,
+    state_dir: &Path,
+) -> Result<(), String> {
+    if !re_encrypt {
+        return Err(
+            "pass --re-encrypt to confirm secret rotation (destructive operation)".to_string(),
+        );
+    }
+
+    let content =
+        std::fs::read_to_string(file).map_err(|e| format!("cannot read '{}': {}", file.display(), e))?;
+    if !secrets::has_encrypted_markers(&content) {
+        println!("no ENC[age,...] markers found in {}", file.display());
+        return Ok(());
+    }
+
+    let identities = secrets::load_identities(identity_path)?;
+    let recipient_refs: Vec<&str> = new_recipients.iter().map(|r| r.as_str()).collect();
+
+    // Find all markers, decrypt each, re-encrypt with new recipients
+    let mut result = content.clone();
+    let markers = find_enc_markers(&result);
+    let marker_count = markers.len();
+
+    for (start, end) in markers.into_iter().rev() {
+        let marker = result[start..end].to_string();
+        let plaintext = secrets::decrypt_marker(&marker, &identities)?;
+        let re_encrypted = secrets::encrypt(&plaintext, &recipient_refs)?;
+        result.replace_range(start..end, &re_encrypted);
+    }
+
+    std::fs::write(file, &result).map_err(|e| format!("cannot write '{}': {}", file.display(), e))?;
+
+    // FJ-201: Audit log the rotation event
+    let event = ProvenanceEvent::SecretRotated {
+        file: file.display().to_string(),
+        marker_count: marker_count as u32,
+        new_recipients: new_recipients.to_vec(),
+    };
+    let _ = eventlog::append_event(state_dir, "__secrets__", event);
+
+    println!(
+        "rotated {} secret(s) in {} to {} recipient(s)",
+        marker_count,
+        file.display(),
+        new_recipients.len()
+    );
+    Ok(())
 }
 
 fn chrono_date() -> String {

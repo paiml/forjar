@@ -86,19 +86,28 @@ pub fn decrypt_marker(
 /// Returns the string with all markers replaced by their plaintext values.
 /// If no markers are found, returns the string unchanged.
 pub fn decrypt_all(s: &str, identities: &[age::x25519::Identity]) -> Result<String, String> {
+    decrypt_all_counted(s, identities).map(|(s, _)| s)
+}
+
+/// Decrypt all markers and return `(decrypted_string, marker_count)`.
+pub fn decrypt_all_counted(
+    s: &str,
+    identities: &[age::x25519::Identity],
+) -> Result<(String, usize), String> {
     if !has_encrypted_markers(s) {
-        return Ok(s.to_string());
+        return Ok((s.to_string(), 0));
     }
 
     let mut result = s.to_string();
     // Process markers from right to left to preserve positions
     let markers = find_markers(&result);
+    let count = markers.len();
     for (start, end) in markers.into_iter().rev() {
         let marker = &result[start..end];
         let plaintext = decrypt_marker(marker, identities)?;
         result.replace_range(start..end, &plaintext);
     }
-    Ok(result)
+    Ok((result, count))
 }
 
 /// Find all `ENC[age,...]` marker positions in a string.
@@ -484,5 +493,111 @@ mod tests {
         let encrypted = encrypt(plaintext, &[&recipient]).unwrap();
         let decrypted = decrypt_marker(&encrypted, &[identity]).unwrap();
         assert_eq!(decrypted, plaintext);
+    }
+
+    // ─── FJ-201 tests ───────────────────────────────────────────────
+
+    #[test]
+    fn test_fj201_decrypt_all_counted() {
+        let (identity, recipient) = test_keypair();
+        let enc1 = encrypt("alpha", &[&recipient]).unwrap();
+        let enc2 = encrypt("beta", &[&recipient]).unwrap();
+        let input = format!("key1={} key2={}", enc1, enc2);
+
+        let (result, count) = decrypt_all_counted(&input, &[identity]).unwrap();
+        assert_eq!(result, "key1=alpha key2=beta");
+        assert_eq!(count, 2);
+    }
+
+    #[test]
+    fn test_fj201_decrypt_all_counted_zero() {
+        let (identity, _) = test_keypair();
+        let (result, count) = decrypt_all_counted("no markers", &[identity]).unwrap();
+        assert_eq!(result, "no markers");
+        assert_eq!(count, 0);
+    }
+
+    #[test]
+    fn test_fj201_rotate_roundtrip() {
+        // Encrypt with key1, then re-encrypt with key2
+        let (identity1, recipient1) = test_keypair();
+        let (identity2, recipient2) = test_keypair();
+
+        let encrypted = encrypt("rotation-secret", &[&recipient1]).unwrap();
+
+        // Decrypt with key1, re-encrypt with key2
+        let plaintext = decrypt_marker(&encrypted, &[identity1]).unwrap();
+        assert_eq!(plaintext, "rotation-secret");
+
+        let re_encrypted = encrypt(&plaintext, &[&recipient2]).unwrap();
+        let decrypted = decrypt_marker(&re_encrypted, &[identity2]).unwrap();
+        assert_eq!(decrypted, "rotation-secret");
+
+        // Original key can't decrypt new ciphertext
+        let err = decrypt_marker(&re_encrypted, &[generate_identity()]);
+        assert!(err.is_err());
+    }
+
+    #[test]
+    fn test_fj201_rotate_multi_recipient() {
+        let (identity1, recipient1) = test_keypair();
+        let (identity2, recipient2) = test_keypair();
+        let (identity3, recipient3) = test_keypair();
+
+        // Initially encrypted for identity1
+        let encrypted = encrypt("team-secret", &[&recipient1]).unwrap();
+        let plain = decrypt_marker(&encrypted, &[identity1]).unwrap();
+
+        // Rotate to identity2 + identity3 (identity1 loses access)
+        let rotated = encrypt(&plain, &[&recipient2, &recipient3]).unwrap();
+        assert_eq!(
+            decrypt_marker(&rotated, &[identity2]).unwrap(),
+            "team-secret"
+        );
+        assert_eq!(
+            decrypt_marker(&rotated, &[identity3]).unwrap(),
+            "team-secret"
+        );
+        // identity1 can no longer decrypt
+        assert!(decrypt_marker(&rotated, &[generate_identity()]).is_err());
+    }
+
+    #[test]
+    fn test_fj201_secret_accessed_event_serializes() {
+        let event = crate::core::types::ProvenanceEvent::SecretAccessed {
+            resource: "db-config".to_string(),
+            marker_count: 2,
+            identity_recipient: "age1abc...".to_string(),
+        };
+        let json = serde_json::to_string(&event).unwrap();
+        assert!(json.contains("secret_accessed"));
+        assert!(json.contains("db-config"));
+        assert!(json.contains("marker_count"));
+    }
+
+    #[test]
+    fn test_fj201_secret_rotated_event_serializes() {
+        let event = crate::core::types::ProvenanceEvent::SecretRotated {
+            file: "forjar.yaml".to_string(),
+            marker_count: 3,
+            new_recipients: vec!["age1abc...".to_string(), "age1xyz...".to_string()],
+        };
+        let json = serde_json::to_string(&event).unwrap();
+        assert!(json.contains("secret_rotated"));
+        assert!(json.contains("forjar.yaml"));
+        assert!(json.contains("age1xyz..."));
+    }
+
+    #[test]
+    fn test_fj201_secret_events_roundtrip_json() {
+        let event = crate::core::types::ProvenanceEvent::SecretAccessed {
+            resource: "api-config".to_string(),
+            marker_count: 1,
+            identity_recipient: "age1test".to_string(),
+        };
+        let json = serde_json::to_string(&event).unwrap();
+        let back: crate::core::types::ProvenanceEvent = serde_json::from_str(&json).unwrap();
+        let json2 = serde_json::to_string(&back).unwrap();
+        assert_eq!(json, json2);
     }
 }

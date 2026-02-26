@@ -974,6 +974,18 @@ pub enum ProvenanceEvent {
         expected_hash: String,
         actual_hash: String,
     },
+    /// FJ-201: Secret decryption audit event.
+    SecretAccessed {
+        resource: String,
+        marker_count: u32,
+        identity_recipient: String,
+    },
+    /// FJ-201: Secret rotation audit event.
+    SecretRotated {
+        file: String,
+        marker_count: u32,
+        new_recipients: Vec<String>,
+    },
 }
 
 /// Timestamped event wrapper.
@@ -1581,6 +1593,16 @@ hash: "blake3:abc"
                 resource: "cfg".to_string(),
                 expected_hash: "a".to_string(),
                 actual_hash: "b".to_string(),
+            },
+            ProvenanceEvent::SecretAccessed {
+                resource: "db-config".to_string(),
+                marker_count: 2,
+                identity_recipient: "age1test".to_string(),
+            },
+            ProvenanceEvent::SecretRotated {
+                file: "forjar.yaml".to_string(),
+                marker_count: 3,
+                new_recipients: vec!["age1a".to_string(), "age1b".to_string()],
             },
         ];
         for event in &events {
