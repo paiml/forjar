@@ -1151,6 +1151,86 @@ Dependency Graph
 
 Also available: `--format mermaid` (default) and `--format dot` (Graphviz).
 
+## Resource Groups
+
+Organize resources into groups for selective operations:
+
+```yaml
+resources:
+  web-config:
+    type: file
+    machine: local
+    path: /etc/app/web.conf
+    content: "listen 8080"
+    resource_group: web
+  db-config:
+    type: file
+    machine: local
+    path: /etc/app/db.conf
+    content: "port 5432"
+    resource_group: database
+```
+
+Apply only a specific group:
+
+```bash
+forjar apply --group web --yes         # Only web resources
+forjar test --group database           # Only database resources
+```
+
+## Strict Validation
+
+Extended validation catches issues before apply:
+
+```bash
+forjar validate -f forjar.yaml --strict
+```
+
+Strict mode checks: file paths are absolute, template variables resolve, no circular dependencies, and depends_on targets exist.
+
+## Apply Retry
+
+Retry failed resources with exponential backoff (useful for transient failures):
+
+```bash
+forjar apply --yes --retry 3     # Up to 3 retries (1s, 2s, 4s backoff)
+```
+
+## History Filtering
+
+Filter history to recent events:
+
+```bash
+forjar history --since 24h       # Last 24 hours
+forjar history --since 7d        # Last 7 days
+```
+
+## Targeted Planning
+
+Plan a single resource and its transitive dependencies:
+
+```bash
+forjar plan --target app-config  # Plans app-config + its deps only
+```
+
+## Apply Confirmation
+
+By default, apply prompts before making changes:
+
+```
+Apply 5 change(s) (3 create, 2 update, 0 destroy)? [y/N]
+```
+
+Use `--yes` to skip the prompt (CI/automation mode).
+
+## Doctor Auto-Fix
+
+Auto-fix common issues:
+
+```bash
+forjar doctor --fix              # Creates state dir, removes stale locks
+```
+
 ## Next Steps
 
 - [Configuration Reference](02-configuration.md) — Complete `forjar.yaml` schema

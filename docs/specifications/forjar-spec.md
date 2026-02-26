@@ -1760,13 +1760,13 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 | Ticket | Description | Status |
 |--------|-------------|--------|
 | FJ-280 | `forjar cron` — generate crontab/systemd timer entries for scheduled drift checks and auto-remediation. `forjar cron --interval 5m --auto-remediate` outputs installable timer config. | Planned |
-| FJ-281 | Resource groups — `group: network` field on resources. `forjar apply --group network` applies only that group. `forjar plan --group database` plans only database resources. Orthogonal to tags. | Planned |
-| FJ-282 | `forjar validate --strict` — extended validation: check that referenced machines exist, paths are absolute, depends_on targets exist, no circular deps, template vars resolve. Currently only checks YAML schema. | Planned |
-| FJ-283 | Apply retry with backoff — `--retry N` flag retries failed resources up to N times with exponential backoff (1s, 2s, 4s). Useful for transient network/package mirror failures. | Planned |
-| FJ-284 | `forjar history --since 24h` — time-based history filtering. Show only events from the last N hours/days. Currently shows all events. | Planned |
-| FJ-285 | `forjar plan --target resource-id` — plan a single resource and its transitive dependencies. Currently `--resource` filters display but still plans everything. | Planned |
-| FJ-286 | Apply confirmation prompt — without `--yes`, show plan summary and prompt "Apply N changes? [y/N]". Prevents accidental applies. `--yes` skips prompt (CI mode). | Planned |
-| FJ-287 | `forjar doctor --fix` — auto-fix common issues: stale locks, orphaned state files, missing state dirs. Currently doctor only diagnoses. | Planned |
+| FJ-281 | Resource groups — `resource_group: network` field on resources. `forjar apply --group network` applies only that group. `forjar test --group database` tests only database resources. Orthogonal to tags. | Done |
+| FJ-282 | `forjar validate --strict` — extended validation: check that paths are absolute, depends_on targets exist, no circular deps, template vars resolve. Currently only checks YAML schema. | Done |
+| FJ-283 | Apply retry with backoff — `--retry N` flag retries failed resources up to N times with exponential backoff (1s, 2s, 4s, max 16s). Useful for transient network/package mirror failures. | Done |
+| FJ-284 | `forjar history --since 24h` — time-based history filtering. Show only events from the last N hours/days. Supports s/m/h/d units. | Done |
+| FJ-285 | `forjar plan --target resource-id` — plan a single resource and its transitive dependencies. Filters config before planning. | Done |
+| FJ-286 | Apply confirmation prompt — without `--yes`, show plan summary and prompt "Apply N changes? [y/N]". Prevents accidental applies. `--yes` skips prompt (CI mode). | Done |
+| FJ-287 | `forjar doctor --fix` — auto-fix common issues: stale locks, missing state dirs. Without --fix, warns about fixable issues. | Done |
 
 ---
 
