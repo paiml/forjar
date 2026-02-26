@@ -1768,6 +1768,19 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 | FJ-286 | Apply confirmation prompt — without `--yes`, show plan summary and prompt "Apply N changes? [y/N]". Prevents accidental applies. `--yes` skips prompt (CI mode). | Done |
 | FJ-287 | `forjar doctor --fix` — auto-fix common issues: stale locks, missing state dirs. Without --fix, warns about fixable issues. | Done |
 
+### Phase 15 — v1.5 Polish & UX
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-290 | `forjar apply --parallel` — explicit flag to enable parallel wave execution. Currently controlled by `policy.parallel_resources`. CLI override for one-off parallel runs. | Planned |
+| FJ-291 | `forjar diff --resource` — show unified diff for a single resource between current state and desired state. Complements plan output with focused comparison. | Planned |
+| FJ-292 | `forjar status --json` improvements — include resource_group, tags, depends_on in JSON output. Currently minimal fields. | Planned |
+| FJ-293 | `forjar apply --dry-run --json` — JSON output for dry-run plan. Machine-readable plan output for CI integration. | Planned |
+| FJ-294 | `forjar graph --filter` — filter graph output to specific machines or resource groups. Currently shows all resources. | Planned |
+| FJ-295 | `forjar validate --format json` — JSON output for validation errors. Machine-readable for CI/editor integration. | Planned |
+| FJ-296 | `forjar history --json --since` — combine JSON output with time filtering. Full structured history API. | Planned |
+| FJ-297 | `forjar plan --output-dir` improvements — include resource metadata (tags, group, machine) in exported script headers. | Planned |
+
 ---
 
 ## 9. Performance Targets
