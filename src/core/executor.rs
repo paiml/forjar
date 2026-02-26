@@ -59,6 +59,7 @@ pub fn apply(cfg: &ApplyConfig) -> Result<Vec<ApplyResult>, String> {
             resources_unchanged: plan.unchanged,
             resources_failed: 0,
             total_duration: start.elapsed(),
+            resource_reports: Vec::new(),
         }]);
     }
 
@@ -914,12 +915,36 @@ fn apply_machine(
         },
     );
 
+    // FJ-262: Build per-resource reports from lock state
+    let resource_reports: Vec<ResourceReport> = lock
+        .resources
+        .iter()
+        .map(|(id, rl)| ResourceReport {
+            resource_id: id.clone(),
+            resource_type: format!("{:?}", rl.resource_type).to_lowercase(),
+            status: format!("{:?}", rl.status).to_lowercase(),
+            duration_seconds: rl.duration_seconds.unwrap_or(0.0),
+            exit_code: None,
+            hash: if rl.hash.is_empty() {
+                None
+            } else {
+                Some(rl.hash.clone())
+            },
+            error: rl
+                .details
+                .get("error")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string()),
+        })
+        .collect();
+
     let result = ApplyResult {
         machine: machine_name.to_string(),
         resources_converged: converged,
         resources_unchanged: unchanged,
         resources_failed: failed,
         total_duration: machine_start.elapsed(),
+        resource_reports,
     };
 
     // Container lifecycle: cleanup ephemeral containers after apply

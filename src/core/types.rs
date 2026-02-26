@@ -1015,6 +1015,18 @@ pub struct TimestampedEvent {
 // Apply result
 // ============================================================================
 
+/// FJ-262: Per-resource timing report entry.
+#[derive(Debug, Clone, Serialize)]
+pub struct ResourceReport {
+    pub resource_id: String,
+    pub resource_type: String,
+    pub status: String,
+    pub duration_seconds: f64,
+    pub exit_code: Option<i32>,
+    pub hash: Option<String>,
+    pub error: Option<String>,
+}
+
 /// Result of applying to a single machine.
 #[derive(Debug, Clone, Serialize)]
 pub struct ApplyResult {
@@ -1024,6 +1036,8 @@ pub struct ApplyResult {
     pub resources_failed: u32,
     #[serde(serialize_with = "serialize_duration_secs")]
     pub total_duration: std::time::Duration,
+    /// FJ-262: Per-resource reports for timing + status
+    pub resource_reports: Vec<ResourceReport>,
 }
 
 fn serialize_duration_secs<S: serde::Serializer>(
@@ -1762,6 +1776,7 @@ resources:
             resources_unchanged: 2,
             resources_failed: 0,
             total_duration: std::time::Duration::from_secs(3),
+            resource_reports: Vec::new(),
         };
         let debug = format!("{:?}", ar);
         assert!(debug.contains("web"));

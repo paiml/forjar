@@ -129,6 +129,10 @@ pub enum Commands {
         /// FJ-226: Run check scripts instead of apply scripts (exit 2 = changes needed)
         #[arg(long)]
         check: bool,
+
+        /// FJ-262: Print per-resource timing report after apply
+        #[arg(long)]
+        report: bool,
     },
 
     /// Detect unauthorized changes (tripwire)
@@ -778,6 +782,7 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             env_file,
             workspace,
             check,
+            report,
         } => {
             if check {
                 // FJ-226: --check runs check scripts via cmd_check
@@ -807,6 +812,7 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
                 verbose,
                 env_file.as_deref(),
                 workspace.as_deref(),
+                report,
             )
         }
         Commands::Drift {
@@ -1799,7 +1805,8 @@ fn cmd_rollback(
         false, // no json
         verbose,
         None, // no env_file
-        None, // no workspace
+        None,  // no workspace
+        false, // no report
     )
 }
 
@@ -3258,6 +3265,7 @@ fn cmd_apply(
     verbose: bool,
     env_file: Option<&Path>,
     workspace: Option<&str>,
+    report: bool,
 ) -> Result<(), String> {
     let mut config = parse_and_validate(file)?;
     if let Some(path) = env_file {
@@ -3343,6 +3351,13 @@ fn cmd_apply(
         total_failed += result.resources_failed;
     }
 
+    // FJ-262: Write per-machine apply reports
+    for result in &results {
+        if let Err(e) = state::save_apply_report(state_dir, result) {
+            eprintln!("warning: cannot save apply report: {}", e);
+        }
+    }
+
     if json {
         let output = serde_json::json!({
             "machines": &results,
@@ -3379,6 +3394,22 @@ fn cmd_apply(
                 "Apply complete: {} converged, {} unchanged.",
                 total_converged, total_unchanged
             );
+        }
+    }
+
+    // FJ-262: Print per-resource timing report
+    if report {
+        println!();
+        println!("Resource Report");
+        println!("{:<30} {:<10} {:<12} {:>10}", "RESOURCE", "TYPE", "STATUS", "DURATION");
+        println!("{}", "-".repeat(66));
+        for result in &results {
+            for r in &result.resource_reports {
+                println!(
+                    "{:<30} {:<10} {:<12} {:>9.3}s",
+                    r.resource_id, r.resource_type, r.status, r.duration_seconds
+                );
+            }
         }
     }
 
@@ -3583,7 +3614,8 @@ fn cmd_drift(
             false, // no json (remediation output is text)
             verbose,
             None, // no env_file
-            None, // no workspace
+            None,  // no workspace
+            false, // no report
         )?;
         if !json {
             println!("Remediation complete.");
@@ -5233,7 +5265,8 @@ resources:
             false,
             false,
             None, // no env_file
-            None, // no workspace
+            None,  // no workspace
+            false, // no report
         )
         .unwrap();
     }
@@ -5280,7 +5313,8 @@ policy:
             false,
             false,
             None, // no env_file
-            None, // no workspace
+            None,  // no workspace
+            false, // no report
         )
         .unwrap();
 
@@ -5324,7 +5358,8 @@ resources: {}
             false,
             false,
             None, // no env_file
-            None, // no workspace
+            None,  // no workspace
+            false, // no report
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("validation"));
@@ -5641,6 +5676,7 @@ resources:
                 env_file: None,
                 workspace: None,
                 check: false,
+                report: false,
             },
             false,
         )
@@ -5828,7 +5864,8 @@ resources:
             false,
             false,
             None, // no env_file
-            None, // no workspace
+            None,  // no workspace
+            false, // no report
         )
         .unwrap();
         assert!(target.exists());
@@ -5849,7 +5886,8 @@ resources:
             false,
             false,
             None, // no env_file
-            None, // no workspace
+            None,  // no workspace
+            false, // no report
         )
         .unwrap();
     }
@@ -6414,7 +6452,8 @@ resources:
             false,
             false,
             None, // no env_file
-            None, // no workspace
+            None,  // no workspace
+            false, // no report
         )
         .unwrap();
         assert!(target.exists());
@@ -6475,7 +6514,8 @@ resources:
             false,
             false,
             None, // no env_file
-            None, // no workspace
+            None,  // no workspace
+            false, // no report
         )
         .unwrap();
         cmd_destroy(&config, &state, None, true, true).unwrap();
@@ -6537,7 +6577,8 @@ resources:
             false,
             false,
             None, // no env_file
-            None, // no workspace
+            None,  // no workspace
+            false, // no report
         )
         .unwrap();
         assert!(target_a.exists());
@@ -6594,7 +6635,8 @@ resources:
             false,
             false,
             None, // no env_file
-            None, // no workspace
+            None,  // no workspace
+            false, // no report
         )
         .unwrap();
         dispatch(
@@ -6686,7 +6728,8 @@ resources:
             false,
             false,
             None, // no env_file
-            None, // no workspace
+            None,  // no workspace
+            false, // no report
         )
         .unwrap();
         assert!(target.exists());
@@ -6842,7 +6885,8 @@ resources:
             false,
             false,
             None, // no env_file
-            None, // no workspace
+            None,  // no workspace
+            false, // no report
         )
         .unwrap();
         assert!(std::path::Path::new(&target).exists());
@@ -8210,7 +8254,8 @@ resources:
             false,
             false,
             None, // no env_file
-            None, // no workspace
+            None,  // no workspace
+            false, // no report
         )
         .unwrap();
     }
@@ -9472,7 +9517,8 @@ resources:
             true,
             false,
             None, // no env_file
-            None, // no workspace
+            None,  // no workspace
+            false, // no report
         );
         assert!(result.is_ok());
     }
@@ -9487,6 +9533,7 @@ resources:
             resources_unchanged: 1,
             resources_failed: 0,
             total_duration: std::time::Duration::from_millis(1500),
+            resource_reports: Vec::new(),
         };
         let json = serde_json::to_string(&result).unwrap();
         assert!(json.contains("\"machine\":\"web\""));
@@ -9551,6 +9598,7 @@ resources:
                 env_file: None,
                 workspace: None,
                 check: false,
+                report: false,
             },
             false,
         )
@@ -10083,7 +10131,8 @@ resources:
             false,
             false,
             Some(env.as_path()),
-            None, // no workspace
+            None,  // no workspace
+            false, // no report
         )
         .unwrap();
     }
@@ -10470,6 +10519,7 @@ policies:
             false,
             None,
             None,
+            false,
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("policy violations"));
@@ -10570,6 +10620,7 @@ policy:
             false,
             None,
             None,
+            false,
         );
         // cmd_apply needs a parsed config, but it re-parses from file
         // Instead, test the run_notify function directly
@@ -10662,6 +10713,7 @@ resources:
                 env_file: None,
                 workspace: None,
                 check: true,
+                report: false,
             },
             false,
         );
@@ -10712,6 +10764,7 @@ resources:
                 env_file: None,
                 workspace: None,
                 check: false,
+                report: false,
             },
             false,
         );
@@ -11671,5 +11724,220 @@ resources:
         assert!(dst.join("a.txt").exists());
         assert!(dst.join("sub").join("b.txt").exists());
         assert!(!dst.join("skip.me").exists());
+    }
+
+    // ── FJ-262: Apply report with per-resource timing ──
+
+    #[test]
+    fn test_fj262_apply_writes_last_apply_report() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config,
+            r#"
+version: "1.0"
+name: report-test
+machines:
+  local:
+    hostname: local
+    addr: 127.0.0.1
+resources:
+  rpt-file:
+    type: file
+    machine: local
+    path: /tmp/forjar-report-test.txt
+    content: "report test"
+"#,
+        )
+        .unwrap();
+        let state = dir.path().join("state");
+        std::fs::create_dir_all(&state).unwrap();
+        cmd_apply(
+            &config,
+            &state,
+            None,
+            None,
+            None,
+            false,
+            false,
+            false,
+            &[],
+            false,
+            None,
+            false,
+            false,
+            None,
+            None,
+            false,
+        )
+        .unwrap();
+        // last-apply.yaml should be written
+        let report_path = state.join("local").join("last-apply.yaml");
+        assert!(report_path.exists(), "last-apply.yaml should exist");
+        let content = std::fs::read_to_string(&report_path).unwrap();
+        assert!(content.contains("rpt-file"), "report should contain resource id");
+        assert!(content.contains("duration_seconds"), "report should contain timing");
+        let _ = std::fs::remove_file("/tmp/forjar-report-test.txt");
+    }
+
+    #[test]
+    fn test_fj262_apply_report_contains_all_resources() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config,
+            r#"
+version: "1.0"
+name: report-multi
+machines:
+  local:
+    hostname: local
+    addr: 127.0.0.1
+resources:
+  rpt-a:
+    type: file
+    machine: local
+    path: /tmp/forjar-rpt-a.txt
+    content: "a"
+  rpt-b:
+    type: file
+    machine: local
+    path: /tmp/forjar-rpt-b.txt
+    content: "b"
+"#,
+        )
+        .unwrap();
+        let state = dir.path().join("state");
+        std::fs::create_dir_all(&state).unwrap();
+        cmd_apply(
+            &config,
+            &state,
+            None,
+            None,
+            None,
+            false,
+            false,
+            false,
+            &[],
+            false,
+            None,
+            false,
+            false,
+            None,
+            None,
+            false,
+        )
+        .unwrap();
+        let content =
+            std::fs::read_to_string(state.join("local").join("last-apply.yaml")).unwrap();
+        assert!(content.contains("rpt-a"));
+        assert!(content.contains("rpt-b"));
+        let _ = std::fs::remove_file("/tmp/forjar-rpt-a.txt");
+        let _ = std::fs::remove_file("/tmp/forjar-rpt-b.txt");
+    }
+
+    #[test]
+    fn test_fj262_resource_report_serialize() {
+        use crate::core::types::ResourceReport;
+        let report = ResourceReport {
+            resource_id: "test-pkg".to_string(),
+            resource_type: "package".to_string(),
+            status: "converged".to_string(),
+            duration_seconds: 1.234,
+            exit_code: Some(0),
+            hash: Some("blake3:abc123".to_string()),
+            error: None,
+        };
+        let yaml = serde_yaml_ng::to_string(&report).unwrap();
+        assert!(yaml.contains("test-pkg"));
+        assert!(yaml.contains("1.234"));
+        assert!(yaml.contains("blake3:abc123"));
+    }
+
+    #[test]
+    fn test_fj262_apply_result_includes_reports() {
+        use crate::core::types::{ApplyResult, ResourceReport};
+        let result = ApplyResult {
+            machine: "web".to_string(),
+            resources_converged: 1,
+            resources_unchanged: 0,
+            resources_failed: 0,
+            total_duration: std::time::Duration::from_millis(500),
+            resource_reports: vec![ResourceReport {
+                resource_id: "pkg".to_string(),
+                resource_type: "package".to_string(),
+                status: "converged".to_string(),
+                duration_seconds: 0.5,
+                exit_code: Some(0),
+                hash: None,
+                error: None,
+            }],
+        };
+        let json = serde_json::to_string(&result).unwrap();
+        assert!(json.contains("resource_reports"));
+        assert!(json.contains("\"pkg\""));
+        assert!(json.contains("0.5"));
+    }
+
+    #[test]
+    fn test_fj262_save_and_load_apply_report() {
+        use crate::core::state::{load_apply_report, save_apply_report};
+        use crate::core::types::ApplyResult;
+        let dir = tempfile::tempdir().unwrap();
+        let result = ApplyResult {
+            machine: "test-m".to_string(),
+            resources_converged: 2,
+            resources_unchanged: 1,
+            resources_failed: 0,
+            total_duration: std::time::Duration::from_millis(750),
+            resource_reports: Vec::new(),
+        };
+        save_apply_report(dir.path(), &result).unwrap();
+        let loaded = load_apply_report(dir.path(), "test-m").unwrap();
+        assert!(loaded.is_some());
+        let content = loaded.unwrap();
+        assert!(content.contains("test-m"));
+        assert!(content.contains("resources_converged: 2"));
+    }
+
+    #[test]
+    fn test_fj262_load_apply_report_missing() {
+        use crate::core::state::load_apply_report;
+        let dir = tempfile::tempdir().unwrap();
+        let loaded = load_apply_report(dir.path(), "nonexistent").unwrap();
+        assert!(loaded.is_none());
+    }
+
+    #[test]
+    fn test_fj262_report_flag_with_json_output() {
+        use crate::core::types::{ApplyResult, ResourceReport};
+        // Verify that resource_reports are included in JSON output
+        let result = ApplyResult {
+            machine: "gpu-box".to_string(),
+            resources_converged: 1,
+            resources_unchanged: 0,
+            resources_failed: 0,
+            total_duration: std::time::Duration::from_secs(2),
+            resource_reports: vec![ResourceReport {
+                resource_id: "cuda-driver".to_string(),
+                resource_type: "gpu".to_string(),
+                status: "converged".to_string(),
+                duration_seconds: 2.0,
+                exit_code: Some(0),
+                hash: Some("blake3:deadbeef".to_string()),
+                error: None,
+            }],
+        };
+        let output = serde_json::json!({
+            "machines": [&result],
+            "summary": {
+                "total_converged": 1,
+                "total_unchanged": 0,
+                "total_failed": 0,
+            }
+        });
+        let json_str = serde_json::to_string_pretty(&output).unwrap();
+        assert!(json_str.contains("cuda-driver"));
+        assert!(json_str.contains("resource_reports"));
     }
 }

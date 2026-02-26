@@ -1,6 +1,6 @@
 //! FJ-013: Lock file management — load, save (atomic), path derivation.
 
-use super::types::{GlobalLock, MachineSummary, StateLock};
+use super::types::{ApplyResult, GlobalLock, MachineSummary, StateLock};
 use provable_contracts_macros::contract;
 use std::path::{Path, PathBuf};
 
@@ -141,6 +141,30 @@ pub fn new_lock(machine: &str, hostname: &str) -> StateLock {
         blake3_version: "1.8".to_string(),
         resources: indexmap::IndexMap::new(),
     }
+}
+
+/// FJ-262: Save per-machine apply report to `state/<machine>/last-apply.yaml`.
+pub fn save_apply_report(state_dir: &Path, result: &ApplyResult) -> Result<(), String> {
+    let dir = state_dir.join(&result.machine);
+    std::fs::create_dir_all(&dir)
+        .map_err(|e| format!("cannot create dir {}: {}", dir.display(), e))?;
+    let path = dir.join("last-apply.yaml");
+    let yaml =
+        serde_yaml_ng::to_string(result).map_err(|e| format!("serialize report error: {}", e))?;
+    std::fs::write(&path, &yaml)
+        .map_err(|e| format!("cannot write {}: {}", path.display(), e))?;
+    Ok(())
+}
+
+/// FJ-262: Load last apply report for a machine.
+pub fn load_apply_report(state_dir: &Path, machine: &str) -> Result<Option<String>, String> {
+    let path = state_dir.join(machine).join("last-apply.yaml");
+    if !path.exists() {
+        return Ok(None);
+    }
+    std::fs::read_to_string(&path)
+        .map(Some)
+        .map_err(|e| format!("cannot read {}: {}", path.display(), e))
 }
 
 #[cfg(test)]
