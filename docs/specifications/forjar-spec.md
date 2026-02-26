@@ -106,7 +106,7 @@ src/
   lib.rs                Public API
   build.rs              Compile-time contract binding verification
   cli/
-    mod.rs              Subcommand dispatch (init, validate, plan, apply, drift, status, history, destroy, import, show, graph, check, diff, fmt, lint, rollback, anomaly, mcp)
+    mod.rs              Subcommand dispatch (init, validate, plan, apply, drift, status, history, destroy, import, show, graph, check, diff, fmt, lint, rollback, anomaly, trace, migrate, mcp, bench)
   mcp/
     mod.rs              MCP server via pforge — 9 tool handlers, registry, ForgeConfig
   core/
@@ -119,6 +119,8 @@ src/
     executor.rs         Orchestration loop, Jidoka policy
     state.rs            Lock file management (BLAKE3 content-addressed)
     recipe.rs           Recipe loading, input validation, expansion into resources
+    purifier.rs         Shell script validation via bashrs (FJ-036)
+    migrate.rs          Docker-to-pepita resource migration (FJ-044)
   tripwire/
     mod.rs              Provenance tracing orchestration
     hasher.rs           BLAKE3 file/directory/state hashing
@@ -1401,6 +1403,7 @@ Statistical anomaly detection from event history. Analyzes per-resource metrics:
 | FJ-140 | Dogfood coverage — 3 new configs (dogfood-service, dogfood-mount, dogfood-network) covering all 9 resource types. Spec §10.6 rewritten (3→13 configs). README test count 254→1316. All 13 dogfood configs validate, all 19 examples pass. | **Done** |
 | FJ-141 | Documentation polish — `examples/README.md` index (19 examples + 13 dogfood configs). Cookbook chapter expanded (897→1098 lines): disaster recovery, secret management, performance monitoring, trace auditing, resource tagging patterns. Book testing chapter: 8→13 dogfood configs, 15→19 examples. | **Done** |
 | FJ-142 | Type system polish + MCP schema export. Display impls for MachineTarget ("web1", "[web1, web2]") and FailurePolicy ("stop_on_first", "continue_independent"), PartialEq/Eq for MachineTarget. `forjar mcp --schema` exports 9 tool JSON schemas. `docs/mcp-schema.json` generated. 11 new tests, 1316→1327. | **Done** |
+| FJ-143 | Spec/README sync — README dep count 6→14, spec §2.2 CLI list 18→21 commands (add trace, migrate, bench), core module tree add purifier.rs + migrate.rs. | **Done** |
 
 ---
 
