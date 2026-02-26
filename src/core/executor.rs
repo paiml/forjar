@@ -26,11 +26,21 @@ pub struct ApplyConfig<'a> {
     pub resource_filter: Option<&'a str>,
     pub tag_filter: Option<&'a str>,
     pub timeout_secs: Option<u64>,
+    /// FJ-266: Force-remove stale lock before apply
+    pub force_unlock: bool,
 }
 
 /// Execute the apply loop.
 pub fn apply(cfg: &ApplyConfig) -> Result<Vec<ApplyResult>, String> {
     let start = Instant::now();
+
+    // FJ-266: State locking — prevent concurrent applies
+    if !cfg.dry_run {
+        if cfg.force_unlock {
+            state::force_unlock(cfg.state_dir)?;
+        }
+        state::acquire_process_lock(cfg.state_dir)?;
+    }
 
     // Build execution order (DAG toposort)
     let execution_order = resolver::build_execution_order(cfg.config)?;
@@ -90,7 +100,7 @@ pub fn apply(cfg: &ApplyConfig) -> Result<Vec<ApplyResult>, String> {
     };
 
     // FJ-222: Rolling deploys — batch machines when serial is set
-    if let Some(batch_size) = cfg.config.policy.serial {
+    let result = if let Some(batch_size) = cfg.config.policy.serial {
         let batch_size = batch_size.max(1);
         apply_machines_rolling(
             cfg,
@@ -104,7 +114,14 @@ pub fn apply(cfg: &ApplyConfig) -> Result<Vec<ApplyResult>, String> {
         apply_machines_parallel(cfg, &target_machines, &localhost_machine, &plan, &mut locks)
     } else {
         apply_machines_sequential(cfg, &target_machines, &localhost_machine, &plan, &mut locks)
+    };
+
+    // FJ-266: Release state lock (even on failure)
+    if !cfg.dry_run {
+        state::release_process_lock(cfg.state_dir);
     }
+
+    result
 }
 
 /// Sequential machine apply (default).
@@ -431,7 +448,11 @@ fn apply_single_resource(
                     &change.resource_id,
                     &resource.resource_type,
                     duration,
-                    &format!("pre_apply hook failed (exit {}): {}", out.exit_code, out.stderr.trim()),
+                    &format!(
+                        "pre_apply hook failed (exit {}): {}",
+                        out.exit_code,
+                        out.stderr.trim()
+                    ),
                 );
                 return Ok(ResourceOutcome::Skipped);
             }
@@ -784,19 +805,30 @@ fn apply_machine(
                                     let start = Instant::now();
                                     // FJ-265: pre_apply hook
                                     if let Some(ref pre_hook) = prep.resolved.pre_apply {
-                                        match transport::exec_script_timeout(machine, pre_hook, cfg.timeout_secs) {
+                                        match transport::exec_script_timeout(
+                                            machine,
+                                            pre_hook,
+                                            cfg.timeout_secs,
+                                        ) {
                                             Ok(out) if !out.success() => {
                                                 let duration = start.elapsed().as_secs_f64();
-                                                return (prep.change_idx, duration, Err(format!(
-                                                    "pre_apply hook failed (exit {}): {}",
-                                                    out.exit_code, out.stderr.trim()
-                                                )));
+                                                return (
+                                                    prep.change_idx,
+                                                    duration,
+                                                    Err(format!(
+                                                        "pre_apply hook failed (exit {}): {}",
+                                                        out.exit_code,
+                                                        out.stderr.trim()
+                                                    )),
+                                                );
                                             }
                                             Err(e) => {
                                                 let duration = start.elapsed().as_secs_f64();
-                                                return (prep.change_idx, duration, Err(format!(
-                                                    "pre_apply hook error: {}", e
-                                                )));
+                                                return (
+                                                    prep.change_idx,
+                                                    duration,
+                                                    Err(format!("pre_apply hook error: {}", e)),
+                                                );
                                             }
                                             _ => {} // success
                                         }
@@ -817,14 +849,19 @@ fn apply_machine(
                                     let output = match output {
                                         Ok(ref out) if out.success() => {
                                             if let Some(ref post_hook) = prep.resolved.post_apply {
-                                                match transport::exec_script_timeout(machine, post_hook, cfg.timeout_secs) {
-                                                    Ok(pout) if !pout.success() => {
-                                                        Err(format!(
-                                                            "post_apply hook failed (exit {}): {}",
-                                                            pout.exit_code, pout.stderr.trim()
-                                                        ))
+                                                match transport::exec_script_timeout(
+                                                    machine,
+                                                    post_hook,
+                                                    cfg.timeout_secs,
+                                                ) {
+                                                    Ok(pout) if !pout.success() => Err(format!(
+                                                        "post_apply hook failed (exit {}): {}",
+                                                        pout.exit_code,
+                                                        pout.stderr.trim()
+                                                    )),
+                                                    Err(e) => {
+                                                        Err(format!("post_apply hook error: {}", e))
                                                     }
-                                                    Err(e) => Err(format!("post_apply hook error: {}", e)),
                                                     _ => output,
                                                 }
                                             } else {
@@ -1393,8 +1430,8 @@ resources:
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
-        pre_apply: None,
-        post_apply: None,
+            pre_apply: None,
+            post_apply: None,
         };
         let details = build_resource_details(&r, &local_machine());
         assert!(details.contains_key("path"));
@@ -1479,8 +1516,8 @@ resources:
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
-        pre_apply: None,
-        post_apply: None,
+            pre_apply: None,
+            post_apply: None,
         };
         let details = build_resource_details(&r, &local_machine());
         assert!(details.contains_key("service_name"));
@@ -1503,6 +1540,7 @@ resources:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results.len(), 1);
@@ -1522,6 +1560,7 @@ resources:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results.len(), 1);
@@ -1553,6 +1592,7 @@ resources:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let r1 = apply(&cfg).unwrap();
         assert_eq!(r1[0].resources_converged, 1);
@@ -1567,6 +1607,7 @@ resources:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let r2 = apply(&cfg2).unwrap();
         assert_eq!(r2[0].resources_unchanged, 1);
@@ -1590,6 +1631,7 @@ resources:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         apply(&cfg).unwrap();
 
@@ -1603,6 +1645,7 @@ resources:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let r2 = apply(&cfg2).unwrap();
         assert_eq!(r2[0].resources_converged, 1);
@@ -1645,6 +1688,7 @@ resources:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results.len(), 1);
@@ -1811,8 +1855,8 @@ resources:
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
-        pre_apply: None,
-        post_apply: None,
+            pre_apply: None,
+            post_apply: None,
         };
         let machine = Machine {
             hostname: "localhost".to_string(),
@@ -1863,6 +1907,7 @@ resources:
             resource_filter: Some("nonexistent-resource"),
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let results = apply(&cfg).unwrap();
         // Resource filter doesn't match — everything skipped
@@ -1910,6 +1955,7 @@ policy:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results.len(), 2);
@@ -1971,6 +2017,7 @@ policy:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results.len(), 1);
@@ -2143,8 +2190,8 @@ resources:
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
-        pre_apply: None,
-        post_apply: None,
+            pre_apply: None,
+            post_apply: None,
         };
 
         // arch filter should reject: aarch64 resource on x86_64 machine
@@ -2303,6 +2350,7 @@ resources:
             resource_filter: None,
             tag_filter: Some("web"),
             timeout_secs: None,
+        force_unlock: false,
         };
         let results = apply(&cfg).unwrap();
         // Only the tagged resource should be applied
@@ -2343,6 +2391,7 @@ resources:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let results = apply(&cfg).unwrap();
         // Both resources applied
@@ -2468,8 +2517,8 @@ resources:
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
-        pre_apply: None,
-        post_apply: None,
+            pre_apply: None,
+            post_apply: None,
         };
         let mut ctx = RecordCtx {
             lock: &mut lock,
@@ -2558,8 +2607,8 @@ resources:
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
-        pre_apply: None,
-        post_apply: None,
+            pre_apply: None,
+            post_apply: None,
         };
         let mut ctx = RecordCtx {
             lock: &mut lock,
@@ -2670,8 +2719,8 @@ resources:
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
-        pre_apply: None,
-        post_apply: None,
+            pre_apply: None,
+            post_apply: None,
         };
         let details = build_resource_details(&resource, &local_machine());
         assert!(details.contains_key("path"));
@@ -2755,8 +2804,8 @@ resources:
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
-        pre_apply: None,
-        post_apply: None,
+            pre_apply: None,
+            post_apply: None,
         };
         let details = build_resource_details(&resource, &local_machine());
         assert!(
@@ -2839,8 +2888,8 @@ resources:
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
-        pre_apply: None,
-        post_apply: None,
+            pre_apply: None,
+            post_apply: None,
         };
         let details = build_resource_details(&resource, &local_machine());
         assert!(
@@ -2917,8 +2966,8 @@ resources:
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
-        pre_apply: None,
-        post_apply: None,
+            pre_apply: None,
+            post_apply: None,
         };
         let details = build_resource_details(&resource, &local_machine());
         assert_eq!(
@@ -3045,6 +3094,7 @@ resources:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let results = apply(&cfg).unwrap();
         // Dry run returns a single result
@@ -3085,6 +3135,7 @@ resources:
             resource_filter: None,
             tag_filter: Some("deploy"),
             timeout_secs: None,
+        force_unlock: false,
         };
         let results = apply(&cfg).unwrap();
         // Only the tagged resource should be applied
@@ -3146,6 +3197,7 @@ resources:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let results = apply(&cfg).unwrap();
         for r in &results {
@@ -3226,8 +3278,8 @@ resources:
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
-        pre_apply: None,
-        post_apply: None,
+            pre_apply: None,
+            post_apply: None,
         };
         let details = build_resource_details(&r, &local_machine());
         assert!(
@@ -3305,8 +3357,8 @@ resources:
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
-        pre_apply: None,
-        post_apply: None,
+            pre_apply: None,
+            post_apply: None,
         };
         let details = build_resource_details(&r, &local_machine());
         assert!(details.contains_key("path"));
@@ -3330,6 +3382,7 @@ resources:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: Some(30),
+        force_unlock: false,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results.len(), 1);
@@ -3369,6 +3422,7 @@ policy:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let results = apply(&cfg).unwrap();
         // Resource should be skipped due to arch mismatch
@@ -3396,6 +3450,7 @@ policy:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let r1 = apply(&cfg).unwrap();
         assert_eq!(r1[0].resources_converged, 1);
@@ -3410,6 +3465,7 @@ policy:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let r2 = apply(&cfg2).unwrap();
         assert_eq!(
@@ -3450,6 +3506,7 @@ policy:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results[0].resources_converged, 1);
@@ -3491,6 +3548,7 @@ policy:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results[0].resources_converged, 1);
@@ -3564,6 +3622,7 @@ policy:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         apply(&cfg).unwrap();
 
@@ -3594,6 +3653,7 @@ policy:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         apply(&cfg).unwrap();
 
@@ -3632,6 +3692,7 @@ policy:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let r1 = apply(&cfg).unwrap();
         assert_eq!(r1[0].resources_converged, 1);
@@ -3657,6 +3718,7 @@ policy:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let r2 = apply(&cfg2).unwrap();
         assert_eq!(r2[0].resources_converged, 1);
@@ -3709,6 +3771,7 @@ policy:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results[0].resources_converged, 2);
@@ -3775,6 +3838,7 @@ policy:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let r1 = apply(&cfg_a).unwrap();
         assert_eq!(r1[0].resources_converged, 1);
@@ -3796,6 +3860,7 @@ policy:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let r2 = apply(&cfg_b).unwrap();
         assert_eq!(
@@ -3826,6 +3891,7 @@ policy:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         apply(&cfg).unwrap();
 
@@ -3915,6 +3981,7 @@ resources: {}
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let results = apply(&cfg).unwrap();
         // No resources → no machines collected → empty results
@@ -3935,6 +4002,7 @@ resources: {}
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let results = apply(&cfg).unwrap();
         assert!(
@@ -4069,8 +4137,8 @@ resources: {}
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
-        pre_apply: None,
-        post_apply: None,
+            pre_apply: None,
+            post_apply: None,
         };
         let details = build_resource_details(&r, &local_machine());
         assert_eq!(
@@ -4141,6 +4209,7 @@ policy:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results.len(), 1);
@@ -4196,6 +4265,7 @@ policy:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let results = apply(&cfg).unwrap();
         // At least one resource should converge even if one fails
@@ -4277,8 +4347,8 @@ policy:
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
-        pre_apply: None,
-        post_apply: None,
+            pre_apply: None,
+            post_apply: None,
         };
         let mut ctx = RecordCtx {
             lock: &mut lock,
@@ -4321,6 +4391,7 @@ policy:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         apply(&cfg).unwrap();
 
@@ -4334,6 +4405,7 @@ policy:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let results = apply(&cfg2).unwrap();
         assert_eq!(results[0].machine, "dry-run");
@@ -4405,6 +4477,7 @@ policy:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let r1 = apply(&cfg).unwrap();
         assert_eq!(r1[0].resources_converged, 1);
@@ -4424,6 +4497,7 @@ policy:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let r3 = apply(&force_cfg).unwrap();
         assert_eq!(r3[0].resources_converged, 1);
@@ -4472,6 +4546,7 @@ policy:
             resource_filter: Some("file-a"),
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let results = apply(&cfg).unwrap();
         // Only file-a should be applied
@@ -4525,6 +4600,7 @@ policy:
             resource_filter: None,
             tag_filter: Some("web"),
             timeout_secs: None,
+        force_unlock: false,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results[0].resources_converged, 1);
@@ -4585,6 +4661,7 @@ policy:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results[0].resources_converged, 3);
@@ -4617,6 +4694,7 @@ policy:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         apply(&cfg).unwrap();
 
@@ -4659,6 +4737,7 @@ resources:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results[0].machine, "dry-run");
@@ -4703,6 +4782,7 @@ policy:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let r1 = apply(&cfg).unwrap();
         assert_eq!(r1[0].resources_converged, 1);
@@ -4746,6 +4826,7 @@ policy:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let results = apply(&cfg).unwrap();
         // No results for non-matching machine
@@ -4803,6 +4884,7 @@ policy:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results[0].resources_converged, 3);
@@ -4844,6 +4926,7 @@ policy:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let results = apply(&cfg).unwrap();
         assert!(
@@ -4887,6 +4970,7 @@ policy:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         apply(&cfg).unwrap();
 
@@ -4900,6 +4984,7 @@ policy:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let results = apply(&cfg_force).unwrap();
         assert_eq!(
@@ -4976,6 +5061,7 @@ policy:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let results = apply(&cfg).unwrap();
 
@@ -5032,6 +5118,7 @@ policy:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let r1 = apply(&cfg1).unwrap();
         assert_eq!(r1[0].resources_converged, 1);
@@ -5047,6 +5134,7 @@ policy:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let r2 = apply(&cfg2).unwrap();
         assert_eq!(r2[0].resources_unchanged, 1);
@@ -5062,6 +5150,7 @@ policy:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let r3 = apply(&cfg3).unwrap();
         assert_eq!(
@@ -5179,6 +5268,7 @@ resources:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results[0].machine, "dry-run");
@@ -5215,6 +5305,7 @@ resources:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
 
         let results = apply(&cfg).unwrap();
@@ -5268,6 +5359,7 @@ resources:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
 
         let _results = apply(&cfg).unwrap();
@@ -5310,6 +5402,7 @@ resources:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
 
         let _results = apply(&cfg).unwrap();
@@ -5509,6 +5602,7 @@ resources:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let r1 = apply(&cfg1).unwrap();
         assert_eq!(r1[0].resources_converged, 2);
@@ -5550,6 +5644,7 @@ resources:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let r3 = apply(&cfg3).unwrap();
         // config changed → converges. app unchanged but triggers: [config] → also converges
@@ -5596,6 +5691,7 @@ resources:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let r1 = apply(&cfg).unwrap();
         assert_eq!(r1[0].resources_converged, 2);
@@ -5648,6 +5744,7 @@ resources:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let r1 = apply(&cfg1).unwrap();
         assert_eq!(r1[0].resources_converged, 3);
@@ -5664,6 +5761,7 @@ resources:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let r2 = apply(&cfg2).unwrap();
         // db-config changed (converged), app-config unchanged, service triggered
@@ -5710,6 +5808,7 @@ resources:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let r1 = apply(&cfg).unwrap();
         assert_eq!(r1[0].resources_converged, 2);
@@ -5752,6 +5851,7 @@ resources:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let r2 = apply(&cfg2).unwrap();
         assert_eq!(
@@ -5811,6 +5911,7 @@ policy:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let results = apply(&cfg).unwrap();
         // All 3 machines should converge (2 in first batch, 1 in second)
@@ -5865,6 +5966,7 @@ policy:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results.len(), 2);
@@ -5907,6 +6009,7 @@ policy:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results.len(), 1);
@@ -5978,6 +6081,7 @@ policy:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results.len(), 2);
@@ -6028,6 +6132,7 @@ policy:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results.len(), 1);
@@ -6084,6 +6189,7 @@ policy:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results[0].resources_converged, 2);
@@ -6139,6 +6245,7 @@ policy:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results[0].resources_converged, 3);
@@ -6188,6 +6295,7 @@ policy:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         // First apply
         let results1 = apply(&cfg).unwrap();
@@ -6284,6 +6392,7 @@ policy:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         apply(&cfg).unwrap();
 
@@ -6337,6 +6446,7 @@ resources:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results[0].resources_converged, 1);
@@ -6378,6 +6488,7 @@ resources:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let results = apply(&cfg).unwrap();
         // pre_apply failure → resource skipped, not applied
@@ -6422,6 +6533,7 @@ resources:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results[0].resources_converged, 1);
@@ -6464,6 +6576,7 @@ resources:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let results = apply(&cfg).unwrap();
         // post_apply failure → resource marked as failed
@@ -6511,6 +6624,7 @@ resources:
             resource_filter: None,
             tag_filter: None,
             timeout_secs: None,
+        force_unlock: false,
         };
         let results = apply(&cfg).unwrap();
         assert_eq!(results[0].resources_converged, 1);

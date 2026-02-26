@@ -183,6 +183,10 @@ pub enum Commands {
         /// FJ-262: Print per-resource timing report after apply
         #[arg(long)]
         report: bool,
+
+        /// FJ-266: Force-remove stale state lock before apply
+        #[arg(long)]
+        force_unlock: bool,
     },
 
     /// Detect unauthorized changes (tripwire)
@@ -837,6 +841,7 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             workspace,
             check,
             report,
+            force_unlock,
         } => {
             if check {
                 // FJ-226: --check runs check scripts via cmd_check
@@ -867,6 +872,7 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
                 env_file.as_deref(),
                 workspace.as_deref(),
                 report,
+                force_unlock,
             )
         }
         Commands::Drift {
@@ -1862,6 +1868,7 @@ fn cmd_rollback(
         None,  // no env_file
         None,  // no workspace
         false, // no report
+    false, // no force_unlock
     )
 }
 
@@ -3342,6 +3349,7 @@ fn cmd_apply(
     env_file: Option<&Path>,
     workspace: Option<&str>,
     report: bool,
+    force_unlock: bool,
 ) -> Result<(), String> {
     let mut config = parse_and_validate(file)?;
     if let Some(path) = env_file {
@@ -3408,6 +3416,7 @@ fn cmd_apply(
         resource_filter,
         tag_filter,
         timeout_secs,
+        force_unlock,
     };
 
     let results = executor::apply(&cfg)?;
@@ -3717,6 +3726,7 @@ fn cmd_drift(
             None,  // no env_file
             None,  // no workspace
             false, // no report
+        false, // no force_unlock
         )?;
         if !json {
             println!("Remediation complete.");
@@ -5486,6 +5496,7 @@ resources:
             None,  // no env_file
             None,  // no workspace
             false, // no report
+        false, // no force_unlock
         )
         .unwrap();
     }
@@ -5534,6 +5545,7 @@ policy:
             None,  // no env_file
             None,  // no workspace
             false, // no report
+        false, // no force_unlock
         )
         .unwrap();
 
@@ -5579,6 +5591,7 @@ resources: {}
             None,  // no env_file
             None,  // no workspace
             false, // no report
+        false, // no force_unlock
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("validation"));
@@ -5899,6 +5912,7 @@ resources:
                 workspace: None,
                 check: false,
                 report: false,
+            force_unlock: false,
             },
             false,
             true,
@@ -6090,6 +6104,7 @@ resources:
             None,  // no env_file
             None,  // no workspace
             false, // no report
+        false, // no force_unlock
         )
         .unwrap();
         assert!(target.exists());
@@ -6112,6 +6127,7 @@ resources:
             None,  // no env_file
             None,  // no workspace
             false, // no report
+        false, // no force_unlock
         )
         .unwrap();
     }
@@ -6680,6 +6696,7 @@ resources:
             None,  // no env_file
             None,  // no workspace
             false, // no report
+        false, // no force_unlock
         )
         .unwrap();
         assert!(target.exists());
@@ -6742,6 +6759,7 @@ resources:
             None,  // no env_file
             None,  // no workspace
             false, // no report
+        false, // no force_unlock
         )
         .unwrap();
         cmd_destroy(&config, &state, None, true, true).unwrap();
@@ -6805,6 +6823,7 @@ resources:
             None,  // no env_file
             None,  // no workspace
             false, // no report
+        false, // no force_unlock
         )
         .unwrap();
         assert!(target_a.exists());
@@ -6863,6 +6882,7 @@ resources:
             None,  // no env_file
             None,  // no workspace
             false, // no report
+        false, // no force_unlock
         )
         .unwrap();
         dispatch(
@@ -6957,6 +6977,7 @@ resources:
             None,  // no env_file
             None,  // no workspace
             false, // no report
+        false, // no force_unlock
         )
         .unwrap();
         assert!(target.exists());
@@ -7114,6 +7135,7 @@ resources:
             None,  // no env_file
             None,  // no workspace
             false, // no report
+        false, // no force_unlock
         )
         .unwrap();
         assert!(std::path::Path::new(&target).exists());
@@ -8485,6 +8507,7 @@ resources:
             None,  // no env_file
             None,  // no workspace
             false, // no report
+        false, // no force_unlock
         )
         .unwrap();
     }
@@ -9748,6 +9771,7 @@ resources:
             None,  // no env_file
             None,  // no workspace
             false, // no report
+        false, // no force_unlock
         );
         assert!(result.is_ok());
     }
@@ -9829,6 +9853,7 @@ resources:
                 workspace: None,
                 check: false,
                 report: false,
+            force_unlock: false,
             },
             false,
             true,
@@ -10364,6 +10389,7 @@ resources:
             Some(env.as_path()),
             None,  // no workspace
             false, // no report
+        false, // no force_unlock
         )
         .unwrap();
     }
@@ -10751,6 +10777,7 @@ policies:
             None,
             None,
             false,
+            false,
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("policy violations"));
@@ -10852,6 +10879,7 @@ policy:
             None,
             None,
             false,
+            false,
         );
         // cmd_apply needs a parsed config, but it re-parses from file
         // Instead, test the run_notify function directly
@@ -10945,6 +10973,7 @@ resources:
                 workspace: None,
                 check: true,
                 report: false,
+            force_unlock: false,
             },
             false,
             true,
@@ -10997,6 +11026,7 @@ resources:
                 workspace: None,
                 check: false,
                 report: false,
+            force_unlock: false,
             },
             false,
             true,
@@ -12002,6 +12032,7 @@ resources:
             None,
             None,
             false,
+            false,
         )
         .unwrap();
         // last-apply.yaml should be written
@@ -12064,6 +12095,7 @@ resources:
             false,
             None,
             None,
+            false,
             false,
         )
         .unwrap();

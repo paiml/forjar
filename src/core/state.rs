@@ -166,6 +166,80 @@ pub fn load_apply_report(state_dir: &Path, machine: &str) -> Result<Option<Strin
         .map_err(|e| format!("cannot read {}: {}", path.display(), e))
 }
 
+// ============================================================================
+// FJ-266: State locking — prevent concurrent applies
+// ============================================================================
+
+/// Path to the process lock file.
+fn process_lock_path(state_dir: &Path) -> PathBuf {
+    state_dir.join(".forjar.lock")
+}
+
+/// Acquire an exclusive process lock. Returns an error if another apply is running.
+/// Stale locks (PID no longer running) are automatically removed.
+pub fn acquire_process_lock(state_dir: &Path) -> Result<(), String> {
+    std::fs::create_dir_all(state_dir)
+        .map_err(|e| format!("cannot create state dir: {}", e))?;
+
+    let lock_path = process_lock_path(state_dir);
+
+    // Check for existing lock
+    if lock_path.exists() {
+        let content = std::fs::read_to_string(&lock_path)
+            .map_err(|e| format!("cannot read lock file: {}", e))?;
+        if let Some(pid) = parse_lock_pid(&content) {
+            if is_pid_running(pid) {
+                return Err(format!(
+                    "state directory is locked by PID {} ({}). \
+                     If this is stale, run: forjar apply --force-unlock",
+                    pid,
+                    lock_path.display()
+                ));
+            }
+            // Stale lock — PID no longer running, remove it
+        }
+        let _ = std::fs::remove_file(&lock_path);
+    }
+
+    // Write our PID
+    let pid = std::process::id();
+    let content = format!("pid: {}\nstarted_at: {}\n", pid, crate::tripwire::eventlog::now_iso8601());
+    std::fs::write(&lock_path, content)
+        .map_err(|e| format!("cannot write lock file: {}", e))?;
+    Ok(())
+}
+
+/// Release the process lock.
+pub fn release_process_lock(state_dir: &Path) {
+    let lock_path = process_lock_path(state_dir);
+    let _ = std::fs::remove_file(&lock_path);
+}
+
+/// Force-remove the process lock (for --force-unlock).
+pub fn force_unlock(state_dir: &Path) -> Result<(), String> {
+    let lock_path = process_lock_path(state_dir);
+    if !lock_path.exists() {
+        return Ok(());
+    }
+    std::fs::remove_file(&lock_path)
+        .map_err(|e| format!("cannot remove lock file: {}", e))
+}
+
+/// Parse PID from lock file content.
+fn parse_lock_pid(content: &str) -> Option<u32> {
+    for line in content.lines() {
+        if let Some(rest) = line.strip_prefix("pid:") {
+            return rest.trim().parse().ok();
+        }
+    }
+    None
+}
+
+/// Check if a PID is still running (Linux-specific: /proc/<pid> exists).
+fn is_pid_running(pid: u32) -> bool {
+    Path::new(&format!("/proc/{}", pid)).exists()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -872,5 +946,89 @@ mod tests {
             expected_file.exists(),
             "lock file must exist after save_lock"
         );
+    }
+
+    // ========================================================================
+    // FJ-266: State locking — prevent concurrent applies
+    // ========================================================================
+
+    #[test]
+    fn test_fj266_acquire_and_release() {
+        let dir = tempfile::tempdir().unwrap();
+        acquire_process_lock(dir.path()).unwrap();
+        let lock_path = process_lock_path(dir.path());
+        assert!(lock_path.exists());
+        let content = std::fs::read_to_string(&lock_path).unwrap();
+        assert!(content.contains(&format!("pid: {}", std::process::id())));
+        release_process_lock(dir.path());
+        assert!(!lock_path.exists());
+    }
+
+    #[test]
+    fn test_fj266_concurrent_lock_blocked() {
+        let dir = tempfile::tempdir().unwrap();
+        // Write a lock with our own PID (still running)
+        let lock_path = process_lock_path(dir.path());
+        let content = format!("pid: {}\nstarted_at: 2026-02-26T00:00:00Z\n", std::process::id());
+        std::fs::write(&lock_path, content).unwrap();
+
+        let result = acquire_process_lock(dir.path());
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("locked by PID"));
+    }
+
+    #[test]
+    fn test_fj266_stale_lock_cleaned() {
+        let dir = tempfile::tempdir().unwrap();
+        // PID 999999999 is almost certainly not running
+        let lock_path = process_lock_path(dir.path());
+        let content = "pid: 999999999\nstarted_at: 2026-02-26T00:00:00Z\n";
+        std::fs::write(&lock_path, content).unwrap();
+
+        // Should succeed — stale lock is cleaned up
+        acquire_process_lock(dir.path()).unwrap();
+        let new_content = std::fs::read_to_string(&lock_path).unwrap();
+        assert!(new_content.contains(&format!("pid: {}", std::process::id())));
+        release_process_lock(dir.path());
+    }
+
+    #[test]
+    fn test_fj266_force_unlock() {
+        let dir = tempfile::tempdir().unwrap();
+        let lock_path = process_lock_path(dir.path());
+        std::fs::write(&lock_path, "pid: 12345\n").unwrap();
+        force_unlock(dir.path()).unwrap();
+        assert!(!lock_path.exists());
+    }
+
+    #[test]
+    fn test_fj266_force_unlock_no_lock() {
+        let dir = tempfile::tempdir().unwrap();
+        // No lock file — should be fine
+        force_unlock(dir.path()).unwrap();
+    }
+
+    #[test]
+    fn test_fj266_parse_lock_pid() {
+        assert_eq!(parse_lock_pid("pid: 12345\nstarted_at: x\n"), Some(12345));
+        assert_eq!(parse_lock_pid("no pid here"), None);
+        assert_eq!(parse_lock_pid("pid: abc"), None);
+        assert_eq!(parse_lock_pid(""), None);
+    }
+
+    #[test]
+    fn test_fj266_lock_path() {
+        let p = process_lock_path(Path::new("/state"));
+        assert_eq!(p, PathBuf::from("/state/.forjar.lock"));
+    }
+
+    #[test]
+    fn test_fj266_lock_creates_state_dir() {
+        let dir = tempfile::tempdir().unwrap();
+        let nested = dir.path().join("a").join("b").join("state");
+        acquire_process_lock(&nested).unwrap();
+        assert!(nested.exists());
+        assert!(process_lock_path(&nested).exists());
+        release_process_lock(&nested);
     }
 }
