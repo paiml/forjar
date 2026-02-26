@@ -380,6 +380,14 @@ pub enum Commands {
         /// Output format: mermaid (default) or dot
         #[arg(long, default_value = "mermaid")]
         format: String,
+
+        /// Filter to specific machine
+        #[arg(short, long)]
+        machine: Option<String>,
+
+        /// Filter to specific resource group
+        #[arg(short, long)]
+        group: Option<String>,
     },
 
     /// Run check scripts to verify pre-conditions without applying
@@ -1075,7 +1083,12 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             resource,
             json,
         } => cmd_show(&file, resource.as_deref(), json),
-        Commands::Graph { file, format } => cmd_graph(&file, &format),
+        Commands::Graph {
+            file,
+            format,
+            machine,
+            group,
+        } => cmd_graph(&file, &format, machine.as_deref(), group.as_deref()),
         Commands::Import {
             addr,
             user,
@@ -4066,8 +4079,7 @@ fn cmd_apply(
             });
             println!(
                 "{}",
-                serde_json::to_string_pretty(&output)
-                    .map_err(|e| format!("JSON error: {}", e))?
+                serde_json::to_string_pretty(&output).map_err(|e| format!("JSON error: {}", e))?
             );
         } else {
             println!("Dry run — no changes applied.");
@@ -4858,8 +4870,34 @@ fn cmd_destroy(
     Ok(())
 }
 
-fn cmd_graph(file: &Path, format: &str) -> Result<(), String> {
-    let config = parse_and_validate(file)?;
+fn cmd_graph(
+    file: &Path,
+    format: &str,
+    machine_filter: Option<&str>,
+    group_filter: Option<&str>,
+) -> Result<(), String> {
+    let mut config = parse_and_validate(file)?;
+
+    // FJ-294: Filter resources by machine or group
+    if machine_filter.is_some() || group_filter.is_some() {
+        config.resources.retain(|_id, resource| {
+            if let Some(mf) = machine_filter {
+                let matches = match &resource.machine {
+                    types::MachineTarget::Single(m) => m == mf,
+                    types::MachineTarget::Multiple(ms) => ms.iter().any(|m| m == mf),
+                };
+                if !matches {
+                    return false;
+                }
+            }
+            if let Some(gf) = group_filter {
+                if resource.resource_group.as_deref() != Some(gf) {
+                    return false;
+                }
+            }
+            true
+        });
+    }
 
     match format {
         "mermaid" => {
@@ -7820,7 +7858,7 @@ resources:
 "#,
         )
         .unwrap();
-        cmd_graph(&config, "mermaid").unwrap();
+        cmd_graph(&config, "mermaid", None, None).unwrap();
     }
 
     #[test]
@@ -7845,7 +7883,7 @@ resources:
 "#,
         )
         .unwrap();
-        cmd_graph(&config, "dot").unwrap();
+        cmd_graph(&config, "dot", None, None).unwrap();
     }
 
     #[test]
@@ -7862,7 +7900,7 @@ resources: {}
 "#,
         )
         .unwrap();
-        let result = cmd_graph(&config, "svg");
+        let result = cmd_graph(&config, "svg", None, None);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("unknown graph format"));
     }
@@ -7885,6 +7923,8 @@ resources: {}
             Commands::Graph {
                 file: config,
                 format: "mermaid".to_string(),
+                machine: None,
+                group: None,
             },
             false,
             true,
@@ -7903,7 +7943,7 @@ resources: {}
             "version: \"1.0\"\nname: test\nmachines:\n  local:\n    hostname: localhost\n    addr: 127.0.0.1\nresources:\n  step-1:\n    type: file\n    machine: local\n    path: /tmp/a.txt\n    content: a\n  step-2:\n    type: file\n    machine: local\n    path: /tmp/b.txt\n    content: b\n    depends_on: [step-1]\n",
         )
         .unwrap();
-        let result = cmd_graph(&config, "ascii");
+        let result = cmd_graph(&config, "ascii", None, None);
         assert!(result.is_ok());
     }
 
@@ -7920,6 +7960,8 @@ resources: {}
             Commands::Graph {
                 file: config,
                 format: "ascii".to_string(),
+                machine: None,
+                group: None,
             },
             false,
             true,
@@ -9972,21 +10014,21 @@ resources:
         let dir = tempfile::tempdir().unwrap();
         let config_path = write_simple_config(dir.path());
         // Should succeed without error
-        cmd_graph(&config_path, "mermaid").unwrap();
+        cmd_graph(&config_path, "mermaid", None, None).unwrap();
     }
 
     #[test]
     fn test_fj131_cmd_graph_dot() {
         let dir = tempfile::tempdir().unwrap();
         let config_path = write_simple_config(dir.path());
-        cmd_graph(&config_path, "dot").unwrap();
+        cmd_graph(&config_path, "dot", None, None).unwrap();
     }
 
     #[test]
     fn test_fj131_cmd_graph_unknown_format() {
         let dir = tempfile::tempdir().unwrap();
         let config_path = write_simple_config(dir.path());
-        let err = cmd_graph(&config_path, "svg").unwrap_err();
+        let err = cmd_graph(&config_path, "svg", None, None).unwrap_err();
         assert!(err.contains("unknown graph format"));
         assert!(err.contains("svg"));
     }
@@ -9996,7 +10038,7 @@ resources:
         let dir = tempfile::tempdir().unwrap();
         let config_path = dir.path().join("forjar.yaml");
         std::fs::write(&config_path, "not valid yaml {{{{").unwrap();
-        let err = cmd_graph(&config_path, "mermaid");
+        let err = cmd_graph(&config_path, "mermaid", None, None);
         assert!(err.is_err());
     }
 
@@ -10401,7 +10443,7 @@ resources:
     depends_on: [pkg]
 "#;
         std::fs::write(&file, yaml).unwrap();
-        cmd_graph(&file, "mermaid").unwrap();
+        cmd_graph(&file, "mermaid", None, None).unwrap();
     }
 
     #[test]
@@ -10423,7 +10465,7 @@ resources:
     packages: [curl]
 "#;
         std::fs::write(&file, yaml).unwrap();
-        cmd_graph(&file, "dot").unwrap();
+        cmd_graph(&file, "dot", None, None).unwrap();
     }
 
     #[test]
@@ -10437,7 +10479,7 @@ machines: {}
 resources: {}
 "#;
         std::fs::write(&file, yaml).unwrap();
-        let result = cmd_graph(&file, "svg");
+        let result = cmd_graph(&file, "svg", None, None);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("unknown graph format"));
     }
@@ -10921,7 +10963,7 @@ resources:
 "#,
         )
         .unwrap();
-        let result = cmd_graph(&config, "dot");
+        let result = cmd_graph(&config, "dot", None, None);
         assert!(result.is_ok(), "cmd_graph with dot format should succeed");
     }
 
@@ -14977,31 +15019,104 @@ resources:
 
         // dry_run + json should succeed (plan output)
         let result = cmd_apply(
-            &config,     // file
-            &state,      // state_dir
-            None,        // machine_filter
-            None,        // resource_filter
-            None,        // tag_filter
-            None,        // group_filter
-            false,       // force
-            true,        // dry_run
-            false,       // no_tripwire
-            &[],         // param_overrides
-            false,       // auto_commit
-            None,        // timeout_secs
-            true,        // json
-            false,       // verbose
-            None,        // env_file
-            None,        // workspace
-            false,       // report
-            false,       // force_unlock
-            None,        // output_mode
-            false,       // progress
-            false,       // timing
-            0,           // retry
-            true,        // yes
-            false,       // parallel
+            &config, // file
+            &state,  // state_dir
+            None,    // machine_filter
+            None,    // resource_filter
+            None,    // tag_filter
+            None,    // group_filter
+            false,   // force
+            true,    // dry_run
+            false,   // no_tripwire
+            &[],     // param_overrides
+            false,   // auto_commit
+            None,    // timeout_secs
+            true,    // json
+            false,   // verbose
+            None,    // env_file
+            None,    // workspace
+            false,   // report
+            false,   // force_unlock
+            None,    // output_mode
+            false,   // progress
+            false,   // timing
+            0,       // retry
+            true,    // yes
+            false,   // parallel
         );
+        assert!(result.is_ok());
+    }
+
+    // ── FJ-294: graph --filter ──
+
+    #[test]
+    fn test_fj294_graph_filter_machine() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config,
+            r#"
+version: "1.0"
+name: filter-test
+machines:
+  web:
+    hostname: web
+    addr: 192.168.1.1
+  db:
+    hostname: db
+    addr: 192.168.1.2
+resources:
+  web-pkg:
+    type: file
+    machine: web
+    path: /tmp/web.txt
+    content: "web"
+  db-pkg:
+    type: file
+    machine: db
+    path: /tmp/db.txt
+    content: "db"
+"#,
+        )
+        .unwrap();
+
+        // Filter to web machine only
+        let result = cmd_graph(&config, "mermaid", Some("web"), None);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj294_graph_filter_group() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config,
+            r#"
+version: "1.0"
+name: group-test
+machines:
+  local:
+    hostname: local
+    addr: 127.0.0.1
+resources:
+  web-pkg:
+    type: file
+    machine: local
+    path: /tmp/web.txt
+    content: "web"
+    resource_group: frontend
+  api-pkg:
+    type: file
+    machine: local
+    path: /tmp/api.txt
+    content: "api"
+    resource_group: backend
+"#,
+        )
+        .unwrap();
+
+        // Filter to frontend group only
+        let result = cmd_graph(&config, "dot", None, Some("frontend"));
         assert!(result.is_ok());
     }
 }
