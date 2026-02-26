@@ -122,10 +122,7 @@ fn validate_resource_refs(
     // FJ-203/FJ-204: Validate count and for_each
     if resource.count.is_some() && resource.for_each.is_some() {
         errors.push(ValidationError {
-            message: format!(
-                "resource '{}' cannot have both 'count' and 'for_each'",
-                id
-            ),
+            message: format!("resource '{}' cannot have both 'count' and 'for_each'", id),
         });
     }
     if let Some(count) = resource.count {
@@ -500,7 +497,8 @@ pub fn expand_recipes(config: &mut ForjarConfig, config_dir: Option<&Path>) -> R
 /// Runs after expand_recipes() and before build_execution_order().
 pub fn expand_resources(config: &mut ForjarConfig) {
     // First pass: build a map of original ID → last expanded ID.
-    let mut last_expanded: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+    let mut last_expanded: std::collections::HashMap<String, String> =
+        std::collections::HashMap::new();
     for (id, resource) in &config.resources {
         if let Some(count) = resource.count {
             if count > 0 {
@@ -594,7 +592,10 @@ fn rewrite_deps(
 ) -> Vec<String> {
     deps.iter()
         .map(|dep| {
-            last_expanded.get(dep).cloned().unwrap_or_else(|| dep.clone())
+            last_expanded
+                .get(dep)
+                .cloned()
+                .unwrap_or_else(|| dep.clone())
         })
         .collect()
 }
@@ -3626,14 +3627,8 @@ resources:
         let mut config = parse_config(yaml).unwrap();
         expand_resources(&mut config);
 
-        assert_eq!(
-            config.resources["svc-web"].name.as_deref(),
-            Some("app-web")
-        );
-        assert_eq!(
-            config.resources["svc-api"].name.as_deref(),
-            Some("app-api")
-        );
+        assert_eq!(config.resources["svc-web"].name.as_deref(), Some("app-web"));
+        assert_eq!(config.resources["svc-api"].name.as_deref(), Some("app-api"));
         assert_eq!(config.resources["fw-80"].port.as_deref(), Some("80"));
         assert_eq!(config.resources["fw-443"].port.as_deref(), Some("443"));
     }

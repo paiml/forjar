@@ -53,6 +53,10 @@ pub enum Commands {
         /// Write generated scripts to directory for auditing
         #[arg(long)]
         output_dir: Option<PathBuf>,
+
+        /// FJ-211: Load param overrides from external YAML file
+        #[arg(long)]
+        env_file: Option<PathBuf>,
     },
 
     /// Converge infrastructure to desired state
@@ -104,6 +108,10 @@ pub enum Commands {
         /// Output apply results as JSON
         #[arg(long)]
         json: bool,
+
+        /// FJ-211: Load param overrides from external YAML file
+        #[arg(long)]
+        env_file: Option<PathBuf>,
     },
 
     /// Detect unauthorized changes (tripwire)
@@ -139,6 +147,10 @@ pub enum Commands {
         /// Output drift report as JSON
         #[arg(long)]
         json: bool,
+
+        /// FJ-211: Load param overrides from external YAML file
+        #[arg(long)]
+        env_file: Option<PathBuf>,
     },
 
     /// Show current state from lock files
@@ -472,6 +484,7 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             state_dir,
             json,
             output_dir,
+            env_file,
         } => cmd_plan(
             &file,
             &state_dir,
@@ -481,6 +494,7 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             json,
             verbose,
             output_dir.as_deref(),
+            env_file.as_deref(),
         ),
         Commands::Apply {
             file,
@@ -495,6 +509,7 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             timeout,
             state_dir,
             json,
+            env_file,
         } => cmd_apply(
             &file,
             &state_dir,
@@ -509,6 +524,7 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             timeout,
             json,
             verbose,
+            env_file.as_deref(),
         ),
         Commands::Drift {
             file,
@@ -519,6 +535,7 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             auto_remediate,
             dry_run,
             json,
+            env_file,
         } => cmd_drift(
             &file,
             &state_dir,
@@ -529,6 +546,7 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             dry_run,
             json,
             verbose,
+            env_file.as_deref(),
         ),
         Commands::Destroy {
             file,
@@ -1380,6 +1398,7 @@ fn cmd_rollback(
         None,  // no timeout
         false, // no json
         verbose,
+        None, // no env_file
     )
 }
 
@@ -2171,8 +2190,12 @@ fn cmd_plan(
     json: bool,
     verbose: bool,
     output_dir: Option<&Path>,
+    env_file: Option<&Path>,
 ) -> Result<(), String> {
-    let config = parse_and_validate(file)?;
+    let mut config = parse_and_validate(file)?;
+    if let Some(path) = env_file {
+        load_env_params(&mut config, path)?;
+    }
     if verbose {
         eprintln!(
             "Planning {} ({} machines, {} resources)",
@@ -2347,7 +2370,21 @@ fn apply_param_overrides(
     Ok(())
 }
 
-#[allow(clippy::too_many_arguments)]
+/// FJ-211: Load param overrides from an external YAML file.
+/// The file must be a flat YAML mapping (key: value). Values are merged into
+/// config.params, overriding any existing keys with the same name.
+fn load_env_params(config: &mut types::ForjarConfig, path: &Path) -> Result<(), String> {
+    let content = std::fs::read_to_string(path)
+        .map_err(|e| format!("cannot read env file {}: {}", path.display(), e))?;
+    let mapping: indexmap::IndexMap<String, serde_yaml_ng::Value> =
+        serde_yaml_ng::from_str(&content)
+            .map_err(|e| format!("invalid YAML in env file {}: {}", path.display(), e))?;
+    for (key, value) in mapping {
+        config.params.insert(key, value);
+    }
+    Ok(())
+}
+
 #[allow(clippy::too_many_arguments)]
 fn cmd_apply(
     file: &Path,
@@ -2363,8 +2400,12 @@ fn cmd_apply(
     timeout_secs: Option<u64>,
     json: bool,
     verbose: bool,
+    env_file: Option<&Path>,
 ) -> Result<(), String> {
     let mut config = parse_and_validate(file)?;
+    if let Some(path) = env_file {
+        load_env_params(&mut config, path)?;
+    }
     if verbose {
         eprintln!(
             "Applying {} ({} machines, {} resources)",
@@ -2495,10 +2536,15 @@ fn cmd_drift(
     dry_run: bool,
     json: bool,
     verbose: bool,
+    env_file: Option<&Path>,
 ) -> Result<(), String> {
     // Load config to get machine definitions (needed for container transport drift)
     let config = if config_path.exists() {
-        Some(parse_and_validate(config_path)?)
+        let mut cfg = parse_and_validate(config_path)?;
+        if let Some(path) = env_file {
+            load_env_params(&mut cfg, path)?;
+        }
+        Some(cfg)
     } else {
         None
     };
@@ -2627,6 +2673,7 @@ fn cmd_drift(
             None,  // no timeout
             false, // no json (remediation output is text)
             verbose,
+            None, // no env_file
         )?;
         if !json {
             println!("Remediation complete.");
@@ -3346,10 +3393,7 @@ fn cmd_output(file: &Path, key: Option<&str>, json: bool) -> Result<(), String> 
         match resolved.get(k) {
             Some(v) => {
                 if json {
-                    println!(
-                        "{}",
-                        serde_json::json!({ k: v })
-                    );
+                    println!("{}", serde_json::json!({ k: v }));
                 } else {
                     println!("{}", v);
                 }
@@ -3471,7 +3515,7 @@ resources:
         .unwrap();
         let state = dir.path().join("state");
         std::fs::create_dir_all(&state).unwrap();
-        cmd_plan(&config, &state, None, None, None, false, false, None).unwrap();
+        cmd_plan(&config, &state, None, None, None, false, false, None, None).unwrap();
     }
 
     #[test]
@@ -3506,7 +3550,7 @@ resources:
 "#,
         )
         .unwrap();
-        cmd_plan(&config, &state, Some("a"), None, None, false, false, None).unwrap();
+        cmd_plan(&config, &state, Some("a"), None, None, false, false, None, None).unwrap();
     }
 
     #[test]
@@ -3524,7 +3568,7 @@ resources: {}
 "#,
         )
         .unwrap();
-        let result = cmd_plan(&config, &state, None, None, None, false, false, None);
+        let result = cmd_plan(&config, &state, None, None, None, false, false, None, None);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("validation"));
     }
@@ -3567,6 +3611,7 @@ resources:
             None, // no timeout
             false,
             false,
+            None, // no env_file
         )
         .unwrap();
     }
@@ -3612,6 +3657,7 @@ policy:
             None, // no timeout
             false,
             false,
+            None, // no env_file
         )
         .unwrap();
 
@@ -3654,6 +3700,7 @@ resources: {}
             None, // no timeout
             false,
             false,
+            None, // no env_file
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("validation"));
@@ -3674,6 +3721,7 @@ resources: {}
             false, // dry_run
             false,
             false,
+            None, // no env_file
         )
         .unwrap();
     }
@@ -3731,6 +3779,7 @@ resources: {}
             false, // dry_run
             false,
             false,
+            None, // no env_file
         )
         .unwrap();
     }
@@ -3786,6 +3835,7 @@ resources: {}
             false, // dry_run
             false,
             false,
+            None, // no env_file
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("drift"));
@@ -3808,6 +3858,7 @@ resources: {}
             false, // dry_run
             false,
             false,
+            None, // no env_file
         )
         .unwrap();
     }
@@ -3916,6 +3967,7 @@ resources:
                 state_dir: state,
                 json: false,
                 output_dir: None,
+                env_file: None,
             },
             false,
         )
@@ -3960,6 +4012,7 @@ resources:
                 state_dir: state,
                 timeout: None,
                 json: false,
+                env_file: None,
             },
             false,
         )
@@ -3981,6 +4034,7 @@ resources:
                 auto_remediate: false,
                 dry_run: false,
                 json: false,
+                env_file: None,
             },
             false,
         )
@@ -4093,6 +4147,7 @@ resources:
             false, // dry_run
             false,
             false,
+            None, // no env_file
         )
         .unwrap();
     }
@@ -4143,6 +4198,7 @@ resources:
             None, // no timeout
             false,
             false,
+            None, // no env_file
         )
         .unwrap();
         assert!(target.exists());
@@ -4162,6 +4218,7 @@ resources:
             None, // no timeout
             false,
             false,
+            None, // no env_file
         )
         .unwrap();
     }
@@ -4242,7 +4299,7 @@ resources:
         .unwrap();
         // Plan with nonexistent state dir → everything shows as Create
         let missing = dir.path().join("no-state");
-        cmd_plan(&config, &missing, None, None, None, false, false, None).unwrap();
+        cmd_plan(&config, &missing, None, None, None, false, false, None, None).unwrap();
     }
 
     #[test]
@@ -4270,7 +4327,7 @@ resources:
         )
         .unwrap();
         // json=true should not panic (output goes to stdout)
-        cmd_plan(&config, &state, None, None, None, true, false, None).unwrap();
+        cmd_plan(&config, &state, None, None, None, true, false, None, None).unwrap();
     }
 
     #[test]
@@ -4297,7 +4354,7 @@ resources:
 "#,
         )
         .unwrap();
-        cmd_plan(&config, &state, None, None, None, false, true, None).unwrap();
+        cmd_plan(&config, &state, None, None, None, false, true, None, None).unwrap();
     }
 
     #[test]
@@ -4339,6 +4396,7 @@ resources:
             false,
             false,
             Some(&output),
+            None, // no env_file
         )
         .unwrap();
 
@@ -4406,6 +4464,7 @@ resources:
             false, // dry_run
             true,
             false,
+            None, // no env_file
         )
         .unwrap();
     }
@@ -4712,6 +4771,7 @@ resources:
             None, // no timeout
             false,
             false,
+            None, // no env_file
         )
         .unwrap();
         assert!(target.exists());
@@ -4771,6 +4831,7 @@ resources:
             None, // no timeout
             false,
             false,
+            None, // no env_file
         )
         .unwrap();
         cmd_destroy(&config, &state, None, true, true).unwrap();
@@ -4831,6 +4892,7 @@ resources:
             None, // no timeout
             false,
             false,
+            None, // no env_file
         )
         .unwrap();
         assert!(target_a.exists());
@@ -4886,6 +4948,7 @@ resources:
             None, // no timeout
             false,
             false,
+            None, // no env_file
         )
         .unwrap();
         dispatch(
@@ -4976,6 +5039,7 @@ resources:
             None, // no timeout
             false,
             false,
+            None, // no env_file
         )
         .unwrap();
         assert!(target.exists());
@@ -5044,6 +5108,7 @@ resources:
             false, // dry_run
             false,
             false,
+            None, // no env_file
         )
         .unwrap();
 
@@ -5071,6 +5136,7 @@ resources:
             false, // dry_run
             false,
             false,
+            None, // no env_file
         )
         .unwrap();
 
@@ -5128,6 +5194,7 @@ resources:
             None, // no timeout
             false,
             false,
+            None, // no env_file
         )
         .unwrap();
         assert!(std::path::Path::new(&target).exists());
@@ -5139,6 +5206,7 @@ resources:
         cmd_drift(
             &config, &state, None, false, None, true, // auto_remediate
             false, false, false,
+            None, // no env_file
         )
         .unwrap();
 
@@ -5201,6 +5269,7 @@ resources:
             true, // dry_run
             false,
             false,
+            None, // no env_file
         )
         .unwrap();
     }
@@ -6493,6 +6562,7 @@ resources:
             None,
             false,
             false,
+            None, // no env_file
         )
         .unwrap();
     }
@@ -7753,6 +7823,7 @@ resources:
             None, // no timeout
             true,
             false,
+            None, // no env_file
         );
         assert!(result.is_ok());
     }
@@ -7828,6 +7899,7 @@ resources:
                 state_dir: state,
                 timeout: None,
                 json: true,
+                env_file: None,
             },
             false,
         )
@@ -8196,5 +8268,188 @@ resources: {}
         let dir = tempfile::tempdir().unwrap();
         let file = write_output_config(dir.path());
         cmd_output(&file, Some("host_ip"), false).unwrap();
+    }
+
+    // ================================================================
+    // FJ-211: env file loading tests
+    // ================================================================
+
+    fn write_env_config(dir: &Path) -> PathBuf {
+        let file = dir.join("forjar.yaml");
+        std::fs::write(
+            &file,
+            r#"
+version: "1.0"
+name: env-test
+params:
+  data_dir: /default/data
+  log_level: info
+machines:
+  m1:
+    hostname: localhost
+    addr: 127.0.0.1
+resources:
+  cfg:
+    type: file
+    machine: m1
+    path: "{{params.data_dir}}/config.yaml"
+    content: "level: {{params.log_level}}"
+"#,
+        )
+        .unwrap();
+        file
+    }
+
+    #[test]
+    fn test_fj211_load_env_params_overrides() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = write_env_config(dir.path());
+        let env = dir.path().join("prod.env.yaml");
+        std::fs::write(&env, "data_dir: /prod/data\nlog_level: warn\n").unwrap();
+
+        let mut config = parse_and_validate(&file).unwrap();
+        load_env_params(&mut config, &env).unwrap();
+
+        assert_eq!(
+            config.params.get("data_dir").unwrap(),
+            &serde_yaml_ng::Value::String("/prod/data".to_string())
+        );
+        assert_eq!(
+            config.params.get("log_level").unwrap(),
+            &serde_yaml_ng::Value::String("warn".to_string())
+        );
+    }
+
+    #[test]
+    fn test_fj211_load_env_params_partial_override() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = write_env_config(dir.path());
+        let env = dir.path().join("staging.env.yaml");
+        std::fs::write(&env, "log_level: debug\n").unwrap();
+
+        let mut config = parse_and_validate(&file).unwrap();
+        load_env_params(&mut config, &env).unwrap();
+
+        // data_dir retains default from config
+        assert_eq!(
+            config.params.get("data_dir").unwrap(),
+            &serde_yaml_ng::Value::String("/default/data".to_string())
+        );
+        // log_level overridden from env
+        assert_eq!(
+            config.params.get("log_level").unwrap(),
+            &serde_yaml_ng::Value::String("debug".to_string())
+        );
+    }
+
+    #[test]
+    fn test_fj211_load_env_params_adds_new_keys() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = write_env_config(dir.path());
+        let env = dir.path().join("extra.env.yaml");
+        std::fs::write(&env, "new_param: hello\n").unwrap();
+
+        let mut config = parse_and_validate(&file).unwrap();
+        load_env_params(&mut config, &env).unwrap();
+
+        assert_eq!(
+            config.params.get("new_param").unwrap(),
+            &serde_yaml_ng::Value::String("hello".to_string())
+        );
+    }
+
+    #[test]
+    fn test_fj211_load_env_params_file_not_found() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = write_env_config(dir.path());
+        let env = dir.path().join("missing.yaml");
+
+        let mut config = parse_and_validate(&file).unwrap();
+        let result = load_env_params(&mut config, &env);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("cannot read env file"));
+    }
+
+    #[test]
+    fn test_fj211_load_env_params_invalid_yaml() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = write_env_config(dir.path());
+        let env = dir.path().join("bad.yaml");
+        std::fs::write(&env, "[ not a mapping ]").unwrap();
+
+        let mut config = parse_and_validate(&file).unwrap();
+        let result = load_env_params(&mut config, &env);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("invalid YAML in env file"));
+    }
+
+    #[test]
+    fn test_fj211_plan_with_env_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = write_env_config(dir.path());
+        let env = dir.path().join("test.env.yaml");
+        std::fs::write(&env, "data_dir: /test/data\n").unwrap();
+        let state = dir.path().join("state");
+        std::fs::create_dir_all(&state).unwrap();
+
+        cmd_plan(
+            &file,
+            &state,
+            None,
+            None,
+            None,
+            false,
+            false,
+            None,
+            Some(env.as_path()),
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn test_fj211_apply_with_env_file() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = write_env_config(dir.path());
+        let env = dir.path().join("test.env.yaml");
+        std::fs::write(&env, "data_dir: /tmp/forjar-fj211-env\n").unwrap();
+        let state = dir.path().join("state");
+        std::fs::create_dir_all(&state).unwrap();
+
+        cmd_apply(
+            &file,
+            &state,
+            None,
+            None,
+            None,
+            false,
+            true, // dry_run
+            false,
+            &[],
+            false,
+            None,
+            false,
+            false,
+            Some(env.as_path()),
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn test_fj211_env_file_overridden_by_param() {
+        // Env file sets a value, then --param overrides it further
+        let dir = tempfile::tempdir().unwrap();
+        let file = write_env_config(dir.path());
+        let env = dir.path().join("base.env.yaml");
+        std::fs::write(&env, "log_level: debug\n").unwrap();
+
+        let mut config = parse_and_validate(&file).unwrap();
+        load_env_params(&mut config, &env).unwrap();
+        apply_param_overrides(&mut config, &["log_level=trace".to_string()]).unwrap();
+
+        // --param should win over env file
+        assert_eq!(
+            config.params.get("log_level").unwrap(),
+            &serde_yaml_ng::Value::String("trace".to_string())
+        );
     }
 }

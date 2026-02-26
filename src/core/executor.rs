@@ -461,21 +461,33 @@ fn apply_machine(
     // FJ-216: Execute resources — parallel waves or sequential
     if cfg.config.policy.parallel_resources && machine_changes.len() > 1 {
         // Build parallel waves for this machine's changes
-        let change_ids: Vec<&str> = machine_changes.iter().map(|c| c.resource_id.as_str()).collect();
+        let change_ids: Vec<&str> = machine_changes
+            .iter()
+            .map(|c| c.resource_id.as_str())
+            .collect();
         let waves = compute_resource_waves(cfg.config, &change_ids);
 
         'wave_loop: for wave in &waves {
             if wave.len() == 1 {
                 // Single resource — no parallelism needed
                 if let Some(change) = machine_changes.iter().find(|c| c.resource_id == wave[0]) {
-                    let outcome = apply_and_record_outcome(cfg, change, machine, &mut ctx, &mut trace_session, machine_name)?;
+                    let outcome = apply_and_record_outcome(
+                        cfg,
+                        change,
+                        machine,
+                        &mut ctx,
+                        &mut trace_session,
+                        machine_name,
+                    )?;
                     match outcome {
                         ResourceOutcome::Converged => converged += 1,
                         ResourceOutcome::Unchanged => unchanged += 1,
                         ResourceOutcome::Skipped => {}
                         ResourceOutcome::Failed { should_stop } => {
                             failed += 1;
-                            if should_stop { break 'wave_loop; }
+                            if should_stop {
+                                break 'wave_loop;
+                            }
                         }
                     }
                 }
@@ -485,15 +497,27 @@ fn apply_machine(
                 // Arc<Mutex<RecordCtx>> which adds complexity. For now, we execute waves
                 // sequentially but validate the wave structure for future parallel execution.
                 for resource_id in wave {
-                    if let Some(change) = machine_changes.iter().find(|c| c.resource_id == *resource_id) {
-                        let outcome = apply_and_record_outcome(cfg, change, machine, &mut ctx, &mut trace_session, machine_name)?;
+                    if let Some(change) = machine_changes
+                        .iter()
+                        .find(|c| c.resource_id == *resource_id)
+                    {
+                        let outcome = apply_and_record_outcome(
+                            cfg,
+                            change,
+                            machine,
+                            &mut ctx,
+                            &mut trace_session,
+                            machine_name,
+                        )?;
                         match outcome {
                             ResourceOutcome::Converged => converged += 1,
                             ResourceOutcome::Unchanged => unchanged += 1,
                             ResourceOutcome::Skipped => {}
                             ResourceOutcome::Failed { should_stop } => {
                                 failed += 1;
-                                if should_stop { break 'wave_loop; }
+                                if should_stop {
+                                    break 'wave_loop;
+                                }
                             }
                         }
                     }
@@ -503,14 +527,23 @@ fn apply_machine(
     } else {
         // Sequential execution (default)
         for change in &machine_changes {
-            let outcome = apply_and_record_outcome(cfg, change, machine, &mut ctx, &mut trace_session, machine_name)?;
+            let outcome = apply_and_record_outcome(
+                cfg,
+                change,
+                machine,
+                &mut ctx,
+                &mut trace_session,
+                machine_name,
+            )?;
             match outcome {
                 ResourceOutcome::Converged => converged += 1,
                 ResourceOutcome::Unchanged => unchanged += 1,
                 ResourceOutcome::Skipped => {}
                 ResourceOutcome::Failed { should_stop } => {
                     failed += 1;
-                    if should_stop { break; }
+                    if should_stop {
+                        break;
+                    }
                 }
             }
         }
