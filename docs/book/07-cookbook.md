@@ -971,10 +971,66 @@ steps:
   - run: forjar apply -f forjar.yaml --state-dir state/
 ```
 
+### Age-Encrypted Secrets (FJ-200)
+
+For secrets that should live alongside your config in git, use age encryption:
+
+```bash
+# Generate an age keypair
+forjar secrets keygen > ~/.forjar/identity.txt
+# Output:
+# created: 2026-02-26
+# public key: age1abc...xyz
+# AGE-SECRET-KEY-1...
+
+# Encrypt a secret value
+forjar secrets encrypt "s3cur3-p@ssw0rd" -r age1abc...xyz
+# Output: ENC[age,YWdlLWVuY3J5cH...]
+
+# Paste the marker directly in your YAML
+```
+
+```yaml
+resources:
+  db-config:
+    type: file
+    machine: web
+    path: /etc/myapp/database.yml
+    content: |
+      host: {{params.db_host}}
+      password: ENC[age,YWdlLWVuY3J5cH...]
+    mode: "0600"
+```
+
+```bash
+# Apply with identity
+export FORJAR_AGE_KEY="AGE-SECRET-KEY-1..."
+forjar apply -f forjar.yaml
+
+# View decrypted config without applying
+forjar secrets view -f forjar.yaml
+
+# Re-encrypt all secrets with a new key
+forjar secrets rekey -f forjar.yaml -r age1newkey...
+```
+
+Multi-recipient encryption for teams:
+
+```bash
+# Encrypt for multiple team members
+forjar secrets encrypt "shared-secret" \
+  -r age1alice... \
+  -r age1bob... \
+  -r age1carol...
+```
+
 Best practices:
-- Never commit secrets in `forjar.yaml` — use `{{secrets.*}}` interpolation
+- Use `ENC[age,...]` markers for secrets committed to git
+- Use `{{secrets.*}}` env vars for CI/CD secrets (GitHub Actions, etc.)
+- Keep identity files out of git (`.gitignore`)
+- Use multi-recipient encryption for team access
+- Use `forjar secrets rekey` when rotating keys or adding team members
 - Use `forjar lint` to detect hardcoded secrets (checks for common patterns)
-- Rotate secrets by updating the environment variable and re-applying
 
 ## Performance Monitoring
 

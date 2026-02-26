@@ -41,7 +41,7 @@ Forjar treats the machine as a **knowable system**. It uses Rust to generate pro
 | Shell safety | None | None | None | **bashrs purification** |
 | Speed | Seconds-minutes | Seconds-minutes | Minutes | **Milliseconds-seconds** |
 | Bare metal | Weak (provisioner hacks) | Weak | Strong | **First-class** |
-| External deps | ~200 Go modules | ~500 npm/pip packages | ~50 Python packages | **15 crates** |
+| External deps | ~200 Go modules | ~500 npm/pip packages | ~50 Python packages | **16 crates** |
 | Secrets | Vault/sensitive/KMS | ESC/BYOK | Ansible Vault | **age encryption (v0.7)** |
 | Conditionals | `count`/`for_each`/`dynamic` | Native loops | `when:` | **`when:`/`for_each:` (v0.7)** |
 | Multi-env | Workspaces/Stacks | Stacks/ESC | Inventory groups | **Workspaces (v0.8)** |
@@ -128,6 +128,7 @@ src/
     purifier.rs         Shell script validation via bashrs (FJ-036)
     migrate.rs          Docker-to-pepita resource migration (FJ-044)
     conditions.rs       When-expression evaluation for conditional resources (FJ-202)
+    secrets.rs          Age-encrypted secret values, ENC[age,...] markers (FJ-200)
   tripwire/
     mod.rs              Provenance tracing orchestration
     hasher.rs           BLAKE3 file/directory/state hashing
@@ -1585,7 +1586,7 @@ Shows current state from lock files: project name, last apply, per-machine resou
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-200 | `core/secrets.rs` — age-encrypted secret values. `forjar secrets encrypt/decrypt/edit/rekey` CLI. Secrets stored as `ENC[age,...]` markers in forjar.yaml, decrypted at resolve time. Identity from `FORJAR_AGE_KEY` env var or `--identity` flag. Replaces env-var-only `{{secrets.*}}` with encrypted-at-rest values committed to git. | Planned |
+| FJ-200 | `core/secrets.rs` — age-encrypted secret values. `forjar secrets encrypt/decrypt/keygen/view/rekey` CLI. Secrets stored as `ENC[age,...]` markers in forjar.yaml, decrypted at resolve time. Identity from `FORJAR_AGE_KEY` env var or `--identity` flag. Coexists with `{{secrets.*}}` env-var approach. 29 tests, dogfood-age-secrets.yaml. | **Done** |
 | FJ-201 | Secret rotation helpers — `forjar secrets rotate --re-encrypt` re-encrypts all values with a new key. `--recipients` for multi-recipient (team) encryption. Audit log of secret access in events.jsonl. | Planned |
 | FJ-202 | Conditional resources — `when:` field on resources. Expression language: `{{machine.arch}} == "x86_64"`, `{{params.env}} != "production"`, `{{machine.roles contains "gpu"}}`. Evaluated at plan time, false resources excluded from plan + execution. New `core/conditions.rs` module. 28 tests, dogfood-conditions.yaml (14th config). | **Done** |
 | FJ-203 | `for_each:` on resources — instantiate a resource template per item. `for_each: [alice, bob]` expands `resource-alice`, `resource-bob`. `{{item}}` template resolved in all string fields. Deps referencing expanded resources rewritten to last copy. 20 tests (parser + planner integration), dogfood-iteration.yaml (15th config). | **Done** |

@@ -69,6 +69,7 @@ src/
     recipe.rs            Recipe loading, input validation, namespaced expansion
     migrate.rs           Docker-to-pepita resource migration (FJ-044)
     conditions.rs        When-expression evaluation for conditional resources (FJ-202)
+    secrets.rs           Age-encrypted secrets — ENC[age,...] markers, identity mgmt (FJ-200)
   resources/
     mod.rs               Resource type registry
     package.rs           apt/cargo/uv package management

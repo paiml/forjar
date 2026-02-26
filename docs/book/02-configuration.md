@@ -416,6 +416,48 @@ If a secret is missing, forjar exits with a clear error message naming the expec
 
 Secrets are never written to forjar.yaml, state files, or git. They exist only in memory during apply.
 
+### Age-Encrypted Secrets (FJ-200)
+
+For secrets that need to be committed to git, use age encryption. Values are stored as `ENC[age,...]` markers in forjar.yaml and decrypted at resolve time.
+
+```bash
+# Generate an age identity (keypair)
+forjar secrets keygen > identity.txt
+
+# Encrypt a value
+forjar secrets encrypt "my-db-password" -r age1abc...
+
+# Paste the ENC[age,...] marker into your YAML
+```
+
+```yaml
+resources:
+  db-config:
+    type: file
+    machine: m1
+    path: /etc/app/database.conf
+    content: |
+      host=db.internal
+      password=ENC[age,YWdlLWVuY3J5cH...]
+    mode: "0600"
+```
+
+At apply time, forjar decrypts markers using the identity from `FORJAR_AGE_KEY` env var or `--identity` flag:
+
+```bash
+export FORJAR_AGE_KEY="AGE-SECRET-KEY-1..."
+forjar apply -f forjar.yaml
+```
+
+Both approaches coexist — `{{secrets.key}}` for env-var secrets, `ENC[age,...]` for encrypted-at-rest.
+
+CLI commands:
+- `forjar secrets keygen` — generate a new age identity
+- `forjar secrets encrypt VALUE -r RECIPIENT` — encrypt a value
+- `forjar secrets decrypt MARKER` — decrypt a marker
+- `forjar secrets view -f FILE` — decrypt and display all secrets in a file
+- `forjar secrets rekey -f FILE -r NEW_RECIPIENT` — re-encrypt with new keys
+
 ## Policy
 
 ```yaml
