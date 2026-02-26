@@ -513,6 +513,60 @@ forjar validate -f new.yaml
 forjar plan -f new.yaml
 ```
 
+## Workspaces
+
+Workspaces provide isolated state directories for multi-environment workflows. Each workspace stores state in `state/<workspace>/<machine>/`.
+
+```bash
+# Create and select a workspace
+forjar workspace new staging
+forjar workspace new production
+
+# List workspaces (* = active)
+forjar workspace list
+
+# Switch workspace
+forjar workspace select production
+
+# Show current workspace
+forjar workspace current
+
+# Delete a workspace
+forjar workspace delete staging --yes
+```
+
+### Using workspaces with commands
+
+Use `-w <name>` to override the active workspace:
+
+```bash
+# Plan against staging state
+forjar plan -f forjar.yaml -w staging
+
+# Apply to production
+forjar apply -f forjar.yaml -w production
+
+# Drift check for staging
+forjar drift -f forjar.yaml -w staging
+```
+
+The `{{params.workspace}}` template variable is automatically injected, enabling workspace-aware configs:
+
+```yaml
+resources:
+  config:
+    type: file
+    machine: web
+    path: "/etc/app/{{params.workspace}}.conf"
+    content: "env={{params.workspace}}"
+```
+
+**Workspace resolution** (first match wins):
+
+1. `-w <name>` flag on command
+2. `.forjar/workspace` file (set by `workspace select`)
+3. `"default"` (no workspace isolation)
+
 ## Environment Files
 
 Use `--env-file` to load param overrides from an external YAML file. This enables
