@@ -1,0 +1,39 @@
+version: "1.0"
+name: dogfood-repartir
+description: "Dogfood: repartir worker deployment on compute nodes"
+
+params:
+  worker_port: "9000"
+
+machines:
+  worker-1:
+    hostname: worker-1
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-dogfood-repartir-1
+      ephemeral: true
+      privileged: false
+      init: true
+
+resources:
+  repartir:
+    type: recipe
+    machine: worker-1
+    recipe: repartir-worker
+    inputs:
+      listen_port: 9000
+      tls_cert: examples/files/test-cert.pem
+      tls_key: examples/files/test-key.pem
+      max_tasks: 4
+      backends: cpu
+      user: repartir
+
+policy:
+  failure: stop_on_first
+  tripwire: true
+  lock_file: true

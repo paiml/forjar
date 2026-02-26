@@ -1,0 +1,141 @@
+# Recipe: repartir-worker — Distributed execution worker node
+#
+# Deploys a repartir remote TCP/TLS executor as a systemd service.
+# Used for distributed inference: deploy to N worker machines, then
+# point apr-inference-server at the workers with --distributed flag.
+#
+# Inputs:
+#   listen_port (int, default: 9000) — TCP listen port
+#   tls_cert (string) — path to TLS certificate file
+#   tls_key (string) — path to TLS private key file
+#   max_tasks (int, default: 4) — concurrent task limit
+#   backends (enum, default: cpu) — compute backend type
+#   user (string, default: repartir) — service account
+
+recipe:
+  name: repartir-worker
+  version: "1.0"
+  description: "Repartir distributed execution worker — TCP/TLS task executor"
+  inputs:
+    listen_port:
+      type: int
+      default: 9000
+      min: 1
+      max: 65535
+    tls_cert:
+      type: string
+      description: "Path to TLS certificate (PEM)"
+    tls_key:
+      type: string
+      description: "Path to TLS private key (PEM)"
+    max_tasks:
+      type: int
+      default: 4
+      min: 1
+      max: 64
+    backends:
+      type: enum
+      choices: [cpu, gpu, microvm]
+      default: cpu
+    user:
+      type: string
+      default: repartir
+
+resources:
+  worker-user:
+    type: user
+    name: "{{inputs.user}}"
+    shell: /usr/sbin/nologin
+    home: /opt/repartir
+    system_user: true
+    depends_on: []
+
+  worker-dirs:
+    type: file
+    state: directory
+    path: /opt/repartir
+    owner: "{{inputs.user}}"
+    mode: "0755"
+    depends_on: [worker-user]
+
+  worker-tls-dir:
+    type: file
+    state: directory
+    path: /opt/repartir/tls
+    owner: "{{inputs.user}}"
+    mode: "0700"
+    depends_on: [worker-dirs]
+
+  worker-pkg:
+    type: package
+    provider: cargo
+    packages: [repartir-worker]
+    depends_on: []
+
+  worker-config:
+    type: file
+    path: /opt/repartir/config.yaml
+    content: |
+      listen: 0.0.0.0:{{inputs.listen_port}}
+      tls:
+        cert: /opt/repartir/tls/cert.pem
+        key: /opt/repartir/tls/key.pem
+      max_tasks: {{inputs.max_tasks}}
+      backends: [{{inputs.backends}}]
+      log_level: info
+    owner: "{{inputs.user}}"
+    mode: "0640"
+    depends_on: [worker-tls-dir]
+
+  worker-tls-cert:
+    type: file
+    path: /opt/repartir/tls/cert.pem
+    source: "{{inputs.tls_cert}}"
+    owner: "{{inputs.user}}"
+    mode: "0644"
+    depends_on: [worker-tls-dir]
+
+  worker-tls-key:
+    type: file
+    path: /opt/repartir/tls/key.pem
+    source: "{{inputs.tls_key}}"
+    owner: "{{inputs.user}}"
+    mode: "0600"
+    depends_on: [worker-tls-dir]
+
+  worker-systemd-unit:
+    type: file
+    path: /etc/systemd/system/repartir-worker.service
+    content: |
+      [Unit]
+      Description=Repartir Distributed Execution Worker
+      After=network.target
+
+      [Service]
+      Type=simple
+      User={{inputs.user}}
+      ExecStart=/usr/local/bin/repartir-worker --config /opt/repartir/config.yaml
+      Restart=on-failure
+      RestartSec=5
+      LimitNOFILE=65535
+
+      [Install]
+      WantedBy=multi-user.target
+    owner: root
+    mode: "0644"
+    depends_on: [worker-pkg, worker-config, worker-tls-cert, worker-tls-key]
+
+  worker-service:
+    type: service
+    name: repartir-worker
+    state: running
+    enabled: true
+    restart_on: [worker-systemd-unit, worker-config, worker-tls-cert, worker-tls-key]
+    depends_on: [worker-systemd-unit]
+
+  worker-firewall:
+    type: network
+    port: "{{inputs.listen_port}}"
+    protocol: tcp
+    action: allow
+    depends_on: [worker-service]
