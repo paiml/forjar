@@ -1584,8 +1584,8 @@ Shows current state from lock files: project name, last apply, per-machine resou
 | FJ-200 | `core/secrets.rs` — age-encrypted secret values. `forjar secrets encrypt/decrypt/edit/rekey` CLI. Secrets stored as `ENC[age,...]` markers in forjar.yaml, decrypted at resolve time. Identity from `FORJAR_AGE_KEY` env var or `--identity` flag. Replaces env-var-only `{{secrets.*}}` with encrypted-at-rest values committed to git. | Planned |
 | FJ-201 | Secret rotation helpers — `forjar secrets rotate --re-encrypt` re-encrypts all values with a new key. `--recipients` for multi-recipient (team) encryption. Audit log of secret access in events.jsonl. | Planned |
 | FJ-202 | Conditional resources — `when:` field on resources. Expression language: `{{machine.arch}} == "x86_64"`, `{{params.env}} != "production"`, `{{machine.roles contains "gpu"}}`. Evaluated at plan time, false resources excluded from plan + execution. New `core/conditions.rs` module. 28 tests, dogfood-conditions.yaml (14th config). | **Done** |
-| FJ-203 | `for_each:` on resources — instantiate a resource template per item. `for_each: {{params.users}}` expands `resource-{item}` per list entry. Works with `when:` for filtered iteration. | Planned |
-| FJ-204 | `count:` on resources — numeric multiplier. `count: 3` creates `resource-0`, `resource-1`, `resource-2`. `{{index}}` template variable available inside counted resources. | Planned |
+| FJ-203 | `for_each:` on resources — instantiate a resource template per item. `for_each: [alice, bob]` expands `resource-alice`, `resource-bob`. `{{item}}` template resolved in all string fields. Deps referencing expanded resources rewritten to last copy. 20 tests (parser + planner integration), dogfood-iteration.yaml (15th config). | **Done** |
+| FJ-204 | `count:` on resources — numeric multiplier. `count: 3` creates `resource-0`, `resource-1`, `resource-2`. `{{index}}` template resolved in all string fields. Validation rejects count: 0 and count + for_each on same resource. expand_resources() in parser.rs runs after expand_recipes(). 20 tests, dogfood-iteration.yaml. | **Done** |
 | FJ-205 | `--json` output for plan/apply/drift/status — structured machine-readable JSON on stdout. Plan JSON includes resource diffs, action types, dependency order. Apply JSON includes per-resource timing, exit codes, hashes. Drift JSON includes expected vs actual hashes. | **Done** |
 
 ### Phase 8: Multi-Environment & State Surgery (v0.8)
@@ -1730,7 +1730,7 @@ cargo test --features container-test
 
 ### 10.6 Dogfood Workflow
 
-14 dogfood configs exercise all 9 resource types and cross-cutting features. Container transport configs enable end-to-end testing without root or host pollution; localhost configs validate codegen and planning.
+15 dogfood configs exercise all 9 resource types and cross-cutting features. Container transport configs enable end-to-end testing without root or host pollution; localhost configs validate codegen and planning.
 
 | Config | Resource types | What it proves |
 |--------|---------------|----------------|
@@ -1748,6 +1748,7 @@ cargo test --features container-test
 | `dogfood-secrets.yaml` | file | Template interpolation with `{{params.*}}` secrets |
 | `dogfood-hooks.yaml` | file | Pre/post apply hooks, lifecycle callbacks |
 | `dogfood-conditions.yaml` | file, package | Conditional resources (`when:`), expression evaluation |
+| `dogfood-iteration.yaml` | file | Resource iteration: `count:` ({{index}}), `for_each:` ({{item}}), dep rewriting |
 
 **Dogfood verification workflow** (run after any codegen, transport, or executor change):
 

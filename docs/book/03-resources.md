@@ -828,6 +828,46 @@ resources:
 
 Supported operators: `==`, `!=`, `contains`. Template variables: `{{machine.arch}}`, `{{machine.hostname}}`, `{{machine.addr}}`, `{{machine.user}}`, `{{machine.roles}}`, `{{params.*}}`.
 
+### Resource Iteration
+
+Use `count:` or `for_each:` to create multiple resources from a single declaration.
+
+**count:** creates N copies with `{{index}}` (0-based):
+
+```yaml
+resources:
+  data-shard:
+    type: file
+    machine: m1
+    state: directory
+    path: "/data/shard-{{index}}"
+    mode: "0755"
+    count: 3
+    # Expands to: data-shard-0, data-shard-1, data-shard-2
+    # Paths: /data/shard-0, /data/shard-1, /data/shard-2
+```
+
+**for_each:** creates per-item copies with `{{item}}`:
+
+```yaml
+resources:
+  user-home:
+    type: file
+    machine: m1
+    state: directory
+    path: "/home/{{item}}"
+    owner: "{{item}}"
+    mode: "0750"
+    for_each: [alice, bob, charlie]
+    # Expands to: user-home-alice, user-home-bob, user-home-charlie
+```
+
+Template variables `{{index}}` and `{{item}}` are replaced in: `path`, `content`, `name`, `owner`, `source`, `target`, `port`, and `packages`.
+
+Dependencies referencing an expanded resource are rewritten to point at the last expanded copy. For example, `depends_on: [shards]` becomes `depends_on: [shards-2]` when shards has `count: 3`.
+
+A resource cannot have both `count:` and `for_each:`. Validation rejects `count: 0` and empty `for_each: []`.
+
 ### Resource State Lifecycle
 
 Every resource goes through a defined lifecycle during apply:

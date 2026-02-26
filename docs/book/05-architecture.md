@@ -59,7 +59,7 @@ src/
     mod.rs               MCP server via pforge — 9 tool handlers (FJ-063)
   core/
     types.rs             All serde types (ForjarConfig, Resource, StateLock, etc.)
-    parser.rs            YAML parsing + structural validation
+    parser.rs            YAML parsing, validation, recipe + resource expansion
     resolver.rs          Template resolution + Kahn's topological sort
     planner.rs           Desired-state diffing via BLAKE3 hash comparison
     codegen.rs           Shell script generation (dispatches to resources/)
