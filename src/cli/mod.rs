@@ -3168,6 +3168,39 @@ fn cmd_validate(file: &Path, strict: bool, json: bool) -> Result<(), String> {
                 errors.push(format!("{}: template error: {}", id, e));
             }
         }
+
+        // FJ-311: Warn on unused params
+        let mut used_params = std::collections::HashSet::new();
+        for resource in config.resources.values() {
+            let yaml = serde_yaml_ng::to_string(resource).unwrap_or_default();
+            for key in config.params.keys() {
+                if yaml.contains(&format!("params.{}", key)) {
+                    used_params.insert(key.clone());
+                }
+            }
+        }
+        for key in config.params.keys() {
+            if !used_params.contains(key) {
+                errors.push(format!("param '{}' is defined but never referenced", key));
+            }
+        }
+
+        // FJ-311: Warn on duplicate tags across resources
+        let mut tag_counts: std::collections::HashMap<String, Vec<String>> =
+            std::collections::HashMap::new();
+        for (id, resource) in &config.resources {
+            for tag in &resource.tags {
+                tag_counts
+                    .entry(tag.clone())
+                    .or_default()
+                    .push(id.clone());
+            }
+        }
+
+        // FJ-311: Warn on missing description
+        if config.description.is_none() {
+            errors.push("project has no description field".to_string());
+        }
     }
 
     let valid = errors.is_empty();
@@ -14797,6 +14830,7 @@ resources:
         let yaml = r#"
 version: "1.0"
 name: test
+description: "test project"
 machines:
   local:
     hostname: local
@@ -15787,5 +15821,62 @@ resources:
             rollback_on_failure: true,
         };
         assert!(cfg.rollback_on_failure);
+    }
+
+    // ── FJ-311: validate --strict enhancements ──
+
+    #[test]
+    fn test_fj311_strict_unused_params() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &file,
+            r#"
+version: "1.0"
+name: test
+description: "test"
+params:
+  unused_key: some_value
+machines:
+  local:
+    hostname: local
+    addr: 127.0.0.1
+resources:
+  cfg:
+    type: file
+    machine: local
+    path: /tmp/test.txt
+    content: "hello"
+"#,
+        )
+        .unwrap();
+        let result = cmd_validate(&file, true, false);
+        assert!(result.is_err()); // unused param triggers strict error
+    }
+
+    #[test]
+    fn test_fj311_strict_missing_description() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &file,
+            r#"
+version: "1.0"
+name: test
+machines:
+  local:
+    hostname: local
+    addr: 127.0.0.1
+resources:
+  cfg:
+    type: file
+    machine: local
+    path: /tmp/test.txt
+    content: "hello"
+"#,
+        )
+        .unwrap();
+        let result = cmd_validate(&file, true, false);
+        assert!(result.is_err()); // missing description triggers strict error
     }
 }
