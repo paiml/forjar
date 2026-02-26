@@ -640,6 +640,28 @@ Key differences:
 
 Multiple triggers are supported: `triggers: [config-a, config-b]` fires if **either** source converges.
 
+## Notification Hooks
+
+Configure `policy.notify` to run shell commands after apply or drift events:
+
+```yaml
+policy:
+  notify:
+    on_success: "curl -X POST https://hooks.slack.com/... -d '{\"text\": \"{{machine}}: {{converged}} converged\"}'"
+    on_failure: "echo 'ALERT: {{machine}} failed {{failed}} resources' | mail -s 'forjar failure' ops@example.com"
+    on_drift: "echo 'Drift detected on {{machine}}: {{drift_count}} resources' >> /var/log/drift.log"
+```
+
+Template variables:
+
+| Hook | Variables |
+|------|-----------|
+| `on_success` | `{{machine}}`, `{{converged}}`, `{{unchanged}}`, `{{failed}}` |
+| `on_failure` | `{{machine}}`, `{{converged}}`, `{{unchanged}}`, `{{failed}}` |
+| `on_drift` | `{{machine}}`, `{{drift_count}}` |
+
+Notification hooks are **advisory** — failures are logged as warnings but do not affect the exit code. Hooks run per machine after apply/drift completes.
+
 ## Data Sources
 
 Define external data sources in the `data:` block. Values are resolved once at plan time and available as `{{data.key}}` templates:

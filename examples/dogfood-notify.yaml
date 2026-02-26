@@ -1,0 +1,33 @@
+version: "1.0"
+name: dogfood-notify
+description: "FJ-225: Notification hooks — on_success, on_failure, on_drift"
+
+machines:
+  local:
+    hostname: localhost
+    addr: 127.0.0.1
+
+resources:
+  config:
+    type: file
+    machine: local
+    path: /opt/app/config.yaml
+    content: |
+      version: "1.0"
+    owner: root
+    mode: "0644"
+    tags: [config]
+
+  health-check:
+    type: file
+    machine: local
+    path: /opt/app/health.txt
+    content: "ok"
+    depends_on: [config]
+    tags: [monitoring]
+
+policy:
+  notify:
+    on_success: "echo '[OK] {{machine}}: {{converged}} converged, {{unchanged}} unchanged'"
+    on_failure: "echo '[FAIL] {{machine}}: {{failed}} failed, {{converged}} converged'"
+    on_drift: "echo '[DRIFT] {{machine}}: {{drift_count}} drifted resources'"

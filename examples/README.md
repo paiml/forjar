@@ -51,6 +51,7 @@ Validate any config with `cargo run -- validate -f examples/<config>`.
 | `dogfood-policies.yaml` | file, package | Policy-as-code: require/deny/warn rules, plan-time enforcement |
 | `dogfood-data.yaml` | file | Data sources: `data:` block, file/command/dns types, `{{data.*}}` templates |
 | `dogfood-triggers.yaml` | file, service | General-purpose triggers: force re-apply when dependencies change |
+| `dogfood-notify.yaml` | file | Notification hooks: on_success/on_failure/on_drift shell commands |
 
 ## Supporting Assets
 
