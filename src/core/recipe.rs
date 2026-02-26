@@ -776,6 +776,7 @@ resources: {}
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            resource_group: None,
             when: None,
             count: None,
             for_each: None,
@@ -800,8 +801,8 @@ resources: {}
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
-        pre_apply: None,
-        post_apply: None,
+            pre_apply: None,
+            post_apply: None,
         };
         let mut inputs = HashMap::new();
         inputs.insert("vol".to_string(), "raid".to_string());
@@ -1055,6 +1056,7 @@ resources:
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            resource_group: None,
             when: None,
             count: None,
             for_each: None,
@@ -1079,8 +1081,8 @@ resources:
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
-        pre_apply: None,
-        post_apply: None,
+            pre_apply: None,
+            post_apply: None,
         };
         let mut inputs = HashMap::new();
         inputs.insert("user".to_string(), "admin".to_string());

@@ -49,6 +49,7 @@ fn main() {
         inputs: std::collections::HashMap::new(),
         arch: vec![],
         tags: vec![],
+            resource_group: None,
         when: None,
         count: None,
         for_each: None,
@@ -73,8 +74,8 @@ fn main() {
         persistence_mode: None,
         compute_mode: None,
         gpu_memory_limit_mb: None,
-    pre_apply: None,
-    post_apply: None,
+        pre_apply: None,
+        post_apply: None,
     };
 
     println!("-- Check script --");
@@ -127,6 +128,7 @@ fn main() {
         inputs: std::collections::HashMap::new(),
         arch: vec![],
         tags: vec![],
+            resource_group: None,
         when: None,
         count: None,
         for_each: None,
@@ -151,8 +153,8 @@ fn main() {
         persistence_mode: None,
         compute_mode: None,
         gpu_memory_limit_mb: None,
-    pre_apply: None,
-    post_apply: None,
+        pre_apply: None,
+        post_apply: None,
     };
 
     println!("-- Apply script --");
@@ -201,6 +203,7 @@ fn main() {
         inputs: std::collections::HashMap::new(),
         arch: vec![],
         tags: vec![],
+            resource_group: None,
         when: None,
         count: None,
         for_each: None,
@@ -225,8 +228,8 @@ fn main() {
         persistence_mode: None,
         compute_mode: None,
         gpu_memory_limit_mb: None,
-    pre_apply: None,
-    post_apply: None,
+        pre_apply: None,
+        post_apply: None,
     };
 
     println!("-- Apply script (base64 transfer) --");
@@ -275,6 +278,7 @@ fn main() {
         inputs: std::collections::HashMap::new(),
         arch: vec![],
         tags: vec![],
+            resource_group: None,
         when: None,
         count: None,
         for_each: None,
@@ -299,8 +303,8 @@ fn main() {
         persistence_mode: None,
         compute_mode: None,
         gpu_memory_limit_mb: None,
-    pre_apply: None,
-    post_apply: None,
+        pre_apply: None,
+        post_apply: None,
     };
 
     println!("-- Apply script --");
@@ -349,6 +353,7 @@ fn main() {
         inputs: std::collections::HashMap::new(),
         arch: vec![],
         tags: vec![],
+            resource_group: None,
         when: None,
         count: None,
         for_each: None,
@@ -373,8 +378,8 @@ fn main() {
         persistence_mode: None,
         compute_mode: None,
         gpu_memory_limit_mb: None,
-    pre_apply: None,
-    post_apply: None,
+        pre_apply: None,
+        post_apply: None,
     };
 
     println!("-- Apply script --");
@@ -423,6 +428,7 @@ fn main() {
         inputs: std::collections::HashMap::new(),
         arch: vec![],
         tags: vec![],
+            resource_group: None,
         when: None,
         count: None,
         for_each: None,
@@ -447,8 +453,8 @@ fn main() {
         persistence_mode: None,
         compute_mode: None,
         gpu_memory_limit_mb: None,
-    pre_apply: None,
-    post_apply: None,
+        pre_apply: None,
+        post_apply: None,
     };
 
     println!("-- Check script --");
@@ -499,6 +505,7 @@ fn main() {
         inputs: std::collections::HashMap::new(),
         arch: vec![],
         tags: vec![],
+            resource_group: None,
         when: None,
         count: None,
         for_each: None,
@@ -523,8 +530,8 @@ fn main() {
         persistence_mode: None,
         compute_mode: None,
         gpu_memory_limit_mb: None,
-    pre_apply: None,
-    post_apply: None,
+        pre_apply: None,
+        post_apply: None,
     };
 
     println!("-- Apply script --");
@@ -573,6 +580,7 @@ fn main() {
         inputs: std::collections::HashMap::new(),
         arch: vec![],
         tags: vec![],
+            resource_group: None,
         when: None,
         count: None,
         for_each: None,
@@ -597,8 +605,8 @@ fn main() {
         persistence_mode: None,
         compute_mode: None,
         gpu_memory_limit_mb: None,
-    pre_apply: None,
-    post_apply: None,
+        pre_apply: None,
+        post_apply: None,
     };
 
     println!("-- Apply script --");
@@ -647,6 +655,7 @@ fn main() {
         inputs: std::collections::HashMap::new(),
         arch: vec![],
         tags: vec![],
+            resource_group: None,
         when: None,
         count: None,
         for_each: None,
@@ -671,8 +680,8 @@ fn main() {
         persistence_mode: None,
         compute_mode: None,
         gpu_memory_limit_mb: None,
-    pre_apply: None,
-    post_apply: None,
+        pre_apply: None,
+        post_apply: None,
     };
 
     println!("-- Apply script --");

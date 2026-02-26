@@ -93,6 +93,10 @@ pub enum Commands {
         #[arg(short, long)]
         tag: Option<String>,
 
+        /// FJ-281: Filter to resources in this group
+        #[arg(short, long)]
+        group: Option<String>,
+
         /// State directory
         #[arg(long, default_value = "state")]
         state_dir: PathBuf,
@@ -135,6 +139,10 @@ pub enum Commands {
         /// Filter to resources with this tag
         #[arg(short, long)]
         tag: Option<String>,
+
+        /// FJ-281: Filter to resources in this group
+        #[arg(short, long)]
+        group: Option<String>,
 
         /// Force re-apply all resources
         #[arg(long)]
@@ -668,6 +676,10 @@ pub enum Commands {
         #[arg(short, long)]
         tag: Option<String>,
 
+        /// FJ-281: Filter to resources in this group
+        #[arg(short, long)]
+        group: Option<String>,
+
         /// Output as JSON
         #[arg(long)]
         json: bool,
@@ -881,6 +893,7 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             machine,
             resource,
             tag,
+            group: _group,
             state_dir,
             json,
             output_dir,
@@ -908,6 +921,7 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             machine,
             resource,
             tag,
+            group,
             force,
             dry_run,
             no_tripwire,
@@ -943,6 +957,7 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
                 machine.as_deref(),
                 resource.as_deref(),
                 tag.as_deref(),
+                group.as_deref(),
                 force,
                 dry_run,
                 no_tripwire,
@@ -1141,12 +1156,14 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             machine,
             resource,
             tag,
+            group,
             json,
         } => cmd_test(
             &file,
             machine.as_deref(),
             resource.as_deref(),
             tag.as_deref(),
+            group.as_deref(),
             json,
             verbose,
         ),
@@ -1965,6 +1982,7 @@ fn cmd_rollback(
         machine_filter,
         None,  // no resource filter
         None,  // no tag filter
+        None,  // no group filter
         true,  // force — re-apply everything
         false, // not dry-run (we already checked above)
         false, // tripwire on
@@ -2552,11 +2570,13 @@ fn cmd_check(
 }
 
 /// FJ-273: Dedicated `forjar test` — runs check scripts with a formatted summary table.
+#[allow(clippy::too_many_arguments)]
 fn cmd_test(
     file: &Path,
     machine_filter: Option<&str>,
     resource_filter: Option<&str>,
     tag_filter: Option<&str>,
+    group_filter: Option<&str>,
     json: bool,
     verbose: bool,
 ) -> Result<(), String> {
@@ -2617,6 +2637,14 @@ fn cmd_test(
 
         if let Some(tag) = tag_filter {
             if !resource.tags.iter().any(|t| t == tag) {
+                total_skip += 1;
+                continue;
+            }
+        }
+
+        // FJ-281: Group filtering
+        if let Some(group) = group_filter {
+            if resource.resource_group.as_deref() != Some(group) {
                 total_skip += 1;
                 continue;
             }
@@ -3732,6 +3760,7 @@ fn cmd_apply(
     machine_filter: Option<&str>,
     resource_filter: Option<&str>,
     tag_filter: Option<&str>,
+    group_filter: Option<&str>,
     force: bool,
     dry_run: bool,
     no_tripwire: bool,
@@ -3819,6 +3848,7 @@ fn cmd_apply(
         machine_filter,
         resource_filter,
         tag_filter,
+        group_filter,
         timeout_secs,
         force_unlock,
         progress,
@@ -4169,6 +4199,7 @@ fn cmd_drift(
             machine_filter,
             None,  // no resource filter — force re-applies all
             None,  // no tag filter
+            None,  // no group filter
             true,  // force
             false, // not dry-run
             false, // tripwire on
@@ -4581,7 +4612,8 @@ fn cmd_graph(file: &Path, format: &str) -> Result<(), String> {
                             dim(&machine)
                         );
                     } else {
-                        let deps: Vec<&str> = resource.depends_on.iter().map(|s| s.as_str()).collect();
+                        let deps: Vec<&str> =
+                            resource.depends_on.iter().map(|s| s.as_str()).collect();
                         println!(
                             "  {} {} ({}, {}) <- [{}]",
                             yellow("*"),
@@ -4594,10 +4626,7 @@ fn cmd_graph(file: &Path, format: &str) -> Result<(), String> {
                 }
             }
             println!();
-            println!(
-                "{} resources in execution order.",
-                execution_order.len()
-            );
+            println!("{} resources in execution order.", execution_order.len());
         }
         other => {
             return Err(format!(
@@ -5075,6 +5104,7 @@ fn cmd_watch(
                             machine_filter: None,
                             resource_filter: None,
                             tag_filter: None,
+                            group_filter: None,
                             timeout_secs: None,
                             force_unlock: false,
                             progress: false,
@@ -6241,6 +6271,7 @@ resources:
             None,
             None,
             None,
+            None, // no group filter
             false,
             true,
             false,
@@ -6293,6 +6324,7 @@ policy:
             None,
             None,
             None,
+            None, // no group filter
             false,
             false,
             false,
@@ -6342,6 +6374,7 @@ resources: {}
             None,
             None,
             None,
+            None, // no group filter
             false,
             false,
             false,
@@ -6622,6 +6655,7 @@ resources:
                 machine: None,
                 resource: None,
                 tag: None,
+                group: None,
                 state_dir: state,
                 json: false,
                 output_dir: None,
@@ -6665,6 +6699,7 @@ resources:
                 machine: None,
                 resource: None,
                 tag: None,
+                group: None,
                 force: false,
                 dry_run: true,
                 no_tripwire: false,
@@ -6861,6 +6896,7 @@ resources:
             None,
             None,
             None,
+            None, // no group filter
             false,
             false,
             false,
@@ -6887,6 +6923,7 @@ resources:
             None,
             None,
             None,
+            None, // no group filter
             false,
             false,
             false,
@@ -7494,6 +7531,7 @@ resources:
             None,
             None,
             None,
+            None, // no group filter
             false,
             false,
             false,
@@ -7560,6 +7598,7 @@ resources:
             None,
             None,
             None,
+            None, // no group filter
             false,
             false,
             false,
@@ -7627,6 +7666,7 @@ resources:
             None,
             None,
             None,
+            None, // no group filter
             false,
             false,
             false,
@@ -7689,6 +7729,7 @@ resources:
             None,
             None,
             None,
+            None, // no group filter
             false,
             false,
             false,
@@ -7787,6 +7828,7 @@ resources:
             None,
             None,
             None,
+            None, // no group filter
             false,
             false,
             false,
@@ -7948,6 +7990,7 @@ resources:
             None,
             None,
             None,
+            None, // no group filter
             false,
             false,
             false,
@@ -9323,6 +9366,7 @@ resources:
             None,
             None,
             None,
+            None, // no group filter
             false,
             true, // dry-run
             false,
@@ -10590,6 +10634,7 @@ resources:
             None,
             None,
             None,
+            None, // no group filter
             false,
             true,
             false,
@@ -10674,6 +10719,7 @@ resources:
                 machine: None,
                 resource: None,
                 tag: None,
+                group: None,
                 force: false,
                 dry_run: true,
                 no_tripwire: false,
@@ -11214,6 +11260,7 @@ resources:
             None,
             None,
             None,
+            None, // no group filter
             false,
             true, // dry_run
             false,
@@ -11605,6 +11652,7 @@ policies:
             None,
             None,
             None,
+            None, // no group filter
             false,
             false,
             false,
@@ -11710,6 +11758,7 @@ policy:
             None,
             None,
             None,
+            None, // no group filter
             false,
             false,
             true,
@@ -11806,6 +11855,7 @@ resources:
                 machine: None,
                 resource: None,
                 tag: None,
+                group: None,
                 force: false,
                 dry_run: false,
                 no_tripwire: false,
@@ -11862,6 +11912,7 @@ resources:
                 machine: None,
                 resource: None,
                 tag: None,
+                group: None,
                 force: false,
                 dry_run: true,
                 no_tripwire: false,
@@ -12900,6 +12951,7 @@ resources:
             None,
             None,
             None,
+            None, // no group filter
             false,
             false,
             false,
@@ -12967,6 +13019,7 @@ resources:
             None,
             None,
             None,
+            None, // no group filter
             false,
             false,
             false,
@@ -13371,6 +13424,7 @@ resources:
             machine: None,
             resource: None,
             tag: None,
+            group: None,
             force: false,
             dry_run: false,
             no_tripwire: false,
@@ -13472,6 +13526,7 @@ resources:
             machine: None,
             resource: None,
             tag: None,
+            group: None,
             force: false,
             dry_run: false,
             no_tripwire: false,
@@ -13502,6 +13557,7 @@ resources:
             machine: None,
             resource: None,
             tag: None,
+            group: None,
             force: false,
             dry_run: false,
             no_tripwire: false,
@@ -13536,6 +13592,7 @@ resources:
             machine: None,
             resource: None,
             tag: None,
+            group: None,
             force: false,
             dry_run: false,
             no_tripwire: false,
@@ -13566,6 +13623,7 @@ resources:
             machine: None,
             resource: None,
             tag: None,
+            group: None,
             force: false,
             dry_run: false,
             no_tripwire: false,
@@ -13661,6 +13719,7 @@ resources:
             machine: Some("web".to_string()),
             resource: None,
             tag: None,
+            group: None,
             json: true,
         };
         match cmd {
@@ -13687,6 +13746,7 @@ resources:
                 machine: None,
                 resource: None,
                 tag: None,
+                group: None,
                 json: false,
             },
             false,
@@ -13711,6 +13771,7 @@ resources:
                 machine: None,
                 resource: None,
                 tag: None,
+                group: None,
                 json: true,
             },
             false,
@@ -13727,11 +13788,121 @@ resources:
                 machine: None,
                 resource: None,
                 tag: None,
+                group: None,
                 json: false,
             },
             false,
             true,
         );
         assert!(result.is_err());
+    }
+
+    // ========================================================================
+    // FJ-281: Resource groups
+    // ========================================================================
+
+    #[test]
+    fn test_fj281_group_field_parse() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  local:
+    hostname: localhost
+    addr: 127.0.0.1
+resources:
+  web-pkg:
+    type: file
+    machine: local
+    path: /tmp/a.txt
+    content: a
+    resource_group: network
+  db-pkg:
+    type: file
+    machine: local
+    path: /tmp/b.txt
+    content: b
+    resource_group: database
+"#;
+        let config: types::ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        assert_eq!(
+            config.resources["web-pkg"].resource_group,
+            Some("network".to_string())
+        );
+        assert_eq!(
+            config.resources["db-pkg"].resource_group,
+            Some("database".to_string())
+        );
+    }
+
+    #[test]
+    fn test_fj281_group_default_none() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  local:
+    hostname: localhost
+    addr: 127.0.0.1
+resources:
+  pkg:
+    type: file
+    machine: local
+    path: /tmp/a.txt
+    content: a
+"#;
+        let config: types::ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        assert_eq!(config.resources["pkg"].resource_group, None);
+    }
+
+    #[test]
+    fn test_fj281_apply_group_flag() {
+        let cmd = Commands::Apply {
+            file: PathBuf::from("forjar.yaml"),
+            machine: None,
+            resource: None,
+            tag: None,
+            group: Some("network".to_string()),
+            force: false,
+            dry_run: false,
+            no_tripwire: false,
+            params: vec![],
+            auto_commit: false,
+            timeout: None,
+            state_dir: PathBuf::from("state"),
+            json: false,
+            env_file: None,
+            workspace: None,
+            check: false,
+            report: false,
+            force_unlock: false,
+            output: None,
+            progress: false,
+            timing: false,
+        };
+        match cmd {
+            Commands::Apply { group, .. } => {
+                assert_eq!(group, Some("network".to_string()));
+            }
+            _ => panic!("expected Apply"),
+        }
+    }
+
+    #[test]
+    fn test_fj281_test_group_flag() {
+        let cmd = Commands::Test {
+            file: PathBuf::from("forjar.yaml"),
+            machine: None,
+            resource: None,
+            tag: None,
+            group: Some("database".to_string()),
+            json: false,
+        };
+        match cmd {
+            Commands::Test { group, .. } => {
+                assert_eq!(group, Some("database".to_string()));
+            }
+            _ => panic!("expected Test"),
+        }
     }
 }

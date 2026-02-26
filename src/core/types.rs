@@ -477,6 +477,10 @@ pub struct Resource {
     #[serde(default)]
     pub tags: Vec<String>,
 
+    /// FJ-281: Resource group for batch operations (e.g., `resource_group: network`)
+    #[serde(default)]
+    pub resource_group: Option<String>,
+
     /// Conditional expression — resource only applies when this evaluates to true.
     /// Examples: `{{machine.arch}} == "x86_64"`, `{{params.env}} != "production"`
     #[serde(default)]

@@ -345,6 +345,7 @@ dpkg -l curl 2>/dev/null | grep -q '^ii'
             inputs: std::collections::HashMap::new(),
             arch: vec![],
             tags: vec![],
+            resource_group: None,
             when: None,
             count: None,
             for_each: None,
@@ -369,8 +370,8 @@ dpkg -l curl 2>/dev/null | grep -q '^ii'
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
-        pre_apply: None,
-        post_apply: None,
+            pre_apply: None,
+            post_apply: None,
         }
     }
 

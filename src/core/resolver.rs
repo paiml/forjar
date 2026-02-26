@@ -868,6 +868,7 @@ resources:
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            resource_group: None,
             when: None,
             count: None,
             for_each: None,
@@ -892,8 +893,8 @@ resources:
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
-        pre_apply: None,
-        post_apply: None,
+            pre_apply: None,
+            post_apply: None,
         };
 
         let resolved = resolve_resource_templates(&resource, &params, &machines).unwrap();
@@ -1125,6 +1126,7 @@ resources:
                     inputs: HashMap::new(),
                     arch: vec![],
                     tags: vec![],
+            resource_group: None,
                     when: None,
                     count: None,
                     for_each: None,
@@ -1149,8 +1151,8 @@ resources:
                     persistence_mode: None,
                     compute_mode: None,
                     gpu_memory_limit_mb: None,
-                pre_apply: None,
-                post_apply: None,
+                    pre_apply: None,
+                    post_apply: None,
                 },
             );
         }
@@ -1379,6 +1381,7 @@ resources:
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            resource_group: None,
             when: None,
             count: None,
             for_each: None,
@@ -1403,8 +1406,8 @@ resources:
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
-        pre_apply: None,
-        post_apply: None,
+            pre_apply: None,
+            post_apply: None,
         };
 
         let resolved = resolve_resource_templates(&resource, &params, &machines).unwrap();
@@ -1643,6 +1646,7 @@ resources:
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            resource_group: None,
             when: None,
             count: None,
             for_each: None,
@@ -1667,8 +1671,8 @@ resources:
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
-        pre_apply: None,
-        post_apply: None,
+            pre_apply: None,
+            post_apply: None,
         }
     }
 

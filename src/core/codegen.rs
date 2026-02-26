@@ -123,6 +123,7 @@ mod tests {
             inputs: std::collections::HashMap::new(),
             arch: vec![],
             tags: vec![],
+            resource_group: None,
             when: None,
             count: None,
             for_each: None,
@@ -147,8 +148,8 @@ mod tests {
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
-        pre_apply: None,
-        post_apply: None,
+            pre_apply: None,
+            post_apply: None,
         }
     }
 
@@ -195,6 +196,7 @@ mod tests {
             inputs: std::collections::HashMap::new(),
             arch: vec![],
             tags: vec![],
+            resource_group: None,
             when: None,
             count: None,
             for_each: None,
@@ -219,8 +221,8 @@ mod tests {
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
-        pre_apply: None,
-        post_apply: None,
+            pre_apply: None,
+            post_apply: None,
         }
     }
 
@@ -267,6 +269,7 @@ mod tests {
             inputs: std::collections::HashMap::new(),
             arch: vec![],
             tags: vec![],
+            resource_group: None,
             when: None,
             count: None,
             for_each: None,
@@ -291,8 +294,8 @@ mod tests {
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
-        pre_apply: None,
-        post_apply: None,
+            pre_apply: None,
+            post_apply: None,
         }
     }
 
@@ -339,6 +342,7 @@ mod tests {
             inputs: std::collections::HashMap::new(),
             arch: vec![],
             tags: vec![],
+            resource_group: None,
             when: None,
             count: None,
             for_each: None,
@@ -363,8 +367,8 @@ mod tests {
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
-        pre_apply: None,
-        post_apply: None,
+            pre_apply: None,
+            post_apply: None,
         }
     }
 

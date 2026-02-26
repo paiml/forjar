@@ -536,6 +536,7 @@ resources:
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            resource_group: None,
             when: None,
             count: None,
             for_each: None,
@@ -560,8 +561,8 @@ resources:
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
-        pre_apply: None,
-        post_apply: None,
+            pre_apply: None,
+            post_apply: None,
         };
         let h1 = hash_desired_state(&r);
         let h2 = hash_desired_state(&r);
@@ -613,6 +614,7 @@ resources:
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            resource_group: None,
             when: None,
             count: None,
             for_each: None,
@@ -637,8 +639,8 @@ resources:
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
-        pre_apply: None,
-        post_apply: None,
+            pre_apply: None,
+            post_apply: None,
         };
         let desc = describe_action("test-pkg", &r, &PlanAction::Create);
         assert!(desc.contains("curl, wget"));
@@ -688,6 +690,7 @@ resources:
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            resource_group: None,
             when: None,
             count: None,
             for_each: None,
@@ -712,8 +715,8 @@ resources:
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
-        pre_apply: None,
-        post_apply: None,
+            pre_apply: None,
+            post_apply: None,
         };
         assert!(describe_action("f", &r, &PlanAction::Create).contains("/etc/conf"));
         assert!(describe_action("f", &r, &PlanAction::Update).contains("update"));
@@ -765,6 +768,7 @@ resources:
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            resource_group: None,
             when: None,
             count: None,
             for_each: None,
@@ -789,8 +793,8 @@ resources:
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
-        pre_apply: None,
-        post_apply: None,
+            pre_apply: None,
+            post_apply: None,
         };
         assert!(describe_action("svc", &r, &PlanAction::Create).contains("nginx"));
     }
@@ -839,6 +843,7 @@ resources:
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            resource_group: None,
             when: None,
             count: None,
             for_each: None,
@@ -863,8 +868,8 @@ resources:
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
-        pre_apply: None,
-        post_apply: None,
+            pre_apply: None,
+            post_apply: None,
         };
         assert!(describe_action("mnt", &r, &PlanAction::Create).contains("/mnt/data"));
     }
@@ -913,6 +918,7 @@ resources:
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            resource_group: None,
             when: None,
             count: None,
             for_each: None,
@@ -937,8 +943,8 @@ resources:
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
-        pre_apply: None,
-        post_apply: None,
+            pre_apply: None,
+            post_apply: None,
         };
         // Changing any field should change the hash
         let mut r2 = r1.clone();
@@ -1380,6 +1386,7 @@ resources:
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            resource_group: None,
             when: None,
             count: None,
             for_each: None,
@@ -1404,8 +1411,8 @@ resources:
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
-        pre_apply: None,
-        post_apply: None,
+            pre_apply: None,
+            post_apply: None,
         };
         let desc = describe_action("f", &r, &PlanAction::Create);
         assert!(desc.contains("?"), "missing path should show ?");
@@ -1455,6 +1462,7 @@ resources:
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            resource_group: None,
             when: None,
             count: None,
             for_each: None,
@@ -1479,8 +1487,8 @@ resources:
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
-        pre_apply: None,
-        post_apply: None,
+            pre_apply: None,
+            post_apply: None,
         };
         let desc = describe_action("svc", &r, &PlanAction::Create);
         assert!(desc.contains("?"), "missing name should show ?");
@@ -1530,6 +1538,7 @@ resources:
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            resource_group: None,
             when: None,
             count: None,
             for_each: None,
@@ -1554,8 +1563,8 @@ resources:
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
-        pre_apply: None,
-        post_apply: None,
+            pre_apply: None,
+            post_apply: None,
         };
         let desc = describe_action("dock", &r, &PlanAction::Create);
         assert!(desc.contains("create"), "Docker create should say create");
@@ -1605,6 +1614,7 @@ resources:
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            resource_group: None,
             when: None,
             count: None,
             for_each: None,
@@ -1629,8 +1639,8 @@ resources:
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
-        pre_apply: None,
-        post_apply: None,
+            pre_apply: None,
+            post_apply: None,
         };
         let mut r2 = r1.clone();
         r2.content = Some("version=2".to_string());
@@ -2116,6 +2126,7 @@ resources:
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            resource_group: None,
             when: None,
             count: None,
             for_each: None,
@@ -2140,8 +2151,8 @@ resources:
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
-        pre_apply: None,
-        post_apply: None,
+            pre_apply: None,
+            post_apply: None,
         }
     }
 

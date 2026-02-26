@@ -53,6 +53,7 @@ fn make_resource(rt: ResourceType) -> Resource {
         inputs: std::collections::HashMap::new(),
         arch: vec![],
         tags: vec![],
+            resource_group: None,
         when: None,
         count: None,
         for_each: None,
@@ -77,8 +78,8 @@ fn make_resource(rt: ResourceType) -> Resource {
         persistence_mode: None,
         compute_mode: None,
         gpu_memory_limit_mb: None,
-    pre_apply: None,
-    post_apply: None,
+        pre_apply: None,
+        post_apply: None,
     }
 }
 

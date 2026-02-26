@@ -178,8 +178,7 @@ fn process_lock_path(state_dir: &Path) -> PathBuf {
 /// Acquire an exclusive process lock. Returns an error if another apply is running.
 /// Stale locks (PID no longer running) are automatically removed.
 pub fn acquire_process_lock(state_dir: &Path) -> Result<(), String> {
-    std::fs::create_dir_all(state_dir)
-        .map_err(|e| format!("cannot create state dir: {}", e))?;
+    std::fs::create_dir_all(state_dir).map_err(|e| format!("cannot create state dir: {}", e))?;
 
     let lock_path = process_lock_path(state_dir);
 
@@ -203,9 +202,12 @@ pub fn acquire_process_lock(state_dir: &Path) -> Result<(), String> {
 
     // Write our PID
     let pid = std::process::id();
-    let content = format!("pid: {}\nstarted_at: {}\n", pid, crate::tripwire::eventlog::now_iso8601());
-    std::fs::write(&lock_path, content)
-        .map_err(|e| format!("cannot write lock file: {}", e))?;
+    let content = format!(
+        "pid: {}\nstarted_at: {}\n",
+        pid,
+        crate::tripwire::eventlog::now_iso8601()
+    );
+    std::fs::write(&lock_path, content).map_err(|e| format!("cannot write lock file: {}", e))?;
     Ok(())
 }
 
@@ -221,8 +223,7 @@ pub fn force_unlock(state_dir: &Path) -> Result<(), String> {
     if !lock_path.exists() {
         return Ok(());
     }
-    std::fs::remove_file(&lock_path)
-        .map_err(|e| format!("cannot remove lock file: {}", e))
+    std::fs::remove_file(&lock_path).map_err(|e| format!("cannot remove lock file: {}", e))
 }
 
 /// Parse PID from lock file content.
@@ -969,7 +970,10 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         // Write a lock with our own PID (still running)
         let lock_path = process_lock_path(dir.path());
-        let content = format!("pid: {}\nstarted_at: 2026-02-26T00:00:00Z\n", std::process::id());
+        let content = format!(
+            "pid: {}\nstarted_at: 2026-02-26T00:00:00Z\n",
+            std::process::id()
+        );
         std::fs::write(&lock_path, content).unwrap();
 
         let result = acquire_process_lock(dir.path());
