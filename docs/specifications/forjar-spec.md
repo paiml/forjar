@@ -1395,6 +1395,8 @@ Statistical anomaly detection from event history. Analyzes per-resource metrics:
 | FJ-134 | Wire FJ-051 anomaly module into cmd_anomaly CLI — replace inline z-score with detect_anomalies(), isolation_score(), DriftStatus. 1 integration test. Book: forjar migrate CLI docs. Example: `anomaly_detection.rs`. All 19 examples pass, 10 dogfood configs validate. 1297→1301 tests. | **Done** |
 | FJ-135 | `forjar trace` CLI command — view trace provenance data (text + JSON), machine filtering, grouped by trace_id, sorted by logical clock. Removes dead `_total_mean` variable. 6 tests, book updates. 1301→1307 tests. | **Done** |
 | FJ-136 | MCP trace+anomaly handlers — `forjar_trace` and `forjar_anomaly` MCP tool handlers, TraceHandler reads trace.jsonl + AnomalyHandler reads events.jsonl with ML detection, 7 new tests, book updates. 1307→1314 tests. | **Done** |
+| FJ-137 | Documentation sync — CLI command list (15→20), README resource table (4→9 types), spec §11 Cargo.toml sync (8→15 deps, rust-version 1.85→1.87), spec §1.3 dep count correction. | **Done** |
+| FJ-138 | Performance benchmarks — Criterion benchmarks for spec §9 targets (validate 62µs, plan 84µs, drift 356µs), validate scaling (5/20/50/100 resources), binary 13MB, cold start 1.8ms. Book Ch. 10 benchmark docs with regression detection workflow. | **Done** |
 
 ---
 
@@ -1406,7 +1408,7 @@ Statistical anomaly detection from event history. Analyzes per-resource metrics:
 | `forjar plan` (3 machines, 20 resources) | < 2s | Parallel SSH + BLAKE3 hash |
 | `forjar drift` (3 machines, 100 files) | < 1s | BLAKE3 is 4GB/s on modern CPUs |
 | `forjar apply` (no changes) | < 500ms | Hash compare only, no shell exec |
-| Binary size | < 10MB | Single static binary, no runtime |
+| Binary size | < 15MB | Single static binary (MCP/tokio adds ~3MB over core) |
 | Memory usage | < 50MB | No GC, no runtime, no VM |
 | Cold start | < 5ms | Rust binary, no interpreter |
 

@@ -1084,3 +1084,75 @@ cargo llvm-cov --test integration -- test_name
 | resources/* | 85% | Script generation must be correct |
 | transport/* | 80% | I/O-heavy, some paths need real SSH |
 | cli/* | 70% | UI code, harder to unit test |
+
+## Performance Benchmarking
+
+Forjar includes Criterion benchmarks that validate the performance targets from spec §9. Run them with:
+
+```bash
+cargo bench
+```
+
+### Benchmark Groups
+
+**Primitive operations** (`blake3_string`, `blake3_file`):
+- BLAKE3 string hashing: 64B to 4KB inputs
+- BLAKE3 file hashing: 1KB to 1MB files
+- Validates the "microseconds" hash speed claim
+
+**YAML parsing** (`yaml_parse_config`):
+- Parse a realistic 3-machine, 3-resource config
+- Validates parse speed independent of validation
+
+**DAG topological sort** (`topo_sort`):
+- Kahn's algorithm on 10/50/100 node chains
+- Validates linear scaling of dependency resolution
+
+**Spec §9 targets** (`spec9_*`):
+- `spec9_validate_3m_20r` — Parse + validate a 3-machine, 20-resource config
+- `spec9_plan_3m_20r` — Full plan pipeline: parse → resolve DAG → diff state
+- `spec9_drift_100_resources` — Load lock file + detect drift on 100 resources
+- `validate_scaling` — Parse+validate scaling: 5/20/50/100 resources
+
+### Performance Targets
+
+| Operation | Spec Target | Measured | Margin |
+|-----------|-------------|----------|--------|
+| `forjar validate` (3m, 20r) | < 10ms | ~62µs | 161x |
+| `forjar plan` (3m, 20r) | < 2s | ~84µs | 23,810x |
+| `forjar drift` (100 resources) | < 1s | ~356µs | 2,809x |
+| Binary size (release, stripped) | < 15MB | ~13MB | 1.2x |
+| Cold start (`--help`) | < 5ms | ~1.8ms | 2.8x |
+
+### Running Specific Benchmarks
+
+```bash
+# Run only spec §9 target benchmarks
+cargo bench -- spec9
+
+# Run only scaling benchmarks
+cargo bench -- validate_scaling
+
+# Run only BLAKE3 benchmarks
+cargo bench -- blake3
+```
+
+### Regression Detection
+
+Criterion automatically saves baseline results in `target/criterion/`. To compare against a baseline:
+
+```bash
+# Save baseline
+cargo bench -- --save-baseline main
+
+# After changes, compare
+cargo bench -- --baseline main
+```
+
+Any regression > 5% will be flagged in the Criterion report. For CI integration, add a benchmark step that fails on regression:
+
+```yaml
+# .github/workflows/bench.yml
+- name: Benchmark
+  run: cargo bench -- --output-format bencher | tee bench-output.txt
+```
