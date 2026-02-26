@@ -9,6 +9,7 @@ use super::planner;
 use super::resolver;
 use super::state;
 use super::types::*;
+use crate::copia;
 use crate::transport;
 use crate::tripwire::{eventlog, hasher, tracer};
 use std::collections::{HashMap, HashSet};
@@ -415,9 +416,18 @@ fn apply_single_resource(
     let resolved =
         resolver::resolve_resource_templates(resource, &cfg.config.params, &cfg.config.machines)?;
 
-    // Generate apply script and execute
-    let script = codegen::apply_script(&resolved)?;
-    let output = transport::exec_script_timeout(machine, &script, cfg.timeout_secs);
+    // FJ-242: Copia delta sync for file resources with large source files (> 1MB).
+    // Two-phase protocol: (1) get remote block signatures, (2) compute delta, (3) transfer delta.
+    // Falls back to normal codegen for small files, new files, or non-file resources.
+    let output = if resolved.resource_type == ResourceType::File
+        && resolved.source.is_some()
+        && copia::is_eligible(resolved.source.as_ref().unwrap())
+    {
+        copia_apply_file(machine, &resolved, cfg.timeout_secs)
+    } else {
+        let script = codegen::apply_script(&resolved)?;
+        transport::exec_script_timeout(machine, &script, cfg.timeout_secs)
+    };
     let duration = resource_start.elapsed().as_secs_f64();
 
     match output {
@@ -453,6 +463,56 @@ fn apply_single_resource(
                 &error,
             );
             Ok(ResourceOutcome::Failed { should_stop })
+        }
+    }
+}
+
+/// FJ-242: Two-phase copia delta sync for large file sources.
+/// Phase 1: Execute signature script on remote to get per-block BLAKE3 hashes.
+/// Phase 2: Compute delta locally, transfer only changed blocks.
+/// Falls back to full base64 transfer for new files (no remote state to diff).
+fn copia_apply_file(
+    machine: &Machine,
+    resource: &Resource,
+    timeout_secs: Option<u64>,
+) -> Result<transport::ExecOutput, String> {
+    let path = resource.path.as_deref().unwrap_or("/dev/null");
+    let source = resource.source.as_deref().unwrap_or("");
+
+    // Phase 1: Get remote file block signatures
+    let sig_script = copia::signature_script(path);
+    let sig_output = transport::exec_script_timeout(machine, &sig_script, timeout_secs)?;
+
+    if !sig_output.success() {
+        return Err(format!(
+            "copia signature failed: {}",
+            sig_output.stderr.trim()
+        ));
+    }
+
+    let remote_sigs = copia::parse_signatures(&sig_output.stdout)?;
+
+    let owner = resource.owner.as_deref();
+    let group = resource.group.as_deref();
+    let mode = resource.mode.as_deref();
+
+    match remote_sigs {
+        None => {
+            // New file — full transfer via base64
+            let script = copia::full_transfer_script(path, source, owner, group, mode)?;
+            transport::exec_script_timeout(machine, &script, timeout_secs)
+        }
+        Some(sigs) => {
+            // Read local source file
+            let new_data =
+                std::fs::read(source).map_err(|e| format!("copia read source: {}", e))?;
+
+            // Compute delta
+            let delta = copia::compute_delta(&new_data, &sigs);
+
+            // Generate and execute patch script
+            let script = copia::patch_script(path, &delta, owner, group, mode);
+            transport::exec_script_timeout(machine, &script, timeout_secs)
         }
     }
 }
@@ -1011,12 +1071,12 @@ resources:
             quantization: None,
             checksum: None,
             cache_dir: None,
-        driver_version: None,
-        cuda_version: None,
-        devices: vec![],
-        persistence_mode: None,
-        compute_mode: None,
-        gpu_memory_limit_mb: None,
+            driver_version: None,
+            cuda_version: None,
+            devices: vec![],
+            persistence_mode: None,
+            compute_mode: None,
+            gpu_memory_limit_mb: None,
         };
         let details = build_resource_details(&r, &local_machine());
         assert!(details.contains_key("path"));
@@ -1095,12 +1155,12 @@ resources:
             quantization: None,
             checksum: None,
             cache_dir: None,
-        driver_version: None,
-        cuda_version: None,
-        devices: vec![],
-        persistence_mode: None,
-        compute_mode: None,
-        gpu_memory_limit_mb: None,
+            driver_version: None,
+            cuda_version: None,
+            devices: vec![],
+            persistence_mode: None,
+            compute_mode: None,
+            gpu_memory_limit_mb: None,
         };
         let details = build_resource_details(&r, &local_machine());
         assert!(details.contains_key("service_name"));
@@ -1425,12 +1485,12 @@ resources:
             quantization: None,
             checksum: None,
             cache_dir: None,
-        driver_version: None,
-        cuda_version: None,
-        devices: vec![],
-        persistence_mode: None,
-        compute_mode: None,
-        gpu_memory_limit_mb: None,
+            driver_version: None,
+            cuda_version: None,
+            devices: vec![],
+            persistence_mode: None,
+            compute_mode: None,
+            gpu_memory_limit_mb: None,
         };
         let machine = Machine {
             hostname: "localhost".to_string(),
@@ -1755,12 +1815,12 @@ resources:
             quantization: None,
             checksum: None,
             cache_dir: None,
-        driver_version: None,
-        cuda_version: None,
-        devices: vec![],
-        persistence_mode: None,
-        compute_mode: None,
-        gpu_memory_limit_mb: None,
+            driver_version: None,
+            cuda_version: None,
+            devices: vec![],
+            persistence_mode: None,
+            compute_mode: None,
+            gpu_memory_limit_mb: None,
         };
 
         // arch filter should reject: aarch64 resource on x86_64 machine
@@ -2078,12 +2138,12 @@ resources:
             quantization: None,
             checksum: None,
             cache_dir: None,
-        driver_version: None,
-        cuda_version: None,
-        devices: vec![],
-        persistence_mode: None,
-        compute_mode: None,
-        gpu_memory_limit_mb: None,
+            driver_version: None,
+            cuda_version: None,
+            devices: vec![],
+            persistence_mode: None,
+            compute_mode: None,
+            gpu_memory_limit_mb: None,
         };
         let mut ctx = RecordCtx {
             lock: &mut lock,
@@ -2166,12 +2226,12 @@ resources:
             quantization: None,
             checksum: None,
             cache_dir: None,
-        driver_version: None,
-        cuda_version: None,
-        devices: vec![],
-        persistence_mode: None,
-        compute_mode: None,
-        gpu_memory_limit_mb: None,
+            driver_version: None,
+            cuda_version: None,
+            devices: vec![],
+            persistence_mode: None,
+            compute_mode: None,
+            gpu_memory_limit_mb: None,
         };
         let mut ctx = RecordCtx {
             lock: &mut lock,
@@ -2276,12 +2336,12 @@ resources:
             quantization: None,
             checksum: None,
             cache_dir: None,
-        driver_version: None,
-        cuda_version: None,
-        devices: vec![],
-        persistence_mode: None,
-        compute_mode: None,
-        gpu_memory_limit_mb: None,
+            driver_version: None,
+            cuda_version: None,
+            devices: vec![],
+            persistence_mode: None,
+            compute_mode: None,
+            gpu_memory_limit_mb: None,
         };
         let details = build_resource_details(&resource, &local_machine());
         assert!(details.contains_key("path"));
@@ -2359,12 +2419,12 @@ resources:
             quantization: None,
             checksum: None,
             cache_dir: None,
-        driver_version: None,
-        cuda_version: None,
-        devices: vec![],
-        persistence_mode: None,
-        compute_mode: None,
-        gpu_memory_limit_mb: None,
+            driver_version: None,
+            cuda_version: None,
+            devices: vec![],
+            persistence_mode: None,
+            compute_mode: None,
+            gpu_memory_limit_mb: None,
         };
         let details = build_resource_details(&resource, &local_machine());
         assert!(
@@ -2441,12 +2501,12 @@ resources:
             quantization: None,
             checksum: None,
             cache_dir: None,
-        driver_version: None,
-        cuda_version: None,
-        devices: vec![],
-        persistence_mode: None,
-        compute_mode: None,
-        gpu_memory_limit_mb: None,
+            driver_version: None,
+            cuda_version: None,
+            devices: vec![],
+            persistence_mode: None,
+            compute_mode: None,
+            gpu_memory_limit_mb: None,
         };
         let details = build_resource_details(&resource, &local_machine());
         assert!(
@@ -2517,12 +2577,12 @@ resources:
             quantization: None,
             checksum: None,
             cache_dir: None,
-        driver_version: None,
-        cuda_version: None,
-        devices: vec![],
-        persistence_mode: None,
-        compute_mode: None,
-        gpu_memory_limit_mb: None,
+            driver_version: None,
+            cuda_version: None,
+            devices: vec![],
+            persistence_mode: None,
+            compute_mode: None,
+            gpu_memory_limit_mb: None,
         };
         let details = build_resource_details(&resource, &local_machine());
         assert_eq!(
@@ -2824,12 +2884,12 @@ resources:
             quantization: None,
             checksum: None,
             cache_dir: None,
-        driver_version: None,
-        cuda_version: None,
-        devices: vec![],
-        persistence_mode: None,
-        compute_mode: None,
-        gpu_memory_limit_mb: None,
+            driver_version: None,
+            cuda_version: None,
+            devices: vec![],
+            persistence_mode: None,
+            compute_mode: None,
+            gpu_memory_limit_mb: None,
         };
         let details = build_resource_details(&r, &local_machine());
         assert!(
@@ -2901,12 +2961,12 @@ resources:
             quantization: None,
             checksum: None,
             cache_dir: None,
-        driver_version: None,
-        cuda_version: None,
-        devices: vec![],
-        persistence_mode: None,
-        compute_mode: None,
-        gpu_memory_limit_mb: None,
+            driver_version: None,
+            cuda_version: None,
+            devices: vec![],
+            persistence_mode: None,
+            compute_mode: None,
+            gpu_memory_limit_mb: None,
         };
         let details = build_resource_details(&r, &local_machine());
         assert!(details.contains_key("path"));
@@ -3663,12 +3723,12 @@ resources: {}
             quantization: None,
             checksum: None,
             cache_dir: None,
-        driver_version: None,
-        cuda_version: None,
-        devices: vec![],
-        persistence_mode: None,
-        compute_mode: None,
-        gpu_memory_limit_mb: None,
+            driver_version: None,
+            cuda_version: None,
+            devices: vec![],
+            persistence_mode: None,
+            compute_mode: None,
+            gpu_memory_limit_mb: None,
         };
         let details = build_resource_details(&r, &local_machine());
         assert_eq!(
@@ -3869,12 +3929,12 @@ policy:
             quantization: None,
             checksum: None,
             cache_dir: None,
-        driver_version: None,
-        cuda_version: None,
-        devices: vec![],
-        persistence_mode: None,
-        compute_mode: None,
-        gpu_memory_limit_mb: None,
+            driver_version: None,
+            cuda_version: None,
+            devices: vec![],
+            persistence_mode: None,
+            compute_mode: None,
+            gpu_memory_limit_mb: None,
         };
         let mut ctx = RecordCtx {
             lock: &mut lock,

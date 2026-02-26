@@ -4,6 +4,7 @@
 //! Faster, more provable, more sovereign than Terraform, Pulumi, or Ansible.
 
 pub mod cli;
+pub mod copia;
 pub mod core;
 pub mod mcp;
 pub mod resources;
