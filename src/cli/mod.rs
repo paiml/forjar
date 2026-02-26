@@ -243,6 +243,10 @@ pub enum Commands {
         /// FJ-310: Auto-rollback to previous state on any resource failure
         #[arg(long)]
         rollback_on_failure: bool,
+
+        /// FJ-313: Max concurrent resources per parallel wave
+        #[arg(long)]
+        max_parallel: Option<usize>,
     },
 
     /// Detect unauthorized changes (tripwire)
@@ -1015,6 +1019,7 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             parallel,
             resource_timeout,
             rollback_on_failure,
+            max_parallel,
         } => {
             if check {
                 // FJ-226: --check runs check scripts via cmd_check
@@ -1055,6 +1060,7 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
                 parallel,
                 resource_timeout,
                 rollback_on_failure,
+                max_parallel,
             )
         }
         Commands::Drift {
@@ -2110,6 +2116,7 @@ fn cmd_rollback(
         false,
         None,  // no resource_timeout
         false, // no rollback_on_failure
+        None,  // no max_parallel
     )
 }
 
@@ -4146,6 +4153,7 @@ fn cmd_apply(
     parallel: bool,
     resource_timeout: Option<u64>,
     rollback_on_failure: bool,
+    max_parallel: Option<usize>,
 ) -> Result<(), String> {
     use std::time::Instant;
     let t_total = Instant::now();
@@ -4247,6 +4255,7 @@ fn cmd_apply(
         parallel: if parallel { Some(true) } else { None },
         resource_timeout,
         rollback_on_failure,
+        max_parallel,
     };
 
     let t_apply = Instant::now();
@@ -4655,6 +4664,7 @@ fn cmd_drift(
             false,
             None,  // no resource_timeout
             false, // no rollback_on_failure
+            None,  // no max_parallel
         )?;
         if !json {
             println!("Remediation complete.");
@@ -5796,6 +5806,7 @@ fn cmd_watch(
                             parallel: None,
                             resource_timeout: None,
                             rollback_on_failure: false,
+                            max_parallel: None,
                         };
                         match executor::apply(&cfg) {
                             Ok(results) => {
@@ -7059,6 +7070,7 @@ resources:
             false,
             None,
             false,
+            None,
         )
         .unwrap();
     }
@@ -7117,6 +7129,7 @@ policy:
             false,
             None,
             false,
+            None,
         )
         .unwrap();
 
@@ -7172,6 +7185,7 @@ resources: {}
             false,
             None,
             false,
+            None,
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("validation"));
@@ -7449,7 +7463,7 @@ resources:
                 workspace: None,
                 no_diff: false,
                 target: None,
-            cost: false,
+                cost: false,
             },
             false,
             true,
@@ -7509,6 +7523,7 @@ resources:
                 timing: false,
                 resource_timeout: None,
                 rollback_on_failure: false,
+                max_parallel: None,
             },
             false,
             true,
@@ -7710,6 +7725,7 @@ resources:
             false,
             None,
             false,
+            None,
         )
         .unwrap();
         assert!(target.exists());
@@ -7742,6 +7758,7 @@ resources:
             false,
             None,
             false,
+            None,
         )
         .unwrap();
     }
@@ -8365,6 +8382,7 @@ resources:
             false,
             None,
             false,
+            None,
         )
         .unwrap();
         assert!(target.exists());
@@ -8437,6 +8455,7 @@ resources:
             false,
             None,
             false,
+            None,
         )
         .unwrap();
         cmd_destroy(&config, &state, None, true, true).unwrap();
@@ -8510,6 +8529,7 @@ resources:
             false,
             None,
             false,
+            None,
         )
         .unwrap();
         assert!(target_a.exists());
@@ -8578,6 +8598,7 @@ resources:
             false,
             None,
             false,
+            None,
         )
         .unwrap();
         dispatch(
@@ -8682,6 +8703,7 @@ resources:
             false,
             None,
             false,
+            None,
         )
         .unwrap();
         assert!(target.exists());
@@ -8849,6 +8871,7 @@ resources:
             false,
             None,
             false,
+            None,
         )
         .unwrap();
         assert!(std::path::Path::new(&target).exists());
@@ -10230,6 +10253,7 @@ resources:
             false,
             None,
             false,
+            None,
         )
         .unwrap();
     }
@@ -11503,6 +11527,7 @@ resources:
             false,
             None,
             false,
+            None,
         );
         assert!(result.is_ok());
     }
@@ -11596,6 +11621,7 @@ resources:
                 timing: false,
                 resource_timeout: None,
                 rollback_on_failure: false,
+                max_parallel: None,
             },
             false,
             true,
@@ -12143,6 +12169,7 @@ resources:
             false,
             None,
             false,
+            None,
         )
         .unwrap();
     }
@@ -12542,6 +12569,7 @@ policies:
             false,
             None,
             false,
+            None,
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("policy violations"));
@@ -12653,6 +12681,7 @@ policy:
             false,
             None,
             false,
+            None,
         );
         // cmd_apply needs a parsed config, but it re-parses from file
         // Instead, test the run_notify function directly
@@ -12756,6 +12785,7 @@ resources:
                 timing: false,
                 resource_timeout: None,
                 rollback_on_failure: false,
+                max_parallel: None,
             },
             false,
             true,
@@ -12818,6 +12848,7 @@ resources:
                 timing: false,
                 resource_timeout: None,
                 rollback_on_failure: false,
+                max_parallel: None,
             },
             false,
             true,
@@ -13863,6 +13894,7 @@ resources:
             false,
             None,
             false,
+            None,
         )
         .unwrap();
         // last-apply.yaml should be written
@@ -13936,6 +13968,7 @@ resources:
             false,
             None,
             false,
+            None,
         )
         .unwrap();
         let content = std::fs::read_to_string(state.join("local").join("last-apply.yaml")).unwrap();
@@ -14347,6 +14380,7 @@ resources:
             timing: false,
             resource_timeout: None,
             rollback_on_failure: false,
+            max_parallel: None,
         };
         match cmd {
             Commands::Apply { output, .. } => {
@@ -14458,6 +14492,7 @@ resources:
             timing: false,
             resource_timeout: None,
             rollback_on_failure: false,
+            max_parallel: None,
         };
         match cmd {
             Commands::Apply { progress, .. } => assert!(progress),
@@ -14494,6 +14529,7 @@ resources:
             timing: false,
             resource_timeout: None,
             rollback_on_failure: false,
+            max_parallel: None,
         };
         match cmd {
             Commands::Apply { progress, .. } => assert!(!progress),
@@ -14534,6 +14570,7 @@ resources:
             timing: true,
             resource_timeout: None,
             rollback_on_failure: false,
+            max_parallel: None,
         };
         match cmd {
             Commands::Apply { timing, .. } => assert!(timing),
@@ -14570,6 +14607,7 @@ resources:
             timing: false,
             resource_timeout: None,
             rollback_on_failure: false,
+            max_parallel: None,
         };
         match cmd {
             Commands::Apply { timing, .. } => assert!(!timing),
@@ -14814,6 +14852,7 @@ resources:
             timing: false,
             resource_timeout: None,
             rollback_on_failure: false,
+            max_parallel: None,
         };
         match cmd {
             Commands::Apply { group, .. } => {
@@ -14965,6 +15004,7 @@ resources:
             timing: false,
             resource_timeout: None,
             rollback_on_failure: false,
+            max_parallel: None,
         };
         match cmd {
             Commands::Apply { retry, .. } => assert_eq!(retry, 3),
@@ -15001,6 +15041,7 @@ resources:
             timing: false,
             resource_timeout: None,
             rollback_on_failure: false,
+            max_parallel: None,
         };
         match cmd {
             Commands::Apply { retry, .. } => assert_eq!(retry, 0),
@@ -15149,6 +15190,7 @@ resources:
             timing: false,
             resource_timeout: None,
             rollback_on_failure: false,
+            max_parallel: None,
         };
         match cmd {
             Commands::Apply { yes, .. } => assert!(yes),
@@ -15185,6 +15227,7 @@ resources:
             timing: false,
             resource_timeout: None,
             rollback_on_failure: false,
+            max_parallel: None,
         };
         match cmd {
             Commands::Apply { yes, .. } => assert!(!yes),
@@ -15244,6 +15287,7 @@ resources:
             timing: false,
             resource_timeout: None,
             rollback_on_failure: false,
+            max_parallel: None,
         };
         match cmd {
             Commands::Apply { parallel, .. } => assert!(parallel),
@@ -15421,6 +15465,7 @@ resources:
             false,   // parallel
             None,    // resource_timeout
             false,   // rollback_on_failure
+            None,
         );
         assert!(result.is_ok());
     }
@@ -15651,6 +15696,7 @@ resources:
             parallel: false,
             resource_timeout: Some(30),
             rollback_on_failure: false,
+            max_parallel: None,
         };
         match cmd {
             Commands::Apply {
@@ -15826,6 +15872,7 @@ resources:
             parallel: false,
             resource_timeout: None,
             rollback_on_failure: true,
+            max_parallel: None,
         };
         match cmd {
             Commands::Apply {
@@ -15878,6 +15925,7 @@ resources:
             parallel: None,
             resource_timeout: None,
             rollback_on_failure: true,
+            max_parallel: None,
         };
         assert!(cfg.rollback_on_failure);
     }
@@ -15961,6 +16009,45 @@ resources:
         match cmd {
             Commands::Plan { cost, .. } => assert!(cost),
             _ => panic!("expected Plan"),
+        }
+    }
+
+    // ── FJ-313: apply --max-parallel ──
+
+    #[test]
+    fn test_fj313_max_parallel_flag_parse() {
+        let cmd = Commands::Apply {
+            file: PathBuf::from("f.yaml"),
+            state_dir: PathBuf::from("state"),
+            machine: None,
+            resource: None,
+            tag: None,
+            group: None,
+            force: false,
+            dry_run: false,
+            no_tripwire: false,
+            params: vec![],
+            auto_commit: false,
+            timeout: None,
+            json: false,
+            env_file: None,
+            workspace: None,
+            check: false,
+            report: false,
+            force_unlock: false,
+            output: None,
+            progress: false,
+            timing: false,
+            retry: 0,
+            yes: false,
+            parallel: true,
+            resource_timeout: None,
+            rollback_on_failure: false,
+            max_parallel: Some(4),
+        };
+        match cmd {
+            Commands::Apply { max_parallel, .. } => assert_eq!(max_parallel, Some(4)),
+            _ => panic!("expected Apply"),
         }
     }
 }
