@@ -112,6 +112,9 @@ forjar apply -f <FILE> [-m MACHINE] [-r RESOURCE] [-t TAG] [--force] [--dry-run]
 | `--env-file` | — | Load param overrides from external YAML file |
 | `--report` | false | Print per-resource timing report after apply |
 | `--check` | false | Run check scripts instead of apply (exit 0=converged, non-zero=needs changes) |
+| `--force-unlock` | false | Remove a stale state lock and proceed (use when a previous apply was interrupted) |
+
+State locking: When apply starts, forjar creates `state/.forjar.lock` containing the current PID. If another apply is already running against the same state directory, the command exits with an error suggesting `--force-unlock`. Stale locks (PID no longer running, detected via `/proc/<pid>`) are reported but not automatically removed. The lock file is removed on completion.
 
 ### `forjar drift`
 
@@ -1502,3 +1505,41 @@ forjar schema > /tmp/schema.json
 ```
 
 The schema covers the complete `ForjarConfig` structure: `version`, `name`, `description`, `params`, `machines`, `resources` (all 11 types with their fields), `policy`, `recipes`, and `includes`.
+
+### `forjar watch`
+
+Watch a config file for changes and automatically re-plan.
+
+```bash
+forjar watch -f <FILE> [--interval N] [--state-dir DIR] [--apply --yes]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-f, --file` | `forjar.yaml` | Config file to watch |
+| `--interval` | `2` | Polling interval in seconds |
+| `--state-dir` | `state` | Directory for lock files |
+| `--apply` | false | Auto-apply on change (requires `--yes`) |
+| `--yes` | false | Confirm auto-apply (must be combined with `--apply`) |
+
+Uses filesystem polling (no inotify dependency). On each detected change, forjar re-reads the config and prints an updated plan. Press `Ctrl-C` to stop.
+
+**Watch and plan only (safe):**
+
+```bash
+forjar watch -f forjar.yaml
+```
+
+**Custom polling interval:**
+
+```bash
+forjar watch -f forjar.yaml --interval 5
+```
+
+**Auto-apply on change (requires both flags):**
+
+```bash
+forjar watch -f forjar.yaml --apply --yes
+```
+
+Both `--apply` and `--yes` are required for auto-apply. Passing `--apply` alone will error, preventing accidental unattended applies.
