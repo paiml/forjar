@@ -62,6 +62,10 @@ pub enum Commands {
         /// FJ-210: Use workspace (overrides state dir to state/<workspace>/)
         #[arg(short = 'w', long)]
         workspace: Option<String>,
+
+        /// FJ-255: Suppress content diff in plan output
+        #[arg(long)]
+        no_diff: bool,
     },
 
     /// Converge infrastructure to desired state
@@ -661,6 +665,7 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             output_dir,
             env_file,
             workspace,
+            no_diff,
         } => {
             let sd = resolve_state_dir(&state_dir, workspace.as_deref());
             cmd_plan(
@@ -674,6 +679,7 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
                 output_dir.as_deref(),
                 env_file.as_deref(),
                 workspace.as_deref(),
+                no_diff,
             )
         }
         Commands::Apply {
@@ -2481,6 +2487,7 @@ fn cmd_plan(
     output_dir: Option<&Path>,
     env_file: Option<&Path>,
     workspace: Option<&str>,
+    no_diff: bool,
 ) -> Result<(), String> {
     let mut config = parse_and_validate(file)?;
     if let Some(path) = env_file {
@@ -2511,7 +2518,12 @@ fn cmd_plan(
             serde_json::to_string_pretty(&plan).map_err(|e| format!("JSON error: {}", e))?;
         println!("{}", output);
     } else {
-        print_plan(&plan, machine_filter);
+        let show_diff = !no_diff;
+        print_plan(
+            &plan,
+            machine_filter,
+            if show_diff { Some(&config) } else { None },
+        );
     }
     Ok(())
 }
@@ -2545,7 +2557,12 @@ fn load_machine_locks(
 }
 
 /// Display a plan to stdout.
-fn print_plan(plan: &types::ExecutionPlan, machine_filter: Option<&str>) {
+/// If `config` is Some, show content diff for file resources (FJ-255).
+fn print_plan(
+    plan: &types::ExecutionPlan,
+    machine_filter: Option<&str>,
+    config: Option<&types::ForjarConfig>,
+) {
     println!("Planning: {} ({} resources)", plan.name, plan.changes.len());
     println!();
 
@@ -2567,6 +2584,20 @@ fn print_plan(plan: &types::ExecutionPlan, machine_filter: Option<&str>) {
             types::PlanAction::NoOp => " ",
         };
         println!("  {} {}", symbol, change.description);
+
+        // FJ-255: Show content diff for file resources on create/update
+        if let Some(cfg) = config {
+            if matches!(
+                change.action,
+                types::PlanAction::Create | types::PlanAction::Update
+            ) {
+                if let Some(resource) = cfg.resources.get(&change.resource_id) {
+                    if let Some(ref content) = resource.content {
+                        print_content_diff(content, &change.action);
+                    }
+                }
+            }
+        }
     }
 
     println!();
@@ -2574,6 +2605,27 @@ fn print_plan(plan: &types::ExecutionPlan, machine_filter: Option<&str>) {
         "Plan: {} to add, {} to change, {} to destroy, {} unchanged.",
         plan.to_create, plan.to_update, plan.to_destroy, plan.unchanged
     );
+}
+
+/// FJ-255: Print a content diff block for a file resource.
+/// Limited to 50 lines; truncated with "[... N more lines]".
+fn print_content_diff(content: &str, action: &types::PlanAction) {
+    let lines: Vec<&str> = content.lines().collect();
+    let prefix = match action {
+        types::PlanAction::Create => "+",
+        types::PlanAction::Update => "~",
+        _ => " ",
+    };
+    let max_lines = 50;
+    let show = lines.len().min(max_lines);
+    println!("    ---");
+    for line in &lines[..show] {
+        println!("    {} {}", prefix, line);
+    }
+    if lines.len() > max_lines {
+        println!("    [... {} more lines]", lines.len() - max_lines);
+    }
+    println!("    ---");
 }
 
 /// Export generated scripts (check, apply, state_query) to a directory for auditing.
@@ -4621,7 +4673,7 @@ resources:
         let state = dir.path().join("state");
         std::fs::create_dir_all(&state).unwrap();
         cmd_plan(
-            &config, &state, None, None, None, false, false, None, None, None,
+            &config, &state, None, None, None, false, false, None, None, None, false,
         )
         .unwrap();
     }
@@ -4669,6 +4721,7 @@ resources:
             None,
             None,
             None,
+            false,
         )
         .unwrap();
     }
@@ -4689,7 +4742,7 @@ resources: {}
         )
         .unwrap();
         let result = cmd_plan(
-            &config, &state, None, None, None, false, false, None, None, None,
+            &config, &state, None, None, None, false, false, None, None, None, false,
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("validation"));
@@ -5094,6 +5147,7 @@ resources:
                 output_dir: None,
                 env_file: None,
                 workspace: None,
+                no_diff: false,
             },
             false,
         )
@@ -5403,7 +5457,7 @@ resources: {}
             unchanged: 0,
         };
         // Just verify it doesn't panic — output goes to stdout
-        print_plan(&plan, None);
+        print_plan(&plan, None, None);
     }
 
     #[test]
@@ -5431,7 +5485,7 @@ resources:
         // Plan with nonexistent state dir → everything shows as Create
         let missing = dir.path().join("no-state");
         cmd_plan(
-            &config, &missing, None, None, None, false, false, None, None, None,
+            &config, &missing, None, None, None, false, false, None, None, None, false,
         )
         .unwrap();
     }
@@ -5462,7 +5516,7 @@ resources:
         .unwrap();
         // json=true should not panic (output goes to stdout)
         cmd_plan(
-            &config, &state, None, None, None, true, false, None, None, None,
+            &config, &state, None, None, None, true, false, None, None, None, false,
         )
         .unwrap();
     }
@@ -5492,7 +5546,7 @@ resources:
         )
         .unwrap();
         cmd_plan(
-            &config, &state, None, None, None, false, true, None, None, None,
+            &config, &state, None, None, None, false, true, None, None, None, false,
         )
         .unwrap();
     }
@@ -5538,6 +5592,7 @@ resources:
             Some(&output),
             None, // no env_file
             None, // no workspace
+            false,
         )
         .unwrap();
 
@@ -9553,6 +9608,7 @@ resources:
             None,
             Some(env.as_path()),
             None, // no workspace
+            false,
         )
         .unwrap();
     }
@@ -9817,6 +9873,7 @@ resources:
             None,
             None,
             Some("staging"),
+            false,
         )
         .unwrap();
     }
@@ -10564,5 +10621,98 @@ resources:
         let orig = CompletionShell::Zsh;
         let cloned = orig.clone();
         assert_eq!(format!("{:?}", cloned), "Zsh");
+    }
+
+    // FJ-255: Content diff tests
+
+    #[test]
+    fn test_fj255_print_content_diff_create() {
+        // Should not panic on Create action
+        print_content_diff("line1\nline2\nline3", &types::PlanAction::Create);
+    }
+
+    #[test]
+    fn test_fj255_print_content_diff_update() {
+        print_content_diff("updated content", &types::PlanAction::Update);
+    }
+
+    #[test]
+    fn test_fj255_print_content_diff_truncation() {
+        // 60 lines — should truncate at 50
+        let content: String = (1..=60)
+            .map(|i| format!("line {}", i))
+            .collect::<Vec<_>>()
+            .join("\n");
+        print_content_diff(&content, &types::PlanAction::Create);
+    }
+
+    #[test]
+    fn test_fj255_print_content_diff_empty() {
+        print_content_diff("", &types::PlanAction::Create);
+    }
+
+    #[test]
+    fn test_fj255_plan_with_diff() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        let state = dir.path().join("state");
+        std::fs::create_dir_all(&state).unwrap();
+        std::fs::write(
+            &config,
+            r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 127.0.0.1
+resources:
+  cfg:
+    type: file
+    machine: m1
+    path: /tmp/test.txt
+    content: |
+      line1
+      line2
+      line3
+"#,
+        )
+        .unwrap();
+        // no_diff=false → show diff
+        cmd_plan(
+            &config, &state, None, None, None, false, false, None, None, None, false,
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn test_fj255_plan_with_no_diff_flag() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        let state = dir.path().join("state");
+        std::fs::create_dir_all(&state).unwrap();
+        std::fs::write(
+            &config,
+            r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 127.0.0.1
+resources:
+  cfg:
+    type: file
+    machine: m1
+    path: /tmp/test.txt
+    content: "hello"
+"#,
+        )
+        .unwrap();
+        // no_diff=true → suppress diff
+        cmd_plan(
+            &config, &state, None, None, None, false, false, None, None, None, true,
+        )
+        .unwrap();
     }
 }

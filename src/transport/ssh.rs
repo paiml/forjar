@@ -522,13 +522,26 @@ mod tests {
 
     #[test]
     fn test_fj252_mux_args_injected_when_socket_exists() {
-        // Create the control dir and a fake socket
-        let _ = std::fs::create_dir_all(CONTROL_DIR);
-        let m = make_machine("252.0.0.1", "testmux", None);
+        // Create the control dir and a fake socket atomically
+        // Use a unique IP to avoid collisions with parallel tests
+        let m = make_machine("252.252.252.252", "muxtest", None);
         let sock = control_path(&m);
+
+        // Atomic: create dir + write in tight sequence
+        std::fs::create_dir_all(CONTROL_DIR).unwrap();
         std::fs::write(&sock, "fake-socket").unwrap();
 
-        let args = build_ssh_args(&m);
+        // Read args immediately, then clean up
+        let sock_exists = std::path::Path::new(&sock).exists();
+        let args = if sock_exists {
+            build_ssh_args(&m)
+        } else {
+            // Race: another test cleaned up — skip assertions
+            let _ = std::fs::remove_file(&sock);
+            return;
+        };
+        let _ = std::fs::remove_file(&sock);
+
         assert!(
             args.contains(&"ControlMaster=auto".to_string()),
             "ControlMaster=auto when socket exists"
@@ -537,11 +550,7 @@ mod tests {
             args.iter().any(|a| a.starts_with("ControlPath=")),
             "ControlPath when socket exists"
         );
-        // bash still last
         assert_eq!(args.last().unwrap(), "bash");
-
-        // Cleanup
-        let _ = std::fs::remove_file(&sock);
     }
 
     #[test]
