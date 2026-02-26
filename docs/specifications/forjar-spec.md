@@ -181,7 +181,9 @@ src/
 
 **Banned**: reqwest, hyper, tonic, any cloud SDK. tokio allowed only for MCP server (FJ-063).
 
-**Deferred**: copia (delta sync — base64 sufficient for now), repartir (parallel dispatch — std::thread::scope sufficient), duende (daemon management — not needed), pmat (compliance gates — external tool).
+**Deferred**: repartir (parallel dispatch — std::thread::scope sufficient), duende (daemon management — not needed), pmat (compliance gates — external tool).
+
+**Planned (Phase 10)**: copia (delta sync — replaces base64 for files > 1MB, critical for multi-GB model deployment, FJ-242).
 
 ---
 
@@ -454,6 +456,35 @@ isolation:
   cgroups:
     memory_mb: 4096
     cpus: 4
+```
+
+#### `model` (Planned — FJ-240)
+
+```yaml
+type: model
+machine: <name>
+name: <model identifier>
+source: "hf://meta-llama/Llama-3-8B-GGUF"   # HuggingFace repo, URL, or local path
+format: gguf                                   # gguf | safetensors | apr
+quantization: q4_k_m                           # q4_k_m | q5_k_m | q8_0 | f16 | none
+path: /data/models/llama-3-8b.gguf            # destination on machine
+checksum: "blake3:abc123..."                   # optional pin (drift detection)
+cache_dir: ~/.cache/apr                        # model cache directory
+state: present | absent
+```
+
+#### `gpu` (Planned — FJ-241)
+
+```yaml
+type: gpu
+machine: <name>
+driver_version: "535"                    # NVIDIA driver version
+cuda_version: "12.3"                     # CUDA toolkit version
+devices: [0, 1]                          # GPU indices (default: all)
+persistence_mode: true                   # nvidia-persistenced (default: true)
+compute_mode: default                    # default | exclusive_process | prohibited
+memory_limit_mb: 8192                    # optional cgroup GPU memory limit
+state: present | absent
 ```
 
 ### 3.3 Recipes
@@ -1512,6 +1543,39 @@ Statistical anomaly detection from event history. Analyzes per-resource metrics:
 | FJ-225 | Notification hooks — `policy.notify:` block. `on_success`, `on_failure`, `on_drift` keys. Value is a shell command template with `{{machine}}`, `{{resource}}`, `{{status}}` variables. Runs after apply/drift completes. Supports webhook via `curl` in the command. | Planned |
 | FJ-226 | `--check` mode parity — all 9 resource type codegen handlers emit check-mode scripts (report what would change without applying). `forjar apply --check` runs check scripts instead of apply scripts. Exit code 2 = changes needed, 0 = converged. | Planned |
 | FJ-230 | Pepita transport — kernel namespace execution target. `transport: pepita` on machines. Uses `unshare(2)` / `clone(2)` with `CLONE_NEWPID \| CLONE_NEWNET \| CLONE_NEWNS` to create isolated execution namespace, pipes purified shell to `nsenter ... bash` stdin (same mechanism as container/SSH/local). **Lifecycle**: (1) create namespace with cgroup v2 limits from `pepita:` config, (2) mount overlayfs rootfs from debootstrap base or OCI image, (3) exec scripts via `nsenter --target <pid> -- bash`, (4) teardown namespace. **Config**: `pepita.rootfs` (path to base rootfs or `debootstrap:jammy`), `pepita.cgroups.memory_mb`, `pepita.cgroups.cpus`, `pepita.network` (`isolated` \| `host`), `pepita.filesystem` (`overlay` \| `bind`), `pepita.ephemeral` (destroy after apply, default true). **Interface model**: mirrors wos `VmConfig`/`VmManager` patterns — `VmState` lifecycle (Created→Running→Stopped), `VirtioDeviceConfig`-style device enum for console/block/net, jidoka guard (`MAX_NAMESPACES`). Zero Docker dependency — uses kernel primitives directly. Requires `CAP_SYS_ADMIN` or root. `transport/pepita.rs` new file. Extends transport dispatch table to 4 transports (pepita > container > local > SSH). Dogfood: `dogfood-pepita-transport.yaml` exercises all resource types inside a kernel namespace. | Planned |
+
+### Phase 10: Sovereign AI Stack (v1.0)
+
+**Goal**: First-class provisioning of the sovereign AI stack (aprender, repartir, pepita, renacer, copia, wos) on bare-metal GPU machines. New resource types for ML models and GPU hardware. Delta sync for large file transfer. Recipes that bundle the full inference-server and distributed-training workflows into reusable patterns.
+
+**Context**: The sovereign AI stack is a set of pure-Rust crates that run ML inference and training on bare metal without cloud APIs:
+
+```
+apr-cookbook (deployment patterns)
+  ├── aprender / apr-cli    ML framework + inference server (apr serve)
+  ├── trueno                SIMD/GPU tensor compute (AVX-512, NEON, wgpu)
+  ├── realizar              GPU kernels (FlashAttention, Q4K/Q5K quantization)
+  ├── whisper-apr           WASM-first speech recognition
+  ├── repartir              Distributed execution (work-stealing, TCP/TLS, MicroVM)
+  │   └── pepita            Kernel interfaces (KVM, io_uring, cgroups, zram, SIMD)
+  ├── renacer               Syscall tracing (ptrace + DWARF + OTLP + ML anomaly)
+  ├── copia                 Delta sync (rsync algorithm, BLAKE3 + Adler-32)
+  └── wos                   WASM microkernel (educational, browser-based)
+```
+
+Forjar provisions the machines these crates run on. Phase 10 makes that provisioning first-class.
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-240 | `resources/model.rs` — ML model resource type. Downloads models via `apr pull`, verifies integrity with BLAKE3, manages model cache directory. **Schema**: `type: model`, `name`, `source` (HuggingFace repo ID, URL, or local path), `format` (gguf \| safetensors \| apr), `quantization` (q4_k_m \| q5_k_m \| q8_0 \| f16 \| none), `path` (destination on machine), `checksum` (optional BLAKE3 hash for pinning), `cache_dir` (default: `~/.cache/apr/`). **Codegen**: check if model exists + hash matches → skip; else `apr pull` or `curl` + verify. **State query**: file exists + BLAKE3 hash match. Enables drift detection on model files — unauthorized model swaps are caught. | Planned |
+| FJ-241 | `resources/gpu.rs` — GPU hardware resource type. Manages NVIDIA driver installation, CUDA toolkit, nvidia-persistenced service, GPU cgroup limits, and device verification. **Schema**: `type: gpu`, `driver_version` (e.g., `535`), `cuda_version` (e.g., `12.3`), `devices` (list of GPU indices, default: all), `persistence_mode` (bool, default: true), `compute_mode` (default \| exclusive_process \| prohibited), `memory_limit_mb` (optional cgroup GPU memory limit). **Codegen**: apt install `nvidia-driver-{version}` + `cuda-toolkit-{cuda_version}`, enable `nvidia-persistenced`, verify with `nvidia-smi`. **State query**: `nvidia-smi --query-gpu=driver_version,compute_mode,memory.total --format=csv,noheader`. Extends resource type count from 9 to 11 (with model). | Planned |
+| FJ-242 | Copia delta sync integration — replace base64 file transfer for `source:` fields with copia rsync-algorithm delta sync. Add `copia` dependency to Cargo.toml. **Mechanism**: (1) generate remote file signature via transport (`copia signature` on target), (2) compute delta locally (`copia delta`), (3) transfer delta (much smaller than full file), (4) apply patch on target (`copia patch`). Falls back to base64 for new files (no remote signature to diff against). **Threshold**: files > 1MB use copia; files <= 1MB use base64 (overhead not worth it). Critical for deploying 4-7GB GGUF model files — base64 doubles transfer size and requires full re-transfer on any change. | Planned |
+| FJ-243 | `recipes/apr-inference-server.yaml` — reusable recipe for deploying an aprender inference server on a GPU machine. **Inputs**: `model_source` (HF repo ID), `model_format` (gguf \| safetensors), `quantization` (q4_k_m default), `port` (8080 default), `workers` (1 default), `gpu_device` (0 default), `user` (service account). **Resources**: gpu (driver + CUDA), model (download + verify), file (systemd unit for `apr serve`), service (running + enabled), network (firewall allow port), cron (daily `apr qa` health check). Depends on FJ-240 + FJ-241. Dogfood: `examples/dogfood-apr-serve.yaml`. | Planned |
+| FJ-244 | `recipes/repartir-worker.yaml` — reusable recipe for deploying a repartir remote TCP/TLS executor as a systemd service on worker nodes. **Inputs**: `listen_port` (9000 default), `tls_cert` (path to TLS cert), `tls_key` (path to TLS key), `max_tasks` (concurrent task limit), `backends` (cpu \| gpu \| microvm). **Resources**: package (cargo install repartir-worker), file (systemd unit, TLS certs, config), service (running + enabled), network (firewall allow listen_port). For distributed inference: deploy this recipe to N worker machines, then deploy apr-inference-server with `--distributed` flag pointing to the workers. | Planned |
+| FJ-245 | `recipes/renacer-observability.yaml` — reusable recipe for deploying renacer syscall tracing + OTLP export + Grafana stack on a monitoring machine. **Inputs**: `otlp_endpoint`, `grafana_port` (3000 default), `jaeger_port` (16686 default), `retention_days` (7 default). **Resources**: package (cargo install renacer), docker (jaeger all-in-one), docker (grafana with tempo datasource), network (firewall allow grafana + jaeger + OTLP ports), file (grafana provisioning config). Enables: `renacer --otlp-endpoint http://monitor:4317 -- forjar apply` for traced infrastructure operations. `forjar trace` output can also be forwarded to the same OTLP endpoint. | Planned |
+| FJ-246 | `recipes/sovereign-ai-stack.yaml` — meta-recipe that composes FJ-243 + FJ-244 + FJ-245 into a complete sovereign AI lab deployment. **Inputs**: `gpu_machines` (list), `worker_machines` (list), `monitor_machine`, `model_source`, `model_format`. **Composition**: (1) deploy renacer observability to monitor machine, (2) deploy repartir workers to worker machines, (3) deploy apr inference server to GPU machines with distributed flag pointing to workers. Uses recipe composition (`requires:`) to chain dependencies. The forjar.yaml example from §3.1 (lambda + intel + jetson) becomes a concrete instance of this meta-recipe. | Planned |
+| FJ-247 | Copia-accelerated model deployment benchmarks — measure and document delta sync performance for ML model updates. **Targets**: model weight update (fine-tuned 7B, ~2% delta) transfers < 100MB over SSH (vs 4GB full re-transfer). Quantization format change (f16→q4_k_m) requires full transfer (incompressible delta). Benchmark: copia vs base64 vs rsync for GGUF/SafeTensors files at 1GB, 4GB, 7GB sizes. Results documented in spec §9 performance targets and book Ch. 10. | Planned |
+| FJ-248 | Dogfood: full sovereign AI stack on lambda + intel + jetson. **Validation**: (1) `forjar validate` all stack recipes, (2) `forjar plan` shows GPU driver + CUDA + model + apr-serve + repartir-worker + renacer, (3) container transport apply for codegen verification, (4) drift detection catches model file tampering (BLAKE3 mismatch), (5) anomaly detection flags GPU driver version skew across machines. CI: add `sovereign-stack` job to `.github/workflows/ci.yml`. | Planned |
 
 ---
 
