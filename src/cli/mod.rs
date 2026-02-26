@@ -219,6 +219,10 @@ pub enum Commands {
         /// FJ-283: Retry failed resources up to N times with exponential backoff
         #[arg(long, default_value = "0")]
         retry: u32,
+
+        /// FJ-286: Skip confirmation prompt (CI mode)
+        #[arg(long)]
+        yes: bool,
     },
 
     /// Detect unauthorized changes (tripwire)
@@ -957,6 +961,7 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             progress,
             timing,
             retry,
+            yes,
         } => {
             if check {
                 // FJ-226: --check runs check scripts via cmd_check
@@ -993,6 +998,7 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
                 progress,
                 timing,
                 retry,
+                yes,
             )
         }
         Commands::Drift {
@@ -2025,7 +2031,8 @@ fn cmd_rollback(
         None,  // no output mode
         false, // no progress
         false, // no timing
-        0,     // no retry
+        0, // no retry
+            true, // yes (skip prompt)
     )
 }
 
@@ -3895,6 +3902,7 @@ fn cmd_apply(
     progress: bool,
     timing: bool,
     retry: u32,
+    yes: bool,
 ) -> Result<(), String> {
     use std::time::Instant;
     let t_total = Instant::now();
@@ -3956,6 +3964,27 @@ fn cmd_apply(
     if let Some(ref hook) = config.policy.pre_apply {
         if !dry_run {
             run_hook("pre_apply", hook, verbose)?;
+        }
+    }
+
+    // FJ-286: Confirmation prompt unless --yes or --dry-run
+    if !yes && !dry_run {
+        let execution_order = resolver::build_execution_order(&config)?;
+        let preview_locks = load_machine_locks(&config, state_dir, machine_filter)?;
+        let preview_plan = planner::plan(&config, &execution_order, &preview_locks, tag_filter);
+        let n_changes = preview_plan.to_create + preview_plan.to_update + preview_plan.to_destroy;
+        if n_changes > 0 {
+            eprint!(
+                "Apply {} change(s) ({} create, {} update, {} destroy)? [y/N] ",
+                n_changes, preview_plan.to_create, preview_plan.to_update, preview_plan.to_destroy
+            );
+            let mut answer = String::new();
+            std::io::stdin()
+                .read_line(&mut answer)
+                .map_err(|e| format!("stdin error: {}", e))?;
+            if !answer.trim().eq_ignore_ascii_case("y") {
+                return Err("aborted by user".to_string());
+            }
         }
     }
 
@@ -4335,7 +4364,8 @@ fn cmd_drift(
             None,  // no output mode
             false, // no progress
             false, // no timing
-            0,     // no retry
+            0, // no retry
+            true, // yes (skip prompt)
         )?;
         if !json {
             println!("Remediation complete.");
@@ -6378,8 +6408,7 @@ resources:
         let state = dir.path().join("state");
         std::fs::create_dir_all(&state).unwrap();
         cmd_plan(
-            &config, &state, None, None, None, false, false, None, None, None, false,
-            None,
+            &config, &state, None, None, None, false, false, None, None, None, false, None,
         )
         .unwrap();
     }
@@ -6449,8 +6478,7 @@ resources: {}
         )
         .unwrap();
         let result = cmd_plan(
-            &config, &state, None, None, None, false, false, None, None, None, false,
-            None,
+            &config, &state, None, None, None, false, false, None, None, None, false, None,
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("validation"));
@@ -6502,7 +6530,8 @@ resources:
             None,  // no output mode
             false, // no progress
             false, // no timing
-            0,     // no retry
+            0, // no retry
+            true, // yes (skip prompt)
         )
         .unwrap();
     }
@@ -6556,7 +6585,8 @@ policy:
             None,  // no output mode
             false, // no progress
             false, // no timing
-            0,     // no retry
+            0, // no retry
+            true, // yes (skip prompt)
         )
         .unwrap();
 
@@ -6607,7 +6637,8 @@ resources: {}
             None,  // no output mode
             false, // no progress
             false, // no timing
-            0,     // no retry
+            0, // no retry
+            true, // yes (skip prompt)
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("validation"));
@@ -6936,6 +6967,7 @@ resources:
                 output: None,
                 progress: false,
                 retry: 0,
+                yes: false,
                 timing: false,
             },
             false,
@@ -7133,7 +7165,8 @@ resources:
             None,  // no output mode
             false, // no progress
             false, // no timing
-            0,     // no retry
+            0, // no retry
+            true, // yes (skip prompt)
         )
         .unwrap();
         assert!(target.exists());
@@ -7161,7 +7194,8 @@ resources:
             None,  // no output mode
             false, // no progress
             false, // no timing
-            0,     // no retry
+            0, // no retry
+            true, // yes (skip prompt)
         )
         .unwrap();
     }
@@ -7243,8 +7277,7 @@ resources:
         // Plan with nonexistent state dir → everything shows as Create
         let missing = dir.path().join("no-state");
         cmd_plan(
-            &config, &missing, None, None, None, false, false, None, None, None, false,
-            None,
+            &config, &missing, None, None, None, false, false, None, None, None, false, None,
         )
         .unwrap();
     }
@@ -7275,8 +7308,7 @@ resources:
         .unwrap();
         // json=true should not panic (output goes to stdout)
         cmd_plan(
-            &config, &state, None, None, None, true, false, None, None, None, false,
-            None,
+            &config, &state, None, None, None, true, false, None, None, None, false, None,
         )
         .unwrap();
     }
@@ -7306,8 +7338,7 @@ resources:
         )
         .unwrap();
         cmd_plan(
-            &config, &state, None, None, None, false, true, None, None, None, false,
-            None,
+            &config, &state, None, None, None, false, true, None, None, None, false, None,
         )
         .unwrap();
     }
@@ -7775,7 +7806,8 @@ resources:
             None,  // no output mode
             false, // no progress
             false, // no timing
-            0,     // no retry
+            0, // no retry
+            true, // yes (skip prompt)
         )
         .unwrap();
         assert!(target.exists());
@@ -7843,7 +7875,8 @@ resources:
             None,  // no output mode
             false, // no progress
             false, // no timing
-            0,     // no retry
+            0, // no retry
+            true, // yes (skip prompt)
         )
         .unwrap();
         cmd_destroy(&config, &state, None, true, true).unwrap();
@@ -7912,7 +7945,8 @@ resources:
             None,  // no output mode
             false, // no progress
             false, // no timing
-            0,     // no retry
+            0, // no retry
+            true, // yes (skip prompt)
         )
         .unwrap();
         assert!(target_a.exists());
@@ -7976,7 +8010,8 @@ resources:
             None,  // no output mode
             false, // no progress
             false, // no timing
-            0,     // no retry
+            0, // no retry
+            true, // yes (skip prompt)
         )
         .unwrap();
         dispatch(
@@ -8076,7 +8111,8 @@ resources:
             None,  // no output mode
             false, // no progress
             false, // no timing
-            0,     // no retry
+            0, // no retry
+            true, // yes (skip prompt)
         )
         .unwrap();
         assert!(target.exists());
@@ -8239,7 +8275,8 @@ resources:
             None,  // no output mode
             false, // no progress
             false, // no timing
-            0,     // no retry
+            0, // no retry
+            true, // yes (skip prompt)
         )
         .unwrap();
         assert!(std::path::Path::new(&target).exists());
@@ -9616,7 +9653,8 @@ resources:
             None,  // no output mode
             false, // no progress
             false, // no timing
-            0,     // no retry
+            0, // no retry
+            true, // yes (skip prompt)
         )
         .unwrap();
     }
@@ -10885,7 +10923,8 @@ resources:
             None,  // no output mode
             false, // no progress
             false, // no timing
-            0,     // no retry
+            0, // no retry
+            true, // yes (skip prompt)
         );
         assert!(result.is_ok());
     }
@@ -10972,6 +11011,7 @@ resources:
                 output: None,
                 progress: false,
                 retry: 0,
+                yes: false,
                 timing: false,
             },
             false,
@@ -11514,7 +11554,8 @@ resources:
             None,  // no output mode
             false, // no progress
             false, // no timing
-            0,     // no retry
+            0, // no retry
+            true, // yes (skip prompt)
         )
         .unwrap();
     }
@@ -11909,6 +11950,7 @@ policies:
             false,
             false,
             0,
+            true,
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("policy violations"));
@@ -12016,6 +12058,7 @@ policy:
             false,
             false,
             0,
+            true,
         );
         // cmd_apply needs a parsed config, but it re-parses from file
         // Instead, test the run_notify function directly
@@ -12114,6 +12157,7 @@ resources:
                 output: None,
                 progress: false,
                 retry: 0,
+                yes: false,
                 timing: false,
             },
             false,
@@ -12172,6 +12216,7 @@ resources:
                 output: None,
                 progress: false,
                 retry: 0,
+                yes: false,
                 timing: false,
             },
             false,
@@ -12616,8 +12661,7 @@ resources:
         .unwrap();
         // no_diff=false → show diff
         cmd_plan(
-            &config, &state, None, None, None, false, false, None, None, None, false,
-            None,
+            &config, &state, None, None, None, false, false, None, None, None, false, None,
         )
         .unwrap();
     }
@@ -12648,8 +12692,7 @@ resources:
         .unwrap();
         // no_diff=true → suppress diff
         cmd_plan(
-            &config, &state, None, None, None, false, false, None, None, None, true,
-            None,
+            &config, &state, None, None, None, false, false, None, None, None, true, None,
         )
         .unwrap();
     }
@@ -13214,6 +13257,7 @@ resources:
             false,
             false,
             0,
+            true,
         )
         .unwrap();
         // last-apply.yaml should be written
@@ -13283,6 +13327,7 @@ resources:
             false,
             false,
             0,
+            true,
         )
         .unwrap();
         let content = std::fs::read_to_string(state.join("local").join("last-apply.yaml")).unwrap();
@@ -13689,6 +13734,7 @@ resources:
             output: Some("events".to_string()),
             progress: false,
             retry: 0,
+            yes: false,
             timing: false,
         };
         match cmd {
@@ -13792,6 +13838,7 @@ resources:
             output: None,
             progress: true,
             retry: 0,
+            yes: false,
             timing: false,
         };
         match cmd {
@@ -13824,6 +13871,7 @@ resources:
             output: None,
             progress: false,
             retry: 0,
+            yes: false,
             timing: false,
         };
         match cmd {
@@ -13860,6 +13908,7 @@ resources:
             output: None,
             progress: false,
             retry: 0,
+            yes: false,
             timing: true,
         };
         match cmd {
@@ -13892,6 +13941,7 @@ resources:
             output: None,
             progress: false,
             retry: 0,
+            yes: false,
             timing: false,
         };
         match cmd {
@@ -14132,6 +14182,7 @@ resources:
             output: None,
             progress: false,
             retry: 0,
+            yes: false,
             timing: false,
         };
         match cmd {
@@ -14277,6 +14328,7 @@ resources:
             output: None,
             progress: false,
             retry: 3,
+            yes: false,
             timing: false,
         };
         match cmd {
@@ -14309,6 +14361,7 @@ resources:
             output: None,
             progress: false,
             retry: 0,
+            yes: false,
             timing: false,
         };
         match cmd {
@@ -14424,5 +14477,73 @@ resources:
         assert!(deps.contains("c"));
         assert!(!deps.contains("d"));
         assert_eq!(deps.len(), 3);
+    }
+
+    // ── FJ-286: Apply confirmation prompt ──────────────────────────
+
+    #[test]
+    fn test_fj286_yes_flag_parse() {
+        let cmd = Commands::Apply {
+            file: PathBuf::from("forjar.yaml"),
+            machine: None,
+            resource: None,
+            tag: None,
+            group: None,
+            force: false,
+            dry_run: false,
+            no_tripwire: false,
+            params: vec![],
+            auto_commit: false,
+            timeout: None,
+            state_dir: PathBuf::from("state"),
+            json: false,
+            env_file: None,
+            workspace: None,
+            check: false,
+            report: false,
+            force_unlock: false,
+            output: None,
+            progress: false,
+            retry: 0,
+            yes: true,
+            timing: false,
+        };
+        match cmd {
+            Commands::Apply { yes, .. } => assert!(yes),
+            _ => panic!("expected Apply"),
+        }
+    }
+
+    #[test]
+    fn test_fj286_yes_default_false() {
+        let cmd = Commands::Apply {
+            file: PathBuf::from("forjar.yaml"),
+            machine: None,
+            resource: None,
+            tag: None,
+            group: None,
+            force: false,
+            dry_run: false,
+            no_tripwire: false,
+            params: vec![],
+            auto_commit: false,
+            timeout: None,
+            state_dir: PathBuf::from("state"),
+            json: false,
+            env_file: None,
+            workspace: None,
+            check: false,
+            report: false,
+            force_unlock: false,
+            output: None,
+            progress: false,
+            retry: 0,
+            yes: false,
+            timing: false,
+        };
+        match cmd {
+            Commands::Apply { yes, .. } => assert!(!yes),
+            _ => panic!("expected Apply"),
+        }
     }
 }
