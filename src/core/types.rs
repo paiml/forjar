@@ -314,6 +314,11 @@ pub struct Resource {
     #[serde(default)]
     pub tags: Vec<String>,
 
+    /// Conditional expression — resource only applies when this evaluates to true.
+    /// Examples: `{{machine.arch}} == "x86_64"`, `{{params.env}} != "production"`
+    #[serde(default)]
+    pub when: Option<String>,
+
     // -- Pepita fields (FJ-040: kernel namespace isolation) --
     /// Chroot directory for filesystem isolation
     #[serde(default)]

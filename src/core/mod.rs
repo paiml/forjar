@@ -1,6 +1,7 @@
 //! Core infrastructure logic — types, parsing, resolution, planning, execution.
 
 pub mod codegen;
+pub mod conditions;
 pub mod executor;
 pub mod migrate;
 pub mod parser;

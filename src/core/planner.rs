@@ -1,5 +1,6 @@
 //! FJ-004: Plan generation — diff desired state against lock state.
 
+use super::conditions;
 use super::resolver;
 use super::types::*;
 use crate::tripwire::hasher;
@@ -47,6 +48,23 @@ pub fn plan(
                 if let Some(machine) = config.machines.get(&machine_name) {
                     if !resource.arch.contains(&machine.arch) {
                         continue;
+                    }
+                }
+            }
+
+            // FJ-202: Skip resource if `when:` condition evaluates to false
+            if let Some(ref when_expr) = resource.when {
+                if let Some(machine) = config.machines.get(&machine_name) {
+                    match conditions::evaluate_when(when_expr, &config.params, machine) {
+                        Ok(false) => continue,
+                        Err(e) => {
+                            eprintln!(
+                                "warning: when condition failed for {} on {}: {}",
+                                resource_id, machine_name, e
+                            );
+                            continue;
+                        }
+                        Ok(true) => {} // condition met, proceed
                     }
                 }
             }
@@ -513,6 +531,7 @@ resources:
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            when: None,
             chroot_dir: None,
             namespace_uid: None,
             namespace_gid: None,
@@ -574,6 +593,7 @@ resources:
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            when: None,
             chroot_dir: None,
             namespace_uid: None,
             namespace_gid: None,
@@ -633,6 +653,7 @@ resources:
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            when: None,
             chroot_dir: None,
             namespace_uid: None,
             namespace_gid: None,
@@ -694,6 +715,7 @@ resources:
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            when: None,
             chroot_dir: None,
             namespace_uid: None,
             namespace_gid: None,
@@ -752,6 +774,7 @@ resources:
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            when: None,
             chroot_dir: None,
             namespace_uid: None,
             namespace_gid: None,
@@ -810,6 +833,7 @@ resources:
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            when: None,
             chroot_dir: None,
             namespace_uid: None,
             namespace_gid: None,
@@ -1261,6 +1285,7 @@ resources:
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            when: None,
             chroot_dir: None,
             namespace_uid: None,
             namespace_gid: None,
@@ -1320,6 +1345,7 @@ resources:
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            when: None,
             chroot_dir: None,
             namespace_uid: None,
             namespace_gid: None,
@@ -1379,6 +1405,7 @@ resources:
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            when: None,
             chroot_dir: None,
             namespace_uid: None,
             namespace_gid: None,
@@ -1438,6 +1465,7 @@ resources:
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            when: None,
             chroot_dir: None,
             namespace_uid: None,
             namespace_gid: None,
@@ -1933,6 +1961,7 @@ resources:
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            when: None,
             chroot_dir: None,
             namespace_uid: None,
             namespace_gid: None,
@@ -2341,5 +2370,203 @@ resources:
         );
         assert_eq!(p.unchanged, 0);
         assert_eq!(p.changes[0].action, PlanAction::Update);
+    }
+
+    // ── FJ-202: Conditional resource tests ──────────────────────────
+
+    #[test]
+    fn test_fj202_when_true_includes_resource() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 127.0.0.1
+resources:
+  pkg:
+    type: package
+    machine: m1
+    provider: apt
+    packages: [curl]
+    when: "true"
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let order = vec!["pkg".to_string()];
+        let locks = HashMap::new();
+        let p = plan(&config, &order, &locks, None);
+        assert_eq!(p.to_create, 1, "when: true should include the resource");
+    }
+
+    #[test]
+    fn test_fj202_when_false_excludes_resource() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 127.0.0.1
+resources:
+  pkg:
+    type: package
+    machine: m1
+    provider: apt
+    packages: [curl]
+    when: "false"
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let order = vec!["pkg".to_string()];
+        let locks = HashMap::new();
+        let p = plan(&config, &order, &locks, None);
+        assert_eq!(p.to_create, 0, "when: false should exclude the resource");
+        assert_eq!(p.changes.len(), 0);
+    }
+
+    #[test]
+    fn test_fj202_when_arch_match() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 127.0.0.1
+    arch: x86_64
+resources:
+  pkg:
+    type: package
+    machine: m1
+    provider: apt
+    packages: [cuda]
+    when: '{{machine.arch}} == "x86_64"'
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let order = vec!["pkg".to_string()];
+        let locks = HashMap::new();
+        let p = plan(&config, &order, &locks, None);
+        assert_eq!(p.to_create, 1, "when arch matches, resource should be included");
+    }
+
+    #[test]
+    fn test_fj202_when_arch_mismatch() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 127.0.0.1
+    arch: aarch64
+resources:
+  pkg:
+    type: package
+    machine: m1
+    provider: apt
+    packages: [cuda]
+    when: '{{machine.arch}} == "x86_64"'
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let order = vec!["pkg".to_string()];
+        let locks = HashMap::new();
+        let p = plan(&config, &order, &locks, None);
+        assert_eq!(p.to_create, 0, "when arch doesn't match, resource should be excluded");
+    }
+
+    #[test]
+    fn test_fj202_when_param_condition() {
+        let yaml = r#"
+version: "1.0"
+name: test
+params:
+  env: staging
+machines:
+  m1:
+    hostname: m1
+    addr: 127.0.0.1
+resources:
+  debug-pkg:
+    type: package
+    machine: m1
+    provider: apt
+    packages: [strace]
+    when: '{{params.env}} != "production"'
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let order = vec!["debug-pkg".to_string()];
+        let locks = HashMap::new();
+        let p = plan(&config, &order, &locks, None);
+        assert_eq!(p.to_create, 1, "env=staging != production, should include");
+    }
+
+    #[test]
+    fn test_fj202_when_param_condition_false() {
+        let yaml = r#"
+version: "1.0"
+name: test
+params:
+  env: production
+machines:
+  m1:
+    hostname: m1
+    addr: 127.0.0.1
+resources:
+  debug-pkg:
+    type: package
+    machine: m1
+    provider: apt
+    packages: [strace]
+    when: '{{params.env}} != "production"'
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let order = vec!["debug-pkg".to_string()];
+        let locks = HashMap::new();
+        let p = plan(&config, &order, &locks, None);
+        assert_eq!(p.to_create, 0, "env=production != production is false, should exclude");
+    }
+
+    #[test]
+    fn test_fj202_when_no_condition_applies() {
+        // Resource without when: should always be included
+        let config = make_config();
+        let order = vec!["pkg".to_string(), "conf".to_string(), "svc".to_string()];
+        let locks = HashMap::new();
+        let p = plan(&config, &order, &locks, None);
+        assert_eq!(p.to_create, 3, "resources without when: should all be included");
+    }
+
+    #[test]
+    fn test_fj202_when_mixed_conditions() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 127.0.0.1
+resources:
+  always:
+    type: file
+    machine: m1
+    path: /tmp/always.txt
+    content: "always"
+  never:
+    type: file
+    machine: m1
+    path: /tmp/never.txt
+    content: "never"
+    when: "false"
+  conditional:
+    type: file
+    machine: m1
+    path: /tmp/cond.txt
+    content: "cond"
+    when: "true"
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let order = vec!["always".to_string(), "conditional".to_string(), "never".to_string()];
+        let locks = HashMap::new();
+        let p = plan(&config, &order, &locks, None);
+        assert_eq!(p.to_create, 2, "only 'always' and 'conditional' should be included");
     }
 }

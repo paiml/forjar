@@ -344,6 +344,7 @@ dpkg -l curl 2>/dev/null | grep -q '^ii'
             inputs: std::collections::HashMap::new(),
             arch: vec![],
             tags: vec![],
+            when: None,
             chroot_dir: None,
             namespace_uid: None,
             namespace_gid: None,
@@ -546,8 +547,8 @@ dpkg -l curl 2>/dev/null | grep -q '^ii'
     fn test_fj153_validate_returns_errors_for_bad_script() {
         // Try various potentially error-triggering scripts
         let scripts = [
-            "if [ -z test then\necho hello",  // Broken syntax
-            "#!/bin/bash\n\nfor i in; do echo; done",  // Empty for loop
+            "if [ -z test then\necho hello",          // Broken syntax
+            "#!/bin/bash\n\nfor i in; do echo; done", // Empty for loop
         ];
         for script in &scripts {
             // Whether it returns Ok or Err, it should not panic
@@ -558,11 +559,7 @@ dpkg -l curl 2>/dev/null | grep -q '^ii'
     #[test]
     fn test_fj153_purify_error_on_invalid_syntax() {
         // Severely broken syntax that bashrs parser might reject
-        let scripts = [
-            "if then fi",
-            "((( )))",
-            "case in ;; esac",
-        ];
+        let scripts = ["if then fi", "((( )))", "case in ;; esac"];
         for script in &scripts {
             let result = purify_script(script);
             // Whether Ok or Err, the pipeline should handle it gracefully
@@ -575,7 +572,10 @@ dpkg -l curl 2>/dev/null | grep -q '^ii'
         let script = "#!/bin/bash\necho $UNQUOTED_VAR\neval $DYNAMIC";
         let result = lint_script(script);
         for diag in &result.diagnostics {
-            assert!(!diag.message.is_empty(), "diagnostic message must not be empty");
+            assert!(
+                !diag.message.is_empty(),
+                "diagnostic message must not be empty"
+            );
         }
     }
 
@@ -599,7 +599,11 @@ dpkg -l curl 2>/dev/null | grep -q '^ii'
         let script = "#!/bin/bash\ncat <<'EOF'\nhello world\nEOF\n";
         let result = purify_script(script);
         // Whether the heredoc is preserved or transformed, purification should succeed
-        assert!(result.is_ok(), "heredoc purification should not fail: {:?}", result.err());
+        assert!(
+            result.is_ok(),
+            "heredoc purification should not fail: {:?}",
+            result.err()
+        );
     }
 
     #[test]

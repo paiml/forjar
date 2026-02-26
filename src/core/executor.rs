@@ -4,6 +4,7 @@
 //! parse → validate → DAG → plan → for each resource: codegen → transport → hash → state → events
 
 use super::codegen;
+use super::conditions;
 use super::planner;
 use super::resolver;
 use super::state;
@@ -319,6 +320,15 @@ fn apply_single_resource(
     if let Some(tag) = cfg.tag_filter {
         if !resource.tags.iter().any(|t| t == tag) {
             return Ok(ResourceOutcome::Skipped);
+        }
+    }
+
+    // FJ-202: Skip resource if `when:` condition evaluates to false
+    if let Some(ref when_expr) = resource.when {
+        match conditions::evaluate_when(when_expr, &cfg.config.params, machine) {
+            Ok(false) => return Ok(ResourceOutcome::Skipped),
+            Err(_) => return Ok(ResourceOutcome::Skipped),
+            Ok(true) => {}
         }
     }
 
@@ -752,6 +762,7 @@ resources:
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            when: None,
             chroot_dir: None,
             namespace_uid: None,
             namespace_gid: None,
@@ -822,6 +833,7 @@ resources:
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            when: None,
             chroot_dir: None,
             namespace_uid: None,
             namespace_gid: None,
@@ -1138,6 +1150,7 @@ resources:
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            when: None,
             chroot_dir: None,
             namespace_uid: None,
             namespace_gid: None,
@@ -1452,6 +1465,7 @@ resources:
             inputs: HashMap::new(),
             arch: vec!["aarch64".to_string()],
             tags: vec![],
+            when: None,
             chroot_dir: None,
             namespace_uid: None,
             namespace_gid: None,
@@ -1759,6 +1773,7 @@ resources:
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            when: None,
             chroot_dir: None,
             namespace_uid: None,
             namespace_gid: None,
@@ -1833,6 +1848,7 @@ resources:
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            when: None,
             chroot_dir: None,
             namespace_uid: None,
             namespace_gid: None,
@@ -1929,6 +1945,7 @@ resources:
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            when: None,
             chroot_dir: None,
             namespace_uid: None,
             namespace_gid: None,
@@ -1998,6 +2015,7 @@ resources:
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            when: None,
             chroot_dir: None,
             namespace_uid: None,
             namespace_gid: None,
@@ -2066,6 +2084,7 @@ resources:
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            when: None,
             chroot_dir: None,
             namespace_uid: None,
             namespace_gid: None,
@@ -2128,6 +2147,7 @@ resources:
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            when: None,
             chroot_dir: None,
             namespace_uid: None,
             namespace_gid: None,
@@ -2421,6 +2441,7 @@ resources:
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            when: None,
             chroot_dir: None,
             namespace_uid: None,
             namespace_gid: None,
@@ -2484,6 +2505,7 @@ resources:
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            when: None,
             chroot_dir: None,
             namespace_uid: None,
             namespace_gid: None,
@@ -3232,6 +3254,7 @@ resources: {}
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            when: None,
             chroot_dir: None,
             namespace_uid: None,
             namespace_gid: None,
@@ -3424,6 +3447,7 @@ policy:
             inputs: HashMap::new(),
             arch: vec![],
             tags: vec![],
+            when: None,
             chroot_dir: None,
             namespace_uid: None,
             namespace_gid: None,

@@ -134,8 +134,7 @@ mod tests {
     #[test]
     fn test_fj153_local_long_running_script() {
         // Script with multiple sequential commands
-        let out =
-            exec_local("for i in $(seq 1 100); do echo \"line_$i\"; done").unwrap();
+        let out = exec_local("for i in $(seq 1 100); do echo \"line_$i\"; done").unwrap();
         assert!(out.success());
         assert_eq!(out.stdout.lines().count(), 100);
     }

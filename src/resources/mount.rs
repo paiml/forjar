@@ -118,6 +118,7 @@ mod tests {
             inputs: std::collections::HashMap::new(),
             arch: vec![],
             tags: vec![],
+            when: None,
             chroot_dir: None,
             namespace_uid: None,
             namespace_gid: None,
@@ -487,8 +488,14 @@ mod tests {
         r.state = None;
         let script = apply_script(&r);
         assert!(script.contains("mount -t"), "default state should mount");
-        assert!(script.contains("mkdir -p"), "default state should create dir");
-        assert!(script.contains("/etc/fstab"), "default state should update fstab");
+        assert!(
+            script.contains("mkdir -p"),
+            "default state should create dir"
+        );
+        assert!(
+            script.contains("/etc/fstab"),
+            "default state should update fstab"
+        );
     }
 
     #[test]
@@ -499,10 +506,7 @@ mod tests {
         assert!(script.contains("umount"));
         assert!(!script.contains("mkdir"), "unmounted must not create dirs");
         assert!(!script.contains("sed"), "unmounted must not modify fstab");
-        assert!(
-            !script.contains("grep"),
-            "unmounted must not check fstab"
-        );
+        assert!(!script.contains("grep"), "unmounted must not check fstab");
     }
 
     #[test]

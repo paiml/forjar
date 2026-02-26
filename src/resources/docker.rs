@@ -134,6 +134,7 @@ mod tests {
             inputs: std::collections::HashMap::new(),
             arch: vec![],
             tags: vec![],
+            when: None,
             chroot_dir: None,
             namespace_uid: None,
             namespace_gid: None,
@@ -572,7 +573,10 @@ mod tests {
         assert!(!script.contains("-p '"), "stopped must not map ports");
         assert!(!script.contains("-e '"), "stopped must not set env");
         assert!(!script.contains("-v '"), "stopped must not mount volumes");
-        assert!(!script.contains("--restart"), "stopped must not set restart");
+        assert!(
+            !script.contains("--restart"),
+            "stopped must not set restart"
+        );
     }
 
     #[test]

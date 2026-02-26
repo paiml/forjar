@@ -1,0 +1,67 @@
+# FJ-202: Conditional resources dogfood config
+# Demonstrates `when:` field for conditional resource application.
+version: "1.0"
+name: dogfood-conditions
+
+params:
+  env: staging
+  enable_debug: true
+
+machines:
+  test-box:
+    hostname: test-box
+    addr: container
+    transport: container
+    arch: x86_64
+    roles: [web, gpu]
+    container:
+      image: ubuntu:22.04
+
+resources:
+  # Always applied (no condition)
+  base-config:
+    type: file
+    machine: test-box
+    path: /etc/forjar/base.conf
+    content: "name=dogfood-conditions"
+
+  # Only on x86_64 machines
+  x86-pkg:
+    type: package
+    machine: test-box
+    provider: apt
+    packages: [build-essential]
+    when: '{{machine.arch}} == "x86_64"'
+
+  # Only in non-production environments
+  debug-tools:
+    type: package
+    machine: test-box
+    provider: apt
+    packages: [strace, ltrace]
+    when: '{{params.env}} != "production"'
+
+  # Only when debug is enabled
+  debug-config:
+    type: file
+    machine: test-box
+    path: /etc/forjar/debug.conf
+    content: "log_level=debug"
+    when: '{{params.enable_debug}} == "true"'
+    depends_on: [base-config]
+
+  # Only on machines with gpu role
+  gpu-driver:
+    type: package
+    machine: test-box
+    provider: apt
+    packages: [nvidia-driver-535]
+    when: '{{machine.roles}} contains "gpu"'
+
+  # Never applied (literal false)
+  deprecated-config:
+    type: file
+    machine: test-box
+    path: /etc/forjar/old.conf
+    content: "deprecated"
+    when: "false"
