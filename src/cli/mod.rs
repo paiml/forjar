@@ -935,11 +935,7 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
     NO_COLOR.store(no_color, Ordering::Relaxed);
     match cmd {
         Commands::Init { path } => cmd_init(&path),
-        Commands::Validate {
-            file,
-            strict,
-            json,
-        } => cmd_validate(&file, strict, json),
+        Commands::Validate { file, strict, json } => cmd_validate(&file, strict, json),
         Commands::Plan {
             file,
             machine,
@@ -3151,8 +3147,7 @@ fn cmd_validate(file: &Path, strict: bool, json: bool) -> Result<(), String> {
         });
         println!(
             "{}",
-            serde_json::to_string_pretty(&output)
-                .map_err(|e| format!("JSON error: {}", e))?
+            serde_json::to_string_pretty(&output).map_err(|e| format!("JSON error: {}", e))?
         );
         if !valid {
             return Err(format!(
@@ -4735,9 +4730,29 @@ fn cmd_history(
         .collect();
 
     if json {
-        let output = serde_json::to_string_pretty(&apply_events)
-            .map_err(|e| format!("JSON error: {}", e))?;
-        println!("{}", output);
+        // FJ-296: Structured JSON history with summary
+        let total_events = all_events.len();
+        let started = apply_events
+            .iter()
+            .filter(|e| matches!(e.event, types::ProvenanceEvent::ApplyStarted { .. }))
+            .count();
+        let completed = apply_events
+            .iter()
+            .filter(|e| matches!(e.event, types::ProvenanceEvent::ApplyCompleted { .. }))
+            .count();
+        let output = serde_json::json!({
+            "total_events": total_events,
+            "apply_started": started,
+            "apply_completed": completed,
+            "since": since,
+            "limit": limit,
+            "events": apply_events,
+        });
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&output)
+                .map_err(|e| format!("JSON error: {}", e))?
+        );
     } else if apply_events.is_empty() {
         println!("No apply history found. Run `forjar apply` first.");
     } else {
@@ -15196,5 +15211,16 @@ resources:
             }
             _ => panic!("expected Validate"),
         }
+    }
+
+    // ── FJ-296: history --json --since structured output ──
+
+    #[test]
+    fn test_fj296_history_json_empty() {
+        let dir = tempfile::tempdir().unwrap();
+        let state_dir = dir.path().join("state");
+        std::fs::create_dir_all(&state_dir).unwrap();
+        let result = cmd_history(&state_dir, None, 10, true, None);
+        assert!(result.is_ok());
     }
 }
