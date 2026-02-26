@@ -413,6 +413,10 @@ pub enum Commands {
         #[arg(short, long)]
         machine: Option<String>,
 
+        /// FJ-291: Filter to specific resource
+        #[arg(short, long)]
+        resource: Option<String>,
+
         /// Output as JSON
         #[arg(long)]
         json: bool,
@@ -1078,8 +1082,9 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             from,
             to,
             machine,
+            resource,
             json,
-        } => cmd_diff(&from, &to, machine.as_deref(), json),
+        } => cmd_diff(&from, &to, machine.as_deref(), resource.as_deref(), json),
         Commands::Check {
             file,
             machine,
@@ -2854,6 +2859,7 @@ fn cmd_diff(
     from: &Path,
     to: &Path,
     machine_filter: Option<&str>,
+    resource_filter: Option<&str>,
     json: bool,
 ) -> Result<(), String> {
     // Discover machines from both state directories
@@ -2949,6 +2955,11 @@ fn cmd_diff(
 
         // Sort diffs by resource name for determinism
         diffs.sort_by(|a, b| a.resource.cmp(&b.resource));
+
+        // FJ-291: Filter to specific resource
+        if let Some(res_filter) = resource_filter {
+            diffs.retain(|d| d.resource == res_filter);
+        }
 
         if json {
             json_machines.push(serde_json::json!({
@@ -8650,7 +8661,7 @@ policy:
                 ("conf", "blake3:bbb", types::ResourceStatus::Converged),
             ],
         );
-        cmd_diff(from_dir.path(), to_dir.path(), None, false).unwrap();
+        cmd_diff(from_dir.path(), to_dir.path(), None, None, false).unwrap();
     }
 
     #[test]
@@ -8670,7 +8681,7 @@ policy:
             "m1",
             vec![("pkg", "blake3:aaa", types::ResourceStatus::Converged)],
         );
-        cmd_diff(from_dir.path(), to_dir.path(), None, false).unwrap();
+        cmd_diff(from_dir.path(), to_dir.path(), None, None, false).unwrap();
     }
 
     #[test]
@@ -8687,7 +8698,7 @@ policy:
             "m1",
             vec![("pkg", "blake3:bbb", types::ResourceStatus::Converged)],
         );
-        cmd_diff(from_dir.path(), to_dir.path(), None, false).unwrap();
+        cmd_diff(from_dir.path(), to_dir.path(), None, None, false).unwrap();
     }
 
     #[test]
@@ -8704,7 +8715,7 @@ policy:
             "m1",
             vec![("pkg", "blake3:aaa", types::ResourceStatus::Converged)],
         );
-        cmd_diff(from_dir.path(), to_dir.path(), None, false).unwrap();
+        cmd_diff(from_dir.path(), to_dir.path(), None, None, false).unwrap();
     }
 
     #[test]
@@ -8724,7 +8735,7 @@ policy:
                 ("svc", "blake3:ccc", types::ResourceStatus::Converged),
             ],
         );
-        cmd_diff(from_dir.path(), to_dir.path(), None, true).unwrap();
+        cmd_diff(from_dir.path(), to_dir.path(), None, None, true).unwrap();
     }
 
     #[test]
@@ -8752,14 +8763,14 @@ policy:
             vec![("svc", "blake3:bbb", types::ResourceStatus::Converged)],
         );
         // Filtering to m1 should only show m1's changes
-        cmd_diff(from_dir.path(), to_dir.path(), Some("m1"), false).unwrap();
+        cmd_diff(from_dir.path(), to_dir.path(), Some("m1"), None, false).unwrap();
     }
 
     #[test]
     fn test_diff_empty_state_dirs() {
         let from_dir = tempfile::tempdir().unwrap();
         let to_dir = tempfile::tempdir().unwrap();
-        let result = cmd_diff(from_dir.path(), to_dir.path(), None, false);
+        let result = cmd_diff(from_dir.path(), to_dir.path(), None, None, false);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("no machines found"));
     }
@@ -9873,7 +9884,7 @@ resources:
     fn test_fj131_cmd_diff_empty_state_dirs() {
         let from = tempfile::tempdir().unwrap();
         let to = tempfile::tempdir().unwrap();
-        let err = cmd_diff(from.path(), to.path(), None, false).unwrap_err();
+        let err = cmd_diff(from.path(), to.path(), None, None, false).unwrap_err();
         assert!(err.contains("no machines found"));
     }
 
@@ -9909,7 +9920,7 @@ resources:
         state::save_lock(state.path(), &lock).unwrap();
 
         // Diff same directory against itself → no differences
-        cmd_diff(state.path(), state.path(), None, false).unwrap();
+        cmd_diff(state.path(), state.path(), None, None, false).unwrap();
     }
 
     #[test]
@@ -9948,7 +9959,7 @@ resources:
         );
         state::save_lock(to_dir.path(), &to_lock).unwrap();
 
-        cmd_diff(from_dir.path(), to_dir.path(), None, false).unwrap();
+        cmd_diff(from_dir.path(), to_dir.path(), None, None, false).unwrap();
     }
 
     #[test]
@@ -9970,7 +9981,7 @@ resources:
         state::save_lock(to_dir.path(), &from_lock).unwrap();
 
         // JSON output should not error
-        cmd_diff(from_dir.path(), to_dir.path(), None, true).unwrap();
+        cmd_diff(from_dir.path(), to_dir.path(), None, None, true).unwrap();
     }
 
     #[test]
@@ -9994,7 +10005,7 @@ resources:
         }
 
         // Filter to only "web" — should succeed
-        cmd_diff(from_dir.path(), to_dir.path(), Some("web"), false).unwrap();
+        cmd_diff(from_dir.path(), to_dir.path(), Some("web"), None, false).unwrap();
     }
 
     // ── FJ-131: cmd_anomaly tests ─────────────────────────────────
@@ -14697,6 +14708,25 @@ resources:
         match cmd {
             Commands::Apply { parallel, .. } => assert!(parallel),
             _ => panic!("expected Apply"),
+        }
+    }
+
+    // ── FJ-291: forjar diff --resource ──────────────────────────
+
+    #[test]
+    fn test_fj291_diff_resource_flag_parse() {
+        let cmd = Commands::Diff {
+            from: PathBuf::from("state-a"),
+            to: PathBuf::from("state-b"),
+            machine: None,
+            resource: Some("web-config".to_string()),
+            json: false,
+        };
+        match cmd {
+            Commands::Diff { resource, .. } => {
+                assert_eq!(resource, Some("web-config".to_string()));
+            }
+            _ => panic!("expected Diff"),
         }
     }
 }
