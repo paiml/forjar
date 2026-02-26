@@ -8,6 +8,56 @@ use crate::transport;
 use crate::tripwire::{anomaly, drift, eventlog, tracer};
 use clap::Subcommand;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
+
+// ── FJ-263: Colored CLI output ──
+
+/// Global flag: true = no color output.
+static NO_COLOR: AtomicBool = AtomicBool::new(false);
+
+fn color_enabled() -> bool {
+    !NO_COLOR.load(Ordering::Relaxed)
+}
+
+fn green(s: &str) -> String {
+    if color_enabled() {
+        format!("\x1b[32m{}\x1b[0m", s)
+    } else {
+        s.to_string()
+    }
+}
+
+fn red(s: &str) -> String {
+    if color_enabled() {
+        format!("\x1b[31m{}\x1b[0m", s)
+    } else {
+        s.to_string()
+    }
+}
+
+fn yellow(s: &str) -> String {
+    if color_enabled() {
+        format!("\x1b[33m{}\x1b[0m", s)
+    } else {
+        s.to_string()
+    }
+}
+
+fn dim(s: &str) -> String {
+    if color_enabled() {
+        format!("\x1b[2m{}\x1b[0m", s)
+    } else {
+        s.to_string()
+    }
+}
+
+fn bold(s: &str) -> String {
+    if color_enabled() {
+        format!("\x1b[1m{}\x1b[0m", s)
+    } else {
+        s.to_string()
+    }
+}
 
 #[derive(Subcommand, Debug)]
 pub enum Commands {
@@ -735,7 +785,8 @@ pub enum SecretsCmd {
 }
 
 /// Dispatch a CLI command.
-pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
+pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), String> {
+    NO_COLOR.store(no_color, Ordering::Relaxed);
     match cmd {
         Commands::Init { path } => cmd_init(&path),
         Commands::Validate { file } => cmd_validate(&file),
@@ -1804,7 +1855,7 @@ fn cmd_rollback(
         None,  // no timeout
         false, // no json
         verbose,
-        None, // no env_file
+        None,  // no env_file
         None,  // no workspace
         false, // no report
     )
@@ -2693,12 +2744,18 @@ fn print_plan(
             println!("{}:", current_machine);
         }
         let symbol = match change.action {
-            types::PlanAction::Create => "+",
-            types::PlanAction::Update => "~",
-            types::PlanAction::Destroy => "-",
-            types::PlanAction::NoOp => " ",
+            types::PlanAction::Create => green("+"),
+            types::PlanAction::Update => yellow("~"),
+            types::PlanAction::Destroy => red("-"),
+            types::PlanAction::NoOp => dim(" "),
         };
-        println!("  {} {}", symbol, change.description);
+        let desc = match change.action {
+            types::PlanAction::Create => green(&change.description),
+            types::PlanAction::Update => yellow(&change.description),
+            types::PlanAction::Destroy => red(&change.description),
+            types::PlanAction::NoOp => dim(&change.description),
+        };
+        println!("  {} {}", symbol, desc);
 
         // FJ-255: Show content diff for file resources on create/update
         if let Some(cfg) = config {
@@ -2718,7 +2775,22 @@ fn print_plan(
     println!();
     println!(
         "Plan: {} to add, {} to change, {} to destroy, {} unchanged.",
-        plan.to_create, plan.to_update, plan.to_destroy, plan.unchanged
+        if plan.to_create > 0 {
+            green(&plan.to_create.to_string())
+        } else {
+            plan.to_create.to_string()
+        },
+        if plan.to_update > 0 {
+            yellow(&plan.to_update.to_string())
+        } else {
+            plan.to_update.to_string()
+        },
+        if plan.to_destroy > 0 {
+            red(&plan.to_destroy.to_string())
+        } else {
+            plan.to_destroy.to_string()
+        },
+        plan.unchanged
     );
 }
 
@@ -3374,25 +3446,36 @@ fn cmd_apply(
         );
     } else {
         for result in &results {
+            let failed_str = if result.resources_failed > 0 {
+                red(&format!("{} failed", result.resources_failed))
+            } else {
+                format!("{} failed", result.resources_failed)
+            };
             println!(
-                "{}: {} converged, {} unchanged, {} failed ({:.1}s)",
-                result.machine,
-                result.resources_converged,
+                "{}: {} converged, {} unchanged, {} ({:.1}s)",
+                bold(&result.machine),
+                green(&result.resources_converged.to_string()),
                 result.resources_unchanged,
-                result.resources_failed,
+                failed_str,
                 result.total_duration.as_secs_f64()
             );
         }
         println!();
         if total_failed > 0 {
             println!(
-                "Apply completed with errors: {} converged, {} unchanged, {} FAILED",
-                total_converged, total_unchanged, total_failed
+                "{}",
+                red(&format!(
+                    "Apply completed with errors: {} converged, {} unchanged, {} FAILED",
+                    total_converged, total_unchanged, total_failed
+                ))
             );
         } else {
             println!(
-                "Apply complete: {} converged, {} unchanged.",
-                total_converged, total_unchanged
+                "{}",
+                green(&format!(
+                    "Apply complete: {} converged, {} unchanged.",
+                    total_converged, total_unchanged
+                ))
             );
         }
     }
@@ -3400,14 +3483,25 @@ fn cmd_apply(
     // FJ-262: Print per-resource timing report
     if report {
         println!();
-        println!("Resource Report");
-        println!("{:<30} {:<10} {:<12} {:>10}", "RESOURCE", "TYPE", "STATUS", "DURATION");
-        println!("{}", "-".repeat(66));
+        println!("{}", bold("Resource Report"));
+        println!(
+            "{:<30} {:<10} {:<12} {:>10}",
+            bold("RESOURCE"),
+            bold("TYPE"),
+            bold("STATUS"),
+            bold("DURATION")
+        );
+        println!("{}", dim(&"-".repeat(66)));
         for result in &results {
             for r in &result.resource_reports {
+                let status_colored = match r.status.as_str() {
+                    "converged" => green(&r.status),
+                    "failed" => red(&r.status),
+                    _ => r.status.clone(),
+                };
                 println!(
                     "{:<30} {:<10} {:<12} {:>9.3}s",
-                    r.resource_id, r.resource_type, r.status, r.duration_seconds
+                    r.resource_id, r.resource_type, status_colored, r.duration_seconds
                 );
             }
         }
@@ -3553,7 +3647,12 @@ fn cmd_drift(
                             "actual_hash": f.actual_hash,
                         }));
                     } else {
-                        println!("  DRIFTED: {} ({})", f.resource_id, f.detail);
+                        println!(
+                            "  {}: {} ({})",
+                            red("DRIFTED"),
+                            f.resource_id,
+                            f.detail
+                        );
                         println!("    Expected: {}", f.expected_hash);
                         println!("    Actual:   {}", f.actual_hash);
                     }
@@ -3573,9 +3672,12 @@ fn cmd_drift(
         println!("{}", output);
     } else if total_drift > 0 {
         println!();
-        println!("Drift detected: {} resource(s)", total_drift);
+        println!(
+            "{}",
+            red(&format!("Drift detected: {} resource(s)", total_drift))
+        );
     } else {
-        println!("No drift detected.");
+        println!("{}", green("No drift detected."));
     }
 
     // Run alert command on drift detection
@@ -3613,7 +3715,7 @@ fn cmd_drift(
             None,  // no timeout
             false, // no json (remediation output is text)
             verbose,
-            None, // no env_file
+            None,  // no env_file
             None,  // no workspace
             false, // no report
         )?;
@@ -5264,7 +5366,7 @@ resources:
             None, // no timeout
             false,
             false,
-            None, // no env_file
+            None,  // no env_file
             None,  // no workspace
             false, // no report
         )
@@ -5312,7 +5414,7 @@ policy:
             None, // no timeout
             false,
             false,
-            None, // no env_file
+            None,  // no env_file
             None,  // no workspace
             false, // no report
         )
@@ -5357,7 +5459,7 @@ resources: {}
             None, // no timeout
             false,
             false,
-            None, // no env_file
+            None,  // no env_file
             None,  // no workspace
             false, // no report
         );
@@ -5550,7 +5652,7 @@ resources: {}
         let dir = tempfile::tempdir().unwrap();
         let sub = dir.path().join("dispatch-test");
         std::fs::create_dir_all(&sub).unwrap();
-        dispatch(Commands::Init { path: sub.clone() }, false).unwrap();
+        dispatch(Commands::Init { path: sub.clone() }, false, true).unwrap();
         assert!(sub.join("forjar.yaml").exists());
     }
 
@@ -5573,6 +5675,7 @@ resources: {}
                 file: config.clone(),
             },
             false,
+            true,
         )
         .unwrap();
     }
@@ -5589,6 +5692,7 @@ resources: {}
                 json: false,
             },
             false,
+            true,
         )
         .unwrap();
     }
@@ -5631,6 +5735,7 @@ resources:
                 no_diff: false,
             },
             false,
+            true,
         )
         .unwrap();
     }
@@ -5679,6 +5784,7 @@ resources:
                 report: false,
             },
             false,
+            true,
         )
         .unwrap();
     }
@@ -5702,6 +5808,7 @@ resources:
                 workspace: None,
             },
             false,
+            true,
         )
         .unwrap();
     }
@@ -5863,7 +5970,7 @@ resources:
             None, // no timeout
             false,
             false,
-            None, // no env_file
+            None,  // no env_file
             None,  // no workspace
             false, // no report
         )
@@ -5885,7 +5992,7 @@ resources:
             None, // no timeout
             false,
             false,
-            None, // no env_file
+            None,  // no env_file
             None,  // no workspace
             false, // no report
         )
@@ -6274,6 +6381,7 @@ resources:
                 json: false,
             },
             false,
+            true,
         )
         .unwrap();
     }
@@ -6373,6 +6481,7 @@ resources: {}
                 format: "mermaid".to_string(),
             },
             false,
+            true,
         )
         .unwrap();
     }
@@ -6451,7 +6560,7 @@ resources:
             None, // no timeout
             false,
             false,
-            None, // no env_file
+            None,  // no env_file
             None,  // no workspace
             false, // no report
         )
@@ -6513,7 +6622,7 @@ resources:
             None, // no timeout
             false,
             false,
-            None, // no env_file
+            None,  // no env_file
             None,  // no workspace
             false, // no report
         )
@@ -6576,7 +6685,7 @@ resources:
             None, // no timeout
             false,
             false,
-            None, // no env_file
+            None,  // no env_file
             None,  // no workspace
             false, // no report
         )
@@ -6634,7 +6743,7 @@ resources:
             None, // no timeout
             false,
             false,
-            None, // no env_file
+            None,  // no env_file
             None,  // no workspace
             false, // no report
         )
@@ -6647,6 +6756,7 @@ resources:
                 state_dir: state,
             },
             false,
+            true,
         )
         .unwrap();
         assert!(!target.exists());
@@ -6727,7 +6837,7 @@ resources:
             None, // no timeout
             false,
             false,
-            None, // no env_file
+            None,  // no env_file
             None,  // no workspace
             false, // no report
         )
@@ -6884,7 +6994,7 @@ resources:
             None, // no timeout
             false,
             false,
-            None, // no env_file
+            None,  // no env_file
             None,  // no workspace
             false, // no report
         )
@@ -7654,6 +7764,7 @@ resources:
                 state_dir: state,
             },
             false,
+            true,
         );
         assert!(result.is_err()); // Expected: no git history
     }
@@ -7835,6 +7946,7 @@ resources:
                 json: false,
             },
             false,
+            true,
         );
         assert!(result.is_ok());
     }
@@ -8253,7 +8365,7 @@ resources:
             None,
             false,
             false,
-            None, // no env_file
+            None,  // no env_file
             None,  // no workspace
             false, // no report
         )
@@ -9516,7 +9628,7 @@ resources:
             None, // no timeout
             true,
             false,
-            None, // no env_file
+            None,  // no env_file
             None,  // no workspace
             false, // no report
         );
@@ -9553,6 +9665,7 @@ resources:
                 json: true,
             },
             false,
+            true,
         )
         .unwrap();
     }
@@ -9601,6 +9714,7 @@ resources:
                 report: false,
             },
             false,
+            true,
         )
         .unwrap();
     }
@@ -10716,6 +10830,7 @@ resources:
                 report: false,
             },
             false,
+            true,
         );
         // cmd_check connects to machines, which may fail in test env
         // The important thing is that it was dispatched to cmd_check, not cmd_apply
@@ -10767,6 +10882,7 @@ resources:
                 report: false,
             },
             false,
+            true,
         );
         assert!(result.is_ok());
     }
@@ -11775,8 +11891,14 @@ resources:
         let report_path = state.join("local").join("last-apply.yaml");
         assert!(report_path.exists(), "last-apply.yaml should exist");
         let content = std::fs::read_to_string(&report_path).unwrap();
-        assert!(content.contains("rpt-file"), "report should contain resource id");
-        assert!(content.contains("duration_seconds"), "report should contain timing");
+        assert!(
+            content.contains("rpt-file"),
+            "report should contain resource id"
+        );
+        assert!(
+            content.contains("duration_seconds"),
+            "report should contain timing"
+        );
         let _ = std::fs::remove_file("/tmp/forjar-report-test.txt");
     }
 
@@ -11828,8 +11950,7 @@ resources:
             false,
         )
         .unwrap();
-        let content =
-            std::fs::read_to_string(state.join("local").join("last-apply.yaml")).unwrap();
+        let content = std::fs::read_to_string(state.join("local").join("last-apply.yaml")).unwrap();
         assert!(content.contains("rpt-a"));
         assert!(content.contains("rpt-b"));
         let _ = std::fs::remove_file("/tmp/forjar-rpt-a.txt");
@@ -11939,5 +12060,78 @@ resources:
         let json_str = serde_json::to_string_pretty(&output).unwrap();
         assert!(json_str.contains("cuda-driver"));
         assert!(json_str.contains("resource_reports"));
+    }
+
+    // ── FJ-263: Colored CLI output ──
+
+    #[test]
+    fn test_fj263_green_with_color() {
+        NO_COLOR.store(false, Ordering::Relaxed);
+        let s = green("ok");
+        assert!(s.contains("\x1b[32m"));
+        assert!(s.contains("ok"));
+        assert!(s.contains("\x1b[0m"));
+    }
+
+    #[test]
+    fn test_fj263_green_no_color() {
+        NO_COLOR.store(true, Ordering::Relaxed);
+        let s = green("ok");
+        assert_eq!(s, "ok");
+        assert!(!s.contains("\x1b["));
+    }
+
+    #[test]
+    fn test_fj263_red_with_color() {
+        NO_COLOR.store(false, Ordering::Relaxed);
+        let s = red("fail");
+        assert!(s.contains("\x1b[31m"));
+        assert!(s.contains("fail"));
+    }
+
+    #[test]
+    fn test_fj263_yellow_with_color() {
+        NO_COLOR.store(false, Ordering::Relaxed);
+        let s = yellow("warn");
+        assert!(s.contains("\x1b[33m"));
+        assert!(s.contains("warn"));
+    }
+
+    #[test]
+    fn test_fj263_dim_with_color() {
+        NO_COLOR.store(false, Ordering::Relaxed);
+        let s = dim("muted");
+        assert!(s.contains("\x1b[2m"));
+        assert!(s.contains("muted"));
+    }
+
+    #[test]
+    fn test_fj263_bold_with_color() {
+        NO_COLOR.store(false, Ordering::Relaxed);
+        let s = bold("header");
+        assert!(s.contains("\x1b[1m"));
+        assert!(s.contains("header"));
+    }
+
+    #[test]
+    fn test_fj263_no_color_env_respected() {
+        // Verify NO_COLOR flag disables all color functions
+        NO_COLOR.store(true, Ordering::Relaxed);
+        assert_eq!(red("x"), "x");
+        assert_eq!(green("x"), "x");
+        assert_eq!(yellow("x"), "x");
+        assert_eq!(dim("x"), "x");
+        assert_eq!(bold("x"), "x");
+        // Reset for other tests
+        NO_COLOR.store(false, Ordering::Relaxed);
+    }
+
+    #[test]
+    fn test_fj263_color_enabled_tracks_flag() {
+        NO_COLOR.store(false, Ordering::Relaxed);
+        assert!(color_enabled());
+        NO_COLOR.store(true, Ordering::Relaxed);
+        assert!(!color_enabled());
+        NO_COLOR.store(false, Ordering::Relaxed);
     }
 }
