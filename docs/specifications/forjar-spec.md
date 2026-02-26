@@ -1195,6 +1195,7 @@ Options:
   -p, --param KEY=VALUE  Override a parameter
   --timeout <SECS>       Timeout per transport operation (seconds)
   --state-dir <PATH>     State directory (default: state)
+  --json                 Output apply results as JSON
 ```
 
 ### 7.5 `forjar drift`
@@ -1391,6 +1392,19 @@ Options:
 
 Runs inline performance benchmarks against spec §9 targets: validate (< 10ms), plan (< 2s), drift (< 1s), BLAKE3 hashing. Reports mean time, standard deviation, and margin vs target. Use `cargo bench` for Criterion-based benchmarks with statistical rigor; `forjar bench` is for quick verification.
 
+### 7.19 `forjar status`
+
+```
+forjar status [OPTIONS]
+
+Options:
+  --state-dir <PATH>     State directory (default: state)
+  -m, --machine <NAME>   Show specific machine only
+  --json                 Output status as JSON
+```
+
+Shows current state from lock files: project name, last apply, per-machine resource status, types, durations. With `--json`, outputs all state as structured JSON for scripting/CI integration.
+
 ---
 
 ## 8. Phased Implementation
@@ -1571,7 +1585,7 @@ Runs inline performance benchmarks against spec §9 targets: validate (< 10ms), 
 | FJ-202 | Conditional resources — `when:` field on resources. Expression language: `{{machine.arch}} == "x86_64"`, `{{params.env}} != "production"`, `{{machine.roles contains "gpu"}}`. Evaluated at resolve time, false resources excluded from DAG. | Planned |
 | FJ-203 | `for_each:` on resources — instantiate a resource template per item. `for_each: {{params.users}}` expands `resource-{item}` per list entry. Works with `when:` for filtered iteration. | Planned |
 | FJ-204 | `count:` on resources — numeric multiplier. `count: 3` creates `resource-0`, `resource-1`, `resource-2`. `{{index}}` template variable available inside counted resources. | Planned |
-| FJ-205 | `--json` output for plan/apply/drift/status — structured machine-readable JSON on stdout. Plan JSON includes resource diffs, action types, dependency order. Apply JSON includes per-resource timing, exit codes, hashes. Drift JSON includes expected vs actual hashes. | Planned |
+| FJ-205 | `--json` output for plan/apply/drift/status — structured machine-readable JSON on stdout. Plan JSON includes resource diffs, action types, dependency order. Apply JSON includes per-resource timing, exit codes, hashes. Drift JSON includes expected vs actual hashes. | **Done** |
 
 ### Phase 8: Multi-Environment & State Surgery (v0.8)
 

@@ -91,7 +91,7 @@ The `--output-dir` flag writes all generated scripts (check, apply, state_query)
 Converge infrastructure to desired state.
 
 ```bash
-forjar apply -f <FILE> [-m MACHINE] [-r RESOURCE] [-t TAG] [--force] [--dry-run] [--no-tripwire] [-p KEY=VALUE] [--auto-commit] [--timeout SECS] [--state-dir DIR]
+forjar apply -f <FILE> [-m MACHINE] [-r RESOURCE] [-t TAG] [--force] [--dry-run] [--no-tripwire] [-p KEY=VALUE] [--auto-commit] [--timeout SECS] [--state-dir DIR] [--json]
 ```
 
 | Flag | Default | Description |
@@ -107,6 +107,7 @@ forjar apply -f <FILE> [-m MACHINE] [-r RESOURCE] [-t TAG] [--force] [--dry-run]
 | `--auto-commit` | false | Git commit state after successful apply |
 | `--timeout` | — | Timeout per transport operation (seconds) |
 | `--state-dir` | `state` | Directory for lock files |
+| `--json` | false | Output apply results as JSON |
 
 ### `forjar drift`
 
@@ -138,13 +139,14 @@ JSON mode outputs `{ "drift_count": N, "findings": [...] }` with machine, resour
 Show current state from lock files.
 
 ```bash
-forjar status [--state-dir DIR] [-m MACHINE]
+forjar status [--state-dir DIR] [-m MACHINE] [--json]
 ```
 
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--state-dir` | `state` | Directory for lock files |
 | `-m, --machine` | all | Filter to specific machine |
+| `--json` | false | Output status as JSON |
 
 ### `forjar history`
 
