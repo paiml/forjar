@@ -1142,7 +1142,14 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             resource,
             tag,
             json,
-        } => cmd_test(&file, machine.as_deref(), resource.as_deref(), tag.as_deref(), json, verbose),
+        } => cmd_test(
+            &file,
+            machine.as_deref(),
+            resource.as_deref(),
+            tag.as_deref(),
+            json,
+            verbose,
+        ),
         Commands::Lock {
             file,
             state_dir,
@@ -3097,7 +3104,7 @@ fn print_plan(
         };
         println!("  {} {}", symbol, desc);
 
-        // FJ-255: Show content diff for file resources on create/update
+        // FJ-255/274: Show content diff for file resources on create/update
         if let Some(cfg) = config {
             if matches!(
                 change.action,
@@ -3105,7 +3112,13 @@ fn print_plan(
             ) {
                 if let Some(resource) = cfg.resources.get(&change.resource_id) {
                     if let Some(ref content) = resource.content {
-                        print_content_diff(content, &change.action);
+                        // FJ-274: For updates, try to read current file content for unified diff
+                        let old_content = if matches!(change.action, types::PlanAction::Update) {
+                            resource.path.as_ref().and_then(|p| std::fs::read_to_string(p).ok())
+                        } else {
+                            None
+                        };
+                        print_content_diff(content, &change.action, old_content.as_deref());
                     }
                 }
             }
@@ -3134,9 +3147,19 @@ fn print_plan(
     );
 }
 
-/// FJ-255: Print a content diff block for a file resource.
+/// FJ-255/274: Print a content diff block for a file resource.
+/// For Creates: shows all new lines with `+` prefix.
+/// For Updates with known old content (FJ-274): shows unified diff.
 /// Limited to 50 lines; truncated with "[... N more lines]".
-fn print_content_diff(content: &str, action: &types::PlanAction) {
+fn print_content_diff(content: &str, action: &types::PlanAction, old_content: Option<&str>) {
+    // FJ-274: For updates with old content, show unified diff
+    if matches!(action, types::PlanAction::Update) {
+        if let Some(old) = old_content {
+            print_unified_diff(old, content);
+            return;
+        }
+    }
+
     let lines: Vec<&str> = content.lines().collect();
     let prefix = match action {
         types::PlanAction::Create => "+",
@@ -3151,6 +3174,45 @@ fn print_content_diff(content: &str, action: &types::PlanAction) {
     }
     if lines.len() > max_lines {
         println!("    [... {} more lines]", lines.len() - max_lines);
+    }
+    println!("    ---");
+}
+
+/// FJ-274: Print a simple unified diff between old and new content.
+fn print_unified_diff(old: &str, new: &str) {
+    let old_lines: Vec<&str> = old.lines().collect();
+    let new_lines: Vec<&str> = new.lines().collect();
+    let max_lines = 50;
+    let mut shown = 0;
+
+    println!("    ---");
+    // Simple line-by-line comparison
+    let max_len = old_lines.len().max(new_lines.len());
+    for i in 0..max_len {
+        if shown >= max_lines {
+            println!("    [... {} more lines]", max_len - shown);
+            break;
+        }
+        match (old_lines.get(i), new_lines.get(i)) {
+            (Some(o), Some(n)) if o == n => {
+                println!("      {}", o);
+                shown += 1;
+            }
+            (Some(o), Some(n)) => {
+                println!("    {} {}", red("-"), o);
+                println!("    {} {}", green("+"), n);
+                shown += 2;
+            }
+            (Some(o), None) => {
+                println!("    {} {}", red("-"), o);
+                shown += 1;
+            }
+            (None, Some(n)) => {
+                println!("    {} {}", green("+"), n);
+                shown += 1;
+            }
+            (None, None) => break,
+        }
     }
     println!("    ---");
 }
@@ -12103,12 +12165,12 @@ resources:
     #[test]
     fn test_fj255_print_content_diff_create() {
         // Should not panic on Create action
-        print_content_diff("line1\nline2\nline3", &types::PlanAction::Create);
+        print_content_diff("line1\nline2\nline3", &types::PlanAction::Create, None);
     }
 
     #[test]
     fn test_fj255_print_content_diff_update() {
-        print_content_diff("updated content", &types::PlanAction::Update);
+        print_content_diff("updated content", &types::PlanAction::Update, None);
     }
 
     #[test]
@@ -12118,12 +12180,36 @@ resources:
             .map(|i| format!("line {}", i))
             .collect::<Vec<_>>()
             .join("\n");
-        print_content_diff(&content, &types::PlanAction::Create);
+        print_content_diff(&content, &types::PlanAction::Create, None);
     }
 
     #[test]
     fn test_fj255_print_content_diff_empty() {
-        print_content_diff("", &types::PlanAction::Create);
+        print_content_diff("", &types::PlanAction::Create, None);
+    }
+
+    // FJ-274: Unified diff tests
+
+    #[test]
+    fn test_fj274_unified_diff_shows_changes() {
+        // Update with old content — should show unified diff
+        print_content_diff("new line\nkept", &types::PlanAction::Update, Some("old line\nkept"));
+    }
+
+    #[test]
+    fn test_fj274_unified_diff_no_old_content() {
+        // Update without old content — falls back to ~ prefix
+        print_content_diff("new content", &types::PlanAction::Update, None);
+    }
+
+    #[test]
+    fn test_fj274_print_unified_diff_added_lines() {
+        print_unified_diff("a", "a\nb\nc");
+    }
+
+    #[test]
+    fn test_fj274_print_unified_diff_removed_lines() {
+        print_unified_diff("a\nb\nc", "a");
     }
 
     #[test]
