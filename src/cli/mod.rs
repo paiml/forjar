@@ -3284,8 +3284,7 @@ fn cmd_plan(
         });
         println!(
             "{}",
-            serde_json::to_string_pretty(&output)
-                .map_err(|e| format!("JSON error: {}", e))?
+            serde_json::to_string_pretty(&output).map_err(|e| format!("JSON error: {}", e))?
         );
     } else {
         let show_diff = !no_diff;
@@ -4412,6 +4411,7 @@ fn cmd_drift(
         .map_err(|e| format!("cannot read state dir {}: {}", state_dir.display(), e))?;
 
     let mut total_drift = 0;
+    let mut machines_checked = 0u32;
     let mut all_findings: Vec<serde_json::Value> = Vec::new();
 
     for entry in entries.flatten() {
@@ -4427,6 +4427,7 @@ fn cmd_drift(
         }
 
         if let Some(lock) = state::load_lock(state_dir, &name)? {
+            machines_checked += 1;
             if verbose {
                 eprintln!("Checking {} ({} resources)...", name, lock.resources.len());
             }
@@ -4468,7 +4469,9 @@ fn cmd_drift(
     }
 
     if json {
+        // FJ-302: Structured drift JSON with machine count
         let report = serde_json::json!({
+            "machines_checked": machines_checked,
             "drift_count": total_drift,
             "findings": all_findings,
         });
