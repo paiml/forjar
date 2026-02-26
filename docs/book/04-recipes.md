@@ -511,6 +511,97 @@ resources:
     depends_on: [certbot-pkg]
 ```
 
+### GPU Inference Server Recipe (FJ-243)
+
+A production recipe for deploying ML model inference on GPU machines:
+
+```yaml
+# recipes/apr-inference-server.yaml
+recipe:
+  name: apr-inference-server
+  version: "1.0"
+  inputs:
+    model_source:
+      type: string
+      description: "HuggingFace repo ID or URL"
+    model_format:
+      type: enum
+      choices: [gguf, safetensors, apr]
+      default: gguf
+    quantization:
+      type: string
+      default: q4_k_m
+    port:
+      type: int
+      default: 8080
+    workers:
+      type: int
+      default: 1
+    gpu_device:
+      type: int
+      default: 0
+    user:
+      type: string
+      default: apr
+
+resources:
+  gpu-driver:
+    type: gpu
+    driver_version: "550"
+    cuda_version: "12.4"
+    persistence_mode: true
+
+  model-download:
+    type: model
+    name: "{{inputs.model_source}}"
+    source: "{{inputs.model_source}}"
+    format: "{{inputs.model_format}}"
+    path: "/opt/apr/models/{{inputs.model_format}}"
+    depends_on: [gpu-driver]
+
+  apr-systemd-unit:
+    type: file
+    path: /etc/systemd/system/apr-serve.service
+    content: |
+      [Unit]
+      Description=Aprender Inference Server
+      After=network.target
+      [Service]
+      ExecStart=/usr/local/bin/apr serve --model /opt/apr/models/{{inputs.model_format}} --port {{inputs.port}}
+      [Install]
+      WantedBy=multi-user.target
+    depends_on: [model-download]
+
+  apr-serve:
+    type: service
+    name: apr-serve
+    state: running
+    enabled: true
+    restart_on: [apr-systemd-unit, model-download]
+
+  apr-firewall:
+    type: network
+    port: "{{inputs.port}}"
+    protocol: tcp
+    action: allow
+```
+
+Usage in `forjar.yaml`:
+
+```yaml
+resources:
+  inference:
+    type: recipe
+    machine: gpu-box
+    recipe: apr-inference-server
+    inputs:
+      model_source: "TheBloke/Llama-2-7B-GGUF"
+      model_format: gguf
+      port: 8080
+```
+
+This expands to 8 resources (gpu driver, model download, service account, data directory, systemd unit, service, firewall, health check) with correct dependency ordering.
+
 ### Recipe with External Dependencies
 
 Recipes can declare dependencies on resources outside the recipe:
