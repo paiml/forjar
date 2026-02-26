@@ -1,0 +1,46 @@
+version: "1.0"
+name: dogfood-service
+description: "Dogfood config for systemd service resource handler (FJ-008/081)"
+
+machines:
+  localhost:
+    hostname: localhost
+    addr: 127.0.0.1
+
+resources:
+  # FJ-008: Service running + enabled (golden path)
+  web-server:
+    type: service
+    machine: localhost
+    name: nginx
+    state: running
+    enabled: true
+
+  # FJ-008: Service stopped + disabled
+  legacy-daemon:
+    type: service
+    machine: localhost
+    name: legacy-worker
+    state: stopped
+    enabled: false
+
+  # FJ-008: Service with restart_on dependency
+  app-service:
+    type: service
+    machine: localhost
+    name: myapp
+    state: running
+    enabled: true
+    restart_on: [app-config]
+    depends_on: [app-config]
+
+  # Config file that triggers service restart
+  app-config:
+    type: file
+    machine: localhost
+    path: /etc/myapp/config.yaml
+    content: |
+      listen: 0.0.0.0:8080
+      workers: 4
+    owner: root
+    mode: "0644"

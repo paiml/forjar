@@ -795,8 +795,8 @@ proptest! {
 | Unit | `src/*/tests` | ~800 | Individual functions |
 | Integration | `src/core/executor.rs` | ~80 | Multi-component workflows |
 | Property | Various `proptest!` blocks | ~50 | Invariant properties |
-| Dogfood | `examples/dogfood-*.yaml` | 8 configs | Real-world validation |
-| Examples | `examples/*.rs` | 15 | API documentation |
+| Dogfood | `examples/dogfood-*.yaml` | 13 configs | Real-world validation |
+| Examples | `examples/*.rs` | 19 | API documentation |
 
 ### Naming Conventions
 

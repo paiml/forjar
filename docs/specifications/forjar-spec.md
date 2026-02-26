@@ -1398,6 +1398,7 @@ Statistical anomaly detection from event history. Analyzes per-resource metrics:
 | FJ-137 | Documentation sync — CLI command list (15→20), README resource table (4→9 types), spec §11 Cargo.toml sync (8→15 deps, rust-version 1.85→1.87), spec §1.3 dep count correction. | **Done** |
 | FJ-138 | Performance benchmarks — Criterion benchmarks for spec §9 targets (validate 62µs, plan 84µs, drift 356µs), validate scaling (5/20/50/100 resources), binary 13MB, cold start 1.8ms. Book Ch. 10 benchmark docs with regression detection workflow. | **Done** |
 | FJ-139 | `forjar bench` CLI command — inline performance benchmarks (validate, plan, drift, BLAKE3), `--iterations` and `--json` flags, CleanupGuard tempdir. Stale Phase labels fixed in spec deps/design principles/module tree. Book Ch. 6 bench docs + MCP tool count 7→9. 2 tests, 1314→1316. | **Done** |
+| FJ-140 | Dogfood coverage — 3 new configs (dogfood-service, dogfood-mount, dogfood-network) covering all 9 resource types. Spec §10.6 rewritten (3→13 configs). README test count 254→1316. All 13 dogfood configs validate, all 19 examples pass. | **Done** |
 
 ---
 
@@ -1479,47 +1480,49 @@ cargo test --features container-test
 
 ### 10.6 Dogfood Workflow
 
-Container transport enables end-to-end dogfooding of all Phase 1 resource types without root or host pollution. Three dogfood configs exercise progressively deeper code paths:
+13 dogfood configs exercise all 9 resource types and cross-cutting features. Container transport configs enable end-to-end testing without root or host pollution; localhost configs validate codegen and planning.
 
-| Config | Resources | What it proves |
-|--------|-----------|----------------|
-| `examples/dogfood-container.yaml` | file, directory | File codegen, state hashing, lock persistence |
-| `examples/dogfood-packages.yaml` | package (apt), file, dependency DAG | Package codegen against real dpkg, cross-resource dependencies, idempotency |
-| `examples/dogfood-phase2.yaml` | user, file (source), cron, dependency DAG | Phase 2 resource types, base64 source transfer, user management, cron |
+| Config | Resource types | What it proves |
+|--------|---------------|----------------|
+| `dogfood-container.yaml` | file | File codegen, state hashing, lock persistence, container transport |
+| `dogfood-packages.yaml` | package, file | Package codegen, cross-resource dependencies, idempotency |
+| `dogfood-phase2.yaml` | user, file, cron | User management, cron scheduling, dependency DAG, base64 source transfer |
+| `dogfood-service.yaml` | service, file | Systemd service lifecycle, restart_on triggers, enabled/disabled states |
+| `dogfood-mount.yaml` | mount | NFS, bind, tmpfs mounts; fstab management; absent state cleanup |
+| `dogfood-network.yaml` | network | UFW firewall rules; allow/deny/absent; source CIDR filtering |
+| `dogfood-pepita.yaml` | pepita | Kernel namespace isolation: cgroups, netns, overlay, seccomp, chroot |
+| `dogfood-migrate.yaml` | docker, package | Docker container resources, migration to pepita |
+| `dogfood-recipe.yaml` | package, recipe | Recipe expansion, composite resource composition |
+| `dogfood-crossarch.yaml` | file | Multi-machine targeting, architecture filtering (x86_64/aarch64) |
+| `dogfood-tags.yaml` | file | Resource tagging, tag-filtered operations |
+| `dogfood-secrets.yaml` | file | Template interpolation with `{{params.*}}` secrets |
+| `dogfood-hooks.yaml` | file | Pre/post apply hooks, lifecycle callbacks |
 
 **Dogfood verification workflow** (run after any codegen, transport, or executor change):
 
 ```bash
-# 1. Build test target
+# 1. Build test target (for container transport configs)
 docker build -t forjar-test-target -f tests/Dockerfile.test-target .
 
-# 2. First apply — all resources converge
+# 2. Validate all configs
+for f in examples/dogfood-*.yaml; do cargo run -- validate -f "$f"; done
+
+# 3. First apply — all resources converge
 cargo run -- apply -f examples/dogfood-phase2.yaml --state-dir /tmp/dogfood-state
 
-# 3. Idempotency proof — second apply, zero changes
+# 4. Idempotency proof — second apply, zero changes
 cargo run -- apply -f examples/dogfood-phase2.yaml --state-dir /tmp/dogfood-state
 
-# 4. Drift detection — verify lock state matches live state
+# 5. Drift detection — verify lock state matches live state
 cargo run -- drift -f examples/dogfood-phase2.yaml --state-dir /tmp/dogfood-state
 
-# 5. Destroy — reverse teardown and state cleanup
+# 6. Destroy — reverse teardown and state cleanup
 cargo run -- destroy -f examples/dogfood-phase2.yaml --state-dir /tmp/dogfood-state --yes
 ```
 
-**What each dogfood config exercises**:
+**Resource type coverage**:
 
-**`dogfood-container.yaml`** (file resources only):
-- File creation with content, owner, group, mode
-- Directory creation with permissions
-- BLAKE3 content hashing against real files
-- State lock persistence and idempotency
-
-**`dogfood-packages.yaml`** (packages + files + dependency DAG):
-- `apt-get install` codegen against real dpkg inside container
-- `dpkg -l` check-before-act idempotency pattern
-- Cross-resource dependency ordering (package → file)
-- Package state query for hash computation
-- Full executor loop: codegen → transport → hash → state → events
+All 9 resource types (`file`, `package`, `service`, `mount`, `user`, `docker`, `cron`, `network`, `pepita`) plus the `recipe` composite type have dedicated dogfood configs validating their codegen, state queries, and edge cases.
 
 ---
 

@@ -1,0 +1,45 @@
+version: "1.0"
+name: dogfood-mount
+description: "Dogfood config for mount resource handler (FJ-009)"
+
+machines:
+  localhost:
+    hostname: localhost
+    addr: 127.0.0.1
+
+resources:
+  # FJ-009: NFS mount (default state: mounted)
+  nfs-data:
+    type: mount
+    machine: localhost
+    path: /mnt/nfs-data
+    source: 192.168.50.50:/exports/data
+    fstype: nfs
+    options: "ro,hard,intr"
+
+  # FJ-009: Bind mount
+  app-logs:
+    type: mount
+    machine: localhost
+    path: /var/log/myapp
+    source: /data/logs/myapp
+    fstype: none
+    options: bind
+
+  # FJ-009: tmpfs mount with custom options
+  build-cache:
+    type: mount
+    machine: localhost
+    path: /tmp/build-cache
+    source: tmpfs
+    fstype: tmpfs
+    options: "size=512M,mode=1777"
+
+  # FJ-009: Mount to be removed
+  old-share:
+    type: mount
+    machine: localhost
+    path: /mnt/old-share
+    source: 10.0.0.1:/legacy
+    fstype: nfs
+    state: absent

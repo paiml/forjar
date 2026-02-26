@@ -594,7 +594,8 @@ fn cmd_bench(iterations: usize, json: bool) -> Result<(), String> {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_nanos();
-    let bench_dir = std::env::temp_dir().join(format!("forjar-bench-{}-{}", std::process::id(), bench_id));
+    let bench_dir =
+        std::env::temp_dir().join(format!("forjar-bench-{}-{}", std::process::id(), bench_id));
     std::fs::create_dir_all(&bench_dir).map_err(|e| format!("cannot create tempdir: {}", e))?;
 
     // Ensure cleanup on exit
@@ -718,9 +719,7 @@ fn cmd_bench(iterations: usize, json: bool) -> Result<(), String> {
     // 3. Drift benchmark
     let start = Instant::now();
     for _ in 0..iterations {
-        let lock_data = state::load_lock(&state_dir, "bench-host")
-            .unwrap()
-            .unwrap();
+        let lock_data = state::load_lock(&state_dir, "bench-host").unwrap().unwrap();
         let _ = tripwire_drift::detect_drift(&lock_data);
     }
     results.push(BenchResult {
@@ -760,19 +759,14 @@ fn cmd_bench(iterations: usize, json: bool) -> Result<(), String> {
             serde_json::to_string_pretty(&json_results).map_err(|e| format!("JSON: {}", e))?;
         println!("{}", output);
     } else {
-        println!("Forjar Performance Benchmarks ({} iterations)\n", iterations);
         println!(
-            "  {:<28} {:>12} {:>12}",
-            "Operation", "Average", "Target"
+            "Forjar Performance Benchmarks ({} iterations)\n",
+            iterations
         );
+        println!("  {:<28} {:>12} {:>12}", "Operation", "Average", "Target");
         println!("  {}", "-".repeat(56));
         for r in &results {
-            println!(
-                "  {:<28} {:>12} {:>12}",
-                r.name,
-                r.avg_display(),
-                r.target
-            );
+            println!("  {:<28} {:>12} {:>12}", r.name, r.avg_display(), r.target);
         }
         println!();
     }

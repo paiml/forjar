@@ -1,0 +1,55 @@
+version: "1.0"
+name: dogfood-network
+description: "Dogfood config for network/firewall resource handler (FJ-032)"
+
+machines:
+  localhost:
+    hostname: localhost
+    addr: 127.0.0.1
+
+resources:
+  # FJ-032: Allow SSH from trusted subnet
+  ssh-access:
+    type: network
+    machine: localhost
+    name: ssh-trusted
+    port: "22"
+    protocol: tcp
+    action: allow
+    from: 10.0.0.0/8
+
+  # FJ-032: Allow HTTPS (no source restriction)
+  https-public:
+    type: network
+    machine: localhost
+    name: https-public
+    port: "443"
+    protocol: tcp
+    action: allow
+
+  # FJ-032: Allow DNS over UDP
+  dns-udp:
+    type: network
+    machine: localhost
+    name: dns-resolver
+    port: "53"
+    protocol: udp
+    action: allow
+
+  # FJ-032: Deny direct MySQL access
+  mysql-deny:
+    type: network
+    machine: localhost
+    name: mysql-block
+    port: "3306"
+    protocol: tcp
+    action: deny
+
+  # FJ-032: Remove legacy rule
+  legacy-rule:
+    type: network
+    machine: localhost
+    port: "8080"
+    protocol: tcp
+    action: allow
+    state: absent
