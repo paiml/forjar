@@ -1655,6 +1655,21 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 | FJ-247 | Copia delta sync Criterion benchmarks in `benches/core_bench.rs`. **Results**: signatures scale linearly (294µs/1MB, 1.19ms/4MB, 5.0ms/16MB → extrapolates to ~1.2s for 4GB). Delta computation: 1.18ms/4MB at 2% change, 1.26ms at 100% change (negligible overhead from hash comparison). Patch script generation: 60µs for 1MB at 10% change. Signature parsing: 57µs for 1024 blocks. For 4GB model with 2% delta: signature ~1.2s + delta ~1.2s + transfer ~80MB (vs 4GB full) + patch ~60ms ≈ 2.5s total overhead. **4 benchmark groups**: copia_signatures (1/4/16MB), copia_delta (2/10/50/100%), copia_patch_script, copia_parse_signatures. Results documented in spec §9. | **Done** |
 | FJ-248 | Dogfood: full sovereign AI stack validation. **24 dogfood configs all validate** (dogfood-*.yaml). Sovereign stack: 3 machines (gpu-box, worker-1, monitor), 4 recipes (observability + worker + inference + coordination), 33 resources. `forjar plan` shows correct interleaved DAG ordering: GPU driver → model → systemd → service on gpu-box, TLS → config → systemd → service on worker-1, Jaeger → Grafana → health cron on monitor. All resources correctly namespaced (inference/, worker/, observability/, coordination/). Recipe composition works across machines via separate `type: recipe` resources with `parallel_machines: true`. | **Done** |
 
+### Phase 11: Production Hardening (v1.1)
+
+**Goal**: Close DX gaps and harden forjar for production fleet management. Template functions enable expressive configs without shell escapes. SSH multiplexing reduces connection overhead. Shell completions and `forjar doctor` improve onboarding. Config includes enable DRY multi-environment setups.
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-250 | Template functions in `resolver.rs` — `{{upper(x)}}`, `{{lower(x)}}`, `{{default(x, "fallback")}}`, `{{trim(x)}}`, `{{replace(x, "old", "new")}}`, `{{env("HOME")}}`, `{{join(list, ",")}}`, `{{split(x, ",")}}`  , `{{b3sum(x)}}`. Expression parser handles `{{func(args)}}` syntax alongside `{{params.key}}`. Nested calls: `{{upper(params.name)}}`. Dogfood: dogfood-template-funcs.yaml. | Planned |
+| FJ-251 | `forjar doctor` — pre-flight system checker. Validates: bash ≥ 4.0, ssh available (if SSH machines configured), docker/podman available (if container machines), age identity accessible (if `ENC[age,...]` markers present), state dir writable, git repo clean. Color-coded pass/warn/fail output. `--json` flag for CI. | Planned |
+| FJ-252 | SSH connection multiplexing — `ControlMaster auto` + `ControlPath` for same-machine connection reuse. Reduces SSH handshake overhead from O(n) to O(1) per machine per apply. `transport/ssh.rs` manages ControlMaster lifecycle (start before first resource, stop after last). Fallback: if ControlMaster fails, individual connections. | Planned |
+| FJ-253 | Shell completions — `forjar completion bash/zsh/fish` via `clap_complete`. Generates shell-specific completion scripts. Includes subcommand, flag, and file path completion. Install instructions in `--help` output. | Planned |
+| FJ-254 | Config includes — `includes: [base.yaml, overrides.yaml]` field in forjar.yaml. Merge multiple config files for DRY multi-environment setups. Later files override earlier ones. `params`, `machines`, `resources` merge by key. `policy` is replaced wholesale. Validation runs on merged config. | Planned |
+| FJ-255 | Content diff in plan output — `forjar plan` shows unified diff for file content changes, package version diffs, service state transitions. Color-coded additions/removals. `--no-diff` flag to suppress. Diff limited to 50 lines per resource (truncate with `[... N more lines]`). | Planned |
+| FJ-256 | `forjar lock` — generate lock file without applying. Reads config, resolves templates, computes BLAKE3 hashes for desired state, writes lock file. Useful for CI pipelines that validate state without executing. `--verify` flag checks lock matches config (exit 1 on mismatch). | Planned |
+| FJ-257 | Parallel apply within machines — execute independent resources concurrently on the same machine using `std::thread::scope`. Respects DAG dependencies (only parallelize resources with no inter-dependencies). `policy.parallel_resources: true` opt-in. Speedup: 2-4x for configs with many independent resources. | Planned |
+
 ---
 
 ## 9. Performance Targets
@@ -1742,7 +1757,7 @@ cargo test --features container-test
 
 ### 10.6 Dogfood Workflow
 
-16 dogfood configs exercise all 9 resource types and cross-cutting features. Container transport configs enable end-to-end testing without root or host pollution; localhost configs validate codegen and planning.
+25 dogfood configs exercise all 11 resource types and cross-cutting features. Container transport configs enable end-to-end testing without root or host pollution; localhost configs validate codegen and planning.
 
 | Config | Resource types | What it proves |
 |--------|---------------|----------------|
@@ -1762,6 +1777,15 @@ cargo test --features container-test
 | `dogfood-conditions.yaml` | file, package | Conditional resources (`when:`), expression evaluation |
 | `dogfood-iteration.yaml` | file | Resource iteration: `count:` ({{index}}), `for_each:` ({{item}}), dep rewriting |
 | `dogfood-outputs.yaml` | file | Output values: `outputs:` block, `{{params.*}}`, `{{machine.NAME.FIELD}}` |
+| `dogfood-data.yaml` | file | External data sources (`data:` block), file/env/dns lookups |
+| `dogfood-notify.yaml` | file | Notification hooks, post-apply webhooks |
+| `dogfood-policies.yaml` | file | Policy-as-code rules, compliance checking |
+| `dogfood-triggers.yaml` | file | Resource triggers, restart_on dependencies |
+| `dogfood-age-secrets.yaml` | file | Age-encrypted secrets, `ENC[age,...]` markers, env-var fallback |
+| `dogfood-apr-serve.yaml` | recipe | GPU inference server recipe (apr-inference-server), 8 resources |
+| `dogfood-repartir.yaml` | recipe | Distributed worker recipe (repartir-worker), 10 resources |
+| `dogfood-renacer.yaml` | recipe | Observability stack recipe (renacer-observability), 10 resources |
+| `dogfood-sovereign-stack.yaml` | recipe | Multi-machine sovereign AI stack, 3 machines, 33 resources |
 
 **Dogfood verification workflow** (run after any codegen, transport, or executor change):
 
@@ -1787,7 +1811,7 @@ cargo run -- destroy -f examples/dogfood-phase2.yaml --state-dir /tmp/dogfood-st
 
 **Resource type coverage**:
 
-All 9 resource types (`file`, `package`, `service`, `mount`, `user`, `docker`, `cron`, `network`, `pepita`) plus the `recipe` composite type have dedicated dogfood configs validating their codegen, state queries, and edge cases.
+All 11 resource types (`file`, `package`, `service`, `mount`, `user`, `docker`, `cron`, `network`, `pepita`, `model`, `gpu`) plus the `recipe` composite type have dedicated dogfood configs validating their codegen, state queries, and edge cases.
 
 ---
 
@@ -1830,6 +1854,7 @@ tokio = { version = "1.35", features = ["rt-multi-thread", "macros"] }  # Async 
 async-trait = "0.1"                 # Async trait support for MCP handlers
 schemars = { version = "0.8", features = ["derive"] }  # JSON schema for MCP tool inputs
 rustc-hash = "2"                    # Fast hashing for MCP config maps
+age = { version = "0.11", default-features = false }  # Age encryption for secrets (FJ-200)
 provable-contracts-macros = { path = "../provable-contracts/crates/provable-contracts-macros" }
 
 [build-dependencies]
@@ -1952,7 +1977,7 @@ When bindings are verified, the build emits `CONTRACT_*` environment variables c
 
 ## 14. Open Questions
 
-1. ~~**Secrets**: Encrypt in git (age/sops-style) or external vault?~~ **Resolved**: Environment variable-based secrets (`FORJAR_SECRET_*` → `{{secrets.KEY}}`). Age encryption deferred to future.
+1. ~~**Secrets**: Encrypt in git (age/sops-style) or external vault?~~ **Resolved**: Dual approach — `{{secrets.KEY}}` resolves from `FORJAR_SECRET_*` env vars (FJ-062), and `ENC[age,...]` markers provide encrypted-at-rest values decrypted at resolve time (FJ-200/201). Identity from `FORJAR_AGE_KEY` env var or `--identity` flag. Secret rotation via `forjar secrets rotate --re-encrypt`.
 2. ~~**Rollback**: Should `forjar rollback` replay the previous state, or just show the diff?~~ **Resolved**: `forjar rollback -n N` reads previous `forjar.yaml` from `git show HEAD~N`, compares changes, and re-applies with `--force`. Supports `--dry-run` for safe preview (FJ-080).
 3. ~~**Import**: Should `forjar import` be able to adopt existing infrastructure?~~ **Resolved**: `forjar import --addr <host>` scans packages, services, and config files, generates forjar.yaml (FJ-065).
 4. ~~**Multi-repo**: Should machines be able to be managed by multiple forjar repos?~~ **Resolved**: No — one repo per fleet, sovereignty principle. Enforced by convention; lint warns on cross-machine dependencies.
