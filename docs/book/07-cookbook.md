@@ -895,3 +895,204 @@ forjar apply -f forjar.yaml --state-dir state-staging/ -p env=staging -p log_lev
 # Production
 forjar apply -f forjar.yaml --state-dir state-prod/ -p env=production -p log_level=warn
 ```
+
+## Disaster Recovery
+
+When a machine is lost or rebuilt, forjar recovers by re-applying from the config:
+
+```bash
+# 1. Machine is dead — delete its stale lock (optional; apply will overwrite)
+rm -rf state/web1/
+
+# 2. Re-provision from scratch (all resources converge fresh)
+forjar apply -f forjar.yaml --state-dir state/ -m web1
+
+# 3. Verify clean state after recovery
+forjar drift -f forjar.yaml --state-dir state/ -m web1
+
+# 4. Review the event log — confirm all resources converged
+forjar history --state-dir state/ -m web1 -n 10
+```
+
+For fleet-wide recovery (e.g., after a datacenter migration):
+
+```bash
+# Wipe all state (locks are disposable — configs are the source of truth)
+rm -rf state/
+
+# Re-apply to all machines
+forjar apply -f forjar.yaml --state-dir state/
+
+# Verify entire fleet
+forjar drift -f forjar.yaml --state-dir state/ --tripwire
+forjar anomaly --state-dir state/ --min-events 1
+```
+
+The key insight: `forjar.yaml` in version control is the authoritative source. Lock files are caches that can always be regenerated.
+
+## Secret Management
+
+Forjar supports secrets via environment variables, keeping sensitive values out of config files:
+
+```yaml
+params:
+  db_host: db.internal
+  db_name: myapp
+
+resources:
+  db-config:
+    type: file
+    machine: web
+    path: /etc/myapp/database.yml
+    content: |
+      host: {{params.db_host}}
+      name: {{params.db_name}}
+      password: {{secrets.DB_PASSWORD}}
+    mode: "0600"
+    owner: app
+```
+
+```bash
+# Set secret as environment variable
+export FORJAR_SECRET_DB_PASSWORD="s3cur3-p@ssw0rd"
+
+# Apply — secret is interpolated at apply time, never stored in config
+forjar apply -f forjar.yaml --state-dir state/
+```
+
+For CI/CD, use GitHub Actions secrets:
+
+```yaml
+# .github/workflows/deploy.yml
+env:
+  FORJAR_SECRET_DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+  FORJAR_SECRET_API_KEY: ${{ secrets.API_KEY }}
+steps:
+  - run: forjar apply -f forjar.yaml --state-dir state/
+```
+
+Best practices:
+- Never commit secrets in `forjar.yaml` — use `{{secrets.*}}` interpolation
+- Use `forjar lint` to detect hardcoded secrets (checks for common patterns)
+- Rotate secrets by updating the environment variable and re-applying
+
+## Performance Monitoring
+
+Use `forjar bench` for quick inline performance checks:
+
+```bash
+# Quick benchmark (default 10 iterations)
+forjar bench
+
+# High-precision run (100 iterations)
+forjar bench --iterations 100
+
+# JSON output for CI tracking
+forjar bench --json | jq '{validate: .results[0].avg_ms, plan: .results[1].avg_ms}'
+```
+
+Track performance over time in CI:
+
+```yaml
+# .github/workflows/perf.yml
+name: Performance Tracking
+on:
+  push:
+    branches: [main]
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run benchmarks
+        run: |
+          cargo run -- bench --json --iterations 50 > bench.json
+          # Assert targets
+          VALIDATE=$(jq '.results[0].avg_ms' bench.json)
+          if (( $(echo "$VALIDATE > 10" | bc -l) )); then
+            echo "FAIL: validate ${VALIDATE}ms > 10ms target"
+            exit 1
+          fi
+```
+
+For Criterion benchmarks (deeper analysis with confidence intervals):
+
+```bash
+# Full Criterion suite
+cargo bench
+
+# Compare against baseline
+cargo bench -- --save-baseline before
+# ... make changes ...
+cargo bench -- --baseline before
+```
+
+## Trace and Provenance Auditing
+
+After any apply, trace spans record exactly what happened and when:
+
+```bash
+# View traces grouped by trace_id
+forjar trace --state-dir state/
+
+# Filter to a specific machine
+forjar trace --state-dir state/ -m web1
+
+# JSON output for SIEM integration
+forjar trace --state-dir state/ --json | jq '.traces[].spans[] | {resource, duration_ms}'
+```
+
+Combine trace + anomaly for root cause analysis:
+
+```bash
+# 1. Anomaly flags "high churn" on nginx-config
+forjar anomaly --state-dir state/ --min-events 3
+
+# 2. Trace shows the timeline — config keeps re-converging
+forjar trace --state-dir state/ -m web1 --json | \
+  jq '.traces[].spans[] | select(.resource == "nginx-config")'
+
+# 3. Check if another resource triggers it via restart_on
+forjar show -f forjar.yaml -r nginx-svc
+# restart_on: [nginx-config] — every config change restarts nginx
+```
+
+## Resource Tagging
+
+Use tags to apply subsets of resources:
+
+```yaml
+resources:
+  web-config:
+    type: file
+    machine: web
+    path: /etc/nginx/nginx.conf
+    content: "..."
+    tags: [web, config]
+
+  db-config:
+    type: file
+    machine: db
+    path: /etc/postgresql/pg_hba.conf
+    content: "..."
+    tags: [database, config]
+
+  monitoring:
+    type: package
+    machine: [web, db]
+    provider: apt
+    packages: [prometheus-node-exporter]
+    tags: [monitoring]
+```
+
+```bash
+# Apply only config-tagged resources
+forjar apply -f forjar.yaml --state-dir state/ --tags config
+
+# Apply only monitoring
+forjar apply -f forjar.yaml --state-dir state/ --tags monitoring
+
+# Plan for database resources only
+forjar plan -f forjar.yaml --tags database
+```
