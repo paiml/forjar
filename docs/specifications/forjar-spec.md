@@ -1781,6 +1781,19 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 | FJ-296 | `forjar history --json --since` — structured JSON history with summary counts (total_events, started, completed). | Done |
 | FJ-297 | `forjar plan --output-dir` improvements — exported scripts include metadata headers (project, machine, type, group, tags, deps). | Done |
 
+### Phase 16 — v1.6 CI & Observability
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-300 | `forjar apply --output json` — full JSON results (not just dry-run). Machine-readable apply output for CI pipelines with per-resource status, timing, and hashes. | Planned |
+| FJ-301 | `forjar plan --json` improvements — include resource metadata (tags, group, depends_on) in JSON plan output. Currently plan JSON is minimal. | Planned |
+| FJ-302 | `forjar drift --json` — structured JSON drift output. Currently text only. Include machine, resource, hash comparison, and drift status. | Planned |
+| FJ-303 | `forjar status --summary` — one-line summary mode for dashboards. Format: `PROJECT: N converged, N failed, N drifted`. | Planned |
+| FJ-304 | `forjar apply --timeout-per-resource` — per-resource timeout override (vs global transport timeout). Kill long-running scripts after N seconds. | Planned |
+| FJ-305 | `forjar check --json` — structured JSON check results. Machine-readable pre-condition verification for CI gates. | Planned |
+| FJ-306 | `forjar env --json` — structured JSON output of resolved environment (params, machines, resource count). Debug tool for CI. | Planned |
+| FJ-307 | `forjar explain --json` — structured JSON output for resource explain. Machine-readable resource detail for tooling integration. | Planned |
+
 ---
 
 ## 9. Performance Targets
