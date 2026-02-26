@@ -195,6 +195,10 @@ pub enum Commands {
         /// FJ-272: Show progress counter [N/total] during apply
         #[arg(long)]
         progress: bool,
+
+        /// FJ-276: Show timing breakdown after apply
+        #[arg(long)]
+        timing: bool,
     },
 
     /// Detect unauthorized changes (tripwire)
@@ -896,6 +900,7 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             force_unlock,
             output,
             progress,
+            timing,
         } => {
             if check {
                 // FJ-226: --check runs check scripts via cmd_check
@@ -929,6 +934,7 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
                 force_unlock,
                 output.as_deref(),
                 progress,
+                timing,
             )
         }
         Commands::Drift {
@@ -1936,6 +1942,7 @@ fn cmd_rollback(
         false, // no force_unlock
         None,  // no output mode
         false, // no progress
+        false, // no timing
     )
 }
 
@@ -3419,14 +3426,21 @@ fn cmd_apply(
     force_unlock: bool,
     output_mode: Option<&str>,
     progress: bool,
+    timing: bool,
 ) -> Result<(), String> {
+    use std::time::Instant;
+    let t_total = Instant::now();
+
     let events_mode = output_mode == Some("events");
+    let t_parse = Instant::now();
     let mut config = parse_and_validate(file)?;
     if let Some(path) = env_file {
         load_env_params(&mut config, path)?;
     }
     inject_workspace_param(&mut config, workspace);
     resolver::resolve_data_sources(&mut config)?;
+    let dur_parse = t_parse.elapsed();
+
     if verbose {
         eprintln!(
             "Applying {} ({} machines, {} resources)",
@@ -3490,7 +3504,9 @@ fn cmd_apply(
         progress,
     };
 
+    let t_apply = Instant::now();
     let results = executor::apply(&cfg)?;
+    let dur_apply = t_apply.elapsed();
 
     if dry_run {
         println!("Dry run — no changes applied.");
@@ -3620,6 +3636,18 @@ fn cmd_apply(
                 );
             }
         }
+    }
+
+    // FJ-276: Timing breakdown
+    if timing {
+        let dur_total = t_total.elapsed();
+        println!();
+        println!("{}", bold("Timing Breakdown"));
+        println!("{}", dim(&"-".repeat(40)));
+        println!("  {:<20} {:>10.3}s", "Parse + resolve", dur_parse.as_secs_f64());
+        println!("  {:<20} {:>10.3}s", "Apply", dur_apply.as_secs_f64());
+        println!("{}", dim(&"-".repeat(40)));
+        println!("  {:<20} {:>10.3}s", bold("Total"), dur_total.as_secs_f64());
     }
 
     if total_failed > 0 {
@@ -3831,6 +3859,7 @@ fn cmd_drift(
             false, // no force_unlock
             None,  // no output mode
             false, // no progress
+            false, // no timing
         )?;
         if !json {
             println!("Remediation complete.");
@@ -4770,11 +4799,14 @@ fn cmd_env(file: &Path, json: bool) -> Result<(), String> {
         }
         println!(
             "{}",
-            serde_json::to_string_pretty(&info)
-                .map_err(|e| format!("JSON error: {}", e))?
+            serde_json::to_string_pretty(&info).map_err(|e| format!("JSON error: {}", e))?
         );
     } else {
-        println!("{:<20} {}", bold("forjar version:"), env!("CARGO_PKG_VERSION"));
+        println!(
+            "{:<20} {}",
+            bold("forjar version:"),
+            env!("CARGO_PKG_VERSION")
+        );
         println!("{:<20} {}", bold("os:"), std::env::consts::OS);
         println!("{:<20} {}", bold("arch:"), std::env::consts::ARCH);
         println!("{:<20} {}", bold("config:"), file.display());
@@ -5861,6 +5893,7 @@ resources:
             false, // no force_unlock
             None,  // no output mode
             false, // no progress
+            false, // no timing
         )
         .unwrap();
     }
@@ -5912,6 +5945,7 @@ policy:
             false, // no force_unlock
             None,  // no output mode
             false, // no progress
+            false, // no timing
         )
         .unwrap();
 
@@ -5960,6 +5994,7 @@ resources: {}
             false, // no force_unlock
             None,  // no output mode
             false, // no progress
+            false, // no timing
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("validation"));
@@ -6283,6 +6318,7 @@ resources:
                 force_unlock: false,
                 output: None,
                 progress: false,
+                timing: false,
             },
             false,
             true,
@@ -6477,6 +6513,7 @@ resources:
             false, // no force_unlock
             None,  // no output mode
             false, // no progress
+            false, // no timing
         )
         .unwrap();
         assert!(target.exists());
@@ -6502,6 +6539,7 @@ resources:
             false, // no force_unlock
             None,  // no output mode
             false, // no progress
+            false, // no timing
         )
         .unwrap();
     }
@@ -7073,6 +7111,7 @@ resources:
             false, // no force_unlock
             None,  // no output mode
             false, // no progress
+            false, // no timing
         )
         .unwrap();
         assert!(target.exists());
@@ -7138,6 +7177,7 @@ resources:
             false, // no force_unlock
             None,  // no output mode
             false, // no progress
+            false, // no timing
         )
         .unwrap();
         cmd_destroy(&config, &state, None, true, true).unwrap();
@@ -7204,6 +7244,7 @@ resources:
             false, // no force_unlock
             None,  // no output mode
             false, // no progress
+            false, // no timing
         )
         .unwrap();
         assert!(target_a.exists());
@@ -7265,6 +7306,7 @@ resources:
             false, // no force_unlock
             None,  // no output mode
             false, // no progress
+            false, // no timing
         )
         .unwrap();
         dispatch(
@@ -7362,6 +7404,7 @@ resources:
             false, // no force_unlock
             None,  // no output mode
             false, // no progress
+            false, // no timing
         )
         .unwrap();
         assert!(target.exists());
@@ -7522,6 +7565,7 @@ resources:
             false, // no force_unlock
             None,  // no output mode
             false, // no progress
+            false, // no timing
         )
         .unwrap();
         assert!(std::path::Path::new(&target).exists());
@@ -8896,6 +8940,7 @@ resources:
             false, // no force_unlock
             None,  // no output mode
             false, // no progress
+            false, // no timing
         )
         .unwrap();
     }
@@ -10162,6 +10207,7 @@ resources:
             false, // no force_unlock
             None,  // no output mode
             false, // no progress
+            false, // no timing
         );
         assert!(result.is_ok());
     }
@@ -10246,6 +10292,7 @@ resources:
                 force_unlock: false,
                 output: None,
                 progress: false,
+                timing: false,
             },
             false,
             true,
@@ -10784,6 +10831,7 @@ resources:
             false, // no force_unlock
             None,  // no output mode
             false, // no progress
+            false, // no timing
         )
         .unwrap();
     }
@@ -11174,6 +11222,7 @@ policies:
             false,
             None,
             false,
+            false,
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("policy violations"));
@@ -11278,6 +11327,7 @@ policy:
             false,
             None,
             false,
+            false,
         );
         // cmd_apply needs a parsed config, but it re-parses from file
         // Instead, test the run_notify function directly
@@ -11374,6 +11424,7 @@ resources:
                 force_unlock: false,
                 output: None,
                 progress: false,
+                timing: false,
             },
             false,
             true,
@@ -11429,6 +11480,7 @@ resources:
                 force_unlock: false,
                 output: None,
                 progress: false,
+                timing: false,
             },
             false,
             true,
@@ -12437,6 +12489,7 @@ resources:
             false,
             None,
             false,
+            false,
         )
         .unwrap();
         // last-apply.yaml should be written
@@ -12502,6 +12555,7 @@ resources:
             false,
             false,
             None,
+            false,
             false,
         )
         .unwrap();
@@ -12907,6 +12961,7 @@ resources:
             force_unlock: false,
             output: Some("events".to_string()),
             progress: false,
+                timing: false,
         };
         match cmd {
             Commands::Apply { output, .. } => {
@@ -13007,6 +13062,7 @@ resources:
             force_unlock: false,
             output: None,
             progress: true,
+                timing: false,
         };
         match cmd {
             Commands::Apply { progress, .. } => assert!(progress),
@@ -13036,9 +13092,74 @@ resources:
             force_unlock: false,
             output: None,
             progress: false,
+                timing: false,
         };
         match cmd {
             Commands::Apply { progress, .. } => assert!(!progress),
+            _ => panic!("expected Apply"),
+        }
+    }
+
+    // ========================================================================
+    // FJ-276: Apply timing summary
+    // ========================================================================
+
+    #[test]
+    fn test_fj276_timing_flag_parse() {
+        let cmd = Commands::Apply {
+            file: PathBuf::from("forjar.yaml"),
+            machine: None,
+            resource: None,
+            tag: None,
+            force: false,
+            dry_run: false,
+            no_tripwire: false,
+            params: vec![],
+            auto_commit: false,
+            timeout: None,
+            state_dir: PathBuf::from("state"),
+            json: false,
+            env_file: None,
+            workspace: None,
+            check: false,
+            report: false,
+            force_unlock: false,
+            output: None,
+            progress: false,
+            timing: true,
+        };
+        match cmd {
+            Commands::Apply { timing, .. } => assert!(timing),
+            _ => panic!("expected Apply"),
+        }
+    }
+
+    #[test]
+    fn test_fj276_timing_default_off() {
+        let cmd = Commands::Apply {
+            file: PathBuf::from("forjar.yaml"),
+            machine: None,
+            resource: None,
+            tag: None,
+            force: false,
+            dry_run: false,
+            no_tripwire: false,
+            params: vec![],
+            auto_commit: false,
+            timeout: None,
+            state_dir: PathBuf::from("state"),
+            json: false,
+            env_file: None,
+            workspace: None,
+            check: false,
+            report: false,
+            force_unlock: false,
+            output: None,
+            progress: false,
+            timing: false,
+        };
+        match cmd {
+            Commands::Apply { timing, .. } => assert!(!timing),
             _ => panic!("expected Apply"),
         }
     }
