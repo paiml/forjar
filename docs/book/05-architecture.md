@@ -957,6 +957,24 @@ ensure_namespace() → exec_pepita() → cleanup_namespace()
 
 Requires `CAP_SYS_ADMIN` or root.
 
+### Copia Delta Sync (FJ-242)
+
+For file resources with `source:` fields pointing to files > 1MB, the executor uses a two-phase delta sync protocol instead of full base64 transfer:
+
+```
+Phase 1: signature_script(path) → transport → parse remote block hashes
+Phase 2: compute_delta(local, remote) → patch_script(path, delta) → transport
+```
+
+The algorithm:
+1. **Signature**: Execute a shell script on the remote that outputs BLAKE3 hashes for each 4KB block of the existing file
+2. **Delta**: Compare local file blocks against remote hashes — matching blocks produce `Copy` ops, differing blocks produce `Literal` ops
+3. **Patch**: Generate a shell script that reconstructs the file using `dd` for copied blocks and `base64 -d` for literal blocks, then atomically replaces the file via temp+mv
+
+Falls back to full base64 for new files (signature returns `NEW_FILE`) or files ≤ 1MB (overhead not worth it). Critical for deploying 4-7GB GGUF model files where fine-tuning changes ~2% of blocks.
+
+Module: `src/copia/mod.rs` (no external dependencies — uses blake3 and base64 already in Cargo.toml).
+
 ### SSH Multiplexing
 
 For multi-resource machines, SSH connections are reused via `ControlMaster`:

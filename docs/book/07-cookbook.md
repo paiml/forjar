@@ -545,7 +545,7 @@ resources:
     mode: "0644"
 ```
 
-Files are base64-encoded locally and decoded on the remote machine, supporting binary files and all transports.
+Files ≤ 1MB are base64-encoded locally and decoded on the remote machine. Files > 1MB use copia delta sync (FJ-242) — only changed 4KB blocks are transferred, critical for multi-GB model files. Both modes support binary files and all transports.
 
 ## Partial Failure Recovery
 

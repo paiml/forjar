@@ -161,7 +161,7 @@ resources:
 2. **Resolve** — Expand templates, build dependency DAG (Kahn's toposort, alphabetical tie-break)
 3. **Plan** — Diff desired state against BLAKE3 lock file (hash comparison, no API calls)
 4. **Codegen** — Generate shell scripts per resource type
-5. **Execute** — Run scripts locally or via SSH (stdin pipe, not argument passing)
+5. **Execute** — Run scripts locally or via SSH (stdin pipe, not argument passing). Files > 1MB use copia delta sync (only changed blocks transferred)
 6. **State** — Atomic lock file write (temp + rename), append to JSONL event log
 
 ### Failure Policy (Jidoka)
@@ -239,7 +239,7 @@ Tests: `test_fj012_apply_local_file`
 ## Testing
 
 ```bash
-cargo test                    # 1558 unit tests
+cargo test                    # 1584 unit tests
 cargo test -- --nocapture     # with output
 cargo test planner            # specific module
 cargo bench                   # Criterion benchmarks

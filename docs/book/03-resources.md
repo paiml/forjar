@@ -74,7 +74,14 @@ resources:
     mode: "0755"
 ```
 
-The file is base64-encoded locally and decoded on the remote machine via `base64 -d`. This works with all transports (local, SSH, container) and handles binary files safely.
+For files ≤ 1MB, the source is base64-encoded locally and decoded on the remote machine via `base64 -d`. For files > 1MB, forjar uses **copia delta sync** (FJ-242) — an rsync-style block-level transfer that only sends changed 4KB blocks. This is critical for deploying multi-GB model files where only a small percentage of blocks change after fine-tuning. The delta protocol:
+
+1. Signature: get per-block BLAKE3 hashes from the remote file
+2. Delta: compare local blocks against remote hashes
+3. Patch: transfer only changed blocks + copy unchanged blocks from existing file
+4. Atomic replace: temp file + `mv` (no partial writes)
+
+Falls back to full base64 for new files (no remote state to diff against). Both modes work with all transports (local, SSH, container, pepita).
 
 `content` and `source` are mutually exclusive — use one or the other.
 
