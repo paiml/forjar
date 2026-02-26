@@ -62,11 +62,11 @@ pub fn apply_script(resource: &Resource) -> String {
 
             // Download model based on source type
             if source.starts_with("http://") || source.starts_with("https://") {
-                script.push_str(&format!(
-                    "curl -fSL -o '{}' '{}'\n",
-                    path, source
-                ));
-            } else if source.starts_with('/') || source.starts_with("./") || source.starts_with("~/") {
+                script.push_str(&format!("curl -fSL -o '{}' '{}'\n", path, source));
+            } else if source.starts_with('/')
+                || source.starts_with("./")
+                || source.starts_with("~/")
+            {
                 // Local path — copy
                 script.push_str(&format!("cp '{}' '{}'\n", source, path));
             } else if source.contains('/') {
@@ -181,10 +181,16 @@ mod tests {
             overlay_upper: None,
             overlay_work: None,
             overlay_merged: None,
-           format: Some("gguf".to_string()),
+            format: Some("gguf".to_string()),
             quantization: Some("q4_k_m".to_string()),
             checksum: None,
             cache_dir: Some("/opt/model-cache".to_string()),
+            driver_version: None,
+            cuda_version: None,
+            devices: vec![],
+            persistence_mode: None,
+            compute_mode: None,
+            gpu_memory_limit_mb: None,
         }
     }
 

@@ -121,6 +121,7 @@ fn determine_action(
             | ResourceType::Network
             | ResourceType::Cron
             | ResourceType::Model
+            | ResourceType::Gpu
             | ResourceType::Recipe => "present",
         });
 
@@ -281,6 +282,7 @@ fn describe_action(resource_id: &str, resource: &Resource, action: &PlanAction) 
             | ResourceType::Network
             | ResourceType::Cron
             | ResourceType::Model
+            | ResourceType::Gpu
             | ResourceType::Recipe => format!("{}: create", resource_id),
         },
         PlanAction::Update => format!("{}: update (state changed)", resource_id),
@@ -548,10 +550,16 @@ resources:
             overlay_upper: None,
             overlay_work: None,
             overlay_merged: None,
-        format: None,
-        quantization: None,
-        checksum: None,
-        cache_dir: None,
+            format: None,
+            quantization: None,
+            checksum: None,
+            cache_dir: None,
+        driver_version: None,
+        cuda_version: None,
+        devices: vec![],
+        persistence_mode: None,
+        compute_mode: None,
+        gpu_memory_limit_mb: None,
         };
         let h1 = hash_desired_state(&r);
         let h2 = hash_desired_state(&r);
@@ -617,10 +625,16 @@ resources:
             overlay_upper: None,
             overlay_work: None,
             overlay_merged: None,
-        format: None,
-        quantization: None,
-        checksum: None,
-        cache_dir: None,
+            format: None,
+            quantization: None,
+            checksum: None,
+            cache_dir: None,
+        driver_version: None,
+        cuda_version: None,
+        devices: vec![],
+        persistence_mode: None,
+        compute_mode: None,
+        gpu_memory_limit_mb: None,
         };
         let desc = describe_action("test-pkg", &r, &PlanAction::Create);
         assert!(desc.contains("curl, wget"));
@@ -684,10 +698,16 @@ resources:
             overlay_upper: None,
             overlay_work: None,
             overlay_merged: None,
-        format: None,
-        quantization: None,
-        checksum: None,
-        cache_dir: None,
+            format: None,
+            quantization: None,
+            checksum: None,
+            cache_dir: None,
+        driver_version: None,
+        cuda_version: None,
+        devices: vec![],
+        persistence_mode: None,
+        compute_mode: None,
+        gpu_memory_limit_mb: None,
         };
         assert!(describe_action("f", &r, &PlanAction::Create).contains("/etc/conf"));
         assert!(describe_action("f", &r, &PlanAction::Update).contains("update"));
@@ -753,10 +773,16 @@ resources:
             overlay_upper: None,
             overlay_work: None,
             overlay_merged: None,
-        format: None,
-        quantization: None,
-        checksum: None,
-        cache_dir: None,
+            format: None,
+            quantization: None,
+            checksum: None,
+            cache_dir: None,
+        driver_version: None,
+        cuda_version: None,
+        devices: vec![],
+        persistence_mode: None,
+        compute_mode: None,
+        gpu_memory_limit_mb: None,
         };
         assert!(describe_action("svc", &r, &PlanAction::Create).contains("nginx"));
     }
@@ -819,10 +845,16 @@ resources:
             overlay_upper: None,
             overlay_work: None,
             overlay_merged: None,
-        format: None,
-        quantization: None,
-        checksum: None,
-        cache_dir: None,
+            format: None,
+            quantization: None,
+            checksum: None,
+            cache_dir: None,
+        driver_version: None,
+        cuda_version: None,
+        devices: vec![],
+        persistence_mode: None,
+        compute_mode: None,
+        gpu_memory_limit_mb: None,
         };
         assert!(describe_action("mnt", &r, &PlanAction::Create).contains("/mnt/data"));
     }
@@ -885,10 +917,16 @@ resources:
             overlay_upper: None,
             overlay_work: None,
             overlay_merged: None,
-        format: None,
-        quantization: None,
-        checksum: None,
-        cache_dir: None,
+            format: None,
+            quantization: None,
+            checksum: None,
+            cache_dir: None,
+        driver_version: None,
+        cuda_version: None,
+        devices: vec![],
+        persistence_mode: None,
+        compute_mode: None,
+        gpu_memory_limit_mb: None,
         };
         // Changing any field should change the hash
         let mut r2 = r1.clone();
@@ -1344,10 +1382,16 @@ resources:
             overlay_upper: None,
             overlay_work: None,
             overlay_merged: None,
-        format: None,
-        quantization: None,
-        checksum: None,
-        cache_dir: None,
+            format: None,
+            quantization: None,
+            checksum: None,
+            cache_dir: None,
+        driver_version: None,
+        cuda_version: None,
+        devices: vec![],
+        persistence_mode: None,
+        compute_mode: None,
+        gpu_memory_limit_mb: None,
         };
         let desc = describe_action("f", &r, &PlanAction::Create);
         assert!(desc.contains("?"), "missing path should show ?");
@@ -1411,10 +1455,16 @@ resources:
             overlay_upper: None,
             overlay_work: None,
             overlay_merged: None,
-        format: None,
-        quantization: None,
-        checksum: None,
-        cache_dir: None,
+            format: None,
+            quantization: None,
+            checksum: None,
+            cache_dir: None,
+        driver_version: None,
+        cuda_version: None,
+        devices: vec![],
+        persistence_mode: None,
+        compute_mode: None,
+        gpu_memory_limit_mb: None,
         };
         let desc = describe_action("svc", &r, &PlanAction::Create);
         assert!(desc.contains("?"), "missing name should show ?");
@@ -1478,10 +1528,16 @@ resources:
             overlay_upper: None,
             overlay_work: None,
             overlay_merged: None,
-        format: None,
-        quantization: None,
-        checksum: None,
-        cache_dir: None,
+            format: None,
+            quantization: None,
+            checksum: None,
+            cache_dir: None,
+        driver_version: None,
+        cuda_version: None,
+        devices: vec![],
+        persistence_mode: None,
+        compute_mode: None,
+        gpu_memory_limit_mb: None,
         };
         let desc = describe_action("dock", &r, &PlanAction::Create);
         assert!(desc.contains("create"), "Docker create should say create");
@@ -1545,10 +1601,16 @@ resources:
             overlay_upper: None,
             overlay_work: None,
             overlay_merged: None,
-        format: None,
-        quantization: None,
-        checksum: None,
-        cache_dir: None,
+            format: None,
+            quantization: None,
+            checksum: None,
+            cache_dir: None,
+        driver_version: None,
+        cuda_version: None,
+        devices: vec![],
+        persistence_mode: None,
+        compute_mode: None,
+        gpu_memory_limit_mb: None,
         };
         let mut r2 = r1.clone();
         r2.content = Some("version=2".to_string());
@@ -2048,10 +2110,16 @@ resources:
             overlay_upper: None,
             overlay_work: None,
             overlay_merged: None,
-        format: None,
-        quantization: None,
-        checksum: None,
-        cache_dir: None,
+            format: None,
+            quantization: None,
+            checksum: None,
+            cache_dir: None,
+        driver_version: None,
+        cuda_version: None,
+        devices: vec![],
+        persistence_mode: None,
+        compute_mode: None,
+        gpu_memory_limit_mb: None,
         }
     }
 

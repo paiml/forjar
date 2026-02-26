@@ -549,6 +549,31 @@ pub struct Resource {
     /// Model cache directory (default: ~/.cache/apr/)
     #[serde(default)]
     pub cache_dir: Option<String>,
+
+    // -- GPU fields (FJ-241: GPU hardware resource) --
+    /// NVIDIA driver version (e.g., "535")
+    #[serde(default)]
+    pub driver_version: Option<String>,
+
+    /// CUDA toolkit version (e.g., "12.3")
+    #[serde(default)]
+    pub cuda_version: Option<String>,
+
+    /// GPU device indices (default: all)
+    #[serde(default)]
+    pub devices: Vec<u32>,
+
+    /// Enable nvidia-persistenced (default: true)
+    #[serde(default)]
+    pub persistence_mode: Option<bool>,
+
+    /// GPU compute mode: default, exclusive_process, prohibited
+    #[serde(default)]
+    pub compute_mode: Option<String>,
+
+    /// GPU memory limit in MB (cgroup)
+    #[serde(default)]
+    pub gpu_memory_limit_mb: Option<u64>,
 }
 
 /// Resource type enum.
@@ -567,6 +592,8 @@ pub enum ResourceType {
     Recipe,
     /// FJ-240: ML model resource type
     Model,
+    /// FJ-241: GPU hardware resource type
+    Gpu,
 }
 
 impl fmt::Display for ResourceType {
@@ -583,6 +610,7 @@ impl fmt::Display for ResourceType {
             Self::Cron => write!(f, "cron"),
             Self::Recipe => write!(f, "recipe"),
             Self::Model => write!(f, "model"),
+            Self::Gpu => write!(f, "gpu"),
         }
     }
 }

@@ -446,6 +446,24 @@ fn validate_resource_type(id: &str, resource: &Resource, errors: &mut Vec<Valida
                 }
             }
         }
+        ResourceType::Gpu => {
+            if resource.driver_version.is_none() {
+                errors.push(ValidationError {
+                    message: format!("resource '{}' (gpu) has no driver_version", id),
+                });
+            }
+            if let Some(ref state) = resource.state {
+                let valid = ["present", "absent"];
+                if !valid.contains(&state.as_str()) {
+                    errors.push(ValidationError {
+                        message: format!(
+                            "resource '{}' (gpu) has invalid state '{}' (expected: present, absent)",
+                            id, state
+                        ),
+                    });
+                }
+            }
+        }
         ResourceType::Recipe => {
             if resource.recipe.is_none() {
                 errors.push(ValidationError {

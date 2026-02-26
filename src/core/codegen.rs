@@ -26,6 +26,7 @@ pub fn check_script(resource: &Resource) -> Result<String, String> {
         ResourceType::Network => Ok(resources::network::check_script(resource)),
         ResourceType::Pepita => Ok(resources::pepita::check_script(resource)),
         ResourceType::Model => Ok(resources::model::check_script(resource)),
+        ResourceType::Gpu => Ok(resources::gpu::check_script(resource)),
         ResourceType::Recipe => {
             Err("codegen not implemented for recipe (expand first)".to_string())
         }
@@ -46,6 +47,7 @@ pub fn apply_script(resource: &Resource) -> Result<String, String> {
         ResourceType::Network => Ok(resources::network::apply_script(resource)),
         ResourceType::Pepita => Ok(resources::pepita::apply_script(resource)),
         ResourceType::Model => Ok(resources::model::apply_script(resource)),
+        ResourceType::Gpu => Ok(resources::gpu::apply_script(resource)),
         ResourceType::Recipe => {
             Err("codegen not implemented for recipe (expand first)".to_string())
         }
@@ -66,6 +68,7 @@ pub fn state_query_script(resource: &Resource) -> Result<String, String> {
         ResourceType::Network => Ok(resources::network::state_query_script(resource)),
         ResourceType::Pepita => Ok(resources::pepita::state_query_script(resource)),
         ResourceType::Model => Ok(resources::model::state_query_script(resource)),
+        ResourceType::Gpu => Ok(resources::gpu::state_query_script(resource)),
         ResourceType::Recipe => {
             Err("codegen not implemented for recipe (expand first)".to_string())
         }
@@ -134,10 +137,16 @@ mod tests {
             overlay_upper: None,
             overlay_work: None,
             overlay_merged: None,
-        format: None,
-        quantization: None,
-        checksum: None,
-        cache_dir: None,
+            format: None,
+            quantization: None,
+            checksum: None,
+            cache_dir: None,
+        driver_version: None,
+        cuda_version: None,
+        devices: vec![],
+        persistence_mode: None,
+        compute_mode: None,
+        gpu_memory_limit_mb: None,
         }
     }
 
@@ -198,10 +207,16 @@ mod tests {
             overlay_upper: None,
             overlay_work: None,
             overlay_merged: None,
-        format: None,
-        quantization: None,
-        checksum: None,
-        cache_dir: None,
+            format: None,
+            quantization: None,
+            checksum: None,
+            cache_dir: None,
+        driver_version: None,
+        cuda_version: None,
+        devices: vec![],
+        persistence_mode: None,
+        compute_mode: None,
+        gpu_memory_limit_mb: None,
         }
     }
 
@@ -262,10 +277,16 @@ mod tests {
             overlay_upper: None,
             overlay_work: None,
             overlay_merged: None,
-        format: None,
-        quantization: None,
-        checksum: None,
-        cache_dir: None,
+            format: None,
+            quantization: None,
+            checksum: None,
+            cache_dir: None,
+        driver_version: None,
+        cuda_version: None,
+        devices: vec![],
+        persistence_mode: None,
+        compute_mode: None,
+        gpu_memory_limit_mb: None,
         }
     }
 
@@ -326,10 +347,16 @@ mod tests {
             overlay_upper: None,
             overlay_work: None,
             overlay_merged: None,
-        format: None,
-        quantization: None,
-        checksum: None,
-        cache_dir: None,
+            format: None,
+            quantization: None,
+            checksum: None,
+            cache_dir: None,
+        driver_version: None,
+        cuda_version: None,
+        devices: vec![],
+        persistence_mode: None,
+        compute_mode: None,
+        gpu_memory_limit_mb: None,
         }
     }
 
