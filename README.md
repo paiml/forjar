@@ -119,6 +119,7 @@ policy:
 | `cron` | present, absent | `name`, `schedule`, `command`, `user` |
 | `network` | present, absent | `port`, `protocol`, `action`, `from_addr` |
 | `pepita` | present, absent | `name`, `cgroups`, `overlayfs`, `netns`, `seccomp` |
+| `model` | present, absent | `name`, `source`, `format`, `quantization`, `checksum`, `cache_dir` |
 
 ### Templates
 
@@ -237,7 +238,7 @@ Tests: `test_fj012_apply_local_file`
 ## Testing
 
 ```bash
-cargo test                    # 1538 unit tests
+cargo test                    # 1548 unit tests
 cargo test -- --nocapture     # with output
 cargo test planner            # specific module
 cargo bench                   # Criterion benchmarks

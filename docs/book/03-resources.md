@@ -649,6 +649,58 @@ resources:
 | `overlay_work` | string | `/tmp/forjar-work` | Overlay work directory |
 | `overlay_merged` | string | — | Overlay merged mount point (enables overlayfs) |
 
+## Model (ML)
+
+Manages ML model files — download, integrity verification, and cache management.
+
+```yaml
+resources:
+  llama-7b:
+    type: model
+    machine: gpu-box
+    name: llama-7b
+    source: "TheBloke/Llama-2-7B-GGUF"
+    path: /models/llama-7b-q4.gguf
+    format: gguf
+    quantization: q4_k_m
+    checksum: "abc123def456..."
+    cache_dir: /opt/model-cache
+    owner: noah
+```
+
+### Model States
+
+- **present** (default): Download model if missing, verify checksum if provided
+- **absent**: Remove the model file
+
+### Model Fields
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `name` | string | required | Model identifier |
+| `source` | string | — | Download source: HuggingFace repo ID (`user/repo`), URL (`https://...`), or local path (`/path/to/model`) |
+| `path` | string | — | Destination path on the target machine |
+| `format` | string | — | Model format: `gguf`, `safetensors`, `apr` |
+| `quantization` | string | — | Quantization level: `q4_k_m`, `q5_k_m`, `q8_0`, `f16`, `none` |
+| `checksum` | string | — | BLAKE3 hash for integrity pinning (prevents unauthorized model swaps) |
+| `cache_dir` | string | `~/.cache/apr/` | Local cache directory for downloaded models |
+| `owner` | string | — | File owner after download |
+
+### Download Sources
+
+The `source` field supports three formats:
+
+1. **HuggingFace repo ID** (`TheBloke/Llama-2-7B-GGUF`): Uses `apr pull` if available, falls back to `huggingface-cli`
+2. **URL** (`https://example.com/model.gguf`): Downloads via `curl`
+3. **Local path** (`/shared/models/llama.gguf`): Copies from local filesystem
+
+### Drift Detection
+
+When `checksum` is set, `forjar drift` detects unauthorized model file changes by comparing the stored BLAKE3 hash against the live file hash. This catches:
+- Model file corruption
+- Unauthorized model swaps (e.g., replacing a quantized model with a different version)
+- Accidental overwrites
+
 ## Common Patterns
 
 ### Template Resolution in Resources
