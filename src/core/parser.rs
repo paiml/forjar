@@ -510,12 +510,8 @@ fn merge_includes(base: ForjarConfig, base_dir: &Path) -> Result<ForjarConfig, S
 
     for include_path in &base.includes {
         let full_path = base_dir.join(include_path);
-        let included = parse_config_file(&full_path).map_err(|e| {
-            format!(
-                "include '{}': {}",
-                include_path, e
-            )
-        })?;
+        let included = parse_config_file(&full_path)
+            .map_err(|e| format!("include '{}': {}", include_path, e))?;
 
         // Merge params (later overrides earlier)
         for (k, v) in included.params {
@@ -4505,7 +4501,10 @@ resources:
         let mut base = parse_config(base_yaml).unwrap();
         base.includes = vec!["override.yaml".to_string()];
         let merged = merge_includes(base, dir.path()).unwrap();
-        assert_eq!(merged.resources["config"].content.as_deref(), Some("overridden"));
+        assert_eq!(
+            merged.resources["config"].content.as_deref(),
+            Some("overridden")
+        );
     }
 
     #[test]
@@ -4597,7 +4596,10 @@ resources:
         let mut base = parse_config(base_yaml).unwrap();
         base.includes = vec!["extra.yaml".to_string()];
         let merged = merge_includes(base, dir.path()).unwrap();
-        assert!(merged.includes.is_empty(), "includes should be cleared after merge");
+        assert!(
+            merged.includes.is_empty(),
+            "includes should be cleared after merge"
+        );
     }
 
     #[test]
@@ -4675,7 +4677,11 @@ resources: {}
         std::fs::write(dir.path().join("machines.yaml"), machines_yaml).unwrap();
 
         let result = parse_and_validate(&dir.path().join("main.yaml"));
-        assert!(result.is_ok(), "should succeed with included machines: {:?}", result);
+        assert!(
+            result.is_ok(),
+            "should succeed with included machines: {:?}",
+            result
+        );
         let config = result.unwrap();
         assert!(config.machines.contains_key("web"));
         assert!(config.resources.contains_key("app"));
