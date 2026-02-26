@@ -2,10 +2,10 @@
 //! destroy, import, show, graph, check, diff, fmt, lint, rollback, anomaly, trace,
 //! migrate, mcp, bench.
 
+use crate::core::types::ProvenanceEvent;
 use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
 use crate::transport;
 use crate::tripwire::{anomaly, drift, eventlog, tracer};
-use crate::core::types::ProvenanceEvent;
 use clap::Subcommand;
 use std::path::{Path, PathBuf};
 
@@ -853,7 +853,13 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
                 recipient,
                 re_encrypt,
                 state_dir,
-            } => cmd_secrets_rotate(&file, identity.as_deref(), &recipient, re_encrypt, &state_dir),
+            } => cmd_secrets_rotate(
+                &file,
+                identity.as_deref(),
+                &recipient,
+                re_encrypt,
+                &state_dir,
+            ),
         },
     }
 }
@@ -2916,8 +2922,8 @@ fn cmd_secrets_rotate(
         );
     }
 
-    let content =
-        std::fs::read_to_string(file).map_err(|e| format!("cannot read '{}': {}", file.display(), e))?;
+    let content = std::fs::read_to_string(file)
+        .map_err(|e| format!("cannot read '{}': {}", file.display(), e))?;
     if !secrets::has_encrypted_markers(&content) {
         println!("no ENC[age,...] markers found in {}", file.display());
         return Ok(());
@@ -2938,7 +2944,8 @@ fn cmd_secrets_rotate(
         result.replace_range(start..end, &re_encrypted);
     }
 
-    std::fs::write(file, &result).map_err(|e| format!("cannot write '{}': {}", file.display(), e))?;
+    std::fs::write(file, &result)
+        .map_err(|e| format!("cannot write '{}': {}", file.display(), e))?;
 
     // FJ-201: Audit log the rotation event
     let event = ProvenanceEvent::SecretRotated {

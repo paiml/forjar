@@ -165,7 +165,7 @@ mod tests {
             quantization: None,
             checksum: None,
             cache_dir: None,
-           driver_version: Some("535".to_string()),
+            driver_version: Some("535".to_string()),
             cuda_version: None,
             devices: vec![],
             persistence_mode: None,

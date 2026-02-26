@@ -27,7 +27,12 @@ pub fn exec_pepita(machine: &Machine, script: &str) -> Result<ExecOutput, String
 
     // Read the PID of the namespace init process
     let pid = std::fs::read_to_string(&pidfile)
-        .map_err(|e| format!("cannot read pidfile '{}': {} — is the namespace running?", pidfile, e))?
+        .map_err(|e| {
+            format!(
+                "cannot read pidfile '{}': {} — is the namespace running?",
+                pidfile, e
+            )
+        })?
         .trim()
         .to_string();
 
@@ -177,9 +182,7 @@ pub fn cleanup_namespace(machine: &Machine) -> Result<(), String> {
     if let Ok(pid_str) = std::fs::read_to_string(&pidfile) {
         let pid = pid_str.trim();
         // Send SIGKILL to the init process — this tears down the entire namespace
-        let _ = Command::new("kill")
-            .args(["-9", pid])
-            .output();
+        let _ = Command::new("kill").args(["-9", pid]).output();
     }
 
     // Remove pidfile
@@ -207,7 +210,7 @@ mod tests {
             roles: vec![],
             transport: Some("pepita".to_string()),
             container: None,
-           pepita: Some(PepitaTransportConfig {
+            pepita: Some(PepitaTransportConfig {
                 rootfs: "debootstrap:jammy".to_string(),
                 memory_mb: Some(512),
                 cpus: Some(2.0),
@@ -230,7 +233,7 @@ mod tests {
             roles: vec![],
             transport: Some("pepita".to_string()),
             container: None,
-           pepita: None,
+            pepita: None,
             cost: 0,
         };
         let result = exec_pepita(&machine, "echo hi");
@@ -249,7 +252,7 @@ mod tests {
             roles: vec![],
             transport: Some("pepita".to_string()),
             container: None,
-           pepita: None,
+            pepita: None,
             cost: 0,
         };
         let result = ensure_namespace(&machine);
@@ -268,7 +271,7 @@ mod tests {
             roles: vec![],
             transport: Some("pepita".to_string()),
             container: None,
-           pepita: None,
+            pepita: None,
             cost: 0,
         };
         let result = cleanup_namespace(&machine);
@@ -300,7 +303,7 @@ mod tests {
             roles: vec![],
             transport: None,
             container: None,
-           pepita: Some(PepitaTransportConfig {
+            pepita: Some(PepitaTransportConfig {
                 rootfs: "/opt/rootfs".to_string(),
                 memory_mb: None,
                 cpus: None,

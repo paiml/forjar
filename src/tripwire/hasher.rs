@@ -499,12 +499,12 @@ mod tests {
             quantization: None,
             checksum: None,
             cache_dir: None,
-        driver_version: None,
-        cuda_version: None,
-        devices: vec![],
-        persistence_mode: None,
-        compute_mode: None,
-        gpu_memory_limit_mb: None,
+            driver_version: None,
+            cuda_version: None,
+            devices: vec![],
+            persistence_mode: None,
+            compute_mode: None,
+            gpu_memory_limit_mb: None,
         };
         let h1 = hash_desired_state(&r);
         let h2 = hash_desired_state(&r);
@@ -578,12 +578,12 @@ mod tests {
             quantization: None,
             checksum: None,
             cache_dir: None,
-        driver_version: None,
-        cuda_version: None,
-        devices: vec![],
-        persistence_mode: None,
-        compute_mode: None,
-        gpu_memory_limit_mb: None,
+            driver_version: None,
+            cuda_version: None,
+            devices: vec![],
+            persistence_mode: None,
+            compute_mode: None,
+            gpu_memory_limit_mb: None,
         };
         let r2 = Resource {
             content: Some("changed content".to_string()),

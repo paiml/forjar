@@ -1,0 +1,73 @@
+# FJ-250: Template functions dogfood config
+# Demonstrates {{func(args)}} syntax: upper, lower, trim, default,
+# replace, env, b3sum, join, split, and nested calls.
+version: "1.0"
+name: dogfood-template-funcs
+
+params:
+  hostname: "  My-Server  "
+  env: production
+  tags: "web,api,gpu"
+  separator: "-"
+  greeting: "Hello World"
+
+machines:
+  test-box:
+    hostname: test-box
+    addr: container
+    transport: container
+    arch: x86_64
+    container:
+      image: ubuntu:22.04
+
+resources:
+  # upper() + trim() nested
+  banner:
+    type: file
+    machine: test-box
+    path: /etc/forjar/banner.txt
+    content: "{{upper(trim(params.hostname))}}"
+
+  # lower() for normalized env tag
+  env-tag:
+    type: file
+    machine: test-box
+    path: /etc/forjar/env.tag
+    content: "env={{lower(params.env)}}"
+
+  # replace() to swap separator
+  slug:
+    type: file
+    machine: test-box
+    path: /etc/forjar/slug.txt
+    content: "{{replace(params.greeting, \" \", params.separator)}}"
+    depends_on: [banner]
+
+  # default() with present value (uses value)
+  config-env:
+    type: file
+    machine: test-box
+    path: /etc/forjar/config-env.txt
+    content: "env={{default(params.env, \"development\")}}"
+
+  # b3sum() for content hash
+  hash-tag:
+    type: file
+    machine: test-box
+    path: /etc/forjar/hash.txt
+    content: "hash={{b3sum(params.greeting)}}"
+
+  # join() tags with pipe separator
+  joined-tags:
+    type: file
+    machine: test-box
+    path: /etc/forjar/tags.txt
+    content: "tags={{join(params.tags, \"|\")}}"
+
+  # Nested: upper(replace(lower(...))) chain
+  normalized:
+    type: file
+    machine: test-box
+    path: /etc/forjar/normalized.txt
+    content: "{{upper(replace(lower(params.greeting), \" \", \"_\"))}}"
+    depends_on: [slug]

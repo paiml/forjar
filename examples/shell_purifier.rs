@@ -95,12 +95,12 @@ fn main() {
         quantization: None,
         checksum: None,
         cache_dir: None,
-    driver_version: None,
-    cuda_version: None,
-    devices: vec![],
-    persistence_mode: None,
-    compute_mode: None,
-    gpu_memory_limit_mb: None,
+        driver_version: None,
+        cuda_version: None,
+        devices: vec![],
+        persistence_mode: None,
+        compute_mode: None,
+        gpu_memory_limit_mb: None,
     })
     .unwrap();
 

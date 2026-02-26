@@ -479,9 +479,14 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let source = dir.path().join("source.bin");
         std::fs::write(&source, b"test data for transfer").unwrap();
-        let script =
-            full_transfer_script("/opt/target", source.to_str().unwrap(), Some("root"), Some("root"), Some("0644"))
-                .unwrap();
+        let script = full_transfer_script(
+            "/opt/target",
+            source.to_str().unwrap(),
+            Some("root"),
+            Some("root"),
+            Some("0644"),
+        )
+        .unwrap();
         assert!(script.contains("set -euo pipefail"));
         assert!(script.contains("base64 -d"));
         assert!(script.contains("/opt/target"));
@@ -493,7 +498,7 @@ mod tests {
     fn test_fj242_roundtrip_delta_reconstruction() {
         // Simulate: old file on remote, new file locally, verify delta correctness
         let mut old_data = vec![0u8; BLOCK_SIZE * 10]; // 10 blocks
-        // Make blocks unique
+                                                       // Make blocks unique
         for i in 0..10 {
             old_data[i * BLOCK_SIZE] = i as u8;
         }
