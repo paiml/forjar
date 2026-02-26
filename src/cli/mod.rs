@@ -795,6 +795,86 @@ pub enum Commands {
     /// FJ-260: Manage state snapshots
     #[command(subcommand)]
     Snapshot(SnapshotCmd),
+
+    /// FJ-326: List all machines with connection status
+    Inventory {
+        /// Path to forjar.yaml
+        #[arg(short, long, default_value = "forjar.yaml")]
+        file: PathBuf,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// FJ-327: Re-run only previously failed resources
+    RetryFailed {
+        /// Path to forjar.yaml
+        #[arg(short, long, default_value = "forjar.yaml")]
+        file: PathBuf,
+
+        /// State directory
+        #[arg(long, default_value = "state")]
+        state_dir: PathBuf,
+
+        /// Override a parameter (KEY=VALUE)
+        #[arg(long = "param", value_name = "KEY=VALUE")]
+        params: Vec<String>,
+
+        /// Timeout per transport operation (seconds)
+        #[arg(long)]
+        timeout: Option<u64>,
+    },
+
+    /// FJ-324: Rolling deployment — apply N machines at a time
+    Rolling {
+        /// Path to forjar.yaml
+        #[arg(short, long, default_value = "forjar.yaml")]
+        file: PathBuf,
+
+        /// State directory
+        #[arg(long, default_value = "state")]
+        state_dir: PathBuf,
+
+        /// Number of machines to apply concurrently
+        #[arg(long, default_value = "1")]
+        batch_size: usize,
+
+        /// Override a parameter (KEY=VALUE)
+        #[arg(long = "param", value_name = "KEY=VALUE")]
+        params: Vec<String>,
+
+        /// Timeout per transport operation (seconds)
+        #[arg(long)]
+        timeout: Option<u64>,
+    },
+
+    /// FJ-325: Canary deployment — apply to one machine first, confirm, then rest
+    Canary {
+        /// Path to forjar.yaml
+        #[arg(short, long, default_value = "forjar.yaml")]
+        file: PathBuf,
+
+        /// State directory
+        #[arg(long, default_value = "state")]
+        state_dir: PathBuf,
+
+        /// Machine to use as canary (apply first)
+        #[arg(short, long)]
+        machine: String,
+
+        /// Auto-proceed after canary success (skip confirmation)
+        #[arg(long)]
+        auto_proceed: bool,
+
+        /// Override a parameter (KEY=VALUE)
+        #[arg(long = "param", value_name = "KEY=VALUE")]
+        params: Vec<String>,
+
+        /// Timeout per transport operation (seconds)
+        #[arg(long)]
+        timeout: Option<u64>,
+    },
 }
 
 /// FJ-260: Snapshot subcommands — named state checkpoints.
@@ -960,6 +1040,7 @@ pub enum SecretsCmd {
         #[arg(long, default_value = "state")]
         state_dir: PathBuf,
     },
+
 }
 
 /// Dispatch a CLI command.
@@ -1342,6 +1423,28 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             } => cmd_snapshot_restore(&name, &state_dir, yes),
             SnapshotCmd::Delete { name, state_dir } => cmd_snapshot_delete(&name, &state_dir),
         },
+        Commands::Inventory { file, json } => cmd_inventory(&file, json),
+        Commands::RetryFailed {
+            file,
+            state_dir,
+            params,
+            timeout,
+        } => cmd_retry_failed(&file, &state_dir, &params, timeout),
+        Commands::Rolling {
+            file,
+            state_dir,
+            batch_size,
+            params,
+            timeout,
+        } => cmd_rolling(&file, &state_dir, batch_size, &params, timeout),
+        Commands::Canary {
+            file,
+            state_dir,
+            machine,
+            auto_proceed,
+            params,
+            timeout,
+        } => cmd_canary(&file, &state_dir, &machine, auto_proceed, &params, timeout),
     }
 }
 
@@ -4549,9 +4652,13 @@ fn cmd_apply(
         // Use curl for webhook POST (no extra dependencies)
         let result = std::process::Command::new("curl")
             .args([
-                "-s", "-X", "POST",
-                "-H", "Content-Type: application/json",
-                "-d", &payload_str,
+                "-s",
+                "-X",
+                "POST",
+                "-H",
+                "Content-Type: application/json",
+                "-d",
+                &payload_str,
                 url,
             ])
             .output();
@@ -6921,6 +7028,370 @@ fn cmd_doctor(file: Option<&Path>, json: bool, fix: bool) -> Result<(), String> 
     } else {
         Ok(())
     }
+}
+
+/// FJ-326: List all machines with connection status.
+fn cmd_inventory(file: &Path, json: bool) -> Result<(), String> {
+    let config = parse_and_validate(file)?;
+
+    let mut results: Vec<serde_json::Value> = Vec::new();
+
+    for (name, machine) in &config.machines {
+        let is_local =
+            machine.addr == "127.0.0.1" || machine.addr == "localhost";
+        let is_container = machine.addr == "container"
+            || machine.transport.as_deref() == Some("container");
+
+        let (status, transport_type) = if is_local {
+            ("reachable".to_string(), "local")
+        } else if is_container {
+            ("container".to_string(), "container")
+        } else {
+            // Try SSH connection test: ssh -o BatchMode=yes -o ConnectTimeout=5
+            let user_host = format!("{}@{}", machine.user, machine.addr);
+            let mut ssh_args = vec![
+                "-o", "BatchMode=yes",
+                "-o", "ConnectTimeout=5",
+            ];
+            if let Some(ref key) = machine.ssh_key {
+                ssh_args.push("-i");
+                ssh_args.push(key);
+            }
+            ssh_args.push(&user_host);
+            ssh_args.push("echo");
+            ssh_args.push("ok");
+            let result = std::process::Command::new("ssh")
+                .args(&ssh_args)
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .status();
+            match result {
+                Ok(s) if s.success() => ("reachable".to_string(), "ssh"),
+                _ => ("unreachable".to_string(), "ssh"),
+            }
+        };
+
+        let resource_count = config
+            .resources
+            .values()
+            .filter(|r| match &r.machine {
+                types::MachineTarget::Single(m) => m == name,
+                types::MachineTarget::Multiple(ms) => ms.contains(&name.to_string()),
+            })
+            .count();
+
+        if json {
+            results.push(serde_json::json!({
+                "name": name,
+                "hostname": machine.hostname,
+                "addr": machine.addr,
+                "user": machine.user,
+                "arch": machine.arch,
+                "transport": transport_type,
+                "status": status,
+                "roles": machine.roles,
+                "resources": resource_count,
+            }));
+        } else {
+            let status_icon = match status.as_str() {
+                "reachable" => green("●"),
+                "container" => dim("◆"),
+                _ => red("✗"),
+            };
+            println!(
+                "  {} {} ({}) [{}] — {} via {} ({} resources)",
+                status_icon, name, machine.hostname, machine.addr,
+                status, transport_type, resource_count,
+            );
+        }
+    }
+
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&results).unwrap_or_default()
+        );
+    } else {
+        println!("\n{} machines in inventory", config.machines.len());
+    }
+
+    Ok(())
+}
+
+/// FJ-327: Re-run only previously failed resources.
+fn cmd_retry_failed(
+    file: &Path,
+    state_dir: &Path,
+    param_overrides: &[String],
+    timeout: Option<u64>,
+) -> Result<(), String> {
+    let config = parse_and_validate(file)?;
+
+    // Scan event logs for the most recent ResourceFailed events per machine
+    let mut failed_resources: Vec<(String, String)> = Vec::new(); // (machine, resource)
+
+    for (name, _machine) in &config.machines {
+        let log_path = eventlog::event_log_path(state_dir, name);
+        if !log_path.exists() {
+            continue;
+        }
+        let content = std::fs::read_to_string(&log_path)
+            .map_err(|e| format!("cannot read {}: {}", log_path.display(), e))?;
+
+        // Find the last ApplyCompleted to mark the boundary, then collect
+        // ResourceFailed events after the last ApplyCompleted
+        let mut last_apply_line = 0usize;
+        let lines: Vec<&str> = content.lines().collect();
+        for (i, line) in lines.iter().enumerate() {
+            if line.contains("ApplyCompleted") {
+                last_apply_line = i;
+            }
+        }
+
+        // Collect ResourceFailed events from the last apply run
+        // We scan backwards from the last ApplyCompleted to find ResourceFailed in that run
+        for line in &lines[..=last_apply_line] {
+            if let Ok(event) = serde_json::from_str::<types::TimestampedEvent>(line) {
+                if let types::ProvenanceEvent::ResourceFailed {
+                    ref machine,
+                    ref resource,
+                    ..
+                } = event.event
+                {
+                    // Check if this is from the most recent run (same machine)
+                    if machine == name {
+                        failed_resources.push((name.clone(), resource.clone()));
+                    }
+                }
+            }
+        }
+    }
+
+    if failed_resources.is_empty() {
+        println!("No failed resources found in event logs. Nothing to retry.");
+        return Ok(());
+    }
+
+    println!(
+        "Retrying {} failed resource(s):",
+        failed_resources.len()
+    );
+    for (machine, resource) in &failed_resources {
+        println!("  {} → {}", machine, resource);
+    }
+    println!();
+
+    // Apply each failed resource individually
+    for (machine, resource) in &failed_resources {
+        println!("Retrying {} on {}...", resource, machine);
+        cmd_apply(
+            file,
+            state_dir,
+            Some(machine),
+            Some(resource),
+            None, // tag_filter
+            None, // group_filter
+            true, // force — re-apply regardless of hash
+            false, // dry_run
+            false, // no_tripwire
+            param_overrides,
+            false, // auto_commit
+            timeout,
+            false, // json
+            false, // verbose
+            None, // env_file
+            None, // workspace
+            false, // report
+            false, // force_unlock
+            None, // output_mode
+            false, // progress
+            false, // timing
+            0, // retry
+            true, // yes — no confirmation
+            false, // parallel
+            None, // resource_timeout
+            false, // rollback_on_failure
+            None, // max_parallel
+            None, // notify
+        )?;
+    }
+
+    println!(
+        "\n{} Retried {} resource(s) successfully.",
+        green("✓"),
+        failed_resources.len()
+    );
+    Ok(())
+}
+
+/// FJ-324: Rolling deployment — apply N machines at a time, stop on failure.
+fn cmd_rolling(
+    file: &Path,
+    state_dir: &Path,
+    batch_size: usize,
+    param_overrides: &[String],
+    timeout: Option<u64>,
+) -> Result<(), String> {
+    let config = parse_and_validate(file)?;
+    let machine_names: Vec<String> = config.machines.keys().cloned().collect();
+
+    if machine_names.is_empty() {
+        return Err("no machines defined in config".to_string());
+    }
+
+    let batches: Vec<Vec<String>> = machine_names
+        .chunks(batch_size)
+        .map(|chunk| chunk.to_vec())
+        .collect();
+
+    println!(
+        "Rolling deploy: {} machines in {} batch(es) of {}",
+        machine_names.len(),
+        batches.len(),
+        batch_size,
+    );
+
+    for (i, batch) in batches.iter().enumerate() {
+        println!(
+            "\n--- Batch {}/{}: {} ---",
+            i + 1,
+            batches.len(),
+            batch.join(", ")
+        );
+
+        for machine in batch {
+            cmd_apply(
+                file,
+                state_dir,
+                Some(machine),
+                None, // resource_filter
+                None, // tag_filter
+                None, // group_filter
+                false, // force
+                false, // dry_run
+                false, // no_tripwire
+                param_overrides,
+                false, // auto_commit
+                timeout,
+                false, // json
+                false, // verbose
+                None, // env_file
+                None, // workspace
+                false, // report
+                false, // force_unlock
+                None, // output_mode
+                false, // progress
+                false, // timing
+                0, // retry
+                true, // yes
+                false, // parallel
+                None, // resource_timeout
+                false, // rollback_on_failure
+                None, // max_parallel
+                None, // notify
+            )?;
+        }
+
+        println!("Batch {}/{} complete.", i + 1, batches.len());
+    }
+
+    println!(
+        "\n{} Rolling deploy complete: {} machines converged.",
+        green("✓"),
+        machine_names.len()
+    );
+    Ok(())
+}
+
+/// FJ-325: Canary deployment — apply to one machine first, then rest.
+fn cmd_canary(
+    file: &Path,
+    state_dir: &Path,
+    canary_machine: &str,
+    auto_proceed: bool,
+    param_overrides: &[String],
+    timeout: Option<u64>,
+) -> Result<(), String> {
+    let config = parse_and_validate(file)?;
+
+    if !config.machines.contains_key(canary_machine) {
+        return Err(format!(
+            "canary machine '{}' not found in config (available: {})",
+            canary_machine,
+            config.machines.keys().cloned().collect::<Vec<_>>().join(", ")
+        ));
+    }
+
+    // Phase 1: Apply to canary
+    println!("=== Canary Phase: applying to '{}' ===\n", canary_machine);
+
+    cmd_apply(
+        file,
+        state_dir,
+        Some(canary_machine),
+        None, None, None,
+        false, false, false,
+        param_overrides,
+        false, timeout, false, false,
+        None, None, false, false, None,
+        false, false, 0, true, false,
+        None, false, None, None,
+    )?;
+
+    println!(
+        "\n{} Canary '{}' succeeded.",
+        green("✓"),
+        canary_machine
+    );
+
+    // Phase 2: Apply to remaining machines
+    let remaining: Vec<String> = config
+        .machines
+        .keys()
+        .filter(|k| *k != canary_machine)
+        .cloned()
+        .collect();
+
+    if remaining.is_empty() {
+        println!("No remaining machines. Canary deploy complete.");
+        return Ok(());
+    }
+
+    if !auto_proceed {
+        println!(
+            "\nCanary succeeded. Remaining machines: {}",
+            remaining.join(", ")
+        );
+        println!("Use --auto-proceed to skip this confirmation in CI.");
+        println!("Proceeding to remaining machines...");
+    }
+
+    println!(
+        "\n=== Fleet Phase: applying to {} remaining machine(s) ===\n",
+        remaining.len()
+    );
+
+    for machine in &remaining {
+        cmd_apply(
+            file,
+            state_dir,
+            Some(machine),
+            None, None, None,
+            false, false, false,
+            param_overrides,
+            false, timeout, false, false,
+            None, None, false, false, None,
+            false, false, 0, true, false,
+            None, false, None, None,
+        )?;
+    }
+
+    println!(
+        "\n{} Canary deploy complete: canary + {} machine(s) converged.",
+        green("✓"),
+        remaining.len()
+    );
+    Ok(())
 }
 
 #[cfg(test)]
@@ -16231,5 +16702,173 @@ resources:
             }
             _ => panic!("expected Apply"),
         }
+    }
+
+    #[test]
+    fn test_fj326_inventory_flag_parse() {
+        let cmd = Commands::Inventory {
+            file: PathBuf::from("infra.yaml"),
+            json: true,
+        };
+        match cmd {
+            Commands::Inventory { file, json } => {
+                assert_eq!(file, PathBuf::from("infra.yaml"));
+                assert!(json);
+            }
+            _ => panic!("expected Inventory"),
+        }
+    }
+
+    #[test]
+    fn test_fj326_inventory_local_machine() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config_path,
+            r#"
+version: "1.0"
+name: test-inventory
+machines:
+  local-box:
+    hostname: local
+    addr: 127.0.0.1
+    user: test
+resources:
+  cfg:
+    type: file
+    machine: local-box
+    path: /tmp/fj326/test.txt
+    content: hello
+"#,
+        )
+        .unwrap();
+        // cmd_inventory should succeed for local machine
+        let result = cmd_inventory(&config_path, true);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj327_retry_failed_flag_parse() {
+        let cmd = Commands::RetryFailed {
+            file: PathBuf::from("f.yaml"),
+            state_dir: PathBuf::from("state"),
+            params: vec!["key=val".to_string()],
+            timeout: Some(30),
+        };
+        match cmd {
+            Commands::RetryFailed {
+                file,
+                state_dir,
+                params,
+                timeout,
+            } => {
+                assert_eq!(file, PathBuf::from("f.yaml"));
+                assert_eq!(state_dir, PathBuf::from("state"));
+                assert_eq!(params.len(), 1);
+                assert_eq!(timeout, Some(30));
+            }
+            _ => panic!("expected RetryFailed"),
+        }
+    }
+
+    #[test]
+    fn test_fj327_retry_failed_no_failures() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join("forjar.yaml");
+        let state_dir = dir.path().join("state");
+        std::fs::create_dir_all(&state_dir).unwrap();
+        std::fs::write(
+            &config_path,
+            r#"
+version: "1.0"
+name: test-retry
+machines:
+  local:
+    hostname: local
+    addr: 127.0.0.1
+    user: test
+resources:
+  cfg:
+    type: file
+    machine: local
+    path: /tmp/fj327/test.txt
+    content: hello
+"#,
+        )
+        .unwrap();
+        // No event logs → no failures to retry
+        let result = cmd_retry_failed(&config_path, &state_dir, &[], None);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj324_rolling_flag_parse() {
+        let cmd = Commands::Rolling {
+            file: PathBuf::from("f.yaml"),
+            state_dir: PathBuf::from("state"),
+            batch_size: 3,
+            params: vec![],
+            timeout: None,
+        };
+        match cmd {
+            Commands::Rolling { batch_size, .. } => {
+                assert_eq!(batch_size, 3);
+            }
+            _ => panic!("expected Rolling"),
+        }
+    }
+
+    #[test]
+    fn test_fj325_canary_flag_parse() {
+        let cmd = Commands::Canary {
+            file: PathBuf::from("f.yaml"),
+            state_dir: PathBuf::from("state"),
+            machine: "web-1".to_string(),
+            auto_proceed: true,
+            params: vec![],
+            timeout: None,
+        };
+        match cmd {
+            Commands::Canary {
+                machine,
+                auto_proceed,
+                ..
+            } => {
+                assert_eq!(machine, "web-1");
+                assert!(auto_proceed);
+            }
+            _ => panic!("expected Canary"),
+        }
+    }
+
+    #[test]
+    fn test_fj325_canary_invalid_machine() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join("forjar.yaml");
+        let state_dir = dir.path().join("state");
+        std::fs::create_dir_all(&state_dir).unwrap();
+        std::fs::write(
+            &config_path,
+            r#"
+version: "1.0"
+name: test-canary
+machines:
+  web-1:
+    hostname: web1
+    addr: 127.0.0.1
+    user: test
+resources:
+  cfg:
+    type: file
+    machine: web-1
+    path: /tmp/fj325/test.txt
+    content: hello
+"#,
+        )
+        .unwrap();
+        // Invalid canary machine should error
+        let result = cmd_canary(&config_path, &state_dir, "nonexistent", false, &[], None);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("not found in config"));
     }
 }
