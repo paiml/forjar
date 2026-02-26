@@ -1,0 +1,111 @@
+version: "1.0"
+name: dogfood-sovereign-stack
+description: "Dogfood: full sovereign AI stack — GPU inference + workers + observability"
+
+params:
+  model_repo: "TheBloke/Llama-2-7B-GGUF"
+
+machines:
+  gpu-box:
+    hostname: lambda
+    addr: container
+    user: root
+    arch: x86_64
+    roles: [gpu-compute]
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-sovereign-gpu
+      ephemeral: true
+      privileged: false
+      init: true
+
+  worker-1:
+    hostname: intel-worker
+    addr: container
+    user: root
+    arch: x86_64
+    roles: [worker]
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-sovereign-worker
+      ephemeral: true
+      privileged: false
+      init: true
+
+  monitor:
+    hostname: monitor
+    addr: container
+    user: root
+    arch: x86_64
+    roles: [observability]
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-sovereign-monitor
+      ephemeral: true
+      privileged: false
+      init: true
+
+resources:
+  # Layer 1: Observability (deploy first — monitors everything else)
+  observability:
+    type: recipe
+    machine: monitor
+    recipe: renacer-observability
+    inputs:
+      otlp_endpoint: "http://localhost:4317"
+      grafana_port: 3000
+      jaeger_port: 16686
+      retention_days: 7
+      user: renacer
+
+  # Layer 2: Distributed workers
+  worker:
+    type: recipe
+    machine: worker-1
+    recipe: repartir-worker
+    inputs:
+      listen_port: 9000
+      tls_cert: examples/files/test-cert.pem
+      tls_key: examples/files/test-key.pem
+      max_tasks: 4
+      backends: cpu
+      user: repartir
+
+  # Layer 3: GPU inference server
+  inference:
+    type: recipe
+    machine: gpu-box
+    recipe: apr-inference-server
+    inputs:
+      model_source: "{{params.model_repo}}"
+      model_format: gguf
+      quantization: q4_k_m
+      port: 8080
+      workers: 1
+      gpu_device: 0
+      user: apr
+
+  # Layer 4: Coordination (meta-recipe on monitor machine)
+  coordination:
+    type: recipe
+    machine: monitor
+    recipe: sovereign-ai-stack
+    inputs:
+      model_source: "{{params.model_repo}}"
+      model_format: gguf
+      api_port: 8080
+      worker_port: 9000
+      grafana_port: 3000
+      user: forjar
+
+policy:
+  failure: stop_on_first
+  tripwire: true
+  lock_file: true
+  parallel_machines: true
