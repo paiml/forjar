@@ -1,0 +1,140 @@
+# Recipe: apr-inference-server — Aprender inference server on GPU machines
+#
+# Deploys a complete GPU inference stack:
+#   1. NVIDIA driver + CUDA toolkit (gpu resource)
+#   2. Model download + BLAKE3 verification (model resource)
+#   3. apr-serve systemd unit (file resource)
+#   4. Service management (service resource)
+#   5. Firewall rule (network resource)
+#   6. Daily health check (cron resource)
+#
+# Inputs:
+#   model_source (string, required) — HuggingFace repo ID or URL
+#   model_format (enum, default: gguf) — model file format
+#   quantization (string, default: q4_k_m) — quantization level
+#   port (int, default: 8080) — HTTP listen port
+#   workers (int, default: 1) — inference worker count
+#   gpu_device (int, default: 0) — CUDA device index
+#   user (string, default: apr) — service account
+
+recipe:
+  name: apr-inference-server
+  version: "1.0"
+  description: "Aprender inference server — GPU model serving with health checks"
+  inputs:
+    model_source:
+      type: string
+      description: "Model source — HuggingFace repo ID (e.g., TheBloke/Llama-2-7B-GGUF) or URL"
+    model_format:
+      type: enum
+      choices: [gguf, safetensors, apr]
+      default: gguf
+    quantization:
+      type: string
+      default: q4_k_m
+      description: "Quantization level (q4_k_m, q5_k_m, q8_0, f16)"
+    port:
+      type: int
+      default: 8080
+      min: 1
+      max: 65535
+    workers:
+      type: int
+      default: 1
+      min: 1
+      max: 16
+    gpu_device:
+      type: int
+      default: 0
+      min: 0
+      max: 7
+    user:
+      type: string
+      default: apr
+
+resources:
+  gpu-driver:
+    type: gpu
+    driver_version: "550"
+    cuda_version: "12.4"
+    persistence_mode: true
+    compute_mode: default
+    depends_on: []
+
+  model-download:
+    type: model
+    name: "{{inputs.model_source}}"
+    source: "{{inputs.model_source}}"
+    format: "{{inputs.model_format}}"
+    quantization: "{{inputs.quantization}}"
+    path: "/opt/apr/models/{{inputs.model_format}}"
+    cache_dir: /opt/apr/cache
+    owner: "{{inputs.user}}"
+    depends_on: [gpu-driver]
+
+  apr-service-user:
+    type: user
+    name: "{{inputs.user}}"
+    shell: /usr/sbin/nologin
+    home: /opt/apr
+    system_user: true
+    depends_on: []
+
+  apr-data-dir:
+    type: file
+    state: directory
+    path: /opt/apr
+    owner: "{{inputs.user}}"
+    mode: "0755"
+    depends_on: [apr-service-user]
+
+  apr-systemd-unit:
+    type: file
+    path: /etc/systemd/system/apr-serve.service
+    content: |
+      [Unit]
+      Description=Aprender Inference Server
+      After=network.target nvidia-persistenced.service
+      Wants=nvidia-persistenced.service
+
+      [Service]
+      Type=simple
+      User={{inputs.user}}
+      ExecStart=/usr/local/bin/apr serve \
+        --model /opt/apr/models/{{inputs.model_format}} \
+        --port {{inputs.port}} \
+        --workers {{inputs.workers}} \
+        --device {{inputs.gpu_device}} \
+        --quantization {{inputs.quantization}}
+      Restart=on-failure
+      RestartSec=10
+      Environment=CUDA_VISIBLE_DEVICES={{inputs.gpu_device}}
+
+      [Install]
+      WantedBy=multi-user.target
+    owner: root
+    mode: "0644"
+    depends_on: [model-download, apr-data-dir]
+
+  apr-serve:
+    type: service
+    name: apr-serve
+    state: running
+    enabled: true
+    restart_on: [apr-systemd-unit, model-download]
+    depends_on: [apr-systemd-unit]
+
+  apr-firewall:
+    type: network
+    port: "{{inputs.port}}"
+    protocol: tcp
+    action: allow
+    depends_on: [apr-serve]
+
+  apr-health-check:
+    type: cron
+    name: "apr-health-check"
+    schedule: "0 */6 * * *"
+    command: "curl -sf http://localhost:{{inputs.port}}/health || systemctl restart apr-serve"
+    user: root
+    depends_on: [apr-serve]

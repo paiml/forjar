@@ -1,0 +1,41 @@
+version: "1.0"
+name: dogfood-apr-serve
+description: "Dogfood: aprender inference server deployment on GPU machine"
+
+params:
+  model_repo: "TheBloke/Llama-2-7B-GGUF"
+  serve_port: "8080"
+
+machines:
+  gpu-box:
+    hostname: gpu-box
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-dogfood-apr
+      ephemeral: true
+      privileged: false
+      init: true
+
+resources:
+  inference-server:
+    type: recipe
+    machine: gpu-box
+    recipe: apr-inference-server
+    inputs:
+      model_source: "{{params.model_repo}}"
+      model_format: gguf
+      quantization: q4_k_m
+      port: 8080
+      workers: 1
+      gpu_device: 0
+      user: apr
+
+policy:
+  failure: stop_on_first
+  tripwire: true
+  lock_file: true
