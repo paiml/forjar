@@ -786,16 +786,15 @@ state/
   lambda/
     state.lock.yaml             Per-machine BLAKE3 state
     events.jsonl                Per-machine provenance log
-    snapshots/
-      2026-02-16T14-00-00Z.yaml   Point-in-time snapshot
+    trace.jsonl                 W3C trace spans from apply (FJ-050)
   intel/
     state.lock.yaml
     events.jsonl
-    snapshots/
-      ...
+    trace.jsonl
   jetson/
     state.lock.yaml
     events.jsonl
+    trace.jsonl
 ```
 
 ### 4.2 Lock File Format
@@ -1149,6 +1148,10 @@ Commands:
   lint        Lint config for best practices beyond validation
   rollback    Rollback to a previous config revision from git history
   anomaly     Detect anomalous resource behavior from event history
+  trace       View trace provenance data from apply runs
+  migrate     Migrate Docker resources to pepita kernel isolation
+  mcp         Start MCP server (pforge integration)
+  bench       Run performance benchmarks (spec §9 targets)
 ```
 
 ### 7.2 Global Options
@@ -1340,6 +1343,54 @@ Statistical anomaly detection from event history. Analyzes per-resource metrics:
 - **High failure rate** (>20%): Resources failing more than 1 in 5 applies
 - **Drift events**: Any drift detected in history
 
+### 7.15 `forjar trace`
+
+```
+forjar trace [OPTIONS]
+
+Options:
+  --state-dir <PATH>     State directory (default: state)
+  -m, --machine <NAME>   Filter to specific machine
+  --json                 Output as JSON
+```
+
+Reads W3C-compatible trace provenance data from `state/<machine>/trace.jsonl`. Traces are produced by `forjar apply` when `policy.tripwire: true`. Output is grouped by `trace_id` and sorted by Lamport logical clock. Each span shows resource name, operation, duration, and parent span.
+
+### 7.16 `forjar migrate`
+
+```
+forjar migrate [OPTIONS]
+
+Options:
+  -f, --file <PATH>      Config file path (default: forjar.yaml)
+  -o, --output <FILE>    Write migrated config to file (default: stdout)
+```
+
+Converts `docker` resources to `pepita` kernel namespace resources. Translates Docker-specific fields (image, ports, environment, volumes, restart policy) into pepita equivalents (cgroups, netns, overlayfs, seccomp). Emits warnings for Docker features that have no direct pepita equivalent (e.g., `restart: unless-stopped` → manual systemd unit).
+
+### 7.17 `forjar mcp`
+
+```
+forjar mcp [OPTIONS]
+
+Options:
+  --schema               Export tool schemas as JSON instead of starting server
+```
+
+Starts a Model Context Protocol server via pforge. Exposes 9 tools: `forjar_validate`, `forjar_plan`, `forjar_drift`, `forjar_lint`, `forjar_graph`, `forjar_show`, `forjar_status`, `forjar_trace`, `forjar_anomaly`. AI assistants (Claude, Copilot, Cursor) connect via MCP to inspect and manage infrastructure. `--schema` exports JSON schemas for all tools without starting the server.
+
+### 7.18 `forjar bench`
+
+```
+forjar bench [OPTIONS]
+
+Options:
+  --iterations <N>       Number of iterations per benchmark (default: 1000)
+  --json                 Output as JSON
+```
+
+Runs inline performance benchmarks against spec §9 targets: validate (< 10ms), plan (< 2s), drift (< 1s), BLAKE3 hashing. Reports mean time, standard deviation, and margin vs target. Use `cargo bench` for Criterion-based benchmarks with statistical rigor; `forjar bench` is for quick verification.
+
 ---
 
 ## 8. Phased Implementation
@@ -1399,8 +1450,8 @@ Statistical anomaly detection from event history. Analyzes per-resource metrics:
 
 ### Phase 4: Intelligence (v0.4)
 
-| Ticket | Description |
-|--------|-------------|
+| Ticket | Description | Status |
+|--------|-------------|--------|
 | FJ-050 | `tripwire/tracer.rs` — renacer-compatible trace provenance (TraceSession, TraceSpan, W3C trace/span IDs, Lamport clock, JSONL output) | **Done** |
 | FJ-051 | ML drift anomaly detection — ADWIN adaptive windowing, isolation scoring, EWMA z-score, detect_anomalies() bulk analysis | **Done** |
 | FJ-052 | Cost-aware scheduling — `cost` field on machines, sorted execution order | **Done** |
@@ -1501,6 +1552,8 @@ Statistical anomaly detection from event history. Analyzes per-resource metrics:
 | FJ-144 | Getting-started tutorials for trace/migrate/bench (980→1061 lines). CI workflow: add dogfood validation (13 configs), example runner (19 examples), MCP schema check, bench compilation. 5 CI jobs (test, container-test, fmt, dogfood, bench). | **Done** |
 | FJ-145 | Add missing `bench_spec9_apply_no_changes` Criterion benchmark (194µs, < 500ms target, 2577x margin). All 5 spec §9 targets now have benchmarks. CI jobs documented in book Ch. 10. README test count 1316→1327. | **Done** |
 | FJ-146 | Fix 8→9 resource types in parser test + spec FJ-113 ticket description. Rustfmt cleanup on bench and CLI. | **Done** |
+| FJ-147 | Fix dep count 14→15 in spec §1.3 + README. Update README C9 falsifiable claim (10→20 threshold). Expand §1.3 competitive table with 6 new feature rows (secrets, conditionals, multi-env, state surgery, policy, rolling deploy) showing roadmap. Add Phases 7-9 roadmap to spec (FJ-200 through FJ-226). | **Done** |
+| FJ-148 | Spec §7.1 commands block: add trace/migrate/mcp/bench (17→21 commands). Add §7.15-7.18 CLI subsections. Fix §4.1 state tree: remove unimplemented `snapshots/`, add `trace.jsonl`. Fix Phase 4 table missing `Status` column. Fix Kani "Phase 2" → "Deferred". Add FJ-230 pepita transport. Add Phase 10 sovereign AI stack (FJ-240 through FJ-248). | **Done** |
 
 ### Phase 7: Secrets & Conditionals (v0.7)
 
@@ -1630,7 +1683,7 @@ Provable-contracts integration provides three verification layers:
 
 1. **Compile-time**: `build.rs` calls `verify_bindings()` — build fails if binding gaps exist
 2. **Falsification**: proptest-based tests derived from contract proof obligations
-3. **Bounded model checking**: Kani harnesses for pure-functional invariants (Phase 2)
+3. **Bounded model checking**: Kani harnesses for pure-functional invariants (deferred — not yet scheduled)
 
 Contract YAML files live in `../provable-contracts/contracts/forjar/`.
 
@@ -1812,7 +1865,7 @@ provable-contracts/contracts/forjar/
 |-------|-----------|------|
 | L1 | `build.rs` binding verification | Every `cargo build` |
 | L2 | Proptest falsification tests | Every `cargo test` |
-| L3 | Kani bounded model checking | Phase 2 (`cargo kani`) |
+| L3 | Kani bounded model checking | Deferred (`cargo kani`) |
 
 ### 13.4 Annotated Functions
 
