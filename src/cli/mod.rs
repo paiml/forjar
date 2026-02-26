@@ -1,6 +1,6 @@
 //! FJ-017: CLI subcommands — init, validate, plan, apply, drift, status, history,
 //! destroy, import, show, graph, check, diff, fmt, lint, rollback, anomaly, trace,
-//! migrate, mcp, bench, doctor, lock.
+//! migrate, mcp, bench, doctor, lock, snapshot.
 
 use crate::core::types::ProvenanceEvent;
 use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
@@ -559,6 +559,59 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
     },
+
+    /// FJ-260: Manage state snapshots
+    #[command(subcommand)]
+    Snapshot(SnapshotCmd),
+}
+
+/// FJ-260: Snapshot subcommands — named state checkpoints.
+#[derive(Subcommand, Debug)]
+pub enum SnapshotCmd {
+    /// Save current state as a named snapshot
+    Save {
+        /// Snapshot name
+        name: String,
+
+        /// State directory
+        #[arg(long, default_value = "state")]
+        state_dir: PathBuf,
+    },
+
+    /// List available snapshots
+    List {
+        /// State directory
+        #[arg(long, default_value = "state")]
+        state_dir: PathBuf,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// Restore state from a named snapshot
+    Restore {
+        /// Snapshot name to restore
+        name: String,
+
+        /// State directory
+        #[arg(long, default_value = "state")]
+        state_dir: PathBuf,
+
+        /// Skip confirmation
+        #[arg(long)]
+        yes: bool,
+    },
+
+    /// Delete a named snapshot
+    Delete {
+        /// Snapshot name to delete
+        name: String,
+
+        /// State directory
+        #[arg(long, default_value = "state")]
+        state_dir: PathBuf,
+    },
 }
 
 /// Shell types for completion generation.
@@ -940,6 +993,16 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
                 json,
             )
         }
+        Commands::Snapshot(sub) => match sub {
+            SnapshotCmd::Save { name, state_dir } => cmd_snapshot_save(&name, &state_dir),
+            SnapshotCmd::List { state_dir, json } => cmd_snapshot_list(&state_dir, json),
+            SnapshotCmd::Restore {
+                name,
+                state_dir,
+                yes,
+            } => cmd_snapshot_restore(&name, &state_dir, yes),
+            SnapshotCmd::Delete { name, state_dir } => cmd_snapshot_delete(&name, &state_dir),
+        },
     }
 }
 
@@ -4473,6 +4536,169 @@ fn cmd_lock(
         }
     }
 
+    Ok(())
+}
+
+// FJ-260: forjar snapshot — named state checkpoints
+
+fn snapshots_dir(state_dir: &Path) -> PathBuf {
+    state_dir.join("snapshots")
+}
+
+fn cmd_snapshot_save(name: &str, state_dir: &Path) -> Result<(), String> {
+    if !state_dir.exists() {
+        return Err(format!("state directory does not exist: {}", state_dir.display()));
+    }
+    let snap_dir = snapshots_dir(state_dir).join(name);
+    if snap_dir.exists() {
+        return Err(format!("snapshot '{}' already exists", name));
+    }
+    std::fs::create_dir_all(&snap_dir)
+        .map_err(|e| format!("cannot create snapshot dir: {}", e))?;
+
+    // Copy all files/dirs in state_dir except "snapshots" itself
+    copy_dir_recursive(state_dir, &snap_dir, "snapshots")?;
+
+    // Write metadata
+    let meta = format!(
+        "created_at: \"{}\"\nname: \"{}\"\n",
+        crate::tripwire::eventlog::now_iso8601(),
+        name
+    );
+    std::fs::write(snap_dir.join(".snapshot.yaml"), meta)
+        .map_err(|e| format!("cannot write snapshot metadata: {}", e))?;
+
+    println!("Snapshot saved: {}", name);
+    Ok(())
+}
+
+fn cmd_snapshot_list(state_dir: &Path, json: bool) -> Result<(), String> {
+    let snap_base = snapshots_dir(state_dir);
+    if !snap_base.exists() {
+        if json {
+            println!("[]");
+        } else {
+            println!("No snapshots.");
+        }
+        return Ok(());
+    }
+
+    let mut snapshots: Vec<(String, String)> = Vec::new();
+    let entries = std::fs::read_dir(&snap_base)
+        .map_err(|e| format!("cannot read snapshots dir: {}", e))?;
+    for entry in entries.flatten() {
+        if entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+            let name = entry.file_name().to_string_lossy().to_string();
+            let meta_path = entry.path().join(".snapshot.yaml");
+            let created = if meta_path.exists() {
+                std::fs::read_to_string(&meta_path)
+                    .ok()
+                    .and_then(|c| {
+                        c.lines()
+                            .find(|l| l.starts_with("created_at:"))
+                            .map(|l| l.trim_start_matches("created_at:").trim().trim_matches('"').to_string())
+                    })
+                    .unwrap_or_else(|| "unknown".to_string())
+            } else {
+                "unknown".to_string()
+            };
+            snapshots.push((name, created));
+        }
+    }
+    snapshots.sort_by(|a, b| a.0.cmp(&b.0));
+
+    if json {
+        let items: Vec<serde_json::Value> = snapshots
+            .iter()
+            .map(|(n, c)| serde_json::json!({"name": n, "created_at": c}))
+            .collect();
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&items).map_err(|e| format!("JSON error: {}", e))?
+        );
+    } else if snapshots.is_empty() {
+        println!("No snapshots.");
+    } else {
+        for (name, created) in &snapshots {
+            println!("  {} ({})", name, created);
+        }
+    }
+    Ok(())
+}
+
+fn cmd_snapshot_restore(name: &str, state_dir: &Path, yes: bool) -> Result<(), String> {
+    let snap_dir = snapshots_dir(state_dir).join(name);
+    if !snap_dir.exists() {
+        return Err(format!("snapshot '{}' does not exist", name));
+    }
+    if !yes {
+        return Err(
+            "Restore will overwrite current state. Use --yes to confirm.".to_string(),
+        );
+    }
+
+    // Remove current state (except snapshots dir)
+    let entries = std::fs::read_dir(state_dir)
+        .map_err(|e| format!("cannot read state dir: {}", e))?;
+    for entry in entries.flatten() {
+        let name_os = entry.file_name();
+        if name_os.to_string_lossy() == "snapshots" {
+            continue;
+        }
+        let path = entry.path();
+        if path.is_dir() {
+            std::fs::remove_dir_all(&path)
+                .map_err(|e| format!("cannot remove {}: {}", path.display(), e))?;
+        } else {
+            std::fs::remove_file(&path)
+                .map_err(|e| format!("cannot remove {}: {}", path.display(), e))?;
+        }
+    }
+
+    // Copy snapshot back (excluding .snapshot.yaml metadata)
+    copy_dir_recursive(&snap_dir, state_dir, ".snapshot.yaml")?;
+
+    println!("Restored snapshot: {}", name);
+    Ok(())
+}
+
+fn cmd_snapshot_delete(name: &str, state_dir: &Path) -> Result<(), String> {
+    let snap_dir = snapshots_dir(state_dir).join(name);
+    if !snap_dir.exists() {
+        return Err(format!("snapshot '{}' does not exist", name));
+    }
+    std::fs::remove_dir_all(&snap_dir)
+        .map_err(|e| format!("cannot delete snapshot: {}", e))?;
+    println!("Deleted snapshot: {}", name);
+    Ok(())
+}
+
+/// Recursively copy a directory, skipping entries whose name matches `skip`.
+fn copy_dir_recursive(src: &Path, dst: &Path, skip: &str) -> Result<(), String> {
+    let entries = std::fs::read_dir(src)
+        .map_err(|e| format!("cannot read {}: {}", src.display(), e))?;
+    for entry in entries.flatten() {
+        let name = entry.file_name();
+        if name.to_string_lossy() == skip {
+            continue;
+        }
+        let src_path = entry.path();
+        let dst_path = dst.join(&name);
+        if src_path.is_dir() {
+            std::fs::create_dir_all(&dst_path)
+                .map_err(|e| format!("cannot create {}: {}", dst_path.display(), e))?;
+            copy_dir_recursive(&src_path, &dst_path, "")?;
+        } else {
+            std::fs::copy(&src_path, &dst_path).map_err(|e| {
+                format!(
+                    "cannot copy {} → {}: {}",
+                    src_path.display(),
+                    dst_path.display(),
+                    e
+                )
+            })?;
+        }
+    }
     Ok(())
 }
 
@@ -11284,5 +11510,164 @@ resources:
             lock.resources["svc"].resource_type,
             types::ResourceType::Service
         );
+    }
+
+    // ── FJ-260: forjar snapshot tests ────────────────────────────
+
+    #[test]
+    fn test_fj260_snapshot_save_and_list() {
+        let dir = tempfile::tempdir().unwrap();
+        let state_dir = dir.path().join("state");
+        std::fs::create_dir_all(&state_dir).unwrap();
+        // Create some state data
+        let machine_dir = state_dir.join("m1");
+        std::fs::create_dir_all(&machine_dir).unwrap();
+        std::fs::write(machine_dir.join("state.lock.yaml"), "schema: '1.0'").unwrap();
+
+        // Save snapshot
+        cmd_snapshot_save("before-update", &state_dir).unwrap();
+
+        // Verify snapshot dir exists
+        let snap = state_dir.join("snapshots").join("before-update");
+        assert!(snap.exists());
+        assert!(snap.join(".snapshot.yaml").exists());
+        assert!(snap.join("m1").join("state.lock.yaml").exists());
+
+        // List snapshots
+        cmd_snapshot_list(&state_dir, false).unwrap();
+        cmd_snapshot_list(&state_dir, true).unwrap();
+    }
+
+    #[test]
+    fn test_fj260_snapshot_save_duplicate_fails() {
+        let dir = tempfile::tempdir().unwrap();
+        let state_dir = dir.path().join("state");
+        std::fs::create_dir_all(&state_dir).unwrap();
+
+        cmd_snapshot_save("v1", &state_dir).unwrap();
+        let result = cmd_snapshot_save("v1", &state_dir);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("already exists"));
+    }
+
+    #[test]
+    fn test_fj260_snapshot_restore() {
+        let dir = tempfile::tempdir().unwrap();
+        let state_dir = dir.path().join("state");
+        std::fs::create_dir_all(&state_dir).unwrap();
+        let machine_dir = state_dir.join("m1");
+        std::fs::create_dir_all(&machine_dir).unwrap();
+        std::fs::write(machine_dir.join("state.lock.yaml"), "version: 1").unwrap();
+
+        // Save snapshot
+        cmd_snapshot_save("checkpoint", &state_dir).unwrap();
+
+        // Modify state
+        std::fs::write(machine_dir.join("state.lock.yaml"), "version: 2").unwrap();
+        assert_eq!(
+            std::fs::read_to_string(machine_dir.join("state.lock.yaml")).unwrap(),
+            "version: 2"
+        );
+
+        // Restore (without --yes should fail)
+        let result = cmd_snapshot_restore("checkpoint", &state_dir, false);
+        assert!(result.is_err());
+
+        // Restore with --yes
+        cmd_snapshot_restore("checkpoint", &state_dir, true).unwrap();
+        assert_eq!(
+            std::fs::read_to_string(machine_dir.join("state.lock.yaml")).unwrap(),
+            "version: 1"
+        );
+    }
+
+    #[test]
+    fn test_fj260_snapshot_delete() {
+        let dir = tempfile::tempdir().unwrap();
+        let state_dir = dir.path().join("state");
+        std::fs::create_dir_all(&state_dir).unwrap();
+
+        cmd_snapshot_save("temp", &state_dir).unwrap();
+        assert!(state_dir.join("snapshots").join("temp").exists());
+
+        cmd_snapshot_delete("temp", &state_dir).unwrap();
+        assert!(!state_dir.join("snapshots").join("temp").exists());
+    }
+
+    #[test]
+    fn test_fj260_snapshot_delete_nonexistent() {
+        let dir = tempfile::tempdir().unwrap();
+        let state_dir = dir.path().join("state");
+        std::fs::create_dir_all(&state_dir).unwrap();
+
+        let result = cmd_snapshot_delete("ghost", &state_dir);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("does not exist"));
+    }
+
+    #[test]
+    fn test_fj260_snapshot_restore_nonexistent() {
+        let dir = tempfile::tempdir().unwrap();
+        let state_dir = dir.path().join("state");
+        std::fs::create_dir_all(&state_dir).unwrap();
+
+        let result = cmd_snapshot_restore("ghost", &state_dir, true);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_fj260_snapshot_list_empty() {
+        let dir = tempfile::tempdir().unwrap();
+        let state_dir = dir.path().join("state");
+        std::fs::create_dir_all(&state_dir).unwrap();
+
+        // No snapshots dir yet
+        cmd_snapshot_list(&state_dir, false).unwrap();
+        cmd_snapshot_list(&state_dir, true).unwrap();
+    }
+
+    #[test]
+    fn test_fj260_snapshot_preserves_multiple_machines() {
+        let dir = tempfile::tempdir().unwrap();
+        let state_dir = dir.path().join("state");
+        for m in &["web", "db", "cache"] {
+            let md = state_dir.join(m);
+            std::fs::create_dir_all(&md).unwrap();
+            std::fs::write(md.join("state.lock.yaml"), format!("machine: {}", m)).unwrap();
+        }
+
+        cmd_snapshot_save("multi", &state_dir).unwrap();
+
+        let snap = state_dir.join("snapshots").join("multi");
+        for m in &["web", "db", "cache"] {
+            assert!(snap.join(m).join("state.lock.yaml").exists());
+        }
+    }
+
+    #[test]
+    fn test_fj260_snapshot_save_no_state_dir() {
+        let dir = tempfile::tempdir().unwrap();
+        let state_dir = dir.path().join("nonexistent");
+        let result = cmd_snapshot_save("test", &state_dir);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("does not exist"));
+    }
+
+    #[test]
+    fn test_fj260_copy_dir_recursive() {
+        let dir = tempfile::tempdir().unwrap();
+        let src = dir.path().join("src");
+        let dst = dir.path().join("dst");
+        std::fs::create_dir_all(src.join("sub")).unwrap();
+        std::fs::write(src.join("a.txt"), "aaa").unwrap();
+        std::fs::write(src.join("sub").join("b.txt"), "bbb").unwrap();
+        std::fs::write(src.join("skip.me"), "skip").unwrap();
+
+        std::fs::create_dir_all(&dst).unwrap();
+        copy_dir_recursive(&src, &dst, "skip.me").unwrap();
+
+        assert!(dst.join("a.txt").exists());
+        assert!(dst.join("sub").join("b.txt").exists());
+        assert!(!dst.join("skip.me").exists());
     }
 }
