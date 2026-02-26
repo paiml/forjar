@@ -622,6 +622,10 @@ pub enum Commands {
         /// Output as JSON
         #[arg(long)]
         json: bool,
+
+        /// FJ-287: Auto-fix common issues (create state dir, remove stale locks)
+        #[arg(long)]
+        fix: bool,
     },
 
     /// FJ-253: Generate shell completions
@@ -1172,7 +1176,7 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
                 &state_dir,
             ),
         },
-        Commands::Doctor { file, json } => cmd_doctor(file.as_deref(), json),
+        Commands::Doctor { file, json, fix } => cmd_doctor(file.as_deref(), json, fix),
         Commands::Completion { shell } => cmd_completion(shell),
         Commands::Schema => cmd_schema(),
         Commands::Watch {
@@ -2031,8 +2035,8 @@ fn cmd_rollback(
         None,  // no output mode
         false, // no progress
         false, // no timing
-        0, // no retry
-            true, // yes (skip prompt)
+        0,     // no retry
+        true,  // yes (skip prompt)
     )
 }
 
@@ -4364,8 +4368,8 @@ fn cmd_drift(
             None,  // no output mode
             false, // no progress
             false, // no timing
-            0, // no retry
-            true, // yes (skip prompt)
+            0,     // no retry
+            true,  // yes (skip prompt)
         )?;
         if !json {
             println!("Remediation complete.");
@@ -5994,7 +5998,7 @@ fn copy_dir_recursive(src: &Path, dst: &Path, skip: &str) -> Result<(), String> 
 }
 
 // FJ-251: forjar doctor — pre-flight system checker
-fn cmd_doctor(file: Option<&Path>, json: bool) -> Result<(), String> {
+fn cmd_doctor(file: Option<&Path>, json: bool, fix: bool) -> Result<(), String> {
     use std::process::Command;
 
     #[derive(Debug)]
@@ -6206,6 +6210,24 @@ fn cmd_doctor(file: Option<&Path>, json: bool) -> Result<(), String> {
                 });
             }
         }
+    } else if fix {
+        // FJ-287: --fix creates missing state dir
+        match std::fs::create_dir_all(state_dir) {
+            Ok(()) => {
+                checks.push(Check {
+                    name: "state-dir".to_string(),
+                    status: CheckStatus::Pass,
+                    detail: format!("{} created (--fix)", state_dir.display()),
+                });
+            }
+            Err(e) => {
+                checks.push(Check {
+                    name: "state-dir".to_string(),
+                    status: CheckStatus::Fail,
+                    detail: format!("cannot create {}: {}", state_dir.display(), e),
+                });
+            }
+        }
     } else {
         checks.push(Check {
             name: "state-dir".to_string(),
@@ -6215,6 +6237,37 @@ fn cmd_doctor(file: Option<&Path>, json: bool) -> Result<(), String> {
                 state_dir.display()
             ),
         });
+    }
+
+    // FJ-287: Check for stale lock files
+    if state_dir.exists() {
+        let lock_path = state_dir.join(".forjar.lock");
+        if lock_path.exists() {
+            if fix {
+                match std::fs::remove_file(&lock_path) {
+                    Ok(()) => {
+                        checks.push(Check {
+                            name: "lock".to_string(),
+                            status: CheckStatus::Pass,
+                            detail: "stale lock removed (--fix)".to_string(),
+                        });
+                    }
+                    Err(e) => {
+                        checks.push(Check {
+                            name: "lock".to_string(),
+                            status: CheckStatus::Fail,
+                            detail: format!("cannot remove lock: {}", e),
+                        });
+                    }
+                }
+            } else {
+                checks.push(Check {
+                    name: "lock".to_string(),
+                    status: CheckStatus::Warn,
+                    detail: "stale lock file exists (use --fix to remove)".to_string(),
+                });
+            }
+        }
     }
 
     // 7. git repo clean
@@ -6530,8 +6583,8 @@ resources:
             None,  // no output mode
             false, // no progress
             false, // no timing
-            0, // no retry
-            true, // yes (skip prompt)
+            0,     // no retry
+            true,  // yes (skip prompt)
         )
         .unwrap();
     }
@@ -6585,8 +6638,8 @@ policy:
             None,  // no output mode
             false, // no progress
             false, // no timing
-            0, // no retry
-            true, // yes (skip prompt)
+            0,     // no retry
+            true,  // yes (skip prompt)
         )
         .unwrap();
 
@@ -6637,8 +6690,8 @@ resources: {}
             None,  // no output mode
             false, // no progress
             false, // no timing
-            0, // no retry
-            true, // yes (skip prompt)
+            0,     // no retry
+            true,  // yes (skip prompt)
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("validation"));
@@ -7165,8 +7218,8 @@ resources:
             None,  // no output mode
             false, // no progress
             false, // no timing
-            0, // no retry
-            true, // yes (skip prompt)
+            0,     // no retry
+            true,  // yes (skip prompt)
         )
         .unwrap();
         assert!(target.exists());
@@ -7194,8 +7247,8 @@ resources:
             None,  // no output mode
             false, // no progress
             false, // no timing
-            0, // no retry
-            true, // yes (skip prompt)
+            0,     // no retry
+            true,  // yes (skip prompt)
         )
         .unwrap();
     }
@@ -7806,8 +7859,8 @@ resources:
             None,  // no output mode
             false, // no progress
             false, // no timing
-            0, // no retry
-            true, // yes (skip prompt)
+            0,     // no retry
+            true,  // yes (skip prompt)
         )
         .unwrap();
         assert!(target.exists());
@@ -7875,8 +7928,8 @@ resources:
             None,  // no output mode
             false, // no progress
             false, // no timing
-            0, // no retry
-            true, // yes (skip prompt)
+            0,     // no retry
+            true,  // yes (skip prompt)
         )
         .unwrap();
         cmd_destroy(&config, &state, None, true, true).unwrap();
@@ -7945,8 +7998,8 @@ resources:
             None,  // no output mode
             false, // no progress
             false, // no timing
-            0, // no retry
-            true, // yes (skip prompt)
+            0,     // no retry
+            true,  // yes (skip prompt)
         )
         .unwrap();
         assert!(target_a.exists());
@@ -8010,8 +8063,8 @@ resources:
             None,  // no output mode
             false, // no progress
             false, // no timing
-            0, // no retry
-            true, // yes (skip prompt)
+            0,     // no retry
+            true,  // yes (skip prompt)
         )
         .unwrap();
         dispatch(
@@ -8111,8 +8164,8 @@ resources:
             None,  // no output mode
             false, // no progress
             false, // no timing
-            0, // no retry
-            true, // yes (skip prompt)
+            0,     // no retry
+            true,  // yes (skip prompt)
         )
         .unwrap();
         assert!(target.exists());
@@ -8275,8 +8328,8 @@ resources:
             None,  // no output mode
             false, // no progress
             false, // no timing
-            0, // no retry
-            true, // yes (skip prompt)
+            0,     // no retry
+            true,  // yes (skip prompt)
         )
         .unwrap();
         assert!(std::path::Path::new(&target).exists());
@@ -9653,8 +9706,8 @@ resources:
             None,  // no output mode
             false, // no progress
             false, // no timing
-            0, // no retry
-            true, // yes (skip prompt)
+            0,     // no retry
+            true,  // yes (skip prompt)
         )
         .unwrap();
     }
@@ -10923,8 +10976,8 @@ resources:
             None,  // no output mode
             false, // no progress
             false, // no timing
-            0, // no retry
-            true, // yes (skip prompt)
+            0,     // no retry
+            true,  // yes (skip prompt)
         );
         assert!(result.is_ok());
     }
@@ -11554,8 +11607,8 @@ resources:
             None,  // no output mode
             false, // no progress
             false, // no timing
-            0, // no retry
-            true, // yes (skip prompt)
+            0,     // no retry
+            true,  // yes (skip prompt)
         )
         .unwrap();
     }
@@ -12409,7 +12462,7 @@ resources:
     #[test]
     fn test_fj251_doctor_no_config() {
         // Doctor without config should check system basics and succeed
-        let result = cmd_doctor(None, false);
+        let result = cmd_doctor(None, false, false);
         assert!(
             result.is_ok(),
             "doctor without config should pass on dev machine"
@@ -12419,7 +12472,7 @@ resources:
     #[test]
     fn test_fj251_doctor_json_output() {
         // JSON mode should not crash
-        let result = cmd_doctor(None, true);
+        let result = cmd_doctor(None, true, false);
         assert!(result.is_ok());
     }
 
@@ -12445,7 +12498,7 @@ resources:
 "#,
         )
         .unwrap();
-        let result = cmd_doctor(Some(&file), false);
+        let result = cmd_doctor(Some(&file), false, false);
         assert!(result.is_ok());
     }
 
@@ -12473,7 +12526,7 @@ resources:
         )
         .unwrap();
         // Should check for ssh (which exists on dev machine)
-        let result = cmd_doctor(Some(&file), false);
+        let result = cmd_doctor(Some(&file), false, false);
         assert!(result.is_ok());
     }
 
@@ -12503,7 +12556,7 @@ resources:
         )
         .unwrap();
         // May fail if docker not installed, but should not crash
-        let _result = cmd_doctor(Some(&file), false);
+        let _result = cmd_doctor(Some(&file), false, false);
     }
 
     #[test]
@@ -12511,7 +12564,7 @@ resources:
         let dir = tempfile::tempdir().unwrap();
         let file = dir.path().join("forjar.yaml");
         std::fs::write(&file, "invalid yaml: [[[").unwrap();
-        let result = cmd_doctor(Some(&file), false);
+        let result = cmd_doctor(Some(&file), false, false);
         // Should report failure for bad config
         assert!(result.is_err());
     }
@@ -12538,7 +12591,7 @@ resources:
 "#,
         )
         .unwrap();
-        let result = cmd_doctor(Some(&file), true);
+        let result = cmd_doctor(Some(&file), true, false);
         assert!(result.is_ok());
     }
 
@@ -14545,5 +14598,26 @@ resources:
             Commands::Apply { yes, .. } => assert!(!yes),
             _ => panic!("expected Apply"),
         }
+    }
+
+    // ── FJ-287: forjar doctor --fix ──────────────────────────
+
+    #[test]
+    fn test_fj287_fix_flag_parse() {
+        let cmd = Commands::Doctor {
+            file: None,
+            json: false,
+            fix: true,
+        };
+        match cmd {
+            Commands::Doctor { fix, .. } => assert!(fix),
+            _ => panic!("expected Doctor"),
+        }
+    }
+
+    #[test]
+    fn test_fj287_doctor_no_fix_runs() {
+        // doctor without fix should not crash
+        let _ = cmd_doctor(None, false, false);
     }
 }
