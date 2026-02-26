@@ -100,6 +100,10 @@ pub enum Commands {
         /// State directory
         #[arg(long, default_value = "state")]
         state_dir: PathBuf,
+
+        /// Output apply results as JSON
+        #[arg(long)]
+        json: bool,
     },
 
     /// Detect unauthorized changes (tripwire)
@@ -146,6 +150,10 @@ pub enum Commands {
         /// Target specific machine
         #[arg(short, long)]
         machine: Option<String>,
+
+        /// Output status as JSON
+        #[arg(long)]
+        json: bool,
     },
 
     /// Show apply history from event logs
@@ -419,6 +427,7 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             auto_commit,
             timeout,
             state_dir,
+            json,
         } => cmd_apply(
             &file,
             &state_dir,
@@ -431,6 +440,7 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             &params,
             auto_commit,
             timeout,
+            json,
             verbose,
         ),
         Commands::Drift {
@@ -459,7 +469,11 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             yes,
             state_dir,
         } => cmd_destroy(&file, &state_dir, machine.as_deref(), yes, verbose),
-        Commands::Status { state_dir, machine } => cmd_status(&state_dir, machine.as_deref()),
+        Commands::Status {
+            state_dir,
+            machine,
+            json,
+        } => cmd_status(&state_dir, machine.as_deref(), json),
         Commands::History {
             state_dir,
             machine,
@@ -1279,6 +1293,7 @@ fn cmd_rollback(
         &[],   // no param overrides
         false, // no auto-commit
         None,  // no timeout
+        false, // no json
         verbose,
     )
 }
@@ -2248,6 +2263,7 @@ fn apply_param_overrides(
 }
 
 #[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments)]
 fn cmd_apply(
     file: &Path,
     state_dir: &Path,
@@ -2260,6 +2276,7 @@ fn cmd_apply(
     param_overrides: &[String],
     auto_commit: bool,
     timeout_secs: Option<u64>,
+    json: bool,
     verbose: bool,
 ) -> Result<(), String> {
     let mut config = parse_and_validate(file)?;
@@ -2301,37 +2318,58 @@ fn cmd_apply(
         return Ok(());
     }
 
-    let mut total_converged = 0;
-    let mut total_unchanged = 0;
-    let mut total_failed = 0;
+    let mut total_converged = 0u32;
+    let mut total_unchanged = 0u32;
+    let mut total_failed = 0u32;
 
     for result in &results {
-        println!(
-            "{}: {} converged, {} unchanged, {} failed ({:.1}s)",
-            result.machine,
-            result.resources_converged,
-            result.resources_unchanged,
-            result.resources_failed,
-            result.total_duration.as_secs_f64()
-        );
         total_converged += result.resources_converged;
         total_unchanged += result.resources_unchanged;
         total_failed += result.resources_failed;
     }
 
-    println!();
-    if total_failed > 0 {
+    if json {
+        let output = serde_json::json!({
+            "machines": &results,
+            "summary": {
+                "total_converged": total_converged,
+                "total_unchanged": total_unchanged,
+                "total_failed": total_failed,
+            }
+        });
         println!(
-            "Apply completed with errors: {} converged, {} unchanged, {} FAILED",
-            total_converged, total_unchanged, total_failed
+            "{}",
+            serde_json::to_string_pretty(&output)
+                .map_err(|e| format!("JSON serialization error: {}", e))?
         );
-        return Err(format!("{} resource(s) failed", total_failed));
+    } else {
+        for result in &results {
+            println!(
+                "{}: {} converged, {} unchanged, {} failed ({:.1}s)",
+                result.machine,
+                result.resources_converged,
+                result.resources_unchanged,
+                result.resources_failed,
+                result.total_duration.as_secs_f64()
+            );
+        }
+        println!();
+        if total_failed > 0 {
+            println!(
+                "Apply completed with errors: {} converged, {} unchanged, {} FAILED",
+                total_converged, total_unchanged, total_failed
+            );
+        } else {
+            println!(
+                "Apply complete: {} converged, {} unchanged.",
+                total_converged, total_unchanged
+            );
+        }
     }
 
-    println!(
-        "Apply complete: {} converged, {} unchanged.",
-        total_converged, total_unchanged
-    );
+    if total_failed > 0 {
+        return Err(format!("{} resource(s) failed", total_failed));
+    }
 
     // Update global lock file
     let machine_results: Vec<_> = results
@@ -2502,6 +2540,7 @@ fn cmd_drift(
             &[],   // no param overrides
             false, // no auto-commit
             None,  // no timeout
+            false, // no json (remediation output is text)
             verbose,
         )?;
         if !json {
@@ -2877,21 +2916,13 @@ fn cmd_graph(file: &Path, format: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn cmd_status(state_dir: &Path, machine_filter: Option<&str>) -> Result<(), String> {
-    // Show global lock summary if it exists
-    if let Some(global) = state::load_global_lock(state_dir)? {
-        println!(
-            "Project: {} (last apply: {})",
-            global.name, global.last_apply
-        );
-        println!("Generator: {}", global.generator);
-        println!();
-    }
+fn cmd_status(state_dir: &Path, machine_filter: Option<&str>, json: bool) -> Result<(), String> {
+    let global = state::load_global_lock(state_dir)?;
 
     let entries = std::fs::read_dir(state_dir)
         .map_err(|e| format!("cannot read state dir {}: {}", state_dir.display(), e))?;
 
-    let mut found = false;
+    let mut machines = Vec::new();
 
     for entry in entries.flatten() {
         let name = entry.file_name().to_string_lossy().to_string();
@@ -2906,28 +2937,49 @@ fn cmd_status(state_dir: &Path, machine_filter: Option<&str>) -> Result<(), Stri
         }
 
         if let Some(lock) = state::load_lock(state_dir, &name)? {
-            found = true;
-            println!("Machine: {} ({})", lock.machine, lock.hostname);
-            println!("  Generated: {}", lock.generated_at);
-            println!("  Generator: {}", lock.generator);
-            println!("  Resources: {}", lock.resources.len());
-
-            for (id, rl) in &lock.resources {
-                let duration = rl
-                    .duration_seconds
-                    .map(|d| format!(" ({:.2}s)", d))
-                    .unwrap_or_default();
-                println!(
-                    "    {}: {} [{}]{}",
-                    id, rl.status, rl.resource_type, duration
-                );
-            }
-            println!();
+            machines.push(lock);
         }
     }
 
-    if !found {
-        println!("No state found. Run `forjar apply` first.");
+    if json {
+        let output = serde_json::json!({
+            "global": global,
+            "machines": machines,
+        });
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&output)
+                .map_err(|e| format!("JSON serialization error: {}", e))?
+        );
+    } else {
+        if let Some(ref g) = global {
+            println!("Project: {} (last apply: {})", g.name, g.last_apply);
+            println!("Generator: {}", g.generator);
+            println!();
+        }
+
+        if machines.is_empty() {
+            println!("No state found. Run `forjar apply` first.");
+        } else {
+            for lock in &machines {
+                println!("Machine: {} ({})", lock.machine, lock.hostname);
+                println!("  Generated: {}", lock.generated_at);
+                println!("  Generator: {}", lock.generator);
+                println!("  Resources: {}", lock.resources.len());
+
+                for (id, rl) in &lock.resources {
+                    let duration = rl
+                        .duration_seconds
+                        .map(|d| format!(" ({:.2}s)", d))
+                        .unwrap_or_default();
+                    println!(
+                        "    {}: {} [{}]{}",
+                        id, rl.status, rl.resource_type, duration
+                    );
+                }
+                println!();
+            }
+        }
     }
 
     Ok(())
@@ -3003,7 +3055,7 @@ resources: {}
     fn test_fj017_status_empty() {
         let dir = tempfile::tempdir().unwrap();
         std::fs::create_dir_all(dir.path().join("state")).unwrap();
-        cmd_status(&dir.path().join("state"), None).unwrap();
+        cmd_status(&dir.path().join("state"), None, false).unwrap();
     }
 
     #[test]
@@ -3125,6 +3177,7 @@ resources:
             false,
             None, // no timeout
             false,
+            false,
         )
         .unwrap();
     }
@@ -3169,6 +3222,7 @@ policy:
             false,
             None, // no timeout
             false,
+            false,
         )
         .unwrap();
 
@@ -3209,6 +3263,7 @@ resources: {}
             &[],
             false,
             None, // no timeout
+            false,
             false,
         );
         assert!(result.is_err());
@@ -3376,7 +3431,7 @@ resources: {}
         let lock = crate::core::state::new_lock("mybox", "mybox-host");
         crate::core::state::save_lock(&state, &lock).unwrap();
 
-        cmd_status(&state, None).unwrap();
+        cmd_status(&state, None, false).unwrap();
     }
 
     #[test]
@@ -3387,8 +3442,8 @@ resources: {}
         let lock = crate::core::state::new_lock("target", "target-host");
         crate::core::state::save_lock(&state, &lock).unwrap();
 
-        cmd_status(&state, Some("target")).unwrap();
-        cmd_status(&state, Some("nonexistent")).unwrap();
+        cmd_status(&state, Some("target"), false).unwrap();
+        cmd_status(&state, Some("nonexistent"), false).unwrap();
     }
 
     #[test]
@@ -3432,6 +3487,7 @@ resources: {}
             Commands::Status {
                 state_dir: state,
                 machine: None,
+                json: false,
             },
             false,
         )
@@ -3514,6 +3570,7 @@ resources:
                 auto_commit: false,
                 state_dir: state,
                 timeout: None,
+                json: false,
             },
             false,
         )
@@ -3581,7 +3638,7 @@ resources:
         crate::core::state::save_lock(&state, &lock).unwrap();
 
         // Exercises the full resource iteration path with duration display
-        cmd_status(&state, None).unwrap();
+        cmd_status(&state, None, false).unwrap();
     }
 
     #[test]
@@ -3592,7 +3649,7 @@ resources:
         std::fs::create_dir_all(&state).unwrap();
         // Create a regular file inside state/ — should be skipped
         std::fs::write(state.join("not-a-machine"), "junk").unwrap();
-        cmd_status(&state, None).unwrap();
+        cmd_status(&state, None, false).unwrap();
     }
 
     #[test]
@@ -3696,6 +3753,7 @@ resources:
             false,
             None, // no timeout
             false,
+            false,
         )
         .unwrap();
         assert!(target.exists());
@@ -3713,6 +3771,7 @@ resources:
             &[],
             false,
             None, // no timeout
+            false,
             false,
         )
         .unwrap();
@@ -4263,6 +4322,7 @@ resources:
             false,
             None, // no timeout
             false,
+            false,
         )
         .unwrap();
         assert!(target.exists());
@@ -4320,6 +4380,7 @@ resources:
             &[],
             false,
             None, // no timeout
+            false,
             false,
         )
         .unwrap();
@@ -4380,6 +4441,7 @@ resources:
             false,
             None, // no timeout
             false,
+            false,
         )
         .unwrap();
         assert!(target_a.exists());
@@ -4433,6 +4495,7 @@ resources:
             &[],
             false,
             None, // no timeout
+            false,
             false,
         )
         .unwrap();
@@ -4522,6 +4585,7 @@ resources:
             &[],
             true,
             None, // no timeout
+            false,
             false,
         )
         .unwrap();
@@ -4673,6 +4737,7 @@ resources:
             &[],
             false,
             None, // no timeout
+            false,
             false,
         )
         .unwrap();
@@ -6038,6 +6103,7 @@ resources:
             false,
             None,
             false,
+            false,
         )
         .unwrap();
     }
@@ -6700,7 +6766,7 @@ resources: {}
     #[test]
     fn test_fj132_cmd_status_empty_state() {
         let dir = tempfile::tempdir().unwrap();
-        cmd_status(dir.path(), None).unwrap();
+        cmd_status(dir.path(), None, false).unwrap();
     }
 
     #[test]
@@ -6802,7 +6868,7 @@ machines:
     last_apply: '2026-02-25T10:00:00Z'
 "#;
         std::fs::write(dir.path().join("forjar.lock.yaml"), lock_yaml).unwrap();
-        cmd_status(dir.path(), None).unwrap();
+        cmd_status(dir.path(), None, false).unwrap();
     }
 
     #[test]
@@ -7103,7 +7169,7 @@ resources:
         let dir = tempfile::tempdir().unwrap();
         let state = dir.path().join("state");
         std::fs::create_dir_all(&state).unwrap();
-        let result = cmd_status(&state, None);
+        let result = cmd_status(&state, None, false);
         assert!(
             result.is_ok(),
             "cmd_status on empty state dir should succeed"
@@ -7225,5 +7291,157 @@ resources:
     fn test_fj139_cmd_bench_json() {
         let result = cmd_bench(10, true);
         assert!(result.is_ok(), "bench JSON should succeed: {:?}", result);
+    }
+
+    // ── FJ-205: --json output tests ────────────────────────────────
+
+    #[test]
+    fn test_fj205_status_json_empty() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = dir.path().join("state");
+        std::fs::create_dir_all(&state).unwrap();
+        // Should succeed and produce valid JSON even with no machines
+        let result = cmd_status(&state, None, true);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj205_status_json_with_machine() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = dir.path().join("state");
+        let machine_dir = state.join("web");
+        std::fs::create_dir_all(&machine_dir).unwrap();
+        let lock = r#"
+schema: "1.0"
+machine: web
+hostname: web-server
+generated_at: "2026-02-26T00:00:00Z"
+generator: "forjar 0.1.0"
+blake3_version: "1.8"
+resources: {}
+"#;
+        std::fs::write(machine_dir.join("forjar-lock.yaml"), lock).unwrap();
+        let result = cmd_status(&state, None, true);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj205_apply_json_dry_run() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        let state = dir.path().join("state");
+        std::fs::create_dir_all(&state).unwrap();
+        std::fs::write(
+            &config,
+            r#"
+version: "1.0"
+name: test
+machines:
+  local:
+    hostname: localhost
+    addr: 127.0.0.1
+resources:
+  f:
+    type: file
+    machine: local
+    path: /tmp/forjar-fj205-test.txt
+    content: "x"
+"#,
+        )
+        .unwrap();
+        // Dry-run with json=true should succeed (dry run exits before JSON output)
+        let result = cmd_apply(
+            &config,
+            &state,
+            None,
+            None,
+            None,
+            false,
+            true,
+            false,
+            &[],
+            false,
+            None, // no timeout
+            true,
+            false,
+        );
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj205_apply_result_serialize() {
+        // Verify ApplyResult serializes correctly (duration as f64 seconds)
+        use crate::core::types::ApplyResult;
+        let result = ApplyResult {
+            machine: "web".to_string(),
+            resources_converged: 3,
+            resources_unchanged: 1,
+            resources_failed: 0,
+            total_duration: std::time::Duration::from_millis(1500),
+        };
+        let json = serde_json::to_string(&result).unwrap();
+        assert!(json.contains("\"machine\":\"web\""));
+        assert!(json.contains("\"resources_converged\":3"));
+        assert!(json.contains("\"total_duration\":1.5"));
+    }
+
+    #[test]
+    fn test_fj205_dispatch_status_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = dir.path().join("state");
+        std::fs::create_dir_all(&state).unwrap();
+        dispatch(
+            Commands::Status {
+                state_dir: state,
+                machine: None,
+                json: true,
+            },
+            false,
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn test_fj205_dispatch_apply_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        let state = dir.path().join("state");
+        std::fs::create_dir_all(&state).unwrap();
+        std::fs::write(
+            &config,
+            r#"
+version: "1.0"
+name: test
+machines:
+  local:
+    hostname: localhost
+    addr: 127.0.0.1
+resources:
+  f:
+    type: file
+    machine: local
+    path: /tmp/forjar-fj205-dispatch.txt
+    content: "x"
+"#,
+        )
+        .unwrap();
+        dispatch(
+            Commands::Apply {
+                file: config,
+                machine: None,
+                resource: None,
+                tag: None,
+                force: false,
+                dry_run: true,
+                no_tripwire: false,
+                params: vec![],
+                auto_commit: false,
+                state_dir: state,
+                timeout: None,
+                json: true,
+            },
+            false,
+        )
+        .unwrap();
     }
 }

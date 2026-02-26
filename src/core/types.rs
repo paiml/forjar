@@ -725,13 +725,21 @@ pub struct TimestampedEvent {
 // ============================================================================
 
 /// Result of applying to a single machine.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ApplyResult {
     pub machine: String,
     pub resources_converged: u32,
     pub resources_unchanged: u32,
     pub resources_failed: u32,
+    #[serde(serialize_with = "serialize_duration_secs")]
     pub total_duration: std::time::Duration,
+}
+
+fn serialize_duration_secs<S: serde::Serializer>(
+    d: &std::time::Duration,
+    s: S,
+) -> Result<S::Ok, S::Error> {
+    s.serialize_f64(d.as_secs_f64())
 }
 
 // ============================================================================
