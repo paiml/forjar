@@ -1,0 +1,621 @@
+{
+  "schema_version": "1.0",
+  "server": "forjar-mcp",
+  "version": "0.1.0",
+  "tool_count": 9,
+  "tools": [
+    {
+      "name": "forjar_validate",
+      "description": "Validate a forjar.yaml configuration file",
+      "input_schema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "ValidateInput",
+        "type": "object",
+        "required": [
+          "path"
+        ],
+        "properties": {
+          "path": {
+            "description": "Path to forjar.yaml",
+            "type": "string"
+          }
+        }
+      },
+      "output_schema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "ValidateOutput",
+        "type": "object",
+        "required": [
+          "errors",
+          "machine_count",
+          "resource_count",
+          "valid"
+        ],
+        "properties": {
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "machine_count": {
+            "type": "integer",
+            "format": "uint",
+            "minimum": 0.0
+          },
+          "resource_count": {
+            "type": "integer",
+            "format": "uint",
+            "minimum": 0.0
+          },
+          "valid": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    {
+      "name": "forjar_plan",
+      "description": "Show execution plan for infrastructure changes",
+      "input_schema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "PlanInput",
+        "type": "object",
+        "required": [
+          "path"
+        ],
+        "properties": {
+          "path": {
+            "description": "Path to forjar.yaml",
+            "type": "string"
+          },
+          "resource": {
+            "description": "Filter to specific resource",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "state_dir": {
+            "description": "State directory (default: \"state\")",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "tag": {
+            "description": "Filter by tag",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "output_schema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "PlanOutput",
+        "type": "object",
+        "required": [
+          "changes",
+          "to_create",
+          "to_destroy",
+          "to_update",
+          "unchanged"
+        ],
+        "properties": {
+          "changes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/PlannedChangeOutput"
+            }
+          },
+          "to_create": {
+            "type": "integer",
+            "format": "uint32",
+            "minimum": 0.0
+          },
+          "to_destroy": {
+            "type": "integer",
+            "format": "uint32",
+            "minimum": 0.0
+          },
+          "to_update": {
+            "type": "integer",
+            "format": "uint32",
+            "minimum": 0.0
+          },
+          "unchanged": {
+            "type": "integer",
+            "format": "uint32",
+            "minimum": 0.0
+          }
+        },
+        "definitions": {
+          "PlannedChangeOutput": {
+            "type": "object",
+            "required": [
+              "action",
+              "description",
+              "machine",
+              "resource_id"
+            ],
+            "properties": {
+              "action": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "machine": {
+                "type": "string"
+              },
+              "resource_id": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "forjar_drift",
+      "description": "Detect configuration drift from desired state",
+      "input_schema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "DriftInput",
+        "type": "object",
+        "required": [
+          "path"
+        ],
+        "properties": {
+          "machine": {
+            "description": "Filter to specific machine",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "path": {
+            "description": "Path to forjar.yaml",
+            "type": "string"
+          },
+          "state_dir": {
+            "description": "State directory (default: \"state\")",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "output_schema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "DriftOutput",
+        "type": "object",
+        "required": [
+          "drifted",
+          "findings"
+        ],
+        "properties": {
+          "drifted": {
+            "type": "boolean"
+          },
+          "findings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/DriftFindingOutput"
+            }
+          }
+        },
+        "definitions": {
+          "DriftFindingOutput": {
+            "type": "object",
+            "required": [
+              "actual_hash",
+              "detail",
+              "expected_hash",
+              "resource"
+            ],
+            "properties": {
+              "actual_hash": {
+                "type": "string"
+              },
+              "detail": {
+                "type": "string"
+              },
+              "expected_hash": {
+                "type": "string"
+              },
+              "resource": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "forjar_lint",
+      "description": "Lint forjar config for best practices and shell safety",
+      "input_schema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "LintInput",
+        "type": "object",
+        "required": [
+          "path"
+        ],
+        "properties": {
+          "path": {
+            "description": "Path to forjar.yaml",
+            "type": "string"
+          }
+        }
+      },
+      "output_schema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "LintOutput",
+        "type": "object",
+        "required": [
+          "error_count",
+          "warning_count",
+          "warnings"
+        ],
+        "properties": {
+          "error_count": {
+            "type": "integer",
+            "format": "uint",
+            "minimum": 0.0
+          },
+          "warning_count": {
+            "type": "integer",
+            "format": "uint",
+            "minimum": 0.0
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "forjar_graph",
+      "description": "Generate resource dependency graph (Mermaid/DOT)",
+      "input_schema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "GraphInput",
+        "type": "object",
+        "required": [
+          "path"
+        ],
+        "properties": {
+          "format": {
+            "description": "Output format: \"mermaid\" (default) or \"dot\"",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "path": {
+            "description": "Path to forjar.yaml",
+            "type": "string"
+          }
+        }
+      },
+      "output_schema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "GraphOutput",
+        "type": "object",
+        "required": [
+          "format",
+          "graph"
+        ],
+        "properties": {
+          "format": {
+            "type": "string"
+          },
+          "graph": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
+      "name": "forjar_show",
+      "description": "Show fully resolved config with templates expanded",
+      "input_schema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "ShowInput",
+        "type": "object",
+        "required": [
+          "path"
+        ],
+        "properties": {
+          "path": {
+            "description": "Path to forjar.yaml",
+            "type": "string"
+          },
+          "resource": {
+            "description": "Show specific resource only",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "output_schema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "ShowOutput",
+        "type": "object",
+        "required": [
+          "config"
+        ],
+        "properties": {
+          "config": true
+        }
+      }
+    },
+    {
+      "name": "forjar_status",
+      "description": "Show current state from lock files",
+      "input_schema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "StatusInput",
+        "type": "object",
+        "properties": {
+          "machine": {
+            "description": "Filter to specific machine",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "state_dir": {
+            "description": "State directory (default: \"state\")",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "output_schema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "StatusOutput",
+        "type": "object",
+        "required": [
+          "machines"
+        ],
+        "properties": {
+          "machines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/MachineStatusOutput"
+            }
+          }
+        },
+        "definitions": {
+          "MachineStatusOutput": {
+            "type": "object",
+            "required": [
+              "name",
+              "resource_count"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "resource_count": {
+                "type": "integer",
+                "format": "uint",
+                "minimum": 0.0
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "forjar_trace",
+      "description": "View trace provenance data from apply runs",
+      "input_schema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "TraceInput",
+        "type": "object",
+        "properties": {
+          "machine": {
+            "description": "Filter to specific machine",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "state_dir": {
+            "description": "State directory (default: \"state\")",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "output_schema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "TraceOutput",
+        "type": "object",
+        "required": [
+          "spans",
+          "trace_count"
+        ],
+        "properties": {
+          "spans": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/TraceSpanOutput"
+            }
+          },
+          "trace_count": {
+            "type": "integer",
+            "format": "uint",
+            "minimum": 0.0
+          }
+        },
+        "definitions": {
+          "TraceSpanOutput": {
+            "type": "object",
+            "required": [
+              "action",
+              "duration_us",
+              "exit_code",
+              "logical_clock",
+              "machine",
+              "name",
+              "resource_type",
+              "span_id",
+              "start_time",
+              "trace_id"
+            ],
+            "properties": {
+              "action": {
+                "type": "string"
+              },
+              "content_hash": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "duration_us": {
+                "type": "integer",
+                "format": "uint64",
+                "minimum": 0.0
+              },
+              "exit_code": {
+                "type": "integer",
+                "format": "int32"
+              },
+              "logical_clock": {
+                "type": "integer",
+                "format": "uint64",
+                "minimum": 0.0
+              },
+              "machine": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "parent_span_id": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "resource_type": {
+                "type": "string"
+              },
+              "span_id": {
+                "type": "string"
+              },
+              "start_time": {
+                "type": "string"
+              },
+              "trace_id": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "forjar_anomaly",
+      "description": "Detect anomalous resource behavior using ML-inspired analysis",
+      "input_schema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "AnomalyInput",
+        "type": "object",
+        "properties": {
+          "machine": {
+            "description": "Filter to specific machine",
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "min_events": {
+            "description": "Minimum events to consider a resource (default: 3)",
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "uint",
+            "minimum": 0.0
+          },
+          "state_dir": {
+            "description": "State directory (default: \"state\")",
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "output_schema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "title": "AnomalyOutput",
+        "type": "object",
+        "required": [
+          "anomaly_count",
+          "findings"
+        ],
+        "properties": {
+          "anomaly_count": {
+            "type": "integer",
+            "format": "uint",
+            "minimum": 0.0
+          },
+          "findings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/AnomalyFindingOutput"
+            }
+          }
+        },
+        "definitions": {
+          "AnomalyFindingOutput": {
+            "type": "object",
+            "required": [
+              "reasons",
+              "resource",
+              "score",
+              "status"
+            ],
+            "properties": {
+              "reasons": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "resource": {
+                "type": "string"
+              },
+              "score": {
+                "type": "number",
+                "format": "double"
+              },
+              "status": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

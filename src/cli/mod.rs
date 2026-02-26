@@ -366,7 +366,11 @@ pub enum Commands {
     },
 
     /// Start MCP server (pforge integration, FJ-063)
-    Mcp,
+    Mcp {
+        /// Export tool schemas as JSON instead of starting server
+        #[arg(long)]
+        schema: bool,
+    },
 
     /// Run performance benchmarks (spec §9 targets)
     Bench {
@@ -523,7 +527,13 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             json,
         } => cmd_trace(&state_dir, machine.as_deref(), json),
         Commands::Migrate { file, output } => cmd_migrate(&file, output.as_deref()),
-        Commands::Mcp => cmd_mcp(),
+        Commands::Mcp { schema } => {
+            if schema {
+                cmd_mcp_schema()
+            } else {
+                cmd_mcp()
+            }
+        }
         Commands::Bench { iterations, json } => cmd_bench(iterations, json),
     }
 }
@@ -582,6 +592,14 @@ fn cmd_mcp() -> Result<(), String> {
     let rt = tokio::runtime::Runtime::new()
         .map_err(|e| format!("Failed to create tokio runtime: {}", e))?;
     rt.block_on(crate::mcp::serve())
+}
+
+fn cmd_mcp_schema() -> Result<(), String> {
+    let schema = crate::mcp::export_schema();
+    let json =
+        serde_json::to_string_pretty(&schema).map_err(|e| format!("JSON error: {}", e))?;
+    println!("{}", json);
+    Ok(())
 }
 
 /// Run inline performance benchmarks (FJ-139).

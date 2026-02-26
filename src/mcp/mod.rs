@@ -678,6 +678,79 @@ impl Handler for AnomalyHandler {
 // ── Registry + Server ───────────────────────────────────────────────
 
 /// Build a HandlerRegistry with all forjar MCP tools.
+/// Export MCP tool schemas as a JSON-serializable structure.
+///
+/// Each tool includes its name, description, and input/output JSON schemas
+/// derived from `schemars::JsonSchema`.
+pub fn export_schema() -> serde_json::Value {
+    use schemars::schema_for;
+
+    let tools = vec![
+        serde_json::json!({
+            "name": "forjar_validate",
+            "description": "Validate a forjar.yaml configuration file",
+            "input_schema": schema_for!(ValidateInput),
+            "output_schema": schema_for!(ValidateOutput),
+        }),
+        serde_json::json!({
+            "name": "forjar_plan",
+            "description": "Show execution plan for infrastructure changes",
+            "input_schema": schema_for!(PlanInput),
+            "output_schema": schema_for!(PlanOutput),
+        }),
+        serde_json::json!({
+            "name": "forjar_drift",
+            "description": "Detect configuration drift from desired state",
+            "input_schema": schema_for!(DriftInput),
+            "output_schema": schema_for!(DriftOutput),
+        }),
+        serde_json::json!({
+            "name": "forjar_lint",
+            "description": "Lint forjar config for best practices and shell safety",
+            "input_schema": schema_for!(LintInput),
+            "output_schema": schema_for!(LintOutput),
+        }),
+        serde_json::json!({
+            "name": "forjar_graph",
+            "description": "Generate resource dependency graph (Mermaid/DOT)",
+            "input_schema": schema_for!(GraphInput),
+            "output_schema": schema_for!(GraphOutput),
+        }),
+        serde_json::json!({
+            "name": "forjar_show",
+            "description": "Show fully resolved config with templates expanded",
+            "input_schema": schema_for!(ShowInput),
+            "output_schema": schema_for!(ShowOutput),
+        }),
+        serde_json::json!({
+            "name": "forjar_status",
+            "description": "Show current state from lock files",
+            "input_schema": schema_for!(StatusInput),
+            "output_schema": schema_for!(StatusOutput),
+        }),
+        serde_json::json!({
+            "name": "forjar_trace",
+            "description": "View trace provenance data from apply runs",
+            "input_schema": schema_for!(TraceInput),
+            "output_schema": schema_for!(TraceOutput),
+        }),
+        serde_json::json!({
+            "name": "forjar_anomaly",
+            "description": "Detect anomalous resource behavior using ML-inspired analysis",
+            "input_schema": schema_for!(AnomalyInput),
+            "output_schema": schema_for!(AnomalyOutput),
+        }),
+    ];
+
+    serde_json::json!({
+        "schema_version": "1.0",
+        "server": "forjar-mcp",
+        "version": env!("CARGO_PKG_VERSION"),
+        "tool_count": tools.len(),
+        "tools": tools,
+    })
+}
+
 pub fn build_registry() -> HandlerRegistry {
     let mut registry = HandlerRegistry::new();
     registry.register("forjar_validate", ValidateHandler);
@@ -1472,5 +1545,57 @@ mod tests {
                 .any(|f| f.resource.contains("churn-pkg")),
             "churn-pkg should be flagged"
         );
+    }
+
+    // ── FJ-142: Schema export tests ──────────────────────────────────
+
+    #[test]
+    fn test_fj142_export_schema_has_all_tools() {
+        let schema = export_schema();
+        assert_eq!(schema["tool_count"], 9);
+        let tools = schema["tools"].as_array().unwrap();
+        assert_eq!(tools.len(), 9);
+    }
+
+    #[test]
+    fn test_fj142_export_schema_tool_names() {
+        let schema = export_schema();
+        let tools = schema["tools"].as_array().unwrap();
+        let names: Vec<&str> = tools.iter().map(|t| t["name"].as_str().unwrap()).collect();
+        assert!(names.contains(&"forjar_validate"));
+        assert!(names.contains(&"forjar_plan"));
+        assert!(names.contains(&"forjar_drift"));
+        assert!(names.contains(&"forjar_lint"));
+        assert!(names.contains(&"forjar_graph"));
+        assert!(names.contains(&"forjar_show"));
+        assert!(names.contains(&"forjar_status"));
+        assert!(names.contains(&"forjar_trace"));
+        assert!(names.contains(&"forjar_anomaly"));
+    }
+
+    #[test]
+    fn test_fj142_export_schema_has_input_output() {
+        let schema = export_schema();
+        let tools = schema["tools"].as_array().unwrap();
+        for tool in tools {
+            assert!(
+                tool["input_schema"].is_object(),
+                "{} missing input_schema",
+                tool["name"]
+            );
+            assert!(
+                tool["output_schema"].is_object(),
+                "{} missing output_schema",
+                tool["name"]
+            );
+        }
+    }
+
+    #[test]
+    fn test_fj142_export_schema_metadata() {
+        let schema = export_schema();
+        assert_eq!(schema["schema_version"], "1.0");
+        assert_eq!(schema["server"], "forjar-mcp");
+        assert_eq!(schema["version"], env!("CARGO_PKG_VERSION"));
     }
 }

@@ -1035,6 +1035,12 @@ Configure in your MCP client:
 }
 ```
 
+Export tool schemas as JSON (for external consumers, IDEs, documentation):
+
+```bash
+forjar mcp --schema > docs/mcp-schema.json
+```
+
 See Architecture chapter for full tool reference and handler details.
 
 ### `forjar bench`

@@ -394,7 +394,7 @@ impl fmt::Display for ResourceType {
 }
 
 /// Machine target — single machine or multiple.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum MachineTarget {
     Single(String),
@@ -404,6 +404,15 @@ pub enum MachineTarget {
 impl Default for MachineTarget {
     fn default() -> Self {
         Self::Single("localhost".to_string())
+    }
+}
+
+impl fmt::Display for MachineTarget {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Single(s) => write!(f, "{}", s),
+            Self::Multiple(v) => write!(f, "[{}]", v.join(", ")),
+        }
     }
 }
 
@@ -473,6 +482,15 @@ pub enum FailurePolicy {
     #[default]
     StopOnFirst,
     ContinueIndependent,
+}
+
+impl fmt::Display for FailurePolicy {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::StopOnFirst => write!(f, "stop_on_first"),
+            Self::ContinueIndependent => write!(f, "continue_independent"),
+        }
+    }
 }
 
 // ============================================================================
@@ -1671,5 +1689,56 @@ image: ubuntu:22.04
             }
             MachineTarget::Single(_) => panic!("expected Multiple"),
         }
+    }
+
+    // ── FJ-142: Display + PartialEq for MachineTarget/FailurePolicy ──
+
+    #[test]
+    fn test_fj142_machine_target_display_single() {
+        let t = MachineTarget::Single("web1".to_string());
+        assert_eq!(format!("{}", t), "web1");
+    }
+
+    #[test]
+    fn test_fj142_machine_target_display_multiple() {
+        let t = MachineTarget::Multiple(vec!["web1".to_string(), "web2".to_string()]);
+        assert_eq!(format!("{}", t), "[web1, web2]");
+    }
+
+    #[test]
+    fn test_fj142_machine_target_display_empty_multiple() {
+        let t = MachineTarget::Multiple(vec![]);
+        assert_eq!(format!("{}", t), "[]");
+    }
+
+    #[test]
+    fn test_fj142_machine_target_partial_eq() {
+        let a = MachineTarget::Single("web".to_string());
+        let b = MachineTarget::Single("web".to_string());
+        let c = MachineTarget::Single("db".to_string());
+        assert_eq!(a, b);
+        assert_ne!(a, c);
+    }
+
+    #[test]
+    fn test_fj142_machine_target_eq_multiple() {
+        let a = MachineTarget::Multiple(vec!["a".to_string(), "b".to_string()]);
+        let b = MachineTarget::Multiple(vec!["a".to_string(), "b".to_string()]);
+        let c = MachineTarget::Multiple(vec!["b".to_string(), "a".to_string()]);
+        assert_eq!(a, b);
+        assert_ne!(a, c); // order matters
+    }
+
+    #[test]
+    fn test_fj142_failure_policy_display_stop() {
+        assert_eq!(format!("{}", FailurePolicy::StopOnFirst), "stop_on_first");
+    }
+
+    #[test]
+    fn test_fj142_failure_policy_display_continue() {
+        assert_eq!(
+            format!("{}", FailurePolicy::ContinueIndependent),
+            "continue_independent"
+        );
     }
 }
