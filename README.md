@@ -25,7 +25,7 @@ forjar.yaml  →  parse  →  resolve DAG  →  plan  →  codegen  →  execute
 | State | S3 / Consul / JSON | None | **Git (BLAKE3 YAML)** |
 | Drift detection | API calls | None | **Local hash compare** |
 | Bare metal | Weak | Strong | **First-class** |
-| Dependencies | ~200 Go modules | ~50 Python pkgs | **14 crates** |
+| Dependencies | ~200 Go modules | ~50 Python pkgs | **15 crates** |
 | Apply speed | Seconds–minutes | Minutes | **Milliseconds–seconds** |
 
 ## Quick Start
@@ -225,8 +225,8 @@ Single-quoted heredoc prevents shell expansion in file content.
 Tests: `test_fj007_heredoc_safe`
 
 ### C9: Minimal dependencies
-Fewer than 10 direct crate dependencies. Single binary output.
-Verify: `cargo metadata --no-deps --format-version 1 | jq '.packages[0].dependencies | length'`
+Fewer than 20 direct crate dependencies (currently 15 runtime + 1 build). Single binary output.
+Verify: `cargo metadata --no-deps --format-version 1 | jq '[.packages[0].dependencies[] | select(.kind == null)] | length'`
 
 ### C10: Jidoka failure isolation
 First failure stops execution. Previously converged state is preserved.

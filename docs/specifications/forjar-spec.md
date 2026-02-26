@@ -1,6 +1,6 @@
 # Forjar — Rust-Native Infrastructure as Code
 
-**Version**: 0.6.0-spec
+**Version**: 0.9.0-spec
 **Status**: Active
 **Author**: Noah Gift / Pragmatic AI Labs
 **Date**: 2026-02-25
@@ -41,7 +41,13 @@ Forjar treats the machine as a **knowable system**. It uses Rust to generate pro
 | Shell safety | None | None | None | **bashrs purification** |
 | Speed | Seconds-minutes | Seconds-minutes | Minutes | **Milliseconds-seconds** |
 | Bare metal | Weak (provisioner hacks) | Weak | Strong | **First-class** |
-| External deps | ~200 Go modules | ~500 npm/pip packages | ~50 Python packages | **14 crates** |
+| External deps | ~200 Go modules | ~500 npm/pip packages | ~50 Python packages | **15 crates** |
+| Secrets | Vault/sensitive/KMS | ESC/BYOK | Ansible Vault | **age encryption (v0.7)** |
+| Conditionals | `count`/`for_each`/`dynamic` | Native loops | `when:` | **`when:`/`for_each:` (v0.7)** |
+| Multi-env | Workspaces/Stacks | Stacks/ESC | Inventory groups | **Workspaces (v0.8)** |
+| State surgery | `state mv`/`rm`/`import` | `state delete`/`rename` | N/A | **`state mv`/`rm`/`list` (v0.8)** |
+| Policy-as-code | Sentinel/OPA | CrossGuard | ansible-lint | **YAML policies (v0.9)** |
+| Rolling deploy | Stacks orchestrate | N/A | `serial:` | **`policy.serial:` (v0.9)** |
 
 ---
 
@@ -1406,6 +1412,48 @@ Statistical anomaly detection from event history. Analyzes per-resource metrics:
 | FJ-143 | Spec/README sync — README dep count 6→14, spec §2.2 CLI list 18→21 commands (add trace, migrate, bench), core module tree add purifier.rs + migrate.rs. | **Done** |
 | FJ-144 | Getting-started tutorials for trace/migrate/bench (980→1061 lines). CI workflow: add dogfood validation (13 configs), example runner (19 examples), MCP schema check, bench compilation. 5 CI jobs (test, container-test, fmt, dogfood, bench). | **Done** |
 | FJ-145 | Add missing `bench_spec9_apply_no_changes` Criterion benchmark (194µs, < 500ms target, 2577x margin). All 5 spec §9 targets now have benchmarks. CI jobs documented in book Ch. 10. README test count 1316→1327. | **Done** |
+| FJ-146 | Fix 8→9 resource types in parser test + spec FJ-113 ticket description. Rustfmt cleanup on bench and CLI. | **Done** |
+
+### Phase 7: Secrets & Conditionals (v0.7)
+
+**Goal**: Close the two largest feature gaps vs. Terraform/Ansible. Encrypted secrets make forjar usable in real teams. Conditional resources eliminate config duplication.
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-200 | `core/secrets.rs` — age-encrypted secret values. `forjar secrets encrypt/decrypt/edit/rekey` CLI. Secrets stored as `ENC[age,...]` markers in forjar.yaml, decrypted at resolve time. Identity from `FORJAR_AGE_KEY` env var or `--identity` flag. Replaces env-var-only `{{secrets.*}}` with encrypted-at-rest values committed to git. | Planned |
+| FJ-201 | Secret rotation helpers — `forjar secrets rotate --re-encrypt` re-encrypts all values with a new key. `--recipients` for multi-recipient (team) encryption. Audit log of secret access in events.jsonl. | Planned |
+| FJ-202 | Conditional resources — `when:` field on resources. Expression language: `{{machine.arch}} == "x86_64"`, `{{params.env}} != "production"`, `{{machine.roles contains "gpu"}}`. Evaluated at resolve time, false resources excluded from DAG. | Planned |
+| FJ-203 | `for_each:` on resources — instantiate a resource template per item. `for_each: {{params.users}}` expands `resource-{item}` per list entry. Works with `when:` for filtered iteration. | Planned |
+| FJ-204 | `count:` on resources — numeric multiplier. `count: 3` creates `resource-0`, `resource-1`, `resource-2`. `{{index}}` template variable available inside counted resources. | Planned |
+| FJ-205 | `--json` output for plan/apply/drift/status — structured machine-readable JSON on stdout. Plan JSON includes resource diffs, action types, dependency order. Apply JSON includes per-resource timing, exit codes, hashes. Drift JSON includes expected vs actual hashes. | Planned |
+
+### Phase 8: Multi-Environment & State Surgery (v0.8)
+
+**Goal**: Support real-world multi-environment workflows (dev/staging/prod) and state manipulation without re-applying.
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-210 | Workspaces — `forjar workspace new/list/select/delete <name>`. Per-workspace state directory (`state/<workspace>/<machine>/`). `{{workspace}}` template variable. Config-level `environments:` block with per-env param overrides. `-w <name>` flag on plan/apply/drift. | Planned |
+| FJ-211 | Environment variable files — `env_file: envs/production.yaml` field on workspace. Loads param overrides from external YAML. Supports `--env-file` CLI override. | Planned |
+| FJ-212 | `forjar state mv <old-id> <new-id>` — rename a resource in state without re-applying. Updates lock file resource key, preserves hash and metadata. Validates new ID doesn't conflict. | Planned |
+| FJ-213 | `forjar state rm <resource-id>` — remove a resource from state without destroying it on the machine. Warns if other resources depend on it. `--force` to skip dependency check. | Planned |
+| FJ-214 | `forjar state list` — tabular view of all resources in state with type, status, hash prefix, last applied timestamp. `--machine` filter. `--json` output. | Planned |
+| FJ-215 | Output values — `outputs:` top-level block in forjar.yaml. `forjar output <key>` CLI. Cross-config references via `forjar output --config other.yaml <key>`. Outputs written to `state/outputs.yaml`. | Planned |
+| FJ-216 | Parallel intra-machine execution — resources within the same machine that have no dependency relationship execute concurrently via `std::thread::scope`. Respects DAG: only independent siblings run in parallel. `policy.parallel_resources: true` (default: false). | Planned |
+
+### Phase 9: Policy & Fleet Operations (v0.9)
+
+**Goal**: Policy-as-code enforcement at plan time. Rolling deploys across machine fleets. External data lookups.
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-220 | Policy-as-code — `policies:` top-level block in forjar.yaml. YAML-native rules evaluated at plan time before apply. Rule types: `require` (resource must have field), `deny` (block if condition true), `warn` (advisory). `forjar policy check` CLI. Blocks apply on `deny` violations. | Planned |
+| FJ-221 | Built-in policy rules — `no_root_owner` (files must not be owned by root unless tagged `system`), `require_tags` (all resources must have tags), `no_privileged_containers`, `require_ssh_key` (machines must have ssh_key). Shipped as `forjar lint --strict`. | Planned |
+| FJ-222 | Rolling deploys — `policy.serial: N` applies to N machines at a time, waiting for convergence before advancing. `policy.max_fail_percentage: 20` aborts the rollout if failure rate exceeds threshold. Compatible with `parallel_machines: true` (serial controls batch size). | Planned |
+| FJ-223 | Data sources — `data:` top-level block. `type: file` reads local file content. `type: command` runs shell command, captures stdout. `type: dns` resolves hostname. Available as `{{data.key}}` in templates. Evaluated once at resolve time, cached for the run. | Planned |
+| FJ-224 | General-purpose triggers — `triggers:` field on any resource (not just `restart_on` on services). When a dependency resource changes, triggers force re-apply of the dependent. `triggers: [config-file]` on a docker resource restarts the container when the config changes. | Planned |
+| FJ-225 | Notification hooks — `policy.notify:` block. `on_success`, `on_failure`, `on_drift` keys. Value is a shell command template with `{{machine}}`, `{{resource}}`, `{{status}}` variables. Runs after apply/drift completes. Supports webhook via `curl` in the command. | Planned |
+| FJ-226 | `--check` mode parity — all 9 resource type codegen handlers emit check-mode scripts (report what would change without applying). `forjar apply --check` runs check scripts instead of apply scripts. Exit code 2 = changes needed, 0 = converged. | Planned |
 
 ---
 
