@@ -1608,7 +1608,7 @@ Shows current state from lock files: project name, last apply, per-machine resou
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-220 | Policy-as-code — `policies:` top-level block in forjar.yaml. YAML-native rules evaluated at plan time before apply. Rule types: `require` (resource must have field), `deny` (block if condition true), `warn` (advisory). `forjar policy check` CLI. Blocks apply on `deny` violations. | Planned |
+| FJ-220 | Policy-as-code — `policies:` top-level block in forjar.yaml. YAML-native rules evaluated at plan time before apply. Rule types: `require` (resource must have field), `deny` (block if condition true), `warn` (advisory). `forjar policy` CLI with `--json`. Blocks apply on deny/require violations. Filters by `resource_type` and `tag`. 9 parser tests + 4 CLI tests = 13 total. | **Done** |
 | FJ-221 | Built-in policy rules — `no_root_owner` (files must not be owned by root unless tagged `system`), `require_tags` (all resources must have tags), `no_privileged_containers`, `require_ssh_key` (machines must have ssh_key). Shipped as `forjar lint --strict`. | Planned |
 | FJ-222 | Rolling deploys — `policy.serial: N` applies to N machines at a time, waiting for convergence before advancing. `policy.max_fail_percentage: 20` aborts the rollout if failure rate exceeds threshold. Compatible with `parallel_machines: true` (serial controls batch size). | Planned |
 | FJ-223 | Data sources — `data:` top-level block. `type: file` reads local file content. `type: command` runs shell command, captures stdout. `type: dns` resolves hostname. Available as `{{data.key}}` in templates. Evaluated once at resolve time, cached for the run. | Planned |

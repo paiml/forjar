@@ -1,0 +1,70 @@
+# FJ-220: Policy-as-code dogfood config
+# Demonstrates require, deny, and warn policy rules.
+# Validates with: cargo run -- policy -f examples/dogfood-policies.yaml
+
+version: "1.0"
+name: dogfood-policies
+description: "Policy enforcement: require fields, deny conditions, warn advisories"
+
+machines:
+  web:
+    hostname: webserver
+    addr: 192.168.1.10
+
+resources:
+  app-config:
+    type: file
+    machine: web
+    path: /etc/app/config.yaml
+    content: "log_level: info"
+    owner: app
+    mode: "0644"
+    tags: [critical, config]
+
+  app-log:
+    type: file
+    machine: web
+    path: /var/log/app.log
+    state: file
+    owner: app
+    mode: "0644"
+    tags: [logging]
+
+  base-packages:
+    type: package
+    machine: web
+    provider: apt
+    packages: [curl, htop]
+    tags: [infra]
+
+policies:
+  # Require: all file resources must have owner set
+  - type: require
+    message: "file resources must specify owner"
+    resource_type: file
+    field: owner
+
+  # Require: all file resources must have mode set
+  - type: require
+    message: "file resources must specify mode"
+    resource_type: file
+    field: mode
+
+  # Require: all resources must have tags
+  - type: require
+    message: "all resources must be tagged"
+    field: tags
+
+  # Deny: no files owned by root
+  - type: deny
+    message: "files must not be owned by root"
+    resource_type: file
+    condition_field: owner
+    condition_value: root
+
+  # Warn: critical files should have explicit content
+  - type: warn
+    message: "critical files should have content defined"
+    tag: critical
+    condition_field: state
+    condition_value: file

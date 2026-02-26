@@ -48,6 +48,7 @@ Validate any config with `cargo run -- validate -f examples/<config>`.
 | `dogfood-conditions.yaml` | file, package | Conditional resources (`when:` field), expression evaluation |
 | `dogfood-iteration.yaml` | file | Resource iteration: `count:` ({{index}}), `for_each:` ({{item}}) |
 | `dogfood-outputs.yaml` | file | Output values: `outputs:` block, template resolution, `--json` |
+| `dogfood-policies.yaml` | file, package | Policy-as-code: require/deny/warn rules, plan-time enforcement |
 
 ## Supporting Assets
 

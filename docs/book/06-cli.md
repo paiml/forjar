@@ -567,6 +567,46 @@ resources:
 2. `.forjar/workspace` file (set by `workspace select`)
 3. `"default"` (no workspace isolation)
 
+## Policy Enforcement
+
+Define policy rules in `forjar.yaml` to enforce standards at plan time:
+
+```yaml
+policies:
+  - type: require
+    message: "file resources must specify owner"
+    resource_type: file
+    field: owner
+
+  - type: deny
+    message: "files must not be owned by root"
+    resource_type: file
+    condition_field: owner
+    condition_value: root
+
+  - type: warn
+    message: "all resources should be tagged"
+    field: tags
+```
+
+```bash
+# Check policies without applying
+forjar policy -f forjar.yaml
+
+# JSON output for CI
+forjar policy -f forjar.yaml --json
+```
+
+Rule types:
+
+| Type | Behavior |
+|------|----------|
+| `require` | Resource must have the `field` set. Blocks apply. |
+| `deny` | Blocks if `condition_field == condition_value`. |
+| `warn` | Advisory only. Logged but does not block. |
+
+Filters: `resource_type` limits to one resource type; `tag` limits to resources with a specific tag.
+
 ## Environment Files
 
 Use `--env-file` to load param overrides from an external YAML file. This enables
