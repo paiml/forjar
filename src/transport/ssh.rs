@@ -522,24 +522,16 @@ mod tests {
 
     #[test]
     fn test_fj252_mux_args_injected_when_socket_exists() {
-        // Create the control dir and a fake socket atomically
-        // Use a unique IP to avoid collisions with parallel tests
-        let m = make_machine("252.252.252.252", "muxtest", None);
+        // Use PID + thread-unique address to avoid parallel test races
+        let unique_addr = format!("252.252.{}.{}", std::process::id() % 255, 252);
+        let m = make_machine(&unique_addr, "muxtest", None);
         let sock = control_path(&m);
 
-        // Atomic: create dir + write in tight sequence
+        // Create dir + write socket
         std::fs::create_dir_all(CONTROL_DIR).unwrap();
         std::fs::write(&sock, "fake-socket").unwrap();
 
-        // Read args immediately, then clean up
-        let sock_exists = std::path::Path::new(&sock).exists();
-        let args = if sock_exists {
-            build_ssh_args(&m)
-        } else {
-            // Race: another test cleaned up — skip assertions
-            let _ = std::fs::remove_file(&sock);
-            return;
-        };
+        let args = build_ssh_args(&m);
         let _ = std::fs::remove_file(&sock);
 
         assert!(

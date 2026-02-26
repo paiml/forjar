@@ -494,6 +494,7 @@ CLI commands:
 policy:
   failure: stop_on_first      # stop_on_first | continue_independent
   parallel_machines: false     # Concurrent machine execution
+  parallel_resources: false    # Execute independent resources within machines concurrently
   tripwire: true               # Enable provenance event logging
   lock_file: true              # Persist BLAKE3 state after apply
   serial: 2                    # Rolling deploy: 2 machines per batch

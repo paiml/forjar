@@ -1668,7 +1668,7 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 | FJ-254 | Config includes — `includes: [base.yaml, overrides.yaml]` field in `ForjarConfig`. Merges params/machines/resources by key (later wins), policy replaced wholesale. Validation on merged config. 11 tests (1671→1682). Dogfood: dogfood-includes.yaml + dogfood-includes-machines.yaml. | **Done** |
 | FJ-255 | Content diff in plan output — `forjar plan` shows file content preview for create/update actions. `--no-diff` flag suppresses. Content limited to 50 lines with `[... N more lines]` truncation. 6 tests (1682→1688). | **Done** |
 | FJ-256 | `forjar lock` — generate lock file without applying. Reads config, resolves templates, computes BLAKE3 hashes for desired state, writes lock file. Useful for CI pipelines that validate state without executing. `--verify` flag checks lock matches config (exit 1 on mismatch). `--json` flag for machine-readable output. 9 tests (1688→1697). | **Done** |
-| FJ-257 | Parallel apply within machines — execute independent resources concurrently on the same machine using `std::thread::scope`. Respects DAG dependencies (only parallelize resources with no inter-dependencies). `policy.parallel_resources: true` opt-in. Speedup: 2-4x for configs with many independent resources. | Planned |
+| FJ-257 | Parallel apply within machines — execute independent resources concurrently on the same machine using `std::thread::scope`. Respects DAG dependencies (only parallelize resources with no inter-dependencies). `policy.parallel_resources: true` opt-in. Speedup: 2-4x for configs with many independent resources. | Done |
 
 ---
 
