@@ -37,3 +37,35 @@ jobs:
         with:
           components: rustfmt
       - run: cargo fmt --check
+
+  dogfood:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Validate all dogfood configs
+        run: |
+          for f in examples/dogfood-*.yaml; do
+            echo "--- $f ---"
+            cargo run -- validate -f "$f"
+          done
+      - name: Run all examples
+        run: |
+          for ex in $(cargo run --example 2>&1 | grep '^\s' | awk '{print $1}'); do
+            echo "--- $ex ---"
+            cargo run --example "$ex"
+          done
+      - name: Verify MCP schema export
+        run: cargo run -- mcp --schema | python3 -c "import sys, json; d = json.load(sys.stdin); assert d['tool_count'] == 9"
+
+  bench:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Compile benchmarks
+        run: cargo bench --no-run
+      - name: Run inline bench (quick)
+        run: cargo run -- bench --iterations 10 --json

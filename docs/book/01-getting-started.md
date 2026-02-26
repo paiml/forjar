@@ -954,6 +954,87 @@ The state directory is the single source of truth for what was last applied. Wit
 | Binary size | ~5 MB | 100+ MB runtime |
 | Learning curve | YAML + bash | Custom DSL |
 
+## Trace Provenance
+
+After any apply, forjar records trace spans (W3C-compatible) showing exactly what happened and when. Use `forjar trace` to audit:
+
+```bash
+# View all traces grouped by trace_id
+forjar trace --state-dir state/
+
+# Filter to a specific machine
+forjar trace --state-dir state/ -m web-server
+
+# JSON output for SIEM integration or scripting
+forjar trace --state-dir state/ --json
+```
+
+Example output:
+
+```
+Trace b3a7f9e1 (3 spans):
+  clock=1 → check:nginx-pkg          127µs
+  clock=2 → apply:nginx-pkg          1.2s
+  clock=3 → check:site-config        89µs
+```
+
+Each span records the resource, operation (check/apply), duration, and a Lamport logical clock for causal ordering. Traces are stored in `state/{machine}/trace.jsonl` and survive across sessions.
+
+## Migrate Docker to Pepita
+
+If you have Docker container resources and want to migrate to native kernel isolation (pepita), use `forjar migrate`:
+
+```bash
+# Preview migration (dry run — nothing changes)
+forjar migrate -f forjar.yaml
+
+# Pipe to a new file for review
+forjar migrate -f forjar.yaml > forjar-migrated.yaml
+```
+
+The migrate command converts Docker resources to pepita resources:
+- `docker` → `pepita` type
+- `image` → overlay filesystem config
+- `ports` → network namespace rules
+- `volumes` → bind mount overlays
+- `environment` → preserved as-is
+
+Non-Docker resources pass through unchanged. Review the output before replacing your config.
+
+## Performance Benchmarking
+
+Use `forjar bench` to verify that your setup meets the spec §9 performance targets:
+
+```bash
+# Quick benchmark (default 1000 iterations)
+forjar bench
+
+# High-precision run
+forjar bench --iterations 10000
+
+# JSON output for CI tracking
+forjar bench --json
+```
+
+Example output:
+
+```
+Forjar Performance Benchmarks (1000 iterations)
+
+  Operation                         Average       Target
+  --------------------------------------------------------
+  validate (3m, 20r)                 62.1µs       < 10ms
+  plan (3m, 20r)                     84.0µs         < 2s
+  drift (100 resources)             356.0µs         < 1s
+  blake3 hash (4KB)                   1.2µs        < 1µs
+```
+
+For deeper analysis with statistical confidence intervals, use Criterion benchmarks:
+
+```bash
+cargo bench
+```
+
 ## FAQ
 
 **Q: Can forjar manage cloud resources (EC2, S3)?**
@@ -974,7 +1055,7 @@ A: State is recorded per-resource. Successfully applied resources are marked as 
 ## Next Steps
 
 - [Configuration Reference](02-configuration.md) — Complete `forjar.yaml` schema
-- [Resource Types](03-resources.md) — All 8 resource types with examples
+- [Resource Types](03-resources.md) — All 9 resource types with examples
 - [Recipes](04-recipes.md) — Reusable parameterized infrastructure patterns
 - [CLI Reference](06-cli.md) — Every command and flag
 - [Troubleshooting](11-troubleshooting.md) — Common errors and fixes

@@ -1404,6 +1404,7 @@ Statistical anomaly detection from event history. Analyzes per-resource metrics:
 | FJ-141 | Documentation polish — `examples/README.md` index (19 examples + 13 dogfood configs). Cookbook chapter expanded (897→1098 lines): disaster recovery, secret management, performance monitoring, trace auditing, resource tagging patterns. Book testing chapter: 8→13 dogfood configs, 15→19 examples. | **Done** |
 | FJ-142 | Type system polish + MCP schema export. Display impls for MachineTarget ("web1", "[web1, web2]") and FailurePolicy ("stop_on_first", "continue_independent"), PartialEq/Eq for MachineTarget. `forjar mcp --schema` exports 9 tool JSON schemas. `docs/mcp-schema.json` generated. 11 new tests, 1316→1327. | **Done** |
 | FJ-143 | Spec/README sync — README dep count 6→14, spec §2.2 CLI list 18→21 commands (add trace, migrate, bench), core module tree add purifier.rs + migrate.rs. | **Done** |
+| FJ-144 | Getting-started tutorials for trace/migrate/bench (980→1061 lines). CI workflow: add dogfood validation (13 configs), example runner (19 examples), MCP schema check, bench compilation. 5 CI jobs (test, container-test, fmt, dogfood, bench). | **Done** |
 
 ---
 
