@@ -607,6 +607,39 @@ Rule types:
 
 Filters: `resource_type` limits to one resource type; `tag` limits to resources with a specific tag.
 
+## Triggers
+
+Define `triggers:` on any resource to force re-apply when a dependency changes:
+
+```yaml
+resources:
+  nginx-config:
+    type: file
+    machine: web
+    path: /etc/nginx/nginx.conf
+    content: |
+      server { listen 80; }
+
+  nginx-service:
+    type: service
+    machine: web
+    name: nginx
+    depends_on: [nginx-config]
+    triggers: [nginx-config]
+```
+
+When `nginx-config` converges (content changed), `nginx-service` is forced to re-apply even if its own state hasn't changed. This is the general-purpose version of the service-specific `restart_on` field — it works on **any** resource type.
+
+Key differences:
+
+| Feature | `depends_on` | `restart_on` | `triggers` |
+|---------|-------------|-------------|------------|
+| Purpose | Execution order | Service restart | Force re-apply |
+| Scope | All types | Services only | All types |
+| Effect | Runs first | Restarts service | Re-applies resource |
+
+Multiple triggers are supported: `triggers: [config-a, config-b]` fires if **either** source converges.
+
 ## Data Sources
 
 Define external data sources in the `data:` block. Values are resolved once at plan time and available as `{{data.key}}` templates:

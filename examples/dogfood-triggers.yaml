@@ -1,0 +1,42 @@
+version: "1.0"
+name: dogfood-triggers
+description: "FJ-224: General-purpose triggers — force re-apply when dependencies change"
+
+params:
+  app_version: "1.0.0"
+
+machines:
+  local:
+    hostname: localhost
+    addr: 127.0.0.1
+
+resources:
+  app-config:
+    type: file
+    machine: local
+    path: /opt/app/config.yaml
+    content: |
+      version: {{params.app_version}}
+      log_level: info
+    owner: root
+    mode: "0644"
+    tags: [config]
+
+  app-service:
+    type: service
+    machine: local
+    name: app
+    state: running
+    depends_on: [app-config]
+    triggers: [app-config]
+    tags: [service]
+
+  monitoring:
+    type: file
+    machine: local
+    path: /opt/app/monitoring.conf
+    content: |
+      check_interval: 30
+    depends_on: [app-config]
+    triggers: [app-config, app-service]
+    tags: [config, monitoring]
