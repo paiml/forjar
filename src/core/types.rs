@@ -698,6 +698,12 @@ pub struct Policy {
     #[serde(default)]
     pub max_fail_percentage: Option<u8>,
 
+    /// FJ-261: SSH retry attempts on transient failures (connection refused, timeout, broken pipe).
+    /// Total attempt count: 1 = no retry (default), 3 = up to 3 attempts.
+    /// Backoff: 200ms × 2^attempt. Capped at 4 attempts max.
+    #[serde(default = "default_one")]
+    pub ssh_retries: u32,
+
     /// FJ-225: Notification hooks — shell commands run after apply/drift
     #[serde(default)]
     pub notify: NotifyConfig,
@@ -734,6 +740,7 @@ impl Default for Policy {
             post_apply: None,
             serial: None,
             max_fail_percentage: None,
+            ssh_retries: 1,
             notify: NotifyConfig::default(),
         }
     }
@@ -741,6 +748,10 @@ impl Default for Policy {
 
 fn default_true() -> bool {
     true
+}
+
+fn default_one() -> u32 {
+    1
 }
 
 /// Failure handling strategy.

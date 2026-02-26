@@ -74,6 +74,67 @@ pub fn exec_script_timeout(
     }
 }
 
+/// FJ-261: Execute a script with SSH retry on transient failures.
+/// `ssh_retries` is total attempt count (1 = no retry, 3 = up to 3 attempts).
+/// Retries only apply to SSH transport; local/container calls are not retried.
+/// Backoff: 200ms × 2^attempt. Capped at 4 attempts max.
+pub fn exec_script_retry(
+    machine: &Machine,
+    script: &str,
+    timeout_secs: Option<u64>,
+    ssh_retries: u32,
+) -> Result<ExecOutput, String> {
+    let is_ssh = !machine.is_pepita_transport()
+        && !machine.is_container_transport()
+        && machine.addr != "127.0.0.1"
+        && machine.addr != "localhost"
+        && !is_local_addr(&machine.addr);
+
+    // For non-SSH targets or retries disabled, just run once
+    let max_attempts = if is_ssh { ssh_retries.clamp(1, 4) } else { 1 };
+
+    let mut last_err = String::new();
+    for attempt in 0..max_attempts {
+        if attempt > 0 {
+            // Exponential backoff: 200ms × 2^(attempt-1) = 200ms, 400ms, 800ms
+            let backoff_ms = 200u64 * (1u64 << (attempt - 1));
+            std::thread::sleep(std::time::Duration::from_millis(backoff_ms));
+            eprintln!(
+                "  [retry {}/{}] retrying SSH to {} after {}ms backoff",
+                attempt,
+                max_attempts - 1,
+                machine.addr,
+                backoff_ms
+            );
+        }
+
+        match exec_script_timeout(machine, script, timeout_secs) {
+            Ok(out) => return Ok(out),
+            Err(e) => {
+                if attempt + 1 < max_attempts && is_transient_ssh_error(&e) {
+                    last_err = e;
+                    continue;
+                }
+                return Err(e);
+            }
+        }
+    }
+
+    Err(last_err)
+}
+
+/// Check if an SSH error is transient (worth retrying).
+fn is_transient_ssh_error(err: &str) -> bool {
+    let lower = err.to_lowercase();
+    lower.contains("connection refused")
+        || lower.contains("connection reset")
+        || lower.contains("connection timed out")
+        || lower.contains("broken pipe")
+        || lower.contains("no route to host")
+        || lower.contains("transport timeout")
+        || lower.contains("failed to spawn ssh")
+}
+
 /// Execute a read-only query (for plan/drift — doesn't need tripwire).
 pub fn query(machine: &Machine, cmd: &str) -> Result<ExecOutput, String> {
     exec_script(machine, cmd)
@@ -645,5 +706,143 @@ mod tests {
             !is_local_addr("127.0.0.2"),
             "127.0.0.2 is not explicitly local"
         );
+    }
+
+    // ── FJ-261: SSH retry with exponential backoff ──
+
+    #[test]
+    fn test_fj261_is_transient_ssh_error_connection_refused() {
+        assert!(is_transient_ssh_error("ssh: connect to host 10.0.0.1 port 22: Connection refused"));
+    }
+
+    #[test]
+    fn test_fj261_is_transient_ssh_error_connection_reset() {
+        assert!(is_transient_ssh_error("Connection reset by peer"));
+    }
+
+    #[test]
+    fn test_fj261_is_transient_ssh_error_timeout() {
+        assert!(is_transient_ssh_error("transport timeout: script on 'box' exceeded 30s limit"));
+    }
+
+    #[test]
+    fn test_fj261_is_transient_ssh_error_broken_pipe() {
+        assert!(is_transient_ssh_error("Write failed: Broken pipe"));
+    }
+
+    #[test]
+    fn test_fj261_is_transient_ssh_error_no_route() {
+        assert!(is_transient_ssh_error("ssh: connect to host 10.0.0.1: No route to host"));
+    }
+
+    #[test]
+    fn test_fj261_is_transient_ssh_error_spawn_failure() {
+        assert!(is_transient_ssh_error("failed to spawn ssh to 10.0.0.1: ..."));
+    }
+
+    #[test]
+    fn test_fj261_is_transient_ssh_error_non_transient() {
+        assert!(!is_transient_ssh_error("Permission denied (publickey)"));
+        assert!(!is_transient_ssh_error("Host key verification failed"));
+        assert!(!is_transient_ssh_error("exit code 1: command not found"));
+    }
+
+    #[test]
+    fn test_fj261_retry_local_skips_retry() {
+        // Local targets should never retry — only 1 attempt
+        let machine = Machine {
+            hostname: "local".to_string(),
+            addr: "127.0.0.1".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: None,
+            container: None,
+            pepita: None,
+            cost: 0,
+        };
+        let out = exec_script_retry(&machine, "echo ok", None, 3).unwrap();
+        assert!(out.success());
+        assert_eq!(out.stdout.trim(), "ok");
+    }
+
+    #[test]
+    fn test_fj261_retry_default_one_is_no_retry() {
+        // ssh_retries=1 means one attempt, no retry
+        let machine = Machine {
+            hostname: "local".to_string(),
+            addr: "127.0.0.1".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: None,
+            container: None,
+            pepita: None,
+            cost: 0,
+        };
+        let out = exec_script_retry(&machine, "echo once", None, 1).unwrap();
+        assert!(out.success());
+        assert_eq!(out.stdout.trim(), "once");
+    }
+
+    #[test]
+    fn test_fj261_retry_clamped_to_max_4() {
+        // ssh_retries > 4 should be clamped to 4. For local, still runs once.
+        let machine = Machine {
+            hostname: "local".to_string(),
+            addr: "127.0.0.1".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: None,
+            container: None,
+            pepita: None,
+            cost: 0,
+        };
+        let out = exec_script_retry(&machine, "echo clamped", None, 100).unwrap();
+        assert!(out.success());
+        assert_eq!(out.stdout.trim(), "clamped");
+    }
+
+    #[test]
+    fn test_fj261_retry_with_timeout() {
+        let machine = Machine {
+            hostname: "local".to_string(),
+            addr: "127.0.0.1".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: None,
+            container: None,
+            pepita: None,
+            cost: 0,
+        };
+        let out = exec_script_retry(&machine, "echo fast", Some(10), 2).unwrap();
+        assert!(out.success());
+        assert_eq!(out.stdout.trim(), "fast");
+    }
+
+    #[test]
+    fn test_fj261_retry_zero_clamped_to_one() {
+        // ssh_retries=0 should clamp to 1 (at least one attempt)
+        let machine = Machine {
+            hostname: "local".to_string(),
+            addr: "127.0.0.1".to_string(),
+            user: "root".to_string(),
+            arch: "x86_64".to_string(),
+            ssh_key: None,
+            roles: vec![],
+            transport: None,
+            container: None,
+            pepita: None,
+            cost: 0,
+        };
+        let out = exec_script_retry(&machine, "echo zero", None, 0).unwrap();
+        assert!(out.success());
+        assert_eq!(out.stdout.trim(), "zero");
     }
 }

@@ -419,6 +419,7 @@ fn apply_single_resource(
     // FJ-242: Copia delta sync for file resources with large source files (> 1MB).
     // Two-phase protocol: (1) get remote block signatures, (2) compute delta, (3) transfer delta.
     // Falls back to normal codegen for small files, new files, or non-file resources.
+    let ssh_retries = cfg.config.policy.ssh_retries;
     let output = if resolved.resource_type == ResourceType::File
         && resolved.source.is_some()
         && copia::is_eligible(resolved.source.as_ref().unwrap())
@@ -426,7 +427,7 @@ fn apply_single_resource(
         copia_apply_file(machine, &resolved, cfg.timeout_secs)
     } else {
         let script = codegen::apply_script(&resolved)?;
-        transport::exec_script_timeout(machine, &script, cfg.timeout_secs)
+        transport::exec_script_retry(machine, &script, cfg.timeout_secs, ssh_retries)
     };
     let duration = resource_start.elapsed().as_secs_f64();
 
@@ -683,11 +684,7 @@ fn apply_machine(
                     }
                     // When condition
                     if let Some(ref when_expr) = resource.when {
-                        match conditions::evaluate_when(
-                            when_expr,
-                            &cfg.config.params,
-                            machine,
-                        ) {
+                        match conditions::evaluate_when(when_expr, &cfg.config.params, machine) {
                             Ok(false) | Err(_) => {
                                 skipped_or_unchanged.push((idx, ResourceOutcome::Skipped));
                                 continue;
@@ -724,6 +721,7 @@ fn apply_machine(
                 }
 
                 // Phase 2: Execute transport I/O in parallel (the expensive part)
+                let ssh_retries = cfg.config.policy.ssh_retries;
                 let exec_results: Vec<(usize, f64, Result<transport::ExecOutput, String>)> =
                     std::thread::scope(|s| {
                         let handles: Vec<_> = prepared
@@ -732,30 +730,23 @@ fn apply_machine(
                                 s.spawn(move || {
                                     let start = Instant::now();
                                     let output = if prep.use_copia {
-                                        copia_apply_file(
-                                            machine,
-                                            &prep.resolved,
-                                            cfg.timeout_secs,
-                                        )
+                                        copia_apply_file(machine, &prep.resolved, cfg.timeout_secs)
                                     } else {
-                                        codegen::apply_script(&prep.resolved)
-                                            .and_then(|script| {
-                                                transport::exec_script_timeout(
-                                                    machine,
-                                                    &script,
-                                                    cfg.timeout_secs,
-                                                )
-                                            })
+                                        codegen::apply_script(&prep.resolved).and_then(|script| {
+                                            transport::exec_script_retry(
+                                                machine,
+                                                &script,
+                                                cfg.timeout_secs,
+                                                ssh_retries,
+                                            )
+                                        })
                                     };
                                     let duration = start.elapsed().as_secs_f64();
                                     (prep.change_idx, duration, output)
                                 })
                             })
                             .collect();
-                        handles
-                            .into_iter()
-                            .map(|h| h.join().unwrap())
-                            .collect()
+                        handles.into_iter().map(|h| h.join().unwrap()).collect()
                     });
 
                 // Phase 3: Record outcomes sequentially (fast, touches lock + event log)
@@ -771,11 +762,7 @@ fn apply_machine(
                         .to_lowercase();
                     if let ResourceOutcome::Unchanged = outcome {
                         unchanged += 1;
-                        trace_session.record_noop(
-                            &change.resource_id,
-                            &resource_rt,
-                            machine_name,
-                        );
+                        trace_session.record_noop(&change.resource_id, &resource_rt, machine_name);
                     }
                 }
 
@@ -784,10 +771,7 @@ fn apply_machine(
                 for (idx, duration, output) in exec_results {
                     let change = wave_changes[idx];
                     let resource = cfg.config.resources.get(&change.resource_id).unwrap();
-                    let prep = prepared
-                        .iter()
-                        .find(|p| p.change_idx == idx)
-                        .unwrap();
+                    let prep = prepared.iter().find(|p| p.change_idx == idx).unwrap();
 
                     match output {
                         Ok(out) if out.success() => {
