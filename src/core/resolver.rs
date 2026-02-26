@@ -196,6 +196,59 @@ pub fn build_execution_order(config: &ForjarConfig) -> Result<Vec<String>, Strin
     Ok(order)
 }
 
+/// FJ-216: Compute parallel waves from the DAG.
+///
+/// Groups resources into waves where all resources in a wave have no
+/// inter-dependencies and can execute concurrently. Wave order respects
+/// the DAG: all dependencies of a resource are in earlier waves.
+///
+/// Returns `Vec<Vec<String>>` where each inner Vec is a concurrent wave.
+pub fn compute_parallel_waves(config: &ForjarConfig) -> Result<Vec<Vec<String>>, String> {
+    let resource_ids: Vec<String> = config.resources.keys().cloned().collect();
+    let (mut in_degree, adjacency) = build_dag(config, &resource_ids)?;
+
+    let mut waves = Vec::new();
+
+    loop {
+        // Collect all nodes with in-degree 0 (no remaining deps)
+        let mut wave: Vec<String> = in_degree
+            .iter()
+            .filter(|(_, &d)| d == 0)
+            .map(|(id, _)| id.clone())
+            .collect();
+
+        if wave.is_empty() {
+            break;
+        }
+
+        wave.sort(); // Deterministic order within wave
+
+        // Remove this wave from the graph
+        for id in &wave {
+            in_degree.remove(id);
+            if let Some(neighbors) = adjacency.get(id) {
+                for neighbor in neighbors {
+                    if let Some(deg) = in_degree.get_mut(neighbor) {
+                        *deg -= 1;
+                    }
+                }
+            }
+        }
+
+        waves.push(wave);
+    }
+
+    if !in_degree.is_empty() {
+        let cycle_members: Vec<_> = in_degree.keys().cloned().collect();
+        return Err(format!(
+            "dependency cycle detected involving: {}",
+            cycle_members.join(", ")
+        ));
+    }
+
+    Ok(waves)
+}
+
 /// Build adjacency list and in-degree map from resource dependencies.
 fn build_dag(config: &ForjarConfig, resource_ids: &[String]) -> Result<Dag, String> {
     let mut in_degree: HashMap<String, usize> = HashMap::new();
@@ -1752,5 +1805,151 @@ resources:
         assert_eq!(order.len(), 3);
         // Alphabetical tie-breaking with no deps
         assert_eq!(order, vec!["alpha", "beta", "gamma"]);
+    }
+
+    // ================================================================
+    // FJ-216: parallel wave computation tests
+    // ================================================================
+
+    #[test]
+    fn test_fj216_waves_no_deps() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.2.3.4
+resources:
+  a:
+    type: file
+    machine: m1
+    path: /a
+  b:
+    type: file
+    machine: m1
+    path: /b
+  c:
+    type: file
+    machine: m1
+    path: /c
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let waves = compute_parallel_waves(&config).unwrap();
+        assert_eq!(waves.len(), 1, "all independent = single wave");
+        assert_eq!(waves[0].len(), 3);
+    }
+
+    #[test]
+    fn test_fj216_waves_linear_chain() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.2.3.4
+resources:
+  a:
+    type: file
+    machine: m1
+    path: /a
+  b:
+    type: file
+    machine: m1
+    path: /b
+    depends_on: [a]
+  c:
+    type: file
+    machine: m1
+    path: /c
+    depends_on: [b]
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let waves = compute_parallel_waves(&config).unwrap();
+        assert_eq!(waves.len(), 3, "linear chain = 3 waves");
+        assert_eq!(waves[0], vec!["a"]);
+        assert_eq!(waves[1], vec!["b"]);
+        assert_eq!(waves[2], vec!["c"]);
+    }
+
+    #[test]
+    fn test_fj216_waves_diamond() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.2.3.4
+resources:
+  root:
+    type: file
+    machine: m1
+    path: /root
+  left:
+    type: file
+    machine: m1
+    path: /left
+    depends_on: [root]
+  right:
+    type: file
+    machine: m1
+    path: /right
+    depends_on: [root]
+  join:
+    type: file
+    machine: m1
+    path: /join
+    depends_on: [left, right]
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let waves = compute_parallel_waves(&config).unwrap();
+        assert_eq!(waves.len(), 3, "diamond = 3 waves");
+        assert_eq!(waves[0], vec!["root"]);
+        assert_eq!(waves[1], vec!["left", "right"]); // concurrent
+        assert_eq!(waves[2], vec!["join"]);
+    }
+
+    #[test]
+    fn test_fj216_waves_mixed() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.2.3.4
+resources:
+  base:
+    type: file
+    machine: m1
+    path: /base
+  pkg-a:
+    type: package
+    machine: m1
+    provider: apt
+    packages: [curl]
+    depends_on: [base]
+  pkg-b:
+    type: package
+    machine: m1
+    provider: apt
+    packages: [git]
+    depends_on: [base]
+  independent:
+    type: file
+    machine: m1
+    path: /ind
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let waves = compute_parallel_waves(&config).unwrap();
+        assert_eq!(waves.len(), 2);
+        // Wave 0: base + independent (both have in-degree 0)
+        assert!(waves[0].contains(&"base".to_string()));
+        assert!(waves[0].contains(&"independent".to_string()));
+        // Wave 1: pkg-a + pkg-b (both depend only on base)
+        assert!(waves[1].contains(&"pkg-a".to_string()));
+        assert!(waves[1].contains(&"pkg-b".to_string()));
     }
 }

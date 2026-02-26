@@ -458,56 +458,59 @@ fn apply_machine(
         timeout_secs: cfg.timeout_secs,
     };
 
-    for change in &machine_changes {
-        let resource_start = Instant::now();
-        match apply_single_resource(cfg, change, machine, &mut ctx)? {
-            ResourceOutcome::Converged => {
-                converged += 1;
-                let resource = cfg.config.resources.get(&change.resource_id);
-                let rt = resource
-                    .map(|r| format!("{:?}", r.resource_type))
-                    .unwrap_or_default();
-                let action = if change.action == PlanAction::Create {
-                    "create"
-                } else {
-                    "update"
-                };
-                trace_session.record_span(
-                    &change.resource_id,
-                    &rt.to_lowercase(),
-                    machine_name,
-                    action,
-                    resource_start.elapsed(),
-                    0,
-                    None,
-                );
+    // FJ-216: Execute resources — parallel waves or sequential
+    if cfg.config.policy.parallel_resources && machine_changes.len() > 1 {
+        // Build parallel waves for this machine's changes
+        let change_ids: Vec<&str> = machine_changes.iter().map(|c| c.resource_id.as_str()).collect();
+        let waves = compute_resource_waves(cfg.config, &change_ids);
+
+        'wave_loop: for wave in &waves {
+            if wave.len() == 1 {
+                // Single resource — no parallelism needed
+                if let Some(change) = machine_changes.iter().find(|c| c.resource_id == wave[0]) {
+                    let outcome = apply_and_record_outcome(cfg, change, machine, &mut ctx, &mut trace_session, machine_name)?;
+                    match outcome {
+                        ResourceOutcome::Converged => converged += 1,
+                        ResourceOutcome::Unchanged => unchanged += 1,
+                        ResourceOutcome::Skipped => {}
+                        ResourceOutcome::Failed { should_stop } => {
+                            failed += 1;
+                            if should_stop { break 'wave_loop; }
+                        }
+                    }
+                }
+            } else {
+                // Multiple independent resources — execute sequentially but mark as parallel-eligible
+                // NOTE: True thread::scope parallelism within a single machine requires
+                // Arc<Mutex<RecordCtx>> which adds complexity. For now, we execute waves
+                // sequentially but validate the wave structure for future parallel execution.
+                for resource_id in wave {
+                    if let Some(change) = machine_changes.iter().find(|c| c.resource_id == *resource_id) {
+                        let outcome = apply_and_record_outcome(cfg, change, machine, &mut ctx, &mut trace_session, machine_name)?;
+                        match outcome {
+                            ResourceOutcome::Converged => converged += 1,
+                            ResourceOutcome::Unchanged => unchanged += 1,
+                            ResourceOutcome::Skipped => {}
+                            ResourceOutcome::Failed { should_stop } => {
+                                failed += 1;
+                                if should_stop { break 'wave_loop; }
+                            }
+                        }
+                    }
+                }
             }
-            ResourceOutcome::Unchanged => {
-                unchanged += 1;
-                let resource = cfg.config.resources.get(&change.resource_id);
-                let rt = resource
-                    .map(|r| format!("{:?}", r.resource_type))
-                    .unwrap_or_default();
-                trace_session.record_noop(&change.resource_id, &rt.to_lowercase(), machine_name);
-            }
-            ResourceOutcome::Skipped => {}
-            ResourceOutcome::Failed { should_stop } => {
-                failed += 1;
-                let resource = cfg.config.resources.get(&change.resource_id);
-                let rt = resource
-                    .map(|r| format!("{:?}", r.resource_type))
-                    .unwrap_or_default();
-                trace_session.record_span(
-                    &change.resource_id,
-                    &rt.to_lowercase(),
-                    machine_name,
-                    "create",
-                    resource_start.elapsed(),
-                    1,
-                    None,
-                );
-                if should_stop {
-                    break;
+        }
+    } else {
+        // Sequential execution (default)
+        for change in &machine_changes {
+            let outcome = apply_and_record_outcome(cfg, change, machine, &mut ctx, &mut trace_session, machine_name)?;
+            match outcome {
+                ResourceOutcome::Converged => converged += 1,
+                ResourceOutcome::Unchanged => unchanged += 1,
+                ResourceOutcome::Skipped => {}
+                ResourceOutcome::Failed { should_stop } => {
+                    failed += 1;
+                    if should_stop { break; }
                 }
             }
         }
@@ -563,6 +566,119 @@ fn apply_machine(
     }
 
     Ok(result)
+}
+
+/// Apply a single resource and record the outcome in tracing.
+fn apply_and_record_outcome(
+    cfg: &ApplyConfig,
+    change: &PlannedChange,
+    machine: &Machine,
+    ctx: &mut RecordCtx,
+    trace_session: &mut tracer::TraceSession,
+    machine_name: &str,
+) -> Result<ResourceOutcome, String> {
+    let resource_start = Instant::now();
+    let outcome = apply_single_resource(cfg, change, machine, ctx)?;
+
+    let resource = cfg.config.resources.get(&change.resource_id);
+    let rt = resource
+        .map(|r| format!("{:?}", r.resource_type))
+        .unwrap_or_default();
+
+    match &outcome {
+        ResourceOutcome::Converged => {
+            let action = if change.action == PlanAction::Create {
+                "create"
+            } else {
+                "update"
+            };
+            trace_session.record_span(
+                &change.resource_id,
+                &rt.to_lowercase(),
+                machine_name,
+                action,
+                resource_start.elapsed(),
+                0,
+                None,
+            );
+        }
+        ResourceOutcome::Unchanged => {
+            trace_session.record_noop(&change.resource_id, &rt.to_lowercase(), machine_name);
+        }
+        ResourceOutcome::Failed { .. } => {
+            trace_session.record_span(
+                &change.resource_id,
+                &rt.to_lowercase(),
+                machine_name,
+                "create",
+                resource_start.elapsed(),
+                1,
+                None,
+            );
+        }
+        ResourceOutcome::Skipped => {}
+    }
+
+    Ok(outcome)
+}
+
+/// FJ-216: Compute parallel waves for a subset of resource IDs.
+/// Returns groups of resource IDs that can execute concurrently.
+fn compute_resource_waves(config: &ForjarConfig, resource_ids: &[&str]) -> Vec<Vec<String>> {
+    let id_set: std::collections::HashSet<&str> = resource_ids.iter().copied().collect();
+    let mut in_degree: HashMap<String, usize> = HashMap::new();
+    let mut adjacency: HashMap<String, Vec<String>> = HashMap::new();
+
+    for &id in resource_ids {
+        in_degree.insert(id.to_string(), 0);
+        adjacency.insert(id.to_string(), Vec::new());
+    }
+
+    for &id in resource_ids {
+        if let Some(resource) = config.resources.get(id) {
+            for dep in &resource.depends_on {
+                // Only count deps within this subset
+                if id_set.contains(dep.as_str()) {
+                    if let Some(adj) = adjacency.get_mut(dep.as_str()) {
+                        adj.push(id.to_string());
+                    }
+                    if let Some(deg) = in_degree.get_mut(id) {
+                        *deg += 1;
+                    }
+                }
+            }
+        }
+    }
+
+    let mut waves = Vec::new();
+    loop {
+        let mut wave: Vec<String> = in_degree
+            .iter()
+            .filter(|(_, &d)| d == 0)
+            .map(|(id, _)| id.clone())
+            .collect();
+
+        if wave.is_empty() {
+            break;
+        }
+
+        wave.sort();
+
+        for id in &wave {
+            in_degree.remove(id);
+            if let Some(neighbors) = adjacency.get(id) {
+                for neighbor in neighbors {
+                    if let Some(deg) = in_degree.get_mut(neighbor) {
+                        *deg -= 1;
+                    }
+                }
+            }
+        }
+
+        waves.push(wave);
+    }
+
+    waves
 }
 
 /// Collect all unique machine names referenced by resources.
@@ -4566,5 +4682,116 @@ resources:
             findings2.iter().any(|f| f.resource == "drifty:db"),
             "drift events should be flagged"
         );
+    }
+
+    // ================================================================
+    // FJ-216: parallel resource execution tests
+    // ================================================================
+
+    #[test]
+    fn test_fj216_compute_resource_waves_no_deps() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.2.3.4
+resources:
+  a:
+    type: file
+    machine: m1
+    path: /a
+  b:
+    type: file
+    machine: m1
+    path: /b
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let waves = compute_resource_waves(&config, &["a", "b"]);
+        assert_eq!(waves.len(), 1);
+        assert_eq!(waves[0].len(), 2);
+    }
+
+    #[test]
+    fn test_fj216_compute_resource_waves_with_deps() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.2.3.4
+resources:
+  base:
+    type: file
+    machine: m1
+    path: /base
+  app:
+    type: file
+    machine: m1
+    path: /app
+    depends_on: [base]
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let waves = compute_resource_waves(&config, &["base", "app"]);
+        assert_eq!(waves.len(), 2);
+        assert_eq!(waves[0], vec!["base"]);
+        assert_eq!(waves[1], vec!["app"]);
+    }
+
+    #[test]
+    fn test_fj216_compute_resource_waves_subset() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.2.3.4
+resources:
+  a:
+    type: file
+    machine: m1
+    path: /a
+  b:
+    type: file
+    machine: m1
+    path: /b
+    depends_on: [a]
+  c:
+    type: file
+    machine: m1
+    path: /c
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        // Only compute waves for b and c (b depends on a which is outside subset)
+        let waves = compute_resource_waves(&config, &["b", "c"]);
+        // Both should be in wave 0 since a is not in subset
+        assert_eq!(waves.len(), 1);
+        assert_eq!(waves[0].len(), 2);
+    }
+
+    #[test]
+    fn test_fj216_parallel_resources_policy_default_false() {
+        let policy = Policy::default();
+        assert!(!policy.parallel_resources);
+    }
+
+    #[test]
+    fn test_fj216_parallel_resources_policy_yaml() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.2.3.4
+resources: {}
+policy:
+  parallel_resources: true
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        assert!(config.policy.parallel_resources);
     }
 }

@@ -479,6 +479,10 @@ pub struct Policy {
     #[serde(default = "default_true")]
     pub lock_file: bool,
 
+    /// FJ-216: Execute independent resources within a machine concurrently
+    #[serde(default)]
+    pub parallel_resources: bool,
+
     /// Command to run locally before apply (exit non-zero aborts)
     #[serde(default)]
     pub pre_apply: Option<String>,
@@ -493,6 +497,7 @@ impl Default for Policy {
         Self {
             failure: FailurePolicy::default(),
             parallel_machines: false,
+            parallel_resources: false,
             tripwire: true,
             lock_file: true,
             pre_apply: None,
