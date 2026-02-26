@@ -635,6 +635,17 @@ pub enum Commands {
         resource: String,
     },
 
+    /// FJ-277: Show resolved environment info
+    Env {
+        /// Path to forjar.yaml
+        #[arg(short, long, default_value = "forjar.yaml")]
+        file: PathBuf,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+
     /// FJ-256: Generate lock file without applying
     Lock {
         /// Path to forjar.yaml
@@ -1095,6 +1106,7 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             yes,
         } => cmd_watch(&file, &state_dir, interval, apply, yes),
         Commands::Explain { file, resource } => cmd_explain(&file, &resource),
+        Commands::Env { file, json } => cmd_env(&file, json),
         Commands::Lock {
             file,
             state_dir,
@@ -1923,7 +1935,7 @@ fn cmd_rollback(
         false, // no report
         false, // no force_unlock
         None,  // no output mode
-    false,  // no progress
+        false, // no progress
     )
 }
 
@@ -3818,7 +3830,7 @@ fn cmd_drift(
             false, // no report
             false, // no force_unlock
             None,  // no output mode
-        false,  // no progress
+            false, // no progress
         )?;
         if !json {
             println!("Remediation complete.");
@@ -4674,7 +4686,7 @@ fn cmd_watch(
                             tag_filter: None,
                             timeout_secs: None,
                             force_unlock: false,
-                        progress: false,
+                            progress: false,
                         };
                         match executor::apply(&cfg) {
                             Ok(results) => {
@@ -4724,6 +4736,60 @@ fn load_all_locks(
         }
     }
     locks
+}
+
+/// FJ-277: Show resolved environment info.
+fn cmd_env(file: &Path, json: bool) -> Result<(), String> {
+    let config_info = if file.exists() {
+        match parse_and_validate(file) {
+            Ok(config) => Some((
+                config.name.clone(),
+                config.machines.len(),
+                config.resources.len(),
+                config.params.len(),
+            )),
+            Err(_) => None,
+        }
+    } else {
+        None
+    };
+
+    if json {
+        let mut info = serde_json::json!({
+            "forjar_version": env!("CARGO_PKG_VERSION"),
+            "os": std::env::consts::OS,
+            "arch": std::env::consts::ARCH,
+            "config_path": file.display().to_string(),
+            "config_exists": file.exists(),
+        });
+        if let Some((name, machines, resources, params)) = &config_info {
+            info["config_name"] = serde_json::json!(name);
+            info["machines"] = serde_json::json!(machines);
+            info["resources"] = serde_json::json!(resources);
+            info["params"] = serde_json::json!(params);
+        }
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&info)
+                .map_err(|e| format!("JSON error: {}", e))?
+        );
+    } else {
+        println!("{:<20} {}", bold("forjar version:"), env!("CARGO_PKG_VERSION"));
+        println!("{:<20} {}", bold("os:"), std::env::consts::OS);
+        println!("{:<20} {}", bold("arch:"), std::env::consts::ARCH);
+        println!("{:<20} {}", bold("config:"), file.display());
+        if let Some((name, machines, resources, params)) = config_info {
+            println!("{:<20} {}", bold("project:"), name);
+            println!("{:<20} {}", bold("machines:"), machines);
+            println!("{:<20} {}", bold("resources:"), resources);
+            println!("{:<20} {}", bold("params:"), params);
+        } else if !file.exists() {
+            println!("{:<20} {}", bold("status:"), dim("config not found"));
+        } else {
+            println!("{:<20} {}", bold("status:"), red("parse error"));
+        }
+    }
+    Ok(())
 }
 
 /// FJ-271: Explain a resource — show raw YAML, resolved templates, codegen script, transport.
@@ -5794,7 +5860,7 @@ resources:
             false, // no report
             false, // no force_unlock
             None,  // no output mode
-        false,  // no progress
+            false, // no progress
         )
         .unwrap();
     }
@@ -5845,7 +5911,7 @@ policy:
             false, // no report
             false, // no force_unlock
             None,  // no output mode
-        false,  // no progress
+            false, // no progress
         )
         .unwrap();
 
@@ -5893,7 +5959,7 @@ resources: {}
             false, // no report
             false, // no force_unlock
             None,  // no output mode
-        false,  // no progress
+            false, // no progress
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("validation"));
@@ -6216,7 +6282,7 @@ resources:
                 report: false,
                 force_unlock: false,
                 output: None,
-            progress: false,
+                progress: false,
             },
             false,
             true,
@@ -6410,7 +6476,7 @@ resources:
             false, // no report
             false, // no force_unlock
             None,  // no output mode
-        false,  // no progress
+            false, // no progress
         )
         .unwrap();
         assert!(target.exists());
@@ -6435,7 +6501,7 @@ resources:
             false, // no report
             false, // no force_unlock
             None,  // no output mode
-        false,  // no progress
+            false, // no progress
         )
         .unwrap();
     }
@@ -7006,7 +7072,7 @@ resources:
             false, // no report
             false, // no force_unlock
             None,  // no output mode
-        false,  // no progress
+            false, // no progress
         )
         .unwrap();
         assert!(target.exists());
@@ -7071,7 +7137,7 @@ resources:
             false, // no report
             false, // no force_unlock
             None,  // no output mode
-        false,  // no progress
+            false, // no progress
         )
         .unwrap();
         cmd_destroy(&config, &state, None, true, true).unwrap();
@@ -7137,7 +7203,7 @@ resources:
             false, // no report
             false, // no force_unlock
             None,  // no output mode
-        false,  // no progress
+            false, // no progress
         )
         .unwrap();
         assert!(target_a.exists());
@@ -7198,7 +7264,7 @@ resources:
             false, // no report
             false, // no force_unlock
             None,  // no output mode
-        false,  // no progress
+            false, // no progress
         )
         .unwrap();
         dispatch(
@@ -7295,7 +7361,7 @@ resources:
             false, // no report
             false, // no force_unlock
             None,  // no output mode
-        false,  // no progress
+            false, // no progress
         )
         .unwrap();
         assert!(target.exists());
@@ -7455,7 +7521,7 @@ resources:
             false, // no report
             false, // no force_unlock
             None,  // no output mode
-        false,  // no progress
+            false, // no progress
         )
         .unwrap();
         assert!(std::path::Path::new(&target).exists());
@@ -8829,7 +8895,7 @@ resources:
             false, // no report
             false, // no force_unlock
             None,  // no output mode
-        false,  // no progress
+            false, // no progress
         )
         .unwrap();
     }
@@ -10095,7 +10161,7 @@ resources:
             false, // no report
             false, // no force_unlock
             None,  // no output mode
-        false,  // no progress
+            false, // no progress
         );
         assert!(result.is_ok());
     }
@@ -10179,7 +10245,7 @@ resources:
                 report: false,
                 force_unlock: false,
                 output: None,
-            progress: false,
+                progress: false,
             },
             false,
             true,
@@ -10717,7 +10783,7 @@ resources:
             false, // no report
             false, // no force_unlock
             None,  // no output mode
-        false,  // no progress
+            false, // no progress
         )
         .unwrap();
     }
@@ -11307,7 +11373,7 @@ resources:
                 report: false,
                 force_unlock: false,
                 output: None,
-            progress: false,
+                progress: false,
             },
             false,
             true,
@@ -11362,7 +11428,7 @@ resources:
                 report: false,
                 force_unlock: false,
                 output: None,
-            progress: false,
+                progress: false,
             },
             false,
             true,
@@ -12974,6 +13040,67 @@ resources:
         match cmd {
             Commands::Apply { progress, .. } => assert!(!progress),
             _ => panic!("expected Apply"),
+        }
+    }
+
+    // ========================================================================
+    // FJ-277: forjar env
+    // ========================================================================
+
+    #[test]
+    fn test_fj277_env_no_config() {
+        let result = dispatch(
+            Commands::Env {
+                file: PathBuf::from("/tmp/nonexistent-forjar.yaml"),
+                json: false,
+            },
+            false,
+            true,
+        );
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj277_env_with_config() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join("forjar.yaml");
+        std::fs::write(&config_path, "version: \"1.0\"\nname: my-project\nmachines:\n  a:\n    hostname: a\n    addr: 1.2.3.4\n  b:\n    hostname: b\n    addr: 5.6.7.8\nresources:\n  pkg:\n    type: file\n    machine: a\n    path: /tmp/x\n    content: x\n").unwrap();
+        let result = dispatch(
+            Commands::Env {
+                file: config_path,
+                json: false,
+            },
+            false,
+            true,
+        );
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj277_env_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join("forjar.yaml");
+        std::fs::write(&config_path, "version: \"1.0\"\nname: test\nmachines:\n  local:\n    hostname: localhost\n    addr: 127.0.0.1\nresources:\n  f:\n    type: file\n    machine: local\n    path: /tmp/x\n    content: x\n").unwrap();
+        let result = dispatch(
+            Commands::Env {
+                file: config_path,
+                json: true,
+            },
+            false,
+            true,
+        );
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj277_env_command_parse() {
+        let cmd = Commands::Env {
+            file: PathBuf::from("forjar.yaml"),
+            json: true,
+        };
+        match cmd {
+            Commands::Env { json, .. } => assert!(json),
+            _ => panic!("expected Env"),
         }
     }
 }
