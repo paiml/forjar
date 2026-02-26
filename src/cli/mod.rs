@@ -77,6 +77,10 @@ pub enum Commands {
         /// FJ-282: Extended validation — check machine refs, paths, deps, templates
         #[arg(long)]
         strict: bool,
+
+        /// Output validation result as JSON
+        #[arg(long)]
+        json: bool,
     },
 
     /// Show execution plan (diff desired vs current)
@@ -931,7 +935,11 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
     NO_COLOR.store(no_color, Ordering::Relaxed);
     match cmd {
         Commands::Init { path } => cmd_init(&path),
-        Commands::Validate { file, strict } => cmd_validate(&file, strict),
+        Commands::Validate {
+            file,
+            strict,
+            json,
+        } => cmd_validate(&file, strict, json),
         Commands::Plan {
             file,
             machine,
@@ -3079,12 +3087,12 @@ fn discover_machines(state_dir: &Path) -> Vec<String> {
     machines
 }
 
-fn cmd_validate(file: &Path, strict: bool) -> Result<(), String> {
+fn cmd_validate(file: &Path, strict: bool, json: bool) -> Result<(), String> {
     let config = parse_and_validate(file)?;
 
-    if strict {
-        let mut errors: Vec<String> = Vec::new();
+    let mut errors: Vec<String> = Vec::new();
 
+    if strict {
         // Check that all machine references in resources exist
         for (id, resource) in &config.resources {
             for machine_name in resource.machine.to_vec() {
@@ -3128,8 +3136,32 @@ fn cmd_validate(file: &Path, strict: bool) -> Result<(), String> {
                 errors.push(format!("{}: template error: {}", id, e));
             }
         }
+    }
 
-        if !errors.is_empty() {
+    let valid = errors.is_empty();
+
+    if json {
+        let output = serde_json::json!({
+            "valid": valid,
+            "name": config.name,
+            "machines": config.machines.len(),
+            "resources": config.resources.len(),
+            "strict": strict,
+            "errors": errors,
+        });
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&output)
+                .map_err(|e| format!("JSON error: {}", e))?
+        );
+        if !valid {
+            return Err(format!(
+                "strict validation failed: {} error(s)",
+                errors.len()
+            ));
+        }
+    } else {
+        if !valid {
             for e in &errors {
                 eprintln!("  {}", red(e));
             }
@@ -3138,14 +3170,14 @@ fn cmd_validate(file: &Path, strict: bool) -> Result<(), String> {
                 errors.len()
             ));
         }
+        println!(
+            "OK: {} ({} machines, {} resources)",
+            config.name,
+            config.machines.len(),
+            config.resources.len()
+        );
     }
 
-    println!(
-        "OK: {} ({} machines, {} resources)",
-        config.name,
-        config.machines.len(),
-        config.resources.len()
-    );
     Ok(())
 }
 
@@ -6589,7 +6621,7 @@ resources:
 "#,
         )
         .unwrap();
-        cmd_validate(&config, false).unwrap();
+        cmd_validate(&config, false, false).unwrap();
     }
 
     #[test]
@@ -6606,7 +6638,7 @@ resources: {}
 "#,
         )
         .unwrap();
-        let result = cmd_validate(&config, false);
+        let result = cmd_validate(&config, false, false);
         assert!(result.is_err());
     }
 
@@ -7088,6 +7120,7 @@ resources: {}
             Commands::Validate {
                 file: config.clone(),
                 strict: false,
+                json: false,
             },
             false,
             true,
@@ -10400,7 +10433,7 @@ resources:
     packages: [curl]
 "#;
         std::fs::write(&file, yaml).unwrap();
-        cmd_validate(&file, false).unwrap();
+        cmd_validate(&file, false, false).unwrap();
     }
 
     #[test]
@@ -10414,7 +10447,7 @@ machines: {}
 resources: {}
 "#;
         std::fs::write(&file, yaml).unwrap();
-        let result = cmd_validate(&file, false);
+        let result = cmd_validate(&file, false, false);
         assert!(result.is_err());
     }
 
@@ -10843,7 +10876,7 @@ resources:
     depends_on: [web-pkg]
 "#;
         std::fs::write(&file, yaml).unwrap();
-        let result = cmd_validate(&file, false);
+        let result = cmd_validate(&file, false, false);
         assert!(
             result.is_ok(),
             "valid config should pass validation: {:?}",
@@ -10983,7 +11016,7 @@ resources:
     fn test_fj017_cmd_validate_missing_file() {
         let dir = tempfile::tempdir().unwrap();
         let missing = dir.path().join("nonexistent.yaml");
-        let result = cmd_validate(&missing, false);
+        let result = cmd_validate(&missing, false, false);
         assert!(
             result.is_err(),
             "cmd_validate should fail for a nonexistent file"
@@ -14500,7 +14533,7 @@ resources:
     content: "hello"
 "#;
         std::fs::write(&file, yaml).unwrap();
-        let result = cmd_validate(&file, true);
+        let result = cmd_validate(&file, true, false);
         assert!(result.is_err());
         let msg = result.unwrap_err();
         assert!(msg.contains("strict validation failed"));
@@ -14511,6 +14544,7 @@ resources:
         let cmd = Commands::Validate {
             file: PathBuf::from("forjar.yaml"),
             strict: true,
+            json: false,
         };
         match cmd {
             Commands::Validate { strict, .. } => assert!(strict),
@@ -14537,7 +14571,7 @@ resources:
     content: "hello"
 "#;
         std::fs::write(&file, yaml).unwrap();
-        cmd_validate(&file, true).unwrap();
+        cmd_validate(&file, true, false).unwrap();
     }
 
     #[test]
@@ -14563,7 +14597,7 @@ resources:
         // strict=false should skip deep checks — but parse_and_validate
         // may still reject unknown machine refs. If so, we just verify
         // that the error is NOT about "strict validation".
-        let result = cmd_validate(&file, false);
+        let result = cmd_validate(&file, false, false);
         match result {
             Ok(()) => {} // parser didn't catch it — fine
             Err(msg) => assert!(!msg.contains("strict validation")),
@@ -15118,5 +15152,49 @@ resources:
         // Filter to frontend group only
         let result = cmd_graph(&config, "dot", None, Some("frontend"));
         assert!(result.is_ok());
+    }
+
+    // ── FJ-295: validate --json ──
+
+    #[test]
+    fn test_fj295_validate_json_valid() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &file,
+            r#"
+version: "1.0"
+name: test
+machines:
+  local:
+    hostname: local
+    addr: 127.0.0.1
+resources:
+  cfg:
+    type: file
+    machine: local
+    path: /tmp/test.txt
+    content: "hello"
+"#,
+        )
+        .unwrap();
+        let result = cmd_validate(&file, false, true);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj295_validate_json_flag_parse() {
+        let cmd = Commands::Validate {
+            file: PathBuf::from("forjar.yaml"),
+            strict: true,
+            json: true,
+        };
+        match cmd {
+            Commands::Validate { json, strict, .. } => {
+                assert!(json);
+                assert!(strict);
+            }
+            _ => panic!("expected Validate"),
+        }
     }
 }
