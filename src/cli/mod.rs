@@ -132,6 +132,10 @@ pub enum Commands {
         /// FJ-285: Plan single resource and its transitive dependencies
         #[arg(long)]
         target: Option<String>,
+
+        /// FJ-312: Show estimated change cost per resource type
+        #[arg(long)]
+        cost: bool,
     },
 
     /// Converge infrastructure to desired state
@@ -965,6 +969,7 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             workspace,
             no_diff,
             target,
+            cost,
         } => {
             let sd = resolve_state_dir(&state_dir, workspace.as_deref());
             cmd_plan(
@@ -980,6 +985,7 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
                 workspace.as_deref(),
                 no_diff,
                 target.as_deref(),
+                cost,
             )
         }
         Commands::Apply {
@@ -3190,10 +3196,7 @@ fn cmd_validate(file: &Path, strict: bool, json: bool) -> Result<(), String> {
             std::collections::HashMap::new();
         for (id, resource) in &config.resources {
             for tag in &resource.tags {
-                tag_counts
-                    .entry(tag.clone())
-                    .or_default()
-                    .push(id.clone());
+                tag_counts.entry(tag.clone()).or_default().push(id.clone());
             }
         }
 
@@ -3283,6 +3286,7 @@ fn cmd_plan(
     workspace: Option<&str>,
     no_diff: bool,
     target: Option<&str>,
+    cost: bool,
 ) -> Result<(), String> {
     let mut config = parse_and_validate(file)?;
     if let Some(path) = env_file {
@@ -3363,6 +3367,48 @@ fn cmd_plan(
             if show_diff { Some(&config) } else { None },
         );
     }
+
+    // FJ-312: Show change cost summary
+    if cost && !plan.changes.is_empty() {
+        let type_weight = |t: &types::ResourceType| -> u32 {
+            match t {
+                types::ResourceType::Package => 3,
+                types::ResourceType::Service => 3,
+                types::ResourceType::Mount => 4,
+                types::ResourceType::Docker | types::ResourceType::Pepita => 5,
+                types::ResourceType::User => 3,
+                types::ResourceType::Network => 2,
+                types::ResourceType::Gpu => 4,
+                types::ResourceType::Model => 5,
+                types::ResourceType::Cron => 2,
+                _ => 1, // file, recipe
+            }
+        };
+        let total_cost: u32 = plan
+            .changes
+            .iter()
+            .map(|c| type_weight(&c.resource_type))
+            .sum();
+        let destroy_cost: u32 = plan
+            .changes
+            .iter()
+            .filter(|c| c.action == types::PlanAction::Destroy)
+            .map(|c| type_weight(&c.resource_type) * 2) // destructive = 2x
+            .sum();
+        println!(
+            "\nCost: {} total (create/update: {}, destroy: {})",
+            total_cost + destroy_cost,
+            total_cost,
+            destroy_cost
+        );
+        if destroy_cost > 10 {
+            println!(
+                "  {} High destructive cost — consider --dry-run first",
+                red("!")
+            );
+        }
+    }
+
     Ok(())
 }
 
@@ -6884,6 +6930,7 @@ resources:
         std::fs::create_dir_all(&state).unwrap();
         cmd_plan(
             &config, &state, None, None, None, false, false, None, None, None, false, None,
+            false, // no cost
         )
         .unwrap();
     }
@@ -6933,6 +6980,7 @@ resources:
             None,
             false,
             None,
+            false, // no cost
         )
         .unwrap();
     }
@@ -6954,6 +7002,7 @@ resources: {}
         .unwrap();
         let result = cmd_plan(
             &config, &state, None, None, None, false, false, None, None, None, false, None,
+            false, // no cost
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("validation"));
@@ -7400,6 +7449,7 @@ resources:
                 workspace: None,
                 no_diff: false,
                 target: None,
+            cost: false,
             },
             false,
             true,
@@ -7774,6 +7824,7 @@ resources:
         let missing = dir.path().join("no-state");
         cmd_plan(
             &config, &missing, None, None, None, false, false, None, None, None, false, None,
+            false, // no cost
         )
         .unwrap();
     }
@@ -7805,6 +7856,7 @@ resources:
         // json=true should not panic (output goes to stdout)
         cmd_plan(
             &config, &state, None, None, None, true, false, None, None, None, false, None,
+            false, // no cost
         )
         .unwrap();
     }
@@ -7835,6 +7887,7 @@ resources:
         .unwrap();
         cmd_plan(
             &config, &state, None, None, None, false, true, None, None, None, false, None,
+            false, // no cost
         )
         .unwrap();
     }
@@ -7882,6 +7935,7 @@ resources:
             None, // no workspace
             false,
             None,
+            false, // no cost
         )
         .unwrap();
 
@@ -12048,6 +12102,7 @@ resources:
             None, // no workspace
             false,
             None,
+            false, // no cost
         )
         .unwrap();
     }
@@ -12325,6 +12380,7 @@ resources:
             Some("staging"),
             false,
             None,
+            false, // no cost
         )
         .unwrap();
     }
@@ -13206,6 +13262,7 @@ resources:
         // no_diff=false → show diff
         cmd_plan(
             &config, &state, None, None, None, false, false, None, None, None, false, None,
+            false, // no cost
         )
         .unwrap();
     }
@@ -13237,6 +13294,7 @@ resources:
         // no_diff=true → suppress diff
         cmd_plan(
             &config, &state, None, None, None, false, false, None, None, None, true, None,
+            false, // no cost
         )
         .unwrap();
     }
@@ -15008,6 +15066,7 @@ resources:
             workspace: None,
             no_diff: false,
             target: Some("web-config".to_string()),
+            cost: false,
         };
         match cmd {
             Commands::Plan { target, .. } => {
@@ -15878,5 +15937,30 @@ resources:
         .unwrap();
         let result = cmd_validate(&file, true, false);
         assert!(result.is_err()); // missing description triggers strict error
+    }
+
+    // ── FJ-312: plan --cost ──
+
+    #[test]
+    fn test_fj312_plan_cost_flag_parse() {
+        let cmd = Commands::Plan {
+            file: PathBuf::from("forjar.yaml"),
+            machine: None,
+            resource: None,
+            tag: None,
+            group: None,
+            state_dir: PathBuf::from("state"),
+            json: false,
+            output_dir: None,
+            env_file: None,
+            workspace: None,
+            no_diff: false,
+            target: None,
+            cost: true,
+        };
+        match cmd {
+            Commands::Plan { cost, .. } => assert!(cost),
+            _ => panic!("expected Plan"),
+        }
     }
 }
