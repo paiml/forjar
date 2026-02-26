@@ -521,6 +521,21 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
     },
+
+    /// FJ-253: Generate shell completions
+    Completion {
+        /// Shell to generate completions for
+        #[arg(value_enum)]
+        shell: CompletionShell,
+    },
+}
+
+/// Shell types for completion generation.
+#[derive(Debug, Clone, clap::ValueEnum)]
+pub enum CompletionShell {
+    Bash,
+    Zsh,
+    Fish,
 }
 
 /// FJ-210: Workspace subcommands.
@@ -873,6 +888,7 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             ),
         },
         Commands::Doctor { file, json } => cmd_doctor(file.as_deref(), json),
+        Commands::Completion { shell } => cmd_completion(shell),
     }
 }
 
@@ -4166,6 +4182,30 @@ fn cmd_output(file: &Path, key: Option<&str>, json: bool) -> Result<(), String> 
     Ok(())
 }
 
+// FJ-253: forjar completion — shell completion generation
+fn cmd_completion(shell: CompletionShell) -> Result<(), String> {
+    use clap::CommandFactory;
+    use clap_complete::{generate, Shell};
+
+    // Build a top-level CLI command that mirrors main.rs Cli struct
+    #[derive(clap::Parser)]
+    #[command(name = "forjar")]
+    struct CliForCompletion {
+        #[command(subcommand)]
+        command: Commands,
+    }
+
+    let clap_shell = match shell {
+        CompletionShell::Bash => Shell::Bash,
+        CompletionShell::Zsh => Shell::Zsh,
+        CompletionShell::Fish => Shell::Fish,
+    };
+
+    let mut cmd = CliForCompletion::command();
+    generate(clap_shell, &mut cmd, "forjar", &mut std::io::stdout());
+    Ok(())
+}
+
 // FJ-251: forjar doctor — pre-flight system checker
 fn cmd_doctor(file: Option<&Path>, json: bool) -> Result<(), String> {
     use std::process::Command;
@@ -4191,11 +4231,7 @@ fn cmd_doctor(file: Option<&Path>, json: bool) -> Result<(), String> {
         Ok(out) => {
             let ver = String::from_utf8_lossy(&out.stdout);
             // Extract version number from "GNU bash, version X.Y.Z..."
-            let version_str = ver
-                .lines()
-                .next()
-                .unwrap_or("")
-                .to_string();
+            let version_str = ver.lines().next().unwrap_or("").to_string();
             if let Some(pos) = version_str.find("version ") {
                 let after = &version_str[pos + 8..];
                 let major: u32 = after
@@ -4208,7 +4244,12 @@ fn cmd_doctor(file: Option<&Path>, json: bool) -> Result<(), String> {
                     checks.push(Check {
                         name: "bash".to_string(),
                         status: CheckStatus::Pass,
-                        detail: format!("bash {}", &after[..after.find(|c: char| c.is_whitespace() || c == '(').unwrap_or(after.len())]),
+                        detail: format!(
+                            "bash {}",
+                            &after[..after
+                                .find(|c: char| c.is_whitespace() || c == '(')
+                                .unwrap_or(after.len())]
+                        ),
                     });
                 } else {
                     checks.push(Check {
@@ -4266,9 +4307,9 @@ fn cmd_doctor(file: Option<&Path>, json: bool) -> Result<(), String> {
     let has_container_machines = config
         .as_ref()
         .map(|c| {
-            c.machines.values().any(|m| {
-                m.transport.as_deref() == Some("container") || m.addr == "container"
-            })
+            c.machines
+                .values()
+                .any(|m| m.transport.as_deref() == Some("container") || m.addr == "container")
         })
         .unwrap_or(false);
 
@@ -4304,9 +4345,9 @@ fn cmd_doctor(file: Option<&Path>, json: bool) -> Result<(), String> {
         let runtime = config
             .as_ref()
             .and_then(|c| {
-                c.machines.values().find_map(|m| {
-                    m.container.as_ref().map(|ct| ct.runtime.clone())
-                })
+                c.machines
+                    .values()
+                    .find_map(|m| m.container.as_ref().map(|ct| ct.runtime.clone()))
             })
             .unwrap_or_else(|| "docker".to_string());
 
@@ -4382,7 +4423,10 @@ fn cmd_doctor(file: Option<&Path>, json: bool) -> Result<(), String> {
         checks.push(Check {
             name: "state-dir".to_string(),
             status: CheckStatus::Warn,
-            detail: format!("{} does not exist (will be created on apply)", state_dir.display()),
+            detail: format!(
+                "{} does not exist (will be created on apply)",
+                state_dir.display()
+            ),
         });
     }
 
@@ -4450,9 +4494,18 @@ fn cmd_doctor(file: Option<&Path>, json: bool) -> Result<(), String> {
             println!("[{:>4}] {}: {}", icon, c.name, c.detail);
         }
 
-        let pass_count = checks.iter().filter(|c| c.status == CheckStatus::Pass).count();
-        let warn_count = checks.iter().filter(|c| c.status == CheckStatus::Warn).count();
-        let fail_count = checks.iter().filter(|c| c.status == CheckStatus::Fail).count();
+        let pass_count = checks
+            .iter()
+            .filter(|c| c.status == CheckStatus::Pass)
+            .count();
+        let warn_count = checks
+            .iter()
+            .filter(|c| c.status == CheckStatus::Warn)
+            .count();
+        let fail_count = checks
+            .iter()
+            .filter(|c| c.status == CheckStatus::Fail)
+            .count();
         println!(
             "\n{} checks: {} pass, {} warn, {} fail",
             checks.len(),
@@ -10347,7 +10400,10 @@ resources:
     fn test_fj251_doctor_no_config() {
         // Doctor without config should check system basics and succeed
         let result = cmd_doctor(None, false);
-        assert!(result.is_ok(), "doctor without config should pass on dev machine");
+        assert!(
+            result.is_ok(),
+            "doctor without config should pass on dev machine"
+        );
     }
 
     #[test]
@@ -10474,5 +10530,39 @@ resources:
         .unwrap();
         let result = cmd_doctor(Some(&file), true);
         assert!(result.is_ok());
+    }
+
+    // FJ-253: Completion tests
+
+    #[test]
+    fn test_fj253_completion_bash() {
+        let result = cmd_completion(CompletionShell::Bash);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj253_completion_zsh() {
+        let result = cmd_completion(CompletionShell::Zsh);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj253_completion_fish() {
+        let result = cmd_completion(CompletionShell::Fish);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj253_completion_shell_enum_debug() {
+        let bash = CompletionShell::Bash;
+        let debug = format!("{:?}", bash);
+        assert_eq!(debug, "Bash");
+    }
+
+    #[test]
+    fn test_fj253_completion_shell_clone() {
+        let orig = CompletionShell::Zsh;
+        let cloned = orig.clone();
+        assert_eq!(format!("{:?}", cloned), "Zsh");
     }
 }
