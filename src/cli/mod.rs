@@ -4037,7 +4037,41 @@ fn cmd_apply(
     let dur_apply = t_apply.elapsed();
 
     if dry_run {
-        println!("Dry run — no changes applied.");
+        if json {
+            // FJ-293: Structured JSON plan output for CI integration
+            let execution_order = resolver::build_execution_order(&config)?;
+            let plan_locks = load_machine_locks(&config, state_dir, machine_filter)?;
+            let plan = planner::plan(&config, &execution_order, &plan_locks, tag_filter);
+            let changes: Vec<serde_json::Value> = plan
+                .changes
+                .iter()
+                .map(|c| {
+                    serde_json::json!({
+                        "resource": c.resource_id,
+                        "machine": c.machine,
+                        "type": c.resource_type.to_string(),
+                        "action": format!("{:?}", c.action).to_lowercase(),
+                        "description": c.description,
+                    })
+                })
+                .collect();
+            let output = serde_json::json!({
+                "dry_run": true,
+                "name": plan.name,
+                "to_create": plan.to_create,
+                "to_update": plan.to_update,
+                "to_destroy": plan.to_destroy,
+                "unchanged": plan.unchanged,
+                "changes": changes,
+            });
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&output)
+                    .map_err(|e| format!("JSON error: {}", e))?
+            );
+        } else {
+            println!("Dry run — no changes applied.");
+        }
         return Ok(());
     }
 
@@ -14911,6 +14945,63 @@ resources:
         let state_dir = dir.path().join("state");
         std::fs::create_dir_all(&state_dir).unwrap();
         let result = cmd_status(&state_dir, None, false, None);
+        assert!(result.is_ok());
+    }
+
+    // ── FJ-293: apply --dry-run --json ──
+
+    #[test]
+    fn test_fj293_dry_run_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        let state = dir.path().join("state");
+        std::fs::create_dir_all(&state).unwrap();
+        std::fs::write(
+            &config,
+            r#"
+version: "1.0"
+name: test
+machines:
+  local:
+    hostname: local
+    addr: 127.0.0.1
+resources:
+  pkg:
+    type: file
+    machine: local
+    path: /tmp/fj293/test.txt
+    content: "hello"
+"#,
+        )
+        .unwrap();
+
+        // dry_run + json should succeed (plan output)
+        let result = cmd_apply(
+            &config,     // file
+            &state,      // state_dir
+            None,        // machine_filter
+            None,        // resource_filter
+            None,        // tag_filter
+            None,        // group_filter
+            false,       // force
+            true,        // dry_run
+            false,       // no_tripwire
+            &[],         // param_overrides
+            false,       // auto_commit
+            None,        // timeout_secs
+            true,        // json
+            false,       // verbose
+            None,        // env_file
+            None,        // workspace
+            false,       // report
+            false,       // force_unlock
+            None,        // output_mode
+            false,       // progress
+            false,       // timing
+            0,           // retry
+            true,        // yes
+            false,       // parallel
+        );
         assert!(result.is_ok());
     }
 }
