@@ -57,6 +57,10 @@ pub enum Commands {
         /// FJ-211: Load param overrides from external YAML file
         #[arg(long)]
         env_file: Option<PathBuf>,
+
+        /// FJ-210: Use workspace (overrides state dir to state/<workspace>/)
+        #[arg(short = 'w', long)]
+        workspace: Option<String>,
     },
 
     /// Converge infrastructure to desired state
@@ -112,6 +116,10 @@ pub enum Commands {
         /// FJ-211: Load param overrides from external YAML file
         #[arg(long)]
         env_file: Option<PathBuf>,
+
+        /// FJ-210: Use workspace (overrides state dir to state/<workspace>/)
+        #[arg(short = 'w', long)]
+        workspace: Option<String>,
     },
 
     /// Detect unauthorized changes (tripwire)
@@ -151,6 +159,10 @@ pub enum Commands {
         /// FJ-211: Load param overrides from external YAML file
         #[arg(long)]
         env_file: Option<PathBuf>,
+
+        /// FJ-210: Use workspace (overrides state dir to state/<workspace>/)
+        #[arg(short = 'w', long)]
+        workspace: Option<String>,
     },
 
     /// Show current state from lock files
@@ -469,6 +481,42 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
     },
+
+    /// FJ-210: Manage workspaces (isolated state directories)
+    #[command(subcommand)]
+    Workspace(WorkspaceCmd),
+}
+
+/// FJ-210: Workspace subcommands.
+#[derive(Subcommand, Debug)]
+pub enum WorkspaceCmd {
+    /// Create a new workspace
+    New {
+        /// Workspace name
+        name: String,
+    },
+
+    /// List all workspaces
+    List,
+
+    /// Select (activate) a workspace
+    Select {
+        /// Workspace name to activate
+        name: String,
+    },
+
+    /// Delete a workspace and its state
+    Delete {
+        /// Workspace name to delete
+        name: String,
+
+        /// Skip confirmation
+        #[arg(long)]
+        yes: bool,
+    },
+
+    /// Show current active workspace
+    Current,
 }
 
 /// Dispatch a CLI command.
@@ -485,17 +533,22 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             json,
             output_dir,
             env_file,
-        } => cmd_plan(
-            &file,
-            &state_dir,
-            machine.as_deref(),
-            resource.as_deref(),
-            tag.as_deref(),
-            json,
-            verbose,
-            output_dir.as_deref(),
-            env_file.as_deref(),
-        ),
+            workspace,
+        } => {
+            let sd = resolve_state_dir(&state_dir, workspace.as_deref());
+            cmd_plan(
+                &file,
+                &sd,
+                machine.as_deref(),
+                resource.as_deref(),
+                tag.as_deref(),
+                json,
+                verbose,
+                output_dir.as_deref(),
+                env_file.as_deref(),
+                workspace.as_deref(),
+            )
+        }
         Commands::Apply {
             file,
             machine,
@@ -510,22 +563,27 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             state_dir,
             json,
             env_file,
-        } => cmd_apply(
-            &file,
-            &state_dir,
-            machine.as_deref(),
-            resource.as_deref(),
-            tag.as_deref(),
-            force,
-            dry_run,
-            no_tripwire,
-            &params,
-            auto_commit,
-            timeout,
-            json,
-            verbose,
-            env_file.as_deref(),
-        ),
+            workspace,
+        } => {
+            let sd = resolve_state_dir(&state_dir, workspace.as_deref());
+            cmd_apply(
+                &file,
+                &sd,
+                machine.as_deref(),
+                resource.as_deref(),
+                tag.as_deref(),
+                force,
+                dry_run,
+                no_tripwire,
+                &params,
+                auto_commit,
+                timeout,
+                json,
+                verbose,
+                env_file.as_deref(),
+                workspace.as_deref(),
+            )
+        }
         Commands::Drift {
             file,
             machine,
@@ -536,18 +594,22 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             dry_run,
             json,
             env_file,
-        } => cmd_drift(
-            &file,
-            &state_dir,
-            machine.as_deref(),
-            tripwire,
-            alert_cmd.as_deref(),
-            auto_remediate,
-            dry_run,
-            json,
-            verbose,
-            env_file.as_deref(),
-        ),
+            workspace,
+        } => {
+            let sd = resolve_state_dir(&state_dir, workspace.as_deref());
+            cmd_drift(
+                &file,
+                &sd,
+                machine.as_deref(),
+                tripwire,
+                alert_cmd.as_deref(),
+                auto_remediate,
+                dry_run,
+                json,
+                verbose,
+                env_file.as_deref(),
+            )
+        }
         Commands::Destroy {
             file,
             machine,
@@ -652,6 +714,13 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             force,
         } => cmd_state_rm(&state_dir, &resource_id, machine.as_deref(), force),
         Commands::Output { file, key, json } => cmd_output(&file, key.as_deref(), json),
+        Commands::Workspace(sub) => match sub {
+            WorkspaceCmd::New { name } => cmd_workspace_new(&name),
+            WorkspaceCmd::List => cmd_workspace_list(),
+            WorkspaceCmd::Select { name } => cmd_workspace_select(&name),
+            WorkspaceCmd::Delete { name, yes } => cmd_workspace_delete(&name, yes),
+            WorkspaceCmd::Current => cmd_workspace_current(),
+        },
     }
 }
 
@@ -1399,6 +1468,7 @@ fn cmd_rollback(
         false, // no json
         verbose,
         None, // no env_file
+        None, // no workspace
     )
 }
 
@@ -2191,11 +2261,13 @@ fn cmd_plan(
     verbose: bool,
     output_dir: Option<&Path>,
     env_file: Option<&Path>,
+    workspace: Option<&str>,
 ) -> Result<(), String> {
     let mut config = parse_and_validate(file)?;
     if let Some(path) = env_file {
         load_env_params(&mut config, path)?;
     }
+    inject_workspace_param(&mut config, workspace);
     if verbose {
         eprintln!(
             "Planning {} ({} machines, {} resources)",
@@ -2370,6 +2442,159 @@ fn apply_param_overrides(
     Ok(())
 }
 
+// ========================================================================
+// FJ-210: Workspace helpers
+// ========================================================================
+
+/// Read the current workspace from `.forjar/workspace` in the given root.
+fn current_workspace_in(root: &Path) -> Option<String> {
+    std::fs::read_to_string(root.join(".forjar").join("workspace"))
+        .ok()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+}
+
+/// Read the current workspace from the current directory.
+fn current_workspace() -> Option<String> {
+    current_workspace_in(Path::new("."))
+}
+
+/// Resolve the effective state directory given a workspace flag.
+fn resolve_state_dir(state_dir: &Path, workspace_flag: Option<&str>) -> PathBuf {
+    if let Some(ws) = workspace_flag {
+        return state_dir.join(ws);
+    }
+    if let Some(ws) = current_workspace() {
+        return state_dir.join(ws);
+    }
+    state_dir.to_path_buf()
+}
+
+/// Inject `{{workspace}}` template variable into config params.
+fn inject_workspace_param(config: &mut types::ForjarConfig, workspace_flag: Option<&str>) {
+    let ws = workspace_flag
+        .map(|s| s.to_string())
+        .or_else(current_workspace)
+        .unwrap_or_else(|| "default".to_string());
+    config
+        .params
+        .insert("workspace".to_string(), serde_yaml_ng::Value::String(ws));
+}
+
+/// Testable core: create workspace in given root + state base.
+fn workspace_new_in(root: &Path, state_base: &Path, name: &str) -> Result<(), String> {
+    let meta = root.join(".forjar");
+    std::fs::create_dir_all(&meta)
+        .map_err(|e| format!("cannot create workspace metadata: {}", e))?;
+    let ws_dir = state_base.join(name);
+    if ws_dir.exists() {
+        return Err(format!("workspace '{}' already exists", name));
+    }
+    std::fs::create_dir_all(&ws_dir)
+        .map_err(|e| format!("cannot create workspace dir {}: {}", ws_dir.display(), e))?;
+    std::fs::write(meta.join("workspace"), name)
+        .map_err(|e| format!("cannot write workspace file: {}", e))?;
+    println!("Created and selected workspace '{}'", name);
+    Ok(())
+}
+
+fn cmd_workspace_new(name: &str) -> Result<(), String> {
+    workspace_new_in(Path::new("."), Path::new("state"), name)
+}
+
+/// Testable core: list workspaces.
+fn workspace_list_in(root: &Path, state_base: &Path) -> Result<(), String> {
+    let active = current_workspace_in(root);
+    if !state_base.exists() {
+        println!("No workspaces (state/ does not exist)");
+        return Ok(());
+    }
+    let mut found = false;
+    let entries = std::fs::read_dir(state_base)
+        .map_err(|e| format!("cannot read state dir: {}", e))?;
+    for entry in entries.flatten() {
+        if entry.path().is_dir() {
+            let name = entry.file_name().to_string_lossy().to_string();
+            let marker = if active.as_deref() == Some(&name) {
+                " *"
+            } else {
+                ""
+            };
+            println!("  {}{}", name, marker);
+            found = true;
+        }
+    }
+    if !found {
+        println!("No workspaces found");
+    }
+    Ok(())
+}
+
+fn cmd_workspace_list() -> Result<(), String> {
+    workspace_list_in(Path::new("."), Path::new("state"))
+}
+
+/// Testable core: select workspace.
+fn workspace_select_in(root: &Path, state_base: &Path, name: &str) -> Result<(), String> {
+    let ws_dir = state_base.join(name);
+    if !ws_dir.exists() {
+        return Err(format!(
+            "workspace '{}' does not exist (no state/{}/)",
+            name, name
+        ));
+    }
+    let meta = root.join(".forjar");
+    std::fs::create_dir_all(&meta)
+        .map_err(|e| format!("cannot create workspace metadata: {}", e))?;
+    std::fs::write(meta.join("workspace"), name)
+        .map_err(|e| format!("cannot write workspace file: {}", e))?;
+    println!("Selected workspace '{}'", name);
+    Ok(())
+}
+
+fn cmd_workspace_select(name: &str) -> Result<(), String> {
+    workspace_select_in(Path::new("."), Path::new("state"), name)
+}
+
+/// Testable core: delete workspace.
+fn workspace_delete_in(
+    root: &Path,
+    state_base: &Path,
+    name: &str,
+    yes: bool,
+) -> Result<(), String> {
+    let ws_dir = state_base.join(name);
+    if !ws_dir.exists() {
+        return Err(format!("workspace '{}' does not exist", name));
+    }
+    if !yes {
+        println!(
+            "This will delete workspace '{}' and all its state. Use --yes to confirm.",
+            name
+        );
+        return Ok(());
+    }
+    std::fs::remove_dir_all(&ws_dir)
+        .map_err(|e| format!("cannot delete workspace dir: {}", e))?;
+    if current_workspace_in(root).as_deref() == Some(name) {
+        let _ = std::fs::remove_file(root.join(".forjar").join("workspace"));
+    }
+    println!("Deleted workspace '{}'", name);
+    Ok(())
+}
+
+fn cmd_workspace_delete(name: &str, yes: bool) -> Result<(), String> {
+    workspace_delete_in(Path::new("."), Path::new("state"), name, yes)
+}
+
+fn cmd_workspace_current() -> Result<(), String> {
+    match current_workspace() {
+        Some(ws) => println!("{}", ws),
+        None => println!("(default — no workspace selected)"),
+    }
+    Ok(())
+}
+
 /// FJ-211: Load param overrides from an external YAML file.
 /// The file must be a flat YAML mapping (key: value). Values are merged into
 /// config.params, overriding any existing keys with the same name.
@@ -2401,11 +2626,13 @@ fn cmd_apply(
     json: bool,
     verbose: bool,
     env_file: Option<&Path>,
+    workspace: Option<&str>,
 ) -> Result<(), String> {
     let mut config = parse_and_validate(file)?;
     if let Some(path) = env_file {
         load_env_params(&mut config, path)?;
     }
+    inject_workspace_param(&mut config, workspace);
     if verbose {
         eprintln!(
             "Applying {} ({} machines, {} resources)",
@@ -2674,6 +2901,7 @@ fn cmd_drift(
             false, // no json (remediation output is text)
             verbose,
             None, // no env_file
+            None, // no workspace
         )?;
         if !json {
             println!("Remediation complete.");
@@ -3515,7 +3743,7 @@ resources:
         .unwrap();
         let state = dir.path().join("state");
         std::fs::create_dir_all(&state).unwrap();
-        cmd_plan(&config, &state, None, None, None, false, false, None, None).unwrap();
+        cmd_plan(&config, &state, None, None, None, false, false, None, None, None).unwrap();
     }
 
     #[test]
@@ -3550,7 +3778,19 @@ resources:
 "#,
         )
         .unwrap();
-        cmd_plan(&config, &state, Some("a"), None, None, false, false, None, None).unwrap();
+        cmd_plan(
+            &config,
+            &state,
+            Some("a"),
+            None,
+            None,
+            false,
+            false,
+            None,
+            None,
+            None,
+        )
+        .unwrap();
     }
 
     #[test]
@@ -3568,7 +3808,7 @@ resources: {}
 "#,
         )
         .unwrap();
-        let result = cmd_plan(&config, &state, None, None, None, false, false, None, None);
+        let result = cmd_plan(&config, &state, None, None, None, false, false, None, None, None);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("validation"));
     }
@@ -3612,6 +3852,7 @@ resources:
             false,
             false,
             None, // no env_file
+            None, // no workspace
         )
         .unwrap();
     }
@@ -3658,6 +3899,7 @@ policy:
             false,
             false,
             None, // no env_file
+            None, // no workspace
         )
         .unwrap();
 
@@ -3701,6 +3943,7 @@ resources: {}
             false,
             false,
             None, // no env_file
+            None, // no workspace
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("validation"));
@@ -3968,6 +4211,7 @@ resources:
                 json: false,
                 output_dir: None,
                 env_file: None,
+                workspace: None,
             },
             false,
         )
@@ -4013,6 +4257,7 @@ resources:
                 timeout: None,
                 json: false,
                 env_file: None,
+                workspace: None,
             },
             false,
         )
@@ -4035,6 +4280,7 @@ resources:
                 dry_run: false,
                 json: false,
                 env_file: None,
+                workspace: None,
             },
             false,
         )
@@ -4199,6 +4445,7 @@ resources:
             false,
             false,
             None, // no env_file
+            None, // no workspace
         )
         .unwrap();
         assert!(target.exists());
@@ -4219,6 +4466,7 @@ resources:
             false,
             false,
             None, // no env_file
+            None, // no workspace
         )
         .unwrap();
     }
@@ -4299,7 +4547,10 @@ resources:
         .unwrap();
         // Plan with nonexistent state dir → everything shows as Create
         let missing = dir.path().join("no-state");
-        cmd_plan(&config, &missing, None, None, None, false, false, None, None).unwrap();
+        cmd_plan(
+            &config, &missing, None, None, None, false, false, None, None, None,
+        )
+        .unwrap();
     }
 
     #[test]
@@ -4327,7 +4578,7 @@ resources:
         )
         .unwrap();
         // json=true should not panic (output goes to stdout)
-        cmd_plan(&config, &state, None, None, None, true, false, None, None).unwrap();
+        cmd_plan(&config, &state, None, None, None, true, false, None, None, None).unwrap();
     }
 
     #[test]
@@ -4354,7 +4605,7 @@ resources:
 "#,
         )
         .unwrap();
-        cmd_plan(&config, &state, None, None, None, false, true, None, None).unwrap();
+        cmd_plan(&config, &state, None, None, None, false, true, None, None, None).unwrap();
     }
 
     #[test]
@@ -4397,6 +4648,7 @@ resources:
             false,
             Some(&output),
             None, // no env_file
+            None, // no workspace
         )
         .unwrap();
 
@@ -4772,6 +5024,7 @@ resources:
             false,
             false,
             None, // no env_file
+            None, // no workspace
         )
         .unwrap();
         assert!(target.exists());
@@ -4832,6 +5085,7 @@ resources:
             false,
             false,
             None, // no env_file
+            None, // no workspace
         )
         .unwrap();
         cmd_destroy(&config, &state, None, true, true).unwrap();
@@ -4893,6 +5147,7 @@ resources:
             false,
             false,
             None, // no env_file
+            None, // no workspace
         )
         .unwrap();
         assert!(target_a.exists());
@@ -4949,6 +5204,7 @@ resources:
             false,
             false,
             None, // no env_file
+            None, // no workspace
         )
         .unwrap();
         dispatch(
@@ -5040,6 +5296,7 @@ resources:
             false,
             false,
             None, // no env_file
+            None, // no workspace
         )
         .unwrap();
         assert!(target.exists());
@@ -5195,6 +5452,7 @@ resources:
             false,
             false,
             None, // no env_file
+            None, // no workspace
         )
         .unwrap();
         assert!(std::path::Path::new(&target).exists());
@@ -5205,8 +5463,7 @@ resources:
         // Drift with auto-remediate should detect and fix
         cmd_drift(
             &config, &state, None, false, None, true, // auto_remediate
-            false, false, false,
-            None, // no env_file
+            false, false, false, None, // no env_file
         )
         .unwrap();
 
@@ -6563,6 +6820,7 @@ resources:
             false,
             false,
             None, // no env_file
+            None, // no workspace
         )
         .unwrap();
     }
@@ -7824,6 +8082,7 @@ resources:
             true,
             false,
             None, // no env_file
+            None, // no workspace
         );
         assert!(result.is_ok());
     }
@@ -7900,6 +8159,7 @@ resources:
                 timeout: None,
                 json: true,
                 env_file: None,
+                workspace: None,
             },
             false,
         )
@@ -8402,6 +8662,7 @@ resources:
             false,
             None,
             Some(env.as_path()),
+            None, // no workspace
         )
         .unwrap();
     }
@@ -8430,6 +8691,7 @@ resources:
             false,
             false,
             Some(env.as_path()),
+            None, // no workspace
         )
         .unwrap();
     }
@@ -8451,5 +8713,221 @@ resources:
             config.params.get("log_level").unwrap(),
             &serde_yaml_ng::Value::String("trace".to_string())
         );
+    }
+
+    // ================================================================
+    // FJ-210: Workspace tests
+    // ================================================================
+
+    #[test]
+    fn test_fj210_resolve_state_dir_no_workspace() {
+        let base = Path::new("state");
+        let resolved = resolve_state_dir(base, None);
+        // Without active workspace or flag, uses base as-is
+        // (current_workspace() may or may not return something depending on env)
+        // We just check it doesn't panic
+        assert!(resolved.to_str().unwrap().starts_with("state"));
+    }
+
+    #[test]
+    fn test_fj210_resolve_state_dir_with_flag() {
+        let base = Path::new("state");
+        let resolved = resolve_state_dir(base, Some("production"));
+        assert_eq!(resolved, Path::new("state/production"));
+    }
+
+    #[test]
+    fn test_fj210_inject_workspace_param() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.2.3.4
+resources: {}
+"#;
+        let mut config: types::ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        inject_workspace_param(&mut config, Some("staging"));
+        assert_eq!(
+            config.params.get("workspace").unwrap(),
+            &serde_yaml_ng::Value::String("staging".to_string())
+        );
+    }
+
+    #[test]
+    fn test_fj210_inject_workspace_param_default() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.2.3.4
+resources: {}
+"#;
+        let mut config: types::ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        // No workspace flag and no .forjar/workspace file → "default"
+        inject_workspace_param(&mut config, None);
+        // Should have a workspace param
+        assert!(config.params.contains_key("workspace"));
+    }
+
+    #[test]
+    fn test_fj210_workspace_new_and_select() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        let state_base = root.join("state");
+        std::fs::create_dir_all(&state_base).unwrap();
+
+        workspace_new_in(root, &state_base, "staging").unwrap();
+        assert!(state_base.join("staging").exists());
+        assert!(root.join(".forjar/workspace").exists());
+
+        let ws = std::fs::read_to_string(root.join(".forjar/workspace")).unwrap();
+        assert_eq!(ws.trim(), "staging");
+
+        workspace_new_in(root, &state_base, "production").unwrap();
+        let ws = std::fs::read_to_string(root.join(".forjar/workspace")).unwrap();
+        assert_eq!(ws.trim(), "production");
+
+        workspace_select_in(root, &state_base, "staging").unwrap();
+        let ws = std::fs::read_to_string(root.join(".forjar/workspace")).unwrap();
+        assert_eq!(ws.trim(), "staging");
+    }
+
+    #[test]
+    fn test_fj210_workspace_list() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        let state_base = root.join("state");
+        std::fs::create_dir_all(&state_base).unwrap();
+
+        workspace_new_in(root, &state_base, "dev").unwrap();
+        workspace_new_in(root, &state_base, "prod").unwrap();
+        workspace_list_in(root, &state_base).unwrap();
+    }
+
+    #[test]
+    fn test_fj210_workspace_delete() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        let state_base = root.join("state");
+        std::fs::create_dir_all(&state_base).unwrap();
+
+        workspace_new_in(root, &state_base, "temp").unwrap();
+        assert!(state_base.join("temp").exists());
+
+        // Without --yes, just prints warning
+        workspace_delete_in(root, &state_base, "temp", false).unwrap();
+        assert!(state_base.join("temp").exists());
+
+        // With --yes, deletes
+        workspace_delete_in(root, &state_base, "temp", true).unwrap();
+        assert!(!state_base.join("temp").exists());
+    }
+
+    #[test]
+    fn test_fj210_workspace_new_duplicate() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        let state_base = root.join("state");
+        std::fs::create_dir_all(&state_base).unwrap();
+
+        workspace_new_in(root, &state_base, "dup").unwrap();
+        let result = workspace_new_in(root, &state_base, "dup");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("already exists"));
+    }
+
+    #[test]
+    fn test_fj210_workspace_select_nonexistent() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        let state_base = root.join("state");
+        std::fs::create_dir_all(&state_base).unwrap();
+
+        let result = workspace_select_in(root, &state_base, "nope");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("does not exist"));
+    }
+
+    #[test]
+    fn test_fj210_workspace_delete_clears_active() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+        let state_base = root.join("state");
+        std::fs::create_dir_all(&state_base).unwrap();
+
+        workspace_new_in(root, &state_base, "active-ws").unwrap();
+        let ws = std::fs::read_to_string(root.join(".forjar/workspace")).unwrap();
+        assert_eq!(ws.trim(), "active-ws");
+
+        workspace_delete_in(root, &state_base, "active-ws", true).unwrap();
+        assert!(!root.join(".forjar/workspace").exists());
+    }
+
+    #[test]
+    fn test_fj210_workspace_current() {
+        // Just verify it doesn't panic
+        cmd_workspace_current().unwrap();
+    }
+
+    #[test]
+    fn test_fj210_current_workspace_in() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path();
+
+        // No workspace file → None
+        assert!(current_workspace_in(root).is_none());
+
+        // Create workspace file
+        let state_base = root.join("state");
+        std::fs::create_dir_all(&state_base).unwrap();
+        workspace_new_in(root, &state_base, "test-ws").unwrap();
+
+        assert_eq!(current_workspace_in(root).as_deref(), Some("test-ws"));
+    }
+
+    #[test]
+    fn test_fj210_plan_with_workspace() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &file,
+            r#"
+version: "1.0"
+name: ws-test
+params:
+  env: "{{params.workspace}}"
+machines:
+  m1:
+    hostname: m1
+    addr: 1.2.3.4
+resources:
+  cfg:
+    type: file
+    machine: m1
+    path: /tmp/test.txt
+    content: "env={{params.env}}"
+"#,
+        )
+        .unwrap();
+        let state = dir.path().join("state/staging");
+        std::fs::create_dir_all(&state).unwrap();
+
+        cmd_plan(
+            &file,
+            &state,
+            None,
+            None,
+            None,
+            false,
+            false,
+            None,
+            None,
+            Some("staging"),
+        )
+        .unwrap();
     }
 }
