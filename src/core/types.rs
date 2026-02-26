@@ -39,6 +39,21 @@ pub struct ForjarConfig {
     /// Execution policy
     #[serde(default)]
     pub policy: Policy,
+
+    /// FJ-215: Output values — computed from params/templates, written to state/outputs.yaml
+    #[serde(default)]
+    pub outputs: IndexMap<String, OutputValue>,
+}
+
+/// A declared output value.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OutputValue {
+    /// Template expression (e.g., `{{params.data_dir}}`, `{{machines.web.addr}}`)
+    pub value: String,
+
+    /// Optional description for documentation
+    #[serde(default)]
+    pub description: Option<String>,
 }
 
 // ============================================================================

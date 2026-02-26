@@ -1,0 +1,42 @@
+# FJ-215: Output values dogfood config
+# Demonstrates `outputs:` block for computed values.
+version: "1.0"
+name: dogfood-outputs
+
+params:
+  data_dir: /mnt/data
+  app_port: "8080"
+  domain: example.com
+
+machines:
+  web:
+    hostname: web-prod
+    addr: 192.168.1.10
+    user: deploy
+    arch: x86_64
+
+resources:
+  app-config:
+    type: file
+    machine: web
+    path: /etc/app/config.yaml
+    content: |
+      data_dir: {{params.data_dir}}
+      port: {{params.app_port}}
+
+outputs:
+  data_directory:
+    value: "{{params.data_dir}}"
+    description: "Root data directory for all services"
+
+  app_url:
+    value: "http://{{params.domain}}:{{params.app_port}}"
+    description: "Application URL"
+
+  web_host:
+    value: "{{machine.web.addr}}"
+    description: "Web server IP address"
+
+  deploy_user:
+    value: "{{machine.web.user}}"
+    description: "SSH deploy user"

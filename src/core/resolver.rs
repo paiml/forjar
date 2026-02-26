@@ -814,8 +814,8 @@ resources:
                     arch: vec![],
                     tags: vec![],
                     when: None,
-            count: None,
-            for_each: None,
+                    count: None,
+                    for_each: None,
                     chroot_dir: None,
                     namespace_uid: None,
                     namespace_gid: None,
@@ -853,6 +853,7 @@ resources:
             machines,
             resources,
             policy: Policy::default(),
+            outputs: indexmap::IndexMap::new(),
         }
     }
 
@@ -1603,6 +1604,7 @@ resources:
             machines: indexmap::IndexMap::new(),
             resources,
             policy: Policy::default(),
+            outputs: indexmap::IndexMap::new(),
         };
         let result = build_execution_order(&config);
         assert!(result.is_err());
@@ -1636,6 +1638,7 @@ resources:
             machines: indexmap::IndexMap::new(),
             resources,
             policy: Policy::default(),
+            outputs: indexmap::IndexMap::new(),
         };
         let order = build_execution_order(&config).unwrap();
         assert_eq!(order, vec!["a", "b", "c", "d"]);
@@ -1651,6 +1654,7 @@ resources:
             machines: indexmap::IndexMap::new(),
             resources: indexmap::IndexMap::new(),
             policy: Policy::default(),
+            outputs: indexmap::IndexMap::new(),
         };
         let order = build_execution_order(&config).unwrap();
         assert!(order.is_empty());

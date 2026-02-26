@@ -335,6 +335,7 @@ mod tests {
             machines: IndexMap::new(),
             resources,
             policy: Policy::default(),
+            outputs: indexmap::IndexMap::new(),
         };
 
         let (migrated, warnings) = migrate_config(&config);
@@ -369,6 +370,7 @@ mod tests {
             machines: IndexMap::new(),
             resources,
             policy: Policy::default(),
+            outputs: indexmap::IndexMap::new(),
         };
 
         let (migrated, warnings) = migrate_config(&config);

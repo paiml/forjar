@@ -443,6 +443,20 @@ pub enum Commands {
         #[arg(long)]
         force: bool,
     },
+
+    /// Show computed output values from forjar.yaml (FJ-215)
+    Output {
+        /// Path to forjar.yaml
+        #[arg(short, long, default_value = "forjar.yaml")]
+        file: PathBuf,
+
+        /// Specific output key to show (omit for all)
+        key: Option<String>,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 /// Dispatch a CLI command.
@@ -619,6 +633,7 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             machine,
             force,
         } => cmd_state_rm(&state_dir, &resource_id, machine.as_deref(), force),
+        Commands::Output { file, key, json } => cmd_output(&file, key.as_deref(), json),
     }
 }
 
@@ -3059,7 +3074,11 @@ fn cmd_status(state_dir: &Path, machine_filter: Option<&str>, json: bool) -> Res
 // FJ-214: state-list — tabular view of all resources in state
 // ============================================================================
 
-fn cmd_state_list(state_dir: &Path, machine_filter: Option<&str>, json: bool) -> Result<(), String> {
+fn cmd_state_list(
+    state_dir: &Path,
+    machine_filter: Option<&str>,
+    json: bool,
+) -> Result<(), String> {
     use crate::core::state;
 
     if !state_dir.exists() {
@@ -3121,9 +3140,11 @@ fn cmd_state_list(state_dir: &Path, machine_filter: Option<&str>, json: bool) ->
                 row["applied_at"].as_str().unwrap_or("-"),
             );
         }
-        println!("\n{} resources across {} machines.",
+        println!(
+            "\n{} resources across {} machines.",
             all_rows.len(),
-            all_rows.iter()
+            all_rows
+                .iter()
                 .map(|r| r["machine"].as_str().unwrap_or(""))
                 .collect::<std::collections::HashSet<_>>()
                 .len()
@@ -3136,8 +3157,8 @@ fn cmd_state_list(state_dir: &Path, machine_filter: Option<&str>, json: bool) ->
 /// List machine names from state directory subdirectories.
 fn list_state_machines(state_dir: &Path) -> Result<Vec<String>, String> {
     let mut machines = Vec::new();
-    let entries = std::fs::read_dir(state_dir)
-        .map_err(|e| format!("cannot read state dir: {}", e))?;
+    let entries =
+        std::fs::read_dir(state_dir).map_err(|e| format!("cannot read state dir: {}", e))?;
     for entry in entries.flatten() {
         if entry.path().is_dir() {
             let name = entry.file_name().to_string_lossy().to_string();
@@ -3202,10 +3223,12 @@ fn cmd_state_mv(
             lock.resources.insert(new_id.to_string(), resource_lock);
         }
 
-        state::save_lock(state_dir, &lock)
-            .map_err(|e| format!("failed to save lock: {}", e))?;
+        state::save_lock(state_dir, &lock).map_err(|e| format!("failed to save lock: {}", e))?;
 
-        println!("Renamed '{}' → '{}' on machine '{}'", old_id, new_id, lock.machine);
+        println!(
+            "Renamed '{}' → '{}' on machine '{}'",
+            old_id, new_id, lock.machine
+        );
         moved = true;
     }
 
@@ -3261,11 +3284,7 @@ fn cmd_state_rm(
                     lock.resources[*k]
                         .details
                         .values()
-                        .any(|v| {
-                            v.as_str()
-                                .map(|s| s.contains(resource_id))
-                                .unwrap_or(false)
-                        })
+                        .any(|v| v.as_str().map(|s| s.contains(resource_id)).unwrap_or(false))
                 })
                 .cloned()
                 .collect();
@@ -3281,8 +3300,7 @@ fn cmd_state_rm(
 
         lock.resources.swap_remove(resource_id);
 
-        state::save_lock(state_dir, &lock)
-            .map_err(|e| format!("failed to save lock: {}", e))?;
+        state::save_lock(state_dir, &lock).map_err(|e| format!("failed to save lock: {}", e))?;
 
         println!(
             "Removed '{}' from state on machine '{}' (resource still exists on machine)",
@@ -3293,6 +3311,64 @@ fn cmd_state_rm(
 
     if !removed {
         return Err(format!("resource '{}' not found in state", resource_id));
+    }
+
+    Ok(())
+}
+
+// ============================================================================
+// FJ-215: output — resolve and display output values
+// ============================================================================
+
+fn cmd_output(file: &Path, key: Option<&str>, json: bool) -> Result<(), String> {
+    use crate::core::resolver;
+
+    let config = parse_and_validate(file)?;
+
+    if config.outputs.is_empty() {
+        if json {
+            println!("{{}}");
+        } else {
+            println!("No outputs defined.");
+        }
+        return Ok(());
+    }
+
+    // Resolve template expressions in output values
+    let mut resolved: indexmap::IndexMap<String, String> = indexmap::IndexMap::new();
+    for (k, output) in &config.outputs {
+        let value = resolver::resolve_template(&output.value, &config.params, &config.machines)
+            .unwrap_or_else(|_| output.value.clone());
+        resolved.insert(k.clone(), value);
+    }
+
+    if let Some(k) = key {
+        match resolved.get(k) {
+            Some(v) => {
+                if json {
+                    println!(
+                        "{}",
+                        serde_json::json!({ k: v })
+                    );
+                } else {
+                    println!("{}", v);
+                }
+            }
+            None => return Err(format!("output '{}' not defined", k)),
+        }
+    } else if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&resolved).unwrap_or_else(|_| "{}".to_string())
+        );
+    } else {
+        for (k, v) in &resolved {
+            if let Some(desc) = config.outputs.get(k).and_then(|o| o.description.as_deref()) {
+                println!("{}: {} ({})", k, v, desc);
+            } else {
+                println!("{}: {}", k, v);
+            }
+        }
     }
 
     Ok(())
@@ -7762,7 +7838,10 @@ resources:
     // FJ-214: state-list tests
     // ================================================================
 
-    fn make_test_lock(machine: &str, resources: indexmap::IndexMap<String, types::ResourceLock>) -> types::StateLock {
+    fn make_test_lock(
+        machine: &str,
+        resources: indexmap::IndexMap<String, types::ResourceLock>,
+    ) -> types::StateLock {
         types::StateLock {
             schema: "1.0".to_string(),
             machine: machine.to_string(),
@@ -7806,8 +7885,14 @@ resources:
     fn test_fj214_state_list_with_resources() {
         let dir = tempfile::tempdir().unwrap();
         let mut resources = indexmap::IndexMap::new();
-        resources.insert("pkg".to_string(), make_test_resource_lock(types::ResourceType::Package));
-        resources.insert("cfg".to_string(), make_test_resource_lock(types::ResourceType::File));
+        resources.insert(
+            "pkg".to_string(),
+            make_test_resource_lock(types::ResourceType::Package),
+        );
+        resources.insert(
+            "cfg".to_string(),
+            make_test_resource_lock(types::ResourceType::File),
+        );
         let lock = make_test_lock("web01", resources);
         state::save_lock(dir.path(), &lock).unwrap();
 
@@ -7818,7 +7903,10 @@ resources:
     fn test_fj214_state_list_json_output() {
         let dir = tempfile::tempdir().unwrap();
         let mut resources = indexmap::IndexMap::new();
-        resources.insert("pkg".to_string(), make_test_resource_lock(types::ResourceType::Package));
+        resources.insert(
+            "pkg".to_string(),
+            make_test_resource_lock(types::ResourceType::Package),
+        );
         let lock = make_test_lock("web01", resources);
         state::save_lock(dir.path(), &lock).unwrap();
 
@@ -7830,11 +7918,17 @@ resources:
         let dir = tempfile::tempdir().unwrap();
 
         let mut r1 = indexmap::IndexMap::new();
-        r1.insert("pkg".to_string(), make_test_resource_lock(types::ResourceType::Package));
+        r1.insert(
+            "pkg".to_string(),
+            make_test_resource_lock(types::ResourceType::Package),
+        );
         state::save_lock(dir.path(), &make_test_lock("web01", r1)).unwrap();
 
         let mut r2 = indexmap::IndexMap::new();
-        r2.insert("db".to_string(), make_test_resource_lock(types::ResourceType::Package));
+        r2.insert(
+            "db".to_string(),
+            make_test_resource_lock(types::ResourceType::Package),
+        );
         state::save_lock(dir.path(), &make_test_lock("db01", r2)).unwrap();
 
         // Filter to web01 only
@@ -7851,7 +7945,10 @@ resources:
     fn test_fj212_state_mv_basic() {
         let dir = tempfile::tempdir().unwrap();
         let mut resources = indexmap::IndexMap::new();
-        resources.insert("old-name".to_string(), make_test_resource_lock(types::ResourceType::File));
+        resources.insert(
+            "old-name".to_string(),
+            make_test_resource_lock(types::ResourceType::File),
+        );
         state::save_lock(dir.path(), &make_test_lock("web01", resources)).unwrap();
 
         cmd_state_mv(dir.path(), "old-name", "new-name", None).unwrap();
@@ -7884,8 +7981,14 @@ resources:
     fn test_fj212_state_mv_conflict() {
         let dir = tempfile::tempdir().unwrap();
         let mut resources = indexmap::IndexMap::new();
-        resources.insert("a".to_string(), make_test_resource_lock(types::ResourceType::File));
-        resources.insert("b".to_string(), make_test_resource_lock(types::ResourceType::File));
+        resources.insert(
+            "a".to_string(),
+            make_test_resource_lock(types::ResourceType::File),
+        );
+        resources.insert(
+            "b".to_string(),
+            make_test_resource_lock(types::ResourceType::File),
+        );
         state::save_lock(dir.path(), &make_test_lock("web01", resources)).unwrap();
 
         let result = cmd_state_mv(dir.path(), "a", "b", None);
@@ -7912,7 +8015,10 @@ resources:
 
         let lock = state::load_lock(dir.path(), "web01").unwrap().unwrap();
         assert_eq!(lock.resources["new-pkg"].hash, "blake3:deadbeef");
-        assert_eq!(lock.resources["new-pkg"].resource_type, types::ResourceType::Package);
+        assert_eq!(
+            lock.resources["new-pkg"].resource_type,
+            types::ResourceType::Package
+        );
     }
 
     // ================================================================
@@ -7923,8 +8029,14 @@ resources:
     fn test_fj213_state_rm_basic() {
         let dir = tempfile::tempdir().unwrap();
         let mut resources = indexmap::IndexMap::new();
-        resources.insert("pkg".to_string(), make_test_resource_lock(types::ResourceType::Package));
-        resources.insert("cfg".to_string(), make_test_resource_lock(types::ResourceType::File));
+        resources.insert(
+            "pkg".to_string(),
+            make_test_resource_lock(types::ResourceType::Package),
+        );
+        resources.insert(
+            "cfg".to_string(),
+            make_test_resource_lock(types::ResourceType::File),
+        );
         state::save_lock(dir.path(), &make_test_lock("web01", resources)).unwrap();
 
         cmd_state_rm(dir.path(), "pkg", None, false).unwrap();
@@ -7949,7 +8061,10 @@ resources:
     fn test_fj213_state_rm_force() {
         let dir = tempfile::tempdir().unwrap();
         let mut resources = indexmap::IndexMap::new();
-        resources.insert("pkg".to_string(), make_test_resource_lock(types::ResourceType::Package));
+        resources.insert(
+            "pkg".to_string(),
+            make_test_resource_lock(types::ResourceType::Package),
+        );
         state::save_lock(dir.path(), &make_test_lock("web01", resources)).unwrap();
 
         cmd_state_rm(dir.path(), "pkg", None, true).unwrap();
@@ -7969,11 +8084,17 @@ resources:
         let dir = tempfile::tempdir().unwrap();
 
         let mut r1 = indexmap::IndexMap::new();
-        r1.insert("pkg".to_string(), make_test_resource_lock(types::ResourceType::Package));
+        r1.insert(
+            "pkg".to_string(),
+            make_test_resource_lock(types::ResourceType::Package),
+        );
         state::save_lock(dir.path(), &make_test_lock("web01", r1)).unwrap();
 
         let mut r2 = indexmap::IndexMap::new();
-        r2.insert("pkg".to_string(), make_test_resource_lock(types::ResourceType::Package));
+        r2.insert(
+            "pkg".to_string(),
+            make_test_resource_lock(types::ResourceType::Package),
+        );
         state::save_lock(dir.path(), &make_test_lock("db01", r2)).unwrap();
 
         // Remove only from web01
@@ -7984,5 +8105,96 @@ resources:
 
         let lock_db = state::load_lock(dir.path(), "db01").unwrap().unwrap();
         assert!(lock_db.resources.contains_key("pkg"));
+    }
+
+    // ================================================================
+    // FJ-215: output tests
+    // ================================================================
+
+    fn write_output_config(dir: &Path) -> PathBuf {
+        let file = dir.join("forjar.yaml");
+        let yaml = r#"
+version: "1.0"
+name: test-outputs
+params:
+  port: "8080"
+  domain: example.com
+machines:
+  web:
+    hostname: web
+    addr: 10.0.0.1
+resources: {}
+outputs:
+  app_url:
+    value: "http://{{params.domain}}:{{params.port}}"
+    description: "App URL"
+  host_ip:
+    value: "{{machine.web.addr}}"
+  raw_param:
+    value: "{{params.port}}"
+"#;
+        std::fs::write(&file, yaml).unwrap();
+        file
+    }
+
+    #[test]
+    fn test_fj215_output_all() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = write_output_config(dir.path());
+        cmd_output(&file, None, false).unwrap();
+    }
+
+    #[test]
+    fn test_fj215_output_all_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = write_output_config(dir.path());
+        cmd_output(&file, None, true).unwrap();
+    }
+
+    #[test]
+    fn test_fj215_output_single_key() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = write_output_config(dir.path());
+        cmd_output(&file, Some("raw_param"), false).unwrap();
+    }
+
+    #[test]
+    fn test_fj215_output_single_key_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = write_output_config(dir.path());
+        cmd_output(&file, Some("app_url"), true).unwrap();
+    }
+
+    #[test]
+    fn test_fj215_output_unknown_key() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = write_output_config(dir.path());
+        let result = cmd_output(&file, Some("nonexistent"), false);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("not defined"));
+    }
+
+    #[test]
+    fn test_fj215_output_no_outputs() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("forjar.yaml");
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.2.3.4
+resources: {}
+"#;
+        std::fs::write(&file, yaml).unwrap();
+        cmd_output(&file, None, false).unwrap();
+    }
+
+    #[test]
+    fn test_fj215_output_machine_ref() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = write_output_config(dir.path());
+        cmd_output(&file, Some("host_ip"), false).unwrap();
     }
 }
