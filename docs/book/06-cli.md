@@ -350,13 +350,14 @@ Parses the YAML, validates it, and re-serializes in canonical format. Idempotent
 Check config for best practice warnings beyond basic validation.
 
 ```bash
-forjar lint -f <FILE> [--json]
+forjar lint -f <FILE> [--json] [--strict]
 ```
 
 | Flag | Default | Description |
 |------|---------|-------------|
 | `-f, --file` | `forjar.yaml` | Config file path |
 | `--json` | false | Output as JSON |
+| `--strict` | false | Enable built-in policy rules (FJ-221) |
 
 Detects:
 - Unused machines (defined but not referenced by any resource)
@@ -365,9 +366,18 @@ Detects:
 - Dependencies on non-existent resources
 - Package resources with empty package lists
 
+With `--strict`, additionally enforces:
+- **no_root_owner** — file resources owned by `root` must be tagged `system`
+- **require_tags** — all resources must have at least one tag
+- **no_privileged_containers** — container machines must not use `--privileged`
+- **require_ssh_key** — non-local machines must have `ssh_key` configured
+
 ```bash
 # Lint a config file
 forjar lint -f forjar.yaml
+
+# Strict mode with built-in policy rules
+forjar lint -f forjar.yaml --strict
 
 # JSON output for CI
 forjar lint -f forjar.yaml --json
