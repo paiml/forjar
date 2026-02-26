@@ -3114,7 +3114,10 @@ fn print_plan(
                     if let Some(ref content) = resource.content {
                         // FJ-274: For updates, try to read current file content for unified diff
                         let old_content = if matches!(change.action, types::PlanAction::Update) {
-                            resource.path.as_ref().and_then(|p| std::fs::read_to_string(p).ok())
+                            resource
+                                .path
+                                .as_ref()
+                                .and_then(|p| std::fs::read_to_string(p).ok())
                         } else {
                             None
                         };
@@ -4558,9 +4561,47 @@ fn cmd_graph(file: &Path, format: &str) -> Result<(), String> {
             }
             println!("}}");
         }
+        // FJ-275: ASCII tree format
+        "ascii" => {
+            let execution_order = resolver::build_execution_order(&config)?;
+            println!("{}", bold("Dependency Graph"));
+            println!();
+            for id in &execution_order {
+                if let Some(resource) = config.resources.get(id) {
+                    let machine = match &resource.machine {
+                        types::MachineTarget::Single(m) => m.clone(),
+                        types::MachineTarget::Multiple(ms) => ms.join(","),
+                    };
+                    if resource.depends_on.is_empty() {
+                        println!(
+                            "  {} {} ({}, {})",
+                            green("*"),
+                            bold(id),
+                            resource.resource_type,
+                            dim(&machine)
+                        );
+                    } else {
+                        let deps: Vec<&str> = resource.depends_on.iter().map(|s| s.as_str()).collect();
+                        println!(
+                            "  {} {} ({}, {}) <- [{}]",
+                            yellow("*"),
+                            bold(id),
+                            resource.resource_type,
+                            dim(&machine),
+                            deps.join(", ")
+                        );
+                    }
+                }
+            }
+            println!();
+            println!(
+                "{} resources in execution order.",
+                execution_order.len()
+            );
+        }
         other => {
             return Err(format!(
-                "unknown graph format '{}': use mermaid or dot",
+                "unknown graph format '{}': use mermaid, dot, or ascii",
                 other
             ))
         }
@@ -7350,6 +7391,41 @@ resources: {}
             true,
         )
         .unwrap();
+    }
+
+    // FJ-275: ASCII graph format
+
+    #[test]
+    fn test_fj275_graph_ascii_format() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config,
+            "version: \"1.0\"\nname: test\nmachines:\n  local:\n    hostname: localhost\n    addr: 127.0.0.1\nresources:\n  step-1:\n    type: file\n    machine: local\n    path: /tmp/a.txt\n    content: a\n  step-2:\n    type: file\n    machine: local\n    path: /tmp/b.txt\n    content: b\n    depends_on: [step-1]\n",
+        )
+        .unwrap();
+        let result = cmd_graph(&config, "ascii");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj275_graph_ascii_dispatch() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config,
+            "version: \"1.0\"\nname: test\nmachines: {}\nresources: {}\n",
+        )
+        .unwrap();
+        let result = dispatch(
+            Commands::Graph {
+                file: config,
+                format: "ascii".to_string(),
+            },
+            false,
+            true,
+        );
+        assert!(result.is_ok());
     }
 
     #[test]
@@ -12193,7 +12269,11 @@ resources:
     #[test]
     fn test_fj274_unified_diff_shows_changes() {
         // Update with old content — should show unified diff
-        print_content_diff("new line\nkept", &types::PlanAction::Update, Some("old line\nkept"));
+        print_content_diff(
+            "new line\nkept",
+            &types::PlanAction::Update,
+            Some("old line\nkept"),
+        );
     }
 
     #[test]
