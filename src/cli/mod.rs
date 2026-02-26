@@ -3247,9 +3247,46 @@ fn cmd_plan(
     }
 
     if json {
-        let output =
-            serde_json::to_string_pretty(&plan).map_err(|e| format!("JSON error: {}", e))?;
-        println!("{}", output);
+        // FJ-301: Enrich plan JSON with resource metadata
+        let changes: Vec<serde_json::Value> = plan
+            .changes
+            .iter()
+            .map(|c| {
+                let mut entry = serde_json::json!({
+                    "resource_id": c.resource_id,
+                    "machine": c.machine,
+                    "resource_type": c.resource_type,
+                    "action": c.action,
+                    "description": c.description,
+                });
+                if let Some(res) = config.resources.get(&c.resource_id) {
+                    if let Some(ref rg) = res.resource_group {
+                        entry["resource_group"] = serde_json::json!(rg);
+                    }
+                    if !res.tags.is_empty() {
+                        entry["tags"] = serde_json::json!(res.tags);
+                    }
+                    if !res.depends_on.is_empty() {
+                        entry["depends_on"] = serde_json::json!(res.depends_on);
+                    }
+                }
+                entry
+            })
+            .collect();
+        let output = serde_json::json!({
+            "name": plan.name,
+            "to_create": plan.to_create,
+            "to_update": plan.to_update,
+            "to_destroy": plan.to_destroy,
+            "unchanged": plan.unchanged,
+            "execution_order": plan.execution_order,
+            "changes": changes,
+        });
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&output)
+                .map_err(|e| format!("JSON error: {}", e))?
+        );
     } else {
         let show_diff = !no_diff;
         print_plan(
