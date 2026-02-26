@@ -7,8 +7,8 @@
 //! Spec §9 performance targets validated:
 //!   - validate: < 10ms (pure YAML parse)
 //!   - plan (3 machines, 20 resources): < 2s
-//!   - drift (local): < 1s
-//!   - apply (no changes): < 500ms
+//!   - apply (no changes, 3m/20r): < 500ms
+//!   - drift (local, 100 resources): < 1s
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use forjar::core::{parser, planner, resolver, state};
@@ -280,6 +280,127 @@ resources:
     });
 }
 
+/// Spec §9: `forjar apply` (no changes) < 500ms
+/// Full apply pipeline when all resources are already converged (no-op path).
+/// Measures: parse → resolve → plan-with-locks → all NoOp.
+fn bench_spec9_apply_no_changes(c: &mut Criterion) {
+    use forjar::core::types::{ResourceLock, ResourceStatus, ResourceType, StateLock};
+
+    let dir = tempfile::tempdir().unwrap();
+    let config_path = dir.path().join("forjar.yaml");
+    let state_dir = dir.path().join("state");
+    std::fs::create_dir_all(&state_dir).unwrap();
+
+    // Same 3m/20r config as plan benchmark
+    let mut yaml = String::from(
+        r#"version: "1.0"
+name: bench-apply
+machines:
+  web:
+    hostname: web.example.com
+    addr: 10.0.1.1
+  db:
+    hostname: db.example.com
+    addr: 10.0.1.2
+  cache:
+    hostname: cache.example.com
+    addr: 10.0.1.3
+resources:
+"#,
+    );
+
+    let mut resource_names = vec![];
+    for i in 0..8 {
+        let name = format!("web-pkg-{i}");
+        yaml.push_str(&format!(
+            "  {name}:\n    type: package\n    machine: web\n    provider: apt\n    packages: [pkg-{i}]\n"
+        ));
+        resource_names.push((name, ResourceType::Package));
+    }
+    for i in 0..6 {
+        let name = format!("db-file-{i}");
+        yaml.push_str(&format!(
+            "  {name}:\n    type: file\n    machine: db\n    path: /etc/db/conf-{i}.yml\n    content: \"key: value-{i}\"\n"
+        ));
+        resource_names.push((name, ResourceType::File));
+    }
+    for i in 0..4 {
+        let name = format!("cache-svc-{i}");
+        yaml.push_str(&format!(
+            "  {name}:\n    type: service\n    machine: cache\n    name: svc-{i}\n"
+        ));
+        resource_names.push((name, ResourceType::Service));
+    }
+    for i in 0..2 {
+        let name = format!("web-mount-{i}");
+        yaml.push_str(&format!(
+            "  {name}:\n    type: mount\n    machine: web\n    source: /dev/sda{}\n    path: /mnt/data-{i}\n",
+            i + 1
+        ));
+        resource_names.push((name, ResourceType::Mount));
+    }
+
+    std::fs::write(&config_path, &yaml).unwrap();
+
+    // Pre-populate lock files for all 3 machines so plan sees "no changes"
+    for (machine_name, hostname) in [("web", "web.example.com"), ("db", "db.example.com"), ("cache", "cache.example.com")] {
+        let machine_dir = state_dir.join(machine_name);
+        std::fs::create_dir_all(&machine_dir).unwrap();
+
+        let mut resources = indexmap::IndexMap::new();
+        for (rname, rtype) in &resource_names {
+            // Only include resources for this machine
+            let belongs = match machine_name {
+                "web" => rname.starts_with("web-"),
+                "db" => rname.starts_with("db-"),
+                "cache" => rname.starts_with("cache-"),
+                _ => false,
+            };
+            if belongs {
+                resources.insert(
+                    rname.clone(),
+                    ResourceLock {
+                        resource_type: rtype.clone(),
+                        status: ResourceStatus::Converged,
+                        applied_at: None,
+                        duration_seconds: None,
+                        hash: forjar::tripwire::hasher::hash_string(&format!("state-{rname}")),
+                        details: std::collections::HashMap::new(),
+                    },
+                );
+            }
+        }
+
+        let lock = StateLock {
+            schema: "1.0".to_string(),
+            machine: machine_name.to_string(),
+            hostname: hostname.to_string(),
+            generated_at: "2026-02-26T00:00:00Z".to_string(),
+            generator: "forjar-bench".to_string(),
+            blake3_version: "1.8".to_string(),
+            resources,
+        };
+        state::save_lock(&machine_dir, &lock).unwrap();
+    }
+
+    c.bench_function("spec9_apply_no_changes_3m_20r", |b| {
+        b.iter(|| {
+            let config = parser::parse_and_validate(black_box(&config_path)).unwrap();
+            let order = resolver::build_execution_order(&config).unwrap();
+            // Load all machine locks
+            let mut locks = std::collections::HashMap::new();
+            for machine_name in ["web", "db", "cache"] {
+                let machine_dir = state_dir.join(machine_name);
+                if let Ok(Some(lock)) = state::load_lock(&machine_dir, machine_name) {
+                    locks.insert(machine_name.to_string(), lock);
+                }
+            }
+            let plan = planner::plan(&config, &order, &locks, None);
+            black_box(plan);
+        });
+    });
+}
+
 /// Spec §9: `forjar drift` (local, 100 files) < 1s
 /// Drift detection against 100 lock entries — hash comparison only.
 fn bench_spec9_drift(c: &mut Criterion) {
@@ -364,6 +485,7 @@ criterion_group!(
     bench_topo_sort,
     bench_spec9_validate,
     bench_spec9_plan,
+    bench_spec9_apply_no_changes,
     bench_spec9_drift,
     bench_spec9_validate_scaling,
 );

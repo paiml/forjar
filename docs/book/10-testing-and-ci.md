@@ -215,6 +215,20 @@ jobs:
             --state-dir /tmp/test-state --tripwire
 ```
 
+### Forjar Repository CI Jobs
+
+The forjar repository runs 5 CI jobs on every push and pull request:
+
+| Job | What it does | Catches |
+|-----|-------------|---------|
+| **test** | `cargo test --all-targets` + `cargo clippy` | Regressions, type errors, lint warnings |
+| **container-test** | Build test-target Docker image + `cargo test --features container-test` | Container transport regressions |
+| **fmt** | `cargo fmt --check` | Style violations |
+| **dogfood** | Validate all 13 dogfood configs, run all 19 examples, verify MCP schema | Codegen regressions, parser changes, example breakage |
+| **bench** | `cargo bench --no-run` + `forjar bench --iterations 10 --json` | Compile errors in benchmarks, smoke-test performance |
+
+The dogfood job is particularly valuable — it validates that every resource type's codegen produces parseable configs and that all examples demonstrate working code paths. Any change to parser validation, resource handlers, or template resolution that breaks a dogfood config or example will fail this job.
+
 ### Pre-Deploy Checklist
 
 Before deploying to production, run this sequence:
@@ -1111,6 +1125,7 @@ cargo bench
 **Spec §9 targets** (`spec9_*`):
 - `spec9_validate_3m_20r` — Parse + validate a 3-machine, 20-resource config
 - `spec9_plan_3m_20r` — Full plan pipeline: parse → resolve DAG → diff state
+- `spec9_apply_no_changes_3m_20r` — Full apply pipeline with converged locks (no-op path)
 - `spec9_drift_100_resources` — Load lock file + detect drift on 100 resources
 - `validate_scaling` — Parse+validate scaling: 5/20/50/100 resources
 
@@ -1120,6 +1135,7 @@ cargo bench
 |-----------|-------------|----------|--------|
 | `forjar validate` (3m, 20r) | < 10ms | ~62µs | 161x |
 | `forjar plan` (3m, 20r) | < 2s | ~84µs | 23,810x |
+| `forjar apply` (no changes, 3m/20r) | < 500ms | ~194µs | 2,577x |
 | `forjar drift` (100 resources) | < 1s | ~356µs | 2,809x |
 | Binary size (release, stripped) | < 15MB | ~13MB | 1.2x |
 | Cold start (`--help`) | < 5ms | ~1.8ms | 2.8x |
