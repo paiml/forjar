@@ -1255,3 +1255,32 @@ resources:
 ```
 
 Available functions: `upper`, `lower`, `trim`, `default`, `replace`, `env`, `b3sum`, `join`, `split`. All support nested calls and `params.*`/`machine.*` argument references.
+
+## Pre-flight Checks with Doctor
+
+Run `forjar doctor` before apply to verify system prerequisites:
+
+```bash
+# Basic system check
+forjar doctor
+
+# Check against a specific config (validates SSH/docker/age as needed)
+forjar doctor -f forjar.yaml
+
+# JSON output for CI pipelines
+forjar doctor -f forjar.yaml --json
+```
+
+Example output:
+
+```
+[pass] bash: bash 5.1.16
+[pass] ssh: OpenSSH_8.9p1
+[pass] docker: Docker version 29.1.4
+[pass] state-dir: state writable
+[warn] git: 3 uncommitted changes
+
+5 checks: 4 pass, 1 warn, 0 fail
+```
+
+Checks are context-aware — SSH is only checked if your config has remote machines, Docker only if you have container machines, and age identity only if your config contains `ENC[age,...]` markers.
