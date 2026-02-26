@@ -422,6 +422,48 @@ mod tests {
     }
 
     #[test]
+    fn test_fj153_stopped_disabled_no_restart() {
+        let mut r = make_service_resource("old-app", "stopped");
+        r.enabled = Some(false);
+        r.restart_on = vec![];
+        let script = apply_script(&r);
+        assert!(script.contains("systemctl stop 'old-app'"));
+        assert!(script.contains("systemctl disable 'old-app'"));
+        assert!(!script.contains("systemctl start"));
+        assert!(!script.contains("systemctl enable 'old-app'\nfi"));
+        assert!(!script.contains("reload-or-restart"));
+    }
+
+    #[test]
+    fn test_fj153_unknown_state_still_enables() {
+        let mut r = make_service_resource("custom", "custom-state");
+        r.enabled = Some(true);
+        let script = apply_script(&r);
+        assert!(!script.contains("systemctl start"));
+        assert!(!script.contains("systemctl stop"));
+        assert!(script.contains("systemctl enable 'custom'"));
+    }
+
+    #[test]
+    fn test_fj153_unknown_state_disables() {
+        let mut r = make_service_resource("custom", "custom-state");
+        r.enabled = Some(false);
+        let script = apply_script(&r);
+        assert!(script.contains("systemctl disable 'custom'"));
+    }
+
+    #[test]
+    fn test_fj153_running_disabled_restart_on() {
+        let mut r = make_service_resource("worker", "running");
+        r.enabled = Some(false);
+        r.restart_on = vec!["config".to_string(), "env".to_string()];
+        let script = apply_script(&r);
+        assert!(script.contains("systemctl start 'worker'"));
+        assert!(script.contains("systemctl disable 'worker'"));
+        assert!(script.contains("systemctl reload-or-restart 'worker'"));
+    }
+
+    #[test]
     fn test_fj036_service_state_query_active() {
         // state_query must check is-active for the named service
         let r = make_service_resource("postgresql", "running");

@@ -558,6 +558,72 @@ mod tests {
     }
 
     #[test]
+    fn test_fj153_stopped_ignores_ports_env_volumes() {
+        let mut r = make_docker_resource("web", "nginx:latest");
+        r.state = Some("stopped".to_string());
+        r.ports = vec!["8080:80".to_string()];
+        r.environment = vec!["KEY=val".to_string()];
+        r.volumes = vec!["/data:/data".to_string()];
+        r.restart = Some("always".to_string());
+        r.command = Some("./start".to_string());
+        let script = apply_script(&r);
+        assert!(script.contains("docker stop"), "stopped must stop");
+        assert!(!script.contains("docker run"), "stopped must not run");
+        assert!(!script.contains("-p '"), "stopped must not map ports");
+        assert!(!script.contains("-e '"), "stopped must not set env");
+        assert!(!script.contains("-v '"), "stopped must not mount volumes");
+        assert!(!script.contains("--restart"), "stopped must not set restart");
+    }
+
+    #[test]
+    fn test_fj153_absent_ignores_ports_env_volumes() {
+        let mut r = make_docker_resource("old", "nginx:latest");
+        r.state = Some("absent".to_string());
+        r.ports = vec!["8080:80".to_string()];
+        r.environment = vec!["KEY=val".to_string()];
+        r.volumes = vec!["/data:/data".to_string()];
+        r.restart = Some("always".to_string());
+        r.command = Some("./start".to_string());
+        let script = apply_script(&r);
+        assert!(script.contains("docker stop 'old'"));
+        assert!(script.contains("docker rm 'old'"));
+        assert!(!script.contains("docker pull"));
+        assert!(!script.contains("docker run"));
+        assert!(!script.contains("-p '"));
+        assert!(!script.contains("-e '"));
+        assert!(!script.contains("-v '"));
+    }
+
+    #[test]
+    fn test_fj153_explicit_present_state() {
+        let mut r = make_docker_resource("web", "nginx:latest");
+        r.state = Some("present".to_string());
+        let script = apply_script(&r);
+        assert!(script.contains("docker pull"));
+        assert!(script.contains("docker run"));
+    }
+
+    #[test]
+    fn test_fj153_env_with_special_chars() {
+        let mut r = make_docker_resource("app", "myapp:v1");
+        r.environment = vec![
+            "DB_URL=postgres://user:pass@host:5432/db".to_string(),
+            "JSON={\"key\":\"value\"}".to_string(),
+        ];
+        let script = apply_script(&r);
+        assert!(script.contains("-e 'DB_URL=postgres://user:pass@host:5432/db'"));
+        assert!(script.contains("-e 'JSON={\"key\":\"value\"}'"));
+    }
+
+    #[test]
+    fn test_fj153_large_port_list() {
+        let mut r = make_docker_resource("web", "nginx:latest");
+        r.ports = (8000..8006).map(|p| format!("{}:{}", p, p)).collect();
+        let script = apply_script(&r);
+        assert_eq!(script.matches("-p '").count(), 6);
+    }
+
+    #[test]
     fn test_docker_apply_stop_then_run() {
         let mut r = make_docker_resource("app-server", "myapp:v2");
         r.state = Some("running".to_string());

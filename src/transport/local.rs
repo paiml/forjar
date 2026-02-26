@@ -115,6 +115,32 @@ mod tests {
     }
 
     #[test]
+    fn test_fj153_local_binary_output() {
+        // Test that binary-ish output is handled via lossy UTF-8
+        let out = exec_local("printf '\\x00\\x01\\x02'").unwrap();
+        assert!(out.success());
+        // Should not panic on non-UTF-8 bytes
+        assert!(!out.stdout.is_empty());
+    }
+
+    #[test]
+    fn test_fj153_local_stdout_and_stderr() {
+        let out = exec_local("echo out; echo err >&2").unwrap();
+        assert!(out.success());
+        assert!(out.stdout.contains("out"));
+        assert!(out.stderr.contains("err"));
+    }
+
+    #[test]
+    fn test_fj153_local_long_running_script() {
+        // Script with multiple sequential commands
+        let out =
+            exec_local("for i in $(seq 1 100); do echo \"line_$i\"; done").unwrap();
+        assert!(out.success());
+        assert_eq!(out.stdout.lines().count(), 100);
+    }
+
+    #[test]
     fn test_fj010_local_set_euo() {
         // set -euo pipefail is standard forjar preamble
         let out = exec_local("set -euo pipefail\necho ok").unwrap();

@@ -509,6 +509,59 @@ mod tests {
     }
 
     #[test]
+    fn test_fj153_user_all_fields_present() {
+        let mut r = make_user_resource("fulluser");
+        r.uid = Some(3000);
+        r.shell = Some("/bin/fish".to_string());
+        r.home = Some("/srv/fulluser".to_string());
+        r.group = Some("staff".to_string());
+        r.groups = vec!["docker".to_string(), "wheel".to_string()];
+        r.ssh_authorized_keys = vec![
+            "ssh-ed25519 KEY1 user@host1".to_string(),
+            "ssh-rsa KEY2 user@host2".to_string(),
+        ];
+        let script = apply_script(&r);
+        assert!(script.contains("--uid 3000"));
+        assert!(script.contains("--shell '/bin/fish'"));
+        assert!(script.contains("--home-dir '/srv/fulluser'"));
+        assert!(script.contains("--gid 'staff'"));
+        assert!(script.contains("--groups 'docker,wheel'"));
+        assert!(script.contains("groupadd 'docker'"));
+        assert!(script.contains("groupadd 'wheel'"));
+        assert!(script.contains("mkdir -p '/srv/fulluser'/.ssh"));
+        assert!(script.contains("ssh-ed25519 KEY1"));
+        assert!(script.contains("ssh-rsa KEY2"));
+        assert!(script.contains("chown -R 'fulluser':'staff'"));
+    }
+
+    #[test]
+    fn test_fj153_user_system_no_home_no_create() {
+        let mut r = make_user_resource("daemon-svc");
+        r.system_user = true;
+        r.home = None;
+        let script = apply_script(&r);
+        assert!(script.contains("--system"));
+        assert!(!script.contains("--create-home"));
+        assert!(!script.contains("--home-dir"));
+    }
+
+    #[test]
+    fn test_fj153_user_absent_with_all_fields() {
+        let mut r = make_user_resource("old");
+        r.state = Some("absent".to_string());
+        r.uid = Some(5000);
+        r.shell = Some("/bin/bash".to_string());
+        r.groups = vec!["docker".to_string()];
+        r.ssh_authorized_keys = vec!["ssh-ed25519 KEY".to_string()];
+        let script = apply_script(&r);
+        assert!(script.contains("userdel"));
+        assert!(!script.contains("useradd"));
+        assert!(!script.contains("usermod"));
+        assert!(!script.contains("groupadd"));
+        assert!(!script.contains(".ssh"));
+    }
+
+    #[test]
     fn test_fj036_user_check_absent() {
         // state=absent must generate userdel, not useradd/usermod
         let mut r = make_user_resource("staleuser");

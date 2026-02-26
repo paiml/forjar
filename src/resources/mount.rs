@@ -482,6 +482,52 @@ mod tests {
     }
 
     #[test]
+    fn test_fj153_mount_default_state_is_mounted() {
+        let mut r = make_mount_resource();
+        r.state = None;
+        let script = apply_script(&r);
+        assert!(script.contains("mount -t"), "default state should mount");
+        assert!(script.contains("mkdir -p"), "default state should create dir");
+        assert!(script.contains("/etc/fstab"), "default state should update fstab");
+    }
+
+    #[test]
+    fn test_fj153_unmounted_no_fstab_no_mkdir() {
+        let mut r = make_mount_resource();
+        r.state = Some("unmounted".to_string());
+        let script = apply_script(&r);
+        assert!(script.contains("umount"));
+        assert!(!script.contains("mkdir"), "unmounted must not create dirs");
+        assert!(!script.contains("sed"), "unmounted must not modify fstab");
+        assert!(
+            !script.contains("grep"),
+            "unmounted must not check fstab"
+        );
+    }
+
+    #[test]
+    fn test_fj153_mount_tmpfs() {
+        let mut r = make_mount_resource();
+        r.source = Some("tmpfs".to_string());
+        r.path = Some("/tmp/ramdisk".to_string());
+        r.fs_type = Some("tmpfs".to_string());
+        r.options = Some("size=512m,mode=1777".to_string());
+        let script = apply_script(&r);
+        assert!(script.contains("mount -t 'tmpfs' -o 'size=512m,mode=1777' 'tmpfs' '/tmp/ramdisk'"));
+    }
+
+    #[test]
+    fn test_fj153_absent_no_source_defaults() {
+        let mut r = make_mount_resource();
+        r.state = Some("absent".to_string());
+        r.source = None;
+        let script = apply_script(&r);
+        assert!(script.contains("umount"));
+        assert!(script.contains("sed -i"));
+        assert!(!script.contains("mount -t"));
+    }
+
+    #[test]
     fn test_mount_bind_type() {
         let mut r = make_mount_resource();
         r.path = Some("/srv/container-data".to_string());
