@@ -124,6 +124,10 @@ pub enum Commands {
         /// FJ-255: Suppress content diff in plan output
         #[arg(long)]
         no_diff: bool,
+
+        /// FJ-285: Plan single resource and its transitive dependencies
+        #[arg(long)]
+        target: Option<String>,
     },
 
     /// Converge infrastructure to desired state
@@ -912,6 +916,7 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             env_file,
             workspace,
             no_diff,
+            target,
         } => {
             let sd = resolve_state_dir(&state_dir, workspace.as_deref());
             cmd_plan(
@@ -926,6 +931,7 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
                 env_file.as_deref(),
                 workspace.as_deref(),
                 no_diff,
+                target.as_deref(),
             )
         }
         Commands::Apply {
@@ -1032,7 +1038,13 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             limit,
             json,
             since,
-        } => cmd_history(&state_dir, machine.as_deref(), limit, json, since.as_deref()),
+        } => cmd_history(
+            &state_dir,
+            machine.as_deref(),
+            limit,
+            json,
+            since.as_deref(),
+        ),
         Commands::Show {
             file,
             resource,
@@ -3091,6 +3103,30 @@ fn cmd_validate(file: &Path, strict: bool) -> Result<(), String> {
 }
 
 #[allow(clippy::too_many_arguments)]
+/// FJ-285: Collect a resource and its transitive dependencies.
+fn collect_transitive_deps(
+    config: &types::ForjarConfig,
+    target: &str,
+) -> Result<std::collections::HashSet<String>, String> {
+    if !config.resources.contains_key(target) {
+        return Err(format!("resource '{}' not found", target));
+    }
+    let mut visited = std::collections::HashSet::new();
+    let mut stack = vec![target.to_string()];
+    while let Some(id) = stack.pop() {
+        if !visited.insert(id.clone()) {
+            continue;
+        }
+        if let Some(r) = config.resources.get(&id) {
+            for dep in &r.depends_on {
+                stack.push(dep.clone());
+            }
+        }
+    }
+    Ok(visited)
+}
+
+#[allow(clippy::too_many_arguments)]
 fn cmd_plan(
     file: &Path,
     state_dir: &Path,
@@ -3103,6 +3139,7 @@ fn cmd_plan(
     env_file: Option<&Path>,
     workspace: Option<&str>,
     no_diff: bool,
+    target: Option<&str>,
 ) -> Result<(), String> {
     let mut config = parse_and_validate(file)?;
     if let Some(path) = env_file {
@@ -3110,6 +3147,13 @@ fn cmd_plan(
     }
     inject_workspace_param(&mut config, workspace);
     resolver::resolve_data_sources(&mut config)?;
+
+    // FJ-285: --target filters config to one resource + transitive deps
+    if let Some(target_id) = target {
+        let keep = collect_transitive_deps(&config, target_id)?;
+        config.resources.retain(|k, _| keep.contains(k));
+    }
+
     if verbose {
         eprintln!(
             "Planning {} ({} machines, {} resources)",
@@ -6335,6 +6379,7 @@ resources:
         std::fs::create_dir_all(&state).unwrap();
         cmd_plan(
             &config, &state, None, None, None, false, false, None, None, None, false,
+            None,
         )
         .unwrap();
     }
@@ -6383,6 +6428,7 @@ resources:
             None,
             None,
             false,
+            None,
         )
         .unwrap();
     }
@@ -6404,6 +6450,7 @@ resources: {}
         .unwrap();
         let result = cmd_plan(
             &config, &state, None, None, None, false, false, None, None, None, false,
+            None,
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("validation"));
@@ -6834,6 +6881,7 @@ resources:
                 env_file: None,
                 workspace: None,
                 no_diff: false,
+                target: None,
             },
             false,
             true,
@@ -7196,6 +7244,7 @@ resources:
         let missing = dir.path().join("no-state");
         cmd_plan(
             &config, &missing, None, None, None, false, false, None, None, None, false,
+            None,
         )
         .unwrap();
     }
@@ -7227,6 +7276,7 @@ resources:
         // json=true should not panic (output goes to stdout)
         cmd_plan(
             &config, &state, None, None, None, true, false, None, None, None, false,
+            None,
         )
         .unwrap();
     }
@@ -7257,6 +7307,7 @@ resources:
         .unwrap();
         cmd_plan(
             &config, &state, None, None, None, false, true, None, None, None, false,
+            None,
         )
         .unwrap();
     }
@@ -7303,6 +7354,7 @@ resources:
             None, // no env_file
             None, // no workspace
             false,
+            None,
         )
         .unwrap();
 
@@ -11426,6 +11478,7 @@ resources:
             Some(env.as_path()),
             None, // no workspace
             false,
+            None,
         )
         .unwrap();
     }
@@ -11698,6 +11751,7 @@ resources:
             None,
             Some("staging"),
             false,
+            None,
         )
         .unwrap();
     }
@@ -12563,6 +12617,7 @@ resources:
         // no_diff=false → show diff
         cmd_plan(
             &config, &state, None, None, None, false, false, None, None, None, false,
+            None,
         )
         .unwrap();
     }
@@ -12594,6 +12649,7 @@ resources:
         // no_diff=true → suppress diff
         cmd_plan(
             &config, &state, None, None, None, false, false, None, None, None, true,
+            None,
         )
         .unwrap();
     }
@@ -14300,5 +14356,73 @@ resources:
         let dir = tempfile::tempdir().unwrap();
         // --since with no events should succeed (empty result)
         cmd_history(dir.path(), None, 10, false, Some("1h")).unwrap();
+    }
+
+    // ── FJ-285: forjar plan --target ──────────────────────────
+
+    #[test]
+    fn test_fj285_target_flag_parse() {
+        let cmd = Commands::Plan {
+            file: PathBuf::from("forjar.yaml"),
+            machine: None,
+            resource: None,
+            tag: None,
+            group: None,
+            state_dir: PathBuf::from("state"),
+            json: false,
+            output_dir: None,
+            env_file: None,
+            workspace: None,
+            no_diff: false,
+            target: Some("web-config".to_string()),
+        };
+        match cmd {
+            Commands::Plan { target, .. } => {
+                assert_eq!(target, Some("web-config".to_string()));
+            }
+            _ => panic!("expected Plan"),
+        }
+    }
+
+    #[test]
+    fn test_fj285_collect_transitive_deps() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  local:
+    hostname: local
+    addr: 127.0.0.1
+resources:
+  a:
+    type: file
+    machine: local
+    path: /tmp/a.txt
+    content: "a"
+    depends_on: [b]
+  b:
+    type: file
+    machine: local
+    path: /tmp/b.txt
+    content: "b"
+    depends_on: [c]
+  c:
+    type: file
+    machine: local
+    path: /tmp/c.txt
+    content: "c"
+  d:
+    type: file
+    machine: local
+    path: /tmp/d.txt
+    content: "d"
+"#;
+        let config: types::ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let deps = collect_transitive_deps(&config, "a").unwrap();
+        assert!(deps.contains("a"));
+        assert!(deps.contains("b"));
+        assert!(deps.contains("c"));
+        assert!(!deps.contains("d"));
+        assert_eq!(deps.len(), 3);
     }
 }
