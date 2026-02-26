@@ -223,6 +223,10 @@ pub enum Commands {
         /// FJ-286: Skip confirmation prompt (CI mode)
         #[arg(long)]
         yes: bool,
+
+        /// FJ-290: Enable parallel wave execution (overrides policy.parallel_resources)
+        #[arg(long)]
+        parallel: bool,
     },
 
     /// Detect unauthorized changes (tripwire)
@@ -966,6 +970,7 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             timing,
             retry,
             yes,
+            parallel,
         } => {
             if check {
                 // FJ-226: --check runs check scripts via cmd_check
@@ -1003,6 +1008,7 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
                 timing,
                 retry,
                 yes,
+                parallel,
             )
         }
         Commands::Drift {
@@ -2037,6 +2043,7 @@ fn cmd_rollback(
         false, // no timing
         0,     // no retry
         true,  // yes (skip prompt)
+        false,
     )
 }
 
@@ -3907,6 +3914,7 @@ fn cmd_apply(
     timing: bool,
     retry: u32,
     yes: bool,
+    parallel: bool,
 ) -> Result<(), String> {
     use std::time::Instant;
     let t_total = Instant::now();
@@ -4005,6 +4013,7 @@ fn cmd_apply(
         force_unlock,
         progress,
         retry,
+        parallel: if parallel { Some(true) } else { None },
     };
 
     let t_apply = Instant::now();
@@ -4370,6 +4379,7 @@ fn cmd_drift(
             false, // no timing
             0,     // no retry
             true,  // yes (skip prompt)
+            false,
         )?;
         if !json {
             println!("Remediation complete.");
@@ -5354,6 +5364,7 @@ fn cmd_watch(
                             force_unlock: false,
                             progress: false,
                             retry: 0,
+                            parallel: None,
                         };
                         match executor::apply(&cfg) {
                             Ok(results) => {
@@ -6585,6 +6596,7 @@ resources:
             false, // no timing
             0,     // no retry
             true,  // yes (skip prompt)
+            false,
         )
         .unwrap();
     }
@@ -6640,6 +6652,7 @@ policy:
             false, // no timing
             0,     // no retry
             true,  // yes (skip prompt)
+            false,
         )
         .unwrap();
 
@@ -6692,6 +6705,7 @@ resources: {}
             false, // no timing
             0,     // no retry
             true,  // yes (skip prompt)
+            false,
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("validation"));
@@ -7021,6 +7035,7 @@ resources:
                 progress: false,
                 retry: 0,
                 yes: false,
+                parallel: false,
                 timing: false,
             },
             false,
@@ -7220,6 +7235,7 @@ resources:
             false, // no timing
             0,     // no retry
             true,  // yes (skip prompt)
+            false,
         )
         .unwrap();
         assert!(target.exists());
@@ -7249,6 +7265,7 @@ resources:
             false, // no timing
             0,     // no retry
             true,  // yes (skip prompt)
+            false,
         )
         .unwrap();
     }
@@ -7861,6 +7878,7 @@ resources:
             false, // no timing
             0,     // no retry
             true,  // yes (skip prompt)
+            false,
         )
         .unwrap();
         assert!(target.exists());
@@ -7930,6 +7948,7 @@ resources:
             false, // no timing
             0,     // no retry
             true,  // yes (skip prompt)
+            false,
         )
         .unwrap();
         cmd_destroy(&config, &state, None, true, true).unwrap();
@@ -8000,6 +8019,7 @@ resources:
             false, // no timing
             0,     // no retry
             true,  // yes (skip prompt)
+            false,
         )
         .unwrap();
         assert!(target_a.exists());
@@ -8065,6 +8085,7 @@ resources:
             false, // no timing
             0,     // no retry
             true,  // yes (skip prompt)
+            false,
         )
         .unwrap();
         dispatch(
@@ -8166,6 +8187,7 @@ resources:
             false, // no timing
             0,     // no retry
             true,  // yes (skip prompt)
+            false,
         )
         .unwrap();
         assert!(target.exists());
@@ -8330,6 +8352,7 @@ resources:
             false, // no timing
             0,     // no retry
             true,  // yes (skip prompt)
+            false,
         )
         .unwrap();
         assert!(std::path::Path::new(&target).exists());
@@ -9708,6 +9731,7 @@ resources:
             false, // no timing
             0,     // no retry
             true,  // yes (skip prompt)
+            false,
         )
         .unwrap();
     }
@@ -10978,6 +11002,7 @@ resources:
             false, // no timing
             0,     // no retry
             true,  // yes (skip prompt)
+            false,
         );
         assert!(result.is_ok());
     }
@@ -11065,6 +11090,7 @@ resources:
                 progress: false,
                 retry: 0,
                 yes: false,
+                parallel: false,
                 timing: false,
             },
             false,
@@ -11609,6 +11635,7 @@ resources:
             false, // no timing
             0,     // no retry
             true,  // yes (skip prompt)
+            false,
         )
         .unwrap();
     }
@@ -12004,6 +12031,7 @@ policies:
             false,
             0,
             true,
+            false,
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("policy violations"));
@@ -12112,6 +12140,7 @@ policy:
             false,
             0,
             true,
+            false,
         );
         // cmd_apply needs a parsed config, but it re-parses from file
         // Instead, test the run_notify function directly
@@ -12211,6 +12240,7 @@ resources:
                 progress: false,
                 retry: 0,
                 yes: false,
+                parallel: false,
                 timing: false,
             },
             false,
@@ -12270,6 +12300,7 @@ resources:
                 progress: false,
                 retry: 0,
                 yes: false,
+                parallel: false,
                 timing: false,
             },
             false,
@@ -13311,6 +13342,7 @@ resources:
             false,
             0,
             true,
+            false,
         )
         .unwrap();
         // last-apply.yaml should be written
@@ -13381,6 +13413,7 @@ resources:
             false,
             0,
             true,
+            false,
         )
         .unwrap();
         let content = std::fs::read_to_string(state.join("local").join("last-apply.yaml")).unwrap();
@@ -13788,6 +13821,7 @@ resources:
             progress: false,
             retry: 0,
             yes: false,
+            parallel: false,
             timing: false,
         };
         match cmd {
@@ -13892,6 +13926,7 @@ resources:
             progress: true,
             retry: 0,
             yes: false,
+            parallel: false,
             timing: false,
         };
         match cmd {
@@ -13925,6 +13960,7 @@ resources:
             progress: false,
             retry: 0,
             yes: false,
+            parallel: false,
             timing: false,
         };
         match cmd {
@@ -13962,6 +13998,7 @@ resources:
             progress: false,
             retry: 0,
             yes: false,
+            parallel: false,
             timing: true,
         };
         match cmd {
@@ -13995,6 +14032,7 @@ resources:
             progress: false,
             retry: 0,
             yes: false,
+            parallel: false,
             timing: false,
         };
         match cmd {
@@ -14236,6 +14274,7 @@ resources:
             progress: false,
             retry: 0,
             yes: false,
+            parallel: false,
             timing: false,
         };
         match cmd {
@@ -14382,6 +14421,7 @@ resources:
             progress: false,
             retry: 3,
             yes: false,
+            parallel: false,
             timing: false,
         };
         match cmd {
@@ -14415,6 +14455,7 @@ resources:
             progress: false,
             retry: 0,
             yes: false,
+            parallel: false,
             timing: false,
         };
         match cmd {
@@ -14559,6 +14600,7 @@ resources:
             progress: false,
             retry: 0,
             yes: true,
+            parallel: false,
             timing: false,
         };
         match cmd {
@@ -14592,6 +14634,7 @@ resources:
             progress: false,
             retry: 0,
             yes: false,
+            parallel: false,
             timing: false,
         };
         match cmd {
@@ -14619,5 +14662,41 @@ resources:
     fn test_fj287_doctor_no_fix_runs() {
         // doctor without fix should not crash
         let _ = cmd_doctor(None, false, false);
+    }
+
+    // ── FJ-290: forjar apply --parallel ──────────────────────────
+
+    #[test]
+    fn test_fj290_parallel_flag_parse() {
+        let cmd = Commands::Apply {
+            file: PathBuf::from("forjar.yaml"),
+            machine: None,
+            resource: None,
+            tag: None,
+            group: None,
+            force: false,
+            dry_run: false,
+            no_tripwire: false,
+            params: vec![],
+            auto_commit: false,
+            timeout: None,
+            state_dir: PathBuf::from("state"),
+            json: false,
+            env_file: None,
+            workspace: None,
+            check: false,
+            report: false,
+            force_unlock: false,
+            output: None,
+            progress: false,
+            retry: 0,
+            yes: false,
+            parallel: true,
+            timing: false,
+        };
+        match cmd {
+            Commands::Apply { parallel, .. } => assert!(parallel),
+            _ => panic!("expected Apply"),
+        }
     }
 }
