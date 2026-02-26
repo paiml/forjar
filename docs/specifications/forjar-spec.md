@@ -1811,14 +1811,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-320 | `forjar apply --machine <name>` — target single machine in multi-machine config. Skip others. | Planned |
-| FJ-321 | `forjar status --machine <name>` — per-machine status filtering. Show only one machine's resources. | Planned |
-| FJ-322 | `forjar drift --machine <name>` — per-machine drift check. Skip SSH to unrelated hosts. | Planned |
-| FJ-323 | `forjar plan --machine <name>` — per-machine plan output. Show only changes for one machine. | Planned |
-| FJ-324 | `forjar apply --rolling N` — rolling deployment: apply to N machines at a time, stop on failure. Zero-downtime fleet updates. | Planned |
-| FJ-325 | `forjar apply --canary <machine>` — canary deployment: apply to one machine first, pause for confirmation, then apply to rest. | Planned |
-| FJ-326 | `forjar inventory` — list all machines with connection status (reachable/unreachable). Fleet health overview. | Planned |
-| FJ-327 | `forjar apply --retry-failed` — re-run only previously failed resources. Resume from partial apply without re-running converged resources. | Planned |
+| FJ-320 | `forjar apply --machine <name>` — target single machine in multi-machine config. Skip others. | Done (pre-existing) |
+| FJ-321 | `forjar status --machine <name>` — per-machine status filtering. Show only one machine's resources. | Done (pre-existing) |
+| FJ-322 | `forjar drift --machine <name>` — per-machine drift check. Skip SSH to unrelated hosts. | Done (pre-existing) |
+| FJ-323 | `forjar plan --machine <name>` — per-machine plan output. Show only changes for one machine. | Done (pre-existing) |
+| FJ-324 | `forjar rolling` — rolling deployment: apply N machines at a time, stop on failure. Zero-downtime fleet updates. | Done |
+| FJ-325 | `forjar canary` — canary deployment: apply to one machine first, pause for confirmation, then apply to rest. | Done |
+| FJ-326 | `forjar inventory` — list all machines with connection status (reachable/unreachable). Fleet health overview. | Done |
+| FJ-327 | `forjar retry-failed` — re-run only previously failed resources. Resume from partial apply without re-running converged resources. | Done |
+
+### Phase 19 — v1.9: Advanced Templating & Config Composition
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-330 | `forjar validate --dry-expand` — show fully expanded config after template resolution without applying. Debug template issues. | Planned |
+| FJ-331 | `forjar apply --subset <glob>` — apply only resources matching a glob pattern (e.g., `web-*`). Fine-grained targeting. | Planned |
+| FJ-332 | `forjar lint --fix` — auto-fix common lint issues (normalize quotes, sort keys, fix indentation). | Planned |
+| FJ-333 | `forjar plan --what-if KEY=VALUE` — show plan with hypothetical param override without modifying config. | Planned |
+| FJ-334 | `forjar diff --format json` — structured JSON diff between state snapshots for programmatic consumption. | Planned |
+| FJ-335 | `forjar apply --confirm-destructive` — require explicit confirmation for destroy/remove actions. Safety gate for production. | Planned |
+| FJ-336 | `forjar status --stale N` — show resources not updated in N days. Find abandoned infrastructure. | Planned |
+| FJ-337 | `forjar apply --tag <tag>` — apply only resources with a specific tag. Targeted deployment by tag. | Planned |
 
 ---
 

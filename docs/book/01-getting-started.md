@@ -16,7 +16,7 @@ Verify:
 forjar --help
 ```
 
-You should see forjar's 38 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`.
+You should see forjar's 42 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`.
 
 ## Your First Project
 
@@ -1431,6 +1431,58 @@ POST JSON results to a webhook URL after apply completes:
 ```bash
 forjar apply -f forjar.yaml --notify https://hooks.example.com/forjar
 # POSTs: { "name": "home-lab", "total_converged": 5, "total_failed": 0, "duration_ms": 1234 }
+```
+
+## Fleet Inventory
+
+List all machines with connection status — SSH reachability probe for remote machines:
+
+```bash
+forjar inventory -f forjar.yaml
+#   ● gpu-box (lambda) [192.168.50.100] — reachable via ssh (5 resources)
+#   ● local (localhost) [127.0.0.1] — reachable via local (3 resources)
+#   ✗ db-box (postgres) [10.0.0.50] — unreachable via ssh (2 resources)
+
+forjar inventory -f forjar.yaml --json
+# [{ "name": "gpu-box", "status": "reachable", "transport": "ssh", "resources": 5 }, ...]
+```
+
+## Rolling Deployment
+
+Apply to N machines at a time — stop on first failure for safe fleet-wide updates:
+
+```bash
+forjar rolling -f forjar.yaml --batch-size 2
+# Rolling deploy: 6 machines in 3 batch(es) of 2
+# --- Batch 1/3: web-1, web-2 ---
+# --- Batch 2/3: web-3, web-4 ---
+# --- Batch 3/3: web-5, web-6 ---
+```
+
+## Canary Deployment
+
+Apply to one machine first, then roll out to the rest:
+
+```bash
+forjar canary -f forjar.yaml --machine web-1
+# === Canary Phase: applying to 'web-1' ===
+# ✓ Canary 'web-1' succeeded.
+# === Fleet Phase: applying to 5 remaining machine(s) ===
+
+# Auto-proceed for CI (skip confirmation):
+forjar canary -f forjar.yaml --machine web-1 --auto-proceed
+```
+
+## Retry Failed Resources
+
+Re-run only resources that failed in the last apply — no re-running converged resources:
+
+```bash
+forjar retry-failed -f forjar.yaml
+# Retrying 2 failed resource(s):
+#   gpu-box → cuda-driver
+#   gpu-box → model-download
+# ✓ Retried 2 resource(s) successfully.
 ```
 
 ## Next Steps
