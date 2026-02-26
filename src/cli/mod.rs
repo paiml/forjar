@@ -211,6 +211,10 @@ pub enum Commands {
         /// FJ-276: Show timing breakdown after apply
         #[arg(long)]
         timing: bool,
+
+        /// FJ-283: Retry failed resources up to N times with exponential backoff
+        #[arg(long, default_value = "0")]
+        retry: u32,
     },
 
     /// Detect unauthorized changes (tripwire)
@@ -942,6 +946,7 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             output,
             progress,
             timing,
+            retry,
         } => {
             if check {
                 // FJ-226: --check runs check scripts via cmd_check
@@ -977,6 +982,7 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
                 output.as_deref(),
                 progress,
                 timing,
+                retry,
             )
         }
         Commands::Drift {
@@ -2002,6 +2008,7 @@ fn cmd_rollback(
         None,  // no output mode
         false, // no progress
         false, // no timing
+            0, // no retry
     )
 }
 
@@ -3030,10 +3037,7 @@ fn cmd_validate(file: &Path, strict: bool) -> Result<(), String> {
         for (id, resource) in &config.resources {
             for dep in &resource.depends_on {
                 if !config.resources.contains_key(dep) {
-                    errors.push(format!(
-                        "{}: depends_on '{}' does not exist",
-                        id, dep
-                    ));
+                    errors.push(format!("{}: depends_on '{}' does not exist", id, dep));
                 }
             }
         }
@@ -3047,10 +3051,7 @@ fn cmd_validate(file: &Path, strict: bool) -> Result<(), String> {
         for (id, resource) in &config.resources {
             if let Some(ref path) = resource.path {
                 if !path.starts_with('/') && !path.starts_with("{{") {
-                    errors.push(format!(
-                        "{}: path '{}' is not absolute",
-                        id, path
-                    ));
+                    errors.push(format!("{}: path '{}' is not absolute", id, path));
                 }
             }
         }
@@ -3844,6 +3845,7 @@ fn cmd_apply(
     output_mode: Option<&str>,
     progress: bool,
     timing: bool,
+    retry: u32,
 ) -> Result<(), String> {
     use std::time::Instant;
     let t_total = Instant::now();
@@ -3920,6 +3922,7 @@ fn cmd_apply(
         timeout_secs,
         force_unlock,
         progress,
+        retry,
     };
 
     let t_apply = Instant::now();
@@ -4283,6 +4286,7 @@ fn cmd_drift(
             None,  // no output mode
             false, // no progress
             false, // no timing
+            0, // no retry
         )?;
         if !json {
             println!("Remediation complete.");
@@ -5176,6 +5180,7 @@ fn cmd_watch(
                             timeout_secs: None,
                             force_unlock: false,
                             progress: false,
+            retry: 0,
                         };
                         match executor::apply(&cfg) {
                             Ok(results) => {
@@ -6355,6 +6360,7 @@ resources:
             None,  // no output mode
             false, // no progress
             false, // no timing
+            0, // no retry
         )
         .unwrap();
     }
@@ -6408,6 +6414,7 @@ policy:
             None,  // no output mode
             false, // no progress
             false, // no timing
+            0, // no retry
         )
         .unwrap();
 
@@ -6458,6 +6465,7 @@ resources: {}
             None,  // no output mode
             false, // no progress
             false, // no timing
+            0, // no retry
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("validation"));
@@ -6784,6 +6792,7 @@ resources:
                 force_unlock: false,
                 output: None,
                 progress: false,
+            retry: 0,
                 timing: false,
             },
             false,
@@ -6981,6 +6990,7 @@ resources:
             None,  // no output mode
             false, // no progress
             false, // no timing
+            0, // no retry
         )
         .unwrap();
         assert!(target.exists());
@@ -7008,6 +7018,7 @@ resources:
             None,  // no output mode
             false, // no progress
             false, // no timing
+            0, // no retry
         )
         .unwrap();
     }
@@ -7616,6 +7627,7 @@ resources:
             None,  // no output mode
             false, // no progress
             false, // no timing
+            0, // no retry
         )
         .unwrap();
         assert!(target.exists());
@@ -7683,6 +7695,7 @@ resources:
             None,  // no output mode
             false, // no progress
             false, // no timing
+            0, // no retry
         )
         .unwrap();
         cmd_destroy(&config, &state, None, true, true).unwrap();
@@ -7751,6 +7764,7 @@ resources:
             None,  // no output mode
             false, // no progress
             false, // no timing
+            0, // no retry
         )
         .unwrap();
         assert!(target_a.exists());
@@ -7814,6 +7828,7 @@ resources:
             None,  // no output mode
             false, // no progress
             false, // no timing
+            0, // no retry
         )
         .unwrap();
         dispatch(
@@ -7913,6 +7928,7 @@ resources:
             None,  // no output mode
             false, // no progress
             false, // no timing
+            0, // no retry
         )
         .unwrap();
         assert!(target.exists());
@@ -8075,6 +8091,7 @@ resources:
             None,  // no output mode
             false, // no progress
             false, // no timing
+            0, // no retry
         )
         .unwrap();
         assert!(std::path::Path::new(&target).exists());
@@ -9451,6 +9468,7 @@ resources:
             None,  // no output mode
             false, // no progress
             false, // no timing
+            0, // no retry
         )
         .unwrap();
     }
@@ -10719,6 +10737,7 @@ resources:
             None,  // no output mode
             false, // no progress
             false, // no timing
+            0, // no retry
         );
         assert!(result.is_ok());
     }
@@ -10804,6 +10823,7 @@ resources:
                 force_unlock: false,
                 output: None,
                 progress: false,
+            retry: 0,
                 timing: false,
             },
             false,
@@ -11345,6 +11365,7 @@ resources:
             None,  // no output mode
             false, // no progress
             false, // no timing
+            0, // no retry
         )
         .unwrap();
     }
@@ -11737,6 +11758,7 @@ policies:
             None,
             false,
             false,
+            0,
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("policy violations"));
@@ -11843,6 +11865,7 @@ policy:
             None,
             false,
             false,
+            0,
         );
         // cmd_apply needs a parsed config, but it re-parses from file
         // Instead, test the run_notify function directly
@@ -11940,6 +11963,7 @@ resources:
                 force_unlock: false,
                 output: None,
                 progress: false,
+            retry: 0,
                 timing: false,
             },
             false,
@@ -11997,6 +12021,7 @@ resources:
                 force_unlock: false,
                 output: None,
                 progress: false,
+            retry: 0,
                 timing: false,
             },
             false,
@@ -13036,6 +13061,7 @@ resources:
             None,
             false,
             false,
+            0,
         )
         .unwrap();
         // last-apply.yaml should be written
@@ -13104,6 +13130,7 @@ resources:
             None,
             false,
             false,
+            0,
         )
         .unwrap();
         let content = std::fs::read_to_string(state.join("local").join("last-apply.yaml")).unwrap();
@@ -13509,6 +13536,7 @@ resources:
             force_unlock: false,
             output: Some("events".to_string()),
             progress: false,
+            retry: 0,
             timing: false,
         };
         match cmd {
@@ -13611,6 +13639,7 @@ resources:
             force_unlock: false,
             output: None,
             progress: true,
+            retry: 0,
             timing: false,
         };
         match cmd {
@@ -13642,6 +13671,7 @@ resources:
             force_unlock: false,
             output: None,
             progress: false,
+            retry: 0,
             timing: false,
         };
         match cmd {
@@ -13677,6 +13707,7 @@ resources:
             force_unlock: false,
             output: None,
             progress: false,
+            retry: 0,
             timing: true,
         };
         match cmd {
@@ -13708,6 +13739,7 @@ resources:
             force_unlock: false,
             output: None,
             progress: false,
+            retry: 0,
             timing: false,
         };
         match cmd {
@@ -13947,6 +13979,7 @@ resources:
             force_unlock: false,
             output: None,
             progress: false,
+            retry: 0,
             timing: false,
         };
         match cmd {
@@ -14063,6 +14096,72 @@ resources:
         match result {
             Ok(()) => {} // parser didn't catch it — fine
             Err(msg) => assert!(!msg.contains("strict validation")),
+        }
+    }
+
+    // ── FJ-283: Apply retry with backoff ──────────────────────────
+
+    #[test]
+    fn test_fj283_retry_flag_parse() {
+        let cmd = Commands::Apply {
+            file: PathBuf::from("forjar.yaml"),
+            machine: None,
+            resource: None,
+            tag: None,
+            group: None,
+            force: false,
+            dry_run: false,
+            no_tripwire: false,
+            params: vec![],
+            auto_commit: false,
+            timeout: None,
+            state_dir: PathBuf::from("state"),
+            json: false,
+            env_file: None,
+            workspace: None,
+            check: false,
+            report: false,
+            force_unlock: false,
+            output: None,
+            progress: false,
+            retry: 3,
+            timing: false,
+        };
+        match cmd {
+            Commands::Apply { retry, .. } => assert_eq!(retry, 3),
+            _ => panic!("expected Apply"),
+        }
+    }
+
+    #[test]
+    fn test_fj283_retry_default_zero() {
+        let cmd = Commands::Apply {
+            file: PathBuf::from("forjar.yaml"),
+            machine: None,
+            resource: None,
+            tag: None,
+            group: None,
+            force: false,
+            dry_run: false,
+            no_tripwire: false,
+            params: vec![],
+            auto_commit: false,
+            timeout: None,
+            state_dir: PathBuf::from("state"),
+            json: false,
+            env_file: None,
+            workspace: None,
+            check: false,
+            report: false,
+            force_unlock: false,
+            output: None,
+            progress: false,
+            retry: 0,
+            timing: false,
+        };
+        match cmd {
+            Commands::Apply { retry, .. } => assert_eq!(retry, 0),
+            _ => panic!("expected Apply"),
         }
     }
 }
