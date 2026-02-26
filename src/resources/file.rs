@@ -622,6 +622,102 @@ mod tests {
     }
 
     #[test]
+    fn test_fj153_file_owner_no_group() {
+        let mut r = make_file_resource("/etc/conf", Some("data"));
+        r.owner = Some("deploy".to_string());
+        r.group = None;
+        let script = apply_script(&r);
+        assert!(script.contains("chown 'deploy' '/etc/conf'"));
+        assert!(!script.contains("chown 'deploy:"));
+    }
+
+    #[test]
+    fn test_fj153_file_dir_owner_no_group() {
+        let mut r = make_file_resource("/var/data", None);
+        r.state = Some("directory".to_string());
+        r.owner = Some("app".to_string());
+        r.group = None;
+        let script = apply_script(&r);
+        assert!(script.contains("chown 'app' '/var/data'"));
+        assert!(!script.contains("chown 'app:"));
+    }
+
+    #[test]
+    fn test_fj153_file_no_owner_no_mode() {
+        let mut r = make_file_resource("/tmp/test", Some("hello"));
+        r.owner = None;
+        r.group = None;
+        r.mode = None;
+        let script = apply_script(&r);
+        assert!(!script.contains("chown"));
+        assert!(!script.contains("chmod"));
+        assert!(script.contains("hello"));
+    }
+
+    #[test]
+    fn test_fj153_file_check_symlink() {
+        let mut r = make_file_resource("/etc/link", None);
+        r.state = Some("symlink".to_string());
+        let script = check_script(&r);
+        assert!(script.contains("test -L '/etc/link'"));
+        assert!(script.contains("exists:symlink"));
+        assert!(script.contains("missing:symlink"));
+    }
+
+    #[test]
+    fn test_fj153_file_check_absent() {
+        let mut r = make_file_resource("/tmp/old", None);
+        r.state = Some("absent".to_string());
+        let script = check_script(&r);
+        assert!(script.contains("test -e '/tmp/old'"));
+        assert!(script.contains("exists:present"));
+        assert!(script.contains("missing:absent"));
+    }
+
+    #[test]
+    fn test_fj153_file_check_unknown_state() {
+        let mut r = make_file_resource("/tmp/x", None);
+        r.state = Some("custom".to_string());
+        let script = check_script(&r);
+        assert!(script.contains("unsupported file state: custom"));
+    }
+
+    #[test]
+    fn test_fj153_file_apply_unknown_state() {
+        let mut r = make_file_resource("/tmp/x", None);
+        r.state = Some("custom".to_string());
+        let script = apply_script(&r);
+        assert!(script.contains("unsupported file state: custom"));
+    }
+
+    #[test]
+    fn test_fj153_file_symlink_default_target() {
+        let mut r = make_file_resource("/etc/link", None);
+        r.state = Some("symlink".to_string());
+        r.target = None;
+        let script = apply_script(&r);
+        assert!(script.contains("ln -sfn '/dev/null' '/etc/link'"));
+    }
+
+    #[test]
+    fn test_fj153_file_root_path_no_mkdir() {
+        let r = make_file_resource("/test.conf", Some("data"));
+        let script = apply_script(&r);
+        assert!(
+            !script.contains("mkdir -p '/'"),
+            "should not mkdir -p for root path"
+        );
+    }
+
+    #[test]
+    fn test_fj153_file_state_query_default_path() {
+        let mut r = make_file_resource("/x", None);
+        r.path = None;
+        let script = state_query_script(&r);
+        assert!(script.contains("/dev/null"));
+    }
+
+    #[test]
     fn test_fj036_file_apply_chown_group() {
         // chown must include owner:group when both are set
         let mut r = make_file_resource("/etc/app/config.yaml", Some("port: 8080"));

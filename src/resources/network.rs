@@ -391,6 +391,51 @@ mod tests {
     }
 
     #[test]
+    fn test_fj153_network_all_defaults() {
+        let mut r = make_network_resource("0", "allow");
+        r.port = None;
+        r.protocol = None;
+        r.action = None;
+        r.state = None;
+        let script = apply_script(&r);
+        assert!(script.contains("ufw allow"));
+        assert!(script.contains("port '0'"));
+        assert!(script.contains("proto 'tcp'"));
+    }
+
+    #[test]
+    fn test_fj153_network_absent_with_from() {
+        let mut r = make_network_resource("22", "deny");
+        r.state = Some("absent".to_string());
+        r.from_addr = Some("10.0.0.0/8".to_string());
+        let script = apply_script(&r);
+        assert!(script.contains("ufw delete deny"));
+        assert!(script.contains("from '10.0.0.0/8'"));
+        assert!(script.contains("port '22'"));
+        assert!(script.contains("|| true"));
+    }
+
+    #[test]
+    fn test_fj153_network_no_name_no_comment() {
+        let mut r = make_network_resource("443", "allow");
+        r.name = None;
+        let script = apply_script(&r);
+        assert!(!script.contains("comment"));
+        assert!(script.contains("ufw allow"));
+    }
+
+    #[test]
+    fn test_fj153_network_check_defaults() {
+        let mut r = make_network_resource("0", "allow");
+        r.port = None;
+        r.protocol = None;
+        r.action = None;
+        let script = check_script(&r);
+        assert!(script.contains("0/tcp"));
+        assert!(script.contains("allow"));
+    }
+
+    #[test]
     fn test_fj036_network_check_contains_ufw_status() {
         // check_script must query ufw status to determine rule existence
         let r = make_network_resource("443", "allow");

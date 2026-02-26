@@ -373,6 +373,56 @@ mod tests {
     }
 
     #[test]
+    fn test_fj153_cron_all_defaults() {
+        let mut r = make_cron_resource("job");
+        r.schedule = None;
+        r.command = None;
+        r.owner = None;
+        r.name = None;
+        let script = apply_script(&r);
+        assert!(
+            script.contains("* * * * *"),
+            "default schedule should be every minute"
+        );
+        assert!(script.contains("true"), "default command should be 'true'");
+        assert!(
+            script.contains("crontab -u 'root'"),
+            "default user should be root"
+        );
+    }
+
+    #[test]
+    fn test_fj153_cron_no_name_check() {
+        let mut r = make_cron_resource("placeholder");
+        r.name = None;
+        let script = check_script(&r);
+        assert!(script.contains("forjar:unknown"));
+    }
+
+    #[test]
+    fn test_fj153_cron_absent_all_defaults() {
+        let mut r = make_cron_resource("old");
+        r.state = Some("absent".to_string());
+        r.owner = None;
+        let script = apply_script(&r);
+        assert!(script.contains("grep -v '# forjar:old'"));
+        assert!(script.contains("crontab -u 'root' -"));
+        assert!(!script.contains("echo '"));
+    }
+
+    #[test]
+    fn test_fj153_cron_custom_user() {
+        let mut r = make_cron_resource("deploy-sync");
+        r.owner = Some("deploy".to_string());
+        r.schedule = Some("*/5 * * * *".to_string());
+        r.command = Some("/opt/sync.sh".to_string());
+        let script = apply_script(&r);
+        assert!(script.contains("crontab -u 'deploy'"));
+        assert!(script.contains("*/5 * * * *"));
+        assert!(script.contains("forjar:deploy-sync"));
+    }
+
+    #[test]
     fn test_fj036_cron_state_query_lists_crontab() {
         let r = make_cron_resource("hourly-sync");
         let script = state_query_script(&r);
