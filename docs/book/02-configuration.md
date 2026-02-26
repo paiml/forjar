@@ -116,8 +116,9 @@ Every machine entry supports the following fields:
 | `arch` | string | `x86_64` | CPU architecture. Used for `arch:` filtering on resources. Must be one of: `x86_64`, `aarch64`, `armv7l`, `riscv64`, `s390x`, `ppc64le`. |
 | `ssh_key` | string | -- | Path to SSH private key file. Supports `~` expansion. Ignored for local and container transport. |
 | `roles` | [string] | [] | Informational tags for the machine. Not used in execution logic; useful for documentation and filtering. |
-| `transport` | string | -- | Explicit transport override. Set to `container` for container execution. When omitted, transport is inferred: `127.0.0.1`/`localhost` uses local, everything else uses SSH. |
+| `transport` | string | -- | Explicit transport override: `container` or `pepita`. When omitted, transport is inferred: `127.0.0.1`/`localhost` uses local, everything else uses SSH. |
 | `container` | object | -- | Container configuration block. Required when `transport: container`. See below. |
+| `pepita` | object | -- | Pepita kernel namespace configuration. Required when `transport: pepita`. See below. |
 | `cost` | integer | 0 | Relative cost weight for scheduling order. Lower values are applied first. Useful for prioritizing cheap on-prem machines over expensive cloud instances. |
 
 ### Container Transport Fields
@@ -214,6 +215,36 @@ machines:
       privileged: true
       init: true
 ```
+
+### Pepita Transport Fields
+
+The `pepita:` block configures kernel namespace execution. Requires `CAP_SYS_ADMIN` or root. Zero Docker dependency.
+
+```yaml
+machines:
+  ns-box:
+    hostname: ns-box
+    addr: pepita
+    transport: pepita
+    pepita:
+      rootfs: "debootstrap:jammy"
+      memory_mb: 1024
+      cpus: 4.0
+      network: isolated
+      filesystem: overlay
+      ephemeral: true
+```
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `rootfs` | string | required | Root filesystem: path or `debootstrap:<suite>` |
+| `memory_mb` | integer | -- | cgroup v2 memory limit in MB |
+| `cpus` | float | -- | cgroup v2 CPU limit (e.g., `2.0` = 2 cores) |
+| `network` | string | `isolated` | Network mode: `isolated` (new netns) or `host` |
+| `filesystem` | string | `overlay` | Filesystem mode: `overlay` or `bind` |
+| `ephemeral` | bool | `true` | Destroy namespace after apply |
+
+Transport dispatch priority: **pepita > container > local > SSH**.
 
 ## Resources
 

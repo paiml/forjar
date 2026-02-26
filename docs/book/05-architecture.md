@@ -905,16 +905,17 @@ Despite YAML's complexity pitfalls, it was chosen because:
 
 ### Transport Abstraction
 
-All three transports share a single interface:
+All four transports share a single interface:
 
 ```rust
 pub fn exec_script(machine: &Machine, script: &str) -> Result<ScriptOutput, String>
 ```
 
-The dispatch logic:
-1. **Container** (`transport == "container"`): `docker exec -i <name> bash`
-2. **Local** (`addr == "127.0.0.1"` or `"localhost"`): Direct `bash -c`
-3. **SSH** (everything else): `ssh -o StrictHostKeyChecking=no user@addr bash`
+The dispatch logic (priority order):
+1. **Pepita** (`transport == "pepita"`): `nsenter --target <pid> --mount --pid --net -- bash`
+2. **Container** (`transport == "container"`): `docker exec -i <name> bash`
+3. **Local** (`addr == "127.0.0.1"` or `"localhost"`): Direct `bash -c`
+4. **SSH** (everything else): `ssh -o StrictHostKeyChecking=no user@addr bash`
 
 ### Script Piping Pattern
 
@@ -939,6 +940,22 @@ ensure_container() → exec_script() → cleanup_container()
 
 - **Ephemeral** (default): Container created before first resource, destroyed after all resources complete
 - **Attached**: Container must already be running, not destroyed after
+
+### Pepita Namespace Lifecycle
+
+Pepita transport uses Linux kernel namespaces (zero Docker dependency):
+
+```
+ensure_namespace() → exec_pepita() → cleanup_namespace()
+```
+
+- **ensure_namespace**: `unshare --fork --pid --mount --net --mount-proc -- sleep infinity`, writes PID to `/run/forjar/<name>.pid`, applies cgroup v2 limits
+- **exec_pepita**: `nsenter --target <pid> --mount --pid [--net] -- bash` with script piped to stdin
+- **cleanup_namespace**: `kill -9 <pid>`, removes PID file and cgroup directory
+- **Ephemeral** (default): Namespace destroyed after apply
+- **Persistent** (`ephemeral: false`): Namespace left running
+
+Requires `CAP_SYS_ADMIN` or root.
 
 ### SSH Multiplexing
 
