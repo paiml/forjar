@@ -247,6 +247,10 @@ pub enum Commands {
         /// FJ-313: Max concurrent resources per parallel wave
         #[arg(long)]
         max_parallel: Option<usize>,
+
+        /// FJ-317: POST JSON results to webhook URL after apply
+        #[arg(long)]
+        notify: Option<String>,
     },
 
     /// Detect unauthorized changes (tripwire)
@@ -1024,6 +1028,7 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             resource_timeout,
             rollback_on_failure,
             max_parallel,
+            notify,
         } => {
             if check {
                 // FJ-226: --check runs check scripts via cmd_check
@@ -1065,6 +1070,7 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
                 resource_timeout,
                 rollback_on_failure,
                 max_parallel,
+                notify.as_deref(),
             )
         }
         Commands::Drift {
@@ -2145,6 +2151,7 @@ fn cmd_rollback(
         None,  // no resource_timeout
         false, // no rollback_on_failure
         None,  // no max_parallel
+        None,  // no notify
     )
 }
 
@@ -4182,6 +4189,7 @@ fn cmd_apply(
     resource_timeout: Option<u64>,
     rollback_on_failure: bool,
     max_parallel: Option<usize>,
+    notify: Option<&str>,
 ) -> Result<(), String> {
     use std::time::Instant;
     let t_total = Instant::now();
@@ -4521,6 +4529,50 @@ fn cmd_apply(
         }
     }
 
+    // FJ-317: POST JSON results to webhook URL
+    if let Some(url) = notify {
+        let payload = serde_json::json!({
+            "name": config.name,
+            "total_converged": total_converged,
+            "total_failed": total_failed,
+            "total_unchanged": total_unchanged,
+            "duration_seconds": t_total.elapsed().as_secs_f64(),
+            "results": results.iter().map(|r| serde_json::json!({
+                "machine": r.machine,
+                "converged": r.resources_converged,
+                "failed": r.resources_failed,
+                "unchanged": r.resources_unchanged,
+                "duration_seconds": r.total_duration.as_secs_f64(),
+            })).collect::<Vec<_>>(),
+        });
+        let payload_str = serde_json::to_string(&payload).unwrap_or_default();
+        // Use curl for webhook POST (no extra dependencies)
+        let result = std::process::Command::new("curl")
+            .args([
+                "-s", "-X", "POST",
+                "-H", "Content-Type: application/json",
+                "-d", &payload_str,
+                url,
+            ])
+            .output();
+        match result {
+            Ok(output) if output.status.success() => {
+                if verbose {
+                    eprintln!("Webhook notification sent to {}", url);
+                }
+            }
+            Ok(output) => {
+                eprintln!(
+                    "Warning: webhook POST to {} failed (exit {})",
+                    url, output.status
+                );
+            }
+            Err(e) => {
+                eprintln!("Warning: webhook POST failed: {}", e);
+            }
+        }
+    }
+
     Ok(())
 }
 
@@ -4693,6 +4745,7 @@ fn cmd_drift(
             None,  // no resource_timeout
             false, // no rollback_on_failure
             None,  // no max_parallel
+            None,  // no notify
         )?;
         if !json {
             println!("Remediation complete.");
@@ -7099,6 +7152,7 @@ resources:
             None,
             false,
             None,
+            None,
         )
         .unwrap();
     }
@@ -7158,6 +7212,7 @@ policy:
             None,
             false,
             None,
+            None,
         )
         .unwrap();
 
@@ -7213,6 +7268,7 @@ resources: {}
             false,
             None,
             false,
+            None,
             None,
         );
         assert!(result.is_err());
@@ -7446,7 +7502,7 @@ resources: {}
                 json: false,
                 file: None,
                 summary: false,
-            watch: None,
+                watch: None,
             },
             false,
             true,
@@ -7553,6 +7609,7 @@ resources:
                 resource_timeout: None,
                 rollback_on_failure: false,
                 max_parallel: None,
+                notify: None,
             },
             false,
             true,
@@ -7755,6 +7812,7 @@ resources:
             None,
             false,
             None,
+            None,
         )
         .unwrap();
         assert!(target.exists());
@@ -7787,6 +7845,7 @@ resources:
             false,
             None,
             false,
+            None,
             None,
         )
         .unwrap();
@@ -8412,6 +8471,7 @@ resources:
             None,
             false,
             None,
+            None,
         )
         .unwrap();
         assert!(target.exists());
@@ -8484,6 +8544,7 @@ resources:
             false,
             None,
             false,
+            None,
             None,
         )
         .unwrap();
@@ -8559,6 +8620,7 @@ resources:
             None,
             false,
             None,
+            None,
         )
         .unwrap();
         assert!(target_a.exists());
@@ -8627,6 +8689,7 @@ resources:
             false,
             None,
             false,
+            None,
             None,
         )
         .unwrap();
@@ -8732,6 +8795,7 @@ resources:
             false,
             None,
             false,
+            None,
             None,
         )
         .unwrap();
@@ -8900,6 +8964,7 @@ resources:
             false,
             None,
             false,
+            None,
             None,
         )
         .unwrap();
@@ -10283,6 +10348,7 @@ resources:
             None,
             false,
             None,
+            None,
         )
         .unwrap();
     }
@@ -11557,6 +11623,7 @@ resources:
             None,
             false,
             None,
+            None,
         );
         assert!(result.is_ok());
     }
@@ -11591,7 +11658,7 @@ resources:
                 json: true,
                 file: None,
                 summary: false,
-            watch: None,
+                watch: None,
             },
             false,
             true,
@@ -11652,6 +11719,7 @@ resources:
                 resource_timeout: None,
                 rollback_on_failure: false,
                 max_parallel: None,
+                notify: None,
             },
             false,
             true,
@@ -12200,6 +12268,7 @@ resources:
             None,
             false,
             None,
+            None,
         )
         .unwrap();
     }
@@ -12600,6 +12669,7 @@ policies:
             None,
             false,
             None,
+            None,
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("policy violations"));
@@ -12712,6 +12782,7 @@ policy:
             None,
             false,
             None,
+            None,
         );
         // cmd_apply needs a parsed config, but it re-parses from file
         // Instead, test the run_notify function directly
@@ -12816,6 +12887,7 @@ resources:
                 resource_timeout: None,
                 rollback_on_failure: false,
                 max_parallel: None,
+                notify: None,
             },
             false,
             true,
@@ -12879,6 +12951,7 @@ resources:
                 resource_timeout: None,
                 rollback_on_failure: false,
                 max_parallel: None,
+                notify: None,
             },
             false,
             true,
@@ -13925,6 +13998,7 @@ resources:
             None,
             false,
             None,
+            None,
         )
         .unwrap();
         // last-apply.yaml should be written
@@ -13998,6 +14072,7 @@ resources:
             false,
             None,
             false,
+            None,
             None,
         )
         .unwrap();
@@ -14411,6 +14486,7 @@ resources:
             resource_timeout: None,
             rollback_on_failure: false,
             max_parallel: None,
+            notify: None,
         };
         match cmd {
             Commands::Apply { output, .. } => {
@@ -14523,6 +14599,7 @@ resources:
             resource_timeout: None,
             rollback_on_failure: false,
             max_parallel: None,
+            notify: None,
         };
         match cmd {
             Commands::Apply { progress, .. } => assert!(progress),
@@ -14560,6 +14637,7 @@ resources:
             resource_timeout: None,
             rollback_on_failure: false,
             max_parallel: None,
+            notify: None,
         };
         match cmd {
             Commands::Apply { progress, .. } => assert!(!progress),
@@ -14601,6 +14679,7 @@ resources:
             resource_timeout: None,
             rollback_on_failure: false,
             max_parallel: None,
+            notify: None,
         };
         match cmd {
             Commands::Apply { timing, .. } => assert!(timing),
@@ -14638,6 +14717,7 @@ resources:
             resource_timeout: None,
             rollback_on_failure: false,
             max_parallel: None,
+            notify: None,
         };
         match cmd {
             Commands::Apply { timing, .. } => assert!(!timing),
@@ -14883,6 +14963,7 @@ resources:
             resource_timeout: None,
             rollback_on_failure: false,
             max_parallel: None,
+            notify: None,
         };
         match cmd {
             Commands::Apply { group, .. } => {
@@ -15035,6 +15116,7 @@ resources:
             resource_timeout: None,
             rollback_on_failure: false,
             max_parallel: None,
+            notify: None,
         };
         match cmd {
             Commands::Apply { retry, .. } => assert_eq!(retry, 3),
@@ -15072,6 +15154,7 @@ resources:
             resource_timeout: None,
             rollback_on_failure: false,
             max_parallel: None,
+            notify: None,
         };
         match cmd {
             Commands::Apply { retry, .. } => assert_eq!(retry, 0),
@@ -15221,6 +15304,7 @@ resources:
             resource_timeout: None,
             rollback_on_failure: false,
             max_parallel: None,
+            notify: None,
         };
         match cmd {
             Commands::Apply { yes, .. } => assert!(yes),
@@ -15258,6 +15342,7 @@ resources:
             resource_timeout: None,
             rollback_on_failure: false,
             max_parallel: None,
+            notify: None,
         };
         match cmd {
             Commands::Apply { yes, .. } => assert!(!yes),
@@ -15318,6 +15403,7 @@ resources:
             resource_timeout: None,
             rollback_on_failure: false,
             max_parallel: None,
+            notify: None,
         };
         match cmd {
             Commands::Apply { parallel, .. } => assert!(parallel),
@@ -15354,7 +15440,7 @@ resources:
             json: true,
             file: Some(PathBuf::from("forjar.yaml")),
             summary: false,
-        watch: None,
+            watch: None,
         };
         match cmd {
             Commands::Status { file, json, .. } => {
@@ -15496,6 +15582,7 @@ resources:
             false,   // parallel
             None,    // resource_timeout
             false,   // rollback_on_failure
+            None,
             None,
         );
         assert!(result.is_ok());
@@ -15680,7 +15767,7 @@ resources:
             json: false,
             file: None,
             summary: true,
-        watch: None,
+            watch: None,
         };
         match cmd {
             Commands::Status { summary, .. } => assert!(summary),
@@ -15729,6 +15816,7 @@ resources:
             resource_timeout: Some(30),
             rollback_on_failure: false,
             max_parallel: None,
+            notify: None,
         };
         match cmd {
             Commands::Apply {
@@ -15905,6 +15993,7 @@ resources:
             resource_timeout: None,
             rollback_on_failure: true,
             max_parallel: None,
+            notify: None,
         };
         match cmd {
             Commands::Apply {
@@ -16076,6 +16165,7 @@ resources:
             resource_timeout: None,
             rollback_on_failure: false,
             max_parallel: Some(4),
+            notify: None,
         };
         match cmd {
             Commands::Apply { max_parallel, .. } => assert_eq!(max_parallel, Some(4)),
@@ -16098,6 +16188,48 @@ resources:
         match cmd {
             Commands::Status { watch, .. } => assert_eq!(watch, Some(5)),
             _ => panic!("expected Status"),
+        }
+    }
+
+    // ── FJ-317: apply --notify webhook ──
+
+    #[test]
+    fn test_fj317_notify_flag_parse() {
+        let cmd = Commands::Apply {
+            file: PathBuf::from("f.yaml"),
+            state_dir: PathBuf::from("state"),
+            machine: None,
+            resource: None,
+            tag: None,
+            group: None,
+            force: false,
+            dry_run: false,
+            no_tripwire: false,
+            params: vec![],
+            auto_commit: false,
+            timeout: None,
+            json: false,
+            env_file: None,
+            workspace: None,
+            check: false,
+            report: false,
+            force_unlock: false,
+            output: None,
+            progress: false,
+            timing: false,
+            retry: 0,
+            yes: false,
+            parallel: false,
+            resource_timeout: None,
+            rollback_on_failure: false,
+            max_parallel: None,
+            notify: Some("https://hooks.example.com/apply".to_string()),
+        };
+        match cmd {
+            Commands::Apply { notify, .. } => {
+                assert_eq!(notify, Some("https://hooks.example.com/apply".to_string()));
+            }
+            _ => panic!("expected Apply"),
         }
     }
 }
