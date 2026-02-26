@@ -101,6 +101,8 @@ fn main() {
         persistence_mode: None,
         compute_mode: None,
         gpu_memory_limit_mb: None,
+    pre_apply: None,
+    post_apply: None,
     })
     .unwrap();
 

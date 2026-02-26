@@ -420,6 +420,36 @@ fn apply_single_resource(
     // FJ-242: Copia delta sync for file resources with large source files (> 1MB).
     // Two-phase protocol: (1) get remote block signatures, (2) compute delta, (3) transfer delta.
     // Falls back to normal codegen for small files, new files, or non-file resources.
+    // FJ-265: pre_apply hook — run before main script, skip resource on failure
+    if let Some(ref pre_hook) = resolved.pre_apply {
+        let pre_out = transport::exec_script_timeout(machine, pre_hook, cfg.timeout_secs);
+        match pre_out {
+            Ok(out) if !out.success() => {
+                let duration = resource_start.elapsed().as_secs_f64();
+                record_failure(
+                    ctx,
+                    &change.resource_id,
+                    &resource.resource_type,
+                    duration,
+                    &format!("pre_apply hook failed (exit {}): {}", out.exit_code, out.stderr.trim()),
+                );
+                return Ok(ResourceOutcome::Skipped);
+            }
+            Err(e) => {
+                let duration = resource_start.elapsed().as_secs_f64();
+                record_failure(
+                    ctx,
+                    &change.resource_id,
+                    &resource.resource_type,
+                    duration,
+                    &format!("pre_apply hook error: {}", e),
+                );
+                return Ok(ResourceOutcome::Skipped);
+            }
+            _ => {} // success — continue
+        }
+    }
+
     let ssh_retries = cfg.config.policy.ssh_retries;
     let output = if resolved.resource_type == ResourceType::File
         && resolved.source.is_some()
@@ -434,6 +464,27 @@ fn apply_single_resource(
 
     match output {
         Ok(out) if out.success() => {
+            // FJ-265: post_apply hook — run after successful apply
+            if let Some(ref post_hook) = resolved.post_apply {
+                let post_out = transport::exec_script_timeout(machine, post_hook, cfg.timeout_secs);
+                if let Ok(pout) = &post_out {
+                    if !pout.success() {
+                        let error = format!(
+                            "post_apply hook failed (exit {}): {}",
+                            pout.exit_code,
+                            pout.stderr.trim()
+                        );
+                        let should_stop = record_failure(
+                            ctx,
+                            &change.resource_id,
+                            &resource.resource_type,
+                            duration,
+                            &error,
+                        );
+                        return Ok(ResourceOutcome::Failed { should_stop });
+                    }
+                }
+            }
             record_success(
                 ctx,
                 &change.resource_id,
@@ -722,6 +773,7 @@ fn apply_machine(
                 }
 
                 // Phase 2: Execute transport I/O in parallel (the expensive part)
+                // FJ-265: pre_apply/post_apply hooks run inside the thread (on-target)
                 let ssh_retries = cfg.config.policy.ssh_retries;
                 let exec_results: Vec<(usize, f64, Result<transport::ExecOutput, String>)> =
                     std::thread::scope(|s| {
@@ -730,6 +782,25 @@ fn apply_machine(
                             .map(|prep| {
                                 s.spawn(move || {
                                     let start = Instant::now();
+                                    // FJ-265: pre_apply hook
+                                    if let Some(ref pre_hook) = prep.resolved.pre_apply {
+                                        match transport::exec_script_timeout(machine, pre_hook, cfg.timeout_secs) {
+                                            Ok(out) if !out.success() => {
+                                                let duration = start.elapsed().as_secs_f64();
+                                                return (prep.change_idx, duration, Err(format!(
+                                                    "pre_apply hook failed (exit {}): {}",
+                                                    out.exit_code, out.stderr.trim()
+                                                )));
+                                            }
+                                            Err(e) => {
+                                                let duration = start.elapsed().as_secs_f64();
+                                                return (prep.change_idx, duration, Err(format!(
+                                                    "pre_apply hook error: {}", e
+                                                )));
+                                            }
+                                            _ => {} // success
+                                        }
+                                    }
                                     let output = if prep.use_copia {
                                         copia_apply_file(machine, &prep.resolved, cfg.timeout_secs)
                                     } else {
@@ -741,6 +812,26 @@ fn apply_machine(
                                                 ssh_retries,
                                             )
                                         })
+                                    };
+                                    // FJ-265: post_apply hook (only on success)
+                                    let output = match output {
+                                        Ok(ref out) if out.success() => {
+                                            if let Some(ref post_hook) = prep.resolved.post_apply {
+                                                match transport::exec_script_timeout(machine, post_hook, cfg.timeout_secs) {
+                                                    Ok(pout) if !pout.success() => {
+                                                        Err(format!(
+                                                            "post_apply hook failed (exit {}): {}",
+                                                            pout.exit_code, pout.stderr.trim()
+                                                        ))
+                                                    }
+                                                    Err(e) => Err(format!("post_apply hook error: {}", e)),
+                                                    _ => output,
+                                                }
+                                            } else {
+                                                output
+                                            }
+                                        }
+                                        _ => output,
                                     };
                                     let duration = start.elapsed().as_secs_f64();
                                     (prep.change_idx, duration, output)
@@ -1302,6 +1393,8 @@ resources:
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
+        pre_apply: None,
+        post_apply: None,
         };
         let details = build_resource_details(&r, &local_machine());
         assert!(details.contains_key("path"));
@@ -1386,6 +1479,8 @@ resources:
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
+        pre_apply: None,
+        post_apply: None,
         };
         let details = build_resource_details(&r, &local_machine());
         assert!(details.contains_key("service_name"));
@@ -1716,6 +1811,8 @@ resources:
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
+        pre_apply: None,
+        post_apply: None,
         };
         let machine = Machine {
             hostname: "localhost".to_string(),
@@ -2046,6 +2143,8 @@ resources:
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
+        pre_apply: None,
+        post_apply: None,
         };
 
         // arch filter should reject: aarch64 resource on x86_64 machine
@@ -2369,6 +2468,8 @@ resources:
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
+        pre_apply: None,
+        post_apply: None,
         };
         let mut ctx = RecordCtx {
             lock: &mut lock,
@@ -2457,6 +2558,8 @@ resources:
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
+        pre_apply: None,
+        post_apply: None,
         };
         let mut ctx = RecordCtx {
             lock: &mut lock,
@@ -2567,6 +2670,8 @@ resources:
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
+        pre_apply: None,
+        post_apply: None,
         };
         let details = build_resource_details(&resource, &local_machine());
         assert!(details.contains_key("path"));
@@ -2650,6 +2755,8 @@ resources:
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
+        pre_apply: None,
+        post_apply: None,
         };
         let details = build_resource_details(&resource, &local_machine());
         assert!(
@@ -2732,6 +2839,8 @@ resources:
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
+        pre_apply: None,
+        post_apply: None,
         };
         let details = build_resource_details(&resource, &local_machine());
         assert!(
@@ -2808,6 +2917,8 @@ resources:
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
+        pre_apply: None,
+        post_apply: None,
         };
         let details = build_resource_details(&resource, &local_machine());
         assert_eq!(
@@ -3115,6 +3226,8 @@ resources:
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
+        pre_apply: None,
+        post_apply: None,
         };
         let details = build_resource_details(&r, &local_machine());
         assert!(
@@ -3192,6 +3305,8 @@ resources:
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
+        pre_apply: None,
+        post_apply: None,
         };
         let details = build_resource_details(&r, &local_machine());
         assert!(details.contains_key("path"));
@@ -3954,6 +4069,8 @@ resources: {}
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
+        pre_apply: None,
+        post_apply: None,
         };
         let details = build_resource_details(&r, &local_machine());
         assert_eq!(
@@ -4160,6 +4277,8 @@ policy:
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
+        pre_apply: None,
+        post_apply: None,
         };
         let mut ctx = RecordCtx {
             lock: &mut lock,
@@ -6178,5 +6297,278 @@ policy:
 
         let _ = std::fs::remove_file(&path_a);
         let _ = std::fs::remove_file(&path_b);
+    }
+
+    // ========================================================================
+    // FJ-265: Resource lifecycle hooks — pre_apply / post_apply
+    // ========================================================================
+
+    #[test]
+    fn test_fj265_pre_apply_success() {
+        let tmp = std::env::temp_dir().join(format!("fj265-pre-ok-{}", std::process::id()));
+        let state_dir = tmp.join("state");
+        let _ = std::fs::create_dir_all(&state_dir);
+        let path = tmp.join("pre_ok.txt");
+        let yaml = format!(
+            r#"
+version: "1.0"
+name: test
+machines:
+  local:
+    hostname: localhost
+    addr: 127.0.0.1
+resources:
+  test-file:
+    type: file
+    machine: local
+    path: {path}
+    content: "hello"
+    pre_apply: "true"
+"#,
+            path = path.display()
+        );
+        let config: ForjarConfig = serde_yaml_ng::from_str(&yaml).unwrap();
+        let cfg = ApplyConfig {
+            config: &config,
+            state_dir: &state_dir,
+            force: false,
+            dry_run: false,
+            machine_filter: None,
+            resource_filter: None,
+            tag_filter: None,
+            timeout_secs: None,
+        };
+        let results = apply(&cfg).unwrap();
+        assert_eq!(results[0].resources_converged, 1);
+        assert!(path.exists());
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn test_fj265_pre_apply_failure_skips() {
+        let tmp = std::env::temp_dir().join(format!("fj265-pre-fail-{}", std::process::id()));
+        let state_dir = tmp.join("state");
+        let _ = std::fs::create_dir_all(&state_dir);
+        let path = tmp.join("pre_fail.txt");
+        let yaml = format!(
+            r#"
+version: "1.0"
+name: test
+machines:
+  local:
+    hostname: localhost
+    addr: 127.0.0.1
+resources:
+  test-file:
+    type: file
+    machine: local
+    path: {path}
+    content: "hello"
+    pre_apply: "exit 1"
+"#,
+            path = path.display()
+        );
+        let config: ForjarConfig = serde_yaml_ng::from_str(&yaml).unwrap();
+        let cfg = ApplyConfig {
+            config: &config,
+            state_dir: &state_dir,
+            force: false,
+            dry_run: false,
+            machine_filter: None,
+            resource_filter: None,
+            tag_filter: None,
+            timeout_secs: None,
+        };
+        let results = apply(&cfg).unwrap();
+        // pre_apply failure → resource skipped, not applied
+        assert_eq!(results[0].resources_converged, 0);
+        assert!(!path.exists());
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn test_fj265_post_apply_success() {
+        let tmp = std::env::temp_dir().join(format!("fj265-post-ok-{}", std::process::id()));
+        let state_dir = tmp.join("state");
+        let _ = std::fs::create_dir_all(&state_dir);
+        let path = tmp.join("post_ok.txt");
+        let marker = tmp.join("post_marker.txt");
+        let yaml = format!(
+            r#"
+version: "1.0"
+name: test
+machines:
+  local:
+    hostname: localhost
+    addr: 127.0.0.1
+resources:
+  test-file:
+    type: file
+    machine: local
+    path: {path}
+    content: "hello"
+    post_apply: "touch {marker}"
+"#,
+            path = path.display(),
+            marker = marker.display()
+        );
+        let config: ForjarConfig = serde_yaml_ng::from_str(&yaml).unwrap();
+        let cfg = ApplyConfig {
+            config: &config,
+            state_dir: &state_dir,
+            force: false,
+            dry_run: false,
+            machine_filter: None,
+            resource_filter: None,
+            tag_filter: None,
+            timeout_secs: None,
+        };
+        let results = apply(&cfg).unwrap();
+        assert_eq!(results[0].resources_converged, 1);
+        assert!(path.exists());
+        assert!(marker.exists());
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn test_fj265_post_apply_failure() {
+        let tmp = std::env::temp_dir().join(format!("fj265-post-fail-{}", std::process::id()));
+        let state_dir = tmp.join("state");
+        let _ = std::fs::create_dir_all(&state_dir);
+        let path = tmp.join("post_fail.txt");
+        let yaml = format!(
+            r#"
+version: "1.0"
+name: test
+machines:
+  local:
+    hostname: localhost
+    addr: 127.0.0.1
+resources:
+  test-file:
+    type: file
+    machine: local
+    path: {path}
+    content: "hello"
+    post_apply: "exit 1"
+"#,
+            path = path.display()
+        );
+        let config: ForjarConfig = serde_yaml_ng::from_str(&yaml).unwrap();
+        let cfg = ApplyConfig {
+            config: &config,
+            state_dir: &state_dir,
+            force: false,
+            dry_run: false,
+            machine_filter: None,
+            resource_filter: None,
+            tag_filter: None,
+            timeout_secs: None,
+        };
+        let results = apply(&cfg).unwrap();
+        // post_apply failure → resource marked as failed
+        assert_eq!(results[0].resources_failed, 1);
+        // File was still created (main script ran), but post_apply failed
+        assert!(path.exists());
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn test_fj265_pre_apply_with_backup_command() {
+        let tmp = std::env::temp_dir().join(format!("fj265-backup-{}", std::process::id()));
+        let state_dir = tmp.join("state");
+        let _ = std::fs::create_dir_all(&state_dir);
+        let path = tmp.join("config.txt");
+        let backup = tmp.join("config.txt.bak");
+        // Create the original file
+        std::fs::write(&path, "original").unwrap();
+        let yaml = format!(
+            r#"
+version: "1.0"
+name: test
+machines:
+  local:
+    hostname: localhost
+    addr: 127.0.0.1
+resources:
+  test-file:
+    type: file
+    machine: local
+    path: {path}
+    content: "updated"
+    pre_apply: "cp {path} {backup}"
+"#,
+            path = path.display(),
+            backup = backup.display()
+        );
+        let config: ForjarConfig = serde_yaml_ng::from_str(&yaml).unwrap();
+        let cfg = ApplyConfig {
+            config: &config,
+            state_dir: &state_dir,
+            force: true,
+            dry_run: false,
+            machine_filter: None,
+            resource_filter: None,
+            tag_filter: None,
+            timeout_secs: None,
+        };
+        let results = apply(&cfg).unwrap();
+        assert_eq!(results[0].resources_converged, 1);
+        // Backup was created by pre_apply hook
+        assert!(backup.exists());
+        assert_eq!(std::fs::read_to_string(&backup).unwrap(), "original");
+        // Main file was updated (heredoc adds trailing newline)
+        assert_eq!(std::fs::read_to_string(&path).unwrap().trim(), "updated");
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn test_fj265_no_hooks_default() {
+        // Verify hooks default to None when not specified
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  local:
+    hostname: localhost
+    addr: 127.0.0.1
+resources:
+  test:
+    type: file
+    machine: local
+    path: /tmp/fj265-default.txt
+    content: "test"
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let resource = config.resources.get("test").unwrap();
+        assert!(resource.pre_apply.is_none());
+        assert!(resource.post_apply.is_none());
+    }
+
+    #[test]
+    fn test_fj265_hooks_yaml_parse() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  local:
+    hostname: localhost
+    addr: 127.0.0.1
+resources:
+  test:
+    type: file
+    machine: local
+    path: /tmp/fj265-parse.txt
+    content: "test"
+    pre_apply: "echo backup"
+    post_apply: "systemctl restart nginx"
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        let resource = config.resources.get("test").unwrap();
+        assert_eq!(resource.pre_apply.as_deref(), Some("echo backup"));
+        assert_eq!(
+            resource.post_apply.as_deref(),
+            Some("systemctl restart nginx")
+        );
     }
 }

@@ -560,6 +560,8 @@ resources:
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
+        pre_apply: None,
+        post_apply: None,
         };
         let h1 = hash_desired_state(&r);
         let h2 = hash_desired_state(&r);
@@ -635,6 +637,8 @@ resources:
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
+        pre_apply: None,
+        post_apply: None,
         };
         let desc = describe_action("test-pkg", &r, &PlanAction::Create);
         assert!(desc.contains("curl, wget"));
@@ -708,6 +712,8 @@ resources:
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
+        pre_apply: None,
+        post_apply: None,
         };
         assert!(describe_action("f", &r, &PlanAction::Create).contains("/etc/conf"));
         assert!(describe_action("f", &r, &PlanAction::Update).contains("update"));
@@ -783,6 +789,8 @@ resources:
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
+        pre_apply: None,
+        post_apply: None,
         };
         assert!(describe_action("svc", &r, &PlanAction::Create).contains("nginx"));
     }
@@ -855,6 +863,8 @@ resources:
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
+        pre_apply: None,
+        post_apply: None,
         };
         assert!(describe_action("mnt", &r, &PlanAction::Create).contains("/mnt/data"));
     }
@@ -927,6 +937,8 @@ resources:
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
+        pre_apply: None,
+        post_apply: None,
         };
         // Changing any field should change the hash
         let mut r2 = r1.clone();
@@ -1392,6 +1404,8 @@ resources:
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
+        pre_apply: None,
+        post_apply: None,
         };
         let desc = describe_action("f", &r, &PlanAction::Create);
         assert!(desc.contains("?"), "missing path should show ?");
@@ -1465,6 +1479,8 @@ resources:
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
+        pre_apply: None,
+        post_apply: None,
         };
         let desc = describe_action("svc", &r, &PlanAction::Create);
         assert!(desc.contains("?"), "missing name should show ?");
@@ -1538,6 +1554,8 @@ resources:
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
+        pre_apply: None,
+        post_apply: None,
         };
         let desc = describe_action("dock", &r, &PlanAction::Create);
         assert!(desc.contains("create"), "Docker create should say create");
@@ -1611,6 +1629,8 @@ resources:
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
+        pre_apply: None,
+        post_apply: None,
         };
         let mut r2 = r1.clone();
         r2.content = Some("version=2".to_string());
@@ -2120,6 +2140,8 @@ resources:
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
+        pre_apply: None,
+        post_apply: None,
         }
     }
 

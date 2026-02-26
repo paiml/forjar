@@ -800,6 +800,8 @@ resources: {}
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
+        pre_apply: None,
+        post_apply: None,
         };
         let mut inputs = HashMap::new();
         inputs.insert("vol".to_string(), "raid".to_string());
@@ -1077,6 +1079,8 @@ resources:
             persistence_mode: None,
             compute_mode: None,
             gpu_memory_limit_mb: None,
+        pre_apply: None,
+        post_apply: None,
         };
         let mut inputs = HashMap::new();
         inputs.insert("user".to_string(), "admin".to_string());

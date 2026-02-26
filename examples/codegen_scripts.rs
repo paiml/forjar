@@ -73,6 +73,8 @@ fn main() {
         persistence_mode: None,
         compute_mode: None,
         gpu_memory_limit_mb: None,
+    pre_apply: None,
+    post_apply: None,
     };
 
     println!("-- Check script --");
@@ -149,6 +151,8 @@ fn main() {
         persistence_mode: None,
         compute_mode: None,
         gpu_memory_limit_mb: None,
+    pre_apply: None,
+    post_apply: None,
     };
 
     println!("-- Apply script --");
@@ -221,6 +225,8 @@ fn main() {
         persistence_mode: None,
         compute_mode: None,
         gpu_memory_limit_mb: None,
+    pre_apply: None,
+    post_apply: None,
     };
 
     println!("-- Apply script (base64 transfer) --");
@@ -293,6 +299,8 @@ fn main() {
         persistence_mode: None,
         compute_mode: None,
         gpu_memory_limit_mb: None,
+    pre_apply: None,
+    post_apply: None,
     };
 
     println!("-- Apply script --");
@@ -365,6 +373,8 @@ fn main() {
         persistence_mode: None,
         compute_mode: None,
         gpu_memory_limit_mb: None,
+    pre_apply: None,
+    post_apply: None,
     };
 
     println!("-- Apply script --");
@@ -437,6 +447,8 @@ fn main() {
         persistence_mode: None,
         compute_mode: None,
         gpu_memory_limit_mb: None,
+    pre_apply: None,
+    post_apply: None,
     };
 
     println!("-- Check script --");
@@ -511,6 +523,8 @@ fn main() {
         persistence_mode: None,
         compute_mode: None,
         gpu_memory_limit_mb: None,
+    pre_apply: None,
+    post_apply: None,
     };
 
     println!("-- Apply script --");
@@ -583,6 +597,8 @@ fn main() {
         persistence_mode: None,
         compute_mode: None,
         gpu_memory_limit_mb: None,
+    pre_apply: None,
+    post_apply: None,
     };
 
     println!("-- Apply script --");
@@ -655,6 +671,8 @@ fn main() {
         persistence_mode: None,
         compute_mode: None,
         gpu_memory_limit_mb: None,
+    pre_apply: None,
+    post_apply: None,
     };
 
     println!("-- Apply script --");

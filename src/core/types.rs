@@ -578,6 +578,16 @@ pub struct Resource {
     /// GPU memory limit in MB (cgroup)
     #[serde(default)]
     pub gpu_memory_limit_mb: Option<u64>,
+
+    // -- Lifecycle hooks (FJ-265) --
+    /// Shell command to run on the target before the resource's main script.
+    /// If pre_apply exits non-zero, the resource is skipped (not applied).
+    #[serde(default)]
+    pub pre_apply: Option<String>,
+
+    /// Shell command to run on the target after the resource's main script succeeds.
+    #[serde(default)]
+    pub post_apply: Option<String>,
 }
 
 /// Resource type enum.
