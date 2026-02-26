@@ -1772,14 +1772,14 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-290 | `forjar apply --parallel` — explicit flag to enable parallel wave execution. Currently controlled by `policy.parallel_resources`. CLI override for one-off parallel runs. | Planned |
-| FJ-291 | `forjar diff --resource` — show unified diff for a single resource between current state and desired state. Complements plan output with focused comparison. | Planned |
-| FJ-292 | `forjar status --json` improvements — include resource_group, tags, depends_on in JSON output. Currently minimal fields. | Planned |
-| FJ-293 | `forjar apply --dry-run --json` — JSON output for dry-run plan. Machine-readable plan output for CI integration. | Planned |
-| FJ-294 | `forjar graph --filter` — filter graph output to specific machines or resource groups. Currently shows all resources. | Planned |
-| FJ-295 | `forjar validate --format json` — JSON output for validation errors. Machine-readable for CI/editor integration. | Planned |
-| FJ-296 | `forjar history --json --since` — combine JSON output with time filtering. Full structured history API. | Planned |
-| FJ-297 | `forjar plan --output-dir` improvements — include resource metadata (tags, group, machine) in exported script headers. | Planned |
+| FJ-290 | `forjar apply --parallel` — explicit flag to enable parallel wave execution. Currently controlled by `policy.parallel_resources`. CLI override for one-off parallel runs. | Done |
+| FJ-291 | `forjar diff --resource` — show unified diff for a single resource between current state and desired state. Complements plan output with focused comparison. | Done |
+| FJ-292 | `forjar status --json` improvements — include resource_group, tags, depends_on in JSON output via `--file` flag. | Done |
+| FJ-293 | `forjar apply --dry-run --json` — JSON output for dry-run plan. Machine-readable plan output for CI integration. | Done |
+| FJ-294 | `forjar graph --filter` — filter graph output to specific machines (`--machine`) or resource groups (`--group`). | Done |
+| FJ-295 | `forjar validate --json` — JSON output for validation results including errors, strict mode, and summary. | Done |
+| FJ-296 | `forjar history --json --since` — structured JSON history with summary counts (total_events, started, completed). | Done |
+| FJ-297 | `forjar plan --output-dir` improvements — exported scripts include metadata headers (project, machine, type, group, tags, deps). | Done |
 
 ---
 

@@ -1231,6 +1231,78 @@ Auto-fix common issues:
 forjar doctor --fix              # Creates state dir, removes stale locks
 ```
 
+## Parallel Apply
+
+Override the config-level `parallel_resources` policy for a single run:
+
+```bash
+forjar apply -f forjar.yaml --parallel    # Force parallel wave execution
+```
+
+## Diff Single Resource
+
+Focus diff output on a specific resource:
+
+```bash
+forjar diff --from state-v1 --to state-v2 --resource web-config
+```
+
+## Enriched Status JSON
+
+Pass `-f` to include resource_group, tags, and depends_on in status output:
+
+```bash
+forjar status --state-dir state --json -f forjar.yaml
+```
+
+## Dry-Run JSON Plan
+
+Get a machine-readable plan for CI integration:
+
+```bash
+forjar apply -f forjar.yaml --dry-run --json | jq '.changes[] | .action'
+```
+
+## Graph Filtering
+
+Filter graph output to specific machines or resource groups:
+
+```bash
+forjar graph -f forjar.yaml --machine web         # Only web machine resources
+forjar graph -f forjar.yaml --group frontend       # Only frontend group
+```
+
+## Validate JSON Output
+
+Machine-readable validation results for CI/editor integration:
+
+```bash
+forjar validate -f forjar.yaml --json --strict
+```
+
+## Structured History
+
+JSON history with summary counts and time filtering:
+
+```bash
+forjar history --state-dir state --json --since 24h
+```
+
+## Script Metadata Headers
+
+Exported scripts include resource metadata in comment headers:
+
+```bash
+forjar plan -f forjar.yaml --output-dir scripts/
+head -6 scripts/web-cfg.apply.sh
+# forjar: web-cfg (my-project)
+# machine: web-server
+# type: file
+# group: frontend
+# tags: web, critical
+# depends_on: base-packages
+```
+
 ## Next Steps
 
 - [Configuration Reference](02-configuration.md) — Complete `forjar.yaml` schema
