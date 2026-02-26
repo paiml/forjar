@@ -495,6 +495,10 @@ mod tests {
             overlay_upper: None,
             overlay_work: None,
             overlay_merged: None,
+        format: None,
+        quantization: None,
+        checksum: None,
+        cache_dir: None,
         };
         let h1 = hash_desired_state(&r);
         let h2 = hash_desired_state(&r);
@@ -564,6 +568,10 @@ mod tests {
             overlay_upper: None,
             overlay_work: None,
             overlay_merged: None,
+        format: None,
+        quantization: None,
+        checksum: None,
+        cache_dir: None,
         };
         let r2 = Resource {
             content: Some("changed content".to_string()),

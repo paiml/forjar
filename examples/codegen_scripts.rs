@@ -63,6 +63,10 @@ fn main() {
         overlay_upper: None,
         overlay_work: None,
         overlay_merged: None,
+    format: None,
+    quantization: None,
+    checksum: None,
+    cache_dir: None,
     };
 
     println!("-- Check script --");
@@ -129,6 +133,10 @@ fn main() {
         overlay_upper: None,
         overlay_work: None,
         overlay_merged: None,
+    format: None,
+    quantization: None,
+    checksum: None,
+    cache_dir: None,
     };
 
     println!("-- Apply script --");
@@ -191,6 +199,10 @@ fn main() {
         overlay_upper: None,
         overlay_work: None,
         overlay_merged: None,
+    format: None,
+    quantization: None,
+    checksum: None,
+    cache_dir: None,
     };
 
     println!("-- Apply script (base64 transfer) --");
@@ -253,6 +265,10 @@ fn main() {
         overlay_upper: None,
         overlay_work: None,
         overlay_merged: None,
+    format: None,
+    quantization: None,
+    checksum: None,
+    cache_dir: None,
     };
 
     println!("-- Apply script --");
@@ -315,6 +331,10 @@ fn main() {
         overlay_upper: None,
         overlay_work: None,
         overlay_merged: None,
+    format: None,
+    quantization: None,
+    checksum: None,
+    cache_dir: None,
     };
 
     println!("-- Apply script --");
@@ -377,6 +397,10 @@ fn main() {
         overlay_upper: None,
         overlay_work: None,
         overlay_merged: None,
+    format: None,
+    quantization: None,
+    checksum: None,
+    cache_dir: None,
     };
 
     println!("-- Check script --");
@@ -441,6 +465,10 @@ fn main() {
         overlay_upper: None,
         overlay_work: None,
         overlay_merged: None,
+    format: None,
+    quantization: None,
+    checksum: None,
+    cache_dir: None,
     };
 
     println!("-- Apply script --");
@@ -503,6 +531,10 @@ fn main() {
         overlay_upper: None,
         overlay_work: None,
         overlay_merged: None,
+    format: None,
+    quantization: None,
+    checksum: None,
+    cache_dir: None,
     };
 
     println!("-- Apply script --");
@@ -565,6 +597,10 @@ fn main() {
         overlay_upper: None,
         overlay_work: None,
         overlay_merged: None,
+    format: None,
+    quantization: None,
+    checksum: None,
+    cache_dir: None,
     };
 
     println!("-- Apply script --");

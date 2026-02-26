@@ -532,6 +532,23 @@ pub struct Resource {
     /// Overlay filesystem merged mount point
     #[serde(default)]
     pub overlay_merged: Option<String>,
+
+    // -- Model fields (FJ-240: ML model resource) --
+    /// Model format: gguf, safetensors, apr
+    #[serde(default)]
+    pub format: Option<String>,
+
+    /// Quantization level: q4_k_m, q5_k_m, q8_0, f16, none
+    #[serde(default)]
+    pub quantization: Option<String>,
+
+    /// BLAKE3 checksum for model integrity verification (pin to exact version)
+    #[serde(default)]
+    pub checksum: Option<String>,
+
+    /// Model cache directory (default: ~/.cache/apr/)
+    #[serde(default)]
+    pub cache_dir: Option<String>,
 }
 
 /// Resource type enum.
@@ -548,6 +565,8 @@ pub enum ResourceType {
     Network,
     Cron,
     Recipe,
+    /// FJ-240: ML model resource type
+    Model,
 }
 
 impl fmt::Display for ResourceType {
@@ -563,6 +582,7 @@ impl fmt::Display for ResourceType {
             Self::Network => write!(f, "network"),
             Self::Cron => write!(f, "cron"),
             Self::Recipe => write!(f, "recipe"),
+            Self::Model => write!(f, "model"),
         }
     }
 }

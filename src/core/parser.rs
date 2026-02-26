@@ -428,6 +428,24 @@ fn validate_resource_type(id: &str, resource: &Resource, errors: &mut Vec<Valida
                 }
             }
         }
+        ResourceType::Model => {
+            if resource.name.is_none() {
+                errors.push(ValidationError {
+                    message: format!("resource '{}' (model) has no name", id),
+                });
+            }
+            if let Some(ref state) = resource.state {
+                let valid = ["present", "absent"];
+                if !valid.contains(&state.as_str()) {
+                    errors.push(ValidationError {
+                        message: format!(
+                            "resource '{}' (model) has invalid state '{}' (expected: present, absent)",
+                            id, state
+                        ),
+                    });
+                }
+            }
+        }
         ResourceType::Recipe => {
             if resource.recipe.is_none() {
                 errors.push(ValidationError {

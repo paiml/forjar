@@ -1007,6 +1007,10 @@ resources:
             overlay_upper: None,
             overlay_work: None,
             overlay_merged: None,
+        format: None,
+        quantization: None,
+        checksum: None,
+        cache_dir: None,
         };
         let details = build_resource_details(&r, &local_machine());
         assert!(details.contains_key("path"));
@@ -1081,6 +1085,10 @@ resources:
             overlay_upper: None,
             overlay_work: None,
             overlay_merged: None,
+        format: None,
+        quantization: None,
+        checksum: None,
+        cache_dir: None,
         };
         let details = build_resource_details(&r, &local_machine());
         assert!(details.contains_key("service_name"));
@@ -1401,6 +1409,10 @@ resources:
             overlay_upper: None,
             overlay_work: None,
             overlay_merged: None,
+        format: None,
+        quantization: None,
+        checksum: None,
+        cache_dir: None,
         };
         let machine = Machine {
             hostname: "localhost".to_string(),
@@ -1721,6 +1733,10 @@ resources:
             overlay_upper: None,
             overlay_work: None,
             overlay_merged: None,
+        format: None,
+        quantization: None,
+        checksum: None,
+        cache_dir: None,
         };
 
         // arch filter should reject: aarch64 resource on x86_64 machine
@@ -2034,6 +2050,10 @@ resources:
             overlay_upper: None,
             overlay_work: None,
             overlay_merged: None,
+        format: None,
+        quantization: None,
+        checksum: None,
+        cache_dir: None,
         };
         let mut ctx = RecordCtx {
             lock: &mut lock,
@@ -2112,6 +2132,10 @@ resources:
             overlay_upper: None,
             overlay_work: None,
             overlay_merged: None,
+        format: None,
+        quantization: None,
+        checksum: None,
+        cache_dir: None,
         };
         let mut ctx = RecordCtx {
             lock: &mut lock,
@@ -2212,6 +2236,10 @@ resources:
             overlay_upper: None,
             overlay_work: None,
             overlay_merged: None,
+        format: None,
+        quantization: None,
+        checksum: None,
+        cache_dir: None,
         };
         let details = build_resource_details(&resource, &local_machine());
         assert!(details.contains_key("path"));
@@ -2285,6 +2313,10 @@ resources:
             overlay_upper: None,
             overlay_work: None,
             overlay_merged: None,
+        format: None,
+        quantization: None,
+        checksum: None,
+        cache_dir: None,
         };
         let details = build_resource_details(&resource, &local_machine());
         assert!(
@@ -2357,6 +2389,10 @@ resources:
             overlay_upper: None,
             overlay_work: None,
             overlay_merged: None,
+        format: None,
+        quantization: None,
+        checksum: None,
+        cache_dir: None,
         };
         let details = build_resource_details(&resource, &local_machine());
         assert!(
@@ -2423,6 +2459,10 @@ resources:
             overlay_upper: None,
             overlay_work: None,
             overlay_merged: None,
+        format: None,
+        quantization: None,
+        checksum: None,
+        cache_dir: None,
         };
         let details = build_resource_details(&resource, &local_machine());
         assert_eq!(
@@ -2720,6 +2760,10 @@ resources:
             overlay_upper: None,
             overlay_work: None,
             overlay_merged: None,
+        format: None,
+        quantization: None,
+        checksum: None,
+        cache_dir: None,
         };
         let details = build_resource_details(&r, &local_machine());
         assert!(
@@ -2787,6 +2831,10 @@ resources:
             overlay_upper: None,
             overlay_work: None,
             overlay_merged: None,
+        format: None,
+        quantization: None,
+        checksum: None,
+        cache_dir: None,
         };
         let details = build_resource_details(&r, &local_machine());
         assert!(details.contains_key("path"));
@@ -3539,6 +3587,10 @@ resources: {}
             overlay_upper: None,
             overlay_work: None,
             overlay_merged: None,
+        format: None,
+        quantization: None,
+        checksum: None,
+        cache_dir: None,
         };
         let details = build_resource_details(&r, &local_machine());
         assert_eq!(
@@ -3735,6 +3787,10 @@ policy:
             overlay_upper: None,
             overlay_work: None,
             overlay_merged: None,
+        format: None,
+        quantization: None,
+        checksum: None,
+        cache_dir: None,
         };
         let mut ctx = RecordCtx {
             lock: &mut lock,

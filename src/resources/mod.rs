@@ -8,6 +8,7 @@
 pub mod cron;
 pub mod docker;
 pub mod file;
+pub mod model;
 pub mod mount;
 pub mod network;
 pub mod package;

@@ -708,6 +708,10 @@ resources:
             overlay_upper: None,
             overlay_work: None,
             overlay_merged: None,
+        format: None,
+        quantization: None,
+        checksum: None,
+        cache_dir: None,
         };
 
         let resolved = resolve_resource_templates(&resource, &params, &machines).unwrap();
@@ -953,6 +957,10 @@ resources:
                     overlay_upper: None,
                     overlay_work: None,
                     overlay_merged: None,
+                format: None,
+                quantization: None,
+                checksum: None,
+                cache_dir: None,
                 },
             );
         }
@@ -1194,6 +1202,10 @@ resources:
             overlay_upper: None,
             overlay_work: None,
             overlay_merged: None,
+        format: None,
+        quantization: None,
+        checksum: None,
+        cache_dir: None,
         };
 
         let resolved = resolve_resource_templates(&resource, &params, &machines).unwrap();
@@ -1446,6 +1458,10 @@ resources:
             overlay_upper: None,
             overlay_work: None,
             overlay_merged: None,
+        format: None,
+        quantization: None,
+        checksum: None,
+        cache_dir: None,
         }
     }
 

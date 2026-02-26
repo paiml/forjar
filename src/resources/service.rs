@@ -142,6 +142,10 @@ mod tests {
             overlay_upper: None,
             overlay_work: None,
             overlay_merged: None,
+        format: None,
+        quantization: None,
+        checksum: None,
+        cache_dir: None,
         }
     }
 

@@ -790,6 +790,10 @@ resources: {}
             overlay_upper: None,
             overlay_work: None,
             overlay_merged: None,
+        format: None,
+        quantization: None,
+        checksum: None,
+        cache_dir: None,
         };
         let mut inputs = HashMap::new();
         inputs.insert("vol".to_string(), "raid".to_string());
@@ -1057,6 +1061,10 @@ resources:
             overlay_upper: None,
             overlay_work: None,
             overlay_merged: None,
+        format: None,
+        quantization: None,
+        checksum: None,
+        cache_dir: None,
         };
         let mut inputs = HashMap::new();
         inputs.insert("user".to_string(), "admin".to_string());
