@@ -1785,14 +1785,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-300 | `forjar apply --output json` — full JSON results (not just dry-run). Machine-readable apply output for CI pipelines with per-resource status, timing, and hashes. | Planned |
-| FJ-301 | `forjar plan --json` improvements — include resource metadata (tags, group, depends_on) in JSON plan output. Currently plan JSON is minimal. | Planned |
-| FJ-302 | `forjar drift --json` — structured JSON drift output. Currently text only. Include machine, resource, hash comparison, and drift status. | Planned |
-| FJ-303 | `forjar status --summary` — one-line summary mode for dashboards. Format: `PROJECT: N converged, N failed, N drifted`. | Planned |
-| FJ-304 | `forjar apply --timeout-per-resource` — per-resource timeout override (vs global transport timeout). Kill long-running scripts after N seconds. | Planned |
-| FJ-305 | `forjar check --json` — structured JSON check results. Machine-readable pre-condition verification for CI gates. | Planned |
-| FJ-306 | `forjar env --json` — structured JSON output of resolved environment (params, machines, resource count). Debug tool for CI. | Planned |
-| FJ-307 | `forjar explain --json` — structured JSON output for resource explain. Machine-readable resource detail for tooling integration. | Planned |
+| FJ-300 | `forjar apply --output json` — full JSON results (not just dry-run). Machine-readable apply output for CI pipelines with per-resource status, timing, and hashes. | Done |
+| FJ-301 | `forjar plan --json` improvements — include resource metadata (tags, group, depends_on) in JSON plan output. Currently plan JSON is minimal. | Done |
+| FJ-302 | `forjar drift --json` — structured JSON drift output. Currently text only. Include machine, resource, hash comparison, and drift status. | Done |
+| FJ-303 | `forjar status --summary` — one-line summary mode for dashboards. Format: `PROJECT: N converged, N failed, N drifted`. | Done |
+| FJ-304 | `forjar apply --resource-timeout` — per-resource timeout override (vs global transport timeout). Kill long-running scripts after N seconds. | Done |
+| FJ-305 | `forjar check --json` — enhanced structured JSON check results with name, all_passed, total fields. Machine-readable CI gates. | Done |
+| FJ-306 | `forjar env --json` — enhanced JSON with resolved_params, machine_names, resource_names. Debug tool for CI. | Done |
+| FJ-307 | `forjar explain --json` — structured JSON output for resource explain. Machine-readable resource detail for tooling integration. | Done |
+
+### Phase 17 — v1.7: Operational Hardening
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-310 | `forjar apply --rollback-on-failure` — auto-rollback to previous state on any resource failure. Restore last-known-good lock. | Planned |
+| FJ-311 | `forjar validate --strict` enhancements — warn on unused params, missing descriptions, duplicate tags. Lint-grade validation. | Planned |
+| FJ-312 | `forjar plan --cost` — show estimated change cost (resource weight × count). Prevent accidental mass-destructive applies. | Planned |
+| FJ-313 | `forjar apply --max-parallel N` — cap concurrent wave execution. Prevent resource exhaustion on large fleets. | Planned |
+| FJ-314 | `forjar status --watch` — live-updating status dashboard (re-poll every N seconds). For ops monitoring. | Planned |
+| FJ-315 | `forjar drift --auto-remediate` — automatically re-apply drifted resources. Daemon-friendly self-healing mode. | Planned |
+| FJ-316 | `forjar graph --output dot` — export DAG in Graphviz DOT format for external visualization tools. | Planned |
+| FJ-317 | `forjar apply --notify webhook` — POST JSON results to a webhook URL after apply completes. CI/CD integration. | Planned |
 
 ---
 

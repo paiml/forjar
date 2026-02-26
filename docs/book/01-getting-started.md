@@ -1303,6 +1303,80 @@ head -6 scripts/web-cfg.apply.sh
 # depends_on: base-packages
 ```
 
+## Enhanced Apply JSON (CI Pipelines)
+
+The `apply --json` output includes project name and total duration for CI:
+
+```bash
+forjar apply -f forjar.yaml --json --yes 2>/dev/null
+# { "name": "home-lab", "total_duration_seconds": 1.23, "applied": 5, ... }
+```
+
+## Enriched Plan JSON
+
+Plan JSON now includes resource metadata — group, tags, and dependencies:
+
+```bash
+forjar plan -f forjar.yaml --json
+# Each change includes: resource_group, tags, depends_on
+```
+
+## Drift JSON with Machine Count
+
+Drift JSON output includes `machines_checked` for CI dashboards:
+
+```bash
+forjar drift -f forjar.yaml --state-dir state --json
+# { "machines_checked": 3, "drifted": 1, "clean": 2, ... }
+```
+
+## Status Summary Dashboard
+
+One-line status for monitoring dashboards:
+
+```bash
+forjar status --state-dir state --summary
+# home-lab: 12 converged, 0 failed, 1 drifted
+```
+
+## Per-Resource Timeout
+
+Override global timeout for specific long-running applies:
+
+```bash
+# Global timeout is 30s, but allow 120s per resource
+forjar apply -f forjar.yaml --timeout 30 --resource-timeout 120
+```
+
+## Check JSON for CI Gates
+
+Machine-readable check results with pass/fail summary:
+
+```bash
+forjar check -f forjar.yaml --json
+# { "name": "home-lab", "all_passed": true, "total": 5, "pass": 5, "fail": 0, ... }
+```
+
+## Environment JSON Debug
+
+Full resolved environment for debugging CI issues:
+
+```bash
+forjar env --json
+# { "config_name": "home-lab", "resolved_params": { "data_dir": "/mnt/data" },
+#   "machine_names": ["gpu-box"], "resource_names": ["base-packages", ...] }
+```
+
+## Explain JSON for Tooling
+
+Machine-readable resource detail for tooling integration:
+
+```bash
+forjar explain cfg --json
+# { "resource": "cfg", "type": "file", "machine": "local",
+#   "transport": "local", "apply_script": "...", "check_script": "..." }
+```
+
 ## Next Steps
 
 - [Configuration Reference](02-configuration.md) — Complete `forjar.yaml` schema
