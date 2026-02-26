@@ -313,6 +313,10 @@ pub enum Commands {
         /// One-line summary for dashboards
         #[arg(long)]
         summary: bool,
+
+        /// FJ-314: Watch mode — refresh every N seconds
+        #[arg(long)]
+        watch: Option<u64>,
     },
 
     /// Show apply history from event logs
@@ -1101,13 +1105,37 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             json,
             file,
             summary,
-        } => cmd_status(
-            &state_dir,
-            machine.as_deref(),
-            json,
-            file.as_deref(),
-            summary,
-        ),
+            watch,
+        } => {
+            if let Some(interval) = watch {
+                // FJ-314: Watch mode — repeat status at interval
+                let interval = interval.max(1);
+                loop {
+                    // Clear screen
+                    print!("\x1b[2J\x1b[H");
+                    cmd_status(
+                        &state_dir,
+                        machine.as_deref(),
+                        json,
+                        file.as_deref(),
+                        summary,
+                    )?;
+                    println!(
+                        "\n{}",
+                        dim(&format!("Refreshing every {}s (Ctrl+C to stop)", interval))
+                    );
+                    std::thread::sleep(std::time::Duration::from_secs(interval));
+                }
+            } else {
+                cmd_status(
+                    &state_dir,
+                    machine.as_deref(),
+                    json,
+                    file.as_deref(),
+                    summary,
+                )
+            }
+        }
         Commands::History {
             state_dir,
             machine,
@@ -7418,6 +7446,7 @@ resources: {}
                 json: false,
                 file: None,
                 summary: false,
+            watch: None,
             },
             false,
             true,
@@ -11562,6 +11591,7 @@ resources:
                 json: true,
                 file: None,
                 summary: false,
+            watch: None,
             },
             false,
             true,
@@ -15324,6 +15354,7 @@ resources:
             json: true,
             file: Some(PathBuf::from("forjar.yaml")),
             summary: false,
+        watch: None,
         };
         match cmd {
             Commands::Status { file, json, .. } => {
@@ -15649,6 +15680,7 @@ resources:
             json: false,
             file: None,
             summary: true,
+        watch: None,
         };
         match cmd {
             Commands::Status { summary, .. } => assert!(summary),
@@ -16048,6 +16080,24 @@ resources:
         match cmd {
             Commands::Apply { max_parallel, .. } => assert_eq!(max_parallel, Some(4)),
             _ => panic!("expected Apply"),
+        }
+    }
+
+    // ── FJ-314: status --watch ──
+
+    #[test]
+    fn test_fj314_watch_flag_parse() {
+        let cmd = Commands::Status {
+            state_dir: PathBuf::from("state"),
+            machine: None,
+            json: false,
+            file: None,
+            summary: false,
+            watch: Some(5),
+        };
+        match cmd {
+            Commands::Status { watch, .. } => assert_eq!(watch, Some(5)),
+            _ => panic!("expected Status"),
         }
     }
 }
