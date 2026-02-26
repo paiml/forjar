@@ -390,9 +390,11 @@ Secrets are never written to forjar.yaml, state files, or git. They exist only i
 ```yaml
 policy:
   failure: stop_on_first      # stop_on_first | continue_independent
-  parallel_machines: false     # Concurrent machine execution (future)
+  parallel_machines: false     # Concurrent machine execution
   tripwire: true               # Enable provenance event logging
   lock_file: true              # Persist BLAKE3 state after apply
+  serial: 2                    # Rolling deploy: 2 machines per batch
+  max_fail_percentage: 20      # Abort if >20% of machines fail
   pre_apply: "echo 'validating...' && ./scripts/check-env.sh"
   post_apply: "echo 'done!' && ./scripts/notify-slack.sh"
 ```
@@ -416,6 +418,21 @@ policy:
 - **post_apply**: Runs after a successful apply. Informational only — a non-zero exit logs a warning but does not change the apply's exit code. Use for notifications, logging, or cleanup.
 
 Hooks are skipped during `--dry-run`.
+
+### Rolling Deploys
+
+For fleets with many machines, use `serial` and `max_fail_percentage` to control rollout:
+
+```yaml
+policy:
+  serial: 3                   # Apply to 3 machines at a time
+  max_fail_percentage: 20     # Abort if >20% of machines fail
+  parallel_machines: true     # Machines within each batch run concurrently
+```
+
+- **serial**: Number of machines per batch. After each batch converges, the next batch begins. Without `serial`, all machines are applied at once (or sequentially if `parallel_machines: false`).
+- **max_fail_percentage**: Cumulative failure threshold (0–100). After each batch, forjar checks the overall failure rate across all machines processed so far. If it exceeds the threshold, the rollout is aborted with an error. Machines not yet started are left untouched.
+- When `serial` is combined with `parallel_machines: true`, `serial` controls the batch size and `parallel_machines` controls whether machines within each batch run concurrently.
 
 ## Cross-Machine References
 
