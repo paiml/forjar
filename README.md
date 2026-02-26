@@ -25,7 +25,7 @@ forjar.yaml  →  parse  →  resolve DAG  →  plan  →  codegen  →  execute
 | State | S3 / Consul / JSON | None | **Git (BLAKE3 YAML)** |
 | Drift detection | API calls | None | **Local hash compare** |
 | Bare metal | Weak | Strong | **First-class** |
-| Dependencies | ~200 Go modules | ~50 Python pkgs | **16 crates** |
+| Dependencies | ~200 Go modules | ~50 Python pkgs | **17 crates** |
 | Apply speed | Seconds–minutes | Minutes | **Milliseconds–seconds** |
 
 ## Quick Start
@@ -231,7 +231,7 @@ Single-quoted heredoc prevents shell expansion in file content.
 Tests: `test_fj007_heredoc_safe`
 
 ### C9: Minimal dependencies
-Fewer than 20 direct crate dependencies (currently 16 runtime + 1 build). Single binary output.
+Fewer than 20 direct crate dependencies (currently 17 runtime + 1 build). Single binary output.
 Verify: `cargo metadata --no-deps --format-version 1 | jq '[.packages[0].dependencies[] | select(.kind == null)] | length'`
 
 ### C10: Jidoka failure isolation
@@ -243,7 +243,7 @@ Tests: `test_fj012_apply_local_file`
 ## Testing
 
 ```bash
-cargo test                    # 1666 unit tests
+cargo test                    # 1671 unit tests
 cargo test -- --nocapture     # with output
 cargo test planner            # specific module
 cargo bench                   # Criterion benchmarks
