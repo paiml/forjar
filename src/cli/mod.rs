@@ -191,6 +191,10 @@ pub enum Commands {
         /// FJ-270: Output mode — 'events' for newline-delimited JSON events
         #[arg(long)]
         output: Option<String>,
+
+        /// FJ-272: Show progress counter [N/total] during apply
+        #[arg(long)]
+        progress: bool,
     },
 
     /// Detect unauthorized changes (tripwire)
@@ -880,6 +884,7 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             report,
             force_unlock,
             output,
+            progress,
         } => {
             if check {
                 // FJ-226: --check runs check scripts via cmd_check
@@ -912,6 +917,7 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
                 report,
                 force_unlock,
                 output.as_deref(),
+                progress,
             )
         }
         Commands::Drift {
@@ -1917,6 +1923,7 @@ fn cmd_rollback(
         false, // no report
         false, // no force_unlock
         None,  // no output mode
+    false,  // no progress
     )
 }
 
@@ -3399,6 +3406,7 @@ fn cmd_apply(
     report: bool,
     force_unlock: bool,
     output_mode: Option<&str>,
+    progress: bool,
 ) -> Result<(), String> {
     let events_mode = output_mode == Some("events");
     let mut config = parse_and_validate(file)?;
@@ -3467,6 +3475,7 @@ fn cmd_apply(
         tag_filter,
         timeout_secs,
         force_unlock,
+        progress,
     };
 
     let results = executor::apply(&cfg)?;
@@ -3809,6 +3818,7 @@ fn cmd_drift(
             false, // no report
             false, // no force_unlock
             None,  // no output mode
+        false,  // no progress
         )?;
         if !json {
             println!("Remediation complete.");
@@ -4664,6 +4674,7 @@ fn cmd_watch(
                             tag_filter: None,
                             timeout_secs: None,
                             force_unlock: false,
+                        progress: false,
                         };
                         match executor::apply(&cfg) {
                             Ok(results) => {
@@ -5783,6 +5794,7 @@ resources:
             false, // no report
             false, // no force_unlock
             None,  // no output mode
+        false,  // no progress
         )
         .unwrap();
     }
@@ -5833,6 +5845,7 @@ policy:
             false, // no report
             false, // no force_unlock
             None,  // no output mode
+        false,  // no progress
         )
         .unwrap();
 
@@ -5880,6 +5893,7 @@ resources: {}
             false, // no report
             false, // no force_unlock
             None,  // no output mode
+        false,  // no progress
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("validation"));
@@ -6202,6 +6216,7 @@ resources:
                 report: false,
                 force_unlock: false,
                 output: None,
+            progress: false,
             },
             false,
             true,
@@ -6395,6 +6410,7 @@ resources:
             false, // no report
             false, // no force_unlock
             None,  // no output mode
+        false,  // no progress
         )
         .unwrap();
         assert!(target.exists());
@@ -6419,6 +6435,7 @@ resources:
             false, // no report
             false, // no force_unlock
             None,  // no output mode
+        false,  // no progress
         )
         .unwrap();
     }
@@ -6989,6 +7006,7 @@ resources:
             false, // no report
             false, // no force_unlock
             None,  // no output mode
+        false,  // no progress
         )
         .unwrap();
         assert!(target.exists());
@@ -7053,6 +7071,7 @@ resources:
             false, // no report
             false, // no force_unlock
             None,  // no output mode
+        false,  // no progress
         )
         .unwrap();
         cmd_destroy(&config, &state, None, true, true).unwrap();
@@ -7118,6 +7137,7 @@ resources:
             false, // no report
             false, // no force_unlock
             None,  // no output mode
+        false,  // no progress
         )
         .unwrap();
         assert!(target_a.exists());
@@ -7178,6 +7198,7 @@ resources:
             false, // no report
             false, // no force_unlock
             None,  // no output mode
+        false,  // no progress
         )
         .unwrap();
         dispatch(
@@ -7274,6 +7295,7 @@ resources:
             false, // no report
             false, // no force_unlock
             None,  // no output mode
+        false,  // no progress
         )
         .unwrap();
         assert!(target.exists());
@@ -7433,6 +7455,7 @@ resources:
             false, // no report
             false, // no force_unlock
             None,  // no output mode
+        false,  // no progress
         )
         .unwrap();
         assert!(std::path::Path::new(&target).exists());
@@ -8806,6 +8829,7 @@ resources:
             false, // no report
             false, // no force_unlock
             None,  // no output mode
+        false,  // no progress
         )
         .unwrap();
     }
@@ -10071,6 +10095,7 @@ resources:
             false, // no report
             false, // no force_unlock
             None,  // no output mode
+        false,  // no progress
         );
         assert!(result.is_ok());
     }
@@ -10154,6 +10179,7 @@ resources:
                 report: false,
                 force_unlock: false,
                 output: None,
+            progress: false,
             },
             false,
             true,
@@ -10691,6 +10717,7 @@ resources:
             false, // no report
             false, // no force_unlock
             None,  // no output mode
+        false,  // no progress
         )
         .unwrap();
     }
@@ -11080,6 +11107,7 @@ policies:
             false,
             false,
             None,
+            false,
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("policy violations"));
@@ -11183,6 +11211,7 @@ policy:
             false,
             false,
             None,
+            false,
         );
         // cmd_apply needs a parsed config, but it re-parses from file
         // Instead, test the run_notify function directly
@@ -11278,6 +11307,7 @@ resources:
                 report: false,
                 force_unlock: false,
                 output: None,
+            progress: false,
             },
             false,
             true,
@@ -11332,6 +11362,7 @@ resources:
                 report: false,
                 force_unlock: false,
                 output: None,
+            progress: false,
             },
             false,
             true,
@@ -12339,6 +12370,7 @@ resources:
             false,
             false,
             None,
+            false,
         )
         .unwrap();
         // last-apply.yaml should be written
@@ -12404,6 +12436,7 @@ resources:
             false,
             false,
             None,
+            false,
         )
         .unwrap();
         let content = std::fs::read_to_string(state.join("local").join("last-apply.yaml")).unwrap();
@@ -12807,6 +12840,7 @@ resources:
             report: false,
             force_unlock: false,
             output: Some("events".to_string()),
+            progress: false,
         };
         match cmd {
             Commands::Apply { output, .. } => {
@@ -12878,6 +12912,68 @@ resources:
         match cmd {
             Commands::Explain { resource, .. } => assert_eq!(resource, "my-resource"),
             _ => panic!("expected Explain"),
+        }
+    }
+
+    // ========================================================================
+    // FJ-272: Apply progress indicator
+    // ========================================================================
+
+    #[test]
+    fn test_fj272_progress_flag_parse() {
+        let cmd = Commands::Apply {
+            file: PathBuf::from("forjar.yaml"),
+            machine: None,
+            resource: None,
+            tag: None,
+            force: false,
+            dry_run: false,
+            no_tripwire: false,
+            params: vec![],
+            auto_commit: false,
+            timeout: None,
+            state_dir: PathBuf::from("state"),
+            json: false,
+            env_file: None,
+            workspace: None,
+            check: false,
+            report: false,
+            force_unlock: false,
+            output: None,
+            progress: true,
+        };
+        match cmd {
+            Commands::Apply { progress, .. } => assert!(progress),
+            _ => panic!("expected Apply"),
+        }
+    }
+
+    #[test]
+    fn test_fj272_progress_default_off() {
+        let cmd = Commands::Apply {
+            file: PathBuf::from("forjar.yaml"),
+            machine: None,
+            resource: None,
+            tag: None,
+            force: false,
+            dry_run: false,
+            no_tripwire: false,
+            params: vec![],
+            auto_commit: false,
+            timeout: None,
+            state_dir: PathBuf::from("state"),
+            json: false,
+            env_file: None,
+            workspace: None,
+            check: false,
+            report: false,
+            force_unlock: false,
+            output: None,
+            progress: false,
+        };
+        match cmd {
+            Commands::Apply { progress, .. } => assert!(!progress),
+            _ => panic!("expected Apply"),
         }
     }
 }
