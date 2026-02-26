@@ -482,6 +482,18 @@ pub enum Commands {
         json: bool,
     },
 
+    /// FJ-220: Evaluate policy rules against config
+    #[command(name = "policy")]
+    Policy {
+        /// Path to forjar.yaml
+        #[arg(short, long, default_value = "forjar.yaml")]
+        file: PathBuf,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+
     /// FJ-210: Manage workspaces (isolated state directories)
     #[command(subcommand)]
     Workspace(WorkspaceCmd),
@@ -714,6 +726,7 @@ pub fn dispatch(cmd: Commands, verbose: bool) -> Result<(), String> {
             force,
         } => cmd_state_rm(&state_dir, &resource_id, machine.as_deref(), force),
         Commands::Output { file, key, json } => cmd_output(&file, key.as_deref(), json),
+        Commands::Policy { file, json } => cmd_policy(&file, json),
         Commands::Workspace(sub) => match sub {
             WorkspaceCmd::New { name } => cmd_workspace_new(&name),
             WorkspaceCmd::List => cmd_workspace_list(),
@@ -2510,8 +2523,8 @@ fn workspace_list_in(root: &Path, state_base: &Path) -> Result<(), String> {
         return Ok(());
     }
     let mut found = false;
-    let entries = std::fs::read_dir(state_base)
-        .map_err(|e| format!("cannot read state dir: {}", e))?;
+    let entries =
+        std::fs::read_dir(state_base).map_err(|e| format!("cannot read state dir: {}", e))?;
     for entry in entries.flatten() {
         if entry.path().is_dir() {
             let name = entry.file_name().to_string_lossy().to_string();
@@ -2574,8 +2587,7 @@ fn workspace_delete_in(
         );
         return Ok(());
     }
-    std::fs::remove_dir_all(&ws_dir)
-        .map_err(|e| format!("cannot delete workspace dir: {}", e))?;
+    std::fs::remove_dir_all(&ws_dir).map_err(|e| format!("cannot delete workspace dir: {}", e))?;
     if current_workspace_in(root).as_deref() == Some(name) {
         let _ = std::fs::remove_file(root.join(".forjar").join("workspace"));
     }
@@ -2592,6 +2604,69 @@ fn cmd_workspace_current() -> Result<(), String> {
         Some(ws) => println!("{}", ws),
         None => println!("(default — no workspace selected)"),
     }
+    Ok(())
+}
+
+/// FJ-220: Evaluate policy rules and report violations.
+fn cmd_policy(file: &Path, json: bool) -> Result<(), String> {
+    let config = parse_and_validate(file)?;
+    let violations = parser::evaluate_policies(&config);
+
+    if json {
+        let output: Vec<serde_json::Value> = violations
+            .iter()
+            .map(|v| {
+                serde_json::json!({
+                    "resource": v.resource_id,
+                    "severity": format!("{:?}", v.severity).to_lowercase(),
+                    "message": v.rule_message,
+                })
+            })
+            .collect();
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&output)
+                .map_err(|e| format!("JSON error: {}", e))?
+        );
+    } else {
+        if violations.is_empty() {
+            println!("All {} policy rules passed.", config.policies.len());
+            return Ok(());
+        }
+        let mut deny_count = 0;
+        let mut warn_count = 0;
+        for v in &violations {
+            let severity = match v.severity {
+                types::PolicyRuleType::Deny | types::PolicyRuleType::Require => {
+                    deny_count += 1;
+                    "DENY"
+                }
+                types::PolicyRuleType::Warn => {
+                    warn_count += 1;
+                    "WARN"
+                }
+            };
+            println!("  [{}] {}: {}", severity, v.resource_id, v.rule_message);
+        }
+        println!();
+        if deny_count > 0 {
+            println!(
+                "Policy check failed: {} denied, {} warnings",
+                deny_count, warn_count
+            );
+        } else {
+            println!("Policy check passed with {} warnings", warn_count);
+        }
+    }
+
+    // Fail on any deny/require violations
+    let has_deny = violations
+        .iter()
+        .any(|v| matches!(v.severity, types::PolicyRuleType::Deny | types::PolicyRuleType::Require));
+    if has_deny {
+        return Err("policy violations block apply".to_string());
+    }
+
     Ok(())
 }
 
@@ -2645,6 +2720,36 @@ fn cmd_apply(
         config.policy.tripwire = false;
     }
     apply_param_overrides(&mut config, param_overrides)?;
+
+    // FJ-220: Evaluate policy rules before apply
+    if !config.policies.is_empty() {
+        let violations = parser::evaluate_policies(&config);
+        let has_deny = violations.iter().any(|v| {
+            matches!(
+                v.severity,
+                types::PolicyRuleType::Deny | types::PolicyRuleType::Require
+            )
+        });
+        if has_deny {
+            for v in &violations {
+                let sev = match v.severity {
+                    types::PolicyRuleType::Deny | types::PolicyRuleType::Require => "DENY",
+                    types::PolicyRuleType::Warn => "WARN",
+                };
+                eprintln!("  [{}] {}: {}", sev, v.resource_id, v.rule_message);
+            }
+            return Err(format!(
+                "policy violations block apply ({} denied)",
+                violations
+                    .iter()
+                    .filter(|v| matches!(
+                        v.severity,
+                        types::PolicyRuleType::Deny | types::PolicyRuleType::Require
+                    ))
+                    .count()
+            ));
+        }
+    }
 
     // Run pre_apply hook (abort on failure)
     if let Some(ref hook) = config.policy.pre_apply {
@@ -3743,7 +3848,10 @@ resources:
         .unwrap();
         let state = dir.path().join("state");
         std::fs::create_dir_all(&state).unwrap();
-        cmd_plan(&config, &state, None, None, None, false, false, None, None, None).unwrap();
+        cmd_plan(
+            &config, &state, None, None, None, false, false, None, None, None,
+        )
+        .unwrap();
     }
 
     #[test]
@@ -3808,7 +3916,9 @@ resources: {}
 "#,
         )
         .unwrap();
-        let result = cmd_plan(&config, &state, None, None, None, false, false, None, None, None);
+        let result = cmd_plan(
+            &config, &state, None, None, None, false, false, None, None, None,
+        );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("validation"));
     }
@@ -4578,7 +4688,10 @@ resources:
         )
         .unwrap();
         // json=true should not panic (output goes to stdout)
-        cmd_plan(&config, &state, None, None, None, true, false, None, None, None).unwrap();
+        cmd_plan(
+            &config, &state, None, None, None, true, false, None, None, None,
+        )
+        .unwrap();
     }
 
     #[test]
@@ -4605,7 +4718,10 @@ resources:
 "#,
         )
         .unwrap();
-        cmd_plan(&config, &state, None, None, None, false, true, None, None, None).unwrap();
+        cmd_plan(
+            &config, &state, None, None, None, false, true, None, None, None,
+        )
+        .unwrap();
     }
 
     #[test]
@@ -8929,5 +9045,156 @@ resources:
             Some("staging"),
         )
         .unwrap();
+    }
+
+    // ================================================================
+    // FJ-220: Policy check CLI tests
+    // ================================================================
+
+    #[test]
+    fn test_fj220_cmd_policy_no_violations() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &file,
+            r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.2.3.4
+resources:
+  cfg:
+    type: file
+    machine: m1
+    path: /etc/app.conf
+    owner: noah
+policies:
+  - type: require
+    message: "files must have owner"
+    resource_type: file
+    field: owner
+"#,
+        )
+        .unwrap();
+        cmd_policy(&file, false).unwrap();
+    }
+
+    #[test]
+    fn test_fj220_cmd_policy_deny_blocks() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &file,
+            r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.2.3.4
+resources:
+  cfg:
+    type: file
+    machine: m1
+    path: /etc/app.conf
+    owner: root
+policies:
+  - type: deny
+    message: "no root owner"
+    resource_type: file
+    condition_field: owner
+    condition_value: root
+"#,
+        )
+        .unwrap();
+        let result = cmd_policy(&file, false);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("policy violations"));
+    }
+
+    #[test]
+    fn test_fj220_cmd_policy_json_output() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &file,
+            r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.2.3.4
+resources:
+  cfg:
+    type: file
+    machine: m1
+    path: /etc/app.conf
+policies:
+  - type: warn
+    message: "files should have owner"
+    resource_type: file
+    condition_field: owner
+    condition_value: root
+"#,
+        )
+        .unwrap();
+        // JSON mode with no deny violations should succeed
+        cmd_policy(&file, true).unwrap();
+    }
+
+    #[test]
+    fn test_fj220_apply_blocked_by_policy() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &file,
+            r#"
+version: "1.0"
+name: test
+machines:
+  local:
+    hostname: localhost
+    addr: 127.0.0.1
+resources:
+  cfg:
+    type: file
+    machine: local
+    path: /tmp/forjar-policy-test.txt
+    content: "test"
+    owner: root
+policies:
+  - type: deny
+    message: "no root owner in local"
+    resource_type: file
+    condition_field: owner
+    condition_value: root
+"#,
+        )
+        .unwrap();
+        let state = dir.path().join("state");
+        std::fs::create_dir_all(&state).unwrap();
+
+        let result = cmd_apply(
+            &file,
+            &state,
+            None,
+            None,
+            None,
+            false,
+            false,
+            false,
+            &[],
+            false,
+            None,
+            false,
+            false,
+            None,
+            None,
+        );
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("policy violations"));
     }
 }

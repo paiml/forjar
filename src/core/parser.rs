@@ -483,17 +483,115 @@ pub fn expand_recipes(config: &mut ForjarConfig, config_dir: Option<&Path>) -> R
     Ok(())
 }
 
+// ========================================================================
+// FJ-220: Policy evaluation
+// ========================================================================
+
+use crate::core::types::{PolicyRuleType, PolicyViolation};
+
+/// Check if a resource has a given field set (non-None, non-empty).
+fn resource_has_field(resource: &Resource, field: &str) -> bool {
+    match field {
+        "owner" => resource.owner.is_some(),
+        "group" => resource.group.is_some(),
+        "mode" => resource.mode.is_some(),
+        "tags" => !resource.tags.is_empty(),
+        "path" => resource.path.is_some(),
+        "content" => resource.content.is_some(),
+        "source" => resource.source.is_some(),
+        "name" => resource.name.is_some(),
+        "provider" => resource.provider.is_some(),
+        "packages" => !resource.packages.is_empty(),
+        "depends_on" => !resource.depends_on.is_empty(),
+        "shell" => resource.shell.is_some(),
+        "home" => resource.home.is_some(),
+        "schedule" => resource.schedule.is_some(),
+        "command" => resource.command.is_some(),
+        "image" => resource.image.is_some(),
+        "state" => resource.state.is_some(),
+        "when" => resource.when.is_some(),
+        _ => false,
+    }
+}
+
+/// Get a string representation of a resource field for condition checks.
+fn resource_field_value(resource: &Resource, field: &str) -> Option<String> {
+    match field {
+        "owner" => resource.owner.clone(),
+        "group" => resource.group.clone(),
+        "mode" => resource.mode.clone(),
+        "path" => resource.path.clone(),
+        "content" => resource.content.clone(),
+        "source" => resource.source.clone(),
+        "name" => resource.name.clone(),
+        "provider" => resource.provider.clone(),
+        "state" => resource.state.clone(),
+        "type" => Some(format!("{:?}", resource.resource_type).to_lowercase()),
+        "shell" => resource.shell.clone(),
+        "home" => resource.home.clone(),
+        "schedule" => resource.schedule.clone(),
+        "command" => resource.command.clone(),
+        "image" => resource.image.clone(),
+        _ => None,
+    }
+}
+
+/// Evaluate all policy rules against all resources. Returns violations.
+pub fn evaluate_policies(config: &ForjarConfig) -> Vec<PolicyViolation> {
+    let mut violations = Vec::new();
+
+    for rule in &config.policies {
+        for (id, resource) in &config.resources {
+            // Filter by resource_type if specified
+            if let Some(ref rt) = rule.resource_type {
+                let actual = format!("{:?}", resource.resource_type).to_lowercase();
+                if actual != *rt {
+                    continue;
+                }
+            }
+
+            // Filter by tag if specified
+            if let Some(ref tag) = rule.tag {
+                if !resource.tags.contains(tag) {
+                    continue;
+                }
+            }
+
+            let violated = match rule.rule_type {
+                PolicyRuleType::Require => {
+                    // Resource must have the field set
+                    if let Some(ref field) = rule.field {
+                        !resource_has_field(resource, field)
+                    } else {
+                        false
+                    }
+                }
+                PolicyRuleType::Deny | PolicyRuleType::Warn => {
+                    // Check if condition field matches condition value
+                    if let (Some(ref field), Some(ref value)) =
+                        (&rule.condition_field, &rule.condition_value)
+                    {
+                        resource_field_value(resource, field).as_deref() == Some(value.as_str())
+                    } else {
+                        false
+                    }
+                }
+            };
+
+            if violated {
+                violations.push(PolicyViolation {
+                    rule_message: rule.message.clone(),
+                    resource_id: id.clone(),
+                    severity: rule.rule_type.clone(),
+                });
+            }
+        }
+    }
+
+    violations
+}
+
 /// FJ-203/FJ-204: Expand resources with `count:` or `for_each:`.
-///
-/// - `count: N` creates N copies: `id-0`, `id-1`, ..., `id-(N-1)`.
-///   `{{index}}` in string fields is replaced with the index.
-/// - `for_each: [a, b, c]` creates per-item copies: `id-a`, `id-b`, `id-c`.
-///   `{{item}}` in string fields is replaced with the item value.
-///
-/// Deps referencing an expanded resource are rewritten to point at the last
-/// expanded copy (e.g., `depends_on: [shards]` → `depends_on: [shards-2]`
-/// when shards has `count: 3`).
-///
 /// Runs after expand_recipes() and before build_execution_order().
 pub fn expand_resources(config: &mut ForjarConfig) {
     // First pass: build a map of original ID → last expanded ID.
@@ -3724,5 +3822,266 @@ resources:
         expand_resources(&mut config);
         // setup's dep should be rewritten to homes-bob (last item)
         assert_eq!(config.resources["setup"].depends_on, vec!["homes-bob"]);
+    }
+
+    // ================================================================
+    // FJ-220: Policy evaluation tests
+    // ================================================================
+
+    #[test]
+    fn test_fj220_policy_require_field_pass() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.2.3.4
+resources:
+  cfg:
+    type: file
+    machine: m1
+    path: /etc/app.conf
+    owner: noah
+    mode: "0644"
+policies:
+  - type: require
+    message: "files must have owner"
+    resource_type: file
+    field: owner
+"#;
+        let config = parse_config(yaml).unwrap();
+        let violations = evaluate_policies(&config);
+        assert!(violations.is_empty());
+    }
+
+    #[test]
+    fn test_fj220_policy_require_field_fail() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.2.3.4
+resources:
+  cfg:
+    type: file
+    machine: m1
+    path: /etc/app.conf
+policies:
+  - type: require
+    message: "files must have owner"
+    resource_type: file
+    field: owner
+"#;
+        let config = parse_config(yaml).unwrap();
+        let violations = evaluate_policies(&config);
+        assert_eq!(violations.len(), 1);
+        assert_eq!(violations[0].resource_id, "cfg");
+        assert_eq!(violations[0].severity, PolicyRuleType::Require);
+    }
+
+    #[test]
+    fn test_fj220_policy_deny_condition() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.2.3.4
+resources:
+  cfg:
+    type: file
+    machine: m1
+    path: /etc/app.conf
+    owner: root
+policies:
+  - type: deny
+    message: "files must not be owned by root"
+    resource_type: file
+    condition_field: owner
+    condition_value: root
+"#;
+        let config = parse_config(yaml).unwrap();
+        let violations = evaluate_policies(&config);
+        assert_eq!(violations.len(), 1);
+        assert_eq!(violations[0].severity, PolicyRuleType::Deny);
+    }
+
+    #[test]
+    fn test_fj220_policy_warn_only() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.2.3.4
+resources:
+  cfg:
+    type: file
+    machine: m1
+    path: /etc/app.conf
+    owner: root
+policies:
+  - type: warn
+    message: "files should not be owned by root"
+    resource_type: file
+    condition_field: owner
+    condition_value: root
+"#;
+        let config = parse_config(yaml).unwrap();
+        let violations = evaluate_policies(&config);
+        assert_eq!(violations.len(), 1);
+        assert_eq!(violations[0].severity, PolicyRuleType::Warn);
+    }
+
+    #[test]
+    fn test_fj220_policy_type_filter() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.2.3.4
+resources:
+  pkg:
+    type: package
+    machine: m1
+    provider: apt
+    packages: [curl]
+  cfg:
+    type: file
+    machine: m1
+    path: /etc/app.conf
+policies:
+  - type: require
+    message: "files must have owner"
+    resource_type: file
+    field: owner
+"#;
+        let config = parse_config(yaml).unwrap();
+        let violations = evaluate_policies(&config);
+        // Only file resource should be checked, not package
+        assert_eq!(violations.len(), 1);
+        assert_eq!(violations[0].resource_id, "cfg");
+    }
+
+    #[test]
+    fn test_fj220_policy_tag_filter() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.2.3.4
+resources:
+  cfg:
+    type: file
+    machine: m1
+    path: /etc/app.conf
+    tags: [critical]
+  log:
+    type: file
+    machine: m1
+    path: /var/log/app.log
+policies:
+  - type: require
+    message: "critical files must have owner"
+    tag: critical
+    field: owner
+"#;
+        let config = parse_config(yaml).unwrap();
+        let violations = evaluate_policies(&config);
+        // Only cfg (tagged critical) should trigger, not log
+        assert_eq!(violations.len(), 1);
+        assert_eq!(violations[0].resource_id, "cfg");
+    }
+
+    #[test]
+    fn test_fj220_policy_multiple_rules() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.2.3.4
+resources:
+  cfg:
+    type: file
+    machine: m1
+    path: /etc/app.conf
+    owner: root
+policies:
+  - type: require
+    message: "files must have mode"
+    resource_type: file
+    field: mode
+  - type: deny
+    message: "no root owner"
+    resource_type: file
+    condition_field: owner
+    condition_value: root
+"#;
+        let config = parse_config(yaml).unwrap();
+        let violations = evaluate_policies(&config);
+        assert_eq!(violations.len(), 2);
+    }
+
+    #[test]
+    fn test_fj220_no_policies() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.2.3.4
+resources:
+  cfg:
+    type: file
+    machine: m1
+    path: /etc/app.conf
+"#;
+        let config = parse_config(yaml).unwrap();
+        let violations = evaluate_policies(&config);
+        assert!(violations.is_empty());
+    }
+
+    #[test]
+    fn test_fj220_require_tags() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.2.3.4
+resources:
+  cfg:
+    type: file
+    machine: m1
+    path: /etc/app.conf
+  pkg:
+    type: package
+    machine: m1
+    provider: apt
+    packages: [curl]
+    tags: [infra]
+policies:
+  - type: require
+    message: "all resources must have tags"
+    field: tags
+"#;
+        let config = parse_config(yaml).unwrap();
+        let violations = evaluate_policies(&config);
+        // cfg has no tags, pkg has tags
+        assert_eq!(violations.len(), 1);
+        assert_eq!(violations[0].resource_id, "cfg");
     }
 }

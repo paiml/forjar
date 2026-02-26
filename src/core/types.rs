@@ -43,6 +43,64 @@ pub struct ForjarConfig {
     /// FJ-215: Output values — computed from params/templates, written to state/outputs.yaml
     #[serde(default)]
     pub outputs: IndexMap<String, OutputValue>,
+
+    /// FJ-220: Policy rules for plan-time enforcement
+    #[serde(default)]
+    pub policies: Vec<PolicyRule>,
+}
+
+/// FJ-220: A policy rule for plan-time enforcement.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PolicyRule {
+    /// Rule severity: `require`, `deny`, or `warn`
+    #[serde(rename = "type")]
+    pub rule_type: PolicyRuleType,
+
+    /// Human-readable description of what this rule checks
+    pub message: String,
+
+    /// Resource type filter (e.g., "file", "package"). None = all types.
+    #[serde(default)]
+    pub resource_type: Option<String>,
+
+    /// Tag filter — only check resources with this tag
+    #[serde(default)]
+    pub tag: Option<String>,
+
+    /// For `require`: field that must be set (e.g., "owner", "tags", "mode")
+    #[serde(default)]
+    pub field: Option<String>,
+
+    /// For `deny`/`warn`: field to check
+    #[serde(default)]
+    pub condition_field: Option<String>,
+
+    /// For `deny`/`warn`: value that triggers the rule (equality check)
+    #[serde(default)]
+    pub condition_value: Option<String>,
+}
+
+/// Policy rule severity.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PolicyRuleType {
+    /// Resource must have a field set
+    Require,
+    /// Block apply if condition matches
+    Deny,
+    /// Advisory warning (does not block)
+    Warn,
+}
+
+/// Result of evaluating a policy rule against a resource.
+#[derive(Debug, Clone)]
+pub struct PolicyViolation {
+    /// Rule that was violated
+    pub rule_message: String,
+    /// Resource that violated the rule
+    pub resource_id: String,
+    /// Severity
+    pub severity: PolicyRuleType,
 }
 
 /// A declared output value.

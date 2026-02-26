@@ -336,6 +336,7 @@ mod tests {
             resources,
             policy: Policy::default(),
             outputs: indexmap::IndexMap::new(),
+            policies: vec![],
         };
 
         let (migrated, warnings) = migrate_config(&config);
@@ -371,6 +372,7 @@ mod tests {
             resources,
             policy: Policy::default(),
             outputs: indexmap::IndexMap::new(),
+            policies: vec![],
         };
 
         let (migrated, warnings) = migrate_config(&config);

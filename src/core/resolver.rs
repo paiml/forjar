@@ -907,6 +907,7 @@ resources:
             resources,
             policy: Policy::default(),
             outputs: indexmap::IndexMap::new(),
+            policies: vec![],
         }
     }
 
@@ -1658,6 +1659,7 @@ resources:
             resources,
             policy: Policy::default(),
             outputs: indexmap::IndexMap::new(),
+            policies: vec![],
         };
         let result = build_execution_order(&config);
         assert!(result.is_err());
@@ -1692,6 +1694,7 @@ resources:
             resources,
             policy: Policy::default(),
             outputs: indexmap::IndexMap::new(),
+            policies: vec![],
         };
         let order = build_execution_order(&config).unwrap();
         assert_eq!(order, vec!["a", "b", "c", "d"]);
@@ -1708,6 +1711,7 @@ resources:
             resources: indexmap::IndexMap::new(),
             policy: Policy::default(),
             outputs: indexmap::IndexMap::new(),
+            policies: vec![],
         };
         let order = build_execution_order(&config).unwrap();
         assert!(order.is_empty());
