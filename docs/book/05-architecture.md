@@ -54,7 +54,9 @@ src/
   lib.rs                 Library root
   build.rs               Compile-time contract binding verification
   cli/
-    mod.rs               Subcommand dispatch (init, validate, plan, apply, drift, status)
+    mod.rs               21 subcommands (init through bench)
+  mcp/
+    mod.rs               MCP server via pforge — 9 tool handlers (FJ-063)
   core/
     types.rs             All serde types (ForjarConfig, Resource, StateLock, etc.)
     parser.rs            YAML parsing + structural validation
@@ -65,6 +67,7 @@ src/
     executor.rs          Orchestration loop (the main apply logic)
     state.rs             Lock file load/save (atomic write via temp+rename)
     recipe.rs            Recipe loading, input validation, namespaced expansion
+    migrate.rs           Docker-to-pepita resource migration (FJ-044)
   resources/
     mod.rs               Resource type registry
     package.rs           apt/cargo/uv package management
@@ -75,6 +78,7 @@ src/
     docker.rs            Docker container lifecycle
     cron.rs              Crontab scheduled tasks
     network.rs           Firewall rules (ufw)
+    pepita.rs            Kernel namespace isolation (FJ-040)
   transport/
     mod.rs               Transport dispatch (container > local > SSH)
     local.rs             Local bash execution
@@ -1027,14 +1031,16 @@ infrastructure through the same validated pipeline as the CLI.
            │ dispatch(tool, params)
            ▼
 ┌─────────────────────────────────┐
-│  forjar MCP Handlers            │
+│  forjar MCP Handlers (9)        │
 │  ├── ValidateHandler            │
 │  ├── PlanHandler                │
 │  ├── DriftHandler               │
 │  ├── LintHandler                │
 │  ├── GraphHandler               │
 │  ├── ShowHandler                │
-│  └── StatusHandler              │
+│  ├── StatusHandler              │
+│  ├── TraceHandler               │
+│  └── AnomalyHandler            │
 └──────────┬──────────────────────┘
            │ calls forjar core
            ▼

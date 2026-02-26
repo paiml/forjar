@@ -10,9 +10,11 @@ state/
   intel/
     state.lock.yaml            # Per-machine lock — resource hashes and status
     events.jsonl               # Provenance event log — append-only audit trail
+    trace.jsonl                # W3C trace spans from apply (FJ-050)
   web-server/
     state.lock.yaml
     events.jsonl
+    trace.jsonl
 ```
 
 Each machine gets its own subdirectory. The state directory defaults to `state/` but can be overridden with `--state-dir`.
