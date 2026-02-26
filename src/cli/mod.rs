@@ -701,6 +701,10 @@ pub enum Commands {
 
         /// Resource ID to explain
         resource: String,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
     },
 
     /// FJ-277: Show resolved environment info
@@ -1236,7 +1240,7 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             apply,
             yes,
         } => cmd_watch(&file, &state_dir, interval, apply, yes),
-        Commands::Explain { file, resource } => cmd_explain(&file, &resource),
+        Commands::Explain { file, resource, json } => cmd_explain(&file, &resource, json),
         Commands::Env { file, json } => cmd_env(&file, json),
         Commands::Test {
             file,
@@ -5770,12 +5774,8 @@ fn cmd_env(file: &Path, json: bool) -> Result<(), String> {
             info["machines"] = serde_json::json!(config.machines.len());
             info["resources"] = serde_json::json!(config.resources.len());
             info["params"] = serde_json::json!(config.params.len());
-            info["machine_names"] = serde_json::json!(
-                config.machines.keys().collect::<Vec<_>>()
-            );
-            info["resource_names"] = serde_json::json!(
-                config.resources.keys().collect::<Vec<_>>()
-            );
+            info["machine_names"] = serde_json::json!(config.machines.keys().collect::<Vec<_>>());
+            info["resource_names"] = serde_json::json!(config.resources.keys().collect::<Vec<_>>());
             info["resolved_params"] = serde_json::json!(config.params);
         }
         println!(
@@ -5806,7 +5806,7 @@ fn cmd_env(file: &Path, json: bool) -> Result<(), String> {
 }
 
 /// FJ-271: Explain a resource — show raw YAML, resolved templates, codegen script, transport.
-fn cmd_explain(file: &Path, resource_id: &str) -> Result<(), String> {
+fn cmd_explain(file: &Path, resource_id: &str, json: bool) -> Result<(), String> {
     let config = parse_and_validate(file)?;
 
     let resource = config
@@ -5814,14 +5814,6 @@ fn cmd_explain(file: &Path, resource_id: &str) -> Result<(), String> {
         .get(resource_id)
         .ok_or_else(|| format!("resource '{}' not found", resource_id))?;
 
-    // Step 1: Raw YAML
-    println!("{}", bold("1. Raw Resource Definition"));
-    println!("{}", dim("─────────────────────────────"));
-    let raw_yaml =
-        serde_yaml_ng::to_string(resource).map_err(|e| format!("serialize error: {}", e))?;
-    println!("{}", raw_yaml);
-
-    // Step 2: Template Resolution
     let machine_name = match &resource.machine {
         types::MachineTarget::Single(m) => m.clone(),
         types::MachineTarget::Multiple(ms) => ms.first().cloned().unwrap_or_default(),
@@ -5829,40 +5821,80 @@ fn cmd_explain(file: &Path, resource_id: &str) -> Result<(), String> {
     let resolved =
         resolver::resolve_resource_templates(resource, &config.params, &config.machines)?;
 
+    let transport_type = if machine_name == "local" || machine_name == "localhost" {
+        "local"
+    } else if config
+        .machines
+        .get(&machine_name)
+        .is_some_and(|m| m.is_container_transport())
+    {
+        "container"
+    } else if config
+        .machines
+        .get(&machine_name)
+        .is_some_and(|m| m.addr == "127.0.0.1" || m.addr == "localhost")
+    {
+        "local"
+    } else {
+        "ssh"
+    };
+
+    let apply_script = codegen::apply_script(&resolved).ok();
+    let check_script = codegen::check_script(&resolved).ok();
+
+    if json {
+        let mut info = serde_json::json!({
+            "resource": resource_id,
+            "type": resource.resource_type,
+            "machine": machine_name,
+            "transport": transport_type,
+            "depends_on": resource.depends_on,
+            "tags": resource.tags,
+        });
+        if let Some(ref rg) = resource.resource_group {
+            info["resource_group"] = serde_json::json!(rg);
+        }
+        if let Some(ref script) = apply_script {
+            info["apply_script"] = serde_json::json!(script);
+        }
+        if let Some(ref script) = check_script {
+            info["check_script"] = serde_json::json!(script);
+        }
+        if let Some(m) = config.machines.get(&machine_name) {
+            info["addr"] = serde_json::json!(m.addr);
+            if let Some(ref key) = m.ssh_key {
+                info["ssh_key"] = serde_json::json!(key);
+            }
+        }
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&info).map_err(|e| format!("JSON error: {}", e))?
+        );
+        return Ok(());
+    }
+
+    // Text output
+    let raw_yaml =
+        serde_yaml_ng::to_string(resource).map_err(|e| format!("serialize error: {}", e))?;
+    println!("{}", bold("1. Raw Resource Definition"));
+    println!("{}", dim("─────────────────────────────"));
+    println!("{}", raw_yaml);
+
     println!("{}", bold("2. After Template Resolution"));
     println!("{}", dim("─────────────────────────────"));
     let resolved_yaml =
         serde_yaml_ng::to_string(&resolved).map_err(|e| format!("serialize error: {}", e))?;
     println!("{}", resolved_yaml);
 
-    // Step 3: Generated Script
     println!("{}", bold("3. Generated Shell Script"));
     println!("{}", dim("─────────────────────────────"));
-    match codegen::apply_script(&resolved) {
-        Ok(script) => println!("{}", script),
-        Err(e) => println!("{}", red(&format!("codegen error: {}", e))),
+    match apply_script {
+        Some(ref script) => println!("{}", script),
+        None => println!("{}", red("codegen error")),
     }
 
-    // Step 4: Transport
     println!("{}", bold("4. Transport"));
     println!("{}", dim("─────────────────────────────"));
-    let transport_type = if machine_name == "local" || machine_name == "localhost" {
-        "local (bash stdin pipe)"
-    } else if config
-        .machines
-        .get(&machine_name)
-        .is_some_and(|m| m.is_container_transport())
-    {
-        "container (docker/podman exec -i)"
-    } else if config
-        .machines
-        .get(&machine_name)
-        .is_some_and(|m| m.addr == "127.0.0.1" || m.addr == "localhost")
-    {
-        "local (bash stdin pipe)"
-    } else {
-        "ssh (ssh -o BatchMode=yes stdin pipe)"
-    };
     println!("machine: {}", machine_name);
     println!("transport: {}", transport_type);
     if let Some(m) = config.machines.get(&machine_name) {
@@ -5872,7 +5904,6 @@ fn cmd_explain(file: &Path, resource_id: &str) -> Result<(), String> {
         }
     }
 
-    // Step 5: Dependencies
     if !resource.depends_on.is_empty() {
         println!();
         println!("{}", bold("5. Dependencies"));
@@ -14209,6 +14240,7 @@ resources:
             Commands::Explain {
                 file: config_path,
                 resource: "nonexistent".to_string(),
+            json: false,
             },
             false,
             true,
@@ -14226,6 +14258,7 @@ resources:
             Commands::Explain {
                 file: config_path,
                 resource: "test".to_string(),
+            json: false,
             },
             false,
             true,
@@ -14242,6 +14275,7 @@ resources:
             Commands::Explain {
                 file: config_path,
                 resource: "cfg".to_string(),
+            json: false,
             },
             false,
             true,
@@ -14254,6 +14288,7 @@ resources:
         let cmd = Commands::Explain {
             file: PathBuf::from("forjar.yaml"),
             resource: "my-resource".to_string(),
+        json: false,
         };
         match cmd {
             Commands::Explain { resource, .. } => assert_eq!(resource, "my-resource"),
@@ -15570,5 +15605,50 @@ resources:
         let missing = dir.path().join("nonexistent.yaml");
         let result = cmd_env(&missing, true);
         assert!(result.is_ok());
+    }
+
+    // ── FJ-307: explain --json ──
+
+    #[test]
+    fn test_fj307_explain_json_output() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config_path,
+            r#"
+version: "1.0"
+name: explain-test
+params:
+  dir: /opt/app
+machines:
+  local:
+    hostname: localhost
+    addr: 127.0.0.1
+resources:
+  cfg:
+    type: file
+    machine: local
+    path: "{{params.dir}}/config.txt"
+    content: test
+    tags: [web]
+    depends_on: []
+"#,
+        )
+        .unwrap();
+        let result = cmd_explain(&config_path, "cfg", true);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj307_explain_json_flag_parse() {
+        let cmd = Commands::Explain {
+            file: PathBuf::from("forjar.yaml"),
+            resource: "my-resource".to_string(),
+            json: true,
+        };
+        match cmd {
+            Commands::Explain { json, .. } => assert!(json),
+            _ => panic!("expected Explain"),
+        }
     }
 }
