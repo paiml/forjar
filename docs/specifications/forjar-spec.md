@@ -150,6 +150,7 @@ src/
     local.rs            Local execution (this machine)
     ssh.rs              SSH execution (remote machines)
     container.rs        Container execution (docker/podman exec)
+    pepita.rs           Kernel namespace execution (FJ-230, planned)
 ```
 
 ### 2.3 Dependency Policy
@@ -242,6 +243,19 @@ machines:
       ephemeral: true
       privileged: false
       init: true
+
+  # Pepita kernel namespace target (zero Docker dependency, planned FJ-230)
+  isolated-box:
+    hostname: isolated-box
+    transport: pepita
+    pepita:
+      rootfs: debootstrap:jammy
+      cgroups:
+        memory_mb: 2048
+        cpus: 2
+      network: isolated
+      filesystem: overlay
+      ephemeral: true
 
 # Resource declarations
 resources:
@@ -702,7 +716,7 @@ recipes:
 | `arch` | string | `x86_64` | CPU architecture |
 | `ssh_key` | string | — | Path to SSH private key |
 | `roles` | [string] | `[]` | Informational role tags |
-| `transport` | string | — | Explicit transport: `container`. If omitted, inferred from `addr`. |
+| `transport` | string | — | Explicit transport: `container` or `pepita`. If omitted, inferred from `addr`. |
 | `container` | object | — | Container config (required when `transport: container`) |
 | `container.runtime` | string | `docker` | `docker` or `podman` |
 | `container.image` | string | — | OCI image (required for ephemeral containers) |
@@ -710,6 +724,13 @@ recipes:
 | `container.ephemeral` | bool | `true` | Destroy container after apply |
 | `container.privileged` | bool | `false` | Run with `--privileged` |
 | `container.init` | bool | `true` | Run with `--init` for PID 1 reaping |
+| `pepita` | object | — | Pepita namespace config (required when `transport: pepita`). Planned: FJ-230. |
+| `pepita.rootfs` | string | — | Base rootfs path or `debootstrap:<suite>` (e.g., `debootstrap:jammy`) |
+| `pepita.cgroups.memory_mb` | int | `2048` | Memory limit in MB (cgroup v2 `memory.max`) |
+| `pepita.cgroups.cpus` | int | `2` | CPU limit (cgroup v2 `cpuset.cpus`) |
+| `pepita.network` | string | `isolated` | `isolated` (new netns) or `host` (share host network) |
+| `pepita.filesystem` | string | `overlay` | `overlay` (copy-on-write overlayfs) or `bind` (bind-mount rootfs) |
+| `pepita.ephemeral` | bool | `true` | Destroy namespace after apply |
 
 ### 3.5 Template Variables
 
@@ -974,15 +995,16 @@ The shell is:
 
 ### 6.4 Transport
 
-Forjar supports three execution transports. Transport selection follows a priority chain:
+Forjar supports four execution transports. Transport selection follows a priority chain:
 
-| Priority | Condition | Transport | Dispatch |
-|----------|-----------|-----------|----------|
-| 1 | `transport: container` or `addr: container` | Container | `docker exec -i <name> bash` |
-| 2 | `addr` is `127.0.0.1`, `localhost`, or local hostname | Local | `bash` (stdin pipe) |
-| 3 | All other addresses | SSH | `ssh user@addr bash` (stdin pipe) |
+| Priority | Condition | Transport | Dispatch | Status |
+|----------|-----------|-----------|----------|--------|
+| 1 | `transport: pepita` | Pepita | `nsenter --target <pid> -- bash` (stdin pipe) | Planned (FJ-230) |
+| 2 | `transport: container` or `addr: container` | Container | `docker exec -i <name> bash` | Done (FJ-021) |
+| 3 | `addr` is `127.0.0.1`, `localhost`, or local hostname | Local | `bash` (stdin pipe) | Done (FJ-010) |
+| 4 | All other addresses | SSH | `ssh user@addr bash` (stdin pipe) | Done (FJ-011) |
 
-All three transports share the same mechanism: **pipe a shell script to bash stdin, capture stdout/stderr/exit_code**.
+All four transports share the same mechanism: **pipe a shell script to bash stdin, capture stdout/stderr/exit_code**.
 
 #### Container Transport
 
@@ -1033,6 +1055,41 @@ fn exec_ssh(machine: &Machine, script: &str) -> Result<ExecOutput> {
 ```
 
 Script is piped to stdin, never passed as an argument (prevents arg-length limits and injection).
+
+#### Pepita Transport (Planned — FJ-230)
+
+Pepita transport uses Linux kernel namespaces directly — no Docker daemon, no container runtime, no image registry. The execution target is a `unshare(2)` / `clone(2)` namespace with an overlayfs rootfs.
+
+```rust
+fn exec_pepita(machine: &Machine, script: &str) -> Result<ExecOutput> {
+    Command::new("nsenter")
+        .args(["--target", &namespace_pid, "--mount", "--pid", "--net", "--"])
+        .arg("bash")
+        .stdin(Stdio::piped())     // pipe purified shell to stdin
+        .output()
+}
+```
+
+Pepita namespace lifecycle:
+1. **Create** — `unshare --mount --pid --net --fork` + mount overlayfs rootfs from debootstrap base
+2. **Cgroups** — write `memory.max` and `cpuset.cpus` to cgroup v2 hierarchy
+3. **Exec** — `nsenter --target <pid> --mount --pid --net -- bash` (one per resource apply)
+4. **Cleanup** — tear down namespace, remove cgroup, unmount overlayfs (ephemeral only)
+
+**Interface model** — mirrors the wos microkernel `VmManager` pattern:
+
+| wos concept | Pepita transport equivalent |
+|---|---|
+| `VmConfig` (memory, vcpus, devices) | `PepitaConfig` (rootfs, cgroups, network, filesystem) |
+| `VmState` (Created→Running→Stopped) | Namespace state (Created→Running→Destroyed) |
+| `VirtioDeviceConfig::Console` | `/dev/pts` bind-mount for stdin/stdout |
+| `VirtioDeviceConfig::Block` | overlayfs lower/upper/work layers |
+| `VirtioDeviceConfig::Net` | veth pair into network namespace |
+| `MAX_VMS` jidoka guard | `MAX_NAMESPACES` jidoka guard |
+
+**Why not Docker**: Docker requires a daemon (`dockerd`), an image registry, an overlay storage driver, and `docker` CLI. Pepita uses 4 syscalls (`clone`, `mount`, `pivot_root`, `nsenter`) and a debootstrap'd rootfs. Zero runtime dependency. True sovereign isolation.
+
+**Requires**: `CAP_SYS_ADMIN` or root. `debootstrap` for rootfs creation (one-time setup).
 
 ---
 
@@ -1454,6 +1511,7 @@ Statistical anomaly detection from event history. Analyzes per-resource metrics:
 | FJ-224 | General-purpose triggers — `triggers:` field on any resource (not just `restart_on` on services). When a dependency resource changes, triggers force re-apply of the dependent. `triggers: [config-file]` on a docker resource restarts the container when the config changes. | Planned |
 | FJ-225 | Notification hooks — `policy.notify:` block. `on_success`, `on_failure`, `on_drift` keys. Value is a shell command template with `{{machine}}`, `{{resource}}`, `{{status}}` variables. Runs after apply/drift completes. Supports webhook via `curl` in the command. | Planned |
 | FJ-226 | `--check` mode parity — all 9 resource type codegen handlers emit check-mode scripts (report what would change without applying). `forjar apply --check` runs check scripts instead of apply scripts. Exit code 2 = changes needed, 0 = converged. | Planned |
+| FJ-230 | Pepita transport — kernel namespace execution target. `transport: pepita` on machines. Uses `unshare(2)` / `clone(2)` with `CLONE_NEWPID \| CLONE_NEWNET \| CLONE_NEWNS` to create isolated execution namespace, pipes purified shell to `nsenter ... bash` stdin (same mechanism as container/SSH/local). **Lifecycle**: (1) create namespace with cgroup v2 limits from `pepita:` config, (2) mount overlayfs rootfs from debootstrap base or OCI image, (3) exec scripts via `nsenter --target <pid> -- bash`, (4) teardown namespace. **Config**: `pepita.rootfs` (path to base rootfs or `debootstrap:jammy`), `pepita.cgroups.memory_mb`, `pepita.cgroups.cpus`, `pepita.network` (`isolated` \| `host`), `pepita.filesystem` (`overlay` \| `bind`), `pepita.ephemeral` (destroy after apply, default true). **Interface model**: mirrors wos `VmConfig`/`VmManager` patterns — `VmState` lifecycle (Created→Running→Stopped), `VirtioDeviceConfig`-style device enum for console/block/net, jidoka guard (`MAX_NAMESPACES`). Zero Docker dependency — uses kernel primitives directly. Requires `CAP_SYS_ADMIN` or root. `transport/pepita.rs` new file. Extends transport dispatch table to 4 transports (pepita > container > local > SSH). Dogfood: `dogfood-pepita-transport.yaml` exercises all resource types inside a kernel namespace. | Planned |
 
 ---
 
