@@ -52,6 +52,12 @@ Validate any config with `cargo run -- validate -f examples/<config>`.
 | `dogfood-data.yaml` | file | Data sources: `data:` block, file/command/dns types, `{{data.*}}` templates |
 | `dogfood-triggers.yaml` | file, service | General-purpose triggers: force re-apply when dependencies change |
 | `dogfood-notify.yaml` | file | Notification hooks: on_success/on_failure/on_drift shell commands |
+| `dogfood-age-secrets.yaml` | file | Age-encrypted secrets, `ENC[age,...]` markers, env-var fallback |
+| `dogfood-apr-serve.yaml` | recipe | GPU inference server recipe (apr-inference-server), 8 resources |
+| `dogfood-repartir.yaml` | recipe | Distributed worker recipe (repartir-worker), 10 resources |
+| `dogfood-renacer.yaml` | recipe | Observability stack recipe (renacer-observability), 10 resources |
+| `dogfood-sovereign-stack.yaml` | recipe | Multi-machine sovereign AI stack, 3 machines, 33 resources |
+| `dogfood-template-funcs.yaml` | file | Template functions: upper/lower/trim/default/replace/env/b3sum/join/split |
 
 ## Supporting Assets
 

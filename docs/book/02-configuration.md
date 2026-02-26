@@ -542,6 +542,25 @@ Available machine fields: `addr`, `hostname`, `user`, `arch`.
 | `{{params.X}}` | `params:` block | `{{params.env}}` | `production` |
 | `{{secrets.X}}` | `FORJAR_SECRET_*` env vars | `{{secrets.db-pass}}` | env value |
 | `{{machine.NAME.FIELD}}` | Machine properties | `{{machine.db.addr}}` | `10.0.0.5` |
+| `{{func(args)}}` | Built-in functions | `{{upper(params.env)}}` | `PRODUCTION` |
+
+### Template Functions
+
+9 built-in functions for string transformation. Arguments can be quoted literals, `params.*` references, `machine.*` references, or nested function calls.
+
+| Function | Signature | Example | Result |
+|----------|-----------|---------|--------|
+| `upper` | `upper(val)` | `{{upper(params.env)}}` | `PRODUCTION` |
+| `lower` | `lower(val)` | `{{lower(params.name)}}` | `my-server` |
+| `trim` | `trim(val)` | `{{trim(params.host)}}` | `web-1` |
+| `default` | `default(val, fallback)` | `{{default(params.opt, "none")}}` | value or `none` |
+| `replace` | `replace(val, old, new)` | `{{replace(params.name, "-", "_")}}` | `my_server` |
+| `env` | `env(name)` | `{{env("HOME")}}` | `/home/noah` |
+| `b3sum` | `b3sum(val)` | `{{b3sum(params.secret)}}` | BLAKE3 hex hash |
+| `join` | `join(val, sep)` | `{{join(params.tags, "\|")}}` | `web\|api\|gpu` |
+| `split` | `split(val, sep)` | `{{split(params.csv, ",")}}` | first element |
+
+**Nested calls:** Functions compose — `{{upper(trim(params.hostname))}}` trims then uppercases. `{{upper(replace(lower(params.greeting), " ", "_"))}}` chains three functions.
 
 Templates are resolved in all string fields: `content`, `path`, `source`, `target`, `owner`, `group`, `mode`, `name`, `options`, `command`, `schedule`, `port`, `protocol`, `action`, `from_addr`, `image`, `shell`, `home`, `restart`, `version`. List fields are also resolved: `ports`, `environment`, `volumes`, `packages`.
 
@@ -810,6 +829,7 @@ Forjar resolves `{{...}}` templates in two passes during the planning phase — 
 | `{{params.key}}` | `params:` block | `{{params.domain}}` → `example.com` |
 | `{{secrets.key}}` | Environment variable | `{{secrets.db-pass}}` → `FORJAR_SECRET_DB_PASS` |
 | `{{machine.name.field}}` | Machine inventory | `{{machine.web.addr}}` → `192.168.1.10` |
+| `{{func(args)}}` | Built-in functions | `{{upper(params.env)}}` → `PRODUCTION` |
 
 ### Parameter Types
 

@@ -1172,3 +1172,86 @@ forjar apply -f forjar.yaml --state-dir state/ --tags monitoring
 # Plan for database resources only
 forjar plan -f forjar.yaml --tags database
 ```
+
+## Template Functions
+
+Use `{{func(args)}}` for string transformations without shell escapes.
+
+```yaml
+version: "1.0"
+name: template-funcs-demo
+
+params:
+  hostname: "  My-Server  "
+  env: production
+  tags: "web,api,gpu"
+
+machines:
+  web:
+    hostname: web-prod
+    addr: 10.0.0.1
+    user: deploy
+
+resources:
+  # Normalize hostname: trim whitespace, then uppercase
+  banner:
+    type: file
+    machine: web
+    path: /etc/banner
+    content: "{{upper(trim(params.hostname))}}"
+    # Result: "MY-SERVER"
+
+  # Environment tag, lowercased
+  env-tag:
+    type: file
+    machine: web
+    path: /etc/env.tag
+    content: "env={{lower(params.env)}}"
+    # Result: "env=production"
+
+  # Replace separator in string
+  slug:
+    type: file
+    machine: web
+    path: /etc/slug
+    content: "{{replace(params.hostname, \" \", \"-\")}}"
+
+  # Fallback value for optional param
+  config:
+    type: file
+    machine: web
+    path: /etc/config
+    content: "region={{default(params.region, \"us-east-1\")}}"
+
+  # BLAKE3 content hash
+  checksum:
+    type: file
+    machine: web
+    path: /etc/checksum
+    content: "{{b3sum(params.tags)}}"
+
+  # Join comma-separated tags with pipe
+  tags-file:
+    type: file
+    machine: web
+    path: /etc/tags
+    content: "{{join(params.tags, \"|\")}}"
+    # Result: "web|api|gpu"
+
+  # Machine ref inside a function
+  upper-host:
+    type: file
+    machine: web
+    path: /etc/upper-host
+    content: "{{upper(machine.web.hostname)}}"
+    # Result: "WEB-PROD"
+
+  # Nested: chain three functions
+  normalized:
+    type: file
+    machine: web
+    path: /etc/normalized
+    content: "{{upper(replace(lower(params.hostname), \" \", \"_\"))}}"
+```
+
+Available functions: `upper`, `lower`, `trim`, `default`, `replace`, `env`, `b3sum`, `join`, `split`. All support nested calls and `params.*`/`machine.*` argument references.

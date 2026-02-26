@@ -1661,7 +1661,7 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-250 | Template functions in `resolver.rs` — `{{upper(x)}}`, `{{lower(x)}}`, `{{default(x, "fallback")}}`, `{{trim(x)}}`, `{{replace(x, "old", "new")}}`, `{{env("HOME")}}`, `{{join(list, ",")}}`, `{{split(x, ",")}}`  , `{{b3sum(x)}}`. Expression parser handles `{{func(args)}}` syntax alongside `{{params.key}}`. Nested calls: `{{upper(params.name)}}`. Dogfood: dogfood-template-funcs.yaml. | Planned |
+| FJ-250 | Template functions in `resolver.rs` — `{{upper(x)}}`, `{{lower(x)}}`, `{{default(x, "fallback")}}`, `{{trim(x)}}`, `{{replace(x, "old", "new")}}`, `{{env("HOME")}}`, `{{join(list, ",")}}`, `{{split(x, ",")}}`  , `{{b3sum(x)}}`. Expression parser handles `{{func(args)}}` syntax alongside `{{params.key}}`. Nested calls: `{{upper(params.name)}}`. Dogfood: dogfood-template-funcs.yaml. 26 tests (1620→1646). | **Done** |
 | FJ-251 | `forjar doctor` — pre-flight system checker. Validates: bash ≥ 4.0, ssh available (if SSH machines configured), docker/podman available (if container machines), age identity accessible (if `ENC[age,...]` markers present), state dir writable, git repo clean. Color-coded pass/warn/fail output. `--json` flag for CI. | Planned |
 | FJ-252 | SSH connection multiplexing — `ControlMaster auto` + `ControlPath` for same-machine connection reuse. Reduces SSH handshake overhead from O(n) to O(1) per machine per apply. `transport/ssh.rs` manages ControlMaster lifecycle (start before first resource, stop after last). Fallback: if ControlMaster fails, individual connections. | Planned |
 | FJ-253 | Shell completions — `forjar completion bash/zsh/fish` via `clap_complete`. Generates shell-specific completion scripts. Includes subcommand, flag, and file path completion. Install instructions in `--help` output. | Planned |
@@ -1757,7 +1757,7 @@ cargo test --features container-test
 
 ### 10.6 Dogfood Workflow
 
-25 dogfood configs exercise all 11 resource types and cross-cutting features. Container transport configs enable end-to-end testing without root or host pollution; localhost configs validate codegen and planning.
+26 dogfood configs exercise all 11 resource types and cross-cutting features. Container transport configs enable end-to-end testing without root or host pollution; localhost configs validate codegen and planning.
 
 | Config | Resource types | What it proves |
 |--------|---------------|----------------|
@@ -1786,6 +1786,7 @@ cargo test --features container-test
 | `dogfood-repartir.yaml` | recipe | Distributed worker recipe (repartir-worker), 10 resources |
 | `dogfood-renacer.yaml` | recipe | Observability stack recipe (renacer-observability), 10 resources |
 | `dogfood-sovereign-stack.yaml` | recipe | Multi-machine sovereign AI stack, 3 machines, 33 resources |
+| `dogfood-template-funcs.yaml` | file | Template functions: upper/lower/trim/default/replace/env/b3sum/join/split, nested calls |
 
 **Dogfood verification workflow** (run after any codegen, transport, or executor change):
 
