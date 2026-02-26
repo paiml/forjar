@@ -650,6 +650,29 @@ pub enum Commands {
         json: bool,
     },
 
+    /// FJ-273: Run check scripts for all resources, report pass/fail table
+    Test {
+        /// Path to forjar.yaml
+        #[arg(short, long, default_value = "forjar.yaml")]
+        file: PathBuf,
+
+        /// Target specific machine
+        #[arg(short, long)]
+        machine: Option<String>,
+
+        /// Target specific resource
+        #[arg(short, long)]
+        resource: Option<String>,
+
+        /// Filter to resources with this tag
+        #[arg(short, long)]
+        tag: Option<String>,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+
     /// FJ-256: Generate lock file without applying
     Lock {
         /// Path to forjar.yaml
@@ -1113,6 +1136,13 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
         } => cmd_watch(&file, &state_dir, interval, apply, yes),
         Commands::Explain { file, resource } => cmd_explain(&file, &resource),
         Commands::Env { file, json } => cmd_env(&file, json),
+        Commands::Test {
+            file,
+            machine,
+            resource,
+            tag,
+            json,
+        } => cmd_test(&file, machine.as_deref(), resource.as_deref(), tag.as_deref(), json, verbose),
         Commands::Lock {
             file,
             state_dir,
@@ -2514,6 +2544,231 @@ fn cmd_check(
     }
 }
 
+/// FJ-273: Dedicated `forjar test` — runs check scripts with a formatted summary table.
+fn cmd_test(
+    file: &Path,
+    machine_filter: Option<&str>,
+    resource_filter: Option<&str>,
+    tag_filter: Option<&str>,
+    json: bool,
+    verbose: bool,
+) -> Result<(), String> {
+    use std::time::Instant;
+    let t0 = Instant::now();
+
+    let config = parse_and_validate(file)?;
+
+    if verbose {
+        eprintln!(
+            "Testing {} ({} machines, {} resources)",
+            config.name,
+            config.machines.len(),
+            config.resources.len()
+        );
+    }
+
+    let execution_order = resolver::build_execution_order(&config)?;
+
+    let localhost_machine = types::Machine {
+        hostname: "localhost".to_string(),
+        addr: "127.0.0.1".to_string(),
+        user: "root".to_string(),
+        arch: "x86_64".to_string(),
+        ssh_key: None,
+        roles: vec![],
+        transport: None,
+        container: None,
+        pepita: None,
+        cost: 0,
+    };
+
+    struct TestResult {
+        resource_id: String,
+        machine: String,
+        resource_type: String,
+        status: String,
+        detail: String,
+        duration_secs: f64,
+    }
+
+    let mut results: Vec<TestResult> = Vec::new();
+    let mut total_pass = 0usize;
+    let mut total_fail = 0usize;
+    let mut total_skip = 0usize;
+
+    for resource_id in &execution_order {
+        let resource = match config.resources.get(resource_id) {
+            Some(r) => r,
+            None => continue,
+        };
+
+        if let Some(filter) = resource_filter {
+            if resource_id != filter {
+                continue;
+            }
+        }
+
+        if let Some(tag) = tag_filter {
+            if !resource.tags.iter().any(|t| t == tag) {
+                total_skip += 1;
+                continue;
+            }
+        }
+
+        let resolved =
+            resolver::resolve_resource_templates(resource, &config.params, &config.machines)?;
+
+        let check_script = match codegen::check_script(&resolved) {
+            Ok(s) => s,
+            Err(_) => {
+                total_skip += 1;
+                results.push(TestResult {
+                    resource_id: resource_id.clone(),
+                    machine: "-".to_string(),
+                    resource_type: format!("{:?}", resource.resource_type).to_lowercase(),
+                    status: "skip".to_string(),
+                    detail: "no check script".to_string(),
+                    duration_secs: 0.0,
+                });
+                continue;
+            }
+        };
+
+        for machine_name in resource.machine.to_vec() {
+            if let Some(filter) = machine_filter {
+                if machine_name != filter {
+                    continue;
+                }
+            }
+
+            let machine = config
+                .machines
+                .get(&machine_name)
+                .unwrap_or(&localhost_machine);
+
+            if !resource.arch.is_empty() && !resource.arch.contains(&machine.arch) {
+                total_skip += 1;
+                continue;
+            }
+
+            if machine.is_container_transport() {
+                transport::container::ensure_container(machine)?;
+            }
+
+            let t_check = Instant::now();
+            let output = transport::exec_script(machine, &check_script);
+            let dur = t_check.elapsed().as_secs_f64();
+
+            match output {
+                Ok(out) if out.success() => {
+                    total_pass += 1;
+                    results.push(TestResult {
+                        resource_id: resource_id.clone(),
+                        machine: machine_name.clone(),
+                        resource_type: format!("{:?}", resource.resource_type).to_lowercase(),
+                        status: "pass".to_string(),
+                        detail: String::new(),
+                        duration_secs: dur,
+                    });
+                }
+                Ok(out) => {
+                    total_fail += 1;
+                    results.push(TestResult {
+                        resource_id: resource_id.clone(),
+                        machine: machine_name.clone(),
+                        resource_type: format!("{:?}", resource.resource_type).to_lowercase(),
+                        status: "FAIL".to_string(),
+                        detail: format!("exit {}", out.exit_code),
+                        duration_secs: dur,
+                    });
+                }
+                Err(e) => {
+                    total_fail += 1;
+                    results.push(TestResult {
+                        resource_id: resource_id.clone(),
+                        machine: machine_name.clone(),
+                        resource_type: format!("{:?}", resource.resource_type).to_lowercase(),
+                        status: "FAIL".to_string(),
+                        detail: e,
+                        duration_secs: dur,
+                    });
+                }
+            }
+        }
+    }
+
+    let elapsed = t0.elapsed();
+
+    if json {
+        let json_results: Vec<_> = results
+            .iter()
+            .map(|r| {
+                serde_json::json!({
+                    "resource": r.resource_id,
+                    "machine": r.machine,
+                    "type": r.resource_type,
+                    "status": r.status,
+                    "detail": r.detail,
+                    "duration_seconds": r.duration_secs,
+                })
+            })
+            .collect();
+        let report = serde_json::json!({
+            "pass": total_pass,
+            "fail": total_fail,
+            "skip": total_skip,
+            "duration_seconds": elapsed.as_secs_f64(),
+            "results": json_results,
+        });
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {}", e))?
+        );
+    } else {
+        println!(
+            "{:<30} {:<10} {:<12} {:<8} {:>10}",
+            bold("RESOURCE"),
+            bold("TYPE"),
+            bold("MACHINE"),
+            bold("STATUS"),
+            bold("DURATION"),
+        );
+        println!("{}", dim(&"-".repeat(74)));
+        for r in &results {
+            let status_str = match r.status.as_str() {
+                "pass" => green("pass"),
+                "FAIL" => red("FAIL"),
+                _ => yellow(&r.status),
+            };
+            println!(
+                "{:<30} {:<10} {:<12} {:<8} {:>9.3}s",
+                r.resource_id, r.resource_type, r.machine, status_str, r.duration_secs
+            );
+            if !r.detail.is_empty() && r.status == "FAIL" {
+                println!("  {}", dim(&r.detail));
+            }
+        }
+        println!("{}", dim(&"-".repeat(74)));
+        println!(
+            "{} pass, {} fail, {} skip ({:.3}s)",
+            green(&total_pass.to_string()),
+            if total_fail > 0 {
+                red(&total_fail.to_string())
+            } else {
+                total_fail.to_string()
+            },
+            total_skip,
+            elapsed.as_secs_f64()
+        );
+    }
+
+    if total_fail > 0 {
+        Err(format!("{} test(s) failed", total_fail))
+    } else {
+        Ok(())
+    }
+}
+
 fn cmd_diff(
     from: &Path,
     to: &Path,
@@ -3644,7 +3899,11 @@ fn cmd_apply(
         println!();
         println!("{}", bold("Timing Breakdown"));
         println!("{}", dim(&"-".repeat(40)));
-        println!("  {:<20} {:>10.3}s", "Parse + resolve", dur_parse.as_secs_f64());
+        println!(
+            "  {:<20} {:>10.3}s",
+            "Parse + resolve",
+            dur_parse.as_secs_f64()
+        );
         println!("  {:<20} {:>10.3}s", "Apply", dur_apply.as_secs_f64());
         println!("{}", dim(&"-".repeat(40)));
         println!("  {:<20} {:>10.3}s", bold("Total"), dur_total.as_secs_f64());
@@ -12961,7 +13220,7 @@ resources:
             force_unlock: false,
             output: Some("events".to_string()),
             progress: false,
-                timing: false,
+            timing: false,
         };
         match cmd {
             Commands::Apply { output, .. } => {
@@ -13062,7 +13321,7 @@ resources:
             force_unlock: false,
             output: None,
             progress: true,
-                timing: false,
+            timing: false,
         };
         match cmd {
             Commands::Apply { progress, .. } => assert!(progress),
@@ -13092,7 +13351,7 @@ resources:
             force_unlock: false,
             output: None,
             progress: false,
-                timing: false,
+            timing: false,
         };
         match cmd {
             Commands::Apply { progress, .. } => assert!(!progress),
@@ -13223,5 +13482,90 @@ resources:
             Commands::Env { json, .. } => assert!(json),
             _ => panic!("expected Env"),
         }
+    }
+
+    // ========================================================================
+    // FJ-273: forjar test
+    // ========================================================================
+
+    #[test]
+    fn test_fj273_test_command_parse() {
+        let cmd = Commands::Test {
+            file: PathBuf::from("forjar.yaml"),
+            machine: Some("web".to_string()),
+            resource: None,
+            tag: None,
+            json: true,
+        };
+        match cmd {
+            Commands::Test { json, machine, .. } => {
+                assert!(json);
+                assert_eq!(machine, Some("web".to_string()));
+            }
+            _ => panic!("expected Test"),
+        }
+    }
+
+    #[test]
+    fn test_fj273_test_dispatch_runs() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config_path,
+            "version: \"1.0\"\nname: test-proj\nmachines:\n  local:\n    hostname: localhost\n    addr: 127.0.0.1\nresources:\n  my-file:\n    type: file\n    machine: local\n    path: /tmp/fj273-test-dispatch.txt\n    content: hello\n",
+        )
+        .unwrap();
+        let result = dispatch(
+            Commands::Test {
+                file: config_path,
+                machine: None,
+                resource: None,
+                tag: None,
+                json: false,
+            },
+            false,
+            true,
+        );
+        // Will fail (file doesn't exist) or pass — either way it runs without panic
+        let _ = result;
+    }
+
+    #[test]
+    fn test_fj273_test_json_output() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config_path,
+            "version: \"1.0\"\nname: test-proj\nmachines:\n  local:\n    hostname: localhost\n    addr: 127.0.0.1\nresources:\n  my-file:\n    type: file\n    machine: local\n    path: /tmp/fj273-test-json.txt\n    content: hello\n",
+        )
+        .unwrap();
+        let result = dispatch(
+            Commands::Test {
+                file: config_path,
+                machine: None,
+                resource: None,
+                tag: None,
+                json: true,
+            },
+            false,
+            true,
+        );
+        let _ = result;
+    }
+
+    #[test]
+    fn test_fj273_test_nonexistent_config() {
+        let result = dispatch(
+            Commands::Test {
+                file: PathBuf::from("/tmp/fj273-nonexistent.yaml"),
+                machine: None,
+                resource: None,
+                tag: None,
+                json: false,
+            },
+            false,
+            true,
+        );
+        assert!(result.is_err());
     }
 }
