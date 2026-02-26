@@ -1753,6 +1753,21 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 | FJ-276 | Apply timing summary — after apply, show wall-clock time breakdown: parse+resolve, apply. `--timing` flag. | Done |
 | FJ-277 | `forjar env` — show resolved environment: forjar version, OS, arch, config path, project name, machine/resource/param counts. Debugging aid for support requests. JSON output with `--json`. | Done |
 
+### Phase 14: Resilience & Automation (v1.4)
+
+**Goal**: Self-healing, scheduled operations, dry-run safety, and resource tagging/grouping. Focus on making forjar autonomous and reliable for unattended fleet operations.
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-280 | `forjar cron` — generate crontab/systemd timer entries for scheduled drift checks and auto-remediation. `forjar cron --interval 5m --auto-remediate` outputs installable timer config. | Planned |
+| FJ-281 | Resource groups — `group: network` field on resources. `forjar apply --group network` applies only that group. `forjar plan --group database` plans only database resources. Orthogonal to tags. | Planned |
+| FJ-282 | `forjar validate --strict` — extended validation: check that referenced machines exist, paths are absolute, depends_on targets exist, no circular deps, template vars resolve. Currently only checks YAML schema. | Planned |
+| FJ-283 | Apply retry with backoff — `--retry N` flag retries failed resources up to N times with exponential backoff (1s, 2s, 4s). Useful for transient network/package mirror failures. | Planned |
+| FJ-284 | `forjar history --since 24h` — time-based history filtering. Show only events from the last N hours/days. Currently shows all events. | Planned |
+| FJ-285 | `forjar plan --target resource-id` — plan a single resource and its transitive dependencies. Currently `--resource` filters display but still plans everything. | Planned |
+| FJ-286 | Apply confirmation prompt — without `--yes`, show plan summary and prompt "Apply N changes? [y/N]". Prevents accidental applies. `--yes` skips prompt (CI mode). | Planned |
+| FJ-287 | `forjar doctor --fix` — auto-fix common issues: stale locks, orphaned state files, missing state dirs. Currently doctor only diagnoses. | Planned |
+
 ---
 
 ## 9. Performance Targets
