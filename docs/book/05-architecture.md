@@ -478,7 +478,7 @@ Forjar's test suite validates every layer independently and in integration:
 
 | Category | Count | Location | What It Tests |
 |----------|-------|----------|---------------|
-| Unit tests | ~1200 | `#[cfg(test)]` in each module | Individual functions |
+| Unit tests | ~1400 | `#[cfg(test)]` in each module | Individual functions |
 | Falsification tests | ~15 | `proptest!` blocks | Invariant properties with random input |
 | Integration tests | ~80 | `executor.rs` tests | Full apply→drift→reapply cycles |
 | Contract tests | 13 | `build.rs` binding verification | Compile-time invariants |

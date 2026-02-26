@@ -1557,6 +1557,8 @@ Runs inline performance benchmarks against spec §9 targets: validate (< 10ms), 
 | FJ-149 | Book Ch. 5 module map: add mcp/mod.rs, migrate.rs, pepita.rs (3 missing modules). CLI description 6→21 subcommands. MCP diagram: add TraceHandler + AnomalyHandler (7→9 handlers). Ch. 8 state directory: add trace.jsonl. | **Done** |
 | FJ-150 | Examples README: add supporting assets section documenting files/ and recipes/ subdirs. | **Done** |
 | FJ-151 | Fix 6 stale counts across book + spec: pepita in book/README, examples 15→19, tests ~700→~1200, Kani Deferred, trace.jsonl in state hierarchy, spec exclude list sync. | **Done** |
+| FJ-152 | Fix stale "Phase 3+" → "future version" in book FAQ. Add FJ-151 ticket to spec. | **Done** |
+| FJ-153 | Coverage recovery: 45 new tests across 9 files (docker, mount, service, user, purifier, local, cron, network, file). Tests 1327→1372. Line coverage 96.09% (exceeds 95% target). | **Done** |
 
 ### Phase 7: Secrets & Conditionals (v0.7)
 
