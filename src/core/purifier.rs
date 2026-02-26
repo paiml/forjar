@@ -345,6 +345,8 @@ dpkg -l curl 2>/dev/null | grep -q '^ii'
             arch: vec![],
             tags: vec![],
             when: None,
+            count: None,
+            for_each: None,
             chroot_dir: None,
             namespace_uid: None,
             namespace_gid: None,

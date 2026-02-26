@@ -40,10 +40,18 @@ fn resolve_when_template(
                 "addr" => machine.addr.clone(),
                 "user" => machine.user.clone(),
                 "roles" => format!("{:?}", machine.roles),
-                _ => return Err(format!("unknown machine field in when expression: {}", field)),
+                _ => {
+                    return Err(format!(
+                        "unknown machine field in when expression: {}",
+                        field
+                    ))
+                }
             }
         } else {
-            return Err(format!("unknown template variable in when expression: {}", key));
+            return Err(format!(
+                "unknown template variable in when expression: {}",
+                key
+            ));
         };
 
         result.replace_range(open..close, &value);
@@ -143,10 +151,7 @@ mod tests {
             "env".to_string(),
             serde_yaml_ng::Value::String("production".to_string()),
         );
-        params.insert(
-            "feature_flag".to_string(),
-            serde_yaml_ng::Value::Bool(true),
-        );
+        params.insert("feature_flag".to_string(), serde_yaml_ng::Value::Bool(true));
         params
     }
 

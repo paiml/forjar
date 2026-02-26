@@ -319,6 +319,16 @@ pub struct Resource {
     #[serde(default)]
     pub when: Option<String>,
 
+    /// FJ-204: Numeric multiplier — creates N copies with `{{index}}` template.
+    /// `count: 3` expands `my-res` into `my-res-0`, `my-res-1`, `my-res-2`.
+    #[serde(default)]
+    pub count: Option<u32>,
+
+    /// FJ-203: List iteration — creates one copy per item with `{{item}}` template.
+    /// `for_each: [a, b, c]` expands `my-res` into `my-res-a`, `my-res-b`, `my-res-c`.
+    #[serde(default)]
+    pub for_each: Option<Vec<String>>,
+
     // -- Pepita fields (FJ-040: kernel namespace isolation) --
     /// Chroot directory for filesystem isolation
     #[serde(default)]

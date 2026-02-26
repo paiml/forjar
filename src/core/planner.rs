@@ -532,6 +532,8 @@ resources:
             arch: vec![],
             tags: vec![],
             when: None,
+            count: None,
+            for_each: None,
             chroot_dir: None,
             namespace_uid: None,
             namespace_gid: None,
@@ -594,6 +596,8 @@ resources:
             arch: vec![],
             tags: vec![],
             when: None,
+            count: None,
+            for_each: None,
             chroot_dir: None,
             namespace_uid: None,
             namespace_gid: None,
@@ -654,6 +658,8 @@ resources:
             arch: vec![],
             tags: vec![],
             when: None,
+            count: None,
+            for_each: None,
             chroot_dir: None,
             namespace_uid: None,
             namespace_gid: None,
@@ -716,6 +722,8 @@ resources:
             arch: vec![],
             tags: vec![],
             when: None,
+            count: None,
+            for_each: None,
             chroot_dir: None,
             namespace_uid: None,
             namespace_gid: None,
@@ -775,6 +783,8 @@ resources:
             arch: vec![],
             tags: vec![],
             when: None,
+            count: None,
+            for_each: None,
             chroot_dir: None,
             namespace_uid: None,
             namespace_gid: None,
@@ -834,6 +844,8 @@ resources:
             arch: vec![],
             tags: vec![],
             when: None,
+            count: None,
+            for_each: None,
             chroot_dir: None,
             namespace_uid: None,
             namespace_gid: None,
@@ -1286,6 +1298,8 @@ resources:
             arch: vec![],
             tags: vec![],
             when: None,
+            count: None,
+            for_each: None,
             chroot_dir: None,
             namespace_uid: None,
             namespace_gid: None,
@@ -1346,6 +1360,8 @@ resources:
             arch: vec![],
             tags: vec![],
             when: None,
+            count: None,
+            for_each: None,
             chroot_dir: None,
             namespace_uid: None,
             namespace_gid: None,
@@ -1406,6 +1422,8 @@ resources:
             arch: vec![],
             tags: vec![],
             when: None,
+            count: None,
+            for_each: None,
             chroot_dir: None,
             namespace_uid: None,
             namespace_gid: None,
@@ -1466,6 +1484,8 @@ resources:
             arch: vec![],
             tags: vec![],
             when: None,
+            count: None,
+            for_each: None,
             chroot_dir: None,
             namespace_uid: None,
             namespace_gid: None,
@@ -1962,6 +1982,8 @@ resources:
             arch: vec![],
             tags: vec![],
             when: None,
+            count: None,
+            for_each: None,
             chroot_dir: None,
             namespace_uid: None,
             namespace_gid: None,
@@ -2445,7 +2467,10 @@ resources:
         let order = vec!["pkg".to_string()];
         let locks = HashMap::new();
         let p = plan(&config, &order, &locks, None);
-        assert_eq!(p.to_create, 1, "when arch matches, resource should be included");
+        assert_eq!(
+            p.to_create, 1,
+            "when arch matches, resource should be included"
+        );
     }
 
     #[test]
@@ -2470,7 +2495,10 @@ resources:
         let order = vec!["pkg".to_string()];
         let locks = HashMap::new();
         let p = plan(&config, &order, &locks, None);
-        assert_eq!(p.to_create, 0, "when arch doesn't match, resource should be excluded");
+        assert_eq!(
+            p.to_create, 0,
+            "when arch doesn't match, resource should be excluded"
+        );
     }
 
     #[test]
@@ -2522,7 +2550,10 @@ resources:
         let order = vec!["debug-pkg".to_string()];
         let locks = HashMap::new();
         let p = plan(&config, &order, &locks, None);
-        assert_eq!(p.to_create, 0, "env=production != production is false, should exclude");
+        assert_eq!(
+            p.to_create, 0,
+            "env=production != production is false, should exclude"
+        );
     }
 
     #[test]
@@ -2532,7 +2563,10 @@ resources:
         let order = vec!["pkg".to_string(), "conf".to_string(), "svc".to_string()];
         let locks = HashMap::new();
         let p = plan(&config, &order, &locks, None);
-        assert_eq!(p.to_create, 3, "resources without when: should all be included");
+        assert_eq!(
+            p.to_create, 3,
+            "resources without when: should all be included"
+        );
     }
 
     #[test]
@@ -2564,9 +2598,114 @@ resources:
     when: "true"
 "#;
         let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
-        let order = vec!["always".to_string(), "conditional".to_string(), "never".to_string()];
+        let order = vec![
+            "always".to_string(),
+            "conditional".to_string(),
+            "never".to_string(),
+        ];
         let locks = HashMap::new();
         let p = plan(&config, &order, &locks, None);
-        assert_eq!(p.to_create, 2, "only 'always' and 'conditional' should be included");
+        assert_eq!(
+            p.to_create, 2,
+            "only 'always' and 'conditional' should be included"
+        );
+    }
+
+    // ================================================================
+    // FJ-204/FJ-203: count + for_each planner integration
+    // ================================================================
+
+    #[test]
+    fn test_fj204_count_plans_expanded_resources() {
+        let yaml = r#"
+version: "1.0"
+name: test-count
+machines:
+  m1:
+    hostname: m1
+    addr: 1.2.3.4
+resources:
+  shard:
+    type: file
+    machine: m1
+    path: "/data/shard-{{index}}"
+    content: "shard={{index}}"
+    count: 3
+"#;
+        let mut config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        super::super::parser::expand_resources(&mut config);
+        let order = vec![
+            "shard-0".to_string(),
+            "shard-1".to_string(),
+            "shard-2".to_string(),
+        ];
+        let locks = HashMap::new();
+        let p = plan(&config, &order, &locks, None);
+        assert_eq!(p.to_create, 3);
+        assert_eq!(p.changes.len(), 3);
+        assert_eq!(p.changes[0].resource_id, "shard-0");
+        assert_eq!(p.changes[1].resource_id, "shard-1");
+        assert_eq!(p.changes[2].resource_id, "shard-2");
+    }
+
+    #[test]
+    fn test_fj203_for_each_plans_expanded_resources() {
+        let yaml = r#"
+version: "1.0"
+name: test-foreach
+machines:
+  m1:
+    hostname: m1
+    addr: 1.2.3.4
+resources:
+  vhost:
+    type: file
+    machine: m1
+    path: "/etc/nginx/{{item}}.conf"
+    content: "server {{item}}"
+    for_each: [api, web]
+"#;
+        let mut config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        super::super::parser::expand_resources(&mut config);
+        let order = vec!["vhost-api".to_string(), "vhost-web".to_string()];
+        let locks = HashMap::new();
+        let p = plan(&config, &order, &locks, None);
+        assert_eq!(p.to_create, 2);
+        assert_eq!(p.changes[0].resource_id, "vhost-api");
+        assert_eq!(p.changes[1].resource_id, "vhost-web");
+    }
+
+    #[test]
+    fn test_fj204_count_mixed_with_regular() {
+        let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.2.3.4
+resources:
+  base:
+    type: file
+    machine: m1
+    path: "/etc/base.conf"
+  node:
+    type: file
+    machine: m1
+    path: "/data/node-{{index}}"
+    content: "node={{index}}"
+    count: 2
+"#;
+        let mut config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+        super::super::parser::expand_resources(&mut config);
+
+        let order = vec![
+            "base".to_string(),
+            "node-0".to_string(),
+            "node-1".to_string(),
+        ];
+        let locks = HashMap::new();
+        let p = plan(&config, &order, &locks, None);
+        assert_eq!(p.to_create, 3, "base + node-0 + node-1");
     }
 }

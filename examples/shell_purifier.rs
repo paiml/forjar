@@ -77,6 +77,8 @@ fn main() {
         arch: vec![],
         tags: vec![],
         when: None,
+        count: None,
+        for_each: None,
         chroot_dir: None,
         namespace_uid: None,
         namespace_gid: None,

@@ -1,0 +1,68 @@
+# FJ-203/FJ-204: Resource iteration dogfood config
+# Demonstrates `count:` and `for_each:` resource expansion.
+version: "1.0"
+name: dogfood-iteration
+
+params:
+  data_dir: /mnt/data
+
+machines:
+  test-box:
+    hostname: test-box
+    addr: container
+    transport: container
+    arch: x86_64
+    roles: [compute]
+    container:
+      image: ubuntu:22.04
+
+resources:
+  # FJ-204: count — create 3 data shards
+  data-shard:
+    type: file
+    machine: test-box
+    state: directory
+    path: "/mnt/data/shard-{{index}}"
+    owner: root
+    mode: "0755"
+    count: 3
+
+  # FJ-204: count — config files for each node
+  node-config:
+    type: file
+    machine: test-box
+    path: "/etc/forjar/node-{{index}}.conf"
+    content: |
+      node_id={{index}}
+      data_dir={{params.data_dir}}/shard-{{index}}
+    count: 3
+    depends_on: [data-shard]
+
+  # FJ-203: for_each — per-user home directories
+  user-home:
+    type: file
+    machine: test-box
+    state: directory
+    path: "/home/{{item}}"
+    owner: "{{item}}"
+    mode: "0750"
+    for_each: [alice, bob, charlie]
+
+  # FJ-203: for_each — per-service vhost configs
+  vhost:
+    type: file
+    machine: test-box
+    path: "/etc/nginx/sites-available/{{item}}.conf"
+    content: |
+      server {
+          server_name {{item}}.example.com;
+          root /var/www/{{item}};
+      }
+    for_each: [api, web, docs]
+
+  # Regular resource (no iteration) — verifies mixing works
+  base-config:
+    type: file
+    machine: test-box
+    path: /etc/forjar/base.conf
+    content: "name=dogfood-iteration"
