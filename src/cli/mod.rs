@@ -2088,7 +2088,7 @@ fn cmd_rollback(
         0,     // no retry
         true,  // yes (skip prompt)
         false,
-        None,  // no resource_timeout
+        None, // no resource_timeout
     )
 }
 
@@ -2637,6 +2637,9 @@ fn cmd_check(
 
     if json {
         let report = serde_json::json!({
+            "name": config.name,
+            "all_passed": total_fail == 0,
+            "total": total_pass + total_fail + total_skip,
             "pass": total_pass,
             "fail": total_fail,
             "skip": total_skip,
@@ -4554,7 +4557,7 @@ fn cmd_drift(
             0,     // no retry
             true,  // yes (skip prompt)
             false,
-            None,  // no resource_timeout
+            None, // no resource_timeout
         )?;
         if !json {
             println!("Remediation complete.");
@@ -5748,16 +5751,8 @@ fn load_all_locks(
 
 /// FJ-277: Show resolved environment info.
 fn cmd_env(file: &Path, json: bool) -> Result<(), String> {
-    let config_info = if file.exists() {
-        match parse_and_validate(file) {
-            Ok(config) => Some((
-                config.name.clone(),
-                config.machines.len(),
-                config.resources.len(),
-                config.params.len(),
-            )),
-            Err(_) => None,
-        }
+    let parsed_config = if file.exists() {
+        parse_and_validate(file).ok()
     } else {
         None
     };
@@ -5770,11 +5765,18 @@ fn cmd_env(file: &Path, json: bool) -> Result<(), String> {
             "config_path": file.display().to_string(),
             "config_exists": file.exists(),
         });
-        if let Some((name, machines, resources, params)) = &config_info {
-            info["config_name"] = serde_json::json!(name);
-            info["machines"] = serde_json::json!(machines);
-            info["resources"] = serde_json::json!(resources);
-            info["params"] = serde_json::json!(params);
+        if let Some(ref config) = parsed_config {
+            info["config_name"] = serde_json::json!(config.name);
+            info["machines"] = serde_json::json!(config.machines.len());
+            info["resources"] = serde_json::json!(config.resources.len());
+            info["params"] = serde_json::json!(config.params.len());
+            info["machine_names"] = serde_json::json!(
+                config.machines.keys().collect::<Vec<_>>()
+            );
+            info["resource_names"] = serde_json::json!(
+                config.resources.keys().collect::<Vec<_>>()
+            );
+            info["resolved_params"] = serde_json::json!(config.params);
         }
         println!(
             "{}",
@@ -5789,11 +5791,11 @@ fn cmd_env(file: &Path, json: bool) -> Result<(), String> {
         println!("{:<20} {}", bold("os:"), std::env::consts::OS);
         println!("{:<20} {}", bold("arch:"), std::env::consts::ARCH);
         println!("{:<20} {}", bold("config:"), file.display());
-        if let Some((name, machines, resources, params)) = config_info {
-            println!("{:<20} {}", bold("project:"), name);
-            println!("{:<20} {}", bold("machines:"), machines);
-            println!("{:<20} {}", bold("resources:"), resources);
-            println!("{:<20} {}", bold("params:"), params);
+        if let Some(ref config) = parsed_config {
+            println!("{:<20} {}", bold("project:"), config.name);
+            println!("{:<20} {}", bold("machines:"), config.machines.len());
+            println!("{:<20} {}", bold("resources:"), config.resources.len());
+            println!("{:<20} {}", bold("params:"), config.params.len());
         } else if !file.exists() {
             println!("{:<20} {}", bold("status:"), dim("config not found"));
         } else {
@@ -15473,7 +15475,9 @@ resources:
             resource_timeout: Some(30),
         };
         match cmd {
-            Commands::Apply { resource_timeout, .. } => {
+            Commands::Apply {
+                resource_timeout, ..
+            } => {
                 assert_eq!(resource_timeout, Some(30));
             }
             _ => panic!("expected Apply"),
@@ -15492,5 +15496,79 @@ resources:
         let resource_timeout: Option<u64> = None;
         let effective = resource_timeout.or(timeout_secs);
         assert_eq!(effective, Some(60));
+    }
+
+    // ── FJ-305: check --json enhanced ──
+
+    #[test]
+    fn test_fj305_check_json_ci_fields() {
+        let dir = tempfile::tempdir().unwrap();
+        let target = dir.path().join("fj305.txt");
+        std::fs::write(&target, "ci-check").unwrap();
+
+        let config_path = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config_path,
+            format!(
+                r#"
+version: "1.0"
+name: ci-gate
+machines:
+  local:
+    hostname: localhost
+    addr: 127.0.0.1
+resources:
+  cfg:
+    type: file
+    machine: local
+    path: {}
+    content: ci-check
+"#,
+                target.display()
+            ),
+        )
+        .unwrap();
+        // The function prints JSON to stdout — just verify it succeeds
+        let result = cmd_check(&config_path, None, None, None, true, false);
+        assert!(result.is_ok());
+    }
+
+    // ── FJ-306: env --json enhanced ──
+
+    #[test]
+    fn test_fj306_env_json_resolved_params() {
+        let dir = tempfile::tempdir().unwrap();
+        let config_path = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config_path,
+            r#"
+version: "1.0"
+name: env-test
+params:
+  data_dir: /mnt/data
+  log_level: info
+machines:
+  box1:
+    hostname: box1
+    addr: 127.0.0.1
+resources:
+  pkg:
+    type: file
+    machine: box1
+    path: /tmp/test
+    content: hello
+"#,
+        )
+        .unwrap();
+        let result = cmd_env(&config_path, true);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj306_env_json_no_config() {
+        let dir = tempfile::tempdir().unwrap();
+        let missing = dir.path().join("nonexistent.yaml");
+        let result = cmd_env(&missing, true);
+        assert!(result.is_ok());
     }
 }
