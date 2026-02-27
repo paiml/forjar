@@ -17,7 +17,11 @@ pmat query --coverage-gaps --limit 20 --exclude-tests
 
 ## Quality Gates
 
+- **No source file over 500 lines** — split into module directories or extract tests
+  - Exception: `src/cli/commands/apply_args.rs` (declarative struct, no logic)
+  - Pre-commit hook enforces complexity; `pmat comply check` enforces file health
 - All functions must be TDG grade A (complexity <= 10)
+- Cognitive complexity per function <= 25 (pre-commit enforced)
 - Minimum 95% line coverage (`cargo llvm-cov`)
 - Zero clippy warnings (`cargo clippy -- -D warnings`)
 - Never use `cargo tarpaulin` — use `cargo llvm-cov` instead
