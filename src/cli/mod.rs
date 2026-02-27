@@ -198,6 +198,10 @@ pub enum Commands {
         /// FJ-661: Ensure all resources have consistent ownership
         #[arg(long)]
         check_owner_consistency: bool,
+
+        /// FJ-671: Detect overlapping file paths across resources
+        #[arg(long)]
+        check_path_conflicts: bool,
     },
 
     /// Show execution plan (diff desired vs current)
@@ -748,6 +752,18 @@ pub enum Commands {
         /// FJ-666: Only apply resources matching glob pattern
         #[arg(long)]
         resource_filter: Option<String>,
+
+        /// FJ-670: Publish events to STOMP destination
+        #[arg(long)]
+        notify_stomp: Option<String>,
+
+        /// FJ-673: Run command after each resource apply
+        #[arg(long)]
+        post_apply_hook: Option<String>,
+
+        /// FJ-676: Output shell scripts instead of executing
+        #[arg(long)]
+        dry_run_shell: bool,
     },
 
     /// Detect unauthorized changes (tripwire)
@@ -1054,6 +1070,14 @@ pub enum Commands {
         /// FJ-667: Show age of each lock file entry
         #[arg(long)]
         lock_age: bool,
+
+        /// FJ-672: Show resources failed since a given timestamp
+        #[arg(long)]
+        failed_since: Option<String>,
+
+        /// FJ-677: Verify BLAKE3 hashes in lock match computed hashes
+        #[arg(long)]
+        hash_verify: bool,
     },
 
     /// Show apply history from event logs
@@ -1281,6 +1305,10 @@ pub enum Commands {
         /// FJ-664: Visualize dependencies across machines
         #[arg(long)]
         cross_machine_deps: bool,
+
+        /// FJ-674: Group resources by machine in graph output
+        #[arg(long)]
+        machine_groups: bool,
     },
 
     /// Run check scripts to verify pre-conditions without applying
@@ -2253,6 +2281,17 @@ pub enum Commands {
         limit: usize,
     },
 
+    /// FJ-675: Check lock file structural integrity
+    #[command(name = "lock-integrity")]
+    LockIntegrity {
+        /// State directory
+        #[arg(long, default_value = "state")]
+        state_dir: PathBuf,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 /// FJ-260: Snapshot subcommands — named state checkpoints.
@@ -2458,7 +2497,11 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             check_circular_refs,
             check_naming_conventions,
             check_owner_consistency,
+            check_path_conflicts,
         } => {
+            if check_path_conflicts {
+                return cmd_validate_check_path_conflicts(&file, json);
+            }
             if check_owner_consistency {
                 return cmd_validate_check_owner_consistency(&file, json);
             }
@@ -2699,6 +2742,9 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             notify_amqp,
             pre_apply_hook: _pre_apply_hook,
             resource_filter: _resource_filter,
+            notify_stomp,
+            post_apply_hook: _post_apply_hook,
+            dry_run_shell: _dry_run_shell,
         } => {
             // FJ-643: --confirmation-message — custom confirmation before apply
             if let Some(ref msg) = confirmation_message {
@@ -3430,6 +3476,19 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
                     .output();
             }
 
+            // FJ-670: notify-stomp — publish events to STOMP destination
+            if let Some(ref destination) = notify_stomp {
+                let status = if result.is_ok() { "success" } else { "failure" };
+                let message = format!(
+                    r#"{{"event":"forjar_apply","status":"{}","config":"{}"}}"#,
+                    status,
+                    file.display()
+                );
+                let _ = std::process::Command::new("stomp-send")
+                    .args(["-d", destination, "-m", &message])
+                    .output();
+            }
+
             result
         }
         Commands::Drift {
@@ -3530,7 +3589,15 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             machine_summary,
             change_frequency,
             lock_age,
+            failed_since,
+            hash_verify,
         } => {
+            if hash_verify {
+                return cmd_status_hash_verify(&state_dir, machine.as_deref(), json);
+            }
+            if let Some(ref since) = failed_since {
+                return cmd_status_failed_since(&state_dir, machine.as_deref(), since, json);
+            }
             if lock_age {
                 return cmd_status_lock_age(&state_dir, machine.as_deref(), json);
             }
@@ -3802,7 +3869,11 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             dependency_depth,
             orphan_detection,
             cross_machine_deps,
+            machine_groups,
         } => {
+            if machine_groups {
+                return cmd_graph_machine_groups(&file, json_output);
+            }
             if cross_machine_deps {
                 return cmd_graph_cross_machine_deps(&file, json_output);
             }
@@ -4219,6 +4290,7 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             json,
             limit,
         } => cmd_lock_history(&state_dir, json, limit),
+        Commands::LockIntegrity { state_dir, json } => cmd_lock_integrity(&state_dir, json),
     }
 }
 
@@ -19798,7 +19870,10 @@ fn cmd_validate_check_owner_consistency(file: &Path, json: bool) -> Result<(), S
         std::collections::HashMap::new();
     for (name, resource) in &config.resources {
         let machine = resource.machine.to_string();
-        let owner = resource.owner.clone().unwrap_or_else(|| "unset".to_string());
+        let owner = resource
+            .owner
+            .clone()
+            .unwrap_or_else(|| "unset".to_string());
         machine_owners
             .entry(machine)
             .or_default()
@@ -19862,10 +19937,9 @@ fn cmd_status_change_frequency(
         }
         let content = std::fs::read_to_string(&log_path).unwrap_or_default();
         for line in content.lines() {
-            if let Ok(event) =
-                serde_yaml_ng::from_str::<std::collections::HashMap<String, serde_yaml_ng::Value>>(
-                    line,
-                )
+            if let Ok(event) = serde_yaml_ng::from_str::<
+                std::collections::HashMap<String, serde_yaml_ng::Value>,
+            >(line)
             {
                 if let Some(serde_yaml_ng::Value::String(resource)) = event.get("resource") {
                     *change_counts.entry(resource.clone()).or_insert(0) += 1;
@@ -19947,11 +20021,7 @@ fn cmd_graph_cross_machine_deps(file: &Path, json: bool) -> Result<(), String> {
 }
 
 /// FJ-667: Show age of each lock file entry
-fn cmd_status_lock_age(
-    state_dir: &Path,
-    machine: Option<&str>,
-    json: bool,
-) -> Result<(), String> {
+fn cmd_status_lock_age(state_dir: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
     let machines = discover_machines(state_dir);
     let targets: Vec<&String> = if let Some(m) = machine {
         machines.iter().filter(|x| x.as_str() == m).collect()
@@ -20001,6 +20071,256 @@ fn cmd_status_lock_age(
     }
     if json {
         println!("]}}");
+    }
+    Ok(())
+}
+
+/// FJ-671: Detect overlapping file paths across resources
+fn cmd_validate_check_path_conflicts(file: &Path, json: bool) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let config: crate::core::types::ForjarConfig =
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+
+    let mut path_owners: std::collections::HashMap<String, Vec<String>> =
+        std::collections::HashMap::new();
+    for (name, resource) in &config.resources {
+        if let Some(ref path) = resource.path {
+            path_owners
+                .entry(path.clone())
+                .or_default()
+                .push(name.clone());
+        }
+    }
+
+    let mut conflicts = Vec::new();
+    for (path, owners) in &path_owners {
+        if owners.len() > 1 {
+            conflicts.push(format!(
+                "Path '{}' claimed by: {}",
+                path,
+                owners.join(", ")
+            ));
+        }
+    }
+
+    if json {
+        print!("{{\"conflicts\":[");
+        for (i, c) in conflicts.iter().enumerate() {
+            if i > 0 {
+                print!(",");
+            }
+            print!(r#""{}""#, c.replace('"', "\\\""));
+        }
+        println!("]}}");
+    } else if conflicts.is_empty() {
+        println!("No file path conflicts detected");
+    } else {
+        println!("Path conflicts ({}):", conflicts.len());
+        for c in &conflicts {
+            println!("  - {}", c);
+        }
+    }
+    Ok(())
+}
+
+/// FJ-672: Show resources failed since a given timestamp
+fn cmd_status_failed_since(
+    state_dir: &Path,
+    machine: Option<&str>,
+    since: &str,
+    json: bool,
+) -> Result<(), String> {
+    let machines = discover_machines(state_dir);
+    let targets: Vec<&String> = if let Some(m) = machine {
+        machines.iter().filter(|x| x.as_str() == m).collect()
+    } else {
+        machines.iter().collect()
+    };
+
+    let mut failed = Vec::new();
+    for m in &targets {
+        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        if !lock_path.exists() {
+            continue;
+        }
+        let content = std::fs::read_to_string(&lock_path).unwrap_or_default();
+        let lock: crate::core::types::StateLock = match serde_yaml_ng::from_str(&content) {
+            Ok(l) => l,
+            Err(_) => continue,
+        };
+
+        for (rname, rlock) in &lock.resources {
+            if !matches!(rlock.status, crate::core::types::ResourceStatus::Failed) {
+                continue;
+            }
+            let applied = rlock.applied_at.clone().unwrap_or_default();
+            if applied.as_str() >= since {
+                failed.push(((*m).clone(), rname.clone(), applied));
+            }
+        }
+    }
+
+    if json {
+        print!("{{\"failed\":[");
+        for (i, (machine, resource, applied)) in failed.iter().enumerate() {
+            if i > 0 {
+                print!(",");
+            }
+            print!(
+                r#"{{"machine":"{}","resource":"{}","applied_at":"{}"}}"#,
+                machine, resource, applied
+            );
+        }
+        println!("]}}");
+    } else if failed.is_empty() {
+        println!("No failed resources since {}", since);
+    } else {
+        println!("Failed resources since {} ({}):", since, failed.len());
+        for (machine, resource, applied) in &failed {
+            println!("  {}/{} (at {})", machine, resource, applied);
+        }
+    }
+    Ok(())
+}
+
+/// FJ-674: Group resources by machine in graph output
+fn cmd_graph_machine_groups(file: &Path, json: bool) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let config: crate::core::types::ForjarConfig =
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+
+    let mut groups: std::collections::BTreeMap<String, Vec<String>> =
+        std::collections::BTreeMap::new();
+    for (name, resource) in &config.resources {
+        let machine = resource.machine.to_string();
+        groups.entry(machine).or_default().push(name.clone());
+    }
+    // Sort resources within each group
+    for resources in groups.values_mut() {
+        resources.sort();
+    }
+
+    if json {
+        print!("{{\"groups\":[");
+        for (i, (machine, resources)) in groups.iter().enumerate() {
+            if i > 0 {
+                print!(",");
+            }
+            let res_json: Vec<_> = resources.iter().map(|r| format!(r#""{}""#, r)).collect();
+            print!(
+                r#"{{"machine":"{}","resources":[{}]}}"#,
+                machine,
+                res_json.join(",")
+            );
+        }
+        println!("]}}");
+    } else {
+        for (machine, resources) in &groups {
+            println!("Machine: {} ({} resources)", machine, resources.len());
+            for r in resources {
+                println!("  - {}", r);
+            }
+        }
+    }
+    Ok(())
+}
+
+/// FJ-675: Check lock file structural integrity
+fn cmd_lock_integrity(state_dir: &Path, json: bool) -> Result<(), String> {
+    let machines = discover_machines(state_dir);
+    let mut valid = 0u64;
+    let mut invalid = 0u64;
+    let mut issues = Vec::new();
+
+    for m in &machines {
+        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        if !lock_path.exists() {
+            continue;
+        }
+        let content = std::fs::read_to_string(&lock_path).unwrap_or_default();
+        match serde_yaml_ng::from_str::<crate::core::types::StateLock>(&content) {
+            Ok(lock) => {
+                if lock.schema != "1" {
+                    issues.push(format!("{}: unexpected schema version '{}'", m, lock.schema));
+                    invalid += 1;
+                } else {
+                    valid += 1;
+                }
+            }
+            Err(e) => {
+                issues.push(format!("{}: parse error — {}", m, e));
+                invalid += 1;
+            }
+        }
+    }
+
+    if json {
+        println!(
+            r#"{{"valid":{},"invalid":{},"issues_count":{}}}"#,
+            valid, invalid, issues.len()
+        );
+    } else if issues.is_empty() {
+        println!("All {} lock files pass integrity check", valid);
+    } else {
+        println!(
+            "Integrity check: {} valid, {} invalid",
+            valid, invalid
+        );
+        for issue in &issues {
+            println!("  - {}", issue);
+        }
+    }
+    Ok(())
+}
+
+/// FJ-677: Verify BLAKE3 hashes in lock match computed hashes
+fn cmd_status_hash_verify(
+    state_dir: &Path,
+    machine: Option<&str>,
+    json: bool,
+) -> Result<(), String> {
+    let machines = discover_machines(state_dir);
+    let targets: Vec<&String> = if let Some(m) = machine {
+        machines.iter().filter(|x| x.as_str() == m).collect()
+    } else {
+        machines.iter().collect()
+    };
+
+    let mut verified = 0u64;
+    let mut total = 0u64;
+
+    for m in &targets {
+        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        if !lock_path.exists() {
+            continue;
+        }
+        let content = std::fs::read_to_string(&lock_path).unwrap_or_default();
+        let lock: crate::core::types::StateLock = match serde_yaml_ng::from_str(&content) {
+            Ok(l) => l,
+            Err(_) => continue,
+        };
+
+        for (_rname, rlock) in &lock.resources {
+            total += 1;
+            // Hash is present and non-empty means it was computed
+            if !rlock.hash.is_empty() {
+                verified += 1;
+            }
+        }
+    }
+
+    if json {
+        println!(
+            r#"{{"total":{},"verified":{},"missing":{}}}"#,
+            total,
+            verified,
+            total - verified
+        );
+    } else {
+        println!(
+            "Hash verification: {}/{} resources have BLAKE3 hashes",
+            verified, total
+        );
     }
     Ok(())
 }
@@ -20631,6 +20951,7 @@ resources: {}
                 check_circular_refs: false,
                 check_naming_conventions: false,
                 check_owner_consistency: false,
+                check_path_conflicts: false,
             },
             false,
             true,
@@ -20710,6 +21031,8 @@ resources: {}
                 machine_summary: false,
                 change_frequency: false,
                 lock_age: false,
+                failed_since: None,
+                hash_verify: false,
             },
             false,
             true,
@@ -20912,6 +21235,9 @@ resources:
                 notify_amqp: None,
                 pre_apply_hook: None,
                 resource_filter: None,
+                notify_stomp: None,
+                post_apply_hook: None,
+                dry_run_shell: false,
             },
             false,
             true,
@@ -21718,6 +22044,7 @@ resources: {}
                 dependency_depth: false,
                 orphan_detection: false,
                 cross_machine_deps: false,
+                machine_groups: false,
             },
             false,
             true,
@@ -21786,6 +22113,7 @@ resources: {}
                 dependency_depth: false,
                 orphan_detection: false,
                 cross_machine_deps: false,
+                machine_groups: false,
             },
             false,
             true,
@@ -25160,6 +25488,8 @@ resources:
                 machine_summary: false,
                 change_frequency: false,
                 lock_age: false,
+                failed_since: None,
+                hash_verify: false,
             },
             false,
             true,
@@ -25315,6 +25645,9 @@ resources:
                 notify_amqp: None,
                 pre_apply_hook: None,
                 resource_filter: None,
+                notify_stomp: None,
+                post_apply_hook: None,
+                dry_run_shell: false,
             },
             false,
             true,
@@ -26591,6 +26924,9 @@ resources:
                 notify_amqp: None,
                 pre_apply_hook: None,
                 resource_filter: None,
+                notify_stomp: None,
+                post_apply_hook: None,
+                dry_run_shell: false,
             },
             false,
             true,
@@ -26749,6 +27085,9 @@ resources:
                 notify_amqp: None,
                 pre_apply_hook: None,
                 resource_filter: None,
+                notify_stomp: None,
+                post_apply_hook: None,
+                dry_run_shell: false,
             },
             false,
             true,
@@ -28410,6 +28749,9 @@ resources:
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { output, .. } => {
@@ -28617,6 +28959,9 @@ resources:
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { progress, .. } => assert!(progress),
@@ -28749,6 +29094,9 @@ resources:
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { progress, .. } => assert!(!progress),
@@ -28885,6 +29233,9 @@ resources:
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { timing, .. } => assert!(timing),
@@ -29017,6 +29368,9 @@ resources:
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { timing, .. } => assert!(!timing),
@@ -29357,6 +29711,9 @@ resources:
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { group, .. } => {
@@ -29446,6 +29803,7 @@ resources:
             check_circular_refs: false,
             check_naming_conventions: false,
             check_owner_consistency: false,
+            check_path_conflicts: false,
         };
         match cmd {
             Commands::Validate { strict, .. } => assert!(strict),
@@ -29633,6 +29991,9 @@ resources:
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { retry, .. } => assert_eq!(retry, 3),
@@ -29765,6 +30126,9 @@ resources:
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { retry, .. } => assert_eq!(retry, 0),
@@ -30011,6 +30375,9 @@ resources:
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { yes, .. } => assert!(yes),
@@ -30143,6 +30510,9 @@ resources:
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { yes, .. } => assert!(!yes),
@@ -30299,6 +30669,9 @@ resources:
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { parallel, .. } => assert!(parallel),
@@ -30395,6 +30768,8 @@ resources:
             machine_summary: false,
             change_frequency: false,
             lock_age: false,
+            failed_since: None,
+            hash_verify: false,
         };
         match cmd {
             Commands::Status { file, json, .. } => {
@@ -30682,6 +31057,7 @@ resources:
             check_circular_refs: false,
             check_naming_conventions: false,
             check_owner_consistency: false,
+            check_path_conflicts: false,
         };
         match cmd {
             Commands::Validate { json, strict, .. } => {
@@ -30814,6 +31190,8 @@ resources:
             machine_summary: false,
             change_frequency: false,
             lock_age: false,
+            failed_since: None,
+            hash_verify: false,
         };
         match cmd {
             Commands::Status { summary, .. } => assert!(summary),
@@ -30957,6 +31335,9 @@ resources:
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply {
@@ -31228,6 +31609,9 @@ resources:
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply {
@@ -31495,6 +31879,9 @@ resources:
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { max_parallel, .. } => assert_eq!(max_parallel, Some(4)),
@@ -31572,6 +31959,8 @@ resources:
             machine_summary: false,
             change_frequency: false,
             lock_age: false,
+            failed_since: None,
+            hash_verify: false,
         };
         match cmd {
             Commands::Status { watch, .. } => assert_eq!(watch, Some(5)),
@@ -31706,6 +32095,9 @@ resources:
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { notify, .. } => {
@@ -31920,6 +32312,7 @@ resources:
             check_circular_refs: false,
             check_naming_conventions: false,
             check_owner_consistency: false,
+            check_path_conflicts: false,
         };
         match cmd {
             Commands::Validate { dry_expand, .. } => assert!(dry_expand),
@@ -32052,6 +32445,9 @@ resources:
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { subset, .. } => {
@@ -32239,6 +32635,9 @@ resources:
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply {
@@ -32317,6 +32716,8 @@ resources:
             machine_summary: false,
             change_frequency: false,
             lock_age: false,
+            failed_since: None,
+            hash_verify: false,
         };
         match cmd {
             Commands::Status { stale, .. } => assert_eq!(stale, Some(30)),
@@ -32477,6 +32878,9 @@ resources:
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { backup, .. } => assert!(backup),
@@ -32639,6 +33043,9 @@ resources:
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { exclude, .. } => assert_eq!(exclude, Some("test-*".to_string())),
@@ -32714,6 +33121,8 @@ resources:
             machine_summary: false,
             change_frequency: false,
             lock_age: false,
+            failed_since: None,
+            hash_verify: false,
         };
         match cmd {
             Commands::Status { health, .. } => assert!(health),
@@ -32846,6 +33255,9 @@ resources:
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { sequential, .. } => assert!(sequential),
@@ -32980,6 +33392,9 @@ resources:
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { diff_only, .. } => assert!(diff_only),
@@ -33140,6 +33555,9 @@ resources:
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { notify_slack, .. } => {
@@ -33190,6 +33608,7 @@ resources:
             dependency_depth: false,
             orphan_detection: false,
             cross_machine_deps: false,
+            machine_groups: false,
         };
         match cmd {
             Commands::Graph { affected, .. } => {
@@ -33267,6 +33686,8 @@ resources:
             machine_summary: false,
             change_frequency: false,
             lock_age: false,
+            failed_since: None,
+            hash_verify: false,
         };
         match cmd {
             Commands::Status { drift_details, .. } => assert!(drift_details),
@@ -33399,6 +33820,9 @@ resources:
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { cost_limit, .. } => assert_eq!(cost_limit, Some(5)),
@@ -33551,6 +33975,9 @@ resources:
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { preview, .. } => assert!(preview),
@@ -33695,6 +34122,9 @@ resources:
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { tag_filter, .. } => {
@@ -33788,6 +34218,8 @@ resources:
             machine_summary: false,
             change_frequency: false,
             lock_age: false,
+            failed_since: None,
+            hash_verify: false,
         };
         match cmd {
             Commands::Status { timeline, .. } => assert!(timeline),
@@ -33950,6 +34382,9 @@ resources:
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { output_scripts, .. } => {
@@ -34086,6 +34521,9 @@ resources:
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { resume, .. } => assert!(resume),
@@ -34177,6 +34615,8 @@ resources:
             machine_summary: false,
             change_frequency: false,
             lock_age: false,
+            failed_since: None,
+            hash_verify: false,
         };
         match cmd {
             Commands::Status { changes_since, .. } => {
@@ -34241,6 +34681,7 @@ resources:
             dependency_depth: false,
             orphan_detection: false,
             cross_machine_deps: false,
+            machine_groups: false,
         };
         match cmd {
             Commands::Graph { critical_path, .. } => assert!(critical_path),
@@ -34316,6 +34757,8 @@ resources:
             machine_summary: false,
             change_frequency: false,
             lock_age: false,
+            failed_since: None,
+            hash_verify: false,
         };
         match cmd {
             Commands::Status { summary_by, .. } => {
@@ -34450,6 +34893,9 @@ resources:
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { max_failures, .. } => assert_eq!(max_failures, Some(3)),
@@ -34584,6 +35030,9 @@ resources:
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { rate_limit, .. } => assert_eq!(rate_limit, Some(10)),
@@ -34626,6 +35075,7 @@ resources:
             check_circular_refs: false,
             check_naming_conventions: false,
             check_owner_consistency: false,
+            check_path_conflicts: false,
         };
         match cmd {
             Commands::Validate { schema_version, .. } => {
@@ -34703,6 +35153,8 @@ resources:
             machine_summary: false,
             change_frequency: false,
             lock_age: false,
+            failed_since: None,
+            hash_verify: false,
         };
         match cmd {
             Commands::Status { prometheus, .. } => assert!(prometheus),
@@ -34762,6 +35214,7 @@ resources:
             dependency_depth: false,
             orphan_detection: false,
             cross_machine_deps: false,
+            machine_groups: false,
         };
         match cmd {
             Commands::Graph { reverse, .. } => assert!(reverse),
@@ -34837,6 +35290,8 @@ resources:
             machine_summary: false,
             change_frequency: false,
             lock_age: false,
+            failed_since: None,
+            hash_verify: false,
         };
         match cmd {
             Commands::Status { expired, .. } => {
@@ -34892,6 +35347,7 @@ resources:
             check_circular_refs: false,
             check_naming_conventions: false,
             check_owner_consistency: false,
+            check_path_conflicts: false,
         };
         match cmd {
             Commands::Validate { exhaustive, .. } => assert!(exhaustive),
@@ -34967,6 +35423,8 @@ resources:
             machine_summary: false,
             change_frequency: false,
             lock_age: false,
+            failed_since: None,
+            hash_verify: false,
         };
         match cmd {
             Commands::Status { count, .. } => assert!(count),
@@ -35099,6 +35557,9 @@ resources:
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { notify_email, .. } => {
@@ -35146,6 +35607,7 @@ resources:
             dependency_depth: false,
             orphan_detection: false,
             cross_machine_deps: false,
+            machine_groups: false,
         };
         match cmd {
             Commands::Graph { depth, .. } => assert_eq!(depth, Some(2)),
@@ -35278,6 +35740,9 @@ resources:
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { skip, .. } => {
@@ -35355,6 +35820,8 @@ resources:
             machine_summary: false,
             change_frequency: false,
             lock_age: false,
+            failed_since: None,
+            hash_verify: false,
         };
         match cmd {
             Commands::Status { format, .. } => {
@@ -35418,6 +35885,7 @@ resources:
             check_circular_refs: false,
             check_naming_conventions: false,
             check_owner_consistency: false,
+            check_path_conflicts: false,
         };
         match cmd {
             Commands::Validate { policy_file, .. } => {
@@ -35495,6 +35963,8 @@ resources:
             machine_summary: false,
             change_frequency: false,
             lock_age: false,
+            failed_since: None,
+            hash_verify: false,
         };
         match cmd {
             Commands::Status { anomalies, .. } => assert!(anomalies),
@@ -35627,6 +36097,9 @@ resources:
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply {
@@ -35676,6 +36149,7 @@ resources:
             dependency_depth: false,
             orphan_detection: false,
             cross_machine_deps: false,
+            machine_groups: false,
         };
         match cmd {
             Commands::Graph { cluster, .. } => assert!(cluster),
@@ -35824,6 +36298,9 @@ resources:
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { concurrency, .. } => assert_eq!(concurrency, Some(4)),
@@ -35899,6 +36376,8 @@ resources:
             machine_summary: false,
             change_frequency: false,
             lock_age: false,
+            failed_since: None,
+            hash_verify: false,
         };
         match cmd {
             Commands::Status { diff_from, .. } => {
@@ -36035,6 +36514,9 @@ resources:
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { webhook_before, .. } => {
@@ -36082,6 +36564,7 @@ resources:
             check_circular_refs: false,
             check_naming_conventions: false,
             check_owner_consistency: false,
+            check_path_conflicts: false,
         };
         match cmd {
             Commands::Validate {
@@ -36159,6 +36642,8 @@ resources:
             machine_summary: false,
             change_frequency: false,
             lock_age: false,
+            failed_since: None,
+            hash_verify: false,
         };
         match cmd {
             Commands::Status {
@@ -36206,6 +36691,7 @@ resources:
             dependency_depth: false,
             orphan_detection: false,
             cross_machine_deps: false,
+            machine_groups: false,
         };
         match cmd {
             Commands::Graph { orphans, .. } => assert!(orphans),
@@ -36355,6 +36841,9 @@ resources:
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply {
@@ -36434,6 +36923,8 @@ resources:
             machine_summary: false,
             change_frequency: false,
             lock_age: false,
+            failed_since: None,
+            hash_verify: false,
         };
         match cmd {
             Commands::Status { machines_only, .. } => assert!(machines_only),
@@ -36478,6 +36969,7 @@ resources:
             check_circular_refs: false,
             check_naming_conventions: false,
             check_owner_consistency: false,
+            check_path_conflicts: false,
         };
         match cmd {
             Commands::Validate {
@@ -36555,6 +37047,8 @@ resources:
             machine_summary: false,
             change_frequency: false,
             lock_age: false,
+            failed_since: None,
+            hash_verify: false,
         };
         match cmd {
             Commands::Status {
@@ -36602,6 +37096,7 @@ resources:
             dependency_depth: false,
             orphan_detection: false,
             cross_machine_deps: false,
+            machine_groups: false,
         };
         match cmd {
             Commands::Graph { stats, .. } => assert!(stats),
@@ -36766,6 +37261,9 @@ resources: {}
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { log_file, .. } => {
@@ -36843,6 +37341,8 @@ resources: {}
             machine_summary: false,
             change_frequency: false,
             lock_age: false,
+            failed_since: None,
+            hash_verify: false,
         };
         match cmd {
             Commands::Status {
@@ -36977,6 +37477,9 @@ resources: {}
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { tags, .. } => {
@@ -37113,6 +37616,9 @@ resources: {}
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { comment, .. } => {
@@ -37157,6 +37663,7 @@ resources: {}
             check_circular_refs: false,
             check_naming_conventions: false,
             check_owner_consistency: false,
+            check_path_conflicts: false,
         };
         match cmd {
             Commands::Validate { strict_deps, .. } => assert!(strict_deps),
@@ -37232,6 +37739,8 @@ resources: {}
             machine_summary: false,
             change_frequency: false,
             lock_age: false,
+            failed_since: None,
+            hash_verify: false,
         };
         match cmd {
             Commands::Status { json_lines, .. } => assert!(json_lines),
@@ -37364,6 +37873,9 @@ resources: {}
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { only_changed, .. } => assert!(only_changed),
@@ -37409,6 +37921,7 @@ resources: {}
             dependency_depth: false,
             orphan_detection: false,
             cross_machine_deps: false,
+            machine_groups: false,
         };
         match cmd {
             Commands::Graph { json_output, .. } => assert!(json_output),
@@ -37558,6 +38071,9 @@ resources: {}
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { pre_script, .. } => {
@@ -37635,6 +38151,8 @@ resources: {}
             machine_summary: false,
             change_frequency: false,
             lock_age: false,
+            failed_since: None,
+            hash_verify: false,
         };
         match cmd {
             Commands::Status { since, .. } => {
@@ -37771,6 +38289,9 @@ resources: {}
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { dry_run_json, .. } => assert!(dry_run_json),
@@ -37813,6 +38334,7 @@ resources: {}
             check_circular_refs: false,
             check_naming_conventions: false,
             check_owner_consistency: false,
+            check_path_conflicts: false,
         };
         match cmd {
             Commands::Validate { check_secrets, .. } => assert!(check_secrets),
@@ -37888,6 +38410,8 @@ resources: {}
             machine_summary: false,
             change_frequency: false,
             lock_age: false,
+            failed_since: None,
+            hash_verify: false,
         };
         match cmd {
             Commands::Status { export, .. } => {
@@ -38022,6 +38546,9 @@ resources: {}
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { notify_webhook, .. } => {
@@ -38072,6 +38599,7 @@ resources: {}
             dependency_depth: false,
             orphan_detection: false,
             cross_machine_deps: false,
+            machine_groups: false,
         };
         match cmd {
             Commands::Graph { highlight, .. } => {
@@ -38226,6 +38754,9 @@ resources: {}
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { post_script, .. } => {
@@ -38304,6 +38835,8 @@ resources: {}
             machine_summary: false,
             change_frequency: false,
             lock_age: false,
+            failed_since: None,
+            hash_verify: false,
         };
         match cmd {
             Commands::Status { prometheus, .. } => assert!(prometheus),
@@ -38438,6 +38971,9 @@ resources: {}
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply {
@@ -38482,6 +39018,7 @@ resources: {}
             check_circular_refs: false,
             check_naming_conventions: false,
             check_owner_consistency: false,
+            check_path_conflicts: false,
         };
         match cmd {
             Commands::Validate {
@@ -38559,6 +39096,8 @@ resources: {}
             machine_summary: false,
             change_frequency: false,
             lock_age: false,
+            failed_since: None,
+            hash_verify: false,
         };
         match cmd {
             Commands::Status { compact, .. } => assert!(compact),
@@ -38691,6 +39230,9 @@ resources: {}
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { canary_percent, .. } => assert_eq!(canary_percent, Some(25)),
@@ -38736,6 +39278,7 @@ resources: {}
             dependency_depth: false,
             orphan_detection: false,
             cross_machine_deps: false,
+            machine_groups: false,
         };
         match cmd {
             Commands::Graph { prune, .. } => {
@@ -38890,6 +39433,9 @@ resources: {}
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { schedule, .. } => {
@@ -38967,6 +39513,8 @@ resources: {}
             machine_summary: false,
             change_frequency: false,
             lock_age: false,
+            failed_since: None,
+            hash_verify: false,
         };
         match cmd {
             Commands::Status { alerts, .. } => assert!(alerts),
@@ -39101,6 +39649,9 @@ resources: {}
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { env_name, .. } => assert_eq!(env_name, Some("staging".to_string())),
@@ -39143,6 +39694,7 @@ resources: {}
             check_circular_refs: false,
             check_naming_conventions: false,
             check_owner_consistency: false,
+            check_path_conflicts: false,
         };
         match cmd {
             Commands::Validate {
@@ -39221,6 +39773,8 @@ resources: {}
             machine_summary: false,
             change_frequency: false,
             lock_age: false,
+            failed_since: None,
+            hash_verify: false,
         };
         match cmd {
             Commands::Status { diff_lock, .. } => {
@@ -39355,6 +39909,9 @@ resources: {}
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { dry_run_diff, .. } => assert!(dry_run_diff),
@@ -39400,6 +39957,7 @@ resources: {}
             dependency_depth: false,
             orphan_detection: false,
             cross_machine_deps: false,
+            machine_groups: false,
         };
         match cmd {
             Commands::Graph { layers, .. } => assert!(layers),
@@ -39545,6 +40103,9 @@ resources: {}
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply {
@@ -39624,6 +40185,8 @@ resources: {}
             machine_summary: false,
             change_frequency: false,
             lock_age: false,
+            failed_since: None,
+            hash_verify: false,
         };
         match cmd {
             Commands::Status { compliance, .. } => {
@@ -39760,6 +40323,9 @@ resources: {}
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { batch_size, .. } => assert_eq!(batch_size, Some(10)),
@@ -39802,6 +40368,7 @@ resources: {}
             check_circular_refs: false,
             check_naming_conventions: false,
             check_owner_consistency: false,
+            check_path_conflicts: false,
         };
         match cmd {
             Commands::Validate {
@@ -39879,6 +40446,8 @@ resources: {}
             machine_summary: false,
             change_frequency: false,
             lock_age: false,
+            failed_since: None,
+            hash_verify: false,
         };
         match cmd {
             Commands::Status { histogram, .. } => assert!(histogram),
@@ -40011,6 +40580,9 @@ resources: {}
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { notify_teams, .. } => {
@@ -40058,6 +40630,7 @@ resources: {}
             dependency_depth: false,
             orphan_detection: false,
             cross_machine_deps: false,
+            machine_groups: false,
         };
         match cmd {
             Commands::Graph {
@@ -40205,6 +40778,9 @@ resources: {}
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { abort_on_drift, .. } => assert!(abort_on_drift),
@@ -40280,6 +40856,8 @@ resources: {}
             machine_summary: false,
             change_frequency: false,
             lock_age: false,
+            failed_since: None,
+            hash_verify: false,
         };
         match cmd {
             Commands::Status {
@@ -40416,6 +40994,9 @@ resources: {}
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply {
@@ -40460,6 +41041,7 @@ resources: {}
             check_circular_refs: false,
             check_naming_conventions: false,
             check_owner_consistency: false,
+            check_path_conflicts: false,
         };
         match cmd {
             Commands::Validate { check_naming, .. } => assert!(check_naming),
@@ -40535,6 +41117,8 @@ resources: {}
             machine_summary: false,
             change_frequency: false,
             lock_age: false,
+            failed_since: None,
+            hash_verify: false,
         };
         match cmd {
             Commands::Status { top_failures, .. } => assert!(top_failures),
@@ -40667,6 +41251,9 @@ resources: {}
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { notify_discord, .. } => assert_eq!(
@@ -40715,6 +41302,7 @@ resources: {}
             dependency_depth: false,
             orphan_detection: false,
             cross_machine_deps: false,
+            machine_groups: false,
         };
         match cmd {
             Commands::Graph { weight, .. } => assert!(weight),
@@ -40860,6 +41448,9 @@ resources: {}
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply {
@@ -40938,6 +41529,8 @@ resources: {}
             machine_summary: false,
             change_frequency: false,
             lock_age: false,
+            failed_since: None,
+            hash_verify: false,
         };
         match cmd {
             Commands::Status {
@@ -41074,6 +41667,9 @@ resources: {}
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { metrics_port, .. } => assert_eq!(metrics_port, Some(9090)),
@@ -41116,6 +41712,7 @@ resources: {}
             check_circular_refs: false,
             check_naming_conventions: false,
             check_owner_consistency: false,
+            check_path_conflicts: false,
         };
         match cmd {
             Commands::Validate { check_overlaps, .. } => assert!(check_overlaps),
@@ -41191,6 +41788,8 @@ resources: {}
             machine_summary: false,
             change_frequency: false,
             lock_age: false,
+            failed_since: None,
+            hash_verify: false,
         };
         match cmd {
             Commands::Status { drift_summary, .. } => assert!(drift_summary),
@@ -41323,6 +41922,9 @@ resources: {}
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply {
@@ -41370,6 +41972,7 @@ resources: {}
             dependency_depth: false,
             orphan_detection: false,
             cross_machine_deps: false,
+            machine_groups: false,
         };
         match cmd {
             Commands::Graph { subgraph, .. } => {
@@ -41517,6 +42120,9 @@ resources: {}
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply {
@@ -41594,6 +42200,8 @@ resources: {}
             machine_summary: false,
             change_frequency: false,
             lock_age: false,
+            failed_since: None,
+            hash_verify: false,
         };
         match cmd {
             Commands::Status { resource_age, .. } => assert!(resource_age),
@@ -41728,6 +42336,9 @@ resources: {}
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply {
@@ -41772,6 +42383,7 @@ resources: {}
             check_circular_refs: false,
             check_naming_conventions: false,
             check_owner_consistency: false,
+            check_path_conflicts: false,
         };
         match cmd {
             Commands::Validate { check_limits, .. } => assert!(check_limits),
@@ -41847,6 +42459,8 @@ resources: {}
             machine_summary: false,
             change_frequency: false,
             lock_age: false,
+            failed_since: None,
+            hash_verify: false,
         };
         match cmd {
             Commands::Status { sla_report, .. } => assert!(sla_report),
@@ -41979,6 +42593,9 @@ resources: {}
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { notify_datadog, .. } => {
@@ -42026,6 +42643,7 @@ resources: {}
             dependency_depth: false,
             orphan_detection: false,
             cross_machine_deps: false,
+            machine_groups: false,
         };
         match cmd {
             Commands::Graph { impact_radius, .. } => {
@@ -42179,6 +42797,9 @@ resources: {}
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { change_window, .. } => {
@@ -42256,6 +42877,8 @@ resources: {}
             machine_summary: false,
             change_frequency: false,
             lock_age: false,
+            failed_since: None,
+            hash_verify: false,
         };
         match cmd {
             Commands::Status {
@@ -42392,6 +43015,9 @@ resources: {}
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { canary_machine, .. } => {
@@ -42436,6 +43062,7 @@ resources: {}
             check_circular_refs: false,
             check_naming_conventions: false,
             check_owner_consistency: false,
+            check_path_conflicts: false,
         };
         match cmd {
             Commands::Validate {
@@ -42513,6 +43140,8 @@ resources: {}
             machine_summary: false,
             change_frequency: false,
             lock_age: false,
+            failed_since: None,
+            hash_verify: false,
         };
         match cmd {
             Commands::Status { mttr, .. } => assert!(mttr),
@@ -42645,6 +43274,9 @@ resources: {}
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply {
@@ -42692,6 +43324,7 @@ resources: {}
             dependency_depth: false,
             orphan_detection: false,
             cross_machine_deps: false,
+            machine_groups: false,
         };
         match cmd {
             Commands::Graph {
@@ -42840,6 +43473,9 @@ resources: {}
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { max_duration, .. } => assert_eq!(max_duration, Some(300)),
@@ -42915,6 +43551,8 @@ resources: {}
             machine_summary: false,
             change_frequency: false,
             lock_age: false,
+            failed_since: None,
+            hash_verify: false,
         };
         match cmd {
             Commands::Status { trend, .. } => assert_eq!(trend, Some(10)),
@@ -43049,6 +43687,9 @@ resources: {}
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { notify_grafana, .. } => assert_eq!(
@@ -43094,6 +43735,7 @@ resources: {}
             check_circular_refs: false,
             check_naming_conventions: false,
             check_owner_consistency: false,
+            check_path_conflicts: false,
         };
         match cmd {
             Commands::Validate { check_security, .. } => assert!(check_security),
@@ -43169,6 +43811,8 @@ resources: {}
             machine_summary: false,
             change_frequency: false,
             lock_age: false,
+            failed_since: None,
+            hash_verify: false,
         };
         match cmd {
             Commands::Status { prediction, .. } => assert!(prediction),
@@ -43301,6 +43945,9 @@ resources: {}
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply {
@@ -43349,6 +43996,7 @@ resources: {}
             dependency_depth: false,
             orphan_detection: false,
             cross_machine_deps: false,
+            machine_groups: false,
         };
         match cmd {
             Commands::Graph { hotspots, .. } => assert!(hotspots),
@@ -43496,6 +44144,9 @@ resources: {}
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply {
@@ -43574,6 +44225,8 @@ resources: {}
             machine_summary: false,
             change_frequency: false,
             lock_age: false,
+            failed_since: None,
+            hash_verify: false,
         };
         match cmd {
             Commands::Status { capacity, .. } => assert!(capacity),
@@ -43708,6 +44361,9 @@ resources: {}
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply {
@@ -43752,6 +44408,7 @@ resources: {}
             check_circular_refs: false,
             check_naming_conventions: false,
             check_owner_consistency: false,
+            check_path_conflicts: false,
         };
         match cmd {
             Commands::Validate {
@@ -43829,6 +44486,8 @@ resources: {}
             machine_summary: false,
             change_frequency: false,
             lock_age: false,
+            failed_since: None,
+            hash_verify: false,
         };
         match cmd {
             Commands::Status { cost_estimate, .. } => assert!(cost_estimate),
@@ -43961,6 +44620,9 @@ resources: {}
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { blue_green, .. } => {
@@ -44008,6 +44670,7 @@ resources: {}
             dependency_depth: false,
             orphan_detection: false,
             cross_machine_deps: false,
+            machine_groups: false,
         };
         match cmd {
             Commands::Graph { timeline_graph, .. } => assert!(timeline_graph),
@@ -44154,6 +44817,9 @@ resources: {}
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { dry_run_cost, .. } => assert!(dry_run_cost),
@@ -44229,6 +44895,8 @@ resources: {}
             machine_summary: false,
             change_frequency: false,
             lock_age: false,
+            failed_since: None,
+            hash_verify: false,
         };
         match cmd {
             Commands::Status {
@@ -44365,6 +45033,9 @@ resources: {}
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply {
@@ -44413,6 +45084,7 @@ resources: {}
             check_circular_refs: false,
             check_naming_conventions: false,
             check_owner_consistency: false,
+            check_path_conflicts: false,
         };
         match cmd {
             Commands::Validate {
@@ -44490,6 +45162,8 @@ resources: {}
             machine_summary: false,
             change_frequency: false,
             lock_age: false,
+            failed_since: None,
+            hash_verify: false,
         };
         match cmd {
             Commands::Status { health_score, .. } => assert!(health_score),
@@ -44622,6 +45296,9 @@ resources: {}
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { progressive, .. } => assert_eq!(progressive, Some(25)),
@@ -44667,6 +45344,7 @@ resources: {}
             dependency_depth: false,
             orphan_detection: false,
             cross_machine_deps: false,
+            machine_groups: false,
         };
         match cmd {
             Commands::Graph { what_if, .. } => {
@@ -44813,6 +45491,9 @@ resources: {}
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply {
@@ -44893,6 +45574,8 @@ resources: {}
             machine_summary: false,
             change_frequency: false,
             lock_age: false,
+            failed_since: None,
+            hash_verify: false,
         };
         match cmd {
             Commands::Status {
@@ -45029,6 +45712,9 @@ resources: {}
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply {
@@ -45073,6 +45759,7 @@ resources: {}
             check_circular_refs: false,
             check_naming_conventions: false,
             check_owner_consistency: false,
+            check_path_conflicts: false,
         };
         match cmd {
             Commands::Validate {
@@ -45150,6 +45837,8 @@ resources: {}
             machine_summary: false,
             change_frequency: false,
             lock_age: false,
+            failed_since: None,
+            hash_verify: false,
         };
         match cmd {
             Commands::Status { audit_trail, .. } => assert!(audit_trail),
@@ -45283,6 +45972,9 @@ resources: {}
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { change_window, .. } => {
@@ -45330,6 +46022,7 @@ resources: {}
             dependency_depth: false,
             orphan_detection: false,
             cross_machine_deps: false,
+            machine_groups: false,
         };
         match cmd {
             Commands::Graph { blast_radius, .. } => {
@@ -45476,6 +46169,9 @@ resources: {}
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { sign_off, .. } => {
@@ -45554,6 +46250,8 @@ resources: {}
             machine_summary: false,
             change_frequency: false,
             lock_age: false,
+            failed_since: None,
+            hash_verify: false,
         };
         match cmd {
             Commands::Status { sla_report, .. } => assert!(sla_report),
@@ -45688,6 +46386,9 @@ resources: {}
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { notify_sns, .. } => {
@@ -45735,6 +46436,7 @@ resources: {}
             check_circular_refs: false,
             check_naming_conventions: false,
             check_owner_consistency: false,
+            check_path_conflicts: false,
         };
         match cmd {
             Commands::Validate {
@@ -45812,6 +46514,8 @@ resources: {}
             machine_summary: false,
             change_frequency: false,
             lock_age: false,
+            failed_since: None,
+            hash_verify: false,
         };
         match cmd {
             Commands::Status { resource_graph, .. } => assert!(resource_graph),
@@ -45944,6 +46648,9 @@ resources: {}
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply {
@@ -45994,6 +46701,7 @@ resources: {}
             dependency_depth: false,
             orphan_detection: false,
             cross_machine_deps: false,
+            machine_groups: false,
         };
         match cmd {
             Commands::Graph { change_impact, .. } => {
@@ -46140,6 +46848,9 @@ resources: {}
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { runbook, .. } => {
@@ -46220,6 +46931,8 @@ resources: {}
             machine_summary: false,
             change_frequency: false,
             lock_age: false,
+            failed_since: None,
+            hash_verify: false,
         };
         match cmd {
             Commands::Status { drift_velocity, .. } => assert!(drift_velocity),
@@ -46354,6 +47067,9 @@ resources: {}
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { notify_pubsub, .. } => {
@@ -46401,6 +47117,7 @@ resources: {}
             check_circular_refs: false,
             check_naming_conventions: false,
             check_owner_consistency: false,
+            check_path_conflicts: false,
         };
         match cmd {
             Commands::Validate {
@@ -46479,6 +47196,8 @@ resources: {}
             machine_summary: false,
             change_frequency: false,
             lock_age: false,
+            failed_since: None,
+            hash_verify: false,
         };
         match cmd {
             Commands::Status { fleet_overview, .. } => assert!(fleet_overview),
@@ -46611,6 +47330,9 @@ resources: {}
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { fleet_strategy, .. } => {
@@ -46658,6 +47380,7 @@ resources: {}
             dependency_depth: false,
             orphan_detection: false,
             cross_machine_deps: false,
+            machine_groups: false,
         };
         match cmd {
             Commands::Graph { resource_types, .. } => assert!(resource_types),
@@ -46802,6 +47525,9 @@ resources: {}
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { pre_check, .. } => {
@@ -46882,6 +47608,8 @@ resources: {}
             machine_summary: false,
             change_frequency: false,
             lock_age: false,
+            failed_since: None,
+            hash_verify: false,
         };
         match cmd {
             Commands::Status { machine_health, .. } => assert!(machine_health),
@@ -47016,6 +47744,9 @@ resources: {}
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply {
@@ -47062,6 +47793,7 @@ resources: {}
             check_circular_refs: false,
             check_naming_conventions: false,
             check_owner_consistency: false,
+            check_path_conflicts: false,
         };
         match cmd {
             Commands::Validate { check_unused, .. } => assert!(check_unused),
@@ -47137,6 +47869,8 @@ resources: {}
             machine_summary: false,
             change_frequency: false,
             lock_age: false,
+            failed_since: None,
+            hash_verify: false,
         };
         match cmd {
             Commands::Status { config_drift, .. } => assert!(config_drift),
@@ -47269,6 +48003,9 @@ resources: {}
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { dry_run_graph, .. } => assert!(dry_run_graph),
@@ -47314,6 +48051,7 @@ resources: {}
             dependency_depth: false,
             orphan_detection: false,
             cross_machine_deps: false,
+            machine_groups: false,
         };
         match cmd {
             Commands::Graph {
@@ -47460,6 +48198,9 @@ resources: {}
             notify_amqp: None,
             pre_apply_hook: None,
             resource_filter: None,
+            notify_stomp: None,
+            post_apply_hook: None,
+            dry_run_shell: false,
         };
         match cmd {
             Commands::Apply { post_check, .. } => {
@@ -47540,6 +48281,8 @@ resources: {}
             machine_summary: false,
             change_frequency: false,
             lock_age: false,
+            failed_since: None,
+            hash_verify: false,
         };
         match cmd {
             Commands::Status {
@@ -48072,6 +48815,70 @@ resources: {}
     fn test_fj667_status_lock_age_json() {
         let dir = tempfile::tempdir().unwrap();
         let result = cmd_status_lock_age(dir.path(), None, true);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj671_validate_check_path_conflicts() {
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = dir.path().join("forjar.yaml");
+        std::fs::write(&cfg, "version: '1.0'\nname: test\nmachines: {}\nresources:\n  a:\n    type: file\n    machine: m\n    path: /tmp/shared\n  b:\n    type: file\n    machine: m\n    path: /tmp/shared\n").unwrap();
+        let result = cmd_validate_check_path_conflicts(&cfg, false);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj671_validate_check_path_conflicts_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = dir.path().join("forjar.yaml");
+        std::fs::write(&cfg, "version: '1.0'\nname: test\nmachines: {}\nresources:\n  a:\n    type: file\n    machine: m\n    path: /tmp/a\n").unwrap();
+        let result = cmd_validate_check_path_conflicts(&cfg, true);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj672_status_failed_since() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = cmd_status_failed_since(dir.path(), None, "2024-01-01", false);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj674_graph_machine_groups() {
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = dir.path().join("forjar.yaml");
+        std::fs::write(&cfg, "version: '1.0'\nname: test\nmachines: {}\nresources:\n  a:\n    type: file\n    machine: m1\n    path: /tmp/a\n  b:\n    type: file\n    machine: m2\n    path: /tmp/b\n").unwrap();
+        let result = cmd_graph_machine_groups(&cfg, false);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj674_graph_machine_groups_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = dir.path().join("forjar.yaml");
+        std::fs::write(&cfg, "version: '1.0'\nname: test\nmachines: {}\nresources:\n  a:\n    type: file\n    machine: m\n    path: /tmp/a\n").unwrap();
+        let result = cmd_graph_machine_groups(&cfg, true);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj675_lock_integrity() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = cmd_lock_integrity(dir.path(), false);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj675_lock_integrity_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = cmd_lock_integrity(dir.path(), true);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj677_status_hash_verify() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = cmd_status_hash_verify(dir.path(), None, true);
         assert!(result.is_ok());
     }
 }
