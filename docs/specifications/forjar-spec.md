@@ -1876,14 +1876,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-370 | `forjar apply --resume` — resume from last failed resource instead of re-running everything. Checkpoint-based recovery. | Planned |
-| FJ-371 | `forjar template <recipe> --vars KEY=VAL` — expand a recipe template to stdout without applying. Preview recipe output. | Planned |
-| FJ-372 | `forjar status --changes-since <commit>` — show resources changed since a git commit. Git-aware state diffing. | Planned |
-| FJ-373 | `forjar apply --confirm` — interactive per-resource confirmation before execution. Manual approval mode. | Planned |
-| FJ-374 | `forjar lint --rules <file>` — custom lint rules from YAML file. Organization-specific policy enforcement. | Planned |
-| FJ-375 | `forjar graph --critical-path` — highlight the longest dependency chain. Bottleneck identification. | Planned |
-| FJ-376 | `forjar status --summary-by machine|type|status` — group status output by dimension. Dashboard aggregation. | Planned |
-| FJ-377 | `forjar apply --max-failures <n>` — allow N failures before stopping (override jidoka for partial deploys). | Planned |
+| FJ-370 | `forjar apply --resume` — resume from last failed resource instead of re-running everything. Checkpoint-based recovery. | Done |
+| FJ-371 | `forjar template <recipe> --vars KEY=VAL` — expand a recipe template to stdout without applying. Preview recipe output. | Done |
+| FJ-372 | `forjar status --changes-since <commit>` — show resources changed since a git commit. Git-aware state diffing. | Done |
+| FJ-373 | `forjar apply --confirm` — interactive per-resource confirmation before execution. Manual approval mode. | Done |
+| FJ-374 | `forjar lint --rules <file>` — custom lint rules from YAML file. Organization-specific policy enforcement. | Done |
+| FJ-375 | `forjar graph --critical-path` — highlight the longest dependency chain. Bottleneck identification. | Done |
+| FJ-376 | `forjar status --summary-by machine|type|status` — group status output by dimension. Dashboard aggregation. | Done |
+| FJ-377 | `forjar apply --max-failures <n>` — allow N failures before stopping (override jidoka for partial deploys). | Done |
+
+### Phase 24 — v2.4: Enterprise & Scale
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-380 | `forjar apply --rate-limit <n>` — limit concurrent SSH connections. Prevent SSH throttling on large fleets. | Planned |
+| FJ-381 | `forjar validate --schema-version <v>` — validate config against a specific schema version. Forward compatibility. | Planned |
+| FJ-382 | `forjar status --prometheus` — expose metrics in Prometheus exposition format. Monitoring integration. | Planned |
+| FJ-383 | `forjar apply --label KEY=VALUE` — add metadata labels to apply run for audit trail filtering. | Planned |
+| FJ-384 | `forjar lock info` — show lock file metadata (schema version, generator, machines, resource count). | Planned |
+| FJ-385 | `forjar graph --reverse` — show reverse dependency graph (what depends on what). Reverse impact analysis. | Planned |
+| FJ-386 | `forjar apply --plan-file <path>` — execute a previously saved plan file. Separation of plan and apply. | Planned |
+| FJ-387 | `forjar status --expired <duration>` — show resources whose lock entry is older than duration. Staleness detection. | Planned |
 
 ---
 

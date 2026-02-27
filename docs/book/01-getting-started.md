@@ -16,7 +16,7 @@ Verify:
 forjar --help
 ```
 
-You should see forjar's 50 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`.
+You should see forjar's 51 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`.
 
 ## Your First Project
 
@@ -1738,6 +1738,57 @@ Compare environments (workspaces) for cross-environment drift:
 ```bash
 forjar env-diff staging production --state-dir state
 forjar env-diff dev staging --state-dir state --json
+```
+
+## Resume Failed Apply
+
+Resume from last failed resource instead of re-running everything:
+
+```bash
+forjar apply -f forjar.yaml --resume
+```
+
+## Template Preview
+
+Expand a recipe template to stdout without applying:
+
+```bash
+forjar template recipes/dev-tools.yaml --var user=noah --var shell=zsh
+forjar template recipes/dev-tools.yaml --var user=noah --json
+```
+
+## Changes Since Commit
+
+Show resources changed since a git commit:
+
+```bash
+forjar status --changes-since abc123 --state-dir state
+```
+
+## Critical Path Analysis
+
+Highlight the longest dependency chain (bottleneck identification):
+
+```bash
+forjar graph --critical-path -f forjar.yaml
+```
+
+## Status Grouping
+
+Group status output by dimension:
+
+```bash
+forjar status --summary-by machine --state-dir state
+forjar status --summary-by type --state-dir state
+forjar status --summary-by status --state-dir state --json
+```
+
+## Max Failures Override
+
+Allow N failures before stopping (override jidoka for partial deploys):
+
+```bash
+forjar apply -f forjar.yaml --max-failures 3
 ```
 
 ## Next Steps
