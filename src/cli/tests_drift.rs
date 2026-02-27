@@ -185,7 +185,7 @@ mod tests {
         let state = dir.path().join("state");
         std::fs::create_dir_all(&state).unwrap();
         dispatch(
-            Commands::Drift {
+            Commands::Drift(DriftArgs {
                 file: dir.path().join("forjar.yaml"),
                 machine: None,
                 state_dir: state,
@@ -196,7 +196,7 @@ mod tests {
                 json: false,
                 env_file: None,
                 workspace: None,
-            },
+            }),
             false,
             true,
         )
@@ -321,7 +321,7 @@ mod tests {
 
     #[test]
     fn test_fj355_drift_details_flag() {
-        let cmd = Commands::Status {
+        let cmd = Commands::Status(StatusArgs {
             state_dir: PathBuf::from("state"),
             machine: None,
             json: false,
@@ -398,9 +398,9 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
-        };
+        });
         match cmd {
-            Commands::Status { drift_details, .. } => assert!(drift_details),
+            Commands::Status(StatusArgs { drift_details, .. }) => assert!(drift_details),
             _ => panic!("expected Status"),
         }
     }
