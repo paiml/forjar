@@ -164,6 +164,7 @@ mod tests {
                 notify_log: None,
         notify_exec: None,
         notify_file: None,
+        notify_json: false,
         });
         match cmd {
             Commands::Apply(ApplyArgs { tags, .. }) => {
@@ -324,6 +325,7 @@ mod tests {
                 notify_log: None,
         notify_exec: None,
         notify_file: None,
+        notify_json: false,
         });
         match cmd {
             Commands::Apply(ApplyArgs { comment, .. }) => {
@@ -482,6 +484,7 @@ mod tests {
                 notify_log: None,
         notify_exec: None,
         notify_file: None,
+        notify_json: false,
         });
         match cmd {
             Commands::Apply(ApplyArgs { only_changed, .. }) => assert!(only_changed),

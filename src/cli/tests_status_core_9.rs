@@ -118,6 +118,9 @@ mod tests {
             fleet_convergence: false,
             resource_hash: false,
             machine_drift_summary: false,
+            apply_history_count: false,
+            lock_file_count: false,
+            resource_type_distribution: false,
         });
         match cmd {
             Commands::Status(StatusArgs { config_drift, .. }) => assert!(config_drift),
@@ -218,6 +221,9 @@ mod tests {
             fleet_convergence: false,
             resource_hash: false,
             machine_drift_summary: false,
+            apply_history_count: false,
+            lock_file_count: false,
+            resource_type_distribution: false,
         });
         match cmd {
             Commands::Status(StatusArgs {

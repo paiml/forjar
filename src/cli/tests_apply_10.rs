@@ -164,6 +164,7 @@ mod tests {
                 notify_log: None,
         notify_exec: None,
         notify_file: None,
+        notify_json: false,
         });
         match cmd {
             Commands::Apply(ApplyArgs { schedule, .. }) => {
@@ -322,6 +323,7 @@ mod tests {
                 notify_log: None,
         notify_exec: None,
         notify_file: None,
+        notify_json: false,
         });
         match cmd {
             Commands::Apply(ApplyArgs { env_name, .. }) => assert_eq!(env_name, Some("staging".to_string())),
@@ -478,6 +480,7 @@ mod tests {
                 notify_log: None,
         notify_exec: None,
         notify_file: None,
+        notify_json: false,
         });
         match cmd {
             Commands::Apply(ApplyArgs { dry_run_diff, .. }) => assert!(dry_run_diff),

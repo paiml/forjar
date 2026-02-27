@@ -192,5 +192,13 @@ pub struct ValidateArgs {
     /// FJ-769: Verify state field values are valid for each resource type
     #[arg(long)]
     pub check_state_values: bool,
+
+    /// FJ-773: Detect machines defined but not referenced by any resource
+    #[arg(long)]
+    pub check_unused_machines: bool,
+
+    /// FJ-777: Verify resource tags follow naming conventions
+    #[arg(long)]
+    pub check_tag_consistency: bool,
 }
 

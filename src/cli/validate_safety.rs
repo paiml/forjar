@@ -196,3 +196,79 @@ fn find_bad_states(config: &types::ForjarConfig) -> Vec<(String, String, String)
     bad.sort_by(|a, b| a.0.cmp(&b.0));
     bad
 }
+
+
+/// FJ-773: Detect machines defined but not referenced by any resource.
+pub(crate) fn cmd_validate_check_unused_machines(
+    file: &Path, json: bool,
+) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let config: types::ForjarConfig =
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+    let unused = find_unused_machines(&config);
+    if json {
+        let items: Vec<String> = unused.iter().map(|m| format!("\"{}\"", m)).collect();
+        println!("{{\"unused_machines\":[{}]}}", items.join(","));
+    } else if unused.is_empty() {
+        println!("All defined machines are referenced by resources.");
+    } else {
+        println!("Unused machines ({}):", unused.len());
+        for m in &unused { println!("  {}", m); }
+    }
+    Ok(())
+}
+
+/// Find machines not referenced by any resource.
+fn find_unused_machines(config: &types::ForjarConfig) -> Vec<String> {
+    let mut used: HashSet<String> = HashSet::new();
+    for resource in config.resources.values() {
+        for m in resource.machine.to_vec() { used.insert(m); }
+    }
+    let mut unused: Vec<String> = config.machines.keys()
+        .filter(|m| !used.contains(m.as_str()))
+        .cloned().collect();
+    unused.sort();
+    unused
+}
+
+
+/// FJ-777: Verify resource tags follow naming conventions (kebab-case).
+pub(crate) fn cmd_validate_check_tag_consistency(
+    file: &Path, json: bool,
+) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let config: types::ForjarConfig =
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+    let bad = find_bad_tags(&config);
+    if json {
+        let items: Vec<String> = bad.iter()
+            .map(|(r, t)| format!("{{\"resource\":\"{}\",\"tag\":\"{}\"}}", r, t))
+            .collect();
+        println!("{{\"tag_violations\":[{}]}}", items.join(","));
+    } else if bad.is_empty() {
+        println!("All resource tags follow naming conventions.");
+    } else {
+        println!("Tag naming violations ({}):", bad.len());
+        for (r, t) in &bad { println!("  {} — tag \"{}\" (expected kebab-case)", r, t); }
+    }
+    Ok(())
+}
+
+/// Check if a string is kebab-case.
+fn is_kebab_case(s: &str) -> bool {
+    !s.is_empty() && s.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+}
+
+/// Find resources with tags that aren't kebab-case.
+fn find_bad_tags(config: &types::ForjarConfig) -> Vec<(String, String)> {
+    let mut bad = Vec::new();
+    for (name, resource) in &config.resources {
+        for tag in &resource.tags {
+            if !is_kebab_case(tag) {
+                bad.push((name.clone(), tag.clone()));
+            }
+        }
+    }
+    bad.sort();
+    bad
+}

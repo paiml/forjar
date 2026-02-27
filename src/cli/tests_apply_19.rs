@@ -164,6 +164,7 @@ mod tests {
                 notify_log: None,
         notify_exec: None,
         notify_file: None,
+        notify_json: false,
         });
         match cmd {
             Commands::Apply(ApplyArgs {
@@ -325,6 +326,7 @@ mod tests {
                 notify_log: None,
         notify_exec: None,
         notify_file: None,
+        notify_json: false,
         });
         match cmd {
             Commands::Apply(ApplyArgs {
@@ -484,6 +486,7 @@ mod tests {
                 notify_log: None,
         notify_exec: None,
         notify_file: None,
+        notify_json: false,
         });
         match cmd {
             Commands::Apply(ApplyArgs { change_window, .. }) => {

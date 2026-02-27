@@ -72,6 +72,8 @@ mod tests {
             adjacency_matrix: false,
             longest_path: false,
             in_degree: false,
+            out_degree: false,
+            density: false,
         });
         match cmd {
             Commands::Graph(GraphArgs {

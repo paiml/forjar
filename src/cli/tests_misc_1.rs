@@ -163,6 +163,7 @@ mod tests {
             notify_log: None,
         notify_exec: None,
         notify_file: None,
+        notify_json: false,
         });
         match cmd {
             Commands::Apply(ApplyArgs { progress, .. }) => assert!(!progress),
@@ -323,6 +324,7 @@ mod tests {
             notify_log: None,
         notify_exec: None,
         notify_file: None,
+        notify_json: false,
         });
         match cmd {
             Commands::Apply(ApplyArgs { timing, .. }) => assert!(timing),
@@ -479,6 +481,7 @@ mod tests {
             notify_log: None,
         notify_exec: None,
         notify_file: None,
+        notify_json: false,
         });
         match cmd {
             Commands::Apply(ApplyArgs { timing, .. }) => assert!(!timing),

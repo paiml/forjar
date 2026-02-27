@@ -67,6 +67,8 @@ mod tests {
         check_machine_refs: false,
         check_provider_consistency: false,
         check_state_values: false,
+        check_unused_machines: false,
+        check_tag_consistency: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { check_limits, .. }) => assert!(check_limits),
@@ -125,6 +127,8 @@ mod tests {
         check_machine_refs: false,
         check_provider_consistency: false,
         check_state_values: false,
+        check_unused_machines: false,
+        check_tag_consistency: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs {
@@ -185,6 +189,8 @@ mod tests {
         check_machine_refs: false,
         check_provider_consistency: false,
         check_state_values: false,
+        check_unused_machines: false,
+        check_tag_consistency: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { check_security, .. }) => assert!(check_security),
@@ -243,6 +249,8 @@ mod tests {
         check_machine_refs: false,
         check_provider_consistency: false,
         check_state_values: false,
+        check_unused_machines: false,
+        check_tag_consistency: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs {
@@ -303,6 +311,8 @@ mod tests {
         check_machine_refs: false,
         check_provider_consistency: false,
         check_state_values: false,
+        check_unused_machines: false,
+        check_tag_consistency: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs {
@@ -363,6 +373,8 @@ mod tests {
         check_machine_refs: false,
         check_provider_consistency: false,
         check_state_values: false,
+        check_unused_machines: false,
+        check_tag_consistency: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs {
@@ -423,6 +435,8 @@ mod tests {
         check_machine_refs: false,
         check_provider_consistency: false,
         check_state_values: false,
+        check_unused_machines: false,
+        check_tag_consistency: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs {
@@ -483,6 +497,8 @@ mod tests {
         check_machine_refs: false,
         check_provider_consistency: false,
         check_state_values: false,
+        check_unused_machines: false,
+        check_tag_consistency: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs {
@@ -544,6 +560,8 @@ mod tests {
         check_machine_refs: false,
         check_provider_consistency: false,
         check_state_values: false,
+        check_unused_machines: false,
+        check_tag_consistency: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { check_unused, .. }) => assert!(check_unused),

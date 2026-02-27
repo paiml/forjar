@@ -164,6 +164,7 @@ mod tests {
                 notify_log: None,
         notify_exec: None,
         notify_file: None,
+        notify_json: false,
         });
         match cmd {
             Commands::Apply(ApplyArgs { max_duration, .. }) => assert_eq!(max_duration, Some(300)),
@@ -320,6 +321,7 @@ mod tests {
                 notify_log: None,
         notify_exec: None,
         notify_file: None,
+        notify_json: false,
         });
         match cmd {
             Commands::Apply(ApplyArgs { notify_grafana, .. }) => assert_eq!(
@@ -479,6 +481,7 @@ mod tests {
                 notify_log: None,
         notify_exec: None,
         notify_file: None,
+        notify_json: false,
         });
         match cmd {
             Commands::Apply(ApplyArgs {

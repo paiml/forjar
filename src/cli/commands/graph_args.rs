@@ -204,5 +204,13 @@ pub struct GraphArgs {
     /// FJ-771: Show in-degree (number of dependents) per resource
     #[arg(long)]
     pub in_degree: bool,
+
+    /// FJ-775: Show out-degree (number of dependencies) per resource
+    #[arg(long)]
+    pub out_degree: bool,
+
+    /// FJ-779: Show graph density (edges / max-possible-edges)
+    #[arg(long)]
+    pub density: bool,
 }
 
