@@ -16,7 +16,7 @@ Verify:
 forjar --help
 ```
 
-You should see forjar's 63 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`, `lock-compact`, `lock-verify`, `lock-export`, `lock-gc`, `lock-diff`, `lock-merge`, `lock-rebase`, `lock-sign`, `lock-verify-sig`, `lock-compact-all`.
+You should see forjar's 64 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`, `lock-compact`, `lock-verify`, `lock-export`, `lock-gc`, `lock-diff`, `lock-merge`, `lock-rebase`, `lock-sign`, `lock-verify-sig`, `lock-compact-all`, `lock-audit-trail`.
 
 ## Your First Project
 
@@ -2455,6 +2455,75 @@ Show convergence percentage across resources:
 ```bash
 forjar status --convergence-rate --state-dir state
 forjar status --convergence-rate --json --state-dir state
+```
+
+## Apply Metrics Port
+
+Expose apply metrics on an HTTP port for Prometheus scraping:
+
+```bash
+forjar apply -f forjar.yaml --metrics-port 9090
+```
+
+## Validate Check Overlaps
+
+Detect resources targeting the same path/port on the same machine:
+
+```bash
+forjar validate -f forjar.yaml --check-overlaps
+forjar validate -f forjar.yaml --check-overlaps --json
+```
+
+## Status Drift Summary
+
+Show one-line per-machine drift count and percentage:
+
+```bash
+forjar status --drift-summary --state-dir state
+forjar status --drift-summary --json --state-dir state
+```
+
+## Apply Notify OpsGenie
+
+Send apply alerts to OpsGenie:
+
+```bash
+forjar apply -f forjar.yaml --notify-opsgenie <api-key>
+```
+
+## Graph Subgraph
+
+Extract and display a resource's dependency subgraph:
+
+```bash
+forjar graph -f forjar.yaml --subgraph my-resource
+forjar graph -f forjar.yaml --subgraph my-resource --format dot
+```
+
+## Lock Audit Trail
+
+Show full audit trail of lock file changes with timestamps:
+
+```bash
+forjar lock-audit-trail --state-dir state
+forjar lock-audit-trail --state-dir state --machine gpu-box --json
+```
+
+## Apply Circuit Breaker
+
+Pause apply after N consecutive failures:
+
+```bash
+forjar apply -f forjar.yaml --circuit-breaker 5
+```
+
+## Status Resource Age
+
+Show age of each resource since last successful apply:
+
+```bash
+forjar status --resource-age --state-dir state
+forjar status --resource-age --json --state-dir state
 ```
 
 ## Next Steps
