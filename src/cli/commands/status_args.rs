@@ -372,5 +372,17 @@ pub struct StatusArgs {
     /// FJ-780: Show resource type breakdown across fleet
     #[arg(long)]
     pub resource_type_distribution: bool,
+
+    /// FJ-782: Show time since last apply per resource
+    #[arg(long)]
+    pub resource_apply_age: bool,
+
+    /// FJ-786: Show time since first apply per machine
+    #[arg(long)]
+    pub machine_uptime: bool,
+
+    /// FJ-788: Show apply frequency per resource over time
+    #[arg(long)]
+    pub resource_churn: bool,
 }
 

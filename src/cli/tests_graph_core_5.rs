@@ -74,6 +74,8 @@ mod tests {
             in_degree: false,
             out_degree: false,
             density: false,
+            topological_sort: false,
+            critical_path_resources: false,
         });
         match cmd {
             Commands::Graph(GraphArgs {

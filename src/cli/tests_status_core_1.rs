@@ -111,6 +111,9 @@ mod tests {
             apply_history_count: false,
             lock_file_count: false,
             resource_type_distribution: false,
+            resource_apply_age: false,
+            machine_uptime: false,
+            resource_churn: false,
         });
         match cmd {
             Commands::Status(StatusArgs { stale, .. }) => assert_eq!(stale, Some(30)),
@@ -216,6 +219,9 @@ mod tests {
             apply_history_count: false,
             lock_file_count: false,
             resource_type_distribution: false,
+            resource_apply_age: false,
+            machine_uptime: false,
+            resource_churn: false,
         });
         match cmd {
             Commands::Status(StatusArgs { health, .. }) => assert!(health),
@@ -319,6 +325,9 @@ mod tests {
             apply_history_count: false,
             lock_file_count: false,
             resource_type_distribution: false,
+            resource_apply_age: false,
+            machine_uptime: false,
+            resource_churn: false,
         });
         match cmd {
             Commands::Status(StatusArgs { count, .. }) => assert!(count),
@@ -422,6 +431,9 @@ mod tests {
             apply_history_count: false,
             lock_file_count: false,
             resource_type_distribution: false,
+            resource_apply_age: false,
+            machine_uptime: false,
+            resource_churn: false,
         });
         match cmd {
             Commands::Status(StatusArgs { format, .. }) => {
@@ -527,6 +539,9 @@ mod tests {
             apply_history_count: false,
             lock_file_count: false,
             resource_type_distribution: false,
+            resource_apply_age: false,
+            machine_uptime: false,
+            resource_churn: false,
         });
         match cmd {
             Commands::Status(StatusArgs { anomalies, .. }) => assert!(anomalies),

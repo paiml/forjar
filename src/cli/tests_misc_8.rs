@@ -164,6 +164,7 @@ mod tests {
         notify_exec: None,
         notify_file: None,
         notify_json: false,
+            notify_slack_webhook: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { tag_filter, .. }) => {
@@ -269,6 +270,9 @@ mod tests {
             apply_history_count: false,
             lock_file_count: false,
             resource_type_distribution: false,
+            resource_apply_age: false,
+            machine_uptime: false,
+            resource_churn: false,
         });
         match cmd {
             Commands::Status(StatusArgs { timeline, .. }) => assert!(timeline),
@@ -426,6 +430,7 @@ mod tests {
         notify_exec: None,
         notify_file: None,
         notify_json: false,
+            notify_slack_webhook: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { resume, .. }) => assert!(resume),

@@ -74,6 +74,8 @@ mod tests {
             in_degree: false,
             out_degree: false,
             density: false,
+            topological_sort: false,
+            critical_path_resources: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { timeline_graph, .. }) => assert!(timeline_graph),
@@ -137,6 +139,8 @@ mod tests {
             in_degree: false,
             out_degree: false,
             density: false,
+            topological_sort: false,
+            critical_path_resources: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { what_if, .. }) => {
@@ -202,6 +206,8 @@ mod tests {
             in_degree: false,
             out_degree: false,
             density: false,
+            topological_sort: false,
+            critical_path_resources: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { blast_radius, .. }) => {
@@ -267,6 +273,8 @@ mod tests {
             in_degree: false,
             out_degree: false,
             density: false,
+            topological_sort: false,
+            critical_path_resources: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { change_impact, .. }) => {
@@ -332,6 +340,8 @@ mod tests {
             in_degree: false,
             out_degree: false,
             density: false,
+            topological_sort: false,
+            critical_path_resources: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { resource_types, .. }) => assert!(resource_types),

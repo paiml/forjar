@@ -265,6 +265,8 @@ mod tests_misc_8;
 #[cfg(test)]
 mod tests_misc_9;
 #[cfg(test)]
+mod tests_phase65;
+#[cfg(test)]
 mod tests_misc_10;
 
 pub use commands::Commands;

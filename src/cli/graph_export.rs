@@ -316,3 +316,91 @@ pub(crate) fn cmd_graph_density(file: &Path, json: bool) -> Result<(), String> {
     }
     Ok(())
 }
+
+
+/// FJ-783: Output resources in valid topological execution order.
+pub(crate) fn cmd_graph_topological_sort(file: &Path, json: bool) -> Result<(), String> {
+    let cfg = parse_and_validate(file)?;
+    let order = topological_sort_resources(&cfg);
+    if json {
+        let items: Vec<String> = order.iter().map(|n| format!("\"{}\"", n)).collect();
+        println!("{{\"topological_order\":[{}]}}", items.join(","));
+    } else if order.is_empty() {
+        println!("No resources (empty graph).");
+    } else {
+        println!("Topological execution order ({} resources):", order.len());
+        for (i, name) in order.iter().enumerate() { println!("  {}. {}", i + 1, name); }
+    }
+    Ok(())
+}
+
+/// Build in-degree map and dependents adjacency for Kahn's algorithm.
+fn build_kahn_graph<'a>(cfg: &'a types::ForjarConfig) -> (
+    std::collections::HashMap<&'a str, usize>,
+    std::collections::HashMap<&'a str, Vec<&'a str>>,
+) {
+    let mut in_deg: std::collections::HashMap<&str, usize> = std::collections::HashMap::new();
+    let mut dependents: std::collections::HashMap<&str, Vec<&str>> = std::collections::HashMap::new();
+    for name in cfg.resources.keys() { in_deg.insert(name.as_str(), 0); }
+    for (name, resource) in &cfg.resources {
+        for dep in &resource.depends_on {
+            if cfg.resources.contains_key(dep) {
+                *in_deg.entry(name.as_str()).or_default() += 1;
+                dependents.entry(dep.as_str()).or_default().push(name.as_str());
+            }
+        }
+    }
+    (in_deg, dependents)
+}
+
+/// Process Kahn's queue: pop nodes, decrement dependents, collect result.
+fn kahn_process<'a>(
+    in_deg: &mut std::collections::HashMap<&'a str, usize>,
+    dependents: &std::collections::HashMap<&str, Vec<&'a str>>,
+) -> Vec<String> {
+    let mut queue: Vec<&str> = in_deg.iter()
+        .filter(|(_, &d)| d == 0)
+        .map(|(&n, _)| n)
+        .collect();
+    queue.sort();
+    let mut deque: std::collections::VecDeque<&str> = queue.into_iter().collect();
+    let mut result = Vec::new();
+    while let Some(n) = deque.pop_front() {
+        result.push(n.to_string());
+        if let Some(deps) = dependents.get(n) {
+            let mut next: Vec<&str> = Vec::new();
+            for &d in deps {
+                if let Some(deg) = in_deg.get_mut(d) {
+                    *deg -= 1;
+                    if *deg == 0 { next.push(d); }
+                }
+            }
+            next.sort();
+            deque.extend(next);
+        }
+    }
+    result
+}
+
+/// Kahn's algorithm for topological sort.
+fn topological_sort_resources(cfg: &types::ForjarConfig) -> Vec<String> {
+    let (mut in_deg, dependents) = build_kahn_graph(cfg);
+    kahn_process(&mut in_deg, &dependents)
+}
+
+
+/// FJ-787: Show resources on the longest dependency chain (critical path).
+pub(crate) fn cmd_graph_critical_path_resources(file: &Path, json: bool) -> Result<(), String> {
+    let cfg = parse_and_validate(file)?;
+    let (length, chain) = find_longest_chain(&cfg);
+    if json {
+        let items: Vec<String> = chain.iter().map(|n| format!("\"{}\"", n)).collect();
+        println!("{{\"critical_path_length\":{},\"resources\":[{}]}}", length, items.join(","));
+    } else if length == 0 {
+        println!("No dependency chains (all resources independent).");
+    } else {
+        println!("Critical path ({} edges, {} resources):", length, chain.len());
+        for (i, name) in chain.iter().enumerate() { println!("  {}. {}", i + 1, name); }
+    }
+    Ok(())
+}

@@ -127,6 +127,8 @@ resources: {}
         check_state_values: false,
         check_unused_machines: false,
         check_tag_consistency: false,
+            check_dependency_exists: false,
+            check_path_conflicts_strict: false,
             }),
             false,
             true,
@@ -307,6 +309,8 @@ resources:
         check_state_values: false,
         check_unused_machines: false,
         check_tag_consistency: false,
+            check_dependency_exists: false,
+            check_path_conflicts_strict: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { json, strict, .. }) => {
@@ -372,6 +376,8 @@ resources:
         check_state_values: false,
         check_unused_machines: false,
         check_tag_consistency: false,
+            check_dependency_exists: false,
+            check_path_conflicts_strict: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { dry_expand, .. }) => assert!(dry_expand),
@@ -432,6 +438,8 @@ resources:
         check_state_values: false,
         check_unused_machines: false,
         check_tag_consistency: false,
+            check_dependency_exists: false,
+            check_path_conflicts_strict: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { exhaustive, .. }) => assert!(exhaustive),
@@ -492,6 +500,8 @@ resources:
         check_state_values: false,
         check_unused_machines: false,
         check_tag_consistency: false,
+            check_dependency_exists: false,
+            check_path_conflicts_strict: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { policy_file, .. }) => {
