@@ -16,7 +16,7 @@ Verify:
 forjar --help
 ```
 
-You should see forjar's 73 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`, `lock-compact`, `lock-verify`, `lock-export`, `lock-gc`, `lock-diff`, `lock-merge`, `lock-rebase`, `lock-sign`, `lock-verify-sig`, `lock-compact-all`, `lock-audit-trail`, `lock-rotate-keys`, `lock-backup`, `lock-verify-chain`, `lock-stats`, `lock-audit`, `lock-compress`, `lock-defrag`, `lock-normalize`, `lock-validate`.
+You should see forjar's 74 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`, `lock-compact`, `lock-verify`, `lock-export`, `lock-gc`, `lock-diff`, `lock-merge`, `lock-rebase`, `lock-sign`, `lock-verify-sig`, `lock-compact-all`, `lock-audit-trail`, `lock-rotate-keys`, `lock-backup`, `lock-verify-chain`, `lock-stats`, `lock-audit`, `lock-compress`, `lock-defrag`, `lock-normalize`, `lock-validate`, `lock-verify-hmac`.
 
 ## Your First Project
 
@@ -3162,6 +3162,42 @@ forjar lock-validate --state-dir state --json
 
 ```bash
 forjar apply -f forjar.yaml --notify-kafka my-topic
+```
+
+### Security Hardening & Audit (FJ-600→FJ-607)
+
+**Permission validation** checks for insecure file modes and ownership:
+
+```bash
+forjar validate --check-permissions -f forjar.yaml
+forjar validate --check-permissions -f forjar.yaml --json
+```
+
+**Security posture** shows security-relevant resource states:
+
+```bash
+forjar status --security-posture --state-dir state
+forjar status --security-posture --state-dir state --json
+```
+
+**Security boundaries** highlights resources crossing security zones:
+
+```bash
+forjar graph --security-boundaries -f forjar.yaml
+forjar graph --security-boundaries -f forjar.yaml --json
+```
+
+**HMAC verification** checks lock file signatures:
+
+```bash
+forjar lock-verify-hmac --state-dir state
+forjar lock-verify-hmac --state-dir state --json
+```
+
+**Pre-flight checks** gate apply with a validation script:
+
+```bash
+forjar apply -f forjar.yaml --pre-flight "bash /path/to/check.sh"
 ```
 
 ## Next Steps
