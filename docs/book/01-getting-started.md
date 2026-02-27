@@ -16,7 +16,7 @@ Verify:
 forjar --help
 ```
 
-You should see forjar's 74 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`, `lock-compact`, `lock-verify`, `lock-export`, `lock-gc`, `lock-diff`, `lock-merge`, `lock-rebase`, `lock-sign`, `lock-verify-sig`, `lock-compact-all`, `lock-audit-trail`, `lock-rotate-keys`, `lock-backup`, `lock-verify-chain`, `lock-stats`, `lock-audit`, `lock-compress`, `lock-defrag`, `lock-normalize`, `lock-validate`, `lock-verify-hmac`.
+You should see forjar's 75 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`, `lock-compact`, `lock-verify`, `lock-export`, `lock-gc`, `lock-diff`, `lock-merge`, `lock-rebase`, `lock-sign`, `lock-verify-sig`, `lock-compact-all`, `lock-audit-trail`, `lock-rotate-keys`, `lock-backup`, `lock-verify-chain`, `lock-stats`, `lock-audit`, `lock-compress`, `lock-defrag`, `lock-normalize`, `lock-validate`, `lock-verify-hmac`, `lock-archive`.
 
 ## Your First Project
 
@@ -3198,6 +3198,43 @@ forjar lock-verify-hmac --state-dir state --json
 
 ```bash
 forjar apply -f forjar.yaml --pre-flight "bash /path/to/check.sh"
+```
+
+### Resource Intelligence & Analytics (FJ-610→FJ-617)
+
+**Deep idempotency analysis** detects non-idempotent patterns:
+
+```bash
+forjar validate --check-idempotency-deep -f forjar.yaml
+forjar validate --check-idempotency-deep -f forjar.yaml --json
+```
+
+**Resource cost** estimates complexity by resource type:
+
+```bash
+forjar status --resource-cost --state-dir state
+forjar status --resource-cost --state-dir state --json
+```
+
+**Drift forecast** predicts drift risk based on resource types:
+
+```bash
+forjar status --drift-forecast --state-dir state
+forjar status --drift-forecast --state-dir state --json
+```
+
+**Resource age** shows when resources were last applied:
+
+```bash
+forjar graph --resource-age -f forjar.yaml
+forjar graph --resource-age -f forjar.yaml --json
+```
+
+**Lock archive** archives event logs to compressed storage:
+
+```bash
+forjar lock-archive --state-dir state
+forjar lock-archive --state-dir state --json
 ```
 
 ## Next Steps

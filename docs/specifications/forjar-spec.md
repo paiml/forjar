@@ -2188,14 +2188,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-610 | `forjar apply --notify-gcp-pubsub-v2 <topic>` — enhanced GCP Pub/Sub with ordering keys. Cloud integration. | Planned |
-| FJ-611 | `forjar validate --check-idempotency-deep` — deep idempotency analysis with simulation. Quality. | Planned |
-| FJ-612 | `forjar status --resource-cost` — estimate resource cost based on type and count. Planning. | Planned |
-| FJ-613 | `forjar apply --checkpoint <name>` — create named checkpoint before apply for rollback. Safety. | Planned |
-| FJ-614 | `forjar graph --resource-age` — show resource age based on last apply timestamp. Analytics. | Planned |
-| FJ-615 | `forjar lock archive` — archive old lock files to compressed storage. Housekeeping. | Planned |
-| FJ-616 | `forjar apply --post-flight <script>` — run post-flight validation script after apply. Verification. | Planned |
-| FJ-617 | `forjar status --drift-forecast` — predict likely drift based on historical patterns. Intelligence. | Planned |
+| FJ-610 | `forjar apply --notify-gcp-pubsub-v2 <topic>` — enhanced GCP Pub/Sub with ordering keys. Cloud integration. | Done |
+| FJ-611 | `forjar validate --check-idempotency-deep` — deep idempotency analysis with simulation. Quality. | Done |
+| FJ-612 | `forjar status --resource-cost` — estimate resource cost based on type and count. Planning. | Done |
+| FJ-613 | `forjar apply --checkpoint <name>` — create named checkpoint before apply for rollback. Safety. | Done |
+| FJ-614 | `forjar graph --resource-age` — show resource age based on last apply timestamp. Analytics. | Done |
+| FJ-615 | `forjar lock archive` — archive old lock files to compressed storage. Housekeeping. | Done |
+| FJ-616 | `forjar apply --post-flight <script>` — run post-flight validation script after apply. Verification. | Done |
+| FJ-617 | `forjar status --drift-forecast` — predict likely drift based on historical patterns. Intelligence. | Done |
+
+### Phase 48 — v4.8: Workflow Automation & Pipelines
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-620 | `forjar apply --notify-rabbitmq <queue>` — publish events to RabbitMQ. Message queue integration. | Planned |
+| FJ-621 | `forjar validate --check-machine-reachability` — verify machines are reachable before apply. Preflight. | Planned |
+| FJ-622 | `forjar status --pipeline-status` — show CI/CD pipeline integration status. DevOps. | Planned |
+| FJ-623 | `forjar apply --gate <name>` — require named approval gate before apply proceeds. Safety. | Planned |
+| FJ-624 | `forjar graph --parallel-groups` — show which resources can execute in parallel. Optimization. | Planned |
+| FJ-625 | `forjar lock snapshot` — create point-in-time lock file snapshot with metadata. Recovery. | Planned |
+| FJ-626 | `forjar apply --schedule <cron>` — schedule apply for future execution. Automation. | Planned |
+| FJ-627 | `forjar status --resource-dependencies` — show runtime dependency graph from lock files. Analytics. | Planned |
 
 ---
 
