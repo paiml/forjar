@@ -93,6 +93,12 @@ forjar validate -f forjar.yaml --check-dependency-exists
 
 # Detect resources targeting the same file path on the same machine
 forjar validate -f forjar.yaml --check-path-conflicts-strict
+
+# Detect duplicate resource base names across groups
+forjar validate -f forjar.yaml --check-duplicate-names
+
+# Verify resource groups are non-empty
+forjar validate -f forjar.yaml --check-resource-groups
 ```
 
 ### `forjar plan`
@@ -240,6 +246,15 @@ forjar status --state-dir state --machine-uptime
 
 # Show apply frequency per resource over time
 forjar status --state-dir state --resource-churn
+
+# Show timestamp of last drift detection per resource
+forjar status --state-dir state --last-drift-time
+
+# Show resource count per machine
+forjar status -f forjar.yaml --machine-resource-count
+
+# Weighted convergence score across fleet
+forjar status --state-dir state --convergence-score
 ```
 
 ### `forjar history`
@@ -337,6 +352,12 @@ forjar graph -f forjar.yaml --topological-sort
 
 # Show resources on the longest dependency chain
 forjar graph -f forjar.yaml --critical-path-resources
+
+# Show sink resources (nothing depends on them)
+forjar graph -f forjar.yaml --sink-resources
+
+# Check if dependency graph is bipartite
+forjar graph -f forjar.yaml --bipartite-check
 ```
 
 ### `forjar destroy`
