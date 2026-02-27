@@ -2045,14 +2045,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-500 | `forjar apply --require-approval <users>` — require named approvers before apply proceeds. Change control. | Planned |
-| FJ-501 | `forjar validate --check-limits` — enforce resource count limits per machine/type. Governance. | Planned |
-| FJ-502 | `forjar status --sla-report` — show SLA compliance based on convergence timing. SLA tracking. | Planned |
-| FJ-503 | `forjar apply --notify-datadog <key>` — send apply events to Datadog. APM integration. | Planned |
-| FJ-504 | `forjar graph --impact-radius <resource>` — show blast radius of changing a resource. Risk analysis. | Planned |
-| FJ-505 | `forjar lock rotate-keys` — rotate all lock file signing keys. Key management. | Planned |
-| FJ-506 | `forjar apply --change-window <cron>` — restrict applies to defined maintenance windows. Change control. | Planned |
-| FJ-507 | `forjar status --compliance-report <policy>` — generate full compliance report. Audit readiness. | Planned |
+| FJ-500 | `forjar apply --require-approval <users>` — require named approvers before apply proceeds. Change control. | Done |
+| FJ-501 | `forjar validate --check-limits` — enforce resource count limits per machine/type. Governance. | Done |
+| FJ-502 | `forjar status --sla-report` — show SLA compliance based on convergence timing. SLA tracking. | Done |
+| FJ-503 | `forjar apply --notify-datadog <key>` — send apply events to Datadog. APM integration. | Done |
+| FJ-504 | `forjar graph --impact-radius <resource>` — show blast radius of changing a resource. Risk analysis. | Done |
+| FJ-505 | `forjar lock rotate-keys` — rotate all lock file signing keys. Key management. | Done |
+| FJ-506 | `forjar apply --change-window <cron>` — restrict applies to defined maintenance windows. Change control. | Done |
+| FJ-507 | `forjar status --compliance-report <policy>` — generate full compliance report. Audit readiness. | Done |
+
+### Phase 37 — v3.7: Resilience & Recovery
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-510 | `forjar apply --canary-machine <name>` — apply to single machine first, confirm before fleet. Canary deploy. | Planned |
+| FJ-511 | `forjar validate --check-complexity` — warn on resources with high dependency fan-out. Complexity guard. | Planned |
+| FJ-512 | `forjar status --mttr` — show mean time to recovery per resource. Reliability metric. | Planned |
+| FJ-513 | `forjar apply --notify-newrelic <key>` — send apply events to New Relic. Observability integration. | Planned |
+| FJ-514 | `forjar graph --dependency-matrix` — output resource dependency matrix (CSV/JSON). Analysis export. | Planned |
+| FJ-515 | `forjar lock backup` — create timestamped backup of all lock files. Disaster recovery. | Planned |
+| FJ-516 | `forjar apply --max-duration <secs>` — abort entire apply if it exceeds time limit. Timeout guard. | Planned |
+| FJ-517 | `forjar status --trend <n>` — show status trend over last N applies. Historical analysis. | Planned |
 
 ---
 

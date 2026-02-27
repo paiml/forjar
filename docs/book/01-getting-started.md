@@ -16,7 +16,7 @@ Verify:
 forjar --help
 ```
 
-You should see forjar's 64 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`, `lock-compact`, `lock-verify`, `lock-export`, `lock-gc`, `lock-diff`, `lock-merge`, `lock-rebase`, `lock-sign`, `lock-verify-sig`, `lock-compact-all`, `lock-audit-trail`.
+You should see forjar's 65 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`, `lock-compact`, `lock-verify`, `lock-export`, `lock-gc`, `lock-diff`, `lock-merge`, `lock-rebase`, `lock-sign`, `lock-verify-sig`, `lock-compact-all`, `lock-audit-trail`, `lock-rotate-keys`.
 
 ## Your First Project
 
@@ -2524,6 +2524,74 @@ Show age of each resource since last successful apply:
 ```bash
 forjar status --resource-age --state-dir state
 forjar status --resource-age --json --state-dir state
+```
+
+## Apply Require Approval
+
+Require named approvers before apply proceeds:
+
+```bash
+forjar apply -f forjar.yaml --require-approval "alice,bob"
+```
+
+## Validate Check Limits
+
+Enforce resource count limits per machine/type:
+
+```bash
+forjar validate -f forjar.yaml --check-limits
+forjar validate -f forjar.yaml --check-limits --json
+```
+
+## Status SLA Report
+
+Show SLA compliance based on convergence:
+
+```bash
+forjar status --sla-report --state-dir state
+forjar status --sla-report --json --state-dir state
+```
+
+## Apply Notify Datadog
+
+Send apply events to Datadog:
+
+```bash
+forjar apply -f forjar.yaml --notify-datadog <api-key>
+```
+
+## Graph Impact Radius
+
+Show blast radius of changing a resource:
+
+```bash
+forjar graph -f forjar.yaml --impact-radius base-packages
+```
+
+## Lock Rotate Keys
+
+Rotate all lock file signing keys:
+
+```bash
+forjar lock-rotate-keys --state-dir state --old-key old-key --new-key new-key
+forjar lock-rotate-keys --state-dir state --old-key old --new-key new --json
+```
+
+## Apply Change Window
+
+Restrict applies to defined maintenance windows:
+
+```bash
+forjar apply -f forjar.yaml --change-window "0 2 * * SAT"
+```
+
+## Status Compliance Report
+
+Generate a full compliance report:
+
+```bash
+forjar status --compliance-report pci-dss --state-dir state
+forjar status --compliance-report soc2 --json --state-dir state
 ```
 
 ## Next Steps
