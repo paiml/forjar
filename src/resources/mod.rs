@@ -16,3 +16,14 @@ pub mod package;
 pub mod pepita;
 pub mod service;
 pub mod user;
+
+#[cfg(test)]
+mod tests_file;
+#[cfg(test)]
+mod tests_docker;
+#[cfg(test)]
+mod tests_package;
+#[cfg(test)]
+mod tests_user;
+#[cfg(test)]
+mod tests_mount;
