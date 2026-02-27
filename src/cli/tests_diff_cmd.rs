@@ -449,6 +449,7 @@ resources:
             exclude_machine: None,
                 notify_ntfy: None,
                 only_machine: None,
+                notify_webhook_headers: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { diff_only, .. }) => assert!(diff_only),

@@ -393,3 +393,105 @@ pub(crate) fn cmd_graph_breadth_first(file: &Path, json: bool) -> Result<(), Str
     Ok(())
 }
 
+
+/// Compute in-degree and out-degree for each resource.
+fn compute_degrees(cfg: &types::ForjarConfig) -> Vec<(String, usize, usize)> {
+    let mut in_deg: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    let mut out_deg: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    for (name, resource) in &cfg.resources {
+        out_deg.insert(name.clone(), resource.depends_on.len());
+        in_deg.entry(name.clone()).or_insert(0);
+        for dep in &resource.depends_on {
+            *in_deg.entry(dep.clone()).or_default() += 1;
+        }
+    }
+    let mut result: Vec<(String, usize, usize)> = cfg.resources.keys()
+        .map(|n| (n.clone(), *in_deg.get(n).unwrap_or(&0), *out_deg.get(n).unwrap_or(&0)))
+        .collect();
+    result.sort_by(|a, b| (b.1 + b.2).cmp(&(a.1 + a.2)).then(a.0.cmp(&b.0)));
+    result
+}
+
+/// FJ-747: Show in-degree and out-degree per resource.
+pub(crate) fn cmd_graph_dependency_count(file: &Path, json: bool) -> Result<(), String> {
+    let cfg = parse_and_validate(file)?;
+    let degrees = compute_degrees(&cfg);
+    if json {
+        let items: Vec<String> = degrees.iter()
+            .map(|(n, i, o)| format!("{{\"resource\":\"{}\",\"in_degree\":{},\"out_degree\":{}}}", n, i, o))
+            .collect();
+        println!("{{\"dependency_counts\":[{}]}}", items.join(","));
+    } else {
+        println!("Dependency counts ({} resources):", degrees.len());
+        for (name, ind, outd) in &degrees {
+            println!("  {} — in:{} out:{}", name, ind, outd);
+        }
+    }
+    Ok(())
+}
+
+
+/// FJ-743: Show stats for each connected component.
+pub(crate) fn cmd_graph_subgraph_stats(file: &Path, json: bool) -> Result<(), String> {
+    let cfg = parse_and_validate(file)?;
+    let components = find_components(&cfg);
+    if json {
+        let items: Vec<String> = components.iter().enumerate()
+            .map(|(i, c)| format!("{{\"component\":{},\"nodes\":{},\"resources\":{:?}}}", i + 1, c.len(), c))
+            .collect();
+        println!("{{\"subgraph_stats\":[{}]}}", items.join(","));
+    } else {
+        println!("Connected components: {}", components.len());
+        for (i, c) in components.iter().enumerate() {
+            println!("  Component {} — {} node(s): {}", i + 1, c.len(), c.join(", "));
+        }
+    }
+    Ok(())
+}
+
+/// Build undirected adjacency list from resource graph.
+fn build_undirected_adj(cfg: &types::ForjarConfig) -> std::collections::HashMap<String, Vec<String>> {
+    let mut adj: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
+    for (name, resource) in &cfg.resources {
+        adj.entry(name.clone()).or_default();
+        for dep in &resource.depends_on {
+            adj.entry(name.clone()).or_default().push(dep.clone());
+            adj.entry(dep.clone()).or_default().push(name.clone());
+        }
+    }
+    adj
+}
+
+/// DFS to collect a single connected component starting from a node.
+fn collect_component(
+    start: &str,
+    adj: &std::collections::HashMap<String, Vec<String>>,
+    visited: &mut std::collections::HashSet<String>,
+) -> Vec<String> {
+    let mut component = Vec::new();
+    let mut stack = vec![start.to_string()];
+    while let Some(n) = stack.pop() {
+        if visited.contains(&n) { continue; }
+        visited.insert(n.clone());
+        component.push(n.clone());
+        for nb in adj.get(&n).unwrap_or(&Vec::new()) { stack.push(nb.clone()); }
+    }
+    component.sort();
+    component
+}
+
+/// Find connected components (undirected) in resource graph.
+fn find_components(cfg: &types::ForjarConfig) -> Vec<Vec<String>> {
+    let adj = build_undirected_adj(cfg);
+    let mut visited: std::collections::HashSet<String> = std::collections::HashSet::new();
+    let mut names: Vec<String> = adj.keys().cloned().collect();
+    names.sort();
+    let mut components = Vec::new();
+    for name in &names {
+        if !visited.contains(name) {
+            components.push(collect_component(name, &adj, &mut visited));
+        }
+    }
+    components
+}
+

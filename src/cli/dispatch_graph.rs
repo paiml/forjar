@@ -106,12 +106,15 @@ pub(crate) fn dispatch_graph_cmd(cmd: Commands) -> Result<(), String> {
         dependency_depth, orphan_detection, cross_machine_deps,
         machine_groups, resource_clusters, fan_out, leaf_resources,
         reverse_deps, depth_first, breadth_first,
+        subgraph_stats, dependency_count: graph_dependency_count,
     }) = cmd
     else {
         unreachable!()
     };
 
     if breadth_first { return cmd_graph_breadth_first(&file, json_output); }
+    if subgraph_stats { return cmd_graph_subgraph_stats(&file, json_output); }
+    if graph_dependency_count { return cmd_graph_dependency_count(&file, json_output); }
     if let Some(r) = try_traversal(&file, json_output, depth_first, reverse_deps, leaf_resources, fan_out, resource_clusters, machine_groups, cross_machine_deps, orphan_detection) {
         return r;
     }

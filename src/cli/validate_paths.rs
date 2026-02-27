@@ -345,3 +345,75 @@ pub(crate) fn cmd_validate_check_cron_syntax(file: &Path, json: bool) -> Result<
     }
     Ok(())
 }
+
+
+/// Extract env var names from {{env.VAR}} references in text.
+fn extract_env_refs(content: &str) -> Vec<String> {
+    let mut refs = Vec::new();
+    let marker = "{{env.";
+    let mut pos = 0;
+    while let Some(start) = content[pos..].find(marker) {
+        let var_start = pos + start + marker.len();
+        if let Some(end) = content[var_start..].find("}}") {
+            let var = &content[var_start..var_start + end];
+            if var.chars().all(|c| c.is_alphanumeric() || c == '_') && !refs.contains(&var.to_string()) {
+                refs.push(var.to_string());
+            }
+        }
+        pos = var_start;
+    }
+    refs
+}
+
+/// FJ-741: Verify all {{env.*}} references have matching environment variables.
+pub(crate) fn cmd_validate_check_env_refs(file: &Path, json: bool) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let refs = extract_env_refs(&content);
+    let missing: Vec<&String> = refs.iter().filter(|v| std::env::var(v).is_err()).collect();
+    if json {
+        let items: Vec<String> = missing.iter().map(|v| format!("\"{}\"", v)).collect();
+        println!("{{\"missing_env_refs\":[{}]}}", items.join(","));
+    } else if missing.is_empty() {
+        println!("All env references are satisfied.");
+    } else {
+        println!("Missing env vars ({}):", missing.len());
+        for var in &missing { println!("  {}", var); }
+    }
+    Ok(())
+}
+
+
+/// FJ-745: Enforce resource naming pattern (kebab-case check or prefix match).
+pub(crate) fn cmd_validate_check_resource_names(
+    file: &Path, json: bool, pattern: &str,
+) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let config: types::ForjarConfig =
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+    let violations = find_naming_violations(&config, pattern);
+    if json {
+        let items: Vec<String> = violations.iter().map(|n| format!("\"{}\"", n)).collect();
+        println!("{{\"naming_violations\":[{}]}}", items.join(","));
+    } else if violations.is_empty() {
+        println!("All resource names match pattern: {}", pattern);
+    } else {
+        println!("Resource naming violations ({}):", violations.len());
+        for name in &violations { println!("  {} — does not match '{}'", name, pattern); }
+    }
+    Ok(())
+}
+
+/// Check resource names against a pattern (prefix match or kebab-case).
+fn find_naming_violations(config: &types::ForjarConfig, pattern: &str) -> Vec<String> {
+    let mut violations: Vec<String> = Vec::new();
+    for name in config.resources.keys() {
+        let matches = if pattern == "kebab-case" {
+            name.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+        } else {
+            name.starts_with(pattern)
+        };
+        if !matches { violations.push(name.clone()); }
+    }
+    violations.sort();
+    violations
+}

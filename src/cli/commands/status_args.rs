@@ -316,5 +316,17 @@ pub struct StatusArgs {
     /// FJ-737: Show overall health per machine
     #[arg(long)]
     pub machine_health_summary: bool,
+
+    /// FJ-742: Show inbound/outbound dependency count per resource
+    #[arg(long)]
+    pub dependency_count: bool,
+
+    /// FJ-746: Show last apply success/failure per machine
+    #[arg(long)]
+    pub last_apply_status: bool,
+
+    /// FJ-748: Show time since last successful apply per resource
+    #[arg(long)]
+    pub resource_staleness: bool,
 }
 
