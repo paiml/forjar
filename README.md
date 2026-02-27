@@ -243,7 +243,7 @@ Tests: `test_fj012_apply_local_file`
 ## Testing
 
 ```bash
-cargo test                    # 2111 unit tests
+cargo test                    # 2119 unit tests
 cargo test -- --nocapture     # with output
 cargo test planner            # specific module
 cargo bench                   # Criterion benchmarks
