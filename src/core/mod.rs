@@ -16,4 +16,6 @@ pub mod types;
 #[cfg(test)]
 mod tests_purifier;
 #[cfg(test)]
+mod tests_purifier_b;
+#[cfg(test)]
 mod tests_secrets;
