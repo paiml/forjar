@@ -2175,14 +2175,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-600 | `forjar apply --notify-azure-servicebus <conn>` — publish events to Azure Service Bus. Cloud integration. | Planned |
-| FJ-601 | `forjar validate --check-permissions` — validate resource ownership/mode fields are secure. Security. | Planned |
-| FJ-602 | `forjar status --security-posture` — show security-relevant resource states (modes, ownership). Audit. | Planned |
-| FJ-603 | `forjar apply --approval-timeout <duration>` — timeout for interactive approval prompts. Safety. | Planned |
-| FJ-604 | `forjar graph --security-boundaries` — highlight resources crossing security boundaries. Visualization. | Planned |
-| FJ-605 | `forjar lock sign` — cryptographically sign lock files with BLAKE3-based HMAC. Integrity. | Planned |
-| FJ-606 | `forjar apply --pre-flight <script>` — run pre-flight validation script before apply. Safety gate. | Planned |
-| FJ-607 | `forjar status --compliance-report` — generate compliance report from resource states. Audit. | Planned |
+| FJ-600 | `forjar apply --notify-azure-servicebus <conn>` — publish events to Azure Service Bus. Cloud integration. | Done |
+| FJ-601 | `forjar validate --check-permissions` — validate resource ownership/mode fields are secure. Security. | Done |
+| FJ-602 | `forjar status --security-posture` — show security-relevant resource states (modes, ownership). Audit. | Done |
+| FJ-603 | `forjar apply --approval-timeout <duration>` — timeout for interactive approval prompts. Safety. | Done |
+| FJ-604 | `forjar graph --security-boundaries` — highlight resources crossing security boundaries. Visualization. | Done |
+| FJ-605 | `forjar lock verify-hmac` — verify lock file BLAKE3-based HMAC signatures. Integrity. | Done |
+| FJ-606 | `forjar apply --pre-flight <script>` — run pre-flight validation script before apply. Safety gate. | Done |
+| FJ-607 | `forjar status --compliance-report` — generate compliance report from resource states. Audit. | Done |
+
+### Phase 47 — v4.7: Resource Intelligence & Analytics
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-610 | `forjar apply --notify-gcp-pubsub-v2 <topic>` — enhanced GCP Pub/Sub with ordering keys. Cloud integration. | Planned |
+| FJ-611 | `forjar validate --check-idempotency-deep` — deep idempotency analysis with simulation. Quality. | Planned |
+| FJ-612 | `forjar status --resource-cost` — estimate resource cost based on type and count. Planning. | Planned |
+| FJ-613 | `forjar apply --checkpoint <name>` — create named checkpoint before apply for rollback. Safety. | Planned |
+| FJ-614 | `forjar graph --resource-age` — show resource age based on last apply timestamp. Analytics. | Planned |
+| FJ-615 | `forjar lock archive` — archive old lock files to compressed storage. Housekeeping. | Planned |
+| FJ-616 | `forjar apply --post-flight <script>` — run post-flight validation script after apply. Verification. | Planned |
+| FJ-617 | `forjar status --drift-forecast` — predict likely drift based on historical patterns. Intelligence. | Planned |
 
 ---
 
