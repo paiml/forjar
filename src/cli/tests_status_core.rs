@@ -133,6 +133,8 @@ mod tests {
                 drift_trend: false,
                 failed_resources: false,
                 resource_types_summary: false,
+                resource_health: false,
+                machine_health_summary: false,
             }),
             false,
             true,
@@ -348,6 +350,8 @@ resources: {}
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
+            resource_health: false,
+            machine_health_summary: false,
         });
         match cmd {
             Commands::Status(StatusArgs { file, json, .. }) => {

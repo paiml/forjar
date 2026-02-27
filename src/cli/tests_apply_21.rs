@@ -158,6 +158,8 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
+                notify_ntfy: None,
+                only_machine: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { runbook, .. }) => {
@@ -313,6 +315,8 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
+                notify_ntfy: None,
+                only_machine: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { notify_pubsub, .. }) => {
@@ -468,6 +472,8 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
+                notify_ntfy: None,
+                only_machine: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { fleet_strategy, .. }) => {

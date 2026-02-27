@@ -157,6 +157,8 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
+                notify_ntfy: None,
+                only_machine: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { max_parallel, .. }) => assert_eq!(max_parallel, Some(4)),
@@ -309,6 +311,8 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
+                notify_ntfy: None,
+                only_machine: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { notify, .. }) => {
@@ -461,6 +465,8 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
+                notify_ntfy: None,
+                only_machine: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs {

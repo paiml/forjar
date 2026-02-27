@@ -95,6 +95,8 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
+            resource_health: false,
+            machine_health_summary: false,
         });
         match cmd {
             Commands::Status(StatusArgs { stale, .. }) => assert_eq!(stale, Some(30)),
@@ -184,6 +186,8 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
+            resource_health: false,
+            machine_health_summary: false,
         });
         match cmd {
             Commands::Status(StatusArgs { health, .. }) => assert!(health),
@@ -271,6 +275,8 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
+            resource_health: false,
+            machine_health_summary: false,
         });
         match cmd {
             Commands::Status(StatusArgs { count, .. }) => assert!(count),
@@ -358,6 +364,8 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
+            resource_health: false,
+            machine_health_summary: false,
         });
         match cmd {
             Commands::Status(StatusArgs { format, .. }) => {
@@ -447,6 +455,8 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
+            resource_health: false,
+            machine_health_summary: false,
         });
         match cmd {
             Commands::Status(StatusArgs { anomalies, .. }) => assert!(anomalies),

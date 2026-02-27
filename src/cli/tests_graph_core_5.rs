@@ -63,6 +63,7 @@ mod tests {
             leaf_resources: false,
             reverse_deps: false,
             depth_first: false,
+            breadth_first: false,
         });
         match cmd {
             Commands::Graph(GraphArgs {

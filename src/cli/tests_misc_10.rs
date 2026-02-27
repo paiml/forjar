@@ -157,6 +157,8 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
+            notify_ntfy: None,
+            only_machine: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { rate_limit, .. }) => assert_eq!(rate_limit, Some(10)),
@@ -244,6 +246,8 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
+            resource_health: false,
+            machine_health_summary: false,
         });
         match cmd {
             Commands::Status(StatusArgs { prometheus, .. }) => assert!(prometheus),
@@ -331,6 +335,8 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
+            resource_health: false,
+            machine_health_summary: false,
         });
         match cmd {
             Commands::Status(StatusArgs { expired, .. }) => {

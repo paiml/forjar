@@ -156,5 +156,9 @@ pub struct ValidateArgs {
     /// FJ-721: Validate mount point paths don't conflict
     #[arg(long)]
     pub check_mount_points: bool,
+
+    /// FJ-731: Validate cron schedule expressions
+    #[arg(long)]
+    pub check_cron_syntax: bool,
 }
 

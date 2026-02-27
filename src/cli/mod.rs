@@ -179,6 +179,8 @@ mod tests_graph_core_4;
 #[cfg(test)]
 mod tests_graph_core_5;
 #[cfg(test)]
+mod tests_phase59;
+#[cfg(test)]
 mod tests_lock_core;
 #[cfg(test)]
 mod tests_lock_core_1;

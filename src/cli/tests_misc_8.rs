@@ -157,6 +157,8 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
+            notify_ntfy: None,
+            only_machine: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { tag_filter, .. }) => {
@@ -246,6 +248,8 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
+            resource_health: false,
+            machine_health_summary: false,
         });
         match cmd {
             Commands::Status(StatusArgs { timeline, .. }) => assert!(timeline),
@@ -396,6 +400,8 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
+            notify_ntfy: None,
+            only_machine: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { resume, .. }) => assert!(resume),

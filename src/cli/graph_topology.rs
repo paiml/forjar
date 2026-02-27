@@ -339,3 +339,57 @@ pub(crate) fn cmd_graph_depth_first(file: &Path, json: bool) -> Result<(), Strin
     Ok(())
 }
 
+
+/// BFS topological sort: returns resources in breadth-first order.
+fn bfs_topological(cfg: &types::ForjarConfig) -> Vec<String> {
+    let mut in_degree: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    let mut dependents: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
+    for (name, resource) in &cfg.resources {
+        in_degree.entry(name.clone()).or_insert(0);
+        for dep in &resource.depends_on {
+            dependents.entry(dep.clone()).or_default().push(name.clone());
+            *in_degree.entry(name.clone()).or_default() += 1;
+        }
+    }
+    let mut queue: std::collections::VecDeque<String> = std::collections::VecDeque::new();
+    let mut roots: Vec<String> = in_degree.iter()
+        .filter(|(_, &d)| d == 0)
+        .map(|(n, _)| n.clone())
+        .collect();
+    roots.sort();
+    for r in roots { queue.push_back(r); }
+    let mut order: Vec<String> = Vec::new();
+    while let Some(node) = queue.pop_front() {
+        order.push(node.clone());
+        let mut next: Vec<String> = dependents.get(&node).cloned().unwrap_or_default();
+        next.sort();
+        for dep in next {
+            if let Some(d) = in_degree.get_mut(&dep) {
+                *d -= 1;
+                if *d == 0 { queue.push_back(dep); }
+            }
+        }
+    }
+    order
+}
+
+/// FJ-734: Show breadth-first traversal order.
+pub(crate) fn cmd_graph_breadth_first(file: &Path, json: bool) -> Result<(), String> {
+    let cfg = parse_and_validate(file)?;
+    let order = bfs_topological(&cfg);
+    if json {
+        let entries: Vec<String> = order
+            .iter()
+            .enumerate()
+            .map(|(i, n)| format!("{{\"step\":{},\"resource\":\"{}\"}}", i + 1, n))
+            .collect();
+        println!("{{\"breadth_first_order\":[{}]}}", entries.join(","));
+    } else {
+        println!("Breadth-first traversal ({} resources):", order.len());
+        for (i, name) in order.iter().enumerate() {
+            println!("  {}. {}", i + 1, name);
+        }
+    }
+    Ok(())
+}
+

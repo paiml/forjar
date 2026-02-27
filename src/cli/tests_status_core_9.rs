@@ -105,6 +105,8 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
+            resource_health: false,
+            machine_health_summary: false,
         });
         match cmd {
             Commands::Status(StatusArgs { config_drift, .. }) => assert!(config_drift),
@@ -192,6 +194,8 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
+            resource_health: false,
+            machine_health_summary: false,
         });
         match cmd {
             Commands::Status(StatusArgs {

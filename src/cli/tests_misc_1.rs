@@ -157,6 +157,8 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
+            notify_ntfy: None,
+            only_machine: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { progress, .. }) => assert!(!progress),
@@ -311,6 +313,8 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
+            notify_ntfy: None,
+            only_machine: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { timing, .. }) => assert!(timing),
@@ -461,6 +465,8 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
+            notify_ntfy: None,
+            only_machine: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { timing, .. }) => assert!(!timing),

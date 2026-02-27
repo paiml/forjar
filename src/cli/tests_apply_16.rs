@@ -158,6 +158,8 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
+                notify_ntfy: None,
+                only_machine: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { max_duration, .. }) => assert_eq!(max_duration, Some(300)),
@@ -308,6 +310,8 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
+                notify_ntfy: None,
+                only_machine: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { notify_grafana, .. }) => assert_eq!(
@@ -461,6 +465,8 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
+                notify_ntfy: None,
+                only_machine: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs {

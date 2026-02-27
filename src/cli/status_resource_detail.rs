@@ -242,3 +242,111 @@ pub(crate) fn cmd_status_resource_types_summary(
     Ok(())
 }
 
+
+/// Collect per-resource health entries from lock files.
+fn collect_resource_health(
+    state_dir: &Path,
+    targets: &[&String],
+) -> Vec<(String, String, String)> {
+    let mut entries: Vec<(String, String, String)> = Vec::new();
+    for m in targets {
+        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        if let Ok(data) = std::fs::read_to_string(&lock_path) {
+            if let Ok(lock) = serde_yaml_ng::from_str::<types::StateLock>(&data) {
+                for (name, rl) in &lock.resources {
+                    entries.push((m.to_string(), name.clone(), format!("{:?}", rl.status)));
+                }
+            }
+        }
+    }
+    entries
+}
+
+/// FJ-732: Show per-resource health status (converged/failed/drifted).
+pub(crate) fn cmd_status_resource_health(
+    state_dir: &Path,
+    machine: Option<&str>,
+    json: bool,
+) -> Result<(), String> {
+    let machines = discover_machines(state_dir);
+    let targets: Vec<&String> = match machine {
+        Some(m) => machines.iter().filter(|x| x.as_str() == m).collect(),
+        None => machines.iter().collect(),
+    };
+    let entries = collect_resource_health(state_dir, &targets);
+    if json {
+        let items: Vec<String> = entries
+            .iter()
+            .map(|(m, n, s)| format!("{{\"machine\":\"{}\",\"resource\":\"{}\",\"status\":\"{}\"}}", m, n, s))
+            .collect();
+        println!("{{\"resource_health\":[{}]}}", items.join(","));
+    } else if entries.is_empty() {
+        println!("No resources found.");
+    } else {
+        println!("Resource health ({} resources):", entries.len());
+        for (m, name, status) in &entries {
+            println!("  [{}] {} — {}", m, name, status);
+        }
+    }
+    Ok(())
+}
+
+
+/// Tally status counts for a single machine lock file.
+fn tally_machine_health(state_dir: &Path, machine: &str) -> (usize, usize, usize, usize) {
+    let lock_path = state_dir.join(format!("{}.lock.yaml", machine));
+    let (mut total, mut converged, mut failed, mut drifted) = (0, 0, 0, 0);
+    if let Ok(data) = std::fs::read_to_string(&lock_path) {
+        if let Ok(lock) = serde_yaml_ng::from_str::<types::StateLock>(&data) {
+            for rl in lock.resources.values() {
+                total += 1;
+                match format!("{:?}", rl.status).as_str() {
+                    "Converged" => converged += 1,
+                    "Failed" => failed += 1,
+                    "Drifted" => drifted += 1,
+                    _ => {}
+                }
+            }
+        }
+    }
+    (total, converged, failed, drifted)
+}
+
+/// FJ-737: Show per-machine health overview.
+pub(crate) fn cmd_status_machine_health_summary(
+    state_dir: &Path,
+    machine: Option<&str>,
+    json: bool,
+) -> Result<(), String> {
+    let machines = discover_machines(state_dir);
+    let targets: Vec<&String> = match machine {
+        Some(m) => machines.iter().filter(|x| x.as_str() == m).collect(),
+        None => machines.iter().collect(),
+    };
+    let summaries: Vec<(String, usize, usize, usize, usize)> = targets
+        .iter()
+        .map(|m| {
+            let (t, c, f, d) = tally_machine_health(state_dir, m);
+            (m.to_string(), t, c, f, d)
+        })
+        .collect();
+    if json {
+        let items: Vec<String> = summaries
+            .iter()
+            .map(|(m, t, c, f, d)| {
+                format!("{{\"machine\":\"{}\",\"total\":{},\"converged\":{},\"failed\":{},\"drifted\":{}}}", m, t, c, f, d)
+            })
+            .collect();
+        println!("{{\"machine_health\":[{}]}}", items.join(","));
+    } else if summaries.is_empty() {
+        println!("No machines found.");
+    } else {
+        println!("Machine health summary:");
+        for (m, total, converged, failed, drifted) in &summaries {
+            let pct = if *total > 0 { *converged * 100 / *total } else { 0 };
+            println!("  {} — {} total, {} converged ({}%), {} failed, {} drifted", m, total, converged, pct, failed, drifted);
+        }
+    }
+    Ok(())
+}
+

@@ -63,6 +63,7 @@ mod tests {
             leaf_resources: false,
             reverse_deps: false,
             depth_first: false,
+            breadth_first: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { timeline_graph, .. }) => assert!(timeline_graph),
@@ -115,6 +116,7 @@ mod tests {
             leaf_resources: false,
             reverse_deps: false,
             depth_first: false,
+            breadth_first: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { what_if, .. }) => {
@@ -169,6 +171,7 @@ mod tests {
             leaf_resources: false,
             reverse_deps: false,
             depth_first: false,
+            breadth_first: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { blast_radius, .. }) => {
@@ -223,6 +226,7 @@ mod tests {
             leaf_resources: false,
             reverse_deps: false,
             depth_first: false,
+            breadth_first: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { change_impact, .. }) => {
@@ -277,6 +281,7 @@ mod tests {
             leaf_resources: false,
             reverse_deps: false,
             depth_first: false,
+            breadth_first: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { resource_types, .. }) => assert!(resource_types),

@@ -158,6 +158,8 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
+                notify_ntfy: None,
+                only_machine: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { tags, .. }) => {
@@ -312,6 +314,8 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
+                notify_ntfy: None,
+                only_machine: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { comment, .. }) => {
@@ -464,6 +468,8 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
+                notify_ntfy: None,
+                only_machine: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { only_changed, .. }) => assert!(only_changed),

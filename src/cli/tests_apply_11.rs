@@ -158,6 +158,8 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
+                notify_ntfy: None,
+                only_machine: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs {
@@ -312,6 +314,8 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
+                notify_ntfy: None,
+                only_machine: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { batch_size, .. }) => assert_eq!(batch_size, Some(10)),
@@ -462,6 +466,8 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
+                notify_ntfy: None,
+                only_machine: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { notify_teams, .. }) => {

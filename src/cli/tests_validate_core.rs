@@ -116,6 +116,7 @@ resources: {}
                 check_mode_consistency: false,
                 check_group_consistency: false,
                 check_mount_points: false,
+                check_cron_syntax: false,
             }),
             false,
             true,
@@ -285,6 +286,7 @@ resources:
             check_mode_consistency: false,
             check_group_consistency: false,
             check_mount_points: false,
+            check_cron_syntax: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { json, strict, .. }) => {
@@ -339,6 +341,7 @@ resources:
             check_mode_consistency: false,
             check_group_consistency: false,
             check_mount_points: false,
+            check_cron_syntax: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { dry_expand, .. }) => assert!(dry_expand),
@@ -388,6 +391,7 @@ resources:
             check_mode_consistency: false,
             check_group_consistency: false,
             check_mount_points: false,
+            check_cron_syntax: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { exhaustive, .. }) => assert!(exhaustive),
@@ -437,6 +441,7 @@ resources:
             check_mode_consistency: false,
             check_group_consistency: false,
             check_mount_points: false,
+            check_cron_syntax: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { policy_file, .. }) => {

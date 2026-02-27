@@ -439,6 +439,8 @@ resources:
                 notify_mattermost: None,
                 cooldown: None,
                 exclude_machine: None,
+                notify_ntfy: None,
+                only_machine: None,
             }),
             false,
             true,
