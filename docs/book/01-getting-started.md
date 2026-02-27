@@ -3470,6 +3470,43 @@ forjar status --drift-details-all --state-dir state
 forjar status --drift-details-all --state-dir state --json
 ```
 
+### Phase 55 — Advanced Workflow & Pipeline Integration (FJ-690→FJ-697)
+
+**Template Variable Validation** (FJ-691): Validate all template variables are defined.
+
+```bash
+forjar validate -f forjar.yaml --check-template-vars
+forjar validate -f forjar.yaml --check-template-vars --json
+```
+
+**Last Apply Duration** (FJ-692): Show duration of last apply per resource.
+
+```bash
+forjar status --last-apply-duration --state-dir state
+forjar status --last-apply-duration --state-dir state --json
+```
+
+**Fan-Out Metrics** (FJ-694): Show resource fan-out metrics (how many resources depend on each).
+
+```bash
+forjar graph -f forjar.yaml --fan-out
+forjar graph -f forjar.yaml --fan-out --json
+```
+
+**Lock Restore** (FJ-695): Restore lock state from a named snapshot.
+
+```bash
+forjar lock-restore --state-dir state --name my-snapshot
+forjar lock-restore --state-dir state --json
+```
+
+**Config Hash** (FJ-697): Show hash of current config for change detection.
+
+```bash
+forjar status --config-hash --state-dir state
+forjar status --config-hash --state-dir state --json
+```
+
 ## Next Steps
 
 - [Configuration Reference](02-configuration.md) — Complete `forjar.yaml` schema
