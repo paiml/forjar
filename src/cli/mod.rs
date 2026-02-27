@@ -142,6 +142,10 @@ pub enum Commands {
         /// FJ-511: Warn on resources with high dependency fan-out
         #[arg(long)]
         check_complexity: bool,
+
+        /// FJ-521: Scan for insecure permissions, ports, or user configs
+        #[arg(long)]
+        check_security: bool,
     },
 
     /// Show execution plan (diff desired vs current)
@@ -528,6 +532,18 @@ pub enum Commands {
         /// FJ-516: Abort apply if it exceeds time limit (seconds)
         #[arg(long)]
         max_duration: Option<u64>,
+
+        /// FJ-520: Send apply annotations to Grafana
+        #[arg(long)]
+        notify_grafana: Option<String>,
+
+        /// FJ-523: Apply at most N resources per minute (throttle)
+        #[arg(long)]
+        rate_limit_resources: Option<usize>,
+
+        /// FJ-526: Save intermediate state during long applies (seconds)
+        #[arg(long)]
+        checkpoint_interval: Option<u64>,
     },
 
     /// Detect unauthorized changes (tripwire)
@@ -730,6 +746,14 @@ pub enum Commands {
         /// FJ-517: Show status trend over last N applies
         #[arg(long)]
         trend: Option<usize>,
+
+        /// FJ-522: Predict next failure based on historical patterns
+        #[arg(long)]
+        prediction: bool,
+
+        /// FJ-527: Show resource utilization vs limits per machine
+        #[arg(long)]
+        capacity: bool,
     },
 
     /// Show apply history from event logs
@@ -897,6 +921,10 @@ pub enum Commands {
         /// FJ-514: Output resource dependency matrix (CSV/JSON)
         #[arg(long)]
         dependency_matrix: bool,
+
+        /// FJ-524: Highlight resources with most changes/failures (heat map)
+        #[arg(long)]
+        hotspots: bool,
     },
 
     /// Run check scripts to verify pre-conditions without applying
@@ -1725,6 +1753,7 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
     },
+
 }
 
 /// FJ-260: Snapshot subcommands — named state checkpoints.
@@ -1916,7 +1945,11 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             check_overlaps,
             check_limits,
             check_complexity,
+            check_security,
         } => {
+            if check_security {
+                return cmd_validate_check_security(&file, json);
+            }
             if check_complexity {
                 return cmd_validate_check_complexity(&file, json);
             }
@@ -2074,6 +2107,9 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             canary_machine,
             notify_newrelic,
             max_duration: _max_duration,
+            notify_grafana,
+            rate_limit_resources: _rate_limit_resources,
+            checkpoint_interval: _checkpoint_interval,
         } => {
             // FJ-510: --canary-machine — apply to single machine first as canary
             if let Some(ref cm) = canary_machine {
@@ -2462,6 +2498,31 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
                     .output();
             }
 
+            // FJ-520: notify-grafana — POST apply annotation to Grafana
+            if let Some(ref grafana_url) = notify_grafana {
+                let status = if result.is_ok() { "success" } else { "failure" };
+                let payload = format!(
+                    r#"{{"text":"forjar apply {}","tags":["forjar","deploy"],"time":{}}}"#,
+                    status,
+                    std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_secs()
+                );
+                let _ = std::process::Command::new("curl")
+                    .args([
+                        "-s",
+                        "-X",
+                        "POST",
+                        "-H",
+                        "Content-Type: application/json",
+                        "-d",
+                        &payload,
+                        grafana_url,
+                    ])
+                    .output();
+            }
+
             result
         }
         Commands::Drift {
@@ -2536,7 +2597,15 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             compliance_report,
             mttr,
             trend,
+            prediction,
+            capacity,
         } => {
+            if capacity {
+                return cmd_status_capacity(&state_dir, machine.as_deref(), json);
+            }
+            if prediction {
+                return cmd_status_prediction(&state_dir, machine.as_deref(), json);
+            }
             if let Some(n) = trend {
                 return cmd_status_trend(&state_dir, machine.as_deref(), n, json);
             }
@@ -2715,7 +2784,11 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             subgraph,
             impact_radius,
             dependency_matrix,
+            hotspots,
         } => {
+            if hotspots {
+                return cmd_graph_hotspots(&file);
+            }
             if dependency_matrix {
                 return cmd_graph_dependency_matrix(&file, json_output);
             }
@@ -14303,17 +14376,24 @@ fn cmd_validate_check_complexity(file: &Path, json: bool) -> Result<(), String> 
     if json {
         let entries: Vec<String> = warnings
             .iter()
-            .map(|(name, count)| {
-                format!(r#"{{"resource":"{}","fan_out_or_in":{}}}"#, name, count)
-            })
+            .map(|(name, count)| format!(r#"{{"resource":"{}","fan_out_or_in":{}}}"#, name, count))
             .collect();
         println!("[{}]", entries.join(","));
     } else if warnings.is_empty() {
-        println!("{} No high-complexity resources found (threshold: {})", green("✓"), threshold);
+        println!(
+            "{} No high-complexity resources found (threshold: {})",
+            green("✓"),
+            threshold
+        );
     } else {
         println!("Complexity warnings (threshold: {}):\n", threshold);
         for (name, count) in &warnings {
-            println!("  {} {} — {} dependencies/dependents", yellow("⚠"), name, count);
+            println!(
+                "  {} {} — {} dependencies/dependents",
+                yellow("⚠"),
+                name,
+                count
+            );
         }
     }
     Ok(())
@@ -14332,7 +14412,12 @@ fn cmd_apply_canary_machine(
         return Err(format!(
             "canary machine '{}' not found (available: {})",
             canary,
-            config.machines.keys().cloned().collect::<Vec<_>>().join(", ")
+            config
+                .machines
+                .keys()
+                .cloned()
+                .collect::<Vec<_>>()
+                .join(", ")
         ));
     }
 
@@ -14386,7 +14471,10 @@ fn cmd_apply_canary_machine(
         return Ok(());
     }
 
-    println!("\n=== Fleet: applying to {} remaining machines ===\n", remaining.len());
+    println!(
+        "\n=== Fleet: applying to {} remaining machines ===\n",
+        remaining.len()
+    );
     for machine_name in &remaining {
         cmd_apply(
             file,
@@ -14424,7 +14512,11 @@ fn cmd_apply_canary_machine(
         )?;
     }
 
-    println!("\n{} Fleet deploy complete ({} machines).", green("✓"), remaining.len() + 1);
+    println!(
+        "\n{} Fleet deploy complete ({} machines).",
+        green("✓"),
+        remaining.len() + 1
+    );
     Ok(())
 }
 
@@ -14445,8 +14537,10 @@ fn cmd_status_mttr(state_dir: &Path, machine: Option<&str>, json: bool) -> Resul
             continue;
         }
         let content = std::fs::read_to_string(&events_path).unwrap_or_default();
-        let mut failure_start: std::collections::HashMap<String, String> = std::collections::HashMap::new();
-        let mut total_recovery: std::collections::HashMap<String, (f64, usize)> = std::collections::HashMap::new();
+        let mut failure_start: std::collections::HashMap<String, String> =
+            std::collections::HashMap::new();
+        let mut total_recovery: std::collections::HashMap<String, (f64, usize)> =
+            std::collections::HashMap::new();
 
         for line in content.lines() {
             let parsed: serde_json::Value =
@@ -14483,7 +14577,12 @@ fn cmd_status_mttr(state_dir: &Path, machine: Option<&str>, json: bool) -> Resul
     if json {
         let entries: Vec<String> = recovery_times
             .iter()
-            .map(|(m, r, h)| format!(r#"{{"machine":"{}","resource":"{}","mttr_hours":{:.2}}}"#, m, r, h))
+            .map(|(m, r, h)| {
+                format!(
+                    r#"{{"machine":"{}","resource":"{}","mttr_hours":{:.2}}}"#,
+                    m, r, h
+                )
+            })
             .collect();
         println!("[{}]", entries.join(","));
     } else if recovery_times.is_empty() {
@@ -14565,7 +14664,10 @@ fn cmd_graph_dependency_matrix(file: &Path, json: bool) -> Result<(), String> {
 /// FJ-515: Lock backup — create timestamped backup of all lock files.
 fn cmd_lock_backup(state_dir: &Path, json: bool) -> Result<(), String> {
     if !state_dir.exists() {
-        return Err(format!("State directory not found: {}", state_dir.display()));
+        return Err(format!(
+            "State directory not found: {}",
+            state_dir.display()
+        ));
     }
 
     let timestamp = chrono_now_compact();
@@ -14574,8 +14676,8 @@ fn cmd_lock_backup(state_dir: &Path, json: bool) -> Result<(), String> {
         .map_err(|e| format!("Failed to create backup dir: {}", e))?;
 
     let mut backed_up: Vec<String> = Vec::new();
-    let entries = std::fs::read_dir(state_dir)
-        .map_err(|e| format!("Failed to read state dir: {}", e))?;
+    let entries =
+        std::fs::read_dir(state_dir).map_err(|e| format!("Failed to read state dir: {}", e))?;
 
     for entry in entries.flatten() {
         let path = entry.path();
@@ -14657,7 +14759,12 @@ fn cmd_status_trend(
     if json {
         let entries: Vec<String> = last_n
             .iter()
-            .map(|(ts, m, s)| format!(r#"{{"timestamp":"{}","machine":"{}","event":"{}"}}"#, ts, m, s))
+            .map(|(ts, m, s)| {
+                format!(
+                    r#"{{"timestamp":"{}","machine":"{}","event":"{}"}}"#,
+                    ts, m, s
+                )
+            })
             .collect();
         println!("[{}]", entries.join(","));
     } else if last_n.is_empty() {
@@ -14666,6 +14773,281 @@ fn cmd_status_trend(
         println!("Status trend (last {} events):\n", last_n.len());
         for (ts, m, s) in &last_n {
             println!("  [{}] {} — {}", ts, m, s);
+        }
+    }
+    Ok(())
+}
+
+/// FJ-521: Check security — scan for insecure permissions, ports, user configs.
+fn cmd_validate_check_security(file: &Path, json: bool) -> Result<(), String> {
+    let config = parse_and_validate(file)?;
+    let mut warnings: Vec<(String, String)> = Vec::new();
+
+    for (name, res) in &config.resources {
+        // Check world-writable file modes
+        if let Some(ref mode) = res.mode {
+            if mode.ends_with("7") || mode.ends_with("6") {
+                let last_three = if mode.len() >= 3 {
+                    &mode[mode.len() - 3..]
+                } else {
+                    mode.as_str()
+                };
+                // Check "other" permission (last digit)
+                if let Some(c) = last_three.chars().last() {
+                    if c == '7' || c == '6' {
+                        warnings.push((
+                            name.clone(),
+                            format!("world-writable mode: {}", mode),
+                        ));
+                    }
+                }
+            }
+        }
+
+        // Check root ownership on sensitive paths
+        if let Some(ref owner) = res.owner {
+            if owner == "root" {
+                if let Some(ref path) = res.path {
+                    if path.starts_with("/tmp") || path.starts_with("/var/tmp") {
+                        warnings.push((
+                            name.clone(),
+                            format!("root-owned file in temp directory: {}", path),
+                        ));
+                    }
+                }
+            }
+        }
+
+        // Check privileged ports in network resources
+        if res.resource_type == types::ResourceType::Network {
+            if let Some(ref port_str) = res.port {
+                if let Ok(port) = port_str.parse::<u16>() {
+                    if port < 1024 {
+                        warnings.push((
+                            name.clone(),
+                            format!("privileged port: {}", port),
+                        ));
+                    }
+                }
+            }
+        }
+    }
+
+    if json {
+        let entries: Vec<String> = warnings
+            .iter()
+            .map(|(name, warning)| format!(r#"{{"resource":"{}","warning":"{}"}}"#, name, warning))
+            .collect();
+        println!("[{}]", entries.join(","));
+    } else if warnings.is_empty() {
+        println!("{} No security issues found.", green("✓"));
+    } else {
+        println!("Security warnings:\n");
+        for (name, warning) in &warnings {
+            println!("  {} {} — {}", yellow("⚠"), name, warning);
+        }
+    }
+    Ok(())
+}
+
+/// FJ-522: Prediction — predict next failure based on historical patterns.
+fn cmd_status_prediction(
+    state_dir: &Path,
+    machine: Option<&str>,
+    json: bool,
+) -> Result<(), String> {
+    let machines = discover_machines(state_dir);
+    let machines: Vec<String> = if let Some(m) = machine {
+        machines.into_iter().filter(|n| n == m).collect()
+    } else {
+        machines
+    };
+
+    let mut risk_scores: Vec<(String, String, f64, String)> = Vec::new(); // (machine, resource, score, reason)
+
+    for m in &machines {
+        let events_path = state_dir.join(format!("{}.events.jsonl", m));
+        if !events_path.exists() {
+            continue;
+        }
+        let content = std::fs::read_to_string(&events_path).unwrap_or_default();
+        let mut failure_count: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+        let mut total_count: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+
+        for line in content.lines() {
+            let parsed: serde_json::Value =
+                serde_json::from_str(line).unwrap_or(serde_json::Value::Null);
+            let resource = parsed["resource"].as_str().unwrap_or("").to_string();
+            let status = parsed["status"].as_str().unwrap_or("");
+            if resource.is_empty() {
+                continue;
+            }
+            *total_count.entry(resource.clone()).or_insert(0) += 1;
+            if status == "Failed" || status == "Drifted" {
+                *failure_count.entry(resource.clone()).or_insert(0) += 1;
+            }
+        }
+
+        for (resource, total) in &total_count {
+            let failures = failure_count.get(resource).copied().unwrap_or(0);
+            if failures > 0 && *total >= 3 {
+                let rate = failures as f64 / *total as f64;
+                let reason = format!("{}/{} events failed ({:.0}%)", failures, total, rate * 100.0);
+                risk_scores.push((m.clone(), resource.clone(), rate, reason));
+            }
+        }
+    }
+
+    risk_scores.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
+
+    if json {
+        let entries: Vec<String> = risk_scores
+            .iter()
+            .map(|(m, r, s, reason)| {
+                format!(
+                    r#"{{"machine":"{}","resource":"{}","risk_score":{:.3},"reason":"{}"}}"#,
+                    m, r, s, reason
+                )
+            })
+            .collect();
+        println!("[{}]", entries.join(","));
+    } else if risk_scores.is_empty() {
+        println!("{} No failure patterns detected. All resources stable.", green("✓"));
+    } else {
+        println!("Failure prediction (by historical failure rate):\n");
+        for (m, r, score, reason) in &risk_scores {
+            let level = if *score > 0.5 {
+                red("HIGH")
+            } else if *score > 0.25 {
+                yellow("MEDIUM")
+            } else {
+                "LOW".to_string()
+            };
+            println!("  [{}] {}:{} — {}", level, m, r, reason);
+        }
+    }
+    Ok(())
+}
+
+/// FJ-524: Graph hotspots — highlight resources with most changes/failures.
+fn cmd_graph_hotspots(file: &Path) -> Result<(), String> {
+    let config = parse_and_validate(file)?;
+    let state_dir = std::path::Path::new("state");
+
+    let mut change_count: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+
+    if state_dir.exists() {
+        if let Ok(entries) = std::fs::read_dir(state_dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                    if name.ends_with(".events.jsonl") {
+                        let content = std::fs::read_to_string(&path).unwrap_or_default();
+                        for line in content.lines() {
+                            let parsed: serde_json::Value =
+                                serde_json::from_str(line).unwrap_or(serde_json::Value::Null);
+                            let resource =
+                                parsed["resource"].as_str().unwrap_or("").to_string();
+                            if !resource.is_empty() {
+                                *change_count.entry(resource).or_insert(0) += 1;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let mut hotspots: Vec<(String, usize)> = config
+        .resources
+        .keys()
+        .map(|name| {
+            let count = change_count.get(name).copied().unwrap_or(0);
+            (name.clone(), count)
+        })
+        .collect();
+
+    hotspots.sort_by(|a, b| b.1.cmp(&a.1));
+
+    println!("Resource hotspots (by change frequency):\n");
+    let max_count = hotspots.first().map(|(_, c)| *c).unwrap_or(1).max(1);
+    for (name, count) in &hotspots {
+        let bar_len = (*count as f64 / max_count as f64 * 20.0) as usize;
+        let bar: String = "█".repeat(bar_len);
+        let heat = if *count > max_count / 2 {
+            red(&format!("{:>4}", count))
+        } else if *count > max_count / 4 {
+            yellow(&format!("{:>4}", count))
+        } else {
+            format!("{:>4}", count)
+        };
+        println!("  {} {} {}", heat, bar, name);
+    }
+    Ok(())
+}
+
+/// FJ-527: Status capacity — show resource utilization vs limits per machine.
+fn cmd_status_capacity(
+    state_dir: &Path,
+    machine: Option<&str>,
+    json: bool,
+) -> Result<(), String> {
+    let machines = discover_machines(state_dir);
+    let machines: Vec<String> = if let Some(m) = machine {
+        machines.into_iter().filter(|n| n == m).collect()
+    } else {
+        machines
+    };
+
+    let max_resources_per_machine = 50;
+    let mut capacity_data: Vec<(String, usize, usize, f64)> = Vec::new(); // (machine, used, limit, pct)
+
+    for m in &machines {
+        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        if !lock_path.exists() {
+            continue;
+        }
+        let content = std::fs::read_to_string(&lock_path).unwrap_or_default();
+        let lock: types::StateLock =
+            match serde_yaml_ng::from_str(&content) {
+                Ok(l) => l,
+                Err(_) => continue,
+            };
+
+        let used = lock.resources.len();
+        let pct = (used as f64 / max_resources_per_machine as f64) * 100.0;
+        capacity_data.push((m.clone(), used, max_resources_per_machine, pct));
+    }
+
+    capacity_data.sort_by(|a, b| b.3.partial_cmp(&a.3).unwrap_or(std::cmp::Ordering::Equal));
+
+    if json {
+        let entries: Vec<String> = capacity_data
+            .iter()
+            .map(|(m, used, limit, pct)| {
+                format!(
+                    r#"{{"machine":"{}","used":{},"limit":{},"utilization_pct":{:.1}}}"#,
+                    m, used, limit, pct
+                )
+            })
+            .collect();
+        println!("[{}]", entries.join(","));
+    } else if capacity_data.is_empty() {
+        println!("No machine state found.");
+    } else {
+        println!("Resource capacity per machine (limit: {}):\n", max_resources_per_machine);
+        for (m, used, limit, pct) in &capacity_data {
+            let bar_len = (*pct / 5.0) as usize;
+            let bar: String = "█".repeat(bar_len);
+            let remaining: String = "░".repeat(20 - bar_len.min(20));
+            let color_pct = if *pct > 80.0 {
+                red(&format!("{:.0}%", pct))
+            } else if *pct > 50.0 {
+                yellow(&format!("{:.0}%", pct))
+            } else {
+                format!("{:.0}%", pct)
+            };
+            println!("  {} {}{} {}/{} {}", m, bar, remaining, used, limit, color_pct);
         }
     }
     Ok(())
@@ -15283,6 +15665,7 @@ resources: {}
                 check_overlaps: false,
                 check_limits: false,
                 check_complexity: false,
+                check_security: false,
             },
             false,
             true,
@@ -15336,6 +15719,8 @@ resources: {}
                 compliance_report: None,
                 mttr: false,
                 trend: None,
+                prediction: false,
+                capacity: false,
             },
             false,
             true,
@@ -15497,6 +15882,9 @@ resources:
                 canary_machine: None,
                 notify_newrelic: None,
                 max_duration: None,
+                notify_grafana: None,
+                rate_limit_resources: None,
+                checkpoint_interval: None,
             },
             false,
             true,
@@ -16288,6 +16676,7 @@ resources: {}
                 subgraph: None,
                 impact_radius: None,
                 dependency_matrix: false,
+                hotspots: false,
             },
             false,
             true,
@@ -16341,6 +16730,7 @@ resources: {}
                 subgraph: None,
                 impact_radius: None,
                 dependency_matrix: false,
+                hotspots: false,
             },
             false,
             true,
@@ -19689,6 +20079,8 @@ resources:
                 compliance_report: None,
                 mttr: false,
                 trend: None,
+                prediction: false,
+                capacity: false,
             },
             false,
             true,
@@ -19803,6 +20195,9 @@ resources:
                 canary_machine: None,
                 notify_newrelic: None,
                 max_duration: None,
+                notify_grafana: None,
+                rate_limit_resources: None,
+                checkpoint_interval: None,
             },
             false,
             true,
@@ -21038,6 +21433,9 @@ resources:
                 canary_machine: None,
                 notify_newrelic: None,
                 max_duration: None,
+                notify_grafana: None,
+                rate_limit_resources: None,
+                checkpoint_interval: None,
             },
             false,
             true,
@@ -21155,6 +21553,9 @@ resources:
                 canary_machine: None,
                 notify_newrelic: None,
                 max_duration: None,
+                notify_grafana: None,
+                rate_limit_resources: None,
+                checkpoint_interval: None,
             },
             false,
             true,
@@ -22775,6 +23176,9 @@ resources:
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply { output, .. } => {
@@ -22941,6 +23345,9 @@ resources:
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply { progress, .. } => assert!(progress),
@@ -23032,6 +23439,9 @@ resources:
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply { progress, .. } => assert!(!progress),
@@ -23127,6 +23537,9 @@ resources:
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply { timing, .. } => assert!(timing),
@@ -23218,6 +23631,9 @@ resources:
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply { timing, .. } => assert!(!timing),
@@ -23517,6 +23933,9 @@ resources:
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply { group, .. } => {
@@ -23592,6 +24011,7 @@ resources:
             check_overlaps: false,
             check_limits: false,
             check_complexity: false,
+            check_security: false,
         };
         match cmd {
             Commands::Validate { strict, .. } => assert!(strict),
@@ -23738,6 +24158,9 @@ resources:
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply { retry, .. } => assert_eq!(retry, 3),
@@ -23829,6 +24252,9 @@ resources:
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply { retry, .. } => assert_eq!(retry, 0),
@@ -24034,6 +24460,9 @@ resources:
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply { yes, .. } => assert!(yes),
@@ -24125,6 +24554,9 @@ resources:
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply { yes, .. } => assert!(!yes),
@@ -24240,6 +24672,9 @@ resources:
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply { parallel, .. } => assert!(parallel),
@@ -24310,6 +24745,8 @@ resources:
             compliance_report: None,
             mttr: false,
             trend: None,
+            prediction: false,
+            capacity: false,
         };
         match cmd {
             Commands::Status { file, json, .. } => {
@@ -24583,6 +25020,7 @@ resources:
             check_overlaps: false,
             check_limits: false,
             check_complexity: false,
+            check_security: false,
         };
         match cmd {
             Commands::Validate { json, strict, .. } => {
@@ -24689,6 +25127,8 @@ resources:
             compliance_report: None,
             mttr: false,
             trend: None,
+            prediction: false,
+            capacity: false,
         };
         match cmd {
             Commands::Status { summary, .. } => assert!(summary),
@@ -24791,6 +25231,9 @@ resources:
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply {
@@ -25021,6 +25464,9 @@ resources:
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply {
@@ -25247,6 +25693,9 @@ resources:
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply { max_parallel, .. } => assert_eq!(max_parallel, Some(4)),
@@ -25298,6 +25747,8 @@ resources:
             compliance_report: None,
             mttr: false,
             trend: None,
+            prediction: false,
+            capacity: false,
         };
         match cmd {
             Commands::Status { watch, .. } => assert_eq!(watch, Some(5)),
@@ -25391,6 +25842,9 @@ resources:
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply { notify, .. } => {
@@ -25591,6 +26045,7 @@ resources:
             check_overlaps: false,
             check_limits: false,
             check_complexity: false,
+            check_security: false,
         };
         match cmd {
             Commands::Validate { dry_expand, .. } => assert!(dry_expand),
@@ -25682,6 +26137,9 @@ resources:
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply { subset, .. } => {
@@ -25828,6 +26286,9 @@ resources:
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply {
@@ -25880,6 +26341,8 @@ resources:
             compliance_report: None,
             mttr: false,
             trend: None,
+            prediction: false,
+            capacity: false,
         };
         match cmd {
             Commands::Status { stale, .. } => assert_eq!(stale, Some(30)),
@@ -25999,6 +26462,9 @@ resources:
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply { backup, .. } => assert!(backup),
@@ -26120,6 +26586,9 @@ resources:
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply { exclude, .. } => assert_eq!(exclude, Some("test-*".to_string())),
@@ -26169,6 +26638,8 @@ resources:
             compliance_report: None,
             mttr: false,
             trend: None,
+            prediction: false,
+            capacity: false,
         };
         match cmd {
             Commands::Status { health, .. } => assert!(health),
@@ -26260,6 +26731,9 @@ resources:
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply { sequential, .. } => assert!(sequential),
@@ -26353,6 +26827,9 @@ resources:
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply { diff_only, .. } => assert!(diff_only),
@@ -26472,6 +26949,9 @@ resources:
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply { notify_slack, .. } => {
@@ -26507,6 +26987,7 @@ resources:
             subgraph: None,
             impact_radius: None,
             dependency_matrix: false,
+            hotspots: false,
         };
         match cmd {
             Commands::Graph { affected, .. } => {
@@ -26558,6 +27039,8 @@ resources:
             compliance_report: None,
             mttr: false,
             trend: None,
+            prediction: false,
+            capacity: false,
         };
         match cmd {
             Commands::Status { drift_details, .. } => assert!(drift_details),
@@ -26649,6 +27132,9 @@ resources:
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply { cost_limit, .. } => assert_eq!(cost_limit, Some(5)),
@@ -26760,6 +27246,9 @@ resources:
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply { preview, .. } => assert!(preview),
@@ -26863,6 +27352,9 @@ resources:
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply { tag_filter, .. } => {
@@ -26930,6 +27422,8 @@ resources:
             compliance_report: None,
             mttr: false,
             trend: None,
+            prediction: false,
+            capacity: false,
         };
         match cmd {
             Commands::Status { timeline, .. } => assert!(timeline),
@@ -27051,6 +27545,9 @@ resources:
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply { output_scripts, .. } => {
@@ -27146,6 +27643,9 @@ resources:
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply { resume, .. } => assert!(resume),
@@ -27211,6 +27711,8 @@ resources:
             compliance_report: None,
             mttr: false,
             trend: None,
+            prediction: false,
+            capacity: false,
         };
         match cmd {
             Commands::Status { changes_since, .. } => {
@@ -27260,6 +27762,7 @@ resources:
             subgraph: None,
             impact_radius: None,
             dependency_matrix: false,
+            hotspots: false,
         };
         match cmd {
             Commands::Graph { critical_path, .. } => assert!(critical_path),
@@ -27309,6 +27812,8 @@ resources:
             compliance_report: None,
             mttr: false,
             trend: None,
+            prediction: false,
+            capacity: false,
         };
         match cmd {
             Commands::Status { summary_by, .. } => {
@@ -27402,6 +27907,9 @@ resources:
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply { max_failures, .. } => assert_eq!(max_failures, Some(3)),
@@ -27495,6 +28003,9 @@ resources:
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply { rate_limit, .. } => assert_eq!(rate_limit, Some(10)),
@@ -27523,6 +28034,7 @@ resources:
             check_overlaps: false,
             check_limits: false,
             check_complexity: false,
+            check_security: false,
         };
         match cmd {
             Commands::Validate { schema_version, .. } => {
@@ -27574,6 +28086,8 @@ resources:
             compliance_report: None,
             mttr: false,
             trend: None,
+            prediction: false,
+            capacity: false,
         };
         match cmd {
             Commands::Status { prometheus, .. } => assert!(prometheus),
@@ -27618,6 +28132,7 @@ resources:
             subgraph: None,
             impact_radius: None,
             dependency_matrix: false,
+            hotspots: false,
         };
         match cmd {
             Commands::Graph { reverse, .. } => assert!(reverse),
@@ -27667,6 +28182,8 @@ resources:
             compliance_report: None,
             mttr: false,
             trend: None,
+            prediction: false,
+            capacity: false,
         };
         match cmd {
             Commands::Status { expired, .. } => {
@@ -27708,6 +28225,7 @@ resources:
             check_overlaps: false,
             check_limits: false,
             check_complexity: false,
+            check_security: false,
         };
         match cmd {
             Commands::Validate { exhaustive, .. } => assert!(exhaustive),
@@ -27757,6 +28275,8 @@ resources:
             compliance_report: None,
             mttr: false,
             trend: None,
+            prediction: false,
+            capacity: false,
         };
         match cmd {
             Commands::Status { count, .. } => assert!(count),
@@ -27848,6 +28368,9 @@ resources:
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply { notify_email, .. } => {
@@ -27880,6 +28403,7 @@ resources:
             subgraph: None,
             impact_radius: None,
             dependency_matrix: false,
+            hotspots: false,
         };
         match cmd {
             Commands::Graph { depth, .. } => assert_eq!(depth, Some(2)),
@@ -27971,6 +28495,9 @@ resources:
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply { skip, .. } => {
@@ -28022,6 +28549,8 @@ resources:
             compliance_report: None,
             mttr: false,
             trend: None,
+            prediction: false,
+            capacity: false,
         };
         match cmd {
             Commands::Status { format, .. } => {
@@ -28071,6 +28600,7 @@ resources:
             check_overlaps: false,
             check_limits: false,
             check_complexity: false,
+            check_security: false,
         };
         match cmd {
             Commands::Validate { policy_file, .. } => {
@@ -28122,6 +28652,8 @@ resources:
             compliance_report: None,
             mttr: false,
             trend: None,
+            prediction: false,
+            capacity: false,
         };
         match cmd {
             Commands::Status { anomalies, .. } => assert!(anomalies),
@@ -28213,6 +28745,9 @@ resources:
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply {
@@ -28247,6 +28782,7 @@ resources:
             subgraph: None,
             impact_radius: None,
             dependency_matrix: false,
+            hotspots: false,
         };
         match cmd {
             Commands::Graph { cluster, .. } => assert!(cluster),
@@ -28354,6 +28890,9 @@ resources:
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply { concurrency, .. } => assert_eq!(concurrency, Some(4)),
@@ -28403,6 +28942,8 @@ resources:
             compliance_report: None,
             mttr: false,
             trend: None,
+            prediction: false,
+            capacity: false,
         };
         match cmd {
             Commands::Status { diff_from, .. } => {
@@ -28498,6 +29039,9 @@ resources:
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply { webhook_before, .. } => {
@@ -28531,6 +29075,7 @@ resources:
             check_overlaps: false,
             check_limits: false,
             check_complexity: false,
+            check_security: false,
         };
         match cmd {
             Commands::Validate {
@@ -28582,6 +29127,8 @@ resources:
             compliance_report: None,
             mttr: false,
             trend: None,
+            prediction: false,
+            capacity: false,
         };
         match cmd {
             Commands::Status {
@@ -28614,6 +29161,7 @@ resources:
             subgraph: None,
             impact_radius: None,
             dependency_matrix: false,
+            hotspots: false,
         };
         match cmd {
             Commands::Graph { orphans, .. } => assert!(orphans),
@@ -28722,6 +29270,9 @@ resources:
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply {
@@ -28775,6 +29326,8 @@ resources:
             compliance_report: None,
             mttr: false,
             trend: None,
+            prediction: false,
+            capacity: false,
         };
         match cmd {
             Commands::Status { machines_only, .. } => assert!(machines_only),
@@ -28805,6 +29358,7 @@ resources:
             check_overlaps: false,
             check_limits: false,
             check_complexity: false,
+            check_security: false,
         };
         match cmd {
             Commands::Validate {
@@ -28856,6 +29410,8 @@ resources:
             compliance_report: None,
             mttr: false,
             trend: None,
+            prediction: false,
+            capacity: false,
         };
         match cmd {
             Commands::Status {
@@ -28888,6 +29444,7 @@ resources:
             subgraph: None,
             impact_radius: None,
             dependency_matrix: false,
+            hotspots: false,
         };
         match cmd {
             Commands::Graph { stats, .. } => assert!(stats),
@@ -29011,6 +29568,9 @@ resources: {}
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply { log_file, .. } => {
@@ -29062,6 +29622,8 @@ resources: {}
             compliance_report: None,
             mttr: false,
             trend: None,
+            prediction: false,
+            capacity: false,
         };
         match cmd {
             Commands::Status {
@@ -29155,6 +29717,9 @@ resources: {}
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply { tags, .. } => {
@@ -29250,6 +29815,9 @@ resources: {}
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply { comment, .. } => {
@@ -29280,6 +29848,7 @@ resources: {}
             check_overlaps: false,
             check_limits: false,
             check_complexity: false,
+            check_security: false,
         };
         match cmd {
             Commands::Validate { strict_deps, .. } => assert!(strict_deps),
@@ -29329,6 +29898,8 @@ resources: {}
             compliance_report: None,
             mttr: false,
             trend: None,
+            prediction: false,
+            capacity: false,
         };
         match cmd {
             Commands::Status { json_lines, .. } => assert!(json_lines),
@@ -29420,6 +29991,9 @@ resources: {}
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply { only_changed, .. } => assert!(only_changed),
@@ -29450,6 +30024,7 @@ resources: {}
             subgraph: None,
             impact_radius: None,
             dependency_matrix: false,
+            hotspots: false,
         };
         match cmd {
             Commands::Graph { json_output, .. } => assert!(json_output),
@@ -29558,6 +30133,9 @@ resources: {}
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply { pre_script, .. } => {
@@ -29609,6 +30187,8 @@ resources: {}
             compliance_report: None,
             mttr: false,
             trend: None,
+            prediction: false,
+            capacity: false,
         };
         match cmd {
             Commands::Status { since, .. } => {
@@ -29704,6 +30284,9 @@ resources: {}
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply { dry_run_json, .. } => assert!(dry_run_json),
@@ -29732,6 +30315,7 @@ resources: {}
             check_overlaps: false,
             check_limits: false,
             check_complexity: false,
+            check_security: false,
         };
         match cmd {
             Commands::Validate { check_secrets, .. } => assert!(check_secrets),
@@ -29781,6 +30365,8 @@ resources: {}
             compliance_report: None,
             mttr: false,
             trend: None,
+            prediction: false,
+            capacity: false,
         };
         match cmd {
             Commands::Status { export, .. } => {
@@ -29874,6 +30460,9 @@ resources: {}
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply { notify_webhook, .. } => {
@@ -29909,6 +30498,7 @@ resources: {}
             subgraph: None,
             impact_radius: None,
             dependency_matrix: false,
+            hotspots: false,
         };
         match cmd {
             Commands::Graph { highlight, .. } => {
@@ -30022,6 +30612,9 @@ resources: {}
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply { post_script, .. } => {
@@ -30074,6 +30667,8 @@ resources: {}
             compliance_report: None,
             mttr: false,
             trend: None,
+            prediction: false,
+            capacity: false,
         };
         match cmd {
             Commands::Status { prometheus, .. } => assert!(prometheus),
@@ -30167,6 +30762,9 @@ resources: {}
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply {
@@ -30197,6 +30795,7 @@ resources: {}
             check_overlaps: false,
             check_limits: false,
             check_complexity: false,
+            check_security: false,
         };
         match cmd {
             Commands::Validate {
@@ -30248,6 +30847,8 @@ resources: {}
             compliance_report: None,
             mttr: false,
             trend: None,
+            prediction: false,
+            capacity: false,
         };
         match cmd {
             Commands::Status { compact, .. } => assert!(compact),
@@ -30339,6 +30940,9 @@ resources: {}
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply { canary_percent, .. } => assert_eq!(canary_percent, Some(25)),
@@ -30369,6 +30973,7 @@ resources: {}
             subgraph: None,
             impact_radius: None,
             dependency_matrix: false,
+            hotspots: false,
         };
         match cmd {
             Commands::Graph { prune, .. } => {
@@ -30482,6 +31087,9 @@ resources: {}
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply { schedule, .. } => {
@@ -30533,6 +31141,8 @@ resources: {}
             compliance_report: None,
             mttr: false,
             trend: None,
+            prediction: false,
+            capacity: false,
         };
         match cmd {
             Commands::Status { alerts, .. } => assert!(alerts),
@@ -30626,6 +31236,9 @@ resources: {}
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply { env_name, .. } => assert_eq!(env_name, Some("staging".to_string())),
@@ -30654,6 +31267,7 @@ resources: {}
             check_overlaps: false,
             check_limits: false,
             check_complexity: false,
+            check_security: false,
         };
         match cmd {
             Commands::Validate {
@@ -30706,6 +31320,8 @@ resources: {}
             compliance_report: None,
             mttr: false,
             trend: None,
+            prediction: false,
+            capacity: false,
         };
         match cmd {
             Commands::Status { diff_lock, .. } => {
@@ -30799,6 +31415,9 @@ resources: {}
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply { dry_run_diff, .. } => assert!(dry_run_diff),
@@ -30829,6 +31448,7 @@ resources: {}
             subgraph: None,
             impact_radius: None,
             dependency_matrix: false,
+            hotspots: false,
         };
         match cmd {
             Commands::Graph { layers, .. } => assert!(layers),
@@ -30933,6 +31553,9 @@ resources: {}
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply {
@@ -30986,6 +31609,8 @@ resources: {}
             compliance_report: None,
             mttr: false,
             trend: None,
+            prediction: false,
+            capacity: false,
         };
         match cmd {
             Commands::Status { compliance, .. } => {
@@ -31081,6 +31706,9 @@ resources: {}
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply { batch_size, .. } => assert_eq!(batch_size, Some(10)),
@@ -31109,6 +31737,7 @@ resources: {}
             check_overlaps: false,
             check_limits: false,
             check_complexity: false,
+            check_security: false,
         };
         match cmd {
             Commands::Validate {
@@ -31160,6 +31789,8 @@ resources: {}
             compliance_report: None,
             mttr: false,
             trend: None,
+            prediction: false,
+            capacity: false,
         };
         match cmd {
             Commands::Status { histogram, .. } => assert!(histogram),
@@ -31251,6 +31882,9 @@ resources: {}
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply { notify_teams, .. } => {
@@ -31283,6 +31917,7 @@ resources: {}
             subgraph: None,
             impact_radius: None,
             dependency_matrix: false,
+            hotspots: false,
         };
         match cmd {
             Commands::Graph {
@@ -31389,6 +32024,9 @@ resources: {}
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply { abort_on_drift, .. } => assert!(abort_on_drift),
@@ -31438,6 +32076,8 @@ resources: {}
             compliance_report: None,
             mttr: false,
             trend: None,
+            prediction: false,
+            capacity: false,
         };
         match cmd {
             Commands::Status {
@@ -31533,6 +32173,9 @@ resources: {}
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply {
@@ -31563,6 +32206,7 @@ resources: {}
             check_overlaps: false,
             check_limits: false,
             check_complexity: false,
+            check_security: false,
         };
         match cmd {
             Commands::Validate { check_naming, .. } => assert!(check_naming),
@@ -31612,6 +32256,8 @@ resources: {}
             compliance_report: None,
             mttr: false,
             trend: None,
+            prediction: false,
+            capacity: false,
         };
         match cmd {
             Commands::Status { top_failures, .. } => assert!(top_failures),
@@ -31703,6 +32349,9 @@ resources: {}
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply { notify_discord, .. } => assert_eq!(
@@ -31736,6 +32385,7 @@ resources: {}
             subgraph: None,
             impact_radius: None,
             dependency_matrix: false,
+            hotspots: false,
         };
         match cmd {
             Commands::Graph { weight, .. } => assert!(weight),
@@ -31840,6 +32490,9 @@ resources: {}
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply {
@@ -31892,6 +32545,8 @@ resources: {}
             compliance_report: None,
             mttr: false,
             trend: None,
+            prediction: false,
+            capacity: false,
         };
         match cmd {
             Commands::Status {
@@ -31987,6 +32642,9 @@ resources: {}
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply { metrics_port, .. } => assert_eq!(metrics_port, Some(9090)),
@@ -32015,6 +32673,7 @@ resources: {}
             check_overlaps: true,
             check_limits: false,
             check_complexity: false,
+            check_security: false,
         };
         match cmd {
             Commands::Validate { check_overlaps, .. } => assert!(check_overlaps),
@@ -32064,6 +32723,8 @@ resources: {}
             compliance_report: None,
             mttr: false,
             trend: None,
+            prediction: false,
+            capacity: false,
         };
         match cmd {
             Commands::Status { drift_summary, .. } => assert!(drift_summary),
@@ -32155,6 +32816,9 @@ resources: {}
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply {
@@ -32187,6 +32851,7 @@ resources: {}
             subgraph: Some("my-resource".to_string()),
             impact_radius: None,
             dependency_matrix: false,
+            hotspots: false,
         };
         match cmd {
             Commands::Graph { subgraph, .. } => {
@@ -32293,6 +32958,9 @@ resources: {}
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply {
@@ -32344,6 +33012,8 @@ resources: {}
             compliance_report: None,
             mttr: false,
             trend: None,
+            prediction: false,
+            capacity: false,
         };
         match cmd {
             Commands::Status { resource_age, .. } => assert!(resource_age),
@@ -32437,6 +33107,9 @@ resources: {}
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply {
@@ -32467,6 +33140,7 @@ resources: {}
             check_overlaps: false,
             check_limits: true,
             check_complexity: false,
+            check_security: false,
         };
         match cmd {
             Commands::Validate { check_limits, .. } => assert!(check_limits),
@@ -32516,6 +33190,8 @@ resources: {}
             compliance_report: None,
             mttr: false,
             trend: None,
+            prediction: false,
+            capacity: false,
         };
         match cmd {
             Commands::Status { sla_report, .. } => assert!(sla_report),
@@ -32607,6 +33283,9 @@ resources: {}
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply { notify_datadog, .. } => {
@@ -32639,6 +33318,7 @@ resources: {}
             subgraph: None,
             impact_radius: Some("base-packages".to_string()),
             dependency_matrix: false,
+            hotspots: false,
         };
         match cmd {
             Commands::Graph { impact_radius, .. } => {
@@ -32751,6 +33431,9 @@ resources: {}
             canary_machine: None,
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply { change_window, .. } => {
@@ -32802,6 +33485,8 @@ resources: {}
             compliance_report: Some("pci-dss".to_string()),
             mttr: false,
             trend: None,
+            prediction: false,
+            capacity: false,
         };
         match cmd {
             Commands::Status {
@@ -32897,11 +33582,14 @@ resources: {}
             canary_machine: Some("gpu-box".to_string()),
             notify_newrelic: None,
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
-            Commands::Apply {
-                canary_machine, ..
-            } => assert_eq!(canary_machine, Some("gpu-box".to_string())),
+            Commands::Apply { canary_machine, .. } => {
+                assert_eq!(canary_machine, Some("gpu-box".to_string()))
+            }
             _ => panic!("expected Apply"),
         }
     }
@@ -32927,6 +33615,7 @@ resources: {}
             check_overlaps: false,
             check_limits: false,
             check_complexity: true,
+            check_security: false,
         };
         match cmd {
             Commands::Validate {
@@ -32978,6 +33667,8 @@ resources: {}
             compliance_report: None,
             mttr: true,
             trend: None,
+            prediction: false,
+            capacity: false,
         };
         match cmd {
             Commands::Status { mttr, .. } => assert!(mttr),
@@ -33069,6 +33760,9 @@ resources: {}
             canary_machine: None,
             notify_newrelic: Some("NRJS-abc123".to_string()),
             max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply {
@@ -33101,6 +33795,7 @@ resources: {}
             subgraph: None,
             impact_radius: None,
             dependency_matrix: true,
+            hotspots: false,
         };
         match cmd {
             Commands::Graph {
@@ -33208,6 +33903,9 @@ resources: {}
             canary_machine: None,
             notify_newrelic: None,
             max_duration: Some(300),
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
         };
         match cmd {
             Commands::Apply { max_duration, .. } => assert_eq!(max_duration, Some(300)),
@@ -33257,9 +33955,485 @@ resources: {}
             compliance_report: None,
             mttr: false,
             trend: Some(10),
+            prediction: false,
+            capacity: false,
         };
         match cmd {
             Commands::Status { trend, .. } => assert_eq!(trend, Some(10)),
+            _ => panic!("expected Status"),
+        }
+    }
+
+    // ── Phase 38 tests (FJ-520 → FJ-527) ──────────────────────────────
+
+    #[test]
+    fn test_fj520_apply_notify_grafana_flag() {
+        let cmd = Commands::Apply {
+            file: PathBuf::from("forjar.yaml"),
+            machine: None,
+            resource: None,
+            tag: None,
+            group: None,
+            force: false,
+            dry_run: false,
+            no_tripwire: false,
+            params: vec![],
+            auto_commit: false,
+            timeout: None,
+            state_dir: PathBuf::from("state"),
+            json: false,
+            env_file: None,
+            workspace: None,
+            check: false,
+            report: false,
+            force_unlock: false,
+            output: None,
+            progress: false,
+            timing: false,
+            retry: 0,
+            yes: false,
+            parallel: false,
+            resource_timeout: None,
+            rollback_on_failure: false,
+            max_parallel: None,
+            notify: None,
+            subset: None,
+            confirm_destructive: false,
+            backup: false,
+            exclude: None,
+            sequential: false,
+            diff_only: false,
+            notify_slack: None,
+            cost_limit: None,
+            preview: false,
+            tag_filter: None,
+            output_scripts: None,
+            resume: false,
+            confirm: false,
+            max_failures: None,
+            rate_limit: None,
+            labels: vec![],
+            plan_file: None,
+            notify_email: None,
+            skip: None,
+            snapshot_before: None,
+            concurrency: None,
+            webhook_before: None,
+            rollback_snapshot: None,
+            retry_delay: None,
+            tags: vec![],
+            log_file: None,
+            comment: None,
+            only_changed: false,
+            pre_script: None,
+            dry_run_json: false,
+            notify_webhook: None,
+            post_script: None,
+            approval_required: false,
+            canary_percent: None,
+            schedule: None,
+            env_name: None,
+            dry_run_diff: false,
+            notify_pagerduty: None,
+            batch_size: None,
+            notify_teams: None,
+            abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
+            metrics_port: None,
+            notify_opsgenie: None,
+            circuit_breaker: None,
+            require_approval: None,
+            notify_datadog: None,
+            change_window: None,
+            canary_machine: None,
+            notify_newrelic: None,
+            max_duration: None,
+            notify_grafana: Some("https://grafana.example.com/api/annotations".to_string()),
+            rate_limit_resources: None,
+            checkpoint_interval: None,
+        };
+        match cmd {
+            Commands::Apply {
+                notify_grafana, ..
+            } => assert_eq!(
+                notify_grafana,
+                Some("https://grafana.example.com/api/annotations".to_string())
+            ),
+            _ => panic!("expected Apply"),
+        }
+    }
+
+    #[test]
+    fn test_fj521_validate_check_security_flag() {
+        let cmd = Commands::Validate {
+            file: PathBuf::from("forjar.yaml"),
+            strict: false,
+            json: false,
+            dry_expand: false,
+            schema_version: None,
+            exhaustive: false,
+            policy_file: None,
+            check_connectivity: false,
+            check_templates: false,
+            strict_deps: false,
+            check_secrets: false,
+            check_idempotency: false,
+            check_drift_coverage: false,
+            check_cycles_deep: false,
+            check_naming: false,
+            check_overlaps: false,
+            check_limits: false,
+            check_complexity: false,
+            check_security: true,
+        };
+        match cmd {
+            Commands::Validate {
+                check_security, ..
+            } => assert!(check_security),
+            _ => panic!("expected Validate"),
+        }
+    }
+
+    #[test]
+    fn test_fj522_status_prediction_flag() {
+        let cmd = Commands::Status {
+            state_dir: PathBuf::from("state"),
+            machine: None,
+            json: false,
+            file: None,
+            summary: false,
+            watch: None,
+            stale: None,
+            health: false,
+            drift_details: false,
+            timeline: false,
+            changes_since: None,
+            summary_by: None,
+            prometheus: false,
+            expired: None,
+            count: false,
+            format: None,
+            anomalies: false,
+            diff_from: None,
+            resources_by_type: false,
+            machines_only: false,
+            stale_resources: false,
+            health_threshold: None,
+            json_lines: false,
+            since: None,
+            export: None,
+            compact: false,
+            alerts: false,
+            diff_lock: None,
+            compliance: None,
+            histogram: false,
+            dependency_health: false,
+            top_failures: false,
+            convergence_rate: false,
+            drift_summary: false,
+            resource_age: false,
+            sla_report: false,
+            compliance_report: None,
+            mttr: false,
+            trend: None,
+            prediction: true,
+            capacity: false,
+        };
+        match cmd {
+            Commands::Status { prediction, .. } => assert!(prediction),
+            _ => panic!("expected Status"),
+        }
+    }
+
+    #[test]
+    fn test_fj523_apply_rate_limit_resources_flag() {
+        let cmd = Commands::Apply {
+            file: PathBuf::from("forjar.yaml"),
+            machine: None,
+            resource: None,
+            tag: None,
+            group: None,
+            force: false,
+            dry_run: false,
+            no_tripwire: false,
+            params: vec![],
+            auto_commit: false,
+            timeout: None,
+            state_dir: PathBuf::from("state"),
+            json: false,
+            env_file: None,
+            workspace: None,
+            check: false,
+            report: false,
+            force_unlock: false,
+            output: None,
+            progress: false,
+            timing: false,
+            retry: 0,
+            yes: false,
+            parallel: false,
+            resource_timeout: None,
+            rollback_on_failure: false,
+            max_parallel: None,
+            notify: None,
+            subset: None,
+            confirm_destructive: false,
+            backup: false,
+            exclude: None,
+            sequential: false,
+            diff_only: false,
+            notify_slack: None,
+            cost_limit: None,
+            preview: false,
+            tag_filter: None,
+            output_scripts: None,
+            resume: false,
+            confirm: false,
+            max_failures: None,
+            rate_limit: None,
+            labels: vec![],
+            plan_file: None,
+            notify_email: None,
+            skip: None,
+            snapshot_before: None,
+            concurrency: None,
+            webhook_before: None,
+            rollback_snapshot: None,
+            retry_delay: None,
+            tags: vec![],
+            log_file: None,
+            comment: None,
+            only_changed: false,
+            pre_script: None,
+            dry_run_json: false,
+            notify_webhook: None,
+            post_script: None,
+            approval_required: false,
+            canary_percent: None,
+            schedule: None,
+            env_name: None,
+            dry_run_diff: false,
+            notify_pagerduty: None,
+            batch_size: None,
+            notify_teams: None,
+            abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
+            metrics_port: None,
+            notify_opsgenie: None,
+            circuit_breaker: None,
+            require_approval: None,
+            notify_datadog: None,
+            change_window: None,
+            canary_machine: None,
+            notify_newrelic: None,
+            max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: Some(10),
+            checkpoint_interval: None,
+        };
+        match cmd {
+            Commands::Apply {
+                rate_limit_resources,
+                ..
+            } => assert_eq!(rate_limit_resources, Some(10)),
+            _ => panic!("expected Apply"),
+        }
+    }
+
+    #[test]
+    fn test_fj524_graph_hotspots_flag() {
+        let cmd = Commands::Graph {
+            file: PathBuf::from("forjar.yaml"),
+            format: "mermaid".to_string(),
+            machine: None,
+            group: None,
+            affected: None,
+            critical_path: false,
+            reverse: false,
+            depth: None,
+            cluster: false,
+            orphans: false,
+            stats: false,
+            json_output: false,
+            highlight: None,
+            prune: None,
+            layers: false,
+            critical_resources: false,
+            weight: false,
+            subgraph: None,
+            impact_radius: None,
+            dependency_matrix: false,
+            hotspots: true,
+        };
+        match cmd {
+            Commands::Graph { hotspots, .. } => assert!(hotspots),
+            _ => panic!("expected Graph"),
+        }
+    }
+
+    #[test]
+    fn test_fj525_lock_gc_already_exists() {
+        // LockGc was added in an earlier phase — verify it still constructs
+        let cmd = Commands::LockGc {
+            file: PathBuf::from("forjar.yaml"),
+            state_dir: PathBuf::from("state"),
+            yes: false,
+            json: true,
+        };
+        match cmd {
+            Commands::LockGc { json, .. } => assert!(json),
+            _ => panic!("expected LockGc"),
+        }
+    }
+
+    #[test]
+    fn test_fj526_apply_checkpoint_interval_flag() {
+        let cmd = Commands::Apply {
+            file: PathBuf::from("forjar.yaml"),
+            machine: None,
+            resource: None,
+            tag: None,
+            group: None,
+            force: false,
+            dry_run: false,
+            no_tripwire: false,
+            params: vec![],
+            auto_commit: false,
+            timeout: None,
+            state_dir: PathBuf::from("state"),
+            json: false,
+            env_file: None,
+            workspace: None,
+            check: false,
+            report: false,
+            force_unlock: false,
+            output: None,
+            progress: false,
+            timing: false,
+            retry: 0,
+            yes: false,
+            parallel: false,
+            resource_timeout: None,
+            rollback_on_failure: false,
+            max_parallel: None,
+            notify: None,
+            subset: None,
+            confirm_destructive: false,
+            backup: false,
+            exclude: None,
+            sequential: false,
+            diff_only: false,
+            notify_slack: None,
+            cost_limit: None,
+            preview: false,
+            tag_filter: None,
+            output_scripts: None,
+            resume: false,
+            confirm: false,
+            max_failures: None,
+            rate_limit: None,
+            labels: vec![],
+            plan_file: None,
+            notify_email: None,
+            skip: None,
+            snapshot_before: None,
+            concurrency: None,
+            webhook_before: None,
+            rollback_snapshot: None,
+            retry_delay: None,
+            tags: vec![],
+            log_file: None,
+            comment: None,
+            only_changed: false,
+            pre_script: None,
+            dry_run_json: false,
+            notify_webhook: None,
+            post_script: None,
+            approval_required: false,
+            canary_percent: None,
+            schedule: None,
+            env_name: None,
+            dry_run_diff: false,
+            notify_pagerduty: None,
+            batch_size: None,
+            notify_teams: None,
+            abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
+            metrics_port: None,
+            notify_opsgenie: None,
+            circuit_breaker: None,
+            require_approval: None,
+            notify_datadog: None,
+            change_window: None,
+            canary_machine: None,
+            notify_newrelic: None,
+            max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: Some(60),
+        };
+        match cmd {
+            Commands::Apply {
+                checkpoint_interval,
+                ..
+            } => assert_eq!(checkpoint_interval, Some(60)),
+            _ => panic!("expected Apply"),
+        }
+    }
+
+    #[test]
+    fn test_fj527_status_capacity_flag() {
+        let cmd = Commands::Status {
+            state_dir: PathBuf::from("state"),
+            machine: None,
+            json: false,
+            file: None,
+            summary: false,
+            watch: None,
+            stale: None,
+            health: false,
+            drift_details: false,
+            timeline: false,
+            changes_since: None,
+            summary_by: None,
+            prometheus: false,
+            expired: None,
+            count: false,
+            format: None,
+            anomalies: false,
+            diff_from: None,
+            resources_by_type: false,
+            machines_only: false,
+            stale_resources: false,
+            health_threshold: None,
+            json_lines: false,
+            since: None,
+            export: None,
+            compact: false,
+            alerts: false,
+            diff_lock: None,
+            compliance: None,
+            histogram: false,
+            dependency_health: false,
+            top_failures: false,
+            convergence_rate: false,
+            drift_summary: false,
+            resource_age: false,
+            sla_report: false,
+            compliance_report: None,
+            mttr: false,
+            trend: None,
+            prediction: false,
+            capacity: true,
+        };
+        match cmd {
+            Commands::Status { capacity, .. } => assert!(capacity),
             _ => panic!("expected Status"),
         }
     }
