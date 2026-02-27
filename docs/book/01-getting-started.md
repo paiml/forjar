@@ -16,7 +16,7 @@ Verify:
 forjar --help
 ```
 
-You should see forjar's 46 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`.
+You should see forjar's 50 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`.
 
 ## Your First Project
 
@@ -1676,6 +1676,68 @@ Show change history for a specific resource across all applies:
 ```bash
 forjar history --resource base-packages --state-dir state
 forjar history --resource app-config --state-dir state --json
+```
+
+## Script Preview
+
+Show generated scripts before execution (audit what will run):
+
+```bash
+forjar apply -f forjar.yaml --preview
+```
+
+## Config Suggestions
+
+Analyze config and suggest improvements:
+
+```bash
+forjar suggest -f forjar.yaml
+forjar suggest -f forjar.yaml --json
+```
+
+## Config Comparison
+
+Compare two config files and show differences:
+
+```bash
+forjar compare config-v1.yaml config-v2.yaml
+forjar compare prod.yaml staging.yaml --json
+```
+
+## Convergence Timeline
+
+Show resource convergence timeline with timestamps:
+
+```bash
+forjar status --timeline --state-dir state
+forjar status --timeline --state-dir state --json
+```
+
+## Output Scripts
+
+Write generated scripts to directory for manual review:
+
+```bash
+forjar apply -f forjar.yaml --output-scripts /tmp/review
+ls /tmp/review/  # base-packages.sh, app-config.sh, ...
+```
+
+## Lock Pruning
+
+Remove lock entries for resources no longer in config:
+
+```bash
+forjar lock-prune -f forjar.yaml --state-dir state         # dry-run
+forjar lock-prune -f forjar.yaml --state-dir state --yes   # actually prune
+```
+
+## Environment Comparison
+
+Compare environments (workspaces) for cross-environment drift:
+
+```bash
+forjar env-diff staging production --state-dir state
+forjar env-diff dev staging --state-dir state --json
 ```
 
 ## Next Steps

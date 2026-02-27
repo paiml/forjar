@@ -1863,14 +1863,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-360 | `forjar apply --preview` — show generated shell scripts before execution. Audit what will run on machines. | Planned |
-| FJ-361 | `forjar suggest` — analyze config and suggest improvements (missing depends_on, unused params, security hardening). | Planned |
-| FJ-362 | `forjar apply --tag-filter <expr>` — boolean tag filter expressions (e.g., "web AND NOT staging"). Advanced targeting. | Planned |
-| FJ-363 | `forjar compare <file1> <file2>` — compare two config files and show differences. Migration planning tool. | Planned |
-| FJ-364 | `forjar status --timeline` — show resource convergence timeline with timestamps. Visual history per machine. | Planned |
-| FJ-365 | `forjar apply --dry-run --output-scripts <dir>` — write generated scripts to directory for manual review. | Planned |
-| FJ-366 | `forjar lock prune` — remove lock entries for resources no longer in config. State hygiene. | Planned |
-| FJ-367 | `forjar env diff <env1> <env2>` — compare environments (workspaces). Cross-environment drift detection. | Planned |
+| FJ-360 | `forjar apply --preview` — show generated shell scripts before execution. Audit what will run on machines. | Done |
+| FJ-361 | `forjar suggest` — analyze config and suggest improvements (missing depends_on, unused params, security hardening). | Done |
+| FJ-362 | `forjar apply --tag-filter <expr>` — boolean tag filter expressions (e.g., "web AND NOT staging"). Advanced targeting. | Done |
+| FJ-363 | `forjar compare <file1> <file2>` — compare two config files and show differences. Migration planning tool. | Done |
+| FJ-364 | `forjar status --timeline` — show resource convergence timeline with timestamps. Visual history per machine. | Done |
+| FJ-365 | `forjar apply --dry-run --output-scripts <dir>` — write generated scripts to directory for manual review. | Done |
+| FJ-366 | `forjar lock prune` — remove lock entries for resources no longer in config. State hygiene. | Done |
+| FJ-367 | `forjar env diff <env1> <env2>` — compare environments (workspaces). Cross-environment drift detection. | Done |
+
+### Phase 23 — v2.3: Developer Experience
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-370 | `forjar apply --resume` — resume from last failed resource instead of re-running everything. Checkpoint-based recovery. | Planned |
+| FJ-371 | `forjar template <recipe> --vars KEY=VAL` — expand a recipe template to stdout without applying. Preview recipe output. | Planned |
+| FJ-372 | `forjar status --changes-since <commit>` — show resources changed since a git commit. Git-aware state diffing. | Planned |
+| FJ-373 | `forjar apply --confirm` — interactive per-resource confirmation before execution. Manual approval mode. | Planned |
+| FJ-374 | `forjar lint --rules <file>` — custom lint rules from YAML file. Organization-specific policy enforcement. | Planned |
+| FJ-375 | `forjar graph --critical-path` — highlight the longest dependency chain. Bottleneck identification. | Planned |
+| FJ-376 | `forjar status --summary-by machine|type|status` — group status output by dimension. Dashboard aggregation. | Planned |
+| FJ-377 | `forjar apply --max-failures <n>` — allow N failures before stopping (override jidoka for partial deploys). | Planned |
 
 ---
 
