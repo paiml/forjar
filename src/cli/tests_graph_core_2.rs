@@ -63,6 +63,8 @@ mod tests {
             breadth_first: false,
             subgraph_stats: false,
             dependency_count: false,
+            root_resources: false,
+            edge_list: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { prune, .. }) => {
@@ -120,6 +122,8 @@ mod tests {
             breadth_first: false,
             subgraph_stats: false,
             dependency_count: false,
+            root_resources: false,
+            edge_list: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { layers, .. }) => assert!(layers),
@@ -175,6 +179,8 @@ mod tests {
             breadth_first: false,
             subgraph_stats: false,
             dependency_count: false,
+            root_resources: false,
+            edge_list: false,
         });
         match cmd {
             Commands::Graph(GraphArgs {
@@ -232,6 +238,8 @@ mod tests {
             breadth_first: false,
             subgraph_stats: false,
             dependency_count: false,
+            root_resources: false,
+            edge_list: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { weight, .. }) => assert!(weight),
@@ -287,6 +295,8 @@ mod tests {
             breadth_first: false,
             subgraph_stats: false,
             dependency_count: false,
+            root_resources: false,
+            edge_list: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { subgraph, .. }) => {
@@ -344,6 +354,8 @@ mod tests {
             breadth_first: false,
             subgraph_stats: false,
             dependency_count: false,
+            root_resources: false,
+            edge_list: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { impact_radius, .. }) => {
@@ -401,6 +413,8 @@ mod tests {
             breadth_first: false,
             subgraph_stats: false,
             dependency_count: false,
+            root_resources: false,
+            edge_list: false,
         });
         match cmd {
             Commands::Graph(GraphArgs {
@@ -458,6 +472,8 @@ mod tests {
             breadth_first: false,
             subgraph_stats: false,
             dependency_count: false,
+            root_resources: false,
+            edge_list: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { hotspots, .. }) => assert!(hotspots),

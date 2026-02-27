@@ -184,6 +184,7 @@ resources:
                 notify_ntfy: None,
                 only_machine: None,
                 notify_webhook_headers: None,
+                notify_log: None,
             }),
             false,
             true,

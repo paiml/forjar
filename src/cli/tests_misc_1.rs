@@ -160,6 +160,7 @@ mod tests {
             notify_ntfy: None,
             only_machine: None,
             notify_webhook_headers: None,
+            notify_log: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { progress, .. }) => assert!(!progress),
@@ -317,6 +318,7 @@ mod tests {
             notify_ntfy: None,
             only_machine: None,
             notify_webhook_headers: None,
+            notify_log: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { timing, .. }) => assert!(timing),
@@ -470,6 +472,7 @@ mod tests {
             notify_ntfy: None,
             only_machine: None,
             notify_webhook_headers: None,
+            notify_log: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { timing, .. }) => assert!(!timing),

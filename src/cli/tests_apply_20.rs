@@ -161,6 +161,7 @@ mod tests {
                 notify_ntfy: None,
                 only_machine: None,
                 notify_webhook_headers: None,
+                notify_log: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { sign_off, .. }) => {
@@ -316,6 +317,7 @@ mod tests {
                 notify_ntfy: None,
                 only_machine: None,
                 notify_webhook_headers: None,
+                notify_log: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { notify_sns, .. }) => {
@@ -474,6 +476,7 @@ mod tests {
                 notify_ntfy: None,
                 only_machine: None,
                 notify_webhook_headers: None,
+                notify_log: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs {

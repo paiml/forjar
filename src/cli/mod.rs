@@ -35,6 +35,7 @@ mod status_trends;
 mod status_fleet;
 mod status_resources;
 mod status_resource_detail;
+mod status_counts;
 mod status_compliance;
 mod status_cost;
 mod status_observability;
@@ -44,6 +45,7 @@ mod graph_topology;
 mod graph_analysis;
 mod graph_cross;
 mod graph_extended;
+mod graph_export;
 mod graph_visualization;
 mod graph_impact;
 mod lock_core;
@@ -182,6 +184,8 @@ mod tests_graph_core_5;
 mod tests_phase59;
 #[cfg(test)]
 mod tests_phase60;
+#[cfg(test)]
+mod tests_phase61;
 #[cfg(test)]
 mod tests_lock_core;
 #[cfg(test)]

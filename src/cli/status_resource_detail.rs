@@ -293,7 +293,7 @@ pub(crate) fn cmd_status_resource_health(
 
 
 /// Tally status counts for a single machine lock file.
-fn tally_machine_health(state_dir: &Path, machine: &str) -> (usize, usize, usize, usize) {
+pub(crate) fn tally_machine_health(state_dir: &Path, machine: &str) -> (usize, usize, usize, usize) {
     let lock_path = state_dir.join(format!("{}.lock.yaml", machine));
     let (mut total, mut converged, mut failed, mut drifted) = (0, 0, 0, 0);
     if let Ok(data) = std::fs::read_to_string(&lock_path) {
@@ -445,4 +445,6 @@ fn collect_staleness(state_dir: &Path, targets: &[&String]) -> Vec<(String, Stri
     }
     entries
 }
+
+
 

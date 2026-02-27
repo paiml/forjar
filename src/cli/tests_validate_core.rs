@@ -119,6 +119,8 @@ resources: {}
                 check_cron_syntax: false,
                 check_env_refs: false,
                 check_resource_names: None,
+                check_resource_count: None,
+                check_duplicate_paths: false,
             }),
             false,
             true,
@@ -291,6 +293,8 @@ resources:
             check_cron_syntax: false,
             check_env_refs: false,
             check_resource_names: None,
+            check_resource_count: None,
+            check_duplicate_paths: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { json, strict, .. }) => {
@@ -348,6 +352,8 @@ resources:
             check_cron_syntax: false,
             check_env_refs: false,
             check_resource_names: None,
+            check_resource_count: None,
+            check_duplicate_paths: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { dry_expand, .. }) => assert!(dry_expand),
@@ -400,6 +406,8 @@ resources:
             check_cron_syntax: false,
             check_env_refs: false,
             check_resource_names: None,
+            check_resource_count: None,
+            check_duplicate_paths: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { exhaustive, .. }) => assert!(exhaustive),
@@ -452,6 +460,8 @@ resources:
             check_cron_syntax: false,
             check_env_refs: false,
             check_resource_names: None,
+            check_resource_count: None,
+            check_duplicate_paths: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { policy_file, .. }) => {

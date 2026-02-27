@@ -60,6 +60,8 @@ mod tests {
             check_cron_syntax: false,
             check_env_refs: false,
             check_resource_names: None,
+            check_resource_count: None,
+            check_duplicate_paths: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs {
@@ -114,6 +116,8 @@ mod tests {
             check_cron_syntax: false,
             check_env_refs: false,
             check_resource_names: None,
+            check_resource_count: None,
+            check_duplicate_paths: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs {
@@ -168,6 +172,8 @@ mod tests {
             check_cron_syntax: false,
             check_env_refs: false,
             check_resource_names: None,
+            check_resource_count: None,
+            check_duplicate_paths: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { strict_deps, .. }) => assert!(strict_deps),
@@ -220,6 +226,8 @@ mod tests {
             check_cron_syntax: false,
             check_env_refs: false,
             check_resource_names: None,
+            check_resource_count: None,
+            check_duplicate_paths: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { check_secrets, .. }) => assert!(check_secrets),
@@ -272,6 +280,8 @@ mod tests {
             check_cron_syntax: false,
             check_env_refs: false,
             check_resource_names: None,
+            check_resource_count: None,
+            check_duplicate_paths: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs {
@@ -326,6 +336,8 @@ mod tests {
             check_cron_syntax: false,
             check_env_refs: false,
             check_resource_names: None,
+            check_resource_count: None,
+            check_duplicate_paths: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs {
@@ -381,6 +393,8 @@ mod tests {
             check_cron_syntax: false,
             check_env_refs: false,
             check_resource_names: None,
+            check_resource_count: None,
+            check_duplicate_paths: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs {
@@ -435,6 +449,8 @@ mod tests {
             check_cron_syntax: false,
             check_env_refs: false,
             check_resource_names: None,
+            check_resource_count: None,
+            check_duplicate_paths: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { check_naming, .. }) => assert!(check_naming),
@@ -487,6 +503,8 @@ mod tests {
             check_cron_syntax: false,
             check_env_refs: false,
             check_resource_names: None,
+            check_resource_count: None,
+            check_duplicate_paths: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { check_overlaps, .. }) => assert!(check_overlaps),

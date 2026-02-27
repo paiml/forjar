@@ -161,6 +161,7 @@ mod tests {
                 notify_ntfy: None,
                 only_machine: None,
                 notify_webhook_headers: None,
+                notify_log: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { max_duration, .. }) => assert_eq!(max_duration, Some(300)),
@@ -314,6 +315,7 @@ mod tests {
                 notify_ntfy: None,
                 only_machine: None,
                 notify_webhook_headers: None,
+                notify_log: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { notify_grafana, .. }) => assert_eq!(
@@ -470,6 +472,7 @@ mod tests {
                 notify_ntfy: None,
                 only_machine: None,
                 notify_webhook_headers: None,
+                notify_log: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs {

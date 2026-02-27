@@ -161,6 +161,7 @@ mod tests {
                 notify_ntfy: None,
                 only_machine: None,
                 notify_webhook_headers: None,
+                notify_log: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs {
@@ -318,6 +319,7 @@ mod tests {
                 notify_ntfy: None,
                 only_machine: None,
                 notify_webhook_headers: None,
+                notify_log: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { batch_size, .. }) => assert_eq!(batch_size, Some(10)),
@@ -471,6 +473,7 @@ mod tests {
                 notify_ntfy: None,
                 only_machine: None,
                 notify_webhook_headers: None,
+                notify_log: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { notify_teams, .. }) => {

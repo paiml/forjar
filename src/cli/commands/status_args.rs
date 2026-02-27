@@ -328,5 +328,17 @@ pub struct StatusArgs {
     /// FJ-748: Show time since last successful apply per resource
     #[arg(long)]
     pub resource_staleness: bool,
+
+    /// FJ-750: Show % of resources converged per machine
+    #[arg(long)]
+    pub convergence_percentage: bool,
+
+    /// FJ-754: Show count of failed resources per machine
+    #[arg(long)]
+    pub failed_count: bool,
+
+    /// FJ-756: Show count of drifted resources per machine
+    #[arg(long)]
+    pub drift_count: bool,
 }
 
