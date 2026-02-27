@@ -69,6 +69,12 @@ forjar validate -f forjar.yaml --check-duplicate-paths
 
 # JSON output for CI integration
 forjar validate -f forjar.yaml --check-duplicate-paths --json
+
+# Detect circular dependency chains
+forjar validate -f forjar.yaml --check-circular-deps
+
+# Verify all machine references in resources exist
+forjar validate -f forjar.yaml --check-machine-refs
 ```
 
 ### `forjar plan`
@@ -183,6 +189,12 @@ forjar status --state-dir state --drift-count
 
 # JSON output for all dashboard metrics
 forjar status --state-dir state --convergence-percentage --json
+
+# Show last apply duration per resource
+forjar status --state-dir state --resource-duration
+
+# Show which resources target each machine
+forjar status -f forjar.yaml --machine-resource-map
 ```
 
 ### `forjar history`
@@ -256,6 +268,12 @@ forjar graph -f forjar.yaml --edge-list
 # JSON output for both
 forjar graph -f forjar.yaml --root-resources --json
 forjar graph -f forjar.yaml --edge-list --json
+
+# Show disconnected subgraphs (connected components)
+forjar graph -f forjar.yaml --connected-components
+
+# Output graph as adjacency matrix
+forjar graph -f forjar.yaml --adjacency-matrix
 ```
 
 ### `forjar destroy`

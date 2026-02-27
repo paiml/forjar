@@ -2428,14 +2428,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-757 | `forjar validate --check-circular-deps` — detect circular dependency chains. Safety. | Planned |
-| FJ-758 | `forjar status --resource-age` — show time since each resource was last applied. Observability. | Planned |
-| FJ-759 | `forjar graph --connected-components` — show disconnected subgraphs. Analysis. | Planned |
-| FJ-760 | `forjar apply --notify-exec <cmd>` — run arbitrary command as notification handler. Extensibility. | Planned |
-| FJ-761 | `forjar validate --check-machine-refs` — verify all machine references in resources exist. Safety. | Planned |
-| FJ-762 | `forjar status --resource-duration` — show last apply duration per resource. Performance. | Planned |
-| FJ-763 | `forjar graph --adjacency-matrix` — output graph as adjacency matrix. Export. | Planned |
-| FJ-764 | `forjar status --machine-resource-map` — show which resources target each machine. Dashboard. | Planned |
+| FJ-757 | `forjar validate --check-circular-deps` — detect circular dependency chains. Safety. | Done |
+| FJ-758 | `forjar status --resource-age` — show time since each resource was last applied. Observability. | Done |
+| FJ-759 | `forjar graph --connected-components` — show disconnected subgraphs. Analysis. | Done |
+| FJ-760 | `forjar apply --notify-exec <cmd>` — run arbitrary command as notification handler. Extensibility. | Done |
+| FJ-761 | `forjar validate --check-machine-refs` — verify all machine references in resources exist. Safety. | Done |
+| FJ-762 | `forjar status --resource-duration` — show last apply duration per resource. Performance. | Done |
+| FJ-763 | `forjar graph --adjacency-matrix` — output graph as adjacency matrix. Export. | Done |
+| FJ-764 | `forjar status --machine-resource-map` — show which resources target each machine. Dashboard. | Done |
+
+### Phase 63 — Policy Enforcement & Fleet Intelligence (FJ-765→FJ-772)
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-765 | `forjar validate --check-provider-consistency` — verify all package resources use consistent providers per machine. Governance. | Planned |
+| FJ-766 | `forjar status --fleet-convergence` — aggregate convergence across all machines. Fleet. | Planned |
+| FJ-767 | `forjar graph --longest-path` — show longest dependency chain length. Analysis. | Planned |
+| FJ-768 | `forjar apply --notify-file <path>` — write one-line status to a file (for monitoring). Ops. | Planned |
+| FJ-769 | `forjar validate --check-state-values` — verify state field values are valid for each resource type. Safety. | Planned |
+| FJ-770 | `forjar status --resource-hash` — show BLAKE3 hash per resource from lock file. Debug. | Planned |
+| FJ-771 | `forjar graph --in-degree` — show in-degree (number of dependents) per resource. Analysis. | Planned |
+| FJ-772 | `forjar status --machine-drift-summary` — show drift percentage per machine. Fleet. | Planned |
 
 ---
 
