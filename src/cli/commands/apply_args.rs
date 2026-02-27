@@ -561,5 +561,9 @@ pub struct ApplyArgs {
     /// FJ-752: Append structured JSON events to a local file
     #[arg(long)]
     pub notify_log: Option<std::path::PathBuf>,
+
+    /// FJ-760: Run arbitrary command as notification handler
+    #[arg(long)]
+    pub notify_exec: Option<String>,
 }
 

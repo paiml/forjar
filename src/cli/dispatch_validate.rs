@@ -9,6 +9,7 @@ use super::validate_paths::*;
 use super::validate_quality::*;
 use super::validate_compliance::*;
 use super::validate_resources::*;
+use super::validate_safety::*;
 
 
 /// Structural/resource validation checks.
@@ -101,6 +102,7 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
         check_cron_syntax,
         check_env_refs, check_resource_names,
         check_resource_count, check_duplicate_paths,
+        check_circular_deps, check_machine_refs,
     } = args;
 
     if check_cron_syntax {
@@ -117,6 +119,12 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
     }
     if check_duplicate_paths {
         return cmd_validate_check_duplicate_paths(&file, json);
+    }
+    if check_circular_deps {
+        return cmd_validate_check_circular_deps(&file, json);
+    }
+    if check_machine_refs {
+        return cmd_validate_check_machine_refs(&file, json);
     }
     if let Some(r) = try_validate_structural(&file, json, check_mount_points, check_group_consistency, check_mode_consistency, check_template_vars, check_service_deps, check_path_conflicts, check_owner_consistency, check_naming_conventions, check_circular_refs, check_machine_reachability) {
         return r;

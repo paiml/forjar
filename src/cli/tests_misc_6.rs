@@ -161,6 +161,7 @@ mod tests {
             only_machine: None,
             notify_webhook_headers: None,
             notify_log: None,
+        notify_exec: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { backup, .. }) => assert!(backup),
@@ -315,6 +316,7 @@ mod tests {
             only_machine: None,
             notify_webhook_headers: None,
             notify_log: None,
+        notify_exec: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { exclude, .. }) => assert_eq!(exclude, Some("test-*".to_string())),
@@ -469,6 +471,7 @@ mod tests {
             only_machine: None,
             notify_webhook_headers: None,
             notify_log: None,
+        notify_exec: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { sequential, .. }) => assert!(sequential),

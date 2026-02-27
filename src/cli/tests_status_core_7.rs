@@ -103,6 +103,8 @@ mod tests {
             convergence_percentage: false,
             failed_count: false,
             drift_count: false,
+            resource_duration: false,
+            machine_resource_map: false,
         });
         match cmd {
             Commands::Status(StatusArgs { cost_estimate, .. }) => assert!(cost_estimate),
@@ -198,6 +200,8 @@ mod tests {
             convergence_percentage: false,
             failed_count: false,
             drift_count: false,
+            resource_duration: false,
+            machine_resource_map: false,
         });
         match cmd {
             Commands::Status(StatusArgs {
@@ -297,6 +301,8 @@ mod tests {
             convergence_percentage: false,
             failed_count: false,
             drift_count: false,
+            resource_duration: false,
+            machine_resource_map: false,
         });
         match cmd {
             Commands::Status(StatusArgs { health_score, .. }) => assert!(health_score),
@@ -392,6 +398,8 @@ mod tests {
             convergence_percentage: false,
             failed_count: false,
             drift_count: false,
+            resource_duration: false,
+            machine_resource_map: false,
         });
         match cmd {
             Commands::Status(StatusArgs {
@@ -491,6 +499,8 @@ mod tests {
             convergence_percentage: false,
             failed_count: false,
             drift_count: false,
+            resource_duration: false,
+            machine_resource_map: false,
         });
         match cmd {
             Commands::Status(StatusArgs { audit_trail, .. }) => assert!(audit_trail),

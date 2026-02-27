@@ -103,6 +103,8 @@ mod tests {
             convergence_percentage: false,
             failed_count: false,
             drift_count: false,
+            resource_duration: false,
+            machine_resource_map: false,
         });
         match cmd {
             Commands::Status(StatusArgs { json_lines, .. }) => assert!(json_lines),
@@ -198,6 +200,8 @@ mod tests {
             convergence_percentage: false,
             failed_count: false,
             drift_count: false,
+            resource_duration: false,
+            machine_resource_map: false,
         });
         match cmd {
             Commands::Status(StatusArgs { since, .. }) => {
@@ -297,6 +301,8 @@ mod tests {
             convergence_percentage: false,
             failed_count: false,
             drift_count: false,
+            resource_duration: false,
+            machine_resource_map: false,
         });
         match cmd {
             Commands::Status(StatusArgs { export, .. }) => {
@@ -395,6 +401,8 @@ mod tests {
             convergence_percentage: false,
             failed_count: false,
             drift_count: false,
+            resource_duration: false,
+            machine_resource_map: false,
         });
         match cmd {
             Commands::Status(StatusArgs { prometheus, .. }) => assert!(prometheus),
@@ -492,6 +500,8 @@ mod tests {
             convergence_percentage: false,
             failed_count: false,
             drift_count: false,
+            resource_duration: false,
+            machine_resource_map: false,
         });
         match cmd {
             Commands::Status(StatusArgs { compact, .. }) => assert!(compact),

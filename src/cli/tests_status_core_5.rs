@@ -103,6 +103,8 @@ mod tests {
             convergence_percentage: false,
             failed_count: false,
             drift_count: false,
+            resource_duration: false,
+            machine_resource_map: false,
         });
         match cmd {
             Commands::Status(StatusArgs { top_failures, .. }) => assert!(top_failures),
@@ -198,6 +200,8 @@ mod tests {
             convergence_percentage: false,
             failed_count: false,
             drift_count: false,
+            resource_duration: false,
+            machine_resource_map: false,
         });
         match cmd {
             Commands::Status(StatusArgs {
@@ -297,6 +301,8 @@ mod tests {
             convergence_percentage: false,
             failed_count: false,
             drift_count: false,
+            resource_duration: false,
+            machine_resource_map: false,
         });
         match cmd {
             Commands::Status(StatusArgs { drift_summary, .. }) => assert!(drift_summary),
@@ -392,6 +398,8 @@ mod tests {
             convergence_percentage: false,
             failed_count: false,
             drift_count: false,
+            resource_duration: false,
+            machine_resource_map: false,
         });
         match cmd {
             Commands::Status(StatusArgs { resource_age, .. }) => assert!(resource_age),
@@ -489,6 +497,8 @@ mod tests {
             convergence_percentage: false,
             failed_count: false,
             drift_count: false,
+            resource_duration: false,
+            machine_resource_map: false,
         });
         match cmd {
             Commands::Status(StatusArgs { sla_report, .. }) => assert!(sla_report),

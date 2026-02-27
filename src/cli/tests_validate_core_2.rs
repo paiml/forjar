@@ -63,6 +63,8 @@ mod tests {
             check_resource_names: None,
             check_resource_count: None,
             check_duplicate_paths: false,
+        check_circular_deps: false,
+        check_machine_refs: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { check_limits, .. }) => assert!(check_limits),
@@ -117,6 +119,8 @@ mod tests {
             check_resource_names: None,
             check_resource_count: None,
             check_duplicate_paths: false,
+        check_circular_deps: false,
+        check_machine_refs: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs {
@@ -173,6 +177,8 @@ mod tests {
             check_resource_names: None,
             check_resource_count: None,
             check_duplicate_paths: false,
+        check_circular_deps: false,
+        check_machine_refs: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { check_security, .. }) => assert!(check_security),
@@ -227,6 +233,8 @@ mod tests {
             check_resource_names: None,
             check_resource_count: None,
             check_duplicate_paths: false,
+        check_circular_deps: false,
+        check_machine_refs: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs {
@@ -283,6 +291,8 @@ mod tests {
             check_resource_names: None,
             check_resource_count: None,
             check_duplicate_paths: false,
+        check_circular_deps: false,
+        check_machine_refs: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs {
@@ -339,6 +349,8 @@ mod tests {
             check_resource_names: None,
             check_resource_count: None,
             check_duplicate_paths: false,
+        check_circular_deps: false,
+        check_machine_refs: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs {
@@ -395,6 +407,8 @@ mod tests {
             check_resource_names: None,
             check_resource_count: None,
             check_duplicate_paths: false,
+        check_circular_deps: false,
+        check_machine_refs: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs {
@@ -451,6 +465,8 @@ mod tests {
             check_resource_names: None,
             check_resource_count: None,
             check_duplicate_paths: false,
+        check_circular_deps: false,
+        check_machine_refs: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs {
@@ -508,6 +524,8 @@ mod tests {
             check_resource_names: None,
             check_resource_count: None,
             check_duplicate_paths: false,
+        check_circular_deps: false,
+        check_machine_refs: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { check_unused, .. }) => assert!(check_unused),

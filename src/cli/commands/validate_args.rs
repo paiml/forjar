@@ -176,5 +176,13 @@ pub struct ValidateArgs {
     /// FJ-753: Detect duplicate file paths across resources on same machine
     #[arg(long)]
     pub check_duplicate_paths: bool,
+
+    /// FJ-757: Detect circular dependency chains
+    #[arg(long)]
+    pub check_circular_deps: bool,
+
+    /// FJ-761: Verify all machine references in resources exist
+    #[arg(long)]
+    pub check_machine_refs: bool,
 }
 

@@ -18,6 +18,7 @@ use super::status_fleet::*;
 use super::status_resources::*;
 use super::status_resource_detail::*;
 use super::status_counts::*;
+use super::status_diagnostics::*;
 use super::status_compliance::*;
 use super::status_cost::*;
 use super::status_observability::*;
@@ -207,6 +208,7 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
         resource_health, machine_health_summary,
         dependency_count: _dependency_count, last_apply_status, resource_staleness,
         convergence_percentage, failed_count, drift_count,
+        resource_duration, machine_resource_map,
     }) = cmd
     else {
         unreachable!()
@@ -221,6 +223,11 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
     if convergence_percentage { return cmd_status_convergence_percentage(&state_dir, m, json); }
     if failed_count { return cmd_status_failed_count(&state_dir, m, json); }
     if drift_count { return cmd_status_drift_count(&state_dir, m, json); }
+    if resource_duration { return cmd_status_resource_duration(&state_dir, m, json); }
+    if machine_resource_map {
+        let f = file.as_deref().unwrap_or(std::path::Path::new("forjar.yaml"));
+        return cmd_status_machine_resource_map(f, json);
+    }
     if let Some(r) = try_status_phase58(&state_dir, m, json, resource_types_summary, failed_resources, drift_trend, resource_inputs, convergence_history, config_hash, last_apply_duration, drift_details_all, resource_size, hash_verify, lock_age) {
         return r;
     }

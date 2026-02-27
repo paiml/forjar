@@ -103,6 +103,8 @@ mod tests {
             convergence_percentage: false,
             failed_count: false,
             drift_count: false,
+            resource_duration: false,
+            machine_resource_map: false,
         });
         match cmd {
             Commands::Status(StatusArgs { alerts, .. }) => assert!(alerts),
@@ -200,6 +202,8 @@ mod tests {
             convergence_percentage: false,
             failed_count: false,
             drift_count: false,
+            resource_duration: false,
+            machine_resource_map: false,
         });
         match cmd {
             Commands::Status(StatusArgs { diff_lock, .. }) => {
@@ -297,6 +301,8 @@ mod tests {
             convergence_percentage: false,
             failed_count: false,
             drift_count: false,
+            resource_duration: false,
+            machine_resource_map: false,
         });
         match cmd {
             Commands::Status(StatusArgs { compliance, .. }) => {
@@ -396,6 +402,8 @@ mod tests {
             convergence_percentage: false,
             failed_count: false,
             drift_count: false,
+            resource_duration: false,
+            machine_resource_map: false,
         });
         match cmd {
             Commands::Status(StatusArgs { histogram, .. }) => assert!(histogram),
@@ -491,6 +499,8 @@ mod tests {
             convergence_percentage: false,
             failed_count: false,
             drift_count: false,
+            resource_duration: false,
+            machine_resource_map: false,
         });
         match cmd {
             Commands::Status(StatusArgs {

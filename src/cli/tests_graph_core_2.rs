@@ -65,6 +65,8 @@ mod tests {
             dependency_count: false,
             root_resources: false,
             edge_list: false,
+            connected_components: false,
+            adjacency_matrix: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { prune, .. }) => {
@@ -124,6 +126,8 @@ mod tests {
             dependency_count: false,
             root_resources: false,
             edge_list: false,
+            connected_components: false,
+            adjacency_matrix: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { layers, .. }) => assert!(layers),
@@ -181,6 +185,8 @@ mod tests {
             dependency_count: false,
             root_resources: false,
             edge_list: false,
+            connected_components: false,
+            adjacency_matrix: false,
         });
         match cmd {
             Commands::Graph(GraphArgs {
@@ -240,6 +246,8 @@ mod tests {
             dependency_count: false,
             root_resources: false,
             edge_list: false,
+            connected_components: false,
+            adjacency_matrix: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { weight, .. }) => assert!(weight),
@@ -297,6 +305,8 @@ mod tests {
             dependency_count: false,
             root_resources: false,
             edge_list: false,
+            connected_components: false,
+            adjacency_matrix: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { subgraph, .. }) => {
@@ -356,6 +366,8 @@ mod tests {
             dependency_count: false,
             root_resources: false,
             edge_list: false,
+            connected_components: false,
+            adjacency_matrix: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { impact_radius, .. }) => {
@@ -415,6 +427,8 @@ mod tests {
             dependency_count: false,
             root_resources: false,
             edge_list: false,
+            connected_components: false,
+            adjacency_matrix: false,
         });
         match cmd {
             Commands::Graph(GraphArgs {
@@ -474,6 +488,8 @@ mod tests {
             dependency_count: false,
             root_resources: false,
             edge_list: false,
+            connected_components: false,
+            adjacency_matrix: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { hotspots, .. }) => assert!(hotspots),

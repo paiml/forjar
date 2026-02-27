@@ -21,6 +21,7 @@ mod validate_paths;
 mod validate_quality;
 mod validate_compliance;
 mod validate_resources;
+mod validate_safety;
 mod apply;
 mod apply_output;
 mod apply_variants;
@@ -36,6 +37,7 @@ mod status_fleet;
 mod status_resources;
 mod status_resource_detail;
 mod status_counts;
+mod status_diagnostics;
 mod status_compliance;
 mod status_cost;
 mod status_observability;
@@ -186,6 +188,8 @@ mod tests_phase59;
 mod tests_phase60;
 #[cfg(test)]
 mod tests_phase61;
+#[cfg(test)]
+mod tests_phase62;
 #[cfg(test)]
 mod tests_lock_core;
 #[cfg(test)]

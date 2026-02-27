@@ -162,6 +162,7 @@ mod tests {
                 only_machine: None,
                 notify_webhook_headers: None,
                 notify_log: None,
+        notify_exec: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { tags, .. }) => {
@@ -320,6 +321,7 @@ mod tests {
                 only_machine: None,
                 notify_webhook_headers: None,
                 notify_log: None,
+        notify_exec: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { comment, .. }) => {
@@ -476,6 +478,7 @@ mod tests {
                 only_machine: None,
                 notify_webhook_headers: None,
                 notify_log: None,
+        notify_exec: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { only_changed, .. }) => assert!(only_changed),

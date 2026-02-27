@@ -161,6 +161,7 @@ mod tests {
             only_machine: None,
             notify_webhook_headers: None,
             notify_log: None,
+        notify_exec: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { rate_limit, .. }) => assert_eq!(rate_limit, Some(10)),
@@ -256,6 +257,8 @@ mod tests {
             convergence_percentage: false,
             failed_count: false,
             drift_count: false,
+            resource_duration: false,
+            machine_resource_map: false,
         });
         match cmd {
             Commands::Status(StatusArgs { prometheus, .. }) => assert!(prometheus),
@@ -351,6 +354,8 @@ mod tests {
             convergence_percentage: false,
             failed_count: false,
             drift_count: false,
+            resource_duration: false,
+            machine_resource_map: false,
         });
         match cmd {
             Commands::Status(StatusArgs { expired, .. }) => {

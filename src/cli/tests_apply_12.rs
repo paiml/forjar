@@ -162,6 +162,7 @@ mod tests {
                 only_machine: None,
                 notify_webhook_headers: None,
                 notify_log: None,
+        notify_exec: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { abort_on_drift, .. }) => assert!(abort_on_drift),
@@ -316,6 +317,7 @@ mod tests {
                 only_machine: None,
                 notify_webhook_headers: None,
                 notify_log: None,
+        notify_exec: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs {
@@ -472,6 +474,7 @@ mod tests {
                 only_machine: None,
                 notify_webhook_headers: None,
                 notify_log: None,
+        notify_exec: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { notify_discord, .. }) => assert_eq!(
