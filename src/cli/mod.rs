@@ -126,6 +126,10 @@ pub enum Commands {
         /// FJ-471: Detect indirect circular dependencies via transitive closure
         #[arg(long)]
         check_cycles_deep: bool,
+
+        /// FJ-481: Enforce resource naming conventions (kebab-case, prefix rules)
+        #[arg(long)]
+        check_naming: bool,
     },
 
     /// Show execution plan (diff desired vs current)
@@ -464,6 +468,18 @@ pub enum Commands {
         /// FJ-476: Abort apply if drift detected before execution
         #[arg(long)]
         abort_on_drift: bool,
+
+        /// FJ-480: Show one-line summary of what would change per machine
+        #[arg(long)]
+        dry_run_summary: bool,
+
+        /// FJ-483: Send apply results to Discord webhook
+        #[arg(long)]
+        notify_discord: Option<String>,
+
+        /// FJ-486: Auto-rollback if more than N resources fail
+        #[arg(long)]
+        rollback_on_threshold: Option<usize>,
     },
 
     /// Detect unauthorized changes (tripwire)
@@ -634,6 +650,14 @@ pub enum Commands {
         /// FJ-477: Show health score weighted by dependency position
         #[arg(long)]
         dependency_health: bool,
+
+        /// FJ-482: Show most frequently failing resources
+        #[arg(long)]
+        top_failures: bool,
+
+        /// FJ-487: Show convergence percentage over time
+        #[arg(long)]
+        convergence_rate: bool,
     },
 
     /// Show apply history from event logs
@@ -785,6 +809,10 @@ pub enum Commands {
         /// FJ-474: Identify resources with the most dependents (bottleneck analysis)
         #[arg(long)]
         critical_resources: bool,
+
+        /// FJ-484: Show edge weights based on dependency strength
+        #[arg(long)]
+        weight: bool,
     },
 
     /// Run check scripts to verify pre-conditions without applying
@@ -1549,6 +1577,22 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
     },
+
+    /// FJ-485: Compact all machine lock files in one operation
+    #[command(name = "lock-compact-all")]
+    LockCompactAll {
+        /// State directory
+        #[arg(long, default_value = "state")]
+        state_dir: PathBuf,
+
+        /// Skip confirmation
+        #[arg(long)]
+        yes: bool,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 /// FJ-260: Snapshot subcommands — named state checkpoints.
@@ -1736,7 +1780,11 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             check_idempotency,
             check_drift_coverage,
             check_cycles_deep,
+            check_naming,
         } => {
+            if check_naming {
+                return cmd_validate_check_naming(&file, json);
+            }
             if check_cycles_deep {
                 return cmd_validate_check_cycles_deep(&file, json);
             }
@@ -1870,6 +1918,9 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             batch_size: _batch_size,
             notify_teams,
             abort_on_drift,
+            dry_run_summary: _dry_run_summary,
+            notify_discord,
+            rollback_on_threshold: _rollback_on_threshold,
         } => {
             // FJ-476: --abort-on-drift — check for drift before execution
             if abort_on_drift {
@@ -1887,7 +1938,10 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
                     env_file.as_deref(),
                 );
                 if drift_result.is_err() {
-                    return Err("Aborting apply: drift detected. Resolve drift before applying.".to_string());
+                    return Err(
+                        "Aborting apply: drift detected. Resolve drift before applying."
+                            .to_string(),
+                    );
                 }
             }
             // FJ-436: --pre-script runs a script before apply starts
@@ -2136,7 +2190,30 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
                 let status = if result.is_ok() { "success" } else { "failure" };
                 let payload = format!(
                     r#"{{"@type":"MessageCard","summary":"forjar apply {}","text":"Apply {} for {}"}}"#,
-                    status, status, file.display()
+                    status,
+                    status,
+                    file.display()
+                );
+                let _ = std::process::Command::new("curl")
+                    .args([
+                        "-s",
+                        "-X",
+                        "POST",
+                        "-H",
+                        "Content-Type: application/json",
+                        "-d",
+                        &payload,
+                        webhook,
+                    ])
+                    .output();
+            }
+
+            // FJ-483: notify-discord — POST results to Discord webhook
+            if let Some(ref webhook) = notify_discord {
+                let status = if result.is_ok() { "success" } else { "failure" };
+                let payload = format!(
+                    r#"{{"content":"forjar apply {}: {}"}}"#,
+                    status, file.display()
                 );
                 let _ = std::process::Command::new("curl")
                     .args(["-s", "-X", "POST", "-H", "Content-Type: application/json", "-d", &payload, webhook])
@@ -2209,7 +2286,15 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             compliance,
             histogram,
             dependency_health,
+            top_failures,
+            convergence_rate,
         } => {
+            if convergence_rate {
+                return cmd_status_convergence_rate(&state_dir, machine.as_deref(), json);
+            }
+            if top_failures {
+                return cmd_status_top_failures(&state_dir, machine.as_deref(), json);
+            }
             if dependency_health {
                 return cmd_status_dependency_health(&state_dir, machine.as_deref(), json);
             }
@@ -2360,7 +2445,11 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             prune,
             layers,
             critical_resources,
+            weight,
         } => {
+            if weight {
+                return cmd_graph_weight(&file, &format);
+            }
             if critical_resources {
                 return cmd_graph_critical_resources(&file);
             }
@@ -2687,6 +2776,11 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             key,
             json,
         } => cmd_lock_verify_sig(&state_dir, &key, json),
+        Commands::LockCompactAll {
+            state_dir,
+            yes,
+            json,
+        } => cmd_lock_compact_all(&state_dir, yes, json),
     }
 }
 
@@ -12890,7 +12984,8 @@ fn cmd_validate_check_cycles_deep(file: &Path, json: bool) -> Result<(), String>
     }
     // Floyd–Warshall-style transitive closure to find indirect cycles
     let names: Vec<&str> = adj.keys().copied().collect();
-    let mut reachable: std::collections::HashMap<(&str, &str), bool> = std::collections::HashMap::new();
+    let mut reachable: std::collections::HashMap<(&str, &str), bool> =
+        std::collections::HashMap::new();
     for &n in &names {
         for dep in adj.get(n).unwrap_or(&vec![]) {
             reachable.insert((n, dep), true);
@@ -12917,23 +13012,41 @@ fn cmd_validate_check_cycles_deep(file: &Path, json: bool) -> Result<(), String>
             "deep_cycles": cycles,
             "has_cycles": !cycles.is_empty(),
         });
-        println!("{}", serde_json::to_string_pretty(&result).unwrap_or_default());
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&result).unwrap_or_default()
+        );
     } else if cycles.is_empty() {
-        println!("{} No indirect cycles detected (transitive closure clean)", green("✓"));
+        println!(
+            "{} No indirect cycles detected (transitive closure clean)",
+            green("✓")
+        );
     } else {
-        println!("{} Indirect cycles detected in {} resource(s):", red("✗"), cycles.len());
+        println!(
+            "{} Indirect cycles detected in {} resource(s):",
+            red("✗"),
+            cycles.len()
+        );
         for c in &cycles {
             println!("  - {}", c);
         }
     }
-    if cycles.is_empty() { Ok(()) } else { Err(format!("{} resource(s) in cycles", cycles.len())) }
+    if cycles.is_empty() {
+        Ok(())
+    } else {
+        Err(format!("{} resource(s) in cycles", cycles.len()))
+    }
 }
 
 // ── FJ-472: status --histogram ──
 
 fn cmd_status_histogram(state_dir: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
     let all_machines = discover_machines(state_dir);
-    let machines: Vec<String> = if let Some(m) = machine { all_machines.into_iter().filter(|n| n == m).collect() } else { all_machines };
+    let machines: Vec<String> = if let Some(m) = machine {
+        all_machines.into_iter().filter(|n| n == m).collect()
+    } else {
+        all_machines
+    };
     let mut counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
     for m in &machines {
         if let Some(lock) = state::load_lock(state_dir, m).map_err(|e| e.to_string())? {
@@ -12945,7 +13058,10 @@ fn cmd_status_histogram(state_dir: &Path, machine: Option<&str>, json: bool) -> 
     }
     if json {
         let result = serde_json::json!({ "histogram": counts });
-        println!("{}", serde_json::to_string_pretty(&result).unwrap_or_default());
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&result).unwrap_or_default()
+        );
     } else {
         println!("Resource Status Histogram");
         println!("{}", "─".repeat(40));
@@ -12966,7 +13082,8 @@ fn cmd_status_histogram(state_dir: &Path, machine: Option<&str>, json: bool) -> 
 fn cmd_graph_critical_resources(file: &Path) -> Result<(), String> {
     let config = parse_and_validate(file)?;
     // Count how many resources depend on each resource (direct + transitive)
-    let mut dependent_count: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    let mut dependent_count: std::collections::HashMap<String, usize> =
+        std::collections::HashMap::new();
     for (name, res) in &config.resources {
         dependent_count.entry(name.clone()).or_insert(0);
         for dep in &res.depends_on {
@@ -12978,7 +13095,9 @@ fn cmd_graph_critical_resources(file: &Path) -> Result<(), String> {
     println!("Critical Resources (most dependents first)");
     println!("{}", "─".repeat(50));
     for (name, count) in &ranked {
-        if *count == 0 { continue; }
+        if *count == 0 {
+            continue;
+        }
         println!("  {:30} {} dependent(s)", name, count);
     }
     if ranked.iter().all(|(_, c)| *c == 0) {
@@ -12996,14 +13115,16 @@ fn cmd_lock_verify_sig(state_dir: &Path, key: &str, json: bool) -> Result<(), St
     let mut all_valid = true;
     for m in &machines {
         if let Some(lock) = state::load_lock(state_dir, m).map_err(|e| e.to_string())? {
-            let lock_yaml = serde_yaml_ng::to_string(&lock)
-                .map_err(|e| format!("serialize error: {}", e))?;
+            let lock_yaml =
+                serde_yaml_ng::to_string(&lock).map_err(|e| format!("serialize error: {}", e))?;
             let expected_sig = hasher::hash_string(&format!("{}{}", lock_yaml, key));
             // Check if signature file exists
             let sig_path = state_dir.join(format!("{}.sig", m));
             let actual_sig = std::fs::read_to_string(&sig_path).unwrap_or_default();
             let valid = actual_sig.trim() == expected_sig;
-            if !valid { all_valid = false; }
+            if !valid {
+                all_valid = false;
+            }
             if json {
                 results.push(serde_json::json!({
                     "machine": m,
@@ -13021,7 +13142,11 @@ fn cmd_lock_verify_sig(state_dir: &Path, key: &str, json: bool) -> Result<(), St
         let out = serde_json::json!({ "signatures": results, "all_valid": all_valid });
         println!("{}", serde_json::to_string_pretty(&out).unwrap_or_default());
     }
-    if all_valid { Ok(()) } else { Err("One or more signatures invalid".to_string()) }
+    if all_valid {
+        Ok(())
+    } else {
+        Err("One or more signatures invalid".to_string())
+    }
 }
 
 // ── FJ-477: status --dependency-health ──
@@ -13032,7 +13157,11 @@ fn cmd_status_dependency_health(
     json: bool,
 ) -> Result<(), String> {
     let all_machines = discover_machines(state_dir);
-    let machines: Vec<String> = if let Some(m) = machine { all_machines.into_iter().filter(|n| n == m).collect() } else { all_machines };
+    let machines: Vec<String> = if let Some(m) = machine {
+        all_machines.into_iter().filter(|n| n == m).collect()
+    } else {
+        all_machines
+    };
     let mut all_resources: Vec<(String, String, f64)> = Vec::new(); // (machine, resource, weighted_score)
     for m in &machines {
         if let Some(lock) = state::load_lock(state_dir, m).map_err(|e| e.to_string())? {
@@ -13053,18 +13182,209 @@ fn cmd_status_dependency_health(
     }
     let total_score: f64 = all_resources.iter().map(|(_, _, s)| s).sum();
     let max_possible: f64 = all_resources.iter().map(|(_, _, _)| 100.0).sum();
-    let health_pct = if max_possible > 0.0 { (total_score / max_possible * 100.0).round() } else { 100.0 };
+    let health_pct = if max_possible > 0.0 {
+        (total_score / max_possible * 100.0).round()
+    } else {
+        100.0
+    };
     if json {
         let result = serde_json::json!({
             "dependency_health_score": health_pct,
             "resource_count": all_resources.len(),
             "weighted_total": total_score,
         });
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&result).unwrap_or_default()
+        );
+    } else {
+        let indicator = if health_pct >= 80.0 {
+            green("✓")
+        } else if health_pct >= 50.0 {
+            yellow("⚠")
+        } else {
+            red("✗")
+        };
+        println!(
+            "{} Dependency-weighted health score: {:.0}%",
+            indicator, health_pct
+        );
+        println!(
+            "  Resources: {}, Weighted total: {:.1}/{:.1}",
+            all_resources.len(),
+            total_score,
+            max_possible
+        );
+    }
+    Ok(())
+}
+
+// ── FJ-481: validate --check-naming ──
+
+fn cmd_validate_check_naming(file: &Path, json: bool) -> Result<(), String> {
+    let config = parse_and_validate(file)?;
+    let mut violations: Vec<String> = Vec::new();
+    for name in config.resources.keys() {
+        let is_kebab = !name.is_empty()
+            && name.chars().next().is_some_and(|c| c.is_ascii_lowercase())
+            && name.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+            && !name.contains("--")
+            && !name.ends_with('-');
+        if !is_kebab {
+            violations.push(format!("'{}' is not kebab-case (expected: lowercase letters, digits, hyphens)", name));
+        }
+    }
+    if json {
+        let result = serde_json::json!({
+            "naming_violations": violations,
+            "valid": violations.is_empty(),
+        });
+        println!("{}", serde_json::to_string_pretty(&result).unwrap_or_default());
+    } else if violations.is_empty() {
+        println!("{} All resource names follow kebab-case convention", green("✓"));
+    } else {
+        println!("{} Naming violations ({}):", red("✗"), violations.len());
+        for v in &violations {
+            println!("  - {}", v);
+        }
+    }
+    if violations.is_empty() { Ok(()) } else { Err(format!("{} naming violations", violations.len())) }
+}
+
+// ── FJ-482: status --top-failures ──
+
+fn cmd_status_top_failures(state_dir: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
+    let all_machines = discover_machines(state_dir);
+    let machines: Vec<String> = if let Some(m) = machine { all_machines.into_iter().filter(|n| n == m).collect() } else { all_machines };
+    let mut failure_counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    for m in &machines {
+        if let Some(lock) = state::load_lock(state_dir, m).map_err(|e| e.to_string())? {
+            for (rname, rl) in &lock.resources {
+                if rl.status == types::ResourceStatus::Failed {
+                    *failure_counts.entry(format!("{}:{}", m, rname)).or_insert(0) += 1;
+                }
+            }
+        }
+    }
+    let mut ranked: Vec<(String, usize)> = failure_counts.into_iter().collect();
+    ranked.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+    if json {
+        let items: Vec<serde_json::Value> = ranked.iter()
+            .map(|(name, count)| serde_json::json!({"resource": name, "failures": count}))
+            .collect();
+        println!("{}", serde_json::to_string_pretty(&serde_json::json!({"top_failures": items})).unwrap_or_default());
+    } else if ranked.is_empty() {
+        println!("{} No failed resources", green("✓"));
+    } else {
+        println!("Top Failing Resources");
+        println!("{}", "─".repeat(40));
+        for (name, count) in &ranked {
+            println!("  {:40} {} failure(s)", name, count);
+        }
+    }
+    Ok(())
+}
+
+// ── FJ-484: graph --weight ──
+
+fn cmd_graph_weight(file: &Path, format: &str) -> Result<(), String> {
+    let config = parse_and_validate(file)?;
+    let order = resolver::build_execution_order(&config)?;
+    // Weight = number of transitive dependents
+    let mut weights: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    for name in &order {
+        weights.entry(name.clone()).or_insert(0);
+        if let Some(res) = config.resources.get(name) {
+            for dep in &res.depends_on {
+                *weights.entry(dep.clone()).or_insert(0) += 1;
+            }
+        }
+    }
+    if format == "dot" {
+        println!("digraph forjar {{");
+        println!("  rankdir=LR;");
+        for (name, res) in &config.resources {
+            let w = weights.get(name).unwrap_or(&0);
+            println!("  \"{}\" [label=\"{} (w={})\"];", name, name, w);
+            for dep in &res.depends_on {
+                println!("  \"{}\" -> \"{}\";", name, dep);
+            }
+        }
+        println!("}}");
+    } else {
+        println!("graph LR");
+        for (name, res) in &config.resources {
+            let w = weights.get(name).unwrap_or(&0);
+            for dep in &res.depends_on {
+                let dw = weights.get(dep.as_str()).unwrap_or(&0);
+                println!("  {}[\"{}(w={})\"] --> {}[\"{}(w={})\"]", name, name, w, dep, dep, dw);
+            }
+            if res.depends_on.is_empty() {
+                println!("  {}[\"{}(w={})\"]", name, name, w);
+            }
+        }
+    }
+    Ok(())
+}
+
+// ── FJ-485: lock compact-all ──
+
+fn cmd_lock_compact_all(state_dir: &Path, yes: bool, json: bool) -> Result<(), String> {
+    let machines = discover_machines(state_dir);
+    if machines.is_empty() {
+        if json {
+            println!("{}", serde_json::json!({"compacted": 0, "machines": []}));
+        } else {
+            println!("No machine locks found in {}", state_dir.display());
+        }
+        return Ok(());
+    }
+    if !yes {
+        println!("Will compact {} machine lock file(s). Use --yes to confirm.", machines.len());
+        return Ok(());
+    }
+    let mut compacted = 0;
+    for _m in &machines {
+        let result = cmd_lock_compact(state_dir, true, false);
+        if result.is_ok() { compacted += 1; }
+    }
+    if json {
+        let result = serde_json::json!({"compacted": compacted, "total": machines.len()});
         println!("{}", serde_json::to_string_pretty(&result).unwrap_or_default());
     } else {
-        let indicator = if health_pct >= 80.0 { green("✓") } else if health_pct >= 50.0 { yellow("⚠") } else { red("✗") };
-        println!("{} Dependency-weighted health score: {:.0}%", indicator, health_pct);
-        println!("  Resources: {}, Weighted total: {:.1}/{:.1}", all_resources.len(), total_score, max_possible);
+        println!("{} Compacted {}/{} machine lock file(s)", green("✓"), compacted, machines.len());
+    }
+    Ok(())
+}
+
+// ── FJ-487: status --convergence-rate ──
+
+fn cmd_status_convergence_rate(state_dir: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
+    let all_machines = discover_machines(state_dir);
+    let machines: Vec<String> = if let Some(m) = machine { all_machines.into_iter().filter(|n| n == m).collect() } else { all_machines };
+    let mut total = 0usize;
+    let mut converged = 0usize;
+    for m in &machines {
+        if let Some(lock) = state::load_lock(state_dir, m).map_err(|e| e.to_string())? {
+            for rl in lock.resources.values() {
+                total += 1;
+                if rl.status == types::ResourceStatus::Converged {
+                    converged += 1;
+                }
+            }
+        }
+    }
+    let rate = if total > 0 { (converged as f64 / total as f64 * 100.0).round() } else { 100.0 };
+    if json {
+        let result = serde_json::json!({
+            "convergence_rate": rate,
+            "converged": converged,
+            "total": total,
+        });
+        println!("{}", serde_json::to_string_pretty(&result).unwrap_or_default());
+    } else {
+        let indicator = if rate >= 90.0 { green("✓") } else if rate >= 50.0 { yellow("⚠") } else { red("✗") };
+        println!("{} Convergence rate: {:.0}% ({}/{})", indicator, rate, converged, total);
     }
     Ok(())
 }
@@ -13677,6 +13997,7 @@ resources: {}
                 check_idempotency: false,
                 check_drift_coverage: false,
                 check_cycles_deep: false,
+                check_naming: false,
             },
             false,
             true,
@@ -13722,6 +14043,8 @@ resources: {}
                 compliance: None,
                 histogram: false,
                 dependency_health: false,
+                top_failures: false,
+                convergence_rate: false,
             },
             false,
             true,
@@ -13871,6 +14194,9 @@ resources:
                 batch_size: None,
                 notify_teams: None,
                 abort_on_drift: false,
+                dry_run_summary: false,
+                notify_discord: None,
+                rollback_on_threshold: None,
             },
             false,
             true,
@@ -14658,6 +14984,7 @@ resources: {}
                 prune: None,
                 layers: false,
                 critical_resources: false,
+                weight: false,
             },
             false,
             true,
@@ -14707,6 +15034,7 @@ resources: {}
                 prune: None,
                 layers: false,
                 critical_resources: false,
+                weight: false,
             },
             false,
             true,
@@ -18047,6 +18375,8 @@ resources:
                 compliance: None,
                 histogram: false,
                 dependency_health: false,
+                top_failures: false,
+                convergence_rate: false,
             },
             false,
             true,
@@ -18149,6 +18479,9 @@ resources:
                 batch_size: None,
                 notify_teams: None,
                 abort_on_drift: false,
+                dry_run_summary: false,
+                notify_discord: None,
+                rollback_on_threshold: None,
             },
             false,
             true,
@@ -19372,6 +19705,9 @@ resources:
                 batch_size: None,
                 notify_teams: None,
                 abort_on_drift: false,
+                dry_run_summary: false,
+                notify_discord: None,
+                rollback_on_threshold: None,
             },
             false,
             true,
@@ -19477,6 +19813,9 @@ resources:
                 batch_size: None,
                 notify_teams: None,
                 abort_on_drift: false,
+                dry_run_summary: false,
+                notify_discord: None,
+                rollback_on_threshold: None,
             },
             false,
             true,
@@ -21085,6 +21424,9 @@ resources:
             batch_size: None,
             notify_teams: None,
             abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
         };
         match cmd {
             Commands::Apply { output, .. } => {
@@ -21239,6 +21581,9 @@ resources:
             batch_size: None,
             notify_teams: None,
             abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
         };
         match cmd {
             Commands::Apply { progress, .. } => assert!(progress),
@@ -21318,6 +21663,9 @@ resources:
             batch_size: None,
             notify_teams: None,
             abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
         };
         match cmd {
             Commands::Apply { progress, .. } => assert!(!progress),
@@ -21401,6 +21749,9 @@ resources:
             batch_size: None,
             notify_teams: None,
             abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
         };
         match cmd {
             Commands::Apply { timing, .. } => assert!(timing),
@@ -21480,6 +21831,9 @@ resources:
             batch_size: None,
             notify_teams: None,
             abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
         };
         match cmd {
             Commands::Apply { timing, .. } => assert!(!timing),
@@ -21767,6 +22121,9 @@ resources:
             batch_size: None,
             notify_teams: None,
             abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
         };
         match cmd {
             Commands::Apply { group, .. } => {
@@ -21838,6 +22195,7 @@ resources:
             check_idempotency: false,
             check_drift_coverage: false,
             check_cycles_deep: false,
+            check_naming: false,
         };
         match cmd {
             Commands::Validate { strict, .. } => assert!(strict),
@@ -21972,6 +22330,9 @@ resources:
             batch_size: None,
             notify_teams: None,
             abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
         };
         match cmd {
             Commands::Apply { retry, .. } => assert_eq!(retry, 3),
@@ -22051,6 +22412,9 @@ resources:
             batch_size: None,
             notify_teams: None,
             abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
         };
         match cmd {
             Commands::Apply { retry, .. } => assert_eq!(retry, 0),
@@ -22244,6 +22608,9 @@ resources:
             batch_size: None,
             notify_teams: None,
             abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
         };
         match cmd {
             Commands::Apply { yes, .. } => assert!(yes),
@@ -22323,6 +22690,9 @@ resources:
             batch_size: None,
             notify_teams: None,
             abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
         };
         match cmd {
             Commands::Apply { yes, .. } => assert!(!yes),
@@ -22426,6 +22796,9 @@ resources:
             batch_size: None,
             notify_teams: None,
             abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
         };
         match cmd {
             Commands::Apply { parallel, .. } => assert!(parallel),
@@ -22488,6 +22861,8 @@ resources:
             compliance: None,
             histogram: false,
             dependency_health: false,
+            top_failures: false,
+            convergence_rate: false,
         };
         match cmd {
             Commands::Status { file, json, .. } => {
@@ -22757,6 +23132,7 @@ resources:
             check_idempotency: false,
             check_drift_coverage: false,
             check_cycles_deep: false,
+            check_naming: false,
         };
         match cmd {
             Commands::Validate { json, strict, .. } => {
@@ -22855,6 +23231,8 @@ resources:
             compliance: None,
             histogram: false,
             dependency_health: false,
+            top_failures: false,
+            convergence_rate: false,
         };
         match cmd {
             Commands::Status { summary, .. } => assert!(summary),
@@ -22945,6 +23323,9 @@ resources:
             batch_size: None,
             notify_teams: None,
             abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
         };
         match cmd {
             Commands::Apply {
@@ -23163,6 +23544,9 @@ resources:
             batch_size: None,
             notify_teams: None,
             abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
         };
         match cmd {
             Commands::Apply {
@@ -23377,6 +23761,9 @@ resources:
             batch_size: None,
             notify_teams: None,
             abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
         };
         match cmd {
             Commands::Apply { max_parallel, .. } => assert_eq!(max_parallel, Some(4)),
@@ -23420,6 +23807,8 @@ resources:
             compliance: None,
             histogram: false,
             dependency_health: false,
+            top_failures: false,
+            convergence_rate: false,
         };
         match cmd {
             Commands::Status { watch, .. } => assert_eq!(watch, Some(5)),
@@ -23501,6 +23890,9 @@ resources:
             batch_size: None,
             notify_teams: None,
             abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
         };
         match cmd {
             Commands::Apply { notify, .. } => {
@@ -23697,6 +24089,7 @@ resources:
             check_idempotency: false,
             check_drift_coverage: false,
             check_cycles_deep: false,
+            check_naming: false,
         };
         match cmd {
             Commands::Validate { dry_expand, .. } => assert!(dry_expand),
@@ -23776,6 +24169,9 @@ resources:
             batch_size: None,
             notify_teams: None,
             abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
         };
         match cmd {
             Commands::Apply { subset, .. } => {
@@ -23910,6 +24306,9 @@ resources:
             batch_size: None,
             notify_teams: None,
             abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
         };
         match cmd {
             Commands::Apply {
@@ -23954,6 +24353,8 @@ resources:
             compliance: None,
             histogram: false,
             dependency_health: false,
+            top_failures: false,
+            convergence_rate: false,
         };
         match cmd {
             Commands::Status { stale, .. } => assert_eq!(stale, Some(30)),
@@ -24061,6 +24462,9 @@ resources:
             batch_size: None,
             notify_teams: None,
             abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
         };
         match cmd {
             Commands::Apply { backup, .. } => assert!(backup),
@@ -24170,6 +24574,9 @@ resources:
             batch_size: None,
             notify_teams: None,
             abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
         };
         match cmd {
             Commands::Apply { exclude, .. } => assert_eq!(exclude, Some("test-*".to_string())),
@@ -24211,6 +24618,8 @@ resources:
             compliance: None,
             histogram: false,
             dependency_health: false,
+            top_failures: false,
+            convergence_rate: false,
         };
         match cmd {
             Commands::Status { health, .. } => assert!(health),
@@ -24290,6 +24699,9 @@ resources:
             batch_size: None,
             notify_teams: None,
             abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
         };
         match cmd {
             Commands::Apply { sequential, .. } => assert!(sequential),
@@ -24371,6 +24783,9 @@ resources:
             batch_size: None,
             notify_teams: None,
             abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
         };
         match cmd {
             Commands::Apply { diff_only, .. } => assert!(diff_only),
@@ -24478,6 +24893,9 @@ resources:
             batch_size: None,
             notify_teams: None,
             abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
         };
         match cmd {
             Commands::Apply { notify_slack, .. } => {
@@ -24509,6 +24927,7 @@ resources:
             prune: None,
             layers: false,
             critical_resources: false,
+            weight: false,
         };
         match cmd {
             Commands::Graph { affected, .. } => {
@@ -24552,6 +24971,8 @@ resources:
             compliance: None,
             histogram: false,
             dependency_health: false,
+            top_failures: false,
+            convergence_rate: false,
         };
         match cmd {
             Commands::Status { drift_details, .. } => assert!(drift_details),
@@ -24631,6 +25052,9 @@ resources:
             batch_size: None,
             notify_teams: None,
             abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
         };
         match cmd {
             Commands::Apply { cost_limit, .. } => assert_eq!(cost_limit, Some(5)),
@@ -24730,6 +25154,9 @@ resources:
             batch_size: None,
             notify_teams: None,
             abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
         };
         match cmd {
             Commands::Apply { preview, .. } => assert!(preview),
@@ -24821,6 +25248,9 @@ resources:
             batch_size: None,
             notify_teams: None,
             abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
         };
         match cmd {
             Commands::Apply { tag_filter, .. } => {
@@ -24880,6 +25310,8 @@ resources:
             compliance: None,
             histogram: false,
             dependency_health: false,
+            top_failures: false,
+            convergence_rate: false,
         };
         match cmd {
             Commands::Status { timeline, .. } => assert!(timeline),
@@ -24989,6 +25421,9 @@ resources:
             batch_size: None,
             notify_teams: None,
             abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
         };
         match cmd {
             Commands::Apply { output_scripts, .. } => {
@@ -25072,6 +25507,9 @@ resources:
             batch_size: None,
             notify_teams: None,
             abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
         };
         match cmd {
             Commands::Apply { resume, .. } => assert!(resume),
@@ -25129,6 +25567,8 @@ resources:
             compliance: None,
             histogram: false,
             dependency_health: false,
+            top_failures: false,
+            convergence_rate: false,
         };
         match cmd {
             Commands::Status { changes_since, .. } => {
@@ -25174,6 +25614,7 @@ resources:
             prune: None,
             layers: false,
             critical_resources: false,
+            weight: false,
         };
         match cmd {
             Commands::Graph { critical_path, .. } => assert!(critical_path),
@@ -25215,6 +25656,8 @@ resources:
             compliance: None,
             histogram: false,
             dependency_health: false,
+            top_failures: false,
+            convergence_rate: false,
         };
         match cmd {
             Commands::Status { summary_by, .. } => {
@@ -25296,6 +25739,9 @@ resources:
             batch_size: None,
             notify_teams: None,
             abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
         };
         match cmd {
             Commands::Apply { max_failures, .. } => assert_eq!(max_failures, Some(3)),
@@ -25377,6 +25823,9 @@ resources:
             batch_size: None,
             notify_teams: None,
             abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
         };
         match cmd {
             Commands::Apply { rate_limit, .. } => assert_eq!(rate_limit, Some(10)),
@@ -25401,6 +25850,7 @@ resources:
             check_idempotency: false,
             check_drift_coverage: false,
             check_cycles_deep: false,
+            check_naming: false,
         };
         match cmd {
             Commands::Validate { schema_version, .. } => {
@@ -25444,6 +25894,8 @@ resources:
             compliance: None,
             histogram: false,
             dependency_health: false,
+            top_failures: false,
+            convergence_rate: false,
         };
         match cmd {
             Commands::Status { prometheus, .. } => assert!(prometheus),
@@ -25484,6 +25936,7 @@ resources:
             prune: None,
             layers: false,
             critical_resources: false,
+            weight: false,
         };
         match cmd {
             Commands::Graph { reverse, .. } => assert!(reverse),
@@ -25525,6 +25978,8 @@ resources:
             compliance: None,
             histogram: false,
             dependency_health: false,
+            top_failures: false,
+            convergence_rate: false,
         };
         match cmd {
             Commands::Status { expired, .. } => {
@@ -25562,6 +26017,7 @@ resources:
             check_idempotency: false,
             check_drift_coverage: false,
             check_cycles_deep: false,
+            check_naming: false,
         };
         match cmd {
             Commands::Validate { exhaustive, .. } => assert!(exhaustive),
@@ -25603,6 +26059,8 @@ resources:
             compliance: None,
             histogram: false,
             dependency_health: false,
+            top_failures: false,
+            convergence_rate: false,
         };
         match cmd {
             Commands::Status { count, .. } => assert!(count),
@@ -25682,6 +26140,9 @@ resources:
             batch_size: None,
             notify_teams: None,
             abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
         };
         match cmd {
             Commands::Apply { notify_email, .. } => {
@@ -25710,6 +26171,7 @@ resources:
             prune: None,
             layers: false,
             critical_resources: false,
+            weight: false,
         };
         match cmd {
             Commands::Graph { depth, .. } => assert_eq!(depth, Some(2)),
@@ -25789,6 +26251,9 @@ resources:
             batch_size: None,
             notify_teams: None,
             abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
         };
         match cmd {
             Commands::Apply { skip, .. } => {
@@ -25832,6 +26297,8 @@ resources:
             compliance: None,
             histogram: false,
             dependency_health: false,
+            top_failures: false,
+            convergence_rate: false,
         };
         match cmd {
             Commands::Status { format, .. } => {
@@ -25877,6 +26344,7 @@ resources:
             check_idempotency: false,
             check_drift_coverage: false,
             check_cycles_deep: false,
+            check_naming: false,
         };
         match cmd {
             Commands::Validate { policy_file, .. } => {
@@ -25920,6 +26388,8 @@ resources:
             compliance: None,
             histogram: false,
             dependency_health: false,
+            top_failures: false,
+            convergence_rate: false,
         };
         match cmd {
             Commands::Status { anomalies, .. } => assert!(anomalies),
@@ -25999,6 +26469,9 @@ resources:
             batch_size: None,
             notify_teams: None,
             abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
         };
         match cmd {
             Commands::Apply {
@@ -26029,6 +26502,7 @@ resources:
             prune: None,
             layers: false,
             critical_resources: false,
+            weight: false,
         };
         match cmd {
             Commands::Graph { cluster, .. } => assert!(cluster),
@@ -26124,6 +26598,9 @@ resources:
             batch_size: None,
             notify_teams: None,
             abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
         };
         match cmd {
             Commands::Apply { concurrency, .. } => assert_eq!(concurrency, Some(4)),
@@ -26165,6 +26642,8 @@ resources:
             compliance: None,
             histogram: false,
             dependency_health: false,
+            top_failures: false,
+            convergence_rate: false,
         };
         match cmd {
             Commands::Status { diff_from, .. } => {
@@ -26248,6 +26727,9 @@ resources:
             batch_size: None,
             notify_teams: None,
             abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
         };
         match cmd {
             Commands::Apply { webhook_before, .. } => {
@@ -26277,6 +26759,7 @@ resources:
             check_idempotency: false,
             check_drift_coverage: false,
             check_cycles_deep: false,
+            check_naming: false,
         };
         match cmd {
             Commands::Validate {
@@ -26320,6 +26803,8 @@ resources:
             compliance: None,
             histogram: false,
             dependency_health: false,
+            top_failures: false,
+            convergence_rate: false,
         };
         match cmd {
             Commands::Status {
@@ -26348,6 +26833,7 @@ resources:
             prune: None,
             layers: false,
             critical_resources: false,
+            weight: false,
         };
         match cmd {
             Commands::Graph { orphans, .. } => assert!(orphans),
@@ -26444,6 +26930,9 @@ resources:
             batch_size: None,
             notify_teams: None,
             abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
         };
         match cmd {
             Commands::Apply {
@@ -26489,6 +26978,8 @@ resources:
             compliance: None,
             histogram: false,
             dependency_health: false,
+            top_failures: false,
+            convergence_rate: false,
         };
         match cmd {
             Commands::Status { machines_only, .. } => assert!(machines_only),
@@ -26515,6 +27006,7 @@ resources:
             check_idempotency: false,
             check_drift_coverage: false,
             check_cycles_deep: false,
+            check_naming: false,
         };
         match cmd {
             Commands::Validate {
@@ -26558,6 +27050,8 @@ resources:
             compliance: None,
             histogram: false,
             dependency_health: false,
+            top_failures: false,
+            convergence_rate: false,
         };
         match cmd {
             Commands::Status {
@@ -26586,6 +27080,7 @@ resources:
             prune: None,
             layers: false,
             critical_resources: false,
+            weight: false,
         };
         match cmd {
             Commands::Graph { stats, .. } => assert!(stats),
@@ -26697,6 +27192,9 @@ resources: {}
             batch_size: None,
             notify_teams: None,
             abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
         };
         match cmd {
             Commands::Apply { log_file, .. } => {
@@ -26740,6 +27238,8 @@ resources: {}
             compliance: None,
             histogram: false,
             dependency_health: false,
+            top_failures: false,
+            convergence_rate: false,
         };
         match cmd {
             Commands::Status {
@@ -26821,6 +27321,9 @@ resources: {}
             batch_size: None,
             notify_teams: None,
             abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
         };
         match cmd {
             Commands::Apply { tags, .. } => {
@@ -26904,6 +27407,9 @@ resources: {}
             batch_size: None,
             notify_teams: None,
             abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
         };
         match cmd {
             Commands::Apply { comment, .. } => {
@@ -26930,6 +27436,7 @@ resources: {}
             check_idempotency: false,
             check_drift_coverage: false,
             check_cycles_deep: false,
+            check_naming: false,
         };
         match cmd {
             Commands::Validate { strict_deps, .. } => assert!(strict_deps),
@@ -26971,6 +27478,8 @@ resources: {}
             compliance: None,
             histogram: false,
             dependency_health: false,
+            top_failures: false,
+            convergence_rate: false,
         };
         match cmd {
             Commands::Status { json_lines, .. } => assert!(json_lines),
@@ -27050,6 +27559,9 @@ resources: {}
             batch_size: None,
             notify_teams: None,
             abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
         };
         match cmd {
             Commands::Apply { only_changed, .. } => assert!(only_changed),
@@ -27076,6 +27588,7 @@ resources: {}
             prune: None,
             layers: false,
             critical_resources: false,
+            weight: false,
         };
         match cmd {
             Commands::Graph { json_output, .. } => assert!(json_output),
@@ -27172,6 +27685,9 @@ resources: {}
             batch_size: None,
             notify_teams: None,
             abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
         };
         match cmd {
             Commands::Apply { pre_script, .. } => {
@@ -27215,6 +27731,8 @@ resources: {}
             compliance: None,
             histogram: false,
             dependency_health: false,
+            top_failures: false,
+            convergence_rate: false,
         };
         match cmd {
             Commands::Status { since, .. } => {
@@ -27298,6 +27816,9 @@ resources: {}
             batch_size: None,
             notify_teams: None,
             abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
         };
         match cmd {
             Commands::Apply { dry_run_json, .. } => assert!(dry_run_json),
@@ -27322,6 +27843,7 @@ resources: {}
             check_idempotency: false,
             check_drift_coverage: false,
             check_cycles_deep: false,
+            check_naming: false,
         };
         match cmd {
             Commands::Validate { check_secrets, .. } => assert!(check_secrets),
@@ -27363,6 +27885,8 @@ resources: {}
             compliance: None,
             histogram: false,
             dependency_health: false,
+            top_failures: false,
+            convergence_rate: false,
         };
         match cmd {
             Commands::Status { export, .. } => {
@@ -27444,6 +27968,9 @@ resources: {}
             batch_size: None,
             notify_teams: None,
             abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
         };
         match cmd {
             Commands::Apply { notify_webhook, .. } => {
@@ -27475,6 +28002,7 @@ resources: {}
             prune: None,
             layers: false,
             critical_resources: false,
+            weight: false,
         };
         match cmd {
             Commands::Graph { highlight, .. } => {
@@ -27576,6 +28104,9 @@ resources: {}
             batch_size: None,
             notify_teams: None,
             abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
         };
         match cmd {
             Commands::Apply { post_script, .. } => {
@@ -27620,6 +28151,8 @@ resources: {}
             compliance: None,
             histogram: false,
             dependency_health: false,
+            top_failures: false,
+            convergence_rate: false,
         };
         match cmd {
             Commands::Status { prometheus, .. } => assert!(prometheus),
@@ -27701,6 +28234,9 @@ resources: {}
             batch_size: None,
             notify_teams: None,
             abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
         };
         match cmd {
             Commands::Apply {
@@ -27727,6 +28263,7 @@ resources: {}
             check_idempotency: true,
             check_drift_coverage: false,
             check_cycles_deep: false,
+            check_naming: false,
         };
         match cmd {
             Commands::Validate {
@@ -27770,6 +28307,8 @@ resources: {}
             compliance: None,
             histogram: false,
             dependency_health: false,
+            top_failures: false,
+            convergence_rate: false,
         };
         match cmd {
             Commands::Status { compact, .. } => assert!(compact),
@@ -27849,6 +28388,9 @@ resources: {}
             batch_size: None,
             notify_teams: None,
             abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
         };
         match cmd {
             Commands::Apply { canary_percent, .. } => assert_eq!(canary_percent, Some(25)),
@@ -27875,6 +28417,7 @@ resources: {}
             prune: Some("web-server".to_string()),
             layers: false,
             critical_resources: false,
+            weight: false,
         };
         match cmd {
             Commands::Graph { prune, .. } => {
@@ -27976,6 +28519,9 @@ resources: {}
             batch_size: None,
             notify_teams: None,
             abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
         };
         match cmd {
             Commands::Apply { schedule, .. } => {
@@ -28019,6 +28565,8 @@ resources: {}
             compliance: None,
             histogram: false,
             dependency_health: false,
+            top_failures: false,
+            convergence_rate: false,
         };
         match cmd {
             Commands::Status { alerts, .. } => assert!(alerts),
@@ -28100,6 +28648,9 @@ resources: {}
             batch_size: None,
             notify_teams: None,
             abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
         };
         match cmd {
             Commands::Apply { env_name, .. } => assert_eq!(env_name, Some("staging".to_string())),
@@ -28124,6 +28675,7 @@ resources: {}
             check_idempotency: false,
             check_drift_coverage: true,
             check_cycles_deep: false,
+            check_naming: false,
         };
         match cmd {
             Commands::Validate {
@@ -28168,6 +28720,8 @@ resources: {}
             compliance: None,
             histogram: false,
             dependency_health: false,
+            top_failures: false,
+            convergence_rate: false,
         };
         match cmd {
             Commands::Status { diff_lock, .. } => {
@@ -28249,6 +28803,9 @@ resources: {}
             batch_size: None,
             notify_teams: None,
             abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
         };
         match cmd {
             Commands::Apply { dry_run_diff, .. } => assert!(dry_run_diff),
@@ -28275,6 +28832,7 @@ resources: {}
             prune: None,
             layers: true,
             critical_resources: false,
+            weight: false,
         };
         match cmd {
             Commands::Graph { layers, .. } => assert!(layers),
@@ -28367,6 +28925,9 @@ resources: {}
             batch_size: None,
             notify_teams: None,
             abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
         };
         match cmd {
             Commands::Apply {
@@ -28412,6 +28973,8 @@ resources: {}
             compliance: Some("soc2".to_string()),
             histogram: false,
             dependency_health: false,
+            top_failures: false,
+            convergence_rate: false,
         };
         match cmd {
             Commands::Status { compliance, .. } => {
@@ -28426,21 +28989,78 @@ resources: {}
     #[test]
     fn test_fj470_apply_batch_size_flag() {
         let cmd = Commands::Apply {
-            file: PathBuf::from("forjar.yaml"), machine: None, resource: None, tag: None, group: None,
-            force: false, dry_run: false, no_tripwire: false, params: vec![], auto_commit: false,
-            timeout: None, state_dir: PathBuf::from("state"), json: false, env_file: None,
-            workspace: None, check: false, report: false, force_unlock: false, output: None,
-            progress: false, timing: false, retry: 0, yes: false, parallel: false,
-            resource_timeout: None, rollback_on_failure: false, max_parallel: None, notify: None,
-            subset: None, confirm_destructive: false, backup: false, exclude: None, sequential: false,
-            diff_only: false, notify_slack: None, cost_limit: None, preview: false, tag_filter: None,
-            output_scripts: None, resume: false, confirm: false, max_failures: None, rate_limit: None,
-            labels: vec![], plan_file: None, notify_email: None, skip: None, snapshot_before: None,
-            concurrency: None, webhook_before: None, rollback_snapshot: None, retry_delay: None,
-            tags: vec![], log_file: None, comment: None, only_changed: false, pre_script: None,
-            dry_run_json: false, notify_webhook: None, post_script: None, approval_required: false,
-            canary_percent: None, schedule: None, env_name: None, dry_run_diff: false,
-            notify_pagerduty: None, batch_size: Some(10), notify_teams: None, abort_on_drift: false,
+            file: PathBuf::from("forjar.yaml"),
+            machine: None,
+            resource: None,
+            tag: None,
+            group: None,
+            force: false,
+            dry_run: false,
+            no_tripwire: false,
+            params: vec![],
+            auto_commit: false,
+            timeout: None,
+            state_dir: PathBuf::from("state"),
+            json: false,
+            env_file: None,
+            workspace: None,
+            check: false,
+            report: false,
+            force_unlock: false,
+            output: None,
+            progress: false,
+            timing: false,
+            retry: 0,
+            yes: false,
+            parallel: false,
+            resource_timeout: None,
+            rollback_on_failure: false,
+            max_parallel: None,
+            notify: None,
+            subset: None,
+            confirm_destructive: false,
+            backup: false,
+            exclude: None,
+            sequential: false,
+            diff_only: false,
+            notify_slack: None,
+            cost_limit: None,
+            preview: false,
+            tag_filter: None,
+            output_scripts: None,
+            resume: false,
+            confirm: false,
+            max_failures: None,
+            rate_limit: None,
+            labels: vec![],
+            plan_file: None,
+            notify_email: None,
+            skip: None,
+            snapshot_before: None,
+            concurrency: None,
+            webhook_before: None,
+            rollback_snapshot: None,
+            retry_delay: None,
+            tags: vec![],
+            log_file: None,
+            comment: None,
+            only_changed: false,
+            pre_script: None,
+            dry_run_json: false,
+            notify_webhook: None,
+            post_script: None,
+            approval_required: false,
+            canary_percent: None,
+            schedule: None,
+            env_name: None,
+            dry_run_diff: false,
+            notify_pagerduty: None,
+            batch_size: Some(10),
+            notify_teams: None,
+            abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
         };
         match cmd {
             Commands::Apply { batch_size, .. } => assert_eq!(batch_size, Some(10)),
@@ -28451,13 +29071,26 @@ resources: {}
     #[test]
     fn test_fj471_validate_check_cycles_deep_flag() {
         let cmd = Commands::Validate {
-            file: PathBuf::from("forjar.yaml"), strict: false, json: false, dry_expand: false,
-            schema_version: None, exhaustive: false, policy_file: None, check_connectivity: false,
-            check_templates: false, strict_deps: false, check_secrets: false,
-            check_idempotency: false, check_drift_coverage: false, check_cycles_deep: true,
+            file: PathBuf::from("forjar.yaml"),
+            strict: false,
+            json: false,
+            dry_expand: false,
+            schema_version: None,
+            exhaustive: false,
+            policy_file: None,
+            check_connectivity: false,
+            check_templates: false,
+            strict_deps: false,
+            check_secrets: false,
+            check_idempotency: false,
+            check_drift_coverage: false,
+            check_cycles_deep: true,
+            check_naming: false,
         };
         match cmd {
-            Commands::Validate { check_cycles_deep, .. } => assert!(check_cycles_deep),
+            Commands::Validate {
+                check_cycles_deep, ..
+            } => assert!(check_cycles_deep),
             _ => panic!("expected Validate"),
         }
     }
@@ -28465,13 +29098,39 @@ resources: {}
     #[test]
     fn test_fj472_status_histogram_flag() {
         let cmd = Commands::Status {
-            state_dir: PathBuf::from("state"), machine: None, json: false, file: None,
-            summary: false, watch: None, stale: None, health: false, drift_details: false,
-            timeline: false, changes_since: None, summary_by: None, prometheus: false,
-            expired: None, count: false, format: None, anomalies: false, diff_from: None,
-            resources_by_type: false, machines_only: false, stale_resources: false,
-            health_threshold: None, json_lines: false, since: None, export: None, compact: false,
-            alerts: false, diff_lock: None, compliance: None, histogram: true, dependency_health: false,
+            state_dir: PathBuf::from("state"),
+            machine: None,
+            json: false,
+            file: None,
+            summary: false,
+            watch: None,
+            stale: None,
+            health: false,
+            drift_details: false,
+            timeline: false,
+            changes_since: None,
+            summary_by: None,
+            prometheus: false,
+            expired: None,
+            count: false,
+            format: None,
+            anomalies: false,
+            diff_from: None,
+            resources_by_type: false,
+            machines_only: false,
+            stale_resources: false,
+            health_threshold: None,
+            json_lines: false,
+            since: None,
+            export: None,
+            compact: false,
+            alerts: false,
+            diff_lock: None,
+            compliance: None,
+            histogram: true,
+            dependency_health: false,
+            top_failures: false,
+            convergence_rate: false,
         };
         match cmd {
             Commands::Status { histogram, .. } => assert!(histogram),
@@ -28482,25 +29141,83 @@ resources: {}
     #[test]
     fn test_fj473_apply_notify_teams_flag() {
         let cmd = Commands::Apply {
-            file: PathBuf::from("forjar.yaml"), machine: None, resource: None, tag: None, group: None,
-            force: false, dry_run: false, no_tripwire: false, params: vec![], auto_commit: false,
-            timeout: None, state_dir: PathBuf::from("state"), json: false, env_file: None,
-            workspace: None, check: false, report: false, force_unlock: false, output: None,
-            progress: false, timing: false, retry: 0, yes: false, parallel: false,
-            resource_timeout: None, rollback_on_failure: false, max_parallel: None, notify: None,
-            subset: None, confirm_destructive: false, backup: false, exclude: None, sequential: false,
-            diff_only: false, notify_slack: None, cost_limit: None, preview: false, tag_filter: None,
-            output_scripts: None, resume: false, confirm: false, max_failures: None, rate_limit: None,
-            labels: vec![], plan_file: None, notify_email: None, skip: None, snapshot_before: None,
-            concurrency: None, webhook_before: None, rollback_snapshot: None, retry_delay: None,
-            tags: vec![], log_file: None, comment: None, only_changed: false, pre_script: None,
-            dry_run_json: false, notify_webhook: None, post_script: None, approval_required: false,
-            canary_percent: None, schedule: None, env_name: None, dry_run_diff: false,
-            notify_pagerduty: None, batch_size: None, notify_teams: Some("https://teams.webhook/abc".to_string()),
+            file: PathBuf::from("forjar.yaml"),
+            machine: None,
+            resource: None,
+            tag: None,
+            group: None,
+            force: false,
+            dry_run: false,
+            no_tripwire: false,
+            params: vec![],
+            auto_commit: false,
+            timeout: None,
+            state_dir: PathBuf::from("state"),
+            json: false,
+            env_file: None,
+            workspace: None,
+            check: false,
+            report: false,
+            force_unlock: false,
+            output: None,
+            progress: false,
+            timing: false,
+            retry: 0,
+            yes: false,
+            parallel: false,
+            resource_timeout: None,
+            rollback_on_failure: false,
+            max_parallel: None,
+            notify: None,
+            subset: None,
+            confirm_destructive: false,
+            backup: false,
+            exclude: None,
+            sequential: false,
+            diff_only: false,
+            notify_slack: None,
+            cost_limit: None,
+            preview: false,
+            tag_filter: None,
+            output_scripts: None,
+            resume: false,
+            confirm: false,
+            max_failures: None,
+            rate_limit: None,
+            labels: vec![],
+            plan_file: None,
+            notify_email: None,
+            skip: None,
+            snapshot_before: None,
+            concurrency: None,
+            webhook_before: None,
+            rollback_snapshot: None,
+            retry_delay: None,
+            tags: vec![],
+            log_file: None,
+            comment: None,
+            only_changed: false,
+            pre_script: None,
+            dry_run_json: false,
+            notify_webhook: None,
+            post_script: None,
+            approval_required: false,
+            canary_percent: None,
+            schedule: None,
+            env_name: None,
+            dry_run_diff: false,
+            notify_pagerduty: None,
+            batch_size: None,
+            notify_teams: Some("https://teams.webhook/abc".to_string()),
             abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
         };
         match cmd {
-            Commands::Apply { notify_teams, .. } => assert_eq!(notify_teams, Some("https://teams.webhook/abc".to_string())),
+            Commands::Apply { notify_teams, .. } => {
+                assert_eq!(notify_teams, Some("https://teams.webhook/abc".to_string()))
+            }
             _ => panic!("expected Apply"),
         }
     }
@@ -28508,13 +29225,28 @@ resources: {}
     #[test]
     fn test_fj474_graph_critical_resources_flag() {
         let cmd = Commands::Graph {
-            file: PathBuf::from("forjar.yaml"), format: "mermaid".to_string(), machine: None,
-            group: None, affected: None, critical_path: false, reverse: false, depth: None,
-            cluster: false, orphans: false, stats: false, json_output: false, highlight: None,
-            prune: None, layers: false, critical_resources: true,
+            file: PathBuf::from("forjar.yaml"),
+            format: "mermaid".to_string(),
+            machine: None,
+            group: None,
+            affected: None,
+            critical_path: false,
+            reverse: false,
+            depth: None,
+            cluster: false,
+            orphans: false,
+            stats: false,
+            json_output: false,
+            highlight: None,
+            prune: None,
+            layers: false,
+            critical_resources: true,
+            weight: false,
         };
         match cmd {
-            Commands::Graph { critical_resources, .. } => assert!(critical_resources),
+            Commands::Graph {
+                critical_resources, ..
+            } => assert!(critical_resources),
             _ => panic!("expected Graph"),
         }
     }
@@ -28535,6 +29267,135 @@ resources: {}
     #[test]
     fn test_fj476_apply_abort_on_drift_flag() {
         let cmd = Commands::Apply {
+            file: PathBuf::from("forjar.yaml"),
+            machine: None,
+            resource: None,
+            tag: None,
+            group: None,
+            force: false,
+            dry_run: false,
+            no_tripwire: false,
+            params: vec![],
+            auto_commit: false,
+            timeout: None,
+            state_dir: PathBuf::from("state"),
+            json: false,
+            env_file: None,
+            workspace: None,
+            check: false,
+            report: false,
+            force_unlock: false,
+            output: None,
+            progress: false,
+            timing: false,
+            retry: 0,
+            yes: false,
+            parallel: false,
+            resource_timeout: None,
+            rollback_on_failure: false,
+            max_parallel: None,
+            notify: None,
+            subset: None,
+            confirm_destructive: false,
+            backup: false,
+            exclude: None,
+            sequential: false,
+            diff_only: false,
+            notify_slack: None,
+            cost_limit: None,
+            preview: false,
+            tag_filter: None,
+            output_scripts: None,
+            resume: false,
+            confirm: false,
+            max_failures: None,
+            rate_limit: None,
+            labels: vec![],
+            plan_file: None,
+            notify_email: None,
+            skip: None,
+            snapshot_before: None,
+            concurrency: None,
+            webhook_before: None,
+            rollback_snapshot: None,
+            retry_delay: None,
+            tags: vec![],
+            log_file: None,
+            comment: None,
+            only_changed: false,
+            pre_script: None,
+            dry_run_json: false,
+            notify_webhook: None,
+            post_script: None,
+            approval_required: false,
+            canary_percent: None,
+            schedule: None,
+            env_name: None,
+            dry_run_diff: false,
+            notify_pagerduty: None,
+            batch_size: None,
+            notify_teams: None,
+            abort_on_drift: true,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
+        };
+        match cmd {
+            Commands::Apply { abort_on_drift, .. } => assert!(abort_on_drift),
+            _ => panic!("expected Apply"),
+        }
+    }
+
+    #[test]
+    fn test_fj477_status_dependency_health_flag() {
+        let cmd = Commands::Status {
+            state_dir: PathBuf::from("state"),
+            machine: None,
+            json: false,
+            file: None,
+            summary: false,
+            watch: None,
+            stale: None,
+            health: false,
+            drift_details: false,
+            timeline: false,
+            changes_since: None,
+            summary_by: None,
+            prometheus: false,
+            expired: None,
+            count: false,
+            format: None,
+            anomalies: false,
+            diff_from: None,
+            resources_by_type: false,
+            machines_only: false,
+            stale_resources: false,
+            health_threshold: None,
+            json_lines: false,
+            since: None,
+            export: None,
+            compact: false,
+            alerts: false,
+            diff_lock: None,
+            compliance: None,
+            histogram: false,
+            dependency_health: true,
+            top_failures: false,
+            convergence_rate: false,
+        };
+        match cmd {
+            Commands::Status {
+                dependency_health, ..
+            } => assert!(dependency_health),
+            _ => panic!("expected Status"),
+        }
+    }
+
+    // ── Phase 34 tests (FJ-480 → FJ-487) ──
+
+    #[test]
+    fn test_fj480_apply_dry_run_summary_flag() {
+        let cmd = Commands::Apply {
             file: PathBuf::from("forjar.yaml"), machine: None, resource: None, tag: None, group: None,
             force: false, dry_run: false, no_tripwire: false, params: vec![], auto_commit: false,
             timeout: None, state_dir: PathBuf::from("state"), json: false, env_file: None,
@@ -28549,16 +29410,32 @@ resources: {}
             tags: vec![], log_file: None, comment: None, only_changed: false, pre_script: None,
             dry_run_json: false, notify_webhook: None, post_script: None, approval_required: false,
             canary_percent: None, schedule: None, env_name: None, dry_run_diff: false,
-            notify_pagerduty: None, batch_size: None, notify_teams: None, abort_on_drift: true,
+            notify_pagerduty: None, batch_size: None, notify_teams: None, abort_on_drift: false,
+            dry_run_summary: true, notify_discord: None, rollback_on_threshold: None,
         };
         match cmd {
-            Commands::Apply { abort_on_drift, .. } => assert!(abort_on_drift),
+            Commands::Apply { dry_run_summary, .. } => assert!(dry_run_summary),
             _ => panic!("expected Apply"),
         }
     }
 
     #[test]
-    fn test_fj477_status_dependency_health_flag() {
+    fn test_fj481_validate_check_naming_flag() {
+        let cmd = Commands::Validate {
+            file: PathBuf::from("forjar.yaml"), strict: false, json: false, dry_expand: false,
+            schema_version: None, exhaustive: false, policy_file: None, check_connectivity: false,
+            check_templates: false, strict_deps: false, check_secrets: false,
+            check_idempotency: false, check_drift_coverage: false, check_cycles_deep: false,
+            check_naming: true,
+        };
+        match cmd {
+            Commands::Validate { check_naming, .. } => assert!(check_naming),
+            _ => panic!("expected Validate"),
+        }
+    }
+
+    #[test]
+    fn test_fj482_status_top_failures_flag() {
         let cmd = Commands::Status {
             state_dir: PathBuf::from("state"), machine: None, json: false, file: None,
             summary: false, watch: None, stale: None, health: false, drift_details: false,
@@ -28566,10 +29443,109 @@ resources: {}
             expired: None, count: false, format: None, anomalies: false, diff_from: None,
             resources_by_type: false, machines_only: false, stale_resources: false,
             health_threshold: None, json_lines: false, since: None, export: None, compact: false,
-            alerts: false, diff_lock: None, compliance: None, histogram: false, dependency_health: true,
+            alerts: false, diff_lock: None, compliance: None, histogram: false,
+            dependency_health: false, top_failures: true, convergence_rate: false,
         };
         match cmd {
-            Commands::Status { dependency_health, .. } => assert!(dependency_health),
+            Commands::Status { top_failures, .. } => assert!(top_failures),
+            _ => panic!("expected Status"),
+        }
+    }
+
+    #[test]
+    fn test_fj483_apply_notify_discord_flag() {
+        let cmd = Commands::Apply {
+            file: PathBuf::from("forjar.yaml"), machine: None, resource: None, tag: None, group: None,
+            force: false, dry_run: false, no_tripwire: false, params: vec![], auto_commit: false,
+            timeout: None, state_dir: PathBuf::from("state"), json: false, env_file: None,
+            workspace: None, check: false, report: false, force_unlock: false, output: None,
+            progress: false, timing: false, retry: 0, yes: false, parallel: false,
+            resource_timeout: None, rollback_on_failure: false, max_parallel: None, notify: None,
+            subset: None, confirm_destructive: false, backup: false, exclude: None, sequential: false,
+            diff_only: false, notify_slack: None, cost_limit: None, preview: false, tag_filter: None,
+            output_scripts: None, resume: false, confirm: false, max_failures: None, rate_limit: None,
+            labels: vec![], plan_file: None, notify_email: None, skip: None, snapshot_before: None,
+            concurrency: None, webhook_before: None, rollback_snapshot: None, retry_delay: None,
+            tags: vec![], log_file: None, comment: None, only_changed: false, pre_script: None,
+            dry_run_json: false, notify_webhook: None, post_script: None, approval_required: false,
+            canary_percent: None, schedule: None, env_name: None, dry_run_diff: false,
+            notify_pagerduty: None, batch_size: None, notify_teams: None, abort_on_drift: false,
+            dry_run_summary: false, notify_discord: Some("https://discord.com/api/webhooks/123".to_string()),
+            rollback_on_threshold: None,
+        };
+        match cmd {
+            Commands::Apply { notify_discord, .. } => assert_eq!(notify_discord, Some("https://discord.com/api/webhooks/123".to_string())),
+            _ => panic!("expected Apply"),
+        }
+    }
+
+    #[test]
+    fn test_fj484_graph_weight_flag() {
+        let cmd = Commands::Graph {
+            file: PathBuf::from("forjar.yaml"), format: "mermaid".to_string(), machine: None,
+            group: None, affected: None, critical_path: false, reverse: false, depth: None,
+            cluster: false, orphans: false, stats: false, json_output: false, highlight: None,
+            prune: None, layers: false, critical_resources: false, weight: true,
+        };
+        match cmd {
+            Commands::Graph { weight, .. } => assert!(weight),
+            _ => panic!("expected Graph"),
+        }
+    }
+
+    #[test]
+    fn test_fj485_lock_compact_all_dispatch() {
+        let cmd = Commands::LockCompactAll {
+            state_dir: PathBuf::from("state"),
+            yes: false,
+            json: false,
+        };
+        match cmd {
+            Commands::LockCompactAll { yes, .. } => assert!(!yes),
+            _ => panic!("expected LockCompactAll"),
+        }
+    }
+
+    #[test]
+    fn test_fj486_apply_rollback_on_threshold_flag() {
+        let cmd = Commands::Apply {
+            file: PathBuf::from("forjar.yaml"), machine: None, resource: None, tag: None, group: None,
+            force: false, dry_run: false, no_tripwire: false, params: vec![], auto_commit: false,
+            timeout: None, state_dir: PathBuf::from("state"), json: false, env_file: None,
+            workspace: None, check: false, report: false, force_unlock: false, output: None,
+            progress: false, timing: false, retry: 0, yes: false, parallel: false,
+            resource_timeout: None, rollback_on_failure: false, max_parallel: None, notify: None,
+            subset: None, confirm_destructive: false, backup: false, exclude: None, sequential: false,
+            diff_only: false, notify_slack: None, cost_limit: None, preview: false, tag_filter: None,
+            output_scripts: None, resume: false, confirm: false, max_failures: None, rate_limit: None,
+            labels: vec![], plan_file: None, notify_email: None, skip: None, snapshot_before: None,
+            concurrency: None, webhook_before: None, rollback_snapshot: None, retry_delay: None,
+            tags: vec![], log_file: None, comment: None, only_changed: false, pre_script: None,
+            dry_run_json: false, notify_webhook: None, post_script: None, approval_required: false,
+            canary_percent: None, schedule: None, env_name: None, dry_run_diff: false,
+            notify_pagerduty: None, batch_size: None, notify_teams: None, abort_on_drift: false,
+            dry_run_summary: false, notify_discord: None, rollback_on_threshold: Some(3),
+        };
+        match cmd {
+            Commands::Apply { rollback_on_threshold, .. } => assert_eq!(rollback_on_threshold, Some(3)),
+            _ => panic!("expected Apply"),
+        }
+    }
+
+    #[test]
+    fn test_fj487_status_convergence_rate_flag() {
+        let cmd = Commands::Status {
+            state_dir: PathBuf::from("state"), machine: None, json: false, file: None,
+            summary: false, watch: None, stale: None, health: false, drift_details: false,
+            timeline: false, changes_since: None, summary_by: None, prometheus: false,
+            expired: None, count: false, format: None, anomalies: false, diff_from: None,
+            resources_by_type: false, machines_only: false, stale_resources: false,
+            health_threshold: None, json_lines: false, since: None, export: None, compact: false,
+            alerts: false, diff_lock: None, compliance: None, histogram: false,
+            dependency_health: false, top_failures: false, convergence_rate: true,
+        };
+        match cmd {
+            Commands::Status { convergence_rate, .. } => assert!(convergence_rate),
             _ => panic!("expected Status"),
         }
     }
