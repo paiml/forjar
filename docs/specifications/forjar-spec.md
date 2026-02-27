@@ -1889,14 +1889,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-380 | `forjar apply --rate-limit <n>` — limit concurrent SSH connections. Prevent SSH throttling on large fleets. | Planned |
-| FJ-381 | `forjar validate --schema-version <v>` — validate config against a specific schema version. Forward compatibility. | Planned |
-| FJ-382 | `forjar status --prometheus` — expose metrics in Prometheus exposition format. Monitoring integration. | Planned |
-| FJ-383 | `forjar apply --label KEY=VALUE` — add metadata labels to apply run for audit trail filtering. | Planned |
-| FJ-384 | `forjar lock info` — show lock file metadata (schema version, generator, machines, resource count). | Planned |
-| FJ-385 | `forjar graph --reverse` — show reverse dependency graph (what depends on what). Reverse impact analysis. | Planned |
-| FJ-386 | `forjar apply --plan-file <path>` — execute a previously saved plan file. Separation of plan and apply. | Planned |
-| FJ-387 | `forjar status --expired <duration>` — show resources whose lock entry is older than duration. Staleness detection. | Planned |
+| FJ-380 | `forjar apply --rate-limit <n>` — limit concurrent SSH connections. Prevent SSH throttling on large fleets. | Done |
+| FJ-381 | `forjar validate --schema-version <v>` — validate config against a specific schema version. Forward compatibility. | Done |
+| FJ-382 | `forjar status --prometheus` — expose metrics in Prometheus exposition format. Monitoring integration. | Done |
+| FJ-383 | `forjar apply --label KEY=VALUE` — add metadata labels to apply run for audit trail filtering. | Done |
+| FJ-384 | `forjar lock info` — show lock file metadata (schema version, generator, machines, resource count). | Done |
+| FJ-385 | `forjar graph --reverse` — show reverse dependency graph (what depends on what). Reverse impact analysis. | Done |
+| FJ-386 | `forjar apply --plan-file <path>` — execute a previously saved plan file. Separation of plan and apply. | Done |
+| FJ-387 | `forjar status --expired <duration>` — show resources whose lock entry is older than duration. Staleness detection. | Done |
+
+### Phase 25 — v2.5: Operational Maturity
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-390 | `forjar apply --dry-run --json` — structured dry-run output for CI pipelines. Machine-readable plan. | Planned |
+| FJ-391 | `forjar validate --exhaustive` — validate all cross-references, machine existence, and param usage. Deep validation. | Planned |
+| FJ-392 | `forjar status --count` — simple resource count by status (converged/failed/drifted). Quick dashboard metric. | Planned |
+| FJ-393 | `forjar apply --notify-email <addr>` — send apply results via email (requires sendmail/SMTP). | Planned |
+| FJ-394 | `forjar graph --depth <n>` — limit graph traversal depth. Focused dependency visualization. | Planned |
+| FJ-395 | `forjar lock compact` — compact lock file by removing historical entries. Reduce state file size. | Planned |
+| FJ-396 | `forjar apply --skip <resource>` — skip specific resource during apply. Temporary exclusion. | Planned |
+| FJ-397 | `forjar status --format table|json|csv` — configurable status output format. Report generation. | Planned |
 
 ---
 

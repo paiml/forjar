@@ -16,7 +16,7 @@ Verify:
 forjar --help
 ```
 
-You should see forjar's 51 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`.
+You should see forjar's 52 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`.
 
 ## Your First Project
 
@@ -1789,6 +1789,44 @@ Allow N failures before stopping (override jidoka for partial deploys):
 
 ```bash
 forjar apply -f forjar.yaml --max-failures 3
+```
+
+## Prometheus Metrics
+
+Expose resource metrics in Prometheus exposition format:
+
+```bash
+forjar status --prometheus --state-dir state
+# forjar_resources_total 42
+# forjar_resources_converged 40
+# forjar_resources_failed 1
+# forjar_resources_drifted 1
+```
+
+## Lock File Info
+
+Show lock file metadata:
+
+```bash
+forjar lock-info --state-dir state
+forjar lock-info --state-dir state --json
+```
+
+## Reverse Dependency Graph
+
+Show what depends on each resource:
+
+```bash
+forjar graph --reverse -f forjar.yaml
+```
+
+## Expired Resources
+
+Show resources whose lock entry is older than a duration:
+
+```bash
+forjar status --expired 7d --state-dir state
+forjar status --expired 24h --state-dir state --json
 ```
 
 ## Next Steps
