@@ -9,6 +9,10 @@ pub mod tracer;
 #[cfg(test)]
 mod tests_eventlog;
 #[cfg(test)]
+mod tests_eventlog_b;
+#[cfg(test)]
 mod tests_hasher;
+#[cfg(test)]
+mod tests_hasher_b;
 #[cfg(test)]
 mod tests_anomaly;

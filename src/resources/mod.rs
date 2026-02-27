@@ -20,7 +20,11 @@ pub mod user;
 #[cfg(test)]
 mod tests_file;
 #[cfg(test)]
+mod tests_file_b;
+#[cfg(test)]
 mod tests_docker;
+#[cfg(test)]
+mod tests_docker_b;
 #[cfg(test)]
 mod tests_package;
 #[cfg(test)]
