@@ -51,6 +51,7 @@ harness = false
 
 [features]
 container-test = []
+gpu-container-test = []
 
 [profile.release]
 opt-level = 3
