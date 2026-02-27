@@ -1508,7 +1508,7 @@ forjar schema > forjar-schema.json
 | Ticket | Description | Status |
 |--------|-------------|--------|
 | FJ-738 | Multi-vendor GPU container transport — `container.devices` (--device), `container.group_add` (--group-add), `container.env` (--env) fields on ContainerConfig. NVIDIA via `--gpus`, AMD ROCm via `/dev/kfd` + `/dev/dri` + `video`/`render` groups, Intel via `/dev/dri`. Dogfood: `dogfood-multi-gpu.yaml` (2 machines, 5 resources). 2 new transport tests. | **Done** |
-| FJ-739 | GPU container integration tests — feature-gated `--features gpu-container-test`. NVIDIA: verify `nvidia-smi` in container. AMD: verify `/dev/kfd` + `/dev/dri` accessible. Cross-vendor: same model config deployed to both. | Planned |
+| FJ-739 | GPU container integration tests — feature-gated `--features gpu-container-test`. NVIDIA: verify `nvidia-smi` in container. AMD: verify `/dev/kfd` + `/dev/dri` accessible. Cross-vendor: same model config deployed to both. 7 tests. | **Done** |
 | FJ-740 | `apr-model-qa-playbook` integration — forjar recipe that provisions CUDA + ROCm containers, downloads model via HuggingFace, runs playbook test matrix (3 formats × 2 backends × 3 modalities = 18 tests per vendor). | Planned |
 
 ### Phase 1: Foundation (v0.1) — Immediate Need
@@ -2477,10 +2477,26 @@ Container transport tests verify all resource types work inside Docker/Podman co
 | Transport dispatch | `exec_script` routes to container |
 | Idempotent ensure | Second ensure is a no-op |
 
+**GPU test matrix** (feature-gated: `--features gpu-container-test`):
+
+| Test | Description |
+|------|-------------|
+| CUDA lifecycle | ensure → exec → cleanup with `--gpus all` |
+| CUDA nvidia-smi | Verify `nvidia-smi --query-gpu` returns GPU name |
+| CUDA env vars | `CUDA_VISIBLE_DEVICES` passed through `--env` |
+| ROCm lifecycle | ensure → exec → cleanup with `--device /dev/kfd /dev/dri` |
+| ROCm device access | Verify `/dev/kfd` and `/dev/dri` accessible in container |
+| ROCm env vars | `ROCR_VISIBLE_DEVICES` passed through `--env` |
+| Cross-vendor config | Same model config deployed to both CUDA and ROCm containers |
+
 **Running**:
 ```bash
+# Basic container tests
 docker build -t forjar-test-target -f tests/Dockerfile.test-target .
 cargo test --features container-test
+
+# GPU container tests (requires NVIDIA Container Toolkit + AMD ROCm drivers)
+cargo test --features gpu-container-test
 ```
 
 ### 10.6 Dogfood Workflow
