@@ -87,6 +87,12 @@ forjar validate -f forjar.yaml --check-unused-machines
 
 # Verify resource tags follow kebab-case naming conventions
 forjar validate -f forjar.yaml --check-tag-consistency
+
+# Verify all depends_on targets reference existing resources
+forjar validate -f forjar.yaml --check-dependency-exists
+
+# Detect resources targeting the same file path on the same machine
+forjar validate -f forjar.yaml --check-path-conflicts-strict
 ```
 
 ### `forjar plan`
@@ -225,6 +231,15 @@ forjar status --state-dir state --lock-file-count
 
 # Show resource type breakdown
 forjar status -f forjar.yaml --resource-type-distribution
+
+# Show time since last apply per resource
+forjar status --state-dir state --resource-apply-age
+
+# Show time since first apply per machine
+forjar status --state-dir state --machine-uptime
+
+# Show apply frequency per resource over time
+forjar status --state-dir state --resource-churn
 ```
 
 ### `forjar history`
@@ -316,6 +331,12 @@ forjar graph -f forjar.yaml --out-degree
 
 # Show graph density (edges / max-possible-edges)
 forjar graph -f forjar.yaml --density
+
+# Output resources in valid topological execution order
+forjar graph -f forjar.yaml --topological-sort
+
+# Show resources on the longest dependency chain
+forjar graph -f forjar.yaml --critical-path-resources
 ```
 
 ### `forjar destroy`
