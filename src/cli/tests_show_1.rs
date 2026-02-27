@@ -242,6 +242,7 @@ resources:
                 only_machine: None,
                 notify_webhook_headers: None,
                 notify_log: None,
+        notify_exec: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { output, .. }) => {

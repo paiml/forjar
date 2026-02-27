@@ -144,6 +144,8 @@ resources:
             check_resource_names: None,
             check_resource_count: None,
             check_duplicate_paths: false,
+        check_circular_deps: false,
+        check_machine_refs: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { strict, .. }) => assert!(strict),
@@ -376,6 +378,7 @@ resources:
             only_machine: None,
             notify_webhook_headers: None,
             notify_log: None,
+        notify_exec: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { yes, .. }) => assert!(yes),

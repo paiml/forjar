@@ -161,6 +161,7 @@ mod tests {
                 only_machine: None,
                 notify_webhook_headers: None,
                 notify_log: None,
+        notify_exec: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { max_parallel, .. }) => assert_eq!(max_parallel, Some(4)),
@@ -317,6 +318,7 @@ mod tests {
                 only_machine: None,
                 notify_webhook_headers: None,
                 notify_log: None,
+        notify_exec: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { notify, .. }) => {
@@ -473,6 +475,7 @@ mod tests {
                 only_machine: None,
                 notify_webhook_headers: None,
                 notify_log: None,
+        notify_exec: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs {

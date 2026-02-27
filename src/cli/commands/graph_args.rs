@@ -188,5 +188,13 @@ pub struct GraphArgs {
     /// FJ-755: Output graph as edge list (source→target pairs)
     #[arg(long)]
     pub edge_list: bool,
+
+    /// FJ-759: Show disconnected subgraphs (connected components)
+    #[arg(long)]
+    pub connected_components: bool,
+
+    /// FJ-763: Output graph as adjacency matrix
+    #[arg(long)]
+    pub adjacency_matrix: bool,
 }
 

@@ -340,5 +340,13 @@ pub struct StatusArgs {
     /// FJ-756: Show count of drifted resources per machine
     #[arg(long)]
     pub drift_count: bool,
+
+    /// FJ-762: Show last apply duration per resource
+    #[arg(long)]
+    pub resource_duration: bool,
+
+    /// FJ-764: Show which resources target each machine
+    #[arg(long)]
+    pub machine_resource_map: bool,
 }
 

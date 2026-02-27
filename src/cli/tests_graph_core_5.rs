@@ -68,6 +68,8 @@ mod tests {
             dependency_count: false,
             root_resources: false,
             edge_list: false,
+            connected_components: false,
+            adjacency_matrix: false,
         });
         match cmd {
             Commands::Graph(GraphArgs {

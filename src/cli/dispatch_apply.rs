@@ -142,6 +142,7 @@ pub(crate) fn dispatch_apply_cmd(cmd: Commands, verbose: bool) -> Result<(), Str
         notify_ntfy, only_machine: _only_machine,
         notify_webhook_headers: _notify_webhook_headers,
         notify_log: _notify_log,
+        notify_exec: _notify_exec,
     }) = cmd
     else {
         unreachable!()
