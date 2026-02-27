@@ -16,7 +16,7 @@ Verify:
 forjar --help
 ```
 
-You should see forjar's 54 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`, `lock-compact`, `lock-verify`.
+You should see forjar's 56 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`, `lock-compact`, `lock-verify`, `lock-export`.
 
 ## Your First Project
 
@@ -1951,6 +1951,67 @@ Compare current state against a named snapshot:
 ```bash
 forjar status --diff-from v1-backup --state-dir state
 forjar status --diff-from v1-backup --json --state-dir state
+```
+
+## Webhook Before Apply
+
+POST to a webhook URL before apply starts:
+
+```bash
+forjar apply --webhook-before https://hooks.example.com/notify -f forjar.yaml
+```
+
+## Check Connectivity
+
+Test SSH connectivity to all machines during validation:
+
+```bash
+forjar validate --check-connectivity -f forjar.yaml
+forjar validate --check-connectivity --json -f forjar.yaml
+```
+
+## Resources by Type
+
+Group status output by resource type:
+
+```bash
+forjar status --resources-by-type --state-dir state
+forjar status --resources-by-type --json --state-dir state
+```
+
+## Rollback Snapshot
+
+Auto-rollback to a named snapshot on apply failure:
+
+```bash
+forjar apply --rollback-snapshot v1-safe -f forjar.yaml
+```
+
+## Graph Orphans
+
+Show resources with no dependencies and no dependents:
+
+```bash
+forjar graph --orphans -f forjar.yaml
+```
+
+## Lock Export
+
+Export lock file data in alternative formats:
+
+```bash
+forjar lock-export --state-dir state --format json
+forjar lock-export --state-dir state --format csv
+forjar lock-export --state-dir state --format yaml
+```
+
+## Machines Only
+
+Show only machine-level summary without resource details:
+
+```bash
+forjar status --machines-only --state-dir state
+forjar status --machines-only --json --state-dir state
 ```
 
 ## Next Steps

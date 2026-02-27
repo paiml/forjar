@@ -1928,14 +1928,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-410 | `forjar apply --webhook-before <url>` — POST to webhook before apply starts. Pre-flight notification. | Planned |
-| FJ-411 | `forjar validate --check-connectivity` — test SSH connectivity to all machines during validation. | Planned |
-| FJ-412 | `forjar status --resources-by-type` — group status output by resource type. Type-centric view. | Planned |
-| FJ-413 | `forjar apply --rollback-snapshot <name>` — auto-rollback to named snapshot on failure. | Planned |
-| FJ-414 | `forjar graph --orphans` — show resources with no dependencies and no dependents. Cleanup targets. | Planned |
-| FJ-415 | `forjar lock export --format json` — export lock file in JSON format. Interop with external tools. | Planned |
-| FJ-416 | `forjar apply --dry-run --diff` — combined dry-run with content diff output. CI review mode. | Planned |
-| FJ-417 | `forjar status --machines-only` — show only machine-level summary (no resource details). | Planned |
+| FJ-410 | `forjar apply --webhook-before <url>` — POST to webhook before apply starts. Pre-flight notification. | Done |
+| FJ-411 | `forjar validate --check-connectivity` — test SSH connectivity to all machines during validation. | Done |
+| FJ-412 | `forjar status --resources-by-type` — group status output by resource type. Type-centric view. | Done |
+| FJ-413 | `forjar apply --rollback-snapshot <name>` — auto-rollback to named snapshot on failure. | Done |
+| FJ-414 | `forjar graph --orphans` — show resources with no dependencies and no dependents. Cleanup targets. | Done |
+| FJ-415 | `forjar lock export --format json` — export lock file in JSON format. Interop with external tools. | Done |
+| FJ-416 | `forjar apply --dry-run --diff` — combined dry-run with content diff output. CI review mode. | Done |
+| FJ-417 | `forjar status --machines-only` — show only machine-level summary (no resource details). | Done |
+
+### Phase 28 — v2.8: Resilience & Diagnostics
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-420 | `forjar apply --retry-delay <seconds>` — delay between retry attempts. Backoff tuning. | Planned |
+| FJ-421 | `forjar validate --check-templates` — verify all template variables resolve. Template completeness. | Planned |
+| FJ-422 | `forjar status --stale-resources` — show resources not updated in any recent apply. Dead resource detection. | Planned |
+| FJ-423 | `forjar apply --tags <tag1,tag2>` — apply only resources matching any of the tags. Multi-tag filter. | Planned |
+| FJ-424 | `forjar graph --stats` — show graph statistics (nodes, edges, depth, width). DAG metrics. | Planned |
+| FJ-425 | `forjar lock gc` — garbage collect orphaned lock entries with no matching config. State cleanup. | Planned |
+| FJ-426 | `forjar apply --log-file <path>` — write detailed apply log to file. Audit logging. | Planned |
+| FJ-427 | `forjar status --health-threshold <n>` — set custom health score threshold (default: 80). Alerting tuning. | Planned |
 
 ---
 
