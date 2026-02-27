@@ -81,6 +81,10 @@ pub enum Commands {
         /// Output validation result as JSON
         #[arg(long)]
         json: bool,
+
+        /// FJ-330: Show fully expanded config after template resolution
+        #[arg(long)]
+        dry_expand: bool,
     },
 
     /// Show execution plan (diff desired vs current)
@@ -136,6 +140,10 @@ pub enum Commands {
         /// FJ-312: Show estimated change cost per resource type
         #[arg(long)]
         cost: bool,
+
+        /// FJ-333: Hypothetical param override — show plan as if param had this value
+        #[arg(long = "what-if", value_name = "KEY=VALUE")]
+        what_if: Vec<String>,
     },
 
     /// Converge infrastructure to desired state
@@ -251,6 +259,14 @@ pub enum Commands {
         /// FJ-317: POST JSON results to webhook URL after apply
         #[arg(long)]
         notify: Option<String>,
+
+        /// FJ-331: Apply only resources matching glob pattern (e.g., web-*)
+        #[arg(long)]
+        subset: Option<String>,
+
+        /// FJ-335: Require confirmation for destructive (destroy/remove) actions
+        #[arg(long)]
+        confirm_destructive: bool,
     },
 
     /// Detect unauthorized changes (tripwire)
@@ -321,6 +337,10 @@ pub enum Commands {
         /// FJ-314: Watch mode — refresh every N seconds
         #[arg(long)]
         watch: Option<u64>,
+
+        /// FJ-336: Show only resources not updated in N days
+        #[arg(long)]
+        stale: Option<u64>,
     },
 
     /// Show apply history from event logs
@@ -490,6 +510,10 @@ pub enum Commands {
         /// FJ-221: Enable built-in policy rules (no_root_owner, require_tags, etc.)
         #[arg(long)]
         strict: bool,
+
+        /// FJ-332: Auto-fix common lint issues (normalize quotes, sort keys)
+        #[arg(long)]
+        fix: bool,
     },
 
     /// Rollback to a previous config revision from git history
@@ -1040,7 +1064,6 @@ pub enum SecretsCmd {
         #[arg(long, default_value = "state")]
         state_dir: PathBuf,
     },
-
 }
 
 /// Dispatch a CLI command.
@@ -1048,7 +1071,12 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
     NO_COLOR.store(no_color, Ordering::Relaxed);
     match cmd {
         Commands::Init { path } => cmd_init(&path),
-        Commands::Validate { file, strict, json } => cmd_validate(&file, strict, json),
+        Commands::Validate {
+            file,
+            strict,
+            json,
+            dry_expand,
+        } => cmd_validate(&file, strict, json, dry_expand),
         Commands::Plan {
             file,
             machine,
@@ -1063,6 +1091,7 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             no_diff,
             target,
             cost,
+            what_if,
         } => {
             let sd = resolve_state_dir(&state_dir, workspace.as_deref());
             cmd_plan(
@@ -1079,6 +1108,7 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
                 no_diff,
                 target.as_deref(),
                 cost,
+                &what_if,
             )
         }
         Commands::Apply {
@@ -1110,6 +1140,8 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             rollback_on_failure,
             max_parallel,
             notify,
+            subset,
+            confirm_destructive,
         } => {
             if check {
                 // FJ-226: --check runs check scripts via cmd_check
@@ -1152,6 +1184,8 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
                 rollback_on_failure,
                 max_parallel,
                 notify.as_deref(),
+                subset.as_deref(),
+                confirm_destructive,
             )
         }
         Commands::Drift {
@@ -1193,7 +1227,11 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             file,
             summary,
             watch,
+            stale,
         } => {
+            if let Some(days) = stale {
+                return cmd_status_stale(&state_dir, machine.as_deref(), days, json);
+            }
             if let Some(interval) = watch {
                 // FJ-314: Watch mode — repeat status at interval
                 let interval = interval.max(1);
@@ -1276,7 +1314,12 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             verbose,
         ),
         Commands::Fmt { file, check } => cmd_fmt(&file, check),
-        Commands::Lint { file, json, strict } => cmd_lint(&file, json, strict),
+        Commands::Lint {
+            file,
+            json,
+            strict,
+            fix,
+        } => cmd_lint(&file, json, strict, fix),
         Commands::Rollback {
             file,
             revision,
@@ -1701,10 +1744,12 @@ fn cmd_bench(iterations: usize, json: bool) -> Result<(), String> {
     Ok(())
 }
 
-fn cmd_lint(file: &Path, json: bool, strict: bool) -> Result<(), String> {
+fn cmd_lint(file: &Path, json: bool, strict: bool, fix: bool) -> Result<(), String> {
     let config = parse_and_validate(file)?;
 
     let mut warnings: Vec<String> = Vec::new();
+    let mut fixes_applied: Vec<String> = Vec::new();
+    let _ = fix; // FJ-332: fix mode collects fixes
 
     // 1. Unused machines (defined but not referenced by any resource)
     let mut referenced_machines = std::collections::HashSet::new();
@@ -1900,6 +1945,40 @@ fn cmd_lint(file: &Path, json: bool, strict: bool) -> Result<(), String> {
         for w in &warnings {
             println!("  warn: {}", w);
         }
+
+        // FJ-332: Auto-fix mode — normalize config and rewrite
+        if fix {
+            // Read and re-parse the config, normalize it, and write back
+            let content = std::fs::read_to_string(file)
+                .map_err(|e| format!("cannot read {}: {}", file.display(), e))?;
+            let mut doc: serde_yaml_ng::Value = serde_yaml_ng::from_str(&content)
+                .map_err(|e| format!("YAML parse error: {}", e))?;
+
+            // Fix: sort resource keys alphabetically for consistency
+            if let Some(serde_yaml_ng::Value::Mapping(map)) = doc.get_mut("resources") {
+                let mut pairs: Vec<_> = map.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
+                pairs.sort_by(|(a, _), (b, _)| {
+                    a.as_str().unwrap_or("").cmp(b.as_str().unwrap_or(""))
+                });
+                *map = serde_yaml_ng::Mapping::new();
+                for (k, v) in pairs {
+                    map.insert(k, v);
+                }
+                fixes_applied.push("sorted resource keys alphabetically".to_string());
+            }
+
+            if !fixes_applied.is_empty() {
+                let normalized = serde_yaml_ng::to_string(&doc)
+                    .map_err(|e| format!("serialization error: {}", e))?;
+                std::fs::write(file, normalized)
+                    .map_err(|e| format!("cannot write {}: {}", file.display(), e))?;
+                for f in &fixes_applied {
+                    println!("  {}: {}", green("fixed"), f);
+                }
+                println!("Wrote normalized config to {}", file.display());
+            }
+        }
+
         println!();
         println!("Lint: {} warning(s)", warnings.len());
     }
@@ -2255,6 +2334,8 @@ fn cmd_rollback(
         false, // no rollback_on_failure
         None,  // no max_parallel
         None,  // no notify
+        None,  // no subset
+        false, // no confirm_destructive
     )
 }
 
@@ -3270,8 +3351,24 @@ fn discover_machines(state_dir: &Path) -> Vec<String> {
     machines
 }
 
-fn cmd_validate(file: &Path, strict: bool, json: bool) -> Result<(), String> {
+fn cmd_validate(file: &Path, strict: bool, json: bool, dry_expand: bool) -> Result<(), String> {
     let config = parse_and_validate(file)?;
+
+    // FJ-330: Show fully expanded config after template resolution
+    if dry_expand {
+        let mut expanded = config.clone();
+        for (_id, resource) in expanded.resources.iter_mut() {
+            *resource = resolver::resolve_resource_templates(
+                resource,
+                &expanded.params,
+                &expanded.machines,
+            )?;
+        }
+        let yaml = serde_yaml_ng::to_string(&expanded)
+            .map_err(|e| format!("serialization error: {}", e))?;
+        println!("{}", yaml);
+        return Ok(());
+    }
 
     let mut errors: Vec<String> = Vec::new();
 
@@ -3418,6 +3515,7 @@ fn collect_transitive_deps(
 }
 
 #[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments)]
 fn cmd_plan(
     file: &Path,
     state_dir: &Path,
@@ -3432,8 +3530,33 @@ fn cmd_plan(
     no_diff: bool,
     target: Option<&str>,
     cost: bool,
+    what_if: &[String],
 ) -> Result<(), String> {
     let mut config = parse_and_validate(file)?;
+
+    // FJ-333: Apply hypothetical param overrides
+    for kv in what_if {
+        if let Some((key, value)) = kv.split_once('=') {
+            config.params.insert(
+                key.to_string(),
+                serde_yaml_ng::Value::String(value.to_string()),
+            );
+        } else {
+            return Err(format!(
+                "invalid --what-if format '{}': expected KEY=VALUE",
+                kv
+            ));
+        }
+    }
+    if !what_if.is_empty() {
+        println!(
+            "{}",
+            dim(&format!(
+                "[what-if] Hypothetical params: {}",
+                what_if.join(", ")
+            ))
+        );
+    }
     if let Some(path) = env_file {
         load_env_params(&mut config, path)?;
     }
@@ -4293,6 +4416,8 @@ fn cmd_apply(
     rollback_on_failure: bool,
     max_parallel: Option<usize>,
     notify: Option<&str>,
+    subset: Option<&str>,
+    confirm_destructive: bool,
 ) -> Result<(), String> {
     use std::time::Instant;
     let t_total = Instant::now();
@@ -4319,6 +4444,45 @@ fn cmd_apply(
         config.policy.tripwire = false;
     }
     apply_param_overrides(&mut config, param_overrides)?;
+
+    // FJ-331: Subset glob filter — only apply resources matching pattern
+    if let Some(pattern) = subset {
+        config
+            .resources
+            .retain(|id, _| simple_glob_match(pattern, id));
+        if config.resources.is_empty() {
+            return Err(format!("no resources match subset pattern '{}'", pattern));
+        }
+        if verbose {
+            eprintln!(
+                "Subset filter '{}': {} resources selected",
+                pattern,
+                config.resources.len()
+            );
+        }
+    }
+
+    // FJ-335: Confirm destructive actions
+    if confirm_destructive && !dry_run && !yes {
+        let order = resolver::build_execution_order(&config)?;
+        let cd_locks = load_machine_locks(&config, state_dir, machine_filter)?;
+        let plan = planner::plan(&config, &order, &cd_locks, tag_filter);
+        let destroy_count = plan
+            .changes
+            .iter()
+            .filter(|p| p.action == types::PlanAction::Destroy)
+            .count();
+        if destroy_count > 0 {
+            eprintln!(
+                "WARNING: {} resource(s) will be DESTROYED. Use --yes to confirm.",
+                destroy_count
+            );
+            return Err(format!(
+                "{} destructive action(s) blocked by --confirm-destructive",
+                destroy_count
+            ));
+        }
+    }
 
     // FJ-220: Evaluate policy rules before apply
     if !config.policies.is_empty() {
@@ -4852,7 +5016,9 @@ fn cmd_drift(
             None,  // no resource_timeout
             false, // no rollback_on_failure
             None,  // no max_parallel
-            None,  // no notify
+            None,  // no notify,
+            None,  // subset
+            false, // confirm_destructive
         )?;
         if !json {
             println!("Remediation complete.");
@@ -7037,10 +7203,9 @@ fn cmd_inventory(file: &Path, json: bool) -> Result<(), String> {
     let mut results: Vec<serde_json::Value> = Vec::new();
 
     for (name, machine) in &config.machines {
-        let is_local =
-            machine.addr == "127.0.0.1" || machine.addr == "localhost";
-        let is_container = machine.addr == "container"
-            || machine.transport.as_deref() == Some("container");
+        let is_local = machine.addr == "127.0.0.1" || machine.addr == "localhost";
+        let is_container =
+            machine.addr == "container" || machine.transport.as_deref() == Some("container");
 
         let (status, transport_type) = if is_local {
             ("reachable".to_string(), "local")
@@ -7049,10 +7214,7 @@ fn cmd_inventory(file: &Path, json: bool) -> Result<(), String> {
         } else {
             // Try SSH connection test: ssh -o BatchMode=yes -o ConnectTimeout=5
             let user_host = format!("{}@{}", machine.user, machine.addr);
-            let mut ssh_args = vec![
-                "-o", "BatchMode=yes",
-                "-o", "ConnectTimeout=5",
-            ];
+            let mut ssh_args = vec!["-o", "BatchMode=yes", "-o", "ConnectTimeout=5"];
             if let Some(ref key) = machine.ssh_key {
                 ssh_args.push("-i");
                 ssh_args.push(key);
@@ -7100,8 +7262,13 @@ fn cmd_inventory(file: &Path, json: bool) -> Result<(), String> {
             };
             println!(
                 "  {} {} ({}) [{}] — {} via {} ({} resources)",
-                status_icon, name, machine.hostname, machine.addr,
-                status, transport_type, resource_count,
+                status_icon,
+                name,
+                machine.hostname,
+                machine.addr,
+                status,
+                transport_type,
+                resource_count,
             );
         }
     }
@@ -7172,10 +7339,7 @@ fn cmd_retry_failed(
         return Ok(());
     }
 
-    println!(
-        "Retrying {} failed resource(s):",
-        failed_resources.len()
-    );
+    println!("Retrying {} failed resource(s):", failed_resources.len());
     for (machine, resource) in &failed_resources {
         println!("  {} → {}", machine, resource);
     }
@@ -7189,9 +7353,9 @@ fn cmd_retry_failed(
             state_dir,
             Some(machine),
             Some(resource),
-            None, // tag_filter
-            None, // group_filter
-            true, // force — re-apply regardless of hash
+            None,  // tag_filter
+            None,  // group_filter
+            true,  // force — re-apply regardless of hash
             false, // dry_run
             false, // no_tripwire
             param_overrides,
@@ -7199,20 +7363,22 @@ fn cmd_retry_failed(
             timeout,
             false, // json
             false, // verbose
-            None, // env_file
-            None, // workspace
+            None,  // env_file
+            None,  // workspace
             false, // report
             false, // force_unlock
-            None, // output_mode
+            None,  // output_mode
             false, // progress
             false, // timing
-            0, // retry
-            true, // yes — no confirmation
+            0,     // retry
+            true,  // yes — no confirmation
             false, // parallel
-            None, // resource_timeout
+            None,  // resource_timeout
             false, // rollback_on_failure
-            None, // max_parallel
-            None, // notify
+            None,  // max_parallel
+            None,  // notify,
+            None,  // subset
+            false, // confirm_destructive
         )?;
     }
 
@@ -7264,9 +7430,9 @@ fn cmd_rolling(
                 file,
                 state_dir,
                 Some(machine),
-                None, // resource_filter
-                None, // tag_filter
-                None, // group_filter
+                None,  // resource_filter
+                None,  // tag_filter
+                None,  // group_filter
                 false, // force
                 false, // dry_run
                 false, // no_tripwire
@@ -7275,20 +7441,22 @@ fn cmd_rolling(
                 timeout,
                 false, // json
                 false, // verbose
-                None, // env_file
-                None, // workspace
+                None,  // env_file
+                None,  // workspace
                 false, // report
                 false, // force_unlock
-                None, // output_mode
+                None,  // output_mode
                 false, // progress
                 false, // timing
-                0, // retry
-                true, // yes
+                0,     // retry
+                true,  // yes
                 false, // parallel
-                None, // resource_timeout
+                None,  // resource_timeout
                 false, // rollback_on_failure
-                None, // max_parallel
-                None, // notify
+                None,  // max_parallel
+                None,  // notify,
+                None,  // subset
+                false, // confirm_destructive
             )?;
         }
 
@@ -7318,7 +7486,12 @@ fn cmd_canary(
         return Err(format!(
             "canary machine '{}' not found in config (available: {})",
             canary_machine,
-            config.machines.keys().cloned().collect::<Vec<_>>().join(", ")
+            config
+                .machines
+                .keys()
+                .cloned()
+                .collect::<Vec<_>>()
+                .join(", ")
         ));
     }
 
@@ -7329,20 +7502,36 @@ fn cmd_canary(
         file,
         state_dir,
         Some(canary_machine),
-        None, None, None,
-        false, false, false,
+        None,
+        None,
+        None,
+        false,
+        false,
+        false,
         param_overrides,
-        false, timeout, false, false,
-        None, None, false, false, None,
-        false, false, 0, true, false,
-        None, false, None, None,
+        false,
+        timeout,
+        false,
+        false,
+        None,
+        None,
+        false,
+        false,
+        None,
+        false,
+        false,
+        0,
+        true,
+        false,
+        None,
+        false,
+        None,
+        None,
+        None,  // subset
+        false, // confirm_destructive
     )?;
 
-    println!(
-        "\n{} Canary '{}' succeeded.",
-        green("✓"),
-        canary_machine
-    );
+    println!("\n{} Canary '{}' succeeded.", green("✓"), canary_machine);
 
     // Phase 2: Apply to remaining machines
     let remaining: Vec<String> = config
@@ -7376,13 +7565,33 @@ fn cmd_canary(
             file,
             state_dir,
             Some(machine),
-            None, None, None,
-            false, false, false,
+            None,
+            None,
+            None,
+            false,
+            false,
+            false,
             param_overrides,
-            false, timeout, false, false,
-            None, None, false, false, None,
-            false, false, 0, true, false,
-            None, false, None, None,
+            false,
+            timeout,
+            false,
+            false,
+            None,
+            None,
+            false,
+            false,
+            None,
+            false,
+            false,
+            0,
+            true,
+            false,
+            None,
+            false,
+            None,
+            None,
+            None,  // subset
+            false, // confirm_destructive
         )?;
     }
 
@@ -7391,6 +7600,104 @@ fn cmd_canary(
         green("✓"),
         remaining.len()
     );
+    Ok(())
+}
+
+/// Simple glob matching — supports `*` wildcard at start/end/both.
+fn simple_glob_match(pattern: &str, text: &str) -> bool {
+    if pattern == "*" {
+        return true;
+    }
+    let starts_with_star = pattern.starts_with('*');
+    let ends_with_star = pattern.ends_with('*');
+    let core = pattern.trim_matches('*');
+
+    match (starts_with_star, ends_with_star) {
+        (true, true) => text.contains(core),
+        (true, false) => text.ends_with(core),
+        (false, true) => text.starts_with(core),
+        (false, false) => text == pattern,
+    }
+}
+
+/// FJ-336: Show resources not updated in N days.
+fn cmd_status_stale(
+    state_dir: &Path,
+    machine_filter: Option<&str>,
+    days: u64,
+    json: bool,
+) -> Result<(), String> {
+    let cutoff = std::time::SystemTime::now() - std::time::Duration::from_secs(days * 86400);
+
+    let entries = std::fs::read_dir(state_dir)
+        .map_err(|e| format!("cannot read state dir {}: {}", state_dir.display(), e))?;
+
+    let mut stale_resources: Vec<serde_json::Value> = Vec::new();
+
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().to_string();
+        if let Some(filter) = machine_filter {
+            if name != filter {
+                continue;
+            }
+        }
+        if !entry.path().is_dir() {
+            continue;
+        }
+
+        let lock_path = entry.path().join("lock.yaml");
+        if !lock_path.exists() {
+            continue;
+        }
+
+        let content = std::fs::read_to_string(&lock_path)
+            .map_err(|e| format!("cannot read {}: {}", lock_path.display(), e))?;
+        if let Ok(lock) = serde_yaml_ng::from_str::<types::StateLock>(&content) {
+            for (resource_id, resource_state) in &lock.resources {
+                // Use lock file mtime as proxy for last-applied time
+                let stale = if let Ok(meta) = std::fs::metadata(&lock_path) {
+                    meta.modified().map(|m| m < cutoff).unwrap_or(false)
+                } else {
+                    false
+                };
+
+                if stale {
+                    stale_resources.push(serde_json::json!({
+                        "machine": name,
+                        "resource": resource_id,
+                        "last_applied": resource_state.applied_at,
+                        "days_stale": days,
+                    }));
+
+                    if !json {
+                        println!(
+                            "  {} {} → {} (not updated in {}+ days)",
+                            yellow("⚠"),
+                            name,
+                            resource_id,
+                            days
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&stale_resources).unwrap_or_default()
+        );
+    } else if stale_resources.is_empty() {
+        println!("No stale resources found (threshold: {} days).", days);
+    } else {
+        println!(
+            "\n{} stale resource(s) found (not updated in {}+ days).",
+            stale_resources.len(),
+            days
+        );
+    }
+
     Ok(())
 }
 
@@ -7439,7 +7746,7 @@ resources:
 "#,
         )
         .unwrap();
-        cmd_validate(&config, false, false).unwrap();
+        cmd_validate(&config, false, false, false).unwrap();
     }
 
     #[test]
@@ -7456,7 +7763,7 @@ resources: {}
 "#,
         )
         .unwrap();
-        let result = cmd_validate(&config, false, false);
+        let result = cmd_validate(&config, false, false, false);
         assert!(result.is_err());
     }
 
@@ -7492,8 +7799,20 @@ resources:
         let state = dir.path().join("state");
         std::fs::create_dir_all(&state).unwrap();
         cmd_plan(
-            &config, &state, None, None, None, false, false, None, None, None, false, None,
-            false, // no cost
+            &config,
+            &state,
+            None,
+            None,
+            None,
+            false,
+            false,
+            None,
+            None,
+            None,
+            false,
+            None,
+            false, // no cost,
+            &[],   // what_if
         )
         .unwrap();
     }
@@ -7543,7 +7862,8 @@ resources:
             None,
             false,
             None,
-            false, // no cost
+            false, // no cost,
+            &[],   // what_if
         )
         .unwrap();
     }
@@ -7564,8 +7884,20 @@ resources: {}
         )
         .unwrap();
         let result = cmd_plan(
-            &config, &state, None, None, None, false, false, None, None, None, false, None,
-            false, // no cost
+            &config,
+            &state,
+            None,
+            None,
+            None,
+            false,
+            false,
+            None,
+            None,
+            None,
+            false,
+            None,
+            false, // no cost,
+            &[],   // what_if
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("validation"));
@@ -7624,6 +7956,8 @@ resources:
             false,
             None,
             None,
+            None,  // subset
+            false, // confirm_destructive
         )
         .unwrap();
     }
@@ -7684,6 +8018,8 @@ policy:
             false,
             None,
             None,
+            None,  // subset
+            false, // confirm_destructive
         )
         .unwrap();
 
@@ -7741,6 +8077,8 @@ resources: {}
             false,
             None,
             None,
+            None,  // subset
+            false, // confirm_destructive
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("validation"));
@@ -7954,6 +8292,7 @@ resources: {}
                 file: config.clone(),
                 strict: false,
                 json: false,
+                dry_expand: false,
             },
             false,
             true,
@@ -7974,6 +8313,7 @@ resources: {}
                 file: None,
                 summary: false,
                 watch: None,
+                stale: None,
             },
             false,
             true,
@@ -8020,6 +8360,7 @@ resources:
                 no_diff: false,
                 target: None,
                 cost: false,
+                what_if: vec![],
             },
             false,
             true,
@@ -8081,6 +8422,8 @@ resources:
                 rollback_on_failure: false,
                 max_parallel: None,
                 notify: None,
+                subset: None,
+                confirm_destructive: false,
             },
             false,
             true,
@@ -8284,6 +8627,8 @@ resources:
             false,
             None,
             None,
+            None,  // subset
+            false, // confirm_destructive
         )
         .unwrap();
         assert!(target.exists());
@@ -8318,6 +8663,8 @@ resources:
             false,
             None,
             None,
+            None,  // subset
+            false, // confirm_destructive
         )
         .unwrap();
     }
@@ -8399,8 +8746,20 @@ resources:
         // Plan with nonexistent state dir → everything shows as Create
         let missing = dir.path().join("no-state");
         cmd_plan(
-            &config, &missing, None, None, None, false, false, None, None, None, false, None,
-            false, // no cost
+            &config,
+            &missing,
+            None,
+            None,
+            None,
+            false,
+            false,
+            None,
+            None,
+            None,
+            false,
+            None,
+            false, // no cost,
+            &[],   // what_if
         )
         .unwrap();
     }
@@ -8431,8 +8790,20 @@ resources:
         .unwrap();
         // json=true should not panic (output goes to stdout)
         cmd_plan(
-            &config, &state, None, None, None, true, false, None, None, None, false, None,
-            false, // no cost
+            &config,
+            &state,
+            None,
+            None,
+            None,
+            true,
+            false,
+            None,
+            None,
+            None,
+            false,
+            None,
+            false, // no cost,
+            &[],   // what_if
         )
         .unwrap();
     }
@@ -8462,8 +8833,20 @@ resources:
         )
         .unwrap();
         cmd_plan(
-            &config, &state, None, None, None, false, true, None, None, None, false, None,
-            false, // no cost
+            &config,
+            &state,
+            None,
+            None,
+            None,
+            false,
+            true,
+            None,
+            None,
+            None,
+            false,
+            None,
+            false, // no cost,
+            &[],   // what_if
         )
         .unwrap();
     }
@@ -8511,7 +8894,8 @@ resources:
             None, // no workspace
             false,
             None,
-            false, // no cost
+            false, // no cost,
+            &[],   // what_if
         )
         .unwrap();
 
@@ -8943,6 +9327,8 @@ resources:
             false,
             None,
             None,
+            None,  // subset
+            false, // confirm_destructive
         )
         .unwrap();
         assert!(target.exists());
@@ -9017,6 +9403,8 @@ resources:
             false,
             None,
             None,
+            None,  // subset
+            false, // confirm_destructive
         )
         .unwrap();
         cmd_destroy(&config, &state, None, true, true).unwrap();
@@ -9092,6 +9480,8 @@ resources:
             false,
             None,
             None,
+            None,  // subset
+            false, // confirm_destructive
         )
         .unwrap();
         assert!(target_a.exists());
@@ -9162,6 +9552,8 @@ resources:
             false,
             None,
             None,
+            None,  // subset
+            false, // confirm_destructive
         )
         .unwrap();
         dispatch(
@@ -9268,6 +9660,8 @@ resources:
             false,
             None,
             None,
+            None,  // subset
+            false, // confirm_destructive
         )
         .unwrap();
         assert!(target.exists());
@@ -9437,6 +9831,8 @@ resources:
             false,
             None,
             None,
+            None,  // subset
+            false, // confirm_destructive
         )
         .unwrap();
         assert!(std::path::Path::new(&target).exists());
@@ -10049,7 +10445,7 @@ resources:
         .unwrap();
 
         // Lint should succeed but print warnings (it returns Ok)
-        cmd_lint(&file, false, false).unwrap();
+        cmd_lint(&file, false, false, false).unwrap();
     }
 
     #[test]
@@ -10077,7 +10473,7 @@ resources:
         )
         .unwrap();
 
-        cmd_lint(&file, true, false).unwrap();
+        cmd_lint(&file, true, false, false).unwrap();
     }
 
     #[test]
@@ -10102,7 +10498,7 @@ resources:
         )
         .unwrap();
 
-        cmd_lint(&file, false, false).unwrap();
+        cmd_lint(&file, false, false, false).unwrap();
     }
 
     #[test]
@@ -10137,7 +10533,7 @@ resources:
         .unwrap();
 
         // Capture output via JSON mode to inspect warnings
-        let result = cmd_lint(&file, true, false);
+        let result = cmd_lint(&file, true, false, false);
         assert!(result.is_ok());
         // The warning should mention cross-machine dependency
         // We re-run logic here to check the warning was generated
@@ -10820,6 +11216,8 @@ resources:
             false,
             None,
             None,
+            None,  // subset
+            false, // confirm_destructive
         )
         .unwrap();
     }
@@ -10859,7 +11257,7 @@ resources:
         )
         .unwrap();
         // Lint should detect duplicate content
-        cmd_lint(&config, false, false).unwrap();
+        cmd_lint(&config, false, false, false).unwrap();
     }
 
     // ── Init edge case ────────────────────────────────────────
@@ -11313,7 +11711,7 @@ resources:
     packages: [curl]
 "#;
         std::fs::write(&file, yaml).unwrap();
-        cmd_validate(&file, false, false).unwrap();
+        cmd_validate(&file, false, false, false).unwrap();
     }
 
     #[test]
@@ -11327,7 +11725,7 @@ machines: {}
 resources: {}
 "#;
         std::fs::write(&file, yaml).unwrap();
-        let result = cmd_validate(&file, false, false);
+        let result = cmd_validate(&file, false, false, false);
         assert!(result.is_err());
     }
 
@@ -11504,7 +11902,7 @@ resources:
     packages: [curl]
 "#;
         std::fs::write(&file, yaml).unwrap();
-        cmd_lint(&file, false, false).unwrap();
+        cmd_lint(&file, false, false, false).unwrap();
     }
 
     #[test]
@@ -11526,7 +11924,7 @@ resources:
     packages: [curl]
 "#;
         std::fs::write(&file, yaml).unwrap();
-        cmd_lint(&file, true, false).unwrap();
+        cmd_lint(&file, true, false, false).unwrap();
     }
 
     #[test]
@@ -11715,7 +12113,7 @@ resources:
 "#;
         std::fs::write(&file, yaml).unwrap();
         // cmd_lint should succeed and produce bashrs diagnostics summary
-        let result = cmd_lint(&file, true, false);
+        let result = cmd_lint(&file, true, false, false);
         assert!(
             result.is_ok(),
             "cmd_lint should succeed: {:?}",
@@ -11756,7 +12154,7 @@ resources:
     depends_on: [web-pkg]
 "#;
         std::fs::write(&file, yaml).unwrap();
-        let result = cmd_validate(&file, false, false);
+        let result = cmd_validate(&file, false, false, false);
         assert!(
             result.is_ok(),
             "valid config should pass validation: {:?}",
@@ -11841,7 +12239,7 @@ resources:
 "#,
         )
         .unwrap();
-        let result = cmd_lint(&config, false, false);
+        let result = cmd_lint(&config, false, false, false);
         assert!(
             result.is_ok(),
             "cmd_lint should succeed on a valid config with file resource"
@@ -11896,7 +12294,7 @@ resources:
     fn test_fj017_cmd_validate_missing_file() {
         let dir = tempfile::tempdir().unwrap();
         let missing = dir.path().join("nonexistent.yaml");
-        let result = cmd_validate(&missing, false, false);
+        let result = cmd_validate(&missing, false, false, false);
         assert!(
             result.is_err(),
             "cmd_validate should fail for a nonexistent file"
@@ -12095,6 +12493,8 @@ resources:
             false,
             None,
             None,
+            None,  // subset
+            false, // confirm_destructive
         );
         assert!(result.is_ok());
     }
@@ -12130,6 +12530,7 @@ resources:
                 file: None,
                 summary: false,
                 watch: None,
+                stale: None,
             },
             false,
             true,
@@ -12191,6 +12592,8 @@ resources:
                 rollback_on_failure: false,
                 max_parallel: None,
                 notify: None,
+                subset: None,
+                confirm_destructive: false,
             },
             false,
             true,
@@ -12697,7 +13100,8 @@ resources:
             None, // no workspace
             false,
             None,
-            false, // no cost
+            false, // no cost,
+            &[],   // what_if
         )
         .unwrap();
     }
@@ -12740,6 +13144,8 @@ resources:
             false,
             None,
             None,
+            None,  // subset
+            false, // confirm_destructive
         )
         .unwrap();
     }
@@ -12977,7 +13383,8 @@ resources:
             Some("staging"),
             false,
             None,
-            false, // no cost
+            false, // no cost,
+            &[],   // what_if
         )
         .unwrap();
     }
@@ -13141,6 +13548,8 @@ policies:
             false,
             None,
             None,
+            None,  // subset
+            false, // confirm_destructive
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("policy violations"));
@@ -13254,6 +13663,8 @@ policy:
             false,
             None,
             None,
+            None,  // subset
+            false, // confirm_destructive
         );
         // cmd_apply needs a parsed config, but it re-parses from file
         // Instead, test the run_notify function directly
@@ -13359,6 +13770,8 @@ resources:
                 rollback_on_failure: false,
                 max_parallel: None,
                 notify: None,
+                subset: None,
+                confirm_destructive: false,
             },
             false,
             true,
@@ -13423,6 +13836,8 @@ resources:
                 rollback_on_failure: false,
                 max_parallel: None,
                 notify: None,
+                subset: None,
+                confirm_destructive: false,
             },
             false,
             true,
@@ -13454,10 +13869,10 @@ resources:
         )
         .unwrap();
         // Non-strict: no warning about root owner
-        cmd_lint(&file, false, false).unwrap();
+        cmd_lint(&file, false, false, false).unwrap();
         // TODO: can't easily capture stdout in tests, but verify it compiles and runs
         // Strict mode adds warnings
-        cmd_lint(&file, false, true).unwrap();
+        cmd_lint(&file, false, true, false).unwrap();
     }
 
     #[test]
@@ -13485,7 +13900,7 @@ resources:
         )
         .unwrap();
         // Root owner with "system" tag should NOT produce a no_root_owner warning
-        cmd_lint(&file, false, true).unwrap();
+        cmd_lint(&file, false, true, false).unwrap();
     }
 
     #[test]
@@ -13517,7 +13932,7 @@ resources:
         )
         .unwrap();
         // Strict mode should warn about resource 'a' having no tags
-        cmd_lint(&file, false, true).unwrap();
+        cmd_lint(&file, false, true, false).unwrap();
     }
 
     #[test]
@@ -13547,7 +13962,7 @@ resources:
         )
         .unwrap();
         // Strict: remote machine without ssh_key should warn
-        cmd_lint(&file, false, true).unwrap();
+        cmd_lint(&file, false, true, false).unwrap();
     }
 
     #[test]
@@ -13579,7 +13994,7 @@ resources:
         )
         .unwrap();
         // Strict: privileged container should warn
-        cmd_lint(&file, false, true).unwrap();
+        cmd_lint(&file, false, true, false).unwrap();
     }
 
     #[test]
@@ -13606,7 +14021,7 @@ resources:
         )
         .unwrap();
         // JSON + strict should not crash
-        cmd_lint(&file, true, true).unwrap();
+        cmd_lint(&file, true, true, false).unwrap();
     }
 
     // FJ-251: Doctor tests
@@ -13866,8 +14281,20 @@ resources:
         .unwrap();
         // no_diff=false → show diff
         cmd_plan(
-            &config, &state, None, None, None, false, false, None, None, None, false, None,
-            false, // no cost
+            &config,
+            &state,
+            None,
+            None,
+            None,
+            false,
+            false,
+            None,
+            None,
+            None,
+            false,
+            None,
+            false, // no cost,
+            &[],   // what_if
         )
         .unwrap();
     }
@@ -13898,8 +14325,20 @@ resources:
         .unwrap();
         // no_diff=true → suppress diff
         cmd_plan(
-            &config, &state, None, None, None, false, false, None, None, None, true, None,
-            false, // no cost
+            &config,
+            &state,
+            None,
+            None,
+            None,
+            false,
+            false,
+            None,
+            None,
+            None,
+            true,
+            None,
+            false, // no cost,
+            &[],   // what_if
         )
         .unwrap();
     }
@@ -14470,6 +14909,8 @@ resources:
             false,
             None,
             None,
+            None,  // subset
+            false, // confirm_destructive
         )
         .unwrap();
         // last-apply.yaml should be written
@@ -14545,6 +14986,8 @@ resources:
             false,
             None,
             None,
+            None,  // subset
+            false, // confirm_destructive
         )
         .unwrap();
         let content = std::fs::read_to_string(state.join("local").join("last-apply.yaml")).unwrap();
@@ -14958,6 +15401,8 @@ resources:
             rollback_on_failure: false,
             max_parallel: None,
             notify: None,
+            subset: None,
+            confirm_destructive: false,
         };
         match cmd {
             Commands::Apply { output, .. } => {
@@ -15071,6 +15516,8 @@ resources:
             rollback_on_failure: false,
             max_parallel: None,
             notify: None,
+            subset: None,
+            confirm_destructive: false,
         };
         match cmd {
             Commands::Apply { progress, .. } => assert!(progress),
@@ -15109,6 +15556,8 @@ resources:
             rollback_on_failure: false,
             max_parallel: None,
             notify: None,
+            subset: None,
+            confirm_destructive: false,
         };
         match cmd {
             Commands::Apply { progress, .. } => assert!(!progress),
@@ -15151,6 +15600,8 @@ resources:
             rollback_on_failure: false,
             max_parallel: None,
             notify: None,
+            subset: None,
+            confirm_destructive: false,
         };
         match cmd {
             Commands::Apply { timing, .. } => assert!(timing),
@@ -15189,6 +15640,8 @@ resources:
             rollback_on_failure: false,
             max_parallel: None,
             notify: None,
+            subset: None,
+            confirm_destructive: false,
         };
         match cmd {
             Commands::Apply { timing, .. } => assert!(!timing),
@@ -15435,6 +15888,8 @@ resources:
             rollback_on_failure: false,
             max_parallel: None,
             notify: None,
+            subset: None,
+            confirm_destructive: false,
         };
         match cmd {
             Commands::Apply { group, .. } => {
@@ -15483,7 +15938,7 @@ resources:
     content: "hello"
 "#;
         std::fs::write(&file, yaml).unwrap();
-        let result = cmd_validate(&file, true, false);
+        let result = cmd_validate(&file, true, false, false);
         assert!(result.is_err());
         let msg = result.unwrap_err();
         assert!(msg.contains("strict validation failed"));
@@ -15495,6 +15950,7 @@ resources:
             file: PathBuf::from("forjar.yaml"),
             strict: true,
             json: false,
+            dry_expand: false,
         };
         match cmd {
             Commands::Validate { strict, .. } => assert!(strict),
@@ -15522,7 +15978,7 @@ resources:
     content: "hello"
 "#;
         std::fs::write(&file, yaml).unwrap();
-        cmd_validate(&file, true, false).unwrap();
+        cmd_validate(&file, true, false, false).unwrap();
     }
 
     #[test]
@@ -15548,7 +16004,7 @@ resources:
         // strict=false should skip deep checks — but parse_and_validate
         // may still reject unknown machine refs. If so, we just verify
         // that the error is NOT about "strict validation".
-        let result = cmd_validate(&file, false, false);
+        let result = cmd_validate(&file, false, false, false);
         match result {
             Ok(()) => {} // parser didn't catch it — fine
             Err(msg) => assert!(!msg.contains("strict validation")),
@@ -15588,6 +16044,8 @@ resources:
             rollback_on_failure: false,
             max_parallel: None,
             notify: None,
+            subset: None,
+            confirm_destructive: false,
         };
         match cmd {
             Commands::Apply { retry, .. } => assert_eq!(retry, 3),
@@ -15626,6 +16084,8 @@ resources:
             rollback_on_failure: false,
             max_parallel: None,
             notify: None,
+            subset: None,
+            confirm_destructive: false,
         };
         match cmd {
             Commands::Apply { retry, .. } => assert_eq!(retry, 0),
@@ -15692,6 +16152,7 @@ resources:
             no_diff: false,
             target: Some("web-config".to_string()),
             cost: false,
+            what_if: vec![],
         };
         match cmd {
             Commands::Plan { target, .. } => {
@@ -15776,6 +16237,8 @@ resources:
             rollback_on_failure: false,
             max_parallel: None,
             notify: None,
+            subset: None,
+            confirm_destructive: false,
         };
         match cmd {
             Commands::Apply { yes, .. } => assert!(yes),
@@ -15814,6 +16277,8 @@ resources:
             rollback_on_failure: false,
             max_parallel: None,
             notify: None,
+            subset: None,
+            confirm_destructive: false,
         };
         match cmd {
             Commands::Apply { yes, .. } => assert!(!yes),
@@ -15875,6 +16340,8 @@ resources:
             rollback_on_failure: false,
             max_parallel: None,
             notify: None,
+            subset: None,
+            confirm_destructive: false,
         };
         match cmd {
             Commands::Apply { parallel, .. } => assert!(parallel),
@@ -15912,6 +16379,7 @@ resources:
             file: Some(PathBuf::from("forjar.yaml")),
             summary: false,
             watch: None,
+            stale: None,
         };
         match cmd {
             Commands::Status { file, json, .. } => {
@@ -16055,6 +16523,8 @@ resources:
             false,   // rollback_on_failure
             None,
             None,
+            None,  // subset
+            false, // confirm_destructive
         );
         assert!(result.is_ok());
     }
@@ -16156,7 +16626,7 @@ resources:
 "#,
         )
         .unwrap();
-        let result = cmd_validate(&file, false, true);
+        let result = cmd_validate(&file, false, true, false);
         assert!(result.is_ok());
     }
 
@@ -16166,6 +16636,7 @@ resources:
             file: PathBuf::from("forjar.yaml"),
             strict: true,
             json: true,
+            dry_expand: false,
         };
         match cmd {
             Commands::Validate { json, strict, .. } => {
@@ -16239,6 +16710,7 @@ resources:
             file: None,
             summary: true,
             watch: None,
+            stale: None,
         };
         match cmd {
             Commands::Status { summary, .. } => assert!(summary),
@@ -16288,6 +16760,8 @@ resources:
             rollback_on_failure: false,
             max_parallel: None,
             notify: None,
+            subset: None,
+            confirm_destructive: false,
         };
         match cmd {
             Commands::Apply {
@@ -16465,6 +16939,8 @@ resources:
             rollback_on_failure: true,
             max_parallel: None,
             notify: None,
+            subset: None,
+            confirm_destructive: false,
         };
         match cmd {
             Commands::Apply {
@@ -16549,7 +17025,7 @@ resources:
 "#,
         )
         .unwrap();
-        let result = cmd_validate(&file, true, false);
+        let result = cmd_validate(&file, true, false, false);
         assert!(result.is_err()); // unused param triggers strict error
     }
 
@@ -16575,7 +17051,7 @@ resources:
 "#,
         )
         .unwrap();
-        let result = cmd_validate(&file, true, false);
+        let result = cmd_validate(&file, true, false, false);
         assert!(result.is_err()); // missing description triggers strict error
     }
 
@@ -16597,6 +17073,7 @@ resources:
             no_diff: false,
             target: None,
             cost: true,
+            what_if: vec![],
         };
         match cmd {
             Commands::Plan { cost, .. } => assert!(cost),
@@ -16637,6 +17114,8 @@ resources:
             rollback_on_failure: false,
             max_parallel: Some(4),
             notify: None,
+            subset: None,
+            confirm_destructive: false,
         };
         match cmd {
             Commands::Apply { max_parallel, .. } => assert_eq!(max_parallel, Some(4)),
@@ -16655,6 +17134,7 @@ resources:
             file: None,
             summary: false,
             watch: Some(5),
+            stale: None,
         };
         match cmd {
             Commands::Status { watch, .. } => assert_eq!(watch, Some(5)),
@@ -16695,6 +17175,8 @@ resources:
             rollback_on_failure: false,
             max_parallel: None,
             notify: Some("https://hooks.example.com/apply".to_string()),
+            subset: None,
+            confirm_destructive: false,
         };
         match cmd {
             Commands::Apply { notify, .. } => {
@@ -16870,5 +17352,175 @@ resources:
         let result = cmd_canary(&config_path, &state_dir, "nonexistent", false, &[], None);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("not found in config"));
+    }
+
+    // ── Phase 19 tests ──
+
+    #[test]
+    fn test_fj330_validate_dry_expand_flag() {
+        let cmd = Commands::Validate {
+            file: PathBuf::from("f.yaml"),
+            strict: false,
+            json: false,
+            dry_expand: true,
+        };
+        match cmd {
+            Commands::Validate { dry_expand, .. } => assert!(dry_expand),
+            _ => panic!("expected Validate"),
+        }
+    }
+
+    #[test]
+    fn test_fj331_apply_subset_flag() {
+        let cmd = Commands::Apply {
+            file: PathBuf::from("f.yaml"),
+            state_dir: PathBuf::from("state"),
+            machine: None,
+            resource: None,
+            tag: None,
+            group: None,
+            force: false,
+            dry_run: false,
+            no_tripwire: false,
+            params: vec![],
+            auto_commit: false,
+            timeout: None,
+            json: false,
+            env_file: None,
+            workspace: None,
+            check: false,
+            report: false,
+            force_unlock: false,
+            output: None,
+            progress: false,
+            timing: false,
+            retry: 0,
+            yes: false,
+            parallel: false,
+            resource_timeout: None,
+            rollback_on_failure: false,
+            max_parallel: None,
+            notify: None,
+            subset: Some("web-*".to_string()),
+            confirm_destructive: false,
+        };
+        match cmd {
+            Commands::Apply { subset, .. } => {
+                assert_eq!(subset, Some("web-*".to_string()));
+            }
+            _ => panic!("expected Apply"),
+        }
+    }
+
+    #[test]
+    fn test_fj331_simple_glob_match() {
+        assert!(simple_glob_match("web-*", "web-server"));
+        assert!(simple_glob_match("*-pkg", "base-pkg"));
+        assert!(simple_glob_match("*config*", "app-config-main"));
+        assert!(!simple_glob_match("web-*", "db-server"));
+        assert!(simple_glob_match("exact", "exact"));
+        assert!(!simple_glob_match("exact", "other"));
+        assert!(simple_glob_match("*", "anything"));
+    }
+
+    #[test]
+    fn test_fj332_lint_fix_flag() {
+        let cmd = Commands::Lint {
+            file: PathBuf::from("f.yaml"),
+            json: false,
+            strict: false,
+            fix: true,
+        };
+        match cmd {
+            Commands::Lint { fix, .. } => assert!(fix),
+            _ => panic!("expected Lint"),
+        }
+    }
+
+    #[test]
+    fn test_fj333_plan_what_if_flag() {
+        let cmd = Commands::Plan {
+            file: PathBuf::from("f.yaml"),
+            machine: None,
+            resource: None,
+            tag: None,
+            group: None,
+            state_dir: PathBuf::from("state"),
+            json: false,
+            output_dir: None,
+            env_file: None,
+            workspace: None,
+            no_diff: false,
+            target: None,
+            cost: false,
+            what_if: vec!["port=8080".to_string()],
+        };
+        match cmd {
+            Commands::Plan { what_if, .. } => {
+                assert_eq!(what_if.len(), 1);
+                assert_eq!(what_if[0], "port=8080");
+            }
+            _ => panic!("expected Plan"),
+        }
+    }
+
+    #[test]
+    fn test_fj335_confirm_destructive_flag() {
+        let cmd = Commands::Apply {
+            file: PathBuf::from("f.yaml"),
+            state_dir: PathBuf::from("state"),
+            machine: None,
+            resource: None,
+            tag: None,
+            group: None,
+            force: false,
+            dry_run: false,
+            no_tripwire: false,
+            params: vec![],
+            auto_commit: false,
+            timeout: None,
+            json: false,
+            env_file: None,
+            workspace: None,
+            check: false,
+            report: false,
+            force_unlock: false,
+            output: None,
+            progress: false,
+            timing: false,
+            retry: 0,
+            yes: false,
+            parallel: false,
+            resource_timeout: None,
+            rollback_on_failure: false,
+            max_parallel: None,
+            notify: None,
+            subset: None,
+            confirm_destructive: true,
+        };
+        match cmd {
+            Commands::Apply {
+                confirm_destructive,
+                ..
+            } => assert!(confirm_destructive),
+            _ => panic!("expected Apply"),
+        }
+    }
+
+    #[test]
+    fn test_fj336_status_stale_flag() {
+        let cmd = Commands::Status {
+            state_dir: PathBuf::from("state"),
+            machine: None,
+            json: false,
+            file: None,
+            summary: false,
+            watch: None,
+            stale: Some(30),
+        };
+        match cmd {
+            Commands::Status { stale, .. } => assert_eq!(stale, Some(30)),
+            _ => panic!("expected Status"),
+        }
     }
 }
