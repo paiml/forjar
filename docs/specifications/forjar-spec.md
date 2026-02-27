@@ -2441,14 +2441,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-765 | `forjar validate --check-provider-consistency` — verify all package resources use consistent providers per machine. Governance. | Planned |
-| FJ-766 | `forjar status --fleet-convergence` — aggregate convergence across all machines. Fleet. | Planned |
-| FJ-767 | `forjar graph --longest-path` — show longest dependency chain length. Analysis. | Planned |
-| FJ-768 | `forjar apply --notify-file <path>` — write one-line status to a file (for monitoring). Ops. | Planned |
-| FJ-769 | `forjar validate --check-state-values` — verify state field values are valid for each resource type. Safety. | Planned |
-| FJ-770 | `forjar status --resource-hash` — show BLAKE3 hash per resource from lock file. Debug. | Planned |
-| FJ-771 | `forjar graph --in-degree` — show in-degree (number of dependents) per resource. Analysis. | Planned |
-| FJ-772 | `forjar status --machine-drift-summary` — show drift percentage per machine. Fleet. | Planned |
+| FJ-765 | `forjar validate --check-provider-consistency` — verify all package resources use consistent providers per machine. Governance. | Done |
+| FJ-766 | `forjar status --fleet-convergence` — aggregate convergence across all machines. Fleet. | Done |
+| FJ-767 | `forjar graph --longest-path` — show longest dependency chain length. Analysis. | Done |
+| FJ-768 | `forjar apply --notify-file <path>` — write one-line status to a file (for monitoring). Ops. | Done |
+| FJ-769 | `forjar validate --check-state-values` — verify state field values are valid for each resource type. Safety. | Done |
+| FJ-770 | `forjar status --resource-hash` — show BLAKE3 hash per resource from lock file. Debug. | Done |
+| FJ-771 | `forjar graph --in-degree` — show in-degree (number of dependents) per resource. Analysis. | Done |
+| FJ-772 | `forjar status --machine-drift-summary` — show drift percentage per machine. Fleet. | Done |
+
+### Phase 64 — Dependency Intelligence & Audit Trail (FJ-773→FJ-780)
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-773 | `forjar validate --check-unused-machines` — detect machines defined but not referenced by any resource. Cleanup. | Planned |
+| FJ-774 | `forjar status --apply-history-count` — show total apply count per machine from event log. Audit. | Planned |
+| FJ-775 | `forjar graph --out-degree` — show out-degree (number of dependencies) per resource. Analysis. | Planned |
+| FJ-776 | `forjar apply --notify-json` — print structured JSON notification to stdout. Composability. | Planned |
+| FJ-777 | `forjar validate --check-tag-consistency` — verify resource tags follow naming conventions. Governance. | Planned |
+| FJ-778 | `forjar status --lock-file-count` — show number of lock files per machine. Ops. | Planned |
+| FJ-779 | `forjar graph --density` — show graph density (edges / max-possible-edges). Analysis. | Planned |
+| FJ-780 | `forjar status --resource-type-distribution` — show resource type breakdown across fleet. Dashboard. | Planned |
 
 ---
 

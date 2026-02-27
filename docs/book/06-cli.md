@@ -75,6 +75,12 @@ forjar validate -f forjar.yaml --check-circular-deps
 
 # Verify all machine references in resources exist
 forjar validate -f forjar.yaml --check-machine-refs
+
+# Check provider consistency per machine
+forjar validate -f forjar.yaml --check-provider-consistency
+
+# Verify state field values for each resource type
+forjar validate -f forjar.yaml --check-state-values
 ```
 
 ### `forjar plan`
@@ -195,6 +201,15 @@ forjar status --state-dir state --resource-duration
 
 # Show which resources target each machine
 forjar status -f forjar.yaml --machine-resource-map
+
+# Fleet-wide convergence summary
+forjar status --state-dir state --fleet-convergence
+
+# Show BLAKE3 hashes per resource
+forjar status --state-dir state --resource-hash
+
+# Drift percentage per machine
+forjar status --state-dir state --machine-drift-summary
 ```
 
 ### `forjar history`
@@ -274,6 +289,12 @@ forjar graph -f forjar.yaml --connected-components
 
 # Output graph as adjacency matrix
 forjar graph -f forjar.yaml --adjacency-matrix
+
+# Show longest dependency chain
+forjar graph -f forjar.yaml --longest-path
+
+# Show in-degree (dependents) per resource
+forjar graph -f forjar.yaml --in-degree
 ```
 
 ### `forjar destroy`
