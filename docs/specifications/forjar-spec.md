@@ -2019,14 +2019,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-480 | `forjar apply --dry-run-summary` — one-line summary of what would change per machine. Fleet overview. | Planned |
-| FJ-481 | `forjar validate --check-naming` — enforce resource naming conventions (kebab-case, prefix rules). | Planned |
-| FJ-482 | `forjar status --top-failures` — show most frequently failing resources. Reliability analysis. | Planned |
-| FJ-483 | `forjar apply --notify-discord <webhook>` — send apply results to Discord. Discord integration. | Planned |
-| FJ-484 | `forjar graph --weight` — show edge weights based on resource dependency strength. Weighted graph. | Planned |
-| FJ-485 | `forjar lock compact-all` — compact all machine lock files in one operation. Bulk maintenance. | Planned |
-| FJ-486 | `forjar apply --rollback-on-threshold <n>` — auto-rollback if more than N resources fail. Blast radius. | Planned |
-| FJ-487 | `forjar status --convergence-rate` — show convergence percentage over time. Trend analysis. | Planned |
+| FJ-480 | `forjar apply --dry-run-summary` — one-line summary of what would change per machine. Fleet overview. | Done |
+| FJ-481 | `forjar validate --check-naming` — enforce resource naming conventions (kebab-case, prefix rules). | Done |
+| FJ-482 | `forjar status --top-failures` — show most frequently failing resources. Reliability analysis. | Done |
+| FJ-483 | `forjar apply --notify-discord <webhook>` — send apply results to Discord. Discord integration. | Done |
+| FJ-484 | `forjar graph --weight` — show edge weights based on resource dependency strength. Weighted graph. | Done |
+| FJ-485 | `forjar lock compact-all` — compact all machine lock files in one operation. Bulk maintenance. | Done |
+| FJ-486 | `forjar apply --rollback-on-threshold <n>` — auto-rollback if more than N resources fail. Blast radius. | Done |
+| FJ-487 | `forjar status --convergence-rate` — show convergence percentage over time. Trend analysis. | Done |
+
+### Phase 35 — v3.5: Observability & Audit
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-490 | `forjar apply --metrics-port <port>` — expose apply metrics on HTTP port for Prometheus scraping. | Planned |
+| FJ-491 | `forjar validate --check-overlaps` — detect resources targeting the same path/port/name on same machine. | Planned |
+| FJ-492 | `forjar status --drift-summary` — one-line per-machine drift count and percentage. Fleet drift view. | Planned |
+| FJ-493 | `forjar apply --notify-opsgenie <key>` — send apply alerts to OpsGenie. Incident management. | Planned |
+| FJ-494 | `forjar graph --subgraph <resource>` — extract and display a resource's dependency subgraph. | Planned |
+| FJ-495 | `forjar lock audit-trail` — show full audit trail of lock file changes with timestamps. | Planned |
+| FJ-496 | `forjar apply --circuit-breaker <n>` — pause apply after N consecutive failures. Circuit breaker pattern. | Planned |
+| FJ-497 | `forjar status --resource-age` — show age of each resource since last successful apply. Staleness view. | Planned |
 
 ---
 

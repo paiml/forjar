@@ -16,7 +16,7 @@ Verify:
 forjar --help
 ```
 
-You should see forjar's 62 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`, `lock-compact`, `lock-verify`, `lock-export`, `lock-gc`, `lock-diff`, `lock-merge`, `lock-rebase`, `lock-sign`, `lock-verify-sig`.
+You should see forjar's 63 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`, `lock-compact`, `lock-verify`, `lock-export`, `lock-gc`, `lock-diff`, `lock-merge`, `lock-rebase`, `lock-sign`, `lock-verify-sig`, `lock-compact-all`.
 
 ## Your First Project
 
@@ -2386,6 +2386,75 @@ Show health score weighted by dependency position (risk analysis):
 ```bash
 forjar status --dependency-health --state-dir state
 forjar status --dependency-health --json --state-dir state
+```
+
+## Apply Dry Run Summary
+
+Show a one-line summary of what would change per machine:
+
+```bash
+forjar apply -f forjar.yaml --dry-run-summary
+```
+
+## Validate Check Naming
+
+Enforce kebab-case resource naming conventions:
+
+```bash
+forjar validate -f forjar.yaml --check-naming
+forjar validate -f forjar.yaml --check-naming --json
+```
+
+## Status Top Failures
+
+Show the most frequently failing resources:
+
+```bash
+forjar status --top-failures --state-dir state
+forjar status --top-failures --json --state-dir state
+```
+
+## Apply Notify Discord
+
+Send apply results to a Discord webhook:
+
+```bash
+forjar apply -f forjar.yaml --notify-discord https://discord.com/api/webhooks/...
+```
+
+## Graph Weight
+
+Show edge weights based on dependency strength:
+
+```bash
+forjar graph -f forjar.yaml --weight
+forjar graph -f forjar.yaml --weight --format dot
+```
+
+## Lock Compact All
+
+Compact all machine lock files in one operation:
+
+```bash
+forjar lock-compact-all --state-dir state --yes
+forjar lock-compact-all --state-dir state --yes --json
+```
+
+## Apply Rollback on Threshold
+
+Auto-rollback if more than N resources fail:
+
+```bash
+forjar apply -f forjar.yaml --rollback-on-threshold 3
+```
+
+## Status Convergence Rate
+
+Show convergence percentage across resources:
+
+```bash
+forjar status --convergence-rate --state-dir state
+forjar status --convergence-rate --json --state-dir state
 ```
 
 ## Next Steps
