@@ -108,6 +108,9 @@ mod tests {
             fleet_convergence: false,
             resource_hash: false,
             machine_drift_summary: false,
+            apply_history_count: false,
+            lock_file_count: false,
+            resource_type_distribution: false,
         });
         match cmd {
             Commands::Status(StatusArgs { diff_from, .. }) => {
@@ -212,6 +215,9 @@ mod tests {
             fleet_convergence: false,
             resource_hash: false,
             machine_drift_summary: false,
+            apply_history_count: false,
+            lock_file_count: false,
+            resource_type_distribution: false,
         });
         match cmd {
             Commands::Status(StatusArgs {
@@ -314,6 +320,9 @@ mod tests {
             fleet_convergence: false,
             resource_hash: false,
             machine_drift_summary: false,
+            apply_history_count: false,
+            lock_file_count: false,
+            resource_type_distribution: false,
         });
         match cmd {
             Commands::Status(StatusArgs { machines_only, .. }) => assert!(machines_only),
@@ -416,6 +425,9 @@ mod tests {
             fleet_convergence: false,
             resource_hash: false,
             machine_drift_summary: false,
+            apply_history_count: false,
+            lock_file_count: false,
+            resource_type_distribution: false,
         });
         match cmd {
             Commands::Status(StatusArgs {
@@ -518,6 +530,9 @@ mod tests {
             fleet_convergence: false,
             resource_hash: false,
             machine_drift_summary: false,
+            apply_history_count: false,
+            lock_file_count: false,
+            resource_type_distribution: false,
         });
         match cmd {
             Commands::Status(StatusArgs {

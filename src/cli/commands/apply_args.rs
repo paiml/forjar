@@ -569,5 +569,9 @@ pub struct ApplyArgs {
     /// FJ-768: Write one-line status to a file (for monitoring)
     #[arg(long)]
     pub notify_file: Option<std::path::PathBuf>,
+
+    /// FJ-776: Print structured JSON notification to stdout
+    #[arg(long)]
+    pub notify_json: bool,
 }
 

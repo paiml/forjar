@@ -278,3 +278,41 @@ fn compute_in_degrees(cfg: &types::ForjarConfig) -> Vec<(String, usize)> {
     result.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
     result
 }
+
+
+/// FJ-775: Show out-degree (number of dependencies) per resource.
+pub(crate) fn cmd_graph_out_degree(file: &Path, json: bool) -> Result<(), String> {
+    let cfg = parse_and_validate(file)?;
+    let mut degrees: Vec<(String, usize)> = cfg.resources.iter()
+        .map(|(n, r)| (n.clone(), r.depends_on.len()))
+        .collect();
+    degrees.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+    if json {
+        let items: Vec<String> = degrees.iter()
+            .map(|(n, d)| format!("{{\"resource\":\"{}\",\"out_degree\":{}}}", n, d))
+            .collect();
+        println!("{{\"out_degrees\":[{}]}}", items.join(","));
+    } else if degrees.is_empty() {
+        println!("No resources.");
+    } else {
+        println!("Out-degree (dependencies) per resource:");
+        for (name, deg) in &degrees { println!("  {} — {}", name, deg); }
+    }
+    Ok(())
+}
+
+
+/// FJ-779: Show graph density (edges / max-possible-edges).
+pub(crate) fn cmd_graph_density(file: &Path, json: bool) -> Result<(), String> {
+    let cfg = parse_and_validate(file)?;
+    let n = cfg.resources.len();
+    let edges: usize = cfg.resources.values().map(|r| r.depends_on.len()).sum();
+    let max_edges = if n > 1 { n * (n - 1) } else { 1 };
+    let density = edges as f64 / max_edges as f64;
+    if json {
+        println!("{{\"nodes\":{},\"edges\":{},\"max_edges\":{},\"density\":{:.4}}}", n, edges, max_edges, density);
+    } else {
+        println!("Graph density: {:.4} ({} edges / {} max, {} nodes)", density, edges, max_edges, n);
+    }
+    Ok(())
+}

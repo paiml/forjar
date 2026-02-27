@@ -405,6 +405,7 @@ resources:
             notify_log: None,
         notify_exec: None,
         notify_file: None,
+        notify_json: false,
         });
         match cmd {
             Commands::Apply(ApplyArgs { progress, .. }) => assert!(progress),

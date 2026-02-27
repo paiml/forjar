@@ -107,6 +107,9 @@ mod tests {
             fleet_convergence: false,
             resource_hash: false,
             machine_drift_summary: false,
+            apply_history_count: false,
+            lock_file_count: false,
+            resource_type_distribution: false,
         });
         match cmd {
             Commands::Status(StatusArgs { changes_since, .. }) => {
@@ -170,6 +173,8 @@ mod tests {
             adjacency_matrix: false,
             longest_path: false,
             in_degree: false,
+            out_degree: false,
+            density: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { critical_path, .. }) => assert!(critical_path),
@@ -270,6 +275,9 @@ mod tests {
             fleet_convergence: false,
             resource_hash: false,
             machine_drift_summary: false,
+            apply_history_count: false,
+            lock_file_count: false,
+            resource_type_distribution: false,
         });
         match cmd {
             Commands::Status(StatusArgs { summary_by, .. }) => {
@@ -428,6 +436,7 @@ mod tests {
             notify_log: None,
         notify_exec: None,
         notify_file: None,
+        notify_json: false,
         });
         match cmd {
             Commands::Apply(ApplyArgs { max_failures, .. }) => assert_eq!(max_failures, Some(3)),

@@ -163,6 +163,7 @@ mod tests {
                 notify_log: None,
         notify_exec: None,
         notify_file: None,
+        notify_json: false,
         });
         match cmd {
             Commands::Apply(ApplyArgs { max_parallel, .. }) => assert_eq!(max_parallel, Some(4)),
@@ -321,6 +322,7 @@ mod tests {
                 notify_log: None,
         notify_exec: None,
         notify_file: None,
+        notify_json: false,
         });
         match cmd {
             Commands::Apply(ApplyArgs { notify, .. }) => {
@@ -479,6 +481,7 @@ mod tests {
                 notify_log: None,
         notify_exec: None,
         notify_file: None,
+        notify_json: false,
         });
         match cmd {
             Commands::Apply(ApplyArgs {

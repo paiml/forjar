@@ -148,6 +148,8 @@ resources:
         check_machine_refs: false,
         check_provider_consistency: false,
         check_state_values: false,
+        check_unused_machines: false,
+        check_tag_consistency: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { strict, .. }) => assert!(strict),
@@ -382,6 +384,7 @@ resources:
             notify_log: None,
         notify_exec: None,
         notify_file: None,
+        notify_json: false,
         });
         match cmd {
             Commands::Apply(ApplyArgs { yes, .. }) => assert!(yes),

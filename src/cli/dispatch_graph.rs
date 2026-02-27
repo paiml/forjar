@@ -111,6 +111,7 @@ pub(crate) fn dispatch_graph_cmd(cmd: Commands) -> Result<(), String> {
         root_resources, edge_list,
         connected_components, adjacency_matrix,
         longest_path, in_degree,
+        out_degree, density,
     }) = cmd
     else {
         unreachable!()
@@ -125,6 +126,8 @@ pub(crate) fn dispatch_graph_cmd(cmd: Commands) -> Result<(), String> {
     if adjacency_matrix { return cmd_graph_adjacency_matrix(&file, json_output); }
     if longest_path { return cmd_graph_longest_path(&file, json_output); }
     if in_degree { return cmd_graph_in_degree(&file, json_output); }
+    if out_degree { return cmd_graph_out_degree(&file, json_output); }
+    if density { return cmd_graph_density(&file, json_output); }
     if let Some(r) = try_traversal(&file, json_output, depth_first, reverse_deps, leaf_resources, fan_out, resource_clusters, machine_groups, cross_machine_deps, orphan_detection) {
         return r;
     }

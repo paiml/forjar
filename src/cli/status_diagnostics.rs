@@ -178,3 +178,92 @@ pub(crate) fn cmd_status_machine_drift_summary(
     }
     Ok(())
 }
+
+
+/// FJ-774: Show total apply count per machine from event log.
+pub(crate) fn cmd_status_apply_history_count(
+    state_dir: &Path, machine: Option<&str>, json: bool,
+) -> Result<(), String> {
+    let machines = discover_machines(state_dir);
+    let targets: Vec<&String> = match machine {
+        Some(m) => machines.iter().filter(|x| x.as_str() == m).collect(),
+        None => machines.iter().collect(),
+    };
+    let data: Vec<_> = targets.iter().map(|m| {
+        let events_path = state_dir.join(m.as_str()).join("events.jsonl");
+        let count = count_apply_events(&events_path);
+        (m.to_string(), count)
+    }).collect();
+    if json {
+        let items: Vec<String> = data.iter()
+            .map(|(m, c)| format!("{{\"machine\":\"{}\",\"apply_count\":{}}}", m, c))
+            .collect();
+        println!("{{\"apply_history\":[{}]}}", items.join(","));
+    } else if data.is_empty() {
+        println!("No machines found.");
+    } else {
+        println!("Apply history counts:");
+        for (m, c) in &data { println!("  {} — {} applies", m, c); }
+    }
+    Ok(())
+}
+
+/// Count apply_complete events in an events.jsonl file.
+fn count_apply_events(path: &Path) -> usize {
+    std::fs::read_to_string(path)
+        .unwrap_or_default()
+        .lines()
+        .filter(|l| l.contains("apply_complete"))
+        .count()
+}
+
+
+/// FJ-778: Show number of lock files per machine.
+pub(crate) fn cmd_status_lock_file_count(
+    state_dir: &Path, json: bool,
+) -> Result<(), String> {
+    let machines = discover_machines(state_dir);
+    let count = machines.len();
+    if json {
+        println!("{{\"lock_file_count\":{},\"machines\":{:?}}}", count, machines);
+    } else {
+        println!("Lock files: {} ({} machines)", count, count);
+        for m in &machines { println!("  {}.lock.yaml", m); }
+    }
+    Ok(())
+}
+
+
+/// FJ-780: Show resource type breakdown across fleet.
+pub(crate) fn cmd_status_resource_type_distribution(
+    file: &Path, json: bool,
+) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let config: types::ForjarConfig =
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+    let dist = count_resource_types(&config);
+    if json {
+        let items: Vec<String> = dist.iter()
+            .map(|(t, c)| format!("{{\"type\":\"{}\",\"count\":{}}}", t, c))
+            .collect();
+        println!("{{\"resource_types\":[{}]}}", items.join(","));
+    } else if dist.is_empty() {
+        println!("No resources.");
+    } else {
+        let total: usize = dist.iter().map(|(_, c)| c).sum();
+        println!("Resource type distribution ({} total):", total);
+        for (t, c) in &dist { println!("  {} — {}", t, c); }
+    }
+    Ok(())
+}
+
+/// Count resources by type.
+fn count_resource_types(config: &types::ForjarConfig) -> Vec<(String, usize)> {
+    let mut counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    for resource in config.resources.values() {
+        *counts.entry(resource.resource_type.to_string()).or_default() += 1;
+    }
+    let mut result: Vec<(String, usize)> = counts.into_iter().collect();
+    result.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+    result
+}

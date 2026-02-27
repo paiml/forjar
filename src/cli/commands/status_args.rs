@@ -360,5 +360,17 @@ pub struct StatusArgs {
     /// FJ-772: Show drift percentage per machine
     #[arg(long)]
     pub machine_drift_summary: bool,
+
+    /// FJ-774: Show total apply count per machine from event log
+    #[arg(long)]
+    pub apply_history_count: bool,
+
+    /// FJ-778: Show number of lock files per machine
+    #[arg(long)]
+    pub lock_file_count: bool,
+
+    /// FJ-780: Show resource type breakdown across fleet
+    #[arg(long)]
+    pub resource_type_distribution: bool,
 }
 

@@ -210,6 +210,7 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
         convergence_percentage, failed_count, drift_count,
         resource_duration, machine_resource_map,
         fleet_convergence, resource_hash, machine_drift_summary,
+        apply_history_count, lock_file_count, resource_type_distribution,
     }) = cmd
     else {
         unreachable!()
@@ -232,6 +233,12 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
     if fleet_convergence { return cmd_status_fleet_convergence(&state_dir, json); }
     if resource_hash { return cmd_status_resource_hash(&state_dir, m, json); }
     if machine_drift_summary { return cmd_status_machine_drift_summary(&state_dir, m, json); }
+    if apply_history_count { return cmd_status_apply_history_count(&state_dir, m, json); }
+    if lock_file_count { return cmd_status_lock_file_count(&state_dir, json); }
+    if resource_type_distribution {
+        let f = file.as_deref().unwrap_or(std::path::Path::new("forjar.yaml"));
+        return cmd_status_resource_type_distribution(f, json);
+    }
     if let Some(r) = try_status_phase58(&state_dir, m, json, resource_types_summary, failed_resources, drift_trend, resource_inputs, convergence_history, config_hash, last_apply_duration, drift_details_all, resource_size, hash_verify, lock_age) {
         return r;
     }
