@@ -1824,14 +1824,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-330 | `forjar validate --dry-expand` — show fully expanded config after template resolution without applying. Debug template issues. | Planned |
-| FJ-331 | `forjar apply --subset <glob>` — apply only resources matching a glob pattern (e.g., `web-*`). Fine-grained targeting. | Planned |
-| FJ-332 | `forjar lint --fix` — auto-fix common lint issues (normalize quotes, sort keys, fix indentation). | Planned |
-| FJ-333 | `forjar plan --what-if KEY=VALUE` — show plan with hypothetical param override without modifying config. | Planned |
-| FJ-334 | `forjar diff --format json` — structured JSON diff between state snapshots for programmatic consumption. | Planned |
-| FJ-335 | `forjar apply --confirm-destructive` — require explicit confirmation for destroy/remove actions. Safety gate for production. | Planned |
-| FJ-336 | `forjar status --stale N` — show resources not updated in N days. Find abandoned infrastructure. | Planned |
-| FJ-337 | `forjar apply --tag <tag>` — apply only resources with a specific tag. Targeted deployment by tag. | Planned |
+| FJ-330 | `forjar validate --dry-expand` — show fully expanded config after template resolution without applying. Debug template issues. | Done |
+| FJ-331 | `forjar apply --subset <glob>` — apply only resources matching a glob pattern (e.g., `web-*`). Fine-grained targeting. | Done |
+| FJ-332 | `forjar lint --fix` — auto-fix common lint issues (normalize quotes, sort keys, fix indentation). | Done |
+| FJ-333 | `forjar plan --what-if KEY=VALUE` — show plan with hypothetical param override without modifying config. | Done |
+| FJ-334 | `forjar diff --format json` — structured JSON diff between state snapshots for programmatic consumption. | Done (pre-existing) |
+| FJ-335 | `forjar apply --confirm-destructive` — require explicit confirmation for destroy/remove actions. Safety gate for production. | Done |
+| FJ-336 | `forjar status --stale N` — show resources not updated in N days. Find abandoned infrastructure. | Done |
+| FJ-337 | `forjar apply --tag <tag>` — apply only resources with a specific tag. Targeted deployment by tag. | Done (pre-existing) |
+
+### Phase 20 — v2.0: Production Readiness
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-340 | `forjar apply --schedule <cron>` — schedule apply to run at a specific time via cron expression. Deferred execution. | Planned |
+| FJ-341 | `forjar audit` — show full audit trail: who applied what, when, from which config revision. Compliance reporting. | Planned |
+| FJ-342 | `forjar apply --backup` — snapshot state before apply. Auto-create named snapshot for rollback. | Planned |
+| FJ-343 | `forjar doctor --network` — test SSH connectivity to all machines, report latency and key issues. Network diagnostics. | Planned |
+| FJ-344 | `forjar plan --compact` — one-line-per-resource plan output for large configs. Dashboard-friendly format. | Planned |
+| FJ-345 | `forjar apply --exclude <glob>` — exclude resources matching pattern from apply. Inverse of --subset. | Planned |
+| FJ-346 | `forjar status --health` — aggregate health score (0-100) based on convergence rate, drift, and failure history. | Planned |
+| FJ-347 | `forjar apply --sequential` — force sequential execution (no parallel waves). Debug mode for ordering issues. | Planned |
 
 ---
 

@@ -1485,6 +1485,63 @@ forjar retry-failed -f forjar.yaml
 # ✓ Retried 2 resource(s) successfully.
 ```
 
+## Dry Expand Validation
+
+Show the fully expanded config after template resolution — debug template issues without applying:
+
+```bash
+forjar validate -f forjar.yaml --dry-expand
+# Outputs complete YAML with all {{params.key}} resolved
+```
+
+## Subset Apply
+
+Apply only resources matching a glob pattern — fine-grained targeting:
+
+```bash
+forjar apply -f forjar.yaml --subset "web-*"
+# Only applies resources whose ID matches web-* (e.g., web-config, web-service)
+```
+
+## Plan What-If
+
+Show plan with hypothetical param override — preview changes without modifying config:
+
+```bash
+forjar plan -f forjar.yaml --what-if port=9090
+# [what-if] Hypothetical params: port=9090
+# Shows plan as if params.port were 9090
+```
+
+## Confirm Destructive
+
+Require explicit confirmation for destroy actions — safety gate for production:
+
+```bash
+forjar apply -f forjar.yaml --confirm-destructive
+# WARNING: 2 resource(s) will be DESTROYED. Use --yes to confirm.
+# Blocks without --yes flag
+```
+
+## Stale Resource Detection
+
+Find resources not updated in N days — identify abandoned infrastructure:
+
+```bash
+forjar status --state-dir state --stale 30
+#   ⚠ gpu-box → old-model (not updated in 30+ days)
+# 1 stale resource(s) found
+```
+
+## Lint Auto-Fix
+
+Auto-fix common lint issues — sort resource keys for consistency:
+
+```bash
+forjar lint -f forjar.yaml --fix
+# Wrote normalized config to forjar.yaml
+```
+
 ## Next Steps
 
 - [Configuration Reference](02-configuration.md) — Complete `forjar.yaml` schema
