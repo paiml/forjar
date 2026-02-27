@@ -2663,6 +2663,65 @@ forjar status --trend 20 --state-dir state
 forjar status --trend 50 --machine gpu-box --json --state-dir state
 ```
 
+### Grafana Notification
+
+Send apply annotations to Grafana for dashboard integration:
+
+```bash
+forjar apply -f forjar.yaml --notify-grafana https://grafana.example.com/api/annotations
+```
+
+### Security Check
+
+Scan for insecure permissions, ports, or user configurations:
+
+```bash
+forjar validate -f forjar.yaml --check-security
+forjar validate -f forjar.yaml --check-security --json
+```
+
+### Failure Prediction
+
+Predict next failure based on historical patterns:
+
+```bash
+forjar status --prediction --state-dir state
+forjar status --prediction --machine gpu-box --json --state-dir state
+```
+
+### Resource Rate Limiting
+
+Apply at most N resources per minute:
+
+```bash
+forjar apply -f forjar.yaml --rate-limit-resources 10
+```
+
+### Graph Hotspots
+
+Highlight resources with most changes and failures:
+
+```bash
+forjar graph -f forjar.yaml --hotspots
+```
+
+### Checkpoint Interval
+
+Save intermediate state during long applies for resumability:
+
+```bash
+forjar apply -f forjar.yaml --checkpoint-interval 60
+```
+
+### Capacity Planning
+
+Show resource utilization vs limits per machine:
+
+```bash
+forjar status --capacity --state-dir state
+forjar status --capacity --machine gpu-box --json --state-dir state
+```
+
 ## Next Steps
 
 - [Configuration Reference](02-configuration.md) — Complete `forjar.yaml` schema

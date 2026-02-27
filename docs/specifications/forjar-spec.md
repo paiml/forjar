@@ -2071,14 +2071,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-520 | `forjar apply --notify-grafana <url>` — send apply annotations to Grafana. Dashboard integration. | Planned |
-| FJ-521 | `forjar validate --check-security` — scan for insecure permissions/ports/users. Security audit. | Planned |
-| FJ-522 | `forjar status --prediction` — predict next failure based on historical patterns. ML-lite. | Planned |
-| FJ-523 | `forjar apply --rate-limit-resources <n>` — apply at most N resources per minute. Throttle guard. | Planned |
-| FJ-524 | `forjar graph --hotspots` — highlight resources with most changes/failures. Heat map. | Planned |
-| FJ-525 | `forjar lock gc` — garbage collect orphaned lock entries. State hygiene. | Planned |
-| FJ-526 | `forjar apply --checkpoint-interval <secs>` — save intermediate state during long applies. Resumability. | Planned |
-| FJ-527 | `forjar status --capacity` — show resource utilization vs limits per machine. Capacity planning. | Planned |
+| FJ-520 | `forjar apply --notify-grafana <url>` — send apply annotations to Grafana. Dashboard integration. | Done |
+| FJ-521 | `forjar validate --check-security` — scan for insecure permissions/ports/users. Security audit. | Done |
+| FJ-522 | `forjar status --prediction` — predict next failure based on historical patterns. ML-lite. | Done |
+| FJ-523 | `forjar apply --rate-limit-resources <n>` — apply at most N resources per minute. Throttle guard. | Done |
+| FJ-524 | `forjar graph --hotspots` — highlight resources with most changes/failures. Heat map. | Done |
+| FJ-525 | `forjar lock gc` — garbage collect orphaned lock entries. State hygiene. | Done |
+| FJ-526 | `forjar apply --checkpoint-interval <secs>` — save intermediate state during long applies. Resumability. | Done |
+| FJ-527 | `forjar status --capacity` — show resource utilization vs limits per machine. Capacity planning. | Done |
+
+### Phase 39 — v3.9: Multi-Environment & Workflow
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-530 | `forjar apply --notify-victorops <key>` — send apply events to VictorOps/Splunk On-Call. Incident integration. | Planned |
+| FJ-531 | `forjar validate --check-deprecation` — warn on deprecated resource fields/types. Migration aid. | Planned |
+| FJ-532 | `forjar status --cost-estimate` — estimate resource cost based on type counts. Budget planning. | Planned |
+| FJ-533 | `forjar apply --blue-green <name>` — blue/green deployment with machine pairs. Zero-downtime. | Planned |
+| FJ-534 | `forjar graph --timeline` — show resource application order as ASCII timeline. Visualization. | Planned |
+| FJ-535 | `forjar lock verify-chain` — verify full chain of custody from lock signatures. Provenance. | Planned |
+| FJ-536 | `forjar apply --dry-run-cost` — show estimated cost without applying. Pre-flight analysis. | Planned |
+| FJ-537 | `forjar status --staleness-report` — show resources not applied within configurable window. Hygiene. | Planned |
 
 ---
 
