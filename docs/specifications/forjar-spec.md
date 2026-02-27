@@ -2162,14 +2162,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-590 | `forjar apply --notify-kafka <topic>` — publish apply events to Apache Kafka. Stream integration. | Planned |
-| FJ-591 | `forjar validate --check-dependencies` — validate all depends_on references resolve correctly. Integrity. | Planned |
-| FJ-592 | `forjar status --resource-timeline` — show per-resource status changes over time. History view. | Planned |
-| FJ-593 | `forjar apply --max-retries <n>` — retry failed resources up to N times before giving up. Resilience. | Planned |
-| FJ-594 | `forjar graph --execution-order` — show exact execution order with timing estimates. Planning. | Planned |
-| FJ-595 | `forjar lock validate` — validate lock file schema and cross-references. Integrity check. | Planned |
-| FJ-596 | `forjar apply --rollback-window <duration>` — auto-rollback if issues detected within window. Safety. | Planned |
-| FJ-597 | `forjar status --error-summary` — aggregated error summary across all machines. Debugging. | Planned |
+| FJ-590 | `forjar apply --notify-kafka <topic>` — publish apply events to Apache Kafka. Stream integration. | Done |
+| FJ-591 | `forjar validate --check-dependencies` — validate all depends_on references resolve correctly. Integrity. | Done |
+| FJ-592 | `forjar status --resource-timeline` — show per-resource status changes over time. History view. | Done |
+| FJ-593 | `forjar apply --max-retries <n>` — retry failed resources up to N times before giving up. Resilience. | Done |
+| FJ-594 | `forjar graph --execution-order` — show exact execution order with timing estimates. Planning. | Done |
+| FJ-595 | `forjar lock validate` — validate lock file schema and cross-references. Integrity check. | Done |
+| FJ-596 | `forjar apply --rollback-window <duration>` — auto-rollback if issues detected within window. Safety. | Done |
+| FJ-597 | `forjar status --error-summary` — aggregated error summary across all machines. Debugging. | Done |
+
+### Phase 46 — v4.6: Security Hardening & Audit
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-600 | `forjar apply --notify-azure-servicebus <conn>` — publish events to Azure Service Bus. Cloud integration. | Planned |
+| FJ-601 | `forjar validate --check-permissions` — validate resource ownership/mode fields are secure. Security. | Planned |
+| FJ-602 | `forjar status --security-posture` — show security-relevant resource states (modes, ownership). Audit. | Planned |
+| FJ-603 | `forjar apply --approval-timeout <duration>` — timeout for interactive approval prompts. Safety. | Planned |
+| FJ-604 | `forjar graph --security-boundaries` — highlight resources crossing security boundaries. Visualization. | Planned |
+| FJ-605 | `forjar lock sign` — cryptographically sign lock files with BLAKE3-based HMAC. Integrity. | Planned |
+| FJ-606 | `forjar apply --pre-flight <script>` — run pre-flight validation script before apply. Safety gate. | Planned |
+| FJ-607 | `forjar status --compliance-report` — generate compliance report from resource states. Audit. | Planned |
 
 ---
 

@@ -16,7 +16,7 @@ Verify:
 forjar --help
 ```
 
-You should see forjar's 72 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`, `lock-compact`, `lock-verify`, `lock-export`, `lock-gc`, `lock-diff`, `lock-merge`, `lock-rebase`, `lock-sign`, `lock-verify-sig`, `lock-compact-all`, `lock-audit-trail`, `lock-rotate-keys`, `lock-backup`, `lock-verify-chain`, `lock-stats`, `lock-audit`, `lock-compress`, `lock-defrag`, `lock-normalize`.
+You should see forjar's 73 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`, `lock-compact`, `lock-verify`, `lock-export`, `lock-gc`, `lock-diff`, `lock-merge`, `lock-rebase`, `lock-sign`, `lock-verify-sig`, `lock-compact-all`, `lock-audit-trail`, `lock-rotate-keys`, `lock-backup`, `lock-verify-chain`, `lock-stats`, `lock-audit`, `lock-compress`, `lock-defrag`, `lock-normalize`, `lock-validate`.
 
 ## Your First Project
 
@@ -3119,6 +3119,49 @@ Normalize lock file format for consistency:
 ```bash
 forjar lock-normalize --state-dir state
 forjar lock-normalize --state-dir state --json
+```
+
+### Advanced Orchestration (FJ-590→FJ-597)
+
+**Dependency validation** catches unresolved references before apply:
+
+```bash
+forjar validate --check-dependencies -f forjar.yaml
+forjar validate --check-dependencies -f forjar.yaml --json
+```
+
+**Resource timeline** shows event log history:
+
+```bash
+forjar status --resource-timeline --state-dir state
+forjar status --resource-timeline --state-dir state --json
+```
+
+**Error summary** aggregates failures across machines:
+
+```bash
+forjar status --error-summary --state-dir state
+forjar status --error-summary --state-dir state --json
+```
+
+**Execution order** shows the flattened DAG sort:
+
+```bash
+forjar graph --execution-order -f forjar.yaml
+forjar graph --execution-order -f forjar.yaml --json
+```
+
+**Lock validate** checks lock file integrity:
+
+```bash
+forjar lock-validate --state-dir state
+forjar lock-validate --state-dir state --json
+```
+
+**Kafka notifications** stream apply events:
+
+```bash
+forjar apply -f forjar.yaml --notify-kafka my-topic
 ```
 
 ## Next Steps
