@@ -2058,14 +2058,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-510 | `forjar apply --canary-machine <name>` — apply to single machine first, confirm before fleet. Canary deploy. | Planned |
-| FJ-511 | `forjar validate --check-complexity` — warn on resources with high dependency fan-out. Complexity guard. | Planned |
-| FJ-512 | `forjar status --mttr` — show mean time to recovery per resource. Reliability metric. | Planned |
-| FJ-513 | `forjar apply --notify-newrelic <key>` — send apply events to New Relic. Observability integration. | Planned |
-| FJ-514 | `forjar graph --dependency-matrix` — output resource dependency matrix (CSV/JSON). Analysis export. | Planned |
-| FJ-515 | `forjar lock backup` — create timestamped backup of all lock files. Disaster recovery. | Planned |
-| FJ-516 | `forjar apply --max-duration <secs>` — abort entire apply if it exceeds time limit. Timeout guard. | Planned |
-| FJ-517 | `forjar status --trend <n>` — show status trend over last N applies. Historical analysis. | Planned |
+| FJ-510 | `forjar apply --canary-machine <name>` — apply to single machine first, confirm before fleet. Canary deploy. | Done |
+| FJ-511 | `forjar validate --check-complexity` — warn on resources with high dependency fan-out. Complexity guard. | Done |
+| FJ-512 | `forjar status --mttr` — show mean time to recovery per resource. Reliability metric. | Done |
+| FJ-513 | `forjar apply --notify-newrelic <key>` — send apply events to New Relic. Observability integration. | Done |
+| FJ-514 | `forjar graph --dependency-matrix` — output resource dependency matrix (CSV/JSON). Analysis export. | Done |
+| FJ-515 | `forjar lock backup` — create timestamped backup of all lock files. Disaster recovery. | Done |
+| FJ-516 | `forjar apply --max-duration <secs>` — abort entire apply if it exceeds time limit. Timeout guard. | Done |
+| FJ-517 | `forjar status --trend <n>` — show status trend over last N applies. Historical analysis. | Done |
+
+### Phase 38 — v3.8: Intelligence & Prediction
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-520 | `forjar apply --notify-grafana <url>` — send apply annotations to Grafana. Dashboard integration. | Planned |
+| FJ-521 | `forjar validate --check-security` — scan for insecure permissions/ports/users. Security audit. | Planned |
+| FJ-522 | `forjar status --prediction` — predict next failure based on historical patterns. ML-lite. | Planned |
+| FJ-523 | `forjar apply --rate-limit-resources <n>` — apply at most N resources per minute. Throttle guard. | Planned |
+| FJ-524 | `forjar graph --hotspots` — highlight resources with most changes/failures. Heat map. | Planned |
+| FJ-525 | `forjar lock gc` — garbage collect orphaned lock entries. State hygiene. | Planned |
+| FJ-526 | `forjar apply --checkpoint-interval <secs>` — save intermediate state during long applies. Resumability. | Planned |
+| FJ-527 | `forjar status --capacity` — show resource utilization vs limits per machine. Capacity planning. | Planned |
 
 ---
 

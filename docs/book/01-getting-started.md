@@ -16,7 +16,7 @@ Verify:
 forjar --help
 ```
 
-You should see forjar's 65 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`, `lock-compact`, `lock-verify`, `lock-export`, `lock-gc`, `lock-diff`, `lock-merge`, `lock-rebase`, `lock-sign`, `lock-verify-sig`, `lock-compact-all`, `lock-audit-trail`, `lock-rotate-keys`.
+You should see forjar's 66 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`, `lock-compact`, `lock-verify`, `lock-export`, `lock-gc`, `lock-diff`, `lock-merge`, `lock-rebase`, `lock-sign`, `lock-verify-sig`, `lock-compact-all`, `lock-audit-trail`, `lock-rotate-keys`, `lock-backup`.
 
 ## Your First Project
 
@@ -2592,6 +2592,75 @@ Generate a full compliance report:
 ```bash
 forjar status --compliance-report pci-dss --state-dir state
 forjar status --compliance-report soc2 --json --state-dir state
+```
+
+### Canary Machine Deploy
+
+Apply to a single machine first as a canary before the rest of the fleet:
+
+```bash
+forjar apply -f forjar.yaml --canary-machine gpu-box
+```
+
+### Complexity Check
+
+Warn on resources with high dependency fan-out or fan-in:
+
+```bash
+forjar validate -f forjar.yaml --check-complexity
+forjar validate -f forjar.yaml --check-complexity --json
+```
+
+### Mean Time To Recovery
+
+Show MTTR per resource based on event log analysis:
+
+```bash
+forjar status --mttr --state-dir state
+forjar status --mttr --machine gpu-box --json --state-dir state
+```
+
+### New Relic Notification
+
+Send apply events to New Relic:
+
+```bash
+forjar apply -f forjar.yaml --notify-newrelic NRJS-your-key-here
+```
+
+### Dependency Matrix
+
+Export resource dependency matrix as CSV or JSON:
+
+```bash
+forjar graph -f forjar.yaml --dependency-matrix
+forjar graph -f forjar.yaml --dependency-matrix --json
+```
+
+### Lock Backup
+
+Create a timestamped backup of all lock files:
+
+```bash
+forjar lock-backup --state-dir state
+forjar lock-backup --state-dir state --json
+```
+
+### Apply Max Duration
+
+Abort apply if it exceeds a time limit (seconds):
+
+```bash
+forjar apply -f forjar.yaml --max-duration 300
+```
+
+### Status Trend
+
+Show status trend over the last N events:
+
+```bash
+forjar status --trend 20 --state-dir state
+forjar status --trend 50 --machine gpu-box --json --state-dir state
 ```
 
 ## Next Steps
