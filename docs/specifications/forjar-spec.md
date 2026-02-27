@@ -2331,14 +2331,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-720 | `forjar apply --notify-kafka <broker>` — publish events to Apache Kafka. Streaming. | Planned |
-| FJ-721 | `forjar validate --check-mount-points` — validate mount point paths don't conflict. Safety. | Planned |
-| FJ-722 | `forjar status --failed-resources` — show only failed resources across machines. Debugging. | Planned |
-| FJ-723 | `forjar apply --cooldown <secs>` — wait between resource applies. Rate limiting. | Planned |
-| FJ-724 | `forjar graph --depth-first` — show depth-first traversal order. Analysis. | Planned |
-| FJ-725 | `forjar lock migrate <from-version>` — migrate lock file schema between versions. Migration. | Planned |
-| FJ-726 | `forjar apply --exclude-machine <name>` — exclude specific machine from apply. Targeting. | Planned |
-| FJ-727 | `forjar status --resource-types-summary` — show count per resource type. Overview. | Planned |
+| FJ-720 | `forjar apply --notify-mattermost <webhook>` — publish events to Mattermost webhook. Messaging. | Done |
+| FJ-721 | `forjar validate --check-mount-points` — validate mount point paths don't conflict. Safety. | Done |
+| FJ-722 | `forjar status --failed-resources` — show only failed resources across machines. Debugging. | Done |
+| FJ-723 | `forjar apply --cooldown <secs>` — wait between resource applies. Rate limiting. | Done |
+| FJ-724 | `forjar graph --depth-first` — show depth-first traversal order. Analysis. | Done |
+| FJ-725 | `forjar lock migrate <from-version>` — migrate lock file schema between versions. Migration. | Done |
+| FJ-726 | `forjar apply --exclude-machine <name>` — exclude specific machine from apply. Targeting. | Done |
+| FJ-727 | `forjar status --resource-types-summary` — show count per resource type. Overview. | Done |
+
+### Phase 59 — Resource Lifecycle & Dependency Analysis (FJ-730→FJ-737)
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-730 | `forjar apply --notify-ntfy <topic>` — publish events to ntfy.sh notification service. Push notifications. | Planned |
+| FJ-731 | `forjar validate --check-cron-syntax` — validate cron schedule expressions. Safety. | Planned |
+| FJ-732 | `forjar status --resource-health` — show health status per resource (converged/failed/drifted). Health. | Planned |
+| FJ-733 | `forjar apply --dry-run-json` — output dry-run results as JSON. Automation. | Planned |
+| FJ-734 | `forjar graph --breadth-first` — show breadth-first traversal order. Analysis. | Planned |
+| FJ-735 | `forjar lock compact-all` — compact all lock files removing redundant entries. Maintenance. | Planned |
+| FJ-736 | `forjar apply --only-machine <name>` — apply only to specific machine. Targeting. | Planned |
+| FJ-737 | `forjar status --machine-health` — show overall health per machine. Fleet. | Planned |
 
 ---
 

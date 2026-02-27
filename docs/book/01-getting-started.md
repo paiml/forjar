@@ -3567,6 +3567,43 @@ forjar status --drift-trend --state-dir state
 forjar status --drift-trend --state-dir state --json
 ```
 
+### Phase 58 — Configuration Validation & Schema Evolution (FJ-720→FJ-727)
+
+**Mount Point Validation** (FJ-721): Validate mount point paths don't conflict.
+
+```bash
+forjar validate -f forjar.yaml --check-mount-points
+forjar validate -f forjar.yaml --check-mount-points --json
+```
+
+**Failed Resources** (FJ-722): Show only failed resources across all machines.
+
+```bash
+forjar status --failed-resources --state-dir state
+forjar status --failed-resources --state-dir state --json
+```
+
+**Depth-First Traversal** (FJ-724): Show depth-first traversal order of dependency graph.
+
+```bash
+forjar graph -f forjar.yaml --depth-first
+forjar graph -f forjar.yaml --depth-first --json
+```
+
+**Lock Schema Migration** (FJ-725): Migrate lock file schema between versions.
+
+```bash
+forjar lock-migrate --state-dir state --from-version 0.9
+forjar lock-migrate --state-dir state --from-version 0.9 --json
+```
+
+**Resource Types Summary** (FJ-727): Show count per resource type across machines.
+
+```bash
+forjar status --resource-types-summary --state-dir state
+forjar status --resource-types-summary --state-dir state --json
+```
+
 ## Next Steps
 
 - [Configuration Reference](02-configuration.md) — Complete `forjar.yaml` schema
