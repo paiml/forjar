@@ -2467,14 +2467,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-781 | `forjar validate --check-dependency-exists` — verify all depends_on targets reference existing resources. Safety. | Planned |
-| FJ-782 | `forjar status --resource-age` — show time since last apply per resource. Staleness. | Planned |
-| FJ-783 | `forjar graph --topological-sort` — output resources in valid execution order. Planning. | Planned |
-| FJ-784 | `forjar apply --notify-slack` — send apply results to Slack webhook. Integration. | Planned |
-| FJ-785 | `forjar validate --check-path-conflicts` — detect resources targeting the same file path. Safety. | Planned |
-| FJ-786 | `forjar status --machine-uptime` — show time since first apply per machine. Fleet. | Planned |
-| FJ-787 | `forjar graph --critical-path` — show resources on the longest dependency chain. Planning. | Planned |
-| FJ-788 | `forjar status --resource-churn` — show apply frequency per resource over time. Ops. | Planned |
+| FJ-781 | `forjar validate --check-dependency-exists` — verify all depends_on targets reference existing resources. Safety. | Done |
+| FJ-782 | `forjar status --resource-apply-age` — show time since last apply per resource. Staleness. | Done |
+| FJ-783 | `forjar graph --topological-sort` — output resources in valid execution order. Planning. | Done |
+| FJ-784 | `forjar apply --notify-slack-webhook` — send apply results to Slack webhook. Integration. | Done |
+| FJ-785 | `forjar validate --check-path-conflicts-strict` — detect resources targeting the same file path. Safety. | Done |
+| FJ-786 | `forjar status --machine-uptime` — show time since first apply per machine. Fleet. | Done |
+| FJ-787 | `forjar graph --critical-path-resources` — show resources on the longest dependency chain. Planning. | Done |
+| FJ-788 | `forjar status --resource-churn` — show apply frequency per resource over time. Ops. | Done |
+
+### Phase 66 — Fleet Intelligence & Compliance (FJ-789→FJ-796)
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-789 | `forjar validate --check-duplicate-names` — detect duplicate resource names across groups. Safety. | Planned |
+| FJ-790 | `forjar status --last-drift-time` — show timestamp of last drift detection per resource. Monitoring. | Planned |
+| FJ-791 | `forjar graph --sink-resources` — show resources that nothing depends on (leaf nodes). Analysis. | Planned |
+| FJ-792 | `forjar apply --notify-telegram` — send apply results to Telegram bot. Integration. | Planned |
+| FJ-793 | `forjar validate --check-resource-groups` — verify resource groups are non-empty. Governance. | Planned |
+| FJ-794 | `forjar status --machine-resource-count` — show resource count per machine. Fleet. | Planned |
+| FJ-795 | `forjar graph --bipartite-check` — check if dependency graph is bipartite. Analysis. | Planned |
+| FJ-796 | `forjar status --convergence-score` — weighted convergence score across fleet. Dashboard. | Planned |
 
 ---
 
