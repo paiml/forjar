@@ -90,6 +90,27 @@ pub fn ensure_container(machine: &Machine) -> Result<(), String> {
         args.push(&gpus_value);
     }
 
+    // Device passthrough (AMD ROCm: /dev/kfd, /dev/dri; Intel: /dev/dri)
+    let device_values: Vec<String> = config.devices.clone();
+    for dev in &device_values {
+        args.push("--device");
+        args.push(dev);
+    }
+
+    // Group-add for device access (e.g., video, render for AMD GPUs)
+    let group_values: Vec<String> = config.group_add.clone();
+    for grp in &group_values {
+        args.push("--group-add");
+        args.push(grp);
+    }
+
+    // Environment variables (CUDA_VISIBLE_DEVICES, ROCR_VISIBLE_DEVICES, etc.)
+    let env_pairs: Vec<String> = config.env.iter().map(|(k, v)| format!("{}={}", k, v)).collect();
+    for pair in &env_pairs {
+        args.push("--env");
+        args.push(pair);
+    }
+
     args.push(image);
     args.push("sleep");
     args.push("infinity");

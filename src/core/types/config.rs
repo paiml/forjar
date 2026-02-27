@@ -220,9 +220,21 @@ pub struct ContainerConfig {
     #[serde(default = "default_true")]
     pub init: bool,
 
-    /// GPU device access: `"all"`, `"device=0"`, etc. Maps to `--gpus` flag.
+    /// GPU device access: `"all"`, `"device=0"`, etc. Maps to `--gpus` flag (NVIDIA).
     #[serde(default)]
     pub gpus: Option<String>,
+
+    /// Device passthrough via `--device` (e.g., `/dev/kfd`, `/dev/dri` for AMD ROCm).
+    #[serde(default)]
+    pub devices: Vec<String>,
+
+    /// Additional groups via `--group-add` (e.g., `video`, `render` for GPU device access).
+    #[serde(default)]
+    pub group_add: Vec<String>,
+
+    /// Environment variables via `--env` (e.g., `CUDA_VISIBLE_DEVICES`, `ROCR_VISIBLE_DEVICES`).
+    #[serde(default)]
+    pub env: std::collections::HashMap<String, String>,
 }
 
 fn default_runtime() -> String {

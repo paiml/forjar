@@ -252,6 +252,37 @@ machines:
       privileged: false
       init: true
 
+  # NVIDIA GPU container (CUDA workloads — model QA, inference testing)
+  gpu-cuda:
+    hostname: gpu-cuda
+    addr: container
+    transport: container
+    container:
+      runtime: docker
+      image: nvidia/cuda:12.4.1-runtime-ubuntu22.04
+      name: forjar-cuda
+      gpus: all                          # --gpus flag (NVIDIA Container Toolkit)
+      env:
+        CUDA_VISIBLE_DEVICES: "0,1"
+
+  # AMD ROCm GPU container (HIP/ROCm workloads)
+  gpu-rocm:
+    hostname: gpu-rocm
+    addr: container
+    transport: container
+    container:
+      runtime: docker
+      image: rocm/dev-ubuntu-22.04:6.1
+      name: forjar-rocm
+      devices:                           # --device passthrough
+        - /dev/kfd
+        - /dev/dri
+      group_add:                         # --group-add for device access
+        - video
+        - render
+      env:
+        ROCR_VISIBLE_DEVICES: "0"
+
   # Pepita kernel namespace target (zero Docker dependency, FJ-230)
   isolated-box:
     hostname: isolated-box
@@ -790,6 +821,10 @@ recipes:
 | `container.ephemeral` | bool | `true` | Destroy container after apply |
 | `container.privileged` | bool | `false` | Run with `--privileged` |
 | `container.init` | bool | `true` | Run with `--init` for PID 1 reaping |
+| `container.gpus` | string | — | NVIDIA GPU passthrough via `--gpus` (e.g., `"all"`, `"device=0"`) |
+| `container.devices` | [string] | `[]` | Device passthrough via `--device` (e.g., `["/dev/kfd", "/dev/dri"]` for AMD ROCm) |
+| `container.group_add` | [string] | `[]` | Additional groups via `--group-add` (e.g., `["video", "render"]` for GPU device access) |
+| `container.env` | map | `{}` | Environment variables via `--env` (e.g., `CUDA_VISIBLE_DEVICES`, `ROCR_VISIBLE_DEVICES`) |
 | `pepita` | object | — | Pepita namespace config (required when `transport: pepita`). Done: FJ-230. |
 | `pepita.rootfs` | string | — | Base rootfs path or `debootstrap:<suite>` (e.g., `debootstrap:jammy`) |
 | `pepita.cgroups.memory_mb` | int | `2048` | Memory limit in MB (cgroup v2 `memory.max`) |
