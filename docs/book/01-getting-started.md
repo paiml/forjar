@@ -16,7 +16,7 @@ Verify:
 forjar --help
 ```
 
-You should see forjar's 66 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`, `lock-compact`, `lock-verify`, `lock-export`, `lock-gc`, `lock-diff`, `lock-merge`, `lock-rebase`, `lock-sign`, `lock-verify-sig`, `lock-compact-all`, `lock-audit-trail`, `lock-rotate-keys`, `lock-backup`.
+You should see forjar's 67 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`, `lock-compact`, `lock-verify`, `lock-export`, `lock-gc`, `lock-diff`, `lock-merge`, `lock-rebase`, `lock-sign`, `lock-verify-sig`, `lock-compact-all`, `lock-audit-trail`, `lock-rotate-keys`, `lock-backup`, `lock-verify-chain`.
 
 ## Your First Project
 
@@ -2720,6 +2720,74 @@ Show resource utilization vs limits per machine:
 ```bash
 forjar status --capacity --state-dir state
 forjar status --capacity --machine gpu-box --json --state-dir state
+```
+
+### VictorOps Notification
+
+Send apply events to VictorOps/Splunk On-Call:
+
+```bash
+forjar apply -f forjar.yaml --notify-victorops your-api-key
+```
+
+### Deprecation Check
+
+Warn on deprecated resource fields or types:
+
+```bash
+forjar validate -f forjar.yaml --check-deprecation
+forjar validate -f forjar.yaml --check-deprecation --json
+```
+
+### Cost Estimate
+
+Estimate resource cost based on type complexity:
+
+```bash
+forjar status --cost-estimate --state-dir state
+forjar status --cost-estimate --json --state-dir state
+```
+
+### Blue/Green Deployment
+
+Deploy with blue/green machine pairs:
+
+```bash
+forjar apply -f forjar.yaml --blue-green web-blue
+```
+
+### Graph Timeline
+
+Show resource application order as ASCII timeline:
+
+```bash
+forjar graph -f forjar.yaml --timeline-graph
+```
+
+### Lock Chain Verification
+
+Verify full chain of custody from lock signatures:
+
+```bash
+forjar lock-verify-chain --state-dir state
+forjar lock-verify-chain --state-dir state --json
+```
+
+### Dry Run Cost
+
+Show estimated changes without applying:
+
+```bash
+forjar apply -f forjar.yaml --dry-run-cost
+```
+
+### Staleness Report
+
+Show resources not applied within a configurable window:
+
+```bash
+forjar status --staleness-report 7d --state-dir state
+forjar status --staleness-report 30d --machine gpu-box --json --state-dir state
 ```
 
 ## Next Steps
