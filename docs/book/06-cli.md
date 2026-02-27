@@ -81,6 +81,12 @@ forjar validate -f forjar.yaml --check-provider-consistency
 
 # Verify state field values for each resource type
 forjar validate -f forjar.yaml --check-state-values
+
+# Detect machines defined but not referenced by any resource
+forjar validate -f forjar.yaml --check-unused-machines
+
+# Verify resource tags follow kebab-case naming conventions
+forjar validate -f forjar.yaml --check-tag-consistency
 ```
 
 ### `forjar plan`
@@ -210,6 +216,15 @@ forjar status --state-dir state --resource-hash
 
 # Drift percentage per machine
 forjar status --state-dir state --machine-drift-summary
+
+# Show total apply count per machine from event log
+forjar status --state-dir state --apply-history-count
+
+# Show number of lock files across fleet
+forjar status --state-dir state --lock-file-count
+
+# Show resource type breakdown
+forjar status -f forjar.yaml --resource-type-distribution
 ```
 
 ### `forjar history`
@@ -295,6 +310,12 @@ forjar graph -f forjar.yaml --longest-path
 
 # Show in-degree (dependents) per resource
 forjar graph -f forjar.yaml --in-degree
+
+# Show out-degree (dependencies) per resource
+forjar graph -f forjar.yaml --out-degree
+
+# Show graph density (edges / max-possible-edges)
+forjar graph -f forjar.yaml --density
 ```
 
 ### `forjar destroy`

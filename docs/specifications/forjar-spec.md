@@ -2454,14 +2454,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-773 | `forjar validate --check-unused-machines` — detect machines defined but not referenced by any resource. Cleanup. | Planned |
-| FJ-774 | `forjar status --apply-history-count` — show total apply count per machine from event log. Audit. | Planned |
-| FJ-775 | `forjar graph --out-degree` — show out-degree (number of dependencies) per resource. Analysis. | Planned |
-| FJ-776 | `forjar apply --notify-json` — print structured JSON notification to stdout. Composability. | Planned |
-| FJ-777 | `forjar validate --check-tag-consistency` — verify resource tags follow naming conventions. Governance. | Planned |
-| FJ-778 | `forjar status --lock-file-count` — show number of lock files per machine. Ops. | Planned |
-| FJ-779 | `forjar graph --density` — show graph density (edges / max-possible-edges). Analysis. | Planned |
-| FJ-780 | `forjar status --resource-type-distribution` — show resource type breakdown across fleet. Dashboard. | Planned |
+| FJ-773 | `forjar validate --check-unused-machines` — detect machines defined but not referenced by any resource. Cleanup. | Done |
+| FJ-774 | `forjar status --apply-history-count` — show total apply count per machine from event log. Audit. | Done |
+| FJ-775 | `forjar graph --out-degree` — show out-degree (number of dependencies) per resource. Analysis. | Done |
+| FJ-776 | `forjar apply --notify-json` — print structured JSON notification to stdout. Composability. | Done |
+| FJ-777 | `forjar validate --check-tag-consistency` — verify resource tags follow naming conventions. Governance. | Done |
+| FJ-778 | `forjar status --lock-file-count` — show number of lock files per machine. Ops. | Done |
+| FJ-779 | `forjar graph --density` — show graph density (edges / max-possible-edges). Analysis. | Done |
+| FJ-780 | `forjar status --resource-type-distribution` — show resource type breakdown across fleet. Dashboard. | Done |
+
+### Phase 65 — Operational Readiness & Deep Analysis (FJ-781→FJ-788)
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-781 | `forjar validate --check-dependency-exists` — verify all depends_on targets reference existing resources. Safety. | Planned |
+| FJ-782 | `forjar status --resource-age` — show time since last apply per resource. Staleness. | Planned |
+| FJ-783 | `forjar graph --topological-sort` — output resources in valid execution order. Planning. | Planned |
+| FJ-784 | `forjar apply --notify-slack` — send apply results to Slack webhook. Integration. | Planned |
+| FJ-785 | `forjar validate --check-path-conflicts` — detect resources targeting the same file path. Safety. | Planned |
+| FJ-786 | `forjar status --machine-uptime` — show time since first apply per machine. Fleet. | Planned |
+| FJ-787 | `forjar graph --critical-path` — show resources on the longest dependency chain. Planning. | Planned |
+| FJ-788 | `forjar status --resource-churn` — show apply frequency per resource over time. Ops. | Planned |
 
 ---
 
