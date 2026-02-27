@@ -2415,14 +2415,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-749 | `forjar validate --check-resource-count` — warn if resource count exceeds threshold per machine. Governance. | Planned |
-| FJ-750 | `forjar status --convergence-percentage` — show % of resources converged per machine. Dashboard. | Planned |
-| FJ-751 | `forjar graph --root-resources` — show resources with no dependencies (roots of the DAG). Analysis. | Planned |
-| FJ-752 | `forjar apply --notify-log <path>` — append structured JSON events to a local file. Audit. | Planned |
-| FJ-753 | `forjar validate --check-duplicate-paths` — detect duplicate file/path across resources on same machine. Safety. | Planned |
-| FJ-754 | `forjar status --failed-count` — show count of failed resources per machine. Dashboard. | Planned |
-| FJ-755 | `forjar graph --edge-list` — output graph as simple edge list (source→target pairs). Export. | Planned |
-| FJ-756 | `forjar status --drift-count` — show count of drifted resources per machine. Dashboard. | Planned |
+| FJ-749 | `forjar validate --check-resource-count` — warn if resource count exceeds threshold per machine. Governance. | Done |
+| FJ-750 | `forjar status --convergence-percentage` — show % of resources converged per machine. Dashboard. | Done |
+| FJ-751 | `forjar graph --root-resources` — show resources with no dependencies (roots of the DAG). Analysis. | Done |
+| FJ-752 | `forjar apply --notify-log <path>` — append structured JSON events to a local file. Audit. | Done |
+| FJ-753 | `forjar validate --check-duplicate-paths` — detect duplicate file/path across resources on same machine. Safety. | Done |
+| FJ-754 | `forjar status --failed-count` — show count of failed resources per machine. Dashboard. | Done |
+| FJ-755 | `forjar graph --edge-list` — output graph as simple edge list (source→target pairs). Export. | Done |
+| FJ-756 | `forjar status --drift-count` — show count of drifted resources per machine. Dashboard. | Done |
+
+### Phase 62 — Advanced Observability & Diagnostics (FJ-757→FJ-764)
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-757 | `forjar validate --check-circular-deps` — detect circular dependency chains. Safety. | Planned |
+| FJ-758 | `forjar status --resource-age` — show time since each resource was last applied. Observability. | Planned |
+| FJ-759 | `forjar graph --connected-components` — show disconnected subgraphs. Analysis. | Planned |
+| FJ-760 | `forjar apply --notify-exec <cmd>` — run arbitrary command as notification handler. Extensibility. | Planned |
+| FJ-761 | `forjar validate --check-machine-refs` — verify all machine references in resources exist. Safety. | Planned |
+| FJ-762 | `forjar status --resource-duration` — show last apply duration per resource. Performance. | Planned |
+| FJ-763 | `forjar graph --adjacency-matrix` — output graph as adjacency matrix. Export. | Planned |
+| FJ-764 | `forjar status --machine-resource-map` — show which resources target each machine. Dashboard. | Planned |
 
 ---
 
