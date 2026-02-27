@@ -215,6 +215,9 @@ pub enum Commands {
         /// FJ-711: Validate user/group consistency across resources
         #[arg(long)]
         check_group_consistency: bool,
+        /// FJ-721: Validate mount point paths don't conflict
+        #[arg(long)]
+        check_mount_points: bool,
     },
 
     /// Show execution plan (diff desired vs current)
@@ -813,6 +816,15 @@ pub enum Commands {
         /// FJ-716: Stop all machines on first machine failure
         #[arg(long)]
         fail_fast_machine: bool,
+        /// FJ-720: Publish events to Mattermost webhook
+        #[arg(long)]
+        notify_mattermost: Option<String>,
+        /// FJ-723: Cooldown between resource applies in seconds
+        #[arg(long)]
+        cooldown: Option<u64>,
+        /// FJ-726: Exclude specific machine from apply
+        #[arg(long)]
+        exclude_machine: Option<String>,
     },
 
     /// Detect unauthorized changes (tripwire)
@@ -1150,6 +1162,12 @@ pub enum Commands {
         /// FJ-717: Show drift trend over time
         #[arg(long)]
         drift_trend: bool,
+        /// FJ-722: Show only failed resources across machines
+        #[arg(long)]
+        failed_resources: bool,
+        /// FJ-727: Show count per resource type
+        #[arg(long)]
+        resource_types_summary: bool,
     },
 
     /// Show apply history from event logs
@@ -1394,6 +1412,9 @@ pub enum Commands {
         /// FJ-714: Show reverse dependency graph
         #[arg(long)]
         reverse_deps: bool,
+        /// FJ-724: Show depth-first traversal order
+        #[arg(long)]
+        depth_first: bool,
     },
 
     /// Run check scripts to verify pre-conditions without applying
@@ -2437,6 +2458,22 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
     },
+
+    /// FJ-725: Migrate lock file schema between versions
+    #[command(name = "lock-migrate")]
+    LockMigrate {
+        /// State directory
+        #[arg(long, default_value = "state")]
+        state_dir: PathBuf,
+
+        /// Source schema version
+        #[arg(long)]
+        from_version: String,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 /// FJ-260: Snapshot subcommands — named state checkpoints.
@@ -2647,7 +2684,11 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             check_template_vars,
             check_mode_consistency,
             check_group_consistency,
+            check_mount_points,
         } => {
+            if check_mount_points {
+                return cmd_validate_check_mount_points(&file, json);
+            }
             if check_group_consistency {
                 return cmd_validate_check_group_consistency(&file, json);
             }
@@ -2917,6 +2958,9 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             resource_priority: _resource_priority,
             apply_window: _apply_window,
             fail_fast_machine: _fail_fast_machine,
+            notify_mattermost,
+            cooldown: _cooldown,
+            exclude_machine: _exclude_machine,
         } => {
             // FJ-643: --confirmation-message — custom confirmation before apply
             if let Some(ref msg) = confirmation_message {
@@ -3707,6 +3751,19 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
                     .output();
             }
 
+            // FJ-720: notify-mattermost — publish events to Mattermost webhook
+            if let Some(ref webhook_url) = notify_mattermost {
+                let status = if result.is_ok() { "success" } else { "failure" };
+                let payload = format!(
+                    r#"{{"text":"forjar apply {}: {}"}}"#,
+                    status,
+                    file.display()
+                );
+                let _ = std::process::Command::new("curl")
+                    .args(["-s", "-X", "POST", "-H", "Content-Type: application/json", "-d", &payload, webhook_url])
+                    .output();
+            }
+
             result
         }
         Commands::Drift {
@@ -3816,7 +3873,15 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             convergence_history,
             resource_inputs,
             drift_trend,
+            failed_resources,
+            resource_types_summary,
         } => {
+            if resource_types_summary {
+                return cmd_status_resource_types_summary(&state_dir, machine.as_deref(), json);
+            }
+            if failed_resources {
+                return cmd_status_failed_resources(&state_dir, machine.as_deref(), json);
+            }
             if drift_trend {
                 return cmd_status_drift_trend(&state_dir, machine.as_deref(), json);
             }
@@ -4120,7 +4185,11 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             fan_out,
             leaf_resources,
             reverse_deps,
+            depth_first,
         } => {
+            if depth_first {
+                return cmd_graph_depth_first(&file, json_output);
+            }
             if reverse_deps {
                 return cmd_graph_reverse_deps(&file, json_output);
             }
@@ -4566,6 +4635,11 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             value,
             json,
         } => cmd_lock_tag(&state_dir, &name, &value, json),
+        Commands::LockMigrate {
+            state_dir,
+            from_version,
+            json,
+        } => cmd_lock_migrate(&state_dir, &from_version, json),
     }
 }
 
@@ -21325,7 +21399,12 @@ fn cmd_validate_check_group_consistency(file: &Path, json: bool) -> Result<(), S
     } else {
         println!("Owner/group consistency:");
         for (owner, resources) in &owner_groups {
-            println!("  {} — {} resource(s): {}", owner, resources.len(), resources.join(", "));
+            println!(
+                "  {} — {} resource(s): {}",
+                owner,
+                resources.len(),
+                resources.join(", ")
+            );
         }
     }
     Ok(())
@@ -21384,8 +21463,7 @@ fn cmd_status_resource_inputs(
 /// FJ-714: Show reverse dependency graph
 fn cmd_graph_reverse_deps(file: &Path, json: bool) -> Result<(), String> {
     let cfg = parse_and_validate(file)?;
-    let mut rev: std::collections::HashMap<String, Vec<String>> =
-        std::collections::HashMap::new();
+    let mut rev: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
     for name in cfg.resources.keys() {
         rev.entry(name.clone()).or_default();
     }
@@ -21513,12 +21591,225 @@ fn cmd_status_drift_trend(
                     } else {
                         0.0
                     };
-                    println!(
-                        "  {} — {}/{} drifted ({:.1}%)",
-                        m, drifted, total, rate
-                    );
+                    println!("  {} — {}/{} drifted ({:.1}%)", m, drifted, total, rate);
                 }
             }
+        }
+    }
+    Ok(())
+}
+
+/// FJ-721: Validate mount point paths don't conflict
+fn cmd_validate_check_mount_points(file: &Path, json: bool) -> Result<(), String> {
+    let cfg = parse_and_validate(file)?;
+    let mut mount_paths: Vec<(String, String)> = Vec::new();
+    for (name, resource) in &cfg.resources {
+        if format!("{:?}", resource.resource_type).contains("Mount") {
+            if let Some(ref path) = resource.path {
+                mount_paths.push((name.clone(), path.clone()));
+            }
+        }
+    }
+    let mut conflicts: Vec<(String, String)> = Vec::new();
+    for i in 0..mount_paths.len() {
+        for j in (i + 1)..mount_paths.len() {
+            let (ref n1, ref p1) = mount_paths[i];
+            let (ref n2, ref p2) = mount_paths[j];
+            if p1 == p2 || p1.starts_with(&format!("{}/", p2)) || p2.starts_with(&format!("{}/", p1)) {
+                conflicts.push((n1.clone(), n2.clone()));
+            }
+        }
+    }
+    if json {
+        let entries: Vec<String> = conflicts
+            .iter()
+            .map(|(a, b)| format!("{{\"resource_a\":\"{}\",\"resource_b\":\"{}\"}}", a, b))
+            .collect();
+        println!(
+            "{{\"check\":\"mount_points\",\"conflict_count\":{},\"conflicts\":[{}]}}",
+            conflicts.len(),
+            entries.join(",")
+        );
+    } else if conflicts.is_empty() {
+        println!("No mount point conflicts found.");
+    } else {
+        println!("Mount point conflicts:");
+        for (a, b) in &conflicts {
+            println!("  {} <-> {}", a, b);
+        }
+    }
+    Ok(())
+}
+
+/// FJ-722: Show only failed resources across machines
+fn cmd_status_failed_resources(
+    state_dir: &Path,
+    machine: Option<&str>,
+    json: bool,
+) -> Result<(), String> {
+    let machines = discover_machines(state_dir);
+    let targets: Vec<&String> = match machine {
+        Some(m) => machines.iter().filter(|x| x.as_str() == m).collect(),
+        None => machines.iter().collect(),
+    };
+    if json {
+        let mut entries = Vec::new();
+        for m in &targets {
+            let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+            if let Ok(data) = std::fs::read_to_string(&lock_path) {
+                if let Ok(lock) = serde_yaml_ng::from_str::<types::StateLock>(&data) {
+                    for (name, rl) in &lock.resources {
+                        if format!("{:?}", rl.status) == "Failed" {
+                            entries.push(format!(
+                                "{{\"machine\":\"{}\",\"resource\":\"{}\",\"type\":\"{:?}\"}}",
+                                m, name, rl.resource_type
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+        println!("{{\"failed_resources\":[{}],\"count\":{}}}", entries.join(","), entries.len());
+    } else {
+        let mut count = 0;
+        for m in &targets {
+            let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+            if let Ok(data) = std::fs::read_to_string(&lock_path) {
+                if let Ok(lock) = serde_yaml_ng::from_str::<types::StateLock>(&data) {
+                    for (name, rl) in &lock.resources {
+                        if format!("{:?}", rl.status) == "Failed" {
+                            if count == 0 {
+                                println!("Failed resources:");
+                            }
+                            println!("  {} / {} ({:?})", m, name, rl.resource_type);
+                            count += 1;
+                        }
+                    }
+                }
+            }
+        }
+        if count == 0 {
+            println!("No failed resources.");
+        }
+    }
+    Ok(())
+}
+
+/// FJ-724: Show depth-first traversal order
+fn cmd_graph_depth_first(file: &Path, json: bool) -> Result<(), String> {
+    let cfg = parse_and_validate(file)?;
+    let mut visited: std::collections::HashSet<String> = std::collections::HashSet::new();
+    let mut order: Vec<String> = Vec::new();
+    fn dfs(
+        name: &str,
+        cfg: &types::ForjarConfig,
+        visited: &mut std::collections::HashSet<String>,
+        order: &mut Vec<String>,
+    ) {
+        if visited.contains(name) {
+            return;
+        }
+        visited.insert(name.to_string());
+        if let Some(resource) = cfg.resources.get(name) {
+            for dep in &resource.depends_on {
+                dfs(dep, cfg, visited, order);
+            }
+        }
+        order.push(name.to_string());
+    }
+    let mut names: Vec<String> = cfg.resources.keys().cloned().collect();
+    names.sort();
+    for name in &names {
+        dfs(name, &cfg, &mut visited, &mut order);
+    }
+    if json {
+        let entries: Vec<String> = order
+            .iter()
+            .enumerate()
+            .map(|(i, n)| format!("{{\"step\":{},\"resource\":\"{}\"}}", i + 1, n))
+            .collect();
+        println!("{{\"depth_first_order\":[{}]}}", entries.join(","));
+    } else {
+        println!("Depth-first traversal ({} resources):", order.len());
+        for (i, name) in order.iter().enumerate() {
+            println!("  {}. {}", i + 1, name);
+        }
+    }
+    Ok(())
+}
+
+/// FJ-725: Migrate lock file schema between versions
+fn cmd_lock_migrate(state_dir: &Path, from_version: &str, json: bool) -> Result<(), String> {
+    let machines = discover_machines(state_dir);
+    let target_version = "1.0";
+    let mut migrated = 0;
+    for m in &machines {
+        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        if let Ok(data) = std::fs::read_to_string(&lock_path) {
+            if let Ok(mut lock) = serde_yaml_ng::from_str::<types::StateLock>(&data) {
+                if lock.schema == from_version && lock.schema != target_version {
+                    lock.schema = target_version.to_string();
+                    let new_data = serde_yaml_ng::to_string(&lock)
+                        .map_err(|e| format!("Failed to serialize: {}", e))?;
+                    std::fs::write(&lock_path, new_data)
+                        .map_err(|e| format!("Failed to write: {}", e))?;
+                    migrated += 1;
+                }
+            }
+        }
+    }
+    if json {
+        println!(
+            "{{\"migrated\":{},\"from_version\":\"{}\",\"to_version\":\"{}\"}}",
+            migrated, from_version, target_version
+        );
+    } else {
+        println!(
+            "Migrated {} lock file(s) from schema {} to {}.",
+            migrated, from_version, target_version
+        );
+    }
+    Ok(())
+}
+
+/// FJ-727: Show count per resource type
+fn cmd_status_resource_types_summary(
+    state_dir: &Path,
+    machine: Option<&str>,
+    json: bool,
+) -> Result<(), String> {
+    let machines = discover_machines(state_dir);
+    let targets: Vec<&String> = match machine {
+        Some(m) => machines.iter().filter(|x| x.as_str() == m).collect(),
+        None => machines.iter().collect(),
+    };
+    let mut type_counts: std::collections::HashMap<String, usize> =
+        std::collections::HashMap::new();
+    for m in &targets {
+        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        if let Ok(data) = std::fs::read_to_string(&lock_path) {
+            if let Ok(lock) = serde_yaml_ng::from_str::<types::StateLock>(&data) {
+                for rl in lock.resources.values() {
+                    let rtype = format!("{:?}", rl.resource_type);
+                    *type_counts.entry(rtype).or_default() += 1;
+                }
+            }
+        }
+    }
+    let mut sorted: Vec<_> = type_counts.into_iter().collect();
+    sorted.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+    if json {
+        let entries: Vec<String> = sorted
+            .iter()
+            .map(|(t, c)| format!("{{\"type\":\"{}\",\"count\":{}}}", t, c))
+            .collect();
+        println!("{{\"resource_types\":[{}]}}", entries.join(","));
+    } else if sorted.is_empty() {
+        println!("No resources found.");
+    } else {
+        println!("Resource types summary:");
+        for (rtype, count) in &sorted {
+            println!("  {} — {}", rtype, count);
         }
     }
     Ok(())
@@ -22155,6 +22446,7 @@ resources: {}
                 check_template_vars: false,
                 check_mode_consistency: false,
                 check_group_consistency: false,
+                check_mount_points: false,
             },
             false,
             true,
@@ -22243,6 +22535,8 @@ resources: {}
                 convergence_history: false,
                 resource_inputs: false,
                 drift_trend: false,
+                failed_resources: false,
+                resource_types_summary: false,
             },
             false,
             true,
@@ -22459,6 +22753,9 @@ resources:
                 resource_priority: vec![],
                 apply_window: None,
                 fail_fast_machine: false,
+                notify_mattermost: None,
+                cooldown: None,
+                exclude_machine: None,
             },
             false,
             true,
@@ -23270,6 +23567,7 @@ resources: {}
                 fan_out: false,
                 leaf_resources: false,
                 reverse_deps: false,
+                depth_first: false,
             },
             false,
             true,
@@ -23343,6 +23641,7 @@ resources: {}
                 fan_out: false,
                 leaf_resources: false,
                 reverse_deps: false,
+                depth_first: false,
             },
             false,
             true,
@@ -26726,6 +27025,8 @@ resources:
                 convergence_history: false,
                 resource_inputs: false,
                 drift_trend: false,
+                failed_resources: false,
+                resource_types_summary: false,
             },
             false,
             true,
@@ -26895,6 +27196,9 @@ resources:
                 resource_priority: vec![],
                 apply_window: None,
                 fail_fast_machine: false,
+                notify_mattermost: None,
+                cooldown: None,
+                exclude_machine: None,
             },
             false,
             true,
@@ -28185,6 +28489,9 @@ resources:
                 resource_priority: vec![],
                 apply_window: None,
                 fail_fast_machine: false,
+                notify_mattermost: None,
+                cooldown: None,
+                exclude_machine: None,
             },
             false,
             true,
@@ -28357,6 +28664,9 @@ resources:
                 resource_priority: vec![],
                 apply_window: None,
                 fail_fast_machine: false,
+                notify_mattermost: None,
+                cooldown: None,
+                exclude_machine: None,
             },
             false,
             true,
@@ -30032,6 +30342,9 @@ resources:
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { output, .. } => {
@@ -30253,6 +30566,9 @@ resources:
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { progress, .. } => assert!(progress),
@@ -30399,6 +30715,9 @@ resources:
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { progress, .. } => assert!(!progress),
@@ -30549,6 +30868,9 @@ resources:
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { timing, .. } => assert!(timing),
@@ -30695,6 +31017,9 @@ resources:
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { timing, .. } => assert!(!timing),
@@ -31049,6 +31374,9 @@ resources:
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { group, .. } => {
@@ -31143,6 +31471,7 @@ resources:
             check_template_vars: false,
             check_mode_consistency: false,
             check_group_consistency: false,
+            check_mount_points: false,
         };
         match cmd {
             Commands::Validate { strict, .. } => assert!(strict),
@@ -31344,6 +31673,9 @@ resources:
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { retry, .. } => assert_eq!(retry, 3),
@@ -31490,6 +31822,9 @@ resources:
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { retry, .. } => assert_eq!(retry, 0),
@@ -31750,6 +32085,9 @@ resources:
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { yes, .. } => assert!(yes),
@@ -31896,6 +32234,9 @@ resources:
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { yes, .. } => assert!(!yes),
@@ -32066,6 +32407,9 @@ resources:
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { parallel, .. } => assert!(parallel),
@@ -32171,6 +32515,8 @@ resources:
             convergence_history: false,
             resource_inputs: false,
             drift_trend: false,
+            failed_resources: false,
+            resource_types_summary: false,
         };
         match cmd {
             Commands::Status { file, json, .. } => {
@@ -32463,6 +32809,7 @@ resources:
             check_template_vars: false,
             check_mode_consistency: false,
             check_group_consistency: false,
+            check_mount_points: false,
         };
         match cmd {
             Commands::Validate { json, strict, .. } => {
@@ -32604,6 +32951,8 @@ resources:
             convergence_history: false,
             resource_inputs: false,
             drift_trend: false,
+            failed_resources: false,
+            resource_types_summary: false,
         };
         match cmd {
             Commands::Status { summary, .. } => assert!(summary),
@@ -32761,6 +33110,9 @@ resources:
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply {
@@ -33046,6 +33398,9 @@ resources:
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply {
@@ -33327,6 +33682,9 @@ resources:
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { max_parallel, .. } => assert_eq!(max_parallel, Some(4)),
@@ -33413,6 +33771,8 @@ resources:
             convergence_history: false,
             resource_inputs: false,
             drift_trend: false,
+            failed_resources: false,
+            resource_types_summary: false,
         };
         match cmd {
             Commands::Status { watch, .. } => assert_eq!(watch, Some(5)),
@@ -33561,6 +33921,9 @@ resources:
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { notify, .. } => {
@@ -33780,6 +34143,7 @@ resources:
             check_template_vars: false,
             check_mode_consistency: false,
             check_group_consistency: false,
+            check_mount_points: false,
         };
         match cmd {
             Commands::Validate { dry_expand, .. } => assert!(dry_expand),
@@ -33926,6 +34290,9 @@ resources:
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { subset, .. } => {
@@ -34127,6 +34494,9 @@ resources:
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply {
@@ -34214,6 +34584,8 @@ resources:
             convergence_history: false,
             resource_inputs: false,
             drift_trend: false,
+            failed_resources: false,
+            resource_types_summary: false,
         };
         match cmd {
             Commands::Status { stale, .. } => assert_eq!(stale, Some(30)),
@@ -34388,6 +34760,9 @@ resources:
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { backup, .. } => assert!(backup),
@@ -34564,6 +34939,9 @@ resources:
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { exclude, .. } => assert_eq!(exclude, Some("test-*".to_string())),
@@ -34648,6 +35026,8 @@ resources:
             convergence_history: false,
             resource_inputs: false,
             drift_trend: false,
+            failed_resources: false,
+            resource_types_summary: false,
         };
         match cmd {
             Commands::Status { health, .. } => assert!(health),
@@ -34794,6 +35174,9 @@ resources:
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { sequential, .. } => assert!(sequential),
@@ -34942,6 +35325,9 @@ resources:
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { diff_only, .. } => assert!(diff_only),
@@ -35116,6 +35502,9 @@ resources:
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { notify_slack, .. } => {
@@ -35171,6 +35560,7 @@ resources:
             fan_out: false,
             leaf_resources: false,
             reverse_deps: false,
+            depth_first: false,
         };
         match cmd {
             Commands::Graph { affected, .. } => {
@@ -35257,6 +35647,8 @@ resources:
             convergence_history: false,
             resource_inputs: false,
             drift_trend: false,
+            failed_resources: false,
+            resource_types_summary: false,
         };
         match cmd {
             Commands::Status { drift_details, .. } => assert!(drift_details),
@@ -35403,6 +35795,9 @@ resources:
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { cost_limit, .. } => assert_eq!(cost_limit, Some(5)),
@@ -35569,6 +35964,9 @@ resources:
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { preview, .. } => assert!(preview),
@@ -35727,6 +36125,9 @@ resources:
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { tag_filter, .. } => {
@@ -35829,6 +36230,8 @@ resources:
             convergence_history: false,
             resource_inputs: false,
             drift_trend: false,
+            failed_resources: false,
+            resource_types_summary: false,
         };
         match cmd {
             Commands::Status { timeline, .. } => assert!(timeline),
@@ -36005,6 +36408,9 @@ resources:
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { output_scripts, .. } => {
@@ -36155,6 +36561,9 @@ resources:
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { resume, .. } => assert!(resume),
@@ -36255,6 +36664,8 @@ resources:
             convergence_history: false,
             resource_inputs: false,
             drift_trend: false,
+            failed_resources: false,
+            resource_types_summary: false,
         };
         match cmd {
             Commands::Status { changes_since, .. } => {
@@ -36324,6 +36735,7 @@ resources:
             fan_out: false,
             leaf_resources: false,
             reverse_deps: false,
+            depth_first: false,
         };
         match cmd {
             Commands::Graph { critical_path, .. } => assert!(critical_path),
@@ -36408,6 +36820,8 @@ resources:
             convergence_history: false,
             resource_inputs: false,
             drift_trend: false,
+            failed_resources: false,
+            resource_types_summary: false,
         };
         match cmd {
             Commands::Status { summary_by, .. } => {
@@ -36556,6 +36970,9 @@ resources:
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { max_failures, .. } => assert_eq!(max_failures, Some(3)),
@@ -36704,6 +37121,9 @@ resources:
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { rate_limit, .. } => assert_eq!(rate_limit, Some(10)),
@@ -36751,6 +37171,7 @@ resources:
             check_template_vars: false,
             check_mode_consistency: false,
             check_group_consistency: false,
+            check_mount_points: false,
         };
         match cmd {
             Commands::Validate { schema_version, .. } => {
@@ -36837,6 +37258,8 @@ resources:
             convergence_history: false,
             resource_inputs: false,
             drift_trend: false,
+            failed_resources: false,
+            resource_types_summary: false,
         };
         match cmd {
             Commands::Status { prometheus, .. } => assert!(prometheus),
@@ -36901,6 +37324,7 @@ resources:
             fan_out: false,
             leaf_resources: false,
             reverse_deps: false,
+            depth_first: false,
         };
         match cmd {
             Commands::Graph { reverse, .. } => assert!(reverse),
@@ -36985,6 +37409,8 @@ resources:
             convergence_history: false,
             resource_inputs: false,
             drift_trend: false,
+            failed_resources: false,
+            resource_types_summary: false,
         };
         match cmd {
             Commands::Status { expired, .. } => {
@@ -37045,6 +37471,7 @@ resources:
             check_template_vars: false,
             check_mode_consistency: false,
             check_group_consistency: false,
+            check_mount_points: false,
         };
         match cmd {
             Commands::Validate { exhaustive, .. } => assert!(exhaustive),
@@ -37129,6 +37556,8 @@ resources:
             convergence_history: false,
             resource_inputs: false,
             drift_trend: false,
+            failed_resources: false,
+            resource_types_summary: false,
         };
         match cmd {
             Commands::Status { count, .. } => assert!(count),
@@ -37275,6 +37704,9 @@ resources:
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { notify_email, .. } => {
@@ -37327,6 +37759,7 @@ resources:
             fan_out: false,
             leaf_resources: false,
             reverse_deps: false,
+            depth_first: false,
         };
         match cmd {
             Commands::Graph { depth, .. } => assert_eq!(depth, Some(2)),
@@ -37473,6 +37906,9 @@ resources:
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { skip, .. } => {
@@ -37559,6 +37995,8 @@ resources:
             convergence_history: false,
             resource_inputs: false,
             drift_trend: false,
+            failed_resources: false,
+            resource_types_summary: false,
         };
         match cmd {
             Commands::Status { format, .. } => {
@@ -37627,6 +38065,7 @@ resources:
             check_template_vars: false,
             check_mode_consistency: false,
             check_group_consistency: false,
+            check_mount_points: false,
         };
         match cmd {
             Commands::Validate { policy_file, .. } => {
@@ -37713,6 +38152,8 @@ resources:
             convergence_history: false,
             resource_inputs: false,
             drift_trend: false,
+            failed_resources: false,
+            resource_types_summary: false,
         };
         match cmd {
             Commands::Status { anomalies, .. } => assert!(anomalies),
@@ -37859,6 +38300,9 @@ resources:
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply {
@@ -37913,6 +38357,7 @@ resources:
             fan_out: false,
             leaf_resources: false,
             reverse_deps: false,
+            depth_first: false,
         };
         match cmd {
             Commands::Graph { cluster, .. } => assert!(cluster),
@@ -38075,6 +38520,9 @@ resources:
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { concurrency, .. } => assert_eq!(concurrency, Some(4)),
@@ -38159,6 +38607,8 @@ resources:
             convergence_history: false,
             resource_inputs: false,
             drift_trend: false,
+            failed_resources: false,
+            resource_types_summary: false,
         };
         match cmd {
             Commands::Status { diff_from, .. } => {
@@ -38309,6 +38759,9 @@ resources:
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { webhook_before, .. } => {
@@ -38361,6 +38814,7 @@ resources:
             check_template_vars: false,
             check_mode_consistency: false,
             check_group_consistency: false,
+            check_mount_points: false,
         };
         match cmd {
             Commands::Validate {
@@ -38447,6 +38901,8 @@ resources:
             convergence_history: false,
             resource_inputs: false,
             drift_trend: false,
+            failed_resources: false,
+            resource_types_summary: false,
         };
         match cmd {
             Commands::Status {
@@ -38499,6 +38955,7 @@ resources:
             fan_out: false,
             leaf_resources: false,
             reverse_deps: false,
+            depth_first: false,
         };
         match cmd {
             Commands::Graph { orphans, .. } => assert!(orphans),
@@ -38662,6 +39119,9 @@ resources:
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply {
@@ -38750,6 +39210,8 @@ resources:
             convergence_history: false,
             resource_inputs: false,
             drift_trend: false,
+            failed_resources: false,
+            resource_types_summary: false,
         };
         match cmd {
             Commands::Status { machines_only, .. } => assert!(machines_only),
@@ -38799,6 +39261,7 @@ resources:
             check_template_vars: false,
             check_mode_consistency: false,
             check_group_consistency: false,
+            check_mount_points: false,
         };
         match cmd {
             Commands::Validate {
@@ -38885,6 +39348,8 @@ resources:
             convergence_history: false,
             resource_inputs: false,
             drift_trend: false,
+            failed_resources: false,
+            resource_types_summary: false,
         };
         match cmd {
             Commands::Status {
@@ -38937,6 +39402,7 @@ resources:
             fan_out: false,
             leaf_resources: false,
             reverse_deps: false,
+            depth_first: false,
         };
         match cmd {
             Commands::Graph { stats, .. } => assert!(stats),
@@ -39115,6 +39581,9 @@ resources: {}
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { log_file, .. } => {
@@ -39201,6 +39670,8 @@ resources: {}
             convergence_history: false,
             resource_inputs: false,
             drift_trend: false,
+            failed_resources: false,
+            resource_types_summary: false,
         };
         match cmd {
             Commands::Status {
@@ -39349,6 +39820,9 @@ resources: {}
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { tags, .. } => {
@@ -39499,6 +39973,9 @@ resources: {}
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { comment, .. } => {
@@ -39548,6 +40025,7 @@ resources: {}
             check_template_vars: false,
             check_mode_consistency: false,
             check_group_consistency: false,
+            check_mount_points: false,
         };
         match cmd {
             Commands::Validate { strict_deps, .. } => assert!(strict_deps),
@@ -39632,6 +40110,8 @@ resources: {}
             convergence_history: false,
             resource_inputs: false,
             drift_trend: false,
+            failed_resources: false,
+            resource_types_summary: false,
         };
         match cmd {
             Commands::Status { json_lines, .. } => assert!(json_lines),
@@ -39778,6 +40258,9 @@ resources: {}
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { only_changed, .. } => assert!(only_changed),
@@ -39828,6 +40311,7 @@ resources: {}
             fan_out: false,
             leaf_resources: false,
             reverse_deps: false,
+            depth_first: false,
         };
         match cmd {
             Commands::Graph { json_output, .. } => assert!(json_output),
@@ -39991,6 +40475,9 @@ resources: {}
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { pre_script, .. } => {
@@ -40077,6 +40564,8 @@ resources: {}
             convergence_history: false,
             resource_inputs: false,
             drift_trend: false,
+            failed_resources: false,
+            resource_types_summary: false,
         };
         match cmd {
             Commands::Status { since, .. } => {
@@ -40227,6 +40716,9 @@ resources: {}
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { dry_run_json, .. } => assert!(dry_run_json),
@@ -40274,6 +40766,7 @@ resources: {}
             check_template_vars: false,
             check_mode_consistency: false,
             check_group_consistency: false,
+            check_mount_points: false,
         };
         match cmd {
             Commands::Validate { check_secrets, .. } => assert!(check_secrets),
@@ -40358,6 +40851,8 @@ resources: {}
             convergence_history: false,
             resource_inputs: false,
             drift_trend: false,
+            failed_resources: false,
+            resource_types_summary: false,
         };
         match cmd {
             Commands::Status { export, .. } => {
@@ -40506,6 +41001,9 @@ resources: {}
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { notify_webhook, .. } => {
@@ -40561,6 +41059,7 @@ resources: {}
             fan_out: false,
             leaf_resources: false,
             reverse_deps: false,
+            depth_first: false,
         };
         match cmd {
             Commands::Graph { highlight, .. } => {
@@ -40729,6 +41228,9 @@ resources: {}
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { post_script, .. } => {
@@ -40816,6 +41318,8 @@ resources: {}
             convergence_history: false,
             resource_inputs: false,
             drift_trend: false,
+            failed_resources: false,
+            resource_types_summary: false,
         };
         match cmd {
             Commands::Status { prometheus, .. } => assert!(prometheus),
@@ -40964,6 +41468,9 @@ resources: {}
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply {
@@ -41013,6 +41520,7 @@ resources: {}
             check_template_vars: false,
             check_mode_consistency: false,
             check_group_consistency: false,
+            check_mount_points: false,
         };
         match cmd {
             Commands::Validate {
@@ -41099,6 +41607,8 @@ resources: {}
             convergence_history: false,
             resource_inputs: false,
             drift_trend: false,
+            failed_resources: false,
+            resource_types_summary: false,
         };
         match cmd {
             Commands::Status { compact, .. } => assert!(compact),
@@ -41245,6 +41755,9 @@ resources: {}
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { canary_percent, .. } => assert_eq!(canary_percent, Some(25)),
@@ -41295,6 +41808,7 @@ resources: {}
             fan_out: false,
             leaf_resources: false,
             reverse_deps: false,
+            depth_first: false,
         };
         match cmd {
             Commands::Graph { prune, .. } => {
@@ -41463,6 +41977,9 @@ resources: {}
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { schedule, .. } => {
@@ -41549,6 +42066,8 @@ resources: {}
             convergence_history: false,
             resource_inputs: false,
             drift_trend: false,
+            failed_resources: false,
+            resource_types_summary: false,
         };
         match cmd {
             Commands::Status { alerts, .. } => assert!(alerts),
@@ -41697,6 +42216,9 @@ resources: {}
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { env_name, .. } => assert_eq!(env_name, Some("staging".to_string())),
@@ -41744,6 +42266,7 @@ resources: {}
             check_template_vars: false,
             check_mode_consistency: false,
             check_group_consistency: false,
+            check_mount_points: false,
         };
         match cmd {
             Commands::Validate {
@@ -41831,6 +42354,8 @@ resources: {}
             convergence_history: false,
             resource_inputs: false,
             drift_trend: false,
+            failed_resources: false,
+            resource_types_summary: false,
         };
         match cmd {
             Commands::Status { diff_lock, .. } => {
@@ -41979,6 +42504,9 @@ resources: {}
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { dry_run_diff, .. } => assert!(dry_run_diff),
@@ -42029,6 +42557,7 @@ resources: {}
             fan_out: false,
             leaf_resources: false,
             reverse_deps: false,
+            depth_first: false,
         };
         match cmd {
             Commands::Graph { layers, .. } => assert!(layers),
@@ -42188,6 +42717,9 @@ resources: {}
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply {
@@ -42276,6 +42808,8 @@ resources: {}
             convergence_history: false,
             resource_inputs: false,
             drift_trend: false,
+            failed_resources: false,
+            resource_types_summary: false,
         };
         match cmd {
             Commands::Status { compliance, .. } => {
@@ -42426,6 +42960,9 @@ resources: {}
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { batch_size, .. } => assert_eq!(batch_size, Some(10)),
@@ -42473,6 +43010,7 @@ resources: {}
             check_template_vars: false,
             check_mode_consistency: false,
             check_group_consistency: false,
+            check_mount_points: false,
         };
         match cmd {
             Commands::Validate {
@@ -42559,6 +43097,8 @@ resources: {}
             convergence_history: false,
             resource_inputs: false,
             drift_trend: false,
+            failed_resources: false,
+            resource_types_summary: false,
         };
         match cmd {
             Commands::Status { histogram, .. } => assert!(histogram),
@@ -42705,6 +43245,9 @@ resources: {}
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { notify_teams, .. } => {
@@ -42757,6 +43300,7 @@ resources: {}
             fan_out: false,
             leaf_resources: false,
             reverse_deps: false,
+            depth_first: false,
         };
         match cmd {
             Commands::Graph {
@@ -42918,6 +43462,9 @@ resources: {}
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { abort_on_drift, .. } => assert!(abort_on_drift),
@@ -43002,6 +43549,8 @@ resources: {}
             convergence_history: false,
             resource_inputs: false,
             drift_trend: false,
+            failed_resources: false,
+            resource_types_summary: false,
         };
         match cmd {
             Commands::Status {
@@ -43152,6 +43701,9 @@ resources: {}
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply {
@@ -43201,6 +43753,7 @@ resources: {}
             check_template_vars: false,
             check_mode_consistency: false,
             check_group_consistency: false,
+            check_mount_points: false,
         };
         match cmd {
             Commands::Validate { check_naming, .. } => assert!(check_naming),
@@ -43285,6 +43838,8 @@ resources: {}
             convergence_history: false,
             resource_inputs: false,
             drift_trend: false,
+            failed_resources: false,
+            resource_types_summary: false,
         };
         match cmd {
             Commands::Status { top_failures, .. } => assert!(top_failures),
@@ -43431,6 +43986,9 @@ resources: {}
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { notify_discord, .. } => assert_eq!(
@@ -43484,6 +44042,7 @@ resources: {}
             fan_out: false,
             leaf_resources: false,
             reverse_deps: false,
+            depth_first: false,
         };
         match cmd {
             Commands::Graph { weight, .. } => assert!(weight),
@@ -43643,6 +44202,9 @@ resources: {}
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply {
@@ -43730,6 +44292,8 @@ resources: {}
             convergence_history: false,
             resource_inputs: false,
             drift_trend: false,
+            failed_resources: false,
+            resource_types_summary: false,
         };
         match cmd {
             Commands::Status {
@@ -43880,6 +44444,9 @@ resources: {}
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { metrics_port, .. } => assert_eq!(metrics_port, Some(9090)),
@@ -43927,6 +44494,7 @@ resources: {}
             check_template_vars: false,
             check_mode_consistency: false,
             check_group_consistency: false,
+            check_mount_points: false,
         };
         match cmd {
             Commands::Validate { check_overlaps, .. } => assert!(check_overlaps),
@@ -44011,6 +44579,8 @@ resources: {}
             convergence_history: false,
             resource_inputs: false,
             drift_trend: false,
+            failed_resources: false,
+            resource_types_summary: false,
         };
         match cmd {
             Commands::Status { drift_summary, .. } => assert!(drift_summary),
@@ -44157,6 +44727,9 @@ resources: {}
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply {
@@ -44209,6 +44782,7 @@ resources: {}
             fan_out: false,
             leaf_resources: false,
             reverse_deps: false,
+            depth_first: false,
         };
         match cmd {
             Commands::Graph { subgraph, .. } => {
@@ -44370,6 +44944,9 @@ resources: {}
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply {
@@ -44456,6 +45033,8 @@ resources: {}
             convergence_history: false,
             resource_inputs: false,
             drift_trend: false,
+            failed_resources: false,
+            resource_types_summary: false,
         };
         match cmd {
             Commands::Status { resource_age, .. } => assert!(resource_age),
@@ -44604,6 +45183,9 @@ resources: {}
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply {
@@ -44653,6 +45235,7 @@ resources: {}
             check_template_vars: false,
             check_mode_consistency: false,
             check_group_consistency: false,
+            check_mount_points: false,
         };
         match cmd {
             Commands::Validate { check_limits, .. } => assert!(check_limits),
@@ -44737,6 +45320,8 @@ resources: {}
             convergence_history: false,
             resource_inputs: false,
             drift_trend: false,
+            failed_resources: false,
+            resource_types_summary: false,
         };
         match cmd {
             Commands::Status { sla_report, .. } => assert!(sla_report),
@@ -44883,6 +45468,9 @@ resources: {}
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { notify_datadog, .. } => {
@@ -44935,6 +45523,7 @@ resources: {}
             fan_out: false,
             leaf_resources: false,
             reverse_deps: false,
+            depth_first: false,
         };
         match cmd {
             Commands::Graph { impact_radius, .. } => {
@@ -45102,6 +45691,9 @@ resources: {}
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { change_window, .. } => {
@@ -45188,6 +45780,8 @@ resources: {}
             convergence_history: false,
             resource_inputs: false,
             drift_trend: false,
+            failed_resources: false,
+            resource_types_summary: false,
         };
         match cmd {
             Commands::Status {
@@ -45338,6 +45932,9 @@ resources: {}
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { canary_machine, .. } => {
@@ -45387,6 +45984,7 @@ resources: {}
             check_template_vars: false,
             check_mode_consistency: false,
             check_group_consistency: false,
+            check_mount_points: false,
         };
         match cmd {
             Commands::Validate {
@@ -45473,6 +46071,8 @@ resources: {}
             convergence_history: false,
             resource_inputs: false,
             drift_trend: false,
+            failed_resources: false,
+            resource_types_summary: false,
         };
         match cmd {
             Commands::Status { mttr, .. } => assert!(mttr),
@@ -45619,6 +46219,9 @@ resources: {}
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply {
@@ -45671,6 +46274,7 @@ resources: {}
             fan_out: false,
             leaf_resources: false,
             reverse_deps: false,
+            depth_first: false,
         };
         match cmd {
             Commands::Graph {
@@ -45833,6 +46437,9 @@ resources: {}
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { max_duration, .. } => assert_eq!(max_duration, Some(300)),
@@ -45917,6 +46524,8 @@ resources: {}
             convergence_history: false,
             resource_inputs: false,
             drift_trend: false,
+            failed_resources: false,
+            resource_types_summary: false,
         };
         match cmd {
             Commands::Status { trend, .. } => assert_eq!(trend, Some(10)),
@@ -46065,6 +46674,9 @@ resources: {}
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { notify_grafana, .. } => assert_eq!(
@@ -46115,6 +46727,7 @@ resources: {}
             check_template_vars: false,
             check_mode_consistency: false,
             check_group_consistency: false,
+            check_mount_points: false,
         };
         match cmd {
             Commands::Validate { check_security, .. } => assert!(check_security),
@@ -46199,6 +46812,8 @@ resources: {}
             convergence_history: false,
             resource_inputs: false,
             drift_trend: false,
+            failed_resources: false,
+            resource_types_summary: false,
         };
         match cmd {
             Commands::Status { prediction, .. } => assert!(prediction),
@@ -46345,6 +46960,9 @@ resources: {}
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply {
@@ -46398,6 +47016,7 @@ resources: {}
             fan_out: false,
             leaf_resources: false,
             reverse_deps: false,
+            depth_first: false,
         };
         match cmd {
             Commands::Graph { hotspots, .. } => assert!(hotspots),
@@ -46559,6 +47178,9 @@ resources: {}
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply {
@@ -46646,6 +47268,8 @@ resources: {}
             convergence_history: false,
             resource_inputs: false,
             drift_trend: false,
+            failed_resources: false,
+            resource_types_summary: false,
         };
         match cmd {
             Commands::Status { capacity, .. } => assert!(capacity),
@@ -46794,6 +47418,9 @@ resources: {}
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply {
@@ -46843,6 +47470,7 @@ resources: {}
             check_template_vars: false,
             check_mode_consistency: false,
             check_group_consistency: false,
+            check_mount_points: false,
         };
         match cmd {
             Commands::Validate {
@@ -46929,6 +47557,8 @@ resources: {}
             convergence_history: false,
             resource_inputs: false,
             drift_trend: false,
+            failed_resources: false,
+            resource_types_summary: false,
         };
         match cmd {
             Commands::Status { cost_estimate, .. } => assert!(cost_estimate),
@@ -47075,6 +47705,9 @@ resources: {}
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { blue_green, .. } => {
@@ -47127,6 +47760,7 @@ resources: {}
             fan_out: false,
             leaf_resources: false,
             reverse_deps: false,
+            depth_first: false,
         };
         match cmd {
             Commands::Graph { timeline_graph, .. } => assert!(timeline_graph),
@@ -47287,6 +47921,9 @@ resources: {}
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { dry_run_cost, .. } => assert!(dry_run_cost),
@@ -47371,6 +48008,8 @@ resources: {}
             convergence_history: false,
             resource_inputs: false,
             drift_trend: false,
+            failed_resources: false,
+            resource_types_summary: false,
         };
         match cmd {
             Commands::Status {
@@ -47521,6 +48160,9 @@ resources: {}
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply {
@@ -47574,6 +48216,7 @@ resources: {}
             check_template_vars: false,
             check_mode_consistency: false,
             check_group_consistency: false,
+            check_mount_points: false,
         };
         match cmd {
             Commands::Validate {
@@ -47660,6 +48303,8 @@ resources: {}
             convergence_history: false,
             resource_inputs: false,
             drift_trend: false,
+            failed_resources: false,
+            resource_types_summary: false,
         };
         match cmd {
             Commands::Status { health_score, .. } => assert!(health_score),
@@ -47806,6 +48451,9 @@ resources: {}
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { progressive, .. } => assert_eq!(progressive, Some(25)),
@@ -47856,6 +48504,7 @@ resources: {}
             fan_out: false,
             leaf_resources: false,
             reverse_deps: false,
+            depth_first: false,
         };
         match cmd {
             Commands::Graph { what_if, .. } => {
@@ -48016,6 +48665,9 @@ resources: {}
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply {
@@ -48105,6 +48757,8 @@ resources: {}
             convergence_history: false,
             resource_inputs: false,
             drift_trend: false,
+            failed_resources: false,
+            resource_types_summary: false,
         };
         match cmd {
             Commands::Status {
@@ -48255,6 +48909,9 @@ resources: {}
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply {
@@ -48304,6 +48961,7 @@ resources: {}
             check_template_vars: false,
             check_mode_consistency: false,
             check_group_consistency: false,
+            check_mount_points: false,
         };
         match cmd {
             Commands::Validate {
@@ -48390,6 +49048,8 @@ resources: {}
             convergence_history: false,
             resource_inputs: false,
             drift_trend: false,
+            failed_resources: false,
+            resource_types_summary: false,
         };
         match cmd {
             Commands::Status { audit_trail, .. } => assert!(audit_trail),
@@ -48537,6 +49197,9 @@ resources: {}
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { change_window, .. } => {
@@ -48589,6 +49252,7 @@ resources: {}
             fan_out: false,
             leaf_resources: false,
             reverse_deps: false,
+            depth_first: false,
         };
         match cmd {
             Commands::Graph { blast_radius, .. } => {
@@ -48749,6 +49413,9 @@ resources: {}
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { sign_off, .. } => {
@@ -48836,6 +49503,8 @@ resources: {}
             convergence_history: false,
             resource_inputs: false,
             drift_trend: false,
+            failed_resources: false,
+            resource_types_summary: false,
         };
         match cmd {
             Commands::Status { sla_report, .. } => assert!(sla_report),
@@ -48984,6 +49653,9 @@ resources: {}
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { notify_sns, .. } => {
@@ -49036,6 +49708,7 @@ resources: {}
             check_template_vars: false,
             check_mode_consistency: false,
             check_group_consistency: false,
+            check_mount_points: false,
         };
         match cmd {
             Commands::Validate {
@@ -49122,6 +49795,8 @@ resources: {}
             convergence_history: false,
             resource_inputs: false,
             drift_trend: false,
+            failed_resources: false,
+            resource_types_summary: false,
         };
         match cmd {
             Commands::Status { resource_graph, .. } => assert!(resource_graph),
@@ -49268,6 +49943,9 @@ resources: {}
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply {
@@ -49323,6 +50001,7 @@ resources: {}
             fan_out: false,
             leaf_resources: false,
             reverse_deps: false,
+            depth_first: false,
         };
         match cmd {
             Commands::Graph { change_impact, .. } => {
@@ -49483,6 +50162,9 @@ resources: {}
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { runbook, .. } => {
@@ -49572,6 +50254,8 @@ resources: {}
             convergence_history: false,
             resource_inputs: false,
             drift_trend: false,
+            failed_resources: false,
+            resource_types_summary: false,
         };
         match cmd {
             Commands::Status { drift_velocity, .. } => assert!(drift_velocity),
@@ -49720,6 +50404,9 @@ resources: {}
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { notify_pubsub, .. } => {
@@ -49772,6 +50459,7 @@ resources: {}
             check_template_vars: false,
             check_mode_consistency: false,
             check_group_consistency: false,
+            check_mount_points: false,
         };
         match cmd {
             Commands::Validate {
@@ -49859,6 +50547,8 @@ resources: {}
             convergence_history: false,
             resource_inputs: false,
             drift_trend: false,
+            failed_resources: false,
+            resource_types_summary: false,
         };
         match cmd {
             Commands::Status { fleet_overview, .. } => assert!(fleet_overview),
@@ -50005,6 +50695,9 @@ resources: {}
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { fleet_strategy, .. } => {
@@ -50057,6 +50750,7 @@ resources: {}
             fan_out: false,
             leaf_resources: false,
             reverse_deps: false,
+            depth_first: false,
         };
         match cmd {
             Commands::Graph { resource_types, .. } => assert!(resource_types),
@@ -50215,6 +50909,9 @@ resources: {}
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { pre_check, .. } => {
@@ -50304,6 +51001,8 @@ resources: {}
             convergence_history: false,
             resource_inputs: false,
             drift_trend: false,
+            failed_resources: false,
+            resource_types_summary: false,
         };
         match cmd {
             Commands::Status { machine_health, .. } => assert!(machine_health),
@@ -50452,6 +51151,9 @@ resources: {}
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply {
@@ -50503,6 +51205,7 @@ resources: {}
             check_template_vars: false,
             check_mode_consistency: false,
             check_group_consistency: false,
+            check_mount_points: false,
         };
         match cmd {
             Commands::Validate { check_unused, .. } => assert!(check_unused),
@@ -50587,6 +51290,8 @@ resources: {}
             convergence_history: false,
             resource_inputs: false,
             drift_trend: false,
+            failed_resources: false,
+            resource_types_summary: false,
         };
         match cmd {
             Commands::Status { config_drift, .. } => assert!(config_drift),
@@ -50733,6 +51438,9 @@ resources: {}
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { dry_run_graph, .. } => assert!(dry_run_graph),
@@ -50783,6 +51491,7 @@ resources: {}
             fan_out: false,
             leaf_resources: false,
             reverse_deps: false,
+            depth_first: false,
         };
         match cmd {
             Commands::Graph {
@@ -50943,6 +51652,9 @@ resources: {}
             resource_priority: vec![],
             apply_window: None,
             fail_fast_machine: false,
+            notify_mattermost: None,
+            cooldown: None,
+            exclude_machine: None,
         };
         match cmd {
             Commands::Apply { post_check, .. } => {
@@ -51032,6 +51744,8 @@ resources: {}
             convergence_history: false,
             resource_inputs: false,
             drift_trend: false,
+            failed_resources: false,
+            resource_types_summary: false,
         };
         match cmd {
             Commands::Status {
@@ -51888,6 +52602,69 @@ resources: {}
     fn test_fj717_status_drift_trend_json() {
         let dir = tempfile::tempdir().unwrap();
         let result = cmd_status_drift_trend(dir.path(), None, true);
+        assert!(result.is_ok());
+    }
+
+    // ── Phase 58 tests (FJ-720 → FJ-727) ──────────────────────────
+    #[test]
+    fn test_fj721_validate_check_mount_points() {
+        let dir = tempfile::tempdir().unwrap();
+        let f = dir.path().join("forjar.yaml");
+        std::fs::write(&f, "version: '1.0'\nname: t\nmachines:\n  m:\n    hostname: m\n    addr: 127.0.0.1\nresources:\n  mnt:\n    type: mount\n    machine: m\n    source: /dev/sda1\n    path: /mnt/data\n    fstype: ext4\n").unwrap();
+        let result = cmd_validate_check_mount_points(&f, false);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj721_validate_check_mount_points_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let f = dir.path().join("forjar.yaml");
+        std::fs::write(&f, "version: '1.0'\nname: t\nmachines:\n  m:\n    hostname: m\n    addr: 127.0.0.1\nresources: {}\n").unwrap();
+        let result = cmd_validate_check_mount_points(&f, true);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj722_status_failed_resources() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = cmd_status_failed_resources(dir.path(), None, false);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj724_graph_depth_first() {
+        let dir = tempfile::tempdir().unwrap();
+        let f = dir.path().join("forjar.yaml");
+        std::fs::write(&f, "version: '1.0'\nname: t\nmachines:\n  m:\n    hostname: m\n    addr: 127.0.0.1\nresources:\n  a:\n    type: file\n    machine: m\n    path: /tmp/a\n  b:\n    type: file\n    machine: m\n    path: /tmp/b\n    depends_on: [a]\n").unwrap();
+        let result = cmd_graph_depth_first(&f, false);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj725_lock_migrate() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = cmd_lock_migrate(dir.path(), "0.9", false);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj725_lock_migrate_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = cmd_lock_migrate(dir.path(), "0.9", true);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj727_status_resource_types_summary() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = cmd_status_resource_types_summary(dir.path(), None, false);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj727_status_resource_types_summary_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = cmd_status_resource_types_summary(dir.path(), None, true);
         assert!(result.is_ok());
     }
 }
