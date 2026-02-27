@@ -1980,14 +1980,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-450 | `forjar apply --approval-required` — require explicit approval before destructive changes. Gate. | Planned |
-| FJ-451 | `forjar validate --check-idempotency` — verify all resources produce idempotent scripts. Safety lint. | Planned |
-| FJ-452 | `forjar status --compact` — minimal one-line-per-machine output for large fleets. Fleet view. | Planned |
-| FJ-453 | `forjar apply --canary-percent <n>` — apply to N% of machines first, then rest. Gradual rollout. | Planned |
-| FJ-454 | `forjar graph --prune <resource>` — show graph with a resource and its subtree removed. Impact analysis. | Planned |
-| FJ-455 | `forjar lock rebase <from> <to>` — rebase lock file from one config version to another. Migration. | Planned |
-| FJ-456 | `forjar apply --schedule <cron>` — schedule apply for later execution. Deferred apply. | Planned |
-| FJ-457 | `forjar status --alerts` — show resources in alert state (failed, drifted, or stale). Dashboard view. | Planned |
+| FJ-450 | `forjar apply --approval-required` — require explicit approval before destructive changes. Gate. | Done |
+| FJ-451 | `forjar validate --check-idempotency` — verify all resources produce idempotent scripts. Safety lint. | Done |
+| FJ-452 | `forjar status --compact` — minimal one-line-per-machine output for large fleets. Fleet view. | Done |
+| FJ-453 | `forjar apply --canary-percent <n>` — apply to N% of machines first, then rest. Gradual rollout. | Done |
+| FJ-454 | `forjar graph --prune <resource>` — show graph with a resource and its subtree removed. Impact analysis. | Done |
+| FJ-455 | `forjar lock rebase <from> <to>` — rebase lock file from one config version to another. Migration. | Done |
+| FJ-456 | `forjar apply --schedule <cron>` — schedule apply for later execution. Deferred apply. | Done |
+| FJ-457 | `forjar status --alerts` — show resources in alert state (failed, drifted, or stale). Dashboard view. | Done |
+
+### Phase 32 — v3.2: Multi-Environment & Compliance
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-460 | `forjar apply --env <name>` — apply using named environment config overlay. Multi-env support. | Planned |
+| FJ-461 | `forjar validate --check-drift-coverage` — verify all resources have drift detection configured. Coverage lint. | Planned |
+| FJ-462 | `forjar status --diff-lock <path>` — diff current lock against a saved lock snapshot. Change detection. | Planned |
+| FJ-463 | `forjar apply --dry-run-diff` — show unified diff of what would change. Review-friendly output. | Planned |
+| FJ-464 | `forjar graph --layers` — show graph organized by dependency layers (depth levels). Layer visualization. | Planned |
+| FJ-465 | `forjar lock sign <key>` — cryptographically sign lock file with ed25519 key. Tamper detection. | Planned |
+| FJ-466 | `forjar apply --notify-pagerduty <key>` — send apply events to PagerDuty. Incident integration. | Planned |
+| FJ-467 | `forjar status --compliance <policy>` — check compliance against named policy. Governance. | Planned |
 
 ---
 

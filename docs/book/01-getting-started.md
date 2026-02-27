@@ -16,7 +16,7 @@ Verify:
 forjar --help
 ```
 
-You should see forjar's 59 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`, `lock-compact`, `lock-verify`, `lock-export`, `lock-gc`, `lock-diff`, `lock-merge`.
+You should see forjar's 60 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`, `lock-compact`, `lock-verify`, `lock-export`, `lock-gc`, `lock-diff`, `lock-merge`, `lock-rebase`.
 
 ## Your First Project
 
@@ -2204,6 +2204,67 @@ Output dry-run results as structured JSON for CI pipelines:
 
 ```bash
 forjar apply --dry-run-json -f forjar.yaml --state-dir state
+```
+
+## Approval Required
+
+Require explicit approval before destructive changes:
+
+```bash
+forjar apply --approval-required -f forjar.yaml
+```
+
+## Check Idempotency
+
+Verify all resources produce idempotent scripts:
+
+```bash
+forjar validate --check-idempotency -f forjar.yaml
+forjar validate --check-idempotency --json -f forjar.yaml
+```
+
+## Status Compact
+
+Minimal one-line-per-machine output for large fleets:
+
+```bash
+forjar status --compact --state-dir state
+forjar status --compact --json --state-dir state
+```
+
+## Canary Percent
+
+Apply to N% of machines first, then the rest (gradual rollout):
+
+```bash
+forjar apply --canary-percent 25 -f forjar.yaml
+```
+
+## Graph Prune
+
+Show graph with a resource and its subtree removed:
+
+```bash
+forjar graph --prune web-server -f forjar.yaml
+forjar graph --prune web-server --format dot -f forjar.yaml
+```
+
+## Lock Rebase
+
+Rebase lock file from one config version to another:
+
+```bash
+forjar lock-rebase old-state -f forjar.yaml --output new-state
+forjar lock-rebase old-state -f forjar.yaml --output new-state --json
+```
+
+## Status Alerts
+
+Show resources in alert state (failed, drifted, or stale):
+
+```bash
+forjar status --alerts --state-dir state
+forjar status --alerts --json --state-dir state
 ```
 
 ## Next Steps
