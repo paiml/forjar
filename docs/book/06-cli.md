@@ -1002,6 +1002,52 @@ forjar graph -f forjar.yaml
 
 # Render in terminal (requires mmdc/mermaid-cli)
 forjar graph -f forjar.yaml | mmdc -o graph.png
+
+# Breadth-first traversal order (topological BFS)
+forjar graph -f forjar.yaml --breadth-first
+
+# Depth-first traversal order
+forjar graph -f forjar.yaml --depth-first
+
+# JSON output for tooling
+forjar graph -f forjar.yaml --breadth-first --json
+```
+
+### forjar validate --check-cron-syntax
+
+Validates cron schedule expressions in all resources with a `schedule:` field:
+
+```bash
+forjar validate -f forjar.yaml --check-cron-syntax
+```
+
+Checks each cron field against its valid range (minute 0-59, hour 0-23, day 1-31, month 1-12, weekday 0-6). Reports invalid fields with the resource name.
+
+### forjar status --resource-health / --machine-health-summary
+
+Per-resource and per-machine health views:
+
+```bash
+# Per-resource health (converged/failed/drifted)
+forjar status --state-dir state/ --resource-health
+
+# Per-machine health summary with percentages
+forjar status --state-dir state/ --machine-health-summary
+
+# JSON output for monitoring
+forjar status --state-dir state/ --machine-health-summary --json
+```
+
+### forjar apply --notify-ntfy / --only-machine
+
+Push notifications and machine targeting:
+
+```bash
+# Send apply events to ntfy.sh topic
+forjar apply -f forjar.yaml --notify-ntfy my-infra-alerts
+
+# Apply only to a specific machine
+forjar apply -f forjar.yaml --only-machine web-server
 ```
 
 ### forjar fmt
