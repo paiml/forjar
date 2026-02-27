@@ -1509,7 +1509,7 @@ forjar schema > forjar-schema.json
 |--------|-------------|--------|
 | FJ-738 | Multi-vendor GPU container transport — `container.devices` (--device), `container.group_add` (--group-add), `container.env` (--env) fields on ContainerConfig. NVIDIA via `--gpus`, AMD ROCm via `/dev/kfd` + `/dev/dri` + `video`/`render` groups, Intel via `/dev/dri`. Dogfood: `dogfood-multi-gpu.yaml` (2 machines, 5 resources). 2 new transport tests. | **Done** |
 | FJ-739 | GPU container integration tests — feature-gated `--features gpu-container-test`. NVIDIA: verify `nvidia-smi` in container. AMD: verify `/dev/kfd` + `/dev/dri` accessible. Cross-vendor: same model config deployed to both. 7 tests. | **Done** |
-| FJ-740 | `apr-model-qa-playbook` integration — forjar recipe that provisions CUDA + ROCm containers, downloads model via HuggingFace, runs playbook test matrix (3 formats × 2 backends × 3 modalities = 18 tests per vendor). | Planned |
+| FJ-740 | `apr-model-qa-playbook` integration — `apr-model-qa` recipe (5 resources: workspace, model dir, playbook config, test runner, results dir). Dogfood: `dogfood-apr-qa.yaml` (2 machines × 5 resources = 10 resources). Recipe inputs: model_repo, format, quantization, gpu_vendor, backends, modalities, scenario_count. | **Done** |
 
 ### Phase 1: Foundation (v0.1) — Immediate Need
 
@@ -2501,7 +2501,7 @@ cargo test --features gpu-container-test
 
 ### 10.6 Dogfood Workflow
 
-29 dogfood configs exercise all 11 resource types and cross-cutting features. Container transport configs enable end-to-end testing without root or host pollution; localhost configs validate codegen and planning.
+30 dogfood configs exercise all 11 resource types and cross-cutting features. Container transport configs enable end-to-end testing without root or host pollution; localhost configs validate codegen and planning.
 
 | Config | Resource types | What it proves |
 |--------|---------------|----------------|
@@ -2531,6 +2531,7 @@ cargo test --features gpu-container-test
 | `dogfood-renacer.yaml` | recipe | Observability stack recipe (renacer-observability), 10 resources |
 | `dogfood-sovereign-stack.yaml` | recipe | Multi-machine sovereign AI stack, 3 machines, 33 resources |
 | `dogfood-multi-gpu.yaml` | file | Multi-vendor GPU container transport: NVIDIA CUDA (--gpus) + AMD ROCm (--device/--group-add), env vars, parallel machines |
+| `dogfood-apr-qa.yaml` | recipe | Multi-vendor GPU model QA: apr-model-qa recipe × 2 machines (CUDA + ROCm), 10 resources, playbook test matrix |
 | `dogfood-template-funcs.yaml` | file | Template functions: upper/lower/trim/default/replace/env/b3sum/join/split, nested calls |
 | `dogfood-includes.yaml` | file | Config includes: merge params/machines/resources from included files |
 

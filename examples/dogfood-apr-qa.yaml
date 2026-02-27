@@ -1,0 +1,80 @@
+version: "1.0"
+name: dogfood-apr-qa
+description: >
+  Multi-vendor GPU model QA — provisions CUDA + ROCm containers, deploys
+  apr-model-qa recipe to each, creates playbook configs and test runners.
+  Validates the apr-model-qa-playbook workflow pattern via forjar.
+
+params:
+  model_repo: "Qwen/Qwen2.5-Coder-7B-Instruct"
+
+machines:
+  gpu-cuda:
+    hostname: gpu-cuda
+    addr: container
+    transport: container
+    roles: [gpu, cuda]
+    container:
+      runtime: docker
+      image: nvidia/cuda:12.4.1-runtime-ubuntu22.04
+      name: forjar-qa-cuda
+      ephemeral: true
+      init: true
+      gpus: all
+      env:
+        CUDA_VISIBLE_DEVICES: "0,1"
+    cost: 0
+
+  gpu-rocm:
+    hostname: gpu-rocm
+    addr: container
+    transport: container
+    roles: [gpu, rocm]
+    container:
+      runtime: docker
+      image: rocm/dev-ubuntu-22.04:6.1
+      name: forjar-qa-rocm
+      ephemeral: true
+      init: true
+      devices:
+        - /dev/kfd
+        - /dev/dri
+      group_add:
+        - video
+        - render
+      env:
+        ROCR_VISIBLE_DEVICES: "0"
+    cost: 0
+
+resources:
+  cuda-qa:
+    type: recipe
+    machine: gpu-cuda
+    recipe: apr-model-qa
+    inputs:
+      model_repo: "{{params.model_repo}}"
+      model_format: gguf
+      quantization: q4_k_m
+      gpu_vendor: cuda
+      backends: "cpu,gpu"
+      modalities: "run,chat,serve"
+      scenario_count: 1
+
+  rocm-qa:
+    type: recipe
+    machine: gpu-rocm
+    recipe: apr-model-qa
+    inputs:
+      model_repo: "{{params.model_repo}}"
+      model_format: gguf
+      quantization: q4_k_m
+      gpu_vendor: rocm
+      backends: "cpu,gpu"
+      modalities: "run,chat,serve"
+      scenario_count: 1
+
+policy:
+  failure: continue_independent
+  parallel_machines: true
+  tripwire: true
+  lock_file: true
