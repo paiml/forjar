@@ -1,6 +1,7 @@
 //! Validate command dispatch — routes validate sub-flags to check handlers.
 
 use std::path::Path;
+use super::commands::*;
 use super::validate_core::*;
 use super::validate_policy::*;
 use super::validate_structural::*;
@@ -82,34 +83,31 @@ fn try_validate_core(
 }
 
 
-/// Route validate sub-flags to specific check commands.
-#[allow(clippy::too_many_arguments)]
-pub(crate) fn dispatch_validate(
-    file: &Path, strict: bool, json: bool, dry_expand: bool,
-    exhaustive: bool, policy_file: Option<&Path>,
-    check_connectivity: bool, check_templates: bool, strict_deps: bool,
-    check_secrets: bool, check_idempotency: bool, check_drift_coverage: bool,
-    check_cycles_deep: bool, check_naming: bool, check_overlaps: bool,
-    check_limits: bool, check_complexity: bool, check_security: bool,
-    check_deprecation: bool, check_drift_risk: bool,
-    check_compliance: Option<&str>, check_portability: bool,
-    check_resource_limits: bool, check_unused: bool,
-    check_dependencies: bool, check_permissions: bool,
-    check_idempotency_deep: bool, check_machine_reachability: bool,
-    check_circular_refs: bool, check_naming_conventions: bool,
-    check_owner_consistency: bool, check_path_conflicts: bool,
-    check_service_deps: bool, check_template_vars: bool,
-    check_mode_consistency: bool, check_group_consistency: bool,
-    check_mount_points: bool,
-) -> Result<(), String> {
-    if let Some(r) = try_validate_structural(file, json, check_mount_points, check_group_consistency, check_mode_consistency, check_template_vars, check_service_deps, check_path_conflicts, check_owner_consistency, check_naming_conventions, check_circular_refs, check_machine_reachability) {
+/// Route validate command to specific check handlers.
+pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
+    let ValidateArgs {
+        file, strict, json, dry_expand,
+        schema_version: _schema_version, exhaustive, policy_file,
+        check_connectivity, check_templates, strict_deps, check_secrets,
+        check_idempotency, check_drift_coverage, check_cycles_deep,
+        check_naming, check_overlaps, check_limits, check_complexity,
+        check_security, check_deprecation, check_drift_risk, check_compliance,
+        check_portability, check_resource_limits, check_unused,
+        check_dependencies, check_permissions, check_idempotency_deep,
+        check_machine_reachability, check_circular_refs,
+        check_naming_conventions, check_owner_consistency,
+        check_path_conflicts, check_service_deps, check_template_vars,
+        check_mode_consistency, check_group_consistency, check_mount_points,
+    } = args;
+
+    if let Some(r) = try_validate_structural(&file, json, check_mount_points, check_group_consistency, check_mode_consistency, check_template_vars, check_service_deps, check_path_conflicts, check_owner_consistency, check_naming_conventions, check_circular_refs, check_machine_reachability) {
         return r;
     }
-    if let Some(r) = try_validate_quality(file, json, check_idempotency_deep, check_permissions, check_dependencies, check_unused, check_resource_limits, check_portability, check_compliance, check_drift_risk, check_deprecation, check_security, check_complexity, check_limits) {
+    if let Some(r) = try_validate_quality(&file, json, check_idempotency_deep, check_permissions, check_dependencies, check_unused, check_resource_limits, check_portability, check_compliance.as_deref(), check_drift_risk, check_deprecation, check_security, check_complexity, check_limits) {
         return r;
     }
-    if let Some(r) = try_validate_core(file, json, strict, dry_expand, check_overlaps, check_naming, check_cycles_deep, check_drift_coverage, check_idempotency, check_secrets, strict_deps, check_templates, check_connectivity, policy_file, exhaustive) {
+    if let Some(r) = try_validate_core(&file, json, strict, dry_expand, check_overlaps, check_naming, check_cycles_deep, check_drift_coverage, check_idempotency, check_secrets, strict_deps, check_templates, check_connectivity, policy_file.as_deref(), exhaustive) {
         return r;
     }
-    cmd_validate(file, strict, json, dry_expand)
+    cmd_validate(&file, strict, json, dry_expand)
 }

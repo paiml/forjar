@@ -44,7 +44,7 @@ pub(crate) fn apply_machines_parallel(
             };
 
             // Take this machine's lock out of the shared map
-            let machine_lock = lock_mutex.lock().unwrap().remove(machine_name.as_str());
+            let machine_lock = lock_mutex.lock().unwrap_or_else(|e| e.into_inner()).remove(machine_name.as_str());
 
             // Borrow the mutexes; move only per-thread owned data
             let lock_ref = &lock_mutex;
@@ -59,10 +59,10 @@ pub(crate) fn apply_machines_parallel(
 
                 // Put the lock back
                 if let Some((k, v)) = single_lock_map.into_iter().next() {
-                    lock_ref.lock().unwrap().insert(k, v);
+                    lock_ref.lock().unwrap_or_else(|e| e.into_inner()).insert(k, v);
                 }
 
-                results_ref.lock().unwrap().push(result);
+                results_ref.lock().unwrap_or_else(|e| e.into_inner()).push(result);
             });
         }
     });

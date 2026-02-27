@@ -235,6 +235,20 @@ pub(crate) fn cmd_status_since(
 
 
 // FJ-376: Status summary-by dimension
+/// Resolve the grouping key for a resource lock entry.
+fn summary_dimension_key(
+    dimension: &str,
+    lock: &types::StateLock,
+    rl: &types::ResourceLock,
+) -> Result<String, String> {
+    match dimension {
+        "machine" => Ok(lock.machine.clone()),
+        "type" => Ok(format!("{:?}", rl.resource_type)),
+        "status" => Ok(format!("{:?}", rl.status)),
+        _ => Err(format!("Unknown dimension '{}'. Use: machine, type, status", dimension)),
+    }
+}
+
 pub(crate) fn cmd_status_summary_by(
     state_dir: &Path,
     machine_filter: Option<&str>,
@@ -250,36 +264,19 @@ pub(crate) fn cmd_status_summary_by(
     for entry in entries.flatten() {
         let name = entry.file_name().to_string_lossy().to_string();
         if let Some(filter) = machine_filter {
-            if name != filter {
-                continue;
-            }
+            if name != filter { continue; }
         }
-        if !entry.path().is_dir() {
-            continue;
-        }
+        if !entry.path().is_dir() { continue; }
         if let Some(lock) = state::load_lock(state_dir, &name)? {
             for (id, rl) in &lock.resources {
-                let key = match dimension {
-                    "machine" => lock.machine.clone(),
-                    "type" => format!("{:?}", rl.resource_type),
-                    "status" => format!("{:?}", rl.status),
-                    _ => {
-                        return Err(format!(
-                            "Unknown dimension '{}'. Use: machine, type, status",
-                            dimension
-                        ))
-                    }
-                };
+                let key = summary_dimension_key(dimension, &lock, rl)?;
                 groups.entry(key).or_default().push(id.clone());
             }
         }
     }
 
     if json {
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&groups).unwrap_or_else(|_| "{}".to_string())
-        );
+        println!("{}", serde_json::to_string_pretty(&groups).unwrap_or_else(|_| "{}".to_string()));
     } else {
         println!("Summary by {}:\n", bold(dimension));
         for (group, resources) in &groups {

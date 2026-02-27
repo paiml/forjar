@@ -8,6 +8,7 @@ mod dispatch_notify;
 mod dispatch_graph;
 mod dispatch_validate;
 mod dispatch_lock;
+mod dispatch_misc;
 pub mod helpers;
 pub mod helpers_state;
 pub mod helpers_time;

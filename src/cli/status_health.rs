@@ -77,6 +77,15 @@ pub(crate) fn cmd_status_health(
 }
 
 
+/// Check if a lock file was last modified before the cutoff time.
+fn is_lock_stale(lock_path: &Path, cutoff: std::time::SystemTime) -> bool {
+    std::fs::metadata(lock_path)
+        .ok()
+        .and_then(|m| m.modified().ok())
+        .map(|m| m < cutoff)
+        .unwrap_or(false)
+}
+
 /// FJ-336: Show resources not updated in N days.
 fn collect_stale_by_days(
     state_dir: &Path,
@@ -94,13 +103,7 @@ fn collect_stale_by_days(
         }
         if !entry.path().is_dir() { continue; }
         let lock_path = entry.path().join("lock.yaml");
-        if !lock_path.exists() { continue; }
-        let is_stale = std::fs::metadata(&lock_path)
-            .ok()
-            .and_then(|m| m.modified().ok())
-            .map(|m| m < cutoff)
-            .unwrap_or(false);
-        if !is_stale { continue; }
+        if !lock_path.exists() || !is_lock_stale(&lock_path, cutoff) { continue; }
         let content = std::fs::read_to_string(&lock_path)
             .map_err(|e| format!("cannot read {}: {}", lock_path.display(), e))?;
         if let Ok(lock) = serde_yaml_ng::from_str::<types::StateLock>(&content) {
