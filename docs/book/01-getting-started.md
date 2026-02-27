@@ -16,7 +16,7 @@ Verify:
 forjar --help
 ```
 
-You should see forjar's 56 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`, `lock-compact`, `lock-verify`, `lock-export`.
+You should see forjar's 57 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`, `lock-compact`, `lock-verify`, `lock-export`, `lock-gc`.
 
 ## Your First Project
 
@@ -2012,6 +2012,69 @@ Show only machine-level summary without resource details:
 ```bash
 forjar status --machines-only --state-dir state
 forjar status --machines-only --json --state-dir state
+```
+
+## Check Templates
+
+Validate all template expressions resolve correctly:
+
+```bash
+forjar validate --check-templates -f forjar.yaml
+forjar validate --check-templates --json -f forjar.yaml
+```
+
+## Stale Resources
+
+Show resources whose lock entries haven't been updated recently:
+
+```bash
+forjar status --stale-resources --state-dir state
+forjar status --stale-resources --json --state-dir state
+```
+
+## Multi-Tag Filter
+
+Filter apply to resources matching specific tags:
+
+```bash
+forjar apply --tags networking --tags security -f forjar.yaml
+forjar apply --tags database -f forjar.yaml --state-dir state
+```
+
+## Graph Stats
+
+Show DAG statistics — node count, edge count, depth, and width:
+
+```bash
+forjar graph --stats -f forjar.yaml
+forjar graph --stats --json -f forjar.yaml
+```
+
+## Lock GC
+
+Garbage-collect orphaned lock entries not present in current config:
+
+```bash
+forjar lock-gc -f forjar.yaml --state-dir state
+forjar lock-gc -f forjar.yaml --state-dir state --yes  # skip confirmation
+forjar lock-gc -f forjar.yaml --state-dir state --json
+```
+
+## Log File
+
+Write apply output to a log file:
+
+```bash
+forjar apply --log-file /var/log/forjar/apply.log -f forjar.yaml
+```
+
+## Health Threshold
+
+Filter status to resources above a failure-rate threshold:
+
+```bash
+forjar status --health-threshold 50 --state-dir state
+forjar status --health-threshold 25 --json --state-dir state
 ```
 
 ## Next Steps

@@ -1941,14 +1941,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-420 | `forjar apply --retry-delay <seconds>` — delay between retry attempts. Backoff tuning. | Planned |
-| FJ-421 | `forjar validate --check-templates` — verify all template variables resolve. Template completeness. | Planned |
-| FJ-422 | `forjar status --stale-resources` — show resources not updated in any recent apply. Dead resource detection. | Planned |
-| FJ-423 | `forjar apply --tags <tag1,tag2>` — apply only resources matching any of the tags. Multi-tag filter. | Planned |
-| FJ-424 | `forjar graph --stats` — show graph statistics (nodes, edges, depth, width). DAG metrics. | Planned |
-| FJ-425 | `forjar lock gc` — garbage collect orphaned lock entries with no matching config. State cleanup. | Planned |
-| FJ-426 | `forjar apply --log-file <path>` — write detailed apply log to file. Audit logging. | Planned |
-| FJ-427 | `forjar status --health-threshold <n>` — set custom health score threshold (default: 80). Alerting tuning. | Planned |
+| FJ-420 | `forjar apply --retry-delay <seconds>` — delay between retry attempts. Backoff tuning. | Done |
+| FJ-421 | `forjar validate --check-templates` — verify all template variables resolve. Template completeness. | Done |
+| FJ-422 | `forjar status --stale-resources` — show resources not updated in any recent apply. Dead resource detection. | Done |
+| FJ-423 | `forjar apply --tags <tag1,tag2>` — apply only resources matching any of the tags. Multi-tag filter. | Done |
+| FJ-424 | `forjar graph --stats` — show graph statistics (nodes, edges, depth, width). DAG metrics. | Done |
+| FJ-425 | `forjar lock gc` — garbage collect orphaned lock entries with no matching config. State cleanup. | Done |
+| FJ-426 | `forjar apply --log-file <path>` — write detailed apply log to file. Audit logging. | Done |
+| FJ-427 | `forjar status --health-threshold <n>` — set custom health score threshold (default: 80). Alerting tuning. | Done |
+
+### Phase 29 — v2.9: Workflow & Collaboration
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-430 | `forjar apply --comment <text>` — attach a comment to the apply run in event log. Audit notes. | Planned |
+| FJ-431 | `forjar validate --strict-deps` — verify dependency ordering matches resource declaration order. | Planned |
+| FJ-432 | `forjar status --json-lines` — output status as newline-delimited JSON (NDJSON). Stream processing. | Planned |
+| FJ-433 | `forjar apply --only-changed` — apply only resources whose config hash changed since last apply. | Planned |
+| FJ-434 | `forjar graph --json` — output graph as JSON adjacency list. Programmatic graph analysis. | Planned |
+| FJ-435 | `forjar lock diff <a> <b>` — compare two lock files and show resource-level differences. | Planned |
+| FJ-436 | `forjar apply --pre-script <path>` — run a script before apply starts. Custom pre-flight checks. | Planned |
+| FJ-437 | `forjar status --since <duration>` — show only resources changed within duration (e.g., 1h, 7d). | Planned |
 
 ---
 
