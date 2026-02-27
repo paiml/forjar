@@ -1902,14 +1902,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-390 | `forjar apply --dry-run --json` — structured dry-run output for CI pipelines. Machine-readable plan. | Planned |
-| FJ-391 | `forjar validate --exhaustive` — validate all cross-references, machine existence, and param usage. Deep validation. | Planned |
-| FJ-392 | `forjar status --count` — simple resource count by status (converged/failed/drifted). Quick dashboard metric. | Planned |
-| FJ-393 | `forjar apply --notify-email <addr>` — send apply results via email (requires sendmail/SMTP). | Planned |
-| FJ-394 | `forjar graph --depth <n>` — limit graph traversal depth. Focused dependency visualization. | Planned |
-| FJ-395 | `forjar lock compact` — compact lock file by removing historical entries. Reduce state file size. | Planned |
-| FJ-396 | `forjar apply --skip <resource>` — skip specific resource during apply. Temporary exclusion. | Planned |
-| FJ-397 | `forjar status --format table|json|csv` — configurable status output format. Report generation. | Planned |
+| FJ-390 | `forjar apply --dry-run --json` — structured dry-run output for CI pipelines. Machine-readable plan. | Done |
+| FJ-391 | `forjar validate --exhaustive` — validate all cross-references, machine existence, and param usage. Deep validation. | Done |
+| FJ-392 | `forjar status --count` — simple resource count by status (converged/failed/drifted). Quick dashboard metric. | Done |
+| FJ-393 | `forjar apply --notify-email <addr>` — send apply results via email (requires sendmail/SMTP). | Done |
+| FJ-394 | `forjar graph --depth <n>` — limit graph traversal depth. Focused dependency visualization. | Done |
+| FJ-395 | `forjar lock compact` — compact lock file by removing historical entries. Reduce state file size. | Done |
+| FJ-396 | `forjar apply --skip <resource>` — skip specific resource during apply. Temporary exclusion. | Done |
+| FJ-397 | `forjar status --format table|json|csv` — configurable status output format. Report generation. | Done |
+
+### Phase 26 — v2.6: Advanced Automation & Governance
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-400 | `forjar apply --schedule <cron>` — schedule apply for future execution via at/cron. Deferred apply. | Planned |
+| FJ-401 | `forjar validate --policy-file <path>` — validate against external policy rules (OPA-style YAML). | Planned |
+| FJ-402 | `forjar status --anomalies` — detect anomalous resource states from historical patterns. | Planned |
+| FJ-403 | `forjar apply --snapshot-before` — named snapshot before apply (alias for --backup with custom name). | Planned |
+| FJ-404 | `forjar graph --cluster` — group resources by machine in graph output. Clustered visualization. | Planned |
+| FJ-405 | `forjar lock verify` — verify lock file integrity (BLAKE3 checksums). Corruption detection. | Planned |
+| FJ-406 | `forjar apply --concurrency <n>` — explicit concurrency limit across all machines. Global throttle. | Planned |
+| FJ-407 | `forjar status --diff-from <snapshot>` — diff current state against a named snapshot. Historical comparison. | Planned |
 
 ---
 

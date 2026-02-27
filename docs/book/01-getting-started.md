@@ -16,7 +16,7 @@ Verify:
 forjar --help
 ```
 
-You should see forjar's 52 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`.
+You should see forjar's 53 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`, `lock-compact`.
 
 ## Your First Project
 
@@ -1827,6 +1827,69 @@ Show resources whose lock entry is older than a duration:
 ```bash
 forjar status --expired 7d --state-dir state
 forjar status --expired 24h --state-dir state --json
+```
+
+## Exhaustive Validation
+
+Deep validation of all cross-references, machine existence, and param usage:
+
+```bash
+forjar validate --exhaustive -f forjar.yaml
+forjar validate --exhaustive --json -f forjar.yaml
+```
+
+## Resource Count
+
+Quick dashboard metric — resource count by status:
+
+```bash
+forjar status --count --state-dir state
+forjar status --count --json --state-dir state
+```
+
+## Email Notifications
+
+Send apply results via email (requires sendmail):
+
+```bash
+forjar apply --notify-email admin@example.com -f forjar.yaml
+```
+
+## Graph Depth Limit
+
+Limit graph traversal depth for focused visualization:
+
+```bash
+forjar graph --depth 2 -f forjar.yaml
+forjar graph --depth 1 --format dot -f forjar.yaml
+```
+
+## Lock Compact
+
+Compact event logs by removing historical entries:
+
+```bash
+forjar lock-compact --state-dir state          # dry-run
+forjar lock-compact --state-dir state --yes    # actually compact
+forjar lock-compact --state-dir state --json   # JSON output
+```
+
+## Skip Resources
+
+Skip a specific resource during apply:
+
+```bash
+forjar apply --skip legacy-config -f forjar.yaml
+```
+
+## Status Output Format
+
+Choose between table, JSON, or CSV output for status:
+
+```bash
+forjar status --format table --state-dir state
+forjar status --format json --state-dir state
+forjar status --format csv --state-dir state
 ```
 
 ## Next Steps
