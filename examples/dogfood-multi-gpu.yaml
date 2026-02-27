@@ -1,0 +1,138 @@
+version: '1.0'
+name: dogfood-multi-gpu
+description: >
+  Multi-vendor GPU container workflow — validates NVIDIA CUDA and AMD ROCm
+  container transport with device passthrough, group access, and env vars.
+  Models apr-model-qa-playbook pattern: same workload across GPU vendors.
+params:
+  model_repo: Qwen/Qwen2.5-Coder-7B-Instruct
+  workdir: /workspace/models
+machines:
+  gpu-cuda:
+    hostname: gpu-cuda
+    addr: container
+    user: root
+    arch: x86_64
+    ssh_key: null
+    roles:
+      - gpu
+      - cuda
+    transport: container
+    container:
+      runtime: docker
+      image: nvidia/cuda:12.4.1-runtime-ubuntu22.04
+      name: forjar-cuda
+      ephemeral: true
+      privileged: false
+      init: true
+      gpus: all
+      env:
+        CUDA_VISIBLE_DEVICES: '0,1'
+    cost: 0
+  gpu-rocm:
+    hostname: gpu-rocm
+    addr: container
+    user: root
+    arch: x86_64
+    ssh_key: null
+    roles:
+      - gpu
+      - rocm
+    transport: container
+    container:
+      runtime: docker
+      image: rocm/dev-ubuntu-22.04:6.1
+      name: forjar-rocm
+      ephemeral: true
+      privileged: false
+      init: true
+      devices:
+        - /dev/kfd
+        - /dev/dri
+      group_add:
+        - video
+        - render
+      env:
+        ROCR_VISIBLE_DEVICES: '0'
+    cost: 0
+resources:
+  cuda-workspace:
+    type: file
+    machine: gpu-cuda
+    state: directory
+    path: '{{params.workdir}}'
+    owner: root
+    mode: '0755'
+    tags:
+      - gpu
+      - setup
+  cuda-env-check:
+    type: file
+    machine: gpu-cuda
+    depends_on:
+      - cuda-workspace
+    path: '{{params.workdir}}/gpu-check.sh'
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+      echo "=== NVIDIA GPU Environment ==="
+      echo "CUDA_VISIBLE_DEVICES=$CUDA_VISIBLE_DEVICES"
+      nvidia-smi --query-gpu=name,memory.total --format=csv,noheader 2>/dev/null || echo "nvidia-smi not available (expected in CI)"
+      echo "GPU transport: OK"
+    mode: '0755'
+    tags:
+      - gpu
+      - cuda
+  rocm-workspace:
+    type: file
+    machine: gpu-rocm
+    state: directory
+    path: '{{params.workdir}}'
+    owner: root
+    mode: '0755'
+    tags:
+      - gpu
+      - setup
+  rocm-env-check:
+    type: file
+    machine: gpu-rocm
+    depends_on:
+      - rocm-workspace
+    path: '{{params.workdir}}/gpu-check.sh'
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+      echo "=== AMD ROCm GPU Environment ==="
+      echo "ROCR_VISIBLE_DEVICES=$ROCR_VISIBLE_DEVICES"
+      rocm-smi --showid 2>/dev/null || echo "rocm-smi not available (expected in CI)"
+      ls -la /dev/kfd /dev/dri 2>/dev/null || echo "GPU devices not mounted (expected in CI)"
+      echo "GPU transport: OK"
+    mode: '0755'
+    tags:
+      - gpu
+      - rocm
+  model-config:
+    type: file
+    machine: gpu-cuda
+    depends_on:
+      - cuda-workspace
+    path: '{{params.workdir}}/model.yaml'
+    content: |
+      # Model QA config — shared across GPU vendors
+      model:
+        repo: {{params.model_repo}}
+        backends: [cpu, gpu]
+        formats: [safetensors, gguf]
+      gates:
+        g1_model_loads: true
+        g2_basic_inference: true
+        g3_no_crashes: true
+    mode: '0644'
+    tags:
+      - gpu
+      - config
+policy:
+  failure: stop_on_first
+  parallel_machines: true
+  tripwire: true
+  lock_file: true
