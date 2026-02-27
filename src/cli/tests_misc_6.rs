@@ -157,6 +157,8 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
+            notify_ntfy: None,
+            only_machine: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { backup, .. }) => assert!(backup),
@@ -307,6 +309,8 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
+            notify_ntfy: None,
+            only_machine: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { exclude, .. }) => assert_eq!(exclude, Some("test-*".to_string())),
@@ -457,6 +461,8 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
+            notify_ntfy: None,
+            only_machine: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { sequential, .. }) => assert!(sequential),

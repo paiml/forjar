@@ -70,6 +70,7 @@ pub(crate) struct NotifyOpts<'a> {
     pub grpc: Option<&'a str>,
     pub sqs: Option<&'a str>,
     pub mattermost: Option<&'a str>,
+    pub ntfy: Option<&'a str>,
 }
 
 
@@ -113,6 +114,13 @@ fn send_webhook_notifications(opts: &NotifyOpts<'_>, status: &str, config: &Path
     }
     if let Some(url) = opts.mattermost {
         send_webhook(url, &format!(r#"{{"text":"forjar apply {}: {}"}}"#, status, config.display()));
+    }
+    if let Some(topic) = opts.ntfy {
+        let url = format!("https://ntfy.sh/{}", topic);
+        let msg = format!("forjar apply {}: {}", status, config.display());
+        let _ = std::process::Command::new("curl")
+            .args(["-s", "-d", &msg, &url])
+            .output();
     }
     if let Some(url) = opts.grafana {
         let ts = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs();

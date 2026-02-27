@@ -139,6 +139,7 @@ pub(crate) fn dispatch_apply_cmd(cmd: Commands, verbose: bool) -> Result<(), Str
         resource_priority: _resource_priority, apply_window: _apply_window,
         fail_fast_machine: _fail_fast_machine, notify_mattermost,
         cooldown: _cooldown, exclude_machine: _exclude_machine,
+        notify_ntfy, only_machine: _only_machine,
     }) = cmd
     else {
         unreachable!()
@@ -237,6 +238,7 @@ pub(crate) fn dispatch_apply_cmd(cmd: Commands, verbose: bool) -> Result<(), Str
         grpc: notify_grpc.as_deref(),
         sqs: notify_sqs.as_deref(),
         mattermost: notify_mattermost.as_deref(),
+        ntfy: notify_ntfy.as_deref(),
     };
     send_apply_notifications(&opts, &result, &file);
 

@@ -287,3 +287,61 @@ fn find_mount_conflicts(mount_paths: &[(String, String)]) -> Vec<(String, String
     }
     conflicts
 }
+
+/// Validate a cron field token against min/max range.
+fn validate_cron_field(field: &str, min: u32, max: u32) -> bool {
+    if field == "*" { return true; }
+    for part in field.split(',') {
+        let part = part.split('/').next().unwrap_or(part);
+        if part == "*" { continue; }
+        if let Some((a, b)) = part.split_once('-') {
+            let (Ok(a), Ok(b)) = (a.parse::<u32>(), b.parse::<u32>()) else { return false; };
+            if a < min || b > max || a > b { return false; }
+        } else {
+            let Ok(v) = part.parse::<u32>() else { return false; };
+            if v < min || v > max { return false; }
+        }
+    }
+    true
+}
+
+/// FJ-731: Validate cron schedule expressions in resources.
+pub(crate) fn cmd_validate_check_cron_syntax(file: &Path, json: bool) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let config: types::ForjarConfig =
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+
+    let mut issues: Vec<(String, String)> = Vec::new();
+    for (name, resource) in &config.resources {
+        if let Some(ref sched) = resource.schedule {
+            let parts: Vec<&str> = sched.split_whitespace().collect();
+            if parts.len() != 5 {
+                issues.push((name.clone(), format!("Expected 5 fields, got {}", parts.len())));
+                continue;
+            }
+            let ranges = [(0u32, 59u32), (0, 23), (1, 31), (1, 12), (0, 6)];
+            let labels = ["minute", "hour", "day-of-month", "month", "day-of-week"];
+            for (i, (min, max)) in ranges.iter().enumerate() {
+                if !validate_cron_field(parts[i], *min, *max) {
+                    issues.push((name.clone(), format!("Invalid {} field: '{}'", labels[i], parts[i])));
+                }
+            }
+        }
+    }
+
+    if json {
+        let entries: Vec<String> = issues
+            .iter()
+            .map(|(n, m)| format!("{{\"resource\":\"{}\",\"issue\":\"{}\"}}", n, m))
+            .collect();
+        println!("{{\"cron_issues\":[{}]}}", entries.join(","));
+    } else if issues.is_empty() {
+        println!("All cron schedules are valid.");
+    } else {
+        println!("Cron syntax issues ({}):", issues.len());
+        for (name, msg) in &issues {
+            println!("  {} — {}", name, msg);
+        }
+    }
+    Ok(())
+}

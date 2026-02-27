@@ -549,5 +549,11 @@ pub struct ApplyArgs {
     /// FJ-726: Exclude specific machine from apply
     #[arg(long)]
     pub exclude_machine: Option<String>,
+    /// FJ-730: Publish events to ntfy.sh topic
+    #[arg(long)]
+    pub notify_ntfy: Option<String>,
+    /// FJ-736: Apply only to specific machine
+    #[arg(long)]
+    pub only_machine: Option<String>,
 }
 

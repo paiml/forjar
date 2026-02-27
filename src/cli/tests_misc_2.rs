@@ -139,6 +139,7 @@ resources:
             check_mode_consistency: false,
             check_group_consistency: false,
             check_mount_points: false,
+            check_cron_syntax: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { strict, .. }) => assert!(strict),
@@ -367,6 +368,8 @@ resources:
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
+            notify_ntfy: None,
+            only_machine: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { yes, .. }) => assert!(yes),

@@ -203,6 +203,7 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
         drift_details_all, last_apply_duration, config_hash,
         convergence_history, resource_inputs, drift_trend,
         failed_resources, resource_types_summary,
+        resource_health, machine_health_summary,
     }) = cmd
     else {
         unreachable!()
@@ -210,6 +211,8 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
 
     let m = machine.as_deref();
 
+    if resource_health { return cmd_status_resource_health(&state_dir, m, json); }
+    if machine_health_summary { return cmd_status_machine_health_summary(&state_dir, m, json); }
     if let Some(r) = try_status_phase58(&state_dir, m, json, resource_types_summary, failed_resources, drift_trend, resource_inputs, convergence_history, config_hash, last_apply_duration, drift_details_all, resource_size, hash_verify, lock_age) {
         return r;
     }

@@ -439,6 +439,7 @@ resources:
             check_mode_consistency: false,
             check_group_consistency: false,
             check_mount_points: false,
+            check_cron_syntax: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { schema_version, .. }) => {

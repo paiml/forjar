@@ -98,8 +98,12 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
         check_naming_conventions, check_owner_consistency,
         check_path_conflicts, check_service_deps, check_template_vars,
         check_mode_consistency, check_group_consistency, check_mount_points,
+        check_cron_syntax,
     } = args;
 
+    if check_cron_syntax {
+        return cmd_validate_check_cron_syntax(&file, json);
+    }
     if let Some(r) = try_validate_structural(&file, json, check_mount_points, check_group_consistency, check_mode_consistency, check_template_vars, check_service_deps, check_path_conflicts, check_owner_consistency, check_naming_conventions, check_circular_refs, check_machine_reachability) {
         return r;
     }

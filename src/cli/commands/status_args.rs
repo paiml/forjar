@@ -308,5 +308,13 @@ pub struct StatusArgs {
     /// FJ-727: Show count per resource type
     #[arg(long)]
     pub resource_types_summary: bool,
+
+    /// FJ-732: Show health status per resource (converged/failed/drifted)
+    #[arg(long)]
+    pub resource_health: bool,
+
+    /// FJ-737: Show overall health per machine
+    #[arg(long)]
+    pub machine_health_summary: bool,
 }
 

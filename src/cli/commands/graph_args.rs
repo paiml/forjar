@@ -168,5 +168,9 @@ pub struct GraphArgs {
     /// FJ-724: Show depth-first traversal order
     #[arg(long)]
     pub depth_first: bool,
+
+    /// FJ-734: Show breadth-first traversal order
+    #[arg(long)]
+    pub breadth_first: bool,
 }
 
