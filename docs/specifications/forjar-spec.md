@@ -2279,14 +2279,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-680 | `forjar apply --notify-zeromq <endpoint>` — publish events to ZeroMQ socket. High-perf messaging. | Planned |
-| FJ-681 | `forjar validate --check-service-deps` — validate service dependency chains are satisfiable. Safety. | Planned |
-| FJ-682 | `forjar status --resource-size` — show estimated resource sizes (file bytes, package count). Capacity. | Planned |
-| FJ-683 | `forjar apply --canary-resource <name>` — apply single resource first as canary. Safety. | Planned |
-| FJ-684 | `forjar graph --resource-clusters` — identify tightly-coupled resource clusters. Architecture. | Planned |
-| FJ-685 | `forjar lock rebase` — rebase lock file onto new config schema. Migration. | Planned |
-| FJ-686 | `forjar apply --timeout-per-resource <secs>` — per-resource timeout override. Reliability. | Planned |
-| FJ-687 | `forjar status --drift-details-all` — show drift details for all machines at once. Fleet. | Planned |
+| FJ-680 | `forjar apply --notify-zeromq <endpoint>` — publish events to ZeroMQ socket. High-perf messaging. | Done |
+| FJ-681 | `forjar validate --check-service-deps` — validate service dependency chains are satisfiable. Safety. | Done |
+| FJ-682 | `forjar status --resource-size` — show estimated resource sizes (file bytes, package count). Capacity. | Done |
+| FJ-683 | `forjar apply --canary-resource <name>` — apply single resource first as canary. Safety. | Done |
+| FJ-684 | `forjar graph --resource-clusters` — identify tightly-coupled resource clusters. Architecture. | Done |
+| FJ-685 | `forjar lock rehash` — recompute all lock file hashes from current state. Migration. | Done |
+| FJ-686 | `forjar apply --timeout-per-resource <secs>` — per-resource timeout override. Reliability. | Done |
+| FJ-687 | `forjar status --drift-details-all` — show drift details for all machines at once. Fleet. | Done |
+
+### Phase 55 — Advanced Workflow & Pipeline Integration (FJ-690→FJ-697)
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-690 | `forjar apply --notify-nats <url>` — publish events to NATS messaging system. Cloud-native messaging. | Planned |
+| FJ-691 | `forjar validate --check-template-vars` — validate all template variables are defined. Safety. | Planned |
+| FJ-692 | `forjar status --last-apply-duration` — show duration of last apply per resource. Performance. | Planned |
+| FJ-693 | `forjar apply --skip-unchanged` — skip resources whose hash hasn't changed. Efficiency. | Planned |
+| FJ-694 | `forjar graph --critical-path` — identify longest dependency chain (critical path). Architecture. | Planned |
+| FJ-695 | `forjar lock snapshot <name>` — save named snapshot of current lock state. Versioning. | Planned |
+| FJ-696 | `forjar apply --max-retries <n>` — retry failed resources up to N times. Reliability. | Planned |
+| FJ-697 | `forjar status --config-hash` — show hash of current config for change detection. Integrity. | Planned |
 
 ---
 

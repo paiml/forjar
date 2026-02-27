@@ -3433,6 +3433,43 @@ forjar status --hash-verify --state-dir state
 forjar status --hash-verify --state-dir state --json
 ```
 
+### Phase 54 — Observability & Telemetry Deep Dive (FJ-680→FJ-687)
+
+**Service Dependency Validation** (FJ-681): Validate service dependency chains are satisfiable.
+
+```bash
+forjar validate -f forjar.yaml --check-service-deps
+forjar validate -f forjar.yaml --check-service-deps --json
+```
+
+**Resource Size Estimation** (FJ-682): Show estimated resource sizes (file bytes, package count).
+
+```bash
+forjar status --resource-size --state-dir state
+forjar status --resource-size --state-dir state --json
+```
+
+**Resource Clusters** (FJ-684): Identify tightly-coupled resource clusters in dependency graph.
+
+```bash
+forjar graph -f forjar.yaml --resource-clusters
+forjar graph -f forjar.yaml --resource-clusters --json
+```
+
+**Lock Rehash** (FJ-685): Recompute all lock file hashes from current state.
+
+```bash
+forjar lock-rehash --state-dir state
+forjar lock-rehash --state-dir state --json
+```
+
+**Drift Details All** (FJ-687): Show drift details for all machines at once.
+
+```bash
+forjar status --drift-details-all --state-dir state
+forjar status --drift-details-all --state-dir state --json
+```
+
 ## Next Steps
 
 - [Configuration Reference](02-configuration.md) — Complete `forjar.yaml` schema
