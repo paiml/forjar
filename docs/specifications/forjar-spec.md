@@ -2240,14 +2240,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-650 | `forjar apply --notify-redis <channel>` — publish events to Redis pub/sub. Caching integration. | Planned |
-| FJ-651 | `forjar validate --check-resource-limits` — warn on excessive resource counts per machine. Governance. | Planned |
-| FJ-652 | `forjar status --convergence-rate` — show percentage of resources converged over time. Trending. | Planned |
-| FJ-653 | `forjar apply --rollback-on-failure` — auto-rollback to last known good state on failure. Safety. | Planned |
-| FJ-654 | `forjar graph --orphan-detection` — find resources with no dependents or dependencies. Cleanup. | Planned |
-| FJ-655 | `forjar lock gc` — garbage collect stale entries from lock files. Maintenance. | Planned |
-| FJ-656 | `forjar apply --max-parallel <n>` — limit concurrent resource operations. Throttling. | Planned |
-| FJ-657 | `forjar status --machine-summary` — per-machine resource count and health summary. Fleet. | Planned |
+| FJ-650 | `forjar apply --notify-redis <channel>` — publish events to Redis pub/sub. Caching integration. | Done |
+| FJ-651 | `forjar validate --check-resource-limits` — warn on excessive resource counts per machine. Governance. | Done |
+| FJ-652 | `forjar status --convergence-rate` — show percentage of resources converged over time. Trending. | Done |
+| FJ-653 | `forjar apply --rollback-on-failure` — auto-rollback to last known good state on failure. Safety. | Done |
+| FJ-654 | `forjar graph --orphan-detection` — find resources with no dependents or dependencies. Cleanup. | Done |
+| FJ-655 | `forjar lock gc` — garbage collect stale entries from lock files. Maintenance. | Done |
+| FJ-656 | `forjar apply --max-parallel <n>` — limit concurrent resource operations. Throttling. | Done |
+| FJ-657 | `forjar status --machine-summary` — per-machine resource count and health summary. Fleet. | Done |
+
+### Phase 52 — Compliance & Policy Automation (FJ-660→FJ-667)
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-660 | `forjar apply --notify-amqp <exchange>` — publish events to AMQP exchange. Enterprise messaging. | Planned |
+| FJ-661 | `forjar validate --check-owner-consistency` — ensure all resources have consistent ownership. Governance. | Planned |
+| FJ-662 | `forjar status --change-frequency` — show how often each resource changes. Stability metrics. | Planned |
+| FJ-663 | `forjar apply --pre-apply-hook <cmd>` — run arbitrary command before each resource apply. Extensibility. | Planned |
+| FJ-664 | `forjar graph --cross-machine-deps` — visualize dependencies across machines. Fleet topology. | Planned |
+| FJ-665 | `forjar lock merge` — merge two lock files for split-brain recovery. Consistency. | Planned |
+| FJ-666 | `forjar apply --resource-filter <glob>` — only apply resources matching glob pattern. Selective. | Planned |
+| FJ-667 | `forjar status --lock-age` — show age of each lock file entry. Freshness. | Planned |
 
 ---
 
