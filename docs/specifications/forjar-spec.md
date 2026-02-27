@@ -2318,14 +2318,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-710 | `forjar apply --notify-pubsub <topic>` — publish events to Google Cloud Pub/Sub. Cloud messaging. | Planned |
-| FJ-711 | `forjar validate --check-group-consistency` — validate user/group consistency across resources. Safety. | Planned |
-| FJ-712 | `forjar status --resource-dependencies` — show dependency tree per resource. Insight. | Planned |
-| FJ-713 | `forjar apply --batch-size <n>` — apply resources in batches of N. Throttling. | Planned |
-| FJ-714 | `forjar graph --reverse-deps` — show reverse dependency graph (who depends on me). Architecture. | Planned |
-| FJ-715 | `forjar lock tag <name> <value>` — add metadata tags to lock files. Organization. | Planned |
-| FJ-716 | `forjar apply --fail-fast-machine` — stop all machines on first machine failure. Safety. | Planned |
-| FJ-717 | `forjar status --drift-summary` — show drift summary across all machines. Fleet. | Planned |
+| FJ-710 | `forjar apply --notify-eventbridge <bus>` — publish events to AWS EventBridge. Cloud messaging. | Done |
+| FJ-711 | `forjar validate --check-group-consistency` — validate user/group consistency across resources. Safety. | Done |
+| FJ-712 | `forjar status --resource-inputs` — show resource input fields per resource. Insight. | Done |
+| FJ-713 | `forjar apply --apply-window <secs>` — time window for apply operations. Throttling. | Done |
+| FJ-714 | `forjar graph --reverse-deps` — show reverse dependency graph (who depends on me). Architecture. | Done |
+| FJ-715 | `forjar lock tag <name> <value>` — add metadata tags to lock files. Organization. | Done |
+| FJ-716 | `forjar apply --fail-fast-machine` — stop all machines on first machine failure. Safety. | Done |
+| FJ-717 | `forjar status --drift-trend` — show drift trend over time. Fleet. | Done |
+
+### Phase 58 — Configuration Validation & Schema Evolution (FJ-720→FJ-727)
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-720 | `forjar apply --notify-kafka <broker>` — publish events to Apache Kafka. Streaming. | Planned |
+| FJ-721 | `forjar validate --check-mount-points` — validate mount point paths don't conflict. Safety. | Planned |
+| FJ-722 | `forjar status --failed-resources` — show only failed resources across machines. Debugging. | Planned |
+| FJ-723 | `forjar apply --cooldown <secs>` — wait between resource applies. Rate limiting. | Planned |
+| FJ-724 | `forjar graph --depth-first` — show depth-first traversal order. Analysis. | Planned |
+| FJ-725 | `forjar lock migrate <from-version>` — migrate lock file schema between versions. Migration. | Planned |
+| FJ-726 | `forjar apply --exclude-machine <name>` — exclude specific machine from apply. Targeting. | Planned |
+| FJ-727 | `forjar status --resource-types-summary` — show count per resource type. Overview. | Planned |
 
 ---
 
