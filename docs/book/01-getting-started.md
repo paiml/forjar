@@ -16,7 +16,7 @@ Verify:
 forjar --help
 ```
 
-You should see forjar's 68 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`, `lock-compact`, `lock-verify`, `lock-export`, `lock-gc`, `lock-diff`, `lock-merge`, `lock-rebase`, `lock-sign`, `lock-verify-sig`, `lock-compact-all`, `lock-audit-trail`, `lock-rotate-keys`, `lock-backup`, `lock-verify-chain`, `lock-stats`.
+You should see forjar's 69 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`, `lock-compact`, `lock-verify`, `lock-export`, `lock-gc`, `lock-diff`, `lock-merge`, `lock-rebase`, `lock-sign`, `lock-verify-sig`, `lock-compact-all`, `lock-audit-trail`, `lock-rotate-keys`, `lock-backup`, `lock-verify-chain`, `lock-stats`, `lock-audit`.
 
 ## Your First Project
 
@@ -2858,6 +2858,59 @@ Show lock file statistics (sizes, ages, resource counts):
 ```bash
 forjar lock-stats --state-dir state
 forjar lock-stats --state-dir state --json
+```
+
+### Check Compliance
+
+Validate resources against a compliance policy (CIS, SOC2, HIPAA):
+
+```bash
+forjar validate --check-compliance CIS -f forjar.yaml
+forjar validate --check-compliance SOC2 -f forjar.yaml --json
+forjar validate --check-compliance HIPAA -f forjar.yaml
+```
+
+### Incident Notification
+
+POST incidents to PagerDuty/Opsgenie on apply failure:
+
+```bash
+forjar apply -f forjar.yaml --notify-incident ROUTING_KEY_123
+```
+
+### Audit Trail
+
+Show full audit trail with who/what/when for each change:
+
+```bash
+forjar status --audit-trail --state-dir state
+forjar status --audit-trail --machine gpu-box --json --state-dir state
+```
+
+### Sign-Off
+
+Require named sign-off before apply proceeds:
+
+```bash
+forjar apply -f forjar.yaml --sign-off noah
+```
+
+### Blast Radius
+
+Show all resources transitively affected by a change to a target:
+
+```bash
+forjar graph --blast-radius base-packages -f forjar.yaml
+forjar graph --blast-radius base-packages -f forjar.yaml --json
+```
+
+### Lock Audit
+
+Verify lock file integrity and detect tampering:
+
+```bash
+forjar lock-audit --state-dir state
+forjar lock-audit --state-dir state --json
 ```
 
 ## Next Steps

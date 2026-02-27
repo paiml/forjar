@@ -2110,14 +2110,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-550 | `forjar apply --notify-incident <url>` — POST incident to PagerDuty/Opsgenie with full context. Incident response. | Planned |
-| FJ-551 | `forjar validate --check-compliance <policy>` — validate resources against compliance policy (CIS, SOC2). Governance. | Planned |
-| FJ-552 | `forjar status --audit-trail` — show full audit trail with who/what/when for each change. Compliance reporting. | Planned |
-| FJ-553 | `forjar apply --change-window <cron>` — only allow apply during maintenance windows. Change control. | Planned |
-| FJ-554 | `forjar graph --blast-radius <resource>` — show all resources affected by a change to target. Risk assessment. | Planned |
-| FJ-555 | `forjar lock audit` — verify lock file integrity and show tampering evidence. Security audit. | Planned |
-| FJ-556 | `forjar apply --sign-off <user>` — require named sign-off before apply proceeds. Approval chain. | Planned |
-| FJ-557 | `forjar status --sla-report` — SLA compliance report (uptime, MTTR, change frequency). Service level. | Planned |
+| FJ-550 | `forjar apply --notify-incident <url>` — POST incident to PagerDuty/Opsgenie with full context. Incident response. | Done |
+| FJ-551 | `forjar validate --check-compliance <policy>` — validate resources against compliance policy (CIS, SOC2). Governance. | Done |
+| FJ-552 | `forjar status --audit-trail` — show full audit trail with who/what/when for each change. Compliance reporting. | Done |
+| FJ-553 | `forjar apply --change-window <cron>` — only allow apply during maintenance windows. Change control. | Done (FJ-506) |
+| FJ-554 | `forjar graph --blast-radius <resource>` — show all resources affected by a change to target. Risk assessment. | Done |
+| FJ-555 | `forjar lock audit` — verify lock file integrity and show tampering evidence. Security audit. | Done |
+| FJ-556 | `forjar apply --sign-off <user>` — require named sign-off before apply proceeds. Approval chain. | Done |
+| FJ-557 | `forjar status --sla-report` — SLA compliance report (uptime, MTTR, change frequency). Service level. | Done (FJ-502) |
+
+### Phase 42 — v4.2: Observability & Telemetry
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-560 | `forjar apply --notify-sns <topic-arn>` — publish apply events to AWS SNS topic. Cloud integration. | Planned |
+| FJ-561 | `forjar validate --check-portability` — check resources for platform-specific assumptions. Cross-platform. | Planned |
+| FJ-562 | `forjar status --resource-graph` — show resource dependency graph from live state. State visualization. | Planned |
+| FJ-563 | `forjar apply --telemetry-endpoint <url>` — POST OpenTelemetry spans for apply execution. Observability. | Planned |
+| FJ-564 | `forjar graph --change-impact <resource>` — show direct + indirect impact of changing a resource. Planning. | Planned |
+| FJ-565 | `forjar lock compress` — compress old lock files with zstd. Storage optimization. | Planned |
+| FJ-566 | `forjar apply --runbook <url>` — attach runbook URL to apply for audit trail. Documentation link. | Planned |
+| FJ-567 | `forjar status --drift-velocity` — show drift rate over time (changes per day/week). Trend analysis. | Planned |
 
 ---
 
