@@ -165,6 +165,7 @@ mod tests {
         notify_exec: None,
         notify_file: None,
         notify_json: false,
+            notify_slack_webhook: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { retry, .. }) => assert_eq!(retry, 3),
@@ -322,6 +323,7 @@ mod tests {
         notify_exec: None,
         notify_file: None,
         notify_json: false,
+            notify_slack_webhook: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { retry, .. }) => assert_eq!(retry, 0),

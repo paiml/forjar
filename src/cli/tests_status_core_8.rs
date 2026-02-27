@@ -112,6 +112,9 @@ mod tests {
             apply_history_count: false,
             lock_file_count: false,
             resource_type_distribution: false,
+            resource_apply_age: false,
+            machine_uptime: false,
+            resource_churn: false,
         });
         match cmd {
             Commands::Status(StatusArgs { sla_report, .. }) => assert!(sla_report),
@@ -217,6 +220,9 @@ mod tests {
             apply_history_count: false,
             lock_file_count: false,
             resource_type_distribution: false,
+            resource_apply_age: false,
+            machine_uptime: false,
+            resource_churn: false,
         });
         match cmd {
             Commands::Status(StatusArgs { resource_graph, .. }) => assert!(resource_graph),
@@ -320,6 +326,9 @@ mod tests {
             apply_history_count: false,
             lock_file_count: false,
             resource_type_distribution: false,
+            resource_apply_age: false,
+            machine_uptime: false,
+            resource_churn: false,
         });
         match cmd {
             Commands::Status(StatusArgs { drift_velocity, .. }) => assert!(drift_velocity),
@@ -425,6 +434,9 @@ mod tests {
             apply_history_count: false,
             lock_file_count: false,
             resource_type_distribution: false,
+            resource_apply_age: false,
+            machine_uptime: false,
+            resource_churn: false,
         });
         match cmd {
             Commands::Status(StatusArgs { fleet_overview, .. }) => assert!(fleet_overview),
@@ -528,6 +540,9 @@ mod tests {
             apply_history_count: false,
             lock_file_count: false,
             resource_type_distribution: false,
+            resource_apply_age: false,
+            machine_uptime: false,
+            resource_churn: false,
         });
         match cmd {
             Commands::Status(StatusArgs { machine_health, .. }) => assert!(machine_health),

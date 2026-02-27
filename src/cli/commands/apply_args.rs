@@ -573,5 +573,9 @@ pub struct ApplyArgs {
     /// FJ-776: Print structured JSON notification to stdout
     #[arg(long)]
     pub notify_json: bool,
+
+    /// FJ-784: Send apply results to Slack webhook URL
+    #[arg(long)]
+    pub notify_slack_webhook: Option<String>,
 }
 

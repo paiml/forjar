@@ -450,6 +450,8 @@ resources:
         check_state_values: false,
         check_unused_machines: false,
         check_tag_consistency: false,
+            check_dependency_exists: false,
+            check_path_conflicts_strict: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { schema_version, .. }) => {

@@ -165,6 +165,7 @@ mod tests {
         notify_exec: None,
         notify_file: None,
         notify_json: false,
+            notify_slack_webhook: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { post_script, .. }) => {
@@ -324,6 +325,7 @@ mod tests {
         notify_exec: None,
         notify_file: None,
         notify_json: false,
+            notify_slack_webhook: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs {
@@ -483,6 +485,7 @@ mod tests {
         notify_exec: None,
         notify_file: None,
         notify_json: false,
+            notify_slack_webhook: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { canary_percent, .. }) => assert_eq!(canary_percent, Some(25)),

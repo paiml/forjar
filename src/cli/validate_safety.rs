@@ -254,6 +254,87 @@ pub(crate) fn cmd_validate_check_tag_consistency(
     Ok(())
 }
 
+/// FJ-781: Verify all depends_on targets reference existing resources.
+pub(crate) fn cmd_validate_check_dependency_exists(
+    file: &Path, json: bool,
+) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let config: types::ForjarConfig =
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+    let bad = find_missing_deps(&config);
+    if json {
+        let items: Vec<String> = bad.iter()
+            .map(|(r, d)| format!("{{\"resource\":\"{}\",\"missing_dep\":\"{}\"}}", r, d))
+            .collect();
+        println!("{{\"missing_dependencies\":[{}]}}", items.join(","));
+    } else if bad.is_empty() {
+        println!("All dependency references are valid.");
+    } else {
+        println!("Missing dependency targets ({}):", bad.len());
+        for (r, d) in &bad { println!("  {} → {} (not defined)", r, d); }
+    }
+    Ok(())
+}
+
+/// Find resources referencing dependencies that don't exist.
+fn find_missing_deps(config: &types::ForjarConfig) -> Vec<(String, String)> {
+    let names: HashSet<&str> = config.resources.keys().map(|k| k.as_str()).collect();
+    let mut bad = Vec::new();
+    for (name, resource) in &config.resources {
+        for dep in &resource.depends_on {
+            if !names.contains(dep.as_str()) {
+                bad.push((name.clone(), dep.clone()));
+            }
+        }
+    }
+    bad.sort();
+    bad
+}
+
+
+/// FJ-785: Detect resources targeting the same file path on the same machine.
+pub(crate) fn cmd_validate_check_path_conflicts_strict(
+    file: &Path, json: bool,
+) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let config: types::ForjarConfig =
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+    let conflicts = find_strict_path_conflicts(&config);
+    if json {
+        let items: Vec<String> = conflicts.iter()
+            .map(|(m, p, rs)| format!("{{\"machine\":\"{}\",\"path\":\"{}\",\"resources\":{:?}}}", m, p, rs))
+            .collect();
+        println!("{{\"path_conflicts\":[{}]}}", items.join(","));
+    } else if conflicts.is_empty() {
+        println!("No file path conflicts detected.");
+    } else {
+        println!("File path conflicts ({}):", conflicts.len());
+        for (m, p, rs) in &conflicts {
+            println!("  {} on {} — resources: {}", p, m, rs.join(", "));
+        }
+    }
+    Ok(())
+}
+
+/// Find resources that share the same path on the same machine.
+fn find_strict_path_conflicts(config: &types::ForjarConfig) -> Vec<(String, String, Vec<String>)> {
+    let mut path_map: HashMap<(String, String), Vec<String>> = HashMap::new();
+    for (name, resource) in &config.resources {
+        if let Some(ref p) = resource.path {
+            for m in resource.machine.to_vec() {
+                path_map.entry((m, p.clone())).or_default().push(name.clone());
+            }
+        }
+    }
+    let mut conflicts: Vec<(String, String, Vec<String>)> = path_map.into_iter()
+        .filter(|(_, rs)| rs.len() > 1)
+        .map(|((m, p), mut rs)| { rs.sort(); (m, p, rs) })
+        .collect();
+    conflicts.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.cmp(&b.1)));
+    conflicts
+}
+
+
 /// Check if a string is kebab-case.
 fn is_kebab_case(s: &str) -> bool {
     !s.is_empty() && s.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')

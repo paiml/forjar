@@ -165,6 +165,7 @@ mod tests {
         notify_exec: None,
         notify_file: None,
         notify_json: false,
+            notify_slack_webhook: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs {
@@ -326,6 +327,7 @@ mod tests {
         notify_exec: None,
         notify_file: None,
         notify_json: false,
+            notify_slack_webhook: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { batch_size, .. }) => assert_eq!(batch_size, Some(10)),
@@ -483,6 +485,7 @@ mod tests {
         notify_exec: None,
         notify_file: None,
         notify_json: false,
+            notify_slack_webhook: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { notify_teams, .. }) => {

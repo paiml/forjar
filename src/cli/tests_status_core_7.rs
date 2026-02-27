@@ -111,6 +111,9 @@ mod tests {
             apply_history_count: false,
             lock_file_count: false,
             resource_type_distribution: false,
+            resource_apply_age: false,
+            machine_uptime: false,
+            resource_churn: false,
         });
         match cmd {
             Commands::Status(StatusArgs { cost_estimate, .. }) => assert!(cost_estimate),
@@ -214,6 +217,9 @@ mod tests {
             apply_history_count: false,
             lock_file_count: false,
             resource_type_distribution: false,
+            resource_apply_age: false,
+            machine_uptime: false,
+            resource_churn: false,
         });
         match cmd {
             Commands::Status(StatusArgs {
@@ -321,6 +327,9 @@ mod tests {
             apply_history_count: false,
             lock_file_count: false,
             resource_type_distribution: false,
+            resource_apply_age: false,
+            machine_uptime: false,
+            resource_churn: false,
         });
         match cmd {
             Commands::Status(StatusArgs { health_score, .. }) => assert!(health_score),
@@ -424,6 +433,9 @@ mod tests {
             apply_history_count: false,
             lock_file_count: false,
             resource_type_distribution: false,
+            resource_apply_age: false,
+            machine_uptime: false,
+            resource_churn: false,
         });
         match cmd {
             Commands::Status(StatusArgs {
@@ -531,6 +543,9 @@ mod tests {
             apply_history_count: false,
             lock_file_count: false,
             resource_type_distribution: false,
+            resource_apply_age: false,
+            machine_uptime: false,
+            resource_churn: false,
         });
         match cmd {
             Commands::Status(StatusArgs { audit_trail, .. }) => assert!(audit_trail),

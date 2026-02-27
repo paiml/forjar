@@ -212,5 +212,13 @@ pub struct GraphArgs {
     /// FJ-779: Show graph density (edges / max-possible-edges)
     #[arg(long)]
     pub density: bool,
+
+    /// FJ-783: Output resources in valid topological execution order
+    #[arg(long)]
+    pub topological_sort: bool,
+
+    /// FJ-787: Show resources on the longest dependency chain
+    #[arg(long)]
+    pub critical_path_resources: bool,
 }
 

@@ -111,6 +111,9 @@ mod tests {
             apply_history_count: false,
             lock_file_count: false,
             resource_type_distribution: false,
+            resource_apply_age: false,
+            machine_uptime: false,
+            resource_churn: false,
         });
         match cmd {
             Commands::Status(StatusArgs { top_failures, .. }) => assert!(top_failures),
@@ -214,6 +217,9 @@ mod tests {
             apply_history_count: false,
             lock_file_count: false,
             resource_type_distribution: false,
+            resource_apply_age: false,
+            machine_uptime: false,
+            resource_churn: false,
         });
         match cmd {
             Commands::Status(StatusArgs {
@@ -321,6 +327,9 @@ mod tests {
             apply_history_count: false,
             lock_file_count: false,
             resource_type_distribution: false,
+            resource_apply_age: false,
+            machine_uptime: false,
+            resource_churn: false,
         });
         match cmd {
             Commands::Status(StatusArgs { drift_summary, .. }) => assert!(drift_summary),
@@ -424,6 +433,9 @@ mod tests {
             apply_history_count: false,
             lock_file_count: false,
             resource_type_distribution: false,
+            resource_apply_age: false,
+            machine_uptime: false,
+            resource_churn: false,
         });
         match cmd {
             Commands::Status(StatusArgs { resource_age, .. }) => assert!(resource_age),
@@ -529,6 +541,9 @@ mod tests {
             apply_history_count: false,
             lock_file_count: false,
             resource_type_distribution: false,
+            resource_apply_age: false,
+            machine_uptime: false,
+            resource_churn: false,
         });
         match cmd {
             Commands::Status(StatusArgs { sla_report, .. }) => assert!(sla_report),

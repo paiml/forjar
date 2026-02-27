@@ -200,5 +200,13 @@ pub struct ValidateArgs {
     /// FJ-777: Verify resource tags follow naming conventions
     #[arg(long)]
     pub check_tag_consistency: bool,
+
+    /// FJ-781: Verify all depends_on targets reference existing resources
+    #[arg(long)]
+    pub check_dependency_exists: bool,
+
+    /// FJ-785: Detect resources targeting the same file path on the same machine
+    #[arg(long)]
+    pub check_path_conflicts_strict: bool,
 }
 
