@@ -18,6 +18,9 @@ fn container_machine() -> Machine {
             privileged: false,
             init: true,
             gpus: None,
+            devices: vec![],
+            group_add: vec![],
+            env: std::collections::HashMap::new(),
         }),
         pepita: None,
         cost: 0,
@@ -103,6 +106,9 @@ fn test_fj021_ensure_no_image() {
             privileged: false,
             init: true,
             gpus: None,
+            devices: vec![],
+            group_add: vec![],
+            env: std::collections::HashMap::new(),
         }),
         pepita: None,
         cost: 0,
@@ -148,6 +154,9 @@ fn test_fj021_exec_with_fake_runtime() {
             privileged: false,
             init: true,
             gpus: None,
+            devices: vec![],
+            group_add: vec![],
+            env: std::collections::HashMap::new(),
         }),
         pepita: None,
         cost: 0,
@@ -197,6 +206,9 @@ fn test_fj021_container_name_derived_from_hostname() {
             privileged: false,
             init: true,
             gpus: None,
+            devices: vec![],
+            group_add: vec![],
+            env: std::collections::HashMap::new(),
         }),
         pepita: None,
         cost: 0,
@@ -222,6 +234,9 @@ fn test_fj021_container_name_explicit_overrides() {
             privileged: false,
             init: true,
             gpus: None,
+            devices: vec![],
+            group_add: vec![],
+            env: std::collections::HashMap::new(),
         }),
         pepita: None,
         cost: 0,
@@ -248,6 +263,9 @@ fn test_fj021_podman_runtime() {
             privileged: false,
             init: true,
             gpus: None,
+            devices: vec![],
+            group_add: vec![],
+            env: std::collections::HashMap::new(),
         }),
         pepita: None,
         cost: 0,
@@ -283,6 +301,9 @@ fn test_fj021_ensure_with_privileged_and_init_flags() {
             privileged: true,
             init: true,
             gpus: None,
+            devices: vec![],
+            group_add: vec![],
+            env: std::collections::HashMap::new(),
         }),
         pepita: None,
         cost: 0,
@@ -315,6 +336,9 @@ fn test_fj021_ensure_with_gpus_flag() {
             privileged: false,
             init: true,
             gpus: Some("all".to_string()),
+            devices: vec![],
+            group_add: vec![],
+            env: std::collections::HashMap::new(),
         }),
         pepita: None,
         cost: 0,
@@ -323,6 +347,76 @@ fn test_fj021_ensure_with_gpus_flag() {
     assert!(
         result.is_ok(),
         "ensure with --gpus all should succeed: {:?}",
+        result
+    );
+}
+
+#[test]
+fn test_fj021_ensure_with_rocm_devices() {
+    // AMD ROCm pattern: --device /dev/kfd --device /dev/dri --group-add video --group-add render
+    let machine = Machine {
+        hostname: "rocm-box".to_string(),
+        addr: "container".to_string(),
+        user: "root".to_string(),
+        arch: "x86_64".to_string(),
+        ssh_key: None,
+        roles: vec![],
+        transport: Some("container".to_string()),
+        container: Some(ContainerConfig {
+            runtime: "/bin/echo".to_string(),
+            image: Some("rocm/dev-ubuntu-22.04:6.1".to_string()),
+            name: Some("forjar-rocm-test".to_string()),
+            ephemeral: true,
+            privileged: false,
+            init: true,
+            gpus: None,
+            devices: vec!["/dev/kfd".to_string(), "/dev/dri".to_string()],
+            group_add: vec!["video".to_string(), "render".to_string()],
+            env: [("ROCR_VISIBLE_DEVICES".to_string(), "0".to_string())]
+                .into_iter().collect(),
+        }),
+        pepita: None,
+        cost: 0,
+    };
+    let result = ensure_container(&machine);
+    assert!(
+        result.is_ok(),
+        "ensure with ROCm devices should succeed: {:?}",
+        result
+    );
+}
+
+#[test]
+fn test_fj021_ensure_with_env_vars() {
+    // Multi-GPU env var pattern (CUDA_VISIBLE_DEVICES for NVIDIA)
+    let machine = Machine {
+        hostname: "env-box".to_string(),
+        addr: "container".to_string(),
+        user: "root".to_string(),
+        arch: "x86_64".to_string(),
+        ssh_key: None,
+        roles: vec![],
+        transport: Some("container".to_string()),
+        container: Some(ContainerConfig {
+            runtime: "/bin/echo".to_string(),
+            image: Some("nvidia/cuda:12.4.1-runtime-ubuntu22.04".to_string()),
+            name: Some("forjar-env-test".to_string()),
+            ephemeral: true,
+            privileged: false,
+            init: true,
+            gpus: Some("all".to_string()),
+            devices: vec![],
+            group_add: vec![],
+            env: [("CUDA_VISIBLE_DEVICES".to_string(), "0,1".to_string())]
+                .into_iter().collect(),
+        }),
+        pepita: None,
+        cost: 0,
+    };
+    let result = ensure_container(&machine);
+    assert!(
+        result.is_ok(),
+        "ensure with env vars should succeed: {:?}",
         result
     );
 }
@@ -346,6 +440,9 @@ fn test_fj021_ensure_no_init_no_privileged() {
             privileged: false,
             init: false,
             gpus: None,
+            devices: vec![],
+            group_add: vec![],
+            env: std::collections::HashMap::new(),
         }),
         pepita: None,
         cost: 0,

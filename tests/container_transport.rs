@@ -25,7 +25,13 @@ fn test_machine() -> Machine {
             ephemeral: true,
             privileged: false,
             init: true,
+            gpus: None,
+            devices: vec![],
+            group_add: vec![],
+            env: std::collections::HashMap::new(),
         }),
+        pepita: None,
+        cost: 0,
     }
 }
 
