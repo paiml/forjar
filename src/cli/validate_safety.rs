@@ -107,3 +107,92 @@ fn find_bad_machine_refs(config: &types::ForjarConfig) -> Vec<(String, String)> 
     bad.sort();
     bad
 }
+
+
+/// FJ-765: Verify consistent package providers per machine.
+pub(crate) fn cmd_validate_check_provider_consistency(
+    file: &Path, json: bool,
+) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let config: types::ForjarConfig =
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+    let conflicts = find_provider_conflicts(&config);
+    if json {
+        let items: Vec<String> = conflicts.iter()
+            .map(|(m, ps)| format!("{{\"machine\":\"{}\",\"providers\":{:?}}}", m, ps))
+            .collect();
+        println!("{{\"provider_conflicts\":[{}]}}", items.join(","));
+    } else if conflicts.is_empty() {
+        println!("All machines use consistent package providers.");
+    } else {
+        println!("Provider inconsistencies ({}):", conflicts.len());
+        for (m, providers) in &conflicts {
+            println!("  {} — mixed providers: {}", m, providers.join(", "));
+        }
+    }
+    Ok(())
+}
+
+/// Find machines where package resources use multiple providers.
+fn find_provider_conflicts(config: &types::ForjarConfig) -> Vec<(String, Vec<String>)> {
+    let mut machine_providers: HashMap<String, HashSet<String>> = HashMap::new();
+    for resource in config.resources.values() {
+        if resource.resource_type != types::ResourceType::Package { continue; }
+        if let Some(ref p) = resource.provider {
+            for m in resource.machine.to_vec() {
+                machine_providers.entry(m).or_default().insert(p.clone());
+            }
+        }
+    }
+    let mut conflicts: Vec<(String, Vec<String>)> = machine_providers.into_iter()
+        .filter(|(_, ps)| ps.len() > 1)
+        .map(|(m, ps)| { let mut v: Vec<String> = ps.into_iter().collect(); v.sort(); (m, v) })
+        .collect();
+    conflicts.sort_by(|a, b| a.0.cmp(&b.0));
+    conflicts
+}
+
+
+/// FJ-769: Verify state field values are valid for each resource type.
+pub(crate) fn cmd_validate_check_state_values(
+    file: &Path, json: bool,
+) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let config: types::ForjarConfig =
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+    let bad = find_bad_states(&config);
+    if json {
+        let items: Vec<String> = bad.iter()
+            .map(|(r, t, s)| format!("{{\"resource\":\"{}\",\"type\":\"{}\",\"state\":\"{}\"}}", r, t, s))
+            .collect();
+        println!("{{\"invalid_states\":[{}]}}", items.join(","));
+    } else if bad.is_empty() {
+        println!("All resource state values are valid.");
+    } else {
+        println!("Invalid state values ({}):", bad.len());
+        for (r, t, s) in &bad { println!("  {} (type {}) — invalid state \"{}\"", r, t, s); }
+    }
+    Ok(())
+}
+
+/// Check that each resource's state field is valid for its type.
+fn find_bad_states(config: &types::ForjarConfig) -> Vec<(String, String, String)> {
+    let mut bad = Vec::new();
+    for (name, resource) in &config.resources {
+        if let Some(ref s) = resource.state {
+            let valid = match resource.resource_type {
+                types::ResourceType::File => ["file", "directory", "symlink", "absent"].contains(&s.as_str()),
+                types::ResourceType::Service => ["running", "stopped", "enabled", "disabled"].contains(&s.as_str()),
+                types::ResourceType::Mount => ["mounted", "unmounted", "absent"].contains(&s.as_str()),
+                types::ResourceType::Docker => ["running", "stopped", "absent"].contains(&s.as_str()),
+                types::ResourceType::Package => ["present", "absent"].contains(&s.as_str()),
+                _ => true,
+            };
+            if !valid {
+                bad.push((name.clone(), resource.resource_type.to_string(), s.clone()));
+            }
+        }
+    }
+    bad.sort_by(|a, b| a.0.cmp(&b.0));
+    bad
+}

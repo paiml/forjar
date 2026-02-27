@@ -105,6 +105,9 @@ mod tests {
             drift_count: false,
             resource_duration: false,
             machine_resource_map: false,
+            fleet_convergence: false,
+            resource_hash: false,
+            machine_drift_summary: false,
         });
         match cmd {
             Commands::Status(StatusArgs { stale, .. }) => assert_eq!(stale, Some(30)),
@@ -204,6 +207,9 @@ mod tests {
             drift_count: false,
             resource_duration: false,
             machine_resource_map: false,
+            fleet_convergence: false,
+            resource_hash: false,
+            machine_drift_summary: false,
         });
         match cmd {
             Commands::Status(StatusArgs { health, .. }) => assert!(health),
@@ -301,6 +307,9 @@ mod tests {
             drift_count: false,
             resource_duration: false,
             machine_resource_map: false,
+            fleet_convergence: false,
+            resource_hash: false,
+            machine_drift_summary: false,
         });
         match cmd {
             Commands::Status(StatusArgs { count, .. }) => assert!(count),
@@ -398,6 +407,9 @@ mod tests {
             drift_count: false,
             resource_duration: false,
             machine_resource_map: false,
+            fleet_convergence: false,
+            resource_hash: false,
+            machine_drift_summary: false,
         });
         match cmd {
             Commands::Status(StatusArgs { format, .. }) => {
@@ -497,6 +509,9 @@ mod tests {
             drift_count: false,
             resource_duration: false,
             machine_resource_map: false,
+            fleet_convergence: false,
+            resource_hash: false,
+            machine_drift_summary: false,
         });
         match cmd {
             Commands::Status(StatusArgs { anomalies, .. }) => assert!(anomalies),

@@ -191,6 +191,8 @@ mod tests_phase61;
 #[cfg(test)]
 mod tests_phase62;
 #[cfg(test)]
+mod tests_phase63;
+#[cfg(test)]
 mod tests_lock_core;
 #[cfg(test)]
 mod tests_lock_core_1;

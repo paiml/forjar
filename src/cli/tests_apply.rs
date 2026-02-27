@@ -377,6 +377,7 @@ resources:
                 notify_webhook_headers: None,
                 notify_log: None,
         notify_exec: None,
+        notify_file: None,
             }),
             false,
             true,

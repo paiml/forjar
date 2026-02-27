@@ -184,5 +184,13 @@ pub struct ValidateArgs {
     /// FJ-761: Verify all machine references in resources exist
     #[arg(long)]
     pub check_machine_refs: bool,
+
+    /// FJ-765: Verify consistent package providers per machine
+    #[arg(long)]
+    pub check_provider_consistency: bool,
+
+    /// FJ-769: Verify state field values are valid for each resource type
+    #[arg(long)]
+    pub check_state_values: bool,
 }
 

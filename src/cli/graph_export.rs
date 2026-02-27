@@ -182,3 +182,99 @@ fn print_adjacency_table(names: &[String], matrix: &[Vec<bool>]) {
         println!();
     }
 }
+
+
+/// FJ-767: Show longest dependency chain length.
+pub(crate) fn cmd_graph_longest_path(file: &Path, json: bool) -> Result<(), String> {
+    let cfg = parse_and_validate(file)?;
+    let (length, chain) = find_longest_chain(&cfg);
+    if json {
+        let items: Vec<String> = chain.iter().map(|n| format!("\"{}\"", n)).collect();
+        println!("{{\"longest_path_length\":{},\"chain\":[{}]}}", length, items.join(","));
+    } else if length == 0 {
+        println!("No dependency chains (all resources independent).");
+    } else {
+        println!("Longest dependency chain ({} edges): {}", length, chain.join(" → "));
+    }
+    Ok(())
+}
+
+/// Relax edges to compute longest distances and predecessors.
+fn relax_dag_edges(
+    cfg: &types::ForjarConfig, names: &[&str],
+    idx: &std::collections::HashMap<&str, usize>,
+    dist: &mut [usize], prev: &mut [usize],
+) {
+    let mut order: Vec<usize> = (0..names.len()).collect();
+    order.sort_by_key(|&i| {
+        cfg.resources.get(names[i]).map(|r| r.depends_on.len()).unwrap_or(0)
+    });
+    for &u in &order {
+        if let Some(resource) = cfg.resources.get(names[u]) {
+            for dep in &resource.depends_on {
+                if let Some(&v) = idx.get(dep.as_str()) {
+                    if dist[v] + 1 > dist[u] { dist[u] = dist[v] + 1; prev[u] = v; }
+                }
+            }
+        }
+    }
+}
+
+/// Reconstruct chain from predecessor array.
+fn reconstruct_chain(names: &[&str], prev: &[usize], start: usize) -> Vec<String> {
+    let mut chain = vec![names[start].to_string()];
+    let mut cur = start;
+    while prev[cur] != usize::MAX {
+        cur = prev[cur];
+        chain.push(names[cur].to_string());
+    }
+    chain.reverse();
+    chain
+}
+
+/// Find longest path in DAG using topological-order DP.
+fn find_longest_chain(cfg: &types::ForjarConfig) -> (usize, Vec<String>) {
+    let names: Vec<&str> = cfg.resources.keys().map(|k| k.as_str()).collect();
+    let n = names.len();
+    if n == 0 { return (0, Vec::new()); }
+    let idx: std::collections::HashMap<&str, usize> = names.iter().enumerate()
+        .map(|(i, &n)| (n, i)).collect();
+    let mut dist = vec![0usize; n];
+    let mut prev = vec![usize::MAX; n];
+    relax_dag_edges(cfg, &names, &idx, &mut dist, &mut prev);
+    let best = (0..n).max_by_key(|&i| dist[i]).unwrap_or(0);
+    (dist[best], reconstruct_chain(&names, &prev, best))
+}
+
+
+/// FJ-771: Show in-degree (number of dependents) per resource.
+pub(crate) fn cmd_graph_in_degree(file: &Path, json: bool) -> Result<(), String> {
+    let cfg = parse_and_validate(file)?;
+    let degrees = compute_in_degrees(&cfg);
+    if json {
+        let items: Vec<String> = degrees.iter()
+            .map(|(n, d)| format!("{{\"resource\":\"{}\",\"in_degree\":{}}}", n, d))
+            .collect();
+        println!("{{\"in_degrees\":[{}]}}", items.join(","));
+    } else if degrees.is_empty() {
+        println!("No resources.");
+    } else {
+        println!("In-degree (dependents) per resource:");
+        for (name, deg) in &degrees { println!("  {} — {}", name, deg); }
+    }
+    Ok(())
+}
+
+/// Compute in-degree for each resource (how many others depend on it).
+fn compute_in_degrees(cfg: &types::ForjarConfig) -> Vec<(String, usize)> {
+    let mut deg: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    for name in cfg.resources.keys() { deg.insert(name.clone(), 0); }
+    for resource in cfg.resources.values() {
+        for dep in &resource.depends_on {
+            *deg.entry(dep.clone()).or_default() += 1;
+        }
+    }
+    let mut result: Vec<(String, usize)> = deg.into_iter().collect();
+    result.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+    result
+}

@@ -65,6 +65,8 @@ mod tests {
             check_duplicate_paths: false,
         check_circular_deps: false,
         check_machine_refs: false,
+        check_provider_consistency: false,
+        check_state_values: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { check_limits, .. }) => assert!(check_limits),
@@ -121,6 +123,8 @@ mod tests {
             check_duplicate_paths: false,
         check_circular_deps: false,
         check_machine_refs: false,
+        check_provider_consistency: false,
+        check_state_values: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs {
@@ -179,6 +183,8 @@ mod tests {
             check_duplicate_paths: false,
         check_circular_deps: false,
         check_machine_refs: false,
+        check_provider_consistency: false,
+        check_state_values: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { check_security, .. }) => assert!(check_security),
@@ -235,6 +241,8 @@ mod tests {
             check_duplicate_paths: false,
         check_circular_deps: false,
         check_machine_refs: false,
+        check_provider_consistency: false,
+        check_state_values: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs {
@@ -293,6 +301,8 @@ mod tests {
             check_duplicate_paths: false,
         check_circular_deps: false,
         check_machine_refs: false,
+        check_provider_consistency: false,
+        check_state_values: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs {
@@ -351,6 +361,8 @@ mod tests {
             check_duplicate_paths: false,
         check_circular_deps: false,
         check_machine_refs: false,
+        check_provider_consistency: false,
+        check_state_values: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs {
@@ -409,6 +421,8 @@ mod tests {
             check_duplicate_paths: false,
         check_circular_deps: false,
         check_machine_refs: false,
+        check_provider_consistency: false,
+        check_state_values: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs {
@@ -467,6 +481,8 @@ mod tests {
             check_duplicate_paths: false,
         check_circular_deps: false,
         check_machine_refs: false,
+        check_provider_consistency: false,
+        check_state_values: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs {
@@ -526,6 +542,8 @@ mod tests {
             check_duplicate_paths: false,
         check_circular_deps: false,
         check_machine_refs: false,
+        check_provider_consistency: false,
+        check_state_values: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { check_unused, .. }) => assert!(check_unused),

@@ -162,6 +162,7 @@ mod tests {
             notify_webhook_headers: None,
             notify_log: None,
         notify_exec: None,
+        notify_file: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { notify_slack, .. }) => {
@@ -322,6 +323,7 @@ mod tests {
             notify_webhook_headers: None,
             notify_log: None,
         notify_exec: None,
+        notify_file: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { cost_limit, .. }) => assert_eq!(cost_limit, Some(5)),
@@ -477,6 +479,7 @@ mod tests {
             notify_webhook_headers: None,
             notify_log: None,
         notify_exec: None,
+        notify_file: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { preview, .. }) => assert!(preview),

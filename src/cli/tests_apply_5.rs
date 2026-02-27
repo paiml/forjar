@@ -163,6 +163,7 @@ mod tests {
                 notify_webhook_headers: None,
                 notify_log: None,
         notify_exec: None,
+        notify_file: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { skip, .. }) => {
@@ -320,6 +321,7 @@ mod tests {
                 notify_webhook_headers: None,
                 notify_log: None,
         notify_exec: None,
+        notify_file: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs {
@@ -479,6 +481,7 @@ mod tests {
                 notify_webhook_headers: None,
                 notify_log: None,
         notify_exec: None,
+        notify_file: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { concurrency, .. }) => assert_eq!(concurrency, Some(4)),
