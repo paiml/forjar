@@ -58,6 +58,19 @@ Checks:
 - Cron schedule has exactly 5 fields (min hour dom mon dow)
 - Symlink resources have a target field
 
+**Extended validation checks:**
+
+```bash
+# Check resource count per machine (warn if over threshold)
+forjar validate -f forjar.yaml --check-resource-count 50
+
+# Detect duplicate file paths across resources
+forjar validate -f forjar.yaml --check-duplicate-paths
+
+# JSON output for CI integration
+forjar validate -f forjar.yaml --check-duplicate-paths --json
+```
+
 ### `forjar plan`
 
 Show execution plan (what would change).
@@ -156,6 +169,22 @@ forjar status [--state-dir DIR] [-m MACHINE] [--json]
 | `-m, --machine` | all | Filter to specific machine |
 | `--json` | false | Output status as JSON |
 
+**Status dashboard flags:**
+
+```bash
+# Show convergence percentage per machine
+forjar status --state-dir state --convergence-percentage
+
+# Show failed resource count per machine
+forjar status --state-dir state --failed-count
+
+# Show drifted resource count per machine
+forjar status --state-dir state --drift-count
+
+# JSON output for all dashboard metrics
+forjar status --state-dir state --convergence-percentage --json
+```
+
 ### `forjar history`
 
 Show apply history from event logs.
@@ -214,6 +243,20 @@ forjar graph -f <FILE> [--format mermaid|dot]
 | `--format` | `mermaid` | Output format: `mermaid` or `dot` |
 
 Mermaid output can be pasted into GitHub markdown or rendered with mermaid-cli. DOT output is compatible with Graphviz.
+
+**Graph analysis flags:**
+
+```bash
+# Show root resources (no dependencies)
+forjar graph -f forjar.yaml --root-resources
+
+# Output as edge list (source → target pairs)
+forjar graph -f forjar.yaml --edge-list
+
+# JSON output for both
+forjar graph -f forjar.yaml --root-resources --json
+forjar graph -f forjar.yaml --edge-list --json
+```
 
 ### `forjar destroy`
 
