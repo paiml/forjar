@@ -2214,14 +2214,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-630 | `forjar apply --notify-nats <subject>` — publish events to NATS messaging. Lightweight integration. | Planned |
-| FJ-631 | `forjar validate --check-circular-refs` — detect circular template/param references. Integrity. | Planned |
-| FJ-632 | `forjar status --diagnostic` — comprehensive diagnostic report with recommendations. Debugging. | Planned |
-| FJ-633 | `forjar apply --dry-run-verbose` — verbose dry-run showing all planned commands. Debugging. | Planned |
-| FJ-634 | `forjar graph --critical-chain` — show longest dependency chain (critical path analysis). Planning. | Planned |
-| FJ-635 | `forjar lock repair` — attempt automatic repair of corrupted lock files. Recovery. | Planned |
-| FJ-636 | `forjar apply --explain` — explain what each step will do before executing. Education. | Planned |
-| FJ-637 | `forjar status --stale-resources` — identify resources not updated in configurable threshold. Hygiene. | Planned |
+| FJ-630 | `forjar apply --notify-nats <subject>` — publish events to NATS messaging. Lightweight integration. | Done |
+| FJ-631 | `forjar validate --check-circular-refs` — detect circular template/param references. Integrity. | Done |
+| FJ-632 | `forjar status --diagnostic` — comprehensive diagnostic report with recommendations. Debugging. | Done |
+| FJ-633 | `forjar apply --dry-run-verbose` — verbose dry-run showing all planned commands. Debugging. | Done |
+| FJ-634 | `forjar graph --critical-chain` — show longest dependency chain (critical path analysis). Planning. | Done |
+| FJ-635 | `forjar lock repair` — attempt automatic repair of corrupted lock files. Recovery. | Done |
+| FJ-636 | `forjar apply --explain` — explain what each step will do before executing. Education. | Done |
+| FJ-637 | `forjar status --stale-resources` — identify resources not updated in configurable threshold. Hygiene. | Done |
+
+### Phase 50 — v5.0: Production Readiness & Polish
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-640 | `forjar apply --notify-mqtt <topic>` — publish events to MQTT broker. IoT integration. | Planned |
+| FJ-641 | `forjar validate --check-naming-conventions` — enforce naming conventions across resources. Style. | Planned |
+| FJ-642 | `forjar status --uptime` — show resource uptime based on convergence history. Reliability. | Planned |
+| FJ-643 | `forjar apply --confirmation-message <msg>` — custom confirmation message before apply. UX. | Planned |
+| FJ-644 | `forjar graph --dependency-depth` — show max dependency depth per resource. Complexity. | Planned |
+| FJ-645 | `forjar lock history` — show lock file change history with diffs. Audit trail. | Planned |
+| FJ-646 | `forjar apply --summary-only` — only show summary, no per-resource output. Brevity. | Planned |
+| FJ-647 | `forjar status --recommendations` — AI-powered recommendations based on state analysis. Intelligence. | Planned |
 
 ---
 
