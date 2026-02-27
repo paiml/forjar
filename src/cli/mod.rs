@@ -60,6 +60,7 @@ fn bold(s: &str) -> String {
 }
 
 #[derive(Subcommand, Debug)]
+#[allow(clippy::large_enum_variant)]
 pub enum Commands {
     /// Initialize a new forjar project
     Init {
@@ -291,6 +292,18 @@ pub enum Commands {
         /// FJ-356: Abort apply if resource change count exceeds limit
         #[arg(long)]
         cost_limit: Option<usize>,
+
+        /// FJ-360: Show generated scripts before execution
+        #[arg(long)]
+        preview: bool,
+
+        /// FJ-362: Boolean tag filter expression (e.g., "web AND NOT staging")
+        #[arg(long)]
+        tag_filter: Option<String>,
+
+        /// FJ-365: Write generated scripts to directory for manual review
+        #[arg(long)]
+        output_scripts: Option<PathBuf>,
     },
 
     /// Detect unauthorized changes (tripwire)
@@ -373,6 +386,10 @@ pub enum Commands {
         /// FJ-355: Show detailed drift report with field-level diffs
         #[arg(long)]
         drift_details: bool,
+
+        /// FJ-364: Show convergence timeline with timestamps
+        #[arg(long)]
+        timeline: bool,
     },
 
     /// Show apply history from event logs
@@ -1012,6 +1029,64 @@ pub enum Commands {
         #[arg(short, long)]
         output: Option<PathBuf>,
     },
+
+    /// FJ-361: Analyze config and suggest improvements
+    Suggest {
+        /// Path to forjar.yaml
+        #[arg(short, long, default_value = "forjar.yaml")]
+        file: PathBuf,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// FJ-363: Compare two config files and show differences
+    Compare {
+        /// First config file
+        file1: PathBuf,
+
+        /// Second config file
+        file2: PathBuf,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// FJ-366: Remove lock entries for resources no longer in config
+    #[command(name = "lock-prune")]
+    LockPrune {
+        /// Path to forjar.yaml
+        #[arg(short, long, default_value = "forjar.yaml")]
+        file: PathBuf,
+
+        /// State directory
+        #[arg(long, default_value = "state")]
+        state_dir: PathBuf,
+
+        /// Actually remove entries (default: dry-run)
+        #[arg(long)]
+        yes: bool,
+    },
+
+    /// FJ-367: Compare environments (workspaces) for drift
+    #[command(name = "env-diff")]
+    EnvDiff {
+        /// First workspace name
+        env1: String,
+
+        /// Second workspace name
+        env2: String,
+
+        /// State directory
+        #[arg(long, default_value = "state")]
+        state_dir: PathBuf,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 /// FJ-260: Snapshot subcommands — named state checkpoints.
@@ -1261,7 +1336,28 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             diff_only,
             notify_slack,
             cost_limit,
+            preview,
+            tag_filter: _tag_filter,
+            output_scripts,
         } => {
+            // FJ-360: --preview shows generated scripts before execution
+            if preview {
+                let sd = resolve_state_dir(&state_dir, workspace.as_deref());
+                return cmd_plan(
+                    &file, &sd, machine.as_deref(), resource.as_deref(),
+                    tag.as_deref(), false, true, None, env_file.as_deref(),
+                    workspace.as_deref(), false, None, false, &[],
+                );
+            }
+            // FJ-365: --output-scripts writes scripts to directory
+            if let Some(ref dir) = output_scripts {
+                let sd = resolve_state_dir(&state_dir, workspace.as_deref());
+                return cmd_plan(
+                    &file, &sd, machine.as_deref(), resource.as_deref(),
+                    tag.as_deref(), false, false, Some(dir), env_file.as_deref(),
+                    workspace.as_deref(), false, None, false, &[],
+                );
+            }
             // FJ-342: Auto-backup state before apply
             if backup {
                 let sd = resolve_state_dir(&state_dir, workspace.as_deref());
@@ -1272,9 +1368,20 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             if diff_only {
                 let sd = resolve_state_dir(&state_dir, workspace.as_deref());
                 return cmd_plan(
-                    &file, &sd, machine.as_deref(), resource.as_deref(),
-                    tag.as_deref(), json, verbose, None, env_file.as_deref(),
-                    workspace.as_deref(), false, None, false, &[],
+                    &file,
+                    &sd,
+                    machine.as_deref(),
+                    resource.as_deref(),
+                    tag.as_deref(),
+                    json,
+                    verbose,
+                    None,
+                    env_file.as_deref(),
+                    workspace.as_deref(),
+                    false,
+                    None,
+                    false,
+                    &[],
                 );
             }
             if check {
@@ -1297,7 +1404,11 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
                 let locks = load_machine_locks(&config, &sd, machine.as_deref())?;
                 let tag_ref: Option<&str> = tag.as_deref();
                 let plan = planner::plan(&config, &order, &locks, tag_ref);
-                let change_count = plan.changes.iter().filter(|c| c.action != types::PlanAction::NoOp).count();
+                let change_count = plan
+                    .changes
+                    .iter()
+                    .filter(|c| c.action != types::PlanAction::NoOp)
+                    .count();
                 if change_count > limit {
                     return Err(format!(
                         "Cost limit exceeded: {} changes planned, limit is {}. Use --cost-limit {} or higher to proceed.",
@@ -1350,7 +1461,16 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
                     file.display()
                 );
                 let _ = std::process::Command::new("curl")
-                    .args(["-s", "-X", "POST", "-H", "Content-Type: application/json", "-d", &payload, webhook])
+                    .args([
+                        "-s",
+                        "-X",
+                        "POST",
+                        "-H",
+                        "Content-Type: application/json",
+                        "-d",
+                        &payload,
+                        webhook,
+                    ])
                     .output();
             }
 
@@ -1398,7 +1518,11 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             stale,
             health,
             drift_details,
+            timeline,
         } => {
+            if timeline {
+                return cmd_status_timeline(&state_dir, machine.as_deref(), json);
+            }
             if drift_details {
                 return cmd_status_drift_details(&state_dir, machine.as_deref(), json);
             }
@@ -1705,6 +1829,15 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             machine,
             output,
         } => cmd_export(&state_dir, &format, machine.as_deref(), output.as_deref()),
+        Commands::Suggest { file, json } => cmd_suggest(&file, json),
+        Commands::Compare { file1, file2, json } => cmd_compare(&file1, &file2, json),
+        Commands::LockPrune { file, state_dir, yes } => cmd_lock_prune(&file, &state_dir, yes),
+        Commands::EnvDiff {
+            env1,
+            env2,
+            state_dir,
+            json,
+        } => cmd_env_diff(&env1, &env2, &state_dir, json),
     }
 }
 
@@ -8236,7 +8369,8 @@ fn cmd_graph_affected(file: &Path, resource: &str) -> Result<(), String> {
     }
 
     // Build reverse dependency map
-    let mut dependents: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
+    let mut dependents: std::collections::HashMap<String, Vec<String>> =
+        std::collections::HashMap::new();
     for (id, res) in &config.resources {
         for dep in &res.depends_on {
             dependents.entry(dep.clone()).or_default().push(id.clone());
@@ -8263,17 +8397,18 @@ fn cmd_graph_affected(file: &Path, resource: &str) -> Result<(), String> {
 
     affected.sort();
 
-    println!(
-        "Resources affected by changes to '{}':\n",
-        bold(resource)
-    );
+    println!("Resources affected by changes to '{}':\n", bold(resource));
     if affected.is_empty() {
         println!("  (none — no resources depend on '{}')", resource);
     } else {
         for a in &affected {
             println!("  {} {}", yellow("→"), a);
         }
-        println!("\n{} {} transitive dependent(s)", green("Total:"), affected.len());
+        println!(
+            "\n{} {} transitive dependent(s)",
+            green("Total:"),
+            affected.len()
+        );
     }
 
     Ok(())
@@ -8337,8 +8472,8 @@ fn cmd_status_drift_details(
     machine_filter: Option<&str>,
     json: bool,
 ) -> Result<(), String> {
-    let entries = std::fs::read_dir(state_dir)
-        .map_err(|e| format!("cannot read state dir: {}", e))?;
+    let entries =
+        std::fs::read_dir(state_dir).map_err(|e| format!("cannot read state dir: {}", e))?;
 
     let mut details = Vec::new();
     for entry in entries.flatten() {
@@ -8353,7 +8488,10 @@ fn cmd_status_drift_details(
         }
         if let Some(lock) = state::load_lock(state_dir, &name)? {
             for (id, rl) in &lock.resources {
-                if matches!(rl.status, types::ResourceStatus::Drifted | types::ResourceStatus::Failed) {
+                if matches!(
+                    rl.status,
+                    types::ResourceStatus::Drifted | types::ResourceStatus::Failed
+                ) {
                     details.push(serde_json::json!({
                         "resource": id,
                         "machine": lock.machine,
@@ -8386,7 +8524,11 @@ fn cmd_status_drift_details(
                     d["applied_at"].as_str().unwrap_or("?"),
                 );
             }
-            println!("\n{} {} resource(s) with drift", yellow("Total:"), details.len());
+            println!(
+                "\n{} {} resource(s) with drift",
+                yellow("Total:"),
+                details.len()
+            );
         }
     }
 
@@ -8482,8 +8624,8 @@ fn cmd_export(
     machine_filter: Option<&str>,
     output: Option<&Path>,
 ) -> Result<(), String> {
-    let entries = std::fs::read_dir(state_dir)
-        .map_err(|e| format!("cannot read state dir: {}", e))?;
+    let entries =
+        std::fs::read_dir(state_dir).map_err(|e| format!("cannot read state dir: {}", e))?;
 
     // Collect all resources across machines
     let mut all_resources: Vec<(String, String, types::ResourceLock)> = Vec::new();
@@ -8510,7 +8652,11 @@ fn cmd_export(
             for (id, machine, rl) in &all_resources {
                 lines.push(format!(
                     "{},{},{:?},{:?},{},{}",
-                    id, machine, rl.resource_type, rl.status, rl.hash,
+                    id,
+                    machine,
+                    rl.resource_type,
+                    rl.status,
+                    rl.hash,
                     rl.applied_at.as_deref().unwrap_or("-")
                 ));
             }
@@ -8527,9 +8673,13 @@ fn cmd_export(
             blocks.join("\n\n")
         }
         "ansible" => {
-            let mut machines: std::collections::BTreeMap<&str, Vec<&str>> = std::collections::BTreeMap::new();
+            let mut machines: std::collections::BTreeMap<&str, Vec<&str>> =
+                std::collections::BTreeMap::new();
             for (id, machine, _rl) in &all_resources {
-                machines.entry(machine.as_str()).or_default().push(id.as_str());
+                machines
+                    .entry(machine.as_str())
+                    .or_default()
+                    .push(id.as_str());
             }
             let mut lines = vec!["all:".to_string(), "  hosts:".to_string()];
             for (machine, resources) in &machines {
@@ -8541,14 +8691,357 @@ fn cmd_export(
             }
             lines.join("\n")
         }
-        _ => return Err(format!("Unknown export format '{}'. Supported: csv, terraform, ansible", format)),
+        _ => {
+            return Err(format!(
+                "Unknown export format '{}'. Supported: csv, terraform, ansible",
+                format
+            ))
+        }
     };
 
     if let Some(output_path) = output {
         std::fs::write(output_path, &content).map_err(|e| e.to_string())?;
-        println!("Exported {} resources to {}", all_resources.len(), output_path.display());
+        println!(
+            "Exported {} resources to {}",
+            all_resources.len(),
+            output_path.display()
+        );
     } else {
         println!("{}", content);
+    }
+
+    Ok(())
+}
+
+// FJ-361: Suggest improvements to config
+fn cmd_suggest(file: &Path, json: bool) -> Result<(), String> {
+    let config = parse_and_validate(file)?;
+    let mut suggestions = Vec::new();
+
+    // Check for unused params
+    let config_str = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    for key in config.params.keys() {
+        let pattern = format!("{{{{params.{}}}}}", key);
+        if !config_str.contains(&pattern) {
+            suggestions.push(serde_json::json!({
+                "type": "unused-param",
+                "severity": "info",
+                "message": format!("Parameter '{}' is defined but never referenced", key),
+            }));
+        }
+    }
+
+    // Check for missing depends_on (resources on same machine that could race)
+    let machine_resources: std::collections::HashMap<String, Vec<String>> = {
+        let mut m: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
+        for (id, res) in &config.resources {
+            let machine_name = match &res.machine {
+                types::MachineTarget::Single(s) => s.clone(),
+                types::MachineTarget::Multiple(ms) => ms.first().cloned().unwrap_or_default(),
+            };
+            m.entry(machine_name).or_default().push(id.clone());
+        }
+        m
+    };
+    for resources in machine_resources.values() {
+        if resources.len() > 1 {
+            for id in resources {
+                let res = &config.resources[id];
+                if res.depends_on.is_empty() {
+                    // Check if this resource has any other resource that depends on it
+                    let has_dependent = config.resources.values().any(|r| r.depends_on.contains(id));
+                    if !has_dependent && resources.len() > 2 {
+                        suggestions.push(serde_json::json!({
+                            "type": "no-dependencies",
+                            "severity": "info",
+                            "message": format!("Resource '{}' has no depends_on and nothing depends on it — verify ordering", id),
+                        }));
+                    }
+                }
+            }
+        }
+    }
+
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&suggestions).unwrap_or_else(|_| "[]".to_string())
+        );
+    } else if suggestions.is_empty() {
+        println!("{} No suggestions — config looks good.", green("✓"));
+    } else {
+        println!("Suggestions:\n");
+        for s in &suggestions {
+            println!(
+                "  {} [{}] {}",
+                dim("→"),
+                s["type"].as_str().unwrap_or("?"),
+                s["message"].as_str().unwrap_or("?"),
+            );
+        }
+        println!("\n{} {} suggestion(s)", dim("Total:"), suggestions.len());
+    }
+
+    Ok(())
+}
+
+// FJ-363: Compare two config files
+fn cmd_compare(file1: &Path, file2: &Path, json: bool) -> Result<(), String> {
+    let config1 = parse_and_validate(file1)?;
+    let config2 = parse_and_validate(file2)?;
+
+    let keys1: std::collections::HashSet<&String> = config1.resources.keys().collect();
+    let keys2: std::collections::HashSet<&String> = config2.resources.keys().collect();
+
+    let only_in_1: Vec<&&String> = keys1.difference(&keys2).collect();
+    let only_in_2: Vec<&&String> = keys2.difference(&keys1).collect();
+    let in_both: Vec<&&String> = keys1.intersection(&keys2).collect();
+
+    let mut changed = Vec::new();
+    for key in &in_both {
+        let r1 = &config1.resources[**key];
+        let r2 = &config2.resources[**key];
+        // Compare by hashing the serialized forms
+        let s1 = format!("{:?}", r1);
+        let s2 = format!("{:?}", r2);
+        if s1 != s2 {
+            changed.push(**key);
+        }
+    }
+
+    if json {
+        let result = serde_json::json!({
+            "only_in_first": only_in_1,
+            "only_in_second": only_in_2,
+            "changed": changed,
+            "unchanged": in_both.len() - changed.len(),
+        });
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&result).unwrap_or_else(|_| "{}".to_string())
+        );
+    } else {
+        println!(
+            "Comparing {} vs {}\n",
+            file1.display(),
+            file2.display()
+        );
+        for k in &only_in_1 {
+            println!("  {} {} (only in {})", red("-"), k, file1.display());
+        }
+        for k in &only_in_2 {
+            println!("  {} {} (only in {})", green("+"), k, file2.display());
+        }
+        for k in &changed {
+            println!("  {} {} (modified)", yellow("~"), k);
+        }
+        let unchanged = in_both.len() - changed.len();
+        if unchanged > 0 {
+            println!("  {} {} resource(s) unchanged", dim("="), unchanged);
+        }
+    }
+
+    Ok(())
+}
+
+// FJ-364: Status timeline
+fn cmd_status_timeline(
+    state_dir: &Path,
+    machine_filter: Option<&str>,
+    json: bool,
+) -> Result<(), String> {
+    let entries = std::fs::read_dir(state_dir)
+        .map_err(|e| format!("cannot read state dir: {}", e))?;
+
+    let mut timeline: Vec<serde_json::Value> = Vec::new();
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().to_string();
+        if let Some(filter) = machine_filter {
+            if name != filter {
+                continue;
+            }
+        }
+        if !entry.path().is_dir() {
+            continue;
+        }
+        if let Some(lock) = state::load_lock(state_dir, &name)? {
+            for (id, rl) in &lock.resources {
+                timeline.push(serde_json::json!({
+                    "resource": id,
+                    "machine": lock.machine,
+                    "status": format!("{:?}", rl.status),
+                    "applied_at": rl.applied_at,
+                    "duration_seconds": rl.duration_seconds,
+                }));
+            }
+        }
+    }
+
+    // Sort by applied_at
+    timeline.sort_by(|a, b| {
+        let ta = a["applied_at"].as_str().unwrap_or("");
+        let tb = b["applied_at"].as_str().unwrap_or("");
+        ta.cmp(tb)
+    });
+
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&timeline).unwrap_or_else(|_| "[]".to_string())
+        );
+    } else {
+        println!("Convergence Timeline:\n");
+        if timeline.is_empty() {
+            println!("  (no data)");
+        } else {
+            for t in &timeline {
+                let status_icon = match t["status"].as_str().unwrap_or("") {
+                    "Converged" => green("✓"),
+                    "Failed" => red("✗"),
+                    "Drifted" => yellow("~"),
+                    _ => dim("?"),
+                };
+                println!(
+                    "  {} {} {} on {} ({}s)",
+                    t["applied_at"].as_str().unwrap_or("-"),
+                    status_icon,
+                    t["resource"].as_str().unwrap_or("?"),
+                    t["machine"].as_str().unwrap_or("?"),
+                    t["duration_seconds"].as_f64().map(|d| format!("{:.2}", d)).unwrap_or_else(|| "-".to_string()),
+                );
+            }
+        }
+    }
+
+    Ok(())
+}
+
+// FJ-366: Lock prune — remove stale lock entries
+fn cmd_lock_prune(file: &Path, state_dir: &Path, yes: bool) -> Result<(), String> {
+    let config = parse_and_validate(file)?;
+    let config_resources: std::collections::HashSet<&String> = config.resources.keys().collect();
+
+    let entries = std::fs::read_dir(state_dir)
+        .map_err(|e| format!("cannot read state dir: {}", e))?;
+
+    let mut pruned = 0usize;
+    for entry in entries.flatten() {
+        if !entry.path().is_dir() {
+            continue;
+        }
+        let machine_name = entry.file_name().to_string_lossy().to_string();
+        if let Some(lock) = state::load_lock(state_dir, &machine_name)? {
+            let stale: Vec<String> = lock
+                .resources
+                .keys()
+                .filter(|k| !config_resources.contains(k))
+                .cloned()
+                .collect();
+
+            if stale.is_empty() {
+                continue;
+            }
+
+            for s in &stale {
+                if yes {
+                    println!("  {} Pruned '{}' from {}", red("-"), s, machine_name);
+                } else {
+                    println!(
+                        "  {} Would prune '{}' from {} (use --yes to apply)",
+                        yellow("~"),
+                        s,
+                        machine_name
+                    );
+                }
+            }
+            pruned += stale.len();
+        }
+    }
+
+    if pruned == 0 {
+        println!("{} No stale lock entries found.", green("✓"));
+    } else if !yes {
+        println!("\n{} {} stale entries. Run with --yes to prune.", yellow("Total:"), pruned);
+    } else {
+        println!("\n{} Pruned {} stale entries.", green("✓"), pruned);
+    }
+
+    Ok(())
+}
+
+// FJ-367: Compare environments (workspaces)
+fn cmd_env_diff(env1: &str, env2: &str, state_dir: &Path, json: bool) -> Result<(), String> {
+    let dir1 = state_dir.join(env1);
+    let dir2 = state_dir.join(env2);
+
+    if !dir1.exists() {
+        return Err(format!("Workspace '{}' not found at {}", env1, dir1.display()));
+    }
+    if !dir2.exists() {
+        return Err(format!("Workspace '{}' not found at {}", env2, dir2.display()));
+    }
+
+    // Load all locks from both environments
+    let mut resources1: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+    let mut resources2: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+
+    for entry in std::fs::read_dir(&dir1).map_err(|e| e.to_string())?.flatten() {
+        if entry.path().is_dir() {
+            let name = entry.file_name().to_string_lossy().to_string();
+            if let Some(lock) = state::load_lock(&dir1, &name)? {
+                for (id, rl) in &lock.resources {
+                    resources1.insert(format!("{}:{}", name, id), rl.hash.clone());
+                }
+            }
+        }
+    }
+    for entry in std::fs::read_dir(&dir2).map_err(|e| e.to_string())?.flatten() {
+        if entry.path().is_dir() {
+            let name = entry.file_name().to_string_lossy().to_string();
+            if let Some(lock) = state::load_lock(&dir2, &name)? {
+                for (id, rl) in &lock.resources {
+                    resources2.insert(format!("{}:{}", name, id), rl.hash.clone());
+                }
+            }
+        }
+    }
+
+    let keys1: std::collections::HashSet<&String> = resources1.keys().collect();
+    let keys2: std::collections::HashSet<&String> = resources2.keys().collect();
+
+    let only1: Vec<&&String> = keys1.difference(&keys2).collect();
+    let only2: Vec<&&String> = keys2.difference(&keys1).collect();
+    let mut drifted = Vec::new();
+    for key in keys1.intersection(&keys2) {
+        if resources1[*key] != resources2[*key] {
+            drifted.push(*key);
+        }
+    }
+
+    if json {
+        let result = serde_json::json!({
+            "only_in_first": only1,
+            "only_in_second": only2,
+            "drifted": drifted,
+        });
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&result).unwrap_or_else(|_| "{}".to_string())
+        );
+    } else {
+        println!("Environment diff: {} vs {}\n", bold(env1), bold(env2));
+        for k in &only1 {
+            println!("  {} {} (only in {})", red("-"), k, env1);
+        }
+        for k in &only2 {
+            println!("  {} {} (only in {})", green("+"), k, env2);
+        }
+        for k in &drifted {
+            println!("  {} {} (hash differs)", yellow("~"), k);
+        }
+        if only1.is_empty() && only2.is_empty() && drifted.is_empty() {
+            println!("  {} Environments are identical.", green("✓"));
+        }
     }
 
     Ok(())
@@ -9175,6 +9668,7 @@ resources: {}
                 stale: None,
                 health: false,
                 drift_details: false,
+                timeline: false,
             },
             false,
             true,
@@ -9291,6 +9785,9 @@ resources:
                 diff_only: false,
                 notify_slack: None,
                 cost_limit: None,
+                preview: false,
+                tag_filter: None,
+                output_scripts: None,
             },
             false,
             true,
@@ -13423,6 +13920,7 @@ resources:
                 stale: None,
                 health: false,
                 drift_details: false,
+                timeline: false,
             },
             false,
             true,
@@ -13492,6 +13990,9 @@ resources:
                 diff_only: false,
                 notify_slack: None,
                 cost_limit: None,
+                preview: false,
+                tag_filter: None,
+                output_scripts: None,
             },
             false,
             true,
@@ -14682,6 +15183,9 @@ resources:
                 diff_only: false,
                 notify_slack: None,
                 cost_limit: None,
+                preview: false,
+                tag_filter: None,
+                output_scripts: None,
             },
             false,
             true,
@@ -14754,6 +15258,9 @@ resources:
                 diff_only: false,
                 notify_slack: None,
                 cost_limit: None,
+                preview: false,
+                tag_filter: None,
+                output_scripts: None,
             },
             false,
             true,
@@ -16329,6 +16836,9 @@ resources:
             diff_only: false,
             notify_slack: None,
             cost_limit: None,
+            preview: false,
+            tag_filter: None,
+            output_scripts: None,
         };
         match cmd {
             Commands::Apply { output, .. } => {
@@ -16450,6 +16960,9 @@ resources:
             diff_only: false,
             notify_slack: None,
             cost_limit: None,
+            preview: false,
+            tag_filter: None,
+            output_scripts: None,
         };
         match cmd {
             Commands::Apply { progress, .. } => assert!(progress),
@@ -16496,6 +17009,9 @@ resources:
             diff_only: false,
             notify_slack: None,
             cost_limit: None,
+            preview: false,
+            tag_filter: None,
+            output_scripts: None,
         };
         match cmd {
             Commands::Apply { progress, .. } => assert!(!progress),
@@ -16546,6 +17062,9 @@ resources:
             diff_only: false,
             notify_slack: None,
             cost_limit: None,
+            preview: false,
+            tag_filter: None,
+            output_scripts: None,
         };
         match cmd {
             Commands::Apply { timing, .. } => assert!(timing),
@@ -16592,6 +17111,9 @@ resources:
             diff_only: false,
             notify_slack: None,
             cost_limit: None,
+            preview: false,
+            tag_filter: None,
+            output_scripts: None,
         };
         match cmd {
             Commands::Apply { timing, .. } => assert!(!timing),
@@ -16846,6 +17368,9 @@ resources:
             diff_only: false,
             notify_slack: None,
             cost_limit: None,
+            preview: false,
+            tag_filter: None,
+            output_scripts: None,
         };
         match cmd {
             Commands::Apply { group, .. } => {
@@ -17008,6 +17533,9 @@ resources:
             diff_only: false,
             notify_slack: None,
             cost_limit: None,
+            preview: false,
+            tag_filter: None,
+            output_scripts: None,
         };
         match cmd {
             Commands::Apply { retry, .. } => assert_eq!(retry, 3),
@@ -17054,6 +17582,9 @@ resources:
             diff_only: false,
             notify_slack: None,
             cost_limit: None,
+            preview: false,
+            tag_filter: None,
+            output_scripts: None,
         };
         match cmd {
             Commands::Apply { retry, .. } => assert_eq!(retry, 0),
@@ -17214,6 +17745,9 @@ resources:
             diff_only: false,
             notify_slack: None,
             cost_limit: None,
+            preview: false,
+            tag_filter: None,
+            output_scripts: None,
         };
         match cmd {
             Commands::Apply { yes, .. } => assert!(yes),
@@ -17260,6 +17794,9 @@ resources:
             diff_only: false,
             notify_slack: None,
             cost_limit: None,
+            preview: false,
+            tag_filter: None,
+            output_scripts: None,
         };
         match cmd {
             Commands::Apply { yes, .. } => assert!(!yes),
@@ -17330,6 +17867,9 @@ resources:
             diff_only: false,
             notify_slack: None,
             cost_limit: None,
+            preview: false,
+            tag_filter: None,
+            output_scripts: None,
         };
         match cmd {
             Commands::Apply { parallel, .. } => assert!(parallel),
@@ -17370,6 +17910,7 @@ resources:
             stale: None,
             health: false,
             drift_details: false,
+            timeline: false,
         };
         match cmd {
             Commands::Status { file, json, .. } => {
@@ -17705,6 +18246,7 @@ resources:
             stale: None,
             health: false,
             drift_details: false,
+            timeline: false,
         };
         match cmd {
             Commands::Status { summary, .. } => assert!(summary),
@@ -17762,6 +18304,9 @@ resources:
             diff_only: false,
             notify_slack: None,
             cost_limit: None,
+            preview: false,
+            tag_filter: None,
+            output_scripts: None,
         };
         match cmd {
             Commands::Apply {
@@ -17947,6 +18492,9 @@ resources:
             diff_only: false,
             notify_slack: None,
             cost_limit: None,
+            preview: false,
+            tag_filter: None,
+            output_scripts: None,
         };
         match cmd {
             Commands::Apply {
@@ -18128,6 +18676,9 @@ resources:
             diff_only: false,
             notify_slack: None,
             cost_limit: None,
+            preview: false,
+            tag_filter: None,
+            output_scripts: None,
         };
         match cmd {
             Commands::Apply { max_parallel, .. } => assert_eq!(max_parallel, Some(4)),
@@ -18149,6 +18700,7 @@ resources:
             stale: None,
             health: false,
             drift_details: false,
+            timeline: false,
         };
         match cmd {
             Commands::Status { watch, .. } => assert_eq!(watch, Some(5)),
@@ -18197,6 +18749,9 @@ resources:
             diff_only: false,
             notify_slack: None,
             cost_limit: None,
+            preview: false,
+            tag_filter: None,
+            output_scripts: None,
         };
         match cmd {
             Commands::Apply { notify, .. } => {
@@ -18429,6 +18984,9 @@ resources:
             diff_only: false,
             notify_slack: None,
             cost_limit: None,
+            preview: false,
+            tag_filter: None,
+            output_scripts: None,
         };
         match cmd {
             Commands::Apply { subset, .. } => {
@@ -18529,6 +19087,9 @@ resources:
             diff_only: false,
             notify_slack: None,
             cost_limit: None,
+            preview: false,
+            tag_filter: None,
+            output_scripts: None,
         };
         match cmd {
             Commands::Apply {
@@ -18551,6 +19112,7 @@ resources:
             stale: Some(30),
             health: false,
             drift_details: false,
+            timeline: false,
         };
         match cmd {
             Commands::Status { stale, .. } => assert_eq!(stale, Some(30)),
@@ -18625,6 +19187,9 @@ resources:
             diff_only: false,
             notify_slack: None,
             cost_limit: None,
+            preview: false,
+            tag_filter: None,
+            output_scripts: None,
         };
         match cmd {
             Commands::Apply { backup, .. } => assert!(backup),
@@ -18701,6 +19266,9 @@ resources:
             diff_only: false,
             notify_slack: None,
             cost_limit: None,
+            preview: false,
+            tag_filter: None,
+            output_scripts: None,
         };
         match cmd {
             Commands::Apply { exclude, .. } => assert_eq!(exclude, Some("test-*".to_string())),
@@ -18720,6 +19288,7 @@ resources:
             stale: None,
             health: true,
             drift_details: false,
+            timeline: false,
         };
         match cmd {
             Commands::Status { health, .. } => assert!(health),
@@ -18766,6 +19335,9 @@ resources:
             diff_only: false,
             notify_slack: None,
             cost_limit: None,
+            preview: false,
+            tag_filter: None,
+            output_scripts: None,
         };
         match cmd {
             Commands::Apply { sequential, .. } => assert!(sequential),
@@ -18814,6 +19386,9 @@ resources:
             diff_only: true,
             notify_slack: None,
             cost_limit: None,
+            preview: false,
+            tag_filter: None,
+            output_scripts: None,
         };
         match cmd {
             Commands::Apply { diff_only, .. } => assert!(diff_only),
@@ -18888,10 +19463,16 @@ resources:
             diff_only: false,
             notify_slack: Some("https://hooks.slack.com/test".to_string()),
             cost_limit: None,
+            preview: false,
+            tag_filter: None,
+            output_scripts: None,
         };
         match cmd {
             Commands::Apply { notify_slack, .. } => {
-                assert_eq!(notify_slack, Some("https://hooks.slack.com/test".to_string()));
+                assert_eq!(
+                    notify_slack,
+                    Some("https://hooks.slack.com/test".to_string())
+                );
             }
             _ => panic!("expected Apply"),
         }
@@ -18926,6 +19507,7 @@ resources:
             stale: None,
             health: false,
             drift_details: true,
+            timeline: false,
         };
         match cmd {
             Commands::Status { drift_details, .. } => assert!(drift_details),
@@ -18972,6 +19554,9 @@ resources:
             diff_only: false,
             notify_slack: None,
             cost_limit: Some(5),
+            preview: false,
+            tag_filter: None,
+            output_scripts: None,
         };
         match cmd {
             Commands::Apply { cost_limit, .. } => assert_eq!(cost_limit, Some(5)),
@@ -18994,6 +19579,237 @@ resources:
                 assert_eq!(resource, Some("base-packages".to_string()));
             }
             _ => panic!("expected History"),
+        }
+    }
+
+    // ── Phase 22: Infrastructure Intelligence (FJ-360→FJ-367) ──
+
+    #[test]
+    fn test_fj360_preview_flag() {
+        let cmd = Commands::Apply {
+            file: PathBuf::from("f.yaml"),
+            state_dir: PathBuf::from("state"),
+            machine: None,
+            resource: None,
+            tag: None,
+            group: None,
+            force: false,
+            dry_run: false,
+            no_tripwire: false,
+            params: vec![],
+            auto_commit: false,
+            timeout: None,
+            json: false,
+            env_file: None,
+            workspace: None,
+            check: false,
+            report: false,
+            force_unlock: false,
+            output: None,
+            progress: false,
+            timing: false,
+            retry: 0,
+            yes: false,
+            parallel: false,
+            resource_timeout: None,
+            rollback_on_failure: false,
+            max_parallel: None,
+            notify: None,
+            subset: None,
+            confirm_destructive: false,
+            backup: false,
+            exclude: None,
+            sequential: false,
+            diff_only: false,
+            notify_slack: None,
+            cost_limit: None,
+            preview: true,
+            tag_filter: None,
+            output_scripts: None,
+        };
+        match cmd {
+            Commands::Apply { preview, .. } => assert!(preview),
+            _ => panic!("expected Apply"),
+        }
+    }
+
+    #[test]
+    fn test_fj361_suggest_parse() {
+        let cmd = Commands::Suggest {
+            file: PathBuf::from("forjar.yaml"),
+            json: false,
+        };
+        match cmd {
+            Commands::Suggest { file, .. } => assert_eq!(file, PathBuf::from("forjar.yaml")),
+            _ => panic!("expected Suggest"),
+        }
+    }
+
+    #[test]
+    fn test_fj362_tag_filter_flag() {
+        let cmd = Commands::Apply {
+            file: PathBuf::from("f.yaml"),
+            state_dir: PathBuf::from("state"),
+            machine: None,
+            resource: None,
+            tag: None,
+            group: None,
+            force: false,
+            dry_run: false,
+            no_tripwire: false,
+            params: vec![],
+            auto_commit: false,
+            timeout: None,
+            json: false,
+            env_file: None,
+            workspace: None,
+            check: false,
+            report: false,
+            force_unlock: false,
+            output: None,
+            progress: false,
+            timing: false,
+            retry: 0,
+            yes: false,
+            parallel: false,
+            resource_timeout: None,
+            rollback_on_failure: false,
+            max_parallel: None,
+            notify: None,
+            subset: None,
+            confirm_destructive: false,
+            backup: false,
+            exclude: None,
+            sequential: false,
+            diff_only: false,
+            notify_slack: None,
+            cost_limit: None,
+            preview: false,
+            tag_filter: Some("web AND NOT staging".to_string()),
+            output_scripts: None,
+        };
+        match cmd {
+            Commands::Apply { tag_filter, .. } => {
+                assert_eq!(tag_filter, Some("web AND NOT staging".to_string()));
+            }
+            _ => panic!("expected Apply"),
+        }
+    }
+
+    #[test]
+    fn test_fj363_compare_parse() {
+        let cmd = Commands::Compare {
+            file1: PathBuf::from("a.yaml"),
+            file2: PathBuf::from("b.yaml"),
+            json: false,
+        };
+        match cmd {
+            Commands::Compare { file1, file2, .. } => {
+                assert_eq!(file1, PathBuf::from("a.yaml"));
+                assert_eq!(file2, PathBuf::from("b.yaml"));
+            }
+            _ => panic!("expected Compare"),
+        }
+    }
+
+    #[test]
+    fn test_fj364_timeline_flag() {
+        let cmd = Commands::Status {
+            state_dir: PathBuf::from("state"),
+            machine: None,
+            json: false,
+            file: None,
+            summary: false,
+            watch: None,
+            stale: None,
+            health: false,
+            drift_details: false,
+            timeline: true,
+        };
+        match cmd {
+            Commands::Status { timeline, .. } => assert!(timeline),
+            _ => panic!("expected Status"),
+        }
+    }
+
+    #[test]
+    fn test_fj366_lock_prune_parse() {
+        let cmd = Commands::LockPrune {
+            file: PathBuf::from("forjar.yaml"),
+            state_dir: PathBuf::from("state"),
+            yes: false,
+        };
+        match cmd {
+            Commands::LockPrune { yes, .. } => assert!(!yes),
+            _ => panic!("expected LockPrune"),
+        }
+    }
+
+    #[test]
+    fn test_fj367_env_diff_parse() {
+        let cmd = Commands::EnvDiff {
+            env1: "staging".to_string(),
+            env2: "production".to_string(),
+            state_dir: PathBuf::from("state"),
+            json: false,
+        };
+        match cmd {
+            Commands::EnvDiff { env1, env2, .. } => {
+                assert_eq!(env1, "staging");
+                assert_eq!(env2, "production");
+            }
+            _ => panic!("expected EnvDiff"),
+        }
+    }
+
+    #[test]
+    fn test_fj365_output_scripts_flag() {
+        let cmd = Commands::Apply {
+            file: PathBuf::from("f.yaml"),
+            state_dir: PathBuf::from("state"),
+            machine: None,
+            resource: None,
+            tag: None,
+            group: None,
+            force: false,
+            dry_run: false,
+            no_tripwire: false,
+            params: vec![],
+            auto_commit: false,
+            timeout: None,
+            json: false,
+            env_file: None,
+            workspace: None,
+            check: false,
+            report: false,
+            force_unlock: false,
+            output: None,
+            progress: false,
+            timing: false,
+            retry: 0,
+            yes: false,
+            parallel: false,
+            resource_timeout: None,
+            rollback_on_failure: false,
+            max_parallel: None,
+            notify: None,
+            subset: None,
+            confirm_destructive: false,
+            backup: false,
+            exclude: None,
+            sequential: false,
+            diff_only: false,
+            notify_slack: None,
+            cost_limit: None,
+            preview: false,
+            tag_filter: None,
+            output_scripts: Some(PathBuf::from("/tmp/scripts")),
+        };
+        match cmd {
+            Commands::Apply { output_scripts, .. } => {
+                assert_eq!(output_scripts, Some(PathBuf::from("/tmp/scripts")));
+            }
+            _ => panic!("expected Apply"),
         }
     }
 }
