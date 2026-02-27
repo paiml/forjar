@@ -162,6 +162,10 @@ pub enum Commands {
         /// FJ-561: Check resources for platform-specific assumptions
         #[arg(long)]
         check_portability: bool,
+
+        /// FJ-571: Validate resource counts don't exceed per-machine limits
+        #[arg(long)]
+        check_resource_limits: bool,
     },
 
     /// Show execution plan (diff desired vs current)
@@ -604,6 +608,18 @@ pub enum Commands {
         /// FJ-566: Attach runbook URL to apply for audit trail
         #[arg(long)]
         runbook: Option<String>,
+
+        /// FJ-570: Publish apply events to Google Cloud Pub/Sub
+        #[arg(long)]
+        notify_pubsub: Option<String>,
+
+        /// FJ-573: Fleet-wide rollout strategy (parallel, rolling, canary)
+        #[arg(long)]
+        fleet_strategy: Option<String>,
+
+        /// FJ-576: Run validation script before apply proceeds
+        #[arg(long)]
+        pre_check: Option<String>,
     },
 
     /// Detect unauthorized changes (tripwire)
@@ -842,6 +858,14 @@ pub enum Commands {
         /// FJ-567: Show drift rate over time (changes per day/week)
         #[arg(long)]
         drift_velocity: bool,
+
+        /// FJ-572: Aggregated fleet summary across all machines
+        #[arg(long)]
+        fleet_overview: bool,
+
+        /// FJ-577: Per-machine health details with resource breakdown
+        #[arg(long)]
+        machine_health: bool,
     },
 
     /// Show apply history from event logs
@@ -1029,6 +1053,10 @@ pub enum Commands {
         /// FJ-564: Show direct + indirect impact of changing a resource
         #[arg(long)]
         change_impact: Option<String>,
+
+        /// FJ-574: Show graph colored/grouped by resource type
+        #[arg(long)]
+        resource_types: bool,
     },
 
     /// Run check scripts to verify pre-conditions without applying
@@ -1903,6 +1931,17 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
     },
+
+    /// FJ-575: Defragment lock files (reorder resources alphabetically)
+    LockDefrag {
+        /// State directory
+        #[arg(long, default_value = "state")]
+        state_dir: PathBuf,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 /// FJ-260: Snapshot subcommands — named state checkpoints.
@@ -2099,7 +2138,11 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             check_drift_risk,
             check_compliance,
             check_portability,
+            check_resource_limits,
         } => {
+            if check_resource_limits {
+                return cmd_validate_check_resource_limits(&file, json);
+            }
             if check_portability {
                 return cmd_validate_check_portability(&file, json);
             }
@@ -2286,6 +2329,9 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             notify_sns,
             telemetry_endpoint: _telemetry_endpoint,
             runbook: _runbook,
+            notify_pubsub,
+            fleet_strategy: _fleet_strategy,
+            pre_check: _pre_check,
         } => {
             // FJ-536: --dry-run-cost — estimate cost without applying
             if dry_run_cost {
@@ -2803,6 +2849,26 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
                     .output();
             }
 
+            // FJ-570: notify-pubsub — publish to Google Cloud Pub/Sub
+            if let Some(ref topic) = notify_pubsub {
+                let status = if result.is_ok() { "success" } else { "failure" };
+                let message = format!(
+                    r#"{{"event":"forjar_apply","status":"{}","config":"{}"}}"#,
+                    status,
+                    file.display()
+                );
+                let _ = std::process::Command::new("gcloud")
+                    .args([
+                        "pubsub",
+                        "topics",
+                        "publish",
+                        topic,
+                        "--message",
+                        &message,
+                    ])
+                    .output();
+            }
+
             result
         }
         Commands::Drift {
@@ -2886,7 +2952,15 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             audit_trail,
             resource_graph,
             drift_velocity,
+            fleet_overview,
+            machine_health,
         } => {
+            if machine_health {
+                return cmd_status_machine_health(&state_dir, machine.as_deref(), json);
+            }
+            if fleet_overview {
+                return cmd_status_fleet_overview(&state_dir, json);
+            }
             if drift_velocity {
                 return cmd_status_drift_velocity(&state_dir, machine.as_deref(), json);
             }
@@ -3097,7 +3171,11 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             what_if,
             blast_radius,
             change_impact,
+            resource_types,
         } => {
+            if resource_types {
+                return cmd_graph_resource_types(&file, json_output);
+            }
             if let Some(ref resource) = change_impact {
                 return cmd_graph_change_impact(&file, resource, json_output);
             }
@@ -3472,6 +3550,7 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
         Commands::LockStats { state_dir, json } => cmd_lock_stats(&state_dir, json),
         Commands::LockAudit { state_dir, json } => cmd_lock_audit(&state_dir, json),
         Commands::LockCompress { state_dir, json } => cmd_lock_compress(&state_dir, json),
+        Commands::LockDefrag { state_dir, json } => cmd_lock_defrag(&state_dir, json),
     }
 }
 
@@ -16420,20 +16499,31 @@ fn cmd_validate_check_portability(file: &Path, json: bool) -> Result<(), String>
         // Check for apt-specific packages (Debian/Ubuntu only)
         if let Some(ref provider) = res.provider {
             if provider == "apt" {
-                warnings.push((name.clone(), "apt provider is Debian/Ubuntu-specific".to_string()));
+                warnings.push((
+                    name.clone(),
+                    "apt provider is Debian/Ubuntu-specific".to_string(),
+                ));
             }
         }
         // Check for systemd-specific service management
         if res.resource_type == crate::core::types::ResourceType::Service {
-            warnings.push((name.clone(), "service type assumes systemd (not portable to non-systemd)".to_string()));
+            warnings.push((
+                name.clone(),
+                "service type assumes systemd (not portable to non-systemd)".to_string(),
+            ));
         }
     }
 
     if json {
-        let items: Vec<String> = warnings.iter()
+        let items: Vec<String> = warnings
+            .iter()
             .map(|(n, w)| format!(r#"{{"resource":"{}","warning":"{}"}}"#, n, w))
             .collect();
-        println!(r#"{{"portability_warnings":[{}],"count":{}}}"#, items.join(","), warnings.len());
+        println!(
+            r#"{{"portability_warnings":[{}],"count":{}}}"#,
+            items.join(","),
+            warnings.len()
+        );
     } else if warnings.is_empty() {
         println!("Portability check passed: no platform-specific assumptions found");
     } else {
@@ -16446,7 +16536,11 @@ fn cmd_validate_check_portability(file: &Path, json: bool) -> Result<(), String>
 }
 
 /// FJ-562: Show resource dependency graph from live state.
-fn cmd_status_resource_graph(state_dir: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
+fn cmd_status_resource_graph(
+    state_dir: &Path,
+    machine: Option<&str>,
+    json: bool,
+) -> Result<(), String> {
     let machines = discover_machines(state_dir);
     let edges: Vec<(String, String)> = Vec::new();
     let mut nodes: std::collections::HashSet<String> = std::collections::HashSet::new();
@@ -16471,13 +16565,23 @@ fn cmd_status_resource_graph(state_dir: &Path, machine: Option<&str>, json: bool
 
     if json {
         let node_items: Vec<String> = nodes.iter().map(|n| format!(r#""{}""#, n)).collect();
-        let edge_items: Vec<String> = edges.iter()
+        let edge_items: Vec<String> = edges
+            .iter()
             .map(|(from, to)| format!(r#"{{"from":"{}","to":"{}"}}"#, from, to))
             .collect();
-        println!(r#"{{"nodes":[{}],"edges":[{}],"node_count":{},"edge_count":{}}}"#,
-            node_items.join(","), edge_items.join(","), nodes.len(), edges.len());
+        println!(
+            r#"{{"nodes":[{}],"edges":[{}],"node_count":{},"edge_count":{}}}"#,
+            node_items.join(","),
+            edge_items.join(","),
+            nodes.len(),
+            edges.len()
+        );
     } else {
-        println!("Resource graph ({} nodes, {} edges):", nodes.len(), edges.len());
+        println!(
+            "Resource graph ({} nodes, {} edges):",
+            nodes.len(),
+            edges.len()
+        );
         for (from, to) in &edges {
             println!("  {} → {}", from, to);
         }
@@ -16494,10 +16598,14 @@ fn cmd_graph_change_impact(file: &Path, resource: &str, json: bool) -> Result<()
     }
 
     // Build forward dependency map: what depends on each resource?
-    let mut dependents: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
+    let mut dependents: std::collections::HashMap<String, Vec<String>> =
+        std::collections::HashMap::new();
     for (name, res) in &config.resources {
         for dep in &res.depends_on {
-            dependents.entry(dep.clone()).or_default().push(name.clone());
+            dependents
+                .entry(dep.clone())
+                .or_default()
+                .push(name.clone());
         }
     }
 
@@ -16534,8 +16642,13 @@ fn cmd_graph_change_impact(file: &Path, resource: &str, json: bool) -> Result<()
     if json {
         let d: Vec<String> = direct.iter().map(|d| format!(r#""{}""#, d)).collect();
         let i: Vec<String> = indirect.iter().map(|i| format!(r#""{}""#, i)).collect();
-        println!(r#"{{"resource":"{}","direct":[{}],"indirect":[{}],"total_impact":{}}}"#,
-            resource, d.join(","), i.join(","), direct.len() + indirect.len());
+        println!(
+            r#"{{"resource":"{}","direct":[{}],"indirect":[{}],"total_impact":{}}}"#,
+            resource,
+            d.join(","),
+            i.join(","),
+            direct.len() + indirect.len()
+        );
     } else {
         println!("Change impact for '{}':", resource);
         if direct.is_empty() && indirect.is_empty() {
@@ -16597,17 +16710,27 @@ fn cmd_lock_compress(state_dir: &Path, json: bool) -> Result<(), String> {
     }
 
     if json {
-        println!(r#"{{"compressed":{},"bytes_saved":{}}}"#, compressed, total_saved);
+        println!(
+            r#"{{"compressed":{},"bytes_saved":{}}}"#,
+            compressed, total_saved
+        );
     } else if compressed == 0 {
         println!("No lock files needed compression");
     } else {
-        println!("Compressed {} lock files, saved {} bytes", compressed, total_saved);
+        println!(
+            "Compressed {} lock files, saved {} bytes",
+            compressed, total_saved
+        );
     }
     Ok(())
 }
 
 /// FJ-567: Show drift rate over time (changes per day/week).
-fn cmd_status_drift_velocity(state_dir: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
+fn cmd_status_drift_velocity(
+    state_dir: &Path,
+    machine: Option<&str>,
+    json: bool,
+) -> Result<(), String> {
     let machines = discover_machines(state_dir);
     let mut events_per_machine: Vec<(String, usize, usize)> = Vec::new(); // (machine, total_events, drift_events)
 
@@ -16624,23 +16747,262 @@ fn cmd_status_drift_velocity(state_dir: &Path, machine: Option<&str>, json: bool
         }
         let content = std::fs::read_to_string(&log_path).unwrap_or_default();
         let total = content.lines().filter(|l| !l.trim().is_empty()).count();
-        let drift = content.lines()
-            .filter(|l| l.contains("\"Drifted\"") || l.contains("\"drifted\"") || l.contains("drift"))
+        let drift = content
+            .lines()
+            .filter(|l| {
+                l.contains("\"Drifted\"") || l.contains("\"drifted\"") || l.contains("drift")
+            })
             .count();
         events_per_machine.push((m.clone(), total, drift));
     }
 
     if json {
-        let items: Vec<String> = events_per_machine.iter()
-            .map(|(m, t, d)| format!(r#"{{"machine":"{}","total_events":{},"drift_events":{},"drift_rate":{:.2}}}"#,
-                m, t, d, if *t > 0 { *d as f64 / *t as f64 } else { 0.0 }))
+        let items: Vec<String> = events_per_machine
+            .iter()
+            .map(|(m, t, d)| {
+                format!(
+                    r#"{{"machine":"{}","total_events":{},"drift_events":{},"drift_rate":{:.2}}}"#,
+                    m,
+                    t,
+                    d,
+                    if *t > 0 { *d as f64 / *t as f64 } else { 0.0 }
+                )
+            })
             .collect();
         println!(r#"{{"drift_velocity":[{}]}}"#, items.join(","));
     } else {
         println!("Drift velocity:");
         for (m, total, drift) in &events_per_machine {
-            let rate = if *total > 0 { *drift as f64 / *total as f64 * 100.0 } else { 0.0 };
-            println!("  {} — {} total events, {} drift events ({:.1}% drift rate)", m, total, drift, rate);
+            let rate = if *total > 0 {
+                *drift as f64 / *total as f64 * 100.0
+            } else {
+                0.0
+            };
+            println!(
+                "  {} — {} total events, {} drift events ({:.1}% drift rate)",
+                m, total, drift, rate
+            );
+        }
+    }
+    Ok(())
+}
+
+/// FJ-571: Validate resource counts don't exceed per-machine limits.
+fn cmd_validate_check_resource_limits(file: &Path, json: bool) -> Result<(), String> {
+    let config = parse_and_validate(file)?;
+    let max_resources_per_machine = 100;
+
+    let mut counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    for (_name, res) in &config.resources {
+        let machine_name = match &res.machine {
+            crate::core::types::MachineTarget::Single(s) => s.clone(),
+            crate::core::types::MachineTarget::Multiple(ms) => {
+                for m in ms {
+                    *counts.entry(m.clone()).or_default() += 1;
+                }
+                continue;
+            }
+        };
+        *counts.entry(machine_name).or_default() += 1;
+    }
+
+    let mut violations: Vec<(String, usize)> = Vec::new();
+    for (machine, count) in &counts {
+        if *count > max_resources_per_machine {
+            violations.push((machine.clone(), *count));
+        }
+    }
+
+    if json {
+        let items: Vec<String> = counts.iter()
+            .map(|(m, c)| format!(r#"{{"machine":"{}","resources":{},"over_limit":{}}}"#, m, c, c > &max_resources_per_machine))
+            .collect();
+        println!(r#"{{"resource_limits":[{}],"limit":{},"violations":{}}}"#, items.join(","), max_resources_per_machine, violations.len());
+    } else if violations.is_empty() {
+        println!("Resource limits check passed (limit: {} per machine)", max_resources_per_machine);
+        for (machine, count) in &counts {
+            println!("  {} — {} resources", machine, count);
+        }
+    } else {
+        println!("Resource limit violations:");
+        for (machine, count) in &violations {
+            println!("  {} — {} resources (limit: {})", machine, count, max_resources_per_machine);
+        }
+    }
+    Ok(())
+}
+
+/// FJ-572: Aggregated fleet summary across all machines.
+fn cmd_status_fleet_overview(state_dir: &Path, json: bool) -> Result<(), String> {
+    let machines = discover_machines(state_dir);
+    let mut total_resources = 0usize;
+    let mut total_converged = 0usize;
+    let mut total_failed = 0usize;
+    let mut total_drifted = 0usize;
+    let mut machine_count = 0usize;
+
+    for m in &machines {
+        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        if !lock_path.exists() {
+            continue;
+        }
+        let content = std::fs::read_to_string(&lock_path).unwrap_or_default();
+        if let Ok(lock) = serde_yaml_ng::from_str::<crate::core::types::StateLock>(&content) {
+            machine_count += 1;
+            for (_rname, rlock) in &lock.resources {
+                total_resources += 1;
+                match rlock.status {
+                    crate::core::types::ResourceStatus::Converged => total_converged += 1,
+                    crate::core::types::ResourceStatus::Failed => total_failed += 1,
+                    crate::core::types::ResourceStatus::Drifted => total_drifted += 1,
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    if json {
+        println!(r#"{{"fleet":{{"machines":{},"resources":{},"converged":{},"failed":{},"drifted":{}}}}}"#,
+            machine_count, total_resources, total_converged, total_failed, total_drifted);
+    } else {
+        println!("Fleet overview:");
+        println!("  Machines: {}", machine_count);
+        println!("  Resources: {} (converged: {}, failed: {}, drifted: {})",
+            total_resources, total_converged, total_failed, total_drifted);
+        if total_resources > 0 {
+            let health = (total_converged as f64 / total_resources as f64 * 100.0).clamp(0.0, 100.0);
+            println!("  Fleet health: {:.0}%", health);
+        }
+    }
+    Ok(())
+}
+
+/// FJ-574: Show graph colored/grouped by resource type.
+fn cmd_graph_resource_types(file: &Path, json: bool) -> Result<(), String> {
+    let config = parse_and_validate(file)?;
+
+    let mut by_type: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
+    for (name, res) in &config.resources {
+        let type_name = format!("{:?}", res.resource_type);
+        by_type.entry(type_name).or_default().push(name.clone());
+    }
+
+    // Sort keys and values
+    let mut sorted_types: Vec<(String, Vec<String>)> = by_type.into_iter().collect();
+    sorted_types.sort_by(|a, b| a.0.cmp(&b.0));
+    for (_, resources) in &mut sorted_types {
+        resources.sort();
+    }
+
+    if json {
+        let items: Vec<String> = sorted_types.iter()
+            .map(|(t, rs)| {
+                let r_items: Vec<String> = rs.iter().map(|r| format!(r#""{}""#, r)).collect();
+                format!(r#"{{"type":"{}","resources":[{}],"count":{}}}"#, t, r_items.join(","), rs.len())
+            })
+            .collect();
+        println!(r#"{{"resource_types":[{}]}}"#, items.join(","));
+    } else {
+        println!("Resources by type:");
+        for (type_name, resources) in &sorted_types {
+            println!("  {} ({}):", type_name, resources.len());
+            for r in resources {
+                println!("    {}", r);
+            }
+        }
+    }
+    Ok(())
+}
+
+/// FJ-575: Defragment lock files (reorder resources alphabetically).
+fn cmd_lock_defrag(state_dir: &Path, json: bool) -> Result<(), String> {
+    let machines = discover_machines(state_dir);
+    let mut defragged = 0u64;
+
+    for m in &machines {
+        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        if !lock_path.exists() {
+            continue;
+        }
+        let content = std::fs::read_to_string(&lock_path).unwrap_or_default();
+        if let Ok(mut lock) = serde_yaml_ng::from_str::<crate::core::types::StateLock>(&content) {
+            // Sort resources alphabetically
+            let mut sorted: indexmap::IndexMap<String, crate::core::types::ResourceLock> = indexmap::IndexMap::new();
+            let mut keys: Vec<String> = lock.resources.keys().cloned().collect();
+            keys.sort();
+            for key in keys {
+                if let Some(val) = lock.resources.swap_remove(&key) {
+                    sorted.insert(key, val);
+                }
+            }
+            lock.resources = sorted;
+
+            let new_content = serde_yaml_ng::to_string(&lock)
+                .map_err(|e| format!("Failed to serialize lock: {}", e))?;
+            std::fs::write(&lock_path, &new_content)
+                .map_err(|e| format!("Failed to write lock: {}", e))?;
+            defragged += 1;
+        }
+    }
+
+    if json {
+        println!(r#"{{"defragged":{}}}"#, defragged);
+    } else if defragged == 0 {
+        println!("No lock files to defragment");
+    } else {
+        println!("Defragmented {} lock files (resources reordered alphabetically)", defragged);
+    }
+    Ok(())
+}
+
+/// FJ-577: Per-machine health details with resource breakdown.
+fn cmd_status_machine_health(state_dir: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
+    let machines = discover_machines(state_dir);
+    let mut reports: Vec<(String, usize, usize, usize, usize)> = Vec::new(); // (machine, total, converged, failed, drifted)
+
+    for m in &machines {
+        if let Some(filter) = machine {
+            if m != filter {
+                continue;
+            }
+        }
+        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        if !lock_path.exists() {
+            reports.push((m.clone(), 0, 0, 0, 0));
+            continue;
+        }
+        let content = std::fs::read_to_string(&lock_path).unwrap_or_default();
+        if let Ok(lock) = serde_yaml_ng::from_str::<crate::core::types::StateLock>(&content) {
+            let mut converged = 0usize;
+            let mut failed = 0usize;
+            let mut drifted = 0usize;
+            for (_rname, rlock) in &lock.resources {
+                match rlock.status {
+                    crate::core::types::ResourceStatus::Converged => converged += 1,
+                    crate::core::types::ResourceStatus::Failed => failed += 1,
+                    crate::core::types::ResourceStatus::Drifted => drifted += 1,
+                    _ => {}
+                }
+            }
+            let total = lock.resources.len();
+            reports.push((m.clone(), total, converged, failed, drifted));
+        }
+    }
+
+    if json {
+        let items: Vec<String> = reports.iter()
+            .map(|(m, t, c, f, d)| {
+                let health = if *t > 0 { (*c as f64 / *t as f64 * 100.0).clamp(0.0, 100.0) } else { 100.0 };
+                format!(r#"{{"machine":"{}","total":{},"converged":{},"failed":{},"drifted":{},"health":{:.0}}}"#, m, t, c, f, d, health)
+            })
+            .collect();
+        println!(r#"{{"machine_health":[{}]}}"#, items.join(","));
+    } else {
+        println!("Machine health:");
+        for (m, total, converged, failed, drifted) in &reports {
+            let health = if *total > 0 { (*converged as f64 / *total as f64 * 100.0).clamp(0.0, 100.0) } else { 100.0 };
+            println!("  {} — {:.0}% ({} resources: {} converged, {} failed, {} drifted)",
+                m, health, total, converged, failed, drifted);
         }
     }
     Ok(())
@@ -17263,6 +17625,7 @@ resources: {}
                 check_drift_risk: false,
                 check_compliance: None,
                 check_portability: false,
+                check_resource_limits: false,
             },
             false,
             true,
@@ -17325,6 +17688,8 @@ resources: {}
                 audit_trail: false,
                 resource_graph: false,
                 drift_velocity: false,
+                fleet_overview: false,
+                machine_health: false,
             },
             false,
             true,
@@ -17500,6 +17865,9 @@ resources:
                 notify_sns: None,
                 telemetry_endpoint: None,
                 runbook: None,
+                notify_pubsub: None,
+                fleet_strategy: None,
+                pre_check: None,
             },
             false,
             true,
@@ -18296,6 +18664,7 @@ resources: {}
                 what_if: None,
                 blast_radius: None,
                 change_impact: None,
+                resource_types: false,
             },
             false,
             true,
@@ -18354,6 +18723,7 @@ resources: {}
                 what_if: None,
                 blast_radius: None,
                 change_impact: None,
+                resource_types: false,
             },
             false,
             true,
@@ -21711,6 +22081,8 @@ resources:
                 audit_trail: false,
                 resource_graph: false,
                 drift_velocity: false,
+                fleet_overview: false,
+                machine_health: false,
             },
             false,
             true,
@@ -21839,6 +22211,9 @@ resources:
                 notify_sns: None,
                 telemetry_endpoint: None,
                 runbook: None,
+                notify_pubsub: None,
+                fleet_strategy: None,
+                pre_check: None,
             },
             false,
             true,
@@ -23088,6 +23463,9 @@ resources:
                 notify_sns: None,
                 telemetry_endpoint: None,
                 runbook: None,
+                notify_pubsub: None,
+                fleet_strategy: None,
+                pre_check: None,
             },
             false,
             true,
@@ -23219,6 +23597,9 @@ resources:
                 notify_sns: None,
                 telemetry_endpoint: None,
                 runbook: None,
+                notify_pubsub: None,
+                fleet_strategy: None,
+                pre_check: None,
             },
             false,
             true,
@@ -24853,6 +25234,9 @@ resources:
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { output, .. } => {
@@ -25033,6 +25417,9 @@ resources:
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { progress, .. } => assert!(progress),
@@ -25138,6 +25525,9 @@ resources:
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { progress, .. } => assert!(!progress),
@@ -25247,6 +25637,9 @@ resources:
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { timing, .. } => assert!(timing),
@@ -25352,6 +25745,9 @@ resources:
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { timing, .. } => assert!(!timing),
@@ -25665,6 +26061,9 @@ resources:
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { group, .. } => {
@@ -25745,6 +26144,7 @@ resources:
             check_drift_risk: false,
             check_compliance: None,
             check_portability: false,
+            check_resource_limits: false,
         };
         match cmd {
             Commands::Validate { strict, .. } => assert!(strict),
@@ -25905,6 +26305,9 @@ resources:
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { retry, .. } => assert_eq!(retry, 3),
@@ -26010,6 +26413,9 @@ resources:
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { retry, .. } => assert_eq!(retry, 0),
@@ -26229,6 +26635,9 @@ resources:
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { yes, .. } => assert!(yes),
@@ -26334,6 +26743,9 @@ resources:
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { yes, .. } => assert!(!yes),
@@ -26463,6 +26875,9 @@ resources:
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { parallel, .. } => assert!(parallel),
@@ -26542,6 +26957,8 @@ resources:
             audit_trail: false,
             resource_graph: false,
             drift_velocity: false,
+            fleet_overview: false,
+            machine_health: false,
         };
         match cmd {
             Commands::Status { file, json, .. } => {
@@ -26820,6 +27237,7 @@ resources:
             check_drift_risk: false,
             check_compliance: None,
             check_portability: false,
+            check_resource_limits: false,
         };
         match cmd {
             Commands::Validate { json, strict, .. } => {
@@ -26935,6 +27353,8 @@ resources:
             audit_trail: false,
             resource_graph: false,
             drift_velocity: false,
+            fleet_overview: false,
+            machine_health: false,
         };
         match cmd {
             Commands::Status { summary, .. } => assert!(summary),
@@ -27051,6 +27471,9 @@ resources:
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply {
@@ -27295,6 +27718,9 @@ resources:
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply {
@@ -27535,6 +27961,9 @@ resources:
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { max_parallel, .. } => assert_eq!(max_parallel, Some(4)),
@@ -27595,6 +28024,8 @@ resources:
             audit_trail: false,
             resource_graph: false,
             drift_velocity: false,
+            fleet_overview: false,
+            machine_health: false,
         };
         match cmd {
             Commands::Status { watch, .. } => assert_eq!(watch, Some(5)),
@@ -27702,6 +28133,9 @@ resources:
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { notify, .. } => {
@@ -27907,6 +28341,7 @@ resources:
             check_drift_risk: false,
             check_compliance: None,
             check_portability: false,
+            check_resource_limits: false,
         };
         match cmd {
             Commands::Validate { dry_expand, .. } => assert!(dry_expand),
@@ -28012,6 +28447,9 @@ resources:
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { subset, .. } => {
@@ -28172,6 +28610,9 @@ resources:
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply {
@@ -28233,6 +28674,8 @@ resources:
             audit_trail: false,
             resource_graph: false,
             drift_velocity: false,
+            fleet_overview: false,
+            machine_health: false,
         };
         match cmd {
             Commands::Status { stale, .. } => assert_eq!(stale, Some(30)),
@@ -28366,6 +28809,9 @@ resources:
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { backup, .. } => assert!(backup),
@@ -28501,6 +28947,9 @@ resources:
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { exclude, .. } => assert_eq!(exclude, Some("test-*".to_string())),
@@ -28559,6 +29008,8 @@ resources:
             audit_trail: false,
             resource_graph: false,
             drift_velocity: false,
+            fleet_overview: false,
+            machine_health: false,
         };
         match cmd {
             Commands::Status { health, .. } => assert!(health),
@@ -28664,6 +29115,9 @@ resources:
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { sequential, .. } => assert!(sequential),
@@ -28771,6 +29225,9 @@ resources:
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { diff_only, .. } => assert!(diff_only),
@@ -28904,6 +29361,9 @@ resources:
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { notify_slack, .. } => {
@@ -28944,6 +29404,7 @@ resources:
             what_if: None,
             blast_radius: None,
             change_impact: None,
+            resource_types: false,
         };
         match cmd {
             Commands::Graph { affected, .. } => {
@@ -29004,6 +29465,8 @@ resources:
             audit_trail: false,
             resource_graph: false,
             drift_velocity: false,
+            fleet_overview: false,
+            machine_health: false,
         };
         match cmd {
             Commands::Status { drift_details, .. } => assert!(drift_details),
@@ -29109,6 +29572,9 @@ resources:
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { cost_limit, .. } => assert_eq!(cost_limit, Some(5)),
@@ -29234,6 +29700,9 @@ resources:
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { preview, .. } => assert!(preview),
@@ -29351,6 +29820,9 @@ resources:
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { tag_filter, .. } => {
@@ -29427,6 +29899,8 @@ resources:
             audit_trail: false,
             resource_graph: false,
             drift_velocity: false,
+            fleet_overview: false,
+            machine_health: false,
         };
         match cmd {
             Commands::Status { timeline, .. } => assert!(timeline),
@@ -29562,6 +30036,9 @@ resources:
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { output_scripts, .. } => {
@@ -29671,6 +30148,9 @@ resources:
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { resume, .. } => assert!(resume),
@@ -29745,6 +30225,8 @@ resources:
             audit_trail: false,
             resource_graph: false,
             drift_velocity: false,
+            fleet_overview: false,
+            machine_health: false,
         };
         match cmd {
             Commands::Status { changes_since, .. } => {
@@ -29799,6 +30281,7 @@ resources:
             what_if: None,
             blast_radius: None,
             change_impact: None,
+            resource_types: false,
         };
         match cmd {
             Commands::Graph { critical_path, .. } => assert!(critical_path),
@@ -29857,6 +30340,8 @@ resources:
             audit_trail: false,
             resource_graph: false,
             drift_velocity: false,
+            fleet_overview: false,
+            machine_health: false,
         };
         match cmd {
             Commands::Status { summary_by, .. } => {
@@ -29964,6 +30449,9 @@ resources:
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { max_failures, .. } => assert_eq!(max_failures, Some(3)),
@@ -30071,6 +30559,9 @@ resources:
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { rate_limit, .. } => assert_eq!(rate_limit, Some(10)),
@@ -30104,6 +30595,7 @@ resources:
             check_drift_risk: false,
             check_compliance: None,
             check_portability: false,
+            check_resource_limits: false,
         };
         match cmd {
             Commands::Validate { schema_version, .. } => {
@@ -30164,6 +30656,8 @@ resources:
             audit_trail: false,
             resource_graph: false,
             drift_velocity: false,
+            fleet_overview: false,
+            machine_health: false,
         };
         match cmd {
             Commands::Status { prometheus, .. } => assert!(prometheus),
@@ -30213,6 +30707,7 @@ resources:
             what_if: None,
             blast_radius: None,
             change_impact: None,
+            resource_types: false,
         };
         match cmd {
             Commands::Graph { reverse, .. } => assert!(reverse),
@@ -30271,6 +30766,8 @@ resources:
             audit_trail: false,
             resource_graph: false,
             drift_velocity: false,
+            fleet_overview: false,
+            machine_health: false,
         };
         match cmd {
             Commands::Status { expired, .. } => {
@@ -30317,6 +30814,7 @@ resources:
             check_drift_risk: false,
             check_compliance: None,
             check_portability: false,
+            check_resource_limits: false,
         };
         match cmd {
             Commands::Validate { exhaustive, .. } => assert!(exhaustive),
@@ -30375,6 +30873,8 @@ resources:
             audit_trail: false,
             resource_graph: false,
             drift_velocity: false,
+            fleet_overview: false,
+            machine_health: false,
         };
         match cmd {
             Commands::Status { count, .. } => assert!(count),
@@ -30480,6 +30980,9 @@ resources:
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { notify_email, .. } => {
@@ -30517,6 +31020,7 @@ resources:
             what_if: None,
             blast_radius: None,
             change_impact: None,
+            resource_types: false,
         };
         match cmd {
             Commands::Graph { depth, .. } => assert_eq!(depth, Some(2)),
@@ -30622,6 +31126,9 @@ resources:
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { skip, .. } => {
@@ -30682,6 +31189,8 @@ resources:
             audit_trail: false,
             resource_graph: false,
             drift_velocity: false,
+            fleet_overview: false,
+            machine_health: false,
         };
         match cmd {
             Commands::Status { format, .. } => {
@@ -30736,6 +31245,7 @@ resources:
             check_drift_risk: false,
             check_compliance: None,
             check_portability: false,
+            check_resource_limits: false,
         };
         match cmd {
             Commands::Validate { policy_file, .. } => {
@@ -30796,6 +31306,8 @@ resources:
             audit_trail: false,
             resource_graph: false,
             drift_velocity: false,
+            fleet_overview: false,
+            machine_health: false,
         };
         match cmd {
             Commands::Status { anomalies, .. } => assert!(anomalies),
@@ -30901,6 +31413,9 @@ resources:
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply {
@@ -30940,6 +31455,7 @@ resources:
             what_if: None,
             blast_radius: None,
             change_impact: None,
+            resource_types: false,
         };
         match cmd {
             Commands::Graph { cluster, .. } => assert!(cluster),
@@ -31061,6 +31577,9 @@ resources:
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { concurrency, .. } => assert_eq!(concurrency, Some(4)),
@@ -31119,6 +31638,8 @@ resources:
             audit_trail: false,
             resource_graph: false,
             drift_velocity: false,
+            fleet_overview: false,
+            machine_health: false,
         };
         match cmd {
             Commands::Status { diff_from, .. } => {
@@ -31228,6 +31749,9 @@ resources:
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { webhook_before, .. } => {
@@ -31266,6 +31790,7 @@ resources:
             check_drift_risk: false,
             check_compliance: None,
             check_portability: false,
+            check_resource_limits: false,
         };
         match cmd {
             Commands::Validate {
@@ -31326,6 +31851,8 @@ resources:
             audit_trail: false,
             resource_graph: false,
             drift_velocity: false,
+            fleet_overview: false,
+            machine_health: false,
         };
         match cmd {
             Commands::Status {
@@ -31363,6 +31890,7 @@ resources:
             what_if: None,
             blast_radius: None,
             change_impact: None,
+            resource_types: false,
         };
         match cmd {
             Commands::Graph { orphans, .. } => assert!(orphans),
@@ -31485,6 +32013,9 @@ resources:
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply {
@@ -31547,6 +32078,8 @@ resources:
             audit_trail: false,
             resource_graph: false,
             drift_velocity: false,
+            fleet_overview: false,
+            machine_health: false,
         };
         match cmd {
             Commands::Status { machines_only, .. } => assert!(machines_only),
@@ -31582,6 +32115,7 @@ resources:
             check_drift_risk: false,
             check_compliance: None,
             check_portability: false,
+            check_resource_limits: false,
         };
         match cmd {
             Commands::Validate {
@@ -31642,6 +32176,8 @@ resources:
             audit_trail: false,
             resource_graph: false,
             drift_velocity: false,
+            fleet_overview: false,
+            machine_health: false,
         };
         match cmd {
             Commands::Status {
@@ -31679,6 +32215,7 @@ resources:
             what_if: None,
             blast_radius: None,
             change_impact: None,
+            resource_types: false,
         };
         match cmd {
             Commands::Graph { stats, .. } => assert!(stats),
@@ -31816,6 +32353,9 @@ resources: {}
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { log_file, .. } => {
@@ -31876,6 +32416,8 @@ resources: {}
             audit_trail: false,
             resource_graph: false,
             drift_velocity: false,
+            fleet_overview: false,
+            machine_health: false,
         };
         match cmd {
             Commands::Status {
@@ -31983,6 +32525,9 @@ resources: {}
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { tags, .. } => {
@@ -32092,6 +32637,9 @@ resources: {}
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { comment, .. } => {
@@ -32127,6 +32675,7 @@ resources: {}
             check_drift_risk: false,
             check_compliance: None,
             check_portability: false,
+            check_resource_limits: false,
         };
         match cmd {
             Commands::Validate { strict_deps, .. } => assert!(strict_deps),
@@ -32185,6 +32734,8 @@ resources: {}
             audit_trail: false,
             resource_graph: false,
             drift_velocity: false,
+            fleet_overview: false,
+            machine_health: false,
         };
         match cmd {
             Commands::Status { json_lines, .. } => assert!(json_lines),
@@ -32290,6 +32841,9 @@ resources: {}
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { only_changed, .. } => assert!(only_changed),
@@ -32325,6 +32879,7 @@ resources: {}
             what_if: None,
             blast_radius: None,
             change_impact: None,
+            resource_types: false,
         };
         match cmd {
             Commands::Graph { json_output, .. } => assert!(json_output),
@@ -32447,6 +33002,9 @@ resources: {}
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { pre_script, .. } => {
@@ -32507,6 +33065,8 @@ resources: {}
             audit_trail: false,
             resource_graph: false,
             drift_velocity: false,
+            fleet_overview: false,
+            machine_health: false,
         };
         match cmd {
             Commands::Status { since, .. } => {
@@ -32616,6 +33176,9 @@ resources: {}
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { dry_run_json, .. } => assert!(dry_run_json),
@@ -32649,6 +33212,7 @@ resources: {}
             check_drift_risk: false,
             check_compliance: None,
             check_portability: false,
+            check_resource_limits: false,
         };
         match cmd {
             Commands::Validate { check_secrets, .. } => assert!(check_secrets),
@@ -32707,6 +33271,8 @@ resources: {}
             audit_trail: false,
             resource_graph: false,
             drift_velocity: false,
+            fleet_overview: false,
+            machine_health: false,
         };
         match cmd {
             Commands::Status { export, .. } => {
@@ -32814,6 +33380,9 @@ resources: {}
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { notify_webhook, .. } => {
@@ -32854,6 +33423,7 @@ resources: {}
             what_if: None,
             blast_radius: None,
             change_impact: None,
+            resource_types: false,
         };
         match cmd {
             Commands::Graph { highlight, .. } => {
@@ -32981,6 +33551,9 @@ resources: {}
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { post_script, .. } => {
@@ -33042,6 +33615,8 @@ resources: {}
             audit_trail: false,
             resource_graph: false,
             drift_velocity: false,
+            fleet_overview: false,
+            machine_health: false,
         };
         match cmd {
             Commands::Status { prometheus, .. } => assert!(prometheus),
@@ -33149,6 +33724,9 @@ resources: {}
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply {
@@ -33184,6 +33762,7 @@ resources: {}
             check_drift_risk: false,
             check_compliance: None,
             check_portability: false,
+            check_resource_limits: false,
         };
         match cmd {
             Commands::Validate {
@@ -33244,6 +33823,8 @@ resources: {}
             audit_trail: false,
             resource_graph: false,
             drift_velocity: false,
+            fleet_overview: false,
+            machine_health: false,
         };
         match cmd {
             Commands::Status { compact, .. } => assert!(compact),
@@ -33349,6 +33930,9 @@ resources: {}
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { canary_percent, .. } => assert_eq!(canary_percent, Some(25)),
@@ -33384,6 +33968,7 @@ resources: {}
             what_if: None,
             blast_radius: None,
             change_impact: None,
+            resource_types: false,
         };
         match cmd {
             Commands::Graph { prune, .. } => {
@@ -33511,6 +34096,9 @@ resources: {}
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { schedule, .. } => {
@@ -33571,6 +34159,8 @@ resources: {}
             audit_trail: false,
             resource_graph: false,
             drift_velocity: false,
+            fleet_overview: false,
+            machine_health: false,
         };
         match cmd {
             Commands::Status { alerts, .. } => assert!(alerts),
@@ -33678,6 +34268,9 @@ resources: {}
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { env_name, .. } => assert_eq!(env_name, Some("staging".to_string())),
@@ -33711,6 +34304,7 @@ resources: {}
             check_drift_risk: false,
             check_compliance: None,
             check_portability: false,
+            check_resource_limits: false,
         };
         match cmd {
             Commands::Validate {
@@ -33772,6 +34366,8 @@ resources: {}
             audit_trail: false,
             resource_graph: false,
             drift_velocity: false,
+            fleet_overview: false,
+            machine_health: false,
         };
         match cmd {
             Commands::Status { diff_lock, .. } => {
@@ -33879,6 +34475,9 @@ resources: {}
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { dry_run_diff, .. } => assert!(dry_run_diff),
@@ -33914,6 +34513,7 @@ resources: {}
             what_if: None,
             blast_radius: None,
             change_impact: None,
+            resource_types: false,
         };
         match cmd {
             Commands::Graph { layers, .. } => assert!(layers),
@@ -34032,6 +34632,9 @@ resources: {}
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply {
@@ -34094,6 +34697,8 @@ resources: {}
             audit_trail: false,
             resource_graph: false,
             drift_velocity: false,
+            fleet_overview: false,
+            machine_health: false,
         };
         match cmd {
             Commands::Status { compliance, .. } => {
@@ -34203,6 +34808,9 @@ resources: {}
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { batch_size, .. } => assert_eq!(batch_size, Some(10)),
@@ -34236,6 +34844,7 @@ resources: {}
             check_drift_risk: false,
             check_compliance: None,
             check_portability: false,
+            check_resource_limits: false,
         };
         match cmd {
             Commands::Validate {
@@ -34296,6 +34905,8 @@ resources: {}
             audit_trail: false,
             resource_graph: false,
             drift_velocity: false,
+            fleet_overview: false,
+            machine_health: false,
         };
         match cmd {
             Commands::Status { histogram, .. } => assert!(histogram),
@@ -34401,6 +35012,9 @@ resources: {}
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { notify_teams, .. } => {
@@ -34438,6 +35052,7 @@ resources: {}
             what_if: None,
             blast_radius: None,
             change_impact: None,
+            resource_types: false,
         };
         match cmd {
             Commands::Graph {
@@ -34558,6 +35173,9 @@ resources: {}
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { abort_on_drift, .. } => assert!(abort_on_drift),
@@ -34616,6 +35234,8 @@ resources: {}
             audit_trail: false,
             resource_graph: false,
             drift_velocity: false,
+            fleet_overview: false,
+            machine_health: false,
         };
         match cmd {
             Commands::Status {
@@ -34725,6 +35345,9 @@ resources: {}
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply {
@@ -34760,6 +35383,7 @@ resources: {}
             check_drift_risk: false,
             check_compliance: None,
             check_portability: false,
+            check_resource_limits: false,
         };
         match cmd {
             Commands::Validate { check_naming, .. } => assert!(check_naming),
@@ -34818,6 +35442,8 @@ resources: {}
             audit_trail: false,
             resource_graph: false,
             drift_velocity: false,
+            fleet_overview: false,
+            machine_health: false,
         };
         match cmd {
             Commands::Status { top_failures, .. } => assert!(top_failures),
@@ -34923,6 +35549,9 @@ resources: {}
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { notify_discord, .. } => assert_eq!(
@@ -34961,6 +35590,7 @@ resources: {}
             what_if: None,
             blast_radius: None,
             change_impact: None,
+            resource_types: false,
         };
         match cmd {
             Commands::Graph { weight, .. } => assert!(weight),
@@ -35079,6 +35709,9 @@ resources: {}
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply {
@@ -35140,6 +35773,8 @@ resources: {}
             audit_trail: false,
             resource_graph: false,
             drift_velocity: false,
+            fleet_overview: false,
+            machine_health: false,
         };
         match cmd {
             Commands::Status {
@@ -35249,6 +35884,9 @@ resources: {}
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { metrics_port, .. } => assert_eq!(metrics_port, Some(9090)),
@@ -35282,6 +35920,7 @@ resources: {}
             check_drift_risk: false,
             check_compliance: None,
             check_portability: false,
+            check_resource_limits: false,
         };
         match cmd {
             Commands::Validate { check_overlaps, .. } => assert!(check_overlaps),
@@ -35340,6 +35979,8 @@ resources: {}
             audit_trail: false,
             resource_graph: false,
             drift_velocity: false,
+            fleet_overview: false,
+            machine_health: false,
         };
         match cmd {
             Commands::Status { drift_summary, .. } => assert!(drift_summary),
@@ -35445,6 +36086,9 @@ resources: {}
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply {
@@ -35482,6 +36126,7 @@ resources: {}
             what_if: None,
             blast_radius: None,
             change_impact: None,
+            resource_types: false,
         };
         match cmd {
             Commands::Graph { subgraph, .. } => {
@@ -35602,6 +36247,9 @@ resources: {}
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply {
@@ -35662,6 +36310,8 @@ resources: {}
             audit_trail: false,
             resource_graph: false,
             drift_velocity: false,
+            fleet_overview: false,
+            machine_health: false,
         };
         match cmd {
             Commands::Status { resource_age, .. } => assert!(resource_age),
@@ -35769,6 +36419,9 @@ resources: {}
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply {
@@ -35804,6 +36457,7 @@ resources: {}
             check_drift_risk: false,
             check_compliance: None,
             check_portability: false,
+            check_resource_limits: false,
         };
         match cmd {
             Commands::Validate { check_limits, .. } => assert!(check_limits),
@@ -35862,6 +36516,8 @@ resources: {}
             audit_trail: false,
             resource_graph: false,
             drift_velocity: false,
+            fleet_overview: false,
+            machine_health: false,
         };
         match cmd {
             Commands::Status { sla_report, .. } => assert!(sla_report),
@@ -35967,6 +36623,9 @@ resources: {}
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { notify_datadog, .. } => {
@@ -36004,6 +36663,7 @@ resources: {}
             what_if: None,
             blast_radius: None,
             change_impact: None,
+            resource_types: false,
         };
         match cmd {
             Commands::Graph { impact_radius, .. } => {
@@ -36130,6 +36790,9 @@ resources: {}
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { change_window, .. } => {
@@ -36190,6 +36853,8 @@ resources: {}
             audit_trail: false,
             resource_graph: false,
             drift_velocity: false,
+            fleet_overview: false,
+            machine_health: false,
         };
         match cmd {
             Commands::Status {
@@ -36299,6 +36964,9 @@ resources: {}
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { canary_machine, .. } => {
@@ -36334,6 +37002,7 @@ resources: {}
             check_drift_risk: false,
             check_compliance: None,
             check_portability: false,
+            check_resource_limits: false,
         };
         match cmd {
             Commands::Validate {
@@ -36394,6 +37063,8 @@ resources: {}
             audit_trail: false,
             resource_graph: false,
             drift_velocity: false,
+            fleet_overview: false,
+            machine_health: false,
         };
         match cmd {
             Commands::Status { mttr, .. } => assert!(mttr),
@@ -36499,6 +37170,9 @@ resources: {}
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply {
@@ -36536,6 +37210,7 @@ resources: {}
             what_if: None,
             blast_radius: None,
             change_impact: None,
+            resource_types: false,
         };
         match cmd {
             Commands::Graph {
@@ -36657,6 +37332,9 @@ resources: {}
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { max_duration, .. } => assert_eq!(max_duration, Some(300)),
@@ -36715,6 +37393,8 @@ resources: {}
             audit_trail: false,
             resource_graph: false,
             drift_velocity: false,
+            fleet_overview: false,
+            machine_health: false,
         };
         match cmd {
             Commands::Status { trend, .. } => assert_eq!(trend, Some(10)),
@@ -36822,6 +37502,9 @@ resources: {}
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { notify_grafana, .. } => assert_eq!(
@@ -36858,6 +37541,7 @@ resources: {}
             check_drift_risk: false,
             check_compliance: None,
             check_portability: false,
+            check_resource_limits: false,
         };
         match cmd {
             Commands::Validate { check_security, .. } => assert!(check_security),
@@ -36916,6 +37600,8 @@ resources: {}
             audit_trail: false,
             resource_graph: false,
             drift_velocity: false,
+            fleet_overview: false,
+            machine_health: false,
         };
         match cmd {
             Commands::Status { prediction, .. } => assert!(prediction),
@@ -37021,6 +37707,9 @@ resources: {}
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply {
@@ -37059,6 +37748,7 @@ resources: {}
             what_if: None,
             blast_radius: None,
             change_impact: None,
+            resource_types: false,
         };
         match cmd {
             Commands::Graph { hotspots, .. } => assert!(hotspots),
@@ -37179,6 +37869,9 @@ resources: {}
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply {
@@ -37240,6 +37933,8 @@ resources: {}
             audit_trail: false,
             resource_graph: false,
             drift_velocity: false,
+            fleet_overview: false,
+            machine_health: false,
         };
         match cmd {
             Commands::Status { capacity, .. } => assert!(capacity),
@@ -37347,6 +38042,9 @@ resources: {}
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply {
@@ -37382,6 +38080,7 @@ resources: {}
             check_drift_risk: false,
             check_compliance: None,
             check_portability: false,
+            check_resource_limits: false,
         };
         match cmd {
             Commands::Validate {
@@ -37442,6 +38141,8 @@ resources: {}
             audit_trail: false,
             resource_graph: false,
             drift_velocity: false,
+            fleet_overview: false,
+            machine_health: false,
         };
         match cmd {
             Commands::Status { cost_estimate, .. } => assert!(cost_estimate),
@@ -37547,6 +38248,9 @@ resources: {}
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { blue_green, .. } => {
@@ -37584,6 +38288,7 @@ resources: {}
             what_if: None,
             blast_radius: None,
             change_impact: None,
+            resource_types: false,
         };
         match cmd {
             Commands::Graph { timeline_graph, .. } => assert!(timeline_graph),
@@ -37703,6 +38408,9 @@ resources: {}
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { dry_run_cost, .. } => assert!(dry_run_cost),
@@ -37761,6 +38469,8 @@ resources: {}
             audit_trail: false,
             resource_graph: false,
             drift_velocity: false,
+            fleet_overview: false,
+            machine_health: false,
         };
         match cmd {
             Commands::Status {
@@ -37870,6 +38580,9 @@ resources: {}
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply {
@@ -37909,6 +38622,7 @@ resources: {}
             check_drift_risk: true,
             check_compliance: None,
             check_portability: false,
+            check_resource_limits: false,
         };
         match cmd {
             Commands::Validate {
@@ -37969,6 +38683,8 @@ resources: {}
             audit_trail: false,
             resource_graph: false,
             drift_velocity: false,
+            fleet_overview: false,
+            machine_health: false,
         };
         match cmd {
             Commands::Status { health_score, .. } => assert!(health_score),
@@ -38074,6 +38790,9 @@ resources: {}
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { progressive, .. } => assert_eq!(progressive, Some(25)),
@@ -38109,6 +38828,7 @@ resources: {}
             what_if: Some("base-packages".to_string()),
             blast_radius: None,
             change_impact: None,
+            resource_types: false,
         };
         match cmd {
             Commands::Graph { what_if, .. } => {
@@ -38228,6 +38948,9 @@ resources: {}
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply {
@@ -38291,6 +39014,8 @@ resources: {}
             audit_trail: false,
             resource_graph: false,
             drift_velocity: false,
+            fleet_overview: false,
+            machine_health: false,
         };
         match cmd {
             Commands::Status {
@@ -38400,6 +39125,9 @@ resources: {}
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply {
@@ -38435,6 +39163,7 @@ resources: {}
             check_drift_risk: false,
             check_compliance: Some("CIS".to_string()),
             check_portability: false,
+            check_resource_limits: false,
         };
         match cmd {
             Commands::Validate {
@@ -38495,6 +39224,8 @@ resources: {}
             audit_trail: true,
             resource_graph: false,
             drift_velocity: false,
+            fleet_overview: false,
+            machine_health: false,
         };
         match cmd {
             Commands::Status { audit_trail, .. } => assert!(audit_trail),
@@ -38601,6 +39332,9 @@ resources: {}
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { change_window, .. } => {
@@ -38638,6 +39372,7 @@ resources: {}
             what_if: None,
             blast_radius: Some("base-packages".to_string()),
             change_impact: None,
+            resource_types: false,
         };
         match cmd {
             Commands::Graph { blast_radius, .. } => {
@@ -38757,6 +39492,9 @@ resources: {}
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { sign_off, .. } => {
@@ -38818,6 +39556,8 @@ resources: {}
             audit_trail: false,
             resource_graph: false,
             drift_velocity: false,
+            fleet_overview: false,
+            machine_health: false,
         };
         match cmd {
             Commands::Status { sla_report, .. } => assert!(sla_report),
@@ -38925,10 +39665,16 @@ resources: {}
             notify_sns: Some("arn:aws:sns:us-east-1:123456789:forjar".to_string()),
             telemetry_endpoint: None,
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { notify_sns, .. } => {
-                assert_eq!(notify_sns, Some("arn:aws:sns:us-east-1:123456789:forjar".to_string()))
+                assert_eq!(
+                    notify_sns,
+                    Some("arn:aws:sns:us-east-1:123456789:forjar".to_string())
+                )
             }
             _ => panic!("expected Apply"),
         }
@@ -38960,6 +39706,7 @@ resources: {}
             check_drift_risk: false,
             check_compliance: None,
             check_portability: true,
+            check_resource_limits: false,
         };
         match cmd {
             Commands::Validate {
@@ -39020,11 +39767,11 @@ resources: {}
             audit_trail: false,
             resource_graph: true,
             drift_velocity: false,
+            fleet_overview: false,
+            machine_health: false,
         };
         match cmd {
-            Commands::Status {
-                resource_graph, ..
-            } => assert!(resource_graph),
+            Commands::Status { resource_graph, .. } => assert!(resource_graph),
             _ => panic!("expected Status"),
         }
     }
@@ -39127,6 +39874,9 @@ resources: {}
             notify_sns: None,
             telemetry_endpoint: Some("https://otel.example.com/v1/traces".to_string()),
             runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply {
@@ -39167,6 +39917,7 @@ resources: {}
             what_if: None,
             blast_radius: None,
             change_impact: Some("base-packages".to_string()),
+            resource_types: false,
         };
         match cmd {
             Commands::Graph { change_impact, .. } => {
@@ -39286,10 +40037,16 @@ resources: {}
             notify_sns: None,
             telemetry_endpoint: None,
             runbook: Some("https://wiki.example.com/runbook/deploy".to_string()),
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: None,
         };
         match cmd {
             Commands::Apply { runbook, .. } => {
-                assert_eq!(runbook, Some("https://wiki.example.com/runbook/deploy".to_string()))
+                assert_eq!(
+                    runbook,
+                    Some("https://wiki.example.com/runbook/deploy".to_string())
+                )
             }
             _ => panic!("expected Apply"),
         }
@@ -39346,11 +40103,553 @@ resources: {}
             audit_trail: false,
             resource_graph: false,
             drift_velocity: true,
+            fleet_overview: false,
+            machine_health: false,
+        };
+        match cmd {
+            Commands::Status { drift_velocity, .. } => assert!(drift_velocity),
+            _ => panic!("expected Status"),
+        }
+    }
+
+    // ── Phase 43 tests (FJ-570→FJ-577) ────────────────────────────
+
+    #[test]
+    fn test_fj570_apply_notify_pubsub_flag() {
+        let cmd = Commands::Apply {
+            file: PathBuf::from("forjar.yaml"),
+            machine: None,
+            resource: None,
+            tag: None,
+            group: None,
+            force: false,
+            dry_run: false,
+            no_tripwire: false,
+            params: vec![],
+            auto_commit: false,
+            timeout: None,
+            state_dir: PathBuf::from("state"),
+            json: false,
+            env_file: None,
+            workspace: None,
+            check: false,
+            report: false,
+            force_unlock: false,
+            output: None,
+            progress: false,
+            timing: false,
+            retry: 0,
+            yes: false,
+            parallel: false,
+            resource_timeout: None,
+            rollback_on_failure: false,
+            max_parallel: None,
+            notify: None,
+            subset: None,
+            confirm_destructive: false,
+            backup: false,
+            exclude: None,
+            sequential: false,
+            diff_only: false,
+            notify_slack: None,
+            cost_limit: None,
+            preview: false,
+            tag_filter: None,
+            output_scripts: None,
+            resume: false,
+            confirm: false,
+            max_failures: None,
+            rate_limit: None,
+            labels: vec![],
+            plan_file: None,
+            notify_email: None,
+            skip: None,
+            snapshot_before: None,
+            concurrency: None,
+            webhook_before: None,
+            rollback_snapshot: None,
+            retry_delay: None,
+            tags: vec![],
+            log_file: None,
+            comment: None,
+            only_changed: false,
+            pre_script: None,
+            dry_run_json: false,
+            notify_webhook: None,
+            post_script: None,
+            approval_required: false,
+            canary_percent: None,
+            schedule: None,
+            env_name: None,
+            dry_run_diff: false,
+            notify_pagerduty: None,
+            batch_size: None,
+            notify_teams: None,
+            abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
+            metrics_port: None,
+            notify_opsgenie: None,
+            circuit_breaker: None,
+            require_approval: None,
+            notify_datadog: None,
+            change_window: None,
+            canary_machine: None,
+            notify_newrelic: None,
+            max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
+            notify_victorops: None,
+            blue_green: None,
+            dry_run_cost: false,
+            notify_msteams_adaptive: None,
+            progressive: None,
+            approval_webhook: None,
+            notify_incident: None,
+            sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
+            notify_pubsub: Some("projects/my-proj/topics/forjar".to_string()),
+            fleet_strategy: None,
+            pre_check: None,
+        };
+        match cmd {
+            Commands::Apply { notify_pubsub, .. } => {
+                assert_eq!(notify_pubsub, Some("projects/my-proj/topics/forjar".to_string()))
+            }
+            _ => panic!("expected Apply"),
+        }
+    }
+
+    #[test]
+    fn test_fj571_validate_check_resource_limits_flag() {
+        let cmd = Commands::Validate {
+            file: PathBuf::from("forjar.yaml"),
+            strict: false,
+            json: false,
+            dry_expand: false,
+            schema_version: None,
+            exhaustive: false,
+            policy_file: None,
+            check_connectivity: false,
+            check_templates: false,
+            strict_deps: false,
+            check_secrets: false,
+            check_idempotency: false,
+            check_drift_coverage: false,
+            check_cycles_deep: false,
+            check_naming: false,
+            check_overlaps: false,
+            check_limits: false,
+            check_complexity: false,
+            check_security: false,
+            check_deprecation: false,
+            check_drift_risk: false,
+            check_compliance: None,
+            check_portability: false,
+            check_resource_limits: true,
+        };
+        match cmd {
+            Commands::Validate {
+                check_resource_limits, ..
+            } => assert!(check_resource_limits),
+            _ => panic!("expected Validate"),
+        }
+    }
+
+    #[test]
+    fn test_fj572_status_fleet_overview_flag() {
+        let cmd = Commands::Status {
+            state_dir: PathBuf::from("state"),
+            machine: None,
+            json: false,
+            file: None,
+            summary: false,
+            watch: None,
+            stale: None,
+            health: false,
+            drift_details: false,
+            timeline: false,
+            changes_since: None,
+            summary_by: None,
+            prometheus: false,
+            expired: None,
+            count: false,
+            format: None,
+            anomalies: false,
+            diff_from: None,
+            resources_by_type: false,
+            machines_only: false,
+            stale_resources: false,
+            health_threshold: None,
+            json_lines: false,
+            since: None,
+            export: None,
+            compact: false,
+            alerts: false,
+            diff_lock: None,
+            compliance: None,
+            histogram: false,
+            dependency_health: false,
+            top_failures: false,
+            convergence_rate: false,
+            drift_summary: false,
+            resource_age: false,
+            sla_report: false,
+            compliance_report: None,
+            mttr: false,
+            trend: None,
+            prediction: false,
+            capacity: false,
+            cost_estimate: false,
+            staleness_report: None,
+            health_score: false,
+            executive_summary: false,
+            audit_trail: false,
+            resource_graph: false,
+            drift_velocity: false,
+            fleet_overview: true,
+            machine_health: false,
         };
         match cmd {
             Commands::Status {
-                drift_velocity, ..
-            } => assert!(drift_velocity),
+                fleet_overview, ..
+            } => assert!(fleet_overview),
+            _ => panic!("expected Status"),
+        }
+    }
+
+    #[test]
+    fn test_fj573_apply_fleet_strategy_flag() {
+        let cmd = Commands::Apply {
+            file: PathBuf::from("forjar.yaml"),
+            machine: None,
+            resource: None,
+            tag: None,
+            group: None,
+            force: false,
+            dry_run: false,
+            no_tripwire: false,
+            params: vec![],
+            auto_commit: false,
+            timeout: None,
+            state_dir: PathBuf::from("state"),
+            json: false,
+            env_file: None,
+            workspace: None,
+            check: false,
+            report: false,
+            force_unlock: false,
+            output: None,
+            progress: false,
+            timing: false,
+            retry: 0,
+            yes: false,
+            parallel: false,
+            resource_timeout: None,
+            rollback_on_failure: false,
+            max_parallel: None,
+            notify: None,
+            subset: None,
+            confirm_destructive: false,
+            backup: false,
+            exclude: None,
+            sequential: false,
+            diff_only: false,
+            notify_slack: None,
+            cost_limit: None,
+            preview: false,
+            tag_filter: None,
+            output_scripts: None,
+            resume: false,
+            confirm: false,
+            max_failures: None,
+            rate_limit: None,
+            labels: vec![],
+            plan_file: None,
+            notify_email: None,
+            skip: None,
+            snapshot_before: None,
+            concurrency: None,
+            webhook_before: None,
+            rollback_snapshot: None,
+            retry_delay: None,
+            tags: vec![],
+            log_file: None,
+            comment: None,
+            only_changed: false,
+            pre_script: None,
+            dry_run_json: false,
+            notify_webhook: None,
+            post_script: None,
+            approval_required: false,
+            canary_percent: None,
+            schedule: None,
+            env_name: None,
+            dry_run_diff: false,
+            notify_pagerduty: None,
+            batch_size: None,
+            notify_teams: None,
+            abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
+            metrics_port: None,
+            notify_opsgenie: None,
+            circuit_breaker: None,
+            require_approval: None,
+            notify_datadog: None,
+            change_window: None,
+            canary_machine: None,
+            notify_newrelic: None,
+            max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
+            notify_victorops: None,
+            blue_green: None,
+            dry_run_cost: false,
+            notify_msteams_adaptive: None,
+            progressive: None,
+            approval_webhook: None,
+            notify_incident: None,
+            sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: Some("rolling".to_string()),
+            pre_check: None,
+        };
+        match cmd {
+            Commands::Apply {
+                fleet_strategy, ..
+            } => assert_eq!(fleet_strategy, Some("rolling".to_string())),
+            _ => panic!("expected Apply"),
+        }
+    }
+
+    #[test]
+    fn test_fj574_graph_resource_types_flag() {
+        let cmd = Commands::Graph {
+            file: PathBuf::from("forjar.yaml"),
+            format: "mermaid".to_string(),
+            machine: None,
+            group: None,
+            affected: None,
+            critical_path: false,
+            reverse: false,
+            depth: None,
+            cluster: false,
+            orphans: false,
+            stats: false,
+            json_output: false,
+            highlight: None,
+            prune: None,
+            layers: false,
+            critical_resources: false,
+            weight: false,
+            subgraph: None,
+            impact_radius: None,
+            dependency_matrix: false,
+            hotspots: false,
+            timeline_graph: false,
+            what_if: None,
+            blast_radius: None,
+            change_impact: None,
+            resource_types: true,
+        };
+        match cmd {
+            Commands::Graph {
+                resource_types, ..
+            } => assert!(resource_types),
+            _ => panic!("expected Graph"),
+        }
+    }
+
+    #[test]
+    fn test_fj575_lock_defrag_command() {
+        let cmd = Commands::LockDefrag {
+            state_dir: PathBuf::from("state"),
+            json: true,
+        };
+        match cmd {
+            Commands::LockDefrag { json, .. } => assert!(json),
+            _ => panic!("expected LockDefrag"),
+        }
+    }
+
+    #[test]
+    fn test_fj576_apply_pre_check_flag() {
+        let cmd = Commands::Apply {
+            file: PathBuf::from("forjar.yaml"),
+            machine: None,
+            resource: None,
+            tag: None,
+            group: None,
+            force: false,
+            dry_run: false,
+            no_tripwire: false,
+            params: vec![],
+            auto_commit: false,
+            timeout: None,
+            state_dir: PathBuf::from("state"),
+            json: false,
+            env_file: None,
+            workspace: None,
+            check: false,
+            report: false,
+            force_unlock: false,
+            output: None,
+            progress: false,
+            timing: false,
+            retry: 0,
+            yes: false,
+            parallel: false,
+            resource_timeout: None,
+            rollback_on_failure: false,
+            max_parallel: None,
+            notify: None,
+            subset: None,
+            confirm_destructive: false,
+            backup: false,
+            exclude: None,
+            sequential: false,
+            diff_only: false,
+            notify_slack: None,
+            cost_limit: None,
+            preview: false,
+            tag_filter: None,
+            output_scripts: None,
+            resume: false,
+            confirm: false,
+            max_failures: None,
+            rate_limit: None,
+            labels: vec![],
+            plan_file: None,
+            notify_email: None,
+            skip: None,
+            snapshot_before: None,
+            concurrency: None,
+            webhook_before: None,
+            rollback_snapshot: None,
+            retry_delay: None,
+            tags: vec![],
+            log_file: None,
+            comment: None,
+            only_changed: false,
+            pre_script: None,
+            dry_run_json: false,
+            notify_webhook: None,
+            post_script: None,
+            approval_required: false,
+            canary_percent: None,
+            schedule: None,
+            env_name: None,
+            dry_run_diff: false,
+            notify_pagerduty: None,
+            batch_size: None,
+            notify_teams: None,
+            abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
+            metrics_port: None,
+            notify_opsgenie: None,
+            circuit_breaker: None,
+            require_approval: None,
+            notify_datadog: None,
+            change_window: None,
+            canary_machine: None,
+            notify_newrelic: None,
+            max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
+            notify_victorops: None,
+            blue_green: None,
+            dry_run_cost: false,
+            notify_msteams_adaptive: None,
+            progressive: None,
+            approval_webhook: None,
+            notify_incident: None,
+            sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
+            notify_pubsub: None,
+            fleet_strategy: None,
+            pre_check: Some("/usr/local/bin/pre-deploy-check.sh".to_string()),
+        };
+        match cmd {
+            Commands::Apply { pre_check, .. } => {
+                assert_eq!(pre_check, Some("/usr/local/bin/pre-deploy-check.sh".to_string()))
+            }
+            _ => panic!("expected Apply"),
+        }
+    }
+
+    #[test]
+    fn test_fj577_status_machine_health_flag() {
+        let cmd = Commands::Status {
+            state_dir: PathBuf::from("state"),
+            machine: None,
+            json: false,
+            file: None,
+            summary: false,
+            watch: None,
+            stale: None,
+            health: false,
+            drift_details: false,
+            timeline: false,
+            changes_since: None,
+            summary_by: None,
+            prometheus: false,
+            expired: None,
+            count: false,
+            format: None,
+            anomalies: false,
+            diff_from: None,
+            resources_by_type: false,
+            machines_only: false,
+            stale_resources: false,
+            health_threshold: None,
+            json_lines: false,
+            since: None,
+            export: None,
+            compact: false,
+            alerts: false,
+            diff_lock: None,
+            compliance: None,
+            histogram: false,
+            dependency_health: false,
+            top_failures: false,
+            convergence_rate: false,
+            drift_summary: false,
+            resource_age: false,
+            sla_report: false,
+            compliance_report: None,
+            mttr: false,
+            trend: None,
+            prediction: false,
+            capacity: false,
+            cost_estimate: false,
+            staleness_report: None,
+            health_score: false,
+            executive_summary: false,
+            audit_trail: false,
+            resource_graph: false,
+            drift_velocity: false,
+            fleet_overview: false,
+            machine_health: true,
+        };
+        match cmd {
+            Commands::Status {
+                machine_health, ..
+            } => assert!(machine_health),
             _ => panic!("expected Status"),
         }
     }
