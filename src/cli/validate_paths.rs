@@ -417,3 +417,72 @@ fn find_naming_violations(config: &types::ForjarConfig, pattern: &str) -> Vec<St
     violations.sort();
     violations
 }
+
+
+/// FJ-749: Warn if resource count exceeds threshold per machine.
+pub(crate) fn cmd_validate_check_resource_count(
+    file: &Path, json: bool, limit: usize,
+) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let config: types::ForjarConfig =
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+    let counts = count_resources_per_machine(&config);
+    let over: Vec<(&String, &usize)> = counts.iter().filter(|(_, c)| **c > limit).collect();
+    if json {
+        let items: Vec<String> = over.iter()
+            .map(|(m, c)| format!("{{\"machine\":\"{}\",\"count\":{},\"limit\":{}}}", m, c, limit))
+            .collect();
+        println!("{{\"resource_count_violations\":[{}]}}", items.join(","));
+    } else if over.is_empty() {
+        println!("All machines within resource limit ({}).", limit);
+    } else {
+        println!("Resource count violations (limit: {}):", limit);
+        for (m, c) in &over { println!("  {} — {} resources (over by {})", m, c, *c - limit); }
+    }
+    Ok(())
+}
+
+/// Count resources targeting each machine.
+fn count_resources_per_machine(config: &types::ForjarConfig) -> HashMap<String, usize> {
+    let mut counts: HashMap<String, usize> = HashMap::new();
+    for resource in config.resources.values() {
+        for m in resource.machine.to_vec() { *counts.entry(m).or_default() += 1; }
+    }
+    counts
+}
+
+
+/// FJ-753: Detect duplicate file paths across resources on same machine.
+pub(crate) fn cmd_validate_check_duplicate_paths(file: &Path, json: bool) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let config: types::ForjarConfig =
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+    let dupes = find_duplicate_paths(&config);
+    if json {
+        let items: Vec<String> = dupes.iter()
+            .map(|(p, names)| format!("{{\"path\":\"{}\",\"resources\":{:?}}}", p, names))
+            .collect();
+        println!("{{\"duplicate_paths\":[{}]}}", items.join(","));
+    } else if dupes.is_empty() {
+        println!("No duplicate file paths detected.");
+    } else {
+        println!("Duplicate paths ({}):", dupes.len());
+        for (path, names) in &dupes { println!("  {} — {}", path, names.join(", ")); }
+    }
+    Ok(())
+}
+
+/// Find paths claimed by multiple resources.
+fn find_duplicate_paths(config: &types::ForjarConfig) -> Vec<(String, Vec<String>)> {
+    let mut path_map: HashMap<String, Vec<String>> = HashMap::new();
+    for (name, resource) in &config.resources {
+        if let Some(ref p) = resource.path {
+            path_map.entry(p.clone()).or_default().push(name.clone());
+        }
+    }
+    let mut dupes: Vec<(String, Vec<String>)> = path_map.into_iter()
+        .filter(|(_, v)| v.len() > 1)
+        .collect();
+    dupes.sort_by(|a, b| a.0.cmp(&b.0));
+    dupes
+}

@@ -558,5 +558,8 @@ pub struct ApplyArgs {
     /// FJ-744: Custom headers for webhook notifications (JSON string)
     #[arg(long)]
     pub notify_webhook_headers: Option<String>,
+    /// FJ-752: Append structured JSON events to a local file
+    #[arg(long)]
+    pub notify_log: Option<std::path::PathBuf>,
 }
 

@@ -180,5 +180,13 @@ pub struct GraphArgs {
     /// FJ-747: Show in-degree and out-degree per resource
     #[arg(long)]
     pub dependency_count: bool,
+
+    /// FJ-751: Show root resources (no dependencies)
+    #[arg(long)]
+    pub root_resources: bool,
+
+    /// FJ-755: Output graph as edge list (source→target pairs)
+    #[arg(long)]
+    pub edge_list: bool,
 }
 

@@ -168,5 +168,13 @@ pub struct ValidateArgs {
     /// FJ-745: Enforce resource naming regex pattern
     #[arg(long)]
     pub check_resource_names: Option<String>,
+
+    /// FJ-749: Warn if resource count exceeds threshold per machine
+    #[arg(long)]
+    pub check_resource_count: Option<usize>,
+
+    /// FJ-753: Detect duplicate file paths across resources on same machine
+    #[arg(long)]
+    pub check_duplicate_paths: bool,
 }
 

@@ -66,6 +66,8 @@ mod tests {
             breadth_first: false,
             subgraph_stats: false,
             dependency_count: false,
+            root_resources: false,
+            edge_list: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { timeline_graph, .. }) => assert!(timeline_graph),
@@ -121,6 +123,8 @@ mod tests {
             breadth_first: false,
             subgraph_stats: false,
             dependency_count: false,
+            root_resources: false,
+            edge_list: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { what_if, .. }) => {
@@ -178,6 +182,8 @@ mod tests {
             breadth_first: false,
             subgraph_stats: false,
             dependency_count: false,
+            root_resources: false,
+            edge_list: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { blast_radius, .. }) => {
@@ -235,6 +241,8 @@ mod tests {
             breadth_first: false,
             subgraph_stats: false,
             dependency_count: false,
+            root_resources: false,
+            edge_list: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { change_impact, .. }) => {
@@ -292,6 +300,8 @@ mod tests {
             breadth_first: false,
             subgraph_stats: false,
             dependency_count: false,
+            root_resources: false,
+            edge_list: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { resource_types, .. }) => assert!(resource_types),

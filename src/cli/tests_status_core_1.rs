@@ -100,6 +100,9 @@ mod tests {
             dependency_count: false,
             last_apply_status: false,
             resource_staleness: false,
+            convergence_percentage: false,
+            failed_count: false,
+            drift_count: false,
         });
         match cmd {
             Commands::Status(StatusArgs { stale, .. }) => assert_eq!(stale, Some(30)),
@@ -194,6 +197,9 @@ mod tests {
             dependency_count: false,
             last_apply_status: false,
             resource_staleness: false,
+            convergence_percentage: false,
+            failed_count: false,
+            drift_count: false,
         });
         match cmd {
             Commands::Status(StatusArgs { health, .. }) => assert!(health),
@@ -286,6 +292,9 @@ mod tests {
             dependency_count: false,
             last_apply_status: false,
             resource_staleness: false,
+            convergence_percentage: false,
+            failed_count: false,
+            drift_count: false,
         });
         match cmd {
             Commands::Status(StatusArgs { count, .. }) => assert!(count),
@@ -378,6 +387,9 @@ mod tests {
             dependency_count: false,
             last_apply_status: false,
             resource_staleness: false,
+            convergence_percentage: false,
+            failed_count: false,
+            drift_count: false,
         });
         match cmd {
             Commands::Status(StatusArgs { format, .. }) => {
@@ -472,6 +484,9 @@ mod tests {
             dependency_count: false,
             last_apply_status: false,
             resource_staleness: false,
+            convergence_percentage: false,
+            failed_count: false,
+            drift_count: false,
         });
         match cmd {
             Commands::Status(StatusArgs { anomalies, .. }) => assert!(anomalies),

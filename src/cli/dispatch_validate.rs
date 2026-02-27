@@ -100,6 +100,7 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
         check_mode_consistency, check_group_consistency, check_mount_points,
         check_cron_syntax,
         check_env_refs, check_resource_names,
+        check_resource_count, check_duplicate_paths,
     } = args;
 
     if check_cron_syntax {
@@ -110,6 +111,12 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
     }
     if let Some(ref pattern) = check_resource_names {
         return cmd_validate_check_resource_names(&file, json, pattern);
+    }
+    if let Some(limit) = check_resource_count {
+        return cmd_validate_check_resource_count(&file, json, limit);
+    }
+    if check_duplicate_paths {
+        return cmd_validate_check_duplicate_paths(&file, json);
     }
     if let Some(r) = try_validate_structural(&file, json, check_mount_points, check_group_consistency, check_mode_consistency, check_template_vars, check_service_deps, check_path_conflicts, check_owner_consistency, check_naming_conventions, check_circular_refs, check_machine_reachability) {
         return r;

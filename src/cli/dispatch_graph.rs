@@ -11,6 +11,7 @@ use super::graph_cross::*;
 use super::graph_extended::*;
 use super::graph_visualization::*;
 use super::graph_impact::*;
+use super::graph_export::*;
 
 
 /// Dispatch traversal flags (depth_first through critical_chain).
@@ -107,6 +108,7 @@ pub(crate) fn dispatch_graph_cmd(cmd: Commands) -> Result<(), String> {
         machine_groups, resource_clusters, fan_out, leaf_resources,
         reverse_deps, depth_first, breadth_first,
         subgraph_stats, dependency_count: graph_dependency_count,
+        root_resources, edge_list,
     }) = cmd
     else {
         unreachable!()
@@ -115,6 +117,8 @@ pub(crate) fn dispatch_graph_cmd(cmd: Commands) -> Result<(), String> {
     if breadth_first { return cmd_graph_breadth_first(&file, json_output); }
     if subgraph_stats { return cmd_graph_subgraph_stats(&file, json_output); }
     if graph_dependency_count { return cmd_graph_dependency_count(&file, json_output); }
+    if root_resources { return cmd_graph_root_resources(&file, json_output); }
+    if edge_list { return cmd_graph_edge_list(&file, json_output); }
     if let Some(r) = try_traversal(&file, json_output, depth_first, reverse_deps, leaf_resources, fan_out, resource_clusters, machine_groups, cross_machine_deps, orphan_detection) {
         return r;
     }

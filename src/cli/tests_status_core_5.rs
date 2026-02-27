@@ -100,6 +100,9 @@ mod tests {
             dependency_count: false,
             last_apply_status: false,
             resource_staleness: false,
+            convergence_percentage: false,
+            failed_count: false,
+            drift_count: false,
         });
         match cmd {
             Commands::Status(StatusArgs { top_failures, .. }) => assert!(top_failures),
@@ -192,6 +195,9 @@ mod tests {
             dependency_count: false,
             last_apply_status: false,
             resource_staleness: false,
+            convergence_percentage: false,
+            failed_count: false,
+            drift_count: false,
         });
         match cmd {
             Commands::Status(StatusArgs {
@@ -288,6 +294,9 @@ mod tests {
             dependency_count: false,
             last_apply_status: false,
             resource_staleness: false,
+            convergence_percentage: false,
+            failed_count: false,
+            drift_count: false,
         });
         match cmd {
             Commands::Status(StatusArgs { drift_summary, .. }) => assert!(drift_summary),
@@ -380,6 +389,9 @@ mod tests {
             dependency_count: false,
             last_apply_status: false,
             resource_staleness: false,
+            convergence_percentage: false,
+            failed_count: false,
+            drift_count: false,
         });
         match cmd {
             Commands::Status(StatusArgs { resource_age, .. }) => assert!(resource_age),
@@ -474,6 +486,9 @@ mod tests {
             dependency_count: false,
             last_apply_status: false,
             resource_staleness: false,
+            convergence_percentage: false,
+            failed_count: false,
+            drift_count: false,
         });
         match cmd {
             Commands::Status(StatusArgs { sla_report, .. }) => assert!(sla_report),
