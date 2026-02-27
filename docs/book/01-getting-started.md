@@ -16,7 +16,7 @@ Verify:
 forjar --help
 ```
 
-You should see forjar's 44 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`.
+You should see forjar's 46 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`.
 
 ## Your First Project
 
@@ -1605,6 +1605,77 @@ Force sequential resource execution for debugging ordering issues:
 
 ```bash
 forjar apply -f forjar.yaml --sequential
+```
+
+## Diff-Only Preview
+
+Show what would change without generating scripts (faster than --dry-run):
+
+```bash
+forjar apply -f forjar.yaml --diff-only
+```
+
+## Compliance Checks
+
+Validate infrastructure against policy rules — file modes, owners, service configs:
+
+```bash
+forjar compliance -f forjar.yaml
+forjar compliance -f forjar.yaml --json
+```
+
+## State Export
+
+Export state to external formats for interoperability:
+
+```bash
+forjar export --state-dir state --format csv
+forjar export --state-dir state --format terraform
+forjar export --state-dir state --format ansible
+forjar export --state-dir state --format csv -o state.csv
+```
+
+## Slack Notifications
+
+Post apply results to Slack via webhook:
+
+```bash
+forjar apply -f forjar.yaml --notify-slack https://hooks.slack.com/services/...
+```
+
+## Impact Analysis
+
+Show transitive dependents of a resource (what breaks if this changes):
+
+```bash
+forjar graph --affected base-packages -f forjar.yaml
+```
+
+## Drift Details
+
+Show detailed drift report with per-resource status:
+
+```bash
+forjar status --drift-details --state-dir state
+forjar status --drift-details --state-dir state --json
+```
+
+## Cost Limit
+
+Abort apply if too many resources would change (safety guardrail):
+
+```bash
+forjar apply -f forjar.yaml --cost-limit 10
+# Error: Cost limit exceeded: 15 changes planned, limit is 10
+```
+
+## Resource History
+
+Show change history for a specific resource across all applies:
+
+```bash
+forjar history --resource base-packages --state-dir state
+forjar history --resource app-config --state-dir state --json
 ```
 
 ## Next Steps

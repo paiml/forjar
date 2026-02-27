@@ -1850,14 +1850,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-350 | `forjar apply --diff-only` — show what would change without generating scripts. Faster than dry-run for large configs. | Planned |
-| FJ-351 | `forjar compliance` — validate infrastructure against policy rules (required tags, naming conventions, security baselines). | Planned |
-| FJ-352 | `forjar export --format <fmt>` — export state to external formats (Terraform state, Ansible inventory, CSV). Interop bridge. | Planned |
-| FJ-353 | `forjar apply --notify-slack <webhook>` — post apply results to Slack channel via webhook URL. Team visibility. | Planned |
-| FJ-354 | `forjar graph --affected <resource>` — show transitive dependents of a resource. Impact analysis before changes. | Planned |
-| FJ-355 | `forjar status --drift-details` — show detailed drift report with field-level diffs for each drifted resource. | Planned |
-| FJ-356 | `forjar apply --cost-limit <n>` — abort apply if estimated cost (resource count) exceeds limit. Safety guardrail. | Planned |
-| FJ-357 | `forjar history --resource <name>` — show change history for a specific resource across all applies. Resource timeline. | Planned |
+| FJ-350 | `forjar apply --diff-only` — show what would change without generating scripts. Faster than dry-run for large configs. | Done |
+| FJ-351 | `forjar compliance` — validate infrastructure against policy rules (required tags, naming conventions, security baselines). | Done |
+| FJ-352 | `forjar export --format <fmt>` — export state to external formats (Terraform state, Ansible inventory, CSV). Interop bridge. | Done |
+| FJ-353 | `forjar apply --notify-slack <webhook>` — post apply results to Slack channel via webhook URL. Team visibility. | Done |
+| FJ-354 | `forjar graph --affected <resource>` — show transitive dependents of a resource. Impact analysis before changes. | Done |
+| FJ-355 | `forjar status --drift-details` — show detailed drift report with field-level diffs for each drifted resource. | Done |
+| FJ-356 | `forjar apply --cost-limit <n>` — abort apply if estimated cost (resource count) exceeds limit. Safety guardrail. | Done |
+| FJ-357 | `forjar history --resource <name>` — show change history for a specific resource across all applies. Resource timeline. | Done |
+
+### Phase 22 — v2.2: Infrastructure Intelligence
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-360 | `forjar apply --preview` — show generated shell scripts before execution. Audit what will run on machines. | Planned |
+| FJ-361 | `forjar suggest` — analyze config and suggest improvements (missing depends_on, unused params, security hardening). | Planned |
+| FJ-362 | `forjar apply --tag-filter <expr>` — boolean tag filter expressions (e.g., "web AND NOT staging"). Advanced targeting. | Planned |
+| FJ-363 | `forjar compare <file1> <file2>` — compare two config files and show differences. Migration planning tool. | Planned |
+| FJ-364 | `forjar status --timeline` — show resource convergence timeline with timestamps. Visual history per machine. | Planned |
+| FJ-365 | `forjar apply --dry-run --output-scripts <dir>` — write generated scripts to directory for manual review. | Planned |
+| FJ-366 | `forjar lock prune` — remove lock entries for resources no longer in config. State hygiene. | Planned |
+| FJ-367 | `forjar env diff <env1> <env2>` — compare environments (workspaces). Cross-environment drift detection. | Planned |
 
 ---
 
