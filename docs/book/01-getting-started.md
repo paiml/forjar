@@ -16,7 +16,7 @@ Verify:
 forjar --help
 ```
 
-You should see forjar's 67 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`, `lock-compact`, `lock-verify`, `lock-export`, `lock-gc`, `lock-diff`, `lock-merge`, `lock-rebase`, `lock-sign`, `lock-verify-sig`, `lock-compact-all`, `lock-audit-trail`, `lock-rotate-keys`, `lock-backup`, `lock-verify-chain`.
+You should see forjar's 68 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`, `lock-compact`, `lock-verify`, `lock-export`, `lock-gc`, `lock-diff`, `lock-merge`, `lock-rebase`, `lock-sign`, `lock-verify-sig`, `lock-compact-all`, `lock-audit-trail`, `lock-rotate-keys`, `lock-backup`, `lock-verify-chain`, `lock-stats`.
 
 ## Your First Project
 
@@ -2788,6 +2788,76 @@ Show resources not applied within a configurable window:
 ```bash
 forjar status --staleness-report 7d --state-dir state
 forjar status --staleness-report 30d --machine gpu-box --json --state-dir state
+```
+
+### Check Drift Risk
+
+Score drift risk based on resource volatility:
+
+```bash
+forjar validate --check-drift-risk -f forjar.yaml
+forjar validate --check-drift-risk -f forjar.yaml --json
+```
+
+### MS Teams Adaptive Cards
+
+Send rich Adaptive Card notifications to Microsoft Teams:
+
+```bash
+forjar apply -f forjar.yaml --notify-msteams-adaptive https://outlook.office.com/webhook/...
+```
+
+### Progressive Rollout
+
+Apply changes to a percentage of machines progressively:
+
+```bash
+forjar apply -f forjar.yaml --progressive 25
+forjar apply -f forjar.yaml --progressive 50
+```
+
+### Approval Webhook
+
+Require external approval via webhook before applying:
+
+```bash
+forjar apply -f forjar.yaml --approval-webhook https://api.example.com/approve
+```
+
+### Health Score
+
+Get a composite health score (0-100) across all machines:
+
+```bash
+forjar status --health-score --state-dir state
+forjar status --health-score --state-dir state --json
+```
+
+### Executive Summary
+
+One-line per machine summary for dashboards:
+
+```bash
+forjar status --executive-summary --state-dir state
+forjar status --executive-summary --state-dir state --json
+```
+
+### What-If Analysis
+
+Simulate removing a resource and show transitive impact:
+
+```bash
+forjar graph --what-if base-packages -f forjar.yaml
+forjar graph --what-if base-packages -f forjar.yaml --json
+```
+
+### Lock Stats
+
+Show lock file statistics (sizes, ages, resource counts):
+
+```bash
+forjar lock-stats --state-dir state
+forjar lock-stats --state-dir state --json
 ```
 
 ## Next Steps
