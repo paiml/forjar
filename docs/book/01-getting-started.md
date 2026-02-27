@@ -16,7 +16,7 @@ Verify:
 forjar --help
 ```
 
-You should see forjar's 69 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`, `lock-compact`, `lock-verify`, `lock-export`, `lock-gc`, `lock-diff`, `lock-merge`, `lock-rebase`, `lock-sign`, `lock-verify-sig`, `lock-compact-all`, `lock-audit-trail`, `lock-rotate-keys`, `lock-backup`, `lock-verify-chain`, `lock-stats`, `lock-audit`.
+You should see forjar's 70 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`, `lock-compact`, `lock-verify`, `lock-export`, `lock-gc`, `lock-diff`, `lock-merge`, `lock-rebase`, `lock-sign`, `lock-verify-sig`, `lock-compact-all`, `lock-audit-trail`, `lock-rotate-keys`, `lock-backup`, `lock-verify-chain`, `lock-stats`, `lock-audit`, `lock-compress`.
 
 ## Your First Project
 
@@ -2911,6 +2911,75 @@ Verify lock file integrity and detect tampering:
 ```bash
 forjar lock-audit --state-dir state
 forjar lock-audit --state-dir state --json
+```
+
+### Check Portability
+
+Check resources for platform-specific assumptions:
+
+```bash
+forjar validate --check-portability -f forjar.yaml
+forjar validate --check-portability -f forjar.yaml --json
+```
+
+### AWS SNS Notification
+
+Publish apply events to AWS SNS topic:
+
+```bash
+forjar apply -f forjar.yaml --notify-sns arn:aws:sns:us-east-1:123456789:forjar-events
+```
+
+### OpenTelemetry Spans
+
+POST OpenTelemetry spans for apply execution tracing:
+
+```bash
+forjar apply -f forjar.yaml --telemetry-endpoint https://otel.example.com/v1/traces
+```
+
+### Runbook Link
+
+Attach runbook URL to apply for audit trail:
+
+```bash
+forjar apply -f forjar.yaml --runbook https://wiki.example.com/runbook/deploy
+```
+
+### Resource Graph
+
+Show resource dependency graph from live state:
+
+```bash
+forjar status --resource-graph --state-dir state
+forjar status --resource-graph --machine gpu-box --json --state-dir state
+```
+
+### Drift Velocity
+
+Show drift rate over time:
+
+```bash
+forjar status --drift-velocity --state-dir state
+forjar status --drift-velocity --machine gpu-box --json --state-dir state
+```
+
+### Change Impact
+
+Show direct and indirect impact of changing a resource:
+
+```bash
+forjar graph --change-impact base-packages -f forjar.yaml
+forjar graph --change-impact base-packages -f forjar.yaml --json
+```
+
+### Lock Compress
+
+Compress old lock files by minifying YAML:
+
+```bash
+forjar lock-compress --state-dir state
+forjar lock-compress --state-dir state --json
 ```
 
 ## Next Steps

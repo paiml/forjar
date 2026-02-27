@@ -2123,14 +2123,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-560 | `forjar apply --notify-sns <topic-arn>` — publish apply events to AWS SNS topic. Cloud integration. | Planned |
-| FJ-561 | `forjar validate --check-portability` — check resources for platform-specific assumptions. Cross-platform. | Planned |
-| FJ-562 | `forjar status --resource-graph` — show resource dependency graph from live state. State visualization. | Planned |
-| FJ-563 | `forjar apply --telemetry-endpoint <url>` — POST OpenTelemetry spans for apply execution. Observability. | Planned |
-| FJ-564 | `forjar graph --change-impact <resource>` — show direct + indirect impact of changing a resource. Planning. | Planned |
-| FJ-565 | `forjar lock compress` — compress old lock files with zstd. Storage optimization. | Planned |
-| FJ-566 | `forjar apply --runbook <url>` — attach runbook URL to apply for audit trail. Documentation link. | Planned |
-| FJ-567 | `forjar status --drift-velocity` — show drift rate over time (changes per day/week). Trend analysis. | Planned |
+| FJ-560 | `forjar apply --notify-sns <topic-arn>` — publish apply events to AWS SNS topic. Cloud integration. | Done |
+| FJ-561 | `forjar validate --check-portability` — check resources for platform-specific assumptions. Cross-platform. | Done |
+| FJ-562 | `forjar status --resource-graph` — show resource dependency graph from live state. State visualization. | Done |
+| FJ-563 | `forjar apply --telemetry-endpoint <url>` — POST OpenTelemetry spans for apply execution. Observability. | Done |
+| FJ-564 | `forjar graph --change-impact <resource>` — show direct + indirect impact of changing a resource. Planning. | Done |
+| FJ-565 | `forjar lock compress` — compress old lock files with zstd. Storage optimization. | Done |
+| FJ-566 | `forjar apply --runbook <url>` — attach runbook URL to apply for audit trail. Documentation link. | Done |
+| FJ-567 | `forjar status --drift-velocity` — show drift rate over time (changes per day/week). Trend analysis. | Done |
+
+### Phase 43 — v4.3: Fleet Management & Scale
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-570 | `forjar apply --notify-pubsub <topic>` — publish apply events to Google Cloud Pub/Sub. GCP integration. | Planned |
+| FJ-571 | `forjar validate --check-resource-limits` — validate resource counts don't exceed per-machine limits. Scale guard. | Planned |
+| FJ-572 | `forjar status --fleet-overview` — aggregated fleet summary across all machines. Fleet dashboard. | Planned |
+| FJ-573 | `forjar apply --fleet-strategy <strategy>` — fleet-wide rollout strategy (parallel, rolling, canary). Fleet deploy. | Planned |
+| FJ-574 | `forjar graph --resource-types` — show graph colored/grouped by resource type. Visualization. | Planned |
+| FJ-575 | `forjar lock defrag` — defragment lock files (reorder resources alphabetically). Maintenance. | Planned |
+| FJ-576 | `forjar apply --pre-check <script>` — run validation script before apply proceeds. Gate check. | Planned |
+| FJ-577 | `forjar status --machine-health` — per-machine health details with resource breakdown. Diagnostics. | Planned |
 
 ---
 
