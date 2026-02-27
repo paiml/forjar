@@ -327,6 +327,45 @@ pub(crate) fn cmd_status_histogram(state_dir: &Path, machine: Option<&str>, json
 }
 
 
+/// Parse recovery times from a machine's event log.
+fn collect_recovery_from_events(
+    machine_name: &str,
+    content: &str,
+) -> Vec<(String, String, f64)> {
+    let mut failure_start: std::collections::HashMap<String, String> =
+        std::collections::HashMap::new();
+    let mut total_recovery: std::collections::HashMap<String, (f64, usize)> =
+        std::collections::HashMap::new();
+
+    for line in content.lines() {
+        let parsed: serde_json::Value =
+            serde_json::from_str(line).unwrap_or(serde_json::Value::Null);
+        let resource = parsed["resource"].as_str().unwrap_or("").to_string();
+        let status = parsed["status"].as_str().unwrap_or("");
+        let ts = parsed["timestamp"].as_str().unwrap_or("").to_string();
+
+        if resource.is_empty() { continue; }
+
+        if status == "Failed" || status == "Drifted" {
+            failure_start.entry(resource.clone()).or_insert(ts);
+        } else if status == "Converged" {
+            if let Some(start_ts) = failure_start.remove(&resource) {
+                let hours = estimate_hours_between(&start_ts, &ts);
+                let entry = total_recovery.entry(resource.clone()).or_insert((0.0, 0));
+                entry.0 += hours;
+                entry.1 += 1;
+            }
+        }
+    }
+
+    total_recovery
+        .into_iter()
+        .map(|(resource, (total, count))| {
+            (machine_name.to_string(), resource, total / count as f64)
+        })
+        .collect()
+}
+
 /// FJ-512: MTTR — mean time to recovery per resource.
 pub(crate) fn cmd_status_mttr(state_dir: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
     let machines = discover_machines(state_dir);
@@ -336,47 +375,12 @@ pub(crate) fn cmd_status_mttr(state_dir: &Path, machine: Option<&str>, json: boo
         machines
     };
 
-    let mut recovery_times: Vec<(String, String, f64)> = Vec::new(); // (machine, resource, hours)
-
+    let mut recovery_times: Vec<(String, String, f64)> = Vec::new();
     for m in &machines {
         let events_path = state_dir.join(format!("{}.events.jsonl", m));
-        if !events_path.exists() {
-            continue;
-        }
+        if !events_path.exists() { continue; }
         let content = std::fs::read_to_string(&events_path).unwrap_or_default();
-        let mut failure_start: std::collections::HashMap<String, String> =
-            std::collections::HashMap::new();
-        let mut total_recovery: std::collections::HashMap<String, (f64, usize)> =
-            std::collections::HashMap::new();
-
-        for line in content.lines() {
-            let parsed: serde_json::Value =
-                serde_json::from_str(line).unwrap_or(serde_json::Value::Null);
-            let resource = parsed["resource"].as_str().unwrap_or("").to_string();
-            let status = parsed["status"].as_str().unwrap_or("");
-            let ts = parsed["timestamp"].as_str().unwrap_or("").to_string();
-
-            if resource.is_empty() {
-                continue;
-            }
-
-            if status == "Failed" || status == "Drifted" {
-                failure_start.entry(resource.clone()).or_insert(ts);
-            } else if status == "Converged" {
-                if let Some(start_ts) = failure_start.remove(&resource) {
-                    // Estimate recovery time from timestamp difference
-                    let hours = estimate_hours_between(&start_ts, &ts);
-                    let entry = total_recovery.entry(resource.clone()).or_insert((0.0, 0));
-                    entry.0 += hours;
-                    entry.1 += 1;
-                }
-            }
-        }
-
-        for (resource, (total, count)) in &total_recovery {
-            let avg = total / (*count as f64);
-            recovery_times.push((m.clone(), resource.clone(), avg));
-        }
+        recovery_times.extend(collect_recovery_from_events(m, &content));
     }
 
     recovery_times.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
@@ -384,12 +388,7 @@ pub(crate) fn cmd_status_mttr(state_dir: &Path, machine: Option<&str>, json: boo
     if json {
         let entries: Vec<String> = recovery_times
             .iter()
-            .map(|(m, r, h)| {
-                format!(
-                    r#"{{"machine":"{}","resource":"{}","mttr_hours":{:.2}}}"#,
-                    m, r, h
-                )
-            })
+            .map(|(m, r, h)| format!(r#"{{"machine":"{}","resource":"{}","mttr_hours":{:.2}}}"#, m, r, h))
             .collect();
         println!("[{}]", entries.join(","));
     } else if recovery_times.is_empty() {

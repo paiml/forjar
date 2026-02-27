@@ -33,7 +33,7 @@ fn verify_machine_sig(
     let entry = serde_json::json!({
         "machine": m,
         "valid": valid,
-        "expected": &expected_sig[..16],
+        "expected": expected_sig.get(..16).unwrap_or(&expected_sig),
     });
     Ok(Some((valid, entry)))
 }

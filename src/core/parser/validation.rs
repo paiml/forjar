@@ -2,6 +2,33 @@
 
 use super::*;
 
+/// Check a reference (depends_on or triggers) against config, allowing expandable resources.
+fn validate_ref(
+    config: &ForjarConfig,
+    id: &str,
+    ref_id: &str,
+    ref_type: &str,
+    errors: &mut Vec<ValidationError>,
+) {
+    if !config.resources.contains_key(ref_id) {
+        let will_expand = config
+            .resources
+            .get(ref_id)
+            .map(|r| r.count.is_some() || r.for_each.is_some())
+            .unwrap_or(false);
+        if !will_expand {
+            errors.push(ValidationError {
+                message: format!("resource '{}' {} unknown resource '{}'", id, ref_type, ref_id),
+            });
+        }
+    }
+    if ref_id == id {
+        errors.push(ValidationError {
+            message: format!("resource '{}' {} itself", id, ref_type),
+        });
+    }
+}
+
 /// Validate machine and dependency references for a single resource.
 pub(super) fn validate_resource_refs(
     config: &ForjarConfig,
@@ -12,73 +39,30 @@ pub(super) fn validate_resource_refs(
     for machine_name in resource.machine.to_vec() {
         if !config.machines.contains_key(&machine_name) && machine_name != "localhost" {
             errors.push(ValidationError {
-                message: format!(
-                    "resource '{}' references unknown machine '{}'",
-                    id, machine_name
-                ),
+                message: format!("resource '{}' references unknown machine '{}'", id, machine_name),
             });
         }
     }
 
-    // FJ-064: Validate arch filter values
     for arch in &resource.arch {
         if !KNOWN_ARCHITECTURES.contains(&arch.as_str()) {
             errors.push(ValidationError {
                 message: format!(
                     "resource '{}' has unknown arch '{}' (expected one of: {})",
-                    id,
-                    arch,
-                    KNOWN_ARCHITECTURES.join(", ")
+                    id, arch, KNOWN_ARCHITECTURES.join(", ")
                 ),
             });
         }
     }
 
     for dep in &resource.depends_on {
-        if !config.resources.contains_key(dep) {
-            // FJ-203/FJ-204: Dep might reference a resource that will be expanded.
-            // After expansion, the original ID disappears -- this is valid.
-            let dep_resource = config.resources.get(dep);
-            let will_expand = dep_resource
-                .map(|r| r.count.is_some() || r.for_each.is_some())
-                .unwrap_or(false);
-            if !will_expand {
-                errors.push(ValidationError {
-                    message: format!("resource '{}' depends on unknown resource '{}'", id, dep),
-                });
-            }
-        }
-        if dep == id {
-            errors.push(ValidationError {
-                message: format!("resource '{}' depends on itself", id),
-            });
-        }
+        validate_ref(config, id, dep, "depends on", errors);
     }
 
-    // FJ-224: Validate triggers -- must reference existing resources
     for trigger in &resource.triggers {
-        if !config.resources.contains_key(trigger) {
-            let trigger_resource = config.resources.get(trigger);
-            let will_expand = trigger_resource
-                .map(|r| r.count.is_some() || r.for_each.is_some())
-                .unwrap_or(false);
-            if !will_expand {
-                errors.push(ValidationError {
-                    message: format!(
-                        "resource '{}' triggers on unknown resource '{}'",
-                        id, trigger
-                    ),
-                });
-            }
-        }
-        if trigger == id {
-            errors.push(ValidationError {
-                message: format!("resource '{}' triggers on itself", id),
-            });
-        }
+        validate_ref(config, id, trigger, "triggers on", errors);
     }
 
-    // FJ-203/FJ-204: Validate count and for_each
     if resource.count.is_some() && resource.for_each.is_some() {
         errors.push(ValidationError {
             message: format!("resource '{}' cannot have both 'count' and 'for_each'", id),
