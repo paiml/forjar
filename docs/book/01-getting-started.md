@@ -16,7 +16,7 @@ Verify:
 forjar --help
 ```
 
-You should see forjar's 77 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`, `lock-compact`, `lock-verify`, `lock-export`, `lock-gc`, `lock-diff`, `lock-merge`, `lock-rebase`, `lock-sign`, `lock-verify-sig`, `lock-compact-all`, `lock-audit-trail`, `lock-rotate-keys`, `lock-backup`, `lock-verify-chain`, `lock-stats`, `lock-audit`, `lock-compress`, `lock-defrag`, `lock-normalize`, `lock-validate`, `lock-verify-hmac`, `lock-archive`, `lock-snapshot`, `lock-repair`.
+You should see forjar's 78 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`, `lock-compact`, `lock-verify`, `lock-export`, `lock-gc`, `lock-diff`, `lock-merge`, `lock-rebase`, `lock-sign`, `lock-verify-sig`, `lock-compact-all`, `lock-audit-trail`, `lock-rotate-keys`, `lock-backup`, `lock-verify-chain`, `lock-stats`, `lock-audit`, `lock-compress`, `lock-defrag`, `lock-normalize`, `lock-validate`, `lock-verify-hmac`, `lock-archive`, `lock-snapshot`, `lock-repair`.
 
 ## Your First Project
 
@@ -3301,6 +3301,61 @@ forjar graph --critical-chain -f forjar.yaml --json
 ```bash
 forjar lock-repair --state-dir state
 forjar lock-repair --state-dir state --json
+```
+
+### Phase 50 — Production Readiness & Polish (FJ-640→FJ-647)
+
+**MQTT Notification** (FJ-640): Publish apply events to MQTT brokers for IoT integration.
+
+```bash
+forjar apply -f forjar.yaml --notify-mqtt "infra/events"
+```
+
+**Naming Convention Validation** (FJ-641): Enforce kebab-case naming conventions across all resources.
+
+```bash
+forjar validate -f forjar.yaml --check-naming-conventions
+forjar validate -f forjar.yaml --check-naming-conventions --json
+```
+
+**Resource Uptime** (FJ-642): Show resource uptime based on convergence history.
+
+```bash
+forjar status --uptime --state-dir state
+forjar status --uptime --state-dir state --json
+```
+
+**Confirmation Message** (FJ-643): Custom confirmation message before apply.
+
+```bash
+forjar apply -f forjar.yaml --confirmation-message "Deploying to production"
+```
+
+**Dependency Depth** (FJ-644): Show max dependency depth per resource for complexity analysis.
+
+```bash
+forjar graph -f forjar.yaml --dependency-depth
+forjar graph -f forjar.yaml --dependency-depth --json
+```
+
+**Lock History** (FJ-645): Show lock file change history with diffs for audit trail.
+
+```bash
+forjar lock-history --state-dir state
+forjar lock-history --state-dir state --json --limit 50
+```
+
+**Summary Only** (FJ-646): Show only summary output, no per-resource details.
+
+```bash
+forjar apply -f forjar.yaml --summary-only
+```
+
+**Recommendations** (FJ-647): State-based recommendations for improving infrastructure health.
+
+```bash
+forjar status --recommendations --state-dir state
+forjar status --recommendations --state-dir state --json
 ```
 
 ## Next Steps

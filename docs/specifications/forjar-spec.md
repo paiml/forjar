@@ -2227,14 +2227,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-640 | `forjar apply --notify-mqtt <topic>` — publish events to MQTT broker. IoT integration. | Planned |
-| FJ-641 | `forjar validate --check-naming-conventions` — enforce naming conventions across resources. Style. | Planned |
-| FJ-642 | `forjar status --uptime` — show resource uptime based on convergence history. Reliability. | Planned |
-| FJ-643 | `forjar apply --confirmation-message <msg>` — custom confirmation message before apply. UX. | Planned |
-| FJ-644 | `forjar graph --dependency-depth` — show max dependency depth per resource. Complexity. | Planned |
-| FJ-645 | `forjar lock history` — show lock file change history with diffs. Audit trail. | Planned |
-| FJ-646 | `forjar apply --summary-only` — only show summary, no per-resource output. Brevity. | Planned |
-| FJ-647 | `forjar status --recommendations` — AI-powered recommendations based on state analysis. Intelligence. | Planned |
+| FJ-640 | `forjar apply --notify-mqtt <topic>` — publish events to MQTT broker. IoT integration. | Done |
+| FJ-641 | `forjar validate --check-naming-conventions` — enforce naming conventions across resources. Style. | Done |
+| FJ-642 | `forjar status --uptime` — show resource uptime based on convergence history. Reliability. | Done |
+| FJ-643 | `forjar apply --confirmation-message <msg>` — custom confirmation message before apply. UX. | Done |
+| FJ-644 | `forjar graph --dependency-depth` — show max dependency depth per resource. Complexity. | Done |
+| FJ-645 | `forjar lock history` — show lock file change history with diffs. Audit trail. | Done |
+| FJ-646 | `forjar apply --summary-only` — only show summary, no per-resource output. Brevity. | Done |
+| FJ-647 | `forjar status --recommendations` — AI-powered recommendations based on state analysis. Intelligence. | Done |
+
+### Phase 51 — Environment & Configuration Management (FJ-650→FJ-657)
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-650 | `forjar apply --notify-redis <channel>` — publish events to Redis pub/sub. Caching integration. | Planned |
+| FJ-651 | `forjar validate --check-resource-limits` — warn on excessive resource counts per machine. Governance. | Planned |
+| FJ-652 | `forjar status --convergence-rate` — show percentage of resources converged over time. Trending. | Planned |
+| FJ-653 | `forjar apply --rollback-on-failure` — auto-rollback to last known good state on failure. Safety. | Planned |
+| FJ-654 | `forjar graph --orphan-detection` — find resources with no dependents or dependencies. Cleanup. | Planned |
+| FJ-655 | `forjar lock gc` — garbage collect stale entries from lock files. Maintenance. | Planned |
+| FJ-656 | `forjar apply --max-parallel <n>` — limit concurrent resource operations. Throttling. | Planned |
+| FJ-657 | `forjar status --machine-summary` — per-machine resource count and health summary. Fleet. | Planned |
 
 ---
 
