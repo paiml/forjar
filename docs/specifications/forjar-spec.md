@@ -2201,14 +2201,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-620 | `forjar apply --notify-rabbitmq <queue>` — publish events to RabbitMQ. Message queue integration. | Planned |
-| FJ-621 | `forjar validate --check-machine-reachability` — verify machines are reachable before apply. Preflight. | Planned |
-| FJ-622 | `forjar status --pipeline-status` — show CI/CD pipeline integration status. DevOps. | Planned |
-| FJ-623 | `forjar apply --gate <name>` — require named approval gate before apply proceeds. Safety. | Planned |
-| FJ-624 | `forjar graph --parallel-groups` — show which resources can execute in parallel. Optimization. | Planned |
-| FJ-625 | `forjar lock snapshot` — create point-in-time lock file snapshot with metadata. Recovery. | Planned |
-| FJ-626 | `forjar apply --schedule <cron>` — schedule apply for future execution. Automation. | Planned |
-| FJ-627 | `forjar status --resource-dependencies` — show runtime dependency graph from lock files. Analytics. | Planned |
+| FJ-620 | `forjar apply --notify-rabbitmq <queue>` — publish events to RabbitMQ. Message queue integration. | Done |
+| FJ-621 | `forjar validate --check-machine-reachability` — verify machines are reachable before apply. Preflight. | Done |
+| FJ-622 | `forjar status --pipeline-status` — show CI/CD pipeline integration status. DevOps. | Done |
+| FJ-623 | `forjar apply --gate <name>` — require named approval gate before apply proceeds. Safety. | Done |
+| FJ-624 | `forjar graph --parallel-groups` — show which resources can execute in parallel. Optimization. | Done |
+| FJ-625 | `forjar lock snapshot` — create point-in-time lock file snapshot with metadata. Recovery. | Done |
+| FJ-626 | `forjar apply --schedule <cron>` — schedule apply for future execution. Automation. | Done |
+| FJ-627 | `forjar status --resource-dependencies` — show runtime dependency graph from lock files. Analytics. | Done |
+
+### Phase 49 — v4.9: Advanced Diagnostics & Debugging
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-630 | `forjar apply --notify-nats <subject>` — publish events to NATS messaging. Lightweight integration. | Planned |
+| FJ-631 | `forjar validate --check-circular-refs` — detect circular template/param references. Integrity. | Planned |
+| FJ-632 | `forjar status --diagnostic` — comprehensive diagnostic report with recommendations. Debugging. | Planned |
+| FJ-633 | `forjar apply --dry-run-verbose` — verbose dry-run showing all planned commands. Debugging. | Planned |
+| FJ-634 | `forjar graph --critical-chain` — show longest dependency chain (critical path analysis). Planning. | Planned |
+| FJ-635 | `forjar lock repair` — attempt automatic repair of corrupted lock files. Recovery. | Planned |
+| FJ-636 | `forjar apply --explain` — explain what each step will do before executing. Education. | Planned |
+| FJ-637 | `forjar status --stale-resources` — identify resources not updated in configurable threshold. Hygiene. | Planned |
 
 ---
 
