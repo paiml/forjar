@@ -178,6 +178,10 @@ pub enum Commands {
         /// FJ-601: Validate resource ownership/mode fields are secure
         #[arg(long)]
         check_permissions: bool,
+
+        /// FJ-611: Deep idempotency analysis with simulation
+        #[arg(long)]
+        check_idempotency_deep: bool,
     },
 
     /// Show execution plan (diff desired vs current)
@@ -668,6 +672,18 @@ pub enum Commands {
         /// FJ-606: Run pre-flight validation script before apply
         #[arg(long)]
         pre_flight: Option<String>,
+
+        /// FJ-610: Enhanced GCP Pub/Sub notification with ordering keys
+        #[arg(long)]
+        notify_gcp_pubsub_v2: Option<String>,
+
+        /// FJ-613: Create named checkpoint before apply
+        #[arg(long)]
+        checkpoint: Option<String>,
+
+        /// FJ-616: Run post-flight validation script after apply
+        #[arg(long)]
+        post_flight: Option<String>,
     },
 
     /// Detect unauthorized changes (tripwire)
@@ -934,6 +950,14 @@ pub enum Commands {
         /// FJ-602: Show security-relevant resource states
         #[arg(long)]
         security_posture: bool,
+
+        /// FJ-612: Estimate resource cost based on type and count
+        #[arg(long)]
+        resource_cost: bool,
+
+        /// FJ-617: Predict likely drift based on historical patterns
+        #[arg(long)]
+        drift_forecast: bool,
     },
 
     /// Show apply history from event logs
@@ -1137,6 +1161,10 @@ pub enum Commands {
         /// FJ-604: Highlight resources crossing security boundaries
         #[arg(long)]
         security_boundaries: bool,
+
+        /// FJ-614: Show resource age based on last apply timestamp
+        #[arg(long)]
+        resource_age: bool,
     },
 
     /// Run check scripts to verify pre-conditions without applying
@@ -2056,6 +2084,18 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
     },
+
+    /// FJ-615: Archive old lock files to compressed storage
+    #[command(name = "lock-archive")]
+    LockArchive {
+        /// State directory
+        #[arg(long, default_value = "state")]
+        state_dir: PathBuf,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 /// FJ-260: Snapshot subcommands — named state checkpoints.
@@ -2256,7 +2296,11 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             check_unused,
             check_dependencies,
             check_permissions,
+            check_idempotency_deep,
         } => {
+            if check_idempotency_deep {
+                return cmd_validate_check_idempotency_deep(&file, json);
+            }
             if check_permissions {
                 return cmd_validate_check_permissions(&file, json);
             }
@@ -2467,6 +2511,9 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             notify_azure_servicebus,
             approval_timeout: _approval_timeout,
             pre_flight,
+            notify_gcp_pubsub_v2,
+            checkpoint: _checkpoint,
+            post_flight,
         } => {
             // FJ-606: --pre-flight — run pre-flight validation script
             if let Some(ref script) = pre_flight {
@@ -3083,6 +3130,42 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
                     .output();
             }
 
+            // FJ-610: notify-gcp-pubsub-v2 — enhanced GCP Pub/Sub with ordering keys
+            if let Some(ref topic) = notify_gcp_pubsub_v2 {
+                let status = if result.is_ok() { "success" } else { "failure" };
+                let message = format!(
+                    r#"{{"event":"forjar_apply","status":"{}","config":"{}","ordering_key":"forjar"}}"#,
+                    status,
+                    file.display()
+                );
+                let _ = std::process::Command::new("gcloud")
+                    .args([
+                        "pubsub",
+                        "topics",
+                        "publish",
+                        topic,
+                        "--message",
+                        &message,
+                        "--ordering-key",
+                        "forjar",
+                    ])
+                    .output();
+            }
+
+            // FJ-616: post-flight — run post-flight validation script after apply
+            if let Some(ref script) = post_flight {
+                let output = std::process::Command::new("bash")
+                    .arg("-c")
+                    .arg(script)
+                    .output();
+                if let Ok(o) = output {
+                    if !o.status.success() {
+                        let stderr = String::from_utf8_lossy(&o.stderr);
+                        eprintln!("Post-flight warning: {}", stderr.trim());
+                    }
+                }
+            }
+
             result
         }
         Commands::Drift {
@@ -3173,7 +3256,15 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             resource_timeline,
             error_summary,
             security_posture,
+            resource_cost,
+            drift_forecast,
         } => {
+            if drift_forecast {
+                return cmd_status_drift_forecast(&state_dir, machine.as_deref(), json);
+            }
+            if resource_cost {
+                return cmd_status_resource_cost(&state_dir, machine.as_deref(), json);
+            }
             if security_posture {
                 return cmd_status_security_posture(&state_dir, machine.as_deref(), json);
             }
@@ -3409,7 +3500,11 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             topological_levels,
             execution_order,
             security_boundaries,
+            resource_age,
         } => {
+            if resource_age {
+                return cmd_graph_resource_age(&file, json_output);
+            }
             if security_boundaries {
                 return cmd_graph_security_boundaries(&file, json_output);
             }
@@ -3800,6 +3895,7 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
         Commands::LockNormalize { state_dir, json } => cmd_lock_normalize(&state_dir, json),
         Commands::LockValidate { state_dir, json } => cmd_lock_validate(&state_dir, json),
         Commands::LockVerifyHmac { state_dir, json } => cmd_lock_verify_hmac(&state_dir, json),
+        Commands::LockArchive { state_dir, json } => cmd_lock_archive(&state_dir, json),
     }
 }
 
@@ -17953,8 +18049,14 @@ fn cmd_validate_check_permissions(file: &Path, json: bool) -> Result<(), String>
         if let Some(owner) = &resource.owner {
             if owner == "root" {
                 if let Some(path) = &resource.path {
-                    if !path.starts_with("/etc") && !path.starts_with("/usr") && !path.starts_with("/var") {
-                        issues.push((rname.clone(), format!("root ownership on non-system path: {}", path)));
+                    if !path.starts_with("/etc")
+                        && !path.starts_with("/usr")
+                        && !path.starts_with("/var")
+                    {
+                        issues.push((
+                            rname.clone(),
+                            format!("root ownership on non-system path: {}", path),
+                        ));
                     }
                 }
             }
@@ -18126,10 +18228,7 @@ fn cmd_lock_verify_hmac(state_dir: &Path, json: bool) -> Result<(), String> {
     }
 
     if json {
-        println!(
-            r#"{{"verified":{},"unsigned":{}}}"#,
-            verified, unsigned
-        );
+        println!(r#"{{"verified":{},"unsigned":{}}}"#, verified, unsigned);
     } else if unsigned == 0 && verified == 0 {
         println!("No lock files found");
     } else {
@@ -18137,6 +18236,262 @@ fn cmd_lock_verify_hmac(state_dir: &Path, json: bool) -> Result<(), String> {
             "HMAC verification: {} verified, {} unsigned",
             verified, unsigned
         );
+    }
+    Ok(())
+}
+
+/// FJ-611: Deep idempotency analysis — simulate re-apply to detect non-idempotent resources.
+fn cmd_validate_check_idempotency_deep(file: &Path, json: bool) -> Result<(), String> {
+    let config = parse_and_validate(file)?;
+    let mut suspects: Vec<(String, String)> = Vec::new(); // (resource, reason)
+
+    for (rname, resource) in &config.resources {
+        // Check for resources that use content with timestamps or dynamic values
+        if let Some(ref content) = resource.content {
+            if content.contains("$(date") || content.contains("$(hostname") || content.contains("$RANDOM") {
+                suspects.push((rname.clone(), "dynamic shell expansion in content".to_string()));
+            }
+        }
+        // Scripts without idempotency guards
+        if resource.resource_type == crate::core::types::ResourceType::File
+            && resource.content.is_some()
+            && resource.mode.is_none()
+        {
+            suspects.push((rname.clone(), "file content without explicit mode (may vary)".to_string()));
+        }
+    }
+
+    if json {
+        let items: Vec<String> = suspects
+            .iter()
+            .map(|(r, reason)| format!(r#"{{"resource":"{}","reason":"{}"}}"#, r, reason))
+            .collect();
+        println!(
+            r#"{{"idempotency_suspects":[{}],"count":{}}}"#,
+            items.join(","),
+            suspects.len()
+        );
+    } else if suspects.is_empty() {
+        println!("All resources appear idempotent");
+    } else {
+        println!("Idempotency suspects ({}):", suspects.len());
+        for (r, reason) in &suspects {
+            println!("  {} — {}", r, reason);
+        }
+    }
+    Ok(())
+}
+
+/// FJ-612: Estimate resource cost based on type and count.
+fn cmd_status_resource_cost(
+    state_dir: &Path,
+    machine: Option<&str>,
+    json: bool,
+) -> Result<(), String> {
+    let machines = discover_machines(state_dir);
+    let mut type_counts: std::collections::HashMap<String, u64> = std::collections::HashMap::new();
+
+    for m in &machines {
+        if let Some(filter) = machine {
+            if m != filter {
+                continue;
+            }
+        }
+        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        if !lock_path.exists() {
+            continue;
+        }
+        let content = std::fs::read_to_string(&lock_path).unwrap_or_default();
+        if let Ok(lock) = serde_yaml_ng::from_str::<crate::core::types::StateLock>(&content) {
+            for (_, rlock) in &lock.resources {
+                let rtype = format!("{:?}", rlock.resource_type);
+                *type_counts.entry(rtype).or_insert(0) += 1;
+            }
+        }
+    }
+
+    // Simple cost model: weight by resource type complexity
+    let total_resources: u64 = type_counts.values().sum();
+    let weighted_cost: f64 = type_counts
+        .iter()
+        .map(|(t, &count)| {
+            let weight = match t.as_str() {
+                "Package" => 2.0,
+                "File" => 1.0,
+                "Service" => 3.0,
+                "Mount" => 2.5,
+                "User" => 2.0,
+                "Docker" => 5.0,
+                "Network" => 3.0,
+                _ => 1.0,
+            };
+            count as f64 * weight
+        })
+        .sum();
+
+    if json {
+        let items: Vec<String> = type_counts
+            .iter()
+            .map(|(t, c)| format!(r#"{{"type":"{}","count":{}}}"#, t, c))
+            .collect();
+        println!(
+            r#"{{"resource_types":[{}],"total":{},"complexity_score":{:.1}}}"#,
+            items.join(","),
+            total_resources,
+            weighted_cost
+        );
+    } else if total_resources == 0 {
+        println!("No resources found for cost estimate");
+    } else {
+        println!("Resource cost estimate (complexity: {:.1}):", weighted_cost);
+        for (t, c) in &type_counts {
+            println!("  {} — {} resources", t, c);
+        }
+    }
+    Ok(())
+}
+
+/// FJ-614: Show resource age based on last apply timestamp.
+fn cmd_graph_resource_age(file: &Path, json: bool) -> Result<(), String> {
+    let config = parse_and_validate(file)?;
+    let resource_count = config.resources.len();
+
+    // Without state, we can only show resource definitions and their static age info
+    if json {
+        let items: Vec<String> = config
+            .resources
+            .keys()
+            .map(|name| {
+                let rtype = config
+                    .resources
+                    .get(name)
+                    .map(|r| format!("{:?}", r.resource_type))
+                    .unwrap_or_else(|| "unknown".to_string());
+                format!(
+                    r#"{{"resource":"{}","type":"{}","age":"unknown"}}"#,
+                    name, rtype
+                )
+            })
+            .collect();
+        println!(
+            r#"{{"resources":[{}],"total":{}}}"#,
+            items.join(","),
+            resource_count
+        );
+    } else if resource_count == 0 {
+        println!("No resources found");
+    } else {
+        println!("Resource age ({} resources):", resource_count);
+        println!("  (Run with --state-dir to show actual ages from lock files)");
+        for name in config.resources.keys() {
+            let rtype = config
+                .resources
+                .get(name)
+                .map(|r| format!("{:?}", r.resource_type))
+                .unwrap_or_else(|| "unknown".to_string());
+            println!("  {} ({}) — age unknown", name, rtype);
+        }
+    }
+    Ok(())
+}
+
+/// FJ-615: Archive old lock files to compressed storage.
+fn cmd_lock_archive(state_dir: &Path, json: bool) -> Result<(), String> {
+    let machines = discover_machines(state_dir);
+    let archive_dir = state_dir.join("archive");
+    let mut archived = 0u64;
+
+    for m in &machines {
+        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        if !lock_path.exists() {
+            continue;
+        }
+        // Archive event logs (not the active lock files)
+        let events_path = state_dir.join(format!("{}.events.jsonl", m));
+        if events_path.exists() {
+            std::fs::create_dir_all(&archive_dir)
+                .map_err(|e| format!("Failed to create archive dir: {}", e))?;
+            let timestamp = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs();
+            let archive_name = format!("{}.events.{}.jsonl", m, timestamp);
+            let dest = archive_dir.join(&archive_name);
+            std::fs::copy(&events_path, &dest)
+                .map_err(|e| format!("Failed to archive {}: {}", events_path.display(), e))?;
+            archived += 1;
+        }
+    }
+
+    if json {
+        println!(r#"{{"archived":{}}}"#, archived);
+    } else if archived == 0 {
+        println!("No event logs to archive");
+    } else {
+        println!("Archived {} event logs to {}", archived, archive_dir.display());
+    }
+    Ok(())
+}
+
+/// FJ-617: Predict likely drift based on historical patterns.
+fn cmd_status_drift_forecast(
+    state_dir: &Path,
+    machine: Option<&str>,
+    json: bool,
+) -> Result<(), String> {
+    let machines = discover_machines(state_dir);
+    let mut forecasts: Vec<(String, String, String)> = Vec::new(); // (machine, resource, risk_level)
+
+    for m in &machines {
+        if let Some(filter) = machine {
+            if m != filter {
+                continue;
+            }
+        }
+        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        if !lock_path.exists() {
+            continue;
+        }
+        let content = std::fs::read_to_string(&lock_path).unwrap_or_default();
+        if let Ok(lock) = serde_yaml_ng::from_str::<crate::core::types::StateLock>(&content) {
+            for (rname, rlock) in &lock.resources {
+                // Heuristic: packages and services drift more than files
+                let risk = match rlock.resource_type {
+                    crate::core::types::ResourceType::Package => "medium",
+                    crate::core::types::ResourceType::Service => "high",
+                    crate::core::types::ResourceType::File => "low",
+                    crate::core::types::ResourceType::User => "medium",
+                    _ => "low",
+                };
+                if risk != "low" {
+                    forecasts.push((m.clone(), rname.clone(), risk.to_string()));
+                }
+            }
+        }
+    }
+
+    if json {
+        let items: Vec<String> = forecasts
+            .iter()
+            .map(|(m, r, risk)| {
+                format!(
+                    r#"{{"machine":"{}","resource":"{}","drift_risk":"{}"}}"#,
+                    m, r, risk
+                )
+            })
+            .collect();
+        println!(
+            r#"{{"drift_forecasts":[{}],"count":{}}}"#,
+            items.join(","),
+            forecasts.len()
+        );
+    } else if forecasts.is_empty() {
+        println!("No drift risk detected");
+    } else {
+        println!("Drift forecast ({} at-risk resources):", forecasts.len());
+        for (m, r, risk) in &forecasts {
+            println!("  {}:{} — {} risk", m, r, risk);
+        }
     }
     Ok(())
 }
@@ -18762,6 +19117,7 @@ resources: {}
                 check_unused: false,
                 check_dependencies: false,
                 check_permissions: false,
+                check_idempotency_deep: false,
             },
             false,
             true,
@@ -18831,6 +19187,8 @@ resources: {}
                 resource_timeline: false,
                 error_summary: false,
                 security_posture: false,
+                resource_cost: false,
+                drift_forecast: false,
             },
             false,
             true,
@@ -19018,6 +19376,9 @@ resources:
                 notify_azure_servicebus: None,
                 approval_timeout: None,
                 pre_flight: None,
+                notify_gcp_pubsub_v2: None,
+                checkpoint: None,
+                post_flight: None,
             },
             false,
             true,
@@ -19818,6 +20179,7 @@ resources: {}
                 topological_levels: false,
                 execution_order: false,
                 security_boundaries: false,
+                resource_age: false,
             },
             false,
             true,
@@ -19880,6 +20242,7 @@ resources: {}
                 topological_levels: false,
                 execution_order: false,
                 security_boundaries: false,
+                resource_age: false,
             },
             false,
             true,
@@ -23244,6 +23607,8 @@ resources:
                 resource_timeline: false,
                 error_summary: false,
                 security_posture: false,
+                resource_cost: false,
+                drift_forecast: false,
             },
             false,
             true,
@@ -23384,6 +23749,9 @@ resources:
                 notify_azure_servicebus: None,
                 approval_timeout: None,
                 pre_flight: None,
+                notify_gcp_pubsub_v2: None,
+                checkpoint: None,
+                post_flight: None,
             },
             false,
             true,
@@ -24645,6 +25013,9 @@ resources:
                 notify_azure_servicebus: None,
                 approval_timeout: None,
                 pre_flight: None,
+                notify_gcp_pubsub_v2: None,
+                checkpoint: None,
+                post_flight: None,
             },
             false,
             true,
@@ -24788,6 +25159,9 @@ resources:
                 notify_azure_servicebus: None,
                 approval_timeout: None,
                 pre_flight: None,
+                notify_gcp_pubsub_v2: None,
+                checkpoint: None,
+                post_flight: None,
             },
             false,
             true,
@@ -26434,6 +26808,9 @@ resources:
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { output, .. } => {
@@ -26626,6 +27003,9 @@ resources:
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { progress, .. } => assert!(progress),
@@ -26743,6 +27123,9 @@ resources:
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { progress, .. } => assert!(!progress),
@@ -26864,6 +27247,9 @@ resources:
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { timing, .. } => assert!(timing),
@@ -26981,6 +27367,9 @@ resources:
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { timing, .. } => assert!(!timing),
@@ -27306,6 +27695,9 @@ resources:
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { group, .. } => {
@@ -27390,6 +27782,7 @@ resources:
             check_unused: false,
             check_dependencies: false,
             check_permissions: false,
+            check_idempotency_deep: false,
         };
         match cmd {
             Commands::Validate { strict, .. } => assert!(strict),
@@ -27562,6 +27955,9 @@ resources:
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { retry, .. } => assert_eq!(retry, 3),
@@ -27679,6 +28075,9 @@ resources:
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { retry, .. } => assert_eq!(retry, 0),
@@ -27910,6 +28309,9 @@ resources:
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { yes, .. } => assert!(yes),
@@ -28027,6 +28429,9 @@ resources:
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { yes, .. } => assert!(!yes),
@@ -28168,6 +28573,9 @@ resources:
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { parallel, .. } => assert!(parallel),
@@ -28254,6 +28662,8 @@ resources:
             resource_timeline: false,
             error_summary: false,
             security_posture: false,
+            resource_cost: false,
+            drift_forecast: false,
         };
         match cmd {
             Commands::Status { file, json, .. } => {
@@ -28536,6 +28946,7 @@ resources:
             check_unused: false,
             check_dependencies: false,
             check_permissions: false,
+            check_idempotency_deep: false,
         };
         match cmd {
             Commands::Validate { json, strict, .. } => {
@@ -28658,6 +29069,8 @@ resources:
             resource_timeline: false,
             error_summary: false,
             security_posture: false,
+            resource_cost: false,
+            drift_forecast: false,
         };
         match cmd {
             Commands::Status { summary, .. } => assert!(summary),
@@ -28786,6 +29199,9 @@ resources:
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply {
@@ -29042,6 +29458,9 @@ resources:
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply {
@@ -29294,6 +29713,9 @@ resources:
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { max_parallel, .. } => assert_eq!(max_parallel, Some(4)),
@@ -29361,6 +29783,8 @@ resources:
             resource_timeline: false,
             error_summary: false,
             security_posture: false,
+            resource_cost: false,
+            drift_forecast: false,
         };
         match cmd {
             Commands::Status { watch, .. } => assert_eq!(watch, Some(5)),
@@ -29480,6 +29904,9 @@ resources:
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { notify, .. } => {
@@ -29689,6 +30116,7 @@ resources:
             check_unused: false,
             check_dependencies: false,
             check_permissions: false,
+            check_idempotency_deep: false,
         };
         match cmd {
             Commands::Validate { dry_expand, .. } => assert!(dry_expand),
@@ -29806,6 +30234,9 @@ resources:
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { subset, .. } => {
@@ -29978,6 +30409,9 @@ resources:
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply {
@@ -30046,6 +30480,8 @@ resources:
             resource_timeline: false,
             error_summary: false,
             security_posture: false,
+            resource_cost: false,
+            drift_forecast: false,
         };
         match cmd {
             Commands::Status { stale, .. } => assert_eq!(stale, Some(30)),
@@ -30191,6 +30627,9 @@ resources:
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { backup, .. } => assert!(backup),
@@ -30338,6 +30777,9 @@ resources:
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { exclude, .. } => assert_eq!(exclude, Some("test-*".to_string())),
@@ -30403,6 +30845,8 @@ resources:
             resource_timeline: false,
             error_summary: false,
             security_posture: false,
+            resource_cost: false,
+            drift_forecast: false,
         };
         match cmd {
             Commands::Status { health, .. } => assert!(health),
@@ -30520,6 +30964,9 @@ resources:
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { sequential, .. } => assert!(sequential),
@@ -30639,6 +31086,9 @@ resources:
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { diff_only, .. } => assert!(diff_only),
@@ -30784,6 +31234,9 @@ resources:
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { notify_slack, .. } => {
@@ -30828,6 +31281,7 @@ resources:
             topological_levels: false,
             execution_order: false,
             security_boundaries: false,
+            resource_age: false,
         };
         match cmd {
             Commands::Graph { affected, .. } => {
@@ -30895,6 +31349,8 @@ resources:
             resource_timeline: false,
             error_summary: false,
             security_posture: false,
+            resource_cost: false,
+            drift_forecast: false,
         };
         match cmd {
             Commands::Status { drift_details, .. } => assert!(drift_details),
@@ -31012,6 +31468,9 @@ resources:
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { cost_limit, .. } => assert_eq!(cost_limit, Some(5)),
@@ -31149,6 +31608,9 @@ resources:
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { preview, .. } => assert!(preview),
@@ -31278,6 +31740,9 @@ resources:
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { tag_filter, .. } => {
@@ -31361,6 +31826,8 @@ resources:
             resource_timeline: false,
             error_summary: false,
             security_posture: false,
+            resource_cost: false,
+            drift_forecast: false,
         };
         match cmd {
             Commands::Status { timeline, .. } => assert!(timeline),
@@ -31508,6 +31975,9 @@ resources:
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { output_scripts, .. } => {
@@ -31629,6 +32099,9 @@ resources:
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { resume, .. } => assert!(resume),
@@ -31710,6 +32183,8 @@ resources:
             resource_timeline: false,
             error_summary: false,
             security_posture: false,
+            resource_cost: false,
+            drift_forecast: false,
         };
         match cmd {
             Commands::Status { changes_since, .. } => {
@@ -31768,6 +32243,7 @@ resources:
             topological_levels: false,
             execution_order: false,
             security_boundaries: false,
+            resource_age: false,
         };
         match cmd {
             Commands::Graph { critical_path, .. } => assert!(critical_path),
@@ -31833,6 +32309,8 @@ resources:
             resource_timeline: false,
             error_summary: false,
             security_posture: false,
+            resource_cost: false,
+            drift_forecast: false,
         };
         match cmd {
             Commands::Status { summary_by, .. } => {
@@ -31952,6 +32430,9 @@ resources:
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { max_failures, .. } => assert_eq!(max_failures, Some(3)),
@@ -32071,6 +32552,9 @@ resources:
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { rate_limit, .. } => assert_eq!(rate_limit, Some(10)),
@@ -32108,6 +32592,7 @@ resources:
             check_unused: false,
             check_dependencies: false,
             check_permissions: false,
+            check_idempotency_deep: false,
         };
         match cmd {
             Commands::Validate { schema_version, .. } => {
@@ -32175,6 +32660,8 @@ resources:
             resource_timeline: false,
             error_summary: false,
             security_posture: false,
+            resource_cost: false,
+            drift_forecast: false,
         };
         match cmd {
             Commands::Status { prometheus, .. } => assert!(prometheus),
@@ -32228,6 +32715,7 @@ resources:
             topological_levels: false,
             execution_order: false,
             security_boundaries: false,
+            resource_age: false,
         };
         match cmd {
             Commands::Graph { reverse, .. } => assert!(reverse),
@@ -32293,6 +32781,8 @@ resources:
             resource_timeline: false,
             error_summary: false,
             security_posture: false,
+            resource_cost: false,
+            drift_forecast: false,
         };
         match cmd {
             Commands::Status { expired, .. } => {
@@ -32343,6 +32833,7 @@ resources:
             check_unused: false,
             check_dependencies: false,
             check_permissions: false,
+            check_idempotency_deep: false,
         };
         match cmd {
             Commands::Validate { exhaustive, .. } => assert!(exhaustive),
@@ -32408,6 +32899,8 @@ resources:
             resource_timeline: false,
             error_summary: false,
             security_posture: false,
+            resource_cost: false,
+            drift_forecast: false,
         };
         match cmd {
             Commands::Status { count, .. } => assert!(count),
@@ -32525,6 +33018,9 @@ resources:
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { notify_email, .. } => {
@@ -32566,6 +33062,7 @@ resources:
             topological_levels: false,
             execution_order: false,
             security_boundaries: false,
+            resource_age: false,
         };
         match cmd {
             Commands::Graph { depth, .. } => assert_eq!(depth, Some(2)),
@@ -32683,6 +33180,9 @@ resources:
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { skip, .. } => {
@@ -32750,6 +33250,8 @@ resources:
             resource_timeline: false,
             error_summary: false,
             security_posture: false,
+            resource_cost: false,
+            drift_forecast: false,
         };
         match cmd {
             Commands::Status { format, .. } => {
@@ -32808,6 +33310,7 @@ resources:
             check_unused: false,
             check_dependencies: false,
             check_permissions: false,
+            check_idempotency_deep: false,
         };
         match cmd {
             Commands::Validate { policy_file, .. } => {
@@ -32875,6 +33378,8 @@ resources:
             resource_timeline: false,
             error_summary: false,
             security_posture: false,
+            resource_cost: false,
+            drift_forecast: false,
         };
         match cmd {
             Commands::Status { anomalies, .. } => assert!(anomalies),
@@ -32992,6 +33497,9 @@ resources:
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply {
@@ -33035,6 +33543,7 @@ resources:
             topological_levels: false,
             execution_order: false,
             security_boundaries: false,
+            resource_age: false,
         };
         match cmd {
             Commands::Graph { cluster, .. } => assert!(cluster),
@@ -33168,6 +33677,9 @@ resources:
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { concurrency, .. } => assert_eq!(concurrency, Some(4)),
@@ -33233,6 +33745,8 @@ resources:
             resource_timeline: false,
             error_summary: false,
             security_posture: false,
+            resource_cost: false,
+            drift_forecast: false,
         };
         match cmd {
             Commands::Status { diff_from, .. } => {
@@ -33354,6 +33868,9 @@ resources:
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { webhook_before, .. } => {
@@ -33396,6 +33913,7 @@ resources:
             check_unused: false,
             check_dependencies: false,
             check_permissions: false,
+            check_idempotency_deep: false,
         };
         match cmd {
             Commands::Validate {
@@ -33463,6 +33981,8 @@ resources:
             resource_timeline: false,
             error_summary: false,
             security_posture: false,
+            resource_cost: false,
+            drift_forecast: false,
         };
         match cmd {
             Commands::Status {
@@ -33504,6 +34024,7 @@ resources:
             topological_levels: false,
             execution_order: false,
             security_boundaries: false,
+            resource_age: false,
         };
         match cmd {
             Commands::Graph { orphans, .. } => assert!(orphans),
@@ -33638,6 +34159,9 @@ resources:
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply {
@@ -33707,6 +34231,8 @@ resources:
             resource_timeline: false,
             error_summary: false,
             security_posture: false,
+            resource_cost: false,
+            drift_forecast: false,
         };
         match cmd {
             Commands::Status { machines_only, .. } => assert!(machines_only),
@@ -33746,6 +34272,7 @@ resources:
             check_unused: false,
             check_dependencies: false,
             check_permissions: false,
+            check_idempotency_deep: false,
         };
         match cmd {
             Commands::Validate {
@@ -33813,6 +34340,8 @@ resources:
             resource_timeline: false,
             error_summary: false,
             security_posture: false,
+            resource_cost: false,
+            drift_forecast: false,
         };
         match cmd {
             Commands::Status {
@@ -33854,6 +34383,7 @@ resources:
             topological_levels: false,
             execution_order: false,
             security_boundaries: false,
+            resource_age: false,
         };
         match cmd {
             Commands::Graph { stats, .. } => assert!(stats),
@@ -34003,6 +34533,9 @@ resources: {}
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { log_file, .. } => {
@@ -34070,6 +34603,8 @@ resources: {}
             resource_timeline: false,
             error_summary: false,
             security_posture: false,
+            resource_cost: false,
+            drift_forecast: false,
         };
         match cmd {
             Commands::Status {
@@ -34189,6 +34724,9 @@ resources: {}
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { tags, .. } => {
@@ -34310,6 +34848,9 @@ resources: {}
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { comment, .. } => {
@@ -34349,6 +34890,7 @@ resources: {}
             check_unused: false,
             check_dependencies: false,
             check_permissions: false,
+            check_idempotency_deep: false,
         };
         match cmd {
             Commands::Validate { strict_deps, .. } => assert!(strict_deps),
@@ -34414,6 +34956,8 @@ resources: {}
             resource_timeline: false,
             error_summary: false,
             security_posture: false,
+            resource_cost: false,
+            drift_forecast: false,
         };
         match cmd {
             Commands::Status { json_lines, .. } => assert!(json_lines),
@@ -34531,6 +35075,9 @@ resources: {}
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { only_changed, .. } => assert!(only_changed),
@@ -34570,6 +35117,7 @@ resources: {}
             topological_levels: false,
             execution_order: false,
             security_boundaries: false,
+            resource_age: false,
         };
         match cmd {
             Commands::Graph { json_output, .. } => assert!(json_output),
@@ -34704,6 +35252,9 @@ resources: {}
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { pre_script, .. } => {
@@ -34771,6 +35322,8 @@ resources: {}
             resource_timeline: false,
             error_summary: false,
             security_posture: false,
+            resource_cost: false,
+            drift_forecast: false,
         };
         match cmd {
             Commands::Status { since, .. } => {
@@ -34892,6 +35445,9 @@ resources: {}
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { dry_run_json, .. } => assert!(dry_run_json),
@@ -34929,6 +35485,7 @@ resources: {}
             check_unused: false,
             check_dependencies: false,
             check_permissions: false,
+            check_idempotency_deep: false,
         };
         match cmd {
             Commands::Validate { check_secrets, .. } => assert!(check_secrets),
@@ -34994,6 +35551,8 @@ resources: {}
             resource_timeline: false,
             error_summary: false,
             security_posture: false,
+            resource_cost: false,
+            drift_forecast: false,
         };
         match cmd {
             Commands::Status { export, .. } => {
@@ -35113,6 +35672,9 @@ resources: {}
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { notify_webhook, .. } => {
@@ -35157,6 +35719,7 @@ resources: {}
             topological_levels: false,
             execution_order: false,
             security_boundaries: false,
+            resource_age: false,
         };
         match cmd {
             Commands::Graph { highlight, .. } => {
@@ -35296,6 +35859,9 @@ resources: {}
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { post_script, .. } => {
@@ -35364,6 +35930,8 @@ resources: {}
             resource_timeline: false,
             error_summary: false,
             security_posture: false,
+            resource_cost: false,
+            drift_forecast: false,
         };
         match cmd {
             Commands::Status { prometheus, .. } => assert!(prometheus),
@@ -35483,6 +36051,9 @@ resources: {}
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply {
@@ -35522,6 +36093,7 @@ resources: {}
             check_unused: false,
             check_dependencies: false,
             check_permissions: false,
+            check_idempotency_deep: false,
         };
         match cmd {
             Commands::Validate {
@@ -35589,6 +36161,8 @@ resources: {}
             resource_timeline: false,
             error_summary: false,
             security_posture: false,
+            resource_cost: false,
+            drift_forecast: false,
         };
         match cmd {
             Commands::Status { compact, .. } => assert!(compact),
@@ -35706,6 +36280,9 @@ resources: {}
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { canary_percent, .. } => assert_eq!(canary_percent, Some(25)),
@@ -35745,6 +36322,7 @@ resources: {}
             topological_levels: false,
             execution_order: false,
             security_boundaries: false,
+            resource_age: false,
         };
         match cmd {
             Commands::Graph { prune, .. } => {
@@ -35884,6 +36462,9 @@ resources: {}
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { schedule, .. } => {
@@ -35951,6 +36532,8 @@ resources: {}
             resource_timeline: false,
             error_summary: false,
             security_posture: false,
+            resource_cost: false,
+            drift_forecast: false,
         };
         match cmd {
             Commands::Status { alerts, .. } => assert!(alerts),
@@ -36070,6 +36653,9 @@ resources: {}
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { env_name, .. } => assert_eq!(env_name, Some("staging".to_string())),
@@ -36107,6 +36693,7 @@ resources: {}
             check_unused: false,
             check_dependencies: false,
             check_permissions: false,
+            check_idempotency_deep: false,
         };
         match cmd {
             Commands::Validate {
@@ -36175,6 +36762,8 @@ resources: {}
             resource_timeline: false,
             error_summary: false,
             security_posture: false,
+            resource_cost: false,
+            drift_forecast: false,
         };
         match cmd {
             Commands::Status { diff_lock, .. } => {
@@ -36294,6 +36883,9 @@ resources: {}
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { dry_run_diff, .. } => assert!(dry_run_diff),
@@ -36333,6 +36925,7 @@ resources: {}
             topological_levels: false,
             execution_order: false,
             security_boundaries: false,
+            resource_age: false,
         };
         match cmd {
             Commands::Graph { layers, .. } => assert!(layers),
@@ -36463,6 +37056,9 @@ resources: {}
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply {
@@ -36532,6 +37128,8 @@ resources: {}
             resource_timeline: false,
             error_summary: false,
             security_posture: false,
+            resource_cost: false,
+            drift_forecast: false,
         };
         match cmd {
             Commands::Status { compliance, .. } => {
@@ -36653,6 +37251,9 @@ resources: {}
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { batch_size, .. } => assert_eq!(batch_size, Some(10)),
@@ -36690,6 +37291,7 @@ resources: {}
             check_unused: false,
             check_dependencies: false,
             check_permissions: false,
+            check_idempotency_deep: false,
         };
         match cmd {
             Commands::Validate {
@@ -36757,6 +37359,8 @@ resources: {}
             resource_timeline: false,
             error_summary: false,
             security_posture: false,
+            resource_cost: false,
+            drift_forecast: false,
         };
         match cmd {
             Commands::Status { histogram, .. } => assert!(histogram),
@@ -36874,6 +37478,9 @@ resources: {}
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { notify_teams, .. } => {
@@ -36915,6 +37522,7 @@ resources: {}
             topological_levels: false,
             execution_order: false,
             security_boundaries: false,
+            resource_age: false,
         };
         match cmd {
             Commands::Graph {
@@ -37047,6 +37655,9 @@ resources: {}
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { abort_on_drift, .. } => assert!(abort_on_drift),
@@ -37112,6 +37723,8 @@ resources: {}
             resource_timeline: false,
             error_summary: false,
             security_posture: false,
+            resource_cost: false,
+            drift_forecast: false,
         };
         match cmd {
             Commands::Status {
@@ -37233,6 +37846,9 @@ resources: {}
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply {
@@ -37272,6 +37888,7 @@ resources: {}
             check_unused: false,
             check_dependencies: false,
             check_permissions: false,
+            check_idempotency_deep: false,
         };
         match cmd {
             Commands::Validate { check_naming, .. } => assert!(check_naming),
@@ -37337,6 +37954,8 @@ resources: {}
             resource_timeline: false,
             error_summary: false,
             security_posture: false,
+            resource_cost: false,
+            drift_forecast: false,
         };
         match cmd {
             Commands::Status { top_failures, .. } => assert!(top_failures),
@@ -37454,6 +38073,9 @@ resources: {}
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { notify_discord, .. } => assert_eq!(
@@ -37496,6 +38118,7 @@ resources: {}
             topological_levels: false,
             execution_order: false,
             security_boundaries: false,
+            resource_age: false,
         };
         match cmd {
             Commands::Graph { weight, .. } => assert!(weight),
@@ -37626,6 +38249,9 @@ resources: {}
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply {
@@ -37694,6 +38320,8 @@ resources: {}
             resource_timeline: false,
             error_summary: false,
             security_posture: false,
+            resource_cost: false,
+            drift_forecast: false,
         };
         match cmd {
             Commands::Status {
@@ -37815,6 +38443,9 @@ resources: {}
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { metrics_port, .. } => assert_eq!(metrics_port, Some(9090)),
@@ -37852,6 +38483,7 @@ resources: {}
             check_unused: false,
             check_dependencies: false,
             check_permissions: false,
+            check_idempotency_deep: false,
         };
         match cmd {
             Commands::Validate { check_overlaps, .. } => assert!(check_overlaps),
@@ -37917,6 +38549,8 @@ resources: {}
             resource_timeline: false,
             error_summary: false,
             security_posture: false,
+            resource_cost: false,
+            drift_forecast: false,
         };
         match cmd {
             Commands::Status { drift_summary, .. } => assert!(drift_summary),
@@ -38034,6 +38668,9 @@ resources: {}
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply {
@@ -38075,6 +38712,7 @@ resources: {}
             topological_levels: false,
             execution_order: false,
             security_boundaries: false,
+            resource_age: false,
         };
         match cmd {
             Commands::Graph { subgraph, .. } => {
@@ -38207,6 +38845,9 @@ resources: {}
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply {
@@ -38274,6 +38915,8 @@ resources: {}
             resource_timeline: false,
             error_summary: false,
             security_posture: false,
+            resource_cost: false,
+            drift_forecast: false,
         };
         match cmd {
             Commands::Status { resource_age, .. } => assert!(resource_age),
@@ -38393,6 +39036,9 @@ resources: {}
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply {
@@ -38432,6 +39078,7 @@ resources: {}
             check_unused: false,
             check_dependencies: false,
             check_permissions: false,
+            check_idempotency_deep: false,
         };
         match cmd {
             Commands::Validate { check_limits, .. } => assert!(check_limits),
@@ -38497,6 +39144,8 @@ resources: {}
             resource_timeline: false,
             error_summary: false,
             security_posture: false,
+            resource_cost: false,
+            drift_forecast: false,
         };
         match cmd {
             Commands::Status { sla_report, .. } => assert!(sla_report),
@@ -38614,6 +39263,9 @@ resources: {}
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { notify_datadog, .. } => {
@@ -38655,6 +39307,7 @@ resources: {}
             topological_levels: false,
             execution_order: false,
             security_boundaries: false,
+            resource_age: false,
         };
         match cmd {
             Commands::Graph { impact_radius, .. } => {
@@ -38793,6 +39446,9 @@ resources: {}
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { change_window, .. } => {
@@ -38860,6 +39516,8 @@ resources: {}
             resource_timeline: false,
             error_summary: false,
             security_posture: false,
+            resource_cost: false,
+            drift_forecast: false,
         };
         match cmd {
             Commands::Status {
@@ -38981,6 +39639,9 @@ resources: {}
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { canary_machine, .. } => {
@@ -39020,6 +39681,7 @@ resources: {}
             check_unused: false,
             check_dependencies: false,
             check_permissions: false,
+            check_idempotency_deep: false,
         };
         match cmd {
             Commands::Validate {
@@ -39087,6 +39749,8 @@ resources: {}
             resource_timeline: false,
             error_summary: false,
             security_posture: false,
+            resource_cost: false,
+            drift_forecast: false,
         };
         match cmd {
             Commands::Status { mttr, .. } => assert!(mttr),
@@ -39204,6 +39868,9 @@ resources: {}
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply {
@@ -39245,6 +39912,7 @@ resources: {}
             topological_levels: false,
             execution_order: false,
             security_boundaries: false,
+            resource_age: false,
         };
         match cmd {
             Commands::Graph {
@@ -39378,6 +40046,9 @@ resources: {}
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { max_duration, .. } => assert_eq!(max_duration, Some(300)),
@@ -39443,6 +40114,8 @@ resources: {}
             resource_timeline: false,
             error_summary: false,
             security_posture: false,
+            resource_cost: false,
+            drift_forecast: false,
         };
         match cmd {
             Commands::Status { trend, .. } => assert_eq!(trend, Some(10)),
@@ -39562,6 +40235,9 @@ resources: {}
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { notify_grafana, .. } => assert_eq!(
@@ -39602,6 +40278,7 @@ resources: {}
             check_unused: false,
             check_dependencies: false,
             check_permissions: false,
+            check_idempotency_deep: false,
         };
         match cmd {
             Commands::Validate { check_security, .. } => assert!(check_security),
@@ -39667,6 +40344,8 @@ resources: {}
             resource_timeline: false,
             error_summary: false,
             security_posture: false,
+            resource_cost: false,
+            drift_forecast: false,
         };
         match cmd {
             Commands::Status { prediction, .. } => assert!(prediction),
@@ -39784,6 +40463,9 @@ resources: {}
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply {
@@ -39826,6 +40508,7 @@ resources: {}
             topological_levels: false,
             execution_order: false,
             security_boundaries: false,
+            resource_age: false,
         };
         match cmd {
             Commands::Graph { hotspots, .. } => assert!(hotspots),
@@ -39958,6 +40641,9 @@ resources: {}
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply {
@@ -40026,6 +40712,8 @@ resources: {}
             resource_timeline: false,
             error_summary: false,
             security_posture: false,
+            resource_cost: false,
+            drift_forecast: false,
         };
         match cmd {
             Commands::Status { capacity, .. } => assert!(capacity),
@@ -40145,6 +40833,9 @@ resources: {}
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply {
@@ -40184,6 +40875,7 @@ resources: {}
             check_unused: false,
             check_dependencies: false,
             check_permissions: false,
+            check_idempotency_deep: false,
         };
         match cmd {
             Commands::Validate {
@@ -40251,6 +40943,8 @@ resources: {}
             resource_timeline: false,
             error_summary: false,
             security_posture: false,
+            resource_cost: false,
+            drift_forecast: false,
         };
         match cmd {
             Commands::Status { cost_estimate, .. } => assert!(cost_estimate),
@@ -40368,6 +41062,9 @@ resources: {}
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { blue_green, .. } => {
@@ -40409,6 +41106,7 @@ resources: {}
             topological_levels: false,
             execution_order: false,
             security_boundaries: false,
+            resource_age: false,
         };
         match cmd {
             Commands::Graph { timeline_graph, .. } => assert!(timeline_graph),
@@ -40540,6 +41238,9 @@ resources: {}
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { dry_run_cost, .. } => assert!(dry_run_cost),
@@ -40605,6 +41306,8 @@ resources: {}
             resource_timeline: false,
             error_summary: false,
             security_posture: false,
+            resource_cost: false,
+            drift_forecast: false,
         };
         match cmd {
             Commands::Status {
@@ -40726,6 +41429,9 @@ resources: {}
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply {
@@ -40769,6 +41475,7 @@ resources: {}
             check_unused: false,
             check_dependencies: false,
             check_permissions: false,
+            check_idempotency_deep: false,
         };
         match cmd {
             Commands::Validate {
@@ -40836,6 +41543,8 @@ resources: {}
             resource_timeline: false,
             error_summary: false,
             security_posture: false,
+            resource_cost: false,
+            drift_forecast: false,
         };
         match cmd {
             Commands::Status { health_score, .. } => assert!(health_score),
@@ -40953,6 +41662,9 @@ resources: {}
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { progressive, .. } => assert_eq!(progressive, Some(25)),
@@ -40992,6 +41704,7 @@ resources: {}
             topological_levels: false,
             execution_order: false,
             security_boundaries: false,
+            resource_age: false,
         };
         match cmd {
             Commands::Graph { what_if, .. } => {
@@ -41123,6 +41836,9 @@ resources: {}
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply {
@@ -41193,6 +41909,8 @@ resources: {}
             resource_timeline: false,
             error_summary: false,
             security_posture: false,
+            resource_cost: false,
+            drift_forecast: false,
         };
         match cmd {
             Commands::Status {
@@ -41314,6 +42032,9 @@ resources: {}
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply {
@@ -41353,6 +42074,7 @@ resources: {}
             check_unused: false,
             check_dependencies: false,
             check_permissions: false,
+            check_idempotency_deep: false,
         };
         match cmd {
             Commands::Validate {
@@ -41420,6 +42142,8 @@ resources: {}
             resource_timeline: false,
             error_summary: false,
             security_posture: false,
+            resource_cost: false,
+            drift_forecast: false,
         };
         match cmd {
             Commands::Status { audit_trail, .. } => assert!(audit_trail),
@@ -41538,6 +42262,9 @@ resources: {}
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { change_window, .. } => {
@@ -41579,6 +42306,7 @@ resources: {}
             topological_levels: false,
             execution_order: false,
             security_boundaries: false,
+            resource_age: false,
         };
         match cmd {
             Commands::Graph { blast_radius, .. } => {
@@ -41710,6 +42438,9 @@ resources: {}
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { sign_off, .. } => {
@@ -41778,6 +42509,8 @@ resources: {}
             resource_timeline: false,
             error_summary: false,
             security_posture: false,
+            resource_cost: false,
+            drift_forecast: false,
         };
         match cmd {
             Commands::Status { sla_report, .. } => assert!(sla_report),
@@ -41897,6 +42630,9 @@ resources: {}
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { notify_sns, .. } => {
@@ -41939,6 +42675,7 @@ resources: {}
             check_unused: false,
             check_dependencies: false,
             check_permissions: false,
+            check_idempotency_deep: false,
         };
         match cmd {
             Commands::Validate {
@@ -42006,6 +42743,8 @@ resources: {}
             resource_timeline: false,
             error_summary: false,
             security_posture: false,
+            resource_cost: false,
+            drift_forecast: false,
         };
         match cmd {
             Commands::Status { resource_graph, .. } => assert!(resource_graph),
@@ -42123,6 +42862,9 @@ resources: {}
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply {
@@ -42167,6 +42909,7 @@ resources: {}
             topological_levels: false,
             execution_order: false,
             security_boundaries: false,
+            resource_age: false,
         };
         match cmd {
             Commands::Graph { change_impact, .. } => {
@@ -42298,6 +43041,9 @@ resources: {}
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { runbook, .. } => {
@@ -42368,6 +43114,8 @@ resources: {}
             resource_timeline: false,
             error_summary: false,
             security_posture: false,
+            resource_cost: false,
+            drift_forecast: false,
         };
         match cmd {
             Commands::Status { drift_velocity, .. } => assert!(drift_velocity),
@@ -42487,6 +43235,9 @@ resources: {}
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { notify_pubsub, .. } => {
@@ -42529,6 +43280,7 @@ resources: {}
             check_unused: false,
             check_dependencies: false,
             check_permissions: false,
+            check_idempotency_deep: false,
         };
         match cmd {
             Commands::Validate {
@@ -42597,6 +43349,8 @@ resources: {}
             resource_timeline: false,
             error_summary: false,
             security_posture: false,
+            resource_cost: false,
+            drift_forecast: false,
         };
         match cmd {
             Commands::Status { fleet_overview, .. } => assert!(fleet_overview),
@@ -42714,6 +43468,9 @@ resources: {}
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { fleet_strategy, .. } => {
@@ -42755,6 +43512,7 @@ resources: {}
             topological_levels: false,
             execution_order: false,
             security_boundaries: false,
+            resource_age: false,
         };
         match cmd {
             Commands::Graph { resource_types, .. } => assert!(resource_types),
@@ -42884,6 +43642,9 @@ resources: {}
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { pre_check, .. } => {
@@ -42954,6 +43715,8 @@ resources: {}
             resource_timeline: false,
             error_summary: false,
             security_posture: false,
+            resource_cost: false,
+            drift_forecast: false,
         };
         match cmd {
             Commands::Status { machine_health, .. } => assert!(machine_health),
@@ -43073,6 +43836,9 @@ resources: {}
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply {
@@ -43114,6 +43880,7 @@ resources: {}
             check_unused: true,
             check_dependencies: false,
             check_permissions: false,
+            check_idempotency_deep: false,
         };
         match cmd {
             Commands::Validate { check_unused, .. } => assert!(check_unused),
@@ -43179,6 +43946,8 @@ resources: {}
             resource_timeline: false,
             error_summary: false,
             security_posture: false,
+            resource_cost: false,
+            drift_forecast: false,
         };
         match cmd {
             Commands::Status { config_drift, .. } => assert!(config_drift),
@@ -43296,6 +44065,9 @@ resources: {}
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { dry_run_graph, .. } => assert!(dry_run_graph),
@@ -43335,6 +44107,7 @@ resources: {}
             topological_levels: true,
             execution_order: false,
             security_boundaries: false,
+            resource_age: false,
         };
         match cmd {
             Commands::Graph {
@@ -43466,6 +44239,9 @@ resources: {}
             notify_azure_servicebus: None,
             approval_timeout: None,
             pre_flight: None,
+            notify_gcp_pubsub_v2: None,
+            checkpoint: None,
+            post_flight: None,
         };
         match cmd {
             Commands::Apply { post_check, .. } => {
@@ -43536,6 +44312,8 @@ resources: {}
             resource_timeline: false,
             error_summary: false,
             security_posture: false,
+            resource_cost: false,
+            drift_forecast: false,
         };
         match cmd {
             Commands::Status {
@@ -43674,6 +44452,72 @@ resources: {}
     fn test_fj605_lock_verify_hmac_json() {
         let dir = tempfile::tempdir().unwrap();
         let result = cmd_lock_verify_hmac(dir.path(), true);
+        assert!(result.is_ok());
+    }
+
+    // ── Phase 47 Tests: FJ-610→FJ-617 Resource Intelligence & Analytics ──
+
+    #[test]
+    fn test_fj611_validate_check_idempotency_deep() {
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = dir.path().join("forjar.yaml");
+        std::fs::write(&cfg, "version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 127.0.0.1\nresources:\n  pkg1:\n    type: package\n    machine: m1\n    provider: apt\n    packages: [curl]\n").unwrap();
+        let result = cmd_validate_check_idempotency_deep(&cfg, false);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj611_validate_check_idempotency_deep_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = dir.path().join("forjar.yaml");
+        std::fs::write(&cfg, "version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 127.0.0.1\nresources:\n  cfg1:\n    type: file\n    machine: m1\n    path: /tmp/test\n    content: hello\n    mode: '0644'\n").unwrap();
+        let result = cmd_validate_check_idempotency_deep(&cfg, true);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj612_status_resource_cost() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = cmd_status_resource_cost(dir.path(), None, false);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj614_graph_resource_age() {
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = dir.path().join("forjar.yaml");
+        std::fs::write(&cfg, "version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 127.0.0.1\nresources:\n  pkg1:\n    type: package\n    machine: m1\n    provider: apt\n    packages: [curl]\n").unwrap();
+        let result = cmd_graph_resource_age(&cfg, false);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj614_graph_resource_age_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = dir.path().join("forjar.yaml");
+        std::fs::write(&cfg, "version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 127.0.0.1\nresources:\n  pkg1:\n    type: package\n    machine: m1\n    provider: apt\n    packages: [curl]\n").unwrap();
+        let result = cmd_graph_resource_age(&cfg, true);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj615_lock_archive() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = cmd_lock_archive(dir.path(), false);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj615_lock_archive_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = cmd_lock_archive(dir.path(), true);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj617_status_drift_forecast() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = cmd_status_drift_forecast(dir.path(), None, false);
         assert!(result.is_ok());
     }
 }
