@@ -17,6 +17,7 @@ fn container_machine() -> Machine {
             ephemeral: true,
             privileged: false,
             init: true,
+            gpus: None,
         }),
         pepita: None,
         cost: 0,
@@ -101,6 +102,7 @@ fn test_fj021_ensure_no_image() {
             ephemeral: true,
             privileged: false,
             init: true,
+            gpus: None,
         }),
         pepita: None,
         cost: 0,
@@ -145,6 +147,7 @@ fn test_fj021_exec_with_fake_runtime() {
             ephemeral: true,
             privileged: false,
             init: true,
+            gpus: None,
         }),
         pepita: None,
         cost: 0,
@@ -193,6 +196,7 @@ fn test_fj021_container_name_derived_from_hostname() {
             ephemeral: true,
             privileged: false,
             init: true,
+            gpus: None,
         }),
         pepita: None,
         cost: 0,
@@ -217,6 +221,7 @@ fn test_fj021_container_name_explicit_overrides() {
             ephemeral: true,
             privileged: false,
             init: true,
+            gpus: None,
         }),
         pepita: None,
         cost: 0,
@@ -242,6 +247,7 @@ fn test_fj021_podman_runtime() {
             ephemeral: true,
             privileged: false,
             init: true,
+            gpus: None,
         }),
         pepita: None,
         cost: 0,
@@ -276,6 +282,7 @@ fn test_fj021_ensure_with_privileged_and_init_flags() {
             ephemeral: true,
             privileged: true,
             init: true,
+            gpus: None,
         }),
         pepita: None,
         cost: 0,
@@ -287,6 +294,36 @@ fn test_fj021_ensure_with_privileged_and_init_flags() {
     assert!(
         result.is_ok(),
         "ensure with /bin/echo runtime should succeed"
+    );
+}
+
+#[test]
+fn test_fj021_ensure_with_gpus_flag() {
+    let machine = Machine {
+        hostname: "gpu-box".to_string(),
+        addr: "container".to_string(),
+        user: "root".to_string(),
+        arch: "x86_64".to_string(),
+        ssh_key: None,
+        roles: vec![],
+        transport: Some("container".to_string()),
+        container: Some(ContainerConfig {
+            runtime: "/bin/echo".to_string(),
+            image: Some("nvidia/cuda:12.9.0-devel-ubuntu22.04".to_string()),
+            name: Some("forjar-gpu-test".to_string()),
+            ephemeral: true,
+            privileged: false,
+            init: true,
+            gpus: Some("all".to_string()),
+        }),
+        pepita: None,
+        cost: 0,
+    };
+    let result = ensure_container(&machine);
+    assert!(
+        result.is_ok(),
+        "ensure with --gpus all should succeed: {:?}",
+        result
     );
 }
 
@@ -308,6 +345,7 @@ fn test_fj021_ensure_no_init_no_privileged() {
             ephemeral: true,
             privileged: false,
             init: false,
+            gpus: None,
         }),
         pepita: None,
         cost: 0,
@@ -337,6 +375,7 @@ fn test_fj021_cleanup_with_echo_runtime() {
             ephemeral: true,
             privileged: false,
             init: true,
+            gpus: None,
         }),
         pepita: None,
         cost: 0,
@@ -420,6 +459,7 @@ fn test_fj132_ensure_attached_no_image_required() {
             ephemeral: false, // attached mode
             privileged: false,
             init: true,
+            gpus: None,
         }),
         pepita: None,
         cost: 0,
@@ -453,6 +493,7 @@ fn test_fj132_ephemeral_guard_skips_non_ephemeral() {
             ephemeral: false,
             privileged: false,
             init: true,
+            gpus: None,
         }),
         pepita: None,
         cost: 0,
@@ -482,6 +523,7 @@ fn test_fj132_container_name_default_derivation() {
             ephemeral: true,
             privileged: false,
             init: true,
+            gpus: None,
         }),
         pepita: None,
         cost: 0,
@@ -517,6 +559,7 @@ fn test_fj021_ensure_uses_correct_runtime() {
             ephemeral: true,
             privileged: false,
             init: false,
+            gpus: None,
         }),
         pepita: None,
         cost: 0,
@@ -553,6 +596,7 @@ fn test_fj021_cleanup_nonexistent_returns_err() {
             ephemeral: true,
             privileged: false,
             init: false,
+            gpus: None,
         }),
         pepita: None,
         cost: 0,
@@ -591,6 +635,7 @@ fn test_fj021_ephemeral_guard_cleans_up() {
             ephemeral: true,
             privileged: false,
             init: false,
+            gpus: None,
         }),
         pepita: None,
         cost: 0,
@@ -626,6 +671,7 @@ fn test_fj021_container_name_from_machine_key() {
             ephemeral: true,
             privileged: false,
             init: true,
+            gpus: None,
         }),
         pepita: None,
         cost: 0,

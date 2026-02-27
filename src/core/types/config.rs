@@ -219,6 +219,10 @@ pub struct ContainerConfig {
     /// Run with `--init` for PID 1 reaping (default: true)
     #[serde(default = "default_true")]
     pub init: bool,
+
+    /// GPU device access: `"all"`, `"device=0"`, etc. Maps to `--gpus` flag.
+    #[serde(default)]
+    pub gpus: Option<String>,
 }
 
 fn default_runtime() -> String {

@@ -303,7 +303,15 @@ resources:
 
     #[test]
     fn test_fj253_completion_zsh() {
-        let result = cmd_completion(CompletionShell::Zsh);
+        // Zsh completion generation in clap_complete uses deep recursion
+        // proportional to subcommand/flag count. With our large Commands enum
+        // the default test-thread stack overflows; run on a thread with 16 MiB.
+        let result = std::thread::Builder::new()
+            .stack_size(16 * 1024 * 1024)
+            .spawn(|| cmd_completion(CompletionShell::Zsh))
+            .expect("failed to spawn thread")
+            .join()
+            .expect("completion thread panicked");
         assert!(result.is_ok());
     }
 
