@@ -3358,6 +3358,28 @@ forjar status --recommendations --state-dir state
 forjar status --recommendations --state-dir state --json
 ```
 
+### Phase 51 — Environment & Configuration Management (FJ-650→FJ-657)
+
+**Redis Notification** (FJ-650): Publish apply events to Redis pub/sub.
+
+```bash
+forjar apply -f forjar.yaml --notify-redis "infra:events"
+```
+
+**Orphan Detection** (FJ-654): Find resources with no dependents or dependencies.
+
+```bash
+forjar graph -f forjar.yaml --orphan-detection
+forjar graph -f forjar.yaml --orphan-detection --json
+```
+
+**Machine Summary** (FJ-657): Per-machine resource count and health overview.
+
+```bash
+forjar status --machine-summary --state-dir state
+forjar status --machine-summary --state-dir state --json
+```
+
 ## Next Steps
 
 - [Configuration Reference](02-configuration.md) — Complete `forjar.yaml` schema
