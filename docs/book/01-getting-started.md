@@ -16,7 +16,7 @@ Verify:
 forjar --help
 ```
 
-You should see forjar's 57 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`, `lock-compact`, `lock-verify`, `lock-export`, `lock-gc`.
+You should see forjar's 58 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`, `lock-compact`, `lock-verify`, `lock-export`, `lock-gc`, `lock-diff`.
 
 ## Your First Project
 
@@ -2075,6 +2075,75 @@ Filter status to resources above a failure-rate threshold:
 ```bash
 forjar status --health-threshold 50 --state-dir state
 forjar status --health-threshold 25 --json --state-dir state
+```
+
+## Apply Comment
+
+Attach an audit note to the apply run (stored in event log):
+
+```bash
+forjar apply --comment "deploy v2.1 hotfix" -f forjar.yaml
+forjar apply --comment "scheduled maintenance" -f forjar.yaml --state-dir state
+```
+
+## Strict Dependencies
+
+Verify that dependency ordering matches resource declaration order:
+
+```bash
+forjar validate --strict-deps -f forjar.yaml
+forjar validate --strict-deps --json -f forjar.yaml
+```
+
+## Status JSON Lines
+
+Output status as newline-delimited JSON (NDJSON) for stream processing:
+
+```bash
+forjar status --json-lines --state-dir state
+forjar status --json-lines --machine gpu-box --state-dir state
+```
+
+## Only Changed
+
+Apply only resources whose config hash changed since last apply:
+
+```bash
+forjar apply --only-changed -f forjar.yaml --state-dir state
+```
+
+## Graph JSON
+
+Output dependency graph as a JSON adjacency list:
+
+```bash
+forjar graph --json -f forjar.yaml
+```
+
+## Lock Diff
+
+Compare two lock file directories and show resource-level differences:
+
+```bash
+forjar lock-diff state-v1 state-v2
+forjar lock-diff state-v1 state-v2 --json
+```
+
+## Pre-Script
+
+Run a script before apply starts (pre-flight checks):
+
+```bash
+forjar apply --pre-script ./preflight.sh -f forjar.yaml
+```
+
+## Status Since
+
+Show only resources changed within a time duration:
+
+```bash
+forjar status --since 1h --state-dir state
+forjar status --since 7d --json --state-dir state
 ```
 
 ## Next Steps

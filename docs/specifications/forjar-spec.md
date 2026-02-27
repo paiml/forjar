@@ -1954,14 +1954,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-430 | `forjar apply --comment <text>` — attach a comment to the apply run in event log. Audit notes. | Planned |
-| FJ-431 | `forjar validate --strict-deps` — verify dependency ordering matches resource declaration order. | Planned |
-| FJ-432 | `forjar status --json-lines` — output status as newline-delimited JSON (NDJSON). Stream processing. | Planned |
-| FJ-433 | `forjar apply --only-changed` — apply only resources whose config hash changed since last apply. | Planned |
-| FJ-434 | `forjar graph --json` — output graph as JSON adjacency list. Programmatic graph analysis. | Planned |
-| FJ-435 | `forjar lock diff <a> <b>` — compare two lock files and show resource-level differences. | Planned |
-| FJ-436 | `forjar apply --pre-script <path>` — run a script before apply starts. Custom pre-flight checks. | Planned |
-| FJ-437 | `forjar status --since <duration>` — show only resources changed within duration (e.g., 1h, 7d). | Planned |
+| FJ-430 | `forjar apply --comment <text>` — attach a comment to the apply run in event log. Audit notes. | Done |
+| FJ-431 | `forjar validate --strict-deps` — verify dependency ordering matches resource declaration order. | Done |
+| FJ-432 | `forjar status --json-lines` — output status as newline-delimited JSON (NDJSON). Stream processing. | Done |
+| FJ-433 | `forjar apply --only-changed` — apply only resources whose config hash changed since last apply. | Done |
+| FJ-434 | `forjar graph --json` — output graph as JSON adjacency list. Programmatic graph analysis. | Done |
+| FJ-435 | `forjar lock diff <a> <b>` — compare two lock files and show resource-level differences. | Done |
+| FJ-436 | `forjar apply --pre-script <path>` — run a script before apply starts. Custom pre-flight checks. | Done |
+| FJ-437 | `forjar status --since <duration>` — show only resources changed within duration (e.g., 1h, 7d). | Done |
+
+### Phase 30 — v3.0: Production Hardening & Observability
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-440 | `forjar apply --dry-run-json` — output dry-run results as structured JSON. CI pipeline integration. | Planned |
+| FJ-441 | `forjar validate --check-secrets` — scan config for hardcoded secrets or credentials. Security lint. | Planned |
+| FJ-442 | `forjar status --export <path>` — export status report to file (JSON/CSV/YAML). Reporting. | Planned |
+| FJ-443 | `forjar apply --notify-webhook <url>` — POST structured results to any webhook. Generic notification. | Planned |
+| FJ-444 | `forjar graph --highlight <resource>` — highlight a resource and its transitive deps in graph output. | Planned |
+| FJ-445 | `forjar lock merge <a> <b>` — merge two lock files (multi-team workflow). State reconciliation. | Planned |
+| FJ-446 | `forjar apply --post-script <path>` — run a script after apply completes. Custom post-flight checks. | Planned |
+| FJ-447 | `forjar status --format prometheus` — native Prometheus metrics endpoint output. Monitoring integration. | Planned |
 
 ---
 
