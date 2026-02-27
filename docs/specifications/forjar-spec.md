@@ -2084,14 +2084,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-530 | `forjar apply --notify-victorops <key>` — send apply events to VictorOps/Splunk On-Call. Incident integration. | Planned |
-| FJ-531 | `forjar validate --check-deprecation` — warn on deprecated resource fields/types. Migration aid. | Planned |
-| FJ-532 | `forjar status --cost-estimate` — estimate resource cost based on type counts. Budget planning. | Planned |
-| FJ-533 | `forjar apply --blue-green <name>` — blue/green deployment with machine pairs. Zero-downtime. | Planned |
-| FJ-534 | `forjar graph --timeline` — show resource application order as ASCII timeline. Visualization. | Planned |
-| FJ-535 | `forjar lock verify-chain` — verify full chain of custody from lock signatures. Provenance. | Planned |
-| FJ-536 | `forjar apply --dry-run-cost` — show estimated cost without applying. Pre-flight analysis. | Planned |
-| FJ-537 | `forjar status --staleness-report` — show resources not applied within configurable window. Hygiene. | Planned |
+| FJ-530 | `forjar apply --notify-victorops <key>` — send apply events to VictorOps/Splunk On-Call. Incident integration. | Done |
+| FJ-531 | `forjar validate --check-deprecation` — warn on deprecated resource fields/types. Migration aid. | Done |
+| FJ-532 | `forjar status --cost-estimate` — estimate resource cost based on type counts. Budget planning. | Done |
+| FJ-533 | `forjar apply --blue-green <name>` — blue/green deployment with machine pairs. Zero-downtime. | Done |
+| FJ-534 | `forjar graph --timeline` — show resource application order as ASCII timeline. Visualization. | Done |
+| FJ-535 | `forjar lock verify-chain` — verify full chain of custody from lock signatures. Provenance. | Done |
+| FJ-536 | `forjar apply --dry-run-cost` — show estimated cost without applying. Pre-flight analysis. | Done |
+| FJ-537 | `forjar status --staleness-report` — show resources not applied within configurable window. Hygiene. | Done |
+
+### Phase 40 — v4.0: Advanced Analytics & Reporting
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-540 | `forjar apply --notify-msteams-adaptive <url>` — send Adaptive Card to MS Teams. Rich notifications. | Planned |
+| FJ-541 | `forjar validate --check-drift-risk` — score drift risk based on resource volatility. Proactive guard. | Planned |
+| FJ-542 | `forjar status --health-score` — composite health score (0-100) across all machines. Dashboard metric. | Planned |
+| FJ-543 | `forjar apply --progressive <percent>` — progressive rollout (apply to N% of machines). Gradual deploy. | Planned |
+| FJ-544 | `forjar graph --what-if <resource>` — simulate removing a resource, show impact. Analysis tool. | Planned |
+| FJ-545 | `forjar lock stats` — show lock file statistics (sizes, ages, resource counts). State overview. | Planned |
+| FJ-546 | `forjar apply --approval-webhook <url>` — POST for approval before applying. GitOps gate. | Planned |
+| FJ-547 | `forjar status --executive-summary` — one-line per machine summary for dashboards. Executive view. | Planned |
 
 ---
 
