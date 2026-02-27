@@ -16,7 +16,7 @@ Verify:
 forjar --help
 ```
 
-You should see forjar's 76 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`, `lock-compact`, `lock-verify`, `lock-export`, `lock-gc`, `lock-diff`, `lock-merge`, `lock-rebase`, `lock-sign`, `lock-verify-sig`, `lock-compact-all`, `lock-audit-trail`, `lock-rotate-keys`, `lock-backup`, `lock-verify-chain`, `lock-stats`, `lock-audit`, `lock-compress`, `lock-defrag`, `lock-normalize`, `lock-validate`, `lock-verify-hmac`, `lock-archive`, `lock-snapshot`.
+You should see forjar's 77 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`, `lock-compact`, `lock-verify`, `lock-export`, `lock-gc`, `lock-diff`, `lock-merge`, `lock-rebase`, `lock-sign`, `lock-verify-sig`, `lock-compact-all`, `lock-audit-trail`, `lock-rotate-keys`, `lock-backup`, `lock-verify-chain`, `lock-stats`, `lock-audit`, `lock-compress`, `lock-defrag`, `lock-normalize`, `lock-validate`, `lock-verify-hmac`, `lock-archive`, `lock-snapshot`, `lock-repair`.
 
 ## Your First Project
 
@@ -3271,6 +3271,36 @@ forjar lock-snapshot --state-dir state --json
 
 ```bash
 forjar status --resource-dependencies --state-dir state
+```
+
+### Advanced Diagnostics & Debugging (FJ-630→FJ-637)
+
+**Circular reference detection** catches circular deps:
+
+```bash
+forjar validate --check-circular-refs -f forjar.yaml
+forjar validate --check-circular-refs -f forjar.yaml --json
+```
+
+**Diagnostic report** provides comprehensive health analysis:
+
+```bash
+forjar status --diagnostic --state-dir state
+forjar status --diagnostic --state-dir state --json
+```
+
+**Critical chain** shows the longest dependency path:
+
+```bash
+forjar graph --critical-chain -f forjar.yaml
+forjar graph --critical-chain -f forjar.yaml --json
+```
+
+**Lock repair** fixes corrupted lock files:
+
+```bash
+forjar lock-repair --state-dir state
+forjar lock-repair --state-dir state --json
 ```
 
 ## Next Steps
