@@ -71,6 +71,8 @@ mod tests {
         check_tag_consistency: false,
             check_dependency_exists: false,
             check_path_conflicts_strict: false,
+            check_duplicate_names: false,
+            check_resource_groups: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { check_limits, .. }) => assert!(check_limits),
@@ -133,6 +135,8 @@ mod tests {
         check_tag_consistency: false,
             check_dependency_exists: false,
             check_path_conflicts_strict: false,
+            check_duplicate_names: false,
+            check_resource_groups: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs {
@@ -197,6 +201,8 @@ mod tests {
         check_tag_consistency: false,
             check_dependency_exists: false,
             check_path_conflicts_strict: false,
+            check_duplicate_names: false,
+            check_resource_groups: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { check_security, .. }) => assert!(check_security),
@@ -259,6 +265,8 @@ mod tests {
         check_tag_consistency: false,
             check_dependency_exists: false,
             check_path_conflicts_strict: false,
+            check_duplicate_names: false,
+            check_resource_groups: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs {
@@ -323,6 +331,8 @@ mod tests {
         check_tag_consistency: false,
             check_dependency_exists: false,
             check_path_conflicts_strict: false,
+            check_duplicate_names: false,
+            check_resource_groups: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs {
@@ -387,6 +397,8 @@ mod tests {
         check_tag_consistency: false,
             check_dependency_exists: false,
             check_path_conflicts_strict: false,
+            check_duplicate_names: false,
+            check_resource_groups: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs {
@@ -451,6 +463,8 @@ mod tests {
         check_tag_consistency: false,
             check_dependency_exists: false,
             check_path_conflicts_strict: false,
+            check_duplicate_names: false,
+            check_resource_groups: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs {
@@ -515,6 +529,8 @@ mod tests {
         check_tag_consistency: false,
             check_dependency_exists: false,
             check_path_conflicts_strict: false,
+            check_duplicate_names: false,
+            check_resource_groups: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs {
@@ -580,6 +596,8 @@ mod tests {
         check_tag_consistency: false,
             check_dependency_exists: false,
             check_path_conflicts_strict: false,
+            check_duplicate_names: false,
+            check_resource_groups: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { check_unused, .. }) => assert!(check_unused),

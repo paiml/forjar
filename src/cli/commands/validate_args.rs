@@ -208,5 +208,13 @@ pub struct ValidateArgs {
     /// FJ-785: Detect resources targeting the same file path on the same machine
     #[arg(long)]
     pub check_path_conflicts_strict: bool,
+
+    /// FJ-789: Detect duplicate resource names across groups
+    #[arg(long)]
+    pub check_duplicate_names: bool,
+
+    /// FJ-793: Verify resource groups are non-empty
+    #[arg(long)]
+    pub check_resource_groups: bool,
 }
 

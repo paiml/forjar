@@ -73,6 +73,8 @@ mod tests {
             density: false,
             topological_sort: false,
             critical_path_resources: false,
+            sink_resources: false,
+            bipartite_check: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { prune, .. }) => {
@@ -140,6 +142,8 @@ mod tests {
             density: false,
             topological_sort: false,
             critical_path_resources: false,
+            sink_resources: false,
+            bipartite_check: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { layers, .. }) => assert!(layers),
@@ -205,6 +209,8 @@ mod tests {
             density: false,
             topological_sort: false,
             critical_path_resources: false,
+            sink_resources: false,
+            bipartite_check: false,
         });
         match cmd {
             Commands::Graph(GraphArgs {
@@ -272,6 +278,8 @@ mod tests {
             density: false,
             topological_sort: false,
             critical_path_resources: false,
+            sink_resources: false,
+            bipartite_check: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { weight, .. }) => assert!(weight),
@@ -337,6 +345,8 @@ mod tests {
             density: false,
             topological_sort: false,
             critical_path_resources: false,
+            sink_resources: false,
+            bipartite_check: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { subgraph, .. }) => {
@@ -404,6 +414,8 @@ mod tests {
             density: false,
             topological_sort: false,
             critical_path_resources: false,
+            sink_resources: false,
+            bipartite_check: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { impact_radius, .. }) => {
@@ -471,6 +483,8 @@ mod tests {
             density: false,
             topological_sort: false,
             critical_path_resources: false,
+            sink_resources: false,
+            bipartite_check: false,
         });
         match cmd {
             Commands::Graph(GraphArgs {
@@ -538,6 +552,8 @@ mod tests {
             density: false,
             topological_sort: false,
             critical_path_resources: false,
+            sink_resources: false,
+            bipartite_check: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { hotspots, .. }) => assert!(hotspots),

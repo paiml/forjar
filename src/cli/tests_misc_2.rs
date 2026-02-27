@@ -152,6 +152,8 @@ resources:
         check_tag_consistency: false,
             check_dependency_exists: false,
             check_path_conflicts_strict: false,
+            check_duplicate_names: false,
+            check_resource_groups: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { strict, .. }) => assert!(strict),
@@ -388,6 +390,7 @@ resources:
         notify_file: None,
         notify_json: false,
             notify_slack_webhook: None,
+            notify_telegram: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { yes, .. }) => assert!(yes),

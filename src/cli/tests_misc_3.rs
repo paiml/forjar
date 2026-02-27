@@ -166,6 +166,7 @@ mod tests {
         notify_file: None,
         notify_json: false,
             notify_slack_webhook: None,
+            notify_telegram: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { yes, .. }) => assert!(!yes),
@@ -341,6 +342,7 @@ mod tests {
         notify_file: None,
         notify_json: false,
             notify_slack_webhook: None,
+            notify_telegram: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { parallel, .. }) => assert!(parallel),

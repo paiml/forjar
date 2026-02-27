@@ -146,6 +146,7 @@ pub(crate) fn dispatch_apply_cmd(cmd: Commands, verbose: bool) -> Result<(), Str
         notify_file: _notify_file,
         notify_json: _notify_json,
         notify_slack_webhook: _notify_slack_webhook,
+        notify_telegram: _notify_telegram,
     }) = cmd
     else {
         unreachable!()

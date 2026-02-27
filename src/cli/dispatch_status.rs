@@ -19,6 +19,7 @@ use super::status_resources::*;
 use super::status_resource_detail::*;
 use super::status_counts::*;
 use super::status_diagnostics::*;
+use super::status_fleet_detail::*;
 use super::status_compliance::*;
 use super::status_cost::*;
 use super::status_observability::*;
@@ -203,15 +204,14 @@ fn try_status_phase59a(
     None
 }
 
-/// Phase 62-65 status flags.
+/// Phase 62-64 status flags.
 #[allow(clippy::too_many_arguments)]
-fn try_status_phase59b(
+fn try_status_phase62(
     sd: &Path, machine: Option<&str>, json: bool, file: Option<&Path>,
     machine_resource_map: bool, fleet_convergence: bool,
     resource_hash: bool, machine_drift_summary: bool,
     apply_history_count: bool, lock_file_count: bool,
     resource_type_distribution: bool,
-    resource_apply_age: bool, machine_uptime: bool, resource_churn: bool,
 ) -> Option<Result<(), String>> {
     if machine_resource_map {
         let f = file.unwrap_or(std::path::Path::new("forjar.yaml"));
@@ -226,9 +226,25 @@ fn try_status_phase59b(
         let f = file.unwrap_or(std::path::Path::new("forjar.yaml"));
         return Some(cmd_status_resource_type_distribution(f, json));
     }
+    None
+}
+
+/// Phase 65-66 status flags.
+#[allow(clippy::too_many_arguments)]
+fn try_status_phase65(
+    sd: &Path, machine: Option<&str>, json: bool, file: Option<&Path>,
+    resource_apply_age: bool, machine_uptime: bool, resource_churn: bool,
+    last_drift_time: bool, machine_resource_count: bool, convergence_score: bool,
+) -> Option<Result<(), String>> {
     if resource_apply_age { return Some(cmd_status_resource_apply_age(sd, machine, json)); }
     if machine_uptime { return Some(cmd_status_machine_uptime(sd, machine, json)); }
     if resource_churn { return Some(cmd_status_resource_churn(sd, machine, json)); }
+    if last_drift_time { return Some(cmd_status_last_drift_time(sd, machine, json)); }
+    if machine_resource_count {
+        let f = file.unwrap_or(std::path::Path::new("forjar.yaml"));
+        return Some(cmd_status_machine_resource_count(f, json));
+    }
+    if convergence_score { return Some(cmd_status_convergence_score(sd, json)); }
     None
 }
 
@@ -262,6 +278,7 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
         fleet_convergence, resource_hash, machine_drift_summary,
         apply_history_count, lock_file_count, resource_type_distribution,
         resource_apply_age, machine_uptime, resource_churn,
+        last_drift_time, machine_resource_count, convergence_score,
     }) = cmd
     else {
         unreachable!()
@@ -272,7 +289,10 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
     if let Some(r) = try_status_phase59a(&state_dir, m, json, resource_health, machine_health_summary, last_apply_status, resource_staleness, convergence_percentage, failed_count, drift_count, resource_duration) {
         return r;
     }
-    if let Some(r) = try_status_phase59b(&state_dir, m, json, file.as_deref(), machine_resource_map, fleet_convergence, resource_hash, machine_drift_summary, apply_history_count, lock_file_count, resource_type_distribution, resource_apply_age, machine_uptime, resource_churn) {
+    if let Some(r) = try_status_phase62(&state_dir, m, json, file.as_deref(), machine_resource_map, fleet_convergence, resource_hash, machine_drift_summary, apply_history_count, lock_file_count, resource_type_distribution) {
+        return r;
+    }
+    if let Some(r) = try_status_phase65(&state_dir, m, json, file.as_deref(), resource_apply_age, machine_uptime, resource_churn, last_drift_time, machine_resource_count, convergence_score) {
         return r;
     }
     if let Some(r) = try_status_phase58(&state_dir, m, json, resource_types_summary, failed_resources, drift_trend, resource_inputs, convergence_history, config_hash, last_apply_duration, drift_details_all, resource_size, hash_verify, lock_age) {

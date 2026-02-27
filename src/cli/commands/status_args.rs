@@ -384,5 +384,17 @@ pub struct StatusArgs {
     /// FJ-788: Show apply frequency per resource over time
     #[arg(long)]
     pub resource_churn: bool,
+
+    /// FJ-790: Show timestamp of last drift detection per resource
+    #[arg(long)]
+    pub last_drift_time: bool,
+
+    /// FJ-794: Show resource count per machine
+    #[arg(long)]
+    pub machine_resource_count: bool,
+
+    /// FJ-796: Weighted convergence score across fleet
+    #[arg(long)]
+    pub convergence_score: bool,
 }
 

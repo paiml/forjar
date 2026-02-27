@@ -220,5 +220,13 @@ pub struct GraphArgs {
     /// FJ-787: Show resources on the longest dependency chain
     #[arg(long)]
     pub critical_path_resources: bool,
+
+    /// FJ-791: Show resources that nothing depends on (leaf/sink nodes)
+    #[arg(long)]
+    pub sink_resources: bool,
+
+    /// FJ-795: Check if dependency graph is bipartite
+    #[arg(long)]
+    pub bipartite_check: bool,
 }
 

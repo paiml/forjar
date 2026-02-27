@@ -15,7 +15,6 @@ use super::commands::*;
 mod tests {
     use super::*;
 
-
     #[test]
     fn test_fj506_apply_change_window_flag() {
         let cmd = Commands::Apply(ApplyArgs {
@@ -166,6 +165,7 @@ mod tests {
         notify_file: None,
         notify_json: false,
             notify_slack_webhook: None,
+            notify_telegram: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { change_window, .. }) => {
@@ -326,6 +326,7 @@ mod tests {
         notify_file: None,
         notify_json: false,
             notify_slack_webhook: None,
+            notify_telegram: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { canary_machine, .. }) => {
@@ -486,6 +487,7 @@ mod tests {
         notify_file: None,
         notify_json: false,
             notify_slack_webhook: None,
+            notify_telegram: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs {
