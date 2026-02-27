@@ -3380,6 +3380,29 @@ forjar status --machine-summary --state-dir state
 forjar status --machine-summary --state-dir state --json
 ```
 
+### Phase 52 — Compliance & Policy Automation (FJ-660→FJ-667)
+
+**Owner Consistency** (FJ-661): Detect mixed ownership across resources on the same machine.
+
+```bash
+forjar validate -f forjar.yaml --check-owner-consistency
+forjar validate -f forjar.yaml --check-owner-consistency --json
+```
+
+**Cross-Machine Dependencies** (FJ-664): Visualize dependencies that span multiple machines.
+
+```bash
+forjar graph -f forjar.yaml --cross-machine-deps
+forjar graph -f forjar.yaml --cross-machine-deps --json
+```
+
+**Lock Age** (FJ-667): Show when each lock file entry was last updated.
+
+```bash
+forjar status --lock-age --state-dir state
+forjar status --lock-age --state-dir state --json
+```
+
 ## Next Steps
 
 - [Configuration Reference](02-configuration.md) — Complete `forjar.yaml` schema
