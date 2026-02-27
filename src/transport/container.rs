@@ -83,6 +83,13 @@ pub fn ensure_container(machine: &Machine) -> Result<(), String> {
         args.push("--privileged");
     }
 
+    let gpus_value;
+    if let Some(ref gpus) = config.gpus {
+        gpus_value = gpus.clone();
+        args.push("--gpus");
+        args.push(&gpus_value);
+    }
+
     args.push(image);
     args.push("sleep");
     args.push("infinity");

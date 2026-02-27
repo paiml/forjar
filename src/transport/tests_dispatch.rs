@@ -189,6 +189,7 @@ fn test_transport_container_dispatch_priority() {
             ephemeral: true,
             privileged: false,
             init: true,
+            gpus: None,
         }),
         pepita: None,
         cost: 0,
