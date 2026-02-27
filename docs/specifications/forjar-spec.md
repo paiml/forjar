@@ -2149,14 +2149,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-580 | `forjar apply --notify-eventbridge <bus>` — publish to AWS EventBridge for event-driven workflows. AWS integration. | Planned |
-| FJ-581 | `forjar validate --check-unused` — detect resources not referenced by any dependency chain. Cleanup. | Planned |
-| FJ-582 | `forjar status --config-drift` — compare running config against declared config. Config drift. | Planned |
-| FJ-583 | `forjar apply --dry-run-graph` — show execution graph without applying. Plan visualization. | Planned |
-| FJ-584 | `forjar graph --topological-levels` — show resources grouped by topological depth level. Layering. | Planned |
-| FJ-585 | `forjar lock normalize` — normalize lock file format (consistent key ordering, whitespace). Standardization. | Planned |
-| FJ-586 | `forjar apply --post-check <script>` — run validation script after apply completes. Verification gate. | Planned |
-| FJ-587 | `forjar status --convergence-time` — show average time to convergence per resource. Performance insight. | Planned |
+| FJ-580 | `forjar apply --notify-eventbridge <bus>` — publish to AWS EventBridge for event-driven workflows. AWS integration. | Done |
+| FJ-581 | `forjar validate --check-unused` — detect resources not referenced by any dependency chain. Cleanup. | Done |
+| FJ-582 | `forjar status --config-drift` — compare running config against declared config. Config drift. | Done |
+| FJ-583 | `forjar apply --dry-run-graph` — show execution graph without applying. Plan visualization. | Done |
+| FJ-584 | `forjar graph --topological-levels` — show resources grouped by topological depth level. Layering. | Done |
+| FJ-585 | `forjar lock normalize` — normalize lock file format (consistent key ordering, whitespace). Standardization. | Done |
+| FJ-586 | `forjar apply --post-check <script>` — run validation script after apply completes. Verification gate. | Done |
+| FJ-587 | `forjar status --convergence-time` — show average time to convergence per resource. Performance insight. | Done |
+
+### Phase 45 — v4.5: Advanced Orchestration
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-590 | `forjar apply --notify-kafka <topic>` — publish apply events to Apache Kafka. Stream integration. | Planned |
+| FJ-591 | `forjar validate --check-dependencies` — validate all depends_on references resolve correctly. Integrity. | Planned |
+| FJ-592 | `forjar status --resource-timeline` — show per-resource status changes over time. History view. | Planned |
+| FJ-593 | `forjar apply --max-retries <n>` — retry failed resources up to N times before giving up. Resilience. | Planned |
+| FJ-594 | `forjar graph --execution-order` — show exact execution order with timing estimates. Planning. | Planned |
+| FJ-595 | `forjar lock validate` — validate lock file schema and cross-references. Integrity check. | Planned |
+| FJ-596 | `forjar apply --rollback-window <duration>` — auto-rollback if issues detected within window. Safety. | Planned |
+| FJ-597 | `forjar status --error-summary` — aggregated error summary across all machines. Debugging. | Planned |
 
 ---
 

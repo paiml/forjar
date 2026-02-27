@@ -16,7 +16,7 @@ Verify:
 forjar --help
 ```
 
-You should see forjar's 71 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`, `lock-compact`, `lock-verify`, `lock-export`, `lock-gc`, `lock-diff`, `lock-merge`, `lock-rebase`, `lock-sign`, `lock-verify-sig`, `lock-compact-all`, `lock-audit-trail`, `lock-rotate-keys`, `lock-backup`, `lock-verify-chain`, `lock-stats`, `lock-audit`, `lock-compress`, `lock-defrag`.
+You should see forjar's 72 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`, `lock-compact`, `lock-verify`, `lock-export`, `lock-gc`, `lock-diff`, `lock-merge`, `lock-rebase`, `lock-sign`, `lock-verify-sig`, `lock-compact-all`, `lock-audit-trail`, `lock-rotate-keys`, `lock-backup`, `lock-verify-chain`, `lock-stats`, `lock-audit`, `lock-compress`, `lock-defrag`, `lock-normalize`.
 
 ## Your First Project
 
@@ -3050,6 +3050,75 @@ Defragment lock files (reorder resources alphabetically):
 ```bash
 forjar lock-defrag --state-dir state
 forjar lock-defrag --state-dir state --json
+```
+
+### Check Unused Resources
+
+Detect resources not referenced by any dependency chain:
+
+```bash
+forjar validate --check-unused -f forjar.yaml
+forjar validate --check-unused -f forjar.yaml --json
+```
+
+### AWS EventBridge Notification
+
+Publish apply events to AWS EventBridge:
+
+```bash
+forjar apply -f forjar.yaml --notify-eventbridge custom-bus
+```
+
+### Dry Run Graph
+
+Show execution graph without applying:
+
+```bash
+forjar apply -f forjar.yaml --dry-run-graph
+```
+
+### Post-Check Script
+
+Run validation script after apply completes:
+
+```bash
+forjar apply -f forjar.yaml --post-check /usr/local/bin/verify.sh
+```
+
+### Config Drift
+
+Compare running state against declared config:
+
+```bash
+forjar status --config-drift --state-dir state
+forjar status --config-drift --machine gpu-box --json --state-dir state
+```
+
+### Convergence Time
+
+Show average time to convergence per resource:
+
+```bash
+forjar status --convergence-time --state-dir state
+forjar status --convergence-time --machine gpu-box --json --state-dir state
+```
+
+### Topological Levels
+
+Show resources grouped by topological depth level:
+
+```bash
+forjar graph --topological-levels -f forjar.yaml
+forjar graph --topological-levels -f forjar.yaml --json
+```
+
+### Lock Normalize
+
+Normalize lock file format for consistency:
+
+```bash
+forjar lock-normalize --state-dir state
+forjar lock-normalize --state-dir state --json
 ```
 
 ## Next Steps
