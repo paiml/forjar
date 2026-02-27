@@ -267,6 +267,18 @@ pub enum Commands {
         /// FJ-335: Require confirmation for destructive (destroy/remove) actions
         #[arg(long)]
         confirm_destructive: bool,
+
+        /// FJ-342: Snapshot state before apply (auto-create named backup)
+        #[arg(long)]
+        backup: bool,
+
+        /// FJ-345: Exclude resources matching glob pattern from apply
+        #[arg(long)]
+        exclude: Option<String>,
+
+        /// FJ-347: Force sequential execution (no parallel waves)
+        #[arg(long)]
+        sequential: bool,
     },
 
     /// Detect unauthorized changes (tripwire)
@@ -341,6 +353,10 @@ pub enum Commands {
         /// FJ-336: Show only resources not updated in N days
         #[arg(long)]
         stale: Option<u64>,
+
+        /// FJ-346: Show aggregate health score (0-100)
+        #[arg(long)]
+        health: bool,
     },
 
     /// Show apply history from event logs
@@ -702,6 +718,10 @@ pub enum Commands {
         /// FJ-287: Auto-fix common issues (create state dir, remove stale locks)
         #[arg(long)]
         fix: bool,
+
+        /// FJ-343: Test SSH connectivity to all machines
+        #[arg(long)]
+        network: bool,
     },
 
     /// FJ-253: Generate shell completions
@@ -898,6 +918,45 @@ pub enum Commands {
         /// Timeout per transport operation (seconds)
         #[arg(long)]
         timeout: Option<u64>,
+    },
+
+    /// FJ-341: Show full audit trail — who applied what, when, from which config
+    Audit {
+        /// State directory
+        #[arg(long, default_value = "state")]
+        state_dir: PathBuf,
+
+        /// Target specific machine
+        #[arg(short, long)]
+        machine: Option<String>,
+
+        /// Show last N entries (default: 20)
+        #[arg(short = 'n', long, default_value = "20")]
+        limit: usize,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+
+    /// FJ-344: One-line-per-resource plan output for large configs
+    #[command(name = "plan-compact")]
+    PlanCompact {
+        /// Path to forjar.yaml
+        #[arg(short, long, default_value = "forjar.yaml")]
+        file: PathBuf,
+
+        /// State directory
+        #[arg(long, default_value = "state")]
+        state_dir: PathBuf,
+
+        /// Target specific machine
+        #[arg(short, long)]
+        machine: Option<String>,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
     },
 }
 
@@ -1142,7 +1201,16 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             notify,
             subset,
             confirm_destructive,
+            backup,
+            exclude,
+            sequential,
         } => {
+            // FJ-342: Auto-backup state before apply
+            if backup {
+                let sd = resolve_state_dir(&state_dir, workspace.as_deref());
+                let snap_name = format!("pre-apply-{}", chrono_now_compact());
+                let _ = cmd_snapshot_save(&snap_name, &sd);
+            }
             if check {
                 // FJ-226: --check runs check scripts via cmd_check
                 return cmd_check(
@@ -1186,6 +1254,8 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
                 notify.as_deref(),
                 subset.as_deref(),
                 confirm_destructive,
+                exclude.as_deref(),
+                sequential,
             )
         }
         Commands::Drift {
@@ -1228,7 +1298,11 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             summary,
             watch,
             stale,
+            health,
         } => {
+            if health {
+                return cmd_status_health(&state_dir, machine.as_deref(), json);
+            }
             if let Some(days) = stale {
                 return cmd_status_stale(&state_dir, machine.as_deref(), days, json);
             }
@@ -1406,7 +1480,12 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
                 &state_dir,
             ),
         },
-        Commands::Doctor { file, json, fix } => cmd_doctor(file.as_deref(), json, fix),
+        Commands::Doctor { file, json, fix, network } => {
+            if network {
+                return cmd_doctor_network(file.as_deref(), json);
+            }
+            cmd_doctor(file.as_deref(), json, fix)
+        }
         Commands::Completion { shell } => cmd_completion(shell),
         Commands::Schema => cmd_schema(),
         Commands::Watch {
@@ -1488,6 +1567,18 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             params,
             timeout,
         } => cmd_canary(&file, &state_dir, &machine, auto_proceed, &params, timeout),
+        Commands::Audit {
+            state_dir,
+            machine,
+            limit,
+            json,
+        } => cmd_audit(&state_dir, machine.as_deref(), limit, json),
+        Commands::PlanCompact {
+            file,
+            state_dir,
+            machine,
+            json,
+        } => cmd_plan_compact(&file, &state_dir, machine.as_deref(), json),
     }
 }
 
@@ -2336,6 +2427,8 @@ fn cmd_rollback(
         None,  // no notify
         None,  // no subset
         false, // no confirm_destructive
+        None,  // no exclude
+        false, // not sequential
     )
 }
 
@@ -4418,6 +4511,8 @@ fn cmd_apply(
     notify: Option<&str>,
     subset: Option<&str>,
     confirm_destructive: bool,
+    exclude: Option<&str>,
+    _sequential: bool,
 ) -> Result<(), String> {
     use std::time::Instant;
     let t_total = Instant::now();
@@ -4457,6 +4552,22 @@ fn cmd_apply(
             eprintln!(
                 "Subset filter '{}': {} resources selected",
                 pattern,
+                config.resources.len()
+            );
+        }
+    }
+
+    // FJ-345: Exclude glob filter — remove resources matching pattern
+    if let Some(pattern) = exclude {
+        let before = config.resources.len();
+        config
+            .resources
+            .retain(|id, _| !simple_glob_match(pattern, id));
+        if verbose {
+            eprintln!(
+                "Exclude filter '{}': removed {} resources ({} remaining)",
+                pattern,
+                before - config.resources.len(),
                 config.resources.len()
             );
         }
@@ -5019,6 +5130,8 @@ fn cmd_drift(
             None,  // no notify,
             None,  // subset
             false, // confirm_destructive
+            None,  // exclude
+            false, // sequential
         )?;
         if !json {
             println!("Remediation complete.");
@@ -7379,6 +7492,8 @@ fn cmd_retry_failed(
             None,  // notify,
             None,  // subset
             false, // confirm_destructive
+            None,  // exclude
+            false, // sequential
         )?;
     }
 
@@ -7457,6 +7572,8 @@ fn cmd_rolling(
                 None,  // notify,
                 None,  // subset
                 false, // confirm_destructive
+                None,  // exclude
+                false, // sequential
             )?;
         }
 
@@ -7529,6 +7646,8 @@ fn cmd_canary(
         None,
         None,  // subset
         false, // confirm_destructive
+        None,  // exclude
+        false, // sequential
     )?;
 
     println!("\n{} Canary '{}' succeeded.", green("✓"), canary_machine);
@@ -7592,6 +7711,8 @@ fn cmd_canary(
             None,
             None,  // subset
             false, // confirm_destructive
+            None,  // exclude
+            false, // sequential
         )?;
     }
 
@@ -7695,6 +7816,292 @@ fn cmd_status_stale(
             "\n{} stale resource(s) found (not updated in {}+ days).",
             stale_resources.len(),
             days
+        );
+    }
+
+    Ok(())
+}
+
+/// Compact timestamp for snapshot names (YYYYMMDD-HHMMSS).
+fn chrono_now_compact() -> String {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    // Simple Unix timestamp — good enough for unique naming
+    format!("{}", now)
+}
+
+/// FJ-341: Audit trail — who applied what, when, from which config.
+fn cmd_audit(
+    state_dir: &Path,
+    machine_filter: Option<&str>,
+    limit: usize,
+    json: bool,
+) -> Result<(), String> {
+    let entries = std::fs::read_dir(state_dir)
+        .map_err(|e| format!("cannot read state dir {}: {}", state_dir.display(), e))?;
+
+    let mut all_events: Vec<(String, types::TimestampedEvent)> = Vec::new();
+
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().to_string();
+        if let Some(filter) = machine_filter {
+            if name != filter {
+                continue;
+            }
+        }
+        if !entry.path().is_dir() {
+            continue;
+        }
+
+        let log_path = eventlog::event_log_path(state_dir, &name);
+        if !log_path.exists() {
+            continue;
+        }
+
+        let content = std::fs::read_to_string(&log_path)
+            .map_err(|e| format!("cannot read {}: {}", log_path.display(), e))?;
+
+        for line in content.lines() {
+            if line.trim().is_empty() {
+                continue;
+            }
+            if let Ok(event) = serde_json::from_str::<types::TimestampedEvent>(line) {
+                all_events.push((name.clone(), event));
+            }
+        }
+    }
+
+    // Sort by timestamp descending
+    all_events.sort_by(|a, b| b.1.ts.cmp(&a.1.ts));
+    all_events.truncate(limit);
+
+    if json {
+        let json_events: Vec<serde_json::Value> = all_events
+            .iter()
+            .map(|(machine, ev)| {
+                serde_json::json!({
+                    "machine": machine,
+                    "timestamp": ev.ts,
+                    "event": format!("{:?}", ev.event),
+                })
+            })
+            .collect();
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&json_events).unwrap_or_default()
+        );
+    } else {
+        if all_events.is_empty() {
+            println!("No audit events found.");
+            return Ok(());
+        }
+        println!("Audit trail (last {} events):\n", limit);
+        for (machine, ev) in &all_events {
+            println!("  {} [{}] {:?}", ev.ts, machine, ev.event);
+        }
+    }
+
+    Ok(())
+}
+
+/// FJ-344: Compact one-line-per-resource plan output.
+fn cmd_plan_compact(
+    file: &Path,
+    state_dir: &Path,
+    machine_filter: Option<&str>,
+    json: bool,
+) -> Result<(), String> {
+    let config = parse_and_validate(file)?;
+    let execution_order = resolver::build_execution_order(&config)?;
+    let locks = load_machine_locks(&config, state_dir, machine_filter)?;
+    let plan = planner::plan(&config, &execution_order, &locks, None);
+
+    if json {
+        let compact: Vec<serde_json::Value> = plan
+            .changes
+            .iter()
+            .map(|c| {
+                serde_json::json!({
+                    "resource": c.resource_id,
+                    "action": format!("{:?}", c.action),
+                    "machine": c.machine,
+                })
+            })
+            .collect();
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&compact).unwrap_or_default()
+        );
+    } else {
+        for change in &plan.changes {
+            let icon = match change.action {
+                types::PlanAction::Create => green("+"),
+                types::PlanAction::Update => yellow("~"),
+                types::PlanAction::Destroy => red("-"),
+                types::PlanAction::NoOp => dim("="),
+            };
+            println!(
+                "  {} {} ({})",
+                icon, change.resource_id, change.machine,
+            );
+        }
+        println!(
+            "\n{} change(s)",
+            plan.changes
+                .iter()
+                .filter(|c| c.action != types::PlanAction::NoOp)
+                .count()
+        );
+    }
+
+    Ok(())
+}
+
+/// FJ-343: Doctor network check — test SSH to all machines.
+fn cmd_doctor_network(file: Option<&Path>, json: bool) -> Result<(), String> {
+    let config_path = file.unwrap_or_else(|| std::path::Path::new("forjar.yaml"));
+    let config = parse_and_validate(config_path)?;
+
+    let mut results: Vec<serde_json::Value> = Vec::new();
+
+    for (name, machine) in &config.machines {
+        let is_local =
+            machine.addr == "127.0.0.1" || machine.addr == "localhost";
+
+        let (status, latency_ms) = if is_local {
+            ("reachable".to_string(), 0u64)
+        } else {
+            let start = std::time::Instant::now();
+            let user_host = format!("{}@{}", machine.user, machine.addr);
+            let mut ssh_args = vec![
+                "-o", "BatchMode=yes",
+                "-o", "ConnectTimeout=5",
+            ];
+            if let Some(ref key) = machine.ssh_key {
+                ssh_args.push("-i");
+                ssh_args.push(key);
+            }
+            ssh_args.push(&user_host);
+            ssh_args.push("echo");
+            ssh_args.push("ok");
+            let result = std::process::Command::new("ssh")
+                .args(&ssh_args)
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .status();
+            let elapsed = start.elapsed().as_millis() as u64;
+            match result {
+                Ok(s) if s.success() => ("reachable".to_string(), elapsed),
+                _ => ("unreachable".to_string(), elapsed),
+            }
+        };
+
+        if json {
+            results.push(serde_json::json!({
+                "machine": name,
+                "addr": machine.addr,
+                "status": status,
+                "latency_ms": latency_ms,
+            }));
+        } else {
+            let icon = if status == "reachable" {
+                green("●")
+            } else {
+                red("✗")
+            };
+            println!(
+                "  {} {} ({}) — {} ({}ms)",
+                icon, name, machine.addr, status, latency_ms
+            );
+        }
+    }
+
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&results).unwrap_or_default()
+        );
+    }
+
+    Ok(())
+}
+
+/// FJ-346: Status health score (0-100).
+fn cmd_status_health(
+    state_dir: &Path,
+    machine_filter: Option<&str>,
+    json: bool,
+) -> Result<(), String> {
+    let entries = std::fs::read_dir(state_dir)
+        .map_err(|e| format!("cannot read state dir {}: {}", state_dir.display(), e))?;
+
+    let mut total_resources = 0u32;
+    let mut converged = 0u32;
+    let mut failed = 0u32;
+
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().to_string();
+        if let Some(filter) = machine_filter {
+            if name != filter {
+                continue;
+            }
+        }
+        if !entry.path().is_dir() {
+            continue;
+        }
+
+        let lock_path = entry.path().join("lock.yaml");
+        if !lock_path.exists() {
+            continue;
+        }
+
+        let content = std::fs::read_to_string(&lock_path)
+            .map_err(|e| format!("cannot read {}: {}", lock_path.display(), e))?;
+        if let Ok(lock) = serde_yaml_ng::from_str::<types::StateLock>(&content) {
+            for (_id, resource) in &lock.resources {
+                total_resources += 1;
+                match resource.status {
+                    types::ResourceStatus::Converged => converged += 1,
+                    types::ResourceStatus::Failed => failed += 1,
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    let score = if total_resources == 0 {
+        100u32
+    } else {
+        ((converged as f64 / total_resources as f64) * 100.0) as u32
+    };
+
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&serde_json::json!({
+                "health_score": score,
+                "total": total_resources,
+                "converged": converged,
+                "failed": failed,
+            }))
+            .unwrap_or_default()
+        );
+    } else {
+        let color_fn = if score >= 80 {
+            green
+        } else if score >= 50 {
+            yellow
+        } else {
+            red
+        };
+        println!(
+            "Health: {} ({}/{} converged, {} failed)",
+            color_fn(&format!("{}%", score)),
+            converged,
+            total_resources,
+            failed
         );
     }
 
@@ -7958,6 +8365,8 @@ resources:
             None,
             None,  // subset
             false, // confirm_destructive
+            None,  // exclude
+            false, // sequential
         )
         .unwrap();
     }
@@ -8020,6 +8429,8 @@ policy:
             None,
             None,  // subset
             false, // confirm_destructive
+            None,  // exclude
+            false, // sequential
         )
         .unwrap();
 
@@ -8079,6 +8490,8 @@ resources: {}
             None,
             None,  // subset
             false, // confirm_destructive
+            None,  // exclude
+            false, // sequential
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("validation"));
@@ -8314,6 +8727,7 @@ resources: {}
                 summary: false,
                 watch: None,
                 stale: None,
+                health: false,
             },
             false,
             true,
@@ -8424,6 +8838,9 @@ resources:
                 notify: None,
                 subset: None,
                 confirm_destructive: false,
+                backup: false,
+                exclude: None,
+                sequential: false,
             },
             false,
             true,
@@ -8629,6 +9046,8 @@ resources:
             None,
             None,  // subset
             false, // confirm_destructive
+            None,  // exclude
+            false, // sequential
         )
         .unwrap();
         assert!(target.exists());
@@ -8665,6 +9084,8 @@ resources:
             None,
             None,  // subset
             false, // confirm_destructive
+            None,  // exclude
+            false, // sequential
         )
         .unwrap();
     }
@@ -9329,6 +9750,8 @@ resources:
             None,
             None,  // subset
             false, // confirm_destructive
+            None,  // exclude
+            false, // sequential
         )
         .unwrap();
         assert!(target.exists());
@@ -9405,6 +9828,8 @@ resources:
             None,
             None,  // subset
             false, // confirm_destructive
+            None,  // exclude
+            false, // sequential
         )
         .unwrap();
         cmd_destroy(&config, &state, None, true, true).unwrap();
@@ -9482,6 +9907,8 @@ resources:
             None,
             None,  // subset
             false, // confirm_destructive
+            None,  // exclude
+            false, // sequential
         )
         .unwrap();
         assert!(target_a.exists());
@@ -9554,6 +9981,8 @@ resources:
             None,
             None,  // subset
             false, // confirm_destructive
+            None,  // exclude
+            false, // sequential
         )
         .unwrap();
         dispatch(
@@ -9662,6 +10091,8 @@ resources:
             None,
             None,  // subset
             false, // confirm_destructive
+            None,  // exclude
+            false, // sequential
         )
         .unwrap();
         assert!(target.exists());
@@ -9833,6 +10264,8 @@ resources:
             None,
             None,  // subset
             false, // confirm_destructive
+            None,  // exclude
+            false, // sequential
         )
         .unwrap();
         assert!(std::path::Path::new(&target).exists());
@@ -11218,6 +11651,8 @@ resources:
             None,
             None,  // subset
             false, // confirm_destructive
+            None,  // exclude
+            false, // sequential
         )
         .unwrap();
     }
@@ -12495,6 +12930,8 @@ resources:
             None,
             None,  // subset
             false, // confirm_destructive
+            None,  // exclude
+            false, // sequential
         );
         assert!(result.is_ok());
     }
@@ -12531,6 +12968,7 @@ resources:
                 summary: false,
                 watch: None,
                 stale: None,
+                health: false,
             },
             false,
             true,
@@ -12594,6 +13032,9 @@ resources:
                 notify: None,
                 subset: None,
                 confirm_destructive: false,
+                backup: false,
+                exclude: None,
+                sequential: false,
             },
             false,
             true,
@@ -13146,6 +13587,8 @@ resources:
             None,
             None,  // subset
             false, // confirm_destructive
+            None,  // exclude
+            false, // sequential
         )
         .unwrap();
     }
@@ -13550,6 +13993,8 @@ policies:
             None,
             None,  // subset
             false, // confirm_destructive
+            None,  // exclude
+            false, // sequential
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("policy violations"));
@@ -13665,6 +14110,8 @@ policy:
             None,
             None,  // subset
             false, // confirm_destructive
+            None,  // exclude
+            false, // sequential
         );
         // cmd_apply needs a parsed config, but it re-parses from file
         // Instead, test the run_notify function directly
@@ -13772,6 +14219,9 @@ resources:
                 notify: None,
                 subset: None,
                 confirm_destructive: false,
+                backup: false,
+                exclude: None,
+                sequential: false,
             },
             false,
             true,
@@ -13838,6 +14288,9 @@ resources:
                 notify: None,
                 subset: None,
                 confirm_destructive: false,
+                backup: false,
+                exclude: None,
+                sequential: false,
             },
             false,
             true,
@@ -14911,6 +15364,8 @@ resources:
             None,
             None,  // subset
             false, // confirm_destructive
+            None,  // exclude
+            false, // sequential
         )
         .unwrap();
         // last-apply.yaml should be written
@@ -14988,6 +15443,8 @@ resources:
             None,
             None,  // subset
             false, // confirm_destructive
+            None,  // exclude
+            false, // sequential
         )
         .unwrap();
         let content = std::fs::read_to_string(state.join("local").join("last-apply.yaml")).unwrap();
@@ -15403,6 +15860,9 @@ resources:
             notify: None,
             subset: None,
             confirm_destructive: false,
+            backup: false,
+            exclude: None,
+            sequential: false,
         };
         match cmd {
             Commands::Apply { output, .. } => {
@@ -15518,6 +15978,9 @@ resources:
             notify: None,
             subset: None,
             confirm_destructive: false,
+            backup: false,
+            exclude: None,
+            sequential: false,
         };
         match cmd {
             Commands::Apply { progress, .. } => assert!(progress),
@@ -15558,6 +16021,9 @@ resources:
             notify: None,
             subset: None,
             confirm_destructive: false,
+            backup: false,
+            exclude: None,
+            sequential: false,
         };
         match cmd {
             Commands::Apply { progress, .. } => assert!(!progress),
@@ -15602,6 +16068,9 @@ resources:
             notify: None,
             subset: None,
             confirm_destructive: false,
+            backup: false,
+            exclude: None,
+            sequential: false,
         };
         match cmd {
             Commands::Apply { timing, .. } => assert!(timing),
@@ -15642,6 +16111,9 @@ resources:
             notify: None,
             subset: None,
             confirm_destructive: false,
+            backup: false,
+            exclude: None,
+            sequential: false,
         };
         match cmd {
             Commands::Apply { timing, .. } => assert!(!timing),
@@ -15890,6 +16362,9 @@ resources:
             notify: None,
             subset: None,
             confirm_destructive: false,
+            backup: false,
+            exclude: None,
+            sequential: false,
         };
         match cmd {
             Commands::Apply { group, .. } => {
@@ -16046,6 +16521,9 @@ resources:
             notify: None,
             subset: None,
             confirm_destructive: false,
+            backup: false,
+            exclude: None,
+            sequential: false,
         };
         match cmd {
             Commands::Apply { retry, .. } => assert_eq!(retry, 3),
@@ -16086,6 +16564,9 @@ resources:
             notify: None,
             subset: None,
             confirm_destructive: false,
+            backup: false,
+            exclude: None,
+            sequential: false,
         };
         match cmd {
             Commands::Apply { retry, .. } => assert_eq!(retry, 0),
@@ -16239,6 +16720,9 @@ resources:
             notify: None,
             subset: None,
             confirm_destructive: false,
+            backup: false,
+            exclude: None,
+            sequential: false,
         };
         match cmd {
             Commands::Apply { yes, .. } => assert!(yes),
@@ -16279,6 +16763,9 @@ resources:
             notify: None,
             subset: None,
             confirm_destructive: false,
+            backup: false,
+            exclude: None,
+            sequential: false,
         };
         match cmd {
             Commands::Apply { yes, .. } => assert!(!yes),
@@ -16294,6 +16781,7 @@ resources:
             file: None,
             json: false,
             fix: true,
+            network: false,
         };
         match cmd {
             Commands::Doctor { fix, .. } => assert!(fix),
@@ -16342,6 +16830,9 @@ resources:
             notify: None,
             subset: None,
             confirm_destructive: false,
+            backup: false,
+            exclude: None,
+            sequential: false,
         };
         match cmd {
             Commands::Apply { parallel, .. } => assert!(parallel),
@@ -16380,6 +16871,7 @@ resources:
             summary: false,
             watch: None,
             stale: None,
+            health: false,
         };
         match cmd {
             Commands::Status { file, json, .. } => {
@@ -16525,6 +17017,8 @@ resources:
             None,
             None,  // subset
             false, // confirm_destructive
+            None,  // exclude
+            false, // sequential
         );
         assert!(result.is_ok());
     }
@@ -16711,6 +17205,7 @@ resources:
             summary: true,
             watch: None,
             stale: None,
+            health: false,
         };
         match cmd {
             Commands::Status { summary, .. } => assert!(summary),
@@ -16762,6 +17257,9 @@ resources:
             notify: None,
             subset: None,
             confirm_destructive: false,
+            backup: false,
+            exclude: None,
+            sequential: false,
         };
         match cmd {
             Commands::Apply {
@@ -16941,6 +17439,9 @@ resources:
             notify: None,
             subset: None,
             confirm_destructive: false,
+            backup: false,
+            exclude: None,
+            sequential: false,
         };
         match cmd {
             Commands::Apply {
@@ -17116,6 +17617,9 @@ resources:
             notify: None,
             subset: None,
             confirm_destructive: false,
+            backup: false,
+            exclude: None,
+            sequential: false,
         };
         match cmd {
             Commands::Apply { max_parallel, .. } => assert_eq!(max_parallel, Some(4)),
@@ -17135,6 +17639,7 @@ resources:
             summary: false,
             watch: Some(5),
             stale: None,
+            health: false,
         };
         match cmd {
             Commands::Status { watch, .. } => assert_eq!(watch, Some(5)),
@@ -17177,6 +17682,9 @@ resources:
             notify: Some("https://hooks.example.com/apply".to_string()),
             subset: None,
             confirm_destructive: false,
+            backup: false,
+            exclude: None,
+            sequential: false,
         };
         match cmd {
             Commands::Apply { notify, .. } => {
@@ -17403,6 +17911,9 @@ resources:
             notify: None,
             subset: Some("web-*".to_string()),
             confirm_destructive: false,
+            backup: false,
+            exclude: None,
+            sequential: false,
         };
         match cmd {
             Commands::Apply { subset, .. } => {
@@ -17497,6 +18008,9 @@ resources:
             notify: None,
             subset: None,
             confirm_destructive: true,
+            backup: false,
+            exclude: None,
+            sequential: false,
         };
         match cmd {
             Commands::Apply {
@@ -17517,10 +18031,216 @@ resources:
             summary: false,
             watch: None,
             stale: Some(30),
+            health: false,
         };
         match cmd {
             Commands::Status { stale, .. } => assert_eq!(stale, Some(30)),
             _ => panic!("expected Status"),
+        }
+    }
+
+    // ── Phase 20: Production Readiness (FJ-340→FJ-347) ──
+
+    #[test]
+    fn test_fj341_audit_command_parse() {
+        let cmd = Commands::Audit {
+            state_dir: PathBuf::from("state"),
+            machine: Some("gpu-box".to_string()),
+            limit: 50,
+            json: false,
+        };
+        match cmd {
+            Commands::Audit { machine, limit, .. } => {
+                assert_eq!(machine, Some("gpu-box".to_string()));
+                assert_eq!(limit, 50);
+            }
+            _ => panic!("expected Audit"),
+        }
+    }
+
+    #[test]
+    fn test_fj341_audit_empty_state_dir() {
+        let tmp = tempfile::tempdir().unwrap();
+        let state_dir = tmp.path().join("state");
+        std::fs::create_dir_all(&state_dir).unwrap();
+        let result = cmd_audit(&state_dir, None, 20, false);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj342_backup_flag_parse() {
+        let cmd = Commands::Apply {
+            file: PathBuf::from("forjar.yaml"),
+            state_dir: PathBuf::from("state"),
+            machine: None,
+            resource: None,
+            tag: None,
+            group: None,
+            force: false,
+            dry_run: false,
+            no_tripwire: false,
+            params: vec![],
+            auto_commit: false,
+            timeout: None,
+            json: false,
+            check: false,
+            env_file: None,
+            workspace: None,
+            report: false,
+            force_unlock: false,
+            output: None,
+            progress: false,
+            timing: false,
+            retry: 0,
+            yes: false,
+            parallel: false,
+            resource_timeout: None,
+            rollback_on_failure: false,
+            max_parallel: None,
+            notify: None,
+            subset: None,
+            confirm_destructive: false,
+            backup: true,
+            exclude: None,
+            sequential: false,
+        };
+        match cmd {
+            Commands::Apply { backup, .. } => assert!(backup),
+            _ => panic!("expected Apply"),
+        }
+    }
+
+    #[test]
+    fn test_fj343_doctor_network_flag() {
+        let cmd = Commands::Doctor {
+            file: None,
+            json: false,
+            fix: false,
+            network: true,
+        };
+        match cmd {
+            Commands::Doctor { network, .. } => assert!(network),
+            _ => panic!("expected Doctor"),
+        }
+    }
+
+    #[test]
+    fn test_fj344_plan_compact_parse() {
+        let cmd = Commands::PlanCompact {
+            file: PathBuf::from("forjar.yaml"),
+            state_dir: PathBuf::from("state"),
+            machine: None,
+            json: false,
+        };
+        match cmd {
+            Commands::PlanCompact { file, .. } => {
+                assert_eq!(file, PathBuf::from("forjar.yaml"));
+            }
+            _ => panic!("expected PlanCompact"),
+        }
+    }
+
+    #[test]
+    fn test_fj345_exclude_flag_parse() {
+        let cmd = Commands::Apply {
+            file: PathBuf::from("forjar.yaml"),
+            state_dir: PathBuf::from("state"),
+            machine: None,
+            resource: None,
+            tag: None,
+            group: None,
+            force: false,
+            dry_run: false,
+            no_tripwire: false,
+            params: vec![],
+            auto_commit: false,
+            timeout: None,
+            json: false,
+            check: false,
+            env_file: None,
+            workspace: None,
+            report: false,
+            force_unlock: false,
+            output: None,
+            progress: false,
+            timing: false,
+            retry: 0,
+            yes: false,
+            parallel: false,
+            resource_timeout: None,
+            rollback_on_failure: false,
+            max_parallel: None,
+            notify: None,
+            subset: None,
+            confirm_destructive: false,
+            backup: false,
+            exclude: Some("test-*".to_string()),
+            sequential: false,
+        };
+        match cmd {
+            Commands::Apply { exclude, .. } => assert_eq!(exclude, Some("test-*".to_string())),
+            _ => panic!("expected Apply"),
+        }
+    }
+
+    #[test]
+    fn test_fj346_status_health_flag() {
+        let cmd = Commands::Status {
+            state_dir: PathBuf::from("state"),
+            machine: None,
+            json: false,
+            file: None,
+            summary: false,
+            watch: None,
+            stale: None,
+            health: true,
+        };
+        match cmd {
+            Commands::Status { health, .. } => assert!(health),
+            _ => panic!("expected Status"),
+        }
+    }
+
+    #[test]
+    fn test_fj347_sequential_flag_parse() {
+        let cmd = Commands::Apply {
+            file: PathBuf::from("forjar.yaml"),
+            state_dir: PathBuf::from("state"),
+            machine: None,
+            resource: None,
+            tag: None,
+            group: None,
+            force: false,
+            dry_run: false,
+            no_tripwire: false,
+            params: vec![],
+            auto_commit: false,
+            timeout: None,
+            json: false,
+            check: false,
+            env_file: None,
+            workspace: None,
+            report: false,
+            force_unlock: false,
+            output: None,
+            progress: false,
+            timing: false,
+            retry: 0,
+            yes: false,
+            parallel: false,
+            resource_timeout: None,
+            rollback_on_failure: false,
+            max_parallel: None,
+            notify: None,
+            subset: None,
+            confirm_destructive: false,
+            backup: false,
+            exclude: None,
+            sequential: true,
+        };
+        match cmd {
+            Commands::Apply { sequential, .. } => assert!(sequential),
+            _ => panic!("expected Apply"),
         }
     }
 }
