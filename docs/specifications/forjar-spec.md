@@ -2136,14 +2136,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-570 | `forjar apply --notify-pubsub <topic>` — publish apply events to Google Cloud Pub/Sub. GCP integration. | Planned |
-| FJ-571 | `forjar validate --check-resource-limits` — validate resource counts don't exceed per-machine limits. Scale guard. | Planned |
-| FJ-572 | `forjar status --fleet-overview` — aggregated fleet summary across all machines. Fleet dashboard. | Planned |
-| FJ-573 | `forjar apply --fleet-strategy <strategy>` — fleet-wide rollout strategy (parallel, rolling, canary). Fleet deploy. | Planned |
-| FJ-574 | `forjar graph --resource-types` — show graph colored/grouped by resource type. Visualization. | Planned |
-| FJ-575 | `forjar lock defrag` — defragment lock files (reorder resources alphabetically). Maintenance. | Planned |
-| FJ-576 | `forjar apply --pre-check <script>` — run validation script before apply proceeds. Gate check. | Planned |
-| FJ-577 | `forjar status --machine-health` — per-machine health details with resource breakdown. Diagnostics. | Planned |
+| FJ-570 | `forjar apply --notify-pubsub <topic>` — publish apply events to Google Cloud Pub/Sub. GCP integration. | Done |
+| FJ-571 | `forjar validate --check-resource-limits` — validate resource counts don't exceed per-machine limits. Scale guard. | Done |
+| FJ-572 | `forjar status --fleet-overview` — aggregated fleet summary across all machines. Fleet dashboard. | Done |
+| FJ-573 | `forjar apply --fleet-strategy <strategy>` — fleet-wide rollout strategy (parallel, rolling, canary). Fleet deploy. | Done |
+| FJ-574 | `forjar graph --resource-types` — show graph colored/grouped by resource type. Visualization. | Done |
+| FJ-575 | `forjar lock defrag` — defragment lock files (reorder resources alphabetically). Maintenance. | Done |
+| FJ-576 | `forjar apply --pre-check <script>` — run validation script before apply proceeds. Gate check. | Done |
+| FJ-577 | `forjar status --machine-health` — per-machine health details with resource breakdown. Diagnostics. | Done |
+
+### Phase 44 — v4.4: Configuration Intelligence
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-580 | `forjar apply --notify-eventbridge <bus>` — publish to AWS EventBridge for event-driven workflows. AWS integration. | Planned |
+| FJ-581 | `forjar validate --check-unused` — detect resources not referenced by any dependency chain. Cleanup. | Planned |
+| FJ-582 | `forjar status --config-drift` — compare running config against declared config. Config drift. | Planned |
+| FJ-583 | `forjar apply --dry-run-graph` — show execution graph without applying. Plan visualization. | Planned |
+| FJ-584 | `forjar graph --topological-levels` — show resources grouped by topological depth level. Layering. | Planned |
+| FJ-585 | `forjar lock normalize` — normalize lock file format (consistent key ordering, whitespace). Standardization. | Planned |
+| FJ-586 | `forjar apply --post-check <script>` — run validation script after apply completes. Verification gate. | Planned |
+| FJ-587 | `forjar status --convergence-time` — show average time to convergence per resource. Performance insight. | Planned |
 
 ---
 
