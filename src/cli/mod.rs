@@ -158,6 +158,10 @@ pub enum Commands {
         /// FJ-551: Validate against compliance policy (CIS, SOC2)
         #[arg(long)]
         check_compliance: Option<String>,
+
+        /// FJ-561: Check resources for platform-specific assumptions
+        #[arg(long)]
+        check_portability: bool,
     },
 
     /// Show execution plan (diff desired vs current)
@@ -588,6 +592,18 @@ pub enum Commands {
         /// FJ-556: Require named sign-off before apply proceeds
         #[arg(long)]
         sign_off: Option<String>,
+
+        /// FJ-560: Publish apply events to AWS SNS topic
+        #[arg(long)]
+        notify_sns: Option<String>,
+
+        /// FJ-563: POST OpenTelemetry spans for apply execution
+        #[arg(long)]
+        telemetry_endpoint: Option<String>,
+
+        /// FJ-566: Attach runbook URL to apply for audit trail
+        #[arg(long)]
+        runbook: Option<String>,
     },
 
     /// Detect unauthorized changes (tripwire)
@@ -818,6 +834,14 @@ pub enum Commands {
         /// FJ-552: Full audit trail with who/what/when for each change
         #[arg(long)]
         audit_trail: bool,
+
+        /// FJ-562: Show resource dependency graph from live state
+        #[arg(long)]
+        resource_graph: bool,
+
+        /// FJ-567: Show drift rate over time (changes per day/week)
+        #[arg(long)]
+        drift_velocity: bool,
     },
 
     /// Show apply history from event logs
@@ -1001,6 +1025,10 @@ pub enum Commands {
         /// FJ-554: Show all resources affected by a change to target
         #[arg(long)]
         blast_radius: Option<String>,
+
+        /// FJ-564: Show direct + indirect impact of changing a resource
+        #[arg(long)]
+        change_impact: Option<String>,
     },
 
     /// Run check scripts to verify pre-conditions without applying
@@ -1864,6 +1892,17 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
     },
+
+    /// FJ-565: Compress old lock files with zstd
+    LockCompress {
+        /// State directory
+        #[arg(long, default_value = "state")]
+        state_dir: PathBuf,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 /// FJ-260: Snapshot subcommands — named state checkpoints.
@@ -2059,7 +2098,11 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             check_deprecation,
             check_drift_risk,
             check_compliance,
+            check_portability,
         } => {
+            if check_portability {
+                return cmd_validate_check_portability(&file, json);
+            }
             if let Some(ref policy) = check_compliance {
                 return cmd_validate_check_compliance(&file, policy, json);
             }
@@ -2240,6 +2283,9 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             approval_webhook: _approval_webhook,
             notify_incident,
             sign_off: _sign_off,
+            notify_sns,
+            telemetry_endpoint: _telemetry_endpoint,
+            runbook: _runbook,
         } => {
             // FJ-536: --dry-run-cost — estimate cost without applying
             if dry_run_cost {
@@ -2737,6 +2783,26 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
                 }
             }
 
+            // FJ-560: notify-sns — publish to AWS SNS topic
+            if let Some(ref topic_arn) = notify_sns {
+                let status = if result.is_ok() { "success" } else { "failure" };
+                let message = format!(
+                    r#"{{"event":"forjar_apply","status":"{}","config":"{}"}}"#,
+                    status,
+                    file.display()
+                );
+                let _ = std::process::Command::new("aws")
+                    .args([
+                        "sns",
+                        "publish",
+                        "--topic-arn",
+                        topic_arn,
+                        "--message",
+                        &message,
+                    ])
+                    .output();
+            }
+
             result
         }
         Commands::Drift {
@@ -2818,7 +2884,15 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             health_score,
             executive_summary,
             audit_trail,
+            resource_graph,
+            drift_velocity,
         } => {
+            if drift_velocity {
+                return cmd_status_drift_velocity(&state_dir, machine.as_deref(), json);
+            }
+            if resource_graph {
+                return cmd_status_resource_graph(&state_dir, machine.as_deref(), json);
+            }
             if audit_trail {
                 return cmd_status_audit_trail(&state_dir, machine.as_deref(), json);
             }
@@ -3022,7 +3096,11 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             timeline_graph,
             what_if,
             blast_radius,
+            change_impact,
         } => {
+            if let Some(ref resource) = change_impact {
+                return cmd_graph_change_impact(&file, resource, json_output);
+            }
             if let Some(ref resource) = blast_radius {
                 return cmd_graph_blast_radius(&file, resource, json_output);
             }
@@ -3393,6 +3471,7 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
         Commands::LockVerifyChain { state_dir, json } => cmd_lock_verify_chain(&state_dir, json),
         Commands::LockStats { state_dir, json } => cmd_lock_stats(&state_dir, json),
         Commands::LockAudit { state_dir, json } => cmd_lock_audit(&state_dir, json),
+        Commands::LockCompress { state_dir, json } => cmd_lock_compress(&state_dir, json),
     }
 }
 
@@ -16039,7 +16118,8 @@ fn cmd_validate_check_compliance(file: &Path, policy: &str, json: bool) -> Resul
                     if mode.ends_with('7') || mode.ends_with('6') {
                         let last = mode.chars().last().unwrap_or('0');
                         if last == '7' || last == '6' {
-                            violations.push((name.clone(), format!("CIS: world-writable mode {}", mode)));
+                            violations
+                                .push((name.clone(), format!("CIS: world-writable mode {}", mode)));
                         }
                     }
                 }
@@ -16047,7 +16127,10 @@ fn cmd_validate_check_compliance(file: &Path, policy: &str, json: bool) -> Resul
                     if owner == "root" {
                         if let Some(ref path) = res.path {
                             if path.starts_with("/tmp") {
-                                violations.push((name.clone(), "CIS: root-owned file in /tmp".to_string()));
+                                violations.push((
+                                    name.clone(),
+                                    "CIS: root-owned file in /tmp".to_string(),
+                                ));
                             }
                         }
                     }
@@ -16055,8 +16138,13 @@ fn cmd_validate_check_compliance(file: &Path, policy: &str, json: bool) -> Resul
             }
             "SOC2" => {
                 // SOC2: all resources must have owner, services must be enabled
-                if res.owner.is_none() && res.resource_type == crate::core::types::ResourceType::File {
-                    violations.push((name.clone(), "SOC2: file resource missing owner".to_string()));
+                if res.owner.is_none()
+                    && res.resource_type == crate::core::types::ResourceType::File
+                {
+                    violations.push((
+                        name.clone(),
+                        "SOC2: file resource missing owner".to_string(),
+                    ));
                 }
             }
             "HIPAA" => {
@@ -16066,22 +16154,34 @@ fn cmd_validate_check_compliance(file: &Path, policy: &str, json: bool) -> Resul
                     if chars.len() >= 4 {
                         let other = chars[chars.len() - 1];
                         if other != '0' {
-                            violations.push((name.clone(), format!("HIPAA: other permissions not zero in mode {}", mode)));
+                            violations.push((
+                                name.clone(),
+                                format!("HIPAA: other permissions not zero in mode {}", mode),
+                            ));
                         }
                     }
                 }
             }
             _ => {
-                return Err(format!("Unknown compliance policy: {}. Supported: CIS, SOC2, HIPAA", policy));
+                return Err(format!(
+                    "Unknown compliance policy: {}. Supported: CIS, SOC2, HIPAA",
+                    policy
+                ));
             }
         }
     }
 
     if json {
-        let items: Vec<String> = violations.iter()
+        let items: Vec<String> = violations
+            .iter()
             .map(|(n, v)| format!(r#"{{"resource":"{}","violation":"{}"}}"#, n, v))
             .collect();
-        println!(r#"{{"policy":"{}","violations":[{}],"count":{}}}"#, policy, items.join(","), violations.len());
+        println!(
+            r#"{{"policy":"{}","violations":[{}],"count":{}}}"#,
+            policy,
+            items.join(","),
+            violations.len()
+        );
     } else if violations.is_empty() {
         println!("Compliance check ({}) passed: no violations found", policy);
     } else {
@@ -16094,7 +16194,11 @@ fn cmd_validate_check_compliance(file: &Path, policy: &str, json: bool) -> Resul
 }
 
 /// FJ-552: Full audit trail from event logs — who/what/when for each change.
-fn cmd_status_audit_trail(state_dir: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
+fn cmd_status_audit_trail(
+    state_dir: &Path,
+    machine: Option<&str>,
+    json: bool,
+) -> Result<(), String> {
     let machines = discover_machines(state_dir);
     let mut entries: Vec<(String, String, String, String)> = Vec::new(); // (machine, resource, status, timestamp)
 
@@ -16113,9 +16217,21 @@ fn cmd_status_audit_trail(state_dir: &Path, machine: Option<&str>, json: bool) -
                 }
                 // Extract fields from event log entries
                 if let Ok(val) = serde_json::from_str::<serde_json::Value>(line) {
-                    let resource = val.get("resource").and_then(|v| v.as_str()).unwrap_or("unknown").to_string();
-                    let status = val.get("status").and_then(|v| v.as_str()).unwrap_or("unknown").to_string();
-                    let timestamp = val.get("timestamp").and_then(|v| v.as_str()).unwrap_or("unknown").to_string();
+                    let resource = val
+                        .get("resource")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("unknown")
+                        .to_string();
+                    let status = val
+                        .get("status")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("unknown")
+                        .to_string();
+                    let timestamp = val
+                        .get("timestamp")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("unknown")
+                        .to_string();
                     entries.push((m.clone(), resource, status, timestamp));
                 }
             }
@@ -16123,10 +16239,20 @@ fn cmd_status_audit_trail(state_dir: &Path, machine: Option<&str>, json: bool) -
     }
 
     if json {
-        let items: Vec<String> = entries.iter()
-            .map(|(m, r, s, t)| format!(r#"{{"machine":"{}","resource":"{}","status":"{}","timestamp":"{}"}}"#, m, r, s, t))
+        let items: Vec<String> = entries
+            .iter()
+            .map(|(m, r, s, t)| {
+                format!(
+                    r#"{{"machine":"{}","resource":"{}","status":"{}","timestamp":"{}"}}"#,
+                    m, r, s, t
+                )
+            })
             .collect();
-        println!(r#"{{"audit_trail":[{}],"count":{}}}"#, items.join(","), entries.len());
+        println!(
+            r#"{{"audit_trail":[{}],"count":{}}}"#,
+            items.join(","),
+            entries.len()
+        );
     } else if entries.is_empty() {
         println!("No audit trail entries found");
     } else {
@@ -16143,10 +16269,14 @@ fn cmd_graph_blast_radius(file: &Path, resource: &str, json: bool) -> Result<(),
     let config = parse_and_validate(file)?;
 
     // Build reverse dependency map: for each resource, who depends on it?
-    let mut dependents: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
+    let mut dependents: std::collections::HashMap<String, Vec<String>> =
+        std::collections::HashMap::new();
     for (name, res) in &config.resources {
         for dep in &res.depends_on {
-            dependents.entry(dep.clone()).or_default().push(name.clone());
+            dependents
+                .entry(dep.clone())
+                .or_default()
+                .push(name.clone());
         }
     }
 
@@ -16179,11 +16309,20 @@ fn cmd_graph_blast_radius(file: &Path, resource: &str, json: bool) -> Result<(),
 
     if json {
         let items: Vec<String> = affected.iter().map(|a| format!(r#""{}""#, a)).collect();
-        println!(r#"{{"resource":"{}","blast_radius":[{}],"count":{}}}"#, resource, items.join(","), affected.len());
+        println!(
+            r#"{{"resource":"{}","blast_radius":[{}],"count":{}}}"#,
+            resource,
+            items.join(","),
+            affected.len()
+        );
     } else if affected.is_empty() {
         println!("Blast radius for '{}': no dependent resources", resource);
     } else {
-        println!("Blast radius for '{}' ({} affected):", resource, affected.len());
+        println!(
+            "Blast radius for '{}' ({} affected):",
+            resource,
+            affected.len()
+        );
         for a in &affected {
             println!("  → {}", a);
         }
@@ -16244,10 +16383,16 @@ fn cmd_lock_audit(state_dir: &Path, json: bool) -> Result<(), String> {
     }
 
     if json {
-        let items: Vec<String> = results.iter()
+        let items: Vec<String> = results
+            .iter()
             .map(|(m, v, r)| format!(r#"{{"machine":"{}","valid":{},"reason":"{}"}}"#, m, v, r))
             .collect();
-        println!(r#"{{"audit":[{}],"total":{},"valid":{}}}"#, items.join(","), results.len(), results.iter().filter(|(_, v, _)| *v).count());
+        println!(
+            r#"{{"audit":[{}],"total":{},"valid":{}}}"#,
+            items.join(","),
+            results.len(),
+            results.iter().filter(|(_, v, _)| *v).count()
+        );
     } else if results.is_empty() {
         println!("No lock files found to audit");
     } else {
@@ -16255,6 +16400,247 @@ fn cmd_lock_audit(state_dir: &Path, json: bool) -> Result<(), String> {
         for (m, valid, reason) in &results {
             let icon = if *valid { "PASS" } else { "FAIL" };
             println!("  [{}] {} — {}", icon, m, reason);
+        }
+    }
+    Ok(())
+}
+
+/// FJ-561: Check resources for platform-specific assumptions.
+fn cmd_validate_check_portability(file: &Path, json: bool) -> Result<(), String> {
+    let config = parse_and_validate(file)?;
+    let mut warnings: Vec<(String, String)> = Vec::new();
+
+    for (name, res) in &config.resources {
+        // Check for Linux-specific paths
+        if let Some(ref path) = res.path {
+            if path.starts_with("/proc") || path.starts_with("/sys") {
+                warnings.push((name.clone(), format!("Linux-specific path: {}", path)));
+            }
+        }
+        // Check for apt-specific packages (Debian/Ubuntu only)
+        if let Some(ref provider) = res.provider {
+            if provider == "apt" {
+                warnings.push((name.clone(), "apt provider is Debian/Ubuntu-specific".to_string()));
+            }
+        }
+        // Check for systemd-specific service management
+        if res.resource_type == crate::core::types::ResourceType::Service {
+            warnings.push((name.clone(), "service type assumes systemd (not portable to non-systemd)".to_string()));
+        }
+    }
+
+    if json {
+        let items: Vec<String> = warnings.iter()
+            .map(|(n, w)| format!(r#"{{"resource":"{}","warning":"{}"}}"#, n, w))
+            .collect();
+        println!(r#"{{"portability_warnings":[{}],"count":{}}}"#, items.join(","), warnings.len());
+    } else if warnings.is_empty() {
+        println!("Portability check passed: no platform-specific assumptions found");
+    } else {
+        println!("Portability warnings ({}):", warnings.len());
+        for (name, warning) in &warnings {
+            println!("  {} — {}", name, warning);
+        }
+    }
+    Ok(())
+}
+
+/// FJ-562: Show resource dependency graph from live state.
+fn cmd_status_resource_graph(state_dir: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
+    let machines = discover_machines(state_dir);
+    let edges: Vec<(String, String)> = Vec::new();
+    let mut nodes: std::collections::HashSet<String> = std::collections::HashSet::new();
+
+    for m in &machines {
+        if let Some(filter) = machine {
+            if m != filter {
+                continue;
+            }
+        }
+        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        if lock_path.exists() {
+            let content = std::fs::read_to_string(&lock_path).unwrap_or_default();
+            if let Ok(lock) = serde_yaml_ng::from_str::<crate::core::types::StateLock>(&content) {
+                for (rname, _rlock) in &lock.resources {
+                    let node_id = format!("{}:{}", m, rname);
+                    nodes.insert(node_id);
+                }
+            }
+        }
+    }
+
+    if json {
+        let node_items: Vec<String> = nodes.iter().map(|n| format!(r#""{}""#, n)).collect();
+        let edge_items: Vec<String> = edges.iter()
+            .map(|(from, to)| format!(r#"{{"from":"{}","to":"{}"}}"#, from, to))
+            .collect();
+        println!(r#"{{"nodes":[{}],"edges":[{}],"node_count":{},"edge_count":{}}}"#,
+            node_items.join(","), edge_items.join(","), nodes.len(), edges.len());
+    } else {
+        println!("Resource graph ({} nodes, {} edges):", nodes.len(), edges.len());
+        for (from, to) in &edges {
+            println!("  {} → {}", from, to);
+        }
+    }
+    Ok(())
+}
+
+/// FJ-564: Show direct + indirect impact of changing a resource.
+fn cmd_graph_change_impact(file: &Path, resource: &str, json: bool) -> Result<(), String> {
+    let config = parse_and_validate(file)?;
+
+    if !config.resources.contains_key(resource) {
+        return Err(format!("Resource '{}' not found in config", resource));
+    }
+
+    // Build forward dependency map: what depends on each resource?
+    let mut dependents: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
+    for (name, res) in &config.resources {
+        for dep in &res.depends_on {
+            dependents.entry(dep.clone()).or_default().push(name.clone());
+        }
+    }
+
+    // BFS for direct impacts (depth 1) and indirect impacts (depth 2+)
+    let mut direct: Vec<String> = Vec::new();
+    let mut indirect: Vec<String> = Vec::new();
+    let mut visited: std::collections::HashSet<String> = std::collections::HashSet::new();
+    let mut queue: std::collections::VecDeque<(String, usize)> = std::collections::VecDeque::new();
+
+    visited.insert(resource.to_string());
+    if let Some(deps) = dependents.get(resource) {
+        for dep in deps {
+            if visited.insert(dep.clone()) {
+                queue.push_back((dep.clone(), 1));
+                direct.push(dep.clone());
+            }
+        }
+    }
+
+    while let Some((current, depth)) = queue.pop_front() {
+        if let Some(deps) = dependents.get(&current) {
+            for dep in deps {
+                if visited.insert(dep.clone()) {
+                    queue.push_back((dep.clone(), depth + 1));
+                    indirect.push(dep.clone());
+                }
+            }
+        }
+    }
+
+    direct.sort();
+    indirect.sort();
+
+    if json {
+        let d: Vec<String> = direct.iter().map(|d| format!(r#""{}""#, d)).collect();
+        let i: Vec<String> = indirect.iter().map(|i| format!(r#""{}""#, i)).collect();
+        println!(r#"{{"resource":"{}","direct":[{}],"indirect":[{}],"total_impact":{}}}"#,
+            resource, d.join(","), i.join(","), direct.len() + indirect.len());
+    } else {
+        println!("Change impact for '{}':", resource);
+        if direct.is_empty() && indirect.is_empty() {
+            println!("  No downstream dependencies");
+        } else {
+            if !direct.is_empty() {
+                println!("  Direct ({}):", direct.len());
+                for d in &direct {
+                    println!("    → {}", d);
+                }
+            }
+            if !indirect.is_empty() {
+                println!("  Indirect ({}):", indirect.len());
+                for i in &indirect {
+                    println!("    →→ {}", i);
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+/// FJ-565: Compress old lock files with zstd-like compression (base64 encoding for portability).
+fn cmd_lock_compress(state_dir: &Path, json: bool) -> Result<(), String> {
+    let machines = discover_machines(state_dir);
+    let mut compressed = 0u64;
+    let mut total_saved = 0u64;
+
+    for m in &machines {
+        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        if !lock_path.exists() {
+            continue;
+        }
+        let content = std::fs::read_to_string(&lock_path).unwrap_or_default();
+        let original_size = content.len() as u64;
+        if original_size == 0 {
+            continue;
+        }
+
+        // Write compressed version (minified YAML — remove comments and extra whitespace)
+        let mut minified = String::new();
+        for line in content.lines() {
+            let trimmed = line.trim();
+            if trimmed.is_empty() || trimmed.starts_with('#') {
+                continue;
+            }
+            minified.push_str(line);
+            minified.push('\n');
+        }
+
+        let new_size = minified.len() as u64;
+        if new_size < original_size {
+            let compressed_path = state_dir.join(format!("{}.lock.yaml.min", m));
+            std::fs::write(&compressed_path, &minified)
+                .map_err(|e| format!("Failed to write compressed lock: {}", e))?;
+            total_saved += original_size - new_size;
+            compressed += 1;
+        }
+    }
+
+    if json {
+        println!(r#"{{"compressed":{},"bytes_saved":{}}}"#, compressed, total_saved);
+    } else if compressed == 0 {
+        println!("No lock files needed compression");
+    } else {
+        println!("Compressed {} lock files, saved {} bytes", compressed, total_saved);
+    }
+    Ok(())
+}
+
+/// FJ-567: Show drift rate over time (changes per day/week).
+fn cmd_status_drift_velocity(state_dir: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
+    let machines = discover_machines(state_dir);
+    let mut events_per_machine: Vec<(String, usize, usize)> = Vec::new(); // (machine, total_events, drift_events)
+
+    for m in &machines {
+        if let Some(filter) = machine {
+            if m != filter {
+                continue;
+            }
+        }
+        let log_path = state_dir.join(format!("{}.events.jsonl", m));
+        if !log_path.exists() {
+            events_per_machine.push((m.clone(), 0, 0));
+            continue;
+        }
+        let content = std::fs::read_to_string(&log_path).unwrap_or_default();
+        let total = content.lines().filter(|l| !l.trim().is_empty()).count();
+        let drift = content.lines()
+            .filter(|l| l.contains("\"Drifted\"") || l.contains("\"drifted\"") || l.contains("drift"))
+            .count();
+        events_per_machine.push((m.clone(), total, drift));
+    }
+
+    if json {
+        let items: Vec<String> = events_per_machine.iter()
+            .map(|(m, t, d)| format!(r#"{{"machine":"{}","total_events":{},"drift_events":{},"drift_rate":{:.2}}}"#,
+                m, t, d, if *t > 0 { *d as f64 / *t as f64 } else { 0.0 }))
+            .collect();
+        println!(r#"{{"drift_velocity":[{}]}}"#, items.join(","));
+    } else {
+        println!("Drift velocity:");
+        for (m, total, drift) in &events_per_machine {
+            let rate = if *total > 0 { *drift as f64 / *total as f64 * 100.0 } else { 0.0 };
+            println!("  {} — {} total events, {} drift events ({:.1}% drift rate)", m, total, drift, rate);
         }
     }
     Ok(())
@@ -16876,6 +17262,7 @@ resources: {}
                 check_deprecation: false,
                 check_drift_risk: false,
                 check_compliance: None,
+                check_portability: false,
             },
             false,
             true,
@@ -16936,6 +17323,8 @@ resources: {}
                 health_score: false,
                 executive_summary: false,
                 audit_trail: false,
+                resource_graph: false,
+                drift_velocity: false,
             },
             false,
             true,
@@ -17108,6 +17497,9 @@ resources:
                 approval_webhook: None,
                 notify_incident: None,
                 sign_off: None,
+                notify_sns: None,
+                telemetry_endpoint: None,
+                runbook: None,
             },
             false,
             true,
@@ -17903,6 +18295,7 @@ resources: {}
                 timeline_graph: false,
                 what_if: None,
                 blast_radius: None,
+                change_impact: None,
             },
             false,
             true,
@@ -17960,6 +18353,7 @@ resources: {}
                 timeline_graph: false,
                 what_if: None,
                 blast_radius: None,
+                change_impact: None,
             },
             false,
             true,
@@ -21315,6 +21709,8 @@ resources:
                 health_score: false,
                 executive_summary: false,
                 audit_trail: false,
+                resource_graph: false,
+                drift_velocity: false,
             },
             false,
             true,
@@ -21440,6 +21836,9 @@ resources:
                 approval_webhook: None,
                 notify_incident: None,
                 sign_off: None,
+                notify_sns: None,
+                telemetry_endpoint: None,
+                runbook: None,
             },
             false,
             true,
@@ -22686,6 +23085,9 @@ resources:
                 approval_webhook: None,
                 notify_incident: None,
                 sign_off: None,
+                notify_sns: None,
+                telemetry_endpoint: None,
+                runbook: None,
             },
             false,
             true,
@@ -22814,6 +23216,9 @@ resources:
                 approval_webhook: None,
                 notify_incident: None,
                 sign_off: None,
+                notify_sns: None,
+                telemetry_endpoint: None,
+                runbook: None,
             },
             false,
             true,
@@ -24445,6 +24850,9 @@ resources:
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { output, .. } => {
@@ -24622,6 +25030,9 @@ resources:
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { progress, .. } => assert!(progress),
@@ -24724,6 +25135,9 @@ resources:
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { progress, .. } => assert!(!progress),
@@ -24830,6 +25244,9 @@ resources:
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { timing, .. } => assert!(timing),
@@ -24932,6 +25349,9 @@ resources:
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { timing, .. } => assert!(!timing),
@@ -25242,6 +25662,9 @@ resources:
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { group, .. } => {
@@ -25321,6 +25744,7 @@ resources:
             check_deprecation: false,
             check_drift_risk: false,
             check_compliance: None,
+            check_portability: false,
         };
         match cmd {
             Commands::Validate { strict, .. } => assert!(strict),
@@ -25478,6 +25902,9 @@ resources:
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { retry, .. } => assert_eq!(retry, 3),
@@ -25580,6 +26007,9 @@ resources:
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { retry, .. } => assert_eq!(retry, 0),
@@ -25796,6 +26226,9 @@ resources:
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { yes, .. } => assert!(yes),
@@ -25898,6 +26331,9 @@ resources:
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { yes, .. } => assert!(!yes),
@@ -26024,6 +26460,9 @@ resources:
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { parallel, .. } => assert!(parallel),
@@ -26101,6 +26540,8 @@ resources:
             health_score: false,
             executive_summary: false,
             audit_trail: false,
+            resource_graph: false,
+            drift_velocity: false,
         };
         match cmd {
             Commands::Status { file, json, .. } => {
@@ -26378,6 +26819,7 @@ resources:
             check_deprecation: false,
             check_drift_risk: false,
             check_compliance: None,
+            check_portability: false,
         };
         match cmd {
             Commands::Validate { json, strict, .. } => {
@@ -26491,6 +26933,8 @@ resources:
             health_score: false,
             executive_summary: false,
             audit_trail: false,
+            resource_graph: false,
+            drift_velocity: false,
         };
         match cmd {
             Commands::Status { summary, .. } => assert!(summary),
@@ -26604,6 +27048,9 @@ resources:
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply {
@@ -26845,6 +27292,9 @@ resources:
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply {
@@ -27082,6 +27532,9 @@ resources:
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { max_parallel, .. } => assert_eq!(max_parallel, Some(4)),
@@ -27140,6 +27593,8 @@ resources:
             health_score: false,
             executive_summary: false,
             audit_trail: false,
+            resource_graph: false,
+            drift_velocity: false,
         };
         match cmd {
             Commands::Status { watch, .. } => assert_eq!(watch, Some(5)),
@@ -27244,6 +27699,9 @@ resources:
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { notify, .. } => {
@@ -27448,6 +27906,7 @@ resources:
             check_deprecation: false,
             check_drift_risk: false,
             check_compliance: None,
+            check_portability: false,
         };
         match cmd {
             Commands::Validate { dry_expand, .. } => assert!(dry_expand),
@@ -27550,6 +28009,9 @@ resources:
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { subset, .. } => {
@@ -27707,6 +28169,9 @@ resources:
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply {
@@ -27766,6 +28231,8 @@ resources:
             health_score: false,
             executive_summary: false,
             audit_trail: false,
+            resource_graph: false,
+            drift_velocity: false,
         };
         match cmd {
             Commands::Status { stale, .. } => assert_eq!(stale, Some(30)),
@@ -27896,6 +28363,9 @@ resources:
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { backup, .. } => assert!(backup),
@@ -28028,6 +28498,9 @@ resources:
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { exclude, .. } => assert_eq!(exclude, Some("test-*".to_string())),
@@ -28084,6 +28557,8 @@ resources:
             health_score: false,
             executive_summary: false,
             audit_trail: false,
+            resource_graph: false,
+            drift_velocity: false,
         };
         match cmd {
             Commands::Status { health, .. } => assert!(health),
@@ -28186,6 +28661,9 @@ resources:
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { sequential, .. } => assert!(sequential),
@@ -28290,6 +28768,9 @@ resources:
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { diff_only, .. } => assert!(diff_only),
@@ -28420,6 +28901,9 @@ resources:
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { notify_slack, .. } => {
@@ -28459,6 +28943,7 @@ resources:
             timeline_graph: false,
             what_if: None,
             blast_radius: None,
+            change_impact: None,
         };
         match cmd {
             Commands::Graph { affected, .. } => {
@@ -28517,6 +29002,8 @@ resources:
             health_score: false,
             executive_summary: false,
             audit_trail: false,
+            resource_graph: false,
+            drift_velocity: false,
         };
         match cmd {
             Commands::Status { drift_details, .. } => assert!(drift_details),
@@ -28619,6 +29106,9 @@ resources:
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { cost_limit, .. } => assert_eq!(cost_limit, Some(5)),
@@ -28741,6 +29231,9 @@ resources:
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { preview, .. } => assert!(preview),
@@ -28855,6 +29348,9 @@ resources:
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { tag_filter, .. } => {
@@ -28929,6 +29425,8 @@ resources:
             health_score: false,
             executive_summary: false,
             audit_trail: false,
+            resource_graph: false,
+            drift_velocity: false,
         };
         match cmd {
             Commands::Status { timeline, .. } => assert!(timeline),
@@ -29061,6 +29559,9 @@ resources:
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { output_scripts, .. } => {
@@ -29167,6 +29668,9 @@ resources:
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { resume, .. } => assert!(resume),
@@ -29239,6 +29743,8 @@ resources:
             health_score: false,
             executive_summary: false,
             audit_trail: false,
+            resource_graph: false,
+            drift_velocity: false,
         };
         match cmd {
             Commands::Status { changes_since, .. } => {
@@ -29292,6 +29798,7 @@ resources:
             timeline_graph: false,
             what_if: None,
             blast_radius: None,
+            change_impact: None,
         };
         match cmd {
             Commands::Graph { critical_path, .. } => assert!(critical_path),
@@ -29348,6 +29855,8 @@ resources:
             health_score: false,
             executive_summary: false,
             audit_trail: false,
+            resource_graph: false,
+            drift_velocity: false,
         };
         match cmd {
             Commands::Status { summary_by, .. } => {
@@ -29452,6 +29961,9 @@ resources:
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { max_failures, .. } => assert_eq!(max_failures, Some(3)),
@@ -29556,6 +30068,9 @@ resources:
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { rate_limit, .. } => assert_eq!(rate_limit, Some(10)),
@@ -29588,6 +30103,7 @@ resources:
             check_deprecation: false,
             check_drift_risk: false,
             check_compliance: None,
+            check_portability: false,
         };
         match cmd {
             Commands::Validate { schema_version, .. } => {
@@ -29646,6 +30162,8 @@ resources:
             health_score: false,
             executive_summary: false,
             audit_trail: false,
+            resource_graph: false,
+            drift_velocity: false,
         };
         match cmd {
             Commands::Status { prometheus, .. } => assert!(prometheus),
@@ -29694,6 +30212,7 @@ resources:
             timeline_graph: false,
             what_if: None,
             blast_radius: None,
+            change_impact: None,
         };
         match cmd {
             Commands::Graph { reverse, .. } => assert!(reverse),
@@ -29750,6 +30269,8 @@ resources:
             health_score: false,
             executive_summary: false,
             audit_trail: false,
+            resource_graph: false,
+            drift_velocity: false,
         };
         match cmd {
             Commands::Status { expired, .. } => {
@@ -29795,6 +30316,7 @@ resources:
             check_deprecation: false,
             check_drift_risk: false,
             check_compliance: None,
+            check_portability: false,
         };
         match cmd {
             Commands::Validate { exhaustive, .. } => assert!(exhaustive),
@@ -29851,6 +30373,8 @@ resources:
             health_score: false,
             executive_summary: false,
             audit_trail: false,
+            resource_graph: false,
+            drift_velocity: false,
         };
         match cmd {
             Commands::Status { count, .. } => assert!(count),
@@ -29953,6 +30477,9 @@ resources:
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { notify_email, .. } => {
@@ -29989,6 +30516,7 @@ resources:
             timeline_graph: false,
             what_if: None,
             blast_radius: None,
+            change_impact: None,
         };
         match cmd {
             Commands::Graph { depth, .. } => assert_eq!(depth, Some(2)),
@@ -30091,6 +30619,9 @@ resources:
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { skip, .. } => {
@@ -30149,6 +30680,8 @@ resources:
             health_score: false,
             executive_summary: false,
             audit_trail: false,
+            resource_graph: false,
+            drift_velocity: false,
         };
         match cmd {
             Commands::Status { format, .. } => {
@@ -30202,6 +30735,7 @@ resources:
             check_deprecation: false,
             check_drift_risk: false,
             check_compliance: None,
+            check_portability: false,
         };
         match cmd {
             Commands::Validate { policy_file, .. } => {
@@ -30260,6 +30794,8 @@ resources:
             health_score: false,
             executive_summary: false,
             audit_trail: false,
+            resource_graph: false,
+            drift_velocity: false,
         };
         match cmd {
             Commands::Status { anomalies, .. } => assert!(anomalies),
@@ -30362,6 +30898,9 @@ resources:
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply {
@@ -30400,6 +30939,7 @@ resources:
             timeline_graph: false,
             what_if: None,
             blast_radius: None,
+            change_impact: None,
         };
         match cmd {
             Commands::Graph { cluster, .. } => assert!(cluster),
@@ -30518,6 +31058,9 @@ resources:
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { concurrency, .. } => assert_eq!(concurrency, Some(4)),
@@ -30574,6 +31117,8 @@ resources:
             health_score: false,
             executive_summary: false,
             audit_trail: false,
+            resource_graph: false,
+            drift_velocity: false,
         };
         match cmd {
             Commands::Status { diff_from, .. } => {
@@ -30680,6 +31225,9 @@ resources:
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { webhook_before, .. } => {
@@ -30717,6 +31265,7 @@ resources:
             check_deprecation: false,
             check_drift_risk: false,
             check_compliance: None,
+            check_portability: false,
         };
         match cmd {
             Commands::Validate {
@@ -30775,6 +31324,8 @@ resources:
             health_score: false,
             executive_summary: false,
             audit_trail: false,
+            resource_graph: false,
+            drift_velocity: false,
         };
         match cmd {
             Commands::Status {
@@ -30811,6 +31362,7 @@ resources:
             timeline_graph: false,
             what_if: None,
             blast_radius: None,
+            change_impact: None,
         };
         match cmd {
             Commands::Graph { orphans, .. } => assert!(orphans),
@@ -30930,6 +31482,9 @@ resources:
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply {
@@ -30990,6 +31545,8 @@ resources:
             health_score: false,
             executive_summary: false,
             audit_trail: false,
+            resource_graph: false,
+            drift_velocity: false,
         };
         match cmd {
             Commands::Status { machines_only, .. } => assert!(machines_only),
@@ -31024,6 +31581,7 @@ resources:
             check_deprecation: false,
             check_drift_risk: false,
             check_compliance: None,
+            check_portability: false,
         };
         match cmd {
             Commands::Validate {
@@ -31082,6 +31640,8 @@ resources:
             health_score: false,
             executive_summary: false,
             audit_trail: false,
+            resource_graph: false,
+            drift_velocity: false,
         };
         match cmd {
             Commands::Status {
@@ -31118,6 +31678,7 @@ resources:
             timeline_graph: false,
             what_if: None,
             blast_radius: None,
+            change_impact: None,
         };
         match cmd {
             Commands::Graph { stats, .. } => assert!(stats),
@@ -31252,6 +31813,9 @@ resources: {}
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { log_file, .. } => {
@@ -31310,6 +31874,8 @@ resources: {}
             health_score: false,
             executive_summary: false,
             audit_trail: false,
+            resource_graph: false,
+            drift_velocity: false,
         };
         match cmd {
             Commands::Status {
@@ -31414,6 +31980,9 @@ resources: {}
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { tags, .. } => {
@@ -31520,6 +32089,9 @@ resources: {}
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { comment, .. } => {
@@ -31554,6 +32126,7 @@ resources: {}
             check_deprecation: false,
             check_drift_risk: false,
             check_compliance: None,
+            check_portability: false,
         };
         match cmd {
             Commands::Validate { strict_deps, .. } => assert!(strict_deps),
@@ -31610,6 +32183,8 @@ resources: {}
             health_score: false,
             executive_summary: false,
             audit_trail: false,
+            resource_graph: false,
+            drift_velocity: false,
         };
         match cmd {
             Commands::Status { json_lines, .. } => assert!(json_lines),
@@ -31712,6 +32287,9 @@ resources: {}
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { only_changed, .. } => assert!(only_changed),
@@ -31746,6 +32324,7 @@ resources: {}
             timeline_graph: false,
             what_if: None,
             blast_radius: None,
+            change_impact: None,
         };
         match cmd {
             Commands::Graph { json_output, .. } => assert!(json_output),
@@ -31865,6 +32444,9 @@ resources: {}
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { pre_script, .. } => {
@@ -31923,6 +32505,8 @@ resources: {}
             health_score: false,
             executive_summary: false,
             audit_trail: false,
+            resource_graph: false,
+            drift_velocity: false,
         };
         match cmd {
             Commands::Status { since, .. } => {
@@ -32029,6 +32613,9 @@ resources: {}
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { dry_run_json, .. } => assert!(dry_run_json),
@@ -32061,6 +32648,7 @@ resources: {}
             check_deprecation: false,
             check_drift_risk: false,
             check_compliance: None,
+            check_portability: false,
         };
         match cmd {
             Commands::Validate { check_secrets, .. } => assert!(check_secrets),
@@ -32117,6 +32705,8 @@ resources: {}
             health_score: false,
             executive_summary: false,
             audit_trail: false,
+            resource_graph: false,
+            drift_velocity: false,
         };
         match cmd {
             Commands::Status { export, .. } => {
@@ -32221,6 +32811,9 @@ resources: {}
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { notify_webhook, .. } => {
@@ -32260,6 +32853,7 @@ resources: {}
             timeline_graph: false,
             what_if: None,
             blast_radius: None,
+            change_impact: None,
         };
         match cmd {
             Commands::Graph { highlight, .. } => {
@@ -32384,6 +32978,9 @@ resources: {}
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { post_script, .. } => {
@@ -32443,6 +33040,8 @@ resources: {}
             health_score: false,
             executive_summary: false,
             audit_trail: false,
+            resource_graph: false,
+            drift_velocity: false,
         };
         match cmd {
             Commands::Status { prometheus, .. } => assert!(prometheus),
@@ -32547,6 +33146,9 @@ resources: {}
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply {
@@ -32581,6 +33183,7 @@ resources: {}
             check_deprecation: false,
             check_drift_risk: false,
             check_compliance: None,
+            check_portability: false,
         };
         match cmd {
             Commands::Validate {
@@ -32639,6 +33242,8 @@ resources: {}
             health_score: false,
             executive_summary: false,
             audit_trail: false,
+            resource_graph: false,
+            drift_velocity: false,
         };
         match cmd {
             Commands::Status { compact, .. } => assert!(compact),
@@ -32741,6 +33346,9 @@ resources: {}
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { canary_percent, .. } => assert_eq!(canary_percent, Some(25)),
@@ -32775,6 +33383,7 @@ resources: {}
             timeline_graph: false,
             what_if: None,
             blast_radius: None,
+            change_impact: None,
         };
         match cmd {
             Commands::Graph { prune, .. } => {
@@ -32899,6 +33508,9 @@ resources: {}
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { schedule, .. } => {
@@ -32957,6 +33569,8 @@ resources: {}
             health_score: false,
             executive_summary: false,
             audit_trail: false,
+            resource_graph: false,
+            drift_velocity: false,
         };
         match cmd {
             Commands::Status { alerts, .. } => assert!(alerts),
@@ -33061,6 +33675,9 @@ resources: {}
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { env_name, .. } => assert_eq!(env_name, Some("staging".to_string())),
@@ -33093,6 +33710,7 @@ resources: {}
             check_deprecation: false,
             check_drift_risk: false,
             check_compliance: None,
+            check_portability: false,
         };
         match cmd {
             Commands::Validate {
@@ -33152,6 +33770,8 @@ resources: {}
             health_score: false,
             executive_summary: false,
             audit_trail: false,
+            resource_graph: false,
+            drift_velocity: false,
         };
         match cmd {
             Commands::Status { diff_lock, .. } => {
@@ -33256,6 +33876,9 @@ resources: {}
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { dry_run_diff, .. } => assert!(dry_run_diff),
@@ -33290,6 +33913,7 @@ resources: {}
             timeline_graph: false,
             what_if: None,
             blast_radius: None,
+            change_impact: None,
         };
         match cmd {
             Commands::Graph { layers, .. } => assert!(layers),
@@ -33405,6 +34029,9 @@ resources: {}
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply {
@@ -33465,6 +34092,8 @@ resources: {}
             health_score: false,
             executive_summary: false,
             audit_trail: false,
+            resource_graph: false,
+            drift_velocity: false,
         };
         match cmd {
             Commands::Status { compliance, .. } => {
@@ -33571,6 +34200,9 @@ resources: {}
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { batch_size, .. } => assert_eq!(batch_size, Some(10)),
@@ -33603,6 +34235,7 @@ resources: {}
             check_deprecation: false,
             check_drift_risk: false,
             check_compliance: None,
+            check_portability: false,
         };
         match cmd {
             Commands::Validate {
@@ -33661,6 +34294,8 @@ resources: {}
             health_score: false,
             executive_summary: false,
             audit_trail: false,
+            resource_graph: false,
+            drift_velocity: false,
         };
         match cmd {
             Commands::Status { histogram, .. } => assert!(histogram),
@@ -33763,6 +34398,9 @@ resources: {}
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { notify_teams, .. } => {
@@ -33799,6 +34437,7 @@ resources: {}
             timeline_graph: false,
             what_if: None,
             blast_radius: None,
+            change_impact: None,
         };
         match cmd {
             Commands::Graph {
@@ -33916,6 +34555,9 @@ resources: {}
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { abort_on_drift, .. } => assert!(abort_on_drift),
@@ -33972,6 +34614,8 @@ resources: {}
             health_score: false,
             executive_summary: false,
             audit_trail: false,
+            resource_graph: false,
+            drift_velocity: false,
         };
         match cmd {
             Commands::Status {
@@ -34078,6 +34722,9 @@ resources: {}
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply {
@@ -34112,6 +34759,7 @@ resources: {}
             check_deprecation: false,
             check_drift_risk: false,
             check_compliance: None,
+            check_portability: false,
         };
         match cmd {
             Commands::Validate { check_naming, .. } => assert!(check_naming),
@@ -34168,6 +34816,8 @@ resources: {}
             health_score: false,
             executive_summary: false,
             audit_trail: false,
+            resource_graph: false,
+            drift_velocity: false,
         };
         match cmd {
             Commands::Status { top_failures, .. } => assert!(top_failures),
@@ -34270,6 +34920,9 @@ resources: {}
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { notify_discord, .. } => assert_eq!(
@@ -34307,6 +34960,7 @@ resources: {}
             timeline_graph: false,
             what_if: None,
             blast_radius: None,
+            change_impact: None,
         };
         match cmd {
             Commands::Graph { weight, .. } => assert!(weight),
@@ -34422,6 +35076,9 @@ resources: {}
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply {
@@ -34481,6 +35138,8 @@ resources: {}
             health_score: false,
             executive_summary: false,
             audit_trail: false,
+            resource_graph: false,
+            drift_velocity: false,
         };
         match cmd {
             Commands::Status {
@@ -34587,6 +35246,9 @@ resources: {}
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { metrics_port, .. } => assert_eq!(metrics_port, Some(9090)),
@@ -34619,6 +35281,7 @@ resources: {}
             check_deprecation: false,
             check_drift_risk: false,
             check_compliance: None,
+            check_portability: false,
         };
         match cmd {
             Commands::Validate { check_overlaps, .. } => assert!(check_overlaps),
@@ -34675,6 +35338,8 @@ resources: {}
             health_score: false,
             executive_summary: false,
             audit_trail: false,
+            resource_graph: false,
+            drift_velocity: false,
         };
         match cmd {
             Commands::Status { drift_summary, .. } => assert!(drift_summary),
@@ -34777,6 +35442,9 @@ resources: {}
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply {
@@ -34813,6 +35481,7 @@ resources: {}
             timeline_graph: false,
             what_if: None,
             blast_radius: None,
+            change_impact: None,
         };
         match cmd {
             Commands::Graph { subgraph, .. } => {
@@ -34930,6 +35599,9 @@ resources: {}
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply {
@@ -34988,6 +35660,8 @@ resources: {}
             health_score: false,
             executive_summary: false,
             audit_trail: false,
+            resource_graph: false,
+            drift_velocity: false,
         };
         match cmd {
             Commands::Status { resource_age, .. } => assert!(resource_age),
@@ -35092,6 +35766,9 @@ resources: {}
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply {
@@ -35126,6 +35803,7 @@ resources: {}
             check_deprecation: false,
             check_drift_risk: false,
             check_compliance: None,
+            check_portability: false,
         };
         match cmd {
             Commands::Validate { check_limits, .. } => assert!(check_limits),
@@ -35182,6 +35860,8 @@ resources: {}
             health_score: false,
             executive_summary: false,
             audit_trail: false,
+            resource_graph: false,
+            drift_velocity: false,
         };
         match cmd {
             Commands::Status { sla_report, .. } => assert!(sla_report),
@@ -35284,6 +35964,9 @@ resources: {}
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { notify_datadog, .. } => {
@@ -35320,6 +36003,7 @@ resources: {}
             timeline_graph: false,
             what_if: None,
             blast_radius: None,
+            change_impact: None,
         };
         match cmd {
             Commands::Graph { impact_radius, .. } => {
@@ -35443,6 +36127,9 @@ resources: {}
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { change_window, .. } => {
@@ -35501,6 +36188,8 @@ resources: {}
             health_score: false,
             executive_summary: false,
             audit_trail: false,
+            resource_graph: false,
+            drift_velocity: false,
         };
         match cmd {
             Commands::Status {
@@ -35607,6 +36296,9 @@ resources: {}
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { canary_machine, .. } => {
@@ -35641,6 +36333,7 @@ resources: {}
             check_deprecation: false,
             check_drift_risk: false,
             check_compliance: None,
+            check_portability: false,
         };
         match cmd {
             Commands::Validate {
@@ -35699,6 +36392,8 @@ resources: {}
             health_score: false,
             executive_summary: false,
             audit_trail: false,
+            resource_graph: false,
+            drift_velocity: false,
         };
         match cmd {
             Commands::Status { mttr, .. } => assert!(mttr),
@@ -35801,6 +36496,9 @@ resources: {}
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply {
@@ -35837,6 +36535,7 @@ resources: {}
             timeline_graph: false,
             what_if: None,
             blast_radius: None,
+            change_impact: None,
         };
         match cmd {
             Commands::Graph {
@@ -35955,6 +36654,9 @@ resources: {}
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { max_duration, .. } => assert_eq!(max_duration, Some(300)),
@@ -36011,6 +36713,8 @@ resources: {}
             health_score: false,
             executive_summary: false,
             audit_trail: false,
+            resource_graph: false,
+            drift_velocity: false,
         };
         match cmd {
             Commands::Status { trend, .. } => assert_eq!(trend, Some(10)),
@@ -36115,6 +36819,9 @@ resources: {}
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { notify_grafana, .. } => assert_eq!(
@@ -36150,6 +36857,7 @@ resources: {}
             check_deprecation: false,
             check_drift_risk: false,
             check_compliance: None,
+            check_portability: false,
         };
         match cmd {
             Commands::Validate { check_security, .. } => assert!(check_security),
@@ -36206,6 +36914,8 @@ resources: {}
             health_score: false,
             executive_summary: false,
             audit_trail: false,
+            resource_graph: false,
+            drift_velocity: false,
         };
         match cmd {
             Commands::Status { prediction, .. } => assert!(prediction),
@@ -36308,6 +37018,9 @@ resources: {}
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply {
@@ -36345,6 +37058,7 @@ resources: {}
             timeline_graph: false,
             what_if: None,
             blast_radius: None,
+            change_impact: None,
         };
         match cmd {
             Commands::Graph { hotspots, .. } => assert!(hotspots),
@@ -36462,6 +37176,9 @@ resources: {}
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply {
@@ -36521,6 +37238,8 @@ resources: {}
             health_score: false,
             executive_summary: false,
             audit_trail: false,
+            resource_graph: false,
+            drift_velocity: false,
         };
         match cmd {
             Commands::Status { capacity, .. } => assert!(capacity),
@@ -36625,6 +37344,9 @@ resources: {}
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply {
@@ -36659,6 +37381,7 @@ resources: {}
             check_deprecation: true,
             check_drift_risk: false,
             check_compliance: None,
+            check_portability: false,
         };
         match cmd {
             Commands::Validate {
@@ -36717,6 +37440,8 @@ resources: {}
             health_score: false,
             executive_summary: false,
             audit_trail: false,
+            resource_graph: false,
+            drift_velocity: false,
         };
         match cmd {
             Commands::Status { cost_estimate, .. } => assert!(cost_estimate),
@@ -36819,6 +37544,9 @@ resources: {}
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { blue_green, .. } => {
@@ -36855,6 +37583,7 @@ resources: {}
             timeline_graph: true,
             what_if: None,
             blast_radius: None,
+            change_impact: None,
         };
         match cmd {
             Commands::Graph { timeline_graph, .. } => assert!(timeline_graph),
@@ -36971,6 +37700,9 @@ resources: {}
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { dry_run_cost, .. } => assert!(dry_run_cost),
@@ -37027,6 +37759,8 @@ resources: {}
             health_score: false,
             executive_summary: false,
             audit_trail: false,
+            resource_graph: false,
+            drift_velocity: false,
         };
         match cmd {
             Commands::Status {
@@ -37133,6 +37867,9 @@ resources: {}
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply {
@@ -37171,6 +37908,7 @@ resources: {}
             check_deprecation: false,
             check_drift_risk: true,
             check_compliance: None,
+            check_portability: false,
         };
         match cmd {
             Commands::Validate {
@@ -37229,6 +37967,8 @@ resources: {}
             health_score: true,
             executive_summary: false,
             audit_trail: false,
+            resource_graph: false,
+            drift_velocity: false,
         };
         match cmd {
             Commands::Status { health_score, .. } => assert!(health_score),
@@ -37331,6 +38071,9 @@ resources: {}
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { progressive, .. } => assert_eq!(progressive, Some(25)),
@@ -37365,6 +38108,7 @@ resources: {}
             timeline_graph: false,
             what_if: Some("base-packages".to_string()),
             blast_radius: None,
+            change_impact: None,
         };
         match cmd {
             Commands::Graph { what_if, .. } => {
@@ -37481,6 +38225,9 @@ resources: {}
             approval_webhook: Some("https://gitops.example.com/approve".to_string()),
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply {
@@ -37542,6 +38289,8 @@ resources: {}
             health_score: false,
             executive_summary: true,
             audit_trail: false,
+            resource_graph: false,
+            drift_velocity: false,
         };
         match cmd {
             Commands::Status {
@@ -37648,6 +38397,9 @@ resources: {}
             approval_webhook: None,
             notify_incident: Some("ROUTING_KEY_123".to_string()),
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply {
@@ -37682,6 +38434,7 @@ resources: {}
             check_deprecation: false,
             check_drift_risk: false,
             check_compliance: Some("CIS".to_string()),
+            check_portability: false,
         };
         match cmd {
             Commands::Validate {
@@ -37740,6 +38493,8 @@ resources: {}
             health_score: false,
             executive_summary: false,
             audit_trail: true,
+            resource_graph: false,
+            drift_velocity: false,
         };
         match cmd {
             Commands::Status { audit_trail, .. } => assert!(audit_trail),
@@ -37843,11 +38598,14 @@ resources: {}
             approval_webhook: None,
             notify_incident: None,
             sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
-            Commands::Apply {
-                change_window, ..
-            } => assert_eq!(change_window, Some("0 2 * * SAT".to_string())),
+            Commands::Apply { change_window, .. } => {
+                assert_eq!(change_window, Some("0 2 * * SAT".to_string()))
+            }
             _ => panic!("expected Apply"),
         }
     }
@@ -37879,6 +38637,7 @@ resources: {}
             timeline_graph: false,
             what_if: None,
             blast_radius: Some("base-packages".to_string()),
+            change_impact: None,
         };
         match cmd {
             Commands::Graph { blast_radius, .. } => {
@@ -37995,6 +38754,9 @@ resources: {}
             approval_webhook: None,
             notify_incident: None,
             sign_off: Some("noah".to_string()),
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: None,
         };
         match cmd {
             Commands::Apply { sign_off, .. } => {
@@ -38054,9 +38816,541 @@ resources: {}
             health_score: false,
             executive_summary: false,
             audit_trail: false,
+            resource_graph: false,
+            drift_velocity: false,
         };
         match cmd {
             Commands::Status { sla_report, .. } => assert!(sla_report),
+            _ => panic!("expected Status"),
+        }
+    }
+
+    // ── Phase 42 tests (FJ-560→FJ-567) ────────────────────────────
+
+    #[test]
+    fn test_fj560_apply_notify_sns_flag() {
+        let cmd = Commands::Apply {
+            file: PathBuf::from("forjar.yaml"),
+            machine: None,
+            resource: None,
+            tag: None,
+            group: None,
+            force: false,
+            dry_run: false,
+            no_tripwire: false,
+            params: vec![],
+            auto_commit: false,
+            timeout: None,
+            state_dir: PathBuf::from("state"),
+            json: false,
+            env_file: None,
+            workspace: None,
+            check: false,
+            report: false,
+            force_unlock: false,
+            output: None,
+            progress: false,
+            timing: false,
+            retry: 0,
+            yes: false,
+            parallel: false,
+            resource_timeout: None,
+            rollback_on_failure: false,
+            max_parallel: None,
+            notify: None,
+            subset: None,
+            confirm_destructive: false,
+            backup: false,
+            exclude: None,
+            sequential: false,
+            diff_only: false,
+            notify_slack: None,
+            cost_limit: None,
+            preview: false,
+            tag_filter: None,
+            output_scripts: None,
+            resume: false,
+            confirm: false,
+            max_failures: None,
+            rate_limit: None,
+            labels: vec![],
+            plan_file: None,
+            notify_email: None,
+            skip: None,
+            snapshot_before: None,
+            concurrency: None,
+            webhook_before: None,
+            rollback_snapshot: None,
+            retry_delay: None,
+            tags: vec![],
+            log_file: None,
+            comment: None,
+            only_changed: false,
+            pre_script: None,
+            dry_run_json: false,
+            notify_webhook: None,
+            post_script: None,
+            approval_required: false,
+            canary_percent: None,
+            schedule: None,
+            env_name: None,
+            dry_run_diff: false,
+            notify_pagerduty: None,
+            batch_size: None,
+            notify_teams: None,
+            abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
+            metrics_port: None,
+            notify_opsgenie: None,
+            circuit_breaker: None,
+            require_approval: None,
+            notify_datadog: None,
+            change_window: None,
+            canary_machine: None,
+            notify_newrelic: None,
+            max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
+            notify_victorops: None,
+            blue_green: None,
+            dry_run_cost: false,
+            notify_msteams_adaptive: None,
+            progressive: None,
+            approval_webhook: None,
+            notify_incident: None,
+            sign_off: None,
+            notify_sns: Some("arn:aws:sns:us-east-1:123456789:forjar".to_string()),
+            telemetry_endpoint: None,
+            runbook: None,
+        };
+        match cmd {
+            Commands::Apply { notify_sns, .. } => {
+                assert_eq!(notify_sns, Some("arn:aws:sns:us-east-1:123456789:forjar".to_string()))
+            }
+            _ => panic!("expected Apply"),
+        }
+    }
+
+    #[test]
+    fn test_fj561_validate_check_portability_flag() {
+        let cmd = Commands::Validate {
+            file: PathBuf::from("forjar.yaml"),
+            strict: false,
+            json: false,
+            dry_expand: false,
+            schema_version: None,
+            exhaustive: false,
+            policy_file: None,
+            check_connectivity: false,
+            check_templates: false,
+            strict_deps: false,
+            check_secrets: false,
+            check_idempotency: false,
+            check_drift_coverage: false,
+            check_cycles_deep: false,
+            check_naming: false,
+            check_overlaps: false,
+            check_limits: false,
+            check_complexity: false,
+            check_security: false,
+            check_deprecation: false,
+            check_drift_risk: false,
+            check_compliance: None,
+            check_portability: true,
+        };
+        match cmd {
+            Commands::Validate {
+                check_portability, ..
+            } => assert!(check_portability),
+            _ => panic!("expected Validate"),
+        }
+    }
+
+    #[test]
+    fn test_fj562_status_resource_graph_flag() {
+        let cmd = Commands::Status {
+            state_dir: PathBuf::from("state"),
+            machine: None,
+            json: false,
+            file: None,
+            summary: false,
+            watch: None,
+            stale: None,
+            health: false,
+            drift_details: false,
+            timeline: false,
+            changes_since: None,
+            summary_by: None,
+            prometheus: false,
+            expired: None,
+            count: false,
+            format: None,
+            anomalies: false,
+            diff_from: None,
+            resources_by_type: false,
+            machines_only: false,
+            stale_resources: false,
+            health_threshold: None,
+            json_lines: false,
+            since: None,
+            export: None,
+            compact: false,
+            alerts: false,
+            diff_lock: None,
+            compliance: None,
+            histogram: false,
+            dependency_health: false,
+            top_failures: false,
+            convergence_rate: false,
+            drift_summary: false,
+            resource_age: false,
+            sla_report: false,
+            compliance_report: None,
+            mttr: false,
+            trend: None,
+            prediction: false,
+            capacity: false,
+            cost_estimate: false,
+            staleness_report: None,
+            health_score: false,
+            executive_summary: false,
+            audit_trail: false,
+            resource_graph: true,
+            drift_velocity: false,
+        };
+        match cmd {
+            Commands::Status {
+                resource_graph, ..
+            } => assert!(resource_graph),
+            _ => panic!("expected Status"),
+        }
+    }
+
+    #[test]
+    fn test_fj563_apply_telemetry_endpoint_flag() {
+        let cmd = Commands::Apply {
+            file: PathBuf::from("forjar.yaml"),
+            machine: None,
+            resource: None,
+            tag: None,
+            group: None,
+            force: false,
+            dry_run: false,
+            no_tripwire: false,
+            params: vec![],
+            auto_commit: false,
+            timeout: None,
+            state_dir: PathBuf::from("state"),
+            json: false,
+            env_file: None,
+            workspace: None,
+            check: false,
+            report: false,
+            force_unlock: false,
+            output: None,
+            progress: false,
+            timing: false,
+            retry: 0,
+            yes: false,
+            parallel: false,
+            resource_timeout: None,
+            rollback_on_failure: false,
+            max_parallel: None,
+            notify: None,
+            subset: None,
+            confirm_destructive: false,
+            backup: false,
+            exclude: None,
+            sequential: false,
+            diff_only: false,
+            notify_slack: None,
+            cost_limit: None,
+            preview: false,
+            tag_filter: None,
+            output_scripts: None,
+            resume: false,
+            confirm: false,
+            max_failures: None,
+            rate_limit: None,
+            labels: vec![],
+            plan_file: None,
+            notify_email: None,
+            skip: None,
+            snapshot_before: None,
+            concurrency: None,
+            webhook_before: None,
+            rollback_snapshot: None,
+            retry_delay: None,
+            tags: vec![],
+            log_file: None,
+            comment: None,
+            only_changed: false,
+            pre_script: None,
+            dry_run_json: false,
+            notify_webhook: None,
+            post_script: None,
+            approval_required: false,
+            canary_percent: None,
+            schedule: None,
+            env_name: None,
+            dry_run_diff: false,
+            notify_pagerduty: None,
+            batch_size: None,
+            notify_teams: None,
+            abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
+            metrics_port: None,
+            notify_opsgenie: None,
+            circuit_breaker: None,
+            require_approval: None,
+            notify_datadog: None,
+            change_window: None,
+            canary_machine: None,
+            notify_newrelic: None,
+            max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
+            notify_victorops: None,
+            blue_green: None,
+            dry_run_cost: false,
+            notify_msteams_adaptive: None,
+            progressive: None,
+            approval_webhook: None,
+            notify_incident: None,
+            sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: Some("https://otel.example.com/v1/traces".to_string()),
+            runbook: None,
+        };
+        match cmd {
+            Commands::Apply {
+                telemetry_endpoint, ..
+            } => assert_eq!(
+                telemetry_endpoint,
+                Some("https://otel.example.com/v1/traces".to_string())
+            ),
+            _ => panic!("expected Apply"),
+        }
+    }
+
+    #[test]
+    fn test_fj564_graph_change_impact_flag() {
+        let cmd = Commands::Graph {
+            file: PathBuf::from("forjar.yaml"),
+            format: "mermaid".to_string(),
+            machine: None,
+            group: None,
+            affected: None,
+            critical_path: false,
+            reverse: false,
+            depth: None,
+            cluster: false,
+            orphans: false,
+            stats: false,
+            json_output: false,
+            highlight: None,
+            prune: None,
+            layers: false,
+            critical_resources: false,
+            weight: false,
+            subgraph: None,
+            impact_radius: None,
+            dependency_matrix: false,
+            hotspots: false,
+            timeline_graph: false,
+            what_if: None,
+            blast_radius: None,
+            change_impact: Some("base-packages".to_string()),
+        };
+        match cmd {
+            Commands::Graph { change_impact, .. } => {
+                assert_eq!(change_impact, Some("base-packages".to_string()))
+            }
+            _ => panic!("expected Graph"),
+        }
+    }
+
+    #[test]
+    fn test_fj565_lock_compress_command() {
+        let cmd = Commands::LockCompress {
+            state_dir: PathBuf::from("state"),
+            json: true,
+        };
+        match cmd {
+            Commands::LockCompress { json, .. } => assert!(json),
+            _ => panic!("expected LockCompress"),
+        }
+    }
+
+    #[test]
+    fn test_fj566_apply_runbook_flag() {
+        let cmd = Commands::Apply {
+            file: PathBuf::from("forjar.yaml"),
+            machine: None,
+            resource: None,
+            tag: None,
+            group: None,
+            force: false,
+            dry_run: false,
+            no_tripwire: false,
+            params: vec![],
+            auto_commit: false,
+            timeout: None,
+            state_dir: PathBuf::from("state"),
+            json: false,
+            env_file: None,
+            workspace: None,
+            check: false,
+            report: false,
+            force_unlock: false,
+            output: None,
+            progress: false,
+            timing: false,
+            retry: 0,
+            yes: false,
+            parallel: false,
+            resource_timeout: None,
+            rollback_on_failure: false,
+            max_parallel: None,
+            notify: None,
+            subset: None,
+            confirm_destructive: false,
+            backup: false,
+            exclude: None,
+            sequential: false,
+            diff_only: false,
+            notify_slack: None,
+            cost_limit: None,
+            preview: false,
+            tag_filter: None,
+            output_scripts: None,
+            resume: false,
+            confirm: false,
+            max_failures: None,
+            rate_limit: None,
+            labels: vec![],
+            plan_file: None,
+            notify_email: None,
+            skip: None,
+            snapshot_before: None,
+            concurrency: None,
+            webhook_before: None,
+            rollback_snapshot: None,
+            retry_delay: None,
+            tags: vec![],
+            log_file: None,
+            comment: None,
+            only_changed: false,
+            pre_script: None,
+            dry_run_json: false,
+            notify_webhook: None,
+            post_script: None,
+            approval_required: false,
+            canary_percent: None,
+            schedule: None,
+            env_name: None,
+            dry_run_diff: false,
+            notify_pagerduty: None,
+            batch_size: None,
+            notify_teams: None,
+            abort_on_drift: false,
+            dry_run_summary: false,
+            notify_discord: None,
+            rollback_on_threshold: None,
+            metrics_port: None,
+            notify_opsgenie: None,
+            circuit_breaker: None,
+            require_approval: None,
+            notify_datadog: None,
+            change_window: None,
+            canary_machine: None,
+            notify_newrelic: None,
+            max_duration: None,
+            notify_grafana: None,
+            rate_limit_resources: None,
+            checkpoint_interval: None,
+            notify_victorops: None,
+            blue_green: None,
+            dry_run_cost: false,
+            notify_msteams_adaptive: None,
+            progressive: None,
+            approval_webhook: None,
+            notify_incident: None,
+            sign_off: None,
+            notify_sns: None,
+            telemetry_endpoint: None,
+            runbook: Some("https://wiki.example.com/runbook/deploy".to_string()),
+        };
+        match cmd {
+            Commands::Apply { runbook, .. } => {
+                assert_eq!(runbook, Some("https://wiki.example.com/runbook/deploy".to_string()))
+            }
+            _ => panic!("expected Apply"),
+        }
+    }
+
+    #[test]
+    fn test_fj567_status_drift_velocity_flag() {
+        let cmd = Commands::Status {
+            state_dir: PathBuf::from("state"),
+            machine: None,
+            json: false,
+            file: None,
+            summary: false,
+            watch: None,
+            stale: None,
+            health: false,
+            drift_details: false,
+            timeline: false,
+            changes_since: None,
+            summary_by: None,
+            prometheus: false,
+            expired: None,
+            count: false,
+            format: None,
+            anomalies: false,
+            diff_from: None,
+            resources_by_type: false,
+            machines_only: false,
+            stale_resources: false,
+            health_threshold: None,
+            json_lines: false,
+            since: None,
+            export: None,
+            compact: false,
+            alerts: false,
+            diff_lock: None,
+            compliance: None,
+            histogram: false,
+            dependency_health: false,
+            top_failures: false,
+            convergence_rate: false,
+            drift_summary: false,
+            resource_age: false,
+            sla_report: false,
+            compliance_report: None,
+            mttr: false,
+            trend: None,
+            prediction: false,
+            capacity: false,
+            cost_estimate: false,
+            staleness_report: None,
+            health_score: false,
+            executive_summary: false,
+            audit_trail: false,
+            resource_graph: false,
+            drift_velocity: true,
+        };
+        match cmd {
+            Commands::Status {
+                drift_velocity, ..
+            } => assert!(drift_velocity),
             _ => panic!("expected Status"),
         }
     }
