@@ -77,7 +77,7 @@ resources: {}
         )
         .unwrap();
         dispatch(
-            Commands::Validate {
+            Commands::Validate(ValidateArgs {
                 file: config.clone(),
                 strict: false,
                 json: false,
@@ -116,7 +116,7 @@ resources: {}
                 check_mode_consistency: false,
                 check_group_consistency: false,
                 check_mount_points: false,
-            },
+            }),
             false,
             true,
         )
@@ -246,7 +246,7 @@ resources:
 
     #[test]
     fn test_fj295_validate_json_flag_parse() {
-        let cmd = Commands::Validate {
+        let cmd = Commands::Validate(ValidateArgs {
             file: PathBuf::from("forjar.yaml"),
             strict: true,
             json: true,
@@ -285,9 +285,9 @@ resources:
             check_mode_consistency: false,
             check_group_consistency: false,
             check_mount_points: false,
-        };
+        });
         match cmd {
-            Commands::Validate { json, strict, .. } => {
+            Commands::Validate(ValidateArgs { json, strict, .. }) => {
                 assert!(json);
                 assert!(strict);
             }
@@ -300,7 +300,7 @@ resources:
 
     #[test]
     fn test_fj330_validate_dry_expand_flag() {
-        let cmd = Commands::Validate {
+        let cmd = Commands::Validate(ValidateArgs {
             file: PathBuf::from("f.yaml"),
             strict: false,
             json: false,
@@ -339,9 +339,9 @@ resources:
             check_mode_consistency: false,
             check_group_consistency: false,
             check_mount_points: false,
-        };
+        });
         match cmd {
-            Commands::Validate { dry_expand, .. } => assert!(dry_expand),
+            Commands::Validate(ValidateArgs { dry_expand, .. }) => assert!(dry_expand),
             _ => panic!("expected Validate"),
         }
     }
@@ -349,7 +349,7 @@ resources:
 
     #[test]
     fn test_fj391_validate_exhaustive_flag() {
-        let cmd = Commands::Validate {
+        let cmd = Commands::Validate(ValidateArgs {
             file: PathBuf::from("forjar.yaml"),
             strict: false,
             json: false,
@@ -388,9 +388,9 @@ resources:
             check_mode_consistency: false,
             check_group_consistency: false,
             check_mount_points: false,
-        };
+        });
         match cmd {
-            Commands::Validate { exhaustive, .. } => assert!(exhaustive),
+            Commands::Validate(ValidateArgs { exhaustive, .. }) => assert!(exhaustive),
             _ => panic!("expected Validate"),
         }
     }
@@ -398,7 +398,7 @@ resources:
 
     #[test]
     fn test_fj401_validate_policy_file_flag() {
-        let cmd = Commands::Validate {
+        let cmd = Commands::Validate(ValidateArgs {
             file: PathBuf::from("forjar.yaml"),
             strict: false,
             json: false,
@@ -437,9 +437,9 @@ resources:
             check_mode_consistency: false,
             check_group_consistency: false,
             check_mount_points: false,
-        };
+        });
         match cmd {
-            Commands::Validate { policy_file, .. } => {
+            Commands::Validate(ValidateArgs { policy_file, .. }) => {
                 assert_eq!(policy_file, Some(PathBuf::from("policy.yaml")));
             }
             _ => panic!("expected Validate"),

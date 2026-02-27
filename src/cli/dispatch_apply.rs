@@ -89,7 +89,7 @@ fn check_cost_limit(file: &Path, sd: &Path, machine: Option<&str>, tag: Option<&
 /// Dispatch the Apply command variant.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn dispatch_apply_cmd(cmd: Commands, verbose: bool) -> Result<(), String> {
-    let Commands::Apply {
+    let Commands::Apply(ApplyArgs {
         file, machine, resource, tag, group, force, dry_run, no_tripwire,
         params, auto_commit, timeout, state_dir, json, env_file, workspace,
         check, report, force_unlock, output, progress, timing, retry, yes,
@@ -139,7 +139,7 @@ pub(crate) fn dispatch_apply_cmd(cmd: Commands, verbose: bool) -> Result<(), Str
         resource_priority: _resource_priority, apply_window: _apply_window,
         fail_fast_machine: _fail_fast_machine, notify_mattermost,
         cooldown: _cooldown, exclude_machine: _exclude_machine,
-    } = cmd
+    }) = cmd
     else {
         unreachable!()
     };

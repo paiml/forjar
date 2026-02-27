@@ -18,7 +18,7 @@ mod tests {
 
     #[test]
     fn test_fj432_status_json_lines_flag() {
-        let cmd = Commands::Status {
+        let cmd = Commands::Status(StatusArgs {
             state_dir: PathBuf::from("state"),
             machine: None,
             json: false,
@@ -95,9 +95,9 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
-        };
+        });
         match cmd {
-            Commands::Status { json_lines, .. } => assert!(json_lines),
+            Commands::Status(StatusArgs { json_lines, .. }) => assert!(json_lines),
             _ => panic!("expected Status"),
         }
     }
@@ -105,7 +105,7 @@ mod tests {
 
     #[test]
     fn test_fj437_status_since_flag() {
-        let cmd = Commands::Status {
+        let cmd = Commands::Status(StatusArgs {
             state_dir: PathBuf::from("state"),
             machine: None,
             json: false,
@@ -182,9 +182,9 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
-        };
+        });
         match cmd {
-            Commands::Status { since, .. } => {
+            Commands::Status(StatusArgs { since, .. }) => {
                 assert_eq!(since, Some("7d".to_string()));
             }
             _ => panic!("expected Status"),
@@ -196,7 +196,7 @@ mod tests {
 
     #[test]
     fn test_fj442_status_export_flag() {
-        let cmd = Commands::Status {
+        let cmd = Commands::Status(StatusArgs {
             state_dir: PathBuf::from("state"),
             machine: None,
             json: false,
@@ -273,9 +273,9 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
-        };
+        });
         match cmd {
-            Commands::Status { export, .. } => {
+            Commands::Status(StatusArgs { export, .. }) => {
                 assert_eq!(export, Some(PathBuf::from("/tmp/report.json")));
             }
             _ => panic!("expected Status"),
@@ -286,7 +286,7 @@ mod tests {
     #[test]
     fn test_fj447_status_format_prometheus() {
         // FJ-447: status --format prometheus (already supported via --prometheus flag)
-        let cmd = Commands::Status {
+        let cmd = Commands::Status(StatusArgs {
             state_dir: PathBuf::from("state"),
             machine: None,
             json: false,
@@ -363,9 +363,9 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
-        };
+        });
         match cmd {
-            Commands::Status { prometheus, .. } => assert!(prometheus),
+            Commands::Status(StatusArgs { prometheus, .. }) => assert!(prometheus),
             _ => panic!("expected Status"),
         }
     }
@@ -375,7 +375,7 @@ mod tests {
 
     #[test]
     fn test_fj452_status_compact_flag() {
-        let cmd = Commands::Status {
+        let cmd = Commands::Status(StatusArgs {
             state_dir: PathBuf::from("state"),
             machine: None,
             json: false,
@@ -452,9 +452,9 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
-        };
+        });
         match cmd {
-            Commands::Status { compact, .. } => assert!(compact),
+            Commands::Status(StatusArgs { compact, .. }) => assert!(compact),
             _ => panic!("expected Status"),
         }
     }

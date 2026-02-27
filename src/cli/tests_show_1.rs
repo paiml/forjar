@@ -98,7 +98,7 @@ resources:
 
     #[test]
     fn test_fj270_output_flag_parse() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -238,9 +238,9 @@ resources:
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { output, .. } => {
+            Commands::Apply(ApplyArgs { output, .. }) => {
                 assert_eq!(output.as_deref(), Some("events"));
             }
             _ => panic!("expected Apply"),
@@ -258,11 +258,11 @@ resources:
         let config_path = dir.path().join("forjar.yaml");
         std::fs::write(&config_path, "version: \"1.0\"\nname: test\nmachines:\n  local:\n    hostname: localhost\n    addr: 127.0.0.1\nresources:\n  test:\n    type: file\n    machine: local\n    path: /tmp/test.txt\n    content: test\n").unwrap();
         let result = dispatch(
-            Commands::Explain {
+            Commands::Explain(ExplainArgs {
                 file: config_path,
                 resource: "nonexistent".to_string(),
                 json: false,
-            },
+            }),
             false,
             true,
         );
@@ -277,11 +277,11 @@ resources:
         let config_path = dir.path().join("forjar.yaml");
         std::fs::write(&config_path, "version: \"1.0\"\nname: test\nmachines:\n  local:\n    hostname: localhost\n    addr: 127.0.0.1\nresources:\n  test:\n    type: file\n    machine: local\n    path: /tmp/explain-test.txt\n    content: hello\n").unwrap();
         let result = dispatch(
-            Commands::Explain {
+            Commands::Explain(ExplainArgs {
                 file: config_path,
                 resource: "test".to_string(),
                 json: false,
-            },
+            }),
             false,
             true,
         );
@@ -295,11 +295,11 @@ resources:
         let config_path = dir.path().join("forjar.yaml");
         std::fs::write(&config_path, "version: \"1.0\"\nname: test\nparams:\n  dir: /opt/app\nmachines:\n  local:\n    hostname: localhost\n    addr: 127.0.0.1\nresources:\n  cfg:\n    type: file\n    machine: local\n    path: \"{{params.dir}}/config.txt\"\n    content: test\n").unwrap();
         let result = dispatch(
-            Commands::Explain {
+            Commands::Explain(ExplainArgs {
                 file: config_path,
                 resource: "cfg".to_string(),
                 json: false,
-            },
+            }),
             false,
             true,
         );
@@ -309,13 +309,13 @@ resources:
 
     #[test]
     fn test_fj271_explain_command_parse() {
-        let cmd = Commands::Explain {
+        let cmd = Commands::Explain(ExplainArgs {
             file: PathBuf::from("forjar.yaml"),
             resource: "my-resource".to_string(),
             json: false,
-        };
+        });
         match cmd {
-            Commands::Explain { resource, .. } => assert_eq!(resource, "my-resource"),
+            Commands::Explain(ExplainArgs { resource, .. }) => assert_eq!(resource, "my-resource"),
             _ => panic!("expected Explain"),
         }
     }
@@ -358,13 +358,13 @@ resources:
 
     #[test]
     fn test_fj307_explain_json_flag_parse() {
-        let cmd = Commands::Explain {
+        let cmd = Commands::Explain(ExplainArgs {
             file: PathBuf::from("forjar.yaml"),
             resource: "my-resource".to_string(),
             json: true,
-        };
+        });
         match cmd {
-            Commands::Explain { json, .. } => assert!(json),
+            Commands::Explain(ExplainArgs { json, .. }) => assert!(json),
             _ => panic!("expected Explain"),
         }
     }
@@ -374,13 +374,13 @@ resources:
 
     #[test]
     fn test_fj363_compare_parse() {
-        let cmd = Commands::Compare {
+        let cmd = Commands::Compare(CompareArgs {
             file1: PathBuf::from("a.yaml"),
             file2: PathBuf::from("b.yaml"),
             json: false,
-        };
+        });
         match cmd {
-            Commands::Compare { file1, file2, .. } => {
+            Commands::Compare(CompareArgs { file1, file2, .. }) => {
                 assert_eq!(file1, PathBuf::from("a.yaml"));
                 assert_eq!(file2, PathBuf::from("b.yaml"));
             }

@@ -18,7 +18,7 @@ mod tests {
 
     #[test]
     fn test_fj546_apply_approval_webhook_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -158,11 +158,11 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply {
+            Commands::Apply(ApplyArgs {
                 approval_webhook, ..
-            } => assert_eq!(
+            }) => assert_eq!(
                 approval_webhook,
                 Some("https://gitops.example.com/approve".to_string())
             ),
@@ -173,7 +173,7 @@ mod tests {
 
     #[test]
     fn test_fj550_apply_notify_incident_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -313,11 +313,11 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply {
+            Commands::Apply(ApplyArgs {
                 notify_incident, ..
-            } => assert_eq!(notify_incident, Some("ROUTING_KEY_123".to_string())),
+            }) => assert_eq!(notify_incident, Some("ROUTING_KEY_123".to_string())),
             _ => panic!("expected Apply"),
         }
     }
@@ -326,7 +326,7 @@ mod tests {
     #[test]
     fn test_fj553_apply_change_window_already_exists() {
         // FJ-553 maps to existing change_window field (FJ-506)
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -466,9 +466,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { change_window, .. } => {
+            Commands::Apply(ApplyArgs { change_window, .. }) => {
                 assert_eq!(change_window, Some("0 2 * * SAT".to_string()))
             }
             _ => panic!("expected Apply"),

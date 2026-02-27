@@ -42,7 +42,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let sub = dir.path().join("dispatch-test");
         std::fs::create_dir_all(&sub).unwrap();
-        dispatch(Commands::Init { path: sub.clone() }, false, true).unwrap();
+        dispatch(Commands::Init(InitArgs { path: sub.clone() }), false, true).unwrap();
         assert!(sub.join("forjar.yaml").exists());
     }
 
@@ -400,7 +400,7 @@ resources:
 
     #[test]
     fn test_fj381_schema_version_flag() {
-        let cmd = Commands::Validate {
+        let cmd = Commands::Validate(ValidateArgs {
             file: PathBuf::from("f.yaml"),
             strict: false,
             json: false,
@@ -439,9 +439,9 @@ resources:
             check_mode_consistency: false,
             check_group_consistency: false,
             check_mount_points: false,
-        };
+        });
         match cmd {
-            Commands::Validate { schema_version, .. } => {
+            Commands::Validate(ValidateArgs { schema_version, .. }) => {
                 assert_eq!(schema_version, Some("1.0".to_string()));
             }
             _ => panic!("expected Validate"),

@@ -229,6 +229,8 @@ fn detect_drift_impl(lock: &StateLock, machine: Option<&Machine>) -> Vec<DriftFi
 #[cfg(test)]
 mod tests_basic;
 #[cfg(test)]
+mod tests_basic_b;
+#[cfg(test)]
 mod tests_transport;
 #[cfg(test)]
 mod tests_full;
@@ -236,5 +238,7 @@ mod tests_full;
 mod tests_edge_fj131;
 #[cfg(test)]
 mod tests_edge_fj132;
+#[cfg(test)]
+mod tests_edge_fj132_b;
 #[cfg(test)]
 mod tests_fj036;

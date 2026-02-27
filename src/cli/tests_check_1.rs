@@ -425,13 +425,13 @@ resources:
         // Dispatch dry-run rollback — will fail because no git history,
         // but verifies the dispatch path is wired correctly
         let result = dispatch(
-            Commands::Rollback {
+            Commands::Rollback(RollbackArgs {
                 file,
                 revision: 1,
                 machine: None,
                 dry_run: true,
                 state_dir: state,
-            },
+            }),
             false,
             true,
         );

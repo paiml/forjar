@@ -26,11 +26,11 @@ mod tests {
         let state = dir.path().join("state");
         std::fs::create_dir_all(&state).unwrap();
         let result = dispatch(
-            Commands::LockExport {
+            Commands::LockExport(LockExportArgs {
                 state_dir: state,
                 format: "json".to_string(),
                 machine: None,
-            },
+            }),
             false,
             true,
         );
@@ -58,12 +58,12 @@ resources: {}
         )
         .unwrap();
         let result = dispatch(
-            Commands::LockGc {
+            Commands::LockGc(LockGcArgs {
                 file: config,
                 state_dir: state,
                 yes: false,
                 json: true,
-            },
+            }),
             false,
             true,
         );
@@ -73,13 +73,13 @@ resources: {}
 
     #[test]
     fn test_fj435_lock_diff_dispatch() {
-        let cmd = Commands::LockDiff {
+        let cmd = Commands::LockDiff(LockDiffArgs {
             from: PathBuf::from("state-a"),
             to: PathBuf::from("state-b"),
             json: false,
-        };
+        });
         match cmd {
-            Commands::LockDiff { from, to, json } => {
+            Commands::LockDiff(LockDiffArgs { from, to, json }) => {
                 assert_eq!(from, PathBuf::from("state-a"));
                 assert_eq!(to, PathBuf::from("state-b"));
                 assert!(!json);
@@ -91,16 +91,16 @@ resources: {}
 
     #[test]
     fn test_fj445_lock_merge_dispatch() {
-        let cmd = Commands::LockMerge {
+        let cmd = Commands::LockMerge(LockMergeArgs {
             from: PathBuf::from("state-a"),
             to: PathBuf::from("state-b"),
             output: PathBuf::from("state-merged"),
             json: false,
-        };
+        });
         match cmd {
-            Commands::LockMerge {
+            Commands::LockMerge(LockMergeArgs {
                 from, to, output, ..
-            } => {
+            }) => {
                 assert_eq!(from, PathBuf::from("state-a"));
                 assert_eq!(to, PathBuf::from("state-b"));
                 assert_eq!(output, PathBuf::from("state-merged"));
@@ -112,16 +112,16 @@ resources: {}
 
     #[test]
     fn test_fj455_lock_rebase_dispatch() {
-        let cmd = Commands::LockRebase {
+        let cmd = Commands::LockRebase(LockRebaseArgs {
             from: PathBuf::from("old-state"),
             file: PathBuf::from("forjar.yaml"),
             output: PathBuf::from("new-state"),
             json: false,
-        };
+        });
         match cmd {
-            Commands::LockRebase {
+            Commands::LockRebase(LockRebaseArgs {
                 from, file, output, ..
-            } => {
+            }) => {
                 assert_eq!(from, PathBuf::from("old-state"));
                 assert_eq!(file, PathBuf::from("forjar.yaml"));
                 assert_eq!(output, PathBuf::from("new-state"));
@@ -133,13 +133,13 @@ resources: {}
 
     #[test]
     fn test_fj465_lock_sign_dispatch() {
-        let cmd = Commands::LockSign {
+        let cmd = Commands::LockSign(LockSignArgs {
             state_dir: PathBuf::from("state"),
             key: "my-signing-key".to_string(),
             json: false,
-        };
+        });
         match cmd {
-            Commands::LockSign { key, .. } => assert_eq!(key, "my-signing-key"),
+            Commands::LockSign(LockSignArgs { key, .. }) => assert_eq!(key, "my-signing-key"),
             _ => panic!("expected LockSign"),
         }
     }
@@ -147,13 +147,13 @@ resources: {}
 
     #[test]
     fn test_fj475_lock_verify_sig_dispatch() {
-        let cmd = Commands::LockVerifySig {
+        let cmd = Commands::LockVerifySig(LockVerifySigArgs {
             state_dir: PathBuf::from("state"),
             key: "my-verify-key".to_string(),
             json: false,
-        };
+        });
         match cmd {
-            Commands::LockVerifySig { key, .. } => assert_eq!(key, "my-verify-key"),
+            Commands::LockVerifySig(LockVerifySigArgs { key, .. }) => assert_eq!(key, "my-verify-key"),
             _ => panic!("expected LockVerifySig"),
         }
     }
@@ -161,13 +161,13 @@ resources: {}
 
     #[test]
     fn test_fj485_lock_compact_all_dispatch() {
-        let cmd = Commands::LockCompactAll {
+        let cmd = Commands::LockCompactAll(LockCompactAllArgs {
             state_dir: PathBuf::from("state"),
             yes: false,
             json: false,
-        };
+        });
         match cmd {
-            Commands::LockCompactAll { yes, .. } => assert!(!yes),
+            Commands::LockCompactAll(LockCompactAllArgs { yes, .. }) => assert!(!yes),
             _ => panic!("expected LockCompactAll"),
         }
     }
@@ -175,13 +175,13 @@ resources: {}
 
     #[test]
     fn test_fj495_lock_audit_trail_dispatch() {
-        let cmd = Commands::LockAuditTrail {
+        let cmd = Commands::LockAuditTrail(LockAuditTrailArgs {
             state_dir: PathBuf::from("state"),
             machine: None,
             json: false,
-        };
+        });
         match cmd {
-            Commands::LockAuditTrail { machine, .. } => assert!(machine.is_none()),
+            Commands::LockAuditTrail(LockAuditTrailArgs { machine, .. }) => assert!(machine.is_none()),
             _ => panic!("expected LockAuditTrail"),
         }
     }
@@ -189,16 +189,16 @@ resources: {}
 
     #[test]
     fn test_fj505_lock_rotate_keys_dispatch() {
-        let cmd = Commands::LockRotateKeys {
+        let cmd = Commands::LockRotateKeys(LockRotateKeysArgs {
             state_dir: PathBuf::from("state"),
             old_key: "old-key".to_string(),
             new_key: "new-key".to_string(),
             json: false,
-        };
+        });
         match cmd {
-            Commands::LockRotateKeys {
+            Commands::LockRotateKeys(LockRotateKeysArgs {
                 old_key, new_key, ..
-            } => {
+            }) => {
                 assert_eq!(old_key, "old-key");
                 assert_eq!(new_key, "new-key");
             }
@@ -209,12 +209,12 @@ resources: {}
 
     #[test]
     fn test_fj515_lock_backup_command() {
-        let cmd = Commands::LockBackup {
+        let cmd = Commands::LockBackup(LockBackupArgs {
             state_dir: PathBuf::from("state"),
             json: false,
-        };
+        });
         match cmd {
-            Commands::LockBackup { state_dir, .. } => {
+            Commands::LockBackup(LockBackupArgs { state_dir, .. }) => {
                 assert_eq!(state_dir, PathBuf::from("state"))
             }
             _ => panic!("expected LockBackup"),
@@ -225,14 +225,14 @@ resources: {}
     #[test]
     fn test_fj525_lock_gc_already_exists() {
         // LockGc was added in an earlier phase — verify it still constructs
-        let cmd = Commands::LockGc {
+        let cmd = Commands::LockGc(LockGcArgs {
             file: PathBuf::from("forjar.yaml"),
             state_dir: PathBuf::from("state"),
             yes: false,
             json: true,
-        };
+        });
         match cmd {
-            Commands::LockGc { json, .. } => assert!(json),
+            Commands::LockGc(LockGcArgs { json, .. }) => assert!(json),
             _ => panic!("expected LockGc"),
         }
     }
@@ -240,12 +240,12 @@ resources: {}
 
     #[test]
     fn test_fj535_lock_verify_chain_command() {
-        let cmd = Commands::LockVerifyChain {
+        let cmd = Commands::LockVerifyChain(LockVerifyChainArgs {
             state_dir: PathBuf::from("state"),
             json: false,
-        };
+        });
         match cmd {
-            Commands::LockVerifyChain { state_dir, .. } => {
+            Commands::LockVerifyChain(LockVerifyChainArgs { state_dir, .. }) => {
                 assert_eq!(state_dir, PathBuf::from("state"))
             }
             _ => panic!("expected LockVerifyChain"),
@@ -255,12 +255,12 @@ resources: {}
 
     #[test]
     fn test_fj545_lock_stats_command() {
-        let cmd = Commands::LockStats {
+        let cmd = Commands::LockStats(LockStatsArgs {
             state_dir: PathBuf::from("state"),
             json: true,
-        };
+        });
         match cmd {
-            Commands::LockStats { json, .. } => assert!(json),
+            Commands::LockStats(LockStatsArgs { json, .. }) => assert!(json),
             _ => panic!("expected LockStats"),
         }
     }
@@ -268,12 +268,12 @@ resources: {}
 
     #[test]
     fn test_fj555_lock_audit_command() {
-        let cmd = Commands::LockAudit {
+        let cmd = Commands::LockAudit(LockAuditArgs {
             state_dir: PathBuf::from("state"),
             json: true,
-        };
+        });
         match cmd {
-            Commands::LockAudit { json, .. } => assert!(json),
+            Commands::LockAudit(LockAuditArgs { json, .. }) => assert!(json),
             _ => panic!("expected LockAudit"),
         }
     }
@@ -281,12 +281,12 @@ resources: {}
 
     #[test]
     fn test_fj565_lock_compress_command() {
-        let cmd = Commands::LockCompress {
+        let cmd = Commands::LockCompress(LockCompressArgs {
             state_dir: PathBuf::from("state"),
             json: true,
-        };
+        });
         match cmd {
-            Commands::LockCompress { json, .. } => assert!(json),
+            Commands::LockCompress(LockCompressArgs { json, .. }) => assert!(json),
             _ => panic!("expected LockCompress"),
         }
     }
@@ -294,12 +294,12 @@ resources: {}
 
     #[test]
     fn test_fj575_lock_defrag_command() {
-        let cmd = Commands::LockDefrag {
+        let cmd = Commands::LockDefrag(LockDefragArgs {
             state_dir: PathBuf::from("state"),
             json: true,
-        };
+        });
         match cmd {
-            Commands::LockDefrag { json, .. } => assert!(json),
+            Commands::LockDefrag(LockDefragArgs { json, .. }) => assert!(json),
             _ => panic!("expected LockDefrag"),
         }
     }
@@ -307,12 +307,12 @@ resources: {}
 
     #[test]
     fn test_fj585_lock_normalize_command() {
-        let cmd = Commands::LockNormalize {
+        let cmd = Commands::LockNormalize(LockNormalizeArgs {
             state_dir: PathBuf::from("state"),
             json: true,
-        };
+        });
         match cmd {
-            Commands::LockNormalize { json, .. } => assert!(json),
+            Commands::LockNormalize(LockNormalizeArgs { json, .. }) => assert!(json),
             _ => panic!("expected LockNormalize"),
         }
     }

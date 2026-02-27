@@ -1,0 +1,172 @@
+//! CLI Args structs for graph-related commands.
+
+use std::path::PathBuf;
+
+
+#[derive(clap::Args, Debug)]
+pub struct GraphArgs {
+    /// Path to forjar.yaml
+    #[arg(short, long, default_value = "forjar.yaml")]
+    pub file: PathBuf,
+
+    /// Output format: mermaid (default) or dot
+    #[arg(long, default_value = "mermaid")]
+    pub format: String,
+
+    /// Filter to specific machine
+    #[arg(short, long)]
+    pub machine: Option<String>,
+
+    /// Filter to specific resource group
+    #[arg(short, long)]
+    pub group: Option<String>,
+
+    /// FJ-354: Show transitive dependents of a resource (impact analysis)
+    #[arg(long)]
+    pub affected: Option<String>,
+
+    /// FJ-375: Highlight the longest dependency chain
+    #[arg(long)]
+    pub critical_path: bool,
+
+    /// FJ-385: Show reverse dependency graph
+    #[arg(long)]
+    pub reverse: bool,
+
+    /// FJ-394: Limit graph traversal depth
+    #[arg(long)]
+    pub depth: Option<usize>,
+
+    /// FJ-404: Group resources by machine in graph output
+    #[arg(long)]
+    pub cluster: bool,
+
+    /// FJ-414: Show resources with no dependencies and no dependents
+    #[arg(long)]
+    pub orphans: bool,
+
+    /// FJ-424: Show graph statistics (nodes, edges, depth, width)
+    #[arg(long)]
+    pub stats: bool,
+
+    /// FJ-434: Output graph as JSON adjacency list
+    #[arg(long, name = "json")]
+    pub json_output: bool,
+
+    /// FJ-444: Highlight a resource and its transitive deps in graph output
+    #[arg(long)]
+    pub highlight: Option<String>,
+
+    /// FJ-454: Show graph with a resource and its subtree removed
+    #[arg(long)]
+    pub prune: Option<String>,
+
+    /// FJ-464: Show graph organized by dependency layers (depth levels)
+    #[arg(long)]
+    pub layers: bool,
+
+    /// FJ-474: Identify resources with the most dependents (bottleneck analysis)
+    #[arg(long)]
+    pub critical_resources: bool,
+
+    /// FJ-484: Show edge weights based on dependency strength
+    #[arg(long)]
+    pub weight: bool,
+
+    /// FJ-494: Extract and display a resource's dependency subgraph
+    #[arg(long)]
+    pub subgraph: Option<String>,
+
+    /// FJ-504: Show blast radius of changing a resource
+    #[arg(long)]
+    pub impact_radius: Option<String>,
+
+    /// FJ-514: Output resource dependency matrix (CSV/JSON)
+    #[arg(long)]
+    pub dependency_matrix: bool,
+
+    /// FJ-524: Highlight resources with most changes/failures (heat map)
+    #[arg(long)]
+    pub hotspots: bool,
+
+    /// FJ-534: Show resource application order as ASCII timeline
+    #[arg(long)]
+    pub timeline_graph: bool,
+
+    /// FJ-544: Simulate removing a resource, show impact
+    #[arg(long)]
+    pub what_if: Option<String>,
+
+    /// FJ-554: Show all resources affected by a change to target
+    #[arg(long)]
+    pub blast_radius: Option<String>,
+
+    /// FJ-564: Show direct + indirect impact of changing a resource
+    #[arg(long)]
+    pub change_impact: Option<String>,
+
+    /// FJ-574: Show graph colored/grouped by resource type
+    #[arg(long)]
+    pub resource_types: bool,
+
+    /// FJ-584: Show resources grouped by topological depth level
+    #[arg(long)]
+    pub topological_levels: bool,
+
+    /// FJ-594: Show exact execution order with timing estimates
+    #[arg(long)]
+    pub execution_order: bool,
+
+    /// FJ-604: Highlight resources crossing security boundaries
+    #[arg(long)]
+    pub security_boundaries: bool,
+
+    /// FJ-614: Show resource age based on last apply timestamp
+    #[arg(long)]
+    pub resource_age: bool,
+
+    /// FJ-624: Show which resources can execute in parallel
+    #[arg(long)]
+    pub parallel_groups: bool,
+
+    /// FJ-634: Show longest dependency chain (critical path analysis)
+    #[arg(long)]
+    pub critical_chain: bool,
+
+    /// FJ-644: Show max dependency depth per resource
+    #[arg(long)]
+    pub dependency_depth: bool,
+
+    /// FJ-654: Find resources with no dependents or dependencies
+    #[arg(long)]
+    pub orphan_detection: bool,
+
+    /// FJ-664: Visualize dependencies across machines
+    #[arg(long)]
+    pub cross_machine_deps: bool,
+
+    /// FJ-674: Group resources by machine in graph output
+    #[arg(long)]
+    pub machine_groups: bool,
+
+    /// FJ-684: Identify tightly-coupled resource clusters
+    #[arg(long)]
+    pub resource_clusters: bool,
+
+    /// FJ-694: Show resource fan-out metrics
+    #[arg(long)]
+    pub fan_out: bool,
+
+    /// FJ-704: Show leaf resources (no dependents)
+    #[arg(long)]
+    pub leaf_resources: bool,
+
+    /// FJ-714: Show reverse dependency graph
+    #[arg(long)]
+    pub reverse_deps: bool,
+
+    /// FJ-724: Show depth-first traversal order
+    #[arg(long)]
+    pub depth_first: bool,
+}
+

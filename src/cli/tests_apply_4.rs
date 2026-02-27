@@ -18,7 +18,7 @@ mod tests {
 
     #[test]
     fn test_fj281_apply_group_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -158,9 +158,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { group, .. } => {
+            Commands::Apply(ApplyArgs { group, .. }) => {
                 assert_eq!(group, Some("network".to_string()));
             }
             _ => panic!("expected Apply"),
@@ -170,7 +170,7 @@ mod tests {
 
     #[test]
     fn test_fj331_apply_subset_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("f.yaml"),
             state_dir: PathBuf::from("state"),
             machine: None,
@@ -310,9 +310,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { subset, .. } => {
+            Commands::Apply(ApplyArgs { subset, .. }) => {
                 assert_eq!(subset, Some("web-*".to_string()));
             }
             _ => panic!("expected Apply"),
@@ -322,7 +322,7 @@ mod tests {
 
     #[test]
     fn test_fj393_apply_notify_email_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -462,9 +462,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { notify_email, .. } => {
+            Commands::Apply(ApplyArgs { notify_email, .. }) => {
                 assert_eq!(notify_email, Some("admin@example.com".to_string()));
             }
             _ => panic!("expected Apply"),

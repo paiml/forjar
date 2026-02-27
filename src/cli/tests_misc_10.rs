@@ -17,7 +17,7 @@ mod tests {
 
     #[test]
     fn test_fj380_rate_limit_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("f.yaml"),
             state_dir: PathBuf::from("state"),
             machine: None,
@@ -157,9 +157,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { rate_limit, .. } => assert_eq!(rate_limit, Some(10)),
+            Commands::Apply(ApplyArgs { rate_limit, .. }) => assert_eq!(rate_limit, Some(10)),
             _ => panic!("expected Apply"),
         }
     }
@@ -167,7 +167,7 @@ mod tests {
 
     #[test]
     fn test_fj382_prometheus_flag() {
-        let cmd = Commands::Status {
+        let cmd = Commands::Status(StatusArgs {
             state_dir: PathBuf::from("state"),
             machine: None,
             json: false,
@@ -244,9 +244,9 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
-        };
+        });
         match cmd {
-            Commands::Status { prometheus, .. } => assert!(prometheus),
+            Commands::Status(StatusArgs { prometheus, .. }) => assert!(prometheus),
             _ => panic!("expected Status"),
         }
     }
@@ -254,7 +254,7 @@ mod tests {
 
     #[test]
     fn test_fj387_expired_flag() {
-        let cmd = Commands::Status {
+        let cmd = Commands::Status(StatusArgs {
             state_dir: PathBuf::from("state"),
             machine: None,
             json: false,
@@ -331,9 +331,9 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
-        };
+        });
         match cmd {
-            Commands::Status { expired, .. } => {
+            Commands::Status(StatusArgs { expired, .. }) => {
                 assert_eq!(expired, Some("7d".to_string()));
             }
             _ => panic!("expected Status"),

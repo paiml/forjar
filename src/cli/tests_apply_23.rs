@@ -19,7 +19,7 @@ mod tests {
 
     #[test]
     fn test_fj586_apply_post_check_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -159,9 +159,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { post_check, .. } => {
+            Commands::Apply(ApplyArgs { post_check, .. }) => {
                 assert_eq!(
                     post_check,
                     Some("/usr/local/bin/post-deploy-verify.sh".to_string())

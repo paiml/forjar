@@ -137,12 +137,12 @@ mod tests {
         std::fs::create_dir_all(&state).unwrap();
 
         let result = dispatch(
-            Commands::Anomaly {
+            Commands::Anomaly(AnomalyArgs {
                 state_dir: state,
                 machine: None,
                 min_events: 3,
                 json: false,
-            },
+            }),
             false,
             true,
         );
@@ -242,16 +242,16 @@ resources:
 
     #[test]
     fn test_fj273_test_command_parse() {
-        let cmd = Commands::Test {
+        let cmd = Commands::Test(TestArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: Some("web".to_string()),
             resource: None,
             tag: None,
             group: None,
             json: true,
-        };
+        });
         match cmd {
-            Commands::Test { json, machine, .. } => {
+            Commands::Test(TestArgs { json, machine, .. }) => {
                 assert!(json);
                 assert_eq!(machine, Some("web".to_string()));
             }
@@ -270,14 +270,14 @@ resources:
         )
         .unwrap();
         let result = dispatch(
-            Commands::Test {
+            Commands::Test(TestArgs {
                 file: config_path,
                 machine: None,
                 resource: None,
                 tag: None,
                 group: None,
                 json: false,
-            },
+            }),
             false,
             true,
         );
@@ -296,14 +296,14 @@ resources:
         )
         .unwrap();
         let result = dispatch(
-            Commands::Test {
+            Commands::Test(TestArgs {
                 file: config_path,
                 machine: None,
                 resource: None,
                 tag: None,
                 group: None,
                 json: true,
-            },
+            }),
             false,
             true,
         );
@@ -314,14 +314,14 @@ resources:
     #[test]
     fn test_fj273_test_nonexistent_config() {
         let result = dispatch(
-            Commands::Test {
+            Commands::Test(TestArgs {
                 file: PathBuf::from("/tmp/fj273-nonexistent.yaml"),
                 machine: None,
                 resource: None,
                 tag: None,
                 group: None,
                 json: false,
-            },
+            }),
             false,
             true,
         );
@@ -335,16 +335,16 @@ resources:
 
     #[test]
     fn test_fj281_test_group_flag() {
-        let cmd = Commands::Test {
+        let cmd = Commands::Test(TestArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
             tag: None,
             group: Some("database".to_string()),
             json: false,
-        };
+        });
         match cmd {
-            Commands::Test { group, .. } => {
+            Commands::Test(TestArgs { group, .. }) => {
                 assert_eq!(group, Some("database".to_string()));
             }
             _ => panic!("expected Test"),

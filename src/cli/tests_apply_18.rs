@@ -18,7 +18,7 @@ mod tests {
 
     #[test]
     fn test_fj536_apply_dry_run_cost_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -158,9 +158,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { dry_run_cost, .. } => assert!(dry_run_cost),
+            Commands::Apply(ApplyArgs { dry_run_cost, .. }) => assert!(dry_run_cost),
             _ => panic!("expected Apply"),
         }
     }
@@ -168,7 +168,7 @@ mod tests {
 
     #[test]
     fn test_fj540_apply_notify_msteams_adaptive_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -308,12 +308,12 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply {
+            Commands::Apply(ApplyArgs {
                 notify_msteams_adaptive,
                 ..
-            } => assert_eq!(
+            }) => assert_eq!(
                 notify_msteams_adaptive,
                 Some("https://teams.webhook.office.com/test".to_string())
             ),
@@ -324,7 +324,7 @@ mod tests {
 
     #[test]
     fn test_fj543_apply_progressive_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -464,9 +464,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { progressive, .. } => assert_eq!(progressive, Some(25)),
+            Commands::Apply(ApplyArgs { progressive, .. }) => assert_eq!(progressive, Some(25)),
             _ => panic!("expected Apply"),
         }
     }

@@ -18,7 +18,7 @@ mod tests {
 
     #[test]
     fn test_fj466_apply_notify_pagerduty_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -158,11 +158,11 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply {
+            Commands::Apply(ApplyArgs {
                 notify_pagerduty, ..
-            } => {
+            }) => {
                 assert_eq!(notify_pagerduty, Some("pd-key-123".to_string()));
             }
             _ => panic!("expected Apply"),
@@ -172,7 +172,7 @@ mod tests {
 
     #[test]
     fn test_fj470_apply_batch_size_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -312,9 +312,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { batch_size, .. } => assert_eq!(batch_size, Some(10)),
+            Commands::Apply(ApplyArgs { batch_size, .. }) => assert_eq!(batch_size, Some(10)),
             _ => panic!("expected Apply"),
         }
     }
@@ -322,7 +322,7 @@ mod tests {
 
     #[test]
     fn test_fj473_apply_notify_teams_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -462,9 +462,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { notify_teams, .. } => {
+            Commands::Apply(ApplyArgs { notify_teams, .. }) => {
                 assert_eq!(notify_teams, Some("https://teams.webhook/abc".to_string()))
             }
             _ => panic!("expected Apply"),

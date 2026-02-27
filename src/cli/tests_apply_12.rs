@@ -18,7 +18,7 @@ mod tests {
 
     #[test]
     fn test_fj476_apply_abort_on_drift_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -158,9 +158,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { abort_on_drift, .. } => assert!(abort_on_drift),
+            Commands::Apply(ApplyArgs { abort_on_drift, .. }) => assert!(abort_on_drift),
             _ => panic!("expected Apply"),
         }
     }
@@ -168,7 +168,7 @@ mod tests {
 
     #[test]
     fn test_fj480_apply_dry_run_summary_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -308,11 +308,11 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply {
+            Commands::Apply(ApplyArgs {
                 dry_run_summary, ..
-            } => assert!(dry_run_summary),
+            }) => assert!(dry_run_summary),
             _ => panic!("expected Apply"),
         }
     }
@@ -320,7 +320,7 @@ mod tests {
 
     #[test]
     fn test_fj483_apply_notify_discord_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -460,9 +460,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { notify_discord, .. } => assert_eq!(
+            Commands::Apply(ApplyArgs { notify_discord, .. }) => assert_eq!(
                 notify_discord,
                 Some("https://discord.com/api/webhooks/123".to_string())
             ),

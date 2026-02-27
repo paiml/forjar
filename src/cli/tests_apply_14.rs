@@ -18,7 +18,7 @@ mod tests {
 
     #[test]
     fn test_fj496_apply_circuit_breaker_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -158,11 +158,11 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply {
+            Commands::Apply(ApplyArgs {
                 circuit_breaker, ..
-            } => assert_eq!(circuit_breaker, Some(5)),
+            }) => assert_eq!(circuit_breaker, Some(5)),
             _ => panic!("expected Apply"),
         }
     }
@@ -170,7 +170,7 @@ mod tests {
 
     #[test]
     fn test_fj500_apply_require_approval_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -310,11 +310,11 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply {
+            Commands::Apply(ApplyArgs {
                 require_approval, ..
-            } => assert_eq!(require_approval, Some("alice,bob".to_string())),
+            }) => assert_eq!(require_approval, Some("alice,bob".to_string())),
             _ => panic!("expected Apply"),
         }
     }
@@ -322,7 +322,7 @@ mod tests {
 
     #[test]
     fn test_fj503_apply_notify_datadog_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -462,9 +462,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { notify_datadog, .. } => {
+            Commands::Apply(ApplyArgs { notify_datadog, .. }) => {
                 assert_eq!(notify_datadog, Some("dd-api-key-123".to_string()))
             }
             _ => panic!("expected Apply"),

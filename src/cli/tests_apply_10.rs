@@ -18,7 +18,7 @@ mod tests {
 
     #[test]
     fn test_fj456_apply_schedule_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -158,9 +158,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { schedule, .. } => {
+            Commands::Apply(ApplyArgs { schedule, .. }) => {
                 assert_eq!(schedule, Some("0 2 * * *".to_string()));
             }
             _ => panic!("expected Apply"),
@@ -170,7 +170,7 @@ mod tests {
 
     #[test]
     fn test_fj460_apply_env_name_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -310,9 +310,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { env_name, .. } => assert_eq!(env_name, Some("staging".to_string())),
+            Commands::Apply(ApplyArgs { env_name, .. }) => assert_eq!(env_name, Some("staging".to_string())),
             _ => panic!("expected Apply"),
         }
     }
@@ -320,7 +320,7 @@ mod tests {
 
     #[test]
     fn test_fj463_apply_dry_run_diff_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -460,9 +460,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { dry_run_diff, .. } => assert!(dry_run_diff),
+            Commands::Apply(ApplyArgs { dry_run_diff, .. }) => assert!(dry_run_diff),
             _ => panic!("expected Apply"),
         }
     }

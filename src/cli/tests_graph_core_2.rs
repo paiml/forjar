@@ -18,7 +18,7 @@ mod tests {
 
     #[test]
     fn test_fj454_graph_prune_flag() {
-        let cmd = Commands::Graph {
+        let cmd = Commands::Graph(GraphArgs {
             file: PathBuf::from("forjar.yaml"),
             format: "mermaid".to_string(),
             machine: None,
@@ -60,9 +60,9 @@ mod tests {
             leaf_resources: false,
             reverse_deps: false,
             depth_first: false,
-        };
+        });
         match cmd {
-            Commands::Graph { prune, .. } => {
+            Commands::Graph(GraphArgs { prune, .. }) => {
                 assert_eq!(prune, Some("web-server".to_string()));
             }
             _ => panic!("expected Graph"),
@@ -72,7 +72,7 @@ mod tests {
 
     #[test]
     fn test_fj464_graph_layers_flag() {
-        let cmd = Commands::Graph {
+        let cmd = Commands::Graph(GraphArgs {
             file: PathBuf::from("forjar.yaml"),
             format: "mermaid".to_string(),
             machine: None,
@@ -114,9 +114,9 @@ mod tests {
             leaf_resources: false,
             reverse_deps: false,
             depth_first: false,
-        };
+        });
         match cmd {
-            Commands::Graph { layers, .. } => assert!(layers),
+            Commands::Graph(GraphArgs { layers, .. }) => assert!(layers),
             _ => panic!("expected Graph"),
         }
     }
@@ -124,7 +124,7 @@ mod tests {
 
     #[test]
     fn test_fj474_graph_critical_resources_flag() {
-        let cmd = Commands::Graph {
+        let cmd = Commands::Graph(GraphArgs {
             file: PathBuf::from("forjar.yaml"),
             format: "mermaid".to_string(),
             machine: None,
@@ -166,11 +166,11 @@ mod tests {
             leaf_resources: false,
             reverse_deps: false,
             depth_first: false,
-        };
+        });
         match cmd {
-            Commands::Graph {
+            Commands::Graph(GraphArgs {
                 critical_resources, ..
-            } => assert!(critical_resources),
+            }) => assert!(critical_resources),
             _ => panic!("expected Graph"),
         }
     }
@@ -178,7 +178,7 @@ mod tests {
 
     #[test]
     fn test_fj484_graph_weight_flag() {
-        let cmd = Commands::Graph {
+        let cmd = Commands::Graph(GraphArgs {
             file: PathBuf::from("forjar.yaml"),
             format: "mermaid".to_string(),
             machine: None,
@@ -220,9 +220,9 @@ mod tests {
             leaf_resources: false,
             reverse_deps: false,
             depth_first: false,
-        };
+        });
         match cmd {
-            Commands::Graph { weight, .. } => assert!(weight),
+            Commands::Graph(GraphArgs { weight, .. }) => assert!(weight),
             _ => panic!("expected Graph"),
         }
     }
@@ -230,7 +230,7 @@ mod tests {
 
     #[test]
     fn test_fj494_graph_subgraph_flag() {
-        let cmd = Commands::Graph {
+        let cmd = Commands::Graph(GraphArgs {
             file: PathBuf::from("forjar.yaml"),
             format: "mermaid".to_string(),
             machine: None,
@@ -272,9 +272,9 @@ mod tests {
             leaf_resources: false,
             reverse_deps: false,
             depth_first: false,
-        };
+        });
         match cmd {
-            Commands::Graph { subgraph, .. } => {
+            Commands::Graph(GraphArgs { subgraph, .. }) => {
                 assert_eq!(subgraph, Some("my-resource".to_string()))
             }
             _ => panic!("expected Graph"),
@@ -284,7 +284,7 @@ mod tests {
 
     #[test]
     fn test_fj504_graph_impact_radius_flag() {
-        let cmd = Commands::Graph {
+        let cmd = Commands::Graph(GraphArgs {
             file: PathBuf::from("forjar.yaml"),
             format: "mermaid".to_string(),
             machine: None,
@@ -326,9 +326,9 @@ mod tests {
             leaf_resources: false,
             reverse_deps: false,
             depth_first: false,
-        };
+        });
         match cmd {
-            Commands::Graph { impact_radius, .. } => {
+            Commands::Graph(GraphArgs { impact_radius, .. }) => {
                 assert_eq!(impact_radius, Some("base-packages".to_string()))
             }
             _ => panic!("expected Graph"),
@@ -338,7 +338,7 @@ mod tests {
 
     #[test]
     fn test_fj514_graph_dependency_matrix_flag() {
-        let cmd = Commands::Graph {
+        let cmd = Commands::Graph(GraphArgs {
             file: PathBuf::from("forjar.yaml"),
             format: "mermaid".to_string(),
             machine: None,
@@ -380,11 +380,11 @@ mod tests {
             leaf_resources: false,
             reverse_deps: false,
             depth_first: false,
-        };
+        });
         match cmd {
-            Commands::Graph {
+            Commands::Graph(GraphArgs {
                 dependency_matrix, ..
-            } => assert!(dependency_matrix),
+            }) => assert!(dependency_matrix),
             _ => panic!("expected Graph"),
         }
     }
@@ -392,7 +392,7 @@ mod tests {
 
     #[test]
     fn test_fj524_graph_hotspots_flag() {
-        let cmd = Commands::Graph {
+        let cmd = Commands::Graph(GraphArgs {
             file: PathBuf::from("forjar.yaml"),
             format: "mermaid".to_string(),
             machine: None,
@@ -434,9 +434,9 @@ mod tests {
             leaf_resources: false,
             reverse_deps: false,
             depth_first: false,
-        };
+        });
         match cmd {
-            Commands::Graph { hotspots, .. } => assert!(hotspots),
+            Commands::Graph(GraphArgs { hotspots, .. }) => assert!(hotspots),
             _ => panic!("expected Graph"),
         }
     }

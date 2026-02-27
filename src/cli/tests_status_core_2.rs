@@ -18,7 +18,7 @@ mod tests {
 
     #[test]
     fn test_fj407_status_diff_from_flag() {
-        let cmd = Commands::Status {
+        let cmd = Commands::Status(StatusArgs {
             state_dir: PathBuf::from("state"),
             machine: None,
             json: false,
@@ -95,9 +95,9 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
-        };
+        });
         match cmd {
-            Commands::Status { diff_from, .. } => {
+            Commands::Status(StatusArgs { diff_from, .. }) => {
                 assert_eq!(diff_from, Some("v1-backup".to_string()));
             }
             _ => panic!("expected Status"),
@@ -109,7 +109,7 @@ mod tests {
 
     #[test]
     fn test_fj412_status_resources_by_type_flag() {
-        let cmd = Commands::Status {
+        let cmd = Commands::Status(StatusArgs {
             state_dir: PathBuf::from("state"),
             machine: None,
             json: false,
@@ -186,11 +186,11 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
-        };
+        });
         match cmd {
-            Commands::Status {
+            Commands::Status(StatusArgs {
                 resources_by_type, ..
-            } => assert!(resources_by_type),
+            }) => assert!(resources_by_type),
             _ => panic!("expected Status"),
         }
     }
@@ -198,7 +198,7 @@ mod tests {
 
     #[test]
     fn test_fj417_status_machines_only_flag() {
-        let cmd = Commands::Status {
+        let cmd = Commands::Status(StatusArgs {
             state_dir: PathBuf::from("state"),
             machine: None,
             json: false,
@@ -275,9 +275,9 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
-        };
+        });
         match cmd {
-            Commands::Status { machines_only, .. } => assert!(machines_only),
+            Commands::Status(StatusArgs { machines_only, .. }) => assert!(machines_only),
             _ => panic!("expected Status"),
         }
     }
@@ -287,7 +287,7 @@ mod tests {
 
     #[test]
     fn test_fj422_status_stale_resources_flag() {
-        let cmd = Commands::Status {
+        let cmd = Commands::Status(StatusArgs {
             state_dir: PathBuf::from("state"),
             machine: None,
             json: false,
@@ -364,11 +364,11 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
-        };
+        });
         match cmd {
-            Commands::Status {
+            Commands::Status(StatusArgs {
                 stale_resources, ..
-            } => assert!(stale_resources),
+            }) => assert!(stale_resources),
             _ => panic!("expected Status"),
         }
     }
@@ -376,7 +376,7 @@ mod tests {
 
     #[test]
     fn test_fj427_status_health_threshold_flag() {
-        let cmd = Commands::Status {
+        let cmd = Commands::Status(StatusArgs {
             state_dir: PathBuf::from("state"),
             machine: None,
             json: false,
@@ -453,11 +453,11 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
-        };
+        });
         match cmd {
-            Commands::Status {
+            Commands::Status(StatusArgs {
                 health_threshold, ..
-            } => assert_eq!(health_threshold, Some(90)),
+            }) => assert_eq!(health_threshold, Some(90)),
             _ => panic!("expected Status"),
         }
     }

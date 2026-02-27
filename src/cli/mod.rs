@@ -21,6 +21,7 @@ mod validate_quality;
 mod validate_compliance;
 mod validate_resources;
 mod apply;
+mod apply_output;
 mod apply_variants;
 mod plan;
 mod status_core;
@@ -161,6 +162,8 @@ mod tests_status_core_8;
 #[cfg(test)]
 mod tests_status_core_9;
 #[cfg(test)]
+mod tests_status_core_10;
+#[cfg(test)]
 mod tests_status_queries;
 #[cfg(test)]
 mod tests_graph_core;
@@ -172,6 +175,8 @@ mod tests_graph_core_2;
 mod tests_graph_core_3;
 #[cfg(test)]
 mod tests_graph_core_4;
+#[cfg(test)]
+mod tests_graph_core_5;
 #[cfg(test)]
 mod tests_lock_core;
 #[cfg(test)]
@@ -198,6 +203,8 @@ mod tests_show;
 mod tests_show_1;
 #[cfg(test)]
 mod tests_show_2;
+#[cfg(test)]
+mod tests_show_3;
 #[cfg(test)]
 mod tests_check;
 #[cfg(test)]

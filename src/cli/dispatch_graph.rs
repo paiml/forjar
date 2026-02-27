@@ -94,7 +94,7 @@ fn try_visualization(
 
 /// Dispatch the Graph command variant.
 pub(crate) fn dispatch_graph_cmd(cmd: Commands) -> Result<(), String> {
-    let Commands::Graph {
+    let Commands::Graph(GraphArgs {
         file, format, machine, group,
         affected, critical_path, reverse, depth, cluster,
         orphans, stats, json_output, highlight, prune, layers,
@@ -106,7 +106,7 @@ pub(crate) fn dispatch_graph_cmd(cmd: Commands) -> Result<(), String> {
         dependency_depth, orphan_detection, cross_machine_deps,
         machine_groups, resource_clusters, fan_out, leaf_resources,
         reverse_deps, depth_first,
-    } = cmd
+    }) = cmd
     else {
         unreachable!()
     };

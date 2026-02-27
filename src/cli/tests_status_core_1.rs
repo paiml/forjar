@@ -18,7 +18,7 @@ mod tests {
 
     #[test]
     fn test_fj336_status_stale_flag() {
-        let cmd = Commands::Status {
+        let cmd = Commands::Status(StatusArgs {
             state_dir: PathBuf::from("state"),
             machine: None,
             json: false,
@@ -95,9 +95,9 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
-        };
+        });
         match cmd {
-            Commands::Status { stale, .. } => assert_eq!(stale, Some(30)),
+            Commands::Status(StatusArgs { stale, .. }) => assert_eq!(stale, Some(30)),
             _ => panic!("expected Status"),
         }
     }
@@ -107,7 +107,7 @@ mod tests {
 
     #[test]
     fn test_fj346_status_health_flag() {
-        let cmd = Commands::Status {
+        let cmd = Commands::Status(StatusArgs {
             state_dir: PathBuf::from("state"),
             machine: None,
             json: false,
@@ -184,9 +184,9 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
-        };
+        });
         match cmd {
-            Commands::Status { health, .. } => assert!(health),
+            Commands::Status(StatusArgs { health, .. }) => assert!(health),
             _ => panic!("expected Status"),
         }
     }
@@ -194,7 +194,7 @@ mod tests {
 
     #[test]
     fn test_fj392_status_count_flag() {
-        let cmd = Commands::Status {
+        let cmd = Commands::Status(StatusArgs {
             state_dir: PathBuf::from("state"),
             machine: None,
             json: false,
@@ -271,9 +271,9 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
-        };
+        });
         match cmd {
-            Commands::Status { count, .. } => assert!(count),
+            Commands::Status(StatusArgs { count, .. }) => assert!(count),
             _ => panic!("expected Status"),
         }
     }
@@ -281,7 +281,7 @@ mod tests {
 
     #[test]
     fn test_fj397_status_format_flag() {
-        let cmd = Commands::Status {
+        let cmd = Commands::Status(StatusArgs {
             state_dir: PathBuf::from("state"),
             machine: None,
             json: false,
@@ -358,9 +358,9 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
-        };
+        });
         match cmd {
-            Commands::Status { format, .. } => {
+            Commands::Status(StatusArgs { format, .. }) => {
                 assert_eq!(format, Some("csv".to_string()));
             }
             _ => panic!("expected Status"),
@@ -370,7 +370,7 @@ mod tests {
 
     #[test]
     fn test_fj402_status_anomalies_flag() {
-        let cmd = Commands::Status {
+        let cmd = Commands::Status(StatusArgs {
             state_dir: PathBuf::from("state"),
             machine: None,
             json: false,
@@ -447,9 +447,9 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
-        };
+        });
         match cmd {
-            Commands::Status { anomalies, .. } => assert!(anomalies),
+            Commands::Status(StatusArgs { anomalies, .. }) => assert!(anomalies),
             _ => panic!("expected Status"),
         }
     }

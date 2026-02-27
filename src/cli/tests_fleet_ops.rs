@@ -18,7 +18,7 @@ mod tests {
 
     #[test]
     fn test_fj283_retry_flag_parse() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -158,9 +158,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { retry, .. } => assert_eq!(retry, 3),
+            Commands::Apply(ApplyArgs { retry, .. }) => assert_eq!(retry, 3),
             _ => panic!("expected Apply"),
         }
     }
@@ -168,7 +168,7 @@ mod tests {
 
     #[test]
     fn test_fj283_retry_default_zero() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -308,9 +308,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { retry, .. } => assert_eq!(retry, 0),
+            Commands::Apply(ApplyArgs { retry, .. }) => assert_eq!(retry, 0),
             _ => panic!("expected Apply"),
         }
     }
@@ -320,12 +320,12 @@ mod tests {
 
     #[test]
     fn test_fj326_inventory_flag_parse() {
-        let cmd = Commands::Inventory {
+        let cmd = Commands::Inventory(InventoryArgs {
             file: PathBuf::from("infra.yaml"),
             json: true,
-        };
+        });
         match cmd {
-            Commands::Inventory { file, json } => {
+            Commands::Inventory(InventoryArgs { file, json }) => {
                 assert_eq!(file, PathBuf::from("infra.yaml"));
                 assert!(json);
             }
@@ -365,19 +365,19 @@ resources:
 
     #[test]
     fn test_fj327_retry_failed_flag_parse() {
-        let cmd = Commands::RetryFailed {
+        let cmd = Commands::RetryFailed(RetryFailedArgs {
             file: PathBuf::from("f.yaml"),
             state_dir: PathBuf::from("state"),
             params: vec!["key=val".to_string()],
             timeout: Some(30),
-        };
+        });
         match cmd {
-            Commands::RetryFailed {
+            Commands::RetryFailed(RetryFailedArgs {
                 file,
                 state_dir,
                 params,
                 timeout,
-            } => {
+            }) => {
                 assert_eq!(file, PathBuf::from("f.yaml"));
                 assert_eq!(state_dir, PathBuf::from("state"));
                 assert_eq!(params.len(), 1);
@@ -421,15 +421,15 @@ resources:
 
     #[test]
     fn test_fj324_rolling_flag_parse() {
-        let cmd = Commands::Rolling {
+        let cmd = Commands::Rolling(RollingArgs {
             file: PathBuf::from("f.yaml"),
             state_dir: PathBuf::from("state"),
             batch_size: 3,
             params: vec![],
             timeout: None,
-        };
+        });
         match cmd {
-            Commands::Rolling { batch_size, .. } => {
+            Commands::Rolling(RollingArgs { batch_size, .. }) => {
                 assert_eq!(batch_size, 3);
             }
             _ => panic!("expected Rolling"),
@@ -439,20 +439,20 @@ resources:
 
     #[test]
     fn test_fj325_canary_flag_parse() {
-        let cmd = Commands::Canary {
+        let cmd = Commands::Canary(CanaryArgs {
             file: PathBuf::from("f.yaml"),
             state_dir: PathBuf::from("state"),
             machine: "web-1".to_string(),
             auto_proceed: true,
             params: vec![],
             timeout: None,
-        };
+        });
         match cmd {
-            Commands::Canary {
+            Commands::Canary(CanaryArgs {
                 machine,
                 auto_proceed,
                 ..
-            } => {
+            }) => {
                 assert_eq!(machine, "web-1");
                 assert!(auto_proceed);
             }

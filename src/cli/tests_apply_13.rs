@@ -18,7 +18,7 @@ mod tests {
 
     #[test]
     fn test_fj486_apply_rollback_on_threshold_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -158,12 +158,12 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply {
+            Commands::Apply(ApplyArgs {
                 rollback_on_threshold,
                 ..
-            } => assert_eq!(rollback_on_threshold, Some(3)),
+            }) => assert_eq!(rollback_on_threshold, Some(3)),
             _ => panic!("expected Apply"),
         }
     }
@@ -171,7 +171,7 @@ mod tests {
 
     #[test]
     fn test_fj490_apply_metrics_port_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -311,9 +311,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { metrics_port, .. } => assert_eq!(metrics_port, Some(9090)),
+            Commands::Apply(ApplyArgs { metrics_port, .. }) => assert_eq!(metrics_port, Some(9090)),
             _ => panic!("expected Apply"),
         }
     }
@@ -321,7 +321,7 @@ mod tests {
 
     #[test]
     fn test_fj493_apply_notify_opsgenie_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -461,11 +461,11 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply {
+            Commands::Apply(ApplyArgs {
                 notify_opsgenie, ..
-            } => assert_eq!(notify_opsgenie, Some("abc123".to_string())),
+            }) => assert_eq!(notify_opsgenie, Some("abc123".to_string())),
             _ => panic!("expected Apply"),
         }
     }

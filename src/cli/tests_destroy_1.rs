@@ -18,7 +18,7 @@ mod tests {
 
     #[test]
     fn test_fj310_rollback_flag_parse() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("f.yaml"),
             state_dir: PathBuf::from("state"),
             machine: None,
@@ -158,12 +158,12 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply {
+            Commands::Apply(ApplyArgs {
                 rollback_on_failure,
                 ..
-            } => assert!(rollback_on_failure),
+            }) => assert!(rollback_on_failure),
             _ => panic!("expected Apply"),
         }
     }

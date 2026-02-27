@@ -18,7 +18,7 @@ mod tests {
 
     #[test]
     fn test_fj436_apply_pre_script_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -158,9 +158,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { pre_script, .. } => {
+            Commands::Apply(ApplyArgs { pre_script, .. }) => {
                 assert_eq!(pre_script, Some(PathBuf::from("/tmp/preflight.sh")));
             }
             _ => panic!("expected Apply"),
@@ -170,7 +170,7 @@ mod tests {
 
     #[test]
     fn test_fj440_apply_dry_run_json_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -310,9 +310,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { dry_run_json, .. } => assert!(dry_run_json),
+            Commands::Apply(ApplyArgs { dry_run_json, .. }) => assert!(dry_run_json),
             _ => panic!("expected Apply"),
         }
     }
@@ -320,7 +320,7 @@ mod tests {
 
     #[test]
     fn test_fj443_apply_notify_webhook_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -460,9 +460,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { notify_webhook, .. } => {
+            Commands::Apply(ApplyArgs { notify_webhook, .. }) => {
                 assert_eq!(
                     notify_webhook,
                     Some("https://hooks.example.com/apply".to_string())

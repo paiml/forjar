@@ -56,7 +56,7 @@ mod tests {
         let state = dir.path().join("state");
         std::fs::create_dir_all(&state).unwrap();
         dispatch(
-            Commands::Status {
+            Commands::Status(StatusArgs {
                 state_dir: state,
                 machine: None,
                 json: false,
@@ -133,7 +133,7 @@ mod tests {
                 drift_trend: false,
                 failed_resources: false,
                 resource_types_summary: false,
-            },
+            }),
             false,
             true,
         )
@@ -271,7 +271,7 @@ resources: {}
 
     #[test]
     fn test_fj292_status_file_flag_parse() {
-        let cmd = Commands::Status {
+        let cmd = Commands::Status(StatusArgs {
             state_dir: PathBuf::from("state"),
             machine: None,
             json: true,
@@ -348,9 +348,9 @@ resources: {}
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
-        };
+        });
         match cmd {
-            Commands::Status { file, json, .. } => {
+            Commands::Status(StatusArgs { file, json, .. }) => {
                 assert!(json);
                 assert_eq!(file, Some(PathBuf::from("forjar.yaml")));
             }

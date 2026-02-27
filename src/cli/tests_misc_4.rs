@@ -19,7 +19,7 @@ mod tests {
 
     #[test]
     fn test_fj303_summary_flag_parse() {
-        let cmd = Commands::Status {
+        let cmd = Commands::Status(StatusArgs {
             state_dir: PathBuf::from("state"),
             machine: None,
             json: false,
@@ -96,9 +96,9 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
-        };
+        });
         match cmd {
-            Commands::Status { summary, .. } => assert!(summary),
+            Commands::Status(StatusArgs { summary, .. }) => assert!(summary),
             _ => panic!("expected Status"),
         }
     }
@@ -118,7 +118,7 @@ mod tests {
 
     #[test]
     fn test_fj304_resource_timeout_flag_parse() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("f.yaml"),
             state_dir: PathBuf::from("state"),
             machine: None,
@@ -258,11 +258,11 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply {
+            Commands::Apply(ApplyArgs {
                 resource_timeout, ..
-            } => {
+            }) => {
                 assert_eq!(resource_timeout, Some(30));
             }
             _ => panic!("expected Apply"),

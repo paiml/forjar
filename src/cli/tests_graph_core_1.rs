@@ -18,7 +18,7 @@ mod tests {
 
     #[test]
     fn test_fj354_graph_affected_flag() {
-        let cmd = Commands::Graph {
+        let cmd = Commands::Graph(GraphArgs {
             file: PathBuf::from("f.yaml"),
             format: "mermaid".to_string(),
             machine: None,
@@ -60,9 +60,9 @@ mod tests {
             leaf_resources: false,
             reverse_deps: false,
             depth_first: false,
-        };
+        });
         match cmd {
-            Commands::Graph { affected, .. } => {
+            Commands::Graph(GraphArgs { affected, .. }) => {
                 assert_eq!(affected, Some("base-packages".to_string()));
             }
             _ => panic!("expected Graph"),
@@ -72,7 +72,7 @@ mod tests {
 
     #[test]
     fn test_fj385_graph_reverse_flag() {
-        let cmd = Commands::Graph {
+        let cmd = Commands::Graph(GraphArgs {
             file: PathBuf::from("f.yaml"),
             format: "mermaid".to_string(),
             machine: None,
@@ -114,9 +114,9 @@ mod tests {
             leaf_resources: false,
             reverse_deps: false,
             depth_first: false,
-        };
+        });
         match cmd {
-            Commands::Graph { reverse, .. } => assert!(reverse),
+            Commands::Graph(GraphArgs { reverse, .. }) => assert!(reverse),
             _ => panic!("expected Graph"),
         }
     }
@@ -124,7 +124,7 @@ mod tests {
 
     #[test]
     fn test_fj394_graph_depth_flag() {
-        let cmd = Commands::Graph {
+        let cmd = Commands::Graph(GraphArgs {
             file: PathBuf::from("f.yaml"),
             format: "mermaid".to_string(),
             machine: None,
@@ -166,9 +166,9 @@ mod tests {
             leaf_resources: false,
             reverse_deps: false,
             depth_first: false,
-        };
+        });
         match cmd {
-            Commands::Graph { depth, .. } => assert_eq!(depth, Some(2)),
+            Commands::Graph(GraphArgs { depth, .. }) => assert_eq!(depth, Some(2)),
             _ => panic!("expected Graph"),
         }
     }
@@ -176,7 +176,7 @@ mod tests {
 
     #[test]
     fn test_fj404_graph_cluster_flag() {
-        let cmd = Commands::Graph {
+        let cmd = Commands::Graph(GraphArgs {
             file: PathBuf::from("f.yaml"),
             format: "mermaid".to_string(),
             machine: None,
@@ -218,9 +218,9 @@ mod tests {
             leaf_resources: false,
             reverse_deps: false,
             depth_first: false,
-        };
+        });
         match cmd {
-            Commands::Graph { cluster, .. } => assert!(cluster),
+            Commands::Graph(GraphArgs { cluster, .. }) => assert!(cluster),
             _ => panic!("expected Graph"),
         }
     }
@@ -228,7 +228,7 @@ mod tests {
 
     #[test]
     fn test_fj414_graph_orphans_flag() {
-        let cmd = Commands::Graph {
+        let cmd = Commands::Graph(GraphArgs {
             file: PathBuf::from("f.yaml"),
             format: "mermaid".to_string(),
             machine: None,
@@ -270,9 +270,9 @@ mod tests {
             leaf_resources: false,
             reverse_deps: false,
             depth_first: false,
-        };
+        });
         match cmd {
-            Commands::Graph { orphans, .. } => assert!(orphans),
+            Commands::Graph(GraphArgs { orphans, .. }) => assert!(orphans),
             _ => panic!("expected Graph"),
         }
     }
@@ -280,7 +280,7 @@ mod tests {
 
     #[test]
     fn test_fj424_graph_stats_flag() {
-        let cmd = Commands::Graph {
+        let cmd = Commands::Graph(GraphArgs {
             file: PathBuf::from("f.yaml"),
             format: "mermaid".to_string(),
             machine: None,
@@ -322,9 +322,9 @@ mod tests {
             leaf_resources: false,
             reverse_deps: false,
             depth_first: false,
-        };
+        });
         match cmd {
-            Commands::Graph { stats, .. } => assert!(stats),
+            Commands::Graph(GraphArgs { stats, .. }) => assert!(stats),
             _ => panic!("expected Graph"),
         }
     }
@@ -332,7 +332,7 @@ mod tests {
 
     #[test]
     fn test_fj434_graph_json_flag() {
-        let cmd = Commands::Graph {
+        let cmd = Commands::Graph(GraphArgs {
             file: PathBuf::from("forjar.yaml"),
             format: "mermaid".to_string(),
             machine: None,
@@ -374,9 +374,9 @@ mod tests {
             leaf_resources: false,
             reverse_deps: false,
             depth_first: false,
-        };
+        });
         match cmd {
-            Commands::Graph { json_output, .. } => assert!(json_output),
+            Commands::Graph(GraphArgs { json_output, .. }) => assert!(json_output),
             _ => panic!("expected Graph"),
         }
     }
@@ -384,7 +384,7 @@ mod tests {
 
     #[test]
     fn test_fj444_graph_highlight_flag() {
-        let cmd = Commands::Graph {
+        let cmd = Commands::Graph(GraphArgs {
             file: PathBuf::from("forjar.yaml"),
             format: "mermaid".to_string(),
             machine: None,
@@ -426,9 +426,9 @@ mod tests {
             leaf_resources: false,
             reverse_deps: false,
             depth_first: false,
-        };
+        });
         match cmd {
-            Commands::Graph { highlight, .. } => {
+            Commands::Graph(GraphArgs { highlight, .. }) => {
                 assert_eq!(highlight, Some("web-server".to_string()));
             }
             _ => panic!("expected Graph"),

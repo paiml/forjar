@@ -18,7 +18,7 @@ mod tests {
 
     #[test]
     fn test_fj446_apply_post_script_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -158,9 +158,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { post_script, .. } => {
+            Commands::Apply(ApplyArgs { post_script, .. }) => {
                 assert_eq!(post_script, Some(PathBuf::from("/tmp/postflight.sh")));
             }
             _ => panic!("expected Apply"),
@@ -170,7 +170,7 @@ mod tests {
 
     #[test]
     fn test_fj450_apply_approval_required_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -310,11 +310,11 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply {
+            Commands::Apply(ApplyArgs {
                 approval_required, ..
-            } => assert!(approval_required),
+            }) => assert!(approval_required),
             _ => panic!("expected Apply"),
         }
     }
@@ -322,7 +322,7 @@ mod tests {
 
     #[test]
     fn test_fj453_apply_canary_percent_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -462,9 +462,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { canary_percent, .. } => assert_eq!(canary_percent, Some(25)),
+            Commands::Apply(ApplyArgs { canary_percent, .. }) => assert_eq!(canary_percent, Some(25)),
             _ => panic!("expected Apply"),
         }
     }

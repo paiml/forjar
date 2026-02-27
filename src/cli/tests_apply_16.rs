@@ -18,7 +18,7 @@ mod tests {
 
     #[test]
     fn test_fj516_apply_max_duration_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -158,9 +158,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { max_duration, .. } => assert_eq!(max_duration, Some(300)),
+            Commands::Apply(ApplyArgs { max_duration, .. }) => assert_eq!(max_duration, Some(300)),
             _ => panic!("expected Apply"),
         }
     }
@@ -168,7 +168,7 @@ mod tests {
 
     #[test]
     fn test_fj520_apply_notify_grafana_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -308,9 +308,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { notify_grafana, .. } => assert_eq!(
+            Commands::Apply(ApplyArgs { notify_grafana, .. }) => assert_eq!(
                 notify_grafana,
                 Some("https://grafana.example.com/api/annotations".to_string())
             ),
@@ -321,7 +321,7 @@ mod tests {
 
     #[test]
     fn test_fj523_apply_rate_limit_resources_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -461,12 +461,12 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply {
+            Commands::Apply(ApplyArgs {
                 rate_limit_resources,
                 ..
-            } => assert_eq!(rate_limit_resources, Some(10)),
+            }) => assert_eq!(rate_limit_resources, Some(10)),
             _ => panic!("expected Apply"),
         }
     }

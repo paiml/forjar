@@ -349,12 +349,12 @@ resources:
         )
         .unwrap();
         dispatch(
-            Commands::Destroy {
+            Commands::Destroy(DestroyArgs {
                 file: config,
                 machine: None,
                 yes: true,
                 state_dir: state,
-            },
+            }),
             false,
             true,
         )

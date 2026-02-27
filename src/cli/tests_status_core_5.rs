@@ -18,7 +18,7 @@ mod tests {
 
     #[test]
     fn test_fj482_status_top_failures_flag() {
-        let cmd = Commands::Status {
+        let cmd = Commands::Status(StatusArgs {
             state_dir: PathBuf::from("state"),
             machine: None,
             json: false,
@@ -95,9 +95,9 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
-        };
+        });
         match cmd {
-            Commands::Status { top_failures, .. } => assert!(top_failures),
+            Commands::Status(StatusArgs { top_failures, .. }) => assert!(top_failures),
             _ => panic!("expected Status"),
         }
     }
@@ -105,7 +105,7 @@ mod tests {
 
     #[test]
     fn test_fj487_status_convergence_rate_flag() {
-        let cmd = Commands::Status {
+        let cmd = Commands::Status(StatusArgs {
             state_dir: PathBuf::from("state"),
             machine: None,
             json: false,
@@ -182,11 +182,11 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
-        };
+        });
         match cmd {
-            Commands::Status {
+            Commands::Status(StatusArgs {
                 convergence_rate, ..
-            } => assert!(convergence_rate),
+            }) => assert!(convergence_rate),
             _ => panic!("expected Status"),
         }
     }
@@ -196,7 +196,7 @@ mod tests {
 
     #[test]
     fn test_fj492_status_drift_summary_flag() {
-        let cmd = Commands::Status {
+        let cmd = Commands::Status(StatusArgs {
             state_dir: PathBuf::from("state"),
             machine: None,
             json: false,
@@ -273,9 +273,9 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
-        };
+        });
         match cmd {
-            Commands::Status { drift_summary, .. } => assert!(drift_summary),
+            Commands::Status(StatusArgs { drift_summary, .. }) => assert!(drift_summary),
             _ => panic!("expected Status"),
         }
     }
@@ -283,7 +283,7 @@ mod tests {
 
     #[test]
     fn test_fj497_status_resource_age_flag() {
-        let cmd = Commands::Status {
+        let cmd = Commands::Status(StatusArgs {
             state_dir: PathBuf::from("state"),
             machine: None,
             json: false,
@@ -360,9 +360,9 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
-        };
+        });
         match cmd {
-            Commands::Status { resource_age, .. } => assert!(resource_age),
+            Commands::Status(StatusArgs { resource_age, .. }) => assert!(resource_age),
             _ => panic!("expected Status"),
         }
     }
@@ -372,7 +372,7 @@ mod tests {
 
     #[test]
     fn test_fj502_status_sla_report_flag() {
-        let cmd = Commands::Status {
+        let cmd = Commands::Status(StatusArgs {
             state_dir: PathBuf::from("state"),
             machine: None,
             json: false,
@@ -449,9 +449,9 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
-        };
+        });
         match cmd {
-            Commands::Status { sla_report, .. } => assert!(sla_report),
+            Commands::Status(StatusArgs { sla_report, .. }) => assert!(sla_report),
             _ => panic!("expected Status"),
         }
     }

@@ -41,7 +41,7 @@ resources:
 
         // check: false runs normal apply
         let result = dispatch(
-            Commands::Apply {
+            Commands::Apply(ApplyArgs {
                 file: config,
                 machine: None,
                 resource: None,
@@ -181,7 +181,7 @@ resources:
                 notify_mattermost: None,
                 cooldown: None,
                 exclude_machine: None,
-            },
+            }),
             false,
             true,
         );
