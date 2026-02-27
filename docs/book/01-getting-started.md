@@ -3537,6 +3537,36 @@ forjar status --convergence-history --state-dir state
 forjar status --convergence-history --state-dir state --json
 ```
 
+### Phase 57 — Fleet Management & Multi-Machine Orchestration (FJ-710→FJ-717)
+
+**Group Consistency Validation** (FJ-711): Validate user/group consistency across resources.
+
+```bash
+forjar validate -f forjar.yaml --check-group-consistency
+forjar validate -f forjar.yaml --check-group-consistency --json
+```
+
+**Reverse Dependencies** (FJ-714): Show reverse dependency graph (who depends on me).
+
+```bash
+forjar graph -f forjar.yaml --reverse-deps
+forjar graph -f forjar.yaml --reverse-deps --json
+```
+
+**Lock Tagging** (FJ-715): Add metadata tags to lock files.
+
+```bash
+forjar lock-tag --state-dir state --name env --value prod
+forjar lock-tag --state-dir state --name env --value prod --json
+```
+
+**Drift Trend** (FJ-717): Show drift trend over time.
+
+```bash
+forjar status --drift-trend --state-dir state
+forjar status --drift-trend --state-dir state --json
+```
+
 ## Next Steps
 
 - [Configuration Reference](02-configuration.md) — Complete `forjar.yaml` schema
