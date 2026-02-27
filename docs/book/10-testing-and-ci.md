@@ -223,8 +223,9 @@ The forjar repository runs 5 CI jobs on every push and pull request:
 |-----|-------------|---------|
 | **test** | `cargo test --all-targets` + `cargo clippy` | Regressions, type errors, lint warnings |
 | **container-test** | Build test-target Docker image + `cargo test --features container-test` | Container transport regressions |
+| **gpu-container-test** | `cargo test --features gpu-container-test` (NVIDIA + AMD GPU hosts) | GPU device passthrough, env var propagation, cross-vendor parity |
 | **fmt** | `cargo fmt --check` | Style violations |
-| **dogfood** | Validate all 18 dogfood configs, run all 19 examples, verify MCP schema | Codegen regressions, parser changes, example breakage |
+| **dogfood** | Validate all 30 dogfood configs, run all 20 examples, verify MCP schema | Codegen regressions, parser changes, example breakage |
 | **bench** | `cargo bench --no-run` + `forjar bench --iterations 10 --json` | Compile errors in benchmarks, smoke-test performance |
 
 The dogfood job is particularly valuable — it validates that every resource type's codegen produces parseable configs and that all examples demonstrate working code paths. Any change to parser validation, resource handlers, or template resolution that breaks a dogfood config or example will fail this job.
@@ -590,6 +591,41 @@ forjar apply -f test-matrix.yaml --state-dir /tmp/test-state/
 forjar drift -f test-matrix.yaml --state-dir /tmp/test-state/
 
 # Clean up (ephemeral: true handles container cleanup)
+```
+
+### GPU Container Testing
+
+Test GPU workloads across vendors using forjar's multi-vendor GPU container transport:
+
+```bash
+# Run GPU-specific integration tests (requires Docker + GPU drivers)
+cargo test --features gpu-container-test
+```
+
+The GPU test matrix covers 7 tests across 2 vendors:
+
+| Test | Vendor | What it verifies |
+|------|--------|-----------------|
+| CUDA lifecycle | NVIDIA | ensure/exec/cleanup with `--gpus all` |
+| nvidia-smi | NVIDIA | GPU visible and queryable in container |
+| CUDA env vars | NVIDIA | `CUDA_VISIBLE_DEVICES` passed via `--env` |
+| ROCm lifecycle | AMD | ensure/exec/cleanup with `--device /dev/kfd /dev/dri` |
+| ROCm devices | AMD | `/dev/kfd` and `/dev/dri` accessible in container |
+| ROCm env vars | AMD | `ROCR_VISIBLE_DEVICES` passed via `--env` |
+| Cross-vendor | Both | Identical config deployed to both CUDA and ROCm |
+
+To test a model QA workflow across GPU vendors:
+
+```bash
+# Validate the multi-GPU dogfood configs
+forjar validate -f examples/dogfood-multi-gpu.yaml
+forjar validate -f examples/dogfood-apr-qa.yaml
+
+# Plan without applying (preview resource creation)
+forjar plan -f examples/dogfood-apr-qa.yaml --state-dir /tmp/gpu-qa
+
+# Run the GPU example (no Docker required)
+cargo run --example gpu_container_transport
 ```
 
 ### Testing Recipes in Isolation
