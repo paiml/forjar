@@ -2389,14 +2389,14 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-730 | `forjar apply --notify-ntfy <topic>` — publish events to ntfy.sh notification service. Push notifications. | Planned |
-| FJ-731 | `forjar validate --check-cron-syntax` — validate cron schedule expressions. Safety. | Planned |
-| FJ-732 | `forjar status --resource-health` — show health status per resource (converged/failed/drifted). Health. | Planned |
-| FJ-733 | `forjar apply --dry-run-json` — output dry-run results as JSON. Automation. | Planned |
-| FJ-734 | `forjar graph --breadth-first` — show breadth-first traversal order. Analysis. | Planned |
-| FJ-735 | `forjar lock compact-all` — compact all lock files removing redundant entries. Maintenance. | Planned |
-| FJ-736 | `forjar apply --only-machine <name>` — apply only to specific machine. Targeting. | Planned |
-| FJ-737 | `forjar status --machine-health` — show overall health per machine. Fleet. | Planned |
+| FJ-730 | `forjar apply --notify-ntfy <topic>` — publish events to ntfy.sh notification service. Push notifications. | Done |
+| FJ-731 | `forjar validate --check-cron-syntax` — validate cron schedule expressions. Safety. | Done |
+| FJ-732 | `forjar status --resource-health` — show health status per resource (converged/failed/drifted). Health. | Done |
+| FJ-733 | `forjar apply --dry-run-json` — output dry-run results as JSON. Automation. | Done |
+| FJ-734 | `forjar graph --breadth-first` — show breadth-first traversal order. Analysis. | Done |
+| FJ-735 | `forjar lock compact-all` — compact all lock files removing redundant entries. Maintenance. | Done |
+| FJ-736 | `forjar apply --only-machine <name>` — apply only to specific machine. Targeting. | Done |
+| FJ-737 | `forjar status --machine-health` — show overall health per machine. Fleet. | Done |
 
 ---
 
