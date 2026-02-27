@@ -859,7 +859,7 @@ checksum = "00b0228411908ca8685dba7fc2cdd70ec9990a6e753e89b6ac91a84c40fbaf4b"
 
 [[package]]
 name = "forjar"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "age",
  "async-trait",
@@ -2141,7 +2141,7 @@ dependencies = [
 
 [[package]]
 name = "provable-contracts"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -2151,7 +2151,7 @@ dependencies = [
 
 [[package]]
 name = "provable-contracts-macros"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "proc-macro2",
  "quote",
