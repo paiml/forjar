@@ -2402,14 +2402,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-741 | `forjar validate --check-env-refs` — verify all `{{env.*}}` template references have matching env vars. Safety. | Planned |
-| FJ-742 | `forjar status --dependency-count` — show inbound/outbound dependency count per resource. Insight. | Planned |
-| FJ-743 | `forjar graph --subgraph-stats` — show node/edge/depth stats for each connected component. Analysis. | Planned |
-| FJ-744 | `forjar apply --notify-webhook-headers <json>` — custom headers for webhook notifications. Integration. | Planned |
-| FJ-745 | `forjar validate --check-resource-names` — enforce resource naming regex pattern. Governance. | Planned |
-| FJ-746 | `forjar status --last-apply-status` — show last apply success/failure per machine. Fleet. | Planned |
-| FJ-747 | `forjar graph --dependency-count` — show in-degree and out-degree per resource. Metrics. | Planned |
-| FJ-748 | `forjar status --resource-staleness` — show time since last successful apply per resource. Freshness. | Planned |
+| FJ-741 | `forjar validate --check-env-refs` — verify all `{{env.*}}` template references have matching env vars. Safety. | Done |
+| FJ-742 | `forjar status --dependency-count` — show inbound/outbound dependency count per resource. Insight. | Done |
+| FJ-743 | `forjar graph --subgraph-stats` — show node/edge/depth stats for each connected component. Analysis. | Done |
+| FJ-744 | `forjar apply --notify-webhook-headers <json>` — custom headers for webhook notifications. Integration. | Done |
+| FJ-745 | `forjar validate --check-resource-names` — enforce resource naming regex pattern. Governance. | Done |
+| FJ-746 | `forjar status --last-apply-status` — show last apply success/failure per machine. Fleet. | Done |
+| FJ-747 | `forjar graph --dependency-count` — show in-degree and out-degree per resource. Metrics. | Done |
+| FJ-748 | `forjar status --resource-staleness` — show time since last successful apply per resource. Freshness. | Done |
+
+### Phase 61 — Governance & Compliance Automation (FJ-749→FJ-756)
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-749 | `forjar validate --check-resource-count` — warn if resource count exceeds threshold per machine. Governance. | Planned |
+| FJ-750 | `forjar status --convergence-percentage` — show % of resources converged per machine. Dashboard. | Planned |
+| FJ-751 | `forjar graph --root-resources` — show resources with no dependencies (roots of the DAG). Analysis. | Planned |
+| FJ-752 | `forjar apply --notify-log <path>` — append structured JSON events to a local file. Audit. | Planned |
+| FJ-753 | `forjar validate --check-duplicate-paths` — detect duplicate file/path across resources on same machine. Safety. | Planned |
+| FJ-754 | `forjar status --failed-count` — show count of failed resources per machine. Dashboard. | Planned |
+| FJ-755 | `forjar graph --edge-list` — output graph as simple edge list (source→target pairs). Export. | Planned |
+| FJ-756 | `forjar status --drift-count` — show count of drifted resources per machine. Dashboard. | Planned |
 
 ---
 
