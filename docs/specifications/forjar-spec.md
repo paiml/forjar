@@ -1993,14 +1993,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-460 | `forjar apply --env <name>` — apply using named environment config overlay. Multi-env support. | Planned |
-| FJ-461 | `forjar validate --check-drift-coverage` — verify all resources have drift detection configured. Coverage lint. | Planned |
-| FJ-462 | `forjar status --diff-lock <path>` — diff current lock against a saved lock snapshot. Change detection. | Planned |
-| FJ-463 | `forjar apply --dry-run-diff` — show unified diff of what would change. Review-friendly output. | Planned |
-| FJ-464 | `forjar graph --layers` — show graph organized by dependency layers (depth levels). Layer visualization. | Planned |
-| FJ-465 | `forjar lock sign <key>` — cryptographically sign lock file with ed25519 key. Tamper detection. | Planned |
-| FJ-466 | `forjar apply --notify-pagerduty <key>` — send apply events to PagerDuty. Incident integration. | Planned |
-| FJ-467 | `forjar status --compliance <policy>` — check compliance against named policy. Governance. | Planned |
+| FJ-460 | `forjar apply --env <name>` — apply using named environment config overlay. Multi-env support. | Done |
+| FJ-461 | `forjar validate --check-drift-coverage` — verify all resources have drift detection configured. Coverage lint. | Done |
+| FJ-462 | `forjar status --diff-lock <path>` — diff current lock against a saved lock snapshot. Change detection. | Done |
+| FJ-463 | `forjar apply --dry-run-diff` — show unified diff of what would change. Review-friendly output. | Done |
+| FJ-464 | `forjar graph --layers` — show graph organized by dependency layers (depth levels). Layer visualization. | Done |
+| FJ-465 | `forjar lock sign <key>` — cryptographically sign lock file with BLAKE3 key. Tamper detection. | Done |
+| FJ-466 | `forjar apply --notify-pagerduty <key>` — send apply events to PagerDuty. Incident integration. | Done |
+| FJ-467 | `forjar status --compliance <policy>` — check compliance against named policy. Governance. | Done |
+
+### Phase 33 — v3.3: Advanced Operations
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-470 | `forjar apply --batch-size <n>` — process resources in batches of N. Memory-bounded execution. | Planned |
+| FJ-471 | `forjar validate --check-cycles-deep` — detect indirect circular dependencies via transitive closure. | Planned |
+| FJ-472 | `forjar status --histogram` — show resource status distribution as ASCII histogram. Visual overview. | Planned |
+| FJ-473 | `forjar apply --notify-teams <webhook>` — send apply results to Microsoft Teams. Teams integration. | Planned |
+| FJ-474 | `forjar graph --critical-resources` — identify resources with the most dependents. Bottleneck analysis. | Planned |
+| FJ-475 | `forjar lock verify-sig <key>` — verify lock file signature. Integrity verification. | Planned |
+| FJ-476 | `forjar apply --abort-on-drift` — abort apply if drift detected before execution. Safety gate. | Planned |
+| FJ-477 | `forjar status --dependency-health` — show health score weighted by dependency position. Risk analysis. | Planned |
 
 ---
 

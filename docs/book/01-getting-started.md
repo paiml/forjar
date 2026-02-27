@@ -16,7 +16,7 @@ Verify:
 forjar --help
 ```
 
-You should see forjar's 60 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`, `lock-compact`, `lock-verify`, `lock-export`, `lock-gc`, `lock-diff`, `lock-merge`, `lock-rebase`.
+You should see forjar's 61 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`, `lock-compact`, `lock-verify`, `lock-export`, `lock-gc`, `lock-diff`, `lock-merge`, `lock-rebase`, `lock-sign`.
 
 ## Your First Project
 
@@ -2265,6 +2265,58 @@ Show resources in alert state (failed, drifted, or stale):
 ```bash
 forjar status --alerts --state-dir state
 forjar status --alerts --json --state-dir state
+```
+
+## Environment Overlay
+
+Apply using a named environment config overlay:
+
+```bash
+forjar apply --env-name staging -f forjar.yaml
+forjar apply --env-name production -f forjar.yaml
+```
+
+## Check Drift Coverage
+
+Verify all resources have drift detection configured:
+
+```bash
+forjar validate --check-drift-coverage -f forjar.yaml
+forjar validate --check-drift-coverage --json -f forjar.yaml
+```
+
+## Diff Lock
+
+Diff current lock against a saved lock snapshot:
+
+```bash
+forjar status --diff-lock old-state --state-dir state
+```
+
+## Graph Layers
+
+Show graph organized by dependency layers (depth levels):
+
+```bash
+forjar graph --layers -f forjar.yaml
+```
+
+## Lock Sign
+
+Cryptographically sign lock files with BLAKE3:
+
+```bash
+forjar lock-sign --state-dir state --key my-signing-key
+forjar lock-sign --state-dir state --key my-signing-key --json
+```
+
+## Status Compliance
+
+Check compliance against a named policy:
+
+```bash
+forjar status --compliance soc2 --state-dir state
+forjar status --compliance hipaa --json --state-dir state
 ```
 
 ## Next Steps
