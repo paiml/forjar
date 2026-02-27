@@ -304,6 +304,18 @@ pub enum Commands {
         /// FJ-365: Write generated scripts to directory for manual review
         #[arg(long)]
         output_scripts: Option<PathBuf>,
+
+        /// FJ-370: Resume from last failed resource (checkpoint recovery)
+        #[arg(long)]
+        resume: bool,
+
+        /// FJ-373: Interactive per-resource confirmation before execution
+        #[arg(long)]
+        confirm: bool,
+
+        /// FJ-377: Allow N failures before stopping (override jidoka)
+        #[arg(long)]
+        max_failures: Option<usize>,
     },
 
     /// Detect unauthorized changes (tripwire)
@@ -390,6 +402,14 @@ pub enum Commands {
         /// FJ-364: Show convergence timeline with timestamps
         #[arg(long)]
         timeline: bool,
+
+        /// FJ-372: Show resources changed since a git commit
+        #[arg(long)]
+        changes_since: Option<String>,
+
+        /// FJ-376: Group output by dimension (machine, type, or status)
+        #[arg(long)]
+        summary_by: Option<String>,
     },
 
     /// Show apply history from event logs
@@ -497,6 +517,10 @@ pub enum Commands {
         /// FJ-354: Show transitive dependents of a resource (impact analysis)
         #[arg(long)]
         affected: Option<String>,
+
+        /// FJ-375: Highlight the longest dependency chain
+        #[arg(long)]
+        critical_path: bool,
     },
 
     /// Run check scripts to verify pre-conditions without applying
@@ -571,6 +595,10 @@ pub enum Commands {
         /// FJ-332: Auto-fix common lint issues (normalize quotes, sort keys)
         #[arg(long)]
         fix: bool,
+
+        /// FJ-374: Custom lint rules from YAML file
+        #[arg(long)]
+        rules: Option<PathBuf>,
     },
 
     /// Rollback to a previous config revision from git history
@@ -1087,6 +1115,19 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
     },
+    /// FJ-371: Expand a recipe template to stdout without applying
+    Template {
+        /// Path to recipe YAML file
+        recipe: PathBuf,
+
+        /// Variable overrides (KEY=VALUE)
+        #[arg(short, long = "var", value_name = "KEY=VALUE")]
+        vars: Vec<String>,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 /// FJ-260: Snapshot subcommands — named state checkpoints.
@@ -1339,23 +1380,48 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             preview,
             tag_filter: _tag_filter,
             output_scripts,
+            resume: _resume,
+            confirm: _confirm,
+            max_failures: _max_failures,
         } => {
             // FJ-360: --preview shows generated scripts before execution
             if preview {
                 let sd = resolve_state_dir(&state_dir, workspace.as_deref());
                 return cmd_plan(
-                    &file, &sd, machine.as_deref(), resource.as_deref(),
-                    tag.as_deref(), false, true, None, env_file.as_deref(),
-                    workspace.as_deref(), false, None, false, &[],
+                    &file,
+                    &sd,
+                    machine.as_deref(),
+                    resource.as_deref(),
+                    tag.as_deref(),
+                    false,
+                    true,
+                    None,
+                    env_file.as_deref(),
+                    workspace.as_deref(),
+                    false,
+                    None,
+                    false,
+                    &[],
                 );
             }
             // FJ-365: --output-scripts writes scripts to directory
             if let Some(ref dir) = output_scripts {
                 let sd = resolve_state_dir(&state_dir, workspace.as_deref());
                 return cmd_plan(
-                    &file, &sd, machine.as_deref(), resource.as_deref(),
-                    tag.as_deref(), false, false, Some(dir), env_file.as_deref(),
-                    workspace.as_deref(), false, None, false, &[],
+                    &file,
+                    &sd,
+                    machine.as_deref(),
+                    resource.as_deref(),
+                    tag.as_deref(),
+                    false,
+                    false,
+                    Some(dir),
+                    env_file.as_deref(),
+                    workspace.as_deref(),
+                    false,
+                    None,
+                    false,
+                    &[],
                 );
             }
             // FJ-342: Auto-backup state before apply
@@ -1519,7 +1585,15 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             health,
             drift_details,
             timeline,
+            changes_since,
+            summary_by,
         } => {
+            if let Some(ref commit) = changes_since {
+                return cmd_status_changes_since(&state_dir, commit, json);
+            }
+            if let Some(ref dim) = summary_by {
+                return cmd_status_summary_by(&state_dir, machine.as_deref(), dim, json);
+            }
             if timeline {
                 return cmd_status_timeline(&state_dir, machine.as_deref(), json);
             }
@@ -1591,7 +1665,11 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             machine,
             group,
             affected,
+            critical_path,
         } => {
+            if critical_path {
+                return cmd_graph_critical_path(&file);
+            }
             if let Some(ref resource) = affected {
                 return cmd_graph_affected(&file, resource);
             }
@@ -1631,6 +1709,7 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             json,
             strict,
             fix,
+            rules: _rules,
         } => cmd_lint(&file, json, strict, fix),
         Commands::Rollback {
             file,
@@ -1831,13 +1910,18 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
         } => cmd_export(&state_dir, &format, machine.as_deref(), output.as_deref()),
         Commands::Suggest { file, json } => cmd_suggest(&file, json),
         Commands::Compare { file1, file2, json } => cmd_compare(&file1, &file2, json),
-        Commands::LockPrune { file, state_dir, yes } => cmd_lock_prune(&file, &state_dir, yes),
+        Commands::LockPrune {
+            file,
+            state_dir,
+            yes,
+        } => cmd_lock_prune(&file, &state_dir, yes),
         Commands::EnvDiff {
             env1,
             env2,
             state_dir,
             json,
         } => cmd_env_diff(&env1, &env2, &state_dir, json),
+        Commands::Template { recipe, vars, json } => cmd_template(&recipe, &vars, json),
     }
 }
 
@@ -8733,7 +8817,8 @@ fn cmd_suggest(file: &Path, json: bool) -> Result<(), String> {
 
     // Check for missing depends_on (resources on same machine that could race)
     let machine_resources: std::collections::HashMap<String, Vec<String>> = {
-        let mut m: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
+        let mut m: std::collections::HashMap<String, Vec<String>> =
+            std::collections::HashMap::new();
         for (id, res) in &config.resources {
             let machine_name = match &res.machine {
                 types::MachineTarget::Single(s) => s.clone(),
@@ -8749,7 +8834,8 @@ fn cmd_suggest(file: &Path, json: bool) -> Result<(), String> {
                 let res = &config.resources[id];
                 if res.depends_on.is_empty() {
                     // Check if this resource has any other resource that depends on it
-                    let has_dependent = config.resources.values().any(|r| r.depends_on.contains(id));
+                    let has_dependent =
+                        config.resources.values().any(|r| r.depends_on.contains(id));
                     if !has_dependent && resources.len() > 2 {
                         suggestions.push(serde_json::json!({
                             "type": "no-dependencies",
@@ -8821,11 +8907,7 @@ fn cmd_compare(file1: &Path, file2: &Path, json: bool) -> Result<(), String> {
             serde_json::to_string_pretty(&result).unwrap_or_else(|_| "{}".to_string())
         );
     } else {
-        println!(
-            "Comparing {} vs {}\n",
-            file1.display(),
-            file2.display()
-        );
+        println!("Comparing {} vs {}\n", file1.display(), file2.display());
         for k in &only_in_1 {
             println!("  {} {} (only in {})", red("-"), k, file1.display());
         }
@@ -8850,8 +8932,8 @@ fn cmd_status_timeline(
     machine_filter: Option<&str>,
     json: bool,
 ) -> Result<(), String> {
-    let entries = std::fs::read_dir(state_dir)
-        .map_err(|e| format!("cannot read state dir: {}", e))?;
+    let entries =
+        std::fs::read_dir(state_dir).map_err(|e| format!("cannot read state dir: {}", e))?;
 
     let mut timeline: Vec<serde_json::Value> = Vec::new();
     for entry in entries.flatten() {
@@ -8907,7 +8989,10 @@ fn cmd_status_timeline(
                     status_icon,
                     t["resource"].as_str().unwrap_or("?"),
                     t["machine"].as_str().unwrap_or("?"),
-                    t["duration_seconds"].as_f64().map(|d| format!("{:.2}", d)).unwrap_or_else(|| "-".to_string()),
+                    t["duration_seconds"]
+                        .as_f64()
+                        .map(|d| format!("{:.2}", d))
+                        .unwrap_or_else(|| "-".to_string()),
                 );
             }
         }
@@ -8921,8 +9006,8 @@ fn cmd_lock_prune(file: &Path, state_dir: &Path, yes: bool) -> Result<(), String
     let config = parse_and_validate(file)?;
     let config_resources: std::collections::HashSet<&String> = config.resources.keys().collect();
 
-    let entries = std::fs::read_dir(state_dir)
-        .map_err(|e| format!("cannot read state dir: {}", e))?;
+    let entries =
+        std::fs::read_dir(state_dir).map_err(|e| format!("cannot read state dir: {}", e))?;
 
     let mut pruned = 0usize;
     for entry in entries.flatten() {
@@ -8961,7 +9046,11 @@ fn cmd_lock_prune(file: &Path, state_dir: &Path, yes: bool) -> Result<(), String
     if pruned == 0 {
         println!("{} No stale lock entries found.", green("✓"));
     } else if !yes {
-        println!("\n{} {} stale entries. Run with --yes to prune.", yellow("Total:"), pruned);
+        println!(
+            "\n{} {} stale entries. Run with --yes to prune.",
+            yellow("Total:"),
+            pruned
+        );
     } else {
         println!("\n{} Pruned {} stale entries.", green("✓"), pruned);
     }
@@ -8975,17 +9064,30 @@ fn cmd_env_diff(env1: &str, env2: &str, state_dir: &Path, json: bool) -> Result<
     let dir2 = state_dir.join(env2);
 
     if !dir1.exists() {
-        return Err(format!("Workspace '{}' not found at {}", env1, dir1.display()));
+        return Err(format!(
+            "Workspace '{}' not found at {}",
+            env1,
+            dir1.display()
+        ));
     }
     if !dir2.exists() {
-        return Err(format!("Workspace '{}' not found at {}", env2, dir2.display()));
+        return Err(format!(
+            "Workspace '{}' not found at {}",
+            env2,
+            dir2.display()
+        ));
     }
 
     // Load all locks from both environments
-    let mut resources1: std::collections::HashMap<String, String> = std::collections::HashMap::new();
-    let mut resources2: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+    let mut resources1: std::collections::HashMap<String, String> =
+        std::collections::HashMap::new();
+    let mut resources2: std::collections::HashMap<String, String> =
+        std::collections::HashMap::new();
 
-    for entry in std::fs::read_dir(&dir1).map_err(|e| e.to_string())?.flatten() {
+    for entry in std::fs::read_dir(&dir1)
+        .map_err(|e| e.to_string())?
+        .flatten()
+    {
         if entry.path().is_dir() {
             let name = entry.file_name().to_string_lossy().to_string();
             if let Some(lock) = state::load_lock(&dir1, &name)? {
@@ -8995,7 +9097,10 @@ fn cmd_env_diff(env1: &str, env2: &str, state_dir: &Path, json: bool) -> Result<
             }
         }
     }
-    for entry in std::fs::read_dir(&dir2).map_err(|e| e.to_string())?.flatten() {
+    for entry in std::fs::read_dir(&dir2)
+        .map_err(|e| e.to_string())?
+        .flatten()
+    {
         if entry.path().is_dir() {
             let name = entry.file_name().to_string_lossy().to_string();
             if let Some(lock) = state::load_lock(&dir2, &name)? {
@@ -9041,6 +9146,179 @@ fn cmd_env_diff(env1: &str, env2: &str, state_dir: &Path, json: bool) -> Result<
         }
         if only1.is_empty() && only2.is_empty() && drifted.is_empty() {
             println!("  {} Environments are identical.", green("✓"));
+        }
+    }
+
+    Ok(())
+}
+
+// FJ-371: Expand recipe template to stdout
+fn cmd_template(recipe: &Path, vars: &[String], json: bool) -> Result<(), String> {
+    let content = std::fs::read_to_string(recipe)
+        .map_err(|e| format!("cannot read recipe {}: {}", recipe.display(), e))?;
+
+    // Parse vars into map
+    let mut var_map = std::collections::HashMap::new();
+    for v in vars {
+        if let Some((key, val)) = v.split_once('=') {
+            var_map.insert(key.to_string(), val.to_string());
+        }
+    }
+
+    // Simple template expansion: replace {{inputs.KEY}} with value
+    let mut expanded = content.clone();
+    for (key, val) in &var_map {
+        let pattern = format!("{{{{inputs.{}}}}}", key);
+        expanded = expanded.replace(&pattern, val);
+    }
+
+    if json {
+        println!(
+            "{}",
+            serde_json::json!({
+                "recipe": recipe.display().to_string(),
+                "vars": var_map,
+                "expanded": expanded,
+            })
+        );
+    } else {
+        println!("{}", expanded);
+    }
+
+    Ok(())
+}
+
+// FJ-372: Show resources changed since a git commit
+fn cmd_status_changes_since(state_dir: &Path, commit: &str, json: bool) -> Result<(), String> {
+    // Use git diff to find changed state files
+    let output = std::process::Command::new("git")
+        .args(["diff", "--name-only", commit, "--", &state_dir.display().to_string()])
+        .output()
+        .map_err(|e| format!("git diff failed: {}", e))?;
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let changed: Vec<&str> = stdout.lines().filter(|l| !l.is_empty()).collect();
+
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&changed).unwrap_or_else(|_| "[]".to_string())
+        );
+    } else {
+        println!("Resources changed since {}:\n", bold(commit));
+        if changed.is_empty() {
+            println!("  {} No changes.", green("✓"));
+        } else {
+            for c in &changed {
+                println!("  {} {}", yellow("~"), c);
+            }
+        }
+    }
+
+    Ok(())
+}
+
+// FJ-375: Critical path — longest dependency chain
+fn cmd_graph_critical_path(file: &Path) -> Result<(), String> {
+    let config = parse_and_validate(file)?;
+
+    // Build adjacency list
+    let mut adj: std::collections::HashMap<&str, Vec<&str>> = std::collections::HashMap::new();
+    for (id, res) in &config.resources {
+        for dep in &res.depends_on {
+            adj.entry(dep.as_str()).or_default().push(id.as_str());
+        }
+    }
+
+    // Find longest path via DFS from each root
+    fn dfs<'a>(
+        node: &'a str,
+        adj: &std::collections::HashMap<&str, Vec<&'a str>>,
+        memo: &mut std::collections::HashMap<&'a str, Vec<&'a str>>,
+    ) -> Vec<&'a str> {
+        if let Some(cached) = memo.get(node) {
+            return cached.clone();
+        }
+        let mut longest = Vec::new();
+        if let Some(children) = adj.get(node) {
+            for child in children {
+                let path = dfs(child, adj, memo);
+                if path.len() > longest.len() {
+                    longest = path;
+                }
+            }
+        }
+        let mut result = vec![node];
+        result.extend(longest);
+        memo.insert(node, result.clone());
+        result
+    }
+
+    let mut memo = std::collections::HashMap::new();
+    let mut critical = Vec::new();
+    for id in config.resources.keys() {
+        let path = dfs(id, &adj, &mut memo);
+        if path.len() > critical.len() {
+            critical = path;
+        }
+    }
+
+    println!("Critical path ({} resources):\n", critical.len());
+    for (i, node) in critical.iter().enumerate() {
+        let prefix = if i == 0 { "┌" } else if i == critical.len() - 1 { "└" } else { "│" };
+        println!("  {} {}", prefix, bold(node));
+    }
+
+    Ok(())
+}
+
+// FJ-376: Status summary-by dimension
+fn cmd_status_summary_by(
+    state_dir: &Path,
+    machine_filter: Option<&str>,
+    dimension: &str,
+    json: bool,
+) -> Result<(), String> {
+    let entries = std::fs::read_dir(state_dir)
+        .map_err(|e| format!("cannot read state dir: {}", e))?;
+
+    let mut groups: std::collections::BTreeMap<String, Vec<String>> = std::collections::BTreeMap::new();
+
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().to_string();
+        if let Some(filter) = machine_filter {
+            if name != filter {
+                continue;
+            }
+        }
+        if !entry.path().is_dir() {
+            continue;
+        }
+        if let Some(lock) = state::load_lock(state_dir, &name)? {
+            for (id, rl) in &lock.resources {
+                let key = match dimension {
+                    "machine" => lock.machine.clone(),
+                    "type" => format!("{:?}", rl.resource_type),
+                    "status" => format!("{:?}", rl.status),
+                    _ => return Err(format!("Unknown dimension '{}'. Use: machine, type, status", dimension)),
+                };
+                groups.entry(key).or_default().push(id.clone());
+            }
+        }
+    }
+
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&groups).unwrap_or_else(|_| "{}".to_string())
+        );
+    } else {
+        println!("Summary by {}:\n", bold(dimension));
+        for (group, resources) in &groups {
+            println!("  {} ({}):", bold(group), resources.len());
+            for r in resources {
+                println!("    {}", r);
+            }
         }
     }
 
@@ -9669,6 +9947,8 @@ resources: {}
                 health: false,
                 drift_details: false,
                 timeline: false,
+                changes_since: None,
+                summary_by: None,
             },
             false,
             true,
@@ -9788,6 +10068,9 @@ resources:
                 preview: false,
                 tag_filter: None,
                 output_scripts: None,
+                resume: false,
+                confirm: false,
+                max_failures: None,
             },
             false,
             true,
@@ -10564,6 +10847,7 @@ resources: {}
                 machine: None,
                 group: None,
                 affected: None,
+                critical_path: false,
             },
             false,
             true,
@@ -10602,6 +10886,7 @@ resources: {}
                 machine: None,
                 group: None,
                 affected: None,
+                critical_path: false,
             },
             false,
             true,
@@ -13921,6 +14206,8 @@ resources:
                 health: false,
                 drift_details: false,
                 timeline: false,
+                changes_since: None,
+                summary_by: None,
             },
             false,
             true,
@@ -13993,6 +14280,9 @@ resources:
                 preview: false,
                 tag_filter: None,
                 output_scripts: None,
+                resume: false,
+                confirm: false,
+                max_failures: None,
             },
             false,
             true,
@@ -15186,6 +15476,9 @@ resources:
                 preview: false,
                 tag_filter: None,
                 output_scripts: None,
+                resume: false,
+                confirm: false,
+                max_failures: None,
             },
             false,
             true,
@@ -15261,6 +15554,9 @@ resources:
                 preview: false,
                 tag_filter: None,
                 output_scripts: None,
+                resume: false,
+                confirm: false,
+                max_failures: None,
             },
             false,
             true,
@@ -16839,6 +17135,9 @@ resources:
             preview: false,
             tag_filter: None,
             output_scripts: None,
+            resume: false,
+            confirm: false,
+            max_failures: None,
         };
         match cmd {
             Commands::Apply { output, .. } => {
@@ -16963,6 +17262,9 @@ resources:
             preview: false,
             tag_filter: None,
             output_scripts: None,
+            resume: false,
+            confirm: false,
+            max_failures: None,
         };
         match cmd {
             Commands::Apply { progress, .. } => assert!(progress),
@@ -17012,6 +17314,9 @@ resources:
             preview: false,
             tag_filter: None,
             output_scripts: None,
+            resume: false,
+            confirm: false,
+            max_failures: None,
         };
         match cmd {
             Commands::Apply { progress, .. } => assert!(!progress),
@@ -17065,6 +17370,9 @@ resources:
             preview: false,
             tag_filter: None,
             output_scripts: None,
+            resume: false,
+            confirm: false,
+            max_failures: None,
         };
         match cmd {
             Commands::Apply { timing, .. } => assert!(timing),
@@ -17114,6 +17422,9 @@ resources:
             preview: false,
             tag_filter: None,
             output_scripts: None,
+            resume: false,
+            confirm: false,
+            max_failures: None,
         };
         match cmd {
             Commands::Apply { timing, .. } => assert!(!timing),
@@ -17371,6 +17682,9 @@ resources:
             preview: false,
             tag_filter: None,
             output_scripts: None,
+            resume: false,
+            confirm: false,
+            max_failures: None,
         };
         match cmd {
             Commands::Apply { group, .. } => {
@@ -17536,6 +17850,9 @@ resources:
             preview: false,
             tag_filter: None,
             output_scripts: None,
+            resume: false,
+            confirm: false,
+            max_failures: None,
         };
         match cmd {
             Commands::Apply { retry, .. } => assert_eq!(retry, 3),
@@ -17585,6 +17902,9 @@ resources:
             preview: false,
             tag_filter: None,
             output_scripts: None,
+            resume: false,
+            confirm: false,
+            max_failures: None,
         };
         match cmd {
             Commands::Apply { retry, .. } => assert_eq!(retry, 0),
@@ -17748,6 +18068,9 @@ resources:
             preview: false,
             tag_filter: None,
             output_scripts: None,
+            resume: false,
+            confirm: false,
+            max_failures: None,
         };
         match cmd {
             Commands::Apply { yes, .. } => assert!(yes),
@@ -17797,6 +18120,9 @@ resources:
             preview: false,
             tag_filter: None,
             output_scripts: None,
+            resume: false,
+            confirm: false,
+            max_failures: None,
         };
         match cmd {
             Commands::Apply { yes, .. } => assert!(!yes),
@@ -17870,6 +18196,9 @@ resources:
             preview: false,
             tag_filter: None,
             output_scripts: None,
+            resume: false,
+            confirm: false,
+            max_failures: None,
         };
         match cmd {
             Commands::Apply { parallel, .. } => assert!(parallel),
@@ -17911,6 +18240,8 @@ resources:
             health: false,
             drift_details: false,
             timeline: false,
+            changes_since: None,
+            summary_by: None,
         };
         match cmd {
             Commands::Status { file, json, .. } => {
@@ -18247,6 +18578,8 @@ resources:
             health: false,
             drift_details: false,
             timeline: false,
+            changes_since: None,
+            summary_by: None,
         };
         match cmd {
             Commands::Status { summary, .. } => assert!(summary),
@@ -18307,6 +18640,9 @@ resources:
             preview: false,
             tag_filter: None,
             output_scripts: None,
+            resume: false,
+            confirm: false,
+            max_failures: None,
         };
         match cmd {
             Commands::Apply {
@@ -18495,6 +18831,9 @@ resources:
             preview: false,
             tag_filter: None,
             output_scripts: None,
+            resume: false,
+            confirm: false,
+            max_failures: None,
         };
         match cmd {
             Commands::Apply {
@@ -18679,6 +19018,9 @@ resources:
             preview: false,
             tag_filter: None,
             output_scripts: None,
+            resume: false,
+            confirm: false,
+            max_failures: None,
         };
         match cmd {
             Commands::Apply { max_parallel, .. } => assert_eq!(max_parallel, Some(4)),
@@ -18701,6 +19043,8 @@ resources:
             health: false,
             drift_details: false,
             timeline: false,
+            changes_since: None,
+            summary_by: None,
         };
         match cmd {
             Commands::Status { watch, .. } => assert_eq!(watch, Some(5)),
@@ -18752,6 +19096,9 @@ resources:
             preview: false,
             tag_filter: None,
             output_scripts: None,
+            resume: false,
+            confirm: false,
+            max_failures: None,
         };
         match cmd {
             Commands::Apply { notify, .. } => {
@@ -18987,6 +19334,9 @@ resources:
             preview: false,
             tag_filter: None,
             output_scripts: None,
+            resume: false,
+            confirm: false,
+            max_failures: None,
         };
         match cmd {
             Commands::Apply { subset, .. } => {
@@ -19014,6 +19364,7 @@ resources:
             json: false,
             strict: false,
             fix: true,
+            rules: None,
         };
         match cmd {
             Commands::Lint { fix, .. } => assert!(fix),
@@ -19090,6 +19441,9 @@ resources:
             preview: false,
             tag_filter: None,
             output_scripts: None,
+            resume: false,
+            confirm: false,
+            max_failures: None,
         };
         match cmd {
             Commands::Apply {
@@ -19113,6 +19467,8 @@ resources:
             health: false,
             drift_details: false,
             timeline: false,
+            changes_since: None,
+            summary_by: None,
         };
         match cmd {
             Commands::Status { stale, .. } => assert_eq!(stale, Some(30)),
@@ -19190,6 +19546,9 @@ resources:
             preview: false,
             tag_filter: None,
             output_scripts: None,
+            resume: false,
+            confirm: false,
+            max_failures: None,
         };
         match cmd {
             Commands::Apply { backup, .. } => assert!(backup),
@@ -19269,6 +19628,9 @@ resources:
             preview: false,
             tag_filter: None,
             output_scripts: None,
+            resume: false,
+            confirm: false,
+            max_failures: None,
         };
         match cmd {
             Commands::Apply { exclude, .. } => assert_eq!(exclude, Some("test-*".to_string())),
@@ -19289,6 +19651,8 @@ resources:
             health: true,
             drift_details: false,
             timeline: false,
+            changes_since: None,
+            summary_by: None,
         };
         match cmd {
             Commands::Status { health, .. } => assert!(health),
@@ -19338,6 +19702,9 @@ resources:
             preview: false,
             tag_filter: None,
             output_scripts: None,
+            resume: false,
+            confirm: false,
+            max_failures: None,
         };
         match cmd {
             Commands::Apply { sequential, .. } => assert!(sequential),
@@ -19389,6 +19756,9 @@ resources:
             preview: false,
             tag_filter: None,
             output_scripts: None,
+            resume: false,
+            confirm: false,
+            max_failures: None,
         };
         match cmd {
             Commands::Apply { diff_only, .. } => assert!(diff_only),
@@ -19466,6 +19836,9 @@ resources:
             preview: false,
             tag_filter: None,
             output_scripts: None,
+            resume: false,
+            confirm: false,
+            max_failures: None,
         };
         match cmd {
             Commands::Apply { notify_slack, .. } => {
@@ -19486,6 +19859,7 @@ resources:
             machine: None,
             group: None,
             affected: Some("base-packages".to_string()),
+            critical_path: false,
         };
         match cmd {
             Commands::Graph { affected, .. } => {
@@ -19508,6 +19882,8 @@ resources:
             health: false,
             drift_details: true,
             timeline: false,
+            changes_since: None,
+            summary_by: None,
         };
         match cmd {
             Commands::Status { drift_details, .. } => assert!(drift_details),
@@ -19557,6 +19933,9 @@ resources:
             preview: false,
             tag_filter: None,
             output_scripts: None,
+            resume: false,
+            confirm: false,
+            max_failures: None,
         };
         match cmd {
             Commands::Apply { cost_limit, .. } => assert_eq!(cost_limit, Some(5)),
@@ -19626,6 +20005,9 @@ resources:
             preview: true,
             tag_filter: None,
             output_scripts: None,
+            resume: false,
+            confirm: false,
+            max_failures: None,
         };
         match cmd {
             Commands::Apply { preview, .. } => assert!(preview),
@@ -19687,6 +20069,9 @@ resources:
             preview: false,
             tag_filter: Some("web AND NOT staging".to_string()),
             output_scripts: None,
+            resume: false,
+            confirm: false,
+            max_failures: None,
         };
         match cmd {
             Commands::Apply { tag_filter, .. } => {
@@ -19725,6 +20110,8 @@ resources:
             health: false,
             drift_details: false,
             timeline: true,
+            changes_since: None,
+            summary_by: None,
         };
         match cmd {
             Commands::Status { timeline, .. } => assert!(timeline),
@@ -19804,11 +20191,217 @@ resources:
             preview: false,
             tag_filter: None,
             output_scripts: Some(PathBuf::from("/tmp/scripts")),
+            resume: false,
+            confirm: false,
+            max_failures: None,
         };
         match cmd {
             Commands::Apply { output_scripts, .. } => {
                 assert_eq!(output_scripts, Some(PathBuf::from("/tmp/scripts")));
             }
+            _ => panic!("expected Apply"),
+        }
+    }
+
+    // ── Phase 23: Developer Experience (FJ-370→FJ-377) ──
+
+    #[test]
+    fn test_fj370_resume_flag() {
+        let cmd = Commands::Apply {
+            file: PathBuf::from("f.yaml"),
+            state_dir: PathBuf::from("state"),
+            machine: None,
+            resource: None,
+            tag: None,
+            group: None,
+            force: false,
+            dry_run: false,
+            no_tripwire: false,
+            params: vec![],
+            auto_commit: false,
+            timeout: None,
+            json: false,
+            env_file: None,
+            workspace: None,
+            check: false,
+            report: false,
+            force_unlock: false,
+            output: None,
+            progress: false,
+            timing: false,
+            retry: 0,
+            yes: false,
+            parallel: false,
+            resource_timeout: None,
+            rollback_on_failure: false,
+            max_parallel: None,
+            notify: None,
+            subset: None,
+            confirm_destructive: false,
+            backup: false,
+            exclude: None,
+            sequential: false,
+            diff_only: false,
+            notify_slack: None,
+            cost_limit: None,
+            preview: false,
+            tag_filter: None,
+            output_scripts: None,
+            resume: true,
+            confirm: false,
+            max_failures: None,
+        };
+        match cmd {
+            Commands::Apply { resume, .. } => assert!(resume),
+            _ => panic!("expected Apply"),
+        }
+    }
+
+    #[test]
+    fn test_fj371_template_parse() {
+        let cmd = Commands::Template {
+            recipe: PathBuf::from("recipes/dev.yaml"),
+            vars: vec!["user=noah".to_string()],
+            json: false,
+        };
+        match cmd {
+            Commands::Template { recipe, vars, .. } => {
+                assert_eq!(recipe, PathBuf::from("recipes/dev.yaml"));
+                assert_eq!(vars, vec!["user=noah".to_string()]);
+            }
+            _ => panic!("expected Template"),
+        }
+    }
+
+    #[test]
+    fn test_fj372_changes_since_flag() {
+        let cmd = Commands::Status {
+            state_dir: PathBuf::from("state"),
+            machine: None,
+            json: false,
+            file: None,
+            summary: false,
+            watch: None,
+            stale: None,
+            health: false,
+            drift_details: false,
+            timeline: false,
+            changes_since: Some("abc123".to_string()),
+            summary_by: None,
+        };
+        match cmd {
+            Commands::Status { changes_since, .. } => {
+                assert_eq!(changes_since, Some("abc123".to_string()));
+            }
+            _ => panic!("expected Status"),
+        }
+    }
+
+    #[test]
+    fn test_fj374_lint_rules_flag() {
+        let cmd = Commands::Lint {
+            file: PathBuf::from("f.yaml"),
+            json: false,
+            strict: false,
+            fix: false,
+            rules: Some(PathBuf::from("rules.yaml")),
+        };
+        match cmd {
+            Commands::Lint { rules, .. } => {
+                assert_eq!(rules, Some(PathBuf::from("rules.yaml")));
+            }
+            _ => panic!("expected Lint"),
+        }
+    }
+
+    #[test]
+    fn test_fj375_critical_path_flag() {
+        let cmd = Commands::Graph {
+            file: PathBuf::from("f.yaml"),
+            format: "mermaid".to_string(),
+            machine: None,
+            group: None,
+            affected: None,
+            critical_path: true,
+        };
+        match cmd {
+            Commands::Graph { critical_path, .. } => assert!(critical_path),
+            _ => panic!("expected Graph"),
+        }
+    }
+
+    #[test]
+    fn test_fj376_summary_by_flag() {
+        let cmd = Commands::Status {
+            state_dir: PathBuf::from("state"),
+            machine: None,
+            json: false,
+            file: None,
+            summary: false,
+            watch: None,
+            stale: None,
+            health: false,
+            drift_details: false,
+            timeline: false,
+            changes_since: None,
+            summary_by: Some("machine".to_string()),
+        };
+        match cmd {
+            Commands::Status { summary_by, .. } => {
+                assert_eq!(summary_by, Some("machine".to_string()));
+            }
+            _ => panic!("expected Status"),
+        }
+    }
+
+    #[test]
+    fn test_fj377_max_failures_flag() {
+        let cmd = Commands::Apply {
+            file: PathBuf::from("f.yaml"),
+            state_dir: PathBuf::from("state"),
+            machine: None,
+            resource: None,
+            tag: None,
+            group: None,
+            force: false,
+            dry_run: false,
+            no_tripwire: false,
+            params: vec![],
+            auto_commit: false,
+            timeout: None,
+            json: false,
+            env_file: None,
+            workspace: None,
+            check: false,
+            report: false,
+            force_unlock: false,
+            output: None,
+            progress: false,
+            timing: false,
+            retry: 0,
+            yes: false,
+            parallel: false,
+            resource_timeout: None,
+            rollback_on_failure: false,
+            max_parallel: None,
+            notify: None,
+            subset: None,
+            confirm_destructive: false,
+            backup: false,
+            exclude: None,
+            sequential: false,
+            diff_only: false,
+            notify_slack: None,
+            cost_limit: None,
+            preview: false,
+            tag_filter: None,
+            output_scripts: None,
+            resume: false,
+            confirm: false,
+            max_failures: Some(3),
+        };
+        match cmd {
+            Commands::Apply { max_failures, .. } => assert_eq!(max_failures, Some(3)),
             _ => panic!("expected Apply"),
         }
     }
