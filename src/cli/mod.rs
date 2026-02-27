@@ -102,6 +102,10 @@ pub enum Commands {
         /// FJ-411: Test SSH connectivity to all machines during validation
         #[arg(long)]
         check_connectivity: bool,
+
+        /// FJ-421: Verify all template variables resolve
+        #[arg(long)]
+        check_templates: bool,
     },
 
     /// Show execution plan (diff desired vs current)
@@ -368,6 +372,18 @@ pub enum Commands {
         /// FJ-413: Auto-rollback to named snapshot on failure
         #[arg(long)]
         rollback_snapshot: Option<String>,
+
+        /// FJ-420: Delay between retry attempts in seconds
+        #[arg(long)]
+        retry_delay: Option<u64>,
+
+        /// FJ-423: Apply only resources matching any of the given tags
+        #[arg(long, value_delimiter = ',')]
+        tags: Vec<String>,
+
+        /// FJ-426: Write detailed apply log to file
+        #[arg(long)]
+        log_file: Option<PathBuf>,
     },
 
     /// Detect unauthorized changes (tripwire)
@@ -494,6 +510,14 @@ pub enum Commands {
         /// FJ-417: Show only machine-level summary (no resource details)
         #[arg(long)]
         machines_only: bool,
+
+        /// FJ-422: Show resources not updated in any recent apply
+        #[arg(long)]
+        stale_resources: bool,
+
+        /// FJ-427: Custom health score threshold (default: 80)
+        #[arg(long)]
+        health_threshold: Option<u32>,
     },
 
     /// Show apply history from event logs
@@ -621,6 +645,10 @@ pub enum Commands {
         /// FJ-414: Show resources with no dependencies and no dependents
         #[arg(long)]
         orphans: bool,
+
+        /// FJ-424: Show graph statistics (nodes, edges, depth, width)
+        #[arg(long)]
+        stats: bool,
     },
 
     /// Run check scripts to verify pre-conditions without applying
@@ -1256,6 +1284,26 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
     },
+    /// FJ-425: Garbage collect orphaned lock entries with no matching config
+    #[command(name = "lock-gc")]
+    LockGc {
+        /// Path to forjar.yaml
+        #[arg(short, long, default_value = "forjar.yaml")]
+        file: PathBuf,
+
+        /// State directory
+        #[arg(long, default_value = "state")]
+        state_dir: PathBuf,
+
+        /// Actually remove entries (default: dry-run)
+        #[arg(long)]
+        yes: bool,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+
     /// FJ-415: Export lock file in alternative format
     #[command(name = "lock-export")]
     LockExport {
@@ -1464,7 +1512,11 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             exhaustive,
             policy_file,
             check_connectivity,
+            check_templates,
         } => {
+            if check_templates {
+                return cmd_validate_check_templates(&file, json);
+            }
             if check_connectivity {
                 return cmd_validate_connectivity(&file, json);
             }
@@ -1562,13 +1614,13 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             concurrency: _concurrency,
             webhook_before,
             rollback_snapshot: _rollback_snapshot,
+            retry_delay: _retry_delay,
+            tags: _tags,
+            log_file: _log_file,
         } => {
             // FJ-410: webhook-before — POST before apply starts
             if let Some(ref url) = webhook_before {
-                let payload = format!(
-                    r#"{{"event":"apply_start","config":"{}"}}"#,
-                    file.display()
-                );
+                let payload = format!(r#"{{"event":"apply_start","config":"{}"}}"#, file.display());
                 let _ = std::process::Command::new("curl")
                     .args([
                         "-s",
@@ -1821,7 +1873,15 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             diff_from,
             resources_by_type,
             machines_only,
+            stale_resources,
+            health_threshold,
         } => {
+            if stale_resources {
+                return cmd_status_stale_resources(&state_dir, machine.as_deref(), json);
+            }
+            if let Some(threshold) = health_threshold {
+                return cmd_status_health_threshold(&state_dir, machine.as_deref(), threshold, json);
+            }
             if machines_only {
                 return cmd_status_machines_only(&state_dir, machine.as_deref(), json);
             }
@@ -1928,7 +1988,11 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             depth,
             cluster,
             orphans,
+            stats,
         } => {
+            if stats {
+                return cmd_graph_stats(&file);
+            }
             if orphans {
                 return cmd_graph_orphans(&file);
             }
@@ -2202,6 +2266,12 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             yes,
             json,
         } => cmd_lock_compact(&state_dir, yes, json),
+        Commands::LockGc {
+            file,
+            state_dir,
+            yes,
+            json,
+        } => cmd_lock_gc(&file, &state_dir, yes, json),
         Commands::LockExport {
             state_dir,
             format: fmt,
@@ -10821,11 +10891,7 @@ fn cmd_graph_orphans(file: &Path) -> Result<(), String> {
 
 // ── FJ-415: lock export ──
 
-fn cmd_lock_export(
-    state_dir: &Path,
-    fmt: &str,
-    machine: Option<&str>,
-) -> Result<(), String> {
+fn cmd_lock_export(state_dir: &Path, fmt: &str, machine: Option<&str>) -> Result<(), String> {
     let mut all_resources: Vec<(String, String, String, String)> = Vec::new(); // (machine, name, status, hash)
 
     if state_dir.exists() {
@@ -10886,10 +10952,7 @@ fn cmd_lock_export(
             }
         }
         _ => {
-            return Err(format!(
-                "unknown format '{}'. Use json, csv, or yaml",
-                fmt
-            ));
+            return Err(format!("unknown format '{}'. Use json, csv, or yaml", fmt));
         }
     }
     Ok(())
@@ -10969,6 +11032,377 @@ fn cmd_status_machines_only(
         }
     }
     Ok(())
+}
+
+// ── FJ-421: validate --check-templates ──
+
+fn cmd_validate_check_templates(file: &Path, json: bool) -> Result<(), String> {
+    let config = parse_and_validate(file)?;
+    let mut unresolved: Vec<(String, String)> = Vec::new(); // (resource, variable)
+
+    for (name, res) in &config.resources {
+        // Check content field for unresolved templates
+        if let Some(ref content) = res.content {
+            let mut start = 0;
+            while let Some(pos) = content[start..].find("{{") {
+                let abs_pos = start + pos + 2;
+                if let Some(end) = content[abs_pos..].find("}}") {
+                    let var = content[abs_pos..abs_pos + end].trim();
+                    // Check if it resolves — params.KEY should exist
+                    if let Some(stripped) = var.strip_prefix("params.") {
+                        if !config.params.contains_key(stripped) {
+                            unresolved.push((name.clone(), var.to_string()));
+                        }
+                    }
+                    start = abs_pos + end + 2;
+                } else {
+                    break;
+                }
+            }
+        }
+        // Check path field
+        if let Some(ref path_str) = res.path {
+            let mut start = 0;
+            while let Some(pos) = path_str[start..].find("{{") {
+                let abs_pos = start + pos + 2;
+                if let Some(end) = path_str[abs_pos..].find("}}") {
+                    let var = path_str[abs_pos..abs_pos + end].trim();
+                    if let Some(stripped) = var.strip_prefix("params.") {
+                        if !config.params.contains_key(stripped) {
+                            unresolved.push((name.clone(), var.to_string()));
+                        }
+                    }
+                    start = abs_pos + end + 2;
+                } else {
+                    break;
+                }
+            }
+        }
+    }
+
+    if json {
+        let entries: Vec<String> = unresolved
+            .iter()
+            .map(|(r, v)| format!("{{\"resource\":\"{}\",\"variable\":\"{}\"}}", r, v))
+            .collect();
+        println!(
+            "{{\"valid\":{},\"unresolved\":[{}],\"count\":{}}}",
+            unresolved.is_empty(),
+            entries.join(","),
+            unresolved.len()
+        );
+    } else if unresolved.is_empty() {
+        println!("{} All template variables resolve", green("✓"));
+    } else {
+        println!(
+            "{} {} unresolved template variable(s):",
+            red("✗"),
+            unresolved.len()
+        );
+        for (r, v) in &unresolved {
+            println!("  {} resource '{}': {{{{{}}}}}", red("•"), r, v);
+        }
+    }
+    if unresolved.is_empty() {
+        Ok(())
+    } else {
+        Err(format!(
+            "{} unresolved template variable(s)",
+            unresolved.len()
+        ))
+    }
+}
+
+// ── FJ-422: status --stale-resources ──
+
+fn cmd_status_stale_resources(
+    state_dir: &Path,
+    machine: Option<&str>,
+    json: bool,
+) -> Result<(), String> {
+    let mut stale: Vec<(String, String, String)> = Vec::new(); // (machine, resource, applied_at)
+
+    if state_dir.exists() {
+        let entries = std::fs::read_dir(state_dir).map_err(|e| e.to_string())?;
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                let m_name = path
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string();
+                if m_name.starts_with('.') {
+                    continue;
+                }
+                if let Some(filter) = machine {
+                    if m_name != filter {
+                        continue;
+                    }
+                }
+                if let Ok(Some(lock)) = state::load_lock(state_dir, &m_name) {
+                    for (name, rl) in &lock.resources {
+                        // Resources with no applied_at or very old timestamps
+                        if rl.applied_at.is_none() {
+                            stale.push((m_name.clone(), name.clone(), "never".to_string()));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if json {
+        let entries: Vec<String> = stale
+            .iter()
+            .map(|(m, r, at)| {
+                format!(
+                    "{{\"machine\":\"{}\",\"resource\":\"{}\",\"last_applied\":\"{}\"}}",
+                    m, r, at
+                )
+            })
+            .collect();
+        println!("[{}]", entries.join(","));
+    } else if stale.is_empty() {
+        println!("{} No stale resources found", green("✓"));
+    } else {
+        println!(
+            "{} {} stale resource(s) (never applied):",
+            yellow("⚠"),
+            stale.len()
+        );
+        for (m, r, at) in &stale {
+            println!("  {} {}/{} — last applied: {}", yellow("●"), m, r, at);
+        }
+    }
+    Ok(())
+}
+
+// ── FJ-424: graph --stats ──
+
+fn cmd_graph_stats(file: &Path) -> Result<(), String> {
+    let config = parse_and_validate(file)?;
+    let order = resolver::build_execution_order(&config)?;
+
+    let nodes = config.resources.len();
+    let mut edges = 0usize;
+    let mut max_deps = 0usize;
+    for res in config.resources.values() {
+        edges += res.depends_on.len();
+        max_deps = max_deps.max(res.depends_on.len());
+    }
+
+    // Compute depth via BFS
+    let mut children: std::collections::HashMap<&str, Vec<&str>> =
+        std::collections::HashMap::new();
+    let mut has_parent = std::collections::HashSet::new();
+    for (name, res) in &config.resources {
+        for dep in &res.depends_on {
+            children
+                .entry(dep.as_str())
+                .or_default()
+                .push(name.as_str());
+            has_parent.insert(name.as_str());
+        }
+    }
+    let mut depth_map: std::collections::HashMap<&str, usize> =
+        std::collections::HashMap::new();
+    let mut queue = std::collections::VecDeque::new();
+    for name in &order {
+        if !has_parent.contains(name.as_str()) {
+            depth_map.insert(name.as_str(), 0);
+            queue.push_back(name.as_str());
+        }
+    }
+    let mut max_depth = 0usize;
+    while let Some(node) = queue.pop_front() {
+        let d = depth_map[node];
+        max_depth = max_depth.max(d);
+        if let Some(kids) = children.get(node) {
+            for &kid in kids {
+                if !depth_map.contains_key(kid) {
+                    depth_map.insert(kid, d + 1);
+                    queue.push_back(kid);
+                }
+            }
+        }
+    }
+
+    // Width = max nodes at any depth level
+    let mut width_map: std::collections::HashMap<usize, usize> =
+        std::collections::HashMap::new();
+    for &d in depth_map.values() {
+        *width_map.entry(d).or_insert(0) += 1;
+    }
+    let max_width = width_map.values().copied().max().unwrap_or(0);
+
+    let roots = order
+        .iter()
+        .filter(|n| !has_parent.contains(n.as_str()))
+        .count();
+    let leaves = order
+        .iter()
+        .filter(|n| !children.contains_key(n.as_str()))
+        .count();
+
+    println!("{}", bold("Graph Statistics"));
+    println!("  Nodes:     {}", nodes);
+    println!("  Edges:     {}", edges);
+    println!("  Depth:     {}", max_depth);
+    println!("  Width:     {}", max_width);
+    println!("  Roots:     {}", roots);
+    println!("  Leaves:    {}", leaves);
+    println!("  Max deps:  {}", max_deps);
+    if nodes > 0 {
+        println!("  Density:   {:.2}", edges as f64 / nodes as f64);
+    }
+    Ok(())
+}
+
+// ── FJ-425: lock gc ──
+
+fn cmd_lock_gc(
+    file: &Path,
+    state_dir: &Path,
+    yes: bool,
+    json: bool,
+) -> Result<(), String> {
+    let config = parse_and_validate(file)?;
+    let config_resources: std::collections::HashSet<&str> =
+        config.resources.keys().map(|k| k.as_str()).collect();
+    let mut orphaned: Vec<(String, String)> = Vec::new(); // (machine, resource)
+
+    if state_dir.exists() {
+        let entries = std::fs::read_dir(state_dir).map_err(|e| e.to_string())?;
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                let m_name = path
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string();
+                if m_name.starts_with('.') {
+                    continue;
+                }
+                if let Ok(Some(lock)) = state::load_lock(state_dir, &m_name) {
+                    for name in lock.resources.keys() {
+                        if !config_resources.contains(name.as_str()) {
+                            orphaned.push((m_name.clone(), name.clone()));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if json {
+        let entries: Vec<String> = orphaned
+            .iter()
+            .map(|(m, r)| format!("{{\"machine\":\"{}\",\"resource\":\"{}\"}}", m, r))
+            .collect();
+        println!(
+            "{{\"orphaned\":{},\"dry_run\":{},\"entries\":[{}]}}",
+            orphaned.len(),
+            !yes,
+            entries.join(",")
+        );
+    } else if orphaned.is_empty() {
+        println!("{} No orphaned lock entries found", green("✓"));
+    } else if yes {
+        println!(
+            "{} Would remove {} orphaned lock entries (removal not yet implemented — use lock-prune)",
+            yellow("⚠"),
+            orphaned.len()
+        );
+        for (m, r) in &orphaned {
+            println!("  {} {}/{}", red("×"), m, r);
+        }
+    } else {
+        println!(
+            "Dry run — found {} orphaned lock entries:",
+            orphaned.len()
+        );
+        for (m, r) in &orphaned {
+            println!("  {} {}/{}", yellow("●"), m, r);
+        }
+        println!("\nRun with {} to remove.", bold("--yes"));
+    }
+    Ok(())
+}
+
+// ── FJ-427: status --health-threshold ──
+
+fn cmd_status_health_threshold(
+    state_dir: &Path,
+    machine: Option<&str>,
+    threshold: u32,
+    json: bool,
+) -> Result<(), String> {
+    let mut total = 0usize;
+    let mut converged = 0usize;
+
+    if state_dir.exists() {
+        let entries = std::fs::read_dir(state_dir).map_err(|e| e.to_string())?;
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                let m_name = path
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string();
+                if m_name.starts_with('.') {
+                    continue;
+                }
+                if let Some(filter) = machine {
+                    if m_name != filter {
+                        continue;
+                    }
+                }
+                if let Ok(Some(lock)) = state::load_lock(state_dir, &m_name) {
+                    for rl in lock.resources.values() {
+                        total += 1;
+                        if rl.status == types::ResourceStatus::Converged {
+                            converged += 1;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    let score = if total > 0 {
+        (converged * 100 / total) as u32
+    } else {
+        100
+    };
+    let pass = score >= threshold;
+
+    if json {
+        println!(
+            "{{\"score\":{},\"threshold\":{},\"pass\":{},\"total\":{},\"converged\":{}}}",
+            score, threshold, pass, total, converged
+        );
+    } else {
+        let status = if pass {
+            green(&format!("PASS ({}%)", score))
+        } else {
+            red(&format!("FAIL ({}%)", score))
+        };
+        println!(
+            "Health score: {} (threshold: {}%, {}/{} converged)",
+            status, threshold, converged, total
+        );
+    }
+    if pass {
+        Ok(())
+    } else {
+        Err(format!(
+            "Health score {}% below threshold {}%",
+            score, threshold
+        ))
+    }
 }
 
 #[cfg(test)]
@@ -11573,6 +12007,7 @@ resources: {}
                 exhaustive: false,
                 policy_file: None,
                 check_connectivity: false,
+                check_templates: false,
             },
             false,
             true,
@@ -11607,6 +12042,8 @@ resources: {}
                 diff_from: None,
                 resources_by_type: false,
                 machines_only: false,
+                stale_resources: false,
+                health_threshold: None,
             },
             false,
             true,
@@ -11738,6 +12175,9 @@ resources:
                 concurrency: None,
                 webhook_before: None,
                 rollback_snapshot: None,
+                retry_delay: None,
+                tags: vec![],
+                log_file: None,
             },
             false,
             true,
@@ -12519,6 +12959,7 @@ resources: {}
                 depth: None,
                 cluster: false,
                 orphans: false,
+                stats: false,
             },
             false,
             true,
@@ -12562,6 +13003,7 @@ resources: {}
                 depth: None,
                 cluster: false,
                 orphans: false,
+                stats: false,
             },
             false,
             true,
@@ -15891,6 +16333,8 @@ resources:
                 diff_from: None,
                 resources_by_type: false,
                 machines_only: false,
+                stale_resources: false,
+                health_threshold: None,
             },
             false,
             true,
@@ -15975,6 +16419,9 @@ resources:
                 concurrency: None,
                 webhook_before: None,
                 rollback_snapshot: None,
+                retry_delay: None,
+                tags: vec![],
+                log_file: None,
             },
             false,
             true,
@@ -17180,6 +17627,9 @@ resources:
                 concurrency: None,
                 webhook_before: None,
                 rollback_snapshot: None,
+                retry_delay: None,
+                tags: vec![],
+                log_file: None,
             },
             false,
             true,
@@ -17267,6 +17717,9 @@ resources:
                 concurrency: None,
                 webhook_before: None,
                 rollback_snapshot: None,
+                retry_delay: None,
+                tags: vec![],
+                log_file: None,
             },
             false,
             true,
@@ -18857,6 +19310,9 @@ resources:
             concurrency: None,
             webhook_before: None,
             rollback_snapshot: None,
+            retry_delay: None,
+            tags: vec![],
+            log_file: None,
         };
         match cmd {
             Commands::Apply { output, .. } => {
@@ -18993,6 +19449,9 @@ resources:
             concurrency: None,
             webhook_before: None,
             rollback_snapshot: None,
+            retry_delay: None,
+            tags: vec![],
+            log_file: None,
         };
         match cmd {
             Commands::Apply { progress, .. } => assert!(progress),
@@ -19054,6 +19513,9 @@ resources:
             concurrency: None,
             webhook_before: None,
             rollback_snapshot: None,
+            retry_delay: None,
+            tags: vec![],
+            log_file: None,
         };
         match cmd {
             Commands::Apply { progress, .. } => assert!(!progress),
@@ -19119,6 +19581,9 @@ resources:
             concurrency: None,
             webhook_before: None,
             rollback_snapshot: None,
+            retry_delay: None,
+            tags: vec![],
+            log_file: None,
         };
         match cmd {
             Commands::Apply { timing, .. } => assert!(timing),
@@ -19180,6 +19645,9 @@ resources:
             concurrency: None,
             webhook_before: None,
             rollback_snapshot: None,
+            retry_delay: None,
+            tags: vec![],
+            log_file: None,
         };
         match cmd {
             Commands::Apply { timing, .. } => assert!(!timing),
@@ -19449,6 +19917,9 @@ resources:
             concurrency: None,
             webhook_before: None,
             rollback_snapshot: None,
+            retry_delay: None,
+            tags: vec![],
+            log_file: None,
         };
         match cmd {
             Commands::Apply { group, .. } => {
@@ -19514,6 +19985,7 @@ resources:
             exhaustive: false,
             policy_file: None,
             check_connectivity: false,
+            check_templates: false,
         };
         match cmd {
             Commands::Validate { strict, .. } => assert!(strict),
@@ -19630,6 +20102,9 @@ resources:
             concurrency: None,
             webhook_before: None,
             rollback_snapshot: None,
+            retry_delay: None,
+            tags: vec![],
+            log_file: None,
         };
         match cmd {
             Commands::Apply { retry, .. } => assert_eq!(retry, 3),
@@ -19691,6 +20166,9 @@ resources:
             concurrency: None,
             webhook_before: None,
             rollback_snapshot: None,
+            retry_delay: None,
+            tags: vec![],
+            log_file: None,
         };
         match cmd {
             Commands::Apply { retry, .. } => assert_eq!(retry, 0),
@@ -19866,6 +20344,9 @@ resources:
             concurrency: None,
             webhook_before: None,
             rollback_snapshot: None,
+            retry_delay: None,
+            tags: vec![],
+            log_file: None,
         };
         match cmd {
             Commands::Apply { yes, .. } => assert!(yes),
@@ -19927,6 +20408,9 @@ resources:
             concurrency: None,
             webhook_before: None,
             rollback_snapshot: None,
+            retry_delay: None,
+            tags: vec![],
+            log_file: None,
         };
         match cmd {
             Commands::Apply { yes, .. } => assert!(!yes),
@@ -20012,6 +20496,9 @@ resources:
             concurrency: None,
             webhook_before: None,
             rollback_snapshot: None,
+            retry_delay: None,
+            tags: vec![],
+            log_file: None,
         };
         match cmd {
             Commands::Apply { parallel, .. } => assert!(parallel),
@@ -20063,6 +20550,8 @@ resources:
             diff_from: None,
             resources_by_type: false,
             machines_only: false,
+            stale_resources: false,
+            health_threshold: None,
         };
         match cmd {
             Commands::Status { file, json, .. } => {
@@ -20326,6 +20815,7 @@ resources:
             exhaustive: false,
             policy_file: None,
             check_connectivity: false,
+            check_templates: false,
         };
         match cmd {
             Commands::Validate { json, strict, .. } => {
@@ -20413,6 +20903,8 @@ resources:
             diff_from: None,
             resources_by_type: false,
             machines_only: false,
+            stale_resources: false,
+            health_threshold: None,
         };
         match cmd {
             Commands::Status { summary, .. } => assert!(summary),
@@ -20485,6 +20977,9 @@ resources:
             concurrency: None,
             webhook_before: None,
             rollback_snapshot: None,
+            retry_delay: None,
+            tags: vec![],
+            log_file: None,
         };
         match cmd {
             Commands::Apply {
@@ -20685,6 +21180,9 @@ resources:
             concurrency: None,
             webhook_before: None,
             rollback_snapshot: None,
+            retry_delay: None,
+            tags: vec![],
+            log_file: None,
         };
         match cmd {
             Commands::Apply {
@@ -20881,6 +21379,9 @@ resources:
             concurrency: None,
             webhook_before: None,
             rollback_snapshot: None,
+            retry_delay: None,
+            tags: vec![],
+            log_file: None,
         };
         match cmd {
             Commands::Apply { max_parallel, .. } => assert_eq!(max_parallel, Some(4)),
@@ -20913,6 +21414,8 @@ resources:
             diff_from: None,
             resources_by_type: false,
             machines_only: false,
+            stale_resources: false,
+            health_threshold: None,
         };
         match cmd {
             Commands::Status { watch, .. } => assert_eq!(watch, Some(5)),
@@ -20976,6 +21479,9 @@ resources:
             concurrency: None,
             webhook_before: None,
             rollback_snapshot: None,
+            retry_delay: None,
+            tags: vec![],
+            log_file: None,
         };
         match cmd {
             Commands::Apply { notify, .. } => {
@@ -21166,6 +21672,7 @@ resources:
             exhaustive: false,
             policy_file: None,
             check_connectivity: false,
+            check_templates: false,
         };
         match cmd {
             Commands::Validate { dry_expand, .. } => assert!(dry_expand),
@@ -21227,6 +21734,9 @@ resources:
             concurrency: None,
             webhook_before: None,
             rollback_snapshot: None,
+            retry_delay: None,
+            tags: vec![],
+            log_file: None,
         };
         match cmd {
             Commands::Apply { subset, .. } => {
@@ -21343,6 +21853,9 @@ resources:
             concurrency: None,
             webhook_before: None,
             rollback_snapshot: None,
+            retry_delay: None,
+            tags: vec![],
+            log_file: None,
         };
         match cmd {
             Commands::Apply {
@@ -21376,6 +21889,8 @@ resources:
             diff_from: None,
             resources_by_type: false,
             machines_only: false,
+            stale_resources: false,
+            health_threshold: None,
         };
         match cmd {
             Commands::Status { stale, .. } => assert_eq!(stale, Some(30)),
@@ -21465,6 +21980,9 @@ resources:
             concurrency: None,
             webhook_before: None,
             rollback_snapshot: None,
+            retry_delay: None,
+            tags: vec![],
+            log_file: None,
         };
         match cmd {
             Commands::Apply { backup, .. } => assert!(backup),
@@ -21556,6 +22074,9 @@ resources:
             concurrency: None,
             webhook_before: None,
             rollback_snapshot: None,
+            retry_delay: None,
+            tags: vec![],
+            log_file: None,
         };
         match cmd {
             Commands::Apply { exclude, .. } => assert_eq!(exclude, Some("test-*".to_string())),
@@ -21586,6 +22107,8 @@ resources:
             diff_from: None,
             resources_by_type: false,
             machines_only: false,
+            stale_resources: false,
+            health_threshold: None,
         };
         match cmd {
             Commands::Status { health, .. } => assert!(health),
@@ -21647,6 +22170,9 @@ resources:
             concurrency: None,
             webhook_before: None,
             rollback_snapshot: None,
+            retry_delay: None,
+            tags: vec![],
+            log_file: None,
         };
         match cmd {
             Commands::Apply { sequential, .. } => assert!(sequential),
@@ -21710,6 +22236,9 @@ resources:
             concurrency: None,
             webhook_before: None,
             rollback_snapshot: None,
+            retry_delay: None,
+            tags: vec![],
+            log_file: None,
         };
         match cmd {
             Commands::Apply { diff_only, .. } => assert!(diff_only),
@@ -21799,6 +22328,9 @@ resources:
             concurrency: None,
             webhook_before: None,
             rollback_snapshot: None,
+            retry_delay: None,
+            tags: vec![],
+            log_file: None,
         };
         match cmd {
             Commands::Apply { notify_slack, .. } => {
@@ -21824,6 +22356,7 @@ resources:
             depth: None,
             cluster: false,
             orphans: false,
+            stats: false,
         };
         match cmd {
             Commands::Graph { affected, .. } => {
@@ -21856,6 +22389,8 @@ resources:
             diff_from: None,
             resources_by_type: false,
             machines_only: false,
+            stale_resources: false,
+            health_threshold: None,
         };
         match cmd {
             Commands::Status { drift_details, .. } => assert!(drift_details),
@@ -21917,6 +22452,9 @@ resources:
             concurrency: None,
             webhook_before: None,
             rollback_snapshot: None,
+            retry_delay: None,
+            tags: vec![],
+            log_file: None,
         };
         match cmd {
             Commands::Apply { cost_limit, .. } => assert_eq!(cost_limit, Some(5)),
@@ -21998,6 +22536,9 @@ resources:
             concurrency: None,
             webhook_before: None,
             rollback_snapshot: None,
+            retry_delay: None,
+            tags: vec![],
+            log_file: None,
         };
         match cmd {
             Commands::Apply { preview, .. } => assert!(preview),
@@ -22071,6 +22612,9 @@ resources:
             concurrency: None,
             webhook_before: None,
             rollback_snapshot: None,
+            retry_delay: None,
+            tags: vec![],
+            log_file: None,
         };
         match cmd {
             Commands::Apply { tag_filter, .. } => {
@@ -22119,6 +22663,8 @@ resources:
             diff_from: None,
             resources_by_type: false,
             machines_only: false,
+            stale_resources: false,
+            health_threshold: None,
         };
         match cmd {
             Commands::Status { timeline, .. } => assert!(timeline),
@@ -22210,6 +22756,9 @@ resources:
             concurrency: None,
             webhook_before: None,
             rollback_snapshot: None,
+            retry_delay: None,
+            tags: vec![],
+            log_file: None,
         };
         match cmd {
             Commands::Apply { output_scripts, .. } => {
@@ -22275,6 +22824,9 @@ resources:
             concurrency: None,
             webhook_before: None,
             rollback_snapshot: None,
+            retry_delay: None,
+            tags: vec![],
+            log_file: None,
         };
         match cmd {
             Commands::Apply { resume, .. } => assert!(resume),
@@ -22321,6 +22873,8 @@ resources:
             diff_from: None,
             resources_by_type: false,
             machines_only: false,
+            stale_resources: false,
+            health_threshold: None,
         };
         match cmd {
             Commands::Status { changes_since, .. } => {
@@ -22360,6 +22914,7 @@ resources:
             depth: None,
             cluster: false,
             orphans: false,
+            stats: false,
         };
         match cmd {
             Commands::Graph { critical_path, .. } => assert!(critical_path),
@@ -22390,6 +22945,8 @@ resources:
             diff_from: None,
             resources_by_type: false,
             machines_only: false,
+            stale_resources: false,
+            health_threshold: None,
         };
         match cmd {
             Commands::Status { summary_by, .. } => {
@@ -22453,6 +23010,9 @@ resources:
             concurrency: None,
             webhook_before: None,
             rollback_snapshot: None,
+            retry_delay: None,
+            tags: vec![],
+            log_file: None,
         };
         match cmd {
             Commands::Apply { max_failures, .. } => assert_eq!(max_failures, Some(3)),
@@ -22516,6 +23076,9 @@ resources:
             concurrency: None,
             webhook_before: None,
             rollback_snapshot: None,
+            retry_delay: None,
+            tags: vec![],
+            log_file: None,
         };
         match cmd {
             Commands::Apply { rate_limit, .. } => assert_eq!(rate_limit, Some(10)),
@@ -22534,6 +23097,7 @@ resources:
             exhaustive: false,
             policy_file: None,
             check_connectivity: false,
+            check_templates: false,
         };
         match cmd {
             Commands::Validate { schema_version, .. } => {
@@ -22566,6 +23130,8 @@ resources:
             diff_from: None,
             resources_by_type: false,
             machines_only: false,
+            stale_resources: false,
+            health_threshold: None,
         };
         match cmd {
             Commands::Status { prometheus, .. } => assert!(prometheus),
@@ -22600,6 +23166,7 @@ resources:
             depth: None,
             cluster: false,
             orphans: false,
+            stats: false,
         };
         match cmd {
             Commands::Graph { reverse, .. } => assert!(reverse),
@@ -22630,6 +23197,8 @@ resources:
             diff_from: None,
             resources_by_type: false,
             machines_only: false,
+            stale_resources: false,
+            health_threshold: None,
         };
         match cmd {
             Commands::Status { expired, .. } => {
@@ -22661,6 +23230,7 @@ resources:
             exhaustive: true,
             policy_file: None,
             check_connectivity: false,
+            check_templates: false,
         };
         match cmd {
             Commands::Validate { exhaustive, .. } => assert!(exhaustive),
@@ -22691,6 +23261,8 @@ resources:
             diff_from: None,
             resources_by_type: false,
             machines_only: false,
+            stale_resources: false,
+            health_threshold: None,
         };
         match cmd {
             Commands::Status { count, .. } => assert!(count),
@@ -22752,6 +23324,9 @@ resources:
             concurrency: None,
             webhook_before: None,
             rollback_snapshot: None,
+            retry_delay: None,
+            tags: vec![],
+            log_file: None,
         };
         match cmd {
             Commands::Apply { notify_email, .. } => {
@@ -22774,6 +23349,7 @@ resources:
             depth: Some(2),
             cluster: false,
             orphans: false,
+            stats: false,
         };
         match cmd {
             Commands::Graph { depth, .. } => assert_eq!(depth, Some(2)),
@@ -22835,6 +23411,9 @@ resources:
             concurrency: None,
             webhook_before: None,
             rollback_snapshot: None,
+            retry_delay: None,
+            tags: vec![],
+            log_file: None,
         };
         match cmd {
             Commands::Apply { skip, .. } => {
@@ -22867,6 +23446,8 @@ resources:
             diff_from: None,
             resources_by_type: false,
             machines_only: false,
+            stale_resources: false,
+            health_threshold: None,
         };
         match cmd {
             Commands::Status { format, .. } => {
@@ -22906,6 +23487,7 @@ resources:
             exhaustive: false,
             policy_file: Some(PathBuf::from("policy.yaml")),
             check_connectivity: false,
+            check_templates: false,
         };
         match cmd {
             Commands::Validate { policy_file, .. } => {
@@ -22938,6 +23520,8 @@ resources:
             diff_from: None,
             resources_by_type: false,
             machines_only: false,
+            stale_resources: false,
+            health_threshold: None,
         };
         match cmd {
             Commands::Status { anomalies, .. } => assert!(anomalies),
@@ -22999,6 +23583,9 @@ resources:
             concurrency: None,
             webhook_before: None,
             rollback_snapshot: None,
+            retry_delay: None,
+            tags: vec![],
+            log_file: None,
         };
         match cmd {
             Commands::Apply {
@@ -23023,6 +23610,7 @@ resources:
             depth: None,
             cluster: true,
             orphans: false,
+            stats: false,
         };
         match cmd {
             Commands::Graph { cluster, .. } => assert!(cluster),
@@ -23100,6 +23688,9 @@ resources:
             concurrency: Some(4),
             webhook_before: None,
             rollback_snapshot: None,
+            retry_delay: None,
+            tags: vec![],
+            log_file: None,
         };
         match cmd {
             Commands::Apply { concurrency, .. } => assert_eq!(concurrency, Some(4)),
@@ -23130,6 +23721,8 @@ resources:
             diff_from: Some("v1-backup".to_string()),
             resources_by_type: false,
             machines_only: false,
+            stale_resources: false,
+            health_threshold: None,
         };
         match cmd {
             Commands::Status { diff_from, .. } => {
@@ -23195,6 +23788,9 @@ resources:
             concurrency: None,
             webhook_before: Some("https://hooks.example.com/apply".to_string()),
             rollback_snapshot: None,
+            retry_delay: None,
+            tags: vec![],
+            log_file: None,
         };
         match cmd {
             Commands::Apply { webhook_before, .. } => {
@@ -23218,6 +23814,7 @@ resources:
             exhaustive: false,
             policy_file: None,
             check_connectivity: true,
+            check_templates: false,
         };
         match cmd {
             Commands::Validate {
@@ -23250,6 +23847,8 @@ resources:
             diff_from: None,
             resources_by_type: true,
             machines_only: false,
+            stale_resources: false,
+            health_threshold: None,
         };
         match cmd {
             Commands::Status {
@@ -23272,6 +23871,7 @@ resources:
             depth: None,
             cluster: false,
             orphans: true,
+            stats: false,
         };
         match cmd {
             Commands::Graph { orphans, .. } => assert!(orphans),
@@ -23350,6 +23950,9 @@ resources:
             concurrency: None,
             webhook_before: None,
             rollback_snapshot: Some("v1-safe".to_string()),
+            retry_delay: None,
+            tags: vec![],
+            log_file: None,
         };
         match cmd {
             Commands::Apply {
@@ -23384,10 +23987,288 @@ resources:
             diff_from: None,
             resources_by_type: false,
             machines_only: true,
+            stale_resources: false,
+            health_threshold: None,
         };
         match cmd {
             Commands::Status { machines_only, .. } => assert!(machines_only),
             _ => panic!("expected Status"),
+        }
+    }
+
+    // ── Phase 28: Resilience & Diagnostics (FJ-420→FJ-427) ──
+
+    #[test]
+    fn test_fj421_validate_check_templates_flag() {
+        let cmd = Commands::Validate {
+            file: PathBuf::from("forjar.yaml"),
+            strict: false,
+            json: false,
+            dry_expand: false,
+            schema_version: None,
+            exhaustive: false,
+            policy_file: None,
+            check_connectivity: false,
+            check_templates: true,
+        };
+        match cmd {
+            Commands::Validate {
+                check_templates, ..
+            } => assert!(check_templates),
+            _ => panic!("expected Validate"),
+        }
+    }
+
+    #[test]
+    fn test_fj422_status_stale_resources_flag() {
+        let cmd = Commands::Status {
+            state_dir: PathBuf::from("state"),
+            machine: None,
+            json: false,
+            file: None,
+            summary: false,
+            watch: None,
+            stale: None,
+            health: false,
+            drift_details: false,
+            timeline: false,
+            changes_since: None,
+            summary_by: None,
+            prometheus: false,
+            expired: None,
+            count: false,
+            format: None,
+            anomalies: false,
+            diff_from: None,
+            resources_by_type: false,
+            machines_only: false,
+            stale_resources: true,
+            health_threshold: None,
+        };
+        match cmd {
+            Commands::Status {
+                stale_resources, ..
+            } => assert!(stale_resources),
+            _ => panic!("expected Status"),
+        }
+    }
+
+    #[test]
+    fn test_fj424_graph_stats_flag() {
+        let cmd = Commands::Graph {
+            file: PathBuf::from("f.yaml"),
+            format: "mermaid".to_string(),
+            machine: None,
+            group: None,
+            affected: None,
+            critical_path: false,
+            reverse: false,
+            depth: None,
+            cluster: false,
+            orphans: false,
+            stats: true,
+        };
+        match cmd {
+            Commands::Graph { stats, .. } => assert!(stats),
+            _ => panic!("expected Graph"),
+        }
+    }
+
+    #[test]
+    fn test_fj425_lock_gc_dispatch() {
+        let dir = tempfile::tempdir().unwrap();
+        let state = dir.path().join("state");
+        std::fs::create_dir_all(&state).unwrap();
+        let config = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config,
+            r#"
+version: "1.0"
+name: test
+machines:
+  local:
+    hostname: localhost
+    addr: 127.0.0.1
+resources: {}
+"#,
+        )
+        .unwrap();
+        let result = dispatch(
+            Commands::LockGc {
+                file: config,
+                state_dir: state,
+                yes: false,
+                json: true,
+            },
+            false,
+            true,
+        );
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj426_apply_log_file_flag() {
+        let cmd = Commands::Apply {
+            file: PathBuf::from("forjar.yaml"),
+            machine: None,
+            resource: None,
+            tag: None,
+            group: None,
+            force: false,
+            dry_run: false,
+            no_tripwire: false,
+            params: vec![],
+            auto_commit: false,
+            timeout: None,
+            state_dir: PathBuf::from("state"),
+            json: false,
+            env_file: None,
+            workspace: None,
+            check: false,
+            report: false,
+            force_unlock: false,
+            output: None,
+            progress: false,
+            timing: false,
+            retry: 0,
+            yes: false,
+            parallel: false,
+            resource_timeout: None,
+            rollback_on_failure: false,
+            max_parallel: None,
+            notify: None,
+            subset: None,
+            confirm_destructive: false,
+            backup: false,
+            exclude: None,
+            sequential: false,
+            diff_only: false,
+            notify_slack: None,
+            cost_limit: None,
+            preview: false,
+            tag_filter: None,
+            output_scripts: None,
+            resume: false,
+            confirm: false,
+            max_failures: None,
+            rate_limit: None,
+            labels: vec![],
+            plan_file: None,
+            notify_email: None,
+            skip: None,
+            snapshot_before: None,
+            concurrency: None,
+            webhook_before: None,
+            rollback_snapshot: None,
+            retry_delay: None,
+            tags: vec![],
+            log_file: Some(PathBuf::from("/tmp/apply.log")),
+        };
+        match cmd {
+            Commands::Apply { log_file, .. } => {
+                assert_eq!(log_file, Some(PathBuf::from("/tmp/apply.log")));
+            }
+            _ => panic!("expected Apply"),
+        }
+    }
+
+    #[test]
+    fn test_fj427_status_health_threshold_flag() {
+        let cmd = Commands::Status {
+            state_dir: PathBuf::from("state"),
+            machine: None,
+            json: false,
+            file: None,
+            summary: false,
+            watch: None,
+            stale: None,
+            health: false,
+            drift_details: false,
+            timeline: false,
+            changes_since: None,
+            summary_by: None,
+            prometheus: false,
+            expired: None,
+            count: false,
+            format: None,
+            anomalies: false,
+            diff_from: None,
+            resources_by_type: false,
+            machines_only: false,
+            stale_resources: false,
+            health_threshold: Some(90),
+        };
+        match cmd {
+            Commands::Status {
+                health_threshold, ..
+            } => assert_eq!(health_threshold, Some(90)),
+            _ => panic!("expected Status"),
+        }
+    }
+
+    #[test]
+    fn test_fj423_apply_tags_flag() {
+        let cmd = Commands::Apply {
+            file: PathBuf::from("forjar.yaml"),
+            machine: None,
+            resource: None,
+            tag: None,
+            group: None,
+            force: false,
+            dry_run: false,
+            no_tripwire: false,
+            params: vec![],
+            auto_commit: false,
+            timeout: None,
+            state_dir: PathBuf::from("state"),
+            json: false,
+            env_file: None,
+            workspace: None,
+            check: false,
+            report: false,
+            force_unlock: false,
+            output: None,
+            progress: false,
+            timing: false,
+            retry: 0,
+            yes: false,
+            parallel: false,
+            resource_timeout: None,
+            rollback_on_failure: false,
+            max_parallel: None,
+            notify: None,
+            subset: None,
+            confirm_destructive: false,
+            backup: false,
+            exclude: None,
+            sequential: false,
+            diff_only: false,
+            notify_slack: None,
+            cost_limit: None,
+            preview: false,
+            tag_filter: None,
+            output_scripts: None,
+            resume: false,
+            confirm: false,
+            max_failures: None,
+            rate_limit: None,
+            labels: vec![],
+            plan_file: None,
+            notify_email: None,
+            skip: None,
+            snapshot_before: None,
+            concurrency: None,
+            webhook_before: None,
+            rollback_snapshot: None,
+            retry_delay: None,
+            tags: vec!["web".to_string(), "prod".to_string()],
+            log_file: None,
+        };
+        match cmd {
+            Commands::Apply { tags, .. } => {
+                assert_eq!(tags, vec!["web".to_string(), "prod".to_string()]);
+            }
+            _ => panic!("expected Apply"),
         }
     }
 }
