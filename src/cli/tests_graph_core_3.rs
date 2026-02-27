@@ -70,6 +70,8 @@ mod tests {
             edge_list: false,
             connected_components: false,
             adjacency_matrix: false,
+            longest_path: false,
+            in_degree: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { timeline_graph, .. }) => assert!(timeline_graph),
@@ -129,6 +131,8 @@ mod tests {
             edge_list: false,
             connected_components: false,
             adjacency_matrix: false,
+            longest_path: false,
+            in_degree: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { what_if, .. }) => {
@@ -190,6 +194,8 @@ mod tests {
             edge_list: false,
             connected_components: false,
             adjacency_matrix: false,
+            longest_path: false,
+            in_degree: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { blast_radius, .. }) => {
@@ -251,6 +257,8 @@ mod tests {
             edge_list: false,
             connected_components: false,
             adjacency_matrix: false,
+            longest_path: false,
+            in_degree: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { change_impact, .. }) => {
@@ -312,6 +320,8 @@ mod tests {
             edge_list: false,
             connected_components: false,
             adjacency_matrix: false,
+            longest_path: false,
+            in_degree: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { resource_types, .. }) => assert!(resource_types),

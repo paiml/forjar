@@ -67,6 +67,8 @@ mod tests {
             edge_list: false,
             connected_components: false,
             adjacency_matrix: false,
+            longest_path: false,
+            in_degree: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { prune, .. }) => {
@@ -128,6 +130,8 @@ mod tests {
             edge_list: false,
             connected_components: false,
             adjacency_matrix: false,
+            longest_path: false,
+            in_degree: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { layers, .. }) => assert!(layers),
@@ -187,6 +191,8 @@ mod tests {
             edge_list: false,
             connected_components: false,
             adjacency_matrix: false,
+            longest_path: false,
+            in_degree: false,
         });
         match cmd {
             Commands::Graph(GraphArgs {
@@ -248,6 +254,8 @@ mod tests {
             edge_list: false,
             connected_components: false,
             adjacency_matrix: false,
+            longest_path: false,
+            in_degree: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { weight, .. }) => assert!(weight),
@@ -307,6 +315,8 @@ mod tests {
             edge_list: false,
             connected_components: false,
             adjacency_matrix: false,
+            longest_path: false,
+            in_degree: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { subgraph, .. }) => {
@@ -368,6 +378,8 @@ mod tests {
             edge_list: false,
             connected_components: false,
             adjacency_matrix: false,
+            longest_path: false,
+            in_degree: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { impact_radius, .. }) => {
@@ -429,6 +441,8 @@ mod tests {
             edge_list: false,
             connected_components: false,
             adjacency_matrix: false,
+            longest_path: false,
+            in_degree: false,
         });
         match cmd {
             Commands::Graph(GraphArgs {
@@ -490,6 +504,8 @@ mod tests {
             edge_list: false,
             connected_components: false,
             adjacency_matrix: false,
+            longest_path: false,
+            in_degree: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { hotspots, .. }) => assert!(hotspots),

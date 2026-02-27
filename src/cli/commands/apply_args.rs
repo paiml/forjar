@@ -565,5 +565,9 @@ pub struct ApplyArgs {
     /// FJ-760: Run arbitrary command as notification handler
     #[arg(long)]
     pub notify_exec: Option<String>,
+
+    /// FJ-768: Write one-line status to a file (for monitoring)
+    #[arg(long)]
+    pub notify_file: Option<std::path::PathBuf>,
 }
 

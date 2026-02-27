@@ -196,5 +196,13 @@ pub struct GraphArgs {
     /// FJ-763: Output graph as adjacency matrix
     #[arg(long)]
     pub adjacency_matrix: bool,
+
+    /// FJ-767: Show longest dependency chain length
+    #[arg(long)]
+    pub longest_path: bool,
+
+    /// FJ-771: Show in-degree (number of dependents) per resource
+    #[arg(long)]
+    pub in_degree: bool,
 }
 

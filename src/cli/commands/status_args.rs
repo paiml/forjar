@@ -348,5 +348,17 @@ pub struct StatusArgs {
     /// FJ-764: Show which resources target each machine
     #[arg(long)]
     pub machine_resource_map: bool,
+
+    /// FJ-766: Aggregate convergence across all machines
+    #[arg(long)]
+    pub fleet_convergence: bool,
+
+    /// FJ-770: Show BLAKE3 hash per resource from lock file
+    #[arg(long)]
+    pub resource_hash: bool,
+
+    /// FJ-772: Show drift percentage per machine
+    #[arg(long)]
+    pub machine_drift_summary: bool,
 }
 

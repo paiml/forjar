@@ -70,6 +70,8 @@ mod tests {
             edge_list: false,
             connected_components: false,
             adjacency_matrix: false,
+            longest_path: false,
+            in_degree: false,
         });
         match cmd {
             Commands::Graph(GraphArgs {
