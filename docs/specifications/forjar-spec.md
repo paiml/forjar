@@ -2253,14 +2253,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-660 | `forjar apply --notify-amqp <exchange>` — publish events to AMQP exchange. Enterprise messaging. | Planned |
-| FJ-661 | `forjar validate --check-owner-consistency` — ensure all resources have consistent ownership. Governance. | Planned |
-| FJ-662 | `forjar status --change-frequency` — show how often each resource changes. Stability metrics. | Planned |
-| FJ-663 | `forjar apply --pre-apply-hook <cmd>` — run arbitrary command before each resource apply. Extensibility. | Planned |
-| FJ-664 | `forjar graph --cross-machine-deps` — visualize dependencies across machines. Fleet topology. | Planned |
-| FJ-665 | `forjar lock merge` — merge two lock files for split-brain recovery. Consistency. | Planned |
-| FJ-666 | `forjar apply --resource-filter <glob>` — only apply resources matching glob pattern. Selective. | Planned |
-| FJ-667 | `forjar status --lock-age` — show age of each lock file entry. Freshness. | Planned |
+| FJ-660 | `forjar apply --notify-amqp <exchange>` — publish events to AMQP exchange. Enterprise messaging. | Done |
+| FJ-661 | `forjar validate --check-owner-consistency` — ensure all resources have consistent ownership. Governance. | Done |
+| FJ-662 | `forjar status --change-frequency` — show how often each resource changes. Stability metrics. | Done |
+| FJ-663 | `forjar apply --pre-apply-hook <cmd>` — run arbitrary command before each resource apply. Extensibility. | Done |
+| FJ-664 | `forjar graph --cross-machine-deps` — visualize dependencies across machines. Fleet topology. | Done |
+| FJ-665 | `forjar lock merge` — merge two lock files for split-brain recovery. Consistency. | Done |
+| FJ-666 | `forjar apply --resource-filter <glob>` — only apply resources matching glob pattern. Selective. | Done |
+| FJ-667 | `forjar status --lock-age` — show age of each lock file entry. Freshness. | Done |
+
+### Phase 53 — Multi-Environment & Secrets Management (FJ-670→FJ-677)
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-670 | `forjar apply --notify-stomp <destination>` — publish events to STOMP protocol. Legacy integration. | Planned |
+| FJ-671 | `forjar validate --check-path-conflicts` — detect overlapping file paths across resources. Safety. | Planned |
+| FJ-672 | `forjar status --failed-since <timestamp>` — show resources failed since a given time. Incident response. | Planned |
+| FJ-673 | `forjar apply --post-apply-hook <cmd>` — run command after each resource apply. Extensibility. | Planned |
+| FJ-674 | `forjar graph --machine-groups` — group resources by machine in graph output. Clarity. | Planned |
+| FJ-675 | `forjar lock prune` — remove entries for resources no longer in config. Cleanup. | Planned |
+| FJ-676 | `forjar apply --dry-run-shell` — output shell scripts instead of executing. Debugging. | Planned |
+| FJ-677 | `forjar status --hash-verify` — verify BLAKE3 hashes in lock match computed hashes. Integrity. | Planned |
 
 ---
 
