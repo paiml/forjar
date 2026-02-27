@@ -246,6 +246,84 @@ machines:
       init: true
 ```
 
+### GPU Container Transport
+
+For GPU workloads (model QA, inference testing), containers need device passthrough and vendor-specific configuration. Forjar supports NVIDIA CUDA, AMD ROCm, and Intel GPU passthrough.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `gpus` | string | -- | NVIDIA GPU passthrough via `--gpus`. Values: `"all"`, `"device=0"`, `"device=0,1"`. Requires NVIDIA Container Toolkit on the host. |
+| `devices` | [string] | `[]` | Device passthrough via `--device`. For AMD ROCm: `["/dev/kfd", "/dev/dri"]`. For Intel: `["/dev/dri"]`. |
+| `group_add` | [string] | `[]` | Additional groups via `--group-add`. AMD ROCm requires `["video", "render"]` for GPU device access. |
+| `env` | map | `{}` | Environment variables via `--env`. Common: `CUDA_VISIBLE_DEVICES`, `ROCR_VISIBLE_DEVICES`. |
+
+**NVIDIA CUDA container:**
+
+```yaml
+machines:
+  gpu-cuda:
+    hostname: gpu-cuda
+    addr: container
+    transport: container
+    roles: [gpu, cuda]
+    container:
+      runtime: docker
+      image: nvidia/cuda:12.4.1-runtime-ubuntu22.04
+      gpus: all
+      env:
+        CUDA_VISIBLE_DEVICES: "0,1"
+```
+
+**AMD ROCm container:**
+
+```yaml
+machines:
+  gpu-rocm:
+    hostname: gpu-rocm
+    addr: container
+    transport: container
+    roles: [gpu, rocm]
+    container:
+      runtime: docker
+      image: rocm/dev-ubuntu-22.04:6.1
+      devices:
+        - /dev/kfd
+        - /dev/dri
+      group_add:
+        - video
+        - render
+      env:
+        ROCR_VISIBLE_DEVICES: "0"
+```
+
+**Multi-vendor GPU fleet** -- test the same workload across GPU vendors:
+
+```yaml
+# CUDA + ROCm side by side, parallel apply
+machines:
+  gpu-cuda:
+    hostname: gpu-cuda
+    addr: container
+    transport: container
+    container:
+      image: nvidia/cuda:12.4.1-runtime-ubuntu22.04
+      gpus: all
+      env: { CUDA_VISIBLE_DEVICES: "0" }
+
+  gpu-rocm:
+    hostname: gpu-rocm
+    addr: container
+    transport: container
+    container:
+      image: rocm/dev-ubuntu-22.04:6.1
+      devices: [/dev/kfd, /dev/dri]
+      group_add: [video, render]
+      env: { ROCR_VISIBLE_DEVICES: "0" }
+
+policy:
+  parallel_machines: true    # Test both vendors concurrently
+```
+
 ### Pepita Transport Fields
 
 The `pepita:` block configures kernel namespace execution. Requires `CAP_SYS_ADMIN` or root. Zero Docker dependency.
