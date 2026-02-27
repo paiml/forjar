@@ -18,7 +18,7 @@ mod tests {
 
     #[test]
     fn test_fj507_status_compliance_report_flag() {
-        let cmd = Commands::Status {
+        let cmd = Commands::Status(StatusArgs {
             state_dir: PathBuf::from("state"),
             machine: None,
             json: false,
@@ -95,11 +95,11 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
-        };
+        });
         match cmd {
-            Commands::Status {
+            Commands::Status(StatusArgs {
                 compliance_report, ..
-            } => assert_eq!(compliance_report, Some("pci-dss".to_string())),
+            }) => assert_eq!(compliance_report, Some("pci-dss".to_string())),
             _ => panic!("expected Status"),
         }
     }
@@ -109,7 +109,7 @@ mod tests {
 
     #[test]
     fn test_fj512_status_mttr_flag() {
-        let cmd = Commands::Status {
+        let cmd = Commands::Status(StatusArgs {
             state_dir: PathBuf::from("state"),
             machine: None,
             json: false,
@@ -186,9 +186,9 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
-        };
+        });
         match cmd {
-            Commands::Status { mttr, .. } => assert!(mttr),
+            Commands::Status(StatusArgs { mttr, .. }) => assert!(mttr),
             _ => panic!("expected Status"),
         }
     }
@@ -196,7 +196,7 @@ mod tests {
 
     #[test]
     fn test_fj517_status_trend_flag() {
-        let cmd = Commands::Status {
+        let cmd = Commands::Status(StatusArgs {
             state_dir: PathBuf::from("state"),
             machine: None,
             json: false,
@@ -273,9 +273,9 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
-        };
+        });
         match cmd {
-            Commands::Status { trend, .. } => assert_eq!(trend, Some(10)),
+            Commands::Status(StatusArgs { trend, .. }) => assert_eq!(trend, Some(10)),
             _ => panic!("expected Status"),
         }
     }
@@ -285,7 +285,7 @@ mod tests {
 
     #[test]
     fn test_fj522_status_prediction_flag() {
-        let cmd = Commands::Status {
+        let cmd = Commands::Status(StatusArgs {
             state_dir: PathBuf::from("state"),
             machine: None,
             json: false,
@@ -362,9 +362,9 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
-        };
+        });
         match cmd {
-            Commands::Status { prediction, .. } => assert!(prediction),
+            Commands::Status(StatusArgs { prediction, .. }) => assert!(prediction),
             _ => panic!("expected Status"),
         }
     }
@@ -372,7 +372,7 @@ mod tests {
 
     #[test]
     fn test_fj527_status_capacity_flag() {
-        let cmd = Commands::Status {
+        let cmd = Commands::Status(StatusArgs {
             state_dir: PathBuf::from("state"),
             machine: None,
             json: false,
@@ -449,9 +449,9 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
-        };
+        });
         match cmd {
-            Commands::Status { capacity, .. } => assert!(capacity),
+            Commands::Status(StatusArgs { capacity, .. }) => assert!(capacity),
             _ => panic!("expected Status"),
         }
     }

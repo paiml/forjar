@@ -111,7 +111,7 @@ resources: {}
         )
         .unwrap();
         dispatch(
-            Commands::Graph {
+            Commands::Graph(GraphArgs {
                 file: config,
                 format: "mermaid".to_string(),
                 machine: None,
@@ -153,7 +153,7 @@ resources: {}
                 leaf_resources: false,
                 reverse_deps: false,
                 depth_first: false,
-            },
+            }),
             false,
             true,
         )
@@ -187,7 +187,7 @@ resources: {}
         )
         .unwrap();
         let result = dispatch(
-            Commands::Graph {
+            Commands::Graph(GraphArgs {
                 file: config,
                 format: "ascii".to_string(),
                 machine: None,
@@ -229,7 +229,7 @@ resources: {}
                 leaf_resources: false,
                 reverse_deps: false,
                 depth_first: false,
-            },
+            }),
             false,
             true,
         );

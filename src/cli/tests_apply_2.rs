@@ -238,7 +238,7 @@ resources:
 
         // --check delegates to cmd_check (which runs check scripts)
         let result = dispatch(
-            Commands::Apply {
+            Commands::Apply(ApplyArgs {
                 file: config,
                 machine: None,
                 resource: None,
@@ -378,7 +378,7 @@ resources:
                 notify_mattermost: None,
                 cooldown: None,
                 exclude_machine: None,
-            },
+            }),
             false,
             true,
         );

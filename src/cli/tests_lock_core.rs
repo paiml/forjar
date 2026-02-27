@@ -415,13 +415,13 @@ resources:
 
     #[test]
     fn test_fj366_lock_prune_parse() {
-        let cmd = Commands::LockPrune {
+        let cmd = Commands::LockPrune(LockPruneArgs {
             file: PathBuf::from("forjar.yaml"),
             state_dir: PathBuf::from("state"),
             yes: false,
-        };
+        });
         match cmd {
-            Commands::LockPrune { yes, .. } => assert!(!yes),
+            Commands::LockPrune(LockPruneArgs { yes, .. }) => assert!(!yes),
             _ => panic!("expected LockPrune"),
         }
     }
@@ -429,12 +429,12 @@ resources:
 
     #[test]
     fn test_fj384_lock_info_parse() {
-        let cmd = Commands::LockInfo {
+        let cmd = Commands::LockInfo(LockInfoArgs {
             state_dir: PathBuf::from("state"),
             json: false,
-        };
+        });
         match cmd {
-            Commands::LockInfo { state_dir, .. } => {
+            Commands::LockInfo(LockInfoArgs { state_dir, .. }) => {
                 assert_eq!(state_dir, PathBuf::from("state"));
             }
             _ => panic!("expected LockInfo"),
@@ -448,11 +448,11 @@ resources:
         let state = dir.path().join("state");
         std::fs::create_dir_all(&state).unwrap();
         let result = dispatch(
-            Commands::LockCompact {
+            Commands::LockCompact(LockCompactArgs {
                 state_dir: state,
                 yes: false,
                 json: true,
-            },
+            }),
             false,
             true,
         );
@@ -468,10 +468,10 @@ resources:
         let state = dir.path().join("state");
         std::fs::create_dir_all(&state).unwrap();
         let result = dispatch(
-            Commands::LockVerify {
+            Commands::LockVerify(LockVerifyArgs {
                 state_dir: state,
                 json: true,
-            },
+            }),
             false,
             true,
         );

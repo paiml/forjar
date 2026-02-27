@@ -100,7 +100,7 @@ resources:
 
     #[test]
     fn test_fj282_strict_flag_parse() {
-        let cmd = Commands::Validate {
+        let cmd = Commands::Validate(ValidateArgs {
             file: PathBuf::from("forjar.yaml"),
             strict: true,
             json: false,
@@ -139,9 +139,9 @@ resources:
             check_mode_consistency: false,
             check_group_consistency: false,
             check_mount_points: false,
-        };
+        });
         match cmd {
-            Commands::Validate { strict, .. } => assert!(strict),
+            Commands::Validate(ValidateArgs { strict, .. }) => assert!(strict),
             _ => panic!("expected Validate"),
         }
     }
@@ -181,16 +181,16 @@ resources:
 
     #[test]
     fn test_fj284_since_flag_parse() {
-        let cmd = Commands::History {
+        let cmd = Commands::History(HistoryArgs {
             state_dir: PathBuf::from("state"),
             machine: None,
             limit: 10,
             json: false,
             since: Some("24h".to_string()),
             resource: None,
-        };
+        });
         match cmd {
-            Commands::History { since, .. } => {
+            Commands::History(HistoryArgs { since, .. }) => {
                 assert_eq!(since, Some("24h".to_string()));
             }
             _ => panic!("expected History"),
@@ -200,7 +200,7 @@ resources:
 
     #[test]
     fn test_fj285_target_flag_parse() {
-        let cmd = Commands::Plan {
+        let cmd = Commands::Plan(PlanArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -215,9 +215,9 @@ resources:
             target: Some("web-config".to_string()),
             cost: false,
             what_if: vec![],
-        };
+        });
         match cmd {
-            Commands::Plan { target, .. } => {
+            Commands::Plan(PlanArgs { target, .. }) => {
                 assert_eq!(target, Some("web-config".to_string()));
             }
             _ => panic!("expected Plan"),
@@ -227,7 +227,7 @@ resources:
 
     #[test]
     fn test_fj286_yes_flag_parse() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -367,9 +367,9 @@ resources:
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { yes, .. } => assert!(yes),
+            Commands::Apply(ApplyArgs { yes, .. }) => assert!(yes),
             _ => panic!("expected Apply"),
         }
     }

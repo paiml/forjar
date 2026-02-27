@@ -17,7 +17,7 @@ mod tests {
 
     #[test]
     fn test_fj362_tag_filter_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("f.yaml"),
             state_dir: PathBuf::from("state"),
             machine: None,
@@ -157,9 +157,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { tag_filter, .. } => {
+            Commands::Apply(ApplyArgs { tag_filter, .. }) => {
                 assert_eq!(tag_filter, Some("web AND NOT staging".to_string()));
             }
             _ => panic!("expected Apply"),
@@ -169,7 +169,7 @@ mod tests {
 
     #[test]
     fn test_fj364_timeline_flag() {
-        let cmd = Commands::Status {
+        let cmd = Commands::Status(StatusArgs {
             state_dir: PathBuf::from("state"),
             machine: None,
             json: false,
@@ -246,9 +246,9 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
-        };
+        });
         match cmd {
-            Commands::Status { timeline, .. } => assert!(timeline),
+            Commands::Status(StatusArgs { timeline, .. }) => assert!(timeline),
             _ => panic!("expected Status"),
         }
     }
@@ -256,7 +256,7 @@ mod tests {
 
     #[test]
     fn test_fj370_resume_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("f.yaml"),
             state_dir: PathBuf::from("state"),
             machine: None,
@@ -396,9 +396,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { resume, .. } => assert!(resume),
+            Commands::Apply(ApplyArgs { resume, .. }) => assert!(resume),
             _ => panic!("expected Apply"),
         }
     }

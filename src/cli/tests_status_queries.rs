@@ -23,7 +23,7 @@ mod tests {
         let state = dir.path().join("state");
         std::fs::create_dir_all(&state).unwrap();
         dispatch(
-            Commands::Status {
+            Commands::Status(StatusArgs {
                 state_dir: state,
                 machine: None,
                 json: true,
@@ -100,7 +100,7 @@ mod tests {
                 drift_trend: false,
                 failed_resources: false,
                 resource_types_summary: false,
-            },
+            }),
             false,
             true,
         )

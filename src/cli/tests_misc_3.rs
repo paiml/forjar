@@ -18,7 +18,7 @@ mod tests {
 
     #[test]
     fn test_fj286_yes_default_false() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -158,9 +158,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { yes, .. } => assert!(!yes),
+            Commands::Apply(ApplyArgs { yes, .. }) => assert!(!yes),
             _ => panic!("expected Apply"),
         }
     }
@@ -170,14 +170,14 @@ mod tests {
 
     #[test]
     fn test_fj287_fix_flag_parse() {
-        let cmd = Commands::Doctor {
+        let cmd = Commands::Doctor(DoctorArgs {
             file: None,
             json: false,
             fix: true,
             network: false,
-        };
+        });
         match cmd {
-            Commands::Doctor { fix, .. } => assert!(fix),
+            Commands::Doctor(DoctorArgs { fix, .. }) => assert!(fix),
             _ => panic!("expected Doctor"),
         }
     }
@@ -185,7 +185,7 @@ mod tests {
 
     #[test]
     fn test_fj290_parallel_flag_parse() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -325,9 +325,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { parallel, .. } => assert!(parallel),
+            Commands::Apply(ApplyArgs { parallel, .. }) => assert!(parallel),
             _ => panic!("expected Apply"),
         }
     }

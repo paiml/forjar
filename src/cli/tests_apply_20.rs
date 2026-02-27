@@ -18,7 +18,7 @@ mod tests {
 
     #[test]
     fn test_fj556_apply_sign_off_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -158,9 +158,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { sign_off, .. } => {
+            Commands::Apply(ApplyArgs { sign_off, .. }) => {
                 assert_eq!(sign_off, Some("noah".to_string()))
             }
             _ => panic!("expected Apply"),
@@ -170,7 +170,7 @@ mod tests {
 
     #[test]
     fn test_fj560_apply_notify_sns_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -310,9 +310,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { notify_sns, .. } => {
+            Commands::Apply(ApplyArgs { notify_sns, .. }) => {
                 assert_eq!(
                     notify_sns,
                     Some("arn:aws:sns:us-east-1:123456789:forjar".to_string())
@@ -325,7 +325,7 @@ mod tests {
 
     #[test]
     fn test_fj563_apply_telemetry_endpoint_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -465,11 +465,11 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply {
+            Commands::Apply(ApplyArgs {
                 telemetry_endpoint, ..
-            } => assert_eq!(
+            }) => assert_eq!(
                 telemetry_endpoint,
                 Some("https://otel.example.com/v1/traces".to_string())
             ),

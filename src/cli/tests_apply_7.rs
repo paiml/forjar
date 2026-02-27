@@ -18,7 +18,7 @@ mod tests {
 
     #[test]
     fn test_fj423_apply_tags_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -158,9 +158,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { tags, .. } => {
+            Commands::Apply(ApplyArgs { tags, .. }) => {
                 assert_eq!(tags, vec!["web".to_string(), "prod".to_string()]);
             }
             _ => panic!("expected Apply"),
@@ -172,7 +172,7 @@ mod tests {
 
     #[test]
     fn test_fj430_apply_comment_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -312,9 +312,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { comment, .. } => {
+            Commands::Apply(ApplyArgs { comment, .. }) => {
                 assert_eq!(comment, Some("deploy v2.1".to_string()));
             }
             _ => panic!("expected Apply"),
@@ -324,7 +324,7 @@ mod tests {
 
     #[test]
     fn test_fj433_apply_only_changed_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -464,9 +464,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { only_changed, .. } => assert!(only_changed),
+            Commands::Apply(ApplyArgs { only_changed, .. }) => assert!(only_changed),
             _ => panic!("expected Apply"),
         }
     }

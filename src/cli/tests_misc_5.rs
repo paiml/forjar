@@ -17,7 +17,7 @@ mod tests {
 
     #[test]
     fn test_fj313_max_parallel_flag_parse() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("f.yaml"),
             state_dir: PathBuf::from("state"),
             machine: None,
@@ -157,9 +157,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { max_parallel, .. } => assert_eq!(max_parallel, Some(4)),
+            Commands::Apply(ApplyArgs { max_parallel, .. }) => assert_eq!(max_parallel, Some(4)),
             _ => panic!("expected Apply"),
         }
     }
@@ -169,7 +169,7 @@ mod tests {
 
     #[test]
     fn test_fj317_notify_flag_parse() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("f.yaml"),
             state_dir: PathBuf::from("state"),
             machine: None,
@@ -309,9 +309,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { notify, .. } => {
+            Commands::Apply(ApplyArgs { notify, .. }) => {
                 assert_eq!(notify, Some("https://hooks.example.com/apply".to_string()));
             }
             _ => panic!("expected Apply"),
@@ -321,7 +321,7 @@ mod tests {
 
     #[test]
     fn test_fj335_confirm_destructive_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("f.yaml"),
             state_dir: PathBuf::from("state"),
             machine: None,
@@ -461,12 +461,12 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply {
+            Commands::Apply(ApplyArgs {
                 confirm_destructive,
                 ..
-            } => assert!(confirm_destructive),
+            }) => assert!(confirm_destructive),
             _ => panic!("expected Apply"),
         }
     }

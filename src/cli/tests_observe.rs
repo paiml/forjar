@@ -158,13 +158,13 @@ mod tests {
         let config_path = dir.path().join("forjar.yaml");
         std::fs::write(&config_path, "version: \"1.0\"\nname: test\nmachines:\n  local:\n    hostname: localhost\n    addr: 127.0.0.1\nresources:\n  test:\n    type: file\n    machine: local\n    path: /tmp/fj267-test.txt\n    content: test\n").unwrap();
         let result = dispatch(
-            Commands::Watch {
+            Commands::Watch(WatchArgs {
                 file: config_path,
                 state_dir: dir.path().join("state"),
                 interval: 2,
                 apply: true,
                 yes: false,
-            },
+            }),
             false,
             true,
         );
@@ -176,17 +176,17 @@ mod tests {
     #[test]
     fn test_fj267_watch_command_parse() {
         // Verify Watch command variant has correct fields
-        let cmd = Commands::Watch {
+        let cmd = Commands::Watch(WatchArgs {
             file: PathBuf::from("forjar.yaml"),
             state_dir: PathBuf::from("state"),
             interval: 5,
             apply: false,
             yes: false,
-        };
+        });
         match cmd {
-            Commands::Watch {
+            Commands::Watch(WatchArgs {
                 interval, apply, ..
-            } => {
+            }) => {
                 assert_eq!(interval, 5);
                 assert!(!apply);
             }
@@ -197,7 +197,7 @@ mod tests {
 
     #[test]
     fn test_fj314_watch_flag_parse() {
-        let cmd = Commands::Status {
+        let cmd = Commands::Status(StatusArgs {
             state_dir: PathBuf::from("state"),
             machine: None,
             json: false,
@@ -274,9 +274,9 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
-        };
+        });
         match cmd {
-            Commands::Status { watch, .. } => assert_eq!(watch, Some(5)),
+            Commands::Status(StatusArgs { watch, .. }) => assert_eq!(watch, Some(5)),
             _ => panic!("expected Status"),
         }
     }

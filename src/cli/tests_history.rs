@@ -140,14 +140,14 @@ mod tests {
         let state = dir.path().join("state");
         std::fs::create_dir_all(&state).unwrap();
         dispatch(
-            Commands::History {
+            Commands::History(HistoryArgs {
                 state_dir: state,
                 machine: None,
                 limit: 10,
                 json: false,
                 since: None,
                 resource: None,
-            },
+            }),
             false,
             true,
         )
@@ -221,16 +221,16 @@ mod tests {
 
     #[test]
     fn test_fj357_history_resource_flag() {
-        let cmd = Commands::History {
+        let cmd = Commands::History(HistoryArgs {
             state_dir: PathBuf::from("state"),
             machine: None,
             limit: 10,
             json: false,
             since: None,
             resource: Some("base-packages".to_string()),
-        };
+        });
         match cmd {
-            Commands::History { resource, .. } => {
+            Commands::History(HistoryArgs { resource, .. }) => {
                 assert_eq!(resource, Some("base-packages".to_string()));
             }
             _ => panic!("expected History"),

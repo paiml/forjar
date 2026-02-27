@@ -259,7 +259,7 @@ resources:
 
     #[test]
     fn test_fj272_progress_flag_parse() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -399,9 +399,9 @@ resources:
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { progress, .. } => assert!(progress),
+            Commands::Apply(ApplyArgs { progress, .. }) => assert!(progress),
             _ => panic!("expected Apply"),
         }
     }

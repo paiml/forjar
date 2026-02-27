@@ -183,7 +183,7 @@ fn try_status_display(
 
 /// Dispatch the Status command variant.
 pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
-    let Commands::Status {
+    let Commands::Status(StatusArgs {
         state_dir, machine, json, file, summary, watch,
         stale, health, drift_details, timeline, changes_since,
         summary_by, prometheus, expired, count,
@@ -203,7 +203,7 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
         drift_details_all, last_apply_duration, config_hash,
         convergence_history, resource_inputs, drift_trend,
         failed_resources, resource_types_summary,
-    } = cmd
+    }) = cmd
     else {
         unreachable!()
     };

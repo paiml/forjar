@@ -18,7 +18,7 @@ mod tests {
 
     #[test]
     fn test_fj566_apply_runbook_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -158,9 +158,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { runbook, .. } => {
+            Commands::Apply(ApplyArgs { runbook, .. }) => {
                 assert_eq!(
                     runbook,
                     Some("https://wiki.example.com/runbook/deploy".to_string())
@@ -173,7 +173,7 @@ mod tests {
 
     #[test]
     fn test_fj570_apply_notify_pubsub_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -313,9 +313,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { notify_pubsub, .. } => {
+            Commands::Apply(ApplyArgs { notify_pubsub, .. }) => {
                 assert_eq!(
                     notify_pubsub,
                     Some("projects/my-proj/topics/forjar".to_string())
@@ -328,7 +328,7 @@ mod tests {
 
     #[test]
     fn test_fj573_apply_fleet_strategy_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -468,9 +468,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { fleet_strategy, .. } => {
+            Commands::Apply(ApplyArgs { fleet_strategy, .. }) => {
                 assert_eq!(fleet_strategy, Some("rolling".to_string()))
             }
             _ => panic!("expected Apply"),

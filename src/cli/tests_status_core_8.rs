@@ -19,7 +19,7 @@ mod tests {
     #[test]
     fn test_fj557_status_sla_report_already_exists() {
         // FJ-557 maps to existing sla_report field (FJ-502)
-        let cmd = Commands::Status {
+        let cmd = Commands::Status(StatusArgs {
             state_dir: PathBuf::from("state"),
             machine: None,
             json: false,
@@ -96,9 +96,9 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
-        };
+        });
         match cmd {
-            Commands::Status { sla_report, .. } => assert!(sla_report),
+            Commands::Status(StatusArgs { sla_report, .. }) => assert!(sla_report),
             _ => panic!("expected Status"),
         }
     }
@@ -108,7 +108,7 @@ mod tests {
 
     #[test]
     fn test_fj562_status_resource_graph_flag() {
-        let cmd = Commands::Status {
+        let cmd = Commands::Status(StatusArgs {
             state_dir: PathBuf::from("state"),
             machine: None,
             json: false,
@@ -185,9 +185,9 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
-        };
+        });
         match cmd {
-            Commands::Status { resource_graph, .. } => assert!(resource_graph),
+            Commands::Status(StatusArgs { resource_graph, .. }) => assert!(resource_graph),
             _ => panic!("expected Status"),
         }
     }
@@ -195,7 +195,7 @@ mod tests {
 
     #[test]
     fn test_fj567_status_drift_velocity_flag() {
-        let cmd = Commands::Status {
+        let cmd = Commands::Status(StatusArgs {
             state_dir: PathBuf::from("state"),
             machine: None,
             json: false,
@@ -272,9 +272,9 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
-        };
+        });
         match cmd {
-            Commands::Status { drift_velocity, .. } => assert!(drift_velocity),
+            Commands::Status(StatusArgs { drift_velocity, .. }) => assert!(drift_velocity),
             _ => panic!("expected Status"),
         }
     }
@@ -284,7 +284,7 @@ mod tests {
 
     #[test]
     fn test_fj572_status_fleet_overview_flag() {
-        let cmd = Commands::Status {
+        let cmd = Commands::Status(StatusArgs {
             state_dir: PathBuf::from("state"),
             machine: None,
             json: false,
@@ -361,9 +361,9 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
-        };
+        });
         match cmd {
-            Commands::Status { fleet_overview, .. } => assert!(fleet_overview),
+            Commands::Status(StatusArgs { fleet_overview, .. }) => assert!(fleet_overview),
             _ => panic!("expected Status"),
         }
     }
@@ -371,7 +371,7 @@ mod tests {
 
     #[test]
     fn test_fj577_status_machine_health_flag() {
-        let cmd = Commands::Status {
+        let cmd = Commands::Status(StatusArgs {
             state_dir: PathBuf::from("state"),
             machine: None,
             json: false,
@@ -448,9 +448,9 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
-        };
+        });
         match cmd {
-            Commands::Status { machine_health, .. } => assert!(machine_health),
+            Commands::Status(StatusArgs { machine_health, .. }) => assert!(machine_health),
             _ => panic!("expected Status"),
         }
     }

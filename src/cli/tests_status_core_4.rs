@@ -18,7 +18,7 @@ mod tests {
 
     #[test]
     fn test_fj457_status_alerts_flag() {
-        let cmd = Commands::Status {
+        let cmd = Commands::Status(StatusArgs {
             state_dir: PathBuf::from("state"),
             machine: None,
             json: false,
@@ -95,9 +95,9 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
-        };
+        });
         match cmd {
-            Commands::Status { alerts, .. } => assert!(alerts),
+            Commands::Status(StatusArgs { alerts, .. }) => assert!(alerts),
             _ => panic!("expected Status"),
         }
     }
@@ -107,7 +107,7 @@ mod tests {
 
     #[test]
     fn test_fj462_status_diff_lock_flag() {
-        let cmd = Commands::Status {
+        let cmd = Commands::Status(StatusArgs {
             state_dir: PathBuf::from("state"),
             machine: None,
             json: false,
@@ -184,9 +184,9 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
-        };
+        });
         match cmd {
-            Commands::Status { diff_lock, .. } => {
+            Commands::Status(StatusArgs { diff_lock, .. }) => {
                 assert_eq!(diff_lock, Some(PathBuf::from("old-state")));
             }
             _ => panic!("expected Status"),
@@ -196,7 +196,7 @@ mod tests {
 
     #[test]
     fn test_fj467_status_compliance_flag() {
-        let cmd = Commands::Status {
+        let cmd = Commands::Status(StatusArgs {
             state_dir: PathBuf::from("state"),
             machine: None,
             json: false,
@@ -273,9 +273,9 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
-        };
+        });
         match cmd {
-            Commands::Status { compliance, .. } => {
+            Commands::Status(StatusArgs { compliance, .. }) => {
                 assert_eq!(compliance, Some("soc2".to_string()));
             }
             _ => panic!("expected Status"),
@@ -287,7 +287,7 @@ mod tests {
 
     #[test]
     fn test_fj472_status_histogram_flag() {
-        let cmd = Commands::Status {
+        let cmd = Commands::Status(StatusArgs {
             state_dir: PathBuf::from("state"),
             machine: None,
             json: false,
@@ -364,9 +364,9 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
-        };
+        });
         match cmd {
-            Commands::Status { histogram, .. } => assert!(histogram),
+            Commands::Status(StatusArgs { histogram, .. }) => assert!(histogram),
             _ => panic!("expected Status"),
         }
     }
@@ -374,7 +374,7 @@ mod tests {
 
     #[test]
     fn test_fj477_status_dependency_health_flag() {
-        let cmd = Commands::Status {
+        let cmd = Commands::Status(StatusArgs {
             state_dir: PathBuf::from("state"),
             machine: None,
             json: false,
@@ -451,11 +451,11 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
-        };
+        });
         match cmd {
-            Commands::Status {
+            Commands::Status(StatusArgs {
                 dependency_health, ..
-            } => assert!(dependency_health),
+            }) => assert!(dependency_health),
             _ => panic!("expected Status"),
         }
     }

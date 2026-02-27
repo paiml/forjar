@@ -18,7 +18,7 @@ mod tests {
 
     #[test]
     fn test_fj365_output_scripts_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("f.yaml"),
             state_dir: PathBuf::from("state"),
             machine: None,
@@ -158,9 +158,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { output_scripts, .. } => {
+            Commands::Apply(ApplyArgs { output_scripts, .. }) => {
                 assert_eq!(output_scripts, Some(PathBuf::from("/tmp/scripts")));
             }
             _ => panic!("expected Apply"),
@@ -172,13 +172,13 @@ mod tests {
 
     #[test]
     fn test_fj371_template_parse() {
-        let cmd = Commands::Template {
+        let cmd = Commands::Template(TemplateArgs {
             recipe: PathBuf::from("recipes/dev.yaml"),
             vars: vec!["user=noah".to_string()],
             json: false,
-        };
+        });
         match cmd {
-            Commands::Template { recipe, vars, .. } => {
+            Commands::Template(TemplateArgs { recipe, vars, .. }) => {
                 assert_eq!(recipe, PathBuf::from("recipes/dev.yaml"));
                 assert_eq!(vars, vec!["user=noah".to_string()]);
             }

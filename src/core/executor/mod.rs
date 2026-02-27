@@ -5,6 +5,7 @@
 
 mod helpers;
 mod machine;
+mod machine_wave;
 mod resource_ops;
 mod strategies;
 

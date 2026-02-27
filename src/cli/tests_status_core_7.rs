@@ -18,7 +18,7 @@ mod tests {
 
     #[test]
     fn test_fj532_status_cost_estimate_flag() {
-        let cmd = Commands::Status {
+        let cmd = Commands::Status(StatusArgs {
             state_dir: PathBuf::from("state"),
             machine: None,
             json: false,
@@ -95,9 +95,9 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
-        };
+        });
         match cmd {
-            Commands::Status { cost_estimate, .. } => assert!(cost_estimate),
+            Commands::Status(StatusArgs { cost_estimate, .. }) => assert!(cost_estimate),
             _ => panic!("expected Status"),
         }
     }
@@ -105,7 +105,7 @@ mod tests {
 
     #[test]
     fn test_fj537_status_staleness_report_flag() {
-        let cmd = Commands::Status {
+        let cmd = Commands::Status(StatusArgs {
             state_dir: PathBuf::from("state"),
             machine: None,
             json: false,
@@ -182,11 +182,11 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
-        };
+        });
         match cmd {
-            Commands::Status {
+            Commands::Status(StatusArgs {
                 staleness_report, ..
-            } => assert_eq!(staleness_report, Some("30d".to_string())),
+            }) => assert_eq!(staleness_report, Some("30d".to_string())),
             _ => panic!("expected Status"),
         }
     }
@@ -196,7 +196,7 @@ mod tests {
 
     #[test]
     fn test_fj542_status_health_score_flag() {
-        let cmd = Commands::Status {
+        let cmd = Commands::Status(StatusArgs {
             state_dir: PathBuf::from("state"),
             machine: None,
             json: false,
@@ -273,9 +273,9 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
-        };
+        });
         match cmd {
-            Commands::Status { health_score, .. } => assert!(health_score),
+            Commands::Status(StatusArgs { health_score, .. }) => assert!(health_score),
             _ => panic!("expected Status"),
         }
     }
@@ -283,7 +283,7 @@ mod tests {
 
     #[test]
     fn test_fj547_status_executive_summary_flag() {
-        let cmd = Commands::Status {
+        let cmd = Commands::Status(StatusArgs {
             state_dir: PathBuf::from("state"),
             machine: None,
             json: false,
@@ -360,11 +360,11 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
-        };
+        });
         match cmd {
-            Commands::Status {
+            Commands::Status(StatusArgs {
                 executive_summary, ..
-            } => assert!(executive_summary),
+            }) => assert!(executive_summary),
             _ => panic!("expected Status"),
         }
     }
@@ -374,7 +374,7 @@ mod tests {
 
     #[test]
     fn test_fj552_status_audit_trail_flag() {
-        let cmd = Commands::Status {
+        let cmd = Commands::Status(StatusArgs {
             state_dir: PathBuf::from("state"),
             machine: None,
             json: false,
@@ -451,9 +451,9 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
-        };
+        });
         match cmd {
-            Commands::Status { audit_trail, .. } => assert!(audit_trail),
+            Commands::Status(StatusArgs { audit_trail, .. }) => assert!(audit_trail),
             _ => panic!("expected Status"),
         }
     }

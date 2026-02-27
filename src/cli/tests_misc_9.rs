@@ -17,7 +17,7 @@ mod tests {
 
     #[test]
     fn test_fj372_changes_since_flag() {
-        let cmd = Commands::Status {
+        let cmd = Commands::Status(StatusArgs {
             state_dir: PathBuf::from("state"),
             machine: None,
             json: false,
@@ -94,9 +94,9 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
-        };
+        });
         match cmd {
-            Commands::Status { changes_since, .. } => {
+            Commands::Status(StatusArgs { changes_since, .. }) => {
                 assert_eq!(changes_since, Some("abc123".to_string()));
             }
             _ => panic!("expected Status"),
@@ -106,7 +106,7 @@ mod tests {
 
     #[test]
     fn test_fj375_critical_path_flag() {
-        let cmd = Commands::Graph {
+        let cmd = Commands::Graph(GraphArgs {
             file: PathBuf::from("f.yaml"),
             format: "mermaid".to_string(),
             machine: None,
@@ -148,9 +148,9 @@ mod tests {
             leaf_resources: false,
             reverse_deps: false,
             depth_first: false,
-        };
+        });
         match cmd {
-            Commands::Graph { critical_path, .. } => assert!(critical_path),
+            Commands::Graph(GraphArgs { critical_path, .. }) => assert!(critical_path),
             _ => panic!("expected Graph"),
         }
     }
@@ -158,7 +158,7 @@ mod tests {
 
     #[test]
     fn test_fj376_summary_by_flag() {
-        let cmd = Commands::Status {
+        let cmd = Commands::Status(StatusArgs {
             state_dir: PathBuf::from("state"),
             machine: None,
             json: false,
@@ -235,9 +235,9 @@ mod tests {
             drift_trend: false,
             failed_resources: false,
             resource_types_summary: false,
-        };
+        });
         match cmd {
-            Commands::Status { summary_by, .. } => {
+            Commands::Status(StatusArgs { summary_by, .. }) => {
                 assert_eq!(summary_by, Some("machine".to_string()));
             }
             _ => panic!("expected Status"),
@@ -247,7 +247,7 @@ mod tests {
 
     #[test]
     fn test_fj377_max_failures_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("f.yaml"),
             state_dir: PathBuf::from("state"),
             machine: None,
@@ -387,9 +387,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { max_failures, .. } => assert_eq!(max_failures, Some(3)),
+            Commands::Apply(ApplyArgs { max_failures, .. }) => assert_eq!(max_failures, Some(3)),
             _ => panic!("expected Apply"),
         }
     }

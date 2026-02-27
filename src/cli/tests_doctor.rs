@@ -172,14 +172,14 @@ resources:
 
     #[test]
     fn test_fj343_doctor_network_flag() {
-        let cmd = Commands::Doctor {
+        let cmd = Commands::Doctor(DoctorArgs {
             file: None,
             json: false,
             fix: false,
             network: true,
-        };
+        });
         match cmd {
-            Commands::Doctor { network, .. } => assert!(network),
+            Commands::Doctor(DoctorArgs { network, .. }) => assert!(network),
             _ => panic!("expected Doctor"),
         }
     }

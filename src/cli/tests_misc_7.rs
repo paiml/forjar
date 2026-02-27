@@ -17,7 +17,7 @@ mod tests {
 
     #[test]
     fn test_fj353_notify_slack_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("f.yaml"),
             state_dir: PathBuf::from("state"),
             machine: None,
@@ -157,9 +157,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { notify_slack, .. } => {
+            Commands::Apply(ApplyArgs { notify_slack, .. }) => {
                 assert_eq!(
                     notify_slack,
                     Some("https://hooks.slack.com/test".to_string())
@@ -172,7 +172,7 @@ mod tests {
 
     #[test]
     fn test_fj356_cost_limit_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("f.yaml"),
             state_dir: PathBuf::from("state"),
             machine: None,
@@ -312,9 +312,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { cost_limit, .. } => assert_eq!(cost_limit, Some(5)),
+            Commands::Apply(ApplyArgs { cost_limit, .. }) => assert_eq!(cost_limit, Some(5)),
             _ => panic!("expected Apply"),
         }
     }
@@ -322,7 +322,7 @@ mod tests {
 
     #[test]
     fn test_fj360_preview_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("f.yaml"),
             state_dir: PathBuf::from("state"),
             machine: None,
@@ -462,9 +462,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { preview, .. } => assert!(preview),
+            Commands::Apply(ApplyArgs { preview, .. }) => assert!(preview),
             _ => panic!("expected Apply"),
         }
     }

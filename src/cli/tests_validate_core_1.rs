@@ -18,7 +18,7 @@ mod tests {
 
     #[test]
     fn test_fj411_validate_check_connectivity_flag() {
-        let cmd = Commands::Validate {
+        let cmd = Commands::Validate(ValidateArgs {
             file: PathBuf::from("forjar.yaml"),
             strict: false,
             json: false,
@@ -57,11 +57,11 @@ mod tests {
             check_mode_consistency: false,
             check_group_consistency: false,
             check_mount_points: false,
-        };
+        });
         match cmd {
-            Commands::Validate {
+            Commands::Validate(ValidateArgs {
                 check_connectivity, ..
-            } => assert!(check_connectivity),
+            }) => assert!(check_connectivity),
             _ => panic!("expected Validate"),
         }
     }
@@ -69,7 +69,7 @@ mod tests {
 
     #[test]
     fn test_fj421_validate_check_templates_flag() {
-        let cmd = Commands::Validate {
+        let cmd = Commands::Validate(ValidateArgs {
             file: PathBuf::from("forjar.yaml"),
             strict: false,
             json: false,
@@ -108,11 +108,11 @@ mod tests {
             check_mode_consistency: false,
             check_group_consistency: false,
             check_mount_points: false,
-        };
+        });
         match cmd {
-            Commands::Validate {
+            Commands::Validate(ValidateArgs {
                 check_templates, ..
-            } => assert!(check_templates),
+            }) => assert!(check_templates),
             _ => panic!("expected Validate"),
         }
     }
@@ -120,7 +120,7 @@ mod tests {
 
     #[test]
     fn test_fj431_validate_strict_deps_flag() {
-        let cmd = Commands::Validate {
+        let cmd = Commands::Validate(ValidateArgs {
             file: PathBuf::from("forjar.yaml"),
             strict: false,
             json: false,
@@ -159,9 +159,9 @@ mod tests {
             check_mode_consistency: false,
             check_group_consistency: false,
             check_mount_points: false,
-        };
+        });
         match cmd {
-            Commands::Validate { strict_deps, .. } => assert!(strict_deps),
+            Commands::Validate(ValidateArgs { strict_deps, .. }) => assert!(strict_deps),
             _ => panic!("expected Validate"),
         }
     }
@@ -169,7 +169,7 @@ mod tests {
 
     #[test]
     fn test_fj441_validate_check_secrets_flag() {
-        let cmd = Commands::Validate {
+        let cmd = Commands::Validate(ValidateArgs {
             file: PathBuf::from("forjar.yaml"),
             strict: false,
             json: false,
@@ -208,9 +208,9 @@ mod tests {
             check_mode_consistency: false,
             check_group_consistency: false,
             check_mount_points: false,
-        };
+        });
         match cmd {
-            Commands::Validate { check_secrets, .. } => assert!(check_secrets),
+            Commands::Validate(ValidateArgs { check_secrets, .. }) => assert!(check_secrets),
             _ => panic!("expected Validate"),
         }
     }
@@ -218,7 +218,7 @@ mod tests {
 
     #[test]
     fn test_fj451_validate_check_idempotency_flag() {
-        let cmd = Commands::Validate {
+        let cmd = Commands::Validate(ValidateArgs {
             file: PathBuf::from("forjar.yaml"),
             strict: false,
             json: false,
@@ -257,11 +257,11 @@ mod tests {
             check_mode_consistency: false,
             check_group_consistency: false,
             check_mount_points: false,
-        };
+        });
         match cmd {
-            Commands::Validate {
+            Commands::Validate(ValidateArgs {
                 check_idempotency, ..
-            } => assert!(check_idempotency),
+            }) => assert!(check_idempotency),
             _ => panic!("expected Validate"),
         }
     }
@@ -269,7 +269,7 @@ mod tests {
 
     #[test]
     fn test_fj461_validate_check_drift_coverage_flag() {
-        let cmd = Commands::Validate {
+        let cmd = Commands::Validate(ValidateArgs {
             file: PathBuf::from("forjar.yaml"),
             strict: false,
             json: false,
@@ -308,12 +308,12 @@ mod tests {
             check_mode_consistency: false,
             check_group_consistency: false,
             check_mount_points: false,
-        };
+        });
         match cmd {
-            Commands::Validate {
+            Commands::Validate(ValidateArgs {
                 check_drift_coverage,
                 ..
-            } => assert!(check_drift_coverage),
+            }) => assert!(check_drift_coverage),
             _ => panic!("expected Validate"),
         }
     }
@@ -321,7 +321,7 @@ mod tests {
 
     #[test]
     fn test_fj471_validate_check_cycles_deep_flag() {
-        let cmd = Commands::Validate {
+        let cmd = Commands::Validate(ValidateArgs {
             file: PathBuf::from("forjar.yaml"),
             strict: false,
             json: false,
@@ -360,11 +360,11 @@ mod tests {
             check_mode_consistency: false,
             check_group_consistency: false,
             check_mount_points: false,
-        };
+        });
         match cmd {
-            Commands::Validate {
+            Commands::Validate(ValidateArgs {
                 check_cycles_deep, ..
-            } => assert!(check_cycles_deep),
+            }) => assert!(check_cycles_deep),
             _ => panic!("expected Validate"),
         }
     }
@@ -372,7 +372,7 @@ mod tests {
 
     #[test]
     fn test_fj481_validate_check_naming_flag() {
-        let cmd = Commands::Validate {
+        let cmd = Commands::Validate(ValidateArgs {
             file: PathBuf::from("forjar.yaml"),
             strict: false,
             json: false,
@@ -411,9 +411,9 @@ mod tests {
             check_mode_consistency: false,
             check_group_consistency: false,
             check_mount_points: false,
-        };
+        });
         match cmd {
-            Commands::Validate { check_naming, .. } => assert!(check_naming),
+            Commands::Validate(ValidateArgs { check_naming, .. }) => assert!(check_naming),
             _ => panic!("expected Validate"),
         }
     }
@@ -421,7 +421,7 @@ mod tests {
 
     #[test]
     fn test_fj491_validate_check_overlaps_flag() {
-        let cmd = Commands::Validate {
+        let cmd = Commands::Validate(ValidateArgs {
             file: PathBuf::from("forjar.yaml"),
             strict: false,
             json: false,
@@ -460,9 +460,9 @@ mod tests {
             check_mode_consistency: false,
             check_group_consistency: false,
             check_mount_points: false,
-        };
+        });
         match cmd {
-            Commands::Validate { check_overlaps, .. } => assert!(check_overlaps),
+            Commands::Validate(ValidateArgs { check_overlaps, .. }) => assert!(check_overlaps),
             _ => panic!("expected Validate"),
         }
     }

@@ -17,7 +17,7 @@ mod tests {
 
     #[test]
     fn test_fj342_backup_flag_parse() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             state_dir: PathBuf::from("state"),
             machine: None,
@@ -157,9 +157,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { backup, .. } => assert!(backup),
+            Commands::Apply(ApplyArgs { backup, .. }) => assert!(backup),
             _ => panic!("expected Apply"),
         }
     }
@@ -167,7 +167,7 @@ mod tests {
 
     #[test]
     fn test_fj345_exclude_flag_parse() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             state_dir: PathBuf::from("state"),
             machine: None,
@@ -307,9 +307,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { exclude, .. } => assert_eq!(exclude, Some("test-*".to_string())),
+            Commands::Apply(ApplyArgs { exclude, .. }) => assert_eq!(exclude, Some("test-*".to_string())),
             _ => panic!("expected Apply"),
         }
     }
@@ -317,7 +317,7 @@ mod tests {
 
     #[test]
     fn test_fj347_sequential_flag_parse() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             state_dir: PathBuf::from("state"),
             machine: None,
@@ -457,9 +457,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { sequential, .. } => assert!(sequential),
+            Commands::Apply(ApplyArgs { sequential, .. }) => assert!(sequential),
             _ => panic!("expected Apply"),
         }
     }

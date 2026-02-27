@@ -18,7 +18,7 @@ mod tests {
 
     #[test]
     fn test_fj410_apply_webhook_before_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -158,9 +158,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { webhook_before, .. } => {
+            Commands::Apply(ApplyArgs { webhook_before, .. }) => {
                 assert_eq!(
                     webhook_before,
                     Some("https://hooks.example.com/apply".to_string())
@@ -173,7 +173,7 @@ mod tests {
 
     #[test]
     fn test_fj413_apply_rollback_snapshot_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -313,11 +313,11 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply {
+            Commands::Apply(ApplyArgs {
                 rollback_snapshot, ..
-            } => {
+            }) => {
                 assert_eq!(rollback_snapshot, Some("v1-safe".to_string()));
             }
             _ => panic!("expected Apply"),
@@ -327,7 +327,7 @@ mod tests {
 
     #[test]
     fn test_fj426_apply_log_file_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -467,9 +467,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { log_file, .. } => {
+            Commands::Apply(ApplyArgs { log_file, .. }) => {
                 assert_eq!(log_file, Some(PathBuf::from("/tmp/apply.log")));
             }
             _ => panic!("expected Apply"),

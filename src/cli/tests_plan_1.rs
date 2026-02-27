@@ -113,7 +113,7 @@ resources:
 
     #[test]
     fn test_fj312_plan_cost_flag_parse() {
-        let cmd = Commands::Plan {
+        let cmd = Commands::Plan(PlanArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -128,9 +128,9 @@ resources:
             target: None,
             cost: true,
             what_if: vec![],
-        };
+        });
         match cmd {
-            Commands::Plan { cost, .. } => assert!(cost),
+            Commands::Plan(PlanArgs { cost, .. }) => assert!(cost),
             _ => panic!("expected Plan"),
         }
     }
@@ -140,7 +140,7 @@ resources:
 
     #[test]
     fn test_fj333_plan_what_if_flag() {
-        let cmd = Commands::Plan {
+        let cmd = Commands::Plan(PlanArgs {
             file: PathBuf::from("f.yaml"),
             machine: None,
             resource: None,
@@ -155,9 +155,9 @@ resources:
             target: None,
             cost: false,
             what_if: vec!["port=8080".to_string()],
-        };
+        });
         match cmd {
-            Commands::Plan { what_if, .. } => {
+            Commands::Plan(PlanArgs { what_if, .. }) => {
                 assert_eq!(what_if.len(), 1);
                 assert_eq!(what_if[0], "port=8080");
             }
@@ -168,14 +168,14 @@ resources:
 
     #[test]
     fn test_fj344_plan_compact_parse() {
-        let cmd = Commands::PlanCompact {
+        let cmd = Commands::PlanCompact(PlanCompactArgs {
             file: PathBuf::from("forjar.yaml"),
             state_dir: PathBuf::from("state"),
             machine: None,
             json: false,
-        };
+        });
         match cmd {
-            Commands::PlanCompact { file, .. } => {
+            Commands::PlanCompact(PlanCompactArgs { file, .. }) => {
                 assert_eq!(file, PathBuf::from("forjar.yaml"));
             }
             _ => panic!("expected PlanCompact"),

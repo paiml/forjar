@@ -8,9 +8,15 @@ pub mod ssh;
 #[cfg(test)]
 mod tests_dispatch;
 #[cfg(test)]
+mod tests_dispatch_b;
+#[cfg(test)]
 mod tests_ssh;
 #[cfg(test)]
 mod tests_container;
+#[cfg(test)]
+mod tests_container_b;
+#[cfg(test)]
+mod tests_container_c;
 
 use crate::core::types::Machine;
 

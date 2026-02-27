@@ -182,10 +182,10 @@ mod tests {
     #[test]
     fn test_fj277_env_no_config() {
         let result = dispatch(
-            Commands::Env {
+            Commands::Env(EnvArgs {
                 file: PathBuf::from("/tmp/nonexistent-forjar.yaml"),
                 json: false,
-            },
+            }),
             false,
             true,
         );
@@ -199,10 +199,10 @@ mod tests {
         let config_path = dir.path().join("forjar.yaml");
         std::fs::write(&config_path, "version: \"1.0\"\nname: my-project\nmachines:\n  a:\n    hostname: a\n    addr: 1.2.3.4\n  b:\n    hostname: b\n    addr: 5.6.7.8\nresources:\n  pkg:\n    type: file\n    machine: a\n    path: /tmp/x\n    content: x\n").unwrap();
         let result = dispatch(
-            Commands::Env {
+            Commands::Env(EnvArgs {
                 file: config_path,
                 json: false,
-            },
+            }),
             false,
             true,
         );
@@ -216,10 +216,10 @@ mod tests {
         let config_path = dir.path().join("forjar.yaml");
         std::fs::write(&config_path, "version: \"1.0\"\nname: test\nmachines:\n  local:\n    hostname: localhost\n    addr: 127.0.0.1\nresources:\n  f:\n    type: file\n    machine: local\n    path: /tmp/x\n    content: x\n").unwrap();
         let result = dispatch(
-            Commands::Env {
+            Commands::Env(EnvArgs {
                 file: config_path,
                 json: true,
-            },
+            }),
             false,
             true,
         );
@@ -229,12 +229,12 @@ mod tests {
 
     #[test]
     fn test_fj277_env_command_parse() {
-        let cmd = Commands::Env {
+        let cmd = Commands::Env(EnvArgs {
             file: PathBuf::from("forjar.yaml"),
             json: true,
-        };
+        });
         match cmd {
-            Commands::Env { json, .. } => assert!(json),
+            Commands::Env(EnvArgs { json, .. }) => assert!(json),
             _ => panic!("expected Env"),
         }
     }
@@ -246,15 +246,15 @@ mod tests {
 
     #[test]
     fn test_fj291_diff_resource_flag_parse() {
-        let cmd = Commands::Diff {
+        let cmd = Commands::Diff(DiffArgs {
             from: PathBuf::from("state-a"),
             to: PathBuf::from("state-b"),
             machine: None,
             resource: Some("web-config".to_string()),
             json: false,
-        };
+        });
         match cmd {
-            Commands::Diff { resource, .. } => {
+            Commands::Diff(DiffArgs { resource, .. }) => {
                 assert_eq!(resource, Some("web-config".to_string()));
             }
             _ => panic!("expected Diff"),
@@ -307,7 +307,7 @@ resources:
 
     #[test]
     fn test_fj350_diff_only_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("f.yaml"),
             state_dir: PathBuf::from("state"),
             machine: None,
@@ -447,9 +447,9 @@ resources:
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { diff_only, .. } => assert!(diff_only),
+            Commands::Apply(ApplyArgs { diff_only, .. }) => assert!(diff_only),
             _ => panic!("expected Apply"),
         }
     }
@@ -457,14 +457,14 @@ resources:
 
     #[test]
     fn test_fj367_env_diff_parse() {
-        let cmd = Commands::EnvDiff {
+        let cmd = Commands::EnvDiff(EnvDiffArgs {
             env1: "staging".to_string(),
             env2: "production".to_string(),
             state_dir: PathBuf::from("state"),
             json: false,
-        };
+        });
         match cmd {
-            Commands::EnvDiff { env1, env2, .. } => {
+            Commands::EnvDiff(EnvDiffArgs { env1, env2, .. }) => {
                 assert_eq!(env1, "staging");
                 assert_eq!(env2, "production");
             }

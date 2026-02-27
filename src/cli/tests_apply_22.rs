@@ -18,7 +18,7 @@ mod tests {
 
     #[test]
     fn test_fj576_apply_pre_check_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -158,9 +158,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { pre_check, .. } => {
+            Commands::Apply(ApplyArgs { pre_check, .. }) => {
                 assert_eq!(
                     pre_check,
                     Some("/usr/local/bin/pre-deploy-check.sh".to_string())
@@ -173,7 +173,7 @@ mod tests {
 
     #[test]
     fn test_fj580_apply_notify_eventbridge_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -313,11 +313,11 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply {
+            Commands::Apply(ApplyArgs {
                 notify_eventbridge, ..
-            } => {
+            }) => {
                 assert_eq!(notify_eventbridge, Some("custom-bus".to_string()))
             }
             _ => panic!("expected Apply"),
@@ -327,7 +327,7 @@ mod tests {
 
     #[test]
     fn test_fj583_apply_dry_run_graph_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -467,9 +467,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { dry_run_graph, .. } => assert!(dry_run_graph),
+            Commands::Apply(ApplyArgs { dry_run_graph, .. }) => assert!(dry_run_graph),
             _ => panic!("expected Apply"),
         }
     }

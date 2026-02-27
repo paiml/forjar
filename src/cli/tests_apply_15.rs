@@ -18,7 +18,7 @@ mod tests {
 
     #[test]
     fn test_fj506_apply_change_window_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -158,9 +158,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { change_window, .. } => {
+            Commands::Apply(ApplyArgs { change_window, .. }) => {
                 assert_eq!(change_window, Some("0 2 * * SAT".to_string()))
             }
             _ => panic!("expected Apply"),
@@ -170,7 +170,7 @@ mod tests {
 
     #[test]
     fn test_fj510_apply_canary_machine_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -310,9 +310,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { canary_machine, .. } => {
+            Commands::Apply(ApplyArgs { canary_machine, .. }) => {
                 assert_eq!(canary_machine, Some("gpu-box".to_string()))
             }
             _ => panic!("expected Apply"),
@@ -322,7 +322,7 @@ mod tests {
 
     #[test]
     fn test_fj513_apply_notify_newrelic_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -462,11 +462,11 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply {
+            Commands::Apply(ApplyArgs {
                 notify_newrelic, ..
-            } => assert_eq!(notify_newrelic, Some("NRJS-abc123".to_string())),
+            }) => assert_eq!(notify_newrelic, Some("NRJS-abc123".to_string())),
             _ => panic!("expected Apply"),
         }
     }

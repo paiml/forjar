@@ -175,7 +175,7 @@ resources:
         let state = dir.path().join("state");
         std::fs::create_dir_all(&state).unwrap();
         dispatch(
-            Commands::Plan {
+            Commands::Plan(PlanArgs {
                 file: config,
                 machine: None,
                 resource: None,
@@ -190,7 +190,7 @@ resources:
                 target: None,
                 cost: false,
                 what_if: vec![],
-            },
+            }),
             false,
             true,
         )

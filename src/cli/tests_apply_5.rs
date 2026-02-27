@@ -18,7 +18,7 @@ mod tests {
 
     #[test]
     fn test_fj396_apply_skip_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -158,9 +158,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { skip, .. } => {
+            Commands::Apply(ApplyArgs { skip, .. }) => {
                 assert_eq!(skip, Some("legacy-config".to_string()));
             }
             _ => panic!("expected Apply"),
@@ -170,7 +170,7 @@ mod tests {
 
     #[test]
     fn test_fj403_apply_snapshot_before_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -310,11 +310,11 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply {
+            Commands::Apply(ApplyArgs {
                 snapshot_before, ..
-            } => {
+            }) => {
                 assert_eq!(snapshot_before, Some("v1-backup".to_string()));
             }
             _ => panic!("expected Apply"),
@@ -324,7 +324,7 @@ mod tests {
 
     #[test]
     fn test_fj406_apply_concurrency_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -464,9 +464,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { concurrency, .. } => assert_eq!(concurrency, Some(4)),
+            Commands::Apply(ApplyArgs { concurrency, .. }) => assert_eq!(concurrency, Some(4)),
             _ => panic!("expected Apply"),
         }
     }

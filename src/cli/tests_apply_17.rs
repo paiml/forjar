@@ -18,7 +18,7 @@ mod tests {
 
     #[test]
     fn test_fj526_apply_checkpoint_interval_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -158,12 +158,12 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply {
+            Commands::Apply(ApplyArgs {
                 checkpoint_interval,
                 ..
-            } => assert_eq!(checkpoint_interval, Some(60)),
+            }) => assert_eq!(checkpoint_interval, Some(60)),
             _ => panic!("expected Apply"),
         }
     }
@@ -171,7 +171,7 @@ mod tests {
 
     #[test]
     fn test_fj530_apply_notify_victorops_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -311,11 +311,11 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply {
+            Commands::Apply(ApplyArgs {
                 notify_victorops, ..
-            } => assert_eq!(notify_victorops, Some("vo-api-key".to_string())),
+            }) => assert_eq!(notify_victorops, Some("vo-api-key".to_string())),
             _ => panic!("expected Apply"),
         }
     }
@@ -323,7 +323,7 @@ mod tests {
 
     #[test]
     fn test_fj533_apply_blue_green_flag() {
-        let cmd = Commands::Apply {
+        let cmd = Commands::Apply(ApplyArgs {
             file: PathBuf::from("forjar.yaml"),
             machine: None,
             resource: None,
@@ -463,9 +463,9 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-        };
+        });
         match cmd {
-            Commands::Apply { blue_green, .. } => {
+            Commands::Apply(ApplyArgs { blue_green, .. }) => {
                 assert_eq!(blue_green, Some("web-blue".to_string()))
             }
             _ => panic!("expected Apply"),

@@ -169,15 +169,15 @@ resources:
 
     #[test]
     fn test_fj332_lint_fix_flag() {
-        let cmd = Commands::Lint {
+        let cmd = Commands::Lint(LintArgs {
             file: PathBuf::from("f.yaml"),
             json: false,
             strict: false,
             fix: true,
             rules: None,
-        };
+        });
         match cmd {
-            Commands::Lint { fix, .. } => assert!(fix),
+            Commands::Lint(LintArgs { fix, .. }) => assert!(fix),
             _ => panic!("expected Lint"),
         }
     }
@@ -185,15 +185,15 @@ resources:
 
     #[test]
     fn test_fj374_lint_rules_flag() {
-        let cmd = Commands::Lint {
+        let cmd = Commands::Lint(LintArgs {
             file: PathBuf::from("f.yaml"),
             json: false,
             strict: false,
             fix: false,
             rules: Some(PathBuf::from("rules.yaml")),
-        };
+        });
         match cmd {
-            Commands::Lint { rules, .. } => {
+            Commands::Lint(LintArgs { rules, .. }) => {
                 assert_eq!(rules, Some(PathBuf::from("rules.yaml")));
             }
             _ => panic!("expected Lint"),
