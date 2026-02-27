@@ -1967,14 +1967,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-440 | `forjar apply --dry-run-json` — output dry-run results as structured JSON. CI pipeline integration. | Planned |
-| FJ-441 | `forjar validate --check-secrets` — scan config for hardcoded secrets or credentials. Security lint. | Planned |
-| FJ-442 | `forjar status --export <path>` — export status report to file (JSON/CSV/YAML). Reporting. | Planned |
-| FJ-443 | `forjar apply --notify-webhook <url>` — POST structured results to any webhook. Generic notification. | Planned |
-| FJ-444 | `forjar graph --highlight <resource>` — highlight a resource and its transitive deps in graph output. | Planned |
-| FJ-445 | `forjar lock merge <a> <b>` — merge two lock files (multi-team workflow). State reconciliation. | Planned |
-| FJ-446 | `forjar apply --post-script <path>` — run a script after apply completes. Custom post-flight checks. | Planned |
-| FJ-447 | `forjar status --format prometheus` — native Prometheus metrics endpoint output. Monitoring integration. | Planned |
+| FJ-440 | `forjar apply --dry-run-json` — output dry-run results as structured JSON. CI pipeline integration. | Done |
+| FJ-441 | `forjar validate --check-secrets` — scan config for hardcoded secrets or credentials. Security lint. | Done |
+| FJ-442 | `forjar status --export <path>` — export status report to file (JSON/CSV/YAML). Reporting. | Done |
+| FJ-443 | `forjar apply --notify-webhook <url>` — POST structured results to any webhook. Generic notification. | Done |
+| FJ-444 | `forjar graph --highlight <resource>` — highlight a resource and its transitive deps in graph output. | Done |
+| FJ-445 | `forjar lock merge <a> <b>` — merge two lock files (multi-team workflow). State reconciliation. | Done |
+| FJ-446 | `forjar apply --post-script <path>` — run a script after apply completes. Custom post-flight checks. | Done |
+| FJ-447 | `forjar status --format prometheus` — native Prometheus metrics endpoint output. Monitoring integration. | Done |
+
+### Phase 31 — v3.1: Enterprise & Scale
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-450 | `forjar apply --approval-required` — require explicit approval before destructive changes. Gate. | Planned |
+| FJ-451 | `forjar validate --check-idempotency` — verify all resources produce idempotent scripts. Safety lint. | Planned |
+| FJ-452 | `forjar status --compact` — minimal one-line-per-machine output for large fleets. Fleet view. | Planned |
+| FJ-453 | `forjar apply --canary-percent <n>` — apply to N% of machines first, then rest. Gradual rollout. | Planned |
+| FJ-454 | `forjar graph --prune <resource>` — show graph with a resource and its subtree removed. Impact analysis. | Planned |
+| FJ-455 | `forjar lock rebase <from> <to>` — rebase lock file from one config version to another. Migration. | Planned |
+| FJ-456 | `forjar apply --schedule <cron>` — schedule apply for later execution. Deferred apply. | Planned |
+| FJ-457 | `forjar status --alerts` — show resources in alert state (failed, drifted, or stale). Dashboard view. | Planned |
 
 ---
 

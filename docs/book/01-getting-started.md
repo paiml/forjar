@@ -16,7 +16,7 @@ Verify:
 forjar --help
 ```
 
-You should see forjar's 58 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`, `lock-compact`, `lock-verify`, `lock-export`, `lock-gc`, `lock-diff`.
+You should see forjar's 59 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`, `lock-compact`, `lock-verify`, `lock-export`, `lock-gc`, `lock-diff`, `lock-merge`.
 
 ## Your First Project
 
@@ -2144,6 +2144,66 @@ Show only resources changed within a time duration:
 ```bash
 forjar status --since 1h --state-dir state
 forjar status --since 7d --json --state-dir state
+```
+
+## Check Secrets
+
+Scan config for hardcoded secrets or credentials:
+
+```bash
+forjar validate --check-secrets -f forjar.yaml
+forjar validate --check-secrets --json -f forjar.yaml
+```
+
+## Status Export
+
+Export status report to a file:
+
+```bash
+forjar status --export /tmp/report.json --state-dir state
+forjar status --export /tmp/report.json --json --state-dir state
+```
+
+## Notify Webhook
+
+POST structured apply results to any webhook URL:
+
+```bash
+forjar apply --notify-webhook https://hooks.example.com/forjar -f forjar.yaml
+```
+
+## Graph Highlight
+
+Highlight a resource and its transitive dependencies in graph output:
+
+```bash
+forjar graph --highlight web-server -f forjar.yaml
+forjar graph --highlight web-server --format dot -f forjar.yaml
+```
+
+## Lock Merge
+
+Merge two lock file directories (right takes precedence on conflicts):
+
+```bash
+forjar lock-merge state-team-a state-team-b --output state-merged
+forjar lock-merge state-team-a state-team-b --output state-merged --json
+```
+
+## Post Script
+
+Run a script after apply completes:
+
+```bash
+forjar apply --post-script ./postflight.sh -f forjar.yaml
+```
+
+## Dry Run JSON
+
+Output dry-run results as structured JSON for CI pipelines:
+
+```bash
+forjar apply --dry-run-json -f forjar.yaml --state-dir state
 ```
 
 ## Next Steps
