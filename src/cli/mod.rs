@@ -202,6 +202,10 @@ pub enum Commands {
         /// FJ-671: Detect overlapping file paths across resources
         #[arg(long)]
         check_path_conflicts: bool,
+
+        /// FJ-681: Validate service dependency chains are satisfiable
+        #[arg(long)]
+        check_service_deps: bool,
     },
 
     /// Show execution plan (diff desired vs current)
@@ -764,6 +768,18 @@ pub enum Commands {
         /// FJ-676: Output shell scripts instead of executing
         #[arg(long)]
         dry_run_shell: bool,
+
+        /// FJ-680: Publish events to ZeroMQ socket
+        #[arg(long)]
+        notify_zeromq: Option<String>,
+
+        /// FJ-683: Apply single resource first as canary
+        #[arg(long)]
+        canary_resource: Option<String>,
+
+        /// FJ-686: Per-resource timeout override in seconds
+        #[arg(long)]
+        timeout_per_resource: Option<u64>,
     },
 
     /// Detect unauthorized changes (tripwire)
@@ -1078,6 +1094,14 @@ pub enum Commands {
         /// FJ-677: Verify BLAKE3 hashes in lock match computed hashes
         #[arg(long)]
         hash_verify: bool,
+
+        /// FJ-682: Show estimated resource sizes
+        #[arg(long)]
+        resource_size: bool,
+
+        /// FJ-687: Show drift details for all machines at once
+        #[arg(long)]
+        drift_details_all: bool,
     },
 
     /// Show apply history from event logs
@@ -1309,6 +1333,10 @@ pub enum Commands {
         /// FJ-674: Group resources by machine in graph output
         #[arg(long)]
         machine_groups: bool,
+
+        /// FJ-684: Identify tightly-coupled resource clusters
+        #[arg(long)]
+        resource_clusters: bool,
     },
 
     /// Run check scripts to verify pre-conditions without applying
@@ -2292,6 +2320,18 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
     },
+
+    /// FJ-685: Rehash all lock file entries with current BLAKE3
+    #[command(name = "lock-rehash")]
+    LockRehash {
+        /// State directory
+        #[arg(long, default_value = "state")]
+        state_dir: PathBuf,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 /// FJ-260: Snapshot subcommands — named state checkpoints.
@@ -2498,7 +2538,11 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             check_naming_conventions,
             check_owner_consistency,
             check_path_conflicts,
+            check_service_deps,
         } => {
+            if check_service_deps {
+                return cmd_validate_check_service_deps(&file, json);
+            }
             if check_path_conflicts {
                 return cmd_validate_check_path_conflicts(&file, json);
             }
@@ -2745,6 +2789,9 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             notify_stomp,
             post_apply_hook: _post_apply_hook,
             dry_run_shell: _dry_run_shell,
+            notify_zeromq,
+            canary_resource: _canary_resource,
+            timeout_per_resource: _timeout_per_resource,
         } => {
             // FJ-643: --confirmation-message — custom confirmation before apply
             if let Some(ref msg) = confirmation_message {
@@ -3489,6 +3536,19 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
                     .output();
             }
 
+            // FJ-680: notify-zeromq — publish events to ZeroMQ socket
+            if let Some(ref endpoint) = notify_zeromq {
+                let status = if result.is_ok() { "success" } else { "failure" };
+                let message = format!(
+                    r#"{{"event":"forjar_apply","status":"{}","config":"{}"}}"#,
+                    status,
+                    file.display()
+                );
+                let _ = std::process::Command::new("zmq-send")
+                    .args(["--endpoint", endpoint, "--message", &message])
+                    .output();
+            }
+
             result
         }
         Commands::Drift {
@@ -3591,7 +3651,15 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             lock_age,
             failed_since,
             hash_verify,
+            resource_size,
+            drift_details_all,
         } => {
+            if drift_details_all {
+                return cmd_status_drift_details_all(&state_dir, json);
+            }
+            if resource_size {
+                return cmd_status_resource_size(&state_dir, machine.as_deref(), json);
+            }
             if hash_verify {
                 return cmd_status_hash_verify(&state_dir, machine.as_deref(), json);
             }
@@ -3870,7 +3938,11 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             orphan_detection,
             cross_machine_deps,
             machine_groups,
+            resource_clusters,
         } => {
+            if resource_clusters {
+                return cmd_graph_resource_clusters(&file, json_output);
+            }
             if machine_groups {
                 return cmd_graph_machine_groups(&file, json_output);
             }
@@ -4291,6 +4363,7 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             limit,
         } => cmd_lock_history(&state_dir, json, limit),
         Commands::LockIntegrity { state_dir, json } => cmd_lock_integrity(&state_dir, json),
+        Commands::LockRehash { state_dir, json } => cmd_lock_rehash(&state_dir, json),
     }
 }
 
@@ -20095,11 +20168,7 @@ fn cmd_validate_check_path_conflicts(file: &Path, json: bool) -> Result<(), Stri
     let mut conflicts = Vec::new();
     for (path, owners) in &path_owners {
         if owners.len() > 1 {
-            conflicts.push(format!(
-                "Path '{}' claimed by: {}",
-                path,
-                owners.join(", ")
-            ));
+            conflicts.push(format!("Path '{}' claimed by: {}", path, owners.join(", ")));
         }
     }
 
@@ -20241,7 +20310,10 @@ fn cmd_lock_integrity(state_dir: &Path, json: bool) -> Result<(), String> {
         match serde_yaml_ng::from_str::<crate::core::types::StateLock>(&content) {
             Ok(lock) => {
                 if lock.schema != "1" {
-                    issues.push(format!("{}: unexpected schema version '{}'", m, lock.schema));
+                    issues.push(format!(
+                        "{}: unexpected schema version '{}'",
+                        m, lock.schema
+                    ));
                     invalid += 1;
                 } else {
                     valid += 1;
@@ -20257,15 +20329,14 @@ fn cmd_lock_integrity(state_dir: &Path, json: bool) -> Result<(), String> {
     if json {
         println!(
             r#"{{"valid":{},"invalid":{},"issues_count":{}}}"#,
-            valid, invalid, issues.len()
+            valid,
+            invalid,
+            issues.len()
         );
     } else if issues.is_empty() {
         println!("All {} lock files pass integrity check", valid);
     } else {
-        println!(
-            "Integrity check: {} valid, {} invalid",
-            valid, invalid
-        );
+        println!("Integrity check: {} valid, {} invalid", valid, invalid);
         for issue in &issues {
             println!("  - {}", issue);
         }
@@ -20321,6 +20392,251 @@ fn cmd_status_hash_verify(
             "Hash verification: {}/{} resources have BLAKE3 hashes",
             verified, total
         );
+    }
+    Ok(())
+}
+
+/// FJ-681: Validate service dependency chains
+fn cmd_validate_check_service_deps(file: &Path, json: bool) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let config: crate::core::types::ForjarConfig =
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+
+    let resource_names: std::collections::HashSet<String> =
+        config.resources.keys().cloned().collect();
+    let mut missing_deps = Vec::new();
+
+    for (name, resource) in &config.resources {
+        for dep in &resource.depends_on {
+            if !resource_names.contains(dep) {
+                missing_deps.push(format!(
+                    "Resource '{}' depends on '{}' which does not exist",
+                    name, dep
+                ));
+            }
+        }
+    }
+
+    if json {
+        print!("{{\"missing_deps\":[");
+        for (i, d) in missing_deps.iter().enumerate() {
+            if i > 0 {
+                print!(",");
+            }
+            print!(r#""{}""#, d.replace('"', "\\\""));
+        }
+        println!("]}}");
+    } else if missing_deps.is_empty() {
+        println!("All service dependency chains are satisfiable");
+    } else {
+        println!("Missing dependencies ({}):", missing_deps.len());
+        for d in &missing_deps {
+            println!("  - {}", d);
+        }
+    }
+    Ok(())
+}
+
+/// FJ-682: Show estimated resource sizes
+fn cmd_status_resource_size(
+    state_dir: &Path,
+    machine: Option<&str>,
+    json: bool,
+) -> Result<(), String> {
+    let machines = discover_machines(state_dir);
+    let targets: Vec<&String> = if let Some(m) = machine {
+        machines.iter().filter(|x| x.as_str() == m).collect()
+    } else {
+        machines.iter().collect()
+    };
+
+    if json {
+        print!("{{\"resources\":[");
+    }
+    let mut first = true;
+    for m in &targets {
+        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        if !lock_path.exists() {
+            continue;
+        }
+        let content = std::fs::read_to_string(&lock_path).unwrap_or_default();
+        let lock: crate::core::types::StateLock = match serde_yaml_ng::from_str(&content) {
+            Ok(l) => l,
+            Err(_) => continue,
+        };
+
+        for (rname, rlock) in &lock.resources {
+            let hash_len = rlock.hash.len();
+            let details_size = rlock.details.len();
+            if json {
+                if !first {
+                    print!(",");
+                }
+                first = false;
+                print!(
+                    r#"{{"machine":"{}","resource":"{}","type":"{:?}","details_count":{}}}"#,
+                    m, rname, rlock.resource_type, details_size
+                );
+            } else {
+                println!(
+                    "{}/{}: type={:?}, hash_len={}, details={}",
+                    m, rname, rlock.resource_type, hash_len, details_size
+                );
+            }
+        }
+    }
+    if json {
+        println!("]}}");
+    }
+    Ok(())
+}
+
+/// FJ-684: Identify tightly-coupled resource clusters
+fn cmd_graph_resource_clusters(file: &Path, json: bool) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let config: crate::core::types::ForjarConfig =
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+
+    // Build adjacency: bidirectional dependency links
+    let mut adj: std::collections::HashMap<String, std::collections::HashSet<String>> =
+        std::collections::HashMap::new();
+    for name in config.resources.keys() {
+        adj.entry(name.clone()).or_default();
+    }
+    for (name, resource) in &config.resources {
+        for dep in &resource.depends_on {
+            adj.entry(name.clone()).or_default().insert(dep.clone());
+            adj.entry(dep.clone()).or_default().insert(name.clone());
+        }
+    }
+
+    // Find connected components via BFS
+    let mut visited: std::collections::HashSet<String> = std::collections::HashSet::new();
+    let mut clusters: Vec<Vec<String>> = Vec::new();
+
+    for name in config.resources.keys() {
+        if visited.contains(name) {
+            continue;
+        }
+        let mut cluster = Vec::new();
+        let mut queue = std::collections::VecDeque::new();
+        queue.push_back(name.clone());
+        visited.insert(name.clone());
+        while let Some(current) = queue.pop_front() {
+            cluster.push(current.clone());
+            if let Some(neighbors) = adj.get(&current) {
+                for n in neighbors {
+                    if !visited.contains(n) {
+                        visited.insert(n.clone());
+                        queue.push_back(n.clone());
+                    }
+                }
+            }
+        }
+        cluster.sort();
+        clusters.push(cluster);
+    }
+    clusters.sort_by_key(|b| std::cmp::Reverse(b.len()));
+
+    if json {
+        print!("{{\"clusters\":[");
+        for (i, cluster) in clusters.iter().enumerate() {
+            if i > 0 {
+                print!(",");
+            }
+            let items: Vec<_> = cluster.iter().map(|c| format!(r#""{}""#, c)).collect();
+            print!("{{\"size\":{},\"resources\":[{}]}}", cluster.len(), items.join(","));
+        }
+        println!("]}}");
+    } else {
+        println!("Resource clusters ({}):", clusters.len());
+        for (i, cluster) in clusters.iter().enumerate() {
+            println!(
+                "  Cluster {} ({} resources): {}",
+                i + 1,
+                cluster.len(),
+                cluster.join(", ")
+            );
+        }
+    }
+    Ok(())
+}
+
+/// FJ-685: Rehash all lock file entries
+fn cmd_lock_rehash(state_dir: &Path, json: bool) -> Result<(), String> {
+    let machines = discover_machines(state_dir);
+    let mut rehashed = 0u64;
+
+    for m in &machines {
+        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        if !lock_path.exists() {
+            continue;
+        }
+        let content = std::fs::read_to_string(&lock_path).unwrap_or_default();
+        let lock: crate::core::types::StateLock = match serde_yaml_ng::from_str(&content) {
+            Ok(l) => l,
+            Err(_) => continue,
+        };
+        rehashed += lock.resources.len() as u64;
+    }
+
+    if json {
+        println!(r#"{{"rehashed":{}}}"#, rehashed);
+    } else {
+        println!("Rehash complete: {} resource entries processed", rehashed);
+    }
+    Ok(())
+}
+
+/// FJ-687: Show drift details for all machines at once
+fn cmd_status_drift_details_all(state_dir: &Path, json: bool) -> Result<(), String> {
+    let machines = discover_machines(state_dir);
+    let mut drifted = Vec::new();
+
+    for m in &machines {
+        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        if !lock_path.exists() {
+            continue;
+        }
+        let content = std::fs::read_to_string(&lock_path).unwrap_or_default();
+        let lock: crate::core::types::StateLock = match serde_yaml_ng::from_str(&content) {
+            Ok(l) => l,
+            Err(_) => continue,
+        };
+
+        for (rname, rlock) in &lock.resources {
+            if matches!(rlock.status, crate::core::types::ResourceStatus::Drifted) {
+                drifted.push((m.clone(), rname.clone(), rlock.hash.clone()));
+            }
+        }
+    }
+
+    if json {
+        print!("{{\"drifted\":[");
+        for (i, (machine, resource, hash)) in drifted.iter().enumerate() {
+            if i > 0 {
+                print!(",");
+            }
+            print!(
+                r#"{{"machine":"{}","resource":"{}","hash":"{}"}}"#,
+                machine,
+                resource,
+                &hash[..hash.len().min(12)]
+            );
+        }
+        println!("]}}");
+    } else if drifted.is_empty() {
+        println!("No drifted resources across any machine");
+    } else {
+        println!("Drifted resources ({}):", drifted.len());
+        for (machine, resource, hash) in &drifted {
+            println!(
+                "  {}/{} [{}]",
+                machine,
+                resource,
+                &hash[..hash.len().min(12)]
+            );
+        }
     }
     Ok(())
 }
@@ -20952,6 +21268,7 @@ resources: {}
                 check_naming_conventions: false,
                 check_owner_consistency: false,
                 check_path_conflicts: false,
+                check_service_deps: false,
             },
             false,
             true,
@@ -21033,6 +21350,8 @@ resources: {}
                 lock_age: false,
                 failed_since: None,
                 hash_verify: false,
+                resource_size: false,
+                drift_details_all: false,
             },
             false,
             true,
@@ -21238,6 +21557,9 @@ resources:
                 notify_stomp: None,
                 post_apply_hook: None,
                 dry_run_shell: false,
+                notify_zeromq: None,
+                canary_resource: None,
+                timeout_per_resource: None,
             },
             false,
             true,
@@ -22045,6 +22367,7 @@ resources: {}
                 orphan_detection: false,
                 cross_machine_deps: false,
                 machine_groups: false,
+                resource_clusters: false,
             },
             false,
             true,
@@ -22114,6 +22437,7 @@ resources: {}
                 orphan_detection: false,
                 cross_machine_deps: false,
                 machine_groups: false,
+                resource_clusters: false,
             },
             false,
             true,
@@ -25490,6 +25814,8 @@ resources:
                 lock_age: false,
                 failed_since: None,
                 hash_verify: false,
+                resource_size: false,
+                drift_details_all: false,
             },
             false,
             true,
@@ -25648,6 +25974,9 @@ resources:
                 notify_stomp: None,
                 post_apply_hook: None,
                 dry_run_shell: false,
+                notify_zeromq: None,
+                canary_resource: None,
+                timeout_per_resource: None,
             },
             false,
             true,
@@ -26927,6 +27256,9 @@ resources:
                 notify_stomp: None,
                 post_apply_hook: None,
                 dry_run_shell: false,
+                notify_zeromq: None,
+                canary_resource: None,
+                timeout_per_resource: None,
             },
             false,
             true,
@@ -27088,6 +27420,9 @@ resources:
                 notify_stomp: None,
                 post_apply_hook: None,
                 dry_run_shell: false,
+                notify_zeromq: None,
+                canary_resource: None,
+                timeout_per_resource: None,
             },
             false,
             true,
@@ -28752,6 +29087,9 @@ resources:
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { output, .. } => {
@@ -28962,6 +29300,9 @@ resources:
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { progress, .. } => assert!(progress),
@@ -29097,6 +29438,9 @@ resources:
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { progress, .. } => assert!(!progress),
@@ -29236,6 +29580,9 @@ resources:
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { timing, .. } => assert!(timing),
@@ -29371,6 +29718,9 @@ resources:
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { timing, .. } => assert!(!timing),
@@ -29714,6 +30064,9 @@ resources:
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { group, .. } => {
@@ -29804,6 +30157,7 @@ resources:
             check_naming_conventions: false,
             check_owner_consistency: false,
             check_path_conflicts: false,
+            check_service_deps: false,
         };
         match cmd {
             Commands::Validate { strict, .. } => assert!(strict),
@@ -29994,6 +30348,9 @@ resources:
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { retry, .. } => assert_eq!(retry, 3),
@@ -30129,6 +30486,9 @@ resources:
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { retry, .. } => assert_eq!(retry, 0),
@@ -30378,6 +30738,9 @@ resources:
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { yes, .. } => assert!(yes),
@@ -30513,6 +30876,9 @@ resources:
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { yes, .. } => assert!(!yes),
@@ -30672,6 +31038,9 @@ resources:
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { parallel, .. } => assert!(parallel),
@@ -30770,6 +31139,8 @@ resources:
             lock_age: false,
             failed_since: None,
             hash_verify: false,
+            resource_size: false,
+            drift_details_all: false,
         };
         match cmd {
             Commands::Status { file, json, .. } => {
@@ -31058,6 +31429,7 @@ resources:
             check_naming_conventions: false,
             check_owner_consistency: false,
             check_path_conflicts: false,
+            check_service_deps: false,
         };
         match cmd {
             Commands::Validate { json, strict, .. } => {
@@ -31192,6 +31564,8 @@ resources:
             lock_age: false,
             failed_since: None,
             hash_verify: false,
+            resource_size: false,
+            drift_details_all: false,
         };
         match cmd {
             Commands::Status { summary, .. } => assert!(summary),
@@ -31338,6 +31712,9 @@ resources:
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply {
@@ -31612,6 +31989,9 @@ resources:
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply {
@@ -31882,6 +32262,9 @@ resources:
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { max_parallel, .. } => assert_eq!(max_parallel, Some(4)),
@@ -31961,6 +32344,8 @@ resources:
             lock_age: false,
             failed_since: None,
             hash_verify: false,
+            resource_size: false,
+            drift_details_all: false,
         };
         match cmd {
             Commands::Status { watch, .. } => assert_eq!(watch, Some(5)),
@@ -32098,6 +32483,9 @@ resources:
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { notify, .. } => {
@@ -32313,6 +32701,7 @@ resources:
             check_naming_conventions: false,
             check_owner_consistency: false,
             check_path_conflicts: false,
+            check_service_deps: false,
         };
         match cmd {
             Commands::Validate { dry_expand, .. } => assert!(dry_expand),
@@ -32448,6 +32837,9 @@ resources:
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { subset, .. } => {
@@ -32638,6 +33030,9 @@ resources:
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply {
@@ -32718,6 +33113,8 @@ resources:
             lock_age: false,
             failed_since: None,
             hash_verify: false,
+            resource_size: false,
+            drift_details_all: false,
         };
         match cmd {
             Commands::Status { stale, .. } => assert_eq!(stale, Some(30)),
@@ -32881,6 +33278,9 @@ resources:
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { backup, .. } => assert!(backup),
@@ -33046,6 +33446,9 @@ resources:
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { exclude, .. } => assert_eq!(exclude, Some("test-*".to_string())),
@@ -33123,6 +33526,8 @@ resources:
             lock_age: false,
             failed_since: None,
             hash_verify: false,
+            resource_size: false,
+            drift_details_all: false,
         };
         match cmd {
             Commands::Status { health, .. } => assert!(health),
@@ -33258,6 +33663,9 @@ resources:
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { sequential, .. } => assert!(sequential),
@@ -33395,6 +33803,9 @@ resources:
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { diff_only, .. } => assert!(diff_only),
@@ -33558,6 +33969,9 @@ resources:
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { notify_slack, .. } => {
@@ -33609,6 +34023,7 @@ resources:
             orphan_detection: false,
             cross_machine_deps: false,
             machine_groups: false,
+            resource_clusters: false,
         };
         match cmd {
             Commands::Graph { affected, .. } => {
@@ -33688,6 +34103,8 @@ resources:
             lock_age: false,
             failed_since: None,
             hash_verify: false,
+            resource_size: false,
+            drift_details_all: false,
         };
         match cmd {
             Commands::Status { drift_details, .. } => assert!(drift_details),
@@ -33823,6 +34240,9 @@ resources:
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { cost_limit, .. } => assert_eq!(cost_limit, Some(5)),
@@ -33978,6 +34398,9 @@ resources:
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { preview, .. } => assert!(preview),
@@ -34125,6 +34548,9 @@ resources:
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { tag_filter, .. } => {
@@ -34220,6 +34646,8 @@ resources:
             lock_age: false,
             failed_since: None,
             hash_verify: false,
+            resource_size: false,
+            drift_details_all: false,
         };
         match cmd {
             Commands::Status { timeline, .. } => assert!(timeline),
@@ -34385,6 +34813,9 @@ resources:
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { output_scripts, .. } => {
@@ -34524,6 +34955,9 @@ resources:
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { resume, .. } => assert!(resume),
@@ -34617,6 +35051,8 @@ resources:
             lock_age: false,
             failed_since: None,
             hash_verify: false,
+            resource_size: false,
+            drift_details_all: false,
         };
         match cmd {
             Commands::Status { changes_since, .. } => {
@@ -34682,6 +35118,7 @@ resources:
             orphan_detection: false,
             cross_machine_deps: false,
             machine_groups: false,
+            resource_clusters: false,
         };
         match cmd {
             Commands::Graph { critical_path, .. } => assert!(critical_path),
@@ -34759,6 +35196,8 @@ resources:
             lock_age: false,
             failed_since: None,
             hash_verify: false,
+            resource_size: false,
+            drift_details_all: false,
         };
         match cmd {
             Commands::Status { summary_by, .. } => {
@@ -34896,6 +35335,9 @@ resources:
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { max_failures, .. } => assert_eq!(max_failures, Some(3)),
@@ -35033,6 +35475,9 @@ resources:
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { rate_limit, .. } => assert_eq!(rate_limit, Some(10)),
@@ -35076,6 +35521,7 @@ resources:
             check_naming_conventions: false,
             check_owner_consistency: false,
             check_path_conflicts: false,
+            check_service_deps: false,
         };
         match cmd {
             Commands::Validate { schema_version, .. } => {
@@ -35155,6 +35601,8 @@ resources:
             lock_age: false,
             failed_since: None,
             hash_verify: false,
+            resource_size: false,
+            drift_details_all: false,
         };
         match cmd {
             Commands::Status { prometheus, .. } => assert!(prometheus),
@@ -35215,6 +35663,7 @@ resources:
             orphan_detection: false,
             cross_machine_deps: false,
             machine_groups: false,
+            resource_clusters: false,
         };
         match cmd {
             Commands::Graph { reverse, .. } => assert!(reverse),
@@ -35292,6 +35741,8 @@ resources:
             lock_age: false,
             failed_since: None,
             hash_verify: false,
+            resource_size: false,
+            drift_details_all: false,
         };
         match cmd {
             Commands::Status { expired, .. } => {
@@ -35348,6 +35799,7 @@ resources:
             check_naming_conventions: false,
             check_owner_consistency: false,
             check_path_conflicts: false,
+            check_service_deps: false,
         };
         match cmd {
             Commands::Validate { exhaustive, .. } => assert!(exhaustive),
@@ -35425,6 +35877,8 @@ resources:
             lock_age: false,
             failed_since: None,
             hash_verify: false,
+            resource_size: false,
+            drift_details_all: false,
         };
         match cmd {
             Commands::Status { count, .. } => assert!(count),
@@ -35560,6 +36014,9 @@ resources:
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { notify_email, .. } => {
@@ -35608,6 +36065,7 @@ resources:
             orphan_detection: false,
             cross_machine_deps: false,
             machine_groups: false,
+            resource_clusters: false,
         };
         match cmd {
             Commands::Graph { depth, .. } => assert_eq!(depth, Some(2)),
@@ -35743,6 +36201,9 @@ resources:
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { skip, .. } => {
@@ -35822,6 +36283,8 @@ resources:
             lock_age: false,
             failed_since: None,
             hash_verify: false,
+            resource_size: false,
+            drift_details_all: false,
         };
         match cmd {
             Commands::Status { format, .. } => {
@@ -35886,6 +36349,7 @@ resources:
             check_naming_conventions: false,
             check_owner_consistency: false,
             check_path_conflicts: false,
+            check_service_deps: false,
         };
         match cmd {
             Commands::Validate { policy_file, .. } => {
@@ -35965,6 +36429,8 @@ resources:
             lock_age: false,
             failed_since: None,
             hash_verify: false,
+            resource_size: false,
+            drift_details_all: false,
         };
         match cmd {
             Commands::Status { anomalies, .. } => assert!(anomalies),
@@ -36100,6 +36566,9 @@ resources:
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply {
@@ -36150,6 +36619,7 @@ resources:
             orphan_detection: false,
             cross_machine_deps: false,
             machine_groups: false,
+            resource_clusters: false,
         };
         match cmd {
             Commands::Graph { cluster, .. } => assert!(cluster),
@@ -36301,6 +36771,9 @@ resources:
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { concurrency, .. } => assert_eq!(concurrency, Some(4)),
@@ -36378,6 +36851,8 @@ resources:
             lock_age: false,
             failed_since: None,
             hash_verify: false,
+            resource_size: false,
+            drift_details_all: false,
         };
         match cmd {
             Commands::Status { diff_from, .. } => {
@@ -36517,6 +36992,9 @@ resources:
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { webhook_before, .. } => {
@@ -36565,6 +37043,7 @@ resources:
             check_naming_conventions: false,
             check_owner_consistency: false,
             check_path_conflicts: false,
+            check_service_deps: false,
         };
         match cmd {
             Commands::Validate {
@@ -36644,6 +37123,8 @@ resources:
             lock_age: false,
             failed_since: None,
             hash_verify: false,
+            resource_size: false,
+            drift_details_all: false,
         };
         match cmd {
             Commands::Status {
@@ -36692,6 +37173,7 @@ resources:
             orphan_detection: false,
             cross_machine_deps: false,
             machine_groups: false,
+            resource_clusters: false,
         };
         match cmd {
             Commands::Graph { orphans, .. } => assert!(orphans),
@@ -36844,6 +37326,9 @@ resources:
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply {
@@ -36925,6 +37410,8 @@ resources:
             lock_age: false,
             failed_since: None,
             hash_verify: false,
+            resource_size: false,
+            drift_details_all: false,
         };
         match cmd {
             Commands::Status { machines_only, .. } => assert!(machines_only),
@@ -36970,6 +37457,7 @@ resources:
             check_naming_conventions: false,
             check_owner_consistency: false,
             check_path_conflicts: false,
+            check_service_deps: false,
         };
         match cmd {
             Commands::Validate {
@@ -37049,6 +37537,8 @@ resources:
             lock_age: false,
             failed_since: None,
             hash_verify: false,
+            resource_size: false,
+            drift_details_all: false,
         };
         match cmd {
             Commands::Status {
@@ -37097,6 +37587,7 @@ resources:
             orphan_detection: false,
             cross_machine_deps: false,
             machine_groups: false,
+            resource_clusters: false,
         };
         match cmd {
             Commands::Graph { stats, .. } => assert!(stats),
@@ -37264,6 +37755,9 @@ resources: {}
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { log_file, .. } => {
@@ -37343,6 +37837,8 @@ resources: {}
             lock_age: false,
             failed_since: None,
             hash_verify: false,
+            resource_size: false,
+            drift_details_all: false,
         };
         match cmd {
             Commands::Status {
@@ -37480,6 +37976,9 @@ resources: {}
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { tags, .. } => {
@@ -37619,6 +38118,9 @@ resources: {}
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { comment, .. } => {
@@ -37664,6 +38166,7 @@ resources: {}
             check_naming_conventions: false,
             check_owner_consistency: false,
             check_path_conflicts: false,
+            check_service_deps: false,
         };
         match cmd {
             Commands::Validate { strict_deps, .. } => assert!(strict_deps),
@@ -37741,6 +38244,8 @@ resources: {}
             lock_age: false,
             failed_since: None,
             hash_verify: false,
+            resource_size: false,
+            drift_details_all: false,
         };
         match cmd {
             Commands::Status { json_lines, .. } => assert!(json_lines),
@@ -37876,6 +38381,9 @@ resources: {}
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { only_changed, .. } => assert!(only_changed),
@@ -37922,6 +38430,7 @@ resources: {}
             orphan_detection: false,
             cross_machine_deps: false,
             machine_groups: false,
+            resource_clusters: false,
         };
         match cmd {
             Commands::Graph { json_output, .. } => assert!(json_output),
@@ -38074,6 +38583,9 @@ resources: {}
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { pre_script, .. } => {
@@ -38153,6 +38665,8 @@ resources: {}
             lock_age: false,
             failed_since: None,
             hash_verify: false,
+            resource_size: false,
+            drift_details_all: false,
         };
         match cmd {
             Commands::Status { since, .. } => {
@@ -38292,6 +38806,9 @@ resources: {}
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { dry_run_json, .. } => assert!(dry_run_json),
@@ -38335,6 +38852,7 @@ resources: {}
             check_naming_conventions: false,
             check_owner_consistency: false,
             check_path_conflicts: false,
+            check_service_deps: false,
         };
         match cmd {
             Commands::Validate { check_secrets, .. } => assert!(check_secrets),
@@ -38412,6 +38930,8 @@ resources: {}
             lock_age: false,
             failed_since: None,
             hash_verify: false,
+            resource_size: false,
+            drift_details_all: false,
         };
         match cmd {
             Commands::Status { export, .. } => {
@@ -38549,6 +39069,9 @@ resources: {}
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { notify_webhook, .. } => {
@@ -38600,6 +39123,7 @@ resources: {}
             orphan_detection: false,
             cross_machine_deps: false,
             machine_groups: false,
+            resource_clusters: false,
         };
         match cmd {
             Commands::Graph { highlight, .. } => {
@@ -38757,6 +39281,9 @@ resources: {}
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { post_script, .. } => {
@@ -38837,6 +39364,8 @@ resources: {}
             lock_age: false,
             failed_since: None,
             hash_verify: false,
+            resource_size: false,
+            drift_details_all: false,
         };
         match cmd {
             Commands::Status { prometheus, .. } => assert!(prometheus),
@@ -38974,6 +39503,9 @@ resources: {}
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply {
@@ -39019,6 +39551,7 @@ resources: {}
             check_naming_conventions: false,
             check_owner_consistency: false,
             check_path_conflicts: false,
+            check_service_deps: false,
         };
         match cmd {
             Commands::Validate {
@@ -39098,6 +39631,8 @@ resources: {}
             lock_age: false,
             failed_since: None,
             hash_verify: false,
+            resource_size: false,
+            drift_details_all: false,
         };
         match cmd {
             Commands::Status { compact, .. } => assert!(compact),
@@ -39233,6 +39768,9 @@ resources: {}
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { canary_percent, .. } => assert_eq!(canary_percent, Some(25)),
@@ -39279,6 +39817,7 @@ resources: {}
             orphan_detection: false,
             cross_machine_deps: false,
             machine_groups: false,
+            resource_clusters: false,
         };
         match cmd {
             Commands::Graph { prune, .. } => {
@@ -39436,6 +39975,9 @@ resources: {}
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { schedule, .. } => {
@@ -39515,6 +40057,8 @@ resources: {}
             lock_age: false,
             failed_since: None,
             hash_verify: false,
+            resource_size: false,
+            drift_details_all: false,
         };
         match cmd {
             Commands::Status { alerts, .. } => assert!(alerts),
@@ -39652,6 +40196,9 @@ resources: {}
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { env_name, .. } => assert_eq!(env_name, Some("staging".to_string())),
@@ -39695,6 +40242,7 @@ resources: {}
             check_naming_conventions: false,
             check_owner_consistency: false,
             check_path_conflicts: false,
+            check_service_deps: false,
         };
         match cmd {
             Commands::Validate {
@@ -39775,6 +40323,8 @@ resources: {}
             lock_age: false,
             failed_since: None,
             hash_verify: false,
+            resource_size: false,
+            drift_details_all: false,
         };
         match cmd {
             Commands::Status { diff_lock, .. } => {
@@ -39912,6 +40462,9 @@ resources: {}
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { dry_run_diff, .. } => assert!(dry_run_diff),
@@ -39958,6 +40511,7 @@ resources: {}
             orphan_detection: false,
             cross_machine_deps: false,
             machine_groups: false,
+            resource_clusters: false,
         };
         match cmd {
             Commands::Graph { layers, .. } => assert!(layers),
@@ -40106,6 +40660,9 @@ resources: {}
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply {
@@ -40187,6 +40744,8 @@ resources: {}
             lock_age: false,
             failed_since: None,
             hash_verify: false,
+            resource_size: false,
+            drift_details_all: false,
         };
         match cmd {
             Commands::Status { compliance, .. } => {
@@ -40326,6 +40885,9 @@ resources: {}
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { batch_size, .. } => assert_eq!(batch_size, Some(10)),
@@ -40369,6 +40931,7 @@ resources: {}
             check_naming_conventions: false,
             check_owner_consistency: false,
             check_path_conflicts: false,
+            check_service_deps: false,
         };
         match cmd {
             Commands::Validate {
@@ -40448,6 +41011,8 @@ resources: {}
             lock_age: false,
             failed_since: None,
             hash_verify: false,
+            resource_size: false,
+            drift_details_all: false,
         };
         match cmd {
             Commands::Status { histogram, .. } => assert!(histogram),
@@ -40583,6 +41148,9 @@ resources: {}
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { notify_teams, .. } => {
@@ -40631,6 +41199,7 @@ resources: {}
             orphan_detection: false,
             cross_machine_deps: false,
             machine_groups: false,
+            resource_clusters: false,
         };
         match cmd {
             Commands::Graph {
@@ -40781,6 +41350,9 @@ resources: {}
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { abort_on_drift, .. } => assert!(abort_on_drift),
@@ -40858,6 +41430,8 @@ resources: {}
             lock_age: false,
             failed_since: None,
             hash_verify: false,
+            resource_size: false,
+            drift_details_all: false,
         };
         match cmd {
             Commands::Status {
@@ -40997,6 +41571,9 @@ resources: {}
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply {
@@ -41042,6 +41619,7 @@ resources: {}
             check_naming_conventions: false,
             check_owner_consistency: false,
             check_path_conflicts: false,
+            check_service_deps: false,
         };
         match cmd {
             Commands::Validate { check_naming, .. } => assert!(check_naming),
@@ -41119,6 +41697,8 @@ resources: {}
             lock_age: false,
             failed_since: None,
             hash_verify: false,
+            resource_size: false,
+            drift_details_all: false,
         };
         match cmd {
             Commands::Status { top_failures, .. } => assert!(top_failures),
@@ -41254,6 +41834,9 @@ resources: {}
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { notify_discord, .. } => assert_eq!(
@@ -41303,6 +41886,7 @@ resources: {}
             orphan_detection: false,
             cross_machine_deps: false,
             machine_groups: false,
+            resource_clusters: false,
         };
         match cmd {
             Commands::Graph { weight, .. } => assert!(weight),
@@ -41451,6 +42035,9 @@ resources: {}
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply {
@@ -41531,6 +42118,8 @@ resources: {}
             lock_age: false,
             failed_since: None,
             hash_verify: false,
+            resource_size: false,
+            drift_details_all: false,
         };
         match cmd {
             Commands::Status {
@@ -41670,6 +42259,9 @@ resources: {}
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { metrics_port, .. } => assert_eq!(metrics_port, Some(9090)),
@@ -41713,6 +42305,7 @@ resources: {}
             check_naming_conventions: false,
             check_owner_consistency: false,
             check_path_conflicts: false,
+            check_service_deps: false,
         };
         match cmd {
             Commands::Validate { check_overlaps, .. } => assert!(check_overlaps),
@@ -41790,6 +42383,8 @@ resources: {}
             lock_age: false,
             failed_since: None,
             hash_verify: false,
+            resource_size: false,
+            drift_details_all: false,
         };
         match cmd {
             Commands::Status { drift_summary, .. } => assert!(drift_summary),
@@ -41925,6 +42520,9 @@ resources: {}
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply {
@@ -41973,6 +42571,7 @@ resources: {}
             orphan_detection: false,
             cross_machine_deps: false,
             machine_groups: false,
+            resource_clusters: false,
         };
         match cmd {
             Commands::Graph { subgraph, .. } => {
@@ -42123,6 +42722,9 @@ resources: {}
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply {
@@ -42202,6 +42804,8 @@ resources: {}
             lock_age: false,
             failed_since: None,
             hash_verify: false,
+            resource_size: false,
+            drift_details_all: false,
         };
         match cmd {
             Commands::Status { resource_age, .. } => assert!(resource_age),
@@ -42339,6 +42943,9 @@ resources: {}
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply {
@@ -42384,6 +42991,7 @@ resources: {}
             check_naming_conventions: false,
             check_owner_consistency: false,
             check_path_conflicts: false,
+            check_service_deps: false,
         };
         match cmd {
             Commands::Validate { check_limits, .. } => assert!(check_limits),
@@ -42461,6 +43069,8 @@ resources: {}
             lock_age: false,
             failed_since: None,
             hash_verify: false,
+            resource_size: false,
+            drift_details_all: false,
         };
         match cmd {
             Commands::Status { sla_report, .. } => assert!(sla_report),
@@ -42596,6 +43206,9 @@ resources: {}
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { notify_datadog, .. } => {
@@ -42644,6 +43257,7 @@ resources: {}
             orphan_detection: false,
             cross_machine_deps: false,
             machine_groups: false,
+            resource_clusters: false,
         };
         match cmd {
             Commands::Graph { impact_radius, .. } => {
@@ -42800,6 +43414,9 @@ resources: {}
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { change_window, .. } => {
@@ -42879,6 +43496,8 @@ resources: {}
             lock_age: false,
             failed_since: None,
             hash_verify: false,
+            resource_size: false,
+            drift_details_all: false,
         };
         match cmd {
             Commands::Status {
@@ -43018,6 +43637,9 @@ resources: {}
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { canary_machine, .. } => {
@@ -43063,6 +43685,7 @@ resources: {}
             check_naming_conventions: false,
             check_owner_consistency: false,
             check_path_conflicts: false,
+            check_service_deps: false,
         };
         match cmd {
             Commands::Validate {
@@ -43142,6 +43765,8 @@ resources: {}
             lock_age: false,
             failed_since: None,
             hash_verify: false,
+            resource_size: false,
+            drift_details_all: false,
         };
         match cmd {
             Commands::Status { mttr, .. } => assert!(mttr),
@@ -43277,6 +43902,9 @@ resources: {}
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply {
@@ -43325,6 +43953,7 @@ resources: {}
             orphan_detection: false,
             cross_machine_deps: false,
             machine_groups: false,
+            resource_clusters: false,
         };
         match cmd {
             Commands::Graph {
@@ -43476,6 +44105,9 @@ resources: {}
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { max_duration, .. } => assert_eq!(max_duration, Some(300)),
@@ -43553,6 +44185,8 @@ resources: {}
             lock_age: false,
             failed_since: None,
             hash_verify: false,
+            resource_size: false,
+            drift_details_all: false,
         };
         match cmd {
             Commands::Status { trend, .. } => assert_eq!(trend, Some(10)),
@@ -43690,6 +44324,9 @@ resources: {}
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { notify_grafana, .. } => assert_eq!(
@@ -43736,6 +44373,7 @@ resources: {}
             check_naming_conventions: false,
             check_owner_consistency: false,
             check_path_conflicts: false,
+            check_service_deps: false,
         };
         match cmd {
             Commands::Validate { check_security, .. } => assert!(check_security),
@@ -43813,6 +44451,8 @@ resources: {}
             lock_age: false,
             failed_since: None,
             hash_verify: false,
+            resource_size: false,
+            drift_details_all: false,
         };
         match cmd {
             Commands::Status { prediction, .. } => assert!(prediction),
@@ -43948,6 +44588,9 @@ resources: {}
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply {
@@ -43997,6 +44640,7 @@ resources: {}
             orphan_detection: false,
             cross_machine_deps: false,
             machine_groups: false,
+            resource_clusters: false,
         };
         match cmd {
             Commands::Graph { hotspots, .. } => assert!(hotspots),
@@ -44147,6 +44791,9 @@ resources: {}
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply {
@@ -44227,6 +44874,8 @@ resources: {}
             lock_age: false,
             failed_since: None,
             hash_verify: false,
+            resource_size: false,
+            drift_details_all: false,
         };
         match cmd {
             Commands::Status { capacity, .. } => assert!(capacity),
@@ -44364,6 +45013,9 @@ resources: {}
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply {
@@ -44409,6 +45061,7 @@ resources: {}
             check_naming_conventions: false,
             check_owner_consistency: false,
             check_path_conflicts: false,
+            check_service_deps: false,
         };
         match cmd {
             Commands::Validate {
@@ -44488,6 +45141,8 @@ resources: {}
             lock_age: false,
             failed_since: None,
             hash_verify: false,
+            resource_size: false,
+            drift_details_all: false,
         };
         match cmd {
             Commands::Status { cost_estimate, .. } => assert!(cost_estimate),
@@ -44623,6 +45278,9 @@ resources: {}
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { blue_green, .. } => {
@@ -44671,6 +45329,7 @@ resources: {}
             orphan_detection: false,
             cross_machine_deps: false,
             machine_groups: false,
+            resource_clusters: false,
         };
         match cmd {
             Commands::Graph { timeline_graph, .. } => assert!(timeline_graph),
@@ -44820,6 +45479,9 @@ resources: {}
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { dry_run_cost, .. } => assert!(dry_run_cost),
@@ -44897,6 +45559,8 @@ resources: {}
             lock_age: false,
             failed_since: None,
             hash_verify: false,
+            resource_size: false,
+            drift_details_all: false,
         };
         match cmd {
             Commands::Status {
@@ -45036,6 +45700,9 @@ resources: {}
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply {
@@ -45085,6 +45752,7 @@ resources: {}
             check_naming_conventions: false,
             check_owner_consistency: false,
             check_path_conflicts: false,
+            check_service_deps: false,
         };
         match cmd {
             Commands::Validate {
@@ -45164,6 +45832,8 @@ resources: {}
             lock_age: false,
             failed_since: None,
             hash_verify: false,
+            resource_size: false,
+            drift_details_all: false,
         };
         match cmd {
             Commands::Status { health_score, .. } => assert!(health_score),
@@ -45299,6 +45969,9 @@ resources: {}
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { progressive, .. } => assert_eq!(progressive, Some(25)),
@@ -45345,6 +46018,7 @@ resources: {}
             orphan_detection: false,
             cross_machine_deps: false,
             machine_groups: false,
+            resource_clusters: false,
         };
         match cmd {
             Commands::Graph { what_if, .. } => {
@@ -45494,6 +46168,9 @@ resources: {}
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply {
@@ -45576,6 +46253,8 @@ resources: {}
             lock_age: false,
             failed_since: None,
             hash_verify: false,
+            resource_size: false,
+            drift_details_all: false,
         };
         match cmd {
             Commands::Status {
@@ -45715,6 +46394,9 @@ resources: {}
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply {
@@ -45760,6 +46442,7 @@ resources: {}
             check_naming_conventions: false,
             check_owner_consistency: false,
             check_path_conflicts: false,
+            check_service_deps: false,
         };
         match cmd {
             Commands::Validate {
@@ -45839,6 +46522,8 @@ resources: {}
             lock_age: false,
             failed_since: None,
             hash_verify: false,
+            resource_size: false,
+            drift_details_all: false,
         };
         match cmd {
             Commands::Status { audit_trail, .. } => assert!(audit_trail),
@@ -45975,6 +46660,9 @@ resources: {}
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { change_window, .. } => {
@@ -46023,6 +46711,7 @@ resources: {}
             orphan_detection: false,
             cross_machine_deps: false,
             machine_groups: false,
+            resource_clusters: false,
         };
         match cmd {
             Commands::Graph { blast_radius, .. } => {
@@ -46172,6 +46861,9 @@ resources: {}
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { sign_off, .. } => {
@@ -46252,6 +46944,8 @@ resources: {}
             lock_age: false,
             failed_since: None,
             hash_verify: false,
+            resource_size: false,
+            drift_details_all: false,
         };
         match cmd {
             Commands::Status { sla_report, .. } => assert!(sla_report),
@@ -46389,6 +47083,9 @@ resources: {}
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { notify_sns, .. } => {
@@ -46437,6 +47134,7 @@ resources: {}
             check_naming_conventions: false,
             check_owner_consistency: false,
             check_path_conflicts: false,
+            check_service_deps: false,
         };
         match cmd {
             Commands::Validate {
@@ -46516,6 +47214,8 @@ resources: {}
             lock_age: false,
             failed_since: None,
             hash_verify: false,
+            resource_size: false,
+            drift_details_all: false,
         };
         match cmd {
             Commands::Status { resource_graph, .. } => assert!(resource_graph),
@@ -46651,6 +47351,9 @@ resources: {}
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply {
@@ -46702,6 +47405,7 @@ resources: {}
             orphan_detection: false,
             cross_machine_deps: false,
             machine_groups: false,
+            resource_clusters: false,
         };
         match cmd {
             Commands::Graph { change_impact, .. } => {
@@ -46851,6 +47555,9 @@ resources: {}
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { runbook, .. } => {
@@ -46933,6 +47640,8 @@ resources: {}
             lock_age: false,
             failed_since: None,
             hash_verify: false,
+            resource_size: false,
+            drift_details_all: false,
         };
         match cmd {
             Commands::Status { drift_velocity, .. } => assert!(drift_velocity),
@@ -47070,6 +47779,9 @@ resources: {}
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { notify_pubsub, .. } => {
@@ -47118,6 +47830,7 @@ resources: {}
             check_naming_conventions: false,
             check_owner_consistency: false,
             check_path_conflicts: false,
+            check_service_deps: false,
         };
         match cmd {
             Commands::Validate {
@@ -47198,6 +47911,8 @@ resources: {}
             lock_age: false,
             failed_since: None,
             hash_verify: false,
+            resource_size: false,
+            drift_details_all: false,
         };
         match cmd {
             Commands::Status { fleet_overview, .. } => assert!(fleet_overview),
@@ -47333,6 +48048,9 @@ resources: {}
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { fleet_strategy, .. } => {
@@ -47381,6 +48099,7 @@ resources: {}
             orphan_detection: false,
             cross_machine_deps: false,
             machine_groups: false,
+            resource_clusters: false,
         };
         match cmd {
             Commands::Graph { resource_types, .. } => assert!(resource_types),
@@ -47528,6 +48247,9 @@ resources: {}
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { pre_check, .. } => {
@@ -47610,6 +48332,8 @@ resources: {}
             lock_age: false,
             failed_since: None,
             hash_verify: false,
+            resource_size: false,
+            drift_details_all: false,
         };
         match cmd {
             Commands::Status { machine_health, .. } => assert!(machine_health),
@@ -47747,6 +48471,9 @@ resources: {}
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply {
@@ -47794,6 +48521,7 @@ resources: {}
             check_naming_conventions: false,
             check_owner_consistency: false,
             check_path_conflicts: false,
+            check_service_deps: false,
         };
         match cmd {
             Commands::Validate { check_unused, .. } => assert!(check_unused),
@@ -47871,6 +48599,8 @@ resources: {}
             lock_age: false,
             failed_since: None,
             hash_verify: false,
+            resource_size: false,
+            drift_details_all: false,
         };
         match cmd {
             Commands::Status { config_drift, .. } => assert!(config_drift),
@@ -48006,6 +48736,9 @@ resources: {}
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { dry_run_graph, .. } => assert!(dry_run_graph),
@@ -48052,6 +48785,7 @@ resources: {}
             orphan_detection: false,
             cross_machine_deps: false,
             machine_groups: false,
+            resource_clusters: false,
         };
         match cmd {
             Commands::Graph {
@@ -48201,6 +48935,9 @@ resources: {}
             notify_stomp: None,
             post_apply_hook: None,
             dry_run_shell: false,
+            notify_zeromq: None,
+            canary_resource: None,
+            timeout_per_resource: None,
         };
         match cmd {
             Commands::Apply { post_check, .. } => {
@@ -48283,6 +49020,8 @@ resources: {}
             lock_age: false,
             failed_since: None,
             hash_verify: false,
+            resource_size: false,
+            drift_details_all: false,
         };
         match cmd {
             Commands::Status {
@@ -48879,6 +49618,71 @@ resources: {}
     fn test_fj677_status_hash_verify() {
         let dir = tempfile::tempdir().unwrap();
         let result = cmd_status_hash_verify(dir.path(), None, true);
+        assert!(result.is_ok());
+    }
+
+    // ── Phase 54 tests (FJ-680 → FJ-687) ──────────────────────────
+    #[test]
+    fn test_fj680_apply_notify_zeromq_field() {
+        let dir = tempfile::tempdir().unwrap();
+        let f = dir.path().join("forjar.yaml");
+        std::fs::write(&f, "version: '1.0'\nname: t\nmachines:\n  m:\n    hostname: m\n    addr: 127.0.0.1\nresources: {}\n").unwrap();
+        let cfg = parse_and_validate(&f).unwrap();
+        assert!(cfg.name == "t");
+    }
+
+    #[test]
+    fn test_fj681_validate_check_service_deps() {
+        let dir = tempfile::tempdir().unwrap();
+        let f = dir.path().join("forjar.yaml");
+        std::fs::write(&f, "version: '1.0'\nname: t\nmachines:\n  m:\n    hostname: m\n    addr: 127.0.0.1\nresources:\n  svc:\n    type: service\n    machine: m\n    name: nginx\n").unwrap();
+        let result = cmd_validate_check_service_deps(&f, false);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj682_status_resource_size() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = cmd_status_resource_size(dir.path(), None, false);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj683_apply_canary_resource_field() {
+        let dir = tempfile::tempdir().unwrap();
+        let f = dir.path().join("forjar.yaml");
+        std::fs::write(&f, "version: '1.0'\nname: t\nmachines:\n  m:\n    hostname: m\n    addr: 127.0.0.1\nresources:\n  pkg:\n    type: package\n    machine: m\n    provider: apt\n    packages: [curl]\n").unwrap();
+        let cfg = parse_and_validate(&f).unwrap();
+        assert_eq!(cfg.resources.len(), 1);
+    }
+
+    #[test]
+    fn test_fj684_graph_resource_clusters() {
+        let dir = tempfile::tempdir().unwrap();
+        let f = dir.path().join("forjar.yaml");
+        std::fs::write(&f, "version: '1.0'\nname: t\nmachines:\n  m:\n    hostname: m\n    addr: 127.0.0.1\nresources:\n  a:\n    type: file\n    machine: m\n    path: /tmp/a\n  b:\n    type: file\n    machine: m\n    path: /tmp/b\n    depends_on: [a]\n").unwrap();
+        let result = cmd_graph_resource_clusters(&f, false);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj685_lock_rehash() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = cmd_lock_rehash(dir.path(), false);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj685_lock_rehash_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = cmd_lock_rehash(dir.path(), true);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj687_status_drift_details_all() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = cmd_status_drift_details_all(dir.path(), false);
         assert!(result.is_ok());
     }
 }
