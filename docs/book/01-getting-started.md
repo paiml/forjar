@@ -16,7 +16,7 @@ Verify:
 forjar --help
 ```
 
-You should see forjar's 78 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`, `lock-compact`, `lock-verify`, `lock-export`, `lock-gc`, `lock-diff`, `lock-merge`, `lock-rebase`, `lock-sign`, `lock-verify-sig`, `lock-compact-all`, `lock-audit-trail`, `lock-rotate-keys`, `lock-backup`, `lock-verify-chain`, `lock-stats`, `lock-audit`, `lock-compress`, `lock-defrag`, `lock-normalize`, `lock-validate`, `lock-verify-hmac`, `lock-archive`, `lock-snapshot`, `lock-repair`.
+You should see forjar's 79 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`, `lock-compact`, `lock-verify`, `lock-export`, `lock-gc`, `lock-diff`, `lock-merge`, `lock-rebase`, `lock-sign`, `lock-verify-sig`, `lock-compact-all`, `lock-audit-trail`, `lock-rotate-keys`, `lock-backup`, `lock-verify-chain`, `lock-stats`, `lock-audit`, `lock-compress`, `lock-defrag`, `lock-normalize`, `lock-validate`, `lock-verify-hmac`, `lock-archive`, `lock-snapshot`, `lock-repair`.
 
 ## Your First Project
 
@@ -3401,6 +3401,36 @@ forjar graph -f forjar.yaml --cross-machine-deps --json
 ```bash
 forjar status --lock-age --state-dir state
 forjar status --lock-age --state-dir state --json
+```
+
+### Phase 53 — Multi-Environment & Secrets Management (FJ-670→FJ-677)
+
+**Path Conflict Detection** (FJ-671): Detect overlapping file paths across resources.
+
+```bash
+forjar validate -f forjar.yaml --check-path-conflicts
+forjar validate -f forjar.yaml --check-path-conflicts --json
+```
+
+**Machine Groups** (FJ-674): Group resources by machine in graph output.
+
+```bash
+forjar graph -f forjar.yaml --machine-groups
+forjar graph -f forjar.yaml --machine-groups --json
+```
+
+**Lock Integrity** (FJ-675): Validate lock file structural integrity.
+
+```bash
+forjar lock-integrity --state-dir state
+forjar lock-integrity --state-dir state --json
+```
+
+**Hash Verification** (FJ-677): Verify BLAKE3 hashes in lock files.
+
+```bash
+forjar status --hash-verify --state-dir state
+forjar status --hash-verify --state-dir state --json
 ```
 
 ## Next Steps

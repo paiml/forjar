@@ -2266,14 +2266,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-670 | `forjar apply --notify-stomp <destination>` — publish events to STOMP protocol. Legacy integration. | Planned |
-| FJ-671 | `forjar validate --check-path-conflicts` — detect overlapping file paths across resources. Safety. | Planned |
-| FJ-672 | `forjar status --failed-since <timestamp>` — show resources failed since a given time. Incident response. | Planned |
-| FJ-673 | `forjar apply --post-apply-hook <cmd>` — run command after each resource apply. Extensibility. | Planned |
-| FJ-674 | `forjar graph --machine-groups` — group resources by machine in graph output. Clarity. | Planned |
-| FJ-675 | `forjar lock prune` — remove entries for resources no longer in config. Cleanup. | Planned |
-| FJ-676 | `forjar apply --dry-run-shell` — output shell scripts instead of executing. Debugging. | Planned |
-| FJ-677 | `forjar status --hash-verify` — verify BLAKE3 hashes in lock match computed hashes. Integrity. | Planned |
+| FJ-670 | `forjar apply --notify-stomp <destination>` — publish events to STOMP protocol. Legacy integration. | Done |
+| FJ-671 | `forjar validate --check-path-conflicts` — detect overlapping file paths across resources. Safety. | Done |
+| FJ-672 | `forjar status --failed-since <timestamp>` — show resources failed since a given time. Incident response. | Done |
+| FJ-673 | `forjar apply --post-apply-hook <cmd>` — run command after each resource apply. Extensibility. | Done |
+| FJ-674 | `forjar graph --machine-groups` — group resources by machine in graph output. Clarity. | Done |
+| FJ-675 | `forjar lock prune` — remove entries for resources no longer in config. Cleanup. | Done |
+| FJ-676 | `forjar apply --dry-run-shell` — output shell scripts instead of executing. Debugging. | Done |
+| FJ-677 | `forjar status --hash-verify` — verify BLAKE3 hashes in lock match computed hashes. Integrity. | Done |
+
+### Phase 54 — Observability & Telemetry Deep Dive (FJ-680→FJ-687)
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-680 | `forjar apply --notify-zeromq <endpoint>` — publish events to ZeroMQ socket. High-perf messaging. | Planned |
+| FJ-681 | `forjar validate --check-service-deps` — validate service dependency chains are satisfiable. Safety. | Planned |
+| FJ-682 | `forjar status --resource-size` — show estimated resource sizes (file bytes, package count). Capacity. | Planned |
+| FJ-683 | `forjar apply --canary-resource <name>` — apply single resource first as canary. Safety. | Planned |
+| FJ-684 | `forjar graph --resource-clusters` — identify tightly-coupled resource clusters. Architecture. | Planned |
+| FJ-685 | `forjar lock rebase` — rebase lock file onto new config schema. Migration. | Planned |
+| FJ-686 | `forjar apply --timeout-per-resource <secs>` — per-resource timeout override. Reliability. | Planned |
+| FJ-687 | `forjar status --drift-details-all` — show drift details for all machines at once. Fleet. | Planned |
 
 ---
 
