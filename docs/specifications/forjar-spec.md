@@ -2292,14 +2292,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-690 | `forjar apply --notify-nats <url>` — publish events to NATS messaging system. Cloud-native messaging. | Planned |
-| FJ-691 | `forjar validate --check-template-vars` — validate all template variables are defined. Safety. | Planned |
-| FJ-692 | `forjar status --last-apply-duration` — show duration of last apply per resource. Performance. | Planned |
-| FJ-693 | `forjar apply --skip-unchanged` — skip resources whose hash hasn't changed. Efficiency. | Planned |
-| FJ-694 | `forjar graph --critical-path` — identify longest dependency chain (critical path). Architecture. | Planned |
-| FJ-695 | `forjar lock snapshot <name>` — save named snapshot of current lock state. Versioning. | Planned |
-| FJ-696 | `forjar apply --max-retries <n>` — retry failed resources up to N times. Reliability. | Planned |
-| FJ-697 | `forjar status --config-hash` — show hash of current config for change detection. Integrity. | Planned |
+| FJ-690 | `forjar apply --notify-grpc <endpoint>` — publish events to gRPC endpoint. High-perf messaging. | Done |
+| FJ-691 | `forjar validate --check-template-vars` — validate all template variables are defined. Safety. | Done |
+| FJ-692 | `forjar status --last-apply-duration` — show duration of last apply per resource. Performance. | Done |
+| FJ-693 | `forjar apply --skip-unchanged` — skip resources whose hash hasn't changed. Efficiency. | Done |
+| FJ-694 | `forjar graph --fan-out` — show resource fan-out metrics (dependents count). Architecture. | Done |
+| FJ-695 | `forjar lock restore` — restore lock state from named snapshot. Versioning. | Done |
+| FJ-696 | `forjar apply --retry-backoff <factor>` — exponential backoff factor for retries. Reliability. | Done |
+| FJ-697 | `forjar status --config-hash` — show hash of current config for change detection. Integrity. | Done |
+
+### Phase 56 — Security Hardening & Audit Trail (FJ-700→FJ-707)
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-700 | `forjar apply --notify-sqs <queue-url>` — publish events to AWS SQS queue. Cloud messaging. | Planned |
+| FJ-701 | `forjar validate --check-mode-consistency` — validate file mode consistency across resources. Safety. | Planned |
+| FJ-702 | `forjar status --resource-age` — show age of each resource since last apply. Freshness. | Planned |
+| FJ-703 | `forjar apply --dry-run-diff` — show unified diff of what would change. Preview. | Planned |
+| FJ-704 | `forjar graph --bottlenecks` — identify resources that block the most dependents. Architecture. | Planned |
+| FJ-705 | `forjar lock verify-schema` — validate lock file against expected schema version. Migration. | Planned |
+| FJ-706 | `forjar apply --resource-priority <name>=<n>` — set execution priority for specific resources. Scheduling. | Planned |
+| FJ-707 | `forjar status --convergence-history` — show convergence trend over time. Observability. | Planned |
 
 ---
 
