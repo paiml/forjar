@@ -1,0 +1,2323 @@
+{
+  "version": "1.0",
+  "generated": "2026-02-27T21:44:45.891141451+00:00",
+  "files": {
+    "src/resources/pepita/mod.rs": {
+      "lines": 219,
+      "test_lines": 2,
+      "tlr": 0.00913242,
+      "health": 50,
+      "status": "acceptable"
+    },
+    "src/cli/tests_apply_18.rs": {
+      "lines": 474,
+      "test_lines": 491,
+      "tlr": 1.035865,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/core/recipe/mod.rs": {
+      "lines": 23,
+      "test_lines": 4,
+      "tlr": 0.17391305,
+      "health": 83,
+      "status": "ideal"
+    },
+    "src/core/codegen/tests_completeness.rs": {
+      "lines": 280,
+      "test_lines": 90,
+      "tlr": 0.32142857,
+      "health": 80,
+      "status": "acceptable"
+    },
+    "src/cli/tests_misc.rs": {
+      "lines": 409,
+      "test_lines": 506,
+      "tlr": 1.2371638,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/core/recipe/expansion.rs": {
+      "lines": 150,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 55,
+      "status": "ideal"
+    },
+    "src/cli/tests_apply_2.rs": {
+      "lines": 392,
+      "test_lines": 415,
+      "tlr": 1.0586735,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/cli/status_alerts.rs": {
+      "lines": 361,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 50,
+      "status": "acceptable"
+    },
+    "src/cli/tests_misc_4.rs": {
+      "lines": 348,
+      "test_lines": 394,
+      "tlr": 1.1321839,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/resources/mount.rs": {
+      "lines": 72,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 60,
+      "status": "ideal"
+    },
+    "src/cli/tests_apply_1.rs": {
+      "lines": 479,
+      "test_lines": 514,
+      "tlr": 1.0730689,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/core/executor/tests_filters.rs": {
+      "lines": 391,
+      "test_lines": 110,
+      "tlr": 0.28132993,
+      "health": 71,
+      "status": "acceptable"
+    },
+    "src/core/types/tests_resource.rs": {
+      "lines": 298,
+      "test_lines": 290,
+      "tlr": 0.97315437,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/resources/tests_mount.rs": {
+      "lines": 497,
+      "test_lines": 330,
+      "tlr": 0.6639839,
+      "health": 92,
+      "status": "acceptable"
+    },
+    "src/core/parser/tests_core.rs": {
+      "lines": 299,
+      "test_lines": 140,
+      "tlr": 0.46822742,
+      "health": 92,
+      "status": "acceptable"
+    },
+    "src/core/purifier.rs": {
+      "lines": 78,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 60,
+      "status": "ideal"
+    },
+    "src/cli/dispatch_apply.rs": {
+      "lines": 249,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 50,
+      "status": "acceptable"
+    },
+    "src/main.rs": {
+      "lines": 33,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 60,
+      "status": "ideal"
+    },
+    "src/cli/tests_apply_8.rs": {
+      "lines": 475,
+      "test_lines": 492,
+      "tlr": 1.0357895,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/core/resolver/mod.rs": {
+      "lines": 36,
+      "test_lines": 10,
+      "tlr": 0.2777778,
+      "health": 97,
+      "status": "ideal"
+    },
+    "src/cli/tests_workspace.rs": {
+      "lines": 199,
+      "test_lines": 307,
+      "tlr": 1.5427135,
+      "health": 100,
+      "status": "ideal"
+    },
+    "src/cli/tests_apply_7.rs": {
+      "lines": 474,
+      "test_lines": 491,
+      "tlr": 1.035865,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/cli/tests_apply_14.rs": {
+      "lines": 474,
+      "test_lines": 491,
+      "tlr": 1.035865,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/core/parser/tests_validation.rs": {
+      "lines": 492,
+      "test_lines": 210,
+      "tlr": 0.42682928,
+      "health": 79,
+      "status": "acceptable"
+    },
+    "src/core/migrate.rs": {
+      "lines": 420,
+      "test_lines": 452,
+      "tlr": 1.0761905,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/cli/history.rs": {
+      "lines": 263,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 50,
+      "status": "acceptable"
+    },
+    "src/cli/tests_fleet_reporting.rs": {
+      "lines": 89,
+      "test_lines": 126,
+      "tlr": 1.4157304,
+      "health": 100,
+      "status": "ideal"
+    },
+    "src/cli/graph_topology.rs": {
+      "lines": 341,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 45,
+      "status": "acceptable"
+    },
+    "src/cli/tests_lock_core.rs": {
+      "lines": 481,
+      "test_lines": 606,
+      "tlr": 1.2598753,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/cli/tests_check.rs": {
+      "lines": 471,
+      "test_lines": 554,
+      "tlr": 1.1762208,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/core/planner/tests_filter.rs": {
+      "lines": 132,
+      "test_lines": 80,
+      "tlr": 0.6060606,
+      "health": 100,
+      "status": "ideal"
+    },
+    "src/cli/tests_graph_core_1.rs": {
+      "lines": 438,
+      "test_lines": 505,
+      "tlr": 1.152968,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/core/parser/validation.rs": {
+      "lines": 125,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 40,
+      "status": "ideal"
+    },
+    "src/core/executor/test_fixtures.rs": {
+      "lines": 67,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 60,
+      "status": "ideal"
+    },
+    "src/core/parser/tests_misc.rs": {
+      "lines": 463,
+      "test_lines": 190,
+      "tlr": 0.41036716,
+      "health": 78,
+      "status": "acceptable"
+    },
+    "src/cli/tests_misc_8.rs": {
+      "lines": 406,
+      "test_lines": 424,
+      "tlr": 1.044335,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/cli/tests_status_core_3.rs": {
+      "lines": 462,
+      "test_lines": 499,
+      "tlr": 1.0800866,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/cli/lock_repair.rs": {
+      "lines": 132,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 40,
+      "status": "ideal"
+    },
+    "src/tripwire/drift/tests_edge_fj131.rs": {
+      "lines": 312,
+      "test_lines": 100,
+      "tlr": 0.32051283,
+      "health": 73,
+      "status": "acceptable"
+    },
+    "src/core/resolver/template.rs": {
+      "lines": 103,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 55,
+      "status": "ideal"
+    },
+    "src/cli/commands/lock_ops_args.rs": {
+      "lines": 240,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 55,
+      "status": "acceptable"
+    },
+    "src/cli/tests_apply_22.rs": {
+      "lines": 477,
+      "test_lines": 494,
+      "tlr": 1.0356394,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/cli/doctor.rs": {
+      "lines": 444,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 55,
+      "status": "acceptable"
+    },
+    "src/core/types/tests_config.rs": {
+      "lines": 435,
+      "test_lines": 230,
+      "tlr": 0.52873564,
+      "health": 85,
+      "status": "acceptable"
+    },
+    "src/core/resolver/tests_template.rs": {
+      "lines": 423,
+      "test_lines": 290,
+      "tlr": 0.6855792,
+      "health": 94,
+      "status": "acceptable"
+    },
+    "src/core/recipe/validation_types.rs": {
+      "lines": 93,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 60,
+      "status": "ideal"
+    },
+    "src/core/executor/tests_waves.rs": {
+      "lines": 460,
+      "test_lines": 90,
+      "tlr": 0.19565217,
+      "health": 66,
+      "status": "acceptable"
+    },
+    "src/cli/tests_show_1.rs": {
+      "lines": 391,
+      "test_lines": 485,
+      "tlr": 1.2404093,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/core/resolver/tests_data.rs": {
+      "lines": 204,
+      "test_lines": 80,
+      "tlr": 0.39215687,
+      "health": 86,
+      "status": "acceptable"
+    },
+    "src/cli/mod.rs": {
+      "lines": 255,
+      "test_lines": 91,
+      "tlr": 0.35686275,
+      "health": 83,
+      "status": "acceptable"
+    },
+    "src/cli/status_resource_detail.rs": {
+      "lines": 244,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 40,
+      "status": "acceptable"
+    },
+    "src/cli/tests_apply_19.rs": {
+      "lines": 478,
+      "test_lines": 495,
+      "tlr": 1.0355649,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/core/planner/tests_describe.rs": {
+      "lines": 77,
+      "test_lines": 100,
+      "tlr": 1.2987013,
+      "health": 100,
+      "status": "ideal"
+    },
+    "src/cli/validate_resources.rs": {
+      "lines": 386,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 35,
+      "status": "acceptable"
+    },
+    "src/cli/tests_print_helpers.rs": {
+      "lines": 193,
+      "test_lines": 281,
+      "tlr": 1.4559586,
+      "health": 100,
+      "status": "ideal"
+    },
+    "src/cli/tests_apply_21.rs": {
+      "lines": 480,
+      "test_lines": 497,
+      "tlr": 1.0354167,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/mcp/tests_handlers.rs": {
+      "lines": 228,
+      "test_lines": 110,
+      "tlr": 0.48245615,
+      "health": 93,
+      "status": "acceptable"
+    },
+    "src/cli/tests_check_1.rs": {
+      "lines": 498,
+      "test_lines": 638,
+      "tlr": 1.2811245,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/resources/mod.rs": {
+      "lines": 33,
+      "test_lines": 8,
+      "tlr": 0.24242425,
+      "health": 92,
+      "status": "ideal"
+    },
+    "src/cli/tests_destroy_1.rs": {
+      "lines": 221,
+      "test_lines": 228,
+      "tlr": 1.0316743,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/cli/tests_observe.rs": {
+      "lines": 286,
+      "test_lines": 412,
+      "tlr": 1.4405594,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/cli/tests_import_cmd.rs": {
+      "lines": 238,
+      "test_lines": 326,
+      "tlr": 1.3697479,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/resources/service.rs": {
+      "lines": 497,
+      "test_lines": 705,
+      "tlr": 1.418511,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/cli/tests_drift.rs": {
+      "lines": 408,
+      "test_lines": 473,
+      "tlr": 1.1593137,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/resources/tests_docker.rs": {
+      "lines": 276,
+      "test_lines": 200,
+      "tlr": 0.7246377,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/core/planner/tests_plan.rs": {
+      "lines": 357,
+      "test_lines": 180,
+      "tlr": 0.5042017,
+      "health": 83,
+      "status": "acceptable"
+    },
+    "src/cli/tests_apply_9.rs": {
+      "lines": 472,
+      "test_lines": 489,
+      "tlr": 1.036017,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/core/parser/tests_policy.rs": {
+      "lines": 258,
+      "test_lines": 90,
+      "tlr": 0.3488372,
+      "health": 82,
+      "status": "acceptable"
+    },
+    "src/core/state/tests_edge.rs": {
+      "lines": 334,
+      "test_lines": 180,
+      "tlr": 0.53892213,
+      "health": 85,
+      "status": "acceptable"
+    },
+    "src/core/state/mod.rs": {
+      "lines": 251,
+      "test_lines": 5,
+      "tlr": 0.01992032,
+      "health": 56,
+      "status": "acceptable"
+    },
+    "src/cli/apply_helpers.rs": {
+      "lines": 139,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 45,
+      "status": "ideal"
+    },
+    "src/core/codegen/test_fixtures.rs": {
+      "lines": 295,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 55,
+      "status": "acceptable"
+    },
+    "src/cli/tests_apply_11.rs": {
+      "lines": 474,
+      "test_lines": 491,
+      "tlr": 1.035865,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/cli/tests_apply_23.rs": {
+      "lines": 225,
+      "test_lines": 271,
+      "tlr": 1.2044444,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/cli/tests_apply_6.rs": {
+      "lines": 479,
+      "test_lines": 496,
+      "tlr": 1.0354906,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/cli/commands/misc_ops_args.rs": {
+      "lines": 306,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 55,
+      "status": "acceptable"
+    },
+    "src/cli/status_trends.rs": {
+      "lines": 404,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 45,
+      "status": "acceptable"
+    },
+    "src/cli/import_cmd.rs": {
+      "lines": 302,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 50,
+      "status": "acceptable"
+    },
+    "src/resources/tests_user.rs": {
+      "lines": 464,
+      "test_lines": 290,
+      "tlr": 0.625,
+      "health": 90,
+      "status": "acceptable"
+    },
+    "src/cli/tests_apply_20.rs": {
+      "lines": 480,
+      "test_lines": 497,
+      "tlr": 1.0354167,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/mcp/mod.rs": {
+      "lines": 21,
+      "test_lines": 4,
+      "tlr": 0.1904762,
+      "health": 85,
+      "status": "ideal"
+    },
+    "src/core/planner/tests_determine.rs": {
+      "lines": 158,
+      "test_lines": 60,
+      "tlr": 0.37974682,
+      "health": 90,
+      "status": "ideal"
+    },
+    "src/tripwire/tracer.rs": {
+      "lines": 488,
+      "test_lines": 424,
+      "tlr": 0.86885244,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/cli/lock_audit.rs": {
+      "lines": 385,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 35,
+      "status": "acceptable"
+    },
+    "src/core/planner/tests_advanced.rs": {
+      "lines": 264,
+      "test_lines": 90,
+      "tlr": 0.3409091,
+      "health": 82,
+      "status": "acceptable"
+    },
+    "src/transport/tests_ssh.rs": {
+      "lines": 358,
+      "test_lines": 360,
+      "tlr": 1.0055866,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/cli/tests_doctor.rs": {
+      "lines": 187,
+      "test_lines": 264,
+      "tlr": 1.4117647,
+      "health": 100,
+      "status": "ideal"
+    },
+    "src/cli/lock_core.rs": {
+      "lines": 458,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 40,
+      "status": "acceptable"
+    },
+    "src/core/resolver/functions.rs": {
+      "lines": 165,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 50,
+      "status": "ideal"
+    },
+    "src/cli/tests_apply_17.rs": {
+      "lines": 475,
+      "test_lines": 492,
+      "tlr": 1.0357895,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/cli/validate_structural.rs": {
+      "lines": 497,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 45,
+      "status": "acceptable"
+    },
+    "src/cli/init.rs": {
+      "lines": 259,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 45,
+      "status": "acceptable"
+    },
+    "src/cli/tests_infra.rs": {
+      "lines": 324,
+      "test_lines": 501,
+      "tlr": 1.5462962,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/tripwire/drift/tests_basic_b.rs": {
+      "lines": 354,
+      "test_lines": 110,
+      "tlr": 0.31073445,
+      "health": 72,
+      "status": "acceptable"
+    },
+    "src/core/planner/tests_when.rs": {
+      "lines": 103,
+      "test_lines": 80,
+      "tlr": 0.776699,
+      "health": 100,
+      "status": "ideal"
+    },
+    "src/tripwire/drift/mod.rs": {
+      "lines": 244,
+      "test_lines": 9,
+      "tlr": 0.036885247,
+      "health": 57,
+      "status": "acceptable"
+    },
+    "src/core/mod.rs": {
+      "lines": 21,
+      "test_lines": 4,
+      "tlr": 0.1904762,
+      "health": 85,
+      "status": "ideal"
+    },
+    "src/cli/status_observability.rs": {
+      "lines": 409,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 50,
+      "status": "acceptable"
+    },
+    "src/cli/tests_status_core_9.rs": {
+      "lines": 254,
+      "test_lines": 311,
+      "tlr": 1.2244095,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/cli/tests_status_core_2.rs": {
+      "lines": 465,
+      "test_lines": 502,
+      "tlr": 1.0795699,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/tripwire/drift/tests_edge_fj132.rs": {
+      "lines": 310,
+      "test_lines": 60,
+      "tlr": 0.19354838,
+      "health": 66,
+      "status": "acceptable"
+    },
+    "src/tripwire/tests_eventlog.rs": {
+      "lines": 263,
+      "test_lines": 180,
+      "tlr": 0.68441063,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/core/executor/tests_edge_apply.rs": {
+      "lines": 448,
+      "test_lines": 90,
+      "tlr": 0.20089285,
+      "health": 66,
+      "status": "acceptable"
+    },
+    "src/cli/status_core.rs": {
+      "lines": 233,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 50,
+      "status": "acceptable"
+    },
+    "src/cli/lock_security.rs": {
+      "lines": 400,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 35,
+      "status": "acceptable"
+    },
+    "src/cli/lint.rs": {
+      "lines": 268,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 50,
+      "status": "acceptable"
+    },
+    "src/cli/tests_misc_7.rs": {
+      "lines": 472,
+      "test_lines": 490,
+      "tlr": 1.0381356,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/core/codegen/tests_dispatch.rs": {
+      "lines": 245,
+      "test_lines": 220,
+      "tlr": 0.8979592,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/cli/graph_analysis.rs": {
+      "lines": 328,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 50,
+      "status": "acceptable"
+    },
+    "src/resources/file.rs": {
+      "lines": 127,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 55,
+      "status": "ideal"
+    },
+    "src/core/parser/tests_triggers.rs": {
+      "lines": 106,
+      "test_lines": 40,
+      "tlr": 0.3773585,
+      "health": 90,
+      "status": "ideal"
+    },
+    "src/core/planner/tests_hash.rs": {
+      "lines": 476,
+      "test_lines": 260,
+      "tlr": 0.5462185,
+      "health": 86,
+      "status": "acceptable"
+    },
+    "src/cli/status_compliance.rs": {
+      "lines": 325,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 45,
+      "status": "acceptable"
+    },
+    "src/cli/tests_misc_9.rs": {
+      "lines": 399,
+      "test_lines": 427,
+      "tlr": 1.0701754,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/cli/apply_variants.rs": {
+      "lines": 202,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 45,
+      "status": "acceptable"
+    },
+    "src/core/types/policy.rs": {
+      "lines": 118,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 60,
+      "status": "ideal"
+    },
+    "src/core/conditions.rs": {
+      "lines": 321,
+      "test_lines": 392,
+      "tlr": 1.2211838,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/cli/tests_diff_cmd.rs": {
+      "lines": 475,
+      "test_lines": 616,
+      "tlr": 1.2968421,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/core/state/tests_process_lock.rs": {
+      "lines": 85,
+      "test_lines": 80,
+      "tlr": 0.9411765,
+      "health": 100,
+      "status": "ideal"
+    },
+    "src/cli/tests_fleet_ops_1.rs": {
+      "lines": 51,
+      "test_lines": 49,
+      "tlr": 0.9607843,
+      "health": 100,
+      "status": "ideal"
+    },
+    "src/cli/tests_apply_3.rs": {
+      "lines": 412,
+      "test_lines": 468,
+      "tlr": 1.1359223,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/cli/workspace.rs": {
+      "lines": 172,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 40,
+      "status": "ideal"
+    },
+    "src/cli/tests_apply_5.rs": {
+      "lines": 474,
+      "test_lines": 491,
+      "tlr": 1.035865,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/resources/package.rs": {
+      "lines": 160,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 55,
+      "status": "ideal"
+    },
+    "src/core/recipe/tests_integration.rs": {
+      "lines": 434,
+      "test_lines": 130,
+      "tlr": 0.29953918,
+      "health": 72,
+      "status": "acceptable"
+    },
+    "src/cli/tests_validate_core.rs": {
+      "lines": 449,
+      "test_lines": 555,
+      "tlr": 1.2360802,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/cli/lock_lifecycle.rs": {
+      "lines": 194,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 40,
+      "status": "ideal"
+    },
+    "src/cli/validate_paths.rs": {
+      "lines": 289,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 45,
+      "status": "acceptable"
+    },
+    "src/cli/dispatch.rs": {
+      "lines": 92,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 60,
+      "status": "ideal"
+    },
+    "src/core/parser/includes.rs": {
+      "lines": 51,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 55,
+      "status": "ideal"
+    },
+    "src/cli/tests_status_core_8.rs": {
+      "lines": 460,
+      "test_lines": 497,
+      "tlr": 1.0804348,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/resources/user.rs": {
+      "lines": 141,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 55,
+      "status": "ideal"
+    },
+    "src/core/recipe/tests_validation.rs": {
+      "lines": 427,
+      "test_lines": 200,
+      "tlr": 0.4683841,
+      "health": 81,
+      "status": "acceptable"
+    },
+    "src/cli/graph_visualization.rs": {
+      "lines": 319,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 45,
+      "status": "acceptable"
+    },
+    "src/core/codegen/mod.rs": {
+      "lines": 15,
+      "test_lines": 5,
+      "tlr": 0.33333334,
+      "health": 100,
+      "status": "ideal"
+    },
+    "src/core/parser/tests_misc_4.rs": {
+      "lines": 282,
+      "test_lines": 80,
+      "tlr": 0.28368795,
+      "health": 77,
+      "status": "acceptable"
+    },
+    "src/cli/tests_graph_core_3.rs": {
+      "lines": 287,
+      "test_lines": 321,
+      "tlr": 1.1184669,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/cli/tests_show_3.rs": {
+      "lines": 269,
+      "test_lines": 383,
+      "tlr": 1.4237918,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/cli/fleet_ops.rs": {
+      "lines": 431,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 35,
+      "status": "acceptable"
+    },
+    "src/resources/tests_package.rs": {
+      "lines": 467,
+      "test_lines": 370,
+      "tlr": 0.7922912,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/cli/tests_status_core.rs": {
+      "lines": 441,
+      "test_lines": 567,
+      "tlr": 1.2857143,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/core/types/resource.rs": {
+      "lines": 376,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 55,
+      "status": "acceptable"
+    },
+    "src/transport/container.rs": {
+      "lines": 137,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 55,
+      "status": "ideal"
+    },
+    "src/cli/tests_misc_3.rs": {
+      "lines": 403,
+      "test_lines": 430,
+      "tlr": 1.0669975,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/tripwire/drift/tests_basic.rs": {
+      "lines": 325,
+      "test_lines": 110,
+      "tlr": 0.33846155,
+      "health": 74,
+      "status": "acceptable"
+    },
+    "src/cli/helpers_state.rs": {
+      "lines": 126,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 40,
+      "status": "ideal"
+    },
+    "src/core/secrets.rs": {
+      "lines": 190,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 60,
+      "status": "ideal"
+    },
+    "src/cli/tests_graph_core_5.rs": {
+      "lines": 235,
+      "test_lines": 389,
+      "tlr": 1.6553191,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/cli/tests_validate_core_1.rs": {
+      "lines": 470,
+      "test_lines": 547,
+      "tlr": 1.1638298,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/core/parser/policy.rs": {
+      "lines": 106,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 55,
+      "status": "ideal"
+    },
+    "src/cli/fleet_reporting.rs": {
+      "lines": 371,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 45,
+      "status": "acceptable"
+    },
+    "src/core/types/config.rs": {
+      "lines": 298,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 55,
+      "status": "acceptable"
+    },
+    "src/cli/tests_destroy.rs": {
+      "lines": 380,
+      "test_lines": 425,
+      "tlr": 1.1184211,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/transport/tests_dispatch.rs": {
+      "lines": 391,
+      "test_lines": 210,
+      "tlr": 0.5370844,
+      "health": 85,
+      "status": "acceptable"
+    },
+    "src/core/resolver/tests_helpers.rs": {
+      "lines": 196,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 60,
+      "status": "ideal"
+    },
+    "src/core/resolver/tests_waves.rs": {
+      "lines": 144,
+      "test_lines": 40,
+      "tlr": 0.2777778,
+      "health": 82,
+      "status": "ideal"
+    },
+    "src/cli/tests_apply_15.rs": {
+      "lines": 474,
+      "test_lines": 491,
+      "tlr": 1.035865,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/core/resolver/data.rs": {
+      "lines": 70,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 60,
+      "status": "ideal"
+    },
+    "src/cli/tests_apply_12.rs": {
+      "lines": 473,
+      "test_lines": 490,
+      "tlr": 1.0359408,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/core/executor/tests_parallel.rs": {
+      "lines": 396,
+      "test_lines": 90,
+      "tlr": 0.22727273,
+      "health": 67,
+      "status": "acceptable"
+    },
+    "src/core/parser/mod.rs": {
+      "lines": 129,
+      "test_lines": 12,
+      "tlr": 0.093023255,
+      "health": 67,
+      "status": "ideal"
+    },
+    "src/resources/network.rs": {
+      "lines": 481,
+      "test_lines": 703,
+      "tlr": 1.4615384,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/cli/tests_show.rs": {
+      "lines": 254,
+      "test_lines": 318,
+      "tlr": 1.2519685,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/cli/tests_status_core_4.rs": {
+      "lines": 465,
+      "test_lines": 502,
+      "tlr": 1.0795699,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/cli/infra.rs": {
+      "lines": 496,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 35,
+      "status": "acceptable"
+    },
+    "src/core/parser/expansion.rs": {
+      "lines": 110,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 55,
+      "status": "ideal"
+    },
+    "src/cli/tests_show_2.rs": {
+      "lines": 189,
+      "test_lines": 196,
+      "tlr": 1.037037,
+      "health": 100,
+      "status": "ideal"
+    },
+    "src/resources/cron.rs": {
+      "lines": 455,
+      "test_lines": 673,
+      "tlr": 1.4791209,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/transport/tests_dispatch_b.rs": {
+      "lines": 308,
+      "test_lines": 200,
+      "tlr": 0.64935064,
+      "health": 92,
+      "status": "acceptable"
+    },
+    "src/cli/apply.rs": {
+      "lines": 247,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 35,
+      "status": "acceptable"
+    },
+    "src/cli/tests_plan_1.rs": {
+      "lines": 185,
+      "test_lines": 222,
+      "tlr": 1.2,
+      "health": 100,
+      "status": "ideal"
+    },
+    "src/core/state/tests_helpers.rs": {
+      "lines": 27,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 60,
+      "status": "ideal"
+    },
+    "src/core/planner/tests_helpers.rs": {
+      "lines": 81,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 60,
+      "status": "ideal"
+    },
+    "src/mcp/types.rs": {
+      "lines": 186,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 60,
+      "status": "ideal"
+    },
+    "src/mcp/registry.rs": {
+      "lines": 244,
+      "test_lines": 4,
+      "tlr": 0.016393442,
+      "health": 56,
+      "status": "acceptable"
+    },
+    "src/tripwire/mod.rs": {
+      "lines": 18,
+      "test_lines": 6,
+      "tlr": 0.33333334,
+      "health": 100,
+      "status": "ideal"
+    },
+    "src/core/recipe/types.rs": {
+      "lines": 65,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 60,
+      "status": "ideal"
+    },
+    "src/core/executor/tests_drift.rs": {
+      "lines": 382,
+      "test_lines": 60,
+      "tlr": 0.15706806,
+      "health": 63,
+      "status": "acceptable"
+    },
+    "src/cli/commands/validate_args.rs": {
+      "lines": 160,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 60,
+      "status": "ideal"
+    },
+    "src/cli/commands/misc_args.rs": {
+      "lines": 344,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 50,
+      "status": "acceptable"
+    },
+    "src/cli/test_fixtures.rs": {
+      "lines": 155,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 60,
+      "status": "ideal"
+    },
+    "src/tripwire/drift/tests_full.rs": {
+      "lines": 448,
+      "test_lines": 70,
+      "tlr": 0.15625,
+      "health": 63,
+      "status": "acceptable"
+    },
+    "src/cli/tests_misc_5.rs": {
+      "lines": 474,
+      "test_lines": 492,
+      "tlr": 1.0379747,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/core/executor/tests_localhost2.rs": {
+      "lines": 260,
+      "test_lines": 50,
+      "tlr": 0.1923077,
+      "health": 70,
+      "status": "acceptable"
+    },
+    "src/cli/validate_compliance.rs": {
+      "lines": 329,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 45,
+      "status": "acceptable"
+    },
+    "src/cli/status_resources.rs": {
+      "lines": 271,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 40,
+      "status": "acceptable"
+    },
+    "src/core/resolver/tests_functions.rs": {
+      "lines": 240,
+      "test_lines": 260,
+      "tlr": 1.0833334,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/cli/tests_apply_16.rs": {
+      "lines": 474,
+      "test_lines": 491,
+      "tlr": 1.035865,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/cli/tests_lock_core_1.rs": {
+      "lines": 492,
+      "test_lines": 865,
+      "tlr": 1.7581301,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/cli/tests_lint.rs": {
+      "lines": 203,
+      "test_lines": 260,
+      "tlr": 1.2807882,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/cli/tests_status_core_5.rs": {
+      "lines": 459,
+      "test_lines": 496,
+      "tlr": 1.08061,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/cli/tests_fleet_ops.rs": {
+      "lines": 463,
+      "test_lines": 530,
+      "tlr": 1.1447084,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/cli/commands/state_args.rs": {
+      "lines": 57,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 60,
+      "status": "ideal"
+    },
+    "src/cli/lock_ops.rs": {
+      "lines": 445,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 45,
+      "status": "acceptable"
+    },
+    "src/core/executor/resource_ops.rs": {
+      "lines": 355,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 50,
+      "status": "acceptable"
+    },
+    "src/core/tests_purifier_b.rs": {
+      "lines": 299,
+      "test_lines": 180,
+      "tlr": 0.6020067,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/core/resolver/tests_dag.rs": {
+      "lines": 281,
+      "test_lines": 200,
+      "tlr": 0.7117438,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/transport/tests_container_c.rs": {
+      "lines": 328,
+      "test_lines": 110,
+      "tlr": 0.33536586,
+      "health": 74,
+      "status": "acceptable"
+    },
+    "src/resources/docker.rs": {
+      "lines": 88,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 55,
+      "status": "ideal"
+    },
+    "src/core/resolver/resource.rs": {
+      "lines": 64,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 55,
+      "status": "ideal"
+    },
+    "src/transport/tests_container_b.rs": {
+      "lines": 328,
+      "test_lines": 110,
+      "tlr": 0.33536586,
+      "health": 74,
+      "status": "acceptable"
+    },
+    "src/core/types/tests_state.rs": {
+      "lines": 282,
+      "test_lines": 150,
+      "tlr": 0.5319149,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/cli/dispatch_validate.rs": {
+      "lines": 113,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 50,
+      "status": "ideal"
+    },
+    "src/core/executor/tests_edge_details.rs": {
+      "lines": 386,
+      "test_lines": 80,
+      "tlr": 0.20725389,
+      "health": 66,
+      "status": "acceptable"
+    },
+    "src/cli/commands/plan_args.rs": {
+      "lines": 84,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 60,
+      "status": "ideal"
+    },
+    "src/cli/commands/apply_args.rs": {
+      "lines": 553,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 25,
+      "status": "warning"
+    },
+    "src/core/executor/tests_rolling.rs": {
+      "lines": 262,
+      "test_lines": 50,
+      "tlr": 0.1908397,
+      "health": 70,
+      "status": "acceptable"
+    },
+    "src/core/executor/machine.rs": {
+      "lines": 422,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 55,
+      "status": "acceptable"
+    },
+    "src/cli/snapshot.rs": {
+      "lines": 182,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 40,
+      "status": "ideal"
+    },
+    "src/cli/tests_graph_core_4.rs": {
+      "lines": 100,
+      "test_lines": 165,
+      "tlr": 1.65,
+      "health": 100,
+      "status": "ideal"
+    },
+    "src/cli/commands/lock_core_args.rs": {
+      "lines": 271,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 55,
+      "status": "acceptable"
+    },
+    "src/core/tests_secrets.rs": {
+      "lines": 410,
+      "test_lines": 360,
+      "tlr": 0.8780488,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/cli/check.rs": {
+      "lines": 455,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 50,
+      "status": "acceptable"
+    },
+    "src/cli/graph_cross.rs": {
+      "lines": 372,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 50,
+      "status": "acceptable"
+    },
+    "src/cli/validate_quality.rs": {
+      "lines": 279,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 45,
+      "status": "acceptable"
+    },
+    "src/cli/helpers_time.rs": {
+      "lines": 96,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 45,
+      "status": "ideal"
+    },
+    "src/cli/status_drift.rs": {
+      "lines": 435,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 45,
+      "status": "acceptable"
+    },
+    "src/cli/diff_cmd.rs": {
+      "lines": 324,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 50,
+      "status": "acceptable"
+    },
+    "src/transport/pepita.rs": {
+      "lines": 385,
+      "test_lines": 288,
+      "tlr": 0.74805194,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/core/executor/tests_localhost.rs": {
+      "lines": 326,
+      "test_lines": 80,
+      "tlr": 0.24539877,
+      "health": 69,
+      "status": "acceptable"
+    },
+    "src/lib.rs": {
+      "lines": 12,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 60,
+      "status": "ideal"
+    },
+    "src/core/executor/tests_concurrent.rs": {
+      "lines": 357,
+      "test_lines": 60,
+      "tlr": 0.16806723,
+      "health": 64,
+      "status": "acceptable"
+    },
+    "src/core/executor/tests_core.rs": {
+      "lines": 431,
+      "test_lines": 90,
+      "tlr": 0.2088167,
+      "health": 66,
+      "status": "acceptable"
+    },
+    "src/core/executor/tests_edge_record.rs": {
+      "lines": 385,
+      "test_lines": 50,
+      "tlr": 0.12987013,
+      "health": 62,
+      "status": "acceptable"
+    },
+    "src/core/parser/resource_types.rs": {
+      "lines": 301,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 55,
+      "status": "acceptable"
+    },
+    "src/cli/tests_status_core_6.rs": {
+      "lines": 461,
+      "test_lines": 498,
+      "tlr": 1.0802603,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/core/executor/strategies.rs": {
+      "lines": 120,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 40,
+      "status": "ideal"
+    },
+    "src/cli/graph_extended.rs": {
+      "lines": 394,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 45,
+      "status": "acceptable"
+    },
+    "src/cli/validate_core.rs": {
+      "lines": 267,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 50,
+      "status": "acceptable"
+    },
+    "src/cli/secrets.rs": {
+      "lines": 165,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 40,
+      "status": "ideal"
+    },
+    "src/cli/tests_apply_13.rs": {
+      "lines": 473,
+      "test_lines": 490,
+      "tlr": 1.0359408,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/cli/tests_misc_1.rs": {
+      "lines": 475,
+      "test_lines": 493,
+      "tlr": 1.0378947,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/cli/status_health.rs": {
+      "lines": 415,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 50,
+      "status": "acceptable"
+    },
+    "src/cli/tests_check_2.rs": {
+      "lines": 425,
+      "test_lines": 549,
+      "tlr": 1.2917647,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/resources/tests_file.rs": {
+      "lines": 299,
+      "test_lines": 210,
+      "tlr": 0.70234114,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/resources/model.rs": {
+      "lines": 316,
+      "test_lines": 296,
+      "tlr": 0.93670887,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/core/parser/tests_arch.rs": {
+      "lines": 152,
+      "test_lines": 70,
+      "tlr": 0.46052632,
+      "health": 96,
+      "status": "ideal"
+    },
+    "src/core/recipe/tests_expansion.rs": {
+      "lines": 381,
+      "test_lines": 210,
+      "tlr": 0.5511811,
+      "health": 86,
+      "status": "acceptable"
+    },
+    "src/core/parser/recipes.rs": {
+      "lines": 52,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 50,
+      "status": "ideal"
+    },
+    "src/mcp/tests_registry.rs": {
+      "lines": 129,
+      "test_lines": 100,
+      "tlr": 0.7751938,
+      "health": 100,
+      "status": "ideal"
+    },
+    "src/tripwire/drift/tests_fj036.rs": {
+      "lines": 236,
+      "test_lines": 50,
+      "tlr": 0.21186441,
+      "health": 71,
+      "status": "acceptable"
+    },
+    "src/cli/tests_status_core_10.rs": {
+      "lines": 283,
+      "test_lines": 559,
+      "tlr": 1.975265,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/cli/tests_plan.rs": {
+      "lines": 475,
+      "test_lines": 560,
+      "tlr": 1.1789473,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/cli/show.rs": {
+      "lines": 399,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 40,
+      "status": "acceptable"
+    },
+    "src/tripwire/drift/tests_transport.rs": {
+      "lines": 252,
+      "test_lines": 80,
+      "tlr": 0.31746033,
+      "health": 80,
+      "status": "acceptable"
+    },
+    "src/tripwire/tests_hasher_b.rs": {
+      "lines": 244,
+      "test_lines": 100,
+      "tlr": 0.40983605,
+      "health": 87,
+      "status": "acceptable"
+    },
+    "src/cli/dispatch_misc.rs": {
+      "lines": 145,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 60,
+      "status": "ideal"
+    },
+    "src/cli/drift.rs": {
+      "lines": 330,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 50,
+      "status": "acceptable"
+    },
+    "src/tripwire/tests_hasher.rs": {
+      "lines": 277,
+      "test_lines": 250,
+      "tlr": 0.9025271,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/core/parser/tests_expansion.rs": {
+      "lines": 493,
+      "test_lines": 170,
+      "tlr": 0.3448276,
+      "health": 74,
+      "status": "acceptable"
+    },
+    "src/cli/tests_validate_core_3.rs": {
+      "lines": 269,
+      "test_lines": 503,
+      "tlr": 1.8698884,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/core/parser/tests_misc_2.rs": {
+      "lines": 496,
+      "test_lines": 180,
+      "tlr": 0.36290324,
+      "health": 75,
+      "status": "acceptable"
+    },
+    "src/cli/tests_snapshot.rs": {
+      "lines": 186,
+      "test_lines": 274,
+      "tlr": 1.4731183,
+      "health": 100,
+      "status": "ideal"
+    },
+    "src/cli/tests_misc_10.rs": {
+      "lines": 343,
+      "test_lines": 361,
+      "tlr": 1.0524781,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/transport/mod.rs": {
+      "lines": 169,
+      "test_lines": 7,
+      "tlr": 0.041420117,
+      "health": 63,
+      "status": "ideal"
+    },
+    "src/resources/pepita/tests.rs": {
+      "lines": 355,
+      "test_lines": 240,
+      "tlr": 0.6760563,
+      "health": 93,
+      "status": "acceptable"
+    },
+    "src/cli/graph_impact.rs": {
+      "lines": 373,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 50,
+      "status": "acceptable"
+    },
+    "src/transport/tests_container.rs": {
+      "lines": 359,
+      "test_lines": 140,
+      "tlr": 0.38997215,
+      "health": 77,
+      "status": "acceptable"
+    },
+    "src/cli/tests_graph_core_2.rs": {
+      "lines": 444,
+      "test_lines": 511,
+      "tlr": 1.150901,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/core/planner/mod.rs": {
+      "lines": 329,
+      "test_lines": 9,
+      "tlr": 0.027355623,
+      "health": 56,
+      "status": "acceptable"
+    },
+    "src/cli/status_cost.rs": {
+      "lines": 265,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 35,
+      "status": "acceptable"
+    },
+    "src/tripwire/hasher.rs": {
+      "lines": 93,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 60,
+      "status": "ideal"
+    },
+    "src/core/executor/tests_converge.rs": {
+      "lines": 340,
+      "test_lines": 60,
+      "tlr": 0.1764706,
+      "health": 65,
+      "status": "acceptable"
+    },
+    "src/core/resolver/dag.rs": {
+      "lines": 151,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 55,
+      "status": "ideal"
+    },
+    "src/mcp/handlers.rs": {
+      "lines": 491,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 50,
+      "status": "acceptable"
+    },
+    "src/cli/tests_validate_core_2.rs": {
+      "lines": 483,
+      "test_lines": 569,
+      "tlr": 1.1780539,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/cli/apply_output.rs": {
+      "lines": 281,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 35,
+      "status": "acceptable"
+    },
+    "src/tripwire/tests_anomaly.rs": {
+      "lines": 276,
+      "test_lines": 260,
+      "tlr": 0.942029,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/core/tests_purifier.rs": {
+      "lines": 295,
+      "test_lines": 210,
+      "tlr": 0.7118644,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/core/executor/tests_converge2.rs": {
+      "lines": 326,
+      "test_lines": 60,
+      "tlr": 0.18404908,
+      "health": 65,
+      "status": "acceptable"
+    },
+    "src/core/types/mod.rs": {
+      "lines": 30,
+      "test_lines": 4,
+      "tlr": 0.13333334,
+      "health": 77,
+      "status": "ideal"
+    },
+    "src/cli/helpers.rs": {
+      "lines": 86,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 55,
+      "status": "ideal"
+    },
+    "src/cli/tests_apply.rs": {
+      "lines": 382,
+      "test_lines": 408,
+      "tlr": 1.0680628,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/tripwire/anomaly.rs": {
+      "lines": 331,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 55,
+      "status": "acceptable"
+    },
+    "src/core/codegen/dispatch.rs": {
+      "lines": 76,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 60,
+      "status": "ideal"
+    },
+    "src/cli/graph_core.rs": {
+      "lines": 391,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 50,
+      "status": "acceptable"
+    },
+    "src/core/codegen/tests_coverage.rs": {
+      "lines": 269,
+      "test_lines": 110,
+      "tlr": 0.40892193,
+      "health": 87,
+      "status": "acceptable"
+    },
+    "src/cli/tests_helpers.rs": {
+      "lines": 162,
+      "test_lines": 269,
+      "tlr": 1.6604939,
+      "health": 100,
+      "status": "ideal"
+    },
+    "src/transport/ssh.rs": {
+      "lines": 203,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 50,
+      "status": "acceptable"
+    },
+    "src/cli/tests_apply_10.rs": {
+      "lines": 470,
+      "test_lines": 487,
+      "tlr": 1.0361702,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/cli/tests_helpers_time.rs": {
+      "lines": 38,
+      "test_lines": 46,
+      "tlr": 1.2105263,
+      "health": 100,
+      "status": "ideal"
+    },
+    "src/resources/tests_docker_b.rs": {
+      "lines": 275,
+      "test_lines": 160,
+      "tlr": 0.58181816,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/core/executor/helpers.rs": {
+      "lines": 224,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 45,
+      "status": "acceptable"
+    },
+    "src/cli/tests_helpers_state.rs": {
+      "lines": 152,
+      "test_lines": 190,
+      "tlr": 1.25,
+      "health": 100,
+      "status": "ideal"
+    },
+    "src/cli/commands/graph_args.rs": {
+      "lines": 172,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 60,
+      "status": "ideal"
+    },
+    "src/cli/dispatch_lock.rs": {
+      "lines": 71,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 60,
+      "status": "ideal"
+    },
+    "src/tripwire/drift/tests_edge_fj132_b.rs": {
+      "lines": 272,
+      "test_lines": 90,
+      "tlr": 0.33088234,
+      "health": 81,
+      "status": "acceptable"
+    },
+    "src/cli/tests_history.rs": {
+      "lines": 242,
+      "test_lines": 348,
+      "tlr": 1.4380165,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/cli/dispatch_notify.rs": {
+      "lines": 230,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 55,
+      "status": "acceptable"
+    },
+    "src/cli/lock_merge.rs": {
+      "lines": 214,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 35,
+      "status": "acceptable"
+    },
+    "src/cli/tests_status_core_1.rs": {
+      "lines": 457,
+      "test_lines": 494,
+      "tlr": 1.0809628,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/cli/status_fleet.rs": {
+      "lines": 342,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 40,
+      "status": "acceptable"
+    },
+    "src/core/executor/mod.rs": {
+      "lines": 222,
+      "test_lines": 18,
+      "tlr": 0.08108108,
+      "health": 56,
+      "status": "acceptable"
+    },
+    "src/cli/tests_misc_2.rs": {
+      "lines": 377,
+      "test_lines": 454,
+      "tlr": 1.204244,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/cli/destroy.rs": {
+      "lines": 239,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 45,
+      "status": "acceptable"
+    },
+    "src/copia/tests.rs": {
+      "lines": 307,
+      "test_lines": 260,
+      "tlr": 0.8469055,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/core/executor/tests_hooks.rs": {
+      "lines": 317,
+      "test_lines": 70,
+      "tlr": 0.22082019,
+      "health": 67,
+      "status": "acceptable"
+    },
+    "src/tripwire/tests_eventlog_b.rs": {
+      "lines": 265,
+      "test_lines": 170,
+      "tlr": 0.6415094,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/core/executor/tests_advanced.rs": {
+      "lines": 489,
+      "test_lines": 90,
+      "tlr": 0.18404908,
+      "health": 65,
+      "status": "acceptable"
+    },
+    "src/cli/plan.rs": {
+      "lines": 246,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 45,
+      "status": "acceptable"
+    },
+    "src/cli/tests_status_core_7.rs": {
+      "lines": 461,
+      "test_lines": 498,
+      "tlr": 1.0802603,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/resources/gpu.rs": {
+      "lines": 285,
+      "test_lines": 285,
+      "tlr": 1.0,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/core/recipe/validation.rs": {
+      "lines": 34,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 55,
+      "status": "ideal"
+    },
+    "src/core/parser/tests_includes.rs": {
+      "lines": 386,
+      "test_lines": 110,
+      "tlr": 0.2849741,
+      "health": 71,
+      "status": "acceptable"
+    },
+    "src/tripwire/eventlog.rs": {
+      "lines": 105,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 60,
+      "status": "ideal"
+    },
+    "src/resources/tests_file_b.rs": {
+      "lines": 335,
+      "test_lines": 270,
+      "tlr": 0.80597013,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/core/types/state_types.rs": {
+      "lines": 298,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 55,
+      "status": "acceptable"
+    },
+    "src/cli/dispatch_graph.rs": {
+      "lines": 127,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 50,
+      "status": "ideal"
+    },
+    "src/cli/status_queries.rs": {
+      "lines": 369,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 45,
+      "status": "acceptable"
+    },
+    "src/cli/tests_init.rs": {
+      "lines": 451,
+      "test_lines": 687,
+      "tlr": 1.5232816,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/cli/tests_status_queries.rs": {
+      "lines": 110,
+      "test_lines": 106,
+      "tlr": 0.96363634,
+      "health": 100,
+      "status": "ideal"
+    },
+    "src/cli/dispatch_status.rs": {
+      "lines": 246,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 45,
+      "status": "acceptable"
+    },
+    "src/core/executor/machine_wave.rs": {
+      "lines": 147,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 55,
+      "status": "ideal"
+    },
+    "src/copia/mod.rs": {
+      "lines": 239,
+      "test_lines": 2,
+      "tlr": 0.008368201,
+      "health": 55,
+      "status": "acceptable"
+    },
+    "src/core/resolver/tests_resource.rs": {
+      "lines": 480,
+      "test_lines": 210,
+      "tlr": 0.4375,
+      "health": 80,
+      "status": "acceptable"
+    },
+    "src/mcp/tests_handlers_more.rs": {
+      "lines": 349,
+      "test_lines": 160,
+      "tlr": 0.45845273,
+      "health": 81,
+      "status": "acceptable"
+    },
+    "src/core/resolver/tests_proptest.rs": {
+      "lines": 77,
+      "test_lines": 30,
+      "tlr": 0.38961038,
+      "health": 100,
+      "status": "ideal"
+    },
+    "src/cli/commands/status_args.rs": {
+      "lines": 312,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 50,
+      "status": "acceptable"
+    },
+    "src/cli/tests_graph_core.rs": {
+      "lines": 455,
+      "test_lines": 600,
+      "tlr": 1.3186814,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/cli/observe.rs": {
+      "lines": 371,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 50,
+      "status": "acceptable"
+    },
+    "src/cli/validate_policy.rs": {
+      "lines": 215,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 50,
+      "status": "acceptable"
+    },
+    "src/cli/tests_apply_helpers.rs": {
+      "lines": 262,
+      "test_lines": 409,
+      "tlr": 1.5610687,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/transport/local.rs": {
+      "lines": 149,
+      "test_lines": 266,
+      "tlr": 1.7852349,
+      "health": 100,
+      "status": "ideal"
+    },
+    "src/core/state/tests_basic.rs": {
+      "lines": 354,
+      "test_lines": 240,
+      "tlr": 0.6779661,
+      "health": 93,
+      "status": "acceptable"
+    },
+    "src/cli/commands/mod.rs": {
+      "lines": 484,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 45,
+      "status": "acceptable"
+    },
+    "src/cli/print_helpers.rs": {
+      "lines": 237,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 50,
+      "status": "acceptable"
+    },
+    "src/core/parser/tests_misc_3.rs": {
+      "lines": 428,
+      "test_lines": 150,
+      "tlr": 0.3504673,
+      "health": 75,
+      "status": "acceptable"
+    },
+    "src/cli/tests_misc_6.rs": {
+      "lines": 469,
+      "test_lines": 487,
+      "tlr": 1.0383795,
+      "health": 95,
+      "status": "acceptable"
+    },
+    "src/cli/status_convergence.rs": {
+      "lines": 495,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 45,
+      "status": "acceptable"
+    },
+    "src/cli/status_failures.rs": {
+      "lines": 396,
+      "test_lines": 0,
+      "tlr": 0.0,
+      "health": 45,
+      "status": "acceptable"
+    },
+    "src/cli/tests_apply_4.rs": {
+      "lines": 474,
+      "test_lines": 491,
+      "tlr": 1.035865,
+      "health": 95,
+      "status": "acceptable"
+    }
+  }
+}
