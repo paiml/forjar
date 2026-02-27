@@ -25,7 +25,7 @@ serde_yaml_ng = "0.10"
 serde_json = "1.0"
 clap = { version = "4", features = ["derive"] }
 indexmap = { version = "2.7", features = ["serde"] }
-provable-contracts-macros = { path = "../provable-contracts/crates/provable-contracts-macros" }
+provable-contracts-macros = { version = "0.1", path = "../provable-contracts/crates/provable-contracts-macros" }
 base64 = "0.22.1"
 bashrs = "6.64.0"
 pforge-runtime = "0.1.4"
@@ -38,7 +38,7 @@ age = { version = "0.11", default-features = false }
 clap_complete = "4"
 
 [build-dependencies]
-provable-contracts = { path = "../provable-contracts/crates/provable-contracts" }
+provable-contracts = { version = "0.1", path = "../provable-contracts/crates/provable-contracts" }
 
 [dev-dependencies]
 tempfile = "3"
