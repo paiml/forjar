@@ -1915,14 +1915,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-400 | `forjar apply --schedule <cron>` — schedule apply for future execution via at/cron. Deferred apply. | Planned |
-| FJ-401 | `forjar validate --policy-file <path>` — validate against external policy rules (OPA-style YAML). | Planned |
-| FJ-402 | `forjar status --anomalies` — detect anomalous resource states from historical patterns. | Planned |
-| FJ-403 | `forjar apply --snapshot-before` — named snapshot before apply (alias for --backup with custom name). | Planned |
-| FJ-404 | `forjar graph --cluster` — group resources by machine in graph output. Clustered visualization. | Planned |
-| FJ-405 | `forjar lock verify` — verify lock file integrity (BLAKE3 checksums). Corruption detection. | Planned |
-| FJ-406 | `forjar apply --concurrency <n>` — explicit concurrency limit across all machines. Global throttle. | Planned |
-| FJ-407 | `forjar status --diff-from <snapshot>` — diff current state against a named snapshot. Historical comparison. | Planned |
+| FJ-400 | `forjar apply --schedule <cron>` — schedule apply for future execution via at/cron. Deferred apply. | Deferred |
+| FJ-401 | `forjar validate --policy-file <path>` — validate against external policy rules (OPA-style YAML). | Done |
+| FJ-402 | `forjar status --anomalies` — detect anomalous resource states from historical patterns. | Done |
+| FJ-403 | `forjar apply --snapshot-before` — named snapshot before apply (alias for --backup with custom name). | Done |
+| FJ-404 | `forjar graph --cluster` — group resources by machine in graph output. Clustered visualization. | Done |
+| FJ-405 | `forjar lock verify` — verify lock file integrity (BLAKE3 checksums). Corruption detection. | Done |
+| FJ-406 | `forjar apply --concurrency <n>` — explicit concurrency limit across all machines. Global throttle. | Done |
+| FJ-407 | `forjar status --diff-from <snapshot>` — diff current state against a named snapshot. Historical comparison. | Done |
+
+### Phase 27 — v2.7: Platform Integration & Extensibility
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-410 | `forjar apply --webhook-before <url>` — POST to webhook before apply starts. Pre-flight notification. | Planned |
+| FJ-411 | `forjar validate --check-connectivity` — test SSH connectivity to all machines during validation. | Planned |
+| FJ-412 | `forjar status --resources-by-type` — group status output by resource type. Type-centric view. | Planned |
+| FJ-413 | `forjar apply --rollback-snapshot <name>` — auto-rollback to named snapshot on failure. | Planned |
+| FJ-414 | `forjar graph --orphans` — show resources with no dependencies and no dependents. Cleanup targets. | Planned |
+| FJ-415 | `forjar lock export --format json` — export lock file in JSON format. Interop with external tools. | Planned |
+| FJ-416 | `forjar apply --dry-run --diff` — combined dry-run with content diff output. CI review mode. | Planned |
+| FJ-417 | `forjar status --machines-only` — show only machine-level summary (no resource details). | Planned |
 
 ---
 

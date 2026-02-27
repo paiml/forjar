@@ -16,7 +16,7 @@ Verify:
 forjar --help
 ```
 
-You should see forjar's 53 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`, `lock-compact`.
+You should see forjar's 54 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`, `lock-compact`, `lock-verify`.
 
 ## Your First Project
 
@@ -1890,6 +1890,67 @@ Choose between table, JSON, or CSV output for status:
 forjar status --format table --state-dir state
 forjar status --format json --state-dir state
 forjar status --format csv --state-dir state
+```
+
+## Policy File Validation
+
+Validate config against external policy rules (OPA-style YAML):
+
+```bash
+forjar validate --policy-file policy.yaml -f forjar.yaml
+forjar validate --policy-file policy.yaml --json -f forjar.yaml
+```
+
+## Status Anomalies
+
+Detect anomalous resource states (failed, drifted, missing timestamps):
+
+```bash
+forjar status --anomalies --state-dir state
+forjar status --anomalies --json --state-dir state
+```
+
+## Snapshot Before Apply
+
+Create a named snapshot before apply:
+
+```bash
+forjar apply --snapshot-before v1-backup -f forjar.yaml
+```
+
+## Clustered Graph
+
+Group resources by machine in graph output:
+
+```bash
+forjar graph --cluster -f forjar.yaml
+forjar graph --cluster --format dot -f forjar.yaml
+```
+
+## Lock Verify
+
+Verify lock file integrity (BLAKE3 checksums):
+
+```bash
+forjar lock-verify --state-dir state
+forjar lock-verify --state-dir state --json
+```
+
+## Concurrency Limit
+
+Set a global concurrency limit across all machines:
+
+```bash
+forjar apply --concurrency 4 -f forjar.yaml
+```
+
+## Diff From Snapshot
+
+Compare current state against a named snapshot:
+
+```bash
+forjar status --diff-from v1-backup --state-dir state
+forjar status --diff-from v1-backup --json --state-dir state
 ```
 
 ## Next Steps
