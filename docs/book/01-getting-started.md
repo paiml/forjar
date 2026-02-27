@@ -16,7 +16,7 @@ Verify:
 forjar --help
 ```
 
-You should see forjar's 42 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`.
+You should see forjar's 44 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`.
 
 ## Your First Project
 
@@ -1540,6 +1540,71 @@ Auto-fix common lint issues — sort resource keys for consistency:
 ```bash
 forjar lint -f forjar.yaml --fix
 # Wrote normalized config to forjar.yaml
+```
+
+## Audit Trail
+
+View the full audit trail from event logs — who applied what, when:
+
+```bash
+forjar audit --state-dir state
+forjar audit --state-dir state --machine gpu-box -n 50
+forjar audit --state-dir state --json
+```
+
+## Pre-Apply Backup
+
+Automatically snapshot state before apply for easy rollback:
+
+```bash
+forjar apply -f forjar.yaml --backup
+# Creates snapshot "pre-apply-20260226-143022" before applying
+```
+
+## Network Diagnostics
+
+Test SSH connectivity to all machines with latency reporting:
+
+```bash
+forjar doctor --network -f forjar.yaml
+forjar doctor --network -f forjar.yaml --json
+```
+
+## Compact Plan Output
+
+One-line-per-resource plan output for large configs:
+
+```bash
+forjar plan-compact -f forjar.yaml
+# + base-packages    (create)
+# ~ app-config       (update)
+# - old-service      (destroy)
+```
+
+## Exclude Resources
+
+Exclude resources matching a glob pattern from apply (inverse of --subset):
+
+```bash
+forjar apply -f forjar.yaml --exclude "test-*"
+forjar apply -f forjar.yaml --exclude "*-staging"
+```
+
+## Health Score
+
+Aggregate convergence health score (0-100) from lock file state:
+
+```bash
+forjar status --health --state-dir state
+forjar status --health --state-dir state --json
+```
+
+## Sequential Execution
+
+Force sequential resource execution for debugging ordering issues:
+
+```bash
+forjar apply -f forjar.yaml --sequential
 ```
 
 ## Next Steps

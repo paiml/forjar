@@ -1837,14 +1837,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-340 | `forjar apply --schedule <cron>` — schedule apply to run at a specific time via cron expression. Deferred execution. | Planned |
-| FJ-341 | `forjar audit` — show full audit trail: who applied what, when, from which config revision. Compliance reporting. | Planned |
-| FJ-342 | `forjar apply --backup` — snapshot state before apply. Auto-create named snapshot for rollback. | Planned |
-| FJ-343 | `forjar doctor --network` — test SSH connectivity to all machines, report latency and key issues. Network diagnostics. | Planned |
-| FJ-344 | `forjar plan --compact` — one-line-per-resource plan output for large configs. Dashboard-friendly format. | Planned |
-| FJ-345 | `forjar apply --exclude <glob>` — exclude resources matching pattern from apply. Inverse of --subset. | Planned |
-| FJ-346 | `forjar status --health` — aggregate health score (0-100) based on convergence rate, drift, and failure history. | Planned |
-| FJ-347 | `forjar apply --sequential` — force sequential execution (no parallel waves). Debug mode for ordering issues. | Planned |
+| FJ-340 | `forjar apply --schedule <cron>` — schedule apply to run at a specific time via cron expression. Deferred execution. | Deferred |
+| FJ-341 | `forjar audit` — show full audit trail: who applied what, when, from which config revision. Compliance reporting. | Done |
+| FJ-342 | `forjar apply --backup` — snapshot state before apply. Auto-create named snapshot for rollback. | Done |
+| FJ-343 | `forjar doctor --network` — test SSH connectivity to all machines, report latency and key issues. Network diagnostics. | Done |
+| FJ-344 | `forjar plan --compact` — one-line-per-resource plan output for large configs. Dashboard-friendly format. | Done |
+| FJ-345 | `forjar apply --exclude <glob>` — exclude resources matching pattern from apply. Inverse of --subset. | Done |
+| FJ-346 | `forjar status --health` — aggregate health score (0-100) based on convergence rate, drift, and failure history. | Done |
+| FJ-347 | `forjar apply --sequential` — force sequential execution (no parallel waves). Debug mode for ordering issues. | Done |
+
+### Phase 21 — v2.1: Advanced Observability & Compliance
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-350 | `forjar apply --diff-only` — show what would change without generating scripts. Faster than dry-run for large configs. | Planned |
+| FJ-351 | `forjar compliance` — validate infrastructure against policy rules (required tags, naming conventions, security baselines). | Planned |
+| FJ-352 | `forjar export --format <fmt>` — export state to external formats (Terraform state, Ansible inventory, CSV). Interop bridge. | Planned |
+| FJ-353 | `forjar apply --notify-slack <webhook>` — post apply results to Slack channel via webhook URL. Team visibility. | Planned |
+| FJ-354 | `forjar graph --affected <resource>` — show transitive dependents of a resource. Impact analysis before changes. | Planned |
+| FJ-355 | `forjar status --drift-details` — show detailed drift report with field-level diffs for each drifted resource. | Planned |
+| FJ-356 | `forjar apply --cost-limit <n>` — abort apply if estimated cost (resource count) exceeds limit. Safety guardrail. | Planned |
+| FJ-357 | `forjar history --resource <name>` — show change history for a specific resource across all applies. Resource timeline. | Planned |
 
 ---
 
