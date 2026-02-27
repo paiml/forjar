@@ -2006,14 +2006,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-470 | `forjar apply --batch-size <n>` — process resources in batches of N. Memory-bounded execution. | Planned |
-| FJ-471 | `forjar validate --check-cycles-deep` — detect indirect circular dependencies via transitive closure. | Planned |
-| FJ-472 | `forjar status --histogram` — show resource status distribution as ASCII histogram. Visual overview. | Planned |
-| FJ-473 | `forjar apply --notify-teams <webhook>` — send apply results to Microsoft Teams. Teams integration. | Planned |
-| FJ-474 | `forjar graph --critical-resources` — identify resources with the most dependents. Bottleneck analysis. | Planned |
-| FJ-475 | `forjar lock verify-sig <key>` — verify lock file signature. Integrity verification. | Planned |
-| FJ-476 | `forjar apply --abort-on-drift` — abort apply if drift detected before execution. Safety gate. | Planned |
-| FJ-477 | `forjar status --dependency-health` — show health score weighted by dependency position. Risk analysis. | Planned |
+| FJ-470 | `forjar apply --batch-size <n>` — process resources in batches of N. Memory-bounded execution. | Done |
+| FJ-471 | `forjar validate --check-cycles-deep` — detect indirect circular dependencies via transitive closure. | Done |
+| FJ-472 | `forjar status --histogram` — show resource status distribution as ASCII histogram. Visual overview. | Done |
+| FJ-473 | `forjar apply --notify-teams <webhook>` — send apply results to Microsoft Teams. Teams integration. | Done |
+| FJ-474 | `forjar graph --critical-resources` — identify resources with the most dependents. Bottleneck analysis. | Done |
+| FJ-475 | `forjar lock verify-sig <key>` — verify lock file signature. Integrity verification. | Done |
+| FJ-476 | `forjar apply --abort-on-drift` — abort apply if drift detected before execution. Safety gate. | Done |
+| FJ-477 | `forjar status --dependency-health` — show health score weighted by dependency position. Risk analysis. | Done |
+
+### Phase 34 — v3.4: Fleet Management & Automation
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-480 | `forjar apply --dry-run-summary` — one-line summary of what would change per machine. Fleet overview. | Planned |
+| FJ-481 | `forjar validate --check-naming` — enforce resource naming conventions (kebab-case, prefix rules). | Planned |
+| FJ-482 | `forjar status --top-failures` — show most frequently failing resources. Reliability analysis. | Planned |
+| FJ-483 | `forjar apply --notify-discord <webhook>` — send apply results to Discord. Discord integration. | Planned |
+| FJ-484 | `forjar graph --weight` — show edge weights based on resource dependency strength. Weighted graph. | Planned |
+| FJ-485 | `forjar lock compact-all` — compact all machine lock files in one operation. Bulk maintenance. | Planned |
+| FJ-486 | `forjar apply --rollback-on-threshold <n>` — auto-rollback if more than N resources fail. Blast radius. | Planned |
+| FJ-487 | `forjar status --convergence-rate` — show convergence percentage over time. Trend analysis. | Planned |
 
 ---
 

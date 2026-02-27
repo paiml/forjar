@@ -16,7 +16,7 @@ Verify:
 forjar --help
 ```
 
-You should see forjar's 61 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`, `lock-compact`, `lock-verify`, `lock-export`, `lock-gc`, `lock-diff`, `lock-merge`, `lock-rebase`, `lock-sign`.
+You should see forjar's 62 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`, `lock-compact`, `lock-verify`, `lock-export`, `lock-gc`, `lock-diff`, `lock-merge`, `lock-rebase`, `lock-sign`, `lock-verify-sig`.
 
 ## Your First Project
 
@@ -2317,6 +2317,75 @@ Check compliance against a named policy:
 ```bash
 forjar status --compliance soc2 --state-dir state
 forjar status --compliance hipaa --json --state-dir state
+```
+
+## Apply Batch Size
+
+Process resources in batches for memory-bounded execution:
+
+```bash
+forjar apply -f forjar.yaml --batch-size 10
+forjar apply -f forjar.yaml --batch-size 5 --state-dir state
+```
+
+## Validate Check Cycles Deep
+
+Detect indirect circular dependencies via transitive closure:
+
+```bash
+forjar validate -f forjar.yaml --check-cycles-deep
+forjar validate -f forjar.yaml --check-cycles-deep --json
+```
+
+## Status Histogram
+
+Show resource status distribution as an ASCII histogram:
+
+```bash
+forjar status --histogram --state-dir state
+forjar status --histogram --json --state-dir state
+```
+
+## Apply Notify Teams
+
+Send apply results to Microsoft Teams webhook:
+
+```bash
+forjar apply -f forjar.yaml --notify-teams https://outlook.office.com/webhook/...
+```
+
+## Graph Critical Resources
+
+Identify resources with the most dependents (bottleneck analysis):
+
+```bash
+forjar graph -f forjar.yaml --critical-resources
+```
+
+## Lock Verify Sig
+
+Verify lock file signature against a signing key:
+
+```bash
+forjar lock-verify-sig --state-dir state --key my-signing-key
+forjar lock-verify-sig --state-dir state --key my-signing-key --json
+```
+
+## Apply Abort on Drift
+
+Abort apply if drift is detected before execution (safety gate):
+
+```bash
+forjar apply -f forjar.yaml --abort-on-drift
+```
+
+## Status Dependency Health
+
+Show health score weighted by dependency position (risk analysis):
+
+```bash
+forjar status --dependency-health --state-dir state
+forjar status --dependency-health --json --state-dir state
 ```
 
 ## Next Steps
