@@ -3507,6 +3507,36 @@ forjar status --config-hash --state-dir state
 forjar status --config-hash --state-dir state --json
 ```
 
+### Phase 56 — Security Hardening & Audit Trail (FJ-700→FJ-707)
+
+**Mode Consistency Validation** (FJ-701): Validate file mode consistency across resources.
+
+```bash
+forjar validate -f forjar.yaml --check-mode-consistency
+forjar validate -f forjar.yaml --check-mode-consistency --json
+```
+
+**Leaf Resources** (FJ-704): Identify leaf resources with no dependents in the DAG.
+
+```bash
+forjar graph -f forjar.yaml --leaf-resources
+forjar graph -f forjar.yaml --leaf-resources --json
+```
+
+**Lock Schema Verification** (FJ-705): Validate lock file schema version compatibility.
+
+```bash
+forjar lock-verify-schema --state-dir state
+forjar lock-verify-schema --state-dir state --json
+```
+
+**Convergence History** (FJ-707): Show convergence trend over time.
+
+```bash
+forjar status --convergence-history --state-dir state
+forjar status --convergence-history --state-dir state --json
+```
+
 ## Next Steps
 
 - [Configuration Reference](02-configuration.md) — Complete `forjar.yaml` schema

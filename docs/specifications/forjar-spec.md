@@ -2305,14 +2305,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-700 | `forjar apply --notify-sqs <queue-url>` — publish events to AWS SQS queue. Cloud messaging. | Planned |
-| FJ-701 | `forjar validate --check-mode-consistency` — validate file mode consistency across resources. Safety. | Planned |
-| FJ-702 | `forjar status --resource-age` — show age of each resource since last apply. Freshness. | Planned |
-| FJ-703 | `forjar apply --dry-run-diff` — show unified diff of what would change. Preview. | Planned |
-| FJ-704 | `forjar graph --bottlenecks` — identify resources that block the most dependents. Architecture. | Planned |
-| FJ-705 | `forjar lock verify-schema` — validate lock file against expected schema version. Migration. | Planned |
-| FJ-706 | `forjar apply --resource-priority <name>=<n>` — set execution priority for specific resources. Scheduling. | Planned |
-| FJ-707 | `forjar status --convergence-history` — show convergence trend over time. Observability. | Planned |
+| FJ-700 | `forjar apply --notify-sqs <queue-url>` — publish events to AWS SQS queue. Cloud messaging. | Done |
+| FJ-701 | `forjar validate --check-mode-consistency` — validate file mode consistency across resources. Safety. | Done |
+| FJ-702 | `forjar status --stale-resources` — show resources not applied recently. Freshness. | Done |
+| FJ-703 | `forjar apply --plan-output-file <path>` — save plan output to file. Preview. | Done |
+| FJ-704 | `forjar graph --leaf-resources` — identify leaf resources with no dependents. Architecture. | Done |
+| FJ-705 | `forjar lock verify-schema` — validate lock file against expected schema version. Migration. | Done |
+| FJ-706 | `forjar apply --resource-priority <name>=<n>` — set execution priority for specific resources. Scheduling. | Done |
+| FJ-707 | `forjar status --convergence-history` — show convergence trend over time. Observability. | Done |
+
+### Phase 57 — Fleet Management & Multi-Machine Orchestration (FJ-710→FJ-717)
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-710 | `forjar apply --notify-pubsub <topic>` — publish events to Google Cloud Pub/Sub. Cloud messaging. | Planned |
+| FJ-711 | `forjar validate --check-group-consistency` — validate user/group consistency across resources. Safety. | Planned |
+| FJ-712 | `forjar status --resource-dependencies` — show dependency tree per resource. Insight. | Planned |
+| FJ-713 | `forjar apply --batch-size <n>` — apply resources in batches of N. Throttling. | Planned |
+| FJ-714 | `forjar graph --reverse-deps` — show reverse dependency graph (who depends on me). Architecture. | Planned |
+| FJ-715 | `forjar lock tag <name> <value>` — add metadata tags to lock files. Organization. | Planned |
+| FJ-716 | `forjar apply --fail-fast-machine` — stop all machines on first machine failure. Safety. | Planned |
+| FJ-717 | `forjar status --drift-summary` — show drift summary across all machines. Fleet. | Planned |
 
 ---
 
