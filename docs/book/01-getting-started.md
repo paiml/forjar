@@ -16,7 +16,7 @@ Verify:
 forjar --help
 ```
 
-You should see forjar's 70 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`, `lock-compact`, `lock-verify`, `lock-export`, `lock-gc`, `lock-diff`, `lock-merge`, `lock-rebase`, `lock-sign`, `lock-verify-sig`, `lock-compact-all`, `lock-audit-trail`, `lock-rotate-keys`, `lock-backup`, `lock-verify-chain`, `lock-stats`, `lock-audit`, `lock-compress`.
+You should see forjar's 71 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`, `lock-compact`, `lock-verify`, `lock-export`, `lock-gc`, `lock-diff`, `lock-merge`, `lock-rebase`, `lock-sign`, `lock-verify-sig`, `lock-compact-all`, `lock-audit-trail`, `lock-rotate-keys`, `lock-backup`, `lock-verify-chain`, `lock-stats`, `lock-audit`, `lock-compress`, `lock-defrag`.
 
 ## Your First Project
 
@@ -2980,6 +2980,76 @@ Compress old lock files by minifying YAML:
 ```bash
 forjar lock-compress --state-dir state
 forjar lock-compress --state-dir state --json
+```
+
+### Check Resource Limits
+
+Validate resource counts don't exceed per-machine limits:
+
+```bash
+forjar validate --check-resource-limits -f forjar.yaml
+forjar validate --check-resource-limits -f forjar.yaml --json
+```
+
+### GCP Pub/Sub Notification
+
+Publish apply events to Google Cloud Pub/Sub:
+
+```bash
+forjar apply -f forjar.yaml --notify-pubsub projects/my-proj/topics/forjar-events
+```
+
+### Fleet Strategy
+
+Fleet-wide rollout strategy (parallel, rolling, canary):
+
+```bash
+forjar apply -f forjar.yaml --fleet-strategy rolling
+forjar apply -f forjar.yaml --fleet-strategy canary
+```
+
+### Pre-Check Script
+
+Run validation script before apply proceeds:
+
+```bash
+forjar apply -f forjar.yaml --pre-check /usr/local/bin/pre-deploy.sh
+```
+
+### Fleet Overview
+
+Aggregated fleet summary across all machines:
+
+```bash
+forjar status --fleet-overview --state-dir state
+forjar status --fleet-overview --state-dir state --json
+```
+
+### Machine Health
+
+Per-machine health details with resource breakdown:
+
+```bash
+forjar status --machine-health --state-dir state
+forjar status --machine-health --machine gpu-box --json --state-dir state
+```
+
+### Resource Types Graph
+
+Show graph colored/grouped by resource type:
+
+```bash
+forjar graph --resource-types -f forjar.yaml
+forjar graph --resource-types -f forjar.yaml --json
+```
+
+### Lock Defrag
+
+Defragment lock files (reorder resources alphabetically):
+
+```bash
+forjar lock-defrag --state-dir state
+forjar lock-defrag --state-dir state --json
 ```
 
 ## Next Steps
