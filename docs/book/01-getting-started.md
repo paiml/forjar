@@ -16,7 +16,7 @@ Verify:
 forjar --help
 ```
 
-You should see forjar's 75 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`, `lock-compact`, `lock-verify`, `lock-export`, `lock-gc`, `lock-diff`, `lock-merge`, `lock-rebase`, `lock-sign`, `lock-verify-sig`, `lock-compact-all`, `lock-audit-trail`, `lock-rotate-keys`, `lock-backup`, `lock-verify-chain`, `lock-stats`, `lock-audit`, `lock-compress`, `lock-defrag`, `lock-normalize`, `lock-validate`, `lock-verify-hmac`, `lock-archive`.
+You should see forjar's 76 subcommands: `init`, `validate`, `plan`, `apply`, `drift`, `status`, `history`, `destroy`, `import`, `show`, `graph`, `check`, `diff`, `fmt`, `lint`, `rollback`, `anomaly`, `trace`, `migrate`, `mcp`, `bench`, `state-list`, `state-mv`, `state-rm`, `output`, `policy`, `workspace`, `secrets`, `doctor`, `completion`, `lock`, `snapshot`, `schema`, `watch`, `explain`, `env`, `test`, `inventory`, `retry-failed`, `rolling`, `canary`, `audit`, `plan-compact`, `compliance`, `export`, `suggest`, `compare`, `lock-prune`, `env-diff`, `template`, `lock-info`, `lock-compact`, `lock-verify`, `lock-export`, `lock-gc`, `lock-diff`, `lock-merge`, `lock-rebase`, `lock-sign`, `lock-verify-sig`, `lock-compact-all`, `lock-audit-trail`, `lock-rotate-keys`, `lock-backup`, `lock-verify-chain`, `lock-stats`, `lock-audit`, `lock-compress`, `lock-defrag`, `lock-normalize`, `lock-validate`, `lock-verify-hmac`, `lock-archive`, `lock-snapshot`.
 
 ## Your First Project
 
@@ -3235,6 +3235,42 @@ forjar graph --resource-age -f forjar.yaml --json
 ```bash
 forjar lock-archive --state-dir state
 forjar lock-archive --state-dir state --json
+```
+
+### Workflow Automation & Pipelines (FJ-620→FJ-627)
+
+**Machine reachability** validates machine addresses before apply:
+
+```bash
+forjar validate --check-machine-reachability -f forjar.yaml
+forjar validate --check-machine-reachability -f forjar.yaml --json
+```
+
+**Pipeline status** shows CI/CD integration health:
+
+```bash
+forjar status --pipeline-status --state-dir state
+forjar status --pipeline-status --state-dir state --json
+```
+
+**Parallel groups** shows which resources can run concurrently:
+
+```bash
+forjar graph --parallel-groups -f forjar.yaml
+forjar graph --parallel-groups -f forjar.yaml --json
+```
+
+**Lock snapshots** create point-in-time recovery points:
+
+```bash
+forjar lock-snapshot --state-dir state
+forjar lock-snapshot --state-dir state --json
+```
+
+**Resource dependencies** from runtime state:
+
+```bash
+forjar status --resource-dependencies --state-dir state
 ```
 
 ## Next Steps
