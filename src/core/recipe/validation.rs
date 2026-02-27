@@ -1,0 +1,34 @@
+//! Recipe input validation -- type checking, bounds, and enum constraints.
+
+use provable_contracts_macros::contract;
+use std::collections::HashMap;
+
+use super::types::{RecipeInput, RecipeMetadata};
+pub(crate) use super::validation_types::{validate_input_type, validate_int};
+
+/// Validate recipe inputs against their declarations.
+#[contract("recipe-determinism-v1", equation = "validate_inputs")]
+pub fn validate_inputs(
+    recipe: &RecipeMetadata,
+    provided: &HashMap<String, serde_yaml_ng::Value>,
+) -> Result<HashMap<String, String>, String> {
+    let mut resolved = HashMap::new();
+
+    for (name, decl) in &recipe.inputs {
+        let value = if let Some(v) = provided.get(name) {
+            v.clone()
+        } else if let Some(ref default) = decl.default {
+            default.clone()
+        } else {
+            return Err(format!(
+                "recipe '{}' requires input '{}' (type: {})",
+                recipe.name, name, decl.input_type
+            ));
+        };
+
+        let string_val = validate_input_type(name, &decl.input_type, &value, decl)?;
+        resolved.insert(name.clone(), string_val);
+    }
+
+    Ok(resolved)
+}
