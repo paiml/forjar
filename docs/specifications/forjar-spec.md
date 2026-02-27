@@ -2097,14 +2097,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-540 | `forjar apply --notify-msteams-adaptive <url>` — send Adaptive Card to MS Teams. Rich notifications. | Planned |
-| FJ-541 | `forjar validate --check-drift-risk` — score drift risk based on resource volatility. Proactive guard. | Planned |
-| FJ-542 | `forjar status --health-score` — composite health score (0-100) across all machines. Dashboard metric. | Planned |
-| FJ-543 | `forjar apply --progressive <percent>` — progressive rollout (apply to N% of machines). Gradual deploy. | Planned |
-| FJ-544 | `forjar graph --what-if <resource>` — simulate removing a resource, show impact. Analysis tool. | Planned |
-| FJ-545 | `forjar lock stats` — show lock file statistics (sizes, ages, resource counts). State overview. | Planned |
-| FJ-546 | `forjar apply --approval-webhook <url>` — POST for approval before applying. GitOps gate. | Planned |
-| FJ-547 | `forjar status --executive-summary` — one-line per machine summary for dashboards. Executive view. | Planned |
+| FJ-540 | `forjar apply --notify-msteams-adaptive <url>` — send Adaptive Card to MS Teams. Rich notifications. | Done |
+| FJ-541 | `forjar validate --check-drift-risk` — score drift risk based on resource volatility. Proactive guard. | Done |
+| FJ-542 | `forjar status --health-score` — composite health score (0-100) across all machines. Dashboard metric. | Done |
+| FJ-543 | `forjar apply --progressive <percent>` — progressive rollout (apply to N% of machines). Gradual deploy. | Done |
+| FJ-544 | `forjar graph --what-if <resource>` — simulate removing a resource, show impact. Analysis tool. | Done |
+| FJ-545 | `forjar lock stats` — show lock file statistics (sizes, ages, resource counts). State overview. | Done |
+| FJ-546 | `forjar apply --approval-webhook <url>` — POST for approval before applying. GitOps gate. | Done |
+| FJ-547 | `forjar status --executive-summary` — one-line per machine summary for dashboards. Executive view. | Done |
+
+### Phase 41 — v4.1: Compliance & Governance
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-550 | `forjar apply --notify-incident <url>` — POST incident to PagerDuty/Opsgenie with full context. Incident response. | Planned |
+| FJ-551 | `forjar validate --check-compliance <policy>` — validate resources against compliance policy (CIS, SOC2). Governance. | Planned |
+| FJ-552 | `forjar status --audit-trail` — show full audit trail with who/what/when for each change. Compliance reporting. | Planned |
+| FJ-553 | `forjar apply --change-window <cron>` — only allow apply during maintenance windows. Change control. | Planned |
+| FJ-554 | `forjar graph --blast-radius <resource>` — show all resources affected by a change to target. Risk assessment. | Planned |
+| FJ-555 | `forjar lock audit` — verify lock file integrity and show tampering evidence. Security audit. | Planned |
+| FJ-556 | `forjar apply --sign-off <user>` — require named sign-off before apply proceeds. Approval chain. | Planned |
+| FJ-557 | `forjar status --sla-report` — SLA compliance report (uptime, MTTR, change frequency). Service level. | Planned |
 
 ---
 
