@@ -12,3 +12,8 @@ pub mod resolver;
 pub mod secrets;
 pub mod state;
 pub mod types;
+
+#[cfg(test)]
+mod tests_purifier;
+#[cfg(test)]
+mod tests_secrets;
