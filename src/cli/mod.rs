@@ -728,6 +728,10 @@ pub enum Commands {
         /// FJ-646: Only show summary, no per-resource output
         #[arg(long)]
         summary_only: bool,
+
+        /// FJ-650: Publish events to Redis pub/sub
+        #[arg(long)]
+        notify_redis: Option<String>,
     },
 
     /// Detect unauthorized changes (tripwire)
@@ -1022,6 +1026,10 @@ pub enum Commands {
         /// FJ-647: AI-powered recommendations based on state analysis
         #[arg(long)]
         recommendations: bool,
+
+        /// FJ-657: Per-machine resource count and health summary
+        #[arg(long)]
+        machine_summary: bool,
     },
 
     /// Show apply history from event logs
@@ -1241,6 +1249,10 @@ pub enum Commands {
         /// FJ-644: Show max dependency depth per resource
         #[arg(long)]
         dependency_depth: bool,
+
+        /// FJ-654: Find resources with no dependents or dependencies
+        #[arg(long)]
+        orphan_detection: bool,
     },
 
     /// Run check scripts to verify pre-conditions without applying
@@ -2650,6 +2662,7 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             notify_mqtt,
             confirmation_message,
             summary_only: _summary_only,
+            notify_redis,
         } => {
             // FJ-643: --confirmation-message — custom confirmation before apply
             if let Some(ref msg) = confirmation_message {
@@ -3355,6 +3368,19 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
                     .output();
             }
 
+            // FJ-650: notify-redis — publish apply events to Redis pub/sub
+            if let Some(ref channel) = notify_redis {
+                let status = if result.is_ok() { "success" } else { "failure" };
+                let message = format!(
+                    r#"{{"event":"forjar_apply","status":"{}","config":"{}"}}"#,
+                    status,
+                    file.display()
+                );
+                let _ = std::process::Command::new("redis-cli")
+                    .args(["PUBLISH", channel, &message])
+                    .output();
+            }
+
             result
         }
         Commands::Drift {
@@ -3452,7 +3478,11 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             diagnostic,
             uptime,
             recommendations,
+            machine_summary,
         } => {
+            if machine_summary {
+                return cmd_status_machine_summary(&state_dir, machine.as_deref(), json);
+            }
             if recommendations {
                 return cmd_status_recommendations(&state_dir, machine.as_deref(), json);
             }
@@ -3713,7 +3743,11 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             parallel_groups,
             critical_chain,
             dependency_depth,
+            orphan_detection,
         } => {
+            if orphan_detection {
+                return cmd_graph_orphan_detection(&file, json_output);
+            }
             if dependency_depth {
                 return cmd_graph_dependency_depth(&file, json_output);
             }
@@ -4119,7 +4153,11 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
         Commands::LockArchive { state_dir, json } => cmd_lock_archive(&state_dir, json),
         Commands::LockSnapshot { state_dir, json } => cmd_lock_snapshot(&state_dir, json),
         Commands::LockRepair { state_dir, json } => cmd_lock_repair(&state_dir, json),
-        Commands::LockHistory { state_dir, json, limit } => cmd_lock_history(&state_dir, json, limit),
+        Commands::LockHistory {
+            state_dir,
+            json,
+            limit,
+        } => cmd_lock_history(&state_dir, json, limit),
     }
 }
 
@@ -19305,11 +19343,7 @@ fn cmd_validate_check_naming_conventions(file: &Path, json: bool) -> Result<(), 
 }
 
 /// FJ-642: Show resource uptime based on convergence history
-fn cmd_status_uptime(
-    state_dir: &Path,
-    machine: Option<&str>,
-    json: bool,
-) -> Result<(), String> {
+fn cmd_status_uptime(state_dir: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
     let machines = discover_machines(state_dir);
     let targets: Vec<&String> = if let Some(m) = machine {
         machines.iter().filter(|x| x.as_str() == m).collect()
@@ -19438,7 +19472,13 @@ fn cmd_lock_history(state_dir: &Path, json: bool, limit: usize) -> Result<(), St
         for (rname, rlock) in &lock.resources {
             let applied = rlock.applied_at.clone().unwrap_or_default();
             let status_str = format!("{:?}", rlock.status);
-            entries.push((m.clone(), rname.clone(), applied, status_str, rlock.hash.clone()));
+            entries.push((
+                m.clone(),
+                rname.clone(),
+                applied,
+                status_str,
+                rlock.hash.clone(),
+            ));
         }
     }
 
@@ -19454,7 +19494,11 @@ fn cmd_lock_history(state_dir: &Path, json: bool, limit: usize) -> Result<(), St
             }
             print!(
                 r#"{{"machine":"{}","resource":"{}","applied_at":"{}","status":"{}","hash":"{}"}}"#,
-                machine, resource, applied, status, &hash[..hash.len().min(12)]
+                machine,
+                resource,
+                applied,
+                status,
+                &hash[..hash.len().min(12)]
             );
         }
         println!("]}}");
@@ -19534,7 +19578,8 @@ fn cmd_status_recommendations(
         ));
     }
     if total_resources == 0 {
-        recommendations.push("INFO: No resources found. Run 'forjar apply' to initialize state.".to_string());
+        recommendations
+            .push("INFO: No resources found. Run 'forjar apply' to initialize state.".to_string());
     }
     if failed_count == 0 && drifted_count == 0 && total_resources > 0 {
         recommendations.push(format!(
@@ -19557,6 +19602,133 @@ fn cmd_status_recommendations(
         for r in &recommendations {
             println!("  {}", r);
         }
+    }
+    Ok(())
+}
+
+/// FJ-654: Find orphan resources (no dependents or dependencies)
+fn cmd_graph_orphan_detection(file: &Path, json: bool) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let config: crate::core::types::ForjarConfig =
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+
+    // Build sets: who depends on whom, who is depended upon
+    let mut has_deps: std::collections::HashSet<String> = std::collections::HashSet::new();
+    let mut is_depended_on: std::collections::HashSet<String> = std::collections::HashSet::new();
+
+    for (name, resource) in &config.resources {
+        if !resource.depends_on.is_empty() {
+            has_deps.insert(name.clone());
+            for dep in &resource.depends_on {
+                is_depended_on.insert(dep.clone());
+            }
+        }
+    }
+
+    let mut orphans = Vec::new();
+    for name in config.resources.keys() {
+        if !has_deps.contains(name) && !is_depended_on.contains(name) {
+            orphans.push(name.clone());
+        }
+    }
+    orphans.sort();
+
+    if json {
+        print!("{{\"orphans\":[");
+        for (i, name) in orphans.iter().enumerate() {
+            if i > 0 {
+                print!(",");
+            }
+            print!(r#""{}""#, name);
+        }
+        println!("]}}");
+    } else if orphans.is_empty() {
+        println!("No orphan resources found — all resources are connected");
+    } else {
+        println!("Orphan resources ({}):", orphans.len());
+        for name in &orphans {
+            println!("  - {}", name);
+        }
+    }
+    Ok(())
+}
+
+/// FJ-657: Per-machine resource count and health summary
+fn cmd_status_machine_summary(
+    state_dir: &Path,
+    machine: Option<&str>,
+    json: bool,
+) -> Result<(), String> {
+    let machines = discover_machines(state_dir);
+    let targets: Vec<&String> = if let Some(m) = machine {
+        machines.iter().filter(|x| x.as_str() == m).collect()
+    } else {
+        machines.iter().collect()
+    };
+
+    if json {
+        print!("{{\"machines\":[");
+    }
+    let mut first = true;
+    for m in &targets {
+        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        if !lock_path.exists() {
+            continue;
+        }
+        let content = std::fs::read_to_string(&lock_path).unwrap_or_default();
+        let lock: crate::core::types::StateLock = match serde_yaml_ng::from_str(&content) {
+            Ok(l) => l,
+            Err(_) => continue,
+        };
+
+        let total = lock.resources.len();
+        let converged = lock
+            .resources
+            .values()
+            .filter(|r| {
+                matches!(r.status, crate::core::types::ResourceStatus::Converged)
+            })
+            .count();
+        let failed = lock
+            .resources
+            .values()
+            .filter(|r| {
+                matches!(r.status, crate::core::types::ResourceStatus::Failed)
+            })
+            .count();
+        let drifted = lock
+            .resources
+            .values()
+            .filter(|r| {
+                matches!(r.status, crate::core::types::ResourceStatus::Drifted)
+            })
+            .count();
+
+        if json {
+            if !first {
+                print!(",");
+            }
+            first = false;
+            print!(
+                r#"{{"machine":"{}","total":{},"converged":{},"failed":{},"drifted":{}}}"#,
+                m, total, converged, failed, drifted
+            );
+        } else {
+            let health = if failed > 0 {
+                "UNHEALTHY"
+            } else if drifted > 0 {
+                "DRIFTED"
+            } else {
+                "HEALTHY"
+            };
+            println!(
+                "{}: {} resources ({} converged, {} failed, {} drifted) [{}]",
+                m, total, converged, failed, drifted, health
+            );
+        }
+    }
+    if json {
+        println!("]}}");
     }
     Ok(())
 }
@@ -20262,6 +20434,7 @@ resources: {}
                 diagnostic: false,
                 uptime: false,
                 recommendations: false,
+                machine_summary: false,
             },
             false,
             true,
@@ -20460,6 +20633,7 @@ resources:
                 notify_mqtt: None,
                 confirmation_message: None,
                 summary_only: false,
+                notify_redis: None,
             },
             false,
             true,
@@ -21264,6 +21438,7 @@ resources: {}
                 parallel_groups: false,
                 critical_chain: false,
                 dependency_depth: false,
+                orphan_detection: false,
             },
             false,
             true,
@@ -21330,6 +21505,7 @@ resources: {}
                 parallel_groups: false,
                 critical_chain: false,
                 dependency_depth: false,
+                orphan_detection: false,
             },
             false,
             true,
@@ -24701,6 +24877,7 @@ resources:
                 diagnostic: false,
                 uptime: false,
                 recommendations: false,
+                machine_summary: false,
             },
             false,
             true,
@@ -24852,6 +25029,7 @@ resources:
                 notify_mqtt: None,
                 confirmation_message: None,
                 summary_only: false,
+                notify_redis: None,
             },
             false,
             true,
@@ -26124,6 +26302,7 @@ resources:
                 notify_mqtt: None,
                 confirmation_message: None,
                 summary_only: false,
+                notify_redis: None,
             },
             false,
             true,
@@ -26278,6 +26457,7 @@ resources:
                 notify_mqtt: None,
                 confirmation_message: None,
                 summary_only: false,
+                notify_redis: None,
             },
             false,
             true,
@@ -27935,6 +28115,7 @@ resources:
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { output, .. } => {
@@ -28138,6 +28319,7 @@ resources:
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { progress, .. } => assert!(progress),
@@ -28266,6 +28448,7 @@ resources:
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { progress, .. } => assert!(!progress),
@@ -28398,6 +28581,7 @@ resources:
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { timing, .. } => assert!(timing),
@@ -28526,6 +28710,7 @@ resources:
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { timing, .. } => assert!(!timing),
@@ -28862,6 +29047,7 @@ resources:
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { group, .. } => {
@@ -29133,6 +29319,7 @@ resources:
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { retry, .. } => assert_eq!(retry, 3),
@@ -29261,6 +29448,7 @@ resources:
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { retry, .. } => assert_eq!(retry, 0),
@@ -29503,6 +29691,7 @@ resources:
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { yes, .. } => assert!(yes),
@@ -29631,6 +29820,7 @@ resources:
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { yes, .. } => assert!(!yes),
@@ -29783,6 +29973,7 @@ resources:
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { parallel, .. } => assert!(parallel),
@@ -29876,6 +30067,7 @@ resources:
             diagnostic: false,
             uptime: false,
             recommendations: false,
+            machine_summary: false,
         };
         match cmd {
             Commands::Status { file, json, .. } => {
@@ -30291,6 +30483,7 @@ resources:
             diagnostic: false,
             uptime: false,
             recommendations: false,
+            machine_summary: false,
         };
         match cmd {
             Commands::Status { summary, .. } => assert!(summary),
@@ -30430,6 +30623,7 @@ resources:
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply {
@@ -30697,6 +30891,7 @@ resources:
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply {
@@ -30960,6 +31155,7 @@ resources:
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { max_parallel, .. } => assert_eq!(max_parallel, Some(4)),
@@ -31034,6 +31230,7 @@ resources:
             diagnostic: false,
             uptime: false,
             recommendations: false,
+            machine_summary: false,
         };
         match cmd {
             Commands::Status { watch, .. } => assert_eq!(watch, Some(5)),
@@ -31164,6 +31361,7 @@ resources:
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { notify, .. } => {
@@ -31505,6 +31703,7 @@ resources:
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { subset, .. } => {
@@ -31688,6 +31887,7 @@ resources:
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply {
@@ -31763,6 +31963,7 @@ resources:
             diagnostic: false,
             uptime: false,
             recommendations: false,
+            machine_summary: false,
         };
         match cmd {
             Commands::Status { stale, .. } => assert_eq!(stale, Some(30)),
@@ -31919,6 +32120,7 @@ resources:
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { backup, .. } => assert!(backup),
@@ -32077,6 +32279,7 @@ resources:
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { exclude, .. } => assert_eq!(exclude, Some("test-*".to_string())),
@@ -32149,6 +32352,7 @@ resources:
             diagnostic: false,
             uptime: false,
             recommendations: false,
+            machine_summary: false,
         };
         match cmd {
             Commands::Status { health, .. } => assert!(health),
@@ -32277,6 +32481,7 @@ resources:
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { sequential, .. } => assert!(sequential),
@@ -32407,6 +32612,7 @@ resources:
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { diff_only, .. } => assert!(diff_only),
@@ -32563,6 +32769,7 @@ resources:
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { notify_slack, .. } => {
@@ -32611,6 +32818,7 @@ resources:
             parallel_groups: false,
             critical_chain: false,
             dependency_depth: false,
+            orphan_detection: false,
         };
         match cmd {
             Commands::Graph { affected, .. } => {
@@ -32685,6 +32893,7 @@ resources:
             diagnostic: false,
             uptime: false,
             recommendations: false,
+            machine_summary: false,
         };
         match cmd {
             Commands::Status { drift_details, .. } => assert!(drift_details),
@@ -32813,6 +33022,7 @@ resources:
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { cost_limit, .. } => assert_eq!(cost_limit, Some(5)),
@@ -32961,6 +33171,7 @@ resources:
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { preview, .. } => assert!(preview),
@@ -33101,6 +33312,7 @@ resources:
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { tag_filter, .. } => {
@@ -33191,6 +33403,7 @@ resources:
             diagnostic: false,
             uptime: false,
             recommendations: false,
+            machine_summary: false,
         };
         match cmd {
             Commands::Status { timeline, .. } => assert!(timeline),
@@ -33349,6 +33562,7 @@ resources:
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { output_scripts, .. } => {
@@ -33481,6 +33695,7 @@ resources:
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { resume, .. } => assert!(resume),
@@ -33569,6 +33784,7 @@ resources:
             diagnostic: false,
             uptime: false,
             recommendations: false,
+            machine_summary: false,
         };
         match cmd {
             Commands::Status { changes_since, .. } => {
@@ -33631,6 +33847,7 @@ resources:
             parallel_groups: false,
             critical_chain: false,
             dependency_depth: false,
+            orphan_detection: false,
         };
         match cmd {
             Commands::Graph { critical_path, .. } => assert!(critical_path),
@@ -33703,6 +33920,7 @@ resources:
             diagnostic: false,
             uptime: false,
             recommendations: false,
+            machine_summary: false,
         };
         match cmd {
             Commands::Status { summary_by, .. } => {
@@ -33833,6 +34051,7 @@ resources:
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { max_failures, .. } => assert_eq!(max_failures, Some(3)),
@@ -33963,6 +34182,7 @@ resources:
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { rate_limit, .. } => assert_eq!(rate_limit, Some(10)),
@@ -34078,6 +34298,7 @@ resources:
             diagnostic: false,
             uptime: false,
             recommendations: false,
+            machine_summary: false,
         };
         match cmd {
             Commands::Status { prometheus, .. } => assert!(prometheus),
@@ -34135,6 +34356,7 @@ resources:
             parallel_groups: false,
             critical_chain: false,
             dependency_depth: false,
+            orphan_detection: false,
         };
         match cmd {
             Commands::Graph { reverse, .. } => assert!(reverse),
@@ -34207,6 +34429,7 @@ resources:
             diagnostic: false,
             uptime: false,
             recommendations: false,
+            machine_summary: false,
         };
         match cmd {
             Commands::Status { expired, .. } => {
@@ -34333,6 +34556,7 @@ resources:
             diagnostic: false,
             uptime: false,
             recommendations: false,
+            machine_summary: false,
         };
         match cmd {
             Commands::Status { count, .. } => assert!(count),
@@ -34461,6 +34685,7 @@ resources:
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { notify_email, .. } => {
@@ -34506,6 +34731,7 @@ resources:
             parallel_groups: false,
             critical_chain: false,
             dependency_depth: false,
+            orphan_detection: false,
         };
         match cmd {
             Commands::Graph { depth, .. } => assert_eq!(depth, Some(2)),
@@ -34634,6 +34860,7 @@ resources:
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { skip, .. } => {
@@ -34708,6 +34935,7 @@ resources:
             diagnostic: false,
             uptime: false,
             recommendations: false,
+            machine_summary: false,
         };
         match cmd {
             Commands::Status { format, .. } => {
@@ -34844,6 +35072,7 @@ resources:
             diagnostic: false,
             uptime: false,
             recommendations: false,
+            machine_summary: false,
         };
         match cmd {
             Commands::Status { anomalies, .. } => assert!(anomalies),
@@ -34972,6 +35201,7 @@ resources:
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply {
@@ -35019,6 +35249,7 @@ resources:
             parallel_groups: false,
             critical_chain: false,
             dependency_depth: false,
+            orphan_detection: false,
         };
         match cmd {
             Commands::Graph { cluster, .. } => assert!(cluster),
@@ -35163,6 +35394,7 @@ resources:
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { concurrency, .. } => assert_eq!(concurrency, Some(4)),
@@ -35235,6 +35467,7 @@ resources:
             diagnostic: false,
             uptime: false,
             recommendations: false,
+            machine_summary: false,
         };
         match cmd {
             Commands::Status { diff_from, .. } => {
@@ -35367,6 +35600,7 @@ resources:
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { webhook_before, .. } => {
@@ -35487,6 +35721,7 @@ resources:
             diagnostic: false,
             uptime: false,
             recommendations: false,
+            machine_summary: false,
         };
         match cmd {
             Commands::Status {
@@ -35532,6 +35767,7 @@ resources:
             parallel_groups: false,
             critical_chain: false,
             dependency_depth: false,
+            orphan_detection: false,
         };
         match cmd {
             Commands::Graph { orphans, .. } => assert!(orphans),
@@ -35677,6 +35913,7 @@ resources:
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply {
@@ -35753,6 +35990,7 @@ resources:
             diagnostic: false,
             uptime: false,
             recommendations: false,
+            machine_summary: false,
         };
         match cmd {
             Commands::Status { machines_only, .. } => assert!(machines_only),
@@ -35870,6 +36108,7 @@ resources:
             diagnostic: false,
             uptime: false,
             recommendations: false,
+            machine_summary: false,
         };
         match cmd {
             Commands::Status {
@@ -35915,6 +36154,7 @@ resources:
             parallel_groups: false,
             critical_chain: false,
             dependency_depth: false,
+            orphan_detection: false,
         };
         match cmd {
             Commands::Graph { stats, .. } => assert!(stats),
@@ -36075,6 +36315,7 @@ resources: {}
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { log_file, .. } => {
@@ -36149,6 +36390,7 @@ resources: {}
             diagnostic: false,
             uptime: false,
             recommendations: false,
+            machine_summary: false,
         };
         match cmd {
             Commands::Status {
@@ -36279,6 +36521,7 @@ resources: {}
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { tags, .. } => {
@@ -36411,6 +36654,7 @@ resources: {}
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { comment, .. } => {
@@ -36526,6 +36770,7 @@ resources: {}
             diagnostic: false,
             uptime: false,
             recommendations: false,
+            machine_summary: false,
         };
         match cmd {
             Commands::Status { json_lines, .. } => assert!(json_lines),
@@ -36654,6 +36899,7 @@ resources: {}
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { only_changed, .. } => assert!(only_changed),
@@ -36697,6 +36943,7 @@ resources: {}
             parallel_groups: false,
             critical_chain: false,
             dependency_depth: false,
+            orphan_detection: false,
         };
         match cmd {
             Commands::Graph { json_output, .. } => assert!(json_output),
@@ -36842,6 +37089,7 @@ resources: {}
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { pre_script, .. } => {
@@ -36916,6 +37164,7 @@ resources: {}
             diagnostic: false,
             uptime: false,
             recommendations: false,
+            machine_summary: false,
         };
         match cmd {
             Commands::Status { since, .. } => {
@@ -37048,6 +37297,7 @@ resources: {}
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { dry_run_json, .. } => assert!(dry_run_json),
@@ -37161,6 +37411,7 @@ resources: {}
             diagnostic: false,
             uptime: false,
             recommendations: false,
+            machine_summary: false,
         };
         match cmd {
             Commands::Status { export, .. } => {
@@ -37291,6 +37542,7 @@ resources: {}
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { notify_webhook, .. } => {
@@ -37339,6 +37591,7 @@ resources: {}
             parallel_groups: false,
             critical_chain: false,
             dependency_depth: false,
+            orphan_detection: false,
         };
         match cmd {
             Commands::Graph { highlight, .. } => {
@@ -37489,6 +37742,7 @@ resources: {}
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { post_script, .. } => {
@@ -37564,6 +37818,7 @@ resources: {}
             diagnostic: false,
             uptime: false,
             recommendations: false,
+            machine_summary: false,
         };
         match cmd {
             Commands::Status { prometheus, .. } => assert!(prometheus),
@@ -37694,6 +37949,7 @@ resources: {}
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply {
@@ -37811,6 +38067,7 @@ resources: {}
             diagnostic: false,
             uptime: false,
             recommendations: false,
+            machine_summary: false,
         };
         match cmd {
             Commands::Status { compact, .. } => assert!(compact),
@@ -37939,6 +38196,7 @@ resources: {}
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { canary_percent, .. } => assert_eq!(canary_percent, Some(25)),
@@ -37982,6 +38240,7 @@ resources: {}
             parallel_groups: false,
             critical_chain: false,
             dependency_depth: false,
+            orphan_detection: false,
         };
         match cmd {
             Commands::Graph { prune, .. } => {
@@ -38132,6 +38391,7 @@ resources: {}
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { schedule, .. } => {
@@ -38206,6 +38466,7 @@ resources: {}
             diagnostic: false,
             uptime: false,
             recommendations: false,
+            machine_summary: false,
         };
         match cmd {
             Commands::Status { alerts, .. } => assert!(alerts),
@@ -38336,6 +38597,7 @@ resources: {}
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { env_name, .. } => assert_eq!(env_name, Some("staging".to_string())),
@@ -38452,6 +38714,7 @@ resources: {}
             diagnostic: false,
             uptime: false,
             recommendations: false,
+            machine_summary: false,
         };
         match cmd {
             Commands::Status { diff_lock, .. } => {
@@ -38582,6 +38845,7 @@ resources: {}
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { dry_run_diff, .. } => assert!(dry_run_diff),
@@ -38625,6 +38889,7 @@ resources: {}
             parallel_groups: false,
             critical_chain: false,
             dependency_depth: false,
+            orphan_detection: false,
         };
         match cmd {
             Commands::Graph { layers, .. } => assert!(layers),
@@ -38766,6 +39031,7 @@ resources: {}
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply {
@@ -38842,6 +39108,7 @@ resources: {}
             diagnostic: false,
             uptime: false,
             recommendations: false,
+            machine_summary: false,
         };
         match cmd {
             Commands::Status { compliance, .. } => {
@@ -38974,6 +39241,7 @@ resources: {}
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { batch_size, .. } => assert_eq!(batch_size, Some(10)),
@@ -39089,6 +39357,7 @@ resources: {}
             diagnostic: false,
             uptime: false,
             recommendations: false,
+            machine_summary: false,
         };
         match cmd {
             Commands::Status { histogram, .. } => assert!(histogram),
@@ -39217,6 +39486,7 @@ resources: {}
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { notify_teams, .. } => {
@@ -39262,6 +39532,7 @@ resources: {}
             parallel_groups: false,
             critical_chain: false,
             dependency_depth: false,
+            orphan_detection: false,
         };
         match cmd {
             Commands::Graph {
@@ -39405,6 +39676,7 @@ resources: {}
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { abort_on_drift, .. } => assert!(abort_on_drift),
@@ -39477,6 +39749,7 @@ resources: {}
             diagnostic: false,
             uptime: false,
             recommendations: false,
+            machine_summary: false,
         };
         match cmd {
             Commands::Status {
@@ -39609,6 +39882,7 @@ resources: {}
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply {
@@ -39724,6 +39998,7 @@ resources: {}
             diagnostic: false,
             uptime: false,
             recommendations: false,
+            machine_summary: false,
         };
         match cmd {
             Commands::Status { top_failures, .. } => assert!(top_failures),
@@ -39852,6 +40127,7 @@ resources: {}
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { notify_discord, .. } => assert_eq!(
@@ -39898,6 +40174,7 @@ resources: {}
             parallel_groups: false,
             critical_chain: false,
             dependency_depth: false,
+            orphan_detection: false,
         };
         match cmd {
             Commands::Graph { weight, .. } => assert!(weight),
@@ -40039,6 +40316,7 @@ resources: {}
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply {
@@ -40114,6 +40392,7 @@ resources: {}
             diagnostic: false,
             uptime: false,
             recommendations: false,
+            machine_summary: false,
         };
         match cmd {
             Commands::Status {
@@ -40246,6 +40525,7 @@ resources: {}
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { metrics_port, .. } => assert_eq!(metrics_port, Some(9090)),
@@ -40359,6 +40639,7 @@ resources: {}
             diagnostic: false,
             uptime: false,
             recommendations: false,
+            machine_summary: false,
         };
         match cmd {
             Commands::Status { drift_summary, .. } => assert!(drift_summary),
@@ -40487,6 +40768,7 @@ resources: {}
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply {
@@ -40532,6 +40814,7 @@ resources: {}
             parallel_groups: false,
             critical_chain: false,
             dependency_depth: false,
+            orphan_detection: false,
         };
         match cmd {
             Commands::Graph { subgraph, .. } => {
@@ -40675,6 +40958,7 @@ resources: {}
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply {
@@ -40749,6 +41033,7 @@ resources: {}
             diagnostic: false,
             uptime: false,
             recommendations: false,
+            machine_summary: false,
         };
         match cmd {
             Commands::Status { resource_age, .. } => assert!(resource_age),
@@ -40879,6 +41164,7 @@ resources: {}
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply {
@@ -40994,6 +41280,7 @@ resources: {}
             diagnostic: false,
             uptime: false,
             recommendations: false,
+            machine_summary: false,
         };
         match cmd {
             Commands::Status { sla_report, .. } => assert!(sla_report),
@@ -41122,6 +41409,7 @@ resources: {}
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { notify_datadog, .. } => {
@@ -41167,6 +41455,7 @@ resources: {}
             parallel_groups: false,
             critical_chain: false,
             dependency_depth: false,
+            orphan_detection: false,
         };
         match cmd {
             Commands::Graph { impact_radius, .. } => {
@@ -41316,6 +41605,7 @@ resources: {}
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { change_window, .. } => {
@@ -41390,6 +41680,7 @@ resources: {}
             diagnostic: false,
             uptime: false,
             recommendations: false,
+            machine_summary: false,
         };
         match cmd {
             Commands::Status {
@@ -41522,6 +41813,7 @@ resources: {}
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { canary_machine, .. } => {
@@ -41639,6 +41931,7 @@ resources: {}
             diagnostic: false,
             uptime: false,
             recommendations: false,
+            machine_summary: false,
         };
         match cmd {
             Commands::Status { mttr, .. } => assert!(mttr),
@@ -41767,6 +42060,7 @@ resources: {}
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply {
@@ -41812,6 +42106,7 @@ resources: {}
             parallel_groups: false,
             critical_chain: false,
             dependency_depth: false,
+            orphan_detection: false,
         };
         match cmd {
             Commands::Graph {
@@ -41956,6 +42251,7 @@ resources: {}
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { max_duration, .. } => assert_eq!(max_duration, Some(300)),
@@ -42028,6 +42324,7 @@ resources: {}
             diagnostic: false,
             uptime: false,
             recommendations: false,
+            machine_summary: false,
         };
         match cmd {
             Commands::Status { trend, .. } => assert_eq!(trend, Some(10)),
@@ -42158,6 +42455,7 @@ resources: {}
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { notify_grafana, .. } => assert_eq!(
@@ -42274,6 +42572,7 @@ resources: {}
             diagnostic: false,
             uptime: false,
             recommendations: false,
+            machine_summary: false,
         };
         match cmd {
             Commands::Status { prediction, .. } => assert!(prediction),
@@ -42402,6 +42701,7 @@ resources: {}
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply {
@@ -42448,6 +42748,7 @@ resources: {}
             parallel_groups: false,
             critical_chain: false,
             dependency_depth: false,
+            orphan_detection: false,
         };
         match cmd {
             Commands::Graph { hotspots, .. } => assert!(hotspots),
@@ -42591,6 +42892,7 @@ resources: {}
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply {
@@ -42666,6 +42968,7 @@ resources: {}
             diagnostic: false,
             uptime: false,
             recommendations: false,
+            machine_summary: false,
         };
         match cmd {
             Commands::Status { capacity, .. } => assert!(capacity),
@@ -42796,6 +43099,7 @@ resources: {}
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply {
@@ -42913,6 +43217,7 @@ resources: {}
             diagnostic: false,
             uptime: false,
             recommendations: false,
+            machine_summary: false,
         };
         match cmd {
             Commands::Status { cost_estimate, .. } => assert!(cost_estimate),
@@ -43041,6 +43346,7 @@ resources: {}
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { blue_green, .. } => {
@@ -43086,6 +43392,7 @@ resources: {}
             parallel_groups: false,
             critical_chain: false,
             dependency_depth: false,
+            orphan_detection: false,
         };
         match cmd {
             Commands::Graph { timeline_graph, .. } => assert!(timeline_graph),
@@ -43228,6 +43535,7 @@ resources: {}
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { dry_run_cost, .. } => assert!(dry_run_cost),
@@ -43300,6 +43608,7 @@ resources: {}
             diagnostic: false,
             uptime: false,
             recommendations: false,
+            machine_summary: false,
         };
         match cmd {
             Commands::Status {
@@ -43432,6 +43741,7 @@ resources: {}
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply {
@@ -43553,6 +43863,7 @@ resources: {}
             diagnostic: false,
             uptime: false,
             recommendations: false,
+            machine_summary: false,
         };
         match cmd {
             Commands::Status { health_score, .. } => assert!(health_score),
@@ -43681,6 +43992,7 @@ resources: {}
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { progressive, .. } => assert_eq!(progressive, Some(25)),
@@ -43724,6 +44036,7 @@ resources: {}
             parallel_groups: false,
             critical_chain: false,
             dependency_depth: false,
+            orphan_detection: false,
         };
         match cmd {
             Commands::Graph { what_if, .. } => {
@@ -43866,6 +44179,7 @@ resources: {}
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply {
@@ -43943,6 +44257,7 @@ resources: {}
             diagnostic: false,
             uptime: false,
             recommendations: false,
+            machine_summary: false,
         };
         match cmd {
             Commands::Status {
@@ -44075,6 +44390,7 @@ resources: {}
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply {
@@ -44192,6 +44508,7 @@ resources: {}
             diagnostic: false,
             uptime: false,
             recommendations: false,
+            machine_summary: false,
         };
         match cmd {
             Commands::Status { audit_trail, .. } => assert!(audit_trail),
@@ -44321,6 +44638,7 @@ resources: {}
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { change_window, .. } => {
@@ -44366,6 +44684,7 @@ resources: {}
             parallel_groups: false,
             critical_chain: false,
             dependency_depth: false,
+            orphan_detection: false,
         };
         match cmd {
             Commands::Graph { blast_radius, .. } => {
@@ -44508,6 +44827,7 @@ resources: {}
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { sign_off, .. } => {
@@ -44583,6 +44903,7 @@ resources: {}
             diagnostic: false,
             uptime: false,
             recommendations: false,
+            machine_summary: false,
         };
         match cmd {
             Commands::Status { sla_report, .. } => assert!(sla_report),
@@ -44713,6 +45034,7 @@ resources: {}
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { notify_sns, .. } => {
@@ -44833,6 +45155,7 @@ resources: {}
             diagnostic: false,
             uptime: false,
             recommendations: false,
+            machine_summary: false,
         };
         match cmd {
             Commands::Status { resource_graph, .. } => assert!(resource_graph),
@@ -44961,6 +45284,7 @@ resources: {}
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply {
@@ -45009,6 +45333,7 @@ resources: {}
             parallel_groups: false,
             critical_chain: false,
             dependency_depth: false,
+            orphan_detection: false,
         };
         match cmd {
             Commands::Graph { change_impact, .. } => {
@@ -45151,6 +45476,7 @@ resources: {}
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { runbook, .. } => {
@@ -45228,6 +45554,7 @@ resources: {}
             diagnostic: false,
             uptime: false,
             recommendations: false,
+            machine_summary: false,
         };
         match cmd {
             Commands::Status { drift_velocity, .. } => assert!(drift_velocity),
@@ -45358,6 +45685,7 @@ resources: {}
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { notify_pubsub, .. } => {
@@ -45479,6 +45807,7 @@ resources: {}
             diagnostic: false,
             uptime: false,
             recommendations: false,
+            machine_summary: false,
         };
         match cmd {
             Commands::Status { fleet_overview, .. } => assert!(fleet_overview),
@@ -45607,6 +45936,7 @@ resources: {}
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { fleet_strategy, .. } => {
@@ -45652,6 +45982,7 @@ resources: {}
             parallel_groups: false,
             critical_chain: false,
             dependency_depth: false,
+            orphan_detection: false,
         };
         match cmd {
             Commands::Graph { resource_types, .. } => assert!(resource_types),
@@ -45792,6 +46123,7 @@ resources: {}
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { pre_check, .. } => {
@@ -45869,6 +46201,7 @@ resources: {}
             diagnostic: false,
             uptime: false,
             recommendations: false,
+            machine_summary: false,
         };
         match cmd {
             Commands::Status { machine_health, .. } => assert!(machine_health),
@@ -45999,6 +46332,7 @@ resources: {}
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply {
@@ -46116,6 +46450,7 @@ resources: {}
             diagnostic: false,
             uptime: false,
             recommendations: false,
+            machine_summary: false,
         };
         match cmd {
             Commands::Status { config_drift, .. } => assert!(config_drift),
@@ -46244,6 +46579,7 @@ resources: {}
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { dry_run_graph, .. } => assert!(dry_run_graph),
@@ -46287,6 +46623,7 @@ resources: {}
             parallel_groups: false,
             critical_chain: false,
             dependency_depth: false,
+            orphan_detection: false,
         };
         match cmd {
             Commands::Graph {
@@ -46429,6 +46766,7 @@ resources: {}
             notify_mqtt: None,
             confirmation_message: None,
             summary_only: false,
+            notify_redis: None,
         };
         match cmd {
             Commands::Apply { post_check, .. } => {
@@ -46506,6 +46844,7 @@ resources: {}
             diagnostic: false,
             uptime: false,
             recommendations: false,
+            machine_summary: false,
         };
         match cmd {
             Commands::Status {
@@ -46906,6 +47245,70 @@ resources: {}
     fn test_fj647_status_recommendations() {
         let dir = tempfile::tempdir().unwrap();
         let result = cmd_status_recommendations(dir.path(), None, true);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj652_status_convergence_rate() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = cmd_status_convergence_rate(dir.path(), None, false);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj652_status_convergence_rate_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = cmd_status_convergence_rate(dir.path(), None, true);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj654_graph_orphan_detection() {
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = dir.path().join("forjar.yaml");
+        std::fs::write(&cfg, "version: '1.0'\nname: test\nmachines: {}\nresources:\n  lonely:\n    type: file\n    machine: m\n    path: /tmp/x\n").unwrap();
+        let result = cmd_graph_orphan_detection(&cfg, false);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj654_graph_orphan_detection_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = dir.path().join("forjar.yaml");
+        std::fs::write(&cfg, "version: '1.0'\nname: test\nmachines: {}\nresources:\n  a:\n    type: file\n    machine: m\n    path: /tmp/a\n  b:\n    type: file\n    machine: m\n    path: /tmp/b\n    depends_on: [a]\n").unwrap();
+        let result = cmd_graph_orphan_detection(&cfg, true);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj657_status_machine_summary() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = cmd_status_machine_summary(dir.path(), None, false);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj657_status_machine_summary_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = cmd_status_machine_summary(dir.path(), None, true);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj650_apply_notify_redis_field() {
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = dir.path().join("forjar.yaml");
+        std::fs::write(&cfg, "version: '1.0'\nname: test\nmachines: {}\nresources: {}\n").unwrap();
+        let result = cmd_validate(&cfg, false, false, false);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj651_validate_check_resource_limits() {
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = dir.path().join("forjar.yaml");
+        std::fs::write(&cfg, "version: '1.0'\nname: test\nmachines:\n  m:\n    hostname: m\n    addr: 127.0.0.1\nresources:\n  a:\n    type: file\n    machine: m\n    path: /tmp/a\n").unwrap();
+        let result = cmd_validate_check_resource_limits(&cfg, true);
         assert!(result.is_ok());
     }
 }
