@@ -716,9 +716,7 @@ fn apply_machine(
                     if wave.len() <= max_p {
                         vec![wave]
                     } else {
-                        wave.chunks(max_p)
-                            .map(|chunk| chunk.to_vec())
-                            .collect()
+                        wave.chunks(max_p).map(|chunk| chunk.to_vec()).collect()
                     }
                 })
                 .collect()

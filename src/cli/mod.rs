@@ -3760,7 +3760,16 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
                     file.display()
                 );
                 let _ = std::process::Command::new("curl")
-                    .args(["-s", "-X", "POST", "-H", "Content-Type: application/json", "-d", &payload, webhook_url])
+                    .args([
+                        "-s",
+                        "-X",
+                        "POST",
+                        "-H",
+                        "Content-Type: application/json",
+                        "-d",
+                        &payload,
+                        webhook_url,
+                    ])
                     .output();
             }
 
@@ -21615,7 +21624,10 @@ fn cmd_validate_check_mount_points(file: &Path, json: bool) -> Result<(), String
         for j in (i + 1)..mount_paths.len() {
             let (ref n1, ref p1) = mount_paths[i];
             let (ref n2, ref p2) = mount_paths[j];
-            if p1 == p2 || p1.starts_with(&format!("{}/", p2)) || p2.starts_with(&format!("{}/", p1)) {
+            if p1 == p2
+                || p1.starts_with(&format!("{}/", p2))
+                || p2.starts_with(&format!("{}/", p1))
+            {
                 conflicts.push((n1.clone(), n2.clone()));
             }
         }
@@ -21669,7 +21681,11 @@ fn cmd_status_failed_resources(
                 }
             }
         }
-        println!("{{\"failed_resources\":[{}],\"count\":{}}}", entries.join(","), entries.len());
+        println!(
+            "{{\"failed_resources\":[{}],\"count\":{}}}",
+            entries.join(","),
+            entries.len()
+        );
     } else {
         let mut count = 0;
         for m in &targets {
