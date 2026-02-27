@@ -1,0 +1,501 @@
+//! Tests: Core graph commands.
+
+use crate::core::types::ProvenanceEvent;
+use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
+use crate::transport;
+use crate::tripwire::{anomaly, drift, eventlog, tracer};
+use std::path::{Path, PathBuf};
+use super::helpers::*;
+use super::helpers_state::*;
+use super::helpers_time::*;
+use super::graph_core::*;
+use super::commands::*;
+use super::graph_analysis::*;
+use super::graph_cross::*;
+use super::graph_topology::*;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+
+    #[test]
+    fn test_fj534_graph_timeline_flag() {
+        let cmd = Commands::Graph {
+            file: PathBuf::from("forjar.yaml"),
+            format: "mermaid".to_string(),
+            machine: None,
+            group: None,
+            affected: None,
+            critical_path: false,
+            reverse: false,
+            depth: None,
+            cluster: false,
+            orphans: false,
+            stats: false,
+            json_output: false,
+            highlight: None,
+            prune: None,
+            layers: false,
+            critical_resources: false,
+            weight: false,
+            subgraph: None,
+            impact_radius: None,
+            dependency_matrix: false,
+            hotspots: false,
+            timeline_graph: true,
+            what_if: None,
+            blast_radius: None,
+            change_impact: None,
+            resource_types: false,
+            topological_levels: false,
+            execution_order: false,
+            security_boundaries: false,
+            resource_age: false,
+            parallel_groups: false,
+            critical_chain: false,
+            dependency_depth: false,
+            orphan_detection: false,
+            cross_machine_deps: false,
+            machine_groups: false,
+            resource_clusters: false,
+            fan_out: false,
+            leaf_resources: false,
+            reverse_deps: false,
+            depth_first: false,
+        };
+        match cmd {
+            Commands::Graph { timeline_graph, .. } => assert!(timeline_graph),
+            _ => panic!("expected Graph"),
+        }
+    }
+
+
+    #[test]
+    fn test_fj544_graph_what_if_flag() {
+        let cmd = Commands::Graph {
+            file: PathBuf::from("forjar.yaml"),
+            format: "mermaid".to_string(),
+            machine: None,
+            group: None,
+            affected: None,
+            critical_path: false,
+            reverse: false,
+            depth: None,
+            cluster: false,
+            orphans: false,
+            stats: false,
+            json_output: false,
+            highlight: None,
+            prune: None,
+            layers: false,
+            critical_resources: false,
+            weight: false,
+            subgraph: None,
+            impact_radius: None,
+            dependency_matrix: false,
+            hotspots: false,
+            timeline_graph: false,
+            what_if: Some("base-packages".to_string()),
+            blast_radius: None,
+            change_impact: None,
+            resource_types: false,
+            topological_levels: false,
+            execution_order: false,
+            security_boundaries: false,
+            resource_age: false,
+            parallel_groups: false,
+            critical_chain: false,
+            dependency_depth: false,
+            orphan_detection: false,
+            cross_machine_deps: false,
+            machine_groups: false,
+            resource_clusters: false,
+            fan_out: false,
+            leaf_resources: false,
+            reverse_deps: false,
+            depth_first: false,
+        };
+        match cmd {
+            Commands::Graph { what_if, .. } => {
+                assert_eq!(what_if, Some("base-packages".to_string()))
+            }
+            _ => panic!("expected Graph"),
+        }
+    }
+
+
+    #[test]
+    fn test_fj554_graph_blast_radius_flag() {
+        let cmd = Commands::Graph {
+            file: PathBuf::from("forjar.yaml"),
+            format: "mermaid".to_string(),
+            machine: None,
+            group: None,
+            affected: None,
+            critical_path: false,
+            reverse: false,
+            depth: None,
+            cluster: false,
+            orphans: false,
+            stats: false,
+            json_output: false,
+            highlight: None,
+            prune: None,
+            layers: false,
+            critical_resources: false,
+            weight: false,
+            subgraph: None,
+            impact_radius: None,
+            dependency_matrix: false,
+            hotspots: false,
+            timeline_graph: false,
+            what_if: None,
+            blast_radius: Some("base-packages".to_string()),
+            change_impact: None,
+            resource_types: false,
+            topological_levels: false,
+            execution_order: false,
+            security_boundaries: false,
+            resource_age: false,
+            parallel_groups: false,
+            critical_chain: false,
+            dependency_depth: false,
+            orphan_detection: false,
+            cross_machine_deps: false,
+            machine_groups: false,
+            resource_clusters: false,
+            fan_out: false,
+            leaf_resources: false,
+            reverse_deps: false,
+            depth_first: false,
+        };
+        match cmd {
+            Commands::Graph { blast_radius, .. } => {
+                assert_eq!(blast_radius, Some("base-packages".to_string()))
+            }
+            _ => panic!("expected Graph"),
+        }
+    }
+
+
+    #[test]
+    fn test_fj564_graph_change_impact_flag() {
+        let cmd = Commands::Graph {
+            file: PathBuf::from("forjar.yaml"),
+            format: "mermaid".to_string(),
+            machine: None,
+            group: None,
+            affected: None,
+            critical_path: false,
+            reverse: false,
+            depth: None,
+            cluster: false,
+            orphans: false,
+            stats: false,
+            json_output: false,
+            highlight: None,
+            prune: None,
+            layers: false,
+            critical_resources: false,
+            weight: false,
+            subgraph: None,
+            impact_radius: None,
+            dependency_matrix: false,
+            hotspots: false,
+            timeline_graph: false,
+            what_if: None,
+            blast_radius: None,
+            change_impact: Some("base-packages".to_string()),
+            resource_types: false,
+            topological_levels: false,
+            execution_order: false,
+            security_boundaries: false,
+            resource_age: false,
+            parallel_groups: false,
+            critical_chain: false,
+            dependency_depth: false,
+            orphan_detection: false,
+            cross_machine_deps: false,
+            machine_groups: false,
+            resource_clusters: false,
+            fan_out: false,
+            leaf_resources: false,
+            reverse_deps: false,
+            depth_first: false,
+        };
+        match cmd {
+            Commands::Graph { change_impact, .. } => {
+                assert_eq!(change_impact, Some("base-packages".to_string()))
+            }
+            _ => panic!("expected Graph"),
+        }
+    }
+
+
+    #[test]
+    fn test_fj574_graph_resource_types_flag() {
+        let cmd = Commands::Graph {
+            file: PathBuf::from("forjar.yaml"),
+            format: "mermaid".to_string(),
+            machine: None,
+            group: None,
+            affected: None,
+            critical_path: false,
+            reverse: false,
+            depth: None,
+            cluster: false,
+            orphans: false,
+            stats: false,
+            json_output: false,
+            highlight: None,
+            prune: None,
+            layers: false,
+            critical_resources: false,
+            weight: false,
+            subgraph: None,
+            impact_radius: None,
+            dependency_matrix: false,
+            hotspots: false,
+            timeline_graph: false,
+            what_if: None,
+            blast_radius: None,
+            change_impact: None,
+            resource_types: true,
+            topological_levels: false,
+            execution_order: false,
+            security_boundaries: false,
+            resource_age: false,
+            parallel_groups: false,
+            critical_chain: false,
+            dependency_depth: false,
+            orphan_detection: false,
+            cross_machine_deps: false,
+            machine_groups: false,
+            resource_clusters: false,
+            fan_out: false,
+            leaf_resources: false,
+            reverse_deps: false,
+            depth_first: false,
+        };
+        match cmd {
+            Commands::Graph { resource_types, .. } => assert!(resource_types),
+            _ => panic!("expected Graph"),
+        }
+    }
+
+
+    #[test]
+    fn test_fj584_graph_topological_levels_flag() {
+        let cmd = Commands::Graph {
+            file: PathBuf::from("forjar.yaml"),
+            format: "mermaid".to_string(),
+            machine: None,
+            group: None,
+            affected: None,
+            critical_path: false,
+            reverse: false,
+            depth: None,
+            cluster: false,
+            orphans: false,
+            stats: false,
+            json_output: false,
+            highlight: None,
+            prune: None,
+            layers: false,
+            critical_resources: false,
+            weight: false,
+            subgraph: None,
+            impact_radius: None,
+            dependency_matrix: false,
+            hotspots: false,
+            timeline_graph: false,
+            what_if: None,
+            blast_radius: None,
+            change_impact: None,
+            resource_types: false,
+            topological_levels: true,
+            execution_order: false,
+            security_boundaries: false,
+            resource_age: false,
+            parallel_groups: false,
+            critical_chain: false,
+            dependency_depth: false,
+            orphan_detection: false,
+            cross_machine_deps: false,
+            machine_groups: false,
+            resource_clusters: false,
+            fan_out: false,
+            leaf_resources: false,
+            reverse_deps: false,
+            depth_first: false,
+        };
+        match cmd {
+            Commands::Graph {
+                topological_levels, ..
+            } => assert!(topological_levels),
+            _ => panic!("expected Graph"),
+        }
+    }
+
+
+    #[test]
+    fn test_fj595_graph_execution_order() {
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = dir.path().join("forjar.yaml");
+        std::fs::write(&cfg, "version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 127.0.0.1\nresources:\n  pkg1:\n    type: package\n    machine: m1\n    provider: apt\n    packages: [curl]\n  cfg1:\n    type: file\n    machine: m1\n    path: /tmp/test\n    content: hello\n    depends_on: [pkg1]\n").unwrap();
+        let result = cmd_graph_execution_order(&cfg, false);
+        assert!(result.is_ok());
+    }
+
+
+    #[test]
+    fn test_fj595_graph_execution_order_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = dir.path().join("forjar.yaml");
+        std::fs::write(&cfg, "version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 127.0.0.1\nresources:\n  pkg1:\n    type: package\n    machine: m1\n    provider: apt\n    packages: [curl]\n").unwrap();
+        let result = cmd_graph_execution_order(&cfg, true);
+        assert!(result.is_ok());
+    }
+
+
+    #[test]
+    fn test_fj604_graph_security_boundaries() {
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = dir.path().join("forjar.yaml");
+        std::fs::write(&cfg, "version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 127.0.0.1\nresources:\n  pkg1:\n    type: package\n    machine: m1\n    provider: apt\n    packages: [curl]\n").unwrap();
+        let result = cmd_graph_security_boundaries(&cfg, false);
+        assert!(result.is_ok());
+    }
+
+
+    #[test]
+    fn test_fj604_graph_security_boundaries_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = dir.path().join("forjar.yaml");
+        std::fs::write(&cfg, "version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 127.0.0.1\nresources:\n  fw1:\n    type: network\n    machine: m1\n    port: 22\n    protocol: tcp\n    action: allow\n").unwrap();
+        let result = cmd_graph_security_boundaries(&cfg, true);
+        assert!(result.is_ok());
+    }
+
+
+    #[test]
+    fn test_fj614_graph_resource_age() {
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = dir.path().join("forjar.yaml");
+        std::fs::write(&cfg, "version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 127.0.0.1\nresources:\n  pkg1:\n    type: package\n    machine: m1\n    provider: apt\n    packages: [curl]\n").unwrap();
+        let result = cmd_graph_resource_age(&cfg, false);
+        assert!(result.is_ok());
+    }
+
+
+    #[test]
+    fn test_fj614_graph_resource_age_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = dir.path().join("forjar.yaml");
+        std::fs::write(&cfg, "version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 127.0.0.1\nresources:\n  pkg1:\n    type: package\n    machine: m1\n    provider: apt\n    packages: [curl]\n").unwrap();
+        let result = cmd_graph_resource_age(&cfg, true);
+        assert!(result.is_ok());
+    }
+
+
+    #[test]
+    fn test_fj624_graph_parallel_groups() {
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = dir.path().join("forjar.yaml");
+        std::fs::write(&cfg, "version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 127.0.0.1\nresources:\n  pkg1:\n    type: package\n    machine: m1\n    provider: apt\n    packages: [curl]\n  cfg1:\n    type: file\n    machine: m1\n    path: /tmp/test\n    content: hello\n    depends_on: [pkg1]\n").unwrap();
+        let result = cmd_graph_parallel_groups(&cfg, false);
+        assert!(result.is_ok());
+    }
+
+
+    #[test]
+    fn test_fj624_graph_parallel_groups_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = dir.path().join("forjar.yaml");
+        std::fs::write(&cfg, "version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 127.0.0.1\nresources:\n  pkg1:\n    type: package\n    machine: m1\n    provider: apt\n    packages: [curl]\n").unwrap();
+        let result = cmd_graph_parallel_groups(&cfg, true);
+        assert!(result.is_ok());
+    }
+
+
+    #[test]
+    fn test_fj634_graph_critical_chain() {
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = dir.path().join("forjar.yaml");
+        std::fs::write(&cfg, "version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 127.0.0.1\nresources:\n  pkg1:\n    type: package\n    machine: m1\n    provider: apt\n    packages: [curl]\n  cfg1:\n    type: file\n    machine: m1\n    path: /tmp/test\n    content: hello\n    depends_on: [pkg1]\n").unwrap();
+        let result = cmd_graph_critical_chain(&cfg, false);
+        assert!(result.is_ok());
+    }
+
+
+    #[test]
+    fn test_fj634_graph_critical_chain_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = dir.path().join("forjar.yaml");
+        std::fs::write(&cfg, "version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 127.0.0.1\nresources:\n  pkg1:\n    type: package\n    machine: m1\n    provider: apt\n    packages: [curl]\n").unwrap();
+        let result = cmd_graph_critical_chain(&cfg, true);
+        assert!(result.is_ok());
+    }
+
+
+    #[test]
+    fn test_fj644_graph_dependency_depth() {
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = dir.path().join("forjar.yaml");
+        std::fs::write(&cfg, "version: '1.0'\nname: test\nmachines: {}\nresources:\n  a:\n    type: file\n    machine: m\n    path: /tmp/a\n  b:\n    type: file\n    machine: m\n    path: /tmp/b\n    depends_on: [a]\n").unwrap();
+        let result = cmd_graph_dependency_depth(&cfg, false);
+        assert!(result.is_ok());
+    }
+
+
+    #[test]
+    fn test_fj644_graph_dependency_depth_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = dir.path().join("forjar.yaml");
+        std::fs::write(&cfg, "version: '1.0'\nname: test\nmachines: {}\nresources:\n  a:\n    type: file\n    machine: m\n    path: /tmp/a\n").unwrap();
+        let result = cmd_graph_dependency_depth(&cfg, true);
+        assert!(result.is_ok());
+    }
+
+
+    #[test]
+    fn test_fj654_graph_orphan_detection() {
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = dir.path().join("forjar.yaml");
+        std::fs::write(&cfg, "version: '1.0'\nname: test\nmachines: {}\nresources:\n  lonely:\n    type: file\n    machine: m\n    path: /tmp/x\n").unwrap();
+        let result = cmd_graph_orphan_detection(&cfg, false);
+        assert!(result.is_ok());
+    }
+
+
+    #[test]
+    fn test_fj654_graph_orphan_detection_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = dir.path().join("forjar.yaml");
+        std::fs::write(&cfg, "version: '1.0'\nname: test\nmachines: {}\nresources:\n  a:\n    type: file\n    machine: m\n    path: /tmp/a\n  b:\n    type: file\n    machine: m\n    path: /tmp/b\n    depends_on: [a]\n").unwrap();
+        let result = cmd_graph_orphan_detection(&cfg, true);
+        assert!(result.is_ok());
+    }
+
+
+    #[test]
+    fn test_fj664_graph_cross_machine_deps() {
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = dir.path().join("forjar.yaml");
+        std::fs::write(&cfg, "version: '1.0'\nname: test\nmachines: {}\nresources:\n  a:\n    type: file\n    machine: m1\n    path: /tmp/a\n  b:\n    type: file\n    machine: m2\n    path: /tmp/b\n    depends_on: [a]\n").unwrap();
+        let result = cmd_graph_cross_machine_deps(&cfg, false);
+        assert!(result.is_ok());
+    }
+
+
+    #[test]
+    fn test_fj664_graph_cross_machine_deps_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = dir.path().join("forjar.yaml");
+        std::fs::write(&cfg, "version: '1.0'\nname: test\nmachines: {}\nresources:\n  a:\n    type: file\n    machine: m\n    path: /tmp/a\n").unwrap();
+        let result = cmd_graph_cross_machine_deps(&cfg, true);
+        assert!(result.is_ok());
+    }
+
+}

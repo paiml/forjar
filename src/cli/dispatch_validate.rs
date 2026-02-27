@@ -1,0 +1,115 @@
+//! Validate command dispatch — routes validate sub-flags to check handlers.
+
+use std::path::Path;
+use super::validate_core::*;
+use super::validate_policy::*;
+use super::validate_structural::*;
+use super::validate_paths::*;
+use super::validate_quality::*;
+use super::validate_compliance::*;
+use super::validate_resources::*;
+
+
+/// Structural/resource validation checks.
+fn try_validate_structural(
+    file: &Path, json: bool,
+    check_mount_points: bool, check_group_consistency: bool,
+    check_mode_consistency: bool, check_template_vars: bool,
+    check_service_deps: bool, check_path_conflicts: bool,
+    check_owner_consistency: bool, check_naming_conventions: bool,
+    check_circular_refs: bool, check_machine_reachability: bool,
+) -> Option<Result<(), String>> {
+    if check_mount_points { return Some(cmd_validate_check_mount_points(file, json)); }
+    if check_group_consistency { return Some(cmd_validate_check_group_consistency(file, json)); }
+    if check_mode_consistency { return Some(cmd_validate_check_mode_consistency(file, json)); }
+    if check_template_vars { return Some(cmd_validate_check_template_vars(file, json)); }
+    if check_service_deps { return Some(cmd_validate_check_service_deps(file, json)); }
+    if check_path_conflicts { return Some(cmd_validate_check_path_conflicts(file, json)); }
+    if check_owner_consistency { return Some(cmd_validate_check_owner_consistency(file, json)); }
+    if check_naming_conventions { return Some(cmd_validate_check_naming_conventions(file, json)); }
+    if check_circular_refs { return Some(cmd_validate_check_circular_refs(file, json)); }
+    if check_machine_reachability { return Some(cmd_validate_check_machine_reachability(file, json)); }
+    None
+}
+
+/// Quality/compliance validation checks.
+fn try_validate_quality(
+    file: &Path, json: bool,
+    check_idempotency_deep: bool, check_permissions: bool,
+    check_dependencies: bool, check_unused: bool,
+    check_resource_limits: bool, check_portability: bool,
+    check_compliance: Option<&str>, check_drift_risk: bool,
+    check_deprecation: bool, check_security: bool,
+    check_complexity: bool, check_limits: bool,
+) -> Option<Result<(), String>> {
+    if check_idempotency_deep { return Some(cmd_validate_check_idempotency_deep(file, json)); }
+    if check_permissions { return Some(cmd_validate_check_permissions(file, json)); }
+    if check_dependencies { return Some(cmd_validate_check_dependencies(file, json)); }
+    if check_unused { return Some(cmd_validate_check_unused(file, json)); }
+    if check_resource_limits { return Some(cmd_validate_check_resource_limits(file, json)); }
+    if check_portability { return Some(cmd_validate_check_portability(file, json)); }
+    if let Some(policy) = check_compliance { return Some(cmd_validate_check_compliance(file, policy, json)); }
+    if check_drift_risk { return Some(cmd_validate_check_drift_risk(file, json)); }
+    if check_deprecation { return Some(cmd_validate_check_deprecation(file, json)); }
+    if check_security { return Some(cmd_validate_check_security(file, json)); }
+    if check_complexity { return Some(cmd_validate_check_complexity(file, json)); }
+    if check_limits { return Some(cmd_validate_check_limits(file, json)); }
+    None
+}
+
+/// Core validation checks (overlaps through base validate).
+fn try_validate_core(
+    file: &Path, json: bool, strict: bool, dry_expand: bool,
+    check_overlaps: bool, check_naming: bool,
+    check_cycles_deep: bool, check_drift_coverage: bool,
+    check_idempotency: bool, check_secrets: bool,
+    strict_deps: bool, check_templates: bool,
+    check_connectivity: bool, policy_file: Option<&Path>,
+    exhaustive: bool,
+) -> Option<Result<(), String>> {
+    if check_overlaps { return Some(cmd_validate_check_overlaps(file, json)); }
+    if check_naming { return Some(cmd_validate_check_naming(file, json)); }
+    if check_cycles_deep { return Some(cmd_validate_check_cycles_deep(file, json)); }
+    if check_drift_coverage { return Some(cmd_validate_check_drift_coverage(file, json)); }
+    if check_idempotency { return Some(cmd_validate_check_idempotency(file, json)); }
+    if check_secrets { return Some(cmd_validate_check_secrets(file, json)); }
+    if strict_deps { return Some(cmd_validate_strict_deps(file, json)); }
+    if check_templates { return Some(cmd_validate_check_templates(file, json)); }
+    if check_connectivity { return Some(cmd_validate_connectivity(file, json)); }
+    if let Some(pf) = policy_file { return Some(cmd_validate_policy_file(file, pf, json)); }
+    if exhaustive { return Some(cmd_validate_exhaustive(file, json)); }
+    None
+}
+
+
+/// Route validate sub-flags to specific check commands.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn dispatch_validate(
+    file: &Path, strict: bool, json: bool, dry_expand: bool,
+    exhaustive: bool, policy_file: Option<&Path>,
+    check_connectivity: bool, check_templates: bool, strict_deps: bool,
+    check_secrets: bool, check_idempotency: bool, check_drift_coverage: bool,
+    check_cycles_deep: bool, check_naming: bool, check_overlaps: bool,
+    check_limits: bool, check_complexity: bool, check_security: bool,
+    check_deprecation: bool, check_drift_risk: bool,
+    check_compliance: Option<&str>, check_portability: bool,
+    check_resource_limits: bool, check_unused: bool,
+    check_dependencies: bool, check_permissions: bool,
+    check_idempotency_deep: bool, check_machine_reachability: bool,
+    check_circular_refs: bool, check_naming_conventions: bool,
+    check_owner_consistency: bool, check_path_conflicts: bool,
+    check_service_deps: bool, check_template_vars: bool,
+    check_mode_consistency: bool, check_group_consistency: bool,
+    check_mount_points: bool,
+) -> Result<(), String> {
+    if let Some(r) = try_validate_structural(file, json, check_mount_points, check_group_consistency, check_mode_consistency, check_template_vars, check_service_deps, check_path_conflicts, check_owner_consistency, check_naming_conventions, check_circular_refs, check_machine_reachability) {
+        return r;
+    }
+    if let Some(r) = try_validate_quality(file, json, check_idempotency_deep, check_permissions, check_dependencies, check_unused, check_resource_limits, check_portability, check_compliance, check_drift_risk, check_deprecation, check_security, check_complexity, check_limits) {
+        return r;
+    }
+    if let Some(r) = try_validate_core(file, json, strict, dry_expand, check_overlaps, check_naming, check_cycles_deep, check_drift_coverage, check_idempotency, check_secrets, strict_deps, check_templates, check_connectivity, policy_file, exhaustive) {
+        return r;
+    }
+    cmd_validate(file, strict, json, dry_expand)
+}

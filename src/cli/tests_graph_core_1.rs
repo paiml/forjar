@@ -1,0 +1,438 @@
+//! Tests: Core graph commands.
+
+use crate::core::types::ProvenanceEvent;
+use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
+use crate::transport;
+use crate::tripwire::{anomaly, drift, eventlog, tracer};
+use std::path::{Path, PathBuf};
+use super::helpers::*;
+use super::helpers_state::*;
+use super::helpers_time::*;
+use super::graph_core::*;
+use super::commands::*;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+
+    #[test]
+    fn test_fj354_graph_affected_flag() {
+        let cmd = Commands::Graph {
+            file: PathBuf::from("f.yaml"),
+            format: "mermaid".to_string(),
+            machine: None,
+            group: None,
+            affected: Some("base-packages".to_string()),
+            critical_path: false,
+            reverse: false,
+            depth: None,
+            cluster: false,
+            orphans: false,
+            stats: false,
+            json_output: false,
+            highlight: None,
+            prune: None,
+            layers: false,
+            critical_resources: false,
+            weight: false,
+            subgraph: None,
+            impact_radius: None,
+            dependency_matrix: false,
+            hotspots: false,
+            timeline_graph: false,
+            what_if: None,
+            blast_radius: None,
+            change_impact: None,
+            resource_types: false,
+            topological_levels: false,
+            execution_order: false,
+            security_boundaries: false,
+            resource_age: false,
+            parallel_groups: false,
+            critical_chain: false,
+            dependency_depth: false,
+            orphan_detection: false,
+            cross_machine_deps: false,
+            machine_groups: false,
+            resource_clusters: false,
+            fan_out: false,
+            leaf_resources: false,
+            reverse_deps: false,
+            depth_first: false,
+        };
+        match cmd {
+            Commands::Graph { affected, .. } => {
+                assert_eq!(affected, Some("base-packages".to_string()));
+            }
+            _ => panic!("expected Graph"),
+        }
+    }
+
+
+    #[test]
+    fn test_fj385_graph_reverse_flag() {
+        let cmd = Commands::Graph {
+            file: PathBuf::from("f.yaml"),
+            format: "mermaid".to_string(),
+            machine: None,
+            group: None,
+            affected: None,
+            critical_path: false,
+            reverse: true,
+            depth: None,
+            cluster: false,
+            orphans: false,
+            stats: false,
+            json_output: false,
+            highlight: None,
+            prune: None,
+            layers: false,
+            critical_resources: false,
+            weight: false,
+            subgraph: None,
+            impact_radius: None,
+            dependency_matrix: false,
+            hotspots: false,
+            timeline_graph: false,
+            what_if: None,
+            blast_radius: None,
+            change_impact: None,
+            resource_types: false,
+            topological_levels: false,
+            execution_order: false,
+            security_boundaries: false,
+            resource_age: false,
+            parallel_groups: false,
+            critical_chain: false,
+            dependency_depth: false,
+            orphan_detection: false,
+            cross_machine_deps: false,
+            machine_groups: false,
+            resource_clusters: false,
+            fan_out: false,
+            leaf_resources: false,
+            reverse_deps: false,
+            depth_first: false,
+        };
+        match cmd {
+            Commands::Graph { reverse, .. } => assert!(reverse),
+            _ => panic!("expected Graph"),
+        }
+    }
+
+
+    #[test]
+    fn test_fj394_graph_depth_flag() {
+        let cmd = Commands::Graph {
+            file: PathBuf::from("f.yaml"),
+            format: "mermaid".to_string(),
+            machine: None,
+            group: None,
+            affected: None,
+            critical_path: false,
+            reverse: false,
+            depth: Some(2),
+            cluster: false,
+            orphans: false,
+            stats: false,
+            json_output: false,
+            highlight: None,
+            prune: None,
+            layers: false,
+            critical_resources: false,
+            weight: false,
+            subgraph: None,
+            impact_radius: None,
+            dependency_matrix: false,
+            hotspots: false,
+            timeline_graph: false,
+            what_if: None,
+            blast_radius: None,
+            change_impact: None,
+            resource_types: false,
+            topological_levels: false,
+            execution_order: false,
+            security_boundaries: false,
+            resource_age: false,
+            parallel_groups: false,
+            critical_chain: false,
+            dependency_depth: false,
+            orphan_detection: false,
+            cross_machine_deps: false,
+            machine_groups: false,
+            resource_clusters: false,
+            fan_out: false,
+            leaf_resources: false,
+            reverse_deps: false,
+            depth_first: false,
+        };
+        match cmd {
+            Commands::Graph { depth, .. } => assert_eq!(depth, Some(2)),
+            _ => panic!("expected Graph"),
+        }
+    }
+
+
+    #[test]
+    fn test_fj404_graph_cluster_flag() {
+        let cmd = Commands::Graph {
+            file: PathBuf::from("f.yaml"),
+            format: "mermaid".to_string(),
+            machine: None,
+            group: None,
+            affected: None,
+            critical_path: false,
+            reverse: false,
+            depth: None,
+            cluster: true,
+            orphans: false,
+            stats: false,
+            json_output: false,
+            highlight: None,
+            prune: None,
+            layers: false,
+            critical_resources: false,
+            weight: false,
+            subgraph: None,
+            impact_radius: None,
+            dependency_matrix: false,
+            hotspots: false,
+            timeline_graph: false,
+            what_if: None,
+            blast_radius: None,
+            change_impact: None,
+            resource_types: false,
+            topological_levels: false,
+            execution_order: false,
+            security_boundaries: false,
+            resource_age: false,
+            parallel_groups: false,
+            critical_chain: false,
+            dependency_depth: false,
+            orphan_detection: false,
+            cross_machine_deps: false,
+            machine_groups: false,
+            resource_clusters: false,
+            fan_out: false,
+            leaf_resources: false,
+            reverse_deps: false,
+            depth_first: false,
+        };
+        match cmd {
+            Commands::Graph { cluster, .. } => assert!(cluster),
+            _ => panic!("expected Graph"),
+        }
+    }
+
+
+    #[test]
+    fn test_fj414_graph_orphans_flag() {
+        let cmd = Commands::Graph {
+            file: PathBuf::from("f.yaml"),
+            format: "mermaid".to_string(),
+            machine: None,
+            group: None,
+            affected: None,
+            critical_path: false,
+            reverse: false,
+            depth: None,
+            cluster: false,
+            orphans: true,
+            stats: false,
+            json_output: false,
+            highlight: None,
+            prune: None,
+            layers: false,
+            critical_resources: false,
+            weight: false,
+            subgraph: None,
+            impact_radius: None,
+            dependency_matrix: false,
+            hotspots: false,
+            timeline_graph: false,
+            what_if: None,
+            blast_radius: None,
+            change_impact: None,
+            resource_types: false,
+            topological_levels: false,
+            execution_order: false,
+            security_boundaries: false,
+            resource_age: false,
+            parallel_groups: false,
+            critical_chain: false,
+            dependency_depth: false,
+            orphan_detection: false,
+            cross_machine_deps: false,
+            machine_groups: false,
+            resource_clusters: false,
+            fan_out: false,
+            leaf_resources: false,
+            reverse_deps: false,
+            depth_first: false,
+        };
+        match cmd {
+            Commands::Graph { orphans, .. } => assert!(orphans),
+            _ => panic!("expected Graph"),
+        }
+    }
+
+
+    #[test]
+    fn test_fj424_graph_stats_flag() {
+        let cmd = Commands::Graph {
+            file: PathBuf::from("f.yaml"),
+            format: "mermaid".to_string(),
+            machine: None,
+            group: None,
+            affected: None,
+            critical_path: false,
+            reverse: false,
+            depth: None,
+            cluster: false,
+            orphans: false,
+            stats: true,
+            json_output: false,
+            highlight: None,
+            prune: None,
+            layers: false,
+            critical_resources: false,
+            weight: false,
+            subgraph: None,
+            impact_radius: None,
+            dependency_matrix: false,
+            hotspots: false,
+            timeline_graph: false,
+            what_if: None,
+            blast_radius: None,
+            change_impact: None,
+            resource_types: false,
+            topological_levels: false,
+            execution_order: false,
+            security_boundaries: false,
+            resource_age: false,
+            parallel_groups: false,
+            critical_chain: false,
+            dependency_depth: false,
+            orphan_detection: false,
+            cross_machine_deps: false,
+            machine_groups: false,
+            resource_clusters: false,
+            fan_out: false,
+            leaf_resources: false,
+            reverse_deps: false,
+            depth_first: false,
+        };
+        match cmd {
+            Commands::Graph { stats, .. } => assert!(stats),
+            _ => panic!("expected Graph"),
+        }
+    }
+
+
+    #[test]
+    fn test_fj434_graph_json_flag() {
+        let cmd = Commands::Graph {
+            file: PathBuf::from("forjar.yaml"),
+            format: "mermaid".to_string(),
+            machine: None,
+            group: None,
+            affected: None,
+            critical_path: false,
+            reverse: false,
+            depth: None,
+            cluster: false,
+            orphans: false,
+            stats: false,
+            json_output: true,
+            highlight: None,
+            prune: None,
+            layers: false,
+            critical_resources: false,
+            weight: false,
+            subgraph: None,
+            impact_radius: None,
+            dependency_matrix: false,
+            hotspots: false,
+            timeline_graph: false,
+            what_if: None,
+            blast_radius: None,
+            change_impact: None,
+            resource_types: false,
+            topological_levels: false,
+            execution_order: false,
+            security_boundaries: false,
+            resource_age: false,
+            parallel_groups: false,
+            critical_chain: false,
+            dependency_depth: false,
+            orphan_detection: false,
+            cross_machine_deps: false,
+            machine_groups: false,
+            resource_clusters: false,
+            fan_out: false,
+            leaf_resources: false,
+            reverse_deps: false,
+            depth_first: false,
+        };
+        match cmd {
+            Commands::Graph { json_output, .. } => assert!(json_output),
+            _ => panic!("expected Graph"),
+        }
+    }
+
+
+    #[test]
+    fn test_fj444_graph_highlight_flag() {
+        let cmd = Commands::Graph {
+            file: PathBuf::from("forjar.yaml"),
+            format: "mermaid".to_string(),
+            machine: None,
+            group: None,
+            affected: None,
+            critical_path: false,
+            reverse: false,
+            depth: None,
+            cluster: false,
+            orphans: false,
+            stats: false,
+            json_output: false,
+            highlight: Some("web-server".to_string()),
+            prune: None,
+            layers: false,
+            critical_resources: false,
+            weight: false,
+            subgraph: None,
+            impact_radius: None,
+            dependency_matrix: false,
+            hotspots: false,
+            timeline_graph: false,
+            what_if: None,
+            blast_radius: None,
+            change_impact: None,
+            resource_types: false,
+            topological_levels: false,
+            execution_order: false,
+            security_boundaries: false,
+            resource_age: false,
+            parallel_groups: false,
+            critical_chain: false,
+            dependency_depth: false,
+            orphan_detection: false,
+            cross_machine_deps: false,
+            machine_groups: false,
+            resource_clusters: false,
+            fan_out: false,
+            leaf_resources: false,
+            reverse_deps: false,
+            depth_first: false,
+        };
+        match cmd {
+            Commands::Graph { highlight, .. } => {
+                assert_eq!(highlight, Some("web-server".to_string()));
+            }
+            _ => panic!("expected Graph"),
+        }
+    }
+
+}

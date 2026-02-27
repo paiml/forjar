@@ -1,0 +1,483 @@
+//! Tests: Core validation command.
+
+use crate::core::types::ProvenanceEvent;
+use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
+use crate::transport;
+use crate::tripwire::{anomaly, drift, eventlog, tracer};
+use std::path::{Path, PathBuf};
+use super::helpers::*;
+use super::helpers_state::*;
+use super::helpers_time::*;
+use super::validate_core::*;
+use super::commands::*;
+use super::validate_resources::*;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+
+    #[test]
+    fn test_fj501_validate_check_limits_flag() {
+        let cmd = Commands::Validate {
+            file: PathBuf::from("forjar.yaml"),
+            strict: false,
+            json: false,
+            dry_expand: false,
+            schema_version: None,
+            exhaustive: false,
+            policy_file: None,
+            check_connectivity: false,
+            check_templates: false,
+            strict_deps: false,
+            check_secrets: false,
+            check_idempotency: false,
+            check_drift_coverage: false,
+            check_cycles_deep: false,
+            check_naming: false,
+            check_overlaps: false,
+            check_limits: true,
+            check_complexity: false,
+            check_security: false,
+            check_deprecation: false,
+            check_drift_risk: false,
+            check_compliance: None,
+            check_portability: false,
+            check_resource_limits: false,
+            check_unused: false,
+            check_dependencies: false,
+            check_permissions: false,
+            check_idempotency_deep: false,
+            check_machine_reachability: false,
+            check_circular_refs: false,
+            check_naming_conventions: false,
+            check_owner_consistency: false,
+            check_path_conflicts: false,
+            check_service_deps: false,
+            check_template_vars: false,
+            check_mode_consistency: false,
+            check_group_consistency: false,
+            check_mount_points: false,
+        };
+        match cmd {
+            Commands::Validate { check_limits, .. } => assert!(check_limits),
+            _ => panic!("expected Validate"),
+        }
+    }
+
+
+    #[test]
+    fn test_fj511_validate_check_complexity_flag() {
+        let cmd = Commands::Validate {
+            file: PathBuf::from("forjar.yaml"),
+            strict: false,
+            json: false,
+            dry_expand: false,
+            schema_version: None,
+            exhaustive: false,
+            policy_file: None,
+            check_connectivity: false,
+            check_templates: false,
+            strict_deps: false,
+            check_secrets: false,
+            check_idempotency: false,
+            check_drift_coverage: false,
+            check_cycles_deep: false,
+            check_naming: false,
+            check_overlaps: false,
+            check_limits: false,
+            check_complexity: true,
+            check_security: false,
+            check_deprecation: false,
+            check_drift_risk: false,
+            check_compliance: None,
+            check_portability: false,
+            check_resource_limits: false,
+            check_unused: false,
+            check_dependencies: false,
+            check_permissions: false,
+            check_idempotency_deep: false,
+            check_machine_reachability: false,
+            check_circular_refs: false,
+            check_naming_conventions: false,
+            check_owner_consistency: false,
+            check_path_conflicts: false,
+            check_service_deps: false,
+            check_template_vars: false,
+            check_mode_consistency: false,
+            check_group_consistency: false,
+            check_mount_points: false,
+        };
+        match cmd {
+            Commands::Validate {
+                check_complexity, ..
+            } => assert!(check_complexity),
+            _ => panic!("expected Validate"),
+        }
+    }
+
+
+    #[test]
+    fn test_fj521_validate_check_security_flag() {
+        let cmd = Commands::Validate {
+            file: PathBuf::from("forjar.yaml"),
+            strict: false,
+            json: false,
+            dry_expand: false,
+            schema_version: None,
+            exhaustive: false,
+            policy_file: None,
+            check_connectivity: false,
+            check_templates: false,
+            strict_deps: false,
+            check_secrets: false,
+            check_idempotency: false,
+            check_drift_coverage: false,
+            check_cycles_deep: false,
+            check_naming: false,
+            check_overlaps: false,
+            check_limits: false,
+            check_complexity: false,
+            check_security: true,
+            check_deprecation: false,
+            check_drift_risk: false,
+            check_compliance: None,
+            check_portability: false,
+            check_resource_limits: false,
+            check_unused: false,
+            check_dependencies: false,
+            check_permissions: false,
+            check_idempotency_deep: false,
+            check_machine_reachability: false,
+            check_circular_refs: false,
+            check_naming_conventions: false,
+            check_owner_consistency: false,
+            check_path_conflicts: false,
+            check_service_deps: false,
+            check_template_vars: false,
+            check_mode_consistency: false,
+            check_group_consistency: false,
+            check_mount_points: false,
+        };
+        match cmd {
+            Commands::Validate { check_security, .. } => assert!(check_security),
+            _ => panic!("expected Validate"),
+        }
+    }
+
+
+    #[test]
+    fn test_fj531_validate_check_deprecation_flag() {
+        let cmd = Commands::Validate {
+            file: PathBuf::from("forjar.yaml"),
+            strict: false,
+            json: false,
+            dry_expand: false,
+            schema_version: None,
+            exhaustive: false,
+            policy_file: None,
+            check_connectivity: false,
+            check_templates: false,
+            strict_deps: false,
+            check_secrets: false,
+            check_idempotency: false,
+            check_drift_coverage: false,
+            check_cycles_deep: false,
+            check_naming: false,
+            check_overlaps: false,
+            check_limits: false,
+            check_complexity: false,
+            check_security: false,
+            check_deprecation: true,
+            check_drift_risk: false,
+            check_compliance: None,
+            check_portability: false,
+            check_resource_limits: false,
+            check_unused: false,
+            check_dependencies: false,
+            check_permissions: false,
+            check_idempotency_deep: false,
+            check_machine_reachability: false,
+            check_circular_refs: false,
+            check_naming_conventions: false,
+            check_owner_consistency: false,
+            check_path_conflicts: false,
+            check_service_deps: false,
+            check_template_vars: false,
+            check_mode_consistency: false,
+            check_group_consistency: false,
+            check_mount_points: false,
+        };
+        match cmd {
+            Commands::Validate {
+                check_deprecation, ..
+            } => assert!(check_deprecation),
+            _ => panic!("expected Validate"),
+        }
+    }
+
+
+    #[test]
+    fn test_fj541_validate_check_drift_risk_flag() {
+        let cmd = Commands::Validate {
+            file: PathBuf::from("forjar.yaml"),
+            strict: false,
+            json: false,
+            dry_expand: false,
+            schema_version: None,
+            exhaustive: false,
+            policy_file: None,
+            check_connectivity: false,
+            check_templates: false,
+            strict_deps: false,
+            check_secrets: false,
+            check_idempotency: false,
+            check_drift_coverage: false,
+            check_cycles_deep: false,
+            check_naming: false,
+            check_overlaps: false,
+            check_limits: false,
+            check_complexity: false,
+            check_security: false,
+            check_deprecation: false,
+            check_drift_risk: true,
+            check_compliance: None,
+            check_portability: false,
+            check_resource_limits: false,
+            check_unused: false,
+            check_dependencies: false,
+            check_permissions: false,
+            check_idempotency_deep: false,
+            check_machine_reachability: false,
+            check_circular_refs: false,
+            check_naming_conventions: false,
+            check_owner_consistency: false,
+            check_path_conflicts: false,
+            check_service_deps: false,
+            check_template_vars: false,
+            check_mode_consistency: false,
+            check_group_consistency: false,
+            check_mount_points: false,
+        };
+        match cmd {
+            Commands::Validate {
+                check_drift_risk, ..
+            } => assert!(check_drift_risk),
+            _ => panic!("expected Validate"),
+        }
+    }
+
+
+    #[test]
+    fn test_fj551_validate_check_compliance_flag() {
+        let cmd = Commands::Validate {
+            file: PathBuf::from("forjar.yaml"),
+            strict: false,
+            json: false,
+            dry_expand: false,
+            schema_version: None,
+            exhaustive: false,
+            policy_file: None,
+            check_connectivity: false,
+            check_templates: false,
+            strict_deps: false,
+            check_secrets: false,
+            check_idempotency: false,
+            check_drift_coverage: false,
+            check_cycles_deep: false,
+            check_naming: false,
+            check_overlaps: false,
+            check_limits: false,
+            check_complexity: false,
+            check_security: false,
+            check_deprecation: false,
+            check_drift_risk: false,
+            check_compliance: Some("CIS".to_string()),
+            check_portability: false,
+            check_resource_limits: false,
+            check_unused: false,
+            check_dependencies: false,
+            check_permissions: false,
+            check_idempotency_deep: false,
+            check_machine_reachability: false,
+            check_circular_refs: false,
+            check_naming_conventions: false,
+            check_owner_consistency: false,
+            check_path_conflicts: false,
+            check_service_deps: false,
+            check_template_vars: false,
+            check_mode_consistency: false,
+            check_group_consistency: false,
+            check_mount_points: false,
+        };
+        match cmd {
+            Commands::Validate {
+                check_compliance, ..
+            } => assert_eq!(check_compliance, Some("CIS".to_string())),
+            _ => panic!("expected Validate"),
+        }
+    }
+
+
+    #[test]
+    fn test_fj561_validate_check_portability_flag() {
+        let cmd = Commands::Validate {
+            file: PathBuf::from("forjar.yaml"),
+            strict: false,
+            json: false,
+            dry_expand: false,
+            schema_version: None,
+            exhaustive: false,
+            policy_file: None,
+            check_connectivity: false,
+            check_templates: false,
+            strict_deps: false,
+            check_secrets: false,
+            check_idempotency: false,
+            check_drift_coverage: false,
+            check_cycles_deep: false,
+            check_naming: false,
+            check_overlaps: false,
+            check_limits: false,
+            check_complexity: false,
+            check_security: false,
+            check_deprecation: false,
+            check_drift_risk: false,
+            check_compliance: None,
+            check_portability: true,
+            check_resource_limits: false,
+            check_unused: false,
+            check_dependencies: false,
+            check_permissions: false,
+            check_idempotency_deep: false,
+            check_machine_reachability: false,
+            check_circular_refs: false,
+            check_naming_conventions: false,
+            check_owner_consistency: false,
+            check_path_conflicts: false,
+            check_service_deps: false,
+            check_template_vars: false,
+            check_mode_consistency: false,
+            check_group_consistency: false,
+            check_mount_points: false,
+        };
+        match cmd {
+            Commands::Validate {
+                check_portability, ..
+            } => assert!(check_portability),
+            _ => panic!("expected Validate"),
+        }
+    }
+
+
+    #[test]
+    fn test_fj571_validate_check_resource_limits_flag() {
+        let cmd = Commands::Validate {
+            file: PathBuf::from("forjar.yaml"),
+            strict: false,
+            json: false,
+            dry_expand: false,
+            schema_version: None,
+            exhaustive: false,
+            policy_file: None,
+            check_connectivity: false,
+            check_templates: false,
+            strict_deps: false,
+            check_secrets: false,
+            check_idempotency: false,
+            check_drift_coverage: false,
+            check_cycles_deep: false,
+            check_naming: false,
+            check_overlaps: false,
+            check_limits: false,
+            check_complexity: false,
+            check_security: false,
+            check_deprecation: false,
+            check_drift_risk: false,
+            check_compliance: None,
+            check_portability: false,
+            check_resource_limits: true,
+            check_unused: false,
+            check_dependencies: false,
+            check_permissions: false,
+            check_idempotency_deep: false,
+            check_machine_reachability: false,
+            check_circular_refs: false,
+            check_naming_conventions: false,
+            check_owner_consistency: false,
+            check_path_conflicts: false,
+            check_service_deps: false,
+            check_template_vars: false,
+            check_mode_consistency: false,
+            check_group_consistency: false,
+            check_mount_points: false,
+        };
+        match cmd {
+            Commands::Validate {
+                check_resource_limits,
+                ..
+            } => assert!(check_resource_limits),
+            _ => panic!("expected Validate"),
+        }
+    }
+
+
+    #[test]
+    fn test_fj581_validate_check_unused_flag() {
+        let cmd = Commands::Validate {
+            file: PathBuf::from("forjar.yaml"),
+            strict: false,
+            json: false,
+            dry_expand: false,
+            schema_version: None,
+            exhaustive: false,
+            policy_file: None,
+            check_connectivity: false,
+            check_templates: false,
+            strict_deps: false,
+            check_secrets: false,
+            check_idempotency: false,
+            check_drift_coverage: false,
+            check_cycles_deep: false,
+            check_naming: false,
+            check_overlaps: false,
+            check_limits: false,
+            check_complexity: false,
+            check_security: false,
+            check_deprecation: false,
+            check_drift_risk: false,
+            check_compliance: None,
+            check_portability: false,
+            check_resource_limits: false,
+            check_unused: true,
+            check_dependencies: false,
+            check_permissions: false,
+            check_idempotency_deep: false,
+            check_machine_reachability: false,
+            check_circular_refs: false,
+            check_naming_conventions: false,
+            check_owner_consistency: false,
+            check_path_conflicts: false,
+            check_service_deps: false,
+            check_template_vars: false,
+            check_mode_consistency: false,
+            check_group_consistency: false,
+            check_mount_points: false,
+        };
+        match cmd {
+            Commands::Validate { check_unused, .. } => assert!(check_unused),
+            _ => panic!("expected Validate"),
+        }
+    }
+
+
+    #[test]
+    fn test_fj590_validate_check_dependencies() {
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = dir.path().join("forjar.yaml");
+        std::fs::write(&cfg, "version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 127.0.0.1\nresources:\n  pkg1:\n    type: package\n    machine: m1\n    provider: apt\n    packages: [curl]\n").unwrap();
+        let result = cmd_validate_check_dependencies(&cfg, false);
+        assert!(result.is_ok());
+    }
+
+}
