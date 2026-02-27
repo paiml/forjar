@@ -140,6 +140,8 @@ resources:
             check_group_consistency: false,
             check_mount_points: false,
             check_cron_syntax: false,
+            check_env_refs: false,
+            check_resource_names: None,
         });
         match cmd {
             Commands::Validate(ValidateArgs { strict, .. }) => assert!(strict),
@@ -370,6 +372,7 @@ resources:
             exclude_machine: None,
             notify_ntfy: None,
             only_machine: None,
+            notify_webhook_headers: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { yes, .. }) => assert!(yes),

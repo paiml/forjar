@@ -160,6 +160,7 @@ mod tests {
             exclude_machine: None,
                 notify_ntfy: None,
                 only_machine: None,
+                notify_webhook_headers: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { schedule, .. }) => {
@@ -314,6 +315,7 @@ mod tests {
             exclude_machine: None,
                 notify_ntfy: None,
                 only_machine: None,
+                notify_webhook_headers: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { env_name, .. }) => assert_eq!(env_name, Some("staging".to_string())),
@@ -466,6 +468,7 @@ mod tests {
             exclude_machine: None,
                 notify_ntfy: None,
                 only_machine: None,
+                notify_webhook_headers: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { dry_run_diff, .. }) => assert!(dry_run_diff),

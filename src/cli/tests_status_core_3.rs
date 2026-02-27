@@ -97,6 +97,9 @@ mod tests {
             resource_types_summary: false,
             resource_health: false,
             machine_health_summary: false,
+            dependency_count: false,
+            last_apply_status: false,
+            resource_staleness: false,
         });
         match cmd {
             Commands::Status(StatusArgs { json_lines, .. }) => assert!(json_lines),
@@ -186,6 +189,9 @@ mod tests {
             resource_types_summary: false,
             resource_health: false,
             machine_health_summary: false,
+            dependency_count: false,
+            last_apply_status: false,
+            resource_staleness: false,
         });
         match cmd {
             Commands::Status(StatusArgs { since, .. }) => {
@@ -279,6 +285,9 @@ mod tests {
             resource_types_summary: false,
             resource_health: false,
             machine_health_summary: false,
+            dependency_count: false,
+            last_apply_status: false,
+            resource_staleness: false,
         });
         match cmd {
             Commands::Status(StatusArgs { export, .. }) => {
@@ -371,6 +380,9 @@ mod tests {
             resource_types_summary: false,
             resource_health: false,
             machine_health_summary: false,
+            dependency_count: false,
+            last_apply_status: false,
+            resource_staleness: false,
         });
         match cmd {
             Commands::Status(StatusArgs { prometheus, .. }) => assert!(prometheus),
@@ -462,6 +474,9 @@ mod tests {
             resource_types_summary: false,
             resource_health: false,
             machine_health_summary: false,
+            dependency_count: false,
+            last_apply_status: false,
+            resource_staleness: false,
         });
         match cmd {
             Commands::Status(StatusArgs { compact, .. }) => assert!(compact),

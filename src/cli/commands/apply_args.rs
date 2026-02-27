@@ -555,5 +555,8 @@ pub struct ApplyArgs {
     /// FJ-736: Apply only to specific machine
     #[arg(long)]
     pub only_machine: Option<String>,
+    /// FJ-744: Custom headers for webhook notifications (JSON string)
+    #[arg(long)]
+    pub notify_webhook_headers: Option<String>,
 }
 

@@ -159,6 +159,7 @@ mod tests {
             exclude_machine: None,
             notify_ntfy: None,
             only_machine: None,
+            notify_webhook_headers: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { tag_filter, .. }) => {
@@ -250,6 +251,9 @@ mod tests {
             resource_types_summary: false,
             resource_health: false,
             machine_health_summary: false,
+            dependency_count: false,
+            last_apply_status: false,
+            resource_staleness: false,
         });
         match cmd {
             Commands::Status(StatusArgs { timeline, .. }) => assert!(timeline),
@@ -402,6 +406,7 @@ mod tests {
             exclude_machine: None,
             notify_ntfy: None,
             only_machine: None,
+            notify_webhook_headers: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { resume, .. }) => assert!(resume),

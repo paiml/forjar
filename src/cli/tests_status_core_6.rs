@@ -97,6 +97,9 @@ mod tests {
             resource_types_summary: false,
             resource_health: false,
             machine_health_summary: false,
+            dependency_count: false,
+            last_apply_status: false,
+            resource_staleness: false,
         });
         match cmd {
             Commands::Status(StatusArgs {
@@ -190,6 +193,9 @@ mod tests {
             resource_types_summary: false,
             resource_health: false,
             machine_health_summary: false,
+            dependency_count: false,
+            last_apply_status: false,
+            resource_staleness: false,
         });
         match cmd {
             Commands::Status(StatusArgs { mttr, .. }) => assert!(mttr),
@@ -279,6 +285,9 @@ mod tests {
             resource_types_summary: false,
             resource_health: false,
             machine_health_summary: false,
+            dependency_count: false,
+            last_apply_status: false,
+            resource_staleness: false,
         });
         match cmd {
             Commands::Status(StatusArgs { trend, .. }) => assert_eq!(trend, Some(10)),
@@ -370,6 +379,9 @@ mod tests {
             resource_types_summary: false,
             resource_health: false,
             machine_health_summary: false,
+            dependency_count: false,
+            last_apply_status: false,
+            resource_staleness: false,
         });
         match cmd {
             Commands::Status(StatusArgs { prediction, .. }) => assert!(prediction),
@@ -459,6 +471,9 @@ mod tests {
             resource_types_summary: false,
             resource_health: false,
             machine_health_summary: false,
+            dependency_count: false,
+            last_apply_status: false,
+            resource_staleness: false,
         });
         match cmd {
             Commands::Status(StatusArgs { capacity, .. }) => assert!(capacity),

@@ -160,6 +160,7 @@ mod tests {
             exclude_machine: None,
                 notify_ntfy: None,
                 only_machine: None,
+                notify_webhook_headers: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { pre_script, .. }) => {
@@ -314,6 +315,7 @@ mod tests {
             exclude_machine: None,
                 notify_ntfy: None,
                 only_machine: None,
+                notify_webhook_headers: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { dry_run_json, .. }) => assert!(dry_run_json),
@@ -466,6 +468,7 @@ mod tests {
             exclude_machine: None,
                 notify_ntfy: None,
                 only_machine: None,
+                notify_webhook_headers: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { notify_webhook, .. }) => {

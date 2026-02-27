@@ -160,6 +160,7 @@ mod tests {
             exclude_machine: None,
                 notify_ntfy: None,
                 only_machine: None,
+                notify_webhook_headers: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { runbook, .. }) => {
@@ -317,6 +318,7 @@ mod tests {
             exclude_machine: None,
                 notify_ntfy: None,
                 only_machine: None,
+                notify_webhook_headers: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { notify_pubsub, .. }) => {
@@ -474,6 +476,7 @@ mod tests {
             exclude_machine: None,
                 notify_ntfy: None,
                 only_machine: None,
+                notify_webhook_headers: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { fleet_strategy, .. }) => {

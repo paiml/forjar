@@ -204,6 +204,7 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
         convergence_history, resource_inputs, drift_trend,
         failed_resources, resource_types_summary,
         resource_health, machine_health_summary,
+        dependency_count: _dependency_count, last_apply_status, resource_staleness,
     }) = cmd
     else {
         unreachable!()
@@ -213,6 +214,8 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
 
     if resource_health { return cmd_status_resource_health(&state_dir, m, json); }
     if machine_health_summary { return cmd_status_machine_health_summary(&state_dir, m, json); }
+    if last_apply_status { return cmd_status_last_apply_status(&state_dir, m, json); }
+    if resource_staleness { return cmd_status_resource_staleness(&state_dir, m, json); }
     if let Some(r) = try_status_phase58(&state_dir, m, json, resource_types_summary, failed_resources, drift_trend, resource_inputs, convergence_history, config_hash, last_apply_duration, drift_details_all, resource_size, hash_verify, lock_age) {
         return r;
     }

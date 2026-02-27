@@ -350,3 +350,99 @@ pub(crate) fn cmd_status_machine_health_summary(
     Ok(())
 }
 
+
+/// FJ-746: Show last apply success/failure per machine.
+pub(crate) fn cmd_status_last_apply_status(
+    state_dir: &Path, machine: Option<&str>, json: bool,
+) -> Result<(), String> {
+    let machines = discover_machines(state_dir);
+    let targets: Vec<&String> = match machine {
+        Some(m) => machines.iter().filter(|x| x.as_str() == m).collect(),
+        None => machines.iter().collect(),
+    };
+    let statuses = collect_last_apply(&state_dir, &targets);
+    if json {
+        let items: Vec<String> = statuses.iter()
+            .map(|(m, s, t)| format!("{{\"machine\":\"{}\",\"status\":\"{}\",\"timestamp\":\"{}\"}}", m, s, t))
+            .collect();
+        println!("{{\"last_apply_status\":[{}]}}", items.join(","));
+    } else if statuses.is_empty() {
+        println!("No apply history found.");
+    } else {
+        println!("Last apply status:");
+        for (m, s, t) in &statuses { println!("  {} — {} ({})", m, s, t); }
+    }
+    Ok(())
+}
+
+/// Extract timestamp prefix from an event line.
+fn extract_ts(line: &str) -> String {
+    line.split_whitespace().next().unwrap_or("—").to_string()
+}
+
+/// Parse last apply status from event log content.
+fn parse_last_apply(data: &str) -> (String, String) {
+    let last_line = data.lines().rev().find(|l| l.contains("apply"));
+    match last_line {
+        Some(l) if l.contains("success") => ("success".to_string(), extract_ts(l)),
+        Some(l) if l.contains("fail") => ("failed".to_string(), extract_ts(l)),
+        _ => ("unknown".to_string(), "—".to_string()),
+    }
+}
+
+/// Read last apply status from event log for each machine.
+fn collect_last_apply(state_dir: &Path, targets: &[&String]) -> Vec<(String, String, String)> {
+    let mut results = Vec::new();
+    for m in targets {
+        let log_path = state_dir.join(format!("{}.events.yaml", m));
+        let (status, ts) = match std::fs::read_to_string(&log_path) {
+            Ok(data) => parse_last_apply(&data),
+            Err(_) => ("no_history".to_string(), "—".to_string()),
+        };
+        results.push((m.to_string(), status, ts));
+    }
+    results
+}
+
+
+/// FJ-748: Show time since last successful apply per resource.
+pub(crate) fn cmd_status_resource_staleness(
+    state_dir: &Path, machine: Option<&str>, json: bool,
+) -> Result<(), String> {
+    let machines = discover_machines(state_dir);
+    let targets: Vec<&String> = match machine {
+        Some(m) => machines.iter().filter(|x| x.as_str() == m).collect(),
+        None => machines.iter().collect(),
+    };
+    let entries = collect_staleness(state_dir, &targets);
+    if json {
+        let items: Vec<String> = entries.iter()
+            .map(|(m, n, ts)| format!("{{\"machine\":\"{}\",\"resource\":\"{}\",\"last_apply\":\"{}\"}}", m, n, ts))
+            .collect();
+        println!("{{\"resource_staleness\":[{}]}}", items.join(","));
+    } else if entries.is_empty() {
+        println!("No resources found.");
+    } else {
+        println!("Resource staleness:");
+        for (m, name, ts) in &entries { println!("  [{}] {} — last apply: {}", m, name, ts); }
+    }
+    Ok(())
+}
+
+/// Collect last apply timestamp per resource from lock files.
+fn collect_staleness(state_dir: &Path, targets: &[&String]) -> Vec<(String, String, String)> {
+    let mut entries = Vec::new();
+    for m in targets {
+        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        if let Ok(data) = std::fs::read_to_string(&lock_path) {
+            if let Ok(lock) = serde_yaml_ng::from_str::<types::StateLock>(&data) {
+                for (name, rl) in &lock.resources {
+                    let ts = rl.applied_at.as_deref().unwrap_or("never");
+                    entries.push((m.to_string(), name.clone(), ts.to_string()));
+                }
+            }
+        }
+    }
+    entries
+}
+

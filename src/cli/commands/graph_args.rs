@@ -172,5 +172,13 @@ pub struct GraphArgs {
     /// FJ-734: Show breadth-first traversal order
     #[arg(long)]
     pub breadth_first: bool,
+
+    /// FJ-743: Show node/edge/depth stats for each connected component
+    #[arg(long)]
+    pub subgraph_stats: bool,
+
+    /// FJ-747: Show in-degree and out-degree per resource
+    #[arg(long)]
+    pub dependency_count: bool,
 }
 

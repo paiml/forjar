@@ -374,6 +374,7 @@ resources:
                 exclude_machine: None,
                 notify_ntfy: None,
                 only_machine: None,
+                notify_webhook_headers: None,
             }),
             false,
             true,

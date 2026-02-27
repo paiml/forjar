@@ -140,6 +140,7 @@ pub(crate) fn dispatch_apply_cmd(cmd: Commands, verbose: bool) -> Result<(), Str
         fail_fast_machine: _fail_fast_machine, notify_mattermost,
         cooldown: _cooldown, exclude_machine: _exclude_machine,
         notify_ntfy, only_machine: _only_machine,
+        notify_webhook_headers: _notify_webhook_headers,
     }) = cmd
     else {
         unreachable!()

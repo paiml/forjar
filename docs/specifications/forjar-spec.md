@@ -2398,6 +2398,19 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 | FJ-736 | `forjar apply --only-machine <name>` — apply only to specific machine. Targeting. | Done |
 | FJ-737 | `forjar status --machine-health` — show overall health per machine. Fleet. | Done |
 
+### Phase 60 — Observability & Operational Insights (FJ-741→FJ-748)
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-741 | `forjar validate --check-env-refs` — verify all `{{env.*}}` template references have matching env vars. Safety. | Planned |
+| FJ-742 | `forjar status --dependency-count` — show inbound/outbound dependency count per resource. Insight. | Planned |
+| FJ-743 | `forjar graph --subgraph-stats` — show node/edge/depth stats for each connected component. Analysis. | Planned |
+| FJ-744 | `forjar apply --notify-webhook-headers <json>` — custom headers for webhook notifications. Integration. | Planned |
+| FJ-745 | `forjar validate --check-resource-names` — enforce resource naming regex pattern. Governance. | Planned |
+| FJ-746 | `forjar status --last-apply-status` — show last apply success/failure per machine. Fleet. | Planned |
+| FJ-747 | `forjar graph --dependency-count` — show in-degree and out-degree per resource. Metrics. | Planned |
+| FJ-748 | `forjar status --resource-staleness` — show time since last successful apply per resource. Freshness. | Planned |
+
 ---
 
 ## 9. Performance Targets

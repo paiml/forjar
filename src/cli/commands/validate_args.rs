@@ -160,5 +160,13 @@ pub struct ValidateArgs {
     /// FJ-731: Validate cron schedule expressions
     #[arg(long)]
     pub check_cron_syntax: bool,
+
+    /// FJ-741: Verify all {{env.*}} references have matching env vars
+    #[arg(long)]
+    pub check_env_refs: bool,
+
+    /// FJ-745: Enforce resource naming regex pattern
+    #[arg(long)]
+    pub check_resource_names: Option<String>,
 }
 

@@ -97,6 +97,9 @@ mod tests {
             resource_types_summary: false,
             resource_health: false,
             machine_health_summary: false,
+            dependency_count: false,
+            last_apply_status: false,
+            resource_staleness: false,
         });
         match cmd {
             Commands::Status(StatusArgs { diff_from, .. }) => {
@@ -190,6 +193,9 @@ mod tests {
             resource_types_summary: false,
             resource_health: false,
             machine_health_summary: false,
+            dependency_count: false,
+            last_apply_status: false,
+            resource_staleness: false,
         });
         match cmd {
             Commands::Status(StatusArgs {
@@ -281,6 +287,9 @@ mod tests {
             resource_types_summary: false,
             resource_health: false,
             machine_health_summary: false,
+            dependency_count: false,
+            last_apply_status: false,
+            resource_staleness: false,
         });
         match cmd {
             Commands::Status(StatusArgs { machines_only, .. }) => assert!(machines_only),
@@ -372,6 +381,9 @@ mod tests {
             resource_types_summary: false,
             resource_health: false,
             machine_health_summary: false,
+            dependency_count: false,
+            last_apply_status: false,
+            resource_staleness: false,
         });
         match cmd {
             Commands::Status(StatusArgs {
@@ -463,6 +475,9 @@ mod tests {
             resource_types_summary: false,
             resource_health: false,
             machine_health_summary: false,
+            dependency_count: false,
+            last_apply_status: false,
+            resource_staleness: false,
         });
         match cmd {
             Commands::Status(StatusArgs {

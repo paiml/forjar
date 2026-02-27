@@ -160,6 +160,7 @@ mod tests {
             exclude_machine: None,
                 notify_ntfy: None,
                 only_machine: None,
+                notify_webhook_headers: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { abort_on_drift, .. }) => assert!(abort_on_drift),
@@ -312,6 +313,7 @@ mod tests {
             exclude_machine: None,
                 notify_ntfy: None,
                 only_machine: None,
+                notify_webhook_headers: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs {
@@ -466,6 +468,7 @@ mod tests {
             exclude_machine: None,
                 notify_ntfy: None,
                 only_machine: None,
+                notify_webhook_headers: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { notify_discord, .. }) => assert_eq!(

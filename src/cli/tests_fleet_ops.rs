@@ -160,6 +160,7 @@ mod tests {
             exclude_machine: None,
             notify_ntfy: None,
             only_machine: None,
+            notify_webhook_headers: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { retry, .. }) => assert_eq!(retry, 3),
@@ -312,6 +313,7 @@ mod tests {
             exclude_machine: None,
             notify_ntfy: None,
             only_machine: None,
+            notify_webhook_headers: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { retry, .. }) => assert_eq!(retry, 0),

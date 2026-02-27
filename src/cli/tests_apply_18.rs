@@ -160,6 +160,7 @@ mod tests {
             exclude_machine: None,
                 notify_ntfy: None,
                 only_machine: None,
+                notify_webhook_headers: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { dry_run_cost, .. }) => assert!(dry_run_cost),
@@ -312,6 +313,7 @@ mod tests {
             exclude_machine: None,
                 notify_ntfy: None,
                 only_machine: None,
+                notify_webhook_headers: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs {
@@ -470,6 +472,7 @@ mod tests {
             exclude_machine: None,
                 notify_ntfy: None,
                 only_machine: None,
+                notify_webhook_headers: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { progressive, .. }) => assert_eq!(progressive, Some(25)),

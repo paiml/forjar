@@ -96,6 +96,9 @@ mod tests {
             resource_types_summary: false,
             resource_health: false,
             machine_health_summary: false,
+            dependency_count: false,
+            last_apply_status: false,
+            resource_staleness: false,
         });
         match cmd {
             Commands::Status(StatusArgs { changes_since, .. }) => {
@@ -151,6 +154,8 @@ mod tests {
             reverse_deps: false,
             depth_first: false,
             breadth_first: false,
+            subgraph_stats: false,
+            dependency_count: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { critical_path, .. }) => assert!(critical_path),
@@ -240,6 +245,9 @@ mod tests {
             resource_types_summary: false,
             resource_health: false,
             machine_health_summary: false,
+            dependency_count: false,
+            last_apply_status: false,
+            resource_staleness: false,
         });
         match cmd {
             Commands::Status(StatusArgs { summary_by, .. }) => {
@@ -394,6 +402,7 @@ mod tests {
             exclude_machine: None,
             notify_ntfy: None,
             only_machine: None,
+            notify_webhook_headers: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { max_failures, .. }) => assert_eq!(max_failures, Some(3)),

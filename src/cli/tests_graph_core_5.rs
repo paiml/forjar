@@ -64,6 +64,8 @@ mod tests {
             reverse_deps: false,
             depth_first: false,
             breadth_first: false,
+            subgraph_stats: false,
+            dependency_count: false,
         });
         match cmd {
             Commands::Graph(GraphArgs {

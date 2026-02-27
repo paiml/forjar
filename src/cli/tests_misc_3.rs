@@ -160,6 +160,7 @@ mod tests {
             exclude_machine: None,
             notify_ntfy: None,
             only_machine: None,
+            notify_webhook_headers: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { yes, .. }) => assert!(!yes),
@@ -329,6 +330,7 @@ mod tests {
             exclude_machine: None,
             notify_ntfy: None,
             only_machine: None,
+            notify_webhook_headers: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { parallel, .. }) => assert!(parallel),
