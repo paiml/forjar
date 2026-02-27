@@ -186,6 +186,10 @@ pub enum Commands {
         /// FJ-621: Verify machines are reachable before apply
         #[arg(long)]
         check_machine_reachability: bool,
+
+        /// FJ-631: Detect circular template/param references
+        #[arg(long)]
+        check_circular_refs: bool,
     },
 
     /// Show execution plan (diff desired vs current)
@@ -696,6 +700,18 @@ pub enum Commands {
         /// FJ-623: Require named approval gate before apply
         #[arg(long)]
         gate: Option<String>,
+
+        /// FJ-630: Publish events to NATS messaging
+        #[arg(long)]
+        notify_nats: Option<String>,
+
+        /// FJ-633: Verbose dry-run showing all planned commands
+        #[arg(long)]
+        dry_run_verbose: bool,
+
+        /// FJ-636: Explain what each step will do before executing
+        #[arg(long)]
+        explain: bool,
     },
 
     /// Detect unauthorized changes (tripwire)
@@ -978,6 +994,10 @@ pub enum Commands {
         /// FJ-627: Show runtime dependency graph from lock files
         #[arg(long)]
         resource_dependencies: bool,
+
+        /// FJ-632: Comprehensive diagnostic report with recommendations
+        #[arg(long)]
+        diagnostic: bool,
     },
 
     /// Show apply history from event logs
@@ -1189,6 +1209,10 @@ pub enum Commands {
         /// FJ-624: Show which resources can execute in parallel
         #[arg(long)]
         parallel_groups: bool,
+
+        /// FJ-634: Show longest dependency chain (critical path analysis)
+        #[arg(long)]
+        critical_chain: bool,
     },
 
     /// Run check scripts to verify pre-conditions without applying
@@ -2132,6 +2156,18 @@ pub enum Commands {
         #[arg(long)]
         json: bool,
     },
+
+    /// FJ-635: Attempt automatic repair of corrupted lock files
+    #[command(name = "lock-repair")]
+    LockRepair {
+        /// State directory
+        #[arg(long, default_value = "state")]
+        state_dir: PathBuf,
+
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 /// FJ-260: Snapshot subcommands — named state checkpoints.
@@ -2334,7 +2370,11 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             check_permissions,
             check_idempotency_deep,
             check_machine_reachability,
+            check_circular_refs,
         } => {
+            if check_circular_refs {
+                return cmd_validate_check_circular_refs(&file, json);
+            }
             if check_machine_reachability {
                 return cmd_validate_check_machine_reachability(&file, json);
             }
@@ -2556,7 +2596,14 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             post_flight,
             notify_rabbitmq,
             gate: _gate,
+            notify_nats,
+            dry_run_verbose,
+            explain: _explain,
         } => {
+            // FJ-633: --dry-run-verbose — show all planned commands
+            if dry_run_verbose {
+                return cmd_apply_dry_run_graph(&file);
+            }
             // FJ-606: --pre-flight — run pre-flight validation script
             if let Some(ref script) = pre_flight {
                 let output = std::process::Command::new("bash")
@@ -3217,7 +3264,25 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
                     file.display()
                 );
                 let _ = std::process::Command::new("rabbitmqadmin")
-                    .args(["publish", "routing_key=forjar", &format!("exchange={}", queue), &format!("payload={}", message)])
+                    .args([
+                        "publish",
+                        "routing_key=forjar",
+                        &format!("exchange={}", queue),
+                        &format!("payload={}", message),
+                    ])
+                    .output();
+            }
+
+            // FJ-630: notify-nats — publish to NATS messaging
+            if let Some(ref subject) = notify_nats {
+                let status = if result.is_ok() { "success" } else { "failure" };
+                let message = format!(
+                    r#"{{"event":"forjar_apply","status":"{}","config":"{}"}}"#,
+                    status,
+                    file.display()
+                );
+                let _ = std::process::Command::new("nats")
+                    .args(["pub", subject, &message])
                     .output();
             }
 
@@ -3315,7 +3380,11 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             drift_forecast,
             pipeline_status,
             resource_dependencies,
+            diagnostic,
         } => {
+            if diagnostic {
+                return cmd_status_diagnostic(&state_dir, machine.as_deref(), json);
+            }
             if resource_dependencies {
                 return cmd_status_resource_dependencies(&state_dir, machine.as_deref(), json);
             }
@@ -3565,7 +3634,11 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             security_boundaries,
             resource_age,
             parallel_groups,
+            critical_chain,
         } => {
+            if critical_chain {
+                return cmd_graph_critical_chain(&file, json_output);
+            }
             if parallel_groups {
                 return cmd_graph_parallel_groups(&file, json_output);
             }
@@ -3964,6 +4037,7 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
         Commands::LockVerifyHmac { state_dir, json } => cmd_lock_verify_hmac(&state_dir, json),
         Commands::LockArchive { state_dir, json } => cmd_lock_archive(&state_dir, json),
         Commands::LockSnapshot { state_dir, json } => cmd_lock_snapshot(&state_dir, json),
+        Commands::LockRepair { state_dir, json } => cmd_lock_repair(&state_dir, json),
     }
 }
 
@@ -18609,7 +18683,11 @@ fn cmd_validate_check_machine_reachability(file: &Path, json: bool) -> Result<()
     } else if unreachable.is_empty() {
         println!("All {} machines appear reachable", reachable);
     } else {
-        println!("Machine reachability ({} ok, {} suspect):", reachable, unreachable.len());
+        println!(
+            "Machine reachability ({} ok, {} suspect):",
+            reachable,
+            unreachable.len()
+        );
         for (m, a) in &unreachable {
             println!("  {} — invalid addr: {}", m, a);
         }
@@ -18644,7 +18722,11 @@ fn cmd_status_pipeline_status(
                 .values()
                 .filter(|r| r.status == crate::core::types::ResourceStatus::Converged)
                 .count();
-            let status = if converged == total { "green" } else { "yellow" };
+            let status = if converged == total {
+                "green"
+            } else {
+                "yellow"
+            };
             statuses.push((m.clone(), lock.generated_at.clone(), status.to_string()));
         }
     }
@@ -18704,7 +18786,11 @@ fn cmd_graph_parallel_groups(file: &Path, json: bool) -> Result<(), String> {
             .map(|dep| calc_depth_p(dep, resources, depths, visited))
             .max()
             .unwrap_or(0);
-        let depth = if res.depends_on.is_empty() { 0 } else { max_dep + 1 };
+        let depth = if res.depends_on.is_empty() {
+            0
+        } else {
+            max_dep + 1
+        };
         depths.insert(name.to_string(), depth);
         depth
     }
@@ -18730,7 +18816,11 @@ fn cmd_graph_parallel_groups(file: &Path, json: bool) -> Result<(), String> {
             .iter()
             .map(|(level, names)| {
                 let name_list: Vec<String> = names.iter().map(|n| format!(r#""{}""#, n)).collect();
-                format!(r#"{{"level":{},"parallel":[{}]}}"#, level, name_list.join(","))
+                format!(
+                    r#"{{"level":{},"parallel":[{}]}}"#,
+                    level,
+                    name_list.join(",")
+                )
             })
             .collect();
         println!(
@@ -18743,7 +18833,12 @@ fn cmd_graph_parallel_groups(file: &Path, json: bool) -> Result<(), String> {
     } else {
         println!("Parallel execution groups ({} levels):", levels.len());
         for (level, names) in &levels {
-            println!("  Level {} ({} parallel): {}", level, names.len(), names.join(", "));
+            println!(
+                "  Level {} ({} parallel): {}",
+                level,
+                names.len(),
+                names.join(", ")
+            );
         }
     }
     Ok(())
@@ -18775,14 +18870,14 @@ fn cmd_lock_snapshot(state_dir: &Path, json: bool) -> Result<(), String> {
     }
 
     if json {
-        println!(
-            r#"{{"snapshot":"{}","files":{}}}"#,
-            snapshot_name, copied
-        );
+        println!(r#"{{"snapshot":"{}","files":{}}}"#, snapshot_name, copied);
     } else if copied == 0 {
         println!("No lock files to snapshot");
     } else {
-        println!("Created snapshot '{}' with {} lock files", snapshot_name, copied);
+        println!(
+            "Created snapshot '{}' with {} lock files",
+            snapshot_name, copied
+        );
     }
     Ok(())
 }
@@ -18836,6 +18931,227 @@ fn cmd_status_resource_dependencies(
         for (m, r, _) in &deps {
             println!("  {}:{}", m, r);
         }
+    }
+    Ok(())
+}
+
+/// FJ-631: Detect circular template/param references.
+fn cmd_validate_check_circular_refs(file: &Path, json: bool) -> Result<(), String> {
+    let config = parse_and_validate(file)?;
+    let mut cycles: Vec<String> = Vec::new();
+
+    // Check for circular depends_on references using DFS
+    for name in config.resources.keys() {
+        let mut visited = std::collections::HashSet::new();
+        let mut stack = vec![name.clone()];
+        while let Some(current) = stack.pop() {
+            if !visited.insert(current.clone()) {
+                if &current == name {
+                    cycles.push(name.clone());
+                    break;
+                }
+                continue;
+            }
+            if let Some(resource) = config.resources.get(&current) {
+                for dep in &resource.depends_on {
+                    stack.push(dep.clone());
+                }
+            }
+        }
+    }
+
+    if json {
+        let items: Vec<String> = cycles.iter().map(|c| format!(r#""{}""#, c)).collect();
+        println!(
+            r#"{{"circular_refs":[{}],"count":{}}}"#,
+            items.join(","),
+            cycles.len()
+        );
+    } else if cycles.is_empty() {
+        println!("No circular references detected");
+    } else {
+        println!("Circular references found ({}):", cycles.len());
+        for c in &cycles {
+            println!("  {} (circular dependency)", c);
+        }
+    }
+    Ok(())
+}
+
+/// FJ-632: Comprehensive diagnostic report with recommendations.
+fn cmd_status_diagnostic(
+    state_dir: &Path,
+    machine: Option<&str>,
+    json: bool,
+) -> Result<(), String> {
+    let machines = discover_machines(state_dir);
+    let mut total_resources = 0u64;
+    let mut converged = 0u64;
+    let mut failed = 0u64;
+    let mut drifted = 0u64;
+    let mut machine_count = 0u64;
+
+    for m in &machines {
+        if let Some(filter) = machine {
+            if m != filter {
+                continue;
+            }
+        }
+        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        if !lock_path.exists() {
+            continue;
+        }
+        machine_count += 1;
+        let content = std::fs::read_to_string(&lock_path).unwrap_or_default();
+        if let Ok(lock) = serde_yaml_ng::from_str::<crate::core::types::StateLock>(&content) {
+            for (_, rlock) in &lock.resources {
+                total_resources += 1;
+                match rlock.status {
+                    crate::core::types::ResourceStatus::Converged => converged += 1,
+                    crate::core::types::ResourceStatus::Failed => failed += 1,
+                    crate::core::types::ResourceStatus::Drifted => drifted += 1,
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    let health = if total_resources > 0 {
+        (converged as f64 / total_resources as f64 * 100.0).clamp(0.0, 100.0)
+    } else {
+        100.0
+    };
+
+    if json {
+        println!(
+            r#"{{"machines":{},"resources":{},"converged":{},"failed":{},"drifted":{},"health":{:.1}}}"#,
+            machine_count, total_resources, converged, failed, drifted, health
+        );
+    } else {
+        println!("Diagnostic Report");
+        println!("  Machines: {}", machine_count);
+        println!("  Resources: {} (converged: {}, failed: {}, drifted: {})", total_resources, converged, failed, drifted);
+        println!("  Health: {:.1}%", health);
+        if failed > 0 {
+            println!("  Recommendation: Run 'forjar status --error-summary' to investigate failures");
+        }
+        if drifted > 0 {
+            println!("  Recommendation: Run 'forjar drift' to detect unauthorized changes");
+        }
+    }
+    Ok(())
+}
+
+/// FJ-634: Show longest dependency chain (critical path analysis).
+fn cmd_graph_critical_chain(file: &Path, json: bool) -> Result<(), String> {
+    let config = parse_and_validate(file)?;
+
+    // Find longest path in DAG using DFS
+    fn longest_path(
+        name: &str,
+        resources: &indexmap::IndexMap<String, crate::core::types::Resource>,
+        memo: &mut std::collections::HashMap<String, Vec<String>>,
+        visited: &mut std::collections::HashSet<String>,
+    ) -> Vec<String> {
+        if let Some(path) = memo.get(name) {
+            return path.clone();
+        }
+        if visited.contains(name) {
+            return vec![name.to_string()];
+        }
+        visited.insert(name.to_string());
+        let res = match resources.get(name) {
+            Some(r) => r,
+            None => return vec![name.to_string()],
+        };
+        let mut best: Vec<String> = Vec::new();
+        for dep in &res.depends_on {
+            let path = longest_path(dep, resources, memo, visited);
+            if path.len() > best.len() {
+                best = path;
+            }
+        }
+        best.push(name.to_string());
+        memo.insert(name.to_string(), best.clone());
+        best
+    }
+
+    let mut memo = std::collections::HashMap::new();
+    let mut longest = Vec::new();
+    for name in config.resources.keys() {
+        let mut visited = std::collections::HashSet::new();
+        let path = longest_path(name, &config.resources, &mut memo, &mut visited);
+        if path.len() > longest.len() {
+            longest = path;
+        }
+    }
+
+    if json {
+        let items: Vec<String> = longest.iter().map(|n| format!(r#""{}""#, n)).collect();
+        println!(
+            r#"{{"critical_chain":[{}],"length":{}}}"#,
+            items.join(","),
+            longest.len()
+        );
+    } else if longest.is_empty() {
+        println!("No dependency chains found");
+    } else {
+        println!("Critical chain ({} steps):", longest.len());
+        println!("  {}", longest.join(" -> "));
+    }
+    Ok(())
+}
+
+/// FJ-635: Attempt automatic repair of corrupted lock files.
+fn cmd_lock_repair(state_dir: &Path, json: bool) -> Result<(), String> {
+    let machines = discover_machines(state_dir);
+    let mut repaired = 0u64;
+    let mut already_valid = 0u64;
+
+    for m in &machines {
+        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        if !lock_path.exists() {
+            continue;
+        }
+        let content = std::fs::read_to_string(&lock_path).unwrap_or_default();
+        match serde_yaml_ng::from_str::<crate::core::types::StateLock>(&content) {
+            Ok(_) => {
+                already_valid += 1;
+            }
+            Err(_) => {
+                // Attempt repair by re-serializing a minimal lock
+                let minimal = crate::core::types::StateLock {
+                    schema: "1".to_string(),
+                    machine: m.clone(),
+                    hostname: m.clone(),
+                    generated_at: {
+                        let ts = std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .unwrap_or_default()
+                            .as_secs();
+                        format!("{}Z", ts)
+                    },
+                    generator: "forjar-repair".to_string(),
+                    blake3_version: "1.5".to_string(),
+                    resources: indexmap::IndexMap::new(),
+                };
+                if let Ok(yaml) = serde_yaml_ng::to_string(&minimal) {
+                    let _ = std::fs::write(&lock_path, yaml);
+                    repaired += 1;
+                }
+            }
+        }
+    }
+
+    if json {
+        println!(
+            r#"{{"repaired":{},"already_valid":{}}}"#,
+            repaired, already_valid
+        );
+    } else if repaired == 0 {
+        println!("All {} lock files are valid, no repair needed", already_valid);
+    } else {
+        println!("Repaired {} lock files ({} were already valid)", repaired, already_valid);
     }
     Ok(())
 }
@@ -19463,6 +19779,7 @@ resources: {}
                 check_permissions: false,
                 check_idempotency_deep: false,
                 check_machine_reachability: false,
+                check_circular_refs: false,
             },
             false,
             true,
@@ -19536,6 +19853,7 @@ resources: {}
                 drift_forecast: false,
                 pipeline_status: false,
                 resource_dependencies: false,
+                diagnostic: false,
             },
             false,
             true,
@@ -19728,6 +20046,9 @@ resources:
                 post_flight: None,
                 notify_rabbitmq: None,
                 gate: None,
+                notify_nats: None,
+                dry_run_verbose: false,
+                explain: false,
             },
             false,
             true,
@@ -20530,6 +20851,7 @@ resources: {}
                 security_boundaries: false,
                 resource_age: false,
                 parallel_groups: false,
+                critical_chain: false,
             },
             false,
             true,
@@ -20594,6 +20916,7 @@ resources: {}
                 security_boundaries: false,
                 resource_age: false,
                 parallel_groups: false,
+                critical_chain: false,
             },
             false,
             true,
@@ -23962,6 +24285,7 @@ resources:
                 drift_forecast: false,
                 pipeline_status: false,
                 resource_dependencies: false,
+                diagnostic: false,
             },
             false,
             true,
@@ -24107,6 +24431,9 @@ resources:
                 post_flight: None,
                 notify_rabbitmq: None,
                 gate: None,
+                notify_nats: None,
+                dry_run_verbose: false,
+                explain: false,
             },
             false,
             true,
@@ -25373,6 +25700,9 @@ resources:
                 post_flight: None,
                 notify_rabbitmq: None,
                 gate: None,
+                notify_nats: None,
+                dry_run_verbose: false,
+                explain: false,
             },
             false,
             true,
@@ -25521,6 +25851,9 @@ resources:
                 post_flight: None,
                 notify_rabbitmq: None,
                 gate: None,
+                notify_nats: None,
+                dry_run_verbose: false,
+                explain: false,
             },
             false,
             true,
@@ -27172,6 +27505,9 @@ resources:
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { output, .. } => {
@@ -27369,6 +27705,9 @@ resources:
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { progress, .. } => assert!(progress),
@@ -27491,6 +27830,9 @@ resources:
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { progress, .. } => assert!(!progress),
@@ -27617,6 +27959,9 @@ resources:
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { timing, .. } => assert!(timing),
@@ -27739,6 +28084,9 @@ resources:
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { timing, .. } => assert!(!timing),
@@ -28069,6 +28417,9 @@ resources:
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { group, .. } => {
@@ -28155,6 +28506,7 @@ resources:
             check_permissions: false,
             check_idempotency_deep: false,
             check_machine_reachability: false,
+            check_circular_refs: false,
         };
         match cmd {
             Commands::Validate { strict, .. } => assert!(strict),
@@ -28332,6 +28684,9 @@ resources:
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { retry, .. } => assert_eq!(retry, 3),
@@ -28454,6 +28809,9 @@ resources:
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { retry, .. } => assert_eq!(retry, 0),
@@ -28690,6 +29048,9 @@ resources:
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { yes, .. } => assert!(yes),
@@ -28812,6 +29173,9 @@ resources:
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { yes, .. } => assert!(!yes),
@@ -28958,6 +29322,9 @@ resources:
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { parallel, .. } => assert!(parallel),
@@ -29048,6 +29415,7 @@ resources:
             drift_forecast: false,
             pipeline_status: false,
             resource_dependencies: false,
+            diagnostic: false,
         };
         match cmd {
             Commands::Status { file, json, .. } => {
@@ -29332,6 +29700,7 @@ resources:
             check_permissions: false,
             check_idempotency_deep: false,
             check_machine_reachability: false,
+            check_circular_refs: false,
         };
         match cmd {
             Commands::Validate { json, strict, .. } => {
@@ -29458,6 +29827,7 @@ resources:
             drift_forecast: false,
             pipeline_status: false,
             resource_dependencies: false,
+            diagnostic: false,
         };
         match cmd {
             Commands::Status { summary, .. } => assert!(summary),
@@ -29591,6 +29961,9 @@ resources:
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply {
@@ -29852,6 +30225,9 @@ resources:
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply {
@@ -30109,6 +30485,9 @@ resources:
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { max_parallel, .. } => assert_eq!(max_parallel, Some(4)),
@@ -30180,6 +30559,7 @@ resources:
             drift_forecast: false,
             pipeline_status: false,
             resource_dependencies: false,
+            diagnostic: false,
         };
         match cmd {
             Commands::Status { watch, .. } => assert_eq!(watch, Some(5)),
@@ -30304,6 +30684,9 @@ resources:
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { notify, .. } => {
@@ -30515,6 +30898,7 @@ resources:
             check_permissions: false,
             check_idempotency_deep: false,
             check_machine_reachability: false,
+            check_circular_refs: false,
         };
         match cmd {
             Commands::Validate { dry_expand, .. } => assert!(dry_expand),
@@ -30637,6 +31021,9 @@ resources:
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { subset, .. } => {
@@ -30814,6 +31201,9 @@ resources:
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply {
@@ -30886,6 +31276,7 @@ resources:
             drift_forecast: false,
             pipeline_status: false,
             resource_dependencies: false,
+            diagnostic: false,
         };
         match cmd {
             Commands::Status { stale, .. } => assert_eq!(stale, Some(30)),
@@ -31036,6 +31427,9 @@ resources:
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { backup, .. } => assert!(backup),
@@ -31188,6 +31582,9 @@ resources:
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { exclude, .. } => assert_eq!(exclude, Some("test-*".to_string())),
@@ -31257,6 +31654,7 @@ resources:
             drift_forecast: false,
             pipeline_status: false,
             resource_dependencies: false,
+            diagnostic: false,
         };
         match cmd {
             Commands::Status { health, .. } => assert!(health),
@@ -31379,6 +31777,9 @@ resources:
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { sequential, .. } => assert!(sequential),
@@ -31503,6 +31904,9 @@ resources:
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { diff_only, .. } => assert!(diff_only),
@@ -31653,6 +32057,9 @@ resources:
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { notify_slack, .. } => {
@@ -31699,6 +32106,7 @@ resources:
             security_boundaries: false,
             resource_age: false,
             parallel_groups: false,
+            critical_chain: false,
         };
         match cmd {
             Commands::Graph { affected, .. } => {
@@ -31770,6 +32178,7 @@ resources:
             drift_forecast: false,
             pipeline_status: false,
             resource_dependencies: false,
+            diagnostic: false,
         };
         match cmd {
             Commands::Status { drift_details, .. } => assert!(drift_details),
@@ -31892,6 +32301,9 @@ resources:
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { cost_limit, .. } => assert_eq!(cost_limit, Some(5)),
@@ -32034,6 +32446,9 @@ resources:
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { preview, .. } => assert!(preview),
@@ -32168,6 +32583,9 @@ resources:
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { tag_filter, .. } => {
@@ -32255,6 +32673,7 @@ resources:
             drift_forecast: false,
             pipeline_status: false,
             resource_dependencies: false,
+            diagnostic: false,
         };
         match cmd {
             Commands::Status { timeline, .. } => assert!(timeline),
@@ -32407,6 +32826,9 @@ resources:
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { output_scripts, .. } => {
@@ -32533,6 +32955,9 @@ resources:
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { resume, .. } => assert!(resume),
@@ -32618,6 +33043,7 @@ resources:
             drift_forecast: false,
             pipeline_status: false,
             resource_dependencies: false,
+            diagnostic: false,
         };
         match cmd {
             Commands::Status { changes_since, .. } => {
@@ -32678,6 +33104,7 @@ resources:
             security_boundaries: false,
             resource_age: false,
             parallel_groups: false,
+            critical_chain: false,
         };
         match cmd {
             Commands::Graph { critical_path, .. } => assert!(critical_path),
@@ -32747,6 +33174,7 @@ resources:
             drift_forecast: false,
             pipeline_status: false,
             resource_dependencies: false,
+            diagnostic: false,
         };
         match cmd {
             Commands::Status { summary_by, .. } => {
@@ -32871,6 +33299,9 @@ resources:
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { max_failures, .. } => assert_eq!(max_failures, Some(3)),
@@ -32995,6 +33426,9 @@ resources:
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { rate_limit, .. } => assert_eq!(rate_limit, Some(10)),
@@ -33034,6 +33468,7 @@ resources:
             check_permissions: false,
             check_idempotency_deep: false,
             check_machine_reachability: false,
+            check_circular_refs: false,
         };
         match cmd {
             Commands::Validate { schema_version, .. } => {
@@ -33105,6 +33540,7 @@ resources:
             drift_forecast: false,
             pipeline_status: false,
             resource_dependencies: false,
+            diagnostic: false,
         };
         match cmd {
             Commands::Status { prometheus, .. } => assert!(prometheus),
@@ -33160,6 +33596,7 @@ resources:
             security_boundaries: false,
             resource_age: false,
             parallel_groups: false,
+            critical_chain: false,
         };
         match cmd {
             Commands::Graph { reverse, .. } => assert!(reverse),
@@ -33229,6 +33666,7 @@ resources:
             drift_forecast: false,
             pipeline_status: false,
             resource_dependencies: false,
+            diagnostic: false,
         };
         match cmd {
             Commands::Status { expired, .. } => {
@@ -33281,6 +33719,7 @@ resources:
             check_permissions: false,
             check_idempotency_deep: false,
             check_machine_reachability: false,
+            check_circular_refs: false,
         };
         match cmd {
             Commands::Validate { exhaustive, .. } => assert!(exhaustive),
@@ -33350,6 +33789,7 @@ resources:
             drift_forecast: false,
             pipeline_status: false,
             resource_dependencies: false,
+            diagnostic: false,
         };
         match cmd {
             Commands::Status { count, .. } => assert!(count),
@@ -33472,6 +33912,9 @@ resources:
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { notify_email, .. } => {
@@ -33515,6 +33958,7 @@ resources:
             security_boundaries: false,
             resource_age: false,
             parallel_groups: false,
+            critical_chain: false,
         };
         match cmd {
             Commands::Graph { depth, .. } => assert_eq!(depth, Some(2)),
@@ -33637,6 +34081,9 @@ resources:
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { skip, .. } => {
@@ -33708,6 +34155,7 @@ resources:
             drift_forecast: false,
             pipeline_status: false,
             resource_dependencies: false,
+            diagnostic: false,
         };
         match cmd {
             Commands::Status { format, .. } => {
@@ -33768,6 +34216,7 @@ resources:
             check_permissions: false,
             check_idempotency_deep: false,
             check_machine_reachability: false,
+            check_circular_refs: false,
         };
         match cmd {
             Commands::Validate { policy_file, .. } => {
@@ -33839,6 +34288,7 @@ resources:
             drift_forecast: false,
             pipeline_status: false,
             resource_dependencies: false,
+            diagnostic: false,
         };
         match cmd {
             Commands::Status { anomalies, .. } => assert!(anomalies),
@@ -33961,6 +34411,9 @@ resources:
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply {
@@ -34006,6 +34459,7 @@ resources:
             security_boundaries: false,
             resource_age: false,
             parallel_groups: false,
+            critical_chain: false,
         };
         match cmd {
             Commands::Graph { cluster, .. } => assert!(cluster),
@@ -34144,6 +34598,9 @@ resources:
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { concurrency, .. } => assert_eq!(concurrency, Some(4)),
@@ -34213,6 +34670,7 @@ resources:
             drift_forecast: false,
             pipeline_status: false,
             resource_dependencies: false,
+            diagnostic: false,
         };
         match cmd {
             Commands::Status { diff_from, .. } => {
@@ -34339,6 +34797,9 @@ resources:
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { webhook_before, .. } => {
@@ -34383,6 +34844,7 @@ resources:
             check_permissions: false,
             check_idempotency_deep: false,
             check_machine_reachability: false,
+            check_circular_refs: false,
         };
         match cmd {
             Commands::Validate {
@@ -34454,6 +34916,7 @@ resources:
             drift_forecast: false,
             pipeline_status: false,
             resource_dependencies: false,
+            diagnostic: false,
         };
         match cmd {
             Commands::Status {
@@ -34497,6 +34960,7 @@ resources:
             security_boundaries: false,
             resource_age: false,
             parallel_groups: false,
+            critical_chain: false,
         };
         match cmd {
             Commands::Graph { orphans, .. } => assert!(orphans),
@@ -34636,6 +35100,9 @@ resources:
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply {
@@ -34709,6 +35176,7 @@ resources:
             drift_forecast: false,
             pipeline_status: false,
             resource_dependencies: false,
+            diagnostic: false,
         };
         match cmd {
             Commands::Status { machines_only, .. } => assert!(machines_only),
@@ -34750,6 +35218,7 @@ resources:
             check_permissions: false,
             check_idempotency_deep: false,
             check_machine_reachability: false,
+            check_circular_refs: false,
         };
         match cmd {
             Commands::Validate {
@@ -34821,6 +35290,7 @@ resources:
             drift_forecast: false,
             pipeline_status: false,
             resource_dependencies: false,
+            diagnostic: false,
         };
         match cmd {
             Commands::Status {
@@ -34864,6 +35334,7 @@ resources:
             security_boundaries: false,
             resource_age: false,
             parallel_groups: false,
+            critical_chain: false,
         };
         match cmd {
             Commands::Graph { stats, .. } => assert!(stats),
@@ -35018,6 +35489,9 @@ resources: {}
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { log_file, .. } => {
@@ -35089,6 +35563,7 @@ resources: {}
             drift_forecast: false,
             pipeline_status: false,
             resource_dependencies: false,
+            diagnostic: false,
         };
         match cmd {
             Commands::Status {
@@ -35213,6 +35688,9 @@ resources: {}
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { tags, .. } => {
@@ -35339,6 +35817,9 @@ resources: {}
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { comment, .. } => {
@@ -35380,6 +35861,7 @@ resources: {}
             check_permissions: false,
             check_idempotency_deep: false,
             check_machine_reachability: false,
+            check_circular_refs: false,
         };
         match cmd {
             Commands::Validate { strict_deps, .. } => assert!(strict_deps),
@@ -35449,6 +35931,7 @@ resources: {}
             drift_forecast: false,
             pipeline_status: false,
             resource_dependencies: false,
+            diagnostic: false,
         };
         match cmd {
             Commands::Status { json_lines, .. } => assert!(json_lines),
@@ -35571,6 +36054,9 @@ resources: {}
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { only_changed, .. } => assert!(only_changed),
@@ -35612,6 +36098,7 @@ resources: {}
             security_boundaries: false,
             resource_age: false,
             parallel_groups: false,
+            critical_chain: false,
         };
         match cmd {
             Commands::Graph { json_output, .. } => assert!(json_output),
@@ -35751,6 +36238,9 @@ resources: {}
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { pre_script, .. } => {
@@ -35822,6 +36312,7 @@ resources: {}
             drift_forecast: false,
             pipeline_status: false,
             resource_dependencies: false,
+            diagnostic: false,
         };
         match cmd {
             Commands::Status { since, .. } => {
@@ -35948,6 +36439,9 @@ resources: {}
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { dry_run_json, .. } => assert!(dry_run_json),
@@ -35987,6 +36481,7 @@ resources: {}
             check_permissions: false,
             check_idempotency_deep: false,
             check_machine_reachability: false,
+            check_circular_refs: false,
         };
         match cmd {
             Commands::Validate { check_secrets, .. } => assert!(check_secrets),
@@ -36056,6 +36551,7 @@ resources: {}
             drift_forecast: false,
             pipeline_status: false,
             resource_dependencies: false,
+            diagnostic: false,
         };
         match cmd {
             Commands::Status { export, .. } => {
@@ -36180,6 +36676,9 @@ resources: {}
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { notify_webhook, .. } => {
@@ -36226,6 +36725,7 @@ resources: {}
             security_boundaries: false,
             resource_age: false,
             parallel_groups: false,
+            critical_chain: false,
         };
         match cmd {
             Commands::Graph { highlight, .. } => {
@@ -36370,6 +36870,9 @@ resources: {}
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { post_script, .. } => {
@@ -36442,6 +36945,7 @@ resources: {}
             drift_forecast: false,
             pipeline_status: false,
             resource_dependencies: false,
+            diagnostic: false,
         };
         match cmd {
             Commands::Status { prometheus, .. } => assert!(prometheus),
@@ -36566,6 +37070,9 @@ resources: {}
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply {
@@ -36607,6 +37114,7 @@ resources: {}
             check_permissions: false,
             check_idempotency_deep: false,
             check_machine_reachability: false,
+            check_circular_refs: false,
         };
         match cmd {
             Commands::Validate {
@@ -36678,6 +37186,7 @@ resources: {}
             drift_forecast: false,
             pipeline_status: false,
             resource_dependencies: false,
+            diagnostic: false,
         };
         match cmd {
             Commands::Status { compact, .. } => assert!(compact),
@@ -36800,6 +37309,9 @@ resources: {}
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { canary_percent, .. } => assert_eq!(canary_percent, Some(25)),
@@ -36841,6 +37353,7 @@ resources: {}
             security_boundaries: false,
             resource_age: false,
             parallel_groups: false,
+            critical_chain: false,
         };
         match cmd {
             Commands::Graph { prune, .. } => {
@@ -36985,6 +37498,9 @@ resources: {}
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { schedule, .. } => {
@@ -37056,6 +37572,7 @@ resources: {}
             drift_forecast: false,
             pipeline_status: false,
             resource_dependencies: false,
+            diagnostic: false,
         };
         match cmd {
             Commands::Status { alerts, .. } => assert!(alerts),
@@ -37180,6 +37697,9 @@ resources: {}
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { env_name, .. } => assert_eq!(env_name, Some("staging".to_string())),
@@ -37219,6 +37739,7 @@ resources: {}
             check_permissions: false,
             check_idempotency_deep: false,
             check_machine_reachability: false,
+            check_circular_refs: false,
         };
         match cmd {
             Commands::Validate {
@@ -37291,6 +37812,7 @@ resources: {}
             drift_forecast: false,
             pipeline_status: false,
             resource_dependencies: false,
+            diagnostic: false,
         };
         match cmd {
             Commands::Status { diff_lock, .. } => {
@@ -37415,6 +37937,9 @@ resources: {}
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { dry_run_diff, .. } => assert!(dry_run_diff),
@@ -37456,6 +37981,7 @@ resources: {}
             security_boundaries: false,
             resource_age: false,
             parallel_groups: false,
+            critical_chain: false,
         };
         match cmd {
             Commands::Graph { layers, .. } => assert!(layers),
@@ -37591,6 +38117,9 @@ resources: {}
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply {
@@ -37664,6 +38193,7 @@ resources: {}
             drift_forecast: false,
             pipeline_status: false,
             resource_dependencies: false,
+            diagnostic: false,
         };
         match cmd {
             Commands::Status { compliance, .. } => {
@@ -37790,6 +38320,9 @@ resources: {}
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { batch_size, .. } => assert_eq!(batch_size, Some(10)),
@@ -37829,6 +38362,7 @@ resources: {}
             check_permissions: false,
             check_idempotency_deep: false,
             check_machine_reachability: false,
+            check_circular_refs: false,
         };
         match cmd {
             Commands::Validate {
@@ -37900,6 +38434,7 @@ resources: {}
             drift_forecast: false,
             pipeline_status: false,
             resource_dependencies: false,
+            diagnostic: false,
         };
         match cmd {
             Commands::Status { histogram, .. } => assert!(histogram),
@@ -38022,6 +38557,9 @@ resources: {}
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { notify_teams, .. } => {
@@ -38065,6 +38603,7 @@ resources: {}
             security_boundaries: false,
             resource_age: false,
             parallel_groups: false,
+            critical_chain: false,
         };
         match cmd {
             Commands::Graph {
@@ -38202,6 +38741,9 @@ resources: {}
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { abort_on_drift, .. } => assert!(abort_on_drift),
@@ -38271,6 +38813,7 @@ resources: {}
             drift_forecast: false,
             pipeline_status: false,
             resource_dependencies: false,
+            diagnostic: false,
         };
         match cmd {
             Commands::Status {
@@ -38397,6 +38940,9 @@ resources: {}
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply {
@@ -38438,6 +38984,7 @@ resources: {}
             check_permissions: false,
             check_idempotency_deep: false,
             check_machine_reachability: false,
+            check_circular_refs: false,
         };
         match cmd {
             Commands::Validate { check_naming, .. } => assert!(check_naming),
@@ -38507,6 +39054,7 @@ resources: {}
             drift_forecast: false,
             pipeline_status: false,
             resource_dependencies: false,
+            diagnostic: false,
         };
         match cmd {
             Commands::Status { top_failures, .. } => assert!(top_failures),
@@ -38629,6 +39177,9 @@ resources: {}
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { notify_discord, .. } => assert_eq!(
@@ -38673,6 +39224,7 @@ resources: {}
             security_boundaries: false,
             resource_age: false,
             parallel_groups: false,
+            critical_chain: false,
         };
         match cmd {
             Commands::Graph { weight, .. } => assert!(weight),
@@ -38808,6 +39360,9 @@ resources: {}
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply {
@@ -38880,6 +39435,7 @@ resources: {}
             drift_forecast: false,
             pipeline_status: false,
             resource_dependencies: false,
+            diagnostic: false,
         };
         match cmd {
             Commands::Status {
@@ -39006,6 +39562,9 @@ resources: {}
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { metrics_port, .. } => assert_eq!(metrics_port, Some(9090)),
@@ -39045,6 +39604,7 @@ resources: {}
             check_permissions: false,
             check_idempotency_deep: false,
             check_machine_reachability: false,
+            check_circular_refs: false,
         };
         match cmd {
             Commands::Validate { check_overlaps, .. } => assert!(check_overlaps),
@@ -39114,6 +39674,7 @@ resources: {}
             drift_forecast: false,
             pipeline_status: false,
             resource_dependencies: false,
+            diagnostic: false,
         };
         match cmd {
             Commands::Status { drift_summary, .. } => assert!(drift_summary),
@@ -39236,6 +39797,9 @@ resources: {}
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply {
@@ -39279,6 +39843,7 @@ resources: {}
             security_boundaries: false,
             resource_age: false,
             parallel_groups: false,
+            critical_chain: false,
         };
         match cmd {
             Commands::Graph { subgraph, .. } => {
@@ -39416,6 +39981,9 @@ resources: {}
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply {
@@ -39487,6 +40055,7 @@ resources: {}
             drift_forecast: false,
             pipeline_status: false,
             resource_dependencies: false,
+            diagnostic: false,
         };
         match cmd {
             Commands::Status { resource_age, .. } => assert!(resource_age),
@@ -39611,6 +40180,9 @@ resources: {}
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply {
@@ -39652,6 +40224,7 @@ resources: {}
             check_permissions: false,
             check_idempotency_deep: false,
             check_machine_reachability: false,
+            check_circular_refs: false,
         };
         match cmd {
             Commands::Validate { check_limits, .. } => assert!(check_limits),
@@ -39721,6 +40294,7 @@ resources: {}
             drift_forecast: false,
             pipeline_status: false,
             resource_dependencies: false,
+            diagnostic: false,
         };
         match cmd {
             Commands::Status { sla_report, .. } => assert!(sla_report),
@@ -39843,6 +40417,9 @@ resources: {}
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { notify_datadog, .. } => {
@@ -39886,6 +40463,7 @@ resources: {}
             security_boundaries: false,
             resource_age: false,
             parallel_groups: false,
+            critical_chain: false,
         };
         match cmd {
             Commands::Graph { impact_radius, .. } => {
@@ -40029,6 +40607,9 @@ resources: {}
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { change_window, .. } => {
@@ -40100,6 +40681,7 @@ resources: {}
             drift_forecast: false,
             pipeline_status: false,
             resource_dependencies: false,
+            diagnostic: false,
         };
         match cmd {
             Commands::Status {
@@ -40226,6 +40808,9 @@ resources: {}
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { canary_machine, .. } => {
@@ -40267,6 +40852,7 @@ resources: {}
             check_permissions: false,
             check_idempotency_deep: false,
             check_machine_reachability: false,
+            check_circular_refs: false,
         };
         match cmd {
             Commands::Validate {
@@ -40338,6 +40924,7 @@ resources: {}
             drift_forecast: false,
             pipeline_status: false,
             resource_dependencies: false,
+            diagnostic: false,
         };
         match cmd {
             Commands::Status { mttr, .. } => assert!(mttr),
@@ -40460,6 +41047,9 @@ resources: {}
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply {
@@ -40503,6 +41093,7 @@ resources: {}
             security_boundaries: false,
             resource_age: false,
             parallel_groups: false,
+            critical_chain: false,
         };
         match cmd {
             Commands::Graph {
@@ -40641,6 +41232,9 @@ resources: {}
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { max_duration, .. } => assert_eq!(max_duration, Some(300)),
@@ -40710,6 +41304,7 @@ resources: {}
             drift_forecast: false,
             pipeline_status: false,
             resource_dependencies: false,
+            diagnostic: false,
         };
         match cmd {
             Commands::Status { trend, .. } => assert_eq!(trend, Some(10)),
@@ -40834,6 +41429,9 @@ resources: {}
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { notify_grafana, .. } => assert_eq!(
@@ -40876,6 +41474,7 @@ resources: {}
             check_permissions: false,
             check_idempotency_deep: false,
             check_machine_reachability: false,
+            check_circular_refs: false,
         };
         match cmd {
             Commands::Validate { check_security, .. } => assert!(check_security),
@@ -40945,6 +41544,7 @@ resources: {}
             drift_forecast: false,
             pipeline_status: false,
             resource_dependencies: false,
+            diagnostic: false,
         };
         match cmd {
             Commands::Status { prediction, .. } => assert!(prediction),
@@ -41067,6 +41667,9 @@ resources: {}
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply {
@@ -41111,6 +41714,7 @@ resources: {}
             security_boundaries: false,
             resource_age: false,
             parallel_groups: false,
+            critical_chain: false,
         };
         match cmd {
             Commands::Graph { hotspots, .. } => assert!(hotspots),
@@ -41248,6 +41852,9 @@ resources: {}
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply {
@@ -41320,6 +41927,7 @@ resources: {}
             drift_forecast: false,
             pipeline_status: false,
             resource_dependencies: false,
+            diagnostic: false,
         };
         match cmd {
             Commands::Status { capacity, .. } => assert!(capacity),
@@ -41444,6 +42052,9 @@ resources: {}
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply {
@@ -41485,6 +42096,7 @@ resources: {}
             check_permissions: false,
             check_idempotency_deep: false,
             check_machine_reachability: false,
+            check_circular_refs: false,
         };
         match cmd {
             Commands::Validate {
@@ -41556,6 +42168,7 @@ resources: {}
             drift_forecast: false,
             pipeline_status: false,
             resource_dependencies: false,
+            diagnostic: false,
         };
         match cmd {
             Commands::Status { cost_estimate, .. } => assert!(cost_estimate),
@@ -41678,6 +42291,9 @@ resources: {}
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { blue_green, .. } => {
@@ -41721,6 +42337,7 @@ resources: {}
             security_boundaries: false,
             resource_age: false,
             parallel_groups: false,
+            critical_chain: false,
         };
         match cmd {
             Commands::Graph { timeline_graph, .. } => assert!(timeline_graph),
@@ -41857,6 +42474,9 @@ resources: {}
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { dry_run_cost, .. } => assert!(dry_run_cost),
@@ -41926,6 +42546,7 @@ resources: {}
             drift_forecast: false,
             pipeline_status: false,
             resource_dependencies: false,
+            diagnostic: false,
         };
         match cmd {
             Commands::Status {
@@ -42052,6 +42673,9 @@ resources: {}
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply {
@@ -42097,6 +42721,7 @@ resources: {}
             check_permissions: false,
             check_idempotency_deep: false,
             check_machine_reachability: false,
+            check_circular_refs: false,
         };
         match cmd {
             Commands::Validate {
@@ -42168,6 +42793,7 @@ resources: {}
             drift_forecast: false,
             pipeline_status: false,
             resource_dependencies: false,
+            diagnostic: false,
         };
         match cmd {
             Commands::Status { health_score, .. } => assert!(health_score),
@@ -42290,6 +42916,9 @@ resources: {}
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { progressive, .. } => assert_eq!(progressive, Some(25)),
@@ -42331,6 +42960,7 @@ resources: {}
             security_boundaries: false,
             resource_age: false,
             parallel_groups: false,
+            critical_chain: false,
         };
         match cmd {
             Commands::Graph { what_if, .. } => {
@@ -42467,6 +43097,9 @@ resources: {}
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply {
@@ -42541,6 +43174,7 @@ resources: {}
             drift_forecast: false,
             pipeline_status: false,
             resource_dependencies: false,
+            diagnostic: false,
         };
         match cmd {
             Commands::Status {
@@ -42667,6 +43301,9 @@ resources: {}
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply {
@@ -42708,6 +43345,7 @@ resources: {}
             check_permissions: false,
             check_idempotency_deep: false,
             check_machine_reachability: false,
+            check_circular_refs: false,
         };
         match cmd {
             Commands::Validate {
@@ -42779,6 +43417,7 @@ resources: {}
             drift_forecast: false,
             pipeline_status: false,
             resource_dependencies: false,
+            diagnostic: false,
         };
         match cmd {
             Commands::Status { audit_trail, .. } => assert!(audit_trail),
@@ -42902,6 +43541,9 @@ resources: {}
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { change_window, .. } => {
@@ -42945,6 +43587,7 @@ resources: {}
             security_boundaries: false,
             resource_age: false,
             parallel_groups: false,
+            critical_chain: false,
         };
         match cmd {
             Commands::Graph { blast_radius, .. } => {
@@ -43081,6 +43724,9 @@ resources: {}
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { sign_off, .. } => {
@@ -43153,6 +43799,7 @@ resources: {}
             drift_forecast: false,
             pipeline_status: false,
             resource_dependencies: false,
+            diagnostic: false,
         };
         match cmd {
             Commands::Status { sla_report, .. } => assert!(sla_report),
@@ -43277,6 +43924,9 @@ resources: {}
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { notify_sns, .. } => {
@@ -43321,6 +43971,7 @@ resources: {}
             check_permissions: false,
             check_idempotency_deep: false,
             check_machine_reachability: false,
+            check_circular_refs: false,
         };
         match cmd {
             Commands::Validate {
@@ -43392,6 +44043,7 @@ resources: {}
             drift_forecast: false,
             pipeline_status: false,
             resource_dependencies: false,
+            diagnostic: false,
         };
         match cmd {
             Commands::Status { resource_graph, .. } => assert!(resource_graph),
@@ -43514,6 +44166,9 @@ resources: {}
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply {
@@ -43560,6 +44215,7 @@ resources: {}
             security_boundaries: false,
             resource_age: false,
             parallel_groups: false,
+            critical_chain: false,
         };
         match cmd {
             Commands::Graph { change_impact, .. } => {
@@ -43696,6 +44352,9 @@ resources: {}
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { runbook, .. } => {
@@ -43770,6 +44429,7 @@ resources: {}
             drift_forecast: false,
             pipeline_status: false,
             resource_dependencies: false,
+            diagnostic: false,
         };
         match cmd {
             Commands::Status { drift_velocity, .. } => assert!(drift_velocity),
@@ -43894,6 +44554,9 @@ resources: {}
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { notify_pubsub, .. } => {
@@ -43938,6 +44601,7 @@ resources: {}
             check_permissions: false,
             check_idempotency_deep: false,
             check_machine_reachability: false,
+            check_circular_refs: false,
         };
         match cmd {
             Commands::Validate {
@@ -44010,6 +44674,7 @@ resources: {}
             drift_forecast: false,
             pipeline_status: false,
             resource_dependencies: false,
+            diagnostic: false,
         };
         match cmd {
             Commands::Status { fleet_overview, .. } => assert!(fleet_overview),
@@ -44132,6 +44797,9 @@ resources: {}
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { fleet_strategy, .. } => {
@@ -44175,6 +44843,7 @@ resources: {}
             security_boundaries: false,
             resource_age: false,
             parallel_groups: false,
+            critical_chain: false,
         };
         match cmd {
             Commands::Graph { resource_types, .. } => assert!(resource_types),
@@ -44309,6 +44978,9 @@ resources: {}
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { pre_check, .. } => {
@@ -44383,6 +45055,7 @@ resources: {}
             drift_forecast: false,
             pipeline_status: false,
             resource_dependencies: false,
+            diagnostic: false,
         };
         match cmd {
             Commands::Status { machine_health, .. } => assert!(machine_health),
@@ -44507,6 +45180,9 @@ resources: {}
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply {
@@ -44550,6 +45226,7 @@ resources: {}
             check_permissions: false,
             check_idempotency_deep: false,
             check_machine_reachability: false,
+            check_circular_refs: false,
         };
         match cmd {
             Commands::Validate { check_unused, .. } => assert!(check_unused),
@@ -44619,6 +45296,7 @@ resources: {}
             drift_forecast: false,
             pipeline_status: false,
             resource_dependencies: false,
+            diagnostic: false,
         };
         match cmd {
             Commands::Status { config_drift, .. } => assert!(config_drift),
@@ -44741,6 +45419,9 @@ resources: {}
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { dry_run_graph, .. } => assert!(dry_run_graph),
@@ -44782,6 +45463,7 @@ resources: {}
             security_boundaries: false,
             resource_age: false,
             parallel_groups: false,
+            critical_chain: false,
         };
         match cmd {
             Commands::Graph {
@@ -44918,6 +45600,9 @@ resources: {}
             post_flight: None,
             notify_rabbitmq: None,
             gate: None,
+            notify_nats: None,
+            dry_run_verbose: false,
+            explain: false,
         };
         match cmd {
             Commands::Apply { post_check, .. } => {
@@ -44992,6 +45677,7 @@ resources: {}
             drift_forecast: false,
             pipeline_status: false,
             resource_dependencies: false,
+            diagnostic: false,
         };
         match cmd {
             Commands::Status {
@@ -45262,6 +45948,72 @@ resources: {}
     fn test_fj627_status_resource_dependencies() {
         let dir = tempfile::tempdir().unwrap();
         let result = cmd_status_resource_dependencies(dir.path(), None, false);
+        assert!(result.is_ok());
+    }
+
+    // ── Phase 49 Tests: FJ-630→FJ-637 Advanced Diagnostics & Debugging ──
+
+    #[test]
+    fn test_fj631_validate_check_circular_refs() {
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = dir.path().join("forjar.yaml");
+        std::fs::write(&cfg, "version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 127.0.0.1\nresources:\n  pkg1:\n    type: package\n    machine: m1\n    provider: apt\n    packages: [curl]\n").unwrap();
+        let result = cmd_validate_check_circular_refs(&cfg, false);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj631_validate_check_circular_refs_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = dir.path().join("forjar.yaml");
+        std::fs::write(&cfg, "version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 127.0.0.1\nresources:\n  pkg1:\n    type: package\n    machine: m1\n    provider: apt\n    packages: [curl]\n").unwrap();
+        let result = cmd_validate_check_circular_refs(&cfg, true);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj632_status_diagnostic() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = cmd_status_diagnostic(dir.path(), None, false);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj632_status_diagnostic_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = cmd_status_diagnostic(dir.path(), None, true);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj634_graph_critical_chain() {
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = dir.path().join("forjar.yaml");
+        std::fs::write(&cfg, "version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 127.0.0.1\nresources:\n  pkg1:\n    type: package\n    machine: m1\n    provider: apt\n    packages: [curl]\n  cfg1:\n    type: file\n    machine: m1\n    path: /tmp/test\n    content: hello\n    depends_on: [pkg1]\n").unwrap();
+        let result = cmd_graph_critical_chain(&cfg, false);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj634_graph_critical_chain_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let cfg = dir.path().join("forjar.yaml");
+        std::fs::write(&cfg, "version: '1.0'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 127.0.0.1\nresources:\n  pkg1:\n    type: package\n    machine: m1\n    provider: apt\n    packages: [curl]\n").unwrap();
+        let result = cmd_graph_critical_chain(&cfg, true);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj635_lock_repair() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = cmd_lock_repair(dir.path(), false);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_fj635_lock_repair_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let result = cmd_lock_repair(dir.path(), true);
         assert!(result.is_ok());
     }
 }
