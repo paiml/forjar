@@ -76,6 +76,8 @@ mod tests {
             density: false,
             topological_sort: false,
             critical_path_resources: false,
+            sink_resources: false,
+            bipartite_check: false,
         });
         match cmd {
             Commands::Graph(GraphArgs {

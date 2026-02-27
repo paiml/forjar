@@ -353,3 +353,87 @@ fn find_bad_tags(config: &types::ForjarConfig) -> Vec<(String, String)> {
     bad.sort();
     bad
 }
+
+
+/// FJ-789: Detect duplicate resource names (same base name in different groups).
+pub(crate) fn cmd_validate_check_duplicate_names(
+    file: &Path, json: bool,
+) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let config: types::ForjarConfig =
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+    let dupes = find_duplicate_base_names(&config);
+    if json {
+        let items: Vec<String> = dupes.iter()
+            .map(|(base, names)| format!("{{\"base_name\":\"{}\",\"resources\":{:?}}}", base, names))
+            .collect();
+        println!("{{\"duplicate_names\":[{}]}}", items.join(","));
+    } else if dupes.is_empty() {
+        println!("No duplicate resource base names found.");
+    } else {
+        println!("Duplicate base names ({}):", dupes.len());
+        for (base, names) in &dupes {
+            println!("  \"{}\" — {}", base, names.join(", "));
+        }
+    }
+    Ok(())
+}
+
+/// Find resources sharing the same base name (after last /).
+fn find_duplicate_base_names(config: &types::ForjarConfig) -> Vec<(String, Vec<String>)> {
+    let mut by_base: HashMap<String, Vec<String>> = HashMap::new();
+    for name in config.resources.keys() {
+        let base = name.rsplit('/').next().unwrap_or(name).to_string();
+        by_base.entry(base).or_default().push(name.clone());
+    }
+    let mut dupes: Vec<(String, Vec<String>)> = by_base.into_iter()
+        .filter(|(_, names)| names.len() > 1)
+        .map(|(base, mut names)| { names.sort(); (base, names) })
+        .collect();
+    dupes.sort_by(|a, b| a.0.cmp(&b.0));
+    dupes
+}
+
+
+/// FJ-793: Verify resource groups are non-empty.
+pub(crate) fn cmd_validate_check_resource_groups(
+    file: &Path, json: bool,
+) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let config: types::ForjarConfig =
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+    let groups = collect_resource_groups(&config);
+    let empty: Vec<&String> = groups.iter()
+        .filter(|(_, count)| *count == 0)
+        .map(|(g, _)| g)
+        .collect();
+    if json {
+        let items: Vec<String> = groups.iter()
+            .map(|(g, c)| format!("{{\"group\":\"{}\",\"count\":{}}}", g, c))
+            .collect();
+        println!("{{\"resource_groups\":[{}],\"empty_count\":{}}}", items.join(","), empty.len());
+    } else if groups.is_empty() {
+        println!("No resource groups found.");
+    } else {
+        println!("Resource groups ({}):", groups.len());
+        for (g, c) in &groups { println!("  {} — {} resources", g, c); }
+        if !empty.is_empty() {
+            println!("Warning: {} empty group(s)", empty.len());
+        }
+    }
+    Ok(())
+}
+
+/// Collect resource groups (prefix before /) and count.
+fn collect_resource_groups(config: &types::ForjarConfig) -> Vec<(String, usize)> {
+    let mut groups: HashMap<String, usize> = HashMap::new();
+    for name in config.resources.keys() {
+        if let Some(pos) = name.find('/') {
+            let group = name[..pos].to_string();
+            *groups.entry(group).or_default() += 1;
+        }
+    }
+    let mut result: Vec<(String, usize)> = groups.into_iter().collect();
+    result.sort_by(|a, b| a.0.cmp(&b.0));
+    result
+}

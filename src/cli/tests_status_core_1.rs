@@ -114,6 +114,9 @@ mod tests {
             resource_apply_age: false,
             machine_uptime: false,
             resource_churn: false,
+            last_drift_time: false,
+            machine_resource_count: false,
+            convergence_score: false,
         });
         match cmd {
             Commands::Status(StatusArgs { stale, .. }) => assert_eq!(stale, Some(30)),
@@ -222,6 +225,9 @@ mod tests {
             resource_apply_age: false,
             machine_uptime: false,
             resource_churn: false,
+            last_drift_time: false,
+            machine_resource_count: false,
+            convergence_score: false,
         });
         match cmd {
             Commands::Status(StatusArgs { health, .. }) => assert!(health),
@@ -328,6 +334,9 @@ mod tests {
             resource_apply_age: false,
             machine_uptime: false,
             resource_churn: false,
+            last_drift_time: false,
+            machine_resource_count: false,
+            convergence_score: false,
         });
         match cmd {
             Commands::Status(StatusArgs { count, .. }) => assert!(count),
@@ -434,6 +443,9 @@ mod tests {
             resource_apply_age: false,
             machine_uptime: false,
             resource_churn: false,
+            last_drift_time: false,
+            machine_resource_count: false,
+            convergence_score: false,
         });
         match cmd {
             Commands::Status(StatusArgs { format, .. }) => {
@@ -542,6 +554,9 @@ mod tests {
             resource_apply_age: false,
             machine_uptime: false,
             resource_churn: false,
+            last_drift_time: false,
+            machine_resource_count: false,
+            convergence_score: false,
         });
         match cmd {
             Commands::Status(StatusArgs { anomalies, .. }) => assert!(anomalies),

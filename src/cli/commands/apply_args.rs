@@ -577,5 +577,9 @@ pub struct ApplyArgs {
     /// FJ-784: Send apply results to Slack webhook URL
     #[arg(long)]
     pub notify_slack_webhook: Option<String>,
+
+    /// FJ-792: Send apply results to Telegram bot
+    #[arg(long)]
+    pub notify_telegram: Option<String>,
 }
 

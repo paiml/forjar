@@ -113,6 +113,7 @@ pub(crate) fn dispatch_graph_cmd(cmd: Commands) -> Result<(), String> {
         longest_path, in_degree,
         out_degree, density,
         topological_sort, critical_path_resources,
+        sink_resources, bipartite_check,
     }) = cmd
     else {
         unreachable!()
@@ -131,6 +132,8 @@ pub(crate) fn dispatch_graph_cmd(cmd: Commands) -> Result<(), String> {
     if density { return cmd_graph_density(&file, json_output); }
     if topological_sort { return cmd_graph_topological_sort(&file, json_output); }
     if critical_path_resources { return cmd_graph_critical_path_resources(&file, json_output); }
+    if sink_resources { return cmd_graph_sink_resources(&file, json_output); }
+    if bipartite_check { return cmd_graph_bipartite_check(&file, json_output); }
     if let Some(r) = try_traversal(&file, json_output, depth_first, reverse_deps, leaf_resources, fan_out, resource_clusters, machine_groups, cross_machine_deps, orphan_detection) {
         return r;
     }

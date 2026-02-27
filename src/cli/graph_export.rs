@@ -404,3 +404,76 @@ pub(crate) fn cmd_graph_critical_path_resources(file: &Path, json: bool) -> Resu
     }
     Ok(())
 }
+
+
+/// FJ-791: Show sink resources (nothing depends on them).
+pub(crate) fn cmd_graph_sink_resources(file: &Path, json: bool) -> Result<(), String> {
+    let cfg = parse_and_validate(file)?;
+    let degrees = compute_in_degrees(&cfg);
+    let mut sinks: Vec<String> = degrees.iter()
+        .filter(|(_, d)| *d == 0)
+        .map(|(n, _)| n.clone())
+        .collect();
+    sinks.sort();
+    if json {
+        let items: Vec<String> = sinks.iter().map(|n| format!("\"{}\"", n)).collect();
+        println!("{{\"sink_resources\":[{}]}}", items.join(","));
+    } else if sinks.is_empty() {
+        println!("No sink resources (all have dependents).");
+    } else {
+        println!("Sink resources ({} with no dependents):", sinks.len());
+        for name in &sinks { println!("  {}", name); }
+    }
+    Ok(())
+}
+
+
+/// FJ-795: Check if dependency graph is bipartite.
+pub(crate) fn cmd_graph_bipartite_check(file: &Path, json: bool) -> Result<(), String> {
+    let cfg = parse_and_validate(file)?;
+    let is_bip = check_bipartite(&cfg);
+    if json {
+        println!("{{\"is_bipartite\":{}}}", is_bip);
+    } else if is_bip {
+        println!("The dependency graph is bipartite.");
+    } else {
+        println!("The dependency graph is NOT bipartite (contains odd-length cycle).");
+    }
+    Ok(())
+}
+
+/// Check bipartite using 2-coloring BFS on undirected graph.
+fn check_bipartite(cfg: &types::ForjarConfig) -> bool {
+    let adj = build_undirected_graph(cfg);
+    let mut color: std::collections::HashMap<&str, bool> = std::collections::HashMap::new();
+    for &start in adj.keys() {
+        if color.contains_key(start) { continue; }
+        color.insert(start, false);
+        if !bfs_2color(start, &adj, &mut color) { return false; }
+    }
+    true
+}
+
+/// BFS 2-coloring from a start node. Returns false if odd cycle found.
+fn bfs_2color<'a>(
+    start: &'a str,
+    adj: &std::collections::HashMap<&str, Vec<&'a str>>,
+    color: &mut std::collections::HashMap<&'a str, bool>,
+) -> bool {
+    let mut queue = std::collections::VecDeque::new();
+    queue.push_back(start);
+    while let Some(n) = queue.pop_front() {
+        let c = color[n];
+        if let Some(neighbors) = adj.get(n) {
+            for &next in neighbors {
+                if let Some(&nc) = color.get(next) {
+                    if nc == c { return false; }
+                } else {
+                    color.insert(next, !c);
+                    queue.push_back(next);
+                }
+            }
+        }
+    }
+    true
+}

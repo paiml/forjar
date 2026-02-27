@@ -106,6 +106,7 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
         check_provider_consistency, check_state_values,
         check_unused_machines, check_tag_consistency,
         check_dependency_exists, check_path_conflicts_strict,
+        check_duplicate_names, check_resource_groups,
     } = args;
 
     if check_cron_syntax {
@@ -146,6 +147,12 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
     }
     if check_path_conflicts_strict {
         return cmd_validate_check_path_conflicts_strict(&file, json);
+    }
+    if check_duplicate_names {
+        return cmd_validate_check_duplicate_names(&file, json);
+    }
+    if check_resource_groups {
+        return cmd_validate_check_resource_groups(&file, json);
     }
     if let Some(r) = try_validate_structural(&file, json, check_mount_points, check_group_consistency, check_mode_consistency, check_template_vars, check_service_deps, check_path_conflicts, check_owner_consistency, check_naming_conventions, check_circular_refs, check_machine_reachability) {
         return r;

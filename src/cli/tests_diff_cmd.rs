@@ -455,6 +455,7 @@ resources:
         notify_file: None,
         notify_json: false,
             notify_slack_webhook: None,
+            notify_telegram: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { diff_only, .. }) => assert!(diff_only),

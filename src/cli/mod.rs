@@ -38,6 +38,7 @@ mod status_resources;
 mod status_resource_detail;
 mod status_counts;
 mod status_diagnostics;
+mod status_fleet_detail;
 mod status_compliance;
 mod status_cost;
 mod status_observability;
@@ -266,6 +267,8 @@ mod tests_misc_8;
 mod tests_misc_9;
 #[cfg(test)]
 mod tests_phase65;
+#[cfg(test)]
+mod tests_phase66;
 #[cfg(test)]
 mod tests_misc_10;
 

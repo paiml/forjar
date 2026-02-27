@@ -129,6 +129,8 @@ resources: {}
         check_tag_consistency: false,
             check_dependency_exists: false,
             check_path_conflicts_strict: false,
+            check_duplicate_names: false,
+            check_resource_groups: false,
             }),
             false,
             true,
@@ -311,6 +313,8 @@ resources:
         check_tag_consistency: false,
             check_dependency_exists: false,
             check_path_conflicts_strict: false,
+            check_duplicate_names: false,
+            check_resource_groups: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { json, strict, .. }) => {
@@ -378,6 +382,8 @@ resources:
         check_tag_consistency: false,
             check_dependency_exists: false,
             check_path_conflicts_strict: false,
+            check_duplicate_names: false,
+            check_resource_groups: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { dry_expand, .. }) => assert!(dry_expand),
@@ -440,6 +446,8 @@ resources:
         check_tag_consistency: false,
             check_dependency_exists: false,
             check_path_conflicts_strict: false,
+            check_duplicate_names: false,
+            check_resource_groups: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { exhaustive, .. }) => assert!(exhaustive),
@@ -502,6 +510,8 @@ resources:
         check_tag_consistency: false,
             check_dependency_exists: false,
             check_path_conflicts_strict: false,
+            check_duplicate_names: false,
+            check_resource_groups: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { policy_file, .. }) => {

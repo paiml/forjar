@@ -166,6 +166,7 @@ mod tests {
         notify_file: None,
         notify_json: false,
             notify_slack_webhook: None,
+            notify_telegram: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { schedule, .. }) => {
@@ -326,6 +327,7 @@ mod tests {
         notify_file: None,
         notify_json: false,
             notify_slack_webhook: None,
+            notify_telegram: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { env_name, .. }) => assert_eq!(env_name, Some("staging".to_string())),
@@ -484,6 +486,7 @@ mod tests {
         notify_file: None,
         notify_json: false,
             notify_slack_webhook: None,
+            notify_telegram: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { dry_run_diff, .. }) => assert!(dry_run_diff),

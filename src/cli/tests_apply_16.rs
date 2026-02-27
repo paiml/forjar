@@ -15,7 +15,6 @@ use super::commands::*;
 mod tests {
     use super::*;
 
-
     #[test]
     fn test_fj516_apply_max_duration_flag() {
         let cmd = Commands::Apply(ApplyArgs {
@@ -166,6 +165,7 @@ mod tests {
         notify_file: None,
         notify_json: false,
             notify_slack_webhook: None,
+            notify_telegram: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { max_duration, .. }) => assert_eq!(max_duration, Some(300)),
@@ -324,6 +324,7 @@ mod tests {
         notify_file: None,
         notify_json: false,
             notify_slack_webhook: None,
+            notify_telegram: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { notify_grafana, .. }) => assert_eq!(
@@ -485,6 +486,7 @@ mod tests {
         notify_file: None,
         notify_json: false,
             notify_slack_webhook: None,
+            notify_telegram: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs {
