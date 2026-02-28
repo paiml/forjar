@@ -2519,14 +2519,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-813 | `forjar validate --check-resource-tags` — enforce tag conventions (required tags, naming rules). Governance. | Planned |
-| FJ-814 | `forjar status --machine-last-apply` — show last apply timestamp per machine. Dashboard. | Planned |
-| FJ-815 | `forjar graph --resource-fanin` — show fan-in count per resource (how many depend on it). Analysis. | Planned |
-| FJ-816 | `forjar apply --notify-discord-webhook` — Discord webhook with rich embeds. Integration. | Planned |
-| FJ-817 | `forjar validate --check-resource-state-consistency` — verify state fields match resource type. Governance. | Planned |
-| FJ-818 | `forjar status --fleet-drift-summary` — aggregated drift summary across all machines. Monitoring. | Planned |
-| FJ-819 | `forjar graph --isolated-subgraphs` — detect disconnected subgraphs in the DAG. Analysis. | Planned |
-| FJ-820 | `forjar status --resource-apply-duration` — average apply duration per resource type. Performance. | Planned |
+| FJ-813 | `forjar validate --check-resource-tags` — enforce tag conventions (required tags, naming rules). Governance. | Done |
+| FJ-814 | `forjar status --machine-last-apply` — show last apply timestamp per machine. Dashboard. | Done |
+| FJ-815 | `forjar graph --resource-fanin` — show fan-in count per resource (how many depend on it). Analysis. | Done |
+| FJ-816 | `forjar apply --notify-discord-webhook` — Discord webhook with rich embeds. Integration. | Done |
+| FJ-817 | `forjar validate --check-resource-state-consistency` — verify state fields match resource type. Governance. | Done |
+| FJ-818 | `forjar status --fleet-drift-summary` — aggregated drift summary across all machines. Monitoring. | Done |
+| FJ-819 | `forjar graph --isolated-subgraphs` — detect disconnected subgraphs in the DAG. Analysis. | Done |
+| FJ-820 | `forjar status --resource-apply-duration` — average apply duration per resource type. Performance. | Done |
+
+### Phase 70 — Advanced Governance & Analytics (FJ-821→FJ-828)
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-821 | `forjar validate --check-resource-dependencies-complete` — verify all depends_on targets exist. Integrity. | Planned |
+| FJ-822 | `forjar status --machine-resource-health` — per-machine breakdown of resource health status. Dashboard. | Planned |
+| FJ-823 | `forjar graph --resource-dependency-chain` — full chain from root to leaf per resource. Analysis. | Planned |
+| FJ-824 | `forjar apply --notify-teams-webhook` — MS Teams webhook with adaptive card. Integration. | Planned |
+| FJ-825 | `forjar validate --check-machine-connectivity` — verify machines are reachable (dry-run). Governance. | Planned |
+| FJ-826 | `forjar status --fleet-convergence-trend` — convergence % over last N applies. Trends. | Planned |
+| FJ-827 | `forjar graph --bottleneck-resources` — resources with highest fan-in AND fan-out. Hotspots. | Planned |
+| FJ-828 | `forjar status --resource-state-distribution` — distribution of resource states across fleet. Analytics. | Planned |
 
 ---
 

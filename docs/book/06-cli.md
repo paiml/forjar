@@ -1805,6 +1805,73 @@ forjar graph -f forjar.yaml --dependency-depth-per-resource --json-output
 forjar apply -f forjar.yaml --notify-pagerduty <ROUTING_KEY>
 ```
 
+### Phase 69 — Operational Insights & Governance (FJ-813→FJ-820)
+
+**Validate — tag convention enforcement (FJ-813)**
+
+```bash
+forjar validate -f forjar.yaml --check-resource-tags
+# Tag convention issues (2):
+#   config-file — no tags assigned
+#   data-dir — no tags assigned
+```
+
+**Status — last apply per machine (FJ-814)**
+
+```bash
+forjar status --state-dir state/ --machine-last-apply
+# Last apply per machine:
+#   web-server — 2026-02-28T10:30:00Z
+```
+
+**Graph — fan-in per resource (FJ-815)**
+
+```bash
+forjar graph -f forjar.yaml --resource-fanin
+# Fan-in per resource:
+#   base-packages — 3 dependents
+#   config-file — 0 dependents
+```
+
+**Apply — Discord webhook notifications (FJ-816)**
+
+```bash
+forjar apply -f forjar.yaml --notify-discord-webhook <WEBHOOK_URL>
+```
+
+**Validate — state consistency check (FJ-817)**
+
+```bash
+forjar validate -f forjar.yaml --check-resource-state-consistency
+# All resource states are consistent with their types.
+```
+
+**Status — fleet drift summary (FJ-818)**
+
+```bash
+forjar status --state-dir state/ --fleet-drift-summary
+# Fleet drift summary:
+#   web-server — 1/5 drifted (20.0%)
+```
+
+**Graph — isolated subgraphs (FJ-819)**
+
+```bash
+forjar graph -f forjar.yaml --isolated-subgraphs
+# Isolated subgraphs (2):
+#   Subgraph 1: config-file
+#   Subgraph 2: data-dir
+```
+
+**Status — resource apply duration (FJ-820)**
+
+```bash
+forjar status --state-dir state/ --resource-apply-duration
+# Average apply duration per resource type:
+#   Package — 2.50s
+#   File — 0.15s
+```
+
 ### `forjar watch`
 
 Watch a config file for changes and automatically re-plan.
