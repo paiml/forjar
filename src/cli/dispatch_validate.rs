@@ -16,6 +16,7 @@ use super::validate_ownership::*;
 use super::validate_transport::*;
 use super::validate_analytics::*;
 use super::validate_compliance_ext::*;
+use super::validate_security::*;
 use super::validate_ordering::*;
 use super::validate_ordering_ext::*;
 use super::validate_resilience::*;
@@ -300,6 +301,9 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
         check_resource_compliance_tags,
         check_resource_rollback_coverage,
         check_resource_dependency_balance,
+        check_resource_secret_scope,
+        check_resource_deprecation_usage,
+        check_resource_when_condition_coverage,
     } = args;
 
     if let Some(r) = try_validate_checks_early_a(&file, json, check_cron_syntax, check_env_refs, check_resource_names.as_deref(), check_resource_count, check_duplicate_paths, check_circular_deps, check_machine_refs, check_provider_consistency) {
@@ -330,6 +334,9 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
         return r;
     }
     if let Some(r) = try_validate_phase98(&file, json, check_resource_compliance_tags, check_resource_rollback_coverage, check_resource_dependency_balance) {
+        return r;
+    }
+    if let Some(r) = try_validate_phase99(&file, json, check_resource_secret_scope, check_resource_deprecation_usage, check_resource_when_condition_coverage) {
         return r;
     }
     if let Some(r) = try_validate_governance_b(&file, json, check_resource_lifecycle_hooks, check_resource_provider_version, check_resource_naming_convention, check_resource_idempotency, check_resource_documentation, check_resource_ownership, check_resource_secret_exposure, check_resource_tag_standards, check_resource_privilege_escalation, check_resource_update_safety, check_resource_cross_machine_consistency, check_resource_version_pinning) {
@@ -421,5 +428,15 @@ fn try_validate_phase98(
     if check_resource_compliance_tags { return Some(cmd_validate_check_resource_compliance_tags(file, json)); }
     if check_resource_rollback_coverage { return Some(cmd_validate_check_resource_rollback_coverage(file, json)); }
     if check_resource_dependency_balance { return Some(cmd_validate_check_resource_dependency_balance(file, json)); }
+    None
+}
+fn try_validate_phase99(
+    file: &Path, json: bool,
+    check_resource_secret_scope: bool, check_resource_deprecation_usage: bool,
+    check_resource_when_condition_coverage: bool,
+) -> Option<Result<(), String>> {
+    if check_resource_secret_scope { return Some(cmd_validate_check_resource_secret_scope(file, json)); }
+    if check_resource_deprecation_usage { return Some(cmd_validate_check_resource_deprecation_usage(file, json)); }
+    if check_resource_when_condition_coverage { return Some(cmd_validate_check_resource_when_condition_coverage(file, json)); }
     None
 }

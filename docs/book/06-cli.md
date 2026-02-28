@@ -3259,6 +3259,51 @@ forjar validate -f forjar.yaml --check-resource-dependency-balance
 # Dependency balance: max fan-in=3 (base-pkg), mean=1.2
 ```
 
+#### Phase 99 — Security Posture & Resource Lifecycle (FJ-1053→FJ-1060)
+
+```bash
+# FJ-1053: Fleet security posture summary
+forjar status --state-dir ./state --fleet-security-posture-summary
+# === Fleet Security Posture ===
+#   web: secret_refs=2, privileged=1, tls=1, posture=moderate
+
+# FJ-1054: Resource secret scope
+forjar validate -f forjar.yaml --check-resource-secret-scope
+# Secret scope warnings: db-creds deploys to 2 machines
+
+# FJ-1055: Resource lifecycle stage map
+forjar graph -f forjar.yaml --resource-lifecycle-stage-map
+# Lifecycle stages:
+#   active: app-config, app-service
+#   stable: base-pkg
+#   deprecated: legacy-cron
+
+# FJ-1056: Machine resource freshness index
+forjar status --state-dir ./state --machine-resource-freshness-index
+# === Machine Resource Freshness Index ===
+#   web: freshness=95/100, generated_at=2026-02-28T00:00:00Z
+
+# FJ-1057: Resource deprecation usage
+forjar validate -f forjar.yaml --check-resource-deprecation-usage
+# warning: new-svc depends on deprecated resource old-config
+
+# FJ-1058: Resource dependency age overlay
+forjar graph -f forjar.yaml --resource-dependency-age-overlay
+# Dependency age overlay (3 edges):
+#   cfg (file) -> pkg (package)
+#   svc (service) -> cfg (file)
+
+# FJ-1059: Fleet resource type coverage
+forjar status --state-dir ./state --fleet-resource-type-coverage
+# === Fleet Resource Type Coverage ===
+#   file | 3 machine(s): db, web, worker
+#   package | 2 machine(s): db, web
+
+# FJ-1060: Resource when condition coverage
+forjar validate -f forjar.yaml --check-resource-when-condition-coverage
+# warning: b depends on conditional a but has no when clause
+```
+
 ### `forjar watch`
 
 Watch a config file for changes and automatically re-plan.

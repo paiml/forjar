@@ -128,7 +128,7 @@ mod tests {
             check_resource_dependency_fan_limit: true,
             check_resource_gpu_backend_consistency: true,
             check_resource_when_condition_syntax: true, check_resource_lifecycle_hook_coverage: true, check_resource_secret_rotation_age: true, check_resource_dependency_chain_depth: true, check_recipe_input_completeness: true, check_resource_cross_machine_content_duplicates: true, check_resource_machine_reference_validity: true, check_resource_health_correlation: true, check_dependency_optimization: true, check_resource_consolidation_opportunities: true,
-            check_resource_compliance_tags: false, check_resource_rollback_coverage: false, check_resource_dependency_balance: false,
+            check_resource_compliance_tags: false, check_resource_rollback_coverage: false, check_resource_dependency_balance: false, check_resource_secret_scope: false, check_resource_deprecation_usage: false, check_resource_when_condition_coverage: false,
         };
         let debug = format!("{:?}", args);
         assert!(debug.contains("ValidateArgs"));
@@ -245,7 +245,7 @@ mod tests {
             check_resource_dependency_fan_limit: false,
             check_resource_gpu_backend_consistency: false,
             check_resource_when_condition_syntax: false, check_resource_lifecycle_hook_coverage: false, check_resource_secret_rotation_age: false, check_resource_dependency_chain_depth: false, check_recipe_input_completeness: false, check_resource_cross_machine_content_duplicates: false, check_resource_machine_reference_validity: false, check_resource_health_correlation: false, check_dependency_optimization: false, check_resource_consolidation_opportunities: false,
-            check_resource_compliance_tags: false, check_resource_rollback_coverage: false, check_resource_dependency_balance: false,
+            check_resource_compliance_tags: false, check_resource_rollback_coverage: false, check_resource_dependency_balance: false, check_resource_secret_scope: false, check_resource_deprecation_usage: false, check_resource_when_condition_coverage: false,
         };
         let debug = format!("{:?}", args);
         assert!(debug.contains("ValidateArgs"));
@@ -369,6 +369,8 @@ mod tests {
             resource_dependency_bridge_criticality: true,
             resource_dependency_conditional_subgraph: true, resource_dependency_parallel_groups: true, resource_dependency_execution_cost: true, resource_recipe_expansion_map: true, resource_dependency_critical_chain_path: true, resource_apply_order_simulation: true, resource_provenance_summary: true,
             resource_dependency_risk_score: false, resource_dependency_layering: false,
+            resource_lifecycle_stage_map: false,
+            resource_dependency_age_overlay: false,
         };
         let debug = format!("{:?}", args);
         assert!(debug.contains("GraphArgs"));
@@ -489,6 +491,8 @@ mod tests {
             resource_dependency_bridge_criticality: false,
             resource_dependency_conditional_subgraph: false, resource_dependency_parallel_groups: false, resource_dependency_execution_cost: false, resource_recipe_expansion_map: false, resource_dependency_critical_chain_path: false, resource_apply_order_simulation: false, resource_provenance_summary: false,
             resource_dependency_risk_score: false, resource_dependency_layering: false,
+            resource_lifecycle_stage_map: false,
+            resource_dependency_age_overlay: false,
         };
         let debug = format!("{:?}", args);
         assert!(debug.contains("GraphArgs"));

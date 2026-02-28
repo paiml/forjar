@@ -434,5 +434,14 @@ pub struct ValidateArgs {
     /// FJ-1052: Validate dependency balance across resources
     #[arg(long)]
     pub check_resource_dependency_balance: bool,
+    /// FJ-1054: Warn if secrets are referenced outside intended machine scope
+    #[arg(long)]
+    pub check_resource_secret_scope: bool,
+    /// FJ-1057: Warn if deprecated resources are still depended upon
+    #[arg(long)]
+    pub check_resource_deprecation_usage: bool,
+    /// FJ-1060: Warn if conditional resources lack when clause coverage
+    #[arg(long)]
+    pub check_resource_when_condition_coverage: bool,
 }
 

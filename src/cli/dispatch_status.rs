@@ -16,6 +16,7 @@ use super::status_intelligence::*;
 use super::status_transport::*;
 use super::status_analytics::*;
 use super::status_drift_intel::*;
+use super::status_security::*;
 use super::status_intelligence_ext::*;
 use super::status_intelligence_ext2::*;
 use super::dispatch_status_ext::*;
@@ -290,10 +291,11 @@ fn try_status_phases_94_96(
     None
 }
 #[allow(clippy::too_many_arguments)]
-fn try_status_phases_97_98(
+fn try_status_phases_97_99(
     sd: &Path, machine: Option<&str>, json: bool,
     d1: bool, d2: bool, d3: bool,
     e1: bool, e2: bool, e3: bool,
+    f1: bool, f2: bool, f3: bool,
 ) -> Option<Result<(), String>> {
     if d1 { return Some(cmd_status_fleet_state_churn_analysis(sd, machine, json)); }
     if d2 { return Some(cmd_status_config_maturity_score(sd, machine, json)); }
@@ -301,6 +303,9 @@ fn try_status_phases_97_98(
     if e1 { return Some(cmd_status_fleet_drift_velocity_trend(sd, machine, json)); }
     if e2 { return Some(cmd_status_machine_convergence_window(sd, machine, json)); }
     if e3 { return Some(cmd_status_fleet_resource_age_histogram(sd, machine, json)); }
+    if f1 { return Some(cmd_status_fleet_security_posture_summary(sd, machine, json)); }
+    if f2 { return Some(cmd_status_machine_resource_freshness_index(sd, machine, json)); }
+    if f3 { return Some(cmd_status_fleet_resource_type_coverage(sd, machine, json)); }
     None
 }
 #[allow(clippy::too_many_arguments)]
@@ -381,6 +386,7 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
         machine_ssh_connection_health, lock_file_staleness_report, fleet_transport_method_summary,
         fleet_state_churn_analysis, config_maturity_score, fleet_capacity_utilization,
         fleet_drift_velocity_trend, machine_convergence_window, fleet_resource_age_histogram,
+        fleet_security_posture_summary, machine_resource_freshness_index, fleet_resource_type_coverage,
     }) = cmd
     else {
         unreachable!()
@@ -421,9 +427,10 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
     ) {
         return r;
     }
-    if let Some(r) = try_status_phases_97_98(&state_dir, m, json,
+    if let Some(r) = try_status_phases_97_99(&state_dir, m, json,
         fleet_state_churn_analysis, config_maturity_score, fleet_capacity_utilization,
         fleet_drift_velocity_trend, machine_convergence_window, fleet_resource_age_histogram,
+        fleet_security_posture_summary, machine_resource_freshness_index, fleet_resource_type_coverage,
     ) {
         return r;
     }

@@ -432,6 +432,9 @@ mod tests {
             fleet_drift_velocity_trend: false,
             machine_convergence_window: false,
             fleet_resource_age_histogram: false,
+            fleet_security_posture_summary: false,
+            machine_resource_freshness_index: false,
+            fleet_resource_type_coverage: false,
         });
         match cmd {
             Commands::Status(StatusArgs { drift_details, .. }) => assert!(drift_details),

@@ -2915,6 +2915,19 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 | FJ-1051 | `forjar status --fleet-resource-age-histogram` — histogram of resource ages across fleet (by last apply time). Intelligence. | ✅ Done |
 | FJ-1052 | `forjar validate --check-resource-dependency-balance` — warn if dependency graph is heavily skewed (fan-in/out imbalance). Governance. | ✅ Done |
 
+### Phase 99 — Security Posture & Resource Lifecycle (FJ-1053→FJ-1060)
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-1053 | `forjar status --fleet-security-posture-summary` — summarize fleet-wide security posture (secret exposure, privilege levels, TLS status). Intelligence. | ✅ Done |
+| FJ-1054 | `forjar validate --check-resource-secret-scope` — warn if secrets are referenced outside their intended machine scope. Governance. | ✅ Done |
+| FJ-1055 | `forjar graph --resource-lifecycle-stage-map` — map each resource to its lifecycle stage (new, stable, deprecated). Analysis. | ✅ Done |
+| FJ-1056 | `forjar status --machine-resource-freshness-index` — freshness index per machine based on resource apply recency. Intelligence. | ✅ Done |
+| FJ-1057 | `forjar validate --check-resource-deprecation-usage` — warn if deprecated resources are still depended upon. Governance. | ✅ Done |
+| FJ-1058 | `forjar graph --resource-dependency-age-overlay` — overlay resource ages on dependency graph edges. Analysis. | ✅ Done |
+| FJ-1059 | `forjar status --fleet-resource-type-coverage` — coverage report of resource types across fleet machines. Intelligence. | ✅ Done |
+| FJ-1060 | `forjar validate --check-resource-when-condition-coverage` — warn if conditional resources lack comprehensive when clause coverage. Governance. | ✅ Done |
+
 ---
 
 ## 9. Performance Targets
