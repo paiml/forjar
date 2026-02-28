@@ -1,4 +1,4 @@
-//! Graph intelligence extensions (Phase 90+) — resilience score, PageRank.
+//! Graph intelligence extensions (Phase 90+) — resilience score, PageRank, bridge criticality, conditional subgraphs.
 #[allow(unused_imports)]
 use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
 use std::path::Path;
@@ -349,5 +349,81 @@ fn print_diameter_path(diameter: usize, path: &[String], json: bool) {
         println!("Graph diameter: 0 (no edges)");
     } else {
         println!("Graph diameter: {} (path: {})", diameter, path.join(" → "));
+    }
+}
+/// FJ-1015: Score bridge edges by downstream subtree size.
+pub(crate) fn cmd_graph_resource_dependency_bridge_criticality(file: &Path, json: bool) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let config: types::ForjarConfig = serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let names: Vec<&str> = config.resources.keys().map(|s| s.as_str()).collect();
+    let idx: std::collections::HashMap<&str, usize> = names.iter().enumerate().map(|(i, n)| (*n, i)).collect();
+    let n = names.len();
+    let (adj, _) = build_adj(&config, &idx, n);
+    let bridges = find_bridge_criticality(&names, &adj, n);
+    print_bridge_criticality(&bridges, json);
+    Ok(())
+}
+fn find_bridge_criticality(names: &[&str], adj: &[Vec<bool>], n: usize) -> Vec<(String, String, usize)> {
+    let mut result = Vec::new();
+    for i in 0..n {
+        for j in 0..n {
+            if !adj[i][j] { continue; }
+            // Count downstream nodes reachable from j
+            let mut visited = vec![false; n];
+            let mut stack = vec![j];
+            let mut downstream = 0;
+            while let Some(node) = stack.pop() {
+                if visited[node] { continue; }
+                visited[node] = true;
+                downstream += 1;
+                for (k, visited_k) in visited.iter().enumerate().take(n) { if adj[node][k] && !visited_k { stack.push(k); } }
+            }
+            result.push((names[i].to_string(), names[j].to_string(), downstream));
+        }
+    }
+    result.sort_by(|a, b| b.2.cmp(&a.2));
+    result
+}
+fn print_bridge_criticality(bridges: &[(String, String, usize)], json: bool) {
+    if json {
+        let items: Vec<String> = bridges.iter()
+            .map(|(f, t, d)| format!("{{\"from\":\"{}\",\"to\":\"{}\",\"downstream\":{}}}", f, t, d)).collect();
+        println!("{{\"bridge_criticality\":[{}]}}", items.join(","));
+    } else if bridges.is_empty() {
+        println!("No edges found.");
+    } else {
+        println!("Bridge criticality (downstream subtree size):");
+        for (f, t, d) in bridges { println!("  {} → {} — {} downstream", f, t, d); }
+    }
+}
+/// FJ-1019: Visualize conditional vs unconditional resource subgraphs.
+pub(crate) fn cmd_graph_resource_dependency_conditional_subgraph(file: &Path, json: bool) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let config: types::ForjarConfig = serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let mut conditional: Vec<(String, String)> = Vec::new();
+    let mut unconditional: Vec<String> = Vec::new();
+    for (name, res) in &config.resources {
+        if let Some(ref when_expr) = res.when {
+            conditional.push((name.clone(), when_expr.clone()));
+        } else {
+            unconditional.push(name.clone());
+        }
+    }
+    conditional.sort_by(|a, b| a.0.cmp(&b.0));
+    unconditional.sort();
+    print_conditional_subgraph(&conditional, &unconditional, json);
+    Ok(())
+}
+fn print_conditional_subgraph(conditional: &[(String, String)], unconditional: &[String], json: bool) {
+    if json {
+        let cond: Vec<String> = conditional.iter()
+            .map(|(n, w)| format!("{{\"resource\":\"{}\",\"when\":\"{}\"}}", n, w.replace('"', "\\\""))).collect();
+        let uncond: Vec<String> = unconditional.iter().map(|n| format!("\"{}\"", n)).collect();
+        println!("{{\"conditional\":[{}],\"unconditional\":[{}]}}", cond.join(","), uncond.join(","));
+    } else {
+        println!("Conditional resources ({}):", conditional.len());
+        for (n, w) in conditional { println!("  {} — when: {}", n, w); }
+        println!("Unconditional resources ({}):", unconditional.len());
+        for n in unconditional { println!("  {}", n); }
     }
 }

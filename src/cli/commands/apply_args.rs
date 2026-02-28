@@ -666,5 +666,11 @@ pub struct ApplyArgs {
     /// FJ-1000: Sample notifications at a configurable rate
     #[arg(long)]
     pub notify_custom_sampling: Option<String>,
+    /// FJ-1016: Aggregate notifications into a periodic digest
+    #[arg(long)]
+    pub notify_custom_digest: Option<String>,
+    /// FJ-1020: Filter notifications by severity level
+    #[arg(long)]
+    pub notify_custom_severity_filter: Option<String>,
 }
 

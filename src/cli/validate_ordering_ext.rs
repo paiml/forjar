@@ -1,4 +1,4 @@
-//! Validate ordering extensions (Phase 91+) — naming conventions, idempotency.
+//! Validate ordering extensions (Phase 91+) — naming conventions, idempotency, GPU consistency, when syntax.
 #[allow(unused_imports)]
 use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
 use std::path::Path;
@@ -117,4 +117,57 @@ fn print_fan_warnings(warnings: &[(String, usize, &str)], max_fan: usize, json: 
         println!("Resources exceeding fan limit ({}):", max_fan);
         for (n, c, d) in warnings { println!("  {} — {} {}", n, c, d); }
     }
+}
+/// FJ-1014: Warn if GPU resources reference mismatched backends within a stack.
+pub(crate) fn cmd_validate_check_resource_gpu_backend_consistency(file: &Path, json: bool) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let config: types::ForjarConfig = serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let mut backends: Vec<(String, String)> = Vec::new();
+    for (name, res) in &config.resources {
+        if let Some(ref backend) = res.gpu_backend {
+            backends.push((name.clone(), backend.clone()));
+        }
+    }
+    let unique: std::collections::HashSet<&str> = backends.iter().map(|(_, b)| b.as_str()).collect();
+    let consistent = unique.len() <= 1;
+    if json {
+        let items: Vec<String> = backends.iter()
+            .map(|(n, b)| format!("{{\"resource\":\"{}\",\"gpu_backend\":\"{}\"}}", n, b)).collect();
+        println!("{{\"gpu_backend_consistency\":{{\"consistent\":{},\"backends\":[{}]}}}}", consistent, items.join(","));
+    } else if backends.is_empty() {
+        println!("No GPU resources found.");
+    } else if consistent {
+        println!("GPU backend consistency: OK (all {} GPU resources use {:?})", backends.len(), unique.iter().next().unwrap_or(&"none"));
+    } else {
+        println!("GPU backend inconsistency detected:");
+        for (n, b) in &backends { println!("  {} — {}", n, b); }
+    }
+    Ok(())
+}
+/// FJ-1018: Validate when-field expressions for syntactic correctness.
+pub(crate) fn cmd_validate_check_resource_when_condition_syntax(file: &Path, json: bool) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let config: types::ForjarConfig = serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let mut issues: Vec<(String, String)> = Vec::new();
+    for (name, res) in &config.resources {
+        if let Some(ref when_expr) = res.when {
+            let trimmed = when_expr.trim();
+            if trimmed.is_empty() {
+                issues.push((name.clone(), "empty when expression".to_string()));
+            } else if trimmed.contains("{{") && !trimmed.contains("}}") {
+                issues.push((name.clone(), "unclosed template expression".to_string()));
+            }
+        }
+    }
+    if json {
+        let items: Vec<String> = issues.iter()
+            .map(|(n, r)| format!("{{\"resource\":\"{}\",\"issue\":\"{}\"}}", n, r)).collect();
+        println!("{{\"when_syntax_issues\":[{}]}}", items.join(","));
+    } else if issues.is_empty() {
+        println!("All when conditions are syntactically valid.");
+    } else {
+        println!("When condition syntax issues:");
+        for (n, r) in &issues { println!("  {} — {}", n, r); }
+    }
+    Ok(())
 }

@@ -194,6 +194,16 @@ fn try_validate_governance_d(
     None
 }
 
+/// Phase 94 governance validation checks.
+fn try_validate_phase94(
+    file: &Path, json: bool,
+    check_resource_gpu_backend_consistency: bool, check_resource_when_condition_syntax: bool,
+) -> Option<Result<(), String>> {
+    if check_resource_gpu_backend_consistency { return Some(cmd_validate_check_resource_gpu_backend_consistency(file, json)); }
+    if check_resource_when_condition_syntax { return Some(cmd_validate_check_resource_when_condition_syntax(file, json)); }
+    None
+}
+
 /// Phase 67-70 advanced validation checks.
 #[allow(clippy::too_many_arguments)]
 fn try_validate_advanced(
@@ -272,6 +282,8 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
         check_resource_idempotency_annotations,
         check_resource_content_size_limit,
         check_resource_dependency_fan_limit,
+        check_resource_gpu_backend_consistency,
+        check_resource_when_condition_syntax,
     } = args;
 
     if check_cron_syntax {
@@ -326,6 +338,9 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
         return r;
     }
     if let Some(r) = try_validate_governance_d(&file, json, check_resource_content_hash_consistency, check_resource_dependency_refs, check_resource_trigger_refs, check_resource_param_type_safety, check_resource_env_consistency, check_resource_secret_rotation, check_resource_lifecycle_completeness, check_resource_provider_compatibility, check_resource_naming_convention_strict, check_resource_idempotency_annotations, check_resource_content_size_limit, check_resource_dependency_fan_limit) {
+        return r;
+    }
+    if let Some(r) = try_validate_phase94(&file, json, check_resource_gpu_backend_consistency, check_resource_when_condition_syntax) {
         return r;
     }
     if let Some(r) = try_validate_governance_b(&file, json, check_resource_lifecycle_hooks, check_resource_provider_version, check_resource_naming_convention, check_resource_idempotency, check_resource_documentation, check_resource_ownership, check_resource_secret_exposure, check_resource_tag_standards, check_resource_privilege_escalation, check_resource_update_safety, check_resource_cross_machine_consistency, check_resource_version_pinning) {

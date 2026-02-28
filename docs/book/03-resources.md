@@ -974,6 +974,38 @@ resources:
 
 Supported operators: `==`, `!=`, `contains`. Template variables: `{{machine.arch}}`, `{{machine.hostname}}`, `{{machine.addr}}`, `{{machine.user}}`, `{{machine.roles}}`, `{{params.*}}`.
 
+**Validating conditional resources:**
+
+```bash
+# Check when-field syntax (FJ-1018)
+forjar validate --check-resource-when-condition-syntax -f forjar.yaml
+
+# Visualize conditional vs unconditional subgraphs (FJ-1019)
+forjar graph --resource-dependency-conditional-subgraph -f forjar.yaml
+```
+
+**GPU backend consistency:**
+
+When multiple GPU resources exist in a stack, validate that they all reference the same backend:
+
+```bash
+# Check GPU backend consistency across resources (FJ-1014)
+forjar validate --check-resource-gpu-backend-consistency -f forjar.yaml
+```
+
+**Security posture and profiling:**
+
+```bash
+# Fleet security posture score (FJ-1017)
+forjar status --fleet-resource-security-posture-score
+
+# Apply latency p95 per machine (FJ-1013)
+forjar status --machine-resource-apply-latency-p95
+
+# Bridge criticality in dependency graph (FJ-1015)
+forjar graph --resource-dependency-bridge-criticality -f forjar.yaml
+```
+
 ### Resource Iteration
 
 Use `count:` or `for_each:` to create multiple resources from a single declaration.

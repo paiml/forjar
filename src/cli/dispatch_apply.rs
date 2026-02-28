@@ -172,6 +172,8 @@ pub(crate) fn dispatch_apply_cmd(cmd: Commands, verbose: bool) -> Result<(), Str
         notify_custom_escalation,
         notify_custom_correlation,
         notify_custom_sampling,
+        notify_custom_digest,
+        notify_custom_severity_filter,
     }) = cmd
     else {
         unreachable!()
@@ -296,6 +298,8 @@ pub(crate) fn dispatch_apply_cmd(cmd: Commands, verbose: bool) -> Result<(), Str
             custom_escalation: notify_custom_escalation.as_deref(),
             custom_correlation: notify_custom_correlation.as_deref(),
             custom_sampling: notify_custom_sampling.as_deref(),
+            custom_digest: notify_custom_digest.as_deref(),
+            custom_severity_filter: notify_custom_severity_filter.as_deref(),
     };
     send_apply_notifications(&opts, &result, &file);
 
