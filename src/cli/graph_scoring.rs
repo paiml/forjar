@@ -435,3 +435,66 @@ fn compute_fan_analysis(config: &types::ForjarConfig) -> Vec<(String, usize, usi
     analysis.sort_by(|a, b| (b.1 + b.2).cmp(&(a.1 + a.2)).then(a.0.cmp(&b.0)));
     analysis
 }
+
+/// FJ-895: Isolation score per resource in dependency graph.
+pub(crate) fn cmd_graph_resource_dependency_isolation_score(file: &Path, json: bool) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let config: types::ForjarConfig = serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let scores = compute_isolation_scores(&config);
+    if json {
+        let items: Vec<String> = scores.iter()
+            .map(|(n, s)| format!("{{\"resource\":\"{}\",\"isolation_score\":{:.2}}}", n, s))
+            .collect();
+        println!("{{\"dependency_isolation_scores\":[{}]}}", items.join(","));
+    } else if scores.is_empty() {
+        println!("No resources to analyze.");
+    } else {
+        println!("Dependency isolation scores (1.0 = fully isolated):");
+        for (n, s) in &scores { println!("  {} — {:.2}", n, s); }
+    }
+    Ok(())
+}
+
+fn compute_isolation_scores(config: &types::ForjarConfig) -> Vec<(String, f64)> {
+    let total = config.resources.len();
+    if total == 0 { return Vec::new(); }
+    let max_connections: f64 = (total - 1) as f64;
+    let mut scores: Vec<(String, f64)> = config.resources.iter().map(|(name, res)| {
+        let fan_out = res.depends_on.len();
+        let fan_in = config.resources.values().filter(|r| r.depends_on.contains(name)).count();
+        let connections = (fan_in + fan_out) as f64;
+        let isolation: f64 = if max_connections > 0.0 { 1.0 - (connections / max_connections) } else { 1.0 };
+        (name.clone(), if isolation < 0.0 { 0.0 } else { isolation })
+    }).collect();
+    scores.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal).then(a.0.cmp(&b.0)));
+    scores
+}
+
+/// FJ-899: Stability score based on dependency change frequency.
+pub(crate) fn cmd_graph_resource_dependency_stability_score(file: &Path, json: bool) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let config: types::ForjarConfig = serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let scores = compute_dep_stability_scores(&config);
+    if json {
+        let items: Vec<String> = scores.iter()
+            .map(|(n, s)| format!("{{\"resource\":\"{}\",\"stability_score\":{:.2}}}", n, s))
+            .collect();
+        println!("{{\"dependency_stability_scores\":[{}]}}", items.join(","));
+    } else if scores.is_empty() {
+        println!("No resources to analyze.");
+    } else {
+        println!("Dependency stability scores (1.0 = most stable):");
+        for (n, s) in &scores { println!("  {} — {:.2}", n, s); }
+    }
+    Ok(())
+}
+
+fn compute_dep_stability_scores(config: &types::ForjarConfig) -> Vec<(String, f64)> {
+    let mut scores: Vec<(String, f64)> = config.resources.iter().map(|(name, res)| {
+        let dep_count = res.depends_on.len() + res.triggers.len();
+        let score: f64 = 1.0 / (1.0 + dep_count as f64);
+        (name.clone(), score)
+    }).collect();
+    scores.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal).then(a.0.cmp(&b.0)));
+    scores
+}

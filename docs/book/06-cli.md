@@ -2445,6 +2445,67 @@ forjar status --state-dir state/ --machine-resource-convergence-rate
 #   web1 — 3/4 converged (75.0%)
 ```
 
+#### Phase 79 — Security Hardening & Operational Insights
+
+**Validate — check resource privilege escalation (FJ-893)**
+
+```bash
+forjar validate -f examples/dogfood-packages.yaml --check-resource-privilege-escalation
+# No privilege escalation risks detected.
+```
+
+**Status — machine resource failure correlation (FJ-894)**
+
+```bash
+forjar status --state-dir state/ --machine-resource-failure-correlation
+# Resource failure correlations:
+#   nginx — failed on: web1, web2
+```
+
+**Graph — resource dependency isolation score (FJ-895)**
+
+```bash
+forjar graph -f examples/dogfood-packages.yaml --resource-dependency-isolation-score
+# Dependency isolation scores (1.0 = fully isolated):
+#   data-dir — 1.00
+#   dev-tools — 0.50
+#   tool-config — 0.50
+```
+
+**Validate — check resource update safety (FJ-897)**
+
+```bash
+forjar validate -f examples/dogfood-packages.yaml --check-resource-update-safety
+# All resources can be safely updated.
+```
+
+**Status — fleet resource age distribution (FJ-898)**
+
+```bash
+forjar status --state-dir state/ --fleet-resource-age-distribution
+# Fleet resource age distribution:
+#   has_applied_at — 5 resources
+#   no_applied_at — 2 resources
+```
+
+**Graph — resource dependency stability score (FJ-899)**
+
+```bash
+forjar graph -f examples/dogfood-packages.yaml --resource-dependency-stability-score
+# Dependency stability scores (1.0 = most stable):
+#   data-dir — 1.00
+#   dev-tools — 1.00
+#   tool-config — 0.50
+```
+
+**Status — machine resource rollback readiness (FJ-900)**
+
+```bash
+forjar status --state-dir state/ --machine-resource-rollback-readiness
+# Machine rollback readiness:
+#   web1 — partial (lock only, no snapshots)
+```
+
 ### `forjar watch`
 
 Watch a config file for changes and automatically re-plan.

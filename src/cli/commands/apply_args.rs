@@ -624,5 +624,8 @@ pub struct ApplyArgs {
     /// FJ-888: Transform notification payload via template
     #[arg(long)]
     pub notify_custom_transform: Option<String>,
+    /// FJ-896: Batch multiple resource notifications into single payload
+    #[arg(long)]
+    pub notify_custom_batch: Option<String>,
 }
 

@@ -199,3 +199,77 @@ fn find_tag_standard_violations(config: &types::ForjarConfig) -> Vec<(String, St
     violations.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.cmp(&b.1)));
     violations
 }
+
+/// FJ-893: Detect resources that could enable privilege escalation.
+pub(crate) fn cmd_validate_check_resource_privilege_escalation(file: &Path, json: bool) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let cfg: types::ForjarConfig = serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let risks = find_privilege_escalation_risks(&cfg);
+    if json {
+        let items: Vec<String> = risks.iter()
+            .map(|(n, r)| format!("{{\"resource\":\"{}\",\"risk\":\"{}\"}}", n, r))
+            .collect();
+        println!("{{\"privilege_escalation_risks\":[{}]}}", items.join(","));
+    } else if risks.is_empty() {
+        println!("No privilege escalation risks detected.");
+    } else {
+        println!("Privilege escalation risks:");
+        for (n, r) in &risks { println!("  {} — {}", n, r); }
+    }
+    Ok(())
+}
+
+fn find_privilege_escalation_risks(cfg: &types::ForjarConfig) -> Vec<(String, String)> {
+    let mut risks = Vec::new();
+    let priv_patterns = ["chmod +s", "setuid", "setgid", "sudoers", "NOPASSWD", "cap_sys_admin"];
+    for (name, res) in &cfg.resources {
+        if let Some(ref content) = res.content {
+            for pat in &priv_patterns {
+                if content.contains(pat) {
+                    risks.push((name.clone(), format!("contains '{}'", pat)));
+                }
+            }
+        }
+        if let Some(ref path) = res.path {
+            let p = path.to_lowercase();
+            if p.contains("sudoers") || p.contains("/etc/shadow") {
+                risks.push((name.clone(), format!("targets sensitive path '{}'", path)));
+            }
+        }
+    }
+    risks.sort_by(|a, b| a.0.cmp(&b.0));
+    risks
+}
+
+/// FJ-897: Verify resources can be safely updated without downtime.
+pub(crate) fn cmd_validate_check_resource_update_safety(file: &Path, json: bool) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let cfg: types::ForjarConfig = serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let warnings = find_update_safety_issues(&cfg);
+    if json {
+        let items: Vec<String> = warnings.iter()
+            .map(|(n, w)| format!("{{\"resource\":\"{}\",\"warning\":\"{}\"}}", n, w))
+            .collect();
+        println!("{{\"update_safety_warnings\":[{}]}}", items.join(","));
+    } else if warnings.is_empty() {
+        println!("All resources can be safely updated.");
+    } else {
+        println!("Update safety warnings:");
+        for (n, w) in &warnings { println!("  {} — {}", n, w); }
+    }
+    Ok(())
+}
+
+fn find_update_safety_issues(cfg: &types::ForjarConfig) -> Vec<(String, String)> {
+    let mut warnings = Vec::new();
+    for (name, res) in &cfg.resources {
+        if matches!(res.resource_type, types::ResourceType::Service) && !res.triggers.is_empty() {
+            warnings.push((name.clone(), "service with triggers may cause cascade restart".to_string()));
+        }
+        if matches!(res.resource_type, types::ResourceType::Mount) {
+            warnings.push((name.clone(), "mount changes require unmount/remount".to_string()));
+        }
+    }
+    warnings.sort_by(|a, b| a.0.cmp(&b.0));
+    warnings
+}

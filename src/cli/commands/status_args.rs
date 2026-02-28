@@ -27,39 +27,30 @@ pub struct StatusArgs {
     /// FJ-314: Watch mode — refresh every N seconds
     #[arg(long)]
     pub watch: Option<u64>,
-
     /// FJ-336: Show only resources not updated in N days
     #[arg(long)]
     pub stale: Option<u64>,
-
     /// FJ-346: Show aggregate health score (0-100)
     #[arg(long)]
     pub health: bool,
-
     /// FJ-355: Show detailed drift report with field-level diffs
     #[arg(long)]
     pub drift_details: bool,
-
     /// FJ-364: Show convergence timeline with timestamps
     #[arg(long)]
     pub timeline: bool,
-
     /// FJ-372: Show resources changed since a git commit
     #[arg(long)]
     pub changes_since: Option<String>,
-
     /// FJ-376: Group output by dimension (machine, type, or status)
     #[arg(long)]
     pub summary_by: Option<String>,
-
     /// FJ-382: Expose metrics in Prometheus exposition format
     #[arg(long)]
     pub prometheus: bool,
-
     /// FJ-387: Show resources whose lock is older than duration (e.g., 7d, 24h)
     #[arg(long)]
     pub expired: Option<String>,
-
     /// FJ-392: Show resource count by status (converged/failed/drifted)
     #[arg(long)]
     pub count: bool,
@@ -497,4 +488,13 @@ pub struct StatusArgs {
     /// FJ-892: Convergence rate per resource per machine
     #[arg(long)]
     pub machine_resource_convergence_rate: bool,
+    /// FJ-894: Correlate resource failures across machines
+    #[arg(long)]
+    pub machine_resource_failure_correlation: bool,
+    /// FJ-898: Age distribution of resources across fleet
+    #[arg(long)]
+    pub fleet_resource_age_distribution: bool,
+    /// FJ-900: Readiness for rollback per machine
+    #[arg(long)]
+    pub machine_resource_rollback_readiness: bool,
 }
