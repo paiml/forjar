@@ -17,6 +17,7 @@ use super::status_transport::*;
 use super::status_analytics::*;
 use super::status_drift_intel::*;
 use super::status_security::*;
+use super::status_operational_ext2::*;
 use super::status_intelligence_ext::*;
 use super::status_intelligence_ext2::*;
 use super::dispatch_status_ext::*;
@@ -308,6 +309,15 @@ fn try_status_phases_97_99(
     if f3 { return Some(cmd_status_fleet_resource_type_coverage(sd, machine, json)); }
     None
 }
+fn try_status_phase100(
+    sd: &Path, machine: Option<&str>, json: bool,
+    fleet_apply_cadence: bool, machine_resource_error_classification: bool, fleet_resource_convergence_summary: bool,
+) -> Option<Result<(), String>> {
+    if fleet_apply_cadence { return Some(cmd_status_fleet_apply_cadence(sd, machine, json)); }
+    if machine_resource_error_classification { return Some(cmd_status_machine_resource_error_classification(sd, machine, json)); }
+    if fleet_resource_convergence_summary { return Some(cmd_status_fleet_resource_convergence_summary(sd, machine, json)); }
+    None
+}
 #[allow(clippy::too_many_arguments)]
 fn try_status_phases_87_92(
     sd: &Path, machine: Option<&str>, json: bool,
@@ -387,6 +397,7 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
         fleet_state_churn_analysis, config_maturity_score, fleet_capacity_utilization,
         fleet_drift_velocity_trend, machine_convergence_window, fleet_resource_age_histogram,
         fleet_security_posture_summary, machine_resource_freshness_index, fleet_resource_type_coverage,
+        fleet_apply_cadence, machine_resource_error_classification, fleet_resource_convergence_summary,
     }) = cmd
     else {
         unreachable!()
@@ -431,6 +442,11 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
         fleet_state_churn_analysis, config_maturity_score, fleet_capacity_utilization,
         fleet_drift_velocity_trend, machine_convergence_window, fleet_resource_age_histogram,
         fleet_security_posture_summary, machine_resource_freshness_index, fleet_resource_type_coverage,
+    ) {
+        return r;
+    }
+    if let Some(r) = try_status_phase100(&state_dir, m, json,
+        fleet_apply_cadence, machine_resource_error_classification, fleet_resource_convergence_summary,
     ) {
         return r;
     }

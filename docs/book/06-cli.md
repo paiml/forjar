@@ -3304,6 +3304,49 @@ forjar validate -f forjar.yaml --check-resource-when-condition-coverage
 # warning: b depends on conditional a but has no when clause
 ```
 
+#### Phase 100 — Operational Intelligence & Graph Health (FJ-1061→FJ-1068)
+
+```bash
+# FJ-1061: Fleet apply cadence
+forjar status --state-dir ./state --fleet-apply-cadence
+# === Fleet Apply Cadence ===
+#   web: last_apply=2026-02-28T00:00:00Z, cadence=daily
+
+# FJ-1062: Resource dependency symmetry (deep)
+forjar validate -f forjar.yaml --check-resource-dependency-symmetry-deep
+# Dependency symmetry (deep): ok (0 asymmetric pairs)
+
+# FJ-1063: Resource dependency health overlay
+forjar graph -f forjar.yaml --resource-dependency-health-overlay
+# Dependency health overlay:
+#   pkg (package) [healthy] -> cfg (file) [healthy]
+
+# FJ-1064: Machine resource error classification
+forjar status --state-dir ./state --machine-resource-error-classification
+# === Machine Resource Error Classification ===
+#   web: converged=1, drifted=1, failed=0
+
+# FJ-1065: Resource tag namespace
+forjar validate -f forjar.yaml --check-resource-tag-namespace
+# Tag namespace analysis: 1 namespaced, 1 unnamespaced
+
+# FJ-1066: Resource dependency width analysis
+forjar graph -f forjar.yaml --resource-dependency-width-analysis
+# Dependency width analysis:
+#   level 0: 2 nodes (a, b)
+#   level 1: 1 nodes (c)
+#   max_width=2
+
+# FJ-1067: Fleet resource convergence summary
+forjar status --state-dir ./state --fleet-resource-convergence-summary
+# === Fleet Resource Convergence Summary ===
+#   web: converged=1, drifted=1, total=2, pct=50.0%
+
+# FJ-1068: Resource machine capacity
+forjar validate -f forjar.yaml --check-resource-machine-capacity
+# Machine capacity: m has 1 resource(s) (within limits)
+```
+
 ### `forjar watch`
 
 Watch a config file for changes and automatically re-plan.

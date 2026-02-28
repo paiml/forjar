@@ -442,5 +442,11 @@ pub struct GraphArgs {
     /// FJ-1058: Overlay resource ages on dependency graph edges
     #[arg(long)]
     pub resource_dependency_age_overlay: bool,
+    /// FJ-1063: Overlay resource health status on dependency graph
+    #[arg(long)]
+    pub resource_dependency_health_overlay: bool,
+    /// FJ-1066: Analyze dependency graph width per level
+    #[arg(long)]
+    pub resource_dependency_width_analysis: bool,
 }
 

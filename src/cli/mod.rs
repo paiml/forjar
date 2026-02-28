@@ -34,6 +34,7 @@ mod validate_transport;
 mod validate_analytics;
 mod validate_compliance_ext;
 mod validate_security;
+mod validate_security_ext;
 mod apply;
 mod apply_output;
 mod apply_variants;
@@ -77,6 +78,7 @@ mod graph_transport;
 mod graph_analytics;
 mod graph_compliance;
 mod graph_lifecycle;
+mod graph_health;
 mod lock_core;
 mod lock_repair;
 mod lock_lifecycle;
@@ -103,6 +105,7 @@ mod fleet_reporting;
 mod infra;
 mod status_operational;
 mod status_operational_ext;
+mod status_operational_ext2;
 mod status_transport;
 mod status_analytics;
 mod status_insights;
@@ -366,6 +369,8 @@ mod tests_phase94;
 mod tests_phase98;
 #[cfg(test)]
 mod tests_phase99;
+#[cfg(test)]
+mod tests_phase100;
 #[cfg(test)]
 mod tests_cov_graph;
 #[cfg(test)]

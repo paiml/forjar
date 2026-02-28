@@ -43,7 +43,7 @@ mod tests {
             resource_dependency_risk_score: false,
             resource_dependency_layering: false,
             resource_lifecycle_stage_map: false,
-            resource_dependency_age_overlay: false,
+            resource_dependency_age_overlay: false, resource_dependency_health_overlay: false, resource_dependency_width_analysis: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { prune, .. }) => {
@@ -84,7 +84,7 @@ mod tests {
             resource_dependency_risk_score: false,
             resource_dependency_layering: false,
             resource_lifecycle_stage_map: false,
-            resource_dependency_age_overlay: false,
+            resource_dependency_age_overlay: false, resource_dependency_health_overlay: false, resource_dependency_width_analysis: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { layers, .. }) => assert!(layers),
@@ -124,7 +124,7 @@ mod tests {
             resource_dependency_risk_score: false,
             resource_dependency_layering: false,
             resource_lifecycle_stage_map: false,
-            resource_dependency_age_overlay: false,
+            resource_dependency_age_overlay: false, resource_dependency_health_overlay: false, resource_dependency_width_analysis: false,
         });
         match cmd {
             Commands::Graph(GraphArgs {
@@ -165,7 +165,7 @@ mod tests {
             resource_dependency_risk_score: false,
             resource_dependency_layering: false,
             resource_lifecycle_stage_map: false,
-            resource_dependency_age_overlay: false,
+            resource_dependency_age_overlay: false, resource_dependency_health_overlay: false, resource_dependency_width_analysis: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { weight, .. }) => assert!(weight),
@@ -203,7 +203,7 @@ mod tests {
             resource_dependency_risk_score: false,
             resource_dependency_layering: false,
             resource_lifecycle_stage_map: false,
-            resource_dependency_age_overlay: false,
+            resource_dependency_age_overlay: false, resource_dependency_health_overlay: false, resource_dependency_width_analysis: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { subgraph, .. }) => {
@@ -243,7 +243,7 @@ mod tests {
             resource_dependency_risk_score: false,
             resource_dependency_layering: false,
             resource_lifecycle_stage_map: false,
-            resource_dependency_age_overlay: false,
+            resource_dependency_age_overlay: false, resource_dependency_health_overlay: false, resource_dependency_width_analysis: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { impact_radius, .. }) => {
@@ -284,7 +284,7 @@ mod tests {
             resource_dependency_risk_score: false,
             resource_dependency_layering: false,
             resource_lifecycle_stage_map: false,
-            resource_dependency_age_overlay: false,
+            resource_dependency_age_overlay: false, resource_dependency_health_overlay: false, resource_dependency_width_analysis: false,
         });
         match cmd {
             Commands::Graph(GraphArgs {

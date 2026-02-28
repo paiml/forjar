@@ -2928,6 +2928,19 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 | FJ-1059 | `forjar status --fleet-resource-type-coverage` — coverage report of resource types across fleet machines. Intelligence. | ✅ Done |
 | FJ-1060 | `forjar validate --check-resource-when-condition-coverage` — warn if conditional resources lack comprehensive when clause coverage. Governance. | ✅ Done |
 
+### Phase 100 — Operational Intelligence & Graph Health (FJ-1061→FJ-1068)
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-1061 | `forjar status --fleet-apply-cadence` — compute average apply interval per machine. Intelligence. | ✅ Done |
+| FJ-1062 | `forjar validate --check-resource-dependency-symmetry-deep` — warn if bidirectional dependency patterns exist (A→B and B→A via transitive chain). Governance. | ✅ Done |
+| FJ-1063 | `forjar graph --resource-dependency-health-overlay` — overlay resource health status on dependency graph. Analysis. | ✅ Done |
+| FJ-1064 | `forjar status --machine-resource-error-classification` — classify resource errors by category (config, network, permission). Intelligence. | ✅ Done |
+| FJ-1065 | `forjar validate --check-resource-tag-namespace` — warn if resource tags don't follow namespace conventions (e.g., env:prod, team:platform). Governance. | ✅ Done |
+| FJ-1066 | `forjar graph --resource-dependency-width-analysis` — analyze dependency graph width (max parallel resources per level). Analysis. | ✅ Done |
+| FJ-1067 | `forjar status --fleet-resource-convergence-summary` — overall fleet convergence summary with percentage and trend. Intelligence. | ✅ Done |
+| FJ-1068 | `forjar validate --check-resource-machine-capacity` — warn if machines have too many resources (configurable threshold). Governance. | ✅ Done |
+
 ---
 
 ## 9. Performance Targets
