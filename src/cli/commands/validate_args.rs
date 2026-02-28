@@ -272,5 +272,13 @@ pub struct ValidateArgs {
     /// FJ-849: Verify resources match machine capabilities
     #[arg(long)]
     pub check_resource_machine_affinity: bool,
+
+    /// FJ-853: Score drift risk per resource based on type + deps
+    #[arg(long)]
+    pub check_resource_drift_risk: bool,
+
+    /// FJ-857: Verify all resources have required tags
+    #[arg(long)]
+    pub check_resource_tag_coverage: bool,
 }
 

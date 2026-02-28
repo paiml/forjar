@@ -1,0 +1,13 @@
+{
+  "tree_hash": "649f3ed324c10016a63441e1046ec15b0f1a94bf",
+  "pmat_version": "3.6.1",
+  "timestamp": "2026-02-27T21:28:23.487731512Z",
+  "report": {
+    "files_with_dead_code": [],
+    "total_dead_items": 0,
+    "dead_code_percentage": 0.0,
+    "total_lines": 105186,
+    "dead_lines": 0,
+    "dead_by_type": {}
+  }
+}

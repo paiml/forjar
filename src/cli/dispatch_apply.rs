@@ -153,6 +153,7 @@ pub(crate) fn dispatch_apply_cmd(cmd: Commands, verbose: bool) -> Result<(), Str
         notify_slack_blocks,
         notify_custom_template,
         notify_custom_webhook,
+        notify_custom_headers,
     }) = cmd
     else {
         unreachable!()
@@ -258,6 +259,7 @@ pub(crate) fn dispatch_apply_cmd(cmd: Commands, verbose: bool) -> Result<(), Str
         slack_blocks: notify_slack_blocks.as_deref(),
         custom_template: notify_custom_template.as_deref(),
         custom_webhook: notify_custom_webhook.as_deref(),
+        custom_headers: notify_custom_headers.as_deref(),
     };
     send_apply_notifications(&opts, &result, &file);
 

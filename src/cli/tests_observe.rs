@@ -302,6 +302,9 @@ mod tests {
                 machine_drift_age: false,
                 fleet_failed_resources: false,
                 resource_dependency_health: false,
+                machine_resource_age_distribution: false,
+                fleet_convergence_velocity: false,
+                resource_failure_correlation: false,
         });
         match cmd {
             Commands::Status(StatusArgs { watch, .. }) => assert_eq!(watch, Some(5)),

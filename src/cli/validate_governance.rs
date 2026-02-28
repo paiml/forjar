@@ -234,3 +234,74 @@ fn find_machine_affinity_issues(config: &types::ForjarConfig) -> Vec<(String, St
     issues.sort();
     issues
 }
+
+/// FJ-853: Score drift risk per resource based on type + deps.
+pub(crate) fn cmd_validate_check_resource_drift_risk(
+    file: &Path, json: bool,
+) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let config: types::ForjarConfig =
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+    let scores = score_drift_risk(&config);
+    if json {
+        let items: Vec<String> = scores.iter()
+            .map(|(r, s)| format!("{{\"resource\":\"{}\",\"drift_risk_score\":{}}}", r, s))
+            .collect();
+        println!("{{\"drift_risk_scores\":[{}]}}", items.join(","));
+    } else if scores.is_empty() {
+        println!("No resources to score.");
+    } else {
+        println!("Drift risk scores (higher = more risk):");
+        for (r, s) in &scores { println!("  {} — risk score {}", r, s); }
+    }
+    Ok(())
+}
+
+fn score_drift_risk(config: &types::ForjarConfig) -> Vec<(String, usize)> {
+    let mut results: Vec<(String, usize)> = config.resources.iter()
+        .map(|(name, resource)| {
+            let mut score = 0usize;
+            let rtype = format!("{:?}", resource.resource_type);
+            // Files drift more than packages
+            if rtype.contains("File") || rtype.contains("Template") { score += 3; }
+            if rtype.contains("Service") { score += 2; }
+            // More dependencies = higher drift risk
+            score += resource.depends_on.len();
+            // No explicit state = harder to detect drift
+            if resource.state.is_none() { score += 1; }
+            (name.clone(), score)
+        })
+        .collect();
+    results.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+    results
+}
+
+/// FJ-857: Verify all resources have required tags.
+pub(crate) fn cmd_validate_check_resource_tag_coverage(
+    file: &Path, json: bool,
+) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let config: types::ForjarConfig =
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+    let missing = find_tag_coverage_gaps(&config);
+    if json {
+        let items: Vec<String> = missing.iter()
+            .map(|r| format!("\"{}\"", r)).collect();
+        println!("{{\"resources_without_tags\":[{}]}}", items.join(","));
+    } else if missing.is_empty() {
+        println!("All resources have tags.");
+    } else {
+        println!("Resources without tags ({}):", missing.len());
+        for r in &missing { println!("  {}", r); }
+    }
+    Ok(())
+}
+
+fn find_tag_coverage_gaps(config: &types::ForjarConfig) -> Vec<String> {
+    let mut missing: Vec<String> = config.resources.iter()
+        .filter(|(_, r)| r.tags.is_empty())
+        .map(|(name, _)| name.clone())
+        .collect();
+    missing.sort();
+    missing
+}

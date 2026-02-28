@@ -284,5 +284,13 @@ pub struct GraphArgs {
     /// FJ-851: Stability score based on status history
     #[arg(long)]
     pub resource_stability_score: bool,
+
+    /// FJ-855: Fan-out count per resource
+    #[arg(long)]
+    pub resource_dependency_fanout: bool,
+
+    /// FJ-859: Weighted edges based on resource coupling
+    #[arg(long)]
+    pub resource_dependency_weight: bool,
 }
 

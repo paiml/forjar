@@ -122,6 +122,9 @@ mod tests {
                 machine_drift_age: false,
                 fleet_failed_resources: false,
                 resource_dependency_health: false,
+                machine_resource_age_distribution: false,
+                fleet_convergence_velocity: false,
+                resource_failure_correlation: false,
         });
         match cmd {
             Commands::Status(StatusArgs { cost_estimate, .. }) => assert!(cost_estimate),
@@ -236,6 +239,9 @@ mod tests {
                 machine_drift_age: false,
                 fleet_failed_resources: false,
                 resource_dependency_health: false,
+                machine_resource_age_distribution: false,
+                fleet_convergence_velocity: false,
+                resource_failure_correlation: false,
         });
         match cmd {
             Commands::Status(StatusArgs {
@@ -354,6 +360,9 @@ mod tests {
                 machine_drift_age: false,
                 fleet_failed_resources: false,
                 resource_dependency_health: false,
+                machine_resource_age_distribution: false,
+                fleet_convergence_velocity: false,
+                resource_failure_correlation: false,
         });
         match cmd {
             Commands::Status(StatusArgs { health_score, .. }) => assert!(health_score),
@@ -468,6 +477,9 @@ mod tests {
                 machine_drift_age: false,
                 fleet_failed_resources: false,
                 resource_dependency_health: false,
+                machine_resource_age_distribution: false,
+                fleet_convergence_velocity: false,
+                resource_failure_correlation: false,
         });
         match cmd {
             Commands::Status(StatusArgs {
@@ -586,6 +598,9 @@ mod tests {
                 machine_drift_age: false,
                 fleet_failed_resources: false,
                 resource_dependency_health: false,
+                machine_resource_age_distribution: false,
+                fleet_convergence_velocity: false,
+                resource_failure_correlation: false,
         });
         match cmd {
             Commands::Status(StatusArgs { audit_trail, .. }) => assert!(audit_trail),
