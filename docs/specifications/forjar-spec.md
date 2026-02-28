@@ -510,19 +510,29 @@ cache_dir: ~/.cache/apr                        # model cache directory
 state: present | absent
 ```
 
-#### `gpu` (Done — FJ-241)
+#### `gpu` (Done — FJ-241, FJ-1005)
+
+Multi-vendor GPU resource handler supporting NVIDIA (CUDA), AMD (ROCm), and CPU (no-op) backends.
 
 ```yaml
 type: gpu
 machine: <name>
-driver_version: "535"                    # NVIDIA driver version
-cuda_version: "12.3"                     # CUDA toolkit version
+gpu_backend: nvidia                      # nvidia (default) | rocm | cpu
+driver_version: "550"                    # NVIDIA driver or amdgpu-dkms version
+cuda_version: "12.4"                     # CUDA toolkit version (nvidia only)
+rocm_version: "6.0"                      # ROCm version (rocm only)
 devices: [0, 1]                          # GPU indices (default: all)
 persistence_mode: true                   # nvidia-persistenced (default: true)
 compute_mode: default                    # default | exclusive_process | prohibited
 memory_limit_mb: 8192                    # optional cgroup GPU memory limit
 state: present | absent
 ```
+
+| Backend | Check | Apply | State Query |
+|---------|-------|-------|-------------|
+| `nvidia` | `nvidia-smi` + driver version | `apt install nvidia-driver-{ver}`, `cuda-toolkit-{ver}` | `nvidia-smi --query-gpu=...` |
+| `rocm` | `rocminfo` + `/sys/module/amdgpu/version` | `apt install amdgpu-dkms rocm-hip-runtime` | `rocminfo` device listing |
+| `cpu` | Always passes (no-op) | No-op (`echo gpu-backend: cpu`) | `echo cpu-only` |
 
 #### Common Resource Fields
 
@@ -2826,6 +2836,19 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 | FJ-1002 | `forjar status --fleet-resource-error-distribution` — distribution of errors across fleet (histogram). Intelligence. | Planned |
 | FJ-1003 | `forjar graph --resource-dependency-diameter-path` — find and display the diameter path (longest shortest path). Analysis. | Planned |
 | FJ-1004 | `forjar status --machine-resource-convergence-stability` — stability score based on convergence rate variance. Intelligence. | Planned |
+
+### Phase 93 — Multi-Vendor GPU & Conditional Resource Execution (FJ-1005→FJ-1012) ✅ Done
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-1005 | Multi-vendor GPU resource handler (`gpu_backend`: nvidia/rocm/cpu). ROCm support via `amdgpu-dkms`, `rocminfo`. CPU backend is no-op. | ✅ Done |
+| FJ-1006 | Resolve `{{inputs.*}}` templates in `when` field during recipe expansion. Enables conditional resources based on recipe inputs. | ✅ Done |
+| FJ-1007 | Cargo provider bootstraps rustup if `cargo` is missing. Auto-installs via `rustup.rs` with `--no-modify-path`, adds `$HOME/.cargo/bin` to PATH. | ✅ Done |
+| FJ-1008 | Resolve all `Option<String>` fields in `resolve_resource_inputs()` — GPU, model, package, lifecycle hook fields. Fixes pre-existing template resolution gap. | ✅ Done |
+| FJ-1009 | GPU cookbook recipes: `gpu_backend`, `gpu_driver_version`, `gpu_toolkit_version` inputs. `when` conditions skip model/service/firewall in cpu mode. | ✅ Done |
+| FJ-1010 | Clean-room CI: GPU cookbook targets (`gpu-clean-room-sovereign-ai-cookbook-cuda`, `-rocm`). Device passthrough for NVIDIA (`--gpus all`) and ROCm (`--device /dev/kfd`). | ✅ Done |
+| FJ-1011 | `rocm-clean-room` CI job on `[self-hosted, gpu, amd]` runners. GPU backend matrix expansion. | ✅ Done |
+| FJ-1012 | `codegen_scripts` example: GPU resource scripts for nvidia/rocm/cpu backends. `gpu_container_transport` example: multi-vendor container lifecycle. | ✅ Done |
 
 ---
 

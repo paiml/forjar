@@ -710,41 +710,90 @@ When `checksum` is set, `forjar drift` detects unauthorized model file changes b
 
 ## GPU
 
-Manages NVIDIA GPU hardware — driver installation, CUDA toolkit, persistence mode, and compute mode.
+Multi-vendor GPU resource handler supporting NVIDIA (CUDA), AMD (ROCm), and CPU (no-op) backends.
 
 ```yaml
 resources:
-  gpu-driver:
+  # NVIDIA GPU (default)
+  gpu-nvidia:
     type: gpu
     machine: gpu-box
-    name: gpu0
-    driver_version: "535"
-    cuda_version: "12.3"
+    gpu_backend: nvidia
+    driver_version: "550"
+    cuda_version: "12.4"
     devices: [0, 1]
     persistence_mode: true
     compute_mode: exclusive_process
+
+  # AMD ROCm GPU
+  gpu-rocm:
+    type: gpu
+    machine: amd-box
+    gpu_backend: rocm
+    driver_version: "6.3"
+    rocm_version: "6.3"
+
+  # CPU-only (no-op, useful for testing)
+  gpu-cpu:
+    type: gpu
+    machine: test-box
+    gpu_backend: cpu
 ```
+
+### GPU Backends
+
+| Backend | Check | Apply | State Query |
+|---------|-------|-------|-------------|
+| `nvidia` (default) | `nvidia-smi` + driver version | `apt install nvidia-driver-{ver}`, `cuda-toolkit-{ver}` | `nvidia-smi --query-gpu=...` |
+| `rocm` | `rocminfo` + `/sys/module/amdgpu/version` | `apt install amdgpu-dkms rocm-hip-runtime` | `rocminfo` device listing |
+| `cpu` | Always passes (no-op) | No-op | `echo cpu-only` |
 
 ### GPU States
 
-- **present** (default): Install driver and CUDA toolkit, enable persistence, set compute mode
-- **absent**: Remove NVIDIA drivers
+- **present** (default): Install driver and toolkit, enable persistence, set compute mode
+- **absent**: Remove GPU drivers (nvidia or rocm)
 
 ### GPU Fields
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
+| `gpu_backend` | string | `nvidia` | GPU vendor: `nvidia`, `rocm`, or `cpu` |
 | `name` | string | `gpu0` | GPU resource identifier |
-| `driver_version` | string | required | NVIDIA driver version (e.g., `535`) |
-| `cuda_version` | string | — | CUDA toolkit version (e.g., `12.3`) |
+| `driver_version` | string | required | Driver version (nvidia driver or amdgpu-dkms) |
+| `cuda_version` | string | — | CUDA toolkit version (nvidia only) |
+| `rocm_version` | string | — | ROCm version (rocm only, e.g., `6.0`) |
 | `devices` | [integer] | all | GPU device indices |
-| `persistence_mode` | bool | `true` | Enable `nvidia-persistenced` service |
+| `persistence_mode` | bool | `true` | Enable `nvidia-persistenced` (nvidia) |
 | `compute_mode` | string | `default` | `default`, `exclusive_process`, or `prohibited` |
 | `gpu_memory_limit_mb` | integer | — | cgroup GPU memory limit in MB |
 
 ### State Query
 
-GPU state is queried via `nvidia-smi --query-gpu=driver_version,compute_mode,memory.total`. This enables drift detection — if someone manually changes the driver version or compute mode, forjar detects it.
+GPU state is queried per backend:
+- **nvidia**: `nvidia-smi --query-gpu=driver_version,compute_mode,memory.total`
+- **rocm**: `rocminfo` for device listing, `/sys/module/amdgpu/version` for driver version
+- **cpu**: Returns `cpu-only` (always converged)
+
+### Conditional GPU Resources in Recipes
+
+When using GPU resources in recipes, you can conditionally skip GPU-dependent resources in cpu mode using the `when` field with input templates:
+
+```yaml
+recipe:
+  inputs:
+    gpu_backend:
+      default: nvidia
+
+resources:
+  gpu-driver:
+    type: gpu
+    gpu_backend: "{{inputs.gpu_backend}}"
+
+  model-download:
+    type: model
+    depends_on: [gpu-driver]
+    when: '{{inputs.gpu_backend}} != "cpu"'  # skipped in cpu mode
+```
 
 ## Common Patterns
 
