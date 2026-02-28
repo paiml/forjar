@@ -119,6 +119,9 @@ mod tests {
             apply_success_rate: false,
             error_rate: false,
             fleet_health_summary: false, machine_convergence_history: false, drift_history: false, resource_failure_rate: false, machine_last_apply: false, fleet_drift_summary: false, resource_apply_duration: false, machine_resource_health: false, fleet_convergence_trend: false, resource_state_distribution: false, machine_apply_count: false, fleet_apply_history: false, resource_hash_changes: false, machine_uptime_estimate: false, fleet_resource_type_breakdown: false, resource_convergence_time: false,
+                machine_drift_age: false,
+                fleet_failed_resources: false,
+                resource_dependency_health: false,
         });
         match cmd {
             Commands::Status(StatusArgs { changes_since, .. }) => {
@@ -190,6 +193,8 @@ mod tests {
             bipartite_check: false,
             strongly_connected: false,
             dependency_matrix_csv: false, resource_weight: false, dependency_depth_per_resource: false, resource_fanin: false, isolated_subgraphs: false, resource_dependency_chain: None, bottleneck_resources: false, critical_dependency_path: false, resource_depth_histogram: false, resource_coupling_score: false, resource_change_frequency: false,
+                resource_impact_score: false,
+                resource_stability_score: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { critical_path, .. }) => assert!(critical_path),
@@ -302,6 +307,9 @@ mod tests {
             apply_success_rate: false,
             error_rate: false,
             fleet_health_summary: false, machine_convergence_history: false, drift_history: false, resource_failure_rate: false, machine_last_apply: false, fleet_drift_summary: false, resource_apply_duration: false, machine_resource_health: false, fleet_convergence_trend: false, resource_state_distribution: false, machine_apply_count: false, fleet_apply_history: false, resource_hash_changes: false, machine_uptime_estimate: false, fleet_resource_type_breakdown: false, resource_convergence_time: false,
+                machine_drift_age: false,
+                fleet_failed_resources: false,
+                resource_dependency_health: false,
         });
         match cmd {
             Commands::Status(StatusArgs { summary_by, .. }) => {
@@ -464,6 +472,7 @@ mod tests {
             notify_slack_webhook: None,
             notify_telegram: None,
             notify_webhook_v2: None, notify_discord_webhook: None, notify_teams_webhook: None, notify_slack_blocks: None, notify_custom_template: None,
+                notify_custom_webhook: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { max_failures, .. }) => assert_eq!(max_failures, Some(3)),

@@ -601,5 +601,9 @@ pub struct ApplyArgs {
     /// FJ-840: Custom notification template support
     #[arg(long)]
     pub notify_custom_template: Option<String>,
+
+    /// FJ-848: Custom webhook with configurable headers
+    #[arg(long)]
+    pub notify_custom_webhook: Option<String>,
 }
 

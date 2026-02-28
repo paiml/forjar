@@ -156,6 +156,8 @@ resources:
             check_resource_groups: false,
             check_orphan_resources: false,
             check_machine_arch: false, check_resource_health_conflicts: false, check_resource_overlap: false, check_resource_tags: false, check_resource_state_consistency: false, check_resource_dependencies_complete: false, check_machine_connectivity: false, check_resource_naming_pattern: None, check_resource_provider_support: false, check_resource_secret_refs: false, check_resource_idempotency_hints: false,
+                check_resource_dependency_depth: None,
+                check_resource_machine_affinity: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { strict, .. }) => assert!(strict),
@@ -394,6 +396,7 @@ resources:
             notify_slack_webhook: None,
             notify_telegram: None,
             notify_webhook_v2: None, notify_discord_webhook: None, notify_teams_webhook: None, notify_slack_blocks: None, notify_custom_template: None,
+                notify_custom_webhook: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { yes, .. }) => assert!(yes),

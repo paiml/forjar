@@ -276,5 +276,13 @@ pub struct GraphArgs {
     /// FJ-843: Overlay change frequency on dependency graph
     #[arg(long)]
     pub resource_change_frequency: bool,
+
+    /// FJ-847: Impact score based on dependents + depth
+    #[arg(long)]
+    pub resource_impact_score: bool,
+
+    /// FJ-851: Stability score based on status history
+    #[arg(long)]
+    pub resource_stability_score: bool,
 }
 

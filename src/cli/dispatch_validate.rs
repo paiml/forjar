@@ -11,6 +11,7 @@ use super::validate_compliance::*;
 use super::validate_resources::*;
 use super::validate_safety::*;
 use super::validate_advanced::*;
+use super::validate_governance::*;
 
 
 /// Structural/resource validation checks.
@@ -134,6 +135,7 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
         check_resource_dependencies_complete, check_machine_connectivity,
         check_resource_naming_pattern, check_resource_provider_support,
         check_resource_secret_refs, check_resource_idempotency_hints,
+        check_resource_dependency_depth, check_resource_machine_affinity,
     } = args;
 
     if check_cron_syntax {
@@ -192,6 +194,12 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
     }
     if check_resource_idempotency_hints {
         return cmd_validate_check_resource_idempotency_hints(&file, json);
+    }
+    if let Some(depth) = check_resource_dependency_depth {
+        return cmd_validate_check_resource_dependency_depth(&file, json, depth);
+    }
+    if check_resource_machine_affinity {
+        return cmd_validate_check_resource_machine_affinity(&file, json);
     }
     if let Some(r) = try_validate_advanced(&file, json, check_orphan_resources, check_machine_arch, check_resource_health_conflicts, check_resource_overlap, check_resource_tags, check_resource_state_consistency, check_resource_dependencies_complete, check_machine_connectivity) {
         return r;

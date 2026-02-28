@@ -1,6 +1,6 @@
 //! Tests: Phase 72 — Security & Fleet Insights (FJ-837→FJ-844).
 
-use super::validate_advanced::*;
+use super::validate_governance::*;
 use super::graph_paths::*;
 use super::status_insights::*;
 use std::io::Write;
@@ -86,7 +86,7 @@ mod tests {
             amqp: None, stomp: None, zeromq: None, grpc: None,
             sqs: None, mattermost: None, ntfy: None, pagerduty: None,
             discord_webhook: None, teams_webhook: None, slack_blocks: None,
-            custom_template: Some("echo {{status}} {{config}}"),
+            custom_template: Some("echo {{status}} {{config}}"), custom_webhook: None,
         };
         assert!(opts.custom_template.is_some());
     }
@@ -103,7 +103,7 @@ mod tests {
             amqp: None, stomp: None, zeromq: None, grpc: None,
             sqs: None, mattermost: None, ntfy: None, pagerduty: None,
             discord_webhook: None, teams_webhook: None, slack_blocks: None,
-            custom_template: None,
+            custom_template: None, custom_webhook: None,
         };
         assert!(opts.custom_template.is_none());
     }

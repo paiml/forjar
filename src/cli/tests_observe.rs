@@ -299,6 +299,9 @@ mod tests {
             apply_success_rate: false,
             error_rate: false,
             fleet_health_summary: false, machine_convergence_history: false, drift_history: false, resource_failure_rate: false, machine_last_apply: false, fleet_drift_summary: false, resource_apply_duration: false, machine_resource_health: false, fleet_convergence_trend: false, resource_state_distribution: false, machine_apply_count: false, fleet_apply_history: false, resource_hash_changes: false, machine_uptime_estimate: false, fleet_resource_type_breakdown: false, resource_convergence_time: false,
+                machine_drift_age: false,
+                fleet_failed_resources: false,
+                resource_dependency_health: false,
         });
         match cmd {
             Commands::Status(StatusArgs { watch, .. }) => assert_eq!(watch, Some(5)),

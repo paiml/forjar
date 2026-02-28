@@ -468,5 +468,17 @@ pub struct StatusArgs {
     /// FJ-844: Average time to converge per resource
     #[arg(long)]
     pub resource_convergence_time: bool,
+
+    /// FJ-846: Age of oldest drift per machine
+    #[arg(long)]
+    pub machine_drift_age: bool,
+
+    /// FJ-850: List all failed resources across fleet
+    #[arg(long)]
+    pub fleet_failed_resources: bool,
+
+    /// FJ-852: Health of upstream dependencies per resource
+    #[arg(long)]
+    pub resource_dependency_health: bool,
 }
 

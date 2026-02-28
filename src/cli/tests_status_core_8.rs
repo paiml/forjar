@@ -120,6 +120,9 @@ mod tests {
             apply_success_rate: false,
             error_rate: false,
             fleet_health_summary: false, machine_convergence_history: false, drift_history: false, resource_failure_rate: false, machine_last_apply: false, fleet_drift_summary: false, resource_apply_duration: false, machine_resource_health: false, fleet_convergence_trend: false, resource_state_distribution: false, machine_apply_count: false, fleet_apply_history: false, resource_hash_changes: false, machine_uptime_estimate: false, fleet_resource_type_breakdown: false, resource_convergence_time: false,
+                machine_drift_age: false,
+                fleet_failed_resources: false,
+                resource_dependency_health: false,
         });
         match cmd {
             Commands::Status(StatusArgs { sla_report, .. }) => assert!(sla_report),
@@ -233,6 +236,9 @@ mod tests {
             apply_success_rate: false,
             error_rate: false,
             fleet_health_summary: false, machine_convergence_history: false, drift_history: false, resource_failure_rate: false, machine_last_apply: false, fleet_drift_summary: false, resource_apply_duration: false, machine_resource_health: false, fleet_convergence_trend: false, resource_state_distribution: false, machine_apply_count: false, fleet_apply_history: false, resource_hash_changes: false, machine_uptime_estimate: false, fleet_resource_type_breakdown: false, resource_convergence_time: false,
+                machine_drift_age: false,
+                fleet_failed_resources: false,
+                resource_dependency_health: false,
         });
         match cmd {
             Commands::Status(StatusArgs { resource_graph, .. }) => assert!(resource_graph),
@@ -344,6 +350,9 @@ mod tests {
             apply_success_rate: false,
             error_rate: false,
             fleet_health_summary: false, machine_convergence_history: false, drift_history: false, resource_failure_rate: false, machine_last_apply: false, fleet_drift_summary: false, resource_apply_duration: false, machine_resource_health: false, fleet_convergence_trend: false, resource_state_distribution: false, machine_apply_count: false, fleet_apply_history: false, resource_hash_changes: false, machine_uptime_estimate: false, fleet_resource_type_breakdown: false, resource_convergence_time: false,
+                machine_drift_age: false,
+                fleet_failed_resources: false,
+                resource_dependency_health: false,
         });
         match cmd {
             Commands::Status(StatusArgs { drift_velocity, .. }) => assert!(drift_velocity),
@@ -457,6 +466,9 @@ mod tests {
             apply_success_rate: false,
             error_rate: false,
             fleet_health_summary: false, machine_convergence_history: false, drift_history: false, resource_failure_rate: false, machine_last_apply: false, fleet_drift_summary: false, resource_apply_duration: false, machine_resource_health: false, fleet_convergence_trend: false, resource_state_distribution: false, machine_apply_count: false, fleet_apply_history: false, resource_hash_changes: false, machine_uptime_estimate: false, fleet_resource_type_breakdown: false, resource_convergence_time: false,
+                machine_drift_age: false,
+                fleet_failed_resources: false,
+                resource_dependency_health: false,
         });
         match cmd {
             Commands::Status(StatusArgs { fleet_overview, .. }) => assert!(fleet_overview),
@@ -568,6 +580,9 @@ mod tests {
             apply_success_rate: false,
             error_rate: false,
             fleet_health_summary: false, machine_convergence_history: false, drift_history: false, resource_failure_rate: false, machine_last_apply: false, fleet_drift_summary: false, resource_apply_duration: false, machine_resource_health: false, fleet_convergence_trend: false, resource_state_distribution: false, machine_apply_count: false, fleet_apply_history: false, resource_hash_changes: false, machine_uptime_estimate: false, fleet_resource_type_breakdown: false, resource_convergence_time: false,
+                machine_drift_age: false,
+                fleet_failed_resources: false,
+                resource_dependency_health: false,
         });
         match cmd {
             Commands::Status(StatusArgs { machine_health, .. }) => assert!(machine_health),
