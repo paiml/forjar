@@ -1256,6 +1256,105 @@ resources:
 
 Available functions: `upper`, `lower`, `trim`, `default`, `replace`, `env`, `b3sum`, `join`, `split`. All support nested calls and `params.*`/`machine.*` argument references.
 
+## Sovereign AI Cookbook
+
+The [sovereign-ai-cookbook](https://github.com/paiml/sovereign-ai-cookbook) repo provides complete forjar deployment configs for the PAIML/APR sovereign AI stack. All stacks use docker container targets for testing — swap to SSH for production.
+
+### Available Stacks
+
+| Stack | Components | Description |
+|-------|-----------|-------------|
+| `01-inference` | realizar | Single-machine GPU model serving |
+| `02-training` | entrenar | LoRA fine-tuning pipeline |
+| `03-rag` | trueno-db, trueno-rag, realizar | Retrieval-augmented generation |
+| `04-speech` | whisper-apr | Automatic speech recognition |
+| `05-distributed-inference` | repartir, realizar | Multi-node inference |
+| `06-full-stack` | all components | Complete sovereign AI lab |
+| `07-data-pipeline` | alimentar, entrenar, realizar | Ingest → train → serve |
+| `08-observability` | renacer, Jaeger, Grafana | Monitoring and tracing |
+
+### Quick Start
+
+```bash
+git clone https://github.com/paiml/sovereign-ai-cookbook
+cd sovereign-ai-cookbook
+
+# Validate all stacks
+make validate
+
+# Plan a single stack
+forjar plan -f stacks/01-inference/forjar.yaml
+
+# Apply (deploys to docker container)
+forjar apply -f stacks/01-inference/forjar.yaml
+```
+
+### Architecture
+
+```
+┌──────────────────┐
+│   monitor-box    │  renacer + Grafana + Jaeger + pacha
+└────────┬─────────┘
+         │
+    ┌────┼────┐
+    │    │    │
+┌───▼┐ ┌▼──┐ ┌▼────┐
+│gpu │ │rag│ │work-│  realizar + entrenar | trueno-db + trueno-rag + whisper-apr | repartir
+│box │ │box│ │ er  │
+└────┘ └───┘ └─────┘
+```
+
+Each stack composes reusable recipes from `recipes/`. Recipes are machine-agnostic — the stack's `forjar.yaml` binds them to specific machines.
+
+### Writing Custom Stacks
+
+Compose recipes in a new `stacks/` directory:
+
+```yaml
+version: "1.0"
+name: my-custom-stack
+
+machines:
+  box:
+    hostname: box
+    addr: container
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      ephemeral: true
+      init: true
+
+resources:
+  serving:
+    type: recipe
+    machine: box
+    recipe: realizar-serve
+    inputs:
+      model_path: /opt/models/my-model.gguf
+      port: 8080
+      user: realizar
+
+  registry:
+    type: recipe
+    machine: box
+    recipe: pacha-registry
+    inputs:
+      port: 8070
+      user: pacha
+```
+
+For production, change `addr: container` to a real IP and add `ssh_key`:
+
+```yaml
+machines:
+  box:
+    hostname: gpu-prod-01
+    addr: 10.0.1.10
+    user: deploy
+    ssh_key: ~/.ssh/deploy_key
+```
+
 ## Pre-flight Checks with Doctor
 
 Run `forjar doctor` before apply to verify system prerequisites:
