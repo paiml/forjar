@@ -663,5 +663,8 @@ pub struct ApplyArgs {
     /// FJ-992: Correlate notifications by resource group and time window
     #[arg(long)]
     pub notify_custom_correlation: Option<String>,
+    /// FJ-1000: Sample notifications at a configurable rate
+    #[arg(long)]
+    pub notify_custom_sampling: Option<String>,
 }
 

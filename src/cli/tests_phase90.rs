@@ -102,7 +102,7 @@ mod tests {
             custom_dedup_window: None, custom_rate_limit: None, custom_backoff: None,
             custom_circuit_breaker: None, custom_dead_letter: None,
             custom_escalation: Some("https://hooks.example.com|warning"),
-            custom_correlation: None,
+            custom_correlation: None, custom_sampling: None,
         };
         let result: Result<(), String> = Ok(());
         super::super::dispatch_notify::send_apply_notifications(&opts, &result, std::path::Path::new("test.yaml"));
@@ -122,7 +122,7 @@ mod tests {
             custom_retry: None, custom_transform: None, custom_batch: None, custom_deduplicate: None,
             custom_throttle: None, custom_aggregate: None, custom_priority: None, custom_routing: None,
             custom_dedup_window: None, custom_rate_limit: None, custom_backoff: None,
-            custom_circuit_breaker: None, custom_dead_letter: None, custom_escalation: None, custom_correlation: None,
+            custom_circuit_breaker: None, custom_dead_letter: None, custom_escalation: None, custom_correlation: None, custom_sampling: None,
         };
         let result: Result<(), String> = Ok(());
         super::super::dispatch_notify::send_apply_notifications(&opts, &result, std::path::Path::new("test.yaml"));

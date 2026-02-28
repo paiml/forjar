@@ -541,4 +541,13 @@ pub struct StatusArgs {
     /// FJ-996: Error rate per machine across recent applies
     #[arg(long)]
     pub machine_resource_error_rate: bool,
+    /// FJ-998: Gap between expected and actual convergence rate
+    #[arg(long)]
+    pub machine_resource_convergence_gap: bool,
+    /// FJ-1002: Distribution of errors across fleet
+    #[arg(long)]
+    pub fleet_resource_error_distribution: bool,
+    /// FJ-1004: Stability score based on convergence rate variance
+    #[arg(long)]
+    pub machine_resource_convergence_stability: bool,
 }

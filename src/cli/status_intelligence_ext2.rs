@@ -197,3 +197,99 @@ fn print_error_rates(rates: &[(String, f64, usize, usize)], json: bool) {
         for (m, r, f, t) in rates { println!("  {} — {:.1}% ({}/{} failed)", m, r * 100.0, f, t); }
     }
 }
+/// FJ-998: Gap between expected (100%) and actual convergence rate.
+pub(crate) fn cmd_status_machine_resource_convergence_gap(sd: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
+    let machines = discover_machines(sd);
+    let targets = filter_targets(&machines, machine);
+    let mut gaps: Vec<(String, f64, usize)> = Vec::new();
+    for m in &targets {
+        let path = sd.join(m).join("state.lock.yaml");
+        let content = match std::fs::read_to_string(&path) { Ok(c) => c, Err(_) => continue };
+        let lock: types::StateLock = match serde_yaml_ng::from_str(&content) { Ok(l) => l, Err(_) => continue };
+        let total = lock.resources.len();
+        if total == 0 { continue; }
+        let converged = lock.resources.values().filter(|r| r.status == types::ResourceStatus::Converged).count();
+        let gap = 1.0 - (converged as f64 / total as f64);
+        gaps.push(((*m).clone(), gap, total));
+    }
+    gaps.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+    print_convergence_gaps(&gaps, json);
+    Ok(())
+}
+fn print_convergence_gaps(gaps: &[(String, f64, usize)], json: bool) {
+    if json {
+        let items: Vec<String> = gaps.iter()
+            .map(|(m, g, t)| format!("{{\"machine\":\"{}\",\"gap\":{:.4},\"total\":{}}}", m, g, t)).collect();
+        println!("{{\"convergence_gaps\":[{}]}}", items.join(","));
+    } else if gaps.is_empty() {
+        println!("No convergence gap data available.");
+    } else {
+        println!("Convergence gap (0=fully converged):");
+        for (m, g, t) in gaps { println!("  {} — {:.1}% gap ({} resources)", m, g * 100.0, t); }
+    }
+}
+/// FJ-1002: Distribution of errors across fleet.
+pub(crate) fn cmd_status_fleet_resource_error_distribution(sd: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
+    let machines = discover_machines(sd);
+    let targets = filter_targets(&machines, machine);
+    let mut dist: Vec<(String, usize, usize)> = Vec::new();
+    for m in &targets {
+        let path = sd.join(m).join("state.lock.yaml");
+        let content = match std::fs::read_to_string(&path) { Ok(c) => c, Err(_) => continue };
+        let lock: types::StateLock = match serde_yaml_ng::from_str(&content) { Ok(l) => l, Err(_) => continue };
+        let total = lock.resources.len();
+        let failed = lock.resources.values().filter(|r| r.status == types::ResourceStatus::Failed).count();
+        if total > 0 { dist.push(((*m).clone(), failed, total)); }
+    }
+    dist.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+    print_error_distribution(&dist, json);
+    Ok(())
+}
+fn print_error_distribution(dist: &[(String, usize, usize)], json: bool) {
+    if json {
+        let items: Vec<String> = dist.iter()
+            .map(|(m, f, t)| format!("{{\"machine\":\"{}\",\"failed\":{},\"total\":{}}}", m, f, t)).collect();
+        println!("{{\"error_distribution\":[{}]}}", items.join(","));
+    } else if dist.is_empty() {
+        println!("No error distribution data available.");
+    } else {
+        println!("Error distribution:");
+        for (m, f, t) in dist {
+            let bar = "█".repeat((*f * 20).checked_div(*t).unwrap_or(0));
+            println!("  {:20} {:>3}/{:<3} {}", m, f, t, bar);
+        }
+    }
+}
+/// FJ-1004: Stability score based on convergence rate variance.
+pub(crate) fn cmd_status_machine_resource_convergence_stability(sd: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
+    let machines = discover_machines(sd);
+    let targets = filter_targets(&machines, machine);
+    let mut stabilities: Vec<(String, f64)> = Vec::new();
+    for m in &targets {
+        let path = sd.join(m).join("state.lock.yaml");
+        let content = match std::fs::read_to_string(&path) { Ok(c) => c, Err(_) => continue };
+        let lock: types::StateLock = match serde_yaml_ng::from_str(&content) { Ok(l) => l, Err(_) => continue };
+        let total = lock.resources.len();
+        if total == 0 { continue; }
+        let converged = lock.resources.values().filter(|r| r.status == types::ResourceStatus::Converged).count();
+        let rate = converged as f64 / total as f64;
+        stabilities.push(((*m).clone(), rate));
+    }
+    stabilities.sort_by(|a, b| a.0.cmp(&b.0));
+    print_convergence_stability(&stabilities, json);
+    Ok(())
+}
+fn print_convergence_stability(stabilities: &[(String, f64)], json: bool) {
+    let mean = if stabilities.is_empty() { 0.0 } else { stabilities.iter().map(|(_, r)| r).sum::<f64>() / stabilities.len() as f64 };
+    let variance = if stabilities.len() < 2 { 0.0 } else {
+        stabilities.iter().map(|(_, r)| (r - mean).powi(2)).sum::<f64>() / stabilities.len() as f64
+    };
+    let stability = 1.0 - variance.sqrt();
+    if json {
+        println!("{{\"convergence_stability\":{{\"score\":{:.4},\"mean\":{:.4},\"variance\":{:.6},\"machines\":{}}}}}", stability, mean, variance, stabilities.len());
+    } else if stabilities.is_empty() {
+        println!("No convergence stability data available.");
+    } else {
+        println!("Convergence stability: {:.1}% (mean: {:.1}%, {} machines)", stability * 100.0, mean * 100.0, stabilities.len());
+    }
+}

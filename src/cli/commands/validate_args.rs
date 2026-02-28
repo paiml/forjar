@@ -386,5 +386,11 @@ pub struct ValidateArgs {
     /// FJ-993: Warn if resources lack idempotency annotations or markers
     #[arg(long)]
     pub check_resource_idempotency_annotations: bool,
+    /// FJ-997: Warn if resource content exceeds size threshold
+    #[arg(long)]
+    pub check_resource_content_size_limit: bool,
+    /// FJ-1001: Warn if any resource exceeds max fan-in or fan-out
+    #[arg(long)]
+    pub check_resource_dependency_fan_limit: bool,
 }
 
