@@ -430,5 +430,11 @@ pub struct GraphArgs {
     /// FJ-1042: Trace resource origins by type, machine, and depth
     #[arg(long)]
     pub resource_provenance_summary: bool,
+    /// FJ-1047: Compute risk score per resource based on type weight, depth, and fan-in
+    #[arg(long)]
+    pub resource_dependency_risk_score: bool,
+    /// FJ-1050: Assign resources to semantic layers (infra, app, config, other)
+    #[arg(long)]
+    pub resource_dependency_layering: bool,
 }
 

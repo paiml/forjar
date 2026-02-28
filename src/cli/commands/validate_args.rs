@@ -425,5 +425,14 @@ pub struct ValidateArgs {
     /// FJ-1044: Identify resource consolidation opportunities
     #[arg(long)]
     pub check_resource_consolidation_opportunities: bool,
+    /// FJ-1046: Validate resources have proper compliance tags
+    #[arg(long)]
+    pub check_resource_compliance_tags: bool,
+    /// FJ-1049: Validate resources have rollback coverage
+    #[arg(long)]
+    pub check_resource_rollback_coverage: bool,
+    /// FJ-1052: Validate dependency balance across resources
+    #[arg(long)]
+    pub check_resource_dependency_balance: bool,
 }
 

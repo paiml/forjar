@@ -2902,6 +2902,19 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 | FJ-1043 | `forjar status --fleet-capacity-utilization` — estimate fleet capacity utilization from resource counts and machine distribution. Intelligence. | ✅ Done |
 | FJ-1044 | `forjar validate --check-resource-consolidation-opportunities` — identify resources that could be consolidated across machines. Governance. | ✅ Done |
 
+### Phase 98 — Compliance Automation & Drift Intelligence (FJ-1045→FJ-1052)
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-1045 | `forjar status --fleet-drift-velocity-trend` — compute drift velocity trend (rate of change in drift count over time). Intelligence. | ✅ Done |
+| FJ-1046 | `forjar validate --check-resource-compliance-tags` — warn if resources lack required compliance tags (e.g., pci, hipaa, sox). Governance. | ✅ Done |
+| FJ-1047 | `forjar graph --resource-dependency-risk-score` — assign risk scores to dependency edges based on resource type and depth. Analysis. | ✅ Done |
+| FJ-1048 | `forjar status --machine-convergence-window` — estimate time window to full convergence per machine from historical data. Intelligence. | ✅ Done |
+| FJ-1049 | `forjar validate --check-resource-rollback-coverage` — warn if resources lack rollback mechanisms or recovery steps. Governance. | ✅ Done |
+| FJ-1050 | `forjar graph --resource-dependency-layering` — partition resources into semantic layers (infra, app, config). Analysis. | ✅ Done |
+| FJ-1051 | `forjar status --fleet-resource-age-histogram` — histogram of resource ages across fleet (by last apply time). Intelligence. | ✅ Done |
+| FJ-1052 | `forjar validate --check-resource-dependency-balance` — warn if dependency graph is heavily skewed (fan-in/out imbalance). Governance. | ✅ Done |
+
 ---
 
 ## 9. Performance Targets

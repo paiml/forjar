@@ -21,6 +21,7 @@ use super::graph_intelligence_ext2::*;
 use super::graph_resilience::*;
 use super::graph_transport::*;
 use super::graph_analytics::*;
+use super::graph_compliance::*;
 
 
 /// Dispatch traversal flags (depth_first through critical_chain).
@@ -294,6 +295,14 @@ fn try_graph_phase97(
     if resource_provenance_summary { return Some(cmd_graph_resource_provenance_summary(file, json)); }
     None
 }
+fn try_graph_phase98(
+    file: &Path, json: bool,
+    resource_dependency_risk_score: bool, resource_dependency_layering: bool,
+) -> Option<Result<(), String>> {
+    if resource_dependency_risk_score { return Some(cmd_graph_resource_dependency_risk_score(file, json)); }
+    if resource_dependency_layering { return Some(cmd_graph_resource_dependency_layering(file, json)); }
+    None
+}
 
 /// Dispatch the Graph command variant.
 pub(crate) fn dispatch_graph_cmd(cmd: Commands) -> Result<(), String> {
@@ -349,6 +358,8 @@ pub(crate) fn dispatch_graph_cmd(cmd: Commands) -> Result<(), String> {
         resource_dependency_critical_chain_path,
         resource_apply_order_simulation,
         resource_provenance_summary,
+        resource_dependency_risk_score,
+        resource_dependency_layering,
     }) = cmd
     else {
         unreachable!()
@@ -376,6 +387,9 @@ pub(crate) fn dispatch_graph_cmd(cmd: Commands) -> Result<(), String> {
         return r;
     }
     if let Some(r) = try_graph_phase97(&file, json_output, resource_apply_order_simulation, resource_provenance_summary) {
+        return r;
+    }
+    if let Some(r) = try_graph_phase98(&file, json_output, resource_dependency_risk_score, resource_dependency_layering) {
         return r;
     }
     if let Some(r) = try_graph_scoring_inline(&file, json_output, resource_dependency_bottleneck, resource_type_clustering, resource_dependency_cycle_risk, resource_impact_radius, resource_dependency_health_map, resource_change_propagation, resource_dependency_depth_analysis, resource_dependency_fan_analysis, resource_dependency_isolation_score, resource_dependency_stability_score, resource_dependency_critical_path_length, resource_dependency_redundancy_score) {
