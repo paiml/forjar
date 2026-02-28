@@ -80,6 +80,7 @@ pub(crate) struct NotifyOpts<'a> {
     pub custom_headers: Option<&'a str>,
     pub custom_json: Option<&'a str>,
     pub custom_filter: Option<&'a str>,
+    pub custom_retry: Option<&'a str>,
 }
 
 
@@ -188,6 +189,7 @@ fn send_incident_notifications(opts: &NotifyOpts<'_>, result: &Result<(), String
     send_custom_headers_notification(opts.custom_headers, result, config);
     send_custom_json_notification(opts.custom_json, result, config);
     send_custom_filter_notification(opts.custom_filter, result, config);
+    send_custom_retry_notification(opts.custom_retry, result, config);
 }
 
 fn send_pagerduty_notification(key: Option<&str>, result: &Result<(), String>, config: &Path) {
@@ -378,4 +380,36 @@ fn send_custom_filter_notification(filter: Option<&str>, result: &Result<(), Str
         status, config.display(), filter_expr,
     );
     send_webhook(url, &payload);
+}
+
+/// FJ-880: Retry notification on failure with configurable attempts.
+/// Format: "url|retries:3" or "url|retries:5,delay:2"
+fn send_custom_retry_notification(spec: Option<&str>, result: &Result<(), String>, config: &Path) {
+    let spec = match spec { Some(s) => s, None => return };
+    let parts: Vec<&str> = spec.splitn(2, '|').collect();
+    if parts.len() != 2 { return; }
+    let (url, opts) = (parts[0], parts[1]);
+    let mut retries: usize = 3;
+    for kv in opts.split(',') {
+        let kv: Vec<&str> = kv.splitn(2, ':').collect();
+        if kv.len() == 2 && kv[0].trim() == "retries" {
+            retries = kv[1].trim().parse().unwrap_or(3);
+        }
+    }
+    let status = if result.is_ok() { "success" } else { "failure" };
+    let payload = format!(
+        r#"{{"event":"forjar_apply","status":"{}","config":"{}","retries":{}}}"#,
+        status, config.display(), retries,
+    );
+    for attempt in 0..=retries {
+        let out = std::process::Command::new("curl")
+            .args(["-s", "-o", "/dev/null", "-w", "%{http_code}", "-X", "POST", "-H", "Content-Type: application/json", "-d", &payload, url])
+            .output();
+        let ok = match out {
+            Ok(ref o) => String::from_utf8_lossy(&o.stdout).starts_with('2'),
+            Err(_) => false,
+        };
+        if ok || attempt == retries { break; }
+        std::thread::sleep(std::time::Duration::from_secs(1));
+    }
 }

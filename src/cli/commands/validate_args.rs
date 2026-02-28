@@ -296,5 +296,11 @@ pub struct ValidateArgs {
     /// FJ-873: Verify resources are idempotent-safe
     #[arg(long)]
     pub check_resource_idempotency: bool,
+    /// FJ-877: Verify resources have descriptions or comments
+    #[arg(long)]
+    pub check_resource_documentation: bool,
+    /// FJ-881: Verify all resources have assigned owners
+    #[arg(long)]
+    pub check_resource_ownership: bool,
 }
 

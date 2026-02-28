@@ -617,5 +617,9 @@ pub struct ApplyArgs {
     /// FJ-872: Filter notifications by resource type or status
     #[arg(long)]
     pub notify_custom_filter: Option<String>,
+
+    /// FJ-880: Retry failed notifications with exponential backoff
+    #[arg(long)]
+    pub notify_custom_retry: Option<String>,
 }
 

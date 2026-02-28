@@ -2320,6 +2320,67 @@ forjar status --state-dir state/ --machine-resource-freshness
 #   web1 / nginx — last applied 2025-02-01T14:00:00Z
 ```
 
+#### Phase 77 — Operational Maturity & Compliance Automation
+
+**Validate — check resource documentation (FJ-877)**
+
+```bash
+forjar validate -f forjar.yaml --check-resource-documentation
+# Resources missing documentation:
+#   data-dir
+#   dev-tools
+```
+
+**Status — machine error budget (FJ-878)**
+
+```bash
+forjar status --state-dir state/ --machine-error-budget
+# Machine error budget (failed / total):
+#   web1 — 1/5 failed (20.0% error budget consumed)
+```
+
+**Graph — resource dependency health map (FJ-879)**
+
+```bash
+forjar graph -f forjar.yaml --resource-dependency-health-map
+# Dependency health map:
+#   base (no dependencies)
+#   app → base
+```
+
+**Validate — check resource ownership (FJ-881)**
+
+```bash
+forjar validate -f forjar.yaml --check-resource-ownership
+# Resources missing ownership (no tags or resource_group):
+#   data-dir
+#   dev-tools
+```
+
+**Status — fleet compliance score (FJ-882)**
+
+```bash
+forjar status --state-dir state/ --fleet-compliance-score
+# Fleet compliance score: 80.0% (4/5 resources converged)
+```
+
+**Graph — resource change propagation (FJ-883)**
+
+```bash
+forjar graph -f forjar.yaml --resource-change-propagation
+# Change propagation analysis (resources by impact depth):
+#   base — propagation depth 2
+#   middleware — propagation depth 1
+```
+
+**Status — machine mean time to recovery (FJ-884)**
+
+```bash
+forjar status --state-dir state/ --machine-mean-time-to-recovery
+# Machine mean time to recovery:
+#   web1 — event data present
+```
+
 ### `forjar watch`
 
 Watch a config file for changes and automatically re-plan.

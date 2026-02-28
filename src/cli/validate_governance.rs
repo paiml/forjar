@@ -459,3 +459,59 @@ fn find_idempotency_concerns(config: &types::ForjarConfig) -> Vec<(String, Strin
     concerns.sort_by(|a, b| a.0.cmp(&b.0));
     concerns
 }
+
+/// FJ-877: Check resource documentation — ensure resources have descriptions or comments.
+pub(crate) fn cmd_validate_check_resource_documentation(file: &Path, json: bool) -> Result<(), String> {
+    let raw = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let config: types::ForjarConfig = serde_yaml_ng::from_str(&raw).map_err(|e| e.to_string())?;
+    let undocumented = find_undocumented_resources(&config);
+    if json {
+        let items: Vec<String> = undocumented.iter().map(|n| format!("\"{}\"", n)).collect();
+        println!("{{\"undocumented_resources\":[{}]}}", items.join(","));
+    } else if undocumented.is_empty() {
+        println!("All resources have documentation.");
+    } else {
+        println!("Resources missing documentation:");
+        for name in &undocumented { println!("  {}", name); }
+    }
+    Ok(())
+}
+
+fn find_undocumented_resources(config: &types::ForjarConfig) -> Vec<String> {
+    let mut missing: Vec<String> = config.resources.keys()
+        .filter(|name| {
+            let r = &config.resources[*name];
+            r.tags.is_empty() && r.content.is_none()
+        })
+        .cloned().collect();
+    missing.sort();
+    missing
+}
+
+/// FJ-881: Check resource ownership — ensure resources have owner tags or group assignment.
+pub(crate) fn cmd_validate_check_resource_ownership(file: &Path, json: bool) -> Result<(), String> {
+    let raw = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let config: types::ForjarConfig = serde_yaml_ng::from_str(&raw).map_err(|e| e.to_string())?;
+    let unowned = find_unowned_resources(&config);
+    if json {
+        let items: Vec<String> = unowned.iter().map(|n| format!("\"{}\"", n)).collect();
+        println!("{{\"unowned_resources\":[{}]}}", items.join(","));
+    } else if unowned.is_empty() {
+        println!("All resources have ownership assigned.");
+    } else {
+        println!("Resources missing ownership (no tags or resource_group):");
+        for name in &unowned { println!("  {}", name); }
+    }
+    Ok(())
+}
+
+fn find_unowned_resources(config: &types::ForjarConfig) -> Vec<String> {
+    let mut missing: Vec<String> = config.resources.keys()
+        .filter(|name| {
+            let r = &config.resources[*name];
+            r.tags.is_empty() && r.resource_group.is_none()
+        })
+        .cloned().collect();
+    missing.sort();
+    missing
+}

@@ -358,3 +358,4 @@ pub(crate) fn cmd_status_machine_resource_freshness(
     }
     Ok(())
 }
+

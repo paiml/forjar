@@ -94,8 +94,6 @@ fn try_validate_governance(
     check_resource_secret_refs: bool, check_resource_idempotency_hints: bool,
     check_resource_dependency_depth: Option<usize>, check_resource_machine_affinity: bool,
     check_resource_drift_risk: bool, check_resource_tag_coverage: bool,
-    check_resource_lifecycle_hooks: bool, check_resource_provider_version: bool,
-    check_resource_naming_convention: bool, check_resource_idempotency: bool,
 ) -> Option<Result<(), String>> {
     if let Some(ref pattern) = check_resource_naming_pattern {
         return Some(cmd_validate_check_resource_naming_pattern(file, json, pattern));
@@ -109,10 +107,23 @@ fn try_validate_governance(
     if check_resource_machine_affinity { return Some(cmd_validate_check_resource_machine_affinity(file, json)); }
     if check_resource_drift_risk { return Some(cmd_validate_check_resource_drift_risk(file, json)); }
     if check_resource_tag_coverage { return Some(cmd_validate_check_resource_tag_coverage(file, json)); }
+    None
+}
+
+/// Phase 75-77 governance validation checks.
+#[allow(clippy::too_many_arguments)]
+fn try_validate_governance_b(
+    file: &Path, json: bool,
+    check_resource_lifecycle_hooks: bool, check_resource_provider_version: bool,
+    check_resource_naming_convention: bool, check_resource_idempotency: bool,
+    check_resource_documentation: bool, check_resource_ownership: bool,
+) -> Option<Result<(), String>> {
     if check_resource_lifecycle_hooks { return Some(cmd_validate_check_resource_lifecycle_hooks(file, json)); }
     if check_resource_provider_version { return Some(cmd_validate_check_resource_provider_version(file, json)); }
     if check_resource_naming_convention { return Some(cmd_validate_check_resource_naming_convention(file, json)); }
     if check_resource_idempotency { return Some(cmd_validate_check_resource_idempotency(file, json)); }
+    if check_resource_documentation { return Some(cmd_validate_check_resource_documentation(file, json)); }
+    if check_resource_ownership { return Some(cmd_validate_check_resource_ownership(file, json)); }
     None
 }
 
@@ -169,6 +180,7 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
         check_resource_drift_risk, check_resource_tag_coverage,
         check_resource_lifecycle_hooks, check_resource_provider_version,
         check_resource_naming_convention, check_resource_idempotency,
+        check_resource_documentation, check_resource_ownership,
     } = args;
 
     if check_cron_syntax {
@@ -216,7 +228,10 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
     if check_resource_groups {
         return cmd_validate_check_resource_groups(&file, json);
     }
-    if let Some(r) = try_validate_governance(&file, json, &check_resource_naming_pattern, check_resource_provider_support, check_resource_secret_refs, check_resource_idempotency_hints, check_resource_dependency_depth, check_resource_machine_affinity, check_resource_drift_risk, check_resource_tag_coverage, check_resource_lifecycle_hooks, check_resource_provider_version, check_resource_naming_convention, check_resource_idempotency) {
+    if let Some(r) = try_validate_governance(&file, json, &check_resource_naming_pattern, check_resource_provider_support, check_resource_secret_refs, check_resource_idempotency_hints, check_resource_dependency_depth, check_resource_machine_affinity, check_resource_drift_risk, check_resource_tag_coverage) {
+        return r;
+    }
+    if let Some(r) = try_validate_governance_b(&file, json, check_resource_lifecycle_hooks, check_resource_provider_version, check_resource_naming_convention, check_resource_idempotency, check_resource_documentation, check_resource_ownership) {
         return r;
     }
     if let Some(r) = try_validate_advanced(&file, json, check_orphan_resources, check_machine_arch, check_resource_health_conflicts, check_resource_overlap, check_resource_tags, check_resource_state_consistency, check_resource_dependencies_complete, check_machine_connectivity) {

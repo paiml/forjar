@@ -403,39 +403,30 @@ pub struct StatusArgs {
     /// FJ-802: Show error rate per resource type
     #[arg(long)]
     pub error_rate: bool,
-
     /// FJ-804: One-line per machine with health + convergence
     #[arg(long)]
     pub fleet_health_summary: bool,
-
     /// FJ-806: Convergence trend per machine over time
     #[arg(long)]
     pub machine_convergence_history: bool,
-
     /// FJ-810: Drift events timeline across fleet
     #[arg(long)]
     pub drift_history: bool,
-
     /// FJ-812: Failure rate per resource across applies
     #[arg(long)]
     pub resource_failure_rate: bool,
-
     /// FJ-814: Show last apply timestamp per machine
     #[arg(long)]
     pub machine_last_apply: bool,
-
     /// FJ-818: Aggregated drift summary across all machines
     #[arg(long)]
     pub fleet_drift_summary: bool,
-
     /// FJ-820: Average apply duration per resource type
     #[arg(long)]
     pub resource_apply_duration: bool,
-
     /// FJ-822: Per-machine breakdown of resource health status
     #[arg(long)]
     pub machine_resource_health: bool,
-
     /// FJ-826: Convergence percentage over last N applies
     #[arg(long)]
     pub fleet_convergence_trend: bool,
@@ -497,4 +488,13 @@ pub struct StatusArgs {
     /// FJ-876: Time since last successful apply per resource
     #[arg(long)]
     pub machine_resource_freshness: bool,
+    /// FJ-878: Track error budget consumption per machine
+    #[arg(long)]
+    pub machine_error_budget: bool,
+    /// FJ-882: Aggregate compliance score across fleet
+    #[arg(long)]
+    pub fleet_compliance_score: bool,
+    /// FJ-884: MTTR metrics per machine
+    #[arg(long)]
+    pub machine_mean_time_to_recovery: bool,
 }

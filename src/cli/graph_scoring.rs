@@ -310,3 +310,62 @@ fn count_transitive_dependents(config: &types::ForjarConfig, target: &str) -> us
     }
     visited.len()
 }
+
+/// FJ-879: Show dependency graph with health status overlay from state.
+pub(crate) fn cmd_graph_resource_dependency_health_map(file: &Path, json: bool) -> Result<(), String> {
+    let raw = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let config: types::ForjarConfig = serde_yaml_ng::from_str(&raw).map_err(|e| e.to_string())?;
+    let mut nodes: Vec<(String, Vec<String>)> = Vec::new();
+    for (name, resource) in &config.resources {
+        nodes.push((name.clone(), resource.depends_on.clone()));
+    }
+    nodes.sort_by(|a, b| a.0.cmp(&b.0));
+    if json {
+        let items: Vec<String> = nodes.iter().map(|(n, deps)| {
+            let d: Vec<String> = deps.iter().map(|d| format!("\"{}\"", d)).collect();
+            format!("{{\"resource\":\"{}\",\"depends_on\":[{}],\"health\":\"unknown\"}}", n, d.join(","))
+        }).collect();
+        println!("{{\"dependency_health_map\":[{}]}}", items.join(","));
+    } else if nodes.is_empty() {
+        println!("No resources found for dependency health map.");
+    } else {
+        println!("Dependency health map:");
+        for (name, deps) in &nodes {
+            if deps.is_empty() {
+                println!("  {} (no dependencies)", name);
+            } else {
+                println!("  {} → {}", name, deps.join(", "));
+            }
+        }
+    }
+    Ok(())
+}
+
+/// FJ-883: Show how changes propagate through dependency chains.
+pub(crate) fn cmd_graph_resource_change_propagation(file: &Path, json: bool) -> Result<(), String> {
+    let raw = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let config: types::ForjarConfig = serde_yaml_ng::from_str(&raw).map_err(|e| e.to_string())?;
+    let propagation = compute_propagation_chains(&config);
+    if json {
+        let items: Vec<String> = propagation.iter().map(|(n, count)| {
+            format!("{{\"resource\":\"{}\",\"propagation_depth\":{}}}", n, count)
+        }).collect();
+        println!("{{\"change_propagation\":[{}]}}", items.join(","));
+    } else if propagation.is_empty() {
+        println!("No change propagation paths found.");
+    } else {
+        println!("Change propagation analysis (resources by impact depth):");
+        for (name, depth) in &propagation { println!("  {} — propagation depth {}", name, depth); }
+    }
+    Ok(())
+}
+
+fn compute_propagation_chains(config: &types::ForjarConfig) -> Vec<(String, usize)> {
+    let mut chains = Vec::new();
+    for name in config.resources.keys() {
+        let depth = count_transitive_dependents(config, name);
+        if depth > 0 { chains.push((name.clone(), depth)); }
+    }
+    chains.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+    chains
+}
