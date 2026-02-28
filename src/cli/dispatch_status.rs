@@ -258,6 +258,34 @@ fn try_status_phase91(
     if machine_resource_error_rate { return Some(cmd_status_machine_resource_error_rate(sd, machine, json)); }
     None
 }
+#[allow(clippy::too_many_arguments)]
+fn try_status_phase92(
+    sd: &Path, machine: Option<&str>, json: bool,
+    machine_resource_convergence_gap: bool, fleet_resource_error_distribution: bool, machine_resource_convergence_stability: bool,
+) -> Option<Result<(), String>> {
+    if machine_resource_convergence_gap { return Some(cmd_status_machine_resource_convergence_gap(sd, machine, json)); }
+    if fleet_resource_error_distribution { return Some(cmd_status_fleet_resource_error_distribution(sd, machine, json)); }
+    if machine_resource_convergence_stability { return Some(cmd_status_machine_resource_convergence_stability(sd, machine, json)); }
+    None
+}
+#[allow(clippy::too_many_arguments)]
+fn try_status_phases_87_92(
+    sd: &Path, machine: Option<&str>, json: bool,
+    a1: bool, a2: bool, a3: bool,
+    b1: bool, b2: bool, b3: bool,
+    c1: bool, c2: bool, c3: bool,
+    d1: bool, d2: bool, d3: bool,
+    e1: bool, e2: bool, e3: bool,
+    f1: bool, f2: bool, f3: bool,
+) -> Option<Result<(), String>> {
+    if let Some(r) = try_status_phase87(sd, machine, json, a1, a2, a3) { return Some(r); }
+    if let Some(r) = try_status_phase88(sd, machine, json, b1, b2, b3) { return Some(r); }
+    if let Some(r) = try_status_phase89(sd, machine, json, c1, c2, c3) { return Some(r); }
+    if let Some(r) = try_status_phase90(sd, machine, json, d1, d2, d3) { return Some(r); }
+    if let Some(r) = try_status_phase91(sd, machine, json, e1, e2, e3) { return Some(r); }
+    if let Some(r) = try_status_phase92(sd, machine, json, f1, f2, f3) { return Some(r); }
+    None
+}
 pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
     let Commands::Status(StatusArgs {
         state_dir, machine, json, file, summary, watch,
@@ -312,6 +340,7 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
         machine_resource_apply_frequency, fleet_resource_health_score, machine_resource_staleness_index,
         machine_resource_drift_recurrence, fleet_resource_drift_heatmap, machine_resource_convergence_trend_p90,
         machine_resource_drift_age_hours, fleet_resource_convergence_percentile, machine_resource_error_rate,
+        machine_resource_convergence_gap, fleet_resource_error_distribution, machine_resource_convergence_stability,
     }) = cmd
     else {
         unreachable!()
@@ -335,19 +364,14 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
     if let Some(r) = try_status_phase79(&state_dir, m, json, machine_resource_failure_correlation, fleet_resource_age_distribution, machine_resource_rollback_readiness, machine_resource_health_trend, fleet_resource_drift_velocity, machine_resource_apply_success_trend, machine_resource_mttr_estimate, fleet_resource_convergence_forecast, machine_resource_error_budget_forecast, machine_resource_dependency_lag, fleet_resource_dependency_lag, machine_resource_config_drift_rate, machine_resource_convergence_lag, fleet_resource_convergence_lag, machine_resource_dependency_depth, machine_resource_convergence_velocity, fleet_resource_convergence_velocity, machine_resource_failure_recurrence, machine_resource_drift_frequency, fleet_resource_drift_frequency, machine_resource_apply_duration_trend, machine_resource_convergence_streak, fleet_resource_convergence_streak, machine_resource_error_distribution) {
         return r;
     }
-    if let Some(r) = try_status_phase87(&state_dir, m, json, machine_resource_drift_age, fleet_resource_drift_age, machine_resource_recovery_rate) {
-        return r;
-    }
-    if let Some(r) = try_status_phase88(&state_dir, m, json, machine_resource_drift_velocity, fleet_resource_recovery_rate, machine_resource_convergence_efficiency) {
-        return r;
-    }
-    if let Some(r) = try_status_phase89(&state_dir, m, json, machine_resource_apply_frequency, fleet_resource_health_score, machine_resource_staleness_index) {
-        return r;
-    }
-    if let Some(r) = try_status_phase90(&state_dir, m, json, machine_resource_drift_recurrence, fleet_resource_drift_heatmap, machine_resource_convergence_trend_p90) {
-        return r;
-    }
-    if let Some(r) = try_status_phase91(&state_dir, m, json, machine_resource_drift_age_hours, fleet_resource_convergence_percentile, machine_resource_error_rate) {
+    if let Some(r) = try_status_phases_87_92(&state_dir, m, json,
+        machine_resource_drift_age, fleet_resource_drift_age, machine_resource_recovery_rate,
+        machine_resource_drift_velocity, fleet_resource_recovery_rate, machine_resource_convergence_efficiency,
+        machine_resource_apply_frequency, fleet_resource_health_score, machine_resource_staleness_index,
+        machine_resource_drift_recurrence, fleet_resource_drift_heatmap, machine_resource_convergence_trend_p90,
+        machine_resource_drift_age_hours, fleet_resource_convergence_percentile, machine_resource_error_rate,
+        machine_resource_convergence_gap, fleet_resource_error_distribution, machine_resource_convergence_stability,
+    ) {
         return r;
     }
     if let Some(r) = try_status_phase75(&state_dir, m, json, machine_resource_churn_rate, fleet_resource_staleness, machine_convergence_trend, machine_capacity_utilization, fleet_configuration_entropy, machine_resource_freshness, machine_error_budget, fleet_compliance_score, machine_mean_time_to_recovery, machine_resource_dependency_health, fleet_resource_type_health, machine_resource_convergence_rate) {

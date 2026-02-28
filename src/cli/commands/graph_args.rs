@@ -400,5 +400,11 @@ pub struct GraphArgs {
     /// FJ-995: Compute transitive closure size for each resource
     #[arg(long)]
     pub resource_dependency_closure_size: bool,
+    /// FJ-999: Compute graph eccentricity for each resource node
+    #[arg(long)]
+    pub resource_dependency_eccentricity_map: bool,
+    /// FJ-1003: Find and display the diameter path
+    #[arg(long)]
+    pub resource_dependency_diameter_path: bool,
 }
 

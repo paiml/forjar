@@ -158,3 +158,12 @@ pub(super) fn send_custom_correlation_notification(spec: Option<&str>, result: &
     let status = if result.is_ok() { "success" } else { "failure" };
     println!("[notify:custom-correlation] → {} (window: {}, status: {}, config: {})", url, window, status, config.display());
 }
+/// FJ-1000: Sample notifications at a configurable rate.
+pub(super) fn send_custom_sampling_notification(spec: Option<&str>, result: &Result<(), String>, config: &Path) {
+    let spec = match spec { Some(s) => s, None => return };
+    let parts: Vec<&str> = spec.splitn(2, '|').collect();
+    let url = parts.first().unwrap_or(&"");
+    let rate = parts.get(1).unwrap_or(&"10");
+    let status = if result.is_ok() { "success" } else { "failure" };
+    println!("[notify:custom-sampling] → {} (rate: {}%, status: {}, config: {})", url, rate, status, config.display());
+}

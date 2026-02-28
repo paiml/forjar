@@ -3044,6 +3044,46 @@ forjar status --state-dir state --machine-resource-error-rate
 #   web — 0.0% (0/6 failed)
 ```
 
+#### Phase 92 — Fleet Observability & Dependency Topology (FJ-997→FJ-1004)
+
+```bash
+# FJ-997: Resource content size limit check
+forjar validate -f forjar.yaml --check-resource-content-size-limit
+# All resource content within size limits (10240 bytes).
+
+# FJ-998: Convergence gap per machine
+forjar status --state-dir state --machine-resource-convergence-gap
+# Convergence gap (0=fully converged):
+#   web — 20.0% gap (5 resources)
+
+# FJ-999: Eccentricity map (max distance from each node)
+forjar graph -f forjar.yaml --resource-dependency-eccentricity-map
+# Eccentricity map:
+#   healthcheck — 4
+#   app — 3
+
+# FJ-1000: Sample notifications at configurable rate
+forjar apply -f forjar.yaml --notify-custom-sampling "https://hooks.example.com|10"
+
+# FJ-1001: Fan-in/fan-out limit check
+forjar validate -f forjar.yaml --check-resource-dependency-fan-limit
+# All resources within fan-in/fan-out limit (10).
+
+# FJ-1002: Error distribution across fleet
+forjar status --state-dir state --fleet-resource-error-distribution
+# Error distribution:
+#   web    1/6
+#   db     0/4
+
+# FJ-1003: Diameter path (longest shortest path)
+forjar graph -f forjar.yaml --resource-dependency-diameter-path
+# Graph diameter: 4 (path: healthcheck → app → migrations → config → base_dir)
+
+# FJ-1004: Convergence stability score
+forjar status --state-dir state --machine-resource-convergence-stability
+# Convergence stability: 87.5% (mean: 90.0%, 3 machines)
+```
+
 ### `forjar watch`
 
 Watch a config file for changes and automatically re-plan.

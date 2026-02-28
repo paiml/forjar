@@ -171,6 +171,7 @@ pub(crate) fn dispatch_apply_cmd(cmd: Commands, verbose: bool) -> Result<(), Str
         notify_custom_dead_letter,
         notify_custom_escalation,
         notify_custom_correlation,
+        notify_custom_sampling,
     }) = cmd
     else {
         unreachable!()
@@ -294,6 +295,7 @@ pub(crate) fn dispatch_apply_cmd(cmd: Commands, verbose: bool) -> Result<(), Str
             custom_dead_letter: notify_custom_dead_letter.as_deref(),
             custom_escalation: notify_custom_escalation.as_deref(),
             custom_correlation: notify_custom_correlation.as_deref(),
+            custom_sampling: notify_custom_sampling.as_deref(),
     };
     send_apply_notifications(&opts, &result, &file);
 
