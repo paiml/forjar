@@ -1748,6 +1748,63 @@ forjar status --state-dir state --fleet-health-summary
 forjar status --state-dir state --fleet-health-summary --json
 ```
 
+### Phase 68 — Fleet Intelligence & Advanced Validation (FJ-805→FJ-812)
+
+**Validate — resource health conflicts (FJ-805)**
+
+```bash
+forjar validate -f forjar.yaml --check-resource-health-conflicts
+forjar validate -f forjar.yaml --check-resource-health-conflicts --json
+```
+
+**Validate — resource overlap detection (FJ-809)**
+
+```bash
+forjar validate -f forjar.yaml --check-resource-overlap
+forjar validate -f forjar.yaml --check-resource-overlap --json
+```
+
+**Status — machine convergence history (FJ-806)**
+
+```bash
+forjar status --state-dir state --machine-convergence-history
+forjar status --state-dir state --machine-convergence-history --machine web
+```
+
+**Status — drift history timeline (FJ-810)**
+
+```bash
+forjar status --state-dir state --drift-history
+forjar status --state-dir state --drift-history --json
+```
+
+**Status — resource failure rate (FJ-812)**
+
+```bash
+forjar status --state-dir state --resource-failure-rate
+forjar status --state-dir state --resource-failure-rate --json
+```
+
+**Graph — weighted dependency edges (FJ-807)**
+
+```bash
+forjar graph -f forjar.yaml --resource-weight
+forjar graph -f forjar.yaml --resource-weight --json-output
+```
+
+**Graph — dependency depth per resource (FJ-811)**
+
+```bash
+forjar graph -f forjar.yaml --dependency-depth-per-resource
+forjar graph -f forjar.yaml --dependency-depth-per-resource --json-output
+```
+
+**Apply — PagerDuty notifications (FJ-808)**
+
+```bash
+forjar apply -f forjar.yaml --notify-pagerduty <ROUTING_KEY>
+```
+
 ### `forjar watch`
 
 Watch a config file for changes and automatically re-plan.
