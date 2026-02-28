@@ -368,5 +368,11 @@ pub struct ValidateArgs {
     /// FJ-969: Validate parameter types match expected usage patterns
     #[arg(long)]
     pub check_resource_param_type_safety: bool,
+    /// FJ-973: Validate environment variable references match declared params
+    #[arg(long)]
+    pub check_resource_env_consistency: bool,
+    /// FJ-977: Validate secret resources have rotation policies defined
+    #[arg(long)]
+    pub check_resource_secret_rotation: bool,
 }
 

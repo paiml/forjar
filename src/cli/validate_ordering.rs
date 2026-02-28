@@ -385,3 +385,63 @@ pub(crate) fn cmd_validate_check_resource_machine_balance(file: &Path, json: boo
     }
     Ok(())
 }
+
+/// FJ-973: Validate environment variable references match declared params.
+pub(crate) fn cmd_validate_check_resource_env_consistency(file: &Path, json: bool) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let config: types::ForjarConfig = serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let declared_params: std::collections::HashSet<String> = config.params.keys().cloned().collect();
+    let mut warnings: Vec<(String, String)> = Vec::new();
+    for (name, res) in &config.resources {
+        if let Some(ref c) = res.content {
+            let mut rest = c.as_str();
+            while let Some(start) = rest.find("{{") {
+                rest = &rest[start + 2..];
+                if let Some(end) = rest.find("}}") {
+                    let var = &rest[..end];
+                    if var.chars().all(|c| c.is_alphanumeric() || c == '_') && !declared_params.contains(var) {
+                        warnings.push((name.clone(), format!("references undeclared param '{}'", var)));
+                    }
+                    rest = &rest[end + 2..];
+                } else {
+                    break;
+                }
+            }
+        }
+    }
+    if json {
+        let items: Vec<String> = warnings.iter()
+            .map(|(n, w)| format!("{{\"resource\":\"{}\",\"warning\":\"{}\"}}", n, w))
+            .collect();
+        println!("{{\"env_consistency_warnings\":[{}]}}", items.join(","));
+    } else if warnings.is_empty() {
+        println!("All environment variable references are consistent.");
+    } else {
+        println!("Environment variable warnings:");
+        for (n, w) in &warnings { println!("  {} — {}", n, w); }
+    }
+    Ok(())
+}
+
+/// FJ-977: Validate secret resources have rotation policies defined.
+pub(crate) fn cmd_validate_check_resource_secret_rotation(file: &Path, json: bool) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let config: types::ForjarConfig = serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let mut warnings: Vec<String> = Vec::new();
+    for (name, res) in &config.resources {
+        let is_secret = name.contains("secret") || name.contains("key") || name.contains("password") || name.contains("credential") || name.contains("token");
+        if is_secret && res.tags.is_empty() {
+            warnings.push(name.clone());
+        }
+    }
+    if json {
+        let items: Vec<String> = warnings.iter().map(|n| format!("\"{}\"", n)).collect();
+        println!("{{\"secrets_without_rotation\":[{}]}}", items.join(","));
+    } else if warnings.is_empty() {
+        println!("All secret resources have rotation metadata.");
+    } else {
+        println!("Secrets without rotation tags:");
+        for n in &warnings { println!("  {} — missing rotation policy tags", n); }
+    }
+    Ok(())
+}

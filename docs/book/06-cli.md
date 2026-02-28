@@ -2918,6 +2918,45 @@ forjar status --state-dir state --machine-resource-convergence-efficiency
 #   web — 80.0% (4 converged / 5 total)
 ```
 
+#### Phase 89 — Dependency Visualization & Fleet Health Scoring (FJ-973→FJ-980)
+
+```bash
+# FJ-973: Environment variable consistency check
+forjar validate -f forjar.yaml --check-resource-env-consistency
+# All environment variable references are consistent.
+
+# FJ-974: Apply frequency per machine
+forjar status --state-dir state --machine-resource-apply-frequency
+# Apply frequencies:
+#   web — 6 resources applied
+
+# FJ-975: Minimum edge cut (bridge detection)
+forjar graph -f forjar.yaml --resource-dependency-minimum-cut
+# Minimum cut edges (bridges):
+#   app → migrations
+
+# FJ-976: Dead-letter queue for failed notifications
+forjar apply -f forjar.yaml --notify-custom-dead-letter "https://hooks.example.com|my-dlq"
+
+# FJ-977: Secret rotation policy validation
+forjar validate -f forjar.yaml --check-resource-secret-rotation
+# All secret resources have rotation metadata.
+
+# FJ-978: Composite fleet health score
+forjar status --state-dir state --fleet-resource-health-score
+# Fleet health score: 83% (5 converged, 1 drifted, 0 failed of 6 total)
+
+# FJ-979: Dominator tree (single points of failure)
+forjar graph -f forjar.yaml --resource-dependency-dominator-tree
+# Dominator tree (single points of failure):
+#   base_dir — dominates 5 resources
+
+# FJ-980: Machine staleness index
+forjar status --state-dir state --machine-resource-staleness-index
+# Staleness index (higher = more stale):
+#   web — 0.6042
+```
+
 ### `forjar watch`
 
 Watch a config file for changes and automatically re-plan.

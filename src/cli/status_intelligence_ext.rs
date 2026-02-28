@@ -28,7 +28,6 @@ pub(crate) fn cmd_status_machine_resource_drift_frequency(sd: &Path, machine: Op
     }
     Ok(())
 }
-
 fn collect_drift_frequencies(sd: &Path, targets: &[&String]) -> Vec<(String, usize)> {
     let mut frequencies = Vec::new();
     for m in targets {
@@ -41,7 +40,6 @@ fn collect_drift_frequencies(sd: &Path, targets: &[&String]) -> Vec<(String, usi
     frequencies.sort_by(|a, b| a.0.cmp(&b.0));
     frequencies
 }
-
 /// FJ-946: Fleet-wide drift frequency aggregation.
 pub(crate) fn cmd_status_fleet_resource_drift_frequency(sd: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
     let machines = discover_machines(sd);
@@ -58,7 +56,6 @@ pub(crate) fn cmd_status_fleet_resource_drift_frequency(sd: &Path, machine: Opti
     }
     Ok(())
 }
-
 /// FJ-948: Trend analysis of apply durations per machine.
 pub(crate) fn cmd_status_machine_resource_apply_duration_trend(sd: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
     let machines = discover_machines(sd);
@@ -80,7 +77,6 @@ pub(crate) fn cmd_status_machine_resource_apply_duration_trend(sd: &Path, machin
     }
     Ok(())
 }
-
 fn collect_apply_duration_trends(sd: &Path, targets: &[&String]) -> Vec<(String, f64)> {
     let mut trends = Vec::new();
     for m in targets {
@@ -97,7 +93,6 @@ fn collect_apply_duration_trends(sd: &Path, targets: &[&String]) -> Vec<(String,
     trends.sort_by(|a, b| a.0.cmp(&b.0));
     trends
 }
-
 /// FJ-950: Longest consecutive convergence streak per machine.
 pub(crate) fn cmd_status_machine_resource_convergence_streak(sd: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
     let machines = discover_machines(sd);
@@ -119,7 +114,6 @@ pub(crate) fn cmd_status_machine_resource_convergence_streak(sd: &Path, machine:
     }
     Ok(())
 }
-
 fn collect_convergence_streaks(sd: &Path, targets: &[&String]) -> Vec<(String, usize)> {
     let mut streaks = Vec::new();
     for m in targets {
@@ -132,7 +126,6 @@ fn collect_convergence_streaks(sd: &Path, targets: &[&String]) -> Vec<(String, u
     streaks.sort_by(|a, b| a.0.cmp(&b.0));
     streaks
 }
-
 /// FJ-954: Fleet-wide convergence streak aggregation.
 pub(crate) fn cmd_status_fleet_resource_convergence_streak(sd: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
     let machines = discover_machines(sd);
@@ -284,14 +277,14 @@ fn collect_recovery_rates(sd: &Path, targets: &[&String]) -> Vec<(String, f64)> 
 /// FJ-966: Rate of drift accumulation per machine over time.
 pub(crate) fn cmd_status_machine_resource_drift_velocity(sd: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
     let machines = discover_machines(sd);
-    let targets: Vec<&String> = match machine {
-        Some(m) => machines.iter().filter(|n| n.as_str() == m).collect(),
-        None => machines.iter().collect(),
-    };
+    let targets = filter_targets(&machines, machine);
     let velocities = collect_drift_velocities(sd, &targets);
     if json {
         let items: Vec<String> = velocities.iter()
-            .map(|(m, d, t)| format!("{{\"machine\":\"{}\",\"drifted\":{},\"total\":{},\"velocity\":{:.4}}}", m, d, t, if *t > 0 { *d as f64 / *t as f64 } else { 0.0 }))
+            .map(|(m, d, t)| {
+                let v = velocity_ratio(*d, *t);
+                format!("{{\"machine\":\"{}\",\"drifted\":{},\"total\":{},\"velocity\":{:.4}}}", m, d, t, v)
+            })
             .collect();
         println!("{{\"drift_velocities\":[{}]}}", items.join(","));
     } else if velocities.is_empty() {
@@ -299,11 +292,21 @@ pub(crate) fn cmd_status_machine_resource_drift_velocity(sd: &Path, machine: Opt
     } else {
         println!("Drift velocity:");
         for (m, d, t) in &velocities {
-            let v = if *t > 0 { *d as f64 / *t as f64 } else { 0.0 };
-            println!("  {} — {}/{} resources drifted ({:.1}%)", m, d, t, v * 100.0);
+            println!("  {} — {}/{} resources drifted ({:.1}%)", m, d, t, velocity_ratio(*d, *t) * 100.0);
         }
     }
     Ok(())
+}
+
+fn filter_targets<'a>(machines: &'a [String], machine: Option<&str>) -> Vec<&'a String> {
+    match machine {
+        Some(m) => machines.iter().filter(|n| n.as_str() == m).collect(),
+        None => machines.iter().collect(),
+    }
+}
+
+fn velocity_ratio(drifted: usize, total: usize) -> f64 {
+    if total > 0 { drifted as f64 / total as f64 } else { 0.0 }
 }
 
 fn collect_drift_velocities(sd: &Path, targets: &[&String]) -> Vec<(String, usize, usize)> {
@@ -373,4 +376,125 @@ fn collect_convergence_efficiencies(sd: &Path, targets: &[&String]) -> Vec<(Stri
     }
     efficiencies.sort_by(|a, b| a.0.cmp(&b.0));
     efficiencies
+}
+
+/// FJ-974: Track how often each machine's resources are applied.
+pub(crate) fn cmd_status_machine_resource_apply_frequency(sd: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
+    let machines = discover_machines(sd);
+    let targets: Vec<&String> = match machine {
+        Some(m) => machines.iter().filter(|n| n.as_str() == m).collect(),
+        None => machines.iter().collect(),
+    };
+    let freqs = collect_apply_frequencies(sd, &targets);
+    if json {
+        let items: Vec<String> = freqs.iter()
+            .map(|(m, count)| format!("{{\"machine\":\"{}\",\"resource_count\":{}}}", m, count))
+            .collect();
+        println!("{{\"apply_frequencies\":[{}]}}", items.join(","));
+    } else if freqs.is_empty() {
+        println!("No apply frequency data available.");
+    } else {
+        println!("Apply frequencies:");
+        for (m, count) in &freqs { println!("  {} — {} resources applied", m, count); }
+    }
+    Ok(())
+}
+
+fn collect_apply_frequencies(sd: &Path, targets: &[&String]) -> Vec<(String, usize)> {
+    let mut freqs = Vec::new();
+    for m in targets {
+        let path = sd.join(m).join("state.lock.yaml");
+        let content = match std::fs::read_to_string(&path) { Ok(c) => c, Err(_) => continue };
+        let lock: types::StateLock = match serde_yaml_ng::from_str(&content) { Ok(l) => l, Err(_) => continue };
+        let count = lock.resources.len();
+        if count > 0 { freqs.push(((*m).clone(), count)); }
+    }
+    freqs.sort_by(|a, b| a.0.cmp(&b.0));
+    freqs
+}
+
+/// FJ-978: Composite fleet health score (convergence + drift + recovery).
+pub(crate) fn cmd_status_fleet_resource_health_score(sd: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
+    let machines = discover_machines(sd);
+    let targets = filter_targets(&machines, machine);
+    let (total_resources, total_converged, total_drifted, total_failed) = collect_fleet_totals(sd, &targets);
+    let score = compute_health_score(total_resources, total_converged, total_drifted, total_failed);
+    if json {
+        println!("{{\"fleet_health_score\":{},\"total_resources\":{},\"converged\":{},\"drifted\":{},\"failed\":{}}}", score, total_resources, total_converged, total_drifted, total_failed);
+    } else if total_resources == 0 {
+        println!("No fleet health data available.");
+    } else {
+        println!("Fleet health score: {:.0}% ({} converged, {} drifted, {} failed of {} total)", score, total_converged, total_drifted, total_failed, total_resources);
+    }
+    Ok(())
+}
+
+fn collect_fleet_totals(sd: &Path, targets: &[&String]) -> (usize, usize, usize, usize) {
+    let (mut total, mut converged, mut drifted, mut failed) = (0, 0, 0, 0);
+    for m in targets {
+        let path = sd.join(m).join("state.lock.yaml");
+        let content = match std::fs::read_to_string(&path) { Ok(c) => c, Err(_) => continue };
+        let lock: types::StateLock = match serde_yaml_ng::from_str(&content) { Ok(l) => l, Err(_) => continue };
+        for r in lock.resources.values() {
+            total += 1;
+            match r.status {
+                types::ResourceStatus::Converged => converged += 1,
+                types::ResourceStatus::Drifted => drifted += 1,
+                types::ResourceStatus::Failed => failed += 1,
+                _ => {}
+            }
+        }
+    }
+    (total, converged, drifted, failed)
+}
+
+fn compute_health_score(total: usize, converged: usize, drifted: usize, failed: usize) -> f64 {
+    if total == 0 { return 0.0; }
+    let convergence_ratio = converged as f64 / total as f64;
+    let drift_penalty = drifted as f64 / total as f64 * 0.5;
+    let failure_penalty = failed as f64 / total as f64;
+    ((convergence_ratio - drift_penalty - failure_penalty).clamp(0.0, 1.0) * 100.0).round()
+}
+
+/// FJ-980: Index of how stale each machine's state data is.
+pub(crate) fn cmd_status_machine_resource_staleness_index(sd: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
+    let machines = discover_machines(sd);
+    let targets: Vec<&String> = match machine {
+        Some(m) => machines.iter().filter(|n| n.as_str() == m).collect(),
+        None => machines.iter().collect(),
+    };
+    let staleness = collect_staleness_indices(sd, &targets);
+    if json {
+        let items: Vec<String> = staleness.iter()
+            .map(|(m, idx)| format!("{{\"machine\":\"{}\",\"staleness_index\":{:.4}}}", m, idx))
+            .collect();
+        println!("{{\"staleness_indices\":[{}]}}", items.join(","));
+    } else if staleness.is_empty() {
+        println!("No staleness data available.");
+    } else {
+        println!("Staleness index (higher = more stale):");
+        for (m, idx) in &staleness { println!("  {} — {:.4}", m, idx); }
+    }
+    Ok(())
+}
+
+fn collect_staleness_indices(sd: &Path, targets: &[&String]) -> Vec<(String, f64)> {
+    let mut indices = Vec::new();
+    for m in targets {
+        let path = sd.join(m).join("state.lock.yaml");
+        let content = match std::fs::read_to_string(&path) { Ok(c) => c, Err(_) => continue };
+        let lock: types::StateLock = match serde_yaml_ng::from_str(&content) { Ok(l) => l, Err(_) => continue };
+        let total = lock.resources.len();
+        if total == 0 { continue; }
+        let stale_count = lock.resources.values()
+            .filter(|r| r.status == types::ResourceStatus::Drifted || r.status == types::ResourceStatus::Failed)
+            .count();
+        let avg_duration: f64 = lock.resources.values()
+            .filter_map(|r| r.duration_seconds)
+            .sum::<f64>() / total as f64;
+        let staleness = stale_count as f64 / total as f64 + (avg_duration / 3600.0).min(1.0) * 0.1;
+        indices.push(((*m).clone(), staleness));
+    }
+    indices.sort_by(|a, b| a.0.cmp(&b.0));
+    indices
 }

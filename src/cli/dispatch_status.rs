@@ -229,6 +229,16 @@ fn try_status_phase88(
     None
 }
 
+fn try_status_phase89(
+    sd: &Path, machine: Option<&str>, json: bool,
+    machine_resource_apply_frequency: bool, fleet_resource_health_score: bool, machine_resource_staleness_index: bool,
+) -> Option<Result<(), String>> {
+    if machine_resource_apply_frequency { return Some(cmd_status_machine_resource_apply_frequency(sd, machine, json)); }
+    if fleet_resource_health_score { return Some(cmd_status_fleet_resource_health_score(sd, machine, json)); }
+    if machine_resource_staleness_index { return Some(cmd_status_machine_resource_staleness_index(sd, machine, json)); }
+    None
+}
+
 pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
     let Commands::Status(StatusArgs {
         state_dir, machine, json, file, summary, watch,
@@ -280,6 +290,7 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
         machine_resource_convergence_streak, fleet_resource_convergence_streak, machine_resource_error_distribution,
         machine_resource_drift_age, fleet_resource_drift_age, machine_resource_recovery_rate,
         machine_resource_drift_velocity, fleet_resource_recovery_rate, machine_resource_convergence_efficiency,
+        machine_resource_apply_frequency, fleet_resource_health_score, machine_resource_staleness_index,
     }) = cmd
     else {
         unreachable!()
@@ -307,6 +318,9 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
         return r;
     }
     if let Some(r) = try_status_phase88(&state_dir, m, json, machine_resource_drift_velocity, fleet_resource_recovery_rate, machine_resource_convergence_efficiency) {
+        return r;
+    }
+    if let Some(r) = try_status_phase89(&state_dir, m, json, machine_resource_apply_frequency, fleet_resource_health_score, machine_resource_staleness_index) {
         return r;
     }
     if let Some(r) = try_status_phase75(&state_dir, m, json, machine_resource_churn_rate, fleet_resource_staleness, machine_convergence_trend, machine_capacity_utilization, fleet_configuration_entropy, machine_resource_freshness, machine_error_budget, fleet_compliance_score, machine_mean_time_to_recovery, machine_resource_dependency_health, fleet_resource_type_health, machine_resource_convergence_rate) {
