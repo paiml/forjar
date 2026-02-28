@@ -47,6 +47,17 @@ pub(crate) fn resolve_input_template(
     Ok(result)
 }
 
+/// Resolve `{{inputs.X}}` in an optional string field, returning None if the field is None.
+fn resolve_opt(
+    field: &Option<String>,
+    inputs: &HashMap<String, String>,
+) -> Result<Option<String>, String> {
+    match field {
+        Some(ref v) => Ok(Some(resolve_input_template(v, inputs)?)),
+        None => Ok(None),
+    }
+}
+
 /// Resolve input templates in all string fields of a resource.
 pub(crate) fn resolve_resource_inputs(
     resource: &Resource,
@@ -54,21 +65,49 @@ pub(crate) fn resolve_resource_inputs(
 ) -> Result<Resource, String> {
     let mut r = resource.clone();
 
-    if let Some(ref path) = r.path {
-        r.path = Some(resolve_input_template(path, inputs)?);
-    }
-    if let Some(ref content) = r.content {
-        r.content = Some(resolve_input_template(content, inputs)?);
-    }
-    if let Some(ref source) = r.source {
-        r.source = Some(resolve_input_template(source, inputs)?);
-    }
-    if let Some(ref target) = r.target {
-        r.target = Some(resolve_input_template(target, inputs)?);
-    }
-    if let Some(ref options) = r.options {
-        r.options = Some(resolve_input_template(options, inputs)?);
-    }
+    // File/path fields
+    r.path = resolve_opt(&r.path, inputs)?;
+    r.content = resolve_opt(&r.content, inputs)?;
+    r.source = resolve_opt(&r.source, inputs)?;
+    r.target = resolve_opt(&r.target, inputs)?;
+    r.owner = resolve_opt(&r.owner, inputs)?;
+    r.group = resolve_opt(&r.group, inputs)?;
+    r.mode = resolve_opt(&r.mode, inputs)?;
+    r.options = resolve_opt(&r.options, inputs)?;
+
+    // Service/naming fields
+    r.name = resolve_opt(&r.name, inputs)?;
+    r.image = resolve_opt(&r.image, inputs)?;
+    r.restart = resolve_opt(&r.restart, inputs)?;
+    r.command = resolve_opt(&r.command, inputs)?;
+    r.schedule = resolve_opt(&r.schedule, inputs)?;
+
+    // Network fields
+    r.protocol = resolve_opt(&r.protocol, inputs)?;
+    r.port = resolve_opt(&r.port, inputs)?;
+    r.action = resolve_opt(&r.action, inputs)?;
+    r.from_addr = resolve_opt(&r.from_addr, inputs)?;
+
+    // GPU fields
+    r.gpu_backend = resolve_opt(&r.gpu_backend, inputs)?;
+    r.driver_version = resolve_opt(&r.driver_version, inputs)?;
+    r.cuda_version = resolve_opt(&r.cuda_version, inputs)?;
+    r.rocm_version = resolve_opt(&r.rocm_version, inputs)?;
+    r.compute_mode = resolve_opt(&r.compute_mode, inputs)?;
+
+    // Model fields
+    r.format = resolve_opt(&r.format, inputs)?;
+    r.quantization = resolve_opt(&r.quantization, inputs)?;
+    r.checksum = resolve_opt(&r.checksum, inputs)?;
+    r.cache_dir = resolve_opt(&r.cache_dir, inputs)?;
+
+    // Package fields
+    r.provider = resolve_opt(&r.provider, inputs)?;
+    r.version = resolve_opt(&r.version, inputs)?;
+
+    // Lifecycle hooks
+    r.pre_apply = resolve_opt(&r.pre_apply, inputs)?;
+    r.post_apply = resolve_opt(&r.post_apply, inputs)?;
 
     Ok(r)
 }
