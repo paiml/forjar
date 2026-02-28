@@ -252,5 +252,13 @@ pub struct GraphArgs {
     /// FJ-819: Detect disconnected subgraphs in the DAG
     #[arg(long)]
     pub isolated_subgraphs: bool,
+
+    /// FJ-823: Full dependency chain from root to leaf per resource
+    #[arg(long)]
+    pub resource_dependency_chain: Option<String>,
+
+    /// FJ-827: Resources with highest fan-in AND fan-out (bottlenecks)
+    #[arg(long)]
+    pub bottleneck_resources: bool,
 }
 

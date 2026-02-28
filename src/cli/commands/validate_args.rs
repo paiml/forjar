@@ -240,5 +240,13 @@ pub struct ValidateArgs {
     /// FJ-817: Verify state fields match resource type constraints
     #[arg(long)]
     pub check_resource_state_consistency: bool,
+
+    /// FJ-821: Verify all depends_on targets actually exist
+    #[arg(long)]
+    pub check_resource_dependencies_complete: bool,
+
+    /// FJ-825: Verify machines are reachable (dry-run connectivity check)
+    #[arg(long)]
+    pub check_machine_connectivity: bool,
 }
 

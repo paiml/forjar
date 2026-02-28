@@ -74,7 +74,7 @@ mod tests {
             check_duplicate_names: false,
             check_resource_groups: false,
             check_orphan_resources: false,
-            check_machine_arch: false, check_resource_health_conflicts: false, check_resource_overlap: false, check_resource_tags: false, check_resource_state_consistency: false,
+            check_machine_arch: false, check_resource_health_conflicts: false, check_resource_overlap: false, check_resource_tags: false, check_resource_state_consistency: false, check_resource_dependencies_complete: false, check_machine_connectivity: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { check_limits, .. }) => assert!(check_limits),
@@ -140,7 +140,7 @@ mod tests {
             check_duplicate_names: false,
             check_resource_groups: false,
             check_orphan_resources: false,
-            check_machine_arch: false, check_resource_health_conflicts: false, check_resource_overlap: false, check_resource_tags: false, check_resource_state_consistency: false,
+            check_machine_arch: false, check_resource_health_conflicts: false, check_resource_overlap: false, check_resource_tags: false, check_resource_state_consistency: false, check_resource_dependencies_complete: false, check_machine_connectivity: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs {
@@ -208,7 +208,7 @@ mod tests {
             check_duplicate_names: false,
             check_resource_groups: false,
             check_orphan_resources: false,
-            check_machine_arch: false, check_resource_health_conflicts: false, check_resource_overlap: false, check_resource_tags: false, check_resource_state_consistency: false,
+            check_machine_arch: false, check_resource_health_conflicts: false, check_resource_overlap: false, check_resource_tags: false, check_resource_state_consistency: false, check_resource_dependencies_complete: false, check_machine_connectivity: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { check_security, .. }) => assert!(check_security),
@@ -274,7 +274,7 @@ mod tests {
             check_duplicate_names: false,
             check_resource_groups: false,
             check_orphan_resources: false,
-            check_machine_arch: false, check_resource_health_conflicts: false, check_resource_overlap: false, check_resource_tags: false, check_resource_state_consistency: false,
+            check_machine_arch: false, check_resource_health_conflicts: false, check_resource_overlap: false, check_resource_tags: false, check_resource_state_consistency: false, check_resource_dependencies_complete: false, check_machine_connectivity: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs {
@@ -342,7 +342,7 @@ mod tests {
             check_duplicate_names: false,
             check_resource_groups: false,
             check_orphan_resources: false,
-            check_machine_arch: false, check_resource_health_conflicts: false, check_resource_overlap: false, check_resource_tags: false, check_resource_state_consistency: false,
+            check_machine_arch: false, check_resource_health_conflicts: false, check_resource_overlap: false, check_resource_tags: false, check_resource_state_consistency: false, check_resource_dependencies_complete: false, check_machine_connectivity: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs {
@@ -410,7 +410,7 @@ mod tests {
             check_duplicate_names: false,
             check_resource_groups: false,
             check_orphan_resources: false,
-            check_machine_arch: false, check_resource_health_conflicts: false, check_resource_overlap: false, check_resource_tags: false, check_resource_state_consistency: false,
+            check_machine_arch: false, check_resource_health_conflicts: false, check_resource_overlap: false, check_resource_tags: false, check_resource_state_consistency: false, check_resource_dependencies_complete: false, check_machine_connectivity: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs {
@@ -478,7 +478,7 @@ mod tests {
             check_duplicate_names: false,
             check_resource_groups: false,
             check_orphan_resources: false,
-            check_machine_arch: false, check_resource_health_conflicts: false, check_resource_overlap: false, check_resource_tags: false, check_resource_state_consistency: false,
+            check_machine_arch: false, check_resource_health_conflicts: false, check_resource_overlap: false, check_resource_tags: false, check_resource_state_consistency: false, check_resource_dependencies_complete: false, check_machine_connectivity: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs {
@@ -546,7 +546,7 @@ mod tests {
             check_duplicate_names: false,
             check_resource_groups: false,
             check_orphan_resources: false,
-            check_machine_arch: false, check_resource_health_conflicts: false, check_resource_overlap: false, check_resource_tags: false, check_resource_state_consistency: false,
+            check_machine_arch: false, check_resource_health_conflicts: false, check_resource_overlap: false, check_resource_tags: false, check_resource_state_consistency: false, check_resource_dependencies_complete: false, check_machine_connectivity: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs {
@@ -615,7 +615,7 @@ mod tests {
             check_duplicate_names: false,
             check_resource_groups: false,
             check_orphan_resources: false,
-            check_machine_arch: false, check_resource_health_conflicts: false, check_resource_overlap: false, check_resource_tags: false, check_resource_state_consistency: false,
+            check_machine_arch: false, check_resource_health_conflicts: false, check_resource_overlap: false, check_resource_tags: false, check_resource_state_consistency: false, check_resource_dependencies_complete: false, check_machine_connectivity: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { check_unused, .. }) => assert!(check_unused),

@@ -156,3 +156,139 @@ fn collect_apply_durations(state_dir: &Path, targets: &[&String]) -> Vec<(String
     results.sort_by(|a, b| a.0.cmp(&b.0));
     results
 }
+
+/// FJ-822: Per-machine breakdown of resource health status.
+pub(crate) fn cmd_status_machine_resource_health(
+    state_dir: &Path, machine: Option<&str>, json: bool,
+) -> Result<(), String> {
+    let machines = discover_machines(state_dir);
+    let targets: Vec<&String> = match machine {
+        Some(m) => machines.iter().filter(|x| x.as_str() == m).collect(),
+        None => machines.iter().collect(),
+    };
+    let health = collect_machine_health(state_dir, &targets);
+    if json {
+        let items: Vec<String> = health.iter()
+            .map(|(m, c, f, d)| format!("{{\"machine\":\"{}\",\"converged\":{},\"failed\":{},\"drifted\":{}}}", m, c, f, d))
+            .collect();
+        println!("{{\"machine_resource_health\":[{}]}}", items.join(","));
+    } else if health.is_empty() {
+        println!("No machine health data available.");
+    } else {
+        println!("Machine resource health:");
+        for (m, c, f, d) in &health { println!("  {} — converged: {}, failed: {}, drifted: {}", m, c, f, d); }
+    }
+    Ok(())
+}
+
+fn collect_machine_health(state_dir: &Path, targets: &[&String]) -> Vec<(String, usize, usize, usize)> {
+    let mut results = Vec::new();
+    for m in targets {
+        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let content = match std::fs::read_to_string(&lock_path) {
+            Ok(c) => c,
+            Err(_) => continue,
+        };
+        let lock: types::StateLock = match serde_yaml_ng::from_str(&content) {
+            Ok(l) => l,
+            Err(_) => continue,
+        };
+        let converged = lock.resources.values().filter(|r| r.status == types::ResourceStatus::Converged).count();
+        let failed = lock.resources.values().filter(|r| r.status == types::ResourceStatus::Failed).count();
+        let drifted = lock.resources.values().filter(|r| r.status == types::ResourceStatus::Drifted).count();
+        results.push((m.to_string(), converged, failed, drifted));
+    }
+    results.sort();
+    results
+}
+
+/// FJ-826: Convergence percentage over last N applies.
+pub(crate) fn cmd_status_fleet_convergence_trend(
+    state_dir: &Path, machine: Option<&str>, json: bool,
+) -> Result<(), String> {
+    let machines = discover_machines(state_dir);
+    let targets: Vec<&String> = match machine {
+        Some(m) => machines.iter().filter(|x| x.as_str() == m).collect(),
+        None => machines.iter().collect(),
+    };
+    let trend = collect_convergence_trend(state_dir, &targets);
+    if json {
+        let items: Vec<String> = trend.iter()
+            .map(|(m, pct)| format!("{{\"machine\":\"{}\",\"convergence_pct\":{:.1}}}", m, pct))
+            .collect();
+        println!("{{\"fleet_convergence_trend\":[{}]}}", items.join(","));
+    } else if trend.is_empty() {
+        println!("No convergence data available.");
+    } else {
+        println!("Fleet convergence trend:");
+        for (m, pct) in &trend { println!("  {} — {:.1}% converged", m, pct); }
+    }
+    Ok(())
+}
+
+fn collect_convergence_trend(state_dir: &Path, targets: &[&String]) -> Vec<(String, f64)> {
+    let mut results = Vec::new();
+    for m in targets {
+        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let content = match std::fs::read_to_string(&lock_path) {
+            Ok(c) => c,
+            Err(_) => continue,
+        };
+        let lock: types::StateLock = match serde_yaml_ng::from_str(&content) {
+            Ok(l) => l,
+            Err(_) => continue,
+        };
+        let total = lock.resources.len();
+        if total == 0 { continue; }
+        let converged = lock.resources.values().filter(|r| r.status == types::ResourceStatus::Converged).count();
+        let pct = (converged as f64 / total as f64) * 100.0;
+        results.push((m.to_string(), pct));
+    }
+    results.sort_by(|a, b| a.0.cmp(&b.0));
+    results
+}
+
+/// FJ-828: Distribution of resource states across fleet.
+pub(crate) fn cmd_status_resource_state_distribution(
+    state_dir: &Path, machine: Option<&str>, json: bool,
+) -> Result<(), String> {
+    let machines = discover_machines(state_dir);
+    let targets: Vec<&String> = match machine {
+        Some(m) => machines.iter().filter(|x| x.as_str() == m).collect(),
+        None => machines.iter().collect(),
+    };
+    let dist = collect_state_distribution(state_dir, &targets);
+    if json {
+        let items: Vec<String> = dist.iter()
+            .map(|(s, c)| format!("{{\"state\":\"{}\",\"count\":{}}}", s, c))
+            .collect();
+        println!("{{\"resource_state_distribution\":[{}]}}", items.join(","));
+    } else if dist.is_empty() {
+        println!("No resource state data available.");
+    } else {
+        println!("Resource state distribution:");
+        for (s, c) in &dist { println!("  {} — {}", s, c); }
+    }
+    Ok(())
+}
+
+fn collect_state_distribution(state_dir: &Path, targets: &[&String]) -> Vec<(String, usize)> {
+    let mut counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    for m in targets {
+        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let content = match std::fs::read_to_string(&lock_path) {
+            Ok(c) => c,
+            Err(_) => continue,
+        };
+        let lock: types::StateLock = match serde_yaml_ng::from_str(&content) {
+            Ok(l) => l,
+            Err(_) => continue,
+        };
+        for rs in lock.resources.values() {
+            *counts.entry(rs.status.to_string()).or_default() += 1;
+        }
+    }
+    let mut results: Vec<(String, usize)> = counts.into_iter().collect();
+    results.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+    results
+}

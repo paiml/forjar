@@ -77,7 +77,7 @@ mod tests {
             strongly_connected: false,
             dependency_matrix_csv: false,
             resource_weight: false,
-            dependency_depth_per_resource: false, resource_fanin: false, isolated_subgraphs: false,
+            dependency_depth_per_resource: false, resource_fanin: false, isolated_subgraphs: false, resource_dependency_chain: None, bottleneck_resources: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { highlight, .. }) => {
@@ -149,7 +149,7 @@ mod tests {
             strongly_connected: false,
             dependency_matrix_csv: false,
             resource_weight: false,
-            dependency_depth_per_resource: false, resource_fanin: false, isolated_subgraphs: false,
+            dependency_depth_per_resource: false, resource_fanin: false, isolated_subgraphs: false, resource_dependency_chain: None, bottleneck_resources: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { hotspots, .. }) => assert!(hotspots),
