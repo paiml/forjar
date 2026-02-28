@@ -2251,6 +2251,75 @@ forjar status --state-dir state/ --machine-convergence-trend
 #   db1 — 2/3 converged (66.7%)
 ```
 
+#### Phase 76 — Capacity Planning & Configuration Analytics
+
+**Validate — check resource naming convention (FJ-869)**
+
+```bash
+forjar validate -f forjar.yaml --check-resource-naming-convention
+# All resources follow naming conventions.
+```
+
+**Status — machine capacity utilization (FJ-870)**
+
+```bash
+forjar status --state-dir state/ --machine-capacity-utilization
+# Machine capacity utilization:
+#   web1 — 5 resources
+#   db1 — 3 resources
+```
+
+**Graph — resource dependency cycle risk (FJ-871)**
+
+```bash
+forjar graph -f forjar.yaml --resource-dependency-cycle-risk
+# Dependency cycle risks:
+#   app ↔ config — mutual depth 1
+```
+
+**Apply — notify with custom filter (FJ-872)**
+
+```bash
+forjar apply -f forjar.yaml --state-dir state/ \
+  --notify-custom-filter "https://hooks.example.com|type:Package,status:Failed"
+```
+
+**Validate — check resource idempotency (FJ-873)**
+
+```bash
+forjar validate -f forjar.yaml --check-resource-idempotency
+# All resources appear idempotent-safe.
+```
+
+**Status — fleet configuration entropy (FJ-874)**
+
+```bash
+forjar status --state-dir state/ --fleet-configuration-entropy
+# Fleet configuration entropy (8 total resources):
+#   Package — 4 (50.0%)
+#   File — 3 (37.5%)
+#   Service — 1 (12.5%)
+```
+
+**Graph — resource impact radius (FJ-875)**
+
+```bash
+forjar graph -f forjar.yaml --resource-impact-radius
+# Resource impact radius (blast radius):
+#   base-packages — impact radius 3
+#   nginx-config — impact radius 1
+#   nginx-service — impact radius 0
+```
+
+**Status — machine resource freshness (FJ-876)**
+
+```bash
+forjar status --state-dir state/ --machine-resource-freshness
+# Machine resource freshness (oldest first):
+#   web1 / nginx-config — last applied 2025-01-15T10:30:00Z
+#   web1 / nginx — last applied 2025-02-01T14:00:00Z
+```
+
 ### `forjar watch`
 
 Watch a config file for changes and automatically re-plan.

@@ -288,5 +288,13 @@ pub struct ValidateArgs {
     /// FJ-865: Verify provider version compatibility
     #[arg(long)]
     pub check_resource_provider_version: bool,
+
+    /// FJ-869: Enforce naming patterns across resources
+    #[arg(long)]
+    pub check_resource_naming_convention: bool,
+
+    /// FJ-873: Verify resources are idempotent-safe
+    #[arg(long)]
+    pub check_resource_idempotency: bool,
 }
 

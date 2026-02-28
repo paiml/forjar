@@ -613,5 +613,9 @@ pub struct ApplyArgs {
     /// FJ-864: Custom JSON template for webhook notifications
     #[arg(long)]
     pub notify_custom_json: Option<String>,
+
+    /// FJ-872: Filter notifications by resource type or status
+    #[arg(long)]
+    pub notify_custom_filter: Option<String>,
 }
 

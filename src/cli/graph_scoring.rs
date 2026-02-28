@@ -229,3 +229,84 @@ fn build_type_clusters(config: &types::ForjarConfig) -> Vec<(String, Vec<String>
     result.sort_by(|a, b| b.1.len().cmp(&a.1.len()).then(a.0.cmp(&b.0)));
     result
 }
+
+/// FJ-871: Identify near-cycle patterns (resources that depend on each other indirectly).
+pub(crate) fn cmd_graph_resource_dependency_cycle_risk(
+    file: &std::path::Path, json: bool,
+) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let config: types::ForjarConfig = serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let risks = find_cycle_risks(&config);
+    if json {
+        let items: Vec<String> = risks.iter()
+            .map(|(a, b, depth)| format!("{{\"from\":\"{}\",\"to\":\"{}\",\"mutual_depth\":{}}}", a, b, depth)).collect();
+        println!("{{\"cycle_risks\":[{}]}}", items.join(","));
+    } else if risks.is_empty() {
+        println!("No dependency cycle risks found.");
+    } else {
+        println!("Dependency cycle risks:");
+        for (a, b, depth) in &risks { println!("  {} ↔ {} — mutual depth {}", a, b, depth); }
+    }
+    Ok(())
+}
+
+fn find_cycle_risks(config: &types::ForjarConfig) -> Vec<(String, String, usize)> {
+    let mut risks = Vec::new();
+    for (name, resource) in &config.resources {
+        for dep in &resource.depends_on {
+            let dep_res = match config.resources.get(dep) {
+                Some(r) => r, None => continue,
+            };
+            if !dep_res.depends_on.contains(name) { continue; }
+            let pair = if name < dep { (name.clone(), dep.clone()) } else { (dep.clone(), name.clone()) };
+            let already_found = risks.iter().any(|(a, b, _): &(String, String, usize)| a == &pair.0 && b == &pair.1);
+            if !already_found { risks.push((pair.0, pair.1, 1)); }
+        }
+    }
+    risks.sort_by(|a, b| a.0.cmp(&b.0));
+    risks
+}
+
+/// FJ-875: Calculate blast radius of resource changes.
+pub(crate) fn cmd_graph_resource_impact_radius_analysis(
+    file: &std::path::Path, json: bool,
+) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let config: types::ForjarConfig = serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let radii = compute_impact_radii(&config);
+    if json {
+        let items: Vec<String> = radii.iter()
+            .map(|(n, r)| format!("{{\"resource\":\"{}\",\"impact_radius\":{}}}", n, r)).collect();
+        println!("{{\"impact_radii\":[{}]}}", items.join(","));
+    } else if radii.is_empty() {
+        println!("No resources found.");
+    } else {
+        println!("Resource impact radius (blast radius):");
+        for (n, r) in &radii { println!("  {} — impact radius {}", n, r); }
+    }
+    Ok(())
+}
+
+fn compute_impact_radii(config: &types::ForjarConfig) -> Vec<(String, usize)> {
+    let mut radii = Vec::new();
+    for name in config.resources.keys() {
+        let radius = count_transitive_dependents(config, name);
+        radii.push((name.clone(), radius));
+    }
+    radii.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+    radii
+}
+
+fn count_transitive_dependents(config: &types::ForjarConfig, target: &str) -> usize {
+    let mut visited: Vec<String> = Vec::new();
+    let mut queue: Vec<String> = vec![target.to_string()];
+    while let Some(current) = queue.pop() {
+        for (name, resource) in &config.resources {
+            if resource.depends_on.contains(&current) && !visited.contains(name) {
+                visited.push(name.clone());
+                queue.push(name.clone());
+            }
+        }
+    }
+    visited.len()
+}

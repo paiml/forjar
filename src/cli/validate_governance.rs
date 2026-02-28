@@ -371,7 +371,6 @@ fn find_provider_version_issues(config: &types::ForjarConfig) -> Vec<(String, St
     let mut issues = Vec::new();
     for (name, resource) in &config.resources {
         if let Some(ref provider) = resource.provider {
-            // Check if provider has version specifier
             if provider.contains('@') {
                 let parts: Vec<&str> = provider.splitn(2, '@').collect();
                 if parts.len() == 2 && parts[1].is_empty() {
@@ -382,4 +381,81 @@ fn find_provider_version_issues(config: &types::ForjarConfig) -> Vec<(String, St
     }
     issues.sort_by(|a, b| a.0.cmp(&b.0));
     issues
+}
+
+/// FJ-869: Enforce naming patterns across resources.
+pub(crate) fn cmd_validate_check_resource_naming_convention(
+    file: &std::path::Path, json: bool,
+) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let config: types::ForjarConfig = serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let violations = find_naming_convention_violations(&config);
+    if json {
+        let items: Vec<String> = violations.iter()
+            .map(|(n, reason)| format!("{{\"resource\":\"{}\",\"issue\":\"{}\"}}", n, reason)).collect();
+        println!("{{\"naming_convention_violations\":[{}]}}", items.join(","));
+    } else if violations.is_empty() {
+        println!("All resources follow naming conventions.");
+    } else {
+        println!("Naming convention violations:");
+        for (n, reason) in &violations { println!("  {} — {}", n, reason); }
+    }
+    Ok(())
+}
+
+fn find_naming_convention_violations(config: &types::ForjarConfig) -> Vec<(String, String)> {
+    let mut violations = Vec::new();
+    for name in config.resources.keys() {
+        if name.chars().any(|c| c.is_uppercase()) {
+            violations.push((name.clone(), "contains uppercase characters".to_string()));
+        } else if name.contains(' ') {
+            violations.push((name.clone(), "contains spaces".to_string()));
+        } else if name.starts_with('-') || name.ends_with('-') {
+            violations.push((name.clone(), "starts or ends with hyphen".to_string()));
+        } else if name.contains("__") {
+            violations.push((name.clone(), "contains double underscore".to_string()));
+        }
+    }
+    violations.sort_by(|a, b| a.0.cmp(&b.0));
+    violations
+}
+
+/// FJ-873: Verify resources are idempotent-safe.
+pub(crate) fn cmd_validate_check_resource_idempotency(
+    file: &std::path::Path, json: bool,
+) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let config: types::ForjarConfig = serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let warnings = find_idempotency_concerns(&config);
+    if json {
+        let items: Vec<String> = warnings.iter()
+            .map(|(n, reason)| format!("{{\"resource\":\"{}\",\"concern\":\"{}\"}}", n, reason)).collect();
+        println!("{{\"idempotency_concerns\":[{}]}}", items.join(","));
+    } else if warnings.is_empty() {
+        println!("All resources appear idempotent-safe.");
+    } else {
+        println!("Idempotency concerns:");
+        for (n, reason) in &warnings { println!("  {} — {}", n, reason); }
+    }
+    Ok(())
+}
+
+fn find_idempotency_concerns(config: &types::ForjarConfig) -> Vec<(String, String)> {
+    let mut concerns = Vec::new();
+    for (name, resource) in &config.resources {
+        if let Some(ref content) = resource.content {
+            if content.contains("$(date") || content.contains("$(hostname") {
+                concerns.push((name.clone(), "content uses dynamic shell substitution".to_string()));
+            }
+        }
+        if let Some(ref state) = resource.state {
+            if state == "absent" {
+                if !resource.triggers.is_empty() {
+                    concerns.push((name.clone(), "absent resource has triggers".to_string()));
+                }
+            }
+        }
+    }
+    concerns.sort_by(|a, b| a.0.cmp(&b.0));
+    concerns
 }

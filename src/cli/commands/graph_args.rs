@@ -300,5 +300,13 @@ pub struct GraphArgs {
     /// FJ-867: Cluster resources by type and show interconnections
     #[arg(long)]
     pub resource_type_clustering: bool,
+
+    /// FJ-871: Identify near-cycle patterns in dependency graph
+    #[arg(long)]
+    pub resource_dependency_cycle_risk: bool,
+
+    /// FJ-875: Calculate blast radius of resource changes
+    #[arg(long)]
+    pub resource_impact_radius: bool,
 }
 

@@ -2,7 +2,6 @@
 
 use std::path::PathBuf;
 
-
 #[derive(clap::Args, Debug)]
 pub struct StatusArgs {
     /// State directory
@@ -440,31 +439,24 @@ pub struct StatusArgs {
     /// FJ-826: Convergence percentage over last N applies
     #[arg(long)]
     pub fleet_convergence_trend: bool,
-
     /// FJ-828: Distribution of resource states across fleet
     #[arg(long)]
     pub resource_state_distribution: bool,
-
     /// FJ-830: Total apply count per machine
     #[arg(long)]
     pub machine_apply_count: bool,
-
     /// FJ-834: Recent apply history across all machines
     #[arg(long)]
     pub fleet_apply_history: bool,
-
     /// FJ-836: Track hash changes over time per resource
     #[arg(long)]
     pub resource_hash_changes: bool,
-
     /// FJ-838: Estimate machine uptime from apply history
     #[arg(long)]
     pub machine_uptime_estimate: bool,
-
     /// FJ-842: Resource type distribution across fleet
     #[arg(long)]
     pub fleet_resource_type_breakdown: bool,
-
     /// FJ-844: Average time to converge per resource
     #[arg(long)]
     pub resource_convergence_time: bool,
@@ -496,4 +488,13 @@ pub struct StatusArgs {
     /// FJ-868: Convergence trend per machine over time
     #[arg(long)]
     pub machine_convergence_trend: bool,
+    /// FJ-870: Resource density and capacity metrics per machine
+    #[arg(long)]
+    pub machine_capacity_utilization: bool,
+    /// FJ-874: Measure configuration diversity across fleet
+    #[arg(long)]
+    pub fleet_configuration_entropy: bool,
+    /// FJ-876: Time since last successful apply per resource
+    #[arg(long)]
+    pub machine_resource_freshness: bool,
 }

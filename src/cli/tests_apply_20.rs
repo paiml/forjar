@@ -163,7 +163,7 @@ mod tests {
                 notify_webhook_headers: None,
                 notify_log: None,
         notify_exec: None,
-        notify_file: None, notify_json: false, notify_slack_webhook: None, notify_telegram: None, notify_webhook_v2: None, notify_discord_webhook: None, notify_teams_webhook: None, notify_slack_blocks: None, notify_custom_template: None, notify_custom_webhook: None, notify_custom_headers: None, notify_custom_json: None,
+        notify_file: None, notify_json: false, notify_slack_webhook: None, notify_telegram: None, notify_webhook_v2: None, notify_discord_webhook: None, notify_teams_webhook: None, notify_slack_blocks: None, notify_custom_template: None, notify_custom_webhook: None, notify_custom_headers: None, notify_custom_json: None, notify_custom_filter: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { sign_off, .. }) => {
@@ -321,7 +321,7 @@ mod tests {
                 notify_webhook_headers: None,
                 notify_log: None,
         notify_exec: None,
-        notify_file: None, notify_json: false, notify_slack_webhook: None, notify_telegram: None, notify_webhook_v2: None, notify_discord_webhook: None, notify_teams_webhook: None, notify_slack_blocks: None, notify_custom_template: None, notify_custom_webhook: None, notify_custom_headers: None, notify_custom_json: None,
+        notify_file: None, notify_json: false, notify_slack_webhook: None, notify_telegram: None, notify_webhook_v2: None, notify_discord_webhook: None, notify_teams_webhook: None, notify_slack_blocks: None, notify_custom_template: None, notify_custom_webhook: None, notify_custom_headers: None, notify_custom_json: None, notify_custom_filter: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { notify_sns, .. }) => {
@@ -482,7 +482,7 @@ mod tests {
                 notify_webhook_headers: None,
                 notify_log: None,
         notify_exec: None,
-        notify_file: None, notify_json: false, notify_slack_webhook: None, notify_telegram: None, notify_webhook_v2: None, notify_discord_webhook: None, notify_teams_webhook: None, notify_slack_blocks: None, notify_custom_template: None, notify_custom_webhook: None, notify_custom_headers: None, notify_custom_json: None,
+        notify_file: None, notify_json: false, notify_slack_webhook: None, notify_telegram: None, notify_webhook_v2: None, notify_discord_webhook: None, notify_teams_webhook: None, notify_slack_blocks: None, notify_custom_template: None, notify_custom_webhook: None, notify_custom_headers: None, notify_custom_json: None, notify_custom_filter: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs {
