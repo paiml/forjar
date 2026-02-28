@@ -444,5 +444,17 @@ pub struct StatusArgs {
     /// FJ-828: Distribution of resource states across fleet
     #[arg(long)]
     pub resource_state_distribution: bool,
+
+    /// FJ-830: Total apply count per machine
+    #[arg(long)]
+    pub machine_apply_count: bool,
+
+    /// FJ-834: Recent apply history across all machines
+    #[arg(long)]
+    pub fleet_apply_history: bool,
+
+    /// FJ-836: Track hash changes over time per resource
+    #[arg(long)]
+    pub resource_hash_changes: bool,
 }
 

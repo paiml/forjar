@@ -150,6 +150,7 @@ pub(crate) fn dispatch_apply_cmd(cmd: Commands, verbose: bool) -> Result<(), Str
         notify_webhook_v2: _notify_webhook_v2,
         notify_discord_webhook,
         notify_teams_webhook,
+        notify_slack_blocks,
     }) = cmd
     else {
         unreachable!()
@@ -252,6 +253,7 @@ pub(crate) fn dispatch_apply_cmd(cmd: Commands, verbose: bool) -> Result<(), Str
         pagerduty: notify_pagerduty.as_deref(),
         discord_webhook: notify_discord_webhook.as_deref(),
         teams_webhook: notify_teams_webhook.as_deref(),
+        slack_blocks: notify_slack_blocks.as_deref(),
     };
     send_apply_notifications(&opts, &result, &file);
 

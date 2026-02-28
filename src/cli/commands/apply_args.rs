@@ -593,5 +593,9 @@ pub struct ApplyArgs {
     /// FJ-824: MS Teams webhook with adaptive card for apply results
     #[arg(long)]
     pub notify_teams_webhook: Option<String>,
+
+    /// FJ-832: Slack Block Kit rich notifications
+    #[arg(long)]
+    pub notify_slack_blocks: Option<String>,
 }
 

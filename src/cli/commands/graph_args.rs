@@ -260,5 +260,13 @@ pub struct GraphArgs {
     /// FJ-827: Resources with highest fan-in AND fan-out (bottlenecks)
     #[arg(long)]
     pub bottleneck_resources: bool,
+
+    /// FJ-831: Longest weighted path through the DAG
+    #[arg(long)]
+    pub critical_dependency_path: bool,
+
+    /// FJ-835: Histogram of dependency depths
+    #[arg(long)]
+    pub resource_depth_histogram: bool,
 }
 
