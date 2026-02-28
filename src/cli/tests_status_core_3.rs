@@ -122,6 +122,9 @@ mod tests {
                 machine_drift_age: false,
                 fleet_failed_resources: false,
                 resource_dependency_health: false,
+                machine_resource_age_distribution: false,
+                fleet_convergence_velocity: false,
+                resource_failure_correlation: false,
         });
         match cmd {
             Commands::Status(StatusArgs { json_lines, .. }) => assert!(json_lines),
@@ -236,6 +239,9 @@ mod tests {
                 machine_drift_age: false,
                 fleet_failed_resources: false,
                 resource_dependency_health: false,
+                machine_resource_age_distribution: false,
+                fleet_convergence_velocity: false,
+                resource_failure_correlation: false,
         });
         match cmd {
             Commands::Status(StatusArgs { since, .. }) => {
@@ -354,6 +360,9 @@ mod tests {
                 machine_drift_age: false,
                 fleet_failed_resources: false,
                 resource_dependency_health: false,
+                machine_resource_age_distribution: false,
+                fleet_convergence_velocity: false,
+                resource_failure_correlation: false,
         });
         match cmd {
             Commands::Status(StatusArgs { export, .. }) => {
@@ -471,6 +480,9 @@ mod tests {
                 machine_drift_age: false,
                 fleet_failed_resources: false,
                 resource_dependency_health: false,
+                machine_resource_age_distribution: false,
+                fleet_convergence_velocity: false,
+                resource_failure_correlation: false,
         });
         match cmd {
             Commands::Status(StatusArgs { prometheus, .. }) => assert!(prometheus),
@@ -587,6 +599,9 @@ mod tests {
                 machine_drift_age: false,
                 fleet_failed_resources: false,
                 resource_dependency_health: false,
+                machine_resource_age_distribution: false,
+                fleet_convergence_velocity: false,
+                resource_failure_correlation: false,
         });
         match cmd {
             Commands::Status(StatusArgs { compact, .. }) => assert!(compact),

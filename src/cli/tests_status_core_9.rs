@@ -133,6 +133,9 @@ mod tests {
                 machine_drift_age: false,
                 fleet_failed_resources: false,
                 resource_dependency_health: false,
+                machine_resource_age_distribution: false,
+                fleet_convergence_velocity: false,
+                resource_failure_correlation: false,
         });
         match cmd {
             Commands::Status(StatusArgs { config_drift, .. }) => assert!(config_drift),
@@ -248,6 +251,9 @@ mod tests {
                 machine_drift_age: false,
                 fleet_failed_resources: false,
                 resource_dependency_health: false,
+                machine_resource_age_distribution: false,
+                fleet_convergence_velocity: false,
+                resource_failure_correlation: false,
         });
         match cmd {
             Commands::Status(StatusArgs {

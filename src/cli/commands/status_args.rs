@@ -480,5 +480,17 @@ pub struct StatusArgs {
     /// FJ-852: Health of upstream dependencies per resource
     #[arg(long)]
     pub resource_dependency_health: bool,
+
+    /// FJ-854: Age distribution of resources per machine
+    #[arg(long)]
+    pub machine_resource_age_distribution: bool,
+
+    /// FJ-858: Rate of convergence across fleet
+    #[arg(long)]
+    pub fleet_convergence_velocity: bool,
+
+    /// FJ-860: Correlate failures across resources
+    #[arg(long)]
+    pub resource_failure_correlation: bool,
 }
 

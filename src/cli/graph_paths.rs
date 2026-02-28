@@ -367,3 +367,82 @@ fn compute_stability_scores(config: &types::ForjarConfig) -> Vec<(String, usize)
     results.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
     results
 }
+
+/// FJ-855: Fan-out count per resource.
+pub(crate) fn cmd_graph_resource_dependency_fanout(
+    file: &Path, json: bool,
+) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let config: types::ForjarConfig =
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+    let fanouts = compute_fanouts(&config);
+    if json {
+        let items: Vec<String> = fanouts.iter()
+            .map(|(r, f)| format!("{{\"resource\":\"{}\",\"fanout\":{}}}", r, f))
+            .collect();
+        println!("{{\"resource_dependency_fanout\":[{}]}}", items.join(","));
+    } else if fanouts.is_empty() {
+        println!("No resources.");
+    } else {
+        println!("Resource dependency fan-out:");
+        for (r, f) in &fanouts { println!("  {} — {} dependents", r, f); }
+    }
+    Ok(())
+}
+
+fn compute_fanouts(config: &types::ForjarConfig) -> Vec<(String, usize)> {
+    let mut fanin: std::collections::HashMap<&str, usize> = std::collections::HashMap::new();
+    for resource in config.resources.values() {
+        for dep in &resource.depends_on {
+            *fanin.entry(dep.as_str()).or_default() += 1;
+        }
+    }
+    let mut results: Vec<(String, usize)> = config.resources.keys()
+        .map(|name| {
+            let count = fanin.get(name.as_str()).copied().unwrap_or(0);
+            (name.clone(), count)
+        })
+        .collect();
+    results.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+    results
+}
+
+/// FJ-859: Weighted edges based on resource coupling.
+pub(crate) fn cmd_graph_resource_dependency_weight(
+    file: &Path, json: bool,
+) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let config: types::ForjarConfig =
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+    let weights = compute_dependency_weights(&config);
+    if json {
+        let items: Vec<String> = weights.iter()
+            .map(|(a, b, w)| format!("{{\"from\":\"{}\",\"to\":\"{}\",\"weight\":{}}}", a, b, w))
+            .collect();
+        println!("{{\"dependency_weights\":[{}]}}", items.join(","));
+    } else if weights.is_empty() {
+        println!("No dependency edges.");
+    } else {
+        println!("Dependency edge weights:");
+        for (a, b, w) in &weights { println!("  {} → {} — weight {}", a, b, w); }
+    }
+    Ok(())
+}
+
+fn compute_dependency_weights(config: &types::ForjarConfig) -> Vec<(String, String, usize)> {
+    let mut edges = Vec::new();
+    for (name, resource) in &config.resources {
+        for dep in &resource.depends_on {
+            let mut weight = 1usize;
+            // Co-located on same machine adds weight
+            if let Some(dep_resource) = config.resources.get(dep) {
+                let ma: HashSet<String> = resource.machine.to_vec().into_iter().collect();
+                let mb: HashSet<String> = dep_resource.machine.to_vec().into_iter().collect();
+                if !ma.is_disjoint(&mb) { weight += 1; }
+            }
+            edges.push((name.clone(), dep.clone(), weight));
+        }
+    }
+    edges.sort_by(|a, b| b.2.cmp(&a.2).then(a.0.cmp(&b.0)));
+    edges
+}

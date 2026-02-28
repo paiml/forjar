@@ -86,6 +86,30 @@ fn try_validate_core(
 }
 
 
+/// Phase 71-74 governance validation checks.
+#[allow(clippy::too_many_arguments)]
+fn try_validate_governance(
+    file: &Path, json: bool,
+    check_resource_naming_pattern: &Option<String>, check_resource_provider_support: bool,
+    check_resource_secret_refs: bool, check_resource_idempotency_hints: bool,
+    check_resource_dependency_depth: Option<usize>, check_resource_machine_affinity: bool,
+    check_resource_drift_risk: bool, check_resource_tag_coverage: bool,
+) -> Option<Result<(), String>> {
+    if let Some(ref pattern) = check_resource_naming_pattern {
+        return Some(cmd_validate_check_resource_naming_pattern(file, json, pattern));
+    }
+    if check_resource_provider_support { return Some(cmd_validate_check_resource_provider_support(file, json)); }
+    if check_resource_secret_refs { return Some(cmd_validate_check_resource_secret_refs(file, json)); }
+    if check_resource_idempotency_hints { return Some(cmd_validate_check_resource_idempotency_hints(file, json)); }
+    if let Some(depth) = check_resource_dependency_depth {
+        return Some(cmd_validate_check_resource_dependency_depth(file, json, depth));
+    }
+    if check_resource_machine_affinity { return Some(cmd_validate_check_resource_machine_affinity(file, json)); }
+    if check_resource_drift_risk { return Some(cmd_validate_check_resource_drift_risk(file, json)); }
+    if check_resource_tag_coverage { return Some(cmd_validate_check_resource_tag_coverage(file, json)); }
+    None
+}
+
 /// Phase 67-70 advanced validation checks.
 #[allow(clippy::too_many_arguments)]
 fn try_validate_advanced(
@@ -136,6 +160,7 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
         check_resource_naming_pattern, check_resource_provider_support,
         check_resource_secret_refs, check_resource_idempotency_hints,
         check_resource_dependency_depth, check_resource_machine_affinity,
+        check_resource_drift_risk, check_resource_tag_coverage,
     } = args;
 
     if check_cron_syntax {
@@ -183,23 +208,8 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
     if check_resource_groups {
         return cmd_validate_check_resource_groups(&file, json);
     }
-    if let Some(ref pattern) = check_resource_naming_pattern {
-        return cmd_validate_check_resource_naming_pattern(&file, json, pattern);
-    }
-    if check_resource_provider_support {
-        return cmd_validate_check_resource_provider_support(&file, json);
-    }
-    if check_resource_secret_refs {
-        return cmd_validate_check_resource_secret_refs(&file, json);
-    }
-    if check_resource_idempotency_hints {
-        return cmd_validate_check_resource_idempotency_hints(&file, json);
-    }
-    if let Some(depth) = check_resource_dependency_depth {
-        return cmd_validate_check_resource_dependency_depth(&file, json, depth);
-    }
-    if check_resource_machine_affinity {
-        return cmd_validate_check_resource_machine_affinity(&file, json);
+    if let Some(r) = try_validate_governance(&file, json, &check_resource_naming_pattern, check_resource_provider_support, check_resource_secret_refs, check_resource_idempotency_hints, check_resource_dependency_depth, check_resource_machine_affinity, check_resource_drift_risk, check_resource_tag_coverage) {
+        return r;
     }
     if let Some(r) = try_validate_advanced(&file, json, check_orphan_resources, check_machine_arch, check_resource_health_conflicts, check_resource_overlap, check_resource_tags, check_resource_state_consistency, check_resource_dependencies_complete, check_machine_connectivity) {
         return r;

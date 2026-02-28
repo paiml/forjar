@@ -77,6 +77,7 @@ pub(crate) struct NotifyOpts<'a> {
     pub slack_blocks: Option<&'a str>,
     pub custom_template: Option<&'a str>,
     pub custom_webhook: Option<&'a str>,
+    pub custom_headers: Option<&'a str>,
 }
 
 
@@ -182,6 +183,7 @@ fn send_incident_notifications(opts: &NotifyOpts<'_>, result: &Result<(), String
     send_slack_blocks_notification(opts.slack_blocks, result, config);
     send_custom_template_notification(opts.custom_template, result, config);
     send_custom_webhook_notification(opts.custom_webhook, result, config);
+    send_custom_headers_notification(opts.custom_headers, result, config);
 }
 
 fn send_pagerduty_notification(key: Option<&str>, result: &Result<(), String>, config: &Path) {
@@ -250,6 +252,32 @@ fn send_custom_webhook_notification(url: Option<&str>, result: &Result<(), Strin
             std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs()
         );
         send_webhook(url, &payload);
+    }
+}
+
+fn send_custom_headers_notification(headers: Option<&str>, result: &Result<(), String>, config: &Path) {
+    if let Some(headers_str) = headers {
+        let status = if result.is_ok() { "success" } else { "failure" };
+        let payload = event_json(status, config);
+        // Parse "url|Header1:Value1|Header2:Value2" format
+        let parts: Vec<&str> = headers_str.splitn(2, '|').collect();
+        if parts.len() >= 1 {
+            let url = parts[0];
+            let mut args = vec!["-s", "-X", "POST", "-H", "Content-Type: application/json"];
+            let header_parts: Vec<String> = if parts.len() > 1 {
+                parts[1].split('|').map(|h| h.to_string()).collect()
+            } else {
+                Vec::new()
+            };
+            for h in &header_parts {
+                args.push("-H");
+                args.push(h);
+            }
+            args.push("-d");
+            args.push(&payload);
+            args.push(url);
+            let _ = std::process::Command::new("curl").args(&args).output();
+        }
     }
 }
 
