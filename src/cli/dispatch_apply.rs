@@ -163,6 +163,7 @@ pub(crate) fn dispatch_apply_cmd(cmd: Commands, verbose: bool) -> Result<(), Str
         notify_custom_throttle,
         notify_custom_aggregate,
         notify_custom_priority,
+        notify_custom_routing,
     }) = cmd
     else {
         unreachable!()
@@ -278,6 +279,7 @@ pub(crate) fn dispatch_apply_cmd(cmd: Commands, verbose: bool) -> Result<(), Str
             custom_throttle: notify_custom_throttle.as_deref(),
             custom_aggregate: notify_custom_aggregate.as_deref(),
             custom_priority: notify_custom_priority.as_deref(),
+            custom_routing: notify_custom_routing.as_deref(),
     };
     send_apply_notifications(&opts, &result, &file);
 

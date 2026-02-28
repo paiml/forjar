@@ -338,5 +338,11 @@ pub struct ValidateArgs {
     /// FJ-929: Ensure all resources have required tag categories
     #[arg(long)]
     pub check_resource_tag_completeness: bool,
+    /// FJ-933: Enforce naming conventions via configurable regex patterns
+    #[arg(long)]
+    pub check_resource_naming_standards: bool,
+    /// FJ-937: Detect asymmetric dependency declarations
+    #[arg(long)]
+    pub check_resource_dependency_symmetry: bool,
 }
 

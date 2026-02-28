@@ -314,3 +314,93 @@ fn collect_dependency_depths(sd: &Path, targets: &[&String]) -> Vec<(String, usi
     depths.sort_by(|a, b| a.0.cmp(&b.0));
     depths
 }
+
+/// FJ-934: Rate of convergence improvement per machine.
+pub(crate) fn cmd_status_machine_resource_convergence_velocity(sd: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
+    let machines = discover_machines(sd);
+    let targets: Vec<&String> = match machine {
+        Some(m) => machines.iter().filter(|n| n.as_str() == m).collect(),
+        None => machines.iter().collect(),
+    };
+    let velocities = collect_convergence_velocities(sd, &targets);
+    if json {
+        let items: Vec<String> = velocities.iter()
+            .map(|(m, v)| format!("{{\"machine\":\"{}\",\"velocity\":{:.4}}}", m, v))
+            .collect();
+        println!("{{\"convergence_velocities\":[{}]}}", items.join(","));
+    } else if velocities.is_empty() {
+        println!("No convergence velocity data available.");
+    } else {
+        println!("Convergence velocity:");
+        for (m, v) in &velocities { println!("  {} — {:.4}", m, v); }
+    }
+    Ok(())
+}
+
+fn collect_convergence_velocities(sd: &Path, targets: &[&String]) -> Vec<(String, f64)> {
+    let mut velocities = Vec::new();
+    for m in targets {
+        let path = sd.join(m).join("state.lock.yaml");
+        let content = match std::fs::read_to_string(&path) { Ok(c) => c, Err(_) => continue };
+        let lock: types::StateLock = match serde_yaml_ng::from_str(&content) { Ok(l) => l, Err(_) => continue };
+        let total = lock.resources.len();
+        let converged = lock.resources.values().filter(|r| r.status == types::ResourceStatus::Converged).count();
+        let velocity = if total > 0 { converged as f64 / total as f64 } else { 0.0 };
+        velocities.push(((*m).clone(), velocity));
+    }
+    velocities.sort_by(|a, b| a.0.cmp(&b.0));
+    velocities
+}
+
+/// FJ-938: Fleet-wide convergence improvement rate.
+pub(crate) fn cmd_status_fleet_resource_convergence_velocity(sd: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
+    let machines = discover_machines(sd);
+    let targets: Vec<&String> = match machine {
+        Some(m) => machines.iter().filter(|n| n.as_str() == m).collect(),
+        None => machines.iter().collect(),
+    };
+    let velocities = collect_convergence_velocities(sd, &targets);
+    let total: f64 = velocities.iter().map(|(_, v)| v).sum();
+    let avg = if !velocities.is_empty() { total / velocities.len() as f64 } else { 0.0 };
+    if json {
+        println!("{{\"fleet_convergence_velocity\":{:.4},\"machines\":{}}}", avg, velocities.len());
+    } else {
+        println!("Fleet convergence velocity: {:.4} ({} machines)", avg, velocities.len());
+    }
+    Ok(())
+}
+
+/// FJ-940: Frequency of repeated failures per resource.
+pub(crate) fn cmd_status_machine_resource_failure_recurrence(sd: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
+    let machines = discover_machines(sd);
+    let targets: Vec<&String> = match machine {
+        Some(m) => machines.iter().filter(|n| n.as_str() == m).collect(),
+        None => machines.iter().collect(),
+    };
+    let recurrences = collect_failure_recurrences(sd, &targets);
+    if json {
+        let items: Vec<String> = recurrences.iter()
+            .map(|(m, c)| format!("{{\"machine\":\"{}\",\"failed_resources\":{}}}", m, c))
+            .collect();
+        println!("{{\"failure_recurrences\":[{}]}}", items.join(","));
+    } else if recurrences.is_empty() {
+        println!("No failure recurrence data available.");
+    } else {
+        println!("Failure recurrence:");
+        for (m, c) in &recurrences { println!("  {} — {} failed resources", m, c); }
+    }
+    Ok(())
+}
+
+fn collect_failure_recurrences(sd: &Path, targets: &[&String]) -> Vec<(String, usize)> {
+    let mut recurrences = Vec::new();
+    for m in targets {
+        let path = sd.join(m).join("state.lock.yaml");
+        let content = match std::fs::read_to_string(&path) { Ok(c) => c, Err(_) => continue };
+        let lock: types::StateLock = match serde_yaml_ng::from_str(&content) { Ok(l) => l, Err(_) => continue };
+        let failed = lock.resources.values().filter(|r| r.status == types::ResourceStatus::Failed).count();
+        if failed > 0 { recurrences.push(((*m).clone(), failed)); }
+    }
+    recurrences.sort_by(|a, b| a.0.cmp(&b.0));
+    recurrences
+}

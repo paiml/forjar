@@ -469,4 +469,13 @@ pub struct StatusArgs {
     /// FJ-932: Dependency chain depth per resource per machine
     #[arg(long)]
     pub machine_resource_dependency_depth: bool,
+    /// FJ-934: Rate of convergence improvement per machine
+    #[arg(long)]
+    pub machine_resource_convergence_velocity: bool,
+    /// FJ-938: Fleet-wide convergence improvement rate
+    #[arg(long)]
+    pub fleet_resource_convergence_velocity: bool,
+    /// FJ-940: Frequency of repeated failures per resource
+    #[arg(long)]
+    pub machine_resource_failure_recurrence: bool,
 }
