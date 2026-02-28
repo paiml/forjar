@@ -448,5 +448,11 @@ pub struct GraphArgs {
     /// FJ-1066: Analyze dependency graph width per level
     #[arg(long)]
     pub resource_dependency_width_analysis: bool,
+    /// FJ-1071: Highlight the longest dependency chain in the graph
+    #[arg(long)]
+    pub resource_dependency_critical_path_highlight: bool,
+    /// FJ-1074: Identify resources with high fan-in that create bottlenecks
+    #[arg(long)]
+    pub resource_dependency_bottleneck_detection: bool,
 }
 

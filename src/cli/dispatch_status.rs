@@ -18,6 +18,7 @@ use super::status_analytics::*;
 use super::status_drift_intel::*;
 use super::status_security::*;
 use super::status_operational_ext2::*;
+use super::status_fleet_insight::*;
 use super::status_intelligence_ext::*;
 use super::status_intelligence_ext2::*;
 use super::dispatch_status_ext::*;
@@ -309,13 +310,18 @@ fn try_status_phases_97_99(
     if f3 { return Some(cmd_status_fleet_resource_type_coverage(sd, machine, json)); }
     None
 }
-fn try_status_phase100(
+#[allow(clippy::too_many_arguments)]
+fn try_status_phases_100_101(
     sd: &Path, machine: Option<&str>, json: bool,
     fleet_apply_cadence: bool, machine_resource_error_classification: bool, fleet_resource_convergence_summary: bool,
+    fleet_resource_staleness_report: bool, machine_resource_type_distribution: bool, fleet_machine_health_score: bool,
 ) -> Option<Result<(), String>> {
     if fleet_apply_cadence { return Some(cmd_status_fleet_apply_cadence(sd, machine, json)); }
     if machine_resource_error_classification { return Some(cmd_status_machine_resource_error_classification(sd, machine, json)); }
     if fleet_resource_convergence_summary { return Some(cmd_status_fleet_resource_convergence_summary(sd, machine, json)); }
+    if fleet_resource_staleness_report { return Some(cmd_status_fleet_resource_staleness_report(sd, machine, json)); }
+    if machine_resource_type_distribution { return Some(cmd_status_machine_resource_type_distribution(sd, machine, json)); }
+    if fleet_machine_health_score { return Some(cmd_status_fleet_machine_health_score(sd, machine, json)); }
     None
 }
 #[allow(clippy::too_many_arguments)]
@@ -398,6 +404,7 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
         fleet_drift_velocity_trend, machine_convergence_window, fleet_resource_age_histogram,
         fleet_security_posture_summary, machine_resource_freshness_index, fleet_resource_type_coverage,
         fleet_apply_cadence, machine_resource_error_classification, fleet_resource_convergence_summary,
+        fleet_resource_staleness_report, machine_resource_type_distribution, fleet_machine_health_score,
     }) = cmd
     else {
         unreachable!()
@@ -445,8 +452,9 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
     ) {
         return r;
     }
-    if let Some(r) = try_status_phase100(&state_dir, m, json,
+    if let Some(r) = try_status_phases_100_101(&state_dir, m, json,
         fleet_apply_cadence, machine_resource_error_classification, fleet_resource_convergence_summary,
+        fleet_resource_staleness_report, machine_resource_type_distribution, fleet_machine_health_score,
     ) {
         return r;
     }

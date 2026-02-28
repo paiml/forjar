@@ -452,5 +452,14 @@ pub struct ValidateArgs {
     /// FJ-1068: Warn if machines have too many resources
     #[arg(long)]
     pub check_resource_machine_capacity: bool,
+    /// FJ-1070: Warn if resource dependency fan-out exceeds limit
+    #[arg(long)]
+    pub check_resource_dependency_fan_out_limit: bool,
+    /// FJ-1073: Warn if resources lack required tag keys
+    #[arg(long)]
+    pub check_resource_tag_required_keys: bool,
+    /// FJ-1076: Score drift risk based on type, content, and dependency count
+    #[arg(long)]
+    pub check_resource_content_drift_risk: bool,
 }
 

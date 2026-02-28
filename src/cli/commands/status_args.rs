@@ -610,4 +610,13 @@ pub struct StatusArgs {
     /// FJ-1067: Fleet resource convergence summary
     #[arg(long)]
     pub fleet_resource_convergence_summary: bool,
+    /// FJ-1069: Fleet resource staleness report
+    #[arg(long)]
+    pub fleet_resource_staleness_report: bool,
+    /// FJ-1072: Machine resource type distribution
+    #[arg(long)]
+    pub machine_resource_type_distribution: bool,
+    /// FJ-1075: Fleet machine health score
+    #[arg(long)]
+    pub fleet_machine_health_score: bool,
 }

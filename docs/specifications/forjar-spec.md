@@ -2941,6 +2941,19 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 | FJ-1067 | `forjar status --fleet-resource-convergence-summary` — overall fleet convergence summary with percentage and trend. Intelligence. | ✅ Done |
 | FJ-1068 | `forjar validate --check-resource-machine-capacity` — warn if machines have too many resources (configurable threshold). Governance. | ✅ Done |
 
+### Phase 101 — Fleet Insight & Dependency Quality (FJ-1069→FJ-1076)
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-1069 | `forjar status --fleet-resource-staleness-report` — report resources whose lock data is older than a configurable threshold (default 7 days). Intelligence. | 🔧 In Progress |
+| FJ-1070 | `forjar validate --check-resource-dependency-fan-out-limit` — warn if any resource has more than N direct dependents (default 10). Governance. | 🔧 In Progress |
+| FJ-1071 | `forjar graph --resource-dependency-critical-path-highlight` — highlight the longest dependency chain in the graph. Analysis. | 🔧 In Progress |
+| FJ-1072 | `forjar status --machine-resource-type-distribution` — show per-machine breakdown of resource types (file, package, service, etc.). Intelligence. | 🔧 In Progress |
+| FJ-1073 | `forjar validate --check-resource-tag-required-keys` — warn if resources lack required tag keys (e.g., env, team, tier). Governance. | 🔧 In Progress |
+| FJ-1074 | `forjar graph --resource-dependency-bottleneck-detection` — identify resources with high fan-in that create bottlenecks. Analysis. | 🔧 In Progress |
+| FJ-1075 | `forjar status --fleet-machine-health-score` — compute composite health score per machine based on convergence, drift, and error rates. Intelligence. | 🔧 In Progress |
+| FJ-1076 | `forjar validate --check-resource-content-drift-risk` — score drift risk based on resource type, content volatility, and dependency count. Governance. | 🔧 In Progress |
+
 ---
 
 ## 9. Performance Targets
