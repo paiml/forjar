@@ -435,6 +435,18 @@ fn test_fj006_cargo_absent_unsupported() {
     );
 }
 
+/// FJ-1005: cargo provider bootstraps rustup if cargo is missing and sets PATH.
+#[test]
+fn test_fj1005_cargo_bootstrap_rustup() {
+    let mut r = make_apt_resource(&["realizar"]);
+    r.provider = Some("cargo".to_string());
+    let script = apply_script(&r);
+    assert!(script.contains("command -v cargo"), "must check if cargo exists: {script}");
+    assert!(script.contains("rustup.rs"), "must bootstrap via rustup: {script}");
+    assert!(script.contains("cargo install --force 'realizar'"), "must still install: {script}");
+    assert!(script.contains(".cargo/bin:$PATH"), "must add cargo to PATH: {script}");
+}
+
 // --- FJ-036: Additional package tests ---
 
 #[test]

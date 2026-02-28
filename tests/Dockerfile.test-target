@@ -13,6 +13,8 @@ RUN apt-get update -qq && \
         cron \
         sudo \
         iproute2 \
+        curl \
+        ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # Keep container alive for exec-based transport
