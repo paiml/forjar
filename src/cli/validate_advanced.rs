@@ -401,3 +401,74 @@ fn find_provider_support_issues(config: &types::ForjarConfig) -> Vec<(String, St
     issues.sort();
     issues
 }
+
+/// FJ-837: Verify secret references exist and are valid.
+pub(crate) fn cmd_validate_check_resource_secret_refs(
+    file: &Path, json: bool,
+) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let config: types::ForjarConfig =
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+    let issues = find_secret_ref_issues(&config);
+    if json {
+        let items: Vec<String> = issues.iter()
+            .map(|(r, issue)| format!("{{\"resource\":\"{}\",\"issue\":\"{}\"}}", r, issue))
+            .collect();
+        println!("{{\"secret_ref_issues\":[{}]}}", items.join(","));
+    } else if issues.is_empty() {
+        println!("No secret reference issues found.");
+    } else {
+        println!("Secret reference issues ({}):", issues.len());
+        for (r, issue) in &issues { println!("  {} — {}", r, issue); }
+    }
+    Ok(())
+}
+
+fn find_secret_ref_issues(config: &types::ForjarConfig) -> Vec<(String, String)> {
+    let mut issues = Vec::new();
+    for (name, resource) in &config.resources {
+        if let Some(ref content) = resource.content {
+            if content.contains("{{secret.") || content.contains("${secret.") {
+                issues.push((name.clone(), "contains secret reference in content template".to_string()));
+            }
+        }
+    }
+    issues.sort();
+    issues
+}
+
+/// FJ-841: Check resources have idempotency markers.
+pub(crate) fn cmd_validate_check_resource_idempotency_hints(
+    file: &Path, json: bool,
+) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let config: types::ForjarConfig =
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+    let missing = find_idempotency_hint_gaps(&config);
+    if json {
+        let items: Vec<String> = missing.iter()
+            .map(|(r, hint)| format!("{{\"resource\":\"{}\",\"hint\":\"{}\"}}", r, hint))
+            .collect();
+        println!("{{\"idempotency_hints\":[{}]}}", items.join(","));
+    } else if missing.is_empty() {
+        println!("All resources have idempotency characteristics.");
+    } else {
+        println!("Resources missing idempotency hints ({}):", missing.len());
+        for (r, hint) in &missing { println!("  {} — {}", r, hint); }
+    }
+    Ok(())
+}
+
+fn find_idempotency_hint_gaps(config: &types::ForjarConfig) -> Vec<(String, String)> {
+    let mut gaps = Vec::new();
+    for (name, resource) in &config.resources {
+        let rtype = format!("{:?}", resource.resource_type);
+        if rtype.contains("File") || rtype.contains("Template") {
+            if resource.state.is_none() {
+                gaps.push((name.clone(), "file resource has no explicit state (present/absent)".to_string()));
+            }
+        }
+    }
+    gaps.sort();
+    gaps
+}

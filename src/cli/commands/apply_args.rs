@@ -597,5 +597,9 @@ pub struct ApplyArgs {
     /// FJ-832: Slack Block Kit rich notifications
     #[arg(long)]
     pub notify_slack_blocks: Option<String>,
+
+    /// FJ-840: Custom notification template support
+    #[arg(long)]
+    pub notify_custom_template: Option<String>,
 }
 
