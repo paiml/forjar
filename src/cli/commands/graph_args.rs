@@ -364,5 +364,11 @@ pub struct GraphArgs {
     /// FJ-947: Maximum incoming edges per node (convergence point)
     #[arg(long)]
     pub resource_dependency_fan_in: bool,
+    /// FJ-951: Count of distinct dependency paths between nodes
+    #[arg(long)]
+    pub resource_dependency_path_count: bool,
+    /// FJ-955: Identify articulation points whose removal disconnects graph
+    #[arg(long)]
+    pub resource_dependency_articulation_points: bool,
 }
 

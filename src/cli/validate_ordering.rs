@@ -213,3 +213,53 @@ fn compute_depth(config: &types::ForjarConfig, name: &str, visited: &mut std::co
     }
     max_dep
 }
+
+/// FJ-949: Detect parameters defined but never referenced in templates.
+pub(crate) fn cmd_validate_check_resource_unused_params(file: &Path, json: bool) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let config: types::ForjarConfig = serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let defined: Vec<String> = config.params.keys().cloned().collect();
+    let mut used = std::collections::HashSet::new();
+    for res in config.resources.values() {
+        if let Some(ref c) = res.content {
+            for p in &defined {
+                if c.contains(&format!("{{{{{}}}}}", p)) || c.contains(&format!("${{{}}}", p)) {
+                    used.insert(p.clone());
+                }
+            }
+        }
+    }
+    let unused: Vec<&String> = defined.iter().filter(|p| !used.contains(*p)).collect();
+    if json {
+        let items: Vec<String> = unused.iter().map(|p| format!("\"{}\"", p)).collect();
+        println!("{{\"unused_params\":[{}]}}", items.join(","));
+    } else if unused.is_empty() {
+        println!("No unused parameters detected.");
+    } else {
+        println!("Unused parameters:");
+        for p in &unused { println!("  {}", p); }
+    }
+    Ok(())
+}
+
+/// FJ-953: Warn when machines have unbalanced resource counts.
+pub(crate) fn cmd_validate_check_resource_machine_balance(file: &Path, json: bool) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let config: types::ForjarConfig = serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let mut counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    for res in config.resources.values() { *counts.entry(res.machine.to_string()).or_insert(0) += 1; }
+    let values: Vec<usize> = counts.values().cloned().collect();
+    let max = values.iter().max().copied().unwrap_or(0);
+    let min = values.iter().min().copied().unwrap_or(0);
+    let imbalance = if max > 0 { (max - min) as f64 / max as f64 } else { 0.0 };
+    if json {
+        let items: Vec<String> = counts.iter().map(|(m, c)| format!("{{\"machine\":\"{}\",\"resources\":{}}}", m, c)).collect();
+        println!("{{\"imbalance_ratio\":{:.4},\"machines\":[{}]}}", imbalance, items.join(","));
+    } else if imbalance > 0.5 {
+        println!("Resource imbalance detected (ratio: {:.4}):", imbalance);
+        for (m, c) in &counts { println!("  {} — {} resources", m, c); }
+    } else {
+        println!("Resource distribution is balanced (ratio: {:.4}).", imbalance);
+    }
+    Ok(())
+}

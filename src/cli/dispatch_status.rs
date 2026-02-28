@@ -29,167 +29,10 @@ use super::status_insights::*;
 use super::status_predictive::*;
 use super::status_recovery::*;
 use super::status_intelligence::*;
+use super::status_intelligence_ext::*;
 use super::lock_ops::*;
+use super::dispatch_status_ext::*;
 
-
-/// Phase 58+ status flags (resource_types_summary through lock_age).
-fn try_status_phase58(
-    sd: &Path, machine: Option<&str>, json: bool,
-    resource_types_summary: bool, failed_resources: bool,
-    drift_trend: bool, resource_inputs: bool,
-    convergence_history: bool, config_hash: bool,
-    last_apply_duration: bool, drift_details_all: bool,
-    resource_size: bool, hash_verify: bool,
-    lock_age: bool,
-) -> Option<Result<(), String>> {
-    if resource_types_summary { return Some(cmd_status_resource_types_summary(sd, machine, json)); }
-    if failed_resources { return Some(cmd_status_failed_resources(sd, machine, json)); }
-    if drift_trend { return Some(cmd_status_drift_trend(sd, machine, json)); }
-    if resource_inputs { return Some(cmd_status_resource_inputs(sd, machine, json)); }
-    if convergence_history { return Some(cmd_status_convergence_history(sd, machine, json)); }
-    if config_hash { return Some(cmd_status_config_hash(sd, machine, json)); }
-    if last_apply_duration { return Some(cmd_status_last_apply_duration(sd, machine, json)); }
-    if drift_details_all { return Some(cmd_status_drift_details_all(sd, json)); }
-    if resource_size { return Some(cmd_status_resource_size(sd, machine, json)); }
-    if hash_verify { return Some(cmd_status_hash_verify(sd, machine, json)); }
-    if lock_age { return Some(cmd_status_lock_age(sd, machine, json)); }
-    None
-}
-
-/// Status flags: change_frequency through security_posture.
-fn try_status_analytics(
-    sd: &Path, machine: Option<&str>, json: bool,
-    change_frequency: bool, machine_summary: bool,
-    recommendations: bool, uptime: bool,
-    diagnostic: bool, resource_dependencies: bool,
-    pipeline_status: bool, drift_forecast: bool,
-    resource_cost: bool, security_posture: bool,
-) -> Option<Result<(), String>> {
-    if change_frequency { return Some(cmd_status_change_frequency(sd, machine, json)); }
-    if machine_summary { return Some(cmd_status_machine_summary(sd, machine, json)); }
-    if recommendations { return Some(cmd_status_recommendations(sd, machine, json)); }
-    if uptime { return Some(cmd_status_uptime(sd, machine, json)); }
-    if diagnostic { return Some(cmd_status_diagnostic(sd, machine, json)); }
-    if resource_dependencies { return Some(cmd_status_resource_dependencies(sd, machine, json)); }
-    if pipeline_status { return Some(cmd_status_pipeline_status(sd, machine, json)); }
-    if drift_forecast { return Some(cmd_status_drift_forecast(sd, machine, json)); }
-    if resource_cost { return Some(cmd_status_resource_cost(sd, machine, json)); }
-    if security_posture { return Some(cmd_status_security_posture(sd, machine, json)); }
-    None
-}
-
-/// Status flags: error_summary through executive_summary.
-fn try_status_fleet(
-    sd: &Path, machine: Option<&str>, json: bool,
-    error_summary: bool, resource_timeline: bool,
-    convergence_time: bool, config_drift: bool,
-    machine_health: bool, fleet_overview: bool,
-    drift_velocity: bool, resource_graph: bool,
-    audit_trail: bool, executive_summary: bool,
-) -> Option<Result<(), String>> {
-    if error_summary { return Some(cmd_status_error_summary(sd, machine, json)); }
-    if resource_timeline { return Some(cmd_status_resource_timeline(sd, machine, json)); }
-    if convergence_time { return Some(cmd_status_convergence_time(sd, machine, json)); }
-    if config_drift { return Some(cmd_status_config_drift(sd, machine, json)); }
-    if machine_health { return Some(cmd_status_machine_health(sd, machine, json)); }
-    if fleet_overview { return Some(cmd_status_fleet_overview(sd, json)); }
-    if drift_velocity { return Some(cmd_status_drift_velocity(sd, machine, json)); }
-    if resource_graph { return Some(cmd_status_resource_graph(sd, machine, json)); }
-    if audit_trail { return Some(cmd_status_audit_trail(sd, machine, json)); }
-    if executive_summary { return Some(cmd_status_executive_summary(sd, json)); }
-    None
-}
-
-/// Status flags: health_score through drift_summary.
-fn try_status_reports(
-    sd: &Path, machine: Option<&str>, json: bool,
-    health_score: bool, staleness_report: &Option<String>,
-    cost_estimate: bool, capacity: bool,
-    prediction: bool, trend: Option<usize>,
-    mttr: bool, compliance_report: &Option<String>,
-    sla_report: bool, resource_age: bool,
-    drift_summary: bool,
-) -> Option<Result<(), String>> {
-    if health_score { return Some(cmd_status_health_score(sd, machine, json)); }
-    if let Some(ref w) = staleness_report { return Some(cmd_status_staleness_report(sd, machine, w, json)); }
-    if cost_estimate { return Some(cmd_status_cost_estimate(sd, machine, json)); }
-    if capacity { return Some(cmd_status_capacity(sd, machine, json)); }
-    if prediction { return Some(cmd_status_prediction(sd, machine, json)); }
-    if let Some(n) = trend { return Some(cmd_status_trend(sd, machine, n, json)); }
-    if mttr { return Some(cmd_status_mttr(sd, machine, json)); }
-    if let Some(ref p) = compliance_report { return Some(cmd_status_compliance_report(sd, machine, p, json)); }
-    if sla_report { return Some(cmd_status_sla_report(sd, machine, json)); }
-    if resource_age { return Some(cmd_status_resource_age(sd, machine, json)); }
-    if drift_summary { return Some(cmd_status_drift_summary(sd, machine, json)); }
-    None
-}
-
-/// Status flags: convergence_rate through json_lines.
-fn try_status_queries_a(
-    sd: &Path, machine: Option<&str>, json: bool,
-    convergence_rate: bool, top_failures: bool,
-    dependency_health: bool, histogram: bool,
-    compliance: &Option<String>, diff_lock: &Option<std::path::PathBuf>,
-    alerts: bool, compact: bool,
-    export: &Option<std::path::PathBuf>, json_lines: bool,
-) -> Option<Result<(), String>> {
-    if convergence_rate { return Some(cmd_status_convergence_rate(sd, machine, json)); }
-    if top_failures { return Some(cmd_status_top_failures(sd, machine, json)); }
-    if dependency_health { return Some(cmd_status_dependency_health(sd, machine, json)); }
-    if histogram { return Some(cmd_status_histogram(sd, machine, json)); }
-    if let Some(ref p) = compliance { return Some(cmd_status_compliance(sd, machine, p, json)); }
-    if let Some(ref p) = diff_lock { return Some(cmd_lock_diff(sd, p, json)); }
-    if alerts { return Some(cmd_status_alerts(sd, machine, json)); }
-    if compact { return Some(cmd_status_compact(sd, machine, json)); }
-    if let Some(ref p) = export { return Some(cmd_status_export(sd, machine, p, json)); }
-    if json_lines { return Some(cmd_status_json_lines(sd, machine)); }
-    None
-}
-
-/// Status flags: since through count.
-fn try_status_queries_b(
-    sd: &Path, machine: Option<&str>, json: bool,
-    since: &Option<String>, stale_resources: bool,
-    health_threshold: Option<u32>,
-    machines_only: bool, resources_by_type: bool,
-    anomalies: bool, diff_from: &Option<String>,
-    count: bool,
-) -> Option<Result<(), String>> {
-    if let Some(ref d) = since { return Some(cmd_status_since(sd, machine, d, json)); }
-    if stale_resources { return Some(cmd_status_stale_resources(sd, machine, json)); }
-    if let Some(t) = health_threshold { return Some(cmd_status_health_threshold(sd, machine, t, json)); }
-    if machines_only { return Some(cmd_status_machines_only(sd, machine, json)); }
-    if resources_by_type { return Some(cmd_status_resources_by_type(sd, machine, json)); }
-    if anomalies { return Some(cmd_status_anomalies(sd, machine, json)); }
-    if let Some(ref s) = diff_from { return Some(cmd_status_diff_from(sd, s, json)); }
-    if count { return Some(cmd_status_count(sd, machine, json)); }
-    None
-}
-
-/// Status flags: format through watch/default.
-fn try_status_display(
-    sd: &Path, machine: Option<&str>, json: bool,
-    status_format: &Option<String>, prometheus: bool,
-    expired: &Option<String>, changes_since: &Option<String>,
-    summary_by: &Option<String>, timeline: bool,
-    drift_details: bool, health: bool,
-    stale: Option<u64>, failed_since: &Option<String>,
-) -> Option<Result<(), String>> {
-    if let Some(ref f) = status_format { return Some(cmd_status_format(sd, machine, f)); }
-    if prometheus { return Some(cmd_status_prometheus(sd, machine)); }
-    if let Some(ref d) = expired { return Some(cmd_status_expired(sd, machine, d, json)); }
-    if let Some(ref c) = changes_since { return Some(cmd_status_changes_since(sd, c, json)); }
-    if let Some(ref d) = summary_by { return Some(cmd_status_summary_by(sd, machine, d, json)); }
-    if timeline { return Some(cmd_status_timeline(sd, machine, json)); }
-    if drift_details { return Some(cmd_status_drift_details(sd, machine, json)); }
-    if health { return Some(cmd_status_health(sd, machine, json)); }
-    if let Some(days) = stale { return Some(cmd_status_stale(sd, machine, days, json)); }
-    if let Some(ref s) = failed_since { return Some(cmd_status_failed_since(sd, machine, s, json)); }
-    None
-}
-
-
-/// Phase 59-61 status flags.
 #[allow(clippy::too_many_arguments)]
 fn try_status_phase59a(
     sd: &Path, machine: Option<&str>, json: bool,
@@ -209,7 +52,6 @@ fn try_status_phase59a(
     None
 }
 
-/// Phase 62-64 status flags.
 #[allow(clippy::too_many_arguments)]
 fn try_status_phase62(
     sd: &Path, machine: Option<&str>, json: bool, file: Option<&Path>,
@@ -234,7 +76,6 @@ fn try_status_phase62(
     None
 }
 
-/// Phase 65-67 status flags.
 #[allow(clippy::too_many_arguments)]
 fn try_status_phase65(
     sd: &Path, machine: Option<&str>, json: bool, file: Option<&Path>,
@@ -257,8 +98,6 @@ fn try_status_phase65(
     None
 }
 
-
-/// Phase 68-70 operational status flags.
 #[allow(clippy::too_many_arguments)]
 fn try_status_phase68(
     sd: &Path, machine: Option<&str>, json: bool,
@@ -278,23 +117,7 @@ fn try_status_phase68(
     None
 }
 
-/// Phase 71-72 operational status flags.
 #[allow(clippy::too_many_arguments)]
-fn try_status_phase71(
-    sd: &Path, machine: Option<&str>, json: bool,
-    machine_apply_count: bool, fleet_apply_history: bool, resource_hash_changes: bool,
-    machine_uptime_estimate: bool, fleet_resource_type_breakdown: bool, resource_convergence_time: bool,
-) -> Option<Result<(), String>> {
-    if machine_apply_count { return Some(cmd_status_machine_apply_count(sd, machine, json)); }
-    if fleet_apply_history { return Some(cmd_status_fleet_apply_history(sd, machine, json)); }
-    if resource_hash_changes { return Some(cmd_status_resource_hash_changes(sd, machine, json)); }
-    if machine_uptime_estimate { return Some(cmd_status_machine_uptime_estimate(sd, machine, json)); }
-    if fleet_resource_type_breakdown { return Some(cmd_status_fleet_resource_type_breakdown(sd, machine, json)); }
-    if resource_convergence_time { return Some(cmd_status_resource_convergence_time(sd, machine, json)); }
-    None
-}
-
-/// Phase 73-74 insight status flags.
 #[allow(clippy::too_many_arguments)]
 fn try_status_phase73(
     sd: &Path, machine: Option<&str>, json: bool,
@@ -310,7 +133,6 @@ fn try_status_phase73(
     None
 }
 
-/// Phase 75-77 predictive status flags.
 #[allow(clippy::too_many_arguments)]
 fn try_status_phase75(
     sd: &Path, machine: Option<&str>, json: bool,
@@ -343,6 +165,7 @@ fn try_status_phase79(
     machine_resource_convergence_lag: bool, fleet_resource_convergence_lag: bool, machine_resource_dependency_depth: bool,
     machine_resource_convergence_velocity: bool, fleet_resource_convergence_velocity: bool, machine_resource_failure_recurrence: bool,
     machine_resource_drift_frequency: bool, fleet_resource_drift_frequency: bool, machine_resource_apply_duration_trend: bool,
+    machine_resource_convergence_streak: bool, fleet_resource_convergence_streak: bool, machine_resource_error_distribution: bool,
 ) -> Option<Result<(), String>> {
     if machine_resource_failure_correlation { return Some(cmd_status_machine_resource_failure_correlation(sd, machine, json)); }
     if fleet_resource_age_distribution { return Some(cmd_status_fleet_resource_age_distribution(sd, machine, json)); }
@@ -358,6 +181,7 @@ fn try_status_phase79(
         machine_resource_convergence_lag, fleet_resource_convergence_lag, machine_resource_dependency_depth,
         machine_resource_convergence_velocity, fleet_resource_convergence_velocity, machine_resource_failure_recurrence,
         machine_resource_drift_frequency, fleet_resource_drift_frequency, machine_resource_apply_duration_trend,
+        machine_resource_convergence_streak, fleet_resource_convergence_streak, machine_resource_error_distribution,
     )
 }
 
@@ -368,6 +192,7 @@ fn try_status_phase82(
     machine_resource_convergence_lag: bool, fleet_resource_convergence_lag: bool, machine_resource_dependency_depth: bool,
     machine_resource_convergence_velocity: bool, fleet_resource_convergence_velocity: bool, machine_resource_failure_recurrence: bool,
     machine_resource_drift_frequency: bool, fleet_resource_drift_frequency: bool, machine_resource_apply_duration_trend: bool,
+    machine_resource_convergence_streak: bool, fleet_resource_convergence_streak: bool, machine_resource_error_distribution: bool,
 ) -> Option<Result<(), String>> {
     if machine_resource_dependency_lag { return Some(cmd_status_machine_resource_dependency_lag(sd, machine, json)); }
     if fleet_resource_dependency_lag { return Some(cmd_status_fleet_resource_dependency_lag(sd, machine, json)); }
@@ -378,13 +203,27 @@ fn try_status_phase82(
     if machine_resource_convergence_velocity { return Some(cmd_status_machine_resource_convergence_velocity(sd, machine, json)); }
     if fleet_resource_convergence_velocity { return Some(cmd_status_fleet_resource_convergence_velocity(sd, machine, json)); }
     if machine_resource_failure_recurrence { return Some(cmd_status_machine_resource_failure_recurrence(sd, machine, json)); }
+    try_status_phase85(sd, machine, json,
+        machine_resource_drift_frequency, fleet_resource_drift_frequency, machine_resource_apply_duration_trend,
+        machine_resource_convergence_streak, fleet_resource_convergence_streak, machine_resource_error_distribution,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn try_status_phase85(
+    sd: &Path, machine: Option<&str>, json: bool,
+    machine_resource_drift_frequency: bool, fleet_resource_drift_frequency: bool, machine_resource_apply_duration_trend: bool,
+    machine_resource_convergence_streak: bool, fleet_resource_convergence_streak: bool, machine_resource_error_distribution: bool,
+) -> Option<Result<(), String>> {
     if machine_resource_drift_frequency { return Some(cmd_status_machine_resource_drift_frequency(sd, machine, json)); }
     if fleet_resource_drift_frequency { return Some(cmd_status_fleet_resource_drift_frequency(sd, machine, json)); }
     if machine_resource_apply_duration_trend { return Some(cmd_status_machine_resource_apply_duration_trend(sd, machine, json)); }
+    if machine_resource_convergence_streak { return Some(cmd_status_machine_resource_convergence_streak(sd, machine, json)); }
+    if fleet_resource_convergence_streak { return Some(cmd_status_fleet_resource_convergence_streak(sd, machine, json)); }
+    if machine_resource_error_distribution { return Some(cmd_status_machine_resource_error_distribution(sd, machine, json)); }
     None
 }
 
-/// Dispatch the Status command variant.
 pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
     let Commands::Status(StatusArgs {
         state_dir, machine, json, file, summary, watch,
@@ -433,13 +272,12 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
         machine_resource_convergence_lag, fleet_resource_convergence_lag, machine_resource_dependency_depth,
         machine_resource_convergence_velocity, fleet_resource_convergence_velocity, machine_resource_failure_recurrence,
         machine_resource_drift_frequency, fleet_resource_drift_frequency, machine_resource_apply_duration_trend,
+        machine_resource_convergence_streak, fleet_resource_convergence_streak, machine_resource_error_distribution,
     }) = cmd
     else {
         unreachable!()
     };
-
     let m = machine.as_deref();
-
     if let Some(r) = try_status_phase59a(&state_dir, m, json, resource_health, machine_health_summary, last_apply_status, resource_staleness, convergence_percentage, failed_count, drift_count, resource_duration) {
         return r;
     }
@@ -455,46 +293,20 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
     if let Some(r) = try_status_phase73(&state_dir, m, json, machine_drift_age, fleet_failed_resources, resource_dependency_health, machine_resource_age_distribution, fleet_convergence_velocity, resource_failure_correlation) {
         return r;
     }
-    if let Some(r) = try_status_phase79(&state_dir, m, json, machine_resource_failure_correlation, fleet_resource_age_distribution, machine_resource_rollback_readiness, machine_resource_health_trend, fleet_resource_drift_velocity, machine_resource_apply_success_trend, machine_resource_mttr_estimate, fleet_resource_convergence_forecast, machine_resource_error_budget_forecast, machine_resource_dependency_lag, fleet_resource_dependency_lag, machine_resource_config_drift_rate, machine_resource_convergence_lag, fleet_resource_convergence_lag, machine_resource_dependency_depth, machine_resource_convergence_velocity, fleet_resource_convergence_velocity, machine_resource_failure_recurrence, machine_resource_drift_frequency, fleet_resource_drift_frequency, machine_resource_apply_duration_trend) {
+    if let Some(r) = try_status_phase79(&state_dir, m, json, machine_resource_failure_correlation, fleet_resource_age_distribution, machine_resource_rollback_readiness, machine_resource_health_trend, fleet_resource_drift_velocity, machine_resource_apply_success_trend, machine_resource_mttr_estimate, fleet_resource_convergence_forecast, machine_resource_error_budget_forecast, machine_resource_dependency_lag, fleet_resource_dependency_lag, machine_resource_config_drift_rate, machine_resource_convergence_lag, fleet_resource_convergence_lag, machine_resource_dependency_depth, machine_resource_convergence_velocity, fleet_resource_convergence_velocity, machine_resource_failure_recurrence, machine_resource_drift_frequency, fleet_resource_drift_frequency, machine_resource_apply_duration_trend, machine_resource_convergence_streak, fleet_resource_convergence_streak, machine_resource_error_distribution) {
         return r;
     }
     if let Some(r) = try_status_phase75(&state_dir, m, json, machine_resource_churn_rate, fleet_resource_staleness, machine_convergence_trend, machine_capacity_utilization, fleet_configuration_entropy, machine_resource_freshness, machine_error_budget, fleet_compliance_score, machine_mean_time_to_recovery, machine_resource_dependency_health, fleet_resource_type_health, machine_resource_convergence_rate) {
         return r;
     }
-    if let Some(r) = try_status_phase71(&state_dir, m, json, machine_apply_count, fleet_apply_history, resource_hash_changes, machine_uptime_estimate, fleet_resource_type_breakdown, resource_convergence_time) {
-        return r;
-    }
-    if let Some(r) = try_status_phase58(&state_dir, m, json, resource_types_summary, failed_resources, drift_trend, resource_inputs, convergence_history, config_hash, last_apply_duration, drift_details_all, resource_size, hash_verify, lock_age) {
-        return r;
-    }
-    if let Some(r) = try_status_analytics(&state_dir, m, json, change_frequency, machine_summary, recommendations, uptime, diagnostic, resource_dependencies, pipeline_status, drift_forecast, resource_cost, security_posture) {
-        return r;
-    }
-    if let Some(r) = try_status_fleet(&state_dir, m, json, error_summary, resource_timeline, convergence_time, config_drift, machine_health, fleet_overview, drift_velocity, resource_graph, audit_trail, executive_summary) {
-        return r;
-    }
-    if let Some(r) = try_status_reports(&state_dir, m, json, health_score, &staleness_report, cost_estimate, capacity, prediction, trend, mttr, &compliance_report, sla_report, resource_age, drift_summary) {
-        return r;
-    }
-    if let Some(r) = try_status_queries_a(&state_dir, m, json, convergence_rate, top_failures, dependency_health, histogram, &compliance, &diff_lock, alerts, compact, &export, json_lines) {
-        return r;
-    }
-    if let Some(r) = try_status_queries_b(&state_dir, m, json, &since, stale_resources, health_threshold, machines_only, resources_by_type, anomalies, &diff_from, count) {
-        return r;
-    }
-    if let Some(r) = try_status_display(&state_dir, m, json, &status_format, prometheus, &expired, &changes_since, &summary_by, timeline, drift_details, health, stale, &failed_since) {
-        return r;
-    }
-
-    if let Some(interval) = watch {
-        let interval = interval.max(1);
-        loop {
-            print!("\x1b[2J\x1b[H");
-            cmd_status(&state_dir, m, json, file.as_deref(), summary)?;
-            println!("\n{}", dim(&format!("Refreshing every {}s (Ctrl+C to stop)", interval)));
-            std::thread::sleep(std::time::Duration::from_secs(interval));
-        }
-    } else {
-        cmd_status(&state_dir, m, json, file.as_deref(), summary)
-    }
+    dispatch_status_early(&state_dir, m, json, file.as_deref(), summary, watch,
+        machine_apply_count, fleet_apply_history, resource_hash_changes, machine_uptime_estimate, fleet_resource_type_breakdown, resource_convergence_time,
+        resource_types_summary, failed_resources, drift_trend, resource_inputs, convergence_history, config_hash, last_apply_duration, drift_details_all, resource_size, hash_verify, lock_age,
+        change_frequency, machine_summary, recommendations, uptime, diagnostic, resource_dependencies, pipeline_status, drift_forecast, resource_cost, security_posture,
+        error_summary, resource_timeline, convergence_time, config_drift, machine_health, fleet_overview, drift_velocity, resource_graph, audit_trail, executive_summary,
+        health_score, &staleness_report, cost_estimate, capacity, prediction, trend, mttr, &compliance_report, sla_report, resource_age, drift_summary,
+        convergence_rate, top_failures, dependency_health, histogram, &compliance, &diff_lock, alerts, compact, &export, json_lines,
+        &since, stale_resources, health_threshold, machines_only, resources_by_type, anomalies, &diff_from, count,
+        &status_format, prometheus, &expired, &changes_since, &summary_by, timeline, drift_details, health, stale, &failed_since,
+    )
 }

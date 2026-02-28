@@ -487,4 +487,13 @@ pub struct StatusArgs {
     /// FJ-948: Trend analysis of apply durations per machine
     #[arg(long)]
     pub machine_resource_apply_duration_trend: bool,
+    /// FJ-950: Longest consecutive convergence streak per machine
+    #[arg(long)]
+    pub machine_resource_convergence_streak: bool,
+    /// FJ-954: Fleet-wide convergence streak aggregation
+    #[arg(long)]
+    pub fleet_resource_convergence_streak: bool,
+    /// FJ-956: Distribution of error types per machine
+    #[arg(long)]
+    pub machine_resource_error_distribution: bool,
 }

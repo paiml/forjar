@@ -4,6 +4,7 @@ pub mod commands;
 pub mod dispatch;
 mod dispatch_apply;
 mod dispatch_status;
+mod dispatch_status_ext;
 mod dispatch_notify;
 mod dispatch_graph;
 mod dispatch_validate;
@@ -55,7 +56,9 @@ mod graph_extended;
 mod graph_export;
 mod graph_advanced;
 mod graph_intelligence;
+mod graph_intelligence_ext;
 mod status_intelligence;
+mod status_intelligence_ext;
 mod graph_paths;
 mod graph_scoring;
 mod graph_visualization;
@@ -324,6 +327,8 @@ mod tests_phase83;
 mod tests_phase84;
 #[cfg(test)]
 mod tests_phase85;
+#[cfg(test)]
+mod tests_phase86;
 
 pub use commands::Commands;
 pub use dispatch::dispatch;
