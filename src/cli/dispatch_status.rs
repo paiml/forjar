@@ -25,6 +25,7 @@ use super::status_cost::*;
 use super::status_observability::*;
 use super::status_failures::*;
 use super::status_operational::*;
+use super::status_insights::*;
 use super::lock_ops::*;
 
 
@@ -254,6 +255,42 @@ fn try_status_phase65(
 }
 
 
+/// Phase 68-70 operational status flags.
+#[allow(clippy::too_many_arguments)]
+fn try_status_phase68(
+    sd: &Path, machine: Option<&str>, json: bool,
+    machine_convergence_history: bool, drift_history: bool, resource_failure_rate: bool,
+    machine_last_apply: bool, fleet_drift_summary: bool, resource_apply_duration: bool,
+    machine_resource_health: bool, fleet_convergence_trend: bool, resource_state_distribution: bool,
+) -> Option<Result<(), String>> {
+    if machine_convergence_history { return Some(cmd_status_machine_convergence_history(sd, machine, json)); }
+    if drift_history { return Some(cmd_status_drift_history(sd, machine, json)); }
+    if resource_failure_rate { return Some(cmd_status_resource_failure_rate(sd, machine, json)); }
+    if machine_last_apply { return Some(cmd_status_machine_last_apply(sd, machine, json)); }
+    if fleet_drift_summary { return Some(cmd_status_fleet_drift_summary(sd, machine, json)); }
+    if resource_apply_duration { return Some(cmd_status_resource_apply_duration(sd, machine, json)); }
+    if machine_resource_health { return Some(cmd_status_machine_resource_health(sd, machine, json)); }
+    if fleet_convergence_trend { return Some(cmd_status_fleet_convergence_trend(sd, machine, json)); }
+    if resource_state_distribution { return Some(cmd_status_resource_state_distribution(sd, machine, json)); }
+    None
+}
+
+/// Phase 71-72 operational status flags.
+#[allow(clippy::too_many_arguments)]
+fn try_status_phase71(
+    sd: &Path, machine: Option<&str>, json: bool,
+    machine_apply_count: bool, fleet_apply_history: bool, resource_hash_changes: bool,
+    machine_uptime_estimate: bool, fleet_resource_type_breakdown: bool, resource_convergence_time: bool,
+) -> Option<Result<(), String>> {
+    if machine_apply_count { return Some(cmd_status_machine_apply_count(sd, machine, json)); }
+    if fleet_apply_history { return Some(cmd_status_fleet_apply_history(sd, machine, json)); }
+    if resource_hash_changes { return Some(cmd_status_resource_hash_changes(sd, machine, json)); }
+    if machine_uptime_estimate { return Some(cmd_status_machine_uptime_estimate(sd, machine, json)); }
+    if fleet_resource_type_breakdown { return Some(cmd_status_fleet_resource_type_breakdown(sd, machine, json)); }
+    if resource_convergence_time { return Some(cmd_status_resource_convergence_time(sd, machine, json)); }
+    None
+}
+
 /// Dispatch the Status command variant.
 pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
     let Commands::Status(StatusArgs {
@@ -289,6 +326,7 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
         machine_last_apply, fleet_drift_summary, resource_apply_duration,
         machine_resource_health, fleet_convergence_trend, resource_state_distribution,
         machine_apply_count, fleet_apply_history, resource_hash_changes,
+        machine_uptime_estimate, fleet_resource_type_breakdown, resource_convergence_time,
     }) = cmd
     else {
         unreachable!()
@@ -305,18 +343,12 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
     if let Some(r) = try_status_phase65(&state_dir, m, json, file.as_deref(), resource_apply_age, machine_uptime, resource_churn, last_drift_time, machine_resource_count, convergence_score, apply_success_rate, error_rate, fleet_health_summary) {
         return r;
     }
-    if machine_convergence_history { return cmd_status_machine_convergence_history(&state_dir, m, json); }
-    if drift_history { return cmd_status_drift_history(&state_dir, m, json); }
-    if resource_failure_rate { return cmd_status_resource_failure_rate(&state_dir, m, json); }
-    if machine_last_apply { return cmd_status_machine_last_apply(&state_dir, m, json); }
-    if fleet_drift_summary { return cmd_status_fleet_drift_summary(&state_dir, m, json); }
-    if resource_apply_duration { return cmd_status_resource_apply_duration(&state_dir, m, json); }
-    if machine_resource_health { return cmd_status_machine_resource_health(&state_dir, m, json); }
-    if fleet_convergence_trend { return cmd_status_fleet_convergence_trend(&state_dir, m, json); }
-    if resource_state_distribution { return cmd_status_resource_state_distribution(&state_dir, m, json); }
-    if machine_apply_count { return cmd_status_machine_apply_count(&state_dir, m, json); }
-    if fleet_apply_history { return cmd_status_fleet_apply_history(&state_dir, m, json); }
-    if resource_hash_changes { return cmd_status_resource_hash_changes(&state_dir, m, json); }
+    if let Some(r) = try_status_phase68(&state_dir, m, json, machine_convergence_history, drift_history, resource_failure_rate, machine_last_apply, fleet_drift_summary, resource_apply_duration, machine_resource_health, fleet_convergence_trend, resource_state_distribution) {
+        return r;
+    }
+    if let Some(r) = try_status_phase71(&state_dir, m, json, machine_apply_count, fleet_apply_history, resource_hash_changes, machine_uptime_estimate, fleet_resource_type_breakdown, resource_convergence_time) {
+        return r;
+    }
     if let Some(r) = try_status_phase58(&state_dir, m, json, resource_types_summary, failed_resources, drift_trend, resource_inputs, convergence_history, config_hash, last_apply_duration, drift_details_all, resource_size, hash_verify, lock_age) {
         return r;
     }

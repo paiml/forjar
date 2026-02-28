@@ -75,6 +75,7 @@ pub(crate) struct NotifyOpts<'a> {
     pub discord_webhook: Option<&'a str>,
     pub teams_webhook: Option<&'a str>,
     pub slack_blocks: Option<&'a str>,
+    pub custom_template: Option<&'a str>,
 }
 
 
@@ -178,6 +179,7 @@ fn send_incident_notifications(opts: &NotifyOpts<'_>, result: &Result<(), String
     send_discord_webhook_notification(opts.discord_webhook, result, config);
     send_teams_webhook_notification(opts.teams_webhook, result, config);
     send_slack_blocks_notification(opts.slack_blocks, result, config);
+    send_custom_template_notification(opts.custom_template, result, config);
 }
 
 fn send_pagerduty_notification(key: Option<&str>, result: &Result<(), String>, config: &Path) {
@@ -221,6 +223,19 @@ fn send_slack_blocks_notification(url: Option<&str>, result: &Result<(), String>
             r#"{{"blocks":[{{"type":"header","text":{{"type":"plain_text","text":"{} {}"}}}},{{"type":"section","text":{{"type":"mrkdwn","text":"*Config:* `{}`"}}}}]}}"#,
             emoji, title, config.display()
         ));
+    }
+}
+
+fn send_custom_template_notification(template: Option<&str>, result: &Result<(), String>, config: &Path) {
+    if let Some(template) = template {
+        let status = if result.is_ok() { "success" } else { "failure" };
+        let rendered = template
+            .replace("{{status}}", status)
+            .replace("{{config}}", &config.display().to_string());
+        let _ = std::process::Command::new("bash")
+            .arg("-c")
+            .arg(&rendered)
+            .output();
     }
 }
 

@@ -456,5 +456,17 @@ pub struct StatusArgs {
     /// FJ-836: Track hash changes over time per resource
     #[arg(long)]
     pub resource_hash_changes: bool,
+
+    /// FJ-838: Estimate machine uptime from apply history
+    #[arg(long)]
+    pub machine_uptime_estimate: bool,
+
+    /// FJ-842: Resource type distribution across fleet
+    #[arg(long)]
+    pub fleet_resource_type_breakdown: bool,
+
+    /// FJ-844: Average time to converge per resource
+    #[arg(long)]
+    pub resource_convergence_time: bool,
 }
 

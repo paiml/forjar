@@ -256,5 +256,13 @@ pub struct ValidateArgs {
     /// FJ-833: Verify providers match resource types
     #[arg(long)]
     pub check_resource_provider_support: bool,
+
+    /// FJ-837: Verify secret references exist and are valid
+    #[arg(long)]
+    pub check_resource_secret_refs: bool,
+
+    /// FJ-841: Check resources have idempotency markers
+    #[arg(long)]
+    pub check_resource_idempotency_hints: bool,
 }
 

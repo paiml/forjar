@@ -268,5 +268,13 @@ pub struct GraphArgs {
     /// FJ-835: Histogram of dependency depths
     #[arg(long)]
     pub resource_depth_histogram: bool,
+
+    /// FJ-839: Coupling score between resource pairs
+    #[arg(long)]
+    pub resource_coupling_score: bool,
+
+    /// FJ-843: Overlay change frequency on dependency graph
+    #[arg(long)]
+    pub resource_change_frequency: bool,
 }
 

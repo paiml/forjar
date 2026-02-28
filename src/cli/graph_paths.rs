@@ -203,3 +203,87 @@ fn compute_depth(node: usize, adj: &[Vec<usize>], cache: &mut [Option<usize>]) -
     cache[node] = Some(d);
     d
 }
+
+/// FJ-839: Coupling score between resource pairs.
+pub(crate) fn cmd_graph_resource_coupling_score(
+    file: &Path, json: bool,
+) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let config: types::ForjarConfig =
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+    let scores = compute_coupling_scores(&config);
+    if json {
+        let items: Vec<String> = scores.iter()
+            .map(|(a, b, s)| format!("{{\"resource_a\":\"{}\",\"resource_b\":\"{}\",\"score\":{}}}", a, b, s))
+            .collect();
+        println!("{{\"coupling_scores\":[{}]}}", items.join(","));
+    } else if scores.is_empty() {
+        println!("No coupled resource pairs found.");
+    } else {
+        println!("Resource coupling scores:");
+        for (a, b, s) in &scores { println!("  {} <-> {} — score {}", a, b, s); }
+    }
+    Ok(())
+}
+
+fn compute_coupling_scores(config: &types::ForjarConfig) -> Vec<(String, String, usize)> {
+    let mut scores = Vec::new();
+    let names: Vec<&String> = config.resources.keys().collect();
+    for i in 0..names.len() {
+        for j in (i + 1)..names.len() {
+            let ra = &config.resources[names[i]];
+            let rb = &config.resources[names[j]];
+            let mut score = 0usize;
+            if ra.depends_on.contains(names[j]) { score += 2; }
+            if rb.depends_on.contains(names[i]) { score += 2; }
+            let ma: HashSet<String> = ra.machine.to_vec().into_iter().collect();
+            let mb: HashSet<String> = rb.machine.to_vec().into_iter().collect();
+            if !ma.is_disjoint(&mb) { score += 1; }
+            if score > 0 {
+                scores.push((names[i].clone(), names[j].clone(), score));
+            }
+        }
+    }
+    scores.sort_by(|a, b| b.2.cmp(&a.2).then(a.0.cmp(&b.0)));
+    scores
+}
+
+/// FJ-843: Overlay change frequency on dependency graph (simulated from deps count).
+pub(crate) fn cmd_graph_resource_change_frequency(
+    file: &Path, json: bool,
+) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let config: types::ForjarConfig =
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+    let freqs = estimate_change_frequency(&config);
+    if json {
+        let items: Vec<String> = freqs.iter()
+            .map(|(r, f)| format!("{{\"resource\":\"{}\",\"change_score\":{}}}", r, f))
+            .collect();
+        println!("{{\"change_frequency\":[{}]}}", items.join(","));
+    } else if freqs.is_empty() {
+        println!("No resources.");
+    } else {
+        println!("Estimated change frequency (by dependency impact):");
+        for (r, f) in &freqs { println!("  {} — score {}", r, f); }
+    }
+    Ok(())
+}
+
+fn estimate_change_frequency(config: &types::ForjarConfig) -> Vec<(String, usize)> {
+    let mut fanin: std::collections::HashMap<&str, usize> = std::collections::HashMap::new();
+    for resource in config.resources.values() {
+        for dep in &resource.depends_on {
+            *fanin.entry(dep.as_str()).or_default() += 1;
+        }
+    }
+    let mut results: Vec<(String, usize)> = config.resources.keys()
+        .map(|name| {
+            let fi = fanin.get(name.as_str()).copied().unwrap_or(0);
+            let fo = config.resources[name].depends_on.len();
+            (name.clone(), fi + fo)
+        })
+        .collect();
+    results.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+    results
+}

@@ -141,6 +141,7 @@ pub(crate) fn dispatch_graph_cmd(cmd: Commands) -> Result<(), String> {
         resource_fanin, isolated_subgraphs,
         resource_dependency_chain, bottleneck_resources,
         critical_dependency_path, resource_depth_histogram,
+        resource_coupling_score, resource_change_frequency,
     }) = cmd
     else {
         unreachable!()
@@ -163,6 +164,8 @@ pub(crate) fn dispatch_graph_cmd(cmd: Commands) -> Result<(), String> {
     if bottleneck_resources { return cmd_graph_bottleneck_resources(&file, json_output); }
     if critical_dependency_path { return cmd_graph_critical_dependency_path(&file, json_output); }
     if resource_depth_histogram { return cmd_graph_resource_depth_histogram(&file, json_output); }
+    if resource_coupling_score { return cmd_graph_resource_coupling_score(&file, json_output); }
+    if resource_change_frequency { return cmd_graph_resource_change_frequency(&file, json_output); }
     if let Some(r) = try_graph_analysis(&file, json_output, resource_weight, dependency_depth_per_resource, resource_fanin, isolated_subgraphs, dependency_matrix_csv, strongly_connected, bipartite_check, sink_resources) {
         return r;
     }
