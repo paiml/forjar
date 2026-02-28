@@ -412,5 +412,11 @@ pub struct GraphArgs {
     /// FJ-1019: Visualize conditional vs unconditional resource subgraphs
     #[arg(long)]
     pub resource_dependency_conditional_subgraph: bool,
+    /// FJ-1023: Partition dependency graph into parallelizable execution groups
+    #[arg(long)]
+    pub resource_dependency_parallel_groups: bool,
+    /// FJ-1026: Estimate execution cost by weighting edges with type costs
+    #[arg(long)]
+    pub resource_dependency_execution_cost: bool,
 }
 

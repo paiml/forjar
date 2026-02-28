@@ -29,6 +29,7 @@ mod validate_governance;
 mod validate_ownership;
 mod validate_ordering;
 mod validate_ordering_ext;
+mod validate_resilience;
 mod apply;
 mod apply_output;
 mod apply_variants;
@@ -67,6 +68,7 @@ mod graph_paths;
 mod graph_scoring;
 mod graph_visualization;
 mod graph_impact;
+mod graph_resilience;
 mod lock_core;
 mod lock_repair;
 mod lock_lifecycle;
@@ -92,6 +94,7 @@ mod fleet_ops;
 mod fleet_reporting;
 mod infra;
 mod status_operational;
+mod status_operational_ext;
 mod status_insights;
 mod status_predictive;
 mod status_recovery;
@@ -455,6 +458,8 @@ mod tests_cov_remaining_7;
 mod tests_cov_remaining_8;
 #[cfg(test)]
 mod tests_cov_remaining_9;
+#[cfg(test)]
+mod tests_phase95;
 
 pub use commands::Commands;
 pub use dispatch::dispatch;

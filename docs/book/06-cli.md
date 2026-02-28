@@ -3084,6 +3084,50 @@ forjar status --state-dir state --machine-resource-convergence-stability
 # Convergence stability: 87.5% (mean: 90.0%, 3 machines)
 ```
 
+#### Phase 95 — Operational Resilience & Runtime Diagnostics (FJ-1021→FJ-1028)
+
+```bash
+# FJ-1021: Fleet apply success rate trend
+forjar status --state-dir state --fleet-apply-success-rate-trend
+# web: 66.7% (2/3)
+# db: 100.0% (4/4)
+
+# FJ-1022: Lifecycle hook coverage check
+forjar validate -f forjar.yaml --check-resource-lifecycle-hook-coverage
+# warning: nginx-svc (service) has no lifecycle hooks
+# warning: vim-pkg (package) has no lifecycle hooks
+
+# FJ-1023: Parallel execution groups
+forjar graph -f forjar.yaml --resource-dependency-parallel-groups
+# Group 0 (parallel): base_dir, config
+# Group 1 (parallel): app, migrations
+# Group 2 (parallel): healthcheck
+
+# FJ-1024: Drift flapping detection
+forjar status --state-dir state --machine-resource-drift-flapping
+# config: drifted (file)
+# nginx: drifted (service)
+
+# FJ-1025: Secret rotation age check
+forjar validate -f forjar.yaml --check-resource-secret-rotation-age
+# review: db_password contains encrypted secret (rotation recommended)
+
+# FJ-1026: Execution cost estimation
+forjar graph -f forjar.yaml --resource-dependency-execution-cost
+# Total resources: 5
+# Total estimated cost: 12
+# Critical path cost: 9 (path: base_dir → app → healthcheck)
+
+# FJ-1027: Drift type heatmap
+forjar status --state-dir state --fleet-resource-type-drift-heatmap
+# file: 3 drifted across 2 machines
+# service: 1 drifted across 1 machines
+
+# FJ-1028: Dependency chain depth check
+forjar validate -f forjar.yaml --check-resource-dependency-chain-depth
+# All dependency chains within depth limit (10).
+```
+
 ### `forjar watch`
 
 Watch a config file for changes and automatically re-plan.

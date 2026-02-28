@@ -16,6 +16,7 @@ use super::status_intelligence::*;
 use super::status_intelligence_ext::*;
 use super::status_intelligence_ext2::*;
 use super::dispatch_status_ext::*;
+use super::status_operational_ext::*;
 
 #[allow(clippy::too_many_arguments)]
 fn try_status_phase59a(
@@ -276,6 +277,15 @@ fn try_status_phase94(
     if fleet_resource_security_posture_score { return Some(cmd_status_fleet_resource_security_posture_score(sd, machine, json)); }
     None
 }
+fn try_status_phase95(
+    sd: &Path, machine: Option<&str>, json: bool,
+    fleet_apply_success_rate_trend: bool, machine_resource_drift_flapping: bool, fleet_resource_type_drift_heatmap: bool,
+) -> Option<Result<(), String>> {
+    if fleet_apply_success_rate_trend { return Some(cmd_status_fleet_apply_success_rate_trend(sd, machine, json)); }
+    if machine_resource_drift_flapping { return Some(cmd_status_machine_resource_drift_flapping(sd, machine, json)); }
+    if fleet_resource_type_drift_heatmap { return Some(cmd_status_fleet_resource_type_drift_heatmap(sd, machine, json)); }
+    None
+}
 #[allow(clippy::too_many_arguments)]
 fn try_status_phases_87_92(
     sd: &Path, machine: Option<&str>, json: bool,
@@ -350,6 +360,7 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
         machine_resource_drift_age_hours, fleet_resource_convergence_percentile, machine_resource_error_rate,
         machine_resource_convergence_gap, fleet_resource_error_distribution, machine_resource_convergence_stability,
         machine_resource_apply_latency_p95, fleet_resource_security_posture_score,
+        fleet_apply_success_rate_trend, machine_resource_drift_flapping, fleet_resource_type_drift_heatmap,
     }) = cmd
     else {
         unreachable!()
@@ -385,6 +396,11 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
     }
     if let Some(r) = try_status_phase94(&state_dir, m, json,
         machine_resource_apply_latency_p95, fleet_resource_security_posture_score,
+    ) {
+        return r;
+    }
+    if let Some(r) = try_status_phase95(&state_dir, m, json,
+        fleet_apply_success_rate_trend, machine_resource_drift_flapping, fleet_resource_type_drift_heatmap,
     ) {
         return r;
     }

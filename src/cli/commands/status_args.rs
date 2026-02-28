@@ -556,4 +556,13 @@ pub struct StatusArgs {
     /// FJ-1017: Security posture score based on permissions, secrets, firewall
     #[arg(long)]
     pub fleet_resource_security_posture_score: bool,
+    /// FJ-1021: Rolling apply success rate per machine over recent applies
+    #[arg(long)]
+    pub fleet_apply_success_rate_trend: bool,
+    /// FJ-1024: Identify resources that repeatedly drift after apply (flapping)
+    #[arg(long)]
+    pub machine_resource_drift_flapping: bool,
+    /// FJ-1027: Heatmap of drift frequency by resource type across fleet
+    #[arg(long)]
+    pub fleet_resource_type_drift_heatmap: bool,
 }
