@@ -53,6 +53,8 @@ mod graph_cross;
 mod graph_extended;
 mod graph_export;
 mod graph_advanced;
+mod graph_intelligence;
+mod status_intelligence;
 mod graph_paths;
 mod graph_scoring;
 mod graph_visualization;
@@ -311,6 +313,8 @@ mod tests_phase78;
 mod tests_phase79;
 #[cfg(test)]
 mod tests_phase80;
+#[cfg(test)]
+mod tests_phase81;
 
 pub use commands::Commands;
 pub use dispatch::dispatch;

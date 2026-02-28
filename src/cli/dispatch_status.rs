@@ -28,6 +28,7 @@ use super::status_operational::*;
 use super::status_insights::*;
 use super::status_predictive::*;
 use super::status_recovery::*;
+use super::status_intelligence::*;
 use super::lock_ops::*;
 
 
@@ -337,6 +338,7 @@ fn try_status_phase79(
     sd: &Path, machine: Option<&str>, json: bool,
     machine_resource_failure_correlation: bool, fleet_resource_age_distribution: bool, machine_resource_rollback_readiness: bool,
     machine_resource_health_trend: bool, fleet_resource_drift_velocity: bool, machine_resource_apply_success_trend: bool,
+    machine_resource_mttr_estimate: bool, fleet_resource_convergence_forecast: bool, machine_resource_error_budget_forecast: bool,
 ) -> Option<Result<(), String>> {
     if machine_resource_failure_correlation { return Some(cmd_status_machine_resource_failure_correlation(sd, machine, json)); }
     if fleet_resource_age_distribution { return Some(cmd_status_fleet_resource_age_distribution(sd, machine, json)); }
@@ -344,6 +346,9 @@ fn try_status_phase79(
     if machine_resource_health_trend { return Some(cmd_status_machine_resource_health_trend(sd, machine, json)); }
     if fleet_resource_drift_velocity { return Some(cmd_status_fleet_resource_drift_velocity(sd, machine, json)); }
     if machine_resource_apply_success_trend { return Some(cmd_status_machine_resource_apply_success_trend(sd, machine, json)); }
+    if machine_resource_mttr_estimate { return Some(cmd_status_machine_resource_mttr_estimate(sd, machine, json)); }
+    if fleet_resource_convergence_forecast { return Some(cmd_status_fleet_resource_convergence_forecast(sd, machine, json)); }
+    if machine_resource_error_budget_forecast { return Some(cmd_status_machine_resource_error_budget_forecast(sd, machine, json)); }
     None
 }
 
@@ -391,6 +396,7 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
         machine_resource_dependency_health, fleet_resource_type_health, machine_resource_convergence_rate,
         machine_resource_failure_correlation, fleet_resource_age_distribution, machine_resource_rollback_readiness,
         machine_resource_health_trend, fleet_resource_drift_velocity, machine_resource_apply_success_trend,
+        machine_resource_mttr_estimate, fleet_resource_convergence_forecast, machine_resource_error_budget_forecast,
     }) = cmd
     else {
         unreachable!()
@@ -413,7 +419,7 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
     if let Some(r) = try_status_phase73(&state_dir, m, json, machine_drift_age, fleet_failed_resources, resource_dependency_health, machine_resource_age_distribution, fleet_convergence_velocity, resource_failure_correlation) {
         return r;
     }
-    if let Some(r) = try_status_phase79(&state_dir, m, json, machine_resource_failure_correlation, fleet_resource_age_distribution, machine_resource_rollback_readiness, machine_resource_health_trend, fleet_resource_drift_velocity, machine_resource_apply_success_trend) {
+    if let Some(r) = try_status_phase79(&state_dir, m, json, machine_resource_failure_correlation, fleet_resource_age_distribution, machine_resource_rollback_readiness, machine_resource_health_trend, fleet_resource_drift_velocity, machine_resource_apply_success_trend, machine_resource_mttr_estimate, fleet_resource_convergence_forecast, machine_resource_error_budget_forecast) {
         return r;
     }
     if let Some(r) = try_status_phase75(&state_dir, m, json, machine_resource_churn_rate, fleet_resource_staleness, machine_convergence_trend, machine_capacity_utilization, fleet_configuration_entropy, machine_resource_freshness, machine_error_budget, fleet_compliance_score, machine_mean_time_to_recovery, machine_resource_dependency_health, fleet_resource_type_health, machine_resource_convergence_rate) {

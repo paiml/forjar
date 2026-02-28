@@ -320,5 +320,11 @@ pub struct ValidateArgs {
     /// FJ-905: Verify resources pin explicit versions
     #[arg(long)]
     pub check_resource_version_pinning: bool,
+    /// FJ-909: Verify all dependencies exist and are reachable
+    #[arg(long)]
+    pub check_resource_dependency_completeness: bool,
+    /// FJ-913: Verify all resources declare explicit states
+    #[arg(long)]
+    pub check_resource_state_coverage: bool,
 }
 

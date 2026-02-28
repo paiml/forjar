@@ -338,3 +338,61 @@ fn find_unpinned_resources(config: &types::ForjarConfig) -> Vec<String> {
     unpinned.sort();
     unpinned
 }
+
+/// FJ-909: Verify all dependency references resolve to existing resources.
+pub(crate) fn cmd_validate_check_resource_dependency_completeness(file: &Path, json: bool) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let config: types::ForjarConfig = serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let missing = find_incomplete_dependencies(&config);
+    if json {
+        let items: Vec<String> = missing.iter()
+            .map(|(n, dep)| format!("{{\"resource\":\"{}\",\"missing_dep\":\"{}\"}}", n, dep))
+            .collect();
+        println!("{{\"incomplete_dependencies\":[{}]}}", items.join(","));
+    } else if missing.is_empty() {
+        println!("All dependency references are complete.");
+    } else {
+        println!("Incomplete dependency references:");
+        for (n, dep) in &missing { println!("  {} → missing '{}'", n, dep); }
+    }
+    Ok(())
+}
+
+fn find_incomplete_dependencies(config: &types::ForjarConfig) -> Vec<(String, String)> {
+    let mut missing = Vec::new();
+    for (name, res) in &config.resources {
+        for dep in &res.depends_on {
+            if !config.resources.contains_key(dep) {
+                missing.push((name.clone(), dep.clone()));
+            }
+        }
+    }
+    missing.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.cmp(&b.1)));
+    missing
+}
+
+/// FJ-913: Ensure all resources have explicit state fields.
+pub(crate) fn cmd_validate_check_resource_state_coverage(file: &Path, json: bool) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let config: types::ForjarConfig = serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let missing = find_missing_state_coverage(&config);
+    if json {
+        let items: Vec<String> = missing.iter().map(|n| format!("\"{}\"", n)).collect();
+        println!("{{\"resources_without_state\":[{}]}}", items.join(","));
+    } else if missing.is_empty() {
+        println!("All resources have explicit state coverage.");
+    } else {
+        println!("Resources without explicit state:");
+        for n in &missing { println!("  {}", n); }
+    }
+    Ok(())
+}
+
+fn find_missing_state_coverage(config: &types::ForjarConfig) -> Vec<String> {
+    let mut missing: Vec<String> = config.resources.iter()
+        .filter(|(_, res)| res.state.is_none())
+        .map(|(name, _)| name.clone())
+        .collect();
+    missing.sort();
+    missing
+}
