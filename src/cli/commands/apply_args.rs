@@ -621,5 +621,8 @@ pub struct ApplyArgs {
     /// FJ-880: Retry failed notifications with exponential backoff
     #[arg(long)]
     pub notify_custom_retry: Option<String>,
+    /// FJ-888: Transform notification payload via template
+    #[arg(long)]
+    pub notify_custom_transform: Option<String>,
 }
 

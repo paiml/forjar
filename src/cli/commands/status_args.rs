@@ -367,39 +367,30 @@ pub struct StatusArgs {
     /// FJ-778: Show number of lock files per machine
     #[arg(long)]
     pub lock_file_count: bool,
-
     /// FJ-780: Show resource type breakdown across fleet
     #[arg(long)]
     pub resource_type_distribution: bool,
-
     /// FJ-782: Show time since last apply per resource
     #[arg(long)]
     pub resource_apply_age: bool,
-
     /// FJ-786: Show time since first apply per machine
     #[arg(long)]
     pub machine_uptime: bool,
-
     /// FJ-788: Show apply frequency per resource over time
     #[arg(long)]
     pub resource_churn: bool,
-
     /// FJ-790: Show timestamp of last drift detection per resource
     #[arg(long)]
     pub last_drift_time: bool,
-
     /// FJ-794: Show resource count per machine
     #[arg(long)]
     pub machine_resource_count: bool,
-
     /// FJ-796: Weighted convergence score across fleet
     #[arg(long)]
     pub convergence_score: bool,
-
     /// FJ-798: Show success/failure ratio per machine
     #[arg(long)]
     pub apply_success_rate: bool,
-
     /// FJ-802: Show error rate per resource type
     #[arg(long)]
     pub error_rate: bool,
@@ -497,4 +488,13 @@ pub struct StatusArgs {
     /// FJ-884: MTTR metrics per machine
     #[arg(long)]
     pub machine_mean_time_to_recovery: bool,
+    /// FJ-886: Health of upstream dependencies per resource
+    #[arg(long)]
+    pub machine_resource_dependency_health: bool,
+    /// FJ-890: Health breakdown by resource type across fleet
+    #[arg(long)]
+    pub fleet_resource_type_health: bool,
+    /// FJ-892: Convergence rate per resource per machine
+    #[arg(long)]
+    pub machine_resource_convergence_rate: bool,
 }

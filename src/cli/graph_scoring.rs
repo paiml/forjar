@@ -369,3 +369,69 @@ fn compute_propagation_chains(config: &types::ForjarConfig) -> Vec<(String, usiz
     chains.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
     chains
 }
+
+/// FJ-887: Show max dependency chain depth per resource.
+pub(crate) fn cmd_graph_resource_dependency_depth_analysis(file: &Path, json: bool) -> Result<(), String> {
+    let raw = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let config: types::ForjarConfig = serde_yaml_ng::from_str(&raw).map_err(|e| e.to_string())?;
+    let depths = compute_dependency_depths(&config);
+    if json {
+        let items: Vec<String> = depths.iter()
+            .map(|(n, d)| format!("{{\"resource\":\"{}\",\"max_depth\":{}}}", n, d)).collect();
+        println!("{{\"dependency_depth_analysis\":[{}]}}", items.join(","));
+    } else if depths.is_empty() {
+        println!("No resources found for depth analysis.");
+    } else {
+        println!("Dependency depth analysis (deepest first):");
+        for (name, depth) in &depths { println!("  {} — depth {}", name, depth); }
+    }
+    Ok(())
+}
+
+fn compute_dependency_depths(config: &types::ForjarConfig) -> Vec<(String, usize)> {
+    let mut depths = Vec::new();
+    for name in config.resources.keys() {
+        let depth = compute_chain_depth(config, name, 0);
+        depths.push((name.clone(), depth));
+    }
+    depths.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+    depths
+}
+
+fn compute_chain_depth(config: &types::ForjarConfig, name: &str, current: usize) -> usize {
+    let resource = match config.resources.get(name) { Some(r) => r, None => return current };
+    if resource.depends_on.is_empty() { return current; }
+    resource.depends_on.iter()
+        .map(|dep| compute_chain_depth(config, dep, current + 1))
+        .max().unwrap_or(current)
+}
+
+/// FJ-891: Combined fan-in/fan-out analysis per resource.
+pub(crate) fn cmd_graph_resource_dependency_fan_analysis(file: &Path, json: bool) -> Result<(), String> {
+    let raw = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let config: types::ForjarConfig = serde_yaml_ng::from_str(&raw).map_err(|e| e.to_string())?;
+    let analysis = compute_fan_analysis(&config);
+    if json {
+        let items: Vec<String> = analysis.iter()
+            .map(|(n, fi, fo)| format!("{{\"resource\":\"{}\",\"fan_in\":{},\"fan_out\":{}}}", n, fi, fo)).collect();
+        println!("{{\"fan_analysis\":[{}]}}", items.join(","));
+    } else if analysis.is_empty() {
+        println!("No resources found for fan analysis.");
+    } else {
+        println!("Fan-in/fan-out analysis:");
+        for (name, fi, fo) in &analysis { println!("  {} — fan-in: {}, fan-out: {}", name, fi, fo); }
+    }
+    Ok(())
+}
+
+fn compute_fan_analysis(config: &types::ForjarConfig) -> Vec<(String, usize, usize)> {
+    let mut analysis = Vec::new();
+    for (name, resource) in &config.resources {
+        let fan_out = resource.depends_on.len();
+        let fan_in = config.resources.values()
+            .filter(|r| r.depends_on.contains(name)).count();
+        analysis.push((name.clone(), fan_in, fan_out));
+    }
+    analysis.sort_by(|a, b| (b.1 + b.2).cmp(&(a.1 + a.2)).then(a.0.cmp(&b.0)));
+    analysis
+}

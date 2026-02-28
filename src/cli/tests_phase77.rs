@@ -1,6 +1,7 @@
 //! Tests: Phase 77 — Documentation, Compliance & Recovery (FJ-877→FJ-884).
 
 use super::validate_governance::*;
+use super::validate_ownership::*;
 use super::graph_scoring::*;
 use super::status_predictive::*;
 use super::status_recovery::*;
@@ -97,7 +98,7 @@ mod tests {
             discord_webhook: None, teams_webhook: None, slack_blocks: None,
             custom_template: None, custom_webhook: None, custom_headers: None,
             custom_json: None, custom_filter: None,
-            custom_retry: Some("https://hooks.example.com|retries:3"),
+            custom_retry: Some("https://hooks.example.com|retries:3"), custom_transform: None,
         };
         assert!(opts.custom_retry.is_some());
     }
@@ -115,7 +116,7 @@ mod tests {
             sqs: None, mattermost: None, ntfy: None, pagerduty: None,
             discord_webhook: None, teams_webhook: None, slack_blocks: None,
             custom_template: None, custom_webhook: None, custom_headers: None,
-            custom_json: None, custom_filter: None, custom_retry: None,
+            custom_json: None, custom_filter: None, custom_retry: None, custom_transform: None,
         };
         assert!(opts.custom_retry.is_none());
     }

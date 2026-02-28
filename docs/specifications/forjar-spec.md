@@ -2636,14 +2636,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-885 | `forjar validate --check-resource-secret-exposure` — detect secrets accidentally exposed in resource content. Security. | Planned |
-| FJ-886 | `forjar status --machine-resource-dependency-health` — health of upstream dependencies per resource. Intelligence. | Planned |
-| FJ-887 | `forjar graph --resource-dependency-depth-analysis` — show max dependency chain depth per resource. Analysis. | Planned |
-| FJ-888 | `forjar apply --notify-custom-transform` — transform notification payload via template. Integration. | Planned |
-| FJ-889 | `forjar validate --check-resource-tag-standards` — enforce tag naming standards across resources. Governance. | Planned |
-| FJ-890 | `forjar status --fleet-resource-type-health` — health breakdown by resource type across fleet. Intelligence. | Planned |
-| FJ-891 | `forjar graph --resource-dependency-fan-analysis` — combined fan-in/fan-out analysis per resource. Analysis. | Planned |
-| FJ-892 | `forjar status --machine-resource-convergence-rate` — convergence rate per resource per machine. Intelligence. | Planned |
+| FJ-885 | `forjar validate --check-resource-secret-exposure` — detect secrets accidentally exposed in resource content. Security. | Done |
+| FJ-886 | `forjar status --machine-resource-dependency-health` — health of upstream dependencies per resource. Intelligence. | Done |
+| FJ-887 | `forjar graph --resource-dependency-depth-analysis` — show max dependency chain depth per resource. Analysis. | Done |
+| FJ-888 | `forjar apply --notify-custom-transform` — transform notification payload via template. Integration. | Done |
+| FJ-889 | `forjar validate --check-resource-tag-standards` — enforce tag naming standards across resources. Governance. | Done |
+| FJ-890 | `forjar status --fleet-resource-type-health` — health breakdown by resource type across fleet. Intelligence. | Done |
+| FJ-891 | `forjar graph --resource-dependency-fan-analysis` — combined fan-in/fan-out analysis per resource. Analysis. | Done |
+| FJ-892 | `forjar status --machine-resource-convergence-rate` — convergence rate per resource per machine. Intelligence. | Done |
+
+### Phase 79 — Security Hardening & Operational Insights (FJ-893→FJ-900)
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-893 | `forjar validate --check-resource-privilege-escalation` — detect resources that could enable privilege escalation. Security. | Planned |
+| FJ-894 | `forjar status --machine-resource-failure-correlation` — correlate resource failures across machines. Intelligence. | Planned |
+| FJ-895 | `forjar graph --resource-dependency-cycle-risk` — identify near-cycle dependency patterns that risk deadlock. Analysis. | Planned |
+| FJ-896 | `forjar apply --notify-custom-batch` — batch multiple resource notifications into single payload. Integration. | Planned |
+| FJ-897 | `forjar validate --check-resource-update-safety` — verify resources can be safely updated without downtime. Safety. | Planned |
+| FJ-898 | `forjar status --fleet-resource-age-distribution` — age distribution of resources across fleet. Intelligence. | Planned |
+| FJ-899 | `forjar graph --resource-dependency-stability-score` — stability score based on dependency change frequency. Analysis. | Planned |
+| FJ-900 | `forjar status --machine-resource-rollback-readiness` — readiness for rollback per machine based on state history. Intelligence. | Planned |
 
 ---
 
