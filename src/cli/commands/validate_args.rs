@@ -407,5 +407,14 @@ pub struct ValidateArgs {
     /// FJ-1028: Warn if dependency chains exceed max depth limit (configurable)
     #[arg(long)]
     pub check_resource_dependency_chain_depth: bool,
+    /// FJ-1030: Warn if recipe resources reference undefined inputs
+    #[arg(long)]
+    pub check_recipe_input_completeness: bool,
+    /// FJ-1033: Warn if resources have duplicate content across different machines
+    #[arg(long)]
+    pub check_resource_cross_machine_content_duplicates: bool,
+    /// FJ-1036: Warn if resources reference machines not defined in config
+    #[arg(long)]
+    pub check_resource_machine_reference_validity: bool,
 }
 

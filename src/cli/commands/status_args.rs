@@ -565,4 +565,13 @@ pub struct StatusArgs {
     /// FJ-1027: Heatmap of drift frequency by resource type across fleet
     #[arg(long)]
     pub fleet_resource_type_drift_heatmap: bool,
+    /// FJ-1029: SSH connection latency and health per machine
+    #[arg(long)]
+    pub machine_ssh_connection_health: bool,
+    /// FJ-1032: Lock file age and staleness per machine
+    #[arg(long)]
+    pub lock_file_staleness_report: bool,
+    /// FJ-1035: Transport methods (local vs SSH) across fleet
+    #[arg(long)]
+    pub fleet_transport_method_summary: bool,
 }
