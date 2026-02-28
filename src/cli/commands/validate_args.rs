@@ -232,5 +232,13 @@ pub struct ValidateArgs {
     /// FJ-809: Detect resources with overlapping scope on same machine
     #[arg(long)]
     pub check_resource_overlap: bool,
+
+    /// FJ-813: Enforce tag conventions (required tags, naming rules)
+    #[arg(long)]
+    pub check_resource_tags: bool,
+
+    /// FJ-817: Verify state fields match resource type constraints
+    #[arg(long)]
+    pub check_resource_state_consistency: bool,
 }
 

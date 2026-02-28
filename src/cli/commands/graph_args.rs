@@ -244,5 +244,13 @@ pub struct GraphArgs {
     /// FJ-811: Show max dependency chain depth per resource
     #[arg(long)]
     pub dependency_depth_per_resource: bool,
+
+    /// FJ-815: Fan-in count per resource (how many depend on it)
+    #[arg(long)]
+    pub resource_fanin: bool,
+
+    /// FJ-819: Detect disconnected subgraphs in the DAG
+    #[arg(long)]
+    pub isolated_subgraphs: bool,
 }
 

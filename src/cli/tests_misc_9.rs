@@ -118,7 +118,7 @@ mod tests {
             convergence_score: false,
             apply_success_rate: false,
             error_rate: false,
-            fleet_health_summary: false, machine_convergence_history: false, drift_history: false, resource_failure_rate: false,
+            fleet_health_summary: false, machine_convergence_history: false, drift_history: false, resource_failure_rate: false, machine_last_apply: false, fleet_drift_summary: false, resource_apply_duration: false,
         });
         match cmd {
             Commands::Status(StatusArgs { changes_since, .. }) => {
@@ -189,7 +189,7 @@ mod tests {
             sink_resources: false,
             bipartite_check: false,
             strongly_connected: false,
-            dependency_matrix_csv: false, resource_weight: false, dependency_depth_per_resource: false,
+            dependency_matrix_csv: false, resource_weight: false, dependency_depth_per_resource: false, resource_fanin: false, isolated_subgraphs: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { critical_path, .. }) => assert!(critical_path),
@@ -301,7 +301,7 @@ mod tests {
             convergence_score: false,
             apply_success_rate: false,
             error_rate: false,
-            fleet_health_summary: false, machine_convergence_history: false, drift_history: false, resource_failure_rate: false,
+            fleet_health_summary: false, machine_convergence_history: false, drift_history: false, resource_failure_rate: false, machine_last_apply: false, fleet_drift_summary: false, resource_apply_duration: false,
         });
         match cmd {
             Commands::Status(StatusArgs { summary_by, .. }) => {
@@ -463,7 +463,7 @@ mod tests {
         notify_json: false,
             notify_slack_webhook: None,
             notify_telegram: None,
-            notify_webhook_v2: None,
+            notify_webhook_v2: None, notify_discord_webhook: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { max_failures, .. }) => assert_eq!(max_failures, Some(3)),

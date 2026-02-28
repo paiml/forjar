@@ -72,6 +72,7 @@ pub(crate) struct NotifyOpts<'a> {
     pub mattermost: Option<&'a str>,
     pub ntfy: Option<&'a str>,
     pub pagerduty: Option<&'a str>,
+    pub discord_webhook: Option<&'a str>,
 }
 
 
@@ -171,12 +172,28 @@ fn send_incident_notifications(opts: &NotifyOpts<'_>, result: &Result<(), String
             ));
         }
     }
-    if let Some(key) = opts.pagerduty {
+    send_pagerduty_notification(opts.pagerduty, result, config);
+    send_discord_webhook_notification(opts.discord_webhook, result, config);
+}
+
+fn send_pagerduty_notification(key: Option<&str>, result: &Result<(), String>, config: &Path) {
+    if let Some(key) = key {
         let action = if result.is_ok() { "resolve" } else { "trigger" };
         let severity = if result.is_ok() { "info" } else { "error" };
         send_webhook("https://events.pagerduty.com/v2/enqueue", &format!(
             r#"{{"routing_key":"{}","event_action":"{}","payload":{{"summary":"Forjar apply: {}","source":"forjar","severity":"{}","component":"infrastructure"}}}}"#,
             key, action, config.display(), severity
+        ));
+    }
+}
+
+fn send_discord_webhook_notification(url: Option<&str>, result: &Result<(), String>, config: &Path) {
+    if let Some(url) = url {
+        let color = if result.is_ok() { 3066993 } else { 15158332 };
+        let title = if result.is_ok() { "Apply Succeeded" } else { "Apply Failed" };
+        send_webhook(url, &format!(
+            r#"{{"embeds":[{{"title":"{}","description":"Config: {}","color":{},"footer":{{"text":"forjar"}}}}]}}"#,
+            title, config.display(), color
         ));
     }
 }
