@@ -2545,14 +2545,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-829 | `forjar validate --check-resource-naming-pattern` — enforce regex naming pattern for resources. Governance. | Planned |
-| FJ-830 | `forjar status --machine-apply-count` — total apply count per machine. Dashboard. | Planned |
-| FJ-831 | `forjar graph --critical-dependency-path` — longest weighted path through the DAG. Analysis. | Planned |
-| FJ-832 | `forjar apply --notify-slack-blocks` — Slack Block Kit rich notifications. Integration. | Planned |
-| FJ-833 | `forjar validate --check-resource-provider-support` — verify providers match resource types. Governance. | Planned |
-| FJ-834 | `forjar status --fleet-apply-history` — recent apply history across all machines. Timeline. | Planned |
-| FJ-835 | `forjar graph --resource-depth-histogram` — histogram of dependency depths. Visualization. | Planned |
-| FJ-836 | `forjar status --resource-hash-changes` — track hash changes over time per resource. Forensics. | Planned |
+| FJ-829 | `forjar validate --check-resource-naming-pattern` — enforce naming pattern for resources. Governance. | Done |
+| FJ-830 | `forjar status --machine-apply-count` — total apply count per machine. Dashboard. | Done |
+| FJ-831 | `forjar graph --critical-dependency-path` — longest weighted path through the DAG. Analysis. | Done |
+| FJ-832 | `forjar apply --notify-slack-blocks` — Slack Block Kit rich notifications. Integration. | Done |
+| FJ-833 | `forjar validate --check-resource-provider-support` — verify providers match resource types. Governance. | Done |
+| FJ-834 | `forjar status --fleet-apply-history` — recent apply history across all machines. Timeline. | Done |
+| FJ-835 | `forjar graph --resource-depth-histogram` — histogram of dependency depths. Visualization. | Done |
+| FJ-836 | `forjar status --resource-hash-changes` — track hash changes over time per resource. Forensics. | Done |
+
+### Phase 72 — Security & Fleet Insights (FJ-837→FJ-844)
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-837 | `forjar validate --check-resource-secret-refs` — verify secret references exist and are valid. Security. | Planned |
+| FJ-838 | `forjar status --machine-uptime-estimate` — estimate machine uptime from apply history. Dashboard. | Planned |
+| FJ-839 | `forjar graph --resource-coupling-score` — coupling score between resource pairs. Analysis. | Planned |
+| FJ-840 | `forjar apply --notify-custom-template` — custom notification template support. Integration. | Planned |
+| FJ-841 | `forjar validate --check-resource-idempotency-hints` — check resources have idempotency markers. Quality. | Planned |
+| FJ-842 | `forjar status --fleet-resource-type-breakdown` — resource type distribution across fleet. Analytics. | Planned |
+| FJ-843 | `forjar graph --resource-change-frequency` — overlay change frequency on dependency graph. Visualization. | Planned |
+| FJ-844 | `forjar status --resource-convergence-time` — average time to converge per resource. Performance. | Planned |
 
 ---
 
