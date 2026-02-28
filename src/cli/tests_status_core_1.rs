@@ -123,7 +123,7 @@ mod tests {
                 fleet_failed_resources: false,
                 resource_dependency_health: false,
                 machine_resource_age_distribution: false,
-                fleet_convergence_velocity: false, resource_failure_correlation: false, machine_resource_churn_rate: false, fleet_resource_staleness: false, machine_convergence_trend: false, machine_capacity_utilization: false, fleet_configuration_entropy: false, machine_resource_freshness: false, machine_error_budget: false, fleet_compliance_score: false, machine_mean_time_to_recovery: false, machine_resource_dependency_health: false, fleet_resource_type_health: false, machine_resource_convergence_rate: false,
+                fleet_convergence_velocity: false, resource_failure_correlation: false, machine_resource_churn_rate: false, fleet_resource_staleness: false, machine_convergence_trend: false, machine_capacity_utilization: false, fleet_configuration_entropy: false, machine_resource_freshness: false, machine_error_budget: false, fleet_compliance_score: false, machine_mean_time_to_recovery: false, machine_resource_dependency_health: false, fleet_resource_type_health: false, machine_resource_convergence_rate: false, machine_resource_failure_correlation: false, fleet_resource_age_distribution: false, machine_resource_rollback_readiness: false,
         });
         match cmd {
             Commands::Status(StatusArgs { stale, .. }) => assert_eq!(stale, Some(30)),
@@ -241,7 +241,7 @@ mod tests {
                 fleet_failed_resources: false,
                 resource_dependency_health: false,
                 machine_resource_age_distribution: false,
-                fleet_convergence_velocity: false, resource_failure_correlation: false, machine_resource_churn_rate: false, fleet_resource_staleness: false, machine_convergence_trend: false, machine_capacity_utilization: false, fleet_configuration_entropy: false, machine_resource_freshness: false, machine_error_budget: false, fleet_compliance_score: false, machine_mean_time_to_recovery: false, machine_resource_dependency_health: false, fleet_resource_type_health: false, machine_resource_convergence_rate: false,
+                fleet_convergence_velocity: false, resource_failure_correlation: false, machine_resource_churn_rate: false, fleet_resource_staleness: false, machine_convergence_trend: false, machine_capacity_utilization: false, fleet_configuration_entropy: false, machine_resource_freshness: false, machine_error_budget: false, fleet_compliance_score: false, machine_mean_time_to_recovery: false, machine_resource_dependency_health: false, fleet_resource_type_health: false, machine_resource_convergence_rate: false, machine_resource_failure_correlation: false, fleet_resource_age_distribution: false, machine_resource_rollback_readiness: false,
         });
         match cmd {
             Commands::Status(StatusArgs { health, .. }) => assert!(health),
@@ -357,7 +357,7 @@ mod tests {
                 fleet_failed_resources: false,
                 resource_dependency_health: false,
                 machine_resource_age_distribution: false,
-                fleet_convergence_velocity: false, resource_failure_correlation: false, machine_resource_churn_rate: false, fleet_resource_staleness: false, machine_convergence_trend: false, machine_capacity_utilization: false, fleet_configuration_entropy: false, machine_resource_freshness: false, machine_error_budget: false, fleet_compliance_score: false, machine_mean_time_to_recovery: false, machine_resource_dependency_health: false, fleet_resource_type_health: false, machine_resource_convergence_rate: false,
+                fleet_convergence_velocity: false, resource_failure_correlation: false, machine_resource_churn_rate: false, fleet_resource_staleness: false, machine_convergence_trend: false, machine_capacity_utilization: false, fleet_configuration_entropy: false, machine_resource_freshness: false, machine_error_budget: false, fleet_compliance_score: false, machine_mean_time_to_recovery: false, machine_resource_dependency_health: false, fleet_resource_type_health: false, machine_resource_convergence_rate: false, machine_resource_failure_correlation: false, fleet_resource_age_distribution: false, machine_resource_rollback_readiness: false,
         });
         match cmd {
             Commands::Status(StatusArgs { count, .. }) => assert!(count),
@@ -473,7 +473,7 @@ mod tests {
                 fleet_failed_resources: false,
                 resource_dependency_health: false,
                 machine_resource_age_distribution: false,
-                fleet_convergence_velocity: false, resource_failure_correlation: false, machine_resource_churn_rate: false, fleet_resource_staleness: false, machine_convergence_trend: false, machine_capacity_utilization: false, fleet_configuration_entropy: false, machine_resource_freshness: false, machine_error_budget: false, fleet_compliance_score: false, machine_mean_time_to_recovery: false, machine_resource_dependency_health: false, fleet_resource_type_health: false, machine_resource_convergence_rate: false,
+                fleet_convergence_velocity: false, resource_failure_correlation: false, machine_resource_churn_rate: false, fleet_resource_staleness: false, machine_convergence_trend: false, machine_capacity_utilization: false, fleet_configuration_entropy: false, machine_resource_freshness: false, machine_error_budget: false, fleet_compliance_score: false, machine_mean_time_to_recovery: false, machine_resource_dependency_health: false, fleet_resource_type_health: false, machine_resource_convergence_rate: false, machine_resource_failure_correlation: false, fleet_resource_age_distribution: false, machine_resource_rollback_readiness: false,
         });
         match cmd {
             Commands::Status(StatusArgs { format, .. }) => {
@@ -591,7 +591,7 @@ mod tests {
                 fleet_failed_resources: false,
                 resource_dependency_health: false,
                 machine_resource_age_distribution: false,
-                fleet_convergence_velocity: false, resource_failure_correlation: false, machine_resource_churn_rate: false, fleet_resource_staleness: false, machine_convergence_trend: false, machine_capacity_utilization: false, fleet_configuration_entropy: false, machine_resource_freshness: false, machine_error_budget: false, fleet_compliance_score: false, machine_mean_time_to_recovery: false, machine_resource_dependency_health: false, fleet_resource_type_health: false, machine_resource_convergence_rate: false,
+                fleet_convergence_velocity: false, resource_failure_correlation: false, machine_resource_churn_rate: false, fleet_resource_staleness: false, machine_convergence_trend: false, machine_capacity_utilization: false, fleet_configuration_entropy: false, machine_resource_freshness: false, machine_error_budget: false, fleet_compliance_score: false, machine_mean_time_to_recovery: false, machine_resource_dependency_health: false, fleet_resource_type_health: false, machine_resource_convergence_rate: false, machine_resource_failure_correlation: false, fleet_resource_age_distribution: false, machine_resource_rollback_readiness: false,
         });
         match cmd {
             Commands::Status(StatusArgs { anomalies, .. }) => assert!(anomalies),

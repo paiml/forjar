@@ -2649,14 +2649,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-893 | `forjar validate --check-resource-privilege-escalation` — detect resources that could enable privilege escalation. Security. | Planned |
-| FJ-894 | `forjar status --machine-resource-failure-correlation` — correlate resource failures across machines. Intelligence. | Planned |
-| FJ-895 | `forjar graph --resource-dependency-cycle-risk` — identify near-cycle dependency patterns that risk deadlock. Analysis. | Planned |
-| FJ-896 | `forjar apply --notify-custom-batch` — batch multiple resource notifications into single payload. Integration. | Planned |
-| FJ-897 | `forjar validate --check-resource-update-safety` — verify resources can be safely updated without downtime. Safety. | Planned |
-| FJ-898 | `forjar status --fleet-resource-age-distribution` — age distribution of resources across fleet. Intelligence. | Planned |
-| FJ-899 | `forjar graph --resource-dependency-stability-score` — stability score based on dependency change frequency. Analysis. | Planned |
-| FJ-900 | `forjar status --machine-resource-rollback-readiness` — readiness for rollback per machine based on state history. Intelligence. | Planned |
+| FJ-893 | `forjar validate --check-resource-privilege-escalation` — detect resources that could enable privilege escalation. Security. | Done |
+| FJ-894 | `forjar status --machine-resource-failure-correlation` — correlate resource failures across machines. Intelligence. | Done |
+| FJ-895 | `forjar graph --resource-dependency-isolation-score` — isolation score per resource in dependency graph. Analysis. | Done |
+| FJ-896 | `forjar apply --notify-custom-batch` — batch multiple resource notifications into single payload. Integration. | Done |
+| FJ-897 | `forjar validate --check-resource-update-safety` — verify resources can be safely updated without downtime. Safety. | Done |
+| FJ-898 | `forjar status --fleet-resource-age-distribution` — age distribution of resources across fleet. Intelligence. | Done |
+| FJ-899 | `forjar graph --resource-dependency-stability-score` — stability score based on dependency change frequency. Analysis. | Done |
+| FJ-900 | `forjar status --machine-resource-rollback-readiness` — readiness for rollback per machine based on state history. Intelligence. | Done |
+
+### Phase 80 — Operational Resilience & Configuration Intelligence (FJ-901→FJ-908)
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-901 | `forjar validate --check-resource-cross-machine-consistency` — detect config inconsistencies across machines. Governance. | Planned |
+| FJ-902 | `forjar status --machine-resource-health-trend` — health trend over time per machine. Intelligence. | Planned |
+| FJ-903 | `forjar graph --resource-dependency-critical-path-length` — critical path length through dependency graph. Analysis. | Planned |
+| FJ-904 | `forjar apply --notify-custom-deduplicate` — deduplicate repeated notifications. Integration. | Planned |
+| FJ-905 | `forjar validate --check-resource-version-pinning` — verify resources pin explicit versions. Governance. | Planned |
+| FJ-906 | `forjar status --fleet-resource-drift-velocity` — rate of drift accumulation across fleet. Intelligence. | Planned |
+| FJ-907 | `forjar graph --resource-dependency-redundancy-score` — redundancy score for resources with fallbacks. Analysis. | Planned |
+| FJ-908 | `forjar status --machine-resource-apply-success-trend` — apply success trend per machine over time. Intelligence. | Planned |
 
 ---
 

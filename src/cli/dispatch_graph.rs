@@ -179,6 +179,7 @@ fn try_graph_scoring_inline(
     resource_dependency_cycle_risk: bool, resource_impact_radius: bool,
     resource_dependency_health_map: bool, resource_change_propagation: bool,
     resource_dependency_depth_analysis: bool, resource_dependency_fan_analysis: bool,
+    resource_dependency_isolation_score: bool, resource_dependency_stability_score: bool,
 ) -> Option<Result<(), String>> {
     if resource_dependency_bottleneck { return Some(cmd_graph_resource_dependency_bottleneck(file, json)); }
     if resource_type_clustering { return Some(cmd_graph_resource_type_clustering(file, json)); }
@@ -188,6 +189,8 @@ fn try_graph_scoring_inline(
     if resource_change_propagation { return Some(cmd_graph_resource_change_propagation(file, json)); }
     if resource_dependency_depth_analysis { return Some(cmd_graph_resource_dependency_depth_analysis(file, json)); }
     if resource_dependency_fan_analysis { return Some(cmd_graph_resource_dependency_fan_analysis(file, json)); }
+    if resource_dependency_isolation_score { return Some(cmd_graph_resource_dependency_isolation_score(file, json)); }
+    if resource_dependency_stability_score { return Some(cmd_graph_resource_dependency_stability_score(file, json)); }
     None
 }
 
@@ -224,6 +227,7 @@ pub(crate) fn dispatch_graph_cmd(cmd: Commands) -> Result<(), String> {
         resource_dependency_cycle_risk, resource_impact_radius,
         resource_dependency_health_map, resource_change_propagation,
         resource_dependency_depth_analysis, resource_dependency_fan_analysis,
+        resource_dependency_isolation_score, resource_dependency_stability_score,
     }) = cmd
     else {
         unreachable!()
@@ -235,7 +239,7 @@ pub(crate) fn dispatch_graph_cmd(cmd: Commands) -> Result<(), String> {
     if let Some(r) = try_graph_export_b(&file, json_output, longest_path, in_degree, out_degree, density, topological_sort, critical_path_resources) {
         return r;
     }
-    if let Some(r) = try_graph_scoring_inline(&file, json_output, resource_dependency_bottleneck, resource_type_clustering, resource_dependency_cycle_risk, resource_impact_radius, resource_dependency_health_map, resource_change_propagation, resource_dependency_depth_analysis, resource_dependency_fan_analysis) {
+    if let Some(r) = try_graph_scoring_inline(&file, json_output, resource_dependency_bottleneck, resource_type_clustering, resource_dependency_cycle_risk, resource_impact_radius, resource_dependency_health_map, resource_change_propagation, resource_dependency_depth_analysis, resource_dependency_fan_analysis, resource_dependency_isolation_score, resource_dependency_stability_score) {
         return r;
     }
     if let Some(r) = try_graph_paths(&file, json_output, &resource_dependency_chain, bottleneck_resources, critical_dependency_path, resource_depth_histogram, resource_coupling_score, resource_change_frequency, resource_impact_score, resource_stability_score, resource_dependency_fanout, resource_dependency_weight) {

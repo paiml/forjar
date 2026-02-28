@@ -86,7 +86,7 @@ mod tests {
             rabbitmq: None, nats: None, mqtt: None, redis: None,
             amqp: None, stomp: None, zeromq: None, grpc: None,
             sqs: None, mattermost: None, ntfy: None, pagerduty: None,
-            discord_webhook: Some("https://discord.com/api/webhooks/test"), teams_webhook: None, slack_blocks: None, custom_template: None, custom_webhook: None, custom_headers: None, custom_json: None, custom_filter: None, custom_retry: None, custom_transform: None,
+            discord_webhook: Some("https://discord.com/api/webhooks/test"), teams_webhook: None, slack_blocks: None, custom_template: None, custom_webhook: None, custom_headers: None, custom_json: None, custom_filter: None, custom_retry: None, custom_transform: None, custom_batch: None,
         };
         assert!(opts.discord_webhook.is_some());
     }
@@ -102,7 +102,7 @@ mod tests {
             rabbitmq: None, nats: None, mqtt: None, redis: None,
             amqp: None, stomp: None, zeromq: None, grpc: None,
             sqs: None, mattermost: None, ntfy: None, pagerduty: None,
-            discord_webhook: None, teams_webhook: None, slack_blocks: None, custom_template: None, custom_webhook: None, custom_headers: None, custom_json: None, custom_filter: None, custom_retry: None, custom_transform: None,
+            discord_webhook: None, teams_webhook: None, slack_blocks: None, custom_template: None, custom_webhook: None, custom_headers: None, custom_json: None, custom_filter: None, custom_retry: None, custom_transform: None, custom_batch: None,
         };
         assert!(opts.discord_webhook.is_none());
     }

@@ -322,5 +322,11 @@ pub struct GraphArgs {
     /// FJ-891: Combined fan-in/fan-out analysis per resource
     #[arg(long)]
     pub resource_dependency_fan_analysis: bool,
+    /// FJ-895: Isolation score per resource in dependency graph
+    #[arg(long)]
+    pub resource_dependency_isolation_score: bool,
+    /// FJ-899: Stability score based on dependency change frequency
+    #[arg(long)]
+    pub resource_dependency_stability_score: bool,
 }
 

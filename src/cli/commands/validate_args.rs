@@ -308,5 +308,11 @@ pub struct ValidateArgs {
     /// FJ-889: Enforce tag naming standards across resources
     #[arg(long)]
     pub check_resource_tag_standards: bool,
+    /// FJ-893: Detect resources that could enable privilege escalation
+    #[arg(long)]
+    pub check_resource_privilege_escalation: bool,
+    /// FJ-897: Verify resources can be safely updated without downtime
+    #[arg(long)]
+    pub check_resource_update_safety: bool,
 }
 
