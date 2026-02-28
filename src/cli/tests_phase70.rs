@@ -2,6 +2,7 @@
 
 use super::validate_advanced::*;
 use super::graph_advanced::*;
+use super::graph_paths::*;
 use super::status_operational::*;
 use std::io::Write;
 
@@ -86,7 +87,7 @@ mod tests {
             amqp: None, stomp: None, zeromq: None, grpc: None,
             sqs: None, mattermost: None, ntfy: None, pagerduty: None,
             discord_webhook: None,
-            teams_webhook: Some("https://teams.webhook.office.com/test"),
+            teams_webhook: Some("https://teams.webhook.office.com/test"), slack_blocks: None,
         };
         assert!(opts.teams_webhook.is_some());
     }
@@ -102,7 +103,7 @@ mod tests {
             rabbitmq: None, nats: None, mqtt: None, redis: None,
             amqp: None, stomp: None, zeromq: None, grpc: None,
             sqs: None, mattermost: None, ntfy: None, pagerduty: None,
-            discord_webhook: None, teams_webhook: None,
+            discord_webhook: None, teams_webhook: None, slack_blocks: None,
         };
         assert!(opts.teams_webhook.is_none());
     }

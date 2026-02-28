@@ -74,6 +74,7 @@ pub(crate) struct NotifyOpts<'a> {
     pub pagerduty: Option<&'a str>,
     pub discord_webhook: Option<&'a str>,
     pub teams_webhook: Option<&'a str>,
+    pub slack_blocks: Option<&'a str>,
 }
 
 
@@ -176,6 +177,7 @@ fn send_incident_notifications(opts: &NotifyOpts<'_>, result: &Result<(), String
     send_pagerduty_notification(opts.pagerduty, result, config);
     send_discord_webhook_notification(opts.discord_webhook, result, config);
     send_teams_webhook_notification(opts.teams_webhook, result, config);
+    send_slack_blocks_notification(opts.slack_blocks, result, config);
 }
 
 fn send_pagerduty_notification(key: Option<&str>, result: &Result<(), String>, config: &Path) {
@@ -207,6 +209,17 @@ fn send_teams_webhook_notification(url: Option<&str>, result: &Result<(), String
         send_webhook(url, &format!(
             r#"{{"type":"message","attachments":[{{"contentType":"application/vnd.microsoft.card.adaptive","content":{{"type":"AdaptiveCard","body":[{{"type":"TextBlock","text":"{}","weight":"Bolder","color":"{}"}},{{"type":"TextBlock","text":"Config: {}"}}],"$schema":"http://adaptivecards.io/schemas/adaptive-card.json","version":"1.4"}}}}]}}"#,
             title, color, config.display()
+        ));
+    }
+}
+
+fn send_slack_blocks_notification(url: Option<&str>, result: &Result<(), String>, config: &Path) {
+    if let Some(url) = url {
+        let emoji = if result.is_ok() { ":white_check_mark:" } else { ":x:" };
+        let title = if result.is_ok() { "Apply Succeeded" } else { "Apply Failed" };
+        send_webhook(url, &format!(
+            r#"{{"blocks":[{{"type":"header","text":{{"type":"plain_text","text":"{} {}"}}}},{{"type":"section","text":{{"type":"mrkdwn","text":"*Config:* `{}`"}}}}]}}"#,
+            emoji, title, config.display()
         ));
     }
 }

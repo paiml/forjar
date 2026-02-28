@@ -13,6 +13,7 @@ use super::graph_visualization::*;
 use super::graph_impact::*;
 use super::graph_export::*;
 use super::graph_advanced::*;
+use super::graph_paths::*;
 
 
 /// Dispatch traversal flags (depth_first through critical_chain).
@@ -139,6 +140,7 @@ pub(crate) fn dispatch_graph_cmd(cmd: Commands) -> Result<(), String> {
         resource_weight, dependency_depth_per_resource,
         resource_fanin, isolated_subgraphs,
         resource_dependency_chain, bottleneck_resources,
+        critical_dependency_path, resource_depth_histogram,
     }) = cmd
     else {
         unreachable!()
@@ -159,6 +161,8 @@ pub(crate) fn dispatch_graph_cmd(cmd: Commands) -> Result<(), String> {
     if critical_path_resources { return cmd_graph_critical_path_resources(&file, json_output); }
     if let Some(ref target) = resource_dependency_chain { return cmd_graph_resource_dependency_chain(&file, target, json_output); }
     if bottleneck_resources { return cmd_graph_bottleneck_resources(&file, json_output); }
+    if critical_dependency_path { return cmd_graph_critical_dependency_path(&file, json_output); }
+    if resource_depth_histogram { return cmd_graph_resource_depth_histogram(&file, json_output); }
     if let Some(r) = try_graph_analysis(&file, json_output, resource_weight, dependency_depth_per_resource, resource_fanin, isolated_subgraphs, dependency_matrix_csv, strongly_connected, bipartite_check, sink_resources) {
         return r;
     }

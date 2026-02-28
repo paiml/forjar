@@ -323,3 +323,81 @@ fn check_machine_addrs(config: &types::ForjarConfig) -> Vec<(String, String)> {
     issues.sort();
     issues
 }
+
+/// FJ-829: Validate resource names match a naming pattern (regex).
+pub(crate) fn cmd_validate_check_resource_naming_pattern(
+    file: &Path, json: bool, pattern: &str,
+) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let config: types::ForjarConfig =
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+    let violations = find_naming_pattern_violations(&config, pattern);
+    if json {
+        let items: Vec<String> = violations.iter()
+            .map(|r| format!("\"{}\"", r)).collect();
+        println!("{{\"naming_pattern\":\"{}\",\"violations\":[{}]}}", pattern, items.join(","));
+    } else if violations.is_empty() {
+        println!("All resource names match pattern '{}'.", pattern);
+    } else {
+        println!("Resources not matching pattern '{}' ({}):", pattern, violations.len());
+        for r in &violations { println!("  {}", r); }
+    }
+    Ok(())
+}
+
+fn find_naming_pattern_violations(config: &types::ForjarConfig, pattern: &str) -> Vec<String> {
+    let mut violations: Vec<String> = config.resources.keys()
+        .filter(|name| !matches_naming_pattern(name, pattern))
+        .cloned().collect();
+    violations.sort();
+    violations
+}
+
+fn matches_naming_pattern(name: &str, pattern: &str) -> bool {
+    if pattern.starts_with('^') || pattern.contains('*') {
+        // Prefix match: "^prefix" checks name starts with "prefix"
+        if let Some(prefix) = pattern.strip_prefix('^') {
+            return name.starts_with(prefix);
+        }
+    }
+    // Simple contains match
+    name.contains(pattern)
+}
+
+/// FJ-833: Validate resource types are supported by their providers.
+pub(crate) fn cmd_validate_check_resource_provider_support(
+    file: &Path, json: bool,
+) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let config: types::ForjarConfig =
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+    let issues = find_provider_support_issues(&config);
+    if json {
+        let items: Vec<String> = issues.iter()
+            .map(|(r, issue)| format!("{{\"resource\":\"{}\",\"issue\":\"{}\"}}", r, issue))
+            .collect();
+        println!("{{\"provider_support_issues\":[{}]}}", items.join(","));
+    } else if issues.is_empty() {
+        println!("All resource types are supported by their providers.");
+    } else {
+        println!("Provider support issues ({}):", issues.len());
+        for (r, issue) in &issues { println!("  {} — {}", r, issue); }
+    }
+    Ok(())
+}
+
+fn find_provider_support_issues(config: &types::ForjarConfig) -> Vec<(String, String)> {
+    let mut issues = Vec::new();
+    for (name, resource) in &config.resources {
+        let rtype = format!("{:?}", resource.resource_type);
+        let provider = resource.provider.as_deref().unwrap_or("default");
+        if rtype.contains("Package") && provider == "file" {
+            issues.push((name.clone(), format!("provider '{}' cannot manage packages", provider)));
+        }
+        if rtype.contains("Service") && provider == "file" {
+            issues.push((name.clone(), format!("provider '{}' cannot manage services", provider)));
+        }
+    }
+    issues.sort();
+    issues
+}

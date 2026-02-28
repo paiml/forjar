@@ -132,6 +132,7 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
         check_resource_health_conflicts, check_resource_overlap,
         check_resource_tags, check_resource_state_consistency,
         check_resource_dependencies_complete, check_machine_connectivity,
+        check_resource_naming_pattern, check_resource_provider_support,
     } = args;
 
     if check_cron_syntax {
@@ -178,6 +179,12 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
     }
     if check_resource_groups {
         return cmd_validate_check_resource_groups(&file, json);
+    }
+    if let Some(ref pattern) = check_resource_naming_pattern {
+        return cmd_validate_check_resource_naming_pattern(&file, json, pattern);
+    }
+    if check_resource_provider_support {
+        return cmd_validate_check_resource_provider_support(&file, json);
     }
     if let Some(r) = try_validate_advanced(&file, json, check_orphan_resources, check_machine_arch, check_resource_health_conflicts, check_resource_overlap, check_resource_tags, check_resource_state_consistency, check_resource_dependencies_complete, check_machine_connectivity) {
         return r;

@@ -248,5 +248,13 @@ pub struct ValidateArgs {
     /// FJ-825: Verify machines are reachable (dry-run connectivity check)
     #[arg(long)]
     pub check_machine_connectivity: bool,
+
+    /// FJ-829: Enforce regex naming pattern for resources
+    #[arg(long)]
+    pub check_resource_naming_pattern: Option<String>,
+
+    /// FJ-833: Verify providers match resource types
+    #[arg(long)]
+    pub check_resource_provider_support: bool,
 }
 

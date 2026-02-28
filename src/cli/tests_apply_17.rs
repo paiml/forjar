@@ -167,7 +167,7 @@ mod tests {
         notify_json: false,
             notify_slack_webhook: None,
             notify_telegram: None,
-            notify_webhook_v2: None, notify_discord_webhook: None, notify_teams_webhook: None,
+            notify_webhook_v2: None, notify_discord_webhook: None, notify_teams_webhook: None, notify_slack_blocks: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs {
@@ -330,7 +330,7 @@ mod tests {
         notify_json: false,
             notify_slack_webhook: None,
             notify_telegram: None,
-            notify_webhook_v2: None, notify_discord_webhook: None, notify_teams_webhook: None,
+            notify_webhook_v2: None, notify_discord_webhook: None, notify_teams_webhook: None, notify_slack_blocks: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs {
@@ -492,7 +492,7 @@ mod tests {
         notify_json: false,
             notify_slack_webhook: None,
             notify_telegram: None,
-            notify_webhook_v2: None, notify_discord_webhook: None, notify_teams_webhook: None,
+            notify_webhook_v2: None, notify_discord_webhook: None, notify_teams_webhook: None, notify_slack_blocks: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { blue_green, .. }) => {
