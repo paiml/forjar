@@ -380,5 +380,11 @@ pub struct ValidateArgs {
     /// FJ-985: Verify resource types are compatible with declared providers
     #[arg(long)]
     pub check_resource_provider_compatibility: bool,
+    /// FJ-989: Enforce naming conventions on resource names
+    #[arg(long)]
+    pub check_resource_naming_convention_strict: bool,
+    /// FJ-993: Warn if resources lack idempotency annotations or markers
+    #[arg(long)]
+    pub check_resource_idempotency_annotations: bool,
 }
 

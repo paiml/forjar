@@ -394,5 +394,11 @@ pub struct GraphArgs {
     /// FJ-987: Compute PageRank importance score for each resource
     #[arg(long)]
     pub resource_dependency_pagerank: bool,
+    /// FJ-991: Compute betweenness centrality for each resource
+    #[arg(long)]
+    pub resource_dependency_betweenness_centrality: bool,
+    /// FJ-995: Compute transitive closure size for each resource
+    #[arg(long)]
+    pub resource_dependency_closure_size: bool,
 }
 

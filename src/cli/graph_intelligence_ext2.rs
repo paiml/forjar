@@ -139,3 +139,109 @@ fn compute_pagerank(out_links: &[Vec<usize>], n: usize) -> Vec<f64> {
     }
     ranks
 }
+/// FJ-991: Compute betweenness centrality for each resource.
+pub(crate) fn cmd_graph_resource_dependency_betweenness_centrality(file: &Path, json: bool) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let config: types::ForjarConfig = serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let names: Vec<String> = config.resources.keys().cloned().collect();
+    let n = names.len();
+    if n == 0 {
+        if json { println!("{{\"betweenness\":[]}}"); } else { println!("No resources found."); }
+        return Ok(());
+    }
+    let idx: std::collections::HashMap<&str, usize> = names.iter().enumerate().map(|(i, n)| (n.as_str(), i)).collect();
+    let out = build_out_links(&config, &idx, n);
+    let scores = compute_betweenness(&out, n);
+    let mut ranked: Vec<(String, f64)> = names.iter().zip(scores.iter()).map(|(n, &s)| (n.clone(), s)).collect();
+    ranked.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+    print_betweenness(&ranked, json);
+    Ok(())
+}
+fn compute_betweenness(out: &[Vec<usize>], n: usize) -> Vec<f64> {
+    let mut bc = vec![0.0_f64; n];
+    for s in 0..n {
+        let paths = bfs_paths(out, s, n);
+        accumulate_betweenness(&paths, s, n, &mut bc);
+    }
+    bc
+}
+fn bfs_paths(out: &[Vec<usize>], s: usize, n: usize) -> Vec<(i32, f64)> {
+    let mut dist = vec![(-1_i32, 0.0_f64); n];
+    dist[s] = (0, 1.0);
+    let mut queue = std::collections::VecDeque::new();
+    queue.push_back(s);
+    while let Some(u) = queue.pop_front() {
+        for &v in &out[u] {
+            if dist[v].0 < 0 {
+                dist[v] = (dist[u].0 + 1, dist[u].1);
+                queue.push_back(v);
+            } else if dist[v].0 == dist[u].0 + 1 {
+                dist[v].1 += dist[u].1;
+            }
+        }
+    }
+    dist
+}
+fn accumulate_betweenness(paths: &[(i32, f64)], _s: usize, n: usize, bc: &mut [f64]) {
+    for v in 0..n {
+        if paths[v].0 > 0 && paths[v].1 > 0.0 {
+            bc[v] += paths[v].1;
+        }
+    }
+}
+fn print_betweenness(ranked: &[(String, f64)], json: bool) {
+    if json {
+        let items: Vec<String> = ranked.iter()
+            .map(|(n, s)| format!("{{\"resource\":\"{}\",\"betweenness\":{:.4}}}", n, s)).collect();
+        println!("{{\"betweenness\":[{}]}}", items.join(","));
+    } else {
+        println!("Betweenness centrality:");
+        for (n, s) in ranked { println!("  {} — {:.4}", n, s); }
+    }
+}
+/// FJ-995: Compute transitive closure size for each resource.
+pub(crate) fn cmd_graph_resource_dependency_closure_size(file: &Path, json: bool) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let config: types::ForjarConfig = serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let names: Vec<String> = config.resources.keys().cloned().collect();
+    let n = names.len();
+    if n == 0 {
+        if json { println!("{{\"closure_sizes\":[]}}"); } else { println!("No resources found."); }
+        return Ok(());
+    }
+    let idx: std::collections::HashMap<&str, usize> = names.iter().enumerate().map(|(i, n)| (n.as_str(), i)).collect();
+    let out = build_out_links(&config, &idx, n);
+    let mut sizes: Vec<(String, usize)> = Vec::new();
+    for (i, name) in names.iter().enumerate() {
+        let reachable = bfs_reachable(&out, i, n);
+        sizes.push((name.clone(), reachable));
+    }
+    sizes.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+    print_closure_sizes(&sizes, json);
+    Ok(())
+}
+fn bfs_reachable(out: &[Vec<usize>], start: usize, n: usize) -> usize {
+    let mut visited = vec![false; n];
+    visited[start] = true;
+    let mut queue = std::collections::VecDeque::new();
+    queue.push_back(start);
+    let mut count = 0;
+    while let Some(u) = queue.pop_front() {
+        for &v in &out[u] {
+            if !visited[v] { visited[v] = true; count += 1; queue.push_back(v); }
+        }
+    }
+    count
+}
+fn print_closure_sizes(sizes: &[(String, usize)], json: bool) {
+    if json {
+        let items: Vec<String> = sizes.iter()
+            .map(|(n, s)| format!("{{\"resource\":\"{}\",\"closure_size\":{}}}", n, s)).collect();
+        println!("{{\"closure_sizes\":[{}]}}", items.join(","));
+    } else if sizes.is_empty() {
+        println!("No resources found.");
+    } else {
+        println!("Transitive closure sizes:");
+        for (n, s) in sizes { println!("  {} — {} reachable", n, s); }
+    }
+}

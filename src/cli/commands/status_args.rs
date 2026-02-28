@@ -532,4 +532,13 @@ pub struct StatusArgs {
     /// FJ-988: Trend of convergence rate over recent applies
     #[arg(long)]
     pub machine_resource_convergence_trend_p90: bool,
+    /// FJ-990: How long each drifted resource has been drifted
+    #[arg(long)]
+    pub machine_resource_drift_age_hours: bool,
+    /// FJ-994: Convergence rate at various percentiles (p50, p90, p99)
+    #[arg(long)]
+    pub fleet_resource_convergence_percentile: bool,
+    /// FJ-996: Error rate per machine across recent applies
+    #[arg(long)]
+    pub machine_resource_error_rate: bool,
 }

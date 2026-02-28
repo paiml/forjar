@@ -240,6 +240,7 @@ fn try_graph_phase87(
     resource_dependency_topological_depth: bool, resource_dependency_weak_links: bool,
     resource_dependency_minimum_cut: bool, resource_dependency_dominator_tree: bool,
     resource_dependency_resilience_score: bool, resource_dependency_pagerank: bool,
+    resource_dependency_betweenness_centrality: bool, resource_dependency_closure_size: bool,
 ) -> Option<Result<(), String>> {
     if resource_dependency_longest_path { return Some(cmd_graph_resource_dependency_longest_path(file, json)); }
     if resource_dependency_strongly_connected { return Some(cmd_graph_resource_dependency_strongly_connected(file, json)); }
@@ -249,6 +250,8 @@ fn try_graph_phase87(
     if resource_dependency_dominator_tree { return Some(cmd_graph_resource_dependency_dominator_tree(file, json)); }
     if resource_dependency_resilience_score { return Some(cmd_graph_resource_dependency_resilience_score(file, json)); }
     if resource_dependency_pagerank { return Some(cmd_graph_resource_dependency_pagerank(file, json)); }
+    if resource_dependency_betweenness_centrality { return Some(cmd_graph_resource_dependency_betweenness_centrality(file, json)); }
+    if resource_dependency_closure_size { return Some(cmd_graph_resource_dependency_closure_size(file, json)); }
     None
 }
 
@@ -297,6 +300,7 @@ pub(crate) fn dispatch_graph_cmd(cmd: Commands) -> Result<(), String> {
         resource_dependency_topological_depth, resource_dependency_weak_links,
         resource_dependency_minimum_cut, resource_dependency_dominator_tree,
         resource_dependency_resilience_score, resource_dependency_pagerank,
+        resource_dependency_betweenness_centrality, resource_dependency_closure_size,
     }) = cmd
     else {
         unreachable!()
@@ -311,7 +315,7 @@ pub(crate) fn dispatch_graph_cmd(cmd: Commands) -> Result<(), String> {
     if let Some(r) = try_graph_scoring_phase81(&file, json_output, resource_dependency_centrality_score, resource_dependency_bridge_detection, resource_dependency_cluster_coefficient, resource_dependency_modularity_score, resource_dependency_diameter, resource_dependency_eccentricity, resource_dependency_density, resource_dependency_transitivity, resource_dependency_fan_out, resource_dependency_fan_in, resource_dependency_path_count, resource_dependency_articulation_points) {
         return r;
     }
-    if let Some(r) = try_graph_phase87(&file, json_output, resource_dependency_longest_path, resource_dependency_strongly_connected, resource_dependency_topological_depth, resource_dependency_weak_links, resource_dependency_minimum_cut, resource_dependency_dominator_tree, resource_dependency_resilience_score, resource_dependency_pagerank) {
+    if let Some(r) = try_graph_phase87(&file, json_output, resource_dependency_longest_path, resource_dependency_strongly_connected, resource_dependency_topological_depth, resource_dependency_weak_links, resource_dependency_minimum_cut, resource_dependency_dominator_tree, resource_dependency_resilience_score, resource_dependency_pagerank, resource_dependency_betweenness_centrality, resource_dependency_closure_size) {
         return r;
     }
     if let Some(r) = try_graph_scoring_inline(&file, json_output, resource_dependency_bottleneck, resource_type_clustering, resource_dependency_cycle_risk, resource_impact_radius, resource_dependency_health_map, resource_change_propagation, resource_dependency_depth_analysis, resource_dependency_fan_analysis, resource_dependency_isolation_score, resource_dependency_stability_score, resource_dependency_critical_path_length, resource_dependency_redundancy_score) {
