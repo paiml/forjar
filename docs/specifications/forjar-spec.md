@@ -2558,14 +2558,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-837 | `forjar validate --check-resource-secret-refs` — verify secret references exist and are valid. Security. | Planned |
-| FJ-838 | `forjar status --machine-uptime-estimate` — estimate machine uptime from apply history. Dashboard. | Planned |
-| FJ-839 | `forjar graph --resource-coupling-score` — coupling score between resource pairs. Analysis. | Planned |
-| FJ-840 | `forjar apply --notify-custom-template` — custom notification template support. Integration. | Planned |
-| FJ-841 | `forjar validate --check-resource-idempotency-hints` — check resources have idempotency markers. Quality. | Planned |
-| FJ-842 | `forjar status --fleet-resource-type-breakdown` — resource type distribution across fleet. Analytics. | Planned |
-| FJ-843 | `forjar graph --resource-change-frequency` — overlay change frequency on dependency graph. Visualization. | Planned |
-| FJ-844 | `forjar status --resource-convergence-time` — average time to converge per resource. Performance. | Planned |
+| FJ-837 | `forjar validate --check-resource-secret-refs` — verify secret references exist and are valid. Security. | Done |
+| FJ-838 | `forjar status --machine-uptime-estimate` — estimate machine uptime from apply history. Dashboard. | Done |
+| FJ-839 | `forjar graph --resource-coupling-score` — coupling score between resource pairs. Analysis. | Done |
+| FJ-840 | `forjar apply --notify-custom-template` — custom notification template support. Integration. | Done |
+| FJ-841 | `forjar validate --check-resource-idempotency-hints` — check resources have idempotency markers. Quality. | Done |
+| FJ-842 | `forjar status --fleet-resource-type-breakdown` — resource type distribution across fleet. Analytics. | Done |
+| FJ-843 | `forjar graph --resource-change-frequency` — overlay change frequency on dependency graph. Visualization. | Done |
+| FJ-844 | `forjar status --resource-convergence-time` — average time to converge per resource. Performance. | Done |
+
+### Phase 73 — Drift Intelligence & Governance (FJ-845→FJ-852)
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-845 | `forjar validate --check-resource-dependency-depth` — warn if dependency chain exceeds threshold. Governance. | Planned |
+| FJ-846 | `forjar status --machine-drift-age` — age of oldest drift per machine. Monitoring. | Planned |
+| FJ-847 | `forjar graph --resource-impact-score` — impact score based on dependents + depth. Analysis. | Planned |
+| FJ-848 | `forjar apply --notify-custom-webhook` — configurable webhook with custom headers. Integration. | Planned |
+| FJ-849 | `forjar validate --check-resource-machine-affinity` — verify resources match machine capabilities. Governance. | Planned |
+| FJ-850 | `forjar status --fleet-failed-resources` — list all failed resources across fleet. Alerting. | Planned |
+| FJ-851 | `forjar graph --resource-stability-score` — stability score based on status history. Analysis. | Planned |
+| FJ-852 | `forjar status --resource-dependency-health` — health of upstream dependencies per resource. Monitoring. | Planned |
 
 ---
 
