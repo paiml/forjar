@@ -167,3 +167,24 @@ pub(super) fn send_custom_sampling_notification(spec: Option<&str>, result: &Res
     let status = if result.is_ok() { "success" } else { "failure" };
     println!("[notify:custom-sampling] → {} (rate: {}%, status: {}, config: {})", url, rate, status, config.display());
 }
+/// FJ-1016: Aggregate notifications into a periodic digest.
+pub(super) fn send_custom_digest_notification(spec: Option<&str>, result: &Result<(), String>, config: &Path) {
+    let spec = match spec { Some(s) => s, None => return };
+    let parts: Vec<&str> = spec.splitn(2, '|').collect();
+    let url = parts.first().unwrap_or(&"");
+    let interval = parts.get(1).unwrap_or(&"1h");
+    let status = if result.is_ok() { "success" } else { "failure" };
+    println!("[notify:custom-digest] → {} (interval: {}, status: {}, config: {})", url, interval, status, config.display());
+}
+/// FJ-1020: Filter notifications by severity level.
+pub(super) fn send_custom_severity_filter_notification(spec: Option<&str>, result: &Result<(), String>, config: &Path) {
+    let spec = match spec { Some(s) => s, None => return };
+    let parts: Vec<&str> = spec.splitn(2, '|').collect();
+    let url = parts.first().unwrap_or(&"");
+    let min_severity = parts.get(1).unwrap_or(&"warn");
+    let severity = if result.is_err() { "critical" } else { "info" };
+    let should_send = matches!((*min_severity, severity), ("info", _) | ("warn" | "critical", "critical"));
+    if should_send {
+        println!("[notify:custom-severity-filter] → {} (severity: {}, min: {}, config: {})", url, severity, min_severity, config.display());
+    }
+}

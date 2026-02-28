@@ -81,6 +81,8 @@ pub(crate) struct NotifyOpts<'a> {
     pub custom_escalation: Option<&'a str>,
     pub custom_correlation: Option<&'a str>,
     pub custom_sampling: Option<&'a str>,
+    pub custom_digest: Option<&'a str>,
+    pub custom_severity_filter: Option<&'a str>,
 }
 pub(crate) fn send_apply_notifications(
     opts: &NotifyOpts<'_>,
@@ -194,6 +196,8 @@ fn send_incident_notifications(opts: &NotifyOpts<'_>, result: &Result<(), String
     super::dispatch_notify_custom::send_custom_escalation_notification(opts.custom_escalation, result, config);
     super::dispatch_notify_custom::send_custom_correlation_notification(opts.custom_correlation, result, config);
     super::dispatch_notify_custom::send_custom_sampling_notification(opts.custom_sampling, result, config);
+    super::dispatch_notify_custom::send_custom_digest_notification(opts.custom_digest, result, config);
+    super::dispatch_notify_custom::send_custom_severity_filter_notification(opts.custom_severity_filter, result, config);
 }
 fn send_pagerduty_notification(key: Option<&str>, result: &Result<(), String>, config: &Path) {
     if let Some(key) = key {

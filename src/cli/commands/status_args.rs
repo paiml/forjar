@@ -550,4 +550,10 @@ pub struct StatusArgs {
     /// FJ-1004: Stability score based on convergence rate variance
     #[arg(long)]
     pub machine_resource_convergence_stability: bool,
+    /// FJ-1013: Compute p95 apply latency per machine from state lock timestamps
+    #[arg(long)]
+    pub machine_resource_apply_latency_p95: bool,
+    /// FJ-1017: Security posture score based on permissions, secrets, firewall
+    #[arg(long)]
+    pub fleet_resource_security_posture_score: bool,
 }

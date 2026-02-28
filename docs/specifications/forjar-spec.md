@@ -2828,14 +2828,14 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-997 | `forjar validate --check-resource-content-size-limit` — warn if resource content exceeds configurable size threshold. Governance. | Planned |
-| FJ-998 | `forjar status --machine-resource-convergence-gap` — gap between expected and actual convergence rate per machine. Intelligence. | Planned |
-| FJ-999 | `forjar graph --resource-dependency-eccentricity-map` — compute graph eccentricity for each resource node. Analysis. | Planned |
-| FJ-1000 | `forjar apply --notify-custom-sampling` — sample notifications at a configurable rate (e.g., 10%). Integration. | Planned |
-| FJ-1001 | `forjar validate --check-resource-dependency-fan-limit` — warn if any resource exceeds max fan-in or fan-out. Governance. | Planned |
-| FJ-1002 | `forjar status --fleet-resource-error-distribution` — distribution of errors across fleet (histogram). Intelligence. | Planned |
-| FJ-1003 | `forjar graph --resource-dependency-diameter-path` — find and display the diameter path (longest shortest path). Analysis. | Planned |
-| FJ-1004 | `forjar status --machine-resource-convergence-stability` — stability score based on convergence rate variance. Intelligence. | Planned |
+| FJ-997 | `forjar validate --check-resource-content-size-limit` — warn if resource content exceeds configurable size threshold. Governance. | ✅ Done |
+| FJ-998 | `forjar status --machine-resource-convergence-gap` — gap between expected and actual convergence rate per machine. Intelligence. | ✅ Done |
+| FJ-999 | `forjar graph --resource-dependency-eccentricity-map` — compute graph eccentricity for each resource node. Analysis. | ✅ Done |
+| FJ-1000 | `forjar apply --notify-custom-sampling` — sample notifications at a configurable rate (e.g., 10%). Integration. | ✅ Done |
+| FJ-1001 | `forjar validate --check-resource-dependency-fan-limit` — warn if any resource exceeds max fan-in or fan-out. Governance. | ✅ Done |
+| FJ-1002 | `forjar status --fleet-resource-error-distribution` — distribution of errors across fleet (histogram). Intelligence. | ✅ Done |
+| FJ-1003 | `forjar graph --resource-dependency-diameter-path` — find and display the diameter path (longest shortest path). Analysis. | ✅ Done |
+| FJ-1004 | `forjar status --machine-resource-convergence-stability` — stability score based on convergence rate variance. Intelligence. | ✅ Done |
 
 ### Phase 93 — Multi-Vendor GPU & Conditional Resource Execution (FJ-1005→FJ-1012) ✅ Done
 
@@ -2849,6 +2849,19 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 | FJ-1010 | Clean-room CI: GPU cookbook targets (`gpu-clean-room-sovereign-ai-cookbook-cuda`, `-rocm`). Device passthrough for NVIDIA (`--gpus all`) and ROCm (`--device /dev/kfd`). | ✅ Done |
 | FJ-1011 | `rocm-clean-room` CI job on `[self-hosted, gpu, amd]` runners. GPU backend matrix expansion. | ✅ Done |
 | FJ-1012 | `codegen_scripts` example: GPU resource scripts for nvidia/rocm/cpu backends. `gpu_container_transport` example: multi-vendor container lifecycle. | ✅ Done |
+
+### Phase 94 — Resource Profiling & Security Posture (FJ-1013→FJ-1020)
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-1013 | `forjar status --machine-resource-apply-latency-p95` — compute p95 apply latency per machine from state lock timestamps. Intelligence. | ✅ Done |
+| FJ-1014 | `forjar validate --check-resource-gpu-backend-consistency` — warn if GPU resources reference mismatched backends within a stack. Governance. | ✅ Done |
+| FJ-1015 | `forjar graph --resource-dependency-bridge-criticality` — score bridge edges by downstream subtree size (critical path risk). Analysis. | ✅ Done |
+| FJ-1016 | `forjar apply --notify-custom-digest` — aggregate notifications into a periodic digest (e.g., hourly/daily summary). Integration. | ✅ Done |
+| FJ-1017 | `forjar status --fleet-resource-security-posture-score` — security posture score based on permission modes, secret exposure, and firewall coverage. Intelligence. | ✅ Done |
+| FJ-1018 | `forjar validate --check-resource-when-condition-syntax` — validate `when` field expressions for syntactic correctness. Governance. | ✅ Done |
+| FJ-1019 | `forjar graph --resource-dependency-conditional-subgraph` — visualize conditional (`when`-gated) vs unconditional resource subgraphs. Analysis. | ✅ Done |
+| FJ-1020 | `forjar apply --notify-custom-severity-filter` — filter notifications by severity level (info/warn/critical). Integration. | ✅ Done |
 
 ---
 

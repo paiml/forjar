@@ -392,5 +392,11 @@ pub struct ValidateArgs {
     /// FJ-1001: Warn if any resource exceeds max fan-in or fan-out
     #[arg(long)]
     pub check_resource_dependency_fan_limit: bool,
+    /// FJ-1014: Warn if GPU resources reference mismatched backends within a stack
+    #[arg(long)]
+    pub check_resource_gpu_backend_consistency: bool,
+    /// FJ-1018: Validate when-field expressions for syntactic correctness
+    #[arg(long)]
+    pub check_resource_when_condition_syntax: bool,
 }
 

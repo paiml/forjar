@@ -406,5 +406,11 @@ pub struct GraphArgs {
     /// FJ-1003: Find and display the diameter path
     #[arg(long)]
     pub resource_dependency_diameter_path: bool,
+    /// FJ-1015: Score bridge edges by downstream subtree size
+    #[arg(long)]
+    pub resource_dependency_bridge_criticality: bool,
+    /// FJ-1019: Visualize conditional vs unconditional resource subgraphs
+    #[arg(long)]
+    pub resource_dependency_conditional_subgraph: bool,
 }
 
