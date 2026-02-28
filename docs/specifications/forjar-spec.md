@@ -2493,14 +2493,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-797 | `forjar validate --check-orphan-resources` — detect resources not reachable from any root. Safety. | Planned |
-| FJ-798 | `forjar status --apply-success-rate` — show success/failure ratio per machine. Monitoring. | Planned |
-| FJ-799 | `forjar graph --strongly-connected` — find strongly connected components (Tarjan's). Analysis. | Planned |
-| FJ-800 | `forjar apply --notify-webhook-v2` — enhanced webhook with retry and custom headers. Integration. | Planned |
-| FJ-801 | `forjar validate --check-machine-arch` — verify resource compatibility with machine architecture. Safety. | Planned |
-| FJ-802 | `forjar status --error-rate` — show error rate per resource type. Monitoring. | Planned |
-| FJ-803 | `forjar graph --dependency-matrix-csv` — export dependency matrix as CSV. Export. | Planned |
-| FJ-804 | `forjar status --fleet-health-summary` — one-line per machine with health + convergence. Dashboard. | Planned |
+| FJ-797 | `forjar validate --check-orphan-resources` — detect resources not reachable from any root. Safety. | Done |
+| FJ-798 | `forjar status --apply-success-rate` — show success/failure ratio per machine. Monitoring. | Done |
+| FJ-799 | `forjar graph --strongly-connected` — find strongly connected components (Tarjan's). Analysis. | Done |
+| FJ-800 | `forjar apply --notify-webhook-v2` — enhanced webhook with retry and custom headers. Integration. | Done |
+| FJ-801 | `forjar validate --check-machine-arch` — verify resource compatibility with machine architecture. Safety. | Done |
+| FJ-802 | `forjar status --error-rate` — show error rate per resource type. Monitoring. | Done |
+| FJ-803 | `forjar graph --dependency-matrix-csv` — export dependency matrix as CSV. Export. | Done |
+| FJ-804 | `forjar status --fleet-health-summary` — one-line per machine with health + convergence. Dashboard. | Done |
+
+### Phase 68 — Fleet Intelligence & Advanced Validation (FJ-805→FJ-812)
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-805 | `forjar validate --check-resource-health` — detect resources with conflicting health indicators. Safety. | Planned |
+| FJ-806 | `forjar status --machine-convergence-history` — convergence trend per machine over time. Dashboard. | Planned |
+| FJ-807 | `forjar graph --resource-weight` — assign weights to edges by dependency criticality. Analysis. | Planned |
+| FJ-808 | `forjar apply --notify-pagerduty` — PagerDuty integration for failure notifications. Integration. | Planned |
+| FJ-809 | `forjar validate --check-resource-overlap` — detect resources with overlapping scope on same machine. Safety. | Planned |
+| FJ-810 | `forjar status --drift-history` — drift events timeline across fleet. Monitoring. | Planned |
+| FJ-811 | `forjar graph --dependency-depth-per-resource` — show max chain depth per resource. Analysis. | Planned |
+| FJ-812 | `forjar status --resource-failure-rate` — failure rate per resource across applies. Monitoring. | Planned |
 
 ---
 

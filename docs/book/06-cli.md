@@ -1697,6 +1697,57 @@ forjar schema > /tmp/schema.json
 
 The schema covers the complete `ForjarConfig` structure: `version`, `name`, `description`, `params`, `machines`, `resources` (all 11 types with their fields), `policy`, `recipes`, and `includes`.
 
+### Phase 67 — Advanced Graph Analysis & Fleet Monitoring (FJ-797→FJ-804)
+
+**Orphan Resources** (FJ-797): Detect resources not part of any dependency chain.
+
+```bash
+forjar validate -f forjar.yaml --check-orphan-resources
+forjar validate -f forjar.yaml --check-orphan-resources --json
+```
+
+**Machine Architecture Validation** (FJ-801): Verify machine arch fields are valid.
+
+```bash
+forjar validate -f forjar.yaml --check-machine-arch
+forjar validate -f forjar.yaml --check-machine-arch --json
+```
+
+**Strongly Connected Components** (FJ-799): Find cycles using Tarjan's SCC algorithm.
+
+```bash
+forjar graph -f forjar.yaml --strongly-connected
+forjar graph -f forjar.yaml --strongly-connected --json-output
+```
+
+**Dependency Matrix CSV** (FJ-803): Export dependency matrix as CSV.
+
+```bash
+forjar graph -f forjar.yaml --dependency-matrix-csv
+forjar graph -f forjar.yaml --dependency-matrix-csv --json-output
+```
+
+**Apply Success Rate** (FJ-800): Show success/failure ratio per machine.
+
+```bash
+forjar status --state-dir state --apply-success-rate
+forjar status --state-dir state --apply-success-rate --json
+```
+
+**Error Rate** (FJ-802): Show error rate per machine.
+
+```bash
+forjar status --state-dir state --error-rate
+forjar status --state-dir state --error-rate --json
+```
+
+**Fleet Health Summary** (FJ-804): Aggregated fleet health overview.
+
+```bash
+forjar status --state-dir state --fleet-health-summary
+forjar status --state-dir state --fleet-health-summary --json
+```
+
 ### `forjar watch`
 
 Watch a config file for changes and automatically re-plan.
