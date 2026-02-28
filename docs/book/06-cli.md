@@ -1997,6 +1997,65 @@ forjar status --state-dir state/ --resource-hash-changes
 #   web-01 / nginx-config — abc123...
 ```
 
+### Phase 72 — Security & Fleet Insights (FJ-837→FJ-844)
+
+**Validate — secret references (FJ-837)**
+
+```bash
+forjar validate -f forjar.yaml --check-resource-secret-refs
+# No secret reference issues found.
+```
+
+**Status — machine uptime estimate (FJ-838)**
+
+```bash
+forjar status --state-dir state/ --machine-uptime-estimate
+# Machine uptime estimates (by tracked resources):
+#   web-01 — 5 resources with apply history
+```
+
+**Graph — resource coupling score (FJ-839)**
+
+```bash
+forjar graph -f forjar.yaml --resource-coupling-score
+# Resource coupling scores:
+#   app <-> base — score 3
+```
+
+**Validate — idempotency hints (FJ-841)**
+
+```bash
+forjar validate -f forjar.yaml --check-resource-idempotency-hints
+# All resources have idempotency characteristics.
+```
+
+**Status — fleet resource type breakdown (FJ-842)**
+
+```bash
+forjar status --state-dir state/ --fleet-resource-type-breakdown
+# Fleet resource type breakdown:
+#   Package — 8
+#   File — 5
+#   Service — 3
+```
+
+**Graph — resource change frequency (FJ-843)**
+
+```bash
+forjar graph -f forjar.yaml --resource-change-frequency
+# Estimated change frequency (by dependency impact):
+#   base — score 3
+#   app — score 1
+```
+
+**Status — resource convergence time (FJ-844)**
+
+```bash
+forjar status --state-dir state/ --resource-convergence-time
+# Average convergence time per resource:
+#   nginx-config — 1.23s
+```
+
 ### `forjar watch`
 
 Watch a config file for changes and automatically re-plan.
