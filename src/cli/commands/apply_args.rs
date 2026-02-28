@@ -627,5 +627,8 @@ pub struct ApplyArgs {
     /// FJ-896: Batch multiple resource notifications into single payload
     #[arg(long)]
     pub notify_custom_batch: Option<String>,
+    /// FJ-904: Deduplicate repeated notifications
+    #[arg(long)]
+    pub notify_custom_deduplicate: Option<String>,
 }
 

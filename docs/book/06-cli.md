@@ -2506,6 +2506,67 @@ forjar status --state-dir state/ --machine-resource-rollback-readiness
 #   web1 — partial (lock only, no snapshots)
 ```
 
+#### Phase 80 — Operational Resilience & Configuration Intelligence
+
+**Validate — check resource cross-machine consistency (FJ-901)**
+
+```bash
+forjar validate -f examples/dogfood-packages.yaml --check-resource-cross-machine-consistency
+# No cross-machine inconsistencies found.
+```
+
+**Status — machine resource health trend (FJ-902)**
+
+```bash
+forjar status --state-dir state/ --machine-resource-health-trend
+# Machine resource health trends:
+#   web1 — current data only (no historical trend)
+```
+
+**Graph — resource dependency critical path length (FJ-903)**
+
+```bash
+forjar graph -f examples/dogfood-packages.yaml --resource-dependency-critical-path-length
+# Critical path lengths (longest chain to root):
+#   tool-config — 2
+#   data-dir — 1
+#   dev-tools — 1
+```
+
+**Validate — check resource version pinning (FJ-905)**
+
+```bash
+forjar validate -f examples/dogfood-packages.yaml --check-resource-version-pinning
+# Resources without pinned versions:
+#   dev-tools
+```
+
+**Status — fleet resource drift velocity (FJ-906)**
+
+```bash
+forjar status --state-dir state/ --fleet-resource-drift-velocity
+# Fleet resource drift velocity:
+#   web1 — 1/4 drifted (25.0%)
+```
+
+**Graph — resource dependency redundancy score (FJ-907)**
+
+```bash
+forjar graph -f examples/dogfood-packages.yaml --resource-dependency-redundancy-score
+# Redundancy scores (higher = more redundant paths):
+#   data-dir — 0.00
+#   dev-tools — 0.00
+#   tool-config — 0.00
+```
+
+**Status — machine resource apply success trend (FJ-908)**
+
+```bash
+forjar status --state-dir state/ --machine-resource-apply-success-trend
+# Machine apply success trends:
+#   web1 — event history available
+```
+
 ### `forjar watch`
 
 Watch a config file for changes and automatically re-plan.

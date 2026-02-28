@@ -66,47 +66,36 @@ pub struct StatusArgs {
     /// FJ-407: Diff current state against a named snapshot
     #[arg(long)]
     pub diff_from: Option<String>,
-
     /// FJ-412: Group status output by resource type
     #[arg(long)]
     pub resources_by_type: bool,
-
     /// FJ-417: Show only machine-level summary (no resource details)
     #[arg(long)]
     pub machines_only: bool,
-
     /// FJ-422: Show resources not updated in any recent apply
     #[arg(long)]
     pub stale_resources: bool,
-
     /// FJ-427: Custom health score threshold (default: 80)
     #[arg(long)]
     pub health_threshold: Option<u32>,
-
     /// FJ-432: Output status as newline-delimited JSON (NDJSON)
     #[arg(long)]
     pub json_lines: bool,
-
     /// FJ-437: Show only resources changed within duration (e.g., 1h, 7d)
     #[arg(long)]
     pub since: Option<String>,
-
     /// FJ-442: Export status report to file (JSON/CSV/YAML)
     #[arg(long)]
     pub export: Option<PathBuf>,
-
     /// FJ-452: Minimal one-line-per-machine output for large fleets
     #[arg(long)]
     pub compact: bool,
-
     /// FJ-457: Show resources in alert state (failed, drifted, or stale)
     #[arg(long)]
     pub alerts: bool,
-
     /// FJ-462: Diff current lock against a saved lock snapshot
     #[arg(long)]
     pub diff_lock: Option<PathBuf>,
-
     /// FJ-467: Check compliance against named policy
     #[arg(long)]
     pub compliance: Option<String>,
@@ -497,4 +486,13 @@ pub struct StatusArgs {
     /// FJ-900: Readiness for rollback per machine
     #[arg(long)]
     pub machine_resource_rollback_readiness: bool,
+    /// FJ-902: Health trend over time per machine
+    #[arg(long)]
+    pub machine_resource_health_trend: bool,
+    /// FJ-906: Rate of drift accumulation across fleet
+    #[arg(long)]
+    pub fleet_resource_drift_velocity: bool,
+    /// FJ-908: Apply success trend per machine over time
+    #[arg(long)]
+    pub machine_resource_apply_success_trend: bool,
 }

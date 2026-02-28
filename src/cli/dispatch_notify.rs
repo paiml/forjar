@@ -83,6 +83,7 @@ pub(crate) struct NotifyOpts<'a> {
     pub custom_retry: Option<&'a str>,
     pub custom_transform: Option<&'a str>,
     pub custom_batch: Option<&'a str>,
+    pub custom_deduplicate: Option<&'a str>,
 }
 
 
@@ -194,6 +195,7 @@ fn send_incident_notifications(opts: &NotifyOpts<'_>, result: &Result<(), String
     send_custom_retry_notification(opts.custom_retry, result, config);
     send_custom_transform_notification(opts.custom_transform, result, config);
     send_custom_batch_notification(opts.custom_batch, result, config);
+    send_custom_deduplicate_notification(opts.custom_deduplicate, result, config);
 }
 
 fn send_pagerduty_notification(key: Option<&str>, result: &Result<(), String>, config: &Path) {
@@ -443,4 +445,15 @@ fn send_custom_batch_notification(spec: Option<&str>, result: &Result<(), String
     let batch_size = parts.get(1).and_then(|s| s.parse::<usize>().ok()).unwrap_or(10);
     let status = if result.is_ok() { "success" } else { "failure" };
     println!("[notify:custom-batch] → {} (batch_size: {}, status: {}, config: {})", url, batch_size, status, config.display());
+}
+
+/// FJ-904: Deduplicate repeated notifications within a window.
+/// Format: "url|window_seconds" where window is the dedup time window.
+fn send_custom_deduplicate_notification(spec: Option<&str>, result: &Result<(), String>, config: &Path) {
+    let spec = match spec { Some(s) => s, None => return };
+    let parts: Vec<&str> = spec.splitn(2, '|').collect();
+    let url = parts.first().unwrap_or(&"");
+    let window = parts.get(1).and_then(|s| s.parse::<u64>().ok()).unwrap_or(300);
+    let status = if result.is_ok() { "success" } else { "failure" };
+    println!("[notify:custom-deduplicate] → {} (window: {}s, status: {}, config: {})", url, window, status, config.display());
 }

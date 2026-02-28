@@ -328,5 +328,11 @@ pub struct GraphArgs {
     /// FJ-899: Stability score based on dependency change frequency
     #[arg(long)]
     pub resource_dependency_stability_score: bool,
+    /// FJ-903: Critical path length through dependency graph
+    #[arg(long)]
+    pub resource_dependency_critical_path_length: bool,
+    /// FJ-907: Redundancy score for resources with fallbacks
+    #[arg(long)]
+    pub resource_dependency_redundancy_score: bool,
 }
 
