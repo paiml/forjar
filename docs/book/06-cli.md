@@ -2056,6 +2056,63 @@ forjar status --state-dir state/ --resource-convergence-time
 #   nginx-config — 1.23s
 ```
 
+### Phase 73 — Drift Intelligence & Governance (FJ-845→FJ-852)
+
+**Validate — dependency depth limit (FJ-845)**
+
+```bash
+forjar validate -f forjar.yaml --check-resource-dependency-depth 3
+# All dependency chains within limit (3).
+```
+
+**Status — machine drift age (FJ-846)**
+
+```bash
+forjar status --state-dir state/ --machine-drift-age
+# Machine drift age (drifted resource count):
+#   web1 — 2 drifted resources
+```
+
+**Graph — resource impact score (FJ-847)**
+
+```bash
+forjar graph -f forjar.yaml --resource-impact-score
+# Resource impact scores (dependents + depth):
+#   ssl-cert — score 4
+#   base-packages — score 2
+```
+
+**Validate — machine affinity (FJ-849)**
+
+```bash
+forjar validate -f forjar.yaml --check-resource-machine-affinity
+# All resources have valid machine affinity.
+```
+
+**Status — fleet failed resources (FJ-850)**
+
+```bash
+forjar status --state-dir state/ --fleet-failed-resources
+# No failed resources across fleet.
+```
+
+**Graph — resource stability score (FJ-851)**
+
+```bash
+forjar graph -f forjar.yaml --resource-stability-score
+# Resource stability scores (higher = more stable):
+#   nginx-config — score 13
+#   base-packages — score 10
+```
+
+**Status — resource dependency health (FJ-852)**
+
+```bash
+forjar status --state-dir state/ --resource-dependency-health
+# Resource dependency health:
+#   web1 / nginx — 5 converged deps
+```
+
 ### `forjar watch`
 
 Watch a config file for changes and automatically re-plan.

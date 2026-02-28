@@ -2571,14 +2571,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-845 | `forjar validate --check-resource-dependency-depth` — warn if dependency chain exceeds threshold. Governance. | Planned |
-| FJ-846 | `forjar status --machine-drift-age` — age of oldest drift per machine. Monitoring. | Planned |
-| FJ-847 | `forjar graph --resource-impact-score` — impact score based on dependents + depth. Analysis. | Planned |
-| FJ-848 | `forjar apply --notify-custom-webhook` — configurable webhook with custom headers. Integration. | Planned |
-| FJ-849 | `forjar validate --check-resource-machine-affinity` — verify resources match machine capabilities. Governance. | Planned |
-| FJ-850 | `forjar status --fleet-failed-resources` — list all failed resources across fleet. Alerting. | Planned |
-| FJ-851 | `forjar graph --resource-stability-score` — stability score based on status history. Analysis. | Planned |
-| FJ-852 | `forjar status --resource-dependency-health` — health of upstream dependencies per resource. Monitoring. | Planned |
+| FJ-845 | `forjar validate --check-resource-dependency-depth` — warn if dependency chain exceeds threshold. Governance. | Done |
+| FJ-846 | `forjar status --machine-drift-age` — age of oldest drift per machine. Monitoring. | Done |
+| FJ-847 | `forjar graph --resource-impact-score` — impact score based on dependents + depth. Analysis. | Done |
+| FJ-848 | `forjar apply --notify-custom-webhook` — configurable webhook with custom headers. Integration. | Done |
+| FJ-849 | `forjar validate --check-resource-machine-affinity` — verify resources match machine capabilities. Governance. | Done |
+| FJ-850 | `forjar status --fleet-failed-resources` — list all failed resources across fleet. Alerting. | Done |
+| FJ-851 | `forjar graph --resource-stability-score` — stability score based on status history. Analysis. | Done |
+| FJ-852 | `forjar status --resource-dependency-health` — health of upstream dependencies per resource. Monitoring. | Done |
+
+### Phase 74 — Predictive Analysis & Fleet Governance (FJ-853→FJ-860)
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-853 | `forjar validate --check-resource-drift-risk` — score drift risk per resource based on type + deps. Governance. | Planned |
+| FJ-854 | `forjar status --machine-resource-age-distribution` — age distribution of resources per machine. Analytics. | Planned |
+| FJ-855 | `forjar graph --resource-dependency-fanout` — fan-out count per resource. Analysis. | Planned |
+| FJ-856 | `forjar apply --notify-custom-headers` — custom HTTP headers for webhook notifications. Integration. | Planned |
+| FJ-857 | `forjar validate --check-resource-tag-coverage` — verify all resources have required tags. Governance. | Planned |
+| FJ-858 | `forjar status --fleet-convergence-velocity` — rate of convergence across fleet. Monitoring. | Planned |
+| FJ-859 | `forjar graph --resource-dependency-weight` — weighted edges based on resource coupling. Analysis. | Planned |
+| FJ-860 | `forjar status --resource-failure-correlation` — correlate failures across resources. Intelligence. | Planned |
 
 ---
 
