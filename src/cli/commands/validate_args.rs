@@ -356,5 +356,11 @@ pub struct ValidateArgs {
     /// FJ-953: Warn when machines have unbalanced resource counts
     #[arg(long)]
     pub check_resource_machine_balance: bool,
+    /// FJ-957: Verify content hashes match declared checksums
+    #[arg(long)]
+    pub check_resource_content_hash_consistency: bool,
+    /// FJ-961: Ensure all referenced dependencies exist in the resource set
+    #[arg(long)]
+    pub check_resource_dependency_refs: bool,
 }
 

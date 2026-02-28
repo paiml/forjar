@@ -2753,14 +2753,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-957 | `forjar validate --check-resource-content-hash-consistency` — verify content hashes match declared checksums. Governance. | Planned |
-| FJ-958 | `forjar status --machine-resource-drift-age` — how long each resource has been in drifted state. Intelligence. | Planned |
-| FJ-959 | `forjar graph --resource-dependency-longest-path` — longest dependency path in the DAG (critical chain). Analysis. | Planned |
-| FJ-960 | `forjar apply --notify-custom-backoff` — exponential backoff for failed notification retries. Integration. | Planned |
-| FJ-961 | `forjar validate --check-resource-dependency-completeness` — ensure all referenced dependencies exist. Governance. | Planned |
-| FJ-962 | `forjar status --fleet-resource-drift-age` — fleet-wide drift age aggregation. Intelligence. | Planned |
-| FJ-963 | `forjar graph --resource-dependency-strongly-connected` — find strongly connected components in dependency graph. Analysis. | Planned |
-| FJ-964 | `forjar status --machine-resource-recovery-rate` — rate of recovery from failed/drifted states. Intelligence. | Planned |
+| FJ-957 | `forjar validate --check-resource-content-hash-consistency` — verify content hashes match declared checksums. Governance. | Done |
+| FJ-958 | `forjar status --machine-resource-drift-age` — how long each resource has been in drifted state. Intelligence. | Done |
+| FJ-959 | `forjar graph --resource-dependency-longest-path` — longest dependency path in the DAG (critical chain). Analysis. | Done |
+| FJ-960 | `forjar apply --notify-custom-backoff` — exponential backoff for failed notification retries. Integration. | Done |
+| FJ-961 | `forjar validate --check-resource-dependency-refs` — ensure all referenced dependencies exist in the resource set. Governance. | Done |
+| FJ-962 | `forjar status --fleet-resource-drift-age` — fleet-wide drift age aggregation. Intelligence. | Done |
+| FJ-963 | `forjar graph --resource-dependency-strongly-connected` — find strongly connected components in dependency graph. Analysis. | Done |
+| FJ-964 | `forjar status --machine-resource-recovery-rate` — rate of recovery from failed/drifted states. Intelligence. | Done |
+
+### Phase 88 — Advanced Recovery & Dependency Metrics (FJ-965→FJ-972)
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-965 | `forjar validate --check-resource-trigger-refs` — ensure all trigger references point to existing resources. Governance. | Planned |
+| FJ-966 | `forjar status --machine-resource-drift-velocity` — rate of drift accumulation per machine over time. Intelligence. | Planned |
+| FJ-967 | `forjar graph --resource-dependency-topological-depth` — depth of each resource in topological ordering. Analysis. | Planned |
+| FJ-968 | `forjar apply --notify-custom-circuit-breaker` — circuit breaker pattern for notification failures. Integration. | Planned |
+| FJ-969 | `forjar validate --check-resource-param-type-safety` — validate parameter types match expected usage patterns. Governance. | Planned |
+| FJ-970 | `forjar status --fleet-resource-recovery-rate` — fleet-wide recovery rate aggregation. Intelligence. | Planned |
+| FJ-971 | `forjar graph --resource-dependency-weak-links` — identify dependency edges most likely to cause cascading failures. Analysis. | Planned |
+| FJ-972 | `forjar status --machine-resource-convergence-efficiency` — ratio of converged resources to total apply time. Intelligence. | Planned |
 
 ---
 

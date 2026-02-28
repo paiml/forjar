@@ -147,3 +147,129 @@ fn push_reverse_neighbors<'a>(config: &'a types::ForjarConfig, v: &str, exclude:
         }
     }
 }
+
+/// FJ-959: Longest dependency path in the DAG (critical chain).
+pub(crate) fn cmd_graph_resource_dependency_longest_path(file: &Path, json: bool) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let config: types::ForjarConfig = serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let names: Vec<String> = config.resources.keys().cloned().collect();
+    let mut longest = 0usize;
+    let mut longest_path: Vec<String> = Vec::new();
+    for name in &names {
+        let mut path = Vec::new();
+        let depth = dag_longest_from(&config, name, &mut path);
+        if depth > longest {
+            longest = depth;
+            longest_path = path;
+        }
+    }
+    if json {
+        let path_items: Vec<String> = longest_path.iter().map(|p| format!("\"{}\"", p)).collect();
+        println!("{{\"longest_path_length\":{},\"path\":[{}]}}", longest, path_items.join(","));
+    } else if longest == 0 {
+        println!("No dependency paths found.");
+    } else {
+        println!("Longest dependency path ({} hops):", longest);
+        println!("  {}", longest_path.join(" → "));
+    }
+    Ok(())
+}
+
+fn dag_longest_from(config: &types::ForjarConfig, node: &str, path: &mut Vec<String>) -> usize {
+    path.push(node.to_string());
+    let res = match config.resources.get(node) { Some(r) => r, None => return 0 };
+    if res.depends_on.is_empty() { return 0; }
+    let mut max_depth = 0;
+    let mut best_path = Vec::new();
+    for dep in &res.depends_on {
+        let mut sub_path = Vec::new();
+        let d = dag_longest_from(config, dep, &mut sub_path);
+        if d + 1 > max_depth {
+            max_depth = d + 1;
+            best_path = sub_path;
+        }
+    }
+    path.extend(best_path);
+    max_depth
+}
+
+/// FJ-963: Find strongly connected components in dependency graph.
+pub(crate) fn cmd_graph_resource_dependency_strongly_connected(file: &Path, json: bool) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let config: types::ForjarConfig = serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let names: Vec<String> = config.resources.keys().cloned().collect();
+    let sccs = tarjan_scc(&config, &names);
+    let non_trivial: Vec<&Vec<String>> = sccs.iter().filter(|c| c.len() > 1).collect();
+    if json {
+        let items: Vec<String> = non_trivial.iter()
+            .map(|c| {
+                let members: Vec<String> = c.iter().map(|n| format!("\"{}\"", n)).collect();
+                format!("[{}]", members.join(","))
+            })
+            .collect();
+        println!("{{\"strongly_connected_components\":[{}],\"count\":{}}}", items.join(","), non_trivial.len());
+    } else if non_trivial.is_empty() {
+        println!("No strongly connected components found (DAG is acyclic).");
+    } else {
+        println!("Strongly connected components:");
+        for (i, c) in non_trivial.iter().enumerate() {
+            println!("  SCC {}: {}", i + 1, c.join(", "));
+        }
+    }
+    Ok(())
+}
+
+fn tarjan_scc(config: &types::ForjarConfig, names: &[String]) -> Vec<Vec<String>> {
+    let n = names.len();
+    let idx_map: std::collections::HashMap<&str, usize> = names.iter().enumerate().map(|(i, n)| (n.as_str(), i)).collect();
+    let mut index_counter = 0usize;
+    let mut stack = Vec::new();
+    let mut on_stack = vec![false; n];
+    let mut indices = vec![usize::MAX; n];
+    let mut lowlinks = vec![0usize; n];
+    let mut result = Vec::new();
+
+    #[allow(clippy::too_many_arguments)]
+    fn strongconnect(
+        v: usize, config: &types::ForjarConfig, names: &[String], idx_map: &std::collections::HashMap<&str, usize>,
+        index_counter: &mut usize, stack: &mut Vec<usize>, on_stack: &mut [bool],
+        indices: &mut [usize], lowlinks: &mut [usize], result: &mut Vec<Vec<String>>,
+    ) {
+        indices[v] = *index_counter;
+        lowlinks[v] = *index_counter;
+        *index_counter += 1;
+        stack.push(v);
+        on_stack[v] = true;
+
+        if let Some(res) = config.resources.get(&names[v]) {
+            for dep in &res.depends_on {
+                if let Some(&w) = idx_map.get(dep.as_str()) {
+                    if indices[w] == usize::MAX {
+                        strongconnect(w, config, names, idx_map, index_counter, stack, on_stack, indices, lowlinks, result);
+                        lowlinks[v] = lowlinks[v].min(lowlinks[w]);
+                    } else if on_stack[w] {
+                        lowlinks[v] = lowlinks[v].min(indices[w]);
+                    }
+                }
+            }
+        }
+
+        if lowlinks[v] == indices[v] {
+            let mut component = Vec::new();
+            while let Some(w) = stack.pop() {
+                on_stack[w] = false;
+                component.push(names[w].clone());
+                if w == v { break; }
+            }
+            component.sort();
+            result.push(component);
+        }
+    }
+
+    for i in 0..n {
+        if indices[i] == usize::MAX {
+            strongconnect(i, config, names, &idx_map, &mut index_counter, &mut stack, &mut on_stack, &mut indices, &mut lowlinks, &mut result);
+        }
+    }
+    result
+}

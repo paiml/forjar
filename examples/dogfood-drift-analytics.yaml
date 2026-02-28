@@ -1,0 +1,73 @@
+# FJ-957→FJ-964: Configuration Drift Analytics & Dependency Health
+# Exercises: content hash consistency, drift age, longest path,
+#            dependency ref completeness, strongly connected detection,
+#            recovery rate analysis.
+#
+# Usage:
+#   forjar validate -f examples/dogfood-drift-analytics.yaml --check-resource-content-hash-consistency
+#   forjar validate -f examples/dogfood-drift-analytics.yaml --check-resource-dependency-refs
+#   forjar graph -f examples/dogfood-drift-analytics.yaml --resource-dependency-longest-path
+#   forjar graph -f examples/dogfood-drift-analytics.yaml --resource-dependency-strongly-connected
+
+version: "1.0"
+name: drift-analytics
+
+machines:
+  analytics:
+    hostname: analytics-01
+    addr: 127.0.0.1
+    transport: local
+
+params:
+  data_dir: /opt/analytics
+  log_level: info
+
+resources:
+  base_dir:
+    type: file
+    machine: analytics
+    path: "{{data_dir}}"
+    content: ""
+    tags: [infra]
+
+  config:
+    type: file
+    machine: analytics
+    path: "{{data_dir}}/config.yaml"
+    content: "log_level: {{log_level}}\ndata_dir: {{data_dir}}\n"
+    depends_on: [base_dir]
+    tags: [config]
+
+  schema:
+    type: file
+    machine: analytics
+    path: "{{data_dir}}/schema.sql"
+    content: "CREATE TABLE IF NOT EXISTS events (id INT, ts TIMESTAMP);\n"
+    depends_on: [base_dir]
+    tags: [data]
+
+  migrations:
+    type: file
+    machine: analytics
+    path: "{{data_dir}}/migrations/001.sql"
+    content: "ALTER TABLE events ADD COLUMN source TEXT;\n"
+    depends_on: [schema]
+    tags: [data]
+
+  app:
+    type: file
+    machine: analytics
+    path: "{{data_dir}}/app.sh"
+    content: "#!/bin/bash\necho 'analytics engine'\n"
+    depends_on: [config, migrations]
+    tags: [app]
+    mode: "0755"
+
+  monitor:
+    type: file
+    machine: analytics
+    path: "{{data_dir}}/monitor.sh"
+    content: "#!/bin/bash\necho 'health check'\n"
+    depends_on: [app]
+    tags: [ops]
+    mode: "0755"

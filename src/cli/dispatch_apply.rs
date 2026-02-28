@@ -166,6 +166,7 @@ pub(crate) fn dispatch_apply_cmd(cmd: Commands, verbose: bool) -> Result<(), Str
         notify_custom_routing,
         notify_custom_dedup_window,
         notify_custom_rate_limit,
+        notify_custom_backoff,
     }) = cmd
     else {
         unreachable!()
@@ -284,6 +285,7 @@ pub(crate) fn dispatch_apply_cmd(cmd: Commands, verbose: bool) -> Result<(), Str
             custom_routing: notify_custom_routing.as_deref(),
             custom_dedup_window: notify_custom_dedup_window.as_deref(),
             custom_rate_limit: notify_custom_rate_limit.as_deref(),
+            custom_backoff: notify_custom_backoff.as_deref(),
     };
     send_apply_notifications(&opts, &result, &file);
 

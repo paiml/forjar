@@ -242,6 +242,67 @@ pub(crate) fn cmd_validate_check_resource_unused_params(file: &Path, json: bool)
     Ok(())
 }
 
+/// FJ-957: Verify content hashes match declared checksums.
+pub(crate) fn cmd_validate_check_resource_content_hash_consistency(file: &Path, json: bool) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let config: types::ForjarConfig = serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let mut mismatches = Vec::new();
+    for (name, res) in &config.resources {
+        if let (Some(ref declared), Some(ref actual_content)) = (&res.checksum, &res.content) {
+            let computed = crate::core::planner::hash_desired_state(res);
+            if &computed != declared {
+                mismatches.push((name.clone(), declared.clone(), computed));
+            }
+            let _ = actual_content;
+        }
+    }
+    if json {
+        let items: Vec<String> = mismatches.iter()
+            .map(|(n, d, c)| format!("{{\"resource\":\"{}\",\"declared\":\"{}\",\"computed\":\"{}\"}}", n, d, c))
+            .collect();
+        println!("{{\"hash_mismatches\":[{}]}}", items.join(","));
+    } else if mismatches.is_empty() {
+        println!("All content hashes are consistent.");
+    } else {
+        println!("Content hash mismatches:");
+        for (n, d, c) in &mismatches { println!("  {} — declared: {}  computed: {}", n, &d[..8.min(d.len())], &c[..8.min(c.len())]); }
+    }
+    Ok(())
+}
+
+/// FJ-961: Ensure all referenced dependencies exist in the resource set.
+pub(crate) fn cmd_validate_check_resource_dependency_refs(file: &Path, json: bool) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let config: types::ForjarConfig = serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let resource_names: std::collections::HashSet<&String> = config.resources.keys().collect();
+    let mut missing = Vec::new();
+    for (name, res) in &config.resources {
+        for dep in &res.depends_on {
+            if !resource_names.contains(dep) {
+                missing.push((name.clone(), dep.clone()));
+            }
+        }
+        for trig in &res.triggers {
+            if !resource_names.contains(trig) {
+                missing.push((name.clone(), trig.clone()));
+            }
+        }
+    }
+    missing.sort();
+    if json {
+        let items: Vec<String> = missing.iter()
+            .map(|(n, d)| format!("{{\"resource\":\"{}\",\"missing_ref\":\"{}\"}}", n, d))
+            .collect();
+        println!("{{\"missing_dependency_refs\":[{}]}}", items.join(","));
+    } else if missing.is_empty() {
+        println!("All dependency references are valid.");
+    } else {
+        println!("Missing dependency references:");
+        for (n, d) in &missing { println!("  {} → {} (not found)", n, d); }
+    }
+    Ok(())
+}
+
 /// FJ-953: Warn when machines have unbalanced resource counts.
 pub(crate) fn cmd_validate_check_resource_machine_balance(file: &Path, json: bool) -> Result<(), String> {
     let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;

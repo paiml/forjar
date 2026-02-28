@@ -648,5 +648,8 @@ pub struct ApplyArgs {
     /// FJ-952: Rate-limit notification delivery per channel
     #[arg(long)]
     pub notify_custom_rate_limit: Option<String>,
+    /// FJ-960: Exponential backoff for failed notification retries
+    #[arg(long)]
+    pub notify_custom_backoff: Option<String>,
 }
 

@@ -1,6 +1,6 @@
 //! Apply notification dispatch helpers — sends apply results to notification channels.
 use std::path::Path;
-fn send_webhook(url: &str, payload: &str) {
+pub(super) fn send_webhook(url: &str, payload: &str) {
     let _ = std::process::Command::new("curl")
         .args(["-s", "-X", "POST", "-H", "Content-Type: application/json", "-d", payload, url])
         .output();
@@ -75,6 +75,7 @@ pub(crate) struct NotifyOpts<'a> {
     pub custom_routing: Option<&'a str>,
     pub custom_dedup_window: Option<&'a str>,
     pub custom_rate_limit: Option<&'a str>,
+    pub custom_backoff: Option<&'a str>,
 }
 pub(crate) fn send_apply_notifications(
     opts: &NotifyOpts<'_>,
@@ -173,15 +174,16 @@ fn send_incident_notifications(opts: &NotifyOpts<'_>, result: &Result<(), String
     send_custom_json_notification(opts.custom_json, result, config);
     send_custom_filter_notification(opts.custom_filter, result, config);
     send_custom_retry_notification(opts.custom_retry, result, config);
-    send_custom_transform_notification(opts.custom_transform, result, config);
-    send_custom_batch_notification(opts.custom_batch, result, config);
-    send_custom_deduplicate_notification(opts.custom_deduplicate, result, config);
-    send_custom_throttle_notification(opts.custom_throttle, result, config);
-    send_custom_aggregate_notification(opts.custom_aggregate, result, config);
-    send_custom_priority_notification(opts.custom_priority, result, config);
-    send_custom_routing_notification(opts.custom_routing, result, config);
-    send_custom_dedup_window_notification(opts.custom_dedup_window, result, config);
-    send_custom_rate_limit_notification(opts.custom_rate_limit, result, config);
+    super::dispatch_notify_custom::send_custom_transform_notification(opts.custom_transform, result, config);
+    super::dispatch_notify_custom::send_custom_batch_notification(opts.custom_batch, result, config);
+    super::dispatch_notify_custom::send_custom_deduplicate_notification(opts.custom_deduplicate, result, config);
+    super::dispatch_notify_custom::send_custom_throttle_notification(opts.custom_throttle, result, config);
+    super::dispatch_notify_custom::send_custom_aggregate_notification(opts.custom_aggregate, result, config);
+    super::dispatch_notify_custom::send_custom_priority_notification(opts.custom_priority, result, config);
+    super::dispatch_notify_custom::send_custom_routing_notification(opts.custom_routing, result, config);
+    super::dispatch_notify_custom::send_custom_dedup_window_notification(opts.custom_dedup_window, result, config);
+    super::dispatch_notify_custom::send_custom_rate_limit_notification(opts.custom_rate_limit, result, config);
+    super::dispatch_notify_custom::send_custom_backoff_notification(opts.custom_backoff, result, config);
 }
 fn send_pagerduty_notification(key: Option<&str>, result: &Result<(), String>, config: &Path) {
     if let Some(key) = key {
@@ -384,116 +386,4 @@ fn send_custom_retry_notification(spec: Option<&str>, result: &Result<(), String
         if ok || attempt == retries { break; }
         std::thread::sleep(std::time::Duration::from_secs(1));
     }
-}
-fn send_custom_transform_notification(spec: Option<&str>, result: &Result<(), String>, config: &Path) {
-    let spec = match spec { Some(s) => s, None => return };
-    let parts: Vec<&str> = spec.splitn(2, '|').collect();
-    if parts.len() != 2 { return; }
-    let (url, template) = (parts[0], parts[1]);
-    let status = if result.is_ok() { "success" } else { "failure" };
-    let ts = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs();
-    let body = template
-        .replace("{{status}}", status)
-        .replace("{{config}}", &config.display().to_string())
-        .replace("{{timestamp}}", &ts.to_string());
-    send_webhook(url, &body);
-}
-/// FJ-896: Batch multiple resource notifications into single payload.
-/// Format: "url|batch_size" where batch_size is the max items per batch.
-fn send_custom_batch_notification(spec: Option<&str>, result: &Result<(), String>, config: &Path) {
-    let spec = match spec { Some(s) => s, None => return };
-    let parts: Vec<&str> = spec.splitn(2, '|').collect();
-    let url = parts.first().unwrap_or(&"");
-    let batch_size = parts.get(1).and_then(|s| s.parse::<usize>().ok()).unwrap_or(10);
-    let status = if result.is_ok() { "success" } else { "failure" };
-    println!("[notify:custom-batch] → {} (batch_size: {}, status: {}, config: {})", url, batch_size, status, config.display());
-}
-/// FJ-904: Deduplicate repeated notifications within a window.
-/// Format: "url|window_seconds" where window is the dedup time window.
-fn send_custom_deduplicate_notification(spec: Option<&str>, result: &Result<(), String>, config: &Path) {
-    let spec = match spec { Some(s) => s, None => return };
-    let parts: Vec<&str> = spec.splitn(2, '|').collect();
-    let url = parts.first().unwrap_or(&"");
-    let window = parts.get(1).and_then(|s| s.parse::<u64>().ok()).unwrap_or(300);
-    let status = if result.is_ok() { "success" } else { "failure" };
-    println!("[notify:custom-deduplicate] → {} (window: {}s, status: {}, config: {})", url, window, status, config.display());
-}
-/// FJ-912: Throttle notifications to max N per time window.
-/// Format: "url|max_per_minute:5" or "url|max_per_minute:10,window:60"
-fn send_custom_throttle_notification(spec: Option<&str>, result: &Result<(), String>, config: &Path) {
-    let spec = match spec { Some(s) => s, None => return };
-    let parts: Vec<&str> = spec.splitn(2, '|').collect();
-    let url = parts.first().unwrap_or(&"");
-    let mut max_per_min: usize = 5;
-    if let Some(opts_str) = parts.get(1) {
-        for kv in opts_str.split(',') {
-            let kv: Vec<&str> = kv.splitn(2, ':').collect();
-            if kv.len() == 2 && kv[0].trim() == "max_per_minute" {
-                max_per_min = kv[1].trim().parse().unwrap_or(5);
-            }
-        }
-    }
-    let status = if result.is_ok() { "success" } else { "failure" };
-    println!("[notify:custom-throttle] → {} (max_per_minute: {}, status: {}, config: {})", url, max_per_min, status, config.display());
-}
-/// FJ-920: Aggregate multiple events into summary notification.
-fn send_custom_aggregate_notification(spec: Option<&str>, result: &Result<(), String>, config: &Path) {
-    let spec = match spec { Some(s) => s, None => return };
-    let parts: Vec<&str> = spec.splitn(2, '|').collect();
-    let url = parts.first().unwrap_or(&"");
-    let mut window_secs: usize = 60;
-    if let Some(opts_str) = parts.get(1) {
-        for kv in opts_str.split(',') {
-            let kv: Vec<&str> = kv.splitn(2, ':').collect();
-            if kv.len() == 2 && kv[0].trim() == "window_seconds" {
-                window_secs = kv[1].trim().parse().unwrap_or(60);
-            }
-        }
-    }
-    let status = if result.is_ok() { "success" } else { "failure" };
-    println!("[notify:custom-aggregate] → {} (window: {}s, status: {}, config: {})", url, window_secs, status, config.display());
-}
-/// FJ-928: Assign priority levels to notifications based on severity.
-fn send_custom_priority_notification(spec: Option<&str>, result: &Result<(), String>, config: &Path) {
-    let spec = match spec { Some(s) => s, None => return };
-    let parts: Vec<&str> = spec.splitn(2, '|').collect();
-    let url = parts.first().unwrap_or(&"");
-    let mut default_priority = "medium";
-    if let Some(opts_str) = parts.get(1) {
-        for kv in opts_str.split(',') {
-            let kv: Vec<&str> = kv.splitn(2, ':').collect();
-            if kv.len() == 2 && kv[0].trim() == "default" {
-                default_priority = kv[1].trim();
-            }
-        }
-    }
-    let priority = if result.is_err() { "critical" } else { default_priority };
-    let status = if result.is_ok() { "success" } else { "failure" };
-    println!("[notify:custom-priority] → {} (priority: {}, status: {}, config: {})", url, priority, status, config.display());
-}
-/// FJ-936: Route notifications to different channels based on resource type.
-fn send_custom_routing_notification(spec: Option<&str>, result: &Result<(), String>, config: &Path) {
-    let spec = match spec { Some(s) => s, None => return };
-    let parts: Vec<&str> = spec.splitn(2, '|').collect();
-    let url = parts.first().unwrap_or(&"");
-    let route_rules = parts.get(1).unwrap_or(&"default");
-    let status = if result.is_ok() { "success" } else { "failure" };
-    println!("[notify:custom-routing] → {} (routes: {}, status: {}, config: {})", url, route_rules, status, config.display());
-}
-/// FJ-944: Deduplicate notifications within a time window.
-fn send_custom_dedup_window_notification(spec: Option<&str>, result: &Result<(), String>, config: &Path) {
-    let spec = match spec { Some(s) => s, None => return };
-    let parts: Vec<&str> = spec.splitn(2, '|').collect();
-    let url = parts.first().unwrap_or(&"");
-    let window = parts.get(1).unwrap_or(&"60");
-    let status = if result.is_ok() { "success" } else { "failure" };
-    println!("[notify:custom-dedup-window] → {} (window: {}s, status: {}, config: {})", url, window, status, config.display());
-}
-fn send_custom_rate_limit_notification(spec: Option<&str>, result: &Result<(), String>, config: &Path) {
-    let spec = match spec { Some(s) => s, None => return };
-    let parts: Vec<&str> = spec.splitn(2, '|').collect();
-    let url = parts.first().unwrap_or(&"");
-    let limit = parts.get(1).unwrap_or(&"10");
-    let status = if result.is_ok() { "success" } else { "failure" };
-    println!("[notify:custom-rate-limit] → {} (limit: {}/min, status: {}, config: {})", url, limit, status, config.display());
 }
