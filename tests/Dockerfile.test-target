@@ -15,6 +15,9 @@ RUN apt-get update -qq && \
         iproute2 \
         curl \
         ca-certificates \
+        build-essential \
+        pkg-config \
+        libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Keep container alive for exec-based transport
