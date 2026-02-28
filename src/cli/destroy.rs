@@ -207,7 +207,7 @@ pub(crate) fn cmd_rollback(
 }
 
 /// Compare previous and current configs to find rollback changes.
-fn compute_rollback_changes(
+pub(crate) fn compute_rollback_changes(
     previous: &types::ForjarConfig,
     current: &types::ForjarConfig,
     revision: u32,

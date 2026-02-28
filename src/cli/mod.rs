@@ -347,6 +347,114 @@ mod tests_phase91;
 mod tests_phase92;
 #[cfg(test)]
 mod tests_phase94;
+#[cfg(test)]
+mod tests_cov_graph;
+#[cfg(test)]
+mod tests_cov_validate;
+#[cfg(test)]
+mod tests_cov_status_1;
+#[cfg(test)]
+mod tests_cov_status_2;
+#[cfg(test)]
+mod tests_cov_status_3;
+#[cfg(test)]
+mod tests_cov_lock;
+#[cfg(test)]
+mod tests_cov_graph2;
+#[cfg(test)]
+mod tests_cov_misc2;
+#[cfg(test)]
+mod tests_cov_apply;
+#[cfg(test)]
+mod tests_cov_fleet;
+#[cfg(test)]
+mod tests_cov_validate2;
+#[cfg(test)]
+mod tests_cov_dispatch;
+#[cfg(test)]
+mod tests_cov_args;
+#[cfg(test)]
+mod tests_cov_args_extra;
+#[cfg(test)]
+mod tests_cov_transport;
+#[cfg(test)]
+mod tests_cov_graph3;
+#[cfg(test)]
+mod tests_cov_status_5;
+#[cfg(test)]
+mod tests_cov_validate3;
+#[cfg(test)]
+mod tests_cov_status_4;
+#[cfg(test)]
+mod tests_cov_notify;
+#[cfg(test)]
+mod tests_cov_remaining;
+#[cfg(test)]
+mod tests_cov_graph3_b;
+#[cfg(test)]
+mod tests_cov_status_4_b;
+#[cfg(test)]
+mod tests_cov_status_4_c;
+#[cfg(test)]
+mod tests_cov_fleet_b;
+#[cfg(test)]
+mod tests_cov_validate2_b;
+#[cfg(test)]
+mod tests_cov_validate2_c;
+#[cfg(test)]
+mod tests_cov_validate3_b;
+#[cfg(test)]
+mod tests_cov_validate3_c;
+#[cfg(test)]
+mod tests_cov_validate3_d;
+#[cfg(test)]
+mod tests_cov_apply_b;
+#[cfg(test)]
+mod tests_cov_misc2_b;
+#[cfg(test)]
+mod tests_cov_args_extra_b;
+#[cfg(test)]
+mod tests_cov_args_2;
+#[cfg(test)]
+mod tests_cov_args_3;
+#[cfg(test)]
+mod tests_cov_args_4;
+#[cfg(test)]
+mod tests_cov_dispatch_2;
+#[cfg(test)]
+mod tests_cov_dispatch_3;
+#[cfg(test)]
+mod tests_cov_dispatch_4;
+#[cfg(test)]
+mod tests_cov_status_6;
+#[cfg(test)]
+mod tests_cov_status_7;
+#[cfg(test)]
+mod tests_cov_transport_2;
+#[cfg(test)]
+mod tests_cov_transport_3;
+#[cfg(test)]
+mod tests_cov_notify_2;
+#[cfg(test)]
+mod tests_cov_notify_3;
+#[cfg(test)]
+mod tests_cov_notify_4;
+#[cfg(test)]
+mod tests_cov_remaining_2;
+#[cfg(test)]
+mod tests_cov_remaining_3;
+#[cfg(test)]
+mod tests_cov_remaining_4;
+#[cfg(test)]
+mod tests_cov_remaining_5;
+#[cfg(test)]
+mod tests_cov_remaining_6;
+#[cfg(test)]
+mod tests_cov_remaining_7;
+#[cfg(test)]
+mod tests_cov_remaining_8;
+#[cfg(test)]
+mod tests_cov_remaining_9;
 
 pub use commands::Commands;
 pub use dispatch::dispatch;
