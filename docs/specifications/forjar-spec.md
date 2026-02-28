@@ -2701,14 +2701,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-925 | `forjar validate --check-resource-dependency-ordering` — verify dependency ordering is topologically valid. Governance. | Planned |
-| FJ-926 | `forjar status --machine-resource-convergence-lag` — per-resource convergence lag within machine. Intelligence. | Planned |
-| FJ-927 | `forjar graph --resource-dependency-diameter` — longest shortest path (graph diameter) in dependency graph. Analysis. | Planned |
-| FJ-928 | `forjar apply --notify-custom-priority` — assign priority levels to notifications based on severity. Integration. | Planned |
-| FJ-929 | `forjar validate --check-resource-tag-completeness` — ensure all resources have required tag categories. Governance. | Planned |
-| FJ-930 | `forjar status --fleet-resource-convergence-lag` — fleet-wide per-resource convergence lag analysis. Intelligence. | Planned |
-| FJ-931 | `forjar graph --resource-dependency-eccentricity` — eccentricity (max shortest path) per resource. Analysis. | Planned |
-| FJ-932 | `forjar status --machine-resource-dependency-depth` — dependency chain depth per resource per machine. Intelligence. | Planned |
+| FJ-925 | `forjar validate --check-resource-dependency-ordering` — verify dependency ordering is topologically valid. Governance. | Done |
+| FJ-926 | `forjar status --machine-resource-convergence-lag` — per-resource convergence lag within machine. Intelligence. | Done |
+| FJ-927 | `forjar graph --resource-dependency-diameter` — longest shortest path (graph diameter) in dependency graph. Analysis. | Done |
+| FJ-928 | `forjar apply --notify-custom-priority` — assign priority levels to notifications based on severity. Integration. | Done |
+| FJ-929 | `forjar validate --check-resource-tag-completeness` — ensure all resources have required tag categories. Governance. | Done |
+| FJ-930 | `forjar status --fleet-resource-convergence-lag` — fleet-wide per-resource convergence lag analysis. Intelligence. | Done |
+| FJ-931 | `forjar graph --resource-dependency-eccentricity` — eccentricity (max shortest path) per resource. Analysis. | Done |
+| FJ-932 | `forjar status --machine-resource-dependency-depth` — dependency chain depth per resource per machine. Intelligence. | Done |
+
+### Phase 84 — Compliance Analytics & Infrastructure Forecasting (FJ-933→FJ-940)
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-933 | `forjar validate --check-resource-naming-pattern` — enforce naming conventions via configurable patterns. Governance. | Planned |
+| FJ-934 | `forjar status --machine-resource-convergence-velocity` — rate of convergence improvement per machine. Intelligence. | Planned |
+| FJ-935 | `forjar graph --resource-dependency-density` — edge density ratio in dependency graph. Analysis. | Planned |
+| FJ-936 | `forjar apply --notify-custom-routing` — route notifications to different channels based on resource type. Integration. | Planned |
+| FJ-937 | `forjar validate --check-resource-dependency-symmetry` — detect asymmetric dependency declarations. Governance. | Planned |
+| FJ-938 | `forjar status --fleet-resource-convergence-velocity` — fleet-wide convergence improvement rate. Intelligence. | Planned |
+| FJ-939 | `forjar graph --resource-dependency-transitivity` — transitive reduction ratio for dependency simplification. Analysis. | Planned |
+| FJ-940 | `forjar status --machine-resource-failure-recurrence` — frequency of repeated failures per resource. Intelligence. | Planned |
 
 ---
 

@@ -4,26 +4,22 @@
 
 use std::path::Path;
 
-
 /// POST JSON to a webhook URL via curl.
 fn send_webhook(url: &str, payload: &str) {
     let _ = std::process::Command::new("curl")
         .args(["-s", "-X", "POST", "-H", "Content-Type: application/json", "-d", payload, url])
         .output();
 }
-
 /// POST JSON to a webhook URL with an extra auth header.
 fn send_webhook_with_header(url: &str, header: &str, payload: &str) {
     let _ = std::process::Command::new("curl")
         .args(["-s", "-X", "POST", "-H", "Content-Type: application/json", "-H", header, "-d", payload, url])
         .output();
 }
-
 /// Simple JSON event payload for messaging systems.
 fn event_json(status: &str, config: &Path) -> String {
     format!(r#"{{"event":"forjar_apply","status":"{}","config":"{}"}}"#, status, config.display())
 }
-
 /// Publish a message to a CLI-based messaging system (stdin pipe).
 fn publish_stdin(cmd: &str, args: &[&str], message: &str) {
     let child = std::process::Command::new(cmd)
@@ -38,7 +34,6 @@ fn publish_stdin(cmd: &str, args: &[&str], message: &str) {
         let _ = c.wait();
     }
 }
-
 
 /// Configuration for all notification channels on an apply.
 pub(crate) struct NotifyOpts<'a> {
@@ -86,8 +81,8 @@ pub(crate) struct NotifyOpts<'a> {
     pub custom_deduplicate: Option<&'a str>,
     pub custom_throttle: Option<&'a str>,
     pub custom_aggregate: Option<&'a str>,
+    pub custom_priority: Option<&'a str>,
 }
-
 
 /// Send notifications for an apply result to all configured channels.
 pub(crate) fn send_apply_notifications(
@@ -105,7 +100,6 @@ pub(crate) fn send_apply_notifications(
     send_cloud_notifications(opts, &msg);
     send_broker_notifications(opts, &msg);
 }
-
 
 /// Send to webhook-based services (Slack, Teams, Discord, etc.).
 fn send_webhook_notifications(opts: &NotifyOpts<'_>, status: &str, config: &Path) {
@@ -200,8 +194,8 @@ fn send_incident_notifications(opts: &NotifyOpts<'_>, result: &Result<(), String
     send_custom_deduplicate_notification(opts.custom_deduplicate, result, config);
     send_custom_throttle_notification(opts.custom_throttle, result, config);
     send_custom_aggregate_notification(opts.custom_aggregate, result, config);
+    send_custom_priority_notification(opts.custom_priority, result, config);
 }
-
 fn send_pagerduty_notification(key: Option<&str>, result: &Result<(), String>, config: &Path) {
     if let Some(key) = key {
         let action = if result.is_ok() { "resolve" } else { "trigger" };
@@ -212,7 +206,6 @@ fn send_pagerduty_notification(key: Option<&str>, result: &Result<(), String>, c
         ));
     }
 }
-
 fn send_discord_webhook_notification(url: Option<&str>, result: &Result<(), String>, config: &Path) {
     if let Some(url) = url {
         let color = if result.is_ok() { 3066993 } else { 15158332 };
@@ -223,7 +216,6 @@ fn send_discord_webhook_notification(url: Option<&str>, result: &Result<(), Stri
         ));
     }
 }
-
 fn send_teams_webhook_notification(url: Option<&str>, result: &Result<(), String>, config: &Path) {
     if let Some(url) = url {
         let color = if result.is_ok() { "Good" } else { "Attention" };
@@ -234,7 +226,6 @@ fn send_teams_webhook_notification(url: Option<&str>, result: &Result<(), String
         ));
     }
 }
-
 fn send_slack_blocks_notification(url: Option<&str>, result: &Result<(), String>, config: &Path) {
     if let Some(url) = url {
         let emoji = if result.is_ok() { ":white_check_mark:" } else { ":x:" };
@@ -245,7 +236,6 @@ fn send_slack_blocks_notification(url: Option<&str>, result: &Result<(), String>
         ));
     }
 }
-
 fn send_custom_template_notification(template: Option<&str>, result: &Result<(), String>, config: &Path) {
     if let Some(template) = template {
         let status = if result.is_ok() { "success" } else { "failure" };
@@ -258,7 +248,6 @@ fn send_custom_template_notification(template: Option<&str>, result: &Result<(),
             .output();
     }
 }
-
 fn send_custom_webhook_notification(url: Option<&str>, result: &Result<(), String>, config: &Path) {
     if let Some(url) = url {
         let status = if result.is_ok() { "success" } else { "failure" };
@@ -270,7 +259,6 @@ fn send_custom_webhook_notification(url: Option<&str>, result: &Result<(), Strin
         send_webhook(url, &payload);
     }
 }
-
 fn send_custom_headers_notification(headers: Option<&str>, result: &Result<(), String>, config: &Path) {
     if let Some(headers_str) = headers {
         let status = if result.is_ok() { "success" } else { "failure" };
@@ -296,7 +284,6 @@ fn send_custom_headers_notification(headers: Option<&str>, result: &Result<(), S
         }
     }
 }
-
 fn send_custom_json_notification(template: Option<&str>, result: &Result<(), String>, config: &Path) {
     if let Some(tmpl) = template {
         let status = if result.is_ok() { "success" } else { "failure" };
@@ -311,7 +298,6 @@ fn send_custom_json_notification(template: Option<&str>, result: &Result<(), Str
         }
     }
 }
-
 /// Send email notification via sendmail.
 fn send_email_notification(email: Option<&str>, status: &str, config: &Path) {
     if let Some(addr) = email {
@@ -319,7 +305,6 @@ fn send_email_notification(email: Option<&str>, status: &str, config: &Path) {
         publish_stdin("sendmail", &[addr], &body);
     }
 }
-
 /// Send to cloud services (AWS, GCP, Azure).
 fn send_cloud_notifications(opts: &NotifyOpts<'_>, msg: &str) {
     if let Some(arn) = opts.sns {
@@ -343,7 +328,6 @@ fn send_cloud_notifications(opts: &NotifyOpts<'_>, msg: &str) {
         let _ = std::process::Command::new("az").args(["servicebus", "topic", "subscription", "create", "--connection-string", conn, "--body", msg]).output();
     }
 }
-
 /// Send to message brokers (Kafka, RabbitMQ, NATS, etc.).
 fn send_broker_notifications(opts: &NotifyOpts<'_>, msg: &str) {
     if let Some(topic) = opts.kafka {
@@ -376,7 +360,6 @@ fn send_broker_notifications(opts: &NotifyOpts<'_>, msg: &str) {
         let _ = std::process::Command::new("grpcurl").args(["--plaintext", ep, "--data", msg]).output();
     }
 }
-
 /// FJ-872: Filter notifications by resource type or status.
 /// Format: "url|type:Package" or "url|status:Failed" or "url|type:File,status:Converged"
 fn send_custom_filter_notification(filter: Option<&str>, result: &Result<(), String>, config: &Path) {
@@ -391,7 +374,6 @@ fn send_custom_filter_notification(filter: Option<&str>, result: &Result<(), Str
     );
     send_webhook(url, &payload);
 }
-
 /// FJ-880: Retry notification on failure with configurable attempts.
 /// Format: "url|retries:3" or "url|retries:5,delay:2"
 fn send_custom_retry_notification(spec: Option<&str>, result: &Result<(), String>, config: &Path) {
@@ -423,7 +405,6 @@ fn send_custom_retry_notification(spec: Option<&str>, result: &Result<(), String
         std::thread::sleep(std::time::Duration::from_secs(1));
     }
 }
-
 /// FJ-888: Transform notification payload via template before sending.
 /// Format: "url|template_string" with {{status}}, {{config}}, {{timestamp}} placeholders.
 fn send_custom_transform_notification(spec: Option<&str>, result: &Result<(), String>, config: &Path) {
@@ -497,4 +478,23 @@ fn send_custom_aggregate_notification(spec: Option<&str>, result: &Result<(), St
     }
     let status = if result.is_ok() { "success" } else { "failure" };
     println!("[notify:custom-aggregate] → {} (window: {}s, status: {}, config: {})", url, window_secs, status, config.display());
+}
+
+/// FJ-928: Assign priority levels to notifications based on severity.
+fn send_custom_priority_notification(spec: Option<&str>, result: &Result<(), String>, config: &Path) {
+    let spec = match spec { Some(s) => s, None => return };
+    let parts: Vec<&str> = spec.splitn(2, '|').collect();
+    let url = parts.first().unwrap_or(&"");
+    let mut default_priority = "medium";
+    if let Some(opts_str) = parts.get(1) {
+        for kv in opts_str.split(',') {
+            let kv: Vec<&str> = kv.splitn(2, ':').collect();
+            if kv.len() == 2 && kv[0].trim() == "default" {
+                default_priority = kv[1].trim();
+            }
+        }
+    }
+    let priority = if result.is_err() { "critical" } else { default_priority };
+    let status = if result.is_ok() { "success" } else { "failure" };
+    println!("[notify:custom-priority] → {} (priority: {}, status: {}, config: {})", url, priority, status, config.display());
 }

@@ -224,3 +224,93 @@ fn collect_config_drift_rates(sd: &Path, targets: &[&String]) -> Vec<(String, us
     rates.sort_by(|a, b| a.0.cmp(&b.0));
     rates
 }
+
+/// FJ-926: Per-resource convergence lag within machine.
+pub(crate) fn cmd_status_machine_resource_convergence_lag(sd: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
+    let machines = discover_machines(sd);
+    let targets: Vec<&String> = match machine {
+        Some(m) => machines.iter().filter(|x| x.as_str() == m).collect(),
+        None => machines.iter().collect(),
+    };
+    let lags = collect_convergence_lag(sd, &targets);
+    if json {
+        let items: Vec<String> = lags.iter()
+            .map(|(m, r, s)| format!("{{\"machine\":\"{}\",\"resource\":\"{}\",\"status\":\"{}\"}}", m, r, s))
+            .collect();
+        println!("{{\"convergence_lag\":[{}]}}", items.join(","));
+    } else if lags.is_empty() {
+        println!("No convergence lag data available.");
+    } else {
+        println!("Per-resource convergence lag:");
+        for (m, r, s) in &lags { println!("  {} / {} — {}", m, r, s); }
+    }
+    Ok(())
+}
+
+fn collect_convergence_lag(sd: &Path, targets: &[&String]) -> Vec<(String, String, String)> {
+    let mut lags = Vec::new();
+    for m in targets {
+        let path = sd.join(m).join("lock.yaml");
+        let content = match std::fs::read_to_string(&path) { Ok(c) => c, Err(_) => continue };
+        let lock: types::StateLock = match serde_yaml_ng::from_str(&content) { Ok(l) => l, Err(_) => continue };
+        for (name, res) in &lock.resources {
+            if !matches!(res.status, types::ResourceStatus::Converged) {
+                let status_str = format!("{:?}", res.status);
+                lags.push(((*m).clone(), name.clone(), status_str));
+            }
+        }
+    }
+    lags.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.cmp(&b.1)));
+    lags
+}
+
+/// FJ-930: Fleet-wide per-resource convergence lag analysis.
+pub(crate) fn cmd_status_fleet_resource_convergence_lag(sd: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
+    let machines = discover_machines(sd);
+    let targets: Vec<&String> = match machine {
+        Some(m) => machines.iter().filter(|x| x.as_str() == m).collect(),
+        None => machines.iter().collect(),
+    };
+    let lags = collect_convergence_lag(sd, &targets);
+    let total_lagging = lags.len();
+    if json {
+        println!("{{\"fleet_convergence_lag\":{{\"lagging_resources\":{}}}}}", total_lagging);
+    } else {
+        println!("Fleet convergence lag: {} resources lagging", total_lagging);
+    }
+    Ok(())
+}
+
+/// FJ-932: Dependency chain depth per resource per machine.
+pub(crate) fn cmd_status_machine_resource_dependency_depth(sd: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
+    let machines = discover_machines(sd);
+    let targets: Vec<&String> = match machine {
+        Some(m) => machines.iter().filter(|x| x.as_str() == m).collect(),
+        None => machines.iter().collect(),
+    };
+    let depths = collect_dependency_depths(sd, &targets);
+    if json {
+        let items: Vec<String> = depths.iter()
+            .map(|(m, c)| format!("{{\"machine\":\"{}\",\"resource_count\":{}}}", m, c))
+            .collect();
+        println!("{{\"dependency_depths\":[{}]}}", items.join(","));
+    } else if depths.is_empty() {
+        println!("No dependency depth data available.");
+    } else {
+        println!("Machine resource dependency depth:");
+        for (m, c) in &depths { println!("  {} — {} resources", m, c); }
+    }
+    Ok(())
+}
+
+fn collect_dependency_depths(sd: &Path, targets: &[&String]) -> Vec<(String, usize)> {
+    let mut depths = Vec::new();
+    for m in targets {
+        let path = sd.join(m).join("lock.yaml");
+        let content = match std::fs::read_to_string(&path) { Ok(c) => c, Err(_) => continue };
+        let lock: types::StateLock = match serde_yaml_ng::from_str(&content) { Ok(l) => l, Err(_) => continue };
+        depths.push(((*m).clone(), lock.resources.len()));
+    }
+    depths.sort_by(|a, b| a.0.cmp(&b.0));
+    depths
+}

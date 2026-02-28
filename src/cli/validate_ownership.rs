@@ -460,3 +460,4 @@ fn score_config_maturity(config: &types::ForjarConfig) -> Vec<(String, u8)> {
     scores.sort_by(|a, b| a.0.cmp(&b.0));
     scores
 }
+

@@ -346,5 +346,11 @@ pub struct GraphArgs {
     /// FJ-923: Modularity score for resource dependency communities
     #[arg(long)]
     pub resource_dependency_modularity_score: bool,
+    /// FJ-927: Longest shortest path (graph diameter) in dependency graph
+    #[arg(long)]
+    pub resource_dependency_diameter: bool,
+    /// FJ-931: Eccentricity (max shortest path) per resource
+    #[arg(long)]
+    pub resource_dependency_eccentricity: bool,
 }
 

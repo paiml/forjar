@@ -460,4 +460,13 @@ pub struct StatusArgs {
     /// FJ-924: Rate of configuration drift per machine over time
     #[arg(long)]
     pub machine_resource_config_drift_rate: bool,
+    /// FJ-926: Per-resource convergence lag within machine
+    #[arg(long)]
+    pub machine_resource_convergence_lag: bool,
+    /// FJ-930: Fleet-wide per-resource convergence lag analysis
+    #[arg(long)]
+    pub fleet_resource_convergence_lag: bool,
+    /// FJ-932: Dependency chain depth per resource per machine
+    #[arg(long)]
+    pub machine_resource_dependency_depth: bool,
 }
