@@ -505,4 +505,13 @@ pub struct StatusArgs {
     /// FJ-964: Rate of recovery from failed/drifted states
     #[arg(long)]
     pub machine_resource_recovery_rate: bool,
+    /// FJ-966: Rate of drift accumulation per machine over time
+    #[arg(long)]
+    pub machine_resource_drift_velocity: bool,
+    /// FJ-970: Fleet-wide recovery rate aggregation
+    #[arg(long)]
+    pub fleet_resource_recovery_rate: bool,
+    /// FJ-972: Ratio of converged resources to total apply time
+    #[arg(long)]
+    pub machine_resource_convergence_efficiency: bool,
 }

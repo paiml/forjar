@@ -280,3 +280,97 @@ fn collect_recovery_rates(sd: &Path, targets: &[&String]) -> Vec<(String, f64)> 
     rates.sort_by(|a, b| a.0.cmp(&b.0));
     rates
 }
+
+/// FJ-966: Rate of drift accumulation per machine over time.
+pub(crate) fn cmd_status_machine_resource_drift_velocity(sd: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
+    let machines = discover_machines(sd);
+    let targets: Vec<&String> = match machine {
+        Some(m) => machines.iter().filter(|n| n.as_str() == m).collect(),
+        None => machines.iter().collect(),
+    };
+    let velocities = collect_drift_velocities(sd, &targets);
+    if json {
+        let items: Vec<String> = velocities.iter()
+            .map(|(m, d, t)| format!("{{\"machine\":\"{}\",\"drifted\":{},\"total\":{},\"velocity\":{:.4}}}", m, d, t, if *t > 0 { *d as f64 / *t as f64 } else { 0.0 }))
+            .collect();
+        println!("{{\"drift_velocities\":[{}]}}", items.join(","));
+    } else if velocities.is_empty() {
+        println!("No drift velocity data available.");
+    } else {
+        println!("Drift velocity:");
+        for (m, d, t) in &velocities {
+            let v = if *t > 0 { *d as f64 / *t as f64 } else { 0.0 };
+            println!("  {} — {}/{} resources drifted ({:.1}%)", m, d, t, v * 100.0);
+        }
+    }
+    Ok(())
+}
+
+fn collect_drift_velocities(sd: &Path, targets: &[&String]) -> Vec<(String, usize, usize)> {
+    let mut velocities = Vec::new();
+    for m in targets {
+        let path = sd.join(m).join("state.lock.yaml");
+        let content = match std::fs::read_to_string(&path) { Ok(c) => c, Err(_) => continue };
+        let lock: types::StateLock = match serde_yaml_ng::from_str(&content) { Ok(l) => l, Err(_) => continue };
+        let total = lock.resources.len();
+        if total == 0 { continue; }
+        let drifted = lock.resources.values().filter(|r| r.status == types::ResourceStatus::Drifted).count();
+        velocities.push(((*m).clone(), drifted, total));
+    }
+    velocities.sort_by(|a, b| a.0.cmp(&b.0));
+    velocities
+}
+
+/// FJ-970: Fleet-wide recovery rate aggregation.
+pub(crate) fn cmd_status_fleet_resource_recovery_rate(sd: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
+    let machines = discover_machines(sd);
+    let targets: Vec<&String> = match machine {
+        Some(m) => machines.iter().filter(|n| n.as_str() == m).collect(),
+        None => machines.iter().collect(),
+    };
+    let rates = collect_recovery_rates(sd, &targets);
+    let avg = if !rates.is_empty() { rates.iter().map(|(_, r)| r).sum::<f64>() / rates.len() as f64 } else { 0.0 };
+    if json {
+        println!("{{\"fleet_recovery_rate_avg\":{:.4},\"machines\":{}}}", avg, rates.len());
+    } else {
+        println!("Fleet recovery rate: avg {:.1}% ({} machines)", avg * 100.0, rates.len());
+    }
+    Ok(())
+}
+
+/// FJ-972: Ratio of converged resources to total apply time.
+pub(crate) fn cmd_status_machine_resource_convergence_efficiency(sd: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
+    let machines = discover_machines(sd);
+    let targets: Vec<&String> = match machine {
+        Some(m) => machines.iter().filter(|n| n.as_str() == m).collect(),
+        None => machines.iter().collect(),
+    };
+    let efficiencies = collect_convergence_efficiencies(sd, &targets);
+    if json {
+        let items: Vec<String> = efficiencies.iter()
+            .map(|(m, eff)| format!("{{\"machine\":\"{}\",\"efficiency\":{:.4}}}", m, eff))
+            .collect();
+        println!("{{\"convergence_efficiencies\":[{}]}}", items.join(","));
+    } else if efficiencies.is_empty() {
+        println!("No convergence efficiency data available.");
+    } else {
+        println!("Convergence efficiency:");
+        for (m, eff) in &efficiencies { println!("  {} — {:.4} converged/sec", m, eff); }
+    }
+    Ok(())
+}
+
+fn collect_convergence_efficiencies(sd: &Path, targets: &[&String]) -> Vec<(String, f64)> {
+    let mut efficiencies = Vec::new();
+    for m in targets {
+        let path = sd.join(m).join("state.lock.yaml");
+        let content = match std::fs::read_to_string(&path) { Ok(c) => c, Err(_) => continue };
+        let lock: types::StateLock = match serde_yaml_ng::from_str(&content) { Ok(l) => l, Err(_) => continue };
+        let converged = lock.resources.values().filter(|r| r.status == types::ResourceStatus::Converged).count();
+        let total_duration: f64 = lock.resources.values().filter_map(|r| r.duration_seconds).sum();
+        let eff = if total_duration > 0.0 { converged as f64 / total_duration } else { 0.0 };
+        if converged > 0 { efficiencies.push(((*m).clone(), eff)); }
+    }
+    efficiencies.sort_by(|a, b| a.0.cmp(&b.0));
+    efficiencies
+}

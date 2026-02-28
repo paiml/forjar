@@ -273,3 +273,79 @@ fn tarjan_scc(config: &types::ForjarConfig, names: &[String]) -> Vec<Vec<String>
     }
     result
 }
+
+/// FJ-967: Depth of each resource in topological ordering.
+pub(crate) fn cmd_graph_resource_dependency_topological_depth(file: &Path, json: bool) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let config: types::ForjarConfig = serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let mut depths: Vec<(String, usize)> = config.resources.keys()
+        .map(|name| {
+            let d = topo_depth(&config, name, &mut std::collections::HashMap::new());
+            (name.clone(), d)
+        })
+        .collect();
+    depths.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+    let max = depths.first().map(|(_, d)| *d).unwrap_or(0);
+    if json {
+        let items: Vec<String> = depths.iter()
+            .map(|(n, d)| format!("{{\"resource\":\"{}\",\"depth\":{}}}", n, d))
+            .collect();
+        println!("{{\"max_depth\":{},\"resources\":[{}]}}", max, items.join(","));
+    } else if depths.is_empty() {
+        println!("No resources found.");
+    } else {
+        println!("Topological depth (max: {}):", max);
+        for (n, d) in &depths { println!("  {} — depth {}", n, d); }
+    }
+    Ok(())
+}
+
+fn topo_depth(config: &types::ForjarConfig, name: &str, cache: &mut std::collections::HashMap<String, usize>) -> usize {
+    if let Some(&d) = cache.get(name) { return d; }
+    let res = match config.resources.get(name) { Some(r) => r, None => return 0 };
+    if res.depends_on.is_empty() {
+        cache.insert(name.to_string(), 0);
+        return 0;
+    }
+    let max_dep = res.depends_on.iter()
+        .map(|dep| topo_depth(config, dep, cache))
+        .max()
+        .unwrap_or(0);
+    let depth = max_dep + 1;
+    cache.insert(name.to_string(), depth);
+    depth
+}
+
+/// FJ-971: Identify dependency edges most likely to cause cascading failures.
+pub(crate) fn cmd_graph_resource_dependency_weak_links(file: &Path, json: bool) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let config: types::ForjarConfig = serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let mut in_counts: std::collections::HashMap<&str, usize> = std::collections::HashMap::new();
+    for res in config.resources.values() {
+        for dep in &res.depends_on {
+            *in_counts.entry(dep.as_str()).or_insert(0) += 1;
+        }
+    }
+    let mut weak_links: Vec<(String, String, usize)> = Vec::new();
+    for (name, res) in &config.resources {
+        for dep in &res.depends_on {
+            let dependents = in_counts.get(dep.as_str()).copied().unwrap_or(0);
+            if dependents > 1 {
+                weak_links.push((name.clone(), dep.clone(), dependents));
+            }
+        }
+    }
+    weak_links.sort_by(|a, b| b.2.cmp(&a.2).then(a.0.cmp(&b.0)));
+    if json {
+        let items: Vec<String> = weak_links.iter()
+            .map(|(from, to, d)| format!("{{\"from\":\"{}\",\"to\":\"{}\",\"dependents\":{}}}", from, to, d))
+            .collect();
+        println!("{{\"weak_links\":[{}]}}", items.join(","));
+    } else if weak_links.is_empty() {
+        println!("No weak links found (no shared dependencies).");
+    } else {
+        println!("Weak links (shared dependencies, cascading risk):");
+        for (from, to, d) in &weak_links { println!("  {} → {} ({} dependents)", from, to, d); }
+    }
+    Ok(())
+}

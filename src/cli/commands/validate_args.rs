@@ -362,5 +362,11 @@ pub struct ValidateArgs {
     /// FJ-961: Ensure all referenced dependencies exist in the resource set
     #[arg(long)]
     pub check_resource_dependency_refs: bool,
+    /// FJ-965: Ensure all trigger references point to existing resources
+    #[arg(long)]
+    pub check_resource_trigger_refs: bool,
+    /// FJ-969: Validate parameter types match expected usage patterns
+    #[arg(long)]
+    pub check_resource_param_type_safety: bool,
 }
 
