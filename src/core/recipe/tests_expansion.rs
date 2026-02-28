@@ -308,6 +308,72 @@ resources:
     assert_eq!(cfg.content.as_deref(), Some("port=8080"));
 }
 
+/// FJ-1006: Resolve {{inputs.*}} in Vec<String> fields (ports, environment, volumes).
+/// Regression test for renacer-observability template bug.
+#[test]
+fn test_fj1006_resolve_inputs_in_docker_vec_fields() {
+    let yaml = r#"
+recipe:
+  name: obs-test
+  inputs:
+    jaeger_port:
+      type: int
+      default: 16686
+    grafana_port:
+      type: int
+      default: 3000
+    app_env:
+      type: string
+      default: "production"
+resources:
+  jaeger:
+    type: docker
+    name: test-jaeger
+    image: jaegertracing/all-in-one:1.54
+    state: running
+    ports:
+      - "{{inputs.jaeger_port}}:16686"
+      - "4317:4317"
+    environment:
+      - "APP_ENV={{inputs.app_env}}"
+    volumes:
+      - "/opt/data:/data"
+  grafana:
+    type: docker
+    name: test-grafana
+    image: grafana/grafana:10.3.1
+    state: running
+    ports:
+      - "{{inputs.grafana_port}}:3000"
+  firewall:
+    type: network
+    port: "{{inputs.jaeger_port}}"
+    protocol: tcp
+    action: allow
+"#;
+    let recipe = parse_recipe(yaml).unwrap();
+    let machine = MachineTarget::Single("m1".to_string());
+    let expanded = expand_recipe("obs", &recipe, &machine, &HashMap::new(), &[]).unwrap();
+
+    // Verify ports resolved
+    let jaeger = &expanded["obs/jaeger"];
+    assert_eq!(jaeger.ports, vec!["16686:16686", "4317:4317"]);
+
+    // Verify environment resolved
+    assert_eq!(jaeger.environment, vec!["APP_ENV=production"]);
+
+    // Verify volumes passthrough (no templates)
+    assert_eq!(jaeger.volumes, vec!["/opt/data:/data"]);
+
+    // Verify grafana ports resolved
+    let grafana = &expanded["obs/grafana"];
+    assert_eq!(grafana.ports, vec!["3000:3000"]);
+
+    // Verify network port (Option<String>) still works
+    let firewall = &expanded["obs/firewall"];
+    assert_eq!(firewall.port.as_deref(), Some("16686"));
+}
+
 // -- Proptest for expansion determinism --
 
 use proptest::prelude::*;
