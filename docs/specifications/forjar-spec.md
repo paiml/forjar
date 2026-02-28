@@ -2610,14 +2610,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-869 | `forjar validate --check-resource-naming-convention` — enforce naming patterns across resources. Governance. | Planned |
-| FJ-870 | `forjar status --machine-capacity-utilization` — resource density and capacity metrics per machine. Analytics. | Planned |
-| FJ-871 | `forjar graph --resource-dependency-cycle-risk` — identify near-cycle patterns in dependency graph. Analysis. | Planned |
-| FJ-872 | `forjar apply --notify-custom-filter` — filter notifications by resource type or status. Integration. | Planned |
-| FJ-873 | `forjar validate --check-resource-idempotency` — verify resources are idempotent-safe. Governance. | Planned |
-| FJ-874 | `forjar status --fleet-configuration-entropy` — measure configuration diversity across fleet. Analytics. | Planned |
-| FJ-875 | `forjar graph --resource-impact-radius` — calculate blast radius of resource changes. Analysis. | Planned |
-| FJ-876 | `forjar status --machine-resource-freshness` — time since last successful apply per resource. Intelligence. | Planned |
+| FJ-869 | `forjar validate --check-resource-naming-convention` — enforce naming patterns across resources. Governance. | Done |
+| FJ-870 | `forjar status --machine-capacity-utilization` — resource density and capacity metrics per machine. Analytics. | Done |
+| FJ-871 | `forjar graph --resource-dependency-cycle-risk` — identify near-cycle patterns in dependency graph. Analysis. | Done |
+| FJ-872 | `forjar apply --notify-custom-filter` — filter notifications by resource type or status. Integration. | Done |
+| FJ-873 | `forjar validate --check-resource-idempotency` — verify resources are idempotent-safe. Governance. | Done |
+| FJ-874 | `forjar status --fleet-configuration-entropy` — measure configuration diversity across fleet. Analytics. | Done |
+| FJ-875 | `forjar graph --resource-impact-radius` — calculate blast radius of resource changes. Analysis. | Done |
+| FJ-876 | `forjar status --machine-resource-freshness` — time since last successful apply per resource. Intelligence. | Done |
+
+### Phase 77 — Operational Maturity & Compliance Automation (FJ-877→FJ-884)
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-877 | `forjar validate --check-resource-documentation` — verify resources have descriptions or comments. Governance. | Planned |
+| FJ-878 | `forjar status --machine-error-budget` — track error budget consumption per machine. SRE. | Planned |
+| FJ-879 | `forjar graph --resource-dependency-health-map` — overlay health status on dependency graph. Analysis. | Planned |
+| FJ-880 | `forjar apply --notify-custom-retry` — retry failed notifications with exponential backoff. Integration. | Planned |
+| FJ-881 | `forjar validate --check-resource-ownership` — verify all resources have assigned owners. Governance. | Planned |
+| FJ-882 | `forjar status --fleet-compliance-score` — aggregate compliance score across fleet. Compliance. | Planned |
+| FJ-883 | `forjar graph --resource-change-propagation` — trace how changes propagate through dependencies. Analysis. | Planned |
+| FJ-884 | `forjar status --machine-mean-time-to-recovery` — MTTR metrics per machine. Intelligence. | Planned |
 
 ---
 

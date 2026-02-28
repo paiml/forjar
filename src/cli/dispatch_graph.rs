@@ -105,7 +105,6 @@ fn try_graph_paths(
     resource_coupling_score: bool, resource_change_frequency: bool,
     resource_impact_score: bool, resource_stability_score: bool,
     resource_dependency_fanout: bool, resource_dependency_weight: bool,
-    resource_dependency_bottleneck: bool, resource_type_clustering: bool,
 ) -> Option<Result<(), String>> {
     if let Some(ref target) = resource_dependency_chain { return Some(cmd_graph_resource_dependency_chain(file, target, json)); }
     if bottleneck_resources { return Some(cmd_graph_bottleneck_resources(file, json)); }
@@ -117,8 +116,6 @@ fn try_graph_paths(
     if resource_stability_score { return Some(cmd_graph_resource_stability_score(file, json)); }
     if resource_dependency_fanout { return Some(cmd_graph_resource_dependency_fanout(file, json)); }
     if resource_dependency_weight { return Some(cmd_graph_resource_dependency_weight(file, json)); }
-    if resource_dependency_bottleneck { return Some(cmd_graph_resource_dependency_bottleneck(file, json)); }
-    if resource_type_clustering { return Some(cmd_graph_resource_type_clustering(file, json)); }
     None
 }
 
@@ -172,6 +169,7 @@ pub(crate) fn dispatch_graph_cmd(cmd: Commands) -> Result<(), String> {
         resource_impact_score, resource_stability_score,
         resource_dependency_fanout, resource_dependency_weight,
         resource_dependency_bottleneck, resource_type_clustering,
+        resource_dependency_cycle_risk, resource_impact_radius,
     }) = cmd
     else {
         unreachable!()
@@ -190,7 +188,11 @@ pub(crate) fn dispatch_graph_cmd(cmd: Commands) -> Result<(), String> {
     if density { return cmd_graph_density(&file, json_output); }
     if topological_sort { return cmd_graph_topological_sort(&file, json_output); }
     if critical_path_resources { return cmd_graph_critical_path_resources(&file, json_output); }
-    if let Some(r) = try_graph_paths(&file, json_output, &resource_dependency_chain, bottleneck_resources, critical_dependency_path, resource_depth_histogram, resource_coupling_score, resource_change_frequency, resource_impact_score, resource_stability_score, resource_dependency_fanout, resource_dependency_weight, resource_dependency_bottleneck, resource_type_clustering) {
+    if resource_dependency_bottleneck { return cmd_graph_resource_dependency_bottleneck(&file, json_output); }
+    if resource_type_clustering { return cmd_graph_resource_type_clustering(&file, json_output); }
+    if resource_dependency_cycle_risk { return cmd_graph_resource_dependency_cycle_risk(&file, json_output); }
+    if resource_impact_radius { return cmd_graph_resource_impact_radius_analysis(&file, json_output); }
+    if let Some(r) = try_graph_paths(&file, json_output, &resource_dependency_chain, bottleneck_resources, critical_dependency_path, resource_depth_histogram, resource_coupling_score, resource_change_frequency, resource_impact_score, resource_stability_score, resource_dependency_fanout, resource_dependency_weight) {
         return r;
     }
     if let Some(r) = try_graph_analysis(&file, json_output, resource_weight, dependency_depth_per_resource, resource_fanin, isolated_subgraphs, dependency_matrix_csv, strongly_connected, bipartite_check, sink_resources) {

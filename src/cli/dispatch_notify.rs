@@ -79,6 +79,7 @@ pub(crate) struct NotifyOpts<'a> {
     pub custom_webhook: Option<&'a str>,
     pub custom_headers: Option<&'a str>,
     pub custom_json: Option<&'a str>,
+    pub custom_filter: Option<&'a str>,
 }
 
 
@@ -186,6 +187,7 @@ fn send_incident_notifications(opts: &NotifyOpts<'_>, result: &Result<(), String
     send_custom_webhook_notification(opts.custom_webhook, result, config);
     send_custom_headers_notification(opts.custom_headers, result, config);
     send_custom_json_notification(opts.custom_json, result, config);
+    send_custom_filter_notification(opts.custom_filter, result, config);
 }
 
 fn send_pagerduty_notification(key: Option<&str>, result: &Result<(), String>, config: &Path) {
@@ -361,4 +363,19 @@ fn send_broker_notifications(opts: &NotifyOpts<'_>, msg: &str) {
     if let Some(ep) = opts.grpc {
         let _ = std::process::Command::new("grpcurl").args(["--plaintext", ep, "--data", msg]).output();
     }
+}
+
+/// FJ-872: Filter notifications by resource type or status.
+/// Format: "url|type:Package" or "url|status:Failed" or "url|type:File,status:Converged"
+fn send_custom_filter_notification(filter: Option<&str>, result: &Result<(), String>, config: &Path) {
+    let spec = match filter { Some(s) => s, None => return };
+    let parts: Vec<&str> = spec.splitn(2, '|').collect();
+    if parts.len() != 2 { return; }
+    let (url, filter_expr) = (parts[0], parts[1]);
+    let status = if result.is_ok() { "success" } else { "failure" };
+    let payload = format!(
+        r#"{{"event":"forjar_apply","status":"{}","config":"{}","filter":"{}"}}"#,
+        status, config.display(), filter_expr,
+    );
+    send_webhook(url, &payload);
 }

@@ -241,3 +241,120 @@ pub(crate) fn cmd_status_machine_convergence_trend(
     }
     Ok(())
 }
+
+/// FJ-870: Resource density and capacity metrics per machine.
+pub(crate) fn cmd_status_machine_capacity_utilization(
+    state_dir: &Path, machine: Option<&str>, json: bool,
+) -> Result<(), String> {
+    let machines = discover_machines(state_dir);
+    let targets: Vec<&String> = match machine {
+        Some(m) => machines.iter().filter(|x| x.as_str() == m).collect(),
+        None => machines.iter().collect(),
+    };
+    let mut utilization: Vec<(String, usize)> = Vec::new();
+    for m in &targets {
+        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let content = match std::fs::read_to_string(&lock_path) {
+            Ok(c) => c, Err(_) => continue,
+        };
+        let lock: types::StateLock = match serde_yaml_ng::from_str(&content) {
+            Ok(l) => l, Err(_) => continue,
+        };
+        utilization.push(((*m).clone(), lock.resources.len()));
+    }
+    utilization.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+    if json {
+        let items: Vec<String> = utilization.iter()
+            .map(|(m, c)| format!("{{\"machine\":\"{}\",\"resource_count\":{}}}", m, c)).collect();
+        println!("{{\"machine_capacity_utilization\":[{}]}}", items.join(","));
+    } else if utilization.is_empty() {
+        println!("No capacity utilization data available.");
+    } else {
+        println!("Machine capacity utilization:");
+        for (m, c) in &utilization { println!("  {} — {} resources", m, c); }
+    }
+    Ok(())
+}
+
+/// FJ-874: Measure configuration diversity across fleet.
+pub(crate) fn cmd_status_fleet_configuration_entropy(
+    state_dir: &Path, machine: Option<&str>, json: bool,
+) -> Result<(), String> {
+    let machines = discover_machines(state_dir);
+    let targets: Vec<&String> = match machine {
+        Some(m) => machines.iter().filter(|x| x.as_str() == m).collect(),
+        None => machines.iter().collect(),
+    };
+    let entries = collect_type_entropy(state_dir, &targets);
+    let total: usize = entries.iter().map(|(_, c)| c).sum();
+    if json {
+        let items: Vec<String> = entries.iter()
+            .map(|(t, c)| format!("{{\"type\":\"{}\",\"count\":{}}}", t, c)).collect();
+        println!("{{\"fleet_configuration_entropy\":{{\"total\":{},\"types\":[{}]}}}}", total, items.join(","));
+    } else if entries.is_empty() {
+        println!("No configuration entropy data available.");
+    } else {
+        println!("Fleet configuration entropy ({} total resources):", total);
+        for (t, c) in &entries {
+            let pct = if total > 0 { (*c as f64 / total as f64) * 100.0 } else { 0.0 };
+            println!("  {} — {} ({:.1}%)", t, c, pct);
+        }
+    }
+    Ok(())
+}
+
+fn collect_type_entropy(state_dir: &Path, targets: &[&String]) -> Vec<(String, usize)> {
+    let mut type_counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    for m in targets {
+        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let content = match std::fs::read_to_string(&lock_path) {
+            Ok(c) => c, Err(_) => continue,
+        };
+        let lock: types::StateLock = match serde_yaml_ng::from_str(&content) {
+            Ok(l) => l, Err(_) => continue,
+        };
+        for rs in lock.resources.values() {
+            *type_counts.entry(format!("{:?}", rs.resource_type)).or_default() += 1;
+        }
+    }
+    let mut entries: Vec<(String, usize)> = type_counts.into_iter().collect();
+    entries.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+    entries
+}
+
+/// FJ-876: Time since last successful apply per resource.
+pub(crate) fn cmd_status_machine_resource_freshness(
+    state_dir: &Path, machine: Option<&str>, json: bool,
+) -> Result<(), String> {
+    let machines = discover_machines(state_dir);
+    let targets: Vec<&String> = match machine {
+        Some(m) => machines.iter().filter(|x| x.as_str() == m).collect(),
+        None => machines.iter().collect(),
+    };
+    let mut freshness: Vec<(String, String, String)> = Vec::new();
+    for m in &targets {
+        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let content = match std::fs::read_to_string(&lock_path) {
+            Ok(c) => c, Err(_) => continue,
+        };
+        let lock: types::StateLock = match serde_yaml_ng::from_str(&content) {
+            Ok(l) => l, Err(_) => continue,
+        };
+        for (name, rs) in &lock.resources {
+            let last_apply = rs.applied_at.as_deref().unwrap_or("never");
+            freshness.push(((*m).clone(), name.clone(), last_apply.to_string()));
+        }
+    }
+    freshness.sort_by(|a, b| a.2.cmp(&b.2).then(a.0.cmp(&b.0)).then(a.1.cmp(&b.1)));
+    if json {
+        let items: Vec<String> = freshness.iter()
+            .map(|(m, r, a)| format!("{{\"machine\":\"{}\",\"resource\":\"{}\",\"last_apply\":\"{}\"}}", m, r, a)).collect();
+        println!("{{\"machine_resource_freshness\":[{}]}}", items.join(","));
+    } else if freshness.is_empty() {
+        println!("No resource freshness data available.");
+    } else {
+        println!("Machine resource freshness (oldest first):");
+        for (m, r, a) in &freshness { println!("  {} / {} — last applied {}", m, r, a); }
+    }
+    Ok(())
+}
