@@ -268,6 +268,10 @@ pub struct Resource {
     pub cache_dir: Option<String>,
 
     // -- GPU fields (FJ-241: GPU hardware resource) --
+    /// GPU backend: "nvidia" (default), "rocm", or "cpu"
+    #[serde(default)]
+    pub gpu_backend: Option<String>,
+
     /// NVIDIA driver version (e.g., "535")
     #[serde(default)]
     pub driver_version: Option<String>,
@@ -275,6 +279,10 @@ pub struct Resource {
     /// CUDA toolkit version (e.g., "12.3")
     #[serde(default)]
     pub cuda_version: Option<String>,
+
+    /// AMD ROCm version (e.g., "6.0") — used when gpu_backend = "rocm"
+    #[serde(default)]
+    pub rocm_version: Option<String>,
 
     /// GPU device indices (default: all)
     #[serde(default)]
