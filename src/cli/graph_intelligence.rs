@@ -164,3 +164,117 @@ fn count_reachable(start: usize, adj: &[HashSet<usize>], n: usize) -> usize {
     }
     count
 }
+
+/// FJ-919: Clustering coefficient per resource in dependency graph.
+pub(crate) fn cmd_graph_resource_dependency_cluster_coefficient(file: &Path, json: bool) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let config: types::ForjarConfig = serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let coefficients = compute_cluster_coefficients(&config);
+    if json {
+        let items: Vec<String> = coefficients.iter()
+            .map(|(n, c)| format!("{{\"resource\":\"{}\",\"cluster_coefficient\":{:.3}}}", n, c))
+            .collect();
+        println!("{{\"cluster_coefficients\":[{}]}}", items.join(","));
+    } else if coefficients.is_empty() {
+        println!("No resources to analyze.");
+    } else {
+        println!("Clustering coefficients:");
+        for (n, c) in &coefficients { println!("  {} — {:.3}", n, c); }
+    }
+    Ok(())
+}
+
+fn compute_cluster_coefficients(config: &types::ForjarConfig) -> Vec<(String, f64)> {
+    let (names, _idx, adj) = build_undirected_index(config);
+    let n = names.len();
+    let mut result = Vec::new();
+    for i in 0..n {
+        let neighbors: Vec<usize> = adj[i].iter().copied().collect();
+        let k = neighbors.len();
+        if k < 2 { result.push((names[i].clone(), 0.0)); continue; }
+        let mut triangles = 0usize;
+        for a in 0..k {
+            for b in (a + 1)..k {
+                if adj[neighbors[a]].contains(&neighbors[b]) { triangles += 1; }
+            }
+        }
+        let possible = k * (k - 1) / 2;
+        let cc = if possible > 0 { triangles as f64 / possible as f64 } else { 0.0 };
+        result.push((names[i].clone(), cc));
+    }
+    result.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal).then(a.0.cmp(&b.0)));
+    result
+}
+
+/// FJ-923: Modularity score for resource dependency communities.
+pub(crate) fn cmd_graph_resource_dependency_modularity_score(file: &Path, json: bool) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let config: types::ForjarConfig = serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let (score, communities) = compute_modularity(&config);
+    if json {
+        let items: Vec<String> = communities.iter()
+            .map(|(c, members)| {
+                let ms: Vec<String> = members.iter().map(|m| format!("\"{}\"", m)).collect();
+                format!("{{\"community\":{},\"members\":[{}]}}", c, ms.join(","))
+            })
+            .collect();
+        println!("{{\"modularity_score\":{:.3},\"communities\":[{}]}}", score, items.join(","));
+    } else {
+        println!("Modularity score: {:.3}", score);
+        if communities.is_empty() {
+            println!("No communities detected.");
+        } else {
+            for (c, members) in &communities { println!("  Community {} — {}", c, members.join(", ")); }
+        }
+    }
+    Ok(())
+}
+
+fn compute_modularity(config: &types::ForjarConfig) -> (f64, Vec<(usize, Vec<String>)>) {
+    let (names, _idx, adj) = build_undirected_index(config);
+    let n = names.len();
+    if n == 0 { return (0.0, vec![]); }
+    let total_edges: usize = adj.iter().map(|a| a.len()).sum();
+    let m = total_edges / 2;
+    if m == 0 { return (0.0, vec![(0, names)]); }
+    let community_id = detect_communities(&adj, n);
+    let q = modularity_score(&adj, &community_id, m);
+    let mut communities: std::collections::HashMap<usize, Vec<String>> = std::collections::HashMap::new();
+    for i in 0..n { communities.entry(community_id[i]).or_default().push(names[i].clone()); }
+    let mut result: Vec<(usize, Vec<String>)> = communities.into_iter().collect();
+    result.sort_by_key(|(c, _)| *c);
+    (q, result)
+}
+
+fn detect_communities(adj: &[HashSet<usize>], n: usize) -> Vec<usize> {
+    let mut visited = vec![false; n];
+    let mut community_id = vec![0usize; n];
+    let mut cid = 0usize;
+    for start in 0..n {
+        if visited[start] { continue; }
+        let mut stack = vec![start];
+        while let Some(node) = stack.pop() {
+            if visited[node] { continue; }
+            visited[node] = true;
+            community_id[node] = cid;
+            for &next in &adj[node] { if !visited[next] { stack.push(next); } }
+        }
+        cid += 1;
+    }
+    community_id
+}
+
+fn modularity_score(adj: &[HashSet<usize>], community_id: &[usize], m: usize) -> f64 {
+    let m2 = 2.0 * m as f64;
+    let mut q = 0.0f64;
+    for (i, cid_i) in community_id.iter().enumerate() {
+        for &j in &adj[i] {
+            if *cid_i == community_id[j] {
+                let ki = adj[i].len() as f64;
+                let kj = adj[j].len() as f64;
+                q += 1.0 - (ki * kj) / m2;
+            }
+        }
+    }
+    q / m2
+}

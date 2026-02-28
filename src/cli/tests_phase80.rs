@@ -97,7 +97,7 @@ mod tests {
             custom_template: None, custom_webhook: None, custom_headers: None,
             custom_json: None, custom_filter: None, custom_retry: None, custom_transform: None, custom_batch: None,
             custom_deduplicate: Some("https://hooks.example.com|60"),
-            custom_throttle: None,
+            custom_throttle: None, custom_aggregate: None,
         };
         assert!(opts.custom_deduplicate.is_some());
     }
@@ -115,7 +115,7 @@ mod tests {
             sqs: None, mattermost: None, ntfy: None, pagerduty: None,
             discord_webhook: None, teams_webhook: None, slack_blocks: None,
             custom_template: None, custom_webhook: None, custom_headers: None,
-            custom_json: None, custom_filter: None, custom_retry: None, custom_transform: None, custom_batch: None, custom_deduplicate: None, custom_throttle: None,
+            custom_json: None, custom_filter: None, custom_retry: None, custom_transform: None, custom_batch: None, custom_deduplicate: None, custom_throttle: None, custom_aggregate: None,
         };
         assert!(opts.custom_deduplicate.is_none());
     }

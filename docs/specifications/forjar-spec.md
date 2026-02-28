@@ -2688,14 +2688,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-917 | `forjar validate --check-resource-rollback-safety` — verify resources can be safely rolled back without side effects. Governance. | Planned |
-| FJ-918 | `forjar status --machine-resource-dependency-lag` — detect lag between dependent resource convergence. Intelligence. | Planned |
-| FJ-919 | `forjar graph --resource-dependency-cluster-coefficient` — clustering coefficient per resource in dependency graph. Analysis. | Planned |
-| FJ-920 | `forjar apply --notify-custom-aggregate` — aggregate multiple events into summary notification. Integration. | Planned |
-| FJ-921 | `forjar validate --check-resource-config-maturity` — score resource configuration maturity (tags, docs, versioning). Governance. | Planned |
-| FJ-922 | `forjar status --fleet-resource-dependency-lag` — fleet-wide dependency convergence lag analysis. Intelligence. | Planned |
-| FJ-923 | `forjar graph --resource-dependency-modularity-score` — modularity score for resource dependency communities. Analysis. | Planned |
-| FJ-924 | `forjar status --machine-resource-config-drift-rate` — rate of configuration drift per machine over time. Intelligence. | Planned |
+| FJ-917 | `forjar validate --check-resource-rollback-safety` — verify resources can be safely rolled back without side effects. Governance. | Done |
+| FJ-918 | `forjar status --machine-resource-dependency-lag` — detect lag between dependent resource convergence. Intelligence. | Done |
+| FJ-919 | `forjar graph --resource-dependency-cluster-coefficient` — clustering coefficient per resource in dependency graph. Analysis. | Done |
+| FJ-920 | `forjar apply --notify-custom-aggregate` — aggregate multiple events into summary notification. Integration. | Done |
+| FJ-921 | `forjar validate --check-resource-config-maturity` — score resource configuration maturity (tags, docs, versioning). Governance. | Done |
+| FJ-922 | `forjar status --fleet-resource-dependency-lag` — fleet-wide dependency convergence lag analysis. Intelligence. | Done |
+| FJ-923 | `forjar graph --resource-dependency-modularity-score` — modularity score for resource dependency communities. Analysis. | Done |
+| FJ-924 | `forjar status --machine-resource-config-drift-rate` — rate of configuration drift per machine over time. Intelligence. | Done |
+
+### Phase 83 — Advanced Graph Analytics & Fleet Observability (FJ-925→FJ-932)
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-925 | `forjar validate --check-resource-dependency-ordering` — verify dependency ordering is topologically valid. Governance. | Planned |
+| FJ-926 | `forjar status --machine-resource-convergence-lag` — per-resource convergence lag within machine. Intelligence. | Planned |
+| FJ-927 | `forjar graph --resource-dependency-diameter` — longest shortest path (graph diameter) in dependency graph. Analysis. | Planned |
+| FJ-928 | `forjar apply --notify-custom-priority` — assign priority levels to notifications based on severity. Integration. | Planned |
+| FJ-929 | `forjar validate --check-resource-tag-completeness` — ensure all resources have required tag categories. Governance. | Planned |
+| FJ-930 | `forjar status --fleet-resource-convergence-lag` — fleet-wide per-resource convergence lag analysis. Intelligence. | Planned |
+| FJ-931 | `forjar graph --resource-dependency-eccentricity` — eccentricity (max shortest path) per resource. Analysis. | Planned |
+| FJ-932 | `forjar status --machine-resource-dependency-depth` — dependency chain depth per resource per machine. Intelligence. | Planned |
 
 ---
 
