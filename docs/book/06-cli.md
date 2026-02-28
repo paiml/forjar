@@ -1872,6 +1872,71 @@ forjar status --state-dir state/ --resource-apply-duration
 #   File — 0.15s
 ```
 
+### Phase 70 — Advanced Governance & Analytics (FJ-821→FJ-828)
+
+**Validate — dependency completeness check (FJ-821)**
+
+```bash
+forjar validate -f forjar.yaml --check-resource-dependencies-complete
+# All dependency targets exist.
+```
+
+**Status — machine resource health (FJ-822)**
+
+```bash
+forjar status --state-dir state/ --machine-resource-health
+# Machine resource health:
+#   web-server — converged: 4, failed: 1, drifted: 0
+```
+
+**Graph — dependency chain per resource (FJ-823)**
+
+```bash
+forjar graph -f forjar.yaml --resource-dependency-chain web-server
+# Dependency chain for web-server:
+#   base-packages
+#     system-config
+```
+
+**Apply — MS Teams webhook notifications (FJ-824)**
+
+```bash
+forjar apply -f forjar.yaml --notify-teams-webhook <WEBHOOK_URL>
+```
+
+**Validate — machine connectivity check (FJ-825)**
+
+```bash
+forjar validate -f forjar.yaml --check-machine-connectivity
+# All machine addresses look valid.
+```
+
+**Status — fleet convergence trend (FJ-826)**
+
+```bash
+forjar status --state-dir state/ --fleet-convergence-trend
+# Fleet convergence trend:
+#   web-server — 80.0% converged
+```
+
+**Graph — bottleneck resources (FJ-827)**
+
+```bash
+forjar graph -f forjar.yaml --bottleneck-resources
+# Bottleneck resources (high fan-in + fan-out):
+#   base-packages — fan-in: 3, fan-out: 2
+```
+
+**Status — resource state distribution (FJ-828)**
+
+```bash
+forjar status --state-dir state/ --resource-state-distribution
+# Resource state distribution:
+#   CONVERGED — 12
+#   FAILED — 2
+#   DRIFTED — 1
+```
+
 ### `forjar watch`
 
 Watch a config file for changes and automatically re-plan.

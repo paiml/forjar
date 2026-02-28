@@ -2532,14 +2532,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-821 | `forjar validate --check-resource-dependencies-complete` — verify all depends_on targets exist. Integrity. | Planned |
-| FJ-822 | `forjar status --machine-resource-health` — per-machine breakdown of resource health status. Dashboard. | Planned |
-| FJ-823 | `forjar graph --resource-dependency-chain` — full chain from root to leaf per resource. Analysis. | Planned |
-| FJ-824 | `forjar apply --notify-teams-webhook` — MS Teams webhook with adaptive card. Integration. | Planned |
-| FJ-825 | `forjar validate --check-machine-connectivity` — verify machines are reachable (dry-run). Governance. | Planned |
-| FJ-826 | `forjar status --fleet-convergence-trend` — convergence % over last N applies. Trends. | Planned |
-| FJ-827 | `forjar graph --bottleneck-resources` — resources with highest fan-in AND fan-out. Hotspots. | Planned |
-| FJ-828 | `forjar status --resource-state-distribution` — distribution of resource states across fleet. Analytics. | Planned |
+| FJ-821 | `forjar validate --check-resource-dependencies-complete` — verify all depends_on targets exist. Integrity. | Done |
+| FJ-822 | `forjar status --machine-resource-health` — per-machine breakdown of resource health status. Dashboard. | Done |
+| FJ-823 | `forjar graph --resource-dependency-chain` — full chain from root to leaf per resource. Analysis. | Done |
+| FJ-824 | `forjar apply --notify-teams-webhook` — MS Teams webhook with adaptive card. Integration. | Done |
+| FJ-825 | `forjar validate --check-machine-connectivity` — verify machines are reachable (dry-run). Governance. | Done |
+| FJ-826 | `forjar status --fleet-convergence-trend` — convergence % over last N applies. Trends. | Done |
+| FJ-827 | `forjar graph --bottleneck-resources` — resources with highest fan-in AND fan-out. Hotspots. | Done |
+| FJ-828 | `forjar status --resource-state-distribution` — distribution of resource states across fleet. Analytics. | Done |
+
+### Phase 71 — Compliance & Observability (FJ-829→FJ-836)
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-829 | `forjar validate --check-resource-naming-pattern` — enforce regex naming pattern for resources. Governance. | Planned |
+| FJ-830 | `forjar status --machine-apply-count` — total apply count per machine. Dashboard. | Planned |
+| FJ-831 | `forjar graph --critical-dependency-path` — longest weighted path through the DAG. Analysis. | Planned |
+| FJ-832 | `forjar apply --notify-slack-blocks` — Slack Block Kit rich notifications. Integration. | Planned |
+| FJ-833 | `forjar validate --check-resource-provider-support` — verify providers match resource types. Governance. | Planned |
+| FJ-834 | `forjar status --fleet-apply-history` — recent apply history across all machines. Timeline. | Planned |
+| FJ-835 | `forjar graph --resource-depth-histogram` — histogram of dependency depths. Visualization. | Planned |
+| FJ-836 | `forjar status --resource-hash-changes` — track hash changes over time per resource. Forensics. | Planned |
 
 ---
 
