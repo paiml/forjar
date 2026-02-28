@@ -633,5 +633,8 @@ pub struct ApplyArgs {
     /// FJ-912: Throttle notification rate per time window
     #[arg(long)]
     pub notify_custom_throttle: Option<String>,
+    /// FJ-920: Aggregate multiple events into summary notification
+    #[arg(long)]
+    pub notify_custom_aggregate: Option<String>,
 }
 

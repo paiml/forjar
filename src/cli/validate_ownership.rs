@@ -396,3 +396,67 @@ fn find_missing_state_coverage(config: &types::ForjarConfig) -> Vec<String> {
     missing.sort();
     missing
 }
+
+/// FJ-917: Verify resources can be safely rolled back without side effects.
+pub(crate) fn cmd_validate_check_resource_rollback_safety(file: &Path, json: bool) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let config: types::ForjarConfig = serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let unsafe_resources = find_rollback_unsafe(&config);
+    if json {
+        let items: Vec<String> = unsafe_resources.iter()
+            .map(|(n, r)| format!("{{\"resource\":\"{}\",\"reason\":\"{}\"}}", n, r))
+            .collect();
+        println!("{{\"rollback_unsafe\":[{}]}}", items.join(","));
+    } else if unsafe_resources.is_empty() {
+        println!("All resources are safe to roll back.");
+    } else {
+        println!("Resources with rollback safety concerns:");
+        for (n, r) in &unsafe_resources { println!("  {} — {}", n, r); }
+    }
+    Ok(())
+}
+
+fn find_rollback_unsafe(config: &types::ForjarConfig) -> Vec<(String, String)> {
+    let mut unsafe_res = Vec::new();
+    for (name, res) in &config.resources {
+        if !res.triggers.is_empty() {
+            unsafe_res.push((name.clone(), format!("triggers {} other resources", res.triggers.len())));
+        }
+    }
+    unsafe_res.sort_by(|a, b| a.0.cmp(&b.0));
+    unsafe_res
+}
+
+/// FJ-921: Score resource configuration maturity (tags, docs, versioning).
+pub(crate) fn cmd_validate_check_resource_config_maturity(file: &Path, json: bool) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let config: types::ForjarConfig = serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let scores = score_config_maturity(&config);
+    if json {
+        let items: Vec<String> = scores.iter()
+            .map(|(n, s)| format!("{{\"resource\":\"{}\",\"maturity_score\":{}}}", n, s))
+            .collect();
+        println!("{{\"config_maturity\":[{}]}}", items.join(","));
+    } else if scores.is_empty() {
+        println!("No resources to score.");
+    } else {
+        println!("Resource configuration maturity scores:");
+        for (n, s) in &scores { println!("  {} — {}/5", n, s); }
+    }
+    Ok(())
+}
+
+fn score_config_maturity(config: &types::ForjarConfig) -> Vec<(String, u8)> {
+    let mut scores = Vec::new();
+    for (name, res) in &config.resources {
+        let mut score: u8 = 0;
+        if !res.tags.is_empty() { score += 1; }
+        if res.state.is_some() { score += 1; }
+        if res.version.is_some() { score += 1; }
+        if res.resource_group.is_some() { score += 1; }
+        if !res.depends_on.is_empty() { score += 1; }
+        scores.push((name.clone(), score));
+    }
+    scores.sort_by(|a, b| a.0.cmp(&b.0));
+    scores
+}

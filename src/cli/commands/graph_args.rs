@@ -340,5 +340,11 @@ pub struct GraphArgs {
     /// FJ-915: Find bridge edges whose removal disconnects the graph
     #[arg(long)]
     pub resource_dependency_bridge_detection: bool,
+    /// FJ-919: Clustering coefficient per resource in dependency graph
+    #[arg(long)]
+    pub resource_dependency_cluster_coefficient: bool,
+    /// FJ-923: Modularity score for resource dependency communities
+    #[arg(long)]
+    pub resource_dependency_modularity_score: bool,
 }
 

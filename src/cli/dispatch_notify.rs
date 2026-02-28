@@ -85,6 +85,7 @@ pub(crate) struct NotifyOpts<'a> {
     pub custom_batch: Option<&'a str>,
     pub custom_deduplicate: Option<&'a str>,
     pub custom_throttle: Option<&'a str>,
+    pub custom_aggregate: Option<&'a str>,
 }
 
 
@@ -198,6 +199,7 @@ fn send_incident_notifications(opts: &NotifyOpts<'_>, result: &Result<(), String
     send_custom_batch_notification(opts.custom_batch, result, config);
     send_custom_deduplicate_notification(opts.custom_deduplicate, result, config);
     send_custom_throttle_notification(opts.custom_throttle, result, config);
+    send_custom_aggregate_notification(opts.custom_aggregate, result, config);
 }
 
 fn send_pagerduty_notification(key: Option<&str>, result: &Result<(), String>, config: &Path) {
@@ -477,4 +479,22 @@ fn send_custom_throttle_notification(spec: Option<&str>, result: &Result<(), Str
     }
     let status = if result.is_ok() { "success" } else { "failure" };
     println!("[notify:custom-throttle] → {} (max_per_minute: {}, status: {}, config: {})", url, max_per_min, status, config.display());
+}
+
+/// FJ-920: Aggregate multiple events into summary notification.
+fn send_custom_aggregate_notification(spec: Option<&str>, result: &Result<(), String>, config: &Path) {
+    let spec = match spec { Some(s) => s, None => return };
+    let parts: Vec<&str> = spec.splitn(2, '|').collect();
+    let url = parts.first().unwrap_or(&"");
+    let mut window_secs: usize = 60;
+    if let Some(opts_str) = parts.get(1) {
+        for kv in opts_str.split(',') {
+            let kv: Vec<&str> = kv.splitn(2, ':').collect();
+            if kv.len() == 2 && kv[0].trim() == "window_seconds" {
+                window_secs = kv[1].trim().parse().unwrap_or(60);
+            }
+        }
+    }
+    let status = if result.is_ok() { "success" } else { "failure" };
+    println!("[notify:custom-aggregate] → {} (window: {}s, status: {}, config: {})", url, window_secs, status, config.display());
 }

@@ -198,13 +198,16 @@ fn try_graph_scoring_inline(
     None
 }
 
-/// Phase 81 scoring graph flags.
+/// Phase 81-82 scoring graph flags.
 fn try_graph_scoring_phase81(
     file: &Path, json: bool,
     resource_dependency_centrality_score: bool, resource_dependency_bridge_detection: bool,
+    resource_dependency_cluster_coefficient: bool, resource_dependency_modularity_score: bool,
 ) -> Option<Result<(), String>> {
     if resource_dependency_centrality_score { return Some(cmd_graph_resource_dependency_centrality_score(file, json)); }
     if resource_dependency_bridge_detection { return Some(cmd_graph_resource_dependency_bridge_detection(file, json)); }
+    if resource_dependency_cluster_coefficient { return Some(cmd_graph_resource_dependency_cluster_coefficient(file, json)); }
+    if resource_dependency_modularity_score { return Some(cmd_graph_resource_dependency_modularity_score(file, json)); }
     None
 }
 
@@ -244,6 +247,7 @@ pub(crate) fn dispatch_graph_cmd(cmd: Commands) -> Result<(), String> {
         resource_dependency_isolation_score, resource_dependency_stability_score,
         resource_dependency_critical_path_length, resource_dependency_redundancy_score,
         resource_dependency_centrality_score, resource_dependency_bridge_detection,
+        resource_dependency_cluster_coefficient, resource_dependency_modularity_score,
     }) = cmd
     else {
         unreachable!()
@@ -255,7 +259,7 @@ pub(crate) fn dispatch_graph_cmd(cmd: Commands) -> Result<(), String> {
     if let Some(r) = try_graph_export_b(&file, json_output, longest_path, in_degree, out_degree, density, topological_sort, critical_path_resources) {
         return r;
     }
-    if let Some(r) = try_graph_scoring_phase81(&file, json_output, resource_dependency_centrality_score, resource_dependency_bridge_detection) {
+    if let Some(r) = try_graph_scoring_phase81(&file, json_output, resource_dependency_centrality_score, resource_dependency_bridge_detection, resource_dependency_cluster_coefficient, resource_dependency_modularity_score) {
         return r;
     }
     if let Some(r) = try_graph_scoring_inline(&file, json_output, resource_dependency_bottleneck, resource_type_clustering, resource_dependency_cycle_risk, resource_impact_radius, resource_dependency_health_map, resource_change_propagation, resource_dependency_depth_analysis, resource_dependency_fan_analysis, resource_dependency_isolation_score, resource_dependency_stability_score, resource_dependency_critical_path_length, resource_dependency_redundancy_score) {

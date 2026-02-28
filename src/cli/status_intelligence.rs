@@ -130,3 +130,97 @@ fn collect_error_budget_forecasts(sd: &Path, targets: &[&String]) -> Vec<(String
     forecasts.sort_by(|a, b| a.0.cmp(&b.0));
     forecasts
 }
+
+/// FJ-918: Detect lag between dependent resource convergence.
+pub(crate) fn cmd_status_machine_resource_dependency_lag(sd: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
+    let machines = discover_machines(sd);
+    let targets: Vec<&String> = match machine {
+        Some(m) => machines.iter().filter(|x| x.as_str() == m).collect(),
+        None => machines.iter().collect(),
+    };
+    let lags = collect_dependency_lag(sd, &targets);
+    if json {
+        let items: Vec<String> = lags.iter()
+            .map(|(m, c, f)| format!("{{\"machine\":\"{}\",\"converged\":{},\"failed\":{},\"lag_detected\":{}}}", m, c, f, *f > 0))
+            .collect();
+        println!("{{\"dependency_lag\":[{}]}}", items.join(","));
+    } else if lags.is_empty() {
+        println!("No dependency lag data available.");
+    } else {
+        println!("Machine dependency convergence lag:");
+        for (m, c, f) in &lags {
+            let lag = if *f > 0 { "lag detected" } else { "in sync" };
+            println!("  {} — {}/{} converged ({})", m, c, c + f, lag);
+        }
+    }
+    Ok(())
+}
+
+fn collect_dependency_lag(sd: &Path, targets: &[&String]) -> Vec<(String, usize, usize)> {
+    let mut lags = Vec::new();
+    for m in targets {
+        let path = sd.join(m).join("lock.yaml");
+        let content = match std::fs::read_to_string(&path) { Ok(c) => c, Err(_) => continue };
+        let lock: types::StateLock = match serde_yaml_ng::from_str(&content) { Ok(l) => l, Err(_) => continue };
+        let converged = lock.resources.values().filter(|r| matches!(r.status, types::ResourceStatus::Converged)).count();
+        let failed = lock.resources.values().filter(|r| matches!(r.status, types::ResourceStatus::Failed)).count();
+        lags.push(((*m).clone(), converged, failed));
+    }
+    lags.sort_by(|a, b| a.0.cmp(&b.0));
+    lags
+}
+
+/// FJ-922: Fleet-wide dependency convergence lag analysis.
+pub(crate) fn cmd_status_fleet_resource_dependency_lag(sd: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
+    let machines = discover_machines(sd);
+    let targets: Vec<&String> = match machine {
+        Some(m) => machines.iter().filter(|x| x.as_str() == m).collect(),
+        None => machines.iter().collect(),
+    };
+    let lags = collect_dependency_lag(sd, &targets);
+    let total_converged: usize = lags.iter().map(|(_, c, _)| c).sum();
+    let total_failed: usize = lags.iter().map(|(_, _, f)| f).sum();
+    let total = total_converged + total_failed;
+    if json {
+        println!("{{\"fleet_dependency_lag\":{{\"total_converged\":{},\"total_failed\":{},\"total\":{},\"lag_pct\":{:.1}}}}}", total_converged, total_failed, total, pct(total_failed, total));
+    } else {
+        println!("Fleet dependency lag: {}/{} resources converged ({:.1}% lagging)", total_converged, total, pct(total_failed, total));
+    }
+    Ok(())
+}
+
+/// FJ-924: Rate of configuration drift per machine over time.
+pub(crate) fn cmd_status_machine_resource_config_drift_rate(sd: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
+    let machines = discover_machines(sd);
+    let targets: Vec<&String> = match machine {
+        Some(m) => machines.iter().filter(|x| x.as_str() == m).collect(),
+        None => machines.iter().collect(),
+    };
+    let rates = collect_config_drift_rates(sd, &targets);
+    if json {
+        let items: Vec<String> = rates.iter()
+            .map(|(m, d, t)| format!("{{\"machine\":\"{}\",\"drifted\":{},\"total\":{},\"drift_rate\":{:.1}}}", m, d, t, pct(*d, *t)))
+            .collect();
+        println!("{{\"config_drift_rates\":[{}]}}", items.join(","));
+    } else if rates.is_empty() {
+        println!("No configuration drift rate data available.");
+    } else {
+        println!("Machine configuration drift rates:");
+        for (m, d, t) in &rates { println!("  {} — {}/{} drifted ({:.1}%)", m, d, t, pct(*d, *t)); }
+    }
+    Ok(())
+}
+
+fn collect_config_drift_rates(sd: &Path, targets: &[&String]) -> Vec<(String, usize, usize)> {
+    let mut rates = Vec::new();
+    for m in targets {
+        let path = sd.join(m).join("lock.yaml");
+        let content = match std::fs::read_to_string(&path) { Ok(c) => c, Err(_) => continue };
+        let lock: types::StateLock = match serde_yaml_ng::from_str(&content) { Ok(l) => l, Err(_) => continue };
+        let total = lock.resources.len();
+        let drifted = lock.resources.values().filter(|r| matches!(r.status, types::ResourceStatus::Drifted)).count();
+        rates.push(((*m).clone(), drifted, total));
+    }
+    rates.sort_by(|a, b| a.0.cmp(&b.0));
+    rates
+}

@@ -451,4 +451,13 @@ pub struct StatusArgs {
     /// FJ-916: Forecast error budget consumption rate
     #[arg(long)]
     pub machine_resource_error_budget_forecast: bool,
+    /// FJ-918: Detect lag between dependent resource convergence
+    #[arg(long)]
+    pub machine_resource_dependency_lag: bool,
+    /// FJ-922: Fleet-wide dependency convergence lag analysis
+    #[arg(long)]
+    pub fleet_resource_dependency_lag: bool,
+    /// FJ-924: Rate of configuration drift per machine over time
+    #[arg(long)]
+    pub machine_resource_config_drift_rate: bool,
 }

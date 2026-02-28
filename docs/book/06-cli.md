@@ -2625,6 +2625,63 @@ forjar status --state-dir state/ --machine-resource-error-budget-forecast
 # No error budget forecast data available.
 ```
 
+**Validate — check resource rollback safety (FJ-917)**
+
+```bash
+forjar validate -f examples/dogfood-triggers.yaml --check-resource-rollback-safety
+# Resources with rollback safety concerns:
+#   app-service — triggers 1 other resources
+#   monitoring — triggers 2 other resources
+```
+
+**Status — machine resource dependency lag (FJ-918)**
+
+```bash
+forjar status --state-dir state/ --machine-resource-dependency-lag
+# No dependency lag data available.
+```
+
+**Graph — resource dependency cluster coefficient (FJ-919)**
+
+```bash
+forjar graph -f examples/dogfood-triggers.yaml --resource-dependency-cluster-coefficient
+# Clustering coefficients:
+#   app-config — 0.000
+#   app-service — 0.000
+#   monitoring — 0.000
+```
+
+**Validate — check resource config maturity (FJ-921)**
+
+```bash
+forjar validate -f examples/dogfood-tags.yaml --check-resource-config-maturity
+# Resource configuration maturity scores:
+#   db-config — 1/5
+#   web-config — 1/5
+```
+
+**Status — fleet resource dependency lag (FJ-922)**
+
+```bash
+forjar status --state-dir state/ --fleet-resource-dependency-lag
+# Fleet dependency lag: 0/0 resources converged (0.0% lagging)
+```
+
+**Graph — resource dependency modularity score (FJ-923)**
+
+```bash
+forjar graph -f examples/dogfood-triggers.yaml --resource-dependency-modularity-score
+# Modularity score: 0.500
+#   Community 0 — app-config, app-service, monitoring
+```
+
+**Status — machine resource config drift rate (FJ-924)**
+
+```bash
+forjar status --state-dir state/ --machine-resource-config-drift-rate
+# No configuration drift rate data available.
+```
+
 ### `forjar watch`
 
 Watch a config file for changes and automatically re-plan.

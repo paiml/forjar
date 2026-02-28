@@ -326,5 +326,11 @@ pub struct ValidateArgs {
     /// FJ-913: Verify all resources declare explicit states
     #[arg(long)]
     pub check_resource_state_coverage: bool,
+    /// FJ-917: Verify resources can be safely rolled back
+    #[arg(long)]
+    pub check_resource_rollback_safety: bool,
+    /// FJ-921: Score resource configuration maturity
+    #[arg(long)]
+    pub check_resource_config_maturity: bool,
 }
 
