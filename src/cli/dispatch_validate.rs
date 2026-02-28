@@ -14,6 +14,7 @@ use super::validate_advanced::*;
 use super::validate_governance::*;
 use super::validate_ownership::*;
 use super::validate_transport::*;
+use super::validate_analytics::*;
 use super::validate_ordering::*;
 use super::validate_ordering_ext::*;
 use super::validate_resilience::*;
@@ -292,6 +293,9 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
         check_recipe_input_completeness,
         check_resource_cross_machine_content_duplicates,
         check_resource_machine_reference_validity,
+        check_resource_health_correlation,
+        check_dependency_optimization,
+        check_resource_consolidation_opportunities,
     } = args;
 
     if let Some(r) = try_validate_checks_early_a(&file, json, check_cron_syntax, check_env_refs, check_resource_names.as_deref(), check_resource_count, check_duplicate_paths, check_circular_deps, check_machine_refs, check_provider_consistency) {
@@ -316,6 +320,9 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
         return r;
     }
     if let Some(r) = try_validate_phase96(&file, json, check_recipe_input_completeness, check_resource_cross_machine_content_duplicates, check_resource_machine_reference_validity) {
+        return r;
+    }
+    if let Some(r) = try_validate_phase97(&file, json, check_resource_health_correlation, check_dependency_optimization, check_resource_consolidation_opportunities) {
         return r;
     }
     if let Some(r) = try_validate_governance_b(&file, json, check_resource_lifecycle_hooks, check_resource_provider_version, check_resource_naming_convention, check_resource_idempotency, check_resource_documentation, check_resource_ownership, check_resource_secret_exposure, check_resource_tag_standards, check_resource_privilege_escalation, check_resource_update_safety, check_resource_cross_machine_consistency, check_resource_version_pinning) {
@@ -387,5 +394,15 @@ fn try_validate_checks_early_b(
     if check_path_conflicts_strict { return Some(cmd_validate_check_path_conflicts_strict(file, json)); }
     if check_duplicate_names { return Some(cmd_validate_check_duplicate_names(file, json)); }
     if check_resource_groups { return Some(cmd_validate_check_resource_groups(file, json)); }
+    None
+}
+fn try_validate_phase97(
+    file: &Path, json: bool,
+    check_resource_health_correlation: bool, check_dependency_optimization: bool,
+    check_resource_consolidation_opportunities: bool,
+) -> Option<Result<(), String>> {
+    if check_resource_health_correlation { return Some(cmd_validate_check_resource_health_correlation(file, json)); }
+    if check_dependency_optimization { return Some(cmd_validate_check_dependency_optimization(file, json)); }
+    if check_resource_consolidation_opportunities { return Some(cmd_validate_check_resource_consolidation_opportunities(file, json)); }
     None
 }

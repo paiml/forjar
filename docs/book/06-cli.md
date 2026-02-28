@@ -3171,6 +3171,48 @@ forjar validate -f forjar.yaml --check-resource-machine-reference-validity
 # No machine reference violations found.
 ```
 
+#### Phase 97 — State Analytics & Capacity Planning (FJ-1037→FJ-1044)
+
+```bash
+# FJ-1037: Fleet state churn analysis
+forjar status --state-dir ./state --fleet-state-churn-analysis
+# === Fleet State Churn Analysis ===
+#   web: resources=5, drifted=0, churn=stable
+
+# FJ-1038: Resource health correlation
+forjar validate -f forjar.yaml --check-resource-health-correlation
+# Dependency hub: base-config (depended on by 4 resources)
+
+# FJ-1039: Apply order simulation
+forjar graph -f forjar.yaml --resource-apply-order-simulation
+# Level 1 (parallel): base-pkg, base-config
+# Level 2 (parallel): app-config
+# Level 3 (parallel): app-service
+
+# FJ-1040: Config maturity score
+forjar status --state-dir ./state --config-maturity-score
+# === Config Maturity Score ===
+#   web: score=80/100, grade=B
+
+# FJ-1041: Dependency optimization
+forjar validate -f forjar.yaml --check-dependency-optimization
+# Redundant edge: svc -> base (already reachable via svc -> cfg -> base)
+
+# FJ-1042: Resource provenance summary
+forjar graph -f forjar.yaml --resource-provenance-summary
+# (file, web): 3 resources, avg depth 1.3
+# (package, web): 2 resources, avg depth 0.0
+
+# FJ-1043: Fleet capacity utilization
+forjar status --state-dir ./state --fleet-capacity-utilization
+# === Fleet Capacity Utilization ===
+#   Machines: 3, Resources: 15, Avg: 5.0/machine
+
+# FJ-1044: Resource consolidation opportunities
+forjar validate -f forjar.yaml --check-resource-consolidation-opportunities
+# No consolidation opportunities found.
+```
+
 ### `forjar watch`
 
 Watch a config file for changes and automatically re-plan.

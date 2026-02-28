@@ -416,5 +416,14 @@ pub struct ValidateArgs {
     /// FJ-1036: Warn if resources reference machines not defined in config
     #[arg(long)]
     pub check_resource_machine_reference_validity: bool,
+    /// FJ-1038: Detect correlated failures across resources
+    #[arg(long)]
+    pub check_resource_health_correlation: bool,
+    /// FJ-1041: Identify redundant dependency chains
+    #[arg(long)]
+    pub check_dependency_optimization: bool,
+    /// FJ-1044: Identify resource consolidation opportunities
+    #[arg(long)]
+    pub check_resource_consolidation_opportunities: bool,
 }
 

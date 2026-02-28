@@ -2889,6 +2889,19 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 | FJ-1035 | `forjar status --fleet-transport-method-summary` — summarize transport methods (local vs SSH) across fleet. Intelligence. | ✅ Done |
 | FJ-1036 | `forjar validate --check-resource-machine-reference-validity` — warn if resources reference machines not defined in config. Governance. | ✅ Done |
 
+### Phase 97 — State Analytics & Capacity Planning (FJ-1037→FJ-1044)
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-1037 | `forjar status --fleet-state-churn-analysis` — analyze state lock churn patterns and apply frequency volatility across fleet. Intelligence. | ✅ Done |
+| FJ-1038 | `forjar validate --check-resource-health-correlation` — detect correlated failures across resources and identify hidden dependency patterns. Governance. | ✅ Done |
+| FJ-1039 | `forjar graph --resource-apply-order-simulation` — simulate apply execution order with dependency-aware scheduling. Analysis. | ✅ Done |
+| FJ-1040 | `forjar status --config-maturity-score` — grade config maturity (0-100) based on resource coverage and dependency completeness. Intelligence. | ✅ Done |
+| FJ-1041 | `forjar validate --check-dependency-optimization` — identify redundant dependency chains and suggest edge removals. Governance. | ✅ Done |
+| FJ-1042 | `forjar graph --resource-provenance-summary` — trace resource origins by type, machine, and dependency depth. Analysis. | ✅ Done |
+| FJ-1043 | `forjar status --fleet-capacity-utilization` — estimate fleet capacity utilization from resource counts and machine distribution. Intelligence. | ✅ Done |
+| FJ-1044 | `forjar validate --check-resource-consolidation-opportunities` — identify resources that could be consolidated across machines. Governance. | ✅ Done |
+
 ---
 
 ## 9. Performance Targets
