@@ -198,7 +198,7 @@ mod tests {
             fleet_resource_error_distribution: true,
             machine_resource_convergence_stability: true,
             machine_resource_apply_latency_p95: true,
-            fleet_resource_security_posture_score: true,
+            fleet_resource_security_posture_score: true, fleet_apply_success_rate_trend: true, machine_resource_drift_flapping: true, fleet_resource_type_drift_heatmap: true,
         };
         let debug = format!("{:?}", args);
         assert!(debug.contains("StatusArgs"));
@@ -385,7 +385,7 @@ mod tests {
             fleet_resource_error_distribution: false,
             machine_resource_convergence_stability: false,
             machine_resource_apply_latency_p95: false,
-            fleet_resource_security_posture_score: false,
+            fleet_resource_security_posture_score: false, fleet_apply_success_rate_trend: false, machine_resource_drift_flapping: false, fleet_resource_type_drift_heatmap: false,
         };
         let debug = format!("{:?}", args);
         assert!(debug.contains("StatusArgs"));

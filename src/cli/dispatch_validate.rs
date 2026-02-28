@@ -15,6 +15,7 @@ use super::validate_governance::*;
 use super::validate_ownership::*;
 use super::validate_ordering::*;
 use super::validate_ordering_ext::*;
+use super::validate_resilience::*;
 
 
 /// Structural/resource validation checks.
@@ -284,6 +285,9 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
         check_resource_dependency_fan_limit,
         check_resource_gpu_backend_consistency,
         check_resource_when_condition_syntax,
+        check_resource_lifecycle_hook_coverage,
+        check_resource_secret_rotation_age,
+        check_resource_dependency_chain_depth,
     } = args;
 
     if check_cron_syntax {
@@ -343,6 +347,9 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
     if let Some(r) = try_validate_phase94(&file, json, check_resource_gpu_backend_consistency, check_resource_when_condition_syntax) {
         return r;
     }
+    if let Some(r) = try_validate_phase95(&file, json, check_resource_lifecycle_hook_coverage, check_resource_secret_rotation_age, check_resource_dependency_chain_depth) {
+        return r;
+    }
     if let Some(r) = try_validate_governance_b(&file, json, check_resource_lifecycle_hooks, check_resource_provider_version, check_resource_naming_convention, check_resource_idempotency, check_resource_documentation, check_resource_ownership, check_resource_secret_exposure, check_resource_tag_standards, check_resource_privilege_escalation, check_resource_update_safety, check_resource_cross_machine_consistency, check_resource_version_pinning) {
         return r;
     }
@@ -359,4 +366,15 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
         return r;
     }
     cmd_validate(&file, strict, json, dry_expand)
+}
+
+fn try_validate_phase95(
+    file: &Path, json: bool,
+    check_resource_lifecycle_hook_coverage: bool, check_resource_secret_rotation_age: bool,
+    check_resource_dependency_chain_depth: bool,
+) -> Option<Result<(), String>> {
+    if check_resource_lifecycle_hook_coverage { return Some(cmd_validate_check_resource_lifecycle_hook_coverage(file, json)); }
+    if check_resource_secret_rotation_age { return Some(cmd_validate_check_resource_secret_rotation_age(file, json)); }
+    if check_resource_dependency_chain_depth { return Some(cmd_validate_check_resource_dependency_chain_depth(file, json)); }
+    None
 }

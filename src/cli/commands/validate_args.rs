@@ -398,5 +398,14 @@ pub struct ValidateArgs {
     /// FJ-1018: Validate when-field expressions for syntactic correctness
     #[arg(long)]
     pub check_resource_when_condition_syntax: bool,
+    /// FJ-1022: Warn if side-effect resources lack lifecycle hooks
+    #[arg(long)]
+    pub check_resource_lifecycle_hook_coverage: bool,
+    /// FJ-1025: Warn if resources contain encrypted secrets needing rotation
+    #[arg(long)]
+    pub check_resource_secret_rotation_age: bool,
+    /// FJ-1028: Warn if dependency chains exceed max depth limit (configurable)
+    #[arg(long)]
+    pub check_resource_dependency_chain_depth: bool,
 }
 

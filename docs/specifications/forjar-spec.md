@@ -2863,6 +2863,19 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 | FJ-1019 | `forjar graph --resource-dependency-conditional-subgraph` — visualize conditional (`when`-gated) vs unconditional resource subgraphs. Analysis. | ✅ Done |
 | FJ-1020 | `forjar apply --notify-custom-severity-filter` — filter notifications by severity level (info/warn/critical). Integration. | ✅ Done |
 
+### Phase 95 — Operational Resilience & Runtime Diagnostics (FJ-1021→FJ-1028)
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-1021 | `forjar status --fleet-apply-success-rate-trend` — compute rolling apply success rate per machine over last N applies. Intelligence. | ✅ Done |
+| FJ-1022 | `forjar validate --check-resource-lifecycle-hook-coverage` — warn if resources with side effects lack pre/post hooks. Governance. | ✅ Done |
+| FJ-1023 | `forjar graph --resource-dependency-parallel-groups` — partition dependency graph into parallelizable execution groups. Analysis. | ✅ Done |
+| FJ-1024 | `forjar status --machine-resource-drift-recurrence` — identify resources that repeatedly drift after apply (flapping detection). Intelligence. | ✅ Done |
+| FJ-1025 | `forjar validate --check-resource-secret-rotation-age` — warn if secrets exceed configurable max age (default 90 days). Governance. | ✅ Done |
+| FJ-1026 | `forjar graph --resource-dependency-execution-cost` — estimate total execution cost by weighting edges with apply latency data. Analysis. | ✅ Done |
+| FJ-1027 | `forjar status --fleet-resource-type-drift-heatmap` — heatmap of drift frequency by resource type across fleet. Intelligence. | ✅ Done |
+| FJ-1028 | `forjar validate --check-resource-dependency-chain-depth` — warn if any dependency chain exceeds configurable max depth (default 10). Governance. | ✅ Done |
+
 ---
 
 ## 9. Performance Targets
