@@ -2506,14 +2506,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-805 | `forjar validate --check-resource-health` — detect resources with conflicting health indicators. Safety. | Planned |
-| FJ-806 | `forjar status --machine-convergence-history` — convergence trend per machine over time. Dashboard. | Planned |
-| FJ-807 | `forjar graph --resource-weight` — assign weights to edges by dependency criticality. Analysis. | Planned |
-| FJ-808 | `forjar apply --notify-pagerduty` — PagerDuty integration for failure notifications. Integration. | Planned |
-| FJ-809 | `forjar validate --check-resource-overlap` — detect resources with overlapping scope on same machine. Safety. | Planned |
-| FJ-810 | `forjar status --drift-history` — drift events timeline across fleet. Monitoring. | Planned |
-| FJ-811 | `forjar graph --dependency-depth-per-resource` — show max chain depth per resource. Analysis. | Planned |
-| FJ-812 | `forjar status --resource-failure-rate` — failure rate per resource across applies. Monitoring. | Planned |
+| FJ-805 | `forjar validate --check-resource-health-conflicts` — detect resources with conflicting health indicators. Safety. | Done |
+| FJ-806 | `forjar status --machine-convergence-history` — convergence trend per machine over time. Dashboard. | Done |
+| FJ-807 | `forjar graph --resource-weight` — assign weights to edges by dependency criticality. Analysis. | Done |
+| FJ-808 | `forjar apply --notify-pagerduty` — PagerDuty Events v2 integration for apply notifications. Integration. | Done |
+| FJ-809 | `forjar validate --check-resource-overlap` — detect resources with overlapping scope on same machine. Safety. | Done |
+| FJ-810 | `forjar status --drift-history` — drift events timeline across fleet. Monitoring. | Done |
+| FJ-811 | `forjar graph --dependency-depth-per-resource` — show max chain depth per resource. Analysis. | Done |
+| FJ-812 | `forjar status --resource-failure-rate` — failure rate per resource across applies. Monitoring. | Done |
+
+### Phase 69 — Operational Insights & Governance (FJ-813→FJ-820)
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-813 | `forjar validate --check-resource-tags` — enforce tag conventions (required tags, naming rules). Governance. | Planned |
+| FJ-814 | `forjar status --machine-last-apply` — show last apply timestamp per machine. Dashboard. | Planned |
+| FJ-815 | `forjar graph --resource-fanin` — show fan-in count per resource (how many depend on it). Analysis. | Planned |
+| FJ-816 | `forjar apply --notify-discord-webhook` — Discord webhook with rich embeds. Integration. | Planned |
+| FJ-817 | `forjar validate --check-resource-state-consistency` — verify state fields match resource type. Governance. | Planned |
+| FJ-818 | `forjar status --fleet-drift-summary` — aggregated drift summary across all machines. Monitoring. | Planned |
+| FJ-819 | `forjar graph --isolated-subgraphs` — detect disconnected subgraphs in the DAG. Analysis. | Planned |
+| FJ-820 | `forjar status --resource-apply-duration` — average apply duration per resource type. Performance. | Planned |
 
 ---
 
