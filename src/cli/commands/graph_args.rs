@@ -370,5 +370,11 @@ pub struct GraphArgs {
     /// FJ-955: Identify articulation points whose removal disconnects graph
     #[arg(long)]
     pub resource_dependency_articulation_points: bool,
+    /// FJ-959: Longest dependency path in the DAG (critical chain)
+    #[arg(long)]
+    pub resource_dependency_longest_path: bool,
+    /// FJ-963: Find strongly connected components in dependency graph
+    #[arg(long)]
+    pub resource_dependency_strongly_connected: bool,
 }
 

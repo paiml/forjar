@@ -186,3 +186,97 @@ fn collect_error_distributions(sd: &Path, targets: &[&String]) -> Vec<(String, u
     dists.sort_by(|a, b| a.0.cmp(&b.0));
     dists
 }
+
+/// FJ-958: How long each resource has been in drifted state.
+pub(crate) fn cmd_status_machine_resource_drift_age(sd: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
+    let machines = discover_machines(sd);
+    let targets: Vec<&String> = match machine {
+        Some(m) => machines.iter().filter(|n| n.as_str() == m).collect(),
+        None => machines.iter().collect(),
+    };
+    let ages = collect_drift_ages(sd, &targets);
+    if json {
+        let items: Vec<String> = ages.iter()
+            .map(|(m, r, age)| format!("{{\"machine\":\"{}\",\"resource\":\"{}\",\"drift_age_hours\":{:.2}}}", m, r, age))
+            .collect();
+        println!("{{\"drift_ages\":[{}]}}", items.join(","));
+    } else if ages.is_empty() {
+        println!("No drifted resources found.");
+    } else {
+        println!("Drift ages:");
+        for (m, r, age) in &ages { println!("  {}/{} — {:.2}h drifted", m, r, age); }
+    }
+    Ok(())
+}
+
+fn collect_drift_ages(sd: &Path, targets: &[&String]) -> Vec<(String, String, f64)> {
+    let mut ages = Vec::new();
+    for m in targets {
+        let path = sd.join(m).join("state.lock.yaml");
+        let content = match std::fs::read_to_string(&path) { Ok(c) => c, Err(_) => continue };
+        let lock: types::StateLock = match serde_yaml_ng::from_str(&content) { Ok(l) => l, Err(_) => continue };
+        for (rid, rl) in &lock.resources {
+            if rl.status != types::ResourceStatus::Drifted { continue; }
+            let hours = rl.duration_seconds.unwrap_or(0.0) / 3600.0;
+            ages.push(((*m).clone(), rid.clone(), hours));
+        }
+    }
+    ages.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.cmp(&b.1)));
+    ages
+}
+
+/// FJ-962: Fleet-wide drift age aggregation.
+pub(crate) fn cmd_status_fleet_resource_drift_age(sd: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
+    let machines = discover_machines(sd);
+    let targets: Vec<&String> = match machine {
+        Some(m) => machines.iter().filter(|n| n.as_str() == m).collect(),
+        None => machines.iter().collect(),
+    };
+    let ages = collect_drift_ages(sd, &targets);
+    let total: f64 = ages.iter().map(|(_, _, h)| h).sum();
+    let avg = if !ages.is_empty() { total / ages.len() as f64 } else { 0.0 };
+    if json {
+        println!("{{\"fleet_drift_age_avg_hours\":{:.2},\"drifted_resources\":{}}}", avg, ages.len());
+    } else {
+        println!("Fleet drift age: avg {:.2}h across {} drifted resources", avg, ages.len());
+    }
+    Ok(())
+}
+
+/// FJ-964: Rate of recovery from failed/drifted states.
+pub(crate) fn cmd_status_machine_resource_recovery_rate(sd: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
+    let machines = discover_machines(sd);
+    let targets: Vec<&String> = match machine {
+        Some(m) => machines.iter().filter(|n| n.as_str() == m).collect(),
+        None => machines.iter().collect(),
+    };
+    let rates = collect_recovery_rates(sd, &targets);
+    if json {
+        let items: Vec<String> = rates.iter()
+            .map(|(m, rate)| format!("{{\"machine\":\"{}\",\"recovery_rate\":{:.4}}}", m, rate))
+            .collect();
+        println!("{{\"recovery_rates\":[{}]}}", items.join(","));
+    } else if rates.is_empty() {
+        println!("No recovery rate data available.");
+    } else {
+        println!("Recovery rates:");
+        for (m, rate) in &rates { println!("  {} — {:.1}% recovered", m, rate * 100.0); }
+    }
+    Ok(())
+}
+
+fn collect_recovery_rates(sd: &Path, targets: &[&String]) -> Vec<(String, f64)> {
+    let mut rates = Vec::new();
+    for m in targets {
+        let path = sd.join(m).join("state.lock.yaml");
+        let content = match std::fs::read_to_string(&path) { Ok(c) => c, Err(_) => continue };
+        let lock: types::StateLock = match serde_yaml_ng::from_str(&content) { Ok(l) => l, Err(_) => continue };
+        let total = lock.resources.len();
+        if total == 0 { continue; }
+        let converged = lock.resources.values().filter(|r| r.status == types::ResourceStatus::Converged).count();
+        let rate = converged as f64 / total as f64;
+        rates.push(((*m).clone(), rate));
+    }
+    rates.sort_by(|a, b| a.0.cmp(&b.0));
+    rates
+}

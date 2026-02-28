@@ -231,6 +231,16 @@ fn try_graph_scoring_phase81(
     None
 }
 
+/// Phase 87 graph analysis flags.
+fn try_graph_phase87(
+    file: &Path, json: bool,
+    resource_dependency_longest_path: bool, resource_dependency_strongly_connected: bool,
+) -> Option<Result<(), String>> {
+    if resource_dependency_longest_path { return Some(cmd_graph_resource_dependency_longest_path(file, json)); }
+    if resource_dependency_strongly_connected { return Some(cmd_graph_resource_dependency_strongly_connected(file, json)); }
+    None
+}
+
 /// Dispatch the Graph command variant.
 pub(crate) fn dispatch_graph_cmd(cmd: Commands) -> Result<(), String> {
     let Commands::Graph(GraphArgs {
@@ -272,6 +282,7 @@ pub(crate) fn dispatch_graph_cmd(cmd: Commands) -> Result<(), String> {
         resource_dependency_density, resource_dependency_transitivity,
         resource_dependency_fan_out, resource_dependency_fan_in,
         resource_dependency_path_count, resource_dependency_articulation_points,
+        resource_dependency_longest_path, resource_dependency_strongly_connected,
     }) = cmd
     else {
         unreachable!()
@@ -284,6 +295,9 @@ pub(crate) fn dispatch_graph_cmd(cmd: Commands) -> Result<(), String> {
         return r;
     }
     if let Some(r) = try_graph_scoring_phase81(&file, json_output, resource_dependency_centrality_score, resource_dependency_bridge_detection, resource_dependency_cluster_coefficient, resource_dependency_modularity_score, resource_dependency_diameter, resource_dependency_eccentricity, resource_dependency_density, resource_dependency_transitivity, resource_dependency_fan_out, resource_dependency_fan_in, resource_dependency_path_count, resource_dependency_articulation_points) {
+        return r;
+    }
+    if let Some(r) = try_graph_phase87(&file, json_output, resource_dependency_longest_path, resource_dependency_strongly_connected) {
         return r;
     }
     if let Some(r) = try_graph_scoring_inline(&file, json_output, resource_dependency_bottleneck, resource_type_clustering, resource_dependency_cycle_risk, resource_impact_radius, resource_dependency_health_map, resource_change_propagation, resource_dependency_depth_analysis, resource_dependency_fan_analysis, resource_dependency_isolation_score, resource_dependency_stability_score, resource_dependency_critical_path_length, resource_dependency_redundancy_score) {

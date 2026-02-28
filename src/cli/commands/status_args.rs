@@ -496,4 +496,13 @@ pub struct StatusArgs {
     /// FJ-956: Distribution of error types per machine
     #[arg(long)]
     pub machine_resource_error_distribution: bool,
+    /// FJ-958: How long each resource has been in drifted state
+    #[arg(long)]
+    pub machine_resource_drift_age: bool,
+    /// FJ-962: Fleet-wide drift age aggregation
+    #[arg(long)]
+    pub fleet_resource_drift_age: bool,
+    /// FJ-964: Rate of recovery from failed/drifted states
+    #[arg(long)]
+    pub machine_resource_recovery_rate: bool,
 }

@@ -6,6 +6,7 @@ mod dispatch_apply;
 mod dispatch_status;
 mod dispatch_status_ext;
 mod dispatch_notify;
+mod dispatch_notify_custom;
 mod dispatch_graph;
 mod dispatch_validate;
 mod dispatch_lock;
@@ -329,6 +330,8 @@ mod tests_phase84;
 mod tests_phase85;
 #[cfg(test)]
 mod tests_phase86;
+#[cfg(test)]
+mod tests_phase87;
 
 pub use commands::Commands;
 pub use dispatch::dispatch;

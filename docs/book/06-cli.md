@@ -2840,6 +2840,44 @@ forjar status --state-dir state --machine-resource-error-distribution
 #   web — 1 failed, 1 drifted
 ```
 
+#### Phase 87 — Configuration Drift Analytics & Dependency Health (FJ-957→FJ-964)
+
+```bash
+# FJ-957: Content hash consistency check
+forjar validate -f forjar.yaml --check-resource-content-hash-consistency
+# All content hashes are consistent.
+
+# FJ-958: Drift age per machine resource
+forjar status --state-dir state --machine-resource-drift-age
+# Drift ages:
+#   web/config — 2.00h drifted
+
+# FJ-959: Longest dependency path (critical chain)
+forjar graph -f forjar.yaml --resource-dependency-longest-path
+# Longest dependency path (2 hops):
+#   c → b → a
+
+# FJ-960: Exponential backoff for notification retries
+forjar apply -f forjar.yaml --notify-custom-backoff "https://hooks.example.com|exponential"
+
+# FJ-961: Dependency reference completeness
+forjar validate -f forjar.yaml --check-resource-dependency-refs
+# All dependency references are valid.
+
+# FJ-962: Fleet-wide drift age aggregation
+forjar status --state-dir state --fleet-resource-drift-age
+# Fleet drift age: avg 2.00h across 1 drifted resources
+
+# FJ-963: Strongly connected components
+forjar graph -f forjar.yaml --resource-dependency-strongly-connected
+# No strongly connected components found (DAG is acyclic).
+
+# FJ-964: Recovery rate per machine
+forjar status --state-dir state --machine-resource-recovery-rate
+# Recovery rates:
+#   web — 50.0% recovered
+```
+
 ### `forjar watch`
 
 Watch a config file for changes and automatically re-plan.
