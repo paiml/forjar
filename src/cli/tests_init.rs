@@ -296,14 +296,22 @@ resources:
 
     #[test]
     fn test_fj253_completion_bash() {
-        let result = cmd_completion(CompletionShell::Bash);
+        // Completion generation in clap_complete uses deep recursion
+        // proportional to subcommand/flag count. With our large Commands enum
+        // the default test-thread stack overflows; run on a thread with 16 MiB.
+        let result = std::thread::Builder::new()
+            .stack_size(16 * 1024 * 1024)
+            .spawn(|| cmd_completion(CompletionShell::Bash))
+            .expect("failed to spawn thread")
+            .join()
+            .expect("completion thread panicked");
         assert!(result.is_ok());
     }
 
 
     #[test]
     fn test_fj253_completion_zsh() {
-        // Zsh completion generation in clap_complete uses deep recursion
+        // Completion generation in clap_complete uses deep recursion
         // proportional to subcommand/flag count. With our large Commands enum
         // the default test-thread stack overflows; run on a thread with 16 MiB.
         let result = std::thread::Builder::new()
@@ -318,7 +326,15 @@ resources:
 
     #[test]
     fn test_fj253_completion_fish() {
-        let result = cmd_completion(CompletionShell::Fish);
+        // Completion generation in clap_complete uses deep recursion
+        // proportional to subcommand/flag count. With our large Commands enum
+        // the default test-thread stack overflows; run on a thread with 16 MiB.
+        let result = std::thread::Builder::new()
+            .stack_size(16 * 1024 * 1024)
+            .spawn(|| cmd_completion(CompletionShell::Fish))
+            .expect("failed to spawn thread")
+            .join()
+            .expect("completion thread panicked");
         assert!(result.is_ok());
     }
 
