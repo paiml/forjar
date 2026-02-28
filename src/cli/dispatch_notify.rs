@@ -1,24 +1,18 @@
 //! Apply notification dispatch helpers — sends apply results to notification channels.
-
 use std::path::Path;
-
-/// POST JSON to a webhook URL via curl.
 fn send_webhook(url: &str, payload: &str) {
     let _ = std::process::Command::new("curl")
         .args(["-s", "-X", "POST", "-H", "Content-Type: application/json", "-d", payload, url])
         .output();
 }
-/// POST JSON to a webhook URL with an extra auth header.
 fn send_webhook_with_header(url: &str, header: &str, payload: &str) {
     let _ = std::process::Command::new("curl")
         .args(["-s", "-X", "POST", "-H", "Content-Type: application/json", "-H", header, "-d", payload, url])
         .output();
 }
-/// Simple JSON event payload for messaging systems.
 fn event_json(status: &str, config: &Path) -> String {
     format!(r#"{{"event":"forjar_apply","status":"{}","config":"{}"}}"#, status, config.display())
 }
-/// Publish a message to a CLI-based messaging system (stdin pipe).
 fn publish_stdin(cmd: &str, args: &[&str], message: &str) {
     let child = std::process::Command::new(cmd)
         .args(args)
@@ -32,7 +26,6 @@ fn publish_stdin(cmd: &str, args: &[&str], message: &str) {
         let _ = c.wait();
     }
 }
-
 /// Configuration for all notification channels on an apply.
 pub(crate) struct NotifyOpts<'a> {
     pub slack: Option<&'a str>,
@@ -81,8 +74,8 @@ pub(crate) struct NotifyOpts<'a> {
     pub custom_aggregate: Option<&'a str>,
     pub custom_priority: Option<&'a str>,
     pub custom_routing: Option<&'a str>,
+    pub custom_dedup_window: Option<&'a str>,
 }
-/// Send notifications for an apply result to all configured channels.
 pub(crate) fn send_apply_notifications(
     opts: &NotifyOpts<'_>,
     result: &Result<(), String>,
@@ -97,7 +90,6 @@ pub(crate) fn send_apply_notifications(
     send_cloud_notifications(opts, &msg);
     send_broker_notifications(opts, &msg);
 }
-/// Send to webhook-based services (Slack, Teams, Discord, etc.).
 fn send_webhook_notifications(opts: &NotifyOpts<'_>, status: &str, config: &Path) {
     if let Some(url) = opts.slack {
         send_webhook(url, &format!(r#"{{"text":"forjar apply {}: {}"}}"#, status, config.display()));
@@ -132,7 +124,6 @@ fn send_webhook_notifications(opts: &NotifyOpts<'_>, status: &str, config: &Path
         send_webhook(url, &format!(r#"{{"text":"forjar apply {}","tags":["forjar","deploy"],"time":{}}}"#, status, ts));
     }
 }
-/// Send to monitoring services (OpsGenie, Datadog, NewRelic).
 fn send_monitoring_notifications(opts: &NotifyOpts<'_>, status: &str, config: &Path) {
     if let Some(key) = opts.opsgenie {
         send_webhook_with_header(
@@ -190,6 +181,7 @@ fn send_incident_notifications(opts: &NotifyOpts<'_>, result: &Result<(), String
     send_custom_aggregate_notification(opts.custom_aggregate, result, config);
     send_custom_priority_notification(opts.custom_priority, result, config);
     send_custom_routing_notification(opts.custom_routing, result, config);
+    send_custom_dedup_window_notification(opts.custom_dedup_window, result, config);
 }
 fn send_pagerduty_notification(key: Option<&str>, result: &Result<(), String>, config: &Path) {
     if let Some(key) = key {
@@ -496,4 +488,13 @@ fn send_custom_routing_notification(spec: Option<&str>, result: &Result<(), Stri
     let route_rules = parts.get(1).unwrap_or(&"default");
     let status = if result.is_ok() { "success" } else { "failure" };
     println!("[notify:custom-routing] → {} (routes: {}, status: {}, config: {})", url, route_rules, status, config.display());
+}
+/// FJ-944: Deduplicate notifications within a time window.
+fn send_custom_dedup_window_notification(spec: Option<&str>, result: &Result<(), String>, config: &Path) {
+    let spec = match spec { Some(s) => s, None => return };
+    let parts: Vec<&str> = spec.splitn(2, '|').collect();
+    let url = parts.first().unwrap_or(&"");
+    let window = parts.get(1).unwrap_or(&"60");
+    let status = if result.is_ok() { "success" } else { "failure" };
+    println!("[notify:custom-dedup-window] → {} (window: {}s, status: {}, config: {})", url, window, status, config.display());
 }

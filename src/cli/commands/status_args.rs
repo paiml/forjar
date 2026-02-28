@@ -478,4 +478,13 @@ pub struct StatusArgs {
     /// FJ-940: Frequency of repeated failures per resource
     #[arg(long)]
     pub machine_resource_failure_recurrence: bool,
+    /// FJ-942: How often resources drift per machine over time
+    #[arg(long)]
+    pub machine_resource_drift_frequency: bool,
+    /// FJ-946: Fleet-wide drift frequency aggregation
+    #[arg(long)]
+    pub fleet_resource_drift_frequency: bool,
+    /// FJ-948: Trend analysis of apply durations per machine
+    #[arg(long)]
+    pub machine_resource_apply_duration_trend: bool,
 }

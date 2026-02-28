@@ -642,5 +642,8 @@ pub struct ApplyArgs {
     /// FJ-936: Route notifications to different channels based on resource type
     #[arg(long)]
     pub notify_custom_routing: Option<String>,
+    /// FJ-944: Deduplicate notifications within a time window
+    #[arg(long)]
+    pub notify_custom_dedup_window: Option<String>,
 }
 
