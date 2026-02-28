@@ -432,5 +432,17 @@ pub struct StatusArgs {
     /// FJ-820: Average apply duration per resource type
     #[arg(long)]
     pub resource_apply_duration: bool,
+
+    /// FJ-822: Per-machine breakdown of resource health status
+    #[arg(long)]
+    pub machine_resource_health: bool,
+
+    /// FJ-826: Convergence percentage over last N applies
+    #[arg(long)]
+    pub fleet_convergence_trend: bool,
+
+    /// FJ-828: Distribution of resource states across fleet
+    #[arg(long)]
+    pub resource_state_distribution: bool,
 }
 

@@ -250,3 +250,76 @@ fn find_state_consistency_issues(config: &types::ForjarConfig) -> Vec<(String, S
     issues.sort();
     issues
 }
+
+/// FJ-821: Verify all depends_on targets actually exist as resources.
+pub(crate) fn cmd_validate_check_resource_dependencies_complete(
+    file: &Path, json: bool,
+) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let config: types::ForjarConfig =
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+    let missing = find_missing_deps(&config);
+    if json {
+        let items: Vec<String> = missing.iter()
+            .map(|(r, dep)| format!("{{\"resource\":\"{}\",\"missing_dep\":\"{}\"}}", r, dep))
+            .collect();
+        println!("{{\"missing_dependencies\":[{}]}}", items.join(","));
+    } else if missing.is_empty() {
+        println!("All dependency targets exist.");
+    } else {
+        println!("Missing dependency targets ({}):", missing.len());
+        for (r, dep) in &missing { println!("  {} depends on '{}' (not found)", r, dep); }
+    }
+    Ok(())
+}
+
+fn find_missing_deps(config: &types::ForjarConfig) -> Vec<(String, String)> {
+    let mut missing = Vec::new();
+    for (name, resource) in &config.resources {
+        for dep in &resource.depends_on {
+            if !config.resources.contains_key(dep) {
+                missing.push((name.clone(), dep.clone()));
+            }
+        }
+    }
+    missing.sort();
+    missing
+}
+
+/// FJ-825: Verify machines are reachable (dry-run: checks addr format).
+pub(crate) fn cmd_validate_check_machine_connectivity(
+    file: &Path, json: bool,
+) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let config: types::ForjarConfig =
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+    let issues = check_machine_addrs(&config);
+    if json {
+        let items: Vec<String> = issues.iter()
+            .map(|(m, issue)| format!("{{\"machine\":\"{}\",\"issue\":\"{}\"}}", m, issue))
+            .collect();
+        println!("{{\"connectivity_issues\":[{}]}}", items.join(","));
+    } else if issues.is_empty() {
+        println!("All machine addresses look valid.");
+    } else {
+        println!("Machine connectivity issues ({}):", issues.len());
+        for (m, issue) in &issues { println!("  {} — {}", m, issue); }
+    }
+    Ok(())
+}
+
+fn check_machine_addrs(config: &types::ForjarConfig) -> Vec<(String, String)> {
+    let mut issues = Vec::new();
+    for (name, machine) in &config.machines {
+        let addr = machine.addr.as_str();
+        if addr.is_empty() {
+            issues.push((name.clone(), "empty address".to_string()));
+        } else if addr == "localhost" || addr == "127.0.0.1" || addr == "container" {
+            // valid sentinel values
+        } else if !addr.contains('.') && !addr.contains(':') {
+            issues.push((name.clone(), format!("addr '{}' has no dots or colons", addr)));
+        }
+    }
+    issues.sort();
+    issues
+}

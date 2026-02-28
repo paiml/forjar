@@ -589,5 +589,9 @@ pub struct ApplyArgs {
     /// FJ-816: Discord webhook with rich embeds for apply results
     #[arg(long)]
     pub notify_discord_webhook: Option<String>,
+
+    /// FJ-824: MS Teams webhook with adaptive card for apply results
+    #[arg(long)]
+    pub notify_teams_webhook: Option<String>,
 }
 

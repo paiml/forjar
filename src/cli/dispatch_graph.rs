@@ -138,6 +138,7 @@ pub(crate) fn dispatch_graph_cmd(cmd: Commands) -> Result<(), String> {
         strongly_connected, dependency_matrix_csv,
         resource_weight, dependency_depth_per_resource,
         resource_fanin, isolated_subgraphs,
+        resource_dependency_chain, bottleneck_resources,
     }) = cmd
     else {
         unreachable!()
@@ -156,6 +157,8 @@ pub(crate) fn dispatch_graph_cmd(cmd: Commands) -> Result<(), String> {
     if density { return cmd_graph_density(&file, json_output); }
     if topological_sort { return cmd_graph_topological_sort(&file, json_output); }
     if critical_path_resources { return cmd_graph_critical_path_resources(&file, json_output); }
+    if let Some(ref target) = resource_dependency_chain { return cmd_graph_resource_dependency_chain(&file, target, json_output); }
+    if bottleneck_resources { return cmd_graph_bottleneck_resources(&file, json_output); }
     if let Some(r) = try_graph_analysis(&file, json_output, resource_weight, dependency_depth_per_resource, resource_fanin, isolated_subgraphs, dependency_matrix_csv, strongly_connected, bipartite_check, sink_resources) {
         return r;
     }

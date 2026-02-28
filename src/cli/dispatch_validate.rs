@@ -85,6 +85,26 @@ fn try_validate_core(
 }
 
 
+/// Phase 67-70 advanced validation checks.
+#[allow(clippy::too_many_arguments)]
+fn try_validate_advanced(
+    file: &Path, json: bool,
+    check_orphan_resources: bool, check_machine_arch: bool,
+    check_resource_health_conflicts: bool, check_resource_overlap: bool,
+    check_resource_tags: bool, check_resource_state_consistency: bool,
+    check_resource_dependencies_complete: bool, check_machine_connectivity: bool,
+) -> Option<Result<(), String>> {
+    if check_orphan_resources { return Some(cmd_validate_check_orphan_resources(file, json)); }
+    if check_machine_arch { return Some(cmd_validate_check_machine_arch(file, json)); }
+    if check_resource_health_conflicts { return Some(cmd_validate_check_resource_health_conflicts(file, json)); }
+    if check_resource_overlap { return Some(cmd_validate_check_resource_overlap(file, json)); }
+    if check_resource_tags { return Some(cmd_validate_check_resource_tags(file, json)); }
+    if check_resource_state_consistency { return Some(cmd_validate_check_resource_state_consistency(file, json)); }
+    if check_resource_dependencies_complete { return Some(cmd_validate_check_resource_dependencies_complete(file, json)); }
+    if check_machine_connectivity { return Some(cmd_validate_check_machine_connectivity(file, json)); }
+    None
+}
+
 /// Route validate command to specific check handlers.
 pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
     let ValidateArgs {
@@ -111,6 +131,7 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
         check_orphan_resources, check_machine_arch,
         check_resource_health_conflicts, check_resource_overlap,
         check_resource_tags, check_resource_state_consistency,
+        check_resource_dependencies_complete, check_machine_connectivity,
     } = args;
 
     if check_cron_syntax {
@@ -158,23 +179,8 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
     if check_resource_groups {
         return cmd_validate_check_resource_groups(&file, json);
     }
-    if check_orphan_resources {
-        return cmd_validate_check_orphan_resources(&file, json);
-    }
-    if check_machine_arch {
-        return cmd_validate_check_machine_arch(&file, json);
-    }
-    if check_resource_health_conflicts {
-        return cmd_validate_check_resource_health_conflicts(&file, json);
-    }
-    if check_resource_overlap {
-        return cmd_validate_check_resource_overlap(&file, json);
-    }
-    if check_resource_tags {
-        return cmd_validate_check_resource_tags(&file, json);
-    }
-    if check_resource_state_consistency {
-        return cmd_validate_check_resource_state_consistency(&file, json);
+    if let Some(r) = try_validate_advanced(&file, json, check_orphan_resources, check_machine_arch, check_resource_health_conflicts, check_resource_overlap, check_resource_tags, check_resource_state_consistency, check_resource_dependencies_complete, check_machine_connectivity) {
+        return r;
     }
     if let Some(r) = try_validate_structural(&file, json, check_mount_points, check_group_consistency, check_mode_consistency, check_template_vars, check_service_deps, check_path_conflicts, check_owner_consistency, check_naming_conventions, check_circular_refs, check_machine_reachability) {
         return r;

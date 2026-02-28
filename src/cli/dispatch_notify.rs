@@ -73,6 +73,7 @@ pub(crate) struct NotifyOpts<'a> {
     pub ntfy: Option<&'a str>,
     pub pagerduty: Option<&'a str>,
     pub discord_webhook: Option<&'a str>,
+    pub teams_webhook: Option<&'a str>,
 }
 
 
@@ -174,6 +175,7 @@ fn send_incident_notifications(opts: &NotifyOpts<'_>, result: &Result<(), String
     }
     send_pagerduty_notification(opts.pagerduty, result, config);
     send_discord_webhook_notification(opts.discord_webhook, result, config);
+    send_teams_webhook_notification(opts.teams_webhook, result, config);
 }
 
 fn send_pagerduty_notification(key: Option<&str>, result: &Result<(), String>, config: &Path) {
@@ -194,6 +196,17 @@ fn send_discord_webhook_notification(url: Option<&str>, result: &Result<(), Stri
         send_webhook(url, &format!(
             r#"{{"embeds":[{{"title":"{}","description":"Config: {}","color":{},"footer":{{"text":"forjar"}}}}]}}"#,
             title, config.display(), color
+        ));
+    }
+}
+
+fn send_teams_webhook_notification(url: Option<&str>, result: &Result<(), String>, config: &Path) {
+    if let Some(url) = url {
+        let color = if result.is_ok() { "Good" } else { "Attention" };
+        let title = if result.is_ok() { "Apply Succeeded" } else { "Apply Failed" };
+        send_webhook(url, &format!(
+            r#"{{"type":"message","attachments":[{{"contentType":"application/vnd.microsoft.card.adaptive","content":{{"type":"AdaptiveCard","body":[{{"type":"TextBlock","text":"{}","weight":"Bolder","color":"{}"}},{{"type":"TextBlock","text":"Config: {}"}}],"$schema":"http://adaptivecards.io/schemas/adaptive-card.json","version":"1.4"}}}}]}}"#,
+            title, color, config.display()
         ));
     }
 }
