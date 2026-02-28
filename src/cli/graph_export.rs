@@ -78,7 +78,7 @@ pub(crate) fn cmd_graph_connected_components(file: &Path, json: bool) -> Result<
 }
 
 /// Build undirected adjacency list from config dependencies.
-pub(crate) fn build_undirected_graph<'a>(cfg: &'a types::ForjarConfig) -> std::collections::HashMap<&'a str, Vec<&'a str>> {
+pub(crate) fn build_undirected_graph(cfg: &types::ForjarConfig) -> std::collections::HashMap<&str, Vec<&str>> {
     let mut adj: std::collections::HashMap<&str, Vec<&str>> = std::collections::HashMap::new();
     for (name, resource) in &cfg.resources {
         adj.entry(name.as_str()).or_default();
@@ -326,9 +326,9 @@ pub(crate) fn cmd_graph_topological_sort(file: &Path, json: bool) -> Result<(), 
 }
 
 /// Build in-degree map and dependents adjacency for Kahn's algorithm.
-fn build_kahn_graph<'a>(cfg: &'a types::ForjarConfig) -> (
-    std::collections::HashMap<&'a str, usize>,
-    std::collections::HashMap<&'a str, Vec<&'a str>>,
+fn build_kahn_graph(cfg: &types::ForjarConfig) -> (
+    std::collections::HashMap<&str, usize>,
+    std::collections::HashMap<&str, Vec<&str>>,
 ) {
     let mut in_deg: std::collections::HashMap<&str, usize> = std::collections::HashMap::new();
     let mut dependents: std::collections::HashMap<&str, Vec<&str>> = std::collections::HashMap::new();

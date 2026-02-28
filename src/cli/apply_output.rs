@@ -5,7 +5,6 @@ use std::path::Path;
 use super::helpers::*;
 use super::helpers_state::*;
 use super::apply_helpers::*;
-use super::print_helpers::*;
 
 pub(super) fn count_results(results: &[types::ApplyResult]) -> (u32, u32, u32) {
     let mut converged = 0u32;

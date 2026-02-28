@@ -1,13 +1,8 @@
 //! Show, explain, compare, template.
 
-use crate::core::types::ProvenanceEvent;
-use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
-use crate::transport;
-use crate::tripwire::{anomaly, drift, eventlog, tracer};
-use std::path::{Path, PathBuf};
+use crate::core::{codegen, parser, resolver, types};
+use std::path::Path;
 use super::helpers::*;
-use super::helpers_state::*;
-use super::helpers_time::*;
 
 
 pub(crate) fn cmd_show(file: &Path, resource_filter: Option<&str>, json: bool) -> Result<(), String> {
@@ -63,6 +58,7 @@ fn detect_transport_type(machine_name: &str, machines: &indexmap::IndexMap<Strin
 }
 
 /// Build JSON output for cmd_explain.
+#[allow(clippy::too_many_arguments)]
 fn explain_json(
     resource_id: &str,
     resource: &types::Resource,
@@ -364,7 +360,6 @@ fn print_all_outputs(
 
 pub(crate) fn cmd_output(file: &Path, key: Option<&str>, json: bool) -> Result<(), String> {
     use crate::core::resolver;
-use std::collections::HashMap;
 
     let config = parse_and_validate(file)?;
 

@@ -1,14 +1,9 @@
 //! Trends and predictions.
 
-use crate::core::types::ProvenanceEvent;
-use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
-use crate::transport;
-use crate::tripwire::{anomaly, drift, eventlog, tracer};
-use std::path::{Path, PathBuf};
+use crate::core::{state, types};
+use std::path::Path;
 use super::helpers::*;
-use super::helpers_state::*;
 use super::helpers_time::*;
-use std::sync::atomic::Ordering;
 use std::collections::HashMap;
 
 

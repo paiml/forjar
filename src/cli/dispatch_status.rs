@@ -4,33 +4,16 @@
 use crate::core::{state, types};
 use std::path::Path;
 use super::commands::*;
-use super::helpers::*;
-use super::helpers_state::*;
-use super::helpers_time::*;
-use super::status_core::*;
-use super::status_queries::*;
-use super::status_health::*;
-use super::status_alerts::*;
-use super::status_drift::*;
-use super::status_convergence::*;
-use super::status_trends::*;
-use super::status_fleet::*;
-use super::status_resources::*;
 use super::status_resource_detail::*;
 use super::status_counts::*;
 use super::status_diagnostics::*;
 use super::status_fleet_detail::*;
-use super::status_compliance::*;
-use super::status_cost::*;
-use super::status_observability::*;
-use super::status_failures::*;
 use super::status_operational::*;
 use super::status_insights::*;
 use super::status_predictive::*;
 use super::status_recovery::*;
 use super::status_intelligence::*;
 use super::status_intelligence_ext::*;
-use super::lock_ops::*;
 use super::dispatch_status_ext::*;
 
 #[allow(clippy::too_many_arguments)]
@@ -118,7 +101,6 @@ fn try_status_phase68(
 }
 
 #[allow(clippy::too_many_arguments)]
-#[allow(clippy::too_many_arguments)]
 fn try_status_phase73(
     sd: &Path, machine: Option<&str>, json: bool,
     machine_drift_age: bool, fleet_failed_resources: bool, resource_dependency_health: bool,
@@ -156,6 +138,7 @@ fn try_status_phase75(
     None
 }
 
+#[allow(clippy::too_many_arguments)]
 fn try_status_phase79(
     sd: &Path, machine: Option<&str>, json: bool,
     machine_resource_failure_correlation: bool, fleet_resource_age_distribution: bool, machine_resource_rollback_readiness: bool,

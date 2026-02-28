@@ -1,13 +1,8 @@
 //! Resource detail.
 
-use crate::core::types::ProvenanceEvent;
-use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
-use crate::transport;
-use crate::tripwire::{anomaly, drift, eventlog, tracer};
-use std::path::{Path, PathBuf};
+use crate::core::types;
+use std::path::Path;
 use super::helpers::*;
-use super::helpers_state::*;
-use super::helpers_time::*;
 use std::collections::HashMap;
 
 
@@ -360,7 +355,7 @@ pub(crate) fn cmd_status_last_apply_status(
         Some(m) => machines.iter().filter(|x| x.as_str() == m).collect(),
         None => machines.iter().collect(),
     };
-    let statuses = collect_last_apply(&state_dir, &targets);
+    let statuses = collect_last_apply(state_dir, &targets);
     if json {
         let items: Vec<String> = statuses.iter()
             .map(|(m, s, t)| format!("{{\"machine\":\"{}\",\"status\":\"{}\",\"timestamp\":\"{}\"}}", m, s, t))

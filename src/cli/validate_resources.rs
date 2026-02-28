@@ -1,14 +1,8 @@
 //! Resource validation.
 
-use crate::core::types::ProvenanceEvent;
-use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
-use crate::transport;
-use crate::tripwire::{anomaly, drift, eventlog, tracer};
-use std::path::{Path, PathBuf};
+use crate::core::types;
+use std::path::Path;
 use super::helpers::*;
-use super::helpers_state::*;
-use super::helpers_time::*;
-use std::collections::HashMap;
 
 
 /// FJ-571: Validate resource counts don't exceed per-machine limits.
@@ -253,9 +247,9 @@ pub(crate) fn cmd_validate_check_machine_reachability(file: &Path, json: bool) -
 
     for (mname, machine) in &config.machines {
         let addr = &machine.addr;
-        if addr == "127.0.0.1" || addr == "localhost" || addr == "container" {
-            reachable += 1;
-        } else if addr.contains('.') || addr.contains(':') {
+        if addr == "127.0.0.1" || addr == "localhost" || addr == "container"
+            || addr.contains('.') || addr.contains(':')
+        {
             reachable += 1;
         } else {
             unreachable.push((mname.clone(), addr.clone()));

@@ -1,13 +1,8 @@
 //! Lock management.
 
-use crate::core::types::ProvenanceEvent;
-use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
-use crate::transport;
-use crate::tripwire::{anomaly, drift, eventlog, tracer};
-use std::path::{Path, PathBuf};
+use crate::core::{resolver, state, types};
+use std::path::Path;
 use super::helpers::*;
-use super::helpers_state::*;
-use super::helpers_time::*;
 use super::apply_helpers::*;
 use super::workspace::*;
 
@@ -132,7 +127,6 @@ pub(crate) fn cmd_lock(
     json: bool,
 ) -> Result<(), String> {
     use crate::core::planner::hash_desired_state;
-use std::collections::HashMap;
 
     let mut config = parse_and_validate(file)?;
     if let Some(path) = env_file {

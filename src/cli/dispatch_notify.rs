@@ -252,7 +252,7 @@ fn send_custom_headers_notification(headers: Option<&str>, result: &Result<(), S
         let payload = event_json(status, config);
         // Parse "url|Header1:Value1|Header2:Value2" format
         let parts: Vec<&str> = headers_str.splitn(2, '|').collect();
-        if parts.len() >= 1 {
+        if !parts.is_empty() {
             let url = parts[0];
             let mut args = vec!["-s", "-X", "POST", "-H", "Content-Type: application/json"];
             let header_parts: Vec<String> = if parts.len() > 1 {

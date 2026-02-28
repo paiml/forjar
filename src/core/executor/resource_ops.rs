@@ -212,9 +212,10 @@ fn run_pre_apply_hook(machine: &Machine, hook: &str, timeout: Option<u64>) -> Op
 }
 
 /// Handle the output of a resource execution, including post_apply hook.
+#[allow(clippy::too_many_arguments)]
 fn handle_resource_output(
     output: Result<transport::ExecOutput, String>,
-    cfg: &ApplyConfig,
+    _cfg: &ApplyConfig,
     change: &PlannedChange,
     resource: &Resource,
     resolved: &Resource,

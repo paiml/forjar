@@ -3,12 +3,7 @@
 #[allow(unused_imports)]
 use crate::core::{state, types};
 use std::path::Path;
-use super::commands::*;
-use super::helpers::*;
-#[allow(unused_imports)]
-use super::helpers_state::*;
-#[allow(unused_imports)]
-use super::helpers_time::*;
+use super::helpers::dim;
 use super::status_core::*;
 use super::status_queries::*;
 use super::status_health::*;
@@ -19,9 +14,6 @@ use super::status_trends::*;
 use super::status_fleet::*;
 use super::status_resources::*;
 use super::status_resource_detail::*;
-use super::status_counts::*;
-use super::status_diagnostics::*;
-use super::status_fleet_detail::*;
 use super::status_compliance::*;
 use super::status_cost::*;
 use super::status_observability::*;
@@ -37,7 +29,7 @@ use super::lock_ops::*;
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn dispatch_status_early(
-    sd: &std::path::PathBuf, m: Option<&str>, json: bool, file: Option<&Path>, summary: bool, watch: Option<u64>,
+    sd: &std::path::Path, m: Option<&str>, json: bool, file: Option<&Path>, summary: bool, watch: Option<u64>,
     machine_apply_count: bool, fleet_apply_history: bool, resource_hash_changes: bool, machine_uptime_estimate: bool, fleet_resource_type_breakdown: bool, resource_convergence_time: bool,
     resource_types_summary: bool, failed_resources: bool, drift_trend: bool, resource_inputs: bool, convergence_history: bool, config_hash: bool, last_apply_duration: bool, drift_details_all: bool, resource_size: bool, hash_verify: bool, lock_age: bool,
     change_frequency: bool, machine_summary: bool, recommendations: bool, uptime: bool, diagnostic: bool, resource_dependencies: bool, pipeline_status: bool, drift_forecast: bool, resource_cost: bool, security_posture: bool,
@@ -84,6 +76,7 @@ pub(crate) fn dispatch_status_early(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn try_status_phase71(
     sd: &Path, machine: Option<&str>, json: bool,
     machine_apply_count: bool, fleet_apply_history: bool, resource_hash_changes: bool,
@@ -98,6 +91,7 @@ fn try_status_phase71(
     None
 }
 
+#[allow(clippy::too_many_arguments)]
 fn try_status_phase58(
     sd: &Path, machine: Option<&str>, json: bool,
     resource_types_summary: bool, failed_resources: bool,
@@ -121,6 +115,7 @@ fn try_status_phase58(
     None
 }
 
+#[allow(clippy::too_many_arguments)]
 fn try_status_analytics(
     sd: &Path, machine: Option<&str>, json: bool,
     change_frequency: bool, machine_summary: bool,
@@ -142,6 +137,7 @@ fn try_status_analytics(
     None
 }
 
+#[allow(clippy::too_many_arguments)]
 fn try_status_fleet(
     sd: &Path, machine: Option<&str>, json: bool,
     error_summary: bool, resource_timeline: bool,
@@ -209,6 +205,7 @@ fn try_status_queries_a(
     None
 }
 
+#[allow(clippy::too_many_arguments)]
 fn try_status_queries_b(
     sd: &Path, machine: Option<&str>, json: bool,
     since: &Option<String>, stale_resources: bool,
@@ -228,6 +225,7 @@ fn try_status_queries_b(
     None
 }
 
+#[allow(clippy::too_many_arguments)]
 fn try_status_display(
     sd: &Path, machine: Option<&str>, json: bool,
     status_format: &Option<String>, prometheus: bool,

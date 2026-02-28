@@ -93,7 +93,7 @@ fn find_naming_violations(config: &types::ForjarConfig) -> Vec<(String, String)>
         if name.contains(' ') {
             violations.push((name.clone(), "contains spaces".to_string()));
         }
-        if name.chars().next().map_or(false, |c| c.is_ascii_uppercase()) {
+        if name.chars().next().is_some_and(|c| c.is_ascii_uppercase()) {
             violations.push((name.clone(), "starts with uppercase".to_string()));
         }
         if name.contains("__") {
