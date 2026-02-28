@@ -2,7 +2,9 @@
 
 use super::validate_ordering::*;
 use super::graph_intelligence::*;
+use super::graph_intelligence_ext::*;
 use super::status_intelligence::*;
+use super::status_intelligence_ext::*;
 use std::io::Write;
 
 #[cfg(test)]

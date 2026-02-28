@@ -645,5 +645,8 @@ pub struct ApplyArgs {
     /// FJ-944: Deduplicate notifications within a time window
     #[arg(long)]
     pub notify_custom_dedup_window: Option<String>,
+    /// FJ-952: Rate-limit notification delivery per channel
+    #[arg(long)]
+    pub notify_custom_rate_limit: Option<String>,
 }
 

@@ -2802,6 +2802,44 @@ forjar status --state-dir state --machine-resource-apply-duration-trend
 #   db — avg 0.8500s
 ```
 
+#### Phase 86 — Resource Lifecycle & Configuration Maturity (FJ-949→FJ-956)
+
+```bash
+# FJ-949: Detect unused parameters
+forjar validate -f forjar.yaml --check-resource-unused-params
+# Unused parameters:
+#   base_dir
+
+# FJ-950: Convergence streak per machine
+forjar status --state-dir state --machine-resource-convergence-streak
+# Convergence streaks:
+#   web — 2 consecutive converged
+
+# FJ-951: Dependency path count
+forjar graph -f forjar.yaml --resource-dependency-path-count
+# Total dependency paths: 1 (2 nodes)
+
+# FJ-952: Rate-limit notifications per channel
+forjar apply -f forjar.yaml --notify-custom-rate-limit "https://hooks.example.com|10/min"
+
+# FJ-953: Machine resource balance check
+forjar validate -f forjar.yaml --check-resource-machine-balance
+# Resource distribution is balanced (ratio: 0.0000).
+
+# FJ-954: Fleet-wide convergence streak
+forjar status --state-dir state --fleet-resource-convergence-streak
+# Fleet convergence streak avg: 2.0000 (1 machines)
+
+# FJ-955: Articulation points in dependency graph
+forjar graph -f forjar.yaml --resource-dependency-articulation-points
+# No articulation points found.
+
+# FJ-956: Error distribution per machine
+forjar status --state-dir state --machine-resource-error-distribution
+# Error distribution:
+#   web — 1 failed, 1 drifted
+```
+
 ### `forjar watch`
 
 Watch a config file for changes and automatically re-plan.

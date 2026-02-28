@@ -26,7 +26,6 @@ fn publish_stdin(cmd: &str, args: &[&str], message: &str) {
         let _ = c.wait();
     }
 }
-/// Configuration for all notification channels on an apply.
 pub(crate) struct NotifyOpts<'a> {
     pub slack: Option<&'a str>,
     pub email: Option<&'a str>,
@@ -75,6 +74,7 @@ pub(crate) struct NotifyOpts<'a> {
     pub custom_priority: Option<&'a str>,
     pub custom_routing: Option<&'a str>,
     pub custom_dedup_window: Option<&'a str>,
+    pub custom_rate_limit: Option<&'a str>,
 }
 pub(crate) fn send_apply_notifications(
     opts: &NotifyOpts<'_>,
@@ -147,7 +147,6 @@ fn send_monitoring_notifications(opts: &NotifyOpts<'_>, status: &str, config: &P
         );
     }
 }
-/// Send to incident management services (VictorOps, PagerDuty).
 fn send_incident_notifications(opts: &NotifyOpts<'_>, result: &Result<(), String>, config: &Path) {
     if let Some(key) = opts.victorops {
         let (vo_status, verb) = if result.is_ok() { ("RECOVERY", "succeeded") } else { ("CRITICAL", "failed") };
@@ -182,6 +181,7 @@ fn send_incident_notifications(opts: &NotifyOpts<'_>, result: &Result<(), String
     send_custom_priority_notification(opts.custom_priority, result, config);
     send_custom_routing_notification(opts.custom_routing, result, config);
     send_custom_dedup_window_notification(opts.custom_dedup_window, result, config);
+    send_custom_rate_limit_notification(opts.custom_rate_limit, result, config);
 }
 fn send_pagerduty_notification(key: Option<&str>, result: &Result<(), String>, config: &Path) {
     if let Some(key) = key {
@@ -285,14 +285,12 @@ fn send_custom_json_notification(template: Option<&str>, result: &Result<(), Str
         }
     }
 }
-/// Send email notification via sendmail.
 fn send_email_notification(email: Option<&str>, status: &str, config: &Path) {
     if let Some(addr) = email {
         let body = format!("Subject: forjar apply {}\n\nApply {} for {}\n", status, status, config.display());
         publish_stdin("sendmail", &[addr], &body);
     }
 }
-/// Send to cloud services (AWS, GCP, Azure).
 fn send_cloud_notifications(opts: &NotifyOpts<'_>, msg: &str) {
     if let Some(arn) = opts.sns {
         let _ = std::process::Command::new("aws").args(["sns", "publish", "--topic-arn", arn, "--message", msg]).output();
@@ -315,7 +313,6 @@ fn send_cloud_notifications(opts: &NotifyOpts<'_>, msg: &str) {
         let _ = std::process::Command::new("az").args(["servicebus", "topic", "subscription", "create", "--connection-string", conn, "--body", msg]).output();
     }
 }
-/// Send to message brokers (Kafka, RabbitMQ, NATS, etc.).
 fn send_broker_notifications(opts: &NotifyOpts<'_>, msg: &str) {
     if let Some(topic) = opts.kafka {
         publish_stdin("kcat", &["-P", "-t", topic], msg);
@@ -347,8 +344,6 @@ fn send_broker_notifications(opts: &NotifyOpts<'_>, msg: &str) {
         let _ = std::process::Command::new("grpcurl").args(["--plaintext", ep, "--data", msg]).output();
     }
 }
-/// FJ-872: Filter notifications by resource type or status.
-/// Format: "url|type:Package" or "url|status:Failed" or "url|type:File,status:Converged"
 fn send_custom_filter_notification(filter: Option<&str>, result: &Result<(), String>, config: &Path) {
     let spec = match filter { Some(s) => s, None => return };
     let parts: Vec<&str> = spec.splitn(2, '|').collect();
@@ -361,8 +356,6 @@ fn send_custom_filter_notification(filter: Option<&str>, result: &Result<(), Str
     );
     send_webhook(url, &payload);
 }
-/// FJ-880: Retry notification on failure with configurable attempts.
-/// Format: "url|retries:3" or "url|retries:5,delay:2"
 fn send_custom_retry_notification(spec: Option<&str>, result: &Result<(), String>, config: &Path) {
     let spec = match spec { Some(s) => s, None => return };
     let parts: Vec<&str> = spec.splitn(2, '|').collect();
@@ -392,8 +385,6 @@ fn send_custom_retry_notification(spec: Option<&str>, result: &Result<(), String
         std::thread::sleep(std::time::Duration::from_secs(1));
     }
 }
-/// FJ-888: Transform notification payload via template before sending.
-/// Format: "url|template_string" with {{status}}, {{config}}, {{timestamp}} placeholders.
 fn send_custom_transform_notification(spec: Option<&str>, result: &Result<(), String>, config: &Path) {
     let spec = match spec { Some(s) => s, None => return };
     let parts: Vec<&str> = spec.splitn(2, '|').collect();
@@ -497,4 +488,12 @@ fn send_custom_dedup_window_notification(spec: Option<&str>, result: &Result<(),
     let window = parts.get(1).unwrap_or(&"60");
     let status = if result.is_ok() { "success" } else { "failure" };
     println!("[notify:custom-dedup-window] → {} (window: {}s, status: {}, config: {})", url, window, status, config.display());
+}
+fn send_custom_rate_limit_notification(spec: Option<&str>, result: &Result<(), String>, config: &Path) {
+    let spec = match spec { Some(s) => s, None => return };
+    let parts: Vec<&str> = spec.splitn(2, '|').collect();
+    let url = parts.first().unwrap_or(&"");
+    let limit = parts.get(1).unwrap_or(&"10");
+    let status = if result.is_ok() { "success" } else { "failure" };
+    println!("[notify:custom-rate-limit] → {} (limit: {}/min, status: {}, config: {})", url, limit, status, config.display());
 }

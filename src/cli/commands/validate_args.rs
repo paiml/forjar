@@ -350,5 +350,11 @@ pub struct ValidateArgs {
     /// FJ-945: Warn when dependency chains exceed a threshold
     #[arg(long)]
     pub check_resource_dependency_depth_limit: bool,
+    /// FJ-949: Detect parameters defined but never referenced in templates
+    #[arg(long)]
+    pub check_resource_unused_params: bool,
+    /// FJ-953: Warn when machines have unbalanced resource counts
+    #[arg(long)]
+    pub check_resource_machine_balance: bool,
 }
 
