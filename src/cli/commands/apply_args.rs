@@ -639,5 +639,8 @@ pub struct ApplyArgs {
     /// FJ-928: Assign priority levels to notifications based on severity
     #[arg(long)]
     pub notify_custom_priority: Option<String>,
+    /// FJ-936: Route notifications to different channels based on resource type
+    #[arg(long)]
+    pub notify_custom_routing: Option<String>,
 }
 

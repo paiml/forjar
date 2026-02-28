@@ -349,3 +349,83 @@ fn bfs_max_distance(start: usize, adj: &[HashSet<usize>], n: usize) -> usize {
     }
     max_d
 }
+
+/// FJ-935: Edge density ratio in dependency graph.
+pub(crate) fn cmd_graph_resource_dependency_density(file: &Path, json: bool) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let config: types::ForjarConfig = serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let n = config.resources.len();
+    let edges: usize = config.resources.values().map(|r| r.depends_on.len()).sum();
+    let max_edges = if n > 1 { n * (n - 1) } else { 1 };
+    let density = edges as f64 / max_edges as f64;
+    if json {
+        println!("{{\"density\":{:.4},\"nodes\":{},\"edges\":{}}}", density, n, edges);
+    } else {
+        println!("Graph density: {:.4} ({} nodes, {} edges)", density, n, edges);
+    }
+    Ok(())
+}
+
+/// FJ-939: Transitive reduction ratio for dependency simplification.
+pub(crate) fn cmd_graph_resource_dependency_transitivity(file: &Path, json: bool) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let config: types::ForjarConfig = serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let (total, redundant) = count_transitive_edges(&config);
+    let ratio = if total > 0 { redundant as f64 / total as f64 } else { 0.0 };
+    if json {
+        println!("{{\"total_edges\":{},\"redundant_edges\":{},\"transitivity_ratio\":{:.4}}}", total, redundant, ratio);
+    } else {
+        println!("Transitivity: {}/{} edges redundant (ratio: {:.4})", redundant, total, ratio);
+    }
+    Ok(())
+}
+
+fn count_transitive_edges(config: &types::ForjarConfig) -> (usize, usize) {
+    let names: Vec<&str> = config.resources.keys().map(|k| k.as_str()).collect();
+    let idx: std::collections::HashMap<&str, usize> = names.iter().enumerate().map(|(i, n)| (*n, i)).collect();
+    let n = names.len();
+    let mut adj = vec![vec![false; n]; n];
+    let mut total = 0;
+    for (name, res) in &config.resources {
+        if let Some(&from) = idx.get(name.as_str()) {
+            for dep in &res.depends_on {
+                if let Some(&to) = idx.get(dep.as_str()) {
+                    adj[from][to] = true;
+                    total += 1;
+                }
+            }
+        }
+    }
+    let redundant = count_redundant_edges(&adj, n);
+    (total, redundant)
+}
+
+fn count_redundant_edges(adj: &[Vec<bool>], n: usize) -> usize {
+    let mut redundant = 0;
+    for i in 0..n {
+        for j in 0..n {
+            if adj[i][j] && is_edge_redundant(adj, i, j, n) { redundant += 1; }
+        }
+    }
+    redundant
+}
+
+fn is_edge_redundant(adj: &[Vec<bool>], from: usize, to: usize, n: usize) -> bool {
+    (0..n).any(|k| k != to && adj[from][k] && reachable_without_direct(adj, k, to, n))
+}
+
+fn reachable_without_direct(adj: &[Vec<bool>], from: usize, to: usize, n: usize) -> bool {
+    let mut visited = vec![false; n];
+    let mut stack = vec![from];
+    visited[from] = true;
+    while let Some(v) = stack.pop() {
+        for w in 0..n {
+            if adj[v][w] && !visited[w] {
+                if w == to { return true; }
+                visited[w] = true;
+                stack.push(w);
+            }
+        }
+    }
+    false
+}

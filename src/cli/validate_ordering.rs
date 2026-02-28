@@ -67,3 +67,74 @@ fn find_missing_tags(config: &types::ForjarConfig) -> Vec<(String, usize)> {
     missing.sort_by(|a, b| a.0.cmp(&b.0));
     missing
 }
+
+/// FJ-933: Enforce naming conventions via configurable patterns.
+pub(crate) fn cmd_validate_check_resource_naming_standards(file: &Path, json: bool) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let config: types::ForjarConfig = serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let violations = find_naming_violations(&config);
+    if json {
+        let items: Vec<String> = violations.iter()
+            .map(|(n, r)| format!("{{\"resource\":\"{}\",\"issue\":\"{}\"}}", n, r))
+            .collect();
+        println!("{{\"naming_violations\":[{}]}}", items.join(","));
+    } else if violations.is_empty() {
+        println!("All resource names follow naming conventions.");
+    } else {
+        println!("Naming convention violations:");
+        for (n, r) in &violations { println!("  {} — {}", n, r); }
+    }
+    Ok(())
+}
+
+fn find_naming_violations(config: &types::ForjarConfig) -> Vec<(String, String)> {
+    let mut violations = Vec::new();
+    for name in config.resources.keys() {
+        if name.contains(' ') {
+            violations.push((name.clone(), "contains spaces".to_string()));
+        }
+        if name.chars().next().map_or(false, |c| c.is_ascii_uppercase()) {
+            violations.push((name.clone(), "starts with uppercase".to_string()));
+        }
+        if name.contains("__") {
+            violations.push((name.clone(), "contains double underscore".to_string()));
+        }
+    }
+    violations.sort_by(|a, b| a.0.cmp(&b.0));
+    violations
+}
+
+/// FJ-937: Detect asymmetric dependency declarations.
+pub(crate) fn cmd_validate_check_resource_dependency_symmetry(file: &Path, json: bool) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let config: types::ForjarConfig = serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let asymmetries = find_dependency_asymmetries(&config);
+    if json {
+        let items: Vec<String> = asymmetries.iter()
+            .map(|(a, b)| format!("{{\"from\":\"{}\",\"to\":\"{}\"}}", a, b))
+            .collect();
+        println!("{{\"asymmetric_dependencies\":[{}]}}", items.join(","));
+    } else if asymmetries.is_empty() {
+        println!("No asymmetric dependencies detected.");
+    } else {
+        println!("Asymmetric dependencies:");
+        for (a, b) in &asymmetries { println!("  {} depends on {} (but not vice versa)", a, b); }
+    }
+    Ok(())
+}
+
+fn find_dependency_asymmetries(config: &types::ForjarConfig) -> Vec<(String, String)> {
+    let mut pairs = Vec::new();
+    for (name, res) in &config.resources {
+        for dep in &res.depends_on {
+            if let Some(dep_res) = config.resources.get(dep) {
+                if !dep_res.depends_on.contains(name) {
+                    pairs.push((name.clone(), dep.clone()));
+                }
+            }
+        }
+    }
+    pairs.sort();
+    pairs.dedup();
+    pairs
+}

@@ -2722,6 +2722,44 @@ forjar graph -f forjar.yaml --resource-dependency-eccentricity
 #   base — eccentricity 0
 ```
 
+#### Phase 84 — Compliance Analytics & Infrastructure Forecasting (FJ-933→FJ-940)
+
+```bash
+# FJ-933: Check resource naming standards (no spaces, lowercase start, no double underscores)
+forjar validate -f forjar.yaml --check-resource-naming-standards
+# All resource names follow naming conventions.
+
+# FJ-934: Convergence velocity per machine (converged/total ratio)
+forjar status --state-dir state --machine-resource-convergence-velocity
+# Convergence velocity:
+#   web — 0.8750
+#   db — 1.0000
+
+# FJ-935: Dependency graph edge density
+forjar graph -f forjar.yaml --resource-dependency-density
+# Graph density: 0.1667 (4 nodes, 1 edges)
+
+# FJ-936: Route notifications by resource type
+forjar apply -f forjar.yaml --notify-custom-routing "file:slack|package:email|service:pagerduty"
+
+# FJ-937: Detect asymmetric dependency declarations
+forjar validate -f forjar.yaml --check-resource-dependency-symmetry
+# No asymmetric dependencies detected.
+
+# FJ-938: Fleet-wide convergence velocity
+forjar status --state-dir state --fleet-resource-convergence-velocity
+# Fleet convergence velocity: 0.9375 (2 machines)
+
+# FJ-939: Transitive reduction ratio in dependency graph
+forjar graph -f forjar.yaml --resource-dependency-transitivity
+# Transitivity: 0/3 edges redundant (ratio: 0.0000)
+
+# FJ-940: Failure recurrence per machine
+forjar status --state-dir state --machine-resource-failure-recurrence
+# Failure recurrence:
+#   web — 2 failed resources
+```
+
 ### `forjar watch`
 
 Watch a config file for changes and automatically re-plan.

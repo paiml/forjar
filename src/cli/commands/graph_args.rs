@@ -352,5 +352,11 @@ pub struct GraphArgs {
     /// FJ-931: Eccentricity (max shortest path) per resource
     #[arg(long)]
     pub resource_dependency_eccentricity: bool,
+    /// FJ-935: Edge density ratio in dependency graph
+    #[arg(long)]
+    pub resource_dependency_density: bool,
+    /// FJ-939: Transitive reduction ratio for dependency simplification
+    #[arg(long)]
+    pub resource_dependency_transitivity: bool,
 }
 

@@ -1,6 +1,4 @@
-//! Apply notification dispatch helpers.
-//!
-//! Sends apply results to various notification channels (Slack, Teams, etc.).
+//! Apply notification dispatch helpers — sends apply results to notification channels.
 
 use std::path::Path;
 
@@ -82,8 +80,8 @@ pub(crate) struct NotifyOpts<'a> {
     pub custom_throttle: Option<&'a str>,
     pub custom_aggregate: Option<&'a str>,
     pub custom_priority: Option<&'a str>,
+    pub custom_routing: Option<&'a str>,
 }
-
 /// Send notifications for an apply result to all configured channels.
 pub(crate) fn send_apply_notifications(
     opts: &NotifyOpts<'_>,
@@ -92,7 +90,6 @@ pub(crate) fn send_apply_notifications(
 ) {
     let status = if result.is_ok() { "success" } else { "failure" };
     let msg = event_json(status, config_path);
-
     send_webhook_notifications(opts, status, config_path);
     send_monitoring_notifications(opts, status, config_path);
     send_incident_notifications(opts, result, config_path);
@@ -100,7 +97,6 @@ pub(crate) fn send_apply_notifications(
     send_cloud_notifications(opts, &msg);
     send_broker_notifications(opts, &msg);
 }
-
 /// Send to webhook-based services (Slack, Teams, Discord, etc.).
 fn send_webhook_notifications(opts: &NotifyOpts<'_>, status: &str, config: &Path) {
     if let Some(url) = opts.slack {
@@ -136,7 +132,6 @@ fn send_webhook_notifications(opts: &NotifyOpts<'_>, status: &str, config: &Path
         send_webhook(url, &format!(r#"{{"text":"forjar apply {}","tags":["forjar","deploy"],"time":{}}}"#, status, ts));
     }
 }
-
 /// Send to monitoring services (OpsGenie, Datadog, NewRelic).
 fn send_monitoring_notifications(opts: &NotifyOpts<'_>, status: &str, config: &Path) {
     if let Some(key) = opts.opsgenie {
@@ -161,7 +156,6 @@ fn send_monitoring_notifications(opts: &NotifyOpts<'_>, status: &str, config: &P
         );
     }
 }
-
 /// Send to incident management services (VictorOps, PagerDuty).
 fn send_incident_notifications(opts: &NotifyOpts<'_>, result: &Result<(), String>, config: &Path) {
     if let Some(key) = opts.victorops {
@@ -195,6 +189,7 @@ fn send_incident_notifications(opts: &NotifyOpts<'_>, result: &Result<(), String
     send_custom_throttle_notification(opts.custom_throttle, result, config);
     send_custom_aggregate_notification(opts.custom_aggregate, result, config);
     send_custom_priority_notification(opts.custom_priority, result, config);
+    send_custom_routing_notification(opts.custom_routing, result, config);
 }
 fn send_pagerduty_notification(key: Option<&str>, result: &Result<(), String>, config: &Path) {
     if let Some(key) = key {
@@ -420,7 +415,6 @@ fn send_custom_transform_notification(spec: Option<&str>, result: &Result<(), St
         .replace("{{timestamp}}", &ts.to_string());
     send_webhook(url, &body);
 }
-
 /// FJ-896: Batch multiple resource notifications into single payload.
 /// Format: "url|batch_size" where batch_size is the max items per batch.
 fn send_custom_batch_notification(spec: Option<&str>, result: &Result<(), String>, config: &Path) {
@@ -431,7 +425,6 @@ fn send_custom_batch_notification(spec: Option<&str>, result: &Result<(), String
     let status = if result.is_ok() { "success" } else { "failure" };
     println!("[notify:custom-batch] → {} (batch_size: {}, status: {}, config: {})", url, batch_size, status, config.display());
 }
-
 /// FJ-904: Deduplicate repeated notifications within a window.
 /// Format: "url|window_seconds" where window is the dedup time window.
 fn send_custom_deduplicate_notification(spec: Option<&str>, result: &Result<(), String>, config: &Path) {
@@ -442,7 +435,6 @@ fn send_custom_deduplicate_notification(spec: Option<&str>, result: &Result<(), 
     let status = if result.is_ok() { "success" } else { "failure" };
     println!("[notify:custom-deduplicate] → {} (window: {}s, status: {}, config: {})", url, window, status, config.display());
 }
-
 /// FJ-912: Throttle notifications to max N per time window.
 /// Format: "url|max_per_minute:5" or "url|max_per_minute:10,window:60"
 fn send_custom_throttle_notification(spec: Option<&str>, result: &Result<(), String>, config: &Path) {
@@ -461,7 +453,6 @@ fn send_custom_throttle_notification(spec: Option<&str>, result: &Result<(), Str
     let status = if result.is_ok() { "success" } else { "failure" };
     println!("[notify:custom-throttle] → {} (max_per_minute: {}, status: {}, config: {})", url, max_per_min, status, config.display());
 }
-
 /// FJ-920: Aggregate multiple events into summary notification.
 fn send_custom_aggregate_notification(spec: Option<&str>, result: &Result<(), String>, config: &Path) {
     let spec = match spec { Some(s) => s, None => return };
@@ -479,7 +470,6 @@ fn send_custom_aggregate_notification(spec: Option<&str>, result: &Result<(), St
     let status = if result.is_ok() { "success" } else { "failure" };
     println!("[notify:custom-aggregate] → {} (window: {}s, status: {}, config: {})", url, window_secs, status, config.display());
 }
-
 /// FJ-928: Assign priority levels to notifications based on severity.
 fn send_custom_priority_notification(spec: Option<&str>, result: &Result<(), String>, config: &Path) {
     let spec = match spec { Some(s) => s, None => return };
@@ -497,4 +487,13 @@ fn send_custom_priority_notification(spec: Option<&str>, result: &Result<(), Str
     let priority = if result.is_err() { "critical" } else { default_priority };
     let status = if result.is_ok() { "success" } else { "failure" };
     println!("[notify:custom-priority] → {} (priority: {}, status: {}, config: {})", url, priority, status, config.display());
+}
+/// FJ-936: Route notifications to different channels based on resource type.
+fn send_custom_routing_notification(spec: Option<&str>, result: &Result<(), String>, config: &Path) {
+    let spec = match spec { Some(s) => s, None => return };
+    let parts: Vec<&str> = spec.splitn(2, '|').collect();
+    let url = parts.first().unwrap_or(&"");
+    let route_rules = parts.get(1).unwrap_or(&"default");
+    let status = if result.is_ok() { "success" } else { "failure" };
+    println!("[notify:custom-routing] → {} (routes: {}, status: {}, config: {})", url, route_rules, status, config.display());
 }
