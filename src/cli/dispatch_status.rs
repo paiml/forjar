@@ -24,6 +24,7 @@ use super::status_compliance::*;
 use super::status_cost::*;
 use super::status_observability::*;
 use super::status_failures::*;
+use super::status_operational::*;
 use super::lock_ops::*;
 
 
@@ -285,6 +286,7 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
         last_drift_time, machine_resource_count, convergence_score,
         apply_success_rate, error_rate, fleet_health_summary,
         machine_convergence_history, drift_history, resource_failure_rate,
+        machine_last_apply, fleet_drift_summary, resource_apply_duration,
     }) = cmd
     else {
         unreachable!()
@@ -304,6 +306,9 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
     if machine_convergence_history { return cmd_status_machine_convergence_history(&state_dir, m, json); }
     if drift_history { return cmd_status_drift_history(&state_dir, m, json); }
     if resource_failure_rate { return cmd_status_resource_failure_rate(&state_dir, m, json); }
+    if machine_last_apply { return cmd_status_machine_last_apply(&state_dir, m, json); }
+    if fleet_drift_summary { return cmd_status_fleet_drift_summary(&state_dir, m, json); }
+    if resource_apply_duration { return cmd_status_resource_apply_duration(&state_dir, m, json); }
     if let Some(r) = try_status_phase58(&state_dir, m, json, resource_types_summary, failed_resources, drift_trend, resource_inputs, convergence_history, config_hash, last_apply_duration, drift_details_all, resource_size, hash_verify, lock_age) {
         return r;
     }

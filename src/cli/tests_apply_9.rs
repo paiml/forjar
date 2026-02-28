@@ -167,7 +167,7 @@ mod tests {
         notify_json: false,
             notify_slack_webhook: None,
             notify_telegram: None,
-            notify_webhook_v2: None,
+            notify_webhook_v2: None, notify_discord_webhook: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { post_script, .. }) => {
@@ -329,7 +329,7 @@ mod tests {
         notify_json: false,
             notify_slack_webhook: None,
             notify_telegram: None,
-            notify_webhook_v2: None,
+            notify_webhook_v2: None, notify_discord_webhook: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs {
@@ -491,7 +491,7 @@ mod tests {
         notify_json: false,
             notify_slack_webhook: None,
             notify_telegram: None,
-            notify_webhook_v2: None,
+            notify_webhook_v2: None, notify_discord_webhook: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { canary_percent, .. }) => assert_eq!(canary_percent, Some(25)),

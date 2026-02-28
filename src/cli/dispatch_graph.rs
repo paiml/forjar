@@ -94,6 +94,26 @@ fn try_visualization(
     None
 }
 
+/// Phase 66-69 graph analysis flags.
+#[allow(clippy::too_many_arguments)]
+fn try_graph_analysis(
+    file: &Path, json: bool,
+    resource_weight: bool, dependency_depth_per_resource: bool,
+    resource_fanin: bool, isolated_subgraphs: bool,
+    dependency_matrix_csv: bool, strongly_connected: bool,
+    bipartite_check: bool, sink_resources: bool,
+) -> Option<Result<(), String>> {
+    if resource_weight { return Some(cmd_graph_resource_weight(file, json)); }
+    if dependency_depth_per_resource { return Some(cmd_graph_dependency_depth_per_resource(file, json)); }
+    if resource_fanin { return Some(cmd_graph_resource_fanin(file, json)); }
+    if isolated_subgraphs { return Some(cmd_graph_isolated_subgraphs(file, json)); }
+    if dependency_matrix_csv { return Some(cmd_graph_dependency_matrix_csv(file, json)); }
+    if strongly_connected { return Some(cmd_graph_strongly_connected(file, json)); }
+    if bipartite_check { return Some(cmd_graph_bipartite_check(file, json)); }
+    if sink_resources { return Some(cmd_graph_sink_resources(file, json)); }
+    None
+}
+
 /// Dispatch the Graph command variant.
 pub(crate) fn dispatch_graph_cmd(cmd: Commands) -> Result<(), String> {
     let Commands::Graph(GraphArgs {
@@ -117,6 +137,7 @@ pub(crate) fn dispatch_graph_cmd(cmd: Commands) -> Result<(), String> {
         sink_resources, bipartite_check,
         strongly_connected, dependency_matrix_csv,
         resource_weight, dependency_depth_per_resource,
+        resource_fanin, isolated_subgraphs,
     }) = cmd
     else {
         unreachable!()
@@ -135,12 +156,9 @@ pub(crate) fn dispatch_graph_cmd(cmd: Commands) -> Result<(), String> {
     if density { return cmd_graph_density(&file, json_output); }
     if topological_sort { return cmd_graph_topological_sort(&file, json_output); }
     if critical_path_resources { return cmd_graph_critical_path_resources(&file, json_output); }
-    if sink_resources { return cmd_graph_sink_resources(&file, json_output); }
-    if bipartite_check { return cmd_graph_bipartite_check(&file, json_output); }
-    if strongly_connected { return cmd_graph_strongly_connected(&file, json_output); }
-    if dependency_matrix_csv { return cmd_graph_dependency_matrix_csv(&file, json_output); }
-    if resource_weight { return cmd_graph_resource_weight(&file, json_output); }
-    if dependency_depth_per_resource { return cmd_graph_dependency_depth_per_resource(&file, json_output); }
+    if let Some(r) = try_graph_analysis(&file, json_output, resource_weight, dependency_depth_per_resource, resource_fanin, isolated_subgraphs, dependency_matrix_csv, strongly_connected, bipartite_check, sink_resources) {
+        return r;
+    }
     if let Some(r) = try_traversal(&file, json_output, depth_first, reverse_deps, leaf_resources, fan_out, resource_clusters, machine_groups, cross_machine_deps, orphan_detection) {
         return r;
     }

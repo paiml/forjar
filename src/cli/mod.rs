@@ -77,6 +77,7 @@ mod observe;
 mod fleet_ops;
 mod fleet_reporting;
 mod infra;
+mod status_operational;
 #[cfg(test)]
 mod test_fixtures;
 #[cfg(test)]
@@ -279,6 +280,8 @@ mod tests_phase67;
 mod tests_misc_10;
 #[cfg(test)]
 mod tests_phase68;
+#[cfg(test)]
+mod tests_phase69;
 
 pub use commands::Commands;
 pub use dispatch::dispatch;

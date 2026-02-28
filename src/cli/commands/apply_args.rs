@@ -585,5 +585,9 @@ pub struct ApplyArgs {
     /// FJ-800: Enhanced webhook with retry and custom headers
     #[arg(long)]
     pub notify_webhook_v2: Option<String>,
+
+    /// FJ-816: Discord webhook with rich embeds for apply results
+    #[arg(long)]
+    pub notify_discord_webhook: Option<String>,
 }
 

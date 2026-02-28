@@ -260,3 +260,108 @@ fn compute_max_depth(node: usize, adj: &[Vec<usize>], cache: &mut [Option<usize>
     cache[node] = Some(d);
     d
 }
+
+/// FJ-815: Fan-in count per resource (how many depend on it).
+pub(crate) fn cmd_graph_resource_fanin(
+    file: &Path, json: bool,
+) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let config: types::ForjarConfig =
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+    let mut fanin: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    for name in config.resources.keys() {
+        fanin.insert(name.clone(), 0);
+    }
+    for resource in config.resources.values() {
+        for dep in &resource.depends_on {
+            *fanin.entry(dep.clone()).or_default() += 1;
+        }
+    }
+    let mut sorted: Vec<(String, usize)> = fanin.into_iter().collect();
+    sorted.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+    if json {
+        let items: Vec<String> = sorted.iter()
+            .map(|(r, c)| format!("{{\"resource\":\"{}\",\"fanin\":{}}}", r, c))
+            .collect();
+        println!("{{\"resource_fanin\":[{}]}}", items.join(","));
+    } else if sorted.is_empty() {
+        println!("No resources.");
+    } else {
+        println!("Fan-in per resource:");
+        for (r, c) in &sorted { println!("  {} — {} dependents", r, c); }
+    }
+    Ok(())
+}
+
+/// FJ-819: Detect disconnected subgraphs in the DAG.
+pub(crate) fn cmd_graph_isolated_subgraphs(
+    file: &Path, json: bool,
+) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let config: types::ForjarConfig =
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+    let components = find_connected_components(&config);
+    if json {
+        let items: Vec<String> = components.iter()
+            .map(|c| {
+                let members: Vec<String> = c.iter().map(|s| format!("\"{}\"", s)).collect();
+                format!("[{}]", members.join(","))
+            })
+            .collect();
+        println!("{{\"subgraphs\":[{}],\"count\":{}}}", items.join(","), components.len());
+    } else if components.len() <= 1 {
+        println!("Graph is fully connected ({} component).", components.len());
+    } else {
+        println!("Isolated subgraphs ({}):", components.len());
+        for (i, c) in components.iter().enumerate() {
+            println!("  Subgraph {}: {}", i + 1, c.join(", "));
+        }
+    }
+    Ok(())
+}
+
+fn build_undirected_adj(config: &types::ForjarConfig) -> (Vec<&String>, Vec<Vec<usize>>) {
+    let names: Vec<&String> = config.resources.keys().collect();
+    let idx: std::collections::HashMap<&str, usize> = names.iter()
+        .enumerate().map(|(i, n)| (n.as_str(), i)).collect();
+    let mut adj = vec![vec![]; names.len()];
+    for (name, resource) in &config.resources {
+        let from = idx[name.as_str()];
+        for dep in &resource.depends_on {
+            if let Some(&to) = idx.get(dep.as_str()) {
+                adj[from].push(to);
+                adj[to].push(from);
+            }
+        }
+    }
+    (names, adj)
+}
+
+fn dfs_component(start: usize, adj: &[Vec<usize>], visited: &mut [bool]) -> Vec<usize> {
+    let mut stack = vec![start];
+    let mut comp = Vec::new();
+    while let Some(node) = stack.pop() {
+        if visited[node] { continue; }
+        visited[node] = true;
+        comp.push(node);
+        for &next in &adj[node] {
+            if !visited[next] { stack.push(next); }
+        }
+    }
+    comp
+}
+
+fn find_connected_components(config: &types::ForjarConfig) -> Vec<Vec<String>> {
+    let (names, adj) = build_undirected_adj(config);
+    let mut visited = vec![false; names.len()];
+    let mut components = Vec::new();
+    for start in 0..names.len() {
+        if visited[start] { continue; }
+        let indices = dfs_component(start, &adj, &mut visited);
+        let mut comp: Vec<String> = indices.iter().map(|&i| names[i].clone()).collect();
+        comp.sort();
+        components.push(comp);
+    }
+    components.sort_by(|a, b| b.len().cmp(&a.len()));
+    components
+}

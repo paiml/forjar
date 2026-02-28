@@ -158,3 +158,95 @@ fn find_resource_overlaps(config: &types::ForjarConfig) -> Vec<(String, String, 
     }
     overlaps
 }
+
+/// FJ-813: Enforce tag conventions (required tags, naming rules).
+pub(crate) fn cmd_validate_check_resource_tags(
+    file: &Path, json: bool,
+) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let config: types::ForjarConfig =
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+    let issues = find_tag_issues(&config);
+    if json {
+        let items: Vec<String> = issues.iter()
+            .map(|(r, issue)| format!("{{\"resource\":\"{}\",\"issue\":\"{}\"}}", r, issue))
+            .collect();
+        println!("{{\"tag_issues\":[{}]}}", items.join(","));
+    } else if issues.is_empty() {
+        println!("All resource tags follow conventions.");
+    } else {
+        println!("Tag convention issues ({}):", issues.len());
+        for (r, issue) in &issues { println!("  {} — {}", r, issue); }
+    }
+    Ok(())
+}
+
+fn find_tag_issues(config: &types::ForjarConfig) -> Vec<(String, String)> {
+    let mut issues = Vec::new();
+    for (name, resource) in &config.resources {
+        if resource.tags.is_empty() {
+            issues.push((name.clone(), "no tags assigned".to_string()));
+            continue;
+        }
+        for tag in &resource.tags {
+            if tag != &tag.to_lowercase() {
+                issues.push((name.clone(), format!("tag '{}' should be lowercase", tag)));
+            }
+            if tag.contains(' ') {
+                issues.push((name.clone(), format!("tag '{}' contains spaces", tag)));
+            }
+        }
+    }
+    issues.sort();
+    issues
+}
+
+/// FJ-817: Verify state fields match resource type constraints.
+pub(crate) fn cmd_validate_check_resource_state_consistency(
+    file: &Path, json: bool,
+) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let config: types::ForjarConfig =
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+    let issues = find_state_consistency_issues(&config);
+    if json {
+        let items: Vec<String> = issues.iter()
+            .map(|(r, issue)| format!("{{\"resource\":\"{}\",\"issue\":\"{}\"}}", r, issue))
+            .collect();
+        println!("{{\"state_consistency_issues\":[{}]}}", items.join(","));
+    } else if issues.is_empty() {
+        println!("All resource states are consistent with their types.");
+    } else {
+        println!("State consistency issues ({}):", issues.len());
+        for (r, issue) in &issues { println!("  {} — {}", r, issue); }
+    }
+    Ok(())
+}
+
+fn find_state_consistency_issues(config: &types::ForjarConfig) -> Vec<(String, String)> {
+    let mut issues = Vec::new();
+    let pkg_states = ["present", "absent", "latest"];
+    let svc_states = ["running", "stopped", "enabled", "disabled"];
+    let file_states = ["present", "absent", "directory"];
+    for (name, resource) in &config.resources {
+        let rtype = format!("{:?}", resource.resource_type);
+        let state = match resource.state.as_deref() {
+            Some(s) => s,
+            None => continue,
+        };
+        let valid = if rtype.contains("Package") {
+            pkg_states.contains(&state)
+        } else if rtype.contains("Service") {
+            svc_states.contains(&state)
+        } else if rtype.contains("File") || rtype.contains("Template") {
+            file_states.contains(&state)
+        } else {
+            true
+        };
+        if !valid {
+            issues.push((name.clone(), format!("state '{}' invalid for type {}", state, rtype)));
+        }
+    }
+    issues.sort();
+    issues
+}

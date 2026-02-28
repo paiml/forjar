@@ -166,7 +166,7 @@ mod tests {
         notify_json: false,
             notify_slack_webhook: None,
             notify_telegram: None,
-            notify_webhook_v2: None,
+            notify_webhook_v2: None, notify_discord_webhook: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { max_parallel, .. }) => assert_eq!(max_parallel, Some(4)),
@@ -328,7 +328,7 @@ mod tests {
         notify_json: false,
             notify_slack_webhook: None,
             notify_telegram: None,
-            notify_webhook_v2: None,
+            notify_webhook_v2: None, notify_discord_webhook: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { notify, .. }) => {
@@ -490,7 +490,7 @@ mod tests {
         notify_json: false,
             notify_slack_webhook: None,
             notify_telegram: None,
-            notify_webhook_v2: None,
+            notify_webhook_v2: None, notify_discord_webhook: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs {

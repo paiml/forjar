@@ -420,5 +420,17 @@ pub struct StatusArgs {
     /// FJ-812: Failure rate per resource across applies
     #[arg(long)]
     pub resource_failure_rate: bool,
+
+    /// FJ-814: Show last apply timestamp per machine
+    #[arg(long)]
+    pub machine_last_apply: bool,
+
+    /// FJ-818: Aggregated drift summary across all machines
+    #[arg(long)]
+    pub fleet_drift_summary: bool,
+
+    /// FJ-820: Average apply duration per resource type
+    #[arg(long)]
+    pub resource_apply_duration: bool,
 }
 
