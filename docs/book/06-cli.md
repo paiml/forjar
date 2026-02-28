@@ -1937,6 +1937,66 @@ forjar status --state-dir state/ --resource-state-distribution
 #   DRIFTED — 1
 ```
 
+### Phase 71 — Compliance & Observability (FJ-829→FJ-836)
+
+**Validate — resource naming pattern (FJ-829)**
+
+```bash
+forjar validate -f forjar.yaml --check-resource-naming-pattern "app"
+# Resources not matching pattern 'app' (1):
+#   inference-server
+```
+
+**Status — machine apply count (FJ-830)**
+
+```bash
+forjar status --state-dir state/ --machine-apply-count
+# Apply counts per machine:
+#   web-01 — 5 resources tracked
+#   db-01 — 3 resources tracked
+```
+
+**Graph — critical dependency path (FJ-831)**
+
+```bash
+forjar graph -f forjar.yaml --critical-dependency-path
+# Critical dependency path (length 3):
+#   top → mid → base
+```
+
+**Validate — resource provider support (FJ-833)**
+
+```bash
+forjar validate -f forjar.yaml --check-resource-provider-support
+# All resource types are supported by their providers.
+```
+
+**Status — fleet apply history (FJ-834)**
+
+```bash
+forjar status --state-dir state/ --fleet-apply-history
+# Fleet apply history (most recent):
+#   web-01 / nginx-config — 2026-02-28T10:30:00Z
+```
+
+**Graph — resource depth histogram (FJ-835)**
+
+```bash
+forjar graph -f forjar.yaml --resource-depth-histogram
+# Resource depth histogram:
+#   depth 0 — 3 ###
+#   depth 1 — 2 ##
+#   depth 2 — 1 #
+```
+
+**Status — resource hash changes (FJ-836)**
+
+```bash
+forjar status --state-dir state/ --resource-hash-changes
+# Resource hashes (5 tracked):
+#   web-01 / nginx-config — abc123...
+```
+
 ### `forjar watch`
 
 Watch a config file for changes and automatically re-plan.
