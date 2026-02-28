@@ -1,6 +1,6 @@
-//! Tests: Phase 81 — Predictive Infrastructure Intelligence (FJ-909→FJ-916).
+//! Tests: Phase 83 — Advanced Graph Analytics & Fleet Observability (FJ-925→FJ-932).
 
-use super::validate_ownership::*;
+use super::validate_ordering::*;
 use super::graph_intelligence::*;
 use super::status_intelligence::*;
 use std::io::Write;
@@ -23,67 +23,67 @@ mod tests {
         p
     }
 
-    // FJ-909: validate --check-resource-dependency-completeness
+    // FJ-925: validate --check-resource-dependency-ordering
     #[test]
-    fn test_fj909_dependency_completeness_clean() {
+    fn test_fj925_dependency_ordering_clean() {
         let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  base:\n    machine: m1\n    type: package\n    name: base\n  app:\n    machine: m1\n    type: package\n    name: app\n    depends_on: [base]\n");
-        assert!(cmd_validate_check_resource_dependency_completeness(f.path(), false).is_ok());
+        assert!(cmd_validate_check_resource_dependency_ordering(f.path(), false).is_ok());
     }
 
     #[test]
-    fn test_fj909_dependency_completeness_missing() {
+    fn test_fj925_dependency_ordering_missing() {
         let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  app:\n    machine: m1\n    type: package\n    name: app\n    depends_on: [nonexistent]\n");
-        assert!(cmd_validate_check_resource_dependency_completeness(f.path(), false).is_ok());
+        assert!(cmd_validate_check_resource_dependency_ordering(f.path(), false).is_ok());
     }
 
     #[test]
-    fn test_fj909_dependency_completeness_json() {
+    fn test_fj925_dependency_ordering_json() {
         let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources: {}\n");
-        assert!(cmd_validate_check_resource_dependency_completeness(f.path(), true).is_ok());
+        assert!(cmd_validate_check_resource_dependency_ordering(f.path(), true).is_ok());
     }
 
-    // FJ-910: status --machine-resource-mttr-estimate
+    // FJ-926: status --machine-resource-convergence-lag
     #[test]
-    fn test_fj910_mttr_estimate_empty() {
+    fn test_fj926_convergence_lag_empty() {
         let dir = tempfile::tempdir().unwrap();
-        assert!(cmd_status_machine_resource_mttr_estimate(dir.path(), None, false).is_ok());
+        assert!(cmd_status_machine_resource_convergence_lag(dir.path(), None, false).is_ok());
     }
 
     #[test]
-    fn test_fj910_mttr_estimate_with_data() {
+    fn test_fj926_convergence_lag_with_data() {
         let dir = tempfile::tempdir().unwrap();
         write_yaml(dir.path(), "web1.lock.yaml", "resources:\n  nginx:\n    resource_type: Package\n    status: Failed\n    hash: abc123\n");
-        assert!(cmd_status_machine_resource_mttr_estimate(dir.path(), None, false).is_ok());
+        assert!(cmd_status_machine_resource_convergence_lag(dir.path(), None, false).is_ok());
     }
 
     #[test]
-    fn test_fj910_mttr_estimate_json() {
+    fn test_fj926_convergence_lag_json() {
         let dir = tempfile::tempdir().unwrap();
-        assert!(cmd_status_machine_resource_mttr_estimate(dir.path(), None, true).is_ok());
+        assert!(cmd_status_machine_resource_convergence_lag(dir.path(), None, true).is_ok());
     }
 
-    // FJ-911: graph --resource-dependency-centrality-score
+    // FJ-927: graph --resource-dependency-diameter
     #[test]
-    fn test_fj911_centrality_score_basic() {
+    fn test_fj927_diameter_basic() {
         let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  base:\n    machine: m1\n    type: package\n    name: base\n  app:\n    machine: m1\n    type: package\n    name: app\n    depends_on: [base]\n");
-        assert!(cmd_graph_resource_dependency_centrality_score(f.path(), false).is_ok());
+        assert!(cmd_graph_resource_dependency_diameter(f.path(), false).is_ok());
     }
 
     #[test]
-    fn test_fj911_centrality_score_empty() {
+    fn test_fj927_diameter_empty() {
         let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources: {}\n");
-        assert!(cmd_graph_resource_dependency_centrality_score(f.path(), false).is_ok());
+        assert!(cmd_graph_resource_dependency_diameter(f.path(), false).is_ok());
     }
 
     #[test]
-    fn test_fj911_centrality_score_json() {
+    fn test_fj927_diameter_json() {
         let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n");
-        assert!(cmd_graph_resource_dependency_centrality_score(f.path(), true).is_ok());
+        assert!(cmd_graph_resource_dependency_diameter(f.path(), true).is_ok());
     }
 
-    // FJ-912: apply --notify-custom-throttle (tested via NotifyOpts)
+    // FJ-928: apply --notify-custom-priority (tested via NotifyOpts)
     #[test]
-    fn test_fj912_custom_throttle_field() {
+    fn test_fj928_custom_priority_field() {
         let opts = super::super::dispatch_notify::NotifyOpts {
             slack: None, email: None, webhook: None, teams: None,
             discord: None, opsgenie: None, datadog: None, newrelic: None,
@@ -95,15 +95,14 @@ mod tests {
             sqs: None, mattermost: None, ntfy: None, pagerduty: None,
             discord_webhook: None, teams_webhook: None, slack_blocks: None,
             custom_template: None, custom_webhook: None, custom_headers: None,
-            custom_json: None, custom_filter: None, custom_retry: None, custom_transform: None, custom_batch: None, custom_deduplicate: None,
-            custom_throttle: Some("https://hooks.example.com|max_per_minute:10"),
-            custom_aggregate: None, custom_priority: None,
+            custom_json: None, custom_filter: None, custom_retry: None, custom_transform: None, custom_batch: None, custom_deduplicate: None, custom_throttle: None, custom_aggregate: None,
+            custom_priority: Some("https://hooks.example.com|default:high"),
         };
-        assert!(opts.custom_throttle.is_some());
+        assert!(opts.custom_priority.is_some());
     }
 
     #[test]
-    fn test_fj912_custom_throttle_none() {
+    fn test_fj928_custom_priority_none() {
         let opts = super::super::dispatch_notify::NotifyOpts {
             slack: None, email: None, webhook: None, teams: None,
             discord: None, opsgenie: None, datadog: None, newrelic: None,
@@ -117,84 +116,84 @@ mod tests {
             custom_template: None, custom_webhook: None, custom_headers: None,
             custom_json: None, custom_filter: None, custom_retry: None, custom_transform: None, custom_batch: None, custom_deduplicate: None, custom_throttle: None, custom_aggregate: None, custom_priority: None,
         };
-        assert!(opts.custom_throttle.is_none());
+        assert!(opts.custom_priority.is_none());
     }
 
-    // FJ-913: validate --check-resource-state-coverage
+    // FJ-929: validate --check-resource-tag-completeness
     #[test]
-    fn test_fj913_state_coverage_clean() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n    state: present\n");
-        assert!(cmd_validate_check_resource_state_coverage(f.path(), false).is_ok());
+    fn test_fj929_tag_completeness_clean() {
+        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n    tags: [web]\n");
+        assert!(cmd_validate_check_resource_tag_completeness(f.path(), false).is_ok());
     }
 
     #[test]
-    fn test_fj913_state_coverage_missing() {
+    fn test_fj929_tag_completeness_missing() {
         let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n");
-        assert!(cmd_validate_check_resource_state_coverage(f.path(), false).is_ok());
+        assert!(cmd_validate_check_resource_tag_completeness(f.path(), false).is_ok());
     }
 
     #[test]
-    fn test_fj913_state_coverage_json() {
+    fn test_fj929_tag_completeness_json() {
         let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources: {}\n");
-        assert!(cmd_validate_check_resource_state_coverage(f.path(), true).is_ok());
+        assert!(cmd_validate_check_resource_tag_completeness(f.path(), true).is_ok());
     }
 
-    // FJ-914: status --fleet-resource-convergence-forecast
+    // FJ-930: status --fleet-resource-convergence-lag
     #[test]
-    fn test_fj914_convergence_forecast_empty() {
+    fn test_fj930_fleet_convergence_lag_empty() {
         let dir = tempfile::tempdir().unwrap();
-        assert!(cmd_status_fleet_resource_convergence_forecast(dir.path(), None, false).is_ok());
+        assert!(cmd_status_fleet_resource_convergence_lag(dir.path(), None, false).is_ok());
     }
 
     #[test]
-    fn test_fj914_convergence_forecast_with_data() {
-        let dir = tempfile::tempdir().unwrap();
-        write_yaml(dir.path(), "web1.lock.yaml", "resources:\n  nginx:\n    resource_type: Package\n    status: Converged\n    hash: abc123\n");
-        assert!(cmd_status_fleet_resource_convergence_forecast(dir.path(), None, false).is_ok());
-    }
-
-    #[test]
-    fn test_fj914_convergence_forecast_json() {
-        let dir = tempfile::tempdir().unwrap();
-        assert!(cmd_status_fleet_resource_convergence_forecast(dir.path(), None, true).is_ok());
-    }
-
-    // FJ-915: graph --resource-dependency-bridge-detection
-    #[test]
-    fn test_fj915_bridge_detection_basic() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  base:\n    machine: m1\n    type: package\n    name: base\n  app:\n    machine: m1\n    type: package\n    name: app\n    depends_on: [base]\n");
-        assert!(cmd_graph_resource_dependency_bridge_detection(f.path(), false).is_ok());
-    }
-
-    #[test]
-    fn test_fj915_bridge_detection_empty() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources: {}\n");
-        assert!(cmd_graph_resource_dependency_bridge_detection(f.path(), false).is_ok());
-    }
-
-    #[test]
-    fn test_fj915_bridge_detection_json() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n");
-        assert!(cmd_graph_resource_dependency_bridge_detection(f.path(), true).is_ok());
-    }
-
-    // FJ-916: status --machine-resource-error-budget-forecast
-    #[test]
-    fn test_fj916_error_budget_forecast_empty() {
-        let dir = tempfile::tempdir().unwrap();
-        assert!(cmd_status_machine_resource_error_budget_forecast(dir.path(), None, false).is_ok());
-    }
-
-    #[test]
-    fn test_fj916_error_budget_forecast_with_data() {
+    fn test_fj930_fleet_convergence_lag_with_data() {
         let dir = tempfile::tempdir().unwrap();
         write_yaml(dir.path(), "web1.lock.yaml", "resources:\n  nginx:\n    resource_type: Package\n    status: Failed\n    hash: abc123\n");
-        assert!(cmd_status_machine_resource_error_budget_forecast(dir.path(), None, false).is_ok());
+        assert!(cmd_status_fleet_resource_convergence_lag(dir.path(), None, false).is_ok());
     }
 
     #[test]
-    fn test_fj916_error_budget_forecast_json() {
+    fn test_fj930_fleet_convergence_lag_json() {
         let dir = tempfile::tempdir().unwrap();
-        assert!(cmd_status_machine_resource_error_budget_forecast(dir.path(), None, true).is_ok());
+        assert!(cmd_status_fleet_resource_convergence_lag(dir.path(), None, true).is_ok());
+    }
+
+    // FJ-931: graph --resource-dependency-eccentricity
+    #[test]
+    fn test_fj931_eccentricity_basic() {
+        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  base:\n    machine: m1\n    type: package\n    name: base\n  app:\n    machine: m1\n    type: package\n    name: app\n    depends_on: [base]\n");
+        assert!(cmd_graph_resource_dependency_eccentricity(f.path(), false).is_ok());
+    }
+
+    #[test]
+    fn test_fj931_eccentricity_empty() {
+        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources: {}\n");
+        assert!(cmd_graph_resource_dependency_eccentricity(f.path(), false).is_ok());
+    }
+
+    #[test]
+    fn test_fj931_eccentricity_json() {
+        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n");
+        assert!(cmd_graph_resource_dependency_eccentricity(f.path(), true).is_ok());
+    }
+
+    // FJ-932: status --machine-resource-dependency-depth
+    #[test]
+    fn test_fj932_dependency_depth_empty() {
+        let dir = tempfile::tempdir().unwrap();
+        assert!(cmd_status_machine_resource_dependency_depth(dir.path(), None, false).is_ok());
+    }
+
+    #[test]
+    fn test_fj932_dependency_depth_with_data() {
+        let dir = tempfile::tempdir().unwrap();
+        write_yaml(dir.path(), "web1.lock.yaml", "resources:\n  nginx:\n    resource_type: Package\n    status: Converged\n    hash: abc123\n");
+        assert!(cmd_status_machine_resource_dependency_depth(dir.path(), None, false).is_ok());
+    }
+
+    #[test]
+    fn test_fj932_dependency_depth_json() {
+        let dir = tempfile::tempdir().unwrap();
+        assert!(cmd_status_machine_resource_dependency_depth(dir.path(), None, true).is_ok());
     }
 }

@@ -340,6 +340,7 @@ fn try_status_phase79(
     machine_resource_health_trend: bool, fleet_resource_drift_velocity: bool, machine_resource_apply_success_trend: bool,
     machine_resource_mttr_estimate: bool, fleet_resource_convergence_forecast: bool, machine_resource_error_budget_forecast: bool,
     machine_resource_dependency_lag: bool, fleet_resource_dependency_lag: bool, machine_resource_config_drift_rate: bool,
+    machine_resource_convergence_lag: bool, fleet_resource_convergence_lag: bool, machine_resource_dependency_depth: bool,
 ) -> Option<Result<(), String>> {
     if machine_resource_failure_correlation { return Some(cmd_status_machine_resource_failure_correlation(sd, machine, json)); }
     if fleet_resource_age_distribution { return Some(cmd_status_fleet_resource_age_distribution(sd, machine, json)); }
@@ -350,9 +351,23 @@ fn try_status_phase79(
     if machine_resource_mttr_estimate { return Some(cmd_status_machine_resource_mttr_estimate(sd, machine, json)); }
     if fleet_resource_convergence_forecast { return Some(cmd_status_fleet_resource_convergence_forecast(sd, machine, json)); }
     if machine_resource_error_budget_forecast { return Some(cmd_status_machine_resource_error_budget_forecast(sd, machine, json)); }
+    try_status_phase82(sd, machine, json,
+        machine_resource_dependency_lag, fleet_resource_dependency_lag, machine_resource_config_drift_rate,
+        machine_resource_convergence_lag, fleet_resource_convergence_lag, machine_resource_dependency_depth,
+    )
+}
+
+fn try_status_phase82(
+    sd: &Path, machine: Option<&str>, json: bool,
+    machine_resource_dependency_lag: bool, fleet_resource_dependency_lag: bool, machine_resource_config_drift_rate: bool,
+    machine_resource_convergence_lag: bool, fleet_resource_convergence_lag: bool, machine_resource_dependency_depth: bool,
+) -> Option<Result<(), String>> {
     if machine_resource_dependency_lag { return Some(cmd_status_machine_resource_dependency_lag(sd, machine, json)); }
     if fleet_resource_dependency_lag { return Some(cmd_status_fleet_resource_dependency_lag(sd, machine, json)); }
     if machine_resource_config_drift_rate { return Some(cmd_status_machine_resource_config_drift_rate(sd, machine, json)); }
+    if machine_resource_convergence_lag { return Some(cmd_status_machine_resource_convergence_lag(sd, machine, json)); }
+    if fleet_resource_convergence_lag { return Some(cmd_status_fleet_resource_convergence_lag(sd, machine, json)); }
+    if machine_resource_dependency_depth { return Some(cmd_status_machine_resource_dependency_depth(sd, machine, json)); }
     None
 }
 
@@ -402,6 +417,7 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
         machine_resource_health_trend, fleet_resource_drift_velocity, machine_resource_apply_success_trend,
         machine_resource_mttr_estimate, fleet_resource_convergence_forecast, machine_resource_error_budget_forecast,
         machine_resource_dependency_lag, fleet_resource_dependency_lag, machine_resource_config_drift_rate,
+        machine_resource_convergence_lag, fleet_resource_convergence_lag, machine_resource_dependency_depth,
     }) = cmd
     else {
         unreachable!()
@@ -424,7 +440,7 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
     if let Some(r) = try_status_phase73(&state_dir, m, json, machine_drift_age, fleet_failed_resources, resource_dependency_health, machine_resource_age_distribution, fleet_convergence_velocity, resource_failure_correlation) {
         return r;
     }
-    if let Some(r) = try_status_phase79(&state_dir, m, json, machine_resource_failure_correlation, fleet_resource_age_distribution, machine_resource_rollback_readiness, machine_resource_health_trend, fleet_resource_drift_velocity, machine_resource_apply_success_trend, machine_resource_mttr_estimate, fleet_resource_convergence_forecast, machine_resource_error_budget_forecast, machine_resource_dependency_lag, fleet_resource_dependency_lag, machine_resource_config_drift_rate) {
+    if let Some(r) = try_status_phase79(&state_dir, m, json, machine_resource_failure_correlation, fleet_resource_age_distribution, machine_resource_rollback_readiness, machine_resource_health_trend, fleet_resource_drift_velocity, machine_resource_apply_success_trend, machine_resource_mttr_estimate, fleet_resource_convergence_forecast, machine_resource_error_budget_forecast, machine_resource_dependency_lag, fleet_resource_dependency_lag, machine_resource_config_drift_rate, machine_resource_convergence_lag, fleet_resource_convergence_lag, machine_resource_dependency_depth) {
         return r;
     }
     if let Some(r) = try_status_phase75(&state_dir, m, json, machine_resource_churn_rate, fleet_resource_staleness, machine_convergence_trend, machine_capacity_utilization, fleet_configuration_entropy, machine_resource_freshness, machine_error_budget, fleet_compliance_score, machine_mean_time_to_recovery, machine_resource_dependency_health, fleet_resource_type_health, machine_resource_convergence_rate) {

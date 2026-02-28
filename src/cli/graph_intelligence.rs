@@ -278,3 +278,74 @@ fn modularity_score(adj: &[HashSet<usize>], community_id: &[usize], m: usize) ->
     }
     q / m2
 }
+
+/// FJ-927: Graph diameter — longest shortest path in dependency graph.
+pub(crate) fn cmd_graph_resource_dependency_diameter(file: &Path, json: bool) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let config: types::ForjarConfig = serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let (diameter, eccentricities) = compute_eccentricities(&config);
+    if json {
+        println!("{{\"diameter\":{}}}", diameter);
+    } else {
+        println!("Graph diameter: {}", diameter);
+        if !eccentricities.is_empty() {
+            println!("Max eccentricity resources:");
+            for (n, e) in eccentricities.iter().filter(|(_, e)| *e == diameter) {
+                println!("  {} — eccentricity {}", n, e);
+            }
+        }
+    }
+    Ok(())
+}
+
+/// FJ-931: Eccentricity (max shortest path) per resource.
+pub(crate) fn cmd_graph_resource_dependency_eccentricity(file: &Path, json: bool) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let config: types::ForjarConfig = serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let (_diameter, eccentricities) = compute_eccentricities(&config);
+    if json {
+        let items: Vec<String> = eccentricities.iter()
+            .map(|(n, e)| format!("{{\"resource\":\"{}\",\"eccentricity\":{}}}", n, e))
+            .collect();
+        println!("{{\"eccentricities\":[{}]}}", items.join(","));
+    } else if eccentricities.is_empty() {
+        println!("No resources to analyze.");
+    } else {
+        println!("Resource eccentricities:");
+        for (n, e) in &eccentricities { println!("  {} — {}", n, e); }
+    }
+    Ok(())
+}
+
+fn compute_eccentricities(config: &types::ForjarConfig) -> (usize, Vec<(String, usize)>) {
+    let (names, _idx, adj) = build_undirected_index(config);
+    let n = names.len();
+    if n == 0 { return (0, vec![]); }
+    let mut eccentricities = Vec::new();
+    let mut diameter = 0usize;
+    for i in 0..n {
+        let max_dist = bfs_max_distance(i, &adj, n);
+        eccentricities.push((names[i].clone(), max_dist));
+        if max_dist > diameter { diameter = max_dist; }
+    }
+    eccentricities.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+    (diameter, eccentricities)
+}
+
+fn bfs_max_distance(start: usize, adj: &[HashSet<usize>], n: usize) -> usize {
+    let mut dist = vec![usize::MAX; n];
+    dist[start] = 0;
+    let mut queue = std::collections::VecDeque::new();
+    queue.push_back(start);
+    let mut max_d = 0;
+    while let Some(v) = queue.pop_front() {
+        for &w in &adj[v] {
+            if dist[w] == usize::MAX {
+                dist[w] = dist[v] + 1;
+                if dist[w] > max_d { max_d = dist[w]; }
+                queue.push_back(w);
+            }
+        }
+    }
+    max_d
+}

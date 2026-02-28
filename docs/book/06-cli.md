@@ -2682,6 +2682,46 @@ forjar status --state-dir state/ --machine-resource-config-drift-rate
 # No configuration drift rate data available.
 ```
 
+#### Phase 83 — Advanced Graph Analytics & Fleet Observability (FJ-925→FJ-932)
+
+```bash
+forjar validate -f forjar.yaml --check-resource-dependency-ordering
+# All resource dependencies are topologically valid.
+```
+
+```bash
+forjar validate -f forjar.yaml --check-resource-tag-completeness
+# Resources missing tags:
+#   nginx-pkg
+```
+
+```bash
+forjar status --state-dir state/ --machine-resource-convergence-lag
+# No convergence lag data available.
+```
+
+```bash
+forjar status --state-dir state/ --fleet-resource-convergence-lag
+# Fleet convergence lag: 0 resources lagging
+```
+
+```bash
+forjar status --state-dir state/ --machine-resource-dependency-depth
+# No dependency depth data available.
+```
+
+```bash
+forjar graph -f forjar.yaml --resource-dependency-diameter
+# Graph diameter: 1
+```
+
+```bash
+forjar graph -f forjar.yaml --resource-dependency-eccentricity
+# Resource eccentricity:
+#   app — eccentricity 1
+#   base — eccentricity 0
+```
+
 ### `forjar watch`
 
 Watch a config file for changes and automatically re-plan.

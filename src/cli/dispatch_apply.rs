@@ -162,6 +162,7 @@ pub(crate) fn dispatch_apply_cmd(cmd: Commands, verbose: bool) -> Result<(), Str
         notify_custom_deduplicate,
         notify_custom_throttle,
         notify_custom_aggregate,
+        notify_custom_priority,
     }) = cmd
     else {
         unreachable!()
@@ -276,6 +277,7 @@ pub(crate) fn dispatch_apply_cmd(cmd: Commands, verbose: bool) -> Result<(), Str
             custom_deduplicate: notify_custom_deduplicate.as_deref(),
             custom_throttle: notify_custom_throttle.as_deref(),
             custom_aggregate: notify_custom_aggregate.as_deref(),
+            custom_priority: notify_custom_priority.as_deref(),
     };
     send_apply_notifications(&opts, &result, &file);
 

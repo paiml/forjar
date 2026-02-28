@@ -636,5 +636,8 @@ pub struct ApplyArgs {
     /// FJ-920: Aggregate multiple events into summary notification
     #[arg(long)]
     pub notify_custom_aggregate: Option<String>,
+    /// FJ-928: Assign priority levels to notifications based on severity
+    #[arg(long)]
+    pub notify_custom_priority: Option<String>,
 }
 

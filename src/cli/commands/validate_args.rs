@@ -332,5 +332,11 @@ pub struct ValidateArgs {
     /// FJ-921: Score resource configuration maturity
     #[arg(long)]
     pub check_resource_config_maturity: bool,
+    /// FJ-925: Verify dependency ordering is topologically valid
+    #[arg(long)]
+    pub check_resource_dependency_ordering: bool,
+    /// FJ-929: Ensure all resources have required tag categories
+    #[arg(long)]
+    pub check_resource_tag_completeness: bool,
 }
 
