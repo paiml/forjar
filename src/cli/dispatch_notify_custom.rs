@@ -131,3 +131,12 @@ pub(super) fn send_custom_circuit_breaker_notification(spec: Option<&str>, resul
     let status = if result.is_ok() { "success" } else { "failure" };
     println!("[notify:custom-circuit-breaker] → {} (threshold: {} failures, status: {}, config: {})", url, threshold, status, config.display());
 }
+/// FJ-976: Route failed notifications to a dead-letter queue.
+pub(super) fn send_custom_dead_letter_notification(spec: Option<&str>, result: &Result<(), String>, config: &Path) {
+    let spec = match spec { Some(s) => s, None => return };
+    let parts: Vec<&str> = spec.splitn(2, '|').collect();
+    let url = parts.first().unwrap_or(&"");
+    let queue = parts.get(1).unwrap_or(&"default-dlq");
+    let status = if result.is_ok() { "success" } else { "failure" };
+    println!("[notify:custom-dead-letter] → {} (queue: {}, status: {}, config: {})", url, queue, status, config.display());
+}

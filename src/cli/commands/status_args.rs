@@ -514,4 +514,13 @@ pub struct StatusArgs {
     /// FJ-972: Ratio of converged resources to total apply time
     #[arg(long)]
     pub machine_resource_convergence_efficiency: bool,
+    /// FJ-974: Track how often each machine's resources are applied
+    #[arg(long)]
+    pub machine_resource_apply_frequency: bool,
+    /// FJ-978: Composite fleet health score
+    #[arg(long)]
+    pub fleet_resource_health_score: bool,
+    /// FJ-980: Index of how stale each machine's state data is
+    #[arg(long)]
+    pub machine_resource_staleness_index: bool,
 }

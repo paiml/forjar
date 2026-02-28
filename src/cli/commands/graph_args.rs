@@ -382,5 +382,11 @@ pub struct GraphArgs {
     /// FJ-971: Identify dependency edges most likely to cause cascading failures
     #[arg(long)]
     pub resource_dependency_weak_links: bool,
+    /// FJ-975: Find minimum edge cut set that disconnects the dependency graph
+    #[arg(long)]
+    pub resource_dependency_minimum_cut: bool,
+    /// FJ-979: Compute dominator tree showing single points of failure
+    #[arg(long)]
+    pub resource_dependency_dominator_tree: bool,
 }
 

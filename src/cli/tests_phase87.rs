@@ -101,7 +101,7 @@ mod tests {
             custom_throttle: None, custom_aggregate: None, custom_priority: None, custom_routing: None,
             custom_dedup_window: None, custom_rate_limit: None,
             custom_backoff: Some("https://hooks.example.com|exponential"),
-            custom_circuit_breaker: None,
+            custom_circuit_breaker: None, custom_dead_letter: None,
         };
         let result: Result<(), String> = Ok(());
         super::super::dispatch_notify::send_apply_notifications(&opts, &result, std::path::Path::new("test.yaml"));
@@ -120,7 +120,7 @@ mod tests {
             custom_webhook: None, custom_headers: None, custom_json: None, custom_filter: None,
             custom_retry: None, custom_transform: None, custom_batch: None, custom_deduplicate: None,
             custom_throttle: None, custom_aggregate: None, custom_priority: None, custom_routing: None,
-            custom_dedup_window: None, custom_rate_limit: None, custom_backoff: None, custom_circuit_breaker: None,
+            custom_dedup_window: None, custom_rate_limit: None, custom_backoff: None, custom_circuit_breaker: None, custom_dead_letter: None,
         };
         let result: Result<(), String> = Ok(());
         super::super::dispatch_notify::send_apply_notifications(&opts, &result, std::path::Path::new("test.yaml"));

@@ -654,5 +654,8 @@ pub struct ApplyArgs {
     /// FJ-968: Circuit breaker pattern for notification failures
     #[arg(long)]
     pub notify_custom_circuit_breaker: Option<String>,
+    /// FJ-976: Route failed notifications to a dead-letter queue
+    #[arg(long)]
+    pub notify_custom_dead_letter: Option<String>,
 }
 
