@@ -308,5 +308,13 @@ pub struct GraphArgs {
     /// FJ-875: Calculate blast radius of resource changes
     #[arg(long)]
     pub resource_impact_radius: bool,
+
+    /// FJ-879: Overlay health status on dependency graph
+    #[arg(long)]
+    pub resource_dependency_health_map: bool,
+
+    /// FJ-883: Trace how changes propagate through dependencies
+    #[arg(long)]
+    pub resource_change_propagation: bool,
 }
 

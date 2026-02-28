@@ -2623,14 +2623,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-877 | `forjar validate --check-resource-documentation` — verify resources have descriptions or comments. Governance. | Planned |
-| FJ-878 | `forjar status --machine-error-budget` — track error budget consumption per machine. SRE. | Planned |
-| FJ-879 | `forjar graph --resource-dependency-health-map` — overlay health status on dependency graph. Analysis. | Planned |
-| FJ-880 | `forjar apply --notify-custom-retry` — retry failed notifications with exponential backoff. Integration. | Planned |
-| FJ-881 | `forjar validate --check-resource-ownership` — verify all resources have assigned owners. Governance. | Planned |
-| FJ-882 | `forjar status --fleet-compliance-score` — aggregate compliance score across fleet. Compliance. | Planned |
-| FJ-883 | `forjar graph --resource-change-propagation` — trace how changes propagate through dependencies. Analysis. | Planned |
-| FJ-884 | `forjar status --machine-mean-time-to-recovery` — MTTR metrics per machine. Intelligence. | Planned |
+| FJ-877 | `forjar validate --check-resource-documentation` — verify resources have descriptions or comments. Governance. | Done |
+| FJ-878 | `forjar status --machine-error-budget` — track error budget consumption per machine. SRE. | Done |
+| FJ-879 | `forjar graph --resource-dependency-health-map` — overlay health status on dependency graph. Analysis. | Done |
+| FJ-880 | `forjar apply --notify-custom-retry` — retry failed notifications with exponential backoff. Integration. | Done |
+| FJ-881 | `forjar validate --check-resource-ownership` — verify all resources have assigned owners. Governance. | Done |
+| FJ-882 | `forjar status --fleet-compliance-score` — aggregate compliance score across fleet. Compliance. | Done |
+| FJ-883 | `forjar graph --resource-change-propagation` — trace how changes propagate through dependencies. Analysis. | Done |
+| FJ-884 | `forjar status --machine-mean-time-to-recovery` — MTTR metrics per machine. Intelligence. | Done |
+
+### Phase 78 — Automation Intelligence & Fleet Optimization (FJ-885→FJ-892)
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-885 | `forjar validate --check-resource-secret-exposure` — detect secrets accidentally exposed in resource content. Security. | Planned |
+| FJ-886 | `forjar status --machine-resource-dependency-health` — health of upstream dependencies per resource. Intelligence. | Planned |
+| FJ-887 | `forjar graph --resource-dependency-depth-analysis` — show max dependency chain depth per resource. Analysis. | Planned |
+| FJ-888 | `forjar apply --notify-custom-transform` — transform notification payload via template. Integration. | Planned |
+| FJ-889 | `forjar validate --check-resource-tag-standards` — enforce tag naming standards across resources. Governance. | Planned |
+| FJ-890 | `forjar status --fleet-resource-type-health` — health breakdown by resource type across fleet. Intelligence. | Planned |
+| FJ-891 | `forjar graph --resource-dependency-fan-analysis` — combined fan-in/fan-out analysis per resource. Analysis. | Planned |
+| FJ-892 | `forjar status --machine-resource-convergence-rate` — convergence rate per resource per machine. Intelligence. | Planned |
 
 ---
 

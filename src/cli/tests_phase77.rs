@@ -1,8 +1,9 @@
-//! Tests: Phase 76 — Capacity Planning & Configuration Analytics (FJ-869→FJ-876).
+//! Tests: Phase 77 — Documentation, Compliance & Recovery (FJ-877→FJ-884).
 
 use super::validate_governance::*;
 use super::graph_scoring::*;
 use super::status_predictive::*;
+use super::status_recovery::*;
 use std::io::Write;
 
 #[cfg(test)]
@@ -23,67 +24,67 @@ mod tests {
         p
     }
 
-    // FJ-869: validate --check-resource-naming-convention
+    // FJ-877: validate --check-resource-documentation
     #[test]
-    fn test_fj869_naming_convention_clean() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  my-pkg:\n    machine: m1\n    type: package\n    name: nginx\n");
-        assert!(cmd_validate_check_resource_naming_convention(f.path(), false).is_ok());
+    fn test_fj877_documentation_clean() {
+        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  my-pkg:\n    machine: m1\n    type: package\n    name: nginx\n    tags: [web]\n");
+        assert!(cmd_validate_check_resource_documentation(f.path(), false).is_ok());
     }
 
     #[test]
-    fn test_fj869_naming_convention_empty() {
+    fn test_fj877_documentation_empty() {
         let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources: {}\n");
-        assert!(cmd_validate_check_resource_naming_convention(f.path(), false).is_ok());
+        assert!(cmd_validate_check_resource_documentation(f.path(), false).is_ok());
     }
 
     #[test]
-    fn test_fj869_naming_convention_json() {
+    fn test_fj877_documentation_json() {
         let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n");
-        assert!(cmd_validate_check_resource_naming_convention(f.path(), true).is_ok());
+        assert!(cmd_validate_check_resource_documentation(f.path(), true).is_ok());
     }
 
-    // FJ-870: status --machine-capacity-utilization
+    // FJ-878: status --machine-error-budget
     #[test]
-    fn test_fj870_capacity_empty() {
+    fn test_fj878_error_budget_empty() {
         let dir = tempfile::tempdir().unwrap();
-        assert!(cmd_status_machine_capacity_utilization(dir.path(), None, false).is_ok());
+        assert!(cmd_status_machine_error_budget(dir.path(), None, false).is_ok());
     }
 
     #[test]
-    fn test_fj870_capacity_with_data() {
+    fn test_fj878_error_budget_with_data() {
         let dir = tempfile::tempdir().unwrap();
-        write_yaml(dir.path(), "web1.lock.yaml", "resources:\n  nginx:\n    resource_type: Package\n    status: Converged\n    hash: abc123\n");
-        assert!(cmd_status_machine_capacity_utilization(dir.path(), None, false).is_ok());
+        write_yaml(dir.path(), "web1.lock.yaml", "resources:\n  nginx:\n    resource_type: Package\n    status: Converged\n    hash: abc123\n  app:\n    resource_type: File\n    status: Failed\n    hash: def456\n");
+        assert!(cmd_status_machine_error_budget(dir.path(), None, false).is_ok());
     }
 
     #[test]
-    fn test_fj870_capacity_json() {
+    fn test_fj878_error_budget_json() {
         let dir = tempfile::tempdir().unwrap();
-        assert!(cmd_status_machine_capacity_utilization(dir.path(), None, true).is_ok());
+        assert!(cmd_status_machine_error_budget(dir.path(), None, true).is_ok());
     }
 
-    // FJ-871: graph --resource-dependency-cycle-risk
+    // FJ-879: graph --resource-dependency-health-map
     #[test]
-    fn test_fj871_cycle_risk_basic() {
+    fn test_fj879_health_map_basic() {
         let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  base:\n    machine: m1\n    type: package\n    name: base\n  app:\n    machine: m1\n    type: package\n    name: app\n    depends_on: [base]\n");
-        assert!(cmd_graph_resource_dependency_cycle_risk(f.path(), false).is_ok());
+        assert!(cmd_graph_resource_dependency_health_map(f.path(), false).is_ok());
     }
 
     #[test]
-    fn test_fj871_cycle_risk_empty() {
+    fn test_fj879_health_map_empty() {
         let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources: {}\n");
-        assert!(cmd_graph_resource_dependency_cycle_risk(f.path(), false).is_ok());
+        assert!(cmd_graph_resource_dependency_health_map(f.path(), false).is_ok());
     }
 
     #[test]
-    fn test_fj871_cycle_risk_json() {
+    fn test_fj879_health_map_json() {
         let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n");
-        assert!(cmd_graph_resource_dependency_cycle_risk(f.path(), true).is_ok());
+        assert!(cmd_graph_resource_dependency_health_map(f.path(), true).is_ok());
     }
 
-    // FJ-872: apply --notify-custom-filter (tested via NotifyOpts)
+    // FJ-880: apply --notify-custom-retry (tested via NotifyOpts)
     #[test]
-    fn test_fj872_custom_filter_field() {
+    fn test_fj880_custom_retry_field() {
         let opts = super::super::dispatch_notify::NotifyOpts {
             slack: None, email: None, webhook: None, teams: None,
             discord: None, opsgenie: None, datadog: None, newrelic: None,
@@ -95,15 +96,14 @@ mod tests {
             sqs: None, mattermost: None, ntfy: None, pagerduty: None,
             discord_webhook: None, teams_webhook: None, slack_blocks: None,
             custom_template: None, custom_webhook: None, custom_headers: None,
-            custom_json: None,
-            custom_filter: Some("https://hooks.example.com|type:Package,status:Converged"),
-            custom_retry: None,
+            custom_json: None, custom_filter: None,
+            custom_retry: Some("https://hooks.example.com|retries:3"),
         };
-        assert!(opts.custom_filter.is_some());
+        assert!(opts.custom_retry.is_some());
     }
 
     #[test]
-    fn test_fj872_custom_filter_none() {
+    fn test_fj880_custom_retry_none() {
         let opts = super::super::dispatch_notify::NotifyOpts {
             slack: None, email: None, webhook: None, teams: None,
             discord: None, opsgenie: None, datadog: None, newrelic: None,
@@ -117,84 +117,84 @@ mod tests {
             custom_template: None, custom_webhook: None, custom_headers: None,
             custom_json: None, custom_filter: None, custom_retry: None,
         };
-        assert!(opts.custom_filter.is_none());
+        assert!(opts.custom_retry.is_none());
     }
 
-    // FJ-873: validate --check-resource-idempotency
+    // FJ-881: validate --check-resource-ownership
     #[test]
-    fn test_fj873_idempotency_clean() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n");
-        assert!(cmd_validate_check_resource_idempotency(f.path(), false).is_ok());
+    fn test_fj881_ownership_clean() {
+        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n    tags: [owned-by:team-a]\n");
+        assert!(cmd_validate_check_resource_ownership(f.path(), false).is_ok());
     }
 
     #[test]
-    fn test_fj873_idempotency_empty() {
+    fn test_fj881_ownership_empty() {
         let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources: {}\n");
-        assert!(cmd_validate_check_resource_idempotency(f.path(), false).is_ok());
+        assert!(cmd_validate_check_resource_ownership(f.path(), false).is_ok());
     }
 
     #[test]
-    fn test_fj873_idempotency_json() {
+    fn test_fj881_ownership_json() {
         let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n");
-        assert!(cmd_validate_check_resource_idempotency(f.path(), true).is_ok());
+        assert!(cmd_validate_check_resource_ownership(f.path(), true).is_ok());
     }
 
-    // FJ-874: status --fleet-configuration-entropy
+    // FJ-882: status --fleet-compliance-score
     #[test]
-    fn test_fj874_entropy_empty() {
+    fn test_fj882_compliance_score_empty() {
         let dir = tempfile::tempdir().unwrap();
-        assert!(cmd_status_fleet_configuration_entropy(dir.path(), None, false).is_ok());
+        assert!(cmd_status_fleet_compliance_score(dir.path(), None, false).is_ok());
     }
 
     #[test]
-    fn test_fj874_entropy_with_data() {
+    fn test_fj882_compliance_score_with_data() {
+        let dir = tempfile::tempdir().unwrap();
+        write_yaml(dir.path(), "web1.lock.yaml", "resources:\n  nginx:\n    resource_type: Package\n    status: Converged\n    hash: abc123\n  app:\n    resource_type: File\n    status: Failed\n    hash: def456\n");
+        assert!(cmd_status_fleet_compliance_score(dir.path(), None, false).is_ok());
+    }
+
+    #[test]
+    fn test_fj882_compliance_score_json() {
+        let dir = tempfile::tempdir().unwrap();
+        assert!(cmd_status_fleet_compliance_score(dir.path(), None, true).is_ok());
+    }
+
+    // FJ-883: graph --resource-change-propagation
+    #[test]
+    fn test_fj883_change_propagation_basic() {
+        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  base:\n    machine: m1\n    type: package\n    name: base\n  app:\n    machine: m1\n    type: package\n    name: app\n    depends_on: [base]\n");
+        assert!(cmd_graph_resource_change_propagation(f.path(), false).is_ok());
+    }
+
+    #[test]
+    fn test_fj883_change_propagation_empty() {
+        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources: {}\n");
+        assert!(cmd_graph_resource_change_propagation(f.path(), false).is_ok());
+    }
+
+    #[test]
+    fn test_fj883_change_propagation_json() {
+        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n");
+        assert!(cmd_graph_resource_change_propagation(f.path(), true).is_ok());
+    }
+
+    // FJ-884: status --machine-mean-time-to-recovery
+    #[test]
+    fn test_fj884_mttr_empty() {
+        let dir = tempfile::tempdir().unwrap();
+        assert!(cmd_status_machine_mean_time_to_recovery(dir.path(), None, false).is_ok());
+    }
+
+    #[test]
+    fn test_fj884_mttr_with_data() {
         let dir = tempfile::tempdir().unwrap();
         write_yaml(dir.path(), "web1.lock.yaml", "resources:\n  nginx:\n    resource_type: Package\n    status: Converged\n    hash: abc123\n");
-        assert!(cmd_status_fleet_configuration_entropy(dir.path(), None, false).is_ok());
+        assert!(cmd_status_machine_mean_time_to_recovery(dir.path(), None, false).is_ok());
     }
 
     #[test]
-    fn test_fj874_entropy_json() {
+    fn test_fj884_mttr_json() {
         let dir = tempfile::tempdir().unwrap();
-        assert!(cmd_status_fleet_configuration_entropy(dir.path(), None, true).is_ok());
-    }
-
-    // FJ-875: graph --resource-impact-radius
-    #[test]
-    fn test_fj875_impact_radius_basic() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  base:\n    machine: m1\n    type: package\n    name: base\n  app:\n    machine: m1\n    type: package\n    name: app\n    depends_on: [base]\n");
-        assert!(cmd_graph_resource_impact_radius_analysis(f.path(), false).is_ok());
-    }
-
-    #[test]
-    fn test_fj875_impact_radius_empty() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources: {}\n");
-        assert!(cmd_graph_resource_impact_radius_analysis(f.path(), false).is_ok());
-    }
-
-    #[test]
-    fn test_fj875_impact_radius_json() {
-        let f = write_temp_config("version: '1'\nname: test\nmachines:\n  m1:\n    hostname: m1\n    addr: 1.2.3.4\nresources:\n  pkg:\n    machine: m1\n    type: package\n    name: nginx\n");
-        assert!(cmd_graph_resource_impact_radius_analysis(f.path(), true).is_ok());
-    }
-
-    // FJ-876: status --machine-resource-freshness
-    #[test]
-    fn test_fj876_freshness_empty() {
-        let dir = tempfile::tempdir().unwrap();
-        assert!(cmd_status_machine_resource_freshness(dir.path(), None, false).is_ok());
-    }
-
-    #[test]
-    fn test_fj876_freshness_with_data() {
-        let dir = tempfile::tempdir().unwrap();
-        write_yaml(dir.path(), "web1.lock.yaml", "resources:\n  nginx:\n    resource_type: Package\n    status: Converged\n    hash: abc123\n    applied_at: '2025-01-01T00:00:00Z'\n");
-        assert!(cmd_status_machine_resource_freshness(dir.path(), None, false).is_ok());
-    }
-
-    #[test]
-    fn test_fj876_freshness_json() {
-        let dir = tempfile::tempdir().unwrap();
-        assert!(cmd_status_machine_resource_freshness(dir.path(), None, true).is_ok());
+        assert!(cmd_status_machine_mean_time_to_recovery(dir.path(), None, true).is_ok());
     }
 }

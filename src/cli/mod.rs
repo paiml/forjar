@@ -83,6 +83,7 @@ mod infra;
 mod status_operational;
 mod status_insights;
 mod status_predictive;
+mod status_recovery;
 #[cfg(test)]
 mod test_fixtures;
 #[cfg(test)]
@@ -301,6 +302,8 @@ mod tests_phase74;
 mod tests_phase75;
 #[cfg(test)]
 mod tests_phase76;
+#[cfg(test)]
+mod tests_phase77;
 
 pub use commands::Commands;
 pub use dispatch::dispatch;

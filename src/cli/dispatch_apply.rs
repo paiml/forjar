@@ -156,6 +156,7 @@ pub(crate) fn dispatch_apply_cmd(cmd: Commands, verbose: bool) -> Result<(), Str
         notify_custom_headers,
         notify_custom_json,
         notify_custom_filter,
+        notify_custom_retry,
     }) = cmd
     else {
         unreachable!()
@@ -264,6 +265,7 @@ pub(crate) fn dispatch_apply_cmd(cmd: Commands, verbose: bool) -> Result<(), Str
         custom_headers: notify_custom_headers.as_deref(),
         custom_json: notify_custom_json.as_deref(),
         custom_filter: notify_custom_filter.as_deref(),
+        custom_retry: notify_custom_retry.as_deref(),
     };
     send_apply_notifications(&opts, &result, &file);
 

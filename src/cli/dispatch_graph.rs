@@ -139,6 +139,55 @@ fn try_graph_analysis(
     None
 }
 
+/// Phase 63-64 graph export flags (part A).
+#[allow(clippy::too_many_arguments)]
+fn try_graph_export_a(
+    file: &Path, json: bool,
+    breadth_first: bool, subgraph_stats: bool, graph_dependency_count: bool,
+    root_resources: bool, edge_list: bool, connected_components: bool,
+    adjacency_matrix: bool,
+) -> Option<Result<(), String>> {
+    if breadth_first { return Some(cmd_graph_breadth_first(file, json)); }
+    if subgraph_stats { return Some(cmd_graph_subgraph_stats(file, json)); }
+    if graph_dependency_count { return Some(cmd_graph_dependency_count(file, json)); }
+    if root_resources { return Some(cmd_graph_root_resources(file, json)); }
+    if edge_list { return Some(cmd_graph_edge_list(file, json)); }
+    if connected_components { return Some(cmd_graph_connected_components(file, json)); }
+    if adjacency_matrix { return Some(cmd_graph_adjacency_matrix(file, json)); }
+    None
+}
+
+/// Phase 64-65 graph export flags (part B).
+fn try_graph_export_b(
+    file: &Path, json: bool,
+    longest_path: bool, in_degree: bool, out_degree: bool,
+    density: bool, topological_sort: bool, critical_path_resources: bool,
+) -> Option<Result<(), String>> {
+    if longest_path { return Some(cmd_graph_longest_path(file, json)); }
+    if in_degree { return Some(cmd_graph_in_degree(file, json)); }
+    if out_degree { return Some(cmd_graph_out_degree(file, json)); }
+    if density { return Some(cmd_graph_density(file, json)); }
+    if topological_sort { return Some(cmd_graph_topological_sort(file, json)); }
+    if critical_path_resources { return Some(cmd_graph_critical_path_resources(file, json)); }
+    None
+}
+
+/// Phase 75-77 scoring graph flags.
+fn try_graph_scoring_inline(
+    file: &Path, json: bool,
+    resource_dependency_bottleneck: bool, resource_type_clustering: bool,
+    resource_dependency_cycle_risk: bool, resource_impact_radius: bool,
+    resource_dependency_health_map: bool, resource_change_propagation: bool,
+) -> Option<Result<(), String>> {
+    if resource_dependency_bottleneck { return Some(cmd_graph_resource_dependency_bottleneck(file, json)); }
+    if resource_type_clustering { return Some(cmd_graph_resource_type_clustering(file, json)); }
+    if resource_dependency_cycle_risk { return Some(cmd_graph_resource_dependency_cycle_risk(file, json)); }
+    if resource_impact_radius { return Some(cmd_graph_resource_impact_radius_analysis(file, json)); }
+    if resource_dependency_health_map { return Some(cmd_graph_resource_dependency_health_map(file, json)); }
+    if resource_change_propagation { return Some(cmd_graph_resource_change_propagation(file, json)); }
+    None
+}
+
 /// Dispatch the Graph command variant.
 pub(crate) fn dispatch_graph_cmd(cmd: Commands) -> Result<(), String> {
     let Commands::Graph(GraphArgs {
@@ -170,28 +219,21 @@ pub(crate) fn dispatch_graph_cmd(cmd: Commands) -> Result<(), String> {
         resource_dependency_fanout, resource_dependency_weight,
         resource_dependency_bottleneck, resource_type_clustering,
         resource_dependency_cycle_risk, resource_impact_radius,
+        resource_dependency_health_map, resource_change_propagation,
     }) = cmd
     else {
         unreachable!()
     };
 
-    if breadth_first { return cmd_graph_breadth_first(&file, json_output); }
-    if subgraph_stats { return cmd_graph_subgraph_stats(&file, json_output); }
-    if graph_dependency_count { return cmd_graph_dependency_count(&file, json_output); }
-    if root_resources { return cmd_graph_root_resources(&file, json_output); }
-    if edge_list { return cmd_graph_edge_list(&file, json_output); }
-    if connected_components { return cmd_graph_connected_components(&file, json_output); }
-    if adjacency_matrix { return cmd_graph_adjacency_matrix(&file, json_output); }
-    if longest_path { return cmd_graph_longest_path(&file, json_output); }
-    if in_degree { return cmd_graph_in_degree(&file, json_output); }
-    if out_degree { return cmd_graph_out_degree(&file, json_output); }
-    if density { return cmd_graph_density(&file, json_output); }
-    if topological_sort { return cmd_graph_topological_sort(&file, json_output); }
-    if critical_path_resources { return cmd_graph_critical_path_resources(&file, json_output); }
-    if resource_dependency_bottleneck { return cmd_graph_resource_dependency_bottleneck(&file, json_output); }
-    if resource_type_clustering { return cmd_graph_resource_type_clustering(&file, json_output); }
-    if resource_dependency_cycle_risk { return cmd_graph_resource_dependency_cycle_risk(&file, json_output); }
-    if resource_impact_radius { return cmd_graph_resource_impact_radius_analysis(&file, json_output); }
+    if let Some(r) = try_graph_export_a(&file, json_output, breadth_first, subgraph_stats, graph_dependency_count, root_resources, edge_list, connected_components, adjacency_matrix) {
+        return r;
+    }
+    if let Some(r) = try_graph_export_b(&file, json_output, longest_path, in_degree, out_degree, density, topological_sort, critical_path_resources) {
+        return r;
+    }
+    if let Some(r) = try_graph_scoring_inline(&file, json_output, resource_dependency_bottleneck, resource_type_clustering, resource_dependency_cycle_risk, resource_impact_radius, resource_dependency_health_map, resource_change_propagation) {
+        return r;
+    }
     if let Some(r) = try_graph_paths(&file, json_output, &resource_dependency_chain, bottleneck_resources, critical_dependency_path, resource_depth_histogram, resource_coupling_score, resource_change_frequency, resource_impact_score, resource_stability_score, resource_dependency_fanout, resource_dependency_weight) {
         return r;
     }
