@@ -2876,6 +2876,19 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 | FJ-1027 | `forjar status --fleet-resource-type-drift-heatmap` — heatmap of drift frequency by resource type across fleet. Intelligence. | ✅ Done |
 | FJ-1028 | `forjar validate --check-resource-dependency-chain-depth` — warn if any dependency chain exceeds configurable max depth (default 10). Governance. | ✅ Done |
 
+### Phase 96 — Transport Diagnostics & Recipe Governance (FJ-1029→FJ-1036)
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-1029 | `forjar status --machine-ssh-connection-health` — report SSH connection latency and health per machine from state locks. Intelligence. | ✅ Done |
+| FJ-1030 | `forjar validate --check-recipe-input-completeness` — warn if recipe resources reference undefined inputs. Governance. | ✅ Done |
+| FJ-1031 | `forjar graph --resource-recipe-expansion-map` — show which resources originate from recipe expansions. Analysis. | ✅ Done |
+| FJ-1032 | `forjar status --lock-file-staleness-report` — report lock file age and staleness per machine. Intelligence. | ✅ Done |
+| FJ-1033 | `forjar validate --check-resource-cross-machine-content-duplicates` — warn if resources have duplicate content across different machines. Governance. | ✅ Done |
+| FJ-1034 | `forjar graph --resource-dependency-critical-chain-path` — compute critical chain path with resource weights. Analysis. | ✅ Done |
+| FJ-1035 | `forjar status --fleet-transport-method-summary` — summarize transport methods (local vs SSH) across fleet. Intelligence. | ✅ Done |
+| FJ-1036 | `forjar validate --check-resource-machine-reference-validity` — warn if resources reference machines not defined in config. Governance. | ✅ Done |
+
 ---
 
 ## 9. Performance Targets

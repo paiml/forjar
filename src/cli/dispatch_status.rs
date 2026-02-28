@@ -13,6 +13,7 @@ use super::status_insights::*;
 use super::status_predictive::*;
 use super::status_recovery::*;
 use super::status_intelligence::*;
+use super::status_transport::*;
 use super::status_intelligence_ext::*;
 use super::status_intelligence_ext2::*;
 use super::dispatch_status_ext::*;
@@ -286,6 +287,15 @@ fn try_status_phase95(
     if fleet_resource_type_drift_heatmap { return Some(cmd_status_fleet_resource_type_drift_heatmap(sd, machine, json)); }
     None
 }
+fn try_status_phase96(
+    sd: &Path, machine: Option<&str>, json: bool,
+    machine_ssh_connection_health: bool, lock_file_staleness_report: bool, fleet_transport_method_summary: bool,
+) -> Option<Result<(), String>> {
+    if machine_ssh_connection_health { return Some(cmd_status_machine_ssh_connection_health(sd, machine, json)); }
+    if lock_file_staleness_report { return Some(cmd_status_lock_file_staleness_report(sd, machine, json)); }
+    if fleet_transport_method_summary { return Some(cmd_status_fleet_transport_method_summary(sd, machine, json)); }
+    None
+}
 #[allow(clippy::too_many_arguments)]
 fn try_status_phases_87_92(
     sd: &Path, machine: Option<&str>, json: bool,
@@ -361,6 +371,7 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
         machine_resource_convergence_gap, fleet_resource_error_distribution, machine_resource_convergence_stability,
         machine_resource_apply_latency_p95, fleet_resource_security_posture_score,
         fleet_apply_success_rate_trend, machine_resource_drift_flapping, fleet_resource_type_drift_heatmap,
+        machine_ssh_connection_health, lock_file_staleness_report, fleet_transport_method_summary,
     }) = cmd
     else {
         unreachable!()
@@ -401,6 +412,11 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
     }
     if let Some(r) = try_status_phase95(&state_dir, m, json,
         fleet_apply_success_rate_trend, machine_resource_drift_flapping, fleet_resource_type_drift_heatmap,
+    ) {
+        return r;
+    }
+    if let Some(r) = try_status_phase96(&state_dir, m, json,
+        machine_ssh_connection_health, lock_file_staleness_report, fleet_transport_method_summary,
     ) {
         return r;
     }

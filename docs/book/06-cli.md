@@ -3128,6 +3128,49 @@ forjar validate -f forjar.yaml --check-resource-dependency-chain-depth
 # All dependency chains within depth limit (10).
 ```
 
+#### Phase 96 — Transport Diagnostics & Recipe Governance (FJ-1029→FJ-1036)
+
+```bash
+# FJ-1029: SSH connection health per machine
+forjar status --state-dir ./state --machine-ssh-connection-health
+# === Machine SSH Connection Health ===
+#   ✓ web: transport=local, healthy=true
+
+# FJ-1030: Recipe input completeness check
+forjar validate -f forjar.yaml --check-recipe-input-completeness
+# No missing recipe input references found.
+
+# FJ-1031: Recipe expansion map
+forjar graph -f forjar.yaml --resource-recipe-expansion-map
+# Resources grouped by type (no recipe origin):
+#   file -> config, readme
+#   package -> vim, curl
+
+# FJ-1032: Lock file staleness report
+forjar status --state-dir ./state --lock-file-staleness-report
+# === Lock File Staleness Report ===
+#   web: generated=2026-02-28T00:00:00Z, resources=3, size=512B
+
+# FJ-1033: Cross-machine content duplicates
+forjar validate -f forjar.yaml --check-resource-cross-machine-content-duplicates
+# No cross-machine content duplicates found.
+
+# FJ-1034: Critical chain path analysis
+forjar graph -f forjar.yaml --resource-dependency-critical-chain-path
+# Critical chain path (3 nodes):
+#   repo -> build -> deploy
+
+# FJ-1035: Fleet transport method summary
+forjar status --state-dir ./state --fleet-transport-method-summary
+# === Fleet Transport Method Summary ===
+#   Local: 1 machines ["web"]
+#   SSH:   2 machines ["db", "cache"]
+
+# FJ-1036: Machine reference validity
+forjar validate -f forjar.yaml --check-resource-machine-reference-validity
+# No machine reference violations found.
+```
+
 ### `forjar watch`
 
 Watch a config file for changes and automatically re-plan.

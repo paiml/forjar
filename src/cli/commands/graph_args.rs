@@ -418,5 +418,11 @@ pub struct GraphArgs {
     /// FJ-1026: Estimate execution cost by weighting edges with type costs
     #[arg(long)]
     pub resource_dependency_execution_cost: bool,
+    /// FJ-1031: Show which resources originate from recipe expansions
+    #[arg(long)]
+    pub resource_recipe_expansion_map: bool,
+    /// FJ-1034: Compute critical chain path with resource weights
+    #[arg(long)]
+    pub resource_dependency_critical_chain_path: bool,
 }
 
