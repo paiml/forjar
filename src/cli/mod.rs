@@ -35,6 +35,7 @@ mod validate_analytics;
 mod validate_compliance_ext;
 mod validate_security;
 mod validate_security_ext;
+mod validate_governance_ext;
 mod apply;
 mod apply_output;
 mod apply_variants;
@@ -79,6 +80,7 @@ mod graph_analytics;
 mod graph_compliance;
 mod graph_lifecycle;
 mod graph_health;
+mod graph_quality;
 mod lock_core;
 mod lock_repair;
 mod lock_lifecycle;
@@ -113,6 +115,7 @@ mod status_predictive;
 mod status_recovery;
 mod status_drift_intel;
 mod status_security;
+mod status_fleet_insight;
 #[cfg(test)]
 mod test_fixtures;
 #[cfg(test)]
@@ -487,6 +490,8 @@ mod tests_validate_transport;
 mod tests_phase96;
 #[cfg(test)]
 mod tests_phase97;
+#[cfg(test)]
+mod tests_phase101;
 
 pub use commands::Commands;
 pub use dispatch::dispatch;

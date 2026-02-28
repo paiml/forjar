@@ -3347,6 +3347,50 @@ forjar validate -f forjar.yaml --check-resource-machine-capacity
 # Machine capacity: m has 1 resource(s) (within limits)
 ```
 
+#### Phase 101 — Fleet Insight & Dependency Quality (FJ-1069→FJ-1076)
+
+```bash
+# FJ-1069: Fleet resource staleness report
+forjar status --state-dir ./state --fleet-resource-staleness-report
+# === Fleet Resource Staleness Report ===
+#   web: age=2 days, fresh
+#   db: age=10 days, STALE (>7d threshold)
+
+# FJ-1070: Resource dependency fan-out limit
+forjar validate -f forjar.yaml --check-resource-dependency-fan-out-limit
+# Fan-out analysis: all resources within limit (max 10)
+
+# FJ-1071: Resource dependency critical path highlight
+forjar graph -f forjar.yaml --resource-dependency-critical-path-highlight
+# Critical path (length=3):
+#   base-pkg -> app-config -> app-service
+
+# FJ-1072: Machine resource type distribution
+forjar status --state-dir ./state --machine-resource-type-distribution
+# === Machine Resource Type Distribution ===
+#   web: file=3, service=2, package=1
+
+# FJ-1073: Resource tag required keys
+forjar validate -f forjar.yaml --check-resource-tag-required-keys
+# Tag key analysis: 2 resources missing required keys (env, team, tier)
+
+# FJ-1074: Resource dependency bottleneck detection
+forjar graph -f forjar.yaml --resource-dependency-bottleneck-detection
+# Bottlenecks:
+#   base-pkg (fan-in=3): depended on by app-config, app-service, cron-job
+
+# FJ-1075: Fleet machine health score
+forjar status --state-dir ./state --fleet-machine-health-score
+# === Fleet Machine Health Score ===
+#   web: 75.0/100 (converged=80%, drifted=15%, failed=5%)
+
+# FJ-1076: Resource content drift risk
+forjar validate -f forjar.yaml --check-resource-content-drift-risk
+# Drift risk scores:
+#   app-service (service): risk=6 (base=4, deps=2)
+#   app-config (file): risk=4 (base=3, deps=1)
+```
+
 ### `forjar watch`
 
 Watch a config file for changes and automatically re-plan.

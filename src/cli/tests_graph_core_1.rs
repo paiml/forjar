@@ -43,7 +43,7 @@ mod tests {
             resource_dependency_risk_score: false,
             resource_dependency_layering: false,
             resource_lifecycle_stage_map: false,
-            resource_dependency_age_overlay: false, resource_dependency_health_overlay: false, resource_dependency_width_analysis: false,
+            resource_dependency_age_overlay: false, resource_dependency_health_overlay: false, resource_dependency_width_analysis: false, resource_dependency_critical_path_highlight: false, resource_dependency_bottleneck_detection: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { affected, .. }) => {
@@ -84,7 +84,7 @@ mod tests {
             resource_dependency_risk_score: false,
             resource_dependency_layering: false,
             resource_lifecycle_stage_map: false,
-            resource_dependency_age_overlay: false, resource_dependency_health_overlay: false, resource_dependency_width_analysis: false,
+            resource_dependency_age_overlay: false, resource_dependency_health_overlay: false, resource_dependency_width_analysis: false, resource_dependency_critical_path_highlight: false, resource_dependency_bottleneck_detection: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { reverse, .. }) => assert!(reverse),
@@ -122,7 +122,7 @@ mod tests {
             resource_dependency_risk_score: false,
             resource_dependency_layering: false,
             resource_lifecycle_stage_map: false,
-            resource_dependency_age_overlay: false, resource_dependency_health_overlay: false, resource_dependency_width_analysis: false,
+            resource_dependency_age_overlay: false, resource_dependency_health_overlay: false, resource_dependency_width_analysis: false, resource_dependency_critical_path_highlight: false, resource_dependency_bottleneck_detection: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { depth, .. }) => assert_eq!(depth, Some(2)),
@@ -161,7 +161,7 @@ mod tests {
             resource_dependency_risk_score: false,
             resource_dependency_layering: false,
             resource_lifecycle_stage_map: false,
-            resource_dependency_age_overlay: false, resource_dependency_health_overlay: false, resource_dependency_width_analysis: false,
+            resource_dependency_age_overlay: false, resource_dependency_health_overlay: false, resource_dependency_width_analysis: false, resource_dependency_critical_path_highlight: false, resource_dependency_bottleneck_detection: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { cluster, .. }) => assert!(cluster),
@@ -201,7 +201,7 @@ mod tests {
             resource_dependency_risk_score: false,
             resource_dependency_layering: false,
             resource_lifecycle_stage_map: false,
-            resource_dependency_age_overlay: false, resource_dependency_health_overlay: false, resource_dependency_width_analysis: false,
+            resource_dependency_age_overlay: false, resource_dependency_health_overlay: false, resource_dependency_width_analysis: false, resource_dependency_critical_path_highlight: false, resource_dependency_bottleneck_detection: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { orphans, .. }) => assert!(orphans),
@@ -241,7 +241,7 @@ mod tests {
             resource_dependency_risk_score: false,
             resource_dependency_layering: false,
             resource_lifecycle_stage_map: false,
-            resource_dependency_age_overlay: false, resource_dependency_health_overlay: false, resource_dependency_width_analysis: false,
+            resource_dependency_age_overlay: false, resource_dependency_health_overlay: false, resource_dependency_width_analysis: false, resource_dependency_critical_path_highlight: false, resource_dependency_bottleneck_detection: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { stats, .. }) => assert!(stats),
@@ -280,7 +280,7 @@ mod tests {
             resource_dependency_risk_score: false,
             resource_dependency_layering: false,
             resource_lifecycle_stage_map: false,
-            resource_dependency_age_overlay: false, resource_dependency_health_overlay: false, resource_dependency_width_analysis: false,
+            resource_dependency_age_overlay: false, resource_dependency_health_overlay: false, resource_dependency_width_analysis: false, resource_dependency_critical_path_highlight: false, resource_dependency_bottleneck_detection: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { json_output, .. }) => assert!(json_output),
