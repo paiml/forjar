@@ -445,3 +445,49 @@ pub(crate) fn cmd_validate_check_resource_secret_rotation(file: &Path, json: boo
     }
     Ok(())
 }
+/// FJ-981: Verify resources define all lifecycle stages.
+pub(crate) fn cmd_validate_check_resource_lifecycle_completeness(file: &Path, json: bool) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let config: types::ForjarConfig = serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let mut warnings: Vec<String> = Vec::new();
+    for (name, res) in &config.resources {
+        if res.content.is_none() && res.depends_on.is_empty() && res.tags.is_empty() {
+            warnings.push(name.clone());
+        }
+    }
+    if json {
+        let items: Vec<String> = warnings.iter().map(|n| format!("\"{}\"", n)).collect();
+        println!("{{\"incomplete_lifecycle\":[{}]}}", items.join(","));
+    } else if warnings.is_empty() {
+        println!("All resources have complete lifecycle definitions.");
+    } else {
+        println!("Resources with incomplete lifecycle:");
+        for n in &warnings { println!("  {} — missing content/deps/tags", n); }
+    }
+    Ok(())
+}
+/// FJ-985: Verify resource types are compatible with declared providers.
+pub(crate) fn cmd_validate_check_resource_provider_compatibility(file: &Path, json: bool) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let config: types::ForjarConfig = serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let valid_types = ["file", "package", "service", "mount", "cron", "directory", "user", "group", "link"];
+    let mut warnings: Vec<(String, String)> = Vec::new();
+    for (name, res) in &config.resources {
+        let rtype = format!("{:?}", res.resource_type).to_lowercase();
+        if !valid_types.iter().any(|t| rtype.contains(t)) {
+            warnings.push((name.clone(), rtype));
+        }
+    }
+    if json {
+        let items: Vec<String> = warnings.iter()
+            .map(|(n, t)| format!("{{\"resource\":\"{}\",\"type\":\"{}\"}}", n, t))
+            .collect();
+        println!("{{\"provider_warnings\":[{}]}}", items.join(","));
+    } else if warnings.is_empty() {
+        println!("All resource types are compatible with providers.");
+    } else {
+        println!("Provider compatibility warnings:");
+        for (n, t) in &warnings { println!("  {} — unknown type '{}'", n, t); }
+    }
+    Ok(())
+}

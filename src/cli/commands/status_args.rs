@@ -523,4 +523,13 @@ pub struct StatusArgs {
     /// FJ-980: Index of how stale each machine's state data is
     #[arg(long)]
     pub machine_resource_staleness_index: bool,
+    /// FJ-982: Count how many times each resource has drifted
+    #[arg(long)]
+    pub machine_resource_drift_recurrence: bool,
+    /// FJ-986: Heatmap of drift across fleet machines and resources
+    #[arg(long)]
+    pub fleet_resource_drift_heatmap: bool,
+    /// FJ-988: Trend of convergence rate over recent applies
+    #[arg(long)]
+    pub machine_resource_convergence_trend_p90: bool,
 }

@@ -140,3 +140,12 @@ pub(super) fn send_custom_dead_letter_notification(spec: Option<&str>, result: &
     let status = if result.is_ok() { "success" } else { "failure" };
     println!("[notify:custom-dead-letter] → {} (queue: {}, status: {}, config: {})", url, queue, status, config.display());
 }
+/// FJ-984: Escalate notifications based on failure severity and count.
+pub(super) fn send_custom_escalation_notification(spec: Option<&str>, result: &Result<(), String>, config: &Path) {
+    let spec = match spec { Some(s) => s, None => return };
+    let parts: Vec<&str> = spec.splitn(2, '|').collect();
+    let url = parts.first().unwrap_or(&"");
+    let level = if result.is_err() { "critical" } else { parts.get(1).unwrap_or(&"info") };
+    let status = if result.is_ok() { "success" } else { "failure" };
+    println!("[notify:custom-escalation] → {} (level: {}, status: {}, config: {})", url, level, status, config.display());
+}

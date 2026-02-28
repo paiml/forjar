@@ -388,5 +388,11 @@ pub struct GraphArgs {
     /// FJ-979: Compute dominator tree showing single points of failure
     #[arg(long)]
     pub resource_dependency_dominator_tree: bool,
+    /// FJ-983: Score each edge by how resilient the graph is to its removal
+    #[arg(long)]
+    pub resource_dependency_resilience_score: bool,
+    /// FJ-987: Compute PageRank importance score for each resource
+    #[arg(long)]
+    pub resource_dependency_pagerank: bool,
 }
 

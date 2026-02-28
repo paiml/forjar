@@ -58,8 +58,10 @@ mod graph_export;
 mod graph_advanced;
 mod graph_intelligence;
 mod graph_intelligence_ext;
+mod graph_intelligence_ext2;
 mod status_intelligence;
 mod status_intelligence_ext;
+mod status_intelligence_ext2;
 mod graph_paths;
 mod graph_scoring;
 mod graph_visualization;
@@ -336,6 +338,8 @@ mod tests_phase87;
 mod tests_phase88;
 #[cfg(test)]
 mod tests_phase89;
+#[cfg(test)]
+mod tests_phase90;
 
 pub use commands::Commands;
 pub use dispatch::dispatch;
