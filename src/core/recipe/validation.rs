@@ -3,8 +3,10 @@
 use provable_contracts_macros::contract;
 use std::collections::HashMap;
 
-use super::types::{RecipeInput, RecipeMetadata};
-pub(crate) use super::validation_types::{validate_input_type, validate_int};
+use super::types::RecipeMetadata;
+pub(crate) use super::validation_types::validate_input_type;
+#[cfg(test)]
+pub(crate) use super::validation_types::validate_int;
 
 /// Validate recipe inputs against their declarations.
 #[contract("recipe-determinism-v1", equation = "validate_inputs")]

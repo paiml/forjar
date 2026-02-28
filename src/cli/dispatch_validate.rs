@@ -17,6 +17,7 @@ use super::validate_ordering::*;
 
 
 /// Structural/resource validation checks.
+#[allow(clippy::too_many_arguments)]
 fn try_validate_structural(
     file: &Path, json: bool,
     check_mount_points: bool, check_group_consistency: bool,
@@ -39,6 +40,7 @@ fn try_validate_structural(
 }
 
 /// Quality/compliance validation checks.
+#[allow(clippy::too_many_arguments)]
 fn try_validate_quality(
     file: &Path, json: bool,
     check_idempotency_deep: bool, check_permissions: bool,
@@ -64,8 +66,9 @@ fn try_validate_quality(
 }
 
 /// Core validation checks (overlaps through base validate).
+#[allow(clippy::too_many_arguments)]
 fn try_validate_core(
-    file: &Path, json: bool, strict: bool, dry_expand: bool,
+    file: &Path, json: bool, _strict: bool, _dry_expand: bool,
     check_overlaps: bool, check_naming: bool,
     check_cycles_deep: bool, check_drift_coverage: bool,
     check_idempotency: bool, check_secrets: bool,

@@ -1,9 +1,6 @@
 //! Lock command dispatch — routes lock sub-commands to handlers.
 
-use std::path::Path;
 use super::commands::*;
-use super::helpers::*;
-use super::helpers_state::*;
 use super::lock_core::*;
 use super::lock_repair::*;
 use super::lock_lifecycle::*;

@@ -20,6 +20,7 @@ use super::graph_intelligence_ext::*;
 
 
 /// Dispatch traversal flags (depth_first through critical_chain).
+#[allow(clippy::too_many_arguments)]
 fn try_traversal(
     file: &Path, json: bool,
     depth_first: bool, reverse_deps: bool, leaf_resources: bool,
@@ -38,6 +39,7 @@ fn try_traversal(
 }
 
 /// Dispatch topology flags (dependency_depth through resource_types).
+#[allow(clippy::too_many_arguments)]
 fn try_topology(
     file: &Path, json: bool,
     dependency_depth: bool, critical_chain: bool, parallel_groups: bool,
@@ -56,6 +58,7 @@ fn try_topology(
 }
 
 /// Dispatch impact/what-if analysis flags.
+#[allow(clippy::too_many_arguments)]
 fn try_impact(
     file: &Path, format: &str, json: bool,
     change_impact: &Option<String>, blast_radius: &Option<String>,
@@ -76,6 +79,7 @@ fn try_impact(
 }
 
 /// Dispatch visualization/filter flags.
+#[allow(clippy::too_many_arguments)]
 fn try_visualization(
     file: &Path, format: &str, json: bool,
     critical_resources: bool, layers: bool,
@@ -160,6 +164,7 @@ fn try_graph_export_a(
 }
 
 /// Phase 64-65 graph export flags (part B).
+#[allow(clippy::too_many_arguments)]
 fn try_graph_export_b(
     file: &Path, json: bool,
     longest_path: bool, in_degree: bool, out_degree: bool,
@@ -175,6 +180,7 @@ fn try_graph_export_b(
 }
 
 /// Phase 75-77 scoring graph flags.
+#[allow(clippy::too_many_arguments)]
 fn try_graph_scoring_inline(
     file: &Path, json: bool,
     resource_dependency_bottleneck: bool, resource_type_clustering: bool,

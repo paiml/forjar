@@ -64,7 +64,7 @@ fn bfs_shortest_paths(src: usize, adj: &[Vec<usize>], n: usize) -> Vec<(Vec<usiz
             if dist[w] == dist[v] + 1 { sigma[w] += sigma[v]; pred[w].push(v); }
         }
     }
-    pred.into_iter().zip(sigma.into_iter()).collect()
+    pred.into_iter().zip(sigma).collect()
 }
 
 fn accumulate_centrality(src: usize, paths: &[(Vec<usize>, usize)], centrality: &mut [f64], n: usize) {
@@ -323,9 +323,9 @@ fn compute_eccentricities(config: &types::ForjarConfig) -> (usize, Vec<(String, 
     if n == 0 { return (0, vec![]); }
     let mut eccentricities = Vec::new();
     let mut diameter = 0usize;
-    for i in 0..n {
+    for (i, name) in names.iter().enumerate().take(n) {
         let max_dist = bfs_max_distance(i, &adj, n);
-        eccentricities.push((names[i].clone(), max_dist));
+        eccentricities.push((name.clone(), max_dist));
         if max_dist > diameter { diameter = max_dist; }
     }
     eccentricities.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
@@ -419,10 +419,10 @@ fn reachable_without_direct(adj: &[Vec<bool>], from: usize, to: usize, n: usize)
     let mut stack = vec![from];
     visited[from] = true;
     while let Some(v) = stack.pop() {
-        for w in 0..n {
-            if adj[v][w] && !visited[w] {
+        for (w, visited_w) in visited.iter_mut().enumerate().take(n) {
+            if adj[v][w] && !*visited_w {
                 if w == to { return true; }
-                visited[w] = true;
+                *visited_w = true;
                 stack.push(w);
             }
         }

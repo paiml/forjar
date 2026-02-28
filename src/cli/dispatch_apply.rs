@@ -8,7 +8,7 @@ use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets
 use crate::transport;
 #[allow(unused_imports)]
 use crate::tripwire::{anomaly, drift, eventlog, tracer};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use super::commands::*;
 use super::helpers::*;
 use super::helpers_state::*;

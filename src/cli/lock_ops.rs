@@ -1,14 +1,8 @@
 //! Lock operations.
 
-use crate::core::types::ProvenanceEvent;
-use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
-use crate::transport;
-use crate::tripwire::{anomaly, drift, eventlog, tracer};
-use std::path::{Path, PathBuf};
+use crate::core::{state, types};
+use std::path::Path;
 use super::helpers::*;
-use super::helpers_state::*;
-use super::helpers_time::*;
-use std::collections::HashMap;
 
 
 // ── FJ-395: lock compact ──
@@ -94,6 +88,7 @@ pub(crate) fn cmd_lock_compact(state_dir: &Path, yes: bool, json: bool) -> Resul
 
 
 /// Verify a single machine's lock, returning (verified_count, corrupt_count, check_entries).
+#[allow(clippy::type_complexity)]
 fn verify_machine_lock(
     state_dir: &Path,
     m_name: &str,

@@ -1,13 +1,7 @@
 //! Lock repair.
 
-use crate::core::types::ProvenanceEvent;
-use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
-use crate::transport;
-use crate::tripwire::{anomaly, drift, eventlog, tracer};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use super::helpers::*;
-use super::helpers_state::*;
-use super::helpers_time::*;
 
 
 /// FJ-635: Attempt automatic repair of corrupted lock files.

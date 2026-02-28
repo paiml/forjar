@@ -96,6 +96,7 @@ pub(crate) fn apply_machine(
 }
 
 /// Execute all resource changes for a machine (parallel waves or sequential).
+#[allow(clippy::too_many_arguments)]
 fn execute_machine_changes(
     cfg: &ApplyConfig,
     machine_changes: &[&PlannedChange],
@@ -114,6 +115,7 @@ fn execute_machine_changes(
 }
 
 /// Execute changes sequentially.
+#[allow(clippy::too_many_arguments)]
 fn execute_sequential(
     cfg: &ApplyConfig,
     machine_changes: &[&PlannedChange],
@@ -147,6 +149,7 @@ fn execute_sequential(
 }
 
 /// Execute changes in parallel waves with dependency ordering.
+#[allow(clippy::too_many_arguments)]
 fn execute_parallel_waves(
     cfg: &ApplyConfig,
     machine_changes: &[&PlannedChange],
@@ -170,6 +173,7 @@ fn execute_parallel_waves(
 }
 
 /// Execute a single wave — either sequentially (1 resource) or in parallel.
+#[allow(clippy::too_many_arguments)]
 fn execute_single_wave(
     cfg: &ApplyConfig,
     wave: &[String],
@@ -211,6 +215,7 @@ fn split_waves_by_max_parallel(waves: Vec<Vec<String>>, max_parallel: Option<usi
 }
 
 /// Finalize a machine apply: save lock, write trace, log completion, build result.
+#[allow(clippy::too_many_arguments)]
 fn finalize_machine(
     cfg: &ApplyConfig,
     lock: &mut StateLock,
@@ -331,6 +336,7 @@ fn execute_wave_parallel(
 }
 
 /// Phase 1: Filter and prepare resources for parallel execution.
+#[allow(clippy::type_complexity)]
 fn prepare_wave_resources(
     cfg: &ApplyConfig,
     wave_changes: &[&PlannedChange],
@@ -342,12 +348,9 @@ fn prepare_wave_resources(
     let mut skipped = Vec::new();
 
     for (idx, change) in wave_changes.iter().enumerate() {
-        match classify_resource(cfg, change, machine, converged_resources) {
-            Some(outcome) => {
-                skipped.push((idx, outcome));
-                continue;
-            }
-            None => {}
+        if let Some(outcome) = classify_resource(cfg, change, machine, converged_resources) {
+            skipped.push((idx, outcome));
+            continue;
         }
 
         let resource = cfg.config.resources.get(&change.resource_id).unwrap();

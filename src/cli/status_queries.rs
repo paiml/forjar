@@ -1,18 +1,13 @@
 //! Status query variants.
 
-use crate::core::types::ProvenanceEvent;
-use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
-use crate::transport;
-use crate::tripwire::{anomaly, drift, eventlog, tracer};
-use std::path::{Path, PathBuf};
+use crate::core::{state, types};
+use std::path::Path;
 use super::helpers::*;
-use super::helpers_state::*;
-use super::helpers_time::*;
 use super::status_core::*;
-use std::collections::HashMap;
 
 
 /// Collect resource rows from state directory: (machine_name, resource_name, ResourceLock).
+#[allow(clippy::type_complexity)]
 fn collect_resources(
     state_dir: &Path,
     machine: Option<&str>,

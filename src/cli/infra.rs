@@ -1,13 +1,9 @@
 //! Infrastructure utilities.
 
-use crate::core::types::ProvenanceEvent;
-use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
-use crate::transport;
-use crate::tripwire::{anomaly, drift, eventlog, tracer};
-use std::path::{Path, PathBuf};
+use crate::core::{migrate, parser, types};
+use std::path::Path;
 use super::helpers::*;
 use super::helpers_state::*;
-use super::helpers_time::*;
 
 
 pub(crate) fn cmd_migrate(file: &Path, output: Option<&Path>) -> Result<(), String> {
@@ -423,7 +419,6 @@ pub(crate) fn cmd_state_rm(
     force: bool,
 ) -> Result<(), String> {
     use crate::core::state;
-use std::collections::HashMap;
 
     if !state_dir.exists() {
         return Err("state directory does not exist".to_string());

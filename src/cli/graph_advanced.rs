@@ -2,7 +2,6 @@
 
 #[allow(unused_imports)]
 use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
-use std::collections::HashSet;
 use std::path::Path;
 use super::helpers::*;
 use super::graph_export::{build_undirected_graph, compute_in_degrees, build_adjacency_matrix};
@@ -196,7 +195,7 @@ pub(crate) fn cmd_graph_resource_weight(
             weights.push((name.as_str(), dep.as_str(), w));
         }
     }
-    weights.sort_by(|a, b| b.2.cmp(&a.2).then(a.0.cmp(&b.0)));
+    weights.sort_by(|a, b| b.2.cmp(&a.2).then_with(|| a.0.cmp(b.0)));
     if json {
         let items: Vec<String> = weights.iter()
             .map(|(from, to, w)| format!("{{\"from\":\"{}\",\"to\":\"{}\",\"weight\":{}}}", from, to, w))
@@ -363,7 +362,7 @@ fn find_connected_components(config: &types::ForjarConfig) -> Vec<Vec<String>> {
         comp.sort();
         components.push(comp);
     }
-    components.sort_by(|a, b| b.len().cmp(&a.len()));
+    components.sort_by_key(|c| std::cmp::Reverse(c.len()));
     components
 }
 

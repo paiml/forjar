@@ -1,14 +1,8 @@
 //! Structural validation checks.
 
-use crate::core::types::ProvenanceEvent;
-use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
-use crate::transport;
-use crate::tripwire::{anomaly, drift, eventlog, tracer};
-use std::path::{Path, PathBuf};
+use crate::core::types;
+use std::path::Path;
 use super::helpers::*;
-use super::helpers_state::*;
-use super::helpers_time::*;
-use std::collections::HashMap;
 
 
 /// Scan a text for unresolved `{{params.KEY}}` references.
@@ -146,7 +140,7 @@ pub(crate) fn cmd_validate_check_secrets(file: &Path, json: bool) -> Result<(), 
 
 
 /// Build adjacency list from config.
-fn build_adj_list<'a>(config: &'a types::ForjarConfig) -> std::collections::HashMap<&'a str, Vec<&'a str>> {
+fn build_adj_list(config: &types::ForjarConfig) -> std::collections::HashMap<&str, Vec<&str>> {
     let mut adj: std::collections::HashMap<&str, Vec<&str>> = std::collections::HashMap::new();
     for (name, res) in &config.resources {
         adj.entry(name.as_str()).or_default();

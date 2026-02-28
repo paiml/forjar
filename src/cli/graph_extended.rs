@@ -1,17 +1,12 @@
 //! Extended graph ops.
 
-use crate::core::types::ProvenanceEvent;
-use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
-use crate::transport;
-use crate::tripwire::{anomaly, drift, eventlog, tracer};
-use std::path::{Path, PathBuf};
+use crate::core::{resolver, types};
+use std::path::Path;
 use super::helpers::*;
-use super::helpers_state::*;
-use super::helpers_time::*;
-use std::collections::HashMap;
 
 
 /// Compute BFS depth map from roots.
+#[allow(clippy::type_complexity)]
 fn compute_depth_map<'a>(
     order: &'a [String],
     config: &'a types::ForjarConfig,
