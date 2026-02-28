@@ -228,5 +228,13 @@ pub struct GraphArgs {
     /// FJ-795: Check if dependency graph is bipartite
     #[arg(long)]
     pub bipartite_check: bool,
+
+    /// FJ-799: Find strongly connected components (Tarjan's algorithm)
+    #[arg(long)]
+    pub strongly_connected: bool,
+
+    /// FJ-803: Export dependency matrix as CSV
+    #[arg(long)]
+    pub dependency_matrix_csv: bool,
 }
 

@@ -15,7 +15,6 @@ use super::commands::*;
 mod tests {
     use super::*;
 
-
     #[test]
     fn test_fj486_apply_rollback_on_threshold_flag() {
         let cmd = Commands::Apply(ApplyArgs {
@@ -167,6 +166,7 @@ mod tests {
         notify_json: false,
             notify_slack_webhook: None,
             notify_telegram: None,
+            notify_webhook_v2: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs {
@@ -176,7 +176,6 @@ mod tests {
             _ => panic!("expected Apply"),
         }
     }
-
 
     #[test]
     fn test_fj490_apply_metrics_port_flag() {
@@ -329,13 +328,13 @@ mod tests {
         notify_json: false,
             notify_slack_webhook: None,
             notify_telegram: None,
+            notify_webhook_v2: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { metrics_port, .. }) => assert_eq!(metrics_port, Some(9090)),
             _ => panic!("expected Apply"),
         }
     }
-
 
     #[test]
     fn test_fj493_apply_notify_opsgenie_flag() {
@@ -488,6 +487,7 @@ mod tests {
         notify_json: false,
             notify_slack_webhook: None,
             notify_telegram: None,
+            notify_webhook_v2: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs {

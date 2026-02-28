@@ -75,6 +75,8 @@ mod tests {
             critical_path_resources: false,
             sink_resources: false,
             bipartite_check: false,
+            strongly_connected: false,
+            dependency_matrix_csv: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { prune, .. }) => {
@@ -144,6 +146,8 @@ mod tests {
             critical_path_resources: false,
             sink_resources: false,
             bipartite_check: false,
+            strongly_connected: false,
+            dependency_matrix_csv: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { layers, .. }) => assert!(layers),
@@ -211,6 +215,8 @@ mod tests {
             critical_path_resources: false,
             sink_resources: false,
             bipartite_check: false,
+            strongly_connected: false,
+            dependency_matrix_csv: false,
         });
         match cmd {
             Commands::Graph(GraphArgs {
@@ -280,6 +286,8 @@ mod tests {
             critical_path_resources: false,
             sink_resources: false,
             bipartite_check: false,
+            strongly_connected: false,
+            dependency_matrix_csv: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { weight, .. }) => assert!(weight),
@@ -347,6 +355,8 @@ mod tests {
             critical_path_resources: false,
             sink_resources: false,
             bipartite_check: false,
+            strongly_connected: false,
+            dependency_matrix_csv: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { subgraph, .. }) => {
@@ -416,6 +426,8 @@ mod tests {
             critical_path_resources: false,
             sink_resources: false,
             bipartite_check: false,
+            strongly_connected: false,
+            dependency_matrix_csv: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { impact_radius, .. }) => {
@@ -485,6 +497,8 @@ mod tests {
             critical_path_resources: false,
             sink_resources: false,
             bipartite_check: false,
+            strongly_connected: false,
+            dependency_matrix_csv: false,
         });
         match cmd {
             Commands::Graph(GraphArgs {
@@ -554,6 +568,8 @@ mod tests {
             critical_path_resources: false,
             sink_resources: false,
             bipartite_check: false,
+            strongly_connected: false,
+            dependency_matrix_csv: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { hotspots, .. }) => assert!(hotspots),

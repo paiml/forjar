@@ -381,6 +381,7 @@ resources:
         notify_json: false,
             notify_slack_webhook: None,
             notify_telegram: None,
+            notify_webhook_v2: None,
             }),
             false,
             true,

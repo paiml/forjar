@@ -229,12 +229,13 @@ fn try_status_phase62(
     None
 }
 
-/// Phase 65-66 status flags.
+/// Phase 65-67 status flags.
 #[allow(clippy::too_many_arguments)]
 fn try_status_phase65(
     sd: &Path, machine: Option<&str>, json: bool, file: Option<&Path>,
     resource_apply_age: bool, machine_uptime: bool, resource_churn: bool,
     last_drift_time: bool, machine_resource_count: bool, convergence_score: bool,
+    apply_success_rate: bool, error_rate: bool, fleet_health_summary: bool,
 ) -> Option<Result<(), String>> {
     if resource_apply_age { return Some(cmd_status_resource_apply_age(sd, machine, json)); }
     if machine_uptime { return Some(cmd_status_machine_uptime(sd, machine, json)); }
@@ -245,6 +246,9 @@ fn try_status_phase65(
         return Some(cmd_status_machine_resource_count(f, json));
     }
     if convergence_score { return Some(cmd_status_convergence_score(sd, json)); }
+    if apply_success_rate { return Some(cmd_status_apply_success_rate(sd, machine, json)); }
+    if error_rate { return Some(cmd_status_error_rate(sd, machine, json)); }
+    if fleet_health_summary { return Some(cmd_status_fleet_health_summary(sd, json)); }
     None
 }
 
@@ -279,6 +283,7 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
         apply_history_count, lock_file_count, resource_type_distribution,
         resource_apply_age, machine_uptime, resource_churn,
         last_drift_time, machine_resource_count, convergence_score,
+        apply_success_rate, error_rate, fleet_health_summary,
     }) = cmd
     else {
         unreachable!()
@@ -292,7 +297,7 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
     if let Some(r) = try_status_phase62(&state_dir, m, json, file.as_deref(), machine_resource_map, fleet_convergence, resource_hash, machine_drift_summary, apply_history_count, lock_file_count, resource_type_distribution) {
         return r;
     }
-    if let Some(r) = try_status_phase65(&state_dir, m, json, file.as_deref(), resource_apply_age, machine_uptime, resource_churn, last_drift_time, machine_resource_count, convergence_score) {
+    if let Some(r) = try_status_phase65(&state_dir, m, json, file.as_deref(), resource_apply_age, machine_uptime, resource_churn, last_drift_time, machine_resource_count, convergence_score, apply_success_rate, error_rate, fleet_health_summary) {
         return r;
     }
     if let Some(r) = try_status_phase58(&state_dir, m, json, resource_types_summary, failed_resources, drift_trend, resource_inputs, convergence_history, config_hash, last_apply_duration, drift_details_all, resource_size, hash_verify, lock_age) {

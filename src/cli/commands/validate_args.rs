@@ -216,5 +216,13 @@ pub struct ValidateArgs {
     /// FJ-793: Verify resource groups are non-empty
     #[arg(long)]
     pub check_resource_groups: bool,
+
+    /// FJ-797: Detect resources not reachable from any root
+    #[arg(long)]
+    pub check_orphan_resources: bool,
+
+    /// FJ-801: Verify resource compatibility with machine architecture
+    #[arg(long)]
+    pub check_machine_arch: bool,
 }
 

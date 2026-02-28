@@ -166,6 +166,7 @@ mod tests {
         notify_json: false,
             notify_slack_webhook: None,
             notify_telegram: None,
+            notify_webhook_v2: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { tag_filter, .. }) => {
@@ -277,6 +278,9 @@ mod tests {
             last_drift_time: false,
             machine_resource_count: false,
             convergence_score: false,
+            apply_success_rate: false,
+            error_rate: false,
+            fleet_health_summary: false,
         });
         match cmd {
             Commands::Status(StatusArgs { timeline, .. }) => assert!(timeline),
@@ -436,6 +440,7 @@ mod tests {
         notify_json: false,
             notify_slack_webhook: None,
             notify_telegram: None,
+            notify_webhook_v2: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { resume, .. }) => assert!(resume),

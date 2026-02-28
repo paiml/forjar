@@ -396,5 +396,17 @@ pub struct StatusArgs {
     /// FJ-796: Weighted convergence score across fleet
     #[arg(long)]
     pub convergence_score: bool,
+
+    /// FJ-798: Show success/failure ratio per machine
+    #[arg(long)]
+    pub apply_success_rate: bool,
+
+    /// FJ-802: Show error rate per resource type
+    #[arg(long)]
+    pub error_rate: bool,
+
+    /// FJ-804: One-line per machine with health + convergence
+    #[arg(long)]
+    pub fleet_health_summary: bool,
 }
 

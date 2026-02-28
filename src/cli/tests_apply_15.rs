@@ -1,5 +1,4 @@
 //! Tests: Apply command.
-
 use crate::core::types::ProvenanceEvent;
 use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
 use crate::transport;
@@ -166,6 +165,7 @@ mod tests {
         notify_json: false,
             notify_slack_webhook: None,
             notify_telegram: None,
+            notify_webhook_v2: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { change_window, .. }) => {
@@ -174,7 +174,6 @@ mod tests {
             _ => panic!("expected Apply"),
         }
     }
-
 
     #[test]
     fn test_fj510_apply_canary_machine_flag() {
@@ -327,6 +326,7 @@ mod tests {
         notify_json: false,
             notify_slack_webhook: None,
             notify_telegram: None,
+            notify_webhook_v2: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { canary_machine, .. }) => {
@@ -335,7 +335,6 @@ mod tests {
             _ => panic!("expected Apply"),
         }
     }
-
 
     #[test]
     fn test_fj513_apply_notify_newrelic_flag() {
@@ -488,6 +487,7 @@ mod tests {
         notify_json: false,
             notify_slack_webhook: None,
             notify_telegram: None,
+            notify_webhook_v2: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs {

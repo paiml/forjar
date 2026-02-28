@@ -117,6 +117,9 @@ mod tests {
             last_drift_time: false,
             machine_resource_count: false,
             convergence_score: false,
+            apply_success_rate: false,
+            error_rate: false,
+            fleet_health_summary: false,
         });
         match cmd {
             Commands::Status(StatusArgs { alerts, .. }) => assert!(alerts),
@@ -228,6 +231,9 @@ mod tests {
             last_drift_time: false,
             machine_resource_count: false,
             convergence_score: false,
+            apply_success_rate: false,
+            error_rate: false,
+            fleet_health_summary: false,
         });
         match cmd {
             Commands::Status(StatusArgs { diff_lock, .. }) => {
@@ -339,6 +345,9 @@ mod tests {
             last_drift_time: false,
             machine_resource_count: false,
             convergence_score: false,
+            apply_success_rate: false,
+            error_rate: false,
+            fleet_health_summary: false,
         });
         match cmd {
             Commands::Status(StatusArgs { compliance, .. }) => {
@@ -452,6 +461,9 @@ mod tests {
             last_drift_time: false,
             machine_resource_count: false,
             convergence_score: false,
+            apply_success_rate: false,
+            error_rate: false,
+            fleet_health_summary: false,
         });
         match cmd {
             Commands::Status(StatusArgs { histogram, .. }) => assert!(histogram),
@@ -561,6 +573,9 @@ mod tests {
             last_drift_time: false,
             machine_resource_count: false,
             convergence_score: false,
+            apply_success_rate: false,
+            error_rate: false,
+            fleet_health_summary: false,
         });
         match cmd {
             Commands::Status(StatusArgs {

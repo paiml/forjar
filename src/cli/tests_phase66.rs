@@ -6,10 +6,8 @@ mod tests {
         cmd_validate_check_duplicate_names,
         cmd_validate_check_resource_groups,
     };
-    use super::super::graph_export::{
-        cmd_graph_sink_resources,
-        cmd_graph_bipartite_check,
-    };
+    use super::super::graph_export::cmd_graph_sink_resources;
+    use super::super::graph_advanced::cmd_graph_bipartite_check;
     use super::super::status_fleet_detail::{
         cmd_status_last_drift_time,
         cmd_status_machine_resource_count,

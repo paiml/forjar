@@ -454,6 +454,8 @@ resources:
             check_path_conflicts_strict: false,
             check_duplicate_names: false,
             check_resource_groups: false,
+            check_orphan_resources: false,
+            check_machine_arch: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { schema_version, .. }) => {
