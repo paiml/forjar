@@ -2957,6 +2957,49 @@ forjar status --state-dir state --machine-resource-staleness-index
 #   web — 0.6042
 ```
 
+#### Phase 90 — Resource Lifecycle & Dependency Resilience (FJ-981→FJ-988)
+
+```bash
+# FJ-981: Resource lifecycle completeness check
+forjar validate -f forjar.yaml --check-resource-lifecycle-completeness
+# All resources have complete lifecycle definitions.
+
+# FJ-982: Drift recurrence per machine
+forjar status --state-dir state --machine-resource-drift-recurrence
+# Drift recurrence:
+#   web — 3 resources drifted
+
+# FJ-983: Edge resilience scores (0=bridge, 1=resilient)
+forjar graph -f forjar.yaml --resource-dependency-resilience-score
+# Edge resilience scores (0=bridge, 1=resilient):
+#   app → migrations — 0.00
+#   config → base_dir — 1.00
+
+# FJ-984: Custom escalation notifications
+forjar apply -f forjar.yaml --notify-custom-escalation "https://hooks.example.com|warning"
+
+# FJ-985: Resource-provider compatibility check
+forjar validate -f forjar.yaml --check-resource-provider-compatibility
+# All resource types are compatible with providers.
+
+# FJ-986: Fleet drift heatmap
+forjar status --state-dir state --fleet-resource-drift-heatmap
+# Drift heatmap:
+#   web    2/6  ( 33.3%)
+#   db     0/4  (  0.0%)
+
+# FJ-987: PageRank importance ranking
+forjar graph -f forjar.yaml --resource-dependency-pagerank
+# PageRank importance scores:
+#   base_dir — 0.321761
+#   migrations — 0.181574
+
+# FJ-988: Convergence trend (p90)
+forjar status --state-dir state --machine-resource-convergence-trend-p90
+# Convergence trend:
+#   web — 80.0% converged (5 resources)
+```
+
 ### `forjar watch`
 
 Watch a config file for changes and automatically re-plan.

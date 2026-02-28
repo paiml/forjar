@@ -14,6 +14,7 @@ use super::status_predictive::*;
 use super::status_recovery::*;
 use super::status_intelligence::*;
 use super::status_intelligence_ext::*;
+use super::status_intelligence_ext2::*;
 use super::dispatch_status_ext::*;
 
 #[allow(clippy::too_many_arguments)]
@@ -238,7 +239,15 @@ fn try_status_phase89(
     if machine_resource_staleness_index { return Some(cmd_status_machine_resource_staleness_index(sd, machine, json)); }
     None
 }
-
+fn try_status_phase90(
+    sd: &Path, machine: Option<&str>, json: bool,
+    machine_resource_drift_recurrence: bool, fleet_resource_drift_heatmap: bool, machine_resource_convergence_trend_p90: bool,
+) -> Option<Result<(), String>> {
+    if machine_resource_drift_recurrence { return Some(cmd_status_machine_resource_drift_recurrence(sd, machine, json)); }
+    if fleet_resource_drift_heatmap { return Some(cmd_status_fleet_resource_drift_heatmap(sd, machine, json)); }
+    if machine_resource_convergence_trend_p90 { return Some(cmd_status_machine_resource_convergence_trend_p90(sd, machine, json)); }
+    None
+}
 pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
     let Commands::Status(StatusArgs {
         state_dir, machine, json, file, summary, watch,
@@ -291,6 +300,7 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
         machine_resource_drift_age, fleet_resource_drift_age, machine_resource_recovery_rate,
         machine_resource_drift_velocity, fleet_resource_recovery_rate, machine_resource_convergence_efficiency,
         machine_resource_apply_frequency, fleet_resource_health_score, machine_resource_staleness_index,
+        machine_resource_drift_recurrence, fleet_resource_drift_heatmap, machine_resource_convergence_trend_p90,
     }) = cmd
     else {
         unreachable!()
@@ -321,6 +331,9 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
         return r;
     }
     if let Some(r) = try_status_phase89(&state_dir, m, json, machine_resource_apply_frequency, fleet_resource_health_score, machine_resource_staleness_index) {
+        return r;
+    }
+    if let Some(r) = try_status_phase90(&state_dir, m, json, machine_resource_drift_recurrence, fleet_resource_drift_heatmap, machine_resource_convergence_trend_p90) {
         return r;
     }
     if let Some(r) = try_status_phase75(&state_dir, m, json, machine_resource_churn_rate, fleet_resource_staleness, machine_convergence_trend, machine_capacity_utilization, fleet_configuration_entropy, machine_resource_freshness, machine_error_budget, fleet_compliance_score, machine_mean_time_to_recovery, machine_resource_dependency_health, fleet_resource_type_health, machine_resource_convergence_rate) {

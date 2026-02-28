@@ -657,5 +657,8 @@ pub struct ApplyArgs {
     /// FJ-976: Route failed notifications to a dead-letter queue
     #[arg(long)]
     pub notify_custom_dead_letter: Option<String>,
+    /// FJ-984: Escalate notifications based on failure severity
+    #[arg(long)]
+    pub notify_custom_escalation: Option<String>,
 }
 

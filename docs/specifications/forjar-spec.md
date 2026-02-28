@@ -2779,14 +2779,40 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-973 | `forjar validate --check-resource-env-consistency` — validate environment variable references match declared params. Governance. | Planned |
-| FJ-974 | `forjar status --machine-resource-apply-frequency` — track how often each machine's resources are applied. Intelligence. | Planned |
-| FJ-975 | `forjar graph --resource-dependency-minimum-cut` — find minimum edge cut set that disconnects the dependency graph. Analysis. | Planned |
-| FJ-976 | `forjar apply --notify-custom-dead-letter` — route failed notifications to a dead-letter queue. Integration. | Planned |
-| FJ-977 | `forjar validate --check-resource-secret-rotation` — validate secret resources have rotation policies defined. Governance. | Planned |
-| FJ-978 | `forjar status --fleet-resource-health-score` — composite fleet health score (convergence + drift + recovery). Intelligence. | Planned |
-| FJ-979 | `forjar graph --resource-dependency-dominator-tree` — compute dominator tree showing single points of failure. Analysis. | Planned |
-| FJ-980 | `forjar status --machine-resource-staleness-index` — index of how stale each machine's state data is. Intelligence. | Planned |
+| FJ-973 | `forjar validate --check-resource-env-consistency` — validate environment variable references match declared params. Governance. | Done |
+| FJ-974 | `forjar status --machine-resource-apply-frequency` — track how often each machine's resources are applied. Intelligence. | Done |
+| FJ-975 | `forjar graph --resource-dependency-minimum-cut` — find minimum edge cut set that disconnects the dependency graph. Analysis. | Done |
+| FJ-976 | `forjar apply --notify-custom-dead-letter` — route failed notifications to a dead-letter queue. Integration. | Done |
+| FJ-977 | `forjar validate --check-resource-secret-rotation` — validate secret resources have rotation policies defined. Governance. | Done |
+| FJ-978 | `forjar status --fleet-resource-health-score` — composite fleet health score (convergence + drift + recovery). Intelligence. | Done |
+| FJ-979 | `forjar graph --resource-dependency-dominator-tree` — compute dominator tree showing single points of failure. Analysis. | Done |
+| FJ-980 | `forjar status --machine-resource-staleness-index` — index of how stale each machine's state data is. Intelligence. | Done |
+
+### Phase 90 — Resource Lifecycle & Dependency Resilience (FJ-981→FJ-988)
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-981 | `forjar validate --check-resource-lifecycle-completeness` — verify resources define all lifecycle stages (create, update, delete). Governance. | Done |
+| FJ-982 | `forjar status --machine-resource-drift-recurrence` — count how many times each resource has drifted across applies. Intelligence. | Done |
+| FJ-983 | `forjar graph --resource-dependency-resilience-score` — score each edge by how resilient the graph is to its removal. Analysis. | Done |
+| FJ-984 | `forjar apply --notify-custom-escalation` — escalate notifications based on failure severity and count. Integration. | Done |
+| FJ-985 | `forjar validate --check-resource-provider-compatibility` — verify resource types are compatible with declared providers. Governance. | Done |
+| FJ-986 | `forjar status --fleet-resource-drift-heatmap` — heatmap of drift across fleet machines and resources. Intelligence. | Done |
+| FJ-987 | `forjar graph --resource-dependency-pagerank` — compute PageRank importance score for each resource. Analysis. | Done |
+| FJ-988 | `forjar status --machine-resource-convergence-trend-p90` — trend of convergence rate over recent applies. Intelligence. | Done |
+
+### Phase 91 — Advanced Governance & Operational Depth (FJ-989→FJ-996)
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-989 | `forjar validate --check-resource-naming-convention` — enforce naming conventions (kebab-case, snake_case, etc.) on resource names. Governance. | Planned |
+| FJ-990 | `forjar status --machine-resource-drift-age` — how long each drifted resource has been drifted. Intelligence. | Planned |
+| FJ-991 | `forjar graph --resource-dependency-betweenness-centrality` — compute betweenness centrality for each resource. Analysis. | Planned |
+| FJ-992 | `forjar apply --notify-custom-correlation` — correlate notifications by resource group and time window. Integration. | Planned |
+| FJ-993 | `forjar validate --check-resource-idempotency-hints` — warn if resources lack idempotency annotations. Governance. | Planned |
+| FJ-994 | `forjar status --fleet-resource-convergence-percentile` — show convergence rate at various percentiles (p50, p90, p99). Intelligence. | Planned |
+| FJ-995 | `forjar graph --resource-dependency-strongly-connected` — find strongly connected components (cyclic clusters). Analysis. | Planned |
+| FJ-996 | `forjar status --machine-resource-error-rate` — error rate per machine across recent applies. Intelligence. | Planned |
 
 ---
 

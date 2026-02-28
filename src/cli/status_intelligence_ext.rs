@@ -298,7 +298,7 @@ pub(crate) fn cmd_status_machine_resource_drift_velocity(sd: &Path, machine: Opt
     Ok(())
 }
 
-fn filter_targets<'a>(machines: &'a [String], machine: Option<&str>) -> Vec<&'a String> {
+pub(super) fn filter_targets<'a>(machines: &'a [String], machine: Option<&str>) -> Vec<&'a String> {
     match machine {
         Some(m) => machines.iter().filter(|n| n.as_str() == m).collect(),
         None => machines.iter().collect(),

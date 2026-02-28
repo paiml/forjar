@@ -374,5 +374,11 @@ pub struct ValidateArgs {
     /// FJ-977: Validate secret resources have rotation policies defined
     #[arg(long)]
     pub check_resource_secret_rotation: bool,
+    /// FJ-981: Verify resources define all lifecycle stages
+    #[arg(long)]
+    pub check_resource_lifecycle_completeness: bool,
+    /// FJ-985: Verify resource types are compatible with declared providers
+    #[arg(long)]
+    pub check_resource_provider_compatibility: bool,
 }
 
