@@ -287,3 +287,83 @@ fn estimate_change_frequency(config: &types::ForjarConfig) -> Vec<(String, usize
     results.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
     results
 }
+
+/// FJ-847: Impact score based on dependents + depth.
+pub(crate) fn cmd_graph_resource_impact_score(
+    file: &Path, json: bool,
+) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let config: types::ForjarConfig =
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+    let scores = compute_impact_scores(&config);
+    if json {
+        let items: Vec<String> = scores.iter()
+            .map(|(r, s)| format!("{{\"resource\":\"{}\",\"impact_score\":{}}}", r, s))
+            .collect();
+        println!("{{\"resource_impact_scores\":[{}]}}", items.join(","));
+    } else if scores.is_empty() {
+        println!("No resources.");
+    } else {
+        println!("Resource impact scores (dependents + depth):");
+        for (r, s) in &scores { println!("  {} — score {}", r, s); }
+    }
+    Ok(())
+}
+
+fn compute_impact_scores(config: &types::ForjarConfig) -> Vec<(String, usize)> {
+    let mut fanin: std::collections::HashMap<&str, usize> = std::collections::HashMap::new();
+    for resource in config.resources.values() {
+        for dep in &resource.depends_on {
+            *fanin.entry(dep.as_str()).or_default() += 1;
+        }
+    }
+    let mut results: Vec<(String, usize)> = config.resources.keys()
+        .map(|name| {
+            let dependents = fanin.get(name.as_str()).copied().unwrap_or(0);
+            let depth = config.resources[name].depends_on.len();
+            (name.clone(), dependents * 2 + depth)
+        })
+        .collect();
+    results.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+    results
+}
+
+/// FJ-851: Stability score based on status history (simulated from resource config).
+pub(crate) fn cmd_graph_resource_stability_score(
+    file: &Path, json: bool,
+) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let config: types::ForjarConfig =
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+    let scores = compute_stability_scores(&config);
+    if json {
+        let items: Vec<String> = scores.iter()
+            .map(|(r, s)| format!("{{\"resource\":\"{}\",\"stability_score\":{}}}", r, s))
+            .collect();
+        println!("{{\"resource_stability_scores\":[{}]}}", items.join(","));
+    } else if scores.is_empty() {
+        println!("No resources.");
+    } else {
+        println!("Resource stability scores (higher = more stable):");
+        for (r, s) in &scores { println!("  {} — score {}", r, s); }
+    }
+    Ok(())
+}
+
+fn compute_stability_scores(config: &types::ForjarConfig) -> Vec<(String, usize)> {
+    let mut results: Vec<(String, usize)> = config.resources.keys()
+        .map(|name| {
+            let r = &config.resources[name];
+            let mut score = 10usize;
+            // More dependencies = less stable
+            score = score.saturating_sub(r.depends_on.len());
+            // Resources with explicit state are more stable
+            if r.state.is_some() { score += 2; }
+            // Resources with content hash are more stable
+            if r.content.is_some() { score += 1; }
+            (name.clone(), score)
+        })
+        .collect();
+    results.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+    results
+}

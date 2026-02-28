@@ -76,6 +76,8 @@ mod tests {
             bipartite_check: false,
             strongly_connected: false,
             dependency_matrix_csv: false, resource_weight: false, dependency_depth_per_resource: false, resource_fanin: false, isolated_subgraphs: false, resource_dependency_chain: None, bottleneck_resources: false, critical_dependency_path: false, resource_depth_histogram: false, resource_coupling_score: false, resource_change_frequency: false,
+                resource_impact_score: false,
+                resource_stability_score: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { affected, .. }) => {
@@ -146,6 +148,8 @@ mod tests {
             bipartite_check: false,
             strongly_connected: false,
             dependency_matrix_csv: false, resource_weight: false, dependency_depth_per_resource: false, resource_fanin: false, isolated_subgraphs: false, resource_dependency_chain: None, bottleneck_resources: false, critical_dependency_path: false, resource_depth_histogram: false, resource_coupling_score: false, resource_change_frequency: false,
+                resource_impact_score: false,
+                resource_stability_score: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { reverse, .. }) => assert!(reverse),
@@ -214,6 +218,8 @@ mod tests {
             bipartite_check: false,
             strongly_connected: false,
             dependency_matrix_csv: false, resource_weight: false, dependency_depth_per_resource: false, resource_fanin: false, isolated_subgraphs: false, resource_dependency_chain: None, bottleneck_resources: false, critical_dependency_path: false, resource_depth_histogram: false, resource_coupling_score: false, resource_change_frequency: false,
+                resource_impact_score: false,
+                resource_stability_score: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { depth, .. }) => assert_eq!(depth, Some(2)),
@@ -282,6 +288,8 @@ mod tests {
             bipartite_check: false,
             strongly_connected: false,
             dependency_matrix_csv: false, resource_weight: false, dependency_depth_per_resource: false, resource_fanin: false, isolated_subgraphs: false, resource_dependency_chain: None, bottleneck_resources: false, critical_dependency_path: false, resource_depth_histogram: false, resource_coupling_score: false, resource_change_frequency: false,
+                resource_impact_score: false,
+                resource_stability_score: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { cluster, .. }) => assert!(cluster),
@@ -350,6 +358,8 @@ mod tests {
             bipartite_check: false,
             strongly_connected: false,
             dependency_matrix_csv: false, resource_weight: false, dependency_depth_per_resource: false, resource_fanin: false, isolated_subgraphs: false, resource_dependency_chain: None, bottleneck_resources: false, critical_dependency_path: false, resource_depth_histogram: false, resource_coupling_score: false, resource_change_frequency: false,
+                resource_impact_score: false,
+                resource_stability_score: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { orphans, .. }) => assert!(orphans),
@@ -418,6 +428,8 @@ mod tests {
             bipartite_check: false,
             strongly_connected: false,
             dependency_matrix_csv: false, resource_weight: false, dependency_depth_per_resource: false, resource_fanin: false, isolated_subgraphs: false, resource_dependency_chain: None, bottleneck_resources: false, critical_dependency_path: false, resource_depth_histogram: false, resource_coupling_score: false, resource_change_frequency: false,
+                resource_impact_score: false,
+                resource_stability_score: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { stats, .. }) => assert!(stats),
@@ -486,6 +498,8 @@ mod tests {
             bipartite_check: false,
             strongly_connected: false,
             dependency_matrix_csv: false, resource_weight: false, dependency_depth_per_resource: false, resource_fanin: false, isolated_subgraphs: false, resource_dependency_chain: None, bottleneck_resources: false, critical_dependency_path: false, resource_depth_histogram: false, resource_coupling_score: false, resource_change_frequency: false,
+                resource_impact_score: false,
+                resource_stability_score: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { json_output, .. }) => assert!(json_output),

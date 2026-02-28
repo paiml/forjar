@@ -76,6 +76,7 @@ pub(crate) struct NotifyOpts<'a> {
     pub teams_webhook: Option<&'a str>,
     pub slack_blocks: Option<&'a str>,
     pub custom_template: Option<&'a str>,
+    pub custom_webhook: Option<&'a str>,
 }
 
 
@@ -180,6 +181,7 @@ fn send_incident_notifications(opts: &NotifyOpts<'_>, result: &Result<(), String
     send_teams_webhook_notification(opts.teams_webhook, result, config);
     send_slack_blocks_notification(opts.slack_blocks, result, config);
     send_custom_template_notification(opts.custom_template, result, config);
+    send_custom_webhook_notification(opts.custom_webhook, result, config);
 }
 
 fn send_pagerduty_notification(key: Option<&str>, result: &Result<(), String>, config: &Path) {
@@ -236,6 +238,18 @@ fn send_custom_template_notification(template: Option<&str>, result: &Result<(),
             .arg("-c")
             .arg(&rendered)
             .output();
+    }
+}
+
+fn send_custom_webhook_notification(url: Option<&str>, result: &Result<(), String>, config: &Path) {
+    if let Some(url) = url {
+        let status = if result.is_ok() { "success" } else { "failure" };
+        let payload = format!(
+            r#"{{"event":"forjar_apply","status":"{}","config":"{}","timestamp":"{}"}}"#,
+            status, config.display(),
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs()
+        );
+        send_webhook(url, &payload);
     }
 }
 

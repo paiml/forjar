@@ -327,6 +327,7 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
         machine_resource_health, fleet_convergence_trend, resource_state_distribution,
         machine_apply_count, fleet_apply_history, resource_hash_changes,
         machine_uptime_estimate, fleet_resource_type_breakdown, resource_convergence_time,
+        machine_drift_age, fleet_failed_resources, resource_dependency_health,
     }) = cmd
     else {
         unreachable!()
@@ -346,6 +347,9 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
     if let Some(r) = try_status_phase68(&state_dir, m, json, machine_convergence_history, drift_history, resource_failure_rate, machine_last_apply, fleet_drift_summary, resource_apply_duration, machine_resource_health, fleet_convergence_trend, resource_state_distribution) {
         return r;
     }
+    if machine_drift_age { return cmd_status_machine_drift_age(&state_dir, m, json); }
+    if fleet_failed_resources { return cmd_status_fleet_failed_resources(&state_dir, m, json); }
+    if resource_dependency_health { return cmd_status_resource_dependency_health(&state_dir, m, json); }
     if let Some(r) = try_status_phase71(&state_dir, m, json, machine_apply_count, fleet_apply_history, resource_hash_changes, machine_uptime_estimate, fleet_resource_type_breakdown, resource_convergence_time) {
         return r;
     }

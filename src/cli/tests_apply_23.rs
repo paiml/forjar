@@ -169,6 +169,7 @@ mod tests {
             notify_slack_webhook: None,
             notify_telegram: None,
             notify_webhook_v2: None, notify_discord_webhook: None, notify_teams_webhook: None, notify_slack_blocks: None, notify_custom_template: None,
+                notify_custom_webhook: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { post_check, .. }) => {

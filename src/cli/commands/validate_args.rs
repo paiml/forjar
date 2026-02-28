@@ -264,5 +264,13 @@ pub struct ValidateArgs {
     /// FJ-841: Check resources have idempotency markers
     #[arg(long)]
     pub check_resource_idempotency_hints: bool,
+
+    /// FJ-845: Warn if dependency chain exceeds threshold
+    #[arg(long)]
+    pub check_resource_dependency_depth: Option<usize>,
+
+    /// FJ-849: Verify resources match machine capabilities
+    #[arg(long)]
+    pub check_resource_machine_affinity: bool,
 }
 
