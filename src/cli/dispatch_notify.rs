@@ -71,6 +71,7 @@ pub(crate) struct NotifyOpts<'a> {
     pub sqs: Option<&'a str>,
     pub mattermost: Option<&'a str>,
     pub ntfy: Option<&'a str>,
+    pub pagerduty: Option<&'a str>,
 }
 
 
@@ -169,6 +170,14 @@ fn send_incident_notifications(opts: &NotifyOpts<'_>, result: &Result<(), String
                 key, config.display()
             ));
         }
+    }
+    if let Some(key) = opts.pagerduty {
+        let action = if result.is_ok() { "resolve" } else { "trigger" };
+        let severity = if result.is_ok() { "info" } else { "error" };
+        send_webhook("https://events.pagerduty.com/v2/enqueue", &format!(
+            r#"{{"routing_key":"{}","event_action":"{}","payload":{{"summary":"Forjar apply: {}","source":"forjar","severity":"{}","component":"infrastructure"}}}}"#,
+            key, action, config.display(), severity
+        ));
     }
 }
 

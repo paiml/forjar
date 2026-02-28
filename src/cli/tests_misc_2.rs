@@ -155,7 +155,7 @@ resources:
             check_duplicate_names: false,
             check_resource_groups: false,
             check_orphan_resources: false,
-            check_machine_arch: false,
+            check_machine_arch: false, check_resource_health_conflicts: false, check_resource_overlap: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { strict, .. }) => assert!(strict),

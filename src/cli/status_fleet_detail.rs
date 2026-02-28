@@ -235,3 +235,151 @@ pub(crate) fn cmd_status_fleet_health_summary(
     }
     Ok(())
 }
+
+/// Collect convergence history data from lock files.
+fn collect_convergence_history(sd: &Path, targets: &[&String]) -> Vec<(String, String, f64)> {
+    let mut history = Vec::new();
+    for m in targets {
+        let lock_path = sd.join(format!("{}.lock.yaml", m));
+        if let Ok(content) = std::fs::read_to_string(&lock_path) {
+            if let Ok(lock) = serde_yaml_ng::from_str::<types::StateLock>(&content) {
+                let total = lock.resources.len();
+                if total == 0 { continue; }
+                let converged = lock.resources.values()
+                    .filter(|r| r.status == types::ResourceStatus::Converged)
+                    .count();
+                let pct = converged as f64 * 100.0 / total as f64;
+                let ts = lock.resources.values()
+                    .filter_map(|r| r.applied_at.clone())
+                    .max()
+                    .unwrap_or_else(|| "unknown".to_string());
+                history.push((m.to_string(), ts, pct));
+            }
+        }
+    }
+    history.sort_by(|a, b| a.0.cmp(&b.0));
+    history
+}
+
+/// FJ-806: Convergence trend per machine over time.
+pub(crate) fn cmd_status_machine_convergence_history(
+    state_dir: &Path, machine: Option<&str>, json: bool,
+) -> Result<(), String> {
+    let machines = discover_machines(state_dir);
+    let targets: Vec<&String> = match machine {
+        Some(m) => machines.iter().filter(|x| x.as_str() == m).collect(),
+        None => machines.iter().collect(),
+    };
+    let history = collect_convergence_history(state_dir, &targets);
+    if json {
+        let items: Vec<String> = history.iter()
+            .map(|(m, ts, pct)| format!("{{\"machine\":\"{}\",\"time\":\"{}\",\"convergence_pct\":{:.1}}}", m, ts, pct))
+            .collect();
+        println!("{{\"machine_convergence_history\":[{}]}}", items.join(","));
+    } else if history.is_empty() {
+        println!("No convergence history available.");
+    } else {
+        println!("Machine convergence history:");
+        for (m, ts, pct) in &history {
+            println!("  {} — {:.1}% converged (at {})", m, pct, ts);
+        }
+    }
+    Ok(())
+}
+
+/// Collect drift events from lock files.
+fn collect_drift_events(sd: &Path, targets: &[&String]) -> Vec<(String, String, String)> {
+    let mut events = Vec::new();
+    for m in targets {
+        let lock_path = sd.join(format!("{}.lock.yaml", m));
+        if let Ok(content) = std::fs::read_to_string(&lock_path) {
+            if let Ok(lock) = serde_yaml_ng::from_str::<types::StateLock>(&content) {
+                for (rname, rlock) in &lock.resources {
+                    if rlock.status == types::ResourceStatus::Drifted {
+                        let ts = rlock.applied_at.clone().unwrap_or_else(|| "unknown".to_string());
+                        events.push((ts, m.to_string(), rname.clone()));
+                    }
+                }
+            }
+        }
+    }
+    events.sort();
+    events
+}
+
+/// FJ-810: Drift events timeline across fleet.
+pub(crate) fn cmd_status_drift_history(
+    state_dir: &Path, machine: Option<&str>, json: bool,
+) -> Result<(), String> {
+    let machines = discover_machines(state_dir);
+    let targets: Vec<&String> = match machine {
+        Some(m) => machines.iter().filter(|x| x.as_str() == m).collect(),
+        None => machines.iter().collect(),
+    };
+    let events = collect_drift_events(state_dir, &targets);
+    if json {
+        let items: Vec<String> = events.iter()
+            .map(|(ts, m, r)| format!("{{\"time\":\"{}\",\"machine\":\"{}\",\"resource\":\"{}\"}}", ts, m, r))
+            .collect();
+        println!("{{\"drift_history\":[{}]}}", items.join(","));
+    } else if events.is_empty() {
+        println!("No drift events recorded.");
+    } else {
+        println!("Drift history ({} events):", events.len());
+        for (ts, m, r) in &events { println!("  [{}] {} on {}", ts, r, m); }
+    }
+    Ok(())
+}
+
+/// Collect per-resource failure stats from lock files.
+fn collect_failure_stats(sd: &Path, targets: &[&String]) -> Vec<(String, usize, usize, f64)> {
+    let mut stats: std::collections::HashMap<String, (usize, usize)> = std::collections::HashMap::new();
+    for m in targets {
+        let lock_path = sd.join(format!("{}.lock.yaml", m));
+        if let Ok(content) = std::fs::read_to_string(&lock_path) {
+            if let Ok(lock) = serde_yaml_ng::from_str::<types::StateLock>(&content) {
+                for (rname, rlock) in &lock.resources {
+                    let entry = stats.entry(rname.clone()).or_insert((0, 0));
+                    entry.0 += 1;
+                    if rlock.status == types::ResourceStatus::Failed {
+                        entry.1 += 1;
+                    }
+                }
+            }
+        }
+    }
+    let mut rates: Vec<(String, usize, usize, f64)> = stats.into_iter()
+        .map(|(name, (total, failed))| {
+            let rate = if total > 0 { failed as f64 * 100.0 / total as f64 } else { 0.0 };
+            (name, total, failed, rate)
+        })
+        .collect();
+    rates.sort_by(|a, b| b.3.partial_cmp(&a.3).unwrap_or(std::cmp::Ordering::Equal).then(a.0.cmp(&b.0)));
+    rates
+}
+
+/// FJ-812: Failure rate per resource across applies.
+pub(crate) fn cmd_status_resource_failure_rate(
+    state_dir: &Path, machine: Option<&str>, json: bool,
+) -> Result<(), String> {
+    let machines = discover_machines(state_dir);
+    let targets: Vec<&String> = match machine {
+        Some(m) => machines.iter().filter(|x| x.as_str() == m).collect(),
+        None => machines.iter().collect(),
+    };
+    let rates = collect_failure_stats(state_dir, &targets);
+    if json {
+        let items: Vec<String> = rates.iter()
+            .map(|(r, t, f, rate)| format!("{{\"resource\":\"{}\",\"total\":{},\"failed\":{},\"failure_rate_pct\":{:.1}}}", r, t, f, rate))
+            .collect();
+        println!("{{\"resource_failure_rates\":[{}]}}", items.join(","));
+    } else if rates.is_empty() {
+        println!("No resource data available.");
+    } else {
+        println!("Resource failure rates:");
+        for (r, t, f, rate) in &rates {
+            println!("  {} — {}/{} failed ({:.1}%)", r, f, t, rate);
+        }
+    }
+    Ok(())
+}

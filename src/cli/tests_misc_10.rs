@@ -278,7 +278,7 @@ mod tests {
             convergence_score: false,
             apply_success_rate: false,
             error_rate: false,
-            fleet_health_summary: false,
+            fleet_health_summary: false, machine_convergence_history: false, drift_history: false, resource_failure_rate: false,
         });
         match cmd {
             Commands::Status(StatusArgs { prometheus, .. }) => assert!(prometheus),
@@ -390,7 +390,7 @@ mod tests {
             convergence_score: false,
             apply_success_rate: false,
             error_rate: false,
-            fleet_health_summary: false,
+            fleet_health_summary: false, machine_convergence_history: false, drift_history: false, resource_failure_rate: false,
         });
         match cmd {
             Commands::Status(StatusArgs { expired, .. }) => {

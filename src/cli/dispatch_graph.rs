@@ -116,6 +116,7 @@ pub(crate) fn dispatch_graph_cmd(cmd: Commands) -> Result<(), String> {
         topological_sort, critical_path_resources,
         sink_resources, bipartite_check,
         strongly_connected, dependency_matrix_csv,
+        resource_weight, dependency_depth_per_resource,
     }) = cmd
     else {
         unreachable!()
@@ -138,6 +139,8 @@ pub(crate) fn dispatch_graph_cmd(cmd: Commands) -> Result<(), String> {
     if bipartite_check { return cmd_graph_bipartite_check(&file, json_output); }
     if strongly_connected { return cmd_graph_strongly_connected(&file, json_output); }
     if dependency_matrix_csv { return cmd_graph_dependency_matrix_csv(&file, json_output); }
+    if resource_weight { return cmd_graph_resource_weight(&file, json_output); }
+    if dependency_depth_per_resource { return cmd_graph_dependency_depth_per_resource(&file, json_output); }
     if let Some(r) = try_traversal(&file, json_output, depth_first, reverse_deps, leaf_resources, fan_out, resource_clusters, machine_groups, cross_machine_deps, orphan_detection) {
         return r;
     }

@@ -178,3 +178,85 @@ pub(crate) fn cmd_graph_dependency_matrix_csv(file: &Path, json: bool) -> Result
     }
     Ok(())
 }
+
+/// FJ-807: Assign weights to edges by dependency criticality.
+pub(crate) fn cmd_graph_resource_weight(
+    file: &Path, json: bool,
+) -> Result<(), String> {
+    let config = parse_and_validate(file)?;
+    let in_deg_vec = compute_in_degrees(&config);
+    let in_deg: std::collections::HashMap<&str, usize> = in_deg_vec.iter()
+        .map(|(n, d)| (n.as_str(), *d)).collect();
+    let mut weights: Vec<(&str, &str, usize)> = Vec::new();
+    for (name, resource) in &config.resources {
+        for dep in &resource.depends_on {
+            let dep_fan = in_deg.get(dep.as_str()).copied().unwrap_or(0);
+            let w = dep_fan + 1;
+            weights.push((name.as_str(), dep.as_str(), w));
+        }
+    }
+    weights.sort_by(|a, b| b.2.cmp(&a.2).then(a.0.cmp(&b.0)));
+    if json {
+        let items: Vec<String> = weights.iter()
+            .map(|(from, to, w)| format!("{{\"from\":\"{}\",\"to\":\"{}\",\"weight\":{}}}", from, to, w))
+            .collect();
+        println!("{{\"weighted_edges\":[{}]}}", items.join(","));
+    } else if weights.is_empty() {
+        println!("No dependency edges.");
+    } else {
+        println!("Weighted dependency edges ({}):", weights.len());
+        for (from, to, w) in &weights { println!("  {} -> {} (weight: {})", from, to, w); }
+    }
+    Ok(())
+}
+
+/// FJ-811: Show max dependency chain depth per resource.
+pub(crate) fn cmd_graph_dependency_depth_per_resource(
+    file: &Path, json: bool,
+) -> Result<(), String> {
+    let config = parse_and_validate(file)?;
+    let names: Vec<&str> = config.resources.keys().map(|s| s.as_str()).collect();
+    let name_idx: std::collections::HashMap<&str, usize> = names.iter().enumerate().map(|(i, n)| (*n, i)).collect();
+    let n = names.len();
+    let mut adj: Vec<Vec<usize>> = vec![vec![]; n];
+    for (name, resource) in &config.resources {
+        if let Some(&from) = name_idx.get(name.as_str()) {
+            for dep in &resource.depends_on {
+                if let Some(&to) = name_idx.get(dep.as_str()) {
+                    adj[from].push(to);
+                }
+            }
+        }
+    }
+    let mut depths: Vec<(String, usize)> = names.iter()
+        .map(|&name| {
+            let idx = name_idx[name];
+            let depth = compute_max_depth(idx, &adj, &mut vec![None; n]);
+            (name.to_string(), depth)
+        })
+        .collect();
+    depths.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+    if json {
+        let items: Vec<String> = depths.iter()
+            .map(|(r, d)| format!("{{\"resource\":\"{}\",\"depth\":{}}}", r, d))
+            .collect();
+        println!("{{\"dependency_depths\":[{}]}}", items.join(","));
+    } else if depths.is_empty() {
+        println!("No resources.");
+    } else {
+        println!("Dependency depth per resource:");
+        for (r, d) in &depths { println!("  {} — depth {}", r, d); }
+    }
+    Ok(())
+}
+
+fn compute_max_depth(node: usize, adj: &[Vec<usize>], cache: &mut [Option<usize>]) -> usize {
+    if let Some(d) = cache[node] { return d; }
+    cache[node] = Some(0); // cycle guard
+    let d = adj[node].iter()
+        .map(|&next| 1 + compute_max_depth(next, adj, cache))
+        .max()
+        .unwrap_or(0);
+    cache[node] = Some(d);
+    d
+}

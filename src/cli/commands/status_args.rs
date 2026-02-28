@@ -408,5 +408,17 @@ pub struct StatusArgs {
     /// FJ-804: One-line per machine with health + convergence
     #[arg(long)]
     pub fleet_health_summary: bool,
+
+    /// FJ-806: Convergence trend per machine over time
+    #[arg(long)]
+    pub machine_convergence_history: bool,
+
+    /// FJ-810: Drift events timeline across fleet
+    #[arg(long)]
+    pub drift_history: bool,
+
+    /// FJ-812: Failure rate per resource across applies
+    #[arg(long)]
+    pub resource_failure_rate: bool,
 }
 

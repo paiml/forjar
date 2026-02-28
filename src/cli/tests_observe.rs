@@ -296,6 +296,9 @@ mod tests {
             last_drift_time: false,
             machine_resource_count: false,
             convergence_score: false,
+            apply_success_rate: false,
+            error_rate: false,
+            fleet_health_summary: false, machine_convergence_history: false, drift_history: false, resource_failure_rate: false,
         });
         match cmd {
             Commands::Status(StatusArgs { watch, .. }) => assert_eq!(watch, Some(5)),
