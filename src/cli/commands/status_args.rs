@@ -601,4 +601,13 @@ pub struct StatusArgs {
     /// FJ-1059: Fleet resource type coverage report
     #[arg(long)]
     pub fleet_resource_type_coverage: bool,
+    /// FJ-1061: Fleet apply cadence (interval between applies)
+    #[arg(long)]
+    pub fleet_apply_cadence: bool,
+    /// FJ-1064: Machine resource error classification
+    #[arg(long)]
+    pub machine_resource_error_classification: bool,
+    /// FJ-1067: Fleet resource convergence summary
+    #[arg(long)]
+    pub fleet_resource_convergence_summary: bool,
 }

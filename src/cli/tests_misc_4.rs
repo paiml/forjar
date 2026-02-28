@@ -132,7 +132,7 @@ mod tests {
             fleet_resource_age_histogram: false,
             fleet_security_posture_summary: false,
             machine_resource_freshness_index: false,
-            fleet_resource_type_coverage: false,
+            fleet_resource_type_coverage: false, fleet_apply_cadence: false, machine_resource_error_classification: false, fleet_resource_convergence_summary: false,
         });
         match cmd {
             Commands::Status(StatusArgs { summary, .. }) => assert!(summary),

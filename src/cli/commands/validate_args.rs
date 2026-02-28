@@ -443,5 +443,14 @@ pub struct ValidateArgs {
     /// FJ-1060: Warn if conditional resources lack when clause coverage
     #[arg(long)]
     pub check_resource_when_condition_coverage: bool,
+    /// FJ-1062: Warn if bidirectional dependency patterns exist
+    #[arg(long)]
+    pub check_resource_dependency_symmetry_deep: bool,
+    /// FJ-1065: Warn if tags don't follow namespace conventions
+    #[arg(long)]
+    pub check_resource_tag_namespace: bool,
+    /// FJ-1068: Warn if machines have too many resources
+    #[arg(long)]
+    pub check_resource_machine_capacity: bool,
 }
 
