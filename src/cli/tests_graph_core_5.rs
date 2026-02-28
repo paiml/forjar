@@ -78,6 +78,8 @@ mod tests {
             critical_path_resources: false,
             sink_resources: false,
             bipartite_check: false,
+            strongly_connected: false,
+            dependency_matrix_csv: false,
         });
         match cmd {
             Commands::Graph(GraphArgs {

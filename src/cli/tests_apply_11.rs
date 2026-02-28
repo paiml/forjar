@@ -1,5 +1,4 @@
 //! Tests: Apply command.
-
 use crate::core::types::ProvenanceEvent;
 use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
 use crate::transport;
@@ -166,6 +165,7 @@ mod tests {
         notify_json: false,
             notify_slack_webhook: None,
             notify_telegram: None,
+            notify_webhook_v2: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs {
@@ -176,7 +176,6 @@ mod tests {
             _ => panic!("expected Apply"),
         }
     }
-
 
     #[test]
     fn test_fj470_apply_batch_size_flag() {
@@ -329,13 +328,13 @@ mod tests {
         notify_json: false,
             notify_slack_webhook: None,
             notify_telegram: None,
+            notify_webhook_v2: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { batch_size, .. }) => assert_eq!(batch_size, Some(10)),
             _ => panic!("expected Apply"),
         }
     }
-
 
     #[test]
     fn test_fj473_apply_notify_teams_flag() {
@@ -488,6 +487,7 @@ mod tests {
         notify_json: false,
             notify_slack_webhook: None,
             notify_telegram: None,
+            notify_webhook_v2: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { notify_teams, .. }) => {

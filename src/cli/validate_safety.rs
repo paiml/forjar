@@ -5,7 +5,6 @@ use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
-
 /// FJ-757: Detect circular dependency chains.
 pub(crate) fn cmd_validate_check_circular_deps(file: &Path, json: bool) -> Result<(), String> {
     let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
@@ -70,7 +69,6 @@ fn dfs_cycle<'a>(
     in_stack.remove(node);
 }
 
-
 /// FJ-761: Verify all machine references in resources exist.
 pub(crate) fn cmd_validate_check_machine_refs(file: &Path, json: bool) -> Result<(), String> {
     let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
@@ -107,7 +105,6 @@ fn find_bad_machine_refs(config: &types::ForjarConfig) -> Vec<(String, String)> 
     bad.sort();
     bad
 }
-
 
 /// FJ-765: Verify consistent package providers per machine.
 pub(crate) fn cmd_validate_check_provider_consistency(
@@ -151,7 +148,6 @@ fn find_provider_conflicts(config: &types::ForjarConfig) -> Vec<(String, Vec<Str
     conflicts.sort_by(|a, b| a.0.cmp(&b.0));
     conflicts
 }
-
 
 /// FJ-769: Verify state field values are valid for each resource type.
 pub(crate) fn cmd_validate_check_state_values(
@@ -197,7 +193,6 @@ fn find_bad_states(config: &types::ForjarConfig) -> Vec<(String, String, String)
     bad
 }
 
-
 /// FJ-773: Detect machines defined but not referenced by any resource.
 pub(crate) fn cmd_validate_check_unused_machines(
     file: &Path, json: bool,
@@ -230,7 +225,6 @@ fn find_unused_machines(config: &types::ForjarConfig) -> Vec<String> {
     unused.sort();
     unused
 }
-
 
 /// FJ-777: Verify resource tags follow naming conventions (kebab-case).
 pub(crate) fn cmd_validate_check_tag_consistency(
@@ -291,7 +285,6 @@ fn find_missing_deps(config: &types::ForjarConfig) -> Vec<(String, String)> {
     bad
 }
 
-
 /// FJ-785: Detect resources targeting the same file path on the same machine.
 pub(crate) fn cmd_validate_check_path_conflicts_strict(
     file: &Path, json: bool,
@@ -334,7 +327,6 @@ fn find_strict_path_conflicts(config: &types::ForjarConfig) -> Vec<(String, Stri
     conflicts
 }
 
-
 /// Check if a string is kebab-case.
 fn is_kebab_case(s: &str) -> bool {
     !s.is_empty() && s.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
@@ -353,7 +345,6 @@ fn find_bad_tags(config: &types::ForjarConfig) -> Vec<(String, String)> {
     bad.sort();
     bad
 }
-
 
 /// FJ-789: Detect duplicate resource names (same base name in different groups).
 pub(crate) fn cmd_validate_check_duplicate_names(
@@ -393,7 +384,6 @@ fn find_duplicate_base_names(config: &types::ForjarConfig) -> Vec<(String, Vec<S
     dupes.sort_by(|a, b| a.0.cmp(&b.0));
     dupes
 }
-
 
 /// FJ-793: Verify resource groups are non-empty.
 pub(crate) fn cmd_validate_check_resource_groups(
@@ -436,4 +426,73 @@ fn collect_resource_groups(config: &types::ForjarConfig) -> Vec<(String, usize)>
     let mut result: Vec<(String, usize)> = groups.into_iter().collect();
     result.sort_by(|a, b| a.0.cmp(&b.0));
     result
+}
+
+/// FJ-797: Detect resources not referenced by any depends_on chain.
+pub(crate) fn cmd_validate_check_orphan_resources(
+    file: &Path, json: bool,
+) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let config: types::ForjarConfig =
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+    let orphans = find_orphan_resources(&config);
+    if json {
+        let items: Vec<String> = orphans.iter().map(|o| format!("\"{}\"", o)).collect();
+        println!("{{\"orphan_resources\":[{}]}}", items.join(","));
+    } else if orphans.is_empty() {
+        println!("No orphan resources (all participate in dependency chains).");
+    } else {
+        println!("Orphan resources ({}, not depended on and have no deps):", orphans.len());
+        for o in &orphans { println!("  {}", o); }
+    }
+    Ok(())
+}
+
+/// Find resources that neither depend on anything nor are depended upon.
+fn find_orphan_resources(config: &types::ForjarConfig) -> Vec<String> {
+    let mut depended_on: HashSet<&str> = HashSet::new();
+    let mut has_deps: HashSet<&str> = HashSet::new();
+    for (name, resource) in &config.resources {
+        if !resource.depends_on.is_empty() {
+            has_deps.insert(name.as_str());
+            for dep in &resource.depends_on {
+                depended_on.insert(dep.as_str());
+            }
+        }
+    }
+    let mut orphans: Vec<String> = config.resources.keys()
+        .filter(|n| !has_deps.contains(n.as_str()) && !depended_on.contains(n.as_str()))
+        .cloned().collect();
+    orphans.sort();
+    orphans
+}
+
+/// FJ-801: Validate machine architecture fields are consistent.
+pub(crate) fn cmd_validate_check_machine_arch(
+    file: &Path, json: bool,
+) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let config: types::ForjarConfig =
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+    let valid_archs = ["x86_64", "aarch64", "arm64", "armv7", "riscv64", "ppc64le", "s390x"];
+    let mut bad: Vec<(String, String)> = Vec::new();
+    for (name, machine) in &config.machines {
+        let arch = machine.arch.as_str();
+        if !valid_archs.contains(&arch) {
+            bad.push((name.clone(), arch.to_string()));
+        }
+    }
+    bad.sort();
+    if json {
+        let items: Vec<String> = bad.iter()
+            .map(|(m, a)| format!("{{\"machine\":\"{}\",\"arch\":\"{}\"}}", m, a))
+            .collect();
+        println!("{{\"invalid_architectures\":[{}]}}", items.join(","));
+    } else if bad.is_empty() {
+        println!("All machine architectures are valid.");
+    } else {
+        println!("Invalid architectures ({}):", bad.len());
+        for (m, a) in &bad { println!("  {} — \"{}\" (expected: {})", m, a, valid_archs.join(", ")); }
+    }
+    Ok(())
 }

@@ -15,7 +15,6 @@ use super::commands::*;
 mod tests {
     use super::*;
 
-
     #[test]
     fn test_fj476_apply_abort_on_drift_flag() {
         let cmd = Commands::Apply(ApplyArgs {
@@ -167,13 +166,13 @@ mod tests {
         notify_json: false,
             notify_slack_webhook: None,
             notify_telegram: None,
+            notify_webhook_v2: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { abort_on_drift, .. }) => assert!(abort_on_drift),
             _ => panic!("expected Apply"),
         }
     }
-
 
     #[test]
     fn test_fj480_apply_dry_run_summary_flag() {
@@ -326,6 +325,7 @@ mod tests {
         notify_json: false,
             notify_slack_webhook: None,
             notify_telegram: None,
+            notify_webhook_v2: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs {
@@ -334,7 +334,6 @@ mod tests {
             _ => panic!("expected Apply"),
         }
     }
-
 
     #[test]
     fn test_fj483_apply_notify_discord_flag() {
@@ -487,6 +486,7 @@ mod tests {
         notify_json: false,
             notify_slack_webhook: None,
             notify_telegram: None,
+            notify_webhook_v2: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { notify_discord, .. }) => assert_eq!(

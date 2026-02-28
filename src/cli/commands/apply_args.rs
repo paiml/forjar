@@ -581,5 +581,9 @@ pub struct ApplyArgs {
     /// FJ-792: Send apply results to Telegram bot
     #[arg(long)]
     pub notify_telegram: Option<String>,
+
+    /// FJ-800: Enhanced webhook with retry and custom headers
+    #[arg(long)]
+    pub notify_webhook_v2: Option<String>,
 }
 

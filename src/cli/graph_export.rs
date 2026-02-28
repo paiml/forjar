@@ -5,7 +5,6 @@ use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets
 use std::path::Path;
 use super::helpers::*;
 
-
 /// FJ-751: Show root resources (no dependencies).
 pub(crate) fn cmd_graph_root_resources(file: &Path, json: bool) -> Result<(), String> {
     let cfg = parse_and_validate(file)?;
@@ -25,7 +24,6 @@ pub(crate) fn cmd_graph_root_resources(file: &Path, json: bool) -> Result<(), St
     }
     Ok(())
 }
-
 
 /// FJ-755: Output graph as edge list (source→target pairs).
 pub(crate) fn cmd_graph_edge_list(file: &Path, json: bool) -> Result<(), String> {
@@ -59,7 +57,6 @@ fn collect_edges(cfg: &types::ForjarConfig) -> Vec<(String, String)> {
     edges
 }
 
-
 /// FJ-759: Show disconnected subgraphs (connected components).
 pub(crate) fn cmd_graph_connected_components(file: &Path, json: bool) -> Result<(), String> {
     let cfg = parse_and_validate(file)?;
@@ -81,7 +78,7 @@ pub(crate) fn cmd_graph_connected_components(file: &Path, json: bool) -> Result<
 }
 
 /// Build undirected adjacency list from config dependencies.
-fn build_undirected_graph<'a>(cfg: &'a types::ForjarConfig) -> std::collections::HashMap<&'a str, Vec<&'a str>> {
+pub(crate) fn build_undirected_graph<'a>(cfg: &'a types::ForjarConfig) -> std::collections::HashMap<&'a str, Vec<&'a str>> {
     let mut adj: std::collections::HashMap<&str, Vec<&str>> = std::collections::HashMap::new();
     for (name, resource) in &cfg.resources {
         adj.entry(name.as_str()).or_default();
@@ -129,7 +126,6 @@ fn find_connected_components(cfg: &types::ForjarConfig) -> Vec<Vec<String>> {
     components
 }
 
-
 /// FJ-763: Output graph as adjacency matrix.
 pub(crate) fn cmd_graph_adjacency_matrix(file: &Path, json: bool) -> Result<(), String> {
     let cfg = parse_and_validate(file)?;
@@ -149,7 +145,7 @@ pub(crate) fn cmd_graph_adjacency_matrix(file: &Path, json: bool) -> Result<(), 
 }
 
 /// Build NxN adjacency matrix from config dependencies.
-fn build_adjacency_matrix(cfg: &types::ForjarConfig) -> (Vec<String>, Vec<Vec<bool>>) {
+pub(crate) fn build_adjacency_matrix(cfg: &types::ForjarConfig) -> (Vec<String>, Vec<Vec<bool>>) {
     let mut names: Vec<String> = cfg.resources.keys().cloned().collect();
     names.sort();
     let idx: std::collections::HashMap<&str, usize> = names.iter().enumerate()
@@ -182,7 +178,6 @@ fn print_adjacency_table(names: &[String], matrix: &[Vec<bool>]) {
         println!();
     }
 }
-
 
 /// FJ-767: Show longest dependency chain length.
 pub(crate) fn cmd_graph_longest_path(file: &Path, json: bool) -> Result<(), String> {
@@ -246,7 +241,6 @@ fn find_longest_chain(cfg: &types::ForjarConfig) -> (usize, Vec<String>) {
     (dist[best], reconstruct_chain(&names, &prev, best))
 }
 
-
 /// FJ-771: Show in-degree (number of dependents) per resource.
 pub(crate) fn cmd_graph_in_degree(file: &Path, json: bool) -> Result<(), String> {
     let cfg = parse_and_validate(file)?;
@@ -266,7 +260,7 @@ pub(crate) fn cmd_graph_in_degree(file: &Path, json: bool) -> Result<(), String>
 }
 
 /// Compute in-degree for each resource (how many others depend on it).
-fn compute_in_degrees(cfg: &types::ForjarConfig) -> Vec<(String, usize)> {
+pub(crate) fn compute_in_degrees(cfg: &types::ForjarConfig) -> Vec<(String, usize)> {
     let mut deg: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
     for name in cfg.resources.keys() { deg.insert(name.clone(), 0); }
     for resource in cfg.resources.values() {
@@ -278,7 +272,6 @@ fn compute_in_degrees(cfg: &types::ForjarConfig) -> Vec<(String, usize)> {
     result.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
     result
 }
-
 
 /// FJ-775: Show out-degree (number of dependencies) per resource.
 pub(crate) fn cmd_graph_out_degree(file: &Path, json: bool) -> Result<(), String> {
@@ -301,7 +294,6 @@ pub(crate) fn cmd_graph_out_degree(file: &Path, json: bool) -> Result<(), String
     Ok(())
 }
 
-
 /// FJ-779: Show graph density (edges / max-possible-edges).
 pub(crate) fn cmd_graph_density(file: &Path, json: bool) -> Result<(), String> {
     let cfg = parse_and_validate(file)?;
@@ -316,7 +308,6 @@ pub(crate) fn cmd_graph_density(file: &Path, json: bool) -> Result<(), String> {
     }
     Ok(())
 }
-
 
 /// FJ-783: Output resources in valid topological execution order.
 pub(crate) fn cmd_graph_topological_sort(file: &Path, json: bool) -> Result<(), String> {
@@ -388,7 +379,6 @@ fn topological_sort_resources(cfg: &types::ForjarConfig) -> Vec<String> {
     kahn_process(&mut in_deg, &dependents)
 }
 
-
 /// FJ-787: Show resources on the longest dependency chain (critical path).
 pub(crate) fn cmd_graph_critical_path_resources(file: &Path, json: bool) -> Result<(), String> {
     let cfg = parse_and_validate(file)?;
@@ -404,7 +394,6 @@ pub(crate) fn cmd_graph_critical_path_resources(file: &Path, json: bool) -> Resu
     }
     Ok(())
 }
-
 
 /// FJ-791: Show sink resources (nothing depends on them).
 pub(crate) fn cmd_graph_sink_resources(file: &Path, json: bool) -> Result<(), String> {
@@ -427,53 +416,4 @@ pub(crate) fn cmd_graph_sink_resources(file: &Path, json: bool) -> Result<(), St
     Ok(())
 }
 
-
-/// FJ-795: Check if dependency graph is bipartite.
-pub(crate) fn cmd_graph_bipartite_check(file: &Path, json: bool) -> Result<(), String> {
-    let cfg = parse_and_validate(file)?;
-    let is_bip = check_bipartite(&cfg);
-    if json {
-        println!("{{\"is_bipartite\":{}}}", is_bip);
-    } else if is_bip {
-        println!("The dependency graph is bipartite.");
-    } else {
-        println!("The dependency graph is NOT bipartite (contains odd-length cycle).");
-    }
-    Ok(())
-}
-
-/// Check bipartite using 2-coloring BFS on undirected graph.
-fn check_bipartite(cfg: &types::ForjarConfig) -> bool {
-    let adj = build_undirected_graph(cfg);
-    let mut color: std::collections::HashMap<&str, bool> = std::collections::HashMap::new();
-    for &start in adj.keys() {
-        if color.contains_key(start) { continue; }
-        color.insert(start, false);
-        if !bfs_2color(start, &adj, &mut color) { return false; }
-    }
-    true
-}
-
-/// BFS 2-coloring from a start node. Returns false if odd cycle found.
-fn bfs_2color<'a>(
-    start: &'a str,
-    adj: &std::collections::HashMap<&str, Vec<&'a str>>,
-    color: &mut std::collections::HashMap<&'a str, bool>,
-) -> bool {
-    let mut queue = std::collections::VecDeque::new();
-    queue.push_back(start);
-    while let Some(n) = queue.pop_front() {
-        let c = color[n];
-        if let Some(neighbors) = adj.get(n) {
-            for &next in neighbors {
-                if let Some(&nc) = color.get(next) {
-                    if nc == c { return false; }
-                } else {
-                    color.insert(next, !c);
-                    queue.push_back(next);
-                }
-            }
-        }
-    }
-    true
-}
+// FJ-795, FJ-799, FJ-803 moved to graph_advanced.rs

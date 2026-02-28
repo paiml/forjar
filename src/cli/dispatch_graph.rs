@@ -12,6 +12,7 @@ use super::graph_extended::*;
 use super::graph_visualization::*;
 use super::graph_impact::*;
 use super::graph_export::*;
+use super::graph_advanced::*;
 
 
 /// Dispatch traversal flags (depth_first through critical_chain).
@@ -114,6 +115,7 @@ pub(crate) fn dispatch_graph_cmd(cmd: Commands) -> Result<(), String> {
         out_degree, density,
         topological_sort, critical_path_resources,
         sink_resources, bipartite_check,
+        strongly_connected, dependency_matrix_csv,
     }) = cmd
     else {
         unreachable!()
@@ -134,6 +136,8 @@ pub(crate) fn dispatch_graph_cmd(cmd: Commands) -> Result<(), String> {
     if critical_path_resources { return cmd_graph_critical_path_resources(&file, json_output); }
     if sink_resources { return cmd_graph_sink_resources(&file, json_output); }
     if bipartite_check { return cmd_graph_bipartite_check(&file, json_output); }
+    if strongly_connected { return cmd_graph_strongly_connected(&file, json_output); }
+    if dependency_matrix_csv { return cmd_graph_dependency_matrix_csv(&file, json_output); }
     if let Some(r) = try_traversal(&file, json_output, depth_first, reverse_deps, leaf_resources, fan_out, resource_clusters, machine_groups, cross_machine_deps, orphan_detection) {
         return r;
     }

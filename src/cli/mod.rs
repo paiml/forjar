@@ -49,6 +49,7 @@ mod graph_analysis;
 mod graph_cross;
 mod graph_extended;
 mod graph_export;
+mod graph_advanced;
 mod graph_visualization;
 mod graph_impact;
 mod lock_core;
@@ -269,6 +270,8 @@ mod tests_misc_9;
 mod tests_phase65;
 #[cfg(test)]
 mod tests_phase66;
+#[cfg(test)]
+mod tests_phase67;
 #[cfg(test)]
 mod tests_misc_10;
 

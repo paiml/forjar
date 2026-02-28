@@ -75,6 +75,8 @@ mod tests {
             critical_path_resources: false,
             sink_resources: false,
             bipartite_check: false,
+            strongly_connected: false,
+            dependency_matrix_csv: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { affected, .. }) => {
@@ -144,6 +146,8 @@ mod tests {
             critical_path_resources: false,
             sink_resources: false,
             bipartite_check: false,
+            strongly_connected: false,
+            dependency_matrix_csv: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { reverse, .. }) => assert!(reverse),
@@ -211,6 +215,8 @@ mod tests {
             critical_path_resources: false,
             sink_resources: false,
             bipartite_check: false,
+            strongly_connected: false,
+            dependency_matrix_csv: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { depth, .. }) => assert_eq!(depth, Some(2)),
@@ -278,6 +284,8 @@ mod tests {
             critical_path_resources: false,
             sink_resources: false,
             bipartite_check: false,
+            strongly_connected: false,
+            dependency_matrix_csv: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { cluster, .. }) => assert!(cluster),
@@ -345,6 +353,8 @@ mod tests {
             critical_path_resources: false,
             sink_resources: false,
             bipartite_check: false,
+            strongly_connected: false,
+            dependency_matrix_csv: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { orphans, .. }) => assert!(orphans),
@@ -412,6 +422,8 @@ mod tests {
             critical_path_resources: false,
             sink_resources: false,
             bipartite_check: false,
+            strongly_connected: false,
+            dependency_matrix_csv: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { stats, .. }) => assert!(stats),
@@ -479,6 +491,8 @@ mod tests {
             critical_path_resources: false,
             sink_resources: false,
             bipartite_check: false,
+            strongly_connected: false,
+            dependency_matrix_csv: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { json_output, .. }) => assert!(json_output),
@@ -546,6 +560,8 @@ mod tests {
             critical_path_resources: false,
             sink_resources: false,
             bipartite_check: false,
+            strongly_connected: false,
+            dependency_matrix_csv: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { highlight, .. }) => {

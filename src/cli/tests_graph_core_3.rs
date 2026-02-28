@@ -78,6 +78,8 @@ mod tests {
             critical_path_resources: false,
             sink_resources: false,
             bipartite_check: false,
+            strongly_connected: false,
+            dependency_matrix_csv: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { timeline_graph, .. }) => assert!(timeline_graph),
@@ -145,6 +147,8 @@ mod tests {
             critical_path_resources: false,
             sink_resources: false,
             bipartite_check: false,
+            strongly_connected: false,
+            dependency_matrix_csv: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { what_if, .. }) => {
@@ -214,6 +218,8 @@ mod tests {
             critical_path_resources: false,
             sink_resources: false,
             bipartite_check: false,
+            strongly_connected: false,
+            dependency_matrix_csv: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { blast_radius, .. }) => {
@@ -283,6 +289,8 @@ mod tests {
             critical_path_resources: false,
             sink_resources: false,
             bipartite_check: false,
+            strongly_connected: false,
+            dependency_matrix_csv: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { change_impact, .. }) => {
@@ -352,6 +360,8 @@ mod tests {
             critical_path_resources: false,
             sink_resources: false,
             bipartite_check: false,
+            strongly_connected: false,
+            dependency_matrix_csv: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { resource_types, .. }) => assert!(resource_types),
