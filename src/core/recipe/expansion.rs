@@ -105,6 +105,9 @@ pub(crate) fn resolve_resource_inputs(
     r.provider = resolve_opt(&r.provider, inputs)?;
     r.version = resolve_opt(&r.version, inputs)?;
 
+    // Conditional execution
+    r.when = resolve_opt(&r.when, inputs)?;
+
     // Lifecycle hooks
     r.pre_apply = resolve_opt(&r.pre_apply, inputs)?;
     r.post_apply = resolve_opt(&r.post_apply, inputs)?;
