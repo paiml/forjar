@@ -107,7 +107,7 @@ pub(crate) fn dispatch_apply_cmd(cmd: Commands, verbose: bool) -> Result<(), Str
         dry_run_json: _dry_run_json, notify_webhook, post_script,
         approval_required: _approval_required, canary_percent: _canary_percent,
         schedule: _schedule, env_name: _env_name, dry_run_diff: _dry_run_diff,
-        notify_pagerduty: _notify_pagerduty, batch_size: _batch_size,
+        notify_pagerduty, batch_size: _batch_size,
         notify_teams, abort_on_drift, dry_run_summary: _dry_run_summary,
         notify_discord, rollback_on_threshold: _rollback_on_threshold,
         metrics_port: _metrics_port, notify_opsgenie,
@@ -247,6 +247,7 @@ pub(crate) fn dispatch_apply_cmd(cmd: Commands, verbose: bool) -> Result<(), Str
         sqs: notify_sqs.as_deref(),
         mattermost: notify_mattermost.as_deref(),
         ntfy: notify_ntfy.as_deref(),
+        pagerduty: notify_pagerduty.as_deref(),
     };
     send_apply_notifications(&opts, &result, &file);
 

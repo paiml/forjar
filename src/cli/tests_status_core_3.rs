@@ -15,7 +15,6 @@ use super::commands::*;
 mod tests {
     use super::*;
 
-
     #[test]
     fn test_fj432_status_json_lines_flag() {
         let cmd = Commands::Status(StatusArgs {
@@ -119,14 +118,13 @@ mod tests {
             convergence_score: false,
             apply_success_rate: false,
             error_rate: false,
-            fleet_health_summary: false,
+            fleet_health_summary: false, machine_convergence_history: false, drift_history: false, resource_failure_rate: false,
         });
         match cmd {
             Commands::Status(StatusArgs { json_lines, .. }) => assert!(json_lines),
             _ => panic!("expected Status"),
         }
     }
-
 
     #[test]
     fn test_fj437_status_since_flag() {
@@ -231,7 +229,7 @@ mod tests {
             convergence_score: false,
             apply_success_rate: false,
             error_rate: false,
-            fleet_health_summary: false,
+            fleet_health_summary: false, machine_convergence_history: false, drift_history: false, resource_failure_rate: false,
         });
         match cmd {
             Commands::Status(StatusArgs { since, .. }) => {
@@ -242,7 +240,6 @@ mod tests {
     }
 
     // ── Phase 30 tests (FJ-440→FJ-447) ──
-
 
     #[test]
     fn test_fj442_status_export_flag() {
@@ -347,7 +344,7 @@ mod tests {
             convergence_score: false,
             apply_success_rate: false,
             error_rate: false,
-            fleet_health_summary: false,
+            fleet_health_summary: false, machine_convergence_history: false, drift_history: false, resource_failure_rate: false,
         });
         match cmd {
             Commands::Status(StatusArgs { export, .. }) => {
@@ -356,7 +353,6 @@ mod tests {
             _ => panic!("expected Status"),
         }
     }
-
 
     #[test]
     fn test_fj447_status_format_prometheus() {
@@ -462,7 +458,7 @@ mod tests {
             convergence_score: false,
             apply_success_rate: false,
             error_rate: false,
-            fleet_health_summary: false,
+            fleet_health_summary: false, machine_convergence_history: false, drift_history: false, resource_failure_rate: false,
         });
         match cmd {
             Commands::Status(StatusArgs { prometheus, .. }) => assert!(prometheus),
@@ -471,7 +467,6 @@ mod tests {
     }
 
     // ── Phase 31 tests (FJ-450→FJ-457) ──
-
 
     #[test]
     fn test_fj452_status_compact_flag() {
@@ -576,7 +571,7 @@ mod tests {
             convergence_score: false,
             apply_success_rate: false,
             error_rate: false,
-            fleet_health_summary: false,
+            fleet_health_summary: false, machine_convergence_history: false, drift_history: false, resource_failure_rate: false,
         });
         match cmd {
             Commands::Status(StatusArgs { compact, .. }) => assert!(compact),

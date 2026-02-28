@@ -15,7 +15,6 @@ use super::commands::*;
 mod tests {
     use super::*;
 
-
     #[test]
     fn test_fj482_status_top_failures_flag() {
         let cmd = Commands::Status(StatusArgs {
@@ -119,14 +118,13 @@ mod tests {
             convergence_score: false,
             apply_success_rate: false,
             error_rate: false,
-            fleet_health_summary: false,
+            fleet_health_summary: false, machine_convergence_history: false, drift_history: false, resource_failure_rate: false,
         });
         match cmd {
             Commands::Status(StatusArgs { top_failures, .. }) => assert!(top_failures),
             _ => panic!("expected Status"),
         }
     }
-
 
     #[test]
     fn test_fj487_status_convergence_rate_flag() {
@@ -231,7 +229,7 @@ mod tests {
             convergence_score: false,
             apply_success_rate: false,
             error_rate: false,
-            fleet_health_summary: false,
+            fleet_health_summary: false, machine_convergence_history: false, drift_history: false, resource_failure_rate: false,
         });
         match cmd {
             Commands::Status(StatusArgs {
@@ -242,7 +240,6 @@ mod tests {
     }
 
     // ── Phase 35 tests (FJ-490 → FJ-497) ──
-
 
     #[test]
     fn test_fj492_status_drift_summary_flag() {
@@ -347,14 +344,13 @@ mod tests {
             convergence_score: false,
             apply_success_rate: false,
             error_rate: false,
-            fleet_health_summary: false,
+            fleet_health_summary: false, machine_convergence_history: false, drift_history: false, resource_failure_rate: false,
         });
         match cmd {
             Commands::Status(StatusArgs { drift_summary, .. }) => assert!(drift_summary),
             _ => panic!("expected Status"),
         }
     }
-
 
     #[test]
     fn test_fj497_status_resource_age_flag() {
@@ -459,7 +455,7 @@ mod tests {
             convergence_score: false,
             apply_success_rate: false,
             error_rate: false,
-            fleet_health_summary: false,
+            fleet_health_summary: false, machine_convergence_history: false, drift_history: false, resource_failure_rate: false,
         });
         match cmd {
             Commands::Status(StatusArgs { resource_age, .. }) => assert!(resource_age),
@@ -468,7 +464,6 @@ mod tests {
     }
 
     // ── Phase 36 tests (FJ-500 → FJ-507) ──
-
 
     #[test]
     fn test_fj502_status_sla_report_flag() {
@@ -573,7 +568,7 @@ mod tests {
             convergence_score: false,
             apply_success_rate: false,
             error_rate: false,
-            fleet_health_summary: false,
+            fleet_health_summary: false, machine_convergence_history: false, drift_history: false, resource_failure_rate: false,
         });
         match cmd {
             Commands::Status(StatusArgs { sla_report, .. }) => assert!(sla_report),

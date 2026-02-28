@@ -236,5 +236,13 @@ pub struct GraphArgs {
     /// FJ-803: Export dependency matrix as CSV
     #[arg(long)]
     pub dependency_matrix_csv: bool,
+
+    /// FJ-807: Assign weights to edges by dependency criticality
+    #[arg(long)]
+    pub resource_weight: bool,
+
+    /// FJ-811: Show max dependency chain depth per resource
+    #[arg(long)]
+    pub dependency_depth_per_resource: bool,
 }
 

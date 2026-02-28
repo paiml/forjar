@@ -22,6 +22,7 @@ mod validate_quality;
 mod validate_compliance;
 mod validate_resources;
 mod validate_safety;
+mod validate_advanced;
 mod apply;
 mod apply_output;
 mod apply_variants;
@@ -267,6 +268,8 @@ mod tests_misc_8;
 #[cfg(test)]
 mod tests_misc_9;
 #[cfg(test)]
+mod tests_graph_core_6;
+#[cfg(test)]
 mod tests_phase65;
 #[cfg(test)]
 mod tests_phase66;
@@ -274,6 +277,8 @@ mod tests_phase66;
 mod tests_phase67;
 #[cfg(test)]
 mod tests_misc_10;
+#[cfg(test)]
+mod tests_phase68;
 
 pub use commands::Commands;
 pub use dispatch::dispatch;

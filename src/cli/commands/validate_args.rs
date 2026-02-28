@@ -224,5 +224,13 @@ pub struct ValidateArgs {
     /// FJ-801: Verify resource compatibility with machine architecture
     #[arg(long)]
     pub check_machine_arch: bool,
+
+    /// FJ-805: Detect resources with conflicting health indicators
+    #[arg(long)]
+    pub check_resource_health_conflicts: bool,
+
+    /// FJ-809: Detect resources with overlapping scope on same machine
+    #[arg(long)]
+    pub check_resource_overlap: bool,
 }
 

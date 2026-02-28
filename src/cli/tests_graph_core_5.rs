@@ -79,7 +79,7 @@ mod tests {
             sink_resources: false,
             bipartite_check: false,
             strongly_connected: false,
-            dependency_matrix_csv: false,
+            dependency_matrix_csv: false, resource_weight: false, dependency_depth_per_resource: false,
         });
         match cmd {
             Commands::Graph(GraphArgs {

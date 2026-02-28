@@ -15,7 +15,6 @@ use super::commands::*;
 mod tests {
     use super::*;
 
-
     #[test]
     fn test_fj507_status_compliance_report_flag() {
         let cmd = Commands::Status(StatusArgs {
@@ -119,7 +118,7 @@ mod tests {
             convergence_score: false,
             apply_success_rate: false,
             error_rate: false,
-            fleet_health_summary: false,
+            fleet_health_summary: false, machine_convergence_history: false, drift_history: false, resource_failure_rate: false,
         });
         match cmd {
             Commands::Status(StatusArgs {
@@ -130,7 +129,6 @@ mod tests {
     }
 
     // ── Phase 37 tests (FJ-510 → FJ-517) ──────────────────────────────
-
 
     #[test]
     fn test_fj512_status_mttr_flag() {
@@ -235,14 +233,13 @@ mod tests {
             convergence_score: false,
             apply_success_rate: false,
             error_rate: false,
-            fleet_health_summary: false,
+            fleet_health_summary: false, machine_convergence_history: false, drift_history: false, resource_failure_rate: false,
         });
         match cmd {
             Commands::Status(StatusArgs { mttr, .. }) => assert!(mttr),
             _ => panic!("expected Status"),
         }
     }
-
 
     #[test]
     fn test_fj517_status_trend_flag() {
@@ -347,7 +344,7 @@ mod tests {
             convergence_score: false,
             apply_success_rate: false,
             error_rate: false,
-            fleet_health_summary: false,
+            fleet_health_summary: false, machine_convergence_history: false, drift_history: false, resource_failure_rate: false,
         });
         match cmd {
             Commands::Status(StatusArgs { trend, .. }) => assert_eq!(trend, Some(10)),
@@ -356,7 +353,6 @@ mod tests {
     }
 
     // ── Phase 38 tests (FJ-520 → FJ-527) ──────────────────────────────
-
 
     #[test]
     fn test_fj522_status_prediction_flag() {
@@ -461,14 +457,13 @@ mod tests {
             convergence_score: false,
             apply_success_rate: false,
             error_rate: false,
-            fleet_health_summary: false,
+            fleet_health_summary: false, machine_convergence_history: false, drift_history: false, resource_failure_rate: false,
         });
         match cmd {
             Commands::Status(StatusArgs { prediction, .. }) => assert!(prediction),
             _ => panic!("expected Status"),
         }
     }
-
 
     #[test]
     fn test_fj527_status_capacity_flag() {
@@ -573,7 +568,7 @@ mod tests {
             convergence_score: false,
             apply_success_rate: false,
             error_rate: false,
-            fleet_health_summary: false,
+            fleet_health_summary: false, machine_convergence_history: false, drift_history: false, resource_failure_rate: false,
         });
         match cmd {
             Commands::Status(StatusArgs { capacity, .. }) => assert!(capacity),

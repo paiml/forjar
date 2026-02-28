@@ -2,7 +2,7 @@
 
 #[cfg(test)]
 mod tests {
-    use super::super::validate_safety::{
+    use super::super::validate_advanced::{
         cmd_validate_check_orphan_resources,
         cmd_validate_check_machine_arch,
     };

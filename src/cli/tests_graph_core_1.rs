@@ -15,7 +15,6 @@ use super::commands::*;
 mod tests {
     use super::*;
 
-
     #[test]
     fn test_fj354_graph_affected_flag() {
         let cmd = Commands::Graph(GraphArgs {
@@ -76,7 +75,7 @@ mod tests {
             sink_resources: false,
             bipartite_check: false,
             strongly_connected: false,
-            dependency_matrix_csv: false,
+            dependency_matrix_csv: false, resource_weight: false, dependency_depth_per_resource: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { affected, .. }) => {
@@ -85,7 +84,6 @@ mod tests {
             _ => panic!("expected Graph"),
         }
     }
-
 
     #[test]
     fn test_fj385_graph_reverse_flag() {
@@ -147,14 +145,13 @@ mod tests {
             sink_resources: false,
             bipartite_check: false,
             strongly_connected: false,
-            dependency_matrix_csv: false,
+            dependency_matrix_csv: false, resource_weight: false, dependency_depth_per_resource: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { reverse, .. }) => assert!(reverse),
             _ => panic!("expected Graph"),
         }
     }
-
 
     #[test]
     fn test_fj394_graph_depth_flag() {
@@ -216,14 +213,13 @@ mod tests {
             sink_resources: false,
             bipartite_check: false,
             strongly_connected: false,
-            dependency_matrix_csv: false,
+            dependency_matrix_csv: false, resource_weight: false, dependency_depth_per_resource: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { depth, .. }) => assert_eq!(depth, Some(2)),
             _ => panic!("expected Graph"),
         }
     }
-
 
     #[test]
     fn test_fj404_graph_cluster_flag() {
@@ -285,14 +281,13 @@ mod tests {
             sink_resources: false,
             bipartite_check: false,
             strongly_connected: false,
-            dependency_matrix_csv: false,
+            dependency_matrix_csv: false, resource_weight: false, dependency_depth_per_resource: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { cluster, .. }) => assert!(cluster),
             _ => panic!("expected Graph"),
         }
     }
-
 
     #[test]
     fn test_fj414_graph_orphans_flag() {
@@ -354,14 +349,13 @@ mod tests {
             sink_resources: false,
             bipartite_check: false,
             strongly_connected: false,
-            dependency_matrix_csv: false,
+            dependency_matrix_csv: false, resource_weight: false, dependency_depth_per_resource: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { orphans, .. }) => assert!(orphans),
             _ => panic!("expected Graph"),
         }
     }
-
 
     #[test]
     fn test_fj424_graph_stats_flag() {
@@ -423,14 +417,13 @@ mod tests {
             sink_resources: false,
             bipartite_check: false,
             strongly_connected: false,
-            dependency_matrix_csv: false,
+            dependency_matrix_csv: false, resource_weight: false, dependency_depth_per_resource: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { stats, .. }) => assert!(stats),
             _ => panic!("expected Graph"),
         }
     }
-
 
     #[test]
     fn test_fj434_graph_json_flag() {
@@ -492,81 +485,10 @@ mod tests {
             sink_resources: false,
             bipartite_check: false,
             strongly_connected: false,
-            dependency_matrix_csv: false,
+            dependency_matrix_csv: false, resource_weight: false, dependency_depth_per_resource: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { json_output, .. }) => assert!(json_output),
-            _ => panic!("expected Graph"),
-        }
-    }
-
-
-    #[test]
-    fn test_fj444_graph_highlight_flag() {
-        let cmd = Commands::Graph(GraphArgs {
-            file: PathBuf::from("forjar.yaml"),
-            format: "mermaid".to_string(),
-            machine: None,
-            group: None,
-            affected: None,
-            critical_path: false,
-            reverse: false,
-            depth: None,
-            cluster: false,
-            orphans: false,
-            stats: false,
-            json_output: false,
-            highlight: Some("web-server".to_string()),
-            prune: None,
-            layers: false,
-            critical_resources: false,
-            weight: false,
-            subgraph: None,
-            impact_radius: None,
-            dependency_matrix: false,
-            hotspots: false,
-            timeline_graph: false,
-            what_if: None,
-            blast_radius: None,
-            change_impact: None,
-            resource_types: false,
-            topological_levels: false,
-            execution_order: false,
-            security_boundaries: false,
-            resource_age: false,
-            parallel_groups: false,
-            critical_chain: false,
-            dependency_depth: false,
-            orphan_detection: false,
-            cross_machine_deps: false,
-            machine_groups: false,
-            resource_clusters: false,
-            fan_out: false,
-            leaf_resources: false,
-            reverse_deps: false,
-            depth_first: false,
-            breadth_first: false,
-            subgraph_stats: false,
-            dependency_count: false,
-            root_resources: false,
-            edge_list: false,
-            connected_components: false,
-            adjacency_matrix: false,
-            longest_path: false,
-            in_degree: false,
-            out_degree: false,
-            density: false,
-            topological_sort: false,
-            critical_path_resources: false,
-            sink_resources: false,
-            bipartite_check: false,
-            strongly_connected: false,
-            dependency_matrix_csv: false,
-        });
-        match cmd {
-            Commands::Graph(GraphArgs { highlight, .. }) => {
-                assert_eq!(highlight, Some("web-server".to_string()));
-            }
             _ => panic!("expected Graph"),
         }
     }
