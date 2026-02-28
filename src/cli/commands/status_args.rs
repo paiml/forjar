@@ -592,4 +592,13 @@ pub struct StatusArgs {
     /// FJ-1051: Fleet resource age histogram
     #[arg(long)]
     pub fleet_resource_age_histogram: bool,
+    /// FJ-1053: Fleet-wide security posture summary
+    #[arg(long)]
+    pub fleet_security_posture_summary: bool,
+    /// FJ-1056: Machine resource freshness index
+    #[arg(long)]
+    pub machine_resource_freshness_index: bool,
+    /// FJ-1059: Fleet resource type coverage report
+    #[arg(long)]
+    pub fleet_resource_type_coverage: bool,
 }

@@ -436,5 +436,11 @@ pub struct GraphArgs {
     /// FJ-1050: Assign resources to semantic layers (infra, app, config, other)
     #[arg(long)]
     pub resource_dependency_layering: bool,
+    /// FJ-1055: Map resources to lifecycle stages (new, stable, deprecated)
+    #[arg(long)]
+    pub resource_lifecycle_stage_map: bool,
+    /// FJ-1058: Overlay resource ages on dependency graph edges
+    #[arg(long)]
+    pub resource_dependency_age_overlay: bool,
 }
 
