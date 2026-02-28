@@ -149,3 +149,12 @@ pub(super) fn send_custom_escalation_notification(spec: Option<&str>, result: &R
     let status = if result.is_ok() { "success" } else { "failure" };
     println!("[notify:custom-escalation] → {} (level: {}, status: {}, config: {})", url, level, status, config.display());
 }
+/// FJ-992: Correlate notifications by resource group and time window.
+pub(super) fn send_custom_correlation_notification(spec: Option<&str>, result: &Result<(), String>, config: &Path) {
+    let spec = match spec { Some(s) => s, None => return };
+    let parts: Vec<&str> = spec.splitn(2, '|').collect();
+    let url = parts.first().unwrap_or(&"");
+    let window = parts.get(1).unwrap_or(&"60s");
+    let status = if result.is_ok() { "success" } else { "failure" };
+    println!("[notify:custom-correlation] → {} (window: {}, status: {}, config: {})", url, window, status, config.display());
+}

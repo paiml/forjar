@@ -3000,6 +3000,50 @@ forjar status --state-dir state --machine-resource-convergence-trend-p90
 #   web — 80.0% converged (5 resources)
 ```
 
+#### Phase 91 — Advanced Governance & Operational Depth (FJ-989→FJ-996)
+
+```bash
+# FJ-989: Enforce naming conventions on resource names
+forjar validate -f forjar.yaml --check-resource-naming-convention-strict
+# All resource names follow naming conventions.
+
+# FJ-990: Drift age in hours per resource
+forjar status --state-dir state --machine-resource-drift-age-hours
+# Drift age (hours):
+#   web/config — 2.00h
+
+# FJ-991: Betweenness centrality for each resource
+forjar graph -f forjar.yaml --resource-dependency-betweenness-centrality
+# Betweenness centrality:
+#   base_dir — 8.0000
+#   config — 3.0000
+
+# FJ-992: Correlate notifications by time window
+forjar apply -f forjar.yaml --notify-custom-correlation "https://hooks.example.com|30s"
+
+# FJ-993: Idempotency annotation check
+forjar validate -f forjar.yaml --check-resource-idempotency-annotations
+# Resources without idempotency annotations: 6
+
+# FJ-994: Convergence percentiles (p50, p90, p99)
+forjar status --state-dir state --fleet-resource-convergence-percentile
+# Convergence percentiles (3 machines):
+#   p50 — 85.0%
+#   p90 — 100.0%
+#   p99 — 100.0%
+
+# FJ-995: Transitive closure size per resource
+forjar graph -f forjar.yaml --resource-dependency-closure-size
+# Transitive closure sizes:
+#   healthcheck — 5 reachable
+#   app — 4 reachable
+
+# FJ-996: Error rate per machine
+forjar status --state-dir state --machine-resource-error-rate
+# Error rates:
+#   web — 0.0% (0/6 failed)
+```
+
 ### `forjar watch`
 
 Watch a config file for changes and automatically re-plan.

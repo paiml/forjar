@@ -660,5 +660,8 @@ pub struct ApplyArgs {
     /// FJ-984: Escalate notifications based on failure severity
     #[arg(long)]
     pub notify_custom_escalation: Option<String>,
+    /// FJ-992: Correlate notifications by resource group and time window
+    #[arg(long)]
+    pub notify_custom_correlation: Option<String>,
 }
 

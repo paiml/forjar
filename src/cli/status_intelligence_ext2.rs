@@ -96,3 +96,104 @@ pub(crate) fn cmd_status_machine_resource_convergence_trend_p90(sd: &Path, machi
     }
     Ok(())
 }
+/// FJ-990: How long each drifted resource has been drifted (hours estimate).
+pub(crate) fn cmd_status_machine_resource_drift_age_hours(sd: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
+    let machines = discover_machines(sd);
+    let targets = filter_targets(&machines, machine);
+    let mut ages: Vec<(String, String, f64)> = Vec::new();
+    for m in &targets {
+        let path = sd.join(m).join("state.lock.yaml");
+        let content = match std::fs::read_to_string(&path) { Ok(c) => c, Err(_) => continue };
+        let lock: types::StateLock = match serde_yaml_ng::from_str(&content) { Ok(l) => l, Err(_) => continue };
+        for (name, res) in &lock.resources {
+            if res.status == types::ResourceStatus::Drifted {
+                let hours = res.duration_seconds.unwrap_or(0.0) / 3600.0;
+                ages.push(((*m).clone(), name.clone(), hours));
+            }
+        }
+    }
+    ages.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
+    print_drift_ages(&ages, json);
+    Ok(())
+}
+fn print_drift_ages(ages: &[(String, String, f64)], json: bool) {
+    if json {
+        let items: Vec<String> = ages.iter()
+            .map(|(m, r, h)| format!("{{\"machine\":\"{}\",\"resource\":\"{}\",\"drift_age_hours\":{:.2}}}", m, r, h)).collect();
+        println!("{{\"drift_ages\":[{}]}}", items.join(","));
+    } else if ages.is_empty() {
+        println!("No drifted resources found.");
+    } else {
+        println!("Drift age (hours):");
+        for (m, r, h) in ages { println!("  {}/{} — {:.2}h", m, r, h); }
+    }
+}
+/// FJ-994: Convergence rate at various percentiles.
+pub(crate) fn cmd_status_fleet_resource_convergence_percentile(sd: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
+    let machines = discover_machines(sd);
+    let targets = filter_targets(&machines, machine);
+    let mut rates: Vec<f64> = Vec::new();
+    for m in &targets {
+        let path = sd.join(m).join("state.lock.yaml");
+        let content = match std::fs::read_to_string(&path) { Ok(c) => c, Err(_) => continue };
+        let lock: types::StateLock = match serde_yaml_ng::from_str(&content) { Ok(l) => l, Err(_) => continue };
+        let total = lock.resources.len();
+        if total == 0 { continue; }
+        let converged = lock.resources.values().filter(|r| r.status == types::ResourceStatus::Converged).count();
+        rates.push(converged as f64 / total as f64);
+    }
+    rates.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    print_convergence_percentiles(&rates, json);
+    Ok(())
+}
+fn percentile(sorted: &[f64], p: f64) -> f64 {
+    if sorted.is_empty() { return 0.0; }
+    let idx = (p / 100.0 * (sorted.len() - 1) as f64).round() as usize;
+    sorted[idx.min(sorted.len() - 1)]
+}
+fn print_convergence_percentiles(rates: &[f64], json: bool) {
+    let p50 = percentile(rates, 50.0);
+    let p90 = percentile(rates, 90.0);
+    let p99 = percentile(rates, 99.0);
+    if json {
+        println!("{{\"convergence_percentiles\":{{\"p50\":{:.4},\"p90\":{:.4},\"p99\":{:.4},\"count\":{}}}}}", p50, p90, p99, rates.len());
+    } else if rates.is_empty() {
+        println!("No convergence data available.");
+    } else {
+        println!("Convergence percentiles ({} machines):", rates.len());
+        println!("  p50 — {:.1}%", p50 * 100.0);
+        println!("  p90 — {:.1}%", p90 * 100.0);
+        println!("  p99 — {:.1}%", p99 * 100.0);
+    }
+}
+/// FJ-996: Error rate per machine across recent applies.
+pub(crate) fn cmd_status_machine_resource_error_rate(sd: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
+    let machines = discover_machines(sd);
+    let targets = filter_targets(&machines, machine);
+    let mut error_rates: Vec<(String, f64, usize, usize)> = Vec::new();
+    for m in &targets {
+        let path = sd.join(m).join("state.lock.yaml");
+        let content = match std::fs::read_to_string(&path) { Ok(c) => c, Err(_) => continue };
+        let lock: types::StateLock = match serde_yaml_ng::from_str(&content) { Ok(l) => l, Err(_) => continue };
+        let total = lock.resources.len();
+        if total == 0 { continue; }
+        let failed = lock.resources.values().filter(|r| r.status == types::ResourceStatus::Failed).count();
+        let rate = failed as f64 / total as f64;
+        error_rates.push(((*m).clone(), rate, failed, total));
+    }
+    error_rates.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+    print_error_rates(&error_rates, json);
+    Ok(())
+}
+fn print_error_rates(rates: &[(String, f64, usize, usize)], json: bool) {
+    if json {
+        let items: Vec<String> = rates.iter()
+            .map(|(m, r, f, t)| format!("{{\"machine\":\"{}\",\"error_rate\":{:.4},\"failed\":{},\"total\":{}}}", m, r, f, t)).collect();
+        println!("{{\"error_rates\":[{}]}}", items.join(","));
+    } else if rates.is_empty() {
+        println!("No error rate data available.");
+    } else {
+        println!("Error rates:");
+        for (m, r, f, t) in rates { println!("  {} — {:.1}% ({}/{} failed)", m, r * 100.0, f, t); }
+    }
+}

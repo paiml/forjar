@@ -79,6 +79,7 @@ pub(crate) struct NotifyOpts<'a> {
     pub custom_circuit_breaker: Option<&'a str>,
     pub custom_dead_letter: Option<&'a str>,
     pub custom_escalation: Option<&'a str>,
+    pub custom_correlation: Option<&'a str>,
 }
 pub(crate) fn send_apply_notifications(
     opts: &NotifyOpts<'_>,
@@ -190,6 +191,7 @@ fn send_incident_notifications(opts: &NotifyOpts<'_>, result: &Result<(), String
     super::dispatch_notify_custom::send_custom_circuit_breaker_notification(opts.custom_circuit_breaker, result, config);
     super::dispatch_notify_custom::send_custom_dead_letter_notification(opts.custom_dead_letter, result, config);
     super::dispatch_notify_custom::send_custom_escalation_notification(opts.custom_escalation, result, config);
+    super::dispatch_notify_custom::send_custom_correlation_notification(opts.custom_correlation, result, config);
 }
 fn send_pagerduty_notification(key: Option<&str>, result: &Result<(), String>, config: &Path) {
     if let Some(key) = key {

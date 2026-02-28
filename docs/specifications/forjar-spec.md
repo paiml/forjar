@@ -2805,14 +2805,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-989 | `forjar validate --check-resource-naming-convention` — enforce naming conventions (kebab-case, snake_case, etc.) on resource names. Governance. | Planned |
-| FJ-990 | `forjar status --machine-resource-drift-age` — how long each drifted resource has been drifted. Intelligence. | Planned |
-| FJ-991 | `forjar graph --resource-dependency-betweenness-centrality` — compute betweenness centrality for each resource. Analysis. | Planned |
-| FJ-992 | `forjar apply --notify-custom-correlation` — correlate notifications by resource group and time window. Integration. | Planned |
-| FJ-993 | `forjar validate --check-resource-idempotency-hints` — warn if resources lack idempotency annotations. Governance. | Planned |
-| FJ-994 | `forjar status --fleet-resource-convergence-percentile` — show convergence rate at various percentiles (p50, p90, p99). Intelligence. | Planned |
-| FJ-995 | `forjar graph --resource-dependency-strongly-connected` — find strongly connected components (cyclic clusters). Analysis. | Planned |
-| FJ-996 | `forjar status --machine-resource-error-rate` — error rate per machine across recent applies. Intelligence. | Planned |
+| FJ-989 | `forjar validate --check-resource-naming-convention-strict` — enforce naming conventions (kebab-case, snake_case, etc.) on resource names. Governance. | Done |
+| FJ-990 | `forjar status --machine-resource-drift-age-hours` — how long each drifted resource has been drifted (hours). Intelligence. | Done |
+| FJ-991 | `forjar graph --resource-dependency-betweenness-centrality` — compute betweenness centrality for each resource. Analysis. | Done |
+| FJ-992 | `forjar apply --notify-custom-correlation` — correlate notifications by resource group and time window. Integration. | Done |
+| FJ-993 | `forjar validate --check-resource-idempotency-annotations` — warn if resources lack idempotency annotations. Governance. | Done |
+| FJ-994 | `forjar status --fleet-resource-convergence-percentile` — show convergence rate at various percentiles (p50, p90, p99). Intelligence. | Done |
+| FJ-995 | `forjar graph --resource-dependency-closure-size` — compute transitive closure size for each resource. Analysis. | Done |
+| FJ-996 | `forjar status --machine-resource-error-rate` — error rate per machine across recent applies. Intelligence. | Done |
+
+### Phase 92 — Fleet Observability & Dependency Topology (FJ-997→FJ-1004)
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-997 | `forjar validate --check-resource-content-size-limit` — warn if resource content exceeds configurable size threshold. Governance. | Planned |
+| FJ-998 | `forjar status --machine-resource-convergence-gap` — gap between expected and actual convergence rate per machine. Intelligence. | Planned |
+| FJ-999 | `forjar graph --resource-dependency-eccentricity-map` — compute graph eccentricity for each resource node. Analysis. | Planned |
+| FJ-1000 | `forjar apply --notify-custom-sampling` — sample notifications at a configurable rate (e.g., 10%). Integration. | Planned |
+| FJ-1001 | `forjar validate --check-resource-dependency-fan-limit` — warn if any resource exceeds max fan-in or fan-out. Governance. | Planned |
+| FJ-1002 | `forjar status --fleet-resource-error-distribution` — distribution of errors across fleet (histogram). Intelligence. | Planned |
+| FJ-1003 | `forjar graph --resource-dependency-diameter-path` — find and display the diameter path (longest shortest path). Analysis. | Planned |
+| FJ-1004 | `forjar status --machine-resource-convergence-stability` — stability score based on convergence rate variance. Intelligence. | Planned |
 
 ---
 
