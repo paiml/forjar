@@ -2381,6 +2381,70 @@ forjar status --state-dir state/ --machine-mean-time-to-recovery
 #   web1 — event data present
 ```
 
+#### Phase 78 — Automation Intelligence & Fleet Optimization
+
+**Validate — check resource secret exposure (FJ-885)**
+
+```bash
+forjar validate -f examples/dogfood-packages.yaml --check-resource-secret-exposure
+# No secret exposures detected.
+
+forjar validate -f examples/dogfood-packages.yaml --check-resource-secret-exposure --json
+# {"secret_exposures":[]}
+```
+
+**Status — machine resource dependency health (FJ-886)**
+
+```bash
+forjar status --state-dir state/ --machine-resource-dependency-health
+# Machine resource dependency health:
+#   web1 — 3/4 healthy
+```
+
+**Graph — resource dependency depth analysis (FJ-887)**
+
+```bash
+forjar graph -f examples/dogfood-packages.yaml --resource-dependency-depth-analysis
+# Dependency depth analysis (deepest first):
+#   tool-config — depth 1
+#   data-dir — depth 0
+#   dev-tools — depth 0
+```
+
+**Validate — check resource tag standards (FJ-889)**
+
+```bash
+forjar validate -f examples/dogfood-packages.yaml --check-resource-tag-standards
+# All resource tags follow naming standards.
+```
+
+**Status — fleet resource type health (FJ-890)**
+
+```bash
+forjar status --state-dir state/ --fleet-resource-type-health
+# Fleet resource type health:
+#   File — 2/3 converged
+#   Package — 5/5 converged
+```
+
+**Graph — resource dependency fan analysis (FJ-891)**
+
+```bash
+forjar graph -f examples/dogfood-packages.yaml --resource-dependency-fan-analysis
+# Fan-in/fan-out analysis:
+#   dev-tools — fan-in: 1, fan-out: 0
+#   tool-config — fan-in: 0, fan-out: 1
+#   data-dir — fan-in: 0, fan-out: 0
+```
+
+**Status — machine resource convergence rate (FJ-892)**
+
+```bash
+forjar status --state-dir state/ --machine-resource-convergence-rate
+# Machine resource convergence rate:
+#   web1 — 3/4 converged (75.0%)
+```
+
 ### `forjar watch`
 
 Watch a config file for changes and automatically re-plan.

@@ -316,5 +316,11 @@ pub struct GraphArgs {
     /// FJ-883: Trace how changes propagate through dependencies
     #[arg(long)]
     pub resource_change_propagation: bool,
+    /// FJ-887: Show max dependency chain depth per resource
+    #[arg(long)]
+    pub resource_dependency_depth_analysis: bool,
+    /// FJ-891: Combined fan-in/fan-out analysis per resource
+    #[arg(long)]
+    pub resource_dependency_fan_analysis: bool,
 }
 

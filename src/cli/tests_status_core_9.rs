@@ -134,7 +134,7 @@ mod tests {
                 fleet_failed_resources: false,
                 resource_dependency_health: false,
                 machine_resource_age_distribution: false,
-                fleet_convergence_velocity: false, resource_failure_correlation: false, machine_resource_churn_rate: false, fleet_resource_staleness: false, machine_convergence_trend: false, machine_capacity_utilization: false, fleet_configuration_entropy: false, machine_resource_freshness: false, machine_error_budget: false, fleet_compliance_score: false, machine_mean_time_to_recovery: false,
+                fleet_convergence_velocity: false, resource_failure_correlation: false, machine_resource_churn_rate: false, fleet_resource_staleness: false, machine_convergence_trend: false, machine_capacity_utilization: false, fleet_configuration_entropy: false, machine_resource_freshness: false, machine_error_budget: false, fleet_compliance_score: false, machine_mean_time_to_recovery: false, machine_resource_dependency_health: false, fleet_resource_type_health: false, machine_resource_convergence_rate: false,
         });
         match cmd {
             Commands::Status(StatusArgs { config_drift, .. }) => assert!(config_drift),
@@ -251,7 +251,7 @@ mod tests {
                 fleet_failed_resources: false,
                 resource_dependency_health: false,
                 machine_resource_age_distribution: false,
-                fleet_convergence_velocity: false, resource_failure_correlation: false, machine_resource_churn_rate: false, fleet_resource_staleness: false, machine_convergence_trend: false, machine_capacity_utilization: false, fleet_configuration_entropy: false, machine_resource_freshness: false, machine_error_budget: false, fleet_compliance_score: false, machine_mean_time_to_recovery: false,
+                fleet_convergence_velocity: false, resource_failure_correlation: false, machine_resource_churn_rate: false, fleet_resource_staleness: false, machine_convergence_trend: false, machine_capacity_utilization: false, fleet_configuration_entropy: false, machine_resource_freshness: false, machine_error_budget: false, fleet_compliance_score: false, machine_mean_time_to_recovery: false, machine_resource_dependency_health: false, fleet_resource_type_health: false, machine_resource_convergence_rate: false,
         });
         match cmd {
             Commands::Status(StatusArgs {

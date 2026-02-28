@@ -81,6 +81,7 @@ pub(crate) struct NotifyOpts<'a> {
     pub custom_json: Option<&'a str>,
     pub custom_filter: Option<&'a str>,
     pub custom_retry: Option<&'a str>,
+    pub custom_transform: Option<&'a str>,
 }
 
 
@@ -190,6 +191,7 @@ fn send_incident_notifications(opts: &NotifyOpts<'_>, result: &Result<(), String
     send_custom_json_notification(opts.custom_json, result, config);
     send_custom_filter_notification(opts.custom_filter, result, config);
     send_custom_retry_notification(opts.custom_retry, result, config);
+    send_custom_transform_notification(opts.custom_transform, result, config);
 }
 
 fn send_pagerduty_notification(key: Option<&str>, result: &Result<(), String>, config: &Path) {
@@ -412,4 +414,20 @@ fn send_custom_retry_notification(spec: Option<&str>, result: &Result<(), String
         if ok || attempt == retries { break; }
         std::thread::sleep(std::time::Duration::from_secs(1));
     }
+}
+
+/// FJ-888: Transform notification payload via template before sending.
+/// Format: "url|template_string" with {{status}}, {{config}}, {{timestamp}} placeholders.
+fn send_custom_transform_notification(spec: Option<&str>, result: &Result<(), String>, config: &Path) {
+    let spec = match spec { Some(s) => s, None => return };
+    let parts: Vec<&str> = spec.splitn(2, '|').collect();
+    if parts.len() != 2 { return; }
+    let (url, template) = (parts[0], parts[1]);
+    let status = if result.is_ok() { "success" } else { "failure" };
+    let ts = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_secs();
+    let body = template
+        .replace("{{status}}", status)
+        .replace("{{config}}", &config.display().to_string())
+        .replace("{{timestamp}}", &ts.to_string());
+    send_webhook(url, &body);
 }

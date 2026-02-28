@@ -24,6 +24,7 @@ mod validate_resources;
 mod validate_safety;
 mod validate_advanced;
 mod validate_governance;
+mod validate_ownership;
 mod apply;
 mod apply_output;
 mod apply_variants;
@@ -304,6 +305,8 @@ mod tests_phase75;
 mod tests_phase76;
 #[cfg(test)]
 mod tests_phase77;
+#[cfg(test)]
+mod tests_phase78;
 
 pub use commands::Commands;
 pub use dispatch::dispatch;

@@ -302,5 +302,11 @@ pub struct ValidateArgs {
     /// FJ-881: Verify all resources have assigned owners
     #[arg(long)]
     pub check_resource_ownership: bool,
+    /// FJ-885: Detect secrets accidentally exposed in resource content
+    #[arg(long)]
+    pub check_resource_secret_exposure: bool,
+    /// FJ-889: Enforce tag naming standards across resources
+    #[arg(long)]
+    pub check_resource_tag_standards: bool,
 }
 
