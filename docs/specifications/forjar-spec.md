@@ -2584,14 +2584,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-853 | `forjar validate --check-resource-drift-risk` — score drift risk per resource based on type + deps. Governance. | Planned |
-| FJ-854 | `forjar status --machine-resource-age-distribution` — age distribution of resources per machine. Analytics. | Planned |
-| FJ-855 | `forjar graph --resource-dependency-fanout` — fan-out count per resource. Analysis. | Planned |
-| FJ-856 | `forjar apply --notify-custom-headers` — custom HTTP headers for webhook notifications. Integration. | Planned |
-| FJ-857 | `forjar validate --check-resource-tag-coverage` — verify all resources have required tags. Governance. | Planned |
-| FJ-858 | `forjar status --fleet-convergence-velocity` — rate of convergence across fleet. Monitoring. | Planned |
-| FJ-859 | `forjar graph --resource-dependency-weight` — weighted edges based on resource coupling. Analysis. | Planned |
-| FJ-860 | `forjar status --resource-failure-correlation` — correlate failures across resources. Intelligence. | Planned |
+| FJ-853 | `forjar validate --check-resource-drift-risk` — score drift risk per resource based on type + deps. Governance. | Done |
+| FJ-854 | `forjar status --machine-resource-age-distribution` — age distribution of resources per machine. Analytics. | Done |
+| FJ-855 | `forjar graph --resource-dependency-fanout` — fan-out count per resource. Analysis. | Done |
+| FJ-856 | `forjar apply --notify-custom-headers` — custom HTTP headers for webhook notifications. Integration. | Done |
+| FJ-857 | `forjar validate --check-resource-tag-coverage` — verify all resources have required tags. Governance. | Done |
+| FJ-858 | `forjar status --fleet-convergence-velocity` — rate of convergence across fleet. Monitoring. | Done |
+| FJ-859 | `forjar graph --resource-dependency-weight` — weighted edges based on resource coupling. Analysis. | Done |
+| FJ-860 | `forjar status --resource-failure-correlation` — correlate failures across resources. Intelligence. | Done |
+
+### Phase 75 — Resource Lifecycle & Operational Intelligence (FJ-861→FJ-868)
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-861 | `forjar validate --check-resource-lifecycle-hooks` — verify lifecycle hook references are valid. Governance. | Planned |
+| FJ-862 | `forjar status --machine-resource-churn-rate` — resource change frequency per machine over time. Analytics. | Planned |
+| FJ-863 | `forjar graph --resource-dependency-bottleneck` — identify bottleneck resources with high fan-in + fan-out. Analysis. | Planned |
+| FJ-864 | `forjar apply --notify-sqs` — send apply notifications to AWS SQS queue. Integration. | Planned |
+| FJ-865 | `forjar validate --check-resource-provider-version` — verify provider version compatibility. Governance. | Planned |
+| FJ-866 | `forjar status --fleet-resource-staleness` — identify resources not applied in configurable window. Monitoring. | Planned |
+| FJ-867 | `forjar graph --resource-type-clustering` — cluster resources by type and show interconnections. Analysis. | Planned |
+| FJ-868 | `forjar status --machine-convergence-trend` — convergence trend per machine over time. Intelligence. | Planned |
 
 ---
 
