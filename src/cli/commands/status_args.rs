@@ -472,25 +472,28 @@ pub struct StatusArgs {
     /// FJ-846: Age of oldest drift per machine
     #[arg(long)]
     pub machine_drift_age: bool,
-
     /// FJ-850: List all failed resources across fleet
     #[arg(long)]
     pub fleet_failed_resources: bool,
-
     /// FJ-852: Health of upstream dependencies per resource
     #[arg(long)]
     pub resource_dependency_health: bool,
-
     /// FJ-854: Age distribution of resources per machine
     #[arg(long)]
     pub machine_resource_age_distribution: bool,
-
     /// FJ-858: Rate of convergence across fleet
     #[arg(long)]
     pub fleet_convergence_velocity: bool,
-
     /// FJ-860: Correlate failures across resources
     #[arg(long)]
     pub resource_failure_correlation: bool,
+    /// FJ-862: Resource change frequency per machine over time
+    #[arg(long)]
+    pub machine_resource_churn_rate: bool,
+    /// FJ-866: Identify resources not applied in configurable window
+    #[arg(long)]
+    pub fleet_resource_staleness: bool,
+    /// FJ-868: Convergence trend per machine over time
+    #[arg(long)]
+    pub machine_convergence_trend: bool,
 }
-

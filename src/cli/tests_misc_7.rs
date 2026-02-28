@@ -166,8 +166,7 @@ mod tests {
         notify_json: false,
             notify_slack_webhook: None,
             notify_telegram: None,
-            notify_webhook_v2: None, notify_discord_webhook: None, notify_teams_webhook: None, notify_slack_blocks: None, notify_custom_template: None,
-                notify_custom_webhook: None, notify_custom_headers: None,
+            notify_webhook_v2: None, notify_discord_webhook: None, notify_teams_webhook: None, notify_slack_blocks: None, notify_custom_template: None, notify_custom_webhook: None, notify_custom_headers: None, notify_custom_json: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { notify_slack, .. }) => {
@@ -332,8 +331,7 @@ mod tests {
         notify_json: false,
             notify_slack_webhook: None,
             notify_telegram: None,
-            notify_webhook_v2: None, notify_discord_webhook: None, notify_teams_webhook: None, notify_slack_blocks: None, notify_custom_template: None,
-                notify_custom_webhook: None, notify_custom_headers: None,
+            notify_webhook_v2: None, notify_discord_webhook: None, notify_teams_webhook: None, notify_slack_blocks: None, notify_custom_template: None, notify_custom_webhook: None, notify_custom_headers: None, notify_custom_json: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { cost_limit, .. }) => assert_eq!(cost_limit, Some(5)),
@@ -493,8 +491,7 @@ mod tests {
         notify_json: false,
             notify_slack_webhook: None,
             notify_telegram: None,
-            notify_webhook_v2: None, notify_discord_webhook: None, notify_teams_webhook: None, notify_slack_blocks: None, notify_custom_template: None,
-                notify_custom_webhook: None, notify_custom_headers: None,
+            notify_webhook_v2: None, notify_discord_webhook: None, notify_teams_webhook: None, notify_slack_blocks: None, notify_custom_template: None, notify_custom_webhook: None, notify_custom_headers: None, notify_custom_json: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { preview, .. }) => assert!(preview),

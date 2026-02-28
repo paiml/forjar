@@ -292,5 +292,13 @@ pub struct GraphArgs {
     /// FJ-859: Weighted edges based on resource coupling
     #[arg(long)]
     pub resource_dependency_weight: bool,
+
+    /// FJ-863: Identify bottleneck resources with high fan-in + fan-out
+    #[arg(long)]
+    pub resource_dependency_bottleneck: bool,
+
+    /// FJ-867: Cluster resources by type and show interconnections
+    #[arg(long)]
+    pub resource_type_clustering: bool,
 }
 

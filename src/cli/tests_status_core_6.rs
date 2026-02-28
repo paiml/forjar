@@ -123,8 +123,7 @@ mod tests {
                 fleet_failed_resources: false,
                 resource_dependency_health: false,
                 machine_resource_age_distribution: false,
-                fleet_convergence_velocity: false,
-                resource_failure_correlation: false,
+                fleet_convergence_velocity: false, resource_failure_correlation: false, machine_resource_churn_rate: false, fleet_resource_staleness: false, machine_convergence_trend: false,
         });
         match cmd {
             Commands::Status(StatusArgs {
@@ -244,8 +243,7 @@ mod tests {
                 fleet_failed_resources: false,
                 resource_dependency_health: false,
                 machine_resource_age_distribution: false,
-                fleet_convergence_velocity: false,
-                resource_failure_correlation: false,
+                fleet_convergence_velocity: false, resource_failure_correlation: false, machine_resource_churn_rate: false, fleet_resource_staleness: false, machine_convergence_trend: false,
         });
         match cmd {
             Commands::Status(StatusArgs { mttr, .. }) => assert!(mttr),
@@ -361,8 +359,7 @@ mod tests {
                 fleet_failed_resources: false,
                 resource_dependency_health: false,
                 machine_resource_age_distribution: false,
-                fleet_convergence_velocity: false,
-                resource_failure_correlation: false,
+                fleet_convergence_velocity: false, resource_failure_correlation: false, machine_resource_churn_rate: false, fleet_resource_staleness: false, machine_convergence_trend: false,
         });
         match cmd {
             Commands::Status(StatusArgs { trend, .. }) => assert_eq!(trend, Some(10)),
@@ -480,8 +477,7 @@ mod tests {
                 fleet_failed_resources: false,
                 resource_dependency_health: false,
                 machine_resource_age_distribution: false,
-                fleet_convergence_velocity: false,
-                resource_failure_correlation: false,
+                fleet_convergence_velocity: false, resource_failure_correlation: false, machine_resource_churn_rate: false, fleet_resource_staleness: false, machine_convergence_trend: false,
         });
         match cmd {
             Commands::Status(StatusArgs { prediction, .. }) => assert!(prediction),
@@ -597,8 +593,7 @@ mod tests {
                 fleet_failed_resources: false,
                 resource_dependency_health: false,
                 machine_resource_age_distribution: false,
-                fleet_convergence_velocity: false,
-                resource_failure_correlation: false,
+                fleet_convergence_velocity: false, resource_failure_correlation: false, machine_resource_churn_rate: false, fleet_resource_staleness: false, machine_convergence_trend: false,
         });
         match cmd {
             Commands::Status(StatusArgs { capacity, .. }) => assert!(capacity),

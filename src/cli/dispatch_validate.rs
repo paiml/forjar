@@ -94,6 +94,7 @@ fn try_validate_governance(
     check_resource_secret_refs: bool, check_resource_idempotency_hints: bool,
     check_resource_dependency_depth: Option<usize>, check_resource_machine_affinity: bool,
     check_resource_drift_risk: bool, check_resource_tag_coverage: bool,
+    check_resource_lifecycle_hooks: bool, check_resource_provider_version: bool,
 ) -> Option<Result<(), String>> {
     if let Some(ref pattern) = check_resource_naming_pattern {
         return Some(cmd_validate_check_resource_naming_pattern(file, json, pattern));
@@ -107,6 +108,8 @@ fn try_validate_governance(
     if check_resource_machine_affinity { return Some(cmd_validate_check_resource_machine_affinity(file, json)); }
     if check_resource_drift_risk { return Some(cmd_validate_check_resource_drift_risk(file, json)); }
     if check_resource_tag_coverage { return Some(cmd_validate_check_resource_tag_coverage(file, json)); }
+    if check_resource_lifecycle_hooks { return Some(cmd_validate_check_resource_lifecycle_hooks(file, json)); }
+    if check_resource_provider_version { return Some(cmd_validate_check_resource_provider_version(file, json)); }
     None
 }
 
@@ -161,6 +164,7 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
         check_resource_secret_refs, check_resource_idempotency_hints,
         check_resource_dependency_depth, check_resource_machine_affinity,
         check_resource_drift_risk, check_resource_tag_coverage,
+        check_resource_lifecycle_hooks, check_resource_provider_version,
     } = args;
 
     if check_cron_syntax {
@@ -208,7 +212,7 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
     if check_resource_groups {
         return cmd_validate_check_resource_groups(&file, json);
     }
-    if let Some(r) = try_validate_governance(&file, json, &check_resource_naming_pattern, check_resource_provider_support, check_resource_secret_refs, check_resource_idempotency_hints, check_resource_dependency_depth, check_resource_machine_affinity, check_resource_drift_risk, check_resource_tag_coverage) {
+    if let Some(r) = try_validate_governance(&file, json, &check_resource_naming_pattern, check_resource_provider_support, check_resource_secret_refs, check_resource_idempotency_hints, check_resource_dependency_depth, check_resource_machine_affinity, check_resource_drift_risk, check_resource_tag_coverage, check_resource_lifecycle_hooks, check_resource_provider_version) {
         return r;
     }
     if let Some(r) = try_validate_advanced(&file, json, check_orphan_resources, check_machine_arch, check_resource_health_conflicts, check_resource_overlap, check_resource_tags, check_resource_state_consistency, check_resource_dependencies_complete, check_machine_connectivity) {

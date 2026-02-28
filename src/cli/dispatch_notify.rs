@@ -78,6 +78,7 @@ pub(crate) struct NotifyOpts<'a> {
     pub custom_template: Option<&'a str>,
     pub custom_webhook: Option<&'a str>,
     pub custom_headers: Option<&'a str>,
+    pub custom_json: Option<&'a str>,
 }
 
 
@@ -184,6 +185,7 @@ fn send_incident_notifications(opts: &NotifyOpts<'_>, result: &Result<(), String
     send_custom_template_notification(opts.custom_template, result, config);
     send_custom_webhook_notification(opts.custom_webhook, result, config);
     send_custom_headers_notification(opts.custom_headers, result, config);
+    send_custom_json_notification(opts.custom_json, result, config);
 }
 
 fn send_pagerduty_notification(key: Option<&str>, result: &Result<(), String>, config: &Path) {
@@ -277,6 +279,21 @@ fn send_custom_headers_notification(headers: Option<&str>, result: &Result<(), S
             args.push(&payload);
             args.push(url);
             let _ = std::process::Command::new("curl").args(&args).output();
+        }
+    }
+}
+
+fn send_custom_json_notification(template: Option<&str>, result: &Result<(), String>, config: &Path) {
+    if let Some(tmpl) = template {
+        let status = if result.is_ok() { "success" } else { "failure" };
+        // Parse "url|json_template" format, replacing {{status}} and {{config}}
+        let parts: Vec<&str> = tmpl.splitn(2, '|').collect();
+        if parts.len() == 2 {
+            let url = parts[0];
+            let body = parts[1]
+                .replace("{{status}}", status)
+                .replace("{{config}}", &config.display().to_string());
+            send_webhook(url, &body);
         }
     }
 }

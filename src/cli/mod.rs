@@ -53,6 +53,7 @@ mod graph_extended;
 mod graph_export;
 mod graph_advanced;
 mod graph_paths;
+mod graph_scoring;
 mod graph_visualization;
 mod graph_impact;
 mod lock_core;
@@ -81,6 +82,7 @@ mod fleet_reporting;
 mod infra;
 mod status_operational;
 mod status_insights;
+mod status_predictive;
 #[cfg(test)]
 mod test_fixtures;
 #[cfg(test)]
@@ -295,6 +297,8 @@ mod tests_phase72;
 mod tests_phase73;
 #[cfg(test)]
 mod tests_phase74;
+#[cfg(test)]
+mod tests_phase75;
 
 pub use commands::Commands;
 pub use dispatch::dispatch;

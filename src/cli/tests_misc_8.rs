@@ -166,8 +166,7 @@ mod tests {
         notify_json: false,
             notify_slack_webhook: None,
             notify_telegram: None,
-            notify_webhook_v2: None, notify_discord_webhook: None, notify_teams_webhook: None, notify_slack_blocks: None, notify_custom_template: None,
-                notify_custom_webhook: None, notify_custom_headers: None,
+            notify_webhook_v2: None, notify_discord_webhook: None, notify_teams_webhook: None, notify_slack_blocks: None, notify_custom_template: None, notify_custom_webhook: None, notify_custom_headers: None, notify_custom_json: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { tag_filter, .. }) => {
@@ -286,8 +285,8 @@ mod tests {
                 fleet_failed_resources: false,
                 resource_dependency_health: false,
                 machine_resource_age_distribution: false,
-                fleet_convergence_velocity: false,
-                resource_failure_correlation: false,
+                fleet_convergence_velocity: false, resource_failure_correlation: false,
+                machine_resource_churn_rate: false, fleet_resource_staleness: false, machine_convergence_trend: false,
         });
         match cmd {
             Commands::Status(StatusArgs { timeline, .. }) => assert!(timeline),
@@ -447,8 +446,7 @@ mod tests {
         notify_json: false,
             notify_slack_webhook: None,
             notify_telegram: None,
-            notify_webhook_v2: None, notify_discord_webhook: None, notify_teams_webhook: None, notify_slack_blocks: None, notify_custom_template: None,
-                notify_custom_webhook: None, notify_custom_headers: None,
+            notify_webhook_v2: None, notify_discord_webhook: None, notify_teams_webhook: None, notify_slack_blocks: None, notify_custom_template: None, notify_custom_webhook: None, notify_custom_headers: None, notify_custom_json: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { resume, .. }) => assert!(resume),

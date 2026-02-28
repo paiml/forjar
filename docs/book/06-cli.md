@@ -2182,6 +2182,75 @@ forjar status --state-dir state/ --resource-failure-correlation
 #   nginx (Package) — failed on 2 machines: web1, web2
 ```
 
+#### Phase 75 — Resource Lifecycle & Operational Intelligence
+
+**Validate — check resource lifecycle hooks (FJ-861)**
+
+```bash
+forjar validate -f forjar.yaml --check-resource-lifecycle-hooks
+# All lifecycle hook references are valid.
+```
+
+**Status — machine resource churn rate (FJ-862)**
+
+```bash
+forjar status --state-dir state/ --machine-resource-churn-rate
+# Machine resource churn rate:
+#   web1 — 5 resources tracked
+#   db1 — 3 resources tracked
+```
+
+**Graph — resource dependency bottleneck (FJ-863)**
+
+```bash
+forjar graph -f forjar.yaml --resource-dependency-bottleneck
+# Dependency bottlenecks (fan-in + fan-out):
+#   base-packages — fan-in 0, fan-out 3, total 3
+#   nginx-config — fan-in 1, fan-out 2, total 3
+```
+
+**Apply — notify with custom JSON (FJ-864)**
+
+```bash
+forjar apply -f forjar.yaml --state-dir state/ \
+  --notify-custom-json "https://hooks.example.com|{\"status\":\"{{status}}\",\"config\":\"{{config}}\"}"
+```
+
+**Validate — check resource provider version (FJ-865)**
+
+```bash
+forjar validate -f forjar.yaml --check-resource-provider-version
+# All provider versions are compatible.
+```
+
+**Status — fleet resource staleness (FJ-866)**
+
+```bash
+forjar status --state-dir state/ --fleet-resource-staleness
+# Fleet resource staleness (oldest first):
+#   web1 / nginx — last applied 2025-01-15T10:30:00Z
+#   db1 / postgres — last applied 2025-02-01T14:00:00Z
+```
+
+**Graph — resource type clustering (FJ-867)**
+
+```bash
+forjar graph -f forjar.yaml --resource-type-clustering
+# Resource type clusters:
+#   Package — 3 resources: nginx, curl, base-packages
+#   File — 2 resources: nginx-config, app-config
+#   Service — 1 resource: nginx-service
+```
+
+**Status — machine convergence trend (FJ-868)**
+
+```bash
+forjar status --state-dir state/ --machine-convergence-trend
+# Machine convergence trend:
+#   web1 — 5/5 converged (100.0%)
+#   db1 — 2/3 converged (66.7%)
+```
+
 ### `forjar watch`
 
 Watch a config file for changes and automatically re-plan.

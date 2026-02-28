@@ -305,3 +305,81 @@ fn find_tag_coverage_gaps(config: &types::ForjarConfig) -> Vec<String> {
     missing.sort();
     missing
 }
+
+/// FJ-861: Verify lifecycle hook references (triggers, depends_on) are valid.
+pub(crate) fn cmd_validate_check_resource_lifecycle_hooks(
+    file: &Path, json: bool,
+) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let config: types::ForjarConfig =
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+    let issues = find_lifecycle_hook_issues(&config);
+    if json {
+        let items: Vec<String> = issues.iter()
+            .map(|(r, msg)| format!("{{\"resource\":\"{}\",\"issue\":\"{}\"}}", r, msg)).collect();
+        println!("{{\"lifecycle_hook_issues\":[{}]}}", items.join(","));
+    } else if issues.is_empty() {
+        println!("All lifecycle hook references are valid.");
+    } else {
+        println!("Lifecycle hook issues ({}):", issues.len());
+        for (r, msg) in &issues { println!("  {} — {}", r, msg); }
+    }
+    Ok(())
+}
+
+fn find_lifecycle_hook_issues(config: &types::ForjarConfig) -> Vec<(String, String)> {
+    let mut issues = Vec::new();
+    let names: std::collections::HashSet<&String> = config.resources.keys().collect();
+    for (name, resource) in &config.resources {
+        for dep in &resource.depends_on {
+            if !names.contains(dep) {
+                issues.push((name.clone(), format!("depends_on '{}' not found", dep)));
+            }
+        }
+        for trigger in &resource.triggers {
+            if !names.contains(trigger) {
+                issues.push((name.clone(), format!("trigger '{}' not found", trigger)));
+            }
+        }
+    }
+    issues.sort_by(|a, b| a.0.cmp(&b.0));
+    issues
+}
+
+/// FJ-865: Verify provider version compatibility.
+pub(crate) fn cmd_validate_check_resource_provider_version(
+    file: &Path, json: bool,
+) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let config: types::ForjarConfig =
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+    let issues = find_provider_version_issues(&config);
+    if json {
+        let items: Vec<String> = issues.iter()
+            .map(|(r, msg)| format!("{{\"resource\":\"{}\",\"issue\":\"{}\"}}", r, msg)).collect();
+        println!("{{\"provider_version_issues\":[{}]}}", items.join(","));
+    } else if issues.is_empty() {
+        println!("All provider versions are compatible.");
+    } else {
+        println!("Provider version issues ({}):", issues.len());
+        for (r, msg) in &issues { println!("  {} — {}", r, msg); }
+    }
+    Ok(())
+}
+
+fn find_provider_version_issues(config: &types::ForjarConfig) -> Vec<(String, String)> {
+    let mut issues = Vec::new();
+    for (name, resource) in &config.resources {
+        if let Some(ref provider) = resource.provider {
+            // Check if provider has version specifier
+            if provider.contains('@') {
+                let parts: Vec<&str> = provider.splitn(2, '@').collect();
+                if parts.len() == 2 && parts[1].is_empty() {
+                    issues.push((name.clone(), format!("provider '{}' has empty version", parts[0])));
+                }
+            }
+        }
+    }
+    issues.sort_by(|a, b| a.0.cmp(&b.0));
+    issues
+}
