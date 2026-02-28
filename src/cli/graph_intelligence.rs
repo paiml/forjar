@@ -429,3 +429,54 @@ fn reachable_without_direct(adj: &[Vec<bool>], from: usize, to: usize, n: usize)
     }
     false
 }
+
+/// FJ-943: Maximum outgoing edges per node (fan-out bottleneck).
+pub(crate) fn cmd_graph_resource_dependency_fan_out(file: &Path, json: bool) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let config: types::ForjarConfig = serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let mut fan_outs: Vec<(String, usize)> = config.resources.iter()
+        .map(|(name, res)| (name.clone(), res.depends_on.len()))
+        .collect();
+    fan_outs.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+    let max = fan_outs.first().map(|(_, c)| *c).unwrap_or(0);
+    if json {
+        let items: Vec<String> = fan_outs.iter()
+            .map(|(n, c)| format!("{{\"resource\":\"{}\",\"fan_out\":{}}}", n, c))
+            .collect();
+        println!("{{\"max_fan_out\":{},\"resources\":[{}]}}", max, items.join(","));
+    } else if fan_outs.is_empty() {
+        println!("No resources found.");
+    } else {
+        println!("Fan-out analysis (max: {}):", max);
+        for (n, c) in &fan_outs { println!("  {} — {} outgoing", n, c); }
+    }
+    Ok(())
+}
+
+/// FJ-947: Maximum incoming edges per node (convergence point).
+pub(crate) fn cmd_graph_resource_dependency_fan_in(file: &Path, json: bool) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let config: types::ForjarConfig = serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let mut in_counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    for name in config.resources.keys() { in_counts.insert(name.clone(), 0); }
+    for res in config.resources.values() {
+        for dep in &res.depends_on {
+            *in_counts.entry(dep.clone()).or_insert(0) += 1;
+        }
+    }
+    let mut fan_ins: Vec<(String, usize)> = in_counts.into_iter().collect();
+    fan_ins.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
+    let max = fan_ins.first().map(|(_, c)| *c).unwrap_or(0);
+    if json {
+        let items: Vec<String> = fan_ins.iter()
+            .map(|(n, c)| format!("{{\"resource\":\"{}\",\"fan_in\":{}}}", n, c))
+            .collect();
+        println!("{{\"max_fan_in\":{},\"resources\":[{}]}}", max, items.join(","));
+    } else if fan_ins.is_empty() {
+        println!("No resources found.");
+    } else {
+        println!("Fan-in analysis (max: {}):", max);
+        for (n, c) in &fan_ins { println!("  {} — {} incoming", n, c); }
+    }
+    Ok(())
+}

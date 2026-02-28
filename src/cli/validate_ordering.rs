@@ -138,3 +138,78 @@ fn find_dependency_asymmetries(config: &types::ForjarConfig) -> Vec<(String, Str
     pairs.dedup();
     pairs
 }
+
+/// FJ-941: Detect circular alias references in resource configs.
+pub(crate) fn cmd_validate_check_resource_circular_alias(file: &Path, json: bool) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let config: types::ForjarConfig = serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let cycles = find_circular_aliases(&config);
+    if json {
+        let items: Vec<String> = cycles.iter().map(|(a, b)| format!("[\"{}\",\"{}\"]", a, b)).collect();
+        println!("{{\"circular_aliases\":[{}]}}", items.join(","));
+    } else if cycles.is_empty() {
+        println!("No circular alias references detected.");
+    } else {
+        println!("Circular alias references:");
+        for (a, b) in &cycles { println!("  {} ↔ {}", a, b); }
+    }
+    Ok(())
+}
+
+fn find_circular_aliases(config: &types::ForjarConfig) -> Vec<(String, String)> {
+    let mut cycles = Vec::new();
+    for (name, res) in &config.resources {
+        for dep in &res.depends_on {
+            if let Some(dep_res) = config.resources.get(dep) {
+                if dep_res.depends_on.contains(name) && name < dep {
+                    cycles.push((name.clone(), dep.clone()));
+                }
+            }
+        }
+    }
+    cycles.sort();
+    cycles
+}
+
+/// FJ-945: Warn when dependency chains exceed a threshold.
+pub(crate) fn cmd_validate_check_resource_dependency_depth_limit(file: &Path, json: bool) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let config: types::ForjarConfig = serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let limit = 5;
+    let violations = find_depth_limit_violations(&config, limit);
+    if json {
+        let items: Vec<String> = violations.iter()
+            .map(|(r, d)| format!("{{\"resource\":\"{}\",\"depth\":{}}}", r, d))
+            .collect();
+        println!("{{\"depth_limit\":{},\"violations\":[{}]}}", limit, items.join(","));
+    } else if violations.is_empty() {
+        println!("All dependency chains within depth limit ({}).", limit);
+    } else {
+        println!("Dependency depth violations (limit {}):", limit);
+        for (r, d) in &violations { println!("  {} — depth {}", r, d); }
+    }
+    Ok(())
+}
+
+fn find_depth_limit_violations(config: &types::ForjarConfig, limit: usize) -> Vec<(String, usize)> {
+    let names: Vec<&String> = config.resources.keys().collect();
+    let mut violations = Vec::new();
+    for name in &names {
+        let depth = compute_depth(config, name, &mut std::collections::HashSet::new());
+        if depth > limit { violations.push(((*name).clone(), depth)); }
+    }
+    violations.sort_by(|a, b| a.0.cmp(&b.0));
+    violations
+}
+
+fn compute_depth(config: &types::ForjarConfig, name: &str, visited: &mut std::collections::HashSet<String>) -> usize {
+    if visited.contains(name) { return 0; }
+    visited.insert(name.to_string());
+    let res = match config.resources.get(name) { Some(r) => r, None => return 0 };
+    let mut max_dep = 0;
+    for dep in &res.depends_on {
+        let d = compute_depth(config, dep, visited);
+        if d + 1 > max_dep { max_dep = d + 1; }
+    }
+    max_dep
+}

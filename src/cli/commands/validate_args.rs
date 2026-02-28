@@ -344,5 +344,11 @@ pub struct ValidateArgs {
     /// FJ-937: Detect asymmetric dependency declarations
     #[arg(long)]
     pub check_resource_dependency_symmetry: bool,
+    /// FJ-941: Detect circular alias references in resource configs
+    #[arg(long)]
+    pub check_resource_circular_alias: bool,
+    /// FJ-945: Warn when dependency chains exceed a threshold
+    #[arg(long)]
+    pub check_resource_dependency_depth_limit: bool,
 }
 

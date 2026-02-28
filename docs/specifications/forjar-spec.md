@@ -2723,18 +2723,31 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 | FJ-939 | `forjar graph --resource-dependency-transitivity` — transitive reduction ratio for dependency simplification. Analysis. | Done |
 | FJ-940 | `forjar status --machine-resource-failure-recurrence` — frequency of repeated failures per resource. Intelligence. | Done |
 
-### Phase 85 — Advanced Compliance & Dependency Intelligence (FJ-941→FJ-948)
+### Phase 85 — Advanced Compliance & Dependency Intelligence (FJ-941→FJ-948) ✅ Done
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-941 | `forjar validate --check-resource-circular-alias` — detect circular alias references in resource configs. Governance. | Planned |
-| FJ-942 | `forjar status --machine-resource-drift-frequency` — how often resources drift per machine over time. Intelligence. | Planned |
-| FJ-943 | `forjar graph --resource-dependency-fan-out` — maximum outgoing edges per node (fan-out bottleneck). Analysis. | Planned |
-| FJ-944 | `forjar apply --notify-custom-dedup-window` — deduplicate notifications within a time window. Integration. | Planned |
-| FJ-945 | `forjar validate --check-resource-dependency-depth-limit` — warn when dependency chains exceed a threshold. Governance. | Planned |
-| FJ-946 | `forjar status --fleet-resource-drift-frequency` — fleet-wide drift frequency aggregation. Intelligence. | Planned |
-| FJ-947 | `forjar graph --resource-dependency-fan-in` — maximum incoming edges per node (convergence point). Analysis. | Planned |
-| FJ-948 | `forjar status --machine-resource-apply-duration-trend` — trend analysis of apply durations per machine. Intelligence. | Planned |
+| FJ-941 | `forjar validate --check-resource-circular-alias` — detect circular alias references in resource configs. Governance. | Done |
+| FJ-942 | `forjar status --machine-resource-drift-frequency` — how often resources drift per machine over time. Intelligence. | Done |
+| FJ-943 | `forjar graph --resource-dependency-fan-out` — maximum outgoing edges per node (fan-out bottleneck). Analysis. | Done |
+| FJ-944 | `forjar apply --notify-custom-dedup-window` — deduplicate notifications within a time window. Integration. | Done |
+| FJ-945 | `forjar validate --check-resource-dependency-depth-limit` — warn when dependency chains exceed a threshold. Governance. | Done |
+| FJ-946 | `forjar status --fleet-resource-drift-frequency` — fleet-wide drift frequency aggregation. Intelligence. | Done |
+| FJ-947 | `forjar graph --resource-dependency-fan-in` — maximum incoming edges per node (convergence point). Analysis. | Done |
+| FJ-948 | `forjar status --machine-resource-apply-duration-trend` — trend analysis of apply durations per machine. Intelligence. | Done |
+
+### Phase 86 — Resource Lifecycle & Configuration Maturity (FJ-949→FJ-956)
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-949 | `forjar validate --check-resource-unused-params` — detect parameters defined but never referenced in templates. Governance. | Planned |
+| FJ-950 | `forjar status --machine-resource-convergence-streak` — longest consecutive convergence streak per machine. Intelligence. | Planned |
+| FJ-951 | `forjar graph --resource-dependency-path-count` — count of distinct dependency paths between nodes. Analysis. | Planned |
+| FJ-952 | `forjar apply --notify-custom-rate-limit` — rate-limit notification delivery per channel. Integration. | Planned |
+| FJ-953 | `forjar validate --check-resource-machine-balance` — warn when machines have unbalanced resource counts. Governance. | Planned |
+| FJ-954 | `forjar status --fleet-resource-convergence-streak` — fleet-wide convergence streak aggregation. Intelligence. | Planned |
+| FJ-955 | `forjar graph --resource-dependency-articulation-points` — identify articulation points whose removal disconnects graph. Analysis. | Planned |
+| FJ-956 | `forjar status --machine-resource-error-distribution` — distribution of error types per machine. Intelligence. | Planned |
 
 ---
 

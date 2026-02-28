@@ -358,5 +358,11 @@ pub struct GraphArgs {
     /// FJ-939: Transitive reduction ratio for dependency simplification
     #[arg(long)]
     pub resource_dependency_transitivity: bool,
+    /// FJ-943: Maximum outgoing edges per node (fan-out bottleneck)
+    #[arg(long)]
+    pub resource_dependency_fan_out: bool,
+    /// FJ-947: Maximum incoming edges per node (convergence point)
+    #[arg(long)]
+    pub resource_dependency_fan_in: bool,
 }
 

@@ -206,6 +206,7 @@ fn try_graph_scoring_phase81(
     resource_dependency_cluster_coefficient: bool, resource_dependency_modularity_score: bool,
     resource_dependency_diameter: bool, resource_dependency_eccentricity: bool,
     resource_dependency_density: bool, resource_dependency_transitivity: bool,
+    resource_dependency_fan_out: bool, resource_dependency_fan_in: bool,
 ) -> Option<Result<(), String>> {
     if resource_dependency_centrality_score { return Some(cmd_graph_resource_dependency_centrality_score(file, json)); }
     if resource_dependency_bridge_detection { return Some(cmd_graph_resource_dependency_bridge_detection(file, json)); }
@@ -215,6 +216,8 @@ fn try_graph_scoring_phase81(
     if resource_dependency_eccentricity { return Some(cmd_graph_resource_dependency_eccentricity(file, json)); }
     if resource_dependency_density { return Some(cmd_graph_resource_dependency_density(file, json)); }
     if resource_dependency_transitivity { return Some(cmd_graph_resource_dependency_transitivity(file, json)); }
+    if resource_dependency_fan_out { return Some(cmd_graph_resource_dependency_fan_out(file, json)); }
+    if resource_dependency_fan_in { return Some(cmd_graph_resource_dependency_fan_in(file, json)); }
     None
 }
 
@@ -257,6 +260,7 @@ pub(crate) fn dispatch_graph_cmd(cmd: Commands) -> Result<(), String> {
         resource_dependency_cluster_coefficient, resource_dependency_modularity_score,
         resource_dependency_diameter, resource_dependency_eccentricity,
         resource_dependency_density, resource_dependency_transitivity,
+        resource_dependency_fan_out, resource_dependency_fan_in,
     }) = cmd
     else {
         unreachable!()
@@ -268,7 +272,7 @@ pub(crate) fn dispatch_graph_cmd(cmd: Commands) -> Result<(), String> {
     if let Some(r) = try_graph_export_b(&file, json_output, longest_path, in_degree, out_degree, density, topological_sort, critical_path_resources) {
         return r;
     }
-    if let Some(r) = try_graph_scoring_phase81(&file, json_output, resource_dependency_centrality_score, resource_dependency_bridge_detection, resource_dependency_cluster_coefficient, resource_dependency_modularity_score, resource_dependency_diameter, resource_dependency_eccentricity, resource_dependency_density, resource_dependency_transitivity) {
+    if let Some(r) = try_graph_scoring_phase81(&file, json_output, resource_dependency_centrality_score, resource_dependency_bridge_detection, resource_dependency_cluster_coefficient, resource_dependency_modularity_score, resource_dependency_diameter, resource_dependency_eccentricity, resource_dependency_density, resource_dependency_transitivity, resource_dependency_fan_out, resource_dependency_fan_in) {
         return r;
     }
     if let Some(r) = try_graph_scoring_inline(&file, json_output, resource_dependency_bottleneck, resource_type_clustering, resource_dependency_cycle_risk, resource_impact_radius, resource_dependency_health_map, resource_change_propagation, resource_dependency_depth_analysis, resource_dependency_fan_analysis, resource_dependency_isolation_score, resource_dependency_stability_score, resource_dependency_critical_path_length, resource_dependency_redundancy_score) {

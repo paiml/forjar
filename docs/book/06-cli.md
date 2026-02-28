@@ -2760,6 +2760,48 @@ forjar status --state-dir state --machine-resource-failure-recurrence
 #   web — 2 failed resources
 ```
 
+#### Phase 85 — Advanced Compliance & Dependency Intelligence (FJ-941→FJ-948)
+
+```bash
+# FJ-941: Detect circular alias references
+forjar validate -f forjar.yaml --check-resource-circular-alias
+# No circular alias references detected.
+
+# FJ-942: Drift frequency per machine
+forjar status --state-dir state --machine-resource-drift-frequency
+# Drift frequency:
+#   web — 3 drifted resources
+
+# FJ-943: Fan-out analysis (outgoing dependency edges)
+forjar graph -f forjar.yaml --resource-dependency-fan-out
+# Fan-out analysis (max: 3):
+#   app — 3 outgoing
+#   base — 0 outgoing
+
+# FJ-944: Deduplicate notifications within a time window
+forjar apply -f forjar.yaml --notify-custom-dedup-window "https://hooks.example.com|60"
+
+# FJ-945: Warn when dependency depth exceeds threshold
+forjar validate -f forjar.yaml --check-resource-dependency-depth-limit
+# All dependency chains within depth limit (5).
+
+# FJ-946: Fleet-wide drift frequency
+forjar status --state-dir state --fleet-resource-drift-frequency
+# Fleet drift frequency: 5 drifted resources across 2 machines
+
+# FJ-947: Fan-in analysis (incoming dependency edges)
+forjar graph -f forjar.yaml --resource-dependency-fan-in
+# Fan-in analysis (max: 2):
+#   base — 2 incoming
+#   app — 0 incoming
+
+# FJ-948: Apply duration trend per machine
+forjar status --state-dir state --machine-resource-apply-duration-trend
+# Apply duration trends:
+#   web — avg 1.3000s
+#   db — avg 0.8500s
+```
+
 ### `forjar watch`
 
 Watch a config file for changes and automatically re-plan.
