@@ -2113,6 +2113,75 @@ forjar status --state-dir state/ --resource-dependency-health
 #   web1 / nginx — 5 converged deps
 ```
 
+#### Phase 74 — Predictive Analysis & Fleet Governance
+
+**Validate — check resource drift risk (FJ-853)**
+
+```bash
+forjar validate -f forjar.yaml --check-resource-drift-risk
+# Resource drift risk scores:
+#   nginx-config — risk 3 (file, 1 dependent)
+#   base-packages — risk 1 (package, 0 dependents)
+```
+
+**Status — machine resource age distribution (FJ-854)**
+
+```bash
+forjar status --state-dir state/ --machine-resource-age-distribution
+# Machine resource age distribution:
+#   web1 — 3 resources, oldest 45d, newest 2d
+```
+
+**Graph — resource dependency fanout (FJ-855)**
+
+```bash
+forjar graph -f forjar.yaml --resource-dependency-fanout
+# Resource dependency fan-out:
+#   base-packages — fan-out 4
+#   nginx-config — fan-out 1
+```
+
+**Apply — notify with custom headers (FJ-856)**
+
+```bash
+forjar apply -f forjar.yaml --state-dir state/ \
+  --notify-custom-headers "https://hooks.example.com/forjar|Authorization:Bearer tok123|X-Source:forjar"
+```
+
+**Validate — check resource tag coverage (FJ-857)**
+
+```bash
+forjar validate -f forjar.yaml --check-resource-tag-coverage
+# Tag coverage: 3/5 resources tagged (60%)
+#   Missing tags: db-config, log-rotate
+```
+
+**Status — fleet convergence velocity (FJ-858)**
+
+```bash
+forjar status --state-dir state/ --fleet-convergence-velocity
+# Fleet convergence velocity:
+#   web1 — 100% converged
+#   db1 — 80% converged
+```
+
+**Graph — resource dependency weight (FJ-859)**
+
+```bash
+forjar graph -f forjar.yaml --resource-dependency-weight
+# Resource dependency weights:
+#   base-packages → nginx-config — weight 2
+#   nginx-config → nginx-service — weight 1
+```
+
+**Status — resource failure correlation (FJ-860)**
+
+```bash
+forjar status --state-dir state/ --resource-failure-correlation
+# Resource failure correlation:
+#   nginx (Package) — failed on 2 machines: web1, web2
+```
+
 ### `forjar watch`
 
 Watch a config file for changes and automatically re-plan.
