@@ -187,4 +187,38 @@ fn main() {
     };
     println!("-- Apply script --");
     println!("{}", codegen::apply_script(&fw).unwrap());
+
+    // GPU resources — multi-vendor (FJ-1005)
+    for (backend, driver, cuda, rocm) in [
+        ("nvidia", "550", Some("12.4"), None),
+        ("rocm", "6.3", None, Some("6.3")),
+        ("cpu", "", None, None),
+    ] {
+        println!("\n=== GPU Resource ({backend}) ===\n");
+        let gpu = Resource {
+            gpu_backend: Some(backend.to_string()),
+            driver_version: Some(driver.to_string()),
+            cuda_version: cuda.map(String::from),
+            rocm_version: rocm.map(String::from),
+            persistence_mode: Some(true),
+            compute_mode: Some("default".to_string()),
+            ..base(ResourceType::Gpu)
+        };
+        println!("-- Check script --");
+        println!("{}", codegen::check_script(&gpu).unwrap());
+        println!("\n-- Apply script --");
+        println!("{}", codegen::apply_script(&gpu).unwrap());
+        println!("\n-- State query script --");
+        println!("{}", codegen::state_query_script(&gpu).unwrap());
+    }
+
+    // Cargo package with bootstrap (FJ-1005)
+    println!("\n=== Package Resource (cargo + bootstrap) ===\n");
+    let cargo_pkg = Resource {
+        provider: Some("cargo".to_string()),
+        packages: vec!["realizar".to_string()],
+        ..base(ResourceType::Package)
+    };
+    println!("-- Apply script --");
+    println!("{}", codegen::apply_script(&cargo_pkg).unwrap());
 }
