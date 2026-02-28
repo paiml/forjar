@@ -334,5 +334,11 @@ pub struct GraphArgs {
     /// FJ-907: Redundancy score for resources with fallbacks
     #[arg(long)]
     pub resource_dependency_redundancy_score: bool,
+    /// FJ-911: Betweenness centrality for critical resources
+    #[arg(long)]
+    pub resource_dependency_centrality_score: bool,
+    /// FJ-915: Find bridge edges whose removal disconnects the graph
+    #[arg(long)]
+    pub resource_dependency_bridge_detection: bool,
 }
 

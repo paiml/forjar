@@ -2675,14 +2675,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-909 | `forjar validate --check-resource-dependency-completeness` — verify all dependencies exist and are reachable. Governance. | Planned |
-| FJ-910 | `forjar status --machine-resource-mttr-estimate` — estimated MTTR per resource based on history. Intelligence. | Planned |
-| FJ-911 | `forjar graph --resource-dependency-centrality-score` — betweenness centrality for critical resources. Analysis. | Planned |
-| FJ-912 | `forjar apply --notify-custom-throttle` — throttle notification rate per time window. Integration. | Planned |
-| FJ-913 | `forjar validate --check-resource-state-coverage` — verify all resources declare explicit states. Governance. | Planned |
-| FJ-914 | `forjar status --fleet-resource-convergence-forecast` — forecast time to full convergence. Intelligence. | Planned |
-| FJ-915 | `forjar graph --resource-dependency-bridge-detection` — find bridge edges whose removal disconnects the graph. Analysis. | Planned |
-| FJ-916 | `forjar status --machine-resource-error-budget-forecast` — forecast error budget consumption rate. Intelligence. | Planned |
+| FJ-909 | `forjar validate --check-resource-dependency-completeness` — verify all dependencies exist and are reachable. Governance. | Done |
+| FJ-910 | `forjar status --machine-resource-mttr-estimate` — estimated MTTR per resource based on history. Intelligence. | Done |
+| FJ-911 | `forjar graph --resource-dependency-centrality-score` — betweenness centrality for critical resources. Analysis. | Done |
+| FJ-912 | `forjar apply --notify-custom-throttle` — throttle notification rate per time window. Integration. | Done |
+| FJ-913 | `forjar validate --check-resource-state-coverage` — verify all resources declare explicit states. Governance. | Done |
+| FJ-914 | `forjar status --fleet-resource-convergence-forecast` — forecast time to full convergence. Intelligence. | Done |
+| FJ-915 | `forjar graph --resource-dependency-bridge-detection` — find bridge edges whose removal disconnects the graph. Analysis. | Done |
+| FJ-916 | `forjar status --machine-resource-error-budget-forecast` — forecast error budget consumption rate. Intelligence. | Done |
+
+### Phase 82 — Infrastructure Insight & Configuration Maturity (FJ-917→FJ-924)
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-917 | `forjar validate --check-resource-rollback-safety` — verify resources can be safely rolled back without side effects. Governance. | Planned |
+| FJ-918 | `forjar status --machine-resource-dependency-lag` — detect lag between dependent resource convergence. Intelligence. | Planned |
+| FJ-919 | `forjar graph --resource-dependency-cluster-coefficient` — clustering coefficient per resource in dependency graph. Analysis. | Planned |
+| FJ-920 | `forjar apply --notify-custom-aggregate` — aggregate multiple events into summary notification. Integration. | Planned |
+| FJ-921 | `forjar validate --check-resource-config-maturity` — score resource configuration maturity (tags, docs, versioning). Governance. | Planned |
+| FJ-922 | `forjar status --fleet-resource-dependency-lag` — fleet-wide dependency convergence lag analysis. Intelligence. | Planned |
+| FJ-923 | `forjar graph --resource-dependency-modularity-score` — modularity score for resource dependency communities. Analysis. | Planned |
+| FJ-924 | `forjar status --machine-resource-config-drift-rate` — rate of configuration drift per machine over time. Intelligence. | Planned |
 
 ---
 

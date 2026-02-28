@@ -163,7 +163,7 @@ mod tests {
                 notify_log: None,
         notify_exec: None,
         notify_file: None,
-        notify_json: false, notify_slack_webhook: None, notify_telegram: None, notify_webhook_v2: None, notify_discord_webhook: None, notify_teams_webhook: None, notify_slack_blocks: None, notify_custom_template: None, notify_custom_webhook: None, notify_custom_headers: None, notify_custom_json: None, notify_custom_filter: None, notify_custom_retry: None, notify_custom_transform: None, notify_custom_batch: None, notify_custom_deduplicate: None,
+        notify_json: false, notify_slack_webhook: None, notify_telegram: None, notify_webhook_v2: None, notify_discord_webhook: None, notify_teams_webhook: None, notify_slack_blocks: None, notify_custom_template: None, notify_custom_webhook: None, notify_custom_headers: None, notify_custom_json: None, notify_custom_filter: None, notify_custom_retry: None, notify_custom_transform: None, notify_custom_batch: None, notify_custom_deduplicate: None, notify_custom_throttle: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs {
@@ -322,7 +322,7 @@ mod tests {
                 notify_log: None,
         notify_exec: None,
         notify_file: None,
-        notify_json: false, notify_slack_webhook: None, notify_telegram: None, notify_webhook_v2: None, notify_discord_webhook: None, notify_teams_webhook: None, notify_slack_blocks: None, notify_custom_template: None, notify_custom_webhook: None, notify_custom_headers: None, notify_custom_json: None, notify_custom_filter: None, notify_custom_retry: None, notify_custom_transform: None, notify_custom_batch: None, notify_custom_deduplicate: None,
+        notify_json: false, notify_slack_webhook: None, notify_telegram: None, notify_webhook_v2: None, notify_discord_webhook: None, notify_teams_webhook: None, notify_slack_blocks: None, notify_custom_template: None, notify_custom_webhook: None, notify_custom_headers: None, notify_custom_json: None, notify_custom_filter: None, notify_custom_retry: None, notify_custom_transform: None, notify_custom_batch: None, notify_custom_deduplicate: None, notify_custom_throttle: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs { metrics_port, .. }) => assert_eq!(metrics_port, Some(9090)),
@@ -478,7 +478,7 @@ mod tests {
                 notify_log: None,
         notify_exec: None,
         notify_file: None,
-        notify_json: false, notify_slack_webhook: None, notify_telegram: None, notify_webhook_v2: None, notify_discord_webhook: None, notify_teams_webhook: None, notify_slack_blocks: None, notify_custom_template: None, notify_custom_webhook: None, notify_custom_headers: None, notify_custom_json: None, notify_custom_filter: None, notify_custom_retry: None, notify_custom_transform: None, notify_custom_batch: None, notify_custom_deduplicate: None,
+        notify_json: false, notify_slack_webhook: None, notify_telegram: None, notify_webhook_v2: None, notify_discord_webhook: None, notify_teams_webhook: None, notify_slack_blocks: None, notify_custom_template: None, notify_custom_webhook: None, notify_custom_headers: None, notify_custom_json: None, notify_custom_filter: None, notify_custom_retry: None, notify_custom_transform: None, notify_custom_batch: None, notify_custom_deduplicate: None, notify_custom_throttle: None,
         });
         match cmd {
             Commands::Apply(ApplyArgs {

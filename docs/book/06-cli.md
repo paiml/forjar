@@ -2567,6 +2567,64 @@ forjar status --state-dir state/ --machine-resource-apply-success-trend
 #   web1 — event history available
 ```
 
+#### Phase 81 — Predictive Analytics & Configuration Quality
+
+**Validate — check resource dependency completeness (FJ-909)**
+
+```bash
+forjar validate -f examples/dogfood-packages.yaml --check-resource-dependency-completeness
+# All dependency references are complete.
+```
+
+**Status — machine resource MTTR estimate (FJ-910)**
+
+```bash
+forjar status --state-dir state/ --machine-resource-mttr-estimate
+# Machine MTTR estimates:
+#   intel — no data
+```
+
+**Graph — resource dependency centrality score (FJ-911)**
+
+```bash
+forjar graph -f examples/dogfood-packages.yaml --resource-dependency-centrality-score
+# Betweenness centrality scores:
+#   data-dir — 0.000
+#   dev-tools — 0.000
+#   tool-config — 0.000
+```
+
+**Validate — check resource state coverage (FJ-913)**
+
+```bash
+forjar validate -f examples/dogfood-packages.yaml --check-resource-state-coverage
+# Resources without explicit state:
+#   dev-tools
+#   tool-config
+```
+
+**Status — fleet resource convergence forecast (FJ-914)**
+
+```bash
+forjar status --state-dir state/ --fleet-resource-convergence-forecast
+# No convergence forecast data available.
+```
+
+**Graph — resource dependency bridge detection (FJ-915)**
+
+```bash
+forjar graph -f examples/dogfood-packages.yaml --resource-dependency-bridge-detection
+# Bridge edges (1):
+#   tool-config → dev-tools
+```
+
+**Status — machine resource error budget forecast (FJ-916)**
+
+```bash
+forjar status --state-dir state/ --machine-resource-error-budget-forecast
+# No error budget forecast data available.
+```
+
 ### `forjar watch`
 
 Watch a config file for changes and automatically re-plan.

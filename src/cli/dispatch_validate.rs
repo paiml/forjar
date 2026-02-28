@@ -137,6 +137,16 @@ fn try_validate_governance_b(
     None
 }
 
+/// Phase 81 governance validation checks.
+fn try_validate_governance_c(
+    file: &Path, json: bool,
+    check_resource_dependency_completeness: bool, check_resource_state_coverage: bool,
+) -> Option<Result<(), String>> {
+    if check_resource_dependency_completeness { return Some(cmd_validate_check_resource_dependency_completeness(file, json)); }
+    if check_resource_state_coverage { return Some(cmd_validate_check_resource_state_coverage(file, json)); }
+    None
+}
+
 /// Phase 67-70 advanced validation checks.
 #[allow(clippy::too_many_arguments)]
 fn try_validate_advanced(
@@ -194,6 +204,7 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
         check_resource_secret_exposure, check_resource_tag_standards,
         check_resource_privilege_escalation, check_resource_update_safety,
         check_resource_cross_machine_consistency, check_resource_version_pinning,
+        check_resource_dependency_completeness, check_resource_state_coverage,
     } = args;
 
     if check_cron_syntax {
@@ -242,6 +253,9 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
         return cmd_validate_check_resource_groups(&file, json);
     }
     if let Some(r) = try_validate_governance(&file, json, &check_resource_naming_pattern, check_resource_provider_support, check_resource_secret_refs, check_resource_idempotency_hints, check_resource_dependency_depth, check_resource_machine_affinity, check_resource_drift_risk, check_resource_tag_coverage) {
+        return r;
+    }
+    if let Some(r) = try_validate_governance_c(&file, json, check_resource_dependency_completeness, check_resource_state_coverage) {
         return r;
     }
     if let Some(r) = try_validate_governance_b(&file, json, check_resource_lifecycle_hooks, check_resource_provider_version, check_resource_naming_convention, check_resource_idempotency, check_resource_documentation, check_resource_ownership, check_resource_secret_exposure, check_resource_tag_standards, check_resource_privilege_escalation, check_resource_update_safety, check_resource_cross_machine_consistency, check_resource_version_pinning) {

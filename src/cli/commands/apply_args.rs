@@ -630,5 +630,8 @@ pub struct ApplyArgs {
     /// FJ-904: Deduplicate repeated notifications
     #[arg(long)]
     pub notify_custom_deduplicate: Option<String>,
+    /// FJ-912: Throttle notification rate per time window
+    #[arg(long)]
+    pub notify_custom_throttle: Option<String>,
 }
 
