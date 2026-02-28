@@ -199,6 +199,9 @@ mod tests {
             machine_resource_convergence_stability: true,
             machine_resource_apply_latency_p95: true,
             fleet_resource_security_posture_score: true, fleet_apply_success_rate_trend: true, machine_resource_drift_flapping: true, fleet_resource_type_drift_heatmap: true, machine_ssh_connection_health: true, lock_file_staleness_report: true, fleet_transport_method_summary: true, fleet_state_churn_analysis: true, config_maturity_score: true, fleet_capacity_utilization: true,
+            fleet_drift_velocity_trend: false,
+            machine_convergence_window: false,
+            fleet_resource_age_histogram: false,
         };
         let debug = format!("{:?}", args);
         assert!(debug.contains("StatusArgs"));
@@ -386,6 +389,9 @@ mod tests {
             machine_resource_convergence_stability: false,
             machine_resource_apply_latency_p95: false,
             fleet_resource_security_posture_score: false, fleet_apply_success_rate_trend: false, machine_resource_drift_flapping: false, fleet_resource_type_drift_heatmap: false, machine_ssh_connection_health: false, lock_file_staleness_report: false, fleet_transport_method_summary: false, fleet_state_churn_analysis: false, config_maturity_score: false, fleet_capacity_utilization: false,
+            fleet_drift_velocity_trend: false,
+            machine_convergence_window: false,
+            fleet_resource_age_histogram: false,
         };
         let debug = format!("{:?}", args);
         assert!(debug.contains("StatusArgs"));

@@ -3213,6 +3213,52 @@ forjar validate -f forjar.yaml --check-resource-consolidation-opportunities
 # No consolidation opportunities found.
 ```
 
+#### Phase 98 — Compliance Automation & Drift Intelligence (FJ-1045→FJ-1052)
+
+```bash
+# FJ-1045: Fleet drift velocity trend
+forjar status --state-dir ./state --fleet-drift-velocity-trend
+# === Fleet Drift Velocity Trend ===
+#   web: drifted=1/5, velocity=low
+
+# FJ-1046: Resource compliance tags
+forjar validate -f forjar.yaml --check-resource-compliance-tags
+# Resources missing compliance tags (2):
+#   warning: app-config has no tags matching compliance keywords
+
+# FJ-1047: Resource dependency risk score
+forjar graph -f forjar.yaml --resource-dependency-risk-score
+# Risk scores:
+#   base-pkg: risk=0.82 (high fan-in, infra layer)
+#   app-service: risk=0.35 (leaf, app layer)
+
+# FJ-1048: Machine convergence window
+forjar status --state-dir ./state --machine-convergence-window
+# === Machine Convergence Window ===
+#   web: converged=4/5, window=80%
+
+# FJ-1049: Resource rollback coverage
+forjar validate -f forjar.yaml --check-resource-rollback-coverage
+# Resources lacking rollback coverage (1):
+#   warning: app-service — no pre_apply or post_apply hook defined
+
+# FJ-1050: Resource dependency layering
+forjar graph -f forjar.yaml --resource-dependency-layering
+# Layers:
+#   infra: base-pkg (1)
+#   config: app-config (1)
+#   app: app-service (1)
+
+# FJ-1051: Fleet resource age histogram
+forjar status --state-dir ./state --fleet-resource-age-histogram
+# === Resource Age Histogram ===
+#   <1h: 2, 1-24h: 3, 1-7d: 0, >7d: 0
+
+# FJ-1052: Resource dependency balance
+forjar validate -f forjar.yaml --check-resource-dependency-balance
+# Dependency balance: max fan-in=3 (base-pkg), mean=1.2
+```
+
 ### `forjar watch`
 
 Watch a config file for changes and automatically re-plan.

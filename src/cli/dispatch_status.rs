@@ -15,6 +15,7 @@ use super::status_recovery::*;
 use super::status_intelligence::*;
 use super::status_transport::*;
 use super::status_analytics::*;
+use super::status_drift_intel::*;
 use super::status_intelligence_ext::*;
 use super::status_intelligence_ext2::*;
 use super::dispatch_status_ext::*;
@@ -271,39 +272,35 @@ fn try_status_phase92(
     if machine_resource_convergence_stability { return Some(cmd_status_machine_resource_convergence_stability(sd, machine, json)); }
     None
 }
-fn try_status_phase94(
+#[allow(clippy::too_many_arguments)]
+fn try_status_phases_94_96(
     sd: &Path, machine: Option<&str>, json: bool,
-    machine_resource_apply_latency_p95: bool, fleet_resource_security_posture_score: bool,
+    a1: bool, a2: bool,
+    b1: bool, b2: bool, b3: bool,
+    c1: bool, c2: bool, c3: bool,
 ) -> Option<Result<(), String>> {
-    if machine_resource_apply_latency_p95 { return Some(cmd_status_machine_resource_apply_latency_p95(sd, machine, json)); }
-    if fleet_resource_security_posture_score { return Some(cmd_status_fleet_resource_security_posture_score(sd, machine, json)); }
+    if a1 { return Some(cmd_status_machine_resource_apply_latency_p95(sd, machine, json)); }
+    if a2 { return Some(cmd_status_fleet_resource_security_posture_score(sd, machine, json)); }
+    if b1 { return Some(cmd_status_fleet_apply_success_rate_trend(sd, machine, json)); }
+    if b2 { return Some(cmd_status_machine_resource_drift_flapping(sd, machine, json)); }
+    if b3 { return Some(cmd_status_fleet_resource_type_drift_heatmap(sd, machine, json)); }
+    if c1 { return Some(cmd_status_machine_ssh_connection_health(sd, machine, json)); }
+    if c2 { return Some(cmd_status_lock_file_staleness_report(sd, machine, json)); }
+    if c3 { return Some(cmd_status_fleet_transport_method_summary(sd, machine, json)); }
     None
 }
-fn try_status_phase95(
+#[allow(clippy::too_many_arguments)]
+fn try_status_phases_97_98(
     sd: &Path, machine: Option<&str>, json: bool,
-    fleet_apply_success_rate_trend: bool, machine_resource_drift_flapping: bool, fleet_resource_type_drift_heatmap: bool,
+    d1: bool, d2: bool, d3: bool,
+    e1: bool, e2: bool, e3: bool,
 ) -> Option<Result<(), String>> {
-    if fleet_apply_success_rate_trend { return Some(cmd_status_fleet_apply_success_rate_trend(sd, machine, json)); }
-    if machine_resource_drift_flapping { return Some(cmd_status_machine_resource_drift_flapping(sd, machine, json)); }
-    if fleet_resource_type_drift_heatmap { return Some(cmd_status_fleet_resource_type_drift_heatmap(sd, machine, json)); }
-    None
-}
-fn try_status_phase96(
-    sd: &Path, machine: Option<&str>, json: bool,
-    machine_ssh_connection_health: bool, lock_file_staleness_report: bool, fleet_transport_method_summary: bool,
-) -> Option<Result<(), String>> {
-    if machine_ssh_connection_health { return Some(cmd_status_machine_ssh_connection_health(sd, machine, json)); }
-    if lock_file_staleness_report { return Some(cmd_status_lock_file_staleness_report(sd, machine, json)); }
-    if fleet_transport_method_summary { return Some(cmd_status_fleet_transport_method_summary(sd, machine, json)); }
-    None
-}
-fn try_status_phase97(
-    sd: &Path, machine: Option<&str>, json: bool,
-    fleet_state_churn_analysis: bool, config_maturity_score: bool, fleet_capacity_utilization: bool,
-) -> Option<Result<(), String>> {
-    if fleet_state_churn_analysis { return Some(cmd_status_fleet_state_churn_analysis(sd, machine, json)); }
-    if config_maturity_score { return Some(cmd_status_config_maturity_score(sd, machine, json)); }
-    if fleet_capacity_utilization { return Some(cmd_status_fleet_capacity_utilization(sd, machine, json)); }
+    if d1 { return Some(cmd_status_fleet_state_churn_analysis(sd, machine, json)); }
+    if d2 { return Some(cmd_status_config_maturity_score(sd, machine, json)); }
+    if d3 { return Some(cmd_status_fleet_capacity_utilization(sd, machine, json)); }
+    if e1 { return Some(cmd_status_fleet_drift_velocity_trend(sd, machine, json)); }
+    if e2 { return Some(cmd_status_machine_convergence_window(sd, machine, json)); }
+    if e3 { return Some(cmd_status_fleet_resource_age_histogram(sd, machine, json)); }
     None
 }
 #[allow(clippy::too_many_arguments)]
@@ -383,6 +380,7 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
         fleet_apply_success_rate_trend, machine_resource_drift_flapping, fleet_resource_type_drift_heatmap,
         machine_ssh_connection_health, lock_file_staleness_report, fleet_transport_method_summary,
         fleet_state_churn_analysis, config_maturity_score, fleet_capacity_utilization,
+        fleet_drift_velocity_trend, machine_convergence_window, fleet_resource_age_histogram,
     }) = cmd
     else {
         unreachable!()
@@ -416,23 +414,16 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
     ) {
         return r;
     }
-    if let Some(r) = try_status_phase94(&state_dir, m, json,
+    if let Some(r) = try_status_phases_94_96(&state_dir, m, json,
         machine_resource_apply_latency_p95, fleet_resource_security_posture_score,
-    ) {
-        return r;
-    }
-    if let Some(r) = try_status_phase95(&state_dir, m, json,
         fleet_apply_success_rate_trend, machine_resource_drift_flapping, fleet_resource_type_drift_heatmap,
-    ) {
-        return r;
-    }
-    if let Some(r) = try_status_phase96(&state_dir, m, json,
         machine_ssh_connection_health, lock_file_staleness_report, fleet_transport_method_summary,
     ) {
         return r;
     }
-    if let Some(r) = try_status_phase97(&state_dir, m, json,
+    if let Some(r) = try_status_phases_97_98(&state_dir, m, json,
         fleet_state_churn_analysis, config_maturity_score, fleet_capacity_utilization,
+        fleet_drift_velocity_trend, machine_convergence_window, fleet_resource_age_histogram,
     ) {
         return r;
     }

@@ -583,4 +583,13 @@ pub struct StatusArgs {
     /// FJ-1043: Fleet capacity utilization from resource counts
     #[arg(long)]
     pub fleet_capacity_utilization: bool,
+    /// FJ-1045: Fleet drift velocity trend over time
+    #[arg(long)]
+    pub fleet_drift_velocity_trend: bool,
+    /// FJ-1048: Machine convergence window estimate
+    #[arg(long)]
+    pub machine_convergence_window: bool,
+    /// FJ-1051: Fleet resource age histogram
+    #[arg(long)]
+    pub fleet_resource_age_histogram: bool,
 }

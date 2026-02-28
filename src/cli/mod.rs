@@ -32,6 +32,7 @@ mod validate_ordering_ext;
 mod validate_resilience;
 mod validate_transport;
 mod validate_analytics;
+mod validate_compliance_ext;
 mod apply;
 mod apply_output;
 mod apply_variants;
@@ -73,6 +74,7 @@ mod graph_impact;
 mod graph_resilience;
 mod graph_transport;
 mod graph_analytics;
+mod graph_compliance;
 mod lock_core;
 mod lock_repair;
 mod lock_lifecycle;
@@ -104,6 +106,7 @@ mod status_analytics;
 mod status_insights;
 mod status_predictive;
 mod status_recovery;
+mod status_drift_intel;
 #[cfg(test)]
 mod test_fixtures;
 #[cfg(test)]
@@ -356,6 +359,8 @@ mod tests_phase91;
 mod tests_phase92;
 #[cfg(test)]
 mod tests_phase94;
+#[cfg(test)]
+mod tests_phase98;
 #[cfg(test)]
 mod tests_cov_graph;
 #[cfg(test)]
