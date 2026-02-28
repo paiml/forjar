@@ -163,7 +163,7 @@ fn type_weight(t: &types::ResourceType) -> u32 {
     }
 }
 
-fn print_plan_cost(plan: &types::ExecutionPlan) {
+pub(crate) fn print_plan_cost(plan: &types::ExecutionPlan) {
     let total_cost: u32 = plan
         .changes
         .iter()

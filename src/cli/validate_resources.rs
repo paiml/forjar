@@ -65,7 +65,7 @@ fn print_resource_limits_json(
 }
 
 /// Print resource limits as text.
-fn print_resource_limits_text(
+pub(crate) fn print_resource_limits_text(
     counts: &std::collections::HashMap<String, usize>,
     violations: &[(String, usize)],
     limit: usize,

@@ -191,7 +191,7 @@ fn lint_scripts(config: &types::ForjarConfig) -> Vec<String> {
     warnings
 }
 
-fn lint_auto_fix(file: &Path) -> Result<Vec<String>, String> {
+pub(crate) fn lint_auto_fix(file: &Path) -> Result<Vec<String>, String> {
     let mut fixes_applied = Vec::new();
     let content = std::fs::read_to_string(file)
         .map_err(|e| format!("cannot read {}: {}", file.display(), e))?;
