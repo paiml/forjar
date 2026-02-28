@@ -31,6 +31,7 @@ mod validate_ordering;
 mod validate_ordering_ext;
 mod validate_resilience;
 mod validate_transport;
+mod validate_analytics;
 mod apply;
 mod apply_output;
 mod apply_variants;
@@ -71,6 +72,7 @@ mod graph_visualization;
 mod graph_impact;
 mod graph_resilience;
 mod graph_transport;
+mod graph_analytics;
 mod lock_core;
 mod lock_repair;
 mod lock_lifecycle;
@@ -98,6 +100,7 @@ mod infra;
 mod status_operational;
 mod status_operational_ext;
 mod status_transport;
+mod status_analytics;
 mod status_insights;
 mod status_predictive;
 mod status_recovery;
@@ -467,6 +470,8 @@ mod tests_phase95;
 mod tests_validate_transport;
 #[cfg(test)]
 mod tests_phase96;
+#[cfg(test)]
+mod tests_phase97;
 
 pub use commands::Commands;
 pub use dispatch::dispatch;

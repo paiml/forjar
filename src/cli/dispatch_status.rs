@@ -14,6 +14,7 @@ use super::status_predictive::*;
 use super::status_recovery::*;
 use super::status_intelligence::*;
 use super::status_transport::*;
+use super::status_analytics::*;
 use super::status_intelligence_ext::*;
 use super::status_intelligence_ext2::*;
 use super::dispatch_status_ext::*;
@@ -296,6 +297,15 @@ fn try_status_phase96(
     if fleet_transport_method_summary { return Some(cmd_status_fleet_transport_method_summary(sd, machine, json)); }
     None
 }
+fn try_status_phase97(
+    sd: &Path, machine: Option<&str>, json: bool,
+    fleet_state_churn_analysis: bool, config_maturity_score: bool, fleet_capacity_utilization: bool,
+) -> Option<Result<(), String>> {
+    if fleet_state_churn_analysis { return Some(cmd_status_fleet_state_churn_analysis(sd, machine, json)); }
+    if config_maturity_score { return Some(cmd_status_config_maturity_score(sd, machine, json)); }
+    if fleet_capacity_utilization { return Some(cmd_status_fleet_capacity_utilization(sd, machine, json)); }
+    None
+}
 #[allow(clippy::too_many_arguments)]
 fn try_status_phases_87_92(
     sd: &Path, machine: Option<&str>, json: bool,
@@ -372,6 +382,7 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
         machine_resource_apply_latency_p95, fleet_resource_security_posture_score,
         fleet_apply_success_rate_trend, machine_resource_drift_flapping, fleet_resource_type_drift_heatmap,
         machine_ssh_connection_health, lock_file_staleness_report, fleet_transport_method_summary,
+        fleet_state_churn_analysis, config_maturity_score, fleet_capacity_utilization,
     }) = cmd
     else {
         unreachable!()
@@ -417,6 +428,11 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
     }
     if let Some(r) = try_status_phase96(&state_dir, m, json,
         machine_ssh_connection_health, lock_file_staleness_report, fleet_transport_method_summary,
+    ) {
+        return r;
+    }
+    if let Some(r) = try_status_phase97(&state_dir, m, json,
+        fleet_state_churn_analysis, config_maturity_score, fleet_capacity_utilization,
     ) {
         return r;
     }

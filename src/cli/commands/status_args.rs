@@ -574,4 +574,13 @@ pub struct StatusArgs {
     /// FJ-1035: Transport methods (local vs SSH) across fleet
     #[arg(long)]
     pub fleet_transport_method_summary: bool,
+    /// FJ-1037: State lock churn patterns and apply frequency volatility
+    #[arg(long)]
+    pub fleet_state_churn_analysis: bool,
+    /// FJ-1040: Config maturity score (0-100) per machine
+    #[arg(long)]
+    pub config_maturity_score: bool,
+    /// FJ-1043: Fleet capacity utilization from resource counts
+    #[arg(long)]
+    pub fleet_capacity_utilization: bool,
 }

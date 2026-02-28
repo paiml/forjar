@@ -424,5 +424,11 @@ pub struct GraphArgs {
     /// FJ-1034: Compute critical chain path with resource weights
     #[arg(long)]
     pub resource_dependency_critical_chain_path: bool,
+    /// FJ-1039: Simulate apply execution order with dependency scheduling
+    #[arg(long)]
+    pub resource_apply_order_simulation: bool,
+    /// FJ-1042: Trace resource origins by type, machine, and depth
+    #[arg(long)]
+    pub resource_provenance_summary: bool,
 }
 
