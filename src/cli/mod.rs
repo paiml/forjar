@@ -309,6 +309,8 @@ mod tests_phase77;
 mod tests_phase78;
 #[cfg(test)]
 mod tests_phase79;
+#[cfg(test)]
+mod tests_phase80;
 
 pub use commands::Commands;
 pub use dispatch::dispatch;

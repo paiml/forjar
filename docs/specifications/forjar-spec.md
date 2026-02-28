@@ -2662,14 +2662,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-901 | `forjar validate --check-resource-cross-machine-consistency` — detect config inconsistencies across machines. Governance. | Planned |
-| FJ-902 | `forjar status --machine-resource-health-trend` — health trend over time per machine. Intelligence. | Planned |
-| FJ-903 | `forjar graph --resource-dependency-critical-path-length` — critical path length through dependency graph. Analysis. | Planned |
-| FJ-904 | `forjar apply --notify-custom-deduplicate` — deduplicate repeated notifications. Integration. | Planned |
-| FJ-905 | `forjar validate --check-resource-version-pinning` — verify resources pin explicit versions. Governance. | Planned |
-| FJ-906 | `forjar status --fleet-resource-drift-velocity` — rate of drift accumulation across fleet. Intelligence. | Planned |
-| FJ-907 | `forjar graph --resource-dependency-redundancy-score` — redundancy score for resources with fallbacks. Analysis. | Planned |
-| FJ-908 | `forjar status --machine-resource-apply-success-trend` — apply success trend per machine over time. Intelligence. | Planned |
+| FJ-901 | `forjar validate --check-resource-cross-machine-consistency` — detect config inconsistencies across machines. Governance. | Done |
+| FJ-902 | `forjar status --machine-resource-health-trend` — health trend over time per machine. Intelligence. | Done |
+| FJ-903 | `forjar graph --resource-dependency-critical-path-length` — critical path length through dependency graph. Analysis. | Done |
+| FJ-904 | `forjar apply --notify-custom-deduplicate` — deduplicate repeated notifications. Integration. | Done |
+| FJ-905 | `forjar validate --check-resource-version-pinning` — verify resources pin explicit versions. Governance. | Done |
+| FJ-906 | `forjar status --fleet-resource-drift-velocity` — rate of drift accumulation across fleet. Intelligence. | Done |
+| FJ-907 | `forjar graph --resource-dependency-redundancy-score` — redundancy score for resources with fallbacks. Analysis. | Done |
+| FJ-908 | `forjar status --machine-resource-apply-success-trend` — apply success trend per machine over time. Intelligence. | Done |
+
+### Phase 81 — Predictive Analytics & Configuration Quality (FJ-909→FJ-916)
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-909 | `forjar validate --check-resource-dependency-completeness` — verify all dependencies exist and are reachable. Governance. | Planned |
+| FJ-910 | `forjar status --machine-resource-mttr-estimate` — estimated MTTR per resource based on history. Intelligence. | Planned |
+| FJ-911 | `forjar graph --resource-dependency-centrality-score` — betweenness centrality for critical resources. Analysis. | Planned |
+| FJ-912 | `forjar apply --notify-custom-throttle` — throttle notification rate per time window. Integration. | Planned |
+| FJ-913 | `forjar validate --check-resource-state-coverage` — verify all resources declare explicit states. Governance. | Planned |
+| FJ-914 | `forjar status --fleet-resource-convergence-forecast` — forecast time to full convergence. Intelligence. | Planned |
+| FJ-915 | `forjar graph --resource-dependency-bridge-detection` — find bridge edges whose removal disconnects the graph. Analysis. | Planned |
+| FJ-916 | `forjar status --machine-resource-error-budget-forecast` — forecast error budget consumption rate. Intelligence. | Planned |
 
 ---
 

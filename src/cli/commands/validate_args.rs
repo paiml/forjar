@@ -314,5 +314,11 @@ pub struct ValidateArgs {
     /// FJ-897: Verify resources can be safely updated without downtime
     #[arg(long)]
     pub check_resource_update_safety: bool,
+    /// FJ-901: Detect config inconsistencies across machines
+    #[arg(long)]
+    pub check_resource_cross_machine_consistency: bool,
+    /// FJ-905: Verify resources pin explicit versions
+    #[arg(long)]
+    pub check_resource_version_pinning: bool,
 }
 

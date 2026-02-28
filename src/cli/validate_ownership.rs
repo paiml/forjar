@@ -273,3 +273,68 @@ fn find_update_safety_issues(cfg: &types::ForjarConfig) -> Vec<(String, String)>
     warnings.sort_by(|a, b| a.0.cmp(&b.0));
     warnings
 }
+
+/// FJ-901: Detect config inconsistencies across machines.
+pub(crate) fn cmd_validate_check_resource_cross_machine_consistency(file: &Path, json: bool) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let config: types::ForjarConfig = serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let issues = find_cross_machine_inconsistencies(&config);
+    if json {
+        let items: Vec<String> = issues.iter()
+            .map(|(n, i)| format!("{{\"resource\":\"{}\",\"issue\":\"{}\"}}", n, i))
+            .collect();
+        println!("{{\"cross_machine_inconsistencies\":[{}]}}", items.join(","));
+    } else if issues.is_empty() {
+        println!("No cross-machine inconsistencies found.");
+    } else {
+        println!("Cross-machine inconsistencies:");
+        for (n, i) in &issues { println!("  {} — {}", n, i); }
+    }
+    Ok(())
+}
+
+fn find_cross_machine_inconsistencies(config: &types::ForjarConfig) -> Vec<(String, String)> {
+    let mut type_by_name: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
+    for (name, res) in &config.resources {
+        let t = format!("{:?}", res.resource_type);
+        type_by_name.entry(name.clone()).or_default().push(t);
+    }
+    let mut issues = Vec::new();
+    for (name, types_list) in &type_by_name {
+        if types_list.len() > 1 {
+            let unique: std::collections::HashSet<&String> = types_list.iter().collect();
+            if unique.len() > 1 {
+                issues.push((name.clone(), format!("mixed types: {}", types_list.join(", "))));
+            }
+        }
+    }
+    issues.sort_by(|a, b| a.0.cmp(&b.0));
+    issues
+}
+
+/// FJ-905: Verify resources pin explicit versions.
+pub(crate) fn cmd_validate_check_resource_version_pinning(file: &Path, json: bool) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let config: types::ForjarConfig = serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let unpinned = find_unpinned_resources(&config);
+    if json {
+        let items: Vec<String> = unpinned.iter()
+            .map(|n| format!("\"{}\"", n)).collect();
+        println!("{{\"unpinned_resources\":[{}]}}", items.join(","));
+    } else if unpinned.is_empty() {
+        println!("All package resources have pinned versions.");
+    } else {
+        println!("Resources without pinned versions:");
+        for n in &unpinned { println!("  {}", n); }
+    }
+    Ok(())
+}
+
+fn find_unpinned_resources(config: &types::ForjarConfig) -> Vec<String> {
+    let mut unpinned: Vec<String> = config.resources.iter()
+        .filter(|(_, res)| matches!(res.resource_type, types::ResourceType::Package) && res.version.is_none())
+        .map(|(name, _)| name.clone())
+        .collect();
+    unpinned.sort();
+    unpinned
+}

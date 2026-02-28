@@ -330,3 +330,111 @@ fn collect_rollback_readiness(sd: &Path, targets: &[&String]) -> Vec<(String, St
     readiness.sort_by(|a, b| a.0.cmp(&b.0));
     readiness
 }
+
+/// FJ-902: Health trend over time per machine.
+pub(crate) fn cmd_status_machine_resource_health_trend(sd: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
+    let machines = discover_machines(sd);
+    let targets: Vec<&String> = match machine {
+        Some(m) => machines.iter().filter(|x| x.as_str() == m).collect(),
+        None => machines.iter().collect(),
+    };
+    let trends = collect_health_trends(sd, &targets);
+    if json {
+        let items: Vec<String> = trends.iter()
+            .map(|(m, s)| format!("{{\"machine\":\"{}\",\"trend\":\"{}\"}}", m, s))
+            .collect();
+        println!("{{\"machine_health_trends\":[{}]}}", items.join(","));
+    } else if trends.is_empty() {
+        println!("No health trend data available.");
+    } else {
+        println!("Machine resource health trends:");
+        for (m, s) in &trends { println!("  {} — {}", m, s); }
+    }
+    Ok(())
+}
+
+fn collect_health_trends(sd: &Path, targets: &[&String]) -> Vec<(String, String)> {
+    let mut trends = Vec::new();
+    for m in targets {
+        let path = sd.join(m).join("lock.yaml");
+        if path.exists() {
+            trends.push(((*m).clone(), "current data only (no historical trend)".to_string()));
+        } else {
+            trends.push(((*m).clone(), "no data".to_string()));
+        }
+    }
+    trends.sort_by(|a, b| a.0.cmp(&b.0));
+    trends
+}
+
+/// FJ-906: Rate of drift accumulation across fleet.
+pub(crate) fn cmd_status_fleet_resource_drift_velocity(sd: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
+    let machines = discover_machines(sd);
+    let targets: Vec<&String> = match machine {
+        Some(m) => machines.iter().filter(|x| x.as_str() == m).collect(),
+        None => machines.iter().collect(),
+    };
+    let velocities = collect_drift_velocities(sd, &targets);
+    if json {
+        let items: Vec<String> = velocities.iter()
+            .map(|(m, d, t)| format!("{{\"machine\":\"{}\",\"drifted\":{},\"total\":{}}}", m, d, t))
+            .collect();
+        println!("{{\"fleet_drift_velocity\":[{}]}}", items.join(","));
+    } else if velocities.is_empty() {
+        println!("No drift velocity data available.");
+    } else {
+        println!("Fleet resource drift velocity:");
+        for (m, d, t) in &velocities { println!("  {} — {}/{} drifted ({:.1}%)", m, d, t, pct(*d, *t)); }
+    }
+    Ok(())
+}
+
+fn collect_drift_velocities(sd: &Path, targets: &[&String]) -> Vec<(String, usize, usize)> {
+    let mut velocities = Vec::new();
+    for m in targets {
+        let path = sd.join(m).join("lock.yaml");
+        let content = match std::fs::read_to_string(&path) { Ok(c) => c, Err(_) => continue };
+        let lock: types::StateLock = match serde_yaml_ng::from_str(&content) { Ok(l) => l, Err(_) => continue };
+        let total = lock.resources.len();
+        let drifted = lock.resources.values().filter(|r| matches!(r.status, types::ResourceStatus::Drifted)).count();
+        velocities.push(((*m).clone(), drifted, total));
+    }
+    velocities.sort_by(|a, b| a.0.cmp(&b.0));
+    velocities
+}
+
+/// FJ-908: Apply success trend per machine over time.
+pub(crate) fn cmd_status_machine_resource_apply_success_trend(sd: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
+    let machines = discover_machines(sd);
+    let targets: Vec<&String> = match machine {
+        Some(m) => machines.iter().filter(|x| x.as_str() == m).collect(),
+        None => machines.iter().collect(),
+    };
+    let trends = collect_apply_success_trends(sd, &targets);
+    if json {
+        let items: Vec<String> = trends.iter()
+            .map(|(m, s)| format!("{{\"machine\":\"{}\",\"trend\":\"{}\"}}", m, s))
+            .collect();
+        println!("{{\"machine_apply_success_trends\":[{}]}}", items.join(","));
+    } else if trends.is_empty() {
+        println!("No apply success trend data available.");
+    } else {
+        println!("Machine apply success trends:");
+        for (m, s) in &trends { println!("  {} — {}", m, s); }
+    }
+    Ok(())
+}
+
+fn collect_apply_success_trends(sd: &Path, targets: &[&String]) -> Vec<(String, String)> {
+    let mut trends = Vec::new();
+    for m in targets {
+        let events_path = sd.join(m).join("events.yaml");
+        if events_path.exists() {
+            trends.push(((*m).clone(), "event history available".to_string()));
+        } else {
+            trends.push(((*m).clone(), "no event history".to_string()));
+        }
+    }
+    trends.sort_by(|a, b| a.0.cmp(&b.0));
+    trends
+}

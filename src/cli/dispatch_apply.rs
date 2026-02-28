@@ -159,6 +159,7 @@ pub(crate) fn dispatch_apply_cmd(cmd: Commands, verbose: bool) -> Result<(), Str
         notify_custom_retry,
         notify_custom_transform,
         notify_custom_batch,
+        notify_custom_deduplicate,
     }) = cmd
     else {
         unreachable!()
@@ -270,6 +271,7 @@ pub(crate) fn dispatch_apply_cmd(cmd: Commands, verbose: bool) -> Result<(), Str
         custom_retry: notify_custom_retry.as_deref(),
         custom_transform: notify_custom_transform.as_deref(),
             custom_batch: notify_custom_batch.as_deref(),
+            custom_deduplicate: notify_custom_deduplicate.as_deref(),
     };
     send_apply_notifications(&opts, &result, &file);
 
