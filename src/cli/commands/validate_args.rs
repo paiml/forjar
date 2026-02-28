@@ -280,5 +280,13 @@ pub struct ValidateArgs {
     /// FJ-857: Verify all resources have required tags
     #[arg(long)]
     pub check_resource_tag_coverage: bool,
+
+    /// FJ-861: Verify lifecycle hook references are valid
+    #[arg(long)]
+    pub check_resource_lifecycle_hooks: bool,
+
+    /// FJ-865: Verify provider version compatibility
+    #[arg(long)]
+    pub check_resource_provider_version: bool,
 }
 

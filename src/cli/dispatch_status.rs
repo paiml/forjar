@@ -26,6 +26,7 @@ use super::status_observability::*;
 use super::status_failures::*;
 use super::status_operational::*;
 use super::status_insights::*;
+use super::status_predictive::*;
 use super::lock_ops::*;
 
 
@@ -329,6 +330,7 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
         machine_uptime_estimate, fleet_resource_type_breakdown, resource_convergence_time,
         machine_drift_age, fleet_failed_resources, resource_dependency_health,
         machine_resource_age_distribution, fleet_convergence_velocity, resource_failure_correlation,
+        machine_resource_churn_rate, fleet_resource_staleness, machine_convergence_trend,
     }) = cmd
     else {
         unreachable!()
@@ -354,6 +356,9 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
     if machine_resource_age_distribution { return cmd_status_machine_resource_age_distribution(&state_dir, m, json); }
     if fleet_convergence_velocity { return cmd_status_fleet_convergence_velocity(&state_dir, m, json); }
     if resource_failure_correlation { return cmd_status_resource_failure_correlation(&state_dir, m, json); }
+    if machine_resource_churn_rate { return cmd_status_machine_resource_churn_rate(&state_dir, m, json); }
+    if fleet_resource_staleness { return cmd_status_fleet_resource_staleness(&state_dir, m, json); }
+    if machine_convergence_trend { return cmd_status_machine_convergence_trend(&state_dir, m, json); }
     if let Some(r) = try_status_phase71(&state_dir, m, json, machine_apply_count, fleet_apply_history, resource_hash_changes, machine_uptime_estimate, fleet_resource_type_breakdown, resource_convergence_time) {
         return r;
     }

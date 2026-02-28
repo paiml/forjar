@@ -2597,14 +2597,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-861 | `forjar validate --check-resource-lifecycle-hooks` — verify lifecycle hook references are valid. Governance. | Planned |
-| FJ-862 | `forjar status --machine-resource-churn-rate` — resource change frequency per machine over time. Analytics. | Planned |
-| FJ-863 | `forjar graph --resource-dependency-bottleneck` — identify bottleneck resources with high fan-in + fan-out. Analysis. | Planned |
-| FJ-864 | `forjar apply --notify-sqs` — send apply notifications to AWS SQS queue. Integration. | Planned |
-| FJ-865 | `forjar validate --check-resource-provider-version` — verify provider version compatibility. Governance. | Planned |
-| FJ-866 | `forjar status --fleet-resource-staleness` — identify resources not applied in configurable window. Monitoring. | Planned |
-| FJ-867 | `forjar graph --resource-type-clustering` — cluster resources by type and show interconnections. Analysis. | Planned |
-| FJ-868 | `forjar status --machine-convergence-trend` — convergence trend per machine over time. Intelligence. | Planned |
+| FJ-861 | `forjar validate --check-resource-lifecycle-hooks` — verify lifecycle hook references are valid. Governance. | Done |
+| FJ-862 | `forjar status --machine-resource-churn-rate` — resource change frequency per machine over time. Analytics. | Done |
+| FJ-863 | `forjar graph --resource-dependency-bottleneck` — identify bottleneck resources with high fan-in + fan-out. Analysis. | Done |
+| FJ-864 | `forjar apply --notify-custom-json` — custom JSON template for webhook notifications. Integration. | Done |
+| FJ-865 | `forjar validate --check-resource-provider-version` — verify provider version compatibility. Governance. | Done |
+| FJ-866 | `forjar status --fleet-resource-staleness` — identify resources not applied in configurable window. Monitoring. | Done |
+| FJ-867 | `forjar graph --resource-type-clustering` — cluster resources by type and show interconnections. Analysis. | Done |
+| FJ-868 | `forjar status --machine-convergence-trend` — convergence trend per machine over time. Intelligence. | Done |
+
+### Phase 76 — Capacity Planning & Configuration Analytics (FJ-869→FJ-876)
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-869 | `forjar validate --check-resource-naming-convention` — enforce naming patterns across resources. Governance. | Planned |
+| FJ-870 | `forjar status --machine-capacity-utilization` — resource density and capacity metrics per machine. Analytics. | Planned |
+| FJ-871 | `forjar graph --resource-dependency-cycle-risk` — identify near-cycle patterns in dependency graph. Analysis. | Planned |
+| FJ-872 | `forjar apply --notify-custom-filter` — filter notifications by resource type or status. Integration. | Planned |
+| FJ-873 | `forjar validate --check-resource-idempotency` — verify resources are idempotent-safe. Governance. | Planned |
+| FJ-874 | `forjar status --fleet-configuration-entropy` — measure configuration diversity across fleet. Analytics. | Planned |
+| FJ-875 | `forjar graph --resource-impact-radius` — calculate blast radius of resource changes. Analysis. | Planned |
+| FJ-876 | `forjar status --machine-resource-freshness` — time since last successful apply per resource. Intelligence. | Planned |
 
 ---
 

@@ -2,6 +2,7 @@
 
 use super::validate_governance::*;
 use super::graph_paths::*;
+use super::graph_scoring::*;
 use super::status_insights::*;
 use std::io::Write;
 
@@ -91,7 +92,7 @@ mod tests {
             sqs: None, mattermost: None, ntfy: None, pagerduty: None,
             discord_webhook: None, teams_webhook: None, slack_blocks: None,
             custom_template: None,
-            custom_webhook: Some("https://hooks.example.com/forjar"), custom_headers: None,
+            custom_webhook: Some("https://hooks.example.com/forjar"), custom_headers: None, custom_json: None,
         };
         assert!(opts.custom_webhook.is_some());
     }
@@ -108,7 +109,7 @@ mod tests {
             amqp: None, stomp: None, zeromq: None, grpc: None,
             sqs: None, mattermost: None, ntfy: None, pagerduty: None,
             discord_webhook: None, teams_webhook: None, slack_blocks: None,
-            custom_template: None, custom_webhook: None, custom_headers: None,
+            custom_template: None, custom_webhook: None, custom_headers: None, custom_json: None,
         };
         assert!(opts.custom_webhook.is_none());
     }
