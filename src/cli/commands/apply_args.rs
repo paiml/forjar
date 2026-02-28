@@ -651,5 +651,8 @@ pub struct ApplyArgs {
     /// FJ-960: Exponential backoff for failed notification retries
     #[arg(long)]
     pub notify_custom_backoff: Option<String>,
+    /// FJ-968: Circuit breaker pattern for notification failures
+    #[arg(long)]
+    pub notify_custom_circuit_breaker: Option<String>,
 }
 

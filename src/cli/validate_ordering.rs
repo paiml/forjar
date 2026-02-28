@@ -303,6 +303,67 @@ pub(crate) fn cmd_validate_check_resource_dependency_refs(file: &Path, json: boo
     Ok(())
 }
 
+/// FJ-965: Ensure all trigger references point to existing resources.
+pub(crate) fn cmd_validate_check_resource_trigger_refs(file: &Path, json: bool) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let config: types::ForjarConfig = serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let resource_names: std::collections::HashSet<&String> = config.resources.keys().collect();
+    let mut invalid = Vec::new();
+    for (name, res) in &config.resources {
+        for trig in &res.triggers {
+            if !resource_names.contains(trig) {
+                invalid.push((name.clone(), trig.clone()));
+            }
+        }
+    }
+    invalid.sort();
+    if json {
+        let items: Vec<String> = invalid.iter()
+            .map(|(n, t)| format!("{{\"resource\":\"{}\",\"invalid_trigger\":\"{}\"}}", n, t))
+            .collect();
+        println!("{{\"invalid_trigger_refs\":[{}]}}", items.join(","));
+    } else if invalid.is_empty() {
+        println!("All trigger references are valid.");
+    } else {
+        println!("Invalid trigger references:");
+        for (n, t) in &invalid { println!("  {} → {} (not found)", n, t); }
+    }
+    Ok(())
+}
+
+/// FJ-969: Validate parameter types match expected usage patterns.
+pub(crate) fn cmd_validate_check_resource_param_type_safety(file: &Path, json: bool) -> Result<(), String> {
+    let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
+    let config: types::ForjarConfig = serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
+    let mut warnings = Vec::new();
+    for (name, value) in &config.params {
+        let val_str = match value {
+            serde_yaml_ng::Value::String(s) => s.clone(),
+            serde_yaml_ng::Value::Number(n) => n.to_string(),
+            serde_yaml_ng::Value::Bool(b) => b.to_string(),
+            _ => continue,
+        };
+        if (name.contains("port") || name.ends_with("_port")) && val_str.parse::<u16>().is_err() {
+            warnings.push((name.clone(), format!("expected port number, got '{}'", val_str)));
+        }
+        if (name.contains("path") || name.ends_with("_dir")) && !val_str.starts_with('/') && !val_str.starts_with('.') {
+            warnings.push((name.clone(), format!("expected path, got '{}'", val_str)));
+        }
+    }
+    if json {
+        let items: Vec<String> = warnings.iter()
+            .map(|(n, w)| format!("{{\"param\":\"{}\",\"warning\":\"{}\"}}", n, w))
+            .collect();
+        println!("{{\"param_type_warnings\":[{}]}}", items.join(","));
+    } else if warnings.is_empty() {
+        println!("All parameter types look consistent.");
+    } else {
+        println!("Parameter type warnings:");
+        for (n, w) in &warnings { println!("  {} — {}", n, w); }
+    }
+    Ok(())
+}
+
 /// FJ-953: Warn when machines have unbalanced resource counts.
 pub(crate) fn cmd_validate_check_resource_machine_balance(file: &Path, json: bool) -> Result<(), String> {
     let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;

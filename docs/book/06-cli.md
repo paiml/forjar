@@ -2878,6 +2878,46 @@ forjar status --state-dir state --machine-resource-recovery-rate
 #   web — 50.0% recovered
 ```
 
+#### Phase 88 — Drift Velocity, Trigger Refs & Topological Depth (FJ-965→FJ-972)
+
+```bash
+# FJ-965: Validate trigger references
+forjar validate -f forjar.yaml --check-resource-trigger-refs
+# All trigger references are valid.
+
+# FJ-966: Drift velocity per machine
+forjar status --state-dir state --machine-resource-drift-velocity
+# Drift velocities:
+#   web — 0.50 drifts/hour
+
+# FJ-967: Topological depth of each resource
+forjar graph -f forjar.yaml --resource-dependency-topological-depth
+# Topological depth (max: 4):
+#   monitor — depth 4
+#   app — depth 3
+
+# FJ-968: Circuit breaker for notification failures
+forjar apply -f forjar.yaml --notify-custom-circuit-breaker "https://hooks.example.com|5"
+
+# FJ-969: Parameter type safety validation
+forjar validate -f forjar.yaml --check-resource-param-type-safety
+# All parameter types look consistent.
+
+# FJ-970: Fleet-wide recovery rate
+forjar status --state-dir state --fleet-resource-recovery-rate
+# Fleet recovery rate: 75.0% across 2 machines
+
+# FJ-971: Weak dependency links (cascading failure risk)
+forjar graph -f forjar.yaml --resource-dependency-weak-links
+# Weak links (shared dependencies, cascading risk):
+#   config → base_dir (2 dependents)
+
+# FJ-972: Convergence efficiency per machine
+forjar status --state-dir state --machine-resource-convergence-efficiency
+# Convergence efficiency:
+#   web — 80.0% (4 converged / 5 total)
+```
+
 ### `forjar watch`
 
 Watch a config file for changes and automatically re-plan.

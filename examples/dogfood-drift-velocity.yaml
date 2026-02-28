@@ -1,0 +1,57 @@
+# dogfood-drift-velocity.yaml — Phase 88 dogfood example
+# Exercises: trigger refs, param type safety, topological depth, weak links
+version: "1.0"
+name: drift-velocity-demo
+
+params:
+  app_port:
+    default: "8080"
+  data_dir:
+    default: "/var/lib/app"
+
+machines:
+  web:
+    hostname: web
+    addr: 127.0.0.1
+
+resources:
+  base_dir:
+    type: file
+    machine: web
+    path: /tmp/base
+    content: "base"
+
+  config:
+    type: file
+    machine: web
+    path: /tmp/config
+    content: "port={{app_port}}"
+    depends_on: [base_dir]
+
+  schema:
+    type: file
+    machine: web
+    path: /tmp/schema
+    content: "schema"
+    depends_on: [base_dir]
+
+  migrations:
+    type: file
+    machine: web
+    path: /tmp/migrations
+    content: "migrate"
+    depends_on: [config, schema]
+
+  app:
+    type: file
+    machine: web
+    path: /tmp/app
+    content: "dir={{data_dir}}"
+    depends_on: [migrations]
+
+  healthcheck:
+    type: file
+    machine: web
+    path: /tmp/healthcheck
+    content: "check"
+    depends_on: [app]

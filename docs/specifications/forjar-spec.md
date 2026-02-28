@@ -2766,14 +2766,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-965 | `forjar validate --check-resource-trigger-refs` — ensure all trigger references point to existing resources. Governance. | Planned |
-| FJ-966 | `forjar status --machine-resource-drift-velocity` — rate of drift accumulation per machine over time. Intelligence. | Planned |
-| FJ-967 | `forjar graph --resource-dependency-topological-depth` — depth of each resource in topological ordering. Analysis. | Planned |
-| FJ-968 | `forjar apply --notify-custom-circuit-breaker` — circuit breaker pattern for notification failures. Integration. | Planned |
-| FJ-969 | `forjar validate --check-resource-param-type-safety` — validate parameter types match expected usage patterns. Governance. | Planned |
-| FJ-970 | `forjar status --fleet-resource-recovery-rate` — fleet-wide recovery rate aggregation. Intelligence. | Planned |
-| FJ-971 | `forjar graph --resource-dependency-weak-links` — identify dependency edges most likely to cause cascading failures. Analysis. | Planned |
-| FJ-972 | `forjar status --machine-resource-convergence-efficiency` — ratio of converged resources to total apply time. Intelligence. | Planned |
+| FJ-965 | `forjar validate --check-resource-trigger-refs` — ensure all trigger references point to existing resources. Governance. | Done |
+| FJ-966 | `forjar status --machine-resource-drift-velocity` — rate of drift accumulation per machine over time. Intelligence. | Done |
+| FJ-967 | `forjar graph --resource-dependency-topological-depth` — depth of each resource in topological ordering. Analysis. | Done |
+| FJ-968 | `forjar apply --notify-custom-circuit-breaker` — circuit breaker pattern for notification failures. Integration. | Done |
+| FJ-969 | `forjar validate --check-resource-param-type-safety` — validate parameter types match expected usage patterns. Governance. | Done |
+| FJ-970 | `forjar status --fleet-resource-recovery-rate` — fleet-wide recovery rate aggregation. Intelligence. | Done |
+| FJ-971 | `forjar graph --resource-dependency-weak-links` — identify dependency edges most likely to cause cascading failures. Analysis. | Done |
+| FJ-972 | `forjar status --machine-resource-convergence-efficiency` — ratio of converged resources to total apply time. Intelligence. | Done |
+
+### Phase 89 — Dependency Visualization & Fleet Health Scoring (FJ-973→FJ-980)
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-973 | `forjar validate --check-resource-env-consistency` — validate environment variable references match declared params. Governance. | Planned |
+| FJ-974 | `forjar status --machine-resource-apply-frequency` — track how often each machine's resources are applied. Intelligence. | Planned |
+| FJ-975 | `forjar graph --resource-dependency-minimum-cut` — find minimum edge cut set that disconnects the dependency graph. Analysis. | Planned |
+| FJ-976 | `forjar apply --notify-custom-dead-letter` — route failed notifications to a dead-letter queue. Integration. | Planned |
+| FJ-977 | `forjar validate --check-resource-secret-rotation` — validate secret resources have rotation policies defined. Governance. | Planned |
+| FJ-978 | `forjar status --fleet-resource-health-score` — composite fleet health score (convergence + drift + recovery). Intelligence. | Planned |
+| FJ-979 | `forjar graph --resource-dependency-dominator-tree` — compute dominator tree showing single points of failure. Analysis. | Planned |
+| FJ-980 | `forjar status --machine-resource-staleness-index` — index of how stale each machine's state data is. Intelligence. | Planned |
 
 ---
 

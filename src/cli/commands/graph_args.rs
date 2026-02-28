@@ -376,5 +376,11 @@ pub struct GraphArgs {
     /// FJ-963: Find strongly connected components in dependency graph
     #[arg(long)]
     pub resource_dependency_strongly_connected: bool,
+    /// FJ-967: Depth of each resource in topological ordering
+    #[arg(long)]
+    pub resource_dependency_topological_depth: bool,
+    /// FJ-971: Identify dependency edges most likely to cause cascading failures
+    #[arg(long)]
+    pub resource_dependency_weak_links: bool,
 }
 

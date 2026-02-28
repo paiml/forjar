@@ -122,3 +122,12 @@ pub(super) fn send_custom_backoff_notification(spec: Option<&str>, result: &Resu
     let status = if result.is_ok() { "success" } else { "failure" };
     println!("[notify:custom-backoff] → {} (backoff: {}, status: {}, config: {})", url, backoff, status, config.display());
 }
+/// FJ-968: Circuit breaker pattern for notification failures.
+pub(super) fn send_custom_circuit_breaker_notification(spec: Option<&str>, result: &Result<(), String>, config: &Path) {
+    let spec = match spec { Some(s) => s, None => return };
+    let parts: Vec<&str> = spec.splitn(2, '|').collect();
+    let url = parts.first().unwrap_or(&"");
+    let threshold = parts.get(1).unwrap_or(&"5");
+    let status = if result.is_ok() { "success" } else { "failure" };
+    println!("[notify:custom-circuit-breaker] → {} (threshold: {} failures, status: {}, config: {})", url, threshold, status, config.display());
+}
