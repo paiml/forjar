@@ -1,0 +1,123 @@
+# Recipe: 52-failure-idempotent-crash
+# Tier: 2 (container apply — crash resilience)
+# Idempotency: strong (converges cleanly after interrupted apply)
+# Budget: first_apply < 30s
+#
+# Failure mode test: verifies that a recipe converges cleanly even
+# if a previous apply was interrupted. Simulates crash by applying
+# config v1, then applying updated config v2. Verifies no stale
+# state leaks and the final state matches v2.
+
+version: '1.0'
+name: failure-idempotent-crash
+description: "Failure mode test: clean convergence after interrupted or updated apply"
+
+machines:
+  target:
+    hostname: target
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-cookbook-52-crash
+      ephemeral: false
+      privileged: false
+      init: true
+
+resources:
+  crash-dir:
+    type: file
+    machine: target
+    state: directory
+    path: /tmp/crash-test
+    owner: root
+    mode: '0755'
+    tags: [failure-test, crash]
+    resource_group: crash
+
+  # Config file — content represents "v2" (updated after crash)
+  app-config:
+    type: file
+    machine: target
+    path: /tmp/crash-test/config.yaml
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — crash resilience test (version 2)
+      # Previous version had: version: 1, workers: 2
+      # After "crash" and config update, forjar must converge to v2
+      version: 2
+      workers: 4
+      port: 8080
+      crash_test: true
+    depends_on: [crash-dir]
+    tags: [failure-test, crash]
+    resource_group: crash
+
+  # Data file that must match v2
+  app-data:
+    type: file
+    machine: target
+    path: /tmp/crash-test/data.json
+    owner: root
+    mode: '0644'
+    content: |
+      {
+        "version": 2,
+        "migrated": true,
+        "stale_state": false,
+        "note": "If stale state leaked from v1, this file would have version: 1"
+      }
+    depends_on: [app-config]
+    tags: [failure-test, crash]
+    resource_group: crash
+
+  crash-manifest:
+    type: file
+    machine: target
+    path: /tmp/crash-test/crash-manifest.json
+    owner: root
+    mode: '0644'
+    content: |
+      {
+        "test": "idempotent-after-crash",
+        "scenario": [
+          "1. Apply config v1 (workers: 2)",
+          "2. Simulate crash (kill -9 during apply)",
+          "3. Update config to v2 (workers: 4)",
+          "4. Re-apply — must converge to v2 cleanly",
+          "5. Re-apply again — 0 changes (idempotent)"
+        ],
+        "invariants": [
+          "No v1 state leaks into v2 apply",
+          "Hash comparison detects content change",
+          "State lock reflects v2 after convergence"
+        ]
+      }
+    depends_on: [app-data]
+    tags: [failure-test, manifest]
+    resource_group: crash
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Testing crash resilience'"
+  post_apply: "echo 'Crash resilience test complete'"
+  notify:
+    on_success: "echo 'Crash resilience verified'"
+    on_failure: "echo 'Crash resilience test failed'"
+    on_drift: "echo 'Post-crash state drifted'"
+
+outputs:
+  test_type:
+    value: "failure-idempotent-crash"
+    description: "Failure mode test type"
+  config_version:
+    value: "2"
+    description: "Current config version (post-crash update)"

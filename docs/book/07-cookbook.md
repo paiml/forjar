@@ -1525,6 +1525,14 @@ The `examples/cookbook/` directory contains validated recipes covering common in
 | 47 | Automated Patching | 6 | package, file, cron | Linux Admin |
 | 48 | Hostname & Locale | 6 | file | Linux Admin |
 | 49 | Swap & Memory | 4 | file, cron | Linux Admin |
+| 50 | Failure: Partial Apply | 4 | package, file | Failure Mode |
+| 51 | Failure: State Recovery | 5 | file | Failure Mode |
+| 52 | Failure: Crash Resilience | 4 | file | Failure Mode |
+| 53 | Stack: Dev Server | 7 | package, file, user | Composability |
+| 54 | Stack: Web Production | 8 | package, file | Composability |
+| 55 | Stack: GPU Lab | 7 | package, file, user | Composability |
+| 56 | Stack: Build Farm | 8 | package, file | Composability |
+| 57 | Stack: Package Pipeline | 8 | package, file | Composability |
 
 Score all recipes programmatically:
 

@@ -1,0 +1,177 @@
+# Recipe: 54-stack-web-production
+# Tier: 1+2 (validate + container apply)
+# Idempotency: strong
+# Budget: first_apply < 120s, idempotent < 5s
+#
+# Composability test: Web Production stack.
+# Layers: Security + Web Server + Database + Monitoring + Secrets + TLS.
+# The most complex composition — validates deep dependency chains.
+
+version: '1.0'
+name: stack-web-production
+description: "Composed stack: security + web + database + monitoring + secrets + TLS"
+
+params:
+  domain: example.com
+  db_name: appdb
+
+machines:
+  target:
+    hostname: target
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-cookbook-54-webprod
+      ephemeral: false
+      privileged: false
+      init: true
+
+resources:
+  # --- Layer 1: Security ---
+  security-config:
+    type: file
+    machine: target
+    path: /etc/ssh/sshd_config.d/forjar-hardened.conf
+    owner: root
+    mode: '0644'
+    content: |
+      PermitRootLogin no
+      PasswordAuthentication no
+    tags: [stack, security]
+    resource_group: security
+
+  # --- Layer 2: Web Server ---
+  web-packages:
+    type: package
+    machine: target
+    provider: apt
+    packages:
+      - curl
+    depends_on: [security-config]
+    tags: [stack, web]
+    resource_group: web
+
+  web-config:
+    type: file
+    machine: target
+    path: /etc/nginx/sites-available/default
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — web production stack
+      server {
+        listen 80;
+        server_name example.com;
+        root /var/www/html;
+      }
+    depends_on: [web-packages]
+    tags: [stack, web]
+    resource_group: web
+
+  # --- Layer 3: Database ---
+  db-config:
+    type: file
+    machine: target
+    path: /etc/postgresql/15/main/pg_hba.conf
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — web production stack
+      local all all peer
+      host all all 127.0.0.1/32 scram-sha-256
+    depends_on: [security-config]
+    tags: [stack, database]
+    resource_group: database
+
+  # --- Layer 4: Monitoring ---
+  monitoring-config:
+    type: file
+    machine: target
+    path: /etc/prometheus/prometheus.yml
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — web production stack
+      global:
+        scrape_interval: 15s
+      scrape_configs:
+        - job_name: web
+          static_configs:
+            - targets: ['localhost:80']
+    depends_on: [web-config, db-config]
+    tags: [stack, monitoring]
+    resource_group: monitoring
+
+  # --- Layer 5: Secrets ---
+  secrets-dir:
+    type: file
+    machine: target
+    state: directory
+    path: /etc/forjar/secrets
+    owner: root
+    mode: '0700'
+    depends_on: [security-config]
+    tags: [stack, secrets]
+    resource_group: secrets
+
+  # --- Layer 6: TLS ---
+  tls-dir:
+    type: file
+    machine: target
+    state: directory
+    path: /etc/ssl/forjar
+    owner: root
+    mode: '0700'
+    depends_on: [web-config]
+    tags: [stack, tls]
+    resource_group: tls
+
+  # --- Stack Manifest ---
+  stack-manifest:
+    type: file
+    machine: target
+    path: /etc/forjar/stack-manifest.json
+    owner: root
+    mode: '0644'
+    content: |
+      {
+        "stack": "web-production",
+        "layers": [
+          {"name": "security", "recipes": ["09-secure-baseline"]},
+          {"name": "web", "recipes": ["02-web-server"]},
+          {"name": "database", "recipes": ["03-postgresql"]},
+          {"name": "monitoring", "recipes": ["04-monitoring-stack"]},
+          {"name": "secrets", "recipes": ["22-secrets-lifecycle"]},
+          {"name": "tls", "recipes": ["23-tls-certificates"]}
+        ],
+        "total_layers": 6,
+        "conflict_free": true
+      }
+    depends_on: [monitoring-config, secrets-dir, tls-dir]
+    tags: [stack, manifest]
+    resource_group: manifest
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Converging web-production stack'"
+  post_apply: "echo 'Web production stack ready'"
+  notify:
+    on_success: "echo 'All 6 layers converged'"
+    on_failure: "echo 'Web production stack failed'"
+    on_drift: "echo 'Production stack drift detected'"
+
+outputs:
+  stack_name:
+    value: "web-production"
+    description: "Composed stack name"
+  layers:
+    value: "security,web,database,monitoring,secrets,tls"
+    description: "Stack layer names"
