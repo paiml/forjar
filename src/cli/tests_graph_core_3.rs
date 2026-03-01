@@ -93,6 +93,8 @@ mod tests {
                 resource_dependency_redundancy_analysis: false,
                 resource_dependency_change_impact_radius: false,
                 resource_dependency_sibling_analysis: false,
+                resource_dependency_fan_in_hotspot: false,
+                resource_dependency_cross_machine_bridge: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { timeline_graph, .. }) => assert!(timeline_graph),
@@ -175,6 +177,8 @@ mod tests {
                 resource_dependency_redundancy_analysis: false,
                 resource_dependency_change_impact_radius: false,
                 resource_dependency_sibling_analysis: false,
+                resource_dependency_fan_in_hotspot: false,
+                resource_dependency_cross_machine_bridge: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { what_if, .. }) => {
@@ -259,6 +263,8 @@ mod tests {
                 resource_dependency_redundancy_analysis: false,
                 resource_dependency_change_impact_radius: false,
                 resource_dependency_sibling_analysis: false,
+                resource_dependency_fan_in_hotspot: false,
+                resource_dependency_cross_machine_bridge: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { blast_radius, .. }) => {
@@ -343,6 +349,8 @@ mod tests {
                 resource_dependency_redundancy_analysis: false,
                 resource_dependency_change_impact_radius: false,
                 resource_dependency_sibling_analysis: false,
+                resource_dependency_fan_in_hotspot: false,
+                resource_dependency_cross_machine_bridge: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { change_impact, .. }) => {
@@ -427,6 +435,8 @@ mod tests {
                 resource_dependency_redundancy_analysis: false,
                 resource_dependency_change_impact_radius: false,
                 resource_dependency_sibling_analysis: false,
+                resource_dependency_fan_in_hotspot: false,
+                resource_dependency_cross_machine_bridge: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { resource_types, .. }) => assert!(resource_types),

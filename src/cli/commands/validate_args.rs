@@ -488,5 +488,13 @@ pub struct ValidateArgs {
     /// FJ-1100: Warn if machines lack expected resource type coverage
     #[arg(long)]
     pub check_resource_type_coverage_per_machine: bool,
+    /// FJ-1102: Warn if dependency chain depths vary wildly
+    #[arg(long)]
+    pub check_resource_dependency_depth_variance: bool,
+    /// FJ-1105: Warn if tag keys don't follow naming conventions
+    #[arg(long)]
+    pub check_resource_tag_key_naming: bool,
+    /// FJ-1108: Warn if resource content exceeds size threshold
+    #[arg(long)]
+    pub check_resource_content_length_limit: bool,
 }
-

@@ -22,11 +22,11 @@ use super::validate_governance_ext::*;
 use super::validate_topology::*;
 use super::validate_config_quality::*;
 use super::validate_maturity::*;
+use super::validate_hygiene::*;
 use super::validate_ordering::*;
 use super::validate_ordering_ext::*;
 use super::validate_resilience::*;
 
-/// Structural/resource validation checks.
 #[allow(clippy::too_many_arguments)]
 fn try_validate_structural(
     file: &Path, json: bool,
@@ -48,8 +48,6 @@ fn try_validate_structural(
     if check_machine_reachability { return Some(cmd_validate_check_machine_reachability(file, json)); }
     None
 }
-
-/// Quality/compliance validation checks.
 #[allow(clippy::too_many_arguments)]
 fn try_validate_quality(
     file: &Path, json: bool,
@@ -74,7 +72,6 @@ fn try_validate_quality(
     if check_limits { return Some(cmd_validate_check_limits(file, json)); }
     None
 }
-/// Core validation checks (overlaps through base validate).
 #[allow(clippy::too_many_arguments)]
 fn try_validate_core(
     file: &Path, json: bool, _strict: bool, _dry_expand: bool,
@@ -98,7 +95,6 @@ fn try_validate_core(
     if exhaustive { return Some(cmd_validate_exhaustive(file, json)); }
     None
 }
-/// Phase 71-74 governance validation checks.
 #[allow(clippy::too_many_arguments)]
 fn try_validate_governance(
     file: &Path, json: bool,
@@ -121,8 +117,6 @@ fn try_validate_governance(
     if check_resource_tag_coverage { return Some(cmd_validate_check_resource_tag_coverage(file, json)); }
     None
 }
-
-/// Phase 75-77 governance validation checks.
 #[allow(clippy::too_many_arguments)]
 fn try_validate_governance_b(
     file: &Path, json: bool,
@@ -147,8 +141,6 @@ fn try_validate_governance_b(
     if check_resource_version_pinning { return Some(cmd_validate_check_resource_version_pinning(file, json)); }
     None
 }
-
-/// Phase 81-84 governance validation checks.
 #[allow(clippy::too_many_arguments)]
 fn try_validate_governance_c(
     file: &Path, json: bool,
@@ -173,8 +165,6 @@ fn try_validate_governance_c(
     if check_resource_machine_balance { return Some(cmd_validate_check_resource_machine_balance(file, json)); }
     None
 }
-
-/// Phase 87–90 governance validation checks.
 #[allow(clippy::too_many_arguments)]
 fn try_validate_governance_d(
     file: &Path, json: bool,
@@ -199,8 +189,6 @@ fn try_validate_governance_d(
     if check_resource_dependency_fan_limit { return Some(cmd_validate_check_resource_dependency_fan_limit(file, json)); }
     None
 }
-
-/// Phase 94 governance validation checks.
 fn try_validate_phase94(
     file: &Path, json: bool,
     check_resource_gpu_backend_consistency: bool, check_resource_when_condition_syntax: bool,
@@ -209,8 +197,6 @@ fn try_validate_phase94(
     if check_resource_when_condition_syntax { return Some(cmd_validate_check_resource_when_condition_syntax(file, json)); }
     None
 }
-
-/// Phase 67-70 advanced validation checks.
 #[allow(clippy::too_many_arguments)]
 fn try_validate_advanced(
     file: &Path, json: bool,
@@ -229,8 +215,6 @@ fn try_validate_advanced(
     if check_machine_connectivity { return Some(cmd_validate_check_machine_connectivity(file, json)); }
     None
 }
-
-/// Route validate command to specific check handlers.
 pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
     let ValidateArgs {
         file, strict, json, dry_expand,
@@ -320,6 +304,9 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
         check_resource_dependency_version_drift,
         check_resource_naming_length_limit,
         check_resource_type_coverage_per_machine,
+        check_resource_dependency_depth_variance,
+        check_resource_tag_key_naming,
+        check_resource_content_length_limit,
     } = args;
 
     if let Some(r) = try_validate_checks_early_a(&file, json, check_cron_syntax, check_env_refs, check_resource_names.as_deref(), check_resource_count, check_duplicate_paths, check_circular_deps, check_machine_refs, check_provider_consistency) {
@@ -363,6 +350,11 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
         check_resource_circular_dependency_depth, check_resource_orphan_detection_deep, check_resource_provider_diversity,
         check_resource_dependency_isolation, check_resource_tag_value_consistency, check_resource_machine_distribution_balance,
         check_resource_dependency_version_drift, check_resource_naming_length_limit, check_resource_type_coverage_per_machine,
+    ) {
+        return r;
+    }
+    if let Some(r) = try_validate_phase105(&file, json,
+        check_resource_dependency_depth_variance, check_resource_tag_key_naming, check_resource_content_length_limit,
     ) {
         return r;
     }
@@ -495,5 +487,14 @@ fn try_validate_phases_101_104(
     if d1 { return Some(cmd_validate_check_resource_dependency_version_drift(file, json)); }
     if d2 { return Some(cmd_validate_check_resource_naming_length_limit(file, json)); }
     if d3 { return Some(cmd_validate_check_resource_type_coverage_per_machine(file, json)); }
+    None
+}
+fn try_validate_phase105(
+    file: &Path, json: bool,
+    a: bool, b: bool, c: bool,
+) -> Option<Result<(), String>> {
+    if a { return Some(cmd_validate_check_resource_dependency_depth_variance(file, json)); }
+    if b { return Some(cmd_validate_check_resource_tag_key_naming(file, json)); }
+    if c { return Some(cmd_validate_check_resource_content_length_limit(file, json)); }
     None
 }

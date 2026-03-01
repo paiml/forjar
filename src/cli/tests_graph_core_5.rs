@@ -93,6 +93,8 @@ mod tests {
                 resource_dependency_redundancy_analysis: false,
                 resource_dependency_change_impact_radius: false,
                 resource_dependency_sibling_analysis: false,
+                resource_dependency_fan_in_hotspot: false,
+                resource_dependency_cross_machine_bridge: false,
         });
         match cmd {
             Commands::Graph(GraphArgs {
