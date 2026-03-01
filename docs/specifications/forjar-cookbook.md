@@ -49,12 +49,13 @@ forjar-cookbook/
 │           ├── plan_all.rs             # Plan every recipe (dry-run)
 │           ├── apply_container.rs      # Apply Tier 2 recipes in containers
 │           ├── qualify_recipe.rs       # Full qualification cycle for one recipe
-│           └── idempotency_check.rs    # Two-apply idempotency test
+│           ├── idempotency_check.rs    # Two-apply idempotency test
+│           └── score_all.rs           # Score all recipes, update CSV
 ├── recipes/                            # Forjar YAML configs (the actual recipes)
 │   ├── 01-developer-workstation.yaml
 │   ├── 02-web-server.yaml
 │   ├── ...
-│   └── 49-swap-memory.yaml
+│   └── 62-stack-cross-distro.yaml
 ├── configs/                            # Container-testable variants
 │   ├── container-01-devbox.yaml
 │   ├── container-02-webserver.yaml
@@ -73,8 +74,10 @@ forjar-cookbook/
 │           │   ├── nix-style.md
 │           │   ├── rust-builds.md
 │           │   ├── packages.md
+│           │   ├── opentofu-patterns.md
 │           │   ├── linux-admin.md
-│           │   └── opentofu-patterns.md
+│           │   ├── failure-modes.md
+│           │   └── composition.md
 │           ├── qualification.md        # How the qualification process works
 │           ├── runner-setup.md         # Self-hosted runner provisioning guide
 │           └── troubleshooting.md
@@ -473,7 +476,7 @@ echo "first_apply_ms=$FIRST_MS idempotent_apply_ms=$IDEM_MS"
 
 ## Forjar Score
 
-Every recipe receives a **Forjar Score** — a multi-dimensional quality grade from A through F. The score is deterministic (same inputs always produce the same grade), automatically computed by `cookbook-qualify`, and designed so that A-grade is genuinely hard to achieve. All 49 recipes are designed as A-grade targets.
+Every recipe receives a **Forjar Score** — a multi-dimensional quality grade from A through F. The score is deterministic (same inputs always produce the same grade), automatically computed by `cookbook-qualify`, and designed so that A-grade is genuinely hard to achieve. All 62 recipes are designed as A-grade targets (56 currently qualified at A-grade, 5 blocked on hardware, 1 number reserved).
 
 ### Scoring Dimensions
 
@@ -2894,18 +2897,18 @@ Which recipes layer on top of which, which combos are tested, and which conflict
 
 Compositions that are validated end-to-end (config exists + CI test):
 
-| Stack Name | Recipes | Machines | Total Resources | Tier | Status |
-|-----------|---------|----------|-----------------|------|--------|
-| **Dev Server** | 1 + 9 + 12 | 1 | ~20 | 1+2 | Planned |
-| **Web Production** | 2 + 3 + 4 + 9 + 22 + 23 | 2-3 | ~40 | 1+2 | Planned |
-| **GPU Lab** | 1 + 7 + 4 + 9 | 1 | ~25 | 1+3 | Planned |
-| **ML Inference** | 7 + 21 + 4 + 9 + 22 | 1-2 | ~35 | 1+3 | Planned |
-| **CI Infrastructure** | 6 + 9 + 4 | 1 | ~25 | 1+3 | Planned |
-| **Sovereign AI** | 1 + 7 + 21 + 4 + 9 + 22 | 3 | ~60 | 1+3 | Planned |
-| **Fleet Baseline** | 9 + 24 + 4 | 5-20 | 5-20 per machine | 1+2 | Planned |
-| **Build Farm** | 13 + 17 + 19 | 1-3 | ~15 | 1+3 | Planned |
-| **Package Pipeline** | 17 + 26 + 27 + 25 + 24 | 2-5 | ~30 | 1+2+3 | Planned |
-| **Cross-Distro Release** | 17 + 26 + 28 + 29 | 2-3 | ~20 | 1+2 | Planned |
+| # | Stack Name | Recipes | Machines | Total Resources | Tier | Grade |
+|---|-----------|---------|----------|-----------------|------|-------|
+| 53 | **Dev Server** | 1 + 9 + 12 | 1 | ~20 | 1+2 | A (94) |
+| 54 | **Web Production** | 2 + 3 + 4 + 9 + 22 + 23 | 2-3 | ~40 | 1+2 | A (94) |
+| 55 | **GPU Lab** | 1 + 7 + 4 + 9 | 1 | ~25 | 1+2 | A (94) |
+| 56 | **Build Farm** | 13 + 17 + 19 | 1-3 | ~15 | 1+2 | A (94) |
+| 57 | **Package Pipeline** | 17 + 26 + 27 + 25 + 24 | 2-5 | ~30 | 1+2 | A (94) |
+| 58 | **ML Inference** | 7 + 21 + 4 + 9 + 22 | 1-2 | ~35 | 1+2 | A (93) |
+| 59 | **CI Infrastructure** | 6 + 9 + 4 | 1 | ~25 | 1+2 | A (94) |
+| 60 | **Sovereign AI** | 1 + 7 + 21 + 4 + 9 + 22 | 3 | ~60 | 1+2 | A (94) |
+| 61 | **Fleet Baseline** | 9 + 24 + 4 | 5-20 | 5-20 per machine | 1+2 | A (94) |
+| 62 | **Cross-Distro Release** | 17 + 26 + 28 + 29 | 2-3 | ~20 | 1+2 | A (94) |
 
 ### Conflict Matrix
 
