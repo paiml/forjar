@@ -18,6 +18,7 @@ fn type_cost(rt: &types::ResourceType) -> u32 {
         types::ResourceType::Pepita => 3,
         types::ResourceType::Model => 5,
         types::ResourceType::Gpu => 5,
+        types::ResourceType::Task => 3,
         types::ResourceType::Recipe => 1,
     }
 }

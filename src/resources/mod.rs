@@ -15,6 +15,7 @@ pub mod network;
 pub mod package;
 pub mod pepita;
 pub mod service;
+pub mod task;
 pub mod user;
 
 #[cfg(test)]

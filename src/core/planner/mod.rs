@@ -144,6 +144,7 @@ fn default_state(resource_type: &ResourceType) -> &'static str {
         | ResourceType::Cron
         | ResourceType::Model
         | ResourceType::Gpu
+        | ResourceType::Task
         | ResourceType::Recipe => "present",
     }
 }
@@ -320,6 +321,7 @@ fn describe_action(resource_id: &str, resource: &Resource, action: &PlanAction) 
             | ResourceType::Cron
             | ResourceType::Model
             | ResourceType::Gpu
+            | ResourceType::Task
             | ResourceType::Recipe => format!("{}: create", resource_id),
         },
         PlanAction::Update => format!("{}: update (state changed)", resource_id),
