@@ -1,5 +1,3 @@
-//! FJ-017: CLI subcommands.
-
 pub mod commands;
 pub mod dispatch;
 mod dispatch_apply;
@@ -140,8 +138,11 @@ mod score;
 #[cfg(test)] mod tests_print_helpers;
 #[cfg(test)] mod tests_apply_helpers;
 #[cfg(test)] mod tests_validate_core;
+#[cfg(test)] mod tests_validate_core_b;
 #[cfg(test)] mod tests_validate_core_1;
+#[cfg(test)] mod tests_validate_core_1_b;
 #[cfg(test)] mod tests_validate_core_2;
+#[cfg(test)] mod tests_validate_core_2_b;
 #[cfg(test)] mod tests_validate_core_3;
 #[cfg(test)] mod tests_apply;
 #[cfg(test)] mod tests_apply_1;
@@ -150,6 +151,8 @@ mod score;
 #[cfg(test)] mod tests_apply_4;
 #[cfg(test)] mod tests_apply_5;
 #[cfg(test)] mod tests_apply_6;
+#[cfg(test)]
+mod tests_apply_6_b;
 #[cfg(test)] mod tests_apply_7;
 #[cfg(test)] mod tests_apply_8;
 #[cfg(test)] mod tests_apply_9;
@@ -171,18 +174,29 @@ mod score;
 #[cfg(test)] mod tests_plan_1;
 #[cfg(test)] mod tests_plan_file;
 #[cfg(test)] mod tests_status_core;
+#[cfg(test)]
+mod tests_status_core_b;
 #[cfg(test)] mod tests_status_core_1;
+#[cfg(test)] mod tests_status_core_1_b;
 #[cfg(test)] mod tests_status_core_2;
+#[cfg(test)] mod tests_status_core_2_b;
 #[cfg(test)] mod tests_status_core_3;
+#[cfg(test)] mod tests_status_core_3_b;
 #[cfg(test)] mod tests_status_core_4;
+#[cfg(test)] mod tests_status_core_4_b;
 #[cfg(test)] mod tests_status_core_5;
+#[cfg(test)] mod tests_status_core_5_b;
 #[cfg(test)] mod tests_status_core_6;
+#[cfg(test)] mod tests_status_core_6_b;
 #[cfg(test)] mod tests_status_core_7;
+#[cfg(test)] mod tests_status_core_7_b;
 #[cfg(test)] mod tests_status_core_8;
+#[cfg(test)] mod tests_status_core_8_b;
 #[cfg(test)] mod tests_status_core_9;
 #[cfg(test)] mod tests_status_core_10;
 #[cfg(test)] mod tests_status_queries;
 #[cfg(test)] mod tests_graph_core;
+#[cfg(test)] mod tests_graph_core_b;
 #[cfg(test)] mod tests_graph_core_1;
 #[cfg(test)] mod tests_graph_core_2;
 #[cfg(test)] mod tests_graph_core_3;
@@ -255,6 +269,8 @@ mod tests_misc;
 #[cfg(test)]
 mod tests_misc_1;
 #[cfg(test)]
+mod tests_misc_1_b;
+#[cfg(test)]
 mod tests_misc_2;
 #[cfg(test)]
 mod tests_misc_3;
@@ -263,13 +279,19 @@ mod tests_misc_4;
 #[cfg(test)]
 mod tests_misc_5;
 #[cfg(test)]
+mod tests_misc_5_b;
+#[cfg(test)]
 mod tests_misc_6;
 #[cfg(test)]
 mod tests_misc_7;
 #[cfg(test)]
+mod tests_misc_7_b;
+#[cfg(test)]
 mod tests_misc_8;
 #[cfg(test)]
 mod tests_misc_9;
+#[cfg(test)]
+mod tests_misc_9_b;
 #[cfg(test)]
 mod tests_graph_core_6;
 #[cfg(test)]
@@ -383,6 +405,8 @@ mod tests_cov_remaining;
 #[cfg(test)]
 mod tests_cov_graph3_b;
 #[cfg(test)]
+mod tests_cov_graph3_c;
+#[cfg(test)]
 mod tests_cov_status_4_b;
 #[cfg(test)]
 mod tests_cov_status_4_c;
@@ -406,6 +430,8 @@ mod tests_cov_misc2_b;
 mod tests_cov_args_extra_b;
 #[cfg(test)]
 mod tests_cov_args_2;
+#[cfg(test)]
+mod tests_cov_args_2_b;
 #[cfg(test)]
 mod tests_cov_args_3;
 #[cfg(test)]
@@ -470,6 +496,5 @@ mod tests_phase106;
 mod tests_phase107;
 #[cfg(test)]
 mod tests_score;
-
 pub use commands::Commands;
 pub use dispatch::dispatch;
