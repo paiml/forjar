@@ -872,7 +872,7 @@ NVIDIA GPU with CUDA toolkit, persistence mode, compute mode lockdown.
 
 **Testable in CI**:
 - Tier 1: validate, plan, codegen review
-- Tier 3: requires a runner with NVIDIA GPU (future)
+- Tier 3: requires a runner with NVIDIA GPU (blocked: FJ-1127)
 
 **Recipe inputs**:
 | Input | Type | Default | Description |
@@ -3619,17 +3619,19 @@ resources:
 | 38 | State Encryption | 1+2 | Defense-in-depth for state files at rest |
 | 39 | Cross-Config Outputs | 2 | Multi-stack composition without hardcoding |
 
-### Priority Order
+### Implementation Order (Completed)
 
-1. **Saved Plan Files (#30) + JSON Plan (#31)** — Foundation for CI/CD safety; everything else builds on structured plans
-2. **Check Blocks (#32)** — Immediate value; validates outcomes not just convergence
-3. **Lifecycle Protection (#33)** — Critical for production safety
-4. **Resource Targeting (#36)** — Operational necessity; unblocks debugging
-5. **Moved Blocks (#34)** — Quality of life; reduces fear of refactoring
+All 10 recipes implemented and qualified at A-grade. Implementation order was:
+
+1. **Saved Plan Files (#30) + JSON Plan (#31)** — Foundation for CI/CD safety
+2. **Check Blocks (#32)** — Validates outcomes not just convergence
+3. **Lifecycle Protection (#33)** — Production safety
+4. **Resource Targeting (#36)** — Operational debugging
+5. **Moved Blocks (#34)** — Safe declarative refactoring
 6. **Refresh-Only (#35)** — Operational flexibility
-7. **Testing DSL (#37)** — Ecosystem maturity; requires saved plans to work well
-8. **State Encryption (#38)** — Defense in depth; age integration already exists
-9. **Cross-Config Outputs (#39)** — Multi-team scale; requires state format stability
+7. **Testing DSL (#37)** — Ecosystem maturity
+8. **State Encryption (#38)** — Defense in depth via age
+9. **Cross-Config Outputs (#39)** — Multi-stack composition
 
 ### OpenTofu Features Deliberately NOT Adopted
 
