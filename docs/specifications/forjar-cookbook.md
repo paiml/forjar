@@ -88,7 +88,7 @@ forjar-cookbook/
 ├── tests/
 │   └── integration_tests.rs           # Workspace-level integration tests
 └── .github/workflows/
-    ├── ci.yml                          # fmt + clippy + test + coverage + examples
+    ├── ci.yml                          # fmt + clippy + test + coverage + score + docs
     ├── qualify-runner.yml              # Self-hosted runner qualification (primary)
     └── book.yml                        # mdBook build + deploy
 ```
@@ -114,7 +114,7 @@ This repo enforces the same standards as forjar itself:
 ### Makefile Targets
 
 ```makefile
-check: fmt-check lint test docs-check examples     # Full gate chain
+check: fmt-check lint test docs-check              # Full gate chain
 test:                                                # cargo test --workspace
 lint:                                                # cargo clippy -- -D warnings
 fmt-check:                                           # cargo fmt --check
@@ -323,47 +323,49 @@ name: CI
 on: [push, pull_request]
 
 jobs:
-  check:
+  check:                    # fmt + clippy
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
       - run: cargo fmt --check
-      - run: cargo clippy -- -D warnings
+      - run: cargo clippy --workspace --all-targets -- -D warnings
 
-  test:
+  test:                     # full test suite
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
       - run: cargo test --workspace
 
-  coverage:
+  coverage:                 # >= 95% line coverage
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo install cargo-llvm-cov
       - run: cargo llvm-cov --workspace --lib --lcov --output-path lcov.info
-      - run: ./scripts/coverage-check.sh  # >= 95%
+      - run: ./scripts/coverage-check.sh
 
-  examples:
+  score:                    # static-only scoring (no forjar binary needed)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: cargo run --example validate_all
-      - run: cargo run --example plan_all
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo run --example score_all
 
-  docs:
+  docs:                     # README/CSV consistency
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - run: ./scripts/check-docs-consistency.sh
-      - run: mdbook build docs/book
-
-  bashrs:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: cargo install bashrs
-      - run: bashrs lint scripts/ Makefile
 ```
+
+**Note**: `validate_all` and `plan_all` require the `forjar` binary installed (`Command::new("forjar")`), so they run only on the self-hosted runner. The `score_all` example is pure library code and runs in CI without forjar.
 
 ---
 
@@ -964,12 +966,11 @@ Runs on every push and PR. Guards code quality, not recipe qualification.
 
 | Job | What it does |
 |-----|-------------|
-| `check` | `cargo fmt --check` + `cargo clippy -- -D warnings` |
+| `check` | `cargo fmt --check` + `cargo clippy --workspace --all-targets -- -D warnings` |
 | `test` | `cargo test --workspace` |
-| `coverage` | `cargo llvm-cov` >= 95% threshold |
-| `examples` | `cargo run --example validate_all` + `cargo run --example plan_all` |
-| `docs` | `./scripts/check-docs-consistency.sh` + `mdbook build` |
-| `bashrs` | `bashrs lint scripts/ Makefile` |
+| `coverage` | `cargo install cargo-llvm-cov` + `cargo llvm-cov` >= 95% threshold |
+| `score` | `cargo run --example score_all` — static-only scoring (no forjar binary) |
+| `docs` | `./scripts/check-docs-consistency.sh` |
 
 ### `qualify-runner.yml` — Recipe Qualification (Self-Hosted Intel)
 
