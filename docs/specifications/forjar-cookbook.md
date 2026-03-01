@@ -493,7 +493,7 @@ echo "first_apply_ms=$FIRST_MS idempotent_apply_ms=$IDEM_MS"
 
 ## Forjar Score
 
-Every recipe receives a **Forjar Score** — a multi-dimensional quality grade from A through F. The score is deterministic (same inputs always produce the same grade), automatically computed by `cookbook-qualify`, and designed so that A-grade is genuinely hard to achieve. All 62 recipes are designed as A-grade targets (56 currently qualified at A-grade, 5 blocked on hardware, 1 number reserved).
+Every recipe receives a **Forjar Score** — a multi-dimensional quality grade from A through F. The score is deterministic (same inputs always produce the same grade), automatically computed by `cookbook-qualify`, and designed so that A-grade is genuinely hard to achieve. All 62 recipes are designed as A-grade targets (56 qualified at A-grade, 5 blocked on hardware, 1 pending qualification).
 
 ### Scoring Dimensions
 
@@ -1030,7 +1030,7 @@ Builds and deploys mdBook on push to `docs/book/**`.
 
 ## Implementation Priority
 
-All 9 phases are **complete**. 56 of 61 recipes are qualified at A-grade. 5 recipes are blocked on hardware requirements (GPU, NFS, secrets infrastructure, GPG keys).
+All 9 phases are **complete**. 56 of 62 recipes are qualified at A-grade, 5 are blocked on hardware requirements (GPU, NFS, secrets infrastructure, GPG keys), and 1 (#18 Multi-Stage Build) is pending qualification.
 
 ### Phase Summary
 
@@ -1039,7 +1039,7 @@ All 9 phases are **complete**. 56 of 61 recipes are qualified at A-grade. 5 reci
 | 1: Core Infrastructure | #1-6, #9 | **Complete** — all A-grade |
 | 2: GPU & Hardware | #7, #8, #10 | **Blocked** — #7 FJ-1126 ROCm, #8 FJ-1127 NVIDIA, #10 FJ-1128 NFS |
 | 3: Nix-Style | #11-15 | **Complete** — all A-grade |
-| 4: Rust Build Pipelines | #16-21 | **Complete** — all A-grade |
+| 4: Rust Build Pipelines | #16-21 | **Complete** — #18 pending qualification, rest A-grade |
 | 5: Package Distribution | #25-29 | **Complete** — #25 blocked (FJ-1130 GPG), rest A-grade |
 | 6: Operational Maturity | #22-24 | **Complete** — #22 blocked (FJ-1129 secrets), rest A-grade |
 | 7: Linux Administration | #40-49 | **Complete** — all A-grade |
