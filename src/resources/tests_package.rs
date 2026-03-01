@@ -447,6 +447,23 @@ fn test_fj1005_cargo_bootstrap_rustup() {
     assert!(script.contains(".cargo/bin:$PATH"), "must add cargo to PATH: {script}");
 }
 
+/// FJ-1008: cargo install limits build parallelism to avoid OOM on high-core machines.
+/// Root cause: unbounded `cargo install` defaults to nproc jobs, causing OOM on 32-core+.
+#[test]
+fn test_fj1008_cargo_install_limits_parallelism() {
+    let mut r = make_apt_resource(&["realizar"]);
+    r.provider = Some("cargo".to_string());
+    let script = apply_script(&r);
+    assert!(
+        script.contains("CARGO_BUILD_JOBS"),
+        "cargo install must set CARGO_BUILD_JOBS to limit parallelism: {script}"
+    );
+    assert!(
+        script.contains("nproc"),
+        "must derive job limit from nproc: {script}"
+    );
+}
+
 // --- FJ-036: Additional package tests ---
 
 #[test]
