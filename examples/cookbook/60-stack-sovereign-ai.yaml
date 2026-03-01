@@ -1,0 +1,225 @@
+# Recipe: 60-stack-sovereign-ai
+# Tier: 1+2 (validate + container apply)
+# Idempotency: strong
+# Budget: first_apply < 120s, idempotent < 5s
+#
+# Composability test: Sovereign AI stack.
+# Layers: Security + Dev Tools + GPU + Model + Monitoring + Secrets.
+# The most comprehensive composition — validates deep 6-layer stacking.
+
+version: '1.0'
+name: stack-sovereign-ai
+description: "Composed stack: security + dev-tools + GPU + model serving + monitoring + secrets"
+
+params:
+  gpu_backend: rocm
+  model_name: llama-7b
+  user: mlops
+
+machines:
+  target:
+    hostname: target
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-cookbook-60-sovereign
+      ephemeral: false
+      privileged: false
+      init: true
+
+resources:
+  # --- Layer 1: Security ---
+  security-config:
+    type: file
+    machine: target
+    path: /etc/ssh/sshd_config.d/forjar-sovereign.conf
+    owner: root
+    mode: '0644'
+    content: |
+      PermitRootLogin no
+      PasswordAuthentication no
+      MaxAuthTries 3
+    tags: [stack, security]
+    resource_group: security
+
+  # --- Layer 2: Dev Tools ---
+  dev-packages:
+    type: package
+    machine: target
+    provider: apt
+    packages:
+      - build-essential
+      - git
+      - curl
+      - htop
+      - jq
+    depends_on: [security-config]
+    tags: [stack, dev-tools]
+    resource_group: dev-tools
+
+  mlops-user:
+    type: user
+    machine: target
+    name: mlops
+    home: /home/mlops
+    shell: /bin/bash
+    groups: [sudo]
+    depends_on: [dev-packages]
+    tags: [stack, dev-tools]
+    resource_group: dev-tools
+
+  # --- Layer 3: GPU Configuration ---
+  gpu-config-dir:
+    type: file
+    machine: target
+    state: directory
+    path: /etc/forjar/gpu
+    owner: root
+    mode: '0755'
+    depends_on: [dev-packages]
+    tags: [stack, gpu]
+    resource_group: gpu
+
+  gpu-config:
+    type: file
+    machine: target
+    path: /etc/forjar/gpu/sovereign.conf
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — sovereign AI stack
+      backend=rocm
+      devices=all
+      compute_mode=exclusive
+    depends_on: [gpu-config-dir]
+    tags: [stack, gpu]
+    resource_group: gpu
+
+  # --- Layer 4: Model Serving ---
+  model-dir:
+    type: file
+    machine: target
+    state: directory
+    path: /opt/models
+    owner: root
+    mode: '0755'
+    depends_on: [gpu-config]
+    tags: [stack, model]
+    resource_group: model
+
+  model-config:
+    type: file
+    machine: target
+    path: /opt/models/sovereign.yaml
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — sovereign AI model config
+      model: llama-7b
+      backend: rocm
+      port: 8080
+      pipeline: ingest-train-serve
+    depends_on: [model-dir]
+    tags: [stack, model]
+    resource_group: model
+
+  # --- Layer 5: Monitoring ---
+  monitoring-config:
+    type: file
+    machine: target
+    path: /etc/prometheus/sovereign-monitoring.yml
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — sovereign AI monitoring
+      scrape_configs:
+        - job_name: model-serving
+          static_configs:
+            - targets: ['localhost:8080']
+        - job_name: gpu-metrics
+          static_configs:
+            - targets: ['localhost:9400']
+        - job_name: node
+          static_configs:
+            - targets: ['localhost:9100']
+    depends_on: [model-config]
+    tags: [stack, monitoring]
+    resource_group: monitoring
+
+  # --- Layer 6: Secrets ---
+  secrets-dir:
+    type: file
+    machine: target
+    state: directory
+    path: /etc/forjar/secrets
+    owner: root
+    mode: '0700'
+    depends_on: [security-config]
+    tags: [stack, secrets]
+    resource_group: secrets
+
+  secrets-config:
+    type: file
+    machine: target
+    path: /etc/forjar/secrets/sovereign.conf
+    owner: root
+    mode: '0600'
+    content: |
+      # Managed by forjar — sovereign AI secrets
+      # Actual secrets injected via FORJAR_SECRET_* env vars
+      hf_token_ref=FORJAR_SECRET_HF_TOKEN
+      api_key_ref=FORJAR_SECRET_API_KEY
+    depends_on: [secrets-dir]
+    tags: [stack, secrets]
+    resource_group: secrets
+
+  # --- Stack Manifest ---
+  stack-manifest:
+    type: file
+    machine: target
+    path: /etc/forjar/stack-manifest.json
+    owner: root
+    mode: '0644'
+    content: |
+      {
+        "stack": "sovereign-ai",
+        "layers": [
+          {"name": "security", "recipes": ["09-secure-baseline"]},
+          {"name": "dev-tools", "recipes": ["01-developer-workstation"]},
+          {"name": "gpu", "recipes": ["07-rocm-gpu"]},
+          {"name": "model", "recipes": ["21-apr-model"]},
+          {"name": "monitoring", "recipes": ["04-monitoring-stack"]},
+          {"name": "secrets", "recipes": ["22-secrets-lifecycle"]}
+        ],
+        "total_layers": 6,
+        "gpu_backend": "rocm",
+        "conflict_free": true
+      }
+    depends_on: [mlops-user, monitoring-config, secrets-config]
+    tags: [stack, manifest]
+    resource_group: manifest
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Converging sovereign AI stack'"
+  post_apply: "echo 'Sovereign AI stack ready'"
+  notify:
+    on_success: "echo 'All 6 layers converged'"
+    on_failure: "echo 'Sovereign AI stack failed'"
+    on_drift: "echo 'Sovereign AI drift detected'"
+
+outputs:
+  stack_name:
+    value: "sovereign-ai"
+    description: "Composed stack name"
+  layers:
+    value: "security,dev-tools,gpu,model,monitoring,secrets"
+    description: "Stack layer names"

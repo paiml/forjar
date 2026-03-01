@@ -1,0 +1,159 @@
+# Recipe: 61-stack-fleet-baseline
+# Tier: 1+2 (validate + container apply)
+# Idempotency: strong
+# Budget: first_apply < 120s, idempotent < 5s
+#
+# Composability test: Fleet Baseline stack.
+# Layers: Security + Fleet Provisioning + Monitoring.
+# Validates fleet-wide baseline composition.
+
+version: '1.0'
+name: stack-fleet-baseline
+description: "Composed stack: security baseline + fleet provisioning + monitoring"
+
+params:
+  fleet_name: production
+
+machines:
+  target:
+    hostname: target
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-cookbook-61-fleet
+      ephemeral: false
+      privileged: false
+      init: true
+
+resources:
+  # --- Layer 1: Security ---
+  security-packages:
+    type: package
+    machine: target
+    provider: apt
+    packages:
+      - curl
+    tags: [stack, security]
+    resource_group: security
+
+  sshd-hardening:
+    type: file
+    machine: target
+    path: /etc/ssh/sshd_config.d/forjar-fleet.conf
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — fleet security baseline
+      PermitRootLogin no
+      PasswordAuthentication no
+      MaxAuthTries 3
+    depends_on: [security-packages]
+    tags: [stack, security]
+    resource_group: security
+
+  # --- Layer 2: Fleet Provisioning ---
+  fleet-config-dir:
+    type: file
+    machine: target
+    state: directory
+    path: /etc/forjar/fleet
+    owner: root
+    mode: '0755'
+    depends_on: [sshd-hardening]
+    tags: [stack, fleet]
+    resource_group: fleet
+
+  fleet-config:
+    type: file
+    machine: target
+    path: /etc/forjar/fleet/baseline.yaml
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — fleet baseline
+      fleet: production
+      strategy: rolling
+      canary_percentage: 10
+      health_check_interval: 30s
+    depends_on: [fleet-config-dir]
+    tags: [stack, fleet]
+    resource_group: fleet
+
+  fleet-inventory:
+    type: file
+    machine: target
+    path: /etc/forjar/fleet/inventory.yaml
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — fleet inventory
+      fleet: production
+      members: []
+      last_sync: null
+    depends_on: [fleet-config-dir]
+    tags: [stack, fleet]
+    resource_group: fleet
+
+  # --- Layer 3: Monitoring ---
+  monitoring-config:
+    type: file
+    machine: target
+    path: /etc/prometheus/fleet-monitoring.yml
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — fleet monitoring
+      scrape_configs:
+        - job_name: fleet-node
+          static_configs:
+            - targets: ['localhost:9100']
+    depends_on: [fleet-config]
+    tags: [stack, monitoring]
+    resource_group: monitoring
+
+  # --- Stack Manifest ---
+  stack-manifest:
+    type: file
+    machine: target
+    path: /etc/forjar/stack-manifest.json
+    owner: root
+    mode: '0644'
+    content: |
+      {
+        "stack": "fleet-baseline",
+        "layers": [
+          {"name": "security", "recipes": ["09-secure-baseline"]},
+          {"name": "fleet", "recipes": ["24-fleet-provisioning"]},
+          {"name": "monitoring", "recipes": ["04-monitoring-stack"]}
+        ],
+        "fleet": "production",
+        "conflict_free": true
+      }
+    depends_on: [monitoring-config, fleet-inventory]
+    tags: [stack, manifest]
+    resource_group: manifest
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Converging fleet baseline stack'"
+  post_apply: "echo 'Fleet baseline stack ready'"
+  notify:
+    on_success: "echo 'Fleet baseline converged'"
+    on_failure: "echo 'Fleet baseline failed'"
+    on_drift: "echo 'Fleet baseline drift detected'"
+
+outputs:
+  stack_name:
+    value: "fleet-baseline"
+    description: "Composed stack name"
+  fleet:
+    value: "production"
+    description: "Fleet name"

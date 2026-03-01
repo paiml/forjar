@@ -1,0 +1,179 @@
+# Recipe: 58-stack-ml-inference
+# Tier: 1+2 (validate + container apply)
+# Idempotency: strong
+# Budget: first_apply < 120s, idempotent < 5s
+#
+# Composability test: ML Inference stack.
+# Layers: Security + GPU + APR Model + Monitoring + Secrets.
+# Validates GPU + model serving composition.
+
+version: '1.0'
+name: stack-ml-inference
+description: "Composed stack: security + GPU config + model serving + monitoring + secrets"
+
+params:
+  gpu_backend: rocm
+  model_name: llama-7b
+
+machines:
+  target:
+    hostname: target
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-cookbook-58-inference
+      ephemeral: false
+      privileged: false
+      init: true
+
+resources:
+  # --- Layer 1: Security ---
+  security-config:
+    type: file
+    machine: target
+    path: /etc/ssh/sshd_config.d/forjar-inference.conf
+    owner: root
+    mode: '0644'
+    content: |
+      PermitRootLogin no
+      PasswordAuthentication no
+    tags: [stack, security]
+    resource_group: security
+
+  # --- Layer 2: GPU Configuration ---
+  gpu-config-dir:
+    type: file
+    machine: target
+    state: directory
+    path: /etc/forjar/gpu
+    owner: root
+    mode: '0755'
+    depends_on: [security-config]
+    tags: [stack, gpu]
+    resource_group: gpu
+
+  gpu-config:
+    type: file
+    machine: target
+    path: /etc/forjar/gpu/inference.conf
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — ML inference stack
+      backend=rocm
+      devices=all
+      compute_mode=exclusive
+      memory_fraction=0.9
+    depends_on: [gpu-config-dir]
+    tags: [stack, gpu]
+    resource_group: gpu
+
+  # --- Layer 3: Model Serving ---
+  model-dir:
+    type: file
+    machine: target
+    state: directory
+    path: /opt/models
+    owner: root
+    mode: '0755'
+    depends_on: [gpu-config]
+    tags: [stack, model]
+    resource_group: model
+
+  model-config:
+    type: file
+    machine: target
+    path: /opt/models/serving.yaml
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — ML inference stack
+      model: llama-7b
+      backend: rocm
+      port: 8080
+      max_batch_size: 32
+      quantization: int8
+    depends_on: [model-dir]
+    tags: [stack, model]
+    resource_group: model
+
+  # --- Layer 4: Monitoring ---
+  monitoring-config:
+    type: file
+    machine: target
+    path: /etc/prometheus/inference-monitoring.yml
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — ML inference monitoring
+      scrape_configs:
+        - job_name: inference-metrics
+          static_configs:
+            - targets: ['localhost:8080']
+        - job_name: gpu-metrics
+          static_configs:
+            - targets: ['localhost:9400']
+    depends_on: [model-config]
+    tags: [stack, monitoring]
+    resource_group: monitoring
+
+  # --- Layer 5: Secrets ---
+  secrets-dir:
+    type: file
+    machine: target
+    state: directory
+    path: /etc/forjar/secrets
+    owner: root
+    mode: '0700'
+    depends_on: [security-config]
+    tags: [stack, secrets]
+    resource_group: secrets
+
+  # --- Stack Manifest ---
+  stack-manifest:
+    type: file
+    machine: target
+    path: /etc/forjar/stack-manifest.json
+    owner: root
+    mode: '0644'
+    content: |
+      {
+        "stack": "ml-inference",
+        "layers": [
+          {"name": "security", "recipes": ["09-secure-baseline"]},
+          {"name": "gpu", "recipes": ["07-rocm-gpu"]},
+          {"name": "model", "recipes": ["21-apr-model"]},
+          {"name": "monitoring", "recipes": ["04-monitoring-stack"]},
+          {"name": "secrets", "recipes": ["22-secrets-lifecycle"]}
+        ],
+        "gpu_backend": "rocm",
+        "conflict_free": true
+      }
+    depends_on: [monitoring-config, secrets-dir]
+    tags: [stack, manifest]
+    resource_group: manifest
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Converging ML inference stack'"
+  post_apply: "echo 'ML inference stack ready'"
+  notify:
+    on_success: "echo 'ML inference stack converged'"
+    on_failure: "echo 'ML inference stack failed'"
+    on_drift: "echo 'Inference stack drift detected'"
+
+outputs:
+  stack_name:
+    value: "ml-inference"
+    description: "Composed stack name"
+  gpu_backend:
+    value: "rocm"
+    description: "GPU backend"
