@@ -760,3 +760,83 @@ resources:
         "no recipe resources should remain"
     );
 }
+
+#[test]
+fn test_fj_recipe_to_recipe_depends_on_resolves_terminal() {
+    let dir = tempfile::tempdir().unwrap();
+    let recipes_dir = dir.path().join("recipes");
+    std::fs::create_dir_all(&recipes_dir).unwrap();
+
+    // Recipe A: two resources, second depends on first
+    std::fs::write(
+        recipes_dir.join("recipe-a.yaml"),
+        r#"
+recipe:
+  name: recipe-a
+resources:
+  step1:
+    type: package
+    provider: apt
+    packages: [curl]
+  step2:
+    type: file
+    path: /etc/a.conf
+    content: "done"
+    depends_on: [step1]
+"#,
+    )
+    .unwrap();
+
+    // Recipe B: one resource
+    std::fs::write(
+        recipes_dir.join("recipe-b.yaml"),
+        r#"
+recipe:
+  name: recipe-b
+resources:
+  only:
+    type: file
+    path: /etc/b.conf
+    content: "b-content"
+"#,
+    )
+    .unwrap();
+
+    // Stack: recipe-b depends_on recipe-a (recipe-to-recipe dep)
+    let yaml = r#"
+version: "1.0"
+name: recipe-dep-test
+machines:
+  m1:
+    hostname: m1
+    addr: 10.0.0.1
+resources:
+  first:
+    type: recipe
+    machine: m1
+    recipe: recipe-a
+  second:
+    type: recipe
+    machine: m1
+    recipe: recipe-b
+    depends_on: [first]
+"#;
+    let mut config = parse_config(yaml).unwrap();
+    expand_recipes(&mut config, Some(dir.path())).unwrap();
+
+    // recipe-a expands to first/step1, first/step2
+    // recipe-b expands to second/only
+    // second/only should depend on first/step2 (terminal of recipe-a)
+    assert!(config.resources.contains_key("first/step1"));
+    assert!(config.resources.contains_key("first/step2"));
+    assert!(config.resources.contains_key("second/only"));
+
+    let second_only = &config.resources["second/only"];
+    assert!(
+        second_only
+            .depends_on
+            .contains(&"first/step2".to_string()),
+        "recipe-to-recipe dep should resolve to terminal resource: got {:?}",
+        second_only.depends_on
+    );
+}

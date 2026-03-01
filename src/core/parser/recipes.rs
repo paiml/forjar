@@ -28,6 +28,30 @@ pub fn expand_recipes(config: &mut ForjarConfig, config_dir: Option<&Path>) -> R
             return Ok(());
         }
 
+        // Pre-pass: collect recipe IDs and their terminal expanded resource IDs.
+        // This lets us rewrite depends_on references from recipe IDs to their
+        // terminal (last) expanded resource, enabling recipe-to-recipe deps.
+        let mut terminal_map: HashMap<String, String> = HashMap::new();
+        for (id, resource) in &config.resources {
+            if resource.resource_type != ResourceType::Recipe {
+                continue;
+            }
+            let recipe_name = resource
+                .recipe
+                .as_deref()
+                .ok_or_else(|| format!("recipe resource '{}' has no recipe name", id))?;
+            let recipe_path = base_dir
+                .join("recipes")
+                .join(format!("{}.yaml", recipe_name));
+            if recipe_path.exists() {
+                if let Ok(recipe_file) = recipe::load_recipe(&recipe_path) {
+                    if let Some(terminal) = recipe::recipe_terminal_id(id, &recipe_file) {
+                        terminal_map.insert(id.clone(), terminal);
+                    }
+                }
+            }
+        }
+
         let mut expanded = indexmap::IndexMap::new();
 
         for (id, resource) in &config.resources {
@@ -55,6 +79,18 @@ pub fn expand_recipes(config: &mut ForjarConfig, config_dir: Option<&Path>) -> R
 
             expansion_map.insert(id.clone(), recipe_name.to_string());
 
+            // Rewrite depends_on: replace recipe IDs with their terminal resource
+            let resolved_deps: Vec<String> = resource
+                .depends_on
+                .iter()
+                .map(|dep| {
+                    terminal_map
+                        .get(dep.as_str())
+                        .cloned()
+                        .unwrap_or_else(|| dep.clone())
+                })
+                .collect();
+
             // Look for recipe file relative to config directory
             let recipe_path = base_dir
                 .join("recipes")
@@ -73,7 +109,7 @@ pub fn expand_recipes(config: &mut ForjarConfig, config_dir: Option<&Path>) -> R
                 &recipe_file,
                 &resource.machine,
                 &resource.inputs,
-                &resource.depends_on,
+                &resolved_deps,
             )?;
 
             for (res_id, res) in expanded_resources {
