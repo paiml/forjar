@@ -1,0 +1,166 @@
+# Recipe: 04-monitoring-stack
+# Tier: 2+3 (container + bare-metal)
+# Idempotency: weak (Docker container IDs change)
+# Budget: first_apply < 120s, idempotent < 5s
+#
+# Prometheus + Grafana monitoring stack with node_exporter.
+# All components run as Docker containers.
+
+version: '1.0'
+name: monitoring-stack
+description: "Prometheus + Grafana monitoring with node_exporter and alerting"
+
+params:
+  prometheus_port: "9090"
+  grafana_port: "3000"
+  retention_days: "30"
+  scrape_targets: "localhost:9100"
+
+machines:
+  monitor:
+    hostname: monitor
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-cookbook-04-monitoring
+      ephemeral: false
+      privileged: false
+      init: true
+
+resources:
+  prometheus-data:
+    type: file
+    machine: monitor
+    state: directory
+    path: /var/lib/prometheus
+    owner: root
+    mode: '0755'
+    tags: [monitoring, prometheus, storage]
+    resource_group: prometheus
+
+  prometheus-config:
+    type: file
+    machine: monitor
+    path: /etc/prometheus/prometheus.yml
+    content: |
+      # Managed by forjar — monitoring-stack recipe
+      global:
+        scrape_interval: 15s
+        evaluation_interval: 15s
+      scrape_configs:
+        - job_name: 'prometheus'
+          static_configs:
+            - targets: ['localhost:{{params.prometheus_port}}']
+        - job_name: 'node'
+          static_configs:
+            - targets: ['{{params.scrape_targets}}']
+    owner: root
+    mode: '0644'
+    depends_on: [prometheus-data]
+    tags: [monitoring, prometheus, config]
+    resource_group: prometheus
+
+  prometheus:
+    type: docker
+    machine: monitor
+    name: forjar-prometheus
+    image: "prom/prometheus:latest"
+    ports:
+      - "{{params.prometheus_port}}:9090"
+    volumes:
+      - "/etc/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro"
+      - "/var/lib/prometheus:/prometheus"
+    command: "--config.file=/etc/prometheus/prometheus.yml --storage.tsdb.retention.time={{params.retention_days}}d"
+    restart: always
+    depends_on: [prometheus-config]
+    tags: [monitoring, prometheus, docker]
+    resource_group: prometheus
+
+  grafana-data:
+    type: file
+    machine: monitor
+    state: directory
+    path: /var/lib/grafana
+    owner: root
+    mode: '0755'
+    tags: [monitoring, grafana, storage]
+    resource_group: grafana
+
+  grafana:
+    type: docker
+    machine: monitor
+    name: forjar-grafana
+    image: "grafana/grafana:latest"
+    ports:
+      - "{{params.grafana_port}}:3000"
+    volumes:
+      - "/var/lib/grafana:/var/lib/grafana"
+    environment:
+      - "GF_SECURITY_ADMIN_PASSWORD=admin"
+      - "GF_USERS_ALLOW_SIGN_UP=false"
+    restart: always
+    depends_on: [grafana-data]
+    tags: [monitoring, grafana, docker]
+    resource_group: grafana
+
+  node-exporter:
+    type: docker
+    machine: monitor
+    name: forjar-node-exporter
+    image: "prom/node-exporter:latest"
+    ports:
+      - "9100:9100"
+    volumes:
+      - "/proc:/host/proc:ro"
+      - "/sys:/host/sys:ro"
+      - "/:/rootfs:ro"
+    command: "--path.procfs=/host/proc --path.sysfs=/host/sys --path.rootfs=/rootfs"
+    restart: always
+    tags: [monitoring, node-exporter, docker]
+    resource_group: monitoring
+
+  firewall-grafana:
+    type: network
+    machine: monitor
+    protocol: tcp
+    port: "{{params.grafana_port}}"
+    action: allow
+    depends_on: [grafana]
+    tags: [monitoring, firewall]
+    resource_group: firewall
+
+  firewall-prometheus:
+    type: network
+    machine: monitor
+    protocol: tcp
+    port: "{{params.prometheus_port}}"
+    action: deny
+    from: "0.0.0.0/0"
+    depends_on: [prometheus]
+    tags: [monitoring, firewall, security]
+    resource_group: firewall
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Deploying monitoring stack'"
+  post_apply: "echo 'Monitoring stack deployed'"
+  notify:
+    on_success: "echo 'Monitoring stack converged'"
+    on_failure: "echo 'Monitoring deployment failed'"
+    on_drift: "echo 'Monitoring configuration drift detected'"
+
+outputs:
+  grafana_url:
+    value: "http://localhost:{{params.grafana_port}}"
+    description: "Grafana dashboard URL"
+  prometheus_url:
+    value: "http://localhost:{{params.prometheus_port}}"
+    description: "Prometheus query endpoint (internal only)"

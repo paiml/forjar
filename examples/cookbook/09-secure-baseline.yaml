@@ -1,0 +1,156 @@
+# Recipe: 09-secure-baseline
+# Tier: 2+3 (container + bare-metal)
+# Idempotency: strong
+# Budget: first_apply < 60s, idempotent < 2s
+#
+# Minimal security hardening: SSH lockdown, firewall defaults,
+# fail2ban, and automatic updates. Apply this recipe to any server
+# as a first step before deploying application workloads.
+
+version: '1.0'
+name: secure-baseline
+description: "Security hardening baseline with SSH lockdown, firewall, and fail2ban"
+
+params:
+  ssh_port: "22"
+  allowed_ssh_cidr: "0.0.0.0/0"
+  fail2ban_maxretry: "5"
+
+machines:
+  target:
+    hostname: target
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-cookbook-09-secure
+      ephemeral: false
+      privileged: false
+      init: true
+
+resources:
+  security-pkgs:
+    type: package
+    machine: target
+    provider: apt
+    packages:
+      - fail2ban
+      - unattended-upgrades
+      - ufw
+    tags: [security, packages]
+    resource_group: security
+
+  sshd-config:
+    type: file
+    machine: target
+    path: /etc/ssh/sshd_config
+    content: |
+      # Managed by forjar — secure-baseline recipe
+      Port {{params.ssh_port}}
+      PermitRootLogin no
+      PasswordAuthentication no
+      PubkeyAuthentication yes
+      ChallengeResponseAuthentication no
+      UsePAM yes
+      X11Forwarding no
+      AllowTcpForwarding no
+      MaxAuthTries 3
+      LoginGraceTime 60
+      ClientAliveInterval 300
+      ClientAliveCountMax 2
+    owner: root
+    mode: '0600'
+    depends_on: [security-pkgs]
+    tags: [security, ssh]
+    resource_group: ssh
+
+  sshd-service:
+    type: service
+    machine: target
+    name: sshd
+    state: running
+    enabled: true
+    restart_on: [sshd-config]
+    depends_on: [sshd-config]
+    tags: [security, ssh]
+    resource_group: ssh
+
+  fail2ban-config:
+    type: file
+    machine: target
+    path: /etc/fail2ban/jail.local
+    content: |
+      # Managed by forjar — secure-baseline recipe
+      [DEFAULT]
+      bantime = 3600
+      findtime = 600
+      maxretry = {{params.fail2ban_maxretry}}
+
+      [sshd]
+      enabled = true
+      port = {{params.ssh_port}}
+      filter = sshd
+      logpath = /var/log/auth.log
+      maxretry = {{params.fail2ban_maxretry}}
+    owner: root
+    mode: '0644'
+    depends_on: [security-pkgs]
+    tags: [security, fail2ban]
+    resource_group: security
+
+  fail2ban-service:
+    type: service
+    machine: target
+    name: fail2ban
+    state: running
+    enabled: true
+    restart_on: [fail2ban-config]
+    depends_on: [fail2ban-config]
+    tags: [security, fail2ban]
+    resource_group: security
+
+  firewall-ssh:
+    type: network
+    machine: target
+    protocol: tcp
+    port: "{{params.ssh_port}}"
+    action: allow
+    from: "{{params.allowed_ssh_cidr}}"
+    depends_on: [security-pkgs]
+    tags: [security, firewall]
+    resource_group: firewall
+
+  firewall-default-deny:
+    type: network
+    machine: target
+    protocol: tcp
+    port: "0"
+    action: deny
+    from: "0.0.0.0/0"
+    depends_on: [security-pkgs]
+    tags: [security, firewall]
+    resource_group: firewall
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Applying security baseline'"
+  post_apply: "echo 'Security baseline applied — verify SSH access before disconnecting'"
+  notify:
+    on_success: "echo 'Security baseline converged'"
+    on_failure: "echo 'CRITICAL: Security baseline failed — manual intervention required'"
+    on_drift: "echo 'SECURITY DRIFT: baseline configuration changed'"
+
+outputs:
+  ssh_port:
+    value: "{{params.ssh_port}}"
+    description: "Configured SSH port"
+  firewall_status:
+    value: "active"
+    description: "Expected firewall status after apply"

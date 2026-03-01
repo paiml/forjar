@@ -1,0 +1,157 @@
+# Recipe: 02-web-server
+# Tier: 2+3 (container + bare-metal)
+# Idempotency: strong
+# Budget: first_apply < 90s, idempotent < 3s
+#
+# Nginx reverse proxy with site config, TLS directory structure,
+# and firewall rules. Extends the basic web-server recipe template
+# with production-grade policy and observability.
+
+version: '1.0'
+name: web-application-server
+description: "Nginx reverse proxy with TLS, firewall, and site configuration"
+
+params:
+  domain: example.com
+  port: "443"
+  upstream_port: "8080"
+  log_level: warn
+
+machines:
+  webhost:
+    hostname: webhost
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-cookbook-02-webserver
+      ephemeral: false
+      privileged: false
+      init: true
+
+resources:
+  nginx-pkg:
+    type: package
+    machine: webhost
+    provider: apt
+    packages: [nginx]
+    tags: [web, nginx]
+    resource_group: web-server
+
+  tls-dir:
+    type: file
+    machine: webhost
+    state: directory
+    path: "/etc/nginx/ssl/{{params.domain}}"
+    owner: root
+    mode: '0700'
+    depends_on: [nginx-pkg]
+    tags: [web, tls]
+    resource_group: web-server
+
+  nginx-site:
+    type: file
+    machine: webhost
+    path: "/etc/nginx/sites-available/{{params.domain}}"
+    content: |
+      # Managed by forjar — web-application-server recipe
+      upstream app_backend {
+        server 127.0.0.1:{{params.upstream_port}};
+      }
+      server {
+        listen {{params.port}} ssl;
+        server_name {{params.domain}};
+        ssl_certificate /etc/nginx/ssl/{{params.domain}}/cert.pem;
+        ssl_certificate_key /etc/nginx/ssl/{{params.domain}}/key.pem;
+        error_log /var/log/nginx/{{params.domain}}.error.log {{params.log_level}};
+        access_log /var/log/nginx/{{params.domain}}.access.log;
+        location / {
+          proxy_pass http://app_backend;
+          proxy_set_header Host $host;
+          proxy_set_header X-Real-IP $remote_addr;
+          proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+          proxy_set_header X-Forwarded-Proto $scheme;
+        }
+      }
+    owner: root
+    mode: '0644'
+    depends_on: [tls-dir]
+    tags: [web, nginx, config]
+    resource_group: web-server
+
+  nginx-enable:
+    type: file
+    machine: webhost
+    path: "/etc/nginx/sites-enabled/{{params.domain}}"
+    source: "/etc/nginx/sites-available/{{params.domain}}"
+    owner: root
+    mode: '0644'
+    depends_on: [nginx-site]
+    tags: [web, nginx]
+    resource_group: web-server
+
+  nginx-service:
+    type: service
+    machine: webhost
+    name: nginx
+    state: running
+    enabled: true
+    restart_on: [nginx-site]
+    depends_on: [nginx-enable]
+    tags: [web, nginx]
+    resource_group: web-server
+
+  firewall-https:
+    type: network
+    machine: webhost
+    protocol: tcp
+    port: "{{params.port}}"
+    action: allow
+    depends_on: [nginx-pkg]
+    tags: [web, firewall]
+    resource_group: firewall
+
+  firewall-http:
+    type: network
+    machine: webhost
+    protocol: tcp
+    port: "80"
+    action: allow
+    depends_on: [nginx-pkg]
+    tags: [web, firewall]
+    resource_group: firewall
+
+  firewall-deny-upstream:
+    type: network
+    machine: webhost
+    protocol: tcp
+    port: "{{params.upstream_port}}"
+    action: deny
+    from: "0.0.0.0/0"
+    depends_on: [nginx-pkg]
+    tags: [web, firewall, security]
+    resource_group: firewall
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Deploying web server for {{params.domain}}'"
+  post_apply: "nginx -t 2>/dev/null && echo 'Nginx config valid' || echo 'WARNING: nginx config test failed'"
+  notify:
+    on_success: "echo 'Web server {{params.domain}} deployed successfully'"
+    on_failure: "echo 'Web server deployment failed for {{params.domain}}'"
+    on_drift: "echo 'Web server config drift detected on {{params.domain}}'"
+
+outputs:
+  site_url:
+    value: "https://{{params.domain}}:{{params.port}}"
+    description: "URL for the deployed web application"
+  config_path:
+    value: "/etc/nginx/sites-available/{{params.domain}}"
+    description: "Path to the nginx site configuration file"

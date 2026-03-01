@@ -1,0 +1,101 @@
+# Recipe: 10-nfs-server
+# Tier: 1+3 (validate in CI, needs real kernel for mounts)
+# Idempotency: strong
+# Budget: first_apply < 60s, idempotent < 2s
+#
+# NFS file server with exports config and firewall. Paired with
+# a client-side recipe for mount points.
+
+version: '1.0'
+name: nfs-file-server
+description: "NFS file server with exports, firewall, and automated service management"
+
+params:
+  export_path: /srv/nfs/shared
+  allowed_network: "192.168.0.0/24"
+  options: "rw,sync,no_subtree_check"
+
+machines:
+  nfs-host:
+    hostname: nfs-host
+    addr: localhost
+    user: root
+    arch: x86_64
+    transport: local
+
+resources:
+  nfs-pkg:
+    type: package
+    machine: nfs-host
+    provider: apt
+    packages:
+      - nfs-kernel-server
+    tags: [nfs, server]
+    resource_group: nfs
+
+  export-dir:
+    type: file
+    machine: nfs-host
+    state: directory
+    path: "{{params.export_path}}"
+    owner: root
+    mode: '0755'
+    depends_on: [nfs-pkg]
+    tags: [nfs, storage]
+    resource_group: nfs
+
+  exports-config:
+    type: file
+    machine: nfs-host
+    path: /etc/exports
+    content: |
+      # Managed by forjar — nfs-file-server recipe
+      {{params.export_path}} {{params.allowed_network}}({{params.options}})
+    owner: root
+    mode: '0644'
+    depends_on: [export-dir]
+    tags: [nfs, config]
+    resource_group: nfs
+
+  nfs-service:
+    type: service
+    machine: nfs-host
+    name: nfs-kernel-server
+    state: running
+    enabled: true
+    restart_on: [exports-config]
+    depends_on: [exports-config]
+    tags: [nfs, server]
+    resource_group: nfs
+
+  firewall-nfs:
+    type: network
+    machine: nfs-host
+    protocol: tcp
+    port: "2049"
+    action: allow
+    from: "{{params.allowed_network}}"
+    depends_on: [nfs-service]
+    tags: [nfs, firewall]
+    resource_group: firewall
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Configuring NFS server'"
+  post_apply: "exportfs -ra 2>/dev/null && echo 'NFS exports refreshed' || echo 'exportfs not available'"
+  notify:
+    on_success: "echo 'NFS server converged'"
+    on_failure: "echo 'NFS server setup failed'"
+    on_drift: "echo 'NFS configuration drift detected'"
+
+outputs:
+  export_path:
+    value: "{{params.export_path}}"
+    description: "Exported NFS directory"
+  nfs_port:
+    value: "2049"
+    description: "NFS server port"

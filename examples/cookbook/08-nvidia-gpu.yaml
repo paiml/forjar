@@ -1,0 +1,89 @@
+# Recipe: 08-nvidia-gpu
+# Tier: 1+3 (validate in CI, needs NVIDIA hardware)
+# Idempotency: strong
+# Budget: first_apply < 30s, idempotent < 2s
+#
+# NVIDIA GPU with CUDA toolkit, persistence mode, compute mode
+# lockdown, and container toolkit for Docker GPU passthrough.
+
+version: '1.0'
+name: nvidia-gpu-server
+description: "NVIDIA GPU server with CUDA, persistence mode, and container toolkit"
+
+params:
+  driver_version: "550"
+  cuda_version: "12.4"
+  compute_mode: default
+  gpu_devices: "all"
+
+machines:
+  gpu-host:
+    hostname: gpu-host
+    addr: localhost
+    user: root
+    arch: x86_64
+    transport: local
+
+resources:
+  nvidia-gpu:
+    type: gpu
+    machine: gpu-host
+    name: nvidia-gpu0
+    gpu_backend: nvidia
+    driver_version: "{{params.driver_version}}"
+    cuda_version: "{{params.cuda_version}}"
+    compute_mode: "{{params.compute_mode}}"
+    persistence_mode: true
+    tags: [gpu, nvidia, hardware]
+    resource_group: gpu
+
+  nvidia-container-toolkit:
+    type: package
+    machine: gpu-host
+    provider: apt
+    packages:
+      - nvidia-container-toolkit
+    depends_on: [nvidia-gpu]
+    tags: [gpu, nvidia, docker]
+    resource_group: gpu
+
+  gpu-health-cron:
+    type: cron
+    machine: gpu-host
+    schedule: "0 */6 * * *"
+    command: "nvidia-smi --query-gpu=name,temperature.gpu,utilization.gpu,memory.used --format=csv,noheader 2>/dev/null | logger -t gpu-health || true"
+    name: nvidia-health-check
+    depends_on: [nvidia-gpu]
+    tags: [gpu, monitoring]
+    resource_group: monitoring
+
+  firewall-deny-gpu-api:
+    type: network
+    machine: gpu-host
+    protocol: tcp
+    port: "8080"
+    action: deny
+    from: "0.0.0.0/0"
+    tags: [gpu, firewall, security]
+    resource_group: firewall
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Configuring NVIDIA GPU environment'"
+  post_apply: "echo 'NVIDIA GPU environment configured'"
+  notify:
+    on_success: "echo 'NVIDIA GPU converged'"
+    on_failure: "echo 'NVIDIA GPU setup failed'"
+    on_drift: "echo 'NVIDIA GPU configuration drift detected'"
+
+outputs:
+  gpu_backend:
+    value: "nvidia"
+    description: "GPU compute backend"
+  cuda_version:
+    value: "{{params.cuda_version}}"
+    description: "Installed CUDA toolkit version"
