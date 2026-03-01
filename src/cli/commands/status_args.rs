@@ -619,4 +619,13 @@ pub struct StatusArgs {
     /// FJ-1075: Fleet machine health score
     #[arg(long)]
     pub fleet_machine_health_score: bool,
+    /// FJ-1077: Fleet resource dependency lag report
+    #[arg(long)]
+    pub fleet_resource_dependency_lag_report: bool,
+    /// FJ-1080: Machine resource convergence rate trend
+    #[arg(long)]
+    pub machine_resource_convergence_rate_trend: bool,
+    /// FJ-1083: Fleet resource apply lag
+    #[arg(long)]
+    pub fleet_resource_apply_lag: bool,
 }

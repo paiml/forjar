@@ -85,6 +85,8 @@ mod tests {
             resource_dependency_layering: false,
             resource_lifecycle_stage_map: false,
             resource_dependency_age_overlay: false, resource_dependency_health_overlay: false, resource_dependency_width_analysis: false, resource_dependency_critical_path_highlight: false, resource_dependency_bottleneck_detection: false,
+                resource_topology_cluster_analysis: false,
+                resource_dependency_island_detection: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { highlight, .. }) => {
@@ -164,6 +166,8 @@ mod tests {
             resource_dependency_layering: false,
             resource_lifecycle_stage_map: false,
             resource_dependency_age_overlay: false, resource_dependency_health_overlay: false, resource_dependency_width_analysis: false, resource_dependency_critical_path_highlight: false, resource_dependency_bottleneck_detection: false,
+                resource_topology_cluster_analysis: false,
+                resource_dependency_island_detection: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { hotspots, .. }) => assert!(hotspots),

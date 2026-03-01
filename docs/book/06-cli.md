@@ -3391,6 +3391,48 @@ forjar validate -f forjar.yaml --check-resource-content-drift-risk
 #   app-config (file): risk=4 (base=3, deps=1)
 ```
 
+#### Phase 102 — Resource Intelligence & Topology Insight (FJ-1077→FJ-1084)
+
+```bash
+# FJ-1077: Fleet resource dependency lag report
+forjar status --state-dir ./state --fleet-resource-dependency-lag-report
+# === Fleet Resource Dependency Lag ===
+#   web: 1 lagging (of 2 total)
+
+# FJ-1078: Resource circular dependency depth
+forjar validate -f forjar.yaml --check-resource-circular-dependency-depth
+# Circular dependency check: ok (0 cycles found)
+
+# FJ-1079: Resource topology cluster analysis
+forjar graph -f forjar.yaml --resource-topology-cluster-analysis
+# Topology cluster analysis (2 cluster(s)):
+#   Cluster 0 (2 member(s)): app-config, base-pkg
+#   Cluster 1 (1 member(s)): standalone-cron
+
+# FJ-1080: Machine resource convergence rate trend
+forjar status --state-dir ./state --machine-resource-convergence-rate-trend
+# === Machine Resource Convergence Rate Trend ===
+#   web: 50.0% (1 converged / 2 total)
+
+# FJ-1081: Resource orphan detection (deep)
+forjar validate -f forjar.yaml --check-resource-orphan-detection-deep
+# Orphan detection: ok (0 unreachable resources)
+
+# FJ-1082: Resource dependency island detection
+forjar graph -f forjar.yaml --resource-dependency-island-detection
+# Dependency island detection (1 island(s)):
+#   standalone-cron
+
+# FJ-1083: Fleet resource apply lag
+forjar status --state-dir ./state --fleet-resource-apply-lag
+# === Fleet Resource Apply Lag ===
+#   web: 0d (generated_at=2026-02-28T00:00:00Z)
+
+# FJ-1084: Resource provider diversity
+forjar validate -f forjar.yaml --check-resource-provider-diversity
+# Provider diversity: 3 types found (file, package, service)
+```
+
 ### `forjar watch`
 
 Watch a config file for changes and automatically re-plan.

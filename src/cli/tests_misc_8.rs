@@ -292,7 +292,7 @@ mod tests {
             fleet_resource_age_histogram: false,
             fleet_security_posture_summary: false,
             machine_resource_freshness_index: false,
-            fleet_resource_type_coverage: false, fleet_apply_cadence: false, machine_resource_error_classification: false, fleet_resource_convergence_summary: false, fleet_resource_staleness_report: false, machine_resource_type_distribution: false, fleet_machine_health_score: false,
+            fleet_resource_type_coverage: false, fleet_apply_cadence: false, machine_resource_error_classification: false, fleet_resource_convergence_summary: false, fleet_resource_staleness_report: false, machine_resource_type_distribution: false, fleet_machine_health_score: false, fleet_resource_dependency_lag_report: false, machine_resource_convergence_rate_trend: false, fleet_resource_apply_lag: false,
         });
         match cmd {
             Commands::Status(StatusArgs { timeline, .. }) => assert!(timeline),

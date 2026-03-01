@@ -2952,7 +2952,20 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 | FJ-1073 | `forjar validate --check-resource-tag-required-keys` — warn if resources lack required tag keys (e.g., env, team, tier). Governance. | 🔧 In Progress |
 | FJ-1074 | `forjar graph --resource-dependency-bottleneck-detection` — identify resources with high fan-in that create bottlenecks. Analysis. | 🔧 In Progress |
 | FJ-1075 | `forjar status --fleet-machine-health-score` — compute composite health score per machine based on convergence, drift, and error rates. Intelligence. | 🔧 In Progress |
-| FJ-1076 | `forjar validate --check-resource-content-drift-risk` — score drift risk based on resource type, content volatility, and dependency count. Governance. | 🔧 In Progress |
+| FJ-1076 | `forjar validate --check-resource-content-drift-risk` — score drift risk based on resource type, content volatility, and dependency count. Governance. | ✅ Done |
+
+### Phase 102 — Resource Intelligence & Topology Insight (FJ-1077→FJ-1084)
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-1077 | `forjar status --fleet-resource-dependency-lag` — report dependency lag: time since dependencies last converged vs. their dependents. Intelligence. | 🔧 In Progress |
+| FJ-1078 | `forjar validate --check-resource-circular-dependency-depth` — warn if circular dependency chains exceed configurable depth. Governance. | 🔧 In Progress |
+| FJ-1079 | `forjar graph --resource-topology-cluster-analysis` — identify clusters of tightly coupled resources in the dependency graph. Analysis. | 🔧 In Progress |
+| FJ-1080 | `forjar status --machine-resource-convergence-rate-trend` — track convergence rate changes over time per machine. Intelligence. | 🔧 In Progress |
+| FJ-1081 | `forjar validate --check-resource-orphan-detection-deep` — detect resources unreachable from any root via transitive closure. Governance. | 🔧 In Progress |
+| FJ-1082 | `forjar graph --resource-dependency-island-detection` — find disconnected subgraphs (islands) in the dependency graph. Analysis. | 🔧 In Progress |
+| FJ-1083 | `forjar status --fleet-resource-apply-lag` — report time since last successful apply per machine. Intelligence. | 🔧 In Progress |
+| FJ-1084 | `forjar validate --check-resource-provider-diversity` — warn if all resources use a single provider (no redundancy). Governance. | 🔧 In Progress |
 
 ---
 
