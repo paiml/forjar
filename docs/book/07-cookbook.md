@@ -1470,3 +1470,42 @@ Example output:
 ```
 
 Checks are context-aware — SSH is only checked if your config has remote machines, Docker only if you have container machines, and age identity only if your config contains `ENC[age,...]` markers.
+
+## Cookbook Recipe Index
+
+The `examples/cookbook/` directory contains validated recipes covering common infrastructure patterns:
+
+| # | Recipe | Resources | Key Types |
+|---|--------|-----------|-----------|
+| 01 | Developer Workstation | 7 | package, user, file |
+| 02 | Web Server (Nginx) | 8 | package, file, service, network |
+| 03 | PostgreSQL | 8 | package, file, service, cron |
+| 04 | Monitoring Stack | 8 | docker, file, network |
+| 05 | Redis Cache | 4 | docker, file, network |
+| 06 | CI Runner | 9 | package, file, user, docker |
+| 07 | ROCm GPU | 4 | gpu, user, package, cron |
+| 08 | NVIDIA GPU | 4 | gpu, user, package, cron |
+| 09 | Secure Baseline | 7 | package, file, service, network |
+| 10 | NFS Server | 5 | package, file, service, mount |
+| 12 | Toolchain Pin | 6 | file, cron |
+| 16 | Rust Release Build | 4 | package, file |
+| 17 | Static Musl Build | 5 | package, file |
+| 22 | Secrets Lifecycle | 7 | file, cron |
+| 23 | TLS Certificates | 7 | file, cron |
+| 24 | Fleet Provisioning | 8 | package, file, cron |
+| 40 | Scheduled Tasks | 8 | cron, file |
+| 41 | User Provisioning | 7 | user, file |
+| 42 | Kernel Tuning | 5 | file |
+| 43 | Log Management | 7 | package, file, cron |
+| 44 | Time Sync (Chrony) | 5 | package, file, service |
+| 45 | Systemd Units | 6 | file, cron |
+| 46 | Resource Limits | 4 | file |
+| 47 | Automated Patching | 6 | package, file, cron |
+| 48 | Hostname & Locale | 6 | file |
+| 49 | Swap & Memory | 4 | file, cron |
+
+Score all recipes programmatically:
+
+```bash
+cargo run --example score_cookbook
+```
