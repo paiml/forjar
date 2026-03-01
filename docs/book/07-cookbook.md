@@ -1475,34 +1475,46 @@ Checks are context-aware — SSH is only checked if your config has remote machi
 
 The `examples/cookbook/` directory contains validated recipes covering common infrastructure patterns:
 
-| # | Recipe | Resources | Key Types |
-|---|--------|-----------|-----------|
-| 01 | Developer Workstation | 7 | package, user, file |
-| 02 | Web Server (Nginx) | 8 | package, file, service, network |
-| 03 | PostgreSQL | 8 | package, file, service, cron |
-| 04 | Monitoring Stack | 8 | docker, file, network |
-| 05 | Redis Cache | 4 | docker, file, network |
-| 06 | CI Runner | 9 | package, file, user, docker |
-| 07 | ROCm GPU | 4 | gpu, user, package, cron |
-| 08 | NVIDIA GPU | 4 | gpu, user, package, cron |
-| 09 | Secure Baseline | 7 | package, file, service, network |
-| 10 | NFS Server | 5 | package, file, service, mount |
-| 12 | Toolchain Pin | 6 | file, cron |
-| 16 | Rust Release Build | 4 | package, file |
-| 17 | Static Musl Build | 5 | package, file |
-| 22 | Secrets Lifecycle | 7 | file, cron |
-| 23 | TLS Certificates | 7 | file, cron |
-| 24 | Fleet Provisioning | 8 | package, file, cron |
-| 40 | Scheduled Tasks | 8 | cron, file |
-| 41 | User Provisioning | 7 | user, file |
-| 42 | Kernel Tuning | 5 | file |
-| 43 | Log Management | 7 | package, file, cron |
-| 44 | Time Sync (Chrony) | 5 | package, file, service |
-| 45 | Systemd Units | 6 | file, cron |
-| 46 | Resource Limits | 4 | file |
-| 47 | Automated Patching | 6 | package, file, cron |
-| 48 | Hostname & Locale | 6 | file |
-| 49 | Swap & Memory | 4 | file, cron |
+| # | Recipe | Resources | Key Types | Phase |
+|---|--------|-----------|-----------|-------|
+| 01 | Developer Workstation | 7 | package, user, file | Core |
+| 02 | Web Server (Nginx) | 8 | package, file, service, network | Core |
+| 03 | PostgreSQL | 8 | package, file, service, cron | Core |
+| 04 | Monitoring Stack | 8 | docker, file, network | Core |
+| 05 | Redis Cache | 4 | docker, file, network | Core |
+| 06 | CI Runner | 9 | package, file, user, docker | GPU/HW |
+| 07 | ROCm GPU | 4 | gpu, user, package, cron | GPU/HW |
+| 08 | NVIDIA GPU | 4 | gpu, user, package, cron | GPU/HW |
+| 09 | Secure Baseline | 7 | package, file, service, network | Core |
+| 10 | NFS Server | 5 | package, file, service, mount | GPU/HW |
+| 11 | Dev Shell | 4 | package, file | Nix-style |
+| 12 | Toolchain Pin | 6 | file, cron | Nix-style |
+| 13 | Build Sandbox | 4 | package, file | Nix-style |
+| 14 | System Profile | 9 | package, user, file | Nix-style |
+| 15 | Multi-Project Workspace | 9 | package, file | Nix-style |
+| 16 | Rust Release Build | 4 | package, file | Rust Build |
+| 17 | Static Musl Build | 5 | package, file | Rust Build |
+| 19 | Cross-Compilation | 7 | package, file | Rust Build |
+| 20 | Sovereign Stack Release | 7 | package, file | Rust Build |
+| 21 | APR Model Pipeline | 9 | file, cron | Rust Build |
+| 22 | Secrets Lifecycle | 7 | file, cron | Ops |
+| 23 | TLS Certificates | 7 | file, cron | Ops |
+| 24 | Fleet Provisioning | 8 | package, file, cron | Ops |
+| 25 | APT Repository | 5 | file | Packages |
+| 26 | .deb Package Build | 7 | package, file | Packages |
+| 27 | Private APT Repo | 8 | package, file, service, network | Packages |
+| 28 | RPM Build | 7 | package, file | Packages |
+| 29 | Distribution Pipeline | 8 | package, file | Packages |
+| 40 | Scheduled Tasks | 8 | cron, file | Linux Admin |
+| 41 | User Provisioning | 7 | user, file | Linux Admin |
+| 42 | Kernel Tuning | 5 | file | Linux Admin |
+| 43 | Log Management | 7 | package, file, cron | Linux Admin |
+| 44 | Time Sync (Chrony) | 5 | package, file, service | Linux Admin |
+| 45 | Systemd Units | 6 | file, cron | Linux Admin |
+| 46 | Resource Limits | 4 | file | Linux Admin |
+| 47 | Automated Patching | 6 | package, file, cron | Linux Admin |
+| 48 | Hostname & Locale | 6 | file | Linux Admin |
+| 49 | Swap & Memory | 4 | file, cron | Linux Admin |
 
 Score all recipes programmatically:
 
