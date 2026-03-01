@@ -17,6 +17,8 @@ mod tests_container;
 mod tests_container_b;
 #[cfg(test)]
 mod tests_container_c;
+#[cfg(test)]
+mod tests_container_d;
 
 use crate::core::types::Machine;
 
