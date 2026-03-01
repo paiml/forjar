@@ -21,6 +21,7 @@ fn container_machine() -> Machine {
             devices: vec![],
             group_add: vec![],
             env: std::collections::HashMap::new(),
+            volumes: vec![],
         }),
         pepita: None,
         cost: 0,
@@ -109,6 +110,7 @@ fn test_fj021_ensure_no_image() {
             devices: vec![],
             group_add: vec![],
             env: std::collections::HashMap::new(),
+            volumes: vec![],
         }),
         pepita: None,
         cost: 0,
@@ -157,6 +159,7 @@ fn test_fj021_exec_with_fake_runtime() {
             devices: vec![],
             group_add: vec![],
             env: std::collections::HashMap::new(),
+            volumes: vec![],
         }),
         pepita: None,
         cost: 0,
@@ -209,6 +212,7 @@ fn test_fj021_container_name_derived_from_hostname() {
             devices: vec![],
             group_add: vec![],
             env: std::collections::HashMap::new(),
+            volumes: vec![],
         }),
         pepita: None,
         cost: 0,
@@ -237,6 +241,7 @@ fn test_fj021_container_name_explicit_overrides() {
             devices: vec![],
             group_add: vec![],
             env: std::collections::HashMap::new(),
+            volumes: vec![],
         }),
         pepita: None,
         cost: 0,
@@ -266,6 +271,7 @@ fn test_fj021_podman_runtime() {
             devices: vec![],
             group_add: vec![],
             env: std::collections::HashMap::new(),
+            volumes: vec![],
         }),
         pepita: None,
         cost: 0,
@@ -304,6 +310,7 @@ fn test_fj021_ensure_with_privileged_and_init_flags() {
             devices: vec![],
             group_add: vec![],
             env: std::collections::HashMap::new(),
+            volumes: vec![],
         }),
         pepita: None,
         cost: 0,
@@ -339,6 +346,7 @@ fn test_fj021_ensure_with_gpus_flag() {
             devices: vec![],
             group_add: vec![],
             env: std::collections::HashMap::new(),
+            volumes: vec![],
         }),
         pepita: None,
         cost: 0,
@@ -374,6 +382,7 @@ fn test_fj021_ensure_with_rocm_devices() {
             group_add: vec!["video".to_string(), "render".to_string()],
             env: [("ROCR_VISIBLE_DEVICES".to_string(), "0".to_string())]
                 .into_iter().collect(),
+            volumes: vec![],
         }),
         pepita: None,
         cost: 0,
@@ -409,6 +418,7 @@ fn test_fj021_ensure_with_env_vars() {
             group_add: vec![],
             env: [("CUDA_VISIBLE_DEVICES".to_string(), "0,1".to_string())]
                 .into_iter().collect(),
+            volumes: vec![],
         }),
         pepita: None,
         cost: 0,
@@ -443,6 +453,7 @@ fn test_fj021_ensure_no_init_no_privileged() {
             devices: vec![],
             group_add: vec![],
             env: std::collections::HashMap::new(),
+            volumes: vec![],
         }),
         pepita: None,
         cost: 0,
@@ -451,6 +462,44 @@ fn test_fj021_ensure_no_init_no_privileged() {
     assert!(
         result.is_ok(),
         "ensure without init/privileged should succeed"
+    );
+}
+
+#[test]
+fn test_fj021_ensure_with_volumes() {
+    // Docker socket mount pattern for DinD / observability stacks
+    let machine = Machine {
+        hostname: "dind-box".to_string(),
+        addr: "container".to_string(),
+        user: "root".to_string(),
+        arch: "x86_64".to_string(),
+        ssh_key: None,
+        roles: vec![],
+        transport: Some("container".to_string()),
+        container: Some(ContainerConfig {
+            runtime: "/bin/echo".to_string(),
+            image: Some("forjar-test-target".to_string()),
+            name: Some("forjar-vol-test".to_string()),
+            ephemeral: true,
+            privileged: false,
+            init: true,
+            gpus: None,
+            devices: vec![],
+            group_add: vec![],
+            env: std::collections::HashMap::new(),
+            volumes: vec![
+                "/var/run/docker.sock:/var/run/docker.sock".to_string(),
+                "/data:/container-data:ro".to_string(),
+            ],
+        }),
+        pepita: None,
+        cost: 0,
+    };
+    let result = ensure_container(&machine);
+    assert!(
+        result.is_ok(),
+        "ensure with volumes should succeed: {:?}",
+        result
     );
 }
 

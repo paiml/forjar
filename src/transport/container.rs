@@ -111,6 +111,13 @@ pub fn ensure_container(machine: &Machine) -> Result<(), String> {
         args.push(pair);
     }
 
+    // Volume mounts (Docker socket, data dirs, etc.)
+    let volume_values: Vec<String> = config.volumes.clone();
+    for vol in &volume_values {
+        args.push("-v");
+        args.push(vol);
+    }
+
     args.push(image);
     args.push("sleep");
     args.push("infinity");

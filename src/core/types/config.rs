@@ -235,6 +235,10 @@ pub struct ContainerConfig {
     /// Environment variables via `--env` (e.g., `CUDA_VISIBLE_DEVICES`, `ROCR_VISIBLE_DEVICES`).
     #[serde(default)]
     pub env: std::collections::HashMap<String, String>,
+
+    /// Volume mounts via `-v` (e.g., `/var/run/docker.sock:/var/run/docker.sock`).
+    #[serde(default)]
+    pub volumes: Vec<String>,
 }
 
 fn default_runtime() -> String {

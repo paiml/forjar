@@ -193,6 +193,7 @@ fn test_transport_container_dispatch_priority() {
             devices: vec![],
             group_add: vec![],
             env: std::collections::HashMap::new(),
+            volumes: vec![],
         }),
         pepita: None,
         cost: 0,
