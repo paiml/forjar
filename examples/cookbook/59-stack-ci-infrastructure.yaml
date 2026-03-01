@@ -1,0 +1,155 @@
+# Recipe: 59-stack-ci-infrastructure
+# Tier: 1+2 (validate + container apply)
+# Idempotency: strong
+# Budget: first_apply < 120s, idempotent < 5s
+#
+# Composability test: CI Infrastructure stack.
+# Layers: Security + CI Runner + Monitoring.
+# Validates CI runner composition with base layers.
+
+version: '1.0'
+name: stack-ci-infrastructure
+description: "Composed stack: security + CI runner tools + monitoring"
+
+params:
+  runner_user: runner
+
+machines:
+  target:
+    hostname: target
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-cookbook-59-ci
+      ephemeral: false
+      privileged: false
+      init: true
+
+resources:
+  # --- Layer 1: Security ---
+  security-config:
+    type: file
+    machine: target
+    path: /etc/ssh/sshd_config.d/forjar-ci.conf
+    owner: root
+    mode: '0644'
+    content: |
+      PermitRootLogin no
+      PasswordAuthentication no
+    tags: [stack, security]
+    resource_group: security
+
+  # --- Layer 2: CI Runner ---
+  ci-packages:
+    type: package
+    machine: target
+    provider: apt
+    packages:
+      - build-essential
+      - git
+      - curl
+      - jq
+    depends_on: [security-config]
+    tags: [stack, ci-runner]
+    resource_group: ci-runner
+
+  runner-user:
+    type: user
+    machine: target
+    name: runner
+    home: /home/runner
+    shell: /bin/bash
+    groups: [sudo]
+    depends_on: [ci-packages]
+    tags: [stack, ci-runner]
+    resource_group: ci-runner
+
+  runner-workspace:
+    type: file
+    machine: target
+    state: directory
+    path: /home/runner/workspace
+    owner: root
+    mode: '0755'
+    depends_on: [runner-user]
+    tags: [stack, ci-runner]
+    resource_group: ci-runner
+
+  runner-config:
+    type: file
+    machine: target
+    path: /home/runner/.runner-config.yaml
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — CI infrastructure stack
+      runner:
+        name: forjar-ci-runner
+        labels: [self-hosted, linux, x86_64]
+        work_dir: /home/runner/workspace
+    depends_on: [runner-workspace]
+    tags: [stack, ci-runner]
+    resource_group: ci-runner
+
+  # --- Layer 3: Monitoring ---
+  monitoring-config:
+    type: file
+    machine: target
+    path: /etc/prometheus/ci-monitoring.yml
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — CI monitoring
+      scrape_configs:
+        - job_name: ci-runner
+          static_configs:
+            - targets: ['localhost:9090']
+    depends_on: [runner-config]
+    tags: [stack, monitoring]
+    resource_group: monitoring
+
+  # --- Stack Manifest ---
+  stack-manifest:
+    type: file
+    machine: target
+    path: /etc/forjar/stack-manifest.json
+    owner: root
+    mode: '0644'
+    content: |
+      {
+        "stack": "ci-infrastructure",
+        "layers": [
+          {"name": "security", "recipes": ["09-secure-baseline"]},
+          {"name": "ci-runner", "recipes": ["06-ci-runner"]},
+          {"name": "monitoring", "recipes": ["04-monitoring-stack"]}
+        ],
+        "conflict_free": true
+      }
+    depends_on: [monitoring-config]
+    tags: [stack, manifest]
+    resource_group: manifest
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Converging CI infrastructure stack'"
+  post_apply: "echo 'CI infrastructure stack ready'"
+  notify:
+    on_success: "echo 'CI infrastructure converged'"
+    on_failure: "echo 'CI infrastructure failed'"
+    on_drift: "echo 'CI infrastructure drift detected'"
+
+outputs:
+  stack_name:
+    value: "ci-infrastructure"
+    description: "Composed stack name"
+  runner_labels:
+    value: "self-hosted,linux,x86_64"
+    description: "CI runner labels"

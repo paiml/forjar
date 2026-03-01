@@ -1533,6 +1533,11 @@ The `examples/cookbook/` directory contains validated recipes covering common in
 | 55 | Stack: GPU Lab | 7 | package, file, user | Composability |
 | 56 | Stack: Build Farm | 8 | package, file | Composability |
 | 57 | Stack: Package Pipeline | 8 | package, file | Composability |
+| 58 | Stack: ML Inference | 8 | file | Composability |
+| 59 | Stack: CI Infrastructure | 7 | package, file, user | Composability |
+| 60 | Stack: Sovereign AI | 11 | package, file, user | Composability |
+| 61 | Stack: Fleet Baseline | 7 | package, file | Composability |
+| 62 | Stack: Cross-Distro Release | 8 | package, file | Composability |
 
 Score all recipes programmatically:
 

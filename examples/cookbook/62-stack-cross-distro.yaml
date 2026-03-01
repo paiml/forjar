@@ -1,0 +1,180 @@
+# Recipe: 62-stack-cross-distro
+# Tier: 1+2 (validate + container apply)
+# Idempotency: strong
+# Budget: first_apply < 120s, idempotent < 5s
+#
+# Composability test: Cross-Distro Release stack.
+# Layers: Static Build + Deb Package + RPM Build + Distribution Pipeline.
+# Validates multi-format package release composition.
+
+version: '1.0'
+name: stack-cross-distro
+description: "Composed stack: static build + deb package + RPM build + distribution pipeline"
+
+params:
+  package_name: forjar
+  package_version: 1.0.0
+
+machines:
+  target:
+    hostname: target
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-cookbook-62-crossdistro
+      ephemeral: false
+      privileged: false
+      init: true
+
+resources:
+  # --- Stage 1: Build ---
+  build-deps:
+    type: package
+    machine: target
+    provider: apt
+    packages:
+      - build-essential
+      - curl
+    tags: [stack, build]
+    resource_group: build
+
+  build-output-dir:
+    type: file
+    machine: target
+    state: directory
+    path: /tmp/cross-distro/build
+    owner: root
+    mode: '0755'
+    depends_on: [build-deps]
+    tags: [stack, build]
+    resource_group: build
+
+  # --- Stage 2: Deb Package ---
+  deb-staging:
+    type: file
+    machine: target
+    state: directory
+    path: /tmp/cross-distro/deb
+    owner: root
+    mode: '0755'
+    depends_on: [build-output-dir]
+    tags: [stack, deb]
+    resource_group: deb
+
+  deb-control:
+    type: file
+    machine: target
+    path: /tmp/cross-distro/deb/DEBIAN/control
+    owner: root
+    mode: '0644'
+    content: |
+      Package: forjar
+      Version: 1.0.0
+      Architecture: amd64
+      Maintainer: Forjar Team <team@forjar.dev>
+      Description: Infrastructure convergence tool
+    depends_on: [deb-staging]
+    tags: [stack, deb]
+    resource_group: deb
+
+  # --- Stage 3: RPM Build ---
+  rpm-staging:
+    type: file
+    machine: target
+    state: directory
+    path: /tmp/cross-distro/rpm
+    owner: root
+    mode: '0755'
+    depends_on: [build-output-dir]
+    tags: [stack, rpm]
+    resource_group: rpm
+
+  rpm-spec:
+    type: file
+    machine: target
+    path: /tmp/cross-distro/rpm/forjar.spec
+    owner: root
+    mode: '0644'
+    content: |
+      Name: forjar
+      Version: 1.0.0
+      Release: 1
+      Summary: Infrastructure convergence tool
+      License: MIT
+      %description
+      Forjar convergence tool — cross-distro release
+      %files
+      /usr/local/bin/forjar
+    depends_on: [rpm-staging]
+    tags: [stack, rpm]
+    resource_group: rpm
+
+  # --- Stage 4: Distribution ---
+  dist-config:
+    type: file
+    machine: target
+    path: /tmp/cross-distro/distribution.yaml
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — cross-distro release
+      package: forjar
+      version: 1.0.0
+      formats:
+        - deb
+        - rpm
+      architectures:
+        - amd64
+        - arm64
+      distribution: stable
+    depends_on: [deb-control, rpm-spec]
+    tags: [stack, distribution]
+    resource_group: distribution
+
+  # --- Stack Manifest ---
+  stack-manifest:
+    type: file
+    machine: target
+    path: /tmp/cross-distro/stack-manifest.json
+    owner: root
+    mode: '0644'
+    content: |
+      {
+        "stack": "cross-distro-release",
+        "stages": [
+          {"name": "build", "recipes": ["17-static-musl"]},
+          {"name": "deb", "recipes": ["26-deb-package"]},
+          {"name": "rpm", "recipes": ["28-rpm-build"]},
+          {"name": "distribution", "recipes": ["29-distribution-pipeline"]}
+        ],
+        "pipeline": "build → deb + rpm → distribute",
+        "conflict_free": true
+      }
+    depends_on: [dist-config]
+    tags: [stack, manifest]
+    resource_group: manifest
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Converging cross-distro release stack'"
+  post_apply: "echo 'Cross-distro release stack ready'"
+  notify:
+    on_success: "echo 'Cross-distro release converged'"
+    on_failure: "echo 'Cross-distro release failed'"
+    on_drift: "echo 'Cross-distro release drift detected'"
+
+outputs:
+  stack_name:
+    value: "cross-distro-release"
+    description: "Composed stack name"
+  formats:
+    value: "deb,rpm"
+    description: "Package formats"
