@@ -672,5 +672,11 @@ pub struct ApplyArgs {
     /// FJ-1020: Filter notifications by severity level
     #[arg(long)]
     pub notify_custom_severity_filter: Option<String>,
+    /// FJ-1230: Refresh state only — re-read live state without applying changes
+    #[arg(long)]
+    pub refresh_only: bool,
+    /// FJ-1240: Encrypt state lock files with age (requires FORJAR_AGE_KEY)
+    #[arg(long)]
+    pub encrypt_state: bool,
 }
 

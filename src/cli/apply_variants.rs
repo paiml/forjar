@@ -1,9 +1,13 @@
 //! Apply dry-run variants.
 
-use crate::core::{planner, resolver, types};
+use crate::core::{codegen, planner, resolver, state, types};
+use crate::transport;
+use crate::tripwire::hasher;
 use std::path::Path;
+use super::apply_helpers::*;
 use super::helpers::*;
 use super::helpers_state::*;
+use super::workspace::*;
 use super::apply::*;
 
 
@@ -150,6 +154,84 @@ pub(crate) fn cmd_apply_canary_machine(
         green("✓"),
         remaining.len() + 1
     );
+    Ok(())
+}
+
+
+/// FJ-1230: Refresh state only — re-query live state for all converged resources
+/// and update lock hashes without applying any changes.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn cmd_refresh_only(
+    file: &Path,
+    state_dir: &Path,
+    machine_filter: Option<&str>,
+    verbose: bool,
+    timeout: Option<u64>,
+    env_file: Option<&Path>,
+    workspace: Option<&str>,
+) -> Result<(), String> {
+    let mut config = parse_and_validate(file)?;
+    if let Some(path) = env_file {
+        load_env_params(&mut config, path)?;
+    }
+    inject_workspace_param(&mut config, workspace);
+    resolver::resolve_data_sources(&mut config)?;
+
+    let locks = load_machine_locks(&config, state_dir, machine_filter)?;
+    let mut refreshed = 0usize;
+    let mut drift_count = 0usize;
+
+    for (machine_name, lock) in &locks {
+        let machine = match config.machines.get(machine_name) {
+            Some(m) => m,
+            None => continue,
+        };
+
+        let mut updated_lock = lock.clone();
+        for (id, rl) in &lock.resources {
+            if rl.status != types::ResourceStatus::Converged {
+                continue;
+            }
+            let resource = match config.resources.get(id) {
+                Some(r) => r,
+                None => continue,
+            };
+            let resolved = resolver::resolve_resource_templates(
+                resource, &config.params, &config.machines,
+            ).unwrap_or_else(|_| resource.clone());
+
+            let new_hash = match codegen::state_query_script(&resolved) {
+                Ok(query) => match transport::exec_script_timeout(machine, &query, timeout) {
+                    Ok(out) if out.success() => Some(hasher::hash_string(&out.stdout)),
+                    _ => None,
+                },
+                Err(_) => None,
+            };
+
+            if let Some(ref hash) = new_hash {
+                let old_hash = rl.details.get("live_hash")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                if hash != old_hash {
+                    drift_count += 1;
+                    if verbose {
+                        eprintln!("  drift: {} on {} (hash changed)", id, machine_name);
+                    }
+                }
+                if let Some(entry) = updated_lock.resources.get_mut(id) {
+                    entry.details.insert(
+                        "live_hash".to_string(),
+                        serde_yaml_ng::Value::String(hash.clone()),
+                    );
+                }
+                refreshed += 1;
+            }
+        }
+
+        state::save_lock(state_dir, &updated_lock)?;
+    }
+
+    println!("Refresh complete: {} resources queried, {} drifted", refreshed, drift_count);
     Ok(())
 }
 
