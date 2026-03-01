@@ -21,10 +21,9 @@ use super::status_resource_intel::*;
 use super::status_maturity::*;
 use super::status_resilience::*;
 use super::status_drift_intel2::*;
-use super::status_intelligence_ext::*;
-use super::status_intelligence_ext2::*;
-use super::dispatch_status_ext::*;
-use super::status_operational_ext::*;
+use super::status_quality::*;
+use super::{status_intelligence_ext::*, status_intelligence_ext2::*};
+use super::{dispatch_status_ext::*, status_operational_ext::*};
 #[allow(clippy::too_many_arguments)]
 fn try_status_phase59a(
     sd: &Path, machine: Option<&str>, json: bool,
@@ -319,11 +318,10 @@ fn try_status_phases_100_103(
     None
 }
 #[allow(clippy::too_many_arguments)]
-fn try_status_phases_104_106(
+fn try_status_phases_104_107(
     sd: &Path, machine: Option<&str>, json: bool,
-    g1: bool, g2: bool, g3: bool,
-    h1: bool, h2: bool, h3: bool,
-    i1: bool, i2: bool, i3: bool,
+    g1: bool, g2: bool, g3: bool, h1: bool, h2: bool, h3: bool,
+    i1: bool, i2: bool, i3: bool, j1: bool, j2: bool, j3: bool,
 ) -> Option<Result<(), String>> {
     if g1 { return Some(cmd_status_fleet_resource_maturity_index(sd, machine, json)); }
     if g2 { return Some(cmd_status_machine_resource_convergence_stability_index(sd, machine, json)); }
@@ -334,6 +332,9 @@ fn try_status_phases_104_106(
     if i1 { return Some(cmd_status_fleet_resource_type_drift_correlation(sd, machine, json)); }
     if i2 { return Some(cmd_status_machine_resource_apply_cadence_report(sd, machine, json)); }
     if i3 { return Some(cmd_status_fleet_resource_drift_recovery_trend(sd, machine, json)); }
+    if j1 { return Some(cmd_status_fleet_resource_quality_score(sd, machine, json)); }
+    if j2 { return Some(cmd_status_machine_resource_drift_pattern_classification(sd, machine, json)); }
+    if j3 { return Some(cmd_status_fleet_resource_convergence_window_analysis(sd, machine, json)); }
     None
 }
 #[allow(clippy::too_many_arguments)]
@@ -422,6 +423,7 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
         fleet_resource_maturity_index, machine_resource_convergence_stability_index, fleet_resource_drift_pattern_analysis,
         fleet_resource_apply_success_trend, machine_resource_drift_age_distribution_report, fleet_resource_convergence_gap_analysis,
         fleet_resource_type_drift_correlation, machine_resource_apply_cadence_report, fleet_resource_drift_recovery_trend,
+        fleet_resource_quality_score, machine_resource_drift_pattern_classification, fleet_resource_convergence_window_analysis,
     }) = cmd
     else {
         unreachable!()
@@ -474,14 +476,12 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
         fleet_resource_staleness_report, machine_resource_type_distribution, fleet_machine_health_score,
         fleet_resource_dependency_lag_report, machine_resource_convergence_rate_trend, fleet_resource_apply_lag,
         fleet_resource_error_rate_trend, machine_resource_drift_recovery_time, fleet_resource_config_complexity_score,
-    ) {
-        return r;
-    }
-    if let Some(r) = try_status_phases_104_106(&state_dir, m, json,
+    ).or_else(|| try_status_phases_104_107(&state_dir, m, json,
         fleet_resource_maturity_index, machine_resource_convergence_stability_index, fleet_resource_drift_pattern_analysis,
         fleet_resource_apply_success_trend, machine_resource_drift_age_distribution_report, fleet_resource_convergence_gap_analysis,
         fleet_resource_type_drift_correlation, machine_resource_apply_cadence_report, fleet_resource_drift_recovery_trend,
-    ) {
+        fleet_resource_quality_score, machine_resource_drift_pattern_classification, fleet_resource_convergence_window_analysis,
+    )) {
         return r;
     }
     if let Some(r) = try_status_phase75(&state_dir, m, json, machine_resource_churn_rate, fleet_resource_staleness, machine_convergence_trend, machine_capacity_utilization, fleet_configuration_entropy, machine_resource_freshness, machine_error_budget, fleet_compliance_score, machine_mean_time_to_recovery, machine_resource_dependency_health, fleet_resource_type_health, machine_resource_convergence_rate) {

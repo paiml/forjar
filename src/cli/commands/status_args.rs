@@ -664,4 +664,13 @@ pub struct StatusArgs {
     /// FJ-1115: Fleet resource drift recovery trend
     #[arg(long)]
     pub fleet_resource_drift_recovery_trend: bool,
+    /// FJ-1117: Fleet resource quality score
+    #[arg(long)]
+    pub fleet_resource_quality_score: bool,
+    /// FJ-1120: Machine resource drift pattern classification
+    #[arg(long)]
+    pub machine_resource_drift_pattern_classification: bool,
+    /// FJ-1123: Fleet resource convergence window analysis
+    #[arg(long)]
+    pub fleet_resource_convergence_window_analysis: bool,
 }

@@ -97,6 +97,8 @@ mod tests {
                 resource_dependency_cross_machine_bridge: false,
                 resource_dependency_weight_analysis: false,
                 resource_dependency_topological_summary: false,
+                resource_dependency_critical_path: false,
+                resource_dependency_cluster_analysis: false,
         });
         match cmd {
             Commands::Graph(GraphArgs {

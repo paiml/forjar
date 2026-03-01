@@ -488,5 +488,11 @@ pub struct GraphArgs {
     /// FJ-1114: Topological layer summary
     #[arg(long)]
     pub resource_dependency_topological_summary: bool,
+    /// FJ-1119: Find the longest dependency chain (critical path) via DFS
+    #[arg(long)]
+    pub resource_dependency_critical_path: bool,
+    /// FJ-1122: Identify clusters of tightly-coupled resources
+    #[arg(long)]
+    pub resource_dependency_cluster_analysis: bool,
 }
 

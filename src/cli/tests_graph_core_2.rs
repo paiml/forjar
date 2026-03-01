@@ -54,6 +54,8 @@ mod tests {
                 resource_dependency_cross_machine_bridge: false,
                 resource_dependency_weight_analysis: false,
                 resource_dependency_topological_summary: false,
+                resource_dependency_critical_path: false,
+                resource_dependency_cluster_analysis: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { prune, .. }) => {
@@ -105,6 +107,8 @@ mod tests {
                 resource_dependency_cross_machine_bridge: false,
                 resource_dependency_weight_analysis: false,
                 resource_dependency_topological_summary: false,
+                resource_dependency_critical_path: false,
+                resource_dependency_cluster_analysis: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { layers, .. }) => assert!(layers),
@@ -155,6 +159,8 @@ mod tests {
                 resource_dependency_cross_machine_bridge: false,
                 resource_dependency_weight_analysis: false,
                 resource_dependency_topological_summary: false,
+                resource_dependency_critical_path: false,
+                resource_dependency_cluster_analysis: false,
         });
         match cmd {
             Commands::Graph(GraphArgs {
@@ -206,6 +212,8 @@ mod tests {
                 resource_dependency_cross_machine_bridge: false,
                 resource_dependency_weight_analysis: false,
                 resource_dependency_topological_summary: false,
+                resource_dependency_critical_path: false,
+                resource_dependency_cluster_analysis: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { weight, .. }) => assert!(weight),
@@ -254,6 +262,8 @@ mod tests {
                 resource_dependency_cross_machine_bridge: false,
                 resource_dependency_weight_analysis: false,
                 resource_dependency_topological_summary: false,
+                resource_dependency_critical_path: false,
+                resource_dependency_cluster_analysis: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { subgraph, .. }) => {
@@ -304,6 +314,8 @@ mod tests {
                 resource_dependency_cross_machine_bridge: false,
                 resource_dependency_weight_analysis: false,
                 resource_dependency_topological_summary: false,
+                resource_dependency_critical_path: false,
+                resource_dependency_cluster_analysis: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { impact_radius, .. }) => {
@@ -355,6 +367,8 @@ mod tests {
                 resource_dependency_cross_machine_bridge: false,
                 resource_dependency_weight_analysis: false,
                 resource_dependency_topological_summary: false,
+                resource_dependency_critical_path: false,
+                resource_dependency_cluster_analysis: false,
         });
         match cmd {
             Commands::Graph(GraphArgs {

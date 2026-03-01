@@ -1,5 +1,4 @@
 //! Graph command dispatch — routes graph sub-flags to handlers.
-
 #[allow(unused_imports)]
 use crate::core::types;
 use std::path::Path;
@@ -418,6 +417,8 @@ pub(crate) fn dispatch_graph_cmd(cmd: Commands) -> Result<(), String> {
         resource_dependency_cross_machine_bridge,
         resource_dependency_weight_analysis,
         resource_dependency_topological_summary,
+        resource_dependency_critical_path: rdcp107,
+        resource_dependency_cluster_analysis: rdca107,
     }) = cmd
     else {
         unreachable!()
@@ -472,6 +473,8 @@ pub(crate) fn dispatch_graph_cmd(cmd: Commands) -> Result<(), String> {
     ) {
         return r;
     }
+    if rdcp107 { return cmd_graph_resource_dependency_critical_path(&file, json_output); }
+    if rdca107 { return cmd_graph_resource_dependency_cluster_analysis(&file, json_output); }
     if let Some(r) = try_graph_scoring_inline(&file, json_output, resource_dependency_bottleneck, resource_type_clustering, resource_dependency_cycle_risk, resource_impact_radius, resource_dependency_health_map, resource_change_propagation, resource_dependency_depth_analysis, resource_dependency_fan_analysis, resource_dependency_isolation_score, resource_dependency_stability_score, resource_dependency_critical_path_length, resource_dependency_redundancy_score) {
         return r;
     }

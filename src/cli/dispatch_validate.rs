@@ -22,6 +22,7 @@ use super::validate_config_quality::*;
 use super::validate_maturity::*;
 use super::validate_hygiene::*;
 use super::validate_audit::*;
+use super::validate_scoring::*;
 use super::validate_ordering::*;
 use super::validate_ordering_ext::*;
 use super::validate_resilience::*;
@@ -301,6 +302,9 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
         check_resource_dependency_completeness_audit,
         check_resource_machine_coverage_gap,
         check_resource_path_depth_limit,
+        check_resource_dependency_ordering_consistency,
+        check_resource_tag_value_format,
+        check_resource_provider_version_pinning,
     } = args;
     if let Some(r) = try_validate_checks_early_a(&file, json, check_cron_syntax, check_env_refs, check_resource_names.as_deref(), check_resource_count, check_duplicate_paths, check_circular_deps, check_machine_refs, check_provider_consistency) {
         return r;
@@ -334,13 +338,13 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
         check_resource_dependency_version_drift, check_resource_naming_length_limit, check_resource_type_coverage_per_machine,
         check_resource_dependency_depth_variance, check_resource_tag_key_naming, check_resource_content_length_limit,
         check_resource_dependency_completeness_audit, check_resource_machine_coverage_gap, check_resource_path_depth_limit,
+    )).or_else(|| try_validate_phase107(&file, json,
+        check_resource_dependency_ordering_consistency, check_resource_tag_value_format, check_resource_provider_version_pinning,
     )) {
         return r;
     }
-    if let Some(r) = try_validate_governance_b(&file, json, check_resource_lifecycle_hooks, check_resource_provider_version, check_resource_naming_convention, check_resource_idempotency, check_resource_documentation, check_resource_ownership, check_resource_secret_exposure, check_resource_tag_standards, check_resource_privilege_escalation, check_resource_update_safety, check_resource_cross_machine_consistency, check_resource_version_pinning) {
-        return r;
-    }
-    if let Some(r) = try_validate_advanced(&file, json, check_orphan_resources, check_machine_arch, check_resource_health_conflicts, check_resource_overlap, check_resource_tags, check_resource_state_consistency, check_resource_dependencies_complete, check_machine_connectivity)
+    if let Some(r) = try_validate_governance_b(&file, json, check_resource_lifecycle_hooks, check_resource_provider_version, check_resource_naming_convention, check_resource_idempotency, check_resource_documentation, check_resource_ownership, check_resource_secret_exposure, check_resource_tag_standards, check_resource_privilege_escalation, check_resource_update_safety, check_resource_cross_machine_consistency, check_resource_version_pinning)
+        .or_else(|| try_validate_advanced(&file, json, check_orphan_resources, check_machine_arch, check_resource_health_conflicts, check_resource_overlap, check_resource_tags, check_resource_state_consistency, check_resource_dependencies_complete, check_machine_connectivity))
         .or_else(|| try_validate_structural(&file, json, check_mount_points, check_group_consistency, check_mode_consistency, check_template_vars, check_service_deps, check_path_conflicts, check_owner_consistency, check_naming_conventions, check_circular_refs, check_machine_reachability)) {
         return r;
     }
@@ -452,5 +456,13 @@ fn try_validate_phases_104_106(
     if j1 { return Some(cmd_validate_check_resource_dependency_completeness_audit(file, json)); }
     if j2 { return Some(cmd_validate_check_resource_machine_coverage_gap(file, json)); }
     if j3 { return Some(cmd_validate_check_resource_path_depth_limit(file, json)); }
+    None
+}
+fn try_validate_phase107(
+    file: &Path, json: bool, k1: bool, k2: bool, k3: bool,
+) -> Option<Result<(), String>> {
+    if k1 { return Some(cmd_validate_check_resource_dependency_ordering_consistency(file, json)); }
+    if k2 { return Some(cmd_validate_check_resource_tag_value_format(file, json)); }
+    if k3 { return Some(cmd_validate_check_resource_provider_version_pinning(file, json)); }
     None
 }

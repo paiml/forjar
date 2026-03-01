@@ -97,6 +97,8 @@ mod tests {
                 resource_dependency_cross_machine_bridge: false,
                 resource_dependency_weight_analysis: false,
                 resource_dependency_topological_summary: false,
+                resource_dependency_critical_path: false,
+                resource_dependency_cluster_analysis: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { timeline_graph, .. }) => assert!(timeline_graph),
@@ -183,6 +185,8 @@ mod tests {
                 resource_dependency_cross_machine_bridge: false,
                 resource_dependency_weight_analysis: false,
                 resource_dependency_topological_summary: false,
+                resource_dependency_critical_path: false,
+                resource_dependency_cluster_analysis: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { what_if, .. }) => {
@@ -271,6 +275,8 @@ mod tests {
                 resource_dependency_cross_machine_bridge: false,
                 resource_dependency_weight_analysis: false,
                 resource_dependency_topological_summary: false,
+                resource_dependency_critical_path: false,
+                resource_dependency_cluster_analysis: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { blast_radius, .. }) => {
@@ -359,6 +365,8 @@ mod tests {
                 resource_dependency_cross_machine_bridge: false,
                 resource_dependency_weight_analysis: false,
                 resource_dependency_topological_summary: false,
+                resource_dependency_critical_path: false,
+                resource_dependency_cluster_analysis: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { change_impact, .. }) => {
@@ -447,6 +455,8 @@ mod tests {
                 resource_dependency_cross_machine_bridge: false,
                 resource_dependency_weight_analysis: false,
                 resource_dependency_topological_summary: false,
+                resource_dependency_critical_path: false,
+                resource_dependency_cluster_analysis: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { resource_types, .. }) => assert!(resource_types),
