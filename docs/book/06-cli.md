@@ -3515,6 +3515,48 @@ forjar validate -f forjar.yaml --check-resource-type-coverage-per-machine
 # Type coverage: m1 has [file, service], m2 has [file] (missing: service)
 ```
 
+#### Phase 105 — Fleet Resilience & Configuration Hygiene (FJ-1101→FJ-1108)
+
+```bash
+# FJ-1101: Fleet resource apply success trend
+forjar status --state-dir ./state --fleet-resource-apply-success-trend
+# === Fleet Resource Apply Success Trend ===
+#   web: 50.0% success (1 converged / 2 total)
+
+# FJ-1102: Resource dependency depth variance
+forjar validate -f forjar.yaml --check-resource-dependency-depth-variance
+# Dependency depth variance: 2.0 (min=0, max=2, resources=3)
+
+# FJ-1103: Resource dependency fan-in hotspot
+forjar graph -f forjar.yaml --resource-dependency-fan-in-hotspot
+# Fan-in hotspots:
+#   a: fan_in=3 (depended on by: b, c, d)
+
+# FJ-1104: Machine resource drift age distribution
+forjar status --state-dir ./state --machine-resource-drift-age-distribution-report
+# === Machine Resource Drift Age Distribution ===
+#   web: 1 converged, 1 drifted, 0 failed
+
+# FJ-1105: Resource tag key naming
+forjar validate -f forjar.yaml --check-resource-tag-key-naming
+# Tag key naming: 0 warnings (all keys follow conventions)
+
+# FJ-1106: Cross-machine dependency bridges
+forjar graph -f forjar.yaml --resource-dependency-cross-machine-bridge
+# Cross-machine bridges:
+#   b -> a (m2 -> m1)
+
+# FJ-1107: Fleet resource convergence gap analysis
+forjar status --state-dir ./state --fleet-resource-convergence-gap-analysis
+# === Fleet Resource Convergence Gap Analysis ===
+#   fleet_average: 50.0%
+#   web: 50.0% (gap: 0.0%)
+
+# FJ-1108: Resource content length limit
+forjar validate -f forjar.yaml --check-resource-content-length-limit
+# Content length: 0 resources exceed limit (4096 chars)
+```
+
 ### `forjar watch`
 
 Watch a config file for changes and automatically re-plan.

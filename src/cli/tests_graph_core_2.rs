@@ -50,6 +50,8 @@ mod tests {
                 resource_dependency_redundancy_analysis: false,
                 resource_dependency_change_impact_radius: false,
                 resource_dependency_sibling_analysis: false,
+                resource_dependency_fan_in_hotspot: false,
+                resource_dependency_cross_machine_bridge: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { prune, .. }) => {
@@ -97,6 +99,8 @@ mod tests {
                 resource_dependency_redundancy_analysis: false,
                 resource_dependency_change_impact_radius: false,
                 resource_dependency_sibling_analysis: false,
+                resource_dependency_fan_in_hotspot: false,
+                resource_dependency_cross_machine_bridge: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { layers, .. }) => assert!(layers),
@@ -143,6 +147,8 @@ mod tests {
                 resource_dependency_redundancy_analysis: false,
                 resource_dependency_change_impact_radius: false,
                 resource_dependency_sibling_analysis: false,
+                resource_dependency_fan_in_hotspot: false,
+                resource_dependency_cross_machine_bridge: false,
         });
         match cmd {
             Commands::Graph(GraphArgs {
@@ -190,6 +196,8 @@ mod tests {
                 resource_dependency_redundancy_analysis: false,
                 resource_dependency_change_impact_radius: false,
                 resource_dependency_sibling_analysis: false,
+                resource_dependency_fan_in_hotspot: false,
+                resource_dependency_cross_machine_bridge: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { weight, .. }) => assert!(weight),
@@ -234,6 +242,8 @@ mod tests {
                 resource_dependency_redundancy_analysis: false,
                 resource_dependency_change_impact_radius: false,
                 resource_dependency_sibling_analysis: false,
+                resource_dependency_fan_in_hotspot: false,
+                resource_dependency_cross_machine_bridge: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { subgraph, .. }) => {
@@ -280,6 +290,8 @@ mod tests {
                 resource_dependency_redundancy_analysis: false,
                 resource_dependency_change_impact_radius: false,
                 resource_dependency_sibling_analysis: false,
+                resource_dependency_fan_in_hotspot: false,
+                resource_dependency_cross_machine_bridge: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { impact_radius, .. }) => {
@@ -327,6 +339,8 @@ mod tests {
                 resource_dependency_redundancy_analysis: false,
                 resource_dependency_change_impact_radius: false,
                 resource_dependency_sibling_analysis: false,
+                resource_dependency_fan_in_hotspot: false,
+                resource_dependency_cross_machine_bridge: false,
         });
         match cmd {
             Commands::Graph(GraphArgs {

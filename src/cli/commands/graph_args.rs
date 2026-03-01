@@ -472,5 +472,13 @@ pub struct GraphArgs {
     /// FJ-1098: Identify resources that share the exact same set of dependencies (siblings)
     #[arg(long)]
     pub resource_dependency_sibling_analysis: bool,
+
+    /// FJ-1103: Identify fan-in hotspot resources
+    #[arg(long)]
+    pub resource_dependency_fan_in_hotspot: bool,
+
+    /// FJ-1106: Identify cross-machine dependency bridges
+    #[arg(long)]
+    pub resource_dependency_cross_machine_bridge: bool,
 }
 

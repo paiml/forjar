@@ -21,6 +21,7 @@ use super::status_operational_ext2::*;
 use super::status_fleet_insight::*;
 use super::status_resource_intel::*;
 use super::status_maturity::*;
+use super::status_resilience::*;
 use super::status_intelligence_ext::*;
 use super::status_intelligence_ext2::*;
 use super::dispatch_status_ext::*;
@@ -44,7 +45,6 @@ fn try_status_phase59a(
     if resource_duration { return Some(cmd_status_resource_duration(sd, machine, json)); }
     None
 }
-
 #[allow(clippy::too_many_arguments)]
 fn try_status_phase62(
     sd: &Path, machine: Option<&str>, json: bool, file: Option<&Path>,
@@ -68,7 +68,6 @@ fn try_status_phase62(
     }
     None
 }
-
 #[allow(clippy::too_many_arguments)]
 fn try_status_phase65(
     sd: &Path, machine: Option<&str>, json: bool, file: Option<&Path>,
@@ -90,7 +89,6 @@ fn try_status_phase65(
     if fleet_health_summary { return Some(cmd_status_fleet_health_summary(sd, json)); }
     None
 }
-
 #[allow(clippy::too_many_arguments)]
 fn try_status_phase68(
     sd: &Path, machine: Option<&str>, json: bool,
@@ -109,7 +107,6 @@ fn try_status_phase68(
     if resource_state_distribution { return Some(cmd_status_resource_state_distribution(sd, machine, json)); }
     None
 }
-
 #[allow(clippy::too_many_arguments)]
 fn try_status_phase73(
     sd: &Path, machine: Option<&str>, json: bool,
@@ -124,7 +121,6 @@ fn try_status_phase73(
     if resource_failure_correlation { return Some(cmd_status_resource_failure_correlation(sd, machine, json)); }
     None
 }
-
 #[allow(clippy::too_many_arguments)]
 fn try_status_phase75(
     sd: &Path, machine: Option<&str>, json: bool,
@@ -201,7 +197,6 @@ fn try_status_phase82(
         machine_resource_convergence_streak, fleet_resource_convergence_streak, machine_resource_error_distribution,
     )
 }
-
 #[allow(clippy::too_many_arguments)]
 fn try_status_phase85(
     sd: &Path, machine: Option<&str>, json: bool,
@@ -329,13 +324,18 @@ fn try_status_phases_100_103(
     if fleet_resource_config_complexity_score { return Some(cmd_status_fleet_resource_config_complexity_score(sd, machine, json)); }
     None
 }
-fn try_status_phase104(
+#[allow(clippy::too_many_arguments)]
+fn try_status_phases_104_105(
     sd: &Path, machine: Option<&str>, json: bool,
     g1: bool, g2: bool, g3: bool,
+    h1: bool, h2: bool, h3: bool,
 ) -> Option<Result<(), String>> {
     if g1 { return Some(cmd_status_fleet_resource_maturity_index(sd, machine, json)); }
     if g2 { return Some(cmd_status_machine_resource_convergence_stability_index(sd, machine, json)); }
     if g3 { return Some(cmd_status_fleet_resource_drift_pattern_analysis(sd, machine, json)); }
+    if h1 { return Some(cmd_status_fleet_resource_apply_success_trend(sd, machine, json)); }
+    if h2 { return Some(cmd_status_machine_resource_drift_age_distribution(sd, machine, json)); }
+    if h3 { return Some(cmd_status_fleet_resource_convergence_gap_analysis(sd, machine, json)); }
     None
 }
 #[allow(clippy::too_many_arguments)]
@@ -422,6 +422,7 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
         fleet_resource_dependency_lag_report, machine_resource_convergence_rate_trend, fleet_resource_apply_lag,
         fleet_resource_error_rate_trend, machine_resource_drift_recovery_time, fleet_resource_config_complexity_score,
         fleet_resource_maturity_index, machine_resource_convergence_stability_index, fleet_resource_drift_pattern_analysis,
+        fleet_resource_apply_success_trend, machine_resource_drift_age_distribution_report, fleet_resource_convergence_gap_analysis,
     }) = cmd
     else {
         unreachable!()
@@ -477,8 +478,9 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
     ) {
         return r;
     }
-    if let Some(r) = try_status_phase104(&state_dir, m, json,
+    if let Some(r) = try_status_phases_104_105(&state_dir, m, json,
         fleet_resource_maturity_index, machine_resource_convergence_stability_index, fleet_resource_drift_pattern_analysis,
+        fleet_resource_apply_success_trend, machine_resource_drift_age_distribution_report, fleet_resource_convergence_gap_analysis,
     ) {
         return r;
     }

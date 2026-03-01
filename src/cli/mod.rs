@@ -83,6 +83,7 @@ mod graph_lifecycle;
 mod graph_health;
 mod graph_quality;
 mod graph_governance;
+mod graph_resilience_ext;
 mod graph_topology_ext;
 mod lock_core;
 mod lock_repair;
@@ -123,7 +124,9 @@ mod status_resource_intel;
 mod validate_topology;
 mod validate_config_quality;
 mod status_maturity;
+mod status_resilience;
 mod validate_maturity;
+mod validate_hygiene;
 #[cfg(test)] mod test_fixtures;
 #[cfg(test)] mod tests_helpers;
 #[cfg(test)] mod tests_helpers_state;
@@ -452,6 +455,8 @@ mod tests_phase102;
 mod tests_phase103;
 #[cfg(test)]
 mod tests_phase104;
+#[cfg(test)]
+mod tests_phase105;
 
 pub use commands::Commands;
 pub use dispatch::dispatch;
