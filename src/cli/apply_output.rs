@@ -199,6 +199,11 @@ pub(super) fn apply_post_actions(
         .collect();
     state::update_global_lock(state_dir, &config.name, &machine_results)?;
 
+    // FJ-1200: Run post-apply check blocks
+    if !config.checks.is_empty() && total_failed == 0 {
+        run_check_blocks(config, verbose);
+    }
+
     if auto_commit && total_converged > 0 {
         git_commit_state(state_dir, &config.name, total_converged)?;
     }
@@ -237,6 +242,68 @@ pub(super) fn apply_post_actions(
     Ok(())
 }
 
+
+/// FJ-1200: Run post-apply check blocks.
+///
+/// Check blocks execute AFTER all resources converge. Each check runs a command
+/// on the specified machine and verifies the exit code matches expect_exit (default 0).
+/// Failures are warnings — they don't roll back the apply (like OpenTofu).
+fn run_check_blocks(config: &types::ForjarConfig, verbose: bool) {
+    let total = config.checks.len();
+    let mut passed = 0usize;
+    let mut failed = 0usize;
+
+    if verbose {
+        println!();
+        println!("{}", bold("Post-apply checks"));
+        println!("{}", dim(&"-".repeat(50)));
+    }
+
+    for (name, check) in &config.checks {
+        let expected_exit = check.expect_exit.unwrap_or(0);
+        let machine = match config.machines.get(&check.machine) {
+            Some(m) => m,
+            None => {
+                eprintln!("warning: check '{}' references unknown machine '{}'", name, check.machine);
+                failed += 1;
+                continue;
+            }
+        };
+
+        match crate::transport::exec_script(machine, &check.command) {
+            Ok(out) => {
+                let actual_exit = out.exit_code;
+                if actual_exit == expected_exit {
+                    passed += 1;
+                    if verbose {
+                        let desc = check.description.as_deref().unwrap_or(&check.command);
+                        println!("  {} {} — {}", green("PASS"), name, desc);
+                    }
+                } else {
+                    failed += 1;
+                    let desc = check.description.as_deref().unwrap_or(&check.command);
+                    eprintln!(
+                        "  {} {} — {} (exit {}, expected {})",
+                        red("FAIL"), name, desc, actual_exit, expected_exit
+                    );
+                }
+            }
+            Err(e) => {
+                failed += 1;
+                eprintln!("  {} {} — transport error: {}", red("FAIL"), name, e);
+            }
+        }
+    }
+
+    if failed > 0 {
+        eprintln!(
+            "warning: {}/{} post-apply checks failed",
+            failed, total
+        );
+    } else if verbose {
+        println!("  All {}/{} checks passed.", passed, total);
+    }
+}
 
 /// Send webhook notification for apply results.
 #[allow(clippy::too_many_arguments)]

@@ -12,6 +12,9 @@ pub fn plan(
     locks: &std::collections::HashMap<String, StateLock>,
     tag_filter: Option<&str>,
 ) -> ExecutionPlan {
+    // FJ-1210: Apply moved blocks — rename resource keys in lock state
+    let locks = apply_moved_blocks(&config.moved, locks);
+
     let mut changes = Vec::new();
     let mut to_create = 0u32;
     let mut to_update = 0u32;
@@ -36,7 +39,7 @@ pub fn plan(
                 continue;
             }
 
-            let action = determine_action(resource_id, &resolved, &machine_name, locks);
+            let action = determine_action(resource_id, &resolved, &machine_name, &locks);
             let description = describe_action(resource_id, resource, &action);
 
             match action {
@@ -158,7 +161,22 @@ fn determine_action(
         .unwrap_or_else(|| default_state(&resource.resource_type));
 
     if state == "absent" {
-        return determine_absent_action(resource_id, machine_name, locks);
+        let action = determine_absent_action(resource_id, machine_name, locks);
+
+        // FJ-1220: prevent_destroy blocks Destroy actions
+        if action == PlanAction::Destroy {
+            if let Some(ref lifecycle) = resource.lifecycle {
+                if lifecycle.prevent_destroy {
+                    eprintln!(
+                        "warning: {} has prevent_destroy — skipping destroy",
+                        resource_id
+                    );
+                    return PlanAction::NoOp;
+                }
+            }
+        }
+
+        return action;
     }
 
     determine_present_action(resource_id, resource, machine_name, locks)
@@ -311,8 +329,39 @@ fn describe_action(resource_id: &str, resource: &Resource, action: &PlanAction) 
 }
 
 
+/// FJ-1210: Apply moved blocks to rename resource keys in lock state.
+///
+/// Returns a new lock map with resource keys renamed according to moved entries.
+/// This prevents moved resources from appearing as destroy+create in the plan.
+fn apply_moved_blocks(
+    moved: &[crate::core::types::MovedEntry],
+    locks: &std::collections::HashMap<String, StateLock>,
+) -> std::collections::HashMap<String, StateLock> {
+    if moved.is_empty() {
+        return locks.clone();
+    }
+
+    let mut result = std::collections::HashMap::new();
+    for (machine, lock) in locks {
+        let mut new_lock = lock.clone();
+        for entry in moved {
+            if let Some(rl) = new_lock.resources.swap_remove(&entry.from) {
+                new_lock.resources.insert(entry.to.clone(), rl);
+                eprintln!(
+                    "info: moved {} → {} in state for {}",
+                    entry.from, entry.to, machine
+                );
+            }
+        }
+        result.insert(machine.clone(), new_lock);
+    }
+    result
+}
+
 #[cfg(test)]
 mod tests_helpers;
+#[cfg(test)]
+mod tests_lifecycle;
 #[cfg(test)]
 mod tests_plan;
 #[cfg(test)]
