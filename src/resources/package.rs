@@ -109,11 +109,13 @@ fn apply_apt_absent(resource: &Resource) -> String {
 fn apply_cargo_present(resource: &Resource) -> String {
     let packages = &resource.packages;
     let version = resource.version.as_deref();
+    let source = resource.source.as_deref();
     let installs: Vec<String> = packages
         .iter()
-        .map(|p| match version {
-            Some(v) => format!("cargo install --force '{}@{}'", p, v),
-            None => format!("cargo install --force '{}'", p),
+        .map(|p| match (source, version) {
+            (Some(s), _) => format!("cargo install --force --path '{}'", s),
+            (None, Some(v)) => format!("cargo install --force '{}@{}'", p, v),
+            (None, None) => format!("cargo install --force '{}'", p),
         })
         .collect();
     // Limit build parallelism to avoid OOM on high-core-count machines.

@@ -465,6 +465,56 @@ fn test_fj1008_cargo_install_limits_parallelism() {
     );
 }
 
+// --- cargo source (--path) tests ---
+
+/// cargo install from local source uses --path instead of crate name.
+#[test]
+fn test_fj_cargo_install_from_source() {
+    let mut r = make_apt_resource(&["apr-cli"]);
+    r.provider = Some("cargo".to_string());
+    r.source = Some("/build/apr-cli".to_string());
+    let script = apply_script(&r);
+    assert!(
+        script.contains("cargo install --force --path '/build/apr-cli'"),
+        "cargo source must use --path: {script}"
+    );
+    assert!(
+        !script.contains("cargo install --force 'apr-cli'"),
+        "cargo source must NOT use crate name for install: {script}"
+    );
+}
+
+/// When source is set, version is ignored (version comes from Cargo.toml at path).
+#[test]
+fn test_fj_cargo_source_ignores_version() {
+    let mut r = make_apt_resource(&["apr-cli"]);
+    r.provider = Some("cargo".to_string());
+    r.source = Some("/build/apr-cli".to_string());
+    r.version = Some("0.1.0".to_string());
+    let script = apply_script(&r);
+    assert!(
+        script.contains("cargo install --force --path '/build/apr-cli'"),
+        "cargo source+version must still use --path: {script}"
+    );
+    assert!(
+        !script.contains("@0.1.0"),
+        "cargo source must ignore version: {script}"
+    );
+}
+
+/// check_script still uses package name (binary name) even with source set.
+#[test]
+fn test_fj_cargo_source_check_uses_binary_name() {
+    let mut r = make_apt_resource(&["apr-cli"]);
+    r.provider = Some("cargo".to_string());
+    r.source = Some("/build/apr-cli".to_string());
+    let script = check_script(&r);
+    assert!(
+        script.contains("command -v 'apr-cli'"),
+        "check_script must use package name even with source: {script}"
+    );
+}
+
 // --- FJ-036: Additional package tests ---
 
 #[test]

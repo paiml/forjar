@@ -49,7 +49,7 @@ pub struct Resource {
     #[serde(default)]
     pub content: Option<String>,
 
-    /// Source file (local path for copia sync)
+    /// Source path (file: local path for copy; package/cargo: --path for local crate)
     #[serde(default)]
     pub source: Option<String>,
 
