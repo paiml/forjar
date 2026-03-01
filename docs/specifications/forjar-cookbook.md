@@ -1014,115 +1014,31 @@ Builds and deploys mdBook on push to `docs/book/**`.
 
 ## Implementation Priority
 
-Recipes are qualified in priority order. Self-hosted runner is primary — recipes that can only validate in containers are secondary.
+All 9 phases are **complete**. 56 of 61 recipes are qualified at A-grade. 5 recipes are blocked on hardware requirements (GPU, NFS, secrets infrastructure, GPG keys).
 
-### Phase 1: Core Infrastructure (Runner-First)
+### Phase Summary
 
-Qualify on the Intel runner first. Container variants are secondary CI smoke tests.
+| Phase | Recipes | Status |
+|-------|---------|--------|
+| 1: Core Infrastructure | #1-6, #9 | **Complete** — all A-grade |
+| 2: GPU & Hardware | #7, #8, #10 | **Blocked** — #7 FJ-1126 ROCm, #8 FJ-1127 NVIDIA, #10 FJ-1128 NFS |
+| 3: Nix-Style | #11-15 | **Complete** — all A-grade |
+| 4: Rust Build Pipelines | #16-21 | **Complete** — all A-grade |
+| 5: Package Distribution | #25-29 | **Complete** — #25 blocked (FJ-1130 GPG), rest A-grade |
+| 6: Operational Maturity | #22-24 | **Complete** — #22 blocked (FJ-1129 secrets), rest A-grade |
+| 7: Linux Administration | #40-49 | **Complete** — all A-grade |
+| 8: OpenTofu Patterns | #30-39 | **Complete** — all A-grade |
+| 9: Resilience & Composition | #50-62 | **Complete** — all A-grade |
 
-| # | Recipe | Tier | Qualification Target |
-|---|--------|------|---------------------|
-| 1 | Developer Workstation | 2+3 | Runner: real apt, real files, real shell |
-| 2 | Web Application Server | 2+3 | Runner: real nginx, real systemd, real ufw |
-| 9 | Secure Baseline | 2+3 | Runner: real sshd, real fail2ban, real firewall |
-| 5 | Redis Cache | 2+3 | Runner: real Docker containers |
-| 3 | PostgreSQL Database | 2+3 | Runner: real postgres, real cron backups |
-| 4 | Monitoring Stack | 2+3 | Runner: real Docker stack (Prometheus + Grafana) |
+### Blocked Recipes
 
-### Phase 2: GPU & Hardware (Runner-Only)
-
-Only testable on self-hosted — no container fallback.
-
-| # | Recipe | Runner | Expected Blockers |
-|---|--------|--------|-------------------|
-| 7 | ROCm GPU Workstation | Intel | FJ-1126: ROCm userspace |
-| 8 | NVIDIA GPU + CUDA | Future | No hardware yet |
-| 6 | CI Runner | Intel | Self-referential: forjar provisions its own runner |
-| 10 | NFS File Server | Intel | Needs real mount syscalls + NFS kernel server |
-
-### Phase 3: Nix-Style (Runner: Pepita Kernel Isolation)
-
-All require real kernel namespaces on the Intel runner:
-
-| # | Recipe | Expected Blockers |
-|---|--------|-------------------|
-| 12 | Toolchain Pin | Lowest risk — apt/cargo only |
-| 11 | Dev Shell | Needs pepita namespace creation |
-| 13 | Build Sandbox | Needs overlayfs |
-| 14 | System Profile | Full machine convergence — composition test |
-| 15 | Multi-Project Workspace | Stacked overlays — most complex |
-
-### Phase 4: Rust Build Pipelines
-
-| # | Recipe | Tier | Expected Blockers |
-|---|--------|------|-------------------|
-| 16 | Rust Release Build | 2+3 | None expected |
-| 17 | Static Binary (musl) | 2+3 | Musl toolchain install |
-| 18 | Multi-Stage Pipeline | 3 | Needs pepita overlay |
-| 19 | Cross-Compilation | 3 | Needs cross-toolchain |
-| 20 | Sovereign Stack Release | 3 | Dogfood: forjar builds itself |
-| 21 | Compiled APR Model | 2+3 | HF model pull + APR compile |
-
-### Phase 5: Package Build & Distribution
-
-| # | Recipe | Tier | Expected Blockers |
-|---|--------|------|-------------------|
-| 25 | Third-Party APT Repo | 2+3 | None expected |
-| 26 | Build .deb Package | 2+3 | dpkg-deb tooling |
-| 27 | Private APT Repository | 2+3 | nginx + GPG signing |
-| 28 | RPM Provider & Build | 2 | Needs `provider: dnf` in forjar |
-| 29 | Distribution Pipeline | 3 | Full integration — build → sign → repo → fleet |
-
-### Phase 6: Operational Maturity
-
-| # | Recipe | Tier | Expected Blockers |
-|---|--------|------|-------------------|
-| 22 | Secrets Lifecycle | 2+3 | None — age already integrated |
-| 23 | TLS Certificate Lifecycle | 2+3 | Self-signed in container, ACME on runner |
-| 24 | Fleet Provisioning | 2+3 | for_each + multi-container fleet |
-
-### Phase 7: Linux System Administration
-
-| # | Recipe | Tier | Expected Blockers |
-|---|--------|------|-------------------|
-| 40 | Scheduled Tasks (Cron) | 2+3 | None expected |
-| 41 | User & Group Provisioning | 2+3 | None expected |
-| 42 | Kernel Tuning (sysctl) | 2+3 | sysctl --system in container |
-| 43 | Log Management | 2+3 | journald in container |
-| 44 | Time Sync (Chrony) | 2+3 | chrony service in container |
-| 45 | Custom Systemd Units | 2+3 | systemd in container |
-| 46 | Resource Limits | 2+3 | None expected |
-| 47 | Automated Patching | 2+3 | None expected |
-| 48 | Hostname/Locale/DNS | 2+3 | None expected |
-| 49 | Swap & Memory | 3 | Needs real kernel (swap activation) |
-
-### Phase 8: OpenTofu-Inspired Patterns
-
-Features that require forjar code changes before recipes can qualify:
-
-| # | Feature | Expected Forjar Changes |
-|---|---------|------------------------|
-| 30 | Saved Plan Files | `forjar plan --out` + `forjar apply --plan` |
-| 31 | JSON Plan Format | `forjar plan --json` |
-| 32 | Check Blocks | `checks:` config key + post-apply runner |
-| 33 | Lifecycle Protection | `lifecycle:` config key |
-| 34 | Moved Blocks | `moved:` config key |
-| 35 | Refresh-Only Mode | `forjar apply --refresh-only` |
-| 36 | Resource Targeting | `forjar apply --target` |
-| 37 | Testing DSL | `forjar test` subcommand |
-| 38 | State Encryption | `--encrypt-state` flag |
-| 39 | Cross-Config Outputs | `data.type: forjar-state` |
-
-### Phase 9: Resilience & Composition Validation
-
-Not new recipes — CI infrastructure that validates all recipes meet quality contracts:
-
-| Item | What it validates |
-|------|-------------------|
-| Idempotency test protocol | Every recipe: apply twice, second apply = 0 changes |
-| Performance budget enforcement | Every recipe: convergence time within budget |
-| Failure mode test suite | Partial apply, state recovery, crash resilience |
-| Composability smoke tests | Tested stacks from composability matrix all validate |
+| # | Recipe | Blocker | Requirement |
+|---|--------|---------|-------------|
+| 7 | ROCm GPU | FJ-1126 | AMD GPU with ROCm driver |
+| 8 | NVIDIA GPU | FJ-1127 | NVIDIA GPU with CUDA driver |
+| 10 | NFS Server | FJ-1128 | Bare-metal with NFS kernel modules |
+| 22 | Secrets Lifecycle | FJ-1129 | age encryption infrastructure |
+| 25 | Third-Party APT Repo | FJ-1130 | GPG signing key setup |
 
 ---
 
