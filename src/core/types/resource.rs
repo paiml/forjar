@@ -9,7 +9,7 @@ use std::fmt;
 // ============================================================================
 
 /// A single infrastructure resource.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Resource {
     /// Resource type
     #[serde(rename = "type")]
@@ -300,6 +300,25 @@ pub struct Resource {
     #[serde(default)]
     pub gpu_memory_limit_mb: Option<u64>,
 
+    // -- Task fields (ALB-027: pipeline orchestration) --
+    // Note: `command` field is shared with cron (line 132)
+
+    /// Output artifacts to hash for idempotency (glob paths relative to cwd)
+    #[serde(default)]
+    pub output_artifacts: Vec<String>,
+
+    /// Shell command to check if task already completed (exit 0 = done, skip apply)
+    #[serde(default)]
+    pub completion_check: Option<String>,
+
+    /// Timeout in seconds for command execution (default: no limit)
+    #[serde(default)]
+    pub timeout: Option<u64>,
+
+    /// Working directory for the command
+    #[serde(default)]
+    pub working_dir: Option<String>,
+
     // -- Lifecycle hooks (FJ-265) --
     /// Shell command to run on the target before the resource's main script.
     /// If pre_apply exits non-zero, the resource is skipped (not applied).
@@ -335,9 +354,10 @@ pub struct LifecycleRules {
 }
 
 /// Resource type enum.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum ResourceType {
+    #[default]
     Package,
     File,
     Service,
@@ -352,6 +372,8 @@ pub enum ResourceType {
     Model,
     /// FJ-241: GPU hardware resource type
     Gpu,
+    /// ALB-027: Pipeline task resource type
+    Task,
 }
 
 impl fmt::Display for ResourceType {
@@ -369,6 +391,7 @@ impl fmt::Display for ResourceType {
             Self::Recipe => write!(f, "recipe"),
             Self::Model => write!(f, "model"),
             Self::Gpu => write!(f, "gpu"),
+            Self::Task => write!(f, "task"),
         }
     }
 }

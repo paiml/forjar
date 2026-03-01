@@ -27,6 +27,7 @@ pub fn check_script(resource: &Resource) -> Result<String, String> {
         ResourceType::Pepita => Ok(resources::pepita::check_script(resource)),
         ResourceType::Model => Ok(resources::model::check_script(resource)),
         ResourceType::Gpu => Ok(resources::gpu::check_script(resource)),
+        ResourceType::Task => Ok(resources::task::check_script(resource)),
         ResourceType::Recipe => {
             Err("codegen not implemented for recipe (expand first)".to_string())
         }
@@ -48,6 +49,7 @@ pub fn apply_script(resource: &Resource) -> Result<String, String> {
         ResourceType::Pepita => Ok(resources::pepita::apply_script(resource)),
         ResourceType::Model => Ok(resources::model::apply_script(resource)),
         ResourceType::Gpu => Ok(resources::gpu::apply_script(resource)),
+        ResourceType::Task => Ok(resources::task::apply_script(resource)),
         ResourceType::Recipe => {
             Err("codegen not implemented for recipe (expand first)".to_string())
         }
@@ -69,6 +71,7 @@ pub fn state_query_script(resource: &Resource) -> Result<String, String> {
         ResourceType::Pepita => Ok(resources::pepita::state_query_script(resource)),
         ResourceType::Model => Ok(resources::model::state_query_script(resource)),
         ResourceType::Gpu => Ok(resources::gpu::state_query_script(resource)),
+        ResourceType::Task => Ok(resources::task::state_query_script(resource)),
         ResourceType::Recipe => {
             Err("codegen not implemented for recipe (expand first)".to_string())
         }

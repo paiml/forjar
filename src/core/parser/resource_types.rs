@@ -21,6 +21,7 @@ pub(super) fn validate_resource_type(
         ResourceType::Model => validate_model(id, resource, errors),
         ResourceType::Gpu => validate_gpu(id, resource, errors),
         ResourceType::Recipe => validate_recipe(id, resource, errors),
+        ResourceType::Task => validate_task(id, resource, errors),
     }
 }
 
@@ -297,5 +298,20 @@ fn validate_recipe(id: &str, resource: &Resource, errors: &mut Vec<ValidationErr
         errors.push(ValidationError {
             message: format!("resource '{}' (recipe) has no recipe name", id),
         });
+    }
+}
+
+fn validate_task(id: &str, resource: &Resource, errors: &mut Vec<ValidationError>) {
+    if resource.command.is_none() {
+        errors.push(ValidationError {
+            message: format!("resource '{}' (task) has no command", id),
+        });
+    }
+    if let Some(ref timeout) = resource.timeout {
+        if *timeout == 0 {
+            errors.push(ValidationError {
+                message: format!("resource '{}' (task) has timeout of 0 (use no timeout or a positive value)", id),
+            });
+        }
     }
 }
