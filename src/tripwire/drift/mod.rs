@@ -164,15 +164,20 @@ fn check_nonfile_drift(
 
 /// Full drift detection: files via hash comparison, non-file resources via state_query_script.
 /// Requires the config resources to reconstruct state query scripts.
+/// FJ-1220: Resources with lifecycle.ignore_drift are skipped.
 pub fn detect_drift_full(
     lock: &StateLock,
     machine: &Machine,
     resources: &indexmap::IndexMap<String, Resource>,
 ) -> Vec<DriftFinding> {
-    let mut findings = detect_drift_impl(lock, Some(machine));
+    let mut findings = detect_drift_with_lifecycle(lock, Some(machine), resources);
 
     for (id, rl) in &lock.resources {
         if rl.status != ResourceStatus::Converged || rl.resource_type == ResourceType::File {
+            continue;
+        }
+        // FJ-1220: skip resources with ignore_drift containing "*" or the resource type
+        if should_ignore_drift(id, resources) {
             continue;
         }
         let stored_live_hash = match rl.details.get("live_hash") {
@@ -184,6 +189,42 @@ pub fn detect_drift_full(
             None => continue,
         };
         if let Some(f) = check_nonfile_drift(id, rl, resource, machine, stored_live_hash) {
+            findings.push(f);
+        }
+    }
+
+    findings
+}
+
+/// FJ-1220: Check if a resource's lifecycle rules say to ignore drift.
+fn should_ignore_drift(resource_id: &str, resources: &indexmap::IndexMap<String, Resource>) -> bool {
+    if let Some(resource) = resources.get(resource_id) {
+        if let Some(ref lifecycle) = resource.lifecycle {
+            // ignore_drift: ["*"] means skip all drift
+            // ignore_drift: ["content", "mode"] means skip specific fields (treated as skip-all for now)
+            return !lifecycle.ignore_drift.is_empty();
+        }
+    }
+    false
+}
+
+/// Drift detection for file resources, respecting lifecycle.ignore_drift.
+fn detect_drift_with_lifecycle(
+    lock: &StateLock,
+    machine: Option<&Machine>,
+    resources: &indexmap::IndexMap<String, Resource>,
+) -> Vec<DriftFinding> {
+    let mut findings = Vec::new();
+
+    for (id, rl) in &lock.resources {
+        if rl.status != ResourceStatus::Converged || rl.resource_type != ResourceType::File {
+            continue;
+        }
+        // FJ-1220: skip resources with ignore_drift
+        if should_ignore_drift(id, resources) {
+            continue;
+        }
+        if let Some(f) = check_file_resource_drift(id, rl, machine) {
             findings.push(f);
         }
     }
@@ -226,6 +267,8 @@ fn detect_drift_impl(lock: &StateLock, machine: Option<&Machine>) -> Vec<DriftFi
     findings
 }
 
+#[cfg(test)]
+mod tests_lifecycle;
 #[cfg(test)]
 mod tests_basic;
 #[cfg(test)]
