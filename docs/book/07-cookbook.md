@@ -392,6 +392,93 @@ cargo run -- drift -f dogfood.yaml --state-dir /tmp/dogfood
 cargo run -- apply -f dogfood.yaml --state-dir /tmp/dogfood --force
 ```
 
+## Forjar Score
+
+Every config receives a **Forjar Score** — a multi-dimensional quality grade from A through F. Run `forjar score` to get a breakdown:
+
+```bash
+# Score a config (static analysis only)
+forjar score --file forjar.yaml
+
+# Score with custom status/idempotency
+forjar score --file forjar.yaml --status qualified --idempotency strong
+
+# JSON output for CI pipelines
+forjar score --file forjar.yaml --json
+```
+
+Example output:
+
+```
+Forjar Score: 83 (Grade C)
+========================================
+  COR Correctness     100/100  20%w  [####################]
+  IDM Idempotency     100/100  20%w  [####################]
+  PRF Performance      85/100  15%w  [#################...]
+  SAF Safety           82/100  15%w  [################....]
+  OBS Observability    60/100  10%w  [############........]
+  DOC Documentation    90/100  8%w   [##################..]
+  RES Resilience       50/100  7%w   [##########..........]
+  CMP Composability    35/100  5%w   [#######.............]
+
+  Composite: 83/100
+  Grade:     C
+```
+
+### Scoring Dimensions
+
+| Code | Dimension | Weight | What It Measures |
+|------|-----------|--------|------------------|
+| COR | Correctness | 20% | Converges from clean state, all resources pass |
+| IDM | Idempotency | 20% | Zero changes on re-apply, stable hashes |
+| PRF | Performance | 15% | Within time budget, fast re-apply |
+| SAF | Safety | 15% | No 0777, no curl\|bash, explicit modes/owners |
+| OBS | Observability | 10% | Outputs, tripwire, notify hooks |
+| DOC | Documentation | 8% | Description, naming, comments |
+| RES | Resilience | 7% | Failure policy, dependency DAG, lifecycle hooks |
+| CMP | Composability | 5% | Params, templates, tags, includes |
+
+### Grade Gates
+
+| Grade | Composite | Min Dimension | Meaning |
+|-------|-----------|---------------|---------|
+| A | >= 90 | >= 80 | Production-hardened |
+| B | >= 75 | >= 60 | Solid, minor gaps |
+| C | >= 60 | >= 40 | Functional but rough |
+| D | >= 40 | any | Bare minimum |
+| F | < 40 | any | Blocked/pending/failing |
+
+Grade A requires *every* dimension >= 80, so you can't game the score by overperforming in easy dimensions.
+
+### Improving Your Score
+
+Common improvements to raise your grade:
+
+- **SAF**: Add explicit `mode` and `owner` to all file resources, pin package versions
+- **OBS**: Add `outputs:` section, enable `tripwire: true`, configure `notify:` hooks
+- **RES**: Set `failure: continue_independent`, add `depends_on` for DAG coverage, add `pre_apply`/`post_apply` hooks
+- **CMP**: Use `params:` for configurable values, add `tags:` and `resource_group:` to resources
+
+### Programmatic Scoring
+
+```rust
+use forjar::core::scoring;
+use forjar::core::parser;
+
+let yaml = std::fs::read_to_string("forjar.yaml").unwrap();
+let config = parser::parse_config(&yaml).unwrap();
+let input = scoring::ScoringInput {
+    status: "qualified".to_string(),
+    idempotency: "strong".to_string(),
+    budget_ms: 60000,
+    runtime: None, // static-only
+};
+let result = scoring::compute(&config, &input);
+println!("Grade: {} ({})", result.grade, result.composite);
+```
+
+See `cargo run --example score_cookbook` for a complete example that scores all cookbook recipes.
+
 ## Emergency Rollback
 
 When a bad config change reaches production, rollback to the previous known-good state:
