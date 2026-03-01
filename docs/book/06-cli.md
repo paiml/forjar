@@ -3602,6 +3602,46 @@ forjar validate -f forjar.yaml --check-resource-path-depth-limit
 # Path depth: 0 resources exceed limit (10 segments)
 ```
 
+#### Phase 107 — Resource Quality Scoring & Fleet Drift Analytics (FJ-1117→FJ-1124)
+
+```bash
+# FJ-1117: Fleet resource quality score
+forjar status --state-dir ./state --fleet-resource-quality-score
+# === Fleet Resource Quality Score ===
+#   web: 75.0% quality (convergence + freshness composite)
+
+# FJ-1118: Resource dependency ordering consistency
+forjar validate -f forjar.yaml --check-resource-dependency-ordering-consistency
+# Dependency ordering: 3 resources, 0 inconsistencies
+
+# FJ-1119: Resource dependency critical path
+forjar graph -f forjar.yaml --resource-dependency-critical-path
+# Critical path (length 3): a -> b -> c
+
+# FJ-1120: Machine resource drift pattern classification
+forjar status --state-dir ./state --machine-resource-drift-pattern-classification
+# === Drift Pattern Classification ===
+#   web: 1 chronic, 0 transient, 0 new
+
+# FJ-1121: Resource tag value format
+forjar validate -f forjar.yaml --check-resource-tag-value-format
+# Tag format: 3 resources checked, 0 warnings
+
+# FJ-1122: Resource dependency cluster analysis
+forjar graph -f forjar.yaml --resource-dependency-cluster-analysis
+# Dependency clusters:
+#   Cluster 0 (3 resources): a, b, c
+
+# FJ-1123: Fleet resource convergence window analysis
+forjar status --state-dir ./state --fleet-resource-convergence-window-analysis
+# === Convergence Window Analysis ===
+#   web: 50.0% converged, window estimate: moderate
+
+# FJ-1124: Resource provider version pinning
+forjar validate -f forjar.yaml --check-resource-provider-version-pinning
+# Version pinning: 1 pinned / 3 total resources
+```
+
 ### `forjar watch`
 
 Watch a config file for changes and automatically re-plan.

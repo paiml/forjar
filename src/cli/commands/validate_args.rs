@@ -23,63 +23,48 @@ pub struct ValidateArgs {
     /// FJ-401: Validate against external policy rules file
     #[arg(long)]
     pub policy_file: Option<PathBuf>,
-
     /// FJ-411: Test SSH connectivity to all machines during validation
     #[arg(long)]
     pub check_connectivity: bool,
-
     /// FJ-421: Verify all template variables resolve
     #[arg(long)]
     pub check_templates: bool,
-
     /// FJ-431: Verify dependency ordering matches resource declaration order
     #[arg(long)]
     pub strict_deps: bool,
-
     /// FJ-441: Scan config for hardcoded secrets or credentials
     #[arg(long)]
     pub check_secrets: bool,
-
     /// FJ-451: Verify all resources produce idempotent scripts
     #[arg(long)]
     pub check_idempotency: bool,
-
     /// FJ-461: Verify all resources have drift detection configured
     #[arg(long)]
     pub check_drift_coverage: bool,
-
     /// FJ-471: Detect indirect circular dependencies via transitive closure
     #[arg(long)]
     pub check_cycles_deep: bool,
-
     /// FJ-481: Enforce resource naming conventions (kebab-case, prefix rules)
     #[arg(long)]
     pub check_naming: bool,
-
     /// FJ-491: Detect resources targeting the same path/port/name on same machine
     #[arg(long)]
     pub check_overlaps: bool,
-
     /// FJ-501: Enforce resource count limits per machine/type
     #[arg(long)]
     pub check_limits: bool,
-
     /// FJ-511: Warn on resources with high dependency fan-out
     #[arg(long)]
     pub check_complexity: bool,
-
     /// FJ-521: Scan for insecure permissions, ports, or user configs
     #[arg(long)]
     pub check_security: bool,
-
     /// FJ-531: Warn on deprecated resource fields or types
     #[arg(long)]
     pub check_deprecation: bool,
-
     /// FJ-541: Score drift risk based on resource volatility
     #[arg(long)]
     pub check_drift_risk: bool,
-
     /// FJ-551: Validate against compliance policy (CIS, SOC2)
     #[arg(long)]
     pub check_compliance: Option<String>,
@@ -497,4 +482,13 @@ pub struct ValidateArgs {
     /// FJ-1116: Warn if file paths exceed directory depth limit
     #[arg(long)]
     pub check_resource_path_depth_limit: bool,
+    /// FJ-1118: Verify dependency ordering consistency
+    #[arg(long)]
+    pub check_resource_dependency_ordering_consistency: bool,
+    /// FJ-1121: Validate tag value format
+    #[arg(long)]
+    pub check_resource_tag_value_format: bool,
+    /// FJ-1124: Check resource provider version pinning
+    #[arg(long)]
+    pub check_resource_provider_version_pinning: bool,
 }

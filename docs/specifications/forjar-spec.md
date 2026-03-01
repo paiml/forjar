@@ -2945,39 +2945,39 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-1069 | `forjar status --fleet-resource-staleness-report` — report resources whose lock data is older than a configurable threshold (default 7 days). Intelligence. | 🔧 In Progress |
-| FJ-1070 | `forjar validate --check-resource-dependency-fan-out-limit` — warn if any resource has more than N direct dependents (default 10). Governance. | 🔧 In Progress |
-| FJ-1071 | `forjar graph --resource-dependency-critical-path-highlight` — highlight the longest dependency chain in the graph. Analysis. | 🔧 In Progress |
-| FJ-1072 | `forjar status --machine-resource-type-distribution` — show per-machine breakdown of resource types (file, package, service, etc.). Intelligence. | 🔧 In Progress |
-| FJ-1073 | `forjar validate --check-resource-tag-required-keys` — warn if resources lack required tag keys (e.g., env, team, tier). Governance. | 🔧 In Progress |
-| FJ-1074 | `forjar graph --resource-dependency-bottleneck-detection` — identify resources with high fan-in that create bottlenecks. Analysis. | 🔧 In Progress |
-| FJ-1075 | `forjar status --fleet-machine-health-score` — compute composite health score per machine based on convergence, drift, and error rates. Intelligence. | 🔧 In Progress |
+| FJ-1069 | `forjar status --fleet-resource-staleness-report` — report resources whose lock data is older than a configurable threshold (default 7 days). Intelligence. | ✅ Done |
+| FJ-1070 | `forjar validate --check-resource-dependency-fan-out-limit` — warn if any resource has more than N direct dependents (default 10). Governance. | ✅ Done |
+| FJ-1071 | `forjar graph --resource-dependency-critical-path-highlight` — highlight the longest dependency chain in the graph. Analysis. | ✅ Done |
+| FJ-1072 | `forjar status --machine-resource-type-distribution` — show per-machine breakdown of resource types (file, package, service, etc.). Intelligence. | ✅ Done |
+| FJ-1073 | `forjar validate --check-resource-tag-required-keys` — warn if resources lack required tag keys (e.g., env, team, tier). Governance. | ✅ Done |
+| FJ-1074 | `forjar graph --resource-dependency-bottleneck-detection` — identify resources with high fan-in that create bottlenecks. Analysis. | ✅ Done |
+| FJ-1075 | `forjar status --fleet-machine-health-score` — compute composite health score per machine based on convergence, drift, and error rates. Intelligence. | ✅ Done |
 | FJ-1076 | `forjar validate --check-resource-content-drift-risk` — score drift risk based on resource type, content volatility, and dependency count. Governance. | ✅ Done |
 
 ### Phase 102 — Resource Intelligence & Topology Insight (FJ-1077→FJ-1084)
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-1077 | `forjar status --fleet-resource-dependency-lag` — report dependency lag: time since dependencies last converged vs. their dependents. Intelligence. | 🔧 In Progress |
-| FJ-1078 | `forjar validate --check-resource-circular-dependency-depth` — warn if circular dependency chains exceed configurable depth. Governance. | 🔧 In Progress |
-| FJ-1079 | `forjar graph --resource-topology-cluster-analysis` — identify clusters of tightly coupled resources in the dependency graph. Analysis. | 🔧 In Progress |
-| FJ-1080 | `forjar status --machine-resource-convergence-rate-trend` — track convergence rate changes over time per machine. Intelligence. | 🔧 In Progress |
-| FJ-1081 | `forjar validate --check-resource-orphan-detection-deep` — detect resources unreachable from any root via transitive closure. Governance. | 🔧 In Progress |
-| FJ-1082 | `forjar graph --resource-dependency-island-detection` — find disconnected subgraphs (islands) in the dependency graph. Analysis. | 🔧 In Progress |
-| FJ-1083 | `forjar status --fleet-resource-apply-lag` — report time since last successful apply per machine. Intelligence. | 🔧 In Progress |
+| FJ-1077 | `forjar status --fleet-resource-dependency-lag` — report dependency lag: time since dependencies last converged vs. their dependents. Intelligence. | ✅ Done |
+| FJ-1078 | `forjar validate --check-resource-circular-dependency-depth` — warn if circular dependency chains exceed configurable depth. Governance. | ✅ Done |
+| FJ-1079 | `forjar graph --resource-topology-cluster-analysis` — identify clusters of tightly coupled resources in the dependency graph. Analysis. | ✅ Done |
+| FJ-1080 | `forjar status --machine-resource-convergence-rate-trend` — track convergence rate changes over time per machine. Intelligence. | ✅ Done |
+| FJ-1081 | `forjar validate --check-resource-orphan-detection-deep` — detect resources unreachable from any root via transitive closure. Governance. | ✅ Done |
+| FJ-1082 | `forjar graph --resource-dependency-island-detection` — find disconnected subgraphs (islands) in the dependency graph. Analysis. | ✅ Done |
+| FJ-1083 | `forjar status --fleet-resource-apply-lag` — report time since last successful apply per machine. Intelligence. | ✅ Done |
 | FJ-1084 | `forjar validate --check-resource-provider-diversity` — warn if all resources use a single provider (no redundancy). Governance. | ✅ Done |
 
 ### Phase 103 — Fleet Analytics & Configuration Quality (FJ-1085→FJ-1092)
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-1085 | `forjar status --fleet-resource-error-rate-trend` — track error rate trends across fleet machines. Intelligence. | 🔧 In Progress |
-| FJ-1086 | `forjar validate --check-resource-dependency-isolation` — warn if resources in different lifecycle stages share dependencies. Governance. | 🔧 In Progress |
-| FJ-1087 | `forjar graph --resource-dependency-depth-histogram` — histogram of dependency chain depths across all resources. Analysis. | 🔧 In Progress |
-| FJ-1088 | `forjar status --machine-resource-drift-recovery-time` — estimate time to recover from drift per machine. Intelligence. | 🔧 In Progress |
-| FJ-1089 | `forjar validate --check-resource-tag-value-consistency` — warn if tag values are inconsistent across similar resources. Governance. | 🔧 In Progress |
-| FJ-1090 | `forjar graph --resource-dependency-redundancy-analysis` — identify redundant dependency edges that could be removed. Analysis. | 🔧 In Progress |
-| FJ-1091 | `forjar status --fleet-resource-config-complexity-score` — score configuration complexity per machine. Intelligence. | 🔧 In Progress |
+| FJ-1085 | `forjar status --fleet-resource-error-rate-trend` — track error rate trends across fleet machines. Intelligence. | ✅ Done |
+| FJ-1086 | `forjar validate --check-resource-dependency-isolation` — warn if resources in different lifecycle stages share dependencies. Governance. | ✅ Done |
+| FJ-1087 | `forjar graph --resource-dependency-depth-histogram` — histogram of dependency chain depths across all resources. Analysis. | ✅ Done |
+| FJ-1088 | `forjar status --machine-resource-drift-recovery-time` — estimate time to recover from drift per machine. Intelligence. | ✅ Done |
+| FJ-1089 | `forjar validate --check-resource-tag-value-consistency` — warn if tag values are inconsistent across similar resources. Governance. | ✅ Done |
+| FJ-1090 | `forjar graph --resource-dependency-redundancy-analysis` — identify redundant dependency edges that could be removed. Analysis. | ✅ Done |
+| FJ-1091 | `forjar status --fleet-resource-config-complexity-score` — score configuration complexity per machine. Intelligence. | ✅ Done |
 | FJ-1092 | `forjar validate --check-resource-machine-distribution-balance` — warn if resources are unevenly distributed across machines. Governance. | ✅ Done |
 
 ### Phase 104 — Operational Maturity & Dependency Governance (FJ-1093→FJ-1100)
@@ -3010,14 +3010,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-1109 | `forjar status --fleet-resource-type-drift-correlation` — correlate drift rates by resource type across fleet. Intelligence. | 🔧 In Progress |
-| FJ-1110 | `forjar validate --check-resource-dependency-completeness-audit` — verify all declared dependencies exist and are reachable. Governance. | 🔧 In Progress |
-| FJ-1111 | `forjar graph --resource-dependency-weight-analysis` — compute weighted dependency scores based on fan-in, fan-out, depth. Analysis. | 🔧 In Progress |
-| FJ-1112 | `forjar status --machine-resource-apply-cadence-report` — report per-machine apply frequency and regularity. Intelligence. | 🔧 In Progress |
-| FJ-1113 | `forjar validate --check-resource-machine-coverage-gap` — warn if expected resource types are missing from specific machines. Governance. | 🔧 In Progress |
-| FJ-1114 | `forjar graph --resource-dependency-topological-summary` — print a summary of topological layers with resource counts. Analysis. | 🔧 In Progress |
-| FJ-1115 | `forjar status --fleet-resource-drift-recovery-trend` — track drift recovery trends over lock history. Intelligence. | 🔧 In Progress |
-| FJ-1116 | `forjar validate --check-resource-path-depth-limit` — warn if file resource paths exceed a configurable directory depth. Governance. | 🔧 In Progress |
+| FJ-1109 | `forjar status --fleet-resource-type-drift-correlation` — correlate drift rates by resource type across fleet. Intelligence. | ✅ Done |
+| FJ-1110 | `forjar validate --check-resource-dependency-completeness-audit` — verify all declared dependencies exist and are reachable. Governance. | ✅ Done |
+| FJ-1111 | `forjar graph --resource-dependency-weight-analysis` — compute weighted dependency scores based on fan-in, fan-out, depth. Analysis. | ✅ Done |
+| FJ-1112 | `forjar status --machine-resource-apply-cadence-report` — report per-machine apply frequency and regularity. Intelligence. | ✅ Done |
+| FJ-1113 | `forjar validate --check-resource-machine-coverage-gap` — warn if expected resource types are missing from specific machines. Governance. | ✅ Done |
+| FJ-1114 | `forjar graph --resource-dependency-topological-summary` — print a summary of topological layers with resource counts. Analysis. | ✅ Done |
+| FJ-1115 | `forjar status --fleet-resource-drift-recovery-trend` — track drift recovery trends over lock history. Intelligence. | ✅ Done |
+| FJ-1116 | `forjar validate --check-resource-path-depth-limit` — warn if file resource paths exceed a configurable directory depth. Governance. | ✅ Done |
+
+### Phase 107 — Resource Quality Scoring & Fleet Drift Analytics (FJ-1117→FJ-1124) ✅ Done
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-1117 | `forjar status --fleet-resource-quality-score` — compute a composite quality score per machine based on convergence, drift, and staleness. Intelligence. | ✅ Done |
+| FJ-1118 | `forjar validate --check-resource-dependency-ordering-consistency` — warn if resource dependency ordering varies across machines. Governance. | ✅ Done |
+| FJ-1119 | `forjar graph --resource-dependency-critical-path` — identify the longest dependency chain (critical path) in the config. Analysis. | ✅ Done |
+| FJ-1120 | `forjar status --machine-resource-drift-pattern-classification` — classify drift patterns per machine (chronic, transient, new). Intelligence. | ✅ Done |
+| FJ-1121 | `forjar validate --check-resource-tag-value-format` — warn if tag values don't match expected formats (e.g., semver, slug). Governance. | ✅ Done |
+| FJ-1122 | `forjar graph --resource-dependency-cluster-analysis` — identify clusters of tightly-coupled resources. Analysis. | ✅ Done |
+| FJ-1123 | `forjar status --fleet-resource-convergence-window-analysis` — analyze convergence windows across fleet for scheduling insights. Intelligence. | ✅ Done |
+| FJ-1124 | `forjar validate --check-resource-provider-version-pinning` — warn if resources use unpinned provider versions. Governance. | ✅ Done |
 
 ---
 
