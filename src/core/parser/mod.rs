@@ -32,6 +32,8 @@ mod tests_misc;
 #[cfg(test)]
 mod tests_misc_2;
 #[cfg(test)]
+mod tests_misc_2b;
+#[cfg(test)]
 mod tests_misc_3;
 #[cfg(test)]
 mod tests_misc_4;

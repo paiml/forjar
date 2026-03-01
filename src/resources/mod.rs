@@ -15,6 +15,8 @@ pub mod network;
 pub mod package;
 pub mod pepita;
 pub mod service;
+#[cfg(test)]
+mod tests_service;
 pub mod task;
 pub mod user;
 
@@ -29,8 +31,12 @@ mod tests_docker_b;
 #[cfg(test)]
 mod tests_package;
 #[cfg(test)]
+mod tests_package_b;
+#[cfg(test)]
 mod tests_user;
 #[cfg(test)]
 mod tests_mount;
+#[cfg(test)]
+mod tests_mount_b;
 #[cfg(test)]
 mod tests_gpu;
