@@ -20,6 +20,7 @@ use super::status_security::*;
 use super::status_operational_ext2::*;
 use super::status_fleet_insight::*;
 use super::status_resource_intel::*;
+use super::status_maturity::*;
 use super::status_intelligence_ext::*;
 use super::status_intelligence_ext2::*;
 use super::dispatch_status_ext::*;
@@ -215,8 +216,6 @@ fn try_status_phase85(
     if machine_resource_error_distribution { return Some(cmd_status_machine_resource_error_distribution(sd, machine, json)); }
     None
 }
-
-#[allow(clippy::too_many_arguments)]
 fn try_status_phase87(
     sd: &Path, machine: Option<&str>, json: bool,
     machine_resource_drift_age: bool, fleet_resource_drift_age: bool, machine_resource_recovery_rate: bool,
@@ -226,8 +225,6 @@ fn try_status_phase87(
     if machine_resource_recovery_rate { return Some(cmd_status_machine_resource_recovery_rate(sd, machine, json)); }
     None
 }
-
-#[allow(clippy::too_many_arguments)]
 fn try_status_phase88(
     sd: &Path, machine: Option<&str>, json: bool,
     machine_resource_drift_velocity: bool, fleet_resource_recovery_rate: bool, machine_resource_convergence_efficiency: bool,
@@ -237,7 +234,6 @@ fn try_status_phase88(
     if machine_resource_convergence_efficiency { return Some(cmd_status_machine_resource_convergence_efficiency(sd, machine, json)); }
     None
 }
-
 fn try_status_phase89(
     sd: &Path, machine: Option<&str>, json: bool,
     machine_resource_apply_frequency: bool, fleet_resource_health_score: bool, machine_resource_staleness_index: bool,
@@ -333,6 +329,15 @@ fn try_status_phases_100_103(
     if fleet_resource_config_complexity_score { return Some(cmd_status_fleet_resource_config_complexity_score(sd, machine, json)); }
     None
 }
+fn try_status_phase104(
+    sd: &Path, machine: Option<&str>, json: bool,
+    g1: bool, g2: bool, g3: bool,
+) -> Option<Result<(), String>> {
+    if g1 { return Some(cmd_status_fleet_resource_maturity_index(sd, machine, json)); }
+    if g2 { return Some(cmd_status_machine_resource_convergence_stability_index(sd, machine, json)); }
+    if g3 { return Some(cmd_status_fleet_resource_drift_pattern_analysis(sd, machine, json)); }
+    None
+}
 #[allow(clippy::too_many_arguments)]
 fn try_status_phases_87_92(
     sd: &Path, machine: Option<&str>, json: bool,
@@ -416,6 +421,7 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
         fleet_resource_staleness_report, machine_resource_type_distribution, fleet_machine_health_score,
         fleet_resource_dependency_lag_report, machine_resource_convergence_rate_trend, fleet_resource_apply_lag,
         fleet_resource_error_rate_trend, machine_resource_drift_recovery_time, fleet_resource_config_complexity_score,
+        fleet_resource_maturity_index, machine_resource_convergence_stability_index, fleet_resource_drift_pattern_analysis,
     }) = cmd
     else {
         unreachable!()
@@ -468,6 +474,11 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
         fleet_resource_staleness_report, machine_resource_type_distribution, fleet_machine_health_score,
         fleet_resource_dependency_lag_report, machine_resource_convergence_rate_trend, fleet_resource_apply_lag,
         fleet_resource_error_rate_trend, machine_resource_drift_recovery_time, fleet_resource_config_complexity_score,
+    ) {
+        return r;
+    }
+    if let Some(r) = try_status_phase104(&state_dir, m, json,
+        fleet_resource_maturity_index, machine_resource_convergence_stability_index, fleet_resource_drift_pattern_analysis,
     ) {
         return r;
     }

@@ -637,4 +637,13 @@ pub struct StatusArgs {
     /// FJ-1091: Fleet resource config complexity score
     #[arg(long)]
     pub fleet_resource_config_complexity_score: bool,
+    /// FJ-1093: Fleet resource maturity index
+    #[arg(long)]
+    pub fleet_resource_maturity_index: bool,
+    /// FJ-1096: Machine resource convergence stability index
+    #[arg(long)]
+    pub machine_resource_convergence_stability_index: bool,
+    /// FJ-1099: Fleet resource drift pattern analysis
+    #[arg(long)]
+    pub fleet_resource_drift_pattern_analysis: bool,
 }

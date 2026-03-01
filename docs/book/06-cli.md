@@ -3474,6 +3474,47 @@ forjar validate -f forjar.yaml --check-resource-machine-distribution-balance
 # Distribution balance: balanced (1 machine)
 ```
 
+#### Phase 104 — Operational Maturity & Dependency Governance (FJ-1093→FJ-1100)
+
+```bash
+# FJ-1093: Fleet resource maturity index
+forjar status --state-dir ./state --fleet-resource-maturity-index
+# === Fleet Resource Maturity Index ===
+#   web: maturity=0.50 (1 converged, 1 drifted)
+
+# FJ-1094: Resource dependency version drift
+forjar validate -f forjar.yaml --check-resource-dependency-version-drift
+# Version drift: 0 warnings (no version-pinned dependencies outdated)
+
+# FJ-1095: Resource dependency change impact radius
+forjar graph -f forjar.yaml --resource-dependency-change-impact-radius
+# Change impact radius:
+#   a: 2 downstream resources affected
+
+# FJ-1096: Machine resource convergence stability index
+forjar status --state-dir ./state --machine-resource-convergence-stability-index
+# === Machine Resource Convergence Stability Index ===
+#   web: stability=0.50 (1 converged, 1 drifted)
+
+# FJ-1097: Resource naming length limit
+forjar validate -f forjar.yaml --check-resource-naming-length-limit
+# Naming length: 0 warnings (all names within limit)
+
+# FJ-1098: Resource dependency sibling analysis
+forjar graph -f forjar.yaml --resource-dependency-sibling-analysis
+# Sibling analysis:
+#   b, c share parent: a
+
+# FJ-1099: Fleet resource drift pattern analysis
+forjar status --state-dir ./state --fleet-resource-drift-pattern-analysis
+# === Fleet Resource Drift Pattern Analysis ===
+#   web: 1 drift pattern (service resources drift most)
+
+# FJ-1100: Resource type coverage per machine
+forjar validate -f forjar.yaml --check-resource-type-coverage-per-machine
+# Type coverage: m1 has [file, service], m2 has [file] (missing: service)
+```
+
 ### `forjar watch`
 
 Watch a config file for changes and automatically re-plan.

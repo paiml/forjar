@@ -89,6 +89,8 @@ mod tests {
                 resource_dependency_island_detection: false,
                 resource_dependency_depth_histogram_analysis: false,
                 resource_dependency_redundancy_analysis: false,
+                resource_dependency_change_impact_radius: false,
+                resource_dependency_sibling_analysis: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { highlight, .. }) => {
@@ -172,6 +174,8 @@ mod tests {
                 resource_dependency_island_detection: false,
                 resource_dependency_depth_histogram_analysis: false,
                 resource_dependency_redundancy_analysis: false,
+                resource_dependency_change_impact_radius: false,
+                resource_dependency_sibling_analysis: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { hotspots, .. }) => assert!(hotspots),

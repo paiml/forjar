@@ -466,5 +466,11 @@ pub struct GraphArgs {
     /// FJ-1090: Identify redundant dependency edges (direct + transitive)
     #[arg(long)]
     pub resource_dependency_redundancy_analysis: bool,
+    /// FJ-1095: Compute blast radius of changing each resource (transitive dependents via BFS)
+    #[arg(long)]
+    pub resource_dependency_change_impact_radius: bool,
+    /// FJ-1098: Identify resources that share the exact same set of dependencies (siblings)
+    #[arg(long)]
+    pub resource_dependency_sibling_analysis: bool,
 }
 

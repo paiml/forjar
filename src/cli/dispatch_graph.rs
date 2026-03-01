@@ -27,7 +27,7 @@ use super::graph_lifecycle::*;
 use super::graph_health::*;
 use super::graph_quality::*;
 use super::graph_analytics_ext::*;
-
+use super::graph_governance::*;
 
 /// Dispatch traversal flags (depth_first through critical_chain).
 #[allow(clippy::too_many_arguments)]
@@ -348,6 +348,14 @@ fn try_graph_phase103(
     if resource_dependency_redundancy_analysis { return Some(cmd_graph_resource_dependency_redundancy_analysis(file, json)); }
     None
 }
+fn try_graph_phase104(
+    file: &Path, json: bool,
+    resource_dependency_change_impact_radius: bool, resource_dependency_sibling_analysis: bool,
+) -> Option<Result<(), String>> {
+    if resource_dependency_change_impact_radius { return Some(cmd_graph_resource_dependency_change_impact_radius(file, json)); }
+    if resource_dependency_sibling_analysis { return Some(cmd_graph_resource_dependency_sibling_analysis(file, json)); }
+    None
+}
 
 /// Dispatch the Graph command variant.
 pub(crate) fn dispatch_graph_cmd(cmd: Commands) -> Result<(), String> {
@@ -415,6 +423,8 @@ pub(crate) fn dispatch_graph_cmd(cmd: Commands) -> Result<(), String> {
         resource_dependency_island_detection,
         resource_dependency_depth_histogram_analysis,
         resource_dependency_redundancy_analysis,
+        resource_dependency_change_impact_radius,
+        resource_dependency_sibling_analysis,
     }) = cmd
     else {
         unreachable!()
@@ -460,6 +470,9 @@ pub(crate) fn dispatch_graph_cmd(cmd: Commands) -> Result<(), String> {
         return r;
     }
     if let Some(r) = try_graph_phase103(&file, json_output, resource_dependency_depth_histogram_analysis, resource_dependency_redundancy_analysis) {
+        return r;
+    }
+    if let Some(r) = try_graph_phase104(&file, json_output, resource_dependency_change_impact_radius, resource_dependency_sibling_analysis) {
         return r;
     }
     if let Some(r) = try_graph_scoring_inline(&file, json_output, resource_dependency_bottleneck, resource_type_clustering, resource_dependency_cycle_risk, resource_impact_radius, resource_dependency_health_map, resource_change_propagation, resource_dependency_depth_analysis, resource_dependency_fan_analysis, resource_dependency_isolation_score, resource_dependency_stability_score, resource_dependency_critical_path_length, resource_dependency_redundancy_score) {
