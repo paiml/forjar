@@ -93,6 +93,8 @@ mod tests {
                 resource_dependency_sibling_analysis: false,
                 resource_dependency_fan_in_hotspot: false,
                 resource_dependency_cross_machine_bridge: false,
+                resource_dependency_weight_analysis: false,
+                resource_dependency_topological_summary: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { highlight, .. }) => {
@@ -180,6 +182,8 @@ mod tests {
                 resource_dependency_sibling_analysis: false,
                 resource_dependency_fan_in_hotspot: false,
                 resource_dependency_cross_machine_bridge: false,
+                resource_dependency_weight_analysis: false,
+                resource_dependency_topological_summary: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { hotspots, .. }) => assert!(hotspots),

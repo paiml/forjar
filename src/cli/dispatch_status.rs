@@ -1,5 +1,3 @@
-//! Status command dispatch — routes status sub-flags to handlers.
-
 #[allow(unused_imports)]
 use crate::core::{state, types};
 use std::path::Path;
@@ -22,11 +20,11 @@ use super::status_fleet_insight::*;
 use super::status_resource_intel::*;
 use super::status_maturity::*;
 use super::status_resilience::*;
+use super::status_drift_intel2::*;
 use super::status_intelligence_ext::*;
 use super::status_intelligence_ext2::*;
 use super::dispatch_status_ext::*;
 use super::status_operational_ext::*;
-
 #[allow(clippy::too_many_arguments)]
 fn try_status_phase59a(
     sd: &Path, machine: Option<&str>, json: bool,
@@ -143,7 +141,6 @@ fn try_status_phase75(
     if machine_resource_convergence_rate { return Some(cmd_status_machine_resource_convergence_rate(sd, machine, json)); }
     None
 }
-
 #[allow(clippy::too_many_arguments)]
 fn try_status_phase79(
     sd: &Path, machine: Option<&str>, json: bool,
@@ -173,7 +170,6 @@ fn try_status_phase79(
         machine_resource_convergence_streak, fleet_resource_convergence_streak, machine_resource_error_distribution,
     )
 }
-
 #[allow(clippy::too_many_arguments)]
 fn try_status_phase82(
     sd: &Path, machine: Option<&str>, json: bool,
@@ -247,7 +243,6 @@ fn try_status_phase90(
     if machine_resource_convergence_trend_p90 { return Some(cmd_status_machine_resource_convergence_trend_p90(sd, machine, json)); }
     None
 }
-#[allow(clippy::too_many_arguments)]
 fn try_status_phase91(
     sd: &Path, machine: Option<&str>, json: bool,
     machine_resource_drift_age_hours: bool, fleet_resource_convergence_percentile: bool, machine_resource_error_rate: bool,
@@ -257,7 +252,6 @@ fn try_status_phase91(
     if machine_resource_error_rate { return Some(cmd_status_machine_resource_error_rate(sd, machine, json)); }
     None
 }
-#[allow(clippy::too_many_arguments)]
 fn try_status_phase92(
     sd: &Path, machine: Option<&str>, json: bool,
     machine_resource_convergence_gap: bool, fleet_resource_error_distribution: bool, machine_resource_convergence_stability: bool,
@@ -325,10 +319,11 @@ fn try_status_phases_100_103(
     None
 }
 #[allow(clippy::too_many_arguments)]
-fn try_status_phases_104_105(
+fn try_status_phases_104_106(
     sd: &Path, machine: Option<&str>, json: bool,
     g1: bool, g2: bool, g3: bool,
     h1: bool, h2: bool, h3: bool,
+    i1: bool, i2: bool, i3: bool,
 ) -> Option<Result<(), String>> {
     if g1 { return Some(cmd_status_fleet_resource_maturity_index(sd, machine, json)); }
     if g2 { return Some(cmd_status_machine_resource_convergence_stability_index(sd, machine, json)); }
@@ -336,6 +331,9 @@ fn try_status_phases_104_105(
     if h1 { return Some(cmd_status_fleet_resource_apply_success_trend(sd, machine, json)); }
     if h2 { return Some(cmd_status_machine_resource_drift_age_distribution(sd, machine, json)); }
     if h3 { return Some(cmd_status_fleet_resource_convergence_gap_analysis(sd, machine, json)); }
+    if i1 { return Some(cmd_status_fleet_resource_type_drift_correlation(sd, machine, json)); }
+    if i2 { return Some(cmd_status_machine_resource_apply_cadence_report(sd, machine, json)); }
+    if i3 { return Some(cmd_status_fleet_resource_drift_recovery_trend(sd, machine, json)); }
     None
 }
 #[allow(clippy::too_many_arguments)]
@@ -423,6 +421,7 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
         fleet_resource_error_rate_trend, machine_resource_drift_recovery_time, fleet_resource_config_complexity_score,
         fleet_resource_maturity_index, machine_resource_convergence_stability_index, fleet_resource_drift_pattern_analysis,
         fleet_resource_apply_success_trend, machine_resource_drift_age_distribution_report, fleet_resource_convergence_gap_analysis,
+        fleet_resource_type_drift_correlation, machine_resource_apply_cadence_report, fleet_resource_drift_recovery_trend,
     }) = cmd
     else {
         unreachable!()
@@ -478,9 +477,10 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
     ) {
         return r;
     }
-    if let Some(r) = try_status_phases_104_105(&state_dir, m, json,
+    if let Some(r) = try_status_phases_104_106(&state_dir, m, json,
         fleet_resource_maturity_index, machine_resource_convergence_stability_index, fleet_resource_drift_pattern_analysis,
         fleet_resource_apply_success_trend, machine_resource_drift_age_distribution_report, fleet_resource_convergence_gap_analysis,
+        fleet_resource_type_drift_correlation, machine_resource_apply_cadence_report, fleet_resource_drift_recovery_trend,
     ) {
         return r;
     }

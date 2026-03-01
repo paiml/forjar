@@ -52,6 +52,8 @@ mod tests {
                 resource_dependency_sibling_analysis: false,
                 resource_dependency_fan_in_hotspot: false,
                 resource_dependency_cross_machine_bridge: false,
+                resource_dependency_weight_analysis: false,
+                resource_dependency_topological_summary: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { affected, .. }) => {
@@ -101,6 +103,8 @@ mod tests {
                 resource_dependency_sibling_analysis: false,
                 resource_dependency_fan_in_hotspot: false,
                 resource_dependency_cross_machine_bridge: false,
+                resource_dependency_weight_analysis: false,
+                resource_dependency_topological_summary: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { reverse, .. }) => assert!(reverse),
@@ -147,6 +151,8 @@ mod tests {
                 resource_dependency_sibling_analysis: false,
                 resource_dependency_fan_in_hotspot: false,
                 resource_dependency_cross_machine_bridge: false,
+                resource_dependency_weight_analysis: false,
+                resource_dependency_topological_summary: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { depth, .. }) => assert_eq!(depth, Some(2)),
@@ -194,6 +200,8 @@ mod tests {
                 resource_dependency_sibling_analysis: false,
                 resource_dependency_fan_in_hotspot: false,
                 resource_dependency_cross_machine_bridge: false,
+                resource_dependency_weight_analysis: false,
+                resource_dependency_topological_summary: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { cluster, .. }) => assert!(cluster),
@@ -242,6 +250,8 @@ mod tests {
                 resource_dependency_sibling_analysis: false,
                 resource_dependency_fan_in_hotspot: false,
                 resource_dependency_cross_machine_bridge: false,
+                resource_dependency_weight_analysis: false,
+                resource_dependency_topological_summary: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { orphans, .. }) => assert!(orphans),
@@ -290,6 +300,8 @@ mod tests {
                 resource_dependency_sibling_analysis: false,
                 resource_dependency_fan_in_hotspot: false,
                 resource_dependency_cross_machine_bridge: false,
+                resource_dependency_weight_analysis: false,
+                resource_dependency_topological_summary: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { stats, .. }) => assert!(stats),
@@ -337,6 +349,8 @@ mod tests {
                 resource_dependency_sibling_analysis: false,
                 resource_dependency_fan_in_hotspot: false,
                 resource_dependency_cross_machine_bridge: false,
+                resource_dependency_weight_analysis: false,
+                resource_dependency_topological_summary: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { json_output, .. }) => assert!(json_output),

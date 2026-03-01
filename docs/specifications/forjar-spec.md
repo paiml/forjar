@@ -2997,14 +2997,27 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 
 | Ticket | Description | Status |
 |--------|-------------|--------|
-| FJ-1101 | `forjar status --fleet-resource-apply-success-trend` — show apply success/failure trend per machine over recent lock history. Intelligence. | 🔧 In Progress |
-| FJ-1102 | `forjar validate --check-resource-dependency-depth-variance` — warn if dependency chain depths vary wildly across resources. Governance. | 🔧 In Progress |
-| FJ-1103 | `forjar graph --resource-dependency-fan-in-hotspot` — identify resources with disproportionately high fan-in (single points of failure). Analysis. | 🔧 In Progress |
-| FJ-1104 | `forjar status --machine-resource-drift-age-distribution` — show distribution of how long resources have been drifted per machine. Intelligence. | 🔧 In Progress |
-| FJ-1105 | `forjar validate --check-resource-tag-key-naming` — warn if tag keys don't follow naming conventions (e.g., lowercase, no spaces). Governance. | 🔧 In Progress |
-| FJ-1106 | `forjar graph --resource-dependency-cross-machine-bridge` — identify dependencies that span machine boundaries (cross-machine bridges). Analysis. | 🔧 In Progress |
-| FJ-1107 | `forjar status --fleet-resource-convergence-gap-analysis` — identify machines with the largest convergence gaps vs fleet average. Intelligence. | 🔧 In Progress |
-| FJ-1108 | `forjar validate --check-resource-content-length-limit` — warn if resource content exceeds a configurable size threshold. Governance. | 🔧 In Progress |
+| FJ-1101 | `forjar status --fleet-resource-apply-success-trend` — show apply success/failure trend per machine over recent lock history. Intelligence. | ✅ Done |
+| FJ-1102 | `forjar validate --check-resource-dependency-depth-variance` — warn if dependency chain depths vary wildly across resources. Governance. | ✅ Done |
+| FJ-1103 | `forjar graph --resource-dependency-fan-in-hotspot` — identify resources with disproportionately high fan-in (single points of failure). Analysis. | ✅ Done |
+| FJ-1104 | `forjar status --machine-resource-drift-age-distribution` — show distribution of how long resources have been drifted per machine. Intelligence. | ✅ Done |
+| FJ-1105 | `forjar validate --check-resource-tag-key-naming` — warn if tag keys don't follow naming conventions (e.g., lowercase, no spaces). Governance. | ✅ Done |
+| FJ-1106 | `forjar graph --resource-dependency-cross-machine-bridge` — identify dependencies that span machine boundaries (cross-machine bridges). Analysis. | ✅ Done |
+| FJ-1107 | `forjar status --fleet-resource-convergence-gap-analysis` — identify machines with the largest convergence gaps vs fleet average. Intelligence. | ✅ Done |
+| FJ-1108 | `forjar validate --check-resource-content-length-limit` — warn if resource content exceeds a configurable size threshold. Governance. | ✅ Done |
+
+### Phase 106 — Dependency Intelligence & Fleet Configuration (FJ-1109→FJ-1116) ✅ Done
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-1109 | `forjar status --fleet-resource-type-drift-correlation` — correlate drift rates by resource type across fleet. Intelligence. | 🔧 In Progress |
+| FJ-1110 | `forjar validate --check-resource-dependency-completeness-audit` — verify all declared dependencies exist and are reachable. Governance. | 🔧 In Progress |
+| FJ-1111 | `forjar graph --resource-dependency-weight-analysis` — compute weighted dependency scores based on fan-in, fan-out, depth. Analysis. | 🔧 In Progress |
+| FJ-1112 | `forjar status --machine-resource-apply-cadence-report` — report per-machine apply frequency and regularity. Intelligence. | 🔧 In Progress |
+| FJ-1113 | `forjar validate --check-resource-machine-coverage-gap` — warn if expected resource types are missing from specific machines. Governance. | 🔧 In Progress |
+| FJ-1114 | `forjar graph --resource-dependency-topological-summary` — print a summary of topological layers with resource counts. Analysis. | 🔧 In Progress |
+| FJ-1115 | `forjar status --fleet-resource-drift-recovery-trend` — track drift recovery trends over lock history. Intelligence. | 🔧 In Progress |
+| FJ-1116 | `forjar validate --check-resource-path-depth-limit` — warn if file resource paths exceed a configurable directory depth. Governance. | 🔧 In Progress |
 
 ---
 
