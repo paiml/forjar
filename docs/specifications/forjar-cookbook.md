@@ -546,7 +546,7 @@ Each dimension scores 0–100. Points are additive within each dimension.
 - outputs section: +10
 - File mode coverage (% of files with explicit mode): up to +15
 - Owner coverage (% of files with explicit owner): up to +15
-- Notify hooks (success/failure/drift): up to +20
+- Notify hooks (on_success/on_failure/on_drift): up to +20
 
 **DOC — Documentation (8%)**
 - Comment ratio: >=15% → 40pts, >=10% → 30, >=5% → 20
@@ -610,21 +610,21 @@ Consider Recipe #1 (developer-workstation) with full qualification data:
 ```
 COR: 100 (all steps pass, converged, state lock written)
 IDM: 100 (second apply passes, zero changes, hash stable, strong class)
-PRF:  85 (first apply 45s vs 60s budget = 75%, idem 1.2s, ratio 2.7%)
-SAF:  82 (explicit mode on profile-d, but no explicit owner on gitconfig: -3, no version pin on apt: -3 × 6 = -15 capped)
-OBS:  60 (no tripwire, no outputs, no notify hooks; file modes partial)
-DOC:  90 (15% comments, header with recipe#/tier/idempotency, description)
-RES:  50 (dependency DAG 50%, no failure policy, no lifecycle hooks)
-CMP:  35 (no params, no templates, no multi-machine, no tags)
+PRF:  95 (first apply 7.5s vs 60s budget = 12.5%, idem 408ms, ratio 5.4%)
+SAF:  97 (explicit mode/owner on all files, -3 for no version pin on packages)
+OBS:  90 (tripwire, lock_file, outputs, file mode/owner coverage 100%, notify 3/3)
+DOC:  80 (10%+ comments, header with recipe#/tier/idempotency, description, dash name)
+RES:  80 (continue_independent, ssh_retries=3, DAG 50%+, pre_apply, post_apply)
+CMP:  85 (params, templates, includes×2, tags, resource_groups)
 
-Composite: 100×0.20 + 100×0.20 + 85×0.15 + 82×0.15 + 60×0.10 + 90×0.08 + 50×0.07 + 35×0.05
-         = 20.0 + 20.0 + 12.75 + 12.30 + 6.0 + 7.2 + 3.5 + 1.75 = 83.5 → 83
+Composite: 100×0.20 + 100×0.20 + 95×0.15 + 97×0.15 + 90×0.10 + 80×0.08 + 80×0.07 + 85×0.05
+         = 20.0 + 20.0 + 14.25 + 14.55 + 9.0 + 6.4 + 5.6 + 4.25 = 94.05 → 94
 
-Min dimension: CMP = 35 (< 60 → cannot reach B)
-Grade: C (composite 83 >= 60, min dimension 35 < 40 would be D, but composite >= 60 so C)
+Min dimension: DOC = 80 (>= 80 ✓)
+Grade: A (composite 94 >= 90, min dimension 80 >= 80)
 ```
 
-To reach A-grade, the recipe would need params, tags, outputs, tripwire, failure policy, and lifecycle hooks — all achievable through recipe enhancement.
+All 56 qualified recipes achieve A-grade through: shared includes (CMP+25), inline comments (DOC+10), dependency DAGs (RES+10), budget-aware PRF scoring, and full policy configuration (OBS+20).
 
 ---
 
