@@ -123,7 +123,9 @@ coverage-check:                                      # ./scripts/coverage-check.
 docs-check:                                          # ./scripts/check-docs-consistency.sh
 examples:                                            # cargo run --example validate_all && ...
 update-qualifications:                               # cargo run --bin cookbook-readme-sync --quiet
-qualify-recipe RECIPE=01:                             # cargo run --bin cookbook-runner -- qualify recipes/$RECIPE*.yaml
+score:                                                # cargo run --example score_all (updates CSV)
+score-recipe RECIPE=01:                               # cookbook-runner score (static analysis)
+qualify-recipe RECIPE=01:                             # cookbook-runner qualify (full cycle)
 qualify-all:                                          # ./scripts/qualify-all.sh (self-hosted runner)
 book:                                                # mdbook build docs/book
 bashrs-lint:                                         # bashrs lint scripts/ Makefile
