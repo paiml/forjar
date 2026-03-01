@@ -637,6 +637,35 @@ Trace: 00000000000000005ce9737d21745945  (3 spans)
   [  3] web apply:tool-config — create ok (165.7ms)
 ```
 
+### `forjar score`
+
+Compute a multi-dimensional quality score for a config.
+
+```bash
+forjar score [--file FILE] [--status STATUS] [--idempotency CLASS] [--budget-ms MS] [--json]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--file, -f` | `forjar.yaml` | Config file path |
+| `--status` | `qualified` | Recipe status: qualified, blocked, pending |
+| `--idempotency` | `strong` | Idempotency class: strong, weak, eventual |
+| `--budget-ms` | `0` | Performance budget (0 = no budget) |
+| `--json` | false | Output as JSON |
+
+Scores 8 dimensions (COR, IDM, PRF, SAF, OBS, DOC, RES, CMP), computes a weighted composite, and assigns a letter grade (A-F). Exit code 0 for grades A-C, exit code 1 for D-F.
+
+```bash
+# Static score (no runtime data)
+forjar score --file examples/cookbook/01-developer-workstation.yaml
+
+# JSON output for CI
+forjar score --file forjar.yaml --json | jq '{grade, composite}'
+
+# Check grade in CI (fails on D/F)
+forjar score --file forjar.yaml || echo "Grade below threshold"
+```
+
 ### `forjar migrate`
 
 Migrate Docker resources to pepita kernel isolation.
