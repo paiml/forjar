@@ -1505,6 +1505,16 @@ The `examples/cookbook/` directory contains validated recipes covering common in
 | 27 | Private APT Repo | 8 | package, file, service, network | Packages |
 | 28 | RPM Build | 7 | package, file | Packages |
 | 29 | Distribution Pipeline | 8 | package, file | Packages |
+| 30 | Saved Plan Files | 5 | file | OpenTofu |
+| 31 | JSON Plan Format | 4 | package, file | OpenTofu |
+| 32 | Check Blocks | 4 | package, file | OpenTofu |
+| 33 | Lifecycle Protection | 5 | file | OpenTofu |
+| 34 | Moved Blocks | 3 | package, file | OpenTofu |
+| 35 | Refresh-Only Mode | 4 | file | OpenTofu |
+| 36 | Resource Targeting | 5 | package, file | OpenTofu |
+| 37 | Testing DSL | 4 | package, file | OpenTofu |
+| 38 | State Encryption | 6 | file | OpenTofu |
+| 39 | Cross-Config Outputs | 4 | file | OpenTofu |
 | 40 | Scheduled Tasks | 8 | cron, file | Linux Admin |
 | 41 | User Provisioning | 7 | user, file | Linux Admin |
 | 42 | Kernel Tuning | 5 | file | Linux Admin |
