@@ -48,6 +48,9 @@ pub fn apply_script(resource: &Resource) -> String {
         _ => {
             let mut script = String::from("set -euo pipefail\n");
 
+            // Ensure cargo-installed binaries (apr, huggingface-cli) are in PATH
+            script.push_str("export PATH=\"$HOME/.cargo/bin:$PATH\"\n");
+
             // Ensure cache directory exists
             script.push_str(&format!("mkdir -p '{}'\n", cache_dir));
 
