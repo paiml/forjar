@@ -1,0 +1,133 @@
+# Recipe: 41-user-provisioning
+# Tier: 1+2 (validate in CI, apply in container)
+# Idempotency: strong
+# Budget: first_apply < 5s, idempotent < 1s
+#
+# User lifecycle: system accounts, developer accounts, SSH key deployment,
+# sudoers management, group membership.
+
+version: '1.0'
+name: user-provisioning
+description: "User and group provisioning with SSH keys, sudoers, and service accounts"
+
+params:
+  admin_user: ops
+  service_user: forjar
+  shell: /bin/bash
+
+machines:
+  user-host:
+    hostname: user-host
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-cookbook-41-users
+      ephemeral: false
+      privileged: false
+      init: true
+
+resources:
+  admin-group:
+    type: user
+    machine: user-host
+    name: forjar-admins
+    system: true
+    tags: [users, groups]
+    resource_group: users
+
+  service-account:
+    type: user
+    machine: user-host
+    name: "{{params.service_user}}"
+    system: true
+    shell: /usr/sbin/nologin
+    home: "/var/lib/{{params.service_user}}"
+    depends_on: [admin-group]
+    tags: [users, service]
+    resource_group: users
+
+  admin-user:
+    type: user
+    machine: user-host
+    name: "{{params.admin_user}}"
+    shell: "{{params.shell}}"
+    groups: [sudo, forjar-admins]
+    home: "/home/{{params.admin_user}}"
+    depends_on: [admin-group]
+    tags: [users, admin]
+    resource_group: users
+
+  ssh-dir:
+    type: file
+    machine: user-host
+    state: directory
+    path: "/home/{{params.admin_user}}/.ssh"
+    owner: "{{params.admin_user}}"
+    mode: '0700'
+    depends_on: [admin-user]
+    tags: [users, ssh]
+    resource_group: users
+
+  ssh-authorized-keys:
+    type: file
+    machine: user-host
+    path: "/home/{{params.admin_user}}/.ssh/authorized_keys"
+    owner: "{{params.admin_user}}"
+    mode: '0600'
+    content: |
+      # Managed by forjar — authorized SSH keys
+      # Add public keys here during deployment
+    depends_on: [ssh-dir]
+    tags: [users, ssh]
+    resource_group: users
+
+  sudoers-forjar:
+    type: file
+    machine: user-host
+    path: /etc/sudoers.d/forjar-admins
+    owner: root
+    mode: '0440'
+    content: |
+      # Managed by forjar — do not edit
+      %forjar-admins ALL=(ALL) ALL
+    depends_on: [admin-group]
+    tags: [users, sudoers]
+    resource_group: users
+
+  sudoers-check:
+    type: file
+    machine: user-host
+    path: /usr/local/bin/forjar-sudoers-check.sh
+    owner: root
+    mode: '0755'
+    content: |
+      #!/bin/bash
+      visudo -c -f /etc/sudoers.d/forjar-admins
+    depends_on: [sudoers-forjar]
+    tags: [users, audit]
+    resource_group: users
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Provisioning users and groups'"
+  post_apply: "echo 'User provisioning complete'"
+  notify:
+    on_success: "echo 'All users provisioned successfully'"
+    on_failure: "echo 'User provisioning failed — check passwd/group'"
+    on_drift: "echo 'User configuration drift detected'"
+
+outputs:
+  admin_user:
+    value: "{{params.admin_user}}"
+    description: "Admin username"
+  service_user:
+    value: "{{params.service_user}}"
+    description: "Service account username"

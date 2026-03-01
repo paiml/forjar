@@ -1,0 +1,115 @@
+# Recipe: 44-time-sync
+# Tier: 1+2 (validate in CI, apply in container)
+# Idempotency: strong
+# Budget: first_apply < 10s, idempotent < 1s
+#
+# Time synchronization with chrony. Critical for TLS, logging,
+# and distributed systems. Chrony handles VM migration gracefully.
+
+version: '1.0'
+name: time-sync
+description: "Time synchronization with chrony NTP, timezone configuration, and expiry monitoring"
+
+params:
+  timezone: UTC
+
+machines:
+  time-host:
+    hostname: time-host
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-cookbook-44-chrony
+      ephemeral: false
+      privileged: false
+      init: true
+
+resources:
+  chrony-pkg:
+    type: package
+    machine: time-host
+    provider: apt
+    packages:
+      - chrony
+    tags: [time, packages]
+    resource_group: time-sync
+
+  chrony-config:
+    type: file
+    machine: time-host
+    path: /etc/chrony/chrony.conf
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — time synchronization
+      server 0.pool.ntp.org iburst
+      server 1.pool.ntp.org iburst
+      server 2.pool.ntp.org iburst
+      server 3.pool.ntp.org iburst
+      driftfile /var/lib/chrony/chrony.drift
+      makestep 1.0 3
+      rtcsync
+      logdir /var/log/chrony
+    depends_on: [chrony-pkg]
+    tags: [time, config]
+    resource_group: time-sync
+
+  chrony-service:
+    type: service
+    machine: time-host
+    name: chrony
+    running: true
+    enabled: true
+    restart_on: [chrony-config]
+    depends_on: [chrony-config]
+    tags: [time, service]
+    resource_group: time-sync
+
+  timezone-file:
+    type: file
+    machine: time-host
+    path: /etc/timezone
+    owner: root
+    mode: '0644'
+    content: "UTC"
+    tags: [time, timezone]
+    resource_group: time-sync
+
+  localtime-link:
+    type: file
+    machine: time-host
+    path: /usr/local/bin/forjar-set-timezone.sh
+    owner: root
+    mode: '0755'
+    content: |
+      #!/bin/bash
+      timedatectl set-timezone UTC 2>/dev/null || \
+        ln -sf /usr/share/zoneinfo/UTC /etc/localtime
+    depends_on: [timezone-file]
+    tags: [time, timezone]
+    resource_group: time-sync
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Configuring time synchronization'"
+  post_apply: "echo 'Time synchronization configured'"
+  notify:
+    on_success: "echo 'Time sync deployed successfully'"
+    on_failure: "echo 'Time sync setup failed — check chrony'"
+    on_drift: "echo 'Time configuration drift detected'"
+
+outputs:
+  ntp_service:
+    value: "chrony"
+    description: "NTP service name"
+  timezone:
+    value: "UTC"
+    description: "Configured timezone"

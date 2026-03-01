@@ -1,0 +1,143 @@
+# Recipe: 43-log-management
+# Tier: 1+2 (validate in CI, apply in container)
+# Idempotency: strong
+# Budget: first_apply < 10s, idempotent < 1s
+#
+# Centralized log configuration: journald tuning, logrotate for
+# application logs, and disk usage monitoring.
+
+version: '1.0'
+name: log-management
+description: "Log management with journald tuning, logrotate, and disk usage alerting"
+
+params:
+  journal_max_disk: 500M
+  journal_max_age: 30d
+  rotate_count: "7"
+  rotate_schedule: daily
+
+machines:
+  log-host:
+    hostname: log-host
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-cookbook-43-logs
+      ephemeral: false
+      privileged: false
+      init: true
+
+resources:
+  logrotate-pkg:
+    type: package
+    machine: log-host
+    provider: apt
+    packages:
+      - logrotate
+    tags: [logs, packages]
+    resource_group: log-management
+
+  journald-config:
+    type: file
+    machine: log-host
+    path: /etc/systemd/journald.conf.d/forjar.conf
+    owner: root
+    mode: '0644'
+    content: |
+      [Journal]
+      SystemMaxUse=500M
+      MaxRetentionSec=30d
+      MaxFileSec=1day
+      Compress=yes
+      ForwardToSyslog=no
+    tags: [logs, journald]
+    resource_group: log-management
+
+  journald-conf-dir:
+    type: file
+    machine: log-host
+    state: directory
+    path: /etc/systemd/journald.conf.d
+    owner: root
+    mode: '0755'
+    tags: [logs, journald]
+    resource_group: log-management
+
+  app-logrotate:
+    type: file
+    machine: log-host
+    path: /etc/logrotate.d/forjar-apps
+    owner: root
+    mode: '0644'
+    content: |
+      /var/log/forjar/*.log {
+          daily
+          rotate 7
+          compress
+          delaycompress
+          missingok
+          notifempty
+          create 0640 root adm
+      }
+    depends_on: [logrotate-pkg]
+    tags: [logs, logrotate]
+    resource_group: log-management
+
+  logrotate-test-cron:
+    type: cron
+    machine: log-host
+    schedule: "0 */6 * * *"
+    command: "logrotate -d /etc/logrotate.d/forjar-apps 2>&1 | logger -t forjar-logrotate || true"
+    name: forjar-logrotate-test
+    depends_on: [app-logrotate]
+    tags: [logs, audit]
+    resource_group: log-management
+
+  disk-alert-script:
+    type: file
+    machine: log-host
+    path: /usr/local/bin/forjar-disk-alert.sh
+    owner: root
+    mode: '0755'
+    content: |
+      #!/bin/bash
+      USAGE=$(df /var/log --output=pcent 2>/dev/null | tail -1 | tr -d ' %')
+      [ -n "$USAGE" ] && [ "$USAGE" -gt 85 ] && \
+        logger -p user.warning -t forjar "Log partition at ${USAGE}%"
+    tags: [logs, monitoring]
+    resource_group: log-management
+
+  disk-alert-cron:
+    type: cron
+    machine: log-host
+    schedule: "*/30 * * * *"
+    command: "/usr/local/bin/forjar-disk-alert.sh"
+    name: forjar-disk-alert
+    depends_on: [disk-alert-script]
+    tags: [logs, monitoring]
+    resource_group: log-management
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Configuring log management'"
+  post_apply: "echo 'Log management configured'"
+  notify:
+    on_success: "echo 'Log management deployed successfully'"
+    on_failure: "echo 'Log setup failed — check logrotate/journald'"
+    on_drift: "echo 'Log configuration drift detected'"
+
+outputs:
+  journal_max_disk:
+    value: "500M"
+    description: "Maximum journald disk usage"
+  rotate_schedule:
+    value: "daily"
+    description: "Logrotate schedule"
