@@ -18,6 +18,7 @@ use super::infra::*;
 use super::init::*;
 use super::destroy::*;
 use super::plan::*;
+use super::score::*;
 
 /// Dispatch remaining commands not handled by specialized dispatchers.
 pub(crate) fn dispatch_misc_cmd(cmd: Commands, verbose: bool) -> Result<(), String> {
@@ -106,6 +107,9 @@ pub(crate) fn dispatch_misc_cmd(cmd: Commands, verbose: bool) -> Result<(), Stri
         Commands::Compare(CompareArgs { file1, file2, json }) => cmd_compare(&file1, &file2, json),
         Commands::EnvDiff(EnvDiffArgs { env1, env2, state_dir, json }) => cmd_env_diff(&env1, &env2, &state_dir, json),
         Commands::Template(TemplateArgs { recipe, vars, json }) => cmd_template(&recipe, &vars, json),
+        Commands::Score(ScoreArgs { file, status, idempotency, budget_ms, json }) => {
+            cmd_score(&file, &status, &idempotency, budget_ms, json)
+        }
         _ => Err("unknown command".to_string()),
     }
 }

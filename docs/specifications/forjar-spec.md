@@ -518,7 +518,7 @@ Multi-vendor GPU resource handler supporting NVIDIA (CUDA), AMD (ROCm), and CPU 
 type: gpu
 machine: <name>
 gpu_backend: nvidia                      # nvidia (default) | rocm | cpu
-driver_version: "550"                    # NVIDIA driver or amdgpu-dkms version
+driver_version: "550"                    # NVIDIA driver, amdgpu-dkms, or "kernel-$(uname -r)" for in-tree
 cuda_version: "12.4"                     # CUDA toolkit version (nvidia only)
 rocm_version: "6.0"                      # ROCm version (rocm only)
 devices: [0, 1]                          # GPU indices (default: all)
@@ -531,7 +531,7 @@ state: present | absent
 | Backend | Check | Apply | State Query |
 |---------|-------|-------|-------------|
 | `nvidia` | `nvidia-smi` + driver version | `apt install nvidia-driver-{ver}`, `cuda-toolkit-{ver}` | `nvidia-smi --query-gpu=...` |
-| `rocm` | `rocminfo` + `/sys/module/amdgpu/version` | `apt install amdgpu-dkms rocm-hip-runtime` | `rocminfo` device listing |
+| `rocm` | `rocminfo` or `/sys/module/amdgpu` + version fallback (`/sys/module/amdgpu/version` → `kernel-$(uname -r)`) | `apt install amdgpu-dkms rocm-hip-runtime` | `rocminfo` device listing, version via DKMS or kernel |
 | `cpu` | Always passes (no-op) | No-op (`echo gpu-backend: cpu`) | `echo cpu-only` |
 
 #### Common Resource Fields
@@ -3031,6 +3031,13 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 | FJ-1122 | `forjar graph --resource-dependency-cluster-analysis` — identify clusters of tightly-coupled resources. Analysis. | ✅ Done |
 | FJ-1123 | `forjar status --fleet-resource-convergence-window-analysis` — analyze convergence windows across fleet for scheduling insights. Intelligence. | ✅ Done |
 | FJ-1124 | `forjar validate --check-resource-provider-version-pinning` — warn if resources use unpinned provider versions. Governance. | ✅ Done |
+
+### Phase 108 — ROCm GPU Qualification & In-Tree Driver Support (FJ-1125→FJ-1126)
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-1125 | Fix ROCm version detection for in-tree `amdgpu` kernel drivers. `check_script_rocm` with `driver_version`: try `/sys/module/amdgpu/version` (DKMS), fall back to `kernel-$(uname -r)` when module exists but version file doesn't (in-tree driver). `check_script_rocm` without `driver_version`: accept `/sys/module/amdgpu` as GPU presence signal alongside `rocminfo`. `state_query_script` ROCm path: fall back to `kernel-$(uname -r)` instead of `unknown`. Update tests for all fallback paths. Bug: previous implementation hardcoded `/sys/module/amdgpu/version` which only exists with `amdgpu-dkms` (out-of-tree), not with in-tree kernel 6.8+ drivers. | |
+| FJ-1126 | ROCm hardware qualification on Intel runner (2× AMD Radeon Pro W5700X, Navi 10). Install ROCm 6.3 userspace (`rocminfo`, `rocm-smi-lib`) — no `amdgpu-dkms` needed (in-tree kernel 6.8 driver). Create `examples/rocm-qualification.yaml` config (`gpu_backend: rocm`, `driver_version: "kernel-6.8.0-101-generic"`). Validate → plan → apply → idempotency check on Intel runner (local transport). Verify via SSH transport from local machine. First real AMD GPU hardware test for forjar. | |
 
 ---
 

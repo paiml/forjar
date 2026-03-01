@@ -132,6 +132,7 @@ mod status_quality;
 mod validate_audit;
 mod validate_scoring;
 mod graph_weight;
+mod score;
 #[cfg(test)] mod test_fixtures;
 #[cfg(test)] mod tests_helpers;
 #[cfg(test)] mod tests_helpers_state;
@@ -466,6 +467,8 @@ mod tests_phase105;
 mod tests_phase106;
 #[cfg(test)]
 mod tests_phase107;
+#[cfg(test)]
+mod tests_score;
 
 pub use commands::Commands;
 pub use dispatch::dispatch;

@@ -311,6 +311,9 @@ pub enum Commands {
     #[command(name = "lock-migrate")]
     LockMigrate(LockMigrateArgs),
 
+    /// Score a forjar config — multi-dimensional quality grade (A–F)
+    Score(ScoreArgs),
+
 }
 
 

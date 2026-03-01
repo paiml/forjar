@@ -31,3 +31,5 @@ mod tests_package;
 mod tests_user;
 #[cfg(test)]
 mod tests_mount;
+#[cfg(test)]
+mod tests_gpu;

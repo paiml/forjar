@@ -342,3 +342,27 @@ pub struct PolicyArgs {
     #[arg(long)]
     pub json: bool,
 }
+
+
+#[derive(clap::Args, Debug)]
+pub struct ScoreArgs {
+    /// Path to forjar.yaml
+    #[arg(short, long, default_value = "forjar.yaml")]
+    pub file: PathBuf,
+
+    /// Recipe status (qualified, blocked, pending)
+    #[arg(long, default_value = "qualified")]
+    pub status: String,
+
+    /// Idempotency class (strong, weak, eventual)
+    #[arg(long, default_value = "strong")]
+    pub idempotency: String,
+
+    /// Performance budget in milliseconds (0 = no budget)
+    #[arg(long, default_value_t = 0)]
+    pub budget_ms: u64,
+
+    /// Output as JSON
+    #[arg(long)]
+    pub json: bool,
+}
