@@ -1,0 +1,157 @@
+# Recipe: 24-fleet-provisioning
+# Tier: 1+2 (validate, container apply with simulated fleet)
+# Idempotency: strong
+# Budget: first_apply < 30s, idempotent < 2s
+#
+# Fleet-scale provisioning: deploy base packages, node identity,
+# monitoring agent, and SSH keys to multiple machines from a single config.
+
+version: '1.0'
+name: fleet-provisioning
+description: "Fleet provisioning with per-node identity, base packages, and monitoring agent deployment"
+
+params:
+  fleet_name: production
+  base_hostname: node
+  monitoring_endpoint: ""
+
+machines:
+  fleet-node:
+    hostname: fleet-node
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-cookbook-24-fleet
+      ephemeral: false
+      privileged: false
+      init: true
+
+resources:
+  base-packages:
+    type: package
+    machine: fleet-node
+    provider: apt
+    packages:
+      - curl
+      - jq
+      - htop
+      - git
+      - rsync
+    tags: [fleet, base]
+    resource_group: fleet
+
+  forjar-dir:
+    type: file
+    machine: fleet-node
+    state: directory
+    path: /etc/forjar
+    owner: root
+    mode: '0755'
+    tags: [fleet, dirs]
+    resource_group: fleet
+
+  node-identity:
+    type: file
+    machine: fleet-node
+    path: /etc/forjar/node-identity.conf
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — node identity
+      fleet={{params.fleet_name}}
+      hostname={{params.base_hostname}}
+      provisioned_at=managed-by-forjar
+    depends_on: [forjar-dir]
+    tags: [fleet, identity]
+    resource_group: fleet
+
+  fleet-ssh-dir:
+    type: file
+    machine: fleet-node
+    state: directory
+    path: /root/.ssh
+    owner: root
+    mode: '0700'
+    tags: [fleet, ssh]
+    resource_group: fleet
+
+  fleet-authorized-keys:
+    type: file
+    machine: fleet-node
+    path: /root/.ssh/authorized_keys
+    owner: root
+    mode: '0600'
+    content: |
+      # Managed by forjar — fleet SSH keys
+      # Add deploy keys during provisioning
+    depends_on: [fleet-ssh-dir]
+    tags: [fleet, ssh]
+    resource_group: fleet
+
+  monitoring-agent-script:
+    type: file
+    machine: fleet-node
+    path: /usr/local/bin/forjar-fleet-health.sh
+    owner: root
+    mode: '0755'
+    content: |
+      #!/bin/bash
+      # Fleet health check — reports node status
+      IDENTITY="/etc/forjar/node-identity.conf"
+      echo "fleet_health{node=\"$(hostname)\"} 1"
+      echo "fleet_uptime{node=\"$(hostname)\"} $(cat /proc/uptime | cut -d' ' -f1)"
+      echo "fleet_load{node=\"$(hostname)\"} $(cat /proc/loadavg | cut -d' ' -f1)"
+    depends_on: [node-identity]
+    tags: [fleet, monitoring]
+    resource_group: fleet
+
+  health-cron:
+    type: cron
+    machine: fleet-node
+    schedule: "*/5 * * * *"
+    command: "/usr/local/bin/forjar-fleet-health.sh 2>&1 | logger -t forjar-fleet"
+    name: forjar-fleet-health
+    depends_on: [monitoring-agent-script]
+    tags: [fleet, monitoring]
+    resource_group: fleet
+
+  fleet-motd:
+    type: file
+    machine: fleet-node
+    path: /etc/motd
+    owner: root
+    mode: '0644'
+    content: |
+      ====================================
+      Managed by forjar
+      Fleet: {{params.fleet_name}}
+      Node:  {{params.base_hostname}}
+      ====================================
+    depends_on: [node-identity]
+    tags: [fleet, identity]
+    resource_group: fleet
+
+policy:
+  failure: continue_independent
+  parallel_machines: true
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Provisioning fleet {{params.fleet_name}}'"
+  post_apply: "echo 'Fleet {{params.fleet_name}} provisioned'"
+  notify:
+    on_success: "echo 'Fleet nodes provisioned successfully'"
+    on_failure: "echo 'Fleet provisioning failed — check connectivity'"
+    on_drift: "echo 'Fleet configuration drift detected'"
+
+outputs:
+  fleet_name:
+    value: "{{params.fleet_name}}"
+    description: "Fleet name"
+  node_count:
+    value: "1"
+    description: "Number of provisioned nodes (single-node demo)"
