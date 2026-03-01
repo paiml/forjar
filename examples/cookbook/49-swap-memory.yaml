@@ -1,0 +1,116 @@
+# Recipe: 49-swap-memory
+# Tier: 1+2+3 (file deploy in container, swap activation on bare-metal)
+# Idempotency: weak (swap activation is stateful)
+# Budget: first_apply < 10s, idempotent < 1s
+#
+# Swap and memory management: swapfile creation, sysctl tuning
+# for swappiness and cache pressure, OOM killer configuration.
+
+version: '1.0'
+name: swap-memory
+description: "Swap and memory management with swapfile, sysctl tuning, and OOM configuration"
+
+params:
+  swap_size_mb: "2048"
+  swap_path: /swapfile
+  swappiness: "10"
+  vfs_cache_pressure: "50"
+
+machines:
+  swap-host:
+    hostname: swap-host
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-cookbook-49-swap
+      ephemeral: false
+      privileged: false
+      init: true
+
+resources:
+  swap-setup-script:
+    type: file
+    machine: swap-host
+    path: /usr/local/bin/forjar-swap-setup.sh
+    owner: root
+    mode: '0755'
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+      SWAP="/swapfile"
+      SIZE=2048
+      if [ -f "$SWAP" ]; then
+        CURRENT=$(stat -c%s "$SWAP" 2>/dev/null || echo 0)
+        DESIRED=$((SIZE * 1024 * 1024))
+        [ "$CURRENT" -eq "$DESIRED" ] && exit 0
+        swapoff "$SWAP" 2>/dev/null || true
+      fi
+      dd if=/dev/zero of="$SWAP" bs=1M count="$SIZE" status=none
+      chmod 600 "$SWAP"
+      mkswap "$SWAP" >/dev/null
+      swapon "$SWAP"
+      grep -q "$SWAP" /etc/fstab || echo "$SWAP none swap sw 0 0" >> /etc/fstab
+    tags: [swap, setup]
+    resource_group: swap-memory
+
+  swap-reboot-cron:
+    type: cron
+    machine: swap-host
+    schedule: "0 0 * * *"
+    command: "/usr/local/bin/forjar-swap-setup.sh 2>/dev/null || true"
+    name: forjar-swap-setup
+    depends_on: [swap-setup-script]
+    tags: [swap, cron]
+    resource_group: swap-memory
+
+  sysctl-swap:
+    type: file
+    machine: swap-host
+    path: /etc/sysctl.d/60-forjar-swap.conf
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — swap and memory tuning
+      vm.swappiness = 10
+      vm.vfs_cache_pressure = 50
+      vm.oom_kill_allocating_task = 1
+    tags: [swap, sysctl]
+    resource_group: swap-memory
+
+  sysctl-reload-script:
+    type: file
+    machine: swap-host
+    path: /usr/local/bin/forjar-swap-sysctl-reload.sh
+    owner: root
+    mode: '0755'
+    content: |
+      #!/bin/bash
+      sysctl --system 2>/dev/null || echo "sysctl --system skipped (container)"
+    depends_on: [sysctl-swap]
+    tags: [swap, sysctl]
+    resource_group: swap-memory
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Configuring swap and memory management'"
+  post_apply: "echo 'Swap and memory configured'"
+  notify:
+    on_success: "echo 'Swap setup completed successfully'"
+    on_failure: "echo 'Swap setup failed — check permissions'"
+    on_drift: "echo 'Swap configuration drift detected'"
+
+outputs:
+  swap_path:
+    value: "/swapfile"
+    description: "Swapfile location"
+  swap_size:
+    value: "2048MB"
+    description: "Configured swap size"

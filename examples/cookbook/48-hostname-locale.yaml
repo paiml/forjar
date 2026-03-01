@@ -1,0 +1,129 @@
+# Recipe: 48-hostname-locale
+# Tier: 1+2 (validate in CI, apply in container)
+# Idempotency: strong
+# Budget: first_apply < 5s, idempotent < 1s
+#
+# Machine identity: hostname, locale, DNS resolution.
+# The first things configured on a new machine.
+
+version: '1.0'
+name: hostname-locale
+description: "Machine identity with hostname, locale configuration, and DNS resolution"
+
+params:
+  hostname: forjar-node
+  domain: ""
+  locale: en_US.UTF-8
+  timezone: UTC
+
+machines:
+  identity-host:
+    hostname: identity-host
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-cookbook-48-hostname
+      ephemeral: false
+      privileged: false
+      init: true
+
+resources:
+  hostname-file:
+    type: file
+    machine: identity-host
+    path: /etc/hostname
+    owner: root
+    mode: '0644'
+    content: "{{params.hostname}}"
+    tags: [identity, hostname]
+    resource_group: identity
+
+  hosts-file:
+    type: file
+    machine: identity-host
+    path: /etc/hosts
+    owner: root
+    mode: '0644'
+    content: |
+      127.0.0.1 localhost
+      127.0.1.1 {{params.hostname}}
+
+      ::1 localhost ip6-localhost ip6-loopback
+      ff02::1 ip6-allnodes
+      ff02::2 ip6-allrouters
+    tags: [identity, hostname]
+    resource_group: identity
+
+  locale-gen:
+    type: file
+    machine: identity-host
+    path: /etc/locale.gen
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — locale configuration
+      en_US.UTF-8 UTF-8
+    tags: [identity, locale]
+    resource_group: identity
+
+  default-locale:
+    type: file
+    machine: identity-host
+    path: /etc/default/locale
+    owner: root
+    mode: '0644'
+    content: |
+      LANG=en_US.UTF-8
+      LC_ALL=en_US.UTF-8
+    depends_on: [locale-gen]
+    tags: [identity, locale]
+    resource_group: identity
+
+  resolved-config:
+    type: file
+    machine: identity-host
+    path: /etc/systemd/resolved.conf.d/forjar.conf
+    owner: root
+    mode: '0644'
+    content: |
+      [Resolve]
+      DNS=1.1.1.1 8.8.8.8
+      DNSOverTLS=opportunistic
+      DNSSEC=allow-downgrade
+    tags: [identity, dns]
+    resource_group: identity
+
+  resolved-conf-dir:
+    type: file
+    machine: identity-host
+    state: directory
+    path: /etc/systemd/resolved.conf.d
+    owner: root
+    mode: '0755'
+    tags: [identity, dns]
+    resource_group: identity
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Configuring machine identity'"
+  post_apply: "echo 'Machine identity configured'"
+  notify:
+    on_success: "echo 'Machine identity set successfully'"
+    on_failure: "echo 'Identity setup failed'"
+    on_drift: "echo 'Machine identity drift detected'"
+
+outputs:
+  hostname:
+    value: "{{params.hostname}}"
+    description: "Configured hostname"
+  locale:
+    value: "en_US.UTF-8"
+    description: "System locale"

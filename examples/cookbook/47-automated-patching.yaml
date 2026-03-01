@@ -1,0 +1,127 @@
+# Recipe: 47-automated-patching
+# Tier: 1+2 (validate in CI, apply in container)
+# Idempotency: strong
+# Budget: first_apply < 15s, idempotent < 1s
+#
+# Unattended security patching with configurable reboot windows.
+# The "set it and forget it" recipe for fleet machines.
+
+version: '1.0'
+name: automated-patching
+description: "Automated security patching with unattended-upgrades and reboot scheduling"
+
+params:
+  reboot_window: "02:00"
+  reboot_day: Sun
+  mail_to: root
+
+machines:
+  patch-host:
+    hostname: patch-host
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-cookbook-47-patching
+      ephemeral: false
+      privileged: false
+      init: true
+
+resources:
+  apt-unattended:
+    type: package
+    machine: patch-host
+    provider: apt
+    packages:
+      - unattended-upgrades
+      - apt-listchanges
+    tags: [patching, packages]
+    resource_group: patching
+
+  auto-upgrades-config:
+    type: file
+    machine: patch-host
+    path: /etc/apt/apt.conf.d/20auto-upgrades
+    owner: root
+    mode: '0644'
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+      APT::Periodic::AutocleanInterval "7";
+    depends_on: [apt-unattended]
+    tags: [patching, config]
+    resource_group: patching
+
+  unattended-config:
+    type: file
+    machine: patch-host
+    path: /etc/apt/apt.conf.d/50unattended-upgrades
+    owner: root
+    mode: '0644'
+    content: |
+      Unattended-Upgrade::Allowed-Origins {
+          "${distro_id}:${distro_codename}-security";
+      };
+      Unattended-Upgrade::Automatic-Reboot "true";
+      Unattended-Upgrade::Automatic-Reboot-Time "02:00";
+    depends_on: [apt-unattended]
+    tags: [patching, config]
+    resource_group: patching
+
+  reboot-check-script:
+    type: file
+    machine: patch-host
+    path: /usr/local/bin/forjar-reboot-check.sh
+    owner: root
+    mode: '0755'
+    content: |
+      #!/bin/bash
+      if [ -f /var/run/reboot-required ]; then
+        logger -t forjar "Reboot required: $(cat /var/run/reboot-required.pkgs 2>/dev/null)"
+      fi
+    tags: [patching, reboot]
+    resource_group: patching
+
+  reboot-check-cron:
+    type: cron
+    machine: patch-host
+    schedule: "0 2 * * 0"
+    command: "/usr/local/bin/forjar-reboot-check.sh"
+    name: forjar-reboot-check
+    depends_on: [reboot-check-script]
+    tags: [patching, reboot]
+    resource_group: patching
+
+  update-status-cron:
+    type: cron
+    machine: patch-host
+    schedule: "0 8 * * *"
+    command: "apt list --upgradable 2>/dev/null | wc -l | xargs -I{} logger -t forjar 'Pending updates: {}'"
+    name: forjar-update-status
+    depends_on: [apt-unattended]
+    tags: [patching, monitoring]
+    resource_group: patching
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Configuring automated patching'"
+  post_apply: "echo 'Automated patching configured'"
+  notify:
+    on_success: "echo 'Patching automation deployed successfully'"
+    on_failure: "echo 'Patching setup failed'"
+    on_drift: "echo 'Patching configuration drift detected'"
+
+outputs:
+  reboot_window:
+    value: "Sunday 02:00 UTC"
+    description: "Scheduled reboot window"
+  security_only:
+    value: "true"
+    description: "Whether only security updates are applied"

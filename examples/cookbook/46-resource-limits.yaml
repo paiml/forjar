@@ -1,0 +1,111 @@
+# Recipe: 46-resource-limits
+# Tier: 1+2 (validate in CI, apply in container)
+# Idempotency: strong
+# Budget: first_apply < 3s, idempotent < 1s
+#
+# System-wide and per-user resource limits: file descriptors,
+# process counts, memory locks, core dumps.
+
+version: '1.0'
+name: resource-limits
+description: "System resource limits with ulimits, file descriptors, and process controls"
+
+params:
+  nofile_soft: "65535"
+  nofile_hard: "131072"
+  nproc_soft: "65535"
+  nproc_hard: "131072"
+  memlock: unlimited
+
+machines:
+  limits-host:
+    hostname: limits-host
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-cookbook-46-limits
+      ephemeral: false
+      privileged: false
+      init: true
+
+resources:
+  limits-global:
+    type: file
+    machine: limits-host
+    path: /etc/security/limits.d/99-forjar.conf
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — global resource limits
+      * soft nofile 65535
+      * hard nofile 131072
+      * soft nproc  65535
+      * hard nproc  131072
+      * hard core   0
+    tags: [limits, global]
+    resource_group: resource-limits
+
+  limits-service-users:
+    type: file
+    machine: limits-host
+    path: /etc/security/limits.d/98-forjar-services.conf
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — service user resource limits
+      root soft memlock unlimited
+      root hard memlock unlimited
+      root soft nofile  131072
+      root hard nofile  131072
+    tags: [limits, services]
+    resource_group: resource-limits
+
+  pam-limits:
+    type: file
+    machine: limits-host
+    path: /etc/pam.d/forjar-limits
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — PAM limits integration
+      session required pam_limits.so
+    depends_on: [limits-global]
+    tags: [limits, pam]
+    resource_group: resource-limits
+
+  sysctl-pid-max:
+    type: file
+    machine: limits-host
+    path: /etc/sysctl.d/60-forjar-pidmax.conf
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — PID maximum
+      kernel.pid_max = 4194304
+    tags: [limits, sysctl]
+    resource_group: resource-limits
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Configuring resource limits'"
+  post_apply: "echo 'Resource limits configured'"
+  notify:
+    on_success: "echo 'Resource limits deployed successfully'"
+    on_failure: "echo 'Resource limits setup failed'"
+    on_drift: "echo 'Resource limits drift detected'"
+
+outputs:
+  nofile_hard:
+    value: "131072"
+    description: "Hard file descriptor limit"
+  nproc_hard:
+    value: "131072"
+    description: "Hard process count limit"
