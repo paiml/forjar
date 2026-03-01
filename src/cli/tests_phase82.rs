@@ -1,5 +1,6 @@
 //! Tests: Phase 82 — Infrastructure Insight & Configuration Maturity (FJ-917→FJ-924).
 
+#![allow(unused_imports)]
 use super::validate_ownership::*;
 use super::graph_intelligence::*;
 use super::status_intelligence::*;
@@ -96,7 +97,7 @@ mod tests {
             discord_webhook: None, teams_webhook: None, slack_blocks: None,
             custom_template: None, custom_webhook: None, custom_headers: None,
             custom_json: None, custom_filter: None, custom_retry: None, custom_transform: None, custom_batch: None, custom_deduplicate: None, custom_throttle: None,
-            custom_aggregate: Some("https://hooks.example.com|window_seconds:120"), custom_priority: None, custom_routing: None, custom_dedup_window: None, custom_rate_limit: None, custom_backoff: None, custom_circuit_breaker: None, custom_dead_letter: None, custom_escalation: None, custom_correlation: None, custom_sampling: None, custom_digest: None, custom_severity_filter: None,        };;
+            custom_aggregate: Some("https://hooks.example.com|window_seconds:120"), custom_priority: None, custom_routing: None, custom_dedup_window: None, custom_rate_limit: None, custom_backoff: None, custom_circuit_breaker: None, custom_dead_letter: None, custom_escalation: None, custom_correlation: None, custom_sampling: None, custom_digest: None, custom_severity_filter: None,        };
         assert!(opts.custom_aggregate.is_some());
     }
 
@@ -113,7 +114,7 @@ mod tests {
             sqs: None, mattermost: None, ntfy: None, pagerduty: None,
             discord_webhook: None, teams_webhook: None, slack_blocks: None,
             custom_template: None, custom_webhook: None, custom_headers: None,
-            custom_json: None, custom_filter: None, custom_retry: None, custom_transform: None, custom_batch: None, custom_deduplicate: None, custom_throttle: None, custom_aggregate: None, custom_priority: None, custom_routing: None, custom_dedup_window: None, custom_rate_limit: None, custom_backoff: None, custom_circuit_breaker: None, custom_dead_letter: None, custom_escalation: None, custom_correlation: None, custom_sampling: None, custom_digest: None, custom_severity_filter: None,        };;
+            custom_json: None, custom_filter: None, custom_retry: None, custom_transform: None, custom_batch: None, custom_deduplicate: None, custom_throttle: None, custom_aggregate: None, custom_priority: None, custom_routing: None, custom_dedup_window: None, custom_rate_limit: None, custom_backoff: None, custom_circuit_breaker: None, custom_dead_letter: None, custom_escalation: None, custom_correlation: None, custom_sampling: None, custom_digest: None, custom_severity_filter: None,        };
         assert!(opts.custom_aggregate.is_none());
     }
 

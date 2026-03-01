@@ -1,5 +1,7 @@
 //! Tests: Coverage for remaining validate, lock, destroy, observe (part 4).
 
+#![allow(unused_imports)]
+#![allow(dead_code)]
 use super::lock_core::*;
 use super::lock_security::*;
 use std::io::Write;

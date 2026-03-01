@@ -1,5 +1,6 @@
 //! Include/recipe tests (FJ-254).
 
+#![allow(unused_imports)]
 use super::*;
 use std::path::Path;
 

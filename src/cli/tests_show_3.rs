@@ -1,5 +1,6 @@
 //! Tests: Show, explain, compare, template.
 
+#![allow(unused_imports)]
 use crate::core::types::ProvenanceEvent;
 use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
 use crate::transport;
@@ -177,6 +178,7 @@ resources: {}
     // FJ-211: env file loading tests
     // ================================================================
 
+    #[allow(dead_code)]
     fn write_env_config(dir: &Path) -> PathBuf {
         let file = dir.join("forjar.yaml");
         std::fs::write(

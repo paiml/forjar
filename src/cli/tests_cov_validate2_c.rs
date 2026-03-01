@@ -1,5 +1,6 @@
 //! Tests: Coverage for lock_repair and lock_normalize (part 3).
 
+#![allow(unused_imports)]
 use super::lock_repair::*;
 use std::io::Write;
 

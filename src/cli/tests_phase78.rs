@@ -1,5 +1,6 @@
 //! Tests: Phase 78 — Automation Intelligence & Fleet Optimization (FJ-885→FJ-892).
 
+#![allow(unused_imports)]
 use super::validate_ownership::*;
 use super::graph_scoring::*;
 use super::status_recovery::*;
@@ -96,7 +97,7 @@ mod tests {
             discord_webhook: None, teams_webhook: None, slack_blocks: None,
             custom_template: None, custom_webhook: None, custom_headers: None,
             custom_json: None, custom_filter: None, custom_retry: None,
-            custom_transform: Some("https://hooks.example.com|{\"s\":\"{{status}}\"}"), custom_batch: None, custom_deduplicate: None, custom_throttle: None, custom_aggregate: None, custom_priority: None, custom_routing: None, custom_dedup_window: None, custom_rate_limit: None, custom_backoff: None, custom_circuit_breaker: None, custom_dead_letter: None, custom_escalation: None, custom_correlation: None, custom_sampling: None, custom_digest: None, custom_severity_filter: None,        };;
+            custom_transform: Some("https://hooks.example.com|{\"s\":\"{{status}}\"}"), custom_batch: None, custom_deduplicate: None, custom_throttle: None, custom_aggregate: None, custom_priority: None, custom_routing: None, custom_dedup_window: None, custom_rate_limit: None, custom_backoff: None, custom_circuit_breaker: None, custom_dead_letter: None, custom_escalation: None, custom_correlation: None, custom_sampling: None, custom_digest: None, custom_severity_filter: None,        };
         assert!(opts.custom_transform.is_some());
     }
 
@@ -113,7 +114,7 @@ mod tests {
             sqs: None, mattermost: None, ntfy: None, pagerduty: None,
             discord_webhook: None, teams_webhook: None, slack_blocks: None,
             custom_template: None, custom_webhook: None, custom_headers: None,
-            custom_json: None, custom_filter: None, custom_retry: None, custom_transform: None, custom_batch: None, custom_deduplicate: None, custom_throttle: None, custom_aggregate: None, custom_priority: None, custom_routing: None, custom_dedup_window: None, custom_rate_limit: None, custom_backoff: None, custom_circuit_breaker: None, custom_dead_letter: None, custom_escalation: None, custom_correlation: None, custom_sampling: None, custom_digest: None, custom_severity_filter: None,        };;
+            custom_json: None, custom_filter: None, custom_retry: None, custom_transform: None, custom_batch: None, custom_deduplicate: None, custom_throttle: None, custom_aggregate: None, custom_priority: None, custom_routing: None, custom_dedup_window: None, custom_rate_limit: None, custom_backoff: None, custom_circuit_breaker: None, custom_dead_letter: None, custom_escalation: None, custom_correlation: None, custom_sampling: None, custom_digest: None, custom_severity_filter: None,        };
         assert!(opts.custom_transform.is_none());
     }
 

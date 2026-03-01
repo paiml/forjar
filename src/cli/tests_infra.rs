@@ -1,5 +1,6 @@
 //! Tests: Infrastructure utilities.
 
+#![allow(unused_imports)]
 use crate::core::types::ProvenanceEvent;
 use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
 use crate::transport;
@@ -295,6 +296,7 @@ mod tests {
     // FJ-215: output tests
     // ================================================================
 
+    #[allow(dead_code)]
     fn write_output_config(dir: &Path) -> PathBuf {
         let file = dir.join("forjar.yaml");
         let yaml = r#"

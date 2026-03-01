@@ -1,5 +1,6 @@
 //! Tests: Coverage for plan and show (part 2).
 
+#![allow(unused_imports)]
 use super::plan::*;
 use super::show::*;
 use std::io::Write;

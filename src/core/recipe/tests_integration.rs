@@ -1,5 +1,6 @@
 //! Integration and edge case tests (FJ-132, FJ-036, resource inputs, metadata).
 
+#![allow(unused_imports)]
 use std::collections::HashMap;
 use std::path::Path;
 

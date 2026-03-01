@@ -1,5 +1,6 @@
 //! Tests: Coverage for apply_post_actions, count_results, dry_run_output, summary, reports (part 2).
 
+#![allow(unused_imports)]
 use super::apply_output::*;
 use super::apply_variants::*;
 use super::helpers::*;

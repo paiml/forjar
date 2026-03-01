@@ -1,5 +1,6 @@
 //! Tests: Phase 86 — Resource Lifecycle & Configuration Maturity (FJ-949→FJ-956).
 
+#![allow(unused_imports)]
 use super::validate_ordering::*;
 use super::graph_intelligence::*;
 use super::graph_intelligence_ext::*;

@@ -1,5 +1,6 @@
 //! Tests: Coverage for validate_compliance, validate_structural, lock (part 9).
 
+#![allow(unused_imports)]
 use super::lock_security::*;
 use super::lock_ops::*;
 use super::lock_core::*;

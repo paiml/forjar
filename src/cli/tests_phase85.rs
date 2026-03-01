@@ -1,5 +1,6 @@
 //! Tests: Phase 85 — Advanced Compliance & Dependency Intelligence (FJ-941→FJ-948).
 
+#![allow(unused_imports)]
 use super::validate_ordering::*;
 use super::graph_intelligence::*;
 use super::graph_intelligence_ext::*;

@@ -1,5 +1,6 @@
 //! Tests: Show, explain, compare, template.
 
+#![allow(unused_imports)]
 use crate::core::types::ProvenanceEvent;
 use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
 use crate::transport;
@@ -127,6 +128,7 @@ policy:
 
     // ── forjar diff tests ──────────────────────────────────────────
 
+    #[allow(dead_code)]
     fn make_state_dir_with_lock(
         dir: &Path,
         machine: &str,

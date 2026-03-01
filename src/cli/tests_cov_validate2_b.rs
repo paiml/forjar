@@ -1,5 +1,6 @@
 //! Tests: Coverage for lock_core, lock_audit, history, diff_cmd (part 2).
 
+#![allow(unused_imports)]
 use super::lock_core::*;
 use super::lock_audit::*;
 use super::history::*;

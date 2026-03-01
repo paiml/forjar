@@ -1,5 +1,6 @@
 //! Coverage tests for status_convergence, status_health, status_observability.
 
+#![allow(unused_imports)]
 use super::status_convergence::*;
 use super::status_health::*;
 use super::status_observability::*;

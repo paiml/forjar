@@ -1,6 +1,7 @@
 //! Coverage tests for status_fleet_detail, status_insights,
 //! and status_intelligence_ext (drift frequency through drift age).
 
+#![allow(unused_imports)]
 use super::status_convergence::*;
 use super::status_fleet_detail::*;
 use super::status_insights::*;

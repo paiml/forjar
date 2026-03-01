@@ -1,5 +1,6 @@
 //! Tests: Core graph commands (overflow from core_1/core_2).
 
+#![allow(unused_imports)]
 use crate::core::types::ProvenanceEvent;
 use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
 use crate::transport;

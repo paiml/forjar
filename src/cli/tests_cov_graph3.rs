@@ -1,5 +1,6 @@
 //! Tests: Coverage for graph_intelligence_ext, graph_scoring, graph_export, graph_advanced.
 
+#![allow(unused_imports)]
 use super::graph_advanced::*;
 use super::graph_export::*;
 use super::graph_intelligence_ext::*;

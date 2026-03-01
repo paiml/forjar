@@ -1,5 +1,6 @@
 //! Tests: Coverage for remaining validate, lock, destroy, observe (part 3).
 
+#![allow(unused_imports)]
 use super::validate_quality::*;
 use super::validate_resources::*;
 use super::validate_structural::*;

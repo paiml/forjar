@@ -3,6 +3,7 @@
 //! Also covers secrets.rs — find_enc_markers, keygen, view, encrypt, decrypt,
 //! rekey, and rotate.
 
+#![allow(unused_imports)]
 use std::path::Path;
 use super::dispatch_notify::*;
 use super::dispatch_notify_custom::*;

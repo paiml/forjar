@@ -1,5 +1,6 @@
 //! Tests: Init, format, completion, schema.
 
+#![allow(unused_imports)]
 use crate::core::types::ProvenanceEvent;
 use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
 use crate::transport;
@@ -135,6 +136,7 @@ resources:
 
     // ── FJ-131: cmd_graph tests ───────────────────────────────────
 
+    #[allow(dead_code)]
     fn write_simple_config(dir: &std::path::Path) -> std::path::PathBuf {
         let config_path = dir.join("forjar.yaml");
         std::fs::write(

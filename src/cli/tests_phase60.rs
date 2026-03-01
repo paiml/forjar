@@ -1,5 +1,6 @@
 //! Phase 60 tests: FJ-741 through FJ-748.
 
+#![allow(unused_imports)]
 #[cfg(test)]
 mod tests {
     use super::super::validate_paths::{
@@ -43,6 +44,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::disallowed_methods)]
     fn test_fj741_env_refs_with_set_var() {
         std::env::set_var("FORJAR_TEST_741", "1");
         let dir = tempfile::tempdir().unwrap();

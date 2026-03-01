@@ -1,5 +1,6 @@
 //! Tests: Coverage for validate_safety and validate_advanced (part 3 of 4).
 
+#![allow(unused_imports)]
 use super::validate_ordering::*;
 use super::validate_ownership::*;
 use super::validate_safety::*;

@@ -1,5 +1,6 @@
 //! Coverage tests for args structs and uncovered functions — part 4 (functional tests).
 
+#![allow(unused_imports)]
 use super::apply_variants::*;
 use super::commands::*;
 use super::destroy::*;

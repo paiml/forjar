@@ -1,9 +1,11 @@
 //! Template tests.
 
+#![allow(unused_imports)]
 use super::template::{resolve_secret, resolve_template};
 use super::*;
 use std::collections::HashMap;
 
+#[test]
 fn test_fj003_resolve_params() {
     let mut params = HashMap::new();
     params.insert(

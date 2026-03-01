@@ -3,6 +3,7 @@
 //! (transform, batch, deduplicate, throttle, aggregate, priority, routing,
 //! dedup_window, rate_limit, backoff).
 
+#![allow(unused_imports)]
 use std::path::Path;
 use super::dispatch_notify::*;
 use super::dispatch_notify_custom::*;

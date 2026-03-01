@@ -1,6 +1,7 @@
 //! Tests: Coverage for parser/model, exec_script_retry, drift, notify extras (part 3 of 3).
 //! Covers: validate_model, exec_script_retry, cmd_drift_dry_run, additional notify/doctor.
 
+#![allow(unused_imports)]
 use std::io::Write;
 use std::path::{Path, PathBuf};
 

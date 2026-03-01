@@ -1,6 +1,7 @@
 //! Coverage tests for status_intelligence_ext (recovery rate through staleness index),
 //! status_convergence, and extra converged-only branch tests.
 
+#![allow(unused_imports)]
 use super::status_convergence::*;
 use super::status_fleet_detail::*;
 use super::status_insights::*;
