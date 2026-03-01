@@ -101,6 +101,7 @@ fn test_fj003_resolve_all_fields() {
         gpu_memory_limit_mb: None,
         pre_apply: None,
         post_apply: None,
+        lifecycle: None,
     };
 
     let resolved = resolve_resource_templates(&resource, &params, &machines).unwrap();
@@ -243,6 +244,7 @@ fn test_fj003_resolve_resource_templates_group_and_mode() {
         gpu_memory_limit_mb: None,
         pre_apply: None,
         post_apply: None,
+        lifecycle: None,
     };
 
     let resolved = resolve_resource_templates(&resource, &params, &machines).unwrap();

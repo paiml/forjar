@@ -1,0 +1,126 @@
+# Recipe: 30-saved-plan
+# Tier: 1+2 (validate + container apply)
+# Idempotency: strong
+# Budget: first_apply < 60s, idempotent < 2s
+#
+# OpenTofu-style saved plan files: `forjar plan --out plan.json`
+# then `forjar apply --plan-file plan.json` for TOCTOU safety.
+# Config hash + state hash verified before apply proceeds.
+
+version: '1.0'
+name: saved-plan-test
+description: "Saved plan file workflow for TOCTOU safety in CI/CD pipelines"
+
+params:
+  plan_dir: /tmp/forjar-plans
+  app_name: web-stack
+
+machines:
+  target:
+    hostname: target
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-cookbook-30-saved-plan
+      ephemeral: false
+      privileged: false
+      init: true
+
+resources:
+  plan-dir:
+    type: file
+    machine: target
+    state: directory
+    path: /tmp/forjar-plans
+    owner: root
+    mode: '0755'
+    tags: [plan, dirs]
+    resource_group: plan-infra
+
+  # Resource that would be planned and saved
+  app-config:
+    type: file
+    machine: target
+    path: /etc/app/config.yaml
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — saved plan test
+      app: web-stack
+      version: 1.0
+      port: 8080
+    depends_on: [plan-dir]
+    tags: [plan, app]
+    resource_group: app
+
+  app-data-dir:
+    type: file
+    machine: target
+    state: directory
+    path: /var/lib/app
+    owner: root
+    mode: '0755'
+    depends_on: [plan-dir]
+    tags: [plan, app]
+    resource_group: app
+
+  # Plan verification script
+  plan-verify-script:
+    type: file
+    machine: target
+    path: /usr/local/bin/verify-plan.sh
+    owner: root
+    mode: '0755'
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+      echo "=== Plan Verification ==="
+      echo "Checking config hash..."
+      echo "Checking state hash..."
+      echo "Plan verified: TOCTOU safe"
+    depends_on: [app-config, app-data-dir]
+    tags: [plan, verify]
+    resource_group: plan-infra
+
+  plan-manifest:
+    type: file
+    machine: target
+    path: /tmp/forjar-plans/plan-manifest.json
+    owner: root
+    mode: '0644'
+    content: |
+      {
+        "plan_format": "forjar-plan-v1",
+        "config_hash_algo": "blake3",
+        "state_hash_algo": "blake3",
+        "toctou_safe": true,
+        "workflow": "plan-review-apply"
+      }
+    depends_on: [plan-verify-script]
+    tags: [plan, manifest]
+    resource_group: plan-infra
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Testing saved plan workflow'"
+  post_apply: "echo 'Saved plan test complete'"
+  notify:
+    on_success: "echo 'Plan save/apply cycle verified'"
+    on_failure: "echo 'Plan workflow test failed'"
+    on_drift: "echo 'Plan state drift detected'"
+
+outputs:
+  plan_dir:
+    value: "/tmp/forjar-plans"
+    description: "Plan file storage directory"
+  toctou_safe:
+    value: "true"
+    description: "TOCTOU safety enabled"

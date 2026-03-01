@@ -1,0 +1,102 @@
+# Recipe: 34-moved-blocks
+# Tier: 1+2 (validate + container apply with renamed resources)
+# Idempotency: strong
+# Budget: first_apply < 30s, idempotent < 2s
+#
+# OpenTofu-style moved blocks: declarative resource renaming.
+# State is updated in-place — avoids destroy + create cycle.
+# `moved:` entries are one-time migrations, removable after apply.
+
+version: '1.0'
+name: refactored-stack
+description: "Declarative resource renaming with moved blocks (no destroy + create)"
+
+params:
+  app_name: web-app
+
+machines:
+  target:
+    hostname: target
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-cookbook-34-moved
+      ephemeral: false
+      privileged: false
+      init: true
+
+# Declarative renames — processed before planning
+moved:
+  - from: webserver-pkg
+    to: nginx-web
+  - from: db-pkg
+    to: postgres-primary
+
+resources:
+  # Renamed from "webserver-pkg" → "nginx-web"
+  nginx-web:
+    type: package
+    machine: target
+    provider: apt
+    packages:
+      - curl
+    tags: [moved, web]
+    resource_group: web
+
+  # Renamed from "db-pkg" → "postgres-primary"
+  postgres-primary:
+    type: file
+    machine: target
+    path: /etc/db/postgres.conf
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — moved blocks test
+      # Was: db-pkg → Now: postgres-primary
+      data_directory=/var/lib/postgresql/15/main
+    depends_on: [nginx-web]
+    tags: [moved, database]
+    resource_group: database
+
+  moved-manifest:
+    type: file
+    machine: target
+    path: /etc/forjar/moved-manifest.json
+    owner: root
+    mode: '0644'
+    content: |
+      {
+        "moved_entries": [
+          {"from": "webserver-pkg", "to": "nginx-web"},
+          {"from": "db-pkg", "to": "postgres-primary"}
+        ],
+        "note": "moved blocks are one-time migrations, removable after first apply"
+      }
+    depends_on: [postgres-primary]
+    tags: [moved, manifest]
+    resource_group: manifest
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Applying with moved blocks'"
+  post_apply: "echo 'Resource renames complete'"
+  notify:
+    on_success: "echo 'Declarative refactoring applied'"
+    on_failure: "echo 'Moved blocks failed'"
+    on_drift: "echo 'Renamed resource drift detected'"
+
+outputs:
+  moved_count:
+    value: "2"
+    description: "Number of moved resource entries"
+  refactor_safe:
+    value: "true"
+    description: "Declarative rename avoids destroy/create"

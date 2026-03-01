@@ -128,6 +128,7 @@ fn test_fj064_arch_filter_skips_mismatched() {
         gpu_memory_limit_mb: None,
         pre_apply: None,
         post_apply: None,
+        lifecycle: None,
     };
 
     // arch filter should reject: aarch64 resource on x86_64 machine

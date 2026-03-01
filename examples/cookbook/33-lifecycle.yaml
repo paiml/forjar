@@ -1,0 +1,135 @@
+# Recipe: 33-lifecycle
+# Tier: 1+2 (validate + container apply)
+# Idempotency: strong
+# Budget: first_apply < 60s, idempotent < 2s
+#
+# OpenTofu-style lifecycle protection rules: prevent_destroy,
+# create_before_destroy, and ignore_drift. Protects critical
+# stateful resources from accidental destruction.
+
+version: '1.0'
+name: lifecycle-protection
+description: "Lifecycle protection rules for stateful and critical resources"
+
+params:
+  db_data_dir: /var/lib/postgresql/15/main
+  app_config_dir: /etc/app
+
+machines:
+  target:
+    hostname: target
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-cookbook-33-lifecycle
+      ephemeral: false
+      privileged: false
+      init: true
+
+resources:
+  # Protected database data directory — cannot be destroyed
+  db-data-dir:
+    type: file
+    machine: target
+    state: directory
+    path: /var/lib/postgresql/15/main
+    owner: root
+    mode: '0700'
+    lifecycle:
+      prevent_destroy: true
+    tags: [lifecycle, database, protected]
+    resource_group: database
+
+  db-config:
+    type: file
+    machine: target
+    path: /var/lib/postgresql/15/main/pg_hba.conf
+    owner: root
+    mode: '0600'
+    content: |
+      # Managed by forjar — lifecycle test
+      local all all peer
+      host all all 127.0.0.1/32 scram-sha-256
+    depends_on: [db-data-dir]
+    lifecycle:
+      prevent_destroy: true
+    tags: [lifecycle, database, protected]
+    resource_group: database
+
+  # App config with create_before_destroy — avoids config-absent window
+  app-config:
+    type: file
+    machine: target
+    path: /etc/app/config.yaml
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — lifecycle test
+      database:
+        host: localhost
+        port: 5432
+      server:
+        port: 8080
+    lifecycle:
+      create_before_destroy: true
+    tags: [lifecycle, app]
+    resource_group: app
+
+  # Externally-managed config — ignore content drift
+  external-config:
+    type: file
+    machine: target
+    path: /etc/app/external.conf
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — lifecycle test (ignore drift on content)
+      # Content managed by external process
+      replica_count=3
+    lifecycle:
+      ignore_drift:
+        - content
+    tags: [lifecycle, app, external]
+    resource_group: app
+
+  lifecycle-manifest:
+    type: file
+    machine: target
+    path: /etc/forjar/lifecycle-manifest.json
+    owner: root
+    mode: '0644'
+    content: |
+      {
+        "protected_resources": ["db-data-dir", "db-config"],
+        "create_before_destroy": ["app-config"],
+        "ignore_drift": {"external-config": ["content"]},
+        "lifecycle_version": "1.0"
+      }
+    depends_on: [db-config, app-config, external-config]
+    tags: [lifecycle, manifest]
+    resource_group: manifest
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Converging with lifecycle protection'"
+  post_apply: "echo 'Lifecycle protection rules active'"
+  notify:
+    on_success: "echo 'All lifecycle rules applied'"
+    on_failure: "echo 'Lifecycle protection setup failed'"
+    on_drift: "echo 'Protected resource drift detected'"
+
+outputs:
+  protected_count:
+    value: "2"
+    description: "Number of prevent_destroy resources"
+  lifecycle_rules:
+    value: "prevent_destroy,create_before_destroy,ignore_drift"
+    description: "Active lifecycle rule types"

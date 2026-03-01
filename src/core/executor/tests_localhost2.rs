@@ -136,6 +136,7 @@ fn test_fj131_record_success_no_live_hash_for_package() {
         gpu_memory_limit_mb: None,
         pre_apply: None,
         post_apply: None,
+        lifecycle: None,
     };
     let mut ctx = RecordCtx {
         lock: &mut lock,

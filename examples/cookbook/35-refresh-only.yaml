@@ -1,0 +1,116 @@
+# Recipe: 35-refresh-only
+# Tier: 2 (container apply)
+# Idempotency: strong (refresh-only is itself idempotent)
+# Budget: first_apply < 30s, idempotent < 2s
+#
+# OpenTofu-style refresh-only mode: accept intentional drift
+# without re-converging. Updates state to match reality.
+# Use: `forjar apply --refresh-only` (hypothetical flag).
+
+version: '1.0'
+name: refresh-only-test
+description: "Drift acceptance mode — update state to match reality without re-converging"
+
+params:
+  app_name: hotfix-app
+
+machines:
+  target:
+    hostname: target
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-cookbook-35-refresh
+      ephemeral: false
+      privileged: false
+      init: true
+
+resources:
+  app-dir:
+    type: file
+    machine: target
+    state: directory
+    path: /var/lib/app
+    owner: root
+    mode: '0755'
+    tags: [refresh, app]
+    resource_group: app
+
+  # Config that might be hotfixed manually
+  app-config:
+    type: file
+    machine: target
+    path: /var/lib/app/config.yaml
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — refresh-only test
+      # This config may be hotfixed manually.
+      # refresh-only accepts the hotfix into state.
+      app: hotfix-app
+      version: 1.0
+      debug: false
+    depends_on: [app-dir]
+    tags: [refresh, config]
+    resource_group: app
+
+  # Drift tracking script
+  drift-check-script:
+    type: file
+    machine: target
+    path: /usr/local/bin/check-drift.sh
+    owner: root
+    mode: '0755'
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+      echo "=== Drift Check ==="
+      echo "Comparing desired state vs actual state..."
+      echo "If drift detected: refresh-only updates state hash"
+      echo "No changes applied to machine"
+    depends_on: [app-config]
+    tags: [refresh, drift]
+    resource_group: tools
+
+  refresh-manifest:
+    type: file
+    machine: target
+    path: /var/lib/app/refresh-manifest.json
+    owner: root
+    mode: '0644'
+    content: |
+      {
+        "mode": "refresh-only",
+        "behavior": "update state to match reality",
+        "changes_applied": 0,
+        "state_updated": true,
+        "event_type": "refresh"
+      }
+    depends_on: [drift-check-script]
+    tags: [refresh, manifest]
+    resource_group: app
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Running refresh-only mode'"
+  post_apply: "echo 'State refreshed — no changes applied'"
+  notify:
+    on_success: "echo 'State refresh complete'"
+    on_failure: "echo 'Refresh failed'"
+    on_drift: "echo 'Drift detected — refresh-only will accept it'"
+
+outputs:
+  mode:
+    value: "refresh-only"
+    description: "Apply mode"
+  changes_applied:
+    value: "0"
+    description: "Refresh-only applies zero changes"

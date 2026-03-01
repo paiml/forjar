@@ -115,6 +115,7 @@ fn test_fj012_build_resource_details() {
         gpu_memory_limit_mb: None,
         pre_apply: None,
         post_apply: None,
+        lifecycle: None,
     };
     let details = build_resource_details(&r, &local_machine());
     assert!(details.contains_key("path"));
@@ -204,6 +205,7 @@ fn test_fj012_build_resource_details_service() {
         gpu_memory_limit_mb: None,
         pre_apply: None,
         post_apply: None,
+        lifecycle: None,
     };
     let details = build_resource_details(&r, &local_machine());
     assert!(details.contains_key("service_name"));

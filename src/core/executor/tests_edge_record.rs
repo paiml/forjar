@@ -82,6 +82,7 @@ fn test_fj012_record_success_without_tripwire() {
         gpu_memory_limit_mb: None,
         pre_apply: None,
         post_apply: None,
+        lifecycle: None,
     };
     let mut ctx = RecordCtx {
         lock: &mut lock,
@@ -175,6 +176,7 @@ fn test_fj012_record_success_service_resource() {
         gpu_memory_limit_mb: None,
         pre_apply: None,
         post_apply: None,
+        lifecycle: None,
     };
     let mut ctx = RecordCtx {
         lock: &mut lock,
@@ -290,6 +292,7 @@ fn test_fj012_build_details_file_no_content() {
         gpu_memory_limit_mb: None,
         pre_apply: None,
         post_apply: None,
+        lifecycle: None,
     };
     let details = build_resource_details(&resource, &local_machine());
     assert!(details.contains_key("path"));
@@ -378,6 +381,7 @@ fn test_fj012_build_details_file_with_content_and_real_file() {
         gpu_memory_limit_mb: None,
         pre_apply: None,
         post_apply: None,
+        lifecycle: None,
     };
     let details = build_resource_details(&resource, &local_machine());
     assert!(

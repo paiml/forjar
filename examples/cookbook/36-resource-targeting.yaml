@@ -1,0 +1,124 @@
+# Recipe: 36-resource-targeting
+# Tier: 2 (container apply single resource)
+# Idempotency: strong
+# Budget: first_apply < 30s, idempotent < 2s
+#
+# OpenTofu-style resource targeting: `forjar apply --target nginx-pkg`
+# Applies single resource and its transitive dependencies.
+# Does NOT include downstream dependents by default.
+
+version: '1.0'
+name: resource-targeting-test
+description: "Surgical resource targeting for debugging and partial recovery"
+
+params:
+  target_resource: app-config
+
+machines:
+  target:
+    hostname: target
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-cookbook-36-targeting
+      ephemeral: false
+      privileged: false
+      init: true
+
+resources:
+  # Layer 0: no deps (always included when targeted)
+  base-packages:
+    type: package
+    machine: target
+    provider: apt
+    packages:
+      - curl
+    tags: [targeting, base]
+    resource_group: base
+
+  # Layer 1: depends on base-packages
+  app-dir:
+    type: file
+    machine: target
+    state: directory
+    path: /var/lib/app
+    owner: root
+    mode: '0755'
+    depends_on: [base-packages]
+    tags: [targeting, app]
+    resource_group: app
+
+  # Layer 2: depends on app-dir — this is the target
+  app-config:
+    type: file
+    machine: target
+    path: /var/lib/app/config.yaml
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — resource targeting test
+      # --target app-config includes: base-packages → app-dir → app-config
+      # Does NOT include: app-service (downstream dependent)
+      app: targeting-test
+      port: 8080
+    depends_on: [app-dir]
+    tags: [targeting, app]
+    resource_group: app
+
+  # Layer 3: depends on app-config — NOT included in --target app-config
+  app-service-unit:
+    type: file
+    machine: target
+    path: /etc/systemd/system/app.service
+    owner: root
+    mode: '0644'
+    content: |
+      [Unit]
+      Description=App Service (targeting test)
+      After=network.target
+      [Service]
+      ExecStart=/usr/local/bin/app-server
+      [Install]
+      WantedBy=multi-user.target
+    depends_on: [app-config]
+    tags: [targeting, service]
+    resource_group: service
+
+  # Independent resource — NOT included in --target app-config
+  monitoring-config:
+    type: file
+    machine: target
+    path: /etc/monitoring/config.yaml
+    owner: root
+    mode: '0644'
+    content: |
+      # Independent resource — not in app-config's dependency chain
+      collector: prometheus
+      scrape_interval: 30s
+    tags: [targeting, monitoring]
+    resource_group: monitoring
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Applying targeted resource'"
+  post_apply: "echo 'Targeted apply complete'"
+  notify:
+    on_success: "echo 'Targeted resource converged'"
+    on_failure: "echo 'Targeted apply failed'"
+    on_drift: "echo 'Targeted resource drifted'"
+
+outputs:
+  target_resource:
+    value: "app-config"
+    description: "Resource targeted for selective apply"
+  transitive_deps:
+    value: "base-packages,app-dir"
+    description: "Upstream dependencies included"

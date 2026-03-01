@@ -76,6 +76,7 @@ let r = Resource {
     gpu_memory_limit_mb: None,
     pre_apply: None,
     post_apply: None,
+        lifecycle: None,
 };
 let h1 = hash_desired_state(&r);
 let h2 = hash_desired_state(&r);
@@ -156,6 +157,7 @@ let r1 = Resource {
     gpu_memory_limit_mb: None,
     pre_apply: None,
     post_apply: None,
+        lifecycle: None,
 };
 // Changing any field should change the hash
 let mut r2 = r1.clone();
@@ -244,6 +246,7 @@ let r1 = Resource {
     gpu_memory_limit_mb: None,
     pre_apply: None,
     post_apply: None,
+        lifecycle: None,
 };
 let mut r2 = r1.clone();
 r2.content = Some("version=2".to_string());

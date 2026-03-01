@@ -18,6 +18,8 @@ pub(super) fn minimal_config() -> ForjarConfig {
         policies: Vec::new(),
         data: IndexMap::new(),
         includes: Vec::new(),
+        checks: IndexMap::new(),
+        moved: Vec::new(),
     }
 }
 
@@ -93,6 +95,7 @@ pub(super) fn minimal_resource(rt: ResourceType) -> Resource {
         gpu_memory_limit_mb: None,
         pre_apply: None,
         post_apply: None,
+        lifecycle: None,
     }
 }
 

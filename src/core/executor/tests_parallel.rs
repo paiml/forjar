@@ -166,6 +166,7 @@ fn test_fj012_record_success_writes_lock_and_event() {
         gpu_memory_limit_mb: None,
         pre_apply: None,
         post_apply: None,
+        lifecycle: None,
     };
     let machine = Machine {
         hostname: "localhost".to_string(),
