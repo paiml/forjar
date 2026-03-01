@@ -81,6 +81,7 @@ mod graph_compliance;
 mod graph_lifecycle;
 mod graph_health;
 mod graph_quality;
+mod graph_topology_ext;
 mod lock_core;
 mod lock_repair;
 mod lock_lifecycle;
@@ -116,14 +117,12 @@ mod status_recovery;
 mod status_drift_intel;
 mod status_security;
 mod status_fleet_insight;
-#[cfg(test)]
-mod test_fixtures;
-#[cfg(test)]
-mod tests_helpers;
-#[cfg(test)]
-mod tests_helpers_state;
-#[cfg(test)]
-mod tests_helpers_time;
+mod status_resource_intel;
+mod validate_topology;
+#[cfg(test)] mod test_fixtures;
+#[cfg(test)] mod tests_helpers;
+#[cfg(test)] mod tests_helpers_state;
+#[cfg(test)] mod tests_helpers_time;
 #[cfg(test)]
 mod tests_print_helpers;
 #[cfg(test)]
@@ -492,6 +491,8 @@ mod tests_phase96;
 mod tests_phase97;
 #[cfg(test)]
 mod tests_phase101;
+#[cfg(test)]
+mod tests_phase102;
 
 pub use commands::Commands;
 pub use dispatch::dispatch;

@@ -454,5 +454,11 @@ pub struct GraphArgs {
     /// FJ-1074: Identify resources with high fan-in that create bottlenecks
     #[arg(long)]
     pub resource_dependency_bottleneck_detection: bool,
+    /// FJ-1079: Identify clusters of tightly coupled resources
+    #[arg(long)]
+    pub resource_topology_cluster_analysis: bool,
+    /// FJ-1082: Find disconnected subgraphs (islands) with no dependencies
+    #[arg(long)]
+    pub resource_dependency_island_detection: bool,
 }
 

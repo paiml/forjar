@@ -461,5 +461,14 @@ pub struct ValidateArgs {
     /// FJ-1076: Score drift risk based on type, content, and dependency count
     #[arg(long)]
     pub check_resource_content_drift_risk: bool,
+    /// FJ-1078: Warn if circular dependency chains exist
+    #[arg(long)]
+    pub check_resource_circular_dependency_depth: bool,
+    /// FJ-1081: Detect orphan resources unreachable from any root
+    #[arg(long)]
+    pub check_resource_orphan_detection_deep: bool,
+    /// FJ-1084: Warn if all resources use a single provider type
+    #[arg(long)]
+    pub check_resource_provider_diversity: bool,
 }
 
