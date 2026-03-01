@@ -160,6 +160,7 @@ The README contains a live qualification table bounded by HTML comment markers, 
 | Status | Count |
 |--------|-------|
 | Qualified | 56 |
+| Pending   | 1  |
 | Blocked   | 5  |
 
 | # | Recipe | Status | Grade | Score | Blocker |
@@ -1932,12 +1933,12 @@ resources:
 |---|--------|------|----------------|--------------|
 | 16 | Rust Release Build | 1+2+3 | validate + container build | real optimized build |
 | 17 | Static Binary (musl) | 1+2+3 | validate + container musl build | real static build + size verification |
-| 18 | Multi-Stage Pipeline | 1+3 | validate + plan | ephemeral overlay build → deploy |
+| 18 | Multi-Stage Pipeline | 1+2 | validate + container build | two-machine build → deploy |
 | 19 | Cross-Compilation | 1+3 | validate + plan | x86_64 → aarch64 cross build |
 | 20 | Sovereign Stack Release | 1+3 | validate + plan | full stack build + deploy + verify |
 | 21 | Compiled APR Model | 1+2+3 | validate + container build w/ 4.4 MB tiny model | ROCm GPU inference on Intel runner |
 
-**Recipes 16, 17, and 21 are fully testable in GitHub Actions** (Tier 2) using the container transport. Recipe 21 uses [TinyLLama-v0](https://huggingface.co/mav23/TinyLLama-v0-GGUF) (4.4 MB Q2_K) for CI smoke testing — small enough to download and compile in seconds, but exercises the full pipeline.
+**Recipes 16, 17, 18, and 21 are fully testable in GitHub Actions** (Tier 2) using the container transport. Recipe 21 uses [TinyLLama-v0](https://huggingface.co/mav23/TinyLLama-v0-GGUF) (4.4 MB Q2_K) for CI smoke testing — small enough to download and compile in seconds, but exercises the full pipeline.
 
 ---
 
