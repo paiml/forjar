@@ -1,0 +1,188 @@
+# Recipe: 14-system-profile
+# Tier: 1+3 (validate in CI, full convergence on bare-metal)
+# Idempotency: strong
+# Budget: first_apply < 120s, idempotent < 5s
+#
+# Nix-style system profile: full-machine declarative configuration.
+# Composes dev tools, security baseline, and toolchain pins into one
+# config. Like NixOS configuration.nix but using forjar primitives.
+
+version: '1.0'
+name: system-profile
+description: "Full-machine declarative profile composing dev tools, security, toolchain, and monitoring"
+
+params:
+  user: dev
+  home: /home/dev
+  editor: vim
+  role: dev
+  rust_version: 1.82.0
+
+machines:
+  target:
+    hostname: target
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-cookbook-14-profile
+      ephemeral: false
+      privileged: false
+      init: true
+
+resources:
+  # --- Base: Developer Tools ---
+  dev-packages:
+    type: package
+    machine: target
+    provider: apt
+    packages:
+      - build-essential
+      - curl
+      - git
+      - tmux
+      - htop
+      - jq
+      - tree
+    tags: [profile, base]
+    resource_group: base
+
+  dev-user:
+    type: user
+    machine: target
+    name: "{{params.user}}"
+    home: "{{params.home}}"
+    shell: /bin/bash
+    groups: [sudo]
+    depends_on: [dev-packages]
+    tags: [profile, user]
+    resource_group: base
+
+  home-dir:
+    type: file
+    machine: target
+    state: directory
+    path: "{{params.home}}"
+    owner: "{{params.user}}"
+    mode: '0755'
+    depends_on: [dev-user]
+    tags: [profile, dotfiles]
+    resource_group: dotfiles
+
+  # --- Security: Hardened SSH ---
+  sshd-config:
+    type: file
+    machine: target
+    path: /etc/ssh/sshd_config.d/forjar-hardened.conf
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — system profile security
+      PermitRootLogin no
+      PasswordAuthentication no
+      X11Forwarding no
+      MaxAuthTries 3
+    depends_on: [dev-packages]
+    tags: [profile, security]
+    resource_group: security
+
+  # --- Toolchain: Version Pins ---
+  toolchain-dir:
+    type: file
+    machine: target
+    state: directory
+    path: /etc/forjar/toolchain.d
+    owner: root
+    mode: '0755'
+    tags: [profile, toolchain]
+    resource_group: toolchain
+
+  rust-pin:
+    type: file
+    machine: target
+    path: /etc/forjar/toolchain.d/rust
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — Rust toolchain pin
+      version=1.82.0
+      channel=stable
+    depends_on: [toolchain-dir]
+    tags: [profile, toolchain, rust]
+    resource_group: toolchain
+
+  # --- Shell & Dotfiles ---
+  gitconfig:
+    type: file
+    machine: target
+    path: "{{params.home}}/.gitconfig"
+    owner: "{{params.user}}"
+    mode: '0644'
+    content: |
+      [core]
+        editor = vim
+      [init]
+        defaultBranch = main
+      [pull]
+        rebase = true
+    depends_on: [home-dir]
+    tags: [profile, dotfiles]
+    resource_group: dotfiles
+
+  bashrc:
+    type: file
+    machine: target
+    path: "{{params.home}}/.bashrc"
+    owner: "{{params.user}}"
+    mode: '0644'
+    content: |
+      # Managed by forjar — system profile
+      export EDITOR=vim
+      export PATH="$HOME/.cargo/bin:$PATH"
+      export RUST_BACKTRACE=1
+      alias ll='ls -alF'
+    depends_on: [home-dir]
+    tags: [profile, dotfiles]
+    resource_group: dotfiles
+
+  # --- Profile Manifest ---
+  profile-manifest:
+    type: file
+    machine: target
+    path: /etc/forjar/profile.conf
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — system profile manifest
+      profile=system-profile
+      role=dev
+      user={{params.user}}
+      rust_version=1.82.0
+      composed_recipes=devbox,secure-baseline,toolchain-pin
+    depends_on: [dev-user, sshd-config, rust-pin]
+    tags: [profile, manifest]
+    resource_group: profile
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Converging system profile'"
+  post_apply: "echo 'System profile converged'"
+  notify:
+    on_success: "echo 'Full machine profile applied'"
+    on_failure: "echo 'Profile convergence failed'"
+    on_drift: "echo 'System profile drift detected'"
+
+outputs:
+  profile_role:
+    value: "dev"
+    description: "System profile role"
+  configured_user:
+    value: "{{params.user}}"
+    description: "Primary user"

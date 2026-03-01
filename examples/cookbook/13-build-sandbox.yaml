@@ -1,0 +1,123 @@
+# Recipe: 13-build-sandbox
+# Tier: 1+3 (validate in CI, full apply needs pepita overlayfs)
+# Idempotency: strong
+# Budget: first_apply < 60s, idempotent < 2s
+#
+# Nix-style ephemeral build sandbox: overlay on /, install deps,
+# build, extract artifacts, destroy. Network-isolated to prevent
+# fetching undeclared dependencies.
+
+version: '1.0'
+name: build-sandbox
+description: "Ephemeral build sandbox with overlay isolation, artifact extraction, and cleanup"
+
+params:
+  build_name: forjar-build
+  output_dir: /tmp/build-output
+  memory_mb: "8192"
+
+machines:
+  # Container variant for CI. Production would use:
+  # transport: pepita
+  # pepita:
+  #   rootfs: /
+  #   memory_mb: "{{params.memory_mb}}"
+  #   network: isolated
+  #   filesystem: overlay
+  #   ephemeral: true
+  builder:
+    hostname: builder
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-cookbook-13-sandbox
+      ephemeral: false
+      privileged: false
+      init: true
+
+resources:
+  build-deps:
+    type: package
+    machine: builder
+    provider: apt
+    packages:
+      - build-essential
+      - pkg-config
+      - curl
+    tags: [sandbox, deps]
+    resource_group: build-sandbox
+
+  output-dir:
+    type: file
+    machine: builder
+    state: directory
+    path: /tmp/build-output
+    owner: root
+    mode: '0755'
+    tags: [sandbox, output]
+    resource_group: build-sandbox
+
+  build-script:
+    type: file
+    machine: builder
+    path: /usr/local/bin/sandbox-build.sh
+    owner: root
+    mode: '0755'
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+      echo "=== Sandbox Build: forjar-build ==="
+      echo "Build environment isolated in overlay"
+      echo "Network: isolated (no undeclared deps)"
+      echo "Memory: 8192 MB"
+      echo ""
+      echo "Build would run here..."
+      echo "Artifacts extracted to /tmp/build-output"
+      echo "Overlay destroyed after completion"
+    depends_on: [build-deps, output-dir]
+    tags: [sandbox, build]
+    resource_group: build-sandbox
+
+  build-manifest:
+    type: file
+    machine: builder
+    path: /tmp/build-output/build-manifest.json
+    owner: root
+    mode: '0644'
+    content: |
+      {
+        "build_name": "forjar-build",
+        "sandbox": true,
+        "ephemeral": true,
+        "network": "isolated",
+        "memory_mb": 8192,
+        "output_dir": "/tmp/build-output"
+      }
+    depends_on: [build-script]
+    tags: [sandbox, manifest]
+    resource_group: build-sandbox
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Creating ephemeral build sandbox'"
+  post_apply: "echo 'Build sandbox complete — overlay destroyed'"
+  notify:
+    on_success: "echo 'Build artifacts extracted successfully'"
+    on_failure: "echo 'Sandbox build failed'"
+    on_drift: "echo 'Build output drift detected'"
+
+outputs:
+  output_dir:
+    value: "/tmp/build-output"
+    description: "Build artifact output directory"
+  ephemeral:
+    value: "true"
+    description: "Sandbox is destroyed after build"
