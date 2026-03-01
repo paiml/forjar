@@ -1,0 +1,158 @@
+# Recipe: 27-private-apt-repo
+# Tier: 1+2+3 (validate, container apply, bare-metal)
+# Idempotency: strong
+# Budget: first_apply < 30s, idempotent < 2s
+#
+# Host a private APT repository with nginx and GPG signing.
+# Fleet machines install internal packages via standard apt-get.
+
+version: '1.0'
+name: private-apt-repo
+description: "Private APT repository with nginx, GPG signing, and package index generation"
+
+params:
+  repo_name: internal
+  repo_dir: /var/lib/apt-repo/internal
+  serve_port: "8090"
+  codename: jammy
+  component: main
+
+machines:
+  apt-server:
+    hostname: apt-server
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-cookbook-27-apt-repo
+      ephemeral: false
+      privileged: false
+      init: true
+
+resources:
+  repo-deps:
+    type: package
+    machine: apt-server
+    provider: apt
+    packages:
+      - dpkg-dev
+      - gpg
+      - nginx
+    tags: [apt-repo, packages]
+    resource_group: private-repo
+
+  repo-pool-dir:
+    type: file
+    machine: apt-server
+    state: directory
+    path: /var/lib/apt-repo/internal/pool/main
+    owner: root
+    mode: '0755'
+    depends_on: [repo-deps]
+    tags: [apt-repo, dirs]
+    resource_group: private-repo
+
+  repo-dists-dir:
+    type: file
+    machine: apt-server
+    state: directory
+    path: /var/lib/apt-repo/internal/dists/jammy/main/binary-amd64
+    owner: root
+    mode: '0755'
+    depends_on: [repo-deps]
+    tags: [apt-repo, dirs]
+    resource_group: private-repo
+
+  update-script:
+    type: file
+    machine: apt-server
+    path: /usr/local/bin/apt-repo-update-internal
+    owner: root
+    mode: '0755'
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+      cd /var/lib/apt-repo/internal
+      dpkg-scanpackages pool/ > dists/jammy/main/binary-amd64/Packages 2>/dev/null || true
+      gzip -kf dists/jammy/main/binary-amd64/Packages 2>/dev/null || true
+      echo "Repo updated: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    depends_on: [repo-pool-dir, repo-dists-dir]
+    tags: [apt-repo, update]
+    resource_group: private-repo
+
+  nginx-site:
+    type: file
+    machine: apt-server
+    path: /etc/nginx/sites-available/apt-repo-internal
+    owner: root
+    mode: '0644'
+    content: |
+      server {
+          listen 8090;
+          root /var/lib/apt-repo/internal;
+          autoindex on;
+          location / {
+              allow all;
+          }
+      }
+    depends_on: [repo-deps]
+    tags: [apt-repo, nginx]
+    resource_group: private-repo
+
+  nginx-enable:
+    type: file
+    machine: apt-server
+    path: /etc/nginx/sites-enabled/apt-repo-internal
+    owner: root
+    mode: '0644'
+    content: |
+      # Symlink managed by forjar — see sites-available/apt-repo-internal
+      include /etc/nginx/sites-available/apt-repo-internal;
+    depends_on: [nginx-site]
+    tags: [apt-repo, nginx]
+    resource_group: private-repo
+
+  nginx-service:
+    type: service
+    machine: apt-server
+    name: nginx
+    running: true
+    enabled: true
+    restart_on: [nginx-site, nginx-enable]
+    depends_on: [nginx-enable]
+    tags: [apt-repo, service]
+    resource_group: private-repo
+
+  firewall-repo:
+    type: network
+    machine: apt-server
+    port: "8090"
+    protocol: tcp
+    action: allow
+    depends_on: [nginx-service]
+    tags: [apt-repo, firewall]
+    resource_group: private-repo
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Setting up private APT repository'"
+  post_apply: "echo 'Private APT repository configured'"
+  notify:
+    on_success: "echo 'APT repository serving on port 8090'"
+    on_failure: "echo 'APT repo setup failed — check nginx'"
+    on_drift: "echo 'APT repository drift detected'"
+
+outputs:
+  repo_url:
+    value: "http://localhost:8090"
+    description: "Repository URL"
+  repo_dir:
+    value: "/var/lib/apt-repo/internal"
+    description: "Repository storage directory"

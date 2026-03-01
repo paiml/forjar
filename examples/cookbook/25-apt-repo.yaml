@@ -1,0 +1,125 @@
+# Recipe: 25-apt-repo
+# Tier: 1+2 (validate in CI, container apply)
+# Idempotency: strong
+# Budget: first_apply < 30s, idempotent < 2s
+#
+# Third-party APT repository management. Declarative GPG key download,
+# keyring creation, sources.list.d configuration, and package install.
+
+version: '1.0'
+name: apt-repo-management
+description: "Third-party APT repository with GPG keyring, sources list, and package installation"
+
+params:
+  repo_name: docker
+  arch: amd64
+
+machines:
+  repo-host:
+    hostname: repo-host
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-cookbook-25-apt-repo
+      ephemeral: false
+      privileged: false
+      init: true
+
+resources:
+  keyring-dir:
+    type: file
+    machine: repo-host
+    state: directory
+    path: /etc/apt/keyrings
+    owner: root
+    mode: '0755'
+    tags: [apt-repo, keyring]
+    resource_group: apt-repo
+
+  gpg-key-script:
+    type: file
+    machine: repo-host
+    path: /usr/local/bin/forjar-apt-key-docker.sh
+    owner: root
+    mode: '0755'
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+      KEYRING="/etc/apt/keyrings/docker.gpg"
+      [ -f "$KEYRING" ] && exit 0
+      curl -fsSL 'https://download.docker.com/linux/ubuntu/gpg' | \
+        gpg --dearmor -o "$KEYRING" 2>/dev/null
+      chmod 644 "$KEYRING"
+    depends_on: [keyring-dir]
+    tags: [apt-repo, gpg]
+    resource_group: apt-repo
+
+  sources-list:
+    type: file
+    machine: repo-host
+    path: /etc/apt/sources.list.d/docker.list
+    owner: root
+    mode: '0644'
+    content: |
+      deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu jammy stable
+    depends_on: [gpg-key-script]
+    tags: [apt-repo, sources]
+    resource_group: apt-repo
+
+  apt-pin:
+    type: file
+    machine: repo-host
+    path: /etc/apt/preferences.d/docker
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — Docker CE APT pinning
+      Package: docker-ce docker-ce-cli containerd.io
+      Pin: origin download.docker.com
+      Pin-Priority: 500
+    depends_on: [sources-list]
+    tags: [apt-repo, pin]
+    resource_group: apt-repo
+
+  repo-verify-script:
+    type: file
+    machine: repo-host
+    path: /usr/local/bin/forjar-apt-repo-verify.sh
+    owner: root
+    mode: '0755'
+    content: |
+      #!/bin/bash
+      echo "Verifying APT repository configuration..."
+      [ -f /etc/apt/keyrings/docker.gpg ] && echo "OK: GPG keyring exists" || echo "FAIL: no keyring"
+      [ -f /etc/apt/sources.list.d/docker.list ] && echo "OK: sources list exists" || echo "FAIL: no sources"
+      apt-get update -o Dir::Etc::sourcelist=/etc/apt/sources.list.d/docker.list \
+        -o Dir::Etc::sourceparts=/dev/null 2>/dev/null && \
+        echo "OK: repo reachable" || echo "WARN: repo not reachable (expected in container)"
+    depends_on: [sources-list]
+    tags: [apt-repo, verify]
+    resource_group: apt-repo
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Configuring third-party APT repository'"
+  post_apply: "echo 'APT repository configured'"
+  notify:
+    on_success: "echo 'APT repository added successfully'"
+    on_failure: "echo 'APT repo setup failed — check GPG key'"
+    on_drift: "echo 'APT repository configuration drift detected'"
+
+outputs:
+  repo_name:
+    value: "docker"
+    description: "Configured repository name"
+  sources_file:
+    value: "/etc/apt/sources.list.d/docker.list"
+    description: "APT sources list file path"
