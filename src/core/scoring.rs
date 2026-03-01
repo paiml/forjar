@@ -451,7 +451,7 @@ pub fn format_score_report(result: &ScoringResult) -> String {
     out
 }
 
-pub(crate) fn score_bar(score: u32) -> String {
+pub fn score_bar(score: u32) -> String {
     let filled = (score / 5) as usize;
     let empty = 20_usize.saturating_sub(filled);
     format!("[{}{}]", "#".repeat(filled), ".".repeat(empty))
