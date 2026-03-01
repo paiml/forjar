@@ -46,6 +46,8 @@ mod tests {
             resource_dependency_age_overlay: false, resource_dependency_health_overlay: false, resource_dependency_width_analysis: false, resource_dependency_critical_path_highlight: false, resource_dependency_bottleneck_detection: false,
                 resource_topology_cluster_analysis: false,
                 resource_dependency_island_detection: false,
+                resource_dependency_depth_histogram_analysis: false,
+                resource_dependency_redundancy_analysis: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { affected, .. }) => {
@@ -89,6 +91,8 @@ mod tests {
             resource_dependency_age_overlay: false, resource_dependency_health_overlay: false, resource_dependency_width_analysis: false, resource_dependency_critical_path_highlight: false, resource_dependency_bottleneck_detection: false,
                 resource_topology_cluster_analysis: false,
                 resource_dependency_island_detection: false,
+                resource_dependency_depth_histogram_analysis: false,
+                resource_dependency_redundancy_analysis: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { reverse, .. }) => assert!(reverse),
@@ -129,6 +133,8 @@ mod tests {
             resource_dependency_age_overlay: false, resource_dependency_health_overlay: false, resource_dependency_width_analysis: false, resource_dependency_critical_path_highlight: false, resource_dependency_bottleneck_detection: false,
                 resource_topology_cluster_analysis: false,
                 resource_dependency_island_detection: false,
+                resource_dependency_depth_histogram_analysis: false,
+                resource_dependency_redundancy_analysis: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { depth, .. }) => assert_eq!(depth, Some(2)),
@@ -170,6 +176,8 @@ mod tests {
             resource_dependency_age_overlay: false, resource_dependency_health_overlay: false, resource_dependency_width_analysis: false, resource_dependency_critical_path_highlight: false, resource_dependency_bottleneck_detection: false,
                 resource_topology_cluster_analysis: false,
                 resource_dependency_island_detection: false,
+                resource_dependency_depth_histogram_analysis: false,
+                resource_dependency_redundancy_analysis: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { cluster, .. }) => assert!(cluster),
@@ -212,6 +220,8 @@ mod tests {
             resource_dependency_age_overlay: false, resource_dependency_health_overlay: false, resource_dependency_width_analysis: false, resource_dependency_critical_path_highlight: false, resource_dependency_bottleneck_detection: false,
                 resource_topology_cluster_analysis: false,
                 resource_dependency_island_detection: false,
+                resource_dependency_depth_histogram_analysis: false,
+                resource_dependency_redundancy_analysis: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { orphans, .. }) => assert!(orphans),
@@ -254,6 +264,8 @@ mod tests {
             resource_dependency_age_overlay: false, resource_dependency_health_overlay: false, resource_dependency_width_analysis: false, resource_dependency_critical_path_highlight: false, resource_dependency_bottleneck_detection: false,
                 resource_topology_cluster_analysis: false,
                 resource_dependency_island_detection: false,
+                resource_dependency_depth_histogram_analysis: false,
+                resource_dependency_redundancy_analysis: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { stats, .. }) => assert!(stats),
@@ -295,6 +307,8 @@ mod tests {
             resource_dependency_age_overlay: false, resource_dependency_health_overlay: false, resource_dependency_width_analysis: false, resource_dependency_critical_path_highlight: false, resource_dependency_bottleneck_detection: false,
                 resource_topology_cluster_analysis: false,
                 resource_dependency_island_detection: false,
+                resource_dependency_depth_histogram_analysis: false,
+                resource_dependency_redundancy_analysis: false,
         });
         match cmd {
             Commands::Graph(GraphArgs { json_output, .. }) => assert!(json_output),

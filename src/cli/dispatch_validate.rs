@@ -20,6 +20,7 @@ use super::validate_security::*;
 use super::validate_security_ext::*;
 use super::validate_governance_ext::*;
 use super::validate_topology::*;
+use super::validate_config_quality::*;
 use super::validate_ordering::*;
 use super::validate_ordering_ext::*;
 use super::validate_resilience::*;
@@ -316,6 +317,9 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
         check_resource_circular_dependency_depth,
         check_resource_orphan_detection_deep,
         check_resource_provider_diversity,
+        check_resource_dependency_isolation,
+        check_resource_tag_value_consistency,
+        check_resource_machine_distribution_balance,
     } = args;
 
     if let Some(r) = try_validate_checks_early_a(&file, json, check_cron_syntax, check_env_refs, check_resource_names.as_deref(), check_resource_count, check_duplicate_paths, check_circular_deps, check_machine_refs, check_provider_consistency) {
@@ -354,10 +358,11 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
     if let Some(r) = try_validate_phase100(&file, json, check_resource_dependency_symmetry_deep, check_resource_tag_namespace, check_resource_machine_capacity) {
         return r;
     }
-    if let Some(r) = try_validate_phase101(&file, json, check_resource_dependency_fan_out_limit, check_resource_tag_required_keys, check_resource_content_drift_risk) {
-        return r;
-    }
-    if let Some(r) = try_validate_phase102(&file, json, check_resource_circular_dependency_depth, check_resource_orphan_detection_deep, check_resource_provider_diversity) {
+    if let Some(r) = try_validate_phases_101_103(&file, json,
+        check_resource_dependency_fan_out_limit, check_resource_tag_required_keys, check_resource_content_drift_risk,
+        check_resource_circular_dependency_depth, check_resource_orphan_detection_deep, check_resource_provider_diversity,
+        check_resource_dependency_isolation, check_resource_tag_value_consistency, check_resource_machine_distribution_balance,
+    ) {
         return r;
     }
     if let Some(r) = try_validate_governance_b(&file, json, check_resource_lifecycle_hooks, check_resource_provider_version, check_resource_naming_convention, check_resource_idempotency, check_resource_documentation, check_resource_ownership, check_resource_secret_exposure, check_resource_tag_standards, check_resource_privilege_escalation, check_resource_update_safety, check_resource_cross_machine_consistency, check_resource_version_pinning) {
@@ -471,23 +476,19 @@ fn try_validate_phase100(
     if check_resource_machine_capacity { return Some(cmd_validate_check_resource_machine_capacity(file, json)); }
     None
 }
-fn try_validate_phase101(
+#[allow(clippy::too_many_arguments)]
+fn try_validate_phases_101_103(
     file: &Path, json: bool,
-    check_resource_dependency_fan_out_limit: bool, check_resource_tag_required_keys: bool,
-    check_resource_content_drift_risk: bool,
+    a1: bool, a2: bool, a3: bool, b1: bool, b2: bool, b3: bool, c1: bool, c2: bool, c3: bool,
 ) -> Option<Result<(), String>> {
-    if check_resource_dependency_fan_out_limit { return Some(cmd_validate_check_resource_dependency_fan_out_limit(file, json)); }
-    if check_resource_tag_required_keys { return Some(cmd_validate_check_resource_tag_required_keys(file, json)); }
-    if check_resource_content_drift_risk { return Some(cmd_validate_check_resource_content_drift_risk(file, json)); }
-    None
-}
-fn try_validate_phase102(
-    file: &Path, json: bool,
-    check_resource_circular_dependency_depth: bool, check_resource_orphan_detection_deep: bool,
-    check_resource_provider_diversity: bool,
-) -> Option<Result<(), String>> {
-    if check_resource_circular_dependency_depth { return Some(cmd_validate_check_resource_circular_dependency_depth(file, json)); }
-    if check_resource_orphan_detection_deep { return Some(cmd_validate_check_resource_orphan_detection_deep(file, json)); }
-    if check_resource_provider_diversity { return Some(cmd_validate_check_resource_provider_diversity(file, json)); }
+    if a1 { return Some(cmd_validate_check_resource_dependency_fan_out_limit(file, json)); }
+    if a2 { return Some(cmd_validate_check_resource_tag_required_keys(file, json)); }
+    if a3 { return Some(cmd_validate_check_resource_content_drift_risk(file, json)); }
+    if b1 { return Some(cmd_validate_check_resource_circular_dependency_depth(file, json)); }
+    if b2 { return Some(cmd_validate_check_resource_orphan_detection_deep(file, json)); }
+    if b3 { return Some(cmd_validate_check_resource_provider_diversity(file, json)); }
+    if c1 { return Some(cmd_validate_check_resource_dependency_isolation(file, json)); }
+    if c2 { return Some(cmd_validate_check_resource_tag_value_consistency(file, json)); }
+    if c3 { return Some(cmd_validate_check_resource_machine_distribution_balance(file, json)); }
     None
 }

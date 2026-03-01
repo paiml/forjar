@@ -2965,7 +2965,20 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 | FJ-1081 | `forjar validate --check-resource-orphan-detection-deep` — detect resources unreachable from any root via transitive closure. Governance. | 🔧 In Progress |
 | FJ-1082 | `forjar graph --resource-dependency-island-detection` — find disconnected subgraphs (islands) in the dependency graph. Analysis. | 🔧 In Progress |
 | FJ-1083 | `forjar status --fleet-resource-apply-lag` — report time since last successful apply per machine. Intelligence. | 🔧 In Progress |
-| FJ-1084 | `forjar validate --check-resource-provider-diversity` — warn if all resources use a single provider (no redundancy). Governance. | 🔧 In Progress |
+| FJ-1084 | `forjar validate --check-resource-provider-diversity` — warn if all resources use a single provider (no redundancy). Governance. | ✅ Done |
+
+### Phase 103 — Fleet Analytics & Configuration Quality (FJ-1085→FJ-1092)
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-1085 | `forjar status --fleet-resource-error-rate-trend` — track error rate trends across fleet machines. Intelligence. | 🔧 In Progress |
+| FJ-1086 | `forjar validate --check-resource-dependency-isolation` — warn if resources in different lifecycle stages share dependencies. Governance. | 🔧 In Progress |
+| FJ-1087 | `forjar graph --resource-dependency-depth-histogram` — histogram of dependency chain depths across all resources. Analysis. | 🔧 In Progress |
+| FJ-1088 | `forjar status --machine-resource-drift-recovery-time` — estimate time to recover from drift per machine. Intelligence. | 🔧 In Progress |
+| FJ-1089 | `forjar validate --check-resource-tag-value-consistency` — warn if tag values are inconsistent across similar resources. Governance. | 🔧 In Progress |
+| FJ-1090 | `forjar graph --resource-dependency-redundancy-analysis` — identify redundant dependency edges that could be removed. Analysis. | 🔧 In Progress |
+| FJ-1091 | `forjar status --fleet-resource-config-complexity-score` — score configuration complexity per machine. Intelligence. | 🔧 In Progress |
+| FJ-1092 | `forjar validate --check-resource-machine-distribution-balance` — warn if resources are unevenly distributed across machines. Governance. | 🔧 In Progress |
 
 ---
 

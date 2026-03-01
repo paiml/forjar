@@ -77,6 +77,7 @@ mod graph_impact;
 mod graph_resilience;
 mod graph_transport;
 mod graph_analytics;
+mod graph_analytics_ext;
 mod graph_compliance;
 mod graph_lifecycle;
 mod graph_health;
@@ -119,14 +120,13 @@ mod status_security;
 mod status_fleet_insight;
 mod status_resource_intel;
 mod validate_topology;
+mod validate_config_quality;
 #[cfg(test)] mod test_fixtures;
 #[cfg(test)] mod tests_helpers;
 #[cfg(test)] mod tests_helpers_state;
 #[cfg(test)] mod tests_helpers_time;
-#[cfg(test)]
-mod tests_print_helpers;
-#[cfg(test)]
-mod tests_apply_helpers;
+#[cfg(test)] mod tests_print_helpers;
+#[cfg(test)] mod tests_apply_helpers;
 #[cfg(test)]
 mod tests_validate_core;
 #[cfg(test)]
@@ -493,6 +493,8 @@ mod tests_phase97;
 mod tests_phase101;
 #[cfg(test)]
 mod tests_phase102;
+#[cfg(test)]
+mod tests_phase103;
 
 pub use commands::Commands;
 pub use dispatch::dispatch;

@@ -312,11 +312,12 @@ fn try_status_phases_97_99(
     None
 }
 #[allow(clippy::too_many_arguments)]
-fn try_status_phases_100_102(
+fn try_status_phases_100_103(
     sd: &Path, machine: Option<&str>, json: bool,
     fleet_apply_cadence: bool, machine_resource_error_classification: bool, fleet_resource_convergence_summary: bool,
     fleet_resource_staleness_report: bool, machine_resource_type_distribution: bool, fleet_machine_health_score: bool,
     fleet_resource_dependency_lag_report: bool, machine_resource_convergence_rate_trend: bool, fleet_resource_apply_lag: bool,
+    fleet_resource_error_rate_trend: bool, machine_resource_drift_recovery_time: bool, fleet_resource_config_complexity_score: bool,
 ) -> Option<Result<(), String>> {
     if fleet_apply_cadence { return Some(cmd_status_fleet_apply_cadence(sd, machine, json)); }
     if machine_resource_error_classification { return Some(cmd_status_machine_resource_error_classification(sd, machine, json)); }
@@ -327,6 +328,9 @@ fn try_status_phases_100_102(
     if fleet_resource_dependency_lag_report { return Some(cmd_status_fleet_resource_dependency_lag_report(sd, machine, json)); }
     if machine_resource_convergence_rate_trend { return Some(cmd_status_machine_resource_convergence_rate_trend(sd, machine, json)); }
     if fleet_resource_apply_lag { return Some(cmd_status_fleet_resource_apply_lag(sd, machine, json)); }
+    if fleet_resource_error_rate_trend { return Some(cmd_status_fleet_resource_error_rate_trend(sd, machine, json)); }
+    if machine_resource_drift_recovery_time { return Some(cmd_status_machine_resource_drift_recovery_time(sd, machine, json)); }
+    if fleet_resource_config_complexity_score { return Some(cmd_status_fleet_resource_config_complexity_score(sd, machine, json)); }
     None
 }
 #[allow(clippy::too_many_arguments)]
@@ -411,6 +415,7 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
         fleet_apply_cadence, machine_resource_error_classification, fleet_resource_convergence_summary,
         fleet_resource_staleness_report, machine_resource_type_distribution, fleet_machine_health_score,
         fleet_resource_dependency_lag_report, machine_resource_convergence_rate_trend, fleet_resource_apply_lag,
+        fleet_resource_error_rate_trend, machine_resource_drift_recovery_time, fleet_resource_config_complexity_score,
     }) = cmd
     else {
         unreachable!()
@@ -458,10 +463,11 @@ pub(crate) fn dispatch_status_cmd(cmd: Commands) -> Result<(), String> {
     ) {
         return r;
     }
-    if let Some(r) = try_status_phases_100_102(&state_dir, m, json,
+    if let Some(r) = try_status_phases_100_103(&state_dir, m, json,
         fleet_apply_cadence, machine_resource_error_classification, fleet_resource_convergence_summary,
         fleet_resource_staleness_report, machine_resource_type_distribution, fleet_machine_health_score,
         fleet_resource_dependency_lag_report, machine_resource_convergence_rate_trend, fleet_resource_apply_lag,
+        fleet_resource_error_rate_trend, machine_resource_drift_recovery_time, fleet_resource_config_complexity_score,
     ) {
         return r;
     }

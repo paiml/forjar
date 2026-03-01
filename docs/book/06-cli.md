@@ -3433,6 +3433,47 @@ forjar validate -f forjar.yaml --check-resource-provider-diversity
 # Provider diversity: 3 types found (file, package, service)
 ```
 
+#### Phase 103 — Fleet Analytics & Configuration Quality (FJ-1085→FJ-1092)
+
+```bash
+# FJ-1085: Fleet resource error rate trend
+forjar status --state-dir ./state --fleet-resource-error-rate-trend
+# === Fleet Resource Error Rate Trend ===
+#   web: 0.0% error rate (0 failed / 2 total)
+
+# FJ-1086: Resource dependency isolation
+forjar validate -f forjar.yaml --check-resource-dependency-isolation
+# Dependency isolation: 1 cross-stage dependency found
+
+# FJ-1087: Resource dependency depth histogram
+forjar graph -f forjar.yaml --resource-dependency-depth-histogram-analysis
+# Depth histogram:
+#   depth 0: 1 resource(s)
+#   depth 1: 1 resource(s)
+
+# FJ-1088: Machine resource drift recovery time
+forjar status --state-dir ./state --machine-resource-drift-recovery-time
+# === Machine Resource Drift Recovery Time ===
+#   web: 60s estimated (1 drifted resource)
+
+# FJ-1089: Resource tag value consistency
+forjar validate -f forjar.yaml --check-resource-tag-value-consistency
+# Tag consistency: 1 warning (inconsistent tags in file group)
+
+# FJ-1090: Resource dependency redundancy analysis
+forjar graph -f forjar.yaml --resource-dependency-redundancy-analysis
+# Redundancy analysis: 1 redundant edge (c->a already reachable via b)
+
+# FJ-1091: Fleet resource config complexity score
+forjar status --state-dir ./state --fleet-resource-config-complexity-score
+# === Fleet Resource Config Complexity Score ===
+#   web: score=30 (2 resources, 2 types)
+
+# FJ-1092: Resource machine distribution balance
+forjar validate -f forjar.yaml --check-resource-machine-distribution-balance
+# Distribution balance: balanced (1 machine)
+```
+
 ### `forjar watch`
 
 Watch a config file for changes and automatically re-plan.

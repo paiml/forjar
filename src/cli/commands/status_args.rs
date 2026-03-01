@@ -628,4 +628,13 @@ pub struct StatusArgs {
     /// FJ-1083: Fleet resource apply lag
     #[arg(long)]
     pub fleet_resource_apply_lag: bool,
+    /// FJ-1085: Fleet resource error rate trend
+    #[arg(long)]
+    pub fleet_resource_error_rate_trend: bool,
+    /// FJ-1088: Machine resource drift recovery time
+    #[arg(long)]
+    pub machine_resource_drift_recovery_time: bool,
+    /// FJ-1091: Fleet resource config complexity score
+    #[arg(long)]
+    pub fleet_resource_config_complexity_score: bool,
 }
