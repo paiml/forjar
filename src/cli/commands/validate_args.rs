@@ -470,5 +470,14 @@ pub struct ValidateArgs {
     /// FJ-1084: Warn if all resources use a single provider type
     #[arg(long)]
     pub check_resource_provider_diversity: bool,
+    /// FJ-1086: Warn if resources in different stages share dependencies
+    #[arg(long)]
+    pub check_resource_dependency_isolation: bool,
+    /// FJ-1089: Warn if tag values are inconsistent across similar resources
+    #[arg(long)]
+    pub check_resource_tag_value_consistency: bool,
+    /// FJ-1092: Warn if resources are unevenly distributed across machines
+    #[arg(long)]
+    pub check_resource_machine_distribution_balance: bool,
 }
 

@@ -460,5 +460,11 @@ pub struct GraphArgs {
     /// FJ-1082: Find disconnected subgraphs (islands) with no dependencies
     #[arg(long)]
     pub resource_dependency_island_detection: bool,
+    /// FJ-1087: Histogram of dependency chain depths across all resources
+    #[arg(long)]
+    pub resource_dependency_depth_histogram_analysis: bool,
+    /// FJ-1090: Identify redundant dependency edges (direct + transitive)
+    #[arg(long)]
+    pub resource_dependency_redundancy_analysis: bool,
 }
 
