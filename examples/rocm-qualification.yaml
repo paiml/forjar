@@ -1,0 +1,15 @@
+# FJ-1126: ROCm GPU qualification config for Intel runner
+# 2× AMD Radeon Pro W5700X (Navi 10), in-tree amdgpu kernel driver
+version: "1.0"
+name: rocm-qualification
+machines:
+  intel:
+    hostname: intel
+    addr: intel
+resources:
+  amd-gpu:
+    type: gpu
+    machine: intel
+    name: gpu0
+    gpu_backend: rocm
+    driver_version: "kernel-6.8.0-101-generic"

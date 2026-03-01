@@ -11,8 +11,13 @@ pub mod recipe;
 pub mod resolver;
 pub mod secrets;
 pub mod state;
+pub mod scoring;
 pub mod types;
 
+#[cfg(test)]
+mod tests_scoring;
+#[cfg(test)]
+mod tests_scoring_b;
 #[cfg(test)]
 mod tests_purifier;
 #[cfg(test)]
