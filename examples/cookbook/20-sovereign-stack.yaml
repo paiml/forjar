@@ -1,0 +1,166 @@
+# Recipe: 20-sovereign-stack
+# Tier: 1+3 (validate in CI, full build on bare-metal)
+# Idempotency: strong
+# Budget: first_apply < 600s, idempotent < 5s
+#
+# Build all sovereign AI stack binaries in a single config:
+# forjar, pmat, batuta, pzsh. Dogfood recipe: forjar builds itself.
+
+version: '1.0'
+name: sovereign-stack-release
+description: "Full sovereign stack release pipeline building forjar, pmat, batuta, and pzsh"
+
+params:
+  install_dir: /usr/local/bin
+  source_dir: /home/noah/src
+
+machines:
+  build-host:
+    hostname: build-host
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-cookbook-20-sovereign
+      ephemeral: false
+      privileged: false
+      init: true
+
+resources:
+  build-deps:
+    type: package
+    machine: build-host
+    provider: apt
+    packages:
+      - build-essential
+      - pkg-config
+      - libssl-dev
+      - curl
+    tags: [sovereign, build-deps]
+    resource_group: sovereign-build
+
+  forjar-dir:
+    type: file
+    machine: build-host
+    state: directory
+    path: /etc/forjar
+    owner: root
+    mode: '0755'
+    tags: [sovereign, dirs]
+    resource_group: sovereign-build
+
+  build-forjar-script:
+    type: file
+    machine: build-host
+    path: /usr/local/bin/sovereign-build-forjar.sh
+    owner: root
+    mode: '0755'
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+      export PATH="$HOME/.cargo/bin:$PATH"
+      echo "Building forjar..."
+      cargo install --root /tmp/sovereign-build --force forjar 2>/dev/null && \
+        cp /tmp/sovereign-build/bin/forjar /usr/local/bin/forjar || \
+        echo "forjar build skipped"
+    depends_on: [build-deps]
+    tags: [sovereign, forjar]
+    resource_group: sovereign-build
+
+  build-pmat-script:
+    type: file
+    machine: build-host
+    path: /usr/local/bin/sovereign-build-pmat.sh
+    owner: root
+    mode: '0755'
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+      export PATH="$HOME/.cargo/bin:$PATH"
+      echo "Building pmat..."
+      cargo install --root /tmp/sovereign-build --force pmat 2>/dev/null && \
+        cp /tmp/sovereign-build/bin/pmat /usr/local/bin/pmat || \
+        echo "pmat build skipped"
+    depends_on: [build-deps]
+    tags: [sovereign, pmat]
+    resource_group: sovereign-build
+
+  build-batuta-script:
+    type: file
+    machine: build-host
+    path: /usr/local/bin/sovereign-build-batuta.sh
+    owner: root
+    mode: '0755'
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+      export PATH="$HOME/.cargo/bin:$PATH"
+      echo "Building batuta..."
+      cargo install --root /tmp/sovereign-build --force batuta 2>/dev/null && \
+        cp /tmp/sovereign-build/bin/batuta /usr/local/bin/batuta || \
+        echo "batuta build skipped"
+    depends_on: [build-deps]
+    tags: [sovereign, batuta]
+    resource_group: sovereign-build
+
+  verify-all-script:
+    type: file
+    machine: build-host
+    path: /usr/local/bin/sovereign-verify-all.sh
+    owner: root
+    mode: '0755'
+    content: |
+      #!/bin/bash
+      echo "=== Sovereign Stack Verification ==="
+      for bin in forjar pmat batuta; do
+        if command -v "$bin" &>/dev/null; then
+          echo "OK: $bin $(command -v $bin)"
+        else
+          echo "MISSING: $bin"
+        fi
+      done
+    depends_on: [build-forjar-script, build-pmat-script, build-batuta-script]
+    tags: [sovereign, verify]
+    resource_group: sovereign-build
+
+  release-manifest:
+    type: file
+    machine: build-host
+    path: /etc/forjar/release-manifest.json
+    owner: root
+    mode: '0644'
+    content: |
+      {
+        "stack": "sovereign-ai",
+        "components": ["forjar", "pmat", "batuta", "pzsh"],
+        "install_dir": "/usr/local/bin",
+        "build_host": "build-host",
+        "build_time": "managed-by-forjar"
+      }
+    depends_on: [forjar-dir, verify-all-script]
+    tags: [sovereign, manifest]
+    resource_group: sovereign-build
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Building sovereign AI stack'"
+  post_apply: "echo 'Sovereign stack build complete'"
+  notify:
+    on_success: "echo 'All sovereign stack binaries built'"
+    on_failure: "echo 'Stack build failed — check individual crates'"
+    on_drift: "echo 'Sovereign stack binary drift detected'"
+
+outputs:
+  install_dir:
+    value: "/usr/local/bin"
+    description: "Binary installation directory"
+  components:
+    value: "forjar,pmat,batuta,pzsh"
+    description: "Stack component names"

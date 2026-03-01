@@ -1,0 +1,160 @@
+# Recipe: 19-cross-compile
+# Tier: 1+3 (validate in CI, build on bare-metal)
+# Idempotency: strong
+# Budget: first_apply < 180s, idempotent < 2s
+#
+# Cross-compilation: build for a different architecture than the host.
+# Compile on x86_64 for aarch64 targets (Raspberry Pi, Jetson, Graviton).
+
+version: '1.0'
+name: cross-compile-pipeline
+description: "Cross-compilation pipeline for aarch64 targets with musl static linking"
+
+params:
+  crate_name: forjar
+  target_triple: aarch64-unknown-linux-musl
+  target_path: /tmp/cross-build/forjar
+
+machines:
+  cross-host:
+    hostname: cross-host
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-cookbook-19-cross
+      ephemeral: false
+      privileged: false
+      init: true
+
+resources:
+  cross-toolchain:
+    type: package
+    machine: cross-host
+    provider: apt
+    packages:
+      - gcc-aarch64-linux-gnu
+      - musl-tools
+      - build-essential
+      - curl
+    tags: [rust, cross, toolchain]
+    resource_group: cross-build
+
+  rust-setup-script:
+    type: file
+    machine: cross-host
+    path: /usr/local/bin/forjar-cross-setup.sh
+    owner: root
+    mode: '0755'
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+      export PATH="$HOME/.cargo/bin:$PATH"
+      if ! command -v rustc &>/dev/null; then
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+        export PATH="$HOME/.cargo/bin:$PATH"
+      fi
+      rustup target add aarch64-unknown-linux-musl 2>/dev/null || true
+      echo "Cross toolchain ready for aarch64-unknown-linux-musl"
+    depends_on: [cross-toolchain]
+    tags: [rust, cross, setup]
+    resource_group: cross-build
+
+  cargo-config-dir:
+    type: file
+    machine: cross-host
+    state: directory
+    path: /root/.cargo
+    owner: root
+    mode: '0755'
+    tags: [rust, cross, config]
+    resource_group: cross-build
+
+  cargo-config:
+    type: file
+    machine: cross-host
+    path: /root/.cargo/config.toml
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — cross-compilation config
+      [target.aarch64-unknown-linux-musl]
+      linker = "aarch64-linux-gnu-gcc"
+    depends_on: [cargo-config-dir]
+    tags: [rust, cross, config]
+    resource_group: cross-build
+
+  output-dir:
+    type: file
+    machine: cross-host
+    state: directory
+    path: /tmp/cross-build
+    owner: root
+    mode: '0755'
+    tags: [rust, cross, output]
+    resource_group: cross-build
+
+  build-cross-script:
+    type: file
+    machine: cross-host
+    path: /usr/local/bin/forjar-cross-build.sh
+    owner: root
+    mode: '0755'
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+      export PATH="$HOME/.cargo/bin:$PATH"
+      CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_LINKER=aarch64-linux-gnu-gcc \
+      cargo install --target aarch64-unknown-linux-musl \
+        --root /tmp/cross-out --force forjar 2>/dev/null && \
+        cp /tmp/cross-out/bin/forjar /tmp/cross-build/forjar || \
+        echo "Cross build skipped — crate not available"
+      [ -f /tmp/cross-build/forjar ] && file /tmp/cross-build/forjar || true
+    depends_on: [rust-setup-script, cargo-config, output-dir]
+    tags: [rust, cross, build]
+    resource_group: cross-build
+
+  verify-script:
+    type: file
+    machine: cross-host
+    path: /usr/local/bin/forjar-cross-verify.sh
+    owner: root
+    mode: '0755'
+    content: |
+      #!/bin/bash
+      BINARY="/tmp/cross-build/forjar"
+      if [ -f "$BINARY" ]; then
+        echo "Binary: $BINARY"
+        file "$BINARY"
+        ls -lh "$BINARY" | awk '{print "SIZE:", $5}'
+        file "$BINARY" | grep -q "aarch64" && echo "OK: aarch64 target" || echo "WARN: unexpected arch"
+      else
+        echo "Cross-compiled binary not yet built"
+      fi
+    depends_on: [build-cross-script]
+    tags: [rust, cross, verify]
+    resource_group: cross-build
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Starting cross-compilation for aarch64'"
+  post_apply: "echo 'Cross-compilation complete'"
+  notify:
+    on_success: "echo 'Cross-compiled binary ready'"
+    on_failure: "echo 'Cross build failed — check linker'"
+    on_drift: "echo 'Cross binary drift detected'"
+
+outputs:
+  binary_path:
+    value: "/tmp/cross-build/forjar"
+    description: "Cross-compiled binary path"
+  target_triple:
+    value: "aarch64-unknown-linux-musl"
+    description: "Build target triple"

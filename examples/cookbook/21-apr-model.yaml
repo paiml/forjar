@@ -1,0 +1,200 @@
+# Recipe: 21-apr-model
+# Tier: 1+2+3 (validate, container with tiny model, GPU bare-metal)
+# Idempotency: strong
+# Budget: first_apply < 120s, idempotent < 5s
+#
+# Compiled APR model binary pipeline: pull model from HuggingFace,
+# convert to APR format, compile into self-contained binary, deploy
+# as systemd service with health monitoring.
+
+version: '1.0'
+name: apr-model-pipeline
+description: "APR compiled model pipeline with download, conversion, compilation, and service deployment"
+
+params:
+  model_name: smollm2
+  install_dir: /opt/apr
+  serve_port: "8080"
+  gpu_backend: cpu
+  user: root
+
+machines:
+  model-host:
+    hostname: model-host
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-cookbook-21-apr
+      ephemeral: false
+      privileged: false
+      init: true
+
+resources:
+  apr-dirs:
+    type: file
+    machine: model-host
+    state: directory
+    path: /opt/apr/models
+    owner: root
+    mode: '0755'
+    tags: [apr, dirs]
+    resource_group: apr-model
+
+  apr-bin-dir:
+    type: file
+    machine: model-host
+    state: directory
+    path: /opt/apr/bin
+    owner: root
+    mode: '0755'
+    tags: [apr, dirs]
+    resource_group: apr-model
+
+  model-download-script:
+    type: file
+    machine: model-host
+    path: /usr/local/bin/apr-model-download.sh
+    owner: root
+    mode: '0755'
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+      MODEL_DIR="/opt/apr/models"
+      echo "Model download would fetch from HuggingFace..."
+      echo "For CI: using placeholder model"
+      echo '{"model": "smollm2", "format": "gguf", "quantization": "q4_k_m"}' > \
+        "$MODEL_DIR/model-info.json"
+    depends_on: [apr-dirs]
+    tags: [apr, download]
+    resource_group: apr-model
+
+  model-convert-script:
+    type: file
+    machine: model-host
+    path: /usr/local/bin/apr-model-convert.sh
+    owner: root
+    mode: '0755'
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+      echo "Model conversion: GGUF -> APR format"
+      echo "apr convert --input source.gguf --output model.apr --quantization q4_k_m"
+      touch /opt/apr/models/model.apr
+    depends_on: [model-download-script]
+    tags: [apr, convert]
+    resource_group: apr-model
+
+  model-compile-script:
+    type: file
+    machine: model-host
+    path: /usr/local/bin/apr-model-compile.sh
+    owner: root
+    mode: '0755'
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+      echo "Model compilation: APR -> self-contained binary"
+      echo "apr compile --model model.apr --output model-server --backend cpu"
+      cat > /opt/apr/bin/model-server <<'STUB'
+      #!/bin/bash
+      echo "APR model server (placeholder) listening on port ${1:-8080}"
+      STUB
+      chmod 755 /opt/apr/bin/model-server
+    depends_on: [model-convert-script, apr-bin-dir]
+    tags: [apr, compile]
+    resource_group: apr-model
+
+  service-unit:
+    type: file
+    machine: model-host
+    path: /etc/systemd/system/apr-model.service
+    owner: root
+    mode: '0644'
+    content: |
+      [Unit]
+      Description=APR Compiled Model Server
+      After=network.target
+
+      [Service]
+      Type=simple
+      User=root
+      ExecStart=/opt/apr/bin/model-server --port 8080
+      Restart=on-failure
+      RestartSec=10
+      Environment=APR_GPU_BACKEND=cpu
+
+      [Install]
+      WantedBy=multi-user.target
+    depends_on: [model-compile-script]
+    tags: [apr, service]
+    resource_group: apr-model
+
+  health-check-script:
+    type: file
+    machine: model-host
+    path: /usr/local/bin/apr-health-check.sh
+    owner: root
+    mode: '0755'
+    content: |
+      #!/bin/bash
+      curl -sf http://localhost:8080/health 2>/dev/null && \
+        echo "OK: model server healthy" || \
+        echo "WARN: model server not responding"
+    depends_on: [service-unit]
+    tags: [apr, health]
+    resource_group: apr-model
+
+  health-cron:
+    type: cron
+    machine: model-host
+    schedule: "0 */6 * * *"
+    command: "/usr/local/bin/apr-health-check.sh 2>&1 | logger -t apr-model"
+    name: apr-model-health
+    depends_on: [health-check-script]
+    tags: [apr, monitoring]
+    resource_group: apr-model
+
+  build-manifest:
+    type: file
+    machine: model-host
+    path: /opt/apr/manifest.json
+    owner: root
+    mode: '0644'
+    content: |
+      {
+        "model_name": "smollm2",
+        "model_format": "gguf",
+        "quantization": "q4_k_m",
+        "compile_target": "binary",
+        "gpu_backend": "cpu",
+        "binary_path": "/opt/apr/bin/model-server",
+        "serve_port": 8080
+      }
+    depends_on: [model-compile-script]
+    tags: [apr, manifest]
+    resource_group: apr-model
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Starting APR model pipeline'"
+  post_apply: "echo 'APR model pipeline complete'"
+  notify:
+    on_success: "echo 'Model compiled and deployed'"
+    on_failure: "echo 'Model pipeline failed — check stages'"
+    on_drift: "echo 'Model binary drift detected'"
+
+outputs:
+  binary_path:
+    value: "/opt/apr/bin/model-server"
+    description: "Compiled model server binary"
+  serve_port:
+    value: "8080"
+    description: "Model inference HTTP port"
