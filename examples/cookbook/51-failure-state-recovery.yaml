@@ -1,0 +1,113 @@
+# Recipe: 51-failure-state-recovery
+# Tier: 2 (container apply — state corruption recovery)
+# Idempotency: strong (re-converges from scratch if state deleted)
+# Budget: first_apply < 30s
+#
+# Failure mode test: verifies that forjar recovers gracefully when
+# state lock files are deleted or corrupted. Full re-convergence
+# from scratch without errors.
+
+version: '1.0'
+name: failure-state-recovery
+description: "Failure mode test: state lock deletion recovery with full re-convergence"
+
+machines:
+  target:
+    hostname: target
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-cookbook-51-recovery
+      ephemeral: false
+      privileged: false
+      init: true
+
+resources:
+  recovery-dir:
+    type: file
+    machine: target
+    state: directory
+    path: /tmp/recovery-test
+    owner: root
+    mode: '0755'
+    tags: [failure-test, recovery]
+    resource_group: recovery
+
+  file-a:
+    type: file
+    machine: target
+    path: /tmp/recovery-test/file-a.txt
+    owner: root
+    mode: '0644'
+    content: "file-a-content — state recovery test"
+    depends_on: [recovery-dir]
+    tags: [failure-test, recovery]
+    resource_group: recovery
+
+  file-b:
+    type: file
+    machine: target
+    path: /tmp/recovery-test/file-b.txt
+    owner: root
+    mode: '0644'
+    content: "file-b-content — state recovery test"
+    depends_on: [file-a]
+    tags: [failure-test, recovery]
+    resource_group: recovery
+
+  file-c:
+    type: file
+    machine: target
+    path: /tmp/recovery-test/file-c.txt
+    owner: root
+    mode: '0644'
+    content: "file-c-content — depends on both a and b"
+    depends_on: [file-a, file-b]
+    tags: [failure-test, recovery]
+    resource_group: recovery
+
+  recovery-manifest:
+    type: file
+    machine: target
+    path: /tmp/recovery-test/recovery-manifest.json
+    owner: root
+    mode: '0644'
+    content: |
+      {
+        "test": "state-recovery",
+        "scenario": "delete state.lock.yaml between applies",
+        "expected_behavior": {
+          "first_apply": "4 resources converge, state lock written",
+          "delete_state": "rm state/<machine>/state.lock.yaml",
+          "second_apply": "full re-convergence (4 creates), new lock written",
+          "third_apply": "0 changes (idempotent)"
+        }
+      }
+    depends_on: [file-c]
+    tags: [failure-test, manifest]
+    resource_group: recovery
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Testing state recovery'"
+  post_apply: "echo 'State recovery test complete'"
+  notify:
+    on_success: "echo 'State recovery verified'"
+    on_failure: "echo 'State recovery test failed'"
+    on_drift: "echo 'Recovery test state drifted'"
+
+outputs:
+  test_type:
+    value: "failure-state-recovery"
+    description: "Failure mode test type"
+  recovery_behavior:
+    value: "full-reconvergence"
+    description: "Behavior when state is deleted"

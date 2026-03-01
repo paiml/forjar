@@ -1,0 +1,157 @@
+# Recipe: 55-stack-gpu-lab
+# Tier: 1+2 (validate + container apply)
+# Idempotency: strong
+# Budget: first_apply < 120s, idempotent < 5s
+#
+# Composability test: GPU Lab stack.
+# Layers: Dev Tools + GPU Config + Monitoring + Security.
+# Validates GPU resource composability with base layers.
+
+version: '1.0'
+name: stack-gpu-lab
+description: "Composed stack: dev tools + GPU configuration + monitoring + security baseline"
+
+params:
+  gpu_backend: rocm
+  user: mleng
+
+machines:
+  target:
+    hostname: target
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-cookbook-55-gpulab
+      ephemeral: false
+      privileged: false
+      init: true
+
+resources:
+  # --- Layer 1: Security ---
+  security-config:
+    type: file
+    machine: target
+    path: /etc/ssh/sshd_config.d/forjar-lab.conf
+    owner: root
+    mode: '0644'
+    content: |
+      PermitRootLogin no
+      PasswordAuthentication no
+    tags: [stack, security]
+    resource_group: security
+
+  # --- Layer 2: Dev Tools ---
+  dev-packages:
+    type: package
+    machine: target
+    provider: apt
+    packages:
+      - build-essential
+      - git
+      - htop
+    depends_on: [security-config]
+    tags: [stack, dev-tools]
+    resource_group: dev-tools
+
+  lab-user:
+    type: user
+    machine: target
+    name: mleng
+    home: /home/mleng
+    shell: /bin/bash
+    groups: [sudo]
+    depends_on: [dev-packages]
+    tags: [stack, dev-tools]
+    resource_group: dev-tools
+
+  # --- Layer 3: GPU Configuration ---
+  gpu-config-dir:
+    type: file
+    machine: target
+    state: directory
+    path: /etc/forjar/gpu
+    owner: root
+    mode: '0755'
+    depends_on: [dev-packages]
+    tags: [stack, gpu]
+    resource_group: gpu
+
+  gpu-config:
+    type: file
+    machine: target
+    path: /etc/forjar/gpu/backend.conf
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — GPU lab stack
+      backend=rocm
+      devices=all
+      compute_mode=default
+    depends_on: [gpu-config-dir]
+    tags: [stack, gpu]
+    resource_group: gpu
+
+  # --- Layer 4: Monitoring ---
+  monitoring-config:
+    type: file
+    machine: target
+    path: /etc/prometheus/gpu-monitoring.yml
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — GPU lab monitoring
+      scrape_configs:
+        - job_name: gpu-metrics
+          static_configs:
+            - targets: ['localhost:9400']
+    depends_on: [gpu-config]
+    tags: [stack, monitoring]
+    resource_group: monitoring
+
+  # --- Stack Manifest ---
+  stack-manifest:
+    type: file
+    machine: target
+    path: /etc/forjar/stack-manifest.json
+    owner: root
+    mode: '0644'
+    content: |
+      {
+        "stack": "gpu-lab",
+        "layers": [
+          {"name": "security", "recipes": ["09-secure-baseline"]},
+          {"name": "dev-tools", "recipes": ["01-developer-workstation"]},
+          {"name": "gpu", "recipes": ["07-rocm-gpu"]},
+          {"name": "monitoring", "recipes": ["04-monitoring-stack"]}
+        ],
+        "gpu_backend": "rocm",
+        "conflict_free": true
+      }
+    depends_on: [lab-user, monitoring-config]
+    tags: [stack, manifest]
+    resource_group: manifest
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Converging GPU lab stack'"
+  post_apply: "echo 'GPU lab stack ready'"
+  notify:
+    on_success: "echo 'GPU lab stack converged'"
+    on_failure: "echo 'GPU lab stack failed'"
+    on_drift: "echo 'GPU lab drift detected'"
+
+outputs:
+  stack_name:
+    value: "gpu-lab"
+    description: "Composed stack name"
+  gpu_backend:
+    value: "rocm"
+    description: "GPU backend"

@@ -1,0 +1,171 @@
+# Recipe: 57-stack-package-pipeline
+# Tier: 1+2 (validate + container apply)
+# Idempotency: strong
+# Budget: first_apply < 120s, idempotent < 5s
+#
+# Composability test: Package Pipeline stack.
+# Layers: Static Build + Deb Package + APT Repo + Fleet Provisioning.
+# Full pipeline: build → package → distribute → deploy.
+
+version: '1.0'
+name: stack-package-pipeline
+description: "Composed stack: static build + deb packaging + APT repo + fleet provisioning"
+
+params:
+  package_name: forjar
+  package_version: 1.0.0
+
+machines:
+  target:
+    hostname: target
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-cookbook-57-pipeline
+      ephemeral: false
+      privileged: false
+      init: true
+
+resources:
+  # --- Stage 1: Build ---
+  build-deps:
+    type: package
+    machine: target
+    provider: apt
+    packages:
+      - build-essential
+      - curl
+    tags: [stack, build]
+    resource_group: build
+
+  build-output-dir:
+    type: file
+    machine: target
+    state: directory
+    path: /tmp/pipeline/build
+    owner: root
+    mode: '0755'
+    depends_on: [build-deps]
+    tags: [stack, build]
+    resource_group: build
+
+  # --- Stage 2: Package ---
+  package-staging:
+    type: file
+    machine: target
+    state: directory
+    path: /tmp/pipeline/package
+    owner: root
+    mode: '0755'
+    depends_on: [build-output-dir]
+    tags: [stack, package]
+    resource_group: package
+
+  control-file:
+    type: file
+    machine: target
+    path: /tmp/pipeline/package/DEBIAN/control
+    owner: root
+    mode: '0644'
+    content: |
+      Package: forjar
+      Version: 1.0.0
+      Architecture: amd64
+      Maintainer: Forjar Team <team@forjar.dev>
+      Description: Infrastructure convergence tool
+    depends_on: [package-staging]
+    tags: [stack, package]
+    resource_group: package
+
+  # --- Stage 3: Repository ---
+  repo-dir:
+    type: file
+    machine: target
+    state: directory
+    path: /tmp/pipeline/repo
+    owner: root
+    mode: '0755'
+    depends_on: [control-file]
+    tags: [stack, repo]
+    resource_group: repo
+
+  repo-config:
+    type: file
+    machine: target
+    path: /tmp/pipeline/repo/repo.conf
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — package pipeline
+      repo_type=apt
+      distribution=stable
+      component=main
+      architectures=amd64
+    depends_on: [repo-dir]
+    tags: [stack, repo]
+    resource_group: repo
+
+  # --- Stage 4: Fleet Deploy ---
+  fleet-config:
+    type: file
+    machine: target
+    path: /tmp/pipeline/fleet.yaml
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — fleet provisioning
+      package: forjar
+      version: 1.0.0
+      targets: all
+      strategy: rolling
+    depends_on: [repo-config]
+    tags: [stack, fleet]
+    resource_group: fleet
+
+  # --- Stack Manifest ---
+  stack-manifest:
+    type: file
+    machine: target
+    path: /tmp/pipeline/stack-manifest.json
+    owner: root
+    mode: '0644'
+    content: |
+      {
+        "stack": "package-pipeline",
+        "stages": [
+          {"name": "build", "recipes": ["17-static-musl"]},
+          {"name": "package", "recipes": ["26-deb-package"]},
+          {"name": "repo", "recipes": ["27-private-apt-repo"]},
+          {"name": "fleet", "recipes": ["24-fleet-provisioning"]}
+        ],
+        "pipeline": "build → package → repo → fleet",
+        "conflict_free": true
+      }
+    depends_on: [fleet-config]
+    tags: [stack, manifest]
+    resource_group: manifest
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Converging package pipeline stack'"
+  post_apply: "echo 'Package pipeline ready'"
+  notify:
+    on_success: "echo 'Full pipeline converged'"
+    on_failure: "echo 'Pipeline stack failed'"
+    on_drift: "echo 'Pipeline drift detected'"
+
+outputs:
+  stack_name:
+    value: "package-pipeline"
+    description: "Composed stack name"
+  pipeline:
+    value: "build,package,repo,fleet"
+    description: "Pipeline stages"

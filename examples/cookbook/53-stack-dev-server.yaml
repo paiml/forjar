@@ -1,0 +1,153 @@
+# Recipe: 53-stack-dev-server
+# Tier: 1+2 (validate + container apply)
+# Idempotency: strong
+# Budget: first_apply < 120s, idempotent < 5s
+#
+# Composability test: Dev Server stack.
+# Layers: Secure Baseline + Developer Workstation + Toolchain Pin.
+# Validates that recipes compose without conflict.
+
+version: '1.0'
+name: stack-dev-server
+description: "Composed stack: secure baseline + developer workstation + toolchain pin"
+
+params:
+  user: dev
+  home: /home/dev
+  rust_version: 1.82.0
+
+machines:
+  target:
+    hostname: target
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-cookbook-53-devserver
+      ephemeral: false
+      privileged: false
+      init: true
+
+resources:
+  # --- Layer 1: Security Baseline ---
+  security-packages:
+    type: package
+    machine: target
+    provider: apt
+    packages:
+      - curl
+    tags: [stack, security, base]
+    resource_group: security
+
+  sshd-hardening:
+    type: file
+    machine: target
+    path: /etc/ssh/sshd_config.d/forjar-hardened.conf
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — security baseline
+      PermitRootLogin no
+      PasswordAuthentication no
+      MaxAuthTries 3
+    depends_on: [security-packages]
+    tags: [stack, security]
+    resource_group: security
+
+  # --- Layer 2: Developer Tools ---
+  dev-packages:
+    type: package
+    machine: target
+    provider: apt
+    packages:
+      - build-essential
+      - git
+      - tmux
+      - htop
+      - jq
+    depends_on: [security-packages]
+    tags: [stack, dev-tools]
+    resource_group: dev-tools
+
+  dev-user:
+    type: user
+    machine: target
+    name: dev
+    home: /home/dev
+    shell: /bin/bash
+    groups: [sudo]
+    depends_on: [dev-packages]
+    tags: [stack, dev-tools]
+    resource_group: dev-tools
+
+  # --- Layer 3: Toolchain Pin ---
+  toolchain-dir:
+    type: file
+    machine: target
+    state: directory
+    path: /etc/forjar/toolchain.d
+    owner: root
+    mode: '0755'
+    depends_on: [dev-packages]
+    tags: [stack, toolchain]
+    resource_group: toolchain
+
+  rust-pin:
+    type: file
+    machine: target
+    path: /etc/forjar/toolchain.d/rust
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — toolchain pin
+      version=1.82.0
+      channel=stable
+    depends_on: [toolchain-dir]
+    tags: [stack, toolchain]
+    resource_group: toolchain
+
+  # --- Stack Manifest ---
+  stack-manifest:
+    type: file
+    machine: target
+    path: /etc/forjar/stack-manifest.json
+    owner: root
+    mode: '0644'
+    content: |
+      {
+        "stack": "dev-server",
+        "layers": [
+          {"name": "security-baseline", "recipes": ["09-secure-baseline"]},
+          {"name": "dev-tools", "recipes": ["01-developer-workstation"]},
+          {"name": "toolchain", "recipes": ["12-toolchain-pin"]}
+        ],
+        "composition_order": "security → dev-tools → toolchain",
+        "conflict_free": true
+      }
+    depends_on: [sshd-hardening, dev-user, rust-pin]
+    tags: [stack, manifest]
+    resource_group: manifest
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Converging dev-server stack'"
+  post_apply: "echo 'Dev server stack ready'"
+  notify:
+    on_success: "echo 'All stack layers converged'"
+    on_failure: "echo 'Stack convergence failed'"
+    on_drift: "echo 'Stack drift detected'"
+
+outputs:
+  stack_name:
+    value: "dev-server"
+    description: "Composed stack name"
+  layers:
+    value: "security,dev-tools,toolchain"
+    description: "Stack layer names"
