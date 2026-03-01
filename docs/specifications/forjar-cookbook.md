@@ -560,8 +560,8 @@ Each dimension scores 0–100. Points are additive within each dimension.
 - tripwire_policy present: +15
 - lock_file configured: +15
 - outputs section: +10
-- File mode coverage (% of files with explicit mode): up to +15
-- Owner coverage (% of files with explicit owner): up to +15
+- File mode coverage (% of files with explicit mode): up to +15 (full credit if no file resources)
+- Owner coverage (% of files with explicit owner): up to +15 (full credit if no file resources)
 - Notify hooks (on_success/on_failure/on_drift): up to +20
 
 **DOC — Documentation (8%)**
