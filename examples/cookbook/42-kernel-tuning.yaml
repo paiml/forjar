@@ -1,0 +1,135 @@
+# Recipe: 42-kernel-tuning
+# Tier: 1+2 (validate in CI, apply in container)
+# Idempotency: strong
+# Budget: first_apply < 3s, idempotent < 1s
+#
+# Production kernel parameter tuning via sysctl.d drop-in files.
+# Covers network performance, memory management, security hardening,
+# and file descriptor limits.
+
+version: '1.0'
+name: kernel-tuning
+description: "Production kernel tuning with sysctl for network, memory, security, and file limits"
+
+params:
+  max_connections: "65535"
+  swappiness: "10"
+  file_max: "2097152"
+
+machines:
+  tuning-host:
+    hostname: tuning-host
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-cookbook-42-sysctl
+      ephemeral: false
+      privileged: false
+      init: true
+
+resources:
+  sysctl-network:
+    type: file
+    machine: tuning-host
+    path: /etc/sysctl.d/60-forjar-network.conf
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — network tuning (general profile)
+      net.core.somaxconn = 65535
+      net.ipv4.tcp_max_syn_backlog = 65535
+      net.ipv4.ip_local_port_range = 1024 65535
+      net.ipv4.tcp_tw_reuse = 1
+      net.ipv4.tcp_fin_timeout = 15
+      net.core.netdev_max_backlog = 65536
+      net.core.rmem_max = 16777216
+      net.core.wmem_max = 16777216
+    tags: [sysctl, network]
+    resource_group: kernel-tuning
+
+  sysctl-memory:
+    type: file
+    machine: tuning-host
+    path: /etc/sysctl.d/60-forjar-memory.conf
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — memory tuning
+      vm.swappiness = 10
+      vm.dirty_ratio = 15
+      vm.dirty_background_ratio = 5
+      vm.overcommit_memory = 0
+    tags: [sysctl, memory]
+    resource_group: kernel-tuning
+
+  sysctl-security:
+    type: file
+    machine: tuning-host
+    path: /etc/sysctl.d/60-forjar-security.conf
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — security hardening
+      # ICMP hardening
+      net.ipv4.icmp_echo_ignore_broadcasts = 1
+      net.ipv4.icmp_ignore_bogus_error_responses = 1
+      # SYN flood protection
+      net.ipv4.tcp_syncookies = 1
+      # Source routing disabled
+      net.ipv4.conf.all.accept_source_route = 0
+      net.ipv4.conf.default.accept_source_route = 0
+      # ASLR
+      kernel.randomize_va_space = 2
+    tags: [sysctl, security]
+    resource_group: kernel-tuning
+
+  sysctl-filelimits:
+    type: file
+    machine: tuning-host
+    path: /etc/sysctl.d/60-forjar-filelimits.conf
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — file descriptor limits
+      fs.file-max = 2097152
+      fs.inotify.max_user_watches = 524288
+    tags: [sysctl, filelimits]
+    resource_group: kernel-tuning
+
+  sysctl-reload-script:
+    type: file
+    machine: tuning-host
+    path: /usr/local/bin/forjar-sysctl-reload.sh
+    owner: root
+    mode: '0755'
+    content: |
+      #!/bin/bash
+      sysctl --system 2>/dev/null || echo "sysctl --system skipped (container)"
+    depends_on: [sysctl-network, sysctl-memory, sysctl-security, sysctl-filelimits]
+    tags: [sysctl, reload]
+    resource_group: kernel-tuning
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Applying kernel tuning parameters'"
+  post_apply: "echo 'Kernel tuning applied'"
+  notify:
+    on_success: "echo 'Kernel parameters tuned successfully'"
+    on_failure: "echo 'Kernel tuning failed — check sysctl.d files'"
+    on_drift: "echo 'Kernel parameter drift detected'"
+
+outputs:
+  tuning_profile:
+    value: "general"
+    description: "Active kernel tuning profile"
+  sysctl_dir:
+    value: "/etc/sysctl.d"
+    description: "Sysctl drop-in directory"

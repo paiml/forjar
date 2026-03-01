@@ -1,0 +1,156 @@
+# Recipe: 40-scheduled-tasks
+# Tier: 1+2 (validate in CI, apply in container)
+# Idempotency: strong
+# Budget: first_apply < 5s, idempotent < 1s
+#
+# Scheduled task management: backup cron, log cleanup, health checks,
+# cron environment, and dead cron auditing.
+
+version: '1.0'
+name: scheduled-tasks
+description: "Scheduled task management with backup, log cleanup, and cron auditing"
+
+params:
+  backup_dir: /var/backups
+  log_retention_days: "30"
+  mailto: root
+
+machines:
+  cron-host:
+    hostname: cron-host
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-cookbook-40-cron
+      ephemeral: false
+      privileged: false
+      init: true
+
+resources:
+  backup-dir:
+    type: file
+    machine: cron-host
+    state: directory
+    path: "{{params.backup_dir}}"
+    owner: root
+    mode: '0750'
+    tags: [cron, backup]
+    resource_group: scheduled-tasks
+
+  backup-script:
+    type: file
+    machine: cron-host
+    path: /usr/local/bin/forjar-backup.sh
+    mode: '0755'
+    owner: root
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+      DEST="{{params.backup_dir}}/$(date +%Y%m%d-%H%M%S)"
+      mkdir -p "$DEST"
+      tar czf "$DEST/etc.tar.gz" /etc/
+      dpkg --get-selections > "$DEST/packages.list"
+    depends_on: [backup-dir]
+    tags: [cron, backup]
+    resource_group: scheduled-tasks
+
+  backup-cron:
+    type: cron
+    machine: cron-host
+    schedule: "0 2 * * *"
+    command: "/usr/local/bin/forjar-backup.sh"
+    name: forjar-backup
+    depends_on: [backup-script]
+    tags: [cron, backup]
+    resource_group: scheduled-tasks
+
+  log-cleanup-script:
+    type: file
+    machine: cron-host
+    path: /usr/local/bin/forjar-log-cleanup.sh
+    mode: '0755'
+    owner: root
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+      find /var/log -name "*.gz" -mtime +30 -delete
+      find /var/log -name "*.old" -mtime +30 -delete
+      journalctl --vacuum-time=30d 2>/dev/null || true
+    tags: [cron, logs]
+    resource_group: scheduled-tasks
+
+  log-cleanup-cron:
+    type: cron
+    machine: cron-host
+    schedule: "0 3 * * 0"
+    command: "/usr/local/bin/forjar-log-cleanup.sh"
+    name: forjar-log-cleanup
+    depends_on: [log-cleanup-script]
+    tags: [cron, logs]
+    resource_group: scheduled-tasks
+
+  cron-env-file:
+    type: file
+    machine: cron-host
+    path: /etc/cron.d/forjar-env
+    mode: '0644'
+    owner: root
+    content: |
+      SHELL=/bin/bash
+      PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      MAILTO={{params.mailto}}
+    tags: [cron, env]
+    resource_group: scheduled-tasks
+
+  cron-audit-script:
+    type: file
+    machine: cron-host
+    path: /usr/local/bin/forjar-cron-audit.sh
+    mode: '0755'
+    owner: root
+    content: |
+      #!/bin/bash
+      # Audit: find cron jobs pointing to missing scripts
+      for user in $(cut -d: -f1 /etc/passwd); do
+        crontab -l -u "$user" 2>/dev/null | grep -v '^#' | while read -r line; do
+          cmd=$(echo "$line" | awk '{print $6}')
+          [ -n "$cmd" ] && [ ! -x "$cmd" ] && echo "DEAD: user=$user cmd=$cmd"
+        done
+      done
+    tags: [cron, audit]
+    resource_group: scheduled-tasks
+
+  cron-audit:
+    type: cron
+    machine: cron-host
+    schedule: "0 6 * * 1"
+    command: "/usr/local/bin/forjar-cron-audit.sh"
+    name: forjar-cron-audit
+    depends_on: [cron-audit-script]
+    tags: [cron, audit]
+    resource_group: scheduled-tasks
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Configuring scheduled tasks'"
+  post_apply: "echo 'Scheduled tasks configured'"
+  notify:
+    on_success: "echo 'All cron jobs deployed successfully'"
+    on_failure: "echo 'Cron setup failed — check crontab'"
+    on_drift: "echo 'Cron configuration drift detected'"
+
+outputs:
+  backup_directory:
+    value: "{{params.backup_dir}}"
+    description: "Backup destination directory"
+  backup_schedule:
+    value: "daily at 02:00 UTC"
+    description: "Backup cron schedule"
