@@ -1,34 +1,25 @@
 //! CLI Args structs for validate-related commands.
-
 use std::path::PathBuf;
-
-
 #[derive(clap::Args, Debug)]
 pub struct ValidateArgs {
     /// Path to forjar.yaml
     #[arg(short, long, default_value = "forjar.yaml")]
     pub file: PathBuf,
-
     /// FJ-282: Extended validation — check machine refs, paths, deps, templates
     #[arg(long)]
     pub strict: bool,
-
     /// Output validation result as JSON
     #[arg(long)]
     pub json: bool,
-
     /// FJ-330: Show fully expanded config after template resolution
     #[arg(long)]
     pub dry_expand: bool,
-
     /// FJ-381: Validate against specific schema version
     #[arg(long)]
     pub schema_version: Option<String>,
-
     /// FJ-391: Validate all cross-references, machine existence, and param usage
     #[arg(long)]
     pub exhaustive: bool,
-
     /// FJ-401: Validate against external policy rules file
     #[arg(long)]
     pub policy_file: Option<PathBuf>,
@@ -497,4 +488,13 @@ pub struct ValidateArgs {
     /// FJ-1108: Warn if resource content exceeds size threshold
     #[arg(long)]
     pub check_resource_content_length_limit: bool,
+    /// FJ-1110: Verify all declared dependencies exist
+    #[arg(long)]
+    pub check_resource_dependency_completeness_audit: bool,
+    /// FJ-1113: Warn if machines lack expected resource types
+    #[arg(long)]
+    pub check_resource_machine_coverage_gap: bool,
+    /// FJ-1116: Warn if file paths exceed directory depth limit
+    #[arg(long)]
+    pub check_resource_path_depth_limit: bool,
 }

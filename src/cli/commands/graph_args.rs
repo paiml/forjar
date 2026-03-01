@@ -480,5 +480,13 @@ pub struct GraphArgs {
     /// FJ-1106: Identify cross-machine dependency bridges
     #[arg(long)]
     pub resource_dependency_cross_machine_bridge: bool,
+
+    /// FJ-1111: Weighted dependency score analysis
+    #[arg(long)]
+    pub resource_dependency_weight_analysis: bool,
+
+    /// FJ-1114: Topological layer summary
+    #[arg(long)]
+    pub resource_dependency_topological_summary: bool,
 }
 

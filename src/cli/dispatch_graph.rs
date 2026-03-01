@@ -29,6 +29,7 @@ use super::graph_quality::*;
 use super::graph_analytics_ext::*;
 use super::graph_governance::*;
 use super::graph_resilience_ext::*;
+use super::graph_weight::*;
 
 #[allow(clippy::too_many_arguments)]
 fn try_traversal(
@@ -166,8 +167,6 @@ fn try_graph_export_a(
     if adjacency_matrix { return Some(cmd_graph_adjacency_matrix(file, json)); }
     None
 }
-
-/// Phase 64-65 graph export flags (part B).
 #[allow(clippy::too_many_arguments)]
 fn try_graph_export_b(
     file: &Path, json: bool,
@@ -182,8 +181,6 @@ fn try_graph_export_b(
     if critical_path_resources { return Some(cmd_graph_critical_path_resources(file, json)); }
     None
 }
-
-/// Phase 75-77 scoring graph flags.
 #[allow(clippy::too_many_arguments)]
 fn try_graph_scoring_inline(
     file: &Path, json: bool,
@@ -208,8 +205,6 @@ fn try_graph_scoring_inline(
     if resource_dependency_redundancy_score { return Some(cmd_graph_resource_dependency_redundancy_score(file, json)); }
     None
 }
-
-/// Phase 81-84 scoring graph flags.
 #[allow(clippy::too_many_arguments)]
 fn try_graph_scoring_phase81(
     file: &Path, json: bool,
@@ -234,8 +229,6 @@ fn try_graph_scoring_phase81(
     if resource_dependency_articulation_points { return Some(cmd_graph_resource_dependency_articulation_points(file, json)); }
     None
 }
-
-/// Phase 87–90 graph analysis flags.
 #[allow(clippy::too_many_arguments)]
 fn try_graph_phase87(
     file: &Path, json: bool,
@@ -260,7 +253,6 @@ fn try_graph_phase87(
     if resource_dependency_diameter_path { return Some(cmd_graph_resource_dependency_diameter_path(file, json)); }
     None
 }
-/// Phase 94 graph analysis flags.
 fn try_graph_phase94(
     file: &Path, json: bool,
     resource_dependency_bridge_criticality: bool, resource_dependency_conditional_subgraph: bool,
@@ -341,18 +333,20 @@ fn try_graph_phase103(
     if resource_dependency_redundancy_analysis { return Some(cmd_graph_resource_dependency_redundancy_analysis(file, json)); }
     None
 }
-fn try_graph_phases_104_105(
+#[allow(clippy::too_many_arguments)]
+fn try_graph_phases_104_106(
     file: &Path, json: bool,
-    a1: bool, a2: bool, b1: bool, b2: bool,
+    a1: bool, a2: bool, b1: bool, b2: bool, c1: bool, c2: bool,
 ) -> Option<Result<(), String>> {
     if a1 { return Some(cmd_graph_resource_dependency_change_impact_radius(file, json)); }
     if a2 { return Some(cmd_graph_resource_dependency_sibling_analysis(file, json)); }
     if b1 { return Some(cmd_graph_resource_dependency_fan_in_hotspot(file, json)); }
     if b2 { return Some(cmd_graph_resource_dependency_cross_machine_bridge(file, json)); }
+    if c1 { return Some(cmd_graph_resource_dependency_weight_analysis(file, json)); }
+    if c2 { return Some(cmd_graph_resource_dependency_topological_summary(file, json)); }
     None
 }
 
-/// Dispatch the Graph command variant.
 pub(crate) fn dispatch_graph_cmd(cmd: Commands) -> Result<(), String> {
     let Commands::Graph(GraphArgs {
         file, format, machine, group,
@@ -422,6 +416,8 @@ pub(crate) fn dispatch_graph_cmd(cmd: Commands) -> Result<(), String> {
         resource_dependency_sibling_analysis,
         resource_dependency_fan_in_hotspot,
         resource_dependency_cross_machine_bridge,
+        resource_dependency_weight_analysis,
+        resource_dependency_topological_summary,
     }) = cmd
     else {
         unreachable!()
@@ -469,9 +465,10 @@ pub(crate) fn dispatch_graph_cmd(cmd: Commands) -> Result<(), String> {
     if let Some(r) = try_graph_phase103(&file, json_output, resource_dependency_depth_histogram_analysis, resource_dependency_redundancy_analysis) {
         return r;
     }
-    if let Some(r) = try_graph_phases_104_105(&file, json_output,
+    if let Some(r) = try_graph_phases_104_106(&file, json_output,
         resource_dependency_change_impact_radius, resource_dependency_sibling_analysis,
         resource_dependency_fan_in_hotspot, resource_dependency_cross_machine_bridge,
+        resource_dependency_weight_analysis, resource_dependency_topological_summary,
     ) {
         return r;
     }

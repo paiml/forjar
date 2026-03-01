@@ -127,6 +127,9 @@ mod status_maturity;
 mod status_resilience;
 mod validate_maturity;
 mod validate_hygiene;
+mod status_drift_intel2;
+mod validate_audit;
+mod graph_weight;
 #[cfg(test)] mod test_fixtures;
 #[cfg(test)] mod tests_helpers;
 #[cfg(test)] mod tests_helpers_state;
@@ -457,6 +460,8 @@ mod tests_phase103;
 mod tests_phase104;
 #[cfg(test)]
 mod tests_phase105;
+#[cfg(test)]
+mod tests_phase106;
 
 pub use commands::Commands;
 pub use dispatch::dispatch;

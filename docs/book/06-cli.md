@@ -3557,6 +3557,51 @@ forjar validate -f forjar.yaml --check-resource-content-length-limit
 # Content length: 0 resources exceed limit (4096 chars)
 ```
 
+#### Phase 106 — Dependency Intelligence & Fleet Configuration (FJ-1109→FJ-1116)
+
+```bash
+# FJ-1109: Fleet resource type drift correlation
+forjar status --state-dir ./state --fleet-resource-type-drift-correlation
+# === Fleet Resource Type Drift Correlation ===
+#   file: 1 drifted / 1 total (100.0%)
+#   service: 1 drifted / 1 total (100.0%)
+
+# FJ-1110: Resource dependency completeness audit
+forjar validate -f forjar.yaml --check-resource-dependency-completeness-audit
+# Dependency completeness: 3 resources, 2 with deps, 0 missing refs
+
+# FJ-1111: Resource dependency weight analysis
+forjar graph -f forjar.yaml --resource-dependency-weight-analysis
+# Dependency weights:
+#   a: weight=2 (depended on by 2 resources)
+#   b: weight=0 (leaf)
+
+# FJ-1112: Machine resource apply cadence report
+forjar status --state-dir ./state --machine-resource-apply-cadence-report
+# === Machine Resource Apply Cadence Report ===
+#   web: 2 resources, estimated cadence: daily
+
+# FJ-1113: Resource machine coverage gap
+forjar validate -f forjar.yaml --check-resource-machine-coverage-gap
+# Machine coverage: m1 has 1 resource, m2 has 0 (gap detected)
+
+# FJ-1114: Resource dependency topological summary
+forjar graph -f forjar.yaml --resource-dependency-topological-summary
+# Topological order:
+#   1. a (depth 0)
+#   2. b (depth 1)
+#   3. c (depth 2)
+
+# FJ-1115: Fleet resource drift recovery trend
+forjar status --state-dir ./state --fleet-resource-drift-recovery-trend
+# === Fleet Resource Drift Recovery Trend ===
+#   web: 50.0% recovery (1 converged from 2 total)
+
+# FJ-1116: Resource path depth limit
+forjar validate -f forjar.yaml --check-resource-path-depth-limit
+# Path depth: 0 resources exceed limit (10 segments)
+```
+
 ### `forjar watch`
 
 Watch a config file for changes and automatically re-plan.

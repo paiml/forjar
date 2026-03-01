@@ -655,4 +655,13 @@ pub struct StatusArgs {
     /// FJ-1107: Fleet resource convergence gap analysis
     #[arg(long)]
     pub fleet_resource_convergence_gap_analysis: bool,
+    /// FJ-1109: Fleet resource type drift correlation
+    #[arg(long)]
+    pub fleet_resource_type_drift_correlation: bool,
+    /// FJ-1112: Machine resource apply cadence report
+    #[arg(long)]
+    pub machine_resource_apply_cadence_report: bool,
+    /// FJ-1115: Fleet resource drift recovery trend
+    #[arg(long)]
+    pub fleet_resource_drift_recovery_trend: bool,
 }
