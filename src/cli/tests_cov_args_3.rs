@@ -196,6 +196,8 @@ mod tests {
             notify_custom_sampling: Some("0.1".to_string()),
             notify_custom_digest: Some("1h".to_string()),
             notify_custom_severity_filter: Some("error".to_string()),
+            refresh_only: false,
+            encrypt_state: false,
         };
         let debug = format!("{:?}", args);
         assert!(debug.contains("ApplyArgs"));
@@ -379,7 +381,7 @@ mod tests {
             notify_custom_correlation: None,
             notify_custom_sampling: None,
             notify_custom_digest: None,
-            notify_custom_severity_filter: None,
+            notify_custom_severity_filter: None, refresh_only: false, encrypt_state: false,
         };
         let debug = format!("{:?}", args);
         assert!(debug.contains("ApplyArgs"));

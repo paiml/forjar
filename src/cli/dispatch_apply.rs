@@ -174,6 +174,8 @@ pub(crate) fn dispatch_apply_cmd(cmd: Commands, verbose: bool) -> Result<(), Str
         notify_custom_sampling,
         notify_custom_digest,
         notify_custom_severity_filter,
+        refresh_only,
+        encrypt_state: _encrypt_state,
     }) = cmd
     else {
         unreachable!()
@@ -227,6 +229,10 @@ pub(crate) fn dispatch_apply_cmd(cmd: Commands, verbose: bool) -> Result<(), Str
     }
     if check {
         return cmd_check(&file, machine.as_deref(), resource.as_deref(), tag.as_deref(), json, verbose);
+    }
+    if refresh_only {
+        let sd = resolve_state_dir(&state_dir, workspace.as_deref());
+        return cmd_refresh_only(&file, &sd, machine.as_deref(), verbose, timeout, env_file.as_deref(), workspace.as_deref());
     }
     let sd = resolve_state_dir(&state_dir, workspace.as_deref());
 
