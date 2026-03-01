@@ -32,6 +32,7 @@ pub struct ForjarConfig {
     pub machines: IndexMap<String, Machine>,
 
     /// Resource declarations (order-preserving)
+    #[serde(default)]
     pub resources: IndexMap<String, Resource>,
 
     /// Execution policy

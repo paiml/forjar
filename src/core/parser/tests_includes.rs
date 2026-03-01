@@ -384,3 +384,48 @@ resources: {}
     assert!(config.machines.contains_key("web"));
     assert!(config.resources.contains_key("app"));
 }
+
+#[test]
+fn test_fj254_include_without_resources_field() {
+    let dir = tempfile::tempdir().unwrap();
+
+    let params_yaml = r#"
+version: "1.0"
+name: shared-params
+params:
+  forjar_managed: "true"
+  forjar_version: "1.0"
+"#;
+    std::fs::write(dir.path().join("params.yaml"), params_yaml).unwrap();
+
+    let base_yaml = r#"
+version: "1.0"
+name: base
+includes:
+  - params.yaml
+machines:
+  m1:
+    hostname: m1
+    addr: 127.0.0.1
+resources:
+  app:
+    type: file
+    machine: m1
+    path: /tmp/app
+    content: "hello"
+"#;
+    std::fs::write(dir.path().join("main.yaml"), base_yaml).unwrap();
+
+    let result = parse_and_validate(&dir.path().join("main.yaml"));
+    assert!(
+        result.is_ok(),
+        "include without resources field should work: {:?}",
+        result
+    );
+    let config = result.unwrap();
+    assert_eq!(
+        config.params["forjar_managed"],
+        serde_yaml_ng::Value::String("true".to_string())
+    );
+    assert!(config.resources.contains_key("app"));
+}
