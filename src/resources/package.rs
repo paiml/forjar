@@ -116,12 +116,21 @@ fn apply_cargo_present(resource: &Resource) -> String {
             None => format!("cargo install --force '{}'", p),
         })
         .collect();
+    // Limit build parallelism to avoid OOM on high-core-count machines.
+    // Respects CARGO_BUILD_JOBS if already set; defaults to min(nproc/2, 8).
     format!(
         "set -euo pipefail\n\
          command -v cargo >/dev/null 2>&1 || {{\n\
            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path\n\
            export PATH=\"$HOME/.cargo/bin:$PATH\"\n\
          }}\n\
+         if [ -z \"${{CARGO_BUILD_JOBS:-}}\" ]; then\n\
+           _nproc=$(nproc 2>/dev/null || echo 4)\n\
+           _half=$(( _nproc / 2 ))\n\
+           [ \"$_half\" -lt 1 ] && _half=1\n\
+           [ \"$_half\" -gt 8 ] && _half=8\n\
+           export CARGO_BUILD_JOBS=$_half\n\
+         fi\n\
          {}",
         installs.join("\n")
     )
