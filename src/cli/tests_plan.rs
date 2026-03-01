@@ -57,6 +57,7 @@ resources:
             None,
             false, // no cost,
             &[],   // what_if
+            None,  // plan_out
         )
         .unwrap();
     }
@@ -109,6 +110,7 @@ resources:
             None,
             false, // no cost,
             &[],   // what_if
+            None,  // plan_out
         )
         .unwrap();
     }
@@ -144,6 +146,7 @@ resources: {}
             None,
             false, // no cost,
             &[],   // what_if
+            None,  // plan_out
         );
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("validation"));
@@ -190,6 +193,7 @@ resources:
                 target: None,
                 cost: false,
                 what_if: vec![],
+                out: None,
             }),
             false,
             true,
@@ -237,6 +241,7 @@ resources:
             None,
             false, // no cost,
             &[],   // what_if
+            None,  // plan_out
         )
         .unwrap();
     }
@@ -282,6 +287,7 @@ resources:
             None,
             false, // no cost,
             &[],   // what_if
+            None,  // plan_out
         )
         .unwrap();
     }
@@ -326,6 +332,7 @@ resources:
             None,
             false, // no cost,
             &[],   // what_if
+            None,  // plan_out
         )
         .unwrap();
     }
@@ -376,6 +383,7 @@ resources:
             None,
             false, // no cost,
             &[],   // what_if
+            None,  // plan_out
         )
         .unwrap();
 
@@ -417,6 +425,7 @@ resources:
             None,
             false, // no cost,
             &[],   // what_if
+            None,  // plan_out
         )
         .unwrap();
     }
@@ -464,6 +473,7 @@ resources:
             None,
             false, // no cost,
             &[],   // what_if
+            None,  // plan_out
         )
         .unwrap();
     }

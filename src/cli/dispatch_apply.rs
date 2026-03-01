@@ -98,7 +98,7 @@ pub(crate) fn dispatch_apply_cmd(cmd: Commands, verbose: bool) -> Result<(), Str
         notify_slack, cost_limit, preview,
         tag_filter: _tag_filter, output_scripts,
         resume: _resume, confirm: _confirm, max_failures: _max_failures,
-        rate_limit: _rate_limit, labels: _labels, plan_file: _plan_file,
+        rate_limit: _rate_limit, labels: _labels, plan_file,
         notify_email, skip: _skip, snapshot_before,
         concurrency: _concurrency, webhook_before,
         rollback_snapshot: _rollback_snapshot, retry_delay: _retry_delay,
@@ -209,11 +209,11 @@ pub(crate) fn dispatch_apply_cmd(cmd: Commands, verbose: bool) -> Result<(), Str
     if let Some(ref url) = webhook_before { send_webhook_before(url, &file); }
     if preview {
         let sd = resolve_state_dir(&state_dir, workspace.as_deref());
-        return cmd_plan(&file, &sd, machine.as_deref(), resource.as_deref(), tag.as_deref(), false, true, None, env_file.as_deref(), workspace.as_deref(), false, None, false, &[]);
+        return cmd_plan(&file, &sd, machine.as_deref(), resource.as_deref(), tag.as_deref(), false, true, None, env_file.as_deref(), workspace.as_deref(), false, None, false, &[], None);
     }
     if let Some(ref dir) = output_scripts {
         let sd = resolve_state_dir(&state_dir, workspace.as_deref());
-        return cmd_plan(&file, &sd, machine.as_deref(), resource.as_deref(), tag.as_deref(), false, false, Some(dir), env_file.as_deref(), workspace.as_deref(), false, None, false, &[]);
+        return cmd_plan(&file, &sd, machine.as_deref(), resource.as_deref(), tag.as_deref(), false, false, Some(dir), env_file.as_deref(), workspace.as_deref(), false, None, false, &[], None);
     }
     if backup {
         let sd = resolve_state_dir(&state_dir, workspace.as_deref());
@@ -225,7 +225,7 @@ pub(crate) fn dispatch_apply_cmd(cmd: Commands, verbose: bool) -> Result<(), Str
     }
     if diff_only {
         let sd = resolve_state_dir(&state_dir, workspace.as_deref());
-        return cmd_plan(&file, &sd, machine.as_deref(), resource.as_deref(), tag.as_deref(), json, verbose, None, env_file.as_deref(), workspace.as_deref(), false, None, false, &[]);
+        return cmd_plan(&file, &sd, machine.as_deref(), resource.as_deref(), tag.as_deref(), json, verbose, None, env_file.as_deref(), workspace.as_deref(), false, None, false, &[], None);
     }
     if check {
         return cmd_check(&file, machine.as_deref(), resource.as_deref(), tag.as_deref(), json, verbose);
@@ -233,6 +233,10 @@ pub(crate) fn dispatch_apply_cmd(cmd: Commands, verbose: bool) -> Result<(), Str
     if refresh_only {
         let sd = resolve_state_dir(&state_dir, workspace.as_deref());
         return cmd_refresh_only(&file, &sd, machine.as_deref(), verbose, timeout, env_file.as_deref(), workspace.as_deref());
+    }
+    if let Some(ref pf) = plan_file {
+        let sd = resolve_state_dir(&state_dir, workspace.as_deref());
+        return cmd_apply_from_plan(&file, &sd, pf, verbose, env_file.as_deref(), workspace.as_deref());
     }
     let sd = resolve_state_dir(&state_dir, workspace.as_deref());
 
