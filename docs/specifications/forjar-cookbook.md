@@ -39,7 +39,7 @@ forjar-cookbook/
 ├── crates/
 │   ├── cookbook-runner/                 # Recipe execution harness
 │   │   ├── src/lib.rs                  # Apply recipe, capture results, timing
-│   │   └── src/main.rs                 # CLI: run, qualify, report
+│   │   └── src/main.rs                 # CLI: validate, qualify, score
 │   ├── cookbook-qualify/                # README sync + qualification logic
 │   │   ├── src/lib.rs                  # CSV parse, table generate, README update
 │   │   └── src/main.rs                 # Binary: cookbook-readme-sync
@@ -129,6 +129,20 @@ book:                                                # mdbook build docs/book
 bashrs-lint:                                         # bashrs lint scripts/ Makefile
 ```
 
+### cookbook-runner CLI
+
+The `cookbook-runner` binary provides three subcommands:
+
+```
+cookbook-runner validate --file <recipe.yaml>     # Validate config (forjar validate + plan)
+cookbook-runner qualify  --file <recipe.yaml>      # Full qualification: validate → plan → apply → idempotency → score
+cookbook-runner score    --file <recipe.yaml>      # Static-only score (no apply) — SAF/OBS/DOC/RES/CMP dimensions
+```
+
+The `score` subcommand accepts `--status`, `--idempotency`, and `--budget-ms` flags for runtime context when scoring without a live apply. Without runtime data, COR/IDM/PRF dimensions are 0 (static-only mode).
+
+The `qualify` subcommand automatically computes and appends the ForjarScore after qualification completes. It uses `runtime_data_from_qualify()` to build the runtime context from actual apply results.
+
 ---
 
 ## Qualification Dashboard (README.md)
@@ -139,34 +153,30 @@ The README contains a live qualification table bounded by HTML comment markers, 
 
 ```markdown
 <!-- QUALIFICATION_TABLE_START -->
-**Qualification Summary** (updated: 2026-03-01 12:00 UTC)
+**Qualification Summary** (updated: 2026-03-01)
 
 | Status | Count |
 |--------|-------|
-| Qualified | 12 |
-| Blocked   | 3  |
-| Pending   | 34 |
+| Qualified | 56 |
+| Blocked   | 5  |
 
-| # | Recipe | Category | Status | Tier | Idempotent | Time (1st) | Time (2nd) | Blocker |
-|---|--------|----------|--------|------|------------|------------|------------|---------|
-| 1 | Developer Workstation | infra | ![qualified](https://img.shields.io/badge/QUALIFIED-brightgreen) | 2 | Strong | 45s | 1.2s | — |
-| 2 | Web Server | infra | ![qualified](https://img.shields.io/badge/QUALIFIED-brightgreen) | 2 | Strong | 62s | 1.8s | — |
-| 7 | ROCm GPU | gpu | ![blocked](https://img.shields.io/badge/BLOCKED-red) | 3 | Strong | — | — | FJ-1126: ROCm userspace not installed |
-| 30 | Saved Plan Files | opentofu | ![pending](https://img.shields.io/badge/PENDING-lightgray) | 1+2 | Strong | — | — | Feature not yet implemented |
+| # | Recipe | Status | Grade | Score | Blocker |
+|---|--------|--------|-------|-------|---------|
+| 1 | developer-workstation | QUALIFIED | A | 94 | — |
+| 7 | rocm-gpu | BLOCKED | F | — | FJ-1126 |
+| 53 | stack-dev-server | QUALIFIED | A | 94 | — |
 ...
 <!-- QUALIFICATION_TABLE_END -->
 ```
 
 ### CSV Source of Truth
 
-`docs/certifications/recipes.csv`:
+`docs/certifications/recipes.csv` (23 columns — extended with ForjarScore):
 
 ```csv
-recipe_num,name,category,status,tier,idempotency_class,first_apply_ms,idempotent_apply_ms,blocker_ticket,blocker_description,last_qualified,qualified_by
-1,developer-workstation,infra,qualified,2,strong,45000,1200,,,2026-03-01,cookbook-runner
-2,web-server,infra,qualified,2,strong,62000,1800,,,2026-03-01,cookbook-runner
-7,rocm-gpu,gpu,blocked,3,strong,,,FJ-1126,ROCm userspace not installed,,
-30,saved-plan-files,opentofu,pending,1+2,strong,,,,Feature not yet implemented,,
+recipe_num,name,category,status,tier,idempotency,first_ms,idem_ms,blocker,blocker_desc,date,by,score,grade,cor,idm,prf,saf,obs,doc,res,cmp,ver
+1,developer-workstation,infra,qualified,2+3,strong,1032,23,,,2026-03-01,cookbook-runner,94,A,100,100,95,97,90,80,80,85,1.0
+7,rocm-gpu,gpu,blocked,3,strong,,,FJ-1126,ROCm userspace,,,0,F,0,0,0,0,0,0,0,0,1.0
 ```
 
 ### Sync Binary
@@ -210,10 +220,13 @@ Recipe YAML written
   Timing within budget     ← Performance proven
         │
         ▼
-  Mark QUALIFIED in CSV    ← cookbook-runner updates CSV
+  ForjarScore computed     ← 8-dimension quality grade (A through F)
         │
         ▼
-  cookbook-readme-sync      ← README table regenerated
+  Mark QUALIFIED in CSV    ← cookbook-runner updates CSV with score
+        │
+        ▼
+  cookbook-readme-sync      ← README table regenerated with grades
 ```
 
 ### When a Recipe Fails
