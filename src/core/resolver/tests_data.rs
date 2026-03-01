@@ -185,6 +185,172 @@ data:
     assert!(ip == "127.0.0.1" || ip == "::1", "got: {}", ip);
 }
 
+// ============================================================================
+// FJ-1260: forjar-state data source tests
+// ============================================================================
+
+#[test]
+fn test_fj1260_forjar_state_reads_outputs_from_lock() {
+    let dir = tempfile::tempdir().unwrap();
+    let state_dir = dir.path().join("state");
+    std::fs::create_dir_all(&state_dir).unwrap();
+
+    // Write a mock global lock with outputs
+    let lock_yaml = r#"
+schema: "1"
+name: infra-config
+outputs:
+  db_host: "db.example.com"
+  db_port: "5432"
+"#;
+    std::fs::write(state_dir.join("forjar.lock.yaml"), lock_yaml).unwrap();
+
+    let yaml = format!(
+        r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.2.3.4
+resources: {{}}
+data:
+  db_connection:
+    type: forjar-state
+    state_dir: "{}"
+    outputs: [db_host]
+"#,
+        state_dir.display()
+    );
+    let mut config: ForjarConfig = serde_yaml_ng::from_str(&yaml).unwrap();
+    resolve_data_sources(&mut config).unwrap();
+
+    let val = config.params.get("__data__db_connection").unwrap();
+    assert_eq!(yaml_value_to_string(val), "db.example.com");
+}
+
+#[test]
+fn test_fj1260_forjar_state_falls_back_to_default() {
+    let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.2.3.4
+resources: {}
+data:
+  upstream:
+    type: forjar-state
+    state_dir: /nonexistent/state
+    default: "localhost:8080"
+"#;
+    let mut config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+    resolve_data_sources(&mut config).unwrap();
+
+    let val = config.params.get("__data__upstream").unwrap();
+    assert_eq!(yaml_value_to_string(val), "localhost:8080");
+}
+
+#[test]
+fn test_fj1260_forjar_state_fails_without_default() {
+    let yaml = r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.2.3.4
+resources: {}
+data:
+  upstream:
+    type: forjar-state
+    state_dir: /nonexistent/state
+"#;
+    let mut config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+    let result = resolve_data_sources(&mut config);
+    assert!(result.is_err());
+    assert!(result.unwrap_err().contains("state lock not found"));
+}
+
+#[test]
+fn test_fj1260_forjar_state_returns_all_outputs_as_json() {
+    let dir = tempfile::tempdir().unwrap();
+    let state_dir = dir.path().join("state");
+    std::fs::create_dir_all(&state_dir).unwrap();
+
+    let lock_yaml = r#"
+schema: "1"
+name: infra
+outputs:
+  host: "web.example.com"
+  port: "443"
+"#;
+    std::fs::write(state_dir.join("forjar.lock.yaml"), lock_yaml).unwrap();
+
+    let yaml = format!(
+        r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.2.3.4
+resources: {{}}
+data:
+  all_outputs:
+    type: forjar-state
+    state_dir: "{}"
+"#,
+        state_dir.display()
+    );
+    let mut config: ForjarConfig = serde_yaml_ng::from_str(&yaml).unwrap();
+    resolve_data_sources(&mut config).unwrap();
+
+    let val = config.params.get("__data__all_outputs").unwrap();
+    let json_str = yaml_value_to_string(val);
+    let parsed: serde_json::Value = serde_json::from_str(&json_str).unwrap();
+    assert_eq!(parsed["host"], "web.example.com");
+    assert_eq!(parsed["port"], "443");
+}
+
+#[test]
+fn test_fj1260_forjar_state_missing_requested_output() {
+    let dir = tempfile::tempdir().unwrap();
+    let state_dir = dir.path().join("state");
+    std::fs::create_dir_all(&state_dir).unwrap();
+
+    let lock_yaml = r#"
+schema: "1"
+name: infra
+outputs:
+  host: "web.example.com"
+"#;
+    std::fs::write(state_dir.join("forjar.lock.yaml"), lock_yaml).unwrap();
+
+    let yaml = format!(
+        r#"
+version: "1.0"
+name: test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.2.3.4
+resources: {{}}
+data:
+  db:
+    type: forjar-state
+    state_dir: "{}"
+    outputs: [nonexistent_key]
+"#,
+        state_dir.display()
+    );
+    let mut config: ForjarConfig = serde_yaml_ng::from_str(&yaml).unwrap();
+    let result = resolve_data_sources(&mut config);
+    assert!(result.is_err());
+    assert!(result.unwrap_err().contains("none of requested outputs"));
+}
+
 #[test]
 fn test_fj223_no_data_sources() {
     let yaml = r#"

@@ -62,15 +62,63 @@ fn resolve_dns_source(key: &str, source: &DataSource) -> Result<String, String> 
     }
 }
 
-/// FJ-1250: Resolve forjar-state data source (read outputs from another config's state).
-fn resolve_forjar_state_source(_key: &str, source: &DataSource) -> Result<String, String> {
-    // forjar-state sources resolve to a placeholder until apply-time
-    // The actual resolution requires reading another config's state directory
-    let config_name = source
-        .config
-        .as_deref()
-        .unwrap_or("unknown");
-    Ok(format!("{{{{data.{}}}}}", config_name))
+/// FJ-1260: Resolve forjar-state data source by reading outputs from another config's state.
+/// Reads the global lock (`forjar.lock.yaml`) in the given state directory and extracts
+/// stored output values. Falls back to `default` if the state is unavailable.
+fn resolve_forjar_state_source(key: &str, source: &DataSource) -> Result<String, String> {
+    let state_dir = source.state_dir.as_deref().unwrap_or("state");
+    let lock_path = std::path::Path::new(state_dir).join("forjar.lock.yaml");
+
+    if !lock_path.exists() {
+        return source.default.clone().ok_or_else(|| {
+            format!(
+                "data source '{}': state lock not found at {} (no default)",
+                key,
+                lock_path.display()
+            )
+        });
+    }
+
+    let content = std::fs::read_to_string(&lock_path)
+        .map_err(|e| format!("data source '{}': read state lock: {}", key, e))?;
+    let doc: serde_yaml_ng::Value = serde_yaml_ng::from_str(&content)
+        .map_err(|e| format!("data source '{}': parse state lock: {}", key, e))?;
+
+    // Extract output values from the lock's "outputs" section
+    let outputs = match doc.get("outputs") {
+        Some(serde_yaml_ng::Value::Mapping(m)) => m,
+        _ => {
+            return source.default.clone().ok_or_else(|| {
+                format!("data source '{}': state lock has no outputs section", key)
+            });
+        }
+    };
+
+    // If specific outputs requested, return the first matching one
+    if !source.outputs.is_empty() {
+        for output_name in &source.outputs {
+            if let Some(val) = outputs.get(serde_yaml_ng::Value::String(output_name.clone())) {
+                return Ok(val.as_str().unwrap_or("").to_string());
+            }
+        }
+        return source.default.clone().ok_or_else(|| {
+            format!(
+                "data source '{}': none of requested outputs ({}) found in state",
+                key,
+                source.outputs.join(", ")
+            )
+        });
+    }
+
+    // No specific outputs requested — return all as JSON
+    let json_map: std::collections::HashMap<String, String> = outputs
+        .iter()
+        .filter_map(|(k, v)| {
+            Some((k.as_str()?.to_string(), v.as_str()?.to_string()))
+        })
+        .collect();
+    serde_json::to_string(&json_map)
+        .map_err(|e| format!("data source '{}': serialize outputs: {}", key, e))
 }
 
 /// FJ-223: Resolve all data sources and inject values into config params.
