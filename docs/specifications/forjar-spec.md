@@ -2978,7 +2978,20 @@ Forjar provisions the machines these crates run on. Phase 10 makes that provisio
 | FJ-1089 | `forjar validate --check-resource-tag-value-consistency` — warn if tag values are inconsistent across similar resources. Governance. | 🔧 In Progress |
 | FJ-1090 | `forjar graph --resource-dependency-redundancy-analysis` — identify redundant dependency edges that could be removed. Analysis. | 🔧 In Progress |
 | FJ-1091 | `forjar status --fleet-resource-config-complexity-score` — score configuration complexity per machine. Intelligence. | 🔧 In Progress |
-| FJ-1092 | `forjar validate --check-resource-machine-distribution-balance` — warn if resources are unevenly distributed across machines. Governance. | 🔧 In Progress |
+| FJ-1092 | `forjar validate --check-resource-machine-distribution-balance` — warn if resources are unevenly distributed across machines. Governance. | ✅ Done |
+
+### Phase 104 — Operational Maturity & Dependency Governance (FJ-1093→FJ-1100)
+
+| Ticket | Description | Status |
+|--------|-------------|--------|
+| FJ-1093 | `forjar status --fleet-resource-maturity-index` — compute maturity index per machine based on tag coverage, documentation, and dependency health. Intelligence. | 🔧 In Progress |
+| FJ-1094 | `forjar validate --check-resource-dependency-version-drift` — warn if resources with version-pinned dependencies reference outdated versions. Governance. | 🔧 In Progress |
+| FJ-1095 | `forjar graph --resource-dependency-change-impact-radius` — compute blast radius of changing each resource (transitive dependent count). Analysis. | 🔧 In Progress |
+| FJ-1096 | `forjar status --machine-resource-convergence-stability-index` — score convergence stability based on consecutive converged applies. Intelligence. | 🔧 In Progress |
+| FJ-1097 | `forjar validate --check-resource-naming-length-limit` — warn if resource names exceed a configurable character limit. Governance. | 🔧 In Progress |
+| FJ-1098 | `forjar graph --resource-dependency-sibling-analysis` — identify resources that share the same set of dependencies (siblings). Analysis. | 🔧 In Progress |
+| FJ-1099 | `forjar status --fleet-resource-drift-pattern-analysis` — classify drift patterns across the fleet (sporadic, chronic, cascading). Intelligence. | 🔧 In Progress |
+| FJ-1100 | `forjar validate --check-resource-type-coverage-per-machine` — warn if machines lack coverage of expected resource types. Governance. | 🔧 In Progress |
 
 ---
 

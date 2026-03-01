@@ -479,5 +479,14 @@ pub struct ValidateArgs {
     /// FJ-1092: Warn if resources are unevenly distributed across machines
     #[arg(long)]
     pub check_resource_machine_distribution_balance: bool,
+    /// FJ-1094: Warn if version-pinned dependencies are outdated
+    #[arg(long)]
+    pub check_resource_dependency_version_drift: bool,
+    /// FJ-1097: Warn if resource names exceed character limit
+    #[arg(long)]
+    pub check_resource_naming_length_limit: bool,
+    /// FJ-1100: Warn if machines lack expected resource type coverage
+    #[arg(long)]
+    pub check_resource_type_coverage_per_machine: bool,
 }
 

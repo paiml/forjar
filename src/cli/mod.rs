@@ -82,6 +82,7 @@ mod graph_compliance;
 mod graph_lifecycle;
 mod graph_health;
 mod graph_quality;
+mod graph_governance;
 mod graph_topology_ext;
 mod lock_core;
 mod lock_repair;
@@ -121,108 +122,62 @@ mod status_fleet_insight;
 mod status_resource_intel;
 mod validate_topology;
 mod validate_config_quality;
+mod status_maturity;
+mod validate_maturity;
 #[cfg(test)] mod test_fixtures;
 #[cfg(test)] mod tests_helpers;
 #[cfg(test)] mod tests_helpers_state;
 #[cfg(test)] mod tests_helpers_time;
 #[cfg(test)] mod tests_print_helpers;
 #[cfg(test)] mod tests_apply_helpers;
-#[cfg(test)]
-mod tests_validate_core;
-#[cfg(test)]
-mod tests_validate_core_1;
-#[cfg(test)]
-mod tests_validate_core_2;
-#[cfg(test)]
-mod tests_validate_core_3;
-#[cfg(test)]
-mod tests_apply;
-#[cfg(test)]
-mod tests_apply_1;
-#[cfg(test)]
-mod tests_apply_2;
-#[cfg(test)]
-mod tests_apply_3;
-#[cfg(test)]
-mod tests_apply_4;
-#[cfg(test)]
-mod tests_apply_5;
-#[cfg(test)]
-mod tests_apply_6;
-#[cfg(test)]
-mod tests_apply_7;
-#[cfg(test)]
-mod tests_apply_8;
-#[cfg(test)]
-mod tests_apply_9;
-#[cfg(test)]
-mod tests_apply_10;
-#[cfg(test)]
-mod tests_apply_11;
-#[cfg(test)]
-mod tests_apply_12;
-#[cfg(test)]
-mod tests_apply_13;
-#[cfg(test)]
-mod tests_apply_14;
-#[cfg(test)]
-mod tests_apply_15;
-#[cfg(test)]
-mod tests_apply_16;
-#[cfg(test)]
-mod tests_apply_17;
-#[cfg(test)]
-mod tests_apply_18;
-#[cfg(test)]
-mod tests_apply_19;
-#[cfg(test)]
-mod tests_apply_20;
-#[cfg(test)]
-mod tests_apply_21;
-#[cfg(test)]
-mod tests_apply_22;
-#[cfg(test)]
-mod tests_apply_23;
-#[cfg(test)]
-mod tests_plan;
-#[cfg(test)]
-mod tests_plan_1;
-#[cfg(test)]
-mod tests_status_core;
-#[cfg(test)]
-mod tests_status_core_1;
-#[cfg(test)]
-mod tests_status_core_2;
-#[cfg(test)]
-mod tests_status_core_3;
-#[cfg(test)]
-mod tests_status_core_4;
-#[cfg(test)]
-mod tests_status_core_5;
-#[cfg(test)]
-mod tests_status_core_6;
-#[cfg(test)]
-mod tests_status_core_7;
-#[cfg(test)]
-mod tests_status_core_8;
-#[cfg(test)]
-mod tests_status_core_9;
-#[cfg(test)]
-mod tests_status_core_10;
-#[cfg(test)]
-mod tests_status_queries;
-#[cfg(test)]
-mod tests_graph_core;
-#[cfg(test)]
-mod tests_graph_core_1;
-#[cfg(test)]
-mod tests_graph_core_2;
-#[cfg(test)]
-mod tests_graph_core_3;
-#[cfg(test)]
-mod tests_graph_core_4;
-#[cfg(test)]
-mod tests_graph_core_5;
+#[cfg(test)] mod tests_validate_core;
+#[cfg(test)] mod tests_validate_core_1;
+#[cfg(test)] mod tests_validate_core_2;
+#[cfg(test)] mod tests_validate_core_3;
+#[cfg(test)] mod tests_apply;
+#[cfg(test)] mod tests_apply_1;
+#[cfg(test)] mod tests_apply_2;
+#[cfg(test)] mod tests_apply_3;
+#[cfg(test)] mod tests_apply_4;
+#[cfg(test)] mod tests_apply_5;
+#[cfg(test)] mod tests_apply_6;
+#[cfg(test)] mod tests_apply_7;
+#[cfg(test)] mod tests_apply_8;
+#[cfg(test)] mod tests_apply_9;
+#[cfg(test)] mod tests_apply_10;
+#[cfg(test)] mod tests_apply_11;
+#[cfg(test)] mod tests_apply_12;
+#[cfg(test)] mod tests_apply_13;
+#[cfg(test)] mod tests_apply_14;
+#[cfg(test)] mod tests_apply_15;
+#[cfg(test)] mod tests_apply_16;
+#[cfg(test)] mod tests_apply_17;
+#[cfg(test)] mod tests_apply_18;
+#[cfg(test)] mod tests_apply_19;
+#[cfg(test)] mod tests_apply_20;
+#[cfg(test)] mod tests_apply_21;
+#[cfg(test)] mod tests_apply_22;
+#[cfg(test)] mod tests_apply_23;
+#[cfg(test)] mod tests_plan;
+#[cfg(test)] mod tests_plan_1;
+#[cfg(test)] mod tests_status_core;
+#[cfg(test)] mod tests_status_core_1;
+#[cfg(test)] mod tests_status_core_2;
+#[cfg(test)] mod tests_status_core_3;
+#[cfg(test)] mod tests_status_core_4;
+#[cfg(test)] mod tests_status_core_5;
+#[cfg(test)] mod tests_status_core_6;
+#[cfg(test)] mod tests_status_core_7;
+#[cfg(test)] mod tests_status_core_8;
+#[cfg(test)] mod tests_status_core_9;
+#[cfg(test)] mod tests_status_core_10;
+#[cfg(test)] mod tests_status_queries;
+#[cfg(test)] mod tests_graph_core;
+#[cfg(test)] mod tests_graph_core_1;
+#[cfg(test)] mod tests_graph_core_2;
+#[cfg(test)] mod tests_graph_core_3;
+#[cfg(test)] mod tests_graph_core_4;
+#[cfg(test)] mod tests_graph_core_5;
 #[cfg(test)]
 mod tests_phase59;
 #[cfg(test)]
@@ -495,6 +450,8 @@ mod tests_phase101;
 mod tests_phase102;
 #[cfg(test)]
 mod tests_phase103;
+#[cfg(test)]
+mod tests_phase104;
 
 pub use commands::Commands;
 pub use dispatch::dispatch;
