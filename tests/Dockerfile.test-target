@@ -20,5 +20,15 @@ RUN apt-get update -qq && \
         libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
+# Docker CLI (for stacks with type: docker resources, e.g., observability).
+# Only the CLI is needed — the daemon runs on the host via socket mount.
+RUN install -m 0755 -d /etc/apt/keyrings && \
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc && \
+    echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu jammy stable" \
+      > /etc/apt/sources.list.d/docker.list && \
+    apt-get update -qq && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq docker-ce-cli && \
+    rm -rf /var/lib/apt/lists/*
+
 # Keep container alive for exec-based transport
 CMD ["sleep", "infinity"]
