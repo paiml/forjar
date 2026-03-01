@@ -169,6 +169,7 @@ mod score;
 #[cfg(test)] mod tests_apply_23;
 #[cfg(test)] mod tests_plan;
 #[cfg(test)] mod tests_plan_1;
+#[cfg(test)] mod tests_plan_file;
 #[cfg(test)] mod tests_status_core;
 #[cfg(test)] mod tests_status_core_1;
 #[cfg(test)] mod tests_status_core_2;

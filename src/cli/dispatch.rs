@@ -25,14 +25,14 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
         Commands::Plan(PlanArgs {
             file, machine, resource, tag, group: _group,
             state_dir, json, output_dir, env_file, workspace,
-            no_diff, target, cost, what_if,
+            no_diff, target, cost, what_if, out,
         }) => {
             let sd = resolve_state_dir(&state_dir, workspace.as_deref());
             cmd_plan(
                 &file, &sd, machine.as_deref(), resource.as_deref(),
                 tag.as_deref(), json, verbose, output_dir.as_deref(),
                 env_file.as_deref(), workspace.as_deref(), no_diff,
-                target.as_deref(), cost, &what_if,
+                target.as_deref(), cost, &what_if, out.as_deref(),
             )
         }
         cmd @ Commands::Apply(..) => dispatch_apply_cmd(cmd, verbose),

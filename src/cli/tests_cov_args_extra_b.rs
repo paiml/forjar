@@ -109,7 +109,7 @@ mod tests {
 
     #[test]
     fn test_cov_plan_args_construct() {
-        let a = PlanArgs { file: PathBuf::from("f.yaml"), machine: None, resource: None, tag: None, group: None, state_dir: PathBuf::from("s"), json: false, output_dir: None, env_file: None, workspace: None, no_diff: false, target: None, cost: false, what_if: vec![] };
+        let a = PlanArgs { file: PathBuf::from("f.yaml"), machine: None, resource: None, tag: None, group: None, state_dir: PathBuf::from("s"), json: false, output_dir: None, env_file: None, workspace: None, no_diff: false, target: None, cost: false, what_if: vec![], out: None };
         let _ = format!("{:?}", a);
     }
 

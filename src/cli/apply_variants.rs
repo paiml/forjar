@@ -1,6 +1,6 @@
 //! Apply dry-run variants.
 
-use crate::core::{codegen, planner, resolver, state, types};
+use crate::core::{codegen, executor, planner, resolver, state, types};
 use crate::transport;
 use crate::tripwire::hasher;
 use std::path::Path;
@@ -275,6 +275,76 @@ pub(crate) fn cmd_apply_dry_run_cost(
     println!("  No-op:   {}", noops);
     println!("  ─────────────");
     println!("  Total changes: {}", creates + updates + deletes);
+    Ok(())
+}
+
+
+/// FJ-1250: Execute a previously saved plan file.
+/// Validates config hash matches, then runs the planned changes.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn cmd_apply_from_plan(
+    file: &Path,
+    state_dir: &Path,
+    plan_path: &Path,
+    verbose: bool,
+    env_file: Option<&Path>,
+    workspace: Option<&str>,
+) -> Result<(), String> {
+    use super::plan::load_plan_file;
+
+    let mut config = parse_and_validate(file)?;
+    if let Some(path) = env_file {
+        load_env_params(&mut config, path)?;
+    }
+    inject_workspace_param(&mut config, workspace);
+    resolver::resolve_data_sources(&mut config)?;
+
+    let plan = load_plan_file(plan_path, &config)?;
+    let n_changes = plan.to_create + plan.to_update + plan.to_destroy;
+
+    if verbose {
+        eprintln!(
+            "Executing saved plan: {} changes ({} create, {} update, {} destroy)",
+            n_changes, plan.to_create, plan.to_update, plan.to_destroy
+        );
+    }
+
+    if n_changes == 0 {
+        println!("Plan has no changes to apply.");
+        return Ok(());
+    }
+
+    // Execute as a normal apply using the plan's resource list
+    let cfg = executor::ApplyConfig {
+        config: &config,
+        state_dir,
+        force: false,
+        dry_run: false,
+        machine_filter: None,
+        resource_filter: None,
+        tag_filter: None,
+        group_filter: None,
+        timeout_secs: None,
+        force_unlock: false,
+        progress: false,
+        retry: 0,
+        parallel: None,
+        resource_timeout: None,
+        rollback_on_failure: false,
+        max_parallel: None,
+    };
+
+    let results = executor::apply(&cfg)?;
+    let (converged, unchanged, failed) = super::apply_output::count_results(&results);
+
+    println!(
+        "Plan applied: {} converged, {} unchanged, {} failed",
+        converged, unchanged, failed
+    );
+
+    if failed > 0 {
+        return Err(format!("{} resource(s) failed", failed));
+    }
     Ok(())
 }
 

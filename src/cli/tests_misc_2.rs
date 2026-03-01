@@ -238,6 +238,7 @@ resources:
             target: Some("web-config".to_string()),
             cost: false,
             what_if: vec![],
+            out: None,
         });
         match cmd {
             Commands::Plan(PlanArgs { target, .. }) => {

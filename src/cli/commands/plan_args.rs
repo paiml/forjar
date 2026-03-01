@@ -60,6 +60,10 @@ pub struct PlanArgs {
     /// FJ-333: Hypothetical param override — show plan as if param had this value
     #[arg(long = "what-if", value_name = "KEY=VALUE")]
     pub what_if: Vec<String>,
+
+    /// FJ-1250: Write plan to file for later execution with `apply --plan-file`
+    #[arg(long)]
+    pub out: Option<PathBuf>,
 }
 
 
