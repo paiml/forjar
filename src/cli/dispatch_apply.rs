@@ -23,6 +23,15 @@ use super::workspace::*;
 use super::dispatch_notify::{NotifyOpts, send_apply_notifications};
 
 
+/// FJ-1240: Conditionally encrypt state files after successful apply.
+fn maybe_encrypt_state(encrypt: bool, result: &Result<(), String>, state_dir: &Path) {
+    if encrypt && result.is_ok() {
+        if let Err(e) = state::encrypt_state_files(state_dir) {
+            eprintln!("warning: state encryption failed: {}", e);
+        }
+    }
+}
+
 /// Run a shell script and return error if it fails.
 fn run_script_check(script: &str) -> Result<(), String> {
     let output = std::process::Command::new("bash")
@@ -175,7 +184,7 @@ pub(crate) fn dispatch_apply_cmd(cmd: Commands, verbose: bool) -> Result<(), Str
         notify_custom_digest,
         notify_custom_severity_filter,
         refresh_only,
-        encrypt_state: _encrypt_state,
+        encrypt_state,
     }) = cmd
     else {
         unreachable!()
@@ -252,6 +261,9 @@ pub(crate) fn dispatch_apply_cmd(cmd: Commands, verbose: bool) -> Result<(), Str
         rollback_on_failure, max_parallel, notify.as_deref(), subset.as_deref(),
         confirm_destructive, exclude.as_deref(), sequential,
     );
+
+    // FJ-1240: Encrypt state files after apply
+    maybe_encrypt_state(encrypt_state, &result, &sd);
 
     let opts = NotifyOpts {
         slack: notify_slack.as_deref(),

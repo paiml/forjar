@@ -241,6 +241,88 @@ fn is_pid_running(pid: u32) -> bool {
     Path::new(&format!("/proc/{}", pid)).exists()
 }
 
+// ============================================================================
+// FJ-1240: State encryption with age
+// ============================================================================
+
+/// Encrypt all YAML state files in the state directory using `age`.
+/// Requires `FORJAR_AGE_KEY` env var (public key for encryption).
+pub fn encrypt_state_files(state_dir: &Path) -> Result<(), String> {
+    let pubkey = std::env::var("FORJAR_AGE_KEY")
+        .map_err(|_| "FORJAR_AGE_KEY env var required for --encrypt-state".to_string())?;
+
+    for entry in walk_yaml_files(state_dir) {
+        let encrypted_path = entry.with_extension("yaml.age");
+        let status = std::process::Command::new("age")
+            .args(["-r", &pubkey, "-o"])
+            .arg(&encrypted_path)
+            .arg(&entry)
+            .status()
+            .map_err(|e| format!("age encrypt failed for {}: {}", entry.display(), e))?;
+        if !status.success() {
+            return Err(format!("age encrypt failed for {}", entry.display()));
+        }
+        std::fs::remove_file(&entry)
+            .map_err(|e| format!("remove plaintext {}: {}", entry.display(), e))?;
+    }
+    Ok(())
+}
+
+/// Decrypt all `.age` state files in the state directory using `age`.
+/// Requires `FORJAR_AGE_IDENTITY` env var (private key file path).
+pub fn decrypt_state_files(state_dir: &Path) -> Result<(), String> {
+    let identity = std::env::var("FORJAR_AGE_IDENTITY")
+        .map_err(|_| "FORJAR_AGE_IDENTITY env var required to decrypt state".to_string())?;
+
+    for entry in walk_age_files(state_dir) {
+        let yaml_path = PathBuf::from(entry.to_string_lossy().replace(".yaml.age", ".yaml"));
+        let status = std::process::Command::new("age")
+            .args(["-d", "-i", &identity, "-o"])
+            .arg(&yaml_path)
+            .arg(&entry)
+            .status()
+            .map_err(|e| format!("age decrypt failed for {}: {}", entry.display(), e))?;
+        if !status.success() {
+            return Err(format!("age decrypt failed for {}", entry.display()));
+        }
+        std::fs::remove_file(&entry)
+            .map_err(|e| format!("remove encrypted {}: {}", entry.display(), e))?;
+    }
+    Ok(())
+}
+
+/// Walk state directory for YAML files (lock files and reports).
+fn walk_yaml_files(state_dir: &Path) -> Vec<PathBuf> {
+    let mut files = Vec::new();
+    if let Ok(entries) = std::fs::read_dir(state_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                files.extend(walk_yaml_files(&path));
+            } else if path.extension().is_some_and(|e| e == "yaml") {
+                files.push(path);
+            }
+        }
+    }
+    files
+}
+
+/// Walk state directory for .age encrypted files.
+fn walk_age_files(state_dir: &Path) -> Vec<PathBuf> {
+    let mut files = Vec::new();
+    if let Ok(entries) = std::fs::read_dir(state_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                files.extend(walk_age_files(&path));
+            } else if path.to_string_lossy().ends_with(".yaml.age") {
+                files.push(path);
+            }
+        }
+    }
+    files
+}
+
 #[cfg(test)]
 mod tests_helpers;
 #[cfg(test)]
@@ -249,3 +331,5 @@ mod tests_basic;
 mod tests_edge;
 #[cfg(test)]
 mod tests_process_lock;
+#[cfg(test)]
+mod tests_encrypt;
