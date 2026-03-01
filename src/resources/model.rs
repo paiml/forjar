@@ -75,11 +75,12 @@ pub fn apply_script(resource: &Resource) -> String {
             } else if source.contains('/') {
                 // HuggingFace repo ID (e.g., "TheBloke/Llama-2-7B-GGUF")
                 // Use apr pull if available, fall back to huggingface-cli
+                // apr pull caches models internally; after pull, link cache to target path
                 script.push_str(&format!(
-                    "if command -v apr >/dev/null 2>&1; then\n  apr pull '{}' --output '{}'\n\
+                    "if command -v apr >/dev/null 2>&1; then\n  apr pull '{}'\n  APR_CACHE=$(apr cache dir 2>/dev/null || echo '{}')\n  CACHED=$(find \"$APR_CACHE\" -name '*.gguf' -o -name '*.safetensors' 2>/dev/null | head -1)\n  if [ -n \"$CACHED\" ]; then\n    ln -sf \"$CACHED\" '{}'\n  fi\n\
                      elif command -v huggingface-cli >/dev/null 2>&1; then\n  huggingface-cli download '{}' --local-dir '{}'\n\
                      else\n  echo 'ERROR: no download tool available (need apr or huggingface-cli)' >&2; exit 1\nfi\n",
-                    source, path, source, cache_dir
+                    source, cache_dir, path, source, cache_dir
                 ));
             } else {
                 // Bare name — assume local path
