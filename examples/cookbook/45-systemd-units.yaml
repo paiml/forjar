@@ -1,0 +1,155 @@
+# Recipe: 45-systemd-units
+# Tier: 1+2 (validate in CI, apply in container)
+# Idempotency: strong
+# Budget: first_apply < 5s, idempotent < 1s
+#
+# Deploy and manage custom systemd service and timer units.
+# Pattern for running any binary as a daemon with resource limits.
+
+version: '1.0'
+name: systemd-units
+description: "Custom systemd service and timer units with security hardening and monitoring"
+
+params:
+  unit_name: forjar-agent
+  exec_start: /usr/local/bin/forjar-agent
+  user: root
+  group: root
+  working_dir: /var/lib/forjar
+  restart_sec: "5"
+
+machines:
+  systemd-host:
+    hostname: systemd-host
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-cookbook-45-systemd
+      ephemeral: false
+      privileged: false
+      init: true
+
+resources:
+  working-dir:
+    type: file
+    machine: systemd-host
+    state: directory
+    path: "{{params.working_dir}}"
+    owner: "{{params.user}}"
+    mode: '0755'
+    tags: [systemd, dirs]
+    resource_group: systemd-units
+
+  unit-service:
+    type: file
+    machine: systemd-host
+    path: "/etc/systemd/system/{{params.unit_name}}.service"
+    owner: root
+    mode: '0644'
+    content: |
+      [Unit]
+      Description={{params.unit_name}} managed by forjar
+      After=network-online.target
+      Wants=network-online.target
+
+      [Service]
+      Type=simple
+      ExecStart={{params.exec_start}}
+      User={{params.user}}
+      Group={{params.group}}
+      WorkingDirectory={{params.working_dir}}
+      Restart=on-failure
+      RestartSec=5
+      NoNewPrivileges=yes
+      ProtectSystem=strict
+      ProtectHome=yes
+      PrivateTmp=yes
+      ReadWritePaths={{params.working_dir}}
+
+      [Install]
+      WantedBy=multi-user.target
+    depends_on: [working-dir]
+    tags: [systemd, service]
+    resource_group: systemd-units
+
+  unit-timer:
+    type: file
+    machine: systemd-host
+    path: "/etc/systemd/system/{{params.unit_name}}-check.timer"
+    owner: root
+    mode: '0644'
+    content: |
+      [Unit]
+      Description={{params.unit_name}} health check timer managed by forjar
+
+      [Timer]
+      OnCalendar=*:0/5
+      Persistent=true
+
+      [Install]
+      WantedBy=timers.target
+    depends_on: [unit-service]
+    tags: [systemd, timer]
+    resource_group: systemd-units
+
+  daemon-reload-script:
+    type: file
+    machine: systemd-host
+    path: /usr/local/bin/forjar-daemon-reload.sh
+    owner: root
+    mode: '0755'
+    content: |
+      #!/bin/bash
+      systemctl daemon-reload 2>/dev/null || echo "daemon-reload skipped (container)"
+    depends_on: [unit-service, unit-timer]
+    tags: [systemd, reload]
+    resource_group: systemd-units
+
+  unit-status-script:
+    type: file
+    machine: systemd-host
+    path: /usr/local/bin/forjar-unit-status.sh
+    owner: root
+    mode: '0755'
+    content: |
+      #!/bin/bash
+      systemctl is-active {{params.unit_name}} 2>/dev/null || \
+        logger -t forjar "{{params.unit_name}} is not running"
+    depends_on: [daemon-reload-script]
+    tags: [systemd, monitoring]
+    resource_group: systemd-units
+
+  unit-status-cron:
+    type: cron
+    machine: systemd-host
+    schedule: "*/5 * * * *"
+    command: "/usr/local/bin/forjar-unit-status.sh"
+    name: forjar-unit-status
+    depends_on: [unit-status-script]
+    tags: [systemd, monitoring]
+    resource_group: systemd-units
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Deploying systemd units'"
+  post_apply: "echo 'Systemd units deployed'"
+  notify:
+    on_success: "echo 'Systemd units configured successfully'"
+    on_failure: "echo 'Systemd unit setup failed'"
+    on_drift: "echo 'Systemd unit drift detected'"
+
+outputs:
+  unit_name:
+    value: "{{params.unit_name}}"
+    description: "Systemd service unit name"
+  service_path:
+    value: "/etc/systemd/system/{{params.unit_name}}.service"
+    description: "Service unit file path"
