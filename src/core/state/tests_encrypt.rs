@@ -1,5 +1,6 @@
 //! Tests for FJ-1240: State encryption with age.
 
+#![allow(unused_imports)]
 use super::*;
 use std::path::Path;
 

@@ -1,5 +1,6 @@
 //! Tests for recipe expansion, template resolution, and loading.
 
+#![allow(unused_imports)]
 use std::collections::HashMap;
 use std::path::Path;
 

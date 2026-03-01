@@ -1,5 +1,6 @@
 //! DAG tests.
 
+#![allow(unused_imports)]
 use super::dag::{build_execution_order, compute_parallel_waves};
 use super::tests_helpers::{dag_config, make_base_resource};
 use super::*;

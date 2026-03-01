@@ -1,6 +1,7 @@
 //! Tests: Coverage for doctor, observe, status, parser/pepita (part 2 of 3).
 //! Covers: cmd_doctor, cmd_anomaly, cmd_watch, cmd_status_since, validate_pepita.
 
+#![allow(unused_imports)]
 use std::io::Write;
 use std::path::{Path, PathBuf};
 

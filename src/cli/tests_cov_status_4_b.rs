@@ -1,5 +1,6 @@
 //! Tests: Coverage for status_intelligence (part 2).
 
+#![allow(unused_imports)]
 use super::status_recovery::*;
 use super::status_intelligence::*;
 

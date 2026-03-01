@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 use super::*;
 use super::tests_helpers::{make_config, make_base_resource};
 use std::collections::HashMap;

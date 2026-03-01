@@ -1,5 +1,6 @@
 //! Tests: Coverage for validate_resources, validate_quality (part 6).
 
+#![allow(unused_imports)]
 use super::validate_resources::*;
 use super::validate_quality::*;
 use super::lock_ops::*;

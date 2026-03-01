@@ -1,5 +1,6 @@
 //! FJ-064: Cross-architecture filtering, FJ-052: Cost-aware scheduling, tag filter tests.
 
+#![allow(unused_imports)]
 use super::*;
 use super::test_fixtures::*;
 

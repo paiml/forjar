@@ -1,6 +1,7 @@
 //! Coverage tests: check.rs — cmd_check with filters, cmd_test with filters.
 //! Also covers doctor.rs — cmd_doctor edge cases, cmd_doctor_network edge cases.
 
+#![allow(unused_imports)]
 use std::path::Path;
 use super::dispatch_notify::*;
 use super::dispatch_notify_custom::*;

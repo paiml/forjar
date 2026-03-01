@@ -1,5 +1,7 @@
 //! Tests: Coverage for destroy, infra, dispatch_misc, dispatch_lock, check, observe, apply.
 
+#![allow(unused_imports)]
+#![allow(dead_code)]
 use crate::core::{executor, parser, planner, resolver, state, types};
 use std::io::Write;
 use std::path::{Path, PathBuf};

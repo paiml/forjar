@@ -1,5 +1,6 @@
 //! Tests: Coverage for status_recovery, status_intelligence, status_diagnostics.
 
+#![allow(unused_imports)]
 use super::status_recovery::*;
 use super::status_intelligence::*;
 use super::status_diagnostics::*;

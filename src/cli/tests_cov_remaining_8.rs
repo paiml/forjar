@@ -1,5 +1,6 @@
 //! Tests: Coverage for lock_security, destroy, observe (part 8).
 
+#![allow(unused_imports)]
 use super::lock_security::*;
 use super::lock_ops::*;
 use super::lock_core::*;

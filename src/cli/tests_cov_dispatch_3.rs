@@ -1,5 +1,6 @@
 //! Tests: Coverage for check, observe, apply (part 3).
 
+#![allow(unused_imports)]
 use crate::core::{executor, parser, planner, resolver, state, types};
 use std::io::Write;
 use std::path::{Path, PathBuf};

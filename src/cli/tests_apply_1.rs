@@ -1,5 +1,6 @@
 //! Tests: Apply command.
 
+#![allow(unused_imports)]
 use crate::core::types::ProvenanceEvent;
 use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
 use crate::transport;
@@ -457,6 +458,7 @@ resources:
     // FJ-214: state-list tests
     // ================================================================
 
+    #[allow(dead_code)]
     fn make_test_lock(
         machine: &str,
         resources: indexmap::IndexMap<String, types::ResourceLock>,
@@ -472,6 +474,7 @@ resources:
         }
     }
 
+    #[allow(dead_code)]
     fn make_test_resource_lock(rtype: types::ResourceType) -> types::ResourceLock {
         types::ResourceLock {
             resource_type: rtype,
