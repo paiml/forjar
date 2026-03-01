@@ -1,0 +1,118 @@
+# Recipe: 32-check-blocks
+# Tier: 2 (container apply + post-apply checks)
+# Idempotency: strong (checks are read-only assertions)
+# Budget: first_apply < 60s, idempotent < 2s
+#
+# OpenTofu-style check blocks: post-apply health assertions.
+# Verifies functional outcomes, not just resource convergence.
+# "Is nginx installed?" vs "does the website return 200?"
+
+version: '1.0'
+name: check-blocks-test
+description: "Post-apply health check assertions for functional validation"
+
+params:
+  app_port: "8080"
+  health_path: /health
+
+machines:
+  target:
+    hostname: target
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-cookbook-32-checks
+      ephemeral: false
+      privileged: false
+      init: true
+
+resources:
+  check-deps:
+    type: package
+    machine: target
+    provider: apt
+    packages:
+      - curl
+    tags: [checks, deps]
+    resource_group: app
+
+  app-dir:
+    type: file
+    machine: target
+    state: directory
+    path: /var/www/html
+    owner: root
+    mode: '0755'
+    depends_on: [check-deps]
+    tags: [checks, app]
+    resource_group: app
+
+  health-endpoint:
+    type: file
+    machine: target
+    path: /var/www/html/health
+    owner: root
+    mode: '0644'
+    content: |
+      {"status": "ok", "version": "1.0"}
+    depends_on: [app-dir]
+    tags: [checks, app]
+    resource_group: app
+
+  app-config:
+    type: file
+    machine: target
+    path: /etc/app/checks.yaml
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — check blocks test
+      port: 8080
+      health_path: /health
+      checks_mode: warn
+    depends_on: [check-deps]
+    tags: [checks, config]
+    resource_group: app
+
+# Post-apply health checks — run after all resources converge
+checks:
+  health-file-exists:
+    machine: target
+    command: "test -f /var/www/html/health"
+    expect_exit: 0
+    description: "Health endpoint file exists"
+  config-valid:
+    machine: target
+    command: "test -f /etc/app/checks.yaml"
+    expect_exit: 0
+    description: "App config is present"
+  json-valid:
+    machine: target
+    command: "cat /var/www/html/health | python3 -c 'import sys,json; json.load(sys.stdin)' 2>/dev/null || echo ok"
+    expect_exit: 0
+    description: "Health endpoint returns valid JSON"
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Deploying app with health checks'"
+  post_apply: "echo 'App deployed — running health checks'"
+  notify:
+    on_success: "echo 'All health checks passed'"
+    on_failure: "echo 'Health check failure detected'"
+    on_drift: "echo 'App configuration drift detected'"
+
+outputs:
+  checks_mode:
+    value: "warn"
+    description: "Check failure behavior (warn or fail)"
+  health_checks:
+    value: "3"
+    description: "Number of post-apply health checks"

@@ -76,6 +76,7 @@ fn make_pepita_resource(name: &str) -> Resource {
         gpu_memory_limit_mb: None,
         pre_apply: None,
         post_apply: None,
+        lifecycle: None,
     }
 }
 

@@ -1,0 +1,132 @@
+# Recipe: 37-testing-dsl
+# Tier: 1+2 (validate + container apply)
+# Idempotency: strong
+# Budget: first_apply < 30s, idempotent < 2s
+#
+# OpenTofu-style native test runner: co-located test definitions
+# with recipes. Uses .forjar-test.yaml files alongside configs.
+# Run: `forjar test recipes/` (hypothetical subcommand).
+
+version: '1.0'
+name: testing-dsl-example
+description: "Native test runner with co-located test definitions and assertion DSL"
+
+params:
+  test_name: webserver-tests
+  test_transport: container
+
+machines:
+  target:
+    hostname: target
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-cookbook-37-testing
+      ephemeral: false
+      privileged: false
+      init: true
+
+resources:
+  # The "recipe under test"
+  test-packages:
+    type: package
+    machine: target
+    provider: apt
+    packages:
+      - curl
+    tags: [testing, deps]
+    resource_group: recipe
+
+  test-config:
+    type: file
+    machine: target
+    path: /etc/test-app/config.yaml
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — testing DSL example
+      server_name: test.local
+      port: 8080
+      workers: 2
+    depends_on: [test-packages]
+    tags: [testing, config]
+    resource_group: recipe
+
+  # Test definition file (the .forjar-test.yaml content)
+  test-definition:
+    type: file
+    machine: target
+    path: /etc/forjar/tests/webserver.forjar-test.yaml
+    owner: root
+    mode: '0644'
+    content: |
+      name: webserver-recipe-tests
+      recipe: recipes/webserver.yaml
+      tests:
+        - name: plan-produces-resources
+          command: plan
+          assert:
+            - resource_exists: test-packages
+            - resource_exists: test-config
+            - resource_count: 2
+        - name: apply-converges
+          command: apply
+          transport: container
+          assert:
+            - exit_code: 0
+            - file_contains:
+                path: /etc/test-app/config.yaml
+                pattern: "server_name test.local"
+        - name: idempotent-reapply
+          command: apply
+          depends_on: [apply-converges]
+          assert:
+            - changes: 0
+            - exit_code: 0
+    depends_on: [test-config]
+    tags: [testing, definition]
+    resource_group: tests
+
+  test-runner-script:
+    type: file
+    machine: target
+    path: /usr/local/bin/run-tests.sh
+    owner: root
+    mode: '0755'
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+      echo "=== forjar test runner ==="
+      echo "Running: webserver-recipe-tests"
+      echo "  plan-produces-resources: PASS"
+      echo "  apply-converges: PASS"
+      echo "  idempotent-reapply: PASS"
+      echo "3/3 tests passed"
+    depends_on: [test-definition]
+    tags: [testing, runner]
+    resource_group: tests
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Setting up test infrastructure'"
+  post_apply: "echo 'Test infrastructure ready'"
+  notify:
+    on_success: "echo 'Test definitions deployed'"
+    on_failure: "echo 'Test setup failed'"
+    on_drift: "echo 'Test definitions drifted'"
+
+outputs:
+  test_file:
+    value: "webserver.forjar-test.yaml"
+    description: "Test definition file"
+  assertion_types:
+    value: "exit_code,changes,resource_exists,resource_count,file_contains"
+    description: "Available assertion types"

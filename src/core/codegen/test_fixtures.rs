@@ -74,6 +74,7 @@ pub fn make_package() -> Resource {
         gpu_memory_limit_mb: None,
         pre_apply: None,
         post_apply: None,
+        lifecycle: None,
     }
 }
 
@@ -149,6 +150,7 @@ pub fn make_file() -> Resource {
         gpu_memory_limit_mb: None,
         pre_apply: None,
         post_apply: None,
+        lifecycle: None,
     }
 }
 
@@ -224,6 +226,7 @@ pub fn make_service() -> Resource {
         gpu_memory_limit_mb: None,
         pre_apply: None,
         post_apply: None,
+        lifecycle: None,
     }
 }
 
@@ -299,5 +302,6 @@ pub fn make_mount() -> Resource {
         gpu_memory_limit_mb: None,
         pre_apply: None,
         post_apply: None,
+        lifecycle: None,
     }
 }

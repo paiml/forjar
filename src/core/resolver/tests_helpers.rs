@@ -83,6 +83,7 @@ pub(super) fn dag_config(names: &[&str], edges: &[(&str, &str)]) -> ForjarConfig
                 gpu_memory_limit_mb: None,
                 pre_apply: None,
                 post_apply: None,
+        lifecycle: None,
             },
         );
     }
@@ -114,6 +115,8 @@ pub(super) fn dag_config(names: &[&str], edges: &[(&str, &str)]) -> ForjarConfig
         policies: vec![],
         data: indexmap::IndexMap::new(),
         includes: vec![],
+            checks: indexmap::IndexMap::new(),
+            moved: vec![],
     }
 }
 
@@ -196,5 +199,6 @@ pub(super) fn make_base_resource() -> Resource {
         gpu_memory_limit_mb: None,
         pre_apply: None,
         post_apply: None,
+        lifecycle: None,
     }
 }

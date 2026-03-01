@@ -1,0 +1,143 @@
+# Recipe: 38-state-encryption
+# Tier: 1+2 (validate + container apply with encrypted state)
+# Idempotency: strong
+# Budget: first_apply < 60s, idempotent < 2s
+#
+# Defense-in-depth state encryption using age. State lock files
+# are encrypted at rest — topology and metadata are not leaked
+# if state files are committed to a shared repository.
+
+version: '1.0'
+name: state-encryption-test
+description: "State file encryption at rest using age for defense-in-depth"
+
+params:
+  key_dir: /etc/forjar/keys
+  state_dir: /var/lib/forjar/state
+
+machines:
+  target:
+    hostname: target
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-cookbook-38-encryption
+      ephemeral: false
+      privileged: false
+      init: true
+
+resources:
+  key-dir:
+    type: file
+    machine: target
+    state: directory
+    path: /etc/forjar/keys
+    owner: root
+    mode: '0700'
+    tags: [encryption, keys]
+    resource_group: crypto
+
+  state-dir:
+    type: file
+    machine: target
+    state: directory
+    path: /var/lib/forjar/state
+    owner: root
+    mode: '0700'
+    tags: [encryption, state]
+    resource_group: state
+
+  # Simulated age key metadata
+  key-metadata:
+    type: file
+    machine: target
+    path: /etc/forjar/keys/state-key.meta
+    owner: root
+    mode: '0600'
+    content: |
+      # Managed by forjar — state encryption key metadata
+      algorithm: x25519
+      created: 2026-03-01
+      purpose: state-encryption
+      recipients: 1
+    depends_on: [key-dir]
+    tags: [encryption, keys]
+    resource_group: crypto
+
+  # Encrypted state config
+  encryption-config:
+    type: file
+    machine: target
+    path: /etc/forjar/encryption.conf
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — state encryption config
+      encrypt_state=true
+      key_path=/etc/forjar/keys/state.key
+      algorithm=age-x25519
+      auto_decrypt=true
+      auto_reencrypt=true
+    depends_on: [key-metadata]
+    tags: [encryption, config]
+    resource_group: crypto
+
+  # Sample resource to protect in state
+  sensitive-config:
+    type: file
+    machine: target
+    path: /var/lib/forjar/state/app-config.enc
+    owner: root
+    mode: '0600'
+    content: |
+      # Simulated encrypted state entry
+      # Real implementation: age-encrypted YAML
+      resource_id: db-credentials
+      hash: "b3:encrypted..."
+      topology: hidden
+    depends_on: [state-dir, encryption-config]
+    tags: [encryption, state]
+    resource_group: state
+
+  encryption-manifest:
+    type: file
+    machine: target
+    path: /etc/forjar/encryption-manifest.json
+    owner: root
+    mode: '0644'
+    content: |
+      {
+        "encryption": "age-x25519",
+        "key_location": "~/.config/forjar/state.key",
+        "ci_key": "FORJAR_STATE_KEY env var",
+        "auto_decrypt": true,
+        "rekey_command": "forjar state-rekey --new-key age1..."
+      }
+    depends_on: [sensitive-config]
+    tags: [encryption, manifest]
+    resource_group: manifest
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Configuring state encryption'"
+  post_apply: "echo 'State encryption active'"
+  notify:
+    on_success: "echo 'Encrypted state configured'"
+    on_failure: "echo 'State encryption setup failed'"
+    on_drift: "echo 'Encryption configuration drift'"
+
+outputs:
+  encryption:
+    value: "age-x25519"
+    description: "State encryption algorithm"
+  defense_in_depth:
+    value: "true"
+    description: "State files encrypted at rest"

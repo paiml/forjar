@@ -152,6 +152,8 @@ fn test_fj132_build_dag_unknown_dependency() {
         policies: vec![],
         data: indexmap::IndexMap::new(),
         includes: vec![],
+            checks: indexmap::IndexMap::new(),
+            moved: vec![],
     };
     let result = build_execution_order(&config);
     assert!(result.is_err());
@@ -189,6 +191,8 @@ fn test_fj132_kahn_sort_diamond_dependency() {
         policies: vec![],
         data: indexmap::IndexMap::new(),
         includes: vec![],
+            checks: indexmap::IndexMap::new(),
+            moved: vec![],
     };
     let order = build_execution_order(&config).unwrap();
     assert_eq!(order, vec!["a", "b", "c", "d"]);
@@ -208,6 +212,8 @@ fn test_fj132_build_execution_order_empty() {
         policies: vec![],
         data: indexmap::IndexMap::new(),
         includes: vec![],
+            checks: indexmap::IndexMap::new(),
+            moved: vec![],
     };
     let order = build_execution_order(&config).unwrap();
     assert!(order.is_empty());

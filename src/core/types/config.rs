@@ -53,21 +53,76 @@ pub struct ForjarConfig {
     /// FJ-254: Config includes — merge multiple YAML files
     #[serde(default)]
     pub includes: Vec<String>,
+
+    /// FJ-1200: Post-apply health check blocks (OpenTofu-style check blocks)
+    #[serde(default)]
+    pub checks: IndexMap<String, CheckBlock>,
+
+    /// FJ-1210: Declarative resource renames processed before planning
+    #[serde(default)]
+    pub moved: Vec<MovedEntry>,
+}
+
+/// FJ-1200: A post-apply health check assertion.
+///
+/// Check blocks run AFTER all resources converge. Failures are warnings
+/// by default (like OpenTofu) — they don't roll back the apply.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CheckBlock {
+    /// Target machine to run the check on
+    pub machine: String,
+
+    /// Shell command to execute (exit 0 = pass)
+    pub command: String,
+
+    /// Expected exit code (default: 0)
+    #[serde(default)]
+    pub expect_exit: Option<i32>,
+
+    /// Human-readable description of what the check validates
+    #[serde(default)]
+    pub description: Option<String>,
+}
+
+/// FJ-1210: A declarative resource rename entry.
+///
+/// Processed during planning before the diff — state is updated in-place.
+/// After the first successful apply, the moved block can be removed.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MovedEntry {
+    /// Old resource name (in state)
+    pub from: String,
+
+    /// New resource name (in config)
+    pub to: String,
 }
 
 /// FJ-223: External data source definition.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DataSource {
-    /// Source type: `file`, `command`, or `dns`
+    /// Source type: `file`, `command`, `dns`, or `forjar-state`
     #[serde(rename = "type")]
     pub source_type: DataSourceType,
 
     /// For `file`: path to read. For `command`: shell command. For `dns`: hostname.
-    pub value: String,
+    #[serde(default)]
+    pub value: Option<String>,
 
     /// Optional default if the data source fails (prevents hard errors)
     #[serde(default)]
     pub default: Option<String>,
+
+    /// FJ-1250: State directory for forjar-state data sources
+    #[serde(default)]
+    pub state_dir: Option<String>,
+
+    /// FJ-1250: Config name to import outputs from
+    #[serde(default)]
+    pub config: Option<String>,
+
+    /// FJ-1250: Output names to import
+    #[serde(default)]
+    pub outputs: Vec<String>,
 }
 
 /// Data source type.
@@ -80,6 +135,9 @@ pub enum DataSourceType {
     Command,
     /// Resolve DNS hostname to IP
     Dns,
+    /// FJ-1250: Read outputs from another forjar config's state
+    #[serde(rename = "forjar-state")]
+    ForjarState,
 }
 
 /// FJ-220: A policy rule for plan-time enforcement.

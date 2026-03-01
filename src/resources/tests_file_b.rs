@@ -73,6 +73,7 @@ fn make_file_resource(path: &str, content: Option<&str>) -> Resource {
         gpu_memory_limit_mb: None,
         pre_apply: None,
         post_apply: None,
+        lifecycle: None,
     }
 }
 

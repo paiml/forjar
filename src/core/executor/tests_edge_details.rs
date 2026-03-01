@@ -77,6 +77,7 @@ fn test_fj012_build_details_nonexistent_file_no_hash() {
         gpu_memory_limit_mb: None,
         pre_apply: None,
         post_apply: None,
+        lifecycle: None,
     };
     let details = build_resource_details(&resource, &local_machine());
     assert!(
@@ -158,6 +159,7 @@ fn test_fj012_build_details_all_fields() {
         gpu_memory_limit_mb: None,
         pre_apply: None,
         post_apply: None,
+        lifecycle: None,
     };
     let details = build_resource_details(&resource, &local_machine());
     assert_eq!(

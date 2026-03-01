@@ -232,6 +232,7 @@ fn test_fj131_build_details_group_only() {
         gpu_memory_limit_mb: None,
         pre_apply: None,
         post_apply: None,
+        lifecycle: None,
     };
     let details = build_resource_details(&r, &local_machine());
     assert_eq!(

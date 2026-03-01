@@ -309,6 +309,29 @@ pub struct Resource {
     /// Shell command to run on the target after the resource's main script succeeds.
     #[serde(default)]
     pub post_apply: Option<String>,
+
+    // -- Lifecycle protection rules (FJ-1220) --
+    /// OpenTofu-style lifecycle rules: prevent_destroy, create_before_destroy, ignore_drift.
+    #[serde(default)]
+    pub lifecycle: Option<LifecycleRules>,
+}
+
+/// FJ-1220: Lifecycle protection rules for a resource.
+///
+/// Controls how a resource is handled during destroy, replacement, and drift detection.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct LifecycleRules {
+    /// Prevent this resource from being destroyed (forjar destroy skips with warning)
+    #[serde(default)]
+    pub prevent_destroy: bool,
+
+    /// Write new version before removing old (avoids config-absent window)
+    #[serde(default)]
+    pub create_before_destroy: bool,
+
+    /// Fields whose drift is suppressed (reported as "suppressed" not "detected")
+    #[serde(default)]
+    pub ignore_drift: Vec<String>,
 }
 
 /// Resource type enum.

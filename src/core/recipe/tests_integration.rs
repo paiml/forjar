@@ -125,6 +125,7 @@ fn test_fj019_resolve_resource_inputs_target_and_options() {
         gpu_memory_limit_mb: None,
         pre_apply: None,
         post_apply: None,
+        lifecycle: None,
     };
     let mut inputs = HashMap::new();
     inputs.insert("vol".to_string(), "raid".to_string());
@@ -213,6 +214,7 @@ fn test_fj019_resolve_resource_inputs_content_field() {
         gpu_memory_limit_mb: None,
         pre_apply: None,
         post_apply: None,
+        lifecycle: None,
     };
     let mut inputs = HashMap::new();
     inputs.insert("user".to_string(), "admin".to_string());

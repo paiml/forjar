@@ -204,6 +204,7 @@ mod tests {
             gpu_memory_limit_mb: None,
             pre_apply: None,
             post_apply: None,
+        lifecycle: None,
         }
     }
 
@@ -355,6 +356,8 @@ mod tests {
             policies: vec![],
             data: indexmap::IndexMap::new(),
             includes: vec![],
+            checks: indexmap::IndexMap::new(),
+            moved: vec![],
         };
 
         let (migrated, warnings) = migrate_config(&config);
@@ -393,6 +396,8 @@ mod tests {
             policies: vec![],
             data: indexmap::IndexMap::new(),
             includes: vec![],
+            checks: indexmap::IndexMap::new(),
+            moved: vec![],
         };
 
         let (migrated, warnings) = migrate_config(&config);

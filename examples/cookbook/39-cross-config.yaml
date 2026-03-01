@@ -1,0 +1,125 @@
+# Recipe: 39-cross-config
+# Tier: 2 (container apply with two-config sequence)
+# Idempotency: strong
+# Budget: first_apply < 60s, idempotent < 2s
+#
+# OpenTofu-style cross-config outputs: multi-stack composition.
+# One config exports outputs, another imports them via
+# `data.type: forjar-state`. No hardcoded values between stacks.
+
+version: '1.0'
+name: cross-config-outputs
+description: "Multi-stack composition via cross-config output sharing"
+
+params:
+  network_cidr: "10.0.1.0/24"
+  gateway_ip: "10.0.1.1"
+
+machines:
+  target:
+    hostname: target
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-cookbook-39-crossconfig
+      ephemeral: false
+      privileged: false
+      init: true
+
+# Cross-config data source: import outputs from network-stack
+data:
+  network:
+    type: forjar-state
+    state_dir: ./state
+    config: network-stack
+    outputs:
+      - subnet_cidr
+      - gateway_ip
+
+resources:
+  # Simulated network-stack outputs (in production, these come from another config)
+  network-outputs:
+    type: file
+    machine: target
+    path: /var/lib/forjar/state/network-outputs.yaml
+    owner: root
+    mode: '0644'
+    content: |
+      # Simulated outputs from network-stack config
+      subnet_cidr: "10.0.1.0/24"
+      gateway_ip: "10.0.1.1"
+    tags: [cross-config, network]
+    resource_group: network
+
+  # App config consuming network-stack outputs
+  app-network-config:
+    type: file
+    machine: target
+    path: /etc/app/network.conf
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — cross-config outputs
+      # Values imported from network-stack via data.type: forjar-state
+      SUBNET=10.0.1.0/24
+      GATEWAY=10.0.1.1
+    depends_on: [network-outputs]
+    tags: [cross-config, app]
+    resource_group: app
+
+  # Database config also consuming network outputs
+  db-network-config:
+    type: file
+    machine: target
+    path: /etc/db/network.conf
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — cross-config outputs
+      listen_addresses='10.0.1.0/24'
+      gateway=10.0.1.1
+    depends_on: [network-outputs]
+    tags: [cross-config, database]
+    resource_group: database
+
+  cross-config-manifest:
+    type: file
+    machine: target
+    path: /etc/forjar/cross-config-manifest.json
+    owner: root
+    mode: '0644'
+    content: |
+      {
+        "source_config": "network-stack",
+        "imported_outputs": ["subnet_cidr", "gateway_ip"],
+        "consuming_configs": ["app-stack", "db-stack"],
+        "data_source_type": "forjar-state"
+      }
+    depends_on: [app-network-config, db-network-config]
+    tags: [cross-config, manifest]
+    resource_group: manifest
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Applying cross-config composition'"
+  post_apply: "echo 'Cross-config outputs resolved'"
+  notify:
+    on_success: "echo 'Multi-stack composition complete'"
+    on_failure: "echo 'Cross-config output resolution failed'"
+    on_drift: "echo 'Cross-config values drifted'"
+
+outputs:
+  subnet_cidr:
+    value: "10.0.1.0/24"
+    description: "Network subnet CIDR (from network-stack)"
+  gateway_ip:
+    value: "10.0.1.1"
+    description: "Gateway IP (from network-stack)"

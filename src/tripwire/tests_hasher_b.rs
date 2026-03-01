@@ -135,6 +135,7 @@ fn test_fj036_hash_desired_state_deterministic() {
         gpu_memory_limit_mb: None,
         pre_apply: None,
         post_apply: None,
+        lifecycle: None,
     };
     let h1 = hash_desired_state(&r);
     let h2 = hash_desired_state(&r);
@@ -219,6 +220,7 @@ fn test_fj036_hash_desired_state_changes_on_content() {
         gpu_memory_limit_mb: None,
         pre_apply: None,
         post_apply: None,
+        lifecycle: None,
     };
     let r2 = Resource {
         content: Some("changed content".to_string()),

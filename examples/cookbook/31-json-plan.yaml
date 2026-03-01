@@ -1,0 +1,117 @@
+# Recipe: 31-json-plan
+# Tier: 1 (validate JSON schema)
+# Idempotency: strong
+# Budget: first_apply < 30s, idempotent < 2s
+#
+# Machine-readable JSON plan output for policy engines (OPA/Rego),
+# cost estimators, PR comment bots, and audit systems.
+# Uses: `forjar plan -f config.yaml --json`
+
+version: '1.0'
+name: json-plan-test
+description: "Machine-readable JSON plan output for policy engines and CI automation"
+
+params:
+  policy_engine: opa
+  output_format: json
+
+machines:
+  target:
+    hostname: target
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-cookbook-31-json-plan
+      ephemeral: false
+      privileged: false
+      init: true
+
+resources:
+  # Infrastructure that would produce a JSON plan
+  web-packages:
+    type: package
+    machine: target
+    provider: apt
+    packages:
+      - curl
+      - jq
+    tags: [json-plan, packages]
+    resource_group: web
+
+  web-config:
+    type: file
+    machine: target
+    path: /etc/web/config.json
+    owner: root
+    mode: '0644'
+    content: |
+      {
+        "server": "web-stack",
+        "port": 8080,
+        "workers": 4
+      }
+    depends_on: [web-packages]
+    tags: [json-plan, config]
+    resource_group: web
+
+  # OPA policy file for plan validation
+  opa-policy:
+    type: file
+    machine: target
+    path: /etc/forjar/policies/plan-check.rego
+    owner: root
+    mode: '0644'
+    content: |
+      package forjar
+      default allow = true
+      deny[msg] {
+        input.state.workspace == "production"
+        change := input.changes[_]
+        change.action == "destroy"
+        msg := sprintf("cannot destroy %s in production", [change.resource])
+      }
+    depends_on: [web-packages]
+    tags: [json-plan, policy]
+    resource_group: policy
+
+  plan-schema:
+    type: file
+    machine: target
+    path: /etc/forjar/plan-schema.json
+    owner: root
+    mode: '0644'
+    content: |
+      {
+        "format_version": "1.0",
+        "required_fields": ["changes", "summary", "config"],
+        "change_actions": ["create", "update", "destroy", "no-op"],
+        "summary_fields": ["create", "update", "destroy", "unchanged", "total"]
+      }
+    depends_on: [web-packages]
+    tags: [json-plan, schema]
+    resource_group: policy
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Testing JSON plan output'"
+  post_apply: "echo 'JSON plan test complete'"
+  notify:
+    on_success: "echo 'JSON plan schema validated'"
+    on_failure: "echo 'JSON plan test failed'"
+    on_drift: "echo 'Plan output drift detected'"
+
+outputs:
+  output_format:
+    value: "json"
+    description: "Plan output format"
+  policy_engine:
+    value: "opa"
+    description: "Policy engine for plan validation"

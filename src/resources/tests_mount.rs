@@ -73,6 +73,7 @@ fn make_mount_resource() -> Resource {
         gpu_memory_limit_mb: None,
         pre_apply: None,
         post_apply: None,
+        lifecycle: None,
     }
 }
 
