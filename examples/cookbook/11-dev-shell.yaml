@@ -1,0 +1,124 @@
+# Recipe: 11-dev-shell
+# Tier: 1+3 (validate in CI, full apply needs pepita namespaces)
+# Idempotency: strong
+# Budget: first_apply < 30s, idempotent < 2s
+#
+# Nix-style dev shell: per-project isolated development environment.
+# In production uses pepita transport with overlayfs — packages install
+# into the overlay, not the host. Container variant for CI validation.
+
+version: '1.0'
+name: dev-shell
+description: "Nix-style isolated development shell with overlay packages and shell hooks"
+
+params:
+  shell_name: rust-dev
+  packages_apt: "build-essential,curl,git,pkg-config,libssl-dev"
+  shell_hook: "export RUST_BACKTRACE=1"
+  memory_mb: "4096"
+
+machines:
+  # Container variant for CI. Production would use pepita transport:
+  # transport: pepita
+  # pepita:
+  #   rootfs: /
+  #   memory_mb: "{{params.memory_mb}}"
+  #   network: host
+  #   filesystem: overlay
+  #   ephemeral: false
+  devshell:
+    hostname: devshell
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-cookbook-11-devshell
+      ephemeral: false
+      privileged: false
+      init: true
+
+resources:
+  dev-packages:
+    type: package
+    machine: devshell
+    provider: apt
+    packages:
+      - build-essential
+      - curl
+      - git
+      - pkg-config
+      - libssl-dev
+    tags: [devshell, packages]
+    resource_group: dev-shell
+
+  env-file:
+    type: file
+    machine: devshell
+    path: /etc/profile.d/devshell.sh
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — dev shell environment
+      # Shell: rust-dev
+      export RUST_BACKTRACE=1
+      export DEVSHELL_NAME=rust-dev
+      export PATH="$HOME/.cargo/bin:$PATH"
+    depends_on: [dev-packages]
+    tags: [devshell, env]
+    resource_group: dev-shell
+
+  shell-motd:
+    type: file
+    machine: devshell
+    path: /etc/motd
+    owner: root
+    mode: '0644'
+    content: |
+      ====================================
+      forjar dev-shell: rust-dev
+      Packages: build-essential curl git pkg-config libssl-dev
+      Memory limit: 4096 MB
+      ====================================
+    depends_on: [dev-packages]
+    tags: [devshell, motd]
+    resource_group: dev-shell
+
+  overlay-info:
+    type: file
+    machine: devshell
+    path: /etc/forjar/devshell-info.conf
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — dev shell metadata
+      name=rust-dev
+      transport=pepita
+      filesystem=overlay
+      ephemeral=false
+      memory_mb=4096
+    tags: [devshell, info]
+    resource_group: dev-shell
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Creating dev shell: rust-dev'"
+  post_apply: "echo 'Dev shell ready'"
+  notify:
+    on_success: "echo 'Dev shell provisioned'"
+    on_failure: "echo 'Dev shell setup failed'"
+    on_drift: "echo 'Dev shell drift detected'"
+
+outputs:
+  shell_name:
+    value: "rust-dev"
+    description: "Development shell name"
+  transport:
+    value: "pepita (container in CI)"
+    description: "Transport type"
