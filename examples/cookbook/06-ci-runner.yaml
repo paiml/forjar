@@ -1,0 +1,150 @@
+# Recipe: 06-ci-runner
+# Tier: 1+3 (validate in CI, converge on real runner)
+# Idempotency: strong
+# Budget: first_apply < 300s, idempotent < 5s
+#
+# Self-hosted GitHub Actions runner with Docker, build tools,
+# and Rust toolchain. This is the recipe that bootstraps the
+# Intel runner itself.
+
+version: '1.0'
+name: ci-runner
+description: "Self-hosted GitHub Actions runner with Docker, Rust, and build tools"
+
+params:
+  runner_name: forjar-runner
+  runner_labels: "self-hosted,linux,x86_64"
+  runner_user: runner
+  work_dir: /opt/actions-runner/_work
+
+machines:
+  runner-host:
+    hostname: runner-host
+    addr: localhost
+    user: root
+    arch: x86_64
+    transport: local
+
+resources:
+  runner-user:
+    type: user
+    machine: runner-host
+    name: "{{params.runner_user}}"
+    home: /opt/actions-runner
+    shell: /bin/bash
+    system_user: true
+    groups: [docker]
+    tags: [ci, user]
+    resource_group: runner
+
+  runner-deps:
+    type: package
+    machine: runner-host
+    provider: apt
+    packages:
+      - curl
+      - jq
+      - git
+      - build-essential
+      - pkg-config
+      - libssl-dev
+    tags: [ci, build-tools]
+    resource_group: runner
+
+  docker-pkg:
+    type: package
+    machine: runner-host
+    provider: apt
+    packages:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+    depends_on: [runner-user]
+    tags: [ci, docker]
+    resource_group: docker
+
+  docker-service:
+    type: service
+    machine: runner-host
+    name: docker
+    state: running
+    enabled: true
+    depends_on: [docker-pkg]
+    tags: [ci, docker]
+    resource_group: docker
+
+  runner-dir:
+    type: file
+    machine: runner-host
+    state: directory
+    path: /opt/actions-runner
+    owner: "{{params.runner_user}}"
+    mode: '0755'
+    depends_on: [runner-user]
+    tags: [ci, runner]
+    resource_group: runner
+
+  work-dir:
+    type: file
+    machine: runner-host
+    state: directory
+    path: "{{params.work_dir}}"
+    owner: "{{params.runner_user}}"
+    mode: '0755'
+    depends_on: [runner-dir]
+    tags: [ci, runner]
+    resource_group: runner
+
+  runner-env:
+    type: file
+    machine: runner-host
+    path: /opt/actions-runner/.env
+    content: |
+      # Managed by forjar — ci-runner recipe
+      RUNNER_NAME={{params.runner_name}}
+      RUNNER_LABELS={{params.runner_labels}}
+      RUNNER_WORK_DIR={{params.work_dir}}
+    owner: "{{params.runner_user}}"
+    mode: '0600'
+    depends_on: [runner-dir]
+    tags: [ci, runner, config]
+    resource_group: runner
+
+  firewall-outbound:
+    type: network
+    machine: runner-host
+    protocol: tcp
+    port: "443"
+    action: allow
+    tags: [ci, firewall]
+    resource_group: firewall
+
+  firewall-ssh:
+    type: network
+    machine: runner-host
+    protocol: tcp
+    port: "22"
+    action: allow
+    tags: [ci, firewall]
+    resource_group: firewall
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Provisioning CI runner {{params.runner_name}}'"
+  post_apply: "echo 'CI runner {{params.runner_name}} provisioned'"
+  notify:
+    on_success: "echo 'CI runner converged'"
+    on_failure: "echo 'CI runner provisioning failed'"
+    on_drift: "echo 'CI runner configuration drift detected'"
+
+outputs:
+  runner_name:
+    value: "{{params.runner_name}}"
+    description: "GitHub Actions runner name"
+  runner_home:
+    value: "/opt/actions-runner"
+    description: "Runner installation directory"

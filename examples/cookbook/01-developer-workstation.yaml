@@ -1,0 +1,163 @@
+# Recipe: 01-developer-workstation
+# Tier: 2+3 (container + bare-metal)
+# Idempotency: strong
+# Budget: first_apply < 60s, idempotent < 2s
+#
+# Provision a development machine with tools, dotfiles, and directory
+# structure. Designed as the first cookbook recipe — validates package,
+# file, and user resources end-to-end.
+
+version: '1.0'
+name: developer-workstation
+description: "Development machine with tools, dotfiles, and shell config"
+
+params:
+  user: dev
+  home: /home/dev
+  editor: vim
+  cargo_tools: "ripgrep,fd-find,bat"
+
+machines:
+  devbox:
+    hostname: devbox
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-cookbook-01-devbox
+      ephemeral: false
+      privileged: false
+      init: true
+
+resources:
+  dev-packages:
+    type: package
+    machine: devbox
+    provider: apt
+    packages:
+      - build-essential
+      - curl
+      - git
+      - tmux
+      - htop
+      - tree
+      - jq
+    tags: [base, dev-tools]
+    resource_group: development
+
+  dev-user:
+    type: user
+    machine: devbox
+    name: "{{params.user}}"
+    home: "{{params.home}}"
+    shell: /bin/bash
+    groups: [sudo]
+    depends_on: [dev-packages]
+    tags: [base]
+    resource_group: development
+
+  home-dir:
+    type: file
+    machine: devbox
+    state: directory
+    path: "{{params.home}}"
+    owner: "{{params.user}}"
+    mode: '0755'
+    depends_on: [dev-user]
+    tags: [dotfiles]
+    resource_group: dotfiles
+
+  gitconfig:
+    type: file
+    machine: devbox
+    path: "{{params.home}}/.gitconfig"
+    content: |
+      # Managed by forjar — developer-workstation recipe
+      [core]
+        editor = {{params.editor}}
+      [init]
+        defaultBranch = main
+      [pull]
+        rebase = true
+    owner: "{{params.user}}"
+    mode: '0644'
+    depends_on: [home-dir]
+    tags: [dotfiles, git]
+    resource_group: dotfiles
+
+  vimrc:
+    type: file
+    machine: devbox
+    path: "{{params.home}}/.vimrc"
+    content: |
+      " Managed by forjar — developer-workstation recipe
+      set nocompatible
+      set number
+      set relativenumber
+      set expandtab
+      set tabstop=4
+      set shiftwidth=4
+      set autoindent
+      syntax on
+      filetype plugin indent on
+    owner: "{{params.user}}"
+    mode: '0644'
+    depends_on: [home-dir]
+    tags: [dotfiles, editor]
+    resource_group: dotfiles
+
+  tmux-conf:
+    type: file
+    machine: devbox
+    path: "{{params.home}}/.tmux.conf"
+    content: |
+      # Managed by forjar — developer-workstation recipe
+      set -g default-terminal "screen-256color"
+      set -g mouse on
+      set -g history-limit 50000
+      set -g status-interval 5
+    owner: "{{params.user}}"
+    mode: '0644'
+    depends_on: [home-dir]
+    tags: [dotfiles, tmux]
+    resource_group: dotfiles
+
+  shell-rc:
+    type: file
+    machine: devbox
+    path: "{{params.home}}/.bashrc"
+    content: |
+      # Managed by forjar — developer-workstation recipe
+      export EDITOR={{params.editor}}
+      export PATH="$HOME/.cargo/bin:$PATH"
+      alias ll='ls -alF'
+      alias la='ls -A'
+    owner: "{{params.user}}"
+    mode: '0644'
+    depends_on: [home-dir]
+    tags: [dotfiles, shell]
+    resource_group: dotfiles
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Starting developer workstation setup'"
+  post_apply: "echo 'Developer workstation setup complete'"
+  notify:
+    on_success: "echo 'All resources converged successfully'"
+    on_failure: "echo 'Setup failed — check logs'"
+    on_drift: "echo 'Configuration drift detected'"
+
+outputs:
+  home_directory:
+    value: "{{params.home}}"
+    description: "Home directory path for the configured user"
+  configured_user:
+    value: "{{params.user}}"
+    description: "Unix username that was provisioned"

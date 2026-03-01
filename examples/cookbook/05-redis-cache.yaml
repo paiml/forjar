@@ -1,0 +1,116 @@
+# Recipe: 05-redis-cache
+# Tier: 2+3 (container + bare-metal)
+# Idempotency: strong
+# Budget: first_apply < 120s, idempotent < 5s
+#
+# Redis cache with persistence config, memory limits, and firewall.
+# Uses Docker container resource for the Redis instance.
+
+version: '1.0'
+name: redis-cache
+description: "Redis cache with AOF persistence, memory limits, and firewall lockdown"
+
+params:
+  port: "6379"
+  maxmemory: "256mb"
+  maxmemory_policy: "allkeys-lru"
+  appendonly: "yes"
+
+machines:
+  cache-host:
+    hostname: cache-host
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-cookbook-05-redis
+      ephemeral: false
+      privileged: false
+      init: true
+
+resources:
+  redis-data:
+    type: file
+    machine: cache-host
+    state: directory
+    path: /var/lib/redis
+    owner: root
+    mode: '0750'
+    tags: [cache, storage]
+    resource_group: redis
+
+  redis-config:
+    type: file
+    machine: cache-host
+    path: /etc/redis/redis.conf
+    content: |
+      # Managed by forjar — redis-cache recipe
+      port {{params.port}}
+      bind 127.0.0.1
+      protected-mode yes
+      maxmemory {{params.maxmemory}}
+      maxmemory-policy {{params.maxmemory_policy}}
+      appendonly {{params.appendonly}}
+      appendfilename "appendonly.aof"
+      dir /data
+      loglevel notice
+      logfile ""
+      databases 16
+      timeout 300
+      tcp-keepalive 300
+    owner: root
+    mode: '0640'
+    depends_on: [redis-data]
+    tags: [cache, config]
+    resource_group: redis
+
+  redis-container:
+    type: docker
+    machine: cache-host
+    name: forjar-redis
+    image: "redis:7-alpine"
+    ports:
+      - "127.0.0.1:{{params.port}}:6379"
+    volumes:
+      - "/var/lib/redis:/data"
+      - "/etc/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro"
+    command: "redis-server /usr/local/etc/redis/redis.conf"
+    restart: always
+    depends_on: [redis-config]
+    tags: [cache, docker]
+    resource_group: redis
+
+  firewall-redis:
+    type: network
+    machine: cache-host
+    protocol: tcp
+    port: "{{params.port}}"
+    action: deny
+    from: "0.0.0.0/0"
+    depends_on: [redis-container]
+    tags: [cache, firewall, security]
+    resource_group: firewall
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Deploying Redis cache'"
+  post_apply: "echo 'Redis cache deployed on port {{params.port}}'"
+  notify:
+    on_success: "echo 'Redis cache converged'"
+    on_failure: "echo 'Redis deployment failed'"
+    on_drift: "echo 'Redis configuration drift detected'"
+
+outputs:
+  redis_url:
+    value: "redis://127.0.0.1:{{params.port}}"
+    description: "Redis connection URL (localhost only)"
+  data_directory:
+    value: "/var/lib/redis"
+    description: "Persistent data directory for Redis AOF/RDB"

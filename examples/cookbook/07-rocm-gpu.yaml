@@ -1,0 +1,88 @@
+# Recipe: 07-rocm-gpu
+# Tier: 1+3 (validate in CI, converge on Intel runner)
+# Idempotency: strong
+# Budget: first_apply < 30s, idempotent < 2s
+#
+# AMD GPU development environment: ROCm userspace, kernel driver
+# verification, and GPU health monitoring cron.
+
+version: '1.0'
+name: rocm-gpu-workstation
+description: "AMD GPU workstation with ROCm userspace, driver verification, and health monitoring"
+
+params:
+  gpu_name: gpu0
+  driver_version: ""
+  rocm_version: ""
+  user: dev
+
+machines:
+  gpu-host:
+    hostname: gpu-host
+    addr: localhost
+    user: root
+    arch: x86_64
+    transport: local
+
+resources:
+  amd-gpu:
+    type: gpu
+    machine: gpu-host
+    name: "{{params.gpu_name}}"
+    gpu_backend: rocm
+    driver_version: "{{params.driver_version}}"
+    rocm_version: "{{params.rocm_version}}"
+    devices:
+      - 0
+    tags: [gpu, rocm, hardware]
+    resource_group: gpu
+
+  gpu-user-groups:
+    type: user
+    machine: gpu-host
+    name: "{{params.user}}"
+    groups: [video, render]
+    depends_on: [amd-gpu]
+    tags: [gpu, user]
+    resource_group: gpu
+
+  rocm-tools:
+    type: package
+    machine: gpu-host
+    provider: apt
+    packages:
+      - rocminfo
+    depends_on: [amd-gpu]
+    tags: [gpu, rocm, tools]
+    resource_group: gpu
+
+  gpu-health-cron:
+    type: cron
+    machine: gpu-host
+    schedule: "0 */6 * * *"
+    command: "rocm-smi --showtemp 2>/dev/null | logger -t gpu-health || true"
+    name: gpu-health-check
+    depends_on: [rocm-tools]
+    tags: [gpu, monitoring]
+    resource_group: monitoring
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Configuring ROCm GPU environment'"
+  post_apply: "echo 'ROCm GPU environment configured'"
+  notify:
+    on_success: "echo 'GPU resources converged'"
+    on_failure: "echo 'GPU setup failed — check driver status'"
+    on_drift: "echo 'GPU configuration drift detected'"
+
+outputs:
+  gpu_backend:
+    value: "rocm"
+    description: "GPU compute backend"
+  gpu_device_index:
+    value: "0"
+    description: "GPU device index"

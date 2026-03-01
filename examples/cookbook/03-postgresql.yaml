@@ -1,0 +1,173 @@
+# Recipe: 03-postgresql
+# Tier: 2+3 (container + bare-metal)
+# Idempotency: strong
+# Budget: first_apply < 90s, idempotent < 3s
+#
+# Production PostgreSQL with tuned config, backup cron, and
+# firewall lockdown. Includes automated daily pg_basebackup.
+
+version: '1.0'
+name: postgresql-database
+description: "Production PostgreSQL with tuned config, automated backups, and firewall"
+
+params:
+  pg_version: "16"
+  listen_addresses: "localhost"
+  max_connections: "200"
+  shared_buffers: "256MB"
+  backup_schedule: "0 2 * * *"
+  backup_dir: /var/backups/postgresql
+  allowed_cidr: "127.0.0.1/32"
+
+machines:
+  db-host:
+    hostname: db-host
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-cookbook-03-postgres
+      ephemeral: false
+      privileged: false
+      init: true
+
+resources:
+  pg-pkg:
+    type: package
+    machine: db-host
+    provider: apt
+    packages:
+      - "postgresql"
+    tags: [database, postgresql]
+    resource_group: postgresql
+
+  pg-conf:
+    type: file
+    machine: db-host
+    path: "/etc/postgresql/{{params.pg_version}}/main/postgresql.conf"
+    content: |
+      # Managed by forjar — postgresql-database recipe
+      listen_addresses = '{{params.listen_addresses}}'
+      port = 5432
+      max_connections = {{params.max_connections}}
+      shared_buffers = {{params.shared_buffers}}
+      effective_cache_size = 768MB
+      work_mem = 4MB
+      maintenance_work_mem = 64MB
+      wal_level = replica
+      max_wal_senders = 3
+      logging_collector = on
+      log_directory = 'log'
+      log_filename = 'postgresql-%Y-%m-%d.log'
+      log_min_duration_statement = 1000
+    owner: root
+    mode: '0644'
+    depends_on: [pg-pkg]
+    tags: [database, config]
+    resource_group: postgresql
+
+  pg-hba:
+    type: file
+    machine: db-host
+    path: "/etc/postgresql/{{params.pg_version}}/main/pg_hba.conf"
+    content: |
+      # Managed by forjar — postgresql-database recipe
+      # TYPE  DATABASE        USER            ADDRESS                 METHOD
+      local   all             postgres                                peer
+      local   all             all                                     peer
+      host    all             all             127.0.0.1/32            scram-sha-256
+      host    all             all             {{params.allowed_cidr}}   scram-sha-256
+    owner: root
+    mode: '0640'
+    depends_on: [pg-pkg]
+    tags: [database, security]
+    resource_group: postgresql
+
+  pg-service:
+    type: service
+    machine: db-host
+    name: postgresql
+    state: running
+    enabled: true
+    restart_on: [pg-conf, pg-hba]
+    depends_on: [pg-conf, pg-hba]
+    tags: [database, postgresql]
+    resource_group: postgresql
+
+  backup-dir:
+    type: file
+    machine: db-host
+    state: directory
+    path: "{{params.backup_dir}}"
+    owner: root
+    mode: '0700'
+    depends_on: [pg-pkg]
+    tags: [database, backup]
+    resource_group: backup
+
+  backup-script:
+    type: file
+    machine: db-host
+    path: /usr/local/bin/pg-backup.sh
+    content: |
+      #!/bin/bash
+      # Managed by forjar — postgresql-database recipe
+      set -euo pipefail
+      BACKUP_DIR="{{params.backup_dir}}"
+      DATE=$(date +%Y%m%d_%H%M%S)
+      pg_basebackup -D "$BACKUP_DIR/base_$DATE" -Ft -z -P 2>/dev/null
+      find "$BACKUP_DIR" -name "base_*" -mtime +7 -exec rm -rf {} + 2>/dev/null || true
+      echo "Backup completed: base_$DATE"
+    owner: root
+    mode: '0750'
+    depends_on: [backup-dir]
+    tags: [database, backup]
+    resource_group: backup
+
+  backup-cron:
+    type: cron
+    machine: db-host
+    schedule: "0 2 * * *"
+    command: "/usr/local/bin/pg-backup.sh >> /var/log/pg-backup.log 2>&1"
+    name: pg-backup
+    depends_on: [backup-script]
+    tags: [database, backup]
+    resource_group: backup
+
+  firewall-pg:
+    type: network
+    machine: db-host
+    protocol: tcp
+    port: "5432"
+    action: allow
+    from: "{{params.allowed_cidr}}"
+    depends_on: [pg-service]
+    tags: [database, firewall, security]
+    resource_group: firewall
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Deploying PostgreSQL {{params.pg_version}}'"
+  post_apply: "echo 'PostgreSQL {{params.pg_version}} deployed'"
+  notify:
+    on_success: "echo 'PostgreSQL converged successfully'"
+    on_failure: "echo 'PostgreSQL deployment failed'"
+    on_drift: "echo 'PostgreSQL configuration drift detected'"
+
+outputs:
+  pg_port:
+    value: "5432"
+    description: "PostgreSQL listen port"
+  backup_directory:
+    value: "{{params.backup_dir}}"
+    description: "Path to PostgreSQL backup directory"
+  connection_string:
+    value: "postgresql://localhost:5432"
+    description: "Local connection string"
