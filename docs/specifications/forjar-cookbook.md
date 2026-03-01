@@ -2961,9 +2961,9 @@ Patterns borrowed from OpenTofu/Terraform, adapted to forjar's sovereign (no clo
 | Graph visualization | `forjar graph` — Mermaid + DOT output | Done |
 | Outputs | `forjar output` — export values from a config | Done |
 
-### What Forjar Should Adopt
+### Adopted Patterns
 
-The patterns below represent the highest-value OpenTofu features that forjar doesn't yet have. Each is specified as a recipe or capability.
+The following OpenTofu-inspired patterns are implemented as recipes #30-39, all qualified at A-grade.
 
 ---
 
