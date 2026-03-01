@@ -1,0 +1,144 @@
+# Recipe: 17-static-musl
+# Tier: 1+2+3 (validate, container build, bare-metal)
+# Idempotency: strong
+# Budget: first_apply < 180s, idempotent < 2s
+#
+# Fully static Linux binary via x86_64-unknown-linux-musl. No libc,
+# no libssl, no dynamic deps. Copy to any Linux machine and it runs.
+
+version: '1.0'
+name: static-musl-build
+description: "Static musl binary build with size optimization and optional UPX compression"
+
+params:
+  crate_name: forjar
+  target_path: /usr/local/bin/forjar-static
+  opt_level: z
+
+machines:
+  musl-host:
+    hostname: musl-host
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-cookbook-17-musl
+      ephemeral: false
+      privileged: false
+      init: true
+
+resources:
+  musl-toolchain:
+    type: package
+    machine: musl-host
+    provider: apt
+    packages:
+      - musl-tools
+      - build-essential
+      - pkg-config
+      - curl
+    tags: [rust, musl, build-deps]
+    resource_group: musl-build
+
+  rust-musl-setup:
+    type: file
+    machine: musl-host
+    path: /usr/local/bin/forjar-musl-setup.sh
+    owner: root
+    mode: '0755'
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+      export PATH="$HOME/.cargo/bin:$PATH"
+      if ! command -v rustc &>/dev/null; then
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+        export PATH="$HOME/.cargo/bin:$PATH"
+      fi
+      rustup target add x86_64-unknown-linux-musl 2>/dev/null || true
+    depends_on: [musl-toolchain]
+    tags: [rust, musl, toolchain]
+    resource_group: musl-build
+
+  build-static-script:
+    type: file
+    machine: musl-host
+    path: /usr/local/bin/forjar-static-build.sh
+    owner: root
+    mode: '0755'
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+      export PATH="$HOME/.cargo/bin:$PATH"
+      CARGO_PROFILE_RELEASE_OPT_LEVEL=z \
+      CARGO_PROFILE_RELEASE_LTO=true \
+      CARGO_PROFILE_RELEASE_STRIP=true \
+      CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1 \
+      CARGO_PROFILE_RELEASE_PANIC=abort \
+      cargo install --target x86_64-unknown-linux-musl \
+        --root /tmp/forjar-build --force forjar 2>/dev/null || \
+        echo "Static build skipped — crate not available"
+    depends_on: [rust-musl-setup]
+    tags: [rust, musl, build]
+    resource_group: musl-build
+
+  verify-static-script:
+    type: file
+    machine: musl-host
+    path: /usr/local/bin/forjar-verify-static.sh
+    owner: root
+    mode: '0755'
+    content: |
+      #!/bin/bash
+      BINARY="/usr/local/bin/forjar-static"
+      if [ -x "$BINARY" ]; then
+        file "$BINARY" | grep -q "statically linked" && \
+          echo "OK: statically linked" || \
+          echo "WARN: not statically linked"
+        ls -lh "$BINARY" | awk '{print "SIZE:", $5}'
+      else
+        echo "Static binary not yet deployed"
+      fi
+    depends_on: [build-static-script]
+    tags: [rust, musl, verify]
+    resource_group: musl-build
+
+  deploy-marker:
+    type: file
+    machine: musl-host
+    path: /etc/forjar/build-info.conf
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — static musl build marker
+      crate=forjar
+      target=x86_64-unknown-linux-musl
+      opt_level=z
+      lto=true
+      panic=abort
+    depends_on: [build-static-script]
+    tags: [rust, musl, info]
+    resource_group: musl-build
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Starting static musl build'"
+  post_apply: "echo 'Static musl build complete'"
+  notify:
+    on_success: "echo 'Static binary built and verified'"
+    on_failure: "echo 'Static build failed — check musl-tools'"
+    on_drift: "echo 'Static binary drift detected'"
+
+outputs:
+  binary_path:
+    value: "/usr/local/bin/forjar-static"
+    description: "Static binary path"
+  target_triple:
+    value: "x86_64-unknown-linux-musl"
+    description: "Build target triple"

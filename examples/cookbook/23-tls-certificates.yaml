@@ -1,0 +1,162 @@
+# Recipe: 23-tls-certificates
+# Tier: 1+2 (validate, container apply for self-signed certs)
+# Idempotency: strong
+# Budget: first_apply < 10s, idempotent < 1s
+#
+# TLS certificate management: self-signed generation for dev/test,
+# renewal scripting, expiry monitoring, and permission hardening.
+
+version: '1.0'
+name: tls-certificates
+description: "TLS certificate lifecycle with self-signed generation, renewal, and expiry monitoring"
+
+params:
+  domain: example.com
+  cert_dir: /etc/ssl/forjar
+  renewal_days: "30"
+  key_type: ec
+
+machines:
+  tls-host:
+    hostname: tls-host
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-cookbook-23-tls
+      ephemeral: false
+      privileged: false
+      init: true
+
+resources:
+  cert-dir:
+    type: file
+    machine: tls-host
+    state: directory
+    path: "{{params.cert_dir}}/{{params.domain}}"
+    owner: root
+    mode: '0755'
+    tags: [tls, dirs]
+    resource_group: tls
+
+  private-key-dir:
+    type: file
+    machine: tls-host
+    state: directory
+    path: "{{params.cert_dir}}/{{params.domain}}/private"
+    owner: root
+    mode: '0700'
+    depends_on: [cert-dir]
+    tags: [tls, dirs]
+    resource_group: tls
+
+  self-signed-gen-script:
+    type: file
+    machine: tls-host
+    path: /usr/local/bin/forjar-gen-selfsigned.sh
+    owner: root
+    mode: '0755'
+    content: |
+      #!/bin/bash
+      set -euo pipefail
+      CERT_DIR="{{params.cert_dir}}/{{params.domain}}"
+      KEY="$CERT_DIR/private/key.pem"
+      CERT="$CERT_DIR/cert.pem"
+      if [ -f "$CERT" ] && [ -f "$KEY" ]; then
+        DAYS_LEFT=$(( ( $(date -d "$(openssl x509 -enddate -noout -in "$CERT" | cut -d= -f2)" +%s) - $(date +%s) ) / 86400 ))
+        [ "$DAYS_LEFT" -gt 30 ] && echo "Certificate valid for $DAYS_LEFT days" && exit 0
+      fi
+      openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 \
+        -keyout "$KEY" -out "$CERT" \
+        -days 365 -nodes -subj "/CN={{params.domain}}"
+      chmod 600 "$KEY"
+      chmod 644 "$CERT"
+      echo "Self-signed certificate generated for {{params.domain}}"
+    depends_on: [private-key-dir]
+    tags: [tls, generation]
+    resource_group: tls
+
+  expiry-monitor-script:
+    type: file
+    machine: tls-host
+    path: /usr/local/bin/forjar-cert-expiry.sh
+    owner: root
+    mode: '0755'
+    content: |
+      #!/bin/bash
+      CERT="{{params.cert_dir}}/{{params.domain}}/cert.pem"
+      if [ -f "$CERT" ]; then
+        EXPIRY=$(openssl x509 -enddate -noout -in "$CERT" 2>/dev/null | cut -d= -f2)
+        DAYS_LEFT=$(( ( $(date -d "$EXPIRY" +%s) - $(date +%s) ) / 86400 ))
+        if [ "$DAYS_LEFT" -lt 30 ]; then
+          echo "WARN: {{params.domain}} cert expires in $DAYS_LEFT days" | \
+            logger -t forjar-tls
+        fi
+      fi
+    tags: [tls, monitoring]
+    resource_group: tls
+
+  expiry-monitor-cron:
+    type: cron
+    machine: tls-host
+    schedule: "0 6 * * *"
+    command: "/usr/local/bin/forjar-cert-expiry.sh"
+    name: forjar-cert-expiry
+    depends_on: [expiry-monitor-script]
+    tags: [tls, monitoring]
+    resource_group: tls
+
+  cert-permissions-script:
+    type: file
+    machine: tls-host
+    path: /usr/local/bin/forjar-cert-permissions.sh
+    owner: root
+    mode: '0755'
+    content: |
+      #!/bin/bash
+      CERT_DIR="{{params.cert_dir}}/{{params.domain}}"
+      [ -f "$CERT_DIR/private/key.pem" ] && chmod 600 "$CERT_DIR/private/key.pem"
+      [ -f "$CERT_DIR/cert.pem" ] && chmod 644 "$CERT_DIR/cert.pem"
+      find "$CERT_DIR/private" -type d -exec chmod 700 {} \;
+    depends_on: [self-signed-gen-script]
+    tags: [tls, permissions]
+    resource_group: tls
+
+  renewal-script:
+    type: file
+    machine: tls-host
+    path: /usr/local/bin/forjar-cert-renew.sh
+    owner: root
+    mode: '0755'
+    content: |
+      #!/bin/bash
+      # For ACME/certbot: certbot renew --deploy-hook "systemctl reload nginx"
+      # For self-signed: regenerate if near expiry
+      /usr/local/bin/forjar-gen-selfsigned.sh
+    depends_on: [self-signed-gen-script]
+    tags: [tls, renewal]
+    resource_group: tls
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Configuring TLS certificates for {{params.domain}}'"
+  post_apply: "echo 'TLS certificates configured'"
+  notify:
+    on_success: "echo 'TLS lifecycle deployed for {{params.domain}}'"
+    on_failure: "echo 'TLS setup failed — check openssl'"
+    on_drift: "echo 'TLS certificate drift detected'"
+
+outputs:
+  cert_path:
+    value: "{{params.cert_dir}}/{{params.domain}}/cert.pem"
+    description: "Certificate file path"
+  key_path:
+    value: "{{params.cert_dir}}/{{params.domain}}/private/key.pem"
+    description: "Private key file path"

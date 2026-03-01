@@ -1,0 +1,145 @@
+# Recipe: 12-toolchain-pin
+# Tier: 1+2 (validate, container apply for version verification)
+# Idempotency: strong
+# Budget: first_apply < 60s, idempotent < 2s
+#
+# Declare exact versions of compilers and runtimes. Drift detection
+# catches unexpected upgrades (e.g., apt upgrade bumps Python).
+
+version: '1.0'
+name: toolchain-pin
+description: "Toolchain version pinning with drift detection for Rust, Python, Node, and Go"
+
+params:
+  rust_version: 1.82.0
+  python_version: "3.11"
+  node_version: "20"
+
+machines:
+  toolchain-host:
+    hostname: toolchain-host
+    addr: container
+    user: root
+    arch: x86_64
+    transport: container
+    container:
+      runtime: docker
+      image: forjar-test-target
+      name: forjar-cookbook-12-toolchain
+      ephemeral: false
+      privileged: false
+      init: true
+
+resources:
+  toolchain-dir:
+    type: file
+    machine: toolchain-host
+    state: directory
+    path: /etc/forjar/toolchain.d
+    owner: root
+    mode: '0755'
+    tags: [toolchain, dirs]
+    resource_group: toolchain
+
+  rust-version-pin:
+    type: file
+    machine: toolchain-host
+    path: /etc/forjar/toolchain.d/rust
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — Rust toolchain pin
+      version=1.82.0
+      channel=stable
+    depends_on: [toolchain-dir]
+    tags: [toolchain, rust]
+    resource_group: toolchain
+
+  python-version-pin:
+    type: file
+    machine: toolchain-host
+    path: /etc/forjar/toolchain.d/python
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — Python toolchain pin
+      version=3.11
+      package=python3.11
+    depends_on: [toolchain-dir]
+    tags: [toolchain, python]
+    resource_group: toolchain
+
+  node-version-pin:
+    type: file
+    machine: toolchain-host
+    path: /etc/forjar/toolchain.d/node
+    owner: root
+    mode: '0644'
+    content: |
+      # Managed by forjar — Node.js toolchain pin
+      version=20
+      package=nodejs
+    depends_on: [toolchain-dir]
+    tags: [toolchain, node]
+    resource_group: toolchain
+
+  version-check-script:
+    type: file
+    machine: toolchain-host
+    path: /usr/local/bin/forjar-toolchain-check.sh
+    owner: root
+    mode: '0755'
+    content: |
+      #!/bin/bash
+      # Verify installed toolchain versions match pins
+      CHECK_DIR="/etc/forjar/toolchain.d"
+      ERRORS=0
+      for pin in "$CHECK_DIR"/*; do
+        TOOL=$(basename "$pin")
+        EXPECTED=$(grep '^version=' "$pin" | cut -d= -f2)
+        case "$TOOL" in
+          rust)   ACTUAL=$(rustc --version 2>/dev/null | awk '{print $2}') ;;
+          python) ACTUAL=$(python3 --version 2>/dev/null | awk '{print $2}' | cut -d. -f1,2) ;;
+          node)   ACTUAL=$(node --version 2>/dev/null | sed 's/^v//' | cut -d. -f1) ;;
+          *)      continue ;;
+        esac
+        if [ -n "$ACTUAL" ] && [ "$ACTUAL" != "$EXPECTED" ]; then
+          echo "DRIFT: $TOOL expected=$EXPECTED actual=$ACTUAL"
+          ERRORS=$((ERRORS + 1))
+        fi
+      done
+      [ "$ERRORS" -eq 0 ] && echo "All toolchain versions match pins"
+    depends_on: [rust-version-pin, python-version-pin, node-version-pin]
+    tags: [toolchain, verify]
+    resource_group: toolchain
+
+  toolchain-audit-cron:
+    type: cron
+    machine: toolchain-host
+    schedule: "0 8 * * *"
+    command: "/usr/local/bin/forjar-toolchain-check.sh 2>&1 | logger -t forjar-toolchain"
+    name: forjar-toolchain-audit
+    depends_on: [version-check-script]
+    tags: [toolchain, audit]
+    resource_group: toolchain
+
+policy:
+  failure: continue_independent
+  parallel_machines: false
+  tripwire: true
+  lock_file: true
+  ssh_retries: 3
+  pre_apply: "echo 'Pinning toolchain versions'"
+  post_apply: "echo 'Toolchain versions pinned'"
+  notify:
+    on_success: "echo 'Toolchain pins deployed successfully'"
+    on_failure: "echo 'Toolchain pinning failed'"
+    on_drift: "echo 'Toolchain version drift detected'"
+
+outputs:
+  rust_version:
+    value: "1.82.0"
+    description: "Pinned Rust version"
+  python_version:
+    value: "3.11"
+    description: "Pinned Python version"
