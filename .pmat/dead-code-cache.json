@@ -1,9 +1,55 @@
 {
-  "tree_hash": "92c915cab0750b37c07e48ea9e3c0e67911ed0c0",
+  "tree_hash": "3c82eb6b17b610dcc4a529839a2153d55685cddb",
   "pmat_version": "3.6.1",
-  "timestamp": "2026-03-02T22:04:31.716745949Z",
+  "timestamp": "2026-03-02T22:06:09.229538259Z",
   "report": {
     "files_with_dead_code": [
+      {
+        "file_path": "src/cli/tests_show.rs",
+        "dead_items": [
+          {
+            "name": "make_state_dir_with_lock",
+            "kind": "Suppressed",
+            "line": 128,
+            "column": 1,
+            "message": "fn `make_state_dir_with_lock` has #[allow(dead_code)] suppression (explicit dead code admission)"
+          }
+        ],
+        "file_dead_percentage": 1.6129032258064515
+      },
+      {
+        "file_path": "src/cli/tests_show_3.rs",
+        "dead_items": [
+          {
+            "name": "write_env_config",
+            "kind": "Suppressed",
+            "line": 170,
+            "column": 1,
+            "message": "fn `write_env_config` has #[allow(dead_code)] suppression (explicit dead code admission)"
+          }
+        ],
+        "file_dead_percentage": 1.5625
+      },
+      {
+        "file_path": "src/cli/tests_apply_1.rs",
+        "dead_items": [
+          {
+            "name": "make_test_lock",
+            "kind": "Suppressed",
+            "line": 488,
+            "column": 1,
+            "message": "fn `make_test_lock` has #[allow(dead_code)] suppression (explicit dead code admission)"
+          },
+          {
+            "name": "make_test_resource_lock",
+            "kind": "Suppressed",
+            "line": 504,
+            "column": 1,
+            "message": "fn `make_test_resource_lock` has #[allow(dead_code)] suppression (explicit dead code admission)"
+          }
+        ],
+        "file_dead_percentage": 1.556420233463035
+      },
       {
         "file_path": "src/cli/tests_init.rs",
         "dead_items": [
@@ -29,52 +75,6 @@
           }
         ],
         "file_dead_percentage": 1.3071895424836601
-      },
-      {
-        "file_path": "src/cli/tests_show.rs",
-        "dead_items": [
-          {
-            "name": "make_state_dir_with_lock",
-            "kind": "Suppressed",
-            "line": 128,
-            "column": 1,
-            "message": "fn `make_state_dir_with_lock` has #[allow(dead_code)] suppression (explicit dead code admission)"
-          }
-        ],
-        "file_dead_percentage": 1.6129032258064515
-      },
-      {
-        "file_path": "src/cli/tests_apply_1.rs",
-        "dead_items": [
-          {
-            "name": "make_test_lock",
-            "kind": "Suppressed",
-            "line": 488,
-            "column": 1,
-            "message": "fn `make_test_lock` has #[allow(dead_code)] suppression (explicit dead code admission)"
-          },
-          {
-            "name": "make_test_resource_lock",
-            "kind": "Suppressed",
-            "line": 504,
-            "column": 1,
-            "message": "fn `make_test_resource_lock` has #[allow(dead_code)] suppression (explicit dead code admission)"
-          }
-        ],
-        "file_dead_percentage": 1.556420233463035
-      },
-      {
-        "file_path": "src/cli/tests_show_3.rs",
-        "dead_items": [
-          {
-            "name": "write_env_config",
-            "kind": "Suppressed",
-            "line": 170,
-            "column": 1,
-            "message": "fn `write_env_config` has #[allow(dead_code)] suppression (explicit dead code admission)"
-          }
-        ],
-        "file_dead_percentage": 1.5625
       }
     ],
     "total_dead_items": 6,
