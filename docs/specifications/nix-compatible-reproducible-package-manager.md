@@ -128,27 +128,15 @@ A recipe's purity level is the **maximum** (least pure) of all its transitive de
 
 ### 3.3 Static Analysis (FJ-1305)
 
-Purity classification reuses existing detection logic:
-
-- **Version pins**: presence of `version:` field on package resources
-- **Pipe-to-shell detection**: SAF scoring logic (`curl|bash`, `wget|sh` pattern matching)
-- **Sandbox declaration**: presence of `sandbox:` config block
-- **Input closure**: all transitive `depends_on` and `recipe` references
+Purity classification reuses existing detection: `version:` field presence, SAF `curl|bash`/`wget|sh` pattern matching, `sandbox:` block presence, transitive `depends_on`/`recipe` closure.
 
 ### 3.4 Validation Command (FJ-1306)
 
-```bash
-forjar validate --check-recipe-purity
-
-# Output:
-# my-package:     Pure (0)    — version pinned, sandboxed, all inputs hashed
-# my-service:     Pinned (1)  — version pinned, not sandboxed
-# legacy-setup:   Impure (3)  — contains curl|bash pattern
-```
+`forjar validate --check-recipe-purity` reports each resource's purity level (Pure/Pinned/Constrained/Impure) with reason.
 
 ### 3.5 Input Closure Tracking (FJ-1307)
 
-Each resource's input closure is the set of all transitive inputs that affect its output. The closure hash is `composite_hash()` over all input hashes, sorted lexicographically. Two resources with identical closures produce identical store paths.
+Each resource's input closure is the set of all transitive inputs. The closure hash is `composite_hash()` over all input hashes, sorted lexicographically. Identical closures produce identical store paths.
 
 ---
 
@@ -162,21 +150,9 @@ schema: "1.0"
 generated_at: "2026-03-02T10:00:00Z"
 generator: "forjar 0.10.0"
 pins:
-  nginx:
-    provider: apt
-    version: "1.24.0-1ubuntu1"
-    hash: "blake3:abc123..."
-    pinned_at: "2026-03-01T12:00:00Z"
-  my-recipe:
-    type: recipe
-    git_rev: "a1b2c3d4e5f6"
-    hash: "blake3:def456..."
-    pinned_at: "2026-03-01T12:00:00Z"
-  config-template:
-    type: file
-    source: "templates/nginx.conf"
-    hash: "blake3:789abc..."
-    pinned_at: "2026-03-01T12:00:00Z"
+  nginx: { provider: apt, version: "1.24.0-1ubuntu1", hash: "blake3:abc123..." }
+  my-recipe: { type: recipe, git_rev: "a1b2c3d4e5f6", hash: "blake3:def456..." }
+  config-template: { type: file, source: "templates/nginx.conf", hash: "blake3:789abc..." }
 ```
 
 ### 4.2 CLI Commands (FJ-1311–FJ-1313)
@@ -190,14 +166,7 @@ forjar pin --check           # CI gate — fail if lock file is stale
 
 ### 4.3 Tripwire Integration (FJ-1314)
 
-Input pinning extends tripwire upstream detection. During `forjar apply`, the lock file is compared against resolved inputs. If an input has changed (upstream release, git push, file edit), forjar warns before applying:
-
-```
-WARN: input 'nginx' version changed: 1.24.0-1ubuntu1 → 1.24.0-2ubuntu1
-      Run 'forjar pin --update nginx' to accept, or pin to exact version.
-```
-
-This reuses the existing state management patterns from `src/core/state/mod.rs` — atomic writes, lock file diffing, per-machine state tracking.
+Input pinning extends tripwire upstream detection. During `forjar apply`, the lock file is compared against resolved inputs — if an input has changed (upstream release, git push, file edit), forjar warns before applying. Reuses state management patterns from `src/core/state/mod.rs` (atomic writes, lock file diffing).
 
 ---
 
@@ -229,48 +198,22 @@ resources:
     packages: [my-tool]
     version: "0.5.0"
     store: true
-    sandbox:
-      level: full          # full | network-only | none
-      allowed_paths:        # additional read-only bind mounts
-        - /usr/share/ca-certificates
-      memory_mb: 2048
-      cpus: 4.0
-      timeout: 600         # build timeout in seconds
+    sandbox: { level: full, memory_mb: 2048, cpus: 4.0, timeout: 600 }
 ```
 
 ### 5.3 Sandbox Lifecycle (FJ-1316)
 
-```
-1. Create namespace     (unshare — reuses pepita.rs:ensure_namespace)
-2. Mount overlay        (lower=store inputs, upper=tmpfs — reuses pepita/mod.rs:apply_present)
-3. Bind inputs          (read-only bind mounts of store dependencies)
-4. Apply cgroup limits  (reuses pepita.rs:apply_cgroup_limits)
-5. Execute build        (pipe bashrs-purified script to bash inside namespace)
-6. Extract outputs      (copy from overlay upper to staging)
-7. Hash outputs         (hash_directory from hasher.rs)
-8. Store                (move to /var/forjar/store/<hash>/content/)
-9. Write meta.yaml      (record input closure, references)
-10. Destroy namespace   (reuses pepita.rs:cleanup_namespace)
-```
+Create namespace (`pepita.rs:ensure_namespace`) → mount overlay (lower=store inputs, upper=tmpfs) → bind inputs read-only → apply cgroup limits (`pepita.rs:apply_cgroup_limits`) → execute bashrs-purified build script → extract outputs → `hash_directory()` from `hasher.rs` → move to `/var/forjar/store/<hash>/content/` → write `meta.yaml` → destroy namespace (`pepita.rs:cleanup_namespace`).
 
 ### 5.4 Seccomp Profile (FJ-1317)
 
-Default seccomp profile for pure builds: deny `connect(2)` (no network), deny `mount(2)` (no filesystem escape), deny `ptrace(2)` (no debugging other processes). Allow standard build syscalls (read, write, open, exec, mmap, etc.). Extends the existing `seccomp: true` field on `Resource` (`src/core/types/resource.rs:223`).
+Default for pure builds: deny `connect(2)`, `mount(2)`, `ptrace(2)`. Allow standard build syscalls (read, write, open, exec, mmap). Extends `seccomp: true` on `Resource` (`src/core/types/resource.rs:223`).
 
 ---
 
 ## 6. Binary Cache (FJ-1320–FJ-1324)
 
-### 6.1 Cache Architecture
-
-```
-Substitution order:
-1. Local store     (/var/forjar/store/<hash>/)
-2. Cache sources   (SSH remotes, optional HTTP read-only)
-3. Build from scratch
-```
-
-### 6.2 SSH Cache Transport (FJ-1320)
+### 6.1 Cache Transport (FJ-1320)
 
 Primary transport. Sovereign — no external dependencies, no tokens, no TLS certificates. Uses forjar's existing SSH transport.
 
@@ -347,57 +290,160 @@ forjar store gc --keep-generations 5 # generation retention
 
 ### 8.2 Automated Conversion (FJ-1328)
 
-```bash
-# Automate steps 1-3
-forjar convert --reproducible
-
-# Output:
-# ✓ Added version pins to 12 packages
-# ✓ Enabled store for 8 resources
-# ✓ Generated forjar.inputs.lock.yaml with 20 pins
-# ⚠ 3 resources remain impure (curl|bash patterns — manual fix required)
-```
+`forjar convert --reproducible` automates steps 1-3: adds version pins, enables `store: true`, generates `forjar.inputs.lock.yaml`. Reports remaining impure resources (curl|bash patterns) that require manual intervention.
 
 ### 8.3 Reproducibility Score (FJ-1329)
 
-```bash
-forjar validate --check-reproducibility-score
-
-# Output:
-# Reproducibility score: 72/100
-#   Pure resources:        5/15 (33%)
-#   Pinned resources:      7/15 (47%)
-#   Constrained resources: 2/15 (13%)
-#   Impure resources:      1/15 (7%)
-#   Store coverage:        8/15 (53%)
-#   Input lock coverage:  12/20 (60%)
-```
+`forjar validate --check-reproducibility-score` outputs a 0-100 score based on: percentage of resources at each purity level, store coverage, and input lock coverage.
 
 ### 8.4 Cookbook Recipes (FJ-1330–FJ-1332)
 
-Recipes 63–67 in forjar-cookbook demonstrate reproducible patterns:
-
-- **Recipe 63**: Version-pinned apt packages with store caching
-- **Recipe 64**: Cargo build with full sandbox and input lock
-- **Recipe 65**: Multi-machine deploy from shared SSH cache
-- **Recipe 66**: Reproducibility score gate in CI pipeline
-- **Recipe 67**: Profile generation rollback workflow
+Recipes 63–67: version-pinned apt with store (63), cargo sandbox + input lock (64), multi-machine SSH cache deploy (65), reproducibility score CI gate (66), profile generation rollback (67).
 
 ---
 
-## 9. Implementation Phases
+## 9. Nix Binary Cache Import (FJ-1333–FJ-1336)
+
+Pure Rust implementation of Nix's data formats and protocols. No `nix` binary, no daemon — forjar speaks the wire protocol natively and re-hashes everything into its own BLAKE3 store.
+
+### 9.1 Scope
+
+Three Nix layers are reimplemented in Rust (~1200 LOC total):
+
+| Layer | LOC | Purpose |
+|-------|-----|---------|
+| NAR reader/writer (FJ-1333) | ~300 | Deterministic file tree serialization (Nix's archive format since 2003) |
+| NARInfo parser (FJ-1334) | ~150 | Binary cache metadata (store path, references, signature, nar hash) |
+| Store path computation (FJ-1335) | ~200 | SHA256 input hashing → `/nix/store/<nix-base32>-<name>` path derivation |
+| Binary cache client (FJ-1336) | ~400 | Fetch .narinfo + .nar.xz from cache.nixos.org, verify ed25519 sig, unpack |
+
+**Not reimplemented**: Nix language evaluator (~50k LOC), nixpkgs repository, Nix daemon. Forjar consumes Nix outputs, not expressions.
+
+### 9.2 Provider Integration
+
+```yaml
+resources:
+  ripgrep:
+    type: package
+    provider: nix
+    packages: ["nixpkgs#ripgrep"]
+    version: "14.1.0"
+    store: true
+    nix:
+      nixpkgs_rev: "abc123..."        # pinned nixpkgs commit
+      system: "x86_64-linux"
+```
+
+The `provider: nix` path: compute Nix store path from package + nixpkgs rev → fetch .narinfo from cache.nixos.org → verify ed25519 signature → download .nar.xz → decompress → unpack NAR into staging → rewrite `/nix/store/` references → hash with BLAKE3 → install to `/var/forjar/store/`.
+
+### 9.3 Reference Rewriting
+
+Nix binaries contain hardcoded `/nix/store/<hash>-<name>` paths. These must be rewritten when moving into the forjar store. ELF binaries use `patchelf --set-rpath` / `--set-interpreter`. Non-ELF files (scripts, configs) use byte-level scan and replace. Store path lengths are matched via truncated BLAKE3 hex (32 chars = 128 bits, collision-resistant) under `/fjr/store/` (11 chars, matches `/nix/store/` length) for in-place binary patching.
+
+### 9.4 New Dependencies
+
+| Crate | Purpose |
+|-------|---------|
+| `sha2` | SHA256 for Nix hash verification (Nix protocol requirement) |
+| `ed25519-dalek` | Signature verification for narinfo (~15k LOC, pure Rust) |
+| `xz2` | Decompress .nar.xz from cache.nixos.org |
+| `zstd` (optional) | Decompress .nar.zst from newer caches |
+
+Four crates. Nix itself pulls ~1500 packages.
+
+---
+
+## 10. Forjar Archive Format (FJ-1337–FJ-1340)
+
+Forjar's sovereign package format — FAR (Forjar ARchive). Replaces NAR for forjar-native packages with BLAKE3 verified streaming, content-defined chunking, and built-in provenance.
+
+### 10.1 Why Not NAR
+
+| Dimension | NAR (2003) | FAR |
+|-----------|------------|-----|
+| Hash | SHA256 (no tree mode) | BLAKE3 (verified streaming, keyed mode) |
+| Dedup | Whole-archive transfer | Content-defined chunking — delta transfers |
+| Metadata | Scan full archive | Manifest-first — metadata without full download |
+| Compression | xz (slow decompress) | Zstd (10x faster decompress, dictionary support) |
+| Verification | Hash entire NAR, then compare | BLAKE3 tree mode — verify each 256KB chunk independently |
+| Resume | No — restart from zero | Chunk-level resume, skip verified chunks |
+| Provenance | None in archive | Recipe hash, input closure, builder identity inline |
+
+### 10.2 Archive Layout (FJ-1337)
+
+```
+┌──────────────────────────┐
+│ Magic: "forjar-ar-1\0"   │  12 bytes
+│ Manifest length (u64 LE) │  8 bytes
+├──────────────────────────┤
+│ Manifest (YAML, zstd)    │  Metadata, file list, chunk map, provenance
+├──────────────────────────┤
+│ Chunk table (binary)     │  Per-chunk: blake3 hash + offset + length
+├──────────────────────────┤
+│ Chunks 0..N (zstd)       │  Content-defined boundaries (~64KB, Rabin fingerprint)
+├──────────────────────────┤
+│ Signature (ed25519)       │  64 bytes over manifest blake3 hash
+└──────────────────────────┘
+```
+
+### 10.3 Manifest Schema (FJ-1338)
+
+```yaml
+schema: "1.0"
+name: "ripgrep"
+version: "14.1.0"
+arch: "x86_64"
+store_hash: "blake3:abc123..."
+tree_hash: "blake3:def456..."          # BLAKE3 tree root
+recipe_hash: "blake3:789abc..."
+input_closure: ["blake3:aaa...", "blake3:bbb..."]
+references: ["blake3:ccc..."]
+provenance:
+  sandbox_level: "full"
+  builder_identity: "forjar@build-01"
+  built_at: "2026-03-02T10:00:00Z"
+  git_commit: "abc123"
+files:
+  - { path: "bin/rg", size: 5242880, mode: "0755", hash: "blake3:eee...", chunks: [0,1,2,3,4] }
+  - { path: "share/man/man1/rg.1", size: 12345, mode: "0644", hash: "blake3:fff...", chunks: [5] }
+total_chunks: 6
+compressed_size: 1834567
+```
+
+### 10.4 BLAKE3 Verified Streaming (FJ-1339)
+
+BLAKE3's tree hashing splits content into 256KB chunks, each hashed independently, combined in a binary tree. This enables: parallel verification (8 chunks on 8 cores), partial verification (verify chunk N without chunks 0..N-1), incremental transfer (reuse chunks from previous version), and resume (verify what you have, fetch what's missing).
+
+### 10.5 Content-Defined Chunking (FJ-1340)
+
+Rabin fingerprinting at ~64KB boundaries. When a package updates 14.1.0 → 14.1.1, only changed chunks transfer. Chunk hashes are BLAKE3 — matching chunks between old and new versions are skipped during `forjar cache push/pull`. This is the same dedup model as `casync`/`restic`, integrated into the archive format.
+
+### 10.6 CLI
+
+```bash
+forjar archive pack <store-hash>     # pack store entry into .far
+forjar archive unpack <file.far>     # unpack .far into store
+forjar archive inspect <file.far>    # print manifest without unpacking
+forjar archive verify <file.far>     # verify chunk hashes + signature
+```
+
+---
+
+## 11. Implementation Phases
 
 | Phase | Tickets | Priority | Depends On | Scope |
 |-------|---------|----------|------------|-------|
-| **A** | FJ-1300–FJ-1309 | Highest | Nothing | Store path derivation, metadata, profile generations, `store:` field on Resource, reference scanning, purity static analysis, `validate --check-recipe-purity`, input closure tracking, monotonicity enforcement, store read/write |
-| **B** | FJ-1310–FJ-1314 | High | Phase A | `forjar.inputs.lock.yaml` schema/parser, `forjar pin` / `pin --update` / `pin --check`, tripwire input drift detection |
-| **C** | FJ-1315–FJ-1319 | Medium | Phase A + pepita | `sandbox:` config block, sandbox lifecycle, seccomp BPF profile, read-only bind mounts, timeout/resource limits |
-| **D** | FJ-1320–FJ-1327 | Lower | Phase A + B | SSH cache transport, optional HTTP source, substitution protocol, `forjar cache` CLI, cache verification, GC roots, mark-and-sweep, `forjar store gc` |
-| **E** | FJ-1328–FJ-1332 | Parallel | Phase A + B | `forjar convert --reproducible`, `validate --check-reproducibility-score`, cookbook recipes 63–67 |
+| **A** | FJ-1300–FJ-1309 | Highest | Nothing | Store model, purity analysis, profile generations, input closure tracking |
+| **B** | FJ-1310–FJ-1314 | High | Phase A | Input pinning, lock file, `forjar pin`, tripwire integration |
+| **C** | FJ-1315–FJ-1319 | Medium | Phase A + pepita | Sandbox config, lifecycle, seccomp BPF, read-only bind mounts |
+| **D** | FJ-1320–FJ-1327 | Lower | Phase A + B | SSH/HTTP cache, substitution protocol, GC roots, mark-and-sweep |
+| **E** | FJ-1328–FJ-1332 | Parallel | Phase A + B | `forjar convert --reproducible`, reproducibility score, cookbook 63–67 |
+| **F** | FJ-1333–FJ-1336 | Medium | Phase D | Nix binary cache import: NAR reader, narinfo parser, store path computation |
+| **G** | FJ-1337–FJ-1340 | Lower | Phase A + D | FAR format: archive layout, manifest, BLAKE3 verified streaming, chunking |
 
 ---
 
-## 10. Key Design Decisions
+## 12. Key Design Decisions
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
@@ -411,30 +457,25 @@ Recipes 63–67 in forjar-cookbook demonstrate reproducible patterns:
 | Lock format | YAML | Consistent with all forjar config |
 | Profile generations | Symlink rotation | Atomic `rename(2)` switch + instant rollback |
 | GC strategy | Explicit only | Never auto-delete — user controls store lifecycle |
+| Nix import | Native Rust protocol | ~1200 LOC, 4 crates — no `nix` binary dependency |
+| Archive format | FAR (forjar-native) | BLAKE3 verified streaming, content-defined chunking, manifest-first |
+| Reference rewriting | Truncated BLAKE3 + patchelf | `/fjr/store/` matches `/nix/store/` path length for binary patching |
 
 ---
 
-## 11. Non-Goals
+## 13. Non-Goals
 
-### Not a Nix replacement
+**Not a Nix replacement.** Forjar consumes Nix binary cache outputs natively (Section 9) but never evaluates Nix expressions or replicates nixpkgs. The expression layer is YAML templates + bashrs-purified shell.
 
-Forjar does not replicate Nix's package ecosystem (nixpkgs) or its functional evaluation model. The expression layer is YAML templates producing bashrs-purified shell — not a general-purpose functional language. Forjar will never evaluate Nix expressions or import from nixpkgs. The overlap is architectural (content-addressed store, hermetic builds), not operational.
+**Machine-level artifact manager, not a system package manager.** The store caches resource outputs — no package index, no dependency resolution, no SAT solving. It orchestrates existing package managers (apt, cargo, uv, nix) and caches their outputs.
 
-### Machine-level artifact manager, not a system package manager
+**Not a container registry.** Store entries are resource state snapshots, not runnable OCI images. No `FROM` semantics, no layer composition.
 
-The store model caches **resource outputs at the machine level** — the result of applying a forjar resource to a target. It does not maintain a package index, perform dependency resolution, or implement SAT solving. It orchestrates existing package managers (apt, cargo, uv) and caches their outputs. Think "build cache with addressable generations," not "apt replacement."
-
-### Not a container registry
-
-Store entries are resource state snapshots, not runnable OCI images. There is no `FROM` semantics, no layer composition, no image manifest. Pepita overlays are build-time isolation, not distributable artifacts.
-
-### No required HTTP daemon
-
-Forjar does not run or manage an HTTP server. The SSH cache is the primary transport, consistent with forjar's sovereignty model. An optional read-only HTTP source allows consuming caches served by external infrastructure (nginx, S3, any static host) — but forjar never opens a port or manages a listener.
+**No required HTTP daemon.** SSH cache is primary. Optional read-only HTTP/nix-cache source for consuming external caches — forjar never opens a port.
 
 ---
 
-## 12. Invariants
+## 14. Invariants
 
 ### Store Contracts
 
