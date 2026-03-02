@@ -113,3 +113,15 @@ mod tests_sync_exec;
 mod tests_cov_exec;
 #[cfg(test)]
 mod tests_validate;
+#[cfg(test)]
+mod tests_falsify_spec_a;
+#[cfg(test)]
+mod tests_falsify_spec_b;
+#[cfg(test)]
+mod tests_falsify_spec_c;
+#[cfg(test)]
+mod tests_falsify_spec_d;
+#[cfg(test)]
+mod tests_falsify_spec_e;
+#[cfg(test)]
+mod tests_falsify_spec_f;
