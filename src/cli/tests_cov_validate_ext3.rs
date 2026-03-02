@@ -210,3 +210,66 @@ fn content_drift_risk_json() {
     let f = write_cfg(d.path(), base_cfg());
     assert!(cmd_validate_check_resource_content_drift_risk(&f, true).is_ok());
 }
+
+// ── error paths: file not found ─────────────────────────────
+
+#[test]
+fn audit_dep_completeness_missing_file() {
+    let p = std::path::PathBuf::from("/tmp/nonexistent_validate_ext3.yaml");
+    assert!(cmd_validate_check_resource_dependency_completeness_audit(&p, false).is_err());
+}
+#[test]
+fn audit_machine_coverage_gap_missing_file() {
+    let p = std::path::PathBuf::from("/tmp/nonexistent_validate_ext3.yaml");
+    assert!(cmd_validate_check_resource_machine_coverage_gap(&p, false).is_err());
+}
+#[test]
+fn audit_path_depth_limit_missing_file() {
+    let p = std::path::PathBuf::from("/tmp/nonexistent_validate_ext3.yaml");
+    assert!(cmd_validate_check_resource_path_depth_limit(&p, false).is_err());
+}
+#[test]
+fn topology_circular_dep_missing_file() {
+    let p = std::path::PathBuf::from("/tmp/nonexistent_validate_ext3.yaml");
+    assert!(cmd_validate_check_resource_circular_dependency_depth(&p, false).is_err());
+}
+#[test]
+fn topology_orphan_deep_missing_file() {
+    let p = std::path::PathBuf::from("/tmp/nonexistent_validate_ext3.yaml");
+    assert!(cmd_validate_check_resource_orphan_detection_deep(&p, false).is_err());
+}
+#[test]
+fn topology_provider_diversity_missing_file() {
+    let p = std::path::PathBuf::from("/tmp/nonexistent_validate_ext3.yaml");
+    assert!(cmd_validate_check_resource_provider_diversity(&p, false).is_err());
+}
+#[test]
+fn secext_dep_symmetry_deep_missing_file() {
+    let p = std::path::PathBuf::from("/tmp/nonexistent_validate_ext3.yaml");
+    assert!(cmd_validate_check_resource_dependency_symmetry_deep(&p, false).is_err());
+}
+#[test]
+fn secext_tag_namespace_missing_file() {
+    let p = std::path::PathBuf::from("/tmp/nonexistent_validate_ext3.yaml");
+    assert!(cmd_validate_check_resource_tag_namespace(&p, false).is_err());
+}
+#[test]
+fn secext_machine_capacity_missing_file() {
+    let p = std::path::PathBuf::from("/tmp/nonexistent_validate_ext3.yaml");
+    assert!(cmd_validate_check_resource_machine_capacity(&p, false).is_err());
+}
+#[test]
+fn govext_dep_fan_out_limit_missing_file() {
+    let p = std::path::PathBuf::from("/tmp/nonexistent_validate_ext3.yaml");
+    assert!(cmd_validate_check_resource_dependency_fan_out_limit(&p, false).is_err());
+}
+#[test]
+fn govext_tag_required_keys_missing_file() {
+    let p = std::path::PathBuf::from("/tmp/nonexistent_validate_ext3.yaml");
+    assert!(cmd_validate_check_resource_tag_required_keys(&p, false).is_err());
+}
+#[test]
+fn govext_content_drift_risk_missing_file() {
+    let p = std::path::PathBuf::from("/tmp/nonexistent_validate_ext3.yaml");
+    assert!(cmd_validate_check_resource_content_drift_risk(&p, false).is_err());
+}

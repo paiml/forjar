@@ -330,3 +330,66 @@ fn when_condition_coverage_json() {
     let f = write_cfg(d.path(), base_cfg());
     assert!(cmd_validate_check_resource_when_condition_coverage(&f, true).is_ok());
 }
+
+// ── error paths: file not found ─────────────────────────────
+
+#[test]
+fn resilience_hook_coverage_missing() {
+    let p = std::path::PathBuf::from("/tmp/nonexistent_ext2.yaml");
+    assert!(cmd_validate_check_resource_lifecycle_hook_coverage(&p, false).is_err());
+}
+#[test]
+fn resilience_secret_rotation_missing() {
+    let p = std::path::PathBuf::from("/tmp/nonexistent_ext2.yaml");
+    assert!(cmd_validate_check_resource_secret_rotation_age(&p, false).is_err());
+}
+#[test]
+fn maturity_version_drift_missing() {
+    let p = std::path::PathBuf::from("/tmp/nonexistent_ext2.yaml");
+    assert!(cmd_validate_check_resource_dependency_version_drift(&p, false).is_err());
+}
+#[test]
+fn maturity_naming_length_missing() {
+    let p = std::path::PathBuf::from("/tmp/nonexistent_ext2.yaml");
+    assert!(cmd_validate_check_resource_naming_length_limit(&p, false).is_err());
+}
+#[test]
+fn hygiene_depth_variance_missing() {
+    let p = std::path::PathBuf::from("/tmp/nonexistent_ext2.yaml");
+    assert!(cmd_validate_check_resource_dependency_depth_variance(&p, false).is_err());
+}
+#[test]
+fn hygiene_tag_key_naming_missing() {
+    let p = std::path::PathBuf::from("/tmp/nonexistent_ext2.yaml");
+    assert!(cmd_validate_check_resource_tag_key_naming(&p, false).is_err());
+}
+#[test]
+fn config_quality_dep_isolation_missing() {
+    let p = std::path::PathBuf::from("/tmp/nonexistent_ext2.yaml");
+    assert!(cmd_validate_check_resource_dependency_isolation(&p, false).is_err());
+}
+#[test]
+fn scoring_dep_ordering_missing() {
+    let p = std::path::PathBuf::from("/tmp/nonexistent_ext2.yaml");
+    assert!(cmd_validate_check_resource_dependency_ordering_consistency(&p, false).is_err());
+}
+#[test]
+fn scoring_tag_format_missing() {
+    let p = std::path::PathBuf::from("/tmp/nonexistent_ext2.yaml");
+    assert!(cmd_validate_check_resource_tag_value_format(&p, false).is_err());
+}
+#[test]
+fn security_secret_scope_missing() {
+    let p = std::path::PathBuf::from("/tmp/nonexistent_ext2.yaml");
+    assert!(cmd_validate_check_resource_secret_scope(&p, false).is_err());
+}
+#[test]
+fn security_deprecation_missing() {
+    let p = std::path::PathBuf::from("/tmp/nonexistent_ext2.yaml");
+    assert!(cmd_validate_check_resource_deprecation_usage(&p, false).is_err());
+}
+#[test]
+fn compliance_tags_missing() {
+    let p = std::path::PathBuf::from("/tmp/nonexistent_ext2.yaml");
+    assert!(cmd_validate_check_resource_compliance_tags(&p, false).is_err());
+}
