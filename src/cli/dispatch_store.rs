@@ -61,7 +61,11 @@ fn dispatch_cache(sub: CacheCmd) -> Result<(), String> {
             store_dir,
             hash,
         } => cmd_cache_push(&remote, &store_dir, hash.as_deref()),
-        CacheCmd::Pull { hash, store_dir } => cmd_cache_pull(&hash, &store_dir),
+        CacheCmd::Pull {
+            hash,
+            source,
+            store_dir,
+        } => cmd_cache_pull(&hash, source.as_deref(), &store_dir),
         CacheCmd::Verify { store_dir, json } => cmd_cache_verify(&store_dir, json),
     }
 }

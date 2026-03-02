@@ -113,7 +113,7 @@ references: []
         let store = make_store(&dir);
         let hash = "blake3:aabbccdd00112233445566778899aabbccddeeff0011223344556677889900aa";
 
-        let result = cmd_cache_pull(hash, &store);
+        let result = cmd_cache_pull(hash, None, &store);
         assert!(result.is_ok());
     }
 
@@ -123,7 +123,7 @@ references: []
         let store = dir.path().join("store");
         fs::create_dir_all(&store).unwrap();
 
-        let result = cmd_cache_pull("blake3:deadbeef", &store);
+        let result = cmd_cache_pull("blake3:deadbeef", None, &store);
         assert!(result.is_ok());
     }
 
@@ -145,6 +145,22 @@ references: []
 
         let result = cmd_cache_verify(&store, true);
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_cache_pull_with_source() {
+        let dir = TempDir::new().unwrap();
+        let store = dir.path().join("store");
+        fs::create_dir_all(&store).unwrap();
+
+        // Pull with source specified — transport will fail but no panic
+        let result = cmd_cache_pull(
+            "blake3:deadbeef",
+            Some("forjar@cache.internal:/cache"),
+            &store,
+        );
+        // Transport error is expected
+        assert!(result.is_err());
     }
 
     #[test]

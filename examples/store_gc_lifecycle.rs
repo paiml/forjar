@@ -138,10 +138,7 @@ fn demo_sweep() {
     // Check journal directory
     let journal_dir = store_dir.join(".gc-journal");
     assert!(journal_dir.is_dir(), "GC journal dir should exist");
-    let journal_files: Vec<_> = fs::read_dir(&journal_dir)
-        .unwrap()
-        .flatten()
-        .collect();
+    let journal_files: Vec<_> = fs::read_dir(&journal_dir).unwrap().flatten().collect();
     assert!(!journal_files.is_empty(), "GC journal should have entries");
     let journal_content = fs::read_to_string(journal_files[0].path()).unwrap();
     assert!(journal_content.contains("dead_hash"));
