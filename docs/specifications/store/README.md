@@ -32,7 +32,7 @@
 | **I** | [Security & Auditability](phase-i-security.md) | FJ-1356 | ✅ | Secret scanning, regex detection, encrypted value validation |
 | **J** | [Performance Guarantees](phase-j-benchmarks.md) | FJ-1355 | ✅ | Criterion benchmarks for all store operations |
 | **K** | [Bash Provability](phase-k-bash.md) | FJ-1357 | ✅ | I8 invariant enforcement at all exec entry points |
-| **L** | [Execution Layer](phase-l-execution.md) | FJ-1358–1365 | 🔲 | Spec-only — execution gaps, ticket assignments, rollback strategies |
+| **L** | [Execution Layer](phase-l-execution.md) | FJ-1358–1365 | 🔧 | Execution bridges: provider, GC, pins, cache, convert, diff/sync, sandbox |
 
 ---
 

@@ -32,6 +32,7 @@ pub mod reference;
 pub mod repro_score;
 pub mod sandbox;
 pub mod sandbox_exec;
+pub mod sandbox_run;
 pub mod secret_scan;
 pub mod store_diff;
 pub mod substitution;
@@ -98,6 +99,8 @@ mod tests_repro_score;
 mod tests_sandbox;
 #[cfg(test)]
 mod tests_sandbox_exec;
+#[cfg(test)]
+mod tests_sandbox_run;
 #[cfg(test)]
 mod tests_secret_scan;
 #[cfg(test)]
