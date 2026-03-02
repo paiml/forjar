@@ -1,10 +1,13 @@
 //! FJ-1327/FJ-1345: `forjar store` — store operations CLI (gc, list, diff, sync).
 
 use crate::core::store::gc::{collect_roots, mark_and_sweep, GcConfig};
+use crate::core::store::gc_exec;
 use crate::core::store::meta::read_meta;
 use crate::core::store::store_diff::{
-    compute_diff, has_diffable_provenance, upstream_check_command,
+    build_sync_plan, compute_diff, has_diffable_provenance, upstream_check_command,
 };
+use crate::core::store::sync_exec;
+use crate::core::types::Machine;
 use std::path::Path;
 
 /// GC: delete unreachable store entries.
@@ -34,43 +37,63 @@ pub(crate) fn cmd_store_gc(
     let roots = collect_roots(&profile_hashes, &lock_hashes, gc_roots_path);
     let report = mark_and_sweep(&roots, store_dir)?;
 
-    if json {
-        let j = serde_json::json!({
-            "live": report.live.len(),
-            "dead": report.dead.len(),
-            "total": report.total,
-            "dry_run": dry_run,
-            "dead_entries": report.dead,
-        });
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&j).unwrap_or_else(|_| "{}".to_string())
-        );
-    } else {
-        println!("Store GC report:");
-        println!(
-            "  Total: {} | Live: {} | Dead: {}",
-            report.total,
-            report.live.len(),
-            report.dead.len()
-        );
-        if dry_run {
-            println!("  (dry-run — no entries deleted)");
-            for hash in &report.dead {
-                println!("  would delete: {}", &hash[..20.min(hash.len())]);
-            }
-        } else if report.dead.is_empty() {
-            println!("  Nothing to collect");
+    if dry_run {
+        let dry = gc_exec::sweep_dry_run(&report, store_dir);
+        if json {
+            let j = serde_json::json!({
+                "live": report.live.len(),
+                "dead": report.dead.len(),
+                "total": report.total,
+                "dry_run": true,
+                "entries": dry.iter().map(|e| serde_json::json!({
+                    "hash": e.hash, "size_bytes": e.size_bytes,
+                })).collect::<Vec<_>>(),
+            });
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&j).unwrap_or_else(|_| "{}".to_string())
+            );
         } else {
-            for hash in &report.dead {
-                let dir = store_dir.join(hash.strip_prefix("blake3:").unwrap_or(hash));
-                if dir.is_dir() {
-                    std::fs::remove_dir_all(&dir)
-                        .map_err(|e| format!("delete {}: {e}", dir.display()))?;
-                    println!("  deleted: {}", &hash[..20.min(hash.len())]);
-                }
+            println!("Store GC report (dry-run):");
+            println!(
+                "  Total: {} | Live: {} | Dead: {}",
+                report.total,
+                report.live.len(),
+                report.dead.len()
+            );
+            for e in &dry {
+                println!(
+                    "  would delete: {} ({})",
+                    &e.hash[..20.min(e.hash.len())],
+                    human_bytes(e.size_bytes)
+                );
             }
-            println!("  Collected {} entries", report.dead.len());
+        }
+    } else {
+        let result = gc_exec::sweep(&report, store_dir)?;
+        if json {
+            let j = serde_json::json!({
+                "removed": result.removed.len(),
+                "bytes_freed": result.bytes_freed,
+                "errors": result.errors.len(),
+            });
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&j).unwrap_or_else(|_| "{}".to_string())
+            );
+        } else {
+            println!("Store GC complete:");
+            println!(
+                "  Removed: {} | Freed: {}",
+                result.removed.len(),
+                human_bytes(result.bytes_freed)
+            );
+            for hash in &result.removed {
+                println!("  deleted: {}", &hash[..20.min(hash.len())]);
+            }
+            for (hash, err) in &result.errors {
+                println!("  error: {} — {err}", &hash[..20.min(hash.len())]);
+            }
         }
     }
     Ok(())
@@ -155,12 +178,32 @@ pub(crate) fn cmd_store_sync(
     let diff = compute_diff(&meta, None);
     let check_cmd = upstream_check_command(&meta);
 
-    if json {
+    if apply {
+        let machine = local_machine();
+        let plan = build_sync_plan(&[(meta, None)]);
+        let result = sync_exec::execute_sync(&plan, &machine, store_dir, Some(300))?;
+        if json {
+            let j = serde_json::json!({
+                "hash": hash,
+                "re_imported": result.re_imported.len(),
+                "derivations_replayed": result.derivations_replayed,
+                "new_profile_hash": result.new_profile_hash,
+            });
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&j).unwrap_or_else(|_| "{}".to_string())
+            );
+        } else {
+            println!("Store sync complete: {}", &hash[..20.min(hash.len())]);
+            println!("  Re-imported: {}", result.re_imported.len());
+            println!("  Derivations replayed: {}", result.derivations_replayed);
+        }
+    } else if json {
         let j = serde_json::json!({
             "hash": hash,
             "upstream_changed": diff.upstream_changed,
             "provider": diff.provider,
-            "apply": apply,
+            "apply": false,
             "check_command": check_cmd,
         });
         println!(
@@ -169,9 +212,7 @@ pub(crate) fn cmd_store_sync(
         );
     } else {
         println!("Store sync: {}", &hash[..20.min(hash.len())]);
-        if !apply {
-            println!("  (dry-run — use --apply to execute)");
-        }
+        println!("  (dry-run — use --apply to execute)");
         if let Some(cmd) = check_cmd {
             println!("  Step 1: Check upstream via: {cmd}");
         }
@@ -241,4 +282,30 @@ fn list_store_entries(store_dir: &Path) -> Result<Vec<(String, String, String)>,
         .collect();
     entries.sort();
     Ok(entries)
+}
+
+/// Create a localhost Machine for local transport execution.
+fn local_machine() -> Machine {
+    Machine {
+        hostname: "localhost".to_string(),
+        addr: "127.0.0.1".to_string(),
+        user: "root".to_string(),
+        arch: std::env::consts::ARCH.to_string(),
+        ssh_key: None,
+        roles: Vec::new(),
+        transport: None,
+        container: None,
+        pepita: None,
+        cost: 0,
+    }
+}
+
+fn human_bytes(bytes: u64) -> String {
+    if bytes < 1024 {
+        return format!("{bytes} B");
+    }
+    if bytes < 1_048_576 {
+        return format!("{:.1} KB", bytes as f64 / 1024.0);
+    }
+    format!("{:.1} MB", bytes as f64 / 1_048_576.0)
 }

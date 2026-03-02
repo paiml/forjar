@@ -32,8 +32,9 @@ pub(crate) fn dispatch_store_cmd(cmd: Commands) -> Result<(), String> {
         Commands::Convert(ConvertArgs {
             file,
             reproducible,
+            apply,
             json,
-        }) => cmd_convert(&file, reproducible, json),
+        }) => cmd_convert(&file, reproducible, apply, json),
         Commands::StoreImport(StoreImportArgs {
             provider,
             reference,

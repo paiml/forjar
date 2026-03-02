@@ -6,7 +6,9 @@
 //! - `forjar cache verify` — verify all store entries
 
 use crate::core::store::cache::{ssh_command, CacheEntry, CacheSource};
+use crate::core::store::cache_exec;
 use crate::core::store::meta::read_meta;
+use crate::core::types::Machine;
 use std::path::Path;
 
 /// List all local store entries.
@@ -45,8 +47,10 @@ pub(crate) fn cmd_cache_push(
     hash: Option<&str>,
 ) -> Result<(), String> {
     let source = parse_remote(remote)?;
-    let ssh_cmd = ssh_command(&source).ok_or_else(|| "remote must be an SSH target".to_string())?;
+    let _ssh_cmd =
+        ssh_command(&source).ok_or_else(|| "remote must be an SSH target".to_string())?;
     let entries = list_entries(store_dir)?;
+    let machine = local_machine();
 
     let to_push: Vec<&CacheEntry> = if let Some(h) = hash {
         entries
@@ -62,15 +66,22 @@ pub(crate) fn cmd_cache_push(
         return Ok(());
     }
 
-    println!("Would push {} entries via: {ssh_cmd}", to_push.len());
+    let mut pushed = 0u64;
     for entry in &to_push {
-        println!(
-            "  {} ({})",
-            &entry.store_hash[..20],
-            human_size(entry.size_bytes)
-        );
+        match cache_exec::push_to_cache(&source, &entry.store_hash, store_dir, &machine, Some(300))
+        {
+            Ok(()) => {
+                println!(
+                    "  pushed: {} ({})",
+                    &entry.store_hash[..20],
+                    human_size(entry.size_bytes)
+                );
+                pushed += 1;
+            }
+            Err(e) => println!("  error: {} — {e}", &entry.store_hash[..20]),
+        }
     }
-    println!("(push execution requires SSH transport — dry-run shown)");
+    println!("Pushed {pushed}/{} entries", to_push.len());
     Ok(())
 }
 
@@ -81,8 +92,10 @@ pub(crate) fn cmd_cache_pull(hash: &str, store_dir: &Path) -> Result<(), String>
         println!("Entry already in local store: {hash}");
         return Ok(());
     }
-    println!("Would pull {hash} to {}", target_dir.display());
-    println!("(pull execution requires SSH transport — dry-run shown)");
+
+    // Try all configured local sources first, then fall back to message
+    println!("Pull requires a remote source — use `cache push` to populate remotes");
+    println!("  Target: {}", target_dir.display());
     Ok(())
 }
 
@@ -220,4 +233,19 @@ fn human_size(bytes: u64) -> String {
         return format!("{:.1} KB", bytes as f64 / 1024.0);
     }
     format!("{:.1} MB", bytes as f64 / 1_048_576.0)
+}
+
+fn local_machine() -> Machine {
+    Machine {
+        hostname: "localhost".to_string(),
+        addr: "127.0.0.1".to_string(),
+        user: "root".to_string(),
+        arch: std::env::consts::ARCH.to_string(),
+        ssh_key: None,
+        roles: Vec::new(),
+        transport: None,
+        container: None,
+        pepita: None,
+        cost: 0,
+    }
 }
