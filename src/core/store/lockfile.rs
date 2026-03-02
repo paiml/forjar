@@ -56,7 +56,7 @@ pub fn write_lockfile(path: &Path, lockfile: &LockFile) -> Result<(), String> {
 }
 
 /// Stale pin: a pin whose hash no longer matches a given current hash.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct StalenessEntry {
     pub name: String,
     pub locked_hash: String,

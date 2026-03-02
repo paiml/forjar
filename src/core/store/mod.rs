@@ -25,6 +25,8 @@ pub mod provider;
 pub mod derivation;
 pub mod store_diff;
 pub mod convert;
+pub mod pin_tripwire;
+pub mod validate;
 
 #[cfg(test)]
 mod tests_path;
@@ -70,3 +72,7 @@ mod tests_derivation;
 mod tests_store_diff;
 #[cfg(test)]
 mod tests_convert;
+#[cfg(test)]
+mod tests_pin_tripwire;
+#[cfg(test)]
+mod tests_validate;

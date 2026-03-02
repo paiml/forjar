@@ -6,9 +6,10 @@
 //! - Input lock coverage (20% weight)
 
 use super::purity::PurityLevel;
+use serde::{Deserialize, Serialize};
 
 /// Per-resource breakdown for the reproducibility report.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ResourceScore {
     pub name: String,
     pub purity: PurityLevel,
@@ -18,7 +19,7 @@ pub struct ResourceScore {
 }
 
 /// Overall reproducibility score for a recipe.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ReproScore {
     pub composite: f64,
     pub purity_score: f64,
