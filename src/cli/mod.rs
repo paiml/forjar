@@ -553,6 +553,8 @@ mod tests_validate_core_3;
 #[cfg(test)]
 mod tests_validate_core_b;
 #[cfg(test)]
+mod tests_validate_store_purity;
+#[cfg(test)]
 mod tests_validate_transport;
 #[cfg(test)]
 mod tests_workspace;
@@ -579,6 +581,7 @@ mod validate_safety;
 mod validate_scoring;
 mod validate_security;
 mod validate_security_ext;
+mod validate_store_purity;
 mod validate_structural;
 mod validate_topology;
 mod validate_transport;

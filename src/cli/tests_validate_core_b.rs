@@ -166,6 +166,8 @@ mod tests {
             check_resource_dependency_ordering_consistency: false,
             check_resource_tag_value_format: false,
             check_resource_provider_version_pinning: false,
+            check_recipe_purity: false,
+            check_reproducibility_score: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { dry_expand, .. }) => assert!(dry_expand),
@@ -322,6 +324,8 @@ mod tests {
             check_resource_dependency_ordering_consistency: false,
             check_resource_tag_value_format: false,
             check_resource_provider_version_pinning: false,
+            check_recipe_purity: false,
+            check_reproducibility_score: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { exhaustive, .. }) => assert!(exhaustive),
@@ -478,6 +482,8 @@ mod tests {
             check_resource_dependency_ordering_consistency: false,
             check_resource_tag_value_format: false,
             check_resource_provider_version_pinning: false,
+            check_recipe_purity: false,
+            check_reproducibility_score: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { policy_file, .. }) => {
