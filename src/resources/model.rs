@@ -75,12 +75,26 @@ pub fn apply_script(resource: &Resource) -> String {
             } else if source.contains('/') {
                 // HuggingFace repo ID (e.g., "TheBloke/Llama-2-7B-GGUF")
                 // Use apr pull if available, fall back to huggingface-cli
-                // apr pull caches models internally; after pull, link cache to target path
+                // apr pull prints "Path: /path/to/cached/file" — parse it to find the cached model
                 script.push_str(&format!(
-                    "if command -v apr >/dev/null 2>&1; then\n  apr pull '{}'\n  APR_CACHE=$(apr cache dir 2>/dev/null || echo '{}')\n  CACHED=$(find \"$APR_CACHE\" -name '*.gguf' -o -name '*.safetensors' 2>/dev/null | head -1)\n  if [ -n \"$CACHED\" ]; then\n    ln -sf \"$CACHED\" '{}'\n  fi\n\
-                     elif command -v huggingface-cli >/dev/null 2>&1; then\n  huggingface-cli download '{}' --local-dir '{}'\n\
-                     else\n  echo 'ERROR: no download tool available (need apr or huggingface-cli)' >&2; exit 1\nfi\n",
-                    source, cache_dir, path, source, cache_dir
+                    "if command -v apr >/dev/null 2>&1; then\n\
+                     \x20 APR_OUT=$(apr pull '{source}' 2>&1)\n\
+                     \x20 CACHED=$(echo \"$APR_OUT\" | grep 'Path:' | head -1 | sed 's/.*Path: *//')\n\
+                     \x20 if [ -n \"$CACHED\" ] && [ -f \"$CACHED\" ]; then\n\
+                     \x20   ln -sf \"$CACHED\" '{path}'\n\
+                     \x20 else\n\
+                     \x20   echo \"ERROR: apr pull did not return a valid cached path\" >&2\n\
+                     \x20   echo \"apr output: $APR_OUT\" >&2\n\
+                     \x20   exit 1\n\
+                     \x20 fi\n\
+                     elif command -v huggingface-cli >/dev/null 2>&1; then\n\
+                     \x20 huggingface-cli download '{source}' --local-dir '{cache_dir}'\n\
+                     else\n\
+                     \x20 echo 'ERROR: no download tool available (need apr or huggingface-cli)' >&2; exit 1\n\
+                     fi\n",
+                    source = source,
+                    path = path,
+                    cache_dir = cache_dir,
                 ));
             } else {
                 // Bare name — assume local path
@@ -247,6 +261,35 @@ mod tests {
         assert!(script.contains("TheBloke/Llama-2-7B-GGUF"));
         assert!(script.contains("chown 'noah'"));
         assert!(script.contains("downloaded:llama-7b"));
+    }
+
+    /// PMAT-042: apr pull output parsing — extract cached path from `Path:` line
+    #[test]
+    fn test_pmat042_apr_pull_parses_path_from_output() {
+        let r = make_model_resource("llama-7b");
+        let script = apply_script(&r);
+        // Must capture apr pull output and grep for "Path:" to find cached file
+        assert!(
+            script.contains("Path:"),
+            "apr pull branch must parse Path: from apr pull output"
+        );
+        // Must NOT use `apr cache dir` (doesn't exist)
+        assert!(
+            !script.contains("apr cache dir"),
+            "must not call non-existent 'apr cache dir' subcommand"
+        );
+    }
+
+    /// PMAT-042: apr pull must create symlink from parsed path
+    #[test]
+    fn test_pmat042_apr_pull_symlinks_from_parsed_path() {
+        let r = make_model_resource("llama-7b");
+        let script = apply_script(&r);
+        // Must symlink the parsed path to the target
+        assert!(
+            script.contains("ln -sf"),
+            "apr pull branch must symlink cached file to target path"
+        );
     }
 
     #[test]
