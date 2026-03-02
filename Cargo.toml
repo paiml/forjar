@@ -53,6 +53,10 @@ proptest = "1"
 name = "core_bench"
 harness = false
 
+[[bench]]
+name = "store_bench"
+harness = false
+
 [features]
 container-test = []
 gpu-container-test = []

@@ -220,6 +220,10 @@ On first failure, execution stops immediately. Partial state is preserved in the
 cargo bench
 ```
 
+<!-- BENCH-TABLE-START -->
+
+**Core Operations**
+
 | Operation | Input | Mean | 95% CI |
 |---|---|---|---|
 | BLAKE3 hash | 64 B string | 27 ns | +/- 0.5 ns |
@@ -232,7 +236,24 @@ cargo bench
 | Copia delta | 4 MB, 2% change | 1.18 ms | +/- 0.01 ms |
 | Copia patch gen | 1 MB, 10% change | 60 us | +/- 0.3 us |
 
-Criterion.rs, 100 samples, 3s warm-up. Run locally to reproduce.
+**Store Operations** (`cargo bench --bench store_bench`)
+
+| Operation | Input | Target |
+|---|---|---|
+| Store path hash | 3 inputs | < 1 us |
+| Purity classify | 4 levels | < 1 us |
+| Closure hash | 3/10/50 nodes | < 10 us |
+| Repro score | 1/5/20 resources | < 100 us |
+| FAR encode | 1KB/1MB/10MB | < 100 ms |
+| FAR decode | 64KB manifest | < 10 ms |
+| Lockfile staleness | 10/100/1K pins | < 1 ms |
+| Sandbox validate | 4 presets | < 1 us |
+| Derivation closure | 5-input DAG | < 10 us |
+| Script purify | small/med/large | < 10 ms |
+
+<!-- BENCH-TABLE-END -->
+
+Criterion.rs, 100 samples, 3s warm-up. Run `make bench-update` to refresh table.
 
 ## Falsifiable Claims
 
