@@ -370,5 +370,62 @@ resources:
         assert!(result.is_err());
     }
 
-    // ── Apply with param overrides ─────────────────────────────
+    // ── compute_rollback_changes ─────────────────────────────
+
+    fn minimal_config(name: &str, resources: Vec<(&str, &str)>) -> types::ForjarConfig {
+        let mut yaml = format!(
+            "version: \"1.0\"\nname: {name}\nmachines:\n  local:\n    hostname: localhost\n    addr: 127.0.0.1\n    user: root\n    arch: x86_64\nresources:\n"
+        );
+        for (id, content) in resources {
+            yaml.push_str(&format!(
+                "  {id}:\n    type: file\n    machine: local\n    path: /tmp/{id}\n    content: \"{content}\"\n"
+            ));
+        }
+        serde_yaml_ng::from_str(&yaml).unwrap()
+    }
+
+    #[test]
+    fn rollback_changes_no_diff() {
+        let a = minimal_config("test", vec![("f1", "hello")]);
+        let b = minimal_config("test", vec![("f1", "hello")]);
+        let changes = compute_rollback_changes(&a, &b, 1);
+        assert!(changes.is_empty());
+    }
+
+    #[test]
+    fn rollback_changes_modified_resource() {
+        let prev = minimal_config("test", vec![("f1", "old")]);
+        let curr = minimal_config("test", vec![("f1", "new")]);
+        let changes = compute_rollback_changes(&prev, &curr, 1);
+        assert_eq!(changes.len(), 1);
+        assert!(changes[0].contains("modified"));
+    }
+
+    #[test]
+    fn rollback_changes_resource_added_in_current() {
+        let prev = minimal_config("test", vec![("f1", "hello")]);
+        let curr = minimal_config("test", vec![("f1", "hello"), ("f2", "world")]);
+        let changes = compute_rollback_changes(&prev, &curr, 1);
+        assert_eq!(changes.len(), 1);
+        assert!(changes[0].contains("exists now"));
+    }
+
+    #[test]
+    fn rollback_changes_resource_removed_in_current() {
+        let prev = minimal_config("test", vec![("f1", "hello"), ("f2", "world")]);
+        let curr = minimal_config("test", vec![("f1", "hello")]);
+        let changes = compute_rollback_changes(&prev, &curr, 2);
+        assert_eq!(changes.len(), 1);
+        assert!(changes[0].contains("re-added"));
+        assert!(changes[0].contains("HEAD~2"));
+    }
+
+    #[test]
+    fn rollback_changes_mixed() {
+        let prev = minimal_config("v1", vec![("f1", "old"), ("f2", "removed")]);
+        let curr = minimal_config("v2", vec![("f1", "new"), ("f3", "added")]);
+        let changes = compute_rollback_changes(&prev, &curr, 3);
+        // f1 modified, f2 will be re-added, f3 exists now
+        assert_eq!(changes.len(), 3);
+    }
 }
