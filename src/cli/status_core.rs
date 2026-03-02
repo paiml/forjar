@@ -3,7 +3,6 @@
 use crate::core::{parser, state, types};
 use std::path::Path;
 
-
 /// Build a JSON resource entry, enriched with config if available.
 fn build_json_resource_entry(
     id: &str,
@@ -146,10 +145,7 @@ fn print_status_text(
 }
 
 /// Print summary mode output (FJ-303).
-fn print_status_summary(
-    global: &Option<types::GlobalLock>,
-    machines: &[types::StateLock],
-) {
+fn print_status_summary(global: &Option<types::GlobalLock>, machines: &[types::StateLock]) {
     let mut converged = 0u32;
     let mut failed = 0u32;
     let mut drifted = 0u32;

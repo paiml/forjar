@@ -2,7 +2,6 @@
 
 use std::path::PathBuf;
 
-
 #[derive(clap::Args, Debug)]
 pub struct PlanArgs {
     /// Path to forjar.yaml
@@ -66,7 +65,6 @@ pub struct PlanArgs {
     pub out: Option<PathBuf>,
 }
 
-
 #[derive(clap::Args, Debug)]
 pub struct PlanCompactArgs {
     /// Path to forjar.yaml
@@ -85,4 +83,3 @@ pub struct PlanCompactArgs {
     #[arg(long)]
     pub json: bool,
 }
-

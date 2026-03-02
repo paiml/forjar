@@ -1,7 +1,7 @@
 //! Tests: `forjar score` CLI command.
 
-use super::score::*;
 use super::commands::*;
+use super::score::*;
 use std::path::PathBuf;
 
 #[cfg(test)]
@@ -18,7 +18,12 @@ mod tests {
             json: false,
         });
         match cmd {
-            Commands::Score(ScoreArgs { status, idempotency, budget_ms, .. }) => {
+            Commands::Score(ScoreArgs {
+                status,
+                idempotency,
+                budget_ms,
+                ..
+            }) => {
                 assert_eq!(status, "qualified");
                 assert_eq!(idempotency, "strong");
                 assert_eq!(budget_ms, 0);

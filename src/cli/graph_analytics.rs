@@ -83,10 +83,7 @@ fn print_apply_order_json(levels: &[Vec<String>]) {
 }
 
 fn print_apply_order_text(levels: &[Vec<String>]) {
-    println!(
-        "Apply order simulation ({} levels):",
-        levels.len()
-    );
+    println!("Apply order simulation ({} levels):", levels.len());
     for (i, members) in levels.iter().enumerate() {
         println!(
             "  Level {} ({} parallel): {}",
@@ -110,7 +107,9 @@ struct GroupSummary {
     total_depth: usize,
 }
 
-fn build_depth_graph(config: &types::ForjarConfig) -> (HashMap<String, usize>, HashMap<String, Vec<String>>) {
+fn build_depth_graph(
+    config: &types::ForjarConfig,
+) -> (HashMap<String, usize>, HashMap<String, Vec<String>>) {
     let mut in_degree: HashMap<String, usize> = HashMap::new();
     let mut children: HashMap<String, Vec<String>> = HashMap::new();
     for name in config.resources.keys() {
@@ -128,19 +127,31 @@ fn build_depth_graph(config: &types::ForjarConfig) -> (HashMap<String, usize>, H
     (in_degree, children)
 }
 
-fn bfs_depths(in_degree: &mut HashMap<String, usize>, children: &HashMap<String, Vec<String>>) -> HashMap<String, usize> {
+fn bfs_depths(
+    in_degree: &mut HashMap<String, usize>,
+    children: &HashMap<String, Vec<String>>,
+) -> HashMap<String, usize> {
     let mut depths: HashMap<String, usize> = HashMap::new();
-    let mut queue: VecDeque<String> = in_degree.iter()
-        .filter(|(_, &d)| d == 0).map(|(n, _)| n.clone()).collect();
-    for root in &queue { depths.insert(root.clone(), 0); }
+    let mut queue: VecDeque<String> = in_degree
+        .iter()
+        .filter(|(_, &d)| d == 0)
+        .map(|(n, _)| n.clone())
+        .collect();
+    for root in &queue {
+        depths.insert(root.clone(), 0);
+    }
     while let Some(node) = queue.pop_front() {
         let current_depth = depths[&node];
         for dep in children.get(&node).cloned().unwrap_or_default() {
             let entry = depths.entry(dep.clone()).or_insert(0);
-            if current_depth + 1 > *entry { *entry = current_depth + 1; }
+            if current_depth + 1 > *entry {
+                *entry = current_depth + 1;
+            }
             let deg = in_degree.get_mut(&dep).expect("node in graph");
             *deg -= 1;
-            if *deg == 0 { queue.push_back(dep); }
+            if *deg == 0 {
+                queue.push_back(dep);
+            }
         }
     }
     depths
@@ -150,7 +161,9 @@ fn bfs_depths(in_degree: &mut HashMap<String, usize>, children: &HashMap<String,
 fn compute_dependency_depths(config: &types::ForjarConfig) -> HashMap<String, usize> {
     let (mut in_degree, children) = build_depth_graph(config);
     let mut depths = bfs_depths(&mut in_degree, &children);
-    for name in config.resources.keys() { depths.entry(name.clone()).or_insert(0); }
+    for name in config.resources.keys() {
+        depths.entry(name.clone()).or_insert(0);
+    }
     depths
 }
 
@@ -252,10 +265,7 @@ pub(crate) fn cmd_graph_resource_apply_order_simulation(
 
 /// FJ-1042: Provenance summary — group resources by type and machine,
 /// reporting count and average dependency depth per group.
-pub(crate) fn cmd_graph_resource_provenance_summary(
-    file: &Path,
-    json: bool,
-) -> Result<(), String> {
+pub(crate) fn cmd_graph_resource_provenance_summary(file: &Path, json: bool) -> Result<(), String> {
     let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
     let config: types::ForjarConfig =
         serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
@@ -443,10 +453,14 @@ resources:
         let groups = build_provenance_groups(&config, &depths);
         // Should have groups: (file, web), (package, db), (package, web), (service, db), (service, web)
         assert_eq!(groups.len(), 5);
-        let pkg_web = groups.get(&("package".to_string(), "web".to_string())).unwrap();
+        let pkg_web = groups
+            .get(&("package".to_string(), "web".to_string()))
+            .unwrap();
         assert_eq!(pkg_web.count, 1);
         assert_eq!(pkg_web.total_depth, 0); // root node
-        let svc_web = groups.get(&("service".to_string(), "web".to_string())).unwrap();
+        let svc_web = groups
+            .get(&("service".to_string(), "web".to_string()))
+            .unwrap();
         assert_eq!(svc_web.count, 1);
         assert_eq!(svc_web.total_depth, 2); // depth 2 (pkg-web -> cfg-web -> svc-web)
     }

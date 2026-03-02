@@ -445,9 +445,7 @@ resources:
 
     let second_only = &config.resources["second/only"];
     assert!(
-        second_only
-            .depends_on
-            .contains(&"first/step2".to_string()),
+        second_only.depends_on.contains(&"first/step2".to_string()),
         "recipe-to-recipe dep should resolve to terminal resource: got {:?}",
         second_only.depends_on
     );

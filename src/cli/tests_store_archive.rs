@@ -3,7 +3,7 @@
 #[cfg(test)]
 mod tests {
     use crate::cli::store_archive::*;
-    use crate::core::store::far::{encode_far, FarManifest, FarFileEntry, FarProvenance};
+    use crate::core::store::far::{encode_far, FarFileEntry, FarManifest, FarProvenance};
     use std::fs;
     use tempfile::TempDir;
 

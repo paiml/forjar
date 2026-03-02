@@ -1,9 +1,8 @@
 //! Failure analysis.
 
+use super::helpers::*;
 use crate::core::{state, types};
 use std::path::Path;
-use super::helpers::*;
-
 
 /// Filter machines list by optional machine filter.
 fn filter_machines<'a>(machines: &'a [String], machine: Option<&str>) -> Vec<&'a String> {
@@ -20,7 +19,6 @@ fn load_lock_from_yaml(state_dir: &Path, m: &str) -> Option<types::StateLock> {
     let content = std::fs::read_to_string(&lock_path).ok()?;
     serde_yaml_ng::from_str(&content).ok()
 }
-
 
 // ── FJ-482: status --top-failures ──
 
@@ -80,7 +78,6 @@ pub(crate) fn cmd_status_top_failures(
     }
     Ok(())
 }
-
 
 /// FJ-672: Show resources failed since a given timestamp
 pub(crate) fn cmd_status_failed_since(
@@ -143,7 +140,6 @@ fn print_failed_since_output(failed: &[(String, String, String)], since: &str, j
     }
 }
 
-
 /// FJ-722: Show only failed resources across machines
 pub(crate) fn cmd_status_failed_resources(
     state_dir: &Path,
@@ -158,7 +154,11 @@ pub(crate) fn cmd_status_failed_resources(
         if let Some(lock) = load_lock_from_yaml(state_dir, m) {
             for (name, rl) in &lock.resources {
                 if format!("{:?}", rl.status) == "Failed" {
-                    entries.push((m.to_string(), name.clone(), format!("{:?}", rl.resource_type)));
+                    entries.push((
+                        m.to_string(),
+                        name.clone(),
+                        format!("{:?}", rl.resource_type),
+                    ));
                 }
             }
         }
@@ -189,7 +189,6 @@ pub(crate) fn cmd_status_failed_resources(
     }
     Ok(())
 }
-
 
 /// FJ-677: Verify BLAKE3 hashes in lock match computed hashes
 pub(crate) fn cmd_status_hash_verify(
@@ -230,9 +229,12 @@ pub(crate) fn cmd_status_hash_verify(
     Ok(())
 }
 
-
 /// FJ-667: Show age of each lock file entry
-pub(crate) fn cmd_status_lock_age(state_dir: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
+pub(crate) fn cmd_status_lock_age(
+    state_dir: &Path,
+    machine: Option<&str>,
+    json: bool,
+) -> Result<(), String> {
     let machines = discover_machines(state_dir);
     let targets = filter_machines(&machines, machine);
 
@@ -275,7 +277,6 @@ pub(crate) fn cmd_status_lock_age(state_dir: &Path, machine: Option<&str>, json:
     Ok(())
 }
 
-
 /// FJ-697: Show hash of current config for change detection
 pub(crate) fn cmd_status_config_hash(
     state_dir: &Path,
@@ -309,7 +310,6 @@ pub(crate) fn cmd_status_config_hash(
     }
     Ok(())
 }
-
 
 /// FJ-647: AI-powered recommendations based on state analysis
 pub(crate) fn cmd_status_recommendations(

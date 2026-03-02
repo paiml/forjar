@@ -1,21 +1,20 @@
 //! Tests: Fleet operations.
 
 #![allow(unused_imports)]
+use super::commands::*;
+use super::fleet_ops::*;
+use super::helpers::*;
+use super::helpers_state::*;
+use super::helpers_time::*;
 use crate::core::types::ProvenanceEvent;
 use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
 use crate::transport;
 use crate::tripwire::{anomaly, drift, eventlog, tracer};
 use std::path::{Path, PathBuf};
-use super::helpers::*;
-use super::helpers_state::*;
-use super::helpers_time::*;
-use super::fleet_ops::*;
-use super::commands::*;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
 
     #[test]
     fn test_fj283_retry_flag_parse() {
@@ -163,20 +162,46 @@ mod tests {
             only_machine: None,
             notify_webhook_headers: None,
             notify_log: None,
-        notify_exec: None,
-        notify_file: None,
-        notify_json: false,
+            notify_exec: None,
+            notify_file: None,
+            notify_json: false,
             notify_slack_webhook: None,
             notify_telegram: None,
-            notify_webhook_v2: None, notify_discord_webhook: None, notify_teams_webhook: None, notify_slack_blocks: None, notify_custom_template: None,
-                notify_custom_webhook: None, notify_custom_headers: None, notify_custom_json: None, notify_custom_filter: None, notify_custom_retry: None, notify_custom_transform: None, notify_custom_batch: None, notify_custom_deduplicate: None, notify_custom_throttle: None, notify_custom_aggregate: None, notify_custom_priority: None, notify_custom_routing: None, notify_custom_dedup_window: None, notify_custom_rate_limit: None, notify_custom_backoff: None, notify_custom_circuit_breaker: None, notify_custom_dead_letter: None, notify_custom_escalation: None, notify_custom_correlation: None, notify_custom_sampling: None, notify_custom_digest: None, notify_custom_severity_filter: None, refresh_only: false, encrypt_state: false,
+            notify_webhook_v2: None,
+            notify_discord_webhook: None,
+            notify_teams_webhook: None,
+            notify_slack_blocks: None,
+            notify_custom_template: None,
+            notify_custom_webhook: None,
+            notify_custom_headers: None,
+            notify_custom_json: None,
+            notify_custom_filter: None,
+            notify_custom_retry: None,
+            notify_custom_transform: None,
+            notify_custom_batch: None,
+            notify_custom_deduplicate: None,
+            notify_custom_throttle: None,
+            notify_custom_aggregate: None,
+            notify_custom_priority: None,
+            notify_custom_routing: None,
+            notify_custom_dedup_window: None,
+            notify_custom_rate_limit: None,
+            notify_custom_backoff: None,
+            notify_custom_circuit_breaker: None,
+            notify_custom_dead_letter: None,
+            notify_custom_escalation: None,
+            notify_custom_correlation: None,
+            notify_custom_sampling: None,
+            notify_custom_digest: None,
+            notify_custom_severity_filter: None,
+            refresh_only: false,
+            encrypt_state: false,
         });
         match cmd {
             Commands::Apply(ApplyArgs { retry, .. }) => assert_eq!(retry, 3),
             _ => panic!("expected Apply"),
         }
     }
-
 
     #[test]
     fn test_fj283_retry_default_zero() {
@@ -324,13 +349,40 @@ mod tests {
             only_machine: None,
             notify_webhook_headers: None,
             notify_log: None,
-        notify_exec: None,
-        notify_file: None,
-        notify_json: false,
+            notify_exec: None,
+            notify_file: None,
+            notify_json: false,
             notify_slack_webhook: None,
             notify_telegram: None,
-            notify_webhook_v2: None, notify_discord_webhook: None, notify_teams_webhook: None, notify_slack_blocks: None, notify_custom_template: None,
-                notify_custom_webhook: None, notify_custom_headers: None, notify_custom_json: None, notify_custom_filter: None, notify_custom_retry: None, notify_custom_transform: None, notify_custom_batch: None, notify_custom_deduplicate: None, notify_custom_throttle: None, notify_custom_aggregate: None, notify_custom_priority: None, notify_custom_routing: None, notify_custom_dedup_window: None, notify_custom_rate_limit: None, notify_custom_backoff: None, notify_custom_circuit_breaker: None, notify_custom_dead_letter: None, notify_custom_escalation: None, notify_custom_correlation: None, notify_custom_sampling: None, notify_custom_digest: None, notify_custom_severity_filter: None, refresh_only: false, encrypt_state: false,
+            notify_webhook_v2: None,
+            notify_discord_webhook: None,
+            notify_teams_webhook: None,
+            notify_slack_blocks: None,
+            notify_custom_template: None,
+            notify_custom_webhook: None,
+            notify_custom_headers: None,
+            notify_custom_json: None,
+            notify_custom_filter: None,
+            notify_custom_retry: None,
+            notify_custom_transform: None,
+            notify_custom_batch: None,
+            notify_custom_deduplicate: None,
+            notify_custom_throttle: None,
+            notify_custom_aggregate: None,
+            notify_custom_priority: None,
+            notify_custom_routing: None,
+            notify_custom_dedup_window: None,
+            notify_custom_rate_limit: None,
+            notify_custom_backoff: None,
+            notify_custom_circuit_breaker: None,
+            notify_custom_dead_letter: None,
+            notify_custom_escalation: None,
+            notify_custom_correlation: None,
+            notify_custom_sampling: None,
+            notify_custom_digest: None,
+            notify_custom_severity_filter: None,
+            refresh_only: false,
+            encrypt_state: false,
         });
         match cmd {
             Commands::Apply(ApplyArgs { retry, .. }) => assert_eq!(retry, 0),
@@ -339,7 +391,6 @@ mod tests {
     }
 
     // ── FJ-284: forjar history --since ──────────────────────────
-
 
     #[test]
     fn test_fj326_inventory_flag_parse() {
@@ -355,7 +406,6 @@ mod tests {
             _ => panic!("expected Inventory"),
         }
     }
-
 
     #[test]
     fn test_fj326_inventory_local_machine() {
@@ -385,7 +435,6 @@ resources:
         assert!(result.is_ok());
     }
 
-
     #[test]
     fn test_fj327_retry_failed_flag_parse() {
         let cmd = Commands::RetryFailed(RetryFailedArgs {
@@ -409,7 +458,6 @@ resources:
             _ => panic!("expected RetryFailed"),
         }
     }
-
 
     #[test]
     fn test_fj327_retry_failed_no_failures() {
@@ -441,7 +489,6 @@ resources:
         assert!(result.is_ok());
     }
 
-
     #[test]
     fn test_fj324_rolling_flag_parse() {
         let cmd = Commands::Rolling(RollingArgs {
@@ -458,7 +505,6 @@ resources:
             _ => panic!("expected Rolling"),
         }
     }
-
 
     #[test]
     fn test_fj325_canary_flag_parse() {
@@ -482,5 +528,4 @@ resources:
             _ => panic!("expected Canary"),
         }
     }
-
 }

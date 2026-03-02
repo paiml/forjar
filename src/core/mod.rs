@@ -9,19 +9,19 @@ pub mod planner;
 pub mod purifier;
 pub mod recipe;
 pub mod resolver;
+pub mod scoring;
 pub mod secrets;
 pub mod state;
-pub mod scoring;
 pub mod store;
 pub mod types;
 
 #[cfg(test)]
-mod tests_scoring;
-#[cfg(test)]
-mod tests_scoring_b;
-#[cfg(test)]
 mod tests_purifier;
 #[cfg(test)]
 mod tests_purifier_b;
+#[cfg(test)]
+mod tests_scoring;
+#[cfg(test)]
+mod tests_scoring_b;
 #[cfg(test)]
 mod tests_secrets;

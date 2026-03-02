@@ -4,7 +4,6 @@ use crate::core::types;
 use crate::transport;
 use std::path::Path;
 
-
 fn scan_packages(machine: &types::Machine, machine_name: &str, verbose: bool) -> (String, usize) {
     let mut yaml = String::new();
     let mut count = 0;
@@ -200,7 +199,6 @@ fn scan_cron(machine: &types::Machine, machine_name: &str, verbose: bool) -> (St
     }
     (yaml, count)
 }
-
 
 pub(crate) fn cmd_import(
     addr: &str,

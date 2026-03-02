@@ -1,10 +1,9 @@
 //! Fleet reporting.
 
+use super::helpers::*;
 use crate::core::{state, types};
 use crate::tripwire::eventlog;
 use std::path::Path;
-use super::helpers::*;
-
 
 /// FJ-341: Audit trail — who applied what, when, from which config.
 pub(crate) fn cmd_audit(
@@ -79,7 +78,6 @@ pub(crate) fn cmd_audit(
 
     Ok(())
 }
-
 
 /// Check a single resource for compliance violations.
 fn check_resource_compliance(
@@ -172,7 +170,6 @@ pub(crate) fn cmd_compliance(file: &Path, json: bool) -> Result<(), String> {
     Ok(())
 }
 
-
 // FJ-352: Export state to external formats
 /// Collect all resources from state dir, optionally filtered by machine.
 fn collect_export_resources(
@@ -236,7 +233,11 @@ pub(crate) fn cmd_export(
             for (id, machine, rl) in &all_resources {
                 lines.push(format!(
                     "{},{},{:?},{:?},{},{}",
-                    id, machine, rl.resource_type, rl.status, rl.hash,
+                    id,
+                    machine,
+                    rl.resource_type,
+                    rl.status,
+                    rl.hash,
                     rl.applied_at.as_deref().unwrap_or("-")
                 ));
             }
@@ -275,7 +276,6 @@ pub(crate) fn cmd_export(
     Ok(())
 }
 
-
 /// Check for unused parameters in config.
 fn check_unused_params(
     config: &types::ForjarConfig,
@@ -306,7 +306,10 @@ fn check_missing_dependencies(
             types::MachineTarget::Single(s) => s.clone(),
             types::MachineTarget::Multiple(ms) => ms.first().cloned().unwrap_or_default(),
         };
-        machine_resources.entry(machine_name).or_default().push(id.clone());
+        machine_resources
+            .entry(machine_name)
+            .or_default()
+            .push(id.clone());
     }
     for resources in machine_resources.values() {
         if resources.len() <= 1 {
@@ -363,4 +366,3 @@ pub(crate) fn cmd_suggest(file: &Path, json: bool) -> Result<(), String> {
 
     Ok(())
 }
-

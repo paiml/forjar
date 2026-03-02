@@ -29,9 +29,7 @@ pub struct CondaFileEntry {
 
 /// Auto-detect format by extension and extract to `output_dir`.
 pub fn read_conda(path: &Path, output_dir: &Path) -> Result<CondaPackageInfo, String> {
-    let ext = path
-        .to_string_lossy()
-        .to_string();
+    let ext = path.to_string_lossy().to_string();
 
     if ext.ends_with(".conda") {
         read_conda_zip(path, output_dir)
@@ -47,10 +45,9 @@ pub fn read_conda(path: &Path, output_dir: &Path) -> Result<CondaPackageInfo, St
 
 /// Read a modern `.conda` file (ZIP containing tar.zst members).
 pub fn read_conda_zip(path: &Path, output_dir: &Path) -> Result<CondaPackageInfo, String> {
-    let file = std::fs::File::open(path)
-        .map_err(|e| format!("open {}: {e}", path.display()))?;
-    let mut archive = zip::ZipArchive::new(file)
-        .map_err(|e| format!("zip read {}: {e}", path.display()))?;
+    let file = std::fs::File::open(path).map_err(|e| format!("open {}: {e}", path.display()))?;
+    let mut archive =
+        zip::ZipArchive::new(file).map_err(|e| format!("zip read {}: {e}", path.display()))?;
 
     std::fs::create_dir_all(output_dir)
         .map_err(|e| format!("mkdir {}: {e}", output_dir.display()))?;
@@ -72,8 +69,8 @@ pub fn read_conda_zip(path: &Path, output_dir: &Path) -> Result<CondaPackageInfo
             entry
                 .read_to_end(&mut compressed)
                 .map_err(|e| format!("read {name}: {e}"))?;
-            let decompressed = zstd::decode_all(compressed.as_slice())
-                .map_err(|e| format!("zstd {name}: {e}"))?;
+            let decompressed =
+                zstd::decode_all(compressed.as_slice()).map_err(|e| format!("zstd {name}: {e}"))?;
             let files = extract_tar_bytes(&decompressed, output_dir)?;
             all_files.extend(files);
         } else if name.starts_with("info-") && name.ends_with(".tar.zst") {
@@ -84,8 +81,8 @@ pub fn read_conda_zip(path: &Path, output_dir: &Path) -> Result<CondaPackageInfo
             entry
                 .read_to_end(&mut compressed)
                 .map_err(|e| format!("read {name}: {e}"))?;
-            let decompressed = zstd::decode_all(compressed.as_slice())
-                .map_err(|e| format!("zstd {name}: {e}"))?;
+            let decompressed =
+                zstd::decode_all(compressed.as_slice()).map_err(|e| format!("zstd {name}: {e}"))?;
             // Extract info tar and look for index.json
             info = find_index_in_tar(&decompressed)?;
             let files = extract_tar_bytes(&decompressed, output_dir)?;
@@ -100,8 +97,7 @@ pub fn read_conda_zip(path: &Path, output_dir: &Path) -> Result<CondaPackageInfo
 
 /// Read a legacy `.tar.bz2` conda package.
 pub fn read_conda_bz2(path: &Path, output_dir: &Path) -> Result<CondaPackageInfo, String> {
-    let file = std::fs::File::open(path)
-        .map_err(|e| format!("open {}: {e}", path.display()))?;
+    let file = std::fs::File::open(path).map_err(|e| format!("open {}: {e}", path.display()))?;
     let decoder = bzip2::read::BzDecoder::new(file);
     let mut archive = tar::Archive::new(decoder);
 
@@ -111,10 +107,7 @@ pub fn read_conda_bz2(path: &Path, output_dir: &Path) -> Result<CondaPackageInfo
     let mut info: Option<CondaPackageInfo> = None;
     let mut files: Vec<CondaFileEntry> = Vec::new();
 
-    for entry in archive
-        .entries()
-        .map_err(|e| format!("tar entries: {e}"))?
-    {
+    for entry in archive.entries().map_err(|e| format!("tar entries: {e}"))? {
         let mut entry = entry.map_err(|e| format!("tar entry: {e}"))?;
         let path_buf = entry
             .path()
@@ -141,8 +134,7 @@ pub fn read_conda_bz2(path: &Path, output_dir: &Path) -> Result<CondaPackageInfo
                 info = Some(parse_conda_index(&content)?);
             }
 
-            std::fs::write(&dest, &buf)
-                .map_err(|e| format!("write {}: {e}", dest.display()))?;
+            std::fs::write(&dest, &buf).map_err(|e| format!("write {}: {e}", dest.display()))?;
             files.push(CondaFileEntry { path: rel, size });
         }
     }
@@ -203,14 +195,10 @@ pub fn conda_to_far(conda_path: &Path, far_output: &Path) -> Result<FarManifest,
     use std::sync::atomic::{AtomicU64, Ordering};
     static COUNTER: AtomicU64 = AtomicU64::new(0);
     let id = COUNTER.fetch_add(1, Ordering::Relaxed);
-    let tmp = std::env::temp_dir().join(format!(
-        "forjar-conda-{}-{id}",
-        std::process::id()
-    ));
+    let tmp = std::env::temp_dir().join(format!("forjar-conda-{}-{id}", std::process::id()));
     let extract_dir = tmp.join("extracted");
     let _ = std::fs::remove_dir_all(&tmp);
-    std::fs::create_dir_all(&extract_dir)
-        .map_err(|e| format!("create temp dir: {e}"))?;
+    std::fs::create_dir_all(&extract_dir).map_err(|e| format!("create temp dir: {e}"))?;
 
     // 1. Extract
     let info = read_conda(conda_path, &extract_dir)?;
@@ -244,10 +232,7 @@ pub fn conda_to_far(conda_path: &Path, far_output: &Path) -> Result<FarManifest,
             origin_ref: Some(format!(
                 "{}:{}",
                 info.subdir,
-                conda_path
-                    .file_name()
-                    .unwrap_or_default()
-                    .to_string_lossy()
+                conda_path.file_name().unwrap_or_default().to_string_lossy()
             )),
             origin_hash: None,
             created_at: now_iso8601(),

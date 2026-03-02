@@ -9,9 +9,7 @@ use super::contract_coverage::{
     coverage_report, read_binding_registry, scan_contracts_dir, ContractStatus, CoverageReport,
 };
 use super::contract_scaffold::{scaffold_contracts, write_stubs};
-use super::far::{
-    encode_far, FarManifest, FarProvenance, KernelContractInfo,
-};
+use super::far::{encode_far, FarManifest, FarProvenance, KernelContractInfo};
 use super::hf_config::{parse_hf_config, required_kernels, HfModelConfig};
 use crate::tripwire::eventlog::now_iso8601;
 use crate::tripwire::hasher::hash_directory;
@@ -122,8 +120,7 @@ pub fn onboard_model(
     let scaffolded = write_stubs(&stubs, contracts_dir)?;
 
     // 6. Package FAR
-    std::fs::create_dir_all(output_dir)
-        .map_err(|e| format!("create output dir: {e}"))?;
+    std::fs::create_dir_all(output_dir).map_err(|e| format!("create output dir: {e}"))?;
     let far_path = output_dir.join(format!("{}-kernel-contracts.far", config.model_type));
 
     // Re-scan after scaffolding for updated coverage

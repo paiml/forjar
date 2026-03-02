@@ -66,10 +66,13 @@ resources:
         let plan = make_test_plan();
 
         // Save
-        let save_result = super::super::plan::save_plan_file(
-            &plan, &config, config_path, &plan_path,
+        let save_result =
+            super::super::plan::save_plan_file(&plan, &config, config_path, &plan_path);
+        assert!(
+            save_result.is_ok(),
+            "save should succeed: {:?}",
+            save_result
         );
-        assert!(save_result.is_ok(), "save should succeed: {:?}", save_result);
 
         // Verify file exists and is valid JSON
         let content = std::fs::read_to_string(&plan_path).unwrap();
@@ -103,9 +106,7 @@ resources:
         let plan = make_test_plan();
 
         // Save with original config
-        super::super::plan::save_plan_file(
-            &plan, &config, config_path, &plan_path,
-        ).unwrap();
+        super::super::plan::save_plan_file(&plan, &config, config_path, &plan_path).unwrap();
 
         // Modify config
         let mut modified_config = config;
@@ -156,7 +157,11 @@ resources:
                 {"resource_id": "d", "machine": "m1", "resource_type": "mount", "action": "no_op", "description": "d: no-op"},
             ],
         });
-        std::fs::write(&plan_path, serde_json::to_string_pretty(&plan_json).unwrap()).unwrap();
+        std::fs::write(
+            &plan_path,
+            serde_json::to_string_pretty(&plan_json).unwrap(),
+        )
+        .unwrap();
 
         let loaded = load_plan_file(&plan_path, &config).unwrap();
         assert_eq!(loaded.changes[0].action, PlanAction::Create);
@@ -197,9 +202,17 @@ resources:
                     {"resource_id": "r", "machine": "m1", "resource_type": type_str, "action": "create", "description": "r: create"},
                 ],
             });
-            std::fs::write(&plan_path, serde_json::to_string_pretty(&plan_json).unwrap()).unwrap();
+            std::fs::write(
+                &plan_path,
+                serde_json::to_string_pretty(&plan_json).unwrap(),
+            )
+            .unwrap();
             let loaded = load_plan_file(&plan_path, &config).unwrap();
-            assert_eq!(loaded.changes[0].resource_type, *expected_type, "type mismatch for {}", type_str);
+            assert_eq!(
+                loaded.changes[0].resource_type, *expected_type,
+                "type mismatch for {}",
+                type_str
+            );
         }
     }
 

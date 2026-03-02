@@ -1,9 +1,8 @@
 //! Compliance validation.
 
+use super::helpers::*;
 use crate::core::types;
 use std::path::Path;
-use super::helpers::*;
-
 
 /// Compute drift risk score and reasons for a single resource.
 fn compute_drift_risk(
@@ -130,14 +129,16 @@ pub(crate) fn cmd_validate_check_drift_risk(file: &Path, json: bool) -> Result<(
     Ok(())
 }
 
-
 /// Check CIS compliance for a single resource.
 fn check_cis_compliance(name: &str, res: &types::Resource, violations: &mut Vec<(String, String)>) {
     if let Some(ref mode) = res.mode {
         if mode.ends_with('7') || mode.ends_with('6') {
             let last = mode.chars().last().unwrap_or('0');
             if last == '7' || last == '6' {
-                violations.push((name.to_string(), format!("CIS: world-writable mode {}", mode)));
+                violations.push((
+                    name.to_string(),
+                    format!("CIS: world-writable mode {}", mode),
+                ));
             }
         }
     }
@@ -145,10 +146,7 @@ fn check_cis_compliance(name: &str, res: &types::Resource, violations: &mut Vec<
         if owner == "root" {
             if let Some(ref path) = res.path {
                 if path.starts_with("/tmp") {
-                    violations.push((
-                        name.to_string(),
-                        "CIS: root-owned file in /tmp".to_string(),
-                    ));
+                    violations.push((name.to_string(), "CIS: root-owned file in /tmp".to_string()));
                 }
             }
         }
@@ -156,7 +154,11 @@ fn check_cis_compliance(name: &str, res: &types::Resource, violations: &mut Vec<
 }
 
 /// Check HIPAA compliance for a single resource.
-fn check_hipaa_compliance(name: &str, res: &types::Resource, violations: &mut Vec<(String, String)>) {
+fn check_hipaa_compliance(
+    name: &str,
+    res: &types::Resource,
+    violations: &mut Vec<(String, String)>,
+) {
     if let Some(ref mode) = res.mode {
         let chars: Vec<char> = mode.chars().collect();
         if chars.len() >= 4 {
@@ -172,7 +174,11 @@ fn check_hipaa_compliance(name: &str, res: &types::Resource, violations: &mut Ve
 }
 
 /// FJ-551: Validate resources against compliance policy (CIS, SOC2, HIPAA).
-pub(crate) fn cmd_validate_check_compliance(file: &Path, policy: &str, json: bool) -> Result<(), String> {
+pub(crate) fn cmd_validate_check_compliance(
+    file: &Path,
+    policy: &str,
+    json: bool,
+) -> Result<(), String> {
     let config = parse_and_validate(file)?;
     let mut violations: Vec<(String, String)> = Vec::new();
 
@@ -223,7 +229,6 @@ pub(crate) fn cmd_validate_check_compliance(file: &Path, policy: &str, json: boo
     Ok(())
 }
 
-
 /// FJ-561: Check resources for platform-specific assumptions.
 pub(crate) fn cmd_validate_check_portability(file: &Path, json: bool) -> Result<(), String> {
     let config = parse_and_validate(file)?;
@@ -271,7 +276,6 @@ pub(crate) fn cmd_validate_check_portability(file: &Path, json: bool) -> Result<
     }
     Ok(())
 }
-
 
 /// FJ-611: Deep idempotency analysis — simulate re-apply to detect non-idempotent resources.
 pub(crate) fn cmd_validate_check_idempotency_deep(file: &Path, json: bool) -> Result<(), String> {

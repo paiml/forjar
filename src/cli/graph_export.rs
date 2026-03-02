@@ -1,14 +1,16 @@
 //! Graph export and root analysis.
 
+use super::helpers::*;
 #[allow(unused_imports)]
 use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
 use std::path::Path;
-use super::helpers::*;
 
 /// FJ-751: Show root resources (no dependencies).
 pub(crate) fn cmd_graph_root_resources(file: &Path, json: bool) -> Result<(), String> {
     let cfg = parse_and_validate(file)?;
-    let mut roots: Vec<String> = cfg.resources.iter()
+    let mut roots: Vec<String> = cfg
+        .resources
+        .iter()
         .filter(|(_, r)| r.depends_on.is_empty())
         .map(|(n, _)| n.clone())
         .collect();
@@ -20,7 +22,9 @@ pub(crate) fn cmd_graph_root_resources(file: &Path, json: bool) -> Result<(), St
         println!("No root resources found (all have dependencies).");
     } else {
         println!("Root resources ({} with no dependencies):", roots.len());
-        for name in &roots { println!("  {}", name); }
+        for name in &roots {
+            println!("  {}", name);
+        }
     }
     Ok(())
 }
@@ -30,7 +34,8 @@ pub(crate) fn cmd_graph_edge_list(file: &Path, json: bool) -> Result<(), String>
     let cfg = parse_and_validate(file)?;
     let edges = collect_edges(&cfg);
     if json {
-        let items: Vec<String> = edges.iter()
+        let items: Vec<String> = edges
+            .iter()
             .map(|(s, t)| format!("{{\"source\":\"{}\",\"target\":\"{}\"}}", s, t))
             .collect();
         println!("{{\"edges\":[{}]}}", items.join(","));
@@ -62,23 +67,32 @@ pub(crate) fn cmd_graph_connected_components(file: &Path, json: bool) -> Result<
     let cfg = parse_and_validate(file)?;
     let components = find_connected_components(&cfg);
     if json {
-        let items: Vec<String> = components.iter()
-            .map(|c| format!("{:?}", c))
-            .collect();
-        println!("{{\"connected_components\":[{}],\"count\":{}}}", items.join(","), components.len());
+        let items: Vec<String> = components.iter().map(|c| format!("{:?}", c)).collect();
+        println!(
+            "{{\"connected_components\":[{}],\"count\":{}}}",
+            items.join(","),
+            components.len()
+        );
     } else if components.is_empty() {
         println!("No resources (empty graph).");
     } else {
         println!("Connected components ({}):", components.len());
         for (i, comp) in components.iter().enumerate() {
-            println!("  Component {} ({} resources): {}", i + 1, comp.len(), comp.join(", "));
+            println!(
+                "  Component {} ({} resources): {}",
+                i + 1,
+                comp.len(),
+                comp.join(", ")
+            );
         }
     }
     Ok(())
 }
 
 /// Build undirected adjacency list from config dependencies.
-pub(crate) fn build_undirected_graph(cfg: &types::ForjarConfig) -> std::collections::HashMap<&str, Vec<&str>> {
+pub(crate) fn build_undirected_graph(
+    cfg: &types::ForjarConfig,
+) -> std::collections::HashMap<&str, Vec<&str>> {
     let mut adj: std::collections::HashMap<&str, Vec<&str>> = std::collections::HashMap::new();
     for (name, resource) in &cfg.resources {
         adj.entry(name.as_str()).or_default();
@@ -99,12 +113,16 @@ fn collect_dfs_component<'a>(
     let mut comp = Vec::new();
     let mut stack = vec![start];
     while let Some(n) = stack.pop() {
-        if visited.contains(n) { continue; }
+        if visited.contains(n) {
+            continue;
+        }
         visited.insert(n);
         comp.push(n.to_string());
         if let Some(neighbors) = adj.get(n) {
             for &next in neighbors {
-                if !visited.contains(next) { stack.push(next); }
+                if !visited.contains(next) {
+                    stack.push(next);
+                }
             }
         }
     }
@@ -120,7 +138,9 @@ fn find_connected_components(cfg: &types::ForjarConfig) -> Vec<Vec<String>> {
     let mut names: Vec<&str> = cfg.resources.keys().map(|k| k.as_str()).collect();
     names.sort();
     for name in names {
-        if visited.contains(name) { continue; }
+        if visited.contains(name) {
+            continue;
+        }
         components.push(collect_dfs_component(name, &adj, &mut visited));
     }
     components
@@ -131,11 +151,24 @@ pub(crate) fn cmd_graph_adjacency_matrix(file: &Path, json: bool) -> Result<(), 
     let cfg = parse_and_validate(file)?;
     let (names, matrix) = build_adjacency_matrix(&cfg);
     if json {
-        let rows: Vec<String> = matrix.iter()
-            .map(|row| format!("[{}]", row.iter().map(|&v| if v { "1" } else { "0" }).collect::<Vec<_>>().join(",")))
+        let rows: Vec<String> = matrix
+            .iter()
+            .map(|row| {
+                format!(
+                    "[{}]",
+                    row.iter()
+                        .map(|&v| if v { "1" } else { "0" })
+                        .collect::<Vec<_>>()
+                        .join(",")
+                )
+            })
             .collect();
         let labels: Vec<String> = names.iter().map(|n| format!("\"{}\"", n)).collect();
-        println!("{{\"labels\":[{}],\"matrix\":[{}]}}", labels.join(","), rows.join(","));
+        println!(
+            "{{\"labels\":[{}],\"matrix\":[{}]}}",
+            labels.join(","),
+            rows.join(",")
+        );
     } else if names.is_empty() {
         println!("No resources (empty graph).");
     } else {
@@ -148,8 +181,11 @@ pub(crate) fn cmd_graph_adjacency_matrix(file: &Path, json: bool) -> Result<(), 
 pub(crate) fn build_adjacency_matrix(cfg: &types::ForjarConfig) -> (Vec<String>, Vec<Vec<bool>>) {
     let mut names: Vec<String> = cfg.resources.keys().cloned().collect();
     names.sort();
-    let idx: std::collections::HashMap<&str, usize> = names.iter().enumerate()
-        .map(|(i, n)| (n.as_str(), i)).collect();
+    let idx: std::collections::HashMap<&str, usize> = names
+        .iter()
+        .enumerate()
+        .map(|(i, n)| (n.as_str(), i))
+        .collect();
     let n = names.len();
     let mut matrix = vec![vec![false; n]; n];
     for (name, resource) in &cfg.resources {
@@ -168,7 +204,9 @@ pub(crate) fn build_adjacency_matrix(cfg: &types::ForjarConfig) -> (Vec<String>,
 fn print_adjacency_table(names: &[String], matrix: &[Vec<bool>]) {
     let max_len = names.iter().map(|n| n.len()).max().unwrap_or(0);
     print!("{:width$} ", "", width = max_len);
-    for n in names { print!("{} ", &n[..1]); }
+    for n in names {
+        print!("{} ", &n[..1]);
+    }
     println!();
     for (i, name) in names.iter().enumerate() {
         print!("{:width$} ", name, width = max_len);
@@ -185,30 +223,46 @@ pub(crate) fn cmd_graph_longest_path(file: &Path, json: bool) -> Result<(), Stri
     let (length, chain) = find_longest_chain(&cfg);
     if json {
         let items: Vec<String> = chain.iter().map(|n| format!("\"{}\"", n)).collect();
-        println!("{{\"longest_path_length\":{},\"chain\":[{}]}}", length, items.join(","));
+        println!(
+            "{{\"longest_path_length\":{},\"chain\":[{}]}}",
+            length,
+            items.join(",")
+        );
     } else if length == 0 {
         println!("No dependency chains (all resources independent).");
     } else {
-        println!("Longest dependency chain ({} edges): {}", length, chain.join(" → "));
+        println!(
+            "Longest dependency chain ({} edges): {}",
+            length,
+            chain.join(" → ")
+        );
     }
     Ok(())
 }
 
 /// Relax edges to compute longest distances and predecessors.
 fn relax_dag_edges(
-    cfg: &types::ForjarConfig, names: &[&str],
+    cfg: &types::ForjarConfig,
+    names: &[&str],
     idx: &std::collections::HashMap<&str, usize>,
-    dist: &mut [usize], prev: &mut [usize],
+    dist: &mut [usize],
+    prev: &mut [usize],
 ) {
     let mut order: Vec<usize> = (0..names.len()).collect();
     order.sort_by_key(|&i| {
-        cfg.resources.get(names[i]).map(|r| r.depends_on.len()).unwrap_or(0)
+        cfg.resources
+            .get(names[i])
+            .map(|r| r.depends_on.len())
+            .unwrap_or(0)
     });
     for &u in &order {
         if let Some(resource) = cfg.resources.get(names[u]) {
             for dep in &resource.depends_on {
                 if let Some(&v) = idx.get(dep.as_str()) {
-                    if dist[v] + 1 > dist[u] { dist[u] = dist[v] + 1; prev[u] = v; }
+                    if dist[v] + 1 > dist[u] {
+                        dist[u] = dist[v] + 1;
+                        prev[u] = v;
+                    }
                 }
             }
         }
@@ -231,9 +285,11 @@ fn reconstruct_chain(names: &[&str], prev: &[usize], start: usize) -> Vec<String
 fn find_longest_chain(cfg: &types::ForjarConfig) -> (usize, Vec<String>) {
     let names: Vec<&str> = cfg.resources.keys().map(|k| k.as_str()).collect();
     let n = names.len();
-    if n == 0 { return (0, Vec::new()); }
-    let idx: std::collections::HashMap<&str, usize> = names.iter().enumerate()
-        .map(|(i, &n)| (n, i)).collect();
+    if n == 0 {
+        return (0, Vec::new());
+    }
+    let idx: std::collections::HashMap<&str, usize> =
+        names.iter().enumerate().map(|(i, &n)| (n, i)).collect();
     let mut dist = vec![0usize; n];
     let mut prev = vec![usize::MAX; n];
     relax_dag_edges(cfg, &names, &idx, &mut dist, &mut prev);
@@ -246,7 +302,8 @@ pub(crate) fn cmd_graph_in_degree(file: &Path, json: bool) -> Result<(), String>
     let cfg = parse_and_validate(file)?;
     let degrees = compute_in_degrees(&cfg);
     if json {
-        let items: Vec<String> = degrees.iter()
+        let items: Vec<String> = degrees
+            .iter()
             .map(|(n, d)| format!("{{\"resource\":\"{}\",\"in_degree\":{}}}", n, d))
             .collect();
         println!("{{\"in_degrees\":[{}]}}", items.join(","));
@@ -254,7 +311,9 @@ pub(crate) fn cmd_graph_in_degree(file: &Path, json: bool) -> Result<(), String>
         println!("No resources.");
     } else {
         println!("In-degree (dependents) per resource:");
-        for (name, deg) in &degrees { println!("  {} — {}", name, deg); }
+        for (name, deg) in &degrees {
+            println!("  {} — {}", name, deg);
+        }
     }
     Ok(())
 }
@@ -262,7 +321,9 @@ pub(crate) fn cmd_graph_in_degree(file: &Path, json: bool) -> Result<(), String>
 /// Compute in-degree for each resource (how many others depend on it).
 pub(crate) fn compute_in_degrees(cfg: &types::ForjarConfig) -> Vec<(String, usize)> {
     let mut deg: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
-    for name in cfg.resources.keys() { deg.insert(name.clone(), 0); }
+    for name in cfg.resources.keys() {
+        deg.insert(name.clone(), 0);
+    }
     for resource in cfg.resources.values() {
         for dep in &resource.depends_on {
             *deg.entry(dep.clone()).or_default() += 1;
@@ -276,12 +337,15 @@ pub(crate) fn compute_in_degrees(cfg: &types::ForjarConfig) -> Vec<(String, usiz
 /// FJ-775: Show out-degree (number of dependencies) per resource.
 pub(crate) fn cmd_graph_out_degree(file: &Path, json: bool) -> Result<(), String> {
     let cfg = parse_and_validate(file)?;
-    let mut degrees: Vec<(String, usize)> = cfg.resources.iter()
+    let mut degrees: Vec<(String, usize)> = cfg
+        .resources
+        .iter()
         .map(|(n, r)| (n.clone(), r.depends_on.len()))
         .collect();
     degrees.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
     if json {
-        let items: Vec<String> = degrees.iter()
+        let items: Vec<String> = degrees
+            .iter()
             .map(|(n, d)| format!("{{\"resource\":\"{}\",\"out_degree\":{}}}", n, d))
             .collect();
         println!("{{\"out_degrees\":[{}]}}", items.join(","));
@@ -289,7 +353,9 @@ pub(crate) fn cmd_graph_out_degree(file: &Path, json: bool) -> Result<(), String
         println!("No resources.");
     } else {
         println!("Out-degree (dependencies) per resource:");
-        for (name, deg) in &degrees { println!("  {} — {}", name, deg); }
+        for (name, deg) in &degrees {
+            println!("  {} — {}", name, deg);
+        }
     }
     Ok(())
 }
@@ -302,9 +368,15 @@ pub(crate) fn cmd_graph_density(file: &Path, json: bool) -> Result<(), String> {
     let max_edges = if n > 1 { n * (n - 1) } else { 1 };
     let density = edges as f64 / max_edges as f64;
     if json {
-        println!("{{\"nodes\":{},\"edges\":{},\"max_edges\":{},\"density\":{:.4}}}", n, edges, max_edges, density);
+        println!(
+            "{{\"nodes\":{},\"edges\":{},\"max_edges\":{},\"density\":{:.4}}}",
+            n, edges, max_edges, density
+        );
     } else {
-        println!("Graph density: {:.4} ({} edges / {} max, {} nodes)", density, edges, max_edges, n);
+        println!(
+            "Graph density: {:.4} ({} edges / {} max, {} nodes)",
+            density, edges, max_edges, n
+        );
     }
     Ok(())
 }
@@ -320,24 +392,34 @@ pub(crate) fn cmd_graph_topological_sort(file: &Path, json: bool) -> Result<(), 
         println!("No resources (empty graph).");
     } else {
         println!("Topological execution order ({} resources):", order.len());
-        for (i, name) in order.iter().enumerate() { println!("  {}. {}", i + 1, name); }
+        for (i, name) in order.iter().enumerate() {
+            println!("  {}. {}", i + 1, name);
+        }
     }
     Ok(())
 }
 
 /// Build in-degree map and dependents adjacency for Kahn's algorithm.
-fn build_kahn_graph(cfg: &types::ForjarConfig) -> (
+fn build_kahn_graph(
+    cfg: &types::ForjarConfig,
+) -> (
     std::collections::HashMap<&str, usize>,
     std::collections::HashMap<&str, Vec<&str>>,
 ) {
     let mut in_deg: std::collections::HashMap<&str, usize> = std::collections::HashMap::new();
-    let mut dependents: std::collections::HashMap<&str, Vec<&str>> = std::collections::HashMap::new();
-    for name in cfg.resources.keys() { in_deg.insert(name.as_str(), 0); }
+    let mut dependents: std::collections::HashMap<&str, Vec<&str>> =
+        std::collections::HashMap::new();
+    for name in cfg.resources.keys() {
+        in_deg.insert(name.as_str(), 0);
+    }
     for (name, resource) in &cfg.resources {
         for dep in &resource.depends_on {
             if cfg.resources.contains_key(dep) {
                 *in_deg.entry(name.as_str()).or_default() += 1;
-                dependents.entry(dep.as_str()).or_default().push(name.as_str());
+                dependents
+                    .entry(dep.as_str())
+                    .or_default()
+                    .push(name.as_str());
             }
         }
     }
@@ -349,7 +431,8 @@ fn kahn_process<'a>(
     in_deg: &mut std::collections::HashMap<&'a str, usize>,
     dependents: &std::collections::HashMap<&str, Vec<&'a str>>,
 ) -> Vec<String> {
-    let mut queue: Vec<&str> = in_deg.iter()
+    let mut queue: Vec<&str> = in_deg
+        .iter()
         .filter(|(_, &d)| d == 0)
         .map(|(&n, _)| n)
         .collect();
@@ -363,7 +446,9 @@ fn kahn_process<'a>(
             for &d in deps {
                 if let Some(deg) = in_deg.get_mut(d) {
                     *deg -= 1;
-                    if *deg == 0 { next.push(d); }
+                    if *deg == 0 {
+                        next.push(d);
+                    }
                 }
             }
             next.sort();
@@ -385,12 +470,22 @@ pub(crate) fn cmd_graph_critical_path_resources(file: &Path, json: bool) -> Resu
     let (length, chain) = find_longest_chain(&cfg);
     if json {
         let items: Vec<String> = chain.iter().map(|n| format!("\"{}\"", n)).collect();
-        println!("{{\"critical_path_length\":{},\"resources\":[{}]}}", length, items.join(","));
+        println!(
+            "{{\"critical_path_length\":{},\"resources\":[{}]}}",
+            length,
+            items.join(",")
+        );
     } else if length == 0 {
         println!("No dependency chains (all resources independent).");
     } else {
-        println!("Critical path ({} edges, {} resources):", length, chain.len());
-        for (i, name) in chain.iter().enumerate() { println!("  {}. {}", i + 1, name); }
+        println!(
+            "Critical path ({} edges, {} resources):",
+            length,
+            chain.len()
+        );
+        for (i, name) in chain.iter().enumerate() {
+            println!("  {}. {}", i + 1, name);
+        }
     }
     Ok(())
 }
@@ -399,7 +494,8 @@ pub(crate) fn cmd_graph_critical_path_resources(file: &Path, json: bool) -> Resu
 pub(crate) fn cmd_graph_sink_resources(file: &Path, json: bool) -> Result<(), String> {
     let cfg = parse_and_validate(file)?;
     let degrees = compute_in_degrees(&cfg);
-    let mut sinks: Vec<String> = degrees.iter()
+    let mut sinks: Vec<String> = degrees
+        .iter()
         .filter(|(_, d)| *d == 0)
         .map(|(n, _)| n.clone())
         .collect();
@@ -411,7 +507,9 @@ pub(crate) fn cmd_graph_sink_resources(file: &Path, json: bool) -> Result<(), St
         println!("No sink resources (all have dependents).");
     } else {
         println!("Sink resources ({} with no dependents):", sinks.len());
-        for name in &sinks { println!("  {}", name); }
+        for name in &sinks {
+            println!("  {}", name);
+        }
     }
     Ok(())
 }

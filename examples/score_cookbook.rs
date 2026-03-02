@@ -69,7 +69,10 @@ fn main() {
             passed += 1;
         }
 
-        println!("\n{}: Grade {} (composite {})", name, result.grade, result.composite);
+        println!(
+            "\n{}: Grade {} (composite {})",
+            name, result.grade, result.composite
+        );
         for dim in &result.dimensions {
             println!(
                 "  {} {:14} {:3}/100  {}",

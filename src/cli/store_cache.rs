@@ -5,7 +5,7 @@
 //! - `forjar cache pull <hash>` — pull from remote cache
 //! - `forjar cache verify` — verify all store entries
 
-use crate::core::store::cache::{CacheEntry, CacheSource, ssh_command};
+use crate::core::store::cache::{ssh_command, CacheEntry, CacheSource};
 use crate::core::store::meta::read_meta;
 use std::path::Path;
 
@@ -19,8 +19,10 @@ pub(crate) fn cmd_cache_list(store_dir: &Path, json: bool) -> Result<(), String>
             "count": entries.len(),
             "entries": entries,
         });
-        println!("{}", serde_json::to_string_pretty(&json_val)
-            .unwrap_or_else(|_| "{}".to_string()));
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&json_val).unwrap_or_else(|_| "{}".to_string())
+        );
     } else {
         println!("Store entries ({}):", entries.len());
         for entry in &entries {
@@ -43,12 +45,14 @@ pub(crate) fn cmd_cache_push(
     hash: Option<&str>,
 ) -> Result<(), String> {
     let source = parse_remote(remote)?;
-    let ssh_cmd = ssh_command(&source)
-        .ok_or_else(|| "remote must be an SSH target".to_string())?;
+    let ssh_cmd = ssh_command(&source).ok_or_else(|| "remote must be an SSH target".to_string())?;
     let entries = list_entries(store_dir)?;
 
     let to_push: Vec<&CacheEntry> = if let Some(h) = hash {
-        entries.iter().filter(|e| e.store_hash.contains(h)).collect()
+        entries
+            .iter()
+            .filter(|e| e.store_hash.contains(h))
+            .collect()
     } else {
         entries.iter().collect()
     };
@@ -60,7 +64,11 @@ pub(crate) fn cmd_cache_push(
 
     println!("Would push {} entries via: {ssh_cmd}", to_push.len());
     for entry in &to_push {
-        println!("  {} ({})", &entry.store_hash[..20], human_size(entry.size_bytes));
+        println!(
+            "  {} ({})",
+            &entry.store_hash[..20],
+            human_size(entry.size_bytes)
+        );
     }
     println!("(push execution requires SSH transport — dry-run shown)");
     Ok(())
@@ -80,8 +88,8 @@ pub(crate) fn cmd_cache_pull(hash: &str, store_dir: &Path) -> Result<(), String>
 
 /// Verify all store entries by re-hashing.
 pub(crate) fn cmd_cache_verify(store_dir: &Path, json: bool) -> Result<(), String> {
-    let read_dir = std::fs::read_dir(store_dir)
-        .map_err(|e| format!("read {}: {e}", store_dir.display()))?;
+    let read_dir =
+        std::fs::read_dir(store_dir).map_err(|e| format!("read {}: {e}", store_dir.display()))?;
 
     let mut verified = 0u64;
     let mut failed = 0u64;
@@ -89,17 +97,24 @@ pub(crate) fn cmd_cache_verify(store_dir: &Path, json: bool) -> Result<(), Strin
 
     for entry in read_dir.flatten() {
         let path = entry.path();
-        if !path.is_dir() { continue; }
+        if !path.is_dir() {
+            continue;
+        }
         let name = entry.file_name().to_string_lossy().to_string();
-        if name == ".gc-roots" { continue; }
+        if name == ".gc-roots" {
+            continue;
+        }
 
         let content_dir = path.join("content");
         if content_dir.is_dir() {
-            let actual = crate::tripwire::hasher::hash_directory(&content_dir)
-                .unwrap_or_default();
+            let actual = crate::tripwire::hasher::hash_directory(&content_dir).unwrap_or_default();
             let expected = format!("blake3:{name}");
             let ok = actual == expected;
-            if ok { verified += 1; } else { failed += 1; }
+            if ok {
+                verified += 1;
+            } else {
+                failed += 1;
+            }
             results.push(serde_json::json!({
                 "hash": name, "valid": ok,
                 "expected": expected, "actual": actual,
@@ -112,8 +127,10 @@ pub(crate) fn cmd_cache_verify(store_dir: &Path, json: bool) -> Result<(), Strin
             "verified": verified, "failed": failed,
             "results": results,
         });
-        println!("{}", serde_json::to_string_pretty(&report)
-            .unwrap_or_else(|_| "{}".to_string()));
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&report).unwrap_or_else(|_| "{}".to_string())
+        );
     } else {
         println!("Verified: {verified} | Failed: {failed}");
     }
@@ -127,15 +144,19 @@ pub(crate) fn cmd_cache_verify(store_dir: &Path, json: bool) -> Result<(), Strin
 
 /// List store entries as CacheEntry structs.
 fn list_entries(store_dir: &Path) -> Result<Vec<CacheEntry>, String> {
-    let read_dir = std::fs::read_dir(store_dir)
-        .map_err(|e| format!("read {}: {e}", store_dir.display()))?;
+    let read_dir =
+        std::fs::read_dir(store_dir).map_err(|e| format!("read {}: {e}", store_dir.display()))?;
 
     let mut entries = Vec::new();
     for entry in read_dir.flatten() {
         let path = entry.path();
-        if !path.is_dir() { continue; }
+        if !path.is_dir() {
+            continue;
+        }
         let name = entry.file_name().to_string_lossy().to_string();
-        if name == ".gc-roots" { continue; }
+        if name == ".gc-roots" {
+            continue;
+        }
 
         let meta = read_meta(&path);
         let (provider, arch, created) = match meta {
@@ -158,9 +179,11 @@ fn list_entries(store_dir: &Path) -> Result<Vec<CacheEntry>, String> {
 
 /// Parse "user@host:path" into a CacheSource::Ssh.
 fn parse_remote(remote: &str) -> Result<CacheSource, String> {
-    let (user_host, path) = remote.split_once(':')
+    let (user_host, path) = remote
+        .split_once(':')
         .ok_or_else(|| "expected format: user@host:/path".to_string())?;
-    let (user, host) = user_host.split_once('@')
+    let (user, host) = user_host
+        .split_once('@')
         .ok_or_else(|| "expected format: user@host:/path".to_string())?;
     Ok(CacheSource::Ssh {
         host: host.to_string(),
@@ -172,15 +195,29 @@ fn parse_remote(remote: &str) -> Result<CacheSource, String> {
 
 fn dir_size(path: &Path) -> u64 {
     std::fs::read_dir(path)
-        .map(|rd| rd.flatten().map(|e| {
-            let m = e.metadata().unwrap_or_else(|_| std::fs::metadata(e.path()).unwrap());
-            if m.is_file() { m.len() } else { 0 }
-        }).sum())
+        .map(|rd| {
+            rd.flatten()
+                .map(|e| {
+                    let m = e
+                        .metadata()
+                        .unwrap_or_else(|_| std::fs::metadata(e.path()).unwrap());
+                    if m.is_file() {
+                        m.len()
+                    } else {
+                        0
+                    }
+                })
+                .sum()
+        })
         .unwrap_or(0)
 }
 
 fn human_size(bytes: u64) -> String {
-    if bytes < 1024 { return format!("{bytes} B"); }
-    if bytes < 1_048_576 { return format!("{:.1} KB", bytes as f64 / 1024.0); }
+    if bytes < 1024 {
+        return format!("{bytes} B");
+    }
+    if bytes < 1_048_576 {
+        return format!("{:.1} KB", bytes as f64 / 1024.0);
+    }
     format!("{:.1} MB", bytes as f64 / 1_048_576.0)
 }

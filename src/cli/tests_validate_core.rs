@@ -1,22 +1,21 @@
 //! Tests: Core validation command.
 
 #![allow(unused_imports)]
+use super::commands::*;
+use super::dispatch::*;
+use super::helpers::*;
+use super::helpers_state::*;
+use super::helpers_time::*;
+use super::validate_core::*;
 use crate::core::types::ProvenanceEvent;
 use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
 use crate::transport;
 use crate::tripwire::{anomaly, drift, eventlog, tracer};
 use std::path::{Path, PathBuf};
-use super::helpers::*;
-use super::helpers_state::*;
-use super::helpers_time::*;
-use super::validate_core::*;
-use super::commands::*;
-use super::dispatch::*;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
 
     #[test]
     fn test_fj017_validate_valid() {
@@ -43,7 +42,6 @@ resources:
         cmd_validate(&config, false, false, false).unwrap();
     }
 
-
     #[test]
     fn test_fj017_validate_invalid() {
         let dir = tempfile::tempdir().unwrap();
@@ -61,7 +59,6 @@ resources: {}
         let result = cmd_validate(&config, false, false, false);
         assert!(result.is_err());
     }
-
 
     #[test]
     fn test_fj017_dispatch_validate() {
@@ -122,31 +119,115 @@ resources: {}
                 check_resource_names: None,
                 check_resource_count: None,
                 check_duplicate_paths: false,
-        check_circular_deps: false,
-        check_machine_refs: false,
-        check_provider_consistency: false,
-        check_state_values: false,
-        check_unused_machines: false,
-        check_tag_consistency: false,
-            check_dependency_exists: false,
-            check_path_conflicts_strict: false,
-            check_duplicate_names: false,
-            check_resource_groups: false,
-            check_orphan_resources: false,
-            check_machine_arch: false, check_resource_health_conflicts: false, check_resource_overlap: false, check_resource_tags: false, check_resource_state_consistency: false, check_resource_dependencies_complete: false, check_machine_connectivity: false, check_resource_naming_pattern: None, check_resource_provider_support: false, check_resource_secret_refs: false, check_resource_idempotency_hints: false,
+                check_circular_deps: false,
+                check_machine_refs: false,
+                check_provider_consistency: false,
+                check_state_values: false,
+                check_unused_machines: false,
+                check_tag_consistency: false,
+                check_dependency_exists: false,
+                check_path_conflicts_strict: false,
+                check_duplicate_names: false,
+                check_resource_groups: false,
+                check_orphan_resources: false,
+                check_machine_arch: false,
+                check_resource_health_conflicts: false,
+                check_resource_overlap: false,
+                check_resource_tags: false,
+                check_resource_state_consistency: false,
+                check_resource_dependencies_complete: false,
+                check_machine_connectivity: false,
+                check_resource_naming_pattern: None,
+                check_resource_provider_support: false,
+                check_resource_secret_refs: false,
+                check_resource_idempotency_hints: false,
                 check_resource_dependency_depth: None,
                 check_resource_machine_affinity: false,
-                check_resource_drift_risk: false, check_resource_tag_coverage: false, check_resource_lifecycle_hooks: false, check_resource_provider_version: false, check_resource_naming_convention: false, check_resource_idempotency: false, check_resource_documentation: false, check_resource_ownership: false, check_resource_secret_exposure: false, check_resource_tag_standards: false, check_resource_privilege_escalation: false, check_resource_update_safety: false, check_resource_cross_machine_consistency: false, check_resource_version_pinning: false, check_resource_dependency_completeness: false, check_resource_state_coverage: false, check_resource_rollback_safety: false, check_resource_config_maturity: false, check_resource_dependency_ordering: false, check_resource_tag_completeness: false, check_resource_naming_standards: false, check_resource_dependency_symmetry: false, check_resource_circular_alias: false, check_resource_dependency_depth_limit: false, check_resource_unused_params: false, check_resource_machine_balance: false, check_resource_content_hash_consistency: false, check_resource_dependency_refs: false, check_resource_trigger_refs: false, check_resource_param_type_safety: false, check_resource_env_consistency: false, check_resource_secret_rotation: false, check_resource_lifecycle_completeness: false, check_resource_provider_compatibility: false, check_resource_naming_convention_strict: false, check_resource_idempotency_annotations: false, check_resource_content_size_limit: false, check_resource_dependency_fan_limit: false, check_resource_gpu_backend_consistency: false, check_resource_when_condition_syntax: false, check_resource_lifecycle_hook_coverage: false, check_resource_secret_rotation_age: false, check_resource_dependency_chain_depth: false, check_recipe_input_completeness: false, check_resource_cross_machine_content_duplicates: false, check_resource_machine_reference_validity: false, check_resource_health_correlation: false, check_dependency_optimization: false, check_resource_consolidation_opportunities: false,
-            check_resource_compliance_tags: false,
-            check_resource_rollback_coverage: false,
-            check_resource_dependency_balance: false, check_resource_secret_scope: false, check_resource_deprecation_usage: false, check_resource_when_condition_coverage: false, check_resource_dependency_symmetry_deep: false, check_resource_tag_namespace: false, check_resource_machine_capacity: false, check_resource_dependency_fan_out_limit: false, check_resource_tag_required_keys: false, check_resource_content_drift_risk: false, check_resource_circular_dependency_depth: false, check_resource_orphan_detection_deep: false, check_resource_provider_diversity: false, check_resource_dependency_isolation: false, check_resource_tag_value_consistency: false, check_resource_machine_distribution_balance: false, check_resource_dependency_version_drift: false, check_resource_naming_length_limit: false, check_resource_type_coverage_per_machine: false, check_resource_dependency_depth_variance: false, check_resource_tag_key_naming: false, check_resource_content_length_limit: false, check_resource_dependency_completeness_audit: false, check_resource_machine_coverage_gap: false, check_resource_path_depth_limit: false, check_resource_dependency_ordering_consistency: false, check_resource_tag_value_format: false, check_resource_provider_version_pinning: false,
+                check_resource_drift_risk: false,
+                check_resource_tag_coverage: false,
+                check_resource_lifecycle_hooks: false,
+                check_resource_provider_version: false,
+                check_resource_naming_convention: false,
+                check_resource_idempotency: false,
+                check_resource_documentation: false,
+                check_resource_ownership: false,
+                check_resource_secret_exposure: false,
+                check_resource_tag_standards: false,
+                check_resource_privilege_escalation: false,
+                check_resource_update_safety: false,
+                check_resource_cross_machine_consistency: false,
+                check_resource_version_pinning: false,
+                check_resource_dependency_completeness: false,
+                check_resource_state_coverage: false,
+                check_resource_rollback_safety: false,
+                check_resource_config_maturity: false,
+                check_resource_dependency_ordering: false,
+                check_resource_tag_completeness: false,
+                check_resource_naming_standards: false,
+                check_resource_dependency_symmetry: false,
+                check_resource_circular_alias: false,
+                check_resource_dependency_depth_limit: false,
+                check_resource_unused_params: false,
+                check_resource_machine_balance: false,
+                check_resource_content_hash_consistency: false,
+                check_resource_dependency_refs: false,
+                check_resource_trigger_refs: false,
+                check_resource_param_type_safety: false,
+                check_resource_env_consistency: false,
+                check_resource_secret_rotation: false,
+                check_resource_lifecycle_completeness: false,
+                check_resource_provider_compatibility: false,
+                check_resource_naming_convention_strict: false,
+                check_resource_idempotency_annotations: false,
+                check_resource_content_size_limit: false,
+                check_resource_dependency_fan_limit: false,
+                check_resource_gpu_backend_consistency: false,
+                check_resource_when_condition_syntax: false,
+                check_resource_lifecycle_hook_coverage: false,
+                check_resource_secret_rotation_age: false,
+                check_resource_dependency_chain_depth: false,
+                check_recipe_input_completeness: false,
+                check_resource_cross_machine_content_duplicates: false,
+                check_resource_machine_reference_validity: false,
+                check_resource_health_correlation: false,
+                check_dependency_optimization: false,
+                check_resource_consolidation_opportunities: false,
+                check_resource_compliance_tags: false,
+                check_resource_rollback_coverage: false,
+                check_resource_dependency_balance: false,
+                check_resource_secret_scope: false,
+                check_resource_deprecation_usage: false,
+                check_resource_when_condition_coverage: false,
+                check_resource_dependency_symmetry_deep: false,
+                check_resource_tag_namespace: false,
+                check_resource_machine_capacity: false,
+                check_resource_dependency_fan_out_limit: false,
+                check_resource_tag_required_keys: false,
+                check_resource_content_drift_risk: false,
+                check_resource_circular_dependency_depth: false,
+                check_resource_orphan_detection_deep: false,
+                check_resource_provider_diversity: false,
+                check_resource_dependency_isolation: false,
+                check_resource_tag_value_consistency: false,
+                check_resource_machine_distribution_balance: false,
+                check_resource_dependency_version_drift: false,
+                check_resource_naming_length_limit: false,
+                check_resource_type_coverage_per_machine: false,
+                check_resource_dependency_depth_variance: false,
+                check_resource_tag_key_naming: false,
+                check_resource_content_length_limit: false,
+                check_resource_dependency_completeness_audit: false,
+                check_resource_machine_coverage_gap: false,
+                check_resource_path_depth_limit: false,
+                check_resource_dependency_ordering_consistency: false,
+                check_resource_tag_value_format: false,
+                check_resource_provider_version_pinning: false,
             }),
             false,
             true,
         )
         .unwrap();
     }
-
 
     #[test]
     fn test_fj132_cmd_validate_valid_config() {
@@ -170,7 +251,6 @@ resources:
         cmd_validate(&file, false, false, false).unwrap();
     }
 
-
     #[test]
     fn test_fj132_cmd_validate_invalid_config() {
         let dir = tempfile::tempdir().unwrap();
@@ -185,7 +265,6 @@ resources: {}
         let result = cmd_validate(&file, false, false, false);
         assert!(result.is_err());
     }
-
 
     #[test]
     fn test_fj036_cmd_validate_valid_config() {
@@ -228,7 +307,6 @@ resources:
         );
     }
 
-
     #[test]
     fn test_fj017_cmd_validate_missing_file() {
         let dir = tempfile::tempdir().unwrap();
@@ -239,7 +317,6 @@ resources:
             "cmd_validate should fail for a nonexistent file"
         );
     }
-
 
     #[test]
     fn test_fj295_validate_json_valid() {
@@ -266,7 +343,6 @@ resources:
         let result = cmd_validate(&file, false, true, false);
         assert!(result.is_ok());
     }
-
 
     #[test]
     fn test_fj295_validate_json_flag_parse() {
@@ -314,24 +390,109 @@ resources:
             check_resource_names: None,
             check_resource_count: None,
             check_duplicate_paths: false,
-        check_circular_deps: false,
-        check_machine_refs: false,
-        check_provider_consistency: false,
-        check_state_values: false,
-        check_unused_machines: false,
-        check_tag_consistency: false,
+            check_circular_deps: false,
+            check_machine_refs: false,
+            check_provider_consistency: false,
+            check_state_values: false,
+            check_unused_machines: false,
+            check_tag_consistency: false,
             check_dependency_exists: false,
             check_path_conflicts_strict: false,
             check_duplicate_names: false,
             check_resource_groups: false,
             check_orphan_resources: false,
-            check_machine_arch: false, check_resource_health_conflicts: false, check_resource_overlap: false, check_resource_tags: false, check_resource_state_consistency: false, check_resource_dependencies_complete: false, check_machine_connectivity: false, check_resource_naming_pattern: None, check_resource_provider_support: false, check_resource_secret_refs: false, check_resource_idempotency_hints: false,
-                check_resource_dependency_depth: None,
-                check_resource_machine_affinity: false,
-                check_resource_drift_risk: false, check_resource_tag_coverage: false, check_resource_lifecycle_hooks: false, check_resource_provider_version: false, check_resource_naming_convention: false, check_resource_idempotency: false, check_resource_documentation: false, check_resource_ownership: false, check_resource_secret_exposure: false, check_resource_tag_standards: false, check_resource_privilege_escalation: false, check_resource_update_safety: false, check_resource_cross_machine_consistency: false, check_resource_version_pinning: false, check_resource_dependency_completeness: false, check_resource_state_coverage: false, check_resource_rollback_safety: false, check_resource_config_maturity: false, check_resource_dependency_ordering: false, check_resource_tag_completeness: false, check_resource_naming_standards: false, check_resource_dependency_symmetry: false, check_resource_circular_alias: false, check_resource_dependency_depth_limit: false, check_resource_unused_params: false, check_resource_machine_balance: false, check_resource_content_hash_consistency: false, check_resource_dependency_refs: false, check_resource_trigger_refs: false, check_resource_param_type_safety: false, check_resource_env_consistency: false, check_resource_secret_rotation: false, check_resource_lifecycle_completeness: false, check_resource_provider_compatibility: false, check_resource_naming_convention_strict: false, check_resource_idempotency_annotations: false, check_resource_content_size_limit: false, check_resource_dependency_fan_limit: false, check_resource_gpu_backend_consistency: false, check_resource_when_condition_syntax: false, check_resource_lifecycle_hook_coverage: false, check_resource_secret_rotation_age: false, check_resource_dependency_chain_depth: false, check_recipe_input_completeness: false, check_resource_cross_machine_content_duplicates: false, check_resource_machine_reference_validity: false, check_resource_health_correlation: false, check_dependency_optimization: false, check_resource_consolidation_opportunities: false,
+            check_machine_arch: false,
+            check_resource_health_conflicts: false,
+            check_resource_overlap: false,
+            check_resource_tags: false,
+            check_resource_state_consistency: false,
+            check_resource_dependencies_complete: false,
+            check_machine_connectivity: false,
+            check_resource_naming_pattern: None,
+            check_resource_provider_support: false,
+            check_resource_secret_refs: false,
+            check_resource_idempotency_hints: false,
+            check_resource_dependency_depth: None,
+            check_resource_machine_affinity: false,
+            check_resource_drift_risk: false,
+            check_resource_tag_coverage: false,
+            check_resource_lifecycle_hooks: false,
+            check_resource_provider_version: false,
+            check_resource_naming_convention: false,
+            check_resource_idempotency: false,
+            check_resource_documentation: false,
+            check_resource_ownership: false,
+            check_resource_secret_exposure: false,
+            check_resource_tag_standards: false,
+            check_resource_privilege_escalation: false,
+            check_resource_update_safety: false,
+            check_resource_cross_machine_consistency: false,
+            check_resource_version_pinning: false,
+            check_resource_dependency_completeness: false,
+            check_resource_state_coverage: false,
+            check_resource_rollback_safety: false,
+            check_resource_config_maturity: false,
+            check_resource_dependency_ordering: false,
+            check_resource_tag_completeness: false,
+            check_resource_naming_standards: false,
+            check_resource_dependency_symmetry: false,
+            check_resource_circular_alias: false,
+            check_resource_dependency_depth_limit: false,
+            check_resource_unused_params: false,
+            check_resource_machine_balance: false,
+            check_resource_content_hash_consistency: false,
+            check_resource_dependency_refs: false,
+            check_resource_trigger_refs: false,
+            check_resource_param_type_safety: false,
+            check_resource_env_consistency: false,
+            check_resource_secret_rotation: false,
+            check_resource_lifecycle_completeness: false,
+            check_resource_provider_compatibility: false,
+            check_resource_naming_convention_strict: false,
+            check_resource_idempotency_annotations: false,
+            check_resource_content_size_limit: false,
+            check_resource_dependency_fan_limit: false,
+            check_resource_gpu_backend_consistency: false,
+            check_resource_when_condition_syntax: false,
+            check_resource_lifecycle_hook_coverage: false,
+            check_resource_secret_rotation_age: false,
+            check_resource_dependency_chain_depth: false,
+            check_recipe_input_completeness: false,
+            check_resource_cross_machine_content_duplicates: false,
+            check_resource_machine_reference_validity: false,
+            check_resource_health_correlation: false,
+            check_dependency_optimization: false,
+            check_resource_consolidation_opportunities: false,
             check_resource_compliance_tags: false,
             check_resource_rollback_coverage: false,
-            check_resource_dependency_balance: false, check_resource_secret_scope: false, check_resource_deprecation_usage: false, check_resource_when_condition_coverage: false, check_resource_dependency_symmetry_deep: false, check_resource_tag_namespace: false, check_resource_machine_capacity: false, check_resource_dependency_fan_out_limit: false, check_resource_tag_required_keys: false, check_resource_content_drift_risk: false, check_resource_circular_dependency_depth: false, check_resource_orphan_detection_deep: false, check_resource_provider_diversity: false, check_resource_dependency_isolation: false, check_resource_tag_value_consistency: false, check_resource_machine_distribution_balance: false, check_resource_dependency_version_drift: false, check_resource_naming_length_limit: false, check_resource_type_coverage_per_machine: false, check_resource_dependency_depth_variance: false, check_resource_tag_key_naming: false, check_resource_content_length_limit: false, check_resource_dependency_completeness_audit: false, check_resource_machine_coverage_gap: false, check_resource_path_depth_limit: false, check_resource_dependency_ordering_consistency: false, check_resource_tag_value_format: false, check_resource_provider_version_pinning: false,
+            check_resource_dependency_balance: false,
+            check_resource_secret_scope: false,
+            check_resource_deprecation_usage: false,
+            check_resource_when_condition_coverage: false,
+            check_resource_dependency_symmetry_deep: false,
+            check_resource_tag_namespace: false,
+            check_resource_machine_capacity: false,
+            check_resource_dependency_fan_out_limit: false,
+            check_resource_tag_required_keys: false,
+            check_resource_content_drift_risk: false,
+            check_resource_circular_dependency_depth: false,
+            check_resource_orphan_detection_deep: false,
+            check_resource_provider_diversity: false,
+            check_resource_dependency_isolation: false,
+            check_resource_tag_value_consistency: false,
+            check_resource_machine_distribution_balance: false,
+            check_resource_dependency_version_drift: false,
+            check_resource_naming_length_limit: false,
+            check_resource_type_coverage_per_machine: false,
+            check_resource_dependency_depth_variance: false,
+            check_resource_tag_key_naming: false,
+            check_resource_content_length_limit: false,
+            check_resource_dependency_completeness_audit: false,
+            check_resource_machine_coverage_gap: false,
+            check_resource_path_depth_limit: false,
+            check_resource_dependency_ordering_consistency: false,
+            check_resource_tag_value_format: false,
+            check_resource_provider_version_pinning: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { json, strict, .. }) => {
@@ -343,6 +504,4 @@ resources:
     }
 
     // ── FJ-296: history --json --since structured output ──
-
-
 }

@@ -41,7 +41,10 @@ fn test_fj1305_pinned_no_store() {
     };
     let result = classify("nginx", &signals);
     assert_eq!(result.level, PurityLevel::Pinned);
-    assert!(result.reasons.iter().any(|r| r.contains("store not enabled")));
+    assert!(result
+        .reasons
+        .iter()
+        .any(|r| r.contains("store not enabled")));
 }
 
 #[test]
@@ -117,7 +120,11 @@ fn test_fj1305_monotonicity_dep_lower() {
 
 #[test]
 fn test_fj1305_recipe_purity_max() {
-    let levels = vec![PurityLevel::Pure, PurityLevel::Pinned, PurityLevel::Constrained];
+    let levels = vec![
+        PurityLevel::Pure,
+        PurityLevel::Pinned,
+        PurityLevel::Constrained,
+    ];
     assert_eq!(recipe_purity(&levels), PurityLevel::Constrained);
 }
 

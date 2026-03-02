@@ -298,7 +298,10 @@ pub(crate) fn cmd_validate_check_resource_content_length_limit(
             })
         );
     } else if violations.is_empty() {
-        println!("Content length: 0 resources exceed limit ({} chars)", CONTENT_LENGTH_LIMIT);
+        println!(
+            "Content length: 0 resources exceed limit ({} chars)",
+            CONTENT_LENGTH_LIMIT
+        );
     } else {
         println!(
             "Content length: {} resources exceed limit ({} chars)",

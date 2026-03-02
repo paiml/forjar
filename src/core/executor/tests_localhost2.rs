@@ -1,7 +1,7 @@
 //! FJ-131: Executor + state edge case tests (part 2).
 
-use super::*;
 use super::test_fixtures::*;
+use super::*;
 
 #[test]
 fn test_fj131_apply_continue_independent_policy() {
@@ -141,6 +141,8 @@ fn test_fj131_record_success_no_live_hash_for_package() {
         pre_apply: None,
         post_apply: None,
         lifecycle: None,
+        store: false,
+        script: None,
     };
     let mut ctx = RecordCtx {
         lock: &mut lock,
@@ -264,4 +266,3 @@ fn test_fj131_record_ctx_timeout_propagation() {
     assert_eq!(ctx.machine_name, "test");
     assert!(ctx.tripwire);
 }
-

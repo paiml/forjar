@@ -1,9 +1,8 @@
 //! Resource status.
 
+use super::helpers::*;
 use crate::core::state;
 use std::path::Path;
-use super::helpers::*;
-
 
 // ── FJ-497: status --resource-age ──
 
@@ -83,7 +82,6 @@ pub(crate) fn cmd_status_resource_age(
     Ok(())
 }
 
-
 /// FJ-612: Estimate resource cost based on type and count.
 pub(crate) fn cmd_status_resource_cost(
     state_dir: &Path,
@@ -153,7 +151,6 @@ pub(crate) fn cmd_status_resource_cost(
     Ok(())
 }
 
-
 /// FJ-682: Show estimated resource sizes
 pub(crate) fn cmd_status_resource_size(
     state_dir: &Path,
@@ -208,7 +205,6 @@ pub(crate) fn cmd_status_resource_size(
     Ok(())
 }
 
-
 /// FJ-562: Show resource dependency graph from live state.
 pub(crate) fn cmd_status_resource_graph(
     state_dir: &Path,
@@ -262,4 +258,3 @@ pub(crate) fn cmd_status_resource_graph(
     }
     Ok(())
 }
-

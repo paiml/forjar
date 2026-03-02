@@ -1,9 +1,8 @@
 //! Extended graph ops.
 
+use super::helpers::*;
 use crate::core::{resolver, types};
 use std::path::Path;
-use super::helpers::*;
-
 
 /// Compute BFS depth map from roots.
 #[allow(clippy::type_complexity)]
@@ -79,10 +78,7 @@ fn print_depth_mermaid(
 }
 
 /// Print depth-filtered graph in DOT format.
-fn print_depth_dot(
-    config: &types::ForjarConfig,
-    included: &std::collections::HashSet<&str>,
-) {
+fn print_depth_dot(config: &types::ForjarConfig, included: &std::collections::HashSet<&str>) {
     println!("digraph G {{");
     for (name, res) in &config.resources {
         if !included.contains(name.as_str()) {
@@ -216,7 +212,6 @@ pub(crate) fn cmd_graph_depth(file: &Path, format: &str, max_depth: usize) -> Re
     Ok(())
 }
 
-
 // ── FJ-404: graph --cluster ──
 
 pub(crate) fn cmd_graph_cluster(file: &Path, format: &str) -> Result<(), String> {
@@ -242,7 +237,6 @@ pub(crate) fn cmd_graph_cluster(file: &Path, format: &str) -> Result<(), String>
     }
     Ok(())
 }
-
 
 // ── FJ-414: graph --orphans ──
 
@@ -281,7 +275,6 @@ pub(crate) fn cmd_graph_orphans(file: &Path) -> Result<(), String> {
     }
     Ok(())
 }
-
 
 // ── FJ-424: graph --stats ──
 
@@ -330,7 +323,6 @@ pub(crate) fn cmd_graph_stats(file: &Path) -> Result<(), String> {
     Ok(())
 }
 
-
 // ── FJ-434: graph --json ──
 
 pub(crate) fn cmd_graph_json(file: &Path) -> Result<(), String> {
@@ -355,7 +347,6 @@ pub(crate) fn cmd_graph_json(file: &Path) -> Result<(), String> {
     println!("{{{}}}", adjacency.join(","));
     Ok(())
 }
-
 
 // ── FJ-444: graph --highlight ──
 
@@ -386,4 +377,3 @@ pub(crate) fn cmd_graph_highlight(file: &Path, format: &str, resource: &str) -> 
     }
     Ok(())
 }
-

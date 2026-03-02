@@ -1,12 +1,15 @@
 //! Policy and connectivity validation.
 
+use super::helpers::*;
 use crate::core::types;
 use std::path::Path;
-use super::helpers::*;
-
 
 /// Check no_root_owner policy.
-fn check_no_root_owner(rule_name: &str, config: &types::ForjarConfig, violations: &mut Vec<String>) {
+fn check_no_root_owner(
+    rule_name: &str,
+    config: &types::ForjarConfig,
+    violations: &mut Vec<String>,
+) {
     for (name, res) in &config.resources {
         if res.owner.as_deref() == Some("root") {
             violations.push(format!(
@@ -27,7 +30,11 @@ fn check_require_tags(rule_name: &str, config: &types::ForjarConfig, violations:
 }
 
 /// Check require_depends_on policy.
-fn check_require_depends_on(rule_name: &str, config: &types::ForjarConfig, violations: &mut Vec<String>) {
+fn check_require_depends_on(
+    rule_name: &str,
+    config: &types::ForjarConfig,
+    violations: &mut Vec<String>,
+) {
     for (name, res) in &config.resources {
         if res.depends_on.is_empty() && res.resource_type != types::ResourceType::Package {
             violations.push(format!(
@@ -57,7 +64,11 @@ fn check_policy_rule(
 
 // ── FJ-401: validate --policy-file ──
 
-pub(crate) fn cmd_validate_policy_file(file: &Path, policy_file: &Path, json: bool) -> Result<(), String> {
+pub(crate) fn cmd_validate_policy_file(
+    file: &Path,
+    policy_file: &Path,
+    json: bool,
+) -> Result<(), String> {
     let config = parse_and_validate(file)?;
     let policy_content = std::fs::read_to_string(policy_file).map_err(|e| {
         format!(
@@ -108,7 +119,6 @@ pub(crate) fn cmd_validate_policy_file(file: &Path, policy_file: &Path, json: bo
     }
 }
 
-
 // ── FJ-411: validate --check-connectivity ──
 
 pub(crate) fn cmd_validate_connectivity(file: &Path, json: bool) -> Result<(), String> {
@@ -151,7 +161,6 @@ pub(crate) fn cmd_validate_connectivity(file: &Path, json: bool) -> Result<(), S
     }
     Ok(())
 }
-
 
 // ── FJ-431: validate --strict-deps ──
 

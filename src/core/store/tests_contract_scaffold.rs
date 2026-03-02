@@ -85,8 +85,7 @@ fn test_fj1352_scaffold_has_falsification_tests() {
 fn test_fj1352_scaffold_valid_yaml_parse() {
     let stubs = scaffold_contracts(&sample_missing(), "dev");
     for stub in &stubs {
-        let parsed: Result<serde_yaml_ng::Value, _> =
-            serde_yaml_ng::from_str(&stub.yaml_content);
+        let parsed: Result<serde_yaml_ng::Value, _> = serde_yaml_ng::from_str(&stub.yaml_content);
         assert!(
             parsed.is_ok(),
             "Invalid YAML in {}: {:?}",

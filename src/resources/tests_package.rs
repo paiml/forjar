@@ -78,6 +78,8 @@ pub(super) fn make_apt_resource(packages: &[&str]) -> Resource {
         pre_apply: None,
         post_apply: None,
         lifecycle: None,
+        store: false,
+        script: None,
     }
 }
 
@@ -277,4 +279,3 @@ fn test_fj006_apt_check_output_format() {
     assert!(script.contains("echo 'installed:curl'"));
     assert!(script.contains("echo 'missing:curl'"));
 }
-

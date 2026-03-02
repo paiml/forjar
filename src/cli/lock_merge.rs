@@ -1,9 +1,8 @@
 //! Lock merge and rebase.
 
+use super::helpers::*;
 use crate::core::state;
 use std::path::Path;
-use super::helpers::*;
-
 
 // ── FJ-445: lock merge ──
 
@@ -31,7 +30,12 @@ fn collect_machine_names_from_dir(dir: &Path) -> std::collections::HashSet<Strin
     names
 }
 
-pub(crate) fn cmd_lock_merge(from: &Path, to: &Path, output: &Path, json: bool) -> Result<(), String> {
+pub(crate) fn cmd_lock_merge(
+    from: &Path,
+    to: &Path,
+    output: &Path,
+    json: bool,
+) -> Result<(), String> {
     let mut merged_count = 0usize;
     let mut conflict_count = 0usize;
 
@@ -89,7 +93,6 @@ pub(crate) fn cmd_lock_merge(from: &Path, to: &Path, output: &Path, json: bool) 
     }
     Ok(())
 }
-
 
 // ── FJ-455: lock rebase ──
 
@@ -158,7 +161,6 @@ pub(crate) fn cmd_lock_rebase(
     Ok(())
 }
 
-
 // ── FJ-465: lock sign ──
 
 pub(crate) fn cmd_lock_sign(state_dir: &Path, key: &str, json: bool) -> Result<(), String> {
@@ -206,4 +208,3 @@ pub(crate) fn cmd_lock_sign(state_dir: &Path, key: &str, json: bool) -> Result<(
     }
     Ok(())
 }
-

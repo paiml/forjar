@@ -1,9 +1,8 @@
 //! Cost and capacity.
 
+use super::helpers::*;
 use crate::core::types;
 use std::path::Path;
-use super::helpers::*;
-
 
 /// FJ-537: Staleness report — show resources not applied within window.
 pub(crate) fn cmd_status_staleness_report(
@@ -85,7 +84,6 @@ pub(crate) fn cmd_status_staleness_report(
     }
     Ok(())
 }
-
 
 /// FJ-532: Cost estimate — estimate resource cost based on type counts.
 pub(crate) fn cmd_status_cost_estimate(
@@ -187,9 +185,12 @@ pub(crate) fn cmd_status_cost_estimate(
     Ok(())
 }
 
-
 /// FJ-527: Status capacity — show resource utilization vs limits per machine.
-pub(crate) fn cmd_status_capacity(state_dir: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
+pub(crate) fn cmd_status_capacity(
+    state_dir: &Path,
+    machine: Option<&str>,
+    json: bool,
+) -> Result<(), String> {
     let machines = discover_machines(state_dir);
     let machines: Vec<String> = if let Some(m) = machine {
         machines.into_iter().filter(|n| n == m).collect()
@@ -255,4 +256,3 @@ pub(crate) fn cmd_status_capacity(state_dir: &Path, machine: Option<&str>, json:
     }
     Ok(())
 }
-

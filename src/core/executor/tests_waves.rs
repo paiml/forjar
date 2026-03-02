@@ -457,4 +457,3 @@ resources:
         "config changed + app triggered"
     );
 }
-

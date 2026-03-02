@@ -1,7 +1,7 @@
 //! FJ-012: Core executor tests — collect_machines, build_resource_details, apply basics.
 
-use super::*;
 use super::test_fixtures::*;
+use super::*;
 
 #[test]
 fn test_fj012_collect_machines() {
@@ -120,6 +120,8 @@ fn test_fj012_build_resource_details() {
         pre_apply: None,
         post_apply: None,
         lifecycle: None,
+        store: false,
+        script: None,
     };
     let details = build_resource_details(&r, &local_machine());
     assert!(details.contains_key("path"));
@@ -214,6 +216,8 @@ fn test_fj012_build_resource_details_service() {
         pre_apply: None,
         post_apply: None,
         lifecycle: None,
+        store: false,
+        script: None,
     };
     let details = build_resource_details(&r, &local_machine());
     assert!(details.contains_key("service_name"));
@@ -442,4 +446,3 @@ resources:
     let _ = std::fs::remove_file("/tmp/forjar-test-filter-a.txt");
     let _ = std::fs::remove_file("/tmp/forjar-test-filter-b.txt");
 }
-

@@ -90,7 +90,10 @@ fn print_risk_scores_json(scores: &[(String, usize)]) {
         .iter()
         .map(|(r, s)| format!("{{\"resource\":\"{}\",\"risk_score\":{}}}", r, s))
         .collect();
-    println!("{{\"resource_dependency_risk_scores\":[{}]}}", items.join(","));
+    println!(
+        "{{\"resource_dependency_risk_scores\":[{}]}}",
+        items.join(",")
+    );
 }
 
 fn print_risk_scores_text(scores: &[(String, usize)]) {
@@ -162,7 +165,10 @@ fn print_layering_json(layers: &BTreeMap<&'static str, Vec<String>>) {
             format!("\"{}\":[{}]", layer, names.join(","))
         })
         .collect();
-    println!("{{\"resource_dependency_layering\":{{{}}}}}", entries.join(","));
+    println!(
+        "{{\"resource_dependency_layering\":{{{}}}}}",
+        entries.join(",")
+    );
 }
 
 fn print_layering_text(layers: &BTreeMap<&'static str, Vec<String>>) {

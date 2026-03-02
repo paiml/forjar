@@ -1,7 +1,5 @@
 //! Time and duration parsing helpers.
 
-
-
 pub(crate) fn chrono_date() -> String {
     // Simple date without chrono dependency
     let output = std::process::Command::new("date").arg("+%Y-%m-%d").output();
@@ -10,7 +8,6 @@ pub(crate) fn chrono_date() -> String {
         Err(_) => "unknown".to_string(),
     }
 }
-
 
 /// Compact timestamp for snapshot names (YYYYMMDD-HHMMSS).
 pub(crate) fn chrono_now_compact() -> String {
@@ -21,7 +18,6 @@ pub(crate) fn chrono_now_compact() -> String {
     // Simple Unix timestamp — good enough for unique naming
     format!("{}", now)
 }
-
 
 /// FJ-284: Parse a human duration string like "24h", "7d", "30m" into seconds.
 pub(crate) fn parse_duration_secs(s: &str) -> Result<u64, String> {
@@ -41,7 +37,6 @@ pub(crate) fn parse_duration_secs(s: &str) -> Result<u64, String> {
         _ => Err(format!("unknown duration unit '{}' (use s/m/h/d)", unit)),
     }
 }
-
 
 pub(crate) fn parse_duration_string(s: &str) -> Result<u64, String> {
     let s = s.trim();
@@ -64,7 +59,6 @@ pub(crate) fn parse_duration_string(s: &str) -> Result<u64, String> {
     }
 }
 
-
 /// Estimate hours between two ISO-ish timestamp strings.
 pub(crate) fn estimate_hours_between(start: &str, end: &str) -> f64 {
     // Simple extraction: parse "YYYY-MM-DDTHH:MM:SS" prefix
@@ -86,4 +80,3 @@ pub(crate) fn estimate_hours_between(start: &str, end: &str) -> f64 {
         _ => 1.0, // default 1 hour if unparseable
     }
 }
-

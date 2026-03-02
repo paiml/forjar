@@ -231,9 +231,7 @@ fn reachable_from(start: &str, dep_map: &HashMap<&str, &[String]>) -> HashSet<St
 
 /// Returns `(resource_name, redundant_edge, implied_via)` for each transitive
 /// dependency edge that can be safely removed.
-fn find_redundant_edges(
-    config: &types::ForjarConfig,
-) -> Vec<(String, String, String)> {
+fn find_redundant_edges(config: &types::ForjarConfig) -> Vec<(String, String, String)> {
     // Build dep_map: resource_name -> &[depends_on]
     let dep_map: HashMap<&str, &[String]> = config
         .resources
@@ -310,9 +308,7 @@ struct ConsolidationOpportunity {
 
 /// Find consolidation opportunities across resources of the same type on
 /// different machines.
-fn find_consolidation_opportunities(
-    config: &types::ForjarConfig,
-) -> Vec<ConsolidationOpportunity> {
+fn find_consolidation_opportunities(config: &types::ForjarConfig) -> Vec<ConsolidationOpportunity> {
     let entries: Vec<(&String, &types::Resource)> = config.resources.iter().collect();
     let mut opportunities = Vec::new();
     let mut seen = HashSet::new();
@@ -346,7 +342,11 @@ fn find_consolidation_opportunities(
         }
     }
 
-    opportunities.sort_by(|a, b| a.name_a.cmp(&b.name_a).then_with(|| a.name_b.cmp(&b.name_b)));
+    opportunities.sort_by(|a, b| {
+        a.name_a
+            .cmp(&b.name_a)
+            .then_with(|| a.name_b.cmp(&b.name_b))
+    });
     opportunities
 }
 
@@ -416,9 +416,7 @@ fn levenshtein_chars(a: &[char], b: &[char]) -> usize {
         curr[0] = j;
         for i in 1..=n {
             let cost = if a[i - 1] == b[j - 1] { 0 } else { 1 };
-            curr[i] = (prev[i] + 1)
-                .min(curr[i - 1] + 1)
-                .min(prev[i - 1] + cost);
+            curr[i] = (prev[i] + 1).min(curr[i - 1] + 1).min(prev[i - 1] + cost);
         }
         std::mem::swap(&mut prev, &mut curr);
     }

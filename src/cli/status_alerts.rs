@@ -1,16 +1,26 @@
 //! Alerts and uptime.
 
+use super::helpers::*;
 use crate::core::{state, types};
 use std::path::Path;
-use super::helpers::*;
-
 
 // ── FJ-457: status --alerts ──
 
-fn collect_alerts_from_lock(m_name: &str, lock: &types::StateLock, alerts: &mut Vec<(String, String, String)>) {
+fn collect_alerts_from_lock(
+    m_name: &str,
+    lock: &types::StateLock,
+    alerts: &mut Vec<(String, String, String)>,
+) {
     for (rname, rl) in &lock.resources {
-        if matches!(rl.status, types::ResourceStatus::Failed | types::ResourceStatus::Drifted) {
-            alerts.push((m_name.to_string(), rname.clone(), format!("{:?}", rl.status)));
+        if matches!(
+            rl.status,
+            types::ResourceStatus::Failed | types::ResourceStatus::Drifted
+        ) {
+            alerts.push((
+                m_name.to_string(),
+                rname.clone(),
+                format!("{:?}", rl.status),
+            ));
         }
     }
 }
@@ -49,7 +59,11 @@ fn collect_alerts(
     Ok(alerts)
 }
 
-pub(crate) fn cmd_status_alerts(state_dir: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
+pub(crate) fn cmd_status_alerts(
+    state_dir: &Path,
+    machine: Option<&str>,
+    json: bool,
+) -> Result<(), String> {
     let alerts = collect_alerts(state_dir, machine)?;
 
     if json {
@@ -73,7 +87,6 @@ pub(crate) fn cmd_status_alerts(state_dir: &Path, machine: Option<&str>, json: b
     }
     Ok(())
 }
-
 
 /// FJ-642: Show resource uptime based on convergence history
 fn collect_uptime_entries(
@@ -100,7 +113,11 @@ fn collect_uptime_entries(
     entries
 }
 
-pub(crate) fn cmd_status_uptime(state_dir: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
+pub(crate) fn cmd_status_uptime(
+    state_dir: &Path,
+    machine: Option<&str>,
+    json: bool,
+) -> Result<(), String> {
     let machines = discover_machines(state_dir);
     let targets: Vec<&String> = if let Some(m) = machine {
         machines.iter().filter(|x| x.as_str() == m).collect()
@@ -129,13 +146,16 @@ pub(crate) fn cmd_status_uptime(state_dir: &Path, machine: Option<&str>, json: b
                 m,
                 rname,
                 status_str,
-                if applied.is_empty() { "unknown" } else { applied }
+                if applied.is_empty() {
+                    "unknown"
+                } else {
+                    applied
+                }
             );
         }
     }
     Ok(())
 }
-
 
 /// FJ-632: Comprehensive diagnostic report with recommendations.
 fn collect_diagnostic_stats(
@@ -216,7 +236,6 @@ pub(crate) fn cmd_status_diagnostic(
     Ok(())
 }
 
-
 // ── FJ-502: status --sla-report ──
 
 fn process_sla_machine(
@@ -243,7 +262,11 @@ fn process_sla_machine(
         let indicator = if meets_sla { green("✓") } else { red("✗") };
         println!(
             "{} {} — SLA: {:.1}% ({}/{}) {}",
-            indicator, m, sla_pct, converged, total,
+            indicator,
+            m,
+            sla_pct,
+            converged,
+            total,
             if meets_sla { "" } else { "⚠ BELOW SLA" }
         );
     }
@@ -275,7 +298,6 @@ pub(crate) fn cmd_status_sla_report(
     }
     Ok(())
 }
-
 
 // ── FJ-477: status --dependency-health ──
 
@@ -353,4 +375,3 @@ pub(crate) fn cmd_status_dependency_health(
     }
     Ok(())
 }
-

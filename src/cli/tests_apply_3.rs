@@ -1,22 +1,21 @@
 //! Tests: Apply command.
 
 #![allow(unused_imports)]
+use super::apply::*;
+use super::commands::*;
+use super::dispatch::*;
+use super::helpers::*;
+use super::helpers_state::*;
+use super::helpers_time::*;
 use crate::core::types::ProvenanceEvent;
 use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
 use crate::transport;
 use crate::tripwire::{anomaly, drift, eventlog, tracer};
 use std::path::{Path, PathBuf};
-use super::helpers::*;
-use super::helpers_state::*;
-use super::helpers_time::*;
-use super::apply::*;
-use super::commands::*;
-use super::dispatch::*;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
 
     #[test]
     fn test_fj226_apply_check_false_runs_normally() {
@@ -186,16 +185,46 @@ resources:
                 only_machine: None,
                 notify_webhook_headers: None,
                 notify_log: None,
-        notify_exec: None,
-        notify_file: None,
-        notify_json: false, notify_slack_webhook: None, notify_telegram: None, notify_webhook_v2: None, notify_discord_webhook: None, notify_teams_webhook: None, notify_slack_blocks: None, notify_custom_template: None, notify_custom_webhook: None, notify_custom_headers: None, notify_custom_json: None, notify_custom_filter: None, notify_custom_retry: None, notify_custom_transform: None, notify_custom_batch: None, notify_custom_deduplicate: None, notify_custom_throttle: None, notify_custom_aggregate: None, notify_custom_priority: None, notify_custom_routing: None, notify_custom_dedup_window: None, notify_custom_rate_limit: None, notify_custom_backoff: None, notify_custom_circuit_breaker: None, notify_custom_dead_letter: None, notify_custom_escalation: None, notify_custom_correlation: None, notify_custom_sampling: None, notify_custom_digest: None, notify_custom_severity_filter: None, refresh_only: false, encrypt_state: false,
+                notify_exec: None,
+                notify_file: None,
+                notify_json: false,
+                notify_slack_webhook: None,
+                notify_telegram: None,
+                notify_webhook_v2: None,
+                notify_discord_webhook: None,
+                notify_teams_webhook: None,
+                notify_slack_blocks: None,
+                notify_custom_template: None,
+                notify_custom_webhook: None,
+                notify_custom_headers: None,
+                notify_custom_json: None,
+                notify_custom_filter: None,
+                notify_custom_retry: None,
+                notify_custom_transform: None,
+                notify_custom_batch: None,
+                notify_custom_deduplicate: None,
+                notify_custom_throttle: None,
+                notify_custom_aggregate: None,
+                notify_custom_priority: None,
+                notify_custom_routing: None,
+                notify_custom_dedup_window: None,
+                notify_custom_rate_limit: None,
+                notify_custom_backoff: None,
+                notify_custom_circuit_breaker: None,
+                notify_custom_dead_letter: None,
+                notify_custom_escalation: None,
+                notify_custom_correlation: None,
+                notify_custom_sampling: None,
+                notify_custom_digest: None,
+                notify_custom_severity_filter: None,
+                refresh_only: false,
+                encrypt_state: false,
             }),
             false,
             true,
         );
         assert!(result.is_ok());
     }
-
 
     #[test]
     fn test_fj262_apply_writes_last_apply_report() {
@@ -271,7 +300,6 @@ resources:
         let _ = std::fs::remove_file("/tmp/forjar-report-test.txt");
     }
 
-
     #[test]
     fn test_fj262_apply_report_contains_all_resources() {
         let dir = tempfile::tempdir().unwrap();
@@ -343,7 +371,6 @@ resources:
         let _ = std::fs::remove_file("/tmp/forjar-rpt-b.txt");
     }
 
-
     #[test]
     fn test_fj262_apply_result_includes_reports() {
         use crate::core::types::{ApplyResult, ResourceReport};
@@ -369,7 +396,6 @@ resources:
         assert!(json.contains("0.5"));
     }
 
-
     #[test]
     fn test_fj262_save_and_load_apply_report() {
         use crate::core::state::{load_apply_report, save_apply_report};
@@ -391,7 +417,6 @@ resources:
         assert!(content.contains("resources_converged: 2"));
     }
 
-
     #[test]
     fn test_fj262_load_apply_report_missing() {
         use crate::core::state::load_apply_report;
@@ -399,7 +424,6 @@ resources:
         let loaded = load_apply_report(dir.path(), "nonexistent").unwrap();
         assert!(loaded.is_none());
     }
-
 
     #[test]
     fn test_fj270_apply_complete_event() {
@@ -416,5 +440,4 @@ resources:
         assert!(s.contains("\"converged\":3"));
         assert!(s.contains("\"failed\":0"));
     }
-
 }

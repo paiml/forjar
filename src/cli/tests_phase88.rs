@@ -1,8 +1,8 @@
 //! Tests: Phase 88 — Drift Velocity, Trigger Refs & Topological Depth (FJ-965→FJ-972).
 
-use super::validate_ordering::*;
 use super::graph_intelligence_ext::*;
 use super::status_intelligence_ext::*;
+use super::validate_ordering::*;
 use std::io::Write;
 
 #[cfg(test)]
@@ -18,7 +18,9 @@ mod tests {
 
     fn write_yaml(dir: &std::path::Path, name: &str, content: &str) -> std::path::PathBuf {
         let p = dir.join(name);
-        if let Some(parent) = p.parent() { std::fs::create_dir_all(parent).unwrap(); }
+        if let Some(parent) = p.parent() {
+            std::fs::create_dir_all(parent).unwrap();
+        }
         std::fs::write(&p, content).unwrap();
         p
     }
@@ -89,42 +91,137 @@ mod tests {
     #[test]
     fn test_fj968_custom_circuit_breaker_notification() {
         let opts = super::super::dispatch_notify::NotifyOpts {
-            slack: None, email: None, webhook: None, teams: None, discord: None,
-            opsgenie: None, datadog: None, newrelic: None, grafana: None, victorops: None,
-            msteams_adaptive: None, incident: None, sns: None, pubsub: None, eventbridge: None,
-            kafka: None, azure_servicebus: None, gcp_pubsub_v2: None, rabbitmq: None, nats: None,
-            mqtt: None, redis: None, amqp: None, stomp: None, zeromq: None, grpc: None, sqs: None,
-            mattermost: None, ntfy: None, pagerduty: None,
-            discord_webhook: None, teams_webhook: None, slack_blocks: None, custom_template: None,
-            custom_webhook: None, custom_headers: None, custom_json: None, custom_filter: None,
-            custom_retry: None, custom_transform: None, custom_batch: None, custom_deduplicate: None,
-            custom_throttle: None, custom_aggregate: None, custom_priority: None, custom_routing: None,
-            custom_dedup_window: None, custom_rate_limit: None, custom_backoff: None,
+            slack: None,
+            email: None,
+            webhook: None,
+            teams: None,
+            discord: None,
+            opsgenie: None,
+            datadog: None,
+            newrelic: None,
+            grafana: None,
+            victorops: None,
+            msteams_adaptive: None,
+            incident: None,
+            sns: None,
+            pubsub: None,
+            eventbridge: None,
+            kafka: None,
+            azure_servicebus: None,
+            gcp_pubsub_v2: None,
+            rabbitmq: None,
+            nats: None,
+            mqtt: None,
+            redis: None,
+            amqp: None,
+            stomp: None,
+            zeromq: None,
+            grpc: None,
+            sqs: None,
+            mattermost: None,
+            ntfy: None,
+            pagerduty: None,
+            discord_webhook: None,
+            teams_webhook: None,
+            slack_blocks: None,
+            custom_template: None,
+            custom_webhook: None,
+            custom_headers: None,
+            custom_json: None,
+            custom_filter: None,
+            custom_retry: None,
+            custom_transform: None,
+            custom_batch: None,
+            custom_deduplicate: None,
+            custom_throttle: None,
+            custom_aggregate: None,
+            custom_priority: None,
+            custom_routing: None,
+            custom_dedup_window: None,
+            custom_rate_limit: None,
+            custom_backoff: None,
             custom_circuit_breaker: Some("https://hooks.example.com|5"),
-            custom_dead_letter: None, custom_escalation: None, custom_correlation: None, custom_sampling: None, custom_digest: None, custom_severity_filter: None,
+            custom_dead_letter: None,
+            custom_escalation: None,
+            custom_correlation: None,
+            custom_sampling: None,
+            custom_digest: None,
+            custom_severity_filter: None,
         };
         let result: Result<(), String> = Ok(());
-        super::super::dispatch_notify::send_apply_notifications(&opts, &result, std::path::Path::new("test.yaml"));
+        super::super::dispatch_notify::send_apply_notifications(
+            &opts,
+            &result,
+            std::path::Path::new("test.yaml"),
+        );
     }
 
     #[test]
     fn test_fj968_custom_circuit_breaker_none() {
         let opts = super::super::dispatch_notify::NotifyOpts {
-            slack: None, email: None, webhook: None, teams: None, discord: None,
-            opsgenie: None, datadog: None, newrelic: None, grafana: None, victorops: None,
-            msteams_adaptive: None, incident: None, sns: None, pubsub: None, eventbridge: None,
-            kafka: None, azure_servicebus: None, gcp_pubsub_v2: None, rabbitmq: None, nats: None,
-            mqtt: None, redis: None, amqp: None, stomp: None, zeromq: None, grpc: None, sqs: None,
-            mattermost: None, ntfy: None, pagerduty: None,
-            discord_webhook: None, teams_webhook: None, slack_blocks: None, custom_template: None,
-            custom_webhook: None, custom_headers: None, custom_json: None, custom_filter: None,
-            custom_retry: None, custom_transform: None, custom_batch: None, custom_deduplicate: None,
-            custom_throttle: None, custom_aggregate: None, custom_priority: None, custom_routing: None,
-            custom_dedup_window: None, custom_rate_limit: None, custom_backoff: None,
-            custom_circuit_breaker: None, custom_dead_letter: None, custom_escalation: None, custom_correlation: None, custom_sampling: None, custom_digest: None, custom_severity_filter: None,
+            slack: None,
+            email: None,
+            webhook: None,
+            teams: None,
+            discord: None,
+            opsgenie: None,
+            datadog: None,
+            newrelic: None,
+            grafana: None,
+            victorops: None,
+            msteams_adaptive: None,
+            incident: None,
+            sns: None,
+            pubsub: None,
+            eventbridge: None,
+            kafka: None,
+            azure_servicebus: None,
+            gcp_pubsub_v2: None,
+            rabbitmq: None,
+            nats: None,
+            mqtt: None,
+            redis: None,
+            amqp: None,
+            stomp: None,
+            zeromq: None,
+            grpc: None,
+            sqs: None,
+            mattermost: None,
+            ntfy: None,
+            pagerduty: None,
+            discord_webhook: None,
+            teams_webhook: None,
+            slack_blocks: None,
+            custom_template: None,
+            custom_webhook: None,
+            custom_headers: None,
+            custom_json: None,
+            custom_filter: None,
+            custom_retry: None,
+            custom_transform: None,
+            custom_batch: None,
+            custom_deduplicate: None,
+            custom_throttle: None,
+            custom_aggregate: None,
+            custom_priority: None,
+            custom_routing: None,
+            custom_dedup_window: None,
+            custom_rate_limit: None,
+            custom_backoff: None,
+            custom_circuit_breaker: None,
+            custom_dead_letter: None,
+            custom_escalation: None,
+            custom_correlation: None,
+            custom_sampling: None,
+            custom_digest: None,
+            custom_severity_filter: None,
         };
         let result: Result<(), String> = Ok(());
-        super::super::dispatch_notify::send_apply_notifications(&opts, &result, std::path::Path::new("test.yaml"));
+        super::super::dispatch_notify::send_apply_notifications(
+            &opts,
+            &result,
+            std::path::Path::new("test.yaml"),
+        );
     }
 
     // ── FJ-969: validate --check-resource-param-type-safety ──
@@ -194,14 +291,18 @@ mod tests {
     #[test]
     fn test_fj972_convergence_efficiency_empty() {
         let dir = tempfile::tempdir().unwrap();
-        assert!(cmd_status_machine_resource_convergence_efficiency(dir.path(), None, false).is_ok());
+        assert!(
+            cmd_status_machine_resource_convergence_efficiency(dir.path(), None, false).is_ok()
+        );
     }
 
     #[test]
     fn test_fj972_convergence_efficiency_with_data() {
         let dir = tempfile::tempdir().unwrap();
         write_yaml(dir.path(), "web/state.lock.yaml", "schema: \"1.0\"\nmachine: web\nhostname: web\ngenerated_at: \"2026-02-28T00:00:00Z\"\ngenerator: forjar\nblake3_version: \"1.8\"\nresources:\n  f:\n    type: file\n    status: converged\n    hash: \"blake3:abc\"\n    duration_seconds: 2.5\n  g:\n    type: file\n    status: drifted\n    hash: \"blake3:def\"\n    duration_seconds: 10.0\n");
-        assert!(cmd_status_machine_resource_convergence_efficiency(dir.path(), None, false).is_ok());
+        assert!(
+            cmd_status_machine_resource_convergence_efficiency(dir.path(), None, false).is_ok()
+        );
     }
 
     #[test]

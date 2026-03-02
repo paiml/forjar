@@ -105,7 +105,12 @@ fn test_fj015_append_all_event_types_roundtrip() {
 fn test_fj015_generate_run_id_prefix_length() {
     for _ in 0..10 {
         let id = generate_run_id();
-        assert_eq!(id.len(), 14, "run ID should be r- + 12 hex = 14 chars: {}", id);
+        assert_eq!(
+            id.len(),
+            14,
+            "run ID should be r- + 12 hex = 14 chars: {}",
+            id
+        );
     }
 }
 

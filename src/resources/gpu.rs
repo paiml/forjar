@@ -8,10 +8,7 @@ use crate::core::types::Resource;
 /// Resolve the GPU backend from the resource config.
 /// Defaults to "nvidia" when `gpu_backend` is None.
 fn resolve_backend(resource: &Resource) -> &str {
-    resource
-        .gpu_backend
-        .as_deref()
-        .unwrap_or("nvidia")
+    resource.gpu_backend.as_deref().unwrap_or("nvidia")
 }
 
 /// Generate shell script to check if a GPU driver is installed at the expected version.

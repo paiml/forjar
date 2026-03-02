@@ -2,14 +2,16 @@
 
 use std::path::Path;
 
-use crate::core::{state, types};
 use super::helpers::discover_machines;
+use crate::core::{state, types};
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 /// Minimal RFC-3339 timestamp parser returning seconds since Unix epoch.
 fn parse_rfc3339_to_epoch(s: &str) -> Option<u64> {
-    if s.len() < 19 { return None; }
+    if s.len() < 19 {
+        return None;
+    }
     let year: u64 = s.get(0..4)?.parse().ok()?;
     let month: u64 = s.get(5..7)?.parse().ok()?;
     let day: u64 = s.get(8..10)?.parse().ok()?;
@@ -18,14 +20,20 @@ fn parse_rfc3339_to_epoch(s: &str) -> Option<u64> {
     let sec: u64 = s.get(17..19)?.parse().ok()?;
     let mut days: u64 = 0;
     for y in 1970..year {
-        days += if (y % 4 == 0 && y % 100 != 0) || y % 400 == 0 { 366 } else { 365 };
+        days += if (y % 4 == 0 && y % 100 != 0) || y % 400 == 0 {
+            366
+        } else {
+            365
+        };
     }
     let table = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30];
     let leap = (year % 4 == 0 && year % 100 != 0) || year % 400 == 0;
     let mut md: u64 = 0;
     for m in 1..month.min(13) {
         md += table[m as usize];
-        if m == 2 && leap { md += 1; }
+        if m == 2 && leap {
+            md += 1;
+        }
     }
     days += md + (day - 1);
     Some(days * 86_400 + hour * 3600 + min * 60 + sec)
@@ -87,15 +95,22 @@ pub(crate) fn cmd_status_fleet_resource_dependency_lag_report(
         }
     }
     if json {
-        let entries: Vec<serde_json::Value> = rows.iter().map(|(m, lag, total)| {
-            serde_json::json!({"machine": m, "lagging": lag, "total": total})
-        }).collect();
-        println!("{}", serde_json::to_string_pretty(
-            &serde_json::json!({"dependency_lag": entries})
-        ).unwrap_or_default());
+        let entries: Vec<serde_json::Value> = rows
+            .iter()
+            .map(
+                |(m, lag, total)| serde_json::json!({"machine": m, "lagging": lag, "total": total}),
+            )
+            .collect();
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&serde_json::json!({"dependency_lag": entries}))
+                .unwrap_or_default()
+        );
     } else {
         println!("=== Fleet Resource Dependency Lag ===");
-        if rows.is_empty() { println!("  No machine state found."); }
+        if rows.is_empty() {
+            println!("  No machine state found.");
+        }
         for (m, lag, total) in &rows {
             println!("  {}: {}/{} lagging", m, lag, total);
         }
@@ -129,20 +144,27 @@ pub(crate) fn cmd_status_machine_resource_convergence_rate_trend(
         }
     }
     if json {
-        let entries: Vec<serde_json::Value> = rows.iter().map(|(m, rate, conv, total)| {
-            serde_json::json!({
-                "machine": m,
-                "convergence_rate": (*rate * 10.0).round() / 10.0,
-                "converged": conv,
-                "total": total,
+        let entries: Vec<serde_json::Value> = rows
+            .iter()
+            .map(|(m, rate, conv, total)| {
+                serde_json::json!({
+                    "machine": m,
+                    "convergence_rate": (*rate * 10.0).round() / 10.0,
+                    "converged": conv,
+                    "total": total,
+                })
             })
-        }).collect();
-        println!("{}", serde_json::to_string_pretty(
-            &serde_json::json!({"convergence_rate_trend": entries})
-        ).unwrap_or_default());
+            .collect();
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&serde_json::json!({"convergence_rate_trend": entries}))
+                .unwrap_or_default()
+        );
     } else {
         println!("=== Machine Resource Convergence Rate Trend ===");
-        if rows.is_empty() { println!("  No machine state found."); }
+        if rows.is_empty() {
+            println!("  No machine state found.");
+        }
         for (m, rate, conv, total) in &rows {
             println!("  {}: {:.1}% ({}/{})", m, rate, conv, total);
         }
@@ -173,20 +195,27 @@ pub(crate) fn cmd_status_fleet_resource_apply_lag(
         }
     }
     if json {
-        let entries: Vec<serde_json::Value> = rows.iter().map(|(m, ts, age)| {
-            serde_json::json!({
-                "machine": m,
-                "last_apply": ts,
-                "age_seconds": age,
-                "age_days": *age / 86_400,
+        let entries: Vec<serde_json::Value> = rows
+            .iter()
+            .map(|(m, ts, age)| {
+                serde_json::json!({
+                    "machine": m,
+                    "last_apply": ts,
+                    "age_seconds": age,
+                    "age_days": *age / 86_400,
+                })
             })
-        }).collect();
-        println!("{}", serde_json::to_string_pretty(
-            &serde_json::json!({"apply_lag": entries})
-        ).unwrap_or_default());
+            .collect();
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&serde_json::json!({"apply_lag": entries}))
+                .unwrap_or_default()
+        );
     } else {
         println!("=== Fleet Resource Apply Lag ===");
-        if rows.is_empty() { println!("  No machine state found."); }
+        if rows.is_empty() {
+            println!("  No machine state found.");
+        }
         for (m, _ts, age) in &rows {
             let days = *age / 86_400;
             let hours = (*age % 86_400) / 3600;
@@ -201,26 +230,44 @@ mod tests {
     use super::*;
     use std::collections::HashMap;
 
-    fn mk(machine: &str, ts: &str, res: Vec<(&str, types::ResourceType, types::ResourceStatus)>) -> types::StateLock {
+    fn mk(
+        machine: &str,
+        ts: &str,
+        res: Vec<(&str, types::ResourceType, types::ResourceStatus)>,
+    ) -> types::StateLock {
         let mut m = indexmap::IndexMap::new();
         for (id, rt, st) in res {
-            m.insert(id.to_string(), types::ResourceLock {
-                resource_type: rt, status: st,
-                applied_at: Some(ts.into()),
-                duration_seconds: Some(1.0), hash: "abc".into(), details: HashMap::new(),
-            });
+            m.insert(
+                id.to_string(),
+                types::ResourceLock {
+                    resource_type: rt,
+                    status: st,
+                    applied_at: Some(ts.into()),
+                    duration_seconds: Some(1.0),
+                    hash: "abc".into(),
+                    details: HashMap::new(),
+                },
+            );
         }
         types::StateLock {
-            schema: "1".into(), machine: machine.into(), hostname: machine.into(),
-            generated_at: ts.into(), generator: "test".into(),
-            blake3_version: "1.0".into(), resources: m,
+            schema: "1".into(),
+            machine: machine.into(),
+            hostname: machine.into(),
+            generated_at: ts.into(),
+            generator: "test".into(),
+            blake3_version: "1.0".into(),
+            resources: m,
         }
     }
 
     fn wr(dir: &std::path::Path, lock: &types::StateLock) {
         let d = dir.join(&lock.machine);
         std::fs::create_dir_all(&d).unwrap();
-        std::fs::write(d.join("state.lock.yaml"), serde_yaml_ng::to_string(lock).unwrap()).unwrap();
+        std::fs::write(
+            d.join("state.lock.yaml"),
+            serde_yaml_ng::to_string(lock).unwrap(),
+        )
+        .unwrap();
     }
 
     // ── FJ-1077: Dependency Lag ──────────────────────────────────────────
@@ -234,44 +281,113 @@ mod tests {
     #[test]
     fn test_dependency_lag_all_converged() {
         let d = tempfile::tempdir().unwrap();
-        wr(d.path(), &mk("web", "2026-01-15T10:00:00Z", vec![
-            ("pkg", types::ResourceType::Package, types::ResourceStatus::Converged),
-            ("svc", types::ResourceType::Service, types::ResourceStatus::Converged),
-        ]));
+        wr(
+            d.path(),
+            &mk(
+                "web",
+                "2026-01-15T10:00:00Z",
+                vec![
+                    (
+                        "pkg",
+                        types::ResourceType::Package,
+                        types::ResourceStatus::Converged,
+                    ),
+                    (
+                        "svc",
+                        types::ResourceType::Service,
+                        types::ResourceStatus::Converged,
+                    ),
+                ],
+            ),
+        );
         assert!(cmd_status_fleet_resource_dependency_lag_report(d.path(), None, false).is_ok());
     }
 
     #[test]
     fn test_dependency_lag_mixed_status() {
         let d = tempfile::tempdir().unwrap();
-        wr(d.path(), &mk("web", "2026-01-15T10:00:00Z", vec![
-            ("pkg", types::ResourceType::Package, types::ResourceStatus::Converged),
-            ("svc", types::ResourceType::Service, types::ResourceStatus::Drifted),
-            ("cfg", types::ResourceType::File, types::ResourceStatus::Failed),
-        ]));
+        wr(
+            d.path(),
+            &mk(
+                "web",
+                "2026-01-15T10:00:00Z",
+                vec![
+                    (
+                        "pkg",
+                        types::ResourceType::Package,
+                        types::ResourceStatus::Converged,
+                    ),
+                    (
+                        "svc",
+                        types::ResourceType::Service,
+                        types::ResourceStatus::Drifted,
+                    ),
+                    (
+                        "cfg",
+                        types::ResourceType::File,
+                        types::ResourceStatus::Failed,
+                    ),
+                ],
+            ),
+        );
         assert!(cmd_status_fleet_resource_dependency_lag_report(d.path(), None, false).is_ok());
     }
 
     #[test]
     fn test_dependency_lag_json() {
         let d = tempfile::tempdir().unwrap();
-        wr(d.path(), &mk("web", "2026-01-15T10:00:00Z", vec![
-            ("pkg", types::ResourceType::Package, types::ResourceStatus::Converged),
-            ("svc", types::ResourceType::Service, types::ResourceStatus::Drifted),
-        ]));
+        wr(
+            d.path(),
+            &mk(
+                "web",
+                "2026-01-15T10:00:00Z",
+                vec![
+                    (
+                        "pkg",
+                        types::ResourceType::Package,
+                        types::ResourceStatus::Converged,
+                    ),
+                    (
+                        "svc",
+                        types::ResourceType::Service,
+                        types::ResourceStatus::Drifted,
+                    ),
+                ],
+            ),
+        );
         assert!(cmd_status_fleet_resource_dependency_lag_report(d.path(), None, true).is_ok());
     }
 
     #[test]
     fn test_dependency_lag_filter() {
         let d = tempfile::tempdir().unwrap();
-        wr(d.path(), &mk("web", "2026-01-15T10:00:00Z", vec![
-            ("pkg", types::ResourceType::Package, types::ResourceStatus::Converged),
-        ]));
-        wr(d.path(), &mk("db", "2026-01-15T10:00:00Z", vec![
-            ("svc", types::ResourceType::Service, types::ResourceStatus::Failed),
-        ]));
-        assert!(cmd_status_fleet_resource_dependency_lag_report(d.path(), Some("db"), false).is_ok());
+        wr(
+            d.path(),
+            &mk(
+                "web",
+                "2026-01-15T10:00:00Z",
+                vec![(
+                    "pkg",
+                    types::ResourceType::Package,
+                    types::ResourceStatus::Converged,
+                )],
+            ),
+        );
+        wr(
+            d.path(),
+            &mk(
+                "db",
+                "2026-01-15T10:00:00Z",
+                vec![(
+                    "svc",
+                    types::ResourceType::Service,
+                    types::ResourceStatus::Failed,
+                )],
+            ),
+        );
+        assert!(
+            cmd_status_fleet_resource_dependency_lag_report(d.path(), Some("db"), false).is_ok()
+        );
     }
 
     #[test]
@@ -292,45 +408,119 @@ mod tests {
     #[test]
     fn test_convergence_rate_all_converged() {
         let d = tempfile::tempdir().unwrap();
-        wr(d.path(), &mk("web", "2026-01-15T10:00:00Z", vec![
-            ("pkg", types::ResourceType::Package, types::ResourceStatus::Converged),
-            ("svc", types::ResourceType::Service, types::ResourceStatus::Converged),
-        ]));
+        wr(
+            d.path(),
+            &mk(
+                "web",
+                "2026-01-15T10:00:00Z",
+                vec![
+                    (
+                        "pkg",
+                        types::ResourceType::Package,
+                        types::ResourceStatus::Converged,
+                    ),
+                    (
+                        "svc",
+                        types::ResourceType::Service,
+                        types::ResourceStatus::Converged,
+                    ),
+                ],
+            ),
+        );
         assert!(cmd_status_machine_resource_convergence_rate_trend(d.path(), None, false).is_ok());
     }
 
     #[test]
     fn test_convergence_rate_mixed() {
         let d = tempfile::tempdir().unwrap();
-        wr(d.path(), &mk("web", "2026-01-15T10:00:00Z", vec![
-            ("pkg", types::ResourceType::Package, types::ResourceStatus::Converged),
-            ("svc", types::ResourceType::Service, types::ResourceStatus::Drifted),
-            ("cfg", types::ResourceType::File, types::ResourceStatus::Failed),
-            ("mnt", types::ResourceType::Mount, types::ResourceStatus::Unknown),
-        ]));
+        wr(
+            d.path(),
+            &mk(
+                "web",
+                "2026-01-15T10:00:00Z",
+                vec![
+                    (
+                        "pkg",
+                        types::ResourceType::Package,
+                        types::ResourceStatus::Converged,
+                    ),
+                    (
+                        "svc",
+                        types::ResourceType::Service,
+                        types::ResourceStatus::Drifted,
+                    ),
+                    (
+                        "cfg",
+                        types::ResourceType::File,
+                        types::ResourceStatus::Failed,
+                    ),
+                    (
+                        "mnt",
+                        types::ResourceType::Mount,
+                        types::ResourceStatus::Unknown,
+                    ),
+                ],
+            ),
+        );
         assert!(cmd_status_machine_resource_convergence_rate_trend(d.path(), None, false).is_ok());
     }
 
     #[test]
     fn test_convergence_rate_json() {
         let d = tempfile::tempdir().unwrap();
-        wr(d.path(), &mk("web", "2026-01-15T10:00:00Z", vec![
-            ("pkg", types::ResourceType::Package, types::ResourceStatus::Converged),
-            ("svc", types::ResourceType::Service, types::ResourceStatus::Drifted),
-        ]));
+        wr(
+            d.path(),
+            &mk(
+                "web",
+                "2026-01-15T10:00:00Z",
+                vec![
+                    (
+                        "pkg",
+                        types::ResourceType::Package,
+                        types::ResourceStatus::Converged,
+                    ),
+                    (
+                        "svc",
+                        types::ResourceType::Service,
+                        types::ResourceStatus::Drifted,
+                    ),
+                ],
+            ),
+        );
         assert!(cmd_status_machine_resource_convergence_rate_trend(d.path(), None, true).is_ok());
     }
 
     #[test]
     fn test_convergence_rate_filter() {
         let d = tempfile::tempdir().unwrap();
-        wr(d.path(), &mk("web", "2026-01-15T10:00:00Z", vec![
-            ("pkg", types::ResourceType::Package, types::ResourceStatus::Converged),
-        ]));
-        wr(d.path(), &mk("db", "2026-01-15T10:00:00Z", vec![
-            ("svc", types::ResourceType::Service, types::ResourceStatus::Failed),
-        ]));
-        assert!(cmd_status_machine_resource_convergence_rate_trend(d.path(), Some("web"), false).is_ok());
+        wr(
+            d.path(),
+            &mk(
+                "web",
+                "2026-01-15T10:00:00Z",
+                vec![(
+                    "pkg",
+                    types::ResourceType::Package,
+                    types::ResourceStatus::Converged,
+                )],
+            ),
+        );
+        wr(
+            d.path(),
+            &mk(
+                "db",
+                "2026-01-15T10:00:00Z",
+                vec![(
+                    "svc",
+                    types::ResourceType::Service,
+                    types::ResourceStatus::Failed,
+                )],
+            ),
+        );
+        assert!(
+            cmd_status_machine_resource_convergence_rate_trend(d.path(), Some("web"), false)
+                .is_ok()
+        );
     }
 
     #[test]
@@ -351,54 +541,126 @@ mod tests {
     #[test]
     fn test_apply_lag_recent_data() {
         let d = tempfile::tempdir().unwrap();
-        wr(d.path(), &mk("web", "2026-02-28T10:00:00Z", vec![
-            ("pkg", types::ResourceType::Package, types::ResourceStatus::Converged),
-        ]));
+        wr(
+            d.path(),
+            &mk(
+                "web",
+                "2026-02-28T10:00:00Z",
+                vec![(
+                    "pkg",
+                    types::ResourceType::Package,
+                    types::ResourceStatus::Converged,
+                )],
+            ),
+        );
         assert!(cmd_status_fleet_resource_apply_lag(d.path(), None, false).is_ok());
     }
 
     #[test]
     fn test_apply_lag_old_data() {
         let d = tempfile::tempdir().unwrap();
-        wr(d.path(), &mk("web", "2024-01-01T00:00:00Z", vec![
-            ("pkg", types::ResourceType::Package, types::ResourceStatus::Converged),
-        ]));
+        wr(
+            d.path(),
+            &mk(
+                "web",
+                "2024-01-01T00:00:00Z",
+                vec![(
+                    "pkg",
+                    types::ResourceType::Package,
+                    types::ResourceStatus::Converged,
+                )],
+            ),
+        );
         assert!(cmd_status_fleet_resource_apply_lag(d.path(), None, false).is_ok());
     }
 
     #[test]
     fn test_apply_lag_json() {
         let d = tempfile::tempdir().unwrap();
-        wr(d.path(), &mk("web", "2024-06-15T12:00:00Z", vec![
-            ("pkg", types::ResourceType::Package, types::ResourceStatus::Converged),
-        ]));
+        wr(
+            d.path(),
+            &mk(
+                "web",
+                "2024-06-15T12:00:00Z",
+                vec![(
+                    "pkg",
+                    types::ResourceType::Package,
+                    types::ResourceStatus::Converged,
+                )],
+            ),
+        );
         assert!(cmd_status_fleet_resource_apply_lag(d.path(), None, true).is_ok());
     }
 
     #[test]
     fn test_apply_lag_filter() {
         let d = tempfile::tempdir().unwrap();
-        wr(d.path(), &mk("web", "2024-01-01T00:00:00Z", vec![
-            ("pkg", types::ResourceType::Package, types::ResourceStatus::Converged),
-        ]));
-        wr(d.path(), &mk("db", "2026-02-28T10:00:00Z", vec![
-            ("svc", types::ResourceType::Service, types::ResourceStatus::Converged),
-        ]));
+        wr(
+            d.path(),
+            &mk(
+                "web",
+                "2024-01-01T00:00:00Z",
+                vec![(
+                    "pkg",
+                    types::ResourceType::Package,
+                    types::ResourceStatus::Converged,
+                )],
+            ),
+        );
+        wr(
+            d.path(),
+            &mk(
+                "db",
+                "2026-02-28T10:00:00Z",
+                vec![(
+                    "svc",
+                    types::ResourceType::Service,
+                    types::ResourceStatus::Converged,
+                )],
+            ),
+        );
         assert!(cmd_status_fleet_resource_apply_lag(d.path(), Some("web"), false).is_ok());
     }
 
     #[test]
     fn test_apply_lag_multiple_machines() {
         let d = tempfile::tempdir().unwrap();
-        wr(d.path(), &mk("web", "2026-01-01T00:00:00Z", vec![
-            ("pkg", types::ResourceType::Package, types::ResourceStatus::Converged),
-        ]));
-        wr(d.path(), &mk("db", "2026-02-15T06:00:00Z", vec![
-            ("svc", types::ResourceType::Service, types::ResourceStatus::Converged),
-        ]));
-        wr(d.path(), &mk("cache", "2025-12-01T00:00:00Z", vec![
-            ("cfg", types::ResourceType::File, types::ResourceStatus::Drifted),
-        ]));
+        wr(
+            d.path(),
+            &mk(
+                "web",
+                "2026-01-01T00:00:00Z",
+                vec![(
+                    "pkg",
+                    types::ResourceType::Package,
+                    types::ResourceStatus::Converged,
+                )],
+            ),
+        );
+        wr(
+            d.path(),
+            &mk(
+                "db",
+                "2026-02-15T06:00:00Z",
+                vec![(
+                    "svc",
+                    types::ResourceType::Service,
+                    types::ResourceStatus::Converged,
+                )],
+            ),
+        );
+        wr(
+            d.path(),
+            &mk(
+                "cache",
+                "2025-12-01T00:00:00Z",
+                vec![(
+                    "cfg",
+                    types::ResourceType::File,
+                    types::ResourceStatus::Drifted,
+                )],
+            ),
+        );
         assert!(cmd_status_fleet_resource_apply_lag(d.path(), None, false).is_ok());
     }
 
@@ -406,12 +668,32 @@ mod tests {
 
     #[test]
     fn test_classify_resources_all_statuses() {
-        let lock = mk("m", "2026-01-15T10:00:00Z", vec![
-            ("a", types::ResourceType::Package, types::ResourceStatus::Converged),
-            ("b", types::ResourceType::Service, types::ResourceStatus::Drifted),
-            ("c", types::ResourceType::File, types::ResourceStatus::Failed),
-            ("d", types::ResourceType::File, types::ResourceStatus::Unknown),
-        ]);
+        let lock = mk(
+            "m",
+            "2026-01-15T10:00:00Z",
+            vec![
+                (
+                    "a",
+                    types::ResourceType::Package,
+                    types::ResourceStatus::Converged,
+                ),
+                (
+                    "b",
+                    types::ResourceType::Service,
+                    types::ResourceStatus::Drifted,
+                ),
+                (
+                    "c",
+                    types::ResourceType::File,
+                    types::ResourceStatus::Failed,
+                ),
+                (
+                    "d",
+                    types::ResourceType::File,
+                    types::ResourceStatus::Unknown,
+                ),
+            ],
+        );
         assert_eq!(classify_resources(&lock), (1, 1, 1, 1));
     }
 

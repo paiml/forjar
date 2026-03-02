@@ -124,7 +124,10 @@ fn compute_fan_in(config: &types::ForjarConfig) -> Vec<BottleneckInfo> {
     for (name, resource) in &config.resources {
         for dep in &resource.depends_on {
             if config.resources.contains_key(dep) {
-                fan_in_map.entry(dep.clone()).or_default().push(name.clone());
+                fan_in_map
+                    .entry(dep.clone())
+                    .or_default()
+                    .push(name.clone());
             }
         }
     }
@@ -134,7 +137,11 @@ fn compute_fan_in(config: &types::ForjarConfig) -> Vec<BottleneckInfo> {
         .map(|(name, mut deps)| {
             deps.sort();
             let fan_in = deps.len();
-            BottleneckInfo { name, fan_in, dependents: deps }
+            BottleneckInfo {
+                name,
+                fan_in,
+                dependents: deps,
+            }
         })
         .collect();
     results.sort_by(|a, b| b.fan_in.cmp(&a.fan_in).then(a.name.cmp(&b.name)));
@@ -303,7 +310,12 @@ fn print_cluster_text(clusters: &[Vec<String>]) {
     }
     println!("Dependency clusters:");
     for (i, cluster) in clusters.iter().enumerate() {
-        println!("  Cluster {} ({} resources): {}", i, cluster.len(), cluster.join(", "));
+        println!(
+            "  Cluster {} ({} resources): {}",
+            i,
+            cluster.len(),
+            cluster.join(", ")
+        );
     }
 }
 
@@ -439,7 +451,10 @@ mod tests {
         assert_eq!(bottlenecks.len(), 1);
         assert_eq!(bottlenecks[0].name, "a");
         assert_eq!(bottlenecks[0].fan_in, 3);
-        assert_eq!(bottlenecks[0].dependents, vec!["b".to_string(), "c".to_string(), "d".to_string()]);
+        assert_eq!(
+            bottlenecks[0].dependents,
+            vec!["b".to_string(), "c".to_string(), "d".to_string()]
+        );
     }
 
     #[test]

@@ -45,7 +45,9 @@ fn resolve_variable<'a>(
         ));
     }
     if key.contains('(') {
-        return Ok(Cow::Owned(super::functions::resolve_function(key, params, machines)?));
+        return Ok(Cow::Owned(super::functions::resolve_function(
+            key, params, machines,
+        )?));
     }
     Err(format!("unknown template variable: {}", key))
 }

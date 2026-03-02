@@ -105,12 +105,19 @@ struct RedundantEdge {
 /// direct dependencies of A (i.e., A -> C -> ... -> B).
 /// Get valid direct dependencies for a resource.
 fn valid_deps(resource: &types::Resource, config: &types::ForjarConfig) -> Vec<String> {
-    resource.depends_on.iter().filter(|d| config.resources.contains_key(*d)).cloned().collect()
+    resource
+        .depends_on
+        .iter()
+        .filter(|d| config.resources.contains_key(*d))
+        .cloned()
+        .collect()
 }
 
 /// Check if `dep` is redundant for `name` — reachable via another direct dependency.
 fn is_dep_redundant(dep: &str, direct_deps: &[String], config: &types::ForjarConfig) -> bool {
-    direct_deps.iter().any(|other| other != dep && reachable_via_upstream(other, dep, config))
+    direct_deps
+        .iter()
+        .any(|other| other != dep && reachable_via_upstream(other, dep, config))
 }
 
 fn find_redundant_edges(config: &types::ForjarConfig) -> Vec<RedundantEdge> {
@@ -119,10 +126,15 @@ fn find_redundant_edges(config: &types::ForjarConfig) -> Vec<RedundantEdge> {
     let mut results: Vec<RedundantEdge> = Vec::new();
     for name in sorted_resources {
         let direct_deps = valid_deps(&config.resources[name], config);
-        if direct_deps.len() < 2 { continue; }
+        if direct_deps.len() < 2 {
+            continue;
+        }
         for dep in &direct_deps {
             if is_dep_redundant(dep, &direct_deps, config) {
-                results.push(RedundantEdge { resource: name.clone(), redundant_dep: dep.clone() });
+                results.push(RedundantEdge {
+                    resource: name.clone(),
+                    redundant_dep: dep.clone(),
+                });
             }
         }
     }
@@ -131,11 +143,7 @@ fn find_redundant_edges(config: &types::ForjarConfig) -> Vec<RedundantEdge> {
 
 /// Check if `target` is reachable from `start` by following depends_on edges
 /// upstream (start's dependencies, their dependencies, etc.).
-fn reachable_via_upstream(
-    start: &str,
-    target: &str,
-    config: &types::ForjarConfig,
-) -> bool {
+fn reachable_via_upstream(start: &str, target: &str, config: &types::ForjarConfig) -> bool {
     let mut visited: HashSet<String> = HashSet::new();
     let mut queue: VecDeque<String> = VecDeque::new();
     queue.push_back(start.to_string());
@@ -311,7 +319,8 @@ mod tests {
 
     #[test]
     fn test_fj1087_file_not_found() {
-        let result = cmd_graph_resource_dependency_depth_histogram(Path::new("/nonexistent"), false);
+        let result =
+            cmd_graph_resource_dependency_depth_histogram(Path::new("/nonexistent"), false);
         assert!(result.is_err());
     }
 
@@ -367,7 +376,8 @@ mod tests {
 
     #[test]
     fn test_fj1090_file_not_found() {
-        let result = cmd_graph_resource_dependency_redundancy_analysis(Path::new("/nonexistent"), false);
+        let result =
+            cmd_graph_resource_dependency_redundancy_analysis(Path::new("/nonexistent"), false);
         assert!(result.is_err());
     }
 }

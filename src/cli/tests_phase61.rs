@@ -2,18 +2,12 @@
 
 #[cfg(test)]
 mod tests {
-    use super::super::validate_paths::{
-        cmd_validate_check_resource_count,
-        cmd_validate_check_duplicate_paths,
-    };
-    use super::super::graph_export::{
-        cmd_graph_root_resources,
-        cmd_graph_edge_list,
-    };
+    use super::super::graph_export::{cmd_graph_edge_list, cmd_graph_root_resources};
     use super::super::status_counts::{
-        cmd_status_convergence_percentage,
-        cmd_status_failed_count,
-        cmd_status_drift_count,
+        cmd_status_convergence_percentage, cmd_status_drift_count, cmd_status_failed_count,
+    };
+    use super::super::validate_paths::{
+        cmd_validate_check_duplicate_paths, cmd_validate_check_resource_count,
     };
 
     fn yaml_header() -> &'static str {
@@ -58,9 +52,12 @@ resources:\n  pkg1:\n    type: package\n    machine: web\n    provider: apt\n   
     #[test]
     fn test_fj753_no_duplicates() {
         let dir = tempfile::tempdir().unwrap();
-        let f = write_config(dir.path(), "\
+        let f = write_config(
+            dir.path(),
+            "\
 machines: {}\n\
-resources:\n  f1:\n    type: file\n    path: /etc/a\n  f2:\n    type: file\n    path: /etc/b\n");
+resources:\n  f1:\n    type: file\n    path: /etc/a\n  f2:\n    type: file\n    path: /etc/b\n",
+        );
         assert!(cmd_validate_check_duplicate_paths(&f, false).is_ok());
     }
 
@@ -87,20 +84,26 @@ resources:\n  f1:\n    type: file\n    path: /etc/same\n  f2:\n    type: file\n 
     #[test]
     fn test_fj751_root_resources_all_roots() {
         let dir = tempfile::tempdir().unwrap();
-        let f = write_config(dir.path(), "\
+        let f = write_config(
+            dir.path(),
+            "\
 machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\n\
 resources:\n  pkg1:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n\
-  pkg2:\n    type: package\n    machine: web\n    provider: apt\n    packages: [git]\n");
+  pkg2:\n    type: package\n    machine: web\n    provider: apt\n    packages: [git]\n",
+        );
         assert!(cmd_graph_root_resources(&f, false).is_ok());
     }
 
     #[test]
     fn test_fj751_root_resources_with_dep() {
         let dir = tempfile::tempdir().unwrap();
-        let f = write_config(dir.path(), "\
+        let f = write_config(
+            dir.path(),
+            "\
 machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\n\
 resources:\n  base:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n\
-  app:\n    type: file\n    machine: web\n    path: /opt/app\n    depends_on: [base]\n");
+  app:\n    type: file\n    machine: web\n    path: /opt/app\n    depends_on: [base]\n",
+        );
         assert!(cmd_graph_root_resources(&f, false).is_ok());
     }
 
@@ -125,20 +128,26 @@ resources:\n  pkg1:\n    type: package\n    machine: web\n    provider: apt\n   
     #[test]
     fn test_fj755_edge_list_with_deps() {
         let dir = tempfile::tempdir().unwrap();
-        let f = write_config(dir.path(), "\
+        let f = write_config(
+            dir.path(),
+            "\
 machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\n\
 resources:\n  base:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n\
-  app:\n    type: file\n    machine: web\n    path: /opt/app\n    depends_on: [base]\n");
+  app:\n    type: file\n    machine: web\n    path: /opt/app\n    depends_on: [base]\n",
+        );
         assert!(cmd_graph_edge_list(&f, false).is_ok());
     }
 
     #[test]
     fn test_fj755_edge_list_json() {
         let dir = tempfile::tempdir().unwrap();
-        let f = write_config(dir.path(), "\
+        let f = write_config(
+            dir.path(),
+            "\
 machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\n\
 resources:\n  base:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n\
-  app:\n    type: file\n    machine: web\n    path: /opt/app\n    depends_on: [base]\n");
+  app:\n    type: file\n    machine: web\n    path: /opt/app\n    depends_on: [base]\n",
+        );
         assert!(cmd_graph_edge_list(&f, true).is_ok());
     }
 

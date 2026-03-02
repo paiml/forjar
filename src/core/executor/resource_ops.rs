@@ -132,9 +132,13 @@ fn should_skip_single(
         return Some(ResourceOutcome::Skipped);
     }
 
-    let triggered = cfg.config.resources.get(&change.resource_id).is_some_and(|r| {
-        !r.triggers.is_empty() && r.triggers.iter().any(|t| converged_resources.contains(t))
-    });
+    let triggered = cfg
+        .config
+        .resources
+        .get(&change.resource_id)
+        .is_some_and(|r| {
+            !r.triggers.is_empty() && r.triggers.iter().any(|t| converged_resources.contains(t))
+        });
 
     if change.action == PlanAction::NoOp && !cfg.force && !triggered {
         return Some(ResourceOutcome::Unchanged);
@@ -153,10 +157,16 @@ fn resource_filtered_out(cfg: &ApplyConfig, resource: &Resource, machine: &Machi
     if !resource.arch.is_empty() && !resource.arch.contains(&machine.arch) {
         return true;
     }
-    if cfg.tag_filter.is_some_and(|tag| !resource.tags.iter().any(|t| t == tag)) {
+    if cfg
+        .tag_filter
+        .is_some_and(|tag| !resource.tags.iter().any(|t| t == tag))
+    {
         return true;
     }
-    if cfg.group_filter.is_some_and(|group| resource.resource_group.as_deref() != Some(group)) {
+    if cfg
+        .group_filter
+        .is_some_and(|group| resource.resource_group.as_deref() != Some(group))
+    {
         return true;
     }
     if let Some(ref when_expr) = resource.when {
@@ -180,7 +190,13 @@ fn execute_resource(
     if let Some(ref pre_hook) = resolved.pre_apply {
         if let Some(error) = run_pre_apply_hook(machine, pre_hook, ctx.timeout_secs) {
             let duration = resource_start.elapsed().as_secs_f64();
-            record_failure(ctx, &change.resource_id, &resource.resource_type, duration, &error);
+            record_failure(
+                ctx,
+                &change.resource_id,
+                &resource.resource_type,
+                duration,
+                &error,
+            );
             return Ok(ResourceOutcome::Skipped);
         }
     }
@@ -197,14 +213,18 @@ fn execute_resource(
     };
     let duration = resource_start.elapsed().as_secs_f64();
 
-    handle_resource_output(output, cfg, change, resource, resolved, machine, ctx, duration)
+    handle_resource_output(
+        output, cfg, change, resource, resolved, machine, ctx, duration,
+    )
 }
 
 /// Run the pre_apply hook; returns error string on failure.
 fn run_pre_apply_hook(machine: &Machine, hook: &str, timeout: Option<u64>) -> Option<String> {
     match transport::exec_script_timeout(machine, hook, timeout) {
         Ok(out) if !out.success() => Some(format!(
-            "pre_apply hook failed (exit {}): {}", out.exit_code, out.stderr.trim()
+            "pre_apply hook failed (exit {}): {}",
+            out.exit_code,
+            out.stderr.trim()
         )),
         Err(e) => Some(format!("pre_apply hook error: {}", e)),
         _ => None,
@@ -227,21 +247,46 @@ fn handle_resource_output(
         Ok(out) if out.success() => {
             if let Some(ref post_hook) = resolved.post_apply {
                 if let Some(error) = check_post_hook(machine, post_hook, ctx.timeout_secs) {
-                    let should_stop = record_failure(ctx, &change.resource_id, &resource.resource_type, duration, &error);
+                    let should_stop = record_failure(
+                        ctx,
+                        &change.resource_id,
+                        &resource.resource_type,
+                        duration,
+                        &error,
+                    );
                     return Ok(ResourceOutcome::Failed { should_stop });
                 }
             }
-            record_success(ctx, &change.resource_id, resource, resolved, machine, duration);
+            record_success(
+                ctx,
+                &change.resource_id,
+                resource,
+                resolved,
+                machine,
+                duration,
+            );
             Ok(ResourceOutcome::Converged)
         }
         Ok(out) => {
             let error = format!("exit code {}: {}", out.exit_code, out.stderr.trim());
-            let should_stop = record_failure(ctx, &change.resource_id, &resource.resource_type, duration, &error);
+            let should_stop = record_failure(
+                ctx,
+                &change.resource_id,
+                &resource.resource_type,
+                duration,
+                &error,
+            );
             Ok(ResourceOutcome::Failed { should_stop })
         }
         Err(e) => {
             let error = format!("transport error: {}", e);
-            let should_stop = record_failure(ctx, &change.resource_id, &resource.resource_type, duration, &error);
+            let should_stop = record_failure(
+                ctx,
+                &change.resource_id,
+                &resource.resource_type,
+                duration,
+                &error,
+            );
             Ok(ResourceOutcome::Failed { should_stop })
         }
     }
@@ -251,7 +296,9 @@ fn handle_resource_output(
 fn check_post_hook(machine: &Machine, hook: &str, timeout: Option<u64>) -> Option<String> {
     match transport::exec_script_timeout(machine, hook, timeout) {
         Ok(pout) if !pout.success() => Some(format!(
-            "post_apply hook failed (exit {}): {}", pout.exit_code, pout.stderr.trim()
+            "post_apply hook failed (exit {}): {}",
+            pout.exit_code,
+            pout.stderr.trim()
         )),
         Err(e) => Some(format!("post_apply hook error: {}", e)),
         _ => None,

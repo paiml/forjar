@@ -2,7 +2,6 @@
 
 use std::path::PathBuf;
 
-
 #[derive(clap::Args, Debug)]
 pub struct StateListArgs {
     /// State directory
@@ -17,7 +16,6 @@ pub struct StateListArgs {
     #[arg(long)]
     pub json: bool,
 }
-
 
 #[derive(clap::Args, Debug)]
 pub struct StateMvArgs {
@@ -36,7 +34,6 @@ pub struct StateMvArgs {
     pub machine: Option<String>,
 }
 
-
 #[derive(clap::Args, Debug)]
 pub struct StateRmArgs {
     /// Resource ID to remove
@@ -54,4 +51,3 @@ pub struct StateRmArgs {
     #[arg(long)]
     pub force: bool,
 }
-

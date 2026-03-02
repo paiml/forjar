@@ -1,11 +1,10 @@
 //! Secrets management.
 
-use crate::core::types::ProvenanceEvent;
+use super::helpers_time::*;
 use crate::core::secrets;
+use crate::core::types::ProvenanceEvent;
 use crate::tripwire::eventlog;
 use std::path::Path;
-use super::helpers_time::*;
-
 
 // ─── FJ-200: Secrets commands ─────────────────────────────────────
 
@@ -16,14 +15,12 @@ pub(crate) fn cmd_secrets_encrypt(value: &str, recipients: &[String]) -> Result<
     Ok(())
 }
 
-
 pub(crate) fn cmd_secrets_decrypt(value: &str, identity_path: Option<&Path>) -> Result<(), String> {
     let identities = secrets::load_identities(identity_path)?;
     let plaintext = secrets::decrypt_marker(value, &identities)?;
     println!("{}", plaintext);
     Ok(())
 }
-
 
 pub(crate) fn cmd_secrets_keygen() -> Result<(), String> {
     use age::secrecy::ExposeSecret;
@@ -35,7 +32,6 @@ pub(crate) fn cmd_secrets_keygen() -> Result<(), String> {
     println!("{}", key_str.expose_secret());
     Ok(())
 }
-
 
 pub(crate) fn cmd_secrets_view(file: &Path, identity_path: Option<&Path>) -> Result<(), String> {
     let content = std::fs::read_to_string(file)
@@ -49,7 +45,6 @@ pub(crate) fn cmd_secrets_view(file: &Path, identity_path: Option<&Path>) -> Res
     println!("{}", decrypted);
     Ok(())
 }
-
 
 pub(crate) fn cmd_secrets_rekey(
     file: &Path,
@@ -83,7 +78,6 @@ pub(crate) fn cmd_secrets_rekey(
     println!("re-encrypted {} secret(s) in {}", count, file.display());
     Ok(())
 }
-
 
 pub(crate) fn cmd_secrets_rotate(
     file: &Path,
@@ -140,7 +134,6 @@ pub(crate) fn cmd_secrets_rotate(
     Ok(())
 }
 
-
 pub(crate) fn find_enc_markers(s: &str) -> Vec<(usize, usize)> {
     let prefix = "ENC[age,";
     let suffix = "]";
@@ -159,4 +152,3 @@ pub(crate) fn find_enc_markers(s: &str) -> Vec<(usize, usize)> {
     }
     markers
 }
-

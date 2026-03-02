@@ -1,20 +1,19 @@
 //! Tests: Snapshot management.
 
 #![allow(unused_imports)]
+use super::helpers::*;
+use super::helpers_state::*;
+use super::helpers_time::*;
+use super::snapshot::*;
 use crate::core::types::ProvenanceEvent;
 use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
 use crate::transport;
 use crate::tripwire::{anomaly, drift, eventlog, tracer};
 use std::path::{Path, PathBuf};
-use super::helpers::*;
-use super::helpers_state::*;
-use super::helpers_time::*;
-use super::snapshot::*;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
 
     #[test]
     fn test_fj260_snapshot_save_and_list() {
@@ -40,7 +39,6 @@ mod tests {
         cmd_snapshot_list(&state_dir, true).unwrap();
     }
 
-
     #[test]
     fn test_fj260_snapshot_save_duplicate_fails() {
         let dir = tempfile::tempdir().unwrap();
@@ -52,7 +50,6 @@ mod tests {
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("already exists"));
     }
-
 
     #[test]
     fn test_fj260_snapshot_restore() {
@@ -85,7 +82,6 @@ mod tests {
         );
     }
 
-
     #[test]
     fn test_fj260_snapshot_delete() {
         let dir = tempfile::tempdir().unwrap();
@@ -99,7 +95,6 @@ mod tests {
         assert!(!state_dir.join("snapshots").join("temp").exists());
     }
 
-
     #[test]
     fn test_fj260_snapshot_delete_nonexistent() {
         let dir = tempfile::tempdir().unwrap();
@@ -111,7 +106,6 @@ mod tests {
         assert!(result.unwrap_err().contains("does not exist"));
     }
 
-
     #[test]
     fn test_fj260_snapshot_restore_nonexistent() {
         let dir = tempfile::tempdir().unwrap();
@@ -121,7 +115,6 @@ mod tests {
         let result = cmd_snapshot_restore("ghost", &state_dir, true);
         assert!(result.is_err());
     }
-
 
     #[test]
     fn test_fj260_snapshot_list_empty() {
@@ -133,7 +126,6 @@ mod tests {
         cmd_snapshot_list(&state_dir, false).unwrap();
         cmd_snapshot_list(&state_dir, true).unwrap();
     }
-
 
     #[test]
     fn test_fj260_snapshot_preserves_multiple_machines() {
@@ -153,7 +145,6 @@ mod tests {
         }
     }
 
-
     #[test]
     fn test_fj260_snapshot_save_no_state_dir() {
         let dir = tempfile::tempdir().unwrap();
@@ -162,7 +153,6 @@ mod tests {
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("does not exist"));
     }
-
 
     #[test]
     fn test_fj260_copy_dir_recursive() {
@@ -183,5 +173,4 @@ mod tests {
     }
 
     // ── FJ-262: Apply report with per-resource timing ──
-
 }

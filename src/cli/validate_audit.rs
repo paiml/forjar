@@ -108,10 +108,7 @@ fn find_machine_coverage_gaps(config: &types::ForjarConfig) -> Vec<CoverageGap> 
     // Find gaps: machines missing types present in the fleet
     let mut gaps = Vec::new();
     for (machine, types_set) in &machine_types {
-        let missing: Vec<String> = fleet_types
-            .difference(types_set)
-            .cloned()
-            .collect();
+        let missing: Vec<String> = fleet_types.difference(types_set).cloned().collect();
         if !missing.is_empty() {
             gaps.push(CoverageGap {
                 machine: machine.clone(),
@@ -289,8 +286,7 @@ resources:
     depends_on: [a]
 ";
         let f = write_temp_config(yaml);
-        let result =
-            cmd_validate_check_resource_dependency_completeness_audit(f.path(), false);
+        let result = cmd_validate_check_resource_dependency_completeness_audit(f.path(), false);
         assert!(result.is_ok());
     }
 
@@ -307,8 +303,7 @@ resources:
     type: package
 ";
         let f = write_temp_config(yaml);
-        let result =
-            cmd_validate_check_resource_dependency_completeness_audit(f.path(), false);
+        let result = cmd_validate_check_resource_dependency_completeness_audit(f.path(), false);
         assert!(result.is_ok());
     }
 
@@ -323,8 +318,7 @@ resources:
     depends_on: [missing-res]
 ";
         let f = write_temp_config(yaml);
-        let result =
-            cmd_validate_check_resource_dependency_completeness_audit(f.path(), true);
+        let result = cmd_validate_check_resource_dependency_completeness_audit(f.path(), true);
         assert!(result.is_ok());
     }
 
@@ -353,8 +347,7 @@ resources:
     machine: db
 ";
         let f = write_temp_config(yaml);
-        let result =
-            cmd_validate_check_resource_machine_coverage_gap(f.path(), false);
+        let result = cmd_validate_check_resource_machine_coverage_gap(f.path(), false);
         assert!(result.is_ok());
     }
 
@@ -375,8 +368,7 @@ resources:
     machine: db
 ";
         let f = write_temp_config(yaml);
-        let result =
-            cmd_validate_check_resource_machine_coverage_gap(f.path(), false);
+        let result = cmd_validate_check_resource_machine_coverage_gap(f.path(), false);
         assert!(result.is_ok());
     }
 
@@ -394,8 +386,7 @@ resources:
     machine: db
 ";
         let f = write_temp_config(yaml);
-        let result =
-            cmd_validate_check_resource_machine_coverage_gap(f.path(), true);
+        let result = cmd_validate_check_resource_machine_coverage_gap(f.path(), true);
         assert!(result.is_ok());
     }
 
@@ -421,8 +412,7 @@ resources:
     path: /etc/nginx/nginx.conf
 ";
         let f = write_temp_config(yaml);
-        let result =
-            cmd_validate_check_resource_path_depth_limit(f.path(), false);
+        let result = cmd_validate_check_resource_path_depth_limit(f.path(), false);
         assert!(result.is_ok());
     }
 
@@ -437,8 +427,7 @@ resources:
     path: /a/b/c/d/e/f/g/h/i/j/k.conf
 ";
         let f = write_temp_config(yaml);
-        let result =
-            cmd_validate_check_resource_path_depth_limit(f.path(), false);
+        let result = cmd_validate_check_resource_path_depth_limit(f.path(), false);
         assert!(result.is_ok());
     }
 
@@ -456,8 +445,7 @@ resources:
     path: /a/b/c/d/e/f/g/h/i/deep.txt
 ";
         let f = write_temp_config(yaml);
-        let result =
-            cmd_validate_check_resource_path_depth_limit(f.path(), true);
+        let result = cmd_validate_check_resource_path_depth_limit(f.path(), true);
         assert!(result.is_ok());
     }
 

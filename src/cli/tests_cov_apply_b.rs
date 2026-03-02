@@ -113,8 +113,14 @@ mod tests {
         let t_total = std::time::Instant::now();
 
         let result = apply_post_actions(
-            &state_dir, &config, &results, 1, false, false,
-            Some("http://127.0.0.1:1/webhook"), &t_total,
+            &state_dir,
+            &config,
+            &results,
+            1,
+            false,
+            false,
+            Some("http://127.0.0.1:1/webhook"),
+            &t_total,
         );
         assert!(result.is_ok());
     }
@@ -130,8 +136,14 @@ mod tests {
         let t_total = std::time::Instant::now();
 
         let result = apply_post_actions(
-            &state_dir, &config, &results, 0, false, true,
-            Some("http://127.0.0.1:1/hook"), &t_total,
+            &state_dir,
+            &config,
+            &results,
+            0,
+            false,
+            true,
+            Some("http://127.0.0.1:1/hook"),
+            &t_total,
         );
         assert!(result.is_ok());
     }
@@ -183,8 +195,14 @@ mod tests {
         let t_total = std::time::Instant::now();
 
         let result = apply_post_actions(
-            &state_dir, &config, &results, 1, false, false,
-            Some("http://127.0.0.1:1/notify"), &t_total,
+            &state_dir,
+            &config,
+            &results,
+            1,
+            false,
+            false,
+            Some("http://127.0.0.1:1/notify"),
+            &t_total,
         );
         assert!(result.is_ok());
     }
@@ -228,8 +246,7 @@ mod tests {
 
     #[test]
     fn test_apply_dry_run_output_text_mode() {
-        let config: types::ForjarConfig =
-            serde_yaml_ng::from_str(minimal_config_yaml()).unwrap();
+        let config: types::ForjarConfig = serde_yaml_ng::from_str(minimal_config_yaml()).unwrap();
         let dir = tempfile::tempdir().unwrap();
         let state_dir = dir.path().join("state");
         std::fs::create_dir_all(&state_dir).unwrap();
@@ -238,8 +255,7 @@ mod tests {
 
     #[test]
     fn test_apply_dry_run_output_json_mode() {
-        let config: types::ForjarConfig =
-            serde_yaml_ng::from_str(minimal_config_yaml()).unwrap();
+        let config: types::ForjarConfig = serde_yaml_ng::from_str(minimal_config_yaml()).unwrap();
         let dir = tempfile::tempdir().unwrap();
         let state_dir = dir.path().join("state");
         std::fs::create_dir_all(&state_dir).unwrap();
@@ -248,8 +264,7 @@ mod tests {
 
     #[test]
     fn test_apply_dry_run_output_json_with_machine_filter() {
-        let config: types::ForjarConfig =
-            serde_yaml_ng::from_str(minimal_config_yaml()).unwrap();
+        let config: types::ForjarConfig = serde_yaml_ng::from_str(minimal_config_yaml()).unwrap();
         let dir = tempfile::tempdir().unwrap();
         let state_dir = dir.path().join("state");
         std::fs::create_dir_all(&state_dir).unwrap();
@@ -258,8 +273,7 @@ mod tests {
 
     #[test]
     fn test_apply_dry_run_output_with_tag_filter() {
-        let config: types::ForjarConfig =
-            serde_yaml_ng::from_str(minimal_config_yaml()).unwrap();
+        let config: types::ForjarConfig = serde_yaml_ng::from_str(minimal_config_yaml()).unwrap();
         let dir = tempfile::tempdir().unwrap();
         let state_dir = dir.path().join("state");
         std::fs::create_dir_all(&state_dir).unwrap();
@@ -272,26 +286,38 @@ mod tests {
 
     #[test]
     fn test_print_apply_summary_text_no_failures() {
-        let config: types::ForjarConfig =
-            serde_yaml_ng::from_str(minimal_config_yaml()).unwrap();
+        let config: types::ForjarConfig = serde_yaml_ng::from_str(minimal_config_yaml()).unwrap();
         let results = vec![make_apply_result("m", 1, 0, 0)];
-        assert!(print_apply_summary(&config, &results, 1, 0, 0, Duration::from_millis(100), false).is_ok());
+        assert!(print_apply_summary(
+            &config,
+            &results,
+            1,
+            0,
+            0,
+            Duration::from_millis(100),
+            false
+        )
+        .is_ok());
     }
 
     #[test]
     fn test_print_apply_summary_text_with_failures() {
-        let config: types::ForjarConfig =
-            serde_yaml_ng::from_str(minimal_config_yaml()).unwrap();
+        let config: types::ForjarConfig = serde_yaml_ng::from_str(minimal_config_yaml()).unwrap();
         let results = vec![make_apply_result("m", 0, 0, 1)];
-        assert!(print_apply_summary(&config, &results, 0, 0, 1, Duration::from_millis(50), false).is_ok());
+        assert!(
+            print_apply_summary(&config, &results, 0, 0, 1, Duration::from_millis(50), false)
+                .is_ok()
+        );
     }
 
     #[test]
     fn test_print_apply_summary_json_mode() {
-        let config: types::ForjarConfig =
-            serde_yaml_ng::from_str(minimal_config_yaml()).unwrap();
+        let config: types::ForjarConfig = serde_yaml_ng::from_str(minimal_config_yaml()).unwrap();
         let results = vec![make_apply_result("m", 2, 1, 0)];
-        assert!(print_apply_summary(&config, &results, 2, 1, 0, Duration::from_millis(200), true).is_ok());
+        assert!(
+            print_apply_summary(&config, &results, 2, 1, 0, Duration::from_millis(200), true)
+                .is_ok()
+        );
     }
 
     // ================================================================
@@ -321,7 +347,11 @@ mod tests {
 
     #[test]
     fn test_print_timing_basic() {
-        print_timing(Duration::from_millis(10), Duration::from_millis(500), Duration::from_millis(510));
+        print_timing(
+            Duration::from_millis(10),
+            Duration::from_millis(500),
+            Duration::from_millis(510),
+        );
     }
 
     #[test]

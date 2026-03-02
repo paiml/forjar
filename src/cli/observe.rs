@@ -1,12 +1,11 @@
 //! Observability.
 
-use crate::core::{executor, planner, resolver, types};
-use crate::tripwire::{anomaly, tracer};
-use std::path::Path;
 use super::helpers::*;
 use super::helpers_state::*;
 use super::print_helpers::*;
-
+use crate::core::{executor, planner, resolver, types};
+use crate::tripwire::{anomaly, tracer};
+use std::path::Path;
 
 /// Detect anomalous resource behavior from event history.
 ///
@@ -98,10 +97,7 @@ pub(crate) fn cmd_anomaly(
 }
 
 /// Output anomaly findings in JSON or text format.
-fn output_anomaly_findings(
-    findings: &[anomaly::AnomalyFinding],
-    json: bool,
-) -> Result<(), String> {
+fn output_anomaly_findings(findings: &[anomaly::AnomalyFinding], json: bool) -> Result<(), String> {
     if json {
         let json_findings: Vec<serde_json::Value> = findings
             .iter()
@@ -142,7 +138,6 @@ fn output_anomaly_findings(
     Ok(())
 }
 
-
 /// View trace provenance data from apply runs (FJ-050).
 /// Output trace spans as JSON.
 fn output_trace_json(all_spans: &[(String, tracer::TraceSpan)]) -> Result<(), String> {
@@ -169,8 +164,7 @@ fn output_trace_json(all_spans: &[(String, tracer::TraceSpan)]) -> Result<(), St
         "traces": all_spans.iter().map(|(_, s)| &s.trace_id).collect::<std::collections::HashSet<_>>().len(),
         "spans": json_spans,
     });
-    let output =
-        serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {}", e))?;
+    let output = serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {}", e))?;
     println!("{}", output);
     Ok(())
 }
@@ -210,7 +204,11 @@ fn print_trace_text(all_spans: &[(String, tracer::TraceSpan)]) {
     }
 }
 
-pub(crate) fn cmd_trace(state_dir: &Path, machine_filter: Option<&str>, json: bool) -> Result<(), String> {
+pub(crate) fn cmd_trace(
+    state_dir: &Path,
+    machine_filter: Option<&str>,
+    json: bool,
+) -> Result<(), String> {
     let entries = std::fs::read_dir(state_dir)
         .map_err(|e| format!("cannot read state dir {}: {}", state_dir.display(), e))?;
 
@@ -252,7 +250,6 @@ pub(crate) fn cmd_trace(state_dir: &Path, machine_filter: Option<&str>, json: bo
 
     Ok(())
 }
-
 
 /// FJ-264: Export JSON Schema for forjar.yaml.
 /// FJ-267: Watch config file for changes and auto-plan (or auto-apply).
@@ -364,4 +361,3 @@ fn run_watch_apply(config: &types::ForjarConfig, state_dir: &Path) {
         Err(e) => eprintln!("{}", red(&format!("Apply error: {}", e))),
     }
 }
-

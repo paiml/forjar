@@ -164,7 +164,11 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let state_dir = dir.path().join("state");
         std::fs::create_dir_all(&state_dir).unwrap();
-        let cfg = write_yaml(dir.path(), "forjar.yaml", "version: \"1.0\"\nname: t\nmachines: {}\nresources: {}\n");
+        let cfg = write_yaml(
+            dir.path(),
+            "forjar.yaml",
+            "version: \"1.0\"\nname: t\nmachines: {}\nresources: {}\n",
+        );
         let result = cmd_canary(&cfg, &state_dir, "m", false, &[], None);
         assert!(result.is_err());
     }
@@ -185,7 +189,14 @@ mod tests {
         let state_dir = dir.path().join("state");
         std::fs::create_dir_all(&state_dir).unwrap();
         let cfg = write_yaml(dir.path(), "forjar.yaml", minimal_config_yaml());
-        let result = cmd_canary(&cfg, &state_dir, "nobody", true, &["key=val".to_string()], None);
+        let result = cmd_canary(
+            &cfg,
+            &state_dir,
+            "nobody",
+            true,
+            &["key=val".to_string()],
+            None,
+        );
         assert!(result.is_err());
     }
 
@@ -208,7 +219,11 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let state_dir = dir.path().join("state");
         std::fs::create_dir_all(&state_dir).unwrap();
-        let cfg = write_yaml(dir.path(), "forjar.yaml", "version: \"1.0\"\nname: t\nmachines: {}\nresources: {}\n");
+        let cfg = write_yaml(
+            dir.path(),
+            "forjar.yaml",
+            "version: \"1.0\"\nname: t\nmachines: {}\nresources: {}\n",
+        );
         let result = cmd_rolling(&cfg, &state_dir, 2, &[], None);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("no machines defined"));
@@ -219,7 +234,11 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let state_dir = dir.path().join("state");
         std::fs::create_dir_all(&state_dir).unwrap();
-        let cfg = write_yaml(dir.path(), "forjar.yaml", "version: \"1.0\"\nname: t\nmachines: {}\nresources: {}\n");
+        let cfg = write_yaml(
+            dir.path(),
+            "forjar.yaml",
+            "version: \"1.0\"\nname: t\nmachines: {}\nresources: {}\n",
+        );
         let result = cmd_rolling(&cfg, &state_dir, 1, &[], None);
         assert!(result.is_err());
     }
@@ -229,7 +248,11 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let state_dir = dir.path().join("state");
         std::fs::create_dir_all(&state_dir).unwrap();
-        let cfg = write_yaml(dir.path(), "forjar.yaml", "version: \"1.0\"\nname: t\nmachines: {}\nresources: {}\n");
+        let cfg = write_yaml(
+            dir.path(),
+            "forjar.yaml",
+            "version: \"1.0\"\nname: t\nmachines: {}\nresources: {}\n",
+        );
         let result = cmd_rolling(&cfg, &state_dir, 100, &[], None);
         assert!(result.is_err());
     }
@@ -239,7 +262,11 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let state_dir = dir.path().join("state");
         std::fs::create_dir_all(&state_dir).unwrap();
-        let cfg = write_yaml(dir.path(), "forjar.yaml", "version: \"1.0\"\nname: t\nmachines: {}\nresources: {}\n");
+        let cfg = write_yaml(
+            dir.path(),
+            "forjar.yaml",
+            "version: \"1.0\"\nname: t\nmachines: {}\nresources: {}\n",
+        );
         let result = cmd_rolling(&cfg, &state_dir, 2, &[], Some(60));
         assert!(result.is_err());
     }
@@ -249,7 +276,11 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let state_dir = dir.path().join("state");
         std::fs::create_dir_all(&state_dir).unwrap();
-        let cfg = write_yaml(dir.path(), "forjar.yaml", "version: \"1.0\"\nname: t\nmachines: {}\nresources: {}\n");
+        let cfg = write_yaml(
+            dir.path(),
+            "forjar.yaml",
+            "version: \"1.0\"\nname: t\nmachines: {}\nresources: {}\n",
+        );
         let result = cmd_rolling(&cfg, &state_dir, 2, &["env=prod".to_string()], None);
         assert!(result.is_err());
     }
@@ -492,6 +523,4 @@ mod tests {
         let result = cmd_export(dir.path(), "csv", None, None);
         assert!(result.is_ok());
     }
-
 }
-

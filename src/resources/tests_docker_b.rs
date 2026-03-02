@@ -78,6 +78,8 @@ fn make_docker_resource(name: &str, image: &str) -> Resource {
         pre_apply: None,
         post_apply: None,
         lifecycle: None,
+        store: false,
+        script: None,
     }
 }
 
@@ -87,9 +89,18 @@ fn make_docker_resource(name: &str, image: &str) -> Resource {
 fn test_fj132_apply_empty_ports_env_volumes() {
     let r = make_docker_resource("web", "nginx:latest");
     let script = apply_script(&r);
-    assert!(!script.contains("-p '"), "empty ports should not add -p flags");
-    assert!(!script.contains("-e '"), "empty env should not add -e flags");
-    assert!(!script.contains("-v '"), "empty volumes should not add -v flags");
+    assert!(
+        !script.contains("-p '"),
+        "empty ports should not add -p flags"
+    );
+    assert!(
+        !script.contains("-e '"),
+        "empty env should not add -e flags"
+    );
+    assert!(
+        !script.contains("-v '"),
+        "empty volumes should not add -v flags"
+    );
 }
 
 #[test]
@@ -97,22 +108,34 @@ fn test_fj132_apply_no_restart_no_flag() {
     let mut r = make_docker_resource("web", "nginx:latest");
     r.restart = None;
     let script = apply_script(&r);
-    assert!(!script.contains("--restart"), "no restart policy = no --restart flag");
+    assert!(
+        !script.contains("--restart"),
+        "no restart policy = no --restart flag"
+    );
 }
 
 #[test]
 fn test_fj132_state_query_contains_inspect() {
     let r = make_docker_resource("web", "nginx:latest");
     let script = state_query_script(&r);
-    assert!(script.contains("docker inspect"), "state_query should use docker inspect");
-    assert!(script.contains("'web'"), "state_query should reference container name");
+    assert!(
+        script.contains("docker inspect"),
+        "state_query should use docker inspect"
+    );
+    assert!(
+        script.contains("'web'"),
+        "state_query should reference container name"
+    );
 }
 
 #[test]
 fn test_fj132_check_script_format() {
     let r = make_docker_resource("web", "nginx:latest");
     let script = check_script(&r);
-    assert!(script.contains("docker inspect"), "check should inspect container");
+    assert!(
+        script.contains("docker inspect"),
+        "check should inspect container"
+    );
     assert!(script.contains("'web'"), "check should reference name");
 }
 
@@ -131,21 +154,48 @@ fn test_fj036_docker_apply_absent_removes() {
     let mut r = make_docker_resource("stale-app", "myapp:old");
     r.state = Some("absent".to_string());
     let script = apply_script(&r);
-    assert!(script.contains("docker rm 'stale-app'"), "absent must generate docker rm");
-    assert!(script.contains("docker stop 'stale-app'"), "absent must generate docker stop before rm");
-    assert!(!script.contains("docker pull"), "absent must not pull image");
-    assert!(!script.contains("docker run"), "absent must not run container");
+    assert!(
+        script.contains("docker rm 'stale-app'"),
+        "absent must generate docker rm"
+    );
+    assert!(
+        script.contains("docker stop 'stale-app'"),
+        "absent must generate docker stop before rm"
+    );
+    assert!(
+        !script.contains("docker pull"),
+        "absent must not pull image"
+    );
+    assert!(
+        !script.contains("docker run"),
+        "absent must not run container"
+    );
 }
 
 #[test]
 fn test_fj036_docker_check_running_container() {
     let r = make_docker_resource("api-server", "api:v2");
     let script = check_script(&r);
-    assert!(script.contains("docker inspect"), "check should use docker inspect");
-    assert!(script.contains("'api-server'"), "check should reference container name");
-    assert!(script.contains("State.Running"), "check should query running state");
-    assert!(script.contains("exists:api-server"), "check should emit exists token");
-    assert!(script.contains("missing:api-server"), "check should emit missing token");
+    assert!(
+        script.contains("docker inspect"),
+        "check should use docker inspect"
+    );
+    assert!(
+        script.contains("'api-server'"),
+        "check should reference container name"
+    );
+    assert!(
+        script.contains("State.Running"),
+        "check should query running state"
+    );
+    assert!(
+        script.contains("exists:api-server"),
+        "check should emit exists token"
+    );
+    assert!(
+        script.contains("missing:api-server"),
+        "check should emit missing token"
+    );
 }
 
 #[test]
@@ -157,12 +207,30 @@ fn test_fj036_docker_apply_with_ports_and_volumes() {
         "/host/logs:/var/log/app".to_string(),
     ];
     let script = apply_script(&r);
-    assert!(script.contains("-p '8080:80'"), "first port mapping missing");
-    assert!(script.contains("-p '8443:443'"), "second port mapping missing");
-    assert!(script.contains("-v '/host/data:/container/data'"), "first volume mapping missing");
-    assert!(script.contains("-v '/host/logs:/var/log/app'"), "second volume mapping missing");
-    assert!(script.contains("docker run -d"), "must run in detached mode");
-    assert!(script.contains("--name 'webapp'"), "must name the container");
+    assert!(
+        script.contains("-p '8080:80'"),
+        "first port mapping missing"
+    );
+    assert!(
+        script.contains("-p '8443:443'"),
+        "second port mapping missing"
+    );
+    assert!(
+        script.contains("-v '/host/data:/container/data'"),
+        "first volume mapping missing"
+    );
+    assert!(
+        script.contains("-v '/host/logs:/var/log/app'"),
+        "second volume mapping missing"
+    );
+    assert!(
+        script.contains("docker run -d"),
+        "must run in detached mode"
+    );
+    assert!(
+        script.contains("--name 'webapp'"),
+        "must name the container"
+    );
 }
 
 // -- Coverage boost tests --
@@ -171,11 +239,26 @@ fn test_fj036_docker_apply_with_ports_and_volumes() {
 fn test_docker_check_running() {
     let r = make_docker_resource("redis-cache", "redis:7-alpine");
     let script = check_script(&r);
-    assert!(script.contains("docker inspect -f"), "check must use docker inspect: {script}");
-    assert!(script.contains("State.Running"), "check must query running state: {script}");
-    assert!(script.contains("'redis-cache'"), "check must reference container name: {script}");
-    assert!(script.contains("exists:redis-cache"), "check must emit exists token: {script}");
-    assert!(script.contains("missing:redis-cache"), "check must emit missing token: {script}");
+    assert!(
+        script.contains("docker inspect -f"),
+        "check must use docker inspect: {script}"
+    );
+    assert!(
+        script.contains("State.Running"),
+        "check must query running state: {script}"
+    );
+    assert!(
+        script.contains("'redis-cache'"),
+        "check must reference container name: {script}"
+    );
+    assert!(
+        script.contains("exists:redis-cache"),
+        "check must emit exists token: {script}"
+    );
+    assert!(
+        script.contains("missing:redis-cache"),
+        "check must emit missing token: {script}"
+    );
 }
 
 #[test]
@@ -183,12 +266,24 @@ fn test_docker_state_query_with_network() {
     let mut r = make_docker_resource("api", "api-server:v3");
     r.restart = Some("on-failure:5".to_string());
     let query = state_query_script(&r);
-    assert!(query.contains("docker inspect 'api'"), "state_query must inspect container: {query}");
-    assert!(query.contains("container=api"), "state_query must emit container token: {query}");
-    assert!(query.contains("container=MISSING:api"), "state_query must emit missing token: {query}");
+    assert!(
+        query.contains("docker inspect 'api'"),
+        "state_query must inspect container: {query}"
+    );
+    assert!(
+        query.contains("container=api"),
+        "state_query must emit container token: {query}"
+    );
+    assert!(
+        query.contains("container=MISSING:api"),
+        "state_query must emit missing token: {query}"
+    );
 
     let apply = apply_script(&r);
-    assert!(apply.contains("--restart 'on-failure:5'"), "apply must include restart policy: {apply}");
+    assert!(
+        apply.contains("--restart 'on-failure:5'"),
+        "apply must include restart policy: {apply}"
+    );
 }
 
 #[test]
@@ -206,7 +301,10 @@ fn test_fj153_stopped_ignores_ports_env_volumes() {
     assert!(!script.contains("-p '"), "stopped must not map ports");
     assert!(!script.contains("-e '"), "stopped must not set env");
     assert!(!script.contains("-v '"), "stopped must not mount volumes");
-    assert!(!script.contains("--restart"), "stopped must not set restart");
+    assert!(
+        !script.contains("--restart"),
+        "stopped must not set restart"
+    );
 }
 
 #[test]
@@ -274,9 +372,24 @@ fn test_docker_apply_stop_then_run() {
     assert!(stop_idx < rm_idx, "stop must come before rm");
     assert!(rm_idx < run_idx, "rm must come before run");
 
-    assert!(script.contains("--name 'app-server'"), "run must name the container: {script}");
-    assert!(script.contains("--restart 'always'"), "run must set restart policy: {script}");
-    assert!(script.contains("-p '3000:3000'"), "run must map port: {script}");
-    assert!(script.contains("-e 'NODE_ENV=production'"), "run must set env: {script}");
-    assert!(script.contains("'myapp:v2'"), "run must reference image: {script}");
+    assert!(
+        script.contains("--name 'app-server'"),
+        "run must name the container: {script}"
+    );
+    assert!(
+        script.contains("--restart 'always'"),
+        "run must set restart policy: {script}"
+    );
+    assert!(
+        script.contains("-p '3000:3000'"),
+        "run must map port: {script}"
+    );
+    assert!(
+        script.contains("-e 'NODE_ENV=production'"),
+        "run must set env: {script}"
+    );
+    assert!(
+        script.contains("'myapp:v2'"),
+        "run must reference image: {script}"
+    );
 }

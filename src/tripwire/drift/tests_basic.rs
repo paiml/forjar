@@ -323,4 +323,3 @@ fn test_fj016_detect_drift_non_string_content_hash_skipped() {
         "non-string content_hash should be skipped"
     );
 }
-

@@ -39,7 +39,11 @@ fn find_fan_in_hotspots(config: &types::ForjarConfig) -> Vec<FanInEntry> {
     let fan_in_map = compute_fan_in(config);
     let total_fan_in: usize = fan_in_map.values().map(|v| v.len()).sum();
     let count = fan_in_map.len();
-    let avg = if count > 0 { total_fan_in as f64 / count as f64 } else { 0.0 };
+    let avg = if count > 0 {
+        total_fan_in as f64 / count as f64
+    } else {
+        0.0
+    };
     let threshold = (avg * 2.0).max(3.0) as usize;
 
     let mut hotspots: Vec<FanInEntry> = fan_in_map
@@ -288,8 +292,7 @@ mod tests {
 
     #[test]
     fn test_fj1103_file_not_found() {
-        let result =
-            cmd_graph_resource_dependency_fan_in_hotspot(Path::new("/nonexistent"), false);
+        let result = cmd_graph_resource_dependency_fan_in_hotspot(Path::new("/nonexistent"), false);
         assert!(result.is_err());
     }
 

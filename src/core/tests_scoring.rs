@@ -100,6 +100,8 @@ pub(super) fn minimal_resource(rt: ResourceType) -> Resource {
         pre_apply: None,
         post_apply: None,
         lifecycle: None,
+        store: false,
+        script: None,
     }
 }
 
@@ -197,11 +199,17 @@ fn grade_a_requires_all_dimensions_above_80() {
 
     config.resources.insert("cfg".to_string(), file_res);
     config.resources.insert("pkg".to_string(), pkg_res);
-    config.params.insert("name".to_string(), serde_yaml_ng::Value::String("test".into()));
-    config.outputs.insert("out".to_string(), OutputValue {
-        value: "{{params.name}}".to_string(),
-        description: Some("output".to_string()),
-    });
+    config.params.insert(
+        "name".to_string(),
+        serde_yaml_ng::Value::String("test".into()),
+    );
+    config.outputs.insert(
+        "out".to_string(),
+        OutputValue {
+            value: "{{params.name}}".to_string(),
+            description: Some("output".to_string()),
+        },
+    );
 
     let input = ScoringInput {
         status: "qualified".to_string(),
@@ -228,7 +236,11 @@ fn safety_critical_mode_0777() {
     let input = static_input();
     let result = compute(&config, &input);
     let saf = result.dimensions.iter().find(|d| d.code == "SAF").unwrap();
-    assert!(saf.score <= 40, "0777 should cap safety at 40, got {}", saf.score);
+    assert!(
+        saf.score <= 40,
+        "0777 should cap safety at 40, got {}",
+        saf.score
+    );
 }
 
 #[test]
@@ -243,7 +255,11 @@ fn safety_curl_bash_critical() {
     let input = static_input();
     let result = compute(&config, &input);
     let saf = result.dimensions.iter().find(|d| d.code == "SAF").unwrap();
-    assert!(saf.score <= 40, "curl|bash should cap safety at 40, got {}", saf.score);
+    assert!(
+        saf.score <= 40,
+        "curl|bash should cap safety at 40, got {}",
+        saf.score
+    );
 }
 
 #[test]
@@ -280,9 +296,13 @@ fn observability_defaults_get_30() {
 #[test]
 fn observability_with_outputs_and_notify() {
     let mut config = minimal_config();
-    config.outputs.insert("x".to_string(), OutputValue {
-        value: "v".to_string(), description: None,
-    });
+    config.outputs.insert(
+        "x".to_string(),
+        OutputValue {
+            value: "v".to_string(),
+            description: None,
+        },
+    );
     config.policy.notify.on_success = Some("echo ok".to_string());
     config.policy.notify.on_failure = Some("echo fail".to_string());
     config.policy.notify.on_drift = Some("echo drift".to_string());
@@ -333,7 +353,9 @@ fn composability_empty_config() {
 #[test]
 fn composability_with_params_and_tags() {
     let mut config = minimal_config();
-    config.params.insert("k".to_string(), serde_yaml_ng::Value::String("v".into()));
+    config
+        .params
+        .insert("k".to_string(), serde_yaml_ng::Value::String("v".into()));
     let mut res = minimal_resource(ResourceType::File);
     res.tags = vec!["web".to_string()];
     config.resources.insert("f".to_string(), res);

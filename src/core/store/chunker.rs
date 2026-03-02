@@ -114,8 +114,7 @@ fn walk_files(
             let meta = std::fs::metadata(&path)
                 .map_err(|e| format!("metadata {}: {e}", path.display()))?;
             let hash = blake3::hash(
-                &std::fs::read(&path)
-                    .map_err(|e| format!("read {}: {e}", path.display()))?,
+                &std::fs::read(&path).map_err(|e| format!("read {}: {e}", path.display()))?,
             )
             .to_hex()
             .to_string();
@@ -127,10 +126,7 @@ fn walk_files(
     Ok(())
 }
 
-fn tar_directory(
-    base: &Path,
-    entries: &[(String, u64, String)],
-) -> Result<Vec<u8>, String> {
+fn tar_directory(base: &Path, entries: &[(String, u64, String)]) -> Result<Vec<u8>, String> {
     let mut builder = tar::Builder::new(Vec::new());
     for (rel, _, _) in entries {
         let full = base.join(rel);

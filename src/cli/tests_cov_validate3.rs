@@ -1,12 +1,12 @@
 //! Tests: Coverage for validate_ordering (part 1 of 4).
 
 #![allow(unused_imports)]
-use super::validate_ordering::*;
-use super::validate_ownership::*;
-use super::validate_safety::*;
 use super::validate_advanced::*;
 use super::validate_governance::*;
+use super::validate_ordering::*;
+use super::validate_ownership::*;
 use super::validate_paths::*;
+use super::validate_safety::*;
 use std::io::Write;
 
 #[cfg(test)]

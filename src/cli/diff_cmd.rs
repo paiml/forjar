@@ -1,9 +1,8 @@
 //! Diff and env commands.
 
+use super::helpers::*;
 use crate::core::{state, types};
 use std::path::Path;
-use super::helpers::*;
-
 
 #[derive(Debug)]
 enum DiffChange {
@@ -87,14 +86,26 @@ fn print_diff_entry(d: &ResourceDiff) {
     };
     match d.change {
         DiffChange::Added => {
-            println!("  {} {} ({})", symbol, d.resource, d.to_status.as_deref().unwrap_or("?"));
+            println!(
+                "  {} {} ({})",
+                symbol,
+                d.resource,
+                d.to_status.as_deref().unwrap_or("?")
+            );
         }
         DiffChange::Removed => {
-            println!("  {} {} (was {})", symbol, d.resource, d.from_status.as_deref().unwrap_or("?"));
+            println!(
+                "  {} {} (was {})",
+                symbol,
+                d.resource,
+                d.from_status.as_deref().unwrap_or("?")
+            );
         }
         DiffChange::Changed => {
             println!(
-                "  {} {} ({} → {})", symbol, d.resource,
+                "  {} {} ({} → {})",
+                symbol,
+                d.resource,
                 d.from_status.as_deref().unwrap_or("?"),
                 d.to_status.as_deref().unwrap_or("?")
             );
@@ -104,14 +115,19 @@ fn print_diff_entry(d: &ResourceDiff) {
 
 /// Convert diffs to JSON value.
 fn diffs_to_json(diffs: &[ResourceDiff]) -> Vec<serde_json::Value> {
-    diffs.iter().map(|d| serde_json::json!({
-        "resource": d.resource,
-        "change": format!("{:?}", d.change).to_lowercase(),
-        "from_hash": d.from_hash,
-        "to_hash": d.to_hash,
-        "from_status": d.from_status,
-        "to_status": d.to_status,
-    })).collect()
+    diffs
+        .iter()
+        .map(|d| {
+            serde_json::json!({
+                "resource": d.resource,
+                "change": format!("{:?}", d.change).to_lowercase(),
+                "from_hash": d.from_hash,
+                "to_hash": d.to_hash,
+                "from_status": d.from_status,
+                "to_status": d.to_status,
+            })
+        })
+        .collect()
 }
 
 pub(crate) fn cmd_diff(
@@ -124,7 +140,10 @@ pub(crate) fn cmd_diff(
     let from_machines = discover_machines(from);
     let to_machines = discover_machines(to);
     let mut all_machines: Vec<String> = from_machines
-        .iter().chain(to_machines.iter()).cloned().collect();
+        .iter()
+        .chain(to_machines.iter())
+        .cloned()
+        .collect();
     all_machines.sort();
     all_machines.dedup();
 
@@ -146,8 +165,16 @@ pub(crate) fn cmd_diff(
         let from_lock = state::load_lock(from, machine_name)?;
         let to_lock = state::load_lock(to, machine_name)?;
 
-        let from_resources = from_lock.as_ref().map(|l| &l.resources).cloned().unwrap_or_default();
-        let to_resources = to_lock.as_ref().map(|l| &l.resources).cloned().unwrap_or_default();
+        let from_resources = from_lock
+            .as_ref()
+            .map(|l| &l.resources)
+            .cloned()
+            .unwrap_or_default();
+        let to_resources = to_lock
+            .as_ref()
+            .map(|l| &l.resources)
+            .cloned()
+            .unwrap_or_default();
 
         let (mut diffs, added, removed, changed, unchanged) =
             compute_machine_diffs(&from_resources, &to_resources);
@@ -185,7 +212,10 @@ pub(crate) fn cmd_diff(
             },
             "machines": json_machines,
         });
-        println!("{}", serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {}", e))?);
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {}", e))?
+        );
     } else {
         println!(
             "Diff: {} added, {} removed, {} changed, {} unchanged",
@@ -195,7 +225,6 @@ pub(crate) fn cmd_diff(
 
     Ok(())
 }
-
 
 /// Load all resource hashes from an environment directory.
 fn load_env_resources(dir: &Path) -> Result<std::collections::HashMap<String, String>, String> {
@@ -214,15 +243,28 @@ fn load_env_resources(dir: &Path) -> Result<std::collections::HashMap<String, St
 }
 
 /// FJ-367: Compare environments (workspaces).
-pub(crate) fn cmd_env_diff(env1: &str, env2: &str, state_dir: &Path, json: bool) -> Result<(), String> {
+pub(crate) fn cmd_env_diff(
+    env1: &str,
+    env2: &str,
+    state_dir: &Path,
+    json: bool,
+) -> Result<(), String> {
     let dir1 = state_dir.join(env1);
     let dir2 = state_dir.join(env2);
 
     if !dir1.exists() {
-        return Err(format!("Workspace '{}' not found at {}", env1, dir1.display()));
+        return Err(format!(
+            "Workspace '{}' not found at {}",
+            env1,
+            dir1.display()
+        ));
     }
     if !dir2.exists() {
-        return Err(format!("Workspace '{}' not found at {}", env2, dir2.display()));
+        return Err(format!(
+            "Workspace '{}' not found at {}",
+            env2,
+            dir2.display()
+        ));
     }
 
     let resources1 = load_env_resources(&dir1)?;
@@ -246,12 +288,21 @@ pub(crate) fn cmd_env_diff(env1: &str, env2: &str, state_dir: &Path, json: bool)
             "only_in_second": only2,
             "drifted": drifted,
         });
-        println!("{}", serde_json::to_string_pretty(&result).unwrap_or_else(|_| "{}".to_string()));
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&result).unwrap_or_else(|_| "{}".to_string())
+        );
     } else {
         println!("Environment diff: {} vs {}\n", bold(env1), bold(env2));
-        for k in &only1 { println!("  {} {} (only in {})", red("-"), k, env1); }
-        for k in &only2 { println!("  {} {} (only in {})", green("+"), k, env2); }
-        for k in &drifted { println!("  {} {} (hash differs)", yellow("~"), k); }
+        for k in &only1 {
+            println!("  {} {} (only in {})", red("-"), k, env1);
+        }
+        for k in &only2 {
+            println!("  {} {} (only in {})", green("+"), k, env2);
+        }
+        for k in &drifted {
+            println!("  {} {} (hash differs)", yellow("~"), k);
+        }
         if only1.is_empty() && only2.is_empty() && drifted.is_empty() {
             println!("  {} Environments are identical.", green("✓"));
         }
@@ -259,7 +310,6 @@ pub(crate) fn cmd_env_diff(env1: &str, env2: &str, state_dir: &Path, json: bool)
 
     Ok(())
 }
-
 
 /// FJ-277: Show resolved environment info.
 pub(crate) fn cmd_env(file: &Path, json: bool) -> Result<(), String> {
@@ -278,7 +328,10 @@ pub(crate) fn cmd_env(file: &Path, json: bool) -> Result<(), String> {
 }
 
 /// Print environment info as JSON.
-fn print_env_json(file: &Path, config: &Option<crate::core::types::ForjarConfig>) -> Result<(), String> {
+fn print_env_json(
+    file: &Path,
+    config: &Option<crate::core::types::ForjarConfig>,
+) -> Result<(), String> {
     let mut info = serde_json::json!({
         "forjar_version": env!("CARGO_PKG_VERSION"),
         "os": std::env::consts::OS,
@@ -295,13 +348,20 @@ fn print_env_json(file: &Path, config: &Option<crate::core::types::ForjarConfig>
         info["resource_names"] = serde_json::json!(config.resources.keys().collect::<Vec<_>>());
         info["resolved_params"] = serde_json::json!(config.params);
     }
-    println!("{}", serde_json::to_string_pretty(&info).map_err(|e| format!("JSON error: {}", e))?);
+    println!(
+        "{}",
+        serde_json::to_string_pretty(&info).map_err(|e| format!("JSON error: {}", e))?
+    );
     Ok(())
 }
 
 /// Print environment info as text.
 fn print_env_text(file: &Path, config: &Option<crate::core::types::ForjarConfig>) {
-    println!("{:<20} {}", bold("forjar version:"), env!("CARGO_PKG_VERSION"));
+    println!(
+        "{:<20} {}",
+        bold("forjar version:"),
+        env!("CARGO_PKG_VERSION")
+    );
     println!("{:<20} {}", bold("os:"), std::env::consts::OS);
     println!("{:<20} {}", bold("arch:"), std::env::consts::ARCH);
     println!("{:<20} {}", bold("config:"), file.display());

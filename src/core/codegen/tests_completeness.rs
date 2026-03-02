@@ -1,7 +1,7 @@
 //! Completeness + nonempty tests for codegen — FJ-005, FJ-132.
 
-use super::*;
 use super::test_fixtures::*;
+use super::*;
 use crate::core::types::ResourceType;
 
 #[test]

@@ -1,17 +1,13 @@
 //! Lock operations.
 
+use super::helpers::*;
 use crate::core::{state, types};
 use std::path::Path;
-use super::helpers::*;
-
 
 // ── FJ-395: lock compact ──
 
 /// Check a single machine directory for compactable events, optionally applying.
-fn compact_machine_events(
-    path: &Path,
-    yes: bool,
-) -> Result<Option<(String, usize)>, String> {
+fn compact_machine_events(path: &Path, yes: bool) -> Result<Option<(String, usize)>, String> {
     let m_name = path
         .file_name()
         .unwrap_or_default()
@@ -29,8 +25,7 @@ fn compact_machine_events(
     let removed = lines.len() - 1;
     if yes {
         let last = lines.last().unwrap_or(&"");
-        std::fs::write(&log_path, format!("{}\n", last))
-            .map_err(|e| e.to_string())?;
+        std::fs::write(&log_path, format!("{}\n", last)).map_err(|e| e.to_string())?;
     }
     Ok(Some((m_name, removed)))
 }
@@ -86,7 +81,6 @@ pub(crate) fn cmd_lock_compact(state_dir: &Path, yes: bool, json: bool) -> Resul
     Ok(())
 }
 
-
 /// Verify a single machine's lock, returning (verified_count, corrupt_count, check_entries).
 #[allow(clippy::type_complexity)]
 fn verify_machine_lock(
@@ -117,7 +111,11 @@ fn verify_machine_lock(
             }
         }
         Ok(None) => {
-            checks.push((m_name.to_string(), String::new(), "no lock data".to_string()));
+            checks.push((
+                m_name.to_string(),
+                String::new(),
+                "no lock data".to_string(),
+            ));
         }
         Err(e) => {
             corrupt += 1;
@@ -194,7 +192,6 @@ pub(crate) fn cmd_lock_verify(state_dir: &Path, json: bool) -> Result<(), String
     }
 }
 
-
 /// Collect all lock resources from state dir, optionally filtered by machine.
 fn collect_lock_resources(
     state_dir: &Path,
@@ -236,7 +233,11 @@ fn collect_lock_resources(
 
 // ── FJ-415: lock export ──
 
-pub(crate) fn cmd_lock_export(state_dir: &Path, fmt: &str, machine: Option<&str>) -> Result<(), String> {
+pub(crate) fn cmd_lock_export(
+    state_dir: &Path,
+    fmt: &str,
+    machine: Option<&str>,
+) -> Result<(), String> {
     let all_resources = collect_lock_resources(state_dir, machine)?;
 
     match fmt {
@@ -274,7 +275,6 @@ pub(crate) fn cmd_lock_export(state_dir: &Path, fmt: &str, machine: Option<&str>
     Ok(())
 }
 
-
 /// Collect orphaned lock entries not present in config resources.
 fn collect_orphaned_resources(
     state_dir: &Path,
@@ -311,7 +311,12 @@ fn collect_orphaned_resources(
 
 // ── FJ-425: lock gc ──
 
-pub(crate) fn cmd_lock_gc(file: &Path, state_dir: &Path, yes: bool, json: bool) -> Result<(), String> {
+pub(crate) fn cmd_lock_gc(
+    file: &Path,
+    state_dir: &Path,
+    yes: bool,
+    json: bool,
+) -> Result<(), String> {
     let config = parse_and_validate(file)?;
     let config_resources: std::collections::HashSet<&str> =
         config.resources.keys().map(|k| k.as_str()).collect();
@@ -348,7 +353,6 @@ pub(crate) fn cmd_lock_gc(file: &Path, state_dir: &Path, yes: bool, json: bool) 
     }
     Ok(())
 }
-
 
 // ── FJ-435: lock diff ──
 
@@ -437,4 +441,3 @@ pub(crate) fn cmd_lock_diff(from: &Path, to: &Path, json: bool) -> Result<(), St
     }
     Ok(())
 }
-

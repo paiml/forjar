@@ -1,12 +1,11 @@
 //! Drift detection.
 
+use super::apply::*;
+use super::apply_helpers::*;
+use super::helpers::*;
 use crate::core::{state, types};
 use crate::tripwire::drift;
 use std::path::Path;
-use super::helpers::*;
-use super::apply::*;
-use super::apply_helpers::*;
-
 
 /// Check one machine for drift, appending findings to all_findings (JSON) or printing text.
 fn check_machine_drift(
@@ -207,7 +206,8 @@ fn scan_machines_for_drift(
         }
         if let Some(lock) = state::load_lock(state_dir, &name)? {
             machines_checked += 1;
-            total_drift += check_machine_drift(&name, &lock, config, json, verbose, &mut all_findings);
+            total_drift +=
+                check_machine_drift(&name, &lock, config, json, verbose, &mut all_findings);
         }
     }
     Ok((machines_checked, total_drift, all_findings))
@@ -250,7 +250,14 @@ pub(crate) fn cmd_drift(
             run_drift_alert(cmd, total_drift)?;
         }
         if auto_remediate {
-            run_drift_remediation(config_path, state_dir, machine_filter, total_drift, json, verbose)?;
+            run_drift_remediation(
+                config_path,
+                state_dir,
+                machine_filter,
+                total_drift,
+                json,
+                verbose,
+            )?;
         }
         if let Some(ref cfg) = config {
             send_drift_notification(cfg, total_drift, machine_filter);
@@ -263,7 +270,6 @@ pub(crate) fn cmd_drift(
 
     Ok(())
 }
-
 
 /// Dry-run mode for drift: lists resources that would be checked without connecting.
 pub(crate) fn cmd_drift_dry_run(
@@ -323,4 +329,3 @@ pub(crate) fn cmd_drift_dry_run(
 
     Ok(())
 }
-

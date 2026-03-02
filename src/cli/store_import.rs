@@ -9,8 +9,8 @@
 //! - `forjar import apr meta-llama/Llama-3`
 
 use crate::core::store::provider::{
-    all_providers, capture_method, import_command, origin_ref_string,
-    validate_import, ImportConfig, ImportProvider,
+    all_providers, capture_method, import_command, origin_ref_string, validate_import,
+    ImportConfig, ImportProvider,
 };
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -52,8 +52,10 @@ pub(crate) fn cmd_store_import(
             "store_dir": store_dir.display().to_string(),
             "status": "dry-run",
         });
-        println!("{}", serde_json::to_string_pretty(&j)
-            .unwrap_or_else(|_| "{}".to_string()));
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&j).unwrap_or_else(|_| "{}".to_string())
+        );
     } else {
         println!("Store import:");
         println!("  Provider: {provider}");
@@ -75,15 +77,20 @@ pub(crate) fn cmd_import_providers(json: bool) -> Result<(), String> {
     let providers = all_providers();
 
     if json {
-        let j: Vec<serde_json::Value> = providers.iter().map(|p| {
-            let name = provider_name(*p);
-            serde_json::json!({
-                "name": name,
-                "capture_method": capture_method(*p),
+        let j: Vec<serde_json::Value> = providers
+            .iter()
+            .map(|p| {
+                let name = provider_name(*p);
+                serde_json::json!({
+                    "name": name,
+                    "capture_method": capture_method(*p),
+                })
             })
-        }).collect();
-        println!("{}", serde_json::to_string_pretty(&j)
-            .unwrap_or_else(|_| "[]".to_string()));
+            .collect();
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&j).unwrap_or_else(|_| "[]".to_string())
+        );
     } else {
         println!("Supported import providers:");
         for p in &providers {
@@ -103,7 +110,9 @@ fn parse_provider(name: &str) -> Result<ImportProvider, String> {
         "tofu" | "opentofu" => Ok(ImportProvider::Tofu),
         "terraform" | "tf" => Ok(ImportProvider::Terraform),
         "apr" => Ok(ImportProvider::Apr),
-        _ => Err(format!("unknown provider: {name}. Use: apt, cargo, uv, nix, docker, tofu, terraform, apr")),
+        _ => Err(format!(
+            "unknown provider: {name}. Use: apt, cargo, uv, nix, docker, tofu, terraform, apr"
+        )),
     }
 }
 
@@ -122,9 +131,15 @@ fn provider_name(p: ImportProvider) -> &'static str {
 
 fn current_arch() -> String {
     #[cfg(target_arch = "x86_64")]
-    { "x86_64".to_string() }
+    {
+        "x86_64".to_string()
+    }
     #[cfg(target_arch = "aarch64")]
-    { "aarch64".to_string() }
+    {
+        "aarch64".to_string()
+    }
     #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
-    { std::env::consts::ARCH.to_string() }
+    {
+        std::env::consts::ARCH.to_string()
+    }
 }

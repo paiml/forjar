@@ -1,23 +1,22 @@
 //! Tests: Destroy and rollback.
 
 #![allow(unused_imports)]
+use super::apply::*;
+use super::commands::*;
+use super::destroy::*;
+use super::dispatch::*;
+use super::helpers::*;
+use super::helpers_state::*;
+use super::helpers_time::*;
 use crate::core::types::ProvenanceEvent;
 use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
 use crate::transport;
 use crate::tripwire::{anomaly, drift, eventlog, tracer};
 use std::path::{Path, PathBuf};
-use super::helpers::*;
-use super::helpers_state::*;
-use super::helpers_time::*;
-use super::destroy::*;
-use super::apply::*;
-use super::commands::*;
-use super::dispatch::*;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
 
     #[test]
     fn test_fj061_destroy_requires_yes() {
@@ -47,7 +46,6 @@ resources:
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("--yes"));
     }
-
 
     #[test]
     fn test_fj061_destroy_local_file() {
@@ -128,7 +126,6 @@ resources:
         assert!(!state.join("local").join("state.lock.yaml").exists());
     }
 
-
     #[test]
     fn test_fj061_destroy_verbose() {
         let dir = tempfile::tempdir().unwrap();
@@ -197,7 +194,6 @@ resources:
         cmd_destroy(&config, &state, None, true, true).unwrap();
         assert!(!target.exists());
     }
-
 
     #[test]
     fn test_fj061_destroy_machine_filter() {
@@ -283,7 +279,6 @@ resources:
         assert!(target_b.exists()); // b should still exist
     }
 
-
     #[test]
     fn test_fj061_dispatch_destroy() {
         let dir = tempfile::tempdir().unwrap();
@@ -363,7 +358,6 @@ resources:
         assert!(!target.exists());
     }
 
-
     #[test]
     fn test_fj017_rollback_invalid_config_file() {
         let dir = tempfile::tempdir().unwrap();
@@ -377,5 +371,4 @@ resources:
     }
 
     // ── Apply with param overrides ─────────────────────────────
-
 }

@@ -109,7 +109,10 @@ mod tests {
     #[test]
     fn convergence_efficiency_data() {
         let d = make_dir();
-        assert!(cmd_status_machine_resource_convergence_efficiency(d.path(), Some("web"), false).is_ok());
+        assert!(
+            cmd_status_machine_resource_convergence_efficiency(d.path(), Some("web"), false)
+                .is_ok()
+        );
     }
     #[test]
     fn convergence_efficiency_json() {
@@ -330,8 +333,16 @@ mod tests {
     fn make_converged_dir() -> tempfile::TempDir {
         let dir = tempfile::tempdir().unwrap();
         for m in &["web", "db"] {
-            write_yaml(dir.path(), &format!("{}/state.lock.yaml", m), state_lock_converged());
-            write_yaml(dir.path(), &format!("{}.lock.yaml", m), state_lock_converged());
+            write_yaml(
+                dir.path(),
+                &format!("{}/state.lock.yaml", m),
+                state_lock_converged(),
+            );
+            write_yaml(
+                dir.path(),
+                &format!("{}.lock.yaml", m),
+                state_lock_converged(),
+            );
         }
         dir
     }

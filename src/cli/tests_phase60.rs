@@ -3,17 +3,12 @@
 #![allow(unused_imports)]
 #[cfg(test)]
 mod tests {
-    use super::super::validate_paths::{
-        cmd_validate_check_env_refs,
-        cmd_validate_check_resource_names,
-    };
-    use super::super::graph_topology::{
-        cmd_graph_subgraph_stats,
-        cmd_graph_dependency_count,
-    };
+    use super::super::graph_topology::{cmd_graph_dependency_count, cmd_graph_subgraph_stats};
     use super::super::status_resource_detail::{
-        cmd_status_last_apply_status,
-        cmd_status_resource_staleness,
+        cmd_status_last_apply_status, cmd_status_resource_staleness,
+    };
+    use super::super::validate_paths::{
+        cmd_validate_check_env_refs, cmd_validate_check_resource_names,
     };
 
     fn yaml_header() -> &'static str {
@@ -25,7 +20,6 @@ mod tests {
         std::fs::write(&f, format!("{}{}", yaml_header(), body)).unwrap();
         f
     }
-
 
     // ----- FJ-741: validate --check-env-refs -----
 
@@ -54,7 +48,6 @@ mod tests {
         std::env::remove_var("FORJAR_TEST_741");
     }
 
-
     // ----- FJ-745: validate --check-resource-names -----
 
     #[test]
@@ -78,7 +71,6 @@ mod tests {
         assert!(cmd_validate_check_resource_names(&f, true, "kebab-case").is_ok());
     }
 
-
     // ----- FJ-743: graph --subgraph-stats -----
 
     #[test]
@@ -94,7 +86,6 @@ mod tests {
         let f = write_config(dir.path(), "machines: {}\nresources: {}\n");
         assert!(cmd_graph_subgraph_stats(&f, true).is_ok());
     }
-
 
     // ----- FJ-747: graph --dependency-count -----
 
@@ -112,7 +103,6 @@ mod tests {
         assert!(cmd_graph_dependency_count(&f, true).is_ok());
     }
 
-
     // ----- FJ-746: status --last-apply-status -----
 
     #[test]
@@ -126,7 +116,6 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         assert!(cmd_status_last_apply_status(dir.path(), None, true).is_ok());
     }
-
 
     // ----- FJ-748: status --resource-staleness -----
 

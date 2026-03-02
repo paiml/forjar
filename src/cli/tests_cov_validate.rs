@@ -1,9 +1,9 @@
 //! Coverage tests for validate_structural, validate_compliance, validate_quality, validate_policy.
 
-use super::validate_structural::*;
 use super::validate_compliance::*;
-use super::validate_quality::*;
 use super::validate_policy::*;
+use super::validate_quality::*;
+use super::validate_structural::*;
 use std::io::Write;
 
 #[cfg(test)]
@@ -265,7 +265,8 @@ mod tests {
     fn test_policy_file_plain() {
         let f = write_temp_config(&basic_config());
         let mut pf = tempfile::NamedTempFile::new().unwrap();
-        pf.write_all(b"rules:\n  - name: r1\n    check: no_root_owner\n").unwrap();
+        pf.write_all(b"rules:\n  - name: r1\n    check: no_root_owner\n")
+            .unwrap();
         pf.flush().unwrap();
         let _ = cmd_validate_policy_file(f.path(), pf.path(), false);
     }
@@ -274,7 +275,8 @@ mod tests {
     fn test_policy_file_json() {
         let f = write_temp_config(&basic_config());
         let mut pf = tempfile::NamedTempFile::new().unwrap();
-        pf.write_all(b"rules:\n  - name: r1\n    check: require_tags\n").unwrap();
+        pf.write_all(b"rules:\n  - name: r1\n    check: require_tags\n")
+            .unwrap();
         pf.flush().unwrap();
         let _ = cmd_validate_policy_file(f.path(), pf.path(), true);
     }

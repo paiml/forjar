@@ -1,8 +1,7 @@
 //! Lock repair.
 
-use std::path::Path;
 use super::helpers::*;
-
+use std::path::Path;
 
 /// FJ-635: Attempt automatic repair of corrupted lock files.
 pub(crate) fn cmd_lock_repair(state_dir: &Path, json: bool) -> Result<(), String> {
@@ -64,7 +63,6 @@ pub(crate) fn cmd_lock_repair(state_dir: &Path, json: bool) -> Result<(), String
     Ok(())
 }
 
-
 /// FJ-685: Rehash all lock file entries
 pub(crate) fn cmd_lock_rehash(state_dir: &Path, json: bool) -> Result<(), String> {
     let machines = discover_machines(state_dir);
@@ -90,7 +88,6 @@ pub(crate) fn cmd_lock_rehash(state_dir: &Path, json: bool) -> Result<(), String
     }
     Ok(())
 }
-
 
 /// FJ-585: Normalize lock file format (consistent key ordering, whitespace).
 pub(crate) fn cmd_lock_normalize(state_dir: &Path, json: bool) -> Result<(), String> {
@@ -123,4 +120,3 @@ pub(crate) fn cmd_lock_normalize(state_dir: &Path, json: bool) -> Result<(), Str
     }
     Ok(())
 }
-

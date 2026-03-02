@@ -3,8 +3,8 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
-use crate::core::{state, types};
 use super::helpers::*;
+use crate::core::{state, types};
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -45,7 +45,9 @@ fn classify_posture(secret_refs: usize, privileged: usize) -> &'static str {
 
 /// Minimal RFC-3339 timestamp parser returning seconds since Unix epoch.
 fn parse_rfc3339_to_epoch(s: &str) -> Option<u64> {
-    if s.len() < 19 { return None; }
+    if s.len() < 19 {
+        return None;
+    }
     let year: u64 = s.get(0..4)?.parse().ok()?;
     let month: u64 = s.get(5..7)?.parse().ok()?;
     let day: u64 = s.get(8..10)?.parse().ok()?;
@@ -54,14 +56,20 @@ fn parse_rfc3339_to_epoch(s: &str) -> Option<u64> {
     let sec: u64 = s.get(17..19)?.parse().ok()?;
     let mut days: u64 = 0;
     for y in 1970..year {
-        days += if (y % 4 == 0 && y % 100 != 0) || y % 400 == 0 { 366 } else { 365 };
+        days += if (y % 4 == 0 && y % 100 != 0) || y % 400 == 0 {
+            366
+        } else {
+            365
+        };
     }
     let table = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30];
     let leap = (year % 4 == 0 && year % 100 != 0) || year % 400 == 0;
     let mut md: u64 = 0;
     for m in 1..month.min(13) {
         md += table[m as usize];
-        if m == 2 && leap { md += 1; }
+        if m == 2 && leap {
+            md += 1;
+        }
     }
     days += md + (day - 1);
     Some(days * 86_400 + hour * 3600 + min * 60 + sec)
@@ -80,11 +88,17 @@ fn freshness_score(generated_at: &str, now: u64) -> u64 {
     match parse_rfc3339_to_epoch(generated_at) {
         Some(epoch) if now >= epoch => {
             let age = now - epoch;
-            if age < 3600 { 100 }
-            else if age < 86_400 { 80 }
-            else if age < 604_800 { 60 }
-            else if age < 2_592_000 { 30 }
-            else { 0 }
+            if age < 3600 {
+                100
+            } else if age < 86_400 {
+                80
+            } else if age < 604_800 {
+                60
+            } else if age < 2_592_000 {
+                30
+            } else {
+                0
+            }
         }
         _ => 0,
     }
@@ -119,15 +133,28 @@ pub(crate) fn cmd_status_fleet_security_posture_summary(
         let entries: Vec<serde_json::Value> = rows.iter().map(|(m, sr, p, t, pos)| {
             serde_json::json!({"machine":m,"secret_refs":sr,"privileged":p,"tls_resources":t,"posture":pos})
         }).collect();
-        println!("{}", serde_json::to_string_pretty(
-            &serde_json::json!({"fleet_security_posture":{"machines":entries}})
-        ).unwrap_or_default());
+        println!(
+            "{}",
+            serde_json::to_string_pretty(
+                &serde_json::json!({"fleet_security_posture":{"machines":entries}})
+            )
+            .unwrap_or_default()
+        );
     } else {
         println!("=== Fleet Security Posture Summary ===");
-        if rows.is_empty() { println!("  No machine state found."); }
+        if rows.is_empty() {
+            println!("  No machine state found.");
+        }
         for (m, sr, p, t, pos) in &rows {
-            let sym = match *pos { "good" => green("*"), "moderate" => yellow("~"), _ => red("!") };
-            println!("  {} {} — secrets:{}, privileged:{}, tls:{}, posture:{}", sym, m, sr, p, t, pos);
+            let sym = match *pos {
+                "good" => green("*"),
+                "moderate" => yellow("~"),
+                _ => red("!"),
+            };
+            println!(
+                "  {} {} — secrets:{}, privileged:{}, tls:{}, posture:{}",
+                sym, m, sr, p, t, pos
+            );
         }
     }
     Ok(())
@@ -151,18 +178,36 @@ pub(crate) fn cmd_status_machine_resource_freshness_index(
         }
     }
     if json {
-        let entries: Vec<serde_json::Value> = rows.iter().map(|(m, s, ts)| {
-            serde_json::json!({"machine":m,"freshness_index":s,"generated_at":ts})
-        }).collect();
-        println!("{}", serde_json::to_string_pretty(
-            &serde_json::json!({"freshness_index":{"machines":entries}})
-        ).unwrap_or_default());
+        let entries: Vec<serde_json::Value> = rows
+            .iter()
+            .map(
+                |(m, s, ts)| serde_json::json!({"machine":m,"freshness_index":s,"generated_at":ts}),
+            )
+            .collect();
+        println!(
+            "{}",
+            serde_json::to_string_pretty(
+                &serde_json::json!({"freshness_index":{"machines":entries}})
+            )
+            .unwrap_or_default()
+        );
     } else {
         println!("=== Machine Resource Freshness Index ===");
-        if rows.is_empty() { println!("  No machine state found."); }
+        if rows.is_empty() {
+            println!("  No machine state found.");
+        }
         for (m, score, ts) in &rows {
-            let sym = if *score >= 60 { green("*") } else if *score >= 30 { yellow("~") } else { red("!") };
-            println!("  {} {} — freshness:{}/100, generated_at:{}", sym, m, score, ts);
+            let sym = if *score >= 60 {
+                green("*")
+            } else if *score >= 30 {
+                yellow("~")
+            } else {
+                red("!")
+            };
+            println!(
+                "  {} {} — freshness:{}/100, generated_at:{}",
+                sym, m, score, ts
+            );
         }
     }
     Ok(())
@@ -179,7 +224,10 @@ fn collect_type_coverage(
     for m in machines {
         if let Ok(Some(lock)) = state::load_lock(state_dir, m) {
             for rl in lock.resources.values() {
-                coverage.entry(rl.resource_type.to_string()).or_default().insert(m.clone());
+                coverage
+                    .entry(rl.resource_type.to_string())
+                    .or_default()
+                    .insert(m.clone());
             }
         }
     }
@@ -195,19 +243,33 @@ pub(crate) fn cmd_status_fleet_resource_type_coverage(
     let machines = filtered_machines(state_dir, machine);
     let coverage = collect_type_coverage(state_dir, &machines);
     if json {
-        let entries: Vec<serde_json::Value> = coverage.iter().map(|(rt, ms)| {
-            let names: Vec<&str> = ms.iter().map(|s| s.as_str()).collect();
-            serde_json::json!({"resource_type":rt,"machine_count":ms.len(),"machines":names})
-        }).collect();
-        println!("{}", serde_json::to_string_pretty(
-            &serde_json::json!({"resource_type_coverage":{"types":entries}})
-        ).unwrap_or_default());
+        let entries: Vec<serde_json::Value> = coverage
+            .iter()
+            .map(|(rt, ms)| {
+                let names: Vec<&str> = ms.iter().map(|s| s.as_str()).collect();
+                serde_json::json!({"resource_type":rt,"machine_count":ms.len(),"machines":names})
+            })
+            .collect();
+        println!(
+            "{}",
+            serde_json::to_string_pretty(
+                &serde_json::json!({"resource_type_coverage":{"types":entries}})
+            )
+            .unwrap_or_default()
+        );
     } else {
         println!("=== Fleet Resource Type Coverage ===");
-        if coverage.is_empty() { println!("  No resources found."); }
+        if coverage.is_empty() {
+            println!("  No resources found.");
+        }
         for (rt, ms) in &coverage {
             let names: Vec<&str> = ms.iter().map(|s| s.as_str()).collect();
-            println!("  {:>10} | {} machine(s): {}", rt, ms.len(), names.join(", "));
+            println!(
+                "  {:>10} | {} machine(s): {}",
+                rt,
+                ms.len(),
+                names.join(", ")
+            );
         }
     }
     Ok(())
@@ -221,16 +283,26 @@ mod tests {
     fn mk(machine: &str, res: Vec<(&str, types::ResourceType)>) -> types::StateLock {
         let mut m = indexmap::IndexMap::new();
         for (id, rt) in res {
-            m.insert(id.to_string(), types::ResourceLock {
-                resource_type: rt, status: types::ResourceStatus::Converged,
-                applied_at: Some("2026-01-15T10:00:00Z".into()),
-                duration_seconds: Some(1.0), hash: "abc".into(), details: HashMap::new(),
-            });
+            m.insert(
+                id.to_string(),
+                types::ResourceLock {
+                    resource_type: rt,
+                    status: types::ResourceStatus::Converged,
+                    applied_at: Some("2026-01-15T10:00:00Z".into()),
+                    duration_seconds: Some(1.0),
+                    hash: "abc".into(),
+                    details: HashMap::new(),
+                },
+            );
         }
         types::StateLock {
-            schema: "1".into(), machine: machine.into(), hostname: machine.into(),
-            generated_at: "2026-01-15T10:00:00Z".into(), generator: "test".into(),
-            blake3_version: "1.0".into(), resources: m,
+            schema: "1".into(),
+            machine: machine.into(),
+            hostname: machine.into(),
+            generated_at: "2026-01-15T10:00:00Z".into(),
+            generator: "test".into(),
+            blake3_version: "1.0".into(),
+            resources: m,
         }
     }
 
@@ -238,22 +310,36 @@ mod tests {
         let mut det = HashMap::new();
         det.insert("secret_refs".into(), serde_yaml_ng::Value::Number(n.into()));
         let mut m = indexmap::IndexMap::new();
-        m.insert("f".into(), types::ResourceLock {
-            resource_type: types::ResourceType::File, status: types::ResourceStatus::Converged,
-            applied_at: Some("2026-01-15T10:00:00Z".into()), duration_seconds: Some(0.5),
-            hash: "d".into(), details: det,
-        });
+        m.insert(
+            "f".into(),
+            types::ResourceLock {
+                resource_type: types::ResourceType::File,
+                status: types::ResourceStatus::Converged,
+                applied_at: Some("2026-01-15T10:00:00Z".into()),
+                duration_seconds: Some(0.5),
+                hash: "d".into(),
+                details: det,
+            },
+        );
         types::StateLock {
-            schema: "1".into(), machine: machine.into(), hostname: machine.into(),
-            generated_at: "2026-01-15T10:00:00Z".into(), generator: "test".into(),
-            blake3_version: "1.0".into(), resources: m,
+            schema: "1".into(),
+            machine: machine.into(),
+            hostname: machine.into(),
+            generated_at: "2026-01-15T10:00:00Z".into(),
+            generator: "test".into(),
+            blake3_version: "1.0".into(),
+            resources: m,
         }
     }
 
     fn wr(dir: &Path, lock: &types::StateLock) {
         let d = dir.join(&lock.machine);
         std::fs::create_dir_all(&d).unwrap();
-        std::fs::write(d.join("state.lock.yaml"), serde_yaml_ng::to_string(lock).unwrap()).unwrap();
+        std::fs::write(
+            d.join("state.lock.yaml"),
+            serde_yaml_ng::to_string(lock).unwrap(),
+        )
+        .unwrap();
     }
 
     // ── FJ-1053 ────────────────────────────────────────────────────────────
@@ -267,7 +353,16 @@ mod tests {
     #[test]
     fn test_security_posture_with_data() {
         let d = tempfile::tempdir().unwrap();
-        wr(d.path(), &mk("w1", vec![("svc", types::ResourceType::Service), ("tls-c", types::ResourceType::File)]));
+        wr(
+            d.path(),
+            &mk(
+                "w1",
+                vec![
+                    ("svc", types::ResourceType::Service),
+                    ("tls-c", types::ResourceType::File),
+                ],
+            ),
+        );
         assert!(cmd_status_fleet_security_posture_summary(d.path(), None, false).is_ok());
     }
 
@@ -282,7 +377,13 @@ mod tests {
     fn test_security_counts_empty_and_mixed() {
         let empty = mk("e", vec![]);
         assert_eq!(security_counts(&empty), (0, 0, 0));
-        let mixed = mk("m", vec![("nginx", types::ResourceType::Service), ("ssl-c", types::ResourceType::File)]);
+        let mixed = mk(
+            "m",
+            vec![
+                ("nginx", types::ResourceType::Service),
+                ("ssl-c", types::ResourceType::File),
+            ],
+        );
         let (sr, p, t) = security_counts(&mixed);
         assert_eq!((sr, p, t), (0, 1, 1));
     }
@@ -306,7 +407,10 @@ mod tests {
     #[test]
     fn test_freshness_with_data() {
         let d = tempfile::tempdir().unwrap();
-        wr(d.path(), &mk("s1", vec![("p", types::ResourceType::Package)]));
+        wr(
+            d.path(),
+            &mk("s1", vec![("p", types::ResourceType::Package)]),
+        );
         assert!(cmd_status_machine_resource_freshness_index(d.path(), None, false).is_ok());
     }
 
@@ -329,8 +433,14 @@ mod tests {
     #[test]
     fn test_freshness_filter() {
         let d = tempfile::tempdir().unwrap();
-        wr(d.path(), &mk("a", vec![("p", types::ResourceType::Package)]));
-        wr(d.path(), &mk("b", vec![("s", types::ResourceType::Service)]));
+        wr(
+            d.path(),
+            &mk("a", vec![("p", types::ResourceType::Package)]),
+        );
+        wr(
+            d.path(),
+            &mk("b", vec![("s", types::ResourceType::Service)]),
+        );
         assert!(cmd_status_machine_resource_freshness_index(d.path(), Some("a"), false).is_ok());
     }
 
@@ -345,23 +455,56 @@ mod tests {
     #[test]
     fn test_coverage_with_data() {
         let d = tempfile::tempdir().unwrap();
-        wr(d.path(), &mk("n1", vec![("p", types::ResourceType::Package), ("s", types::ResourceType::Service)]));
+        wr(
+            d.path(),
+            &mk(
+                "n1",
+                vec![
+                    ("p", types::ResourceType::Package),
+                    ("s", types::ResourceType::Service),
+                ],
+            ),
+        );
         assert!(cmd_status_fleet_resource_type_coverage(d.path(), None, false).is_ok());
     }
 
     #[test]
     fn test_coverage_json() {
         let d = tempfile::tempdir().unwrap();
-        wr(d.path(), &mk("w1", vec![("p", types::ResourceType::Package)]));
-        wr(d.path(), &mk("w2", vec![("p2", types::ResourceType::Package), ("f", types::ResourceType::File)]));
+        wr(
+            d.path(),
+            &mk("w1", vec![("p", types::ResourceType::Package)]),
+        );
+        wr(
+            d.path(),
+            &mk(
+                "w2",
+                vec![
+                    ("p2", types::ResourceType::Package),
+                    ("f", types::ResourceType::File),
+                ],
+            ),
+        );
         assert!(cmd_status_fleet_resource_type_coverage(d.path(), None, true).is_ok());
     }
 
     #[test]
     fn test_collect_coverage_multi() {
         let d = tempfile::tempdir().unwrap();
-        wr(d.path(), &mk("m1", vec![("p", types::ResourceType::Package)]));
-        wr(d.path(), &mk("m2", vec![("p2", types::ResourceType::Package), ("s", types::ResourceType::Service)]));
+        wr(
+            d.path(),
+            &mk("m1", vec![("p", types::ResourceType::Package)]),
+        );
+        wr(
+            d.path(),
+            &mk(
+                "m2",
+                vec![
+                    ("p2", types::ResourceType::Package),
+                    ("s", types::ResourceType::Service),
+                ],
+            ),
+        );
         let c = collect_type_coverage(d.path(), &["m1".into(), "m2".into()]);
         assert_eq!(c["package"].len(), 2);
         assert_eq!(c["service"].len(), 1);

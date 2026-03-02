@@ -1,21 +1,20 @@
 //! Tests: Shared CLI helpers: color, parsing, state utilities.
 
 #![allow(unused_imports)]
+use super::helpers::*;
+use super::helpers::*;
+use super::helpers_state::*;
+use super::helpers_time::*;
 use crate::core::types::ProvenanceEvent;
 use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
 use crate::transport;
 use crate::tripwire::{anomaly, drift, eventlog, tracer};
 use std::path::{Path, PathBuf};
-use super::helpers::*;
-use super::helpers_state::*;
-use super::helpers_time::*;
-use super::helpers::*;
 use std::sync::atomic::Ordering;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
 
     #[test]
     fn test_fj132_discover_machines_empty_dir() {
@@ -23,7 +22,6 @@ mod tests {
         let machines = discover_machines(dir.path());
         assert!(machines.is_empty());
     }
-
 
     #[test]
     fn test_fj132_discover_machines_with_locks() {
@@ -41,7 +39,6 @@ mod tests {
         assert_eq!(machines, vec!["web"]);
     }
 
-
     #[test]
     fn test_fj132_discover_machines_sorted() {
         let dir = tempfile::tempdir().unwrap();
@@ -54,13 +51,11 @@ mod tests {
         assert_eq!(machines, vec!["alpha", "mid", "zeta"]);
     }
 
-
     #[test]
     fn test_fj132_discover_machines_nonexistent_dir() {
         let machines = discover_machines(std::path::Path::new("/nonexistent/path/state"));
         assert!(machines.is_empty(), "nonexistent dir should return empty");
     }
-
 
     #[test]
     fn test_fj036_discover_container_machines() {
@@ -93,7 +88,6 @@ mod tests {
         assert_eq!(machines[1], "ssh-box");
     }
 
-
     #[test]
     fn test_fj263_green_with_color() {
         NO_COLOR.store(false, Ordering::Relaxed);
@@ -103,7 +97,6 @@ mod tests {
         assert!(s.contains("\x1b[0m"));
     }
 
-
     #[test]
     fn test_fj263_green_no_color() {
         NO_COLOR.store(true, Ordering::Relaxed);
@@ -111,7 +104,6 @@ mod tests {
         assert_eq!(s, "ok");
         assert!(!s.contains("\x1b["));
     }
-
 
     #[test]
     fn test_fj263_red_with_color() {
@@ -121,7 +113,6 @@ mod tests {
         assert!(s.contains("fail"));
     }
 
-
     #[test]
     fn test_fj263_yellow_with_color() {
         NO_COLOR.store(false, Ordering::Relaxed);
@@ -129,7 +120,6 @@ mod tests {
         assert!(s.contains("\x1b[33m"));
         assert!(s.contains("warn"));
     }
-
 
     #[test]
     fn test_fj263_dim_with_color() {
@@ -139,7 +129,6 @@ mod tests {
         assert!(s.contains("muted"));
     }
 
-
     #[test]
     fn test_fj263_bold_with_color() {
         NO_COLOR.store(false, Ordering::Relaxed);
@@ -147,7 +136,6 @@ mod tests {
         assert!(s.contains("\x1b[1m"));
         assert!(s.contains("header"));
     }
-
 
     #[test]
     fn test_fj263_color_enabled_tracks_flag() {
@@ -159,5 +147,4 @@ mod tests {
     }
 
     // ── FJ-264: forjar schema ──
-
 }

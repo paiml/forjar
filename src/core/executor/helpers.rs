@@ -77,7 +77,10 @@ pub(crate) fn apply_and_record_outcome(
 
 /// FJ-216: Compute parallel waves for a subset of resource IDs.
 /// Returns groups of resource IDs that can execute concurrently.
-pub(crate) fn compute_resource_waves(config: &ForjarConfig, resource_ids: &[&str]) -> Vec<Vec<String>> {
+pub(crate) fn compute_resource_waves(
+    config: &ForjarConfig,
+    resource_ids: &[&str],
+) -> Vec<Vec<String>> {
     let (mut in_degree, adjacency) = build_wave_graph(config, resource_ids);
     extract_waves(&mut in_degree, &adjacency)
 }

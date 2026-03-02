@@ -1,7 +1,7 @@
 //! FJ-131: Executor + state edge case tests (part 1).
 
-use super::*;
 use super::test_fixtures::*;
+use super::*;
 
 // ── FJ-131: Executor + state edge case tests ──────────────────
 
@@ -237,6 +237,8 @@ fn test_fj131_build_details_group_only() {
         pre_apply: None,
         post_apply: None,
         lifecycle: None,
+        store: false,
+        script: None,
     };
     let details = build_resource_details(&r, &local_machine());
     assert_eq!(
@@ -330,4 +332,3 @@ policy:
 
     let _ = std::fs::remove_file("/tmp/forjar-test-localhost-implicit.txt");
 }
-

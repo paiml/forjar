@@ -58,7 +58,10 @@ fn compute_impact_radius(config: &types::ForjarConfig) -> Vec<ImpactEntry> {
         .keys()
         .map(|name| {
             let radius = bfs_reachable_count(name, &adj);
-            ImpactEntry { name: name.clone(), radius }
+            ImpactEntry {
+                name: name.clone(),
+                radius,
+            }
         })
         .collect();
     entries.sort_by(|a, b| b.radius.cmp(&a.radius).then(a.name.cmp(&b.name)));
@@ -157,8 +160,7 @@ fn print_sibling_json(groups: &[SiblingGroup]) {
         .iter()
         .map(|g| {
             let deps_str: Vec<String> = g.deps.iter().map(|d| format!("\"{}\"", d)).collect();
-            let members_str: Vec<String> =
-                g.members.iter().map(|m| format!("\"{}\"", m)).collect();
+            let members_str: Vec<String> = g.members.iter().map(|m| format!("\"{}\"", m)).collect();
             format!(
                 "{{\"deps\":[{}],\"members\":[{}],\"count\":{}}}",
                 deps_str.join(","),
@@ -186,11 +188,7 @@ fn print_sibling_text(groups: &[SiblingGroup]) {
         } else {
             g.deps.join(", ")
         };
-        println!(
-            "  [{}] share deps [{}]",
-            g.members.join(", "),
-            deps_label
-        );
+        println!("  [{}] share deps [{}]", g.members.join(", "), deps_label);
     }
 }
 

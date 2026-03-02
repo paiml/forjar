@@ -6,12 +6,6 @@ pub mod pepita;
 pub mod ssh;
 
 #[cfg(test)]
-mod tests_dispatch;
-#[cfg(test)]
-mod tests_dispatch_b;
-#[cfg(test)]
-mod tests_ssh;
-#[cfg(test)]
 mod tests_container;
 #[cfg(test)]
 mod tests_container_b;
@@ -19,6 +13,12 @@ mod tests_container_b;
 mod tests_container_c;
 #[cfg(test)]
 mod tests_container_d;
+#[cfg(test)]
+mod tests_dispatch;
+#[cfg(test)]
+mod tests_dispatch_b;
+#[cfg(test)]
+mod tests_ssh;
 
 use crate::core::types::Machine;
 

@@ -6,15 +6,15 @@
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-use crate::core::{parser, state, types};
-use crate::transport;
 use super::dispatch_notify::*;
 use super::doctor::*;
 use super::drift::*;
+use super::helpers::*;
 use super::observe::*;
 use super::status_convergence::*;
 use super::test_fixtures::*;
-use super::helpers::*;
+use crate::core::{parser, state, types};
+use crate::transport;
 
 #[cfg(test)]
 mod tests {

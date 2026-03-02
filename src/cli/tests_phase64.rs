@@ -2,18 +2,13 @@
 
 #[cfg(test)]
 mod tests {
-    use super::super::validate_safety::{
-        cmd_validate_check_unused_machines,
-        cmd_validate_check_tag_consistency,
-    };
-    use super::super::graph_export::{
-        cmd_graph_out_degree,
-        cmd_graph_density,
-    };
+    use super::super::graph_export::{cmd_graph_density, cmd_graph_out_degree};
     use super::super::status_diagnostics::{
-        cmd_status_apply_history_count,
-        cmd_status_lock_file_count,
+        cmd_status_apply_history_count, cmd_status_lock_file_count,
         cmd_status_resource_type_distribution,
+    };
+    use super::super::validate_safety::{
+        cmd_validate_check_tag_consistency, cmd_validate_check_unused_machines,
     };
 
     fn yaml_header() -> &'static str {
@@ -56,8 +51,11 @@ resources:\n  pkg1:\n    type: package\n    machine: web\n    provider: apt\n   
     #[test]
     fn test_fj777_no_tags() {
         let dir = tempfile::tempdir().unwrap();
-        let f = write_config(dir.path(), "\
-machines: {}\nresources:\n  pkg1:\n    type: package\n    provider: apt\n    packages: [curl]\n");
+        let f = write_config(
+            dir.path(),
+            "\
+machines: {}\nresources:\n  pkg1:\n    type: package\n    provider: apt\n    packages: [curl]\n",
+        );
         assert!(cmd_validate_check_tag_consistency(&f, false).is_ok());
     }
 
@@ -81,19 +79,25 @@ machines: {}\nresources:\n  pkg1:\n    type: package\n    provider: apt\n    pac
     #[test]
     fn test_fj775_no_deps() {
         let dir = tempfile::tempdir().unwrap();
-        let f = write_config(dir.path(), "\
+        let f = write_config(
+            dir.path(),
+            "\
 machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\n\
-resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n");
+resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n",
+        );
         assert!(cmd_graph_out_degree(&f, false).is_ok());
     }
 
     #[test]
     fn test_fj775_with_deps() {
         let dir = tempfile::tempdir().unwrap();
-        let f = write_config(dir.path(), "\
+        let f = write_config(
+            dir.path(),
+            "\
 machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\n\
 resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n\
-  b:\n    type: file\n    machine: web\n    path: /opt/b\n    depends_on: [a]\n");
+  b:\n    type: file\n    machine: web\n    path: /opt/b\n    depends_on: [a]\n",
+        );
         assert!(cmd_graph_out_degree(&f, false).is_ok());
     }
 
@@ -116,20 +120,26 @@ resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    pa
     #[test]
     fn test_fj779_with_deps() {
         let dir = tempfile::tempdir().unwrap();
-        let f = write_config(dir.path(), "\
+        let f = write_config(
+            dir.path(),
+            "\
 machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\n\
 resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n\
-  b:\n    type: file\n    machine: web\n    path: /opt/b\n    depends_on: [a]\n");
+  b:\n    type: file\n    machine: web\n    path: /opt/b\n    depends_on: [a]\n",
+        );
         assert!(cmd_graph_density(&f, false).is_ok());
     }
 
     #[test]
     fn test_fj779_json() {
         let dir = tempfile::tempdir().unwrap();
-        let f = write_config(dir.path(), "\
+        let f = write_config(
+            dir.path(),
+            "\
 machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\n\
 resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n\
-  b:\n    type: file\n    machine: web\n    path: /opt/b\n    depends_on: [a]\n");
+  b:\n    type: file\n    machine: web\n    path: /opt/b\n    depends_on: [a]\n",
+        );
         assert!(cmd_graph_density(&f, true).is_ok());
     }
 
@@ -166,10 +176,13 @@ resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    pa
     #[test]
     fn test_fj780_with_resources() {
         let dir = tempfile::tempdir().unwrap();
-        let f = write_config(dir.path(), "\
+        let f = write_config(
+            dir.path(),
+            "\
 machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\n\
 resources:\n  pkg1:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n\
-  cfg1:\n    type: file\n    machine: web\n    path: /etc/app.conf\n");
+  cfg1:\n    type: file\n    machine: web\n    path: /etc/app.conf\n",
+        );
         assert!(cmd_status_resource_type_distribution(&f, false).is_ok());
     }
 

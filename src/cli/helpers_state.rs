@@ -3,7 +3,6 @@
 use crate::core::{state, types};
 use std::path::Path;
 
-
 /// Load lock files for machines referenced in the config.
 pub(crate) fn load_machine_locks(
     config: &types::ForjarConfig,
@@ -27,7 +26,6 @@ pub(crate) fn load_machine_locks(
     Ok(locks)
 }
 
-
 /// List machine names from state directory subdirectories.
 pub(crate) fn list_state_machines(state_dir: &Path) -> Result<Vec<String>, String> {
     let mut machines = Vec::new();
@@ -49,7 +47,6 @@ pub(crate) fn list_state_machines(state_dir: &Path) -> Result<Vec<String>, Strin
 // ============================================================================
 // FJ-212: state-mv — rename a resource in state
 // ============================================================================
-
 
 /// Load all machine locks for planning (used by watch).
 pub(crate) fn load_all_locks(
@@ -75,7 +72,6 @@ pub(crate) fn load_all_locks(
     locks
 }
 
-
 #[allow(clippy::too_many_arguments)]
 /// FJ-285: Collect a resource and its transitive dependencies.
 pub(crate) fn collect_transitive_deps(
@@ -100,7 +96,6 @@ pub(crate) fn collect_transitive_deps(
     Ok(visited)
 }
 
-
 /// Simple glob matching — supports `*` wildcard at start/end/both.
 pub(crate) fn simple_glob_match(pattern: &str, text: &str) -> bool {
     if pattern == "*" {
@@ -117,4 +112,3 @@ pub(crate) fn simple_glob_match(pattern: &str, text: &str) -> bool {
         (false, false) => text == pattern,
     }
 }
-

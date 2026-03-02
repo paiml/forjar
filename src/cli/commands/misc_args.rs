@@ -2,14 +2,12 @@
 
 use std::path::PathBuf;
 
-
 #[derive(clap::Args, Debug)]
 pub struct InitArgs {
     /// Directory to initialize (default: current)
     #[arg(default_value = ".")]
     pub path: PathBuf,
 }
-
 
 #[derive(clap::Args, Debug)]
 pub struct DriftArgs {
@@ -54,7 +52,6 @@ pub struct DriftArgs {
     pub workspace: Option<String>,
 }
 
-
 #[derive(clap::Args, Debug)]
 pub struct HistoryArgs {
     /// State directory
@@ -82,7 +79,6 @@ pub struct HistoryArgs {
     pub resource: Option<String>,
 }
 
-
 #[derive(clap::Args, Debug)]
 pub struct DestroyArgs {
     /// Path to forjar.yaml
@@ -101,7 +97,6 @@ pub struct DestroyArgs {
     #[arg(long, default_value = "state")]
     pub state_dir: PathBuf,
 }
-
 
 #[derive(clap::Args, Debug)]
 pub struct ImportArgs {
@@ -126,7 +121,6 @@ pub struct ImportArgs {
     pub scan: Vec<String>,
 }
 
-
 #[derive(clap::Args, Debug)]
 pub struct ShowArgs {
     /// Path to forjar.yaml
@@ -141,7 +135,6 @@ pub struct ShowArgs {
     #[arg(long)]
     pub json: bool,
 }
-
 
 #[derive(clap::Args, Debug)]
 pub struct CheckArgs {
@@ -166,7 +159,6 @@ pub struct CheckArgs {
     pub json: bool,
 }
 
-
 #[derive(clap::Args, Debug)]
 pub struct DiffArgs {
     /// First state directory (older)
@@ -188,7 +180,6 @@ pub struct DiffArgs {
     pub json: bool,
 }
 
-
 #[derive(clap::Args, Debug)]
 pub struct FmtArgs {
     /// Path to forjar.yaml
@@ -199,7 +190,6 @@ pub struct FmtArgs {
     #[arg(long)]
     pub check: bool,
 }
-
 
 #[derive(clap::Args, Debug)]
 pub struct LintArgs {
@@ -224,7 +214,6 @@ pub struct LintArgs {
     pub rules: Option<PathBuf>,
 }
 
-
 #[derive(clap::Args, Debug)]
 pub struct RollbackArgs {
     /// Path to forjar.yaml
@@ -248,7 +237,6 @@ pub struct RollbackArgs {
     pub state_dir: PathBuf,
 }
 
-
 #[derive(clap::Args, Debug)]
 pub struct AnomalyArgs {
     /// State directory
@@ -268,7 +256,6 @@ pub struct AnomalyArgs {
     pub json: bool,
 }
 
-
 #[derive(clap::Args, Debug)]
 pub struct TraceArgs {
     /// State directory
@@ -284,7 +271,6 @@ pub struct TraceArgs {
     pub json: bool,
 }
 
-
 #[derive(clap::Args, Debug)]
 pub struct MigrateArgs {
     /// Path to forjar.yaml
@@ -296,14 +282,12 @@ pub struct MigrateArgs {
     pub output: Option<PathBuf>,
 }
 
-
 #[derive(clap::Args, Debug)]
 pub struct McpArgs {
     /// Export tool schemas as JSON instead of starting server
     #[arg(long)]
     pub schema: bool,
 }
-
 
 #[derive(clap::Args, Debug)]
 pub struct BenchArgs {
@@ -315,7 +299,6 @@ pub struct BenchArgs {
     #[arg(long)]
     pub json: bool,
 }
-
 
 #[derive(clap::Args, Debug)]
 pub struct OutputArgs {
@@ -331,7 +314,6 @@ pub struct OutputArgs {
     pub json: bool,
 }
 
-
 #[derive(clap::Args, Debug)]
 pub struct PolicyArgs {
     /// Path to forjar.yaml
@@ -342,7 +324,6 @@ pub struct PolicyArgs {
     #[arg(long)]
     pub json: bool,
 }
-
 
 #[derive(clap::Args, Debug)]
 pub struct ScoreArgs {

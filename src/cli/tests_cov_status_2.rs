@@ -1,9 +1,9 @@
 //! Coverage tests for status_drift, status_queries, status_trends, status_fleet.
 
 use super::status_drift::*;
+use super::status_fleet::*;
 use super::status_queries::*;
 use super::status_trends::*;
-use super::status_fleet::*;
 
 #[cfg(test)]
 mod tests {

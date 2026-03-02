@@ -1,20 +1,19 @@
 //! Tests: Workspace management.
 
 #![allow(unused_imports)]
+use super::helpers::*;
+use super::helpers_state::*;
+use super::helpers_time::*;
+use super::workspace::*;
 use crate::core::types::ProvenanceEvent;
 use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
 use crate::transport;
 use crate::tripwire::{anomaly, drift, eventlog, tracer};
 use std::path::{Path, PathBuf};
-use super::helpers::*;
-use super::helpers_state::*;
-use super::helpers_time::*;
-use super::workspace::*;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
 
     #[test]
     fn test_fj210_resolve_state_dir_no_workspace() {
@@ -26,14 +25,12 @@ mod tests {
         assert!(resolved.to_str().unwrap().starts_with("state"));
     }
 
-
     #[test]
     fn test_fj210_resolve_state_dir_with_flag() {
         let base = Path::new("state");
         let resolved = resolve_state_dir(base, Some("production"));
         assert_eq!(resolved, Path::new("state/production"));
     }
-
 
     #[test]
     fn test_fj210_inject_workspace_param() {
@@ -54,7 +51,6 @@ resources: {}
         );
     }
 
-
     #[test]
     fn test_fj210_inject_workspace_param_default() {
         let yaml = r#"
@@ -72,7 +68,6 @@ resources: {}
         // Should have a workspace param
         assert!(config.params.contains_key("workspace"));
     }
-
 
     #[test]
     fn test_fj210_workspace_new_and_select() {
@@ -97,7 +92,6 @@ resources: {}
         assert_eq!(ws.trim(), "staging");
     }
 
-
     #[test]
     fn test_fj210_workspace_list() {
         let dir = tempfile::tempdir().unwrap();
@@ -109,7 +103,6 @@ resources: {}
         workspace_new_in(root, &state_base, "prod").unwrap();
         workspace_list_in(root, &state_base).unwrap();
     }
-
 
     #[test]
     fn test_fj210_workspace_delete() {
@@ -130,7 +123,6 @@ resources: {}
         assert!(!state_base.join("temp").exists());
     }
 
-
     #[test]
     fn test_fj210_workspace_new_duplicate() {
         let dir = tempfile::tempdir().unwrap();
@@ -144,7 +136,6 @@ resources: {}
         assert!(result.unwrap_err().contains("already exists"));
     }
 
-
     #[test]
     fn test_fj210_workspace_select_nonexistent() {
         let dir = tempfile::tempdir().unwrap();
@@ -156,7 +147,6 @@ resources: {}
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("does not exist"));
     }
-
 
     #[test]
     fn test_fj210_workspace_delete_clears_active() {
@@ -173,13 +163,11 @@ resources: {}
         assert!(!root.join(".forjar/workspace").exists());
     }
 
-
     #[test]
     fn test_fj210_workspace_current() {
         // Just verify it doesn't panic
         cmd_workspace_current().unwrap();
     }
-
 
     #[test]
     fn test_fj210_current_workspace_in() {
@@ -196,5 +184,4 @@ resources: {}
 
         assert_eq!(current_workspace_in(root).as_deref(), Some("test-ws"));
     }
-
 }

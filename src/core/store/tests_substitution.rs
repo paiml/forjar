@@ -86,8 +86,13 @@ mod tests {
         let cc = simple_cache_config();
         let local = vec!["blake3:abc123".to_string()];
         let c = ctx(
-            "blake3:abc123", &[], &local, &cc, &[],
-            None, Path::new("/var/forjar/store"),
+            "blake3:abc123",
+            &[],
+            &local,
+            &cc,
+            &[],
+            None,
+            Path::new("/var/forjar/store"),
         );
         let plan = plan_substitution(&c);
         assert!(matches!(plan.outcome, SubstitutionOutcome::LocalHit { .. }));
@@ -99,8 +104,13 @@ mod tests {
         let cc = simple_cache_config();
         let local = vec!["blake3:abc123".to_string()];
         let c = ctx(
-            "blake3:abc123", &[], &local, &cc, &[],
-            None, Path::new("/var/forjar/store"),
+            "blake3:abc123",
+            &[],
+            &local,
+            &cc,
+            &[],
+            None,
+            Path::new("/var/forjar/store"),
         );
         let plan = plan_substitution(&c);
         if let SubstitutionOutcome::LocalHit { store_path } = &plan.outcome {
@@ -118,8 +128,13 @@ mod tests {
         let inv = make_inventory("cache.internal", &["blake3:def456"]);
         let invs = [inv];
         let c = ctx(
-            "blake3:def456", &[], &[], &cc, &invs,
-            None, Path::new("/store"),
+            "blake3:def456",
+            &[],
+            &[],
+            &cc,
+            &invs,
+            None,
+            Path::new("/store"),
         );
         let plan = plan_substitution(&c);
         assert!(matches!(plan.outcome, SubstitutionOutcome::CacheHit { .. }));
@@ -133,11 +148,19 @@ mod tests {
         let inv = make_inventory("cache.internal", &["blake3:def456"]);
         let invs = [inv];
         let c = ctx(
-            "blake3:def456", &[], &[], &cc, &invs,
-            None, Path::new("/store"),
+            "blake3:def456",
+            &[],
+            &[],
+            &cc,
+            &invs,
+            None,
+            Path::new("/store"),
         );
         let plan = plan_substitution(&c);
-        let has_pull = plan.steps.iter().any(|s| matches!(s, SubstitutionStep::PullFromCache { .. }));
+        let has_pull = plan
+            .steps
+            .iter()
+            .any(|s| matches!(s, SubstitutionStep::PullFromCache { .. }));
         assert!(has_pull);
     }
 
@@ -147,8 +170,13 @@ mod tests {
     fn cache_miss_requires_build() {
         let cc = simple_cache_config();
         let c = ctx(
-            "blake3:missing", &[], &[], &cc, &[],
-            None, Path::new("/store"),
+            "blake3:missing",
+            &[],
+            &[],
+            &cc,
+            &[],
+            None,
+            Path::new("/store"),
         );
         let plan = plan_substitution(&c);
         assert!(requires_build(&plan));
@@ -160,11 +188,19 @@ mod tests {
         let cc = simple_cache_config();
         let sb = full_sandbox();
         let c = ctx(
-            "blake3:missing", &[], &[], &cc, &[],
-            Some(&sb), Path::new("/store"),
+            "blake3:missing",
+            &[],
+            &[],
+            &cc,
+            &[],
+            Some(&sb),
+            Path::new("/store"),
         );
         let plan = plan_substitution(&c);
-        let has_build = plan.steps.iter().any(|s| matches!(s, SubstitutionStep::BuildFromScratch { .. }));
+        let has_build = plan
+            .steps
+            .iter()
+            .any(|s| matches!(s, SubstitutionStep::BuildFromScratch { .. }));
         assert!(has_build);
     }
 
@@ -173,11 +209,19 @@ mod tests {
         let cc = simple_cache_config();
         assert!(cc.auto_push);
         let c = ctx(
-            "blake3:missing", &[], &[], &cc, &[],
-            None, Path::new("/store"),
+            "blake3:missing",
+            &[],
+            &[],
+            &cc,
+            &[],
+            None,
+            Path::new("/store"),
         );
         let plan = plan_substitution(&c);
-        let has_push = plan.steps.iter().any(|s| matches!(s, SubstitutionStep::PushToCache { .. }));
+        let has_push = plan
+            .steps
+            .iter()
+            .any(|s| matches!(s, SubstitutionStep::PushToCache { .. }));
         assert!(has_push);
     }
 
@@ -188,11 +232,19 @@ mod tests {
             ..simple_cache_config()
         };
         let c = ctx(
-            "blake3:missing", &[], &[], &cc, &[],
-            None, Path::new("/store"),
+            "blake3:missing",
+            &[],
+            &[],
+            &cc,
+            &[],
+            None,
+            Path::new("/store"),
         );
         let plan = plan_substitution(&c);
-        let has_push = plan.steps.iter().any(|s| matches!(s, SubstitutionStep::PushToCache { .. }));
+        let has_push = plan
+            .steps
+            .iter()
+            .any(|s| matches!(s, SubstitutionStep::PushToCache { .. }));
         assert!(!has_push);
     }
 
@@ -203,8 +255,13 @@ mod tests {
         let cc = simple_cache_config();
         let local = vec!["blake3:abc".to_string()];
         let c = ctx(
-            "blake3:abc", &[], &local, &cc, &[],
-            None, Path::new("/store"),
+            "blake3:abc",
+            &[],
+            &local,
+            &cc,
+            &[],
+            None,
+            Path::new("/store"),
         );
         let plan = plan_substitution(&c);
         assert!(!requires_build(&plan));
@@ -214,10 +271,7 @@ mod tests {
     #[test]
     fn step_count_cache_miss_with_push() {
         let cc = simple_cache_config();
-        let c = ctx(
-            "blake3:miss", &[], &[], &cc, &[],
-            None, Path::new("/store"),
-        );
+        let c = ctx("blake3:miss", &[], &[], &cc, &[], None, Path::new("/store"));
         let plan = plan_substitution(&c);
         // compute + local check + ssh check + build + store + push = 6
         assert!(step_count(&plan) >= 5);

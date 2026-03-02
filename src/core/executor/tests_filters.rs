@@ -1,8 +1,8 @@
 //! FJ-064: Cross-architecture filtering, FJ-052: Cost-aware scheduling, tag filter tests.
 
 #![allow(unused_imports)]
-use super::*;
 use super::test_fixtures::*;
+use super::*;
 
 #[test]
 fn test_fj064_arch_filter_yaml_parsing() {
@@ -134,6 +134,8 @@ fn test_fj064_arch_filter_skips_mismatched() {
         pre_apply: None,
         post_apply: None,
         lifecycle: None,
+        store: false,
+        script: None,
     };
 
     // arch filter should reject: aarch64 resource on x86_64 machine
@@ -396,4 +398,3 @@ resources:
     let resource = config.resources.get("f").unwrap();
     assert!(resource.tags.is_empty());
 }
-

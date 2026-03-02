@@ -1,8 +1,8 @@
 //! Tests: Phase 101 — Fleet Insight & Dependency Quality (FJ-1069→FJ-1076).
 
+use super::graph_quality::*;
 use super::status_fleet_insight::*;
 use super::validate_governance_ext::*;
-use super::graph_quality::*;
 use std::io::Write;
 
 #[cfg(test)]
@@ -18,7 +18,9 @@ mod tests {
 
     fn write_yaml(dir: &std::path::Path, name: &str, content: &str) {
         let p = dir.join(name);
-        if let Some(parent) = p.parent() { std::fs::create_dir_all(parent).unwrap(); }
+        if let Some(parent) = p.parent() {
+            std::fs::create_dir_all(parent).unwrap();
+        }
         std::fs::write(&p, content).unwrap();
     }
 
@@ -165,13 +167,41 @@ mod tests {
 
     // ── File-not-found error paths ──
     #[test]
-    fn test_fj1070_file_not_found() { assert!(cmd_validate_check_resource_dependency_fan_out_limit(std::path::Path::new("/x"), false).is_err()); }
+    fn test_fj1070_file_not_found() {
+        assert!(cmd_validate_check_resource_dependency_fan_out_limit(
+            std::path::Path::new("/x"),
+            false
+        )
+        .is_err());
+    }
     #[test]
-    fn test_fj1071_file_not_found() { assert!(cmd_graph_resource_dependency_critical_path_highlight(std::path::Path::new("/x"), false).is_err()); }
+    fn test_fj1071_file_not_found() {
+        assert!(cmd_graph_resource_dependency_critical_path_highlight(
+            std::path::Path::new("/x"),
+            false
+        )
+        .is_err());
+    }
     #[test]
-    fn test_fj1073_file_not_found() { assert!(cmd_validate_check_resource_tag_required_keys(std::path::Path::new("/x"), false).is_err()); }
+    fn test_fj1073_file_not_found() {
+        assert!(
+            cmd_validate_check_resource_tag_required_keys(std::path::Path::new("/x"), false)
+                .is_err()
+        );
+    }
     #[test]
-    fn test_fj1074_file_not_found() { assert!(cmd_graph_resource_dependency_bottleneck_detection(std::path::Path::new("/x"), false).is_err()); }
+    fn test_fj1074_file_not_found() {
+        assert!(cmd_graph_resource_dependency_bottleneck_detection(
+            std::path::Path::new("/x"),
+            false
+        )
+        .is_err());
+    }
     #[test]
-    fn test_fj1076_file_not_found() { assert!(cmd_validate_check_resource_content_drift_risk(std::path::Path::new("/x"), false).is_err()); }
+    fn test_fj1076_file_not_found() {
+        assert!(
+            cmd_validate_check_resource_content_drift_risk(std::path::Path::new("/x"), false)
+                .is_err()
+        );
+    }
 }

@@ -1,10 +1,9 @@
 //! Convergence analytics.
 
-use crate::core::{state, types};
-use std::path::Path;
 use super::helpers::*;
 use super::helpers_time::*;
-
+use crate::core::{state, types};
+use std::path::Path;
 
 // FJ-364: Status timeline
 pub(crate) fn cmd_status_timeline(
@@ -85,9 +84,12 @@ fn print_timeline_text(timeline: &[serde_json::Value]) {
     }
 }
 
-
 // FJ-372: Show resources changed since a git commit
-pub(crate) fn cmd_status_changes_since(state_dir: &Path, commit: &str, json: bool) -> Result<(), String> {
+pub(crate) fn cmd_status_changes_since(
+    state_dir: &Path,
+    commit: &str,
+    json: bool,
+) -> Result<(), String> {
     let output = std::process::Command::new("git")
         .args([
             "diff",
@@ -120,7 +122,6 @@ pub(crate) fn cmd_status_changes_since(state_dir: &Path, commit: &str, json: boo
 
     Ok(())
 }
-
 
 // ── FJ-437: status --since ──
 
@@ -229,7 +230,6 @@ pub(crate) fn cmd_status_since(
     Ok(())
 }
 
-
 // FJ-376: Status summary-by dimension
 /// Resolve the grouping key for a resource lock entry.
 fn summary_dimension_key(
@@ -241,7 +241,10 @@ fn summary_dimension_key(
         "machine" => Ok(lock.machine.clone()),
         "type" => Ok(format!("{:?}", rl.resource_type)),
         "status" => Ok(format!("{:?}", rl.status)),
-        _ => Err(format!("Unknown dimension '{}'. Use: machine, type, status", dimension)),
+        _ => Err(format!(
+            "Unknown dimension '{}'. Use: machine, type, status",
+            dimension
+        )),
     }
 }
 
@@ -260,9 +263,13 @@ pub(crate) fn cmd_status_summary_by(
     for entry in entries.flatten() {
         let name = entry.file_name().to_string_lossy().to_string();
         if let Some(filter) = machine_filter {
-            if name != filter { continue; }
+            if name != filter {
+                continue;
+            }
         }
-        if !entry.path().is_dir() { continue; }
+        if !entry.path().is_dir() {
+            continue;
+        }
         if let Some(lock) = state::load_lock(state_dir, &name)? {
             for (id, rl) in &lock.resources {
                 let key = summary_dimension_key(dimension, &lock, rl)?;
@@ -272,7 +279,10 @@ pub(crate) fn cmd_status_summary_by(
     }
 
     if json {
-        println!("{}", serde_json::to_string_pretty(&groups).unwrap_or_else(|_| "{}".to_string()));
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&groups).unwrap_or_else(|_| "{}".to_string())
+        );
     } else {
         println!("Summary by {}:\n", bold(dimension));
         for (group, resources) in &groups {
@@ -286,14 +296,10 @@ pub(crate) fn cmd_status_summary_by(
     Ok(())
 }
 
-
 // ── FJ-487: status --convergence-rate ──
 
 /// Count total and converged resources across machines.
-fn count_convergence(
-    state_dir: &Path,
-    machines: &[String],
-) -> Result<(usize, usize), String> {
+fn count_convergence(state_dir: &Path, machines: &[String]) -> Result<(usize, usize), String> {
     let mut total = 0usize;
     let mut converged = 0usize;
     for m in machines {
@@ -351,7 +357,6 @@ pub(crate) fn cmd_status_convergence_rate(
     }
     Ok(())
 }
-
 
 /// Collect convergence duration data per resource.
 fn collect_convergence_times(
@@ -422,7 +427,6 @@ pub(crate) fn cmd_status_convergence_time(
     }
     Ok(())
 }
-
 
 /// Compute convergence stats for a single machine lock.
 fn compute_convergence_stats(lock: &types::StateLock) -> (usize, usize, f64) {

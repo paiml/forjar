@@ -2,7 +2,6 @@
 
 use std::path::PathBuf;
 
-
 #[derive(clap::Args, Debug)]
 pub struct GraphArgs {
     /// Path to forjar.yaml
@@ -495,4 +494,3 @@ pub struct GraphArgs {
     #[arg(long)]
     pub resource_dependency_cluster_analysis: bool,
 }
-

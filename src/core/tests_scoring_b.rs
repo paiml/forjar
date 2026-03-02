@@ -1,7 +1,7 @@
 //! Tests for the scoring module — part 2: runtime dimensions, grades, formatting.
 
 use super::scoring::*;
-use super::tests_scoring::{minimal_config, minimal_resource, full_runtime, static_input};
+use super::tests_scoring::{full_runtime, minimal_config, minimal_resource, static_input};
 use super::types::ResourceType;
 
 // ============================================================================
@@ -165,14 +165,54 @@ fn documentation_with_description() {
 #[test]
 fn composite_weighted_sum_correct() {
     let dims = vec![
-        DimensionScore { code: "COR", name: "Correctness", score: 100, weight: 0.20 },
-        DimensionScore { code: "IDM", name: "Idempotency", score: 100, weight: 0.20 },
-        DimensionScore { code: "PRF", name: "Performance", score: 85, weight: 0.15 },
-        DimensionScore { code: "SAF", name: "Safety", score: 82, weight: 0.15 },
-        DimensionScore { code: "OBS", name: "Observability", score: 60, weight: 0.10 },
-        DimensionScore { code: "DOC", name: "Documentation", score: 90, weight: 0.08 },
-        DimensionScore { code: "RES", name: "Resilience", score: 50, weight: 0.07 },
-        DimensionScore { code: "CMP", name: "Composability", score: 35, weight: 0.05 },
+        DimensionScore {
+            code: "COR",
+            name: "Correctness",
+            score: 100,
+            weight: 0.20,
+        },
+        DimensionScore {
+            code: "IDM",
+            name: "Idempotency",
+            score: 100,
+            weight: 0.20,
+        },
+        DimensionScore {
+            code: "PRF",
+            name: "Performance",
+            score: 85,
+            weight: 0.15,
+        },
+        DimensionScore {
+            code: "SAF",
+            name: "Safety",
+            score: 82,
+            weight: 0.15,
+        },
+        DimensionScore {
+            code: "OBS",
+            name: "Observability",
+            score: 60,
+            weight: 0.10,
+        },
+        DimensionScore {
+            code: "DOC",
+            name: "Documentation",
+            score: 90,
+            weight: 0.08,
+        },
+        DimensionScore {
+            code: "RES",
+            name: "Resilience",
+            score: 50,
+            weight: 0.07,
+        },
+        DimensionScore {
+            code: "CMP",
+            name: "Composability",
+            score: 35,
+            weight: 0.05,
+        },
     ];
     let composite = compute_composite(&dims);
     assert_eq!(composite, 84);
@@ -278,13 +318,19 @@ fn performance_budget_ranges() {
         rt.first_apply_ms = first_ms;
         rt.second_apply_ms = second_ms;
         ScoringInput {
-            status: "qualified".to_string(), idempotency: "strong".to_string(),
-            budget_ms, runtime: Some(rt),
+            status: "qualified".to_string(),
+            idempotency: "strong".to_string(),
+            budget_ms,
+            runtime: Some(rt),
         }
     };
     let prf = |input: &ScoringInput| {
-        compute(&minimal_config(), input).dimensions.into_iter()
-            .find(|d| d.code == "PRF").unwrap().score
+        compute(&minimal_config(), input)
+            .dimensions
+            .into_iter()
+            .find(|d| d.code == "PRF")
+            .unwrap()
+            .score
     };
     // 51-75% budget → 40pts; eff ~2.5% → 20pts; idem <=2s → 30pts = 90
     assert_eq!(prf(&mk(4000, 6000, 100)), 90);

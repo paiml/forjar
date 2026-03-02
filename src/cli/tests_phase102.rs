@@ -1,8 +1,8 @@
 //! Tests: Phase 102 — Resource Intelligence & Topology Insight (FJ-1077→FJ-1084).
 
+use super::graph_topology_ext::*;
 use super::status_resource_intel::*;
 use super::validate_topology::*;
-use super::graph_topology_ext::*;
 use std::io::Write;
 
 #[cfg(test)]
@@ -18,7 +18,9 @@ mod tests {
 
     fn write_yaml(dir: &std::path::Path, name: &str, content: &str) {
         let p = dir.join(name);
-        if let Some(parent) = p.parent() { std::fs::create_dir_all(parent).unwrap(); }
+        if let Some(parent) = p.parent() {
+            std::fs::create_dir_all(parent).unwrap();
+        }
         std::fs::write(&p, content).unwrap();
     }
 
@@ -165,13 +167,40 @@ mod tests {
 
     // ── File-not-found error paths ──
     #[test]
-    fn test_fj1078_file_not_found() { assert!(cmd_validate_check_resource_circular_dependency_depth(std::path::Path::new("/x"), false).is_err()); }
+    fn test_fj1078_file_not_found() {
+        assert!(cmd_validate_check_resource_circular_dependency_depth(
+            std::path::Path::new("/x"),
+            false
+        )
+        .is_err());
+    }
     #[test]
-    fn test_fj1079_file_not_found() { assert!(cmd_graph_resource_topology_cluster_analysis(std::path::Path::new("/x"), false).is_err()); }
+    fn test_fj1079_file_not_found() {
+        assert!(
+            cmd_graph_resource_topology_cluster_analysis(std::path::Path::new("/x"), false)
+                .is_err()
+        );
+    }
     #[test]
-    fn test_fj1081_file_not_found() { assert!(cmd_validate_check_resource_orphan_detection_deep(std::path::Path::new("/x"), false).is_err()); }
+    fn test_fj1081_file_not_found() {
+        assert!(cmd_validate_check_resource_orphan_detection_deep(
+            std::path::Path::new("/x"),
+            false
+        )
+        .is_err());
+    }
     #[test]
-    fn test_fj1082_file_not_found() { assert!(cmd_graph_resource_dependency_island_detection(std::path::Path::new("/x"), false).is_err()); }
+    fn test_fj1082_file_not_found() {
+        assert!(
+            cmd_graph_resource_dependency_island_detection(std::path::Path::new("/x"), false)
+                .is_err()
+        );
+    }
     #[test]
-    fn test_fj1084_file_not_found() { assert!(cmd_validate_check_resource_provider_diversity(std::path::Path::new("/x"), false).is_err()); }
+    fn test_fj1084_file_not_found() {
+        assert!(
+            cmd_validate_check_resource_provider_diversity(std::path::Path::new("/x"), false)
+                .is_err()
+        );
+    }
 }

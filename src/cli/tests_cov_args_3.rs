@@ -382,7 +382,9 @@ mod tests {
             notify_custom_correlation: None,
             notify_custom_sampling: None,
             notify_custom_digest: None,
-            notify_custom_severity_filter: None, refresh_only: false, encrypt_state: false,
+            notify_custom_severity_filter: None,
+            refresh_only: false,
+            encrypt_state: false,
         };
         let debug = format!("{:?}", args);
         assert!(debug.contains("ApplyArgs"));

@@ -20,7 +20,11 @@ fn classify_health(tags: &[String]) -> &'static str {
             has_critical = true;
         }
     }
-    if has_critical { "critical" } else { "healthy" }
+    if has_critical {
+        "critical"
+    } else {
+        "healthy"
+    }
 }
 
 struct HealthNode {
@@ -173,7 +177,10 @@ fn compute_levels(config: &types::ForjarConfig) -> Vec<LevelInfo> {
         for dep in &resource.depends_on {
             if config.resources.contains_key(dep) {
                 *in_degree.entry(name.clone()).or_insert(0) += 1;
-                dependents.entry(dep.clone()).or_default().push(name.clone());
+                dependents
+                    .entry(dep.clone())
+                    .or_default()
+                    .push(name.clone());
             }
         }
     }
@@ -206,7 +213,11 @@ fn compute_levels(config: &types::ForjarConfig) -> Vec<LevelInfo> {
         .map(|(level, mut resources)| {
             resources.sort();
             let width = resources.len();
-            LevelInfo { level, width, resources }
+            LevelInfo {
+                level,
+                width,
+                resources,
+            }
         })
         .collect()
 }

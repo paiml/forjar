@@ -214,6 +214,5 @@ pub fn state_query_script(resource: &Resource) -> String {
     queries.join("\n")
 }
 
-
 #[cfg(test)]
 mod tests;

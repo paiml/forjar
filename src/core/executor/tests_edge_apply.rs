@@ -1,7 +1,7 @@
 //! Edge-case tests: apply variants (duration, timeout, arch filter, force, lock, tripwire).
 
-use super::*;
 use super::test_fixtures::*;
+use super::*;
 
 #[test]
 fn test_fj012_apply_result_duration_positive() {
@@ -112,6 +112,8 @@ fn test_fj012_build_resource_details_empty() {
         pre_apply: None,
         post_apply: None,
         lifecycle: None,
+        store: false,
+        script: None,
     };
     let details = build_resource_details(&r, &local_machine());
     assert!(
@@ -199,6 +201,8 @@ fn test_fj012_build_resource_details_path_only() {
         pre_apply: None,
         post_apply: None,
         lifecycle: None,
+        store: false,
+        script: None,
     };
     let details = build_resource_details(&r, &local_machine());
     assert!(details.contains_key("path"));
@@ -459,4 +463,3 @@ resources: {}
     let machines = collect_machines(&config);
     assert!(machines.is_empty(), "no resources means no machines");
 }
-

@@ -105,7 +105,11 @@ pub fn ensure_container(machine: &Machine) -> Result<(), String> {
     }
 
     // Environment variables (CUDA_VISIBLE_DEVICES, ROCR_VISIBLE_DEVICES, etc.)
-    let env_pairs: Vec<String> = config.env.iter().map(|(k, v)| format!("{}={}", k, v)).collect();
+    let env_pairs: Vec<String> = config
+        .env
+        .iter()
+        .map(|(k, v)| format!("{}={}", k, v))
+        .collect();
     for pair in &env_pairs {
         args.push("--env");
         args.push(pair);
@@ -162,4 +166,3 @@ pub fn cleanup_container(machine: &Machine) -> Result<(), String> {
 
     Ok(())
 }
-

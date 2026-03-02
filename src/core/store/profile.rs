@@ -53,8 +53,8 @@ pub fn list_generations(profiles_dir: &Path) -> Result<Vec<(u32, String)>, Strin
         return Ok(Vec::new());
     }
     let mut gens = Vec::new();
-    let entries = std::fs::read_dir(profiles_dir)
-        .map_err(|e| format!("cannot read profiles dir: {}", e))?;
+    let entries =
+        std::fs::read_dir(profiles_dir).map_err(|e| format!("cannot read profiles dir: {}", e))?;
     for entry in entries.flatten() {
         let name = entry.file_name().to_string_lossy().to_string();
         if let Ok(num) = name.parse::<u32>() {
@@ -77,8 +77,8 @@ pub fn current_generation(profiles_dir: &Path) -> Option<u32> {
 
 /// Compute the next generation number by scanning existing directories.
 fn next_generation_number(profiles_dir: &Path) -> Result<u32, String> {
-    let entries = std::fs::read_dir(profiles_dir)
-        .map_err(|e| format!("cannot read profiles dir: {}", e))?;
+    let entries =
+        std::fs::read_dir(profiles_dir).map_err(|e| format!("cannot read profiles dir: {}", e))?;
     let max = entries
         .flatten()
         .filter_map(|e| e.file_name().to_string_lossy().parse::<u32>().ok())

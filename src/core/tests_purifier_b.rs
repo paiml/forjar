@@ -77,6 +77,8 @@ fn make_test_resource(rt: crate::core::types::ResourceType) -> crate::core::type
         pre_apply: None,
         post_apply: None,
         lifecycle: None,
+        store: false,
+        script: None,
     }
 }
 
@@ -215,22 +217,36 @@ fn test_fj036_lint_diagnostic_has_code() {
 fn test_fj036_purify_simple_echo() {
     let script = "echo hello";
     let result = purify_script(script);
-    assert!(result.is_ok(), "purify 'echo hello' failed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "purify 'echo hello' failed: {:?}",
+        result.err()
+    );
     let purified = result.unwrap();
     assert!(!purified.is_empty(), "purified script should not be empty");
-    assert!(validate_script(&purified).is_ok(), "purified output should validate");
+    assert!(
+        validate_script(&purified).is_ok(),
+        "purified output should validate"
+    );
 }
 
 #[test]
 fn test_fj036_validate_empty_script_ok() {
     let result = validate_script("");
-    assert!(result.is_ok(), "empty script should validate OK, got: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "empty script should validate OK, got: {:?}",
+        result.err()
+    );
 }
 
 #[test]
 fn test_fj036_lint_error_count_zero_on_clean() {
     let errors = lint_error_count("echo hello");
-    assert_eq!(errors, 0, "clean 'echo hello' should have 0 lint errors, got {errors}");
+    assert_eq!(
+        errors, 0,
+        "clean 'echo hello' should have 0 lint errors, got {errors}"
+    );
 }
 
 #[test]
@@ -265,7 +281,10 @@ fn test_fj153_lint_script_diagnostics_structure() {
     let script = "#!/bin/bash\necho $UNQUOTED_VAR\neval $DYNAMIC";
     let result = lint_script(script);
     for diag in &result.diagnostics {
-        assert!(!diag.message.is_empty(), "diagnostic message must not be empty");
+        assert!(
+            !diag.message.is_empty(),
+            "diagnostic message must not be empty"
+        );
     }
 }
 
@@ -288,7 +307,11 @@ fn test_fj153_purify_with_subshell() {
 fn test_fj153_purify_with_heredoc() {
     let script = "#!/bin/bash\ncat <<'EOF'\nhello world\nEOF\n";
     let result = purify_script(script);
-    assert!(result.is_ok(), "heredoc purification should not fail: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "heredoc purification should not fail: {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -300,7 +323,14 @@ fn test_fj153_lint_error_count_empty() {
 fn test_fj036_purify_preserves_semantics_assignment() {
     let script = "x=1; echo $x";
     let result = purify_script(script);
-    assert!(result.is_ok(), "purify assignment failed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "purify assignment failed: {:?}",
+        result.err()
+    );
     let purified = result.unwrap();
-    assert!(purified.contains("x"), "purified script should still contain variable x, got: {purified}");
+    assert!(
+        purified.contains("x"),
+        "purified script should still contain variable x, got: {purified}"
+    );
 }

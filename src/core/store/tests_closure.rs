@@ -90,10 +90,7 @@ fn test_fj1307_closure_deduplicates() {
     );
     let closure = input_closure("top", &g);
     // "shared" should appear once, not twice
-    assert_eq!(
-        closure,
-        vec!["blake3:aaa", "blake3:bbb", "blake3:shared"]
-    );
+    assert_eq!(closure, vec!["blake3:aaa", "blake3:bbb", "blake3:shared"]);
 }
 
 #[test]

@@ -5,15 +5,15 @@
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-use crate::core::{parser, state, types};
-use crate::transport;
 use super::dispatch_notify::*;
 use super::doctor::*;
 use super::drift::*;
+use super::helpers::*;
 use super::observe::*;
 use super::status_convergence::*;
 use super::test_fixtures::*;
-use super::helpers::*;
+use crate::core::{parser, state, types};
+use crate::transport;
 
 #[cfg(test)]
 mod tests {
@@ -235,9 +235,7 @@ resources:
 
         let result = cmd_watch(&config_path, &state_dir, 5, true, false);
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .contains("--apply requires --yes"));
+        assert!(result.unwrap_err().contains("--apply requires --yes"));
     }
 
     #[test]
@@ -262,9 +260,7 @@ resources:
             false,
         );
         assert!(result.is_err());
-        assert!(result
-            .unwrap_err()
-            .contains("--apply requires --yes"));
+        assert!(result.unwrap_err().contains("--apply requires --yes"));
     }
 
     // ===================================================================
@@ -374,7 +370,9 @@ resources:
         let config = parser::parse_config(yaml).unwrap();
         let errors = parser::validate_config(&config);
         assert!(
-            errors.iter().any(|e| e.message.contains("pepita") && e.message.contains("no name")),
+            errors
+                .iter()
+                .any(|e| e.message.contains("pepita") && e.message.contains("no name")),
             "expected pepita no-name error, got: {:?}",
             errors
         );
@@ -431,7 +429,9 @@ resources:
         let config = parser::parse_config(yaml).unwrap();
         let errors = parser::validate_config(&config);
         assert!(
-            errors.iter().any(|e| e.message.contains("pepita") && e.message.contains("invalid state")),
+            errors
+                .iter()
+                .any(|e| e.message.contains("pepita") && e.message.contains("invalid state")),
             "expected invalid state error, got: {:?}",
             errors
         );

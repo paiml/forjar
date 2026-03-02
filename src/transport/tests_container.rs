@@ -381,7 +381,8 @@ fn test_fj021_ensure_with_rocm_devices() {
             devices: vec!["/dev/kfd".to_string(), "/dev/dri".to_string()],
             group_add: vec!["video".to_string(), "render".to_string()],
             env: [("ROCR_VISIBLE_DEVICES".to_string(), "0".to_string())]
-                .into_iter().collect(),
+                .into_iter()
+                .collect(),
             volumes: vec![],
         }),
         pepita: None,
@@ -417,7 +418,8 @@ fn test_fj021_ensure_with_env_vars() {
             devices: vec![],
             group_add: vec![],
             env: [("CUDA_VISIBLE_DEVICES".to_string(), "0,1".to_string())]
-                .into_iter().collect(),
+                .into_iter()
+                .collect(),
             volumes: vec![],
         }),
         pepita: None,
@@ -464,4 +466,3 @@ fn test_fj021_ensure_no_init_no_privileged() {
         "ensure without init/privileged should succeed"
     );
 }
-

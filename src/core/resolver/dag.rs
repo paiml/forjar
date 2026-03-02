@@ -4,7 +4,6 @@ use std::collections::{HashMap, HashSet, VecDeque};
 
 type Dag = (HashMap<String, usize>, HashMap<String, Vec<String>>);
 
-
 /// Build a topological execution order from resource dependencies.
 /// Uses Kahn's algorithm with alphabetical tie-breaking for determinism.
 #[contract("dag-ordering-v1", equation = "topological_sort")]

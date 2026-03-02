@@ -1,17 +1,18 @@
 //! Health status.
 
-use crate::core::{state, types};
-use std::path::Path;
 use super::helpers::*;
 use super::helpers_time::*;
-
+use crate::core::{state, types};
+use std::path::Path;
 
 /// FJ-346: Status health score (0-100).
 /// Check if a dir entry matches the machine filter and is a valid machine directory.
 fn is_matching_machine(entry: &std::fs::DirEntry, machine_filter: Option<&str>) -> bool {
     let name = entry.file_name().to_string_lossy().to_string();
     if let Some(filter) = machine_filter {
-        if name != filter { return false; }
+        if name != filter {
+            return false;
+        }
     }
     entry.path().is_dir()
 }
@@ -26,9 +27,13 @@ fn tally_health_resources(
     let mut converged = 0u32;
     let mut failed = 0u32;
     for entry in entries.flatten() {
-        if !is_matching_machine(&entry, machine_filter) { continue; }
+        if !is_matching_machine(&entry, machine_filter) {
+            continue;
+        }
         let lock_path = entry.path().join("lock.yaml");
-        if !lock_path.exists() { continue; }
+        if !lock_path.exists() {
+            continue;
+        }
         let content = std::fs::read_to_string(&lock_path)
             .map_err(|e| format!("cannot read {}: {}", lock_path.display(), e))?;
         if let Ok(lock) = serde_yaml_ng::from_str::<types::StateLock>(&content) {
@@ -51,7 +56,11 @@ pub(crate) fn cmd_status_health(
     json: bool,
 ) -> Result<(), String> {
     let (total_resources, converged, failed) = tally_health_resources(state_dir, machine_filter)?;
-    let score = if total_resources == 0 { 100u32 } else { ((converged as f64 / total_resources as f64) * 100.0) as u32 };
+    let score = if total_resources == 0 {
+        100u32
+    } else {
+        ((converged as f64 / total_resources as f64) * 100.0) as u32
+    };
 
     if json {
         println!(
@@ -62,16 +71,24 @@ pub(crate) fn cmd_status_health(
             .unwrap_or_default()
         );
     } else {
-        let color_fn = if score >= 80 { green } else if score >= 50 { yellow } else { red };
+        let color_fn = if score >= 80 {
+            green
+        } else if score >= 50 {
+            yellow
+        } else {
+            red
+        };
         println!(
             "Health: {} ({}/{} converged, {} failed)",
-            color_fn(&format!("{}%", score)), converged, total_resources, failed
+            color_fn(&format!("{}%", score)),
+            converged,
+            total_resources,
+            failed
         );
     }
 
     Ok(())
 }
-
 
 /// Check if a lock file was last modified before the cutoff time.
 fn is_lock_stale(lock_path: &Path, cutoff: std::time::SystemTime) -> bool {
@@ -95,11 +112,17 @@ fn collect_stale_by_days(
     for entry in entries.flatten() {
         let name = entry.file_name().to_string_lossy().to_string();
         if let Some(filter) = machine_filter {
-            if name != filter { continue; }
+            if name != filter {
+                continue;
+            }
         }
-        if !entry.path().is_dir() { continue; }
+        if !entry.path().is_dir() {
+            continue;
+        }
         let lock_path = entry.path().join("lock.yaml");
-        if !lock_path.exists() || !is_lock_stale(&lock_path, cutoff) { continue; }
+        if !lock_path.exists() || !is_lock_stale(&lock_path, cutoff) {
+            continue;
+        }
         let content = std::fs::read_to_string(&lock_path)
             .map_err(|e| format!("cannot read {}: {}", lock_path.display(), e))?;
         if let Ok(lock) = serde_yaml_ng::from_str::<types::StateLock>(&content) {
@@ -126,19 +149,31 @@ pub(crate) fn cmd_status_stale(
 
     if json {
         let values: Vec<&serde_json::Value> = stale_items.iter().map(|(_, _, v)| v).collect();
-        println!("{}", serde_json::to_string_pretty(&values).unwrap_or_default());
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&values).unwrap_or_default()
+        );
     } else if stale_items.is_empty() {
         println!("No stale resources found (threshold: {} days).", days);
     } else {
         for (name, resource_id, _) in &stale_items {
-            println!("  {} {} → {} (not updated in {}+ days)", yellow("⚠"), name, resource_id, days);
+            println!(
+                "  {} {} → {} (not updated in {}+ days)",
+                yellow("⚠"),
+                name,
+                resource_id,
+                days
+            );
         }
-        println!("\n{} stale resource(s) found (not updated in {}+ days).", stale_items.len(), days);
+        println!(
+            "\n{} stale resource(s) found (not updated in {}+ days).",
+            stale_items.len(),
+            days
+        );
     }
 
     Ok(())
 }
-
 
 // FJ-387: Show resources with expired lock entries
 fn collect_expired_resources(
@@ -149,7 +184,9 @@ fn collect_expired_resources(
         std::fs::read_dir(state_dir).map_err(|e| format!("cannot read state dir: {}", e))?;
     let mut expired = Vec::new();
     for entry in entries.flatten() {
-        if !is_matching_machine(&entry, machine_filter) { continue; }
+        if !is_matching_machine(&entry, machine_filter) {
+            continue;
+        }
         let name = entry.file_name().to_string_lossy().to_string();
         if let Some(lock) = state::load_lock(state_dir, &name)? {
             collect_expired_from_lock(&lock, &mut expired);
@@ -210,10 +247,13 @@ pub(crate) fn cmd_status_expired(
     Ok(())
 }
 
-
 // ── FJ-422: status --stale-resources ──
 
-fn collect_stale_from_lock(m_name: &str, lock: &types::StateLock, stale: &mut Vec<(String, String, String)>) {
+fn collect_stale_from_lock(
+    m_name: &str,
+    lock: &types::StateLock,
+    stale: &mut Vec<(String, String, String)>,
+) {
     for (name, rl) in &lock.resources {
         if rl.applied_at.is_none() {
             stale.push((m_name.to_string(), name.clone(), "never".to_string()));
@@ -232,11 +272,21 @@ fn collect_stale_resources(
     let entries = std::fs::read_dir(state_dir).map_err(|e| e.to_string())?;
     for entry in entries.flatten() {
         let path = entry.path();
-        if !path.is_dir() { continue; }
-        let m_name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
-        if m_name.starts_with('.') { continue; }
+        if !path.is_dir() {
+            continue;
+        }
+        let m_name = path
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string();
+        if m_name.starts_with('.') {
+            continue;
+        }
         if let Some(filter) = machine {
-            if m_name != filter { continue; }
+            if m_name != filter {
+                continue;
+            }
         }
         if let Ok(Some(lock)) = state::load_lock(state_dir, &m_name) {
             collect_stale_from_lock(&m_name, &lock, &mut stale);
@@ -278,13 +328,9 @@ pub(crate) fn cmd_status_stale_resources(
     Ok(())
 }
 
-
 // ── FJ-427: status --health-threshold ──
 
-fn count_health_totals(
-    state_dir: &Path,
-    machine: Option<&str>,
-) -> Result<(usize, usize), String> {
+fn count_health_totals(state_dir: &Path, machine: Option<&str>) -> Result<(usize, usize), String> {
     let mut total = 0usize;
     let mut converged = 0usize;
     if !state_dir.exists() {
@@ -293,15 +339,29 @@ fn count_health_totals(
     let entries = std::fs::read_dir(state_dir).map_err(|e| e.to_string())?;
     for entry in entries.flatten() {
         let path = entry.path();
-        if !path.is_dir() { continue; }
-        let m_name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
-        if m_name.starts_with('.') { continue; }
+        if !path.is_dir() {
+            continue;
+        }
+        let m_name = path
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string();
+        if m_name.starts_with('.') {
+            continue;
+        }
         if let Some(filter) = machine {
-            if m_name != filter { continue; }
+            if m_name != filter {
+                continue;
+            }
         }
         if let Ok(Some(lock)) = state::load_lock(state_dir, &m_name) {
             total += lock.resources.len();
-            converged += lock.resources.values().filter(|rl| rl.status == types::ResourceStatus::Converged).count();
+            converged += lock
+                .resources
+                .values()
+                .filter(|rl| rl.status == types::ResourceStatus::Converged)
+                .count();
         }
     }
     Ok((total, converged))
@@ -315,7 +375,11 @@ pub(crate) fn cmd_status_health_threshold(
 ) -> Result<(), String> {
     let (total, converged) = count_health_totals(state_dir, machine)?;
 
-    let score = if total > 0 { (converged * 100 / total) as u32 } else { 100 };
+    let score = if total > 0 {
+        (converged * 100 / total) as u32
+    } else {
+        100
+    };
     let pass = score >= threshold;
 
     if json {
@@ -334,9 +398,15 @@ pub(crate) fn cmd_status_health_threshold(
             status, threshold, converged, total
         );
     }
-    if pass { Ok(()) } else { Err(format!("Health score {}% below threshold {}%", score, threshold)) }
+    if pass {
+        Ok(())
+    } else {
+        Err(format!(
+            "Health score {}% below threshold {}%",
+            score, threshold
+        ))
+    }
 }
-
 
 /// FJ-542: Health score — composite health score (0-100) across all machines.
 pub(crate) fn cmd_status_health_score(
@@ -408,4 +478,3 @@ pub(crate) fn cmd_status_health_score(
     }
     Ok(())
 }
-

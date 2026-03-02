@@ -4,13 +4,13 @@
 //! dedup_window, rate_limit, backoff).
 
 #![allow(unused_imports)]
-use std::path::Path;
+use super::check::*;
 use super::dispatch_notify::*;
 use super::dispatch_notify_custom::*;
-use super::secrets::*;
-use super::check::*;
 use super::doctor::*;
+use super::secrets::*;
 use super::test_fixtures::*;
+use std::path::Path;
 
 #[cfg(test)]
 mod tests {
@@ -141,7 +141,11 @@ mod tests {
             custom_digest: Some("http://127.0.0.1:1/cdi|2h"),
             custom_severity_filter: Some("http://127.0.0.1:1/csf|critical"),
         };
-        send_apply_notifications(&opts, &Err("apply failed".into()), Path::new("/tmp/all.yaml"));
+        send_apply_notifications(
+            &opts,
+            &Err("apply failed".into()),
+            Path::new("/tmp/all.yaml"),
+        );
     }
 
     // ─── dispatch_notify.rs — custom_json edge cases ──────────────
@@ -157,7 +161,8 @@ mod tests {
     #[test]
     fn test_notify_custom_json_failure_result() {
         let mut opts = empty_opts();
-        opts.custom_json = Some("http://127.0.0.1:1/cj|{\"s\":\"{{status}}\",\"c\":\"{{config}}\"}");
+        opts.custom_json =
+            Some("http://127.0.0.1:1/cj|{\"s\":\"{{status}}\",\"c\":\"{{config}}\"}");
         send_apply_notifications(&opts, &Err("oops".into()), Path::new("/tmp/cov.yaml"));
     }
 
@@ -214,22 +219,38 @@ mod tests {
 
     #[test]
     fn test_custom_batch_default_size() {
-        send_custom_batch_notification(Some("http://127.0.0.1:1/b"), &Ok(()), Path::new("/tmp/t.yaml"));
+        send_custom_batch_notification(
+            Some("http://127.0.0.1:1/b"),
+            &Ok(()),
+            Path::new("/tmp/t.yaml"),
+        );
     }
 
     #[test]
     fn test_custom_batch_with_size() {
-        send_custom_batch_notification(Some("http://127.0.0.1:1/b|20"), &Ok(()), Path::new("/tmp/t.yaml"));
+        send_custom_batch_notification(
+            Some("http://127.0.0.1:1/b|20"),
+            &Ok(()),
+            Path::new("/tmp/t.yaml"),
+        );
     }
 
     #[test]
     fn test_custom_batch_failure() {
-        send_custom_batch_notification(Some("http://127.0.0.1:1/b|5"), &Err("e".into()), Path::new("/tmp/t.yaml"));
+        send_custom_batch_notification(
+            Some("http://127.0.0.1:1/b|5"),
+            &Err("e".into()),
+            Path::new("/tmp/t.yaml"),
+        );
     }
 
     #[test]
     fn test_custom_batch_invalid_size_uses_default() {
-        send_custom_batch_notification(Some("http://127.0.0.1:1/b|abc"), &Ok(()), Path::new("/tmp/t.yaml"));
+        send_custom_batch_notification(
+            Some("http://127.0.0.1:1/b|abc"),
+            &Ok(()),
+            Path::new("/tmp/t.yaml"),
+        );
     }
 
     #[test]
@@ -239,17 +260,29 @@ mod tests {
 
     #[test]
     fn test_custom_deduplicate_default_window() {
-        send_custom_deduplicate_notification(Some("http://127.0.0.1:1/d"), &Ok(()), Path::new("/tmp/t.yaml"));
+        send_custom_deduplicate_notification(
+            Some("http://127.0.0.1:1/d"),
+            &Ok(()),
+            Path::new("/tmp/t.yaml"),
+        );
     }
 
     #[test]
     fn test_custom_deduplicate_with_window() {
-        send_custom_deduplicate_notification(Some("http://127.0.0.1:1/d|600"), &Ok(()), Path::new("/tmp/t.yaml"));
+        send_custom_deduplicate_notification(
+            Some("http://127.0.0.1:1/d|600"),
+            &Ok(()),
+            Path::new("/tmp/t.yaml"),
+        );
     }
 
     #[test]
     fn test_custom_deduplicate_failure() {
-        send_custom_deduplicate_notification(Some("http://127.0.0.1:1/d|60"), &Err("x".into()), Path::new("/tmp/t.yaml"));
+        send_custom_deduplicate_notification(
+            Some("http://127.0.0.1:1/d|60"),
+            &Err("x".into()),
+            Path::new("/tmp/t.yaml"),
+        );
     }
 
     #[test]
@@ -259,7 +292,11 @@ mod tests {
 
     #[test]
     fn test_custom_throttle_default_rate() {
-        send_custom_throttle_notification(Some("http://127.0.0.1:1/th"), &Ok(()), Path::new("/tmp/t.yaml"));
+        send_custom_throttle_notification(
+            Some("http://127.0.0.1:1/th"),
+            &Ok(()),
+            Path::new("/tmp/t.yaml"),
+        );
     }
 
     #[test]
@@ -296,7 +333,11 @@ mod tests {
 
     #[test]
     fn test_custom_aggregate_default_window() {
-        send_custom_aggregate_notification(Some("http://127.0.0.1:1/ag"), &Ok(()), Path::new("/tmp/t.yaml"));
+        send_custom_aggregate_notification(
+            Some("http://127.0.0.1:1/ag"),
+            &Ok(()),
+            Path::new("/tmp/t.yaml"),
+        );
     }
 
     #[test]
@@ -333,7 +374,11 @@ mod tests {
 
     #[test]
     fn test_custom_priority_default() {
-        send_custom_priority_notification(Some("http://127.0.0.1:1/p"), &Ok(()), Path::new("/tmp/t.yaml"));
+        send_custom_priority_notification(
+            Some("http://127.0.0.1:1/p"),
+            &Ok(()),
+            Path::new("/tmp/t.yaml"),
+        );
     }
 
     #[test]
@@ -361,7 +406,11 @@ mod tests {
 
     #[test]
     fn test_custom_routing_default_rules() {
-        send_custom_routing_notification(Some("http://127.0.0.1:1/r"), &Ok(()), Path::new("/tmp/t.yaml"));
+        send_custom_routing_notification(
+            Some("http://127.0.0.1:1/r"),
+            &Ok(()),
+            Path::new("/tmp/t.yaml"),
+        );
     }
 
     #[test]
@@ -389,12 +438,20 @@ mod tests {
 
     #[test]
     fn test_custom_dedup_window_default() {
-        send_custom_dedup_window_notification(Some("http://127.0.0.1:1/dw"), &Ok(()), Path::new("/tmp/t.yaml"));
+        send_custom_dedup_window_notification(
+            Some("http://127.0.0.1:1/dw"),
+            &Ok(()),
+            Path::new("/tmp/t.yaml"),
+        );
     }
 
     #[test]
     fn test_custom_dedup_window_with_value() {
-        send_custom_dedup_window_notification(Some("http://127.0.0.1:1/dw|120"), &Ok(()), Path::new("/tmp/t.yaml"));
+        send_custom_dedup_window_notification(
+            Some("http://127.0.0.1:1/dw|120"),
+            &Ok(()),
+            Path::new("/tmp/t.yaml"),
+        );
     }
 
     #[test]
@@ -413,12 +470,20 @@ mod tests {
 
     #[test]
     fn test_custom_rate_limit_default() {
-        send_custom_rate_limit_notification(Some("http://127.0.0.1:1/rl"), &Ok(()), Path::new("/tmp/t.yaml"));
+        send_custom_rate_limit_notification(
+            Some("http://127.0.0.1:1/rl"),
+            &Ok(()),
+            Path::new("/tmp/t.yaml"),
+        );
     }
 
     #[test]
     fn test_custom_rate_limit_with_value() {
-        send_custom_rate_limit_notification(Some("http://127.0.0.1:1/rl|50"), &Ok(()), Path::new("/tmp/t.yaml"));
+        send_custom_rate_limit_notification(
+            Some("http://127.0.0.1:1/rl|50"),
+            &Ok(()),
+            Path::new("/tmp/t.yaml"),
+        );
     }
 
     #[test]
@@ -437,12 +502,20 @@ mod tests {
 
     #[test]
     fn test_custom_backoff_default() {
-        send_custom_backoff_notification(Some("http://127.0.0.1:1/bk"), &Ok(()), Path::new("/tmp/t.yaml"));
+        send_custom_backoff_notification(
+            Some("http://127.0.0.1:1/bk"),
+            &Ok(()),
+            Path::new("/tmp/t.yaml"),
+        );
     }
 
     #[test]
     fn test_custom_backoff_with_strategy() {
-        send_custom_backoff_notification(Some("http://127.0.0.1:1/bk|linear"), &Ok(()), Path::new("/tmp/t.yaml"));
+        send_custom_backoff_notification(
+            Some("http://127.0.0.1:1/bk|linear"),
+            &Ok(()),
+            Path::new("/tmp/t.yaml"),
+        );
     }
 
     #[test]

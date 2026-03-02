@@ -78,6 +78,8 @@ fn make_docker_resource(name: &str, image: &str) -> Resource {
         pre_apply: None,
         post_apply: None,
         lifecycle: None,
+        store: false,
+        script: None,
     }
 }
 

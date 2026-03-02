@@ -2,18 +2,14 @@
 
 #[cfg(test)]
 mod tests {
-    use super::super::validate_safety::{
-        cmd_validate_check_dependency_exists,
-        cmd_validate_check_path_conflicts_strict,
-    };
     use super::super::graph_export::{
-        cmd_graph_topological_sort,
-        cmd_graph_critical_path_resources,
+        cmd_graph_critical_path_resources, cmd_graph_topological_sort,
     };
     use super::super::status_diagnostics::{
-        cmd_status_resource_apply_age,
-        cmd_status_machine_uptime,
-        cmd_status_resource_churn,
+        cmd_status_machine_uptime, cmd_status_resource_apply_age, cmd_status_resource_churn,
+    };
+    use super::super::validate_safety::{
+        cmd_validate_check_dependency_exists, cmd_validate_check_path_conflicts_strict,
     };
 
     fn yaml_header() -> &'static str {
@@ -31,10 +27,13 @@ mod tests {
     #[test]
     fn test_fj781_all_valid() {
         let dir = tempfile::tempdir().unwrap();
-        let f = write_config(dir.path(), "\
+        let f = write_config(
+            dir.path(),
+            "\
 machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\n\
 resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n\
-  b:\n    type: file\n    machine: web\n    path: /opt/b\n    depends_on: [a]\n");
+  b:\n    type: file\n    machine: web\n    path: /opt/b\n    depends_on: [a]\n",
+        );
         assert!(cmd_validate_check_dependency_exists(&f, false).is_ok());
     }
 
@@ -57,10 +56,13 @@ resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    pa
     #[test]
     fn test_fj785_no_conflicts() {
         let dir = tempfile::tempdir().unwrap();
-        let f = write_config(dir.path(), "\
+        let f = write_config(
+            dir.path(),
+            "\
 machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\n\
 resources:\n  a:\n    type: file\n    machine: web\n    path: /opt/a\n\
-  b:\n    type: file\n    machine: web\n    path: /opt/b\n");
+  b:\n    type: file\n    machine: web\n    path: /opt/b\n",
+        );
         assert!(cmd_validate_check_path_conflicts_strict(&f, false).is_ok());
     }
 
@@ -83,19 +85,25 @@ resources:\n  a:\n    type: file\n    machine: web\n    path: /opt/a\n\
     #[test]
     fn test_fj783_no_deps() {
         let dir = tempfile::tempdir().unwrap();
-        let f = write_config(dir.path(), "\
+        let f = write_config(
+            dir.path(),
+            "\
 machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\n\
-resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n");
+resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n",
+        );
         assert!(cmd_graph_topological_sort(&f, false).is_ok());
     }
 
     #[test]
     fn test_fj783_with_deps() {
         let dir = tempfile::tempdir().unwrap();
-        let f = write_config(dir.path(), "\
+        let f = write_config(
+            dir.path(),
+            "\
 machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\n\
 resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n\
-  b:\n    type: file\n    machine: web\n    path: /opt/b\n    depends_on: [a]\n");
+  b:\n    type: file\n    machine: web\n    path: /opt/b\n    depends_on: [a]\n",
+        );
         assert!(cmd_graph_topological_sort(&f, false).is_ok());
     }
 
@@ -118,11 +126,14 @@ resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    pa
     #[test]
     fn test_fj787_with_chain() {
         let dir = tempfile::tempdir().unwrap();
-        let f = write_config(dir.path(), "\
+        let f = write_config(
+            dir.path(),
+            "\
 machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\n\
 resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n\
   b:\n    type: file\n    machine: web\n    path: /opt/b\n    depends_on: [a]\n\
-  c:\n    type: file\n    machine: web\n    path: /opt/c\n    depends_on: [b]\n");
+  c:\n    type: file\n    machine: web\n    path: /opt/c\n    depends_on: [b]\n",
+        );
         assert!(cmd_graph_critical_path_resources(&f, false).is_ok());
     }
 

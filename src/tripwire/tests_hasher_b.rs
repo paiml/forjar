@@ -140,6 +140,8 @@ fn test_fj036_hash_desired_state_deterministic() {
         pre_apply: None,
         post_apply: None,
         lifecycle: None,
+        store: false,
+        script: None,
     };
     let h1 = hash_desired_state(&r);
     let h2 = hash_desired_state(&r);
@@ -229,6 +231,8 @@ fn test_fj036_hash_desired_state_changes_on_content() {
         pre_apply: None,
         post_apply: None,
         lifecycle: None,
+        store: false,
+        script: None,
     };
     let r2 = Resource {
         content: Some("changed content".to_string()),
@@ -253,6 +257,9 @@ fn test_fj036_hash_string_deterministic() {
     let input = "forjar determinism check";
     let h1 = hash_string(input);
     let h2 = hash_string(input);
-    assert_eq!(h1, h2, "hash_string must produce identical output for same input");
+    assert_eq!(
+        h1, h2,
+        "hash_string must produce identical output for same input"
+    );
     assert!(h1.starts_with("blake3:"));
 }

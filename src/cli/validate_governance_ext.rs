@@ -21,10 +21,7 @@ struct FanOutWarning {
 }
 
 /// Count how many other resources depend on each resource (fan-out = dependent count).
-fn find_fan_out_warnings(
-    config: &types::ForjarConfig,
-    threshold: usize,
-) -> Vec<FanOutWarning> {
+fn find_fan_out_warnings(config: &types::ForjarConfig, threshold: usize) -> Vec<FanOutWarning> {
     let mut dependent_counts: HashMap<String, usize> = HashMap::new();
     for resource in config.resources.values() {
         for dep in &resource.depends_on {
@@ -273,8 +270,12 @@ pub(crate) fn cmd_validate_check_resource_content_drift_risk(
         for e in &entries {
             println!(
                 "  {} ({}): risk={} (base={}, deps={}, dependents={})",
-                e.resource, e.resource_type, e.total_risk, e.base_risk,
-                e.dependency_count, e.dependent_count
+                e.resource,
+                e.resource_type,
+                e.total_risk,
+                e.base_risk,
+                e.dependency_count,
+                e.dependent_count
             );
         }
     }
@@ -406,10 +407,7 @@ mod tests {
         let config = make_config(vec![("pkg", r)]);
         let warnings = find_tag_required_keys_warnings(&config);
         assert_eq!(warnings.len(), 1);
-        assert_eq!(
-            warnings[0].missing_namespaces,
-            vec!["env", "team", "tier"]
-        );
+        assert_eq!(warnings[0].missing_namespaces, vec!["env", "team", "tier"]);
     }
 
     #[test]

@@ -1,11 +1,11 @@
 //! Status operational extensions (Phase 95) — apply success rate, drift recurrence, type drift heatmap.
 
-use std::collections::HashMap;
-use std::path::Path;
 use super::helpers::discover_machines;
 use super::status_intelligence_ext::filter_targets;
 #[allow(unused_imports)]
 use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
+use std::collections::HashMap;
+use std::path::Path;
 
 // ────────────────────────────────────────────────────────────────────────────
 // FJ-1021: Rolling apply success rate per machine from event logs.
@@ -66,7 +66,10 @@ fn print_apply_success_rates(rates: &[(String, f64, usize, usize)], json: bool) 
                 )
             })
             .collect();
-        println!("{{\"fleet_apply_success_rate_trend\":[{}]}}", items.join(","));
+        println!(
+            "{{\"fleet_apply_success_rate_trend\":[{}]}}",
+            items.join(",")
+        );
     } else if rates.is_empty() {
         println!("No apply events found.");
     } else {
@@ -155,10 +158,7 @@ pub(crate) fn cmd_status_fleet_resource_type_drift_heatmap(
 }
 
 /// Collect drift counts grouped by resource type, tracking which machines contribute.
-fn collect_type_drift_heatmap(
-    sd: &Path,
-    targets: &[&String],
-) -> Vec<(String, usize, usize)> {
+fn collect_type_drift_heatmap(sd: &Path, targets: &[&String]) -> Vec<(String, usize, usize)> {
     let mut type_counts: HashMap<String, usize> = HashMap::new();
     let mut type_machines: HashMap<String, std::collections::HashSet<String>> = HashMap::new();
     for m in targets {
@@ -175,19 +175,14 @@ fn collect_type_drift_heatmap(
             if res.status == types::ResourceStatus::Drifted {
                 let rtype = format!("{}", res.resource_type);
                 *type_counts.entry(rtype.clone()).or_insert(0) += 1;
-                type_machines
-                    .entry(rtype)
-                    .or_default()
-                    .insert((*m).clone());
+                type_machines.entry(rtype).or_default().insert((*m).clone());
             }
         }
     }
     let mut results: Vec<(String, usize, usize)> = type_counts
         .into_iter()
         .map(|(rtype, count)| {
-            let machine_count = type_machines
-                .get(&rtype)
-                .map_or(0, |s| s.len());
+            let machine_count = type_machines.get(&rtype).map_or(0, |s| s.len());
             (rtype, count, machine_count)
         })
         .collect();
@@ -211,10 +206,7 @@ fn print_type_drift_heatmap(heatmap: &[(String, usize, usize)], json: bool) {
         println!("No drift detected across fleet.");
     } else {
         for (rtype, count, machines) in heatmap {
-            println!(
-                "{}: {} drifted across {} machines",
-                rtype, count, machines
-            );
+            println!("{}: {} drifted across {} machines", rtype, count, machines);
         }
     }
 }

@@ -3,7 +3,6 @@ use super::package::*;
 use super::tests_package::make_apt_resource;
 use crate::core::types::{MachineTarget, Resource, ResourceType};
 
-
 #[test]
 fn test_fj006_state_query_cargo_output_format() {
     let mut r = make_apt_resource(&["pmat"]);
@@ -171,10 +170,22 @@ fn test_fj1005_cargo_bootstrap_rustup() {
     let mut r = make_apt_resource(&["realizar"]);
     r.provider = Some("cargo".to_string());
     let script = apply_script(&r);
-    assert!(script.contains("command -v cargo"), "must check if cargo exists: {script}");
-    assert!(script.contains("rustup.rs"), "must bootstrap via rustup: {script}");
-    assert!(script.contains("cargo install --force 'realizar'"), "must still install: {script}");
-    assert!(script.contains(".cargo/bin:$PATH"), "must add cargo to PATH: {script}");
+    assert!(
+        script.contains("command -v cargo"),
+        "must check if cargo exists: {script}"
+    );
+    assert!(
+        script.contains("rustup.rs"),
+        "must bootstrap via rustup: {script}"
+    );
+    assert!(
+        script.contains("cargo install --force 'realizar'"),
+        "must still install: {script}"
+    );
+    assert!(
+        script.contains(".cargo/bin:$PATH"),
+        "must add cargo to PATH: {script}"
+    );
 }
 
 /// FJ-1008: cargo install limits build parallelism to avoid OOM on high-core machines.

@@ -9,11 +9,7 @@ use crate::core::store::convert::{analyze_conversion, ConversionSignals};
 use std::path::Path;
 
 /// Convert recipe to reproducible format.
-pub(crate) fn cmd_convert(
-    file: &Path,
-    reproducible: bool,
-    json: bool,
-) -> Result<(), String> {
+pub(crate) fn cmd_convert(file: &Path, reproducible: bool, json: bool) -> Result<(), String> {
     if !reproducible {
         return Err("use --reproducible flag to enable conversion".to_string());
     }
@@ -22,8 +18,7 @@ pub(crate) fn cmd_convert(
     let report = analyze_conversion(&signals);
 
     if json {
-        let j = serde_json::to_string_pretty(&report)
-            .unwrap_or_else(|_| "{}".to_string());
+        let j = serde_json::to_string_pretty(&report).unwrap_or_else(|_| "{}".to_string());
         println!("{j}");
     } else {
         println!("Conversion report for {}:", file.display());
@@ -53,29 +48,30 @@ pub(crate) fn cmd_convert(
 
 /// Extract conversion signals from a forjar.yaml config.
 fn extract_signals(file: &Path) -> Result<Vec<ConversionSignals>, String> {
-    let content = std::fs::read_to_string(file)
-        .map_err(|e| format!("read {}: {e}", file.display()))?;
-    let doc: serde_yaml_ng::Value = serde_yaml_ng::from_str(&content)
-        .map_err(|e| format!("parse {}: {e}", file.display()))?;
+    let content =
+        std::fs::read_to_string(file).map_err(|e| format!("read {}: {e}", file.display()))?;
+    let doc: serde_yaml_ng::Value =
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("parse {}: {e}", file.display()))?;
 
-    let resources = doc.get("resources")
+    let resources = doc
+        .get("resources")
         .and_then(|r| r.as_mapping())
         .ok_or_else(|| "no resources section found".to_string())?;
 
     let mut signals = Vec::new();
     for (key, val) in resources {
         let name = key.as_str().unwrap_or("").to_string();
-        let provider = val.get("provider")
+        let provider = val
+            .get("provider")
             .and_then(|v| v.as_str())
             .unwrap_or("file")
             .to_string();
         let has_version = val.get("version").is_some();
-        let has_store = val.get("store")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false);
+        let has_store = val.get("store").and_then(|v| v.as_bool()).unwrap_or(false);
         let has_sandbox = val.get("sandbox").is_some();
         let has_curl_pipe = detect_curl_pipe(val);
-        let current_version = val.get("version")
+        let current_version = val
+            .get("version")
             .and_then(|v| v.as_str())
             .map(|s| s.to_string());
 
@@ -96,6 +92,5 @@ fn extract_signals(file: &Path) -> Result<Vec<ConversionSignals>, String> {
 /// Detect curl|bash patterns in resource values.
 fn detect_curl_pipe(val: &serde_yaml_ng::Value) -> bool {
     let s = serde_yaml_ng::to_string(val).unwrap_or_default();
-    s.contains("curl") && s.contains("bash")
-        || s.contains("wget") && s.contains("sh")
+    s.contains("curl") && s.contains("bash") || s.contains("wget") && s.contains("sh")
 }

@@ -1,8 +1,8 @@
 //! Tests: Coverage for status_intelligence (part 2).
 
 #![allow(unused_imports)]
-use super::status_recovery::*;
 use super::status_intelligence::*;
+use super::status_recovery::*;
 
 #[cfg(test)]
 mod tests {
@@ -64,7 +64,11 @@ mod tests {
     fn make_state_dir() -> tempfile::TempDir {
         let dir = tempfile::tempdir().unwrap();
         for m in &["web", "db"] {
-            write_yaml(dir.path(), &format!("{}/state.lock.yaml", m), state_lock_yaml());
+            write_yaml(
+                dir.path(),
+                &format!("{}/state.lock.yaml", m),
+                state_lock_yaml(),
+            );
             write_yaml(dir.path(), &format!("{}/lock.yaml", m), state_lock_yaml());
             write_yaml(dir.path(), &format!("{}.lock.yaml", m), state_lock_yaml());
         }
@@ -118,7 +122,9 @@ mod tests {
     #[test]
     fn convergence_forecast_json() {
         let d = make_state_dir();
-        assert!(cmd_status_fleet_resource_convergence_forecast(d.path(), Some("web"), true).is_ok());
+        assert!(
+            cmd_status_fleet_resource_convergence_forecast(d.path(), Some("web"), true).is_ok()
+        );
     }
 
     #[test]
@@ -145,7 +151,9 @@ mod tests {
     #[test]
     fn error_budget_forecast_json() {
         let d = make_state_dir();
-        assert!(cmd_status_machine_resource_error_budget_forecast(d.path(), Some("web"), true).is_ok());
+        assert!(
+            cmd_status_machine_resource_error_budget_forecast(d.path(), Some("web"), true).is_ok()
+        );
     }
 
     // -- cmd_status_machine_resource_dependency_lag --
@@ -278,7 +286,9 @@ mod tests {
     #[test]
     fn convergence_velocity_json() {
         let d = make_state_dir();
-        assert!(cmd_status_machine_resource_convergence_velocity(d.path(), Some("web"), true).is_ok());
+        assert!(
+            cmd_status_machine_resource_convergence_velocity(d.path(), Some("web"), true).is_ok()
+        );
     }
 
     // -- cmd_status_fleet_resource_convergence_velocity --
@@ -297,7 +307,9 @@ mod tests {
     #[test]
     fn fleet_convergence_velocity_json() {
         let d = make_state_dir();
-        assert!(cmd_status_fleet_resource_convergence_velocity(d.path(), Some("web"), true).is_ok());
+        assert!(
+            cmd_status_fleet_resource_convergence_velocity(d.path(), Some("web"), true).is_ok()
+        );
     }
 
     // -- cmd_status_machine_resource_failure_recurrence --
@@ -316,7 +328,8 @@ mod tests {
     #[test]
     fn failure_recurrence_json() {
         let d = make_state_dir();
-        assert!(cmd_status_machine_resource_failure_recurrence(d.path(), Some("web"), true).is_ok());
+        assert!(
+            cmd_status_machine_resource_failure_recurrence(d.path(), Some("web"), true).is_ok()
+        );
     }
-
 }

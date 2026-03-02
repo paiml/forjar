@@ -90,9 +90,26 @@ pub(crate) fn apply_machine(
         timeout_secs: cfg.resource_timeout.or(cfg.timeout_secs),
     };
 
-    execute_machine_changes(cfg, &machine_changes, machine, &mut ctx, &mut trace_session, machine_name, &mut counters)?;
+    execute_machine_changes(
+        cfg,
+        &machine_changes,
+        machine,
+        &mut ctx,
+        &mut trace_session,
+        machine_name,
+        &mut counters,
+    )?;
 
-    finalize_machine(cfg, ctx.lock, &mut trace_session, machine_name, &run_id, &machine_start, &counters, machine)
+    finalize_machine(
+        cfg,
+        ctx.lock,
+        &mut trace_session,
+        machine_name,
+        &run_id,
+        &machine_start,
+        &counters,
+        machine,
+    )
 }
 
 /// Execute all resource changes for a machine (parallel waves or sequential).
@@ -108,9 +125,25 @@ fn execute_machine_changes(
 ) -> Result<(), String> {
     let use_parallel = cfg.parallel.unwrap_or(cfg.config.policy.parallel_resources);
     if use_parallel && machine_changes.len() > 1 {
-        execute_parallel_waves(cfg, machine_changes, machine, ctx, trace_session, machine_name, counters)
+        execute_parallel_waves(
+            cfg,
+            machine_changes,
+            machine,
+            ctx,
+            trace_session,
+            machine_name,
+            counters,
+        )
     } else {
-        execute_sequential(cfg, machine_changes, machine, ctx, trace_session, machine_name, counters)
+        execute_sequential(
+            cfg,
+            machine_changes,
+            machine,
+            ctx,
+            trace_session,
+            machine_name,
+            counters,
+        )
     }
 }
 
@@ -131,7 +164,13 @@ fn execute_sequential(
             eprint!("[{}/{}] {} ", idx + 1, total, change.resource_id);
         }
         let outcome = apply_and_record_outcome(
-            cfg, change, machine, ctx, trace_session, machine_name, &counters.converged_resources,
+            cfg,
+            change,
+            machine,
+            ctx,
+            trace_session,
+            machine_name,
+            &counters.converged_resources,
         )?;
         if cfg.progress {
             match &outcome {
@@ -159,12 +198,24 @@ fn execute_parallel_waves(
     machine_name: &str,
     counters: &mut MachineCounters,
 ) -> Result<(), String> {
-    let change_ids: Vec<&str> = machine_changes.iter().map(|c| c.resource_id.as_str()).collect();
+    let change_ids: Vec<&str> = machine_changes
+        .iter()
+        .map(|c| c.resource_id.as_str())
+        .collect();
     let raw_waves = compute_resource_waves(cfg.config, &change_ids);
     let waves = split_waves_by_max_parallel(raw_waves, cfg.max_parallel);
 
     for wave in &waves {
-        let should_stop = execute_single_wave(cfg, wave, machine_changes, machine, ctx, trace_session, machine_name, counters)?;
+        let should_stop = execute_single_wave(
+            cfg,
+            wave,
+            machine_changes,
+            machine,
+            ctx,
+            trace_session,
+            machine_name,
+            counters,
+        )?;
         if should_stop {
             break;
         }
@@ -187,18 +238,36 @@ fn execute_single_wave(
     if wave.len() == 1 {
         if let Some(change) = machine_changes.iter().find(|c| c.resource_id == wave[0]) {
             let outcome = apply_and_record_outcome(
-                cfg, change, machine, ctx, trace_session, machine_name, &counters.converged_resources,
+                cfg,
+                change,
+                machine,
+                ctx,
+                trace_session,
+                machine_name,
+                &counters.converged_resources,
             )?;
             return Ok(counters.record(&outcome, &change.resource_id));
         }
         Ok(false)
     } else {
-        execute_wave_parallel(cfg, wave, machine_changes, machine, ctx, trace_session, machine_name, counters)
+        execute_wave_parallel(
+            cfg,
+            wave,
+            machine_changes,
+            machine,
+            ctx,
+            trace_session,
+            machine_name,
+            counters,
+        )
     }
 }
 
 /// FJ-313: Split large waves to respect max_parallel constraint.
-fn split_waves_by_max_parallel(waves: Vec<Vec<String>>, max_parallel: Option<usize>) -> Vec<Vec<String>> {
+fn split_waves_by_max_parallel(
+    waves: Vec<Vec<String>>,
+    max_parallel: Option<usize>,
+) -> Vec<Vec<String>> {
     match max_parallel {
         Some(max_p) => waves
             .into_iter()
@@ -282,7 +351,11 @@ fn build_resource_reports(lock: &StateLock) -> Vec<ResourceReport> {
             } else {
                 Some(rl.hash.clone())
             },
-            error: rl.details.get("error").and_then(|v| v.as_str()).map(|s| s.to_string()),
+            error: rl
+                .details
+                .get("error")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string()),
         })
         .collect()
 }
@@ -293,7 +366,10 @@ fn cleanup_container_if_needed(cfg: &ApplyConfig, machine: &Machine, machine_nam
         if let Some(ref container) = machine.container {
             if container.ephemeral {
                 if let Err(e) = transport::container::cleanup_container(machine) {
-                    eprintln!("warning: container cleanup failed for {}: {}", machine_name, e);
+                    eprintln!(
+                        "warning: container cleanup failed for {}: {}",
+                        machine_name, e
+                    );
                 }
             }
         }
@@ -322,17 +398,39 @@ fn execute_wave_parallel(
 ) -> Result<bool, String> {
     let wave_changes: Vec<&PlannedChange> = wave
         .iter()
-        .filter_map(|id| machine_changes.iter().find(|c| c.resource_id == *id).copied())
+        .filter_map(|id| {
+            machine_changes
+                .iter()
+                .find(|c| c.resource_id == *id)
+                .copied()
+        })
         .collect();
 
     // Phase 1: Pre-check and prepare
-    let (prepared, skipped_or_unchanged) = prepare_wave_resources(cfg, &wave_changes, machine, ctx, &counters.converged_resources)?;
+    let (prepared, skipped_or_unchanged) = prepare_wave_resources(
+        cfg,
+        &wave_changes,
+        machine,
+        ctx,
+        &counters.converged_resources,
+    )?;
 
     // Phase 2: Execute transport I/O in parallel
     let exec_results = execute_wave_io(cfg, &prepared, machine);
 
     // Phase 3: Record outcomes
-    record_wave_outcomes(cfg, &wave_changes, &skipped_or_unchanged, exec_results, &prepared, machine, ctx, trace_session, machine_name, counters)
+    record_wave_outcomes(
+        cfg,
+        &wave_changes,
+        &skipped_or_unchanged,
+        exec_results,
+        &prepared,
+        machine,
+        ctx,
+        trace_session,
+        machine_name,
+        counters,
+    )
 }
 
 /// Phase 1: Filter and prepare resources for parallel execution.
@@ -367,11 +465,19 @@ fn prepare_wave_resources(
             );
         }
 
-        let resolved = resolver::resolve_resource_templates(resource, &cfg.config.params, &cfg.config.machines)?;
+        let resolved = resolver::resolve_resource_templates(
+            resource,
+            &cfg.config.params,
+            &cfg.config.machines,
+        )?;
         let use_copia = resolved.resource_type == ResourceType::File
             && resolved.source.is_some()
             && copia::is_eligible(resolved.source.as_ref().unwrap());
-        prepared.push(PreparedResource { change_idx: idx, resolved, use_copia });
+        prepared.push(PreparedResource {
+            change_idx: idx,
+            resolved,
+            use_copia,
+        });
     }
 
     Ok((prepared, skipped))
@@ -392,7 +498,10 @@ fn classify_resource(
     let resource = cfg.config.resources.get(&change.resource_id)?;
 
     let triggered = !resource.triggers.is_empty()
-        && resource.triggers.iter().any(|t| converged_resources.contains(t));
+        && resource
+            .triggers
+            .iter()
+            .any(|t| converged_resources.contains(t));
     if change.action == PlanAction::NoOp && !cfg.force && !triggered {
         return Some(ResourceOutcome::Unchanged);
     }
@@ -422,4 +531,3 @@ fn should_skip_resource(cfg: &ApplyConfig, resource: &Resource, machine: &Machin
     }
     false
 }
-

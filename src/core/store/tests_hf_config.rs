@@ -271,14 +271,8 @@ fn test_fj1350_universal_kernels_always_present() {
         };
         let kernels = required_kernels(&config);
         let ops: Vec<&str> = kernels.iter().map(|k| k.op.as_str()).collect();
-        assert!(
-            ops.contains(&"softmax"),
-            "{model_type} missing softmax"
-        );
-        assert!(
-            ops.contains(&"matmul"),
-            "{model_type} missing matmul"
-        );
+        assert!(ops.contains(&"softmax"), "{model_type} missing softmax");
+        assert!(ops.contains(&"matmul"), "{model_type} missing matmul");
         assert!(
             ops.contains(&"embedding_lookup"),
             "{model_type} missing embedding_lookup"

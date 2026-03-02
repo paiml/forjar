@@ -1,20 +1,19 @@
 //! Tests: Import infrastructure.
 
 #![allow(unused_imports)]
+use super::helpers::*;
+use super::helpers_state::*;
+use super::helpers_time::*;
+use super::import_cmd::*;
 use crate::core::types::ProvenanceEvent;
 use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
 use crate::transport;
 use crate::tripwire::{anomaly, drift, eventlog, tracer};
 use std::path::{Path, PathBuf};
-use super::helpers::*;
-use super::helpers_state::*;
-use super::helpers_time::*;
-use super::import_cmd::*;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
 
     #[test]
     fn test_fj065_import_localhost() {
@@ -40,7 +39,6 @@ mod tests {
         assert!(content.contains("addr: localhost"));
     }
 
-
     #[test]
     fn test_fj065_import_generates_valid_config() {
         let dir = tempfile::tempdir().unwrap();
@@ -64,7 +62,6 @@ mod tests {
         assert!(config.machines.contains_key("local"));
     }
 
-
     #[test]
     fn test_fj065_import_services_scan() {
         let dir = tempfile::tempdir().unwrap();
@@ -86,7 +83,6 @@ mod tests {
         assert!(content.contains("svc-box"));
     }
 
-
     #[test]
     fn test_fj065_import_users_scan() {
         let dir = tempfile::tempdir().unwrap();
@@ -106,7 +102,6 @@ mod tests {
         assert!(content.contains("version: \"1.0\""));
         assert!(content.contains("user-box"));
     }
-
 
     #[test]
     fn test_fj065_import_files_scan() {
@@ -128,7 +123,6 @@ mod tests {
         assert!(content.contains("file-box"));
     }
 
-
     #[test]
     fn test_fj065_import_cron_scan() {
         let dir = tempfile::tempdir().unwrap();
@@ -148,7 +142,6 @@ mod tests {
         assert!(content.contains("version: \"1.0\""));
         assert!(content.contains("cron-box"));
     }
-
 
     #[test]
     fn test_fj065_import_multi_scan() {
@@ -174,7 +167,6 @@ mod tests {
         assert!(content.contains("multi-box"));
     }
 
-
     #[test]
     fn test_fj065_import_verbose() {
         let dir = tempfile::tempdir().unwrap();
@@ -192,7 +184,6 @@ mod tests {
 
         assert!(output.exists());
     }
-
 
     #[test]
     fn test_fj065_import_default_name_localhost() {
@@ -212,7 +203,6 @@ mod tests {
         let content = std::fs::read_to_string(&output).unwrap();
         assert!(content.contains("localhost"));
     }
-
 
     #[test]
     fn test_fj065_import_default_name_ip() {
@@ -235,5 +225,4 @@ mod tests {
     }
 
     // ── Show command tests ─────────────────────────────────────
-
 }

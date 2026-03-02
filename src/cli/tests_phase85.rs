@@ -1,11 +1,11 @@
 //! Tests: Phase 85 — Advanced Compliance & Dependency Intelligence (FJ-941→FJ-948).
 
 #![allow(unused_imports)]
-use super::validate_ordering::*;
 use super::graph_intelligence::*;
 use super::graph_intelligence_ext::*;
 use super::status_intelligence::*;
 use super::status_intelligence_ext::*;
+use super::validate_ordering::*;
 use std::io::Write;
 
 #[cfg(test)]
@@ -21,7 +21,9 @@ mod tests {
 
     fn write_yaml(dir: &std::path::Path, name: &str, content: &str) -> std::path::PathBuf {
         let p = dir.join(name);
-        if let Some(parent) = p.parent() { std::fs::create_dir_all(parent).unwrap(); }
+        if let Some(parent) = p.parent() {
+            std::fs::create_dir_all(parent).unwrap();
+        }
         std::fs::write(&p, content).unwrap();
         p
     }

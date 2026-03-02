@@ -20,10 +20,7 @@ pub struct ResourceInputs {
 ///
 /// Walks the dependency graph (via `depends_on`) and collects all
 /// input hashes reachable from the resource. Returns them sorted.
-pub fn input_closure(
-    resource: &str,
-    graph: &BTreeMap<String, ResourceInputs>,
-) -> Vec<String> {
+pub fn input_closure(resource: &str, graph: &BTreeMap<String, ResourceInputs>) -> Vec<String> {
     let mut visited = BTreeSet::new();
     let mut all_hashes = BTreeSet::new();
     collect_closure(resource, graph, &mut visited, &mut all_hashes);
@@ -41,9 +38,7 @@ pub fn closure_hash(closure: &[String]) -> String {
 /// Compute closures for all resources in a graph.
 ///
 /// Returns a map from resource name to sorted closure hashes.
-pub fn all_closures(
-    graph: &BTreeMap<String, ResourceInputs>,
-) -> BTreeMap<String, Vec<String>> {
+pub fn all_closures(graph: &BTreeMap<String, ResourceInputs>) -> BTreeMap<String, Vec<String>> {
     graph
         .keys()
         .map(|name| (name.clone(), input_closure(name, graph)))

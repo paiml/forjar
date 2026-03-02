@@ -141,10 +141,7 @@ fn test_fj1351_coverage_report_mixed() {
         report.contracts["silu-kernel-v1"],
         ContractStatus::Implemented
     );
-    assert_eq!(
-        report.contracts["rope-kernel-v1"],
-        ContractStatus::Partial
-    );
+    assert_eq!(report.contracts["rope-kernel-v1"], ContractStatus::Partial);
     assert_eq!(
         report.contracts["softmax-kernel-v1"],
         ContractStatus::Implemented

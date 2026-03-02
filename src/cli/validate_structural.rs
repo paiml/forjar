@@ -1,9 +1,8 @@
 //! Structural validation checks.
 
+use super::helpers::*;
 use crate::core::types;
 use std::path::Path;
-use super::helpers::*;
-
 
 /// Scan a text for unresolved `{{params.KEY}}` references.
 fn find_unresolved_params(
@@ -28,7 +27,6 @@ fn find_unresolved_params(
         }
     }
 }
-
 
 // ── FJ-421: validate --check-templates ──
 
@@ -77,7 +75,6 @@ pub(crate) fn cmd_validate_check_templates(file: &Path, json: bool) -> Result<()
         ))
     }
 }
-
 
 // ── FJ-441: validate --check-secrets ──
 
@@ -137,7 +134,6 @@ pub(crate) fn cmd_validate_check_secrets(file: &Path, json: bool) -> Result<(), 
         Err(format!("{} potential secrets found", findings.len()))
     }
 }
-
 
 /// Build adjacency list from config.
 fn build_adj_list(config: &types::ForjarConfig) -> std::collections::HashMap<&str, Vec<&str>> {
@@ -220,7 +216,6 @@ pub(crate) fn cmd_validate_check_cycles_deep(file: &Path, json: bool) -> Result<
     }
 }
 
-
 // ── FJ-481: validate --check-naming ──
 
 pub(crate) fn cmd_validate_check_naming(file: &Path, json: bool) -> Result<(), String> {
@@ -268,9 +263,10 @@ pub(crate) fn cmd_validate_check_naming(file: &Path, json: bool) -> Result<(), S
     }
 }
 
-
 /// Build a map from (machine, path) to resource names.
-fn build_path_map(config: &types::ForjarConfig) -> std::collections::HashMap<(String, String), Vec<String>> {
+fn build_path_map(
+    config: &types::ForjarConfig,
+) -> std::collections::HashMap<(String, String), Vec<String>> {
     let mut path_map: std::collections::HashMap<(String, String), Vec<String>> =
         std::collections::HashMap::new();
     for (name, res) in &config.resources {
@@ -289,7 +285,9 @@ fn build_path_map(config: &types::ForjarConfig) -> std::collections::HashMap<(St
 }
 
 /// Find overlapping paths from the path map.
-fn find_overlaps(path_map: &std::collections::HashMap<(String, String), Vec<String>>) -> Vec<String> {
+fn find_overlaps(
+    path_map: &std::collections::HashMap<(String, String), Vec<String>>,
+) -> Vec<String> {
     let mut overlaps: Vec<String> = Vec::new();
     for ((machine, path), names) in path_map {
         if names.len() > 1 {
@@ -332,7 +330,6 @@ pub(crate) fn cmd_validate_check_overlaps(file: &Path, json: bool) -> Result<(),
         Err(format!("{} overlap(s) detected", overlaps.len()))
     }
 }
-
 
 // ── FJ-501: validate --check-limits ──
 
@@ -382,7 +379,6 @@ pub(crate) fn cmd_validate_check_limits(file: &Path, json: bool) -> Result<(), S
     }
 }
 
-
 /// FJ-631: Detect circular template/param references.
 pub(crate) fn cmd_validate_check_circular_refs(file: &Path, json: bool) -> Result<(), String> {
     let config = parse_and_validate(file)?;
@@ -431,7 +427,6 @@ fn has_circular_dep(name: &str, config: &types::ForjarConfig) -> bool {
     }
     false
 }
-
 
 /// FJ-641: Validate naming conventions across resources
 pub(crate) fn cmd_validate_check_naming_conventions(file: &Path, json: bool) -> Result<(), String> {

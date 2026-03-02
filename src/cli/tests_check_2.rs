@@ -1,24 +1,23 @@
 //! Tests: Pre-condition checks.
 
 #![allow(unused_imports)]
+use super::check::*;
+use super::commands::*;
+use super::dispatch::*;
+use super::helpers::*;
+use super::helpers_state::*;
+use super::helpers_time::*;
+use super::observe::*;
+use super::validate_core::*;
 use crate::core::types::ProvenanceEvent;
 use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
 use crate::transport;
 use crate::tripwire::{anomaly, drift, eventlog, tracer};
 use std::path::{Path, PathBuf};
-use super::helpers::*;
-use super::helpers_state::*;
-use super::helpers_time::*;
-use super::check::*;
-use super::commands::*;
-use super::dispatch::*;
-use super::observe::*;
-use super::validate_core::*;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
 
     #[test]
     fn test_anomaly_detects_drift() {
@@ -64,7 +63,6 @@ mod tests {
         assert!(result.is_ok());
     }
 
-
     #[test]
     fn test_anomaly_json_output() {
         let dir = tempfile::tempdir().unwrap();
@@ -95,7 +93,6 @@ mod tests {
         let result = cmd_anomaly(&state, None, 3, true);
         assert!(result.is_ok());
     }
-
 
     #[test]
     fn test_anomaly_machine_filter() {
@@ -130,7 +127,6 @@ mod tests {
         assert!(result.is_ok());
     }
 
-
     #[test]
     fn test_anomaly_dispatch() {
         let dir = tempfile::tempdir().unwrap();
@@ -151,7 +147,6 @@ mod tests {
     }
 
     // ── Import scan type tests ─────────────────────────────────
-
 
     #[test]
     fn test_fj017_check_machine_filter() {
@@ -178,7 +173,6 @@ resources:
         // Check with machine filter
         cmd_check(&config, Some("local"), None, None, false, false).unwrap();
     }
-
 
     #[test]
     fn test_fj017_check_resource_filter() {
@@ -211,7 +205,6 @@ resources:
         cmd_check(&config, None, Some("pkg1"), None, false, false).unwrap();
     }
 
-
     #[test]
     fn test_fj017_check_json_output() {
         let dir = tempfile::tempdir().unwrap();
@@ -240,7 +233,6 @@ resources:
 
     // ── Rollback error tests ───────────────────────────────────
 
-
     #[test]
     fn test_fj273_test_command_parse() {
         let cmd = Commands::Test(TestArgs {
@@ -259,7 +251,6 @@ resources:
             _ => panic!("expected Test"),
         }
     }
-
 
     #[test]
     fn test_fj273_test_dispatch_runs() {
@@ -286,7 +277,6 @@ resources:
         let _ = result;
     }
 
-
     #[test]
     fn test_fj273_test_json_output() {
         let dir = tempfile::tempdir().unwrap();
@@ -311,7 +301,6 @@ resources:
         let _ = result;
     }
 
-
     #[test]
     fn test_fj273_test_nonexistent_config() {
         let result = dispatch(
@@ -333,7 +322,6 @@ resources:
     // FJ-281: Resource groups
     // ========================================================================
 
-
     #[test]
     fn test_fj281_test_group_flag() {
         let cmd = Commands::Test(TestArgs {
@@ -353,7 +341,6 @@ resources:
     }
 
     // ── FJ-282: forjar validate --strict ──────────────────────────
-
 
     #[test]
     fn test_fj282_strict_off_skips_checks() {
@@ -386,7 +373,6 @@ resources:
     }
 
     // ── FJ-283: Apply retry with backoff ──────────────────────────
-
 
     #[test]
     fn test_fj305_check_json_ci_fields() {
@@ -422,5 +408,4 @@ resources:
     }
 
     // ── FJ-306: env --json enhanced ──
-
 }

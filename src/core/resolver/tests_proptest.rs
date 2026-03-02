@@ -51,7 +51,6 @@ proptest! {
 
 }
 
-
 proptest! {
     /// FALSIFY-DAG-003: Deterministic output — same graph always produces same order.
     #[test]

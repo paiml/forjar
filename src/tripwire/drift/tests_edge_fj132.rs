@@ -307,4 +307,3 @@ fn test_fj132_detect_drift_full_non_file_no_live_hash() {
         "service without live_hash should be skipped"
     );
 }
-

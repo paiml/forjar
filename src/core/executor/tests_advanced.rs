@@ -1,7 +1,7 @@
 //! FJ-036: Dry-run/force-reapply coverage, FJ-050: Trace tests, FJ-051: Anomaly detection.
 
-use super::*;
 use super::test_fixtures::*;
+use super::*;
 
 // ── FJ-036: Dry-run and force-reapply coverage ──────────────────
 
@@ -486,4 +486,3 @@ fn test_fj051_cmd_anomaly_uses_module() {
         "drift events should be flagged"
     );
 }
-

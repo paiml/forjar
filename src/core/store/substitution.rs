@@ -33,10 +33,7 @@ pub enum SubstitutionStep {
         closure_hash: String,
     },
     /// Check local store for existing entry
-    CheckLocalStore {
-        store_hash: String,
-        found: bool,
-    },
+    CheckLocalStore { store_hash: String, found: bool },
     /// Check SSH cache for existing entry
     CheckSshCache {
         host: String,
@@ -125,7 +122,8 @@ pub fn plan_substitution(ctx: &SubstitutionContext<'_>) -> SubstitutionPlan {
     // Step 3: Check SSH caches in order
     for (i, source) in ctx.cache_config.sources.iter().enumerate() {
         if let CacheSource::Ssh { host, user, .. } = source {
-            let found = ctx.cache_inventories
+            let found = ctx
+                .cache_inventories
                 .get(i)
                 .map(|inv| inv.entries.contains_key(closure_hash))
                 .unwrap_or(false);
@@ -158,7 +156,8 @@ pub fn plan_substitution(ctx: &SubstitutionContext<'_>) -> SubstitutionPlan {
     }
 
     // Step 4: Cache miss — build from scratch
-    let sandbox_level = ctx.sandbox
+    let sandbox_level = ctx
+        .sandbox
         .map(|s| format!("{:?}", s.level))
         .unwrap_or_else(|| "none".to_string());
 
@@ -266,7 +265,9 @@ fn ssh_push_command(source: &CacheSource, hash: &str, store_dir: &Path) -> Strin
 
 /// Find the first SSH source in the list.
 fn first_ssh_source(sources: &[CacheSource]) -> Option<&CacheSource> {
-    sources.iter().find(|s| matches!(s, CacheSource::Ssh { .. }))
+    sources
+        .iter()
+        .find(|s| matches!(s, CacheSource::Ssh { .. }))
 }
 
 /// Extract host and user from an SSH source.

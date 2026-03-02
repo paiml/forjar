@@ -1,12 +1,14 @@
 //! Observability exports.
 
+use super::helpers::*;
 use crate::core::{state, types};
 use std::path::Path;
-use super::helpers::*;
-
 
 // FJ-382: Prometheus exposition format
-pub(crate) fn cmd_status_prometheus(state_dir: &Path, machine_filter: Option<&str>) -> Result<(), String> {
+pub(crate) fn cmd_status_prometheus(
+    state_dir: &Path,
+    machine_filter: Option<&str>,
+) -> Result<(), String> {
     let entries =
         std::fs::read_dir(state_dir).map_err(|e| format!("cannot read state dir: {}", e))?;
 
@@ -54,13 +56,9 @@ pub(crate) fn cmd_status_prometheus(state_dir: &Path, machine_filter: Option<&st
     Ok(())
 }
 
-
 // ── FJ-442: status --export ──
 
-fn collect_export_entries(
-    state_dir: &Path,
-    machine: Option<&str>,
-) -> Result<Vec<String>, String> {
+fn collect_export_entries(state_dir: &Path, machine: Option<&str>) -> Result<Vec<String>, String> {
     let mut entries = Vec::new();
     if !state_dir.exists() {
         return Ok(entries);
@@ -124,7 +122,6 @@ pub(crate) fn cmd_status_export(
     Ok(())
 }
 
-
 // ── FJ-402: status --anomalies ──
 
 fn detect_resource_anomalies(
@@ -135,15 +132,27 @@ fn detect_resource_anomalies(
 ) {
     match rl.status {
         types::ResourceStatus::Failed => {
-            anomalies.push((m_name.to_string(), name.to_string(), "status is Failed".to_string()));
+            anomalies.push((
+                m_name.to_string(),
+                name.to_string(),
+                "status is Failed".to_string(),
+            ));
         }
         types::ResourceStatus::Drifted => {
-            anomalies.push((m_name.to_string(), name.to_string(), "status is Drifted".to_string()));
+            anomalies.push((
+                m_name.to_string(),
+                name.to_string(),
+                "status is Drifted".to_string(),
+            ));
         }
         _ => {}
     }
     if rl.applied_at.is_none() {
-        anomalies.push((m_name.to_string(), name.to_string(), "missing applied_at timestamp".to_string()));
+        anomalies.push((
+            m_name.to_string(),
+            name.to_string(),
+            "missing applied_at timestamp".to_string(),
+        ));
     }
 }
 
@@ -180,7 +189,11 @@ fn collect_anomalies(
     Ok(anomalies)
 }
 
-pub(crate) fn cmd_status_anomalies(state_dir: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
+pub(crate) fn cmd_status_anomalies(
+    state_dir: &Path,
+    machine: Option<&str>,
+    json: bool,
+) -> Result<(), String> {
     let anomalies = collect_anomalies(state_dir, machine)?;
 
     if json {
@@ -204,7 +217,6 @@ pub(crate) fn cmd_status_anomalies(state_dir: &Path, machine: Option<&str>, json
     }
     Ok(())
 }
-
 
 // ── FJ-407: status --diff-from ──
 
@@ -316,7 +328,11 @@ fn print_diff_output(diffs: &[(String, String, String)], snapshot_name: &str, js
     }
 }
 
-pub(crate) fn cmd_status_diff_from(state_dir: &Path, snapshot_name: &str, json: bool) -> Result<(), String> {
+pub(crate) fn cmd_status_diff_from(
+    state_dir: &Path,
+    snapshot_name: &str,
+    json: bool,
+) -> Result<(), String> {
     let snap_dir = state_dir.join(".snapshots").join(snapshot_name);
     if !snap_dir.exists() {
         return Err(format!("snapshot '{}' not found", snapshot_name));
@@ -326,7 +342,6 @@ pub(crate) fn cmd_status_diff_from(state_dir: &Path, snapshot_name: &str, json: 
     print_diff_output(&diffs, snapshot_name, json);
     Ok(())
 }
-
 
 /// FJ-594: Summarize errors across all machines.
 fn collect_errors_for_machine(

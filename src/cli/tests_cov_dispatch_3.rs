@@ -1,9 +1,6 @@
 //! Tests: Coverage for check, observe, apply (part 3).
 
 #![allow(unused_imports)]
-use crate::core::{executor, parser, planner, resolver, state, types};
-use std::io::Write;
-use std::path::{Path, PathBuf};
 use super::apply::*;
 use super::check::*;
 use super::commands::*;
@@ -16,6 +13,9 @@ use super::helpers_state::*;
 use super::infra::*;
 use super::observe::*;
 use super::test_fixtures::*;
+use crate::core::{executor, parser, planner, resolver, state, types};
+use std::io::Write;
+use std::path::{Path, PathBuf};
 
 #[cfg(test)]
 mod tests {
@@ -119,7 +119,14 @@ resources:
             target.display()
         );
         let config = write_yaml(dir.path(), "forjar.yaml", &config_yaml);
-        let result = cmd_check(&config, Some("nonexistent-machine"), None, None, false, false);
+        let result = cmd_check(
+            &config,
+            Some("nonexistent-machine"),
+            None,
+            None,
+            false,
+            false,
+        );
         assert!(result.is_ok());
     }
 
@@ -366,7 +373,7 @@ resources:
             false,
             false,
             0,
-            true,  // yes
+            true, // yes
             false,
             None,
             false,
@@ -413,7 +420,7 @@ resources:
             None,
             None,
             false,
-            true,  // dry_run
+            true, // dry_run
             false,
             &[],
             false,
@@ -428,7 +435,7 @@ resources:
             false,
             false,
             0,
-            true,  // yes
+            true, // yes
             false,
             None,
             false,
@@ -472,7 +479,7 @@ resources:
             false,
             false,
             0,
-            true,  // yes
+            true, // yes
             false,
             None,
             false,

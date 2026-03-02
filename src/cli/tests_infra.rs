@@ -1,28 +1,26 @@
 //! Tests: Infrastructure utilities.
 
 #![allow(unused_imports)]
-use crate::core::types::ProvenanceEvent;
-use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
-use crate::transport;
-use crate::tripwire::{anomaly, drift, eventlog, tracer};
-use std::path::{Path, PathBuf};
 use super::helpers::*;
 use super::helpers_state::*;
 use super::helpers_time::*;
 use super::infra::*;
 use super::test_fixtures::*;
+use crate::core::types::ProvenanceEvent;
+use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
+use crate::transport;
+use crate::tripwire::{anomaly, drift, eventlog, tracer};
+use std::path::{Path, PathBuf};
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
 
     #[test]
     fn test_fj139_cmd_bench_runs() {
         let result = cmd_bench(10, false);
         assert!(result.is_ok(), "bench should succeed: {:?}", result);
     }
-
 
     #[test]
     fn test_fj139_cmd_bench_json() {
@@ -32,13 +30,11 @@ mod tests {
 
     // ── FJ-205: --json output tests ────────────────────────────────
 
-
     #[test]
     fn test_fj214_state_list_empty() {
         let dir = tempfile::tempdir().unwrap();
         cmd_state_list(dir.path(), None, false).unwrap();
     }
-
 
     #[test]
     fn test_fj214_state_list_empty_json() {
@@ -46,12 +42,10 @@ mod tests {
         cmd_state_list(dir.path(), None, true).unwrap();
     }
 
-
     #[test]
     fn test_fj214_state_list_nonexistent_dir() {
         cmd_state_list(Path::new("/tmp/nonexistent-state-dir"), None, false).unwrap();
     }
-
 
     #[test]
     fn test_fj214_state_list_with_resources() {
@@ -71,7 +65,6 @@ mod tests {
         cmd_state_list(dir.path(), None, false).unwrap();
     }
 
-
     #[test]
     fn test_fj214_state_list_json_output() {
         let dir = tempfile::tempdir().unwrap();
@@ -85,7 +78,6 @@ mod tests {
 
         cmd_state_list(dir.path(), None, true).unwrap();
     }
-
 
     #[test]
     fn test_fj214_state_list_machine_filter() {
@@ -115,7 +107,6 @@ mod tests {
     // FJ-212: state-mv tests
     // ================================================================
 
-
     #[test]
     fn test_fj212_state_mv_basic() {
         let dir = tempfile::tempdir().unwrap();
@@ -133,7 +124,6 @@ mod tests {
         assert!(lock.resources.contains_key("new-name"));
     }
 
-
     #[test]
     fn test_fj212_state_mv_same_id() {
         let dir = tempfile::tempdir().unwrap();
@@ -141,7 +131,6 @@ mod tests {
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("same"));
     }
-
 
     #[test]
     fn test_fj212_state_mv_not_found() {
@@ -153,7 +142,6 @@ mod tests {
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("not found"));
     }
-
 
     #[test]
     fn test_fj212_state_mv_conflict() {
@@ -174,13 +162,11 @@ mod tests {
         assert!(result.unwrap_err().contains("already exists"));
     }
 
-
     #[test]
     fn test_fj212_state_mv_no_state_dir() {
         let result = cmd_state_mv(Path::new("/tmp/nonexistent-state"), "a", "b", None);
         assert!(result.is_err());
     }
-
 
     #[test]
     fn test_fj212_state_mv_preserves_metadata() {
@@ -205,7 +191,6 @@ mod tests {
     // FJ-213: state-rm tests
     // ================================================================
 
-
     #[test]
     fn test_fj213_state_rm_basic() {
         let dir = tempfile::tempdir().unwrap();
@@ -227,7 +212,6 @@ mod tests {
         assert!(lock.resources.contains_key("cfg"));
     }
 
-
     #[test]
     fn test_fj213_state_rm_not_found() {
         let dir = tempfile::tempdir().unwrap();
@@ -238,7 +222,6 @@ mod tests {
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("not found"));
     }
-
 
     #[test]
     fn test_fj213_state_rm_force() {
@@ -256,13 +239,11 @@ mod tests {
         assert!(lock.resources.is_empty());
     }
 
-
     #[test]
     fn test_fj213_state_rm_no_state_dir() {
         let result = cmd_state_rm(Path::new("/tmp/nonexistent-state"), "pkg", None, false);
         assert!(result.is_err());
     }
-
 
     #[test]
     fn test_fj213_state_rm_machine_filter() {
@@ -322,5 +303,4 @@ outputs:
         std::fs::write(&file, yaml).unwrap();
         file
     }
-
 }

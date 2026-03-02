@@ -1,9 +1,9 @@
 //! Tests: Coverage for status_recovery, status_intelligence, status_diagnostics.
 
 #![allow(unused_imports)]
-use super::status_recovery::*;
-use super::status_intelligence::*;
 use super::status_diagnostics::*;
+use super::status_intelligence::*;
+use super::status_recovery::*;
 
 #[cfg(test)]
 mod tests {
@@ -48,7 +48,11 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         for m in &["web", "db"] {
             // discover_machines needs: <machine>/state.lock.yaml
-            write_yaml(dir.path(), &format!("{}/state.lock.yaml", m), state_lock_yaml());
+            write_yaml(
+                dir.path(),
+                &format!("{}/state.lock.yaml", m),
+                state_lock_yaml(),
+            );
             // status_recovery + status_intelligence read: <machine>/lock.yaml
             write_yaml(dir.path(), &format!("{}/lock.yaml", m), state_lock_yaml());
             // status_diagnostics reads: <machine>.lock.yaml (flat)
@@ -62,10 +66,16 @@ mod tests {
         let dir = make_state_dir();
         for m in &["web", "db"] {
             // events.yaml used by status_recovery for MTTR and apply-success-trend
-            write_yaml(dir.path(), &format!("{}/events.yaml", m), "some event data\n");
+            write_yaml(
+                dir.path(),
+                &format!("{}/events.yaml", m),
+                "some event data\n",
+            );
             // events.jsonl used by status_diagnostics for apply history count and churn
-            let ev1 = r#"{"event":"apply_complete","resource":"f","timestamp":"2026-02-28T01:00:00Z"}"#;
-            let ev2 = r#"{"event":"resource_applied","resource":"f","timestamp":"2026-02-28T01:05:00Z"}"#;
+            let ev1 =
+                r#"{"event":"apply_complete","resource":"f","timestamp":"2026-02-28T01:00:00Z"}"#;
+            let ev2 =
+                r#"{"event":"resource_applied","resource":"f","timestamp":"2026-02-28T01:05:00Z"}"#;
             write_yaml(
                 dir.path(),
                 &format!("{}/events.jsonl", m),
@@ -217,7 +227,9 @@ mod tests {
     #[test]
     fn failure_correlation_json() {
         let d = make_state_dir();
-        assert!(cmd_status_machine_resource_failure_correlation(d.path(), Some("web"), true).is_ok());
+        assert!(
+            cmd_status_machine_resource_failure_correlation(d.path(), Some("web"), true).is_ok()
+        );
     }
 
     // -- cmd_status_fleet_resource_age_distribution --
@@ -255,7 +267,9 @@ mod tests {
     #[test]
     fn rollback_readiness_json() {
         let d = make_state_dir_with_events();
-        assert!(cmd_status_machine_resource_rollback_readiness(d.path(), Some("web"), true).is_ok());
+        assert!(
+            cmd_status_machine_resource_rollback_readiness(d.path(), Some("web"), true).is_ok()
+        );
     }
 
     #[test]
@@ -318,7 +332,9 @@ mod tests {
     #[test]
     fn apply_success_trend_json() {
         let d = make_state_dir_with_events();
-        assert!(cmd_status_machine_resource_apply_success_trend(d.path(), Some("web"), true).is_ok());
+        assert!(
+            cmd_status_machine_resource_apply_success_trend(d.path(), Some("web"), true).is_ok()
+        );
     }
 
     #[test]
@@ -326,6 +342,4 @@ mod tests {
         let d = make_state_dir();
         assert!(cmd_status_machine_resource_apply_success_trend(d.path(), None, false).is_ok());
     }
-
 }
-

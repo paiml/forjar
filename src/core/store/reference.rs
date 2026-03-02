@@ -60,8 +60,7 @@ fn scan_dir_recursive(
     known_hashes: &BTreeSet<String>,
     refs: &mut BTreeSet<String>,
 ) -> Result<(), String> {
-    let entries = std::fs::read_dir(dir)
-        .map_err(|e| format!("read dir {}: {e}", dir.display()))?;
+    let entries = std::fs::read_dir(dir).map_err(|e| format!("read dir {}: {e}", dir.display()))?;
     let mut children: Vec<std::fs::DirEntry> = entries.filter_map(|e| e.ok()).collect();
     children.sort_by_key(|e| e.file_name());
 

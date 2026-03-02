@@ -20,7 +20,10 @@ mod tests {
 
     fn sample_inputs() -> BTreeMap<String, PathBuf> {
         let mut m = BTreeMap::new();
-        m.insert("base".to_string(), PathBuf::from("/var/lib/forjar/store/abc123/content"));
+        m.insert(
+            "base".to_string(),
+            PathBuf::from("/var/lib/forjar/store/abc123/content"),
+        );
         m
     }
 
@@ -74,7 +77,11 @@ mod tests {
             Path::new("/store"),
         );
         assert_eq!(plan.seccomp_rules.len(), 3);
-        let syscalls: Vec<&str> = plan.seccomp_rules.iter().map(|r| r.syscall.as_str()).collect();
+        let syscalls: Vec<&str> = plan
+            .seccomp_rules
+            .iter()
+            .map(|r| r.syscall.as_str())
+            .collect();
         assert!(syscalls.contains(&"connect"));
         assert!(syscalls.contains(&"mount"));
         assert!(syscalls.contains(&"ptrace"));
@@ -172,10 +179,18 @@ mod tests {
     #[test]
     fn simulate_deterministic() {
         let r1 = simulate_sandbox_build(
-            &full_config(), "hash1", &sample_inputs(), "script", Path::new("/s"),
+            &full_config(),
+            "hash1",
+            &sample_inputs(),
+            "script",
+            Path::new("/s"),
         );
         let r2 = simulate_sandbox_build(
-            &full_config(), "hash1", &sample_inputs(), "script", Path::new("/s"),
+            &full_config(),
+            "hash1",
+            &sample_inputs(),
+            "script",
+            Path::new("/s"),
         );
         assert_eq!(r1.output_hash, r2.output_hash);
     }
@@ -183,10 +198,18 @@ mod tests {
     #[test]
     fn simulate_different_scripts_different_hashes() {
         let r1 = simulate_sandbox_build(
-            &full_config(), "hash1", &sample_inputs(), "echo a", Path::new("/s"),
+            &full_config(),
+            "hash1",
+            &sample_inputs(),
+            "echo a",
+            Path::new("/s"),
         );
         let r2 = simulate_sandbox_build(
-            &full_config(), "hash1", &sample_inputs(), "echo b", Path::new("/s"),
+            &full_config(),
+            "hash1",
+            &sample_inputs(),
+            "echo b",
+            Path::new("/s"),
         );
         assert_ne!(r1.output_hash, r2.output_hash);
     }

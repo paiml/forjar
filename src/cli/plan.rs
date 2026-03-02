@@ -1,14 +1,13 @@
 //! Plan command.
 
+use super::apply_helpers::*;
+use super::helpers::*;
+use super::helpers_state::*;
+use super::print_helpers::*;
+use super::workspace::*;
 use crate::core::{planner, resolver, types};
 use crate::tripwire::hasher;
 use std::path::Path;
-use super::helpers::*;
-use super::helpers_state::*;
-use super::apply_helpers::*;
-use super::print_helpers::*;
-use super::workspace::*;
-
 
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::too_many_arguments)]
@@ -109,7 +108,6 @@ pub(crate) fn cmd_plan(
     Ok(())
 }
 
-
 /// FJ-301: Serialize plan as enriched JSON with resource metadata.
 fn print_plan_json(
     plan: &types::ExecutionPlan,
@@ -198,7 +196,6 @@ pub(crate) fn print_plan_cost(plan: &types::ExecutionPlan) {
     }
 }
 
-
 /// FJ-344: Compact one-line-per-resource plan output.
 pub(crate) fn cmd_plan_compact(
     file: &Path,
@@ -249,7 +246,6 @@ pub(crate) fn cmd_plan_compact(
     Ok(())
 }
 
-
 /// FJ-1250: Save an execution plan to a JSON file with config integrity hash.
 pub(crate) fn save_plan_file(
     plan: &types::ExecutionPlan,
@@ -257,8 +253,8 @@ pub(crate) fn save_plan_file(
     config_path: &Path,
     out_path: &Path,
 ) -> Result<(), String> {
-    let config_yaml = serde_yaml_ng::to_string(config)
-        .map_err(|e| format!("serialize config: {}", e))?;
+    let config_yaml =
+        serde_yaml_ng::to_string(config).map_err(|e| format!("serialize config: {}", e))?;
     let config_hash = hasher::hash_string(&config_yaml);
 
     let changes: Vec<serde_json::Value> = plan
@@ -288,32 +284,32 @@ pub(crate) fn save_plan_file(
         "changes": changes,
     });
 
-    let json = serde_json::to_string_pretty(&output)
-        .map_err(|e| format!("JSON error: {}", e))?;
-    std::fs::write(out_path, json)
-        .map_err(|e| format!("write plan file: {}", e))?;
+    let json = serde_json::to_string_pretty(&output).map_err(|e| format!("JSON error: {}", e))?;
+    std::fs::write(out_path, json).map_err(|e| format!("write plan file: {}", e))?;
     Ok(())
 }
-
 
 /// FJ-1250: Load a saved plan file, validate config hash, and return the plan.
 pub(crate) fn load_plan_file(
     plan_path: &Path,
     config: &types::ForjarConfig,
 ) -> Result<types::ExecutionPlan, String> {
-    let content = std::fs::read_to_string(plan_path)
-        .map_err(|e| format!("read plan file: {}", e))?;
-    let doc: serde_json::Value = serde_json::from_str(&content)
-        .map_err(|e| format!("parse plan file: {}", e))?;
+    let content =
+        std::fs::read_to_string(plan_path).map_err(|e| format!("read plan file: {}", e))?;
+    let doc: serde_json::Value =
+        serde_json::from_str(&content).map_err(|e| format!("parse plan file: {}", e))?;
 
     let format = doc.get("format").and_then(|v| v.as_str()).unwrap_or("");
     if format != "forjar-plan-v1" {
         return Err(format!("unsupported plan format: '{}'", format));
     }
 
-    let stored_hash = doc.get("config_hash").and_then(|v| v.as_str()).unwrap_or("");
-    let config_yaml = serde_yaml_ng::to_string(config)
-        .map_err(|e| format!("serialize config: {}", e))?;
+    let stored_hash = doc
+        .get("config_hash")
+        .and_then(|v| v.as_str())
+        .unwrap_or("");
+    let config_yaml =
+        serde_yaml_ng::to_string(config).map_err(|e| format!("serialize config: {}", e))?;
     let current_hash = hasher::hash_string(&config_yaml);
     if stored_hash != current_hash {
         return Err(
@@ -322,18 +318,26 @@ pub(crate) fn load_plan_file(
         );
     }
 
-    let changes_arr = doc.get("changes").and_then(|v| v.as_array())
+    let changes_arr = doc
+        .get("changes")
+        .and_then(|v| v.as_array())
         .ok_or("plan file missing 'changes' array")?;
     let mut changes = Vec::new();
     for entry in changes_arr {
-        let action_str = entry.get("action").and_then(|v| v.as_str()).unwrap_or("no_op");
+        let action_str = entry
+            .get("action")
+            .and_then(|v| v.as_str())
+            .unwrap_or("no_op");
         let action = match action_str {
             "create" => types::PlanAction::Create,
             "update" => types::PlanAction::Update,
             "destroy" => types::PlanAction::Destroy,
             _ => types::PlanAction::NoOp,
         };
-        let rt_str = entry.get("resource_type").and_then(|v| v.as_str()).unwrap_or("file");
+        let rt_str = entry
+            .get("resource_type")
+            .and_then(|v| v.as_str())
+            .unwrap_or("file");
         let resource_type = match rt_str {
             "package" => types::ResourceType::Package,
             "service" => types::ResourceType::Service,
@@ -349,21 +353,42 @@ pub(crate) fn load_plan_file(
             _ => types::ResourceType::File,
         };
         changes.push(types::PlannedChange {
-            resource_id: entry.get("resource_id").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-            machine: entry.get("machine").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+            resource_id: entry
+                .get("resource_id")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string(),
+            machine: entry
+                .get("machine")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string(),
             resource_type,
             action,
-            description: entry.get("description").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+            description: entry
+                .get("description")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string(),
         });
     }
 
-    let execution_order: Vec<String> = doc.get("execution_order")
+    let execution_order: Vec<String> = doc
+        .get("execution_order")
         .and_then(|v| v.as_array())
-        .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(String::from))
+                .collect()
+        })
         .unwrap_or_default();
 
     Ok(types::ExecutionPlan {
-        name: doc.get("name").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+        name: doc
+            .get("name")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string(),
         changes,
         execution_order,
         to_create: doc.get("to_create").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
@@ -372,4 +397,3 @@ pub(crate) fn load_plan_file(
         unchanged: doc.get("unchanged").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
     })
 }
-

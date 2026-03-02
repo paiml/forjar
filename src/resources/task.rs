@@ -12,9 +12,7 @@ use crate::core::types::Resource;
 /// Otherwise, always reports as needing execution.
 pub fn check_script(resource: &Resource) -> String {
     if let Some(ref check) = resource.completion_check {
-        return format!(
-            "if {check}; then echo 'task=completed'; else echo 'task=pending'; fi"
-        );
+        return format!("if {check}; then echo 'task=completed'; else echo 'task=pending'; fi");
     }
 
     if !resource.output_artifacts.is_empty() {

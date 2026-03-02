@@ -1,9 +1,8 @@
 //! Init, format, completion, schema.
 
+use super::commands::*;
 use crate::core::types;
 use std::path::Path;
-use super::commands::*;
-
 
 pub(crate) fn cmd_init(path: &Path) -> Result<(), String> {
     let config_path = path.join("forjar.yaml");
@@ -75,7 +74,6 @@ policy:
     Ok(())
 }
 
-
 pub(crate) fn cmd_fmt(file: &Path, check: bool) -> Result<(), String> {
     let original = std::fs::read_to_string(file)
         .map_err(|e| format!("cannot read {}: {}", file.display(), e))?;
@@ -108,7 +106,6 @@ pub(crate) fn cmd_fmt(file: &Path, check: bool) -> Result<(), String> {
     Ok(())
 }
 
-
 // FJ-253: forjar completion — shell completion generation
 pub(crate) fn cmd_completion(shell: CompletionShell) -> Result<(), String> {
     use clap::CommandFactory;
@@ -132,7 +129,6 @@ pub(crate) fn cmd_completion(shell: CompletionShell) -> Result<(), String> {
     generate(clap_shell, &mut cmd, "forjar", &mut std::io::stdout());
     Ok(())
 }
-
 
 pub(crate) fn cmd_schema() -> Result<(), String> {
     let machine_schema = serde_json::json!({
@@ -250,4 +246,3 @@ pub(crate) fn cmd_schema() -> Result<(), String> {
     );
     Ok(())
 }
-

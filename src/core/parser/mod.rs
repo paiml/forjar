@@ -14,17 +14,11 @@ mod resource_types;
 mod validation;
 
 #[cfg(test)]
-mod tests_core;
-#[cfg(test)]
-mod tests_validation;
-#[cfg(test)]
 mod tests_arch;
 #[cfg(test)]
+mod tests_core;
+#[cfg(test)]
 mod tests_expansion;
-#[cfg(test)]
-mod tests_policy;
-#[cfg(test)]
-mod tests_triggers;
 #[cfg(test)]
 mod tests_includes;
 #[cfg(test)]
@@ -37,6 +31,12 @@ mod tests_misc_2b;
 mod tests_misc_3;
 #[cfg(test)]
 mod tests_misc_4;
+#[cfg(test)]
+mod tests_policy;
+#[cfg(test)]
+mod tests_triggers;
+#[cfg(test)]
+mod tests_validation;
 
 use super::recipe;
 use super::types::*;

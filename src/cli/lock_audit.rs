@@ -1,9 +1,8 @@
 //! Lock audit.
 
+use super::helpers::*;
 use crate::core::types;
 use std::path::Path;
-use super::helpers::*;
-
 
 /// FJ-645: Show lock file change history
 pub(crate) fn cmd_lock_history(state_dir: &Path, json: bool, limit: usize) -> Result<(), String> {
@@ -73,7 +72,6 @@ pub(crate) fn cmd_lock_history(state_dir: &Path, json: bool, limit: usize) -> Re
     }
     Ok(())
 }
-
 
 /// Audit a single parsed lock, returning (valid, reason).
 fn audit_lock_integrity(lock: &crate::core::types::StateLock) -> (bool, String) {
@@ -156,7 +154,6 @@ pub(crate) fn cmd_lock_audit(state_dir: &Path, json: bool) -> Result<(), String>
     Ok(())
 }
 
-
 /// FJ-605: Verify lock file HMAC signatures.
 pub(crate) fn cmd_lock_verify_hmac(state_dir: &Path, json: bool) -> Result<(), String> {
     let machines = discover_machines(state_dir);
@@ -194,7 +191,6 @@ pub(crate) fn cmd_lock_verify_hmac(state_dir: &Path, json: bool) -> Result<(), S
     Ok(())
 }
 
-
 /// Resolve the most recent snapshot name from the snapshots directory.
 fn resolve_latest_snapshot(snapshot_dir: &Path, json: bool) -> Result<Option<String>, String> {
     let mut entries: Vec<_> = std::fs::read_dir(snapshot_dir)
@@ -204,7 +200,9 @@ fn resolve_latest_snapshot(snapshot_dir: &Path, json: bool) -> Result<Option<Str
         .collect();
     entries.sort_by_key(|e| e.file_name());
     match entries.last() {
-        Some(e) => Ok(Some(e.path().file_stem().unwrap().to_string_lossy().to_string())),
+        Some(e) => Ok(Some(
+            e.path().file_stem().unwrap().to_string_lossy().to_string(),
+        )),
         None => {
             if json {
                 println!("{{\"restored\":false,\"reason\":\"no snapshots found\"}}");
@@ -217,7 +215,11 @@ fn resolve_latest_snapshot(snapshot_dir: &Path, json: bool) -> Result<Option<Str
 }
 
 /// FJ-695: Restore lock state from a named snapshot
-pub(crate) fn cmd_lock_restore(state_dir: &Path, name: Option<&str>, json: bool) -> Result<(), String> {
+pub(crate) fn cmd_lock_restore(
+    state_dir: &Path,
+    name: Option<&str>,
+    json: bool,
+) -> Result<(), String> {
     let snapshot_dir = state_dir.join("snapshots");
     if !snapshot_dir.exists() {
         if json {
@@ -260,7 +262,6 @@ pub(crate) fn cmd_lock_restore(state_dir: &Path, name: Option<&str>, json: bool)
     }
     Ok(())
 }
-
 
 /// FJ-705: Verify lock file schema version compatibility
 pub(crate) fn cmd_lock_verify_schema(state_dir: &Path, json: bool) -> Result<(), String> {
@@ -306,7 +307,6 @@ pub(crate) fn cmd_lock_verify_schema(state_dir: &Path, json: bool) -> Result<(),
     Ok(())
 }
 
-
 /// FJ-715: Add metadata tags to lock files
 pub(crate) fn cmd_lock_tag(
     state_dir: &Path,
@@ -343,9 +343,12 @@ pub(crate) fn cmd_lock_tag(
     Ok(())
 }
 
-
 /// FJ-725: Migrate lock file schema between versions
-pub(crate) fn cmd_lock_migrate(state_dir: &Path, from_version: &str, json: bool) -> Result<(), String> {
+pub(crate) fn cmd_lock_migrate(
+    state_dir: &Path,
+    from_version: &str,
+    json: bool,
+) -> Result<(), String> {
     let machines = discover_machines(state_dir);
     let target_version = "1.0";
     let mut migrated = 0;
@@ -377,4 +380,3 @@ pub(crate) fn cmd_lock_migrate(state_dir: &Path, from_version: &str, json: bool)
     }
     Ok(())
 }
-

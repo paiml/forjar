@@ -1,7 +1,7 @@
 //! Coverage boost + FJ-036 codegen tests.
 
-use super::*;
 use super::test_fixtures::*;
+use super::*;
 use crate::core::types::ResourceType;
 
 #[test]

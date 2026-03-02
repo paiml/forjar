@@ -1,7 +1,7 @@
 //! Edge-case tests: build_resource_details variants.
 
-use super::*;
 use super::test_fixtures::*;
+use super::*;
 
 #[test]
 fn test_fj012_build_details_nonexistent_file_no_hash() {
@@ -82,6 +82,8 @@ fn test_fj012_build_details_nonexistent_file_no_hash() {
         pre_apply: None,
         post_apply: None,
         lifecycle: None,
+        store: false,
+        script: None,
     };
     let details = build_resource_details(&resource, &local_machine());
     assert!(
@@ -168,6 +170,8 @@ fn test_fj012_build_details_all_fields() {
         pre_apply: None,
         post_apply: None,
         lifecycle: None,
+        store: false,
+        script: None,
     };
     let details = build_resource_details(&resource, &local_machine());
     assert_eq!(
@@ -397,4 +401,3 @@ fn test_fj012_log_tripwire_disabled() {
     let events = dir.path().join("machine1").join("events.jsonl");
     assert!(!events.exists(), "tripwire=false should NOT write event");
 }
-

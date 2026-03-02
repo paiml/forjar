@@ -217,7 +217,11 @@ resources:
     #[test]
     fn test_template_simple_expansion_plain() {
         let dir = tempfile::tempdir().unwrap();
-        let recipe = write_yaml(dir.path(), "recipe.yaml", "host: {{inputs.hostname}}\nport: {{inputs.port}}");
+        let recipe = write_yaml(
+            dir.path(),
+            "recipe.yaml",
+            "host: {{inputs.hostname}}\nport: {{inputs.port}}",
+        );
         let vars = vec!["hostname=myserver".to_string(), "port=8080".to_string()];
         assert!(cmd_template(&recipe, &vars, false).is_ok());
     }
@@ -225,7 +229,11 @@ resources:
     #[test]
     fn test_template_simple_expansion_json() {
         let dir = tempfile::tempdir().unwrap();
-        let recipe = write_yaml(dir.path(), "recipe.yaml", "host: {{inputs.hostname}}\nport: {{inputs.port}}");
+        let recipe = write_yaml(
+            dir.path(),
+            "recipe.yaml",
+            "host: {{inputs.hostname}}\nport: {{inputs.port}}",
+        );
         let vars = vec!["hostname=myserver".to_string(), "port=8080".to_string()];
         assert!(cmd_template(&recipe, &vars, true).is_ok());
     }
@@ -233,14 +241,22 @@ resources:
     #[test]
     fn test_template_no_vars() {
         let dir = tempfile::tempdir().unwrap();
-        let recipe = write_yaml(dir.path(), "recipe.yaml", "static: content\nno: templates\n");
+        let recipe = write_yaml(
+            dir.path(),
+            "recipe.yaml",
+            "static: content\nno: templates\n",
+        );
         assert!(cmd_template(&recipe, &[], false).is_ok());
     }
 
     #[test]
     fn test_template_no_vars_json() {
         let dir = tempfile::tempdir().unwrap();
-        let recipe = write_yaml(dir.path(), "recipe.yaml", "static: content\nno: templates\n");
+        let recipe = write_yaml(
+            dir.path(),
+            "recipe.yaml",
+            "static: content\nno: templates\n",
+        );
         assert!(cmd_template(&recipe, &[], true).is_ok());
     }
 
@@ -263,7 +279,11 @@ resources:
     #[test]
     fn test_template_partial_var_match() {
         let dir = tempfile::tempdir().unwrap();
-        let recipe = write_yaml(dir.path(), "recipe.yaml", "host: {{inputs.hostname}}\nport: {{inputs.port}}");
+        let recipe = write_yaml(
+            dir.path(),
+            "recipe.yaml",
+            "host: {{inputs.hostname}}\nport: {{inputs.port}}",
+        );
         let vars = vec!["hostname=server1".to_string()];
         assert!(cmd_template(&recipe, &vars, false).is_ok());
     }

@@ -21,8 +21,12 @@ fn test_fj1304_valid_blake3_hash() {
 #[test]
 fn test_fj1304_invalid_blake3_hash() {
     assert!(!is_valid_blake3_hash("blake3:short"));
-    assert!(!is_valid_blake3_hash("sha256:a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2"));
-    assert!(!is_valid_blake3_hash("blake3:zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"));
+    assert!(!is_valid_blake3_hash(
+        "sha256:a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2"
+    ));
+    assert!(!is_valid_blake3_hash(
+        "blake3:zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz"
+    ));
     assert!(!is_valid_blake3_hash(""));
     assert!(!is_valid_blake3_hash("blake3:"));
 }

@@ -1,21 +1,20 @@
 //! CLI dispatch — routes commands to handlers.
 
-use std::sync::atomic::Ordering;
 use super::commands::*;
-use super::helpers::*;
-use super::plan::*;
-use super::drift::*;
-use super::init::*;
 use super::destroy::*;
-use super::workspace::resolve_state_dir;
 use super::dispatch_apply::dispatch_apply_cmd;
-use super::dispatch_status::dispatch_status_cmd;
 use super::dispatch_graph::dispatch_graph_cmd;
-use super::dispatch_validate::dispatch_validate;
 use super::dispatch_lock::dispatch_lock_cmd;
 use super::dispatch_misc::dispatch_misc_cmd;
+use super::dispatch_status::dispatch_status_cmd;
 use super::dispatch_store::dispatch_store_cmd;
-
+use super::dispatch_validate::dispatch_validate;
+use super::drift::*;
+use super::helpers::*;
+use super::init::*;
+use super::plan::*;
+use super::workspace::resolve_state_dir;
+use std::sync::atomic::Ordering;
 
 /// Dispatch a CLI command.
 pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), String> {
@@ -24,32 +23,74 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
         Commands::Init(InitArgs { path }) => cmd_init(&path),
         Commands::Validate(args) => dispatch_validate(args),
         Commands::Plan(PlanArgs {
-            file, machine, resource, tag, group: _group,
-            state_dir, json, output_dir, env_file, workspace,
-            no_diff, target, cost, what_if, out,
+            file,
+            machine,
+            resource,
+            tag,
+            group: _group,
+            state_dir,
+            json,
+            output_dir,
+            env_file,
+            workspace,
+            no_diff,
+            target,
+            cost,
+            what_if,
+            out,
         }) => {
             let sd = resolve_state_dir(&state_dir, workspace.as_deref());
             cmd_plan(
-                &file, &sd, machine.as_deref(), resource.as_deref(),
-                tag.as_deref(), json, verbose, output_dir.as_deref(),
-                env_file.as_deref(), workspace.as_deref(), no_diff,
-                target.as_deref(), cost, &what_if, out.as_deref(),
+                &file,
+                &sd,
+                machine.as_deref(),
+                resource.as_deref(),
+                tag.as_deref(),
+                json,
+                verbose,
+                output_dir.as_deref(),
+                env_file.as_deref(),
+                workspace.as_deref(),
+                no_diff,
+                target.as_deref(),
+                cost,
+                &what_if,
+                out.as_deref(),
             )
         }
         cmd @ Commands::Apply(..) => dispatch_apply_cmd(cmd, verbose),
         Commands::Drift(DriftArgs {
-            file, machine, state_dir, tripwire, alert_cmd,
-            auto_remediate, dry_run, json, env_file, workspace,
+            file,
+            machine,
+            state_dir,
+            tripwire,
+            alert_cmd,
+            auto_remediate,
+            dry_run,
+            json,
+            env_file,
+            workspace,
         }) => {
             let sd = resolve_state_dir(&state_dir, workspace.as_deref());
             cmd_drift(
-                &file, &sd, machine.as_deref(), tripwire, alert_cmd.as_deref(),
-                auto_remediate, dry_run, json, verbose, env_file.as_deref(),
+                &file,
+                &sd,
+                machine.as_deref(),
+                tripwire,
+                alert_cmd.as_deref(),
+                auto_remediate,
+                dry_run,
+                json,
+                verbose,
+                env_file.as_deref(),
             )
         }
-        Commands::Destroy(DestroyArgs { file, machine, yes, state_dir }) => {
-            cmd_destroy(&file, &state_dir, machine.as_deref(), yes, verbose)
-        }
+        Commands::Destroy(DestroyArgs {
+            file,
+            machine,
+            yes,
+            state_dir,
+        }) => cmd_destroy(&file, &state_dir, machine.as_deref(), yes, verbose),
         cmd @ Commands::Status(..) => dispatch_status_cmd(cmd),
         cmd @ Commands::Graph(..) => dispatch_graph_cmd(cmd),
         // Delegate all lock commands

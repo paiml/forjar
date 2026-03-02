@@ -2,18 +2,15 @@
 
 #[cfg(test)]
 mod tests {
-    use super::super::validate_advanced::{
-        cmd_validate_check_resource_health_conflicts,
-        cmd_validate_check_resource_overlap,
-    };
     use super::super::graph_advanced::{
-        cmd_graph_resource_weight,
-        cmd_graph_dependency_depth_per_resource,
+        cmd_graph_dependency_depth_per_resource, cmd_graph_resource_weight,
     };
     use super::super::status_fleet_detail::{
-        cmd_status_machine_convergence_history,
-        cmd_status_drift_history,
+        cmd_status_drift_history, cmd_status_machine_convergence_history,
         cmd_status_resource_failure_rate,
+    };
+    use super::super::validate_advanced::{
+        cmd_validate_check_resource_health_conflicts, cmd_validate_check_resource_overlap,
     };
 
     fn yaml_header() -> &'static str {
@@ -56,10 +53,13 @@ resources:\n  svc:\n    type: service\n    machine: web\n    service_name: nginx
     #[test]
     fn test_fj809_no_overlaps() {
         let dir = tempfile::tempdir().unwrap();
-        let f = write_config(dir.path(), "\
+        let f = write_config(
+            dir.path(),
+            "\
 machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\n\
 resources:\n  a:\n    type: file\n    machine: web\n    path: /opt/a\n\
-  b:\n    type: file\n    machine: web\n    path: /opt/b\n");
+  b:\n    type: file\n    machine: web\n    path: /opt/b\n",
+        );
         assert!(cmd_validate_check_resource_overlap(&f, false).is_ok());
     }
 
@@ -82,20 +82,26 @@ resources:\n  a:\n    type: file\n    machine: web\n    path: /opt/a\n\
     #[test]
     fn test_fj807_no_deps() {
         let dir = tempfile::tempdir().unwrap();
-        let f = write_config(dir.path(), "\
+        let f = write_config(
+            dir.path(),
+            "\
 machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\n\
-resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n");
+resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n",
+        );
         assert!(cmd_graph_resource_weight(&f, false).is_ok());
     }
 
     #[test]
     fn test_fj807_with_deps() {
         let dir = tempfile::tempdir().unwrap();
-        let f = write_config(dir.path(), "\
+        let f = write_config(
+            dir.path(),
+            "\
 machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\n\
 resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n\
   b:\n    type: file\n    machine: web\n    path: /opt/b\n    depends_on: [a]\n\
-  c:\n    type: file\n    machine: web\n    path: /opt/c\n    depends_on: [a]\n");
+  c:\n    type: file\n    machine: web\n    path: /opt/c\n    depends_on: [a]\n",
+        );
         assert!(cmd_graph_resource_weight(&f, false).is_ok());
     }
 
@@ -111,20 +117,26 @@ resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    pa
     #[test]
     fn test_fj811_no_deps() {
         let dir = tempfile::tempdir().unwrap();
-        let f = write_config(dir.path(), "\
+        let f = write_config(
+            dir.path(),
+            "\
 machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\n\
-resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n");
+resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n",
+        );
         assert!(cmd_graph_dependency_depth_per_resource(&f, false).is_ok());
     }
 
     #[test]
     fn test_fj811_chain() {
         let dir = tempfile::tempdir().unwrap();
-        let f = write_config(dir.path(), "\
+        let f = write_config(
+            dir.path(),
+            "\
 machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\n\
 resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n\
   b:\n    type: file\n    machine: web\n    path: /opt/b\n    depends_on: [a]\n\
-  c:\n    type: file\n    machine: web\n    path: /opt/c\n    depends_on: [b]\n");
+  c:\n    type: file\n    machine: web\n    path: /opt/c\n    depends_on: [b]\n",
+        );
         assert!(cmd_graph_dependency_depth_per_resource(&f, false).is_ok());
     }
 

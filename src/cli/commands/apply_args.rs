@@ -2,7 +2,6 @@
 
 use std::path::PathBuf;
 
-
 #[derive(clap::Args, Debug)]
 pub struct ApplyArgs {
     /// Path to forjar.yaml
@@ -679,4 +678,3 @@ pub struct ApplyArgs {
     #[arg(long)]
     pub encrypt_state: bool,
 }
-

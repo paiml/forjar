@@ -204,7 +204,10 @@ fn test_fj1353_backward_compat_none_kernel_contracts() {
 fn test_fj1353_kernel_contract_info_serde() {
     let kc = KernelContractInfo {
         model_type: "qwen2".to_string(),
-        required_ops: vec!["rmsnorm-kernel-v1".to_string(), "silu-kernel-v1".to_string()],
+        required_ops: vec![
+            "rmsnorm-kernel-v1".to_string(),
+            "silu-kernel-v1".to_string(),
+        ],
         coverage_pct: 75.5,
     };
     let yaml = serde_yaml_ng::to_string(&kc).unwrap();
@@ -365,7 +368,9 @@ fn test_fj1353_onboard_scaffolds_only_missing() {
 
     // rope-kernel-v1 should NOT appear in scaffolded list (it already existed)
     assert!(
-        !result.scaffolded.contains(&"rope-kernel-v1.yaml".to_string()),
+        !result
+            .scaffolded
+            .contains(&"rope-kernel-v1.yaml".to_string()),
         "rope should not have been scaffolded"
     );
 }

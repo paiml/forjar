@@ -3,8 +3,8 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
-use crate::core::{state, types};
 use super::helpers::discover_machines;
+use crate::core::{state, types};
 
 // -- Helpers -----------------------------------------------------------------
 
@@ -28,8 +28,12 @@ fn gather_type_totals(state_dir: &Path, machines: &[String]) -> BTreeMap<String,
     for m in machines {
         if let Ok(Some(lock)) = state::load_lock(state_dir, m) {
             for rl in lock.resources.values() {
-                let entry = type_totals.entry(rl.resource_type.to_string()).or_insert((0, 0));
-                if rl.status == types::ResourceStatus::Drifted { entry.0 += 1; }
+                let entry = type_totals
+                    .entry(rl.resource_type.to_string())
+                    .or_insert((0, 0));
+                if rl.status == types::ResourceStatus::Drifted {
+                    entry.0 += 1;
+                }
                 entry.1 += 1;
             }
         }
@@ -37,22 +41,42 @@ fn gather_type_totals(state_dir: &Path, machines: &[String]) -> BTreeMap<String,
     type_totals
 }
 fn drift_pct(drifted: usize, total: usize) -> f64 {
-    if total > 0 { drifted as f64 / total as f64 * 100.0 } else { 0.0 }
+    if total > 0 {
+        drifted as f64 / total as f64 * 100.0
+    } else {
+        0.0
+    }
 }
 pub(crate) fn cmd_status_fleet_resource_type_drift_correlation(
-    state_dir: &Path, machine: Option<&str>, json: bool,
+    state_dir: &Path,
+    machine: Option<&str>,
+    json: bool,
 ) -> Result<(), String> {
     let type_totals = gather_type_totals(state_dir, &filtered_machines(state_dir, machine));
     if json {
         let entries: Vec<serde_json::Value> = type_totals.iter()
             .map(|(t, (d, tot))| serde_json::json!({"type": t, "drift_pct": (drift_pct(*d, *tot) * 10.0).round() / 10.0, "drifted": *d, "total": *tot}))
             .collect();
-        println!("{}", serde_json::to_string_pretty(&serde_json::json!({"fleet_resource_type_drift_correlation": entries})).unwrap_or_default());
+        println!(
+            "{}",
+            serde_json::to_string_pretty(
+                &serde_json::json!({"fleet_resource_type_drift_correlation": entries})
+            )
+            .unwrap_or_default()
+        );
     } else {
         println!("=== Fleet Resource Type Drift Correlation ===");
-        if type_totals.is_empty() { println!("  No resource data found."); }
+        if type_totals.is_empty() {
+            println!("  No resource data found.");
+        }
         for (t, (d, tot)) in &type_totals {
-            println!("  {}: {:.1}% drift ({} drifted / {} total)", t, drift_pct(*d, *tot), d, tot);
+            println!(
+                "  {}: {:.1}% drift ({} drifted / {} total)",
+                t,
+                drift_pct(*d, *tot),
+                d,
+                tot
+            );
         }
     }
     Ok(())
@@ -102,10 +126,7 @@ pub(crate) fn cmd_status_machine_resource_apply_cadence_report(
             println!("  No machine state found.");
         }
         for (m, count, last) in &rows {
-            println!(
-                "  {}: {} resources, last apply: {}",
-                m, count, last,
-            );
+            println!("  {}: {} resources, last apply: {}", m, count, last,);
         }
     }
     Ok(())
@@ -122,27 +143,48 @@ fn gather_recovery_rows(state_dir: &Path, machines: &[String]) -> Vec<(String, f
     for m in machines {
         if let Ok(Some(lock)) = state::load_lock(state_dir, m) {
             let total = lock.resources.len();
-            let converged = lock.resources.values().filter(|r| r.status == types::ResourceStatus::Converged).count();
-            let pct = if total > 0 { converged as f64 / total as f64 * 100.0 } else { 0.0 };
+            let converged = lock
+                .resources
+                .values()
+                .filter(|r| r.status == types::ResourceStatus::Converged)
+                .count();
+            let pct = if total > 0 {
+                converged as f64 / total as f64 * 100.0
+            } else {
+                0.0
+            };
             rows.push((m.clone(), pct, converged, total));
         }
     }
     rows
 }
 pub(crate) fn cmd_status_fleet_resource_drift_recovery_trend(
-    state_dir: &Path, machine: Option<&str>, json: bool,
+    state_dir: &Path,
+    machine: Option<&str>,
+    json: bool,
 ) -> Result<(), String> {
     let rows = gather_recovery_rows(state_dir, &filtered_machines(state_dir, machine));
     if json {
         let entries: Vec<serde_json::Value> = rows.iter()
             .map(|(m, pct, conv, tot)| serde_json::json!({"machine": m, "recovery_pct": (*pct * 10.0).round() / 10.0, "converged": *conv, "total": *tot}))
             .collect();
-        println!("{}", serde_json::to_string_pretty(&serde_json::json!({"fleet_resource_drift_recovery_trend": entries})).unwrap_or_default());
+        println!(
+            "{}",
+            serde_json::to_string_pretty(
+                &serde_json::json!({"fleet_resource_drift_recovery_trend": entries})
+            )
+            .unwrap_or_default()
+        );
     } else {
         println!("=== Fleet Resource Drift Recovery Trend ===");
-        if rows.is_empty() { println!("  No machine state found."); }
+        if rows.is_empty() {
+            println!("  No machine state found.");
+        }
         for (m, pct, conv, tot) in &rows {
-            println!("  {}: {:.1}% recovery ({} converged / {} total)", m, pct, conv, tot);
+            println!(
+                "  {}: {:.1}% recovery ({} converged / {} total)",
+                m, pct, conv, tot
+            );
         }
     }
     Ok(())
@@ -206,13 +248,37 @@ mod tests {
         let d = tempfile::tempdir().unwrap();
         wr(
             d.path(),
-            &mk("web", "2026-01-15T10:00:00Z", vec![
-                ("pkg1", types::ResourceType::Package, types::ResourceStatus::Converged),
-                ("pkg2", types::ResourceType::Package, types::ResourceStatus::Drifted),
-                ("svc1", types::ResourceType::Service, types::ResourceStatus::Converged),
-                ("cfg1", types::ResourceType::File, types::ResourceStatus::Drifted),
-                ("cfg2", types::ResourceType::File, types::ResourceStatus::Drifted),
-            ]),
+            &mk(
+                "web",
+                "2026-01-15T10:00:00Z",
+                vec![
+                    (
+                        "pkg1",
+                        types::ResourceType::Package,
+                        types::ResourceStatus::Converged,
+                    ),
+                    (
+                        "pkg2",
+                        types::ResourceType::Package,
+                        types::ResourceStatus::Drifted,
+                    ),
+                    (
+                        "svc1",
+                        types::ResourceType::Service,
+                        types::ResourceStatus::Converged,
+                    ),
+                    (
+                        "cfg1",
+                        types::ResourceType::File,
+                        types::ResourceStatus::Drifted,
+                    ),
+                    (
+                        "cfg2",
+                        types::ResourceType::File,
+                        types::ResourceStatus::Drifted,
+                    ),
+                ],
+            ),
         );
         assert!(cmd_status_fleet_resource_type_drift_correlation(d.path(), None, false).is_ok());
     }
@@ -222,10 +288,22 @@ mod tests {
         let d = tempfile::tempdir().unwrap();
         wr(
             d.path(),
-            &mk("n1", "2026-01-15T10:00:00Z", vec![
-                ("p", types::ResourceType::Package, types::ResourceStatus::Drifted),
-                ("s", types::ResourceType::Service, types::ResourceStatus::Converged),
-            ]),
+            &mk(
+                "n1",
+                "2026-01-15T10:00:00Z",
+                vec![
+                    (
+                        "p",
+                        types::ResourceType::Package,
+                        types::ResourceStatus::Drifted,
+                    ),
+                    (
+                        "s",
+                        types::ResourceType::Service,
+                        types::ResourceStatus::Converged,
+                    ),
+                ],
+            ),
         );
         assert!(cmd_status_fleet_resource_type_drift_correlation(d.path(), None, true).is_ok());
     }
@@ -243,17 +321,39 @@ mod tests {
         let d = tempfile::tempdir().unwrap();
         wr(
             d.path(),
-            &mk("web", "2026-02-20T14:30:00Z", vec![
-                ("pkg", types::ResourceType::Package, types::ResourceStatus::Converged),
-                ("svc", types::ResourceType::Service, types::ResourceStatus::Converged),
-                ("cfg", types::ResourceType::File, types::ResourceStatus::Drifted),
-            ]),
+            &mk(
+                "web",
+                "2026-02-20T14:30:00Z",
+                vec![
+                    (
+                        "pkg",
+                        types::ResourceType::Package,
+                        types::ResourceStatus::Converged,
+                    ),
+                    (
+                        "svc",
+                        types::ResourceType::Service,
+                        types::ResourceStatus::Converged,
+                    ),
+                    (
+                        "cfg",
+                        types::ResourceType::File,
+                        types::ResourceStatus::Drifted,
+                    ),
+                ],
+            ),
         );
         wr(
             d.path(),
-            &mk("db", "2026-02-19T08:00:00Z", vec![
-                ("pkg", types::ResourceType::Package, types::ResourceStatus::Converged),
-            ]),
+            &mk(
+                "db",
+                "2026-02-19T08:00:00Z",
+                vec![(
+                    "pkg",
+                    types::ResourceType::Package,
+                    types::ResourceStatus::Converged,
+                )],
+            ),
         );
         assert!(cmd_status_machine_resource_apply_cadence_report(d.path(), None, false).is_ok());
     }
@@ -263,9 +363,15 @@ mod tests {
         let d = tempfile::tempdir().unwrap();
         wr(
             d.path(),
-            &mk("n1", "2026-01-15T10:00:00Z", vec![
-                ("p", types::ResourceType::Package, types::ResourceStatus::Converged),
-            ]),
+            &mk(
+                "n1",
+                "2026-01-15T10:00:00Z",
+                vec![(
+                    "p",
+                    types::ResourceType::Package,
+                    types::ResourceStatus::Converged,
+                )],
+            ),
         );
         assert!(cmd_status_machine_resource_apply_cadence_report(d.path(), None, true).is_ok());
     }
@@ -283,18 +389,46 @@ mod tests {
         let d = tempfile::tempdir().unwrap();
         wr(
             d.path(),
-            &mk("web", "2026-01-15T10:00:00Z", vec![
-                ("pkg", types::ResourceType::Package, types::ResourceStatus::Converged),
-                ("svc", types::ResourceType::Service, types::ResourceStatus::Converged),
-                ("cfg", types::ResourceType::File, types::ResourceStatus::Drifted),
-            ]),
+            &mk(
+                "web",
+                "2026-01-15T10:00:00Z",
+                vec![
+                    (
+                        "pkg",
+                        types::ResourceType::Package,
+                        types::ResourceStatus::Converged,
+                    ),
+                    (
+                        "svc",
+                        types::ResourceType::Service,
+                        types::ResourceStatus::Converged,
+                    ),
+                    (
+                        "cfg",
+                        types::ResourceType::File,
+                        types::ResourceStatus::Drifted,
+                    ),
+                ],
+            ),
         );
         wr(
             d.path(),
-            &mk("db", "2026-01-15T10:00:00Z", vec![
-                ("pkg", types::ResourceType::Package, types::ResourceStatus::Failed),
-                ("svc", types::ResourceType::Service, types::ResourceStatus::Drifted),
-            ]),
+            &mk(
+                "db",
+                "2026-01-15T10:00:00Z",
+                vec![
+                    (
+                        "pkg",
+                        types::ResourceType::Package,
+                        types::ResourceStatus::Failed,
+                    ),
+                    (
+                        "svc",
+                        types::ResourceType::Service,
+                        types::ResourceStatus::Drifted,
+                    ),
+                ],
+            ),
         );
         assert!(cmd_status_fleet_resource_drift_recovery_trend(d.path(), None, false).is_ok());
     }
@@ -304,10 +438,22 @@ mod tests {
         let d = tempfile::tempdir().unwrap();
         wr(
             d.path(),
-            &mk("n1", "2026-01-15T10:00:00Z", vec![
-                ("p", types::ResourceType::Package, types::ResourceStatus::Converged),
-                ("s", types::ResourceType::Service, types::ResourceStatus::Failed),
-            ]),
+            &mk(
+                "n1",
+                "2026-01-15T10:00:00Z",
+                vec![
+                    (
+                        "p",
+                        types::ResourceType::Package,
+                        types::ResourceStatus::Converged,
+                    ),
+                    (
+                        "s",
+                        types::ResourceType::Service,
+                        types::ResourceStatus::Failed,
+                    ),
+                ],
+            ),
         );
         assert!(cmd_status_fleet_resource_drift_recovery_trend(d.path(), None, true).is_ok());
     }

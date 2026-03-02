@@ -13,12 +13,7 @@ pub const STORE_BASE: &str = "/var/lib/forjar/store";
 ///
 /// The hash is computed from sorted input components so that identical
 /// inputs always produce the same store path regardless of argument order.
-pub fn store_path(
-    recipe_hash: &str,
-    input_hashes: &[&str],
-    arch: &str,
-    provider: &str,
-) -> String {
+pub fn store_path(recipe_hash: &str, input_hashes: &[&str], arch: &str, provider: &str) -> String {
     let mut components: Vec<&str> = Vec::with_capacity(input_hashes.len() + 3);
     components.push(recipe_hash);
     let mut sorted_inputs: Vec<&str> = input_hashes.to_vec();

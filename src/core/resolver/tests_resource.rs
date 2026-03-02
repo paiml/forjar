@@ -106,6 +106,8 @@ fn test_fj003_resolve_all_fields() {
         pre_apply: None,
         post_apply: None,
         lifecycle: None,
+        store: false,
+        script: None,
     };
 
     let resolved = resolve_resource_templates(&resource, &params, &machines).unwrap();
@@ -162,7 +164,6 @@ fn test_fj003_resolve_machine_fields() {
     assert!(err.is_err());
     assert!(err.unwrap_err().contains("invalid machine ref"));
 }
-
 
 #[test]
 fn test_fj003_resolve_resource_templates_group_and_mode() {
@@ -253,13 +254,14 @@ fn test_fj003_resolve_resource_templates_group_and_mode() {
         pre_apply: None,
         post_apply: None,
         lifecycle: None,
+        store: false,
+        script: None,
     };
 
     let resolved = resolve_resource_templates(&resource, &params, &machines).unwrap();
     assert_eq!(resolved.group.as_deref(), Some("www-data"));
     assert_eq!(resolved.mode.as_deref(), Some("0644"));
 }
-
 
 #[test]
 fn test_resolve_port_template() {
@@ -354,7 +356,6 @@ fn test_resolve_packages_list_template() {
     let resolved = resolve_resource_templates(&r, &params, &machines).unwrap();
     assert_eq!(resolved.packages, vec!["curl", "htop"]);
 }
-
 
 #[test]
 fn test_fj131_resolve_source_field() {
@@ -474,7 +475,6 @@ fn test_fj131_resolve_version_field() {
     assert_eq!(resolved.version.as_deref(), Some("2.1.0"));
 }
 
-
 #[test]
 fn test_fj132_resolve_resource_templates_list_fields() {
     let mut params = HashMap::new();
@@ -558,4 +558,3 @@ fn test_pmat039_resolve_compute_mode() {
     let resolved = resolve_resource_templates(&r, &params, &machines).unwrap();
     assert_eq!(resolved.compute_mode.as_deref(), Some("exclusive_process"));
 }
-

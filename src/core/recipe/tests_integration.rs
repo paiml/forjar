@@ -131,6 +131,8 @@ fn test_fj019_resolve_resource_inputs_target_and_options() {
         pre_apply: None,
         post_apply: None,
         lifecycle: None,
+        store: false,
+        script: None,
     };
     let mut inputs = HashMap::new();
     inputs.insert("vol".to_string(), "raid".to_string());
@@ -224,6 +226,8 @@ fn test_fj019_resolve_resource_inputs_content_field() {
         pre_apply: None,
         post_apply: None,
         lifecycle: None,
+        store: false,
+        script: None,
     };
     let mut inputs = HashMap::new();
     inputs.insert("user".to_string(), "admin".to_string());

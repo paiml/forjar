@@ -392,4 +392,3 @@ fn test_fj132_exec_script_special_chars_in_output() {
     assert!(out.success());
     assert!(out.stdout.contains("tab"));
 }
-

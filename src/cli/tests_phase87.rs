@@ -1,8 +1,8 @@
 //! Tests: Phase 87 — Configuration Drift Analytics & Dependency Health (FJ-957→FJ-964).
 
-use super::validate_ordering::*;
 use super::graph_intelligence_ext::*;
 use super::status_intelligence_ext::*;
+use super::validate_ordering::*;
 use std::io::Write;
 
 #[cfg(test)]
@@ -18,7 +18,9 @@ mod tests {
 
     fn write_yaml(dir: &std::path::Path, name: &str, content: &str) -> std::path::PathBuf {
         let p = dir.join(name);
-        if let Some(parent) = p.parent() { std::fs::create_dir_all(parent).unwrap(); }
+        if let Some(parent) = p.parent() {
+            std::fs::create_dir_all(parent).unwrap();
+        }
         std::fs::write(&p, content).unwrap();
         p
     }
@@ -89,41 +91,137 @@ mod tests {
     #[test]
     fn test_fj960_custom_backoff_notification() {
         let opts = super::super::dispatch_notify::NotifyOpts {
-            slack: None, email: None, webhook: None, teams: None, discord: None,
-            opsgenie: None, datadog: None, newrelic: None, grafana: None, victorops: None,
-            msteams_adaptive: None, incident: None, sns: None, pubsub: None, eventbridge: None,
-            kafka: None, azure_servicebus: None, gcp_pubsub_v2: None, rabbitmq: None, nats: None,
-            mqtt: None, redis: None, amqp: None, stomp: None, zeromq: None, grpc: None, sqs: None,
-            mattermost: None, ntfy: None, pagerduty: None,
-            discord_webhook: None, teams_webhook: None, slack_blocks: None, custom_template: None,
-            custom_webhook: None, custom_headers: None, custom_json: None, custom_filter: None,
-            custom_retry: None, custom_transform: None, custom_batch: None, custom_deduplicate: None,
-            custom_throttle: None, custom_aggregate: None, custom_priority: None, custom_routing: None,
-            custom_dedup_window: None, custom_rate_limit: None,
+            slack: None,
+            email: None,
+            webhook: None,
+            teams: None,
+            discord: None,
+            opsgenie: None,
+            datadog: None,
+            newrelic: None,
+            grafana: None,
+            victorops: None,
+            msteams_adaptive: None,
+            incident: None,
+            sns: None,
+            pubsub: None,
+            eventbridge: None,
+            kafka: None,
+            azure_servicebus: None,
+            gcp_pubsub_v2: None,
+            rabbitmq: None,
+            nats: None,
+            mqtt: None,
+            redis: None,
+            amqp: None,
+            stomp: None,
+            zeromq: None,
+            grpc: None,
+            sqs: None,
+            mattermost: None,
+            ntfy: None,
+            pagerduty: None,
+            discord_webhook: None,
+            teams_webhook: None,
+            slack_blocks: None,
+            custom_template: None,
+            custom_webhook: None,
+            custom_headers: None,
+            custom_json: None,
+            custom_filter: None,
+            custom_retry: None,
+            custom_transform: None,
+            custom_batch: None,
+            custom_deduplicate: None,
+            custom_throttle: None,
+            custom_aggregate: None,
+            custom_priority: None,
+            custom_routing: None,
+            custom_dedup_window: None,
+            custom_rate_limit: None,
             custom_backoff: Some("https://hooks.example.com|exponential"),
-            custom_circuit_breaker: None, custom_dead_letter: None, custom_escalation: None, custom_correlation: None, custom_sampling: None, custom_digest: None, custom_severity_filter: None,
+            custom_circuit_breaker: None,
+            custom_dead_letter: None,
+            custom_escalation: None,
+            custom_correlation: None,
+            custom_sampling: None,
+            custom_digest: None,
+            custom_severity_filter: None,
         };
         let result: Result<(), String> = Ok(());
-        super::super::dispatch_notify::send_apply_notifications(&opts, &result, std::path::Path::new("test.yaml"));
+        super::super::dispatch_notify::send_apply_notifications(
+            &opts,
+            &result,
+            std::path::Path::new("test.yaml"),
+        );
     }
 
     #[test]
     fn test_fj960_custom_backoff_none() {
         let opts = super::super::dispatch_notify::NotifyOpts {
-            slack: None, email: None, webhook: None, teams: None, discord: None,
-            opsgenie: None, datadog: None, newrelic: None, grafana: None, victorops: None,
-            msteams_adaptive: None, incident: None, sns: None, pubsub: None, eventbridge: None,
-            kafka: None, azure_servicebus: None, gcp_pubsub_v2: None, rabbitmq: None, nats: None,
-            mqtt: None, redis: None, amqp: None, stomp: None, zeromq: None, grpc: None, sqs: None,
-            mattermost: None, ntfy: None, pagerduty: None,
-            discord_webhook: None, teams_webhook: None, slack_blocks: None, custom_template: None,
-            custom_webhook: None, custom_headers: None, custom_json: None, custom_filter: None,
-            custom_retry: None, custom_transform: None, custom_batch: None, custom_deduplicate: None,
-            custom_throttle: None, custom_aggregate: None, custom_priority: None, custom_routing: None,
-            custom_dedup_window: None, custom_rate_limit: None, custom_backoff: None, custom_circuit_breaker: None, custom_dead_letter: None, custom_escalation: None, custom_correlation: None, custom_sampling: None, custom_digest: None, custom_severity_filter: None,
+            slack: None,
+            email: None,
+            webhook: None,
+            teams: None,
+            discord: None,
+            opsgenie: None,
+            datadog: None,
+            newrelic: None,
+            grafana: None,
+            victorops: None,
+            msteams_adaptive: None,
+            incident: None,
+            sns: None,
+            pubsub: None,
+            eventbridge: None,
+            kafka: None,
+            azure_servicebus: None,
+            gcp_pubsub_v2: None,
+            rabbitmq: None,
+            nats: None,
+            mqtt: None,
+            redis: None,
+            amqp: None,
+            stomp: None,
+            zeromq: None,
+            grpc: None,
+            sqs: None,
+            mattermost: None,
+            ntfy: None,
+            pagerduty: None,
+            discord_webhook: None,
+            teams_webhook: None,
+            slack_blocks: None,
+            custom_template: None,
+            custom_webhook: None,
+            custom_headers: None,
+            custom_json: None,
+            custom_filter: None,
+            custom_retry: None,
+            custom_transform: None,
+            custom_batch: None,
+            custom_deduplicate: None,
+            custom_throttle: None,
+            custom_aggregate: None,
+            custom_priority: None,
+            custom_routing: None,
+            custom_dedup_window: None,
+            custom_rate_limit: None,
+            custom_backoff: None,
+            custom_circuit_breaker: None,
+            custom_dead_letter: None,
+            custom_escalation: None,
+            custom_correlation: None,
+            custom_sampling: None,
+            custom_digest: None,
+            custom_severity_filter: None,
         };
         let result: Result<(), String> = Ok(());
-        super::super::dispatch_notify::send_apply_notifications(&opts, &result, std::path::Path::new("test.yaml"));
+        super::super::dispatch_notify::send_apply_notifications(
+            &opts,
+            &result,
+            std::path::Path::new("test.yaml"),
+        );
     }
 
     // ── FJ-961: validate --check-resource-dependency-refs ──

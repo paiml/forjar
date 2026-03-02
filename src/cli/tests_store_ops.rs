@@ -12,7 +12,9 @@ mod tests {
 
         let e1 = store.join("aaaa111122223333444455556666777788889999000011112222333344445555");
         fs::create_dir_all(e1.join("content")).unwrap();
-        fs::write(e1.join("meta.yaml"), r#"
+        fs::write(
+            e1.join("meta.yaml"),
+            r#"
 schema: "1.0"
 store_hash: "blake3:aaaa111122223333444455556666777788889999000011112222333344445555"
 recipe_hash: "blake3:0000"
@@ -28,7 +30,9 @@ provenance:
   origin_hash: "sha256:abc123"
   derived_from: null
   derivation_depth: 0
-"#).unwrap();
+"#,
+        )
+        .unwrap();
 
         store
     }

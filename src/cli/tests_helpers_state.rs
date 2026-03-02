@@ -1,20 +1,19 @@
 //! Tests: State loading and machine discovery helpers.
 
 #![allow(unused_imports)]
+use super::helpers::*;
+use super::helpers_state::*;
+use super::helpers_state::*;
+use super::helpers_time::*;
 use crate::core::types::ProvenanceEvent;
 use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
 use crate::transport;
 use crate::tripwire::{anomaly, drift, eventlog, tracer};
 use std::path::{Path, PathBuf};
-use super::helpers::*;
-use super::helpers_state::*;
-use super::helpers_time::*;
-use super::helpers_state::*;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
 
     #[test]
     fn test_fj017_load_machine_locks_missing_state_dir() {
@@ -36,7 +35,6 @@ resources: {}
         let locks = load_machine_locks(&config, &missing, None).unwrap();
         assert!(locks.is_empty());
     }
-
 
     #[test]
     fn test_fj267_load_all_locks() {
@@ -60,7 +58,6 @@ resources:
         // No locks exist yet
         assert!(locks.is_empty());
     }
-
 
     #[test]
     fn test_fj267_load_all_locks_with_existing() {
@@ -92,7 +89,6 @@ resources:
     // ========================================================================
     // FJ-270: Structured event output
     // ========================================================================
-
 
     #[test]
     fn test_fj285_collect_transitive_deps() {
@@ -138,7 +134,6 @@ resources:
 
     // ── FJ-286: Apply confirmation prompt ──────────────────────────
 
-
     #[test]
     fn test_fj331_simple_glob_match() {
         assert!(simple_glob_match("web-*", "web-server"));
@@ -149,5 +144,4 @@ resources:
         assert!(!simple_glob_match("exact", "other"));
         assert!(simple_glob_match("*", "anything"));
     }
-
 }

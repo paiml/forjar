@@ -1,24 +1,23 @@
 //! Tests: Show, explain, compare, template.
 
 #![allow(unused_imports)]
+use super::diff_cmd::*;
+use super::helpers::*;
+use super::helpers_state::*;
+use super::helpers_time::*;
+use super::observe::*;
+use super::show::*;
+use super::test_fixtures::*;
 use crate::core::types::ProvenanceEvent;
 use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
 use crate::transport;
 use crate::tripwire::{anomaly, drift, eventlog, tracer};
-use std::path::{Path, PathBuf};
-use super::helpers::*;
-use super::helpers_state::*;
-use super::helpers_time::*;
-use super::show::*;
-use super::diff_cmd::*;
-use super::observe::*;
-use super::test_fixtures::*;
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
 
     #[test]
     fn test_fj017_show_full_config() {
@@ -47,7 +46,6 @@ resources:
         // Should resolve templates without error
         cmd_show(&config, None, false).unwrap();
     }
-
 
     #[test]
     fn test_fj017_show_specific_resource() {
@@ -80,7 +78,6 @@ resources:
         cmd_show(&config, Some("conf"), false).unwrap();
     }
 
-
     #[test]
     fn test_fj017_show_missing_resource() {
         let dir = tempfile::tempdir().unwrap();
@@ -107,7 +104,6 @@ resources:
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("not found"));
     }
-
 
     #[test]
     fn test_fj054_policy_hooks_parsed() {
@@ -160,7 +156,6 @@ policy:
         state::save_lock(dir, &lock).unwrap();
     }
 
-
     #[test]
     fn test_fj017_show_json_output() {
         let dir = tempfile::tempdir().unwrap();
@@ -186,7 +181,6 @@ resources:
         // JSON output should succeed
         cmd_show(&config, None, true).unwrap();
     }
-
 
     #[test]
     fn test_fj017_show_specific_resource_json() {
@@ -215,7 +209,6 @@ resources:
 
     // ── Fmt edge cases ─────────────────────────────────────────
 
-
     #[test]
     fn test_fj131_cmd_diff_json_output() {
         let from_dir = tempfile::tempdir().unwrap();
@@ -237,7 +230,6 @@ resources:
         // JSON output should not error
         cmd_diff(from_dir.path(), to_dir.path(), None, None, true).unwrap();
     }
-
 
     #[test]
     fn test_fj131_cmd_anomaly_json_output() {

@@ -1,13 +1,12 @@
 //! Apply command.
 
-use crate::core::{executor, parser, planner, resolver, state, types};
-use std::path::Path;
+use super::apply_helpers::*;
+use super::apply_output::*;
 use super::helpers::*;
 use super::helpers_state::*;
-use super::apply_helpers::*;
 use super::workspace::*;
-use super::apply_output::*;
-
+use crate::core::{executor, parser, planner, resolver, state, types};
+use std::path::Path;
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn cmd_apply(
@@ -60,7 +59,9 @@ pub(crate) fn cmd_apply(
     if verbose {
         eprintln!(
             "Applying {} ({} machines, {} resources)",
-            config.name, config.machines.len(), config.resources.len()
+            config.name,
+            config.machines.len(),
+            config.resources.len()
         );
     }
     if no_tripwire {
@@ -70,8 +71,14 @@ pub(crate) fn cmd_apply(
 
     apply_filters(&mut config, subset, exclude, verbose)?;
     apply_pre_validate(
-        &config, state_dir, machine_filter, tag_filter,
-        confirm_destructive, dry_run, yes, verbose,
+        &config,
+        state_dir,
+        machine_filter,
+        tag_filter,
+        confirm_destructive,
+        dry_run,
+        yes,
+        verbose,
     )?;
 
     let cfg = executor::ApplyConfig {
@@ -113,7 +120,15 @@ pub(crate) fn cmd_apply(
         return print_events_output(&results);
     }
 
-    print_apply_summary(&config, &results, total_converged, total_unchanged, total_failed, dur_apply, json)?;
+    print_apply_summary(
+        &config,
+        &results,
+        total_converged,
+        total_unchanged,
+        total_failed,
+        dur_apply,
+        json,
+    )?;
 
     if report {
         print_resource_report(&results);
@@ -126,13 +141,18 @@ pub(crate) fn cmd_apply(
     }
 
     apply_post_actions(
-        state_dir, &config, &results,
-        total_converged, auto_commit, verbose, notify, &t_total,
+        state_dir,
+        &config,
+        &results,
+        total_converged,
+        auto_commit,
+        verbose,
+        notify,
+        &t_total,
     )?;
 
     Ok(())
 }
-
 
 /// Apply subset and exclude filters to config.
 fn apply_filters(
@@ -142,27 +162,36 @@ fn apply_filters(
     verbose: bool,
 ) -> Result<(), String> {
     if let Some(pattern) = subset {
-        config.resources.retain(|id, _| simple_glob_match(pattern, id));
+        config
+            .resources
+            .retain(|id, _| simple_glob_match(pattern, id));
         if config.resources.is_empty() {
             return Err(format!("no resources match subset pattern '{}'", pattern));
         }
         if verbose {
-            eprintln!("Subset filter '{}': {} resources selected", pattern, config.resources.len());
+            eprintln!(
+                "Subset filter '{}': {} resources selected",
+                pattern,
+                config.resources.len()
+            );
         }
     }
     if let Some(pattern) = exclude {
         let before = config.resources.len();
-        config.resources.retain(|id, _| !simple_glob_match(pattern, id));
+        config
+            .resources
+            .retain(|id, _| !simple_glob_match(pattern, id));
         if verbose {
             eprintln!(
                 "Exclude filter '{}': removed {} resources ({} remaining)",
-                pattern, before - config.resources.len(), config.resources.len()
+                pattern,
+                before - config.resources.len(),
+                config.resources.len()
             );
         }
     }
     Ok(())
 }
-
 
 /// Pre-apply validation: policies, confirmation, hooks.
 #[allow(clippy::too_many_arguments)]
@@ -181,12 +210,20 @@ fn apply_pre_validate(
         let order = resolver::build_execution_order(config)?;
         let cd_locks = load_machine_locks(config, state_dir, machine_filter)?;
         let plan = planner::plan(config, &order, &cd_locks, tag_filter);
-        let destroy_count = plan.changes.iter()
+        let destroy_count = plan
+            .changes
+            .iter()
             .filter(|p| p.action == types::PlanAction::Destroy)
             .count();
         if destroy_count > 0 {
-            eprintln!("WARNING: {} resource(s) will be DESTROYED. Use --yes to confirm.", destroy_count);
-            return Err(format!("{} destructive action(s) blocked by --confirm-destructive", destroy_count));
+            eprintln!(
+                "WARNING: {} resource(s) will be DESTROYED. Use --yes to confirm.",
+                destroy_count
+            );
+            return Err(format!(
+                "{} destructive action(s) blocked by --confirm-destructive",
+                destroy_count
+            ));
         }
     }
 
@@ -194,7 +231,10 @@ fn apply_pre_validate(
     if !config.policies.is_empty() {
         let violations = parser::evaluate_policies(config);
         let has_deny = violations.iter().any(|v| {
-            matches!(v.severity, types::PolicyRuleType::Deny | types::PolicyRuleType::Require)
+            matches!(
+                v.severity,
+                types::PolicyRuleType::Deny | types::PolicyRuleType::Require
+            )
         });
         if has_deny {
             for v in &violations {
@@ -206,8 +246,12 @@ fn apply_pre_validate(
             }
             return Err(format!(
                 "policy violations block apply ({} denied)",
-                violations.iter()
-                    .filter(|v| matches!(v.severity, types::PolicyRuleType::Deny | types::PolicyRuleType::Require))
+                violations
+                    .iter()
+                    .filter(|v| matches!(
+                        v.severity,
+                        types::PolicyRuleType::Deny | types::PolicyRuleType::Require
+                    ))
                     .count()
             ));
         }
@@ -232,7 +276,9 @@ fn apply_pre_validate(
                 n_changes, preview_plan.to_create, preview_plan.to_update, preview_plan.to_destroy
             );
             let mut answer = String::new();
-            std::io::stdin().read_line(&mut answer).map_err(|e| format!("stdin error: {}", e))?;
+            std::io::stdin()
+                .read_line(&mut answer)
+                .map_err(|e| format!("stdin error: {}", e))?;
             if !answer.trim().eq_ignore_ascii_case("y") {
                 return Err("aborted by user".to_string());
             }

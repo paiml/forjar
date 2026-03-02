@@ -354,4 +354,3 @@ policy:
     let _ = std::fs::remove_file(&path_a);
     let _ = std::fs::remove_file(&path_b);
 }
-

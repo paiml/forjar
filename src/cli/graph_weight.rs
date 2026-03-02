@@ -52,14 +52,25 @@ fn build_reverse_adj(config: &types::ForjarConfig) -> HashMap<String, Vec<String
     let mut reverse_adj: HashMap<String, Vec<String>> = HashMap::new();
     for (name, res) in &config.resources {
         for dep in &resource_deps(res, config) {
-            reverse_adj.entry(dep.clone()).or_default().push(name.clone());
+            reverse_adj
+                .entry(dep.clone())
+                .or_default()
+                .push(name.clone());
         }
     }
     reverse_adj
 }
 fn find_roots(config: &types::ForjarConfig) -> Vec<String> {
-    config.resources.iter()
-        .filter(|(_, res)| res.depends_on.iter().filter(|d| config.resources.contains_key(*d)).count() == 0)
+    config
+        .resources
+        .iter()
+        .filter(|(_, res)| {
+            res.depends_on
+                .iter()
+                .filter(|d| config.resources.contains_key(*d))
+                .count()
+                == 0
+        })
         .map(|(n, _)| n.clone())
         .collect()
 }
@@ -76,12 +87,16 @@ fn compute_depth_map(config: &types::ForjarConfig) -> HashMap<String, usize> {
         if let Some(dependents) = reverse_adj.get(&node) {
             for dep in dependents {
                 let entry = depth.entry(dep.clone()).or_insert(0);
-                if d + 1 > *entry { *entry = d + 1; }
+                if d + 1 > *entry {
+                    *entry = d + 1;
+                }
                 queue.push_back(dep.clone());
             }
         }
     }
-    for name in config.resources.keys() { depth.entry(name.clone()).or_insert(0); }
+    for name in config.resources.keys() {
+        depth.entry(name.clone()).or_insert(0);
+    }
     depth
 }
 
@@ -183,7 +198,9 @@ struct TopoLayer {
 
 fn build_in_degree(config: &types::ForjarConfig) -> BTreeMap<String, usize> {
     let mut in_count: BTreeMap<String, usize> = BTreeMap::new();
-    for name in config.resources.keys() { in_count.entry(name.clone()).or_insert(0); }
+    for name in config.resources.keys() {
+        in_count.entry(name.clone()).or_insert(0);
+    }
     for (name, res) in &config.resources {
         for dep in &res.depends_on {
             if config.resources.contains_key(dep) {
@@ -198,7 +215,11 @@ fn compute_topological_layers(config: &types::ForjarConfig) -> Vec<TopoLayer> {
     let reverse_adj = build_reverse_adj(config);
     let mut layers: Vec<TopoLayer> = Vec::new();
     let mut queue: VecDeque<String> = {
-        let mut roots: Vec<String> = in_count.iter().filter(|(_, c)| **c == 0).map(|(n, _)| n.clone()).collect();
+        let mut roots: Vec<String> = in_count
+            .iter()
+            .filter(|(_, c)| **c == 0)
+            .map(|(n, _)| n.clone())
+            .collect();
         roots.sort();
         roots.into_iter().collect()
     };
@@ -210,10 +231,15 @@ fn compute_topological_layers(config: &types::ForjarConfig) -> Vec<TopoLayer> {
             for dep in reverse_adj.get(node).into_iter().flatten() {
                 let c = in_count.get_mut(dep).unwrap();
                 *c -= 1;
-                if *c == 0 { next.push_back(dep.clone()); }
+                if *c == 0 {
+                    next.push_back(dep.clone());
+                }
             }
         }
-        layers.push(TopoLayer { layer: layers.len(), resources: current_layer });
+        layers.push(TopoLayer {
+            layer: layers.len(),
+            resources: current_layer,
+        });
         queue = next;
     }
     layers

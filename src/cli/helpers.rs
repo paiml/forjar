@@ -7,11 +7,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 /// Global flag.
 pub(crate) static NO_COLOR: AtomicBool = AtomicBool::new(false);
 
-
 pub(crate) fn color_enabled() -> bool {
     !NO_COLOR.load(Ordering::Relaxed)
 }
-
 
 pub(crate) fn green(s: &str) -> String {
     if color_enabled() {
@@ -21,7 +19,6 @@ pub(crate) fn green(s: &str) -> String {
     }
 }
 
-
 pub(crate) fn red(s: &str) -> String {
     if color_enabled() {
         format!("\x1b[31m{}\x1b[0m", s)
@@ -29,7 +26,6 @@ pub(crate) fn red(s: &str) -> String {
         s.to_string()
     }
 }
-
 
 pub(crate) fn yellow(s: &str) -> String {
     if color_enabled() {
@@ -39,7 +35,6 @@ pub(crate) fn yellow(s: &str) -> String {
     }
 }
 
-
 pub(crate) fn dim(s: &str) -> String {
     if color_enabled() {
         format!("\x1b[2m{}\x1b[0m", s)
@@ -47,7 +42,6 @@ pub(crate) fn dim(s: &str) -> String {
         s.to_string()
     }
 }
-
 
 pub(crate) fn bold(s: &str) -> String {
     if color_enabled() {
@@ -57,12 +51,10 @@ pub(crate) fn bold(s: &str) -> String {
     }
 }
 
-
 /// Parse, validate, and expand recipes in a forjar config file.
 pub(crate) fn parse_and_validate(file: &Path) -> Result<types::ForjarConfig, String> {
     parser::parse_and_validate(file)
 }
-
 
 /// Discover machine names from a state directory by listing subdirectories that contain state.lock.yaml.
 pub(crate) fn discover_machines(state_dir: &Path) -> Vec<String> {
@@ -80,4 +72,3 @@ pub(crate) fn discover_machines(state_dir: &Path) -> Vec<String> {
     machines.sort();
     machines
 }
-

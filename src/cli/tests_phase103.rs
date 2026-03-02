@@ -1,8 +1,8 @@
 //! Tests: Phase 103 — Fleet Analytics & Configuration Quality (FJ-1085→FJ-1092).
 
+use super::graph_analytics_ext::*;
 use super::status_analytics::*;
 use super::validate_config_quality::*;
-use super::graph_analytics_ext::*;
 use std::io::Write;
 
 #[cfg(test)]
@@ -18,7 +18,9 @@ mod tests {
 
     fn write_yaml(dir: &std::path::Path, name: &str, content: &str) {
         let p = dir.join(name);
-        if let Some(parent) = p.parent() { std::fs::create_dir_all(parent).unwrap(); }
+        if let Some(parent) = p.parent() {
+            std::fs::create_dir_all(parent).unwrap();
+        }
         std::fs::write(&p, content).unwrap();
     }
 
@@ -165,13 +167,42 @@ mod tests {
 
     // ── File-not-found error paths ──
     #[test]
-    fn test_fj1086_file_not_found() { assert!(cmd_validate_check_resource_dependency_isolation(std::path::Path::new("/x"), false).is_err()); }
+    fn test_fj1086_file_not_found() {
+        assert!(cmd_validate_check_resource_dependency_isolation(
+            std::path::Path::new("/x"),
+            false
+        )
+        .is_err());
+    }
     #[test]
-    fn test_fj1087_file_not_found() { assert!(cmd_graph_resource_dependency_depth_histogram(std::path::Path::new("/x"), false).is_err()); }
+    fn test_fj1087_file_not_found() {
+        assert!(
+            cmd_graph_resource_dependency_depth_histogram(std::path::Path::new("/x"), false)
+                .is_err()
+        );
+    }
     #[test]
-    fn test_fj1089_file_not_found() { assert!(cmd_validate_check_resource_tag_value_consistency(std::path::Path::new("/x"), false).is_err()); }
+    fn test_fj1089_file_not_found() {
+        assert!(cmd_validate_check_resource_tag_value_consistency(
+            std::path::Path::new("/x"),
+            false
+        )
+        .is_err());
+    }
     #[test]
-    fn test_fj1090_file_not_found() { assert!(cmd_graph_resource_dependency_redundancy_analysis(std::path::Path::new("/x"), false).is_err()); }
+    fn test_fj1090_file_not_found() {
+        assert!(cmd_graph_resource_dependency_redundancy_analysis(
+            std::path::Path::new("/x"),
+            false
+        )
+        .is_err());
+    }
     #[test]
-    fn test_fj1092_file_not_found() { assert!(cmd_validate_check_resource_machine_distribution_balance(std::path::Path::new("/x"), false).is_err()); }
+    fn test_fj1092_file_not_found() {
+        assert!(cmd_validate_check_resource_machine_distribution_balance(
+            std::path::Path::new("/x"),
+            false
+        )
+        .is_err());
+    }
 }

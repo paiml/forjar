@@ -59,11 +59,11 @@ fn resolve_opt(
 }
 
 /// Resolve `{{inputs.X}}` in each element of a Vec<String>.
-fn resolve_vec(
-    fields: &[String],
-    inputs: &HashMap<String, String>,
-) -> Result<Vec<String>, String> {
-    fields.iter().map(|v| resolve_input_template(v, inputs)).collect()
+fn resolve_vec(fields: &[String], inputs: &HashMap<String, String>) -> Result<Vec<String>, String> {
+    fields
+        .iter()
+        .map(|v| resolve_input_template(v, inputs))
+        .collect()
 }
 
 /// Resolve input templates in all string fields of a resource.
@@ -119,6 +119,9 @@ pub(crate) fn resolve_resource_inputs(
     // Lifecycle hooks
     r.pre_apply = resolve_opt(&r.pre_apply, inputs)?;
     r.post_apply = resolve_opt(&r.post_apply, inputs)?;
+
+    // Store / derivation fields
+    r.script = resolve_opt(&r.script, inputs)?;
 
     // Docker fields (Vec<String>)
     r.ports = resolve_vec(&r.ports, inputs)?;

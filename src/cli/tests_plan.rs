@@ -1,23 +1,22 @@
 //! Tests: Plan command.
 
 #![allow(unused_imports)]
+use super::commands::*;
+use super::dispatch::*;
+use super::helpers::*;
+use super::helpers_state::*;
+use super::helpers_time::*;
+use super::plan::*;
+use super::test_fixtures::*;
 use crate::core::types::ProvenanceEvent;
 use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
 use crate::transport;
 use crate::tripwire::{anomaly, drift, eventlog, tracer};
 use std::path::{Path, PathBuf};
-use super::helpers::*;
-use super::helpers_state::*;
-use super::helpers_time::*;
-use super::plan::*;
-use super::commands::*;
-use super::dispatch::*;
-use super::test_fixtures::*;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
 
     #[test]
     fn test_fj017_plan() {
@@ -62,7 +61,6 @@ resources:
         )
         .unwrap();
     }
-
 
     #[test]
     fn test_fj017_plan_with_machine_filter() {
@@ -116,7 +114,6 @@ resources:
         .unwrap();
     }
 
-
     #[test]
     fn test_fj017_plan_validation_error() {
         let dir = tempfile::tempdir().unwrap();
@@ -152,7 +149,6 @@ resources: {}
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("validation"));
     }
-
 
     #[test]
     fn test_fj017_dispatch_plan() {
@@ -202,7 +198,6 @@ resources:
         .unwrap();
     }
 
-
     #[test]
     fn test_fj017_plan_nonexistent_state_dir() {
         let dir = tempfile::tempdir().unwrap();
@@ -246,7 +241,6 @@ resources:
         )
         .unwrap();
     }
-
 
     #[test]
     fn test_fj017_plan_json_output() {
@@ -293,7 +287,6 @@ resources:
         .unwrap();
     }
 
-
     #[test]
     fn test_fj017_plan_verbose() {
         let dir = tempfile::tempdir().unwrap();
@@ -337,7 +330,6 @@ resources:
         )
         .unwrap();
     }
-
 
     #[test]
     fn test_fj017_plan_output_dir() {
@@ -401,7 +393,6 @@ resources:
         assert!(check.contains("dpkg"));
     }
 
-
     #[test]
     fn test_fj211_plan_with_env_file() {
         let dir = tempfile::tempdir().unwrap();
@@ -430,7 +421,6 @@ resources:
         )
         .unwrap();
     }
-
 
     #[test]
     fn test_fj210_plan_with_workspace() {
@@ -482,5 +472,4 @@ resources:
     // ================================================================
     // FJ-220: Policy check CLI tests
     // ================================================================
-
 }

@@ -53,10 +53,7 @@ mod tests {
 
     fn resolved_resources() -> BTreeMap<String, String> {
         let mut m = BTreeMap::new();
-        m.insert(
-            "ubuntu-base".to_string(),
-            "blake3:ubuntuabc123".to_string(),
-        );
+        m.insert("ubuntu-base".to_string(), "blake3:ubuntuabc123".to_string());
         m
     }
 
@@ -81,19 +78,13 @@ mod tests {
     fn plan_store_hit_skips_build() {
         let deriv = sample_derivation();
         // Pre-compute the closure hash so we can pretend it's in the store
-        let input_hashes = crate::core::store::derivation::collect_input_hashes(
-            &deriv, &BTreeMap::new(),
-        )
-        .unwrap();
-        let closure = crate::core::store::derivation::derivation_closure_hash(&deriv, &input_hashes);
+        let input_hashes =
+            crate::core::store::derivation::collect_input_hashes(&deriv, &BTreeMap::new()).unwrap();
+        let closure =
+            crate::core::store::derivation::derivation_closure_hash(&deriv, &input_hashes);
 
-        let plan = plan_derivation(
-            &deriv,
-            &BTreeMap::new(),
-            &[closure],
-            Path::new("/store"),
-        )
-        .unwrap();
+        let plan =
+            plan_derivation(&deriv, &BTreeMap::new(), &[closure], Path::new("/store")).unwrap();
 
         assert!(plan.store_hit);
         assert!(plan.sandbox_plan.is_none());
@@ -102,12 +93,10 @@ mod tests {
 
     #[test]
     fn plan_closure_hash_deterministic() {
-        let p1 = plan_derivation(
-            &sample_derivation(), &BTreeMap::new(), &[], Path::new("/s"),
-        ).unwrap();
-        let p2 = plan_derivation(
-            &sample_derivation(), &BTreeMap::new(), &[], Path::new("/s"),
-        ).unwrap();
+        let p1 =
+            plan_derivation(&sample_derivation(), &BTreeMap::new(), &[], Path::new("/s")).unwrap();
+        let p2 =
+            plan_derivation(&sample_derivation(), &BTreeMap::new(), &[], Path::new("/s")).unwrap();
         assert_eq!(p1.closure_hash, p2.closure_hash);
     }
 
@@ -172,12 +161,10 @@ mod tests {
 
     #[test]
     fn simulate_deterministic() {
-        let r1 = simulate_derivation(
-            &sample_derivation(), &BTreeMap::new(), &[], Path::new("/s"),
-        ).unwrap();
-        let r2 = simulate_derivation(
-            &sample_derivation(), &BTreeMap::new(), &[], Path::new("/s"),
-        ).unwrap();
+        let r1 = simulate_derivation(&sample_derivation(), &BTreeMap::new(), &[], Path::new("/s"))
+            .unwrap();
+        let r2 = simulate_derivation(&sample_derivation(), &BTreeMap::new(), &[], Path::new("/s"))
+            .unwrap();
         assert_eq!(r1.store_hash, r2.store_hash);
         assert_eq!(r1.closure_hash, r2.closure_hash);
     }
@@ -185,10 +172,10 @@ mod tests {
     #[test]
     fn simulate_store_hit_returns_existing() {
         let deriv = sample_derivation();
-        let input_hashes = crate::core::store::derivation::collect_input_hashes(
-            &deriv, &BTreeMap::new(),
-        ).unwrap();
-        let closure = crate::core::store::derivation::derivation_closure_hash(&deriv, &input_hashes);
+        let input_hashes =
+            crate::core::store::derivation::collect_input_hashes(&deriv, &BTreeMap::new()).unwrap();
+        let closure =
+            crate::core::store::derivation::derivation_closure_hash(&deriv, &input_hashes);
 
         let result = simulate_derivation(
             &deriv,
@@ -280,17 +267,15 @@ mod tests {
 
     #[test]
     fn is_store_hit_helper() {
-        let plan = plan_derivation(
-            &sample_derivation(), &BTreeMap::new(), &[], Path::new("/s"),
-        ).unwrap();
+        let plan =
+            plan_derivation(&sample_derivation(), &BTreeMap::new(), &[], Path::new("/s")).unwrap();
         assert!(!is_store_hit(&plan));
     }
 
     #[test]
     fn skipped_steps_on_miss_is_zero() {
-        let plan = plan_derivation(
-            &sample_derivation(), &BTreeMap::new(), &[], Path::new("/s"),
-        ).unwrap();
+        let plan =
+            plan_derivation(&sample_derivation(), &BTreeMap::new(), &[], Path::new("/s")).unwrap();
         assert_eq!(skipped_steps(&plan), 0);
     }
 }

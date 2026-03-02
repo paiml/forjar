@@ -1,11 +1,10 @@
 //! History commands.
 
+use super::helpers::*;
+use super::helpers_time::*;
 use crate::core::types;
 use crate::tripwire::eventlog;
 use std::path::Path;
-use super::helpers::*;
-use super::helpers_time::*;
-
 
 pub(crate) fn cmd_history(
     state_dir: &Path,
@@ -81,7 +80,6 @@ pub(crate) fn cmd_history(
     Ok(())
 }
 
-
 /// Convert epoch seconds to ISO 8601 date string (manual UTC formatting).
 fn epoch_secs_to_iso8601(d: u64) -> String {
     let secs_in_day = 86400u64;
@@ -108,7 +106,16 @@ fn epoch_secs_to_iso8601(d: u64) -> String {
     let mdays = [
         31,
         if leap { 29 } else { 28 },
-        31, 30, 31, 30, 31, 31, 30, 31, 30, 31,
+        31,
+        30,
+        31,
+        30,
+        31,
+        31,
+        30,
+        31,
+        30,
+        31,
     ];
     let mut mo = 0usize;
     while mo < 12 && days >= mdays[mo] {
@@ -117,7 +124,12 @@ fn epoch_secs_to_iso8601(d: u64) -> String {
     }
     format!(
         "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}",
-        y, mo + 1, days + 1, hh, mm, ss
+        y,
+        mo + 1,
+        days + 1,
+        hh,
+        mm,
+        ss
     )
 }
 
@@ -199,10 +211,7 @@ fn print_apply_events(apply_events: &[&types::TimestampedEvent]) {
 
 // FJ-357: Show change history for a specific resource
 /// Collect matching event lines from JSONL log files for a specific resource.
-fn collect_resource_events(
-    log_dir: &Path,
-    resource: &str,
-) -> Result<Vec<String>, String> {
+fn collect_resource_events(log_dir: &Path, resource: &str) -> Result<Vec<String>, String> {
     let mut entries = Vec::new();
     for entry in std::fs::read_dir(log_dir).map_err(|e| e.to_string())? {
         let entry = entry.map_err(|e| e.to_string())?;
@@ -257,4 +266,3 @@ pub(crate) fn cmd_history_resource(
 
     Ok(())
 }
-
