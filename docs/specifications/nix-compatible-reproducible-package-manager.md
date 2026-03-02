@@ -10,11 +10,11 @@ This specification has been restructured into per-phase files for easier navigat
 | B | [Purity](store/phase-b-purity.md) | ✅ |
 | C | [Closures & Locking](store/phase-c-closure.md) | ✅ |
 | D | [Repro Scoring](store/phase-d-scoring.md) | ✅ |
-| E | [Cache & GC](store/phase-e-cache.md) | 🔧 |
-| F | [Derivations](store/phase-f-derivation.md) | 🔧 |
+| E | [Cache & GC](store/phase-e-cache.md) | ✅ |
+| F | [Derivations](store/phase-f-derivation.md) | ✅ |
 | G | [FAR Archive](store/phase-g-far.md) | ✅ |
-| H | [Import/Convert](store/phase-h-convert.md) | 🔧 |
+| H | [Import/Convert](store/phase-h-convert.md) | ✅ |
 | I | [Security](store/phase-i-security.md) | ✅ |
 | J | [Benchmarks](store/phase-j-benchmarks.md) | ✅ |
 | K | [Bash Provability](store/phase-k-bash.md) | ✅ |
-| L | [Execution Layer](store/phase-l-execution.md) | 🔲 |
+| L | [Execution Layer](store/phase-l-execution.md) | ✅ |
