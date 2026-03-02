@@ -8,6 +8,7 @@ pub mod meta;
 pub mod profile;
 pub mod reference;
 pub mod purity;
+pub mod far;
 
 #[cfg(test)]
 mod tests_path;
@@ -19,3 +20,5 @@ mod tests_profile;
 mod tests_reference;
 #[cfg(test)]
 mod tests_purity;
+#[cfg(test)]
+mod tests_far;
