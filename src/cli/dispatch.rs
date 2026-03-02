@@ -92,7 +92,8 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
         | cmd @ Commands::Cache(..)
         | cmd @ Commands::Store(..)
         | cmd @ Commands::Archive(..)
-        | cmd @ Commands::Convert(..) => dispatch_store_cmd(cmd),
+        | cmd @ Commands::Convert(..)
+        | cmd @ Commands::StoreImport(..) => dispatch_store_cmd(cmd),
         // All remaining commands
         cmd => dispatch_misc_cmd(cmd, verbose),
     }

@@ -6,6 +6,7 @@ use super::store_cache::*;
 use super::store_ops::*;
 use super::store_archive::*;
 use super::store_convert::*;
+use super::store_import::*;
 
 
 /// Dispatch store-related commands.
@@ -25,6 +26,15 @@ pub(crate) fn dispatch_store_cmd(cmd: Commands) -> Result<(), String> {
         Commands::Archive(sub) => dispatch_archive(sub),
         Commands::Convert(ConvertArgs { file, reproducible, json }) => {
             cmd_convert(&file, reproducible, json)
+        }
+        Commands::StoreImport(StoreImportArgs {
+            provider, reference, version, store_dir, json, list_providers,
+        }) => {
+            if list_providers {
+                cmd_import_providers(json)
+            } else {
+                cmd_store_import(&provider, &reference, version.as_deref(), &store_dir, json)
+            }
         }
         _ => Err("unknown store command".to_string()),
     }

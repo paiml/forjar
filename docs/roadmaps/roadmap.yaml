@@ -291,3 +291,20 @@ roadmap:
   estimated_effort: null
   labels: []
   notes: null
+- id: PMAT-018
+  github_issue: null
+  item_type: task
+  title: 'FJ-1333: forjar store-import CLI — universal provider import'
+  status: completed
+  priority: medium
+  assigned_to: null
+  created: 2026-03-02T15:00:00Z
+  updated: 2026-03-02T15:00:00Z
+  spec: null
+  acceptance_criteria:
+  - 'forjar store-import <provider> <ref> CLI with 8 providers. 14 tests.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
