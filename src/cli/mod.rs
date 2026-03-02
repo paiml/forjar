@@ -577,6 +577,8 @@ mod tests_cov_validate_ext2;
 #[cfg(test)]
 mod tests_cov_validate_ext3;
 #[cfg(test)]
+mod tests_cov_validate_ext4;
+#[cfg(test)]
 mod tests_workspace;
 mod validate_advanced;
 mod validate_analytics;
