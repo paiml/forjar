@@ -448,11 +448,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'FJ-1371: Wire cache pull to cache_exec and add version resolution'
-  status: inprogress
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-03-02T15:49:37Z
-  updated: 2026-03-02T15:51:40.375070995+00:00
+  updated: 2026-03-02T22:09:42Z
   spec: null
   acceptance_criteria:
   - Connect cmd_cache_pull to cache_exec::pull_from_cache, add version resolution in convert_exec
@@ -465,11 +465,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'FJ-1372: Boost test coverage to 95% target'
-  status: inprogress
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-03-02T16:51:01Z
-  updated: 2026-03-02T16:51:08.647780770+00:00
+  updated: 2026-03-02T22:09:38Z
   spec: null
   acceptance_criteria: []
   phases: []
