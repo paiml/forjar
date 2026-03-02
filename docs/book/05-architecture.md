@@ -238,7 +238,15 @@ Monotonicity invariant: a resource's purity level is at least as impure as its l
 
 **Store derivations** (`src/core/store/derivation.rs`): Take store entries as inputs, transform inside a pepita sandbox, produce a new store entry. `type: derivation` + `inputs:` (store hashes or resource refs) + `script:` (bashrs-purified shell). Closure hashing ensures identical inputs → identical store paths. DAG validation prevents cycles. Derivation purity derived from sandbox config level.
 
-See `cargo run --example store_reproducibility` for a full demonstration.
+**Upstream diff/sync** (`src/core/store/store_diff.rs`): Compares store entries against their origin provenance (recorded in `meta.yaml`). Builds sync plans: re-import leaf nodes, replay derivation chains bottom-up. Generates upstream check commands per provider.
+
+**Recipe conversion** (`src/core/store/convert.rs`): Implements the 5-step conversion ladder for making recipes reproducible: (1) add version pins, (2) enable store, (3) generate lock file, (4) add sandbox (manual), (5) replace curl|bash (manual). Projects purity improvement from automated steps.
+
+**Tripwire pin integration** (`src/core/store/pin_tripwire.rs`): Extends tripwire upstream detection for lock file awareness. Checks lock file freshness and completeness before apply. Severity levels: Info (all fresh), Warning (stale/missing pins), Error (CI strict mode blocks apply).
+
+**Validation** (`src/core/store/validate.rs`): Implements `forjar validate --check-recipe-purity` and `--check-reproducibility-score`. Purity validation with minimum level gates. Reproducibility score validation with minimum score thresholds. Formatted reports for CLI output.
+
+See `cargo run --example store_reproducibility` for a full demonstration (14 sections).
 
 ## Shell Purification (FJ-036)
 
