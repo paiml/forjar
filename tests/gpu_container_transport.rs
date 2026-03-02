@@ -80,8 +80,8 @@ fn test_fj739_cuda_lifecycle() {
     let machine = cuda_machine();
     container::ensure_container(&machine).expect("CUDA ensure_container failed");
 
-    let out = container::exec_container(&machine, "echo cuda-ok")
-        .expect("CUDA exec_container failed");
+    let out =
+        container::exec_container(&machine, "echo cuda-ok").expect("CUDA exec_container failed");
     assert!(out.success());
     assert_eq!(out.stdout.trim(), "cuda-ok");
 
@@ -93,11 +93,17 @@ fn test_fj739_cuda_nvidia_smi() {
     let machine = cuda_machine();
     container::ensure_container(&machine).expect("CUDA ensure failed");
 
-    let out = container::exec_container(&machine, "nvidia-smi --query-gpu=name --format=csv,noheader")
-        .expect("nvidia-smi exec failed");
+    let out = container::exec_container(
+        &machine,
+        "nvidia-smi --query-gpu=name --format=csv,noheader",
+    )
+    .expect("nvidia-smi exec failed");
     // nvidia-smi should succeed if NVIDIA Container Toolkit is installed
     assert!(out.success(), "nvidia-smi failed: {}", out.stderr);
-    assert!(!out.stdout.trim().is_empty(), "nvidia-smi returned no GPU name");
+    assert!(
+        !out.stdout.trim().is_empty(),
+        "nvidia-smi returned no GPU name"
+    );
 
     container::cleanup_container(&machine).expect("CUDA cleanup failed");
 }
@@ -107,10 +113,14 @@ fn test_fj739_cuda_env_vars() {
     let machine = cuda_machine();
     container::ensure_container(&machine).expect("CUDA ensure failed");
 
-    let out = container::exec_container(&machine, "echo $CUDA_VISIBLE_DEVICES")
-        .expect("env exec failed");
+    let out =
+        container::exec_container(&machine, "echo $CUDA_VISIBLE_DEVICES").expect("env exec failed");
     assert!(out.success());
-    assert_eq!(out.stdout.trim(), "0", "CUDA_VISIBLE_DEVICES not set correctly");
+    assert_eq!(
+        out.stdout.trim(),
+        "0",
+        "CUDA_VISIBLE_DEVICES not set correctly"
+    );
 
     container::cleanup_container(&machine).expect("CUDA cleanup failed");
 }
@@ -124,8 +134,8 @@ fn test_fj739_rocm_lifecycle() {
     let machine = rocm_machine();
     container::ensure_container(&machine).expect("ROCm ensure_container failed");
 
-    let out = container::exec_container(&machine, "echo rocm-ok")
-        .expect("ROCm exec_container failed");
+    let out =
+        container::exec_container(&machine, "echo rocm-ok").expect("ROCm exec_container failed");
     assert!(out.success());
     assert_eq!(out.stdout.trim(), "rocm-ok");
 
@@ -149,10 +159,14 @@ fn test_fj739_rocm_env_vars() {
     let machine = rocm_machine();
     container::ensure_container(&machine).expect("ROCm ensure failed");
 
-    let out = container::exec_container(&machine, "echo $ROCR_VISIBLE_DEVICES")
-        .expect("env exec failed");
+    let out =
+        container::exec_container(&machine, "echo $ROCR_VISIBLE_DEVICES").expect("env exec failed");
     assert!(out.success());
-    assert_eq!(out.stdout.trim(), "0", "ROCR_VISIBLE_DEVICES not set correctly");
+    assert_eq!(
+        out.stdout.trim(),
+        "0",
+        "ROCR_VISIBLE_DEVICES not set correctly"
+    );
 
     container::cleanup_container(&machine).expect("ROCm cleanup failed");
 }
@@ -183,18 +197,29 @@ cat /workspace/models/model.yaml
     let cuda = cuda_machine();
     container::ensure_container(&cuda).expect("CUDA ensure failed");
     let cuda_out = transport::exec_script(&cuda, config_script).expect("CUDA exec failed");
-    assert!(cuda_out.success(), "CUDA config deploy failed: {}", cuda_out.stderr);
+    assert!(
+        cuda_out.success(),
+        "CUDA config deploy failed: {}",
+        cuda_out.stderr
+    );
     assert!(cuda_out.stdout.contains("g1_model_loads"));
 
     // ROCm
     let rocm = rocm_machine();
     container::ensure_container(&rocm).expect("ROCm ensure failed");
     let rocm_out = transport::exec_script(&rocm, config_script).expect("ROCm exec failed");
-    assert!(rocm_out.success(), "ROCm config deploy failed: {}", rocm_out.stderr);
+    assert!(
+        rocm_out.success(),
+        "ROCm config deploy failed: {}",
+        rocm_out.stderr
+    );
     assert!(rocm_out.stdout.contains("g1_model_loads"));
 
     // Same output from both vendors
-    assert_eq!(cuda_out.stdout, rocm_out.stdout, "Cross-vendor config mismatch");
+    assert_eq!(
+        cuda_out.stdout, rocm_out.stdout,
+        "Cross-vendor config mismatch"
+    );
 
     container::cleanup_container(&cuda).expect("CUDA cleanup failed");
     container::cleanup_container(&rocm).expect("ROCm cleanup failed");
