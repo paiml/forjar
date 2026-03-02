@@ -1,6 +1,7 @@
 //! Tests for substitution protocol executor (FJ-1322).
 
 #[cfg(test)]
+#[allow(clippy::too_many_arguments)]
 mod tests {
     use crate::core::store::cache::*;
     use crate::core::store::sandbox::{SandboxConfig, SandboxLevel};

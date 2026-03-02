@@ -376,7 +376,7 @@ fn bench_purify_script(c: &mut Criterion) {
         ("medium", medium),
         ("large", large),
     ] {
-        group.bench_with_input(BenchmarkId::from_parameter(&label), &script, |b, script| {
+        group.bench_with_input(BenchmarkId::from_parameter(label), &script, |b, script| {
             b.iter(|| {
                 let _ = black_box(purify_script(black_box(script)));
             });

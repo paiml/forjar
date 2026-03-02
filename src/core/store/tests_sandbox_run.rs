@@ -142,10 +142,9 @@ fn dry_run_returns_commands() {
     let plan = sample_plan();
     // dry_run may fail for complex commands, that's OK — test the path
     let result = dry_run_sandbox_plan(&plan);
-    match result {
-        Ok(cmds) => assert!(!cmds.is_empty()),
-        Err(_) => {} // I8 failure on complex commands is expected
-    }
+    if let Ok(cmds) = result {
+        assert!(!cmds.is_empty());
+    } // I8 failure on complex commands is expected
 }
 
 #[test]
