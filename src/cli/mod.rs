@@ -203,6 +203,8 @@ mod tests_cov_fleet;
 #[cfg(test)]
 mod tests_cov_fleet_b;
 #[cfg(test)]
+mod tests_cov_fleet_c;
+#[cfg(test)]
 mod tests_cov_graph;
 #[cfg(test)]
 mod tests_cov_graph2;
