@@ -335,5 +335,9 @@ pub enum Commands {
     /// FJ-1328: Convert recipe to reproducible format (version pin, store, lock)
     Convert(ConvertArgs),
 
+    /// FJ-1333: Universal store import (apt, cargo, uv, nix, docker, tofu, terraform, apr)
+    #[command(name = "store-import")]
+    StoreImport(StoreImportArgs),
+
 }
 

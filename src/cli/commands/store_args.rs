@@ -208,6 +208,33 @@ pub enum ArchiveCmd {
 }
 
 
+/// Store import args: `forjar store-import <provider> <ref>`.
+#[derive(clap::Args, Debug)]
+pub struct StoreImportArgs {
+    /// Provider name (apt, cargo, uv, nix, docker, tofu, terraform, apr)
+    pub provider: String,
+
+    /// Package/image/reference to import
+    pub reference: String,
+
+    /// Version pin
+    #[arg(long)]
+    pub version: Option<String>,
+
+    /// Store directory
+    #[arg(long, default_value = "/var/lib/forjar/store")]
+    pub store_dir: std::path::PathBuf,
+
+    /// Output as JSON
+    #[arg(long)]
+    pub json: bool,
+
+    /// List supported providers instead of importing
+    #[arg(long)]
+    pub list_providers: bool,
+}
+
+
 /// Convert subcommand args: --reproducible conversion.
 #[derive(clap::Args, Debug)]
 pub struct ConvertArgs {
