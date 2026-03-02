@@ -1,22 +1,9 @@
 {
-  "tree_hash": "ba183a3501a61adc5f8698b9db151b5dc4e34045",
+  "tree_hash": "92c915cab0750b37c07e48ea9e3c0e67911ed0c0",
   "pmat_version": "3.6.1",
-  "timestamp": "2026-03-02T22:00:39.192421774Z",
+  "timestamp": "2026-03-02T22:04:31.716745949Z",
   "report": {
     "files_with_dead_code": [
-      {
-        "file_path": "src/cli/tests_infra.rs",
-        "dead_items": [
-          {
-            "name": "write_output_config",
-            "kind": "Suppressed",
-            "line": 281,
-            "column": 1,
-            "message": "fn `write_output_config` has #[allow(dead_code)] suppression (explicit dead code admission)"
-          }
-        ],
-        "file_dead_percentage": 1.3071895424836601
-      },
       {
         "file_path": "src/cli/tests_init.rs",
         "dead_items": [
@@ -29,6 +16,19 @@
           }
         ],
         "file_dead_percentage": 0.7233273056057866
+      },
+      {
+        "file_path": "src/cli/tests_infra.rs",
+        "dead_items": [
+          {
+            "name": "write_output_config",
+            "kind": "Suppressed",
+            "line": 281,
+            "column": 1,
+            "message": "fn `write_output_config` has #[allow(dead_code)] suppression (explicit dead code admission)"
+          }
+        ],
+        "file_dead_percentage": 1.3071895424836601
       },
       {
         "file_path": "src/cli/tests_show.rs",
