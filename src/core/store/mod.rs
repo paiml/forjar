@@ -35,6 +35,7 @@ pub mod sandbox_exec;
 pub mod secret_scan;
 pub mod store_diff;
 pub mod substitution;
+pub mod sync_exec;
 pub mod validate;
 
 #[cfg(test)]
@@ -103,5 +104,7 @@ mod tests_secret_scan;
 mod tests_store_diff;
 #[cfg(test)]
 mod tests_substitution;
+#[cfg(test)]
+mod tests_sync_exec;
 #[cfg(test)]
 mod tests_validate;
