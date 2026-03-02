@@ -108,7 +108,7 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'FJ-1315: Build sandbox config'
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-03-02T12:00:00Z
@@ -125,7 +125,7 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'FJ-1320: Binary cache config and substitution protocol'
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-03-02T12:00:00Z
@@ -142,7 +142,7 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'FJ-1333: Universal provider import interface'
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-03-02T12:00:00Z
@@ -159,7 +159,7 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'FJ-1341: Store derivation model'
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-03-02T12:00:00Z
@@ -167,6 +167,40 @@ roadmap:
   spec: null
   acceptance_criteria:
   - Derivation struct with inputs/script/sandbox. DerivationResult. Closure computation. DAG validation.
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-011
+  github_issue: null
+  item_type: task
+  title: 'FJ-1345: Upstream diff and sync model'
+  status: completed
+  priority: medium
+  assigned_to: null
+  created: 2026-03-02T13:00:00Z
+  updated: 2026-03-02T13:00:00Z
+  spec: null
+  acceptance_criteria:
+  - DiffResult, SyncPlan structs. compute_diff, build_sync_plan. Upstream check commands.
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-012
+  github_issue: null
+  item_type: task
+  title: 'FJ-1328: Recipe conversion strategy'
+  status: completed
+  priority: medium
+  assigned_to: null
+  created: 2026-03-02T13:00:00Z
+  updated: 2026-03-02T13:00:00Z
+  spec: null
+  acceptance_criteria:
+  - 5-step conversion ladder analysis. ConversionReport with auto/manual changes. Purity projection.
   phases: []
   subtasks: []
   estimated_effort: null
