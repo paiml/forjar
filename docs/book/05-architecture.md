@@ -258,9 +258,23 @@ The store library modules are exposed through 5 CLI command families:
 | `forjar archive` | `pack`, `unpack`, `inspect`, `verify` | FJ-1346 | `store_archive.rs` |
 | `forjar convert` | `--reproducible` | FJ-1328 | `store_convert.rs` |
 
+| `forjar store-import` | `--list-providers` | FJ-1333 | `store_import.rs` |
+
 All commands dispatched through `dispatch_store.rs`. Args defined in `commands/store_args.rs`.
 
-See `cargo run --example store_reproducibility` for a full demonstration (16 sections).
+### Store Runtime Executors
+
+Three executor modules bridge the gap between store data models and actual build execution:
+
+| Module | Spec | Purpose |
+|--------|------|---------|
+| `sandbox_exec.rs` | FJ-1316 | 10-step sandbox lifecycle (namespace, overlay, cgroup, seccomp, build, hash, store, cleanup) |
+| `substitution.rs` | FJ-1322 | Full protocol: local store → SSH cache → build fallback → auto-push |
+| `derivation_exec.rs` | FJ-1342 | Derivation plan + simulate + DAG execution with store-hit skipping |
+
+All produce plans/simulations (dry-run-first) without executing I/O directly.
+
+See `cargo run --example store_reproducibility` for store model demos (16 sections) and `cargo run --example store_executors` for executor demos (8 sections).
 
 ## Shell Purification (FJ-036)
 
