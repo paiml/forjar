@@ -55,6 +55,13 @@ pub fn resolve_resource_templates(
     r.restart = resolve_opt(&r.restart, params, machines)?;
     r.version = resolve_opt(&r.version, params, machines)?;
 
+    // PMAT-039: GPU / ML model fields
+    r.driver_version = resolve_opt(&r.driver_version, params, machines)?;
+    r.cuda_version = resolve_opt(&r.cuda_version, params, machines)?;
+    r.rocm_version = resolve_opt(&r.rocm_version, params, machines)?;
+    r.gpu_backend = resolve_opt(&r.gpu_backend, params, machines)?;
+    r.compute_mode = resolve_opt(&r.compute_mode, params, machines)?;
+
     r.ports = resolve_list(&r.ports, params, machines)?;
     r.environment = resolve_list(&r.environment, params, machines)?;
     r.volumes = resolve_list(&r.volumes, params, machines)?;

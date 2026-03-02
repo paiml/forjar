@@ -492,3 +492,70 @@ fn test_fj132_resolve_resource_templates_list_fields() {
     assert_eq!(resolved.environment, vec!["PORT=8080"]);
 }
 
+// ── PMAT-039: GPU fields must resolve templates ──
+
+#[test]
+fn test_pmat039_resolve_driver_version() {
+    let params = HashMap::from([(
+        "drv".to_string(),
+        serde_yaml_ng::Value::String("550".to_string()),
+    )]);
+    let machines = indexmap::IndexMap::new();
+    let mut r = make_base_resource();
+    r.driver_version = Some("{{params.drv}}".to_string());
+    let resolved = resolve_resource_templates(&r, &params, &machines).unwrap();
+    assert_eq!(resolved.driver_version.as_deref(), Some("550"));
+}
+
+#[test]
+fn test_pmat039_resolve_cuda_version() {
+    let params = HashMap::from([(
+        "cuda".to_string(),
+        serde_yaml_ng::Value::String("12.4".to_string()),
+    )]);
+    let machines = indexmap::IndexMap::new();
+    let mut r = make_base_resource();
+    r.cuda_version = Some("{{params.cuda}}".to_string());
+    let resolved = resolve_resource_templates(&r, &params, &machines).unwrap();
+    assert_eq!(resolved.cuda_version.as_deref(), Some("12.4"));
+}
+
+#[test]
+fn test_pmat039_resolve_rocm_version() {
+    let params = HashMap::from([(
+        "rocm".to_string(),
+        serde_yaml_ng::Value::String("6.0".to_string()),
+    )]);
+    let machines = indexmap::IndexMap::new();
+    let mut r = make_base_resource();
+    r.rocm_version = Some("{{params.rocm}}".to_string());
+    let resolved = resolve_resource_templates(&r, &params, &machines).unwrap();
+    assert_eq!(resolved.rocm_version.as_deref(), Some("6.0"));
+}
+
+#[test]
+fn test_pmat039_resolve_gpu_backend() {
+    let params = HashMap::from([(
+        "backend".to_string(),
+        serde_yaml_ng::Value::String("rocm".to_string()),
+    )]);
+    let machines = indexmap::IndexMap::new();
+    let mut r = make_base_resource();
+    r.gpu_backend = Some("{{params.backend}}".to_string());
+    let resolved = resolve_resource_templates(&r, &params, &machines).unwrap();
+    assert_eq!(resolved.gpu_backend.as_deref(), Some("rocm"));
+}
+
+#[test]
+fn test_pmat039_resolve_compute_mode() {
+    let params = HashMap::from([(
+        "mode".to_string(),
+        serde_yaml_ng::Value::String("exclusive_process".to_string()),
+    )]);
+    let machines = indexmap::IndexMap::new();
+    let mut r = make_base_resource();
+    r.compute_mode = Some("{{params.mode}}".to_string());
+    let resolved = resolve_resource_templates(&r, &params, &machines).unwrap();
+    assert_eq!(resolved.compute_mode.as_deref(), Some("exclusive_process"));
+}
+
