@@ -246,7 +246,21 @@ Monotonicity invariant: a resource's purity level is at least as impure as its l
 
 **Validation** (`src/core/store/validate.rs`): Implements `forjar validate --check-recipe-purity` and `--check-reproducibility-score`. Purity validation with minimum level gates. Reproducibility score validation with minimum score thresholds. Formatted reports for CLI output.
 
-See `cargo run --example store_reproducibility` for a full demonstration (14 sections).
+### Store CLI Commands
+
+The store library modules are exposed through 5 CLI command families:
+
+| Command | Subcommands | Spec | Module |
+|---------|-------------|------|--------|
+| `forjar pin` | `--update`, `--check` | FJ-1311–1313 | `store_pin.rs` |
+| `forjar cache` | `list`, `push`, `pull`, `verify` | FJ-1323–1324 | `store_cache.rs` |
+| `forjar store` | `gc`, `list`, `diff`, `sync` | FJ-1327, FJ-1345 | `store_ops.rs` |
+| `forjar archive` | `pack`, `unpack`, `inspect`, `verify` | FJ-1346 | `store_archive.rs` |
+| `forjar convert` | `--reproducible` | FJ-1328 | `store_convert.rs` |
+
+All commands dispatched through `dispatch_store.rs`. Args defined in `commands/store_args.rs`.
+
+See `cargo run --example store_reproducibility` for a full demonstration (16 sections).
 
 ## Shell Purification (FJ-036)
 
