@@ -1,7 +1,6 @@
 //! Misc command dispatch — routes remaining simple commands to handlers.
 
 use super::check::*;
-use super::check_test::*;
 use super::commands::*;
 use super::destroy::*;
 use super::diff_cmd::*;

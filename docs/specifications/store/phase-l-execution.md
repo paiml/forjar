@@ -1,6 +1,6 @@
 # Phase L: Execution Layer (FJ-1358–FJ-1365)
 
-**Status**: 🔲 Spec only — not yet implemented
+**Status**: 🔧 Partial — execution bridges implemented, CLI wiring pending
 
 ---
 

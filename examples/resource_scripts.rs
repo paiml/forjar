@@ -87,6 +87,8 @@ fn make_resource(rt: ResourceType) -> Resource {
         pre_apply: None,
         post_apply: None,
         lifecycle: None,
+        store: false,
+        script: None,
     }
 }
 
