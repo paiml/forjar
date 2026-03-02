@@ -331,6 +331,115 @@ fn when_condition_coverage_json() {
     assert!(cmd_validate_check_resource_when_condition_coverage(&f, true).is_ok());
 }
 
+fn pkg_cfg() -> &'static str {
+    r#"version: "1.0"
+name: validate-pkg
+machines:
+  m1:
+    hostname: m1
+    addr: 127.0.0.1
+resources:
+  web:
+    type: package
+    machine: m1
+    packages: [nginx]
+    tags: [web]
+  db:
+    type: package
+    machine: m1
+    packages: [postgresql]
+    version: "15"
+    tags: [db]
+  cfg:
+    type: file
+    machine: m1
+    path: /tmp/app.conf
+    content: "key=value"
+    tags: [app]
+"#
+}
+
+// ── deeper coverage: package resources & edge cases ─────────
+
+#[test]
+fn version_drift_with_packages_text() {
+    let d = tempfile::tempdir().unwrap();
+    let f = write_cfg(d.path(), pkg_cfg());
+    assert!(cmd_validate_check_resource_dependency_version_drift(&f, false).is_ok());
+}
+#[test]
+fn version_drift_with_packages_json() {
+    let d = tempfile::tempdir().unwrap();
+    let f = write_cfg(d.path(), pkg_cfg());
+    assert!(cmd_validate_check_resource_dependency_version_drift(&f, true).is_ok());
+}
+#[test]
+fn naming_length_with_packages_text() {
+    let d = tempfile::tempdir().unwrap();
+    let f = write_cfg(d.path(), pkg_cfg());
+    assert!(cmd_validate_check_resource_naming_length_limit(&f, false).is_ok());
+}
+#[test]
+fn type_coverage_with_packages_text() {
+    let d = tempfile::tempdir().unwrap();
+    let f = write_cfg(d.path(), pkg_cfg());
+    assert!(cmd_validate_check_resource_type_coverage_per_machine(&f, false).is_ok());
+}
+#[test]
+fn type_coverage_with_packages_json() {
+    let d = tempfile::tempdir().unwrap();
+    let f = write_cfg(d.path(), pkg_cfg());
+    assert!(cmd_validate_check_resource_type_coverage_per_machine(&f, true).is_ok());
+}
+#[test]
+fn content_length_with_packages_text() {
+    let d = tempfile::tempdir().unwrap();
+    let f = write_cfg(d.path(), pkg_cfg());
+    assert!(cmd_validate_check_resource_content_length_limit(&f, false).is_ok());
+}
+#[test]
+fn dependency_depth_variance_single_text() {
+    let d = tempfile::tempdir().unwrap();
+    let f = write_cfg(d.path(), base_cfg());
+    assert!(cmd_validate_check_resource_dependency_depth_variance(&f, true).is_ok());
+}
+#[test]
+fn scoring_version_pinning_with_pkg_text() {
+    let d = tempfile::tempdir().unwrap();
+    let f = write_cfg(d.path(), pkg_cfg());
+    assert!(cmd_validate_check_resource_provider_version_pinning(&f, false).is_ok());
+}
+#[test]
+fn scoring_version_pinning_with_pkg_json() {
+    let d = tempfile::tempdir().unwrap();
+    let f = write_cfg(d.path(), pkg_cfg());
+    assert!(cmd_validate_check_resource_provider_version_pinning(&f, true).is_ok());
+}
+#[test]
+fn scoring_dep_ordering_with_deps_text() {
+    let d = tempfile::tempdir().unwrap();
+    let f = write_cfg(d.path(), deps_cfg());
+    assert!(cmd_validate_check_resource_dependency_ordering_consistency(&f, true).is_ok());
+}
+#[test]
+fn security_when_condition_with_deps() {
+    let d = tempfile::tempdir().unwrap();
+    let f = write_cfg(d.path(), deps_cfg());
+    assert!(cmd_validate_check_resource_when_condition_coverage(&f, false).is_ok());
+}
+#[test]
+fn compliance_tags_with_deps() {
+    let d = tempfile::tempdir().unwrap();
+    let f = write_cfg(d.path(), deps_cfg());
+    assert!(cmd_validate_check_resource_compliance_tags(&f, false).is_ok());
+}
+#[test]
+fn rollback_coverage_with_deps() {
+    let d = tempfile::tempdir().unwrap();
+    let f = write_cfg(d.path(), deps_cfg());
+    assert!(cmd_validate_check_resource_rollback_coverage(&f, false).is_ok());
+}
+
 // ── error paths: file not found ─────────────────────────────
 
 #[test]
