@@ -25,14 +25,14 @@
 | **B** | [Purity](phase-b-purity.md) | FJ-1305–1309 | ✅ | 4-level purity model, monotonicity, static analysis, closure tracking |
 | **C** | [Closures & Locking](phase-c-closure.md) | FJ-1310–1314 | ✅ | Lock file format, CLI commands, tripwire integration |
 | **D** | [Repro Scoring](phase-d-scoring.md) | FJ-1315–1319 | ✅ | Build sandboxing, isolation levels, preset profiles |
-| **E** | [Cache & GC](phase-e-cache.md) | FJ-1320–1329 | 🔧 | SSH cache, substitution, GC — types ✅ / execution bridges ✅ / CLI wiring 🔲 |
-| **F** | [Derivations](phase-f-derivation.md) | FJ-1330–1344 | 🔧 | Universal provider import, derivation model — types ✅ / execution bridges ✅ / CLI wiring 🔲 |
+| **E** | [Cache & GC](phase-e-cache.md) | FJ-1320–1329 | ✅ | SSH cache, substitution, GC — types + execution + CLI wiring |
+| **F** | [Derivations](phase-f-derivation.md) | FJ-1330–1344 | ✅ | Universal provider import, derivation model — types + execution + CLI wiring |
 | **G** | [FAR Archive](phase-g-far.md) | FJ-1345–1349 | ✅ | FAR binary format, encode/decode, streaming, chunking |
-| **H** | [Import/Convert](phase-h-convert.md) | FJ-1345–1349 | 🔧 | Conversion ladder, reproducibility score — types ✅ / --apply bridge ✅ / CLI wiring 🔲 |
+| **H** | [Import/Convert](phase-h-convert.md) | FJ-1345–1349 | ✅ | Conversion ladder, reproducibility score — types + --apply + CLI wiring |
 | **I** | [Security & Auditability](phase-i-security.md) | FJ-1356 | ✅ | Secret scanning, regex detection, encrypted value validation |
 | **J** | [Performance Guarantees](phase-j-benchmarks.md) | FJ-1355 | ✅ | Criterion benchmarks for all store operations |
 | **K** | [Bash Provability](phase-k-bash.md) | FJ-1357 | ✅ | I8 invariant enforcement at all exec entry points |
-| **L** | [Execution Layer](phase-l-execution.md) | FJ-1358–1365 | 🔧 | Execution bridges: provider, GC, pins, cache, convert, diff/sync, sandbox |
+| **L** | [Execution Layer](phase-l-execution.md) | FJ-1358–1365 | ✅ | Execution bridges: provider, GC, pins, cache, convert, diff/sync, sandbox |
 
 ---
 
