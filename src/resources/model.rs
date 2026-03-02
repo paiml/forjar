@@ -79,7 +79,7 @@ pub fn apply_script(resource: &Resource) -> String {
                 script.push_str(&format!(
                     "if command -v apr >/dev/null 2>&1; then\n\
                      \x20 APR_OUT=$(apr pull '{source}' 2>&1)\n\
-                     \x20 CACHED=$(echo \"$APR_OUT\" | grep 'Path:' | head -1 | sed 's/.*Path: *//')\n\
+                     \x20 CACHED=$(echo \"$APR_OUT\" | sed 's/\\x1b\\[[0-9;]*m//g' | grep 'Path:' | head -1 | sed 's/.*Path: *//')\n\
                      \x20 if [ -n \"$CACHED\" ] && [ -f \"$CACHED\" ]; then\n\
                      \x20   ln -sf \"$CACHED\" '{path}'\n\
                      \x20 else\n\
@@ -289,6 +289,17 @@ mod tests {
         assert!(
             script.contains("ln -sf"),
             "apr pull branch must symlink cached file to target path"
+        );
+    }
+
+    /// PMAT-042: apr pull output may contain ANSI escape codes — must strip them
+    #[test]
+    fn test_pmat042_apr_pull_strips_ansi_codes() {
+        let r = make_model_resource("llama-7b");
+        let script = apply_script(&r);
+        assert!(
+            script.contains("\\x1b"),
+            "must strip ANSI escape codes from apr pull output: {script}"
         );
     }
 
