@@ -49,6 +49,19 @@ pub fn lint_error_count(script: &str) -> usize {
         .count()
 }
 
+/// Validate first, falling back to full purification if validation fails.
+///
+/// This is the recommended entry point for scripts that might need fixing:
+/// - If `validate_script()` passes, return the script as-is (fast path)
+/// - If validation fails, attempt `purify_script()` to fix it
+/// - If purification also fails, return the error
+pub fn validate_or_purify(script: &str) -> Result<String, String> {
+    if validate_script(script).is_ok() {
+        return Ok(script.to_string());
+    }
+    purify_script(script)
+}
+
 /// Purify a shell script through the full bashrs pipeline.
 ///
 /// Parse → purify AST → format back to shell → validate.

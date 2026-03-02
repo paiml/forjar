@@ -36,10 +36,20 @@ impl ExecOutput {
     }
 }
 
+/// FJ-1357: Validate script via bashrs before execution (I8 enforcement gate).
+fn validate_before_exec(script: &str) -> Result<(), String> {
+    crate::core::purifier::validate_script(script)
+        .map_err(|e| format!("I8 violation — script failed bashrs validation: {e}"))
+}
+
 /// Execute a purified shell script on a machine.
 /// Dispatches to pepita, container, local, or SSH based on transport/address.
 /// Priority: pepita > container > local > SSH.
+///
+/// I8 invariant: script is validated via bashrs before any execution.
 pub fn exec_script(machine: &Machine, script: &str) -> Result<ExecOutput, String> {
+    validate_before_exec(script)?;
+
     // Pepita (kernel namespace) transport takes highest priority
     if machine.is_pepita_transport() {
         return pepita::exec_pepita(machine, script);
@@ -151,7 +161,12 @@ fn is_transient_ssh_error(err: &str) -> bool {
 }
 
 /// Execute a read-only query (for plan/drift — doesn't need tripwire).
+///
+/// I8 invariant: query command is validated via bashrs before execution.
 pub fn query(machine: &Machine, cmd: &str) -> Result<ExecOutput, String> {
+    // exec_script already validates, but we gate here explicitly for
+    // defense-in-depth in case query ever takes a different path.
+    validate_before_exec(cmd)?;
     exec_script(machine, cmd)
 }
 

@@ -44,43 +44,51 @@ pub(super) fn execute_wave_io(
 }
 
 /// Run pre_apply hook, returning error string on failure.
+/// I8 invariant: hook script is validated via bashrs before execution.
 fn run_pre_hook(machine: &Machine, hook: &str, timeout: Option<u64>) -> Option<String> {
+    exec_validated_hook(machine, hook, timeout, "pre_apply").err()
+}
+
+/// Execute a validated hook script, returning error on failure.
+fn exec_validated_hook(
+    machine: &Machine,
+    hook: &str,
+    timeout: Option<u64>,
+    label: &str,
+) -> Result<(), String> {
+    if let Err(e) = crate::core::purifier::validate_script(hook) {
+        return Err(format!("{label} hook failed I8 validation: {e}"));
+    }
     match transport::exec_script_timeout(machine, hook, timeout) {
-        Ok(out) if !out.success() => Some(format!(
-            "pre_apply hook failed (exit {}): {}",
+        Ok(out) if !out.success() => Err(format!(
+            "{label} hook failed (exit {}): {}",
             out.exit_code,
             out.stderr.trim()
         )),
-        Err(e) => Some(format!("pre_apply hook error: {}", e)),
-        _ => None,
+        Err(e) => Err(format!("{label} hook error: {e}")),
+        _ => Ok(()),
     }
 }
 
 /// Run post_apply hook after successful execution.
+/// I8 invariant: hook script is validated via bashrs before execution.
 fn run_post_hook_if_success(
     output: Result<transport::ExecOutput, String>,
     resolved: &Resource,
     machine: &Machine,
     timeout: Option<u64>,
 ) -> Result<transport::ExecOutput, String> {
-    match output {
-        Ok(ref out) if out.success() => {
-            if let Some(ref post_hook) = resolved.post_apply {
-                match transport::exec_script_timeout(machine, post_hook, timeout) {
-                    Ok(pout) if !pout.success() => Err(format!(
-                        "post_apply hook failed (exit {}): {}",
-                        pout.exit_code,
-                        pout.stderr.trim()
-                    )),
-                    Err(e) => Err(format!("post_apply hook error: {}", e)),
-                    _ => output,
-                }
-            } else {
-                output
-            }
-        }
-        _ => output,
+    let Ok(ref out) = output else {
+        return output;
+    };
+    if !out.success() {
+        return output;
     }
+    let Some(ref post_hook) = resolved.post_apply else {
+        return output;
+    };
+    exec_validated_hook(machine, post_hook, timeout, "post_apply")?;
+    output
 }
 
 /// Phase 3: Record wave outcomes sequentially.
