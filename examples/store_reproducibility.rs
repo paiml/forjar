@@ -15,6 +15,7 @@
 //! - Recipe conversion analysis
 //! - Tripwire pin integration
 //! - Purity + reproducibility validation
+//! - FAR archive encoding and decoding
 //!
 //! Usage: cargo run --example store_reproducibility
 
@@ -27,6 +28,8 @@ use forjar::core::store::derivation::{
     derivation_closure_hash, derivation_purity, validate_dag, validate_derivation, Derivation,
     DerivationInput,
 };
+use forjar::core::store::far::{decode_far_manifest, encode_far, FarManifest, FarFileEntry, FarProvenance};
+use forjar::core::store::gc::{collect_roots, GcConfig};
 use forjar::core::store::lockfile::{check_completeness, check_staleness, LockFile, Pin};
 use forjar::core::store::meta::{Provenance, StoreMeta};
 use forjar::core::store::path::{store_entry_path, store_path};
@@ -57,8 +60,10 @@ fn main() {
     demo_conversion();
     demo_pin_tripwire();
     demo_validation();
+    demo_far_archive();
+    demo_gc_roots();
 
-    println!("\nDone — all store features demonstrated.");
+    println!("\nDone — all store features demonstrated (16 sections).");
 }
 
 fn demo_store_paths() {
@@ -431,4 +436,64 @@ fn demo_validation() {
     ];
     let repro_result = validate_repro_score(&inputs, Some(75.0));
     println!("{}", format_repro_report(&repro_result));
+}
+
+fn demo_far_archive() {
+    println!("\n--- 15. FAR Archive Encode/Decode ---");
+
+    let manifest = FarManifest {
+        name: "nginx".to_string(),
+        version: "1.24.0".to_string(),
+        arch: "x86_64".to_string(),
+        store_hash: "blake3:aabb1122".to_string(),
+        tree_hash: "blake3:ccdd3344".to_string(),
+        file_count: 1,
+        total_size: 1024,
+        files: vec![FarFileEntry {
+            path: "usr/sbin/nginx".to_string(),
+            size: 1024,
+            blake3: "blake3:ff001122".to_string(),
+        }],
+        provenance: FarProvenance {
+            origin_provider: "apt".to_string(),
+            origin_ref: Some("nginx=1.24.0".to_string()),
+            origin_hash: None,
+            created_at: "2026-03-02T10:00:00Z".to_string(),
+            generator: "forjar 1.0.0".to_string(),
+        },
+        kernel_contracts: None,
+    };
+
+    let data = b"fake binary content for demo";
+    let hash = blake3::hash(data);
+    let chunks = vec![(*hash.as_bytes(), data.to_vec())];
+
+    // Encode
+    let mut buf = Vec::new();
+    encode_far(&manifest, &chunks, &mut buf).unwrap();
+    println!("  Encoded FAR: {} bytes, 1 chunk", buf.len());
+
+    // Decode (roundtrip)
+    let cursor = std::io::Cursor::new(&buf);
+    let (decoded, chunk_table) = decode_far_manifest(cursor).unwrap();
+    println!("  Decoded: {} v{} ({} chunks)", decoded.name, decoded.version, chunk_table.len());
+    assert_eq!(manifest.store_hash, decoded.store_hash);
+    println!("  Roundtrip verified");
+}
+
+fn demo_gc_roots() {
+    println!("\n--- 16. GC Roots Collection ---");
+
+    let _config = GcConfig::default();
+    let profiles = vec!["blake3:gen1".to_string(), "blake3:gen2".to_string()];
+    let locks = vec!["blake3:nginx".to_string(), "blake3:curl".to_string()];
+
+    let roots = collect_roots(&profiles, &locks, None);
+    println!("  GC roots collected: {}", roots.len());
+    for root in &roots {
+        println!("    {root}");
+    }
+    assert!(roots.contains("blake3:gen1"), "profile gen should be a root");
+    assert!(roots.contains("blake3:nginx"), "lock pin should be a root");
+    println!("  GC root invariant verified");
 }
