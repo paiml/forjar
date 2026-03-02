@@ -29,6 +29,16 @@ pub struct FarManifest {
     pub total_size: u64,
     pub files: Vec<FarFileEntry>,
     pub provenance: FarProvenance,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub kernel_contracts: Option<KernelContractInfo>,
+}
+
+/// Kernel contract metadata embedded in a FAR manifest.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct KernelContractInfo {
+    pub model_type: String,
+    pub required_ops: Vec<String>,
+    pub coverage_pct: f64,
 }
 
 /// A file entry within the FAR manifest.

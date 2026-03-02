@@ -14,6 +14,7 @@ pub mod conda;
 pub mod hf_config;
 pub mod contract_coverage;
 pub mod contract_scaffold;
+pub mod kernel_far;
 
 #[cfg(test)]
 mod tests_path;
@@ -37,3 +38,5 @@ mod tests_hf_config;
 mod tests_contract_coverage;
 #[cfg(test)]
 mod tests_contract_scaffold;
+#[cfg(test)]
+mod tests_kernel_far;
