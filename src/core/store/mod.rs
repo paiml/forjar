@@ -27,6 +27,9 @@ pub mod store_diff;
 pub mod convert;
 pub mod pin_tripwire;
 pub mod validate;
+pub mod sandbox_exec;
+pub mod substitution;
+pub mod derivation_exec;
 
 #[cfg(test)]
 mod tests_path;
@@ -76,3 +79,9 @@ mod tests_convert;
 mod tests_pin_tripwire;
 #[cfg(test)]
 mod tests_validate;
+#[cfg(test)]
+mod tests_sandbox_exec;
+#[cfg(test)]
+mod tests_substitution;
+#[cfg(test)]
+mod tests_derivation_exec;

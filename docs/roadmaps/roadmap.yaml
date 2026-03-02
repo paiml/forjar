@@ -308,3 +308,54 @@ roadmap:
   estimated_effort: null
   labels: []
   notes: null
+- id: PMAT-019
+  github_issue: null
+  item_type: task
+  title: 'FJ-1316: Sandbox lifecycle executor'
+  status: completed
+  priority: high
+  assigned_to: null
+  created: 2026-03-02T15:30:00Z
+  updated: 2026-03-02T15:30:00Z
+  spec: null
+  acceptance_criteria:
+  - '10-step sandbox lifecycle plan generator. Seccomp BPF for Full level. 16 tests.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-020
+  github_issue: null
+  item_type: task
+  title: 'FJ-1322: Substitution protocol executor'
+  status: completed
+  priority: high
+  assigned_to: null
+  created: 2026-03-02T15:30:00Z
+  updated: 2026-03-02T15:30:00Z
+  spec: null
+  acceptance_criteria:
+  - 'Full substitution protocol: local store, SSH cache, build fallback, auto-push. 10 tests.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-021
+  github_issue: null
+  item_type: task
+  title: 'FJ-1342: Derivation lifecycle executor'
+  status: completed
+  priority: high
+  assigned_to: null
+  created: 2026-03-02T15:30:00Z
+  updated: 2026-03-02T15:30:00Z
+  spec: null
+  acceptance_criteria:
+  - 'Derivation plan + simulate + DAG execution. Store hit skipping. 14 tests.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
