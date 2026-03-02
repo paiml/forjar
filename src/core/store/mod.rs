@@ -23,6 +23,8 @@ pub mod sandbox;
 pub mod cache;
 pub mod provider;
 pub mod derivation;
+pub mod store_diff;
+pub mod convert;
 
 #[cfg(test)]
 mod tests_path;
@@ -64,3 +66,7 @@ mod tests_cache;
 mod tests_provider;
 #[cfg(test)]
 mod tests_derivation;
+#[cfg(test)]
+mod tests_store_diff;
+#[cfg(test)]
+mod tests_convert;
