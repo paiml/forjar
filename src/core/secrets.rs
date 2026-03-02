@@ -13,9 +13,20 @@ pub(crate) const ENC_PREFIX: &str = "ENC[age,";
 /// Marker suffix for age-encrypted values.
 pub(crate) const ENC_SUFFIX: &str = "]";
 
-/// Check if a string contains any `ENC[age,...]` markers.
+/// Check if a string contains any real `ENC[age,<base64>]` markers.
+///
+/// PMAT-037: Validates that the content between markers is plausible base64
+/// ciphertext (>= 20 chars, valid base64 alphabet). This prevents false
+/// positives from comments like `# values use ENC[age,...] markers`.
 pub fn has_encrypted_markers(s: &str) -> bool {
-    s.contains(ENC_PREFIX)
+    for (start, end) in find_markers(s) {
+        let inner = &s[start + ENC_PREFIX.len()..end - ENC_SUFFIX.len()];
+        // Real age ciphertext is always >= 20 chars of base64
+        if inner.len() >= 20 && B64.decode(inner).is_ok() {
+            return true;
+        }
+    }
+    false
 }
 
 /// Encrypt a plaintext value with one or more age X25519 recipients.
