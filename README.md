@@ -155,6 +155,8 @@ resources:
     mode: "0755"
 ```
 
+See the **[Forjar Cookbook](https://github.com/paiml/forjar-cookbook)** for 67 production-ready recipes covering packages, files, services, Docker, GPU, network, pepita sandboxing, multi-machine stacks, and content-addressed store reproducibility.
+
 ## How It Works
 
 1. **Parse** — Read `forjar.yaml`, validate schema and references
@@ -243,7 +245,7 @@ Tests: `test_fj012_apply_local_file`
 ## Testing
 
 ```bash
-cargo test                    # 2159 unit tests
+cargo test                    # 6190+ unit tests
 cargo test -- --nocapture     # with output
 cargo test planner            # specific module
 cargo bench                   # Criterion benchmarks
