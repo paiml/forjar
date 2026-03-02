@@ -100,8 +100,13 @@ fn test_fj200_multi_recipient() {
 
 #[test]
 fn test_fj200_has_encrypted_markers() {
-    assert!(has_encrypted_markers("foo ENC[age,abc] bar"));
-    assert!(has_encrypted_markers("ENC[age,abc]"));
+    let (_identity, recipient) = test_keypair();
+    let real_marker = encrypt("test", &[&recipient]).unwrap();
+    assert!(has_encrypted_markers(&format!("foo {} bar", real_marker)));
+    assert!(has_encrypted_markers(&real_marker));
+    // Short/invalid base64 inside markers should NOT trigger
+    assert!(!has_encrypted_markers("foo ENC[age,abc] bar"));
+    assert!(!has_encrypted_markers("ENC[age,abc]"));
     assert!(!has_encrypted_markers("no markers here"));
     assert!(!has_encrypted_markers("ENC[other,abc]"));
     assert!(!has_encrypted_markers(""));
@@ -301,6 +306,31 @@ fn test_fj200_special_chars() {
     let encrypted = encrypt(plaintext, &[&recipient]).unwrap();
     let decrypted = decrypt_marker(&encrypted, &[identity]).unwrap();
     assert_eq!(decrypted, plaintext);
+}
+
+// ─── PMAT-037: has_encrypted_markers false positives ───────────
+
+#[test]
+fn test_pmat037_comment_mentioning_enc_not_a_marker() {
+    // A YAML comment like "# In production, values use ENC[age,...] markers"
+    // should NOT be detected as having encrypted markers — the "..." is not
+    // valid base64 ciphertext.
+    let content = "# In production, values use ENC[age,...] markers\nAPP_NAME=myapp\n";
+    assert!(
+        !has_encrypted_markers(content),
+        "comment mentioning ENC[age,...] must not trigger decryption"
+    );
+}
+
+#[test]
+fn test_pmat037_real_marker_still_detected() {
+    let (_identity, recipient) = test_keypair();
+    let encrypted = encrypt("secret", &[&recipient]).unwrap();
+    let content = format!("API_KEY={}\n", encrypted);
+    assert!(
+        has_encrypted_markers(&content),
+        "real encrypted marker must still be detected"
+    );
 }
 
 // ─── FJ-201 tests ───────────────────────────────────────────────
