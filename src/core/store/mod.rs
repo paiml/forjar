@@ -14,6 +14,7 @@ pub mod derivation;
 pub mod derivation_exec;
 pub mod far;
 pub mod gc;
+pub mod gc_exec;
 pub mod hf_config;
 pub mod kernel_far;
 pub mod lockfile;
@@ -57,6 +58,8 @@ mod tests_derivation_exec;
 mod tests_far;
 #[cfg(test)]
 mod tests_gc;
+#[cfg(test)]
+mod tests_gc_exec;
 #[cfg(test)]
 mod tests_hf_config;
 #[cfg(test)]
