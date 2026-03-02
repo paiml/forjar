@@ -19,6 +19,8 @@ pub mod closure;
 pub mod lockfile;
 pub mod gc;
 pub mod repro_score;
+pub mod sandbox;
+pub mod cache;
 
 #[cfg(test)]
 mod tests_path;
@@ -52,3 +54,7 @@ mod tests_lockfile;
 mod tests_gc;
 #[cfg(test)]
 mod tests_repro_score;
+#[cfg(test)]
+mod tests_sandbox;
+#[cfg(test)]
+mod tests_cache;
