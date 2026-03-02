@@ -1,8 +1,18 @@
 //! FJ-032: Network/firewall resource handler.
 //!
 //! Manages firewall rules via ufw (Uncomplicated Firewall).
+//! PMAT-038: Includes ufw availability guard — gracefully skips in
+//! environments without ufw (e.g. Docker containers).
 
 use crate::core::types::Resource;
+
+/// Shell guard that detects ufw availability.
+/// If ufw is not found, prints a warning and exits 0 (skip).
+const UFW_GUARD: &str = "\
+if ! command -v ufw >/dev/null 2>&1; then\n  \
+  echo 'FORJAR_WARN: ufw not found — skipping network resource (no firewall)'\n  \
+  exit 0\n\
+fi";
 
 /// Generate shell script to check if a firewall rule exists.
 pub fn check_script(resource: &Resource) -> String {
@@ -10,8 +20,8 @@ pub fn check_script(resource: &Resource) -> String {
     let protocol = resource.protocol.as_deref().unwrap_or("tcp");
     let action = resource.action.as_deref().unwrap_or("allow");
     format!(
-        "ufw status numbered 2>/dev/null | grep -q '{}.*{}/{}' && echo 'exists:{}' || echo 'missing:{}'",
-        action, port, protocol, port, port
+        "{}\nufw status numbered 2>/dev/null | grep -q '{}.*{}/{}' && echo 'exists:{}' || echo 'missing:{}'",
+        UFW_GUARD, action, port, protocol, port, port
     )
 }
 
@@ -24,6 +34,7 @@ pub fn apply_script(resource: &Resource) -> String {
 
     let mut lines = vec![
         "set -euo pipefail".to_string(),
+        UFW_GUARD.to_string(),
         "SUDO=\"\"".to_string(),
         "[ \"$(id -u)\" -ne 0 ] && SUDO=\"sudo\"".to_string(),
         // Ensure ufw is enabled
@@ -71,8 +82,8 @@ pub fn apply_script(resource: &Resource) -> String {
 pub fn state_query_script(resource: &Resource) -> String {
     let port = resource.port.as_deref().unwrap_or("0");
     format!(
-        "ufw status verbose 2>/dev/null | grep '{}' || echo 'rule=MISSING:{}'",
-        port, port
+        "{}\nufw status verbose 2>/dev/null | grep '{}' || echo 'rule=MISSING:{}'",
+        UFW_GUARD, port, port
     )
 }
 
@@ -457,6 +468,40 @@ mod tests {
         let script = check_script(&r);
         assert!(script.contains("0/tcp"));
         assert!(script.contains("allow"));
+    }
+
+    // ── PMAT-038: ufw guard for containers ─────────────
+
+    #[test]
+    fn test_pmat038_apply_guards_ufw_availability() {
+        // apply_script should check for ufw before running it,
+        // gracefully skipping when ufw is not available (e.g. containers).
+        let r = make_network_resource("80", "allow");
+        let script = apply_script(&r);
+        assert!(
+            script.contains("command -v ufw"),
+            "apply must check ufw availability before running it"
+        );
+    }
+
+    #[test]
+    fn test_pmat038_check_guards_ufw_availability() {
+        let r = make_network_resource("80", "allow");
+        let script = check_script(&r);
+        assert!(
+            script.contains("command -v ufw"),
+            "check must guard against missing ufw"
+        );
+    }
+
+    #[test]
+    fn test_pmat038_state_query_guards_ufw_availability() {
+        let r = make_network_resource("80", "allow");
+        let script = state_query_script(&r);
+        assert!(
+            script.contains("command -v ufw"),
+            "state_query must guard against missing ufw"
+        );
     }
 
     #[test]
