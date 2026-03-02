@@ -1,7 +1,7 @@
 # Phase E: Cache & GC (FJ-1320–FJ-1329)
 
-**Status**: 🔧 Partial — types ✅ / SSH execution 🔲
-**Implementation**: `src/core/store/cache.rs`, `src/core/store/substitution.rs`, `src/core/store/gc.rs`
+**Status**: ✅ Complete — types + SSH execution + CLI wiring
+**Implementation**: `src/core/store/cache.rs`, `src/core/store/cache_exec.rs`, `src/core/store/substitution.rs`, `src/core/store/gc.rs`, `src/core/store/gc_exec.rs`
 
 ---
 
@@ -41,13 +41,15 @@ forjar cache verify                  # verify all store entries (re-hash)
 
 **CLI** (FJ-1327): `forjar store gc` (delete unreachable), `--dry-run`, `--older-than 90d`, `--keep-generations 5`. GC is never automatic.
 
-## 5. Remaining Work
+## 5. Implementation Status
 
-| Gap | Status | Description |
-|-----|--------|-------------|
-| SSH cache pull/push | 🔲 | Actual `scp`/`rsync` transport for cache entries |
-| GC sweep | 🔲 | Actual `rm -rf` of unreachable store entries |
-| Substitution network | 🔲 | SSH probing of remote cache sources |
+| Component | Status | Implementation |
+|-----------|--------|----------------|
+| SSH cache pull/push | ✅ | `cache_exec::pull_from_cache()` / `push_to_cache()` via rsync over SSH |
+| GC sweep | ✅ | `gc_exec::sweep()` with path traversal protection + journal |
+| Substitution protocol | ✅ | `cache_exec::execute_substitution()` — local → cache → build pipeline |
+| BLAKE3 verification | ✅ | `cache_exec::verify_pulled_content()` re-hashes after pull |
+| CLI wiring | ✅ | `forjar cache pull --source`, `forjar cache push`, `forjar store gc --dry-run` |
 
 ---
 

@@ -1,7 +1,7 @@
 # Phase F: Derivations (FJ-1330–FJ-1344)
 
-**Status**: 🔧 Partial — types ✅ / build execution 🔲
-**Implementation**: `src/core/store/derivation.rs`, `src/core/store/derivation_exec.rs`, `src/core/store/provider.rs`
+**Status**: ✅ Complete — types + build execution + CLI wiring
+**Implementation**: `src/core/store/derivation.rs`, `src/core/store/derivation_exec.rs`, `src/core/store/provider.rs`, `src/core/store/provider_exec.rs`, `src/core/store/sandbox_run.rs`, `src/core/store/sync_exec.rs`
 
 ---
 
@@ -81,10 +81,11 @@ forjar store diff <hash>               # diff store entry against upstream origi
 forjar store sync <hash> --apply       # re-import upstream, replay derivation chain
 ```
 
-## 4. Remaining Work
+## 4. Implementation Status
 
-| Gap | Status | Description |
-|-----|--------|-------------|
-| Provider invocation | 🔲 | Shell out to apt/cargo/nix/docker CLIs |
-| Derivation builder | 🔲 | validate_dag → sequential build execution |
-| Store diff/sync | 🔲 | Actual file comparison + rsync |
+| Component | Status | Implementation |
+|-----------|--------|----------------|
+| Provider invocation | ✅ | `provider_exec::execute_import()` — shells out to 7 provider CLIs with I8 gate |
+| Derivation builder | ✅ | `derivation_exec::execute_derivation_dag_live()` → `sandbox_run::execute_sandbox_plan()` |
+| Store diff/sync | ✅ | `sync_exec::execute_diff()` / `execute_sync()` — re-import + replay derivation chains |
+| CLI wiring | ✅ | `forjar store-import`, `forjar store diff/sync --apply` |
