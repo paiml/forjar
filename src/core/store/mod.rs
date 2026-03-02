@@ -22,6 +22,7 @@ pub mod path;
 pub mod pin_tripwire;
 pub mod profile;
 pub mod provider;
+pub mod provider_exec;
 pub mod purity;
 pub mod reference;
 pub mod repro_score;
@@ -72,6 +73,8 @@ mod tests_pin_tripwire;
 mod tests_profile;
 #[cfg(test)]
 mod tests_provider;
+#[cfg(test)]
+mod tests_provider_exec;
 #[cfg(test)]
 mod tests_purity;
 #[cfg(test)]
