@@ -39,7 +39,7 @@ fn demo_mark_and_sweep() {
     }
 
     // Only "aaa111" is a root
-    let roots = collect_roots(&[format!("blake3:aaa111")], &[], None);
+    let roots = collect_roots(&["blake3:aaa111".to_string()], &[], None);
     let report = mark_and_sweep(&roots, store_dir).unwrap();
 
     println!(
@@ -120,7 +120,7 @@ fn demo_sweep() {
         write_meta(&store_dir.join(name), &meta).unwrap();
     }
 
-    let roots = collect_roots(&[format!("blake3:live_hash")], &[], None);
+    let roots = collect_roots(&["blake3:live_hash".to_string()], &[], None);
     let report = mark_and_sweep(&roots, store_dir).unwrap();
     let result = sweep(&report, store_dir).unwrap();
 
