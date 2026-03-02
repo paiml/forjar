@@ -15,6 +15,8 @@ pub mod hf_config;
 pub mod contract_coverage;
 pub mod contract_scaffold;
 pub mod kernel_far;
+pub mod closure;
+pub mod lockfile;
 
 #[cfg(test)]
 mod tests_path;
@@ -40,3 +42,7 @@ mod tests_contract_coverage;
 mod tests_contract_scaffold;
 #[cfg(test)]
 mod tests_kernel_far;
+#[cfg(test)]
+mod tests_closure;
+#[cfg(test)]
+mod tests_lockfile;
