@@ -12,6 +12,8 @@ use crate::core::store::provider::{
     all_providers, capture_method, import_command, origin_ref_string, validate_import,
     ImportConfig, ImportProvider,
 };
+use crate::core::store::provider_exec::{self, ExecutionContext};
+use crate::core::types::Machine;
 use std::collections::BTreeMap;
 use std::path::Path;
 
@@ -41,33 +43,62 @@ pub(crate) fn cmd_store_import(
     let origin = origin_ref_string(&config);
     let capture = capture_method(import_provider);
 
-    if json {
-        let j = serde_json::json!({
-            "provider": provider,
-            "reference": reference,
-            "version": version,
-            "command": cmd,
-            "origin_ref": origin,
-            "capture_method": capture,
-            "store_dir": store_dir.display().to_string(),
-            "status": "dry-run",
-        });
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&j).unwrap_or_else(|_| "{}".to_string())
-        );
-    } else {
-        println!("Store import:");
-        println!("  Provider: {provider}");
-        println!("  Reference: {reference}");
-        if let Some(v) = version {
-            println!("  Version: {v}");
+    let ctx = ExecutionContext {
+        store_dir: store_dir.to_path_buf(),
+        staging_dir: std::env::temp_dir().join("forjar-staging"),
+        machine: local_machine(),
+        timeout_secs: Some(600),
+    };
+
+    match provider_exec::execute_import(&config, &ctx) {
+        Ok(result) => {
+            if json {
+                let j = serde_json::json!({
+                    "provider": provider,
+                    "reference": reference,
+                    "version": version,
+                    "command": cmd,
+                    "origin_ref": origin,
+                    "capture_method": capture,
+                    "store_hash": result.store_hash,
+                    "store_path": result.store_path,
+                    "status": "imported",
+                });
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&j).unwrap_or_else(|_| "{}".to_string())
+                );
+            } else {
+                println!("Store import complete:");
+                println!("  Provider: {provider}");
+                println!("  Reference: {reference}");
+                println!("  Hash: {}", result.store_hash);
+                println!("  Path: {}", result.store_path);
+            }
         }
-        println!("  Command: {cmd}");
-        println!("  Capture: {capture}");
-        println!("  Origin: {origin}");
-        println!("  Store: {}", store_dir.display());
-        println!("  (import execution requires shell access — dry-run shown)");
+        Err(e) => {
+            // Fall back to dry-run display on transport failure
+            if json {
+                let j = serde_json::json!({
+                    "provider": provider,
+                    "reference": reference,
+                    "command": cmd,
+                    "origin_ref": origin,
+                    "status": "dry-run",
+                    "error": e,
+                });
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&j).unwrap_or_else(|_| "{}".to_string())
+                );
+            } else {
+                println!("Store import (dry-run — transport unavailable):");
+                println!("  Provider: {provider}");
+                println!("  Command: {cmd}");
+                println!("  Origin: {origin}");
+                println!("  Error: {e}");
+            }
+        }
     }
     Ok(())
 }
@@ -141,5 +172,20 @@ fn current_arch() -> String {
     #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
     {
         std::env::consts::ARCH.to_string()
+    }
+}
+
+fn local_machine() -> Machine {
+    Machine {
+        hostname: "localhost".to_string(),
+        addr: "127.0.0.1".to_string(),
+        user: "root".to_string(),
+        arch: std::env::consts::ARCH.to_string(),
+        ssh_key: None,
+        roles: Vec::new(),
+        transport: None,
+        container: None,
+        pepita: None,
+        cost: 0,
     }
 }

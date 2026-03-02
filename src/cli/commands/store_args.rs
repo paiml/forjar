@@ -240,6 +240,10 @@ pub struct ConvertArgs {
     #[arg(long)]
     pub reproducible: bool,
 
+    /// Apply changes (backup + modify YAML + generate lock file)
+    #[arg(long)]
+    pub apply: bool,
+
     /// Output as JSON
     #[arg(long)]
     pub json: bool,

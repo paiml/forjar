@@ -65,7 +65,7 @@ resources:
         let dir = TempDir::new().unwrap();
         let file = config_mixed(&dir);
 
-        let result = cmd_convert(&file, true, false);
+        let result = cmd_convert(&file, true, false, false);
         assert!(result.is_ok());
     }
 
@@ -74,7 +74,7 @@ resources:
         let dir = TempDir::new().unwrap();
         let file = config_mixed(&dir);
 
-        let result = cmd_convert(&file, true, true);
+        let result = cmd_convert(&file, true, false, true);
         assert!(result.is_ok());
     }
 
@@ -83,7 +83,7 @@ resources:
         let dir = TempDir::new().unwrap();
         let file = config_pure(&dir);
 
-        let result = cmd_convert(&file, true, false);
+        let result = cmd_convert(&file, true, false, false);
         assert!(result.is_ok());
     }
 
@@ -92,7 +92,7 @@ resources:
         let dir = TempDir::new().unwrap();
         let file = config_mixed(&dir);
 
-        let result = cmd_convert(&file, false, false);
+        let result = cmd_convert(&file, false, false, false);
         assert!(result.is_err(), "should require --reproducible flag");
     }
 
@@ -102,7 +102,7 @@ resources:
         let file = dir.path().join("bad.yaml");
         fs::write(&file, "not valid yaml {{{}").unwrap();
 
-        let result = cmd_convert(&file, true, false);
+        let result = cmd_convert(&file, true, false, false);
         assert!(result.is_err());
     }
 
@@ -112,7 +112,7 @@ resources:
         let file = dir.path().join("empty.yaml");
         fs::write(&file, "version: '1.0'\nname: test\n").unwrap();
 
-        let result = cmd_convert(&file, true, false);
+        let result = cmd_convert(&file, true, false, false);
         assert!(result.is_err());
     }
 
@@ -121,7 +121,7 @@ resources:
         let dir = TempDir::new().unwrap();
         let file = dir.path().join("nope.yaml");
 
-        let result = cmd_convert(&file, true, false);
+        let result = cmd_convert(&file, true, false, false);
         assert!(result.is_err());
     }
 }

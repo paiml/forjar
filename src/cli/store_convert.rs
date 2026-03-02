@@ -6,16 +6,45 @@
 //! 3. Generate `forjar.inputs.lock.yaml`
 
 use crate::core::store::convert::{analyze_conversion, ConversionSignals};
+use crate::core::store::convert_exec;
 use std::path::Path;
 
 /// Convert recipe to reproducible format.
-pub(crate) fn cmd_convert(file: &Path, reproducible: bool, json: bool) -> Result<(), String> {
+pub(crate) fn cmd_convert(
+    file: &Path,
+    reproducible: bool,
+    apply: bool,
+    json: bool,
+) -> Result<(), String> {
     if !reproducible {
         return Err("use --reproducible flag to enable conversion".to_string());
     }
 
     let signals = extract_signals(file)?;
     let report = analyze_conversion(&signals);
+
+    if apply {
+        let result = convert_exec::apply_conversion(file, &report)?;
+        if json {
+            let j = serde_json::json!({
+                "changes_applied": result.changes_applied,
+                "backup_path": result.backup_path.display().to_string(),
+                "new_purity": format!("{:?}", result.new_purity),
+                "lock_pins_generated": result.lock_pins_generated,
+            });
+            println!(
+                "{}",
+                serde_json::to_string_pretty(&j).unwrap_or_else(|_| "{}".to_string())
+            );
+        } else {
+            println!("Conversion applied to {}:", file.display());
+            println!("  Changes: {}", result.changes_applied);
+            println!("  Backup: {}", result.backup_path.display());
+            println!("  New purity: {:?}", result.new_purity);
+            println!("  Lock pins: {}", result.lock_pins_generated);
+        }
+        return Ok(());
+    }
 
     if json {
         let j = serde_json::to_string_pretty(&report).unwrap_or_else(|_| "{}".to_string());
@@ -41,6 +70,12 @@ pub(crate) fn cmd_convert(file: &Path, reproducible: bool, json: bool) -> Result
             for m in &res.manual_changes {
                 println!("    [manual] {m}");
             }
+        }
+        if report.auto_change_count > 0 {
+            println!(
+                "\n  Use --apply to apply {} changes",
+                report.auto_change_count
+            );
         }
     }
     Ok(())
