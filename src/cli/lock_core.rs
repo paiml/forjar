@@ -1,11 +1,10 @@
 //! Lock management.
 
+use super::apply_helpers::*;
+use super::helpers::*;
+use super::workspace::*;
 use crate::core::{resolver, state, types};
 use std::path::Path;
-use super::helpers::*;
-use super::apply_helpers::*;
-use super::workspace::*;
-
 
 /// Compare a newly generated lock against an existing lock, collecting mismatches.
 fn collect_verify_mismatches(
@@ -204,12 +203,18 @@ pub(crate) fn cmd_lock(
     if verify {
         output_verify_results(&mismatches, total_machines, total_resources, json)?;
     } else {
-        output_lock_results(state_dir, &config.name, &machine_resources, total_machines, total_resources, json)?;
+        output_lock_results(
+            state_dir,
+            &config.name,
+            &machine_resources,
+            total_machines,
+            total_resources,
+            json,
+        )?;
     }
 
     Ok(())
 }
-
 
 // FJ-384: Lock file metadata
 pub(crate) fn cmd_lock_info(state_dir: &Path, json: bool) -> Result<(), String> {
@@ -264,7 +269,6 @@ pub(crate) fn cmd_lock_info(state_dir: &Path, json: bool) -> Result<(), String> 
 
     Ok(())
 }
-
 
 // FJ-366: Lock prune — remove stale lock entries
 pub(crate) fn cmd_lock_prune(file: &Path, state_dir: &Path, yes: bool) -> Result<(), String> {
@@ -322,7 +326,6 @@ pub(crate) fn cmd_lock_prune(file: &Path, state_dir: &Path, yes: bool) -> Result
 
     Ok(())
 }
-
 
 /// FJ-596: Validate lock file integrity (schema, hash consistency).
 /// Validate a single lock file, returning issues found.
@@ -399,7 +402,6 @@ pub(crate) fn cmd_lock_validate(state_dir: &Path, json: bool) -> Result<(), Stri
     Ok(())
 }
 
-
 /// FJ-675: Check lock file structural integrity
 pub(crate) fn cmd_lock_integrity(state_dir: &Path, json: bool) -> Result<(), String> {
     let machines = discover_machines(state_dir);
@@ -449,4 +451,3 @@ pub(crate) fn cmd_lock_integrity(state_dir: &Path, json: bool) -> Result<(), Str
     }
     Ok(())
 }
-

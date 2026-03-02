@@ -1,9 +1,8 @@
 //! Core graph commands.
 
+use super::helpers::*;
 use crate::core::{resolver, types};
 use std::path::Path;
-use super::helpers::*;
-
 
 /// Get the machine label string for a resource.
 fn machine_label(resource: &types::Resource) -> String {
@@ -73,8 +72,7 @@ fn print_ascii_resource(id: &str, resource: &types::Resource) {
             dim(&machine)
         );
     } else {
-        let deps: Vec<&str> =
-            resource.depends_on.iter().map(|s| s.as_str()).collect();
+        let deps: Vec<&str> = resource.depends_on.iter().map(|s| s.as_str()).collect();
         println!(
             "  {} {} ({}, {}) <- [{}]",
             yellow("*"),
@@ -130,7 +128,6 @@ pub(crate) fn cmd_graph(
     Ok(())
 }
 
-
 // FJ-354: Show transitive dependents of a resource
 pub(crate) fn cmd_graph_affected(file: &Path, resource: &str) -> Result<(), String> {
     let config = parse_and_validate(file)?;
@@ -184,7 +181,6 @@ pub(crate) fn cmd_graph_affected(file: &Path, resource: &str) -> Result<(), Stri
 
     Ok(())
 }
-
 
 // FJ-375: Critical path — longest dependency chain
 pub(crate) fn cmd_graph_critical_path(file: &Path) -> Result<(), String> {
@@ -246,7 +242,6 @@ pub(crate) fn cmd_graph_critical_path(file: &Path) -> Result<(), String> {
     Ok(())
 }
 
-
 /// FJ-595: Show DAG execution order (flattened topological sort via Kahn's algorithm).
 pub(crate) fn cmd_graph_execution_order(file: &Path, json: bool) -> Result<(), String> {
     let config = parse_and_validate(file)?;
@@ -299,7 +294,6 @@ pub(crate) fn cmd_graph_execution_order(file: &Path, json: bool) -> Result<(), S
     }
     Ok(())
 }
-
 
 /// Print execution order as JSON.
 fn print_execution_order_json(order: &[String], config: &types::ForjarConfig) {
@@ -382,4 +376,3 @@ pub(crate) fn cmd_graph_reverse(file: &Path) -> Result<(), String> {
 
     Ok(())
 }
-

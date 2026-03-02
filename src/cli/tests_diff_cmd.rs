@@ -1,27 +1,26 @@
 //! Tests: Diff and env commands.
 
 #![allow(unused_imports)]
+use super::apply_helpers::*;
+use super::commands::*;
+use super::diff_cmd::*;
+use super::dispatch::*;
+use super::helpers::*;
+use super::helpers_state::*;
+use super::helpers_time::*;
+use super::print_helpers::*;
+use super::test_fixtures::*;
 use crate::core::types::ProvenanceEvent;
 use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
 use crate::transport;
 use crate::tripwire::{anomaly, drift, eventlog, tracer};
-use std::path::{Path, PathBuf};
-use super::helpers::*;
-use super::helpers_state::*;
-use super::helpers_time::*;
-use super::diff_cmd::*;
-use super::apply_helpers::*;
-use super::commands::*;
-use super::dispatch::*;
-use super::print_helpers::*;
-use super::test_fixtures::*;
-use std::sync::atomic::Ordering;
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::Ordering;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
 
     #[test]
     fn test_fj131_cmd_diff_empty_state_dirs() {
@@ -30,7 +29,6 @@ mod tests {
         let err = cmd_diff(from.path(), to.path(), None, None, false).unwrap_err();
         assert!(err.contains("no machines found"));
     }
-
 
     #[test]
     fn test_fj131_cmd_diff_same_state() {
@@ -66,7 +64,6 @@ mod tests {
         // Diff same directory against itself → no differences
         cmd_diff(state.path(), state.path(), None, None, false).unwrap();
     }
-
 
     #[test]
     fn test_fj131_cmd_diff_added_resource() {
@@ -107,7 +104,6 @@ mod tests {
         cmd_diff(from_dir.path(), to_dir.path(), None, None, false).unwrap();
     }
 
-
     #[test]
     fn test_fj131_cmd_diff_machine_filter() {
         let from_dir = tempfile::tempdir().unwrap();
@@ -134,7 +130,6 @@ mod tests {
 
     // ── FJ-131: cmd_anomaly tests ─────────────────────────────────
 
-
     #[test]
     fn test_fj211_env_file_overridden_by_param() {
         // Env file sets a value, then --param overrides it further
@@ -158,13 +153,11 @@ mod tests {
     // FJ-210: Workspace tests
     // ================================================================
 
-
     #[test]
     fn test_fj274_unified_diff_no_old_content() {
         // Update without old content — falls back to ~ prefix
         print_content_diff("new content", &types::PlanAction::Update, None);
     }
-
 
     #[test]
     fn test_fj263_no_color_env_respected() {
@@ -179,7 +172,6 @@ mod tests {
         NO_COLOR.store(false, Ordering::Relaxed);
     }
 
-
     #[test]
     fn test_fj277_env_no_config() {
         let result = dispatch(
@@ -192,7 +184,6 @@ mod tests {
         );
         assert!(result.is_ok());
     }
-
 
     #[test]
     fn test_fj277_env_with_config() {
@@ -210,7 +201,6 @@ mod tests {
         assert!(result.is_ok());
     }
 
-
     #[test]
     fn test_fj277_env_json() {
         let dir = tempfile::tempdir().unwrap();
@@ -227,7 +217,6 @@ mod tests {
         assert!(result.is_ok());
     }
 
-
     #[test]
     fn test_fj277_env_command_parse() {
         let cmd = Commands::Env(EnvArgs {
@@ -243,7 +232,6 @@ mod tests {
     // ========================================================================
     // FJ-273: forjar test
     // ========================================================================
-
 
     #[test]
     fn test_fj291_diff_resource_flag_parse() {
@@ -263,7 +251,6 @@ mod tests {
     }
 
     // ── FJ-292: status --json enriched output ──
-
 
     #[test]
     fn test_fj306_env_json_resolved_params() {
@@ -294,7 +281,6 @@ resources:
         assert!(result.is_ok());
     }
 
-
     #[test]
     fn test_fj306_env_json_no_config() {
         let dir = tempfile::tempdir().unwrap();
@@ -304,7 +290,6 @@ resources:
     }
 
     // ── FJ-307: explain --json ──
-
 
     #[test]
     fn test_fj350_diff_only_flag() {
@@ -448,24 +433,50 @@ resources:
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-                notify_ntfy: None,
-                only_machine: None,
-                notify_webhook_headers: None,
-                notify_log: None,
-        notify_exec: None,
-        notify_file: None,
-        notify_json: false,
+            notify_ntfy: None,
+            only_machine: None,
+            notify_webhook_headers: None,
+            notify_log: None,
+            notify_exec: None,
+            notify_file: None,
+            notify_json: false,
             notify_slack_webhook: None,
             notify_telegram: None,
-            notify_webhook_v2: None, notify_discord_webhook: None, notify_teams_webhook: None, notify_slack_blocks: None, notify_custom_template: None,
-                notify_custom_webhook: None, notify_custom_headers: None, notify_custom_json: None, notify_custom_filter: None, notify_custom_retry: None, notify_custom_transform: None, notify_custom_batch: None, notify_custom_deduplicate: None, notify_custom_throttle: None, notify_custom_aggregate: None, notify_custom_priority: None, notify_custom_routing: None, notify_custom_dedup_window: None, notify_custom_rate_limit: None, notify_custom_backoff: None, notify_custom_circuit_breaker: None, notify_custom_dead_letter: None, notify_custom_escalation: None, notify_custom_correlation: None, notify_custom_sampling: None, notify_custom_digest: None, notify_custom_severity_filter: None, refresh_only: false, encrypt_state: false,
+            notify_webhook_v2: None,
+            notify_discord_webhook: None,
+            notify_teams_webhook: None,
+            notify_slack_blocks: None,
+            notify_custom_template: None,
+            notify_custom_webhook: None,
+            notify_custom_headers: None,
+            notify_custom_json: None,
+            notify_custom_filter: None,
+            notify_custom_retry: None,
+            notify_custom_transform: None,
+            notify_custom_batch: None,
+            notify_custom_deduplicate: None,
+            notify_custom_throttle: None,
+            notify_custom_aggregate: None,
+            notify_custom_priority: None,
+            notify_custom_routing: None,
+            notify_custom_dedup_window: None,
+            notify_custom_rate_limit: None,
+            notify_custom_backoff: None,
+            notify_custom_circuit_breaker: None,
+            notify_custom_dead_letter: None,
+            notify_custom_escalation: None,
+            notify_custom_correlation: None,
+            notify_custom_sampling: None,
+            notify_custom_digest: None,
+            notify_custom_severity_filter: None,
+            refresh_only: false,
+            encrypt_state: false,
         });
         match cmd {
             Commands::Apply(ApplyArgs { diff_only, .. }) => assert!(diff_only),
             _ => panic!("expected Apply"),
         }
     }
-
 
     #[test]
     fn test_fj367_env_diff_parse() {
@@ -483,5 +494,4 @@ resources:
             _ => panic!("expected EnvDiff"),
         }
     }
-
 }

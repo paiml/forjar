@@ -1,21 +1,20 @@
 //! Tests: Doctor diagnostics.
 
 #![allow(unused_imports)]
+use super::commands::*;
+use super::doctor::*;
+use super::helpers::*;
+use super::helpers_state::*;
+use super::helpers_time::*;
 use crate::core::types::ProvenanceEvent;
 use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
 use crate::transport;
 use crate::tripwire::{anomaly, drift, eventlog, tracer};
 use std::path::{Path, PathBuf};
-use super::helpers::*;
-use super::helpers_state::*;
-use super::helpers_time::*;
-use super::doctor::*;
-use super::commands::*;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
 
     #[test]
     fn test_fj251_doctor_no_config() {
@@ -27,14 +26,12 @@ mod tests {
         );
     }
 
-
     #[test]
     fn test_fj251_doctor_json_output() {
         // JSON mode should not crash
         let result = cmd_doctor(None, true, false);
         assert!(result.is_ok());
     }
-
 
     #[test]
     fn test_fj251_doctor_with_local_config() {
@@ -61,7 +58,6 @@ resources:
         let result = cmd_doctor(Some(&file), false, false);
         assert!(result.is_ok());
     }
-
 
     #[test]
     fn test_fj251_doctor_with_ssh_config() {
@@ -90,7 +86,6 @@ resources:
         let result = cmd_doctor(Some(&file), false, false);
         assert!(result.is_ok());
     }
-
 
     #[test]
     fn test_fj251_doctor_with_container_config() {
@@ -121,7 +116,6 @@ resources:
         let _result = cmd_doctor(Some(&file), false, false);
     }
 
-
     #[test]
     fn test_fj251_doctor_bad_config() {
         let dir = tempfile::tempdir().unwrap();
@@ -131,7 +125,6 @@ resources:
         // Should report failure for bad config
         assert!(result.is_err());
     }
-
 
     #[test]
     fn test_fj251_doctor_json_with_config() {
@@ -161,7 +154,6 @@ resources:
 
     // FJ-253: Completion tests
 
-
     #[test]
     fn test_fj287_doctor_no_fix_runs() {
         // doctor without fix should not crash
@@ -169,7 +161,6 @@ resources:
     }
 
     // ── FJ-290: forjar apply --parallel ──────────────────────────
-
 
     #[test]
     fn test_fj343_doctor_network_flag() {
@@ -184,5 +175,4 @@ resources:
             _ => panic!("expected Doctor"),
         }
     }
-
 }

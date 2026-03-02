@@ -1,7 +1,7 @@
 //! Wave execution helpers for per-machine apply.
 
-use super::*;
 use super::machine::{MachineCounters, PreparedResource};
+use super::*;
 
 /// Phase 2: Execute transport I/O in parallel threads.
 pub(super) fn execute_wave_io(
@@ -25,10 +25,16 @@ pub(super) fn execute_wave_io(
                         copia_apply_file(machine, &prep.resolved, cfg.timeout_secs)
                     } else {
                         codegen::apply_script(&prep.resolved).and_then(|script| {
-                            transport::exec_script_retry(machine, &script, cfg.timeout_secs, ssh_retries)
+                            transport::exec_script_retry(
+                                machine,
+                                &script,
+                                cfg.timeout_secs,
+                                ssh_retries,
+                            )
                         })
                     };
-                    let output = run_post_hook_if_success(output, &prep.resolved, machine, cfg.timeout_secs);
+                    let output =
+                        run_post_hook_if_success(output, &prep.resolved, machine, cfg.timeout_secs);
                     (prep.change_idx, start.elapsed().as_secs_f64(), output)
                 })
             })
@@ -110,26 +116,75 @@ pub(super) fn record_wave_outcomes(
 
         match output {
             Ok(out) if out.success() => {
-                record_success(ctx, &change.resource_id, resource, &prep.resolved, machine, duration);
+                record_success(
+                    ctx,
+                    &change.resource_id,
+                    resource,
+                    &prep.resolved,
+                    machine,
+                    duration,
+                );
                 counters.converged += 1;
-                counters.converged_resources.insert(change.resource_id.clone());
+                counters
+                    .converged_resources
+                    .insert(change.resource_id.clone());
                 let rt = resource_type_label(cfg, &change.resource_id);
-                let action = if change.action == PlanAction::Create { "create" } else { "update" };
-                trace_session.record_span(&change.resource_id, &rt, machine_name, action, std::time::Duration::from_secs_f64(duration), 0, None);
+                let action = if change.action == PlanAction::Create {
+                    "create"
+                } else {
+                    "update"
+                };
+                trace_session.record_span(
+                    &change.resource_id,
+                    &rt,
+                    machine_name,
+                    action,
+                    std::time::Duration::from_secs_f64(duration),
+                    0,
+                    None,
+                );
             }
             Ok(out) => {
                 let error = format!("exit code {}: {}", out.exit_code, out.stderr.trim());
-                stop |= record_failure(ctx, &change.resource_id, &resource.resource_type, duration, &error);
+                stop |= record_failure(
+                    ctx,
+                    &change.resource_id,
+                    &resource.resource_type,
+                    duration,
+                    &error,
+                );
                 counters.failed += 1;
                 let rt = resource_type_label(cfg, &change.resource_id);
-                trace_session.record_span(&change.resource_id, &rt, machine_name, "create", std::time::Duration::from_secs_f64(duration), 1, None);
+                trace_session.record_span(
+                    &change.resource_id,
+                    &rt,
+                    machine_name,
+                    "create",
+                    std::time::Duration::from_secs_f64(duration),
+                    1,
+                    None,
+                );
             }
             Err(e) => {
                 let error = format!("transport error: {}", e);
-                stop |= record_failure(ctx, &change.resource_id, &resource.resource_type, duration, &error);
+                stop |= record_failure(
+                    ctx,
+                    &change.resource_id,
+                    &resource.resource_type,
+                    duration,
+                    &error,
+                );
                 counters.failed += 1;
                 let rt = resource_type_label(cfg, &change.resource_id);
-                trace_session.record_span(&change.resource_id, &rt, machine_name, "create", std::time::Duration::from_secs_f64(duration), 1, None);
+                trace_session.record_span(
+                    &change.resource_id,
+                    &rt,
+                    machine_name,
+                    "create",
+                    std::time::Duration::from_secs_f64(duration),
+                    1,
+                    None,
+                );
             }
         }
     }

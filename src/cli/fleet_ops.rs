@@ -1,11 +1,10 @@
 //! Fleet operations.
 
+use super::apply::*;
+use super::helpers::*;
 use crate::core::types;
 use crate::tripwire::eventlog;
 use std::path::Path;
-use super::helpers::*;
-use super::apply::*;
-
 
 /// FJ-327: Re-run only previously failed resources.
 pub(crate) fn cmd_retry_failed(
@@ -114,7 +113,6 @@ pub(crate) fn cmd_retry_failed(
     Ok(())
 }
 
-
 /// FJ-324: Rolling deployment — apply N machines at a time, stop on failure.
 pub(crate) fn cmd_rolling(
     file: &Path,
@@ -197,7 +195,6 @@ pub(crate) fn cmd_rolling(
     );
     Ok(())
 }
-
 
 /// FJ-325: Canary deployment — apply to one machine first, then rest.
 pub(crate) fn cmd_canary(
@@ -335,7 +332,6 @@ pub(crate) fn cmd_canary(
     Ok(())
 }
 
-
 /// FJ-326: List all machines with connection status.
 pub(crate) fn cmd_inventory(file: &Path, json: bool) -> Result<(), String> {
     let config = parse_and_validate(file)?;
@@ -424,4 +420,3 @@ pub(crate) fn cmd_inventory(file: &Path, json: bool) -> Result<(), String> {
 
     Ok(())
 }
-

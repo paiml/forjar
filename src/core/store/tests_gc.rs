@@ -20,11 +20,7 @@ fn setup_store_entry(store_dir: &Path, hash: &str, references: &[&str]) {
 
 #[test]
 fn test_fj1325_collect_roots_profiles() {
-    let roots = collect_roots(
-        &[HASH_A.to_string(), HASH_B.to_string()],
-        &[],
-        None,
-    );
+    let roots = collect_roots(&[HASH_A.to_string(), HASH_B.to_string()], &[], None);
     assert_eq!(roots.len(), 2);
     assert!(roots.contains(HASH_A));
     assert!(roots.contains(HASH_B));
@@ -32,22 +28,14 @@ fn test_fj1325_collect_roots_profiles() {
 
 #[test]
 fn test_fj1325_collect_roots_lockfile() {
-    let roots = collect_roots(
-        &[],
-        &[HASH_A.to_string()],
-        None,
-    );
+    let roots = collect_roots(&[], &[HASH_A.to_string()], None);
     assert_eq!(roots.len(), 1);
     assert!(roots.contains(HASH_A));
 }
 
 #[test]
 fn test_fj1325_collect_roots_deduplicates() {
-    let roots = collect_roots(
-        &[HASH_A.to_string()],
-        &[HASH_A.to_string()],
-        None,
-    );
+    let roots = collect_roots(&[HASH_A.to_string()], &[HASH_A.to_string()], None);
     assert_eq!(roots.len(), 1);
 }
 
@@ -170,4 +158,3 @@ fn test_fj1325_gc_root_from_symlink_integration() {
     let report = mark_and_sweep(&roots, &store).unwrap();
     assert!(report.live.contains(HASH_A));
 }
-

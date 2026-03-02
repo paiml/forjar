@@ -4,7 +4,7 @@ use std::collections::HashMap;
 
 use super::expansion::parse_recipe;
 use super::types::RecipeInput;
-use super::validation::{validate_inputs, validate_input_type, validate_int};
+use super::validation::{validate_input_type, validate_inputs, validate_int};
 
 const RECIPE_YAML: &str = r#"
 recipe:
@@ -376,9 +376,16 @@ resources: {}
         serde_yaml_ng::Value::String("not-an-integer".to_string()),
     );
     let result = validate_inputs(&recipe.recipe, &provided);
-    assert!(result.is_err(), "string value for int input should be rejected");
+    assert!(
+        result.is_err(),
+        "string value for int input should be rejected"
+    );
     let err = result.unwrap_err();
-    assert!(err.contains("integer"), "error should mention integer type: {}", err);
+    assert!(
+        err.contains("integer"),
+        "error should mention integer type: {}",
+        err
+    );
 }
 
 // -- Proptest for validation --

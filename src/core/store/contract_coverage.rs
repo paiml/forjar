@@ -46,16 +46,14 @@ pub struct CoverageReport {
 
 /// Parse a `binding.yaml` registry from a file path.
 pub fn read_binding_registry(path: &Path) -> Result<BindingRegistry, String> {
-    let data = std::fs::read_to_string(path)
-        .map_err(|e| format!("read {}: {e}", path.display()))?;
-    serde_yaml_ng::from_str(&data)
-        .map_err(|e| format!("parse binding.yaml: {e}"))
+    let data =
+        std::fs::read_to_string(path).map_err(|e| format!("read {}: {e}", path.display()))?;
+    serde_yaml_ng::from_str(&data).map_err(|e| format!("parse binding.yaml: {e}"))
 }
 
 /// Scan a contracts directory and return the list of contract names (stem of .yaml files).
 pub fn scan_contracts_dir(dir: &Path) -> Result<Vec<String>, String> {
-    let entries = std::fs::read_dir(dir)
-        .map_err(|e| format!("read dir {}: {e}", dir.display()))?;
+    let entries = std::fs::read_dir(dir).map_err(|e| format!("read dir {}: {e}", dir.display()))?;
     let mut names: Vec<String> = entries
         .filter_map(|e| e.ok())
         .filter_map(|e| {
@@ -99,9 +97,7 @@ pub fn coverage_report(
                 covered += 1;
                 ContractStatus::Implemented
             }
-            Some(&"partial") => {
-                ContractStatus::Partial
-            }
+            Some(&"partial") => ContractStatus::Partial,
             _ => ContractStatus::Missing,
         };
         contracts.insert(req.contract.clone(), status);

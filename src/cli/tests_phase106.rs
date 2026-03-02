@@ -1,8 +1,8 @@
 //! Tests: Phase 106 — Dependency Intelligence & Fleet Configuration (FJ-1109→FJ-1116).
 
+use super::graph_weight::*;
 use super::status_drift_intel2::*;
 use super::validate_audit::*;
-use super::graph_weight::*;
 use std::io::Write;
 
 #[cfg(test)]
@@ -18,7 +18,9 @@ mod tests {
 
     fn write_yaml(dir: &std::path::Path, name: &str, content: &str) {
         let p = dir.join(name);
-        if let Some(parent) = p.parent() { std::fs::create_dir_all(parent).unwrap(); }
+        if let Some(parent) = p.parent() {
+            std::fs::create_dir_all(parent).unwrap();
+        }
         std::fs::write(&p, content).unwrap();
     }
 
@@ -165,13 +167,41 @@ mod tests {
 
     // ── File-not-found error paths ──
     #[test]
-    fn test_fj1110_file_not_found() { assert!(cmd_validate_check_resource_dependency_completeness_audit(std::path::Path::new("/x"), false).is_err()); }
+    fn test_fj1110_file_not_found() {
+        assert!(cmd_validate_check_resource_dependency_completeness_audit(
+            std::path::Path::new("/x"),
+            false
+        )
+        .is_err());
+    }
     #[test]
-    fn test_fj1111_file_not_found() { assert!(cmd_graph_resource_dependency_weight_analysis(std::path::Path::new("/x"), false).is_err()); }
+    fn test_fj1111_file_not_found() {
+        assert!(
+            cmd_graph_resource_dependency_weight_analysis(std::path::Path::new("/x"), false)
+                .is_err()
+        );
+    }
     #[test]
-    fn test_fj1113_file_not_found() { assert!(cmd_validate_check_resource_machine_coverage_gap(std::path::Path::new("/x"), false).is_err()); }
+    fn test_fj1113_file_not_found() {
+        assert!(cmd_validate_check_resource_machine_coverage_gap(
+            std::path::Path::new("/x"),
+            false
+        )
+        .is_err());
+    }
     #[test]
-    fn test_fj1114_file_not_found() { assert!(cmd_graph_resource_dependency_topological_summary(std::path::Path::new("/x"), false).is_err()); }
+    fn test_fj1114_file_not_found() {
+        assert!(cmd_graph_resource_dependency_topological_summary(
+            std::path::Path::new("/x"),
+            false
+        )
+        .is_err());
+    }
     #[test]
-    fn test_fj1116_file_not_found() { assert!(cmd_validate_check_resource_path_depth_limit(std::path::Path::new("/x"), false).is_err()); }
+    fn test_fj1116_file_not_found() {
+        assert!(
+            cmd_validate_check_resource_path_depth_limit(std::path::Path::new("/x"), false)
+                .is_err()
+        );
+    }
 }

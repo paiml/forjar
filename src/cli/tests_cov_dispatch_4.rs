@@ -1,9 +1,6 @@
 //! Tests: Coverage for apply edge cases, dispatch_lock extras (part 4).
 
 #![allow(unused_imports)]
-use crate::core::{executor, parser, planner, resolver, state, types};
-use std::io::Write;
-use std::path::{Path, PathBuf};
 use super::apply::*;
 use super::check::*;
 use super::commands::*;
@@ -16,6 +13,9 @@ use super::helpers_state::*;
 use super::infra::*;
 use super::observe::*;
 use super::test_fixtures::*;
+use crate::core::{executor, parser, planner, resolver, state, types};
+use std::io::Write;
+use std::path::{Path, PathBuf};
 
 #[cfg(test)]
 mod tests {
@@ -95,14 +95,14 @@ resources:
             false,
             false,
             0,
-            false,  // yes=false — will fail on stdin prompt
+            false, // yes=false — will fail on stdin prompt
             false,
             None,
             false,
             None,
             None,
             None,
-            true,   // confirm_destructive
+            true, // confirm_destructive
             None,
             false,
         );
@@ -163,13 +163,13 @@ resources:
             false,
             false,
             0,
-            true,  // yes
+            true, // yes
             false,
             None,
             false,
             None,
             None,
-            Some("web*"),  // subset — only web-config
+            Some("web*"), // subset — only web-config
             false,
             None,
             false,
@@ -233,7 +233,7 @@ resources:
             false,
             false,
             0,
-            true,  // yes
+            true, // yes
             false,
             None,
             false,
@@ -241,7 +241,7 @@ resources:
             None,
             None,
             false,
-            Some("db*"),  // exclude — remove db-config
+            Some("db*"), // exclude — remove db-config
             false,
         );
         assert!(result.is_ok());
@@ -285,7 +285,7 @@ resources:
             false,
             None,
             None,
-            Some("nonexistent-pattern*"),  // subset that matches nothing
+            Some("nonexistent-pattern*"), // subset that matches nothing
             false,
             None,
             false,
@@ -326,12 +326,12 @@ resources:
             None,
             None,
             false,
-            true,  // dry_run
+            true, // dry_run
             false,
             &[],
             false,
             None,
-            true,  // json
+            true, // json
             false,
             None,
             None,

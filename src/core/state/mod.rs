@@ -324,12 +324,12 @@ fn walk_age_files(state_dir: &Path) -> Vec<PathBuf> {
 }
 
 #[cfg(test)]
-mod tests_helpers;
-#[cfg(test)]
 mod tests_basic;
 #[cfg(test)]
 mod tests_edge;
 #[cfg(test)]
-mod tests_process_lock;
-#[cfg(test)]
 mod tests_encrypt;
+#[cfg(test)]
+mod tests_helpers;
+#[cfg(test)]
+mod tests_process_lock;

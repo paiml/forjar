@@ -323,4 +323,3 @@ resources:
     assert!(machines.contains(&"db".to_string()));
     assert_eq!(machines.len(), 2);
 }
-

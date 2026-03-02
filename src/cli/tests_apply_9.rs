@@ -1,21 +1,20 @@
 //! Tests: Apply command.
 
 #![allow(unused_imports)]
+use super::apply::*;
+use super::commands::*;
+use super::helpers::*;
+use super::helpers_state::*;
+use super::helpers_time::*;
 use crate::core::types::ProvenanceEvent;
 use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
 use crate::transport;
 use crate::tripwire::{anomaly, drift, eventlog, tracer};
 use std::path::{Path, PathBuf};
-use super::helpers::*;
-use super::helpers_state::*;
-use super::helpers_time::*;
-use super::apply::*;
-use super::commands::*;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
 
     #[test]
     fn test_fj446_apply_post_script_flag() {
@@ -159,13 +158,44 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-                notify_ntfy: None,
-                only_machine: None,
-                notify_webhook_headers: None,
-                notify_log: None,
-        notify_exec: None,
-        notify_file: None,
-        notify_json: false, notify_slack_webhook: None, notify_telegram: None, notify_webhook_v2: None, notify_discord_webhook: None, notify_teams_webhook: None, notify_slack_blocks: None, notify_custom_template: None, notify_custom_webhook: None, notify_custom_headers: None, notify_custom_json: None, notify_custom_filter: None, notify_custom_retry: None, notify_custom_transform: None, notify_custom_batch: None, notify_custom_deduplicate: None, notify_custom_throttle: None, notify_custom_aggregate: None, notify_custom_priority: None, notify_custom_routing: None, notify_custom_dedup_window: None, notify_custom_rate_limit: None, notify_custom_backoff: None, notify_custom_circuit_breaker: None, notify_custom_dead_letter: None, notify_custom_escalation: None, notify_custom_correlation: None, notify_custom_sampling: None, notify_custom_digest: None, notify_custom_severity_filter: None, refresh_only: false, encrypt_state: false,
+            notify_ntfy: None,
+            only_machine: None,
+            notify_webhook_headers: None,
+            notify_log: None,
+            notify_exec: None,
+            notify_file: None,
+            notify_json: false,
+            notify_slack_webhook: None,
+            notify_telegram: None,
+            notify_webhook_v2: None,
+            notify_discord_webhook: None,
+            notify_teams_webhook: None,
+            notify_slack_blocks: None,
+            notify_custom_template: None,
+            notify_custom_webhook: None,
+            notify_custom_headers: None,
+            notify_custom_json: None,
+            notify_custom_filter: None,
+            notify_custom_retry: None,
+            notify_custom_transform: None,
+            notify_custom_batch: None,
+            notify_custom_deduplicate: None,
+            notify_custom_throttle: None,
+            notify_custom_aggregate: None,
+            notify_custom_priority: None,
+            notify_custom_routing: None,
+            notify_custom_dedup_window: None,
+            notify_custom_rate_limit: None,
+            notify_custom_backoff: None,
+            notify_custom_circuit_breaker: None,
+            notify_custom_dead_letter: None,
+            notify_custom_escalation: None,
+            notify_custom_correlation: None,
+            notify_custom_sampling: None,
+            notify_custom_digest: None,
+            notify_custom_severity_filter: None,
+            refresh_only: false,
+            encrypt_state: false,
         });
         match cmd {
             Commands::Apply(ApplyArgs { post_script, .. }) => {
@@ -174,7 +204,6 @@ mod tests {
             _ => panic!("expected Apply"),
         }
     }
-
 
     #[test]
     fn test_fj450_apply_approval_required_flag() {
@@ -318,13 +347,44 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-                notify_ntfy: None,
-                only_machine: None,
-                notify_webhook_headers: None,
-                notify_log: None,
-        notify_exec: None,
-        notify_file: None,
-        notify_json: false, notify_slack_webhook: None, notify_telegram: None, notify_webhook_v2: None, notify_discord_webhook: None, notify_teams_webhook: None, notify_slack_blocks: None, notify_custom_template: None, notify_custom_webhook: None, notify_custom_headers: None, notify_custom_json: None, notify_custom_filter: None, notify_custom_retry: None, notify_custom_transform: None, notify_custom_batch: None, notify_custom_deduplicate: None, notify_custom_throttle: None, notify_custom_aggregate: None, notify_custom_priority: None, notify_custom_routing: None, notify_custom_dedup_window: None, notify_custom_rate_limit: None, notify_custom_backoff: None, notify_custom_circuit_breaker: None, notify_custom_dead_letter: None, notify_custom_escalation: None, notify_custom_correlation: None, notify_custom_sampling: None, notify_custom_digest: None, notify_custom_severity_filter: None, refresh_only: false, encrypt_state: false,
+            notify_ntfy: None,
+            only_machine: None,
+            notify_webhook_headers: None,
+            notify_log: None,
+            notify_exec: None,
+            notify_file: None,
+            notify_json: false,
+            notify_slack_webhook: None,
+            notify_telegram: None,
+            notify_webhook_v2: None,
+            notify_discord_webhook: None,
+            notify_teams_webhook: None,
+            notify_slack_blocks: None,
+            notify_custom_template: None,
+            notify_custom_webhook: None,
+            notify_custom_headers: None,
+            notify_custom_json: None,
+            notify_custom_filter: None,
+            notify_custom_retry: None,
+            notify_custom_transform: None,
+            notify_custom_batch: None,
+            notify_custom_deduplicate: None,
+            notify_custom_throttle: None,
+            notify_custom_aggregate: None,
+            notify_custom_priority: None,
+            notify_custom_routing: None,
+            notify_custom_dedup_window: None,
+            notify_custom_rate_limit: None,
+            notify_custom_backoff: None,
+            notify_custom_circuit_breaker: None,
+            notify_custom_dead_letter: None,
+            notify_custom_escalation: None,
+            notify_custom_correlation: None,
+            notify_custom_sampling: None,
+            notify_custom_digest: None,
+            notify_custom_severity_filter: None,
+            refresh_only: false,
+            encrypt_state: false,
         });
         match cmd {
             Commands::Apply(ApplyArgs {
@@ -333,7 +393,6 @@ mod tests {
             _ => panic!("expected Apply"),
         }
     }
-
 
     #[test]
     fn test_fj453_apply_canary_percent_flag() {
@@ -477,18 +536,50 @@ mod tests {
             notify_mattermost: None,
             cooldown: None,
             exclude_machine: None,
-                notify_ntfy: None,
-                only_machine: None,
-                notify_webhook_headers: None,
-                notify_log: None,
-        notify_exec: None,
-        notify_file: None,
-        notify_json: false, notify_slack_webhook: None, notify_telegram: None, notify_webhook_v2: None, notify_discord_webhook: None, notify_teams_webhook: None, notify_slack_blocks: None, notify_custom_template: None, notify_custom_webhook: None, notify_custom_headers: None, notify_custom_json: None, notify_custom_filter: None, notify_custom_retry: None, notify_custom_transform: None, notify_custom_batch: None, notify_custom_deduplicate: None, notify_custom_throttle: None, notify_custom_aggregate: None, notify_custom_priority: None, notify_custom_routing: None, notify_custom_dedup_window: None, notify_custom_rate_limit: None, notify_custom_backoff: None, notify_custom_circuit_breaker: None, notify_custom_dead_letter: None, notify_custom_escalation: None, notify_custom_correlation: None, notify_custom_sampling: None, notify_custom_digest: None, notify_custom_severity_filter: None, refresh_only: false, encrypt_state: false,
+            notify_ntfy: None,
+            only_machine: None,
+            notify_webhook_headers: None,
+            notify_log: None,
+            notify_exec: None,
+            notify_file: None,
+            notify_json: false,
+            notify_slack_webhook: None,
+            notify_telegram: None,
+            notify_webhook_v2: None,
+            notify_discord_webhook: None,
+            notify_teams_webhook: None,
+            notify_slack_blocks: None,
+            notify_custom_template: None,
+            notify_custom_webhook: None,
+            notify_custom_headers: None,
+            notify_custom_json: None,
+            notify_custom_filter: None,
+            notify_custom_retry: None,
+            notify_custom_transform: None,
+            notify_custom_batch: None,
+            notify_custom_deduplicate: None,
+            notify_custom_throttle: None,
+            notify_custom_aggregate: None,
+            notify_custom_priority: None,
+            notify_custom_routing: None,
+            notify_custom_dedup_window: None,
+            notify_custom_rate_limit: None,
+            notify_custom_backoff: None,
+            notify_custom_circuit_breaker: None,
+            notify_custom_dead_letter: None,
+            notify_custom_escalation: None,
+            notify_custom_correlation: None,
+            notify_custom_sampling: None,
+            notify_custom_digest: None,
+            notify_custom_severity_filter: None,
+            refresh_only: false,
+            encrypt_state: false,
         });
         match cmd {
-            Commands::Apply(ApplyArgs { canary_percent, .. }) => assert_eq!(canary_percent, Some(25)),
+            Commands::Apply(ApplyArgs { canary_percent, .. }) => {
+                assert_eq!(canary_percent, Some(25))
+            }
             _ => panic!("expected Apply"),
         }
     }
-
 }

@@ -1,33 +1,32 @@
 //! CLI Commands enum and sub-command enums.
 
 mod apply_args;
-mod validate_args;
-mod plan_args;
-mod status_args;
 mod graph_args;
 mod lock_core_args;
 mod lock_ops_args;
-mod state_args;
 mod misc_args;
 mod misc_ops_args;
+mod plan_args;
+mod state_args;
+mod status_args;
 mod store_args;
 mod subcmd_args;
+mod validate_args;
 
 pub use apply_args::*;
-pub use validate_args::*;
-pub use plan_args::*;
-pub use status_args::*;
 pub use graph_args::*;
 pub use lock_core_args::*;
 pub use lock_ops_args::*;
-pub use state_args::*;
 pub use misc_args::*;
 pub use misc_ops_args::*;
+pub use plan_args::*;
+pub use state_args::*;
+pub use status_args::*;
 pub use store_args::*;
 pub use subcmd_args::*;
+pub use validate_args::*;
 
 use clap::Subcommand;
-
 
 #[derive(Subcommand, Debug)]
 #[allow(clippy::large_enum_variant)]
@@ -338,6 +337,4 @@ pub enum Commands {
     /// FJ-1333: Universal store import (apt, cargo, uv, nix, docker, tofu, terraform, apr)
     #[command(name = "store-import")]
     StoreImport(StoreImportArgs),
-
 }
-

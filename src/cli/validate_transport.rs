@@ -100,8 +100,7 @@ pub(crate) fn find_recipe_input_completeness_gaps(
 ) -> Vec<(String, String)> {
     let mut warnings = Vec::new();
     for (name, resource) in &config.resources {
-        let defined_keys: std::collections::HashSet<&String> =
-            resource.inputs.keys().collect();
+        let defined_keys: std::collections::HashSet<&String> = resource.inputs.keys().collect();
         let fields = collect_templatable_fields(resource);
         for field in &fields {
             for var in extract_input_references(field) {
@@ -137,10 +136,8 @@ pub(crate) fn cmd_validate_check_resource_cross_machine_content_duplicates(
         let items: Vec<String> = warnings
             .iter()
             .map(|(names, machines, hash)| {
-                let name_arr: Vec<String> =
-                    names.iter().map(|n| format!("\"{}\"", n)).collect();
-                let mach_arr: Vec<String> =
-                    machines.iter().map(|m| format!("\"{}\"", m)).collect();
+                let name_arr: Vec<String> = names.iter().map(|n| format!("\"{}\"", n)).collect();
+                let mach_arr: Vec<String> = machines.iter().map(|m| format!("\"{}\"", m)).collect();
                 format!(
                     "{{\"resources\":[{}],\"machines\":[{}],\"content_hash\":\"{}\"}}",
                     name_arr.join(","),
@@ -149,10 +146,7 @@ pub(crate) fn cmd_validate_check_resource_cross_machine_content_duplicates(
                 )
             })
             .collect();
-        println!(
-            "{{\"content_hash_warnings\":[{}]}}",
-            items.join(",")
-        );
+        println!("{{\"content_hash_warnings\":[{}]}}", items.join(","));
     } else if warnings.is_empty() {
         println!("No cross-machine content duplication detected.");
     } else {
@@ -202,10 +196,8 @@ pub(crate) fn find_content_hash_duplicates(
             continue;
         }
         // Collect all unique machine names across entries.
-        let all_machines: std::collections::HashSet<&String> = entries
-            .iter()
-            .flat_map(|(_, ms)| ms.iter())
-            .collect();
+        let all_machines: std::collections::HashSet<&String> =
+            entries.iter().flat_map(|(_, ms)| ms.iter()).collect();
         // Only warn if the duplicate content spans more than one distinct machine.
         if all_machines.len() < 2 {
             continue;
@@ -264,9 +256,7 @@ pub(crate) fn cmd_validate_check_resource_machine_reference_validity(
 /// Returns `(resource_name, undefined_machine)` for each resource referencing
 /// a machine that does not exist in the config's `machines` map.
 /// The sentinel value `localhost` is always considered valid.
-fn find_machine_affinity_violations(
-    config: &types::ForjarConfig,
-) -> Vec<(String, String)> {
+fn find_machine_affinity_violations(config: &types::ForjarConfig) -> Vec<(String, String)> {
     let defined: std::collections::HashSet<&String> = config.machines.keys().collect();
     let mut warnings = Vec::new();
 
@@ -284,4 +274,3 @@ fn find_machine_affinity_violations(
     warnings.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| a.1.cmp(&b.1)));
     warnings
 }
-

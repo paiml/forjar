@@ -1,8 +1,7 @@
 //! CLI Args structs for store-related commands (pin, cache, store, archive).
 
-use std::path::PathBuf;
 use clap::Subcommand;
-
+use std::path::PathBuf;
 
 /// Pin command: pin all inputs to current versions.
 #[derive(clap::Args, Debug)]
@@ -27,7 +26,6 @@ pub struct PinArgs {
     #[arg(long)]
     pub json: bool,
 }
-
 
 /// Cache subcommands: list, push, pull, verify.
 #[derive(Subcommand, Debug)]
@@ -78,7 +76,6 @@ pub enum CacheCmd {
         json: bool,
     },
 }
-
 
 /// Store subcommands: gc, list, diff, sync.
 #[derive(Subcommand, Debug)]
@@ -158,7 +155,6 @@ pub enum StoreCmd {
     },
 }
 
-
 /// Archive subcommands: pack, unpack, inspect, verify.
 #[derive(Subcommand, Debug)]
 pub enum ArchiveCmd {
@@ -207,7 +203,6 @@ pub enum ArchiveCmd {
     },
 }
 
-
 /// Store import args: `forjar store-import <provider> <ref>`.
 #[derive(clap::Args, Debug)]
 pub struct StoreImportArgs {
@@ -233,7 +228,6 @@ pub struct StoreImportArgs {
     #[arg(long)]
     pub list_providers: bool,
 }
-
 
 /// Convert subcommand args: --reproducible conversion.
 #[derive(clap::Args, Debug)]

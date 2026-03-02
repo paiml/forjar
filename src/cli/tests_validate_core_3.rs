@@ -1,24 +1,23 @@
 //! Tests: Core validation command.
 
 #![allow(unused_imports)]
+use super::helpers::*;
+use super::helpers_state::*;
+use super::helpers_time::*;
+use super::validate_compliance::*;
+use super::validate_core::*;
+use super::validate_paths::*;
+use super::validate_resources::*;
+use super::validate_structural::*;
 use crate::core::types::ProvenanceEvent;
 use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
 use crate::transport;
 use crate::tripwire::{anomaly, drift, eventlog, tracer};
 use std::path::{Path, PathBuf};
-use super::helpers::*;
-use super::helpers_state::*;
-use super::helpers_time::*;
-use super::validate_core::*;
-use super::validate_compliance::*;
-use super::validate_paths::*;
-use super::validate_resources::*;
-use super::validate_structural::*;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
 
     #[test]
     fn test_fj590_validate_check_dependencies_json() {
@@ -29,7 +28,6 @@ mod tests {
         assert!(result.is_ok());
     }
 
-
     #[test]
     fn test_fj601_validate_check_permissions() {
         let dir = tempfile::tempdir().unwrap();
@@ -38,7 +36,6 @@ mod tests {
         let result = cmd_validate_check_permissions(&cfg, false);
         assert!(result.is_ok());
     }
-
 
     #[test]
     fn test_fj601_validate_check_permissions_json() {
@@ -49,7 +46,6 @@ mod tests {
         assert!(result.is_ok());
     }
 
-
     #[test]
     fn test_fj611_validate_check_idempotency_deep() {
         let dir = tempfile::tempdir().unwrap();
@@ -58,7 +54,6 @@ mod tests {
         let result = cmd_validate_check_idempotency_deep(&cfg, false);
         assert!(result.is_ok());
     }
-
 
     #[test]
     fn test_fj611_validate_check_idempotency_deep_json() {
@@ -69,7 +64,6 @@ mod tests {
         assert!(result.is_ok());
     }
 
-
     #[test]
     fn test_fj621_validate_check_machine_reachability() {
         let dir = tempfile::tempdir().unwrap();
@@ -78,7 +72,6 @@ mod tests {
         let result = cmd_validate_check_machine_reachability(&cfg, false);
         assert!(result.is_ok());
     }
-
 
     #[test]
     fn test_fj621_validate_check_machine_reachability_json() {
@@ -89,7 +82,6 @@ mod tests {
         assert!(result.is_ok());
     }
 
-
     #[test]
     fn test_fj631_validate_check_circular_refs() {
         let dir = tempfile::tempdir().unwrap();
@@ -98,7 +90,6 @@ mod tests {
         let result = cmd_validate_check_circular_refs(&cfg, false);
         assert!(result.is_ok());
     }
-
 
     #[test]
     fn test_fj631_validate_check_circular_refs_json() {
@@ -109,7 +100,6 @@ mod tests {
         assert!(result.is_ok());
     }
 
-
     #[test]
     fn test_fj641_validate_check_naming_conventions() {
         let dir = tempfile::tempdir().unwrap();
@@ -118,7 +108,6 @@ mod tests {
         let result = cmd_validate_check_naming_conventions(&cfg, false);
         assert!(result.is_ok());
     }
-
 
     #[test]
     fn test_fj641_validate_check_naming_conventions_json() {
@@ -129,7 +118,6 @@ mod tests {
         assert!(result.is_ok());
     }
 
-
     #[test]
     fn test_fj651_validate_check_resource_limits() {
         let dir = tempfile::tempdir().unwrap();
@@ -138,7 +126,6 @@ mod tests {
         let result = cmd_validate_check_resource_limits(&cfg, true);
         assert!(result.is_ok());
     }
-
 
     #[test]
     fn test_fj661_validate_check_owner_consistency() {
@@ -149,7 +136,6 @@ mod tests {
         assert!(result.is_ok());
     }
 
-
     #[test]
     fn test_fj661_validate_check_owner_consistency_json() {
         let dir = tempfile::tempdir().unwrap();
@@ -158,7 +144,6 @@ mod tests {
         let result = cmd_validate_check_owner_consistency(&cfg, true);
         assert!(result.is_ok());
     }
-
 
     #[test]
     fn test_fj671_validate_check_path_conflicts() {
@@ -169,7 +154,6 @@ mod tests {
         assert!(result.is_ok());
     }
 
-
     #[test]
     fn test_fj671_validate_check_path_conflicts_json() {
         let dir = tempfile::tempdir().unwrap();
@@ -178,7 +162,6 @@ mod tests {
         let result = cmd_validate_check_path_conflicts(&cfg, true);
         assert!(result.is_ok());
     }
-
 
     #[test]
     fn test_fj681_validate_check_service_deps() {
@@ -189,7 +172,6 @@ mod tests {
         assert!(result.is_ok());
     }
 
-
     #[test]
     fn test_fj691_validate_check_template_vars() {
         let dir = tempfile::tempdir().unwrap();
@@ -198,7 +180,6 @@ mod tests {
         let result = cmd_validate_check_template_vars(&f, false);
         assert!(result.is_ok());
     }
-
 
     #[test]
     fn test_fj691_validate_check_template_vars_json() {
@@ -209,7 +190,6 @@ mod tests {
         assert!(result.is_ok());
     }
 
-
     #[test]
     fn test_fj701_validate_check_mode_consistency() {
         let dir = tempfile::tempdir().unwrap();
@@ -218,7 +198,6 @@ mod tests {
         let result = cmd_validate_check_mode_consistency(&f, false);
         assert!(result.is_ok());
     }
-
 
     #[test]
     fn test_fj701_validate_check_mode_consistency_json() {
@@ -238,7 +217,6 @@ mod tests {
         assert!(result.is_ok());
     }
 
-
     #[test]
     fn test_fj711_validate_check_group_consistency_json() {
         let dir = tempfile::tempdir().unwrap();
@@ -257,7 +235,6 @@ mod tests {
         assert!(result.is_ok());
     }
 
-
     #[test]
     fn test_fj721_validate_check_mount_points_json() {
         let dir = tempfile::tempdir().unwrap();
@@ -266,5 +243,4 @@ mod tests {
         let result = cmd_validate_check_mount_points(&f, true);
         assert!(result.is_ok());
     }
-
 }

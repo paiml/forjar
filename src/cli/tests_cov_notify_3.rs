@@ -4,13 +4,13 @@
 //! rekey, and rotate.
 
 #![allow(unused_imports)]
-use std::path::Path;
+use super::check::*;
 use super::dispatch_notify::*;
 use super::dispatch_notify_custom::*;
-use super::secrets::*;
-use super::check::*;
 use super::doctor::*;
+use super::secrets::*;
 use super::test_fixtures::*;
+use std::path::Path;
 
 #[cfg(test)]
 mod tests {
@@ -25,7 +25,11 @@ mod tests {
 
     #[test]
     fn test_custom_circuit_breaker_default() {
-        send_custom_circuit_breaker_notification(Some("http://127.0.0.1:1/cb"), &Ok(()), Path::new("/tmp/t.yaml"));
+        send_custom_circuit_breaker_notification(
+            Some("http://127.0.0.1:1/cb"),
+            &Ok(()),
+            Path::new("/tmp/t.yaml"),
+        );
     }
 
     #[test]
@@ -55,7 +59,11 @@ mod tests {
 
     #[test]
     fn test_custom_dead_letter_default() {
-        send_custom_dead_letter_notification(Some("http://127.0.0.1:1/dl"), &Ok(()), Path::new("/tmp/t.yaml"));
+        send_custom_dead_letter_notification(
+            Some("http://127.0.0.1:1/dl"),
+            &Ok(()),
+            Path::new("/tmp/t.yaml"),
+        );
     }
 
     #[test]
@@ -103,7 +111,11 @@ mod tests {
 
     #[test]
     fn test_custom_escalation_default_level() {
-        send_custom_escalation_notification(Some("http://127.0.0.1:1/esc"), &Ok(()), Path::new("/tmp/t.yaml"));
+        send_custom_escalation_notification(
+            Some("http://127.0.0.1:1/esc"),
+            &Ok(()),
+            Path::new("/tmp/t.yaml"),
+        );
     }
 
     // ─── dispatch_notify_custom.rs — correlation ────────────────────
@@ -115,7 +127,11 @@ mod tests {
 
     #[test]
     fn test_custom_correlation_default_window() {
-        send_custom_correlation_notification(Some("http://127.0.0.1:1/cor"), &Ok(()), Path::new("/tmp/t.yaml"));
+        send_custom_correlation_notification(
+            Some("http://127.0.0.1:1/cor"),
+            &Ok(()),
+            Path::new("/tmp/t.yaml"),
+        );
     }
 
     #[test]
@@ -145,12 +161,20 @@ mod tests {
 
     #[test]
     fn test_custom_sampling_default_rate() {
-        send_custom_sampling_notification(Some("http://127.0.0.1:1/sam"), &Ok(()), Path::new("/tmp/t.yaml"));
+        send_custom_sampling_notification(
+            Some("http://127.0.0.1:1/sam"),
+            &Ok(()),
+            Path::new("/tmp/t.yaml"),
+        );
     }
 
     #[test]
     fn test_custom_sampling_with_rate() {
-        send_custom_sampling_notification(Some("http://127.0.0.1:1/sam|50"), &Ok(()), Path::new("/tmp/t.yaml"));
+        send_custom_sampling_notification(
+            Some("http://127.0.0.1:1/sam|50"),
+            &Ok(()),
+            Path::new("/tmp/t.yaml"),
+        );
     }
 
     #[test]
@@ -171,12 +195,20 @@ mod tests {
 
     #[test]
     fn test_custom_digest_default_interval() {
-        send_custom_digest_notification(Some("http://127.0.0.1:1/dig"), &Ok(()), Path::new("/tmp/t.yaml"));
+        send_custom_digest_notification(
+            Some("http://127.0.0.1:1/dig"),
+            &Ok(()),
+            Path::new("/tmp/t.yaml"),
+        );
     }
 
     #[test]
     fn test_custom_digest_with_interval() {
-        send_custom_digest_notification(Some("http://127.0.0.1:1/dig|4h"), &Ok(()), Path::new("/tmp/t.yaml"));
+        send_custom_digest_notification(
+            Some("http://127.0.0.1:1/dig|4h"),
+            &Ok(()),
+            Path::new("/tmp/t.yaml"),
+        );
     }
 
     #[test]
@@ -436,13 +468,7 @@ mod tests {
         let file = dir.path().join("rotate-plain.yaml");
         std::fs::write(&file, "key: value\n").unwrap();
         let state_dir = dir.path().join("state");
-        let result = cmd_secrets_rotate(
-            &file,
-            None,
-            &["age1test".to_string()],
-            true,
-            &state_dir,
-        );
+        let result = cmd_secrets_rotate(&file, None, &["age1test".to_string()], true, &state_dir);
         assert!(result.is_ok());
     }
 }

@@ -99,7 +99,6 @@ fn test_fj1302_generation_target_stored() {
     let dir = tempfile::tempdir().unwrap();
     let profiles = dir.path().join("profiles");
     create_generation(&profiles, "/store/deadbeef").unwrap();
-    let target_content =
-        std::fs::read_to_string(profiles.join("0").join("target")).unwrap();
+    let target_content = std::fs::read_to_string(profiles.join("0").join("target")).unwrap();
     assert_eq!(target_content, "/store/deadbeef");
 }

@@ -235,8 +235,7 @@ fn test_mount_bind_type() {
     r.state = None;
     let script = apply_script(&r);
     assert!(
-        script
-            .contains("mount -t 'none' -o 'rbind' '/data/volumes/app1' '/srv/container-data'"),
+        script.contains("mount -t 'none' -o 'rbind' '/data/volumes/app1' '/srv/container-data'"),
         "bind mount must use correct fstype, options, source, and target: {script}"
     );
     assert!(

@@ -1,8 +1,7 @@
 //! Structure analysis.
 
-use std::path::Path;
 use super::helpers::*;
-
+use std::path::Path;
 
 /// Build bidirectional adjacency map from config.
 fn build_bidirectional_adj(
@@ -160,7 +159,6 @@ pub(crate) fn cmd_graph_resource_clusters(file: &Path, json: bool) -> Result<(),
     Ok(())
 }
 
-
 /// FJ-574: Show graph colored/grouped by resource type.
 pub(crate) fn cmd_graph_resource_types(file: &Path, json: bool) -> Result<(), String> {
     let config = parse_and_validate(file)?;
@@ -205,7 +203,6 @@ pub(crate) fn cmd_graph_resource_types(file: &Path, json: bool) -> Result<(), St
     Ok(())
 }
 
-
 /// FJ-614: Show resource age based on last apply timestamp.
 pub(crate) fn cmd_graph_resource_age(file: &Path, json: bool) -> Result<(), String> {
     let config = parse_and_validate(file)?;
@@ -249,7 +246,6 @@ pub(crate) fn cmd_graph_resource_age(file: &Path, json: bool) -> Result<(), Stri
     }
     Ok(())
 }
-
 
 /// FJ-654: Find orphan resources (no dependents or dependencies)
 pub(crate) fn cmd_graph_orphan_detection(file: &Path, json: bool) -> Result<(), String> {
@@ -298,7 +294,6 @@ pub(crate) fn cmd_graph_orphan_detection(file: &Path, json: bool) -> Result<(), 
     Ok(())
 }
 
-
 /// FJ-644: Show max dependency depth per resource
 pub(crate) fn cmd_graph_dependency_depth(file: &Path, json: bool) -> Result<(), String> {
     let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
@@ -318,4 +313,3 @@ pub(crate) fn cmd_graph_dependency_depth(file: &Path, json: bool) -> Result<(), 
     }
     Ok(())
 }
-

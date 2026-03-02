@@ -2,18 +2,14 @@
 
 #[cfg(test)]
 mod tests {
-    use super::super::validate_advanced::{
-        cmd_validate_check_orphan_resources,
-        cmd_validate_check_machine_arch,
-    };
     use super::super::graph_advanced::{
-        cmd_graph_strongly_connected,
-        cmd_graph_dependency_matrix_csv,
+        cmd_graph_dependency_matrix_csv, cmd_graph_strongly_connected,
     };
     use super::super::status_fleet_detail::{
-        cmd_status_apply_success_rate,
-        cmd_status_error_rate,
-        cmd_status_fleet_health_summary,
+        cmd_status_apply_success_rate, cmd_status_error_rate, cmd_status_fleet_health_summary,
+    };
+    use super::super::validate_advanced::{
+        cmd_validate_check_machine_arch, cmd_validate_check_orphan_resources,
     };
 
     fn yaml_header() -> &'static str {
@@ -31,19 +27,25 @@ mod tests {
     #[test]
     fn test_fj797_no_orphans_with_deps() {
         let dir = tempfile::tempdir().unwrap();
-        let f = write_config(dir.path(), "\
+        let f = write_config(
+            dir.path(),
+            "\
 machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\n\
 resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n\
-  b:\n    type: file\n    machine: web\n    path: /opt/b\n    depends_on: [a]\n");
+  b:\n    type: file\n    machine: web\n    path: /opt/b\n    depends_on: [a]\n",
+        );
         assert!(cmd_validate_check_orphan_resources(&f, false).is_ok());
     }
 
     #[test]
     fn test_fj797_all_orphans() {
         let dir = tempfile::tempdir().unwrap();
-        let f = write_config(dir.path(), "\
+        let f = write_config(
+            dir.path(),
+            "\
 machines: {}\nresources:\n  a:\n    type: package\n    provider: apt\n    packages: [curl]\n\
-  b:\n    type: package\n    provider: apt\n    packages: [vim]\n");
+  b:\n    type: package\n    provider: apt\n    packages: [vim]\n",
+        );
         assert!(cmd_validate_check_orphan_resources(&f, false).is_ok());
     }
 
@@ -59,18 +61,24 @@ machines: {}\nresources:\n  a:\n    type: package\n    provider: apt\n    packag
     #[test]
     fn test_fj801_valid_archs() {
         let dir = tempfile::tempdir().unwrap();
-        let f = write_config(dir.path(), "\
+        let f = write_config(
+            dir.path(),
+            "\
 machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\n    arch: x86_64\n\
   arm:\n    hostname: arm\n    addr: 2.3.4.5\n    arch: aarch64\n\
-resources: {}\n");
+resources: {}\n",
+        );
         assert!(cmd_validate_check_machine_arch(&f, false).is_ok());
     }
 
     #[test]
     fn test_fj801_default_arch() {
         let dir = tempfile::tempdir().unwrap();
-        let f = write_config(dir.path(), "\
-machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\nresources: {}\n");
+        let f = write_config(
+            dir.path(),
+            "\
+machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\nresources: {}\n",
+        );
         assert!(cmd_validate_check_machine_arch(&f, false).is_ok());
     }
 
@@ -93,10 +101,13 @@ machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\nresources: {}\n");
     #[test]
     fn test_fj799_linear() {
         let dir = tempfile::tempdir().unwrap();
-        let f = write_config(dir.path(), "\
+        let f = write_config(
+            dir.path(),
+            "\
 machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\n\
 resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n\
-  b:\n    type: file\n    machine: web\n    path: /opt/b\n    depends_on: [a]\n");
+  b:\n    type: file\n    machine: web\n    path: /opt/b\n    depends_on: [a]\n",
+        );
         assert!(cmd_graph_strongly_connected(&f, false).is_ok());
     }
 
@@ -119,10 +130,13 @@ resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    pa
     #[test]
     fn test_fj803_with_deps() {
         let dir = tempfile::tempdir().unwrap();
-        let f = write_config(dir.path(), "\
+        let f = write_config(
+            dir.path(),
+            "\
 machines:\n  web:\n    hostname: web\n    addr: 1.2.3.4\n\
 resources:\n  a:\n    type: package\n    machine: web\n    provider: apt\n    packages: [curl]\n\
-  b:\n    type: file\n    machine: web\n    path: /opt/b\n    depends_on: [a]\n");
+  b:\n    type: file\n    machine: web\n    path: /opt/b\n    depends_on: [a]\n",
+        );
         assert!(cmd_graph_dependency_matrix_csv(&f, false).is_ok());
     }
 

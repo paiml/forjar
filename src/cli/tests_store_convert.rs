@@ -8,7 +8,9 @@ mod tests {
 
     fn config_mixed(dir: &TempDir) -> std::path::PathBuf {
         let file = dir.path().join("forjar.yaml");
-        fs::write(&file, r#"
+        fs::write(
+            &file,
+            r#"
 version: "1.0"
 name: mixed-recipe
 resources:
@@ -29,13 +31,17 @@ resources:
     machine: target
     path: /etc/app.conf
     content: "hello"
-"#).unwrap();
+"#,
+        )
+        .unwrap();
         file
     }
 
     fn config_pure(dir: &TempDir) -> std::path::PathBuf {
         let file = dir.path().join("pure.yaml");
-        fs::write(&file, r#"
+        fs::write(
+            &file,
+            r#"
 version: "1.0"
 name: pure-recipe
 resources:
@@ -48,7 +54,9 @@ resources:
     store: true
     sandbox:
       level: full
-"#).unwrap();
+"#,
+        )
+        .unwrap();
         file
     }
 

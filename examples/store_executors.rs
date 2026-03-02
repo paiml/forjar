@@ -4,21 +4,20 @@
 //! Run: `cargo run --example store_executors`
 
 use forjar::core::store::cache::{
-    CacheConfig, CacheEntry, CacheInventory, CacheSource, build_inventory,
+    build_inventory, CacheConfig, CacheEntry, CacheInventory, CacheSource,
 };
 use forjar::core::store::derivation::{Derivation, DerivationInput};
 use forjar::core::store::derivation_exec::{
-    execute_derivation_dag, plan_derivation, simulate_derivation,
-    is_store_hit, skipped_steps,
+    execute_derivation_dag, is_store_hit, plan_derivation, simulate_derivation, skipped_steps,
 };
-use forjar::core::store::sandbox::{SandboxConfig, SandboxLevel, preset_profile};
+use forjar::core::store::sandbox::{preset_profile, SandboxConfig, SandboxLevel};
 use forjar::core::store::sandbox_exec::{
-    plan_sandbox_build, simulate_sandbox_build, validate_plan,
-    seccomp_rules_for_level, plan_step_count,
+    plan_sandbox_build, plan_step_count, seccomp_rules_for_level, simulate_sandbox_build,
+    validate_plan,
 };
 use forjar::core::store::substitution::{
-    plan_substitution, requires_build, requires_pull, step_count,
-    SubstitutionContext, SubstitutionOutcome,
+    plan_substitution, requires_build, requires_pull, step_count, SubstitutionContext,
+    SubstitutionOutcome,
 };
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -246,13 +245,9 @@ fn demo_derivation_store_hit() {
     println!("\n--- 7. Derivation Plan (Store Hit) ---");
 
     let deriv = sample_derivation();
-    let input_hashes = forjar::core::store::derivation::collect_input_hashes(
-        &deriv,
-        &BTreeMap::new(),
-    )
-    .unwrap();
-    let closure =
-        forjar::core::store::derivation::derivation_closure_hash(&deriv, &input_hashes);
+    let input_hashes =
+        forjar::core::store::derivation::collect_input_hashes(&deriv, &BTreeMap::new()).unwrap();
+    let closure = forjar::core::store::derivation::derivation_closure_hash(&deriv, &input_hashes);
 
     let plan = plan_derivation(
         &deriv,

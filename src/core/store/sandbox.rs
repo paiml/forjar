@@ -177,5 +177,8 @@ pub fn enforces_fs_isolation(level: SandboxLevel) -> bool {
 /// Compute cgroup path for a sandbox build.
 pub fn cgroup_path(store_hash: &str) -> String {
     let hash = store_hash.strip_prefix("blake3:").unwrap_or(store_hash);
-    format!("/sys/fs/cgroup/forjar-build-{}", &hash[..16.min(hash.len())])
+    format!(
+        "/sys/fs/cgroup/forjar-build-{}",
+        &hash[..16.min(hash.len())]
+    )
 }

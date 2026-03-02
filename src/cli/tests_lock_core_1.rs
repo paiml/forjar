@@ -1,25 +1,24 @@
 //! Tests: Lock management.
 
 #![allow(unused_imports)]
+use super::commands::*;
+use super::dispatch::*;
+use super::helpers::*;
+use super::helpers_state::*;
+use super::helpers_time::*;
+use super::lock_audit::*;
+use super::lock_core::*;
+use super::lock_lifecycle::*;
+use super::lock_repair::*;
 use crate::core::types::ProvenanceEvent;
 use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
 use crate::transport;
 use crate::tripwire::{anomaly, drift, eventlog, tracer};
 use std::path::{Path, PathBuf};
-use super::helpers::*;
-use super::helpers_state::*;
-use super::helpers_time::*;
-use super::lock_core::*;
-use super::commands::*;
-use super::dispatch::*;
-use super::lock_audit::*;
-use super::lock_lifecycle::*;
-use super::lock_repair::*;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
 
     #[test]
     fn test_fj415_lock_export_dispatch() {
@@ -37,7 +36,6 @@ mod tests {
         );
         assert!(result.is_ok());
     }
-
 
     #[test]
     fn test_fj425_lock_gc_dispatch() {
@@ -71,7 +69,6 @@ resources: {}
         assert!(result.is_ok());
     }
 
-
     #[test]
     fn test_fj435_lock_diff_dispatch() {
         let cmd = Commands::LockDiff(LockDiffArgs {
@@ -88,7 +85,6 @@ resources: {}
             _ => panic!("expected LockDiff"),
         }
     }
-
 
     #[test]
     fn test_fj445_lock_merge_dispatch() {
@@ -110,7 +106,6 @@ resources: {}
         }
     }
 
-
     #[test]
     fn test_fj455_lock_rebase_dispatch() {
         let cmd = Commands::LockRebase(LockRebaseArgs {
@@ -131,7 +126,6 @@ resources: {}
         }
     }
 
-
     #[test]
     fn test_fj465_lock_sign_dispatch() {
         let cmd = Commands::LockSign(LockSignArgs {
@@ -145,7 +139,6 @@ resources: {}
         }
     }
 
-
     #[test]
     fn test_fj475_lock_verify_sig_dispatch() {
         let cmd = Commands::LockVerifySig(LockVerifySigArgs {
@@ -154,11 +147,12 @@ resources: {}
             json: false,
         });
         match cmd {
-            Commands::LockVerifySig(LockVerifySigArgs { key, .. }) => assert_eq!(key, "my-verify-key"),
+            Commands::LockVerifySig(LockVerifySigArgs { key, .. }) => {
+                assert_eq!(key, "my-verify-key")
+            }
             _ => panic!("expected LockVerifySig"),
         }
     }
-
 
     #[test]
     fn test_fj485_lock_compact_all_dispatch() {
@@ -173,7 +167,6 @@ resources: {}
         }
     }
 
-
     #[test]
     fn test_fj495_lock_audit_trail_dispatch() {
         let cmd = Commands::LockAuditTrail(LockAuditTrailArgs {
@@ -182,11 +175,12 @@ resources: {}
             json: false,
         });
         match cmd {
-            Commands::LockAuditTrail(LockAuditTrailArgs { machine, .. }) => assert!(machine.is_none()),
+            Commands::LockAuditTrail(LockAuditTrailArgs { machine, .. }) => {
+                assert!(machine.is_none())
+            }
             _ => panic!("expected LockAuditTrail"),
         }
     }
-
 
     #[test]
     fn test_fj505_lock_rotate_keys_dispatch() {
@@ -207,7 +201,6 @@ resources: {}
         }
     }
 
-
     #[test]
     fn test_fj515_lock_backup_command() {
         let cmd = Commands::LockBackup(LockBackupArgs {
@@ -221,7 +214,6 @@ resources: {}
             _ => panic!("expected LockBackup"),
         }
     }
-
 
     #[test]
     fn test_fj525_lock_gc_already_exists() {
@@ -238,7 +230,6 @@ resources: {}
         }
     }
 
-
     #[test]
     fn test_fj535_lock_verify_chain_command() {
         let cmd = Commands::LockVerifyChain(LockVerifyChainArgs {
@@ -253,7 +244,6 @@ resources: {}
         }
     }
 
-
     #[test]
     fn test_fj545_lock_stats_command() {
         let cmd = Commands::LockStats(LockStatsArgs {
@@ -265,7 +255,6 @@ resources: {}
             _ => panic!("expected LockStats"),
         }
     }
-
 
     #[test]
     fn test_fj555_lock_audit_command() {
@@ -279,7 +268,6 @@ resources: {}
         }
     }
 
-
     #[test]
     fn test_fj565_lock_compress_command() {
         let cmd = Commands::LockCompress(LockCompressArgs {
@@ -291,7 +279,6 @@ resources: {}
             _ => panic!("expected LockCompress"),
         }
     }
-
 
     #[test]
     fn test_fj575_lock_defrag_command() {
@@ -305,7 +292,6 @@ resources: {}
         }
     }
 
-
     #[test]
     fn test_fj585_lock_normalize_command() {
         let cmd = Commands::LockNormalize(LockNormalizeArgs {
@@ -318,14 +304,12 @@ resources: {}
         }
     }
 
-
     #[test]
     fn test_fj596_lock_validate() {
         let dir = tempfile::tempdir().unwrap();
         let result = cmd_lock_validate(dir.path(), false);
         assert!(result.is_ok());
     }
-
 
     #[test]
     fn test_fj596_lock_validate_json() {
@@ -336,14 +320,12 @@ resources: {}
 
     // ── Phase 46 Tests: FJ-600→FJ-607 Security Hardening & Audit ──
 
-
     #[test]
     fn test_fj605_lock_verify_hmac() {
         let dir = tempfile::tempdir().unwrap();
         let result = cmd_lock_verify_hmac(dir.path(), false);
         assert!(result.is_ok());
     }
-
 
     #[test]
     fn test_fj605_lock_verify_hmac_json() {
@@ -354,14 +336,12 @@ resources: {}
 
     // ── Phase 47 Tests: FJ-610→FJ-617 Resource Intelligence & Analytics ──
 
-
     #[test]
     fn test_fj615_lock_archive() {
         let dir = tempfile::tempdir().unwrap();
         let result = cmd_lock_archive(dir.path(), false);
         assert!(result.is_ok());
     }
-
 
     #[test]
     fn test_fj615_lock_archive_json() {
@@ -370,14 +350,12 @@ resources: {}
         assert!(result.is_ok());
     }
 
-
     #[test]
     fn test_fj625_lock_snapshot() {
         let dir = tempfile::tempdir().unwrap();
         let result = cmd_lock_snapshot(dir.path(), false);
         assert!(result.is_ok());
     }
-
 
     #[test]
     fn test_fj625_lock_snapshot_json() {
@@ -386,14 +364,12 @@ resources: {}
         assert!(result.is_ok());
     }
 
-
     #[test]
     fn test_fj635_lock_repair() {
         let dir = tempfile::tempdir().unwrap();
         let result = cmd_lock_repair(dir.path(), false);
         assert!(result.is_ok());
     }
-
 
     #[test]
     fn test_fj635_lock_repair_json() {
@@ -402,14 +378,12 @@ resources: {}
         assert!(result.is_ok());
     }
 
-
     #[test]
     fn test_fj645_lock_history() {
         let dir = tempfile::tempdir().unwrap();
         let result = cmd_lock_history(dir.path(), false, 20);
         assert!(result.is_ok());
     }
-
 
     #[test]
     fn test_fj675_lock_integrity() {
@@ -418,14 +392,12 @@ resources: {}
         assert!(result.is_ok());
     }
 
-
     #[test]
     fn test_fj675_lock_integrity_json() {
         let dir = tempfile::tempdir().unwrap();
         let result = cmd_lock_integrity(dir.path(), true);
         assert!(result.is_ok());
     }
-
 
     #[test]
     fn test_fj685_lock_rehash() {
@@ -434,14 +406,12 @@ resources: {}
         assert!(result.is_ok());
     }
 
-
     #[test]
     fn test_fj685_lock_rehash_json() {
         let dir = tempfile::tempdir().unwrap();
         let result = cmd_lock_rehash(dir.path(), true);
         assert!(result.is_ok());
     }
-
 
     #[test]
     fn test_fj695_lock_restore() {
@@ -450,14 +420,12 @@ resources: {}
         assert!(result.is_ok());
     }
 
-
     #[test]
     fn test_fj705_lock_verify_schema() {
         let dir = tempfile::tempdir().unwrap();
         let result = cmd_lock_verify_schema(dir.path(), false);
         assert!(result.is_ok());
     }
-
 
     #[test]
     fn test_fj705_lock_verify_schema_json() {
@@ -466,14 +434,12 @@ resources: {}
         assert!(result.is_ok());
     }
 
-
     #[test]
     fn test_fj715_lock_tag() {
         let dir = tempfile::tempdir().unwrap();
         let result = cmd_lock_tag(dir.path(), "env", "prod", false);
         assert!(result.is_ok());
     }
-
 
     #[test]
     fn test_fj725_lock_migrate() {
@@ -482,12 +448,10 @@ resources: {}
         assert!(result.is_ok());
     }
 
-
     #[test]
     fn test_fj725_lock_migrate_json() {
         let dir = tempfile::tempdir().unwrap();
         let result = cmd_lock_migrate(dir.path(), "0.9", true);
         assert!(result.is_ok());
     }
-
 }

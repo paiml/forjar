@@ -104,9 +104,9 @@ fn check_tag_format(tag: &str) -> Option<&'static str> {
     if tag.contains(' ') {
         return Some("contains spaces");
     }
-    let has_special = tag.chars().any(|c| {
-        !c.is_alphanumeric() && c != '-' && c != '_' && c != '.' && c != ':'
-    });
+    let has_special = tag
+        .chars()
+        .any(|c| !c.is_alphanumeric() && c != '-' && c != '_' && c != '.' && c != ':');
     if has_special {
         return Some("contains special characters");
     }

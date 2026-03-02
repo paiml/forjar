@@ -2,13 +2,13 @@
 //! Also covers doctor.rs — cmd_doctor edge cases, cmd_doctor_network edge cases.
 
 #![allow(unused_imports)]
-use std::path::Path;
+use super::check::*;
 use super::dispatch_notify::*;
 use super::dispatch_notify_custom::*;
-use super::secrets::*;
-use super::check::*;
 use super::doctor::*;
+use super::secrets::*;
 use super::test_fixtures::*;
+use std::path::Path;
 
 #[cfg(test)]
 mod tests {
@@ -108,7 +108,14 @@ resources:
     fn test_cmd_check_combined_filters() {
         let dir = tempfile::tempdir().unwrap();
         let config = write_check_config(dir.path());
-        let _ = cmd_check(&config, Some("local"), Some("pkg1"), Some("base"), false, false);
+        let _ = cmd_check(
+            &config,
+            Some("local"),
+            Some("pkg1"),
+            Some("base"),
+            false,
+            false,
+        );
     }
 
     #[test]
@@ -470,7 +477,15 @@ resources:
     fn test_cmd_test_combined_machine_and_tag_filter() {
         let dir = tempfile::tempdir().unwrap();
         let config = write_check_config(dir.path());
-        let _ = cmd_test(&config, Some("local"), None, Some("system"), None, false, false);
+        let _ = cmd_test(
+            &config,
+            Some("local"),
+            None,
+            Some("system"),
+            None,
+            false,
+            false,
+        );
     }
 
     #[test]

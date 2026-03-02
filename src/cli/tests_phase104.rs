@@ -1,8 +1,8 @@
 //! Tests: Phase 104 — Operational Maturity & Dependency Governance (FJ-1093→FJ-1100).
 
+use super::graph_governance::*;
 use super::status_maturity::*;
 use super::validate_maturity::*;
-use super::graph_governance::*;
 use std::io::Write;
 
 #[cfg(test)]
@@ -18,7 +18,9 @@ mod tests {
 
     fn write_yaml(dir: &std::path::Path, name: &str, content: &str) {
         let p = dir.join(name);
-        if let Some(parent) = p.parent() { std::fs::create_dir_all(parent).unwrap(); }
+        if let Some(parent) = p.parent() {
+            std::fs::create_dir_all(parent).unwrap();
+        }
         std::fs::write(&p, content).unwrap();
     }
 
@@ -80,18 +82,24 @@ mod tests {
     #[test]
     fn test_fj1096_stability_empty() {
         let d = tempfile::tempdir().unwrap();
-        assert!(cmd_status_machine_resource_convergence_stability_index(d.path(), None, false).is_ok());
+        assert!(
+            cmd_status_machine_resource_convergence_stability_index(d.path(), None, false).is_ok()
+        );
     }
     #[test]
     fn test_fj1096_stability_with_data() {
         let d = tempfile::tempdir().unwrap();
         write_yaml(d.path(), "web/state.lock.yaml", LOCK);
-        assert!(cmd_status_machine_resource_convergence_stability_index(d.path(), None, false).is_ok());
+        assert!(
+            cmd_status_machine_resource_convergence_stability_index(d.path(), None, false).is_ok()
+        );
     }
     #[test]
     fn test_fj1096_stability_json() {
         let d = tempfile::tempdir().unwrap();
-        assert!(cmd_status_machine_resource_convergence_stability_index(d.path(), None, true).is_ok());
+        assert!(
+            cmd_status_machine_resource_convergence_stability_index(d.path(), None, true).is_ok()
+        );
     }
 
     // ── FJ-1097: validate --check-resource-naming-length-limit ──
@@ -165,13 +173,41 @@ mod tests {
 
     // ── File-not-found error paths ──
     #[test]
-    fn test_fj1094_file_not_found() { assert!(cmd_validate_check_resource_dependency_version_drift(std::path::Path::new("/x"), false).is_err()); }
+    fn test_fj1094_file_not_found() {
+        assert!(cmd_validate_check_resource_dependency_version_drift(
+            std::path::Path::new("/x"),
+            false
+        )
+        .is_err());
+    }
     #[test]
-    fn test_fj1095_file_not_found() { assert!(cmd_graph_resource_dependency_change_impact_radius(std::path::Path::new("/x"), false).is_err()); }
+    fn test_fj1095_file_not_found() {
+        assert!(cmd_graph_resource_dependency_change_impact_radius(
+            std::path::Path::new("/x"),
+            false
+        )
+        .is_err());
+    }
     #[test]
-    fn test_fj1097_file_not_found() { assert!(cmd_validate_check_resource_naming_length_limit(std::path::Path::new("/x"), false).is_err()); }
+    fn test_fj1097_file_not_found() {
+        assert!(
+            cmd_validate_check_resource_naming_length_limit(std::path::Path::new("/x"), false)
+                .is_err()
+        );
+    }
     #[test]
-    fn test_fj1098_file_not_found() { assert!(cmd_graph_resource_dependency_sibling_analysis(std::path::Path::new("/x"), false).is_err()); }
+    fn test_fj1098_file_not_found() {
+        assert!(
+            cmd_graph_resource_dependency_sibling_analysis(std::path::Path::new("/x"), false)
+                .is_err()
+        );
+    }
     #[test]
-    fn test_fj1100_file_not_found() { assert!(cmd_validate_check_resource_type_coverage_per_machine(std::path::Path::new("/x"), false).is_err()); }
+    fn test_fj1100_file_not_found() {
+        assert!(cmd_validate_check_resource_type_coverage_per_machine(
+            std::path::Path::new("/x"),
+            false
+        )
+        .is_err());
+    }
 }

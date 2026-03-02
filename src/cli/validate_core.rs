@@ -1,9 +1,8 @@
 //! Core validation command.
 
+use super::helpers::*;
 use crate::core::{resolver, types};
 use std::path::Path;
-use super::helpers::*;
-
 
 /// Check machine references exist.
 fn check_machine_refs(config: &types::ForjarConfig, errors: &mut Vec<String>) {
@@ -87,8 +86,12 @@ fn run_strict_checks(config: &types::ForjarConfig) -> Vec<String> {
     errors
 }
 
-
-pub(crate) fn cmd_validate(file: &Path, strict: bool, json: bool, dry_expand: bool) -> Result<(), String> {
+pub(crate) fn cmd_validate(
+    file: &Path,
+    strict: bool,
+    json: bool,
+    dry_expand: bool,
+) -> Result<(), String> {
     let config = parse_and_validate(file)?;
 
     // FJ-330: Show fully expanded config after template resolution
@@ -154,7 +157,6 @@ pub(crate) fn cmd_validate(file: &Path, strict: bool, json: bool, dry_expand: bo
 
     Ok(())
 }
-
 
 // ── FJ-391: validate --exhaustive ──
 

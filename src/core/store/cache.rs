@@ -161,10 +161,7 @@ pub fn build_inventory(source_name: &str, entries: Vec<CacheEntry>) -> CacheInve
 pub fn ssh_command(source: &CacheSource) -> Option<String> {
     match source {
         CacheSource::Ssh {
-            host,
-            user,
-            port,
-            ..
+            host, user, port, ..
         } => {
             let port_flag = port.map_or(String::new(), |p| format!(" -p {p}"));
             Some(format!("ssh{port_flag} {user}@{host}"))

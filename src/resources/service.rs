@@ -79,4 +79,3 @@ pub fn state_query_script(resource: &Resource) -> String {
         SYSTEMD_GUARD, name, name
     )
 }
-

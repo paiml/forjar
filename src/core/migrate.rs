@@ -208,7 +208,9 @@ mod tests {
             working_dir: None,
             pre_apply: None,
             post_apply: None,
-        lifecycle: None,
+            lifecycle: None,
+            store: false,
+            script: None,
         }
     }
 

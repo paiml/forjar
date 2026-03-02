@@ -1,8 +1,7 @@
 //! Cross-machine analysis.
 
-use std::path::Path;
 use super::helpers::*;
-
+use std::path::Path;
 
 /// Build a map from resource name to machine string.
 fn build_resource_machine_map(
@@ -164,7 +163,6 @@ pub(crate) fn cmd_graph_cross_machine_deps(file: &Path, json: bool) -> Result<()
     Ok(())
 }
 
-
 /// FJ-674: Group resources by machine in graph output
 pub(crate) fn cmd_graph_machine_groups(file: &Path, json: bool) -> Result<(), String> {
     let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
@@ -190,9 +188,12 @@ pub(crate) fn cmd_graph_machine_groups(file: &Path, json: bool) -> Result<(), St
     Ok(())
 }
 
-
 /// FJ-564: Show direct + indirect impact of changing a resource.
-pub(crate) fn cmd_graph_change_impact(file: &Path, resource: &str, json: bool) -> Result<(), String> {
+pub(crate) fn cmd_graph_change_impact(
+    file: &Path,
+    resource: &str,
+    json: bool,
+) -> Result<(), String> {
     let config = parse_and_validate(file)?;
 
     if !config.resources.contains_key(resource) {
@@ -245,7 +246,6 @@ pub(crate) fn cmd_graph_change_impact(file: &Path, resource: &str, json: bool) -
     Ok(())
 }
 
-
 /// FJ-604: Highlight resources crossing security boundaries.
 pub(crate) fn cmd_graph_security_boundaries(file: &Path, json: bool) -> Result<(), String> {
     let config = parse_and_validate(file)?;
@@ -283,7 +283,6 @@ pub(crate) fn cmd_graph_security_boundaries(file: &Path, json: bool) -> Result<(
     }
     Ok(())
 }
-
 
 /// FJ-714: Show reverse dependency graph
 pub(crate) fn cmd_graph_reverse_deps(file: &Path, json: bool) -> Result<(), String> {
@@ -325,7 +324,6 @@ pub(crate) fn cmd_graph_reverse_deps(file: &Path, json: bool) -> Result<(), Stri
     Ok(())
 }
 
-
 /// FJ-704: Show leaf resources (no dependents in the DAG)
 pub(crate) fn cmd_graph_leaf_resources(file: &Path, json: bool) -> Result<(), String> {
     let cfg = parse_and_validate(file)?;
@@ -362,4 +360,3 @@ pub(crate) fn cmd_graph_leaf_resources(file: &Path, json: bool) -> Result<(), St
     }
     Ok(())
 }
-

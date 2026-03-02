@@ -1,7 +1,7 @@
 //! FJ-132: Integration tests (part 1).
 
-use super::*;
 use super::test_fixtures::*;
+use super::*;
 
 // ── FJ-132: Integration tests ──────────────────────────────
 
@@ -337,4 +337,3 @@ resources:
 
     assert!(!path.exists(), "dry-run should not create files");
 }
-

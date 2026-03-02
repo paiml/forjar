@@ -52,10 +52,7 @@ pub fn collect_roots(
 }
 
 /// Mark-and-sweep: starting from roots, follow references to mark live entries.
-pub fn mark_and_sweep(
-    roots: &BTreeSet<String>,
-    store_dir: &Path,
-) -> Result<GcReport, String> {
+pub fn mark_and_sweep(roots: &BTreeSet<String>, store_dir: &Path) -> Result<GcReport, String> {
     let all_entries = list_store_entries(store_dir)?;
     let live = mark_live(roots, store_dir);
     let dead: BTreeSet<String> = all_entries.difference(&live).cloned().collect();

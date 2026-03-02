@@ -1,15 +1,14 @@
 //! Apply dry-run variants.
 
-use crate::core::{codegen, executor, planner, resolver, state, types};
-use crate::transport;
-use crate::tripwire::hasher;
-use std::path::Path;
+use super::apply::*;
 use super::apply_helpers::*;
 use super::helpers::*;
 use super::helpers_state::*;
 use super::workspace::*;
-use super::apply::*;
-
+use crate::core::{codegen, executor, planner, resolver, state, types};
+use crate::transport;
+use crate::tripwire::hasher;
+use std::path::Path;
 
 /// FJ-583: Show execution graph without applying.
 pub(crate) fn cmd_apply_dry_run_graph(file: &Path) -> Result<(), String> {
@@ -34,7 +33,6 @@ pub(crate) fn cmd_apply_dry_run_graph(file: &Path) -> Result<(), String> {
     }
     Ok(())
 }
-
 
 /// FJ-510: Canary machine — apply to single machine first, then remaining.
 pub(crate) fn cmd_apply_canary_machine(
@@ -157,7 +155,6 @@ pub(crate) fn cmd_apply_canary_machine(
     Ok(())
 }
 
-
 /// FJ-1230: Refresh state only — re-query live state for all converged resources
 /// and update lock hashes without applying any changes.
 #[allow(clippy::too_many_arguments)]
@@ -196,9 +193,9 @@ pub(crate) fn cmd_refresh_only(
                 Some(r) => r,
                 None => continue,
             };
-            let resolved = resolver::resolve_resource_templates(
-                resource, &config.params, &config.machines,
-            ).unwrap_or_else(|_| resource.clone());
+            let resolved =
+                resolver::resolve_resource_templates(resource, &config.params, &config.machines)
+                    .unwrap_or_else(|_| resource.clone());
 
             let new_hash = match codegen::state_query_script(&resolved) {
                 Ok(query) => match transport::exec_script_timeout(machine, &query, timeout) {
@@ -209,7 +206,9 @@ pub(crate) fn cmd_refresh_only(
             };
 
             if let Some(ref hash) = new_hash {
-                let old_hash = rl.details.get("live_hash")
+                let old_hash = rl
+                    .details
+                    .get("live_hash")
                     .and_then(|v| v.as_str())
                     .unwrap_or("");
                 if hash != old_hash {
@@ -231,10 +230,12 @@ pub(crate) fn cmd_refresh_only(
         state::save_lock(state_dir, &updated_lock)?;
     }
 
-    println!("Refresh complete: {} resources queried, {} drifted", refreshed, drift_count);
+    println!(
+        "Refresh complete: {} resources queried, {} drifted",
+        refreshed, drift_count
+    );
     Ok(())
 }
-
 
 /// FJ-536: Dry run cost — show estimated change count without applying.
 pub(crate) fn cmd_apply_dry_run_cost(
@@ -277,7 +278,6 @@ pub(crate) fn cmd_apply_dry_run_cost(
     println!("  Total changes: {}", creates + updates + deletes);
     Ok(())
 }
-
 
 /// FJ-1250: Execute a previously saved plan file.
 /// Validates config hash matches, then runs the planned changes.
@@ -347,4 +347,3 @@ pub(crate) fn cmd_apply_from_plan(
     }
     Ok(())
 }
-

@@ -1,11 +1,10 @@
 //! Lock security.
 
-use crate::core::state;
-use std::path::Path;
 use super::helpers::*;
 use super::helpers_time::*;
 use super::lock_ops::*;
-
+use crate::core::state;
+use std::path::Path;
 
 // ── FJ-475: lock verify-sig ──
 
@@ -63,7 +62,6 @@ pub(crate) fn cmd_lock_verify_sig(state_dir: &Path, key: &str, json: bool) -> Re
     }
 }
 
-
 // ── FJ-485: lock compact-all ──
 
 pub(crate) fn cmd_lock_compact_all(state_dir: &Path, yes: bool, json: bool) -> Result<(), String> {
@@ -107,7 +105,6 @@ pub(crate) fn cmd_lock_compact_all(state_dir: &Path, yes: bool, json: bool) -> R
     Ok(())
 }
 
-
 /// Print a single audit trail event line in text format.
 fn print_audit_event_text(m: &str, val: &serde_json::Value) {
     let ts = val.get("timestamp").and_then(|v| v.as_str()).unwrap_or("?");
@@ -141,7 +138,11 @@ fn collect_audit_events(
     }
 }
 
-pub(crate) fn cmd_lock_audit_trail(state_dir: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
+pub(crate) fn cmd_lock_audit_trail(
+    state_dir: &Path,
+    machine: Option<&str>,
+    json: bool,
+) -> Result<(), String> {
     let all_machines = discover_machines(state_dir);
     let machines: Vec<String> = if let Some(m) = machine {
         all_machines.into_iter().filter(|n| n == m).collect()
@@ -168,7 +169,6 @@ pub(crate) fn cmd_lock_audit_trail(state_dir: &Path, machine: Option<&str>, json
     }
     Ok(())
 }
-
 
 // ── FJ-505: lock rotate-keys ──
 
@@ -208,7 +208,6 @@ pub(crate) fn cmd_lock_rotate_keys(
     }
     Ok(())
 }
-
 
 /// FJ-515: Lock backup — create timestamped backup of all lock files.
 pub(crate) fn cmd_lock_backup(state_dir: &Path, json: bool) -> Result<(), String> {
@@ -261,7 +260,6 @@ pub(crate) fn cmd_lock_backup(state_dir: &Path, json: bool) -> Result<(), String
     }
     Ok(())
 }
-
 
 /// FJ-535: Lock verify chain — verify full chain of custody from signatures.
 pub(crate) fn cmd_lock_verify_chain(state_dir: &Path, json: bool) -> Result<(), String> {
@@ -324,7 +322,6 @@ pub(crate) fn cmd_lock_verify_chain(state_dir: &Path, json: bool) -> Result<(), 
     }
     Ok(())
 }
-
 
 /// FJ-545: Lock stats — show lock file statistics.
 pub(crate) fn cmd_lock_stats(state_dir: &Path, json: bool) -> Result<(), String> {
@@ -393,4 +390,3 @@ pub(crate) fn cmd_lock_stats(state_dir: &Path, json: bool) -> Result<(), String>
     }
     Ok(())
 }
-

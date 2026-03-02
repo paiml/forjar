@@ -95,12 +95,38 @@ mod tests {
         std::fs::create_dir_all(&state).unwrap();
         // First apply to create the file
         let _ = super::super::apply::cmd_apply(
-            &cfg, &state, None, None, None, None,
-            false, false, false, &[], false, None,
-            false, false, None, None, false, false,
-            None, false, false, 0, true, false,
-            None, false, None, None, None, false,
-            None, false,
+            &cfg,
+            &state,
+            None,
+            None,
+            None,
+            None,
+            false,
+            false,
+            false,
+            &[],
+            false,
+            None,
+            false,
+            false,
+            None,
+            None,
+            false,
+            false,
+            None,
+            false,
+            false,
+            0,
+            true,
+            false,
+            None,
+            false,
+            None,
+            None,
+            None,
+            false,
+            None,
+            false,
         );
         let result = cmd_destroy(&cfg, &state, None, true, true);
         assert!(result.is_ok());
@@ -213,12 +239,22 @@ mod tests {
         let mut session = crate::tripwire::tracer::TraceSession::start("cov-trace");
         session.record_noop("r1", "file", "m1");
         session.record_span(
-            "r2", "package", "m1", "create",
-            std::time::Duration::from_millis(500), 0, None,
+            "r2",
+            "package",
+            "m1",
+            "create",
+            std::time::Duration::from_millis(500),
+            0,
+            None,
         );
         session.record_span(
-            "r3", "service", "m1", "update",
-            std::time::Duration::from_secs(2), 1, None,
+            "r3",
+            "service",
+            "m1",
+            "update",
+            std::time::Duration::from_secs(2),
+            1,
+            None,
         );
         crate::tripwire::tracer::write_trace(dir.path(), "m1", &session).unwrap();
         let result = cmd_trace(dir.path(), None, false);

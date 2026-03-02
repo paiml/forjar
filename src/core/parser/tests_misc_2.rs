@@ -389,4 +389,3 @@ resources:
     assert_eq!(file_res.content.as_deref(), Some("hi world"));
     assert_eq!(file_res.machine.to_vec(), vec!["m1"]);
 }
-

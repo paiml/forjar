@@ -232,7 +232,11 @@ fn test_fj1333_parse_yaml_invalid() {
 fn test_fj1333_capture_method_all() {
     for provider in all_providers() {
         let method = capture_method(provider);
-        assert!(!method.is_empty(), "empty capture method for {:?}", provider);
+        assert!(
+            !method.is_empty(),
+            "empty capture method for {:?}",
+            provider
+        );
     }
 }
 

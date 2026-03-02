@@ -78,6 +78,8 @@ pub(super) fn make_mount_resource() -> Resource {
         pre_apply: None,
         post_apply: None,
         lifecycle: None,
+        store: false,
+        script: None,
     }
 }
 
@@ -169,9 +171,7 @@ fn test_fj009_fstab_entry_format() {
     let r = make_mount_resource();
     let script = apply_script(&r);
     // Verify fstab entry has correct fields: source target fstype options dump pass
-    assert!(
-        script.contains("192.168.50.50:/mnt/nvme-raid0 /mnt/lambda-raid nfs ro,hard,intr 0 0")
-    );
+    assert!(script.contains("192.168.50.50:/mnt/nvme-raid0 /mnt/lambda-raid nfs ro,hard,intr 0 0"));
 }
 
 #[test]
@@ -256,4 +256,3 @@ fn test_fj009_state_query_no_path() {
 }
 
 // --- FJ-132: Mount edge case tests ---
-

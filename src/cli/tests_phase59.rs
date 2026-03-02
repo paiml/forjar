@@ -2,12 +2,11 @@
 
 #[cfg(test)]
 mod tests {
-    use super::super::validate_paths::cmd_validate_check_cron_syntax;
     use super::super::graph_topology::cmd_graph_breadth_first;
     use super::super::status_resource_detail::{
-        cmd_status_resource_health,
-        cmd_status_machine_health_summary,
+        cmd_status_machine_health_summary, cmd_status_resource_health,
     };
+    use super::super::validate_paths::cmd_validate_check_cron_syntax;
 
     fn yaml_header() -> &'static str {
         "version: \"1.0\"\nname: test\n"
@@ -19,7 +18,6 @@ mod tests {
         std::fs::write(&f, content).unwrap();
         f
     }
-
 
     // ----- FJ-731: validate --check-cron-syntax -----
 
@@ -55,7 +53,6 @@ mod tests {
         assert!(result.is_ok());
     }
 
-
     // ----- FJ-732: status --resource-health -----
 
     #[test]
@@ -71,7 +68,6 @@ mod tests {
         let result = cmd_status_resource_health(dir.path(), None, true);
         assert!(result.is_ok());
     }
-
 
     // ----- FJ-734: graph --breadth-first -----
 
@@ -98,7 +94,6 @@ mod tests {
         let result = cmd_graph_breadth_first(&f, false);
         assert!(result.is_ok());
     }
-
 
     // ----- FJ-737: status --machine-health-summary -----
 

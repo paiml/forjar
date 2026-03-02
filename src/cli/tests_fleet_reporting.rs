@@ -1,21 +1,20 @@
 //! Tests: Fleet reporting.
 
 #![allow(unused_imports)]
+use super::commands::*;
+use super::fleet_reporting::*;
+use super::helpers::*;
+use super::helpers_state::*;
+use super::helpers_time::*;
 use crate::core::types::ProvenanceEvent;
 use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
 use crate::transport;
 use crate::tripwire::{anomaly, drift, eventlog, tracer};
 use std::path::{Path, PathBuf};
-use super::helpers::*;
-use super::helpers_state::*;
-use super::helpers_time::*;
-use super::fleet_reporting::*;
-use super::commands::*;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
 
     #[test]
     fn test_fj341_audit_command_parse() {
@@ -34,7 +33,6 @@ mod tests {
         }
     }
 
-
     #[test]
     fn test_fj341_audit_empty_state_dir() {
         let tmp = tempfile::tempdir().unwrap();
@@ -43,7 +41,6 @@ mod tests {
         let result = cmd_audit(&state_dir, None, 20, false);
         assert!(result.is_ok());
     }
-
 
     #[test]
     fn test_fj351_compliance_parse() {
@@ -59,7 +56,6 @@ mod tests {
         }
     }
 
-
     #[test]
     fn test_fj352_export_csv_format() {
         let cmd = Commands::Export(ExportArgs {
@@ -74,7 +70,6 @@ mod tests {
         }
     }
 
-
     #[test]
     fn test_fj361_suggest_parse() {
         let cmd = Commands::Suggest(SuggestArgs {
@@ -82,9 +77,10 @@ mod tests {
             json: false,
         });
         match cmd {
-            Commands::Suggest(SuggestArgs { file, .. }) => assert_eq!(file, PathBuf::from("forjar.yaml")),
+            Commands::Suggest(SuggestArgs { file, .. }) => {
+                assert_eq!(file, PathBuf::from("forjar.yaml"))
+            }
             _ => panic!("expected Suggest"),
         }
     }
-
 }

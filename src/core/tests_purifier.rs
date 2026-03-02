@@ -298,5 +298,7 @@ fn make_test_resource(rt: crate::core::types::ResourceType) -> crate::core::type
         pre_apply: None,
         post_apply: None,
         lifecycle: None,
+        store: false,
+        script: None,
     }
 }

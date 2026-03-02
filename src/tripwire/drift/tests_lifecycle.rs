@@ -1,7 +1,7 @@
 //! Tests for FJ-1220: lifecycle.ignore_drift enforcement in drift detection.
 
 use super::*;
-use crate::core::types::{LifecycleRules, Resource, ResourceType, MachineTarget};
+use crate::core::types::{LifecycleRules, MachineTarget, Resource, ResourceType};
 use std::collections::HashMap;
 
 fn make_file_resource(lifecycle: Option<LifecycleRules>) -> Resource {
@@ -81,6 +81,8 @@ fn make_file_resource(lifecycle: Option<LifecycleRules>) -> Resource {
         pre_apply: None,
         post_apply: None,
         lifecycle,
+        store: false,
+        script: None,
     }
 }
 

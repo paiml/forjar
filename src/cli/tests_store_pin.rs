@@ -8,7 +8,9 @@ mod tests {
 
     fn write_config(dir: &TempDir) -> std::path::PathBuf {
         let file = dir.path().join("forjar.yaml");
-        fs::write(&file, r#"
+        fs::write(
+            &file,
+            r#"
 version: "1.0"
 name: test
 resources:
@@ -27,7 +29,9 @@ resources:
     type: file
     machine: target
     path: /data
-"#).unwrap();
+"#,
+        )
+        .unwrap();
         file
     }
 

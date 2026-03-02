@@ -40,7 +40,10 @@ fn has_cycle_from(start: &str, adj: &HashMap<String, Vec<String>>) -> Option<Str
         if let Some(deps) = adj.get(&current) {
             for dep in deps {
                 if dep == start {
-                    return Some(format!("bidirectional path: {}>>...>>{}>>...>>{}", start, current, start));
+                    return Some(format!(
+                        "bidirectional path: {}>>...>>{}>>...>>{}",
+                        start, current, start
+                    ));
                 }
                 if visited.insert(dep.clone()) {
                     queue.push_back(dep.clone());
@@ -450,10 +453,7 @@ mod tests {
         let mut resources = Vec::new();
         for i in 0..25 {
             let mut r = make_resource("file");
-            r.machine = types::MachineTarget::Multiple(vec![
-                "web".to_string(),
-                "db".to_string(),
-            ]);
+            r.machine = types::MachineTarget::Multiple(vec!["web".to_string(), "db".to_string()]);
             resources.push((format!("res-{}", i), r));
         }
         let pairs: Vec<(&str, types::Resource)> = resources

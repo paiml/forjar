@@ -3,8 +3,8 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
-use crate::core::{state, types};
 use super::helpers::*;
+use crate::core::{state, types};
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -21,11 +21,17 @@ fn machine_drift_counts(lock: &types::StateLock) -> (usize, usize) {
 
 /// Map age in seconds to a bucket label.
 fn secs_to_bucket(age_secs: u64) -> &'static str {
-    if age_secs < 3600 { "<1h" }
-    else if age_secs < 86_400 { "<1d" }
-    else if age_secs < 604_800 { "<7d" }
-    else if age_secs < 2_592_000 { "<30d" }
-    else { ">30d" }
+    if age_secs < 3600 {
+        "<1h"
+    } else if age_secs < 86_400 {
+        "<1d"
+    } else if age_secs < 604_800 {
+        "<7d"
+    } else if age_secs < 2_592_000 {
+        "<30d"
+    } else {
+        ">30d"
+    }
 }
 
 /// Classify a `generated_at` ISO-8601 timestamp into an age bucket relative to `now`.
@@ -153,11 +159,7 @@ pub(crate) fn cmd_status_fleet_drift_velocity_trend(
             println!("  No machine state found.");
         }
         for (m, total, drifted, ratio) in &rows {
-            let symbol = if *drifted == 0 {
-                green("*")
-            } else {
-                red("!")
-            };
+            let symbol = if *drifted == 0 { green("*") } else { red("!") };
             println!(
                 "  {} {} — {}/{} drifted (velocity {:.2}%)",
                 symbol,
@@ -181,10 +183,7 @@ fn convergence_window_minutes(lock: &types::StateLock) -> u64 {
 }
 
 /// Collect convergence window data: Vec<(machine, drifted, window_minutes)>.
-fn collect_convergence_windows(
-    state_dir: &Path,
-    machines: &[String],
-) -> Vec<(String, usize, u64)> {
+fn collect_convergence_windows(state_dir: &Path, machines: &[String]) -> Vec<(String, usize, u64)> {
     let mut rows = Vec::new();
     for m in machines {
         if let Ok(Some(lock)) = state::load_lock(state_dir, m) {

@@ -19,18 +19,18 @@ pub use template::resolve_template;
 pub(super) use crate::core::types::*;
 
 #[cfg(test)]
-mod tests_helpers;
-#[cfg(test)]
-mod tests_template;
-#[cfg(test)]
 mod tests_dag;
-#[cfg(test)]
-mod tests_resource;
 #[cfg(test)]
 mod tests_data;
 #[cfg(test)]
 mod tests_functions;
 #[cfg(test)]
+mod tests_helpers;
+#[cfg(test)]
 mod tests_proptest;
+#[cfg(test)]
+mod tests_resource;
+#[cfg(test)]
+mod tests_template;
 #[cfg(test)]
 mod tests_waves;

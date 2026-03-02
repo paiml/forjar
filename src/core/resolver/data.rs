@@ -113,9 +113,7 @@ fn resolve_forjar_state_source(key: &str, source: &DataSource) -> Result<String,
     // No specific outputs requested — return all as JSON
     let json_map: std::collections::HashMap<String, String> = outputs
         .iter()
-        .filter_map(|(k, v)| {
-            Some((k.as_str()?.to_string(), v.as_str()?.to_string()))
-        })
+        .filter_map(|(k, v)| Some((k.as_str()?.to_string(), v.as_str()?.to_string())))
         .collect();
     serde_json::to_string(&json_map)
         .map_err(|e| format!("data source '{}': serialize outputs: {}", key, e))

@@ -1,5 +1,5 @@
-use super::*;
 use super::tests_helpers::make_lock;
+use super::*;
 use crate::core::types::{ResourceLock, ResourceStatus, ResourceType};
 use std::collections::HashMap;
 use std::path::Path;

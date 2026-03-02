@@ -1,8 +1,8 @@
 //! Tests: Phase 100 — Operational Intelligence & Graph Health (FJ-1061→FJ-1068).
 
+use super::graph_health::*;
 use super::status_operational_ext2::*;
 use super::validate_security_ext::*;
-use super::graph_health::*;
 use std::io::Write;
 
 #[cfg(test)]
@@ -18,7 +18,9 @@ mod tests {
 
     fn write_yaml(dir: &std::path::Path, name: &str, content: &str) {
         let p = dir.join(name);
-        if let Some(parent) = p.parent() { std::fs::create_dir_all(parent).unwrap(); }
+        if let Some(parent) = p.parent() {
+            std::fs::create_dir_all(parent).unwrap();
+        }
         std::fs::write(&p, content).unwrap();
     }
 
@@ -165,13 +167,38 @@ mod tests {
 
     // ── File-not-found error paths ──
     #[test]
-    fn test_fj1062_file_not_found() { assert!(cmd_validate_check_resource_dependency_symmetry_deep(std::path::Path::new("/x"), false).is_err()); }
+    fn test_fj1062_file_not_found() {
+        assert!(cmd_validate_check_resource_dependency_symmetry_deep(
+            std::path::Path::new("/x"),
+            false
+        )
+        .is_err());
+    }
     #[test]
-    fn test_fj1063_file_not_found() { assert!(cmd_graph_resource_dependency_health_overlay(std::path::Path::new("/x"), false).is_err()); }
+    fn test_fj1063_file_not_found() {
+        assert!(
+            cmd_graph_resource_dependency_health_overlay(std::path::Path::new("/x"), false)
+                .is_err()
+        );
+    }
     #[test]
-    fn test_fj1065_file_not_found() { assert!(cmd_validate_check_resource_tag_namespace(std::path::Path::new("/x"), false).is_err()); }
+    fn test_fj1065_file_not_found() {
+        assert!(
+            cmd_validate_check_resource_tag_namespace(std::path::Path::new("/x"), false).is_err()
+        );
+    }
     #[test]
-    fn test_fj1066_file_not_found() { assert!(cmd_graph_resource_dependency_width_analysis(std::path::Path::new("/x"), false).is_err()); }
+    fn test_fj1066_file_not_found() {
+        assert!(
+            cmd_graph_resource_dependency_width_analysis(std::path::Path::new("/x"), false)
+                .is_err()
+        );
+    }
     #[test]
-    fn test_fj1068_file_not_found() { assert!(cmd_validate_check_resource_machine_capacity(std::path::Path::new("/x"), false).is_err()); }
+    fn test_fj1068_file_not_found() {
+        assert!(
+            cmd_validate_check_resource_machine_capacity(std::path::Path::new("/x"), false)
+                .is_err()
+        );
+    }
 }

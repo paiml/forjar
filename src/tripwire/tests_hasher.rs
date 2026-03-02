@@ -83,8 +83,7 @@ fn test_fj014_hash_directory_with_symlink_and_subdirs() {
     std::fs::write(dir.path().join("sub").join("nested.txt"), "nested").unwrap();
     // Symlink — should be skipped
     #[cfg(unix)]
-    std::os::unix::fs::symlink(dir.path().join("root.txt"), dir.path().join("link.txt"))
-        .unwrap();
+    std::os::unix::fs::symlink(dir.path().join("root.txt"), dir.path().join("link.txt")).unwrap();
 
     let h = hash_directory(dir.path()).unwrap();
     assert!(h.starts_with("blake3:"));

@@ -1,11 +1,11 @@
 //! Coverage tests for lock_security, lock_ops, lock_merge, lock_lifecycle, lock_core, lock_audit.
 
-use super::lock_security::*;
-use super::lock_ops::*;
-use super::lock_merge::*;
-use super::lock_lifecycle::*;
-use super::lock_core::*;
 use super::lock_audit::*;
+use super::lock_core::*;
+use super::lock_lifecycle::*;
+use super::lock_merge::*;
+use super::lock_ops::*;
+use super::lock_security::*;
 
 #[cfg(test)]
 mod tests {

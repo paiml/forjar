@@ -1,8 +1,8 @@
 //! Tests: Phase 97 — State Analytics & Capacity Planning (FJ-1037→FJ-1044).
 
+use super::graph_analytics::*;
 use super::status_analytics::*;
 use super::validate_analytics::*;
-use super::graph_analytics::*;
 use std::io::Write;
 
 #[cfg(test)]
@@ -18,7 +18,9 @@ mod tests {
 
     fn write_yaml(dir: &std::path::Path, name: &str, content: &str) -> std::path::PathBuf {
         let p = dir.join(name);
-        if let Some(parent) = p.parent() { std::fs::create_dir_all(parent).unwrap(); }
+        if let Some(parent) = p.parent() {
+            std::fs::create_dir_all(parent).unwrap();
+        }
         std::fs::write(&p, content).unwrap();
         p
     }

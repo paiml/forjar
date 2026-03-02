@@ -1,7 +1,7 @@
 //! Tests for codegen dispatch — FJ-005, FJ-040, falsification tests.
 
-use super::*;
 use super::test_fixtures::*;
+use super::*;
 use crate::core::types::ResourceType;
 
 #[test]

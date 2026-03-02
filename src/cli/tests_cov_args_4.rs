@@ -358,18 +358,16 @@ mod tests {
     #[test]
     fn test_cov_cmd_validate_check_resource_limits_text() {
         let f = write_temp_config(minimal_config_yaml());
-        let result = super::super::validate_resources::cmd_validate_check_resource_limits(
-            f.path(), false,
-        );
+        let result =
+            super::super::validate_resources::cmd_validate_check_resource_limits(f.path(), false);
         assert!(result.is_ok());
     }
 
     #[test]
     fn test_cov_cmd_validate_check_resource_limits_json() {
         let f = write_temp_config(minimal_config_yaml());
-        let result = super::super::validate_resources::cmd_validate_check_resource_limits(
-            f.path(), true,
-        );
+        let result =
+            super::super::validate_resources::cmd_validate_check_resource_limits(f.path(), true);
         assert!(result.is_ok());
     }
 }

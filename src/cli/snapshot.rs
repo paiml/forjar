@@ -2,7 +2,6 @@
 
 use std::path::{Path, PathBuf};
 
-
 pub(crate) fn cmd_snapshot_save(name: &str, state_dir: &Path) -> Result<(), String> {
     if !state_dir.exists() {
         return Err(format!(
@@ -31,7 +30,6 @@ pub(crate) fn cmd_snapshot_save(name: &str, state_dir: &Path) -> Result<(), Stri
     println!("Snapshot saved: {}", name);
     Ok(())
 }
-
 
 pub(crate) fn cmd_snapshot_list(state_dir: &Path, json: bool) -> Result<(), String> {
     let snap_base = snapshots_dir(state_dir);
@@ -90,7 +88,6 @@ pub(crate) fn cmd_snapshot_list(state_dir: &Path, json: bool) -> Result<(), Stri
     Ok(())
 }
 
-
 pub(crate) fn cmd_snapshot_restore(name: &str, state_dir: &Path, yes: bool) -> Result<(), String> {
     let snap_dir = snapshots_dir(state_dir).join(name);
     if !snap_dir.exists() {
@@ -125,7 +122,6 @@ pub(crate) fn cmd_snapshot_restore(name: &str, state_dir: &Path, yes: bool) -> R
     Ok(())
 }
 
-
 pub(crate) fn cmd_snapshot_delete(name: &str, state_dir: &Path) -> Result<(), String> {
     let snap_dir = snapshots_dir(state_dir).join(name);
     if !snap_dir.exists() {
@@ -136,13 +132,11 @@ pub(crate) fn cmd_snapshot_delete(name: &str, state_dir: &Path) -> Result<(), St
     Ok(())
 }
 
-
 // FJ-260: forjar snapshot — named state checkpoints
 
 pub(crate) fn snapshots_dir(state_dir: &Path) -> PathBuf {
     state_dir.join("snapshots")
 }
-
 
 /// Recursively copy a directory, skipping entries whose name matches `skip`.
 pub(crate) fn copy_dir_recursive(src: &Path, dst: &Path, skip: &str) -> Result<(), String> {
@@ -172,4 +166,3 @@ pub(crate) fn copy_dir_recursive(src: &Path, dst: &Path, skip: &str) -> Result<(
     }
     Ok(())
 }
-

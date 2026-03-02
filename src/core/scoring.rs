@@ -63,13 +63,9 @@ pub struct ScoringResult {
 // ============================================================================
 
 /// Compute Forjar Score for a config file.
-pub fn compute_from_file(
-    file: &Path,
-    input: &ScoringInput,
-) -> Result<ScoringResult, String> {
+pub fn compute_from_file(file: &Path, input: &ScoringInput) -> Result<ScoringResult, String> {
     let raw = std::fs::read_to_string(file).map_err(|e| format!("read: {e}"))?;
-    let config: ForjarConfig =
-        serde_yaml_ng::from_str(&raw).map_err(|e| format!("parse: {e}"))?;
+    let config: ForjarConfig = serde_yaml_ng::from_str(&raw).map_err(|e| format!("parse: {e}"))?;
     Ok(compute(&config, input))
 }
 
@@ -120,14 +116,54 @@ fn check_hard_fail(input: &ScoringInput) -> Option<String> {
 
 fn all_zero_dimensions() -> Vec<DimensionScore> {
     vec![
-        DimensionScore { code: "COR", name: "Correctness", score: 0, weight: 0.20 },
-        DimensionScore { code: "IDM", name: "Idempotency", score: 0, weight: 0.20 },
-        DimensionScore { code: "PRF", name: "Performance", score: 0, weight: 0.15 },
-        DimensionScore { code: "SAF", name: "Safety", score: 0, weight: 0.15 },
-        DimensionScore { code: "OBS", name: "Observability", score: 0, weight: 0.10 },
-        DimensionScore { code: "DOC", name: "Documentation", score: 0, weight: 0.08 },
-        DimensionScore { code: "RES", name: "Resilience", score: 0, weight: 0.07 },
-        DimensionScore { code: "CMP", name: "Composability", score: 0, weight: 0.05 },
+        DimensionScore {
+            code: "COR",
+            name: "Correctness",
+            score: 0,
+            weight: 0.20,
+        },
+        DimensionScore {
+            code: "IDM",
+            name: "Idempotency",
+            score: 0,
+            weight: 0.20,
+        },
+        DimensionScore {
+            code: "PRF",
+            name: "Performance",
+            score: 0,
+            weight: 0.15,
+        },
+        DimensionScore {
+            code: "SAF",
+            name: "Safety",
+            score: 0,
+            weight: 0.15,
+        },
+        DimensionScore {
+            code: "OBS",
+            name: "Observability",
+            score: 0,
+            weight: 0.10,
+        },
+        DimensionScore {
+            code: "DOC",
+            name: "Documentation",
+            score: 0,
+            weight: 0.08,
+        },
+        DimensionScore {
+            code: "RES",
+            name: "Resilience",
+            score: 0,
+            weight: 0.07,
+        },
+        DimensionScore {
+            code: "CMP",
+            name: "Composability",
+            score: 0,
+            weight: 0.05,
+        },
     ]
 }
 
@@ -158,26 +194,47 @@ fn score_correctness(input: &ScoringInput) -> DimensionScore {
     let score = match &input.runtime {
         Some(rt) => {
             let mut s: i32 = 0;
-            if rt.validate_pass { s += 20; }
-            if rt.plan_pass { s += 20; }
-            if rt.first_apply_pass { s += 40; }
-            if rt.all_resources_converged { s += 10; }
-            if rt.state_lock_written { s += 10; }
+            if rt.validate_pass {
+                s += 20;
+            }
+            if rt.plan_pass {
+                s += 20;
+            }
+            if rt.first_apply_pass {
+                s += 40;
+            }
+            if rt.all_resources_converged {
+                s += 10;
+            }
+            if rt.state_lock_written {
+                s += 10;
+            }
             s -= (rt.warning_count.min(5) * 2) as i32;
             s.clamp(0, 100) as u32
         }
         None => 0,
     };
-    DimensionScore { code: "COR", name: "Correctness", score, weight: 0.20 }
+    DimensionScore {
+        code: "COR",
+        name: "Correctness",
+        score,
+        weight: 0.20,
+    }
 }
 
 fn score_idempotency(input: &ScoringInput) -> DimensionScore {
     let score = match &input.runtime {
         Some(rt) => {
             let mut s: i32 = 0;
-            if rt.second_apply_pass { s += 30; }
-            if rt.zero_changes_on_reapply { s += 30; }
-            if rt.hash_stable { s += 20; }
+            if rt.second_apply_pass {
+                s += 30;
+            }
+            if rt.zero_changes_on_reapply {
+                s += 30;
+            }
+            if rt.hash_stable {
+                s += 20;
+            }
             s += match input.idempotency.as_str() {
                 "strong" => 20,
                 "weak" => 10,
@@ -195,7 +252,12 @@ fn score_idempotency(input: &ScoringInput) -> DimensionScore {
             }
         }
     };
-    DimensionScore { code: "IDM", name: "Idempotency", score, weight: 0.20 }
+    DimensionScore {
+        code: "IDM",
+        name: "Idempotency",
+        score,
+        weight: 0.20,
+    }
 }
 
 fn score_performance(input: &ScoringInput) -> DimensionScore {
@@ -208,7 +270,12 @@ fn score_performance(input: &ScoringInput) -> DimensionScore {
         }
         _ => 0,
     };
-    DimensionScore { code: "PRF", name: "Performance", score, weight: 0.15 }
+    DimensionScore {
+        code: "PRF",
+        name: "Performance",
+        score,
+        weight: 0.15,
+    }
 }
 
 /// Points for first-apply vs budget ratio.
@@ -235,7 +302,11 @@ fn perf_idempotent_points(idem_ms: u64) -> u32 {
 
 /// Points for efficiency ratio (re-apply / first-apply).
 fn perf_efficiency_points(second_ms: u64, first_ms: u64) -> u32 {
-    let ratio = if first_ms > 0 { (second_ms * 100) / first_ms } else { 0 };
+    let ratio = if first_ms > 0 {
+        (second_ms * 100) / first_ms
+    } else {
+        0
+    };
     match ratio {
         0..=5 => 20,
         6..=10 => 15,
@@ -252,9 +323,16 @@ fn score_safety(config: &ForjarConfig) -> DimensionScore {
         score -= deduction;
         has_critical |= critical;
     }
-    if has_critical && score > 40 { score = 40; }
+    if has_critical && score > 40 {
+        score = 40;
+    }
     let score = score.clamp(0, 100) as u32;
-    DimensionScore { code: "SAF", name: "Safety", score, weight: 0.15 }
+    DimensionScore {
+        code: "SAF",
+        name: "Safety",
+        score,
+        weight: 0.15,
+    }
 }
 
 /// Returns (deduction, is_critical) for a single resource.
@@ -288,22 +366,34 @@ fn safety_audit_resource(resource: &super::types::Resource) -> (i32, bool) {
 fn score_observability(config: &ForjarConfig) -> DimensionScore {
     let mut score: u32 = 0;
 
-    if config.policy.tripwire { score += 15; }
-    if config.policy.lock_file { score += 15; }
-    if !config.outputs.is_empty() { score += 10; }
+    if config.policy.tripwire {
+        score += 15;
+    }
+    if config.policy.lock_file {
+        score += 15;
+    }
+    if !config.outputs.is_empty() {
+        score += 10;
+    }
 
     // File mode coverage
-    let file_count = config.resources.values()
+    let file_count = config
+        .resources
+        .values()
         .filter(|r| r.resource_type == ResourceType::File)
         .count();
     if file_count > 0 {
-        let mode_count = config.resources.values()
+        let mode_count = config
+            .resources
+            .values()
             .filter(|r| r.resource_type == ResourceType::File && r.mode.is_some())
             .count();
         let mode_pct = (mode_count * 100) / file_count;
         score += ((mode_pct as u32) * 15) / 100;
 
-        let owner_count = config.resources.values()
+        let owner_count = config
+            .resources
+            .values()
             .filter(|r| r.resource_type == ResourceType::File && r.owner.is_some())
             .count();
         let owner_pct = (owner_count * 100) / file_count;
@@ -313,12 +403,23 @@ fn score_observability(config: &ForjarConfig) -> DimensionScore {
     // Notify hooks (up to 20 pts)
     let notify = &config.policy.notify;
     let mut notify_pts: u32 = 0;
-    if notify.on_success.is_some() { notify_pts += 7; }
-    if notify.on_failure.is_some() { notify_pts += 7; }
-    if notify.on_drift.is_some() { notify_pts += 6; }
+    if notify.on_success.is_some() {
+        notify_pts += 7;
+    }
+    if notify.on_failure.is_some() {
+        notify_pts += 7;
+    }
+    if notify.on_drift.is_some() {
+        notify_pts += 6;
+    }
     score += notify_pts;
 
-    DimensionScore { code: "OBS", name: "Observability", score: score.min(100), weight: 0.10 }
+    DimensionScore {
+        code: "OBS",
+        name: "Observability",
+        score: score.min(100),
+        weight: 0.10,
+    }
 }
 
 fn score_documentation(config: &ForjarConfig) -> DimensionScore {
@@ -327,12 +428,16 @@ fn score_documentation(config: &ForjarConfig) -> DimensionScore {
     // Comment ratio — approximate from raw YAML content (we only have parsed config,
     // so check description fields as a proxy).
     // description field present: +15
-    if config.description.is_some() { score += 15; }
+    if config.description.is_some() {
+        score += 15;
+    }
 
     // Header metadata checks — we check name quality
     let name = &config.name;
     let is_generic = name == "unnamed" || name == "default" || name == "config" || name.is_empty();
-    if !is_generic { score += 5; }
+    if !is_generic {
+        score += 5;
+    }
 
     // For static scoring we give partial credit for presence of documentation-like metadata.
     // Full comment-ratio scoring requires raw YAML analysis (done at runtime).
@@ -341,22 +446,33 @@ fn score_documentation(config: &ForjarConfig) -> DimensionScore {
         score += 25; // Combined header/comment credit for having good description
     }
 
-    DimensionScore { code: "DOC", name: "Documentation", score: score.min(100), weight: 0.08 }
+    DimensionScore {
+        code: "DOC",
+        name: "Documentation",
+        score: score.min(100),
+        weight: 0.08,
+    }
 }
 
 fn score_resilience(config: &ForjarConfig) -> DimensionScore {
     let mut score: u32 = 0;
 
     // failure policy (continue_independent): +20
-    if config.policy.failure == FailurePolicy::ContinueIndependent { score += 20; }
+    if config.policy.failure == FailurePolicy::ContinueIndependent {
+        score += 20;
+    }
 
     // ssh_retries > 1: +10
-    if config.policy.ssh_retries > 1 { score += 10; }
+    if config.policy.ssh_retries > 1 {
+        score += 10;
+    }
 
     // Dependency DAG ratio
     let total = config.resources.len();
     if total > 0 {
-        let with_deps = config.resources.values()
+        let with_deps = config
+            .resources
+            .values()
             .filter(|r| !r.depends_on.is_empty())
             .count();
         let ratio_pct = (with_deps * 100) / total;
@@ -368,55 +484,93 @@ fn score_resilience(config: &ForjarConfig) -> DimensionScore {
     }
 
     // pre_apply hook: +10
-    if config.policy.pre_apply.is_some() { score += 10; }
+    if config.policy.pre_apply.is_some() {
+        score += 10;
+    }
 
     // post_apply hook: +10
-    if config.policy.post_apply.is_some() { score += 10; }
+    if config.policy.post_apply.is_some() {
+        score += 10;
+    }
 
     // Also check per-resource lifecycle hooks
-    let has_resource_hooks = config.resources.values()
+    let has_resource_hooks = config
+        .resources
+        .values()
         .any(|r| r.pre_apply.is_some() || r.post_apply.is_some());
-    if has_resource_hooks { score += 10; }
+    if has_resource_hooks {
+        score += 10;
+    }
 
-    DimensionScore { code: "RES", name: "Resilience", score: score.min(100), weight: 0.07 }
+    DimensionScore {
+        code: "RES",
+        name: "Resilience",
+        score: score.min(100),
+        weight: 0.07,
+    }
 }
 
 fn score_composability(config: &ForjarConfig) -> DimensionScore {
     let mut score: u32 = 0;
 
     // params with defaults: +20
-    if !config.params.is_empty() { score += 20; }
+    if !config.params.is_empty() {
+        score += 20;
+    }
 
     // templates used (check for {{ in resource content): +10
     let has_templates = config.resources.values().any(|r| {
         r.content.as_ref().is_some_and(|c| c.contains("{{"))
             || r.path.as_ref().is_some_and(|p| p.contains("{{"))
     });
-    if has_templates { score += 10; }
+    if has_templates {
+        score += 10;
+    }
 
     // includes: +10
-    if !config.includes.is_empty() { score += 10; }
+    if !config.includes.is_empty() {
+        score += 10;
+    }
 
     // tags on resources: +15
     let has_tags = config.resources.values().any(|r| !r.tags.is_empty());
-    if has_tags { score += 15; }
+    if has_tags {
+        score += 15;
+    }
 
     // resource_groups: +15
-    let has_groups = config.resources.values()
+    let has_groups = config
+        .resources
+        .values()
         .any(|r| r.resource_group.is_some());
-    if has_groups { score += 15; }
+    if has_groups {
+        score += 15;
+    }
 
     // multi-machine: +10
     let has_multi = config.machines.len() > 1
-        || config.resources.values().any(|r| matches!(&r.machine, crate::core::types::MachineTarget::Multiple(v) if v.len() > 1));
-    if has_multi { score += 10; }
+        || config.resources.values().any(
+            |r| matches!(&r.machine, crate::core::types::MachineTarget::Multiple(v) if v.len() > 1),
+        );
+    if has_multi {
+        score += 10;
+    }
 
     // recipe nesting: +15
-    let has_recipes = config.resources.values()
+    let has_recipes = config
+        .resources
+        .values()
         .any(|r| r.resource_type == ResourceType::Recipe);
-    if has_recipes { score += 15; }
+    if has_recipes {
+        score += 15;
+    }
 
-    DimensionScore { code: "CMP", name: "Composability", score: score.min(100), weight: 0.05 }
+    DimensionScore {
+        code: "CMP",
+        name: "Composability",
+        score: score.min(100),
+        weight: 0.05,
+    }
 }
 
 // ============================================================================
@@ -427,7 +581,10 @@ fn score_composability(config: &ForjarConfig) -> DimensionScore {
 pub fn format_score_report(result: &ScoringResult) -> String {
     let mut out = String::new();
 
-    out.push_str(&format!("\nForjar Score: {} (Grade {})\n", result.composite, result.grade));
+    out.push_str(&format!(
+        "\nForjar Score: {} (Grade {})\n",
+        result.composite, result.grade
+    ));
     out.push_str(&format!("{}\n", "=".repeat(40)));
 
     if result.hard_fail {
@@ -441,7 +598,11 @@ pub fn format_score_report(result: &ScoringResult) -> String {
         let bar = score_bar(dim.score);
         out.push_str(&format!(
             "  {} {:14} {:>3}/100  {:.0}%w  {}\n",
-            dim.code, dim.name, dim.score, dim.weight * 100.0, bar,
+            dim.code,
+            dim.name,
+            dim.score,
+            dim.weight * 100.0,
+            bar,
         ));
     }
 
@@ -456,4 +617,3 @@ pub fn score_bar(score: u32) -> String {
     let empty = 20_usize.saturating_sub(filled);
     format!("[{}{}]", "#".repeat(filled), ".".repeat(empty))
 }
-

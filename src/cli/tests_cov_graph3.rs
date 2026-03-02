@@ -251,4 +251,3 @@ fn impact_score_deps_text() {
     let f = write_temp_config(DEPS_CFG);
     assert!(cmd_graph_resource_impact_score(f.path(), false).is_ok());
 }
-

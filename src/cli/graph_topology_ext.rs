@@ -1,14 +1,16 @@
 //! Phase 102 — Resource Intelligence & Topology Insight: graph commands (FJ-1079, FJ-1082).
 
-use std::path::Path;
 use crate::core::types;
+use std::path::Path;
 
 fn parse_and_validate(file: &Path) -> Result<types::ForjarConfig, String> {
     let txt = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
     serde_yaml_ng::from_str(&txt).map_err(|e| e.to_string())
 }
 
-fn build_undirected_adj(cfg: &types::ForjarConfig) -> std::collections::HashMap<String, Vec<String>> {
+fn build_undirected_adj(
+    cfg: &types::ForjarConfig,
+) -> std::collections::HashMap<String, Vec<String>> {
     let mut adj: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
     for (name, resource) in &cfg.resources {
         adj.entry(name.clone()).or_default();
@@ -33,7 +35,9 @@ pub(crate) fn cmd_graph_resource_topology_cluster_analysis(
 
     let mut clusters: Vec<Vec<String>> = Vec::new();
     for name in &names {
-        if visited.contains(name) { continue; }
+        if visited.contains(name) {
+            continue;
+        }
         let mut component: Vec<String> = Vec::new();
         let mut queue: std::collections::VecDeque<String> = std::collections::VecDeque::new();
         queue.push_back(name.clone());
@@ -54,14 +58,24 @@ pub(crate) fn cmd_graph_resource_topology_cluster_analysis(
     }
 
     if json {
-        let items: Vec<serde_json::Value> = clusters.iter().enumerate()
+        let items: Vec<serde_json::Value> = clusters
+            .iter()
+            .enumerate()
             .map(|(i, members)| serde_json::json!({"id": i, "members": members}))
             .collect();
-        println!("{}", serde_json::json!({"clusters": items, "count": clusters.len()}));
+        println!(
+            "{}",
+            serde_json::json!({"clusters": items, "count": clusters.len()})
+        );
     } else {
         println!("Topology cluster analysis ({} cluster(s)):", clusters.len());
         for (i, members) in clusters.iter().enumerate() {
-            println!("  Cluster {} ({} member(s)): {}", i, members.len(), members.join(", "));
+            println!(
+                "  Cluster {} ({} member(s)): {}",
+                i,
+                members.len(),
+                members.join(", ")
+            );
         }
     }
     Ok(())
@@ -83,19 +97,27 @@ pub(crate) fn cmd_graph_resource_dependency_island_detection(
             }
         }
     }
-    let mut islands: Vec<String> = config.resources.keys()
+    let mut islands: Vec<String> = config
+        .resources
+        .keys()
         .filter(|name| !has_outgoing.contains(*name) && !has_incoming.contains(*name))
-        .cloned().collect();
+        .cloned()
+        .collect();
     islands.sort();
 
     if json {
-        println!("{}", serde_json::json!({"islands": islands, "count": islands.len()}));
+        println!(
+            "{}",
+            serde_json::json!({"islands": islands, "count": islands.len()})
+        );
     } else {
         println!("Dependency island detection ({} island(s)):", islands.len());
         if islands.is_empty() {
             println!("  (no islands detected)");
         } else {
-            for name in &islands { println!("  {}", name); }
+            for name in &islands {
+                println!("  {}", name);
+            }
         }
     }
     Ok(())

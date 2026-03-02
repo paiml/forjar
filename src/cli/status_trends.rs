@@ -1,27 +1,26 @@
 //! Trends and predictions.
 
-use crate::core::{state, types};
-use std::path::Path;
 use super::helpers::*;
 use super::helpers_time::*;
+use crate::core::{state, types};
 use std::collections::HashMap;
-
+use std::path::Path;
 
 /// FJ-662: Show how often each resource changes
-fn count_changes_from_logs(
-    state_dir: &Path,
-    targets: &[&String],
-) -> Vec<(String, usize)> {
+fn count_changes_from_logs(state_dir: &Path, targets: &[&String]) -> Vec<(String, usize)> {
     let mut change_counts: std::collections::HashMap<String, usize> =
         std::collections::HashMap::new();
     for m in targets {
         let log_path = state_dir.join(format!("{}.events.jsonl", m));
-        if !log_path.exists() { continue; }
+        if !log_path.exists() {
+            continue;
+        }
         let content = std::fs::read_to_string(&log_path).unwrap_or_default();
         for line in content.lines() {
             if let Ok(event) = serde_yaml_ng::from_str::<
                 std::collections::HashMap<String, serde_yaml_ng::Value>,
-            >(line) {
+            >(line)
+            {
                 if let Some(serde_yaml_ng::Value::String(resource)) = event.get("resource") {
                     *change_counts.entry(resource.clone()).or_insert(0) += 1;
                 }
@@ -49,7 +48,9 @@ pub(crate) fn cmd_status_change_frequency(
     if json {
         print!("{{\"frequencies\":[");
         for (i, (name, count)) in sorted.iter().enumerate() {
-            if i > 0 { print!(","); }
+            if i > 0 {
+                print!(",");
+            }
             print!(r#"{{"resource":"{}","changes":{}}}"#, name, count);
         }
         println!("]}}");
@@ -64,7 +65,6 @@ pub(crate) fn cmd_status_change_frequency(
     Ok(())
 }
 
-
 /// FJ-692: Show duration of last apply per resource
 fn collect_apply_durations(
     state_dir: &Path,
@@ -75,7 +75,9 @@ fn collect_apply_durations(
         let lock_path = state_dir.join(format!("{}.lock.yaml", m));
         if let Ok(data) = std::fs::read_to_string(&lock_path) {
             if let Ok(lock) = serde_yaml_ng::from_str::<types::StateLock>(&data) {
-                let resources: Vec<(String, f64)> = lock.resources.iter()
+                let resources: Vec<(String, f64)> = lock
+                    .resources
+                    .iter()
                     .map(|(name, rl)| (name.clone(), rl.duration_seconds.unwrap_or(0.0)))
                     .collect();
                 result.push((m.to_string(), resources));
@@ -118,7 +120,6 @@ pub(crate) fn cmd_status_last_apply_duration(
     }
     Ok(())
 }
-
 
 /// FJ-517: Status trend — show status trend over last N applies.
 pub(crate) fn cmd_status_trend(
@@ -185,7 +186,6 @@ pub(crate) fn cmd_status_trend(
     Ok(())
 }
 
-
 /// FJ-522: Prediction — predict next failure based on historical patterns.
 fn collect_risk_scores_for_machine(
     state_dir: &Path,
@@ -220,7 +220,9 @@ fn collect_risk_scores_for_machine(
             let rate = failures as f64 / *total as f64;
             let reason = format!(
                 "{}/{} events failed ({:.0}%)",
-                failures, total, rate * 100.0
+                failures,
+                total,
+                rate * 100.0
             );
             risk_scores.push((m.to_string(), resource.clone(), rate, reason));
         }
@@ -281,10 +283,13 @@ pub(crate) fn cmd_status_prediction(
     Ok(())
 }
 
-
 // ── FJ-472: status --histogram ──
 
-pub(crate) fn cmd_status_histogram(state_dir: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
+pub(crate) fn cmd_status_histogram(
+    state_dir: &Path,
+    machine: Option<&str>,
+    json: bool,
+) -> Result<(), String> {
     let all_machines = discover_machines(state_dir);
     let machines: Vec<String> = if let Some(m) = machine {
         all_machines.into_iter().filter(|n| n == m).collect()
@@ -321,12 +326,8 @@ pub(crate) fn cmd_status_histogram(state_dir: &Path, machine: Option<&str>, json
     Ok(())
 }
 
-
 /// Parse recovery times from a machine's event log.
-fn collect_recovery_from_events(
-    machine_name: &str,
-    content: &str,
-) -> Vec<(String, String, f64)> {
+fn collect_recovery_from_events(machine_name: &str, content: &str) -> Vec<(String, String, f64)> {
     let mut failure_start: std::collections::HashMap<String, String> =
         std::collections::HashMap::new();
     let mut total_recovery: std::collections::HashMap<String, (f64, usize)> =
@@ -339,7 +340,9 @@ fn collect_recovery_from_events(
         let status = parsed["status"].as_str().unwrap_or("");
         let ts = parsed["timestamp"].as_str().unwrap_or("").to_string();
 
-        if resource.is_empty() { continue; }
+        if resource.is_empty() {
+            continue;
+        }
 
         if status == "Failed" || status == "Drifted" {
             failure_start.entry(resource.clone()).or_insert(ts);
@@ -362,7 +365,11 @@ fn collect_recovery_from_events(
 }
 
 /// FJ-512: MTTR — mean time to recovery per resource.
-pub(crate) fn cmd_status_mttr(state_dir: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
+pub(crate) fn cmd_status_mttr(
+    state_dir: &Path,
+    machine: Option<&str>,
+    json: bool,
+) -> Result<(), String> {
     let machines = discover_machines(state_dir);
     let machines: Vec<String> = if let Some(m) = machine {
         machines.into_iter().filter(|n| n == m).collect()
@@ -373,7 +380,9 @@ pub(crate) fn cmd_status_mttr(state_dir: &Path, machine: Option<&str>, json: boo
     let mut recovery_times: Vec<(String, String, f64)> = Vec::new();
     for m in &machines {
         let events_path = state_dir.join(format!("{}.events.jsonl", m));
-        if !events_path.exists() { continue; }
+        if !events_path.exists() {
+            continue;
+        }
         let content = std::fs::read_to_string(&events_path).unwrap_or_default();
         recovery_times.extend(collect_recovery_from_events(m, &content));
     }
@@ -383,7 +392,12 @@ pub(crate) fn cmd_status_mttr(state_dir: &Path, machine: Option<&str>, json: boo
     if json {
         let entries: Vec<String> = recovery_times
             .iter()
-            .map(|(m, r, h)| format!(r#"{{"machine":"{}","resource":"{}","mttr_hours":{:.2}}}"#, m, r, h))
+            .map(|(m, r, h)| {
+                format!(
+                    r#"{{"machine":"{}","resource":"{}","mttr_hours":{:.2}}}"#,
+                    m, r, h
+                )
+            })
             .collect();
         println!("[{}]", entries.join(","));
     } else if recovery_times.is_empty() {
@@ -396,4 +410,3 @@ pub(crate) fn cmd_status_mttr(state_dir: &Path, machine: Option<&str>, json: boo
     }
     Ok(())
 }
-

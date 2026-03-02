@@ -1,9 +1,8 @@
 //! Resource validation.
 
+use super::helpers::*;
 use crate::core::types;
 use std::path::Path;
-use super::helpers::*;
-
 
 /// FJ-571: Validate resource counts don't exceed per-machine limits.
 pub(crate) fn cmd_validate_check_resource_limits(file: &Path, json: bool) -> Result<(), String> {
@@ -81,14 +80,10 @@ pub(crate) fn print_resource_limits_text(
     } else {
         println!("Resource limit violations:");
         for (machine, count) in violations {
-            println!(
-                "  {} — {} resources (limit: {})",
-                machine, count, limit
-            );
+            println!("  {} — {} resources (limit: {})", machine, count, limit);
         }
     }
 }
-
 
 /// FJ-581: Detect resources not referenced by any dependency chain.
 pub(crate) fn cmd_validate_check_unused(file: &Path, json: bool) -> Result<(), String> {
@@ -127,7 +122,6 @@ pub(crate) fn cmd_validate_check_unused(file: &Path, json: bool) -> Result<(), S
     Ok(())
 }
 
-
 /// FJ-590: Validate dependency graph for unresolved references.
 pub(crate) fn cmd_validate_check_dependencies(file: &Path, json: bool) -> Result<(), String> {
     let config = parse_and_validate(file)?;
@@ -164,7 +158,6 @@ pub(crate) fn cmd_validate_check_dependencies(file: &Path, json: bool) -> Result
     }
     Ok(())
 }
-
 
 /// Check permission issues for a single resource.
 fn check_resource_permissions(
@@ -238,17 +231,22 @@ pub(crate) fn cmd_validate_check_permissions(file: &Path, json: bool) -> Result<
     Ok(())
 }
 
-
 /// FJ-621: Verify machines are reachable by checking addr format.
-pub(crate) fn cmd_validate_check_machine_reachability(file: &Path, json: bool) -> Result<(), String> {
+pub(crate) fn cmd_validate_check_machine_reachability(
+    file: &Path,
+    json: bool,
+) -> Result<(), String> {
     let config = parse_and_validate(file)?;
     let mut reachable = 0u64;
     let mut unreachable: Vec<(String, String)> = Vec::new();
 
     for (mname, machine) in &config.machines {
         let addr = &machine.addr;
-        if addr == "127.0.0.1" || addr == "localhost" || addr == "container"
-            || addr.contains('.') || addr.contains(':')
+        if addr == "127.0.0.1"
+            || addr == "localhost"
+            || addr == "container"
+            || addr.contains('.')
+            || addr.contains(':')
         {
             reachable += 1;
         } else {
@@ -281,7 +279,6 @@ pub(crate) fn cmd_validate_check_machine_reachability(file: &Path, json: bool) -
     }
     Ok(())
 }
-
 
 /// FJ-661: Validate owner consistency across resources
 pub(crate) fn cmd_validate_check_owner_consistency(file: &Path, json: bool) -> Result<(), String> {
@@ -336,7 +333,6 @@ pub(crate) fn cmd_validate_check_owner_consistency(file: &Path, json: bool) -> R
     }
     Ok(())
 }
-
 
 /// FJ-681: Validate service dependency chains
 pub(crate) fn cmd_validate_check_service_deps(file: &Path, json: bool) -> Result<(), String> {

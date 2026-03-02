@@ -193,8 +193,7 @@ pub(crate) fn cmd_graph_resource_dependency_execution_cost(
         let mut max_dep_cost = 0u32;
         let mut max_dep_path: Vec<String> = Vec::new();
         for dep in &res.depends_on {
-            let (dc, dp) =
-                longest_path_to(dep, resources, costs, best_cost, best_path, visiting);
+            let (dc, dp) = longest_path_to(dep, resources, costs, best_cost, best_path, visiting);
             if dc > max_dep_cost {
                 max_dep_cost = dc;
                 max_dep_path = dp;

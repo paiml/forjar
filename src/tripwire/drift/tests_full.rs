@@ -239,6 +239,8 @@ fn make_service_resource(name: Option<&str>) -> Resource {
         pre_apply: None,
         post_apply: None,
         lifecycle: None,
+        store: false,
+        script: None,
     }
 }
 
@@ -249,9 +251,8 @@ fn test_fj016_detect_drift_full_matching_live_hash() {
     config_resources.insert("test-svc".to_string(), make_service_resource(Some("nginx")));
 
     // Compute what the state_query_script for this service would produce
-    let query =
-        crate::core::codegen::state_query_script(config_resources.get("test-svc").unwrap())
-            .unwrap();
+    let query = crate::core::codegen::state_query_script(config_resources.get("test-svc").unwrap())
+        .unwrap();
     let machine = make_test_machine();
     let output = crate::transport::exec_script(&machine, &query).unwrap();
     let live_hash = hasher::hash_string(&output.stdout);
@@ -390,8 +391,7 @@ fn test_fj016_detect_drift_full_file_plus_service() {
 
     // Run the real state query to get current live_hash
     let query =
-        crate::core::codegen::state_query_script(config_resources.get("my-svc").unwrap())
-            .unwrap();
+        crate::core::codegen::state_query_script(config_resources.get("my-svc").unwrap()).unwrap();
     let output = crate::transport::exec_script(&machine, &query).unwrap();
     let svc_live_hash = hasher::hash_string(&output.stdout);
 

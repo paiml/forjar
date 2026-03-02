@@ -1,9 +1,8 @@
 //! Plan printing and diff display helpers.
 
+use super::helpers::*;
 use crate::core::{codegen, resolver, types};
 use std::path::Path;
-use super::helpers::*;
-
 
 /// Format the action symbol for a plan change.
 fn action_symbol(action: &types::PlanAction) -> String {
@@ -27,15 +26,25 @@ fn action_desc(action: &types::PlanAction, description: &str) -> String {
 
 /// Print a single plan change entry, including optional content diff.
 fn print_plan_change(change: &types::PlannedChange, config: Option<&types::ForjarConfig>) {
-    println!("  {} {}", action_symbol(&change.action), action_desc(&change.action, &change.description));
+    println!(
+        "  {} {}",
+        action_symbol(&change.action),
+        action_desc(&change.action, &change.description)
+    );
 
     // FJ-255/274: Show content diff for file resources on create/update
     if let Some(cfg) = config {
-        if matches!(change.action, types::PlanAction::Create | types::PlanAction::Update) {
+        if matches!(
+            change.action,
+            types::PlanAction::Create | types::PlanAction::Update
+        ) {
             if let Some(resource) = cfg.resources.get(&change.resource_id) {
                 if let Some(ref content) = resource.content {
                     let old_content = if matches!(change.action, types::PlanAction::Update) {
-                        resource.path.as_ref().and_then(|p| std::fs::read_to_string(p).ok())
+                        resource
+                            .path
+                            .as_ref()
+                            .and_then(|p| std::fs::read_to_string(p).ok())
                     } else {
                         None
                     };
@@ -94,12 +103,15 @@ pub(crate) fn print_plan(
     print_plan_summary(plan);
 }
 
-
 /// FJ-255/274: Print a content diff block for a file resource.
 /// For Creates: shows all new lines with `+` prefix.
 /// For Updates with known old content (FJ-274): shows unified diff.
 /// Limited to 50 lines; truncated with "[... N more lines]".
-pub(crate) fn print_content_diff(content: &str, action: &types::PlanAction, old_content: Option<&str>) {
+pub(crate) fn print_content_diff(
+    content: &str,
+    action: &types::PlanAction,
+    old_content: Option<&str>,
+) {
     // FJ-274: For updates with old content, show unified diff
     if matches!(action, types::PlanAction::Update) {
         if let Some(old) = old_content {
@@ -125,7 +137,6 @@ pub(crate) fn print_content_diff(content: &str, action: &types::PlanAction, old_
     }
     println!("    ---");
 }
-
 
 /// FJ-274: Print a simple unified diff between old and new content.
 pub(crate) fn print_unified_diff(old: &str, new: &str) {
@@ -165,7 +176,6 @@ pub(crate) fn print_unified_diff(old: &str, new: &str) {
     }
     println!("    ---");
 }
-
 
 /// Export generated scripts (check, apply, state_query) to a directory for auditing.
 /// Templates (params, secrets, machine refs) are resolved before export.
@@ -229,4 +239,3 @@ pub(crate) fn export_scripts(config: &types::ForjarConfig, dir: &Path) -> Result
     println!("Exported {} scripts to {}", count, dir.display());
     Ok(())
 }
-

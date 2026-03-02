@@ -56,7 +56,12 @@ fn print_warnings_json(key: &str, warnings: &[(String, String)]) {
         .iter()
         .map(|(n, d)| format!(r#"{{"resource":"{}","detail":"{}"}}"#, n, d))
         .collect();
-    println!(r#"{{"{}":[{}],"count":{}}}"#, key, items.join(","), warnings.len());
+    println!(
+        r#"{{"{}":[{}],"count":{}}}"#,
+        key,
+        items.join(","),
+        warnings.len()
+    );
 }
 
 /// Print warnings as text with the given label.
@@ -90,7 +95,11 @@ pub(crate) fn cmd_validate_check_resource_secret_scope(
     if json {
         print_warnings_json("secret_scope_warnings", &warnings);
     } else {
-        print_warnings_text("Secret scope warnings", "No secret scope issues found.", &warnings);
+        print_warnings_text(
+            "Secret scope warnings",
+            "No secret scope issues found.",
+            &warnings,
+        );
     }
     Ok(())
 }
@@ -105,16 +114,16 @@ fn collect_deprecated_names(config: &types::ForjarConfig) -> Vec<String> {
         .resources
         .iter()
         .filter(|(_, r)| {
-            r.tags.iter().any(|t| t.to_lowercase().contains("deprecated"))
+            r.tags
+                .iter()
+                .any(|t| t.to_lowercase().contains("deprecated"))
         })
         .map(|(name, _)| name.clone())
         .collect()
 }
 
 /// Find resources whose depends_on references a deprecated resource.
-fn find_deprecation_usage_warnings(
-    config: &types::ForjarConfig,
-) -> Vec<(String, String)> {
+fn find_deprecation_usage_warnings(config: &types::ForjarConfig) -> Vec<(String, String)> {
     let deprecated = collect_deprecated_names(config);
     let mut warnings = Vec::new();
 
@@ -168,9 +177,7 @@ pub(crate) fn cmd_validate_check_resource_deprecation_usage(
 /// If resource A has a `when` condition but a resource B that depends on A
 /// does NOT have a `when` condition, B will always be applied even when A
 /// is conditionally skipped. This is likely unintentional.
-fn find_when_condition_coverage_warnings(
-    config: &types::ForjarConfig,
-) -> Vec<(String, String)> {
+fn find_when_condition_coverage_warnings(config: &types::ForjarConfig) -> Vec<(String, String)> {
     let mut warnings = Vec::new();
 
     // Build a map: resource -> list of its dependents (resources that depend on it).
@@ -292,10 +299,7 @@ mod tests {
     fn test_secret_scope_warns_multi_machine() {
         let mut r = make_resource("file");
         r.content = Some("password={{secret.db_pass}}".to_string());
-        r.machine = types::MachineTarget::Multiple(vec![
-            "web1".to_string(),
-            "web2".to_string(),
-        ]);
+        r.machine = types::MachineTarget::Multiple(vec!["web1".to_string(), "web2".to_string()]);
         let config = make_config(vec![("db-cfg", r)]);
         let warnings = find_secret_scope_warnings(&config);
         assert_eq!(warnings.len(), 1);
@@ -307,10 +311,7 @@ mod tests {
     fn test_secret_scope_tag_detection() {
         let mut r = make_resource("file");
         r.tags = vec!["secret-keys".to_string()];
-        r.machine = types::MachineTarget::Multiple(vec![
-            "a".to_string(),
-            "b".to_string(),
-        ]);
+        r.machine = types::MachineTarget::Multiple(vec!["a".to_string(), "b".to_string()]);
         let config = make_config(vec![("keys", r)]);
         let warnings = find_secret_scope_warnings(&config);
         assert_eq!(warnings.len(), 1);
@@ -319,10 +320,7 @@ mod tests {
     #[test]
     fn test_secret_scope_no_secret_multi_machine_ok() {
         let mut r = make_resource("file");
-        r.machine = types::MachineTarget::Multiple(vec![
-            "a".to_string(),
-            "b".to_string(),
-        ]);
+        r.machine = types::MachineTarget::Multiple(vec!["a".to_string(), "b".to_string()]);
         let config = make_config(vec![("public-cfg", r)]);
         let warnings = find_secret_scope_warnings(&config);
         assert!(warnings.is_empty());

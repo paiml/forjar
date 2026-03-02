@@ -2,7 +2,6 @@
 
 use std::path::PathBuf;
 
-
 #[derive(clap::Args, Debug)]
 pub struct LockArgs {
     /// Path to forjar.yaml
@@ -30,7 +29,6 @@ pub struct LockArgs {
     pub json: bool,
 }
 
-
 #[derive(clap::Args, Debug)]
 pub struct LockPruneArgs {
     /// Path to forjar.yaml
@@ -46,7 +44,6 @@ pub struct LockPruneArgs {
     pub yes: bool,
 }
 
-
 #[derive(clap::Args, Debug)]
 pub struct LockInfoArgs {
     /// State directory
@@ -57,7 +54,6 @@ pub struct LockInfoArgs {
     #[arg(long)]
     pub json: bool,
 }
-
 
 #[derive(clap::Args, Debug)]
 pub struct LockCompactArgs {
@@ -73,7 +69,6 @@ pub struct LockCompactArgs {
     #[arg(long)]
     pub json: bool,
 }
-
 
 #[derive(clap::Args, Debug)]
 pub struct LockGcArgs {
@@ -94,7 +89,6 @@ pub struct LockGcArgs {
     pub json: bool,
 }
 
-
 #[derive(clap::Args, Debug)]
 pub struct LockExportArgs {
     /// State directory
@@ -110,7 +104,6 @@ pub struct LockExportArgs {
     pub machine: Option<String>,
 }
 
-
 #[derive(clap::Args, Debug)]
 pub struct LockVerifyArgs {
     /// State directory
@@ -121,7 +114,6 @@ pub struct LockVerifyArgs {
     #[arg(long)]
     pub json: bool,
 }
-
 
 #[derive(clap::Args, Debug)]
 pub struct LockDiffArgs {
@@ -135,7 +127,6 @@ pub struct LockDiffArgs {
     #[arg(long)]
     pub json: bool,
 }
-
 
 #[derive(clap::Args, Debug)]
 pub struct LockMergeArgs {
@@ -153,7 +144,6 @@ pub struct LockMergeArgs {
     #[arg(long)]
     pub json: bool,
 }
-
 
 #[derive(clap::Args, Debug)]
 pub struct LockRebaseArgs {
@@ -173,7 +163,6 @@ pub struct LockRebaseArgs {
     pub json: bool,
 }
 
-
 #[derive(clap::Args, Debug)]
 pub struct LockSignArgs {
     /// State directory
@@ -188,7 +177,6 @@ pub struct LockSignArgs {
     #[arg(long)]
     pub json: bool,
 }
-
 
 #[derive(clap::Args, Debug)]
 pub struct LockVerifySigArgs {
@@ -205,7 +193,6 @@ pub struct LockVerifySigArgs {
     pub json: bool,
 }
 
-
 #[derive(clap::Args, Debug)]
 pub struct LockCompactAllArgs {
     /// State directory
@@ -221,7 +208,6 @@ pub struct LockCompactAllArgs {
     pub json: bool,
 }
 
-
 #[derive(clap::Args, Debug)]
 pub struct LockAuditTrailArgs {
     /// State directory
@@ -236,7 +222,6 @@ pub struct LockAuditTrailArgs {
     #[arg(long)]
     pub json: bool,
 }
-
 
 #[derive(clap::Args, Debug)]
 pub struct LockRotateKeysArgs {
@@ -257,7 +242,6 @@ pub struct LockRotateKeysArgs {
     pub json: bool,
 }
 
-
 #[derive(clap::Args, Debug)]
 pub struct LockBackupArgs {
     /// State directory
@@ -268,4 +252,3 @@ pub struct LockBackupArgs {
     #[arg(long)]
     pub json: bool,
 }
-

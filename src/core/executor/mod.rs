@@ -102,7 +102,10 @@ pub struct ApplyConfig<'a> {
 }
 
 /// Load existing locks for machines matching the filter.
-fn load_machine_locks(cfg: &ApplyConfig, all_machines: &[String]) -> Result<HashMap<String, StateLock>, String> {
+fn load_machine_locks(
+    cfg: &ApplyConfig,
+    all_machines: &[String],
+) -> Result<HashMap<String, StateLock>, String> {
     let mut locks = HashMap::new();
     for machine_name in all_machines {
         if cfg.machine_filter.is_some_and(|f| machine_name != f) {
@@ -122,13 +125,21 @@ fn build_target_machines<'a>(cfg: &ApplyConfig, all_machines: &'a [String]) -> V
         .filter(|m| cfg.machine_filter.is_none_or(|f| *m == f))
         .collect();
     targets.sort_by_key(|m| {
-        cfg.config.machines.get(*m).map(|machine| machine.cost).unwrap_or(0)
+        cfg.config
+            .machines
+            .get(*m)
+            .map(|machine| machine.cost)
+            .unwrap_or(0)
     });
     targets
 }
 
 /// Rollback locks to snapshots if any machine had failures.
-fn rollback_on_failure(cfg: &ApplyConfig, results: &[ApplyResult], snapshots: &HashMap<String, StateLock>) {
+fn rollback_on_failure(
+    cfg: &ApplyConfig,
+    results: &[ApplyResult],
+    snapshots: &HashMap<String, StateLock>,
+) {
     if !cfg.rollback_on_failure || snapshots.is_empty() {
         return;
     }
@@ -213,7 +224,14 @@ fn dispatch_apply(
 ) -> Result<Vec<ApplyResult>, String> {
     if let Some(batch_size) = cfg.config.policy.serial {
         let batch_size = batch_size.max(1);
-        apply_machines_rolling(cfg, target_machines, localhost_machine, plan, locks, batch_size)
+        apply_machines_rolling(
+            cfg,
+            target_machines,
+            localhost_machine,
+            plan,
+            locks,
+            batch_size,
+        )
     } else if cfg.config.policy.parallel_machines && target_machines.len() > 1 {
         apply_machines_parallel(cfg, target_machines, localhost_machine, plan, locks)
     } else {

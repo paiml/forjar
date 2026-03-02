@@ -1,8 +1,8 @@
 //! Tests: Phase 96 — Transport Diagnostics & Recipe Governance (FJ-1029→FJ-1036).
 
+use super::graph_transport::*;
 use super::status_transport::*;
 use super::validate_transport::*;
-use super::graph_transport::*;
 use std::io::Write;
 
 #[cfg(test)]
@@ -18,7 +18,9 @@ mod tests {
 
     fn write_yaml(dir: &std::path::Path, name: &str, content: &str) -> std::path::PathBuf {
         let p = dir.join(name);
-        if let Some(parent) = p.parent() { std::fs::create_dir_all(parent).unwrap(); }
+        if let Some(parent) = p.parent() {
+            std::fs::create_dir_all(parent).unwrap();
+        }
         std::fs::write(&p, content).unwrap();
         p
     }
@@ -47,7 +49,11 @@ mod tests {
     #[test]
     fn test_fj1029_ssh_health_with_filter() {
         let dir = tempfile::tempdir().unwrap();
-        write_yaml(dir.path(), "web/state.lock.yaml", "schema: \"1.0\"\ngenerated_at: \"2026-02-28T00:00:00Z\"\ngenerator: forjar-ssh\n");
+        write_yaml(
+            dir.path(),
+            "web/state.lock.yaml",
+            "schema: \"1.0\"\ngenerated_at: \"2026-02-28T00:00:00Z\"\ngenerator: forjar-ssh\n",
+        );
         assert!(cmd_status_machine_ssh_connection_health(dir.path(), Some("web"), false).is_ok());
     }
 
@@ -115,7 +121,11 @@ mod tests {
     #[test]
     fn test_fj1032_staleness_with_filter() {
         let dir = tempfile::tempdir().unwrap();
-        write_yaml(dir.path(), "db/state.lock.yaml", "schema: \"1.0\"\ngenerated_at: \"2026-02-28T00:00:00Z\"\n");
+        write_yaml(
+            dir.path(),
+            "db/state.lock.yaml",
+            "schema: \"1.0\"\ngenerated_at: \"2026-02-28T00:00:00Z\"\n",
+        );
         assert!(cmd_status_lock_file_staleness_report(dir.path(), Some("db"), false).is_ok());
     }
 
@@ -124,19 +134,25 @@ mod tests {
     #[test]
     fn test_fj1033_content_dup_no_dups() {
         let f = write_temp_config("version: \"1.0\"\nname: t\nmachines:\n  m:\n    hostname: m\n    addr: 127.0.0.1\nresources:\n  a:\n    type: file\n    machine: m\n    path: /tmp/a\n    content: hello\n");
-        assert!(cmd_validate_check_resource_cross_machine_content_duplicates(f.path(), false).is_ok());
+        assert!(
+            cmd_validate_check_resource_cross_machine_content_duplicates(f.path(), false).is_ok()
+        );
     }
 
     #[test]
     fn test_fj1033_content_dup_json() {
         let f = write_temp_config("version: \"1.0\"\nname: t\nmachines:\n  m:\n    hostname: m\n    addr: 127.0.0.1\nresources: {}\n");
-        assert!(cmd_validate_check_resource_cross_machine_content_duplicates(f.path(), true).is_ok());
+        assert!(
+            cmd_validate_check_resource_cross_machine_content_duplicates(f.path(), true).is_ok()
+        );
     }
 
     #[test]
     fn test_fj1033_content_dup_empty() {
         let f = write_temp_config("version: \"1.0\"\nname: t\nmachines:\n  m:\n    hostname: m\n    addr: 127.0.0.1\nresources: {}\n");
-        assert!(cmd_validate_check_resource_cross_machine_content_duplicates(f.path(), false).is_ok());
+        assert!(
+            cmd_validate_check_resource_cross_machine_content_duplicates(f.path(), false).is_ok()
+        );
     }
 
     // ── FJ-1034: graph --resource-dependency-critical-chain-path ──

@@ -1,21 +1,20 @@
 //! Tests: Linting.
 
 #![allow(unused_imports)]
+use super::commands::*;
+use super::helpers::*;
+use super::helpers_state::*;
+use super::helpers_time::*;
+use super::lint::*;
 use crate::core::types::ProvenanceEvent;
 use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
 use crate::transport;
 use crate::tripwire::{anomaly, drift, eventlog, tracer};
 use std::path::{Path, PathBuf};
-use super::helpers::*;
-use super::helpers_state::*;
-use super::helpers_time::*;
-use super::lint::*;
-use super::commands::*;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
 
     #[test]
     fn test_fj017_lint_duplicate_content() {
@@ -55,7 +54,6 @@ resources:
 
     // ── Init edge case ────────────────────────────────────────
 
-
     #[test]
     fn test_fj132_cmd_lint_valid() {
         let dir = tempfile::tempdir().unwrap();
@@ -78,7 +76,6 @@ resources:
         cmd_lint(&file, false, false, false).unwrap();
     }
 
-
     #[test]
     fn test_fj132_cmd_lint_json_output() {
         let dir = tempfile::tempdir().unwrap();
@@ -100,7 +97,6 @@ resources:
         std::fs::write(&file, yaml).unwrap();
         cmd_lint(&file, true, false, false).unwrap();
     }
-
 
     #[test]
     fn test_fj036_cmd_lint_bashrs_reports() {
@@ -137,7 +133,6 @@ resources:
         );
     }
 
-
     #[test]
     fn test_fj017_cmd_lint_clean_file() {
         let dir = tempfile::tempdir().unwrap();
@@ -167,7 +162,6 @@ resources:
         );
     }
 
-
     #[test]
     fn test_fj332_lint_fix_flag() {
         let cmd = Commands::Lint(LintArgs {
@@ -182,7 +176,6 @@ resources:
             _ => panic!("expected Lint"),
         }
     }
-
 
     #[test]
     fn test_fj374_lint_rules_flag() {
@@ -200,5 +193,4 @@ resources:
             _ => panic!("expected Lint"),
         }
     }
-
 }

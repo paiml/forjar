@@ -1,10 +1,10 @@
 //! Tests: Coverage for lock_security, destroy, observe (part 8).
 
 #![allow(unused_imports)]
-use super::lock_security::*;
-use super::lock_ops::*;
-use super::lock_core::*;
 use super::destroy::*;
+use super::lock_core::*;
+use super::lock_ops::*;
+use super::lock_security::*;
 use super::observe::*;
 use super::validate_compliance::*;
 use super::validate_structural::*;
@@ -169,11 +169,7 @@ mod tests {
             "schema: \"1\"\nmachine: web\nhostname: web\nresources: {}\n",
         )
         .unwrap();
-        std::fs::write(
-            td.path().join("web.events.jsonl"),
-            "{\"ts\":\"now\"}\n",
-        )
-        .unwrap();
+        std::fs::write(td.path().join("web.events.jsonl"), "{\"ts\":\"now\"}\n").unwrap();
         assert!(cmd_lock_backup(td.path(), false).is_ok());
     }
 
@@ -315,8 +311,7 @@ mod tests {
     #[test]
     fn test_cov_compute_rollback_no_changes() {
         let yaml = &basic_config();
-        let config: crate::core::types::ForjarConfig =
-            serde_yaml_ng::from_str(yaml).unwrap();
+        let config: crate::core::types::ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
         let changes = compute_rollback_changes(&config, &config, 1);
         assert!(changes.is_empty());
     }
@@ -325,10 +320,8 @@ mod tests {
     fn test_cov_compute_rollback_added_resource() {
         let prev_yaml = &empty_config();
         let cur_yaml = &basic_config();
-        let prev: crate::core::types::ForjarConfig =
-            serde_yaml_ng::from_str(prev_yaml).unwrap();
-        let cur: crate::core::types::ForjarConfig =
-            serde_yaml_ng::from_str(cur_yaml).unwrap();
+        let prev: crate::core::types::ForjarConfig = serde_yaml_ng::from_str(prev_yaml).unwrap();
+        let cur: crate::core::types::ForjarConfig = serde_yaml_ng::from_str(cur_yaml).unwrap();
         let changes = compute_rollback_changes(&prev, &cur, 1);
         // current has resources that prev doesn't, so we get "-" entries
         assert!(!changes.is_empty());
@@ -338,10 +331,8 @@ mod tests {
     fn test_cov_compute_rollback_removed_resource() {
         let prev_yaml = &basic_config();
         let cur_yaml = &empty_config();
-        let prev: crate::core::types::ForjarConfig =
-            serde_yaml_ng::from_str(prev_yaml).unwrap();
-        let cur: crate::core::types::ForjarConfig =
-            serde_yaml_ng::from_str(cur_yaml).unwrap();
+        let prev: crate::core::types::ForjarConfig = serde_yaml_ng::from_str(prev_yaml).unwrap();
+        let cur: crate::core::types::ForjarConfig = serde_yaml_ng::from_str(cur_yaml).unwrap();
         let changes = compute_rollback_changes(&prev, &cur, 2);
         // prev has resources that current doesn't, so we get "+" entries
         assert!(!changes.is_empty());

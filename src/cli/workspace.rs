@@ -3,26 +3,21 @@
 use crate::core::types;
 use std::path::{Path, PathBuf};
 
-
 pub(crate) fn cmd_workspace_new(name: &str) -> Result<(), String> {
     workspace_new_in(Path::new("."), Path::new("state"), name)
 }
-
 
 pub(crate) fn cmd_workspace_list() -> Result<(), String> {
     workspace_list_in(Path::new("."), Path::new("state"))
 }
 
-
 pub(crate) fn cmd_workspace_select(name: &str) -> Result<(), String> {
     workspace_select_in(Path::new("."), Path::new("state"), name)
 }
 
-
 pub(crate) fn cmd_workspace_delete(name: &str, yes: bool) -> Result<(), String> {
     workspace_delete_in(Path::new("."), Path::new("state"), name, yes)
 }
-
 
 pub(crate) fn cmd_workspace_current() -> Result<(), String> {
     match current_workspace() {
@@ -31,7 +26,6 @@ pub(crate) fn cmd_workspace_current() -> Result<(), String> {
     }
     Ok(())
 }
-
 
 /// Testable core: create workspace in given root + state base.
 pub(crate) fn workspace_new_in(root: &Path, state_base: &Path, name: &str) -> Result<(), String> {
@@ -49,7 +43,6 @@ pub(crate) fn workspace_new_in(root: &Path, state_base: &Path, name: &str) -> Re
     println!("Created and selected workspace '{}'", name);
     Ok(())
 }
-
 
 /// Testable core: list workspaces.
 pub(crate) fn workspace_list_in(root: &Path, state_base: &Path) -> Result<(), String> {
@@ -79,9 +72,12 @@ pub(crate) fn workspace_list_in(root: &Path, state_base: &Path) -> Result<(), St
     Ok(())
 }
 
-
 /// Testable core: select workspace.
-pub(crate) fn workspace_select_in(root: &Path, state_base: &Path, name: &str) -> Result<(), String> {
+pub(crate) fn workspace_select_in(
+    root: &Path,
+    state_base: &Path,
+    name: &str,
+) -> Result<(), String> {
     let ws_dir = state_base.join(name);
     if !ws_dir.exists() {
         return Err(format!(
@@ -97,7 +93,6 @@ pub(crate) fn workspace_select_in(root: &Path, state_base: &Path, name: &str) ->
     println!("Selected workspace '{}'", name);
     Ok(())
 }
-
 
 /// Testable core: delete workspace.
 pub(crate) fn workspace_delete_in(
@@ -125,7 +120,6 @@ pub(crate) fn workspace_delete_in(
     Ok(())
 }
 
-
 /// Read the current workspace from `.forjar/workspace` in the given root.
 pub(crate) fn current_workspace_in(root: &Path) -> Option<String> {
     std::fs::read_to_string(root.join(".forjar").join("workspace"))
@@ -134,12 +128,10 @@ pub(crate) fn current_workspace_in(root: &Path) -> Option<String> {
         .filter(|s| !s.is_empty())
 }
 
-
 /// Read the current workspace from the current directory.
 pub(crate) fn current_workspace() -> Option<String> {
     current_workspace_in(Path::new("."))
 }
-
 
 /// Resolve the effective state directory given a workspace flag.
 pub(crate) fn resolve_state_dir(state_dir: &Path, workspace_flag: Option<&str>) -> PathBuf {
@@ -152,9 +144,11 @@ pub(crate) fn resolve_state_dir(state_dir: &Path, workspace_flag: Option<&str>) 
     state_dir.to_path_buf()
 }
 
-
 /// Inject `{{workspace}}` template variable into config params.
-pub(crate) fn inject_workspace_param(config: &mut types::ForjarConfig, workspace_flag: Option<&str>) {
+pub(crate) fn inject_workspace_param(
+    config: &mut types::ForjarConfig,
+    workspace_flag: Option<&str>,
+) {
     let ws = workspace_flag
         .map(|s| s.to_string())
         .or_else(current_workspace)
@@ -163,4 +157,3 @@ pub(crate) fn inject_workspace_param(config: &mut types::ForjarConfig, workspace
         .params
         .insert("workspace".to_string(), serde_yaml_ng::Value::String(ws));
 }
-

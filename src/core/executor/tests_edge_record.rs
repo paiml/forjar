@@ -1,7 +1,7 @@
 //! Edge-case tests: record_success and record_failure variants.
 
-use super::*;
 use super::test_fixtures::*;
+use super::*;
 
 // ── Edge-case tests ────────────────────────────────────────────────
 
@@ -87,6 +87,8 @@ fn test_fj012_record_success_without_tripwire() {
         pre_apply: None,
         post_apply: None,
         lifecycle: None,
+        store: false,
+        script: None,
     };
     let mut ctx = RecordCtx {
         lock: &mut lock,
@@ -185,6 +187,8 @@ fn test_fj012_record_success_service_resource() {
         pre_apply: None,
         post_apply: None,
         lifecycle: None,
+        store: false,
+        script: None,
     };
     let mut ctx = RecordCtx {
         lock: &mut lock,
@@ -305,6 +309,8 @@ fn test_fj012_build_details_file_no_content() {
         pre_apply: None,
         post_apply: None,
         lifecycle: None,
+        store: false,
+        script: None,
     };
     let details = build_resource_details(&resource, &local_machine());
     assert!(details.contains_key("path"));
@@ -398,6 +404,8 @@ fn test_fj012_build_details_file_with_content_and_real_file() {
         pre_apply: None,
         post_apply: None,
         lifecycle: None,
+        store: false,
+        script: None,
     };
     let details = build_resource_details(&resource, &local_machine());
     assert!(
@@ -410,4 +418,3 @@ fn test_fj012_build_details_file_with_content_and_real_file() {
         "hash should be blake3-prefixed"
     );
 }
-

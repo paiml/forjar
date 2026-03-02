@@ -1,10 +1,10 @@
 //! Tests: Coverage for lock_core, lock_audit, history, diff_cmd (part 2).
 
 #![allow(unused_imports)]
-use super::lock_core::*;
-use super::lock_audit::*;
-use super::history::*;
 use super::diff_cmd::*;
+use super::history::*;
+use super::lock_audit::*;
+use super::lock_core::*;
 use std::io::Write;
 
 #[cfg(test)]
@@ -93,16 +93,8 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         write_yaml(dir.path(), "web/state.lock.yaml", state_lock_yaml());
         write_yaml(dir.path(), "web.lock.yaml", state_lock_yaml());
-        write_yaml(
-            dir.path(),
-            "snapshots/2026-02-01.yaml",
-            state_lock_yaml(),
-        );
-        write_yaml(
-            dir.path(),
-            "snapshots/2026-02-15.yaml",
-            state_lock_yaml(),
-        );
+        write_yaml(dir.path(), "snapshots/2026-02-01.yaml", state_lock_yaml());
+        write_yaml(dir.path(), "snapshots/2026-02-15.yaml", state_lock_yaml());
         dir
     }
 
@@ -391,5 +383,4 @@ mod tests {
         std::fs::create_dir_all(dir.path().join("prod")).unwrap();
         assert!(cmd_env_diff("staging", "prod", dir.path(), true).is_ok());
     }
-
 }

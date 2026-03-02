@@ -80,17 +80,17 @@ pub fn import_command(config: &ImportConfig) -> String {
                 .version
                 .as_deref()
                 .map_or(String::new(), |v| format!("={v}"));
-            format!("apt-get install -y --download-only {}{ver}", config.reference)
+            format!(
+                "apt-get install -y --download-only {}{ver}",
+                config.reference
+            )
         }
         ImportProvider::Cargo => {
             let ver = config
                 .version
                 .as_deref()
                 .map_or(String::new(), |v| format!(" --version {v}"));
-            format!(
-                "cargo install{ver} --root $STAGING {}",
-                config.reference
-            )
+            format!("cargo install{ver} --root $STAGING {}", config.reference)
         }
         ImportProvider::Uv => {
             let ver = config
@@ -102,20 +102,14 @@ pub fn import_command(config: &ImportConfig) -> String {
             format!("uv pip install --target $STAGING {ver}")
         }
         ImportProvider::Nix => {
-            format!(
-                "nix build --print-out-paths {}",
-                config.reference
-            )
+            format!("nix build --print-out-paths {}", config.reference)
         }
         ImportProvider::Docker => {
             let tag = config
                 .version
                 .as_deref()
                 .map_or(String::new(), |v| format!(":{v}"));
-            format!(
-                "docker create {}{tag} && docker export",
-                config.reference
-            )
+            format!("docker create {}{tag} && docker export", config.reference)
         }
         ImportProvider::Tofu => {
             format!("tofu -chdir={} output -json", config.reference)
@@ -162,7 +156,9 @@ pub fn validate_import(config: &ImportConfig) -> Vec<String> {
     match config.provider {
         ImportProvider::Nix => {
             if !config.reference.contains('#') && !config.reference.starts_with("nixpkgs") {
-                errors.push("nix reference should be in flake format (e.g., nixpkgs#ripgrep)".to_string());
+                errors.push(
+                    "nix reference should be in flake format (e.g., nixpkgs#ripgrep)".to_string(),
+                );
             }
         }
         ImportProvider::Docker => {

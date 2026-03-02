@@ -1,9 +1,8 @@
 //! Drift analysis.
 
+use super::helpers::*;
 use crate::core::{state, types};
 use std::path::Path;
-use super::helpers::*;
-
 
 // FJ-355: Show detailed drift report with field-level diffs
 fn collect_drift_details(
@@ -25,7 +24,10 @@ fn collect_drift_details(
         }
         if let Some(lock) = state::load_lock(state_dir, &name)? {
             for (id, rl) in &lock.resources {
-                if matches!(rl.status, types::ResourceStatus::Drifted | types::ResourceStatus::Failed) {
+                if matches!(
+                    rl.status,
+                    types::ResourceStatus::Drifted | types::ResourceStatus::Failed
+                ) {
                     details.push(serde_json::json!({
                         "resource": id, "machine": lock.machine,
                         "status": format!("{:?}", rl.status), "hash": rl.hash, "applied_at": rl.applied_at,
@@ -64,13 +66,16 @@ pub(crate) fn cmd_status_drift_details(
                     d["applied_at"].as_str().unwrap_or("?"),
                 );
             }
-            println!("\n{} {} resource(s) with drift", yellow("Total:"), details.len());
+            println!(
+                "\n{} {} resource(s) with drift",
+                yellow("Total:"),
+                details.len()
+            );
         }
     }
 
     Ok(())
 }
-
 
 // ── FJ-492: status --drift-summary ──
 
@@ -81,13 +86,30 @@ fn process_drift_summary_machine(
     summaries: &mut Vec<serde_json::Value>,
 ) {
     let total = lock.resources.len();
-    let drifted = lock.resources.values().filter(|r| r.status == types::ResourceStatus::Drifted).count();
-    let pct = if total > 0 { (drifted as f64 / total as f64 * 100.0).round() } else { 0.0 };
-    if json {
-        summaries.push(serde_json::json!({"machine": m, "total": total, "drifted": drifted, "drift_pct": pct}));
+    let drifted = lock
+        .resources
+        .values()
+        .filter(|r| r.status == types::ResourceStatus::Drifted)
+        .count();
+    let pct = if total > 0 {
+        (drifted as f64 / total as f64 * 100.0).round()
     } else {
-        let indicator = if drifted == 0 { green("✓") } else { red("✗") };
-        println!("{} {} — {}/{} drifted ({:.0}%)", indicator, m, drifted, total, pct);
+        0.0
+    };
+    if json {
+        summaries.push(
+            serde_json::json!({"machine": m, "total": total, "drifted": drifted, "drift_pct": pct}),
+        );
+    } else {
+        let indicator = if drifted == 0 {
+            green("✓")
+        } else {
+            red("✗")
+        };
+        println!(
+            "{} {} — {}/{} drifted ({:.0}%)",
+            indicator, m, drifted, total, pct
+        );
     }
 }
 
@@ -117,7 +139,6 @@ pub(crate) fn cmd_status_drift_summary(
     }
     Ok(())
 }
-
 
 /// FJ-567: Show drift rate over time (changes per day/week).
 pub(crate) fn cmd_status_drift_velocity(
@@ -180,7 +201,6 @@ pub(crate) fn cmd_status_drift_velocity(
     }
     Ok(())
 }
-
 
 /// FJ-617: Predict likely drift based on historical patterns.
 fn assess_drift_risk(resource_type: &crate::core::types::ResourceType) -> &'static str {
@@ -256,7 +276,6 @@ pub(crate) fn cmd_status_drift_forecast(
     Ok(())
 }
 
-
 /// FJ-687: Show drift details for all machines at once
 pub(crate) fn cmd_status_drift_details_all(state_dir: &Path, json: bool) -> Result<(), String> {
     let machines = discover_machines(state_dir);
@@ -310,11 +329,18 @@ pub(crate) fn cmd_status_drift_details_all(state_dir: &Path, json: bool) -> Resu
     Ok(())
 }
 
-
 fn compute_drift_stats(lock: &types::StateLock) -> (usize, usize, f64) {
     let total = lock.resources.len();
-    let drifted = lock.resources.values().filter(|r| format!("{:?}", r.status) == "Drifted").count();
-    let rate = if total > 0 { drifted as f64 / total as f64 * 100.0 } else { 0.0 };
+    let drifted = lock
+        .resources
+        .values()
+        .filter(|r| format!("{:?}", r.status) == "Drifted")
+        .count();
+    let rate = if total > 0 {
+        drifted as f64 / total as f64 * 100.0
+    } else {
+        0.0
+    };
     (total, drifted, rate)
 }
 
@@ -345,12 +371,15 @@ pub(crate) fn cmd_status_drift_trend(
     };
     let trend = load_drift_trend(state_dir, &targets);
     if json {
-        let entries: Vec<String> = trend.iter().map(|(m, total, drifted, rate)| {
-            format!(
-                "{{\"machine\":\"{}\",\"total\":{},\"drifted\":{},\"drift_rate\":{:.1}}}",
-                m, total, drifted, rate
-            )
-        }).collect();
+        let entries: Vec<String> = trend
+            .iter()
+            .map(|(m, total, drifted, rate)| {
+                format!(
+                    "{{\"machine\":\"{}\",\"total\":{},\"drifted\":{},\"drift_rate\":{:.1}}}",
+                    m, total, drifted, rate
+                )
+            })
+            .collect();
         println!("{{\"drift_trend\":[{}]}}", entries.join(","));
     } else {
         println!("Drift trend:");
@@ -360,7 +389,6 @@ pub(crate) fn cmd_status_drift_trend(
     }
     Ok(())
 }
-
 
 /// FJ-582: Compare running config state against declared config for drift.
 fn collect_config_drift(
@@ -384,7 +412,8 @@ fn collect_config_drift(
             for (rname, rlock) in &lock.resources {
                 if matches!(
                     rlock.status,
-                    crate::core::types::ResourceStatus::Drifted | crate::core::types::ResourceStatus::Failed
+                    crate::core::types::ResourceStatus::Drifted
+                        | crate::core::types::ResourceStatus::Failed
                 ) {
                     drifted.push((m.clone(), rname.clone(), format!("{:?}", rlock.status)));
                 }
@@ -427,4 +456,3 @@ pub(crate) fn cmd_status_config_drift(
     }
     Ok(())
 }
-

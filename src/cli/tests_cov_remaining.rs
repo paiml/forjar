@@ -1,7 +1,7 @@
 //! Tests: Coverage for remaining validate, lock, destroy, observe (part 1).
 
-use super::validate_structural::*;
 use super::validate_compliance::*;
+use super::validate_structural::*;
 use std::io::Write;
 
 #[cfg(test)]

@@ -1,10 +1,9 @@
 //! Resource detail.
 
-use crate::core::types;
-use std::path::Path;
 use super::helpers::*;
+use crate::core::types;
 use std::collections::HashMap;
-
+use std::path::Path;
 
 /// FJ-593: Show resource timeline from event log.
 pub(crate) fn cmd_status_resource_timeline(
@@ -74,7 +73,6 @@ pub(crate) fn cmd_status_resource_timeline(
     Ok(())
 }
 
-
 /// FJ-627: Show runtime dependency graph from lock files.
 pub(crate) fn cmd_status_resource_dependencies(
     state_dir: &Path,
@@ -128,7 +126,6 @@ pub(crate) fn cmd_status_resource_dependencies(
     Ok(())
 }
 
-
 /// FJ-712: Show resource input fields per resource
 fn collect_resource_inputs(
     state_dir: &Path,
@@ -165,12 +162,15 @@ pub(crate) fn cmd_status_resource_inputs(
     };
     let inputs = collect_resource_inputs(state_dir, &targets);
     if json {
-        let entries: Vec<String> = inputs.iter().map(|(m, name, rtype, count)| {
-            format!(
-                "{{\"machine\":\"{}\",\"resource\":\"{}\",\"type\":\"{}\",\"input_count\":{}}}",
-                m, name, rtype, count
-            )
-        }).collect();
+        let entries: Vec<String> = inputs
+            .iter()
+            .map(|(m, name, rtype, count)| {
+                format!(
+                    "{{\"machine\":\"{}\",\"resource\":\"{}\",\"type\":\"{}\",\"input_count\":{}}}",
+                    m, name, rtype, count
+                )
+            })
+            .collect();
         println!("{{\"resource_inputs\":[{}]}}", entries.join(","));
     } else {
         println!("Resource inputs:");
@@ -186,12 +186,8 @@ pub(crate) fn cmd_status_resource_inputs(
     Ok(())
 }
 
-
 /// FJ-727: Show count per resource type
-fn tally_resource_types(
-    state_dir: &Path,
-    targets: &[&String],
-) -> Vec<(String, usize)> {
+fn tally_resource_types(state_dir: &Path, targets: &[&String]) -> Vec<(String, usize)> {
     let mut type_counts: HashMap<String, usize> = HashMap::new();
     for m in targets {
         let lock_path = state_dir.join(format!("{}.lock.yaml", m));
@@ -237,12 +233,8 @@ pub(crate) fn cmd_status_resource_types_summary(
     Ok(())
 }
 
-
 /// Collect per-resource health entries from lock files.
-fn collect_resource_health(
-    state_dir: &Path,
-    targets: &[&String],
-) -> Vec<(String, String, String)> {
+fn collect_resource_health(state_dir: &Path, targets: &[&String]) -> Vec<(String, String, String)> {
     let mut entries: Vec<(String, String, String)> = Vec::new();
     for m in targets {
         let lock_path = state_dir.join(format!("{}.lock.yaml", m));
@@ -272,7 +264,12 @@ pub(crate) fn cmd_status_resource_health(
     if json {
         let items: Vec<String> = entries
             .iter()
-            .map(|(m, n, s)| format!("{{\"machine\":\"{}\",\"resource\":\"{}\",\"status\":\"{}\"}}", m, n, s))
+            .map(|(m, n, s)| {
+                format!(
+                    "{{\"machine\":\"{}\",\"resource\":\"{}\",\"status\":\"{}\"}}",
+                    m, n, s
+                )
+            })
             .collect();
         println!("{{\"resource_health\":[{}]}}", items.join(","));
     } else if entries.is_empty() {
@@ -286,9 +283,11 @@ pub(crate) fn cmd_status_resource_health(
     Ok(())
 }
 
-
 /// Tally status counts for a single machine lock file.
-pub(crate) fn tally_machine_health(state_dir: &Path, machine: &str) -> (usize, usize, usize, usize) {
+pub(crate) fn tally_machine_health(
+    state_dir: &Path,
+    machine: &str,
+) -> (usize, usize, usize, usize) {
     let lock_path = state_dir.join(format!("{}.lock.yaml", machine));
     let (mut total, mut converged, mut failed, mut drifted) = (0, 0, 0, 0);
     if let Ok(data) = std::fs::read_to_string(&lock_path) {
@@ -338,17 +337,25 @@ pub(crate) fn cmd_status_machine_health_summary(
     } else {
         println!("Machine health summary:");
         for (m, total, converged, failed, drifted) in &summaries {
-            let pct = if *total > 0 { *converged * 100 / *total } else { 0 };
-            println!("  {} — {} total, {} converged ({}%), {} failed, {} drifted", m, total, converged, pct, failed, drifted);
+            let pct = if *total > 0 {
+                *converged * 100 / *total
+            } else {
+                0
+            };
+            println!(
+                "  {} — {} total, {} converged ({}%), {} failed, {} drifted",
+                m, total, converged, pct, failed, drifted
+            );
         }
     }
     Ok(())
 }
 
-
 /// FJ-746: Show last apply success/failure per machine.
 pub(crate) fn cmd_status_last_apply_status(
-    state_dir: &Path, machine: Option<&str>, json: bool,
+    state_dir: &Path,
+    machine: Option<&str>,
+    json: bool,
 ) -> Result<(), String> {
     let machines = discover_machines(state_dir);
     let targets: Vec<&String> = match machine {
@@ -357,15 +364,23 @@ pub(crate) fn cmd_status_last_apply_status(
     };
     let statuses = collect_last_apply(state_dir, &targets);
     if json {
-        let items: Vec<String> = statuses.iter()
-            .map(|(m, s, t)| format!("{{\"machine\":\"{}\",\"status\":\"{}\",\"timestamp\":\"{}\"}}", m, s, t))
+        let items: Vec<String> = statuses
+            .iter()
+            .map(|(m, s, t)| {
+                format!(
+                    "{{\"machine\":\"{}\",\"status\":\"{}\",\"timestamp\":\"{}\"}}",
+                    m, s, t
+                )
+            })
             .collect();
         println!("{{\"last_apply_status\":[{}]}}", items.join(","));
     } else if statuses.is_empty() {
         println!("No apply history found.");
     } else {
         println!("Last apply status:");
-        for (m, s, t) in &statuses { println!("  {} — {} ({})", m, s, t); }
+        for (m, s, t) in &statuses {
+            println!("  {} — {} ({})", m, s, t);
+        }
     }
     Ok(())
 }
@@ -399,10 +414,11 @@ fn collect_last_apply(state_dir: &Path, targets: &[&String]) -> Vec<(String, Str
     results
 }
 
-
 /// FJ-748: Show time since last successful apply per resource.
 pub(crate) fn cmd_status_resource_staleness(
-    state_dir: &Path, machine: Option<&str>, json: bool,
+    state_dir: &Path,
+    machine: Option<&str>,
+    json: bool,
 ) -> Result<(), String> {
     let machines = discover_machines(state_dir);
     let targets: Vec<&String> = match machine {
@@ -411,15 +427,23 @@ pub(crate) fn cmd_status_resource_staleness(
     };
     let entries = collect_staleness(state_dir, &targets);
     if json {
-        let items: Vec<String> = entries.iter()
-            .map(|(m, n, ts)| format!("{{\"machine\":\"{}\",\"resource\":\"{}\",\"last_apply\":\"{}\"}}", m, n, ts))
+        let items: Vec<String> = entries
+            .iter()
+            .map(|(m, n, ts)| {
+                format!(
+                    "{{\"machine\":\"{}\",\"resource\":\"{}\",\"last_apply\":\"{}\"}}",
+                    m, n, ts
+                )
+            })
             .collect();
         println!("{{\"resource_staleness\":[{}]}}", items.join(","));
     } else if entries.is_empty() {
         println!("No resources found.");
     } else {
         println!("Resource staleness:");
-        for (m, name, ts) in &entries { println!("  [{}] {} — last apply: {}", m, name, ts); }
+        for (m, name, ts) in &entries {
+            println!("  [{}] {} — last apply: {}", m, name, ts);
+        }
     }
     Ok(())
 }
@@ -440,6 +464,3 @@ fn collect_staleness(state_dir: &Path, targets: &[&String]) -> Vec<(String, Stri
     }
     entries
 }
-
-
-

@@ -1,8 +1,7 @@
 //! Lock lifecycle.
 
-use std::path::Path;
 use super::helpers::*;
-
+use std::path::Path;
 
 /// FJ-565: Compress old lock files with zstd-like compression (base64 encoding for portability).
 pub(crate) fn cmd_lock_compress(state_dir: &Path, json: bool) -> Result<(), String> {
@@ -58,7 +57,6 @@ pub(crate) fn cmd_lock_compress(state_dir: &Path, json: bool) -> Result<(), Stri
     Ok(())
 }
 
-
 /// FJ-615: Archive old lock files to compressed storage.
 pub(crate) fn cmd_lock_archive(state_dir: &Path, json: bool) -> Result<(), String> {
     let machines = discover_machines(state_dir);
@@ -101,7 +99,6 @@ pub(crate) fn cmd_lock_archive(state_dir: &Path, json: bool) -> Result<(), Strin
     Ok(())
 }
 
-
 /// FJ-625: Create point-in-time lock file snapshot with metadata.
 pub(crate) fn cmd_lock_snapshot(state_dir: &Path, json: bool) -> Result<(), String> {
     let machines = discover_machines(state_dir);
@@ -139,7 +136,6 @@ pub(crate) fn cmd_lock_snapshot(state_dir: &Path, json: bool) -> Result<(), Stri
     }
     Ok(())
 }
-
 
 /// FJ-575: Defragment lock files (reorder resources alphabetically).
 pub(crate) fn cmd_lock_defrag(state_dir: &Path, json: bool) -> Result<(), String> {
@@ -185,4 +181,3 @@ pub(crate) fn cmd_lock_defrag(state_dir: &Path, json: bool) -> Result<(), String
     }
     Ok(())
 }
-

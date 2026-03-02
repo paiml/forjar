@@ -1,27 +1,25 @@
 //! Tests: Apply lifecycle helpers (hooks, notify, params, git).
 
 #![allow(unused_imports)]
+use super::apply_helpers::*;
+use super::helpers::*;
+use super::helpers_state::*;
+use super::helpers_time::*;
+use super::test_fixtures::*;
 use crate::core::types::ProvenanceEvent;
 use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
 use crate::transport;
 use crate::tripwire::{anomaly, drift, eventlog, tracer};
 use std::path::{Path, PathBuf};
-use super::helpers::*;
-use super::helpers_state::*;
-use super::helpers_time::*;
-use super::apply_helpers::*;
-use super::test_fixtures::*;
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-
     #[test]
     fn test_fj054_run_hook_success() {
         run_hook("test", "echo hello", false).unwrap();
     }
-
 
     #[test]
     fn test_fj054_run_hook_failure() {
@@ -30,14 +28,12 @@ mod tests {
         assert!(result.unwrap_err().contains("failed"));
     }
 
-
     #[test]
     fn test_fj054_run_hook_nonzero_exit() {
         let result = run_hook("pre_apply", "exit 42", false);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("exit 42"));
     }
-
 
     #[test]
     fn test_fj132_apply_param_overrides_basic() {
@@ -60,7 +56,6 @@ resources: {}
         );
     }
 
-
     #[test]
     fn test_fj132_apply_param_overrides_invalid() {
         let yaml = r#"
@@ -76,20 +71,17 @@ resources: {}
         assert!(result.unwrap_err().contains("expected KEY=VALUE"));
     }
 
-
     #[test]
     fn test_fj132_run_hook_success() {
         let result = run_hook("test", "true", false);
         assert!(result.is_ok());
     }
 
-
     #[test]
     fn test_fj132_run_hook_failure() {
         let result = run_hook("test", "false", false);
         assert!(result.is_err());
     }
-
 
     #[test]
     fn test_fj132_apply_param_overrides_with_equals_in_value() {
@@ -111,7 +103,6 @@ resources: {}
 
     // ── FJ-036 tests ────────────────────────────────────────────
 
-
     #[test]
     fn test_fj211_load_env_params_overrides() {
         let dir = tempfile::tempdir().unwrap();
@@ -131,7 +122,6 @@ resources: {}
             &serde_yaml_ng::Value::String("warn".to_string())
         );
     }
-
 
     #[test]
     fn test_fj211_load_env_params_partial_override() {
@@ -155,7 +145,6 @@ resources: {}
         );
     }
 
-
     #[test]
     fn test_fj211_load_env_params_adds_new_keys() {
         let dir = tempfile::tempdir().unwrap();
@@ -172,7 +161,6 @@ resources: {}
         );
     }
 
-
     #[test]
     fn test_fj211_load_env_params_file_not_found() {
         let dir = tempfile::tempdir().unwrap();
@@ -184,7 +172,6 @@ resources: {}
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("cannot read env file"));
     }
-
 
     #[test]
     fn test_fj211_load_env_params_invalid_yaml() {
@@ -198,7 +185,6 @@ resources: {}
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("invalid YAML in env file"));
     }
-
 
     #[test]
     fn test_fj225_notify_config_parse() {
@@ -236,7 +222,6 @@ policy:
         );
     }
 
-
     #[test]
     fn test_fj225_run_notify_template_expansion() {
         let dir = tempfile::tempdir().unwrap();
@@ -253,11 +238,9 @@ policy:
         assert!(content.contains("web01:5:0"), "content: {}", content);
     }
 
-
     #[test]
     fn test_fj225_run_notify_failure_silent() {
         // A failing notify hook should not panic
         run_notify("exit 1", &[]);
     }
-
 }

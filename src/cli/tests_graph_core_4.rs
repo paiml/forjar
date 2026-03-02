@@ -1,23 +1,22 @@
 //! Tests: Core graph commands.
 
 #![allow(unused_imports)]
+use super::graph_analysis::*;
+use super::graph_core::*;
+use super::graph_cross::*;
+use super::graph_topology::*;
+use super::helpers::*;
+use super::helpers_state::*;
+use super::helpers_time::*;
 use crate::core::types::ProvenanceEvent;
 use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
 use crate::transport;
 use crate::tripwire::{anomaly, drift, eventlog, tracer};
 use std::path::{Path, PathBuf};
-use super::helpers::*;
-use super::helpers_state::*;
-use super::helpers_time::*;
-use super::graph_core::*;
-use super::graph_analysis::*;
-use super::graph_cross::*;
-use super::graph_topology::*;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
 
     #[test]
     fn test_fj674_graph_machine_groups() {
@@ -28,7 +27,6 @@ mod tests {
         assert!(result.is_ok());
     }
 
-
     #[test]
     fn test_fj674_graph_machine_groups_json() {
         let dir = tempfile::tempdir().unwrap();
@@ -37,7 +35,6 @@ mod tests {
         let result = cmd_graph_machine_groups(&cfg, true);
         assert!(result.is_ok());
     }
-
 
     #[test]
     fn test_fj684_graph_resource_clusters() {
@@ -48,7 +45,6 @@ mod tests {
         assert!(result.is_ok());
     }
 
-
     #[test]
     fn test_fj694_graph_fan_out() {
         let dir = tempfile::tempdir().unwrap();
@@ -57,7 +53,6 @@ mod tests {
         let result = cmd_graph_fan_out(&f, false);
         assert!(result.is_ok());
     }
-
 
     #[test]
     fn test_fj704_graph_leaf_resources() {
@@ -68,7 +63,6 @@ mod tests {
         assert!(result.is_ok());
     }
 
-
     #[test]
     fn test_fj714_graph_reverse_deps() {
         let dir = tempfile::tempdir().unwrap();
@@ -77,7 +71,6 @@ mod tests {
         let result = cmd_graph_reverse_deps(&f, false);
         assert!(result.is_ok());
     }
-
 
     #[test]
     fn test_fj714_graph_reverse_deps_json() {
@@ -88,7 +81,6 @@ mod tests {
         assert!(result.is_ok());
     }
 
-
     #[test]
     fn test_fj724_graph_depth_first() {
         let dir = tempfile::tempdir().unwrap();
@@ -97,5 +89,4 @@ mod tests {
         let result = cmd_graph_depth_first(&f, false);
         assert!(result.is_ok());
     }
-
 }

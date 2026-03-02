@@ -198,9 +198,7 @@ pub(crate) fn cmd_validate_check_resource_tag_value_consistency(
 // ============================================================================
 
 /// Collect per-machine resource counts and determine balance.
-fn compute_distribution_balance(
-    config: &types::ForjarConfig,
-) -> (HashMap<String, usize>, bool) {
+fn compute_distribution_balance(config: &types::ForjarConfig) -> (HashMap<String, usize>, bool) {
     let mut per_machine: HashMap<String, usize> = HashMap::new();
     for resource in config.resources.values() {
         let machines = resource.machine.to_vec();
@@ -255,10 +253,7 @@ pub(crate) fn cmd_validate_check_resource_machine_distribution_balance(
     } else if per_machine.is_empty() {
         println!("No machine assignments found.");
     } else {
-        println!(
-            "Machine distribution balance (balanced: {}):",
-            balanced
-        );
+        println!("Machine distribution balance (balanced: {}):", balanced);
         let mut sorted_machines: Vec<(&String, &usize)> = per_machine.iter().collect();
         sorted_machines.sort_by_key(|(k, _)| (*k).clone());
         for (machine, count) in &sorted_machines {

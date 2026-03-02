@@ -1,11 +1,11 @@
 //! Tests: Coverage for remaining validate, lock, destroy, observe (part 3).
 
 #![allow(unused_imports)]
+use super::lock_ops::*;
+use super::validate_compliance::*;
 use super::validate_quality::*;
 use super::validate_resources::*;
 use super::validate_structural::*;
-use super::validate_compliance::*;
-use super::lock_ops::*;
 use std::io::Write;
 
 #[cfg(test)]
@@ -306,11 +306,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let machine_dir = dir.path().join("web");
         std::fs::create_dir_all(&machine_dir).unwrap();
-        std::fs::write(
-            machine_dir.join("events.jsonl"),
-            "line1\nline2\nline3\n",
-        )
-        .unwrap();
+        std::fs::write(machine_dir.join("events.jsonl"), "line1\nline2\nline3\n").unwrap();
         let result = cmd_lock_compact(dir.path(), false, false);
         assert!(result.is_ok());
     }
@@ -320,11 +316,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let machine_dir = dir.path().join("web");
         std::fs::create_dir_all(&machine_dir).unwrap();
-        std::fs::write(
-            machine_dir.join("events.jsonl"),
-            "line1\nline2\nline3\n",
-        )
-        .unwrap();
+        std::fs::write(machine_dir.join("events.jsonl"), "line1\nline2\nline3\n").unwrap();
         let result = cmd_lock_compact(dir.path(), true, true);
         assert!(result.is_ok());
     }

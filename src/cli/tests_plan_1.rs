@@ -1,21 +1,20 @@
 //! Tests: Plan command.
 
 #![allow(unused_imports)]
+use super::commands::*;
+use super::helpers::*;
+use super::helpers_state::*;
+use super::helpers_time::*;
+use super::plan::*;
 use crate::core::types::ProvenanceEvent;
 use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
 use crate::transport;
 use crate::tripwire::{anomaly, drift, eventlog, tracer};
 use std::path::{Path, PathBuf};
-use super::helpers::*;
-use super::helpers_state::*;
-use super::helpers_time::*;
-use super::plan::*;
-use super::commands::*;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
 
     #[test]
     fn test_fj255_plan_with_diff() {
@@ -65,7 +64,6 @@ resources:
         .unwrap();
     }
 
-
     #[test]
     fn test_fj255_plan_with_no_diff_flag() {
         let dir = tempfile::tempdir().unwrap();
@@ -113,7 +111,6 @@ resources:
 
     // ── FJ-256: forjar lock tests ────────────────────────────────
 
-
     #[test]
     fn test_fj312_plan_cost_flag_parse() {
         let cmd = Commands::Plan(PlanArgs {
@@ -140,7 +137,6 @@ resources:
     }
 
     // ── FJ-313: apply --max-parallel ──
-
 
     #[test]
     fn test_fj333_plan_what_if_flag() {
@@ -170,7 +166,6 @@ resources:
         }
     }
 
-
     #[test]
     fn test_fj344_plan_compact_parse() {
         let cmd = Commands::PlanCompact(PlanCompactArgs {
@@ -186,5 +181,4 @@ resources:
             _ => panic!("expected PlanCompact"),
         }
     }
-
 }

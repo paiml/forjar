@@ -1,8 +1,8 @@
 //! Tests: Phase 98 — Compliance Automation & Drift Intelligence (FJ-1045→FJ-1052).
 
+use super::graph_compliance::*;
 use super::status_drift_intel::*;
 use super::validate_compliance_ext::*;
-use super::graph_compliance::*;
 use std::io::Write;
 
 #[cfg(test)]
@@ -18,7 +18,9 @@ mod tests {
 
     fn write_yaml(dir: &std::path::Path, name: &str, content: &str) -> std::path::PathBuf {
         let p = dir.join(name);
-        if let Some(parent) = p.parent() { std::fs::create_dir_all(parent).unwrap(); }
+        if let Some(parent) = p.parent() {
+            std::fs::create_dir_all(parent).unwrap();
+        }
         std::fs::write(&p, content).unwrap();
         p
     }
@@ -204,26 +206,46 @@ mod tests {
 
     #[test]
     fn test_fj1046_file_not_found() {
-        assert!(cmd_validate_check_resource_compliance_tags(std::path::Path::new("/nonexistent"), false).is_err());
+        assert!(cmd_validate_check_resource_compliance_tags(
+            std::path::Path::new("/nonexistent"),
+            false
+        )
+        .is_err());
     }
 
     #[test]
     fn test_fj1047_file_not_found() {
-        assert!(cmd_graph_resource_dependency_risk_score(std::path::Path::new("/nonexistent"), false).is_err());
+        assert!(cmd_graph_resource_dependency_risk_score(
+            std::path::Path::new("/nonexistent"),
+            false
+        )
+        .is_err());
     }
 
     #[test]
     fn test_fj1049_file_not_found() {
-        assert!(cmd_validate_check_resource_rollback_coverage(std::path::Path::new("/nonexistent"), false).is_err());
+        assert!(cmd_validate_check_resource_rollback_coverage(
+            std::path::Path::new("/nonexistent"),
+            false
+        )
+        .is_err());
     }
 
     #[test]
     fn test_fj1050_file_not_found() {
-        assert!(cmd_graph_resource_dependency_layering(std::path::Path::new("/nonexistent"), false).is_err());
+        assert!(cmd_graph_resource_dependency_layering(
+            std::path::Path::new("/nonexistent"),
+            false
+        )
+        .is_err());
     }
 
     #[test]
     fn test_fj1052_file_not_found() {
-        assert!(cmd_validate_check_resource_dependency_balance(std::path::Path::new("/nonexistent"), false).is_err());
+        assert!(cmd_validate_check_resource_dependency_balance(
+            std::path::Path::new("/nonexistent"),
+            false
+        )
+        .is_err());
     }
 }

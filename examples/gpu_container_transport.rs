@@ -139,7 +139,10 @@ policy:
 fn print_gpu_machine(name: &str, machine: &Machine) {
     println!("Machine: {}", name);
     println!("  roles: {:?}", machine.roles);
-    println!("  is_container_transport: {}", machine.is_container_transport());
+    println!(
+        "  is_container_transport: {}",
+        machine.is_container_transport()
+    );
     println!("  container_name: {}", machine.container_name());
     if let Some(ref c) = machine.container {
         print_container_config(c);

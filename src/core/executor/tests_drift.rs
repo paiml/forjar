@@ -1,7 +1,7 @@
 //! FJ-129: Integration tests — apply, drift, re-apply cycle.
 
-use super::*;
 use super::test_fixtures::*;
+use super::*;
 
 #[test]
 fn test_fj129_apply_then_drift_no_change() {
@@ -379,4 +379,3 @@ fn test_fj129_event_log_full_lifecycle() {
 
     let _ = std::fs::remove_file("/tmp/forjar-test-executor.txt");
 }
-

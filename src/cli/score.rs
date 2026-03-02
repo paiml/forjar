@@ -21,12 +21,16 @@ pub(crate) fn cmd_score(
     let result = scoring::compute_from_file(file, &input)?;
 
     if json {
-        let dims: Vec<String> = result.dimensions.iter().map(|d| {
-            format!(
-                "{{\"code\":\"{}\",\"name\":\"{}\",\"score\":{},\"weight\":{}}}",
-                d.code, d.name, d.score, d.weight
-            )
-        }).collect();
+        let dims: Vec<String> = result
+            .dimensions
+            .iter()
+            .map(|d| {
+                format!(
+                    "{{\"code\":\"{}\",\"name\":\"{}\",\"score\":{},\"weight\":{}}}",
+                    d.code, d.name, d.score, d.weight
+                )
+            })
+            .collect();
         println!(
             "{{\"composite\":{},\"grade\":\"{}\",\"hard_fail\":{},\"dimensions\":[{}]}}",
             result.composite,

@@ -1,10 +1,9 @@
 //! Infrastructure utilities.
 
-use crate::core::{migrate, parser, types};
-use std::path::Path;
 use super::helpers::*;
 use super::helpers_state::*;
-
+use crate::core::{migrate, parser, types};
+use std::path::Path;
 
 pub(crate) fn cmd_migrate(file: &Path, output: Option<&Path>) -> Result<(), String> {
     let config = parse_and_validate(file)?;
@@ -56,13 +55,11 @@ pub(crate) fn cmd_migrate(file: &Path, output: Option<&Path>) -> Result<(), Stri
     Ok(())
 }
 
-
 pub(crate) fn cmd_mcp() -> Result<(), String> {
     let rt = tokio::runtime::Runtime::new()
         .map_err(|e| format!("Failed to create tokio runtime: {}", e))?;
     rt.block_on(crate::mcp::serve())
 }
-
 
 pub(crate) fn cmd_mcp_schema() -> Result<(), String> {
     let schema = crate::mcp::export_schema();
@@ -70,7 +67,6 @@ pub(crate) fn cmd_mcp_schema() -> Result<(), String> {
     println!("{}", json);
     Ok(())
 }
-
 
 /// Run inline performance benchmarks (FJ-139).
 pub(crate) fn cmd_bench(iterations: usize, json: bool) -> Result<(), String> {
@@ -262,7 +258,6 @@ pub(crate) fn cmd_bench(iterations: usize, json: bool) -> Result<(), String> {
     Ok(())
 }
 
-
 pub(crate) fn cmd_state_list(
     state_dir: &Path,
     machine_filter: Option<&str>,
@@ -343,7 +338,6 @@ pub(crate) fn cmd_state_list(
     Ok(())
 }
 
-
 pub(crate) fn cmd_state_mv(
     state_dir: &Path,
     old_id: &str,
@@ -410,7 +404,6 @@ pub(crate) fn cmd_state_mv(
 // ============================================================================
 // FJ-213: state-rm — remove a resource from state
 // ============================================================================
-
 
 pub(crate) fn cmd_state_rm(
     state_dir: &Path,
@@ -488,4 +481,3 @@ pub(crate) fn cmd_state_rm(
 // ============================================================================
 // FJ-215: output — resolve and display output values
 // ============================================================================
-

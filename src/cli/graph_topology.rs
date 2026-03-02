@@ -1,9 +1,8 @@
 //! Topological analysis.
 
+use super::helpers::*;
 use crate::core::types;
 use std::path::Path;
-use super::helpers::*;
-
 
 /// FJ-584: Show resources grouped by topological depth level.
 pub(crate) fn cmd_graph_topological_levels(file: &Path, json: bool) -> Result<(), String> {
@@ -91,7 +90,6 @@ pub(crate) fn cmd_graph_topological_levels(file: &Path, json: bool) -> Result<()
     Ok(())
 }
 
-
 /// FJ-634: Show longest dependency chain (critical path analysis).
 pub(crate) fn cmd_graph_critical_chain(file: &Path, json: bool) -> Result<(), String> {
     let config = parse_and_validate(file)?;
@@ -151,7 +149,6 @@ pub(crate) fn cmd_graph_critical_chain(file: &Path, json: bool) -> Result<(), St
     }
     Ok(())
 }
-
 
 /// FJ-624: Show which resources can execute in parallel.
 pub(crate) fn cmd_graph_parallel_groups(file: &Path, json: bool) -> Result<(), String> {
@@ -240,7 +237,6 @@ pub(crate) fn cmd_graph_parallel_groups(file: &Path, json: bool) -> Result<(), S
     Ok(())
 }
 
-
 /// FJ-694: Show execution order with timing estimates
 /// FJ-694: Show resource fan-out metrics (how many resources depend on each)
 pub(crate) fn cmd_graph_fan_out(file: &Path, json: bool) -> Result<(), String> {
@@ -289,7 +285,6 @@ pub(crate) fn cmd_graph_fan_out(file: &Path, json: bool) -> Result<(), String> {
     Ok(())
 }
 
-
 /// FJ-724: Show depth-first traversal order
 pub(crate) fn cmd_graph_depth_first(file: &Path, json: bool) -> Result<(), String> {
     let cfg = parse_and_validate(file)?;
@@ -333,25 +328,31 @@ pub(crate) fn cmd_graph_depth_first(file: &Path, json: bool) -> Result<(), Strin
     Ok(())
 }
 
-
 /// BFS topological sort: returns resources in breadth-first order.
 fn bfs_topological(cfg: &types::ForjarConfig) -> Vec<String> {
     let mut in_degree: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
-    let mut dependents: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
+    let mut dependents: std::collections::HashMap<String, Vec<String>> =
+        std::collections::HashMap::new();
     for (name, resource) in &cfg.resources {
         in_degree.entry(name.clone()).or_insert(0);
         for dep in &resource.depends_on {
-            dependents.entry(dep.clone()).or_default().push(name.clone());
+            dependents
+                .entry(dep.clone())
+                .or_default()
+                .push(name.clone());
             *in_degree.entry(name.clone()).or_default() += 1;
         }
     }
     let mut queue: std::collections::VecDeque<String> = std::collections::VecDeque::new();
-    let mut roots: Vec<String> = in_degree.iter()
+    let mut roots: Vec<String> = in_degree
+        .iter()
         .filter(|(_, &d)| d == 0)
         .map(|(n, _)| n.clone())
         .collect();
     roots.sort();
-    for r in roots { queue.push_back(r); }
+    for r in roots {
+        queue.push_back(r);
+    }
     let mut order: Vec<String> = Vec::new();
     while let Some(node) = queue.pop_front() {
         order.push(node.clone());
@@ -360,7 +361,9 @@ fn bfs_topological(cfg: &types::ForjarConfig) -> Vec<String> {
         for dep in next {
             if let Some(d) = in_degree.get_mut(&dep) {
                 *d -= 1;
-                if *d == 0 { queue.push_back(dep); }
+                if *d == 0 {
+                    queue.push_back(dep);
+                }
             }
         }
     }
@@ -387,7 +390,6 @@ pub(crate) fn cmd_graph_breadth_first(file: &Path, json: bool) -> Result<(), Str
     Ok(())
 }
 
-
 /// Compute in-degree and out-degree for each resource.
 fn compute_degrees(cfg: &types::ForjarConfig) -> Vec<(String, usize, usize)> {
     let mut in_deg: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
@@ -399,8 +401,16 @@ fn compute_degrees(cfg: &types::ForjarConfig) -> Vec<(String, usize, usize)> {
             *in_deg.entry(dep.clone()).or_default() += 1;
         }
     }
-    let mut result: Vec<(String, usize, usize)> = cfg.resources.keys()
-        .map(|n| (n.clone(), *in_deg.get(n).unwrap_or(&0), *out_deg.get(n).unwrap_or(&0)))
+    let mut result: Vec<(String, usize, usize)> = cfg
+        .resources
+        .keys()
+        .map(|n| {
+            (
+                n.clone(),
+                *in_deg.get(n).unwrap_or(&0),
+                *out_deg.get(n).unwrap_or(&0),
+            )
+        })
         .collect();
     result.sort_by(|a, b| (b.1 + b.2).cmp(&(a.1 + a.2)).then(a.0.cmp(&b.0)));
     result
@@ -411,8 +421,14 @@ pub(crate) fn cmd_graph_dependency_count(file: &Path, json: bool) -> Result<(), 
     let cfg = parse_and_validate(file)?;
     let degrees = compute_degrees(&cfg);
     if json {
-        let items: Vec<String> = degrees.iter()
-            .map(|(n, i, o)| format!("{{\"resource\":\"{}\",\"in_degree\":{},\"out_degree\":{}}}", n, i, o))
+        let items: Vec<String> = degrees
+            .iter()
+            .map(|(n, i, o)| {
+                format!(
+                    "{{\"resource\":\"{}\",\"in_degree\":{},\"out_degree\":{}}}",
+                    n, i, o
+                )
+            })
             .collect();
         println!("{{\"dependency_counts\":[{}]}}", items.join(","));
     } else {
@@ -424,27 +440,42 @@ pub(crate) fn cmd_graph_dependency_count(file: &Path, json: bool) -> Result<(), 
     Ok(())
 }
 
-
 /// FJ-743: Show stats for each connected component.
 pub(crate) fn cmd_graph_subgraph_stats(file: &Path, json: bool) -> Result<(), String> {
     let cfg = parse_and_validate(file)?;
     let components = find_components(&cfg);
     if json {
-        let items: Vec<String> = components.iter().enumerate()
-            .map(|(i, c)| format!("{{\"component\":{},\"nodes\":{},\"resources\":{:?}}}", i + 1, c.len(), c))
+        let items: Vec<String> = components
+            .iter()
+            .enumerate()
+            .map(|(i, c)| {
+                format!(
+                    "{{\"component\":{},\"nodes\":{},\"resources\":{:?}}}",
+                    i + 1,
+                    c.len(),
+                    c
+                )
+            })
             .collect();
         println!("{{\"subgraph_stats\":[{}]}}", items.join(","));
     } else {
         println!("Connected components: {}", components.len());
         for (i, c) in components.iter().enumerate() {
-            println!("  Component {} — {} node(s): {}", i + 1, c.len(), c.join(", "));
+            println!(
+                "  Component {} — {} node(s): {}",
+                i + 1,
+                c.len(),
+                c.join(", ")
+            );
         }
     }
     Ok(())
 }
 
 /// Build undirected adjacency list from resource graph.
-fn build_undirected_adj(cfg: &types::ForjarConfig) -> std::collections::HashMap<String, Vec<String>> {
+fn build_undirected_adj(
+    cfg: &types::ForjarConfig,
+) -> std::collections::HashMap<String, Vec<String>> {
     let mut adj: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
     for (name, resource) in &cfg.resources {
         adj.entry(name.clone()).or_default();
@@ -465,10 +496,14 @@ fn collect_component(
     let mut component = Vec::new();
     let mut stack = vec![start.to_string()];
     while let Some(n) = stack.pop() {
-        if visited.contains(&n) { continue; }
+        if visited.contains(&n) {
+            continue;
+        }
         visited.insert(n.clone());
         component.push(n.clone());
-        for nb in adj.get(&n).unwrap_or(&Vec::new()) { stack.push(nb.clone()); }
+        for nb in adj.get(&n).unwrap_or(&Vec::new()) {
+            stack.push(nb.clone());
+        }
     }
     component.sort();
     component
@@ -488,4 +523,3 @@ fn find_components(cfg: &types::ForjarConfig) -> Vec<Vec<String>> {
     }
     components
 }
-

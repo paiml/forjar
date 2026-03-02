@@ -1,8 +1,8 @@
 //! Tests: Phase 99 — Security Posture & Resource Lifecycle (FJ-1053→FJ-1060).
 
+use super::graph_lifecycle::*;
 use super::status_security::*;
 use super::validate_security::*;
-use super::graph_lifecycle::*;
 use std::io::Write;
 
 #[cfg(test)]
@@ -18,7 +18,9 @@ mod tests {
 
     fn write_yaml(dir: &std::path::Path, name: &str, content: &str) -> std::path::PathBuf {
         let p = dir.join(name);
-        if let Some(parent) = p.parent() { std::fs::create_dir_all(parent).unwrap(); }
+        if let Some(parent) = p.parent() {
+            std::fs::create_dir_all(parent).unwrap();
+        }
         std::fs::write(&p, content).unwrap();
         p
     }
@@ -190,26 +192,46 @@ mod tests {
 
     #[test]
     fn test_fj1054_file_not_found() {
-        assert!(cmd_validate_check_resource_secret_scope(std::path::Path::new("/nonexistent"), false).is_err());
+        assert!(cmd_validate_check_resource_secret_scope(
+            std::path::Path::new("/nonexistent"),
+            false
+        )
+        .is_err());
     }
 
     #[test]
     fn test_fj1055_file_not_found() {
-        assert!(cmd_graph_resource_lifecycle_stage_map(std::path::Path::new("/nonexistent"), false).is_err());
+        assert!(cmd_graph_resource_lifecycle_stage_map(
+            std::path::Path::new("/nonexistent"),
+            false
+        )
+        .is_err());
     }
 
     #[test]
     fn test_fj1057_file_not_found() {
-        assert!(cmd_validate_check_resource_deprecation_usage(std::path::Path::new("/nonexistent"), false).is_err());
+        assert!(cmd_validate_check_resource_deprecation_usage(
+            std::path::Path::new("/nonexistent"),
+            false
+        )
+        .is_err());
     }
 
     #[test]
     fn test_fj1058_file_not_found() {
-        assert!(cmd_graph_resource_dependency_age_overlay(std::path::Path::new("/nonexistent"), false).is_err());
+        assert!(cmd_graph_resource_dependency_age_overlay(
+            std::path::Path::new("/nonexistent"),
+            false
+        )
+        .is_err());
     }
 
     #[test]
     fn test_fj1060_file_not_found() {
-        assert!(cmd_validate_check_resource_when_condition_coverage(std::path::Path::new("/nonexistent"), false).is_err());
+        assert!(cmd_validate_check_resource_when_condition_coverage(
+            std::path::Path::new("/nonexistent"),
+            false
+        )
+        .is_err());
     }
 }

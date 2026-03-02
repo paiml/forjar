@@ -29,8 +29,8 @@ pub struct Pin {
 
 /// Read a lock file from disk.
 pub fn read_lockfile(path: &Path) -> Result<LockFile, String> {
-    let content = std::fs::read_to_string(path)
-        .map_err(|e| format!("read {}: {e}", path.display()))?;
+    let content =
+        std::fs::read_to_string(path).map_err(|e| format!("read {}: {e}", path.display()))?;
     parse_lockfile(&content)
 }
 
@@ -45,11 +45,10 @@ pub fn write_lockfile(path: &Path, lockfile: &LockFile) -> Result<(), String> {
         std::fs::create_dir_all(parent)
             .map_err(|e| format!("create dir {}: {e}", parent.display()))?;
     }
-    let yaml = serde_yaml_ng::to_string(lockfile)
-        .map_err(|e| format!("serialize lock file: {e}"))?;
+    let yaml =
+        serde_yaml_ng::to_string(lockfile).map_err(|e| format!("serialize lock file: {e}"))?;
     let tmp = path.with_extension("lock.yaml.tmp");
-    std::fs::write(&tmp, &yaml)
-        .map_err(|e| format!("write {}: {e}", tmp.display()))?;
+    std::fs::write(&tmp, &yaml).map_err(|e| format!("write {}: {e}", tmp.display()))?;
     std::fs::rename(&tmp, path)
         .map_err(|e| format!("rename {} → {}: {e}", tmp.display(), path.display()))?;
     Ok(())
@@ -88,10 +87,7 @@ pub fn check_staleness(
 
 /// Check completeness: all current inputs must have a pin.
 /// Returns names of inputs missing from the lock file.
-pub fn check_completeness(
-    lockfile: &LockFile,
-    current_inputs: &[String],
-) -> Vec<String> {
+pub fn check_completeness(lockfile: &LockFile, current_inputs: &[String]) -> Vec<String> {
     let mut missing: Vec<String> = current_inputs
         .iter()
         .filter(|name| !lockfile.pins.contains_key(name.as_str()))

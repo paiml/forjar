@@ -1,9 +1,8 @@
 //! Compliance status.
 
+use super::helpers::*;
 use crate::core::{state, types};
 use std::path::Path;
-use super::helpers::*;
-
 
 // ── FJ-467: status --compliance ──
 
@@ -72,17 +71,26 @@ pub(crate) fn cmd_status_compliance(
     if json {
         println!(
             "{{\"policy\":\"{}\",\"total\":{},\"compliant\":{},\"violations\":{},\"pass\":{}}}",
-            policy, total, compliant, violations.len(), pass
+            policy,
+            total,
+            compliant,
+            violations.len(),
+            pass
         );
     } else if pass {
         println!(
             "{} Compliance '{}': {}/{} resources compliant.",
-            green("✓"), policy, compliant, total
+            green("✓"),
+            policy,
+            compliant,
+            total
         );
     } else {
         println!(
             "{} Compliance '{}': {} violation(s):",
-            red("✗"), policy, violations.len()
+            red("✗"),
+            policy,
+            violations.len()
         );
         for v in &violations {
             println!("  - {}", v);
@@ -93,11 +101,11 @@ pub(crate) fn cmd_status_compliance(
     } else {
         Err(format!(
             "Compliance check '{}' failed: {} violations",
-            policy, violations.len()
+            policy,
+            violations.len()
         ))
     }
 }
-
 
 // ── FJ-507: status --compliance-report ──
 
@@ -124,8 +132,18 @@ fn collect_compliance_findings(
     Ok(findings)
 }
 
-fn print_compliance_text(findings: &[serde_json::Value], policy: &str, compliance_pct: f64, compliant_count: usize, total: usize) {
-    let indicator = if compliance_pct >= 100.0 { green("✓") } else { yellow("⚠") };
+fn print_compliance_text(
+    findings: &[serde_json::Value],
+    policy: &str,
+    compliance_pct: f64,
+    compliant_count: usize,
+    total: usize,
+) {
+    let indicator = if compliance_pct >= 100.0 {
+        green("✓")
+    } else {
+        yellow("⚠")
+    };
     println!(
         "{} Compliance report for '{}': {:.0}% ({}/{})",
         indicator, policy, compliance_pct, compliant_count, total
@@ -183,7 +201,6 @@ pub(crate) fn cmd_status_compliance_report(
     }
     Ok(())
 }
-
 
 /// FJ-602: Show security-relevant resource states (modes, ownership).
 pub(crate) fn cmd_status_security_posture(
@@ -250,7 +267,6 @@ pub(crate) fn cmd_status_security_posture(
     Ok(())
 }
 
-
 /// FJ-552: Full audit trail from event logs — who/what/when for each change.
 fn collect_audit_entries(
     state_dir: &Path,
@@ -274,9 +290,21 @@ fn collect_audit_entries(
                 continue;
             }
             if let Ok(val) = serde_json::from_str::<serde_json::Value>(line) {
-                let resource = val.get("resource").and_then(|v| v.as_str()).unwrap_or("unknown").to_string();
-                let status = val.get("status").and_then(|v| v.as_str()).unwrap_or("unknown").to_string();
-                let timestamp = val.get("timestamp").and_then(|v| v.as_str()).unwrap_or("unknown").to_string();
+                let resource = val
+                    .get("resource")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("unknown")
+                    .to_string();
+                let status = val
+                    .get("status")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("unknown")
+                    .to_string();
+                let timestamp = val
+                    .get("timestamp")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("unknown")
+                    .to_string();
                 entries.push((m.clone(), resource, status, timestamp));
             }
         }
@@ -317,4 +345,3 @@ pub(crate) fn cmd_status_audit_trail(
     }
     Ok(())
 }
-

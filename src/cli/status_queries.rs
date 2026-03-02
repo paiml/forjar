@@ -1,10 +1,9 @@
 //! Status query variants.
 
-use crate::core::{state, types};
-use std::path::Path;
 use super::helpers::*;
 use super::status_core::*;
-
+use crate::core::{state, types};
+use std::path::Path;
 
 /// Collect resource rows from state directory: (machine_name, resource_name, ResourceLock).
 #[allow(clippy::type_complexity)]
@@ -33,20 +32,21 @@ fn collect_resources(
             }
         }
         if let Ok(Some(lock)) = state::load_lock(state_dir, &m_name) {
-            let resources: Vec<(String, types::ResourceLock)> = lock
-                .resources
-                .into_iter()
-                .collect();
+            let resources: Vec<(String, types::ResourceLock)> =
+                lock.resources.into_iter().collect();
             result.push((m_name, resources));
         }
     }
     Ok(result)
 }
 
-
 // ── FJ-392: status --count ──
 
-pub(crate) fn cmd_status_count(state_dir: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
+pub(crate) fn cmd_status_count(
+    state_dir: &Path,
+    machine: Option<&str>,
+    json: bool,
+) -> Result<(), String> {
     let mut converged = 0usize;
     let mut failed = 0usize;
     let mut drifted = 0usize;
@@ -81,7 +81,6 @@ pub(crate) fn cmd_status_count(state_dir: &Path, machine: Option<&str>, json: bo
     }
     Ok(())
 }
-
 
 // ── FJ-397: status --format ──
 
@@ -125,7 +124,11 @@ fn format_csv_output(state_dir: &Path, machine: Option<&str>) -> Result<(), Stri
     Ok(())
 }
 
-pub(crate) fn cmd_status_format(state_dir: &Path, machine: Option<&str>, fmt: &str) -> Result<(), String> {
+pub(crate) fn cmd_status_format(
+    state_dir: &Path,
+    machine: Option<&str>,
+    fmt: &str,
+) -> Result<(), String> {
     match fmt {
         "json" => format_json_output(state_dir, machine),
         "csv" => format_csv_output(state_dir, machine),
@@ -133,7 +136,6 @@ pub(crate) fn cmd_status_format(state_dir: &Path, machine: Option<&str>, fmt: &s
         _ => Err(format!("unknown format '{}'. Use table, json, or csv", fmt)),
     }
 }
-
 
 // ── FJ-452: status --compact ──
 
@@ -161,14 +163,15 @@ fn build_compact_line(m_name: &str, lock: &types::StateLock, json: bool) -> Stri
         } else {
             green("OK")
         };
-        format!(
-            "{}: {}/{} converged [{}]",
-            m_name, converged, total, status
-        )
+        format!("{}: {}/{} converged [{}]", m_name, converged, total, status)
     }
 }
 
-pub(crate) fn cmd_status_compact(state_dir: &Path, machine: Option<&str>, json: bool) -> Result<(), String> {
+pub(crate) fn cmd_status_compact(
+    state_dir: &Path,
+    machine: Option<&str>,
+    json: bool,
+) -> Result<(), String> {
     if !state_dir.exists() {
         println!("No state directory found.");
         return Ok(());
@@ -203,7 +206,6 @@ pub(crate) fn cmd_status_compact(state_dir: &Path, machine: Option<&str>, json: 
     Ok(())
 }
 
-
 // ── FJ-432: status --json-lines ──
 
 pub(crate) fn cmd_status_json_lines(state_dir: &Path, machine: Option<&str>) -> Result<(), String> {
@@ -224,7 +226,6 @@ pub(crate) fn cmd_status_json_lines(state_dir: &Path, machine: Option<&str>) -> 
     }
     Ok(())
 }
-
 
 // ── FJ-417: status --machines-only ──
 
@@ -311,7 +312,6 @@ pub(crate) fn cmd_status_machines_only(
     }
     Ok(())
 }
-
 
 // ── FJ-412: status --resources-by-type ──
 

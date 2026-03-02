@@ -18,7 +18,10 @@ fn validate_ref(
             .unwrap_or(false);
         if !will_expand {
             errors.push(ValidationError {
-                message: format!("resource '{}' {} unknown resource '{}'", id, ref_type, ref_id),
+                message: format!(
+                    "resource '{}' {} unknown resource '{}'",
+                    id, ref_type, ref_id
+                ),
             });
         }
     }
@@ -39,7 +42,10 @@ pub(super) fn validate_resource_refs(
     for machine_name in resource.machine.to_vec() {
         if !config.machines.contains_key(&machine_name) && machine_name != "localhost" {
             errors.push(ValidationError {
-                message: format!("resource '{}' references unknown machine '{}'", id, machine_name),
+                message: format!(
+                    "resource '{}' references unknown machine '{}'",
+                    id, machine_name
+                ),
             });
         }
     }
@@ -49,7 +55,9 @@ pub(super) fn validate_resource_refs(
             errors.push(ValidationError {
                 message: format!(
                     "resource '{}' has unknown arch '{}' (expected one of: {})",
-                    id, arch, KNOWN_ARCHITECTURES.join(", ")
+                    id,
+                    arch,
+                    KNOWN_ARCHITECTURES.join(", ")
                 ),
             });
         }

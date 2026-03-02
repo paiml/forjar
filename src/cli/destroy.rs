@@ -1,11 +1,10 @@
 //! Destroy and rollback.
 
+use super::apply::*;
+use super::helpers::*;
 use crate::core::{codegen, executor, resolver, types};
 use crate::transport;
 use std::path::Path;
-use super::helpers::*;
-use super::apply::*;
-
 
 /// Destroy a single resource on its machine. Returns true on success.
 fn destroy_single_resource(
@@ -36,7 +35,9 @@ fn destroy_single_resource(
         Ok(out) => {
             eprintln!(
                 "  FAIL {}: exit {}: {}",
-                resource_id, out.exit_code, out.stderr.trim()
+                resource_id,
+                out.exit_code,
+                out.stderr.trim()
             );
             false
         }
@@ -48,11 +49,7 @@ fn destroy_single_resource(
 }
 
 /// Clean up state lock files for the given machines.
-fn cleanup_state_files(
-    state_dir: &Path,
-    machines: &[String],
-    machine_filter: Option<&str>,
-) {
+fn cleanup_state_files(state_dir: &Path, machines: &[String], machine_filter: Option<&str>) {
     for machine_name in machines {
         if let Some(filter) = machine_filter {
             if machine_name != filter {
@@ -84,7 +81,10 @@ pub(crate) fn cmd_destroy(
     let reverse_order: Vec<String> = execution_order.into_iter().rev().collect();
 
     if verbose {
-        eprintln!("Destroying {} resources in reverse order", reverse_order.len());
+        eprintln!(
+            "Destroying {} resources in reverse order",
+            reverse_order.len()
+        );
     }
 
     let all_machines = executor::collect_machines(&config);
@@ -100,19 +100,26 @@ pub(crate) fn cmd_destroy(
         let machine_name = match &resource.machine {
             types::MachineTarget::Single(m) => m.as_str(),
             types::MachineTarget::Multiple(ms) => {
-                if ms.is_empty() { continue; }
+                if ms.is_empty() {
+                    continue;
+                }
                 ms[0].as_str()
             }
         };
 
         if let Some(filter) = machine_filter {
-            if machine_name != filter { continue; }
+            if machine_name != filter {
+                continue;
+            }
         }
 
         let machine = match config.machines.get(machine_name) {
             Some(m) => m,
             None => {
-                eprintln!("  SKIP {}: machine '{}' not found", resource_id, machine_name);
+                eprintln!(
+                    "  SKIP {}: machine '{}' not found",
+                    resource_id, machine_name
+                );
                 failed += 1;
                 continue;
             }
@@ -142,7 +149,6 @@ pub(crate) fn cmd_destroy(
     Ok(())
 }
 
-
 /// Rollback to a previous config revision from git history.
 pub(crate) fn cmd_rollback(
     file: &Path,
@@ -163,7 +169,9 @@ pub(crate) fn cmd_rollback(
         let stderr = String::from_utf8_lossy(&output.stderr);
         return Err(format!(
             "cannot read {} from git history (HEAD~{}): {}",
-            file_str, revision, stderr.trim()
+            file_str,
+            revision,
+            stderr.trim()
         ));
     }
 
@@ -175,7 +183,10 @@ pub(crate) fn cmd_rollback(
     let changes = compute_rollback_changes(&previous_config, &current_config, revision);
 
     if changes.is_empty() {
-        println!("No config changes between HEAD and HEAD~{}. Nothing to rollback.", revision);
+        println!(
+            "No config changes between HEAD and HEAD~{}. Nothing to rollback.",
+            revision
+        );
         return Ok(());
     }
 
@@ -196,13 +207,38 @@ pub(crate) fn cmd_rollback(
 
     println!("Applying previous config with --force...");
     cmd_apply(
-        &temp_config, state_dir, machine_filter,
-        None, None, None, true, false, false,
-        &[], false, None, false, verbose,
-        None, None, false, false, None,
-        false, false, 0, true, false,
-        None, false, None, None, None,
-        false, None, false,
+        &temp_config,
+        state_dir,
+        machine_filter,
+        None,
+        None,
+        None,
+        true,
+        false,
+        false,
+        &[],
+        false,
+        None,
+        false,
+        verbose,
+        None,
+        None,
+        false,
+        false,
+        None,
+        false,
+        false,
+        0,
+        true,
+        false,
+        None,
+        false,
+        None,
+        None,
+        None,
+        false,
+        None,
+        false,
     )
 }
 
@@ -221,13 +257,17 @@ pub(crate) fn compute_rollback_changes(
                 changes.push(format!("  ~ {} (modified)", id));
             }
         } else {
-            changes.push(format!("  + {} (will be re-added from HEAD~{})", id, revision));
+            changes.push(format!(
+                "  + {} (will be re-added from HEAD~{})",
+                id, revision
+            ));
         }
     }
     for id in current.resources.keys() {
         if !previous.resources.contains_key(id) {
             changes.push(format!(
-                "  - {} (exists now but not in HEAD~{}, will remain)", id, revision
+                "  - {} (exists now but not in HEAD~{}, will remain)",
+                id, revision
             ));
         }
     }

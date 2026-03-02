@@ -1,8 +1,8 @@
 //! Tests: Phase 95 — Operational Resilience & Runtime Diagnostics (FJ-1021→FJ-1028).
 
-use super::validate_resilience::*;
 use super::graph_resilience::*;
 use super::status_operational_ext::*;
+use super::validate_resilience::*;
 use std::io::Write;
 
 #[cfg(test)]
@@ -18,7 +18,9 @@ mod tests {
 
     fn write_yaml(dir: &std::path::Path, name: &str, content: &str) -> std::path::PathBuf {
         let p = dir.join(name);
-        if let Some(parent) = p.parent() { std::fs::create_dir_all(parent).unwrap(); }
+        if let Some(parent) = p.parent() {
+            std::fs::create_dir_all(parent).unwrap();
+        }
         std::fs::write(&p, content).unwrap();
         p
     }

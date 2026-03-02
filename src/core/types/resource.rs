@@ -302,7 +302,6 @@ pub struct Resource {
 
     // -- Task fields (ALB-027: pipeline orchestration) --
     // Note: `command` field is shared with cron (line 132)
-
     /// Output artifacts to hash for idempotency (glob paths relative to cwd)
     #[serde(default)]
     pub output_artifacts: Vec<String>,
@@ -333,6 +332,15 @@ pub struct Resource {
     /// OpenTofu-style lifecycle rules: prevent_destroy, create_before_destroy, ignore_drift.
     #[serde(default)]
     pub lifecycle: Option<LifecycleRules>,
+
+    // -- Store fields (FJ-1303: reproducible package manager) --
+    /// Enable content-addressed store for this resource's outputs.
+    #[serde(default)]
+    pub store: bool,
+
+    /// Build script for derivation resources (executed with $out set to output dir).
+    #[serde(default)]
+    pub script: Option<String>,
 }
 
 /// FJ-1220: Lifecycle protection rules for a resource.

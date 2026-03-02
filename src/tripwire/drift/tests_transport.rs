@@ -23,8 +23,7 @@ fn test_fj016_check_file_drift_transport_local() {
         cost: 0,
     };
 
-    let finding =
-        check_file_drift_via_transport("f", file.to_str().unwrap(), &expected, &machine);
+    let finding = check_file_drift_via_transport("f", file.to_str().unwrap(), &expected, &machine);
     assert!(finding.is_none(), "matching content should show no drift");
 }
 
@@ -48,12 +47,8 @@ fn test_fj016_check_file_drift_transport_drift() {
     };
 
     // Expected hash of different content
-    let finding = check_file_drift_via_transport(
-        "f",
-        file.to_str().unwrap(),
-        "blake3:wrong-hash",
-        &machine,
-    );
+    let finding =
+        check_file_drift_via_transport("f", file.to_str().unwrap(), "blake3:wrong-hash", &machine);
     assert!(finding.is_some(), "mismatched hash should detect drift");
     let f = finding.unwrap();
     assert!(f.detail.contains("content changed"));

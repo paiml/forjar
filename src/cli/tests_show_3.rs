@@ -1,25 +1,23 @@
 //! Tests: Show, explain, compare, template.
 
 #![allow(unused_imports)]
+use super::diff_cmd::*;
+use super::helpers::*;
+use super::helpers_state::*;
+use super::helpers_time::*;
+use super::observe::*;
+use super::show::*;
+use super::test_fixtures::*;
 use crate::core::types::ProvenanceEvent;
 use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
 use crate::transport;
 use crate::tripwire::{anomaly, drift, eventlog, tracer};
-use std::path::{Path, PathBuf};
-use super::helpers::*;
-use super::helpers_state::*;
-use super::helpers_time::*;
-use super::show::*;
-use super::diff_cmd::*;
-use super::observe::*;
-use super::test_fixtures::*;
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-
 
     #[test]
     fn test_fj132_cmd_show_all_resources() {
@@ -43,7 +41,6 @@ resources:
         cmd_show(&file, None, false).unwrap();
     }
 
-
     #[test]
     fn test_fj132_cmd_show_specific_resource() {
         let dir = tempfile::tempdir().unwrap();
@@ -65,7 +62,6 @@ resources:
         std::fs::write(&file, yaml).unwrap();
         cmd_show(&file, Some("my-file"), false).unwrap();
     }
-
 
     #[test]
     fn test_fj132_cmd_show_json_output() {
@@ -89,7 +85,6 @@ resources:
         cmd_show(&file, None, true).unwrap();
     }
 
-
     #[test]
     fn test_fj132_cmd_show_missing_resource() {
         let dir = tempfile::tempdir().unwrap();
@@ -106,14 +101,12 @@ resources: {}
         assert!(result.unwrap_err().contains("not found"));
     }
 
-
     #[test]
     fn test_fj215_output_all() {
         let dir = tempfile::tempdir().unwrap();
         let file = write_output_config(dir.path());
         cmd_output(&file, None, false).unwrap();
     }
-
 
     #[test]
     fn test_fj215_output_all_json() {
@@ -122,7 +115,6 @@ resources: {}
         cmd_output(&file, None, true).unwrap();
     }
 
-
     #[test]
     fn test_fj215_output_single_key() {
         let dir = tempfile::tempdir().unwrap();
@@ -130,14 +122,12 @@ resources: {}
         cmd_output(&file, Some("raw_param"), false).unwrap();
     }
 
-
     #[test]
     fn test_fj215_output_single_key_json() {
         let dir = tempfile::tempdir().unwrap();
         let file = write_output_config(dir.path());
         cmd_output(&file, Some("app_url"), true).unwrap();
     }
-
 
     #[test]
     fn test_fj215_output_unknown_key() {
@@ -147,7 +137,6 @@ resources: {}
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("not defined"));
     }
-
 
     #[test]
     fn test_fj215_output_no_outputs() {
@@ -165,7 +154,6 @@ resources: {}
         std::fs::write(&file, yaml).unwrap();
         cmd_output(&file, None, false).unwrap();
     }
-
 
     #[test]
     fn test_fj215_output_machine_ref() {
@@ -205,7 +193,6 @@ resources:
         file
     }
 
-
     #[test]
     fn test_fj220_cmd_policy_no_violations() {
         let dir = tempfile::tempdir().unwrap();
@@ -235,7 +222,6 @@ policies:
         .unwrap();
         cmd_policy(&file, false).unwrap();
     }
-
 
     #[test]
     fn test_fj220_cmd_policy_json_output() {
@@ -267,5 +253,4 @@ policies:
         // JSON mode with no deny violations should succeed
         cmd_policy(&file, true).unwrap();
     }
-
 }

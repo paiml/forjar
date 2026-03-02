@@ -39,7 +39,13 @@ mod tests {
     #[test]
     fn import_uv_alias_pip() {
         // "pip" should resolve to Uv provider
-        let r = cmd_store_import("pip", "requests", Some("2.31.0"), "/tmp/store".as_ref(), false);
+        let r = cmd_store_import(
+            "pip",
+            "requests",
+            Some("2.31.0"),
+            "/tmp/store".as_ref(),
+            false,
+        );
         assert!(r.is_ok());
     }
 
@@ -57,7 +63,13 @@ mod tests {
 
     #[test]
     fn import_apr_text() {
-        let r = cmd_store_import("apr", "meta-llama/Llama-3", None, "/tmp/store".as_ref(), false);
+        let r = cmd_store_import(
+            "apr",
+            "meta-llama/Llama-3",
+            None,
+            "/tmp/store".as_ref(),
+            false,
+        );
         assert!(r.is_ok());
     }
 

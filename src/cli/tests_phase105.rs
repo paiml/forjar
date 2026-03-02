@@ -1,8 +1,8 @@
 //! Tests: Phase 105 — Fleet Resilience & Configuration Hygiene (FJ-1101→FJ-1108).
 
+use super::graph_resilience_ext::*;
 use super::status_resilience::*;
 use super::validate_hygiene::*;
-use super::graph_resilience_ext::*;
 use std::io::Write;
 
 #[cfg(test)]
@@ -18,7 +18,9 @@ mod tests {
 
     fn write_yaml(dir: &std::path::Path, name: &str, content: &str) {
         let p = dir.join(name);
-        if let Some(parent) = p.parent() { std::fs::create_dir_all(parent).unwrap(); }
+        if let Some(parent) = p.parent() {
+            std::fs::create_dir_all(parent).unwrap();
+        }
         std::fs::write(&p, content).unwrap();
     }
 
@@ -165,13 +167,40 @@ mod tests {
 
     // ── File-not-found error paths ──
     #[test]
-    fn test_fj1102_file_not_found() { assert!(cmd_validate_check_resource_dependency_depth_variance(std::path::Path::new("/x"), false).is_err()); }
+    fn test_fj1102_file_not_found() {
+        assert!(cmd_validate_check_resource_dependency_depth_variance(
+            std::path::Path::new("/x"),
+            false
+        )
+        .is_err());
+    }
     #[test]
-    fn test_fj1103_file_not_found() { assert!(cmd_graph_resource_dependency_fan_in_hotspot(std::path::Path::new("/x"), false).is_err()); }
+    fn test_fj1103_file_not_found() {
+        assert!(
+            cmd_graph_resource_dependency_fan_in_hotspot(std::path::Path::new("/x"), false)
+                .is_err()
+        );
+    }
     #[test]
-    fn test_fj1105_file_not_found() { assert!(cmd_validate_check_resource_tag_key_naming(std::path::Path::new("/x"), false).is_err()); }
+    fn test_fj1105_file_not_found() {
+        assert!(
+            cmd_validate_check_resource_tag_key_naming(std::path::Path::new("/x"), false).is_err()
+        );
+    }
     #[test]
-    fn test_fj1106_file_not_found() { assert!(cmd_graph_resource_dependency_cross_machine_bridge(std::path::Path::new("/x"), false).is_err()); }
+    fn test_fj1106_file_not_found() {
+        assert!(cmd_graph_resource_dependency_cross_machine_bridge(
+            std::path::Path::new("/x"),
+            false
+        )
+        .is_err());
+    }
     #[test]
-    fn test_fj1108_file_not_found() { assert!(cmd_validate_check_resource_content_length_limit(std::path::Path::new("/x"), false).is_err()); }
+    fn test_fj1108_file_not_found() {
+        assert!(cmd_validate_check_resource_content_length_limit(
+            std::path::Path::new("/x"),
+            false
+        )
+        .is_err());
+    }
 }

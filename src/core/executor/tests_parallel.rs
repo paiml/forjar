@@ -1,7 +1,7 @@
 //! FJ-034: Parallel machine execution tests, record failure/success edge cases, proptest.
 
-use super::*;
 use super::test_fixtures::*;
+use super::*;
 use proptest::prelude::*;
 
 #[test]
@@ -171,6 +171,8 @@ fn test_fj012_record_success_writes_lock_and_event() {
         pre_apply: None,
         post_apply: None,
         lifecycle: None,
+        store: false,
+        script: None,
     };
     let machine = Machine {
         hostname: "localhost".to_string(),
@@ -400,4 +402,3 @@ proptest! {
         prop_assert!(!should_stop, "ContinueIndependent must return false");
     }
 }
-

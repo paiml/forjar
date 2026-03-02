@@ -20,7 +20,11 @@ fn main() {
 
     // Convert to FAR
     let far_path = tmp.join("numpy-1.26.4.far");
-    println!("Converting {} -> {}", conda_path.display(), far_path.display());
+    println!(
+        "Converting {} -> {}",
+        conda_path.display(),
+        far_path.display()
+    );
 
     let manifest = conda_to_far(&conda_path, &far_path).unwrap();
 
@@ -80,9 +84,18 @@ fn build_synthetic_conda(path: &std::path::Path) {
 
     // Sample Python files
     for (name, content) in [
-        ("lib/python3.11/site-packages/numpy/__init__.py", "# NumPy\nimport numpy.core\n"),
-        ("lib/python3.11/site-packages/numpy/core/__init__.py", "# NumPy core\n"),
-        ("lib/python3.11/site-packages/numpy/version.py", "__version__ = '1.26.4'\n"),
+        (
+            "lib/python3.11/site-packages/numpy/__init__.py",
+            "# NumPy\nimport numpy.core\n",
+        ),
+        (
+            "lib/python3.11/site-packages/numpy/core/__init__.py",
+            "# NumPy core\n",
+        ),
+        (
+            "lib/python3.11/site-packages/numpy/version.py",
+            "__version__ = '1.26.4'\n",
+        ),
     ] {
         let bytes = content.as_bytes();
         let mut header = tar::Header::new_gnu();

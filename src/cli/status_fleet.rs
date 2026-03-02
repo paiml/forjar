@@ -1,9 +1,8 @@
 //! Fleet status.
 
+use super::helpers::*;
 use crate::core::types;
 use std::path::Path;
-use super::helpers::*;
-
 
 /// FJ-572: Aggregated fleet summary across all machines.
 pub(crate) fn cmd_status_fleet_overview(state_dir: &Path, json: bool) -> Result<(), String> {
@@ -55,7 +54,6 @@ pub(crate) fn cmd_status_fleet_overview(state_dir: &Path, json: bool) -> Result<
     Ok(())
 }
 
-
 /// FJ-577: Per-machine health details with resource breakdown.
 fn tally_machine_lock(lock: &crate::core::types::StateLock) -> (usize, usize, usize, usize) {
     let mut converged = 0usize;
@@ -80,7 +78,9 @@ fn collect_machine_health_reports(
     let mut reports = Vec::new();
     for m in machines {
         if let Some(filter) = machine {
-            if m != filter { continue; }
+            if m != filter {
+                continue;
+            }
         }
         let lock_path = state_dir.join(format!("{}.lock.yaml", m));
         if !lock_path.exists() {
@@ -97,7 +97,11 @@ fn collect_machine_health_reports(
 }
 
 fn machine_health_pct(total: usize, converged: usize) -> f64 {
-    if total > 0 { (converged as f64 / total as f64 * 100.0).clamp(0.0, 100.0) } else { 100.0 }
+    if total > 0 {
+        (converged as f64 / total as f64 * 100.0).clamp(0.0, 100.0)
+    } else {
+        100.0
+    }
 }
 
 pub(crate) fn cmd_status_machine_health(
@@ -128,7 +132,6 @@ pub(crate) fn cmd_status_machine_health(
     }
     Ok(())
 }
-
 
 /// FJ-657: Per-machine resource count and health summary
 pub(crate) fn cmd_status_machine_summary(
@@ -204,7 +207,6 @@ pub(crate) fn cmd_status_machine_summary(
     Ok(())
 }
 
-
 /// FJ-547: Executive summary — one-line per machine summary.
 pub(crate) fn cmd_status_executive_summary(state_dir: &Path, json: bool) -> Result<(), String> {
     let machines = discover_machines(state_dir);
@@ -272,7 +274,6 @@ pub(crate) fn cmd_status_executive_summary(state_dir: &Path, json: bool) -> Resu
     Ok(())
 }
 
-
 /// FJ-622: Show CI/CD pipeline integration status.
 pub(crate) fn cmd_status_pipeline_status(
     state_dir: &Path,
@@ -334,4 +335,3 @@ pub(crate) fn cmd_status_pipeline_status(
     }
     Ok(())
 }
-

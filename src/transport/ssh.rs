@@ -200,4 +200,3 @@ pub(crate) fn build_ssh_args(machine: &Machine) -> Vec<String> {
     args.push("bash".to_string());
     args
 }
-

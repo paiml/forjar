@@ -87,7 +87,9 @@ pub(super) fn dag_config(names: &[&str], edges: &[(&str, &str)]) -> ForjarConfig
                 working_dir: None,
                 pre_apply: None,
                 post_apply: None,
-        lifecycle: None,
+                lifecycle: None,
+                store: false,
+                script: None,
             },
         );
     }
@@ -119,8 +121,8 @@ pub(super) fn dag_config(names: &[&str], edges: &[(&str, &str)]) -> ForjarConfig
         policies: vec![],
         data: indexmap::IndexMap::new(),
         includes: vec![],
-            checks: indexmap::IndexMap::new(),
-            moved: vec![],
+        checks: indexmap::IndexMap::new(),
+        moved: vec![],
     }
 }
 
@@ -208,5 +210,7 @@ pub(super) fn make_base_resource() -> Resource {
         pre_apply: None,
         post_apply: None,
         lifecycle: None,
+        store: false,
+        script: None,
     }
 }

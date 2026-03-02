@@ -1,15 +1,11 @@
 //! Impact analysis.
 
+use super::helpers::*;
 use crate::core::{resolver, types};
 use std::path::Path;
-use super::helpers::*;
-
 
 /// Print dependency matrix as JSON.
-fn print_dependency_matrix_json(
-    names: &[String],
-    config: &types::ForjarConfig,
-) {
+fn print_dependency_matrix_json(names: &[String], config: &types::ForjarConfig) {
     let mut rows: Vec<String> = Vec::new();
     for name in names {
         let res = &config.resources[name];
@@ -28,10 +24,7 @@ fn print_dependency_matrix_json(
 }
 
 /// Print dependency matrix as CSV.
-fn print_dependency_matrix_csv(
-    names: &[String],
-    config: &types::ForjarConfig,
-) {
+fn print_dependency_matrix_csv(names: &[String], config: &types::ForjarConfig) {
     print!(",");
     println!("{}", names.join(","));
     for row_name in names {
@@ -128,7 +121,9 @@ fn find_transitive_dependents(
 }
 
 /// Build reverse dependency map: for each resource, who depends on it?
-fn build_reverse_deps(config: &types::ForjarConfig) -> std::collections::HashMap<String, Vec<String>> {
+fn build_reverse_deps(
+    config: &types::ForjarConfig,
+) -> std::collections::HashMap<String, Vec<String>> {
     let mut dependents: std::collections::HashMap<String, Vec<String>> =
         std::collections::HashMap::new();
     for (name, res) in &config.resources {
@@ -198,7 +193,6 @@ pub(crate) fn cmd_graph_impact_radius(file: &Path, resource: &str) -> Result<(),
     Ok(())
 }
 
-
 /// FJ-514: Dependency matrix — output resource dependency matrix.
 pub(crate) fn cmd_graph_dependency_matrix(file: &Path, json: bool) -> Result<(), String> {
     let config = parse_and_validate(file)?;
@@ -211,7 +205,6 @@ pub(crate) fn cmd_graph_dependency_matrix(file: &Path, json: bool) -> Result<(),
     }
     Ok(())
 }
-
 
 /// FJ-524: Graph hotspots — highlight resources with most changes/failures.
 pub(crate) fn cmd_graph_hotspots(file: &Path) -> Result<(), String> {
@@ -240,7 +233,6 @@ pub(crate) fn cmd_graph_hotspots(file: &Path) -> Result<(), String> {
     }
     Ok(())
 }
-
 
 /// FJ-534: Graph timeline — show resource application order as ASCII timeline.
 pub(crate) fn cmd_graph_timeline(file: &Path) -> Result<(), String> {
@@ -276,7 +268,6 @@ pub(crate) fn cmd_graph_timeline(file: &Path) -> Result<(), String> {
     }
     Ok(())
 }
-
 
 /// FJ-544: Graph what-if — simulate removing a resource, show impact.
 pub(crate) fn cmd_graph_what_if(file: &Path, resource: &str) -> Result<(), String> {
@@ -330,9 +321,12 @@ pub(crate) fn cmd_graph_what_if(file: &Path, resource: &str) -> Result<(), Strin
     Ok(())
 }
 
-
 /// FJ-554: Show all resources affected by a change to target (blast radius).
-pub(crate) fn cmd_graph_blast_radius(file: &Path, resource: &str, json: bool) -> Result<(), String> {
+pub(crate) fn cmd_graph_blast_radius(
+    file: &Path,
+    resource: &str,
+    json: bool,
+) -> Result<(), String> {
     let config = parse_and_validate(file)?;
 
     if !config.resources.contains_key(resource) {
@@ -364,4 +358,3 @@ pub(crate) fn cmd_graph_blast_radius(file: &Path, resource: &str, json: bool) ->
     }
     Ok(())
 }
-

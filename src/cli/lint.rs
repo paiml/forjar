@@ -1,9 +1,8 @@
 //! Linting.
 
+use super::helpers::*;
 use crate::core::{codegen, types};
 use std::path::Path;
-use super::helpers::*;
-
 
 fn lint_unused_machines(config: &types::ForjarConfig) -> Vec<String> {
     let mut warnings = Vec::new();
@@ -195,13 +194,11 @@ pub(crate) fn lint_auto_fix(file: &Path) -> Result<Vec<String>, String> {
     let mut fixes_applied = Vec::new();
     let content = std::fs::read_to_string(file)
         .map_err(|e| format!("cannot read {}: {}", file.display(), e))?;
-    let mut doc: serde_yaml_ng::Value = serde_yaml_ng::from_str(&content)
-        .map_err(|e| format!("YAML parse error: {}", e))?;
+    let mut doc: serde_yaml_ng::Value =
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("YAML parse error: {}", e))?;
     if let Some(serde_yaml_ng::Value::Mapping(map)) = doc.get_mut("resources") {
         let mut pairs: Vec<_> = map.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
-        pairs.sort_by(|(a, _), (b, _)| {
-            a.as_str().unwrap_or("").cmp(b.as_str().unwrap_or(""))
-        });
+        pairs.sort_by(|(a, _), (b, _)| a.as_str().unwrap_or("").cmp(b.as_str().unwrap_or("")));
         *map = serde_yaml_ng::Mapping::new();
         for (k, v) in pairs {
             map.insert(k, v);
@@ -209,14 +206,13 @@ pub(crate) fn lint_auto_fix(file: &Path) -> Result<Vec<String>, String> {
         fixes_applied.push("sorted resource keys alphabetically".to_string());
     }
     if !fixes_applied.is_empty() {
-        let normalized = serde_yaml_ng::to_string(&doc)
-            .map_err(|e| format!("serialization error: {}", e))?;
+        let normalized =
+            serde_yaml_ng::to_string(&doc).map_err(|e| format!("serialization error: {}", e))?;
         std::fs::write(file, normalized)
             .map_err(|e| format!("cannot write {}: {}", file.display(), e))?;
     }
     Ok(fixes_applied)
 }
-
 
 pub(crate) fn cmd_lint(file: &Path, json: bool, strict: bool, fix: bool) -> Result<(), String> {
     let config = parse_and_validate(file)?;

@@ -1,23 +1,22 @@
 //! Tests: Lock management.
 
 #![allow(unused_imports)]
+use super::commands::*;
+use super::dispatch::*;
+use super::helpers::*;
+use super::helpers_state::*;
+use super::helpers_time::*;
+use super::lock_core::*;
+use super::show::*;
 use crate::core::types::ProvenanceEvent;
 use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
 use crate::transport;
 use crate::tripwire::{anomaly, drift, eventlog, tracer};
 use std::path::{Path, PathBuf};
-use super::helpers::*;
-use super::helpers_state::*;
-use super::helpers_time::*;
-use super::lock_core::*;
-use super::commands::*;
-use super::dispatch::*;
-use super::show::*;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
 
     #[test]
     fn test_fj220_cmd_policy_deny_blocks() {
@@ -51,7 +50,6 @@ policies:
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("policy violations"));
     }
-
 
     #[test]
     fn test_fj256_lock_generates_lock_files() {
@@ -95,7 +93,6 @@ resources:
         }
     }
 
-
     #[test]
     fn test_fj256_lock_deterministic() {
         let dir = tempfile::tempdir().unwrap();
@@ -131,7 +128,6 @@ resources:
         );
     }
 
-
     #[test]
     fn test_fj256_lock_verify_matches() {
         let dir = tempfile::tempdir().unwrap();
@@ -164,7 +160,6 @@ resources:
         assert!(lock.resources["pkg"].hash.starts_with("blake3:"));
     }
 
-
     #[test]
     fn test_fj256_lock_json_output() {
         let dir = tempfile::tempdir().unwrap();
@@ -193,7 +188,6 @@ resources:
         let lock = state::load_lock(&state_dir, "m1").unwrap().unwrap();
         assert_eq!(lock.resources.len(), 1);
     }
-
 
     #[test]
     fn test_fj256_lock_multiple_machines() {
@@ -236,7 +230,6 @@ resources:
         assert!(db_lock.resources.contains_key("db-pkg"));
     }
 
-
     #[test]
     fn test_fj256_lock_updates_global_lock() {
         let dir = tempfile::tempdir().unwrap();
@@ -267,7 +260,6 @@ resources:
         assert!(global.machines.contains_key("m1"));
         assert_eq!(global.machines["m1"].resources, 1);
     }
-
 
     #[test]
     fn test_fj256_lock_hash_changes_on_content() {
@@ -323,7 +315,6 @@ resources:
         );
     }
 
-
     #[test]
     fn test_fj256_lock_with_depends_on() {
         let dir = tempfile::tempdir().unwrap();
@@ -360,7 +351,6 @@ resources:
         assert!(lock.resources.contains_key("base"));
         assert!(lock.resources.contains_key("conf"));
     }
-
 
     #[test]
     fn test_fj256_lock_resource_types_preserved() {
@@ -413,7 +403,6 @@ resources:
 
     // ── FJ-260: forjar snapshot tests ────────────────────────────
 
-
     #[test]
     fn test_fj366_lock_prune_parse() {
         let cmd = Commands::LockPrune(LockPruneArgs {
@@ -426,7 +415,6 @@ resources:
             _ => panic!("expected LockPrune"),
         }
     }
-
 
     #[test]
     fn test_fj384_lock_info_parse() {
@@ -441,7 +429,6 @@ resources:
             _ => panic!("expected LockInfo"),
         }
     }
-
 
     #[test]
     fn test_fj395_lock_compact_dispatch() {
@@ -462,7 +449,6 @@ resources:
 
     // ── Phase 26: Advanced Automation & Governance (FJ-400→FJ-407) ──
 
-
     #[test]
     fn test_fj405_lock_verify_dispatch() {
         let dir = tempfile::tempdir().unwrap();
@@ -478,5 +464,4 @@ resources:
         );
         assert!(result.is_ok());
     }
-
 }

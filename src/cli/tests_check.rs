@@ -1,25 +1,24 @@
 //! Tests: Pre-condition checks.
 
 #![allow(unused_imports)]
+use super::apply::*;
+use super::check::*;
+use super::diff_cmd::*;
+use super::drift::*;
+use super::helpers::*;
+use super::helpers_state::*;
+use super::helpers_time::*;
+use super::test_fixtures::*;
 use crate::core::types::ProvenanceEvent;
 use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
 use crate::transport;
 use crate::tripwire::{anomaly, drift, eventlog, tracer};
-use std::path::{Path, PathBuf};
-use super::helpers::*;
-use super::helpers_state::*;
-use super::helpers_time::*;
-use super::check::*;
-use super::apply::*;
-use super::diff_cmd::*;
-use super::drift::*;
-use super::test_fixtures::*;
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
 
     #[test]
     fn test_auto_commit_in_git_repo() {
@@ -129,7 +128,6 @@ resources:
         assert!(log.contains("forjar:"));
     }
 
-
     #[test]
     fn test_drift_alert_cmd() {
         let dir = tempfile::tempdir().unwrap();
@@ -192,7 +190,6 @@ resources:
         assert!(alert_marker.exists());
     }
 
-
     #[test]
     fn test_drift_alert_cmd_not_fired_when_no_drift() {
         let dir = tempfile::tempdir().unwrap();
@@ -220,7 +217,6 @@ resources:
         // Alert should NOT have fired
         assert!(!alert_marker.exists());
     }
-
 
     #[test]
     fn test_drift_auto_remediate() {
@@ -313,7 +309,6 @@ resources:
         let _ = std::fs::remove_file(&target);
     }
 
-
     #[test]
     fn test_drift_dry_run_lists_resources() {
         let dir = tempfile::tempdir().unwrap();
@@ -370,7 +365,6 @@ resources:
         .unwrap();
     }
 
-
     #[test]
     fn test_diff_added_resource() {
         let from_dir = tempfile::tempdir().unwrap();
@@ -390,7 +384,6 @@ resources:
         );
         cmd_diff(from_dir.path(), to_dir.path(), None, None, false).unwrap();
     }
-
 
     #[test]
     fn test_diff_removed_resource() {
@@ -412,7 +405,6 @@ resources:
         cmd_diff(from_dir.path(), to_dir.path(), None, None, false).unwrap();
     }
 
-
     #[test]
     fn test_diff_changed_hash() {
         let from_dir = tempfile::tempdir().unwrap();
@@ -430,7 +422,6 @@ resources:
         cmd_diff(from_dir.path(), to_dir.path(), None, None, false).unwrap();
     }
 
-
     #[test]
     fn test_diff_no_changes() {
         let from_dir = tempfile::tempdir().unwrap();
@@ -447,7 +438,6 @@ resources:
         );
         cmd_diff(from_dir.path(), to_dir.path(), None, None, false).unwrap();
     }
-
 
     #[test]
     fn test_diff_json_output() {
@@ -468,5 +458,4 @@ resources:
         );
         cmd_diff(from_dir.path(), to_dir.path(), None, None, true).unwrap();
     }
-
 }

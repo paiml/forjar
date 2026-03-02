@@ -3,7 +3,14 @@
 use super::convert::{analyze_conversion, ChangeType, ConversionSignals};
 use super::purity::PurityLevel;
 
-fn sig(name: &str, version: bool, store: bool, sandbox: bool, curl: bool, provider: &str) -> ConversionSignals {
+fn sig(
+    name: &str,
+    version: bool,
+    store: bool,
+    sandbox: bool,
+    curl: bool,
+    provider: &str,
+) -> ConversionSignals {
     ConversionSignals {
         name: name.to_string(),
         has_version: version,
@@ -139,8 +146,8 @@ fn test_fj1328_auto_count() {
 #[test]
 fn test_fj1328_manual_count() {
     let signals = vec![
-        sig("a", true, true, false, false, "apt"),   // sandbox manual
-        sig("b", true, true, true, true, "shell"),    // curl|bash manual
+        sig("a", true, true, false, false, "apt"), // sandbox manual
+        sig("b", true, true, true, true, "shell"), // curl|bash manual
     ];
     let report = analyze_conversion(&signals);
     assert_eq!(report.manual_change_count, 2);

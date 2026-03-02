@@ -1,10 +1,10 @@
 //! Coverage tests: dispatch_notify channels, secrets, check, doctor.
-use std::path::Path;
+use super::check::*;
 use super::dispatch_notify::*;
 use super::dispatch_notify_custom::*;
-use super::secrets::*;
-use super::check::*;
 use super::doctor::*;
+use super::secrets::*;
+use std::path::Path;
 
 #[cfg(test)]
 mod tests {
@@ -12,39 +12,97 @@ mod tests {
 
     fn empty_opts<'a>() -> NotifyOpts<'a> {
         NotifyOpts {
-            slack: None, email: None, webhook: None, teams: None, discord: None,
-            opsgenie: None, datadog: None, newrelic: None, grafana: None, victorops: None,
-            msteams_adaptive: None, incident: None, sns: None, pubsub: None,
-            eventbridge: None, kafka: None, azure_servicebus: None, gcp_pubsub_v2: None,
-            rabbitmq: None, nats: None, mqtt: None, redis: None, amqp: None, stomp: None,
-            zeromq: None, grpc: None, sqs: None, mattermost: None, ntfy: None,
-            pagerduty: None, discord_webhook: None, teams_webhook: None, slack_blocks: None,
-            custom_template: None, custom_webhook: None, custom_headers: None,
-            custom_json: None, custom_filter: None, custom_retry: None,
-            custom_transform: None, custom_batch: None, custom_deduplicate: None,
-            custom_throttle: None, custom_aggregate: None, custom_priority: None,
-            custom_routing: None, custom_dedup_window: None, custom_rate_limit: None,
-            custom_backoff: None, custom_circuit_breaker: None, custom_dead_letter: None,
-            custom_escalation: None, custom_correlation: None, custom_sampling: None,
-            custom_digest: None, custom_severity_filter: None,
+            slack: None,
+            email: None,
+            webhook: None,
+            teams: None,
+            discord: None,
+            opsgenie: None,
+            datadog: None,
+            newrelic: None,
+            grafana: None,
+            victorops: None,
+            msteams_adaptive: None,
+            incident: None,
+            sns: None,
+            pubsub: None,
+            eventbridge: None,
+            kafka: None,
+            azure_servicebus: None,
+            gcp_pubsub_v2: None,
+            rabbitmq: None,
+            nats: None,
+            mqtt: None,
+            redis: None,
+            amqp: None,
+            stomp: None,
+            zeromq: None,
+            grpc: None,
+            sqs: None,
+            mattermost: None,
+            ntfy: None,
+            pagerduty: None,
+            discord_webhook: None,
+            teams_webhook: None,
+            slack_blocks: None,
+            custom_template: None,
+            custom_webhook: None,
+            custom_headers: None,
+            custom_json: None,
+            custom_filter: None,
+            custom_retry: None,
+            custom_transform: None,
+            custom_batch: None,
+            custom_deduplicate: None,
+            custom_throttle: None,
+            custom_aggregate: None,
+            custom_priority: None,
+            custom_routing: None,
+            custom_dedup_window: None,
+            custom_rate_limit: None,
+            custom_backoff: None,
+            custom_circuit_breaker: None,
+            custom_dead_letter: None,
+            custom_escalation: None,
+            custom_correlation: None,
+            custom_sampling: None,
+            custom_digest: None,
+            custom_severity_filter: None,
         }
     }
 
     fn all_opts<'a>() -> NotifyOpts<'a> {
         NotifyOpts {
-            slack: Some("http://127.0.0.1:1/s"), email: Some("t@e.com"),
-            webhook: Some("http://127.0.0.1:1/w"), teams: Some("http://127.0.0.1:1/t"),
-            discord: Some("http://127.0.0.1:1/d"), opsgenie: Some("k1"),
-            datadog: Some("k2"), newrelic: Some("k3"),
-            grafana: Some("http://127.0.0.1:1/g"), victorops: Some("k4"),
-            msteams_adaptive: Some("http://127.0.0.1:1/ms"), incident: Some("k5"),
-            sns: Some("arn:test"), pubsub: Some("t/topic"), eventbridge: Some("bus"),
-            kafka: Some("topic"), azure_servicebus: Some("conn"),
-            gcp_pubsub_v2: Some("t/v2"), rabbitmq: Some("ex"), nats: Some("subj"),
-            mqtt: Some("t/m"), redis: Some("ch"), amqp: Some("amqp-ex"),
-            stomp: Some("/q/s"), zeromq: Some("tcp://x"), grpc: Some("x:50051"),
-            sqs: Some("https://sqs/q"), mattermost: Some("http://127.0.0.1:1/mm"),
-            ntfy: Some("topic"), pagerduty: Some("k6"),
+            slack: Some("http://127.0.0.1:1/s"),
+            email: Some("t@e.com"),
+            webhook: Some("http://127.0.0.1:1/w"),
+            teams: Some("http://127.0.0.1:1/t"),
+            discord: Some("http://127.0.0.1:1/d"),
+            opsgenie: Some("k1"),
+            datadog: Some("k2"),
+            newrelic: Some("k3"),
+            grafana: Some("http://127.0.0.1:1/g"),
+            victorops: Some("k4"),
+            msteams_adaptive: Some("http://127.0.0.1:1/ms"),
+            incident: Some("k5"),
+            sns: Some("arn:test"),
+            pubsub: Some("t/topic"),
+            eventbridge: Some("bus"),
+            kafka: Some("topic"),
+            azure_servicebus: Some("conn"),
+            gcp_pubsub_v2: Some("t/v2"),
+            rabbitmq: Some("ex"),
+            nats: Some("subj"),
+            mqtt: Some("t/m"),
+            redis: Some("ch"),
+            amqp: Some("amqp-ex"),
+            stomp: Some("/q/s"),
+            zeromq: Some("tcp://x"),
+            grpc: Some("x:50051"),
+            sqs: Some("https://sqs/q"),
+            mattermost: Some("http://127.0.0.1:1/mm"),
+            ntfy: Some("topic"),
+            pagerduty: Some("k6"),
             discord_webhook: Some("http://127.0.0.1:1/dw"),
             teams_webhook: Some("http://127.0.0.1:1/tw"),
             slack_blocks: Some("http://127.0.0.1:1/sb"),
@@ -88,17 +146,28 @@ mod tests {
     #[test]
     fn test_individual_webhook_channels() {
         let p = Path::new("/t.yaml");
-        for (field, val) in &[("slack", "http://127.0.0.1:1/s"), ("webhook", "http://127.0.0.1:1/w"),
-            ("teams", "http://127.0.0.1:1/t"), ("discord", "http://127.0.0.1:1/d"),
-            ("msteams_adaptive", "http://127.0.0.1:1/ms"), ("mattermost", "http://127.0.0.1:1/mm"),
-            ("ntfy", "topic"), ("grafana", "http://127.0.0.1:1/g"), ("email", "t@e.com")] {
+        for (field, val) in &[
+            ("slack", "http://127.0.0.1:1/s"),
+            ("webhook", "http://127.0.0.1:1/w"),
+            ("teams", "http://127.0.0.1:1/t"),
+            ("discord", "http://127.0.0.1:1/d"),
+            ("msteams_adaptive", "http://127.0.0.1:1/ms"),
+            ("mattermost", "http://127.0.0.1:1/mm"),
+            ("ntfy", "topic"),
+            ("grafana", "http://127.0.0.1:1/g"),
+            ("email", "t@e.com"),
+        ] {
             let mut o = empty_opts();
             match *field {
-                "slack" => o.slack = Some(val), "webhook" => o.webhook = Some(val),
-                "teams" => o.teams = Some(val), "discord" => o.discord = Some(val),
+                "slack" => o.slack = Some(val),
+                "webhook" => o.webhook = Some(val),
+                "teams" => o.teams = Some(val),
+                "discord" => o.discord = Some(val),
                 "msteams_adaptive" => o.msteams_adaptive = Some(val),
-                "mattermost" => o.mattermost = Some(val), "ntfy" => o.ntfy = Some(val),
-                "grafana" => o.grafana = Some(val), "email" => o.email = Some(val),
+                "mattermost" => o.mattermost = Some(val),
+                "ntfy" => o.ntfy = Some(val),
+                "grafana" => o.grafana = Some(val),
+                "email" => o.email = Some(val),
                 _ => {}
             }
             send_apply_notifications(&o, &Ok(()), p);
@@ -107,47 +176,75 @@ mod tests {
     #[test]
     fn test_individual_monitoring_channels() {
         let p = Path::new("/t.yaml");
-        let mut o = empty_opts(); o.opsgenie = Some("k");
+        let mut o = empty_opts();
+        o.opsgenie = Some("k");
         send_apply_notifications(&o, &Ok(()), p);
-        let mut o = empty_opts(); o.datadog = Some("k");
+        let mut o = empty_opts();
+        o.datadog = Some("k");
         send_apply_notifications(&o, &Ok(()), p);
-        let mut o = empty_opts(); o.newrelic = Some("k");
+        let mut o = empty_opts();
+        o.newrelic = Some("k");
         send_apply_notifications(&o, &Ok(()), p);
     }
     #[test]
     fn test_individual_incident_channels() {
         let p = Path::new("/t.yaml");
-        let ok: Result<(), String> = Ok(()); let err: Result<(), String> = Err("e".into());
-        let mut o = empty_opts(); o.victorops = Some("k");
-        send_apply_notifications(&o, &ok, p); send_apply_notifications(&o, &err, p);
-        let mut o = empty_opts(); o.incident = Some("k");
-        send_apply_notifications(&o, &ok, p); send_apply_notifications(&o, &err, p);
-        let mut o = empty_opts(); o.pagerduty = Some("k");
-        send_apply_notifications(&o, &ok, p); send_apply_notifications(&o, &err, p);
-        let mut o = empty_opts(); o.discord_webhook = Some("http://127.0.0.1:1/dw");
-        send_apply_notifications(&o, &ok, p); send_apply_notifications(&o, &err, p);
-        let mut o = empty_opts(); o.teams_webhook = Some("http://127.0.0.1:1/tw");
-        send_apply_notifications(&o, &ok, p); send_apply_notifications(&o, &err, p);
-        let mut o = empty_opts(); o.slack_blocks = Some("http://127.0.0.1:1/sb");
-        send_apply_notifications(&o, &ok, p); send_apply_notifications(&o, &err, p);
+        let ok: Result<(), String> = Ok(());
+        let err: Result<(), String> = Err("e".into());
+        let mut o = empty_opts();
+        o.victorops = Some("k");
+        send_apply_notifications(&o, &ok, p);
+        send_apply_notifications(&o, &err, p);
+        let mut o = empty_opts();
+        o.incident = Some("k");
+        send_apply_notifications(&o, &ok, p);
+        send_apply_notifications(&o, &err, p);
+        let mut o = empty_opts();
+        o.pagerduty = Some("k");
+        send_apply_notifications(&o, &ok, p);
+        send_apply_notifications(&o, &err, p);
+        let mut o = empty_opts();
+        o.discord_webhook = Some("http://127.0.0.1:1/dw");
+        send_apply_notifications(&o, &ok, p);
+        send_apply_notifications(&o, &err, p);
+        let mut o = empty_opts();
+        o.teams_webhook = Some("http://127.0.0.1:1/tw");
+        send_apply_notifications(&o, &ok, p);
+        send_apply_notifications(&o, &err, p);
+        let mut o = empty_opts();
+        o.slack_blocks = Some("http://127.0.0.1:1/sb");
+        send_apply_notifications(&o, &ok, p);
+        send_apply_notifications(&o, &err, p);
     }
     #[test]
     fn test_cloud_and_broker_channels() {
         let p = Path::new("/t.yaml");
         let mut o = empty_opts();
-        o.sns = Some("arn:t"); o.eventbridge = Some("b"); o.sqs = Some("u");
-        o.pubsub = Some("t"); o.gcp_pubsub_v2 = Some("v"); o.azure_servicebus = Some("c");
-        o.kafka = Some("t"); o.rabbitmq = Some("e"); o.nats = Some("s");
-        o.mqtt = Some("t"); o.redis = Some("c"); o.amqp = Some("e");
-        o.stomp = Some("/q"); o.zeromq = Some("tcp://x"); o.grpc = Some("x:50051");
+        o.sns = Some("arn:t");
+        o.eventbridge = Some("b");
+        o.sqs = Some("u");
+        o.pubsub = Some("t");
+        o.gcp_pubsub_v2 = Some("v");
+        o.azure_servicebus = Some("c");
+        o.kafka = Some("t");
+        o.rabbitmq = Some("e");
+        o.nats = Some("s");
+        o.mqtt = Some("t");
+        o.redis = Some("c");
+        o.amqp = Some("e");
+        o.stomp = Some("/q");
+        o.zeromq = Some("tcp://x");
+        o.grpc = Some("x:50051");
         send_apply_notifications(&o, &Ok(()), p);
     }
     #[test]
     fn test_custom_json_and_filter_no_pipe() {
         let p = Path::new("/t.yaml");
-        let mut o = empty_opts(); o.custom_json = Some("http://127.0.0.1:1/nopipe");
+        let mut o = empty_opts();
+        o.custom_json = Some("http://127.0.0.1:1/nopipe");
         send_apply_notifications(&o, &Ok(()), p);
-        let mut o = empty_opts(); o.custom_filter = Some("nopipe");
+        let mut o = empty_opts();
+        o.custom_filter = Some("nopipe");
         send_apply_notifications(&o, &Ok(()), p);
     }
 
@@ -156,116 +253,292 @@ mod tests {
     fn test_custom_transform() {
         send_custom_transform_notification(None, &Ok(()), Path::new("/t.yaml"));
         send_custom_transform_notification(Some("nopipe"), &Ok(()), Path::new("/t.yaml"));
-        send_custom_transform_notification(Some("http://127.0.0.1:1|{\"s\":\"{{status}}\",\"t\":\"{{timestamp}}\"}"), &Ok(()), Path::new("/t.yaml"));
-        send_custom_transform_notification(Some("http://127.0.0.1:1|{\"s\":\"{{status}}\"}"), &Err("e".into()), Path::new("/t.yaml"));
+        send_custom_transform_notification(
+            Some("http://127.0.0.1:1|{\"s\":\"{{status}}\",\"t\":\"{{timestamp}}\"}"),
+            &Ok(()),
+            Path::new("/t.yaml"),
+        );
+        send_custom_transform_notification(
+            Some("http://127.0.0.1:1|{\"s\":\"{{status}}\"}"),
+            &Err("e".into()),
+            Path::new("/t.yaml"),
+        );
     }
     #[test]
     fn test_custom_batch() {
         send_custom_batch_notification(None, &Ok(()), Path::new("/t.yaml"));
         send_custom_batch_notification(Some("http://127.0.0.1:1"), &Ok(()), Path::new("/t.yaml"));
-        send_custom_batch_notification(Some("http://127.0.0.1:1|20"), &Ok(()), Path::new("/t.yaml"));
-        send_custom_batch_notification(Some("http://127.0.0.1:1|abc"), &Ok(()), Path::new("/t.yaml"));
-        send_custom_batch_notification(Some("http://127.0.0.1:1|5"), &Err("e".into()), Path::new("/t.yaml"));
+        send_custom_batch_notification(
+            Some("http://127.0.0.1:1|20"),
+            &Ok(()),
+            Path::new("/t.yaml"),
+        );
+        send_custom_batch_notification(
+            Some("http://127.0.0.1:1|abc"),
+            &Ok(()),
+            Path::new("/t.yaml"),
+        );
+        send_custom_batch_notification(
+            Some("http://127.0.0.1:1|5"),
+            &Err("e".into()),
+            Path::new("/t.yaml"),
+        );
     }
     #[test]
     fn test_custom_deduplicate() {
         send_custom_deduplicate_notification(None, &Ok(()), Path::new("/t.yaml"));
-        send_custom_deduplicate_notification(Some("http://127.0.0.1:1|600"), &Ok(()), Path::new("/t.yaml"));
-        send_custom_deduplicate_notification(Some("http://127.0.0.1:1|60"), &Err("e".into()), Path::new("/t.yaml"));
+        send_custom_deduplicate_notification(
+            Some("http://127.0.0.1:1|600"),
+            &Ok(()),
+            Path::new("/t.yaml"),
+        );
+        send_custom_deduplicate_notification(
+            Some("http://127.0.0.1:1|60"),
+            &Err("e".into()),
+            Path::new("/t.yaml"),
+        );
     }
     #[test]
     fn test_custom_throttle() {
         send_custom_throttle_notification(None, &Ok(()), Path::new("/t.yaml"));
-        send_custom_throttle_notification(Some("http://127.0.0.1:1"), &Ok(()), Path::new("/t.yaml"));
-        send_custom_throttle_notification(Some("http://127.0.0.1:1|max_per_minute:20"), &Ok(()), Path::new("/t.yaml"));
-        send_custom_throttle_notification(Some("http://127.0.0.1:1|max_per_minute:abc"), &Ok(()), Path::new("/t.yaml"));
-        send_custom_throttle_notification(Some("http://127.0.0.1:1|max_per_minute:10"), &Err("e".into()), Path::new("/t.yaml"));
+        send_custom_throttle_notification(
+            Some("http://127.0.0.1:1"),
+            &Ok(()),
+            Path::new("/t.yaml"),
+        );
+        send_custom_throttle_notification(
+            Some("http://127.0.0.1:1|max_per_minute:20"),
+            &Ok(()),
+            Path::new("/t.yaml"),
+        );
+        send_custom_throttle_notification(
+            Some("http://127.0.0.1:1|max_per_minute:abc"),
+            &Ok(()),
+            Path::new("/t.yaml"),
+        );
+        send_custom_throttle_notification(
+            Some("http://127.0.0.1:1|max_per_minute:10"),
+            &Err("e".into()),
+            Path::new("/t.yaml"),
+        );
     }
     #[test]
     fn test_custom_aggregate() {
         send_custom_aggregate_notification(None, &Ok(()), Path::new("/t.yaml"));
-        send_custom_aggregate_notification(Some("http://127.0.0.1:1"), &Ok(()), Path::new("/t.yaml"));
-        send_custom_aggregate_notification(Some("http://127.0.0.1:1|window_seconds:120"), &Ok(()), Path::new("/t.yaml"));
-        send_custom_aggregate_notification(Some("http://127.0.0.1:1|window_seconds:xyz"), &Ok(()), Path::new("/t.yaml"));
-        send_custom_aggregate_notification(Some("http://127.0.0.1:1|window_seconds:30"), &Err("e".into()), Path::new("/t.yaml"));
+        send_custom_aggregate_notification(
+            Some("http://127.0.0.1:1"),
+            &Ok(()),
+            Path::new("/t.yaml"),
+        );
+        send_custom_aggregate_notification(
+            Some("http://127.0.0.1:1|window_seconds:120"),
+            &Ok(()),
+            Path::new("/t.yaml"),
+        );
+        send_custom_aggregate_notification(
+            Some("http://127.0.0.1:1|window_seconds:xyz"),
+            &Ok(()),
+            Path::new("/t.yaml"),
+        );
+        send_custom_aggregate_notification(
+            Some("http://127.0.0.1:1|window_seconds:30"),
+            &Err("e".into()),
+            Path::new("/t.yaml"),
+        );
     }
     #[test]
     fn test_custom_priority() {
         send_custom_priority_notification(None, &Ok(()), Path::new("/t.yaml"));
-        send_custom_priority_notification(Some("http://127.0.0.1:1"), &Ok(()), Path::new("/t.yaml"));
-        send_custom_priority_notification(Some("http://127.0.0.1:1|default:high"), &Ok(()), Path::new("/t.yaml"));
-        send_custom_priority_notification(Some("http://127.0.0.1:1|default:low"), &Err("e".into()), Path::new("/t.yaml"));
+        send_custom_priority_notification(
+            Some("http://127.0.0.1:1"),
+            &Ok(()),
+            Path::new("/t.yaml"),
+        );
+        send_custom_priority_notification(
+            Some("http://127.0.0.1:1|default:high"),
+            &Ok(()),
+            Path::new("/t.yaml"),
+        );
+        send_custom_priority_notification(
+            Some("http://127.0.0.1:1|default:low"),
+            &Err("e".into()),
+            Path::new("/t.yaml"),
+        );
     }
     #[test]
     fn test_custom_routing() {
         send_custom_routing_notification(None, &Ok(()), Path::new("/t.yaml"));
         send_custom_routing_notification(Some("http://127.0.0.1:1"), &Ok(()), Path::new("/t.yaml"));
-        send_custom_routing_notification(Some("http://127.0.0.1:1|P:slack"), &Err("e".into()), Path::new("/t.yaml"));
+        send_custom_routing_notification(
+            Some("http://127.0.0.1:1|P:slack"),
+            &Err("e".into()),
+            Path::new("/t.yaml"),
+        );
     }
     #[test]
     fn test_custom_dedup_window() {
         send_custom_dedup_window_notification(None, &Ok(()), Path::new("/t.yaml"));
-        send_custom_dedup_window_notification(Some("http://127.0.0.1:1|120"), &Ok(()), Path::new("/t.yaml"));
-        send_custom_dedup_window_notification(Some("http://127.0.0.1:1|60"), &Err("e".into()), Path::new("/t.yaml"));
+        send_custom_dedup_window_notification(
+            Some("http://127.0.0.1:1|120"),
+            &Ok(()),
+            Path::new("/t.yaml"),
+        );
+        send_custom_dedup_window_notification(
+            Some("http://127.0.0.1:1|60"),
+            &Err("e".into()),
+            Path::new("/t.yaml"),
+        );
     }
     #[test]
     fn test_custom_rate_limit() {
         send_custom_rate_limit_notification(None, &Ok(()), Path::new("/t.yaml"));
-        send_custom_rate_limit_notification(Some("http://127.0.0.1:1|50"), &Ok(()), Path::new("/t.yaml"));
-        send_custom_rate_limit_notification(Some("http://127.0.0.1:1|10"), &Err("e".into()), Path::new("/t.yaml"));
+        send_custom_rate_limit_notification(
+            Some("http://127.0.0.1:1|50"),
+            &Ok(()),
+            Path::new("/t.yaml"),
+        );
+        send_custom_rate_limit_notification(
+            Some("http://127.0.0.1:1|10"),
+            &Err("e".into()),
+            Path::new("/t.yaml"),
+        );
     }
     #[test]
     fn test_custom_backoff() {
         send_custom_backoff_notification(None, &Ok(()), Path::new("/t.yaml"));
-        send_custom_backoff_notification(Some("http://127.0.0.1:1|linear"), &Ok(()), Path::new("/t.yaml"));
-        send_custom_backoff_notification(Some("http://127.0.0.1:1|exp"), &Err("e".into()), Path::new("/t.yaml"));
+        send_custom_backoff_notification(
+            Some("http://127.0.0.1:1|linear"),
+            &Ok(()),
+            Path::new("/t.yaml"),
+        );
+        send_custom_backoff_notification(
+            Some("http://127.0.0.1:1|exp"),
+            &Err("e".into()),
+            Path::new("/t.yaml"),
+        );
     }
     #[test]
     fn test_custom_circuit_breaker() {
         send_custom_circuit_breaker_notification(None, &Ok(()), Path::new("/t.yaml"));
-        send_custom_circuit_breaker_notification(Some("http://127.0.0.1:1|10"), &Ok(()), Path::new("/t.yaml"));
-        send_custom_circuit_breaker_notification(Some("http://127.0.0.1:1|3"), &Err("e".into()), Path::new("/t.yaml"));
+        send_custom_circuit_breaker_notification(
+            Some("http://127.0.0.1:1|10"),
+            &Ok(()),
+            Path::new("/t.yaml"),
+        );
+        send_custom_circuit_breaker_notification(
+            Some("http://127.0.0.1:1|3"),
+            &Err("e".into()),
+            Path::new("/t.yaml"),
+        );
     }
     #[test]
     fn test_custom_dead_letter() {
         send_custom_dead_letter_notification(None, &Ok(()), Path::new("/t.yaml"));
-        send_custom_dead_letter_notification(Some("http://127.0.0.1:1|dlq"), &Ok(()), Path::new("/t.yaml"));
-        send_custom_dead_letter_notification(Some("http://127.0.0.1:1|dlq"), &Err("e".into()), Path::new("/t.yaml"));
+        send_custom_dead_letter_notification(
+            Some("http://127.0.0.1:1|dlq"),
+            &Ok(()),
+            Path::new("/t.yaml"),
+        );
+        send_custom_dead_letter_notification(
+            Some("http://127.0.0.1:1|dlq"),
+            &Err("e".into()),
+            Path::new("/t.yaml"),
+        );
     }
     #[test]
     fn test_custom_escalation() {
         send_custom_escalation_notification(None, &Ok(()), Path::new("/t.yaml"));
-        send_custom_escalation_notification(Some("http://127.0.0.1:1|warn"), &Ok(()), Path::new("/t.yaml"));
-        send_custom_escalation_notification(Some("http://127.0.0.1:1|info"), &Err("e".into()), Path::new("/t.yaml"));
-        send_custom_escalation_notification(Some("http://127.0.0.1:1"), &Ok(()), Path::new("/t.yaml"));
+        send_custom_escalation_notification(
+            Some("http://127.0.0.1:1|warn"),
+            &Ok(()),
+            Path::new("/t.yaml"),
+        );
+        send_custom_escalation_notification(
+            Some("http://127.0.0.1:1|info"),
+            &Err("e".into()),
+            Path::new("/t.yaml"),
+        );
+        send_custom_escalation_notification(
+            Some("http://127.0.0.1:1"),
+            &Ok(()),
+            Path::new("/t.yaml"),
+        );
     }
     #[test]
     fn test_custom_correlation() {
         send_custom_correlation_notification(None, &Ok(()), Path::new("/t.yaml"));
-        send_custom_correlation_notification(Some("http://127.0.0.1:1|120s"), &Ok(()), Path::new("/t.yaml"));
-        send_custom_correlation_notification(Some("http://127.0.0.1:1|30s"), &Err("e".into()), Path::new("/t.yaml"));
+        send_custom_correlation_notification(
+            Some("http://127.0.0.1:1|120s"),
+            &Ok(()),
+            Path::new("/t.yaml"),
+        );
+        send_custom_correlation_notification(
+            Some("http://127.0.0.1:1|30s"),
+            &Err("e".into()),
+            Path::new("/t.yaml"),
+        );
     }
     #[test]
     fn test_custom_sampling() {
         send_custom_sampling_notification(None, &Ok(()), Path::new("/t.yaml"));
-        send_custom_sampling_notification(Some("http://127.0.0.1:1|50"), &Ok(()), Path::new("/t.yaml"));
-        send_custom_sampling_notification(Some("http://127.0.0.1:1|25"), &Err("e".into()), Path::new("/t.yaml"));
+        send_custom_sampling_notification(
+            Some("http://127.0.0.1:1|50"),
+            &Ok(()),
+            Path::new("/t.yaml"),
+        );
+        send_custom_sampling_notification(
+            Some("http://127.0.0.1:1|25"),
+            &Err("e".into()),
+            Path::new("/t.yaml"),
+        );
     }
     #[test]
     fn test_custom_digest() {
         send_custom_digest_notification(None, &Ok(()), Path::new("/t.yaml"));
-        send_custom_digest_notification(Some("http://127.0.0.1:1|4h"), &Ok(()), Path::new("/t.yaml"));
-        send_custom_digest_notification(Some("http://127.0.0.1:1|1h"), &Err("e".into()), Path::new("/t.yaml"));
+        send_custom_digest_notification(
+            Some("http://127.0.0.1:1|4h"),
+            &Ok(()),
+            Path::new("/t.yaml"),
+        );
+        send_custom_digest_notification(
+            Some("http://127.0.0.1:1|1h"),
+            &Err("e".into()),
+            Path::new("/t.yaml"),
+        );
     }
     #[test]
     fn test_custom_severity_filter() {
         send_custom_severity_filter_notification(None, &Ok(()), Path::new("/t.yaml"));
-        send_custom_severity_filter_notification(Some("http://127.0.0.1:1|info"), &Ok(()), Path::new("/t.yaml"));
-        send_custom_severity_filter_notification(Some("http://127.0.0.1:1|warn"), &Ok(()), Path::new("/t.yaml"));
-        send_custom_severity_filter_notification(Some("http://127.0.0.1:1|critical"), &Err("e".into()), Path::new("/t.yaml"));
-        send_custom_severity_filter_notification(Some("http://127.0.0.1:1|warn"), &Err("e".into()), Path::new("/t.yaml"));
-        send_custom_severity_filter_notification(Some("http://127.0.0.1:1|info"), &Err("e".into()), Path::new("/t.yaml"));
-        send_custom_severity_filter_notification(Some("http://127.0.0.1:1"), &Err("e".into()), Path::new("/t.yaml"));
+        send_custom_severity_filter_notification(
+            Some("http://127.0.0.1:1|info"),
+            &Ok(()),
+            Path::new("/t.yaml"),
+        );
+        send_custom_severity_filter_notification(
+            Some("http://127.0.0.1:1|warn"),
+            &Ok(()),
+            Path::new("/t.yaml"),
+        );
+        send_custom_severity_filter_notification(
+            Some("http://127.0.0.1:1|critical"),
+            &Err("e".into()),
+            Path::new("/t.yaml"),
+        );
+        send_custom_severity_filter_notification(
+            Some("http://127.0.0.1:1|warn"),
+            &Err("e".into()),
+            Path::new("/t.yaml"),
+        );
+        send_custom_severity_filter_notification(
+            Some("http://127.0.0.1:1|info"),
+            &Err("e".into()),
+            Path::new("/t.yaml"),
+        );
+        send_custom_severity_filter_notification(
+            Some("http://127.0.0.1:1"),
+            &Err("e".into()),
+            Path::new("/t.yaml"),
+        );
     }
 
     // secrets.rs
@@ -279,7 +552,9 @@ mod tests {
         assert_eq!(find_enc_markers("ENC[age,a]ENC[age,b]").len(), 2);
     }
     #[test]
-    fn test_secrets_keygen() { assert!(cmd_secrets_keygen().is_ok()); }
+    fn test_secrets_keygen() {
+        assert!(cmd_secrets_keygen().is_ok());
+    }
     #[test]
     fn test_secrets_view() {
         let d = tempfile::tempdir().unwrap();
@@ -316,7 +591,14 @@ mod tests {
         let f = d.path().join("r.yaml");
         std::fs::write(&f, "v: ENC[age,d]\n").unwrap();
         assert!(cmd_secrets_rotate(&f, None, &["a".into()], false, &sd).is_err());
-        assert!(cmd_secrets_rotate(Path::new("/tmp/ne-12345.yaml"), None, &["a".into()], true, &sd).is_err());
+        assert!(cmd_secrets_rotate(
+            Path::new("/tmp/ne-12345.yaml"),
+            None,
+            &["a".into()],
+            true,
+            &sd
+        )
+        .is_err());
         let f2 = d.path().join("p.yaml");
         std::fs::write(&f2, "k: v\n").unwrap();
         assert!(cmd_secrets_rotate(&f2, None, &["a".into()], true, &sd).is_ok());
@@ -325,7 +607,9 @@ mod tests {
     // check.rs
     fn check_cfg(d: &std::path::Path) -> std::path::PathBuf {
         let f = d.join("forjar.yaml");
-        std::fs::write(&f, r#"version: "1.0"
+        std::fs::write(
+            &f,
+            r#"version: "1.0"
 name: ck
 machines:
   local:
@@ -343,7 +627,9 @@ resources:
     path: /tmp/forjar-ck-test.txt
     content: "hello"
     tags: [config]
-"#).unwrap();
+"#,
+        )
+        .unwrap();
         f
     }
     #[test]
@@ -399,13 +685,17 @@ resources:
     fn test_doctor_enc_markers() {
         let d = tempfile::tempdir().unwrap();
         let f = d.path().join("forjar.yaml");
-        std::fs::write(&f, r#"version: "1.0"
+        std::fs::write(
+            &f,
+            r#"version: "1.0"
 name: enc
 machines:
   local: { hostname: localhost, addr: 127.0.0.1 }
 resources:
   s: { type: file, machine: local, path: /tmp/s.txt, content: "ENC[age,fake]" }
-"#).unwrap();
+"#,
+        )
+        .unwrap();
         let _ = cmd_doctor(Some(&f), false, false);
         let _ = cmd_doctor(Some(&f), true, false);
     }
@@ -422,13 +712,17 @@ resources:
 "#).unwrap();
         let _ = cmd_doctor(Some(&f), true, false);
         let f2 = d.path().join("forjar2.yaml");
-        std::fs::write(&f2, r#"version: "1.0"
+        std::fs::write(
+            &f2,
+            r#"version: "1.0"
 name: ctr
 machines:
   ctr: { hostname: ctr, addr: container, transport: container }
 resources:
   f: { type: file, machine: ctr, path: /tmp/t, content: "x" }
-"#).unwrap();
+"#,
+        )
+        .unwrap();
         let _ = cmd_doctor(Some(&f2), false, false);
     }
     #[test]
@@ -436,13 +730,17 @@ resources:
         let _ = cmd_doctor_network(None, false);
         let d = tempfile::tempdir().unwrap();
         let f = d.path().join("forjar.yaml");
-        std::fs::write(&f, r#"version: "1.0"
+        std::fs::write(
+            &f,
+            r#"version: "1.0"
 name: n
 machines:
   lo: { hostname: lo, addr: 127.0.0.1 }
 resources:
   f: { type: file, machine: lo, path: /tmp/t, content: "x" }
-"#).unwrap();
+"#,
+        )
+        .unwrap();
         assert!(cmd_doctor_network(Some(&f), false).is_ok());
         assert!(cmd_doctor_network(Some(&f), true).is_ok());
     }
@@ -450,13 +748,17 @@ resources:
     fn test_doctor_network_ssh_key() {
         let d = tempfile::tempdir().unwrap();
         let f = d.path().join("forjar.yaml");
-        std::fs::write(&f, r#"version: "1.0"
+        std::fs::write(
+            &f,
+            r#"version: "1.0"
 name: n
 machines:
   r: { hostname: r, addr: 10.0.0.99, user: deploy, ssh_key: /nonexistent/key.pem }
 resources:
   f: { type: file, machine: r, path: /tmp/t, content: "x" }
-"#).unwrap();
+"#,
+        )
+        .unwrap();
         assert!(cmd_doctor_network(Some(&f), false).is_ok());
         assert!(cmd_doctor_network(Some(&f), true).is_ok());
     }
@@ -464,13 +766,17 @@ resources:
     fn test_doctor_network_localhost() {
         let d = tempfile::tempdir().unwrap();
         let f = d.path().join("forjar.yaml");
-        std::fs::write(&f, r#"version: "1.0"
+        std::fs::write(
+            &f,
+            r#"version: "1.0"
 name: n
 machines:
   lo: { hostname: lo, addr: localhost }
 resources:
   f: { type: file, machine: lo, path: /tmp/t, content: "x" }
-"#).unwrap();
+"#,
+        )
+        .unwrap();
         assert!(cmd_doctor_network(Some(&f), false).is_ok());
     }
     #[test]

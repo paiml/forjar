@@ -79,19 +79,16 @@ fn passes_tag_filter(resource: &Resource, tag_filter: Option<&str>) -> bool {
 }
 
 /// Resolve resource templates, falling back to unresolved resource on error.
-fn resolve_or_fallback(
-    resource_id: &str,
-    resource: &Resource,
-    config: &ForjarConfig,
-) -> Resource {
-    resolver::resolve_resource_templates(resource, &config.params, &config.machines)
-        .unwrap_or_else(|e| {
+fn resolve_or_fallback(resource_id: &str, resource: &Resource, config: &ForjarConfig) -> Resource {
+    resolver::resolve_resource_templates(resource, &config.params, &config.machines).unwrap_or_else(
+        |e| {
             eprintln!(
                 "warning: template resolution failed for {}: {}",
                 resource_id, e
             );
             resource.clone()
-        })
+        },
+    )
 }
 
 /// Check if a resource passes arch and when-condition filters for a machine.
@@ -330,7 +327,6 @@ fn describe_action(resource_id: &str, resource: &Resource, action: &PlanAction) 
     }
 }
 
-
 /// FJ-1210: Apply moved blocks to rename resource keys in lock state.
 ///
 /// Returns a new lock map with resource keys renamed according to moved entries.
@@ -361,20 +357,20 @@ fn apply_moved_blocks(
 }
 
 #[cfg(test)]
+mod tests_advanced;
+#[cfg(test)]
+mod tests_describe;
+#[cfg(test)]
+mod tests_determine;
+#[cfg(test)]
+mod tests_filter;
+#[cfg(test)]
+mod tests_hash;
+#[cfg(test)]
 mod tests_helpers;
 #[cfg(test)]
 mod tests_lifecycle;
 #[cfg(test)]
 mod tests_plan;
 #[cfg(test)]
-mod tests_hash;
-#[cfg(test)]
-mod tests_describe;
-#[cfg(test)]
-mod tests_filter;
-#[cfg(test)]
-mod tests_determine;
-#[cfg(test)]
 mod tests_when;
-#[cfg(test)]
-mod tests_advanced;

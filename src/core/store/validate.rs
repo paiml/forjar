@@ -3,7 +3,9 @@
 //! Implements `forjar validate --check-recipe-purity` and
 //! `forjar validate --check-reproducibility-score` logic.
 
-use super::purity::{classify, level_label, recipe_purity, PurityLevel, PurityResult, PuritySignals};
+use super::purity::{
+    classify, level_label, recipe_purity, PurityLevel, PurityResult, PuritySignals,
+};
 use super::repro_score::{compute_score, grade, ReproInput, ReproScore};
 use serde::{Deserialize, Serialize};
 
@@ -58,10 +60,7 @@ pub fn validate_purity(
 }
 
 /// Validate reproducibility score, optionally requiring a minimum score.
-pub fn validate_repro_score(
-    inputs: &[ReproInput],
-    min_score: Option<f64>,
-) -> ReproValidation {
+pub fn validate_repro_score(inputs: &[ReproInput], min_score: Option<f64>) -> ReproValidation {
     let score = compute_score(inputs);
     let pass = min_score.is_none_or(|min| score.composite >= min);
 
@@ -99,10 +98,7 @@ pub fn format_purity_report(validation: &PurityValidation) -> String {
         ));
     }
     if let Some(required) = validation.required_level {
-        lines.push(format!(
-            "  Required: {} or better",
-            level_label(required)
-        ));
+        lines.push(format!("  Required: {} or better", level_label(required)));
     }
     lines.join("\n")
 }

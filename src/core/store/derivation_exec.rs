@@ -15,8 +15,8 @@
 //! Steps 4–10 reuse the sandbox lifecycle from sandbox_exec.
 
 use super::derivation::{
-    collect_input_hashes, derivation_closure_hash, validate_derivation,
-    Derivation, DerivationResult,
+    collect_input_hashes, derivation_closure_hash, validate_derivation, Derivation,
+    DerivationResult,
 };
 use super::sandbox_exec::{plan_sandbox_build, simulate_sandbox_build, SandboxPlan};
 use std::collections::BTreeMap;
@@ -85,7 +85,10 @@ pub fn plan_derivation(
     let closure_hash = derivation_closure_hash(derivation, &input_hashes);
     steps.push(DerivationStep {
         step: 2,
-        description: format!("Compute closure hash: {}", &closure_hash[..32.min(closure_hash.len())]),
+        description: format!(
+            "Compute closure hash: {}",
+            &closure_hash[..32.min(closure_hash.len())]
+        ),
         skipped: false,
     });
 
@@ -210,7 +213,9 @@ pub fn simulate_derivation(
 
     // Check for store hit
     if local_store_entries.contains(&closure_hash) {
-        let hash_bare = closure_hash.strip_prefix("blake3:").unwrap_or(&closure_hash);
+        let hash_bare = closure_hash
+            .strip_prefix("blake3:")
+            .unwrap_or(&closure_hash);
         return Ok(DerivationResult {
             store_hash: closure_hash.clone(),
             store_path: format!("{}/{hash_bare}/content", store_dir.display()),

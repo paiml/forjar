@@ -5,15 +5,15 @@
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-use crate::core::{parser, state, types};
-use crate::transport;
 use super::dispatch_notify::*;
 use super::doctor::*;
 use super::drift::*;
+use super::helpers::*;
 use super::observe::*;
 use super::status_convergence::*;
 use super::test_fixtures::*;
-use super::helpers::*;
+use crate::core::{parser, state, types};
+use crate::transport;
 
 #[cfg(test)]
 mod tests {
@@ -148,7 +148,9 @@ resources:
         let config = parser::parse_config(yaml).unwrap();
         let errors = parser::validate_config(&config);
         assert!(
-            errors.iter().any(|e| e.message.contains("model") && e.message.contains("no name")),
+            errors
+                .iter()
+                .any(|e| e.message.contains("model") && e.message.contains("no name")),
             "expected model no-name error, got: {:?}",
             errors
         );
@@ -198,7 +200,9 @@ resources:
         let config = parser::parse_config(yaml).unwrap();
         let errors = parser::validate_config(&config);
         assert!(
-            errors.iter().any(|e| e.message.contains("model") && e.message.contains("invalid state")),
+            errors
+                .iter()
+                .any(|e| e.message.contains("model") && e.message.contains("invalid state")),
             "expected invalid state error, got: {:?}",
             errors
         );
@@ -303,11 +307,7 @@ resources:
 
     #[test]
     fn test_cmd_drift_dry_run_nonexistent_dir_errors() {
-        let result = cmd_drift_dry_run(
-            Path::new("/nonexistent/drift/dir/cov"),
-            None,
-            false,
-        );
+        let result = cmd_drift_dry_run(Path::new("/nonexistent/drift/dir/cov"), None, false);
         assert!(result.is_err());
     }
 
@@ -399,8 +399,7 @@ resources:
     #[test]
     fn test_send_apply_notifications_custom_json_success() {
         let mut opts = empty_notify_opts();
-        opts.custom_json =
-            Some(r#"http://127.0.0.1:1/json|{"s":"{{status}}","c":"{{config}}"}"#);
+        opts.custom_json = Some(r#"http://127.0.0.1:1/json|{"s":"{{status}}","c":"{{config}}"}"#);
         let result: Result<(), String> = Ok(());
         send_apply_notifications(&opts, &result, Path::new("/tmp/json.yaml"));
     }

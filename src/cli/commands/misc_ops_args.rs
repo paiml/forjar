@@ -1,8 +1,7 @@
 //! CLI Args structs for misc-related commands (ops/deploy).
 
-use std::path::PathBuf;
 use super::CompletionShell;
-
+use std::path::PathBuf;
 
 #[derive(clap::Args, Debug)]
 pub struct DoctorArgs {
@@ -23,14 +22,12 @@ pub struct DoctorArgs {
     pub network: bool,
 }
 
-
 #[derive(clap::Args, Debug)]
 pub struct CompletionArgs {
     /// Shell to generate completions for
     #[arg(value_enum)]
     pub shell: CompletionShell,
 }
-
 
 #[derive(clap::Args, Debug)]
 pub struct WatchArgs {
@@ -55,7 +52,6 @@ pub struct WatchArgs {
     pub yes: bool,
 }
 
-
 #[derive(clap::Args, Debug)]
 pub struct ExplainArgs {
     /// Path to forjar.yaml
@@ -70,7 +66,6 @@ pub struct ExplainArgs {
     pub json: bool,
 }
 
-
 #[derive(clap::Args, Debug)]
 pub struct EnvArgs {
     /// Path to forjar.yaml
@@ -81,7 +76,6 @@ pub struct EnvArgs {
     #[arg(long)]
     pub json: bool,
 }
-
 
 #[derive(clap::Args, Debug)]
 pub struct TestArgs {
@@ -110,7 +104,6 @@ pub struct TestArgs {
     pub json: bool,
 }
 
-
 #[derive(clap::Args, Debug)]
 pub struct InventoryArgs {
     /// Path to forjar.yaml
@@ -121,7 +114,6 @@ pub struct InventoryArgs {
     #[arg(long)]
     pub json: bool,
 }
-
 
 #[derive(clap::Args, Debug)]
 pub struct RetryFailedArgs {
@@ -141,7 +133,6 @@ pub struct RetryFailedArgs {
     #[arg(long)]
     pub timeout: Option<u64>,
 }
-
 
 #[derive(clap::Args, Debug)]
 pub struct RollingArgs {
@@ -165,7 +156,6 @@ pub struct RollingArgs {
     #[arg(long)]
     pub timeout: Option<u64>,
 }
-
 
 #[derive(clap::Args, Debug)]
 pub struct CanaryArgs {
@@ -194,7 +184,6 @@ pub struct CanaryArgs {
     pub timeout: Option<u64>,
 }
 
-
 #[derive(clap::Args, Debug)]
 pub struct AuditArgs {
     /// State directory
@@ -214,7 +203,6 @@ pub struct AuditArgs {
     pub json: bool,
 }
 
-
 #[derive(clap::Args, Debug)]
 pub struct ComplianceArgs {
     /// Path to forjar.yaml
@@ -225,7 +213,6 @@ pub struct ComplianceArgs {
     #[arg(long)]
     pub json: bool,
 }
-
 
 #[derive(clap::Args, Debug)]
 pub struct ExportArgs {
@@ -246,7 +233,6 @@ pub struct ExportArgs {
     pub output: Option<PathBuf>,
 }
 
-
 #[derive(clap::Args, Debug)]
 pub struct SuggestArgs {
     /// Path to forjar.yaml
@@ -257,7 +243,6 @@ pub struct SuggestArgs {
     #[arg(long)]
     pub json: bool,
 }
-
 
 #[derive(clap::Args, Debug)]
 pub struct CompareArgs {
@@ -271,7 +256,6 @@ pub struct CompareArgs {
     #[arg(long)]
     pub json: bool,
 }
-
 
 #[derive(clap::Args, Debug)]
 pub struct EnvDiffArgs {
@@ -289,7 +273,6 @@ pub struct EnvDiffArgs {
     #[arg(long)]
     pub json: bool,
 }
-
 
 #[derive(clap::Args, Debug)]
 pub struct TemplateArgs {

@@ -1,9 +1,8 @@
 //! Doctor diagnostics.
 
+use super::helpers::*;
 use crate::core::{parser, secrets, types};
 use std::path::Path;
-use super::helpers::*;
-
 
 #[derive(Debug)]
 struct DoctorCheck {
@@ -36,7 +35,6 @@ impl DoctorStatus {
         }
     }
 }
-
 
 fn check_bash() -> DoctorCheck {
     use std::process::Command;
@@ -280,16 +278,27 @@ fn output_doctor_checks(checks: &[DoctorCheck], json: bool) {
         for c in checks {
             println!("[{:>4}] {}: {}", c.status.label(), c.name, c.detail);
         }
-        let pass_count = checks.iter().filter(|c| c.status == DoctorStatus::Pass).count();
-        let warn_count = checks.iter().filter(|c| c.status == DoctorStatus::Warn).count();
-        let fail_count = checks.iter().filter(|c| c.status == DoctorStatus::Fail).count();
+        let pass_count = checks
+            .iter()
+            .filter(|c| c.status == DoctorStatus::Pass)
+            .count();
+        let warn_count = checks
+            .iter()
+            .filter(|c| c.status == DoctorStatus::Warn)
+            .count();
+        let fail_count = checks
+            .iter()
+            .filter(|c| c.status == DoctorStatus::Fail)
+            .count();
         println!(
             "\n{} checks: {} pass, {} warn, {} fail",
-            checks.len(), pass_count, warn_count, fail_count
+            checks.len(),
+            pass_count,
+            warn_count,
+            fail_count
         );
     }
 }
-
 
 // FJ-251: forjar doctor — pre-flight system checker
 pub(crate) fn cmd_doctor(file: Option<&Path>, json: bool, fix: bool) -> Result<(), String> {
@@ -371,7 +380,6 @@ pub(crate) fn cmd_doctor(file: Option<&Path>, json: bool, fix: bool) -> Result<(
         Ok(())
     }
 }
-
 
 /// FJ-343: Doctor network check — test SSH to all machines.
 pub(crate) fn cmd_doctor_network(file: Option<&Path>, json: bool) -> Result<(), String> {

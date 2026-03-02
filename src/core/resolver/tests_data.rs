@@ -134,8 +134,7 @@ data:
     resolve_data_sources(&mut config).unwrap();
 
     // Now resolve the template
-    let resolved =
-        resolve_template("env={{data.env}}", &config.params, &config.machines).unwrap();
+    let resolved = resolve_template("env={{data.env}}", &config.params, &config.machines).unwrap();
     assert_eq!(resolved, "env=production");
 }
 
@@ -367,4 +366,3 @@ resources: {}
     // No __data__ keys added
     assert!(!config.params.keys().any(|k| k.starts_with("__data__")));
 }
-

@@ -1,5 +1,5 @@
-use super::*;
 use super::tests_helpers::make_base_resource;
+use super::*;
 
 #[test]
 fn test_fj004_describe_action() {

@@ -1,18 +1,18 @@
 //! Tests: Core graph commands.
 
 #![allow(unused_imports)]
+use super::commands::*;
+use super::dispatch::*;
+use super::graph_core::*;
+use super::helpers::*;
+use super::helpers_state::*;
+use super::helpers_time::*;
+use super::test_fixtures::*;
 use crate::core::types::ProvenanceEvent;
 use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
 use crate::transport;
 use crate::tripwire::{anomaly, drift, eventlog, tracer};
 use std::path::{Path, PathBuf};
-use super::helpers::*;
-use super::helpers_state::*;
-use super::helpers_time::*;
-use super::graph_core::*;
-use super::commands::*;
-use super::dispatch::*;
-use super::test_fixtures::*;
 
 #[cfg(test)]
 mod tests {
@@ -26,14 +26,12 @@ mod tests {
         cmd_graph(&config_path, "mermaid", None, None).unwrap();
     }
 
-
     #[test]
     fn test_fj131_cmd_graph_dot() {
         let dir = tempfile::tempdir().unwrap();
         let config_path = write_simple_config(dir.path());
         cmd_graph(&config_path, "dot", None, None).unwrap();
     }
-
 
     #[test]
     fn test_fj131_cmd_graph_unknown_format() {
@@ -43,7 +41,6 @@ mod tests {
         assert!(err.contains("unknown graph format"));
         assert!(err.contains("svg"));
     }
-
 
     #[test]
     fn test_fj131_cmd_graph_invalid_config() {
@@ -55,7 +52,6 @@ mod tests {
     }
 
     // ── FJ-131: cmd_diff tests ────────────────────────────────────
-
 
     #[test]
     fn test_fj132_cmd_graph_mermaid() {
@@ -85,7 +81,6 @@ resources:
         cmd_graph(&file, "mermaid", None, None).unwrap();
     }
 
-
     #[test]
     fn test_fj132_cmd_graph_dot() {
         let dir = tempfile::tempdir().unwrap();
@@ -108,7 +103,6 @@ resources:
         cmd_graph(&file, "dot", None, None).unwrap();
     }
 
-
     #[test]
     fn test_fj132_cmd_graph_unknown_format() {
         let dir = tempfile::tempdir().unwrap();
@@ -124,7 +118,6 @@ resources: {}
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("unknown graph format"));
     }
-
 
     #[test]
     fn test_fj017_cmd_graph_dot_format() {
@@ -157,7 +150,6 @@ resources:
         let result = cmd_graph(&config, "dot", None, None);
         assert!(result.is_ok(), "cmd_graph with dot format should succeed");
     }
-
 
     #[test]
     fn test_fj294_graph_filter_machine() {
@@ -195,7 +187,6 @@ resources:
         assert!(result.is_ok());
     }
 
-
     #[test]
     fn test_fj294_graph_filter_group() {
         let dir = tempfile::tempdir().unwrap();
@@ -232,5 +223,4 @@ resources:
     }
 
     // ── FJ-295: validate --json ──
-
 }

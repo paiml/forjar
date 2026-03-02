@@ -126,7 +126,6 @@ fn test_fj003_resolve_unknown_template_var() {
     assert!(err.unwrap_err().contains("unknown template variable"));
 }
 
-
 #[test]
 fn test_fj003_unclosed_template() {
     let params = HashMap::new();
@@ -214,7 +213,6 @@ fn test_fj003_boolean_param_value() {
     let result = resolve_template("debug={{params.flag}}", &params, &machines).unwrap();
     assert_eq!(result, "debug=true");
 }
-
 
 #[test]
 fn test_fj003_template_with_whitespace() {

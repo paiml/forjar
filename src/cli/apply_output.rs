@@ -1,10 +1,10 @@
 //! Apply command output formatting helpers.
 
-use crate::core::{planner, resolver, state, types};
-use std::path::Path;
+use super::apply_helpers::*;
 use super::helpers::*;
 use super::helpers_state::*;
-use super::apply_helpers::*;
+use crate::core::{planner, resolver, state, types};
+use std::path::Path;
 
 pub(super) fn count_results(results: &[types::ApplyResult]) -> (u32, u32, u32) {
     let mut converged = 0u32;
@@ -18,7 +18,6 @@ pub(super) fn count_results(results: &[types::ApplyResult]) -> (u32, u32, u32) {
     (converged, unchanged, failed)
 }
 
-
 /// Handle dry-run output.
 pub(super) fn apply_dry_run_output(
     config: &types::ForjarConfig,
@@ -31,14 +30,18 @@ pub(super) fn apply_dry_run_output(
         let execution_order = resolver::build_execution_order(config)?;
         let plan_locks = load_machine_locks(config, state_dir, machine_filter)?;
         let plan = planner::plan(config, &execution_order, &plan_locks, tag_filter);
-        let changes: Vec<serde_json::Value> = plan.changes.iter()
-            .map(|c| serde_json::json!({
-                "resource": c.resource_id,
-                "machine": c.machine,
-                "type": c.resource_type.to_string(),
-                "action": format!("{:?}", c.action).to_lowercase(),
-                "description": c.description,
-            }))
+        let changes: Vec<serde_json::Value> = plan
+            .changes
+            .iter()
+            .map(|c| {
+                serde_json::json!({
+                    "resource": c.resource_id,
+                    "machine": c.machine,
+                    "type": c.resource_type.to_string(),
+                    "action": format!("{:?}", c.action).to_lowercase(),
+                    "description": c.description,
+                })
+            })
             .collect();
         let output = serde_json::json!({
             "dry_run": true,
@@ -49,13 +52,15 @@ pub(super) fn apply_dry_run_output(
             "unchanged": plan.unchanged,
             "changes": changes,
         });
-        println!("{}", serde_json::to_string_pretty(&output).map_err(|e| format!("JSON error: {}", e))?);
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&output).map_err(|e| format!("JSON error: {}", e))?
+        );
     } else {
         println!("Dry run — no changes applied.");
     }
     Ok(())
 }
-
 
 /// Print events-mode output.
 pub(super) fn print_events_output(results: &[types::ApplyResult]) -> Result<(), String> {
@@ -88,7 +93,6 @@ pub(super) fn print_events_output(results: &[types::ApplyResult]) -> Result<(), 
     Ok(())
 }
 
-
 /// Print apply summary (JSON or text).
 #[allow(clippy::too_many_arguments)]
 pub(super) fn print_apply_summary(
@@ -111,7 +115,11 @@ pub(super) fn print_apply_summary(
                 "total_duration_seconds": dur_apply.as_secs_f64(),
             }
         });
-        println!("{}", serde_json::to_string_pretty(&output).map_err(|e| format!("JSON serialization error: {}", e))?);
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&output)
+                .map_err(|e| format!("JSON serialization error: {}", e))?
+        );
     } else {
         for result in results {
             let failed_str = if result.resources_failed > 0 {
@@ -123,31 +131,44 @@ pub(super) fn print_apply_summary(
                 "{}: {} converged, {} unchanged, {} ({:.1}s)",
                 bold(&result.machine),
                 green(&result.resources_converged.to_string()),
-                result.resources_unchanged, failed_str,
+                result.resources_unchanged,
+                failed_str,
                 result.total_duration.as_secs_f64()
             );
         }
         println!();
         if total_failed > 0 {
-            println!("{}", red(&format!(
-                "Apply completed with errors: {} converged, {} unchanged, {} FAILED",
-                total_converged, total_unchanged, total_failed
-            )));
+            println!(
+                "{}",
+                red(&format!(
+                    "Apply completed with errors: {} converged, {} unchanged, {} FAILED",
+                    total_converged, total_unchanged, total_failed
+                ))
+            );
         } else {
-            println!("{}", green(&format!(
-                "Apply complete: {} converged, {} unchanged.", total_converged, total_unchanged
-            )));
+            println!(
+                "{}",
+                green(&format!(
+                    "Apply complete: {} converged, {} unchanged.",
+                    total_converged, total_unchanged
+                ))
+            );
         }
     }
     Ok(())
 }
 
-
 /// Print per-resource report table.
 pub(super) fn print_resource_report(results: &[types::ApplyResult]) {
     println!();
     println!("{}", bold("Resource Report"));
-    println!("{:<30} {:<10} {:<12} {:>10}", bold("RESOURCE"), bold("TYPE"), bold("STATUS"), bold("DURATION"));
+    println!(
+        "{:<30} {:<10} {:<12} {:>10}",
+        bold("RESOURCE"),
+        bold("TYPE"),
+        bold("STATUS"),
+        bold("DURATION")
+    );
     println!("{}", dim(&"-".repeat(66)));
     for result in results {
         for r in &result.resource_reports {
@@ -156,23 +177,32 @@ pub(super) fn print_resource_report(results: &[types::ApplyResult]) {
                 "failed" => red(&r.status),
                 _ => r.status.clone(),
             };
-            println!("{:<30} {:<10} {:<12} {:>9.3}s", r.resource_id, r.resource_type, status_colored, r.duration_seconds);
+            println!(
+                "{:<30} {:<10} {:<12} {:>9.3}s",
+                r.resource_id, r.resource_type, status_colored, r.duration_seconds
+            );
         }
     }
 }
 
-
 /// Print timing breakdown.
-pub(super) fn print_timing(dur_parse: std::time::Duration, dur_apply: std::time::Duration, dur_total: std::time::Duration) {
+pub(super) fn print_timing(
+    dur_parse: std::time::Duration,
+    dur_apply: std::time::Duration,
+    dur_total: std::time::Duration,
+) {
     println!();
     println!("{}", bold("Timing Breakdown"));
     println!("{}", dim(&"-".repeat(40)));
-    println!("  {:<20} {:>10.3}s", "Parse + resolve", dur_parse.as_secs_f64());
+    println!(
+        "  {:<20} {:>10.3}s",
+        "Parse + resolve",
+        dur_parse.as_secs_f64()
+    );
     println!("  {:<20} {:>10.3}s", "Apply", dur_apply.as_secs_f64());
     println!("{}", dim(&"-".repeat(40)));
     println!("  {:<20} {:>10.3}s", bold("Total"), dur_total.as_secs_f64());
 }
-
 
 /// Post-apply actions: state update, auto-commit, hooks, notifications.
 #[allow(clippy::too_many_arguments)]
@@ -189,13 +219,16 @@ pub(super) fn apply_post_actions(
     let total_failed: u32 = results.iter().map(|r| r.resources_failed).sum();
     let total_unchanged: u32 = results.iter().map(|r| r.resources_unchanged).sum();
 
-    let machine_results: Vec<_> = results.iter()
-        .map(|r| (
-            r.machine.clone(),
-            (r.resources_converged + r.resources_unchanged + r.resources_failed) as usize,
-            r.resources_converged as usize,
-            r.resources_failed as usize,
-        ))
+    let machine_results: Vec<_> = results
+        .iter()
+        .map(|r| {
+            (
+                r.machine.clone(),
+                (r.resources_converged + r.resources_unchanged + r.resources_failed) as usize,
+                r.resources_converged as usize,
+                r.resources_failed as usize,
+            )
+        })
         .collect();
     state::update_global_lock(state_dir, &config.name, &machine_results)?;
 
@@ -236,12 +269,20 @@ pub(super) fn apply_post_actions(
 
     // FJ-317: Webhook notification
     if let Some(url) = notify {
-        send_apply_webhook(url, config, results, total_converged, total_failed, total_unchanged, t_total, verbose);
+        send_apply_webhook(
+            url,
+            config,
+            results,
+            total_converged,
+            total_failed,
+            total_unchanged,
+            t_total,
+            verbose,
+        );
     }
 
     Ok(())
 }
-
 
 /// FJ-1200: Run post-apply check blocks.
 ///
@@ -264,7 +305,10 @@ fn run_check_blocks(config: &types::ForjarConfig, verbose: bool) {
         let machine = match config.machines.get(&check.machine) {
             Some(m) => m,
             None => {
-                eprintln!("warning: check '{}' references unknown machine '{}'", name, check.machine);
+                eprintln!(
+                    "warning: check '{}' references unknown machine '{}'",
+                    name, check.machine
+                );
                 failed += 1;
                 continue;
             }
@@ -284,7 +328,11 @@ fn run_check_blocks(config: &types::ForjarConfig, verbose: bool) {
                     let desc = check.description.as_deref().unwrap_or(&check.command);
                     eprintln!(
                         "  {} {} — {} (exit {}, expected {})",
-                        red("FAIL"), name, desc, actual_exit, expected_exit
+                        red("FAIL"),
+                        name,
+                        desc,
+                        actual_exit,
+                        expected_exit
                     );
                 }
             }
@@ -296,10 +344,7 @@ fn run_check_blocks(config: &types::ForjarConfig, verbose: bool) {
     }
 
     if failed > 0 {
-        eprintln!(
-            "warning: {}/{} post-apply checks failed",
-            failed, total
-        );
+        eprintln!("warning: {}/{} post-apply checks failed", failed, total);
     } else if verbose {
         println!("  All {}/{} checks passed.", passed, total);
     }
@@ -333,7 +378,16 @@ fn send_apply_webhook(
     });
     let payload_str = serde_json::to_string(&payload).unwrap_or_default();
     let result = std::process::Command::new("curl")
-        .args(["-s", "-X", "POST", "-H", "Content-Type: application/json", "-d", &payload_str, url])
+        .args([
+            "-s",
+            "-X",
+            "POST",
+            "-H",
+            "Content-Type: application/json",
+            "-d",
+            &payload_str,
+            url,
+        ])
         .output();
     match result {
         Ok(output) if output.status.success() => {
@@ -341,7 +395,10 @@ fn send_apply_webhook(
                 eprintln!("Webhook notification sent to {}", url);
             }
         }
-        Ok(output) => eprintln!("Warning: webhook POST to {} failed (exit {})", url, output.status),
+        Ok(output) => eprintln!(
+            "Warning: webhook POST to {} failed (exit {})",
+            url, output.status
+        ),
         Err(e) => eprintln!("Warning: webhook POST failed: {}", e),
     }
 }

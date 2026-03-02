@@ -51,7 +51,11 @@ pub fn check_file_drift(
 }
 
 /// Compute the hash of a remote file or directory via transport.
-fn hash_remote_content(out: &crate::transport::ExecOutput, path: &str, machine: &Machine) -> Option<String> {
+fn hash_remote_content(
+    out: &crate::transport::ExecOutput,
+    path: &str,
+    machine: &Machine,
+) -> Option<String> {
     if out.stdout.trim() == "__DIR__" {
         let ls_script = format!("ls -la '{}'", path);
         match crate::transport::exec_script(machine, &ls_script) {
@@ -64,7 +68,12 @@ fn hash_remote_content(out: &crate::transport::ExecOutput, path: &str, machine: 
 }
 
 /// Build a DriftFinding for a changed file.
-fn file_drift_finding(resource_id: &str, expected_hash: &str, actual_hash: String, detail: String) -> DriftFinding {
+fn file_drift_finding(
+    resource_id: &str,
+    expected_hash: &str,
+    actual_hash: String,
+    detail: String,
+) -> DriftFinding {
     DriftFinding {
         resource_id: resource_id.to_string(),
         resource_type: ResourceType::File,
@@ -90,17 +99,26 @@ pub fn check_file_drift_via_transport(
         Ok(out) if out.success() => {
             let actual = hash_remote_content(&out, path, machine)?;
             if actual != expected_hash {
-                Some(file_drift_finding(resource_id, expected_hash, actual, format!("{} content changed", path)))
+                Some(file_drift_finding(
+                    resource_id,
+                    expected_hash,
+                    actual,
+                    format!("{} content changed", path),
+                ))
             } else {
                 None
             }
         }
         Ok(out) => Some(file_drift_finding(
-            resource_id, expected_hash, "MISSING".to_string(),
+            resource_id,
+            expected_hash,
+            "MISSING".to_string(),
             format!("{} not accessible: {}", path, out.stderr.trim()),
         )),
         Err(e) => Some(file_drift_finding(
-            resource_id, expected_hash, "ERROR".to_string(),
+            resource_id,
+            expected_hash,
+            "ERROR".to_string(),
             format!("transport error: {}", e),
         )),
     }
@@ -197,7 +215,10 @@ pub fn detect_drift_full(
 }
 
 /// FJ-1220: Check if a resource's lifecycle rules say to ignore drift.
-fn should_ignore_drift(resource_id: &str, resources: &indexmap::IndexMap<String, Resource>) -> bool {
+fn should_ignore_drift(
+    resource_id: &str,
+    resources: &indexmap::IndexMap<String, Resource>,
+) -> bool {
     if let Some(resource) = resources.get(resource_id) {
         if let Some(ref lifecycle) = resource.lifecycle {
             // ignore_drift: ["*"] means skip all drift
@@ -247,7 +268,9 @@ fn check_file_resource_drift(
         _ => return None,
     };
     match machine {
-        Some(m) if m.is_container_transport() => check_file_drift_via_transport(id, path, expected, m),
+        Some(m) if m.is_container_transport() => {
+            check_file_drift_via_transport(id, path, expected, m)
+        }
         _ => check_file_drift(id, path, expected),
     }
 }
@@ -268,15 +291,9 @@ fn detect_drift_impl(lock: &StateLock, machine: Option<&Machine>) -> Vec<DriftFi
 }
 
 #[cfg(test)]
-mod tests_lifecycle;
-#[cfg(test)]
 mod tests_basic;
 #[cfg(test)]
 mod tests_basic_b;
-#[cfg(test)]
-mod tests_transport;
-#[cfg(test)]
-mod tests_full;
 #[cfg(test)]
 mod tests_edge_fj131;
 #[cfg(test)]
@@ -285,3 +302,9 @@ mod tests_edge_fj132;
 mod tests_edge_fj132_b;
 #[cfg(test)]
 mod tests_fj036;
+#[cfg(test)]
+mod tests_full;
+#[cfg(test)]
+mod tests_lifecycle;
+#[cfg(test)]
+mod tests_transport;

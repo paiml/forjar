@@ -2,9 +2,9 @@
 
 #![allow(unused_imports)]
 #![allow(dead_code)]
-use super::secrets::*;
 use super::doctor::*;
 use super::plan::*;
+use super::secrets::*;
 use super::show::*;
 use std::io::Write;
 
@@ -147,13 +147,7 @@ resources:
         let file = write_yaml(dir.path(), "cfg.yaml", "");
         let state_dir = dir.path().join("state");
         std::fs::create_dir_all(&state_dir).unwrap();
-        let result = cmd_secrets_rotate(
-            &file,
-            None,
-            &[],
-            false,
-            &state_dir,
-        );
+        let result = cmd_secrets_rotate(&file, None, &[], false, &state_dir);
         assert!(result.is_err());
     }
 
@@ -304,6 +298,4 @@ resources: {}
         let result = cmd_doctor_network(Some(&file), true);
         assert!(result.is_ok());
     }
-
 }
-

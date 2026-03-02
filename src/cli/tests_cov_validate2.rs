@@ -2,13 +2,13 @@
 
 #![allow(unused_imports)]
 #![allow(dead_code)]
+use super::diff_cmd::*;
+use super::history::*;
+use super::lock_audit::*;
+use super::lock_core::*;
+use super::lock_repair::*;
 use super::validate_core::*;
 use super::validate_resources::*;
-use super::lock_repair::*;
-use super::lock_core::*;
-use super::lock_audit::*;
-use super::history::*;
-use super::diff_cmd::*;
 use std::io::Write;
 
 #[cfg(test)]
@@ -233,16 +233,8 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         write_yaml(dir.path(), "web/state.lock.yaml", state_lock_yaml());
         write_yaml(dir.path(), "web.lock.yaml", state_lock_yaml());
-        write_yaml(
-            dir.path(),
-            "snapshots/2026-02-01.yaml",
-            state_lock_yaml(),
-        );
-        write_yaml(
-            dir.path(),
-            "snapshots/2026-02-15.yaml",
-            state_lock_yaml(),
-        );
+        write_yaml(dir.path(), "snapshots/2026-02-01.yaml", state_lock_yaml());
+        write_yaml(dir.path(), "snapshots/2026-02-15.yaml", state_lock_yaml());
         dir
     }
 
@@ -401,7 +393,4 @@ mod tests {
         let result = cmd_validate_check_unused(f.path(), false);
         assert!(result.is_err());
     }
-
 }
-
-

@@ -1,6 +1,6 @@
 use super::file::*;
-use base64::Engine;
 use crate::core::types::{MachineTarget, Resource, ResourceType};
+use base64::Engine;
 
 fn make_file_resource(path: &str, content: Option<&str>) -> Resource {
     Resource {
@@ -79,6 +79,8 @@ fn make_file_resource(path: &str, content: Option<&str>) -> Resource {
         pre_apply: None,
         post_apply: None,
         lifecycle: None,
+        store: false,
+        script: None,
     }
 }
 

@@ -310,7 +310,10 @@ fn validate_task(id: &str, resource: &Resource, errors: &mut Vec<ValidationError
     if let Some(ref timeout) = resource.timeout {
         if *timeout == 0 {
             errors.push(ValidationError {
-                message: format!("resource '{}' (task) has timeout of 0 (use no timeout or a positive value)", id),
+                message: format!(
+                    "resource '{}' (task) has timeout of 0 (use no timeout or a positive value)",
+                    id
+                ),
             });
         }
     }

@@ -259,4 +259,3 @@ policy:
     let _ = std::fs::remove_file("/tmp/forjar-s1-m1.txt");
     let _ = std::fs::remove_file("/tmp/forjar-s1-m2.txt");
 }
-

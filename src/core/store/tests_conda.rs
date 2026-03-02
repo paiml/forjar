@@ -137,7 +137,11 @@ fn build_synthetic_tar_bz2(path: &std::path::Path) {
     header.set_mode(0o644);
     header.set_cksum();
     builder
-        .append_data(&mut header, "lib/python3.11/site-packages/testpkg/__init__.py", content.as_slice())
+        .append_data(
+            &mut header,
+            "lib/python3.11/site-packages/testpkg/__init__.py",
+            content.as_slice(),
+        )
         .unwrap();
 
     let encoder = builder.into_inner().unwrap();

@@ -1,8 +1,8 @@
 //! Tests: Phase 107 — Resource Quality Scoring & Fleet Drift Analytics (FJ-1117→FJ-1124).
 
+use super::graph_quality::*;
 use super::status_quality::*;
 use super::validate_scoring::*;
-use super::graph_quality::*;
 use std::io::Write;
 
 #[cfg(test)]
@@ -18,7 +18,9 @@ mod tests {
 
     fn write_yaml(dir: &std::path::Path, name: &str, content: &str) {
         let p = dir.join(name);
-        if let Some(parent) = p.parent() { std::fs::create_dir_all(parent).unwrap(); }
+        if let Some(parent) = p.parent() {
+            std::fs::create_dir_all(parent).unwrap();
+        }
         std::fs::write(&p, content).unwrap();
     }
 
@@ -48,17 +50,23 @@ mod tests {
     #[test]
     fn test_fj1118_ordering_empty() {
         let f = write_temp_config(CFG);
-        assert!(cmd_validate_check_resource_dependency_ordering_consistency(f.path(), false).is_ok());
+        assert!(
+            cmd_validate_check_resource_dependency_ordering_consistency(f.path(), false).is_ok()
+        );
     }
     #[test]
     fn test_fj1118_ordering_with_deps() {
         let f = write_temp_config(CFG_DEPS);
-        assert!(cmd_validate_check_resource_dependency_ordering_consistency(f.path(), false).is_ok());
+        assert!(
+            cmd_validate_check_resource_dependency_ordering_consistency(f.path(), false).is_ok()
+        );
     }
     #[test]
     fn test_fj1118_ordering_json() {
         let f = write_temp_config(CFG);
-        assert!(cmd_validate_check_resource_dependency_ordering_consistency(f.path(), true).is_ok());
+        assert!(
+            cmd_validate_check_resource_dependency_ordering_consistency(f.path(), true).is_ok()
+        );
     }
 
     // ── FJ-1119: graph --resource-dependency-critical-path ──
@@ -82,18 +90,24 @@ mod tests {
     #[test]
     fn test_fj1120_drift_class_empty() {
         let d = tempfile::tempdir().unwrap();
-        assert!(cmd_status_machine_resource_drift_pattern_classification(d.path(), None, false).is_ok());
+        assert!(
+            cmd_status_machine_resource_drift_pattern_classification(d.path(), None, false).is_ok()
+        );
     }
     #[test]
     fn test_fj1120_drift_class_with_data() {
         let d = tempfile::tempdir().unwrap();
         write_yaml(d.path(), "web/state.lock.yaml", LOCK);
-        assert!(cmd_status_machine_resource_drift_pattern_classification(d.path(), None, false).is_ok());
+        assert!(
+            cmd_status_machine_resource_drift_pattern_classification(d.path(), None, false).is_ok()
+        );
     }
     #[test]
     fn test_fj1120_drift_class_json() {
         let d = tempfile::tempdir().unwrap();
-        assert!(cmd_status_machine_resource_drift_pattern_classification(d.path(), None, true).is_ok());
+        assert!(
+            cmd_status_machine_resource_drift_pattern_classification(d.path(), None, true).is_ok()
+        );
     }
 
     // ── FJ-1121: validate --check-resource-tag-value-format ──
@@ -134,18 +148,24 @@ mod tests {
     #[test]
     fn test_fj1123_convergence_window_empty() {
         let d = tempfile::tempdir().unwrap();
-        assert!(cmd_status_fleet_resource_convergence_window_analysis(d.path(), None, false).is_ok());
+        assert!(
+            cmd_status_fleet_resource_convergence_window_analysis(d.path(), None, false).is_ok()
+        );
     }
     #[test]
     fn test_fj1123_convergence_window_with_data() {
         let d = tempfile::tempdir().unwrap();
         write_yaml(d.path(), "web/state.lock.yaml", LOCK);
-        assert!(cmd_status_fleet_resource_convergence_window_analysis(d.path(), None, false).is_ok());
+        assert!(
+            cmd_status_fleet_resource_convergence_window_analysis(d.path(), None, false).is_ok()
+        );
     }
     #[test]
     fn test_fj1123_convergence_window_json() {
         let d = tempfile::tempdir().unwrap();
-        assert!(cmd_status_fleet_resource_convergence_window_analysis(d.path(), None, true).is_ok());
+        assert!(
+            cmd_status_fleet_resource_convergence_window_analysis(d.path(), None, true).is_ok()
+        );
     }
 
     // ── FJ-1124: validate --check-resource-provider-version-pinning ──
@@ -167,13 +187,39 @@ mod tests {
 
     // ── File-not-found error paths ──
     #[test]
-    fn test_fj1118_file_not_found() { assert!(cmd_validate_check_resource_dependency_ordering_consistency(std::path::Path::new("/x"), false).is_err()); }
+    fn test_fj1118_file_not_found() {
+        assert!(cmd_validate_check_resource_dependency_ordering_consistency(
+            std::path::Path::new("/x"),
+            false
+        )
+        .is_err());
+    }
     #[test]
-    fn test_fj1119_file_not_found() { assert!(cmd_graph_resource_dependency_critical_path(std::path::Path::new("/x"), false).is_err()); }
+    fn test_fj1119_file_not_found() {
+        assert!(
+            cmd_graph_resource_dependency_critical_path(std::path::Path::new("/x"), false).is_err()
+        );
+    }
     #[test]
-    fn test_fj1121_file_not_found() { assert!(cmd_validate_check_resource_tag_value_format(std::path::Path::new("/x"), false).is_err()); }
+    fn test_fj1121_file_not_found() {
+        assert!(
+            cmd_validate_check_resource_tag_value_format(std::path::Path::new("/x"), false)
+                .is_err()
+        );
+    }
     #[test]
-    fn test_fj1122_file_not_found() { assert!(cmd_graph_resource_dependency_cluster_analysis(std::path::Path::new("/x"), false).is_err()); }
+    fn test_fj1122_file_not_found() {
+        assert!(
+            cmd_graph_resource_dependency_cluster_analysis(std::path::Path::new("/x"), false)
+                .is_err()
+        );
+    }
     #[test]
-    fn test_fj1124_file_not_found() { assert!(cmd_validate_check_resource_provider_version_pinning(std::path::Path::new("/x"), false).is_err()); }
+    fn test_fj1124_file_not_found() {
+        assert!(cmd_validate_check_resource_provider_version_pinning(
+            std::path::Path::new("/x"),
+            false
+        )
+        .is_err());
+    }
 }

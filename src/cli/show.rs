@@ -1,11 +1,14 @@
 //! Show, explain, compare, template.
 
+use super::helpers::*;
 use crate::core::{codegen, parser, resolver, types};
 use std::path::Path;
-use super::helpers::*;
 
-
-pub(crate) fn cmd_show(file: &Path, resource_filter: Option<&str>, json: bool) -> Result<(), String> {
+pub(crate) fn cmd_show(
+    file: &Path,
+    resource_filter: Option<&str>,
+    json: bool,
+) -> Result<(), String> {
     let mut config = parse_and_validate(file)?;
 
     // Resolve templates in all resources
@@ -40,9 +43,11 @@ pub(crate) fn cmd_show(file: &Path, resource_filter: Option<&str>, json: bool) -
     Ok(())
 }
 
-
 /// Detect the transport type for a machine by name and config.
-fn detect_transport_type(machine_name: &str, machines: &indexmap::IndexMap<String, types::Machine>) -> &'static str {
+fn detect_transport_type(
+    machine_name: &str,
+    machines: &indexmap::IndexMap<String, types::Machine>,
+) -> &'static str {
     if machine_name == "local" || machine_name == "localhost" {
         return "local";
     }
@@ -121,8 +126,13 @@ pub(crate) fn cmd_explain(file: &Path, resource_id: &str, json: bool) -> Result<
 
     if json {
         return explain_json(
-            resource_id, resource, &machine_name, transport_type,
-            &apply_script, &check_script, &config.machines,
+            resource_id,
+            resource,
+            &machine_name,
+            transport_type,
+            &apply_script,
+            &check_script,
+            &config.machines,
         );
     }
 
@@ -168,7 +178,6 @@ pub(crate) fn cmd_explain(file: &Path, resource_id: &str, json: bool) -> Result<
 
     Ok(())
 }
-
 
 // FJ-363: Compare two config files
 pub(crate) fn cmd_compare(file1: &Path, file2: &Path, json: bool) -> Result<(), String> {
@@ -225,7 +234,6 @@ pub(crate) fn cmd_compare(file1: &Path, file2: &Path, json: bool) -> Result<(), 
     Ok(())
 }
 
-
 // FJ-371: Expand recipe template to stdout
 pub(crate) fn cmd_template(recipe: &Path, vars: &[String], json: bool) -> Result<(), String> {
     let content = std::fs::read_to_string(recipe)
@@ -261,7 +269,6 @@ pub(crate) fn cmd_template(recipe: &Path, vars: &[String], json: bool) -> Result
 
     Ok(())
 }
-
 
 // FJ-220: Evaluate policy rules and report violations.
 pub(crate) fn cmd_policy(file: &Path, json: bool) -> Result<(), String> {
@@ -328,7 +335,6 @@ pub(crate) fn cmd_policy(file: &Path, json: bool) -> Result<(), String> {
     Ok(())
 }
 
-
 fn print_single_output(k: &str, v: &str, json: bool) {
     if json {
         println!("{}", serde_json::json!({ k: v }));
@@ -391,4 +397,3 @@ pub(crate) fn cmd_output(file: &Path, key: Option<&str>, json: bool) -> Result<(
 
     Ok(())
 }
-

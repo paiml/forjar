@@ -1,20 +1,19 @@
 //! Tests: Plan printing and diff display helpers.
 
 #![allow(unused_imports)]
+use super::helpers::*;
+use super::helpers_state::*;
+use super::helpers_time::*;
+use super::print_helpers::*;
 use crate::core::types::ProvenanceEvent;
 use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
 use crate::transport;
 use crate::tripwire::{anomaly, drift, eventlog, tracer};
 use std::path::{Path, PathBuf};
-use super::helpers::*;
-use super::helpers_state::*;
-use super::helpers_time::*;
-use super::print_helpers::*;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
 
     #[test]
     fn test_fj017_print_plan_update_and_destroy_symbols() {
@@ -47,7 +46,6 @@ mod tests {
         print_plan(&plan, None, None);
     }
 
-
     #[test]
     fn test_fj132_export_scripts_creates_files() {
         let dir = tempfile::tempdir().unwrap();
@@ -79,7 +77,6 @@ resources:
         assert!(output_dir.join("my-file.apply.sh").exists());
     }
 
-
     #[test]
     fn test_fj132_export_scripts_sanitizes_slashes() {
         let dir = tempfile::tempdir().unwrap();
@@ -105,19 +102,16 @@ resources:
         assert!(output_dir.join("web--config.apply.sh").exists());
     }
 
-
     #[test]
     fn test_fj255_print_content_diff_create() {
         // Should not panic on Create action
         print_content_diff("line1\nline2\nline3", &types::PlanAction::Create, None);
     }
 
-
     #[test]
     fn test_fj255_print_content_diff_update() {
         print_content_diff("updated content", &types::PlanAction::Update, None);
     }
-
 
     #[test]
     fn test_fj255_print_content_diff_truncation() {
@@ -129,7 +123,6 @@ resources:
         print_content_diff(&content, &types::PlanAction::Create, None);
     }
 
-
     #[test]
     fn test_fj255_print_content_diff_empty() {
         print_content_diff("", &types::PlanAction::Create, None);
@@ -137,18 +130,15 @@ resources:
 
     // FJ-274: Unified diff tests
 
-
     #[test]
     fn test_fj274_print_unified_diff_added_lines() {
         print_unified_diff("a", "a\nb\nc");
     }
 
-
     #[test]
     fn test_fj274_print_unified_diff_removed_lines() {
         print_unified_diff("a\nb\nc", "a");
     }
-
 
     #[test]
     fn test_fj297_export_scripts_metadata_header() {
@@ -190,5 +180,4 @@ resources:
     }
 
     // ── FJ-303: status --summary ──
-
 }

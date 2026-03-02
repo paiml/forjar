@@ -314,4 +314,3 @@ resources:
         Some("systemctl restart nginx")
     );
 }
-

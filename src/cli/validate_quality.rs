@@ -1,9 +1,8 @@
 //! Quality validation.
 
+use super::helpers::*;
 use crate::core::{resolver, types};
 use std::path::Path;
-use super::helpers::*;
-
 
 // ── FJ-451: validate --check-idempotency ──
 
@@ -46,7 +45,6 @@ pub(crate) fn cmd_validate_check_idempotency(file: &Path, json: bool) -> Result<
     Ok(())
 }
 
-
 // ── FJ-461: validate --check-drift-coverage ──
 
 pub(crate) fn cmd_validate_check_drift_coverage(file: &Path, json: bool) -> Result<(), String> {
@@ -69,7 +67,6 @@ pub(crate) fn cmd_validate_check_drift_coverage(file: &Path, json: bool) -> Resu
     }
     Ok(())
 }
-
 
 /// FJ-511: Validate complexity — warn on resources with high dependency fan-out.
 pub(crate) fn cmd_validate_check_complexity(file: &Path, json: bool) -> Result<(), String> {
@@ -133,9 +130,12 @@ fn collect_fan_in_warnings(
     }
 }
 
-
 /// Check if mode is world-writable.
-fn check_world_writable_mode(name: &str, res: &types::Resource, warnings: &mut Vec<(String, String)>) {
+fn check_world_writable_mode(
+    name: &str,
+    res: &types::Resource,
+    warnings: &mut Vec<(String, String)>,
+) {
     let mode = match res.mode {
         Some(ref m) => m,
         None => return,
@@ -225,7 +225,6 @@ pub(crate) fn cmd_validate_check_security(file: &Path, json: bool) -> Result<(),
     }
     Ok(())
 }
-
 
 /// FJ-531: Validate deprecation — warn on deprecated resource fields/types.
 pub(crate) fn cmd_validate_check_deprecation(file: &Path, json: bool) -> Result<(), String> {

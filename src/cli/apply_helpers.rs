@@ -3,7 +3,6 @@
 use crate::core::types;
 use std::path::Path;
 
-
 /// Run a local shell hook command. Returns Ok if the command succeeds, Err if it fails.
 pub(crate) fn run_hook(name: &str, command: &str, verbose: bool) -> Result<(), String> {
     if verbose {
@@ -31,7 +30,6 @@ pub(crate) fn run_hook(name: &str, command: &str, verbose: bool) -> Result<(), S
     }
     Ok(())
 }
-
 
 /// FJ-225: Run a notification hook with template variable expansion.
 pub(crate) fn run_notify(template: &str, vars: &[(&str, &str)]) {
@@ -64,7 +62,6 @@ pub(crate) fn run_notify(template: &str, vars: &[(&str, &str)]) {
     }
 }
 
-
 /// Parse KEY=VALUE param overrides and merge into config.
 pub(crate) fn apply_param_overrides(
     config: &mut types::ForjarConfig,
@@ -86,7 +83,6 @@ pub(crate) fn apply_param_overrides(
 // FJ-210: Workspace helpers
 // ========================================================================
 
-
 /// FJ-211: Load param overrides from an external YAML file.
 /// The file must be a flat YAML mapping (key: value). Values are merged into
 /// config.params, overriding any existing keys with the same name.
@@ -102,9 +98,12 @@ pub(crate) fn load_env_params(config: &mut types::ForjarConfig, path: &Path) -> 
     Ok(())
 }
 
-
 /// Git commit state directory after successful apply.
-pub(crate) fn git_commit_state(state_dir: &Path, config_name: &str, converged: u32) -> Result<(), String> {
+pub(crate) fn git_commit_state(
+    state_dir: &Path,
+    config_name: &str,
+    converged: u32,
+) -> Result<(), String> {
     let msg = format!(
         "forjar: {} — {} resource(s) converged",
         config_name, converged
@@ -130,4 +129,3 @@ pub(crate) fn git_commit_state(state_dir: &Path, config_name: &str, converged: u
     println!("Auto-committed state: {}", msg);
     Ok(())
 }
-

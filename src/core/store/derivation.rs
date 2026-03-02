@@ -15,13 +15,9 @@ use std::collections::{BTreeMap, BTreeSet};
 #[serde(untagged)]
 pub enum DerivationInput {
     /// Direct store hash reference
-    Store {
-        store: String,
-    },
+    Store { store: String },
     /// Reference to another resource's output
-    Resource {
-        resource: String,
-    },
+    Resource { resource: String },
 }
 
 /// A store derivation definition.
@@ -76,8 +72,14 @@ pub struct DerivationResult {
 /// Compute the closure hash for a derivation.
 ///
 /// Hash = composite_hash(sorted input hashes + script hash + arch)
-pub fn derivation_closure_hash(derivation: &Derivation, input_hashes: &BTreeMap<String, String>) -> String {
-    let script_hash = format!("script:{}", blake3::hash(derivation.script.as_bytes()).to_hex());
+pub fn derivation_closure_hash(
+    derivation: &Derivation,
+    input_hashes: &BTreeMap<String, String>,
+) -> String {
+    let script_hash = format!(
+        "script:{}",
+        blake3::hash(derivation.script.as_bytes()).to_hex()
+    );
     let mut components: Vec<&str> = input_hashes.values().map(|s| s.as_str()).collect();
     components.sort();
     components.push(&script_hash);
@@ -95,12 +97,10 @@ pub fn collect_input_hashes(
     for (name, input) in &derivation.inputs {
         let hash = match input {
             DerivationInput::Store { store } => store.clone(),
-            DerivationInput::Resource { resource } => {
-                resolved_resources
-                    .get(resource)
-                    .cloned()
-                    .ok_or_else(|| format!("unresolved resource input: {resource}"))?
-            }
+            DerivationInput::Resource { resource } => resolved_resources
+                .get(resource)
+                .cloned()
+                .ok_or_else(|| format!("unresolved resource input: {resource}"))?,
         };
         result.insert(name.clone(), hash);
     }

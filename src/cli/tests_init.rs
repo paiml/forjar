@@ -1,22 +1,21 @@
 //! Tests: Init, format, completion, schema.
 
 #![allow(unused_imports)]
+use super::commands::*;
+use super::dispatch::*;
+use super::helpers::*;
+use super::helpers_state::*;
+use super::helpers_time::*;
+use super::init::*;
 use crate::core::types::ProvenanceEvent;
 use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
 use crate::transport;
 use crate::tripwire::{anomaly, drift, eventlog, tracer};
 use std::path::{Path, PathBuf};
-use super::helpers::*;
-use super::helpers_state::*;
-use super::helpers_time::*;
-use super::init::*;
-use super::commands::*;
-use super::dispatch::*;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
 
     #[test]
     fn test_fj017_init() {
@@ -28,7 +27,6 @@ mod tests {
         assert!(sub.join("state").is_dir());
     }
 
-
     #[test]
     fn test_fj017_init_already_exists() {
         let dir = tempfile::tempdir().unwrap();
@@ -36,7 +34,6 @@ mod tests {
         let result = cmd_init(dir.path());
         assert!(result.is_err());
     }
-
 
     #[test]
     fn test_fj017_dispatch_init() {
@@ -46,7 +43,6 @@ mod tests {
         dispatch(Commands::Init(InitArgs { path: sub.clone() }), false, true).unwrap();
         assert!(sub.join("forjar.yaml").exists());
     }
-
 
     #[test]
     fn test_fj017_fmt_check_unformatted() {
@@ -74,7 +70,6 @@ resources:
         let result = cmd_fmt(&config, true);
         assert!(result.is_err(), "unformatted file should fail check mode");
     }
-
 
     #[test]
     fn test_fj017_fmt_write_then_check() {
@@ -105,7 +100,6 @@ resources:
 
     // ── Check command tests ────────────────────────────────────
 
-
     #[test]
     fn test_fj017_init_creates_state_dir() {
         let dir = tempfile::tempdir().unwrap();
@@ -117,7 +111,6 @@ resources:
         assert!(project.join("forjar.yaml").exists());
         assert!(project.join("state").exists());
     }
-
 
     #[test]
     fn test_fj017_init_template_is_valid() {
@@ -166,7 +159,6 @@ resources:
         config_path
     }
 
-
     #[test]
     fn test_fj132_cmd_init_creates_project() {
         let dir = tempfile::tempdir().unwrap();
@@ -178,7 +170,6 @@ resources:
         let _config: types::ForjarConfig = serde_yaml_ng::from_str(&content).unwrap();
     }
 
-
     #[test]
     fn test_fj132_cmd_init_refuses_existing() {
         let dir = tempfile::tempdir().unwrap();
@@ -187,7 +178,6 @@ resources:
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("already exists"));
     }
-
 
     #[test]
     fn test_fj132_cmd_fmt_already_formatted() {
@@ -206,7 +196,6 @@ resources: {}
         cmd_fmt(&file, false).unwrap();
     }
 
-
     #[test]
     fn test_fj132_cmd_fmt_check_mode() {
         let dir = tempfile::tempdir().unwrap();
@@ -224,7 +213,6 @@ resources: {}
         cmd_fmt(&file, true).unwrap();
     }
 
-
     #[test]
     fn test_fj132_cmd_fmt_formats_unformatted() {
         let dir = tempfile::tempdir().unwrap();
@@ -237,7 +225,6 @@ resources: {}
         let content = std::fs::read_to_string(&file).unwrap();
         assert!(content.contains("version"));
     }
-
 
     #[test]
     fn test_fj036_cmd_init_creates_state_dir() {
@@ -262,7 +249,6 @@ resources: {}
         let config: types::ForjarConfig = serde_yaml_ng::from_str(&content).unwrap();
         assert_eq!(config.version, "1.0");
     }
-
 
     #[test]
     fn test_fj017_cmd_fmt_check_valid() {
@@ -295,7 +281,6 @@ resources:
 
     // ── FJ-135: forjar trace CLI tests ──────────────────────────
 
-
     #[test]
     fn test_fj253_completion_bash() {
         // Completion generation in clap_complete uses deep recursion
@@ -309,7 +294,6 @@ resources:
             .expect("completion thread panicked");
         assert!(result.is_ok());
     }
-
 
     #[test]
     fn test_fj253_completion_zsh() {
@@ -325,7 +309,6 @@ resources:
         assert!(result.is_ok());
     }
 
-
     #[test]
     fn test_fj253_completion_fish() {
         // Completion generation in clap_complete uses deep recursion
@@ -340,14 +323,12 @@ resources:
         assert!(result.is_ok());
     }
 
-
     #[test]
     fn test_fj253_completion_shell_enum_debug() {
         let bash = CompletionShell::Bash;
         let debug = format!("{:?}", bash);
         assert_eq!(debug, "Bash");
     }
-
 
     #[test]
     fn test_fj253_completion_shell_clone() {
@@ -358,20 +339,17 @@ resources:
 
     // FJ-255: Content diff tests
 
-
     #[test]
     fn test_fj264_schema_dispatch() {
         let result = dispatch(Commands::Schema, false, true);
         assert!(result.is_ok());
     }
 
-
     #[test]
     fn test_fj264_schema_valid_json() {
         let result = cmd_schema();
         assert!(result.is_ok());
     }
-
 
     #[test]
     fn test_fj264_schema_has_required_fields() {
@@ -387,7 +365,6 @@ resources:
         );
     }
 
-
     #[test]
     fn test_fj264_schema_resource_types() {
         let types: [&str; 11] = [
@@ -396,7 +373,6 @@ resources:
         ];
         assert_eq!(types.len(), 11, "should support 11 resource types");
     }
-
 
     #[test]
     fn test_fj264_schema_policy_defaults() {
@@ -414,7 +390,6 @@ resources:
     // ========================================================================
     // FJ-267: forjar watch
     // ========================================================================
-
 
     #[test]
     fn test_fj381_schema_version_flag() {
@@ -462,24 +437,109 @@ resources:
             check_resource_names: None,
             check_resource_count: None,
             check_duplicate_paths: false,
-        check_circular_deps: false,
-        check_machine_refs: false,
-        check_provider_consistency: false,
-        check_state_values: false,
-        check_unused_machines: false,
-        check_tag_consistency: false,
+            check_circular_deps: false,
+            check_machine_refs: false,
+            check_provider_consistency: false,
+            check_state_values: false,
+            check_unused_machines: false,
+            check_tag_consistency: false,
             check_dependency_exists: false,
             check_path_conflicts_strict: false,
             check_duplicate_names: false,
             check_resource_groups: false,
             check_orphan_resources: false,
-            check_machine_arch: false, check_resource_health_conflicts: false, check_resource_overlap: false, check_resource_tags: false, check_resource_state_consistency: false, check_resource_dependencies_complete: false, check_machine_connectivity: false, check_resource_naming_pattern: None, check_resource_provider_support: false, check_resource_secret_refs: false, check_resource_idempotency_hints: false,
-                check_resource_dependency_depth: None,
-                check_resource_machine_affinity: false,
-                check_resource_drift_risk: false, check_resource_tag_coverage: false, check_resource_lifecycle_hooks: false, check_resource_provider_version: false, check_resource_naming_convention: false, check_resource_idempotency: false, check_resource_documentation: false, check_resource_ownership: false, check_resource_secret_exposure: false, check_resource_tag_standards: false, check_resource_privilege_escalation: false, check_resource_update_safety: false, check_resource_cross_machine_consistency: false, check_resource_version_pinning: false, check_resource_dependency_completeness: false, check_resource_state_coverage: false, check_resource_rollback_safety: false, check_resource_config_maturity: false, check_resource_dependency_ordering: false, check_resource_tag_completeness: false, check_resource_naming_standards: false, check_resource_dependency_symmetry: false, check_resource_circular_alias: false, check_resource_dependency_depth_limit: false, check_resource_unused_params: false, check_resource_machine_balance: false, check_resource_content_hash_consistency: false, check_resource_dependency_refs: false, check_resource_trigger_refs: false, check_resource_param_type_safety: false, check_resource_env_consistency: false, check_resource_secret_rotation: false, check_resource_lifecycle_completeness: false, check_resource_provider_compatibility: false, check_resource_naming_convention_strict: false, check_resource_idempotency_annotations: false, check_resource_content_size_limit: false, check_resource_dependency_fan_limit: false, check_resource_gpu_backend_consistency: false, check_resource_when_condition_syntax: false, check_resource_lifecycle_hook_coverage: false, check_resource_secret_rotation_age: false, check_resource_dependency_chain_depth: false, check_recipe_input_completeness: false, check_resource_cross_machine_content_duplicates: false, check_resource_machine_reference_validity: false, check_resource_health_correlation: false, check_dependency_optimization: false, check_resource_consolidation_opportunities: false,
+            check_machine_arch: false,
+            check_resource_health_conflicts: false,
+            check_resource_overlap: false,
+            check_resource_tags: false,
+            check_resource_state_consistency: false,
+            check_resource_dependencies_complete: false,
+            check_machine_connectivity: false,
+            check_resource_naming_pattern: None,
+            check_resource_provider_support: false,
+            check_resource_secret_refs: false,
+            check_resource_idempotency_hints: false,
+            check_resource_dependency_depth: None,
+            check_resource_machine_affinity: false,
+            check_resource_drift_risk: false,
+            check_resource_tag_coverage: false,
+            check_resource_lifecycle_hooks: false,
+            check_resource_provider_version: false,
+            check_resource_naming_convention: false,
+            check_resource_idempotency: false,
+            check_resource_documentation: false,
+            check_resource_ownership: false,
+            check_resource_secret_exposure: false,
+            check_resource_tag_standards: false,
+            check_resource_privilege_escalation: false,
+            check_resource_update_safety: false,
+            check_resource_cross_machine_consistency: false,
+            check_resource_version_pinning: false,
+            check_resource_dependency_completeness: false,
+            check_resource_state_coverage: false,
+            check_resource_rollback_safety: false,
+            check_resource_config_maturity: false,
+            check_resource_dependency_ordering: false,
+            check_resource_tag_completeness: false,
+            check_resource_naming_standards: false,
+            check_resource_dependency_symmetry: false,
+            check_resource_circular_alias: false,
+            check_resource_dependency_depth_limit: false,
+            check_resource_unused_params: false,
+            check_resource_machine_balance: false,
+            check_resource_content_hash_consistency: false,
+            check_resource_dependency_refs: false,
+            check_resource_trigger_refs: false,
+            check_resource_param_type_safety: false,
+            check_resource_env_consistency: false,
+            check_resource_secret_rotation: false,
+            check_resource_lifecycle_completeness: false,
+            check_resource_provider_compatibility: false,
+            check_resource_naming_convention_strict: false,
+            check_resource_idempotency_annotations: false,
+            check_resource_content_size_limit: false,
+            check_resource_dependency_fan_limit: false,
+            check_resource_gpu_backend_consistency: false,
+            check_resource_when_condition_syntax: false,
+            check_resource_lifecycle_hook_coverage: false,
+            check_resource_secret_rotation_age: false,
+            check_resource_dependency_chain_depth: false,
+            check_recipe_input_completeness: false,
+            check_resource_cross_machine_content_duplicates: false,
+            check_resource_machine_reference_validity: false,
+            check_resource_health_correlation: false,
+            check_dependency_optimization: false,
+            check_resource_consolidation_opportunities: false,
             check_resource_compliance_tags: false,
             check_resource_rollback_coverage: false,
-            check_resource_dependency_balance: false, check_resource_secret_scope: false, check_resource_deprecation_usage: false, check_resource_when_condition_coverage: false, check_resource_dependency_symmetry_deep: false, check_resource_tag_namespace: false, check_resource_machine_capacity: false, check_resource_dependency_fan_out_limit: false, check_resource_tag_required_keys: false, check_resource_content_drift_risk: false, check_resource_circular_dependency_depth: false, check_resource_orphan_detection_deep: false, check_resource_provider_diversity: false, check_resource_dependency_isolation: false, check_resource_tag_value_consistency: false, check_resource_machine_distribution_balance: false, check_resource_dependency_version_drift: false, check_resource_naming_length_limit: false, check_resource_type_coverage_per_machine: false, check_resource_dependency_depth_variance: false, check_resource_tag_key_naming: false, check_resource_content_length_limit: false, check_resource_dependency_completeness_audit: false, check_resource_machine_coverage_gap: false, check_resource_path_depth_limit: false, check_resource_dependency_ordering_consistency: false, check_resource_tag_value_format: false, check_resource_provider_version_pinning: false,
+            check_resource_dependency_balance: false,
+            check_resource_secret_scope: false,
+            check_resource_deprecation_usage: false,
+            check_resource_when_condition_coverage: false,
+            check_resource_dependency_symmetry_deep: false,
+            check_resource_tag_namespace: false,
+            check_resource_machine_capacity: false,
+            check_resource_dependency_fan_out_limit: false,
+            check_resource_tag_required_keys: false,
+            check_resource_content_drift_risk: false,
+            check_resource_circular_dependency_depth: false,
+            check_resource_orphan_detection_deep: false,
+            check_resource_provider_diversity: false,
+            check_resource_dependency_isolation: false,
+            check_resource_tag_value_consistency: false,
+            check_resource_machine_distribution_balance: false,
+            check_resource_dependency_version_drift: false,
+            check_resource_naming_length_limit: false,
+            check_resource_type_coverage_per_machine: false,
+            check_resource_dependency_depth_variance: false,
+            check_resource_tag_key_naming: false,
+            check_resource_content_length_limit: false,
+            check_resource_dependency_completeness_audit: false,
+            check_resource_machine_coverage_gap: false,
+            check_resource_path_depth_limit: false,
+            check_resource_dependency_ordering_consistency: false,
+            check_resource_tag_value_format: false,
+            check_resource_provider_version_pinning: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { schema_version, .. }) => {
@@ -488,5 +548,4 @@ resources:
             _ => panic!("expected Validate"),
         }
     }
-
 }

@@ -39,13 +39,10 @@ fn parse_lock_content(content: &str) -> LockMetrics {
 }
 
 /// Iterate state_dir entries, applying optional machine filter, yielding (name, content) pairs.
-fn iter_lock_files(
-    state_dir: &Path,
-    machine: Option<&str>,
-) -> Vec<(String, String)> {
+fn iter_lock_files(state_dir: &Path, machine: Option<&str>) -> Vec<(String, String)> {
     let mut results = Vec::new();
-    let entries = std::fs::read_dir(state_dir)
-        .unwrap_or_else(|_| std::fs::read_dir("/dev/null").unwrap());
+    let entries =
+        std::fs::read_dir(state_dir).unwrap_or_else(|_| std::fs::read_dir("/dev/null").unwrap());
     for entry in entries.flatten() {
         let name = entry.file_name().to_string_lossy().to_string();
         if let Some(filter) = machine {
@@ -341,10 +338,7 @@ fn print_error_rate_table(results: &[serde_json::Value]) {
         let total = info["total_resources"].as_u64().unwrap_or(0);
         let failed = info["failed_resources"].as_u64().unwrap_or(0);
         let rate = info["error_rate_pct"].as_f64().unwrap_or(0.0);
-        println!(
-            "  {}: {}/{} failed ({:.1}%)",
-            m, failed, total, rate,
-        );
+        println!("  {}: {}/{} failed ({:.1}%)", m, failed, total, rate,);
     }
 }
 
@@ -395,10 +389,7 @@ fn print_drift_recovery_table(results: &[serde_json::Value]) {
         let m = info["machine"].as_str().unwrap_or("?");
         let drifted = info["drifted_resources"].as_u64().unwrap_or(0);
         let secs = info["estimated_recovery_seconds"].as_u64().unwrap_or(0);
-        println!(
-            "  {}: {} drifted, est. recovery {}s",
-            m, drifted, secs,
-        );
+        println!("  {}: {} drifted, est. recovery {}s", m, drifted, secs,);
     }
 }
 

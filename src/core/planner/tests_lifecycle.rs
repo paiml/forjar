@@ -1,7 +1,7 @@
 //! Tests for FJ-1220 lifecycle enforcement + FJ-1210 moved blocks in planner.
 
-use super::*;
 use super::tests_helpers::make_base_resource;
+use super::*;
 use crate::core::types::{
     LifecycleRules, MovedEntry, ResourceLock, ResourceStatus, ResourceType, StateLock,
 };
@@ -45,13 +45,20 @@ fn test_prevent_destroy_blocks_destroy_action() {
     });
 
     let mut lock = test_lock("m1");
-    lock.resources.insert("protected-file".to_string(), test_rl(ResourceType::File, "abc123"));
+    lock.resources.insert(
+        "protected-file".to_string(),
+        test_rl(ResourceType::File, "abc123"),
+    );
 
     let mut locks = HashMap::new();
     locks.insert("m1".to_string(), lock);
 
     let action = determine_action("protected-file", &resource, "m1", &locks);
-    assert_eq!(action, PlanAction::NoOp, "prevent_destroy should block Destroy → NoOp");
+    assert_eq!(
+        action,
+        PlanAction::NoOp,
+        "prevent_destroy should block Destroy → NoOp"
+    );
 }
 
 #[test]
@@ -60,13 +67,20 @@ fn test_destroy_allowed_without_prevent_destroy() {
     resource.state = Some("absent".to_string());
 
     let mut lock = test_lock("m1");
-    lock.resources.insert("normal-file".to_string(), test_rl(ResourceType::File, "abc123"));
+    lock.resources.insert(
+        "normal-file".to_string(),
+        test_rl(ResourceType::File, "abc123"),
+    );
 
     let mut locks = HashMap::new();
     locks.insert("m1".to_string(), lock);
 
     let action = determine_action("normal-file", &resource, "m1", &locks);
-    assert_eq!(action, PlanAction::Destroy, "without prevent_destroy, Destroy should proceed");
+    assert_eq!(
+        action,
+        PlanAction::Destroy,
+        "without prevent_destroy, Destroy should proceed"
+    );
 }
 
 #[test]
@@ -80,13 +94,20 @@ fn test_prevent_destroy_false_allows_destroy() {
     });
 
     let mut lock = test_lock("m1");
-    lock.resources.insert("removable".to_string(), test_rl(ResourceType::File, "abc123"));
+    lock.resources.insert(
+        "removable".to_string(),
+        test_rl(ResourceType::File, "abc123"),
+    );
 
     let mut locks = HashMap::new();
     locks.insert("m1".to_string(), lock);
 
     let action = determine_action("removable", &resource, "m1", &locks);
-    assert_eq!(action, PlanAction::Destroy, "prevent_destroy=false should allow Destroy");
+    assert_eq!(
+        action,
+        PlanAction::Destroy,
+        "prevent_destroy=false should allow Destroy"
+    );
 }
 
 // ============================================================================
@@ -96,7 +117,10 @@ fn test_prevent_destroy_false_allows_destroy() {
 #[test]
 fn test_apply_moved_blocks_renames_resource_in_lock() {
     let mut lock = test_lock("m1");
-    lock.resources.insert("old-config".to_string(), test_rl(ResourceType::File, "hash123"));
+    lock.resources.insert(
+        "old-config".to_string(),
+        test_rl(ResourceType::File, "hash123"),
+    );
 
     let mut locks = HashMap::new();
     locks.insert("m1".to_string(), lock);
@@ -109,12 +133,22 @@ fn test_apply_moved_blocks_renames_resource_in_lock() {
     let result = apply_moved_blocks(&moved, &locks);
     let m1_lock = result.get("m1").unwrap();
 
-    assert!(!m1_lock.resources.contains_key("old-config"), "old key should be removed");
-    assert!(m1_lock.resources.contains_key("new-config"), "new key should exist");
+    assert!(
+        !m1_lock.resources.contains_key("old-config"),
+        "old key should be removed"
+    );
+    assert!(
+        m1_lock.resources.contains_key("new-config"),
+        "new key should exist"
+    );
 
     let rl = m1_lock.resources.get("new-config").unwrap();
     assert_eq!(rl.hash, "hash123", "hash should be preserved across rename");
-    assert_eq!(rl.status, ResourceStatus::Converged, "status should be preserved");
+    assert_eq!(
+        rl.status,
+        ResourceStatus::Converged,
+        "status should be preserved"
+    );
 }
 
 #[test]
@@ -132,7 +166,10 @@ fn test_apply_moved_blocks_no_op_when_empty() {
 #[test]
 fn test_apply_moved_blocks_no_op_when_source_missing() {
     let mut lock = test_lock("m1");
-    lock.resources.insert("existing-config".to_string(), test_rl(ResourceType::File, "hash456"));
+    lock.resources.insert(
+        "existing-config".to_string(),
+        test_rl(ResourceType::File, "hash456"),
+    );
 
     let mut locks = HashMap::new();
     locks.insert("m1".to_string(), lock);
@@ -145,22 +182,36 @@ fn test_apply_moved_blocks_no_op_when_source_missing() {
     let result = apply_moved_blocks(&moved, &locks);
     let m1_lock = result.get("m1").unwrap();
 
-    assert!(m1_lock.resources.contains_key("existing-config"), "existing should be untouched");
-    assert!(!m1_lock.resources.contains_key("renamed"), "rename target shouldn't appear");
+    assert!(
+        m1_lock.resources.contains_key("existing-config"),
+        "existing should be untouched"
+    );
+    assert!(
+        !m1_lock.resources.contains_key("renamed"),
+        "rename target shouldn't appear"
+    );
 }
 
 #[test]
 fn test_apply_moved_blocks_multiple_renames() {
     let mut lock = test_lock("m1");
-    lock.resources.insert("alpha".to_string(), test_rl(ResourceType::File, "h1"));
-    lock.resources.insert("beta".to_string(), test_rl(ResourceType::Package, "h2"));
+    lock.resources
+        .insert("alpha".to_string(), test_rl(ResourceType::File, "h1"));
+    lock.resources
+        .insert("beta".to_string(), test_rl(ResourceType::Package, "h2"));
 
     let mut locks = HashMap::new();
     locks.insert("m1".to_string(), lock);
 
     let moved = vec![
-        MovedEntry { from: "alpha".to_string(), to: "alpha-v2".to_string() },
-        MovedEntry { from: "beta".to_string(), to: "beta-renamed".to_string() },
+        MovedEntry {
+            from: "alpha".to_string(),
+            to: "alpha-v2".to_string(),
+        },
+        MovedEntry {
+            from: "beta".to_string(),
+            to: "beta-renamed".to_string(),
+        },
     ];
 
     let result = apply_moved_blocks(&moved, &locks);

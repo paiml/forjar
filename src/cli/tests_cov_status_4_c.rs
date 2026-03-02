@@ -1,8 +1,8 @@
 //! Tests: Coverage for status_diagnostics and edge cases (part 3).
 
-use super::status_recovery::*;
-use super::status_intelligence::*;
 use super::status_diagnostics::*;
+use super::status_intelligence::*;
+use super::status_recovery::*;
 
 #[cfg(test)]
 mod tests {
@@ -92,7 +92,11 @@ mod tests {
     fn make_state_dir() -> tempfile::TempDir {
         let dir = tempfile::tempdir().unwrap();
         for m in &["web", "db"] {
-            write_yaml(dir.path(), &format!("{}/state.lock.yaml", m), state_lock_yaml());
+            write_yaml(
+                dir.path(),
+                &format!("{}/state.lock.yaml", m),
+                state_lock_yaml(),
+            );
             write_yaml(dir.path(), &format!("{}/lock.yaml", m), state_lock_yaml());
             write_yaml(dir.path(), &format!("{}.lock.yaml", m), state_lock_yaml());
         }
@@ -102,9 +106,15 @@ mod tests {
     fn make_state_dir_with_events() -> tempfile::TempDir {
         let dir = make_state_dir();
         for m in &["web", "db"] {
-            write_yaml(dir.path(), &format!("{}/events.yaml", m), "some event data\n");
-            let ev1 = r#"{"event":"apply_complete","resource":"f","timestamp":"2026-02-28T01:00:00Z"}"#;
-            let ev2 = r#"{"event":"resource_applied","resource":"f","timestamp":"2026-02-28T01:05:00Z"}"#;
+            write_yaml(
+                dir.path(),
+                &format!("{}/events.yaml", m),
+                "some event data\n",
+            );
+            let ev1 =
+                r#"{"event":"apply_complete","resource":"f","timestamp":"2026-02-28T01:00:00Z"}"#;
+            let ev2 =
+                r#"{"event":"resource_applied","resource":"f","timestamp":"2026-02-28T01:05:00Z"}"#;
             write_yaml(
                 dir.path(),
                 &format!("{}/events.jsonl", m),
@@ -379,7 +389,9 @@ mod tests {
     #[test]
     fn fleet_convergence_velocity_filtered() {
         let d = make_state_dir();
-        assert!(cmd_status_fleet_resource_convergence_velocity(d.path(), Some("db"), false).is_ok());
+        assert!(
+            cmd_status_fleet_resource_convergence_velocity(d.path(), Some("db"), false).is_ok()
+        );
     }
 
     #[test]
@@ -395,7 +407,8 @@ mod tests {
     fn resource_churn_with_resource_applied() {
         let d = tempfile::tempdir().unwrap();
         write_yaml(d.path(), "web/state.lock.yaml", state_lock_yaml());
-        let ev = r#"{"event":"resource_applied","resource":"nginx","timestamp":"2026-02-28T01:00:00Z"}"#;
+        let ev =
+            r#"{"event":"resource_applied","resource":"nginx","timestamp":"2026-02-28T01:00:00Z"}"#;
         write_yaml(d.path(), "web/events.jsonl", &format!("{ev}\n{ev}\n{ev}\n"));
         assert!(cmd_status_resource_churn(d.path(), None, true).is_ok());
     }

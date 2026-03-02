@@ -1,9 +1,8 @@
 //! Graph visualization.
 
+use super::helpers::*;
 use crate::core::{resolver, types};
 use std::path::Path;
-use super::helpers::*;
-
 
 /// Print pruned graph in DOT format.
 fn print_prune_dot(
@@ -91,7 +90,6 @@ pub(crate) fn cmd_graph_prune(file: &Path, format: &str, resource: &str) -> Resu
     Ok(())
 }
 
-
 // ── FJ-464: graph --layers ──
 
 pub(crate) fn cmd_graph_layers(file: &Path) -> Result<(), String> {
@@ -156,7 +154,6 @@ pub(crate) fn cmd_graph_layers(file: &Path) -> Result<(), String> {
     Ok(())
 }
 
-
 // ── FJ-474: graph --critical-resources ──
 
 pub(crate) fn cmd_graph_critical_resources(file: &Path) -> Result<(), String> {
@@ -186,9 +183,11 @@ pub(crate) fn cmd_graph_critical_resources(file: &Path) -> Result<(), String> {
     Ok(())
 }
 
-
 /// Print weighted graph in DOT format.
-fn print_weight_dot(config: &types::ForjarConfig, weights: &std::collections::HashMap<String, usize>) {
+fn print_weight_dot(
+    config: &types::ForjarConfig,
+    weights: &std::collections::HashMap<String, usize>,
+) {
     println!("digraph forjar {{");
     println!("  rankdir=LR;");
     for (name, res) in &config.resources {
@@ -202,7 +201,10 @@ fn print_weight_dot(config: &types::ForjarConfig, weights: &std::collections::Ha
 }
 
 /// Print weighted graph in Mermaid format.
-fn print_weight_mermaid(config: &types::ForjarConfig, weights: &std::collections::HashMap<String, usize>) {
+fn print_weight_mermaid(
+    config: &types::ForjarConfig,
+    weights: &std::collections::HashMap<String, usize>,
+) {
     println!("graph LR");
     for (name, res) in &config.resources {
         let w = weights.get(name).unwrap_or(&0);
@@ -241,7 +243,6 @@ pub(crate) fn cmd_graph_weight(file: &Path, format: &str) -> Result<(), String> 
     }
     Ok(())
 }
-
 
 /// Print subgraph in DOT format.
 fn print_subgraph_dot(
@@ -310,4 +311,3 @@ pub(crate) fn cmd_graph_subgraph(file: &Path, format: &str, resource: &str) -> R
     }
     Ok(())
 }
-

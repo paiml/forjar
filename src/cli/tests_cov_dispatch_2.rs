@@ -1,9 +1,6 @@
 //! Tests: Coverage for dispatch_misc, dispatch_lock, check (part 2).
 
 #![allow(unused_imports)]
-use crate::core::{executor, parser, planner, resolver, state, types};
-use std::io::Write;
-use std::path::{Path, PathBuf};
 use super::apply::*;
 use super::check::*;
 use super::commands::*;
@@ -16,6 +13,9 @@ use super::helpers_state::*;
 use super::infra::*;
 use super::observe::*;
 use super::test_fixtures::*;
+use crate::core::{executor, parser, planner, resolver, state, types};
+use std::io::Write;
+use std::path::{Path, PathBuf};
 
 #[cfg(test)]
 mod tests {

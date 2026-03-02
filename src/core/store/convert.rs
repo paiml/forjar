@@ -177,15 +177,22 @@ fn classify_purity(sig: &ConversionSignals) -> PurityLevel {
     PurityLevel::Constrained
 }
 
-fn projected_purity_after_auto(sig: &ConversionSignals, changes: &[ConversionChange]) -> PurityLevel {
+fn projected_purity_after_auto(
+    sig: &ConversionSignals,
+    changes: &[ConversionChange],
+) -> PurityLevel {
     if sig.has_curl_pipe {
         return PurityLevel::Impure;
     }
 
-    let will_have_version =
-        sig.has_version || changes.iter().any(|c| c.change_type == ChangeType::AddVersionPin);
-    let will_have_store =
-        sig.has_store || changes.iter().any(|c| c.change_type == ChangeType::EnableStore);
+    let will_have_version = sig.has_version
+        || changes
+            .iter()
+            .any(|c| c.change_type == ChangeType::AddVersionPin);
+    let will_have_store = sig.has_store
+        || changes
+            .iter()
+            .any(|c| c.change_type == ChangeType::EnableStore);
 
     if will_have_version && will_have_store && sig.has_sandbox {
         PurityLevel::Pure
@@ -197,10 +204,7 @@ fn projected_purity_after_auto(sig: &ConversionSignals, changes: &[ConversionCha
 }
 
 fn is_cacheable_provider(provider: &str) -> bool {
-    matches!(
-        provider,
-        "apt" | "cargo" | "uv" | "nix" | "docker" | "pip"
-    )
+    matches!(provider, "apt" | "cargo" | "uv" | "nix" | "docker" | "pip")
 }
 
 fn worst_purity(levels: &[PurityLevel]) -> PurityLevel {

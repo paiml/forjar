@@ -81,6 +81,8 @@ fn make_gpu_resource(name: &str) -> Resource {
         pre_apply: None,
         post_apply: None,
         lifecycle: None,
+        store: false,
+        script: None,
     }
 }
 
@@ -313,9 +315,8 @@ fn test_fj1125_state_query_rocm_kernel_fallback() {
     r.gpu_backend = Some("rocm".to_string());
     let script = state_query_script(&r);
     // Falls back to kernel version, never outputs "unknown"
-    assert!(script.contains(
-        "cat /sys/module/amdgpu/version 2>/dev/null || echo \"kernel-$(uname -r)\""
-    ));
+    assert!(script
+        .contains("cat /sys/module/amdgpu/version 2>/dev/null || echo \"kernel-$(uname -r)\""));
     assert!(!script.contains("echo unknown"));
 }
 
@@ -328,8 +329,12 @@ fn test_pmat036_apply_nvidia_skips_install_when_driver_present() {
     let r = make_gpu_resource("gpu0");
     let script = apply_script(&r);
     // Must check nvidia-smi BEFORE running apt-get install
-    let smi_pos = script.find("nvidia-smi").expect("apply must check nvidia-smi");
-    let apt_pos = script.find("apt-get install").expect("apply must have apt-get install");
+    let smi_pos = script
+        .find("nvidia-smi")
+        .expect("apply must check nvidia-smi");
+    let apt_pos = script
+        .find("apt-get install")
+        .expect("apply must have apt-get install");
     assert!(
         smi_pos < apt_pos,
         "nvidia-smi check must come before apt-get install"

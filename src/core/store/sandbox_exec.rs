@@ -200,10 +200,7 @@ pub fn plan_sandbox_build(
     steps.push(SandboxStep {
         step: 8,
         description: "Compute BLAKE3 hash of output directory".to_string(),
-        command: Some(format!(
-            "forjar-hash-dir {}",
-            out_dir.display()
-        )),
+        command: Some(format!("forjar-hash-dir {}", out_dir.display())),
     });
 
     // Step 9: Atomic move to store
@@ -309,9 +306,7 @@ pub fn simulate_sandbox_build(
     hash_inputs.push(script);
     let output_hash = crate::tripwire::hasher::composite_hash(&hash_inputs);
 
-    let hash_bare = output_hash
-        .strip_prefix("blake3:")
-        .unwrap_or(&output_hash);
+    let hash_bare = output_hash.strip_prefix("blake3:").unwrap_or(&output_hash);
     let store_path = format!("{}/{hash_bare}/content", store_dir.display());
 
     SandboxResult {

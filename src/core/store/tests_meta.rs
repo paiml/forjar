@@ -66,7 +66,10 @@ fn test_fj1301_read_missing_returns_error() {
 fn test_fj1301_provenance_none_omitted() {
     let meta = sample_meta();
     let yaml = serde_yaml_ng::to_string(&meta).unwrap();
-    assert!(!yaml.contains("provenance:"), "None provenance must be omitted");
+    assert!(
+        !yaml.contains("provenance:"),
+        "None provenance must be omitted"
+    );
 }
 
 #[test]

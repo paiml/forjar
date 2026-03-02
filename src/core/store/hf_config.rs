@@ -31,8 +31,8 @@ pub struct KernelRequirement {
 
 /// Parse a HuggingFace `config.json` from a file path.
 pub fn parse_hf_config(path: &Path) -> Result<HfModelConfig, String> {
-    let data = std::fs::read_to_string(path)
-        .map_err(|e| format!("read {}: {e}", path.display()))?;
+    let data =
+        std::fs::read_to_string(path).map_err(|e| format!("read {}: {e}", path.display()))?;
     parse_hf_config_str(&data)
 }
 

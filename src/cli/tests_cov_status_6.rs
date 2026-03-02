@@ -384,7 +384,9 @@ mod tests {
     #[test]
     fn apply_duration_trend_data() {
         let d = make_dir();
-        assert!(cmd_status_machine_resource_apply_duration_trend(d.path(), Some("web"), false).is_ok());
+        assert!(
+            cmd_status_machine_resource_apply_duration_trend(d.path(), Some("web"), false).is_ok()
+        );
     }
     #[test]
     fn apply_duration_trend_json() {
@@ -401,7 +403,9 @@ mod tests {
     #[test]
     fn convergence_streak_data() {
         let d = make_dir();
-        assert!(cmd_status_machine_resource_convergence_streak(d.path(), Some("web"), false).is_ok());
+        assert!(
+            cmd_status_machine_resource_convergence_streak(d.path(), Some("web"), false).is_ok()
+        );
     }
     #[test]
     fn convergence_streak_json() {
@@ -435,7 +439,9 @@ mod tests {
     #[test]
     fn error_distribution_data() {
         let d = make_dir();
-        assert!(cmd_status_machine_resource_error_distribution(d.path(), Some("web"), false).is_ok());
+        assert!(
+            cmd_status_machine_resource_error_distribution(d.path(), Some("web"), false).is_ok()
+        );
     }
     #[test]
     fn error_distribution_json() {

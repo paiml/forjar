@@ -1,22 +1,21 @@
 //! Tests: History commands.
 
 #![allow(unused_imports)]
+use super::commands::*;
+use super::dispatch::*;
+use super::helpers::*;
+use super::helpers_state::*;
+use super::helpers_time::*;
+use super::history::*;
 use crate::core::types::ProvenanceEvent;
 use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
 use crate::transport;
 use crate::tripwire::{anomaly, drift, eventlog, tracer};
 use std::path::{Path, PathBuf};
-use super::helpers::*;
-use super::helpers_state::*;
-use super::helpers_time::*;
-use super::history::*;
-use super::commands::*;
-use super::dispatch::*;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
 
     #[test]
     fn test_fj017_history_empty() {
@@ -25,7 +24,6 @@ mod tests {
         std::fs::create_dir_all(&state).unwrap();
         cmd_history(&state, None, 10, false, None).unwrap();
     }
-
 
     #[test]
     fn test_fj017_history_with_events() {
@@ -60,7 +58,6 @@ mod tests {
         cmd_history(&state, None, 10, false, None).unwrap();
     }
 
-
     #[test]
     fn test_fj017_history_json() {
         let dir = tempfile::tempdir().unwrap();
@@ -79,7 +76,6 @@ mod tests {
 
         cmd_history(&state, None, 10, true, None).unwrap();
     }
-
 
     #[test]
     fn test_fj017_history_machine_filter() {
@@ -111,7 +107,6 @@ mod tests {
         cmd_history(&state, Some("alpha"), 10, false, None).unwrap();
     }
 
-
     #[test]
     fn test_fj017_history_limit() {
         let dir = tempfile::tempdir().unwrap();
@@ -134,7 +129,6 @@ mod tests {
         cmd_history(&state, None, 2, false, None).unwrap();
     }
 
-
     #[test]
     fn test_fj017_dispatch_history() {
         let dir = tempfile::tempdir().unwrap();
@@ -155,7 +149,6 @@ mod tests {
         .unwrap();
     }
 
-
     #[test]
     fn test_fj132_cmd_history_with_events() {
         let dir = tempfile::tempdir().unwrap();
@@ -170,7 +163,6 @@ mod tests {
         cmd_history(dir.path(), None, 10, false, None).unwrap();
     }
 
-
     #[test]
     fn test_fj132_cmd_history_json() {
         let dir = tempfile::tempdir().unwrap();
@@ -180,7 +172,6 @@ mod tests {
         std::fs::write(machine_dir.join("events.jsonl"), event).unwrap();
         cmd_history(dir.path(), None, 5, true, None).unwrap();
     }
-
 
     #[test]
     fn test_fj132_cmd_history_machine_filter() {
@@ -197,7 +188,6 @@ mod tests {
         cmd_history(dir.path(), Some("web"), 10, false, None).unwrap();
     }
 
-
     #[test]
     fn test_fj284_history_since_empty_state() {
         let dir = tempfile::tempdir().unwrap();
@@ -206,7 +196,6 @@ mod tests {
     }
 
     // ── FJ-285: forjar plan --target ──────────────────────────
-
 
     #[test]
     fn test_fj296_history_json_empty() {
@@ -218,7 +207,6 @@ mod tests {
     }
 
     // ── FJ-297: plan --output-dir metadata headers ──
-
 
     #[test]
     fn test_fj357_history_resource_flag() {
@@ -239,5 +227,4 @@ mod tests {
     }
 
     // ── Phase 22: Infrastructure Intelligence (FJ-360→FJ-367) ──
-
 }

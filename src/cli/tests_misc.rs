@@ -1,21 +1,20 @@
 //! Tests: Misc.
 
 #![allow(unused_imports)]
+use super::commands::*;
+use super::helpers::*;
+use super::helpers_state::*;
+use super::helpers_time::*;
+use super::lint::*;
 use crate::core::types::ProvenanceEvent;
 use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
 use crate::transport;
 use crate::tripwire::{anomaly, drift, eventlog, tracer};
 use std::path::{Path, PathBuf};
-use super::helpers::*;
-use super::helpers_state::*;
-use super::helpers_time::*;
-use super::commands::*;
-use super::lint::*;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
 
     #[test]
     fn test_fj225_notify_default_empty() {
@@ -30,7 +29,6 @@ resources: {}
         assert!(config.policy.notify.on_failure.is_none());
         assert!(config.policy.notify.on_drift.is_none());
     }
-
 
     #[test]
     fn test_fj225_notify_partial_config() {
@@ -48,7 +46,6 @@ policy:
         assert!(config.policy.notify.on_failure.is_none());
         assert_eq!(config.policy.notify.on_drift.as_deref(), Some("echo drift"));
     }
-
 
     #[test]
     fn test_fj221_strict_no_root_owner() {
@@ -80,7 +77,6 @@ resources:
         cmd_lint(&file, false, true, false).unwrap();
     }
 
-
     #[test]
     fn test_fj221_strict_root_with_system_tag() {
         let dir = tempfile::tempdir().unwrap();
@@ -108,7 +104,6 @@ resources:
         // Root owner with "system" tag should NOT produce a no_root_owner warning
         cmd_lint(&file, false, true, false).unwrap();
     }
-
 
     #[test]
     fn test_fj221_strict_require_tags() {
@@ -142,7 +137,6 @@ resources:
         cmd_lint(&file, false, true, false).unwrap();
     }
 
-
     #[test]
     fn test_fj221_strict_require_ssh_key() {
         let dir = tempfile::tempdir().unwrap();
@@ -172,7 +166,6 @@ resources:
         // Strict: remote machine without ssh_key should warn
         cmd_lint(&file, false, true, false).unwrap();
     }
-
 
     #[test]
     fn test_fj221_strict_no_privileged_containers() {
@@ -206,7 +199,6 @@ resources:
         cmd_lint(&file, false, true, false).unwrap();
     }
 
-
     #[test]
     fn test_fj262_resource_report_serialize() {
         use crate::core::types::ResourceReport;
@@ -225,7 +217,6 @@ resources:
         assert!(yaml.contains("blake3:abc123"));
     }
 
-
     #[test]
     fn test_fj270_events_mode_detection() {
         // events_mode should be true only when output == Some("events")
@@ -236,7 +227,6 @@ resources:
         let mode3: Option<&str> = None;
         assert!(mode3.is_none());
     }
-
 
     #[test]
     fn test_fj270_event_json_format() {
@@ -256,7 +246,6 @@ resources:
         assert!(serialized.contains("test-file"));
         assert!(serialized.contains("blake3:abc123"));
     }
-
 
     #[test]
     fn test_fj272_progress_flag_parse() {
@@ -404,17 +393,44 @@ resources:
             only_machine: None,
             notify_webhook_headers: None,
             notify_log: None,
-        notify_exec: None,
-        notify_file: None,
-        notify_json: false,
+            notify_exec: None,
+            notify_file: None,
+            notify_json: false,
             notify_slack_webhook: None,
             notify_telegram: None,
-            notify_webhook_v2: None, notify_discord_webhook: None, notify_teams_webhook: None, notify_slack_blocks: None, notify_custom_template: None, notify_custom_webhook: None, notify_custom_headers: None, notify_custom_json: None, notify_custom_filter: None, notify_custom_retry: None, notify_custom_transform: None, notify_custom_batch: None, notify_custom_deduplicate: None, notify_custom_throttle: None, notify_custom_aggregate: None, notify_custom_priority: None, notify_custom_routing: None, notify_custom_dedup_window: None, notify_custom_rate_limit: None, notify_custom_backoff: None, notify_custom_circuit_breaker: None, notify_custom_dead_letter: None, notify_custom_escalation: None, notify_custom_correlation: None, notify_custom_sampling: None, notify_custom_digest: None, notify_custom_severity_filter: None, refresh_only: false, encrypt_state: false,
+            notify_webhook_v2: None,
+            notify_discord_webhook: None,
+            notify_teams_webhook: None,
+            notify_slack_blocks: None,
+            notify_custom_template: None,
+            notify_custom_webhook: None,
+            notify_custom_headers: None,
+            notify_custom_json: None,
+            notify_custom_filter: None,
+            notify_custom_retry: None,
+            notify_custom_transform: None,
+            notify_custom_batch: None,
+            notify_custom_deduplicate: None,
+            notify_custom_throttle: None,
+            notify_custom_aggregate: None,
+            notify_custom_priority: None,
+            notify_custom_routing: None,
+            notify_custom_dedup_window: None,
+            notify_custom_rate_limit: None,
+            notify_custom_backoff: None,
+            notify_custom_circuit_breaker: None,
+            notify_custom_dead_letter: None,
+            notify_custom_escalation: None,
+            notify_custom_correlation: None,
+            notify_custom_sampling: None,
+            notify_custom_digest: None,
+            notify_custom_severity_filter: None,
+            refresh_only: false,
+            encrypt_state: false,
         });
         match cmd {
             Commands::Apply(ApplyArgs { progress, .. }) => assert!(progress),
             _ => panic!("expected Apply"),
         }
     }
-
 }

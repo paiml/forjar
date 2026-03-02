@@ -4,7 +4,6 @@ use crate::core::{state, types};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-
 /// Create a state directory with a lock file containing the given resources.
 pub(crate) fn make_state_dir_with_lock(
     dir: &Path,
@@ -37,7 +36,6 @@ pub(crate) fn make_state_dir_with_lock(
     state::save_lock(dir, &lock).unwrap();
 }
 
-
 /// Create a test StateLock with given machine name and resources.
 pub(crate) fn make_test_lock(
     machine: &str,
@@ -54,7 +52,6 @@ pub(crate) fn make_test_lock(
     }
 }
 
-
 /// Create a test ResourceLock with the given type.
 pub(crate) fn make_test_resource_lock(rtype: types::ResourceType) -> types::ResourceLock {
     types::ResourceLock {
@@ -66,7 +63,6 @@ pub(crate) fn make_test_resource_lock(rtype: types::ResourceType) -> types::Reso
         details: HashMap::new(),
     }
 }
-
 
 /// Write a simple forjar config with one machine and two resources.
 pub(crate) fn write_simple_config(dir: &Path) -> PathBuf {
@@ -98,7 +94,6 @@ resources:
     config_path
 }
 
-
 /// Write a config with params and env file support.
 pub(crate) fn write_env_config(dir: &Path) -> PathBuf {
     let file = dir.join("forjar.yaml");
@@ -125,7 +120,6 @@ resources:
     .unwrap();
     file
 }
-
 
 /// Write a config with outputs.
 pub(crate) fn write_output_config(dir: &Path) -> PathBuf {

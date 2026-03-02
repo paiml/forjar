@@ -15,9 +15,7 @@ const COMPLIANCE_KEYWORDS: &[&str] = &["pci", "hipaa", "sox", "gdpr", "iso27001"
 /// Check if a tag contains any compliance keyword (case-insensitive).
 fn tag_has_compliance_keyword(tag: &str) -> bool {
     let lower = tag.to_lowercase();
-    COMPLIANCE_KEYWORDS
-        .iter()
-        .any(|kw| lower.contains(kw))
+    COMPLIANCE_KEYWORDS.iter().any(|kw| lower.contains(kw))
 }
 
 // ============================================================================
@@ -25,15 +23,10 @@ fn tag_has_compliance_keyword(tag: &str) -> bool {
 // ============================================================================
 
 /// Collect resources that have no compliance-related tags.
-fn find_resources_missing_compliance_tags(
-    config: &types::ForjarConfig,
-) -> Vec<String> {
+fn find_resources_missing_compliance_tags(config: &types::ForjarConfig) -> Vec<String> {
     let mut missing = Vec::new();
     for (name, resource) in &config.resources {
-        let has_compliance = resource
-            .tags
-            .iter()
-            .any(|t| tag_has_compliance_keyword(t));
+        let has_compliance = resource.tags.iter().any(|t| tag_has_compliance_keyword(t));
         if !has_compliance {
             missing.push(name.clone());
         }
@@ -44,10 +37,7 @@ fn find_resources_missing_compliance_tags(
 
 /// Print compliance-tag warnings as JSON.
 fn print_compliance_tags_json(missing: &[String]) {
-    let items: Vec<String> = missing
-        .iter()
-        .map(|n| format!("\"{}\"", n))
-        .collect();
+    let items: Vec<String> = missing.iter().map(|n| format!("\"{}\"", n)).collect();
     println!(
         r#"{{"compliance_tag_warnings":[{}],"count":{}}}"#,
         items.join(","),
@@ -60,10 +50,7 @@ fn print_compliance_tags_text(missing: &[String]) {
     if missing.is_empty() {
         println!("All resources have compliance-related tags.");
     } else {
-        println!(
-            "Resources missing compliance tags ({}):",
-            missing.len()
-        );
+        println!("Resources missing compliance tags ({}):", missing.len());
         for name in missing {
             println!(
                 "  warning: {} has no tags matching compliance keywords (pci, hipaa, sox, gdpr, iso27001)",
@@ -112,9 +99,7 @@ fn check_rollback_coverage(resource: &types::Resource) -> Option<String> {
 }
 
 /// Collect service/package resources that lack rollback mechanisms.
-fn find_resources_missing_rollback(
-    config: &types::ForjarConfig,
-) -> Vec<(String, String)> {
+fn find_resources_missing_rollback(config: &types::ForjarConfig) -> Vec<(String, String)> {
     let mut warnings = Vec::new();
     for (name, resource) in &config.resources {
         let needs_check = matches!(
@@ -155,10 +140,7 @@ fn print_rollback_text(warnings: &[(String, String)]) {
     if warnings.is_empty() {
         println!("All service and package resources have rollback coverage.");
     } else {
-        println!(
-            "Resources lacking rollback coverage ({}):",
-            warnings.len()
-        );
+        println!("Resources lacking rollback coverage ({}):", warnings.len());
         for (name, reason) in warnings {
             println!("  warning: {} — {}", name, reason);
         }
@@ -282,10 +264,7 @@ fn print_balance_text(warnings: &[FanMetrics]) {
     if warnings.is_empty() {
         println!("All resources have balanced dependency fan-in/fan-out.");
     } else {
-        println!(
-            "Imbalanced dependency resources ({}):",
-            warnings.len()
-        );
+        println!("Imbalanced dependency resources ({}):", warnings.len());
         for m in warnings {
             println!(
                 "  warning: {} (fan-in={}, fan-out={}) — {}",

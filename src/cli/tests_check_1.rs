@@ -1,23 +1,23 @@
 //! Tests: Pre-condition checks.
 
 #![allow(unused_imports)]
-use crate::core::types::ProvenanceEvent;
-use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
-use crate::transport;
-use crate::tripwire::{anomaly, drift, eventlog, tracer};
-use std::path::{Path, PathBuf};
-use super::helpers::*;
-use super::helpers_state::*;
-use super::helpers_time::*;
 use super::check::*;
 use super::commands::*;
 use super::destroy::*;
 use super::diff_cmd::*;
 use super::dispatch::*;
+use super::helpers::*;
+use super::helpers_state::*;
+use super::helpers_time::*;
 use super::init::*;
 use super::lint::*;
 use super::observe::*;
 use super::test_fixtures::*;
+use crate::core::types::ProvenanceEvent;
+use crate::core::{codegen, executor, migrate, parser, planner, resolver, secrets, state, types};
+use crate::transport;
+use crate::tripwire::{anomaly, drift, eventlog, tracer};
+use std::path::{Path, PathBuf};
 
 #[cfg(test)]
 mod tests {
@@ -40,7 +40,6 @@ mod tests {
         }
         false
     }
-
 
     #[test]
     fn test_diff_machine_filter() {
@@ -70,7 +69,6 @@ mod tests {
         cmd_diff(from_dir.path(), to_dir.path(), Some("m1"), None, false).unwrap();
     }
 
-
     #[test]
     fn test_diff_empty_state_dirs() {
         let from_dir = tempfile::tempdir().unwrap();
@@ -79,7 +77,6 @@ mod tests {
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("no machines found"));
     }
-
 
     #[test]
     fn test_discover_machines() {
@@ -99,7 +96,6 @@ mod tests {
     }
 
     // ── forjar check tests ─────────────────────────────────────────
-
 
     #[test]
     fn test_check_local_file_pass() {
@@ -134,7 +130,6 @@ resources:
         cmd_check(&config, None, None, None, false, false).unwrap();
     }
 
-
     #[test]
     fn test_check_local_file_missing_still_runs() {
         let dir = tempfile::tempdir().unwrap();
@@ -160,7 +155,6 @@ resources:
         // Check script reports status (exits 0 even for missing file)
         cmd_check(&config, None, None, None, false, false).unwrap();
     }
-
 
     #[test]
     fn test_check_json_output() {
@@ -192,7 +186,6 @@ resources:
         .unwrap();
         cmd_check(&config, None, None, None, true, false).unwrap();
     }
-
 
     #[test]
     fn test_fmt_normalizes_yaml() {
@@ -228,7 +221,6 @@ resources:
         cmd_fmt(&file, true).unwrap();
     }
 
-
     #[test]
     fn test_fmt_idempotent() {
         let dir = tempfile::tempdir().unwrap();
@@ -261,7 +253,6 @@ resources:
         assert_eq!(after_first, after_second);
     }
 
-
     #[test]
     fn test_lint_unused_machine() {
         let dir = tempfile::tempdir().unwrap();
@@ -291,7 +282,6 @@ resources:
         cmd_lint(&file, false, false, false).unwrap();
     }
 
-
     #[test]
     fn test_lint_json_output() {
         let dir = tempfile::tempdir().unwrap();
@@ -320,7 +310,6 @@ resources:
         cmd_lint(&file, true, false, false).unwrap();
     }
 
-
     #[test]
     fn test_lint_clean_config() {
         let dir = tempfile::tempdir().unwrap();
@@ -345,7 +334,6 @@ resources:
 
         cmd_lint(&file, false, false, false).unwrap();
     }
-
 
     #[test]
     fn test_lint_cross_machine_dependency() {
@@ -390,7 +378,6 @@ resources:
         );
     }
 
-
     #[test]
     fn test_rollback_no_git_history() {
         // A file that doesn't exist in git history should fail gracefully
@@ -408,7 +395,6 @@ resources:
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("cannot read"));
     }
-
 
     #[test]
     fn test_rollback_dispatch() {
@@ -439,7 +425,6 @@ resources:
         assert!(result.is_err()); // Expected: no git history
     }
 
-
     #[test]
     fn test_anomaly_empty_state_dir() {
         let dir = tempfile::tempdir().unwrap();
@@ -450,7 +435,6 @@ resources:
         let result = cmd_anomaly(&state, None, 3, false);
         assert!(result.is_ok());
     }
-
 
     #[test]
     fn test_anomaly_detects_high_failure_rate() {
@@ -495,5 +479,4 @@ resources:
         let result = cmd_anomaly(&state, None, 3, false);
         assert!(result.is_ok());
     }
-
 }

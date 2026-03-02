@@ -161,8 +161,8 @@ pub fn decode_far_manifest<R: Read>(
         .map_err(|e| format!("read manifest: {e}"))?;
     let yaml_bytes =
         zstd::decode_all(compressed.as_slice()).map_err(|e| format!("zstd decompress: {e}"))?;
-    let manifest: FarManifest = serde_yaml_ng::from_slice(&yaml_bytes)
-        .map_err(|e| format!("parse manifest: {e}"))?;
+    let manifest: FarManifest =
+        serde_yaml_ng::from_slice(&yaml_bytes).map_err(|e| format!("parse manifest: {e}"))?;
 
     // Chunk count
     reader

@@ -3,7 +3,6 @@
 use clap::Subcommand;
 use std::path::PathBuf;
 
-
 /// FJ-260: Snapshot subcommands — named state checkpoints.
 #[derive(Subcommand, Debug)]
 pub enum SnapshotCmd {
@@ -45,7 +44,6 @@ pub enum SnapshotCmd {
     },
 }
 
-
 /// Shell types for completion generation.
 #[derive(Debug, Clone, clap::ValueEnum)]
 pub enum CompletionShell {
@@ -53,7 +51,6 @@ pub enum CompletionShell {
     Zsh,
     Fish,
 }
-
 
 /// FJ-210: Workspace subcommands.
 #[derive(Subcommand, Debug)]
@@ -73,7 +70,6 @@ pub enum WorkspaceCmd {
     /// Show current active workspace
     Current,
 }
-
 
 /// FJ-200: Secrets subcommands — age-encrypted secret management.
 #[derive(Subcommand, Debug)]

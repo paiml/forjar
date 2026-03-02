@@ -63,7 +63,13 @@ sources:
     port: 2222
 "#;
     let cfg = parse_cache_config(yaml).unwrap();
-    assert!(matches!(&cfg.sources[0], CacheSource::Ssh { port: Some(2222), .. }));
+    assert!(matches!(
+        &cfg.sources[0],
+        CacheSource::Ssh {
+            port: Some(2222),
+            ..
+        }
+    ));
 }
 
 #[test]
@@ -136,9 +142,13 @@ fn test_fj1322_substitution_cache_hit() {
     let local: Vec<String> = vec![];
     let inv = build_inventory("remote", vec![sample_entry(hash)]);
     let result = resolve_substitution(hash, &local, &[inv]);
-    assert!(
-        matches!(result, SubstitutionResult::CacheHit { source_index: 0, .. })
-    );
+    assert!(matches!(
+        result,
+        SubstitutionResult::CacheHit {
+            source_index: 0,
+            ..
+        }
+    ));
 }
 
 #[test]
@@ -166,9 +176,13 @@ fn test_fj1322_substitution_checks_caches_in_order() {
     };
     let inv1 = build_inventory("second", vec![sample_entry(hash)]);
     let result = resolve_substitution(hash, &[], &[inv0, inv1]);
-    assert!(
-        matches!(result, SubstitutionResult::CacheHit { source_index: 1, .. })
-    );
+    assert!(matches!(
+        result,
+        SubstitutionResult::CacheHit {
+            source_index: 1,
+            ..
+        }
+    ));
 }
 
 #[test]
