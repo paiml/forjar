@@ -36,6 +36,10 @@ schemars = { version = "0.8", features = ["derive"] }
 rustc-hash = "2"
 age = { version = "0.11", default-features = false }
 clap_complete = "4"
+zip = { version = "2", default-features = false, features = ["deflate", "bzip2", "zstd"] }
+bzip2 = "0.5"
+zstd = "0.13"
+tar = "0.4"
 
 [build-dependencies]
 provable-contracts = { version = "0.1", path = "../provable-contracts/crates/provable-contracts" }
