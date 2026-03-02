@@ -13,6 +13,7 @@ pub mod chunker;
 pub mod conda;
 pub mod hf_config;
 pub mod contract_coverage;
+pub mod contract_scaffold;
 
 #[cfg(test)]
 mod tests_path;
@@ -34,3 +35,5 @@ mod tests_conda;
 mod tests_hf_config;
 #[cfg(test)]
 mod tests_contract_coverage;
+#[cfg(test)]
+mod tests_contract_scaffold;
