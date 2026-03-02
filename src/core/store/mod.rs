@@ -17,6 +17,7 @@ pub mod contract_scaffold;
 pub mod kernel_far;
 pub mod closure;
 pub mod lockfile;
+pub mod gc;
 
 #[cfg(test)]
 mod tests_path;
@@ -46,3 +47,5 @@ mod tests_kernel_far;
 mod tests_closure;
 #[cfg(test)]
 mod tests_lockfile;
+#[cfg(test)]
+mod tests_gc;
