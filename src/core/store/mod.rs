@@ -11,6 +11,7 @@ pub mod conda;
 pub mod contract_coverage;
 pub mod contract_scaffold;
 pub mod convert;
+pub mod convert_exec;
 pub mod derivation;
 pub mod derivation_exec;
 pub mod far;
@@ -54,6 +55,8 @@ mod tests_contract_coverage;
 mod tests_contract_scaffold;
 #[cfg(test)]
 mod tests_convert;
+#[cfg(test)]
+mod tests_convert_exec;
 #[cfg(test)]
 mod tests_derivation;
 #[cfg(test)]
