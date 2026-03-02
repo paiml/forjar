@@ -8,7 +8,8 @@ use forjar::core::store::cache::{
 };
 use forjar::core::store::derivation::{Derivation, DerivationInput};
 use forjar::core::store::derivation_exec::{
-    execute_derivation_dag, is_store_hit, plan_derivation, simulate_derivation, skipped_steps,
+    execute_derivation_dag, execute_derivation_dag_live, is_store_hit, plan_derivation,
+    simulate_derivation, skipped_steps,
 };
 use forjar::core::store::sandbox::{preset_profile, SandboxConfig, SandboxLevel};
 use forjar::core::store::sandbox_exec::{
@@ -32,6 +33,7 @@ fn main() {
     demo_derivation_plan();
     demo_derivation_store_hit();
     demo_derivation_dag();
+    demo_derivation_dag_live();
     println!("\n=== All executor demos passed ===");
 }
 
@@ -319,6 +321,42 @@ fn demo_derivation_dag() {
     .unwrap();
     println!("  Single simulate: hash={}", &single.store_hash[..32]);
     println!("  DAG execution verified");
+}
+
+fn demo_derivation_dag_live() {
+    println!("\n--- 9. Derivation DAG Live Execution (dry_run=true) ---");
+
+    let mut derivations = BTreeMap::new();
+    derivations.insert("base".to_string(), sample_derivation());
+
+    // Dry-run mode (same as simulate)
+    let results = execute_derivation_dag_live(
+        &derivations,
+        &["base".to_string()],
+        &BTreeMap::new(),
+        &[],
+        Path::new("/var/lib/forjar/store"),
+        true, // dry_run
+    )
+    .unwrap();
+
+    assert_eq!(results.len(), 1);
+    println!("  dry_run=true: {} result(s)", results.len());
+
+    // Live mode (still simulates without kernel namespaces)
+    let results_live = execute_derivation_dag_live(
+        &derivations,
+        &["base".to_string()],
+        &BTreeMap::new(),
+        &[],
+        Path::new("/var/lib/forjar/store"),
+        false, // live
+    )
+    .unwrap();
+
+    assert_eq!(results_live.len(), 1);
+    println!("  dry_run=false: {} result(s)", results_live.len());
+    println!("  Live DAG execution verified");
 }
 
 fn sample_derivation() -> Derivation {

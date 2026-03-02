@@ -12,3 +12,4 @@
 - [Drift Detection & Tripwire](./09-drift-and-tripwire.md)
 - [Testing & CI/CD Integration](./10-testing-and-ci.md)
 - [Troubleshooting](./11-troubleshooting.md)
+- [Content-Addressed Store](./12-store.md)
