@@ -1,0 +1,106 @@
+roadmap_version: '1.0'
+github_enabled: true
+github_repo: paiml/forjar
+roadmap:
+- id: PMAT-001
+  github_issue: null
+  item_type: task
+  title: 'FJ-1304: Reference scanning for store paths'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-03-02T11:08:54Z
+  updated: 2026-03-02T11:09:05.080467577+00:00
+  spec: null
+  acceptance_criteria:
+  - Scan store entry outputs for references to other store paths. Build reachability graph for GC.
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-002
+  github_issue: null
+  item_type: task
+  title: 'FJ-1305: Purity classification and analysis'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-03-02T11:09:01Z
+  updated: 2026-03-02T11:09:01Z
+  spec: null
+  acceptance_criteria:
+  - '4-level purity model: Pure(0), Pinned(1), Constrained(2), Impure(3). Static analysis of recipe resources.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-003
+  github_issue: null
+  item_type: task
+  title: 'FJ-1307: Input closure tracking'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-03-02T11:09:01Z
+  updated: 2026-03-02T11:09:01Z
+  spec: null
+  acceptance_criteria:
+  - Compute transitive input closure. Closure hash via composite_hash over sorted input hashes.
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-004
+  github_issue: null
+  item_type: task
+  title: 'FJ-1310: Lock file format'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-03-02T11:09:01Z
+  updated: 2026-03-02T11:09:01Z
+  spec: null
+  acceptance_criteria:
+  - 'forjar.inputs.lock.yaml: schema, pins with provider/version/hash. Read/write/diff.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-005
+  github_issue: null
+  item_type: task
+  title: 'FJ-1325: GC roots and mark-and-sweep'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-03-02T11:09:01Z
+  updated: 2026-03-02T11:09:01Z
+  spec: null
+  acceptance_criteria:
+  - GC roots from profile symlinks, lock file pins. Mark-and-sweep follows references in meta.yaml.
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-006
+  github_issue: null
+  item_type: task
+  title: 'FJ-1329: Reproducibility score'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-03-02T11:09:01Z
+  updated: 2026-03-02T11:09:01Z
+  spec: null
+  acceptance_criteria:
+  - 0-100 score based on purity levels, store coverage, input lock coverage.
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
