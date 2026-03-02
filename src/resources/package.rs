@@ -123,7 +123,11 @@ fn apply_cargo_present(resource: &Resource) -> String {
     format!(
         "set -euo pipefail\n\
          command -v cargo >/dev/null 2>&1 || {{\n\
-           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --no-modify-path\n\
+           RUSTUP_INIT=$(mktemp /tmp/rustup-init.XXXXXX)\n\
+           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs -o \"$RUSTUP_INIT\"\n\
+           chmod +x \"$RUSTUP_INIT\"\n\
+           \"$RUSTUP_INIT\" -y --no-modify-path\n\
+           rm -f \"$RUSTUP_INIT\"\n\
            export PATH=\"$HOME/.cargo/bin:$PATH\"\n\
          }}\n\
          if [ -z \"${{CARGO_BUILD_JOBS:-}}\" ]; then\n\

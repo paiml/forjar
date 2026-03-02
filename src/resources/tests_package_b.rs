@@ -188,6 +188,28 @@ fn test_fj1005_cargo_bootstrap_rustup() {
     );
 }
 
+/// PMAT-043: rustup bootstrap must NOT pipe curl to sh (SEC008/SEC015 violation).
+/// bashrs I8 validation rejects `curl | sh` patterns — download to tmpfile then execute.
+#[test]
+fn test_pmat043_rustup_no_curl_pipe_to_sh() {
+    let mut r = make_apt_resource(&["realizar"]);
+    r.provider = Some("cargo".to_string());
+    let script = apply_script(&r);
+    assert!(
+        !script.contains("| sh"),
+        "must not pipe curl to sh (SEC008): {script}"
+    );
+    assert!(
+        !script.contains("| bash"),
+        "must not pipe curl to bash: {script}"
+    );
+    // Should download to a file first, then execute
+    assert!(
+        script.contains("rustup-init"),
+        "should download rustup-init to a file: {script}"
+    );
+}
+
 /// FJ-1008: cargo install limits build parallelism to avoid OOM on high-core machines.
 /// Root cause: unbounded `cargo install` defaults to nproc jobs, causing OOM on 32-core+.
 #[test]
