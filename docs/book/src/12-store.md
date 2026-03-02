@@ -192,5 +192,5 @@ forjar convert --reproducible --apply -f myconfig.yaml
 
 ## References
 
-- [Phase L Execution Spec](../specifications/store/phase-l-execution.md)
-- [Store Specification Index](../specifications/store/README.md)
+- Phase L Execution Spec: `docs/specifications/store/phase-l-execution.md`
+- Store Specification Index: `docs/specifications/store/README.md`
