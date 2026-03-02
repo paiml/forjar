@@ -16,6 +16,9 @@ pub struct ResourceConversion {
     /// Resource name
     pub name: String,
 
+    /// Provider (apt, cargo, nix, etc.)
+    pub provider: String,
+
     /// Current purity level
     pub current_purity: PurityLevel,
 
@@ -157,6 +160,7 @@ fn analyze_resource(sig: &ConversionSignals) -> ResourceConversion {
 
     ResourceConversion {
         name: sig.name.clone(),
+        provider: sig.provider.clone(),
         current_purity: current,
         target_purity: target,
         auto_changes,
