@@ -561,6 +561,8 @@ mod tests_cov_remaining_10;
 #[cfg(test)]
 mod tests_cov_remaining_11;
 #[cfg(test)]
+mod tests_cov_remaining_12;
+#[cfg(test)]
 mod tests_dispatch_store;
 #[cfg(test)]
 mod tests_validate_analytics;
