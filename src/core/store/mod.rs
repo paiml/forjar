@@ -20,6 +20,7 @@ pub mod kernel_far;
 pub mod lockfile;
 pub mod meta;
 pub mod path;
+pub mod pin_resolve;
 pub mod pin_tripwire;
 pub mod profile;
 pub mod provider;
@@ -70,6 +71,8 @@ mod tests_lockfile;
 mod tests_meta;
 #[cfg(test)]
 mod tests_path;
+#[cfg(test)]
+mod tests_pin_resolve;
 #[cfg(test)]
 mod tests_pin_tripwire;
 #[cfg(test)]
