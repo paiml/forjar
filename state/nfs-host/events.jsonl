@@ -1,0 +1,12 @@
+{"ts":"2026-03-02T08:34:56Z","event":"apply_started","machine":"nfs-host","run_id":"r-f93d97a80967","forjar_version":"1.0.0"}
+{"ts":"2026-03-02T08:34:56Z","event":"resource_started","machine":"nfs-host","resource":"nfs-pkg","action":"CREATE"}
+{"ts":"2026-03-02T08:34:56Z","event":"resource_converged","machine":"nfs-host","resource":"nfs-pkg","duration_seconds":0.035848343,"hash":"blake3:74aca2b24a7233988a17e00480e8456f7cf7ed8285246422c5e54ed05cd9669a"}
+{"ts":"2026-03-02T08:34:56Z","event":"resource_started","machine":"nfs-host","resource":"export-dir","action":"CREATE"}
+{"ts":"2026-03-02T08:34:56Z","event":"resource_converged","machine":"nfs-host","resource":"export-dir","duration_seconds":0.005710299,"hash":"blake3:ef63059b67e0bd4f5774470a68502a1f802aa4e2da5f9df64e10e6ec07e976f5"}
+{"ts":"2026-03-02T08:34:56Z","event":"resource_started","machine":"nfs-host","resource":"exports-config","action":"CREATE"}
+{"ts":"2026-03-02T08:34:56Z","event":"resource_converged","machine":"nfs-host","resource":"exports-config","duration_seconds":0.003866659,"hash":"blake3:9e2562bf263b0eb5346804d8b8af9e3891521b975356eade1c8ef858fc219883"}
+{"ts":"2026-03-02T08:34:56Z","event":"resource_started","machine":"nfs-host","resource":"nfs-service","action":"CREATE"}
+{"ts":"2026-03-02T08:34:56Z","event":"resource_failed","machine":"nfs-host","resource":"nfs-service","error":"exit code 5: Failed to start nfs-kernel-server.service: Unit nfs-kernel-server.service not found."}
+{"ts":"2026-03-02T08:34:56Z","event":"resource_started","machine":"nfs-host","resource":"firewall-nfs","action":"CREATE"}
+{"ts":"2026-03-02T08:34:56Z","event":"resource_converged","machine":"nfs-host","resource":"firewall-nfs","duration_seconds":0.539577532,"hash":"blake3:2d05add24bfd59340027ba26a2052af6623cf8496e0fb0ae95b39017e1880690"}
+{"ts":"2026-03-02T08:34:56Z","event":"apply_completed","machine":"nfs-host","run_id":"r-f93d97a80967","resources_converged":4,"resources_unchanged":0,"resources_failed":1,"total_seconds":0.657378175}

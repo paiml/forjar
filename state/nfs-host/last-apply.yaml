@@ -1,0 +1,41 @@
+machine: nfs-host
+resources_converged: 4
+resources_unchanged: 0
+resources_failed: 1
+total_duration: 0.657593771
+resource_reports:
+- resource_id: nfs-pkg
+  resource_type: package
+  status: converged
+  duration_seconds: 0.035848343
+  exit_code: null
+  hash: blake3:74aca2b24a7233988a17e00480e8456f7cf7ed8285246422c5e54ed05cd9669a
+  error: null
+- resource_id: export-dir
+  resource_type: file
+  status: converged
+  duration_seconds: 0.005710299
+  exit_code: null
+  hash: blake3:ef63059b67e0bd4f5774470a68502a1f802aa4e2da5f9df64e10e6ec07e976f5
+  error: null
+- resource_id: exports-config
+  resource_type: file
+  status: converged
+  duration_seconds: 0.003866659
+  exit_code: null
+  hash: blake3:9e2562bf263b0eb5346804d8b8af9e3891521b975356eade1c8ef858fc219883
+  error: null
+- resource_id: nfs-service
+  resource_type: service
+  status: failed
+  duration_seconds: 0.006162563
+  exit_code: null
+  hash: null
+  error: null
+- resource_id: firewall-nfs
+  resource_type: network
+  status: converged
+  duration_seconds: 0.539577532
+  exit_code: null
+  hash: blake3:2d05add24bfd59340027ba26a2052af6623cf8496e0fb0ae95b39017e1880690
+  error: null
