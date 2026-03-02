@@ -227,3 +227,108 @@ fn derivation_replay_sorted_by_depth() {
         plan.derivation_replays[0].derivation_depth <= plan.derivation_replays[1].derivation_depth
     );
 }
+
+// ===== sync_exec helper function tests =====
+
+use super::sync_exec::{parse_provider, tempdir_for_reimport};
+use super::provider::ImportProvider;
+
+#[test]
+fn parse_provider_all_valid() {
+    assert!(matches!(parse_provider("apt"), Ok(ImportProvider::Apt)));
+    assert!(matches!(parse_provider("cargo"), Ok(ImportProvider::Cargo)));
+    assert!(matches!(parse_provider("uv"), Ok(ImportProvider::Uv)));
+    assert!(matches!(parse_provider("nix"), Ok(ImportProvider::Nix)));
+    assert!(matches!(
+        parse_provider("docker"),
+        Ok(ImportProvider::Docker)
+    ));
+    assert!(matches!(parse_provider("tofu"), Ok(ImportProvider::Tofu)));
+    assert!(matches!(
+        parse_provider("terraform"),
+        Ok(ImportProvider::Terraform)
+    ));
+    assert!(matches!(parse_provider("apr"), Ok(ImportProvider::Apr)));
+}
+
+#[test]
+fn parse_provider_unknown_returns_error() {
+    let result = parse_provider("pip");
+    assert!(result.is_err());
+    assert!(result.unwrap_err().contains("unknown provider"));
+}
+
+#[test]
+fn parse_provider_empty_returns_error() {
+    assert!(parse_provider("").is_err());
+}
+
+#[test]
+fn tempdir_for_reimport_strips_prefix() {
+    let path = tempdir_for_reimport("blake3:abcdef1234567890");
+    assert!(path.to_str().unwrap().contains("abcdef1234567890"));
+    assert!(!path.to_str().unwrap().contains("blake3:"));
+}
+
+#[test]
+fn tempdir_for_reimport_raw_hash() {
+    let path = tempdir_for_reimport("rawvalue123456789");
+    assert!(path.to_str().unwrap().contains("rawvalue12345678"));
+}
+
+#[test]
+fn tempdir_for_reimport_short_hash() {
+    let path = tempdir_for_reimport("blake3:abc");
+    assert!(path.to_str().unwrap().contains("abc"));
+}
+
+#[test]
+fn diff_exec_result_with_no_upstream() {
+    let diff = DiffResult {
+        store_hash: "blake3:aaa".to_string(),
+        upstream_changed: false,
+        local_origin_hash: Some("blake3:old".to_string()),
+        upstream_hash: None,
+        provider: "apt".to_string(),
+        origin_ref: Some("curl".to_string()),
+        derivation_chain_depth: 0,
+    };
+    let result = DiffExecResult {
+        diff,
+        upstream_command: None,
+        upstream_output: None,
+    };
+    assert!(!result.diff.upstream_changed);
+    assert!(result.upstream_command.is_none());
+    assert!(result.upstream_output.is_none());
+}
+
+#[test]
+fn upstream_check_command_for_uv_returns_none() {
+    // uv is not a diffable provider in store_diff
+    let meta = meta_with_provenance("aaa", "uv", "requests", "hash");
+    assert!(upstream_check_command(&meta).is_none());
+}
+
+#[test]
+fn upstream_check_command_for_tofu() {
+    let meta = meta_with_provenance("aaa", "tofu", "./infra", "hash");
+    let cmd = upstream_check_command(&meta).unwrap();
+    assert!(cmd.contains("tofu plan"));
+}
+
+#[test]
+fn upstream_check_command_for_apr() {
+    let meta = meta_with_provenance("aaa", "apr", "mistral-7b", "hash");
+    let cmd = upstream_check_command(&meta).unwrap();
+    assert!(cmd.contains("apr info"));
+}
+
+#[test]
+fn build_sync_plan_empty_input() {
+    let entries: Vec<(StoreMeta, Option<String>)> = vec![];
+    let plan = build_sync_plan(&entries);
+    assert_eq!(plan.total_steps, 0);
+    assert!(plan.re_imports.is_empty());
+    assert!(plan.derivation_replays.is_empty());
+}

@@ -190,7 +190,7 @@ fn write_import_meta(
 }
 
 /// Atomic move: rename staging → store content dir.
-fn atomic_move_to_store(staging: &Path, target: &Path) -> Result<(), String> {
+pub fn atomic_move_to_store(staging: &Path, target: &Path) -> Result<(), String> {
     if let Some(parent) = target.parent() {
         std::fs::create_dir_all(parent)
             .map_err(|e| format!("create store entry dir {}: {e}", parent.display()))?;
@@ -210,7 +210,7 @@ fn cleanup_staging(staging: &Path) {
 }
 
 /// Count files and total bytes in a directory.
-fn dir_stats(dir: &Path) -> (u64, u64) {
+pub fn dir_stats(dir: &Path) -> (u64, u64) {
     let mut count = 0u64;
     let mut size = 0u64;
     if let Ok(entries) = walkdir(dir) {
@@ -223,7 +223,7 @@ fn dir_stats(dir: &Path) -> (u64, u64) {
 }
 
 /// Walk directory recursively, returning (path, size) pairs for files.
-fn walkdir(dir: &Path) -> Result<Vec<(PathBuf, u64)>, String> {
+pub fn walkdir(dir: &Path) -> Result<Vec<(PathBuf, u64)>, String> {
     let mut results = Vec::new();
     walkdir_inner(dir, &mut results)?;
     Ok(results)

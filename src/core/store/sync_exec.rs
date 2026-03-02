@@ -167,7 +167,7 @@ pub fn diff_all_entries(
 }
 
 /// Parse a provider string into an ImportProvider enum.
-fn parse_provider(s: &str) -> Result<ImportProvider, String> {
+pub fn parse_provider(s: &str) -> Result<ImportProvider, String> {
     match s {
         "apt" => Ok(ImportProvider::Apt),
         "cargo" => Ok(ImportProvider::Cargo),
@@ -182,7 +182,7 @@ fn parse_provider(s: &str) -> Result<ImportProvider, String> {
 }
 
 /// Create a temporary directory for re-import staging.
-fn tempdir_for_reimport(store_hash: &str) -> std::path::PathBuf {
+pub fn tempdir_for_reimport(store_hash: &str) -> std::path::PathBuf {
     let hash_bare = store_hash.strip_prefix("blake3:").unwrap_or(store_hash);
     let short = &hash_bare[..16.min(hash_bare.len())];
     std::path::PathBuf::from(format!("/tmp/forjar-reimport-{short}"))

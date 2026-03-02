@@ -252,3 +252,113 @@ fn hash_staging_preserves_filename_in_hash() {
         "different filenames should produce different hashes"
     );
 }
+
+// ===== provider_exec helper function tests =====
+
+use super::provider_exec::{atomic_move_to_store, dir_stats, walkdir};
+
+#[test]
+fn atomic_move_to_store_succeeds() {
+    let dir = tempfile::tempdir().unwrap();
+    let staging = dir.path().join("staging");
+    std::fs::create_dir_all(&staging).unwrap();
+    std::fs::write(staging.join("file.txt"), b"test").unwrap();
+
+    let target = dir.path().join("store/abc123/content");
+    atomic_move_to_store(&staging, &target).unwrap();
+
+    assert!(target.join("file.txt").exists());
+    assert!(!staging.exists());
+}
+
+#[test]
+fn atomic_move_to_store_creates_parent_dirs() {
+    let dir = tempfile::tempdir().unwrap();
+    let staging = dir.path().join("staging");
+    std::fs::create_dir_all(&staging).unwrap();
+    std::fs::write(staging.join("data.bin"), b"data").unwrap();
+
+    let target = dir.path().join("deep/nested/store/content");
+    atomic_move_to_store(&staging, &target).unwrap();
+
+    assert!(target.join("data.bin").exists());
+}
+
+#[test]
+fn dir_stats_counts_files_and_bytes() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("a.txt"), b"hello").unwrap();
+    std::fs::write(dir.path().join("b.txt"), b"world!").unwrap();
+
+    let (count, size) = dir_stats(dir.path());
+    assert_eq!(count, 2);
+    assert_eq!(size, 11); // 5 + 6
+}
+
+#[test]
+fn dir_stats_recursive() {
+    let dir = tempfile::tempdir().unwrap();
+    let sub = dir.path().join("sub");
+    std::fs::create_dir_all(&sub).unwrap();
+    std::fs::write(sub.join("nested.txt"), b"nested").unwrap();
+    std::fs::write(dir.path().join("root.txt"), b"root").unwrap();
+
+    let (count, _size) = dir_stats(dir.path());
+    assert_eq!(count, 2);
+}
+
+#[test]
+fn dir_stats_empty_dir() {
+    let dir = tempfile::tempdir().unwrap();
+    let (count, size) = dir_stats(dir.path());
+    assert_eq!(count, 0);
+    assert_eq!(size, 0);
+}
+
+#[test]
+fn walkdir_returns_files_with_sizes() {
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(dir.path().join("a.txt"), b"alpha").unwrap();
+    let sub = dir.path().join("inner");
+    std::fs::create_dir_all(&sub).unwrap();
+    std::fs::write(sub.join("b.txt"), b"beta").unwrap();
+
+    let results = walkdir(dir.path()).unwrap();
+    assert_eq!(results.len(), 2);
+    let total_size: u64 = results.iter().map(|(_, s)| *s).sum();
+    assert_eq!(total_size, 9); // 5 + 4
+}
+
+#[test]
+fn walkdir_empty_dir() {
+    let dir = tempfile::tempdir().unwrap();
+    let results = walkdir(dir.path()).unwrap();
+    assert!(results.is_empty());
+}
+
+#[test]
+fn walkdir_nonexistent_dir_errors() {
+    let result = walkdir(std::path::Path::new("/nonexistent_walkdir_test"));
+    assert!(result.is_err());
+}
+
+#[test]
+fn build_staging_script_preserves_command() {
+    let script = build_staging_script(
+        "apt-get install -y nginx=1.24.0",
+        &PathBuf::from("/tmp/staging-test"),
+    );
+    assert!(script.contains("nginx=1.24.0"));
+    assert!(script.contains("STAGING"));
+}
+
+#[test]
+fn hash_staging_with_deeply_nested_structure() {
+    let dir = tempfile::tempdir().unwrap();
+    let deep = dir.path().join("a/b/c/d");
+    std::fs::create_dir_all(&deep).unwrap();
+    std::fs::write(deep.join("leaf.txt"), b"leaf node").unwrap();
+
+    let hash = hash_staging_dir(dir.path()).unwrap();
+    assert!(hash.starts_with("blake3:"));
+}
