@@ -32,6 +32,7 @@ fn sample_manifest() -> FarManifest {
             created_at: "2026-01-01T00:00:00Z".to_string(),
             generator: "forjar 1.0.0".to_string(),
         },
+        kernel_contracts: None,
     }
 }
 
@@ -100,6 +101,7 @@ fn test_fj1346_empty_archive() {
             created_at: "2026-01-01T00:00:00Z".to_string(),
             generator: "forjar 1.0.0".to_string(),
         },
+        kernel_contracts: None,
     };
     let chunks: Vec<([u8; 32], Vec<u8>)> = vec![];
 
@@ -167,6 +169,7 @@ fn test_fj1346_provenance_optional_fields() {
             created_at: "2026-01-01T00:00:00Z".to_string(),
             generator: "forjar 1.0.0".to_string(),
         },
+        kernel_contracts: None,
     };
     let yaml = serde_yaml_ng::to_string(&m).unwrap();
     // Optional None fields should be omitted

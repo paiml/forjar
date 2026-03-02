@@ -253,6 +253,7 @@ pub fn conda_to_far(conda_path: &Path, far_output: &Path) -> Result<FarManifest,
             created_at: now_iso8601(),
             generator: format!("forjar {}", env!("CARGO_PKG_VERSION")),
         },
+        kernel_contracts: None,
     };
 
     // 6. Encode
