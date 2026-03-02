@@ -24,20 +24,18 @@ The key insight is the **content-addressed store**. Hash all inputs, use that ha
 
 ### 1.3 Competitive Position
 
-| Dimension | Nix | Guix | Docker | Ansible | **Forjar (proposed)** |
-|-----------|-----|------|--------|---------|-----------------------|
-| Content-addressed store | Yes (SHA256) | Yes (SHA256) | Layer hashes | No | **Yes (BLAKE3)** |
-| Hermetic builds | Full (sandbox) | Full (sandbox) | Dockerfile isolation | No | **Incremental (4 levels)** |
-| Binary cache | HTTP (cachix) | HTTP (substitutes) | Registry (OCI) | No | **SSH-only (sovereign)** |
-| Expression language | Nix language | Guile Scheme | Dockerfile | Jinja2 | **YAML templates + bashrs** |
-| Rollback | Generations | Generations | Image tags | No | **Profile generations** |
-| Multi-machine | NixOps (abandoned) | `guix deploy` | Swarm/K8s | Inventory | **Native (SSH fleet)** |
-| Bare-metal first | Yes | Yes | No | Yes | **Yes** |
-| Dependency count | ~1500 (nixpkgs) | ~1200 | ~200 Go modules | ~50 pip | **16 crates (unchanged)** |
+| Dimension | Nix | Docker | Ansible | Terraform | **Forjar** |
+|-----------|-----|--------|---------|-----------|-----------|
+| Content-addressed store | SHA256 | Layer hashes | No | No | **BLAKE3** |
+| Hermetic builds | Full | Dockerfile | No | No | **4 purity levels** |
+| Cache | HTTP | OCI registry | No | No | **SSH-only** |
+| Expression | Nix lang | Dockerfile | Jinja2 | HCL | **YAML + bashrs** |
+| Multi-machine | NixOps | Swarm/K8s | Inventory | Workspaces | **Native SSH fleet** |
+| Import-and-own | No | No | No | No | **Yes (derivations)** |
 
 ### 1.4 Expression Layer
 
-Forjar already has an expression language: **YAML templates expanded by Rust, producing bashrs-purified POSIX shell**. Recipe expansion (`src/core/recipe/expansion.rs`) resolves `{{inputs.*}}` templates across all `Option<String>` fields. bashrs purifies the generated shell into provably safe POSIX. This is the derivation model — inputs flow through templates into purified build scripts. No new language is needed; the store model extends what exists.
+YAML templates expanded by Rust, producing bashrs-purified POSIX shell. Recipe expansion (`src/core/recipe/expansion.rs`) resolves `{{inputs.*}}` templates. This is the derivation model — no new language needed.
 
 ---
 
@@ -71,7 +69,7 @@ store_path = composite_hash([recipe_hash, input_hashes..., arch, provider])
 - `arch`: target machine architecture
 - `provider`: package provider (`apt`, `cargo`, `uv`)
 
-### 2.3 Store Metadata (FJ-1301)
+### 2.3 Store Metadata with Provenance (FJ-1301)
 
 ```yaml
 # /var/forjar/store/<hash>/meta.yaml
@@ -83,8 +81,17 @@ arch: "x86_64"
 provider: "apt"
 created_at: "2026-03-02T10:00:00Z"
 generator: "forjar 0.10.0"
-references: []          # other store paths this entry depends on
+references: []
+provenance:
+  origin_provider: "nix"                  # what tool originally produced this
+  origin_ref: "nixpkgs#ripgrep@14.1.0"   # upstream identifier for diff/sync
+  origin_hash: "sha256:def456..."         # upstream's native hash (for diffing)
+  origin_rev: "abc123..."                 # upstream version pin (nixpkgs rev, docker tag, tofu state serial)
+  derived_from: ["blake3:aaa..."]         # parent store entries (derivation chain)
+  derivation_depth: 1                     # 0 = direct import, N = N derivation steps from import
 ```
+
+The `provenance` block is the traceability chain. `origin_provider` + `origin_ref` record where the artifact first entered the forjar store. `derived_from` tracks the derivation DAG. `derivation_depth: 0` means direct import; depth > 0 means the artifact was derived from other store entries. This enables `forjar diff` and `forjar sync` (Section 10.7).
 
 ### 2.4 Profile Generations (FJ-1302)
 
@@ -255,27 +262,17 @@ Any external tool can seed the forjar store. Each provider shells out to its nat
 
 All providers follow the same flow: invoke CLI → copy output to staging → `hash_directory()` → move to `/var/forjar/store/<hash>/content/` → write `meta.yaml`. Same pattern as existing `cargo` provider in `src/resources/package.rs`.
 
-### 9.2 Provider-Specific Handling
+### 9.2 Provider-Specific Notes
 
-**Nix** (FJ-1334): outputs contain hardcoded `/nix/store/` paths. At import, forjar rewrites via `patchelf` (ELF) and bashrs-purified `sed` (scripts). Re-hashed after rewriting.
+**Nix** (FJ-1334): rewrites `/nix/store/` paths via `patchelf` + bashrs `sed`, re-hashed after rewriting. **Docker** (FJ-1335): `docker create` + `docker export` → unpack, strip Docker metadata, hash, store — the Dockerfile → pepita path. **Terraform/OpenTofu** (FJ-1336): outputs are structured data (IPs, IDs), stored as YAML in `content/outputs.yaml`, used as derivation inputs. **apr** (FJ-1337): model artifacts (gguf, safetensors, apr format) imported via `apr pull`, checksummed, stored with model lineage in provenance. **alimentar** (FJ-1338): dataset snapshots imported, hashed, versioned — derivations transform (filter, augment, split) inside pepita.
 
-**Docker** (FJ-1335): `docker create` + `docker export` produces a root filesystem tarball. Unpack, strip Docker metadata (`.dockerenv`, `docker-entrypoint.sh`), hash, store. This is the path from Dockerfile → pepita rootfs.
-
-**Terraform/OpenTofu** (FJ-1336): outputs are structured data (IPs, resource IDs, certificate paths), not filesystem trees. Stored as YAML in `content/outputs.yaml`, hashed as a file. Used as inputs to downstream derivations (e.g., template a config file with a Terraform-provisioned IP).
-
-### 9.3 Sovereignty Guarantee
-
-Once imported, store entries are provider-agnostic. A package imported from Nix, a rootfs exported from Docker, and a config generated from Terraform outputs — all distribute identically via `forjar cache push` over SSH. Target machines never need the source tool installed.
+After import, all store entries are provider-agnostic and distribute identically via SSH.
 
 ---
 
 ## 10. Store Derivations (FJ-1341–FJ-1345)
 
-The missing abstraction: take one or more store entries as inputs, apply a transformation inside a pepita sandbox, produce a new store entry. This is how imported artifacts become forjar-native.
-
-### 10.1 The Problem
-
-A user imports an Ubuntu rootfs from Docker and a set of packages from Nix. They want to combine them into a single pepita-bootable rootfs with custom configuration. Today, the store has no way to express "store entry A + store entry B + recipe C → store entry D."
+Take one or more store entries as inputs, apply a transformation inside a pepita sandbox, produce a new store entry. This is how imported artifacts become forjar-native — the **import once, own forever** model.
 
 ### 10.2 Derivation Model (FJ-1341)
 
@@ -306,20 +303,7 @@ resources:
 
 ### 10.3 Derivation Lifecycle (FJ-1342)
 
-```
-1. Resolve inputs     (store hashes or resource outputs)
-2. Compute closure    (composite_hash of all input hashes + script hash + arch)
-3. Check store        (if closure hash exists → substitution, skip build)
-4. Create pepita ns   (ensure_namespace — full sandbox)
-5. Bind inputs        (read-only mounts: /forjar/inputs/<name> → store content)
-6. Execute script     (bashrs-purified, writes to $out)
-7. Hash output        (hash_directory($out))
-8. Store              (atomic move to /var/forjar/store/<hash>/content/)
-9. Write meta.yaml    (records: input closure, script hash, references, provenance)
-10. Destroy namespace
-```
-
-Steps 4–10 reuse the sandbox lifecycle from Section 5.3. The derivation adds input resolution (steps 1–3) on top.
+Resolve inputs → compute closure hash → check store (hit = substitute, skip build) → create pepita namespace → bind inputs read-only → execute bashrs script (writes `$out`) → `hash_directory($out)` → atomic move to store → write `meta.yaml` (closure, provenance) → destroy namespace. Steps 4–10 reuse the sandbox lifecycle from Section 5.
 
 ### 10.4 Any Provider → Pepita Pipeline (FJ-1343)
 
@@ -354,13 +338,39 @@ The provider is interchangeable: Docker → store → derivation → pepita. Or 
 
 Derivations reference other derivations as inputs, forming a DAG (evaluated bottom-up via `depends_on`). Each step produces a new immutable store entry, independently cacheable and substitutable.
 
-### 10.6 CLI (FJ-1345)
+### 10.6 Import Once, Own Forever
+
+The default user story: import from any provider (nix, docker, tofu, terraform, apt), derive your customization on top, pack as FAR, distribute over SSH. The source provider is never invoked again — your FAR is sovereign. The `meta.yaml` provenance chain records the origin for traceability, but the artifact's identity is its own BLAKE3 hash.
+
+### 10.7 Upstream Diff and Sync (FJ-1345)
+
+Provenance enables diffing against upstream. `meta.yaml` records `origin_provider`, `origin_ref`, `origin_hash`:
+
+```bash
+forjar store diff <hash>               # diff store entry against upstream origin
+forjar store sync <hash> --apply       # re-import upstream, replay derivation chain
+```
+
+`diff` re-invokes the origin provider, captures current upstream, compares. `sync --apply` re-imports, then replays each `derived_from` step to produce an updated FAR. The MLOps story: upstream model weights change → `forjar store sync` detects → re-derives fine-tuned model → re-packs as FAR.
+
+### 10.8 MLOps / AI Engineering Integration
+
+Derivation + provenance directly supports the aprender/alimentar ecosystem:
+
+- **Model artifacts** (apr, gguf, safetensors): imported via `forjar import apr`, stored with BLAKE3 checksums. Provenance tracks source (HuggingFace, apr registry), quantization, fine-tuning lineage.
+- **Data artifacts** (alimentar): dataset snapshots hashed and versioned. Derivations transform (filter, augment, split) inside pepita. Full data lineage in provenance.
+- **Training pipelines**: derivation chains: data (alimentar) → preprocess → train (aprender/trueno) → evaluate → model (apr) → deploy (pepita). Each step is a store entry, independently cacheable, fully traceable.
+
+### 10.9 CLI
 
 ```bash
 forjar import docker ubuntu:24.04       # import Docker image into store
 forjar import nix nixpkgs#ripgrep       # import Nix package into store
 forjar import tofu ./infra/             # import Terraform/OpenTofu outputs
+forjar import apr meta-llama/Llama-3    # import model into store
 forjar store list --show-provider       # list entries with source provider
+forjar store diff <hash>                # diff against upstream origin
+forjar store sync <hash> --apply        # re-import and re-derive
 ```
 
 ---
@@ -474,27 +484,10 @@ forjar archive verify <file.far>     # verify chunk hashes + signature
 
 ## 15. Invariants
 
-### Store Contracts
+**Store**: Write-once (hash *is* identity; modification is corruption). Hash integrity (`hash_directory(content/) == store_hash`) checked by `forjar cache verify`. Atomic creation via temp-dir + rename (same as `save_lock()` in `src/core/state/mod.rs:27`).
 
-- **Write-once**: once `/var/forjar/store/<hash>/` is created, its contents are immutable. The hash *is* the content. Modification is corruption.
-- **Hash integrity**: `hash_directory(store_path/content/) == store_hash` must hold at all times. `forjar cache verify` checks this.
-- **Atomic creation**: store entries are built in a staging directory and atomically renamed into place (same pattern as `save_lock()` in `src/core/state/mod.rs:27`).
+**Purity**: Monotonicity — a resource's purity ≥ max purity of its transitive deps (pure cannot depend on impure). Closure determinism — identical input closures → identical store hashes. Classification stability — purity cannot improve without definition changes.
 
-### Purity Contracts
+**Derivations**: Input immutability (read-only bind mounts). Output isolation (`$out` only writable dir). Closure completeness (`composite_hash(inputs + script + arch)` — any change → new store entry). Provider erasure — once stored, source provider is metadata, not identity.
 
-- **Monotonicity**: a resource's purity level is always ≥ the maximum purity level of its transitive dependencies. A pure resource cannot depend on an impure input.
-- **Closure determinism**: two resources with identical input closures always produce identical store hashes (given the same architecture and provider).
-- **Classification stability**: a resource's purity level cannot improve without changing its definition. Adding `store: true` alone does not make a resource pure — it must also have pinned versions and (for level 0) a sandbox.
-
-### Derivation Contracts
-
-- **Input immutability**: derivation inputs are read-only bind mounts. The build script cannot modify its inputs.
-- **Output isolation**: `$out` is the only writable directory. Everything outside `$out` is discarded.
-- **Closure completeness**: a derivation's store hash is `composite_hash(input_hashes + script_hash + arch)`. Changing any input or the script produces a different store entry.
-- **Provider erasure**: once in the store, a derivation's output is indistinguishable from any other store entry. The source provider is metadata, not identity.
-
-### Lock File Contracts
-
-- **Completeness**: `forjar pin --check` fails if any resource input is not represented in the lock file.
-- **Freshness**: lock file `hash` fields match the current resolved state of all inputs. Stale hashes are detected and reported.
-- **Atomic update**: lock file writes use the same temp-file + rename pattern as state locks (`src/core/state/mod.rs`).
+**Lock file**: Completeness (`forjar pin --check` fails if any input missing). Freshness (stale hashes detected). Atomic update (temp-file + rename).
