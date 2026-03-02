@@ -124,4 +124,54 @@ resources:
         let result = cmd_convert(&file, true, false, false);
         assert!(result.is_err());
     }
+
+    #[test]
+    fn test_convert_apply_creates_backup() {
+        let dir = TempDir::new().unwrap();
+        let file = config_mixed(&dir);
+
+        let result = cmd_convert(&file, true, true, false);
+        assert!(result.is_ok());
+
+        let backup = dir.path().join("forjar.yaml.bak");
+        assert!(backup.exists(), "apply should create backup");
+    }
+
+    #[test]
+    fn test_convert_apply_json() {
+        let dir = TempDir::new().unwrap();
+        let file = config_mixed(&dir);
+
+        let result = cmd_convert(&file, true, true, true);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_convert_apply_pure_noop() {
+        let dir = TempDir::new().unwrap();
+        let file = config_pure(&dir);
+
+        // Pure config has no changes to apply
+        let result = cmd_convert(&file, true, true, false);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_convert_apply_missing_file() {
+        let dir = TempDir::new().unwrap();
+        let file = dir.path().join("gone.yaml");
+
+        let result = cmd_convert(&file, true, true, false);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_convert_apply_no_reproducible() {
+        let dir = TempDir::new().unwrap();
+        let file = config_mixed(&dir);
+
+        // --apply without --reproducible should fail
+        let result = cmd_convert(&file, false, true, false);
+        assert!(result.is_err());
+    }
 }
