@@ -4,6 +4,7 @@
 //! output is placed under a deterministic path derived from its inputs.
 
 pub mod cache;
+pub mod cache_exec;
 pub mod chunker;
 pub mod closure;
 pub mod conda;
@@ -39,6 +40,8 @@ pub mod validate;
 mod tests_bash_provability;
 #[cfg(test)]
 mod tests_cache;
+#[cfg(test)]
+mod tests_cache_exec;
 #[cfg(test)]
 mod tests_chunker;
 #[cfg(test)]
