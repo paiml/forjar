@@ -111,6 +111,8 @@ fn main() {
         pre_apply: None,
         post_apply: None,
         lifecycle: None,
+        store: false,
+        script: None,
     })
     .unwrap();
 
