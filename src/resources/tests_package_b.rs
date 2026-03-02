@@ -309,3 +309,60 @@ fn test_fj036_package_uv_install() {
         "uv install must start with safety flags: {script}"
     );
 }
+
+// ── Explicit per-arm match variant tests (apply_script) ───────
+
+/// Match arm: ("apt", "present")
+#[test]
+fn test_apply_script_arm_apt_present() {
+    let r = make_apt_resource(&["curl"]);
+    let script = apply_script(&r);
+    assert!(script.contains("apt-get install"), "apt present: {script}");
+}
+
+/// Match arm: ("apt", "absent")
+#[test]
+fn test_apply_script_arm_apt_absent() {
+    let mut r = make_apt_resource(&["curl"]);
+    r.state = Some("absent".to_string());
+    let script = apply_script(&r);
+    assert!(script.contains("apt-get remove"), "apt absent: {script}");
+}
+
+/// Match arm: ("cargo", "present")
+#[test]
+fn test_apply_script_arm_cargo_present() {
+    let mut r = make_apt_resource(&["tool"]);
+    r.provider = Some("cargo".to_string());
+    let script = apply_script(&r);
+    assert!(script.contains("cargo install"), "cargo present: {script}");
+}
+
+/// Match arm: ("uv", "present")
+#[test]
+fn test_apply_script_arm_uv_present() {
+    let mut r = make_apt_resource(&["ruff"]);
+    r.provider = Some("uv".to_string());
+    let script = apply_script(&r);
+    assert!(script.contains("uv tool install"), "uv present: {script}");
+}
+
+/// Match arm: ("uv", "absent")
+#[test]
+fn test_apply_script_arm_uv_absent() {
+    let mut r = make_apt_resource(&["ruff"]);
+    r.provider = Some("uv".to_string());
+    r.state = Some("absent".to_string());
+    let script = apply_script(&r);
+    assert!(script.contains("uv tool uninstall"), "uv absent: {script}");
+}
+
+/// Match arm: (other_provider, other_state)
+#[test]
+fn test_apply_script_arm_other_provider_other_state() {
+    let mut r = make_apt_resource(&["foo"]);
+    r.provider = Some("pip".to_string());
+    r.state = Some("present".to_string());
+    let script = apply_script(&r);
+    assert!(script.contains("unsupported"), "other arm: {script}");
+}
