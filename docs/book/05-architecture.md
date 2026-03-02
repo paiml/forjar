@@ -195,6 +195,43 @@ This hash is stored in the lock file. On the next `apply`, the planner computes 
 
 No API calls needed. Just local hash comparison. Changing any field — content, permissions, image tag, port number, cron schedule — produces a different hash and triggers an update.
 
+## Content-Addressed Store (FJ-1300 series)
+
+The Nix-compatible reproducible package management system extends BLAKE3 content addressing into a full store model. Every build output is placed under a deterministic path derived from its inputs:
+
+```
+/var/lib/forjar/store/<blake3-hash>/
+├── meta.yaml          # Input manifest, provenance, timestamps
+└── content/           # Actual build output
+```
+
+**Store path derivation** (`src/core/store/path.rs`): `store_path = composite_hash([recipe_hash, sorted_input_hashes, arch, provider])`. Identical inputs always produce the same store path.
+
+**Purity classification** (`src/core/store/purity.rs`): 4-level model classifying each resource:
+
+| Level | Name | Criteria |
+|-------|------|----------|
+| 0 | Pure | Version pinned + store + sandbox |
+| 1 | Pinned | Version-locked, no sandbox |
+| 2 | Constrained | Provider-scoped, floating version |
+| 3 | Impure | curl\|bash or unconstrained access |
+
+Monotonicity invariant: a resource's purity level is at least as impure as its least-pure transitive dependency.
+
+**Input closure** (`src/core/store/closure.rs`): transitive input closure — the full set of inputs contributing to a store hash. Identical closures produce identical store paths (determinism invariant). Cycle-safe graph traversal with deduplication.
+
+**Lock file** (`src/core/store/lockfile.rs`): `forjar.inputs.lock.yaml` pins all resolved inputs (provider, version, BLAKE3 hash). Supports staleness detection and completeness checking for CI gates.
+
+**Reference scanning** (`src/core/store/reference.rs`): conservative scan of store entry outputs for BLAKE3 hash patterns, building the reachability graph needed by garbage collection.
+
+**Garbage collection** (`src/core/store/gc.rs`): mark-and-sweep starting from GC roots (profile generations, lock file pins, `.gc-roots/` symlinks), following references in `meta.yaml` transitively. Unreachable entries are reported as dead.
+
+**Reproducibility score** (`src/core/store/repro_score.rs`): 0-100 composite weighted by purity levels (50%), store coverage (30%), and lock coverage (20%). Per-resource breakdown with A-F grading.
+
+**FAR format** (`src/core/store/far.rs`): Forjar ARchive — BLAKE3 verified streaming, zstd compression, content-defined chunking, inline provenance. Binary layout: magic → manifest → chunk table → chunks → signature.
+
+See `cargo run --example store_reproducibility` for a full demonstration.
+
 ## Shell Purification (FJ-036)
 
 Every shell script forjar generates passes through the **bashrs** purification pipeline. This enforces Invariant I8: no raw shell execution.
