@@ -86,16 +86,31 @@ pub(crate) fn cmd_cache_push(
 }
 
 /// Pull a store entry from remote cache.
-pub(crate) fn cmd_cache_pull(hash: &str, store_dir: &Path) -> Result<(), String> {
+pub(crate) fn cmd_cache_pull(
+    hash: &str,
+    source: Option<&str>,
+    store_dir: &Path,
+) -> Result<(), String> {
     let target_dir = store_dir.join(hash.strip_prefix("blake3:").unwrap_or(hash));
     if target_dir.exists() {
         println!("Entry already in local store: {hash}");
         return Ok(());
     }
 
-    // Try all configured local sources first, then fall back to message
-    println!("Pull requires a remote source — use `cache push` to populate remotes");
-    println!("  Target: {}", target_dir.display());
+    let cache_source = match source {
+        Some(remote) => parse_remote(remote)?,
+        None => {
+            println!("Pull requires --source <user@host:path>");
+            println!("  Target: {}", target_dir.display());
+            return Ok(());
+        }
+    };
+
+    let machine = local_machine();
+    let result =
+        cache_exec::pull_from_cache(&cache_source, hash, store_dir, &machine, Some(300))?;
+    println!("Pulled {} to {}", result.store_hash, result.store_path);
+    println!("  Bytes: {} | Verified: {}", result.bytes_transferred, result.verified);
     Ok(())
 }
 

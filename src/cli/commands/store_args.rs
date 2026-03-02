@@ -60,6 +60,10 @@ pub enum CacheCmd {
         /// BLAKE3 hash of the store entry
         hash: String,
 
+        /// Remote source (user@host:path)
+        #[arg(long)]
+        source: Option<String>,
+
         /// Store directory
         #[arg(long, default_value = "/var/lib/forjar/store")]
         store_dir: PathBuf,
