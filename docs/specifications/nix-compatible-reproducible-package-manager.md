@@ -20,13 +20,13 @@ Today, forjar's package resources call `apt install` or `cargo install` at apply
 
 ### 1.2 Key Insight
 
-The key insight is the **content-addressed store**. Hash all inputs, use that hash as the storage key, and you get reproducibility (same inputs → same output), cacheability (build once, substitute everywhere), rollback (previous generations persist), and garbage collection (unreachable entries are safe to delete). This works with any provider — apt, cargo, uv, or optionally nix.
+The key insight is the **content-addressed store** [1][2]. Hash all inputs, use that hash as the storage key, and you get reproducibility (same inputs → same output), cacheability (build once, substitute everywhere), rollback (previous generations persist), and garbage collection (unreachable entries are safe to delete). This works with any provider — apt, cargo, uv, or optionally nix. Note: content-addressing is necessary but not sufficient — even Nix achieves only 69–91% bitwise reproducibility at scale [3], primarily due to timestamps, build paths, and non-deterministic compilers.
 
 ### 1.3 Competitive Position
 
 | Dimension | Nix | Docker | Ansible | Terraform | **Forjar** |
 |-----------|-----|--------|---------|-----------|-----------|
-| Content-addressed store | SHA256 | Layer hashes | No | No | **BLAKE3** |
+| Content-addressed store | SHA256 | Layer hashes | No | No | **BLAKE3** [4] |
 | Hermetic builds | Full | Dockerfile | No | No | **4 purity levels** |
 | Cache | HTTP | OCI registry | No | No | **SSH-only** |
 | Expression | Nix lang | Dockerfile | Jinja2 | HCL | **YAML + bashrs** |
@@ -86,12 +86,11 @@ provenance:
   origin_provider: "nix"                  # what tool originally produced this
   origin_ref: "nixpkgs#ripgrep@14.1.0"   # upstream identifier for diff/sync
   origin_hash: "sha256:def456..."         # upstream's native hash (for diffing)
-  origin_rev: "abc123..."                 # upstream version pin (nixpkgs rev, docker tag, tofu state serial)
   derived_from: ["blake3:aaa..."]         # parent store entries (derivation chain)
-  derivation_depth: 1                     # 0 = direct import, N = N derivation steps from import
+  derivation_depth: 1                     # 0 = direct import, N = N derivation steps
 ```
 
-The `provenance` block is the traceability chain. `origin_provider` + `origin_ref` record where the artifact first entered the forjar store. `derived_from` tracks the derivation DAG. `derivation_depth: 0` means direct import; depth > 0 means the artifact was derived from other store entries. This enables `forjar diff` and `forjar sync` (Section 10.7).
+The `provenance` block is the traceability chain. `origin_provider` + `origin_ref` record where the artifact entered the store. `derived_from` tracks the derivation DAG. Depth 0 = direct import; depth > 0 = derived. Enables `forjar diff` and `forjar sync` (Section 10.7).
 
 ### 2.4 Profile Generations (FJ-1302)
 
@@ -109,7 +108,7 @@ Store entries track references via `meta.yaml`. The GC follows these to build a 
 
 ## 3. Recipe Purity Model (FJ-1305–FJ-1309)
 
-### 3.1 Purity Levels
+### 3.1 Purity Levels (novel — no prior art found in literature)
 
 | Level | Name | Definition | Example |
 |-------|------|------------|---------|
@@ -117,6 +116,8 @@ Store entries track references via `meta.yaml`. The GC follows these to build a 
 | 1 | **Pinned** | Version-locked but not sandboxed | `version: "1.24.0"` + `store: true` |
 | 2 | **Constrained** | Provider-scoped but floating version | `provider: apt` + `packages: [nginx]` (no version) |
 | 3 | **Impure** | Unconstrained network/side-effect access | `curl \| bash` install scripts |
+
+Mokhov et al.'s build system taxonomy [5] classifies by scheduler/metadata axes but does not propose purity hierarchies. Malka et al. [6] formalize "reproducibility in space" vs "in time" as 2 axes. Our 4-level model is orthogonal — it classifies a single resource's input discipline.
 
 ### 3.2 Purity Monotonicity
 
@@ -143,12 +144,9 @@ Each resource's input closure is the set of all transitive inputs. The closure h
 ```yaml
 # forjar.inputs.lock.yaml — analogous to flake.lock / Cargo.lock
 schema: "1.0"
-generated_at: "2026-03-02T10:00:00Z"
-generator: "forjar 0.10.0"
 pins:
   nginx: { provider: apt, version: "1.24.0-1ubuntu1", hash: "blake3:abc123..." }
   my-recipe: { type: recipe, git_rev: "a1b2c3d4e5f6", hash: "blake3:def456..." }
-  config-template: { type: file, source: "templates/nginx.conf", hash: "blake3:789abc..." }
 ```
 
 ### 4.2 CLI Commands (FJ-1311–FJ-1313)
@@ -168,7 +166,7 @@ Input pinning extends tripwire upstream detection. During `forjar apply`, the lo
 
 ## 5. Build Sandboxing (FJ-1315–FJ-1319)
 
-Extends pepita kernel namespace isolation (`src/transport/pepita.rs`, `src/resources/pepita/mod.rs`). Existing: PID/mount/net namespaces, cgroups v2, overlayfs. Store sandbox adds: read-only bind mounts for inputs, minimal `/dev`, seccomp BPF (`connect`/`mount`/`ptrace` denied), tmpfs `/tmp`.
+Extends pepita kernel namespace isolation (`src/transport/pepita.rs`, `src/resources/pepita/mod.rs`). Existing: PID/mount/net namespaces, cgroups v2, overlayfs. Store sandbox adds: read-only bind mounts for inputs, minimal `/dev`, seccomp BPF [7] (`connect`/`mount`/`ptrace` denied), tmpfs `/tmp`. Caveat: seccomp usability is a known challenge — developers arrive at different filter sets for the same application [8]. Forjar mitigates this by providing preset profiles (`level: full`, `level: network-only`) rather than requiring raw BPF authoring.
 
 **Config** (FJ-1315): `sandbox: { level: full, memory_mb: 2048, cpus: 4.0, timeout: 600 }` on any resource with `store: true`.
 
@@ -180,7 +178,7 @@ Extends pepita kernel namespace isolation (`src/transport/pepita.rs`, `src/resou
 
 ### 6.1 Cache Transport (FJ-1320)
 
-SSH-only. Sovereign — no HTTP client crate, no tokens, no TLS certificates. Uses forjar's existing SSH transport.
+SSH-only. Sovereign — no HTTP client crate, no tokens, no TLS certificates. Uses forjar's existing SSH transport. HTTP-based package registries are a documented attack surface (339 malicious packages found in npm/PyPI/RubyGems [9], 107 unique supply chain attack vectors [10]). SSH transport eliminates the registry attack class but introduces its own surface (key management, agent forwarding). This is a design position, not an empirically proven security improvement.
 
 ```yaml
 cache:
@@ -283,23 +281,15 @@ resources:
     store: true
     sandbox: { level: full, memory_mb: 4096, cpus: 8.0, timeout: 1800 }
     inputs:
-      base_rootfs: { store: "blake3:aaa..." }      # Docker-imported Ubuntu
-      cuda_toolkit: { store: "blake3:bbb..." }      # Nix-imported CUDA
-      model_weights: { store: "blake3:ccc..." }      # forjar-built model
-      config: { resource: "nginx-config" }           # another resource's output
+      base_rootfs: { store: "blake3:aaa..." }   # Docker-imported Ubuntu
+      cuda_toolkit: { store: "blake3:bbb..." }  # Nix-imported CUDA
+      config: { resource: "nginx-config" }       # another resource's output
     script: |
-      # bashrs-purified — runs inside pepita sandbox
       cp -r {{inputs.base_rootfs}}/* $out/
       cp -r {{inputs.cuda_toolkit}}/* $out/usr/local/
-      cp -r {{inputs.model_weights}}/* $out/opt/models/
-      cp {{inputs.config}} $out/etc/nginx/nginx.conf
 ```
 
-**Key fields:**
-- `type: derivation` — new resource type
-- `inputs:` — map of named inputs, each referencing a store hash or another resource
-- `script:` — bashrs-purified shell executed inside pepita sandbox
-- `$out` — the output directory (hashed after build, becomes the new store entry)
+`type: derivation` + `inputs:` (store hashes or resource refs) + `script:` (bashrs-purified shell) + `$out` (output dir, hashed → new store entry).
 
 ### 10.3 Derivation Lifecycle (FJ-1342)
 
@@ -309,30 +299,24 @@ Resolve inputs → compute closure hash → check store (hit = substitute, skip 
 
 ```yaml
 resources:
-  ubuntu-base:                               # Step 1: import rootfs
+  ubuntu-base:                                  # import rootfs from any provider
     type: package
-    provider: docker
+    provider: docker                            # interchangeable: nix, apt, etc.
     image: "ubuntu:24.04"
     store: true
-  ml-rootfs:                                  # Step 2: derive combined rootfs
+  ml-rootfs:                                    # derive combined rootfs
     type: derivation
     store: true
     sandbox: { level: full }
-    inputs:
-      base: { resource: "ubuntu-base" }
-    script: |
-      cp -r {{inputs.base}}/* $out/
-      # add packages, configs, models...
-  ml-sandbox:                                 # Step 3: boot pepita from derived rootfs
+    inputs: { base: { resource: "ubuntu-base" } }
+    script: "cp -r {{inputs.base}}/* $out/"
+  ml-sandbox:                                   # boot pepita from derived rootfs
     type: pepita
     depends_on: [ml-rootfs]
     chroot_dir: "/var/forjar/store/{{ml-rootfs.store_hash}}/content"
-    memory_limit: 8589934592
-    cpuset: "0-7"
-    netns: true
 ```
 
-The provider is interchangeable: Docker → store → derivation → pepita. Or Nix → store → derivation → pepita. Or apt → store → derivation → pepita. The derivation is the universal adapter.
+Provider is interchangeable: Docker/Nix/apt → store → derivation → pepita. The derivation is the universal adapter.
 
 ### 10.5 Derivation Chains (FJ-1344)
 
@@ -355,7 +339,7 @@ forjar store sync <hash> --apply       # re-import upstream, replay derivation c
 
 ### 10.8 MLOps / AI Engineering Integration
 
-Derivation + provenance directly supports the aprender/alimentar ecosystem:
+Derivation + provenance directly supports the aprender/alimentar ecosystem. ML reproducibility is a documented crisis: data leakage affects 329 papers across 17 fields [14], many results are "not reproducible in principle" [15], and non-determinism in training is a fundamental barrier [16]. Provenance tracking frameworks [17][18] address this at the metadata layer; forjar addresses it at the infrastructure layer — every artifact is content-addressed and traceable.
 
 - **Model artifacts** (apr, gguf, safetensors): imported via `forjar import apr`, stored with BLAKE3 checksums. Provenance tracks source (HuggingFace, apr registry), quantization, fine-tuning lineage.
 - **Data artifacts** (alimentar): dataset snapshots hashed and versioned. Derivations transform (filter, augment, split) inside pepita. Full data lineage in provenance.
@@ -381,24 +365,7 @@ Forjar's sovereign package format — FAR (Forjar ARchive). BLAKE3 verified stre
 
 ### 11.1 Archive Layout (FJ-1346)
 
-Advantages over NAR (2003): BLAKE3 verified streaming (vs SHA256), content-defined chunking for delta transfers, manifest-first metadata access, zstd compression (10x faster decompress than xz), chunk-level resume, inline provenance.
-
-```
-┌──────────────────────────┐
-│ Magic: "forjar-ar-1\0"   │  12 bytes
-│ Manifest length (u64 LE) │  8 bytes
-├──────────────────────────┤
-│ Manifest (YAML, zstd)    │  Metadata, file list, chunk map, provenance
-├──────────────────────────┤
-│ Chunk table (binary)     │  Per-chunk: blake3 hash + offset + length
-├──────────────────────────┤
-│ Chunks 0..N (zstd)       │  Content-defined boundaries (~64KB, Rabin fingerprint)
-├──────────────────────────┤
-│ Signature (age)           │  age identity signature over manifest blake3 hash
-└──────────────────────────┘
-```
-
-Zstd compression and age signatures use crates already in the dependency tree (transitive via `age v0.11`). BLAKE3 is a direct dependency. **Zero new crates for the FAR format.**
+Advantages over NAR (2003): BLAKE3 verified streaming (vs SHA256), content-defined chunking for delta transfers, manifest-first metadata access, zstd compression, chunk-level resume, inline provenance. Layout: magic (12B) → manifest length (u64 LE) → manifest (YAML, zstd) → chunk table (per-chunk: blake3 hash + offset + length) → chunks 0..N (zstd, CDC boundaries ~64KB) → signature (age identity over manifest hash). Zstd/age are transitive via `age v0.11`; BLAKE3 is direct. **Zero new crates.**
 
 ### 11.2 Manifest Schema (FJ-1347)
 
@@ -408,24 +375,16 @@ name: "ripgrep"
 version: "14.1.0"
 arch: "x86_64"
 store_hash: "blake3:abc123..."
-tree_hash: "blake3:def456..."          # BLAKE3 tree root (verified streaming)
+tree_hash: "blake3:def456..."              # verified streaming root
 recipe_hash: "blake3:789abc..."
 input_closure: ["blake3:aaa...", "blake3:bbb..."]
-references: ["blake3:ccc..."]
-provenance:
-  sandbox_level: "full"
-  builder_identity: "forjar@build-01"
-  built_at: "2026-03-02T10:00:00Z"
-  git_commit: "abc123"
-files:
-  - { path: "bin/rg", size: 5242880, mode: "0755", hash: "blake3:eee...", chunks: [0,1,2,3,4] }
-total_chunks: 6
-compressed_size: 1834567
+provenance: { sandbox_level: "full", builder_identity: "forjar@build-01", built_at: "2026-03-02T10:00:00Z" }
+files: [{ path: "bin/rg", size: 5242880, mode: "0755", hash: "blake3:eee...", chunks: [0,1,2,3,4] }]
 ```
 
 ### 11.3 Streaming and Chunking (FJ-1348–FJ-1349)
 
-BLAKE3 tree hashing: 256KB chunks hashed independently, combined in binary tree — parallel verification, partial verification, incremental transfer, resume. Content-defined chunking via Rabin fingerprinting at ~64KB boundaries — only changed chunks transfer on version updates.
+BLAKE3 tree hashing [11]: 256KB chunks hashed independently, combined in binary tree — parallel verification, partial verification, incremental transfer, resume. Content-defined chunking at ~64KB boundaries — only changed chunks transfer on version updates. Implementation note: Rabin fingerprinting is the classical CDC algorithm [12] but FastCDC (USENIX ATC 2016) achieves 3–10x higher throughput at equal deduplication ratios. Recent evaluation [13] shows CDC algorithm choice significantly impacts throughput-dedup tradeoff. Phase H should benchmark FastCDC vs Rabin before committing.
 
 ### 11.4 CLI
 
@@ -486,8 +445,48 @@ forjar archive verify <file.far>     # verify chunk hashes + signature
 
 **Store**: Write-once (hash *is* identity; modification is corruption). Hash integrity (`hash_directory(content/) == store_hash`) checked by `forjar cache verify`. Atomic creation via temp-dir + rename (same as `save_lock()` in `src/core/state/mod.rs:27`).
 
-**Purity**: Monotonicity — a resource's purity ≥ max purity of its transitive deps (pure cannot depend on impure). Closure determinism — identical input closures → identical store hashes. Classification stability — purity cannot improve without definition changes.
+**Purity**: Monotonicity — a resource's purity ≥ max purity of its transitive deps (pure cannot depend on impure). Closure determinism — identical input closures → identical store hashes (aspirational: even Nix achieves 69–91% bitwise [3]; timestamps, build paths, and non-deterministic compilers are the gap). Classification stability — purity cannot improve without definition changes.
 
 **Derivations**: Input immutability (read-only bind mounts). Output isolation (`$out` only writable dir). Closure completeness (`composite_hash(inputs + script + arch)` — any change → new store entry). Provider erasure — once stored, source provider is metadata, not identity.
 
 **Lock file**: Completeness (`forjar pin --check` fails if any input missing). Freshness (stale hashes detected). Atomic update (temp-file + rename).
+
+---
+
+## 16. Falsification Analysis
+
+| Claim | Status | Evidence | Risk |
+|-------|--------|----------|------|
+| Content-addressing → reproducibility | **Necessary, not sufficient** | Nix achieves 69–91% bitwise reproducibility [3]; Docker only 2.7% [19] | Timestamps, build paths, compiler non-determinism break bit-for-bit. Forjar should track and report non-determinism sources. |
+| BLAKE3 faster than SHA256 | **Supported with caveats** | 5–15x faster on large inputs [4]; advantage diminishes on small inputs [20] | Small-file workloads (configs, scripts) may not see speedup. Irrelevant — correctness matters more. |
+| 4-level purity model | **Novel (no prior art)** | Build Systems à la Carte [5] uses orthogonal axes; no purity hierarchy in literature | Untested in practice. Level boundaries may need refinement after real-world adoption. |
+| Rabin CDC for FAR | **Outdated** | FastCDC is 3–10x faster at equal dedup ratios (USENIX ATC 2016); CDC tradeoffs vary [13] | **Action: benchmark FastCDC vs Rabin in Phase H before committing.** |
+| SSH-only cache is more secure | **Design position, not proven** | HTTP registries are documented attack surfaces [9][10], but SSH has own risks (key mgmt, agent fwd) | Honest framing: SSH eliminates registry class, does not eliminate all supply chain risk. |
+| Seccomp BPF for sandboxing | **Effective but hard to use** | eBPF extends seccomp [7]; usability study shows divergent filter sets [8]; <1% adoption [21] | Forjar mitigates via preset profiles, not raw BPF. |
+| Closure determinism (invariant) | **Aspirational** | Even Nix with full sandboxing cannot guarantee 100% [3] | Document known non-determinism sources (timestamps, parallelism, `/proc`). |
+
+---
+
+## References
+
+- [1] E. Dolstra, "The Purely Functional Software Deployment Model," PhD thesis, Utrecht University, 2006
+- [2] L. Courtès, "Functional Package Management with Guix," arXiv:1305.4584, 2013
+- [3] J. Malka et al., "Does Functional Package Management Enable Reproducible Builds at Scale? Yes," arXiv:2501.15919, 2025
+- [4] J. O'Connor et al., "BLAKE3: one function, fast everywhere," spec paper, 2020; IETF draft-aumasson-blake3-00
+- [5] A. Mokhov, N. Mitchell, S. Peyton Jones, "Build Systems à la Carte," ICFP 2018
+- [6] J. Malka, S. Zacchiroli, T. Zimmermann, "Reproducibility of Build Environments through Space and Time," arXiv:2402.00424, 2024
+- [7] J. Jia et al., "Programmable System Call Security with eBPF," arXiv:2302.10366, 2023
+- [8] M. Alhindi, J. Hallett, "Playing in the Sandbox: A Study on the Usability of Seccomp," arXiv:2506.10234, 2025
+- [9] R. Duan et al., "Towards Measuring Supply Chain Attacks on Package Managers," arXiv:2002.01139, 2020
+- [10] P. Ladisa et al., "Taxonomy of Attacks on Open-Source Software Supply Chains," arXiv:2204.04008, 2022
+- [11] L. Champine, "Streaming Merkle Proofs within Binary Numeral Trees," IACR ePrint 2021/038, 2021
+- [12] M. O. Rabin, "Fingerprinting by Random Polynomials," TR-15-81, Harvard, 1981
+- [13] M. Gregoriadis et al., "A Thorough Investigation of CDC Algorithms for Data Deduplication," arXiv:2409.06066, 2024
+- [14] S. Kapoor, A. Narayanan, "Leakage and the Reproducibility Crisis in ML-based Science," arXiv:2207.07048, 2022
+- [15] "Reproducibility in Machine Learning-based Research: Overview, Barriers and Drivers," arXiv:2406.14325, 2024
+- [16] E. Rivera-Landos et al., "The challenge of reproducible ML: an empirical study on the impact of bugs," arXiv:2109.03991, 2021
+- [17] M. Spoczynski et al., "Atlas: A Framework for ML Lifecycle Provenance & Transparency," arXiv:2502.19567, 2025
+- [18] G. Padovani et al., "Provenance Tracking in Large-Scale ML Systems," arXiv:2507.01075, 2025
+- [19] J. Malka et al., "Docker Does Not Guarantee Reproducibility," arXiv:2601.12811, 2026
+- [20] M. Pandya, "Performance Evaluation of Hashing Algorithms on Commodity Hardware," arXiv:2407.08284, 2024
+- [21] M. Alhindi, J. Hallett, "Sandboxing Adoption in Open Source Ecosystems," arXiv:2405.06447, 2024
