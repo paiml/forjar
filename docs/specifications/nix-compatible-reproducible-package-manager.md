@@ -12,7 +12,7 @@
 
 Forjar treats machines as knowable systems — BLAKE3 hashing, tripwire drift detection, and pepita kernel namespace isolation already make every apply auditable and traceable. What's missing is **content-addressed artifact caching**: `apt install curl` produces different binaries across time, mirrors, and architectures. The machine is knowable, but its inputs are not.
 
-Nix solved this with content-addressed stores and hermetic builds. Forjar brings that insight into its SSH-first, YAML-first, multi-machine world — without becoming Nix.
+The content-addressed store model (pioneered by Nix, Guix, and others) solves this. Forjar brings that insight into its SSH-first, YAML-first, multi-machine world as a native capability — Nix compatibility is optional, not foundational.
 
 ### 1.1 Problem Statement
 
@@ -20,7 +20,7 @@ Today, forjar's package resources call `apt install` or `cargo install` at apply
 
 ### 1.2 Key Insight
 
-Nix's core contribution is not its language — it's the **content-addressed store**. Hash all inputs, use that hash as the storage key, and you get reproducibility (same inputs → same output), cacheability (build once, substitute everywhere), rollback (previous generations persist), and garbage collection (unreachable entries are safe to delete).
+The key insight is the **content-addressed store**. Hash all inputs, use that hash as the storage key, and you get reproducibility (same inputs → same output), cacheability (build once, substitute everywhere), rollback (previous generations persist), and garbage collection (unreachable entries are safe to delete). This works with any provider — apt, cargo, uv, or optionally nix.
 
 ### 1.3 Competitive Position
 
@@ -298,21 +298,21 @@ Recipes 63–67: version-pinned apt with store (63), cargo sandbox + input lock 
 
 ---
 
-## 9. Nix Bootstrap Import (FJ-1333–FJ-1336)
+## 9. Nix Provider (FJ-1333–FJ-1336)
 
-Nix is a **bootstrap tool** — same role as `apt` or `cargo`. Forjar shells out to `nix build` at import time, captures outputs, re-hashes into its own BLAKE3 store, and packs as FAR. After bootstrap, Nix is never invoked again. Zero new crate dependencies.
+`provider: nix` is an **optional package provider** — the same role as `provider: apt`, `provider: cargo`, or `provider: uv`. Users who never touch Nix lose nothing. The store, FAR, purity model, pinning, sandbox, cache, and GC all work without Nix ever being mentioned. Zero new crate dependencies.
 
 ### 9.1 Sovereignty Constraints
 
 | Constraint | Enforcement |
 |------------|-------------|
-| Zero new crates | `sha2` and `zstd` already transitive via `age` dependency. No `ed25519-dalek`, no `xz2` (liblzma is C FFI — violates `unsafe_code = "forbid"`, and CVE-2024-3094 supply chain risk). |
-| No Nix protocol reimplementation | No NAR reader, no narinfo parser, no store path computation. Shell out to `nix build --print-out-paths` — same pattern as `apt install`, `cargo install`. |
-| No HTTP client | Bootstrap uses `nix build` CLI (Nix handles its own cache). Steady-state uses SSH. No reqwest, no ureq, no curl dependency. |
-| One store prefix | `/var/forjar/store/` only. No `/fjr/store/`, no dual-path GC. |
-| Nix is optional | `provider: nix` requires `nix` CLI on the build machine. All other providers work without it. |
+| Nix is optional | Just another provider. No forjar feature depends on it. |
+| Zero new crates | `sha2`/`zstd` already transitive via `age`. No `ed25519-dalek`, no `xz2` (C FFI, CVE-2024-3094). |
+| No protocol reimplementation | Shell out to `nix build --print-out-paths` — same as `apt install`, `cargo install`. |
+| No HTTP client | Nix CLI handles its own cache. Forjar's cache transport is SSH-only. |
+| One store prefix | `/var/forjar/store/` only. Nix outputs are re-hashed as BLAKE3. |
 
-### 9.2 Bootstrap Flow (FJ-1333)
+### 9.2 Provider Flow (FJ-1333)
 
 ```
 1. nix build nixpkgs#ripgrep --print-out-paths   → /nix/store/<hash>-ripgrep-14.1.0/
@@ -320,12 +320,12 @@ Nix is a **bootstrap tool** — same role as `apt` or `cargo`. Forjar shells out
 3. hash_directory(/tmp/forjar-staging/)            → blake3:abc123...
 4. mv /tmp/forjar-staging/ /var/forjar/store/abc123.../content/
 5. write meta.yaml (nix provenance: store path, nixpkgs rev, system)
-6. forjar archive pack abc123...                   → ripgrep-14.1.0.far
+6. forjar archive pack abc123...                   → ripgrep-14.1.0.far (optional)
 ```
 
-After step 6, the FAR is self-contained. Distribute via `forjar cache push` over SSH. Target machines never need Nix installed.
+Same code pattern as the existing `cargo` provider (shells out to `cargo install`).
 
-### 9.3 Provider Integration (FJ-1334)
+### 9.3 YAML Integration (FJ-1334)
 
 ```yaml
 resources:
@@ -340,15 +340,13 @@ resources:
       system: "x86_64-linux"
 ```
 
-The `provider: nix` path in `src/resources/package.rs`: shell out to `nix build` → copy output tree → BLAKE3 hash → store → pack as FAR. Same code pattern as the existing `cargo` provider (which shells out to `cargo install`).
-
 ### 9.4 Reference Rewriting (FJ-1335)
 
-Nix binaries contain hardcoded `/nix/store/` paths. At import time, forjar rewrites these: ELF binaries via `patchelf --set-rpath` / `--set-interpreter` (already available on Nix systems), scripts and configs via bashrs-purified `sed`. All outputs are re-hashed after rewriting — the BLAKE3 store hash reflects the rewritten content.
+Nix outputs contain hardcoded `/nix/store/` paths. At import time, forjar rewrites these: ELF binaries via `patchelf --set-rpath` / `--set-interpreter`, scripts and configs via bashrs-purified `sed`. All outputs are re-hashed after rewriting — the BLAKE3 store hash reflects the rewritten content.
 
-### 9.5 Nix Escape Hatch (FJ-1336)
+### 9.5 Cache Distribution (FJ-1336)
 
-Once bootstrapped, forjar's store is self-sufficient. `forjar cache push` distributes FAR archives over SSH. Target machines install from FAR — no Nix, no apt, no network access needed. This is the sovereignty guarantee: Nix seeds the store, forjar owns the store.
+Once a Nix-sourced package is in the forjar store, it distributes identically to any other store entry: `forjar cache push` over SSH, FAR archive, BLAKE3 verification. Target machines never need Nix installed — they receive the same FAR as any other provider's output.
 
 ---
 
@@ -439,7 +437,7 @@ forjar archive verify <file.far>     # verify chunk hashes + signature
 | **C** | FJ-1315–FJ-1319 | Medium | Phase A + pepita | Sandbox config, lifecycle, seccomp BPF, read-only bind mounts |
 | **D** | FJ-1320–FJ-1327 | Lower | Phase A + B | SSH cache, substitution protocol, GC roots, mark-and-sweep |
 | **E** | FJ-1328–FJ-1332 | Parallel | Phase A + B | `forjar convert --reproducible`, reproducibility score, cookbook 63–67 |
-| **F** | FJ-1333–FJ-1336 | Medium | Phase A | Nix bootstrap: `provider: nix`, import flow, reference rewriting, escape hatch |
+| **F** | FJ-1333–FJ-1336 | Medium | Phase A | Optional `provider: nix`, import flow, reference rewriting, cache distribution |
 | **G** | FJ-1337–FJ-1340 | Lower | Phase A + D | FAR format: archive layout, manifest, BLAKE3 verified streaming, chunking |
 
 ---
@@ -458,7 +456,7 @@ forjar archive verify <file.far>     # verify chunk hashes + signature
 | Lock format | YAML | Consistent with all forjar config |
 | Profile generations | Symlink rotation | Atomic `rename(2)` switch + instant rollback |
 | GC strategy | Explicit only | Never auto-delete — user controls store lifecycle |
-| Nix import | Bootstrap via `nix build` CLI | Same pattern as apt/cargo — shell out, capture, re-hash. Zero new crates |
+| Nix provider | Optional, same as apt/cargo/uv | Shell out to `nix build`, re-hash. Zero new crates. Not required. |
 | Archive format | FAR (forjar-native) | BLAKE3 streaming, zstd compression, age signatures — all existing deps |
 | Signing | age (already in tree) | Reuse existing `age v0.11` — no ed25519-dalek, no new crypto |
 | Compression | Zstd (already in tree) | Transitive via age — no xz/liblzma (CVE-2024-3094 risk) |
@@ -467,7 +465,7 @@ forjar archive verify <file.far>     # verify chunk hashes + signature
 
 ## 13. Non-Goals
 
-**Not a Nix replacement.** Forjar uses Nix as a bootstrap tool (Section 9) — shell out to `nix build`, capture outputs, re-hash as BLAKE3, pack as FAR. Never evaluates Nix expressions, never reimplements Nix protocols, never adds Nix-specific crate dependencies.
+**Not a Nix replacement.** `provider: nix` is an optional provider for users who want access to nixpkgs. Forjar never evaluates Nix expressions, never reimplements Nix protocols, never adds Nix-specific crate dependencies. Every feature in this spec works without Nix.
 
 **Machine-level artifact manager, not a system package manager.** The store caches resource outputs — no package index, no dependency resolution, no SAT solving. It orchestrates existing package managers (apt, cargo, uv, nix) and caches their outputs.
 
