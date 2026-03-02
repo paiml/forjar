@@ -101,9 +101,7 @@ fn bench_closure_hash(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("closure_hash");
     for n in [3, 10, 50] {
-        let hashes: Vec<String> = (0..n)
-            .map(|i| format!("blake3:{i:064x}"))
-            .collect();
+        let hashes: Vec<String> = (0..n).map(|i| format!("blake3:{i:064x}")).collect();
 
         group.bench_with_input(
             BenchmarkId::from_parameter(format!("{n}_nodes")),
@@ -351,8 +349,7 @@ fn bench_derivation_closure(c: &mut Criterion) {
 
     c.bench_function("derivation_closure_hash_5_inputs", |b| {
         b.iter(|| {
-            let hash =
-                derivation_closure_hash(black_box(&derivation), black_box(&input_hashes));
+            let hash = derivation_closure_hash(black_box(&derivation), black_box(&input_hashes));
             black_box(hash);
         });
     });
@@ -368,20 +365,22 @@ fn bench_purify_script(c: &mut Criterion) {
         .map(|i| format!("echo \"step {i}\"\nsleep 1\n"))
         .collect::<String>();
     let large = (0..100)
-        .map(|i| format!("if [ -f /tmp/test_{i} ]; then\n  cat /tmp/test_{i}\n  rm /tmp/test_{i}\nfi\n"))
+        .map(|i| {
+            format!("if [ -f /tmp/test_{i} ]; then\n  cat /tmp/test_{i}\n  rm /tmp/test_{i}\nfi\n")
+        })
         .collect::<String>();
 
     let mut group = c.benchmark_group("purify_script");
-    for (label, script) in [("small", small.to_string()), ("medium", medium), ("large", large)] {
-        group.bench_with_input(
-            BenchmarkId::from_parameter(&label),
-            &script,
-            |b, script| {
-                b.iter(|| {
-                    let _ = black_box(purify_script(black_box(script)));
-                });
-            },
-        );
+    for (label, script) in [
+        ("small", small.to_string()),
+        ("medium", medium),
+        ("large", large),
+    ] {
+        group.bench_with_input(BenchmarkId::from_parameter(&label), &script, |b, script| {
+            b.iter(|| {
+                let _ = black_box(purify_script(black_box(script)));
+            });
+        });
     }
     group.finish();
 }

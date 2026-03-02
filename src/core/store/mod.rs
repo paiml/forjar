@@ -33,6 +33,8 @@ pub mod substitution;
 pub mod validate;
 
 #[cfg(test)]
+mod tests_bash_provability;
+#[cfg(test)]
 mod tests_cache;
 #[cfg(test)]
 mod tests_chunker;
