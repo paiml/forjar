@@ -123,24 +123,25 @@ pub fn read_conda_bz2(path: &Path, output_dir: &Path) -> Result<CondaPackageInfo
         let rel = path_buf.to_string_lossy().to_string();
         let size = entry.size();
 
-        if rel == "info/index.json" {
-            let mut content = String::new();
-            entry
-                .read_to_string(&mut content)
-                .map_err(|e| format!("read index.json: {e}"))?;
-            info = Some(parse_conda_index(&content)?);
-        }
-
-        // Extract
+        // Extract file contents
         let dest = output_dir.join(&rel);
         if let Some(parent) = dest.parent() {
             std::fs::create_dir_all(parent)
                 .map_err(|e| format!("mkdir {}: {e}", parent.display()))?;
         }
         if entry.header().entry_type().is_file() {
-            let mut out = std::fs::File::create(&dest)
-                .map_err(|e| format!("create {}: {e}", dest.display()))?;
-            std::io::copy(&mut entry, &mut out)
+            // Read all content first (needed for index.json parsing)
+            let mut buf = Vec::with_capacity(size as usize);
+            entry
+                .read_to_end(&mut buf)
+                .map_err(|e| format!("read {rel}: {e}"))?;
+
+            if rel == "info/index.json" {
+                let content = String::from_utf8_lossy(&buf);
+                info = Some(parse_conda_index(&content)?);
+            }
+
+            std::fs::write(&dest, &buf)
                 .map_err(|e| format!("write {}: {e}", dest.display()))?;
             files.push(CondaFileEntry { path: rel, size });
         }
