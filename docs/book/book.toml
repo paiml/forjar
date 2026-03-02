@@ -1,0 +1,9 @@
+[book]
+title = "The Forjar Book"
+authors = ["PAIML Engineering"]
+language = "en"
+src = "src"
+
+[output.html]
+default-theme = "navy"
+git-repository-url = "https://github.com/paiml/forjar"

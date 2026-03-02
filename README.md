@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="#quick-start">Quick Start</a> &middot;
-  <a href="docs/book/">Book</a> &middot;
+  <a href="docs/book/src/README.md">Book</a> &middot;
   <a href="docs/specifications/forjar-spec.md">Specification</a> &middot;
   <a href="https://github.com/paiml/forjar-cookbook">Cookbook</a> &middot;
   <a href="#benchmarks">Benchmarks</a>
@@ -194,7 +194,7 @@ Supported import providers: `apt`, `cargo`, `uv`, `nix`, `docker`, `tofu`, `terr
 | 2 | Constrained | Provider-scoped, floating version |
 | 3 | Impure | Unconstrained |
 
-See the [architecture docs](docs/book/05-architecture.md) for details on the store model, sandbox lifecycle, substitution protocol, and derivation executor.
+See the [architecture docs](docs/book/src/05-architecture.md) for details on the store model, sandbox lifecycle, substitution protocol, and derivation executor.
 
 ## How It Works
 

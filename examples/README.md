@@ -10,17 +10,22 @@ Run any example with `cargo run --example <name>`.
 | `arch_filtering` | Cross-architecture filtering — skip mismatched resources in multi-arch fleets |
 | `blake3_hashing` | BLAKE3 content-addressed hashing for strings and files |
 | `codegen_scripts` | Generate shell scripts for all resource types |
+| `conda_to_far` | Conda package → FAR archive conversion pipeline |
 | `container_transport` | Container transport lifecycle: parse, validate, plan (no Docker required) |
 | `drift_detection` | Detect unauthorized changes to managed files via hash comparison |
 | `event_logging` | Provenance event log: record and replay apply events for auditing |
 | `full_stack_deploy` | Full-stack deployment: packages, files, users, services, cron, firewall, Docker |
+| `gpu_container_transport` | GPU container transport with NVIDIA device passthrough |
 | `mcp_server` | MCP tool registry introspection (9 tools via pforge) |
 | `multi_machine` | Multi-machine orchestration with cost-based scheduling |
 | `parse_and_plan` | Parse config, resolve DAG, produce execution plan |
 | `recipe_expansion` | Recipe loading, input validation, and expansion |
 | `resource_scripts` | All 9 resource types x 3 script types (check, apply, state_query) |
+| `score_cookbook` | Score forjar recipes using multi-dimensional quality grading (A-F) |
 | `shell_purifier` | bashrs shell purification: validation, linting, safety levels |
 | `state_management` | Lock files, global locks, resource state tracking |
+| `store_executors` | Store runtime: sandbox lifecycle, substitution protocol, derivation DAG |
+| `store_reproducibility` | Content-addressed store: paths, metadata, purity, FAR archives, GC |
 | `template_resolution` | Template resolution: params, machine refs, resource templates |
 | `trace_provenance` | W3C-compatible trace spans with Lamport logical clocks |
 | `user_management` | User creation, SSH keys, groups, shell config |
@@ -40,11 +45,16 @@ Validate any config with `cargo run -- validate -f examples/<config>`.
 | `dogfood-network.yaml` | network | UFW firewall rules; allow/deny/absent; CIDR filtering |
 | `dogfood-pepita.yaml` | pepita | Kernel isolation: cgroups, netns, overlay, seccomp |
 | `dogfood-migrate.yaml` | docker, package | Docker containers, migration to pepita |
+| `dogfood-multi-gpu.yaml` | gpu, package | Multi-GPU setup: NVIDIA driver, CUDA, device management |
 | `dogfood-recipe.yaml` | package, recipe | Recipe expansion, composite resources |
 | `dogfood-crossarch.yaml` | file | Multi-machine, architecture filtering (x86_64/aarch64) |
+| `dogfood-drift-analytics.yaml` | file | Drift analytics: detection patterns, trending, anomaly scoring |
+| `dogfood-drift-velocity.yaml` | file | Drift velocity tracking: rate-of-change metrics over time |
 | `dogfood-tags.yaml` | file | Resource tagging, tag-filtered operations |
 | `dogfood-secrets.yaml` | file | Template interpolation with `{{params.*}}` |
 | `dogfood-hooks.yaml` | file | Pre/post apply hooks, lifecycle callbacks |
+| `dogfood-includes.yaml` | file, package | Shared includes: policy defaults, notify hooks |
+| `dogfood-includes-machines.yaml` | file | Machine-level includes for multi-host configs |
 | `dogfood-conditions.yaml` | file, package | Conditional resources (`when:` field), expression evaluation |
 | `dogfood-iteration.yaml` | file | Resource iteration: `count:` ({{index}}), `for_each:` ({{item}}) |
 | `dogfood-outputs.yaml` | file | Output values: `outputs:` block, template resolution, `--json` |
@@ -53,6 +63,7 @@ Validate any config with `cargo run -- validate -f examples/<config>`.
 | `dogfood-triggers.yaml` | file, service | General-purpose triggers: force re-apply when dependencies change |
 | `dogfood-notify.yaml` | file | Notification hooks: on_success/on_failure/on_drift shell commands |
 | `dogfood-age-secrets.yaml` | file | Age-encrypted secrets, `ENC[age,...]` markers, env-var fallback |
+| `dogfood-apr-qa.yaml` | recipe | APR model quality assurance recipe, validation gates |
 | `dogfood-apr-serve.yaml` | recipe | GPU inference server recipe (apr-inference-server), 8 resources |
 | `dogfood-repartir.yaml` | recipe | Distributed worker recipe (repartir-worker), 10 resources |
 | `dogfood-renacer.yaml` | recipe | Observability stack recipe (renacer-observability), 10 resources |
