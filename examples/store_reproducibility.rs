@@ -11,6 +11,10 @@
 //! - Binary cache substitution protocol
 //! - Universal provider import
 //! - Store derivations
+//! - Upstream diff/sync
+//! - Recipe conversion analysis
+//! - Tripwire pin integration
+//! - Purity + reproducibility validation
 //!
 //! Usage: cargo run --example store_reproducibility
 
@@ -18,17 +22,22 @@ use forjar::core::store::cache::{
     build_inventory, resolve_substitution, CacheEntry, SubstitutionResult,
 };
 use forjar::core::store::closure::{all_closures, closure_hash, ResourceInputs};
+use forjar::core::store::convert::{analyze_conversion, ConversionSignals};
 use forjar::core::store::derivation::{
     derivation_closure_hash, derivation_purity, validate_dag, validate_derivation, Derivation,
     DerivationInput,
 };
 use forjar::core::store::lockfile::{check_completeness, check_staleness, LockFile, Pin};
+use forjar::core::store::meta::{Provenance, StoreMeta};
 use forjar::core::store::path::{store_entry_path, store_path};
+use forjar::core::store::pin_tripwire::{check_before_apply, format_pin_report, pin_severity};
 use forjar::core::store::provider::{all_providers, capture_method, import_command, ImportConfig, ImportProvider};
 use forjar::core::store::purity::{classify, level_label, recipe_purity, PurityLevel, PuritySignals};
 use forjar::core::store::reference::is_valid_blake3_hash;
 use forjar::core::store::repro_score::{compute_score, grade, ReproInput};
 use forjar::core::store::sandbox::{blocks_network, preset_profile, validate_config};
+use forjar::core::store::store_diff::{build_sync_plan, compute_diff};
+use forjar::core::store::validate::{format_purity_report, format_repro_report, validate_purity, validate_repro_score};
 use std::collections::BTreeMap;
 
 fn main() {
@@ -44,6 +53,10 @@ fn main() {
     demo_cache_substitution();
     demo_provider_import();
     demo_derivations();
+    demo_upstream_diff();
+    demo_conversion();
+    demo_pin_tripwire();
+    demo_validation();
 
     println!("\nDone — all store features demonstrated.");
 }
@@ -301,5 +314,121 @@ fn demo_derivations() {
     dag.insert("cuda-toolkit".to_string(), vec!["base-os".to_string()]);
     dag.insert("ml-rootfs".to_string(), vec!["cuda-toolkit".to_string()]);
     let order = validate_dag(&dag).unwrap();
-    println!("  DAG order: {:?}", order);
+    println!("  DAG order: {:?}\n", order);
+}
+
+fn demo_upstream_diff() {
+    println!("--- 11. Upstream Diff & Sync ---");
+    let meta = StoreMeta {
+        schema: "1.0".to_string(),
+        store_hash: "blake3:local_entry".to_string(),
+        recipe_hash: "blake3:recipe".to_string(),
+        input_hashes: vec![],
+        arch: "x86_64".to_string(),
+        provider: "apt".to_string(),
+        created_at: "2026-03-02T10:00:00Z".to_string(),
+        generator: "forjar test".to_string(),
+        references: vec![],
+        provenance: Some(Provenance {
+            origin_provider: "apt".to_string(),
+            origin_ref: Some("apt:nginx@1.24.0".to_string()),
+            origin_hash: Some("blake3:upstream_old".to_string()),
+            derived_from: None,
+            derivation_depth: 0,
+        }),
+    };
+
+    let diff = compute_diff(&meta, Some("blake3:upstream_NEW"));
+    println!("  Upstream changed: {}", diff.upstream_changed);
+    println!("  Provider: {}", diff.provider);
+
+    let plan = build_sync_plan(&[(meta, Some("blake3:upstream_NEW".to_string()))]);
+    println!("  Sync plan: {} re-imports, {} replays\n",
+        plan.re_imports.len(), plan.derivation_replays.len());
+}
+
+fn demo_conversion() {
+    println!("--- 12. Recipe Conversion Analysis ---");
+    let signals = vec![
+        ConversionSignals {
+            name: "nginx".to_string(),
+            has_version: true, has_store: true, has_sandbox: true,
+            has_curl_pipe: false, provider: "apt".to_string(),
+            current_version: Some("1.24.0".to_string()),
+        },
+        ConversionSignals {
+            name: "redis".to_string(),
+            has_version: false, has_store: false, has_sandbox: false,
+            has_curl_pipe: false, provider: "apt".to_string(),
+            current_version: None,
+        },
+        ConversionSignals {
+            name: "setup".to_string(),
+            has_version: true, has_store: true, has_sandbox: true,
+            has_curl_pipe: true, provider: "shell".to_string(),
+            current_version: None,
+        },
+    ];
+    let report = analyze_conversion(&signals);
+    println!("  Current purity: {:?}", report.current_purity);
+    println!("  Projected purity: {:?}", report.projected_purity);
+    println!("  Auto changes: {}, Manual changes: {}",
+        report.auto_change_count, report.manual_change_count);
+    for r in &report.resources {
+        println!("    {}: {:?} → {:?} (auto={}, manual={})",
+            r.name, r.current_purity, r.target_purity,
+            r.auto_changes.len(), r.manual_changes.len());
+    }
+    println!();
+}
+
+fn demo_pin_tripwire() {
+    println!("--- 13. Tripwire Pin Integration ---");
+    let mut pins = BTreeMap::new();
+    pins.insert("nginx".to_string(), Pin {
+        provider: "apt".to_string(), version: Some("1.24.0".to_string()),
+        hash: "blake3:abc123".to_string(), git_rev: None, pin_type: None,
+    });
+    pins.insert("ripgrep".to_string(), Pin {
+        provider: "cargo".to_string(), version: Some("14.1.0".to_string()),
+        hash: "blake3:def456".to_string(), git_rev: None, pin_type: None,
+    });
+    let lf = LockFile { schema: "1.0".to_string(), pins };
+
+    let mut current = BTreeMap::new();
+    current.insert("nginx".to_string(), "blake3:abc123".to_string());
+    current.insert("ripgrep".to_string(), "blake3:CHANGED".to_string());
+    let names = vec!["nginx".to_string(), "ripgrep".to_string(), "python".to_string()];
+
+    let result = check_before_apply(&lf, &current, &names);
+    let severity = pin_severity(&result, false);
+    println!("  Severity: {:?}", severity);
+    println!("{}\n", format_pin_report(&result));
+}
+
+fn demo_validation() {
+    println!("--- 14. Purity & Reproducibility Validation ---");
+
+    // Purity validation
+    let pure_sig = PuritySignals {
+        has_version: true, has_store: true, has_sandbox: true,
+        has_curl_pipe: false, dep_levels: vec![],
+    };
+    let pinned_sig = PuritySignals {
+        has_version: true, has_store: true, has_sandbox: false,
+        has_curl_pipe: false, dep_levels: vec![],
+    };
+    let purity_result = validate_purity(
+        &[("nginx", &pure_sig), ("redis", &pinned_sig)],
+        Some(PurityLevel::Pinned),
+    );
+    println!("{}\n", format_purity_report(&purity_result));
+
+    // Repro score validation
+    let inputs = vec![
+        ReproInput { name: "nginx".to_string(), purity: PurityLevel::Pure, has_store: true, has_lock_pin: true },
+        ReproInput { name: "redis".to_string(), purity: PurityLevel::Pinned, has_store: true, has_lock_pin: true },
+    ];
+    let repro_result = validate_repro_score(&inputs, Some(75.0));
+    println!("{}", format_repro_report(&repro_result));
 }
