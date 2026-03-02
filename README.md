@@ -6,6 +6,7 @@
   <a href="#quick-start">Quick Start</a> &middot;
   <a href="docs/book/">Book</a> &middot;
   <a href="docs/specifications/forjar-spec.md">Specification</a> &middot;
+  <a href="https://github.com/paiml/forjar-cookbook">Cookbook</a> &middot;
   <a href="#benchmarks">Benchmarks</a>
 </p>
 
@@ -155,7 +156,45 @@ resources:
     mode: "0755"
 ```
 
-See the **[Forjar Cookbook](https://github.com/paiml/forjar-cookbook)** for 67 production-ready recipes covering packages, files, services, Docker, GPU, network, pepita sandboxing, multi-machine stacks, and content-addressed store reproducibility.
+See the **[Forjar Cookbook](https://github.com/paiml/forjar-cookbook)** for 67 production-ready recipes covering packages, files, services, Docker, GPU, network, pepita sandboxing, multi-machine stacks, and content-addressed store reproducibility. The cookbook includes a [Reproducibility Series](https://github.com/paiml/forjar-cookbook/blob/master/docs/book/src/recipes/reproducibility.md) (recipes 63-67) demonstrating version pinning, sandboxed builds, SSH caching, CI gates, and profile rollback.
+
+## Content-Addressed Store
+
+Forjar includes a Nix-inspired content-addressed store for reproducible builds. Every build output lives at a deterministic path derived from its inputs:
+
+```
+/var/lib/forjar/store/<blake3-hash>/
+├── meta.yaml          # Input manifest, provenance
+└── content/           # Build output
+```
+
+### Store Commands
+
+```bash
+forjar pin                            # Pin all inputs to current versions
+forjar pin --check                    # CI gate — fail if lock file is stale
+forjar cache list                     # List local store entries
+forjar cache push user@host:path      # Push to SSH binary cache
+forjar cache verify                   # Re-hash all entries
+forjar store gc --dry-run             # Preview garbage collection
+forjar store diff <hash>              # Diff against upstream origin
+forjar store-import apt nginx=1.24.0  # Import from any provider
+forjar archive pack <hash>            # Pack into .far archive
+forjar convert --reproducible         # Auto-convert recipe to store model
+```
+
+Supported import providers: `apt`, `cargo`, `uv`, `nix`, `docker`, `tofu`, `terraform`, `apr`.
+
+### 4-Level Purity Model
+
+| Level | Name | Requirement |
+|-------|------|-------------|
+| 0 | Pure | Version + store + sandbox |
+| 1 | Pinned | Version + store (no sandbox) |
+| 2 | Constrained | Provider-scoped, floating version |
+| 3 | Impure | Unconstrained |
+
+See the [architecture docs](docs/book/05-architecture.md) for details on the store model, sandbox lifecycle, substitution protocol, and derivation executor.
 
 ## How It Works
 
@@ -245,7 +284,7 @@ Tests: `test_fj012_apply_local_file`
 ## Testing
 
 ```bash
-cargo test                    # 6190+ unit tests
+cargo test                    # 6295+ unit tests
 cargo test -- --nocapture     # with output
 cargo test planner            # specific module
 cargo bench                   # Criterion benchmarks
