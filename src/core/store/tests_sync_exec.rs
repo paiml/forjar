@@ -332,3 +332,54 @@ fn build_sync_plan_empty_input() {
     assert!(plan.re_imports.is_empty());
     assert!(plan.derivation_replays.is_empty());
 }
+
+// ── Individual parse_provider arm tests ────────────────────────
+
+#[test]
+fn parse_provider_apt() {
+    assert_eq!(parse_provider("apt").unwrap(), ImportProvider::Apt);
+}
+
+#[test]
+fn parse_provider_cargo() {
+    assert_eq!(parse_provider("cargo").unwrap(), ImportProvider::Cargo);
+}
+
+#[test]
+fn parse_provider_uv() {
+    assert_eq!(parse_provider("uv").unwrap(), ImportProvider::Uv);
+}
+
+#[test]
+fn parse_provider_nix() {
+    assert_eq!(parse_provider("nix").unwrap(), ImportProvider::Nix);
+}
+
+#[test]
+fn parse_provider_docker() {
+    assert_eq!(parse_provider("docker").unwrap(), ImportProvider::Docker);
+}
+
+#[test]
+fn parse_provider_tofu() {
+    assert_eq!(parse_provider("tofu").unwrap(), ImportProvider::Tofu);
+}
+
+#[test]
+fn parse_provider_terraform() {
+    assert_eq!(
+        parse_provider("terraform").unwrap(),
+        ImportProvider::Terraform
+    );
+}
+
+#[test]
+fn parse_provider_apr() {
+    assert_eq!(parse_provider("apr").unwrap(), ImportProvider::Apr);
+}
+
+#[test]
+fn parse_provider_other_error() {
+    let err = parse_provider("brew").unwrap_err();
+    assert!(err.contains("unknown provider: brew"));
+}

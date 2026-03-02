@@ -483,33 +483,4 @@ fn ownership_version_pinning_pkg_json() {
     let f = write_cfg(d.path(), pkg_cfg());
     assert!(cmd_validate_check_resource_version_pinning(&f, true).is_ok());
 }
-#[test]
-fn governance_provider_support_pkg() {
-    let d = tempfile::tempdir().unwrap();
-    let f = write_cfg(d.path(), pkg_cfg());
-    assert!(cmd_validate_check_resource_provider_support(&f, false).is_ok());
-}
-#[test]
-fn governance_provider_version_pkg() {
-    let d = tempfile::tempdir().unwrap();
-    let f = write_cfg(d.path(), pkg_cfg());
-    assert!(cmd_validate_check_resource_provider_version(&f, false).is_ok());
-}
-#[test]
-fn governance_drift_risk_pkg() {
-    let d = tempfile::tempdir().unwrap();
-    let f = write_cfg(d.path(), pkg_cfg());
-    assert!(cmd_validate_check_resource_drift_risk(&f, false).is_ok());
-}
-#[test]
-fn ordering_ext_content_size_pkg() {
-    let d = tempfile::tempdir().unwrap();
-    let f = write_cfg(d.path(), pkg_cfg());
-    assert!(cmd_validate_check_resource_content_size_limit(&f, false).is_ok());
-}
-#[test]
-fn ordering_ext_gpu_backend_pkg() {
-    let d = tempfile::tempdir().unwrap();
-    let f = write_cfg(d.path(), pkg_cfg());
-    assert!(cmd_validate_check_resource_gpu_backend_consistency(&f, false).is_ok());
-}
+// Remaining pkg tests moved to tests_cov_validate_ext4.rs

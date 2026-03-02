@@ -3,7 +3,9 @@
 
 #![allow(unused_imports)]
 use super::validate_audit::*;
+use super::validate_compliance_ext::*;
 use super::validate_governance_ext::*;
+use super::validate_security::*;
 use super::validate_security_ext::*;
 use super::validate_topology::*;
 use std::path::{Path, PathBuf};
@@ -272,4 +274,22 @@ fn govext_tag_required_keys_missing_file() {
 fn govext_content_drift_risk_missing_file() {
     let p = std::path::PathBuf::from("/tmp/nonexistent_validate_ext3.yaml");
     assert!(cmd_validate_check_resource_content_drift_risk(&p, false).is_err());
+}
+
+// ── error paths moved from tests_cov_validate_ext2 ────────────
+
+#[test]
+fn security_secret_scope_missing() {
+    let p = std::path::PathBuf::from("/tmp/nonexistent_ext3.yaml");
+    assert!(cmd_validate_check_resource_secret_scope(&p, false).is_err());
+}
+#[test]
+fn security_deprecation_missing() {
+    let p = std::path::PathBuf::from("/tmp/nonexistent_ext3.yaml");
+    assert!(cmd_validate_check_resource_deprecation_usage(&p, false).is_err());
+}
+#[test]
+fn compliance_tags_missing() {
+    let p = std::path::PathBuf::from("/tmp/nonexistent_ext3.yaml");
+    assert!(cmd_validate_check_resource_compliance_tags(&p, false).is_err());
 }

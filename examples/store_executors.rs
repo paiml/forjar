@@ -4,7 +4,7 @@
 //! Run: `cargo run --example store_executors`
 
 use forjar::core::store::cache::{
-    build_inventory, CacheConfig, CacheEntry, CacheInventory, CacheSource,
+    build_inventory, CacheConfig, CacheEntry, CacheSource,
 };
 use forjar::core::store::derivation::{Derivation, DerivationInput};
 use forjar::core::store::derivation_exec::{

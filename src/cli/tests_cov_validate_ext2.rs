@@ -487,18 +487,4 @@ fn scoring_tag_format_missing() {
     let p = std::path::PathBuf::from("/tmp/nonexistent_ext2.yaml");
     assert!(cmd_validate_check_resource_tag_value_format(&p, false).is_err());
 }
-#[test]
-fn security_secret_scope_missing() {
-    let p = std::path::PathBuf::from("/tmp/nonexistent_ext2.yaml");
-    assert!(cmd_validate_check_resource_secret_scope(&p, false).is_err());
-}
-#[test]
-fn security_deprecation_missing() {
-    let p = std::path::PathBuf::from("/tmp/nonexistent_ext2.yaml");
-    assert!(cmd_validate_check_resource_deprecation_usage(&p, false).is_err());
-}
-#[test]
-fn compliance_tags_missing() {
-    let p = std::path::PathBuf::from("/tmp/nonexistent_ext2.yaml");
-    assert!(cmd_validate_check_resource_compliance_tags(&p, false).is_err());
-}
+// Remaining error-path tests moved to tests_cov_validate_ext3.rs
