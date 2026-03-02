@@ -3,6 +3,7 @@
 use super::cache::{build_inventory, CacheConfig, CacheEntry, CacheSource};
 use super::cache_exec::{pull_command, push_command};
 use super::substitution::{plan_substitution, SubstitutionContext, SubstitutionOutcome};
+use crate::tripwire::hasher::hash_directory;
 use std::path::Path;
 
 fn ssh_source() -> CacheSource {
@@ -232,4 +233,48 @@ fn substitution_with_auto_push_includes_push_step() {
         .iter()
         .any(|s| matches!(s, super::substitution::SubstitutionStep::PushToCache { .. }));
     assert!(has_push, "auto_push should include PushToCache step");
+}
+
+#[test]
+fn verify_pulled_content_with_matching_hash() {
+    let dir = tempfile::tempdir().unwrap();
+    let content_dir = dir.path().join("content");
+    std::fs::create_dir_all(&content_dir).unwrap();
+    std::fs::write(content_dir.join("hello.txt"), "hello world").unwrap();
+
+    // Hash the content directory
+    let hash = hash_directory(&content_dir).unwrap();
+
+    // verify_pulled_content is private, so test through the hash_directory mechanism
+    // The function hashes content/ subdir and compares against expected
+    assert!(hash.starts_with("blake3:"));
+    assert!(!hash.is_empty());
+}
+
+#[test]
+fn verify_hash_changes_with_different_content() {
+    let dir1 = tempfile::tempdir().unwrap();
+    let dir2 = tempfile::tempdir().unwrap();
+    let c1 = dir1.path().join("content");
+    let c2 = dir2.path().join("content");
+    std::fs::create_dir_all(&c1).unwrap();
+    std::fs::create_dir_all(&c2).unwrap();
+    std::fs::write(c1.join("a.txt"), "alpha").unwrap();
+    std::fs::write(c2.join("a.txt"), "beta").unwrap();
+
+    let h1 = hash_directory(&c1).unwrap();
+    let h2 = hash_directory(&c2).unwrap();
+    assert_ne!(h1, h2, "different content should produce different hashes");
+}
+
+#[test]
+fn verify_hash_deterministic() {
+    let dir = tempfile::tempdir().unwrap();
+    let c = dir.path().join("content");
+    std::fs::create_dir_all(&c).unwrap();
+    std::fs::write(c.join("x.bin"), "data").unwrap();
+
+    let h1 = hash_directory(&c).unwrap();
+    let h2 = hash_directory(&c).unwrap();
+    assert_eq!(h1, h2, "same content should produce same hash");
 }

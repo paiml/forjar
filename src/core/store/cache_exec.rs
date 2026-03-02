@@ -224,14 +224,25 @@ fn remote_check_command(source: &CacheSource, hash: &str) -> String {
     }
 }
 
-/// Verify pulled content matches expected hash (best-effort).
-fn verify_pulled_content(staging: &Path, _expected_hash: &str) -> bool {
-    // If staging has content, consider it valid
-    // Full verification would re-hash, but we trust rsync checksums
-    staging.exists()
-        && std::fs::read_dir(staging)
-            .map(|mut d| d.next().is_some())
-            .unwrap_or(false)
+/// Verify pulled content matches expected hash via BLAKE3 re-hash.
+fn verify_pulled_content(staging: &Path, expected_hash: &str) -> bool {
+    let content_dir = staging.join("content");
+    let dir_to_hash = if content_dir.is_dir() {
+        &content_dir
+    } else {
+        staging
+    };
+    match crate::tripwire::hasher::hash_directory(dir_to_hash) {
+        Ok(actual) => {
+            let expected = if expected_hash.starts_with("blake3:") {
+                expected_hash.to_string()
+            } else {
+                format!("blake3:{expected_hash}")
+            };
+            actual == expected
+        }
+        Err(_) => false,
+    }
 }
 
 /// Extract the CacheSource from a substitution plan's pull step.
