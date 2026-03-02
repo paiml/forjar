@@ -110,4 +110,6 @@ mod tests_substitution;
 #[cfg(test)]
 mod tests_sync_exec;
 #[cfg(test)]
+mod tests_cov_exec;
+#[cfg(test)]
 mod tests_validate;
