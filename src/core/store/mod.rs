@@ -12,6 +12,7 @@ pub mod far;
 pub mod chunker;
 pub mod conda;
 pub mod hf_config;
+pub mod contract_coverage;
 
 #[cfg(test)]
 mod tests_path;
@@ -31,3 +32,5 @@ mod tests_chunker;
 mod tests_conda;
 #[cfg(test)]
 mod tests_hf_config;
+#[cfg(test)]
+mod tests_contract_coverage;
