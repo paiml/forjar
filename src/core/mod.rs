@@ -12,6 +12,7 @@ pub mod resolver;
 pub mod secrets;
 pub mod state;
 pub mod scoring;
+pub mod store;
 pub mod types;
 
 #[cfg(test)]
