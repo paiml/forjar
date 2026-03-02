@@ -10,6 +10,8 @@ mod lock_ops_args;
 mod state_args;
 mod misc_args;
 mod misc_ops_args;
+mod store_args;
+mod subcmd_args;
 
 pub use apply_args::*;
 pub use validate_args::*;
@@ -21,9 +23,10 @@ pub use lock_ops_args::*;
 pub use state_args::*;
 pub use misc_args::*;
 pub use misc_ops_args::*;
+pub use store_args::*;
+pub use subcmd_args::*;
 
 use clap::Subcommand;
-use std::path::PathBuf;
 
 
 #[derive(Subcommand, Debug)]
@@ -314,174 +317,23 @@ pub enum Commands {
     /// Score a forjar config — multi-dimensional quality grade (A–F)
     Score(ScoreArgs),
 
-}
+    /// FJ-1311: Pin all inputs to current versions (lock file management)
+    Pin(PinArgs),
 
+    /// FJ-1323: Binary cache operations (list, push, pull, verify)
+    #[command(subcommand)]
+    Cache(CacheCmd),
 
-/// FJ-260: Snapshot subcommands — named state checkpoints.
-#[derive(Subcommand, Debug)]
-pub enum SnapshotCmd {
-    /// Save current state as a named snapshot
-    Save {
-        /// Snapshot name
-        name: String,
+    /// FJ-1327: Content-addressed store operations (gc, list, diff, sync)
+    #[command(subcommand)]
+    Store(StoreCmd),
 
-        /// State directory
-        #[arg(long, default_value = "state")]
-        state_dir: PathBuf,
-    },
+    /// FJ-1346: Forjar Archive (FAR) operations (pack, unpack, inspect, verify)
+    #[command(subcommand)]
+    Archive(ArchiveCmd),
 
-    /// List available snapshots
-    List {
-        /// State directory
-        #[arg(long, default_value = "state")]
-        state_dir: PathBuf,
+    /// FJ-1328: Convert recipe to reproducible format (version pin, store, lock)
+    Convert(ConvertArgs),
 
-        /// Output as JSON
-        #[arg(long)]
-        json: bool,
-    },
-
-    /// Restore state from a named snapshot
-    Restore {
-        /// Snapshot name to restore
-        name: String,
-
-        /// State directory
-        #[arg(long, default_value = "state")]
-        state_dir: PathBuf,
-
-        /// Skip confirmation
-        #[arg(long)]
-        yes: bool,
-    },
-
-    /// Delete a named snapshot
-    Delete {
-        /// Snapshot name to delete
-        name: String,
-
-        /// State directory
-        #[arg(long, default_value = "state")]
-        state_dir: PathBuf,
-    },
-}
-
-
-/// Shell types for completion generation.
-#[derive(Debug, Clone, clap::ValueEnum)]
-pub enum CompletionShell {
-    Bash,
-    Zsh,
-    Fish,
-}
-
-
-/// FJ-210: Workspace subcommands.
-#[derive(Subcommand, Debug)]
-pub enum WorkspaceCmd {
-    /// Create a new workspace
-    New {
-        /// Workspace name
-        name: String,
-    },
-
-    /// List all workspaces
-    List,
-
-    /// Select (activate) a workspace
-    Select {
-        /// Workspace name to activate
-        name: String,
-    },
-
-    /// Delete a workspace and its state
-    Delete {
-        /// Workspace name to delete
-        name: String,
-
-        /// Skip confirmation
-        #[arg(long)]
-        yes: bool,
-    },
-
-    /// Show current active workspace
-    Current,
-}
-
-
-/// FJ-200: Secrets subcommands — age-encrypted secret management.
-#[derive(Subcommand, Debug)]
-pub enum SecretsCmd {
-    /// Encrypt a value with age recipients
-    Encrypt {
-        /// Plaintext value to encrypt
-        value: String,
-
-        /// Age recipient public key (age1...)
-        #[arg(short, long, required = true)]
-        recipient: Vec<String>,
-    },
-
-    /// Decrypt an ENC[age,...] marker
-    Decrypt {
-        /// Encrypted marker (ENC[age,...])
-        value: String,
-
-        /// Path to age identity file
-        #[arg(short, long)]
-        identity: Option<PathBuf>,
-    },
-
-    /// Generate a new age identity (keypair)
-    Keygen,
-
-    /// Decrypt and display all secrets in a forjar.yaml
-    View {
-        /// Path to forjar.yaml
-        #[arg(short, long, default_value = "forjar.yaml")]
-        file: PathBuf,
-
-        /// Path to age identity file
-        #[arg(short, long)]
-        identity: Option<PathBuf>,
-    },
-
-    /// Re-encrypt all ENC[age,...] markers with new recipients
-    Rekey {
-        /// Path to forjar.yaml
-        #[arg(short, long, default_value = "forjar.yaml")]
-        file: PathBuf,
-
-        /// Path to current age identity file (for decryption)
-        #[arg(short, long)]
-        identity: Option<PathBuf>,
-
-        /// New recipient public keys (age1...)
-        #[arg(short, long, required = true)]
-        recipient: Vec<String>,
-    },
-
-    /// FJ-201: Rotate all secrets — decrypt and re-encrypt with new keys
-    Rotate {
-        /// Path to forjar.yaml
-        #[arg(short, long, default_value = "forjar.yaml")]
-        file: PathBuf,
-
-        /// Path to current age identity file (for decryption)
-        #[arg(short, long)]
-        identity: Option<PathBuf>,
-
-        /// New recipient public keys (age1...)
-        #[arg(short, long, required = true)]
-        recipient: Vec<String>,
-
-        /// Re-encrypt in place (required flag to prevent accidents)
-        #[arg(long)]
-        re_encrypt: bool,
-
-        /// State directory for audit logging
-        #[arg(long, default_value = "state")]
-        state_dir: PathBuf,
-    },
 }
 

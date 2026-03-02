@@ -9,6 +9,12 @@ mod dispatch_graph;
 mod dispatch_validate;
 mod dispatch_lock;
 mod dispatch_misc;
+mod dispatch_store;
+mod store_pin;
+mod store_cache;
+mod store_ops;
+mod store_archive;
+mod store_convert;
 pub mod helpers;
 pub mod helpers_state;
 pub mod helpers_time;
@@ -360,141 +366,78 @@ mod tests_phase98;
 mod tests_phase99;
 #[cfg(test)]
 mod tests_phase100;
-#[cfg(test)]
-mod tests_cov_graph;
-#[cfg(test)]
-mod tests_cov_validate;
-#[cfg(test)]
-mod tests_cov_status_1;
-#[cfg(test)]
-mod tests_cov_status_2;
-#[cfg(test)]
-mod tests_cov_status_3;
-#[cfg(test)]
-mod tests_cov_lock;
-#[cfg(test)]
-mod tests_cov_graph2;
-#[cfg(test)]
-mod tests_cov_misc2;
-#[cfg(test)]
-mod tests_cov_apply;
-#[cfg(test)]
-mod tests_cov_fleet;
-#[cfg(test)]
-mod tests_cov_validate2;
-#[cfg(test)]
-mod tests_cov_dispatch;
-#[cfg(test)]
-mod tests_cov_args;
-#[cfg(test)]
-mod tests_cov_args_extra;
-#[cfg(test)]
-mod tests_cov_transport;
-#[cfg(test)]
-mod tests_cov_graph3;
-#[cfg(test)]
-mod tests_cov_status_5;
-#[cfg(test)]
-mod tests_cov_validate3;
-#[cfg(test)]
-mod tests_cov_status_4;
-#[cfg(test)]
-mod tests_cov_notify;
-#[cfg(test)]
-mod tests_cov_remaining;
-#[cfg(test)]
-mod tests_cov_graph3_b;
-#[cfg(test)]
-mod tests_cov_graph3_c;
-#[cfg(test)]
-mod tests_cov_status_4_b;
-#[cfg(test)]
-mod tests_cov_status_4_c;
-#[cfg(test)]
-mod tests_cov_fleet_b;
-#[cfg(test)]
-mod tests_cov_validate2_b;
-#[cfg(test)]
-mod tests_cov_validate2_c;
-#[cfg(test)]
-mod tests_cov_validate3_b;
-#[cfg(test)]
-mod tests_cov_validate3_c;
-#[cfg(test)]
-mod tests_cov_validate3_d;
-#[cfg(test)]
-mod tests_cov_apply_b;
-#[cfg(test)]
-mod tests_cov_misc2_b;
-#[cfg(test)]
-mod tests_cov_args_extra_b;
-#[cfg(test)]
-mod tests_cov_args_2;
-#[cfg(test)]
-mod tests_cov_args_2_b;
-#[cfg(test)]
-mod tests_cov_args_3;
-#[cfg(test)]
-mod tests_cov_args_4;
-#[cfg(test)]
-mod tests_cov_dispatch_2;
-#[cfg(test)]
-mod tests_cov_dispatch_3;
-#[cfg(test)]
-mod tests_cov_dispatch_4;
-#[cfg(test)]
-mod tests_cov_status_6;
-#[cfg(test)]
-mod tests_cov_status_7;
-#[cfg(test)]
-mod tests_cov_transport_2;
-#[cfg(test)]
-mod tests_cov_transport_3;
-#[cfg(test)]
-mod tests_cov_notify_2;
-#[cfg(test)]
-mod tests_cov_notify_3;
-#[cfg(test)]
-mod tests_cov_notify_4;
-#[cfg(test)]
-mod tests_cov_remaining_2;
-#[cfg(test)]
-mod tests_cov_remaining_3;
-#[cfg(test)]
-mod tests_cov_remaining_4;
-#[cfg(test)]
-mod tests_cov_remaining_5;
-#[cfg(test)]
-mod tests_cov_remaining_6;
-#[cfg(test)]
-mod tests_cov_remaining_7;
-#[cfg(test)]
-mod tests_cov_remaining_8;
-#[cfg(test)]
-mod tests_cov_remaining_9;
-#[cfg(test)]
-mod tests_phase95;
-#[cfg(test)]
-mod tests_validate_transport;
-#[cfg(test)]
-mod tests_phase96;
-#[cfg(test)]
-mod tests_phase97;
-#[cfg(test)]
-mod tests_phase101;
-#[cfg(test)]
-mod tests_phase102;
-#[cfg(test)]
-mod tests_phase103;
-#[cfg(test)]
-mod tests_phase104;
-#[cfg(test)]
-mod tests_phase105;
-#[cfg(test)]
-mod tests_phase106;
-#[cfg(test)]
-mod tests_phase107;
-#[cfg(test)]
-mod tests_score;
+#[cfg(test)] mod tests_cov_graph;
+#[cfg(test)] mod tests_cov_validate;
+#[cfg(test)] mod tests_cov_status_1;
+#[cfg(test)] mod tests_cov_status_2;
+#[cfg(test)] mod tests_cov_status_3;
+#[cfg(test)] mod tests_cov_lock;
+#[cfg(test)] mod tests_cov_graph2;
+#[cfg(test)] mod tests_cov_misc2;
+#[cfg(test)] mod tests_cov_apply;
+#[cfg(test)] mod tests_cov_fleet;
+#[cfg(test)] mod tests_cov_validate2;
+#[cfg(test)] mod tests_cov_dispatch;
+#[cfg(test)] mod tests_cov_args;
+#[cfg(test)] mod tests_cov_args_extra;
+#[cfg(test)] mod tests_cov_transport;
+#[cfg(test)] mod tests_cov_graph3;
+#[cfg(test)] mod tests_cov_status_5;
+#[cfg(test)] mod tests_cov_validate3;
+#[cfg(test)] mod tests_cov_status_4;
+#[cfg(test)] mod tests_cov_notify;
+#[cfg(test)] mod tests_cov_remaining;
+#[cfg(test)] mod tests_cov_graph3_b;
+#[cfg(test)] mod tests_cov_graph3_c;
+#[cfg(test)] mod tests_cov_status_4_b;
+#[cfg(test)] mod tests_cov_status_4_c;
+#[cfg(test)] mod tests_cov_fleet_b;
+#[cfg(test)] mod tests_cov_validate2_b;
+#[cfg(test)] mod tests_cov_validate2_c;
+#[cfg(test)] mod tests_cov_validate3_b;
+#[cfg(test)] mod tests_cov_validate3_c;
+#[cfg(test)] mod tests_cov_validate3_d;
+#[cfg(test)] mod tests_cov_apply_b;
+#[cfg(test)] mod tests_cov_misc2_b;
+#[cfg(test)] mod tests_cov_args_extra_b;
+#[cfg(test)] mod tests_cov_args_2;
+#[cfg(test)] mod tests_cov_args_2_b;
+#[cfg(test)] mod tests_cov_args_3;
+#[cfg(test)] mod tests_cov_args_4;
+#[cfg(test)] mod tests_cov_dispatch_2;
+#[cfg(test)] mod tests_cov_dispatch_3;
+#[cfg(test)] mod tests_cov_dispatch_4;
+#[cfg(test)] mod tests_cov_status_6;
+#[cfg(test)] mod tests_cov_status_7;
+#[cfg(test)] mod tests_cov_transport_2;
+#[cfg(test)] mod tests_cov_transport_3;
+#[cfg(test)] mod tests_cov_notify_2;
+#[cfg(test)] mod tests_cov_notify_3;
+#[cfg(test)] mod tests_cov_notify_4;
+#[cfg(test)] mod tests_cov_remaining_2;
+#[cfg(test)] mod tests_cov_remaining_3;
+#[cfg(test)] mod tests_cov_remaining_4;
+#[cfg(test)] mod tests_cov_remaining_5;
+#[cfg(test)] mod tests_cov_remaining_6;
+#[cfg(test)] mod tests_cov_remaining_7;
+#[cfg(test)] mod tests_cov_remaining_8;
+#[cfg(test)] mod tests_cov_remaining_9;
+#[cfg(test)] mod tests_phase95;
+#[cfg(test)] mod tests_validate_transport;
+#[cfg(test)] mod tests_phase96;
+#[cfg(test)] mod tests_phase97;
+#[cfg(test)] mod tests_phase101;
+#[cfg(test)] mod tests_phase102;
+#[cfg(test)] mod tests_phase103;
+#[cfg(test)] mod tests_phase104;
+#[cfg(test)] mod tests_phase105;
+#[cfg(test)] mod tests_phase106;
+#[cfg(test)] mod tests_phase107;
+#[cfg(test)] mod tests_score;
+#[cfg(test)] mod tests_store_pin;
+#[cfg(test)] mod tests_store_cache;
+#[cfg(test)] mod tests_store_ops;
+#[cfg(test)] mod tests_store_archive;
+#[cfg(test)] mod tests_store_convert;
 pub use commands::Commands;
 pub use dispatch::dispatch;

@@ -1,0 +1,124 @@
+//! Subcommand enums extracted from commands/mod.rs to keep it under 500 lines.
+
+use clap::Subcommand;
+use std::path::PathBuf;
+
+
+/// FJ-260: Snapshot subcommands — named state checkpoints.
+#[derive(Subcommand, Debug)]
+pub enum SnapshotCmd {
+    /// Save current state as a named snapshot
+    Save {
+        /// Snapshot name
+        name: String,
+        /// State directory
+        #[arg(long, default_value = "state")]
+        state_dir: PathBuf,
+    },
+    /// List available snapshots
+    List {
+        /// State directory
+        #[arg(long, default_value = "state")]
+        state_dir: PathBuf,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+    /// Restore state from a named snapshot
+    Restore {
+        /// Snapshot name to restore
+        name: String,
+        /// State directory
+        #[arg(long, default_value = "state")]
+        state_dir: PathBuf,
+        /// Skip confirmation
+        #[arg(long)]
+        yes: bool,
+    },
+    /// Delete a named snapshot
+    Delete {
+        /// Snapshot name to delete
+        name: String,
+        /// State directory
+        #[arg(long, default_value = "state")]
+        state_dir: PathBuf,
+    },
+}
+
+
+/// Shell types for completion generation.
+#[derive(Debug, Clone, clap::ValueEnum)]
+pub enum CompletionShell {
+    Bash,
+    Zsh,
+    Fish,
+}
+
+
+/// FJ-210: Workspace subcommands.
+#[derive(Subcommand, Debug)]
+pub enum WorkspaceCmd {
+    /// Create a new workspace
+    New { name: String },
+    /// List all workspaces
+    List,
+    /// Select (activate) a workspace
+    Select { name: String },
+    /// Delete a workspace and its state
+    Delete {
+        name: String,
+        #[arg(long)]
+        yes: bool,
+    },
+    /// Show current active workspace
+    Current,
+}
+
+
+/// FJ-200: Secrets subcommands — age-encrypted secret management.
+#[derive(Subcommand, Debug)]
+pub enum SecretsCmd {
+    /// Encrypt a value with age recipients
+    Encrypt {
+        value: String,
+        #[arg(short, long, required = true)]
+        recipient: Vec<String>,
+    },
+    /// Decrypt an ENC[age,...] marker
+    Decrypt {
+        value: String,
+        #[arg(short, long)]
+        identity: Option<PathBuf>,
+    },
+    /// Generate a new age identity (keypair)
+    Keygen,
+    /// Decrypt and display all secrets in a forjar.yaml
+    View {
+        #[arg(short, long, default_value = "forjar.yaml")]
+        file: PathBuf,
+        #[arg(short, long)]
+        identity: Option<PathBuf>,
+    },
+    /// Re-encrypt all ENC[age,...] markers with new recipients
+    Rekey {
+        #[arg(short, long, default_value = "forjar.yaml")]
+        file: PathBuf,
+        #[arg(short, long)]
+        identity: Option<PathBuf>,
+        #[arg(short, long, required = true)]
+        recipient: Vec<String>,
+    },
+    /// FJ-201: Rotate all secrets — decrypt and re-encrypt with new keys
+    Rotate {
+        #[arg(short, long, default_value = "forjar.yaml")]
+        file: PathBuf,
+        #[arg(short, long)]
+        identity: Option<PathBuf>,
+        #[arg(short, long, required = true)]
+        recipient: Vec<String>,
+        #[arg(long)]
+        re_encrypt: bool,
+        #[arg(long, default_value = "state")]
+        state_dir: PathBuf,
+    },
+}
