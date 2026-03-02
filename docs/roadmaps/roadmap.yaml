@@ -206,3 +206,88 @@ roadmap:
   estimated_effort: null
   labels: []
   notes: null
+- id: PMAT-013
+  github_issue: null
+  item_type: task
+  title: 'FJ-1311: forjar pin CLI command'
+  status: completed
+  priority: high
+  assigned_to: null
+  created: 2026-03-02T14:00:00Z
+  updated: 2026-03-02T14:00:00Z
+  spec: null
+  acceptance_criteria:
+  - 'forjar pin / --update / --check CLI commands wired to lockfile module. 11 tests.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-014
+  github_issue: null
+  item_type: task
+  title: 'FJ-1323: forjar cache CLI command'
+  status: completed
+  priority: medium
+  assigned_to: null
+  created: 2026-03-02T14:00:00Z
+  updated: 2026-03-02T14:00:00Z
+  spec: null
+  acceptance_criteria:
+  - 'forjar cache list/push/pull/verify CLI wired to cache module. 11 tests.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-015
+  github_issue: null
+  item_type: task
+  title: 'FJ-1327: forjar store gc/list/diff/sync CLI'
+  status: completed
+  priority: medium
+  assigned_to: null
+  created: 2026-03-02T14:00:00Z
+  updated: 2026-03-02T14:00:00Z
+  spec: null
+  acceptance_criteria:
+  - 'forjar store gc/list/diff/sync CLI wired to gc/store_diff modules. 13 tests.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-016
+  github_issue: null
+  item_type: task
+  title: 'FJ-1346: forjar archive pack/unpack/inspect/verify CLI'
+  status: completed
+  priority: medium
+  assigned_to: null
+  created: 2026-03-02T14:00:00Z
+  updated: 2026-03-02T14:00:00Z
+  spec: null
+  acceptance_criteria:
+  - 'forjar archive pack/unpack/inspect/verify CLI wired to FAR module. 10 tests.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-017
+  github_issue: null
+  item_type: task
+  title: 'FJ-1328: forjar convert --reproducible CLI'
+  status: completed
+  priority: medium
+  assigned_to: null
+  created: 2026-03-02T14:00:00Z
+  updated: 2026-03-02T14:00:00Z
+  spec: null
+  acceptance_criteria:
+  - 'forjar convert --reproducible CLI wired to conversion analysis module. 7 tests.'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null

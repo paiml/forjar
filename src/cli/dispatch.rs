@@ -14,6 +14,7 @@ use super::dispatch_graph::dispatch_graph_cmd;
 use super::dispatch_validate::dispatch_validate;
 use super::dispatch_lock::dispatch_lock_cmd;
 use super::dispatch_misc::dispatch_misc_cmd;
+use super::dispatch_store::dispatch_store_cmd;
 
 
 /// Dispatch a CLI command.
@@ -86,6 +87,12 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
         | cmd @ Commands::LockVerifySchema(..)
         | cmd @ Commands::LockTag(..)
         | cmd @ Commands::LockMigrate(..) => dispatch_lock_cmd(cmd),
+        // Store-related commands (pin, cache, store, archive, convert)
+        cmd @ Commands::Pin(..)
+        | cmd @ Commands::Cache(..)
+        | cmd @ Commands::Store(..)
+        | cmd @ Commands::Archive(..)
+        | cmd @ Commands::Convert(..) => dispatch_store_cmd(cmd),
         // All remaining commands
         cmd => dispatch_misc_cmd(cmd, verbose),
     }
