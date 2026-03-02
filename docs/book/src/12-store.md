@@ -130,6 +130,58 @@ Lock file pins are resolved by querying providers
 | docker | `docker image inspect <name>` |
 | apr | `apr info <name> --format version` |
 
+## Execution Layer (Phase L)
+
+All store operations are bridged to actual execution via the transport
+layer. Each bridge module validates commands (I8) before execution and
+handles rollback on failure.
+
+| Bridge | Module | CLI Command |
+|--------|--------|-------------|
+| Provider import | `provider_exec.rs` | `forjar store-import <provider> <ref>` |
+| GC sweep | `gc_exec.rs` | `forjar store gc [--dry-run]` |
+| Pin resolution | `pin_resolve.rs` | `forjar pin [--check]` |
+| Cache transport | `cache_exec.rs` | `forjar cache push/pull` |
+| Convert apply | `convert_exec.rs` | `forjar convert --reproducible --apply` |
+| Store diff/sync | `sync_exec.rs` | `forjar store diff/sync --apply` |
+| Sandbox build | `sandbox_run.rs` | (internal — called by derivation executor) |
+
+### Store Import Example
+
+```bash
+# Import nginx from apt into the content-addressed store
+forjar store-import apt nginx --version 1.24.0
+
+# Import a Docker image
+forjar store-import docker alpine:3.18
+
+# List supported providers
+forjar store-import --list-providers
+```
+
+### GC Example
+
+```bash
+# See what would be deleted (dry-run)
+forjar store gc --dry-run
+
+# Actually delete unreachable entries
+forjar store gc
+
+# Keep last 10 profile generations
+forjar store gc --keep-generations 10
+```
+
+### Convert Example
+
+```bash
+# Analyze conversion opportunities
+forjar convert --reproducible -f myconfig.yaml
+
+# Apply conversion (backup + modify YAML + lock file)
+forjar convert --reproducible --apply -f myconfig.yaml
+```
+
 ## Key Invariants
 
 - **I8**: All shell scripts validated via bashrs before execution
