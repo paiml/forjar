@@ -553,6 +553,8 @@ mod tests_validate_core_3;
 #[cfg(test)]
 mod tests_validate_core_b;
 #[cfg(test)]
+mod tests_dispatch_store;
+#[cfg(test)]
 mod tests_validate_analytics;
 #[cfg(test)]
 mod tests_validate_store_purity;
