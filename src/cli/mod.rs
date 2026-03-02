@@ -571,6 +571,12 @@ mod tests_validate_store_purity;
 #[cfg(test)]
 mod tests_validate_transport;
 #[cfg(test)]
+mod tests_cov_validate_ext;
+#[cfg(test)]
+mod tests_cov_validate_ext2;
+#[cfg(test)]
+mod tests_cov_validate_ext3;
+#[cfg(test)]
 mod tests_workspace;
 mod validate_advanced;
 mod validate_analytics;
