@@ -9,6 +9,7 @@ pub mod profile;
 pub mod reference;
 pub mod purity;
 pub mod far;
+pub mod chunker;
 
 #[cfg(test)]
 mod tests_path;
@@ -22,3 +23,5 @@ mod tests_reference;
 mod tests_purity;
 #[cfg(test)]
 mod tests_far;
+#[cfg(test)]
+mod tests_chunker;
