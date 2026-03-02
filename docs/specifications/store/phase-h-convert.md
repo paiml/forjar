@@ -1,7 +1,7 @@
 # Phase H: Import/Convert (FJ-1345–FJ-1349)
 
-**Status**: 🔧 Partial — types ✅ / --apply 🔲
-**Implementation**: `src/core/store/convert.rs`
+**Status**: ✅ Complete — types + --apply execution + CLI wiring
+**Implementation**: `src/core/store/convert.rs`, `src/core/store/convert_exec.rs`, `src/core/store/pin_resolve.rs`
 
 ---
 
@@ -27,9 +27,10 @@ The five-step conversion ladder progressively moves recipes from impure to pure:
 | 66 | Reproducibility score CI gate |
 | 67 | Profile generation rollback |
 
-## 3. Remaining Work
+## 3. Implementation Status
 
-| Gap | Status | Description |
-|-----|--------|-------------|
-| `--apply` mode | 🔲 | Actual FAR unpack + apply to target machine |
-| Version resolution | 🔲 | Resolve latest versions from provider CLIs |
+| Component | Status | Implementation |
+|-----------|--------|----------------|
+| `--apply` mode | ✅ | `convert_exec::apply_conversion()` — backup, YAML modify, lock gen, atomic write |
+| Version resolution | ✅ | `pin_resolve::resolve_all_pins()` — per-provider CLI queries (apt, cargo, nix, uv) |
+| CLI wiring | ✅ | `forjar convert --reproducible --apply`, `forjar pin --check` |
