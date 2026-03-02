@@ -1,6 +1,7 @@
 //! Tests for FJ-1348: Conda package reader.
 
-use super::conda::{parse_conda_index, read_conda};
+use super::conda::{conda_to_far, parse_conda_index, read_conda};
+use super::far::decode_far_manifest;
 
 fn sample_index_json() -> String {
     serde_json::json!({
@@ -210,4 +211,104 @@ fn build_pkg_tar() -> Vec<u8> {
         .append_data(&mut header, "lib/testpkg/__init__.py", content.as_slice())
         .unwrap();
     builder.into_inner().unwrap()
+}
+
+// --- Commit 4: conda_to_far pipeline tests ---
+
+#[test]
+fn test_fj1349_conda_to_far_tar_bz2() {
+    let tmp = tempfile::tempdir().unwrap();
+    let conda_path = tmp.path().join("test-1.0-py_0.tar.bz2");
+    build_synthetic_tar_bz2(&conda_path);
+
+    let far_path = tmp.path().join("test.far");
+    let manifest = conda_to_far(&conda_path, &far_path).unwrap();
+
+    assert_eq!(manifest.name, "testpkg");
+    assert_eq!(manifest.version, "1.0.0");
+    assert_eq!(manifest.provenance.origin_provider, "conda");
+    assert!(manifest.store_hash.starts_with("blake3:"));
+    assert!(manifest.tree_hash.starts_with("blake3:"));
+    assert!(manifest.file_count > 0);
+    assert!(manifest.total_size > 0);
+    assert!(far_path.exists());
+}
+
+#[test]
+fn test_fj1349_conda_to_far_zip() {
+    let tmp = tempfile::tempdir().unwrap();
+    let conda_path = tmp.path().join("test-1.0-py_0.conda");
+    build_synthetic_conda_zip(&conda_path);
+
+    let far_path = tmp.path().join("test.far");
+    let manifest = conda_to_far(&conda_path, &far_path).unwrap();
+
+    assert_eq!(manifest.name, "testpkg");
+    assert_eq!(manifest.version, "1.0.0");
+    assert_eq!(manifest.provenance.origin_provider, "conda");
+    assert!(far_path.exists());
+}
+
+#[test]
+fn test_fj1349_far_roundtrip() {
+    let tmp = tempfile::tempdir().unwrap();
+    let conda_path = tmp.path().join("test-1.0-py_0.tar.bz2");
+    build_synthetic_tar_bz2(&conda_path);
+
+    let far_path = tmp.path().join("test.far");
+    let original = conda_to_far(&conda_path, &far_path).unwrap();
+
+    // Read back and verify
+    let file = std::fs::File::open(&far_path).unwrap();
+    let (decoded, entries) = decode_far_manifest(std::io::BufReader::new(file)).unwrap();
+
+    assert_eq!(decoded.name, original.name);
+    assert_eq!(decoded.version, original.version);
+    assert_eq!(decoded.store_hash, original.store_hash);
+    assert_eq!(decoded.tree_hash, original.tree_hash);
+    assert_eq!(decoded.files.len(), original.files.len());
+    assert!(!entries.is_empty());
+}
+
+#[test]
+fn test_fj1349_provenance_origin_ref() {
+    let tmp = tempfile::tempdir().unwrap();
+    let conda_path = tmp.path().join("numpy-1.26.4-py_0.tar.bz2");
+    build_synthetic_tar_bz2(&conda_path);
+
+    let far_path = tmp.path().join("numpy.far");
+    let manifest = conda_to_far(&conda_path, &far_path).unwrap();
+
+    let origin_ref = manifest.provenance.origin_ref.unwrap();
+    assert!(origin_ref.contains("numpy-1.26.4-py_0.tar.bz2"));
+}
+
+#[test]
+fn test_fj1349_store_hash_deterministic() {
+    let tmp = tempfile::tempdir().unwrap();
+    let conda_path = tmp.path().join("test-1.0-py_0.tar.bz2");
+    build_synthetic_tar_bz2(&conda_path);
+
+    let far1 = tmp.path().join("test1.far");
+    let far2 = tmp.path().join("test2.far");
+    let m1 = conda_to_far(&conda_path, &far1).unwrap();
+    let m2 = conda_to_far(&conda_path, &far2).unwrap();
+
+    assert_eq!(m1.store_hash, m2.store_hash);
+    assert_eq!(m1.tree_hash, m2.tree_hash);
+}
+
+#[test]
+fn test_fj1349_file_entries_populated() {
+    let tmp = tempfile::tempdir().unwrap();
+    let conda_path = tmp.path().join("test-1.0-py_0.tar.bz2");
+    build_synthetic_tar_bz2(&conda_path);
+
+    let far_path = tmp.path().join("test.far");
+    let manifest = conda_to_far(&conda_path, &far_path).unwrap();
+
+    for entry in &manifest.files {
+        assert!(!entry.path.is_empty());
+        assert!(entry.blake3.starts_with("blake3:"));
+    }
 }

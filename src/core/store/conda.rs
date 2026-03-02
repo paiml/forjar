@@ -2,6 +2,10 @@
 //!
 //! Reads conda packages, extracts files, and parses `index.json` metadata.
 
+use super::chunker::{chunk_directory, tree_hash};
+use super::far::{encode_far, FarManifest, FarProvenance};
+use crate::tripwire::eventlog::now_iso8601;
+use crate::tripwire::hasher::hash_directory;
 use std::io::Read;
 use std::path::Path;
 
@@ -184,6 +188,84 @@ pub fn parse_conda_index(json: &str) -> Result<CondaPackageInfo, String> {
         subdir,
         files: Vec::new(),
     })
+}
+
+/// Convert a conda package to FAR format.
+///
+/// 1. Extract conda package to temp dir
+/// 2. Hash the extracted directory (store_hash)
+/// 3. Chunk the directory (chunks + file entries)
+/// 4. Compute tree hash for verified streaming
+/// 5. Build FarManifest with conda provenance
+/// 6. Encode FAR to output file
+pub fn conda_to_far(conda_path: &Path, far_output: &Path) -> Result<FarManifest, String> {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    let id = COUNTER.fetch_add(1, Ordering::Relaxed);
+    let tmp = std::env::temp_dir().join(format!(
+        "forjar-conda-{}-{id}",
+        std::process::id()
+    ));
+    let extract_dir = tmp.join("extracted");
+    let _ = std::fs::remove_dir_all(&tmp);
+    std::fs::create_dir_all(&extract_dir)
+        .map_err(|e| format!("create temp dir: {e}"))?;
+
+    // 1. Extract
+    let info = read_conda(conda_path, &extract_dir)?;
+
+    // 2. Store hash
+    let store_hash = hash_directory(&extract_dir)?;
+
+    // 3. Chunk
+    let (chunks, file_entries) = chunk_directory(&extract_dir)?;
+
+    // 4. Tree hash
+    let th = tree_hash(&chunks);
+    let tree_hash_str = format!(
+        "blake3:{}",
+        th.iter().map(|b| format!("{b:02x}")).collect::<String>()
+    );
+
+    // 5. Build manifest
+    let total_size: u64 = file_entries.iter().map(|f| f.size).sum();
+    let manifest = FarManifest {
+        name: info.name,
+        version: info.version,
+        arch: info.arch,
+        store_hash,
+        tree_hash: tree_hash_str,
+        file_count: file_entries.len() as u64,
+        total_size,
+        files: file_entries,
+        provenance: FarProvenance {
+            origin_provider: "conda".to_string(),
+            origin_ref: Some(format!(
+                "{}:{}",
+                info.subdir,
+                conda_path
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+            )),
+            origin_hash: None,
+            created_at: now_iso8601(),
+            generator: format!("forjar {}", env!("CARGO_PKG_VERSION")),
+        },
+    };
+
+    // 6. Encode
+    let chunk_pairs: Vec<([u8; 32], Vec<u8>)> =
+        chunks.into_iter().map(|c| (c.hash, c.data)).collect();
+    let file = std::fs::File::create(far_output)
+        .map_err(|e| format!("create {}: {e}", far_output.display()))?;
+    let writer = std::io::BufWriter::new(file);
+    encode_far(&manifest, &chunk_pairs, writer)?;
+
+    // Clean up temp dir
+    let _ = std::fs::remove_dir_all(&tmp);
+
+    Ok(manifest)
 }
 
 // --- internal helpers ---
