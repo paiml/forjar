@@ -92,22 +92,11 @@ Profile symlinks under `/var/forjar/profiles/`: `system-1 → store/<hash-a>/con
 
 ### 2.5 YAML Integration (FJ-1303)
 
-```yaml
-resources:
-  my-package:
-    type: package
-    machine: web-01
-    provider: apt
-    packages: [nginx]
-    version: "1.24.0"
-    store: true              # NEW: enable content-addressed caching
-```
-
-The `store: true` field on `Resource` (extending `src/core/types/resource.rs`) opts a resource into the store model. Without it, resources behave as today.
+`store: true` field on `Resource` (extending `src/core/types/resource.rs`) opts into the store model. Without it, resources behave as today.
 
 ### 2.6 Reference Scanning (FJ-1304)
 
-Store entries track references to other store paths via the `references` field in `meta.yaml`. The GC uses this to build a reachability graph from roots. References are discovered by scanning output files for store path hashes (conservative scanning, same approach as Nix).
+Store entries track references via `meta.yaml`. The GC follows these to build a reachability graph. References discovered by scanning output files for store path hashes (conservative scanning).
 
 ---
 
@@ -172,42 +161,11 @@ Input pinning extends tripwire upstream detection. During `forjar apply`, the lo
 
 ## 5. Build Sandboxing (FJ-1315–FJ-1319)
 
-### 5.1 Pepita Extension
+Extends pepita kernel namespace isolation (`src/transport/pepita.rs`, `src/resources/pepita/mod.rs`). Existing: PID/mount/net namespaces, cgroups v2, overlayfs. Store sandbox adds: read-only bind mounts for inputs, minimal `/dev`, seccomp BPF (`connect`/`mount`/`ptrace` denied), tmpfs `/tmp`.
 
-Build sandboxing extends the existing pepita kernel namespace isolation (`src/transport/pepita.rs`, `src/resources/pepita/mod.rs`). Today, pepita provides:
+**Config** (FJ-1315): `sandbox: { level: full, memory_mb: 2048, cpus: 4.0, timeout: 600 }` on any resource with `store: true`.
 
-- PID/mount/network namespaces via `unshare(2)` / `nsenter(1)`
-- cgroups v2 resource limits (memory, CPU)
-- overlayfs copy-on-write layers
-- Network namespace isolation
-
-The store sandbox adds:
-
-- **Read-only bind mounts** for input dependencies
-- **Minimal `/dev`** (null, zero, urandom only)
-- **seccomp BPF** syscall filtering (no network, no mount, no ptrace)
-- **tmpfs `/tmp`** for build scratch space
-
-### 5.2 Sandbox Configuration (FJ-1315)
-
-```yaml
-resources:
-  my-build:
-    type: package
-    provider: cargo
-    packages: [my-tool]
-    version: "0.5.0"
-    store: true
-    sandbox: { level: full, memory_mb: 2048, cpus: 4.0, timeout: 600 }
-```
-
-### 5.3 Sandbox Lifecycle (FJ-1316)
-
-Create namespace (`pepita.rs:ensure_namespace`) → mount overlay (lower=store inputs, upper=tmpfs) → bind inputs read-only → apply cgroup limits (`pepita.rs:apply_cgroup_limits`) → execute bashrs-purified build script → extract outputs → `hash_directory()` from `hasher.rs` → move to `/var/forjar/store/<hash>/content/` → write `meta.yaml` → destroy namespace (`pepita.rs:cleanup_namespace`).
-
-### 5.4 Seccomp Profile (FJ-1317)
-
-Default for pure builds: deny `connect(2)`, `mount(2)`, `ptrace(2)`. Allow standard build syscalls (read, write, open, exec, mmap). Extends `seccomp: true` on `Resource` (`src/core/types/resource.rs:223`).
+**Lifecycle** (FJ-1316): create namespace → overlay mount (lower=inputs, upper=tmpfs) → bind inputs read-only → cgroup limits → bashrs-purified build → extract outputs → `hash_directory()` → store → destroy namespace. All steps reuse existing pepita functions.
 
 ---
 
@@ -245,30 +203,11 @@ forjar cache verify                  # verify all store entries (re-hash)
 
 ## 7. Garbage Collection (FJ-1325–FJ-1327)
 
-### 7.1 GC Roots (FJ-1325)
+**GC roots** (FJ-1325): current profile symlink, profile generations (keep last N), lock file pins, `.gc-roots/` symlinks.
 
-A store entry is **live** if reachable from any GC root:
+**Mark-and-sweep** (FJ-1326): walk roots, follow `references` in `meta.yaml`, mark as live. Unreachable entries are dead.
 
-- Current profile symlink (`/var/forjar/profiles/current`)
-- All profile generations (configurable retention: keep last N)
-- Active lock file references (`forjar.inputs.lock.yaml` pins)
-- Entries referenced by `/var/forjar/store/.gc-roots/` symlinks
-
-### 7.2 Reference Scanning (FJ-1326)
-
-Conservative mark-and-sweep:
-
-1. **Mark**: walk all GC roots, follow `references` in each `meta.yaml`, mark as live
-2. **Sweep**: any store entry not marked is dead — eligible for deletion
-
-### 7.3 GC Command (FJ-1327)
-
-```bash
-forjar store gc                      # delete all unreachable entries
-forjar store gc --dry-run            # preview what would be deleted
-forjar store gc --older-than 90d     # age filter
-forjar store gc --keep-generations 5 # generation retention
-```
+**CLI** (FJ-1327): `forjar store gc` (delete unreachable), `--dry-run`, `--older-than 90d`, `--keep-generations 5`. GC is never automatic.
 
 ---
 
@@ -298,75 +237,141 @@ Recipes 63–67: version-pinned apt with store (63), cargo sandbox + input lock 
 
 ---
 
-## 9. Nix Provider (FJ-1333–FJ-1336)
+## 9. Universal Provider Import (FJ-1333–FJ-1340)
 
-`provider: nix` is an **optional package provider** — the same role as `provider: apt`, `provider: cargo`, or `provider: uv`. Users who never touch Nix lose nothing. The store, FAR, purity model, pinning, sandbox, cache, and GC all work without Nix ever being mentioned. Zero new crate dependencies.
+Any external tool can seed the forjar store. Each provider shells out to its native CLI, captures outputs, BLAKE3-hashes them, and stores the result. After import, all store entries are identical — provider-agnostic, distributable as FAR over SSH. Zero new crate dependencies for any provider.
 
-### 9.1 Sovereignty Constraints
+### 9.1 Supported Providers (FJ-1333–FJ-1336)
 
-| Constraint | Enforcement |
-|------------|-------------|
-| Nix is optional | Just another provider. No forjar feature depends on it. |
-| Zero new crates | `sha2`/`zstd` already transitive via `age`. No `ed25519-dalek`, no `xz2` (C FFI, CVE-2024-3094). |
-| No protocol reimplementation | Shell out to `nix build --print-out-paths` — same as `apt install`, `cargo install`. |
-| No HTTP client | Nix CLI handles its own cache. Forjar's cache transport is SSH-only. |
-| One store prefix | `/var/forjar/store/` only. Nix outputs are re-hashed as BLAKE3. |
+| Provider | CLI | Capture Method | Example |
+|----------|-----|----------------|---------|
+| `apt` | `apt install` | Package files via dpkg manifest | `packages: [nginx]` |
+| `cargo` | `cargo install` | Binary output in `$CARGO_HOME/bin/` | `packages: [ripgrep]` |
+| `uv` | `uv pip install` | Virtualenv contents | `packages: [flask]` |
+| `nix` | `nix build --print-out-paths` | Output tree in `/nix/store/` | `packages: ["nixpkgs#ripgrep"]` |
+| `docker` | `docker export` | Filesystem snapshot from container | `image: "ubuntu:24.04"` |
+| `tofu` | `tofu output -json` | State outputs (IPs, IDs, configs) | `source: "infra/"` |
+| `terraform` | `terraform output -json` | State outputs | `source: "infra/"` |
 
-### 9.2 Provider Flow (FJ-1333)
+All providers follow the same flow: invoke CLI → copy output to staging → `hash_directory()` → move to `/var/forjar/store/<hash>/content/` → write `meta.yaml`. Same pattern as existing `cargo` provider in `src/resources/package.rs`.
 
-```
-1. nix build nixpkgs#ripgrep --print-out-paths   → /nix/store/<hash>-ripgrep-14.1.0/
-2. cp -r /nix/store/<hash>-ripgrep-14.1.0/* /tmp/forjar-staging/
-3. hash_directory(/tmp/forjar-staging/)            → blake3:abc123...
-4. mv /tmp/forjar-staging/ /var/forjar/store/abc123.../content/
-5. write meta.yaml (nix provenance: store path, nixpkgs rev, system)
-6. forjar archive pack abc123...                   → ripgrep-14.1.0.far (optional)
-```
+### 9.2 Provider-Specific Handling
 
-Same code pattern as the existing `cargo` provider (shells out to `cargo install`).
+**Nix** (FJ-1334): outputs contain hardcoded `/nix/store/` paths. At import, forjar rewrites via `patchelf` (ELF) and bashrs-purified `sed` (scripts). Re-hashed after rewriting.
 
-### 9.3 YAML Integration (FJ-1334)
+**Docker** (FJ-1335): `docker create` + `docker export` produces a root filesystem tarball. Unpack, strip Docker metadata (`.dockerenv`, `docker-entrypoint.sh`), hash, store. This is the path from Dockerfile → pepita rootfs.
 
-```yaml
-resources:
-  ripgrep:
-    type: package
-    provider: nix
-    packages: ["nixpkgs#ripgrep"]
-    version: "14.1.0"
-    store: true
-    nix:
-      nixpkgs_rev: "abc123..."        # pinned nixpkgs commit
-      system: "x86_64-linux"
-```
+**Terraform/OpenTofu** (FJ-1336): outputs are structured data (IPs, resource IDs, certificate paths), not filesystem trees. Stored as YAML in `content/outputs.yaml`, hashed as a file. Used as inputs to downstream derivations (e.g., template a config file with a Terraform-provisioned IP).
 
-### 9.4 Reference Rewriting (FJ-1335)
+### 9.3 Sovereignty Guarantee
 
-Nix outputs contain hardcoded `/nix/store/` paths. At import time, forjar rewrites these: ELF binaries via `patchelf --set-rpath` / `--set-interpreter`, scripts and configs via bashrs-purified `sed`. All outputs are re-hashed after rewriting — the BLAKE3 store hash reflects the rewritten content.
-
-### 9.5 Cache Distribution (FJ-1336)
-
-Once a Nix-sourced package is in the forjar store, it distributes identically to any other store entry: `forjar cache push` over SSH, FAR archive, BLAKE3 verification. Target machines never need Nix installed — they receive the same FAR as any other provider's output.
+Once imported, store entries are provider-agnostic. A package imported from Nix, a rootfs exported from Docker, and a config generated from Terraform outputs — all distribute identically via `forjar cache push` over SSH. Target machines never need the source tool installed.
 
 ---
 
-## 10. Forjar Archive Format (FJ-1337–FJ-1340)
+## 10. Store Derivations (FJ-1341–FJ-1345)
 
-Forjar's sovereign package format — FAR (Forjar ARchive). Replaces NAR for forjar-native packages with BLAKE3 verified streaming, content-defined chunking, and built-in provenance.
+The missing abstraction: take one or more store entries as inputs, apply a transformation inside a pepita sandbox, produce a new store entry. This is how imported artifacts become forjar-native.
 
-### 10.1 Why Not NAR
+### 10.1 The Problem
 
-| Dimension | NAR (2003) | FAR |
-|-----------|------------|-----|
-| Hash | SHA256 (no tree mode) | BLAKE3 (verified streaming, keyed mode) |
-| Dedup | Whole-archive transfer | Content-defined chunking — delta transfers |
-| Metadata | Scan full archive | Manifest-first — metadata without full download |
-| Compression | xz (slow decompress) | Zstd (10x faster decompress, dictionary support) |
-| Verification | Hash entire NAR, then compare | BLAKE3 tree mode — verify each 256KB chunk independently |
-| Resume | No — restart from zero | Chunk-level resume, skip verified chunks |
-| Provenance | None in archive | Recipe hash, input closure, builder identity inline |
+A user imports an Ubuntu rootfs from Docker and a set of packages from Nix. They want to combine them into a single pepita-bootable rootfs with custom configuration. Today, the store has no way to express "store entry A + store entry B + recipe C → store entry D."
 
-### 10.2 Archive Layout (FJ-1337)
+### 10.2 Derivation Model (FJ-1341)
+
+```yaml
+resources:
+  ml-rootfs:
+    type: derivation
+    store: true
+    sandbox: { level: full, memory_mb: 4096, cpus: 8.0, timeout: 1800 }
+    inputs:
+      base_rootfs: { store: "blake3:aaa..." }      # Docker-imported Ubuntu
+      cuda_toolkit: { store: "blake3:bbb..." }      # Nix-imported CUDA
+      model_weights: { store: "blake3:ccc..." }      # forjar-built model
+      config: { resource: "nginx-config" }           # another resource's output
+    script: |
+      # bashrs-purified — runs inside pepita sandbox
+      cp -r {{inputs.base_rootfs}}/* $out/
+      cp -r {{inputs.cuda_toolkit}}/* $out/usr/local/
+      cp -r {{inputs.model_weights}}/* $out/opt/models/
+      cp {{inputs.config}} $out/etc/nginx/nginx.conf
+```
+
+**Key fields:**
+- `type: derivation` — new resource type
+- `inputs:` — map of named inputs, each referencing a store hash or another resource
+- `script:` — bashrs-purified shell executed inside pepita sandbox
+- `$out` — the output directory (hashed after build, becomes the new store entry)
+
+### 10.3 Derivation Lifecycle (FJ-1342)
+
+```
+1. Resolve inputs     (store hashes or resource outputs)
+2. Compute closure    (composite_hash of all input hashes + script hash + arch)
+3. Check store        (if closure hash exists → substitution, skip build)
+4. Create pepita ns   (ensure_namespace — full sandbox)
+5. Bind inputs        (read-only mounts: /forjar/inputs/<name> → store content)
+6. Execute script     (bashrs-purified, writes to $out)
+7. Hash output        (hash_directory($out))
+8. Store              (atomic move to /var/forjar/store/<hash>/content/)
+9. Write meta.yaml    (records: input closure, script hash, references, provenance)
+10. Destroy namespace
+```
+
+Steps 4–10 reuse the sandbox lifecycle from Section 5.3. The derivation adds input resolution (steps 1–3) on top.
+
+### 10.4 Any Provider → Pepita Pipeline (FJ-1343)
+
+```yaml
+resources:
+  ubuntu-base:                               # Step 1: import rootfs
+    type: package
+    provider: docker
+    image: "ubuntu:24.04"
+    store: true
+  ml-rootfs:                                  # Step 2: derive combined rootfs
+    type: derivation
+    store: true
+    sandbox: { level: full }
+    inputs:
+      base: { resource: "ubuntu-base" }
+    script: |
+      cp -r {{inputs.base}}/* $out/
+      # add packages, configs, models...
+  ml-sandbox:                                 # Step 3: boot pepita from derived rootfs
+    type: pepita
+    depends_on: [ml-rootfs]
+    chroot_dir: "/var/forjar/store/{{ml-rootfs.store_hash}}/content"
+    memory_limit: 8589934592
+    cpuset: "0-7"
+    netns: true
+```
+
+The provider is interchangeable: Docker → store → derivation → pepita. Or Nix → store → derivation → pepita. Or apt → store → derivation → pepita. The derivation is the universal adapter.
+
+### 10.5 Derivation Chains (FJ-1344)
+
+Derivations reference other derivations as inputs, forming a DAG (evaluated bottom-up via `depends_on`). Each step produces a new immutable store entry, independently cacheable and substitutable.
+
+### 10.6 CLI (FJ-1345)
+
+```bash
+forjar import docker ubuntu:24.04       # import Docker image into store
+forjar import nix nixpkgs#ripgrep       # import Nix package into store
+forjar import tofu ./infra/             # import Terraform/OpenTofu outputs
+forjar store list --show-provider       # list entries with source provider
+```
+
+---
+
+## 11. Forjar Archive Format (FJ-1346–FJ-1349)
+
+Forjar's sovereign package format — FAR (Forjar ARchive). BLAKE3 verified streaming, content-defined chunking, built-in provenance.
+
+### 11.1 Archive Layout (FJ-1346)
+
+Advantages over NAR (2003): BLAKE3 verified streaming (vs SHA256), content-defined chunking for delta transfers, manifest-first metadata access, zstd compression (10x faster decompress than xz), chunk-level resume, inline provenance.
 
 ```
 ┌──────────────────────────┐
@@ -385,7 +390,7 @@ Forjar's sovereign package format — FAR (Forjar ARchive). Replaces NAR for for
 
 Zstd compression and age signatures use crates already in the dependency tree (transitive via `age v0.11`). BLAKE3 is a direct dependency. **Zero new crates for the FAR format.**
 
-### 10.3 Manifest Schema (FJ-1338)
+### 11.2 Manifest Schema (FJ-1347)
 
 ```yaml
 schema: "1.0"
@@ -393,7 +398,7 @@ name: "ripgrep"
 version: "14.1.0"
 arch: "x86_64"
 store_hash: "blake3:abc123..."
-tree_hash: "blake3:def456..."          # BLAKE3 tree root
+tree_hash: "blake3:def456..."          # BLAKE3 tree root (verified streaming)
 recipe_hash: "blake3:789abc..."
 input_closure: ["blake3:aaa...", "blake3:bbb..."]
 references: ["blake3:ccc..."]
@@ -404,20 +409,15 @@ provenance:
   git_commit: "abc123"
 files:
   - { path: "bin/rg", size: 5242880, mode: "0755", hash: "blake3:eee...", chunks: [0,1,2,3,4] }
-  - { path: "share/man/man1/rg.1", size: 12345, mode: "0644", hash: "blake3:fff...", chunks: [5] }
 total_chunks: 6
 compressed_size: 1834567
 ```
 
-### 10.4 BLAKE3 Verified Streaming (FJ-1339)
+### 11.3 Streaming and Chunking (FJ-1348–FJ-1349)
 
-BLAKE3's tree hashing splits content into 256KB chunks, each hashed independently, combined in a binary tree. This enables: parallel verification (8 chunks on 8 cores), partial verification (verify chunk N without chunks 0..N-1), incremental transfer (reuse chunks from previous version), and resume (verify what you have, fetch what's missing).
+BLAKE3 tree hashing: 256KB chunks hashed independently, combined in binary tree — parallel verification, partial verification, incremental transfer, resume. Content-defined chunking via Rabin fingerprinting at ~64KB boundaries — only changed chunks transfer on version updates.
 
-### 10.5 Content-Defined Chunking (FJ-1340)
-
-Rabin fingerprinting at ~64KB boundaries. When a package updates 14.1.0 → 14.1.1, only changed chunks transfer. Chunk hashes are BLAKE3 — matching chunks between old and new versions are skipped during `forjar cache push/pull`. This is the same dedup model as `casync`/`restic`, integrated into the archive format.
-
-### 10.6 CLI
+### 11.4 CLI
 
 ```bash
 forjar archive pack <store-hash>     # pack store entry into .far
@@ -428,7 +428,7 @@ forjar archive verify <file.far>     # verify chunk hashes + signature
 
 ---
 
-## 11. Implementation Phases
+## 12. Implementation Phases
 
 | Phase | Tickets | Priority | Depends On | Scope |
 |-------|---------|----------|------------|-------|
@@ -437,47 +437,42 @@ forjar archive verify <file.far>     # verify chunk hashes + signature
 | **C** | FJ-1315–FJ-1319 | Medium | Phase A + pepita | Sandbox config, lifecycle, seccomp BPF, read-only bind mounts |
 | **D** | FJ-1320–FJ-1327 | Lower | Phase A + B | SSH cache, substitution protocol, GC roots, mark-and-sweep |
 | **E** | FJ-1328–FJ-1332 | Parallel | Phase A + B | `forjar convert --reproducible`, reproducibility score, cookbook 63–67 |
-| **F** | FJ-1333–FJ-1336 | Medium | Phase A | Optional `provider: nix`, import flow, reference rewriting, cache distribution |
-| **G** | FJ-1337–FJ-1340 | Lower | Phase A + D | FAR format: archive layout, manifest, BLAKE3 verified streaming, chunking |
+| **F** | FJ-1333–FJ-1340 | Medium | Phase A | Universal provider import (nix, docker, tofu, terraform) |
+| **G** | FJ-1341–FJ-1345 | High | Phase A + C | Store derivations, derivation chains, Dockerfile→pepita pipeline |
+| **H** | FJ-1346–FJ-1349 | Lower | Phase A + D | FAR format: archive layout, manifest, BLAKE3 streaming, chunking |
 
 ---
 
-## 12. Key Design Decisions
+## 13. Key Design Decisions
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
-| Hash algorithm | BLAKE3 | Already used everywhere (`hasher.rs`), faster than SHA256, keyed mode available |
-| Store location | `/var/forjar/store/` | Sovereign, consistent with `/var/forjar/tripwire/` |
-| Primary cache transport | SSH | SSH-first design, no external deps, existing transport |
-| Cache transport | SSH only | No HTTP client crate. CI uses `forjar cache pull` over SSH |
-| Purity model | 4 levels | Incremental adoption — don't force purity on day one |
-| Sandbox implementation | Pepita extension | Reuse existing `unshare`/`nsenter`/cgroups/overlay |
-| Expression layer | YAML templates + bashrs | Already exists (`expansion.rs` + bashrs purification) — no new language |
-| Lock format | YAML | Consistent with all forjar config |
-| Profile generations | Symlink rotation | Atomic `rename(2)` switch + instant rollback |
-| GC strategy | Explicit only | Never auto-delete — user controls store lifecycle |
-| Nix provider | Optional, same as apt/cargo/uv | Shell out to `nix build`, re-hash. Zero new crates. Not required. |
-| Archive format | FAR (forjar-native) | BLAKE3 streaming, zstd compression, age signatures — all existing deps |
-| Signing | age (already in tree) | Reuse existing `age v0.11` — no ed25519-dalek, no new crypto |
-| Compression | Zstd (already in tree) | Transitive via age — no xz/liblzma (CVE-2024-3094 risk) |
+| Hash | BLAKE3 | Already in tree, faster than SHA256, keyed mode, verified streaming |
+| Store | `/var/forjar/store/` | Sovereign, consistent with `/var/forjar/tripwire/` |
+| Cache | SSH only | No HTTP client crate. Sovereign. |
+| Purity | 4 levels | Incremental adoption |
+| Sandbox | Pepita extension | Reuse `unshare`/`nsenter`/cgroups/overlay |
+| Expression | YAML templates + bashrs | Existing — no new language |
+| Providers | All optional, all equal | apt/cargo/uv/nix/docker/tofu — shell out, capture, re-hash |
+| Derivations | `type: derivation` | Inputs + bashrs + pepita → new store entry. Universal adapter. |
+| Archive | FAR | BLAKE3 streaming, zstd, age signing — all existing deps |
+| New crates | Zero | `sha2`/`zstd` transitive via `age`. No `ed25519-dalek`, no `xz2`. |
 
 ---
 
-## 13. Non-Goals
+## 14. Non-Goals
 
-**Not a Nix replacement.** `provider: nix` is an optional provider for users who want access to nixpkgs. Forjar never evaluates Nix expressions, never reimplements Nix protocols, never adds Nix-specific crate dependencies. Every feature in this spec works without Nix.
+**No external tool is required.** Every provider (nix, docker, tofu, terraform) is optional. The store, derivations, FAR, purity model, cache, and GC all work with `provider: apt` alone.
 
-**Machine-level artifact manager, not a system package manager.** The store caches resource outputs — no package index, no dependency resolution, no SAT solving. It orchestrates existing package managers (apt, cargo, uv, nix) and caches their outputs.
+**Not a package manager.** No package index, no dependency resolution, no SAT solving. Orchestrates existing tools and caches their outputs.
 
-**Not a container registry.** Store entries are resource state snapshots, not runnable OCI images. No `FROM` semantics, no layer composition.
+**No new crate dependencies.** Entire spec uses existing deps: `blake3`, `age` (transitively: `sha2`, `zstd`, `chacha20poly1305`), `serde_yaml_ng`. No `ed25519-dalek`, no `xz2`/`liblzma`, no HTTP client crates.
 
-**No required HTTP daemon.** SSH cache is primary. Forjar never opens a port or manages a listener.
-
-**No new crate dependencies.** The entire spec (store, FAR, Nix import) is implementable with existing dependencies: `blake3` (hashing), `age` (signing, transitively provides `sha2`, `zstd`, `x25519-dalek`, `chacha20poly1305`), `serde_yaml_ng` (metadata). No `ed25519-dalek`, no `xz2`/`liblzma`, no HTTP client crates.
+**No HTTP daemon.** SSH only. Forjar never opens a port.
 
 ---
 
-## 14. Invariants
+## 15. Invariants
 
 ### Store Contracts
 
@@ -490,6 +485,13 @@ forjar archive verify <file.far>     # verify chunk hashes + signature
 - **Monotonicity**: a resource's purity level is always ≥ the maximum purity level of its transitive dependencies. A pure resource cannot depend on an impure input.
 - **Closure determinism**: two resources with identical input closures always produce identical store hashes (given the same architecture and provider).
 - **Classification stability**: a resource's purity level cannot improve without changing its definition. Adding `store: true` alone does not make a resource pure — it must also have pinned versions and (for level 0) a sandbox.
+
+### Derivation Contracts
+
+- **Input immutability**: derivation inputs are read-only bind mounts. The build script cannot modify its inputs.
+- **Output isolation**: `$out` is the only writable directory. Everything outside `$out` is discarded.
+- **Closure completeness**: a derivation's store hash is `composite_hash(input_hashes + script_hash + arch)`. Changing any input or the script produces a different store entry.
+- **Provider erasure**: once in the store, a derivation's output is indistinguishable from any other store entry. The source provider is metadata, not identity.
 
 ### Lock File Contracts
 
