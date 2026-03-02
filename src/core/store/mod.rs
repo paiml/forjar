@@ -10,6 +10,7 @@ pub mod reference;
 pub mod purity;
 pub mod far;
 pub mod chunker;
+pub mod conda;
 
 #[cfg(test)]
 mod tests_path;
@@ -25,3 +26,5 @@ mod tests_purity;
 mod tests_far;
 #[cfg(test)]
 mod tests_chunker;
+#[cfg(test)]
+mod tests_conda;
