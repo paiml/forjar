@@ -18,6 +18,7 @@ pub mod kernel_far;
 pub mod closure;
 pub mod lockfile;
 pub mod gc;
+pub mod repro_score;
 
 #[cfg(test)]
 mod tests_path;
@@ -49,3 +50,5 @@ mod tests_closure;
 mod tests_lockfile;
 #[cfg(test)]
 mod tests_gc;
+#[cfg(test)]
+mod tests_repro_score;
