@@ -1,0 +1,53 @@
+schema: '1.0'
+machine: nfs-host
+hostname: nfs-host
+generated_at: 2026-03-02T08:34:56Z
+generator: forjar 1.0.0
+blake3_version: '1.8'
+resources:
+  nfs-pkg:
+    type: package
+    status: converged
+    applied_at: 2026-03-02T08:34:56Z
+    duration_seconds: 0.035848343
+    hash: blake3:74aca2b24a7233988a17e00480e8456f7cf7ed8285246422c5e54ed05cd9669a
+    details:
+      live_hash: blake3:c2d16448e387d7c221758bc2eaa3cf492fb43ac6ab36a3cb2a01094637c0dfa3
+  export-dir:
+    type: file
+    status: converged
+    applied_at: 2026-03-02T08:34:56Z
+    duration_seconds: 0.005710299
+    hash: blake3:ef63059b67e0bd4f5774470a68502a1f802aa4e2da5f9df64e10e6ec07e976f5
+    details:
+      mode: '0755'
+      owner: root
+      path: /srv/nfs/shared
+      live_hash: blake3:2ad4528763c63c378364b9a00f2935ed344d2ca43a0e0ce39501809e0e068769
+  exports-config:
+    type: file
+    status: converged
+    applied_at: 2026-03-02T08:34:56Z
+    duration_seconds: 0.003866659
+    hash: blake3:9e2562bf263b0eb5346804d8b8af9e3891521b975356eade1c8ef858fc219883
+    details:
+      content_hash: blake3:b4b6771dcd8456a7ba0d98ae09dcb58e9d0ad5d3a8fd47c6d62a82de6792852f
+      owner: root
+      path: /etc/exports
+      mode: '0644'
+      live_hash: blake3:c9c65f86551729997e5d362a6429aec98657dbac57a45a079b6a289d80f4a792
+  nfs-service:
+    type: service
+    status: failed
+    applied_at: 2026-03-02T08:34:56Z
+    duration_seconds: 0.006162563
+    hash: ''
+    details: {}
+  firewall-nfs:
+    type: network
+    status: converged
+    applied_at: 2026-03-02T08:34:56Z
+    duration_seconds: 0.539577532
+    hash: blake3:2d05add24bfd59340027ba26a2052af6623cf8496e0fb0ae95b39017e1880690
+    details:
+      live_hash: blake3:932e2ff75ac657466517a39c83d6167e12f2822c185ad61b5bead7fd288114b6

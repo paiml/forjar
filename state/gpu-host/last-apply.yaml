@@ -1,0 +1,34 @@
+machine: gpu-host
+resources_converged: 0
+resources_unchanged: 4
+resources_failed: 0
+total_duration: 0.000295677
+resource_reports:
+- resource_id: firewall-deny-gpu-api
+  resource_type: network
+  status: converged
+  duration_seconds: 0.602530469
+  exit_code: null
+  hash: blake3:70dec067bc235d58877f7024b4b90a29b2f908e8cabef3bf9963fe3f20ddb677
+  error: null
+- resource_id: nvidia-gpu
+  resource_type: gpu
+  status: converged
+  duration_seconds: 0.565282941
+  exit_code: null
+  hash: blake3:7f6c4bc6b90a1167e8e06b57a686c2cb39f04891f1eab8da50df825c45b7ece0
+  error: null
+- resource_id: gpu-health-cron
+  resource_type: cron
+  status: converged
+  duration_seconds: 0.029034136
+  exit_code: null
+  hash: blake3:8c33061938d792696a523f4ad8d6b01224f4326418dc7db831973e9e53c56add
+  error: null
+- resource_id: nvidia-container-toolkit
+  resource_type: package
+  status: converged
+  duration_seconds: 0.058000491
+  exit_code: null
+  hash: blake3:054b305231e65aef4fbf5754e762a1b75712edb8bab59bf55578ce91e3e6d66a
+  error: null

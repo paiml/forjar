@@ -1,0 +1,55 @@
+machine: user-host
+resources_converged: 1
+resources_unchanged: 6
+resources_failed: 0
+total_duration: 0.338943048
+resource_reports:
+- resource_id: admin-group
+  resource_type: user
+  status: converged
+  duration_seconds: 0.095328854
+  exit_code: null
+  hash: blake3:2c1e35c33222e1fa4540e7bab942f61c989debca631830c0d89cb9d6a2cd9947
+  error: null
+- resource_id: admin-user
+  resource_type: user
+  status: converged
+  duration_seconds: 0.062377971
+  exit_code: null
+  hash: blake3:fc04b40cd5ab1eb344a1528cef3578d64a443143c740b151131a0113aeaf0d05
+  error: null
+- resource_id: service-account
+  resource_type: user
+  status: converged
+  duration_seconds: 0.064023759
+  exit_code: null
+  hash: blake3:e29e1beef2cc57d48c44e3a5541f3af4be2ac4e4f452f0e935dd51f5a0a10d5e
+  error: null
+- resource_id: sudoers-forjar
+  resource_type: file
+  status: converged
+  duration_seconds: 0.059908851
+  exit_code: null
+  hash: blake3:2a5d3130302b43cf3680a8d6964980535a855820fa9d4eae87a3e455f98810de
+  error: null
+- resource_id: ssh-dir
+  resource_type: file
+  status: converged
+  duration_seconds: 0.076005974
+  exit_code: null
+  hash: blake3:297036dce2eaed84916b57f4c2ab9263df6f20efc32145d57e5a9f1f79d92d5c
+  error: null
+- resource_id: sudoers-check
+  resource_type: file
+  status: converged
+  duration_seconds: 0.059764814
+  exit_code: null
+  hash: blake3:c84f2a93ae47df73382ba0eb06a00e671af6c85d5720334d8978bafe25b16641
+  error: null
+- resource_id: ssh-authorized-keys
+  resource_type: file
+  status: converged
+  duration_seconds: 0.056754776
+  exit_code: null
+  hash: blake3:85b923e24d17505cf0ef36e7a0eb9fd1c95afc3f1e4e67bdc7bfdd6510cb4a09
+  error: null

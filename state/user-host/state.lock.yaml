@@ -1,0 +1,81 @@
+schema: '1.0'
+machine: user-host
+hostname: user-host
+generated_at: 2026-03-01T17:04:05Z
+generator: forjar 1.0.0
+blake3_version: '1.8'
+resources:
+  admin-group:
+    type: user
+    status: converged
+    applied_at: 2026-03-01T17:04:05Z
+    duration_seconds: 0.095328854
+    hash: blake3:2c1e35c33222e1fa4540e7bab942f61c989debca631830c0d89cb9d6a2cd9947
+    details:
+      service_name: forjar-admins
+      live_hash: blake3:046c950864ec5b1d76c688638edeb033243fac6debfc072b337a535839e62fd1
+  admin-user:
+    type: user
+    status: converged
+    applied_at: 2026-03-01T17:03:53Z
+    duration_seconds: 0.062377971
+    hash: blake3:fc04b40cd5ab1eb344a1528cef3578d64a443143c740b151131a0113aeaf0d05
+    details:
+      service_name: ops
+      live_hash: blake3:98ad1bad866998017d42667f9a70bf2e9f13a217b9cbfa74f5ab8e87739d34bd
+  service-account:
+    type: user
+    status: converged
+    applied_at: 2026-03-01T17:03:53Z
+    duration_seconds: 0.064023759
+    hash: blake3:e29e1beef2cc57d48c44e3a5541f3af4be2ac4e4f452f0e935dd51f5a0a10d5e
+    details:
+      live_hash: blake3:1d32ba065c0c0101ead9cabcfc7ca8a026cc295dd417504359717d3dc4588b49
+      service_name: forjar
+  sudoers-forjar:
+    type: file
+    status: converged
+    applied_at: 2026-03-01T17:03:53Z
+    duration_seconds: 0.059908851
+    hash: blake3:2a5d3130302b43cf3680a8d6964980535a855820fa9d4eae87a3e455f98810de
+    details:
+      mode: '0440'
+      content_hash: blake3:5087f0c8c6d69e4532bcf115a8ce0e9069017712b8356307edcadf9e9e9f38ac
+      path: /etc/sudoers.d/forjar-admins
+      owner: root
+      live_hash: blake3:78a4d55d6fd1863eb5f5da452bc88300216731739375242b9c33903e4f0ac002
+  ssh-dir:
+    type: file
+    status: converged
+    applied_at: 2026-03-01T17:03:53Z
+    duration_seconds: 0.076005974
+    hash: blake3:297036dce2eaed84916b57f4c2ab9263df6f20efc32145d57e5a9f1f79d92d5c
+    details:
+      owner: ops
+      mode: '0700'
+      path: /home/ops/.ssh
+      live_hash: blake3:5cef528ce07402887976ffa17c8ffb7fb5258fa46c3b778e24be2aae53aa54fd
+  sudoers-check:
+    type: file
+    status: converged
+    applied_at: 2026-03-01T17:03:53Z
+    duration_seconds: 0.059764814
+    hash: blake3:c84f2a93ae47df73382ba0eb06a00e671af6c85d5720334d8978bafe25b16641
+    details:
+      content_hash: blake3:9e6bb64cd4807e6a0ebcba4586e6333d7df028fbdc4f3016d01ed929bde82e42
+      mode: '0755'
+      owner: root
+      path: /usr/local/bin/forjar-sudoers-check.sh
+      live_hash: blake3:e732b1ae5296cf6cf928194f44098d357389b99bc76da78501f5cc9ea9ff7bba
+  ssh-authorized-keys:
+    type: file
+    status: converged
+    applied_at: 2026-03-01T17:03:53Z
+    duration_seconds: 0.056754776
+    hash: blake3:85b923e24d17505cf0ef36e7a0eb9fd1c95afc3f1e4e67bdc7bfdd6510cb4a09
+    details:
+      live_hash: blake3:533b7747c4978ec26794c238fc37c811c4737f9eb4e12244803fac85e7c753ec
+      path: /home/ops/.ssh/authorized_keys
+      content_hash: blake3:8f619cc70010b0e81036bacf5ea7c0e60b81915bb3b8cc00337e8754ff91185c
+      owner: ops
+      mode: '0600'
