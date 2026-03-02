@@ -7,15 +7,28 @@
 //! - Lock file format for input pinning
 //! - Reproducibility scoring (0-100)
 //! - Reference scanning for GC
+//! - Build sandbox configuration
+//! - Binary cache substitution protocol
+//! - Universal provider import
+//! - Store derivations
 //!
 //! Usage: cargo run --example store_reproducibility
 
+use forjar::core::store::cache::{
+    build_inventory, resolve_substitution, CacheEntry, SubstitutionResult,
+};
 use forjar::core::store::closure::{all_closures, closure_hash, ResourceInputs};
+use forjar::core::store::derivation::{
+    derivation_closure_hash, derivation_purity, validate_dag, validate_derivation, Derivation,
+    DerivationInput,
+};
 use forjar::core::store::lockfile::{check_completeness, check_staleness, LockFile, Pin};
 use forjar::core::store::path::{store_entry_path, store_path};
+use forjar::core::store::provider::{all_providers, capture_method, import_command, ImportConfig, ImportProvider};
 use forjar::core::store::purity::{classify, level_label, recipe_purity, PurityLevel, PuritySignals};
 use forjar::core::store::reference::is_valid_blake3_hash;
 use forjar::core::store::repro_score::{compute_score, grade, ReproInput};
+use forjar::core::store::sandbox::{blocks_network, preset_profile, validate_config};
 use std::collections::BTreeMap;
 
 fn main() {
@@ -27,6 +40,10 @@ fn main() {
     demo_lock_file();
     demo_reproducibility_score();
     demo_reference_scanning();
+    demo_sandbox_config();
+    demo_cache_substitution();
+    demo_provider_import();
+    demo_derivations();
 
     println!("\nDone — all store features demonstrated.");
 }
@@ -175,4 +192,114 @@ fn demo_reference_scanning() {
     for h in &hashes {
         println!("  {}: valid={}", h, is_valid_blake3_hash(h));
     }
+    println!();
+}
+
+fn demo_sandbox_config() {
+    println!("--- 7. Build Sandbox Configuration ---");
+    for name in &["full", "network-only", "minimal", "gpu"] {
+        let cfg = preset_profile(name).unwrap();
+        let errors = validate_config(&cfg);
+        println!(
+            "  {name}: level={:?}, mem={}MB, cpus={}, timeout={}s, net_blocked={}, valid={}",
+            cfg.level, cfg.memory_mb, cfg.cpus, cfg.timeout,
+            blocks_network(cfg.level), errors.is_empty()
+        );
+    }
+    println!();
+}
+
+fn demo_cache_substitution() {
+    println!("--- 8. Binary Cache Substitution ---");
+    let local = vec!["blake3:local111".to_string()];
+    let remote_entries = vec![
+        CacheEntry {
+            store_hash: "blake3:remote222".to_string(),
+            size_bytes: 5_000_000,
+            created_at: "2026-03-02T10:00:00Z".to_string(),
+            provider: "apt".to_string(),
+            arch: "x86_64".to_string(),
+        },
+    ];
+    let inv = build_inventory("cache.internal", remote_entries);
+
+    for hash in &["blake3:local111", "blake3:remote222", "blake3:missing"] {
+        let result = resolve_substitution(hash, &local, &[inv.clone()]);
+        let label = match &result {
+            SubstitutionResult::LocalHit { .. } => "LOCAL HIT",
+            SubstitutionResult::CacheHit { .. } => "CACHE HIT",
+            SubstitutionResult::CacheMiss => "MISS (build needed)",
+        };
+        println!("  {hash}: {label}");
+    }
+    println!();
+}
+
+fn demo_provider_import() {
+    println!("--- 9. Universal Provider Import ---");
+    let configs = vec![
+        ImportConfig {
+            provider: ImportProvider::Apt,
+            reference: "nginx".to_string(),
+            version: Some("1.24.0".to_string()),
+            arch: "x86_64".to_string(),
+            options: BTreeMap::new(),
+        },
+        ImportConfig {
+            provider: ImportProvider::Docker,
+            reference: "ubuntu".to_string(),
+            version: Some("24.04".to_string()),
+            arch: "x86_64".to_string(),
+            options: BTreeMap::new(),
+        },
+        ImportConfig {
+            provider: ImportProvider::Nix,
+            reference: "nixpkgs#ripgrep".to_string(),
+            version: None,
+            arch: "x86_64".to_string(),
+            options: BTreeMap::new(),
+        },
+    ];
+    for cfg in &configs {
+        println!("  {:?}: {}", cfg.provider, import_command(cfg));
+        println!("    capture: {}", capture_method(cfg.provider));
+    }
+    println!("  Total providers: {}\n", all_providers().len());
+}
+
+fn demo_derivations() {
+    println!("--- 10. Store Derivations ---");
+    let mut inputs = BTreeMap::new();
+    inputs.insert(
+        "base".to_string(),
+        DerivationInput::Store { store: "blake3:aaa111".to_string() },
+    );
+    inputs.insert(
+        "cuda".to_string(),
+        DerivationInput::Store { store: "blake3:bbb222".to_string() },
+    );
+    let d = Derivation {
+        inputs,
+        script: "cp -r $inputs/base/* $out/\ncp -r $inputs/cuda/* $out/usr/local/".to_string(),
+        sandbox: Some(preset_profile("full").unwrap()),
+        arch: "x86_64".to_string(),
+        out_var: "$out".to_string(),
+    };
+    let errors = validate_derivation(&d);
+    println!("  Valid: {} (errors: {})", errors.is_empty(), errors.len());
+    println!("  Purity: {:?}", derivation_purity(&d));
+
+    let mut hashes = BTreeMap::new();
+    hashes.insert("base".to_string(), "blake3:aaa111".to_string());
+    hashes.insert("cuda".to_string(), "blake3:bbb222".to_string());
+    let ch = derivation_closure_hash(&d, &hashes);
+    println!("  Closure hash: {}...", &ch[..20]);
+
+    // DAG validation
+    let mut dag = BTreeMap::new();
+    dag.insert("base-os".to_string(), vec![]);
+    dag.insert("cuda-toolkit".to_string(), vec!["base-os".to_string()]);
+    dag.insert("ml-rootfs".to_string(), vec!["cuda-toolkit".to_string()]);
+    let order = validate_dag(&dag).unwrap();
+    println!("  DAG order: {:?}", order);
 }

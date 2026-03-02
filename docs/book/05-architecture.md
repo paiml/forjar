@@ -230,6 +230,14 @@ Monotonicity invariant: a resource's purity level is at least as impure as its l
 
 **FAR format** (`src/core/store/far.rs`): Forjar ARchive — BLAKE3 verified streaming, zstd compression, content-defined chunking, inline provenance. Binary layout: magic → manifest → chunk table → chunks → signature.
 
+**Build sandbox** (`src/core/store/sandbox.rs`): Configuration for isolated store builds. 4 isolation levels (Full/NetworkOnly/Minimal/None) with resource limits (memory, CPUs, timeout), bind mounts, and environment variables. Preset profiles: `full` (no network, seccomp BPF), `network-only` (filesystem isolation only), `minimal` (PID/mount namespaces), `gpu` (network + GPU device passthrough). Extends pepita namespace isolation.
+
+**Binary cache** (`src/core/store/cache.rs`): SSH-only cache transport — sovereign, no HTTP client crate. Substitution protocol: check local store → check SSH cache sources (in order) → build from scratch. Configuration supports multiple cache sources (SSH/local), auto-push, and entry verification by re-hashing.
+
+**Universal provider import** (`src/core/store/provider.rs`): Any external tool seeds the forjar store. 8 providers: apt, cargo, uv, nix, docker, tofu, terraform, apr. Each shells out to its native CLI, captures outputs, BLAKE3-hashes them. After import, all store entries are provider-agnostic and distribute identically via SSH.
+
+**Store derivations** (`src/core/store/derivation.rs`): Take store entries as inputs, transform inside a pepita sandbox, produce a new store entry. `type: derivation` + `inputs:` (store hashes or resource refs) + `script:` (bashrs-purified shell). Closure hashing ensures identical inputs → identical store paths. DAG validation prevents cycles. Derivation purity derived from sandbox config level.
+
 See `cargo run --example store_reproducibility` for a full demonstration.
 
 ## Shell Purification (FJ-036)
