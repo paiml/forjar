@@ -6,7 +6,7 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'FJ-1304: Reference scanning for store paths'
-  status: inprogress
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-03-02T11:08:54Z
@@ -23,7 +23,7 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'FJ-1305: Purity classification and analysis'
-  status: planned
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-03-02T11:09:01Z
@@ -40,7 +40,7 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'FJ-1307: Input closure tracking'
-  status: planned
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-03-02T11:09:01Z
@@ -57,7 +57,7 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'FJ-1310: Lock file format'
-  status: planned
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-03-02T11:09:01Z
@@ -74,7 +74,7 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'FJ-1325: GC roots and mark-and-sweep'
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-03-02T11:09:01Z
@@ -91,7 +91,7 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'FJ-1329: Reproducibility score'
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-03-02T11:09:01Z
@@ -99,6 +99,74 @@ roadmap:
   spec: null
   acceptance_criteria:
   - 0-100 score based on purity levels, store coverage, input lock coverage.
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-007
+  github_issue: null
+  item_type: task
+  title: 'FJ-1315: Build sandbox config'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-03-02T12:00:00Z
+  updated: 2026-03-02T12:00:00Z
+  spec: null
+  acceptance_criteria:
+  - Sandbox config struct with level/memory/cpus/timeout. Validation. SandboxProfile presets.
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-008
+  github_issue: null
+  item_type: task
+  title: 'FJ-1320: Binary cache config and substitution protocol'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-03-02T12:00:00Z
+  updated: 2026-03-02T12:00:00Z
+  spec: null
+  acceptance_criteria:
+  - Cache source config (SSH/local). Substitution protocol (check local, check cache, build). SubstitutionResult.
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-009
+  github_issue: null
+  item_type: task
+  title: 'FJ-1333: Universal provider import interface'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-03-02T12:00:00Z
+  updated: 2026-03-02T12:00:00Z
+  spec: null
+  acceptance_criteria:
+  - ProviderImport trait. ImportResult. Provider config for apt/cargo/uv/nix/docker/tofu. Import pipeline.
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-010
+  github_issue: null
+  item_type: task
+  title: 'FJ-1341: Store derivation model'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-03-02T12:00:00Z
+  updated: 2026-03-02T12:00:00Z
+  spec: null
+  acceptance_criteria:
+  - Derivation struct with inputs/script/sandbox. DerivationResult. Closure computation. DAG validation.
   phases: []
   subtasks: []
   estimated_effort: null
