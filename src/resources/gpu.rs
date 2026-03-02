@@ -40,8 +40,9 @@ fn check_script_nvidia(name: &str, state: &str, resource: &Resource) -> String {
                     name, name
                 )
             } else {
+                // PMAT-036: prefix match — "550" matches "550.127.05"
                 format!(
-                    "if command -v nvidia-smi >/dev/null 2>&1; then\n  VER=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1)\n  if [ \"$VER\" = '{}' ]; then\n    echo 'match:{}'\n  else\n    echo 'mismatch:{}'\n  fi\nelse\n  echo 'missing:{}'\nfi",
+                    "if command -v nvidia-smi >/dev/null 2>&1; then\n  VER=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1)\n  case \"$VER\" in\n    '{}'*) echo 'match:{}' ;;\n    *) echo 'mismatch:{}' ;;\n  esac\nelse\n  echo 'missing:{}'\nfi",
                     driver_version, name, name, name
                 )
             }
@@ -94,20 +95,37 @@ fn apply_script_nvidia(name: &str, state: &str, resource: &Resource) -> String {
         _ => {
             let mut script = String::from("set -euo pipefail\nSUDO=\"\"\n[ \"$(id -u)\" -ne 0 ] && SUDO=\"sudo\"\n");
 
+            // PMAT-036: Check if driver already present before installing.
+            // Drivers installed via vendor packages (Lambda, RunPod) won't have
+            // the standard nvidia-driver-NNN apt package but nvidia-smi works fine.
             if !driver_version.is_empty() {
                 script.push_str(&format!(
-                    "$SUDO apt-get install -y 'nvidia-driver-{}'\n",
-                    driver_version
+                    "if command -v nvidia-smi >/dev/null 2>&1; then\n\
+                     \x20 INSTALLED_VER=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1)\n\
+                     \x20 case \"$INSTALLED_VER\" in\n\
+                     \x20   '{}'*) ;;\n\
+                     \x20   *) $SUDO apt-get install -y 'nvidia-driver-{}' ;;\n\
+                     \x20 esac\n\
+                     else\n\
+                     \x20 $SUDO apt-get install -y 'nvidia-driver-{}'\n\
+                     fi\n",
+                    driver_version, driver_version, driver_version
                 ));
             } else {
-                script.push_str("$SUDO apt-get install -y nvidia-driver\n");
+                script.push_str(
+                    "if ! command -v nvidia-smi >/dev/null 2>&1; then\n\
+                     \x20 $SUDO apt-get install -y nvidia-driver\n\
+                     fi\n",
+                );
             }
 
             if let Some(ref cuda) = resource.cuda_version {
-                script.push_str(&format!(
-                    "$SUDO apt-get install -y 'cuda-toolkit-{}'\n",
-                    cuda.replace('.', "-")
-                ));
+                if !cuda.is_empty() {
+                    script.push_str(&format!(
+                        "$SUDO apt-get install -y 'cuda-toolkit-{}'\n",
+                        cuda.replace('.', "-")
+                    ));
+                }
             }
 
             let persist = resource.persistence_mode.unwrap_or(true);

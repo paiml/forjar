@@ -319,6 +319,65 @@ fn test_fj1125_state_query_rocm_kernel_fallback() {
     assert!(!script.contains("echo unknown"));
 }
 
+// ── PMAT-036: GPU apply_script idempotency ──
+
+#[test]
+fn test_pmat036_apply_nvidia_skips_install_when_driver_present() {
+    // apply_script should check nvidia-smi first and skip apt-get install
+    // if the driver is already present.
+    let r = make_gpu_resource("gpu0");
+    let script = apply_script(&r);
+    // Must check nvidia-smi BEFORE running apt-get install
+    let smi_pos = script.find("nvidia-smi").expect("apply must check nvidia-smi");
+    let apt_pos = script.find("apt-get install").expect("apply must have apt-get install");
+    assert!(
+        smi_pos < apt_pos,
+        "nvidia-smi check must come before apt-get install"
+    );
+    // Must have conditional: skip install if driver already present
+    assert!(
+        script.contains("command -v nvidia-smi") || script.contains("nvidia-smi --query"),
+        "must check for existing driver"
+    );
+}
+
+#[test]
+fn test_pmat036_apply_nvidia_no_version_skips_when_exists() {
+    // With no driver_version specified, apply_script should skip install
+    // if nvidia-smi is available (driver already present via any method).
+    let mut r = make_gpu_resource("gpu0");
+    r.driver_version = None;
+    let script = apply_script(&r);
+    // Must guard install behind a nvidia-smi presence check
+    assert!(
+        script.contains("command -v nvidia-smi"),
+        "must check for existing driver before installing"
+    );
+    // The nvidia-smi check must come before any apt-get install
+    let smi_pos = script.find("command -v nvidia-smi").unwrap();
+    let apt_pos = script.find("apt-get install").unwrap();
+    assert!(
+        smi_pos < apt_pos,
+        "nvidia-smi check must come before apt-get install"
+    );
+}
+
+#[test]
+fn test_pmat036_check_nvidia_version_prefix_match() {
+    // driver_version: "550" should match nvidia-smi output "550.127.05"
+    // (prefix match on major version, not exact string match)
+    let mut r = make_gpu_resource("gpu0");
+    r.driver_version = Some("550".to_string());
+    let script = check_script(&r);
+    // Should use prefix/starts-with comparison, not exact equality
+    assert!(
+        !script.contains("\"$VER\" = '550'"),
+        "must not do exact match on driver version — 550 won't match 550.127.05"
+    );
+    // Should still check for 550 prefix
+    assert!(script.contains("550"));
+}
+
 // ── FJ-1005: CPU backend tests ──
 
 #[test]
