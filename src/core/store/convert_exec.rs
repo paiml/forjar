@@ -6,6 +6,7 @@
 
 use super::convert::{ChangeType, ConversionReport};
 use super::lockfile::{write_lockfile, LockFile, Pin};
+use super::pin_resolve::pin_hash;
 use super::purity::PurityLevel;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -72,15 +73,17 @@ pub fn apply_conversion(
                     }
                 }
                 ChangeType::GenerateLockPin => {
+                    let hash = pin_hash(
+                        &resource_conv.provider,
+                        &resource_conv.name,
+                        "latest",
+                    );
                     lock_pins.insert(
                         resource_conv.name.clone(),
                         Pin {
-                            provider: "unknown".to_string(),
+                            provider: resource_conv.provider.clone(),
                             version: None,
-                            hash: format!(
-                                "blake3:{}",
-                                blake3::hash(resource_conv.name.as_bytes()).to_hex()
-                            ),
+                            hash,
                             git_rev: None,
                             pin_type: None,
                         },

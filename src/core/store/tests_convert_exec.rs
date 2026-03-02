@@ -2,6 +2,7 @@
 
 use super::convert::{analyze_conversion, ConversionSignals};
 use super::convert_exec::apply_conversion;
+use super::pin_resolve::pin_hash;
 use super::purity::PurityLevel;
 use std::path::Path;
 
@@ -264,4 +265,30 @@ fn atomic_write_survives_crash() {
 
     // No .tmp file should remain
     assert!(!dir.path().join("forjar.yaml.tmp").exists());
+}
+
+#[test]
+fn provider_propagated_to_resource_conversion() {
+    let signals = vec![signals_no_version("nginx", "apt")];
+    let report = analyze_conversion(&signals);
+    assert_eq!(report.resources[0].provider, "apt");
+}
+
+#[test]
+fn lock_pin_uses_actual_provider_and_pin_hash() {
+    let dir = tempfile::tempdir().unwrap();
+    let config = write_test_config(dir.path(), sample_config_yaml());
+
+    let signals = vec![signals_no_version("curl", "apt")];
+    let report = analyze_conversion(&signals);
+
+    apply_conversion(&config, &report).unwrap();
+
+    let lock_path = dir.path().join("forjar.inputs.lock.yaml");
+    let lock_content = std::fs::read_to_string(&lock_path).unwrap();
+    // Lock pin should have apt provider, not "unknown"
+    assert!(lock_content.contains("apt"), "lock pin should use actual provider");
+    // Hash should match pin_hash(provider, name, "latest")
+    let expected_hash = pin_hash("apt", "curl", "latest");
+    assert!(lock_content.contains(&expected_hash), "lock pin should use pin_hash");
 }
