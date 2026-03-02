@@ -1,151 +1,13 @@
 {
-  "cargo_lock_mtime": 1772218399,
-  "transitive_count": 433,
-  "prod_transitive_count": 298,
+  "cargo_lock_mtime": 1772488437,
+  "transitive_count": 440,
+  "prod_transitive_count": 303,
   "duplicate_crates": [
-    {
-      "name": "windows_x86_64_gnu",
-      "versions": [
-        "0.52.6",
-        "0.53.1"
-      ]
-    },
-    {
-      "name": "toml",
-      "versions": [
-        "0.5.11",
-        "0.8.23",
-        "0.9.12+spec-1.1.0"
-      ]
-    },
-    {
-      "name": "windows_i686_gnu",
-      "versions": [
-        "0.52.6",
-        "0.53.1"
-      ]
-    },
-    {
-      "name": "windows-sys",
-      "versions": [
-        "0.52.0",
-        "0.59.0",
-        "0.60.2",
-        "0.61.2"
-      ]
-    },
-    {
-      "name": "windows_i686_msvc",
-      "versions": [
-        "0.52.6",
-        "0.53.1"
-      ]
-    },
-    {
-      "name": "windows-core",
-      "versions": [
-        "0.57.0",
-        "0.62.2"
-      ]
-    },
-    {
-      "name": "base64",
-      "versions": [
-        "0.21.7",
-        "0.22.1"
-      ]
-    },
-    {
-      "name": "toml_datetime",
-      "versions": [
-        "0.6.11",
-        "0.7.5+spec-1.1.0"
-      ]
-    },
     {
       "name": "thiserror-impl",
       "versions": [
         "1.0.69",
         "2.0.18"
-      ]
-    },
-    {
-      "name": "windows_x86_64_gnullvm",
-      "versions": [
-        "0.52.6",
-        "0.53.1"
-      ]
-    },
-    {
-      "name": "windows_i686_gnullvm",
-      "versions": [
-        "0.52.6",
-        "0.53.1"
-      ]
-    },
-    {
-      "name": "rand_core",
-      "versions": [
-        "0.6.4",
-        "0.9.5"
-      ]
-    },
-    {
-      "name": "getrandom",
-      "versions": [
-        "0.2.17",
-        "0.3.4",
-        "0.4.1"
-      ]
-    },
-    {
-      "name": "windows_aarch64_gnullvm",
-      "versions": [
-        "0.52.6",
-        "0.53.1"
-      ]
-    },
-    {
-      "name": "hashbrown",
-      "versions": [
-        "0.14.5",
-        "0.15.5",
-        "0.16.1"
-      ]
-    },
-    {
-      "name": "windows-targets",
-      "versions": [
-        "0.52.6",
-        "0.53.5"
-      ]
-    },
-    {
-      "name": "serde_spanned",
-      "versions": [
-        "0.6.9",
-        "1.0.4"
-      ]
-    },
-    {
-      "name": "self_cell",
-      "versions": [
-        "0.10.3",
-        "1.2.2"
-      ]
-    },
-    {
-      "name": "thiserror",
-      "versions": [
-        "1.0.69",
-        "2.0.18"
-      ]
-    },
-    {
-      "name": "redox_syscall",
-      "versions": [
-        "0.5.18",
-        "0.7.2"
       ]
     },
     {
@@ -163,7 +25,42 @@
       ]
     },
     {
+      "name": "windows_x86_64_gnullvm",
+      "versions": [
+        "0.52.6",
+        "0.53.1"
+      ]
+    },
+    {
       "name": "windows_aarch64_msvc",
+      "versions": [
+        "0.52.6",
+        "0.53.1"
+      ]
+    },
+    {
+      "name": "windows_aarch64_gnullvm",
+      "versions": [
+        "0.52.6",
+        "0.53.1"
+      ]
+    },
+    {
+      "name": "windows-targets",
+      "versions": [
+        "0.52.6",
+        "0.53.5"
+      ]
+    },
+    {
+      "name": "rand_chacha",
+      "versions": [
+        "0.3.1",
+        "0.9.0"
+      ]
+    },
+    {
+      "name": "windows_x86_64_gnu",
       "versions": [
         "0.52.6",
         "0.53.1"
@@ -177,13 +74,6 @@
       ]
     },
     {
-      "name": "windows_x86_64_msvc",
-      "versions": [
-        "0.52.6",
-        "0.53.1"
-      ]
-    },
-    {
       "name": "rustc-hash",
       "versions": [
         "1.1.0",
@@ -191,10 +81,78 @@
       ]
     },
     {
-      "name": "windows-implement",
+      "name": "windows_x86_64_msvc",
+      "versions": [
+        "0.52.6",
+        "0.53.1"
+      ]
+    },
+    {
+      "name": "thiserror",
+      "versions": [
+        "1.0.69",
+        "2.0.18"
+      ]
+    },
+    {
+      "name": "self_cell",
+      "versions": [
+        "0.10.3",
+        "1.2.2"
+      ]
+    },
+    {
+      "name": "windows_i686_gnu",
+      "versions": [
+        "0.52.6",
+        "0.53.1"
+      ]
+    },
+    {
+      "name": "toml",
+      "versions": [
+        "0.5.11",
+        "0.8.23",
+        "0.9.12+spec-1.1.0"
+      ]
+    },
+    {
+      "name": "base64",
+      "versions": [
+        "0.21.7",
+        "0.22.1"
+      ]
+    },
+    {
+      "name": "windows-core",
       "versions": [
         "0.57.0",
-        "0.60.2"
+        "0.62.2"
+      ]
+    },
+    {
+      "name": "getrandom",
+      "versions": [
+        "0.2.17",
+        "0.3.4",
+        "0.4.1"
+      ]
+    },
+    {
+      "name": "windows-sys",
+      "versions": [
+        "0.52.0",
+        "0.59.0",
+        "0.60.2",
+        "0.61.2"
+      ]
+    },
+    {
+      "name": "hashbrown",
+      "versions": [
+        "0.14.5",
+        "0.15.5",
+        "0.16.1"
       ]
     },
     {
@@ -205,10 +163,52 @@
       ]
     },
     {
-      "name": "rand_chacha",
+      "name": "serde_spanned",
       "versions": [
-        "0.3.1",
-        "0.9.0"
+        "0.6.9",
+        "1.0.4"
+      ]
+    },
+    {
+      "name": "windows_i686_msvc",
+      "versions": [
+        "0.52.6",
+        "0.53.1"
+      ]
+    },
+    {
+      "name": "windows_i686_gnullvm",
+      "versions": [
+        "0.52.6",
+        "0.53.1"
+      ]
+    },
+    {
+      "name": "redox_syscall",
+      "versions": [
+        "0.5.18",
+        "0.7.3"
+      ]
+    },
+    {
+      "name": "windows-implement",
+      "versions": [
+        "0.57.0",
+        "0.60.2"
+      ]
+    },
+    {
+      "name": "toml_datetime",
+      "versions": [
+        "0.6.11",
+        "0.7.5+spec-1.1.0"
+      ]
+    },
+    {
+      "name": "rand_core",
+      "versions": [
+        "0.6.4",
+        "0.9.5"
       ]
     }
   ]

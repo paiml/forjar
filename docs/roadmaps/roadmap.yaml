@@ -217,7 +217,7 @@ roadmap:
   updated: 2026-03-02T14:00:00Z
   spec: null
   acceptance_criteria:
-  - 'forjar pin / --update / --check CLI commands wired to lockfile module. 11 tests.'
+  - forjar pin / --update / --check CLI commands wired to lockfile module. 11 tests.
   phases: []
   subtasks: []
   estimated_effort: null
@@ -234,7 +234,7 @@ roadmap:
   updated: 2026-03-02T14:00:00Z
   spec: null
   acceptance_criteria:
-  - 'forjar cache list/push/pull/verify CLI wired to cache module. 11 tests.'
+  - forjar cache list/push/pull/verify CLI wired to cache module. 11 tests.
   phases: []
   subtasks: []
   estimated_effort: null
@@ -251,7 +251,7 @@ roadmap:
   updated: 2026-03-02T14:00:00Z
   spec: null
   acceptance_criteria:
-  - 'forjar store gc/list/diff/sync CLI wired to gc/store_diff modules. 13 tests.'
+  - forjar store gc/list/diff/sync CLI wired to gc/store_diff modules. 13 tests.
   phases: []
   subtasks: []
   estimated_effort: null
@@ -268,7 +268,7 @@ roadmap:
   updated: 2026-03-02T14:00:00Z
   spec: null
   acceptance_criteria:
-  - 'forjar archive pack/unpack/inspect/verify CLI wired to FAR module. 10 tests.'
+  - forjar archive pack/unpack/inspect/verify CLI wired to FAR module. 10 tests.
   phases: []
   subtasks: []
   estimated_effort: null
@@ -285,7 +285,7 @@ roadmap:
   updated: 2026-03-02T14:00:00Z
   spec: null
   acceptance_criteria:
-  - 'forjar convert --reproducible CLI wired to conversion analysis module. 7 tests.'
+  - forjar convert --reproducible CLI wired to conversion analysis module. 7 tests.
   phases: []
   subtasks: []
   estimated_effort: null
@@ -302,7 +302,7 @@ roadmap:
   updated: 2026-03-02T15:00:00Z
   spec: null
   acceptance_criteria:
-  - 'forjar store-import <provider> <ref> CLI with 8 providers. 14 tests.'
+  - forjar store-import <provider> <ref> CLI with 8 providers. 14 tests.
   phases: []
   subtasks: []
   estimated_effort: null
@@ -319,7 +319,7 @@ roadmap:
   updated: 2026-03-02T15:30:00Z
   spec: null
   acceptance_criteria:
-  - '10-step sandbox lifecycle plan generator. Seccomp BPF for Full level. 16 tests.'
+  - 10-step sandbox lifecycle plan generator. Seccomp BPF for Full level. 16 tests.
   phases: []
   subtasks: []
   estimated_effort: null
@@ -353,7 +353,142 @@ roadmap:
   updated: 2026-03-02T15:30:00Z
   spec: null
   acceptance_criteria:
-  - 'Derivation plan + simulate + DAG execution. Store hit skipping. 14 tests.'
+  - Derivation plan + simulate + DAG execution. Store hit skipping. 14 tests.
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-022
+  github_issue: null
+  item_type: task
+  title: 'FJ-1366: Fix broken examples and update spec status markers'
+  status: completed
+  priority: high
+  assigned_to: null
+  created: 2026-03-02T15:26:30Z
+  updated: 2026-03-02T15:31:13Z
+  spec: null
+  acceptance_criteria:
+  - All examples compile with new store/script fields, Phase L spec header updated, Phases E/F/H descriptions updated
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-023
+  github_issue: null
+  item_type: task
+  title: 'FJ-1367: Wire store CLI commands to execution bridges'
+  status: completed
+  priority: high
+  assigned_to: null
+  created: 2026-03-02T15:26:32Z
+  updated: 2026-03-02T15:41:12Z
+  spec: null
+  acceptance_criteria:
+  - Connect store gc, pin, convert --apply, store diff, store sync, store import CLI subcommands to the new _exec modules
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-024
+  github_issue: null
+  item_type: task
+  title: 'FJ-1368: Store execution integration examples'
+  status: completed
+  priority: medium
+  assigned_to: null
+  created: 2026-03-02T15:26:33Z
+  updated: 2026-03-02T15:45:58Z
+  spec: null
+  acceptance_criteria:
+  - Add cargo run --example demos for gc_exec, pin_resolve, cache_exec, convert_exec, sync_exec workflows
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-025
+  github_issue: null
+  item_type: task
+  title: 'FJ-1369: Book and cookbook store operations updates'
+  status: completed
+  priority: medium
+  assigned_to: null
+  created: 2026-03-02T15:26:35Z
+  updated: 2026-03-02T15:48:16Z
+  spec: null
+  acceptance_criteria:
+  - Expand 12-store.md book chapter with execution details, add forjar-cookbook store-operations recipe
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-026
+  github_issue: null
+  item_type: task
+  title: 'FJ-1370: Add CLI tests for execution bridge wiring'
+  status: completed
+  priority: high
+  assigned_to: null
+  created: 2026-03-02T15:49:35Z
+  updated: 2026-03-02T15:51:35Z
+  spec: null
+  acceptance_criteria:
+  - Add tests for convert --apply, gc sweep execution, cache pull wiring, sync --apply paths
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-027
+  github_issue: null
+  item_type: task
+  title: 'FJ-1371: Wire cache pull to cache_exec and add version resolution'
+  status: inprogress
+  priority: medium
+  assigned_to: null
+  created: 2026-03-02T15:49:37Z
+  updated: 2026-03-02T15:51:40.375070995+00:00
+  spec: null
+  acceptance_criteria:
+  - Connect cmd_cache_pull to cache_exec::pull_from_cache, add version resolution in convert_exec
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-028
+  github_issue: null
+  item_type: task
+  title: 'FJ-1372: Boost test coverage to 95% target'
+  status: inprogress
+  priority: medium
+  assigned_to: null
+  created: 2026-03-02T16:51:01Z
+  updated: 2026-03-02T16:51:08.647780770+00:00
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-029
+  github_issue: null
+  item_type: task
+  title: 'DEBT: Split 92 oversized files under 500-line limit'
+  status: planned
+  priority: low
+  assigned_to: null
+  created: 2026-03-02T22:01:31Z
+  updated: 2026-03-02T22:01:31Z
+  spec: null
+  acceptance_criteria:
+  - 'Pre-existing tech debt: 92 source files exceed the 500-line file size limit. Most are test files and CLI dispatch modules. Needs systematic splitting.'
   phases: []
   subtasks: []
   estimated_effort: null

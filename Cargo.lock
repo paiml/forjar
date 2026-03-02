@@ -915,6 +915,7 @@ dependencies = [
  "proptest",
  "provable-contracts",
  "provable-contracts-macros",
+ "regex",
  "rustc-hash 2.1.1",
  "schemars",
  "serde",
