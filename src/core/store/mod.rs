@@ -21,6 +21,8 @@ pub mod gc;
 pub mod repro_score;
 pub mod sandbox;
 pub mod cache;
+pub mod provider;
+pub mod derivation;
 
 #[cfg(test)]
 mod tests_path;
@@ -58,3 +60,7 @@ mod tests_repro_score;
 mod tests_sandbox;
 #[cfg(test)]
 mod tests_cache;
+#[cfg(test)]
+mod tests_provider;
+#[cfg(test)]
+mod tests_derivation;
