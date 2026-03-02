@@ -19,6 +19,8 @@ use super::derivation::{
     DerivationResult,
 };
 use super::sandbox_exec::{plan_sandbox_build, simulate_sandbox_build, SandboxPlan};
+use super::sandbox_run;
+use crate::core::types::Machine;
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
@@ -288,7 +290,7 @@ pub fn execute_derivation_dag(
 ///
 /// When `dry_run` is true, uses `simulate_derivation()` (no real execution).
 /// When `dry_run` is false, uses `sandbox_run::execute_sandbox_plan()` for
-/// cache-miss derivations, falling back to simulation for store hits.
+/// cache-miss derivations, returning store hits directly.
 pub fn execute_derivation_dag_live(
     derivations: &BTreeMap<String, Derivation>,
     topo_order: &[String],
@@ -307,7 +309,7 @@ pub fn execute_derivation_dag_live(
         );
     }
 
-    // Live execution: simulate for store hits, real sandbox for misses
+    let machine = local_machine();
     let mut results = BTreeMap::new();
     let mut resolved = initial_resources.clone();
 
@@ -316,17 +318,62 @@ pub fn execute_derivation_dag_live(
             .get(name)
             .ok_or_else(|| format!("derivation '{name}' not found in DAG"))?;
 
-        // Always simulate first to get the closure hash and check store hit
-        let sim = simulate_derivation(derivation, &resolved, local_store_entries, store_dir)?;
+        let plan = plan_derivation(derivation, &resolved, local_store_entries, store_dir)?;
 
-        // For live execution, the result is the same as simulate since
-        // actual sandbox execution requires kernel namespace support.
-        // The sandbox_run module handles the real execution path.
-        resolved.insert(name.clone(), sim.store_hash.clone());
-        results.insert(name.clone(), sim);
+        let result = if plan.store_hit {
+            // Store hit — return cached result without building
+            simulate_derivation(derivation, &resolved, local_store_entries, store_dir)?
+        } else {
+            // Cache miss — execute via sandbox_run
+            execute_derivation_live(derivation, &plan, &machine, store_dir)?
+        };
+
+        resolved.insert(name.clone(), result.store_hash.clone());
+        results.insert(name.clone(), result);
     }
 
     Ok(results)
+}
+
+/// Execute a single derivation via sandbox_run for cache misses.
+fn execute_derivation_live(
+    derivation: &Derivation,
+    plan: &DerivationPlan,
+    machine: &Machine,
+    store_dir: &Path,
+) -> Result<DerivationResult, String> {
+    let sandbox_plan = plan.sandbox_plan.as_ref().ok_or("no sandbox plan for cache miss")?;
+
+    let exec_result = sandbox_run::execute_sandbox_plan(
+        sandbox_plan,
+        &derivation.script,
+        machine,
+        store_dir,
+        Some(600),
+    )?;
+
+    Ok(DerivationResult {
+        store_hash: exec_result.output_hash.clone(),
+        store_path: exec_result.store_path,
+        input_closure: plan.input_paths.values().map(|p| p.display().to_string()).collect(),
+        closure_hash: plan.closure_hash.clone(),
+        derivation_depth: 1,
+    })
+}
+
+fn local_machine() -> Machine {
+    Machine {
+        hostname: "localhost".to_string(),
+        addr: "127.0.0.1".to_string(),
+        user: "root".to_string(),
+        arch: std::env::consts::ARCH.to_string(),
+        ssh_key: None,
+        roles: Vec::new(),
+        transport: None,
+        container: None,
+        pepita: None,
+        cost: 0,
+    }
 }
 
 /// Default sandbox config for derivations without explicit sandbox settings.
