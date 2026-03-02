@@ -24,6 +24,7 @@ use super::validate_security::*;
 use super::validate_security_ext::*;
 use super::validate_structural::*;
 use super::validate_topology::*;
+use super::validate_store_purity::*;
 use super::validate_transport::*;
 use std::path::Path;
 #[allow(clippy::too_many_arguments)]
@@ -595,32 +596,42 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
         check_resource_dependency_ordering_consistency,
         check_resource_tag_value_format,
         check_resource_provider_version_pinning,
+        check_recipe_purity,
+        check_reproducibility_score,
     } = args;
-    if let Some(r) = try_validate_checks_early_a(
+    if let Some(r) = try_validate_store(
         &file,
         json,
-        check_cron_syntax,
-        check_env_refs,
-        check_resource_names.as_deref(),
-        check_resource_count,
-        check_duplicate_paths,
-        check_circular_deps,
-        check_machine_refs,
-        check_provider_consistency,
-    ) {
-        return r;
-    }
-    if let Some(r) = try_validate_checks_early_b(
-        &file,
-        json,
-        check_state_values,
-        check_unused_machines,
-        check_tag_consistency,
-        check_dependency_exists,
-        check_path_conflicts_strict,
-        check_duplicate_names,
-        check_resource_groups,
-    ) {
+        check_recipe_purity,
+        check_reproducibility_score,
+    )
+    .or_else(|| {
+        try_validate_checks_early_a(
+            &file,
+            json,
+            check_cron_syntax,
+            check_env_refs,
+            check_resource_names.as_deref(),
+            check_resource_count,
+            check_duplicate_paths,
+            check_circular_deps,
+            check_machine_refs,
+            check_provider_consistency,
+        )
+    })
+    .or_else(|| {
+        try_validate_checks_early_b(
+            &file,
+            json,
+            check_state_values,
+            check_unused_machines,
+            check_tag_consistency,
+            check_dependency_exists,
+            check_path_conflicts_strict,
+            check_duplicate_names,
+            check_resource_groups,
+        )
+    }) {
         return r;
     }
     if let Some(r) = try_validate_governance(
@@ -1138,6 +1149,20 @@ fn try_validate_phase107(
         return Some(cmd_validate_check_resource_provider_version_pinning(
             file, json,
         ));
+    }
+    None
+}
+fn try_validate_store(
+    file: &Path,
+    json: bool,
+    check_recipe_purity: bool,
+    check_reproducibility_score: bool,
+) -> Option<Result<(), String>> {
+    if check_recipe_purity {
+        return Some(cmd_validate_check_recipe_purity(file, json));
+    }
+    if check_reproducibility_score {
+        return Some(cmd_validate_check_reproducibility_score(file, json));
     }
     None
 }

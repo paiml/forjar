@@ -165,6 +165,8 @@ mod tests {
             check_resource_dependency_ordering_consistency: false,
             check_resource_tag_value_format: false,
             check_resource_provider_version_pinning: false,
+            check_recipe_purity: false,
+            check_reproducibility_score: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs {
@@ -324,6 +326,8 @@ mod tests {
             check_resource_dependency_ordering_consistency: false,
             check_resource_tag_value_format: false,
             check_resource_provider_version_pinning: false,
+            check_recipe_purity: false,
+            check_reproducibility_score: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs {
@@ -482,6 +486,8 @@ mod tests {
             check_resource_dependency_ordering_consistency: false,
             check_resource_tag_value_format: false,
             check_resource_provider_version_pinning: false,
+            check_recipe_purity: false,
+            check_reproducibility_score: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { check_naming, .. }) => assert!(check_naming),
@@ -638,6 +644,8 @@ mod tests {
             check_resource_dependency_ordering_consistency: false,
             check_resource_tag_value_format: false,
             check_resource_provider_version_pinning: false,
+            check_recipe_purity: false,
+            check_reproducibility_score: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { check_overlaps, .. }) => assert!(check_overlaps),

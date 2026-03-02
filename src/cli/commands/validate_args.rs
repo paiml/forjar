@@ -491,4 +491,10 @@ pub struct ValidateArgs {
     /// FJ-1124: Check resource provider version pinning
     #[arg(long)]
     pub check_resource_provider_version_pinning: bool,
+    /// FJ-1306: Report per-resource purity levels
+    #[arg(long)]
+    pub check_recipe_purity: bool,
+    /// FJ-1329: Output reproducibility score (0-100)
+    #[arg(long)]
+    pub check_reproducibility_score: bool,
 }

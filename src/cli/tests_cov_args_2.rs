@@ -168,6 +168,8 @@ mod tests {
             check_resource_dependency_ordering_consistency: false,
             check_resource_tag_value_format: false,
             check_resource_provider_version_pinning: false,
+            check_recipe_purity: false,
+            check_reproducibility_score: false,
         };
         let debug = format!("{:?}", args);
         assert!(debug.contains("ValidateArgs"));
@@ -323,6 +325,8 @@ mod tests {
             check_resource_dependency_ordering_consistency: false,
             check_resource_tag_value_format: false,
             check_resource_provider_version_pinning: false,
+            check_recipe_purity: false,
+            check_reproducibility_score: false,
         };
         let debug = format!("{:?}", args);
         assert!(debug.contains("ValidateArgs"));
