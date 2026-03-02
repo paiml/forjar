@@ -1,0 +1,196 @@
+{
+  "id": "019cb098-0a37-7601-9ddc-68d192571f8e",
+  "git_sha": "b49ff3d4c40ffe0ce3b24d098b95df8b1b2e94cd",
+  "timestamp": "2026-03-02T22:08:00.055600464+00:00",
+  "trigger": "WorkComplete",
+  "work_item_id": "PMAT-028",
+  "verdicts": [
+    {
+      "hypothesis": "All baseline files still exist",
+      "method": "ManifestIntegrity",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "All 658 files present",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "The falsifier is active and detecting (Meta-Check)",
+      "method": "MetaFalsification",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "Detected dummy gaming pattern correctly",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "No coverage exclusion gaming",
+      "method": "CoverageGaming",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "No gaming patterns found in 668 files",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "All changed lines are covered",
+      "method": "DifferentialCoverage",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "23 changed files (coverage check requires llvm-cov data)",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "Total coverage >= 95%",
+      "method": "AbsoluteCoverage",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "No coverage data (run 'make coverage' to establish baseline), threshold: 95.0%",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "TDG score >= baseline",
+      "method": "TdgRegression",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "No TDG data (baseline: 0.0)",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "No function exceeds complexity 20",
+      "method": "ComplexityRegression",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "Complexity check passed",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "No vulnerable dependencies added",
+      "method": "SupplyChainIntegrity",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "No vulnerabilities (cached 4 min ago)",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "No file exceeds 500 lines",
+      "method": "FileSizeRegression",
+      "falsified": true,
+      "is_blocking": true,
+      "explanation": "92 file(s) exceed 500 lines: src/core/scoring.rs (619 lines), src/core/executor/machine.rs (533 lines), src/core/planner/tests_hash.rs (503 lines), src/core/resolver/tests_resource.rs (560 lines), src/cli/tests_graph_core_2.rs (1041 lines), src/cli/graph_scoring.rs (655 lines), src/cli/status_resource_intel.rs (719 lines), src/cli/status_operational.rs (529 lines), src/cli/tests_apply_10.rs (583 lines), src/cli/tests_status_core_6.rs (705 lines), src/cli/status_security.rs (523 lines), src/cli/dispatch_notify.rs (728 lines), src/cli/commands/status_args.rs (676 lines), src/cli/commands/apply_args.rs (680 lines), src/cli/tests_cov_remaining_10.rs (559 lines), src/cli/status_fleet_insight.rs (706 lines), src/cli/tests_validate_core_2.rs (815 lines), src/cli/dispatch_validate.rs (1168 lines), src/cli/tests_cov_remaining_11.rs (710 lines), src/cli/tests_status_core_2.rs (707 lines), src/cli/status_intelligence.rs (656 lines), src/cli/dispatch_graph.rs (1142 lines), src/cli/tests_apply_9.rs (585 lines), src/cli/mod.rs (612 lines), src/cli/tests_misc_2.rs (517 lines), src/cli/tests_apply_11.rs (584 lines), src/cli/status_diagnostics.rs (578 lines), src/cli/tests_misc_6.rs (582 lines), src/cli/tests_apply_1.rs (514 lines), src/cli/tests_misc_10.rs (660 lines), src/cli/tests_cov_notify.rs (789 lines), src/cli/tests_status_core_5.rs (703 lines), src/cli/tests_validate_core.rs (511 lines), src/cli/graph_intelligence_ext.rs (759 lines), src/cli/tests_apply_20.rs (591 lines), src/cli/tests_cov_notify_2.rs (529 lines), src/cli/graph_quality.rs (506 lines), src/cli/tests_cov_fleet.rs (526 lines), src/cli/tests_graph_core_3.rs (757 lines), src/cli/tests_cov_dispatch_3.rs (501 lines), src/cli/validate_paths.rs (517 lines), src/cli/tests_apply_21.rs (591 lines), src/cli/dispatch_status.rs (1448 lines), src/cli/tests_status_core_7.rs (703 lines), src/cli/status_maturity.rs (857 lines), src/cli/tests_apply_18.rs (585 lines), src/cli/tests_status_core_1.rs (701 lines), src/cli/tests_apply_19.rs (589 lines), src/cli/tests_misc_8.rs (620 lines), src/cli/tests_apply_7.rs (585 lines), src/cli/tests_apply_5.rs (585 lines), src/cli/status_recovery.rs (677 lines), src/cli/graph_topology.rs (525 lines), src/cli/tests_status_core_4.rs (707 lines), src/cli/tests_apply_15.rs (584 lines), src/cli/tests_fleet_ops.rs (531 lines), src/cli/validate_ordering.rs (675 lines), src/cli/graph_intelligence_ext2.rs (643 lines), src/cli/tests_status_core_3.rs (705 lines), src/cli/tests_validate_core_1.rs (814 lines), src/cli/tests_status_core_9.rs (528 lines), src/cli/graph_intelligence.rs (591 lines), src/cli/tests_drift.rs (541 lines), src/cli/tests_apply_16.rs (585 lines), src/cli/validate_ownership.rs (610 lines), src/cli/tests_apply_8.rs (586 lines), src/cli/tests_cov_args_extra.rs (538 lines), src/cli/graph_export.rs (517 lines), src/cli/dispatch_status_ext.rs (637 lines), src/cli/tests_validate_core_2_b.rs (667 lines), src/cli/tests_apply_12.rs (584 lines), src/cli/status_intelligence_ext2.rs (624 lines), src/cli/status_intelligence_ext.rs (801 lines), src/cli/status_quality.rs (685 lines), src/cli/tests_apply_17.rs (586 lines), src/cli/status_resilience.rs (699 lines), src/cli/tests_apply_13.rs (584 lines), src/cli/tests_validate_core_1_b.rs (655 lines), src/cli/graph_advanced.rs (551 lines), src/cli/status_operational_ext2.rs (556 lines), src/cli/tests_misc_9.rs (621 lines), src/cli/tests_graph_core_1.rs (1033 lines), src/cli/tests_init.rs (553 lines), src/cli/tests_cov_notify_4.rs (504 lines), src/cli/tests_apply_14.rs (584 lines), src/cli/tests_misc_4.rs (521 lines), src/cli/dispatch_apply.rs (568 lines), src/cli/tests_apply_4.rs (585 lines), src/cli/tests_status_core_8.rs (704 lines), src/cli/tests_apply_22.rs (588 lines), src/resources/network.rs (535 lines), benches/core_bench.rs (610 lines)",
+      "evidence_summary": "FileList([\"src/core/scoring.rs\", \"src/core/executor/machine.rs\", \"src/core/planner/tests_hash.rs\", \"src/core/resolver/tests_resource.rs\", \"src/cli/tests_graph_core_2.rs\", \"src/cli/graph_scoring.rs\", \"src/cli/status_resource_intel.rs\", \"src/cli/status_operational.rs\", \"src/cli/tests_apply_10.rs\", \"src/cli/tests_status_core_6.rs\", \"src/cli/status_security.rs\", \"src/cli/dispatch_notify.rs\", \"src/cli/commands/status_args.rs\", \"src/cli/commands/apply_args.rs\", \"src/cli/tests_cov_remaining_10.rs\", \"src/cli/status_fleet_insight.rs\", \"src/cli/tests_validate_core_2.rs\", \"src/cli/dispatch_validate.rs\", \"src/cli/tests_cov_remaining_11.rs\", \"src/cli/tests_status_core_2.rs\", \"src/cli/status_intelligence.rs\", \"src/cli/dispatch_graph.rs\", \"src/cli/tests_apply_9.rs\", \"src/cli/mod.rs\", \"src/cli/tests_misc_2.rs\", \"src/cli/tests_apply_11.rs\", \"src/cli/status_diagnostics.rs\", \"src/cli/tests_misc_6.rs\", \"src/cli/tests_apply_1.rs\", \"src/cli/tests_misc_10.rs\", \"src/cli/tests_cov_notify.rs\", \"src/cli/tests_status_core_5.rs\", \"src/cli/tests_validate_core.rs\", \"src/cli/graph_intelligence_ext.rs\", \"src/cli/tests_apply_20.rs\", \"src/cli/tests_cov_notify_2.rs\", \"src/cli/graph_quality.rs\", \"src/cli/tests_cov_fleet.rs\", \"src/cli/tests_graph_core_3.rs\", \"src/cli/tests_cov_dispatch_3.rs\", \"src/cli/validate_paths.rs\", \"src/cli/tests_apply_21.rs\", \"src/cli/dispatch_status.rs\", \"src/cli/tests_status_core_7.rs\", \"src/cli/status_maturity.rs\", \"src/cli/tests_apply_18.rs\", \"src/cli/tests_status_core_1.rs\", \"src/cli/tests_apply_19.rs\", \"src/cli/tests_misc_8.rs\", \"src/cli/tests_apply_7.rs\", \"src/cli/tests_apply_5.rs\", \"src/cli/status_recovery.rs\", \"src/cli/graph_topology.rs\", \"src/cli/tests_status_core_4.rs\", \"src/cli/tests_apply_15.rs\", \"src/cli/tests_fleet_ops.rs\", \"src/cli/validate_ordering.rs\", \"src/cli/graph_intelligence_ext2.rs\", \"src/cli/tests_status_core_3.rs\", \"src/cli/tests_validate_core_1.rs\", \"src/cli/tests_status_core_9.rs\", \"src/cli/graph_intelligence.rs\", \"src/cli/tests_drift.rs\", \"src/cli/tests_apply_16.rs\", \"src/cli/validate_ownership.rs\", \"src/cli/tests_apply_8.rs\", \"src/cli/tests_cov_args_extra.rs\", \"src/cli/graph_export.rs\", \"src/cli/dispatch_status_ext.rs\", \"src/cli/tests_validate_core_2_b.rs\", \"src/cli/tests_apply_12.rs\", \"src/cli/status_intelligence_ext2.rs\", \"src/cli/status_intelligence_ext.rs\", \"src/cli/status_quality.rs\", \"src/cli/tests_apply_17.rs\", \"src/cli/status_resilience.rs\", \"src/cli/tests_apply_13.rs\", \"src/cli/tests_validate_core_1_b.rs\", \"src/cli/graph_advanced.rs\", \"src/cli/status_operational_ext2.rs\", \"src/cli/tests_misc_9.rs\", \"src/cli/tests_graph_core_1.rs\", \"src/cli/tests_init.rs\", \"src/cli/tests_cov_notify_4.rs\", \"src/cli/tests_apply_14.rs\", \"src/cli/tests_misc_4.rs\", \"src/cli/dispatch_apply.rs\", \"src/cli/tests_apply_4.rs\", \"src/cli/tests_status_core_8.rs\", \"src/cli/tests_apply_22.rs\", \"src/resources/network.rs\", \"benches/core_bench.rs\"])"
+    },
+    {
+      "hypothesis": "Spec & Roadmap Quality",
+      "method": "SpecQuality",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "No spec file found (optional)",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "All changes pushed",
+      "method": "GitHubSync",
+      "falsified": true,
+      "is_blocking": true,
+      "explanation": "2 uncommitted file(s)",
+      "evidence_summary": "GitState { unpushed_commits: 0, dirty_files: 2 }"
+    },
+    {
+      "hypothesis": "All examples compile and run",
+      "method": "ExamplesCompile",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "No examples cache (run 'cargo build --examples' to populate)",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "pmat-book validation passes",
+      "method": "BookValidation",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "pmat-book not found (skipping validation)",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "No new SATD markers (TODO/FIXME/HACK)",
+      "method": "SatdDetection",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "No new SATD markers (0 existing)",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "No new dead code introduced",
+      "method": "DeadCodeDetection",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "No dead code detected",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "All files have >= 95% coverage",
+      "method": "PerFileCoverage",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "No per-file coverage data (run 'make coverage'), threshold: 95.0%",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "make lint passes",
+      "method": "LintPass",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "PASSED (cached 0 min ago)",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "All match arm variants have test coverage",
+      "method": "VariantCoverage",
+      "falsified": true,
+      "is_blocking": true,
+      "explanation": "6 untested match variant(s): src/resources/package.rs::apt\", \"present, src/resources/package.rs::apt\", \"absent, src/resources/package.rs::cargo\", \"present, src/resources/package.rs::uv\", \"present, src/resources/package.rs::uv\", \"absent, src/resources/package.rs::other_provider, other_state",
+      "evidence_summary": "FileList([\"src/resources/package.rs\", \"src/resources/package.rs\", \"src/resources/package.rs\", \"src/resources/package.rs\", \"src/resources/package.rs\", \"src/resources/package.rs\"])"
+    },
+    {
+      "hypothesis": "No fix-after-fix chains exceed limit",
+      "method": "FixChainLimit",
+      "falsified": false,
+      "is_blocking": true,
+      "explanation": "No fix chains > 3 consecutive commits",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "Cross-crate integration tests pass",
+      "method": "CrossCrateParity",
+      "falsified": false,
+      "is_blocking": false,
+      "explanation": "No cross-crate config (create .pmat-work/cross-crate.json to enable)",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "No performance regressions detected",
+      "method": "RegressionGate",
+      "falsified": false,
+      "is_blocking": false,
+      "explanation": "No benchmark cache (run benchmarks to populate .pmat-metrics/benchmark-status.json)",
+      "evidence_summary": null
+    },
+    {
+      "hypothesis": "No incomplete proofs (sorry) introduced",
+      "method": "FormalProofVerification",
+      "falsified": false,
+      "is_blocking": false,
+      "explanation": "No .lean files with sorry found",
+      "evidence_summary": null
+    }
+  ],
+  "overrides": [],
+  "summary": {
+    "total": 22,
+    "passed": 19,
+    "failed": 3,
+    "warnings": 0,
+    "overridden": 0,
+    "allows_completion": false,
+    "health_score": 0.8636363636363636
+  },
+  "content_hash": "1f58d629f028cd2dc50db6affc16fc19ccfcabb2cd006e543c0e30885cad44d9"
+}
