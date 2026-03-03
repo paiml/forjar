@@ -1,7 +1,9 @@
+mod agent_sbom;
 mod apply;
 mod apply_helpers;
 mod apply_output;
 mod apply_variants;
+mod bundle;
 mod check;
 mod check_test;
 pub mod commands;
@@ -78,6 +80,7 @@ mod init;
 mod lineage;
 mod lint;
 mod lock_audit;
+mod model_card;
 mod lock_core;
 mod lock_lifecycle;
 mod lock_merge;
