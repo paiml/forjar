@@ -318,3 +318,9 @@ mod tests_sbom;
 mod tests_cbom;
 #[cfg(test)]
 mod tests_prove;
+#[cfg(test)]
+mod tests_privilege_analysis;
+#[cfg(test)]
+mod tests_provenance;
+#[cfg(test)]
+mod tests_lineage;
