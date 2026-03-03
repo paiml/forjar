@@ -283,3 +283,47 @@ pub struct DatasetLineageArgs {
     #[arg(long)]
     pub json: bool,
 }
+
+/// FJ-1414: Data sovereignty tagging and compliance.
+#[derive(clap::Args, Debug)]
+pub struct SovereigntyArgs {
+    /// Path to forjar.yaml
+    #[arg(short, long, default_value = "forjar.yaml")]
+    pub file: std::path::PathBuf,
+
+    /// State directory
+    #[arg(long, default_value = "state")]
+    pub state_dir: std::path::PathBuf,
+
+    /// Output as JSON
+    #[arg(long)]
+    pub json: bool,
+}
+
+/// FJ-1415: Cost estimation and resource budgeting.
+#[derive(clap::Args, Debug)]
+pub struct CostEstimateArgs {
+    /// Path to forjar.yaml
+    #[arg(short, long, default_value = "forjar.yaml")]
+    pub file: std::path::PathBuf,
+
+    /// Output as JSON
+    #[arg(long)]
+    pub json: bool,
+}
+
+/// FJ-1416: Model evaluation pipeline.
+#[derive(clap::Args, Debug)]
+pub struct ModelEvalArgs {
+    /// Path to forjar.yaml
+    #[arg(short, long, default_value = "forjar.yaml")]
+    pub file: std::path::PathBuf,
+
+    /// Target specific resource
+    #[arg(short, long)]
+    pub resource: Option<String>,
+
+    /// Output as JSON
+    #[arg(long)]
+    pub json: bool,
+}
