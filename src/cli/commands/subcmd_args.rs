@@ -44,6 +44,29 @@ pub enum SnapshotCmd {
     },
 }
 
+/// FJ-1386: Generation subcommands — Nix-style generational state snapshots.
+#[derive(Subcommand, Debug)]
+pub enum GenerationCmd {
+    /// List all state generations
+    List {
+        /// State directory
+        #[arg(long, default_value = "state")]
+        state_dir: PathBuf,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+    /// Garbage-collect old generations
+    Gc {
+        /// Number of generations to keep
+        #[arg(long, default_value = "5")]
+        keep: u32,
+        /// State directory
+        #[arg(long, default_value = "state")]
+        state_dir: PathBuf,
+    },
+}
+
 /// Shell types for completion generation.
 #[derive(Debug, Clone, clap::ValueEnum)]
 pub enum CompletionShell {

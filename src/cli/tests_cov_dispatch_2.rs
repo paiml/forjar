@@ -70,8 +70,10 @@ resources:
             Commands::Rollback(RollbackArgs {
                 file: config,
                 revision: 1,
+                generation: None,
                 machine: None,
                 dry_run: true,
+                yes: false,
                 state_dir: state,
             }),
             false,
