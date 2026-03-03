@@ -149,6 +149,10 @@ pub enum Commands {
     #[command(subcommand)]
     Snapshot(SnapshotCmd),
 
+    /// FJ-1386: Manage state generations (Nix-style numbered snapshots)
+    #[command(subcommand)]
+    Generation(GenerationCmd),
+
     /// FJ-326: List all machines with connection status
     Inventory(InventoryArgs),
 
