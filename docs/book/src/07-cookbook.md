@@ -2140,3 +2140,35 @@ forjar model-eval -f training.yaml --resource eval-run --json
 ```
 
 Evaluates model/ml/eval-tagged resources. Checks that `completion_check` is defined and `output_artifacts` exist. Returns non-zero if evaluations fail.
+
+## Agent Infrastructure Recipes
+
+### Single MCP Server
+
+Deploy a pforge MCP server with health monitoring:
+
+```bash
+forjar apply -f examples/pforge-mcp-server.yaml
+```
+
+4-phase pipeline: install pforge binary → write config → start service → health check.
+
+### Full Agent Deployment
+
+Composable agent recipe: GPU + model + config + MCP + health:
+
+```bash
+forjar apply -f examples/agent-deployment.yaml
+```
+
+5-phase pipeline with template parameters for model, GPU driver, and MCP port.
+
+### Multi-Agent Fleet
+
+Deploy across GPU fleet with load balancing and tool permission policies:
+
+```bash
+forjar apply -f examples/multi-agent-fleet.yaml
+```
+
+3-machine deployment with nginx upstream load balancer, per-agent tool-policy.yaml enforcement, and fleet health checks.
