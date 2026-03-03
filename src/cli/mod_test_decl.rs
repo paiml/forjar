@@ -274,3 +274,5 @@ mod tests_apply_drift_gate;
 mod tests_extract;
 #[cfg(test)]
 mod tests_generation;
+#[cfg(test)]
+mod tests_stack_diff;
