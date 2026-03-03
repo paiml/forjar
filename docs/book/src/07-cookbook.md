@@ -1963,6 +1963,51 @@ forjar lineage --json
 
 Each node's hash incorporates its dependencies' hashes, so any change propagates up the Merkle tree — enabling tamper detection of the full dependency chain.
 
+## Recipe Bundles
+
+Package your config with all dependencies for air-gap transfer:
+
+```bash
+# Dry-run: show bundle manifest
+forjar bundle
+
+# Include state files
+forjar bundle --include-state
+
+# Write to file
+forjar bundle --output my-stack.tar
+```
+
+Each file gets a BLAKE3 hash for integrity verification during transfer.
+
+## Model Card Generation
+
+Generate model cards documenting ML resources in your stack:
+
+```bash
+# Text output
+forjar model-card
+
+# JSON output
+forjar model-card --json
+```
+
+Detects model resources by type, tags (`ml`, `model`), or resource group (`models`).
+
+## Agent SBOM
+
+Generate an agent-specific bill of materials:
+
+```bash
+# Text output
+forjar agent-sbom
+
+# JSON output
+forjar agent-sbom --json
+```
+
+Detects: model resources, GPU runtimes, MCP/pforge-tagged services, agent containers, inference services.
+
 ## SVG Graph Export
 
 Export your dependency graph as a standalone SVG image:
