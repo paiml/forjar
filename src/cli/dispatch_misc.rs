@@ -297,6 +297,17 @@ pub(crate) fn dispatch_misc_cmd(cmd: Commands, verbose: bool) -> Result<(), Stri
             state_dir,
             json,
         }) => super::sbom::cmd_sbom(&file, &state_dir, json),
+        Commands::Cbom(CbomArgs {
+            file,
+            state_dir,
+            json,
+        }) => super::cbom::cmd_cbom(&file, &state_dir, json),
+        Commands::Prove(ProveArgs {
+            file,
+            state_dir,
+            machine,
+            json,
+        }) => super::prove::cmd_prove(&file, &state_dir, machine.as_deref(), json),
         _ => Err("unknown command".to_string()),
     }
 }
