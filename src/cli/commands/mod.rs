@@ -4,6 +4,7 @@ mod apply_args;
 mod graph_args;
 mod lock_core_args;
 mod lock_ops_args;
+mod misc_analysis_args;
 mod misc_args;
 mod misc_ops_args;
 mod plan_args;
@@ -17,6 +18,7 @@ pub use apply_args::*;
 pub use graph_args::*;
 pub use lock_core_args::*;
 pub use lock_ops_args::*;
+pub use misc_analysis_args::*;
 pub use misc_args::*;
 pub use misc_ops_args::*;
 pub use plan_args::*;
@@ -368,4 +370,14 @@ pub enum Commands {
 
     /// FJ-1401: Prove convergence from current or arbitrary state
     Prove(ProveArgs),
+
+    /// FJ-1403: Analyze minimum privileges required per resource
+    #[command(name = "privilege-analysis")]
+    PrivilegeAnalysis(PrivilegeAnalysisArgs),
+
+    /// FJ-1404: Generate SLSA provenance attestation
+    Provenance(ProvenanceArgs),
+
+    /// FJ-1405: Show Merkle DAG configuration lineage
+    Lineage(LineageArgs),
 }
