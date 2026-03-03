@@ -88,6 +88,8 @@ mod observe;
 mod plan;
 mod print_helpers;
 mod score;
+mod cbom;
+mod prove;
 mod secrets;
 mod sbom;
 mod security_scan;
