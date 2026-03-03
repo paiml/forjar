@@ -70,6 +70,9 @@ pub enum Commands {
     /// Compare two state snapshots (show what changed between applies)
     Diff(DiffArgs),
 
+    /// FJ-1389: Unified stack diff — compare two configs (resources, machines, params)
+    StackDiff(StackDiffArgs),
+
     /// Format (normalize) a forjar.yaml config file
     Fmt(FmtArgs),
 
@@ -352,4 +355,8 @@ pub enum Commands {
 
     /// FJ-1384: Extract resources matching tag/group/glob into sub-config
     Extract(ExtractArgs),
+
+    /// FJ-1390: Static IaC security scanner
+    #[command(name = "security-scan")]
+    SecurityScan(SecurityScanArgs),
 }
