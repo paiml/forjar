@@ -330,3 +330,5 @@ mod tests_bundle;
 mod tests_model_card;
 #[cfg(test)]
 mod tests_agent_sbom;
+#[cfg(test)]
+mod tests_repro_proof;

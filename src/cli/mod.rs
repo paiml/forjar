@@ -94,6 +94,7 @@ mod plan;
 mod print_helpers;
 mod privilege_analysis;
 mod provenance;
+mod repro_proof;
 mod score;
 mod cbom;
 mod prove;

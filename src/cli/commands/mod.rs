@@ -391,4 +391,8 @@ pub enum Commands {
     /// FJ-1408: Generate agent-specific SBOM
     #[command(name = "agent-sbom")]
     AgentSbom(AgentSbomArgs),
+
+    /// FJ-1409: Generate training reproducibility certificate
+    #[command(name = "repro-proof")]
+    ReproProof(ReproProofArgs),
 }
