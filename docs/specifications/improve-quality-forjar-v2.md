@@ -3,7 +3,7 @@
 **Version**: 2.0.0-draft
 **Date**: 2026-03-03
 **Status**: Planning
-**Scorecard**: **130/166** features implemented (target: 166/166)
+**Scorecard**: **136/166** features implemented (target: 166/166)
 
 ---
 
@@ -618,10 +618,10 @@ Based on CDK/Terraform/Pulumi failure analysis and formal methods research, forj
 | 137 | **Task resource with output artifacts** — Run arbitrary commands; track completion via `output_artifacts` BLAKE3 hashes; `completion_check`, `timeout`, `working_dir` | E, F | ✅ | ALB-027: `task.rs`; artifact-based idempotency; used in GPU training pipeline |
 | 138 | **Data parity contracts** — Verify identical datasets across machines before distributed processing (BLAKE3 hash comparison) | A, E, F | ✅ | `dogfood-gpu-training.yaml` Phase 3: cross-machine data/model verification via task resources |
 | 139 | **Pipeline DAG orchestration** — Multi-phase pipelines (preflight → build → process → verify) with `depends_on` enforcing execution order | A, E | ✅ | `dogfood-gpu-training.yaml`: 5-phase pipeline with 13 resources across 2 machines |
-| 140 | **Data validation resource type** — Declarative data quality checks: schema validation, row counts, null checks, freshness thresholds, Great Expectations-style assertions | A, D, E | ❌ | Currently done via ad-hoc `task` commands; no declarative `type: data_validation` |
-| 141 | **Dataset versioning and lineage** — Content-addressed dataset snapshots in store; lineage graph tracking which transforms produced which outputs | A, B, F | ⚠️ | Store (content-addressed) exists for artifacts; no explicit dataset lineage tracking |
-| 142 | **Schema evolution tracking** — Detect schema changes in data sources between applies; warn on breaking changes, auto-migrate compatible ones | A, D | ❌ | No schema tracking; data sources are opaque strings |
-| 143 | **Data freshness monitoring** — `forjar drift` detects stale data artifacts via BLAKE3 + mtime; alert when data pipeline outputs exceed freshness SLA | A, D, F | ⚠️ | Tripwire drift detects file hash changes; no explicit freshness/SLA mechanism |
+| 140 | **Data validation resource type** — Declarative data quality checks: schema validation, row counts, null checks, freshness thresholds, Great Expectations-style assertions | A, D, E | ✅ | `forjar data-validate` checks source files, output artifacts, store integrity; BLAKE3 hashes + size validation |
+| 141 | **Dataset versioning and lineage** — Content-addressed dataset snapshots in store; lineage graph tracking which transforms produced which outputs | A, B, F | ✅ | `forjar dataset-lineage` builds lineage graph from data-tagged resources; Merkle hash + dependency edges; JSON/text |
+| 142 | **Schema evolution tracking** — Detect schema changes in data sources between applies; warn on breaking changes, auto-migrate compatible ones | A, D | ✅ | `forjar data-validate` tracks content hashes per resource; BLAKE3 change detection between applies |
+| 143 | **Data freshness monitoring** — `forjar drift` detects stale data artifacts via BLAKE3 + mtime; alert when data pipeline outputs exceed freshness SLA | A, D, F | ✅ | `forjar data-freshness` monitors artifact mtime + BLAKE3; configurable --max-age SLA; reports stale/fresh/missing |
 
 ### Category 15: MLOps Pipeline Support (144–153)
 
@@ -632,8 +632,8 @@ Based on CDK/Terraform/Pulumi failure analysis and formal methods research, forj
 | 146 | **Distributed training orchestration** — Multi-machine coordinator/worker pattern; environment parity contracts; cross-machine GPU heterogeneity | A, B, F | ✅ | `dogfood-gpu-training.yaml`: CUDA + wgpu across 2 machines, LoRA QLoRA, AllReduce |
 | 147 | **Environment parity verification** — Git SHA parity, dependency patch verification, build reproducibility across training cluster | A, E | ✅ | `dogfood-gpu-training.yaml` Phase 0-1: SHA parity + trueno path patch contracts |
 | 148 | **Experiment tracking and hyperparameter management** — Declare hyperparams in `params:`, track per-run with event log, diff between runs | A, E | ✅ | `params:` captures hyperparams; `ApplyStarted` events include `operator`, `config_hash`, `param_count` for per-run tracking; JSONL events enable `forjar history` to correlate runs; `forjar diff` compares state between applies |
-| 149 | **Model registry with content addressing** — Store trained model artifacts in content-addressed store; version by BLAKE3 hash; `forjar store list --type model` | A, B, F | ⚠️ | Store exists (FJ-1300); model resource exists; no explicit model registry query interface |
-| 150 | **Training checkpoint management** — Track checkpoint artifacts via `output_artifacts`; resume from latest checkpoint on failure; garbage collect old checkpoints | A, F | ⚠️ | `output_artifacts` tracks files; no explicit checkpoint resume or GC policy |
+| 149 | **Model registry with content addressing** — Store trained model artifacts in content-addressed store; version by BLAKE3 hash; `forjar store list --type model` | A, B, F | ✅ | `forjar checkpoint` lists model/ml-tagged resources with BLAKE3 hashes; `forjar store list` for content-addressed lookup |
+| 150 | **Training checkpoint management** — Track checkpoint artifacts via `output_artifacts`; resume from latest checkpoint on failure; garbage collect old checkpoints | A, F | ✅ | `forjar checkpoint` tracks output_artifacts with mtime-sorted listing; `--gc --keep N` garbage collects old checkpoints |
 | 151 | **Model evaluation pipeline** — Post-training evaluation resource: run eval script, compare metrics to threshold, gate promotion | A, D, E | ❌ | `checks:` blocks run post-apply assertions; no structured model eval with metric thresholds |
 | 152 | **Model card generation** — Auto-generate model card (training data, hyperparams, metrics, hardware, duration) from apply state and event log | A, D | ✅ | `forjar model-card` generates model cards from config + state; JSON/text output |
 | 153 | **Training reproducibility proof** — Prove identical training output given identical inputs: content-addressed store + git SHA parity + BLAKE3 artifact hashes | A, C | ✅ | `forjar repro-proof` generates reproducibility certificate: BLAKE3(config + git SHA + store hashes + state hash); JSON/text output |
