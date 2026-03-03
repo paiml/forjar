@@ -62,7 +62,7 @@
 | 19 | **Automatic drift remediation (self-healing)** — Re-apply desired state when drift is detected, with policy controls | D, E | ⚠️ | Manual re-apply works; no autonomous remediation loop |
 | 20 | **Drift forensics and attribution** — Record who/what caused drift via audit log correlation | A, D | ⚠️ | Events logged but no attribution to external actors |
 | 21 | **Drift-aware deployment blocking** — Block new applies if live state has drifted from last known state | A, D | ✅ | Pre-apply drift gate in `apply.rs`; `check_pre_apply_drift()` uses local file hashing; skip with `--force` |
-| 22 | **Generational state with instant rollback** — Numbered generations; switch to any previous generation instantly | A, B, E | ⚠️ | `--rollback-on-failure` and `forjar rollback` exist; no numbered generations like NixOS |
+| 22 | **Generational state with instant rollback** — Numbered generations; switch to any previous generation instantly | A, B, E | ✅ | `generation.rs`: numbered generations with atomic symlink swap; `forjar rollback --generation N`; `forjar generation list/gc`; auto-generation on apply |
 | 23 | **Merkle DAG configuration lineage** — Full history as content-addressed DAG; tamper-evident, forkable | A | ❌ | State is flat YAML; no Merkle DAG history |
 | 24 | **Remote state backend** — Optional S3/GCS/Consul backend for team collaboration | B | ❌ | Local-only by design (sovereign-first); could add encrypted remote |
 | 25 | **State import from existing infrastructure** — `forjar import` to adopt brownfield systems without recreation | E | ⚠️ | Store imports exist (`forjar import docker/apt/cargo`); no general brownfield import |
@@ -148,9 +148,9 @@
 | 72 | **Check scripts for idempotency detection** — Per-resource scripts that detect current state before applying | A, E | ✅ | Exit 0 = no changes needed |
 | 73 | **Simulation / plan testing** — `forjar test` runs check scripts and reports pass/fail without mutation | A, D | ✅ | Full simulation mode |
 | 74 | **Integration testing with ephemeral containers** — Spin up container targets, apply, verify, destroy | D | ✅ | Container transport with `ephemeral: true` |
-| 75 | **Compliance testing framework** — Test against CIS, NIST 800-53, SOC2, HIPAA benchmarks | D | ⚠️ | `--check-compliance <policy>` exists; limited policy library |
+| 75 | **Compliance testing framework** — Test against CIS, NIST 800-53, SOC2, HIPAA benchmarks | D | ✅ | `core/compliance.rs`: 4 benchmarks (CIS, NIST 800-53, SOC2, HIPAA); 15+ rules (AC-3, AC-6, CM-6, SC-28, SI-7, CIS-6.1.1, etc.); 22 tests; `evaluate_benchmark()` + `count_by_severity()` |
 | 76 | **Fault injection testing** — `forjar test --fault-inject` to verify resilience of apply operations | C, D | ❌ | No fault injection framework |
-| 77 | **Property-based fuzz testing of resource handlers** — proptest/QuickCheck for resource handler correctness | A, C | ⚠️ | 7 files use `proptest` (resolver, hasher, state, recipe, executor); not comprehensive across all handlers |
+| 77 | **Property-based fuzz testing of resource handlers** — proptest/QuickCheck for resource handler correctness | A, C | ✅ | `tests_proptest_handlers.rs`: 6 properties (hash determinism, type affects hash, converged=noop, codegen no panic, proof obligation total, chain hash determinism); `arb_resource()` strategy covers 8 resource types |
 | 78 | **Runtime invariant monitors** — Continuous verification of declared invariants (e.g., "port 22 never open on prod") | A, D | ❌ | No runtime monitor generation; tripwire is hash-based only |
 
 ### Category 8: Observability and Operations (79–87)
@@ -161,7 +161,7 @@
 | 80 | **Multi-channel notifications** — Slack, Teams, Discord, PagerDuty, OpsGenie, email, webhooks | E | ✅ | `--notify-slack`, `--notify-teams`, etc. |
 | 81 | **Policy-driven failure modes** — `stop_on_first` (Jidoka), `continue_independent`, `--max-failures` | A, E | ✅ | Falsifiable claim C10 |
 | 82 | **Resource-level retry with backoff** — Up to 4 attempts, 200ms × 2^attempt exponential backoff | E, F | ✅ | FJ-283: `--retry N` |
-| 83 | **Rollback on failure** — Auto-rollback to previous lock state; snapshot-based; threshold-based | A, D | ⚠️ | `--rollback-on-failure` restores lock file only (not infrastructure); `--rollback-snapshot`/`--rollback-on-threshold` are CLI stubs without full backing |
+| 83 | **Rollback on failure** — Auto-rollback to previous lock state; snapshot-based; threshold-based | A, D | ✅ | `--rollback-on-failure` restores both lock files (executor) AND full state via generational rollback; `maybe_rollback_generation()` in apply.rs restores pre-apply generation on failure |
 | 84 | **Fleet convergence percentiles** — `forjar status --fleet-resource-convergence-percentile` (p50/p90/p99) | A, D | ✅ | FJ-994: fully implemented in `status_intelligence_ext2.rs`; computes p50/p90/p99 from lock files |
 | 85 | **Convergence budget enforcement** — Per-recipe time budgets with alerts on exceeded thresholds | A, D, F | ✅ | `policy.convergence_budget` (seconds); enforced in `apply.rs::check_convergence_budget()` |
 | 86 | **Structured machine-readable output** — JSON/YAML output for plans, diffs, and results for tooling integration | E | ✅ | `--dry-run-json`, structured output modes |
@@ -599,7 +599,7 @@ Based on CDK/Terraform/Pulumi failure analysis and formal methods research, forj
 
 | # | Feature | Principles | Status | Notes |
 |---|---------|-----------|--------|-------|
-| 126 | **Generational state snapshots** — Numbered generations per machine; `forjar rollback --generation N` switches instantly (Nix-style atomic symlink swap) | A, B, E | ❌ | Current rollback restores lock file only; no numbered generations or instant switch |
+| 126 | **Generational state snapshots** — Numbered generations per machine; `forjar rollback --generation N` switches instantly (Nix-style atomic symlink swap) | A, B, E | ✅ | `generation.rs`: `create_generation()`, `rollback_to_generation()`, `gc_generations()`; atomic symlink swap; `forjar generation list/gc`; 11 tests |
 | 127 | **Event-sourced state reconstruction** — Reconstruct any historical state by replaying JSONL events from genesis or last snapshot; `forjar state reconstruct --at <timestamp>` | A, D | ✅ | `forjar state-reconstruct --at <TS> --machine <M>`; `state/reconstruct.rs` replays events.jsonl |
 | 128 | **Saga-pattern multi-stack apply** — Each stack apply records a compensating snapshot; on failure, prior stacks revert to snapshot; coordinator tracks completion | A, D, E | ❌ | No multi-stack coordination or compensating transactions |
 | 129 | **Pre-apply state snapshot** — Automatic snapshot of all lock files before every apply; retained for N generations (configurable gc) | A, D, E | ✅ | `policy.snapshot_generations: N`; auto-snapshot before apply with GC in `apply.rs::maybe_auto_snapshot()` |
