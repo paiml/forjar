@@ -312,3 +312,5 @@ mod tests_validate_store_purity;
 mod tests_validate_transport;
 #[cfg(test)]
 mod tests_workspace;
+#[cfg(test)]
+mod tests_sbom;
