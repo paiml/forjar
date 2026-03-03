@@ -420,6 +420,42 @@ pub struct SbomArgs {
     pub json: bool,
 }
 
+/// FJ-1400: Cryptographic Bill of Materials (CBOM) generation.
+#[derive(clap::Args, Debug)]
+pub struct CbomArgs {
+    /// Path to forjar.yaml
+    #[arg(short, long, default_value = "forjar.yaml")]
+    pub file: std::path::PathBuf,
+
+    /// State directory (for hash lookups)
+    #[arg(long, default_value = "state")]
+    pub state_dir: std::path::PathBuf,
+
+    /// Output as JSON
+    #[arg(long)]
+    pub json: bool,
+}
+
+/// FJ-1401: Convergence proof from arbitrary state.
+#[derive(clap::Args, Debug)]
+pub struct ProveArgs {
+    /// Path to forjar.yaml
+    #[arg(short, long, default_value = "forjar.yaml")]
+    pub file: std::path::PathBuf,
+
+    /// State directory
+    #[arg(long, default_value = "state")]
+    pub state_dir: std::path::PathBuf,
+
+    /// Machine to prove convergence for (default: all)
+    #[arg(short, long)]
+    pub machine: Option<String>,
+
+    /// Output as JSON
+    #[arg(long)]
+    pub json: bool,
+}
+
 /// FJ-1384: Extract resources matching tag/group/glob into sub-config.
 #[derive(clap::Args, Debug)]
 pub struct ExtractArgs {
