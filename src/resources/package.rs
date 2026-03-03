@@ -1,4 +1,5 @@
-//! FJ-006: Package resource handler (apt + cargo + uv).
+//! FJ-006: Package resource handler (apt + cargo + uv + brew).
+//! FJ-1398: Cross-platform resource abstraction via brew provider.
 
 use crate::core::types::Resource;
 
@@ -34,6 +35,13 @@ pub fn check_script(resource: &Resource) -> String {
                 .collect();
             checks.join("\n")
         }
+        "brew" => {
+            let checks: Vec<String> = packages
+                .iter()
+                .map(|p| format!("brew list '{}' >/dev/null 2>&1 && echo 'installed:{}' || echo 'missing:{}'", p, p, p))
+                .collect();
+            checks.join("\n")
+        }
         other => format!("echo 'unsupported provider: {}'", other),
     }
 }
@@ -49,6 +57,8 @@ pub fn apply_script(resource: &Resource) -> String {
         ("cargo", "present") => apply_cargo_present(resource),
         ("uv", "present") => apply_uv_present(resource),
         ("uv", "absent") => apply_uv_absent(resource),
+        ("brew", "present") => apply_brew_present(resource),
+        ("brew", "absent") => apply_brew_absent(resource),
         (other_provider, other_state) => format!(
             "echo 'unsupported: provider={}, state={}'",
             other_provider, other_state
@@ -169,6 +179,41 @@ fn apply_uv_absent(resource: &Resource) -> String {
     format!("set -euo pipefail\n{}", removals.join("\n"))
 }
 
+/// FJ-1398: Homebrew install (macOS/Linux cross-platform).
+fn apply_brew_present(resource: &Resource) -> String {
+    let packages = &resource.packages;
+    let version = resource.version.as_deref();
+    let check_list: Vec<String> = packages.iter().map(|p| format!("'{}'", p)).collect();
+    let installs: Vec<String> = packages
+        .iter()
+        .map(|p| match version {
+            Some(v) => format!("brew install '{}@{}'", p, v),
+            None => format!("brew install '{}'", p),
+        })
+        .collect();
+    let check_joined = check_list.join(" ");
+    format!(
+        "set -euo pipefail\n\
+         NEED_INSTALL=0\n\
+         for pkg in {check_joined}; do\n\
+           brew list \"$pkg\" >/dev/null 2>&1 || NEED_INSTALL=1\n\
+         done\n\
+         if [ \"$NEED_INSTALL\" = \"1\" ]; then\n\
+           {}\n\
+         fi",
+        installs.join("\n  ")
+    )
+}
+
+fn apply_brew_absent(resource: &Resource) -> String {
+    let packages = &resource.packages;
+    let removals: Vec<String> = packages
+        .iter()
+        .map(|p| format!("brew uninstall '{}' 2>/dev/null || true", p))
+        .collect();
+    format!("set -euo pipefail\n{}", removals.join("\n"))
+}
+
 /// Generate shell to query installed versions (for state hashing).
 pub fn state_query_script(resource: &Resource) -> String {
     let provider = resource.provider.as_deref().unwrap_or("apt");
@@ -193,6 +238,13 @@ pub fn state_query_script(resource: &Resource) -> String {
             let queries: Vec<String> = packages
                 .iter()
                 .map(|p| format!("uv tool list 2>/dev/null | grep -q '^{}' && echo '{}=installed' || echo '{}=MISSING'", p, p, p))
+                .collect();
+            queries.join("\n")
+        }
+        "brew" => {
+            let queries: Vec<String> = packages
+                .iter()
+                .map(|p| format!("brew list --versions '{}' 2>/dev/null || echo '{}=MISSING'", p, p))
                 .collect();
             queries.join("\n")
         }

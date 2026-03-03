@@ -1,19 +1,26 @@
 //! FJ-1395: SBOM generation for managed infrastructure.
+//! FJ-1399: Recipe SBOM — expands recipes before component collection.
 //!
 //! Generates a Software Bill of Materials in SPDX-lite JSON format from the
 //! resolved config and state lock files. Covers packages, files with sources,
-//! docker images, and model artifacts.
+//! docker images, model artifacts, and recipe-expanded resources.
 
 use crate::core::{parser, state, types};
 use std::path::Path;
 
 /// Generate SBOM from config and optional state directory.
+///
+/// FJ-1399: Recipes are expanded before component collection so that
+/// recipe-defined packages, containers, and models appear in the SBOM.
 pub(crate) fn cmd_sbom(
     file: &Path,
     state_dir: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let config = parser::parse_and_validate(file)?;
+    let mut config = parser::parse_and_validate(file)?;
+    // FJ-1399: Expand recipes so their inner resources appear in the SBOM.
+    let config_dir = file.parent();
+    let _ = parser::expand_recipes(&mut config, config_dir);
     let components = collect_components(&config, state_dir);
 
     if json {
