@@ -332,3 +332,11 @@ mod tests_model_card;
 mod tests_agent_sbom;
 #[cfg(test)]
 mod tests_repro_proof;
+#[cfg(test)]
+mod tests_data_freshness;
+#[cfg(test)]
+mod tests_data_validate;
+#[cfg(test)]
+mod tests_checkpoint;
+#[cfg(test)]
+mod tests_dataset_lineage;
