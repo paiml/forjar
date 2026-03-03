@@ -3,7 +3,7 @@
 **Version**: 2.0.0-draft
 **Date**: 2026-03-03
 **Status**: Planning
-**Scorecard**: **96/166** features implemented (target: 166/166)
+**Scorecard**: **98/166** features implemented (target: 166/166)
 
 ---
 
@@ -85,7 +85,7 @@
 | 29 | **SBOM generation for managed infrastructure** — Auto-generate Software Bill of Materials (SPDX/CycloneDX) after every apply | A, D | ❌ | No SBOM generation |
 | 30 | **SLSA Level 3 provenance attestation** — in-toto signed attestations linking source recipe → plan → applied state | A, D | ❌ | No provenance attestation |
 | 31 | **Cryptographic recipe signing (Sigstore/GPG)** — Sign recipes with OIDC identity; verify before apply | A, B, D | ❌ | No recipe signing |
-| 32 | **Transparency log for all applies** — Append-only tamper-evident log of every `forjar apply` with operator identity | A, D | ⚠️ | JSONL events exist; not cryptographically tamper-evident |
+| 32 | **Transparency log for all applies** — Append-only tamper-evident log of every `forjar apply` with operator identity | A, D | ✅ | BLAKE3 chain hashing in `tripwire/chain.rs`; `.chain` sidecars; `verify_all_chains()`; 8 tests |
 | 33 | **CBOM (Cryptographic Bill of Materials)** — Inventory all crypto algorithms, key lengths, certificates on managed systems | A, D | ❌ | No CBOM generation |
 | 34 | **Post-quantum dual signing** — Ed25519 + SLH-DSA (SPHINCS+) for quantum transition readiness | A, D | ❌ | BLAKE3 is quantum-resistant for hashing; no PQ signatures |
 | 35 | **Policy-as-code enforcement** — Pre-apply gates that evaluate security/compliance policies against the plan | A, D, E | ⚠️ | `--check-security`, `--check-compliance <policy>` validation flags exist; no full policy engine (OPA/Cedar) |
@@ -110,7 +110,7 @@
 | 49 | **Alloy specification of dependency graph** — Verify structural properties: no cycles, unique ordering, satisfiable deps | A | ❌ | Cycle detection exists; no Alloy model |
 | 50 | **Idempotency regression tests (property-based)** — QuickCheck/proptest-generated tests from formal idempotency spec | A, C | ✅ | `tests_proptest_idempotency.rs`: hash idempotency, lock serde roundtrip, converged-state-is-noop properties |
 | 51 | **MC/DC (Modified Condition/Decision Coverage)** — Structural coverage mandated by DO-178C DAL-A for safety-critical paths | A, D | ❌ | Line/branch coverage via llvm-cov; no MC/DC |
-| 52 | **Proof obligation taxonomy** — Classify each resource as idempotent/monotonic/convergent with machine-checkable annotations | A, D | ❌ | Informal idempotency claims; no formal taxonomy |
+| 52 | **Proof obligation taxonomy** — Classify each resource as idempotent/monotonic/convergent with machine-checkable annotations | A, D | ✅ | `planner/proof_obligation.rs`: `ProofObligation` enum, `classify()`, `is_safe()`; 13 tests |
 
 ### Category 5: Transport and Execution (53–62)
 
@@ -218,7 +218,7 @@
 | 117 | **Cross-stack data flow** — `data: { type: forjar-state }` reads outputs from another config's state; enables networking → compute → storage pipelines | A, B, E | ✅ | `resolve_forjar_state_source()` reads `GlobalLock.outputs`; unblocked by #116 |
 | 118 | **Multi-config apply** — `forjar apply -f networking.yaml -f compute.yaml -f storage.yaml` with topological ordering by cross-stack dependencies | A, E, F | ❌ | One config per invocation; no multi-file orchestration |
 | 119 | **Stack dependency graph** — DAG of configs: networking → compute → storage; cycle detection, parallel independent stacks, serial dependent stacks | A, E, F | ❌ | DAG is within a single config only; no cross-config dependency resolution |
-| 120 | **Stack extraction** — `forjar extract --tags networking --output networking.yaml` splits a monolithic config into focused sub-configs by tag/group/resource-glob | E | ❌ | No config-level extraction; `lock-rebase` strips state but doesn't generate config |
+| 120 | **Stack extraction** — `forjar extract --tags networking --output networking.yaml` splits a monolithic config into focused sub-configs by tag/group/resource-glob | E | ✅ | `forjar extract --tags/--group/--glob --output`; 8 tests |
 | 121 | **Config-level merge** — `forjar config merge networking.yaml compute.yaml --output infra.yaml` combines multiple configs into one, detecting resource ID/machine collisions | E | ✅ | `forjar config-merge` in `config_merge.rs`; collision detection; `--allow-collisions` flag |
 | 122 | **State merge** — `forjar lock-merge <from> <to> --output <dir>` merges two state directories | A, E | ✅ | `cmd_lock_merge` in `lock_merge.rs`; right takes precedence on machine-level conflicts |
 | 123 | **State rebase** — `forjar lock-rebase <state-dir> --file new-config.yaml` strips orphaned resources from state | A, E | ✅ | `cmd_lock_rebase` in `lock_merge.rs`; keeps only resources present in new config |
@@ -233,10 +233,10 @@
 
 | Status | Count | Percentage |
 |--------|-------|------------|
-| ✅ Implemented | 82 | 49% |
-| ⚠️ Partial | 27 | 16% |
-| ❌ Not Implemented | 57 | 34% |
-| **Effective Score** | **96/166** | **(82 full + 27×0.5 partial)** |
+| ✅ Implemented | 85 | 51% |
+| ⚠️ Partial | 26 | 16% |
+| ❌ Not Implemented | 55 | 33% |
+| **Effective Score** | **98/166** | **(85 full + 26×0.5 partial)** |
 
 ### By Principle
 
