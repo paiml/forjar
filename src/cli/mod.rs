@@ -65,6 +65,7 @@ mod graph_topology;
 mod graph_topology_b;
 mod graph_topology_ext;
 mod graph_transport;
+mod graph_svg;
 mod graph_visualization;
 mod graph_weight;
 pub mod helpers;
