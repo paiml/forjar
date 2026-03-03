@@ -356,3 +356,13 @@ mod tests_iso_export;
 mod tests_state_import_brownfield;
 #[cfg(test)]
 mod tests_cross_machine_deps;
+#[cfg(test)]
+mod tests_remote_state;
+#[cfg(test)]
+mod tests_recipe_registry;
+#[cfg(test)]
+mod tests_service_catalog;
+#[cfg(test)]
+mod tests_multi_config;
+#[cfg(test)]
+mod tests_stack_dep_graph;
