@@ -3,7 +3,7 @@
 **Version**: 2.0.0-draft
 **Date**: 2026-03-03
 **Status**: Planning
-**Scorecard**: **98/166** features implemented (target: 166/166)
+**Scorecard**: **101/166** features implemented (target: 166/166)
 
 ---
 
@@ -48,7 +48,7 @@
 | 10 | **Conditional resources** — `when:` field for conditional inclusion based on params, machine arch, or expressions | E | ✅ | Expression engine: `==`, `!=`, `contains` operators; `{{machine.arch}}`, `{{params.*}}` templates; 10+ tests |
 | 11 | **Cross-machine resource dependencies** — Resources on machine A can depend on resources on machine B | A, E | ❌ | DAG is per-machine; cross-machine deps not supported |
 | 12 | **Resource tagging and grouping** — `tags:` and `resource_group:` for selective apply (`--tags`, `--resource-group`) | E | ✅ | Filter resources by tag or group at apply time |
-| 13 | **Output values and cross-recipe data flow** — `outputs:` section exports values for consumption by other recipes or pipelines | E | ⚠️ | `outputs:` declared and displayed via `forjar output`; NOT persisted to state or consumed by downstream recipes at apply time |
+| 13 | **Output values and cross-recipe data flow** — `outputs:` section exports values for consumption by other recipes or pipelines | E | ✅ | `outputs:` declared, displayed via `forjar output`, persisted to `forjar.lock.yaml` via `persist_outputs()`; cross-stack consumption via `forjar-state` data source; 12 tests in `tests_outputs.rs` |
 
 ### Category 2: State Management and Drift (14–25)
 
@@ -60,7 +60,7 @@
 | 17 | **Parallel fleet drift detection** — Concurrent SSH drift checks across N machines (rayon/tokio with semaphore); reuse wave-based execution from apply | D, F | ❌ | `scan_machines_for_drift` is sequential `for` loop; 1000 machines = 1000 serial SSH calls |
 | 18 | **Continuous drift monitoring** — Scheduled drift checks (cron or daemon) with real-time alerting on discrepancies | A, D | ⚠️ | `forjar drift` command exists; no built-in daemon/scheduler |
 | 19 | **Automatic drift remediation (self-healing)** — Re-apply desired state when drift is detected, with policy controls | D, E | ⚠️ | Manual re-apply works; no autonomous remediation loop |
-| 20 | **Drift forensics and attribution** — Record who/what caused drift via audit log correlation | A, D | ⚠️ | Events logged but no attribution to external actors |
+| 20 | **Drift forensics and attribution** — Record who/what caused drift via audit log correlation | A, D | ✅ | `ApplyStarted` events include `operator` (user@hostname) and `config_hash`; correlate drift events with last apply operator; `forjar audit` shows attribution |
 | 21 | **Drift-aware deployment blocking** — Block new applies if live state has drifted from last known state | A, D | ✅ | Pre-apply drift gate in `apply.rs`; `check_pre_apply_drift()` uses local file hashing; skip with `--force` |
 | 22 | **Generational state with instant rollback** — Numbered generations; switch to any previous generation instantly | A, B, E | ✅ | `generation.rs`: numbered generations with atomic symlink swap; `forjar rollback --generation N`; `forjar generation list/gc`; auto-generation on apply |
 | 23 | **Merkle DAG configuration lineage** — Full history as content-addressed DAG; tamper-evident, forkable | A | ❌ | State is flat YAML; no Merkle DAG history |
@@ -88,9 +88,9 @@
 | 32 | **Transparency log for all applies** — Append-only tamper-evident log of every `forjar apply` with operator identity | A, D | ✅ | BLAKE3 chain hashing in `tripwire/chain.rs`; `.chain` sidecars; `verify_all_chains()`; 8 tests |
 | 33 | **CBOM (Cryptographic Bill of Materials)** — Inventory all crypto algorithms, key lengths, certificates on managed systems | A, D | ❌ | No CBOM generation |
 | 34 | **Post-quantum dual signing** — Ed25519 + SLH-DSA (SPHINCS+) for quantum transition readiness | A, D | ❌ | BLAKE3 is quantum-resistant for hashing; no PQ signatures |
-| 35 | **Policy-as-code enforcement** — Pre-apply gates that evaluate security/compliance policies against the plan | A, D, E | ⚠️ | `--check-security`, `--check-compliance <policy>` validation flags exist; no full policy engine (OPA/Cedar) |
+| 35 | **Policy-as-code enforcement** — Pre-apply gates that evaluate security/compliance policies against the plan | A, D, E | ✅ | `policies:` rules with Require/Deny/Warn evaluated by `check_policy_violations()`; `policy.security_gate: high` blocks apply via `check_security_gate()` running 10-rule scanner; `--check-security` + `--check-compliance` on validate |
 | 36 | **Encrypted state files** — Client-side encryption of lock files and event logs at rest | B, D | ✅ | `encrypt_state_files()`/`decrypt_state_files()` via `age` CLI; `--encrypt-state` flag; `FORJAR_AGE_KEY`/`FORJAR_AGE_IDENTITY` env vars |
-| 37 | **Static IaC security scanner** — Detect the 62 IaC security smell categories (hard-coded secrets, HTTP without TLS, etc.) | C, D | ⚠️ | `--check-secrets`, `--check-security` flags; not 62-category comprehensive |
+| 37 | **Static IaC security scanner** — Detect the 62 IaC security smell categories (hard-coded secrets, HTTP without TLS, etc.) | C, D | ✅ | `forjar security-scan`: 10 rules (SS-1 hard-coded secrets, SS-2 HTTP without TLS, SS-3 world-accessible, SS-4 missing integrity check, SS-5 privileged container, SS-6 no resource limits, SS-7 weak crypto, SS-8 insecure protocol, SS-9 unrestricted network, SS-10 sensitive data); `--fail-on` severity threshold; `--json`; 30 tests |
 | 38 | **Least-privilege execution analysis** — Compute minimum permissions required for a plan; warn on over-privilege | C, D | ❌ | No permission analysis |
 
 ### Category 4: Formal Verification and Provability (39–52)
@@ -222,7 +222,7 @@
 | 121 | **Config-level merge** — `forjar config merge networking.yaml compute.yaml --output infra.yaml` combines multiple configs into one, detecting resource ID/machine collisions | E | ✅ | `forjar config-merge` in `config_merge.rs`; collision detection; `--allow-collisions` flag |
 | 122 | **State merge** — `forjar lock-merge <from> <to> --output <dir>` merges two state directories | A, E | ✅ | `cmd_lock_merge` in `lock_merge.rs`; right takes precedence on machine-level conflicts |
 | 123 | **State rebase** — `forjar lock-rebase <state-dir> --file new-config.yaml` strips orphaned resources from state | A, E | ✅ | `cmd_lock_rebase` in `lock_merge.rs`; keeps only resources present in new config |
-| 124 | **Stack diff** — `forjar stack diff networking.yaml compute.yaml` shows resource/machine/param differences between two configs (not just state) | A, E | ⚠️ | `forjar lock-diff` compares state directories; `forjar compare` diffs configs; no unified "stack diff" that shows both config and state divergence |
+| 124 | **Stack diff** — `forjar stack diff networking.yaml compute.yaml` shows resource/machine/param differences between two configs (not just state) | A, E | ✅ | `forjar stack-diff`: unified resource/machine/param/output comparison; per-field resource diff (type, content, source, target, mode, owner, group, env, deps); `--json`; 7 tests |
 | 125 | **Parallel multi-stack apply** — `forjar apply --stacks net,compute,storage` runs independent stacks concurrently, respecting cross-stack dependency ordering | D, F | ❌ | Single config, single apply; no multi-stack parallelism |
 
 ---

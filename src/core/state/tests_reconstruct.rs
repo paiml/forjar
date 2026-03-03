@@ -34,6 +34,8 @@ fn reconstruct_at_midpoint() {
                 machine: "web".to_string(),
                 run_id: "r-001".to_string(),
                 forjar_version: "1.0.0".to_string(),
+                operator: None,
+                config_hash: None,
             },
         ),
         ts_event(
