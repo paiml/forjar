@@ -345,4 +345,7 @@ pub enum Commands {
     /// FJ-1383: Merge two forjar config files into one
     #[command(name = "config-merge")]
     ConfigMerge(ConfigMergeArgs),
+
+    /// FJ-1384: Extract resources matching tag/group/glob into sub-config
+    Extract(ExtractArgs),
 }
