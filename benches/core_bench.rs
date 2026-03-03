@@ -1,14 +1,5 @@
-//! Benchmarks for forjar core operations.
-//!
-//! Run with: cargo bench
-//!
-//! Results include 95% confidence intervals via Criterion.
-//!
-//! Spec §9 performance targets validated:
-//!   - validate: < 10ms (pure YAML parse)
-//!   - plan (3 machines, 20 resources): < 2s
-//!   - apply (no changes, 3m/20r): < 500ms
-//!   - drift (local, 100 resources): < 1s
+//! Benchmarks for forjar core operations (cargo bench).
+//! Spec §9 targets: validate <10ms, plan(3m/20r) <2s, apply(no-change) <500ms, drift(100r) <1s.
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use forjar::core::{parser, planner, resolver, state};
@@ -105,58 +96,69 @@ resources:
     });
 }
 
+/// Build a linear chain DAG and return (in_degree, adjacency).
+fn build_linear_chain(
+    n: usize,
+) -> (
+    std::collections::HashMap<String, usize>,
+    std::collections::HashMap<String, Vec<String>>,
+) {
+    let mut in_degree = std::collections::HashMap::new();
+    let mut adjacency: std::collections::HashMap<String, Vec<String>> =
+        std::collections::HashMap::new();
+    for i in 0..n {
+        let name = format!("node-{i:04}");
+        in_degree.entry(name.clone()).or_insert(0);
+        adjacency.entry(name.clone()).or_default();
+        if i > 0 {
+            let prev = format!("node-{:04}", i - 1);
+            adjacency.entry(prev).or_default().push(name.clone());
+            *in_degree.entry(name).or_insert(0) += 1;
+        }
+    }
+    (in_degree, adjacency)
+}
+
+/// Kahn's topological sort on (in_degree, adjacency).
+fn kahns_topo_sort(
+    in_degree: &mut std::collections::HashMap<String, usize>,
+    adjacency: &std::collections::HashMap<String, Vec<String>>,
+) -> Vec<String> {
+    let mut queue: std::collections::BinaryHeap<std::cmp::Reverse<String>> = in_degree
+        .iter()
+        .filter(|(_, &d)| d == 0)
+        .map(|(k, _)| std::cmp::Reverse(k.clone()))
+        .collect();
+    let mut order = Vec::with_capacity(in_degree.len());
+    while let Some(std::cmp::Reverse(node)) = queue.pop() {
+        if let Some(neighbors) = adjacency.get(&node) {
+            for neighbor in neighbors {
+                if let Some(d) = in_degree.get_mut(neighbor) {
+                    *d -= 1;
+                    if *d == 0 {
+                        queue.push(std::cmp::Reverse(neighbor.clone()));
+                    }
+                }
+            }
+        }
+        order.push(node);
+    }
+    order
+}
+
 fn bench_topo_sort(c: &mut Criterion) {
-    // Build a linear chain of N nodes
     let mut group = c.benchmark_group("topo_sort");
     for n in [10, 50, 100] {
         group.bench_with_input(BenchmarkId::from_parameter(n), &n, |b, &n| {
             b.iter(|| {
-                let mut in_degree: std::collections::HashMap<String, usize> =
-                    std::collections::HashMap::new();
-                let mut adjacency: std::collections::HashMap<String, Vec<String>> =
-                    std::collections::HashMap::new();
-
-                for i in 0..n {
-                    let name = format!("node-{i:04}");
-                    in_degree.entry(name.clone()).or_insert(0);
-                    adjacency.entry(name.clone()).or_default();
-
-                    if i > 0 {
-                        let prev = format!("node-{:04}", i - 1);
-                        adjacency.entry(prev).or_default().push(name.clone());
-                        *in_degree.entry(name).or_insert(0) += 1;
-                    }
-                }
-
-                // Kahn's algorithm
-                let mut queue: std::collections::BinaryHeap<std::cmp::Reverse<String>> = in_degree
-                    .iter()
-                    .filter(|(_, &d)| d == 0)
-                    .map(|(k, _)| std::cmp::Reverse(k.clone()))
-                    .collect();
-
-                let mut order = Vec::with_capacity(n);
-                while let Some(std::cmp::Reverse(node)) = queue.pop() {
-                    if let Some(neighbors) = adjacency.get(&node) {
-                        for neighbor in neighbors {
-                            if let Some(d) = in_degree.get_mut(neighbor) {
-                                *d -= 1;
-                                if *d == 0 {
-                                    queue.push(std::cmp::Reverse(neighbor.clone()));
-                                }
-                            }
-                        }
-                    }
-                    order.push(node);
-                }
+                let (mut in_degree, adjacency) = build_linear_chain(n);
+                let order = kahns_topo_sort(&mut in_degree, &adjacency);
                 black_box(order);
             });
         });
     }
     group.finish();
 }
-
-// ── Spec §9 Performance Target Benchmarks ──────────────────────────
 
 /// Spec §9: `forjar validate` < 10ms
 /// Parse + validate a realistic config with 3 machines and 20 resources.
@@ -215,50 +217,24 @@ resources:
     });
 }
 
-/// Spec §9: `forjar plan` (3 machines, 20 resources) < 2s
-/// Plan execution for a realistic config — parse, resolve DAG, diff state.
-fn bench_spec9_plan(c: &mut Criterion) {
-    let dir = tempfile::tempdir().unwrap();
-    let config_path = dir.path().join("forjar.yaml");
-    let state_dir = dir.path().join("state");
-    std::fs::create_dir_all(&state_dir).unwrap();
-
+/// Build a 3-machine, 20-resource YAML config with dependency chains for plan benchmarks.
+fn build_3m_20r_config_with_deps() -> String {
     let mut yaml = String::from(
-        r#"version: "1.0"
-name: bench-plan
-machines:
-  web:
-    hostname: web.example.com
-    addr: 10.0.1.1
-  db:
-    hostname: db.example.com
-    addr: 10.0.1.2
-  cache:
-    hostname: cache.example.com
-    addr: 10.0.1.3
-resources:
-"#,
+        "version: \"1.0\"\nname: bench-plan\nmachines:\n  web:\n    hostname: web.example.com\n    addr: 10.0.1.1\n  db:\n    hostname: db.example.com\n    addr: 10.0.1.2\n  cache:\n    hostname: cache.example.com\n    addr: 10.0.1.3\nresources:\n",
     );
-
     for i in 0..8 {
         yaml.push_str(&format!(
             "  web-pkg-{i}:\n    type: package\n    machine: web\n    provider: apt\n    packages: [pkg-{i}]\n"
         ));
     }
     for i in 0..6 {
-        let dep = if i > 0 {
-            format!("\n    depends_on: [db-file-{}]", i - 1)
-        } else {
-            String::new()
-        };
+        let dep = if i > 0 { format!("\n    depends_on: [db-file-{}]", i - 1) } else { String::new() };
         yaml.push_str(&format!(
             "  db-file-{i}:\n    type: file\n    machine: db\n    path: /etc/db/conf-{i}.yml\n    content: \"key: value-{i}\"{dep}\n"
         ));
     }
     for i in 0..4 {
-        yaml.push_str(&format!(
-            "  cache-svc-{i}:\n    type: service\n    machine: cache\n    name: svc-{i}\n"
-        ));
+        yaml.push_str(&format!("  cache-svc-{i}:\n    type: service\n    machine: cache\n    name: svc-{i}\n"));
     }
     for i in 0..2 {
         yaml.push_str(&format!(
@@ -266,8 +242,14 @@ resources:
             i + 1
         ));
     }
+    yaml
+}
 
-    std::fs::write(&config_path, &yaml).unwrap();
+/// Spec §9: `forjar plan` (3 machines, 20 resources) < 2s
+fn bench_spec9_plan(c: &mut Criterion) {
+    let dir = tempfile::tempdir().unwrap();
+    let config_path = dir.path().join("forjar.yaml");
+    std::fs::write(&config_path, build_3m_20r_config_with_deps()).unwrap();
 
     c.bench_function("spec9_plan_3m_20r", |b| {
         b.iter(|| {
@@ -280,18 +262,13 @@ resources:
     });
 }
 
-/// Spec §9: `forjar apply` (no changes) < 500ms
-/// Full apply pipeline when all resources are already converged (no-op path).
-/// Measures: parse → resolve → plan-with-locks → all NoOp.
-fn bench_spec9_apply_no_changes(c: &mut Criterion) {
-    use forjar::core::types::{ResourceLock, ResourceStatus, ResourceType, StateLock};
+/// Build a 3-machine, 20-resource YAML config and return (yaml, resource_names).
+fn build_3m_20r_config() -> (
+    String,
+    Vec<(String, forjar::core::types::ResourceType)>,
+) {
+    use forjar::core::types::ResourceType;
 
-    let dir = tempfile::tempdir().unwrap();
-    let config_path = dir.path().join("forjar.yaml");
-    let state_dir = dir.path().join("state");
-    std::fs::create_dir_all(&state_dir).unwrap();
-
-    // Same 3m/20r config as plan benchmark
     let mut yaml = String::from(
         r#"version: "1.0"
 name: bench-apply
@@ -339,10 +316,16 @@ resources:
         ));
         resource_names.push((name, ResourceType::Mount));
     }
+    (yaml, resource_names)
+}
 
-    std::fs::write(&config_path, &yaml).unwrap();
+/// Populate lock files so plan sees "no changes" for all resources.
+fn populate_converged_locks(
+    state_dir: &std::path::Path,
+    resource_names: &[(String, forjar::core::types::ResourceType)],
+) {
+    use forjar::core::types::{ResourceLock, ResourceStatus, StateLock};
 
-    // Pre-populate lock files for all 3 machines so plan sees "no changes"
     for (machine_name, hostname) in [
         ("web", "web.example.com"),
         ("db", "db.example.com"),
@@ -352,15 +335,8 @@ resources:
         std::fs::create_dir_all(&machine_dir).unwrap();
 
         let mut resources = indexmap::IndexMap::new();
-        for (rname, rtype) in &resource_names {
-            // Only include resources for this machine
-            let belongs = match machine_name {
-                "web" => rname.starts_with("web-"),
-                "db" => rname.starts_with("db-"),
-                "cache" => rname.starts_with("cache-"),
-                _ => false,
-            };
-            if belongs {
+        for (rname, rtype) in resource_names {
+            if rname.starts_with(&format!("{machine_name}-")) {
                 resources.insert(
                     rname.clone(),
                     ResourceLock {
@@ -386,12 +362,25 @@ resources:
         };
         state::save_lock(&machine_dir, &lock).unwrap();
     }
+}
+
+/// Spec §9: `forjar apply` (no changes) < 500ms
+/// Full apply pipeline when all resources are already converged (no-op path).
+/// Measures: parse → resolve → plan-with-locks → all NoOp.
+fn bench_spec9_apply_no_changes(c: &mut Criterion) {
+    let dir = tempfile::tempdir().unwrap();
+    let config_path = dir.path().join("forjar.yaml");
+    let state_dir = dir.path().join("state");
+    std::fs::create_dir_all(&state_dir).unwrap();
+
+    let (yaml, resource_names) = build_3m_20r_config();
+    std::fs::write(&config_path, &yaml).unwrap();
+    populate_converged_locks(&state_dir, &resource_names);
 
     c.bench_function("spec9_apply_no_changes_3m_20r", |b| {
         b.iter(|| {
             let config = parser::parse_and_validate(black_box(&config_path)).unwrap();
             let order = resolver::build_execution_order(&config).unwrap();
-            // Load all machine locks
             let mut locks = std::collections::HashMap::new();
             for machine_name in ["web", "db", "cache"] {
                 let machine_dir = state_dir.join(machine_name);
@@ -481,116 +470,6 @@ fn bench_spec9_validate_scaling(c: &mut Criterion) {
     group.finish();
 }
 
-// ── FJ-247: Copia Delta Sync Benchmarks ──────────────────────────
-
-/// Benchmark copia signature computation at various file sizes.
-/// Signatures are per-block BLAKE3 hashes (4KB blocks).
-fn bench_copia_signatures(c: &mut Criterion) {
-    use forjar::copia;
-
-    let mut group = c.benchmark_group("copia_signatures");
-    for size_mb in [1, 4, 16] {
-        let data = vec![0xABu8; size_mb * 1024 * 1024];
-        group.bench_with_input(
-            BenchmarkId::from_parameter(format!("{size_mb}MB")),
-            &data,
-            |b, data| {
-                b.iter(|| {
-                    let sigs = copia::compute_signatures(black_box(data));
-                    black_box(sigs);
-                });
-            },
-        );
-    }
-    group.finish();
-}
-
-/// Benchmark copia delta computation for files with varying change percentages.
-/// Simulates model fine-tuning scenarios: 2% change (typical), 50% change, 100% change.
-fn bench_copia_delta(c: &mut Criterion) {
-    use forjar::copia;
-
-    let size = 4 * 1024 * 1024; // 4MB test file
-    let mut old_data = vec![0u8; size];
-    // Make blocks unique
-    for i in 0..(size / copia::BLOCK_SIZE) {
-        old_data[i * copia::BLOCK_SIZE] = (i % 256) as u8;
-    }
-    let remote_sigs = copia::compute_signatures(&old_data);
-
-    let mut group = c.benchmark_group("copia_delta");
-    for change_pct in [2, 10, 50, 100] {
-        let mut new_data = old_data.clone();
-        let blocks = size / copia::BLOCK_SIZE;
-        let changed = (blocks * change_pct) / 100;
-        for i in 0..changed {
-            new_data[i * copia::BLOCK_SIZE] = 0xFF;
-        }
-
-        group.bench_with_input(
-            BenchmarkId::from_parameter(format!("{change_pct}pct")),
-            &new_data,
-            |b, new_data| {
-                b.iter(|| {
-                    let delta = copia::compute_delta(black_box(new_data), &remote_sigs);
-                    black_box(delta);
-                });
-            },
-        );
-    }
-    group.finish();
-}
-
-/// Benchmark copia patch script generation (measures serialization overhead).
-fn bench_copia_patch_script(c: &mut Criterion) {
-    use forjar::copia;
-
-    let size = 1024 * 1024; // 1MB
-    let old_data = vec![0u8; size];
-    let remote_sigs = copia::compute_signatures(&old_data);
-
-    // 10% change
-    let mut new_data = old_data;
-    let blocks = size / copia::BLOCK_SIZE;
-    let changed = blocks / 10;
-    for i in 0..changed {
-        new_data[i * copia::BLOCK_SIZE] = 0xFF;
-    }
-    let delta = copia::compute_delta(&new_data, &remote_sigs);
-
-    c.bench_function("copia_patch_script_1MB_10pct", |b| {
-        b.iter(|| {
-            let script = copia::patch_script(
-                black_box("/opt/models/test.gguf"),
-                black_box(&delta),
-                Some("noah"),
-                None,
-                Some("0644"),
-            );
-            black_box(script);
-        });
-    });
-}
-
-/// Benchmark copia signature parsing (measures remote output deserialization).
-fn bench_copia_parse_signatures(c: &mut Criterion) {
-    use forjar::copia;
-
-    // Generate a realistic signature output for 1024 blocks (4MB file)
-    let mut output = String::from("SIZE:4194304\n");
-    for i in 0..1024 {
-        let hash = blake3::hash(&[i as u8; copia::BLOCK_SIZE]).to_hex();
-        output.push_str(&format!("{} {}\n", i, hash));
-    }
-
-    c.bench_function("copia_parse_signatures_1024_blocks", |b| {
-        b.iter(|| {
-            let sigs = copia::parse_signatures(black_box(&output)).unwrap();
-            black_box(sigs);
-        });
-    });
-}
-
 criterion_group!(
     benches,
     bench_blake3_string,
@@ -602,9 +481,5 @@ criterion_group!(
     bench_spec9_apply_no_changes,
     bench_spec9_drift,
     bench_spec9_validate_scaling,
-    bench_copia_signatures,
-    bench_copia_delta,
-    bench_copia_patch_script,
-    bench_copia_parse_signatures,
 );
 criterion_main!(benches);
