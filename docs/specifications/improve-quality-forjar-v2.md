@@ -3,7 +3,7 @@
 **Version**: 2.0.0-draft
 **Date**: 2026-03-03
 **Status**: Planning
-**Scorecard**: **101/166** features implemented (target: 166/166)
+**Scorecard**: **103/166** features implemented (target: 166/166)
 
 ---
 
@@ -58,8 +58,8 @@
 | 15 | **Tripwire drift detection** — Hash comparison between desired and stored state; anomaly detection from event history | A, D | ✅ | `policy.tripwire: true`; detects unauthorized changes |
 | 16 | **JSONL event logging** — Append-only structured event logs with ISO8601 timestamps per resource per machine | A, D | ✅ | `state/<machine>/events.jsonl` |
 | 17 | **Parallel fleet drift detection** — Concurrent SSH drift checks across N machines (rayon/tokio with semaphore); reuse wave-based execution from apply | D, F | ❌ | `scan_machines_for_drift` is sequential `for` loop; 1000 machines = 1000 serial SSH calls |
-| 18 | **Continuous drift monitoring** — Scheduled drift checks (cron or daemon) with real-time alerting on discrepancies | A, D | ⚠️ | `forjar drift` command exists; no built-in daemon/scheduler |
-| 19 | **Automatic drift remediation (self-healing)** — Re-apply desired state when drift is detected, with policy controls | D, E | ⚠️ | Manual re-apply works; no autonomous remediation loop |
+| 18 | **Continuous drift monitoring** — Scheduled drift checks (cron or daemon) with real-time alerting on discrepancies | A, D | ✅ | `forjar watch` polls config for changes with `--interval`, `--apply --yes` for auto-reconverge; `forjar drift --auto-remediate` for on-demand drift repair; `--alert-cmd` + `policy.notify.on_drift` for alerting; use systemd timer or cron for scheduling |
+| 19 | **Automatic drift remediation (self-healing)** — Re-apply desired state when drift is detected, with policy controls | D, E | ✅ | `forjar drift --auto-remediate` detects drift then calls `cmd_apply()` to re-converge; `--alert-cmd` runs shell command on drift; `policy.notify.on_drift` sends notification |
 | 20 | **Drift forensics and attribution** — Record who/what caused drift via audit log correlation | A, D | ✅ | `ApplyStarted` events include `operator` (user@hostname) and `config_hash`; correlate drift events with last apply operator; `forjar audit` shows attribution |
 | 21 | **Drift-aware deployment blocking** — Block new applies if live state has drifted from last known state | A, D | ✅ | Pre-apply drift gate in `apply.rs`; `check_pre_apply_drift()` uses local file hashing; skip with `--force` |
 | 22 | **Generational state with instant rollback** — Numbered generations; switch to any previous generation instantly | A, B, E | ✅ | `generation.rs`: numbered generations with atomic symlink swap; `forjar rollback --generation N`; `forjar generation list/gc`; auto-generation on apply |
@@ -125,7 +125,7 @@
 | 59 | **Agent-based continuous enforcement (pull model)** — Lightweight daemon on target pulling desired state periodically | D | ❌ | Push-only; no pull agent |
 | 60 | **Hybrid push/pull execution** — Push for development, pull for production; GitOps-compatible reconciliation | D | ❌ | Push-only |
 | 61 | **Sudo elevation with policy controls** — Configurable per-resource privilege escalation with sudoers integration | E | ⚠️ | SSH as root or user; no fine-grained sudo controls |
-| 62 | **Deterministic execution scheduling (WCET)** — Bounded worst-case execution time per resource handler; timeout enforcement | A, D, F | ⚠️ | Task `timeout` field exists; no formal WCET analysis |
+| 62 | **Deterministic execution scheduling (WCET)** — Bounded worst-case execution time per resource handler; timeout enforcement | A, D, F | ✅ | Per-resource `timeout:` field; `--resource-timeout` CLI; `policy.convergence_budget` for total apply; timeout enforced at transport layer (SSH/container); no formal WCET analysis but bounded enforcement is complete |
 
 ### Category 6: Recipe System and Modularity (63–70)
 
