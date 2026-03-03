@@ -278,12 +278,21 @@ fn dispatch_schema_routes() {
 
 #[test]
 fn dispatch_completion_routes() {
-    let result = dispatch_misc_cmd(
-        Commands::Completion(CompletionArgs {
-            shell: CompletionShell::Bash,
-        }),
-        false,
-    );
+    // clap_complete::generate recursively traverses all 89 command variants;
+    // needs larger stack in containers with limited default thread stack size.
+    let result = std::thread::Builder::new()
+        .stack_size(8 * 1024 * 1024)
+        .spawn(|| {
+            dispatch_misc_cmd(
+                Commands::Completion(CompletionArgs {
+                    shell: CompletionShell::Bash,
+                }),
+                false,
+            )
+        })
+        .expect("spawn thread")
+        .join()
+        .expect("join thread");
     assert!(result.is_ok());
 }
 
