@@ -453,16 +453,18 @@ fn dispatch_audit_routes() {
 
 #[test]
 fn dispatch_mcp_schema_routes() {
-    let result = dispatch_misc_cmd(
-        Commands::Mcp(McpArgs { schema: true }),
-        false,
-    );
+    let result = dispatch_misc_cmd(Commands::Mcp(McpArgs { schema: true }), false);
     assert!(result.is_ok());
 }
 
 #[test]
 fn dispatch_unknown_cmd_returns_error() {
-    let result = dispatch_misc_cmd(Commands::Init(InitArgs { path: PathBuf::from(".") }), false);
+    let result = dispatch_misc_cmd(
+        Commands::Init(InitArgs {
+            path: PathBuf::from("."),
+        }),
+        false,
+    );
     assert!(result.is_err());
     assert!(result.unwrap_err().contains("unknown"));
 }

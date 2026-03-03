@@ -230,8 +230,8 @@ fn derivation_replay_sorted_by_depth() {
 
 // ===== sync_exec helper function tests =====
 
-use super::sync_exec::{parse_provider, tempdir_for_reimport};
 use super::provider::ImportProvider;
+use super::sync_exec::{parse_provider, tempdir_for_reimport};
 
 #[test]
 fn parse_provider_all_valid() {

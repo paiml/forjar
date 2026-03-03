@@ -5,8 +5,7 @@
 #![allow(unused_imports)]
 
 use super::cache::{
-    resolve_substitution, ssh_command, CacheConfig, CacheInventory, CacheSource,
-    SubstitutionResult,
+    resolve_substitution, ssh_command, CacheConfig, CacheInventory, CacheSource, SubstitutionResult,
 };
 use super::derivation::{
     collect_input_hashes, derivation_closure_hash, validate_derivation, Derivation,
@@ -78,7 +77,10 @@ fn falsify_d17_overlay_config_fields() {
     let mut inputs = BTreeMap::new();
     inputs.insert("src".to_string(), PathBuf::from("/store/abc"));
     let plan = plan_sandbox_build(
-        &config, "blake3:test", &inputs, "echo test",
+        &config,
+        "blake3:test",
+        &inputs,
+        "echo test",
         std::path::Path::new("/store"),
     );
     assert!(!plan.overlay.lower_dirs.is_empty());
@@ -111,11 +113,24 @@ fn falsify_d19_simulate_deterministic() {
     let config = preset_profile("minimal").unwrap();
     let mut inputs = BTreeMap::new();
     inputs.insert("src".to_string(), PathBuf::from("/store/abc"));
-    let r1 = simulate_sandbox_build(&config, "hash1", &inputs, "echo hello",
-        std::path::Path::new("/store"));
-    let r2 = simulate_sandbox_build(&config, "hash1", &inputs, "echo hello",
-        std::path::Path::new("/store"));
-    assert_eq!(r1.output_hash, r2.output_hash, "simulation must be deterministic");
+    let r1 = simulate_sandbox_build(
+        &config,
+        "hash1",
+        &inputs,
+        "echo hello",
+        std::path::Path::new("/store"),
+    );
+    let r2 = simulate_sandbox_build(
+        &config,
+        "hash1",
+        &inputs,
+        "echo hello",
+        std::path::Path::new("/store"),
+    );
+    assert_eq!(
+        r1.output_hash, r2.output_hash,
+        "simulation must be deterministic"
+    );
 }
 
 /// D-20: namespace_id derived from build hash prefix.
@@ -123,7 +138,10 @@ fn falsify_d19_simulate_deterministic() {
 fn falsify_d20_namespace_id_from_hash() {
     let config = preset_profile("minimal").unwrap();
     let plan = plan_sandbox_build(
-        &config, "blake3:abcdef0123456789", &BTreeMap::new(), "true",
+        &config,
+        "blake3:abcdef0123456789",
+        &BTreeMap::new(),
+        "true",
         std::path::Path::new("/store"),
     );
     assert!(plan.namespace_id.starts_with("forjar-build-"));
@@ -172,11 +190,7 @@ fn falsify_e13_gc_mark_sweep_dead() {
 /// E-14: resolve_substitution() prefers local store.
 #[test]
 fn falsify_e14_substitution_local_first() {
-    let result = resolve_substitution(
-        "blake3:cached",
-        &["blake3:cached".to_string()],
-        &[],
-    );
+    let result = resolve_substitution("blake3:cached", &["blake3:cached".to_string()], &[]);
     assert!(matches!(result, SubstitutionResult::LocalHit { .. }));
 }
 
@@ -218,7 +232,9 @@ fn test_derivation(script: &str) -> Derivation {
     let mut inputs = BTreeMap::new();
     inputs.insert(
         "src".to_string(),
-        DerivationInput::Store { store: "blake3:abc".to_string() },
+        DerivationInput::Store {
+            store: "blake3:abc".to_string(),
+        },
     );
     Derivation {
         inputs,
@@ -236,7 +252,12 @@ fn falsify_f18_derivation_plan_10_steps() {
     let mut resources = BTreeMap::new();
     resources.insert("src".to_string(), "blake3:abc".to_string());
     let plan = plan_derivation(&deriv, &resources, &[], std::path::Path::new("/store")).unwrap();
-    assert_eq!(plan.steps.len(), 10, "cache-miss must have 10 steps, got {}", plan.steps.len());
+    assert_eq!(
+        plan.steps.len(),
+        10,
+        "cache-miss must have 10 steps, got {}",
+        plan.steps.len()
+    );
     assert!(!plan.store_hit);
     assert!(plan.sandbox_plan.is_some());
 }
@@ -249,8 +270,13 @@ fn falsify_f19_derivation_store_hit_skips() {
     resources.insert("src".to_string(), "blake3:abc".to_string());
     let input_hashes = collect_input_hashes(&deriv, &resources).unwrap();
     let closure = derivation_closure_hash(&deriv, &input_hashes);
-    let plan = plan_derivation(&deriv, &resources, &[closure], std::path::Path::new("/store"))
-        .unwrap();
+    let plan = plan_derivation(
+        &deriv,
+        &resources,
+        &[closure],
+        std::path::Path::new("/store"),
+    )
+    .unwrap();
     assert!(plan.store_hit);
     assert!(plan.sandbox_plan.is_none());
     assert_eq!(skipped_steps(&plan), 7);
@@ -262,8 +288,8 @@ fn falsify_f20_simulate_derivation_result() {
     let deriv = test_derivation("echo test");
     let mut resources = BTreeMap::new();
     resources.insert("src".to_string(), "blake3:abc".to_string());
-    let result = simulate_derivation(&deriv, &resources, &[], std::path::Path::new("/store"))
-        .unwrap();
+    let result =
+        simulate_derivation(&deriv, &resources, &[], std::path::Path::new("/store")).unwrap();
     assert!(result.closure_hash.starts_with("blake3:"));
     assert!(result.store_hash.starts_with("blake3:"));
 }
@@ -272,26 +298,52 @@ fn falsify_f20_simulate_derivation_result() {
 #[test]
 fn falsify_f21_dag_topological_execution() {
     let mut a_inputs = BTreeMap::new();
-    a_inputs.insert("root".to_string(), DerivationInput::Store { store: "blake3:root".to_string() });
+    a_inputs.insert(
+        "root".to_string(),
+        DerivationInput::Store {
+            store: "blake3:root".to_string(),
+        },
+    );
     let mut b_inputs = BTreeMap::new();
-    b_inputs.insert("dep".to_string(), DerivationInput::Resource { resource: "a".to_string() });
+    b_inputs.insert(
+        "dep".to_string(),
+        DerivationInput::Resource {
+            resource: "a".to_string(),
+        },
+    );
 
     let mut derivations = BTreeMap::new();
-    derivations.insert("a".to_string(), Derivation {
-        inputs: a_inputs, script: "echo a".to_string(), sandbox: None,
-        arch: "x86_64".to_string(), out_var: "$out".to_string(),
-    });
-    derivations.insert("b".to_string(), Derivation {
-        inputs: b_inputs, script: "echo b".to_string(), sandbox: None,
-        arch: "x86_64".to_string(), out_var: "$out".to_string(),
-    });
+    derivations.insert(
+        "a".to_string(),
+        Derivation {
+            inputs: a_inputs,
+            script: "echo a".to_string(),
+            sandbox: None,
+            arch: "x86_64".to_string(),
+            out_var: "$out".to_string(),
+        },
+    );
+    derivations.insert(
+        "b".to_string(),
+        Derivation {
+            inputs: b_inputs,
+            script: "echo b".to_string(),
+            sandbox: None,
+            arch: "x86_64".to_string(),
+            out_var: "$out".to_string(),
+        },
+    );
 
     let mut init = BTreeMap::new();
     init.insert("root".to_string(), "blake3:root".to_string());
     let results = execute_derivation_dag(
-        &derivations, &["a".to_string(), "b".to_string()],
-        &init, &[], std::path::Path::new("/store"),
-    ).unwrap();
+        &derivations,
+        &["a".to_string(), "b".to_string()],
+        &init,
+        &[],
+        std::path::Path::new("/store"),
+    )
+    .unwrap();
     assert_eq!(results.len(), 2);
     assert!(results.contains_key("a"));
     assert!(results.contains_key("b"));
@@ -318,7 +370,11 @@ fn falsify_f23_diff_no_change() {
 fn falsify_f24_sync_plan_separation() {
     let meta_leaf = test_meta_with_depth("blake3:leaf", "apt", Some("sha256:old"), 0, None);
     let meta_derived = test_meta_with_depth(
-        "blake3:derived", "apt", Some("sha256:old"), 1, Some("blake3:leaf"),
+        "blake3:derived",
+        "apt",
+        Some("sha256:old"),
+        1,
+        Some("blake3:leaf"),
     );
     let plan = build_sync_plan(&[
         (meta_leaf, Some("sha256:new".to_string())),
@@ -332,11 +388,17 @@ fn falsify_f24_sync_plan_separation() {
 #[test]
 fn falsify_f25_upstream_check_commands() {
     let apt = test_meta_with_ref("apt", "nginx");
-    assert!(upstream_check_command(&apt).unwrap().contains("apt-cache policy"));
+    assert!(upstream_check_command(&apt)
+        .unwrap()
+        .contains("apt-cache policy"));
     let cargo = test_meta_with_ref("cargo", "rg");
-    assert!(upstream_check_command(&cargo).unwrap().contains("cargo search"));
+    assert!(upstream_check_command(&cargo)
+        .unwrap()
+        .contains("cargo search"));
     let docker = test_meta_with_ref("docker", "nginx");
-    assert!(upstream_check_command(&docker).unwrap().contains("docker manifest inspect"));
+    assert!(upstream_check_command(&docker)
+        .unwrap()
+        .contains("docker manifest inspect"));
 }
 
 /// F-26: has_diffable_provenance() checks for origin_hash or origin_ref.
@@ -344,7 +406,10 @@ fn falsify_f25_upstream_check_commands() {
 fn falsify_f26_diffable_provenance() {
     let with = test_meta("blake3:x", "apt", Some("sha256:abc"));
     assert!(has_diffable_provenance(&with));
-    let without = StoreMeta { provenance: None, ..with };
+    let without = StoreMeta {
+        provenance: None,
+        ..with
+    };
     assert!(!has_diffable_provenance(&without));
 }
 
@@ -357,8 +422,11 @@ fn test_meta(hash: &str, provider: &str, origin_hash: Option<&str>) -> StoreMeta
 }
 
 fn test_meta_with_depth(
-    hash: &str, provider: &str, origin_hash: Option<&str>,
-    depth: u32, derived_from: Option<&str>,
+    hash: &str,
+    provider: &str,
+    origin_hash: Option<&str>,
+    depth: u32,
+    derived_from: Option<&str>,
 ) -> StoreMeta {
     StoreMeta {
         schema: "1.0".to_string(),

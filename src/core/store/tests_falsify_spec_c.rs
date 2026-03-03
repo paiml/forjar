@@ -9,13 +9,14 @@
 use super::cache_exec::CachePullResult;
 use super::convert_exec::ConversionApplyResult;
 use super::gc_exec::{DryRunEntry, GcSweepResult};
-use super::pin_resolve::{resolution_command, parse_resolved_version, ResolvedPin};
+use super::pin_resolve::{parse_resolved_version, resolution_command, ResolvedPin};
 use super::provider_exec::ExecutionContext;
 use super::sandbox_run::SandboxExecResult;
 use super::secret_scan::{is_encrypted, scan_text, scan_yaml_str, ScanResult, SecretFinding};
 use super::sync_exec::{DiffExecResult, SyncExecResult};
-use crate::core::purifier::{lint_error_count, lint_script, purify_script, validate_or_purify,
-    validate_script};
+use crate::core::purifier::{
+    lint_error_count, lint_script, purify_script, validate_or_purify, validate_script,
+};
 
 // ═══════════════════════════════════════════════════════════════════
 // Phase I: Security — Secret Scanning
@@ -204,9 +205,15 @@ fn falsify_i15_pattern_count() {
 /// I-16: ENC[age,...] encrypted values excluded from scanning.
 #[test]
 fn falsify_i16_encrypted_exclusion() {
-    assert!(is_encrypted("ENC[age,abc123]"), "ENC[age,...] must be detected");
+    assert!(
+        is_encrypted("ENC[age,abc123]"),
+        "ENC[age,...] must be detected"
+    );
     let findings = scan_text("ENC[age,AKIAIOSFODNN7EXAMPLE]");
-    assert!(findings.is_empty(), "encrypted values must be excluded from scan");
+    assert!(
+        findings.is_empty(),
+        "encrypted values must be excluded from scan"
+    );
 }
 
 /// I-17: Redaction shows first 8 chars + "...".
@@ -215,8 +222,14 @@ fn falsify_i17_redaction_format() {
     let findings = scan_text("AKIAIOSFODNN7EXAMPLE");
     assert!(!findings.is_empty());
     let (_, redacted) = &findings[0];
-    assert!(redacted.ends_with("..."), "redacted must end with '...': {redacted}");
-    assert!(redacted.len() <= 11, "redacted must be <=11 chars: {redacted}");
+    assert!(
+        redacted.ends_with("..."),
+        "redacted must end with '...': {redacted}"
+    );
+    assert!(
+        redacted.len() <= 11,
+        "redacted must be <=11 chars: {redacted}"
+    );
 }
 
 /// I-18: scan_yaml_str walks nested YAML values.
@@ -262,22 +275,32 @@ fn falsify_j01_bench_file_exists() {
 /// J-02: Benchmark file contains criterion benchmark functions.
 #[test]
 fn falsify_j02_bench_contains_criterion() {
-    let content = std::fs::read_to_string("benches/store_bench.rs")
-        .expect("read bench file");
-    assert!(content.contains("criterion"), "must use criterion benchmarks");
-    assert!(content.contains("Criterion"), "must reference Criterion struct");
+    let content = std::fs::read_to_string("benches/store_bench.rs").expect("read bench file");
+    assert!(
+        content.contains("criterion"),
+        "must use criterion benchmarks"
+    );
+    assert!(
+        content.contains("Criterion"),
+        "must reference Criterion struct"
+    );
 }
 
 /// J-03: Benchmark file contains store-related benchmarks.
 #[test]
 fn falsify_j03_bench_store_benchmarks() {
-    let content = std::fs::read_to_string("benches/store_bench.rs")
-        .expect("read bench file");
+    let content = std::fs::read_to_string("benches/store_bench.rs").expect("read bench file");
     // Check for key spec-required benchmarks
     assert!(content.contains("store_path"), "must bench store_path");
-    assert!(content.contains("purity"), "must bench purity classification");
+    assert!(
+        content.contains("purity"),
+        "must bench purity classification"
+    );
     assert!(content.contains("closure"), "must bench closure hashing");
-    assert!(content.contains("repro"), "must bench reproducibility scoring");
+    assert!(
+        content.contains("repro"),
+        "must bench reproducibility scoring"
+    );
 }
 
 // Phases K-L tests moved to tests_falsify_spec_f.rs (500-line limit)
