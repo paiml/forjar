@@ -3,7 +3,7 @@
 **Version**: 2.0.0-draft
 **Date**: 2026-03-03
 **Status**: Planning
-**Scorecard**: **105/166** features implemented (target: 166/166)
+**Scorecard**: **116/166** features implemented (target: 166/166)
 
 ---
 
@@ -57,7 +57,7 @@
 | 14 | **Per-machine lock files** — YAML-based, human-readable state tracking per machine | A, E | ✅ | `state/<machine>/state.lock.yaml` |
 | 15 | **Tripwire drift detection** — Hash comparison between desired and stored state; anomaly detection from event history | A, D | ✅ | `policy.tripwire: true`; detects unauthorized changes |
 | 16 | **JSONL event logging** — Append-only structured event logs with ISO8601 timestamps per resource per machine | A, D | ✅ | `state/<machine>/events.jsonl` |
-| 17 | **Parallel fleet drift detection** — Concurrent SSH drift checks across N machines (rayon/tokio with semaphore); reuse wave-based execution from apply | D, F | ❌ | `scan_machines_for_drift` is sequential `for` loop; 1000 machines = 1000 serial SSH calls |
+| 17 | **Parallel fleet drift detection** — Concurrent SSH drift checks across N machines (rayon/tokio with semaphore); reuse wave-based execution from apply | D, F | ✅ | `scan_machines_for_drift` uses `std::thread::scope` for parallel per-machine drift checks; sequential fallback for 0-1 machines; `collect_machine_locks()` pre-loads locks |
 | 18 | **Continuous drift monitoring** — Scheduled drift checks (cron or daemon) with real-time alerting on discrepancies | A, D | ✅ | `forjar watch` polls config for changes with `--interval`, `--apply --yes` for auto-reconverge; `forjar drift --auto-remediate` for on-demand drift repair; `--alert-cmd` + `policy.notify.on_drift` for alerting; use systemd timer or cron for scheduling |
 | 19 | **Automatic drift remediation (self-healing)** — Re-apply desired state when drift is detected, with policy controls | D, E | ✅ | `forjar drift --auto-remediate` detects drift then calls `cmd_apply()` to re-converge; `--alert-cmd` runs shell command on drift; `policy.notify.on_drift` sends notification |
 | 20 | **Drift forensics and attribution** — Record who/what caused drift via audit log correlation | A, D | ✅ | `ApplyStarted` events include `operator` (user@hostname) and `config_hash`; correlate drift events with last apply operator; `forjar audit` shows attribution |
@@ -82,7 +82,7 @@
 | 26 | **Age X25519 secret encryption** — Encrypt secrets in config files; decrypt at apply time with identity key | B, C | ✅ | `ENC[age,...]` markers, `forjar secrets encrypt/decrypt` |
 | 27 | **Heredoc injection safety** — Single-quoted heredocs prevent shell expansion; template injection impossible | C | ✅ | Falsifiable claim C8; tested explicitly |
 | 28 | **No plaintext secrets in logs** — Secrets redacted from event logs and plan output | C, D | ✅ | Age-encrypted markers only |
-| 29 | **SBOM generation for managed infrastructure** — Auto-generate Software Bill of Materials (SPDX/CycloneDX) after every apply | A, D | ❌ | No SBOM generation |
+| 29 | **SBOM generation for managed infrastructure** — Auto-generate Software Bill of Materials (SPDX/CycloneDX) after every apply | A, D | ✅ | `forjar sbom`: SPDX 2.3 JSON output; collects packages, docker images, models, files with sources; BLAKE3 hashes from state locks; `--json` for SPDX, text table default; 5 tests |
 | 30 | **SLSA Level 3 provenance attestation** — in-toto signed attestations linking source recipe → plan → applied state | A, D | ❌ | No provenance attestation |
 | 31 | **Cryptographic recipe signing (Sigstore/GPG)** — Sign recipes with OIDC identity; verify before apply | A, B, D | ❌ | No recipe signing |
 | 32 | **Transparency log for all applies** — Append-only tamper-evident log of every `forjar apply` with operator identity | A, D | ✅ | BLAKE3 chain hashing in `tripwire/chain.rs`; `.chain` sidecars; `verify_all_chains()`; 8 tests |
@@ -124,7 +124,7 @@
 | 58 | **Agentless execution (push model)** — No pre-installed agent required on target; SSH + POSIX shell only | B, E | ✅ | Core design: push over SSH |
 | 59 | **Agent-based continuous enforcement (pull model)** — Lightweight daemon on target pulling desired state periodically | D | ❌ | Push-only; no pull agent |
 | 60 | **Hybrid push/pull execution** — Push for development, pull for production; GitOps-compatible reconciliation | D | ❌ | Push-only |
-| 61 | **Sudo elevation with policy controls** — Configurable per-resource privilege escalation with sudoers integration | E | ⚠️ | SSH as root or user; no fine-grained sudo controls |
+| 61 | **Sudo elevation with policy controls** — Configurable per-resource privilege escalation with sudoers integration | E | ✅ | `sudo: true` per-resource field; codegen wraps scripts with `sudo bash -c '...'` when non-root; root check `id -u`; 6 tests |
 | 62 | **Deterministic execution scheduling (WCET)** — Bounded worst-case execution time per resource handler; timeout enforcement | A, D, F | ✅ | Per-resource `timeout:` field; `--resource-timeout` CLI; `policy.convergence_budget` for total apply; timeout enforced at transport layer (SSH/container); no formal WCET analysis but bounded enforcement is complete |
 
 ### Category 6: Recipe System and Modularity (63–70)
@@ -197,7 +197,7 @@
 | 106 | **`--why` flag for change explanation** — Per-resource "why is this changing?" with hash diff, field diff, dependency chain | A, E | ✅ | `forjar plan --why`; `planner/why.rs`: `explain_why()` with `ChangeReason` struct; 8 tests |
 | 107 | **Interactive TUI mode** — Terminal UI for browsing plan, approving resources selectively, viewing live apply status | E | ❌ | No `ratatui`/`cursive`; CLI-only |
 | 108 | **Graph export to image** — Direct PNG/SVG rendering of dependency graphs without external `graphviz`/`mmdc` | E | ❌ | Mermaid/DOT text only; requires external renderer |
-| 109 | **Debug trace mode** — `--trace` flag emitting detailed execution trace: template resolution steps, script generation, transport commands | A, E | ❌ | `--verbose` provides some; no full execution trace |
+| 109 | **Debug trace mode** — `--trace` flag emitting detailed execution trace: template resolution steps, script generation, transport commands | A, E | ✅ | `forjar apply --trace` prints generated scripts via `[TRACE]` prefix; implies `--verbose`; trace output in executor `resource_ops.rs`; post-hoc analysis via `forjar trace` |
 | 110 | **LSP / IDE integration** — Language Server Protocol for forjar YAML: autocompletion, hover docs, validation, go-to-definition | E | ❌ | No LSP server |
 
 ### Category 11: GPU, AI, and Industry-Grade (111–115)
