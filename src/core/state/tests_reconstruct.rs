@@ -36,6 +36,7 @@ fn reconstruct_at_midpoint() {
                 forjar_version: "1.0.0".to_string(),
                 operator: None,
                 config_hash: None,
+                param_count: None,
             },
         ),
         ts_event(

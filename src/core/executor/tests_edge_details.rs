@@ -381,6 +381,7 @@ fn test_fj012_log_tripwire_enabled() {
             forjar_version: "0.1.0".to_string(),
                 operator: None,
                 config_hash: None,
+                param_count: None,
         },
     );
     let events = dir.path().join("machine1").join("events.jsonl");
@@ -400,6 +401,7 @@ fn test_fj012_log_tripwire_disabled() {
             forjar_version: "0.1.0".to_string(),
                 operator: None,
                 config_hash: None,
+                param_count: None,
         },
     );
     let events = dir.path().join("machine1").join("events.jsonl");
