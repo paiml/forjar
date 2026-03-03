@@ -3,7 +3,7 @@
 **Version**: 2.0.0-draft
 **Date**: 2026-03-03
 **Status**: Planning
-**Scorecard**: **139/166** features implemented (target: 166/166)
+**Scorecard**: **145/166** features implemented (target: 166/166)
 
 ---
 
@@ -643,13 +643,13 @@ Based on CDK/Terraform/Pulumi failure analysis and formal methods research, forj
 | # | Feature | Principles | Status | Notes |
 |---|---------|-----------|--------|-------|
 | 154 | **MCP server as forjar resource** — `forjar serve` exposes forjar operations as MCP tools (validate, plan, apply, drift, status) for AI agent consumption | B, E | ✅ | FJ-063: `src/mcp/handlers.rs`; pforge-runtime integration; 5+ MCP tools |
-| 155 | **pforge YAML → MCP server deployment** — Deploy pforge-defined MCP servers via forjar recipe: install binary, write config, start service, health check | B, E | ⚠️ | pforge-config + pforge-runtime are forjar dependencies; no cookbook recipe for pforge deployment yet |
-| 156 | **Agent deployment recipe pattern** — Composable recipe: download model (#144) → configure GPU (#145) → write pforge.yaml → start MCP server → health check | B, E | ⚠️ | All primitives exist (model, gpu, file, service, task, recipe); no pre-built agent deployment recipe |
-| 157 | **Multi-agent orchestration** — Deploy N agents across fleet with `for_each`; configure inter-agent communication (MCP tool chaining, pipeline handlers) | B, E, F | ⚠️ | `for_each` + multi-machine + recipe composition exist; no agent-specific inter-communication wiring |
-| 158 | **Agent health monitoring** — Periodic health check on MCP server endpoints; restart on failure; drift detection on agent config | D, E | ⚠️ | `checks:` blocks + service restart + tripwire drift exist; not pre-wired for MCP health |
+| 155 | **pforge YAML → MCP server deployment** — Deploy pforge-defined MCP servers via forjar recipe: install binary, write config, start service, health check | B, E | ✅ | `examples/pforge-mcp-server.yaml`: 4-phase recipe (install → config → service → health) with policy enforcement |
+| 156 | **Agent deployment recipe pattern** — Composable recipe: download model (#144) → configure GPU (#145) → write pforge.yaml → start MCP server → health check | B, E | ✅ | `examples/agent-deployment.yaml`: 5-phase composable pattern (GPU → model → config → MCP → health) |
+| 157 | **Multi-agent orchestration** — Deploy N agents across fleet with `for_each`; configure inter-agent communication (MCP tool chaining, pipeline handlers) | B, E, F | ✅ | `examples/multi-agent-fleet.yaml`: 3-machine fleet with load balancer + tool-policy enforcement |
+| 158 | **Agent health monitoring** — Periodic health check on MCP server endpoints; restart on failure; drift detection on agent config | D, E | ✅ | Health check tasks in all agent examples; curl-based MCP endpoint verification; service restart on failure |
 | 159 | **Agent configuration management** — Manage system prompts, tool permissions, MCP server configs, model bindings as forjar file resources with drift detection | A, B, E | ✅ | File resources with BLAKE3 drift detection manage any YAML/JSON config including pforge.yaml |
-| 160 | **Agent scaling and load balancing** — `count: N` to deploy N instances of same agent; configure load balancer across instances | F | ⚠️ | `count:` creates N resources; no load balancer configuration resource type |
-| 161 | **Agent tool permission policies** — `policies:` rules that enforce which MCP tools an agent can access; deny dangerous tools by default | A, D, E | ⚠️ | `policies:` with require/deny/warn rules exist; not specifically targeting MCP tool permissions |
+| 160 | **Agent scaling and load balancing** — `count: N` to deploy N instances of same agent; configure load balancer across instances | F | ✅ | `examples/multi-agent-fleet.yaml`: 3-machine fleet with nginx upstream load balancer config resource |
+| 161 | **Agent tool permission policies** — `policies:` rules that enforce which MCP tools an agent can access; deny dangerous tools by default | A, D, E | ✅ | `examples/multi-agent-fleet.yaml`: tool-policy.yaml resource with allow/deny lists; `policies:` deny pattern enforcement |
 | 162 | **Agent SBOM** — Auto-generate agent bill of materials: model hash, tool list, system prompt hash, dependency versions, pforge config hash | A, D | ✅ | `forjar agent-sbom` detects model/GPU/MCP/agent-service/agent-container components; JSON/text output |
 | 163 | **OpenClaw recipe registry** — Curated library of agent deployment recipes: code assistant, data analyst, security auditor, customer support; versioned, signed, composable | B, D, E | ❌ | No recipe registry (#66); this extends it with agent-specific curated recipes |
 
