@@ -494,6 +494,6 @@ fn dispatch_infra_cmd(cmd: Commands) -> Result<(), String> {
         Commands::CrossDeps(CrossDepsArgs { file, json }) => {
             super::cross_machine_deps::cmd_cross_deps(&file, json)
         }
-        _ => Err("unknown command".to_string()),
+        other => super::dispatch_platform::dispatch_platform_cmd(other),
     }
 }

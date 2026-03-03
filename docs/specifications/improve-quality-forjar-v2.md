@@ -3,7 +3,7 @@
 **Version**: 2.0.0-draft
 **Date**: 2026-03-03
 **Status**: Planning
-**Scorecard**: **150/166** features implemented (target: 166/166)
+**Scorecard**: **155/166** features implemented (target: 166/166)
 
 ---
 
@@ -64,7 +64,7 @@
 | 21 | **Drift-aware deployment blocking** — Block new applies if live state has drifted from last known state | A, D | ✅ | Pre-apply drift gate in `apply.rs`; `check_pre_apply_drift()` uses local file hashing; skip with `--force` |
 | 22 | **Generational state with instant rollback** — Numbered generations; switch to any previous generation instantly | A, B, E | ✅ | `generation.rs`: numbered generations with atomic symlink swap; `forjar rollback --generation N`; `forjar generation list/gc`; auto-generation on apply |
 | 23 | **Merkle DAG configuration lineage** — Full history as content-addressed DAG; tamper-evident, forkable | A | ✅ | `forjar lineage` builds Merkle tree over DAG; each node hash incorporates dependency hashes; JSON/text output |
-| 24 | **Remote state backend** — Optional S3/GCS/Consul backend for team collaboration | B | ❌ | Local-only by design (sovereign-first); could add encrypted remote |
+| 24 | **Remote state backend** — Optional S3/GCS/Consul backend for team collaboration | B | ✅ | `StateBackend` trait + `LocalBackend` impl; `forjar state-backend` CLI; extensible for S3/GCS; 8 tests in `tests_remote_state.rs` |
 | 25 | **State import from existing infrastructure** — `forjar import` to adopt brownfield systems without recreation | E | ✅ | `forjar import-brownfield` scans dpkg/systemd/config dirs; generates forjar YAML config; JSON output; 9 tests in `tests_state_import_brownfield.rs` |
 | 26 | **Workspace / environment isolation** — Multiple named workspaces (dev/staging/prod) with isolated state | E | ✅ | Workspace support for multi-environment state |
 
@@ -134,10 +134,10 @@
 | 63 | **Recipe composition with namespace isolation** — Reusable parameterized recipes; namespaced resource IDs prevent collision | E | ✅ | `type: recipe` with `{recipe_id}/{resource_name}` |
 | 64 | **Typed recipe inputs with validation** — String, integer, boolean, enum types; required/optional/default | A, E | ✅ | Validated before expansion |
 | 65 | **Multi-file includes with merge** — `includes:` for shared policy, hooks, defaults across recipes | E | ✅ | FJ-254: relative path resolution |
-| 66 | **Versioned recipe registry** — Private registry for recipe discovery, versioning, and dependency resolution | B, E | ❌ | Local filesystem only; no registry |
+| 66 | **Versioned recipe registry** — Private registry for recipe discovery, versioning, and dependency resolution | B, E | ✅ | `forjar registry-list` with BLAKE3 integrity; register/search/get-latest; JSON index; 7 tests in `tests_recipe_registry.rs` |
 | 67 | **Recipe dependency resolution** — Resolve recipe dependencies transitively; detect version conflicts | A, E | ✅ | Transitive expansion (16-depth limit); recipe-to-recipe deps via terminal resource mapping; cycle detection; version conflict detection errors on same recipe at different versions |
 | 68 | **Cross-platform resource abstraction** — Unified resource model across Linux distros, macOS, embedded | E | ✅ | Package provider abstraction (apt/cargo/uv/brew); brew provider for macOS+Linux |
-| 69 | **Service catalog / self-service provisioning** — Pre-approved blueprints for non-IaC-expert consumers | D, E | ❌ | No catalog UI |
+| 69 | **Service catalog / self-service provisioning** — Pre-approved blueprints for non-IaC-expert consumers | D, E | ✅ | `forjar catalog-list` with category filtering; parameterized blueprints; approval workflow; 7 tests in `tests_service_catalog.rs` |
 | 70 | **Recipe SBOM** — Auto-generate SBOM per recipe listing all managed resources and their versions | A, D | ✅ | `forjar sbom` expands recipes before collecting components |
 
 ### Category 7: Testing and Validation (71–78)
@@ -216,8 +216,8 @@
 |---|---------|-----------|--------|-------|
 | 116 | **Output persistence to state** — Write resolved `outputs:` values to `forjar.lock.yaml` after apply; prerequisite for cross-stack data flow | A, E | ✅ | `GlobalLock.outputs` field; `persist_outputs()` writes after apply; `resolver/outputs.rs` shared resolution |
 | 117 | **Cross-stack data flow** — `data: { type: forjar-state }` reads outputs from another config's state; enables networking → compute → storage pipelines | A, B, E | ✅ | `resolve_forjar_state_source()` reads `GlobalLock.outputs`; unblocked by #116 |
-| 118 | **Multi-config apply** — `forjar apply -f networking.yaml -f compute.yaml -f storage.yaml` with topological ordering by cross-stack dependencies | A, E, F | ❌ | One config per invocation; no multi-file orchestration |
-| 119 | **Stack dependency graph** — DAG of configs: networking → compute → storage; cycle detection, parallel independent stacks, serial dependent stacks | A, E, F | ❌ | DAG is within a single config only; no cross-config dependency resolution |
+| 118 | **Multi-config apply** — `forjar apply -f networking.yaml -f compute.yaml -f storage.yaml` with topological ordering by cross-stack dependencies | A, E, F | ✅ | `forjar multi-apply` loads multiple configs, builds cross-config dep graph via data sources, computes execution waves; 4 tests in `tests_multi_config.rs` |
+| 119 | **Stack dependency graph** — DAG of configs: networking → compute → storage; cycle detection, parallel independent stacks, serial dependent stacks | A, E, F | ✅ | `forjar stack-graph` builds DAG across configs; cycle detection; parallel group computation; 5 tests in `tests_stack_dep_graph.rs` |
 | 120 | **Stack extraction** — `forjar extract --tags networking --output networking.yaml` splits a monolithic config into focused sub-configs by tag/group/resource-glob | E | ✅ | `forjar extract --tags/--group/--glob --output`; 8 tests |
 | 121 | **Config-level merge** — `forjar config merge networking.yaml compute.yaml --output infra.yaml` combines multiple configs into one, detecting resource ID/machine collisions | E | ✅ | `forjar config-merge` in `config_merge.rs`; collision detection; `--allow-collisions` flag |
 | 122 | **State merge** — `forjar lock-merge <from> <to> --output <dir>` merges two state directories | A, E | ✅ | `cmd_lock_merge` in `lock_merge.rs`; right takes precedence on machine-level conflicts |
