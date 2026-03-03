@@ -2042,3 +2042,65 @@ forjar bundle -f forjar.yaml --verify
 ```
 
 Re-hashes every file (config, store, state) and reports pass/fail per file — detects corruption or tampering during physical media transfer.
+
+## Data Freshness Monitoring
+
+Monitor data artifact freshness with configurable SLA thresholds:
+
+```bash
+# Check all artifacts are fresh (default 24h SLA)
+forjar data-freshness -f forjar.yaml
+
+# Custom SLA: 8 hours max age
+forjar data-freshness -f forjar.yaml --max-age 8
+
+# JSON for CI pipelines
+forjar data-freshness -f forjar.yaml --json
+```
+
+Reports stale/fresh/missing status per artifact (output_artifacts, store files, state locks). Returns non-zero if any artifact exceeds the SLA.
+
+## Data Validation
+
+Validate data integrity across your infrastructure:
+
+```bash
+# Validate all resources
+forjar data-validate -f forjar.yaml
+
+# Validate specific resource
+forjar data-validate -f forjar.yaml --resource data-loader
+```
+
+Checks: file existence, non-empty, BLAKE3 integrity hashes, store content-addressing consistency.
+
+## Training Checkpoint Management
+
+Track and manage ML training checkpoints:
+
+```bash
+# List all checkpoints (sorted newest-first)
+forjar checkpoint -f training.yaml
+
+# Garbage collect, keep latest 3
+forjar checkpoint -f training.yaml --gc --keep 3
+
+# Filter by machine
+forjar checkpoint -f training.yaml --machine gpu-box
+```
+
+Detects checkpoint resources by type (model), tags (checkpoint/training/ml), or resource_group (checkpoints).
+
+## Dataset Lineage
+
+Track data pipeline lineage with Merkle-hashed dependency graphs:
+
+```bash
+# Show dataset lineage graph
+forjar dataset-lineage -f pipeline.yaml
+
+# JSON output for tooling
+forjar dataset-lineage -f pipeline.yaml --json
+```
+
+Builds a lineage graph from data-tagged resources, tracking source → transform → output dependencies with BLAKE3 content hashes.
