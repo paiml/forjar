@@ -382,6 +382,19 @@ fn dispatch_data_cmd(cmd: Commands) -> Result<(), String> {
         Commands::DatasetLineage(DatasetLineageArgs { file, json }) => {
             super::dataset_lineage::cmd_dataset_lineage(&file, json)
         }
+        Commands::Sovereignty(SovereigntyArgs {
+            file,
+            state_dir,
+            json,
+        }) => super::sovereignty::cmd_sovereignty(&file, &state_dir, json),
+        Commands::CostEstimate(CostEstimateArgs { file, json }) => {
+            super::cost_estimate::cmd_cost_estimate(&file, json)
+        }
+        Commands::ModelEval(ModelEvalArgs {
+            file,
+            resource,
+            json,
+        }) => super::model_eval::cmd_model_eval(&file, resource.as_deref(), json),
         _ => Err("unknown command".to_string()),
     }
 }

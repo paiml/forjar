@@ -340,3 +340,9 @@ mod tests_data_validate;
 mod tests_checkpoint;
 #[cfg(test)]
 mod tests_dataset_lineage;
+#[cfg(test)]
+mod tests_sovereignty;
+#[cfg(test)]
+mod tests_cost_estimate;
+#[cfg(test)]
+mod tests_model_eval;
