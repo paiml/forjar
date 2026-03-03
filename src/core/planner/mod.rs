@@ -356,6 +356,7 @@ fn apply_moved_blocks(
     result
 }
 
+pub mod proof_obligation;
 pub mod reversibility;
 pub mod why;
 
