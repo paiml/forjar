@@ -380,4 +380,15 @@ pub enum Commands {
 
     /// FJ-1405: Show Merkle DAG configuration lineage
     Lineage(LineageArgs),
+
+    /// FJ-1406: Package config + dependencies into self-contained bundle
+    Bundle(BundleArgs),
+
+    /// FJ-1407: Generate model card for ML resources
+    #[command(name = "model-card")]
+    ModelCard(ModelCardArgs),
+
+    /// FJ-1408: Generate agent-specific SBOM
+    #[command(name = "agent-sbom")]
+    AgentSbom(AgentSbomArgs),
 }
