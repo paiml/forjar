@@ -404,6 +404,22 @@ pub struct SecurityScanArgs {
     pub fail_on: Option<String>,
 }
 
+/// FJ-1395: Generate SBOM (Software Bill of Materials) for managed infrastructure.
+#[derive(clap::Args, Debug)]
+pub struct SbomArgs {
+    /// Path to forjar.yaml
+    #[arg(short, long, default_value = "forjar.yaml")]
+    pub file: std::path::PathBuf,
+
+    /// State directory (for hash lookups)
+    #[arg(long, default_value = "state")]
+    pub state_dir: std::path::PathBuf,
+
+    /// Output as SPDX JSON (default: text table)
+    #[arg(long)]
+    pub json: bool,
+}
+
 /// FJ-1384: Extract resources matching tag/group/glob into sub-config.
 #[derive(clap::Args, Debug)]
 pub struct ExtractArgs {

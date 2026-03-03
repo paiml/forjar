@@ -83,6 +83,7 @@ fn test_fj012_build_details_nonexistent_file_no_hash() {
         post_apply: None,
         lifecycle: None,
         store: false,
+            sudo: false,
         script: None,
     };
     let details = build_resource_details(&resource, &local_machine());
@@ -171,6 +172,7 @@ fn test_fj012_build_details_all_fields() {
         post_apply: None,
         lifecycle: None,
         store: false,
+            sudo: false,
         script: None,
     };
     let details = build_resource_details(&resource, &local_machine());
@@ -306,6 +308,7 @@ resources:
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
+            trace: false,
     };
     let results = apply(&cfg).unwrap();
     // Dry run returns a single result
@@ -354,6 +357,7 @@ resources:
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
+            trace: false,
     };
     let results = apply(&cfg).unwrap();
     // Only the tagged resource should be applied

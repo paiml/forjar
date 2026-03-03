@@ -359,4 +359,7 @@ pub enum Commands {
     /// FJ-1390: Static IaC security scanner
     #[command(name = "security-scan")]
     SecurityScan(SecurityScanArgs),
+
+    /// FJ-1395: Generate SBOM (Software Bill of Materials) for managed infrastructure
+    Sbom(SbomArgs),
 }
