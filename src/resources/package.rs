@@ -71,15 +71,18 @@ fn apply_apt_present(resource: &Resource) -> String {
     let check_joined = check_list.join(" ");
     format!(
         "set -euo pipefail\n\
-         SUDO=\"\"\n\
-         [ \"$(id -u)\" -ne 0 ] && SUDO=\"sudo\"\n\
          NEED_INSTALL=0\n\
          for pkg in {check_joined}; do\n\
            dpkg -l \"$pkg\" >/dev/null 2>&1 || NEED_INSTALL=1\n\
          done\n\
          if [ \"$NEED_INSTALL\" = \"1\" ]; then\n\
-           $SUDO apt-get update -qq\n\
-           DEBIAN_FRONTEND=noninteractive $SUDO apt-get install -y -qq {joined}\n\
+           if [ \"$(id -u)\" -ne 0 ]; then\n\
+             sudo apt-get update -qq\n\
+             DEBIAN_FRONTEND=noninteractive sudo apt-get install -y -qq {joined}\n\
+           else\n\
+             apt-get update -qq\n\
+             DEBIAN_FRONTEND=noninteractive apt-get install -y -qq {joined}\n\
+           fi\n\
          fi\n\
          # Postcondition: all packages installed\n\
          for pkg in {check_joined}; do\n\
@@ -94,14 +97,16 @@ fn apply_apt_absent(resource: &Resource) -> String {
     let joined = pkg_list.join(" ");
     format!(
         "set -euo pipefail\n\
-         SUDO=\"\"\n\
-         [ \"$(id -u)\" -ne 0 ] && SUDO=\"sudo\"\n\
          NEED_REMOVE=0\n\
          for pkg in {joined}; do\n\
            dpkg -l \"$pkg\" >/dev/null 2>&1 && NEED_REMOVE=1\n\
          done\n\
          if [ \"$NEED_REMOVE\" = \"1\" ]; then\n\
-           DEBIAN_FRONTEND=noninteractive $SUDO apt-get remove -y -qq {joined}\n\
+           if [ \"$(id -u)\" -ne 0 ]; then\n\
+             DEBIAN_FRONTEND=noninteractive sudo apt-get remove -y -qq {joined}\n\
+           else\n\
+             DEBIAN_FRONTEND=noninteractive apt-get remove -y -qq {joined}\n\
+           fi\n\
          fi"
     )
 }

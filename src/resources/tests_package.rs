@@ -99,7 +99,8 @@ fn test_fj006_apply_apt_present() {
     assert!(script.contains("'curl'"));
     assert!(script.contains("set -euo pipefail"));
     assert!(script.contains("DEBIAN_FRONTEND=noninteractive"));
-    assert!(script.contains("$SUDO apt-get"));
+    assert!(script.contains("sudo apt-get"));
+    assert!(script.contains("apt-get install"));
 }
 
 #[test]
@@ -108,15 +109,15 @@ fn test_fj006_apply_apt_absent() {
     r.state = Some("absent".to_string());
     let script = apply_script(&r);
     assert!(script.contains("apt-get remove"));
-    assert!(script.contains("$SUDO apt-get"));
+    assert!(script.contains("sudo apt-get"));
 }
 
 #[test]
 fn test_fj006_apply_apt_sudo_detection() {
     let r = make_apt_resource(&["curl"]);
     let script = apply_script(&r);
-    assert!(script.contains("SUDO=\"\""));
     assert!(script.contains("id -u"));
+    assert!(script.contains("sudo apt-get"));
 }
 
 #[test]
