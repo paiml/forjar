@@ -366,3 +366,15 @@ mod tests_service_catalog;
 mod tests_multi_config;
 #[cfg(test)]
 mod tests_stack_dep_graph;
+#[cfg(test)]
+mod tests_infra_query;
+#[cfg(test)]
+mod tests_infra_query_live;
+#[cfg(test)]
+mod tests_recipe_signing;
+#[cfg(test)]
+mod tests_pq_signing;
+#[cfg(test)]
+mod tests_preservation_check;
+#[cfg(test)]
+mod tests_parallel_multi_stack;
