@@ -289,6 +289,13 @@ pub(crate) fn dispatch_misc_cmd(cmd: Commands, verbose: bool) -> Result<(), Stri
             output.as_deref(),
             json,
         ),
+        other => dispatch_analysis_cmd(other),
+    }
+}
+
+/// Dispatch analysis, security, and audit commands.
+fn dispatch_analysis_cmd(cmd: Commands) -> Result<(), String> {
+    match cmd {
         Commands::SecurityScan(SecurityScanArgs { file, json, fail_on }) => {
             super::security_scan::cmd_security_scan(&file, json, fail_on.as_deref())
         }
@@ -324,7 +331,14 @@ pub(crate) fn dispatch_misc_cmd(cmd: Commands, verbose: bool) -> Result<(), Stri
             file,
             output,
             include_state,
-        }) => super::bundle::cmd_bundle(&file, output.as_deref(), include_state),
+            verify,
+        }) => {
+            if verify {
+                super::bundle::cmd_bundle_verify(&file)
+            } else {
+                super::bundle::cmd_bundle(&file, output.as_deref(), include_state)
+            }
+        }
         Commands::ModelCard(ModelCardArgs {
             file,
             state_dir,
@@ -335,6 +349,11 @@ pub(crate) fn dispatch_misc_cmd(cmd: Commands, verbose: bool) -> Result<(), Stri
             state_dir,
             json,
         }) => super::agent_sbom::cmd_agent_sbom(&file, &state_dir, json),
+        Commands::ReproProof(ReproProofArgs {
+            file,
+            state_dir,
+            json,
+        }) => super::repro_proof::cmd_repro_proof(&file, &state_dir, json),
         _ => Err("unknown command".to_string()),
     }
 }
