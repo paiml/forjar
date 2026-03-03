@@ -2104,3 +2104,39 @@ forjar dataset-lineage -f pipeline.yaml --json
 ```
 
 Builds a lineage graph from data-tagged resources, tracking source → transform → output dependencies with BLAKE3 content hashes.
+
+## Data Sovereignty
+
+Audit data sovereignty compliance across your infrastructure:
+
+```bash
+# Show sovereignty report
+forjar sovereignty -f forjar.yaml
+
+# JSON for compliance tooling
+forjar sovereignty -f forjar.yaml --json
+```
+
+Tag resources with `jurisdiction:EU`, `classification:PII`, `residency:eu-west-1` to track data governance. Reports tagged vs untagged resources and state file hashes.
+
+## Cost Estimation
+
+Static cost analysis before applying:
+
+```bash
+forjar cost-estimate -f forjar.yaml
+forjar cost-estimate -f forjar.yaml --json
+```
+
+Estimates execution time per resource by type (package: ~30s, file: ~2s, model: ~300s, GPU: ~60s). Reports total sequential time and complexity classification.
+
+## Model Evaluation Pipeline
+
+Gate model promotion with evaluation checks:
+
+```bash
+forjar model-eval -f training.yaml
+forjar model-eval -f training.yaml --resource eval-run --json
+```
+
+Evaluates model/ml/eval-tagged resources. Checks that `completion_check` is defined and `output_artifacts` exist. Returns non-zero if evaluations fail.

@@ -410,4 +410,15 @@ pub enum Commands {
     /// FJ-1413: Dataset versioning and lineage tracking
     #[command(name = "dataset-lineage")]
     DatasetLineage(DatasetLineageArgs),
+
+    /// FJ-1414: Data sovereignty tagging and compliance
+    Sovereignty(SovereigntyArgs),
+
+    /// FJ-1415: Cost estimation and resource budgeting
+    #[command(name = "cost-estimate")]
+    CostEstimate(CostEstimateArgs),
+
+    /// FJ-1416: Model evaluation pipeline
+    #[command(name = "model-eval")]
+    ModelEval(ModelEvalArgs),
 }
