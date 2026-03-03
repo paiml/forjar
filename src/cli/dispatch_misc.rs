@@ -134,6 +134,24 @@ pub(crate) fn dispatch_misc_cmd(cmd: Commands, verbose: bool) -> Result<(), Stri
             machine,
             force,
         }) => cmd_state_rm(&state_dir, &resource_id, machine.as_deref(), force),
+        Commands::StateReconstruct(StateReconstructArgs {
+            machine,
+            at,
+            state_dir,
+            json,
+        }) => {
+            let lock = crate::core::state::reconstruct::reconstruct_at(&state_dir, &machine, &at)?;
+            if json {
+                let output = serde_json::to_string_pretty(&lock)
+                    .map_err(|e| format!("JSON error: {}", e))?;
+                println!("{}", output);
+            } else {
+                let output = serde_yaml_ng::to_string(&lock)
+                    .map_err(|e| format!("YAML error: {}", e))?;
+                println!("{}", output);
+            }
+            Ok(())
+        }
         Commands::Output(OutputArgs { file, key, json }) => cmd_output(&file, key.as_deref(), json),
         Commands::Policy(PolicyArgs { file, json }) => cmd_policy(&file, json),
         Commands::Workspace(sub) => dispatch_workspace(sub),

@@ -1,5 +1,8 @@
 //! FJ-013: Lock file management — load, save (atomic), path derivation.
 
+pub mod integrity;
+pub mod reconstruct;
+
 use super::types::{ApplyResult, GlobalLock, MachineSummary, StateLock};
 use provable_contracts_macros::contract;
 use std::path::{Path, PathBuf};
@@ -46,6 +49,9 @@ pub fn save_lock(state_dir: &Path, lock: &StateLock) -> Result<(), String> {
         )
     })?;
 
+    // FJ-1270: Write BLAKE3 integrity sidecar
+    let _ = integrity::write_b3_sidecar(&path);
+
     Ok(())
 }
 
@@ -87,6 +93,9 @@ pub fn save_global_lock(state_dir: &Path, lock: &GlobalLock) -> Result<(), Strin
         )
     })?;
 
+    // FJ-1270: Write BLAKE3 integrity sidecar
+    let _ = integrity::write_b3_sidecar(&path);
+
     Ok(())
 }
 
@@ -99,6 +108,7 @@ pub fn new_global_lock(name: &str) -> GlobalLock {
         last_apply: now_iso8601(),
         generator: format!("forjar {}", env!("CARGO_PKG_VERSION")),
         machines: indexmap::IndexMap::new(),
+        outputs: indexmap::IndexMap::new(),
     }
 }
 
@@ -126,6 +136,29 @@ pub fn update_global_lock(
         );
     }
 
+    save_global_lock(state_dir, &lock)
+}
+
+/// FJ-1260: Resolve all output values from a config into a flat map.
+pub fn resolve_outputs(config: &super::types::ForjarConfig) -> indexmap::IndexMap<String, String> {
+    let mut resolved = indexmap::IndexMap::new();
+    for (k, output) in &config.outputs {
+        let value =
+            super::resolver::resolve_template(&output.value, &config.params, &config.machines)
+                .unwrap_or_else(|_| output.value.clone());
+        resolved.insert(k.clone(), value);
+    }
+    resolved
+}
+
+/// FJ-1260: Persist resolved outputs into the global lock file.
+pub fn persist_outputs(
+    state_dir: &Path,
+    config_name: &str,
+    outputs: &indexmap::IndexMap<String, String>,
+) -> Result<(), String> {
+    let mut lock = load_global_lock(state_dir)?.unwrap_or_else(|| new_global_lock(config_name));
+    lock.outputs = outputs.clone();
     save_global_lock(state_dir, &lock)
 }
 
@@ -332,4 +365,10 @@ mod tests_encrypt;
 #[cfg(test)]
 mod tests_helpers;
 #[cfg(test)]
+mod tests_integrity;
+#[cfg(test)]
+mod tests_outputs;
+#[cfg(test)]
 mod tests_process_lock;
+#[cfg(test)]
+mod tests_reconstruct;

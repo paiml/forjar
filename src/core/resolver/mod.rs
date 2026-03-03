@@ -8,6 +8,7 @@ mod dag;
 mod data;
 pub(crate) mod functions;
 mod resource;
+pub(crate) mod staleness;
 pub(crate) mod template;
 
 pub use dag::{build_execution_order, compute_parallel_waves};
@@ -32,6 +33,10 @@ mod tests_proptest;
 mod tests_resource;
 #[cfg(test)]
 mod tests_resource_b;
+#[cfg(test)]
+mod tests_proptest_templates;
+#[cfg(test)]
+mod tests_staleness;
 #[cfg(test)]
 mod tests_template;
 #[cfg(test)]

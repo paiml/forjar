@@ -84,6 +84,7 @@ fn test_fj131_global_lock_roundtrip() {
                 last_apply: "2026-02-25T12:00:00Z".to_string(),
             },
         )]),
+        outputs: IndexMap::new(),
     };
     let yaml = serde_yaml_ng::to_string(&lock).unwrap();
     let lock2: GlobalLock = serde_yaml_ng::from_str(&yaml).unwrap();

@@ -365,7 +365,7 @@ fn print_all_outputs(
 }
 
 pub(crate) fn cmd_output(file: &Path, key: Option<&str>, json: bool) -> Result<(), String> {
-    use crate::core::resolver;
+    use crate::core::state;
 
     let config = parse_and_validate(file)?;
 
@@ -378,13 +378,7 @@ pub(crate) fn cmd_output(file: &Path, key: Option<&str>, json: bool) -> Result<(
         return Ok(());
     }
 
-    // Resolve template expressions in output values
-    let mut resolved: indexmap::IndexMap<String, String> = indexmap::IndexMap::new();
-    for (k, output) in &config.outputs {
-        let value = resolver::resolve_template(&output.value, &config.params, &config.machines)
-            .unwrap_or_else(|_| output.value.clone());
-        resolved.insert(k.clone(), value);
-    }
+    let resolved = state::resolve_outputs(&config);
 
     if let Some(k) = key {
         match resolved.get(k) {

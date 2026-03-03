@@ -918,6 +918,161 @@ resources:
     depends_on: [sshd-config]
 ```
 
+## Task: Build Pipeline
+
+Use `type: task` for multi-stage build pipelines with completion checks and timeouts:
+
+```yaml
+resources:
+  generate-source:
+    type: task
+    machine: build-host
+    command: |
+      mkdir -p src
+      cat > src/main.c <<'CSRC'
+      #include <stdio.h>
+      int main() { printf("OK\n"); return 0; }
+      CSRC
+    working_dir: /opt/pipeline
+    completion_check: "test -f /opt/pipeline/src/main.c"
+    output_artifacts:
+      - /opt/pipeline/src/main.c
+
+  compile:
+    type: task
+    machine: build-host
+    command: "gcc -o artifacts/app src/main.c -Wall"
+    working_dir: /opt/pipeline
+    timeout: 120
+    completion_check: "test -x /opt/pipeline/artifacts/app"
+    output_artifacts:
+      - /opt/pipeline/artifacts/app
+    depends_on: [generate-source]
+
+  run-tests:
+    type: task
+    machine: build-host
+    command: |
+      OUTPUT=$(./artifacts/app)
+      [ "$OUTPUT" = "OK" ] && echo PASS > artifacts/result.txt
+    working_dir: /opt/pipeline
+    timeout: 60
+    completion_check: "grep -q PASS /opt/pipeline/artifacts/result.txt 2>/dev/null"
+    depends_on: [compile]
+```
+
+Key patterns:
+- `completion_check` makes tasks idempotent — re-apply skips completed stages
+- `timeout` prevents hung builds from blocking the pipeline
+- `output_artifacts` tracks what each stage produces
+- `depends_on` chains stages in order
+
+## Recipe: Nested Composition
+
+Use `type: recipe` to compose reusable sub-recipes with input forwarding:
+
+```yaml
+# forjar.yaml — parent config
+params:
+  app_name: myapp
+  app_port: "8080"
+
+resources:
+  app-scaffold:
+    type: recipe
+    machine: target
+    recipe: app-scaffold
+    inputs:
+      app_name: "{{params.app_name}}"
+
+  app-config:
+    type: recipe
+    machine: target
+    recipe: app-config
+    inputs:
+      app_name: "{{params.app_name}}"
+      port: "{{params.app_port}}"
+    depends_on: [app-scaffold]
+```
+
+```yaml
+# recipes/app-scaffold.yaml — child recipe
+recipe:
+  name: app-scaffold
+  inputs:
+    app_name: { type: string }
+
+resources:
+  config-dir:
+    type: file
+    path: "/etc/apps/{{inputs.app_name}}"
+    state: directory
+    owner: root
+    mode: "0755"
+
+  log-dir:
+    type: file
+    path: "/var/log/apps/{{inputs.app_name}}"
+    state: directory
+    owner: root
+    mode: "0755"
+```
+
+After expansion, resources are namespaced: `app-scaffold/config-dir`, `app-scaffold/log-dir`, `app-config/app-conf`, etc. Internal `depends_on` references are rewritten to use the namespaced IDs.
+
+## Pepita: Kernel Sandbox
+
+Use `type: pepita` for bare-metal kernel isolation without Docker:
+
+```yaml
+resources:
+  build-sandbox:
+    type: pepita
+    machine: build-host
+    name: build-sandbox
+    state: present
+    chroot_dir: /var/lib/forjar/rootfs/jammy
+    overlay_lower: /var/lib/forjar/pepita/lower
+    overlay_upper: /var/lib/forjar/pepita/upper
+    overlay_merged: /var/lib/forjar/pepita/merged
+    memory_limit: 2048
+    cpuset: "0-3"
+    netns: true
+```
+
+This creates:
+- A cgroups v2 group at `/sys/fs/cgroup/forjar-build-sandbox` with 2 GiB memory limit
+- CPU affinity bound to cores 0-3
+- An isolated network namespace `forjar-build-sandbox`
+- An overlayfs mount with copy-on-write writes to the upper layer
+
+## Model: ML Artifact Management
+
+Use `type: model` for ML model downloads with BLAKE3 integrity:
+
+```yaml
+resources:
+  tinyllama:
+    type: model
+    machine: gpu-box
+    name: tinyllama
+    source: "TheBloke/TinyLlama-1.1B-GGUF"
+    path: /opt/models/tinyllama.gguf
+    cache_dir: /var/cache/apr
+    state: present
+
+  custom-model:
+    type: model
+    machine: gpu-box
+    name: custom-v1
+    source: "https://example.com/models/custom-v1.bin"
+    path: /opt/models/custom-v1.bin
+    checksum: "abc123..."
+    state: present
+```
+
+Sources: HuggingFace repo ID (uses `apr pull`), HTTP URL (uses `curl`), or local path (uses `cp`). When `checksum` is set, drift detection verifies BLAKE3 hashes to catch unauthorized model swaps.
+
 ## Pattern: Staged Rollout
 
 Apply changes to canary machines first, then the fleet:
@@ -1538,9 +1693,57 @@ The `examples/cookbook/` directory contains validated recipes covering common in
 | 60 | Stack: Sovereign AI | 11 | package, file, user | Composability |
 | 61 | Stack: Fleet Baseline | 7 | package, file | Composability |
 | 62 | Stack: Cross-Distro Release | 8 | package, file | Composability |
+| 63 | Store: Version-Pinned | 5 | file | Store |
+| 64 | Store: Cargo Sandbox | 5 | file | Store |
+| 65 | Store: SSH Cache | 4 | file | Store |
+| 66 | Store: Repro CI Gate | 5 | file | Store |
+| 67 | Store: Profile Rollback | 5 | file | Store |
+| 68 | Mount: NFS/Bind/Tmpfs | 7 | mount, file, cron | Resource Type |
+| 69 | Pepita: Kernel Sandbox | 8 | pepita, file | Resource Type |
+| 70 | Model: ML Download | 7 | model, file | Resource Type |
+| 71 | Task: Build Pipeline | 7 | task, file | Resource Type |
+| 72 | Recipe: Composition | 6 | recipe, file | Resource Type |
+
+| 73 | pforge MCP Server | 6 | package, file, service, task | Agent Infrastructure |
+| 74 | Agent Deployment | 7 | package, file, task | Agent Infrastructure |
 
 Score all recipes programmatically:
 
 ```bash
 cargo run --example score_cookbook
 ```
+
+## Agent Infrastructure
+
+Recipes 73-74 deploy LLM agent infrastructure using forjar primitives.
+
+### pforge MCP Server (Recipe 73)
+
+Deploys the pforge MCP server for agent-accessible infrastructure management:
+
+```yaml
+data:
+  pforge:
+    type: forjar-state
+    state_dir: ../mcp-server/state
+    outputs:
+      - pforge_endpoint
+    max_staleness: 1h
+```
+
+Resources: forjar binary (cargo), config directory, server config YAML, state directory, systemd service, health check task.
+
+### Agent Deployment (Recipe 74)
+
+Composable recipe for deploying an LLM agent with model, GPU, and MCP configuration:
+
+```bash
+# Deploy with custom parameters
+forjar apply -f 74-agent-deployment.yaml \
+  --set agent_name=code-assistant \
+  --set model_name=llama-3.1-70b \
+  --set gpu_backend=nvidia \
+  --set mcp_port=8800
+```
+
+Layers: base packages, model cache directory, agent config, MCP tools config, health check. All parameterized for any model/GPU combination.

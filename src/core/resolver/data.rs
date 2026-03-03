@@ -84,6 +84,20 @@ fn resolve_forjar_state_source(key: &str, source: &DataSource) -> Result<String,
     let doc: serde_yaml_ng::Value = serde_yaml_ng::from_str(&content)
         .map_err(|e| format!("data source '{}': parse state lock: {}", key, e))?;
 
+    // FJ-1270: Check staleness if max_staleness is configured
+    if let Some(ref max_staleness) = source.max_staleness {
+        if let Some(last_apply) = doc.get("last_apply").and_then(|v| v.as_str()) {
+            let max_secs = super::staleness::parse_duration_secs(max_staleness)
+                .map_err(|e| format!("data source '{}': invalid max_staleness: {}", key, e))?;
+            if super::staleness::is_stale(last_apply, max_secs) {
+                eprintln!(
+                    "warning: data source '{}' is stale (last_apply: {}, max_staleness: {})",
+                    key, last_apply, max_staleness
+                );
+            }
+        }
+    }
+
     // Extract output values from the lock's "outputs" section
     let outputs = match doc.get("outputs") {
         Some(serde_yaml_ng::Value::Mapping(m)) => m,
