@@ -211,3 +211,75 @@ pub struct ProveArgs {
     #[arg(long)]
     pub json: bool,
 }
+
+/// FJ-1410: Data freshness monitoring — detect stale artifacts.
+#[derive(clap::Args, Debug)]
+pub struct DataFreshnessArgs {
+    /// Path to forjar.yaml
+    #[arg(short, long, default_value = "forjar.yaml")]
+    pub file: std::path::PathBuf,
+
+    /// State directory
+    #[arg(long, default_value = "state")]
+    pub state_dir: std::path::PathBuf,
+
+    /// Maximum artifact age in hours (default: 24)
+    #[arg(long)]
+    pub max_age: Option<u64>,
+
+    /// Output as JSON
+    #[arg(long)]
+    pub json: bool,
+}
+
+/// FJ-1411: Declarative data validation checks.
+#[derive(clap::Args, Debug)]
+pub struct DataValidateArgs {
+    /// Path to forjar.yaml
+    #[arg(short, long, default_value = "forjar.yaml")]
+    pub file: std::path::PathBuf,
+
+    /// Target specific resource
+    #[arg(short, long)]
+    pub resource: Option<String>,
+
+    /// Output as JSON
+    #[arg(long)]
+    pub json: bool,
+}
+
+/// FJ-1412: Training checkpoint management.
+#[derive(clap::Args, Debug)]
+pub struct CheckpointArgs {
+    /// Path to forjar.yaml
+    #[arg(short, long, default_value = "forjar.yaml")]
+    pub file: std::path::PathBuf,
+
+    /// Target specific machine
+    #[arg(short, long)]
+    pub machine: Option<String>,
+
+    /// Run garbage collection on old checkpoints
+    #[arg(long)]
+    pub gc: bool,
+
+    /// Number of checkpoints to keep (with --gc)
+    #[arg(long, default_value = "5")]
+    pub keep: usize,
+
+    /// Output as JSON
+    #[arg(long)]
+    pub json: bool,
+}
+
+/// FJ-1413: Dataset versioning and lineage tracking.
+#[derive(clap::Args, Debug)]
+pub struct DatasetLineageArgs {
+    /// Path to forjar.yaml
+    #[arg(short, long, default_value = "forjar.yaml")]
+    pub file: std::path::PathBuf,
+
+    /// Output as JSON
+    #[arg(long)]
+    pub json: bool,
+}
