@@ -42,6 +42,7 @@ fn test_fj015_append_all_event_types_roundtrip() {
                 forjar_version: "0.1.0".to_string(),
                 operator: None,
                 config_hash: None,
+                param_count: None,
             },
             "apply_started",
         ),
@@ -138,6 +139,7 @@ fn test_fj132_append_event_idempotent_dir_creation() {
         forjar_version: "0.1.0".to_string(),
                 operator: None,
                 config_hash: None,
+                param_count: None,
     };
     let event2 = ProvenanceEvent::ApplyCompleted {
         machine: "m".to_string(),
@@ -203,6 +205,7 @@ fn test_fj132_multiple_machines_separate_logs() {
         forjar_version: "0.1.0".to_string(),
                 operator: None,
                 config_hash: None,
+                param_count: None,
     };
     let event2 = ProvenanceEvent::ApplyStarted {
         machine: "db".to_string(),
@@ -210,6 +213,7 @@ fn test_fj132_multiple_machines_separate_logs() {
         forjar_version: "0.1.0".to_string(),
                 operator: None,
                 config_hash: None,
+                param_count: None,
     };
     append_event(dir.path(), "web", event1).unwrap();
     append_event(dir.path(), "db", event2).unwrap();
@@ -245,6 +249,7 @@ fn test_fj132_append_event_creates_directory() {
         forjar_version: "0.1.0".to_string(),
                 operator: None,
                 config_hash: None,
+                param_count: None,
     };
     append_event(dir.path(), "new-machine", event).unwrap();
     assert!(dir.path().join("new-machine/events.jsonl").exists());

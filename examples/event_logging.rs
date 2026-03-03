@@ -30,6 +30,7 @@ fn main() {
             forjar_version: env!("CARGO_PKG_VERSION").to_string(),
                 operator: None,
                 config_hash: None,
+                param_count: None,
         },
     )
     .expect("write event");
