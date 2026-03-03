@@ -32,6 +32,7 @@ fn test_fj015_append_event() {
         forjar_version: "0.1.0".to_string(),
                 operator: None,
                 config_hash: None,
+                param_count: None,
     };
     append_event(dir.path(), "test", event).unwrap();
 
@@ -108,6 +109,7 @@ fn test_fj015_creates_machine_dir() {
         forjar_version: "0.1.0".to_string(),
                 operator: None,
                 config_hash: None,
+                param_count: None,
     };
     // Machine directory doesn't exist yet
     assert!(!dir.path().join("new-machine").exists());
@@ -125,6 +127,7 @@ fn test_fj015_events_are_valid_json() {
             forjar_version: "0.1.0".to_string(),
                 operator: None,
                 config_hash: None,
+                param_count: None,
         },
         ProvenanceEvent::ResourceConverged {
             machine: "m".to_string(),
@@ -198,6 +201,7 @@ fn test_fj015_append_creates_nested_dirs() {
         forjar_version: "0.1.0".to_string(),
                 operator: None,
                 config_hash: None,
+                param_count: None,
     };
     append_event(&state_dir, "m", event).unwrap();
     assert!(state_dir.join("m/events.jsonl").exists());
