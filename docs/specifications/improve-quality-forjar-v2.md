@@ -3,7 +3,7 @@
 **Version**: 2.0.0-draft
 **Date**: 2026-03-03
 **Status**: Planning
-**Scorecard**: **87/166** features implemented (target: 166/166)
+**Scorecard**: **96/166** features implemented (target: 166/166)
 
 ---
 
@@ -61,7 +61,7 @@
 | 18 | **Continuous drift monitoring** — Scheduled drift checks (cron or daemon) with real-time alerting on discrepancies | A, D | ⚠️ | `forjar drift` command exists; no built-in daemon/scheduler |
 | 19 | **Automatic drift remediation (self-healing)** — Re-apply desired state when drift is detected, with policy controls | D, E | ⚠️ | Manual re-apply works; no autonomous remediation loop |
 | 20 | **Drift forensics and attribution** — Record who/what caused drift via audit log correlation | A, D | ⚠️ | Events logged but no attribution to external actors |
-| 21 | **Drift-aware deployment blocking** — Block new applies if live state has drifted from last known state | A, D | ❌ | No pre-apply drift gate |
+| 21 | **Drift-aware deployment blocking** — Block new applies if live state has drifted from last known state | A, D | ✅ | Pre-apply drift gate in `apply.rs`; `check_pre_apply_drift()` uses local file hashing; skip with `--force` |
 | 22 | **Generational state with instant rollback** — Numbered generations; switch to any previous generation instantly | A, B, E | ⚠️ | `--rollback-on-failure` and `forjar rollback` exist; no numbered generations like NixOS |
 | 23 | **Merkle DAG configuration lineage** — Full history as content-addressed DAG; tamper-evident, forkable | A | ❌ | State is flat YAML; no Merkle DAG history |
 | 24 | **Remote state backend** — Optional S3/GCS/Consul backend for team collaboration | B | ❌ | Local-only by design (sovereign-first); could add encrypted remote |
@@ -108,7 +108,7 @@
 | 47 | **Automated preservation checking** — Verify pairwise resource preservation: applying A doesn't invalidate B's postcondition | A | ❌ | Not implemented; from Hanappi & Hummer OOPSLA 2016 |
 | 48 | **Convergence proof certificates** — Machine-verifiable certificate asserting recipe converges from any reachable state | A, D | ❌ | Convergence tested empirically, not proven |
 | 49 | **Alloy specification of dependency graph** — Verify structural properties: no cycles, unique ordering, satisfiable deps | A | ❌ | Cycle detection exists; no Alloy model |
-| 50 | **Idempotency regression tests (property-based)** — QuickCheck/proptest-generated tests from formal idempotency spec | A, C | ⚠️ | Explicit idempotency tests exist; not property-based/generated |
+| 50 | **Idempotency regression tests (property-based)** — QuickCheck/proptest-generated tests from formal idempotency spec | A, C | ✅ | `tests_proptest_idempotency.rs`: hash idempotency, lock serde roundtrip, converged-state-is-noop properties |
 | 51 | **MC/DC (Modified Condition/Decision Coverage)** — Structural coverage mandated by DO-178C DAL-A for safety-critical paths | A, D | ❌ | Line/branch coverage via llvm-cov; no MC/DC |
 | 52 | **Proof obligation taxonomy** — Classify each resource as idempotent/monotonic/convergent with machine-checkable annotations | A, D | ❌ | Informal idempotency claims; no formal taxonomy |
 
@@ -163,7 +163,7 @@
 | 82 | **Resource-level retry with backoff** — Up to 4 attempts, 200ms × 2^attempt exponential backoff | E, F | ✅ | FJ-283: `--retry N` |
 | 83 | **Rollback on failure** — Auto-rollback to previous lock state; snapshot-based; threshold-based | A, D | ⚠️ | `--rollback-on-failure` restores lock file only (not infrastructure); `--rollback-snapshot`/`--rollback-on-threshold` are CLI stubs without full backing |
 | 84 | **Fleet convergence percentiles** — `forjar status --fleet-resource-convergence-percentile` (p50/p90/p99) | A, D | ✅ | FJ-994: fully implemented in `status_intelligence_ext2.rs`; computes p50/p90/p99 from lock files |
-| 85 | **Convergence budget enforcement** — Per-recipe time budgets with alerts on exceeded thresholds | A, D, F | ⚠️ | Cookbook defines budgets; no enforcement mechanism |
+| 85 | **Convergence budget enforcement** — Per-recipe time budgets with alerts on exceeded thresholds | A, D, F | ✅ | `policy.convergence_budget` (seconds); enforced in `apply.rs::check_convergence_budget()` |
 | 86 | **Structured machine-readable output** — JSON/YAML output for plans, diffs, and results for tooling integration | E | ✅ | `--dry-run-json`, structured output modes |
 | 87 | **Cost estimation and resource budgeting** — Pre-apply cost impact analysis for cloud resources | D | ❌ | No cloud resources = no cost estimation needed (sovereign advantage) |
 
@@ -194,7 +194,7 @@
 | 103 | **Config comparison** — `forjar compare` shows colored diff between two config files | A, E | ✅ | `cmd_compare()` with `+`, `~`, `-`, `=` symbols |
 | 104 | **Structured logging framework (tracing)** — Log levels (DEBUG, INFO, WARN, ERROR), structured spans, subscriber-based output | A, D, E | ❌ | Currently `println!`/`eprintln!` only; no `tracing` crate |
 | 105 | **Progress bars / spinners** — Animated progress with ETA for long-running applies (indicatif) | E | ❌ | `--progress` flag exists but no `indicatif` implementation |
-| 106 | **`--why` flag for change explanation** — Per-resource "why is this changing?" with hash diff, field diff, dependency chain | A, E | ❌ | `explain` shows config; doesn't answer "why is this resource changing?" |
+| 106 | **`--why` flag for change explanation** — Per-resource "why is this changing?" with hash diff, field diff, dependency chain | A, E | ✅ | `forjar plan --why`; `planner/why.rs`: `explain_why()` with `ChangeReason` struct; 8 tests |
 | 107 | **Interactive TUI mode** — Terminal UI for browsing plan, approving resources selectively, viewing live apply status | E | ❌ | No `ratatui`/`cursive`; CLI-only |
 | 108 | **Graph export to image** — Direct PNG/SVG rendering of dependency graphs without external `graphviz`/`mmdc` | E | ❌ | Mermaid/DOT text only; requires external renderer |
 | 109 | **Debug trace mode** — `--trace` flag emitting detailed execution trace: template resolution steps, script generation, transport commands | A, E | ❌ | `--verbose` provides some; no full execution trace |
@@ -214,12 +214,12 @@
 
 | # | Feature | Principles | Status | Notes |
 |---|---------|-----------|--------|-------|
-| 116 | **Output persistence to state** — Write resolved `outputs:` values to `forjar.lock.yaml` after apply; prerequisite for cross-stack data flow | A, E | ❌ | `outputs:` declared in config and displayed via `forjar output` but never written to `GlobalLock`; `forjar-state` data source reads from lock but field is absent |
-| 117 | **Cross-stack data flow** — `data: { type: forjar-state }` reads outputs from another config's state; enables networking → compute → storage pipelines | A, B, E | ⚠️ | `resolve_forjar_state_source()` in `resolver/data.rs` exists and reads `forjar.lock.yaml`; blocked by #116 (outputs not persisted) |
+| 116 | **Output persistence to state** — Write resolved `outputs:` values to `forjar.lock.yaml` after apply; prerequisite for cross-stack data flow | A, E | ✅ | `GlobalLock.outputs` field; `persist_outputs()` writes after apply; `resolver/outputs.rs` shared resolution |
+| 117 | **Cross-stack data flow** — `data: { type: forjar-state }` reads outputs from another config's state; enables networking → compute → storage pipelines | A, B, E | ✅ | `resolve_forjar_state_source()` reads `GlobalLock.outputs`; unblocked by #116 |
 | 118 | **Multi-config apply** — `forjar apply -f networking.yaml -f compute.yaml -f storage.yaml` with topological ordering by cross-stack dependencies | A, E, F | ❌ | One config per invocation; no multi-file orchestration |
 | 119 | **Stack dependency graph** — DAG of configs: networking → compute → storage; cycle detection, parallel independent stacks, serial dependent stacks | A, E, F | ❌ | DAG is within a single config only; no cross-config dependency resolution |
 | 120 | **Stack extraction** — `forjar extract --tags networking --output networking.yaml` splits a monolithic config into focused sub-configs by tag/group/resource-glob | E | ❌ | No config-level extraction; `lock-rebase` strips state but doesn't generate config |
-| 121 | **Config-level merge** — `forjar config merge networking.yaml compute.yaml --output infra.yaml` combines multiple configs into one, detecting resource ID/machine collisions | E | ⚠️ | `includes:` merges within a single config (params, machines, resources by key); no standalone config merge CLI |
+| 121 | **Config-level merge** — `forjar config merge networking.yaml compute.yaml --output infra.yaml` combines multiple configs into one, detecting resource ID/machine collisions | E | ✅ | `forjar config-merge` in `config_merge.rs`; collision detection; `--allow-collisions` flag |
 | 122 | **State merge** — `forjar lock-merge <from> <to> --output <dir>` merges two state directories | A, E | ✅ | `cmd_lock_merge` in `lock_merge.rs`; right takes precedence on machine-level conflicts |
 | 123 | **State rebase** — `forjar lock-rebase <state-dir> --file new-config.yaml` strips orphaned resources from state | A, E | ✅ | `cmd_lock_rebase` in `lock_merge.rs`; keeps only resources present in new config |
 | 124 | **Stack diff** — `forjar stack diff networking.yaml compute.yaml` shows resource/machine/param differences between two configs (not just state) | A, E | ⚠️ | `forjar lock-diff` compares state directories; `forjar compare` diffs configs; no unified "stack diff" that shows both config and state divergence |
@@ -233,10 +233,10 @@
 
 | Status | Count | Percentage |
 |--------|-------|------------|
-| ✅ Implemented | 70 | 42% |
-| ⚠️ Partial | 34 | 20% |
-| ❌ Not Implemented | 62 | 37% |
-| **Effective Score** | **87/166** | **(70 full + 34×0.5 partial)** |
+| ✅ Implemented | 82 | 49% |
+| ⚠️ Partial | 27 | 16% |
+| ❌ Not Implemented | 57 | 34% |
+| **Effective Score** | **96/166** | **(82 full + 27×0.5 partial)** |
 
 ### By Principle
 
@@ -600,13 +600,13 @@ Based on CDK/Terraform/Pulumi failure analysis and formal methods research, forj
 | # | Feature | Principles | Status | Notes |
 |---|---------|-----------|--------|-------|
 | 126 | **Generational state snapshots** — Numbered generations per machine; `forjar rollback --generation N` switches instantly (Nix-style atomic symlink swap) | A, B, E | ❌ | Current rollback restores lock file only; no numbered generations or instant switch |
-| 127 | **Event-sourced state reconstruction** — Reconstruct any historical state by replaying JSONL events from genesis or last snapshot; `forjar state reconstruct --at <timestamp>` | A, D | ⚠️ | JSONL event logs exist and are append-only; no replay/reconstruction command |
+| 127 | **Event-sourced state reconstruction** — Reconstruct any historical state by replaying JSONL events from genesis or last snapshot; `forjar state reconstruct --at <timestamp>` | A, D | ✅ | `forjar state-reconstruct --at <TS> --machine <M>`; `state/reconstruct.rs` replays events.jsonl |
 | 128 | **Saga-pattern multi-stack apply** — Each stack apply records a compensating snapshot; on failure, prior stacks revert to snapshot; coordinator tracks completion | A, D, E | ❌ | No multi-stack coordination or compensating transactions |
-| 129 | **Pre-apply state snapshot** — Automatic snapshot of all lock files before every apply; retained for N generations (configurable gc) | A, D, E | ⚠️ | `--rollback-on-failure` takes a pre-apply snapshot; not retained as numbered generation |
-| 130 | **Reversibility classification** — Every resource operation classified as reversible (create file) or irreversible (drop database); irreversible ops gated behind `--yes-destroy-data` | A, D, E | ❌ | No reversibility analysis; all operations treated equally |
-| 131 | **Cross-stack staleness detection** — Warn when consuming a `forjar-state` data source whose producer was last applied >N hours ago; `--max-staleness <duration>` | A, E | ❌ | `forjar-state` data source reads lock files but has no staleness check |
+| 129 | **Pre-apply state snapshot** — Automatic snapshot of all lock files before every apply; retained for N generations (configurable gc) | A, D, E | ✅ | `policy.snapshot_generations: N`; auto-snapshot before apply with GC in `apply.rs::maybe_auto_snapshot()` |
+| 130 | **Reversibility classification** — Every resource operation classified as reversible (create file) or irreversible (drop database); irreversible ops gated behind `--yes-destroy-data` | A, D, E | ✅ | `planner/reversibility.rs`: `classify()`, `count_irreversible()`, `warn_irreversible()`; 10 tests |
+| 131 | **Cross-stack staleness detection** — Warn when consuming a `forjar-state` data source whose producer was last applied >N hours ago; `--max-staleness <duration>` | A, E | ✅ | `resolver/staleness.rs`: `parse_duration_secs()`, `is_stale()`; warns on stale producer outputs |
 | 132 | **Deadlock-free cross-stack references** — By design: file-based outputs with no foreign key constraints; removing a reference never blocks producer or consumer | A, E | ✅ | `forjar-state` data source is read-at-plan-time from lock files; no CloudFormation-style export coupling |
-| 133 | **State integrity verification** — `forjar state verify` computes BLAKE3 over all lock files and compares to stored checksums; detects corruption, truncation, tampering | A, C, D | ⚠️ | `forjar lock-verify` and `forjar lock-sign` exist; no automatic integrity check on every apply |
+| 133 | **State integrity verification** — `forjar state verify` computes BLAKE3 over all lock files and compares to stored checksums; detects corruption, truncation, tampering | A, C, D | ✅ | `state/integrity.rs`: `verify_state_integrity()`; auto-check before apply; `.b3` sidecars |
 | 134 | **Convergence proof from any state** — `forjar prove --from-state <lock>` runs check scripts from a given starting state and verifies convergence to desired state; property-based test harness | A, C, D | ❌ | Idempotency tested empirically; no automated convergence proof from arbitrary starting states |
 | 135 | **Orphan resource detection** — `forjar state orphans` identifies resources in state that no longer exist in any config; safe cleanup with `--prune` | A, E | ✅ | `forjar lock-gc` and `forjar lock-prune` detect and remove orphaned resources |
 
