@@ -362,4 +362,10 @@ pub enum Commands {
 
     /// FJ-1395: Generate SBOM (Software Bill of Materials) for managed infrastructure
     Sbom(SbomArgs),
+
+    /// FJ-1400: Generate CBOM (Cryptographic Bill of Materials) for managed infrastructure
+    Cbom(CbomArgs),
+
+    /// FJ-1401: Prove convergence from current or arbitrary state
+    Prove(ProveArgs),
 }

@@ -1873,3 +1873,44 @@ forjar apply --trace
 ```
 
 Trace mode implies `--verbose` and shows the full bash script that will be sent to each transport (local, SSH, container).
+
+## Cryptographic Bill of Materials (CBOM)
+
+Generate a cryptographic inventory of all algorithms used in your infrastructure:
+
+```bash
+# Text table output
+forjar cbom
+
+# JSON output
+forjar cbom --json
+```
+
+CBOM automatically detects:
+- **BLAKE3** — State hashing and resource integrity
+- **X25519/age** — Secrets encryption
+- **Ed25519/RSA** — SSH transport keys
+- **X.509/TLS** — Certificate management
+- **SHA-256** — Docker image digests
+
+## Convergence Proof
+
+Prove that your configuration will converge from any reachable state:
+
+```bash
+# Prove convergence for all resources
+forjar prove
+
+# Prove for a specific machine
+forjar prove --machine web-01
+
+# JSON output for CI integration
+forjar prove --json
+```
+
+The convergence proof validates five properties:
+1. **Codegen completeness** — All resources produce check/apply/state_query scripts
+2. **DAG acyclicity** — No circular dependencies
+3. **State coverage** — Resources have corresponding state entries
+4. **Hash determinism** — Same config produces identical state_query scripts
+5. **Idempotency structure** — Apply scripts use `set -euo pipefail`
