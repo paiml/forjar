@@ -79,6 +79,7 @@ fn make_file_resource(path: &str, content: Option<&str>) -> Resource {
         post_apply: None,
         lifecycle: None,
         store: false,
+            sudo: false,
         script: None,
     }
 }

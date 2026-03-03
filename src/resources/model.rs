@@ -210,6 +210,7 @@ mod tests {
             post_apply: None,
             lifecycle: None,
             store: false,
+            sudo: false,
             script: None,
         }
     }

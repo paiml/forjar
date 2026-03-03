@@ -333,6 +333,11 @@ pub struct Resource {
     #[serde(default)]
     pub lifecycle: Option<LifecycleRules>,
 
+    // -- Privilege escalation (FJ-1394) --
+    /// Run this resource's apply script with sudo (per-resource privilege escalation).
+    #[serde(default)]
+    pub sudo: bool,
+
     // -- Store fields (FJ-1303: reproducible package manager) --
     /// Enable content-addressed store for this resource's outputs.
     #[serde(default)]
