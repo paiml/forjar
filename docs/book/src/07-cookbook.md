@@ -1626,6 +1626,59 @@ Example output:
 
 Checks are context-aware — SSH is only checked if your config has remote machines, Docker only if you have container machines, and age identity only if your config contains `ENC[age,...]` markers.
 
+## Security Scanning and Policy Gates
+
+Forjar includes a static IaC security scanner (`forjar security-scan`) that detects security smells in your configs before deployment.
+
+### Scan a Config
+
+```bash
+# Scan for all security issues
+forjar security-scan -f infra.yaml
+
+# JSON output for CI integration
+forjar security-scan -f infra.yaml --json
+
+# Fail CI on critical/high findings
+forjar security-scan -f infra.yaml --fail-on high
+```
+
+### Security Rules
+
+| Rule | Category | Severity | Description |
+|------|----------|----------|-------------|
+| SS-1 | Hard-coded secrets | Critical | Passwords, tokens, API keys in plain text |
+| SS-2 | HTTP without TLS | High | Unencrypted HTTP URLs (use HTTPS) |
+| SS-3 | World-accessible | High | File permissions allowing world access |
+| SS-4 | Missing integrity check | Medium | External files without BLAKE3 verification |
+| SS-5 | Privileged container | Critical | Docker running with elevated permissions |
+| SS-6 | No resource limits | Low | Containers without CPU/memory bounds |
+| SS-7 | Weak cryptography | High | MD5, SHA1, DES, RC4, SSLv3, TLSv1.0 |
+| SS-8 | Insecure protocol | High | telnet://, ftp://, rsh:// in configs |
+| SS-9 | Unrestricted network | Medium | Binding to 0.0.0.0 (all interfaces) |
+| SS-10 | Sensitive data | Critical | PII patterns (SSN, credit card numbers) |
+
+### Pre-Apply Security Gate
+
+Add `security_gate` to your policy to block applies with security findings:
+
+```yaml
+version: "1.0"
+name: secure-infra
+
+policy:
+  security_gate: high  # Block on critical or high findings
+
+resources:
+  web-config:
+    type: file
+    machine: web-server
+    target: /etc/nginx/nginx.conf
+    source: https://example.com/nginx.conf  # SS-4: needs integrity check
+```
+
+With `security_gate: high`, `forjar apply` will refuse to run if any critical or high severity findings exist. Severity thresholds: `critical`, `high`, `medium`, `low`.
+
 ## Cookbook Recipe Index
 
 The `examples/cookbook/` directory contains validated recipes covering common infrastructure patterns:
