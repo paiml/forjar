@@ -3,7 +3,7 @@
 **Version**: 2.0.0-draft
 **Date**: 2026-03-03
 **Status**: Planning
-**Scorecard**: **120/166** features implemented (target: 166/166)
+**Scorecard**: **124/166** features implemented (target: 166/166)
 
 ---
 
@@ -63,7 +63,7 @@
 | 20 | **Drift forensics and attribution** — Record who/what caused drift via audit log correlation | A, D | ✅ | `ApplyStarted` events include `operator` (user@hostname) and `config_hash`; correlate drift events with last apply operator; `forjar audit` shows attribution |
 | 21 | **Drift-aware deployment blocking** — Block new applies if live state has drifted from last known state | A, D | ✅ | Pre-apply drift gate in `apply.rs`; `check_pre_apply_drift()` uses local file hashing; skip with `--force` |
 | 22 | **Generational state with instant rollback** — Numbered generations; switch to any previous generation instantly | A, B, E | ✅ | `generation.rs`: numbered generations with atomic symlink swap; `forjar rollback --generation N`; `forjar generation list/gc`; auto-generation on apply |
-| 23 | **Merkle DAG configuration lineage** — Full history as content-addressed DAG; tamper-evident, forkable | A | ❌ | State is flat YAML; no Merkle DAG history |
+| 23 | **Merkle DAG configuration lineage** — Full history as content-addressed DAG; tamper-evident, forkable | A | ✅ | `forjar lineage` builds Merkle tree over DAG; each node hash incorporates dependency hashes; JSON/text output |
 | 24 | **Remote state backend** — Optional S3/GCS/Consul backend for team collaboration | B | ❌ | Local-only by design (sovereign-first); could add encrypted remote |
 | 25 | **State import from existing infrastructure** — `forjar import` to adopt brownfield systems without recreation | E | ⚠️ | Store imports exist (`forjar import docker/apt/cargo`); no general brownfield import |
 | 26 | **Workspace / environment isolation** — Multiple named workspaces (dev/staging/prod) with isolated state | E | ✅ | Workspace support for multi-environment state |
@@ -83,7 +83,7 @@
 | 27 | **Heredoc injection safety** — Single-quoted heredocs prevent shell expansion; template injection impossible | C | ✅ | Falsifiable claim C8; tested explicitly |
 | 28 | **No plaintext secrets in logs** — Secrets redacted from event logs and plan output | C, D | ✅ | Age-encrypted markers only |
 | 29 | **SBOM generation for managed infrastructure** — Auto-generate Software Bill of Materials (SPDX/CycloneDX) after every apply | A, D | ✅ | `forjar sbom`: SPDX 2.3 JSON output; collects packages, docker images, models, files with sources; BLAKE3 hashes from state locks; `--json` for SPDX, text table default; 5 tests |
-| 30 | **SLSA Level 3 provenance attestation** — in-toto signed attestations linking source recipe → plan → applied state | A, D | ❌ | No provenance attestation |
+| 30 | **SLSA Level 3 provenance attestation** — in-toto signed attestations linking source recipe → plan → applied state | A, D | ✅ | `forjar provenance` generates in-toto v0.1 attestation linking config BLAKE3 -> plan hash -> state hashes |
 | 31 | **Cryptographic recipe signing (Sigstore/GPG)** — Sign recipes with OIDC identity; verify before apply | A, B, D | ❌ | No recipe signing |
 | 32 | **Transparency log for all applies** — Append-only tamper-evident log of every `forjar apply` with operator identity | A, D | ✅ | BLAKE3 chain hashing in `tripwire/chain.rs`; `.chain` sidecars; `verify_all_chains()`; 8 tests |
 | 33 | **CBOM (Cryptographic Bill of Materials)** — Inventory all crypto algorithms, key lengths, certificates on managed systems | A, D | ✅ | `forjar cbom` scans BLAKE3, age/X25519, SSH, TLS, docker digests |
@@ -91,7 +91,7 @@
 | 35 | **Policy-as-code enforcement** — Pre-apply gates that evaluate security/compliance policies against the plan | A, D, E | ✅ | `policies:` rules with Require/Deny/Warn evaluated by `check_policy_violations()`; `policy.security_gate: high` blocks apply via `check_security_gate()` running 10-rule scanner; `--check-security` + `--check-compliance` on validate |
 | 36 | **Encrypted state files** — Client-side encryption of lock files and event logs at rest | B, D | ✅ | `encrypt_state_files()`/`decrypt_state_files()` via `age` CLI; `--encrypt-state` flag; `FORJAR_AGE_KEY`/`FORJAR_AGE_IDENTITY` env vars |
 | 37 | **Static IaC security scanner** — Detect the 62 IaC security smell categories (hard-coded secrets, HTTP without TLS, etc.) | C, D | ✅ | `forjar security-scan`: 10 rules (SS-1 hard-coded secrets, SS-2 HTTP without TLS, SS-3 world-accessible, SS-4 missing integrity check, SS-5 privileged container, SS-6 no resource limits, SS-7 weak crypto, SS-8 insecure protocol, SS-9 unrestricted network, SS-10 sensitive data); `--fail-on` severity threshold; `--json`; 30 tests |
-| 38 | **Least-privilege execution analysis** — Compute minimum permissions required for a plan; warn on over-privilege | C, D | ❌ | No permission analysis |
+| 38 | **Least-privilege execution analysis** — Compute minimum permissions required for a plan; warn on over-privilege | C, D | ✅ | `forjar privilege-analysis` reports min permissions per resource; 6 privilege levels; machine filter; JSON output |
 
 ### Category 4: Formal Verification and Provability (39–52)
 
@@ -196,7 +196,7 @@
 | 105 | **Progress bars / spinners** — Animated progress with ETA for long-running applies (indicatif) | E | ❌ | `--progress` flag exists but no `indicatif` implementation |
 | 106 | **`--why` flag for change explanation** — Per-resource "why is this changing?" with hash diff, field diff, dependency chain | A, E | ✅ | `forjar plan --why`; `planner/why.rs`: `explain_why()` with `ChangeReason` struct; 8 tests |
 | 107 | **Interactive TUI mode** — Terminal UI for browsing plan, approving resources selectively, viewing live apply status | E | ❌ | No `ratatui`/`cursive`; CLI-only |
-| 108 | **Graph export to image** — Direct PNG/SVG rendering of dependency graphs without external `graphviz`/`mmdc` | E | ❌ | Mermaid/DOT text only; requires external renderer |
+| 108 | **Graph export to image** — Direct PNG/SVG rendering of dependency graphs without external `graphviz`/`mmdc` | E | ✅ | `forjar graph --format svg` generates standalone SVG with grid layout, color-coded nodes, arrow markers |
 | 109 | **Debug trace mode** — `--trace` flag emitting detailed execution trace: template resolution steps, script generation, transport commands | A, E | ✅ | `forjar apply --trace` prints generated scripts via `[TRACE]` prefix; implies `--verbose`; trace output in executor `resource_ops.rs`; post-hoc analysis via `forjar trace` |
 | 110 | **LSP / IDE integration** — Language Server Protocol for forjar YAML: autocompletion, hover docs, validation, go-to-definition | E | ❌ | No LSP server |
 

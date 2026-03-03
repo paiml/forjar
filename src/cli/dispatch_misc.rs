@@ -308,6 +308,18 @@ pub(crate) fn dispatch_misc_cmd(cmd: Commands, verbose: bool) -> Result<(), Stri
             machine,
             json,
         }) => super::prove::cmd_prove(&file, &state_dir, machine.as_deref(), json),
+        Commands::PrivilegeAnalysis(PrivilegeAnalysisArgs { file, machine, json }) => {
+            super::privilege_analysis::cmd_privilege_analysis(&file, machine.as_deref(), json)
+        }
+        Commands::Provenance(ProvenanceArgs {
+            file,
+            state_dir,
+            machine,
+            json,
+        }) => super::provenance::cmd_provenance(&file, &state_dir, machine.as_deref(), json),
+        Commands::Lineage(LineageArgs { file, json }) => {
+            super::lineage::cmd_lineage(&file, json)
+        }
         _ => Err("unknown command".to_string()),
     }
 }
