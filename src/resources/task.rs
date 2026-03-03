@@ -46,10 +46,13 @@ pub fn apply_script(resource: &Resource) -> String {
     }
 
     // Wrap command with timeout if specified.
-    // Always use `bash -c` so multi-line commands and shell operators work.
+    // Use a heredoc so multi-line commands and arbitrary quoting work
+    // without escaping issues that break bashrs linting.
     if let Some(timeout_secs) = resource.timeout {
-        let escaped = command.replace('\'', "'\\''");
-        script.push_str(&format!("timeout {} bash -c '{}'\n", timeout_secs, escaped));
+        script.push_str(&format!(
+            "timeout {} bash <<'FORJAR_TIMEOUT'\n{}\nFORJAR_TIMEOUT\n",
+            timeout_secs, command
+        ));
     } else {
         script.push_str(command);
         script.push('\n');
@@ -138,16 +141,19 @@ mod tests {
         let mut r = make_task_resource("long-running-train");
         r.timeout = Some(3600);
         let script = apply_script(&r);
-        assert!(script.contains("timeout 3600 bash -c 'long-running-train'"));
+        assert!(script.contains("timeout 3600 bash <<'FORJAR_TIMEOUT'"));
+        assert!(script.contains("long-running-train"));
+        assert!(script.contains("FORJAR_TIMEOUT"));
     }
 
     #[test]
     fn test_apply_with_timeout_multiline() {
-        let mut r = make_task_resource("set -e\ngit pull\ncargo build");
+        let mut r = make_task_resource("git pull\ncargo build");
         r.timeout = Some(300);
         r.working_dir = Some("/opt/project".to_string());
         let script = apply_script(&r);
-        assert!(script.contains("timeout 300 bash -c 'set -e\ngit pull\ncargo build'"));
+        assert!(script.contains("timeout 300 bash <<'FORJAR_TIMEOUT'"));
+        assert!(script.contains("git pull\ncargo build"));
         assert!(script.contains("cd '/opt/project'"));
     }
 
@@ -156,7 +162,9 @@ mod tests {
         let mut r = make_task_resource("echo 'hello world'");
         r.timeout = Some(60);
         let script = apply_script(&r);
-        assert!(script.contains("timeout 60 bash -c 'echo '\\''hello world'\\'''"));
+        // Heredoc preserves quotes without escaping
+        assert!(script.contains("echo 'hello world'"));
+        assert!(script.contains("timeout 60 bash <<'FORJAR_TIMEOUT'"));
     }
 
     #[test]
