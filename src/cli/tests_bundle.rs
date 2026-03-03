@@ -105,6 +105,7 @@ resources:
                 file,
                 output: None,
                 include_state: false,
+                verify: false,
             }),
             false,
             true,
