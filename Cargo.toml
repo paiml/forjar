@@ -1,8 +1,8 @@
 [package]
 name = "forjar"
-version = "1.1.0"
+version = "1.1.1"
 edition = "2021"
-rust-version = "1.87.0"
+rust-version = "1.88.0"
 authors = ["Pragmatic AI Labs"]
 description = "Rust-native Infrastructure as Code — bare-metal first, BLAKE3 state, provenance tracing"
 license = "MIT OR Apache-2.0"

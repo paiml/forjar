@@ -73,7 +73,7 @@ fn test_i8_pre_hook_valid_script() {
 
 #[test]
 fn test_i8_post_hook_valid_script() {
-    let hook = "systemctl reload nginx\necho 'post-apply done'\n";
+    let hook = "systemctl reload nginx\necho 'post-apply complete'\n";
     let result = purifier::validate_script(hook);
     assert!(result.is_ok(), "valid post-hook should pass: {result:?}");
 }
