@@ -314,3 +314,7 @@ mod tests_validate_transport;
 mod tests_workspace;
 #[cfg(test)]
 mod tests_sbom;
+#[cfg(test)]
+mod tests_cbom;
+#[cfg(test)]
+mod tests_prove;
