@@ -3,7 +3,7 @@
 **Version**: 2.0.0-draft
 **Date**: 2026-03-03
 **Status**: Planning
-**Scorecard**: **124/166** features implemented (target: 166/166)
+**Scorecard**: **127/166** features implemented (target: 166/166)
 
 ---
 
@@ -175,7 +175,7 @@
 | 89 | **Offline-first architecture** — Core apply works with zero network connectivity | B | ✅ | SSH-based; no cloud APIs; local state |
 | 90 | **No cloud provider APIs** — SSH-only execution; no AWS/Azure/GCP API calls | B, E | ✅ | Sovereign by design |
 | 91 | **ISO distribution generation** — `forjar export --format iso` for fully offline deployment bundles | B, D | ❌ | No ISO/bundle export |
-| 92 | **Self-contained recipe bundles** — Package recipe + dependencies + store closures into distributable artifact | B | ❌ | No recipe bundle packaging |
+| 92 | **Self-contained recipe bundles** — Package recipe + dependencies + store closures into distributable artifact | B | ✅ | `forjar bundle` packages config + store + state with BLAKE3 manifest; air-gap ready |
 | 93 | **Air-gap transfer bundles with integrity verification** — Sealed bundles for physical media transfer across air gaps | B, D | ❌ | No air-gap bundle format |
 | 94 | **Data sovereignty tagging** — Every piece of state tagged with jurisdiction/classification/residency zone | B, D | ❌ | No sovereignty metadata |
 | 95 | **Reproducible binary builds** — forjar binary is bit-for-bit reproducible from source | A, B, C | ⚠️ | Rust deterministic builds possible but not verified/CI-enforced |
@@ -635,7 +635,7 @@ Based on CDK/Terraform/Pulumi failure analysis and formal methods research, forj
 | 149 | **Model registry with content addressing** — Store trained model artifacts in content-addressed store; version by BLAKE3 hash; `forjar store list --type model` | A, B, F | ⚠️ | Store exists (FJ-1300); model resource exists; no explicit model registry query interface |
 | 150 | **Training checkpoint management** — Track checkpoint artifacts via `output_artifacts`; resume from latest checkpoint on failure; garbage collect old checkpoints | A, F | ⚠️ | `output_artifacts` tracks files; no explicit checkpoint resume or GC policy |
 | 151 | **Model evaluation pipeline** — Post-training evaluation resource: run eval script, compare metrics to threshold, gate promotion | A, D, E | ❌ | `checks:` blocks run post-apply assertions; no structured model eval with metric thresholds |
-| 152 | **Model card generation** — Auto-generate model card (training data, hyperparams, metrics, hardware, duration) from apply state and event log | A, D | ❌ | Event log has duration and machine info; no model card template or generation |
+| 152 | **Model card generation** — Auto-generate model card (training data, hyperparams, metrics, hardware, duration) from apply state and event log | A, D | ✅ | `forjar model-card` generates model cards from config + state; JSON/text output |
 | 153 | **Training reproducibility proof** — Prove identical training output given identical inputs: content-addressed store + git SHA parity + BLAKE3 artifact hashes | A, C | ⚠️ | Parity contracts + BLAKE3 hashing exist; no formal reproducibility certificate |
 
 ### Category 16: Agent Infrastructure — pforge/OpenClaw (154–163)
@@ -650,7 +650,7 @@ Based on CDK/Terraform/Pulumi failure analysis and formal methods research, forj
 | 159 | **Agent configuration management** — Manage system prompts, tool permissions, MCP server configs, model bindings as forjar file resources with drift detection | A, B, E | ✅ | File resources with BLAKE3 drift detection manage any YAML/JSON config including pforge.yaml |
 | 160 | **Agent scaling and load balancing** — `count: N` to deploy N instances of same agent; configure load balancer across instances | F | ⚠️ | `count:` creates N resources; no load balancer configuration resource type |
 | 161 | **Agent tool permission policies** — `policies:` rules that enforce which MCP tools an agent can access; deny dangerous tools by default | A, D, E | ⚠️ | `policies:` with require/deny/warn rules exist; not specifically targeting MCP tool permissions |
-| 162 | **Agent SBOM** — Auto-generate agent bill of materials: model hash, tool list, system prompt hash, dependency versions, pforge config hash | A, D | ❌ | No agent-specific SBOM; general SBOM (#29) not implemented |
+| 162 | **Agent SBOM** — Auto-generate agent bill of materials: model hash, tool list, system prompt hash, dependency versions, pforge config hash | A, D | ✅ | `forjar agent-sbom` detects model/GPU/MCP/agent-service/agent-container components; JSON/text output |
 | 163 | **OpenClaw recipe registry** — Curated library of agent deployment recipes: code assistant, data analyst, security auditor, customer support; versioned, signed, composable | B, D, E | ❌ | No recipe registry (#66); this extends it with agent-specific curated recipes |
 
 ---

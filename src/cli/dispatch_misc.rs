@@ -320,6 +320,21 @@ pub(crate) fn dispatch_misc_cmd(cmd: Commands, verbose: bool) -> Result<(), Stri
         Commands::Lineage(LineageArgs { file, json }) => {
             super::lineage::cmd_lineage(&file, json)
         }
+        Commands::Bundle(BundleArgs {
+            file,
+            output,
+            include_state,
+        }) => super::bundle::cmd_bundle(&file, output.as_deref(), include_state),
+        Commands::ModelCard(ModelCardArgs {
+            file,
+            state_dir,
+            json,
+        }) => super::model_card::cmd_model_card(&file, &state_dir, json),
+        Commands::AgentSbom(AgentSbomArgs {
+            file,
+            state_dir,
+            json,
+        }) => super::agent_sbom::cmd_agent_sbom(&file, &state_dir, json),
         _ => Err("unknown command".to_string()),
     }
 }
