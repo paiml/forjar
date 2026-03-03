@@ -1914,3 +1914,61 @@ The convergence proof validates five properties:
 3. **State coverage** — Resources have corresponding state entries
 4. **Hash determinism** — Same config produces identical state_query scripts
 5. **Idempotency structure** — Apply scripts use `set -euo pipefail`
+
+## Least-Privilege Analysis
+
+Analyze the minimum permissions required per resource:
+
+```bash
+# Text output — shows which resources need root
+forjar privilege-analysis
+
+# Filter to a specific machine
+forjar privilege-analysis --machine web-01
+
+# JSON output for CI integration
+forjar privilege-analysis --json
+```
+
+Reports privilege levels: `unprivileged`, `system-write`, `package-manager`, `service-control`, `network-config`, `sudo`.
+
+## SLSA Provenance Attestation
+
+Generate in-toto-style SLSA Level 3 provenance attestations:
+
+```bash
+# Generate provenance attestation
+forjar provenance
+
+# JSON output (in-toto v0.1 format)
+forjar provenance --json
+
+# Scoped to one machine
+forjar provenance --machine web-01
+```
+
+Links config BLAKE3 hash -> plan hash -> state hashes in a tamper-evident chain.
+
+## Merkle DAG Lineage
+
+Visualize the Merkle tree over your dependency graph:
+
+```bash
+# Show Merkle hashes for each resource
+forjar lineage
+
+# JSON output with merkle_root
+forjar lineage --json
+```
+
+Each node's hash incorporates its dependencies' hashes, so any change propagates up the Merkle tree — enabling tamper detection of the full dependency chain.
+
+## SVG Graph Export
+
+Export your dependency graph as a standalone SVG image:
+
+```bash
+forjar graph --format svg > graph.svg
+```
+
+The SVG output includes color-coded nodes by resource type, arrow markers for dependencies, and a grid layout — no external renderer required.
