@@ -341,4 +341,8 @@ pub enum Commands {
     /// FJ-1280: Reconstruct state at a point in time from event log
     #[command(name = "state-reconstruct")]
     StateReconstruct(StateReconstructArgs),
+
+    /// FJ-1383: Merge two forjar config files into one
+    #[command(name = "config-merge")]
+    ConfigMerge(ConfigMergeArgs),
 }

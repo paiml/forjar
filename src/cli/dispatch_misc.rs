@@ -258,6 +258,17 @@ pub(crate) fn dispatch_misc_cmd(cmd: Commands, verbose: bool) -> Result<(), Stri
             budget_ms,
             json,
         }) => cmd_score(&file, &status, &idempotency, budget_ms, json),
+        Commands::ConfigMerge(ConfigMergeArgs {
+            file_a,
+            file_b,
+            output,
+            allow_collisions,
+        }) => super::config_merge::cmd_config_merge(
+            &file_a,
+            &file_b,
+            output.as_deref(),
+            allow_collisions,
+        ),
         _ => Err("unknown command".to_string()),
     }
 }

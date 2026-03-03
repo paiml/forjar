@@ -347,3 +347,21 @@ pub struct ScoreArgs {
     #[arg(long)]
     pub json: bool,
 }
+
+/// FJ-1383: Merge two config files into one.
+#[derive(clap::Args, Debug)]
+pub struct ConfigMergeArgs {
+    /// First config file
+    pub file_a: std::path::PathBuf,
+
+    /// Second config file
+    pub file_b: std::path::PathBuf,
+
+    /// Output file (default: stdout)
+    #[arg(short, long)]
+    pub output: Option<std::path::PathBuf>,
+
+    /// Allow resource ID collisions (right takes precedence)
+    #[arg(long)]
+    pub allow_collisions: bool,
+}
