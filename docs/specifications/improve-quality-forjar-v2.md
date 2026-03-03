@@ -106,7 +106,7 @@
 | 45 | **SAT/SMT-based dependency resolution** — Prove satisfiability of resource constraints; exact conflict diagnosis | A, E | ❌ | Topological sort; no SAT solver |
 | 46 | **Minimal change set computation** — SMT solver computes provably minimal set of resource mutations | A, E, F | ❌ | Hash-based change detection; not provably minimal |
 | 47 | **Automated preservation checking** — Verify pairwise resource preservation: applying A doesn't invalidate B's postcondition | A | ❌ | Not implemented; from Hanappi & Hummer OOPSLA 2016 |
-| 48 | **Convergence proof certificates** — Machine-verifiable certificate asserting recipe converges from any reachable state | A, D | ❌ | Convergence tested empirically, not proven |
+| 48 | **Convergence proof certificates** — Machine-verifiable certificate asserting recipe converges from any reachable state | A, D | ✅ | `forjar prove --json` emits machine-verifiable convergence proofs (5 properties) |
 | 49 | **Alloy specification of dependency graph** — Verify structural properties: no cycles, unique ordering, satisfiable deps | A | ❌ | Cycle detection exists; no Alloy model |
 | 50 | **Idempotency regression tests (property-based)** — QuickCheck/proptest-generated tests from formal idempotency spec | A, C | ✅ | `tests_proptest_idempotency.rs`: hash idempotency, lock serde roundtrip, converged-state-is-noop properties |
 | 51 | **MC/DC (Modified Condition/Decision Coverage)** — Structural coverage mandated by DO-178C DAL-A for safety-critical paths | A, D | ❌ | Line/branch coverage via llvm-cov; no MC/DC |

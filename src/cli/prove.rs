@@ -45,12 +45,13 @@ fn collect_proofs(
     state_dir: &Path,
     machine_filter: Option<&str>,
 ) -> Vec<ProofResult> {
-    let mut proofs = Vec::new();
-    proofs.push(prove_codegen_completeness(config, machine_filter));
-    proofs.push(prove_dag_acyclicity(config));
-    proofs.push(prove_state_coverage(config, state_dir, machine_filter));
-    proofs.push(prove_hash_determinism(config, machine_filter));
-    proofs.push(prove_idempotency_structure(config, machine_filter));
+    let proofs = vec![
+        prove_codegen_completeness(config, machine_filter),
+        prove_dag_acyclicity(config),
+        prove_state_coverage(config, state_dir, machine_filter),
+        prove_hash_determinism(config, machine_filter),
+        prove_idempotency_structure(config, machine_filter),
+    ];
     proofs
 }
 
