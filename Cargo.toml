@@ -10,7 +10,7 @@ repository = "https://github.com/paiml/forjar"
 homepage = "https://paiml.com"
 keywords = ["iac", "infrastructure", "devops", "provisioning", "bare-metal"]
 categories = ["command-line-utilities", "development-tools"]
-exclude = ["benches/", ".pmat/", "state/", "docs/", "examples/", "target/", "*.profraw", "*.profdata", ".vscode/", ".idea/", "proptest-regressions/"]
+exclude = ["benches/", ".pmat/", "/state/", "docs/", "examples/", "target/", "*.profraw", "*.profdata", ".vscode/", ".idea/", "proptest-regressions/"]
 
 [lints.rust]
 unsafe_code = "forbid"
@@ -71,3 +71,4 @@ opt-level = 3
 lto = true
 codegen-units = 1
 strip = true
+panic = "abort"
