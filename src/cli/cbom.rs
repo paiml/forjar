@@ -81,7 +81,7 @@ fn scan_age_encryption(config: &types::ForjarConfig, entries: &mut Vec<CryptoEnt
         }
     }
     // Check params for age-encrypted values
-    for (_key, value) in &config.params {
+    for value in config.params.values() {
         if let Some(s) = value.as_str() {
             if s.contains("age-encryption.org") {
                 entries.push(CryptoEntry {
