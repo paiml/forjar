@@ -272,3 +272,5 @@ mod tests_fleet_reporting;
 mod tests_apply_drift_gate;
 #[cfg(test)]
 mod tests_extract;
+#[cfg(test)]
+mod tests_generation;
