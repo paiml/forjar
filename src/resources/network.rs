@@ -10,7 +10,7 @@ use crate::core::types::Resource;
 /// If ufw is not found, prints a warning and exits 0 (skip).
 const UFW_GUARD: &str = "\
 if ! command -v ufw >/dev/null 2>&1; then\n  \
-  echo 'FORJAR_WARN: ufw not found — skipping network resource (no firewall)'\n  \
+  echo 'FORJAR_WARN: ufw not found - skipping network resource (no firewall)'\n  \
   exit 0\n\
 fi";
 

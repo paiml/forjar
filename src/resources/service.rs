@@ -10,7 +10,7 @@ use crate::core::types::Resource;
 /// If systemctl is not found, prints a warning and exits 0 (skip).
 const SYSTEMD_GUARD: &str = "\
 if ! command -v systemctl >/dev/null 2>&1; then\n  \
-  echo 'FORJAR_WARN: systemctl not found — skipping service resource (no systemd)'\n  \
+  echo 'FORJAR_WARN: systemctl not found - skipping service resource (no systemd)'\n  \
   exit 0\n\
 fi";
 
