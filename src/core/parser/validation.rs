@@ -10,6 +10,10 @@ fn validate_ref(
     ref_type: &str,
     errors: &mut Vec<ValidationError>,
 ) {
+    // Skip deps containing {{item}} or {{index}} — they resolve after for_each/count expansion.
+    if ref_id.contains("{{item}}") || ref_id.contains("{{index}}") {
+        return;
+    }
     if !config.resources.contains_key(ref_id) {
         let will_expand = config
             .resources

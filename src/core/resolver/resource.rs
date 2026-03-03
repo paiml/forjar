@@ -62,10 +62,18 @@ pub fn resolve_resource_templates(
     r.gpu_backend = resolve_opt(&r.gpu_backend, params, machines)?;
     r.compute_mode = resolve_opt(&r.compute_mode, params, machines)?;
 
+    // Task fields (ALB-027)
+    r.working_dir = resolve_opt(&r.working_dir, params, machines)?;
+    r.completion_check = resolve_opt(&r.completion_check, params, machines)?;
+    r.pre_apply = resolve_opt(&r.pre_apply, params, machines)?;
+    r.post_apply = resolve_opt(&r.post_apply, params, machines)?;
+    r.script = resolve_opt(&r.script, params, machines)?;
+
     r.ports = resolve_list(&r.ports, params, machines)?;
     r.environment = resolve_list(&r.environment, params, machines)?;
     r.volumes = resolve_list(&r.volumes, params, machines)?;
     r.packages = resolve_list(&r.packages, params, machines)?;
+    r.output_artifacts = resolve_list(&r.output_artifacts, params, machines)?;
 
     Ok(r)
 }
