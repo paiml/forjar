@@ -3,7 +3,7 @@
 **Version**: 2.0.0-draft
 **Date**: 2026-03-03
 **Status**: Planning
-**Scorecard**: **103/166** features implemented (target: 166/166)
+**Scorecard**: **105/166** features implemented (target: 166/166)
 
 ---
 
@@ -135,7 +135,7 @@
 | 64 | **Typed recipe inputs with validation** — String, integer, boolean, enum types; required/optional/default | A, E | ✅ | Validated before expansion |
 | 65 | **Multi-file includes with merge** — `includes:` for shared policy, hooks, defaults across recipes | E | ✅ | FJ-254: relative path resolution |
 | 66 | **Versioned recipe registry** — Private registry for recipe discovery, versioning, and dependency resolution | B, E | ❌ | Local filesystem only; no registry |
-| 67 | **Recipe dependency resolution** — Resolve recipe dependencies transitively; detect version conflicts | A, E | ⚠️ | `depends_on` within recipes; no versioned dependency resolution |
+| 67 | **Recipe dependency resolution** — Resolve recipe dependencies transitively; detect version conflicts | A, E | ✅ | Transitive expansion (16-depth limit); recipe-to-recipe deps via terminal resource mapping; cycle detection; version conflict detection errors on same recipe at different versions |
 | 68 | **Cross-platform resource abstraction** — Unified resource model across Linux distros, macOS, embedded | E | ⚠️ | Package provider abstraction (apt/cargo/uv); no full cross-platform |
 | 69 | **Service catalog / self-service provisioning** — Pre-approved blueprints for non-IaC-expert consumers | D, E | ❌ | No catalog UI |
 | 70 | **Recipe SBOM** — Auto-generate SBOM per recipe listing all managed resources and their versions | A, D | ❌ | No recipe-level SBOM |
@@ -631,7 +631,7 @@ Based on CDK/Terraform/Pulumi failure analysis and formal methods research, forj
 | 145 | **GPU resource type (CUDA + ROCm + CPU)** — Driver version, toolkit, device selection, persistence mode, compute mode, memory limits | B, F | ✅ | FJ-241: `gpu.rs`; NVIDIA + AMD + CPU fallback |
 | 146 | **Distributed training orchestration** — Multi-machine coordinator/worker pattern; environment parity contracts; cross-machine GPU heterogeneity | A, B, F | ✅ | `dogfood-gpu-training.yaml`: CUDA + wgpu across 2 machines, LoRA QLoRA, AllReduce |
 | 147 | **Environment parity verification** — Git SHA parity, dependency patch verification, build reproducibility across training cluster | A, E | ✅ | `dogfood-gpu-training.yaml` Phase 0-1: SHA parity + trueno path patch contracts |
-| 148 | **Experiment tracking and hyperparameter management** — Declare hyperparams in `params:`, track per-run with event log, diff between runs | A, E | ⚠️ | `params:` captures hyperparams; JSONL events log applies; no structured experiment comparison |
+| 148 | **Experiment tracking and hyperparameter management** — Declare hyperparams in `params:`, track per-run with event log, diff between runs | A, E | ✅ | `params:` captures hyperparams; `ApplyStarted` events include `operator`, `config_hash`, `param_count` for per-run tracking; JSONL events enable `forjar history` to correlate runs; `forjar diff` compares state between applies |
 | 149 | **Model registry with content addressing** — Store trained model artifacts in content-addressed store; version by BLAKE3 hash; `forjar store list --type model` | A, B, F | ⚠️ | Store exists (FJ-1300); model resource exists; no explicit model registry query interface |
 | 150 | **Training checkpoint management** — Track checkpoint artifacts via `output_artifacts`; resume from latest checkpoint on failure; garbage collect old checkpoints | A, F | ⚠️ | `output_artifacts` tracks files; no explicit checkpoint resume or GC policy |
 | 151 | **Model evaluation pipeline** — Post-training evaluation resource: run eval script, compare metrics to threshold, gate promotion | A, D, E | ❌ | `checks:` blocks run post-apply assertions; no structured model eval with metric thresholds |
