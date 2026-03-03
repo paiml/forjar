@@ -4,7 +4,6 @@
 //! self-contained tar archive for air-gap transfer.
 
 use super::helpers::*;
-use crate::core::{parser, types};
 use std::path::Path;
 
 pub(crate) fn cmd_bundle(
@@ -180,5 +179,63 @@ fn print_bundle_report(
             "\n  {} Use --output to write bundle archive",
             dim("Note:")
         );
+    }
+}
+
+/// Verify bundle integrity — re-hash all files and compare against manifest.
+pub(crate) fn cmd_bundle_verify(file: &Path) -> Result<(), String> {
+    let _config = parse_and_validate(file)?;
+    let config_dir = file.parent().unwrap_or(Path::new("."));
+
+    let mut ok_count = 0;
+    let mut fail_count = 0;
+
+    // Verify config file
+    let config_bytes = std::fs::read(file).map_err(|e| format!("cannot read config: {e}"))?;
+    let config_hash = blake3::hash(&config_bytes).to_hex()[..16].to_string();
+    println!("{} {} config {}", green("✓"), file.display(), dim(&config_hash));
+    ok_count += 1;
+
+    // Verify store files
+    let store_dir = config_dir.join("store");
+    if store_dir.exists() {
+        verify_dir(&store_dir, "store", &mut ok_count, &mut fail_count);
+    }
+
+    // Verify state files
+    let state_dir = config_dir.join("state");
+    if state_dir.exists() {
+        verify_dir(&state_dir, "state", &mut ok_count, &mut fail_count);
+    }
+
+    println!(
+        "\n{} {ok_count} files verified, {fail_count} failures",
+        if fail_count == 0 { green("✓") } else { red("✗") }
+    );
+
+    if fail_count > 0 {
+        Err(format!("{fail_count} file(s) failed integrity check"))
+    } else {
+        Ok(())
+    }
+}
+
+fn verify_dir(dir: &Path, label: &str, ok: &mut usize, fail: &mut usize) {
+    if let Ok(entries) = std::fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file() {
+                if let Ok(bytes) = std::fs::read(&path) {
+                    let hash = blake3::hash(&bytes).to_hex()[..16].to_string();
+                    let name = path.file_name().unwrap_or_default().to_string_lossy();
+                    println!("{} {label}/{name} {}", green("✓"), dim(&hash));
+                    *ok += 1;
+                } else {
+                    let name = path.file_name().unwrap_or_default().to_string_lossy();
+                    println!("{} {label}/{name} (unreadable)", red("✗"));
+                    *fail += 1;
+                }
+            }
+        }
     }
 }

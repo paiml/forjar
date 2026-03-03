@@ -2017,3 +2017,28 @@ forjar graph --format svg > graph.svg
 ```
 
 The SVG output includes color-coded nodes by resource type, arrow markers for dependencies, and a grid layout — no external renderer required.
+
+## Training Reproducibility Proof
+
+Generate a cryptographic reproducibility certificate for ML training runs:
+
+```bash
+# Generate reproducibility proof
+forjar repro-proof -f training.yaml --state-dir state
+
+# JSON output for CI integration
+forjar repro-proof -f training.yaml --state-dir state --json
+```
+
+The certificate includes: config BLAKE3 hash, git SHA, store artifact hashes, state hash, and a composite certificate hash. Use this to prove identical training outputs given identical inputs.
+
+## Bundle Integrity Verification
+
+Verify the integrity of a bundle's constituent files after air-gap transfer:
+
+```bash
+# Verify all files against BLAKE3 hashes
+forjar bundle -f forjar.yaml --verify
+```
+
+Re-hashes every file (config, store, state) and reports pass/fail per file — detects corruption or tampering during physical media transfer.

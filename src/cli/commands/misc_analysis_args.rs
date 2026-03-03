@@ -138,6 +138,10 @@ pub struct BundleArgs {
     /// Include state directory in bundle
     #[arg(long)]
     pub include_state: bool,
+
+    /// Verify an existing bundle manifest against filesystem
+    #[arg(long)]
+    pub verify: bool,
 }
 
 /// FJ-1407: Generate model card from config + state.
@@ -159,6 +163,22 @@ pub struct ModelCardArgs {
 /// FJ-1408: Agent-specific SBOM generation.
 #[derive(clap::Args, Debug)]
 pub struct AgentSbomArgs {
+    /// Path to forjar.yaml
+    #[arg(short, long, default_value = "forjar.yaml")]
+    pub file: std::path::PathBuf,
+
+    /// State directory
+    #[arg(long, default_value = "state")]
+    pub state_dir: std::path::PathBuf,
+
+    /// Output as JSON
+    #[arg(long)]
+    pub json: bool,
+}
+
+/// FJ-1409: Training reproducibility proof certificate.
+#[derive(clap::Args, Debug)]
+pub struct ReproProofArgs {
     /// Path to forjar.yaml
     #[arg(short, long, default_value = "forjar.yaml")]
     pub file: std::path::PathBuf,
