@@ -147,8 +147,8 @@ pub(crate) fn dispatch_misc_cmd(cmd: Commands, verbose: bool) -> Result<(), Stri
             let lock = crate::core::state::reconstruct::reconstruct_at(&state_dir, &machine, &at)?;
             if json {
                 let output = serde_json::to_string_pretty(&lock)
-                    .map_err(|e| format!("JSON error: {}", e))?;
-                println!("{}", output);
+                    .map_err(|e| format!("JSON error: {e}"))?;
+                println!("{output}");
             } else {
                 let output =
                     serde_yaml_ng::to_string(&lock).map_err(|e| format!("YAML error: {}", e))?;
@@ -354,6 +354,34 @@ fn dispatch_analysis_cmd(cmd: Commands) -> Result<(), String> {
             state_dir,
             json,
         }) => super::repro_proof::cmd_repro_proof(&file, &state_dir, json),
+        other => dispatch_data_cmd(other),
+    }
+}
+
+/// Dispatch data pipeline and MLOps commands.
+fn dispatch_data_cmd(cmd: Commands) -> Result<(), String> {
+    match cmd {
+        Commands::DataFreshness(DataFreshnessArgs {
+            file,
+            state_dir,
+            max_age,
+            json,
+        }) => super::data_freshness::cmd_data_freshness(&file, &state_dir, max_age, json),
+        Commands::DataValidate(DataValidateArgs {
+            file,
+            resource,
+            json,
+        }) => super::data_validate::cmd_data_validate(&file, resource.as_deref(), json),
+        Commands::Checkpoint(CheckpointArgs {
+            file,
+            machine,
+            gc,
+            keep,
+            json,
+        }) => super::checkpoint::cmd_checkpoint(&file, machine.as_deref(), gc, keep, json),
+        Commands::DatasetLineage(DatasetLineageArgs { file, json }) => {
+            super::dataset_lineage::cmd_dataset_lineage(&file, json)
+        }
         _ => Err("unknown command".to_string()),
     }
 }
