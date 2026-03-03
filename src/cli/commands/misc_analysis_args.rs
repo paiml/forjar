@@ -124,6 +124,54 @@ pub struct CbomArgs {
     pub json: bool,
 }
 
+/// FJ-1406: Self-contained recipe bundle packaging.
+#[derive(clap::Args, Debug)]
+pub struct BundleArgs {
+    /// Path to forjar.yaml
+    #[arg(short, long, default_value = "forjar.yaml")]
+    pub file: std::path::PathBuf,
+
+    /// Output archive path (default: dry-run manifest only)
+    #[arg(short, long)]
+    pub output: Option<std::path::PathBuf>,
+
+    /// Include state directory in bundle
+    #[arg(long)]
+    pub include_state: bool,
+}
+
+/// FJ-1407: Generate model card from config + state.
+#[derive(clap::Args, Debug)]
+pub struct ModelCardArgs {
+    /// Path to forjar.yaml
+    #[arg(short, long, default_value = "forjar.yaml")]
+    pub file: std::path::PathBuf,
+
+    /// State directory
+    #[arg(long, default_value = "state")]
+    pub state_dir: std::path::PathBuf,
+
+    /// Output as JSON
+    #[arg(long)]
+    pub json: bool,
+}
+
+/// FJ-1408: Agent-specific SBOM generation.
+#[derive(clap::Args, Debug)]
+pub struct AgentSbomArgs {
+    /// Path to forjar.yaml
+    #[arg(short, long, default_value = "forjar.yaml")]
+    pub file: std::path::PathBuf,
+
+    /// State directory
+    #[arg(long, default_value = "state")]
+    pub state_dir: std::path::PathBuf,
+
+    /// Output as JSON
+    #[arg(long)]
+    pub json: bool,
+}
+
 /// FJ-1401: Convergence proof from arbitrary state.
 #[derive(clap::Args, Debug)]
 pub struct ProveArgs {
