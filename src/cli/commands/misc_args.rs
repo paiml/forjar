@@ -180,6 +180,20 @@ pub struct DiffArgs {
     pub json: bool,
 }
 
+/// FJ-1389: Unified stack diff — resource, machine, param comparison.
+#[derive(clap::Args, Debug)]
+pub struct StackDiffArgs {
+    /// First config file
+    pub file1: PathBuf,
+
+    /// Second config file
+    pub file2: PathBuf,
+
+    /// Output as JSON
+    #[arg(long)]
+    pub json: bool,
+}
+
 #[derive(clap::Args, Debug)]
 pub struct FmtArgs {
     /// Path to forjar.yaml
@@ -224,6 +238,10 @@ pub struct RollbackArgs {
     #[arg(short = 'n', long, default_value = "1")]
     pub revision: u32,
 
+    /// FJ-1386: Rollback to a specific state generation (Nix-style)
+    #[arg(long)]
+    pub generation: Option<u32>,
+
     /// Target specific machine
     #[arg(short, long)]
     pub machine: Option<String>,
@@ -231,6 +249,10 @@ pub struct RollbackArgs {
     /// Show what would change without applying
     #[arg(long)]
     pub dry_run: bool,
+
+    /// Confirm destructive operation
+    #[arg(long)]
+    pub yes: bool,
 
     /// State directory
     #[arg(long, default_value = "state")]
@@ -365,3 +387,6 @@ pub struct ConfigMergeArgs {
     #[arg(long)]
     pub allow_collisions: bool,
 }
+
+// SecurityScan, Sbom, Cbom, Prove, Extract, PrivilegeAnalysis, Provenance, Lineage
+// args moved to misc_analysis_args.rs

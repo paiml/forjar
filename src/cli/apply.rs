@@ -99,9 +99,13 @@ pub(crate) fn cmd_apply(
         resource_timeout,
         rollback_on_failure,
         max_parallel,
+        trace: verbose,
     };
 
     maybe_auto_snapshot(&config, state_dir, dry_run, verbose);
+
+    // FJ-1388: Record pre-apply generation for rollback-on-failure
+    let pre_apply_gen = pre_apply_generation(state_dir);
 
     let t_apply = Instant::now();
     let results = executor::apply(&cfg)?;
@@ -141,6 +145,8 @@ pub(crate) fn cmd_apply(
     }
     check_convergence_budget(&config, dur_apply)?;
     if total_failed > 0 {
+        // FJ-1388: Generation-based rollback on failure
+        maybe_rollback_generation(rollback_on_failure, state_dir, pre_apply_gen, verbose);
         return Err(format!("{} resource(s) failed", total_failed));
     }
 
@@ -231,11 +237,22 @@ fn maybe_auto_snapshot(
         eprintln!("snapshot: saved {snap_name}");
     }
     gc_old_snapshots(state_dir, gens, verbose);
+
+    // FJ-1386: Also create a numbered generation for instant rollback
+    match super::generation::create_generation(state_dir) {
+        Ok(gen) => {
+            if verbose {
+                eprintln!("generation: created gen {gen}");
+            }
+            super::generation::gc_generations(state_dir, gens, verbose);
+        }
+        Err(e) => eprintln!("warning: generation creation failed: {e}"),
+    }
 }
 
 /// FJ-1381: Garbage-collect old snapshots, keeping only the newest `keep` snapshots.
 fn gc_old_snapshots(state_dir: &Path, keep: u32, verbose: bool) {
-    let snap_dir = state_dir.join(".snapshots");
+    let snap_dir = super::snapshot::snapshots_dir(state_dir);
     if !snap_dir.exists() {
         return;
     }
@@ -253,6 +270,31 @@ fn gc_old_snapshots(state_dir: &Path, keep: u32, verbose: bool) {
             eprintln!("snapshot gc: removing {}", entry.file_name().to_string_lossy());
         }
         let _ = std::fs::remove_dir_all(entry.path());
+    }
+}
+
+/// FJ-1388: Get the current generation number before apply starts.
+fn pre_apply_generation(state_dir: &Path) -> Option<u32> {
+    let gen_dir = state_dir.join("generations");
+    super::generation::current_generation(&gen_dir)
+}
+
+/// FJ-1388: Rollback to pre-apply generation on failure.
+fn maybe_rollback_generation(
+    rollback_on_failure: bool,
+    state_dir: &Path,
+    pre_apply_gen: Option<u32>,
+    verbose: bool,
+) {
+    if !rollback_on_failure {
+        return;
+    }
+    let Some(gen) = pre_apply_gen else { return };
+    eprintln!("rollback: restoring state to generation {gen}");
+    if let Err(e) = super::generation::rollback_to_generation(state_dir, gen, true) {
+        eprintln!("warning: generation rollback failed: {e}");
+    } else if verbose {
+        eprintln!("rollback: restored to generation {gen}");
     }
 }
 
@@ -358,6 +400,7 @@ fn apply_pre_validate(
     }
 
     check_policy_violations(config)?;
+    check_security_gate(config)?;
 
     // Run pre_apply hook
     if let Some(ref hook) = config.policy.pre_apply {
@@ -411,4 +454,37 @@ fn check_policy_violations(config: &types::ForjarConfig) -> Result<(), String> {
         eprintln!("  [{sev}] {}: {}", v.resource_id, v.rule_message);
     }
     Err(format!("policy violations block apply ({deny_count} denied)"))
+}
+
+/// FJ-1390: Run security scanner as pre-apply gate if policy.security_gate is set.
+fn check_security_gate(config: &types::ForjarConfig) -> Result<(), String> {
+    let threshold = match &config.policy.security_gate {
+        Some(t) => t.clone(),
+        None => return Ok(()),
+    };
+    let findings = crate::core::security_scanner::scan(config);
+    if findings.is_empty() {
+        return Ok(());
+    }
+    let (crit, high, med, _low) = crate::core::security_scanner::severity_counts(&findings);
+    let should_fail = match threshold.to_lowercase().as_str() {
+        "critical" => crit > 0,
+        "high" => crit + high > 0,
+        "medium" => crit + high + med > 0,
+        "low" => !findings.is_empty(),
+        _ => return Err(format!("unknown security_gate severity: {threshold}")),
+    };
+    if !should_fail {
+        return Ok(());
+    }
+    for f in &findings {
+        eprintln!(
+            "  [{:?}] {} ({}): {}",
+            f.severity, f.rule_id, f.resource_id, f.message
+        );
+    }
+    Err(format!(
+        "security gate blocks apply: {} findings at or above '{threshold}'",
+        findings.len()
+    ))
 }

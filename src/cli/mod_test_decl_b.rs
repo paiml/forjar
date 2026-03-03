@@ -312,3 +312,69 @@ mod tests_validate_store_purity;
 mod tests_validate_transport;
 #[cfg(test)]
 mod tests_workspace;
+#[cfg(test)]
+mod tests_sbom;
+#[cfg(test)]
+mod tests_cbom;
+#[cfg(test)]
+mod tests_prove;
+#[cfg(test)]
+mod tests_privilege_analysis;
+#[cfg(test)]
+mod tests_provenance;
+#[cfg(test)]
+mod tests_lineage;
+#[cfg(test)]
+mod tests_bundle;
+#[cfg(test)]
+mod tests_model_card;
+#[cfg(test)]
+mod tests_agent_sbom;
+#[cfg(test)]
+mod tests_repro_proof;
+#[cfg(test)]
+mod tests_data_freshness;
+#[cfg(test)]
+mod tests_data_validate;
+#[cfg(test)]
+mod tests_checkpoint;
+#[cfg(test)]
+mod tests_dataset_lineage;
+#[cfg(test)]
+mod tests_sovereignty;
+#[cfg(test)]
+mod tests_cost_estimate;
+#[cfg(test)]
+mod tests_model_eval;
+#[cfg(test)]
+mod tests_fault_inject;
+#[cfg(test)]
+mod tests_runtime_invariants;
+#[cfg(test)]
+mod tests_iso_export;
+#[cfg(test)]
+mod tests_state_import_brownfield;
+#[cfg(test)]
+mod tests_cross_machine_deps;
+#[cfg(test)]
+mod tests_remote_state;
+#[cfg(test)]
+mod tests_recipe_registry;
+#[cfg(test)]
+mod tests_service_catalog;
+#[cfg(test)]
+mod tests_multi_config;
+#[cfg(test)]
+mod tests_stack_dep_graph;
+#[cfg(test)]
+mod tests_infra_query;
+#[cfg(test)]
+mod tests_infra_query_live;
+#[cfg(test)]
+mod tests_recipe_signing;
+#[cfg(test)]
+mod tests_pq_signing;
+#[cfg(test)]
+mod tests_preservation_check;
+#[cfg(test)]
+mod tests_parallel_multi_stack;
