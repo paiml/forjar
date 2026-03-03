@@ -327,3 +327,91 @@ pub struct ModelEvalArgs {
     #[arg(long)]
     pub json: bool,
 }
+
+/// FJ-1420: Fault injection testing.
+#[derive(clap::Args, Debug)]
+pub struct FaultInjectArgs {
+    /// Path to forjar.yaml
+    #[arg(short, long, default_value = "forjar.yaml")]
+    pub file: std::path::PathBuf,
+
+    /// Target specific resource
+    #[arg(short, long)]
+    pub resource: Option<String>,
+
+    /// Output as JSON
+    #[arg(long)]
+    pub json: bool,
+}
+
+/// FJ-1421: Runtime invariant monitors.
+#[derive(clap::Args, Debug)]
+pub struct InvariantsArgs {
+    /// Path to forjar.yaml
+    #[arg(short, long, default_value = "forjar.yaml")]
+    pub file: std::path::PathBuf,
+
+    /// State directory
+    #[arg(short, long, default_value = "state")]
+    pub state_dir: std::path::PathBuf,
+
+    /// Output as JSON
+    #[arg(long)]
+    pub json: bool,
+}
+
+/// FJ-1422: ISO distribution export.
+#[derive(clap::Args, Debug)]
+pub struct IsoExportArgs {
+    /// Path to forjar.yaml
+    #[arg(short, long, default_value = "forjar.yaml")]
+    pub file: std::path::PathBuf,
+
+    /// State directory
+    #[arg(short, long, default_value = "state")]
+    pub state_dir: std::path::PathBuf,
+
+    /// Output directory
+    #[arg(short, long)]
+    pub output: std::path::PathBuf,
+
+    /// Include forjar binary in export
+    #[arg(long)]
+    pub include_binary: bool,
+
+    /// Output as JSON
+    #[arg(long)]
+    pub json: bool,
+}
+
+/// FJ-1423: Brownfield state import.
+#[derive(clap::Args, Debug)]
+pub struct ImportBrownfieldArgs {
+    /// Machine name or hostname
+    #[arg(short, long, default_value = "localhost")]
+    pub machine: String,
+
+    /// Resource types to scan (package, file, service)
+    #[arg(short, long)]
+    pub scan_types: Vec<String>,
+
+    /// Output config file path
+    #[arg(short, long)]
+    pub output: Option<std::path::PathBuf>,
+
+    /// Output as JSON
+    #[arg(long)]
+    pub json: bool,
+}
+
+/// FJ-1424: Cross-machine dependency analysis.
+#[derive(clap::Args, Debug)]
+pub struct CrossDepsArgs {
+    /// Path to forjar.yaml
+    #[arg(short, long, default_value = "forjar.yaml")]
+    pub file: std::path::PathBuf,
+
+    /// Output as JSON
+    #[arg(long)]
+    pub json: bool,
+}
