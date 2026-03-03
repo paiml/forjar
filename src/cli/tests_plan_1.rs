@@ -60,6 +60,7 @@ resources:
             false, // no cost,
             &[],   // what_if
             None,  // plan_out
+            false, // why
         )
         .unwrap();
     }
@@ -105,6 +106,7 @@ resources:
             false, // no cost,
             &[],   // what_if
             None,  // plan_out
+            false, // why
         )
         .unwrap();
     }
@@ -129,6 +131,7 @@ resources:
             cost: true,
             what_if: vec![],
             out: None,
+            why: false,
         });
         match cmd {
             Commands::Plan(PlanArgs { cost, .. }) => assert!(cost),
@@ -156,6 +159,7 @@ resources:
             cost: false,
             what_if: vec!["port=8080".to_string()],
             out: None,
+            why: false,
         });
         match cmd {
             Commands::Plan(PlanArgs { what_if, .. }) => {

@@ -57,6 +57,14 @@ pub struct Policy {
     #[serde(default = "default_one")]
     pub ssh_retries: u32,
 
+    /// FJ-1380: Convergence budget in seconds — warn/fail if apply exceeds this.
+    #[serde(default)]
+    pub convergence_budget: Option<u64>,
+
+    /// FJ-1381: Number of pre-apply state snapshots to retain (0 = disabled).
+    #[serde(default)]
+    pub snapshot_generations: Option<u32>,
+
     /// FJ-225: Notification hooks — shell commands run after apply/drift
     #[serde(default)]
     pub notify: NotifyConfig,
@@ -94,6 +102,8 @@ impl Default for Policy {
             serial: None,
             max_fail_percentage: None,
             ssh_retries: 1,
+            convergence_budget: None,
+            snapshot_generations: None,
             notify: NotifyConfig::default(),
         }
     }

@@ -261,6 +261,7 @@ pub(crate) fn dispatch_apply_cmd(cmd: Commands, verbose: bool) -> Result<(), Str
             false,
             &[],
             None,
+            false,
         );
     }
     if let Some(ref dir) = output_scripts {
@@ -281,6 +282,7 @@ pub(crate) fn dispatch_apply_cmd(cmd: Commands, verbose: bool) -> Result<(), Str
             false,
             &[],
             None,
+            false,
         );
     }
     if backup {
@@ -309,6 +311,7 @@ pub(crate) fn dispatch_apply_cmd(cmd: Commands, verbose: bool) -> Result<(), Str
             false,
             &[],
             None,
+            false,
         );
     }
     if check {

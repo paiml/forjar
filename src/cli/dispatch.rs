@@ -38,6 +38,7 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
             cost,
             what_if,
             out,
+            why,
         }) => {
             let sd = resolve_state_dir(&state_dir, workspace.as_deref());
             cmd_plan(
@@ -56,6 +57,7 @@ pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), Stri
                 cost,
                 &what_if,
                 out.as_deref(),
+                why,
             )
         }
         cmd @ Commands::Apply(..) => dispatch_apply_cmd(cmd, verbose),

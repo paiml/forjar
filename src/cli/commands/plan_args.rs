@@ -63,6 +63,10 @@ pub struct PlanArgs {
     /// FJ-1250: Write plan to file for later execution with `apply --plan-file`
     #[arg(long)]
     pub out: Option<PathBuf>,
+
+    /// FJ-1379: Show per-resource explanation of why each change is needed
+    #[arg(long)]
+    pub why: bool,
 }
 
 #[derive(clap::Args, Debug)]

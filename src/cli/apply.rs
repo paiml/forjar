@@ -77,6 +77,7 @@ pub(crate) fn cmd_apply(
         tag_filter,
         confirm_destructive,
         dry_run,
+        force,
         yes,
         verbose,
     )?;
@@ -99,6 +100,8 @@ pub(crate) fn cmd_apply(
         rollback_on_failure,
         max_parallel,
     };
+
+    maybe_auto_snapshot(&config, state_dir, dry_run, verbose);
 
     let t_apply = Instant::now();
     let results = executor::apply(&cfg)?;
@@ -136,6 +139,7 @@ pub(crate) fn cmd_apply(
     if timing {
         print_timing(dur_parse, dur_apply, t_total.elapsed());
     }
+    check_convergence_budget(&config, dur_apply)?;
     if total_failed > 0 {
         return Err(format!("{} resource(s) failed", total_failed));
     }
@@ -209,6 +213,112 @@ fn check_state_integrity(state_dir: &Path, verbose: bool, yes: bool) -> Result<(
     Ok(())
 }
 
+/// FJ-1381: Auto-snapshot before apply if snapshot_generations is set.
+fn maybe_auto_snapshot(
+    config: &types::ForjarConfig,
+    state_dir: &Path,
+    dry_run: bool,
+    verbose: bool,
+) {
+    let Some(gens) = config.policy.snapshot_generations else { return };
+    if gens == 0 || dry_run || !state_dir.exists() {
+        return;
+    }
+    let snap_name = format!("pre-apply-{}", crate::tripwire::eventlog::now_iso8601());
+    if let Err(e) = super::snapshot::cmd_snapshot_save(&snap_name, state_dir) {
+        eprintln!("warning: pre-apply snapshot failed: {e}");
+    } else if verbose {
+        eprintln!("snapshot: saved {snap_name}");
+    }
+    gc_old_snapshots(state_dir, gens, verbose);
+}
+
+/// FJ-1381: Garbage-collect old snapshots, keeping only the newest `keep` snapshots.
+fn gc_old_snapshots(state_dir: &Path, keep: u32, verbose: bool) {
+    let snap_dir = state_dir.join(".snapshots");
+    if !snap_dir.exists() {
+        return;
+    }
+    let mut entries: Vec<_> = match std::fs::read_dir(&snap_dir) {
+        Ok(e) => e.flatten().filter(|e| e.path().is_dir()).collect(),
+        Err(_) => return,
+    };
+    if entries.len() <= keep as usize {
+        return;
+    }
+    entries.sort_by_key(|e| e.file_name());
+    let to_remove = entries.len() - keep as usize;
+    for entry in entries.iter().take(to_remove) {
+        if verbose {
+            eprintln!("snapshot gc: removing {}", entry.file_name().to_string_lossy());
+        }
+        let _ = std::fs::remove_dir_all(entry.path());
+    }
+}
+
+/// FJ-1380: Check convergence budget — warn/fail if apply exceeded time budget.
+fn check_convergence_budget(
+    config: &types::ForjarConfig,
+    dur_apply: std::time::Duration,
+) -> Result<(), String> {
+    if let Some(budget_secs) = config.policy.convergence_budget {
+        let elapsed = dur_apply.as_secs();
+        if elapsed > budget_secs {
+            eprintln!(
+                "ERROR: convergence budget exceeded — budget {}s, actual {}s",
+                budget_secs, elapsed
+            );
+            return Err(format!(
+                "convergence budget exceeded: {}s > {}s",
+                elapsed, budget_secs
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// FJ-1378: Pre-apply drift gate — block apply if live state has drifted.
+/// Uses local file hashing only (no SSH). Skip with --force or --no-tripwire.
+fn check_pre_apply_drift(
+    config: &types::ForjarConfig,
+    state_dir: &Path,
+    machine_filter: Option<&str>,
+    force: bool,
+    verbose: bool,
+) -> Result<(), String> {
+    if !config.policy.tripwire || force {
+        return Ok(());
+    }
+    let locks = load_machine_locks(config, state_dir, machine_filter)?;
+    let mut total_drift = 0usize;
+    for (machine_name, lock) in &locks {
+        let findings =
+            crate::tripwire::drift::detect_drift(lock);
+        if !findings.is_empty() {
+            total_drift += findings.len();
+            for f in &findings {
+                eprintln!(
+                    "  drift: [{}] {} — {}",
+                    machine_name, f.resource_id, f.detail
+                );
+            }
+        }
+    }
+    if total_drift > 0 {
+        if verbose {
+            eprintln!(
+                "{} resource(s) drifted — run 'forjar drift' for details",
+                total_drift
+            );
+        }
+        return Err(format!(
+            "{} drift finding(s) block apply — use --force to override",
+            total_drift
+        ));
+    }
+    Ok(())
+}
+
 /// Pre-apply validation: policies, confirmation, hooks.
 #[allow(clippy::too_many_arguments)]
 fn apply_pre_validate(
@@ -218,10 +328,12 @@ fn apply_pre_validate(
     tag_filter: Option<&str>,
     confirm_destructive: bool,
     dry_run: bool,
+    force: bool,
     yes: bool,
     verbose: bool,
 ) -> Result<(), String> {
     check_state_integrity(state_dir, verbose, yes)?;
+    check_pre_apply_drift(config, state_dir, machine_filter, force, verbose)?;
 
     // FJ-335: Confirm destructive actions
     if confirm_destructive && !dry_run && !yes {
@@ -245,35 +357,7 @@ fn apply_pre_validate(
         }
     }
 
-    // FJ-220: Evaluate policy rules before apply
-    if !config.policies.is_empty() {
-        let violations = parser::evaluate_policies(config);
-        let has_deny = violations.iter().any(|v| {
-            matches!(
-                v.severity,
-                types::PolicyRuleType::Deny | types::PolicyRuleType::Require
-            )
-        });
-        if has_deny {
-            for v in &violations {
-                let sev = match v.severity {
-                    types::PolicyRuleType::Deny | types::PolicyRuleType::Require => "DENY",
-                    types::PolicyRuleType::Warn => "WARN",
-                };
-                eprintln!("  [{}] {}: {}", sev, v.resource_id, v.rule_message);
-            }
-            return Err(format!(
-                "policy violations block apply ({} denied)",
-                violations
-                    .iter()
-                    .filter(|v| matches!(
-                        v.severity,
-                        types::PolicyRuleType::Deny | types::PolicyRuleType::Require
-                    ))
-                    .count()
-            ));
-        }
-    }
+    check_policy_violations(config)?;
 
     // Run pre_apply hook
     if let Some(ref hook) = config.policy.pre_apply {
@@ -304,4 +388,27 @@ fn apply_pre_validate(
     }
 
     Ok(())
+}
+
+/// FJ-220: Check policy rules and block apply if any deny/require violations exist.
+fn check_policy_violations(config: &types::ForjarConfig) -> Result<(), String> {
+    if config.policies.is_empty() {
+        return Ok(());
+    }
+    let violations = parser::evaluate_policies(config);
+    let is_deny = |v: &types::PolicyViolation| {
+        matches!(
+            v.severity,
+            types::PolicyRuleType::Deny | types::PolicyRuleType::Require
+        )
+    };
+    let deny_count = violations.iter().filter(|v| is_deny(v)).count();
+    if deny_count == 0 {
+        return Ok(());
+    }
+    for v in &violations {
+        let sev = if is_deny(v) { "DENY" } else { "WARN" };
+        eprintln!("  [{sev}] {}: {}", v.resource_id, v.rule_message);
+    }
+    Err(format!("policy violations block apply ({deny_count} denied)"))
 }

@@ -200,6 +200,7 @@ mod tests {
             cost: false,
             what_if: vec![],
             out: None,
+            why: false,
         };
         let _ = format!("{:?}", a);
     }

@@ -27,6 +27,7 @@ pub(crate) fn cmd_plan(
     cost: bool,
     what_if: &[String],
     plan_out: Option<&Path>,
+    why: bool,
 ) -> Result<(), String> {
     let mut config = parse_and_validate(file)?;
 
@@ -88,6 +89,10 @@ pub(crate) fn cmd_plan(
         save_plan_file(&plan, &config, file, out_path)?;
         println!("Plan saved to {}", out_path.display());
         return Ok(());
+    }
+
+    if why {
+        print_why_explanation(&config, &locks, &execution_order, tag_filter);
     }
 
     if json {
@@ -396,4 +401,59 @@ pub(crate) fn load_plan_file(
         to_destroy: doc.get("to_destroy").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
         unchanged: doc.get("unchanged").and_then(|v| v.as_u64()).unwrap_or(0) as u32,
     })
+}
+
+/// FJ-1379: Print per-resource --why explanation.
+fn print_why_explanation(
+    config: &types::ForjarConfig,
+    locks: &std::collections::HashMap<String, types::StateLock>,
+    execution_order: &[String],
+    tag_filter: Option<&str>,
+) {
+    println!("\n{}", bold("Change Explanations (--why):"));
+    let reasons = collect_why_reasons(config, locks, execution_order, tag_filter);
+    for reason in &reasons {
+        let icon = action_icon(&reason.action);
+        println!("  {} {} on {}", icon, reason.resource_id, reason.machine);
+        for r in &reason.reasons {
+            println!("    {}", dim(&format!("- {r}")));
+        }
+    }
+    println!();
+}
+
+/// Collect non-noop change reasons for all matching resources.
+fn collect_why_reasons(
+    config: &types::ForjarConfig,
+    locks: &std::collections::HashMap<String, types::StateLock>,
+    execution_order: &[String],
+    tag_filter: Option<&str>,
+) -> Vec<crate::core::planner::why::ChangeReason> {
+    use crate::core::planner::why;
+    let mut results = Vec::new();
+    for resource_id in execution_order {
+        let Some(resource) = config.resources.get(resource_id) else { continue };
+        if let Some(tag) = tag_filter {
+            if !resource.tags.iter().any(|t| t == tag) {
+                continue;
+            }
+        }
+        for machine_name in resource.machine.to_vec() {
+            let reason = why::explain_why(resource_id, resource, &machine_name, locks);
+            if reason.action != types::PlanAction::NoOp {
+                results.push(reason);
+            }
+        }
+    }
+    results
+}
+
+/// Action icon for display.
+fn action_icon(action: &types::PlanAction) -> String {
+    match action {
+        types::PlanAction::Create => green("+"),
+        types::PlanAction::Update => yellow("~"),
+        types::PlanAction::Destroy => red("-"),
+        types::PlanAction::NoOp => dim("="),
+    }
 }

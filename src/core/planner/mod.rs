@@ -356,6 +356,13 @@ fn apply_moved_blocks(
     result
 }
 
+pub mod reversibility;
+pub mod why;
+
+#[cfg(test)]
+mod tests_reversibility;
+#[cfg(test)]
+mod tests_why;
 #[cfg(test)]
 mod tests_advanced;
 #[cfg(test)]

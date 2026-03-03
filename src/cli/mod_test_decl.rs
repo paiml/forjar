@@ -268,3 +268,5 @@ mod tests_fleet_ops_1;
 mod tests_fleet_ops_b;
 #[cfg(test)]
 mod tests_fleet_reporting;
+#[cfg(test)]
+mod tests_apply_drift_gate;

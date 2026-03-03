@@ -319,6 +319,7 @@ resources:
             cost: false,
             what_if: vec![],
             out: None,
+            why: false,
         });
         match cmd {
             Commands::Plan(PlanArgs { target, .. }) => {
