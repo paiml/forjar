@@ -1626,6 +1626,59 @@ Example output:
 
 Checks are context-aware — SSH is only checked if your config has remote machines, Docker only if you have container machines, and age identity only if your config contains `ENC[age,...]` markers.
 
+## Security Scanning and Policy Gates
+
+Forjar includes a static IaC security scanner (`forjar security-scan`) that detects security smells in your configs before deployment.
+
+### Scan a Config
+
+```bash
+# Scan for all security issues
+forjar security-scan -f infra.yaml
+
+# JSON output for CI integration
+forjar security-scan -f infra.yaml --json
+
+# Fail CI on critical/high findings
+forjar security-scan -f infra.yaml --fail-on high
+```
+
+### Security Rules
+
+| Rule | Category | Severity | Description |
+|------|----------|----------|-------------|
+| SS-1 | Hard-coded secrets | Critical | Passwords, tokens, API keys in plain text |
+| SS-2 | HTTP without TLS | High | Unencrypted HTTP URLs (use HTTPS) |
+| SS-3 | World-accessible | High | File permissions allowing world access |
+| SS-4 | Missing integrity check | Medium | External files without BLAKE3 verification |
+| SS-5 | Privileged container | Critical | Docker running with elevated permissions |
+| SS-6 | No resource limits | Low | Containers without CPU/memory bounds |
+| SS-7 | Weak cryptography | High | MD5, SHA1, DES, RC4, SSLv3, TLSv1.0 |
+| SS-8 | Insecure protocol | High | telnet://, ftp://, rsh:// in configs |
+| SS-9 | Unrestricted network | Medium | Binding to 0.0.0.0 (all interfaces) |
+| SS-10 | Sensitive data | Critical | PII patterns (SSN, credit card numbers) |
+
+### Pre-Apply Security Gate
+
+Add `security_gate` to your policy to block applies with security findings:
+
+```yaml
+version: "1.0"
+name: secure-infra
+
+policy:
+  security_gate: high  # Block on critical or high findings
+
+resources:
+  web-config:
+    type: file
+    machine: web-server
+    target: /etc/nginx/nginx.conf
+    source: https://example.com/nginx.conf  # SS-4: needs integrity check
+```
+
+With `security_gate: high`, `forjar apply` will refuse to run if any critical or high severity findings exist. Severity thresholds: `critical`, `high`, `medium`, `low`.
+
 ## Cookbook Recipe Index
 
 The `examples/cookbook/` directory contains validated recipes covering common infrastructure patterns:
@@ -1747,3 +1800,220 @@ forjar apply -f 74-agent-deployment.yaml \
 ```
 
 Layers: base packages, model cache directory, agent config, MCP tools config, health check. All parameterized for any model/GPU combination.
+
+## Sudo Elevation and SBOM Generation
+
+### Per-Resource Sudo Elevation
+
+Use the `sudo: true` field on any resource to run its apply script with elevated privileges:
+
+```yaml
+resources:
+  system-packages:
+    type: package
+    machine: web
+    provider: apt
+    packages: [nginx, curl, htop]
+    sudo: true    # Runs apt-get with sudo when non-root
+
+  nginx-config:
+    type: file
+    machine: web
+    path: /etc/nginx/nginx.conf
+    source: configs/nginx.conf
+    sudo: true    # Needs sudo for /etc/ writes
+
+  app-config:
+    type: file
+    machine: web
+    path: /home/app/config.yaml
+    source: configs/app.yaml
+    # No sudo needed — user-writable path
+```
+
+When `sudo: true`, forjar wraps the generated script:
+- If already root (`id -u == 0`): runs script as-is
+- If non-root: wraps with `sudo bash -c '...'`
+
+### SBOM Generation
+
+Generate a Software Bill of Materials for all managed infrastructure:
+
+```bash
+# Text table output
+forjar sbom -f forjar.yaml
+
+# SPDX 2.3 JSON output (machine-readable)
+forjar sbom -f forjar.yaml --json
+
+# With state directory for BLAKE3 hashes
+forjar sbom -f forjar.yaml --state-dir state --json > sbom.spdx.json
+```
+
+The SBOM includes:
+- **Package resources**: Each package with provider and version
+- **Docker images**: Image name, tag, and content hash
+- **Model artifacts**: Source URL, version, and BLAKE3 checksum
+- **File resources with sources**: Downloaded files with state hashes
+
+## Debug Trace Mode
+
+Use `--trace` on apply to print generated scripts before execution:
+
+```bash
+forjar apply --trace
+
+# Output includes:
+# [TRACE] base-packages script:
+# set -euo pipefail
+# ...apt-get install...
+# [TRACE] nginx-config script:
+# set -euo pipefail
+# ...base64 -d...
+```
+
+Trace mode implies `--verbose` and shows the full bash script that will be sent to each transport (local, SSH, container).
+
+## Cryptographic Bill of Materials (CBOM)
+
+Generate a cryptographic inventory of all algorithms used in your infrastructure:
+
+```bash
+# Text table output
+forjar cbom
+
+# JSON output
+forjar cbom --json
+```
+
+CBOM automatically detects:
+- **BLAKE3** — State hashing and resource integrity
+- **X25519/age** — Secrets encryption
+- **Ed25519/RSA** — SSH transport keys
+- **X.509/TLS** — Certificate management
+- **SHA-256** — Docker image digests
+
+## Convergence Proof
+
+Prove that your configuration will converge from any reachable state:
+
+```bash
+# Prove convergence for all resources
+forjar prove
+
+# Prove for a specific machine
+forjar prove --machine web-01
+
+# JSON output for CI integration
+forjar prove --json
+```
+
+The convergence proof validates five properties:
+1. **Codegen completeness** — All resources produce check/apply/state_query scripts
+2. **DAG acyclicity** — No circular dependencies
+3. **State coverage** — Resources have corresponding state entries
+4. **Hash determinism** — Same config produces identical state_query scripts
+5. **Idempotency structure** — Apply scripts use `set -euo pipefail`
+
+## Least-Privilege Analysis
+
+Analyze the minimum permissions required per resource:
+
+```bash
+# Text output — shows which resources need root
+forjar privilege-analysis
+
+# Filter to a specific machine
+forjar privilege-analysis --machine web-01
+
+# JSON output for CI integration
+forjar privilege-analysis --json
+```
+
+Reports privilege levels: `unprivileged`, `system-write`, `package-manager`, `service-control`, `network-config`, `sudo`.
+
+## SLSA Provenance Attestation
+
+Generate in-toto-style SLSA Level 3 provenance attestations:
+
+```bash
+# Generate provenance attestation
+forjar provenance
+
+# JSON output (in-toto v0.1 format)
+forjar provenance --json
+
+# Scoped to one machine
+forjar provenance --machine web-01
+```
+
+Links config BLAKE3 hash -> plan hash -> state hashes in a tamper-evident chain.
+
+## Merkle DAG Lineage
+
+Visualize the Merkle tree over your dependency graph:
+
+```bash
+# Show Merkle hashes for each resource
+forjar lineage
+
+# JSON output with merkle_root
+forjar lineage --json
+```
+
+Each node's hash incorporates its dependencies' hashes, so any change propagates up the Merkle tree — enabling tamper detection of the full dependency chain.
+
+## Recipe Bundles
+
+Package your config with all dependencies for air-gap transfer:
+
+```bash
+# Dry-run: show bundle manifest
+forjar bundle
+
+# Include state files
+forjar bundle --include-state
+
+# Write to file
+forjar bundle --output my-stack.tar
+```
+
+Each file gets a BLAKE3 hash for integrity verification during transfer.
+
+## Model Card Generation
+
+Generate model cards documenting ML resources in your stack:
+
+```bash
+# Text output
+forjar model-card
+
+# JSON output
+forjar model-card --json
+```
+
+Detects model resources by type, tags (`ml`, `model`), or resource group (`models`).
+
+## Agent SBOM
+
+Generate an agent-specific bill of materials:
+
+```bash
+# Text output
+forjar agent-sbom
+
+# JSON output
+forjar agent-sbom --json
+```
+
+Detects: model resources, GPU runtimes, MCP/pforge-tagged services, agent containers, inference services.
+
+## SVG Graph Export
+
+Export your dependency graph as a standalone SVG image:
+
+```bash
+forjar graph --format svg > graph.svg
+```
+
+The SVG output includes color-coded nodes by resource type, arrow markers for dependencies, and a grid layout — no external renderer required.

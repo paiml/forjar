@@ -159,6 +159,7 @@ resources:
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
+            trace: false,
     };
     let r1 = apply(&cfg1).unwrap();
     assert_eq!(r1[0].resources_converged, 2);
@@ -208,6 +209,7 @@ resources:
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
+            trace: false,
     };
     let r3 = apply(&cfg3).unwrap();
     // config changed → converges. app unchanged but triggers: [config] → also converges
@@ -262,6 +264,7 @@ resources:
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
+            trace: false,
     };
     let r1 = apply(&cfg).unwrap();
     assert_eq!(r1[0].resources_converged, 2);
@@ -322,6 +325,7 @@ resources:
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
+            trace: false,
     };
     let r1 = apply(&cfg1).unwrap();
     assert_eq!(r1[0].resources_converged, 3);
@@ -346,6 +350,7 @@ resources:
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
+            trace: false,
     };
     let r2 = apply(&cfg2).unwrap();
     // db-config changed (converged), app-config unchanged, service triggered
@@ -400,6 +405,7 @@ resources:
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
+            trace: false,
     };
     let r1 = apply(&cfg).unwrap();
     assert_eq!(r1[0].resources_converged, 2);
@@ -450,6 +456,7 @@ resources:
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
+            trace: false,
     };
     let r2 = apply(&cfg2).unwrap();
     assert_eq!(

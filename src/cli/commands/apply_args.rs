@@ -136,6 +136,10 @@ pub struct ApplyArgs {
     #[arg(long)]
     pub sequential: bool,
 
+    /// FJ-1397: Debug trace mode — print generated scripts and transport details
+    #[arg(long)]
+    pub trace: bool,
+
     /// FJ-350: Show what would change without generating scripts (faster than dry-run)
     #[arg(long)]
     pub diff_only: bool,

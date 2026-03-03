@@ -65,6 +65,7 @@ resources: {}
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
+            trace: false,
     };
     let results = apply(&cfg).unwrap();
     // No resources → no machines collected → empty results
@@ -93,6 +94,7 @@ fn test_fj131_apply_machine_filter_no_match() {
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
+            trace: false,
     };
     let results = apply(&cfg).unwrap();
     assert!(
@@ -238,6 +240,7 @@ fn test_fj131_build_details_group_only() {
         post_apply: None,
         lifecycle: None,
         store: false,
+            sudo: false,
         script: None,
     };
     let details = build_resource_details(&r, &local_machine());
@@ -317,6 +320,7 @@ policy:
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
+            trace: false,
     };
     let results = apply(&cfg).unwrap();
     assert_eq!(results.len(), 1);

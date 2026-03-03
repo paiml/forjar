@@ -312,3 +312,21 @@ mod tests_validate_store_purity;
 mod tests_validate_transport;
 #[cfg(test)]
 mod tests_workspace;
+#[cfg(test)]
+mod tests_sbom;
+#[cfg(test)]
+mod tests_cbom;
+#[cfg(test)]
+mod tests_prove;
+#[cfg(test)]
+mod tests_privilege_analysis;
+#[cfg(test)]
+mod tests_provenance;
+#[cfg(test)]
+mod tests_lineage;
+#[cfg(test)]
+mod tests_bundle;
+#[cfg(test)]
+mod tests_model_card;
+#[cfg(test)]
+mod tests_agent_sbom;

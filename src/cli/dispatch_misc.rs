@@ -61,6 +61,9 @@ pub(crate) fn dispatch_misc_cmd(cmd: Commands, verbose: bool) -> Result<(), Stri
             resource,
             json,
         }) => cmd_diff(&from, &to, machine.as_deref(), resource.as_deref(), json),
+        Commands::StackDiff(StackDiffArgs { file1, file2, json }) => {
+            super::stack_diff::cmd_stack_diff(&file1, &file2, json)
+        }
         Commands::Check(CheckArgs {
             file,
             machine,
@@ -86,17 +89,18 @@ pub(crate) fn dispatch_misc_cmd(cmd: Commands, verbose: bool) -> Result<(), Stri
         Commands::Rollback(RollbackArgs {
             file,
             revision,
+            generation,
             machine,
             dry_run,
+            yes,
             state_dir,
-        }) => cmd_rollback(
-            &file,
-            &state_dir,
-            revision,
-            machine.as_deref(),
-            dry_run,
-            verbose,
-        ),
+        }) => {
+            if let Some(gen) = generation {
+                super::generation::rollback_to_generation(&state_dir, gen, yes)
+            } else {
+                cmd_rollback(&file, &state_dir, revision, machine.as_deref(), dry_run, verbose)
+            }
+        }
         Commands::Anomaly(AnomalyArgs {
             state_dir,
             machine,
@@ -199,6 +203,7 @@ pub(crate) fn dispatch_misc_cmd(cmd: Commands, verbose: bool) -> Result<(), Stri
             verbose,
         ),
         Commands::Snapshot(sub) => dispatch_snapshot(sub),
+        Commands::Generation(sub) => dispatch_generation(sub),
         Commands::Inventory(InventoryArgs { file, json }) => cmd_inventory(&file, json),
         Commands::RetryFailed(RetryFailedArgs {
             file,
@@ -269,6 +274,67 @@ pub(crate) fn dispatch_misc_cmd(cmd: Commands, verbose: bool) -> Result<(), Stri
             output.as_deref(),
             allow_collisions,
         ),
+        Commands::Extract(ExtractArgs {
+            file,
+            tags,
+            group,
+            glob,
+            output,
+            json,
+        }) => super::extract::cmd_extract(
+            &file,
+            tags.as_deref(),
+            group.as_deref(),
+            glob.as_deref(),
+            output.as_deref(),
+            json,
+        ),
+        Commands::SecurityScan(SecurityScanArgs { file, json, fail_on }) => {
+            super::security_scan::cmd_security_scan(&file, json, fail_on.as_deref())
+        }
+        Commands::Sbom(SbomArgs {
+            file,
+            state_dir,
+            json,
+        }) => super::sbom::cmd_sbom(&file, &state_dir, json),
+        Commands::Cbom(CbomArgs {
+            file,
+            state_dir,
+            json,
+        }) => super::cbom::cmd_cbom(&file, &state_dir, json),
+        Commands::Prove(ProveArgs {
+            file,
+            state_dir,
+            machine,
+            json,
+        }) => super::prove::cmd_prove(&file, &state_dir, machine.as_deref(), json),
+        Commands::PrivilegeAnalysis(PrivilegeAnalysisArgs { file, machine, json }) => {
+            super::privilege_analysis::cmd_privilege_analysis(&file, machine.as_deref(), json)
+        }
+        Commands::Provenance(ProvenanceArgs {
+            file,
+            state_dir,
+            machine,
+            json,
+        }) => super::provenance::cmd_provenance(&file, &state_dir, machine.as_deref(), json),
+        Commands::Lineage(LineageArgs { file, json }) => {
+            super::lineage::cmd_lineage(&file, json)
+        }
+        Commands::Bundle(BundleArgs {
+            file,
+            output,
+            include_state,
+        }) => super::bundle::cmd_bundle(&file, output.as_deref(), include_state),
+        Commands::ModelCard(ModelCardArgs {
+            file,
+            state_dir,
+            json,
+        }) => super::model_card::cmd_model_card(&file, &state_dir, json),
+        Commands::AgentSbom(AgentSbomArgs {
+            file,
+            state_dir,
+            json,
+        }) => super::agent_sbom::cmd_agent_sbom(&file, &state_dir, json),
         _ => Err("unknown command".to_string()),
     }
 }
@@ -320,5 +386,16 @@ fn dispatch_snapshot(sub: SnapshotCmd) -> Result<(), String> {
             yes,
         } => cmd_snapshot_restore(&name, &state_dir, yes),
         SnapshotCmd::Delete { name, state_dir } => cmd_snapshot_delete(&name, &state_dir),
+    }
+}
+
+fn dispatch_generation(sub: GenerationCmd) -> Result<(), String> {
+    use super::generation;
+    match sub {
+        GenerationCmd::List { state_dir, json } => generation::list_generations(&state_dir, json),
+        GenerationCmd::Gc { keep, state_dir } => {
+            generation::gc_generations(&state_dir, keep, true);
+            Ok(())
+        }
     }
 }
