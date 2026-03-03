@@ -89,6 +89,7 @@ mod plan;
 mod print_helpers;
 mod score;
 mod secrets;
+mod sbom;
 mod security_scan;
 mod show;
 mod snapshot;
