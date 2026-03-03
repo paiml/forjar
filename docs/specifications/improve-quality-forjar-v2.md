@@ -3,7 +3,7 @@
 **Version**: 2.0.0-draft
 **Date**: 2026-03-03
 **Status**: Planning
-**Scorecard**: **155/166** features implemented (target: 166/166)
+**Scorecard**: **161/166** features implemented (target: 166/166)
 
 ---
 
@@ -72,8 +72,8 @@
 
 | # | Feature | Principles | Status | Notes |
 |---|---------|-----------|--------|-------|
-| 27 | **`forjar query` — ad-hoc infrastructure search** — Semantic and structured queries over fleet state: filter by machine glob, resource type, status, staleness, regex on IDs, `--include-details`, `--json`. Mirrors `pmat query` for code but over infrastructure state. Replaces 80 hardcoded `status --*` flags with one composable query engine | A, E, F | ❌ | Currently 80+ canned `cmd_status_*` functions; no composable query |
-| 28 | **`forjar query` — live mode** — Query live infrastructure state via parallel SSH (not just cached lock files). `forjar query "nginx" --live` runs `state_query_script` across fleet concurrently, returns real-time results | D, F | ❌ | `state_query_script` exists per resource type but no query orchestrator |
+| 27 | **`forjar query` — ad-hoc infrastructure search** — Semantic and structured queries over fleet state: filter by machine glob, resource type, status, staleness, regex on IDs, `--include-details`, `--json`. Mirrors `pmat query` for code but over infrastructure state. Replaces 80 hardcoded `status --*` flags with one composable query engine | A, E, F | ✅ | `forjar query --pattern/--type/--machine/--tag --details --json`; composable filter engine; 4 tests in `tests_infra_query.rs` |
+| 28 | **`forjar query` — live mode** — Query live infrastructure state via parallel SSH (not just cached lock files). `forjar query "nginx" --live` runs `state_query_script` across fleet concurrently, returns real-time results | D, F | ✅ | `forjar query --live` probes resources via SSH; LiveStatus enum (Running/Stopped/Changed/Unreachable/Unknown); 4 tests in `tests_infra_query_live.rs` |
 
 ### Category 3: Security and Trust (29–41)
 
@@ -84,10 +84,10 @@
 | 28 | **No plaintext secrets in logs** — Secrets redacted from event logs and plan output | C, D | ✅ | Age-encrypted markers only |
 | 29 | **SBOM generation for managed infrastructure** — Auto-generate Software Bill of Materials (SPDX/CycloneDX) after every apply | A, D | ✅ | `forjar sbom`: SPDX 2.3 JSON output; collects packages, docker images, models, files with sources; BLAKE3 hashes from state locks; `--json` for SPDX, text table default; 5 tests |
 | 30 | **SLSA Level 3 provenance attestation** — in-toto signed attestations linking source recipe → plan → applied state | A, D | ✅ | `forjar provenance` generates in-toto v0.1 attestation linking config BLAKE3 -> plan hash -> state hashes |
-| 31 | **Cryptographic recipe signing (Sigstore/GPG)** — Sign recipes with OIDC identity; verify before apply | A, B, D | ❌ | No recipe signing |
+| 31 | **Cryptographic recipe signing (Sigstore/GPG)** — Sign recipes with OIDC identity; verify before apply | A, B, D | ✅ | `forjar sign` with BLAKE3-HMAC; sign/verify workflow; tamper detection; `.sig.json` sidecars; 6 tests in `tests_recipe_signing.rs` |
 | 32 | **Transparency log for all applies** — Append-only tamper-evident log of every `forjar apply` with operator identity | A, D | ✅ | BLAKE3 chain hashing in `tripwire/chain.rs`; `.chain` sidecars; `verify_all_chains()`; 8 tests |
 | 33 | **CBOM (Cryptographic Bill of Materials)** — Inventory all crypto algorithms, key lengths, certificates on managed systems | A, D | ✅ | `forjar cbom` scans BLAKE3, age/X25519, SSH, TLS, docker digests |
-| 34 | **Post-quantum dual signing** — Ed25519 + SLH-DSA (SPHINCS+) for quantum transition readiness | A, D | ❌ | BLAKE3 is quantum-resistant for hashing; no PQ signatures |
+| 34 | **Post-quantum dual signing** — Ed25519 + SLH-DSA (SPHINCS+) for quantum transition readiness | A, D | ✅ | `forjar sign --pq` dual signing (classical BLAKE3-HMAC + SLH-DSA placeholder); `.dual-sig.json` sidecars; 6 tests in `tests_pq_signing.rs` |
 | 35 | **Policy-as-code enforcement** — Pre-apply gates that evaluate security/compliance policies against the plan | A, D, E | ✅ | `policies:` rules with Require/Deny/Warn evaluated by `check_policy_violations()`; `policy.security_gate: high` blocks apply via `check_security_gate()` running 10-rule scanner; `--check-security` + `--check-compliance` on validate |
 | 36 | **Encrypted state files** — Client-side encryption of lock files and event logs at rest | B, D | ✅ | `encrypt_state_files()`/`decrypt_state_files()` via `age` CLI; `--encrypt-state` flag; `FORJAR_AGE_KEY`/`FORJAR_AGE_IDENTITY` env vars |
 | 37 | **Static IaC security scanner** — Detect the 62 IaC security smell categories (hard-coded secrets, HTTP without TLS, etc.) | C, D | ✅ | `forjar security-scan`: 10 rules (SS-1 hard-coded secrets, SS-2 HTTP without TLS, SS-3 world-accessible, SS-4 missing integrity check, SS-5 privileged container, SS-6 no resource limits, SS-7 weak crypto, SS-8 insecure protocol, SS-9 unrestricted network, SS-10 sensitive data); `--fail-on` severity threshold; `--json`; 30 tests |
@@ -105,7 +105,7 @@
 | 44 | **Verus-verified reconciliation loop** — Machine-checked proof that observe-diff-apply terminates and converges | A, C | ❌ | Tested but not formally verified |
 | 45 | **SAT/SMT-based dependency resolution** — Prove satisfiability of resource constraints; exact conflict diagnosis | A, E | ❌ | Topological sort; no SAT solver |
 | 46 | **Minimal change set computation** — SMT solver computes provably minimal set of resource mutations | A, E, F | ❌ | Hash-based change detection; not provably minimal |
-| 47 | **Automated preservation checking** — Verify pairwise resource preservation: applying A doesn't invalidate B's postcondition | A | ❌ | Not implemented; from Hanappi & Hummer OOPSLA 2016 |
+| 47 | **Automated preservation checking** — Verify pairwise resource preservation: applying A doesn't invalidate B's postcondition | A | ✅ | `forjar preservation` checks pairwise: file path conflicts, package overlaps, service name collisions; 5 tests in `tests_preservation_check.rs` |
 | 48 | **Convergence proof certificates** — Machine-verifiable certificate asserting recipe converges from any reachable state | A, D | ✅ | `forjar prove --json` emits machine-verifiable convergence proofs (5 properties) |
 | 49 | **Alloy specification of dependency graph** — Verify structural properties: no cycles, unique ordering, satisfiable deps | A | ❌ | Cycle detection exists; no Alloy model |
 | 50 | **Idempotency regression tests (property-based)** — QuickCheck/proptest-generated tests from formal idempotency spec | A, C | ✅ | `tests_proptest_idempotency.rs`: hash idempotency, lock serde roundtrip, converged-state-is-noop properties |
@@ -223,7 +223,7 @@
 | 122 | **State merge** — `forjar lock-merge <from> <to> --output <dir>` merges two state directories | A, E | ✅ | `cmd_lock_merge` in `lock_merge.rs`; right takes precedence on machine-level conflicts |
 | 123 | **State rebase** — `forjar lock-rebase <state-dir> --file new-config.yaml` strips orphaned resources from state | A, E | ✅ | `cmd_lock_rebase` in `lock_merge.rs`; keeps only resources present in new config |
 | 124 | **Stack diff** — `forjar stack diff networking.yaml compute.yaml` shows resource/machine/param differences between two configs (not just state) | A, E | ✅ | `forjar stack-diff`: unified resource/machine/param/output comparison; per-field resource diff (type, content, source, target, mode, owner, group, env, deps); `--json`; 7 tests |
-| 125 | **Parallel multi-stack apply** — `forjar apply --stacks net,compute,storage` runs independent stacks concurrently, respecting cross-stack dependency ordering | D, F | ❌ | Single config, single apply; no multi-stack parallelism |
+| 125 | **Parallel multi-stack apply** — `forjar apply --stacks net,compute,storage` runs independent stacks concurrently, respecting cross-stack dependency ordering | D, F | ✅ | `forjar parallel-apply` computes dependency waves with configurable max_parallel; chunks independent stacks; 4 tests in `tests_parallel_multi_stack.rs` |
 
 ---
 
