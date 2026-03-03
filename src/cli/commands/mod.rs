@@ -463,4 +463,20 @@ pub enum Commands {
     /// FJ-1429: Stack dependency graph
     #[command(name = "stack-graph")]
     StackGraph(StackGraphArgs),
+
+    /// FJ-1430+1431: Infrastructure query
+    #[command(name = "query")]
+    InfraQuery(InfraQueryArgs),
+
+    /// FJ-1432+1433: Recipe signing
+    #[command(name = "sign")]
+    RecipeSign(RecipeSignArgs),
+
+    /// FJ-1434: Preservation checking
+    #[command(name = "preservation")]
+    Preservation(PreservationArgs),
+
+    /// FJ-1435: Parallel multi-stack apply
+    #[command(name = "parallel-apply")]
+    ParallelApply(ParallelStackArgs),
 }
