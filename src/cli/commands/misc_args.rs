@@ -224,6 +224,10 @@ pub struct RollbackArgs {
     #[arg(short = 'n', long, default_value = "1")]
     pub revision: u32,
 
+    /// FJ-1386: Rollback to a specific state generation (Nix-style)
+    #[arg(long)]
+    pub generation: Option<u32>,
+
     /// Target specific machine
     #[arg(short, long)]
     pub machine: Option<String>,
@@ -231,6 +235,10 @@ pub struct RollbackArgs {
     /// Show what would change without applying
     #[arg(long)]
     pub dry_run: bool,
+
+    /// Confirm destructive operation
+    #[arg(long)]
+    pub yes: bool,
 
     /// State directory
     #[arg(long, default_value = "state")]
