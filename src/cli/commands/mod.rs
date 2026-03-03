@@ -70,6 +70,9 @@ pub enum Commands {
     /// Compare two state snapshots (show what changed between applies)
     Diff(DiffArgs),
 
+    /// FJ-1389: Unified stack diff — compare two configs (resources, machines, params)
+    StackDiff(StackDiffArgs),
+
     /// Format (normalize) a forjar.yaml config file
     Fmt(FmtArgs),
 
@@ -148,6 +151,10 @@ pub enum Commands {
     /// FJ-260: Manage state snapshots
     #[command(subcommand)]
     Snapshot(SnapshotCmd),
+
+    /// FJ-1386: Manage state generations (Nix-style numbered snapshots)
+    #[command(subcommand)]
+    Generation(GenerationCmd),
 
     /// FJ-326: List all machines with connection status
     Inventory(InventoryArgs),
@@ -345,4 +352,11 @@ pub enum Commands {
     /// FJ-1383: Merge two forjar config files into one
     #[command(name = "config-merge")]
     ConfigMerge(ConfigMergeArgs),
+
+    /// FJ-1384: Extract resources matching tag/group/glob into sub-config
+    Extract(ExtractArgs),
+
+    /// FJ-1390: Static IaC security scanner
+    #[command(name = "security-scan")]
+    SecurityScan(SecurityScanArgs),
 }
