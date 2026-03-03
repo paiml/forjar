@@ -9,6 +9,7 @@ mod machine_wave;
 mod resource_ops;
 mod strategies;
 
+mod machine_b;
 #[cfg(test)]
 mod test_fixtures;
 #[cfg(test)]

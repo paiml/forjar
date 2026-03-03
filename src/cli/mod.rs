@@ -9,20 +9,31 @@ mod destroy;
 mod diff_cmd;
 pub mod dispatch;
 mod dispatch_apply;
+mod dispatch_apply_b;
 mod dispatch_graph;
+mod dispatch_graph_b;
+mod dispatch_graph_c;
 mod dispatch_lock;
 mod dispatch_misc;
 mod dispatch_notify;
+mod dispatch_notify_b;
 mod dispatch_notify_custom;
 mod dispatch_status;
+mod dispatch_status_b;
+mod dispatch_status_c;
+mod dispatch_status_d;
 mod dispatch_status_ext;
+mod dispatch_status_ext_b;
 mod dispatch_store;
 mod dispatch_validate;
+mod dispatch_validate_b;
+mod dispatch_validate_c;
 mod doctor;
 mod drift;
 mod fleet_ops;
 mod fleet_reporting;
 mod graph_advanced;
+mod graph_advanced_b;
 mod graph_analysis;
 mod graph_analytics;
 mod graph_analytics_ext;
@@ -30,20 +41,27 @@ mod graph_compliance;
 mod graph_core;
 mod graph_cross;
 mod graph_export;
+mod graph_export_b;
 mod graph_extended;
 mod graph_governance;
 mod graph_health;
 mod graph_impact;
 mod graph_intelligence;
+mod graph_intelligence_b;
 mod graph_intelligence_ext;
 mod graph_intelligence_ext2;
+mod graph_intelligence_ext2_b;
+mod graph_intelligence_ext_b;
 mod graph_lifecycle;
 mod graph_paths;
 mod graph_quality;
+mod graph_quality_b;
 mod graph_resilience;
 mod graph_resilience_ext;
 mod graph_scoring;
+mod graph_scoring_b;
 mod graph_topology;
+mod graph_topology_b;
 mod graph_topology_ext;
 mod graph_transport;
 mod graph_visualization;
@@ -78,6 +96,7 @@ mod status_core;
 mod status_cost;
 mod status_counts;
 mod status_diagnostics;
+mod status_diagnostics_b;
 mod status_drift;
 mod status_drift_intel;
 mod status_drift_intel2;
@@ -85,25 +104,38 @@ mod status_failures;
 mod status_fleet;
 mod status_fleet_detail;
 mod status_fleet_insight;
+mod status_fleet_insight_b;
 mod status_health;
 mod status_insights;
 mod status_intelligence;
+mod status_intelligence_b;
 mod status_intelligence_ext;
 mod status_intelligence_ext2;
+mod status_intelligence_ext2_b;
+mod status_intelligence_ext_b;
 mod status_maturity;
+mod status_maturity_b;
+mod status_maturity_c;
 mod status_observability;
 mod status_operational;
+mod status_operational_b;
 mod status_operational_ext;
 mod status_operational_ext2;
+mod status_operational_ext2_b;
 mod status_predictive;
 mod status_quality;
+mod status_quality_b;
 mod status_queries;
 mod status_recovery;
+mod status_recovery_b;
 mod status_resilience;
+mod status_resilience_b;
 mod status_resource_detail;
 mod status_resource_intel;
+mod status_resource_intel_b;
 mod status_resources;
 mod status_security;
+mod status_security_b;
 mod status_transport;
 mod status_trends;
 mod store_archive;
@@ -121,31 +153,61 @@ mod tests_apply_1;
 #[cfg(test)]
 mod tests_apply_10;
 #[cfg(test)]
+mod tests_apply_10_b;
+#[cfg(test)]
 mod tests_apply_11;
+#[cfg(test)]
+mod tests_apply_11_b;
 #[cfg(test)]
 mod tests_apply_12;
 #[cfg(test)]
+mod tests_apply_12_b;
+#[cfg(test)]
 mod tests_apply_13;
+#[cfg(test)]
+mod tests_apply_13_b;
 #[cfg(test)]
 mod tests_apply_14;
 #[cfg(test)]
+mod tests_apply_14_b;
+#[cfg(test)]
 mod tests_apply_15;
+#[cfg(test)]
+mod tests_apply_15_b;
 #[cfg(test)]
 mod tests_apply_16;
 #[cfg(test)]
+mod tests_apply_16_b;
+#[cfg(test)]
 mod tests_apply_17;
+#[cfg(test)]
+mod tests_apply_17_b;
 #[cfg(test)]
 mod tests_apply_18;
 #[cfg(test)]
+mod tests_apply_18_b;
+#[cfg(test)]
 mod tests_apply_19;
+#[cfg(test)]
+mod tests_apply_19_b;
+#[cfg(test)]
+mod tests_apply_1_b;
+#[cfg(test)]
+mod tests_apply_1_c;
 #[cfg(test)]
 mod tests_apply_2;
 #[cfg(test)]
 mod tests_apply_20;
 #[cfg(test)]
+mod tests_apply_20_b;
+#[cfg(test)]
 mod tests_apply_21;
 #[cfg(test)]
+mod tests_apply_21_b;
+#[cfg(test)]
 mod tests_apply_22;
+#[cfg(test)]
+mod tests_apply_22_b;
 #[cfg(test)]
 mod tests_apply_23;
 #[cfg(test)]
@@ -153,7 +215,11 @@ mod tests_apply_3;
 #[cfg(test)]
 mod tests_apply_4;
 #[cfg(test)]
+mod tests_apply_4_b;
+#[cfg(test)]
 mod tests_apply_5;
+#[cfg(test)]
+mod tests_apply_5_b;
 #[cfg(test)]
 mod tests_apply_6;
 #[cfg(test)]
@@ -161,9 +227,15 @@ mod tests_apply_6_b;
 #[cfg(test)]
 mod tests_apply_7;
 #[cfg(test)]
+mod tests_apply_7_b;
+#[cfg(test)]
 mod tests_apply_8;
 #[cfg(test)]
+mod tests_apply_8_b;
+#[cfg(test)]
 mod tests_apply_9;
+#[cfg(test)]
+mod tests_apply_9_b;
 #[cfg(test)]
 mod tests_apply_helpers;
 #[cfg(test)]
@@ -191,11 +263,15 @@ mod tests_cov_args_extra;
 #[cfg(test)]
 mod tests_cov_args_extra_b;
 #[cfg(test)]
+mod tests_cov_args_extra_c;
+#[cfg(test)]
 mod tests_cov_dispatch;
 #[cfg(test)]
 mod tests_cov_dispatch_2;
 #[cfg(test)]
 mod tests_cov_dispatch_3;
+#[cfg(test)]
+mod tests_cov_dispatch_3_b;
 #[cfg(test)]
 mod tests_cov_dispatch_4;
 #[cfg(test)]
@@ -206,6 +282,8 @@ mod tests_cov_fleet;
 mod tests_cov_fleet_b;
 #[cfg(test)]
 mod tests_cov_fleet_c;
+#[cfg(test)]
+mod tests_cov_fleet_d;
 #[cfg(test)]
 mod tests_cov_graph;
 #[cfg(test)]
@@ -227,15 +305,27 @@ mod tests_cov_notify;
 #[cfg(test)]
 mod tests_cov_notify_2;
 #[cfg(test)]
+mod tests_cov_notify_2_b;
+#[cfg(test)]
 mod tests_cov_notify_3;
 #[cfg(test)]
 mod tests_cov_notify_4;
+#[cfg(test)]
+mod tests_cov_notify_4_b;
+#[cfg(test)]
+mod tests_cov_notify_b;
+#[cfg(test)]
+mod tests_cov_notify_c;
 #[cfg(test)]
 mod tests_cov_remaining;
 #[cfg(test)]
 mod tests_cov_remaining_10;
 #[cfg(test)]
+mod tests_cov_remaining_10_b;
+#[cfg(test)]
 mod tests_cov_remaining_11;
+#[cfg(test)]
+mod tests_cov_remaining_11_b;
 #[cfg(test)]
 mod tests_cov_remaining_12;
 #[cfg(test)]
@@ -315,9 +405,13 @@ mod tests_doctor;
 #[cfg(test)]
 mod tests_drift;
 #[cfg(test)]
+mod tests_drift_b;
+#[cfg(test)]
 mod tests_fleet_ops;
 #[cfg(test)]
 mod tests_fleet_ops_1;
+#[cfg(test)]
+mod tests_fleet_ops_b;
 #[cfg(test)]
 mod tests_fleet_reporting;
 #[cfg(test)]
@@ -325,9 +419,19 @@ mod tests_graph_core;
 #[cfg(test)]
 mod tests_graph_core_1;
 #[cfg(test)]
+mod tests_graph_core_1_b;
+#[cfg(test)]
+mod tests_graph_core_1_c;
+#[cfg(test)]
 mod tests_graph_core_2;
 #[cfg(test)]
+mod tests_graph_core_2_b;
+#[cfg(test)]
+mod tests_graph_core_2_c;
+#[cfg(test)]
 mod tests_graph_core_3;
+#[cfg(test)]
+mod tests_graph_core_3_b;
 #[cfg(test)]
 mod tests_graph_core_4;
 #[cfg(test)]
@@ -351,6 +455,8 @@ mod tests_infra;
 #[cfg(test)]
 mod tests_init;
 #[cfg(test)]
+mod tests_init_b;
+#[cfg(test)]
 mod tests_lint;
 #[cfg(test)]
 mod tests_lock_core;
@@ -363,13 +469,19 @@ mod tests_misc_1;
 #[cfg(test)]
 mod tests_misc_10;
 #[cfg(test)]
+mod tests_misc_10_b;
+#[cfg(test)]
 mod tests_misc_1_b;
 #[cfg(test)]
 mod tests_misc_2;
 #[cfg(test)]
+mod tests_misc_2_b;
+#[cfg(test)]
 mod tests_misc_3;
 #[cfg(test)]
 mod tests_misc_4;
+#[cfg(test)]
+mod tests_misc_4_b;
 #[cfg(test)]
 mod tests_misc_5;
 #[cfg(test)]
@@ -377,15 +489,21 @@ mod tests_misc_5_b;
 #[cfg(test)]
 mod tests_misc_6;
 #[cfg(test)]
+mod tests_misc_6_b;
+#[cfg(test)]
 mod tests_misc_7;
 #[cfg(test)]
 mod tests_misc_7_b;
 #[cfg(test)]
 mod tests_misc_8;
 #[cfg(test)]
+mod tests_misc_8_b;
+#[cfg(test)]
 mod tests_misc_9;
 #[cfg(test)]
 mod tests_misc_9_b;
+#[cfg(test)]
+mod tests_misc_9_c;
 #[cfg(test)]
 mod tests_observe;
 #[cfg(test)]
@@ -513,35 +631,55 @@ mod tests_status_core_10;
 #[cfg(test)]
 mod tests_status_core_1_b;
 #[cfg(test)]
+mod tests_status_core_1_c;
+#[cfg(test)]
 mod tests_status_core_2;
 #[cfg(test)]
 mod tests_status_core_2_b;
+#[cfg(test)]
+mod tests_status_core_2_c;
 #[cfg(test)]
 mod tests_status_core_3;
 #[cfg(test)]
 mod tests_status_core_3_b;
 #[cfg(test)]
+mod tests_status_core_3_c;
+#[cfg(test)]
 mod tests_status_core_4;
 #[cfg(test)]
 mod tests_status_core_4_b;
+#[cfg(test)]
+mod tests_status_core_4_c;
 #[cfg(test)]
 mod tests_status_core_5;
 #[cfg(test)]
 mod tests_status_core_5_b;
 #[cfg(test)]
+mod tests_status_core_5_c;
+#[cfg(test)]
 mod tests_status_core_6;
 #[cfg(test)]
 mod tests_status_core_6_b;
+#[cfg(test)]
+mod tests_status_core_6_c;
 #[cfg(test)]
 mod tests_status_core_7;
 #[cfg(test)]
 mod tests_status_core_7_b;
 #[cfg(test)]
+mod tests_status_core_7_c;
+#[cfg(test)]
 mod tests_status_core_8;
 #[cfg(test)]
 mod tests_status_core_8_b;
 #[cfg(test)]
+mod tests_status_core_8_c;
+#[cfg(test)]
 mod tests_status_core_9;
+#[cfg(test)]
+mod tests_status_core_9_b;
+#[cfg(test)]
+mod tests_status_core_9_c;
 #[cfg(test)]
 mod tests_status_core_b;
 #[cfg(test)]
@@ -567,13 +705,23 @@ mod tests_validate_core_1;
 #[cfg(test)]
 mod tests_validate_core_1_b;
 #[cfg(test)]
+mod tests_validate_core_1_c;
+#[cfg(test)]
+mod tests_validate_core_1_d;
+#[cfg(test)]
 mod tests_validate_core_2;
 #[cfg(test)]
 mod tests_validate_core_2_b;
 #[cfg(test)]
+mod tests_validate_core_2_c;
+#[cfg(test)]
+mod tests_validate_core_2_d;
+#[cfg(test)]
 mod tests_validate_core_3;
 #[cfg(test)]
 mod tests_validate_core_b;
+#[cfg(test)]
+mod tests_validate_core_c;
 #[cfg(test)]
 mod tests_validate_store_purity;
 #[cfg(test)]
@@ -592,9 +740,12 @@ mod validate_governance_ext;
 mod validate_hygiene;
 mod validate_maturity;
 mod validate_ordering;
+mod validate_ordering_b;
 mod validate_ordering_ext;
 mod validate_ownership;
+mod validate_ownership_b;
 mod validate_paths;
+mod validate_paths_b;
 mod validate_policy;
 mod validate_quality;
 mod validate_resilience;

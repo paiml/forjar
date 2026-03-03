@@ -15,6 +15,7 @@ pub mod state;
 pub mod store;
 pub mod types;
 
+mod scoring_b;
 #[cfg(test)]
 mod tests_purifier;
 #[cfg(test)]

@@ -20,6 +20,7 @@ pub mod task;
 mod tests_service;
 pub mod user;
 
+mod network_b;
 #[cfg(test)]
 mod tests_docker;
 #[cfg(test)]
