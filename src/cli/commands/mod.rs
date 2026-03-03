@@ -395,4 +395,19 @@ pub enum Commands {
     /// FJ-1409: Generate training reproducibility certificate
     #[command(name = "repro-proof")]
     ReproProof(ReproProofArgs),
+
+    /// FJ-1410: Data freshness monitoring — detect stale artifacts
+    #[command(name = "data-freshness")]
+    DataFreshness(DataFreshnessArgs),
+
+    /// FJ-1411: Declarative data validation checks
+    #[command(name = "data-validate")]
+    DataValidate(DataValidateArgs),
+
+    /// FJ-1412: Training checkpoint management
+    Checkpoint(CheckpointArgs),
+
+    /// FJ-1413: Dataset versioning and lineage tracking
+    #[command(name = "dataset-lineage")]
+    DatasetLineage(DatasetLineageArgs),
 }

@@ -5,6 +5,7 @@ mod apply_output;
 mod apply_variants;
 mod bundle;
 mod check;
+mod checkpoint;
 mod check_test;
 pub mod commands;
 mod config_merge;
