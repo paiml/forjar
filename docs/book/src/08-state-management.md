@@ -1018,3 +1018,140 @@ forjar apply -f forjar.yaml --force
 ### Event Log Compatibility
 
 The event log (`events.jsonl`) does not have a schema version. Each line is a self-contained JSON object with an `event` field that identifies its type. Consumers should ignore unknown event types rather than failing. This design means the event log format is forward-compatible indefinitely — new event types can be added without breaking existing log parsers.
+
+## Output Persistence and Cross-Stack Data Flow
+
+Forjar persists resolved output values in the global lock file, enabling cross-stack data flow between independent configurations.
+
+### How It Works
+
+When a config declares `outputs:`, forjar resolves the template expressions and stores them in `forjar.lock.yaml` after every successful apply:
+
+```yaml
+# forjar.yaml (producer)
+outputs:
+  db_host:
+    value: "{{machines.db.addr}}"
+    description: "Database server address"
+  api_port:
+    value: "{{params.port}}"
+    description: "API server port"
+```
+
+After apply, the global lock includes:
+
+```yaml
+# state/forjar.lock.yaml
+schema: '1.0'
+name: database-stack
+last_apply: 2026-03-01T14:00:00Z
+generator: forjar 1.1.1
+machines:
+  db:
+    resources: 5
+    converged: 5
+    failed: 0
+    last_apply: 2026-03-01T14:00:00Z
+outputs:
+  db_host: 10.0.0.5
+  api_port: "8080"
+```
+
+### Consuming Outputs
+
+Another config reads these outputs via the `forjar-state` data source:
+
+```yaml
+# forjar.yaml (consumer)
+data:
+  db:
+    type: forjar-state
+    state_dir: ../database-stack/state
+    outputs:
+      - db_host
+    max_staleness: 24h    # warn if producer hasn't applied in 24 hours
+```
+
+The `max_staleness` field triggers a warning if the producer's `last_apply` timestamp is older than the threshold. Supported units: `s` (seconds), `m` (minutes), `h` (hours), `d` (days).
+
+### Viewing Outputs
+
+```bash
+# Show all resolved outputs
+forjar output -f forjar.yaml
+
+# Show a specific output
+forjar output -f forjar.yaml --key db_host
+
+# JSON output for scripting
+forjar output -f forjar.yaml --json
+```
+
+## State Integrity Verification
+
+Forjar writes a BLAKE3 sidecar file (`.b3`) alongside every lock file. Before apply, integrity is verified automatically.
+
+### Sidecar Files
+
+After writing `state.lock.yaml`, forjar also writes `state.lock.yaml.b3` containing the BLAKE3 hash of the lock file contents. This enables detection of tampering or corruption.
+
+```
+state/
+  forjar.lock.yaml        # Global lock
+  forjar.lock.yaml.b3     # BLAKE3 hash sidecar
+  web/
+    state.lock.yaml        # Per-machine lock
+    state.lock.yaml.b3     # BLAKE3 hash sidecar
+```
+
+### Pre-Apply Verification
+
+Before every apply, forjar checks:
+
+1. All lock files are valid YAML (catches corruption)
+2. Lock file content matches its `.b3` sidecar hash (catches tampering)
+
+Missing sidecars produce a warning (backward-compatible with older state). Hash mismatches produce an error and block apply unless `--yes` is used.
+
+### Manual Verification
+
+```bash
+# Verify lock file integrity
+forjar lock-verify --state-dir state
+
+# Override integrity check
+forjar apply -f forjar.yaml --yes
+```
+
+## Event-Sourced State Reconstruction
+
+Forjar can reconstruct the state of any machine at any point in time by replaying the event log.
+
+### Usage
+
+```bash
+# Reconstruct state at a specific timestamp
+forjar state-reconstruct --machine web --at 2026-03-01T14:00:00Z
+
+# JSON output
+forjar state-reconstruct --machine web --at 2026-03-01T14:00:00Z --json
+
+# Custom state directory
+forjar state-reconstruct --machine web --at 2026-03-01T14:00:00Z --state-dir state
+```
+
+### How It Works
+
+The `state-reconstruct` command reads `state/<machine>/events.jsonl` and replays events chronologically up to the specified timestamp:
+
+- `resource_converged` events set the resource to converged with its hash
+- `resource_failed` events set the resource to failed with error details
+- `drift_detected` events update the resource to drifted status
+
+The result is a `StateLock` representing the machine's state at that moment.
+
+### Use Cases
+
+- **Point-in-time recovery**: Understand what was deployed at a specific moment
+- **Audit**: Verify what resources were active during an incident
+- **Debugging**: Compare reconstructed state at two timestamps to find what changed

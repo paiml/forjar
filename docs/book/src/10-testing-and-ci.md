@@ -1208,3 +1208,37 @@ Any regression > 5% will be flagged in the Criterion report. For CI integration,
 - name: Benchmark
   run: cargo bench -- --output-format bencher | tee bench-output.txt
 ```
+
+## Property-Based Idempotency Testing
+
+Forjar uses [proptest](https://crates.io/crates/proptest) to verify idempotency properties that must hold for all inputs, not just specific test cases.
+
+### Core Properties
+
+Three idempotency properties are tested with random inputs:
+
+1. **BLAKE3 hash idempotency**: Same content always produces the same hash. This ensures the planner's skip-if-converged logic is correct.
+
+2. **Lock file serde roundtrip**: Serializing a `StateLock` to YAML and deserializing it back produces an identical struct. This ensures state is never lost during save/load cycles.
+
+3. **Converged-state-is-noop**: When a resource's current hash matches the desired hash, no action is needed. This is the fundamental idempotency guarantee.
+
+### Template Determinism
+
+Template resolution (`{{params.key}}`) is also property-tested:
+
+- Same params always resolve to the same output
+- Missing params consistently produce errors
+- Literal strings (no `{{...}}`) pass through unchanged
+
+### Running Property Tests
+
+```bash
+# Run all proptest tests
+cargo test proptest
+
+# Run with more cases (default: 256)
+PROPTEST_CASES=1000 cargo test proptest
+```
+
+Property tests generate random `Resource`, `StateLock`, and `GlobalLock` values using strategies defined in `src/core/types/tests_proptest_resource.rs`.

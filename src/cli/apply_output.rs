@@ -232,6 +232,12 @@ pub(super) fn apply_post_actions(
         .collect();
     state::update_global_lock(state_dir, &config.name, &machine_results)?;
 
+    // FJ-1260: Persist resolved outputs for cross-stack data flow
+    if !config.outputs.is_empty() {
+        let resolved = state::resolve_outputs(config);
+        state::persist_outputs(state_dir, &config.name, &resolved)?;
+    }
+
     // FJ-1200: Run post-apply check blocks
     if !config.checks.is_empty() && total_failed == 0 {
         run_check_blocks(config, verbose);

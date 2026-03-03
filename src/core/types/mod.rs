@@ -25,6 +25,8 @@ fn default_one() -> u32 {
 #[cfg(test)]
 mod tests_config;
 #[cfg(test)]
+pub(crate) mod tests_proptest_resource;
+#[cfg(test)]
 mod tests_resource;
 #[cfg(test)]
 mod tests_state;

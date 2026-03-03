@@ -28,6 +28,10 @@ pub struct GlobalLock {
 
     /// Per-machine summary
     pub machines: IndexMap<String, MachineSummary>,
+
+    /// FJ-1260: Persisted output values for cross-stack data flow
+    #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
+    pub outputs: IndexMap<String, String>,
 }
 
 /// Per-machine summary in the global lock.

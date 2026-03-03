@@ -124,6 +124,10 @@ pub struct DataSource {
     /// FJ-1250: Output names to import
     #[serde(default)]
     pub outputs: Vec<String>,
+
+    /// FJ-1270: Maximum age before outputs are considered stale (e.g., "1h", "24h", "7d")
+    #[serde(default)]
+    pub max_staleness: Option<String>,
 }
 
 /// Data source type.

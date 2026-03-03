@@ -193,6 +193,22 @@ fn apply_filters(
     Ok(())
 }
 
+/// FJ-1270: Check state file integrity via BLAKE3 sidecars.
+fn check_state_integrity(state_dir: &Path, verbose: bool, yes: bool) -> Result<(), String> {
+    if !state_dir.exists() {
+        return Ok(());
+    }
+    let issues = state::integrity::verify_state_integrity(state_dir);
+    state::integrity::print_issues(&issues, verbose);
+    if state::integrity::has_errors(&issues) && !yes {
+        return Err(
+            "state integrity check failed — use --yes to override or fix corrupted files"
+                .to_string(),
+        );
+    }
+    Ok(())
+}
+
 /// Pre-apply validation: policies, confirmation, hooks.
 #[allow(clippy::too_many_arguments)]
 fn apply_pre_validate(
@@ -205,6 +221,8 @@ fn apply_pre_validate(
     yes: bool,
     verbose: bool,
 ) -> Result<(), String> {
+    check_state_integrity(state_dir, verbose, yes)?;
+
     // FJ-335: Confirm destructive actions
     if confirm_destructive && !dry_run && !yes {
         let order = resolver::build_execution_order(config)?;
