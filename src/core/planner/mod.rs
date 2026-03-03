@@ -367,6 +367,8 @@ mod tests_filter;
 #[cfg(test)]
 mod tests_hash;
 #[cfg(test)]
+mod tests_hash_b;
+#[cfg(test)]
 mod tests_helpers;
 #[cfg(test)]
 mod tests_lifecycle;

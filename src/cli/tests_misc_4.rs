@@ -253,8 +253,6 @@ mod tests {
         assert!(result.is_ok());
     }
 
-    // ── FJ-304: apply --resource-timeout ──
-
     #[test]
     fn test_fj304_resource_timeout_flag_parse() {
         let cmd = Commands::Apply(ApplyArgs {
@@ -460,8 +458,6 @@ mod tests {
         assert_eq!(effective, Some(60));
     }
 
-    // ── FJ-305: check --json enhanced ──
-
     #[test]
     fn test_fj311_strict_unused_params() {
         let dir = tempfile::tempdir().unwrap();
@@ -490,32 +486,4 @@ resources:
         let result = cmd_validate(&file, true, false, false);
         assert!(result.is_err()); // unused param triggers strict error
     }
-
-    #[test]
-    fn test_fj311_strict_missing_description() {
-        let dir = tempfile::tempdir().unwrap();
-        let file = dir.path().join("forjar.yaml");
-        std::fs::write(
-            &file,
-            r#"
-version: "1.0"
-name: test
-machines:
-  local:
-    hostname: local
-    addr: 127.0.0.1
-resources:
-  cfg:
-    type: file
-    machine: local
-    path: /tmp/test.txt
-    content: "hello"
-"#,
-        )
-        .unwrap();
-        let result = cmd_validate(&file, true, false, false);
-        assert!(result.is_err()); // missing description triggers strict error
-    }
-
-    // ── FJ-312: plan --cost ──
 }

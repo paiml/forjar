@@ -31,6 +31,8 @@ mod tests_proptest;
 #[cfg(test)]
 mod tests_resource;
 #[cfg(test)]
+mod tests_resource_b;
+#[cfg(test)]
 mod tests_template;
 #[cfg(test)]
 mod tests_waves;
