@@ -365,3 +365,31 @@ pub struct ConfigMergeArgs {
     #[arg(long)]
     pub allow_collisions: bool,
 }
+
+/// FJ-1384: Extract resources matching tag/group/glob into sub-config.
+#[derive(clap::Args, Debug)]
+pub struct ExtractArgs {
+    /// Path to forjar.yaml
+    #[arg(short, long, default_value = "forjar.yaml")]
+    pub file: std::path::PathBuf,
+
+    /// Filter to resources with this tag
+    #[arg(long)]
+    pub tags: Option<String>,
+
+    /// Filter to resources in this resource_group
+    #[arg(long)]
+    pub group: Option<String>,
+
+    /// Filter to resource IDs matching glob pattern (e.g., "web-*")
+    #[arg(long)]
+    pub glob: Option<String>,
+
+    /// Output file (default: stdout)
+    #[arg(short, long)]
+    pub output: Option<std::path::PathBuf>,
+
+    /// Output as JSON instead of YAML
+    #[arg(long)]
+    pub json: bool,
+}

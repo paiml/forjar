@@ -5,6 +5,7 @@ mod apply_variants;
 mod check;
 mod check_test;
 mod config_merge;
+mod extract;
 pub mod commands;
 mod destroy;
 mod diff_cmd;
