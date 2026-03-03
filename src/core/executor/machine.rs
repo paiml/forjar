@@ -69,6 +69,8 @@ pub(crate) fn apply_machine(
             machine: machine_name.to_string(),
             run_id: run_id.clone(),
             forjar_version: env!("CARGO_PKG_VERSION").to_string(),
+            operator: Some(get_operator_identity()),
+            config_hash: None,
         },
     );
 
@@ -263,3 +265,14 @@ pub(super) fn execute_single_wave(
 }
 
 pub(super) use super::machine_b::*;
+
+/// FJ-1391: Get operator identity for drift forensics attribution.
+fn get_operator_identity() -> String {
+    let user = std::env::var("USER")
+        .or_else(|_| std::env::var("LOGNAME"))
+        .unwrap_or_else(|_| "unknown".to_string());
+    let host = std::fs::read_to_string("/etc/hostname")
+        .map(|h| h.trim().to_string())
+        .unwrap_or_else(|_| "unknown".to_string());
+    format!("{user}@{host}")
+}

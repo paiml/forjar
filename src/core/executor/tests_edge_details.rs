@@ -379,6 +379,8 @@ fn test_fj012_log_tripwire_enabled() {
             machine: "machine1".to_string(),
             run_id: "test-run".to_string(),
             forjar_version: "0.1.0".to_string(),
+                operator: None,
+                config_hash: None,
         },
     );
     let events = dir.path().join("machine1").join("events.jsonl");
@@ -396,6 +398,8 @@ fn test_fj012_log_tripwire_disabled() {
             machine: "machine1".to_string(),
             run_id: "test-run".to_string(),
             forjar_version: "0.1.0".to_string(),
+                operator: None,
+                config_hash: None,
         },
     );
     let events = dir.path().join("machine1").join("events.jsonl");
