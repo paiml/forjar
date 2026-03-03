@@ -7,6 +7,7 @@ mod lock_ops_args;
 mod misc_analysis_args;
 mod misc_args;
 mod misc_ops_args;
+mod platform_args;
 mod plan_args;
 mod state_args;
 mod status_args;
@@ -21,6 +22,7 @@ pub use lock_ops_args::*;
 pub use misc_analysis_args::*;
 pub use misc_args::*;
 pub use misc_ops_args::*;
+pub use platform_args::*;
 pub use plan_args::*;
 pub use state_args::*;
 pub use status_args::*;
@@ -441,4 +443,24 @@ pub enum Commands {
     /// FJ-1424: Cross-machine dependency analysis
     #[command(name = "cross-deps")]
     CrossDeps(CrossDepsArgs),
+
+    /// FJ-1425: Remote state backend operations
+    #[command(name = "state-backend")]
+    StateBackend(StateBackendArgs),
+
+    /// FJ-1426: Recipe registry listing
+    #[command(name = "registry-list")]
+    RegistryList(RegistryListArgs),
+
+    /// FJ-1427: Service catalog listing
+    #[command(name = "catalog-list")]
+    CatalogList(CatalogListArgs),
+
+    /// FJ-1428: Multi-config apply ordering
+    #[command(name = "multi-apply")]
+    MultiApply(MultiConfigArgs),
+
+    /// FJ-1429: Stack dependency graph
+    #[command(name = "stack-graph")]
+    StackGraph(StackGraphArgs),
 }
