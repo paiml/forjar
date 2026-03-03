@@ -4,6 +4,7 @@ mod apply_args;
 mod graph_args;
 mod lock_core_args;
 mod lock_ops_args;
+mod misc_analysis_args;
 mod misc_args;
 mod misc_ops_args;
 mod plan_args;
@@ -17,6 +18,7 @@ pub use apply_args::*;
 pub use graph_args::*;
 pub use lock_core_args::*;
 pub use lock_ops_args::*;
+pub use misc_analysis_args::*;
 pub use misc_args::*;
 pub use misc_ops_args::*;
 pub use plan_args::*;
@@ -69,6 +71,9 @@ pub enum Commands {
 
     /// Compare two state snapshots (show what changed between applies)
     Diff(DiffArgs),
+
+    /// FJ-1389: Unified stack diff — compare two configs (resources, machines, params)
+    StackDiff(StackDiffArgs),
 
     /// Format (normalize) a forjar.yaml config file
     Fmt(FmtArgs),
@@ -148,6 +153,10 @@ pub enum Commands {
     /// FJ-260: Manage state snapshots
     #[command(subcommand)]
     Snapshot(SnapshotCmd),
+
+    /// FJ-1386: Manage state generations (Nix-style numbered snapshots)
+    #[command(subcommand)]
+    Generation(GenerationCmd),
 
     /// FJ-326: List all machines with connection status
     Inventory(InventoryArgs),
@@ -345,4 +354,71 @@ pub enum Commands {
     /// FJ-1383: Merge two forjar config files into one
     #[command(name = "config-merge")]
     ConfigMerge(ConfigMergeArgs),
+
+    /// FJ-1384: Extract resources matching tag/group/glob into sub-config
+    Extract(ExtractArgs),
+
+    /// FJ-1390: Static IaC security scanner
+    #[command(name = "security-scan")]
+    SecurityScan(SecurityScanArgs),
+
+    /// FJ-1395: Generate SBOM (Software Bill of Materials) for managed infrastructure
+    Sbom(SbomArgs),
+
+    /// FJ-1400: Generate CBOM (Cryptographic Bill of Materials) for managed infrastructure
+    Cbom(CbomArgs),
+
+    /// FJ-1401: Prove convergence from current or arbitrary state
+    Prove(ProveArgs),
+
+    /// FJ-1403: Analyze minimum privileges required per resource
+    #[command(name = "privilege-analysis")]
+    PrivilegeAnalysis(PrivilegeAnalysisArgs),
+
+    /// FJ-1404: Generate SLSA provenance attestation
+    Provenance(ProvenanceArgs),
+
+    /// FJ-1405: Show Merkle DAG configuration lineage
+    Lineage(LineageArgs),
+
+    /// FJ-1406: Package config + dependencies into self-contained bundle
+    Bundle(BundleArgs),
+
+    /// FJ-1407: Generate model card for ML resources
+    #[command(name = "model-card")]
+    ModelCard(ModelCardArgs),
+
+    /// FJ-1408: Generate agent-specific SBOM
+    #[command(name = "agent-sbom")]
+    AgentSbom(AgentSbomArgs),
+
+    /// FJ-1409: Generate training reproducibility certificate
+    #[command(name = "repro-proof")]
+    ReproProof(ReproProofArgs),
+
+    /// FJ-1410: Data freshness monitoring — detect stale artifacts
+    #[command(name = "data-freshness")]
+    DataFreshness(DataFreshnessArgs),
+
+    /// FJ-1411: Declarative data validation checks
+    #[command(name = "data-validate")]
+    DataValidate(DataValidateArgs),
+
+    /// FJ-1412: Training checkpoint management
+    Checkpoint(CheckpointArgs),
+
+    /// FJ-1413: Dataset versioning and lineage tracking
+    #[command(name = "dataset-lineage")]
+    DatasetLineage(DatasetLineageArgs),
+
+    /// FJ-1414: Data sovereignty tagging and compliance
+    Sovereignty(SovereigntyArgs),
+
+    /// FJ-1415: Cost estimation and resource budgeting
+    #[command(name = "cost-estimate")]
+    CostEstimate(CostEstimateArgs),
+
+    /// FJ-1416: Model evaluation pipeline
+    #[command(name = "model-eval")]
+    ModelEval(ModelEvalArgs),
 }
