@@ -86,17 +86,18 @@ pub(crate) fn dispatch_misc_cmd(cmd: Commands, verbose: bool) -> Result<(), Stri
         Commands::Rollback(RollbackArgs {
             file,
             revision,
+            generation,
             machine,
             dry_run,
+            yes,
             state_dir,
-        }) => cmd_rollback(
-            &file,
-            &state_dir,
-            revision,
-            machine.as_deref(),
-            dry_run,
-            verbose,
-        ),
+        }) => {
+            if let Some(gen) = generation {
+                super::generation::rollback_to_generation(&state_dir, gen, yes)
+            } else {
+                cmd_rollback(&file, &state_dir, revision, machine.as_deref(), dry_run, verbose)
+            }
+        }
         Commands::Anomaly(AnomalyArgs {
             state_dir,
             machine,
@@ -199,6 +200,7 @@ pub(crate) fn dispatch_misc_cmd(cmd: Commands, verbose: bool) -> Result<(), Stri
             verbose,
         ),
         Commands::Snapshot(sub) => dispatch_snapshot(sub),
+        Commands::Generation(sub) => dispatch_generation(sub),
         Commands::Inventory(InventoryArgs { file, json }) => cmd_inventory(&file, json),
         Commands::RetryFailed(RetryFailedArgs {
             file,
@@ -269,6 +271,21 @@ pub(crate) fn dispatch_misc_cmd(cmd: Commands, verbose: bool) -> Result<(), Stri
             output.as_deref(),
             allow_collisions,
         ),
+        Commands::Extract(ExtractArgs {
+            file,
+            tags,
+            group,
+            glob,
+            output,
+            json,
+        }) => super::extract::cmd_extract(
+            &file,
+            tags.as_deref(),
+            group.as_deref(),
+            glob.as_deref(),
+            output.as_deref(),
+            json,
+        ),
         _ => Err("unknown command".to_string()),
     }
 }
@@ -320,5 +337,16 @@ fn dispatch_snapshot(sub: SnapshotCmd) -> Result<(), String> {
             yes,
         } => cmd_snapshot_restore(&name, &state_dir, yes),
         SnapshotCmd::Delete { name, state_dir } => cmd_snapshot_delete(&name, &state_dir),
+    }
+}
+
+fn dispatch_generation(sub: GenerationCmd) -> Result<(), String> {
+    use super::generation;
+    match sub {
+        GenerationCmd::List { state_dir, json } => generation::list_generations(&state_dir, json),
+        GenerationCmd::Gc { keep, state_dir } => {
+            generation::gc_generations(&state_dir, keep, true);
+            Ok(())
+        }
     }
 }

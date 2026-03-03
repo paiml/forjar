@@ -270,3 +270,7 @@ mod tests_fleet_ops_b;
 mod tests_fleet_reporting;
 #[cfg(test)]
 mod tests_apply_drift_gate;
+#[cfg(test)]
+mod tests_extract;
+#[cfg(test)]
+mod tests_generation;

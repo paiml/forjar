@@ -224,6 +224,10 @@ pub struct RollbackArgs {
     #[arg(short = 'n', long, default_value = "1")]
     pub revision: u32,
 
+    /// FJ-1386: Rollback to a specific state generation (Nix-style)
+    #[arg(long)]
+    pub generation: Option<u32>,
+
     /// Target specific machine
     #[arg(short, long)]
     pub machine: Option<String>,
@@ -231,6 +235,10 @@ pub struct RollbackArgs {
     /// Show what would change without applying
     #[arg(long)]
     pub dry_run: bool,
+
+    /// Confirm destructive operation
+    #[arg(long)]
+    pub yes: bool,
 
     /// State directory
     #[arg(long, default_value = "state")]
@@ -364,4 +372,32 @@ pub struct ConfigMergeArgs {
     /// Allow resource ID collisions (right takes precedence)
     #[arg(long)]
     pub allow_collisions: bool,
+}
+
+/// FJ-1384: Extract resources matching tag/group/glob into sub-config.
+#[derive(clap::Args, Debug)]
+pub struct ExtractArgs {
+    /// Path to forjar.yaml
+    #[arg(short, long, default_value = "forjar.yaml")]
+    pub file: std::path::PathBuf,
+
+    /// Filter to resources with this tag
+    #[arg(long)]
+    pub tags: Option<String>,
+
+    /// Filter to resources in this resource_group
+    #[arg(long)]
+    pub group: Option<String>,
+
+    /// Filter to resource IDs matching glob pattern (e.g., "web-*")
+    #[arg(long)]
+    pub glob: Option<String>,
+
+    /// Output file (default: stdout)
+    #[arg(short, long)]
+    pub output: Option<std::path::PathBuf>,
+
+    /// Output as JSON instead of YAML
+    #[arg(long)]
+    pub json: bool,
 }

@@ -149,6 +149,10 @@ pub enum Commands {
     #[command(subcommand)]
     Snapshot(SnapshotCmd),
 
+    /// FJ-1386: Manage state generations (Nix-style numbered snapshots)
+    #[command(subcommand)]
+    Generation(GenerationCmd),
+
     /// FJ-326: List all machines with connection status
     Inventory(InventoryArgs),
 
@@ -345,4 +349,7 @@ pub enum Commands {
     /// FJ-1383: Merge two forjar config files into one
     #[command(name = "config-merge")]
     ConfigMerge(ConfigMergeArgs),
+
+    /// FJ-1384: Extract resources matching tag/group/glob into sub-config
+    Extract(ExtractArgs),
 }
