@@ -292,6 +292,11 @@ pub(crate) fn dispatch_misc_cmd(cmd: Commands, verbose: bool) -> Result<(), Stri
         Commands::SecurityScan(SecurityScanArgs { file, json, fail_on }) => {
             super::security_scan::cmd_security_scan(&file, json, fail_on.as_deref())
         }
+        Commands::Sbom(SbomArgs {
+            file,
+            state_dir,
+            json,
+        }) => super::sbom::cmd_sbom(&file, &state_dir, json),
         _ => Err("unknown command".to_string()),
     }
 }

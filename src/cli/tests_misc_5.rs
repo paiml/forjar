@@ -195,6 +195,7 @@ mod tests {
             notify_custom_severity_filter: None,
             refresh_only: false,
             encrypt_state: false,
+            trace: false,
         });
         match cmd {
             Commands::Apply(ApplyArgs { max_parallel, .. }) => assert_eq!(max_parallel, Some(4)),
@@ -234,6 +235,7 @@ mod tests {
             resource_timeout: None,
             rollback_on_failure: false,
             max_parallel: None,
+            trace: false,
             notify: Some("https://hooks.example.com/apply".to_string()),
             subset: None,
             confirm_destructive: false,

@@ -99,6 +99,7 @@ pub(crate) fn cmd_apply(
         resource_timeout,
         rollback_on_failure,
         max_parallel,
+        trace: verbose,
     };
 
     maybe_auto_snapshot(&config, state_dir, dry_run, verbose);
