@@ -100,6 +100,8 @@ pub struct ApplyConfig<'a> {
     pub rollback_on_failure: bool,
     /// FJ-313: Max concurrent resources per wave (None = unlimited)
     pub max_parallel: Option<usize>,
+    /// FJ-1397: Debug trace mode — print generated scripts before execution
+    pub trace: bool,
 }
 
 /// Load existing locks for machines matching the filter.

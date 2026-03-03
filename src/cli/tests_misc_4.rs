@@ -283,6 +283,7 @@ mod tests {
             resource_timeout: Some(30),
             rollback_on_failure: false,
             max_parallel: None,
+            trace: false,
             notify: None,
             subset: None,
             confirm_destructive: false,

@@ -191,10 +191,14 @@ pub(crate) fn dispatch_apply_cmd(cmd: Commands, verbose: bool) -> Result<(), Str
         notify_custom_severity_filter,
         refresh_only,
         encrypt_state,
+        trace,
     }) = cmd
     else {
         unreachable!()
     };
+
+    // FJ-1397: --trace implies verbose
+    let verbose = verbose || trace;
 
     if let Some(ref msg) = confirmation_message {
         println!("Confirmation required: {}", msg);

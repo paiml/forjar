@@ -1800,3 +1800,76 @@ forjar apply -f 74-agent-deployment.yaml \
 ```
 
 Layers: base packages, model cache directory, agent config, MCP tools config, health check. All parameterized for any model/GPU combination.
+
+## Sudo Elevation and SBOM Generation
+
+### Per-Resource Sudo Elevation
+
+Use the `sudo: true` field on any resource to run its apply script with elevated privileges:
+
+```yaml
+resources:
+  system-packages:
+    type: package
+    machine: web
+    provider: apt
+    packages: [nginx, curl, htop]
+    sudo: true    # Runs apt-get with sudo when non-root
+
+  nginx-config:
+    type: file
+    machine: web
+    path: /etc/nginx/nginx.conf
+    source: configs/nginx.conf
+    sudo: true    # Needs sudo for /etc/ writes
+
+  app-config:
+    type: file
+    machine: web
+    path: /home/app/config.yaml
+    source: configs/app.yaml
+    # No sudo needed — user-writable path
+```
+
+When `sudo: true`, forjar wraps the generated script:
+- If already root (`id -u == 0`): runs script as-is
+- If non-root: wraps with `sudo bash -c '...'`
+
+### SBOM Generation
+
+Generate a Software Bill of Materials for all managed infrastructure:
+
+```bash
+# Text table output
+forjar sbom -f forjar.yaml
+
+# SPDX 2.3 JSON output (machine-readable)
+forjar sbom -f forjar.yaml --json
+
+# With state directory for BLAKE3 hashes
+forjar sbom -f forjar.yaml --state-dir state --json > sbom.spdx.json
+```
+
+The SBOM includes:
+- **Package resources**: Each package with provider and version
+- **Docker images**: Image name, tag, and content hash
+- **Model artifacts**: Source URL, version, and BLAKE3 checksum
+- **File resources with sources**: Downloaded files with state hashes
+
+## Debug Trace Mode
+
+Use `--trace` on apply to print generated scripts before execution:
+
+```bash
+forjar apply --trace
+
+# Output includes:
+# [TRACE] base-packages script:
+# set -euo pipefail
+# ...apt-get install...
+# [TRACE] nginx-config script:
+# set -euo pipefail
+# ...base64 -d...
+```
+
+Trace mode implies `--verbose` and shows the full bash script that will be sent to each transport (local, SSH, container).

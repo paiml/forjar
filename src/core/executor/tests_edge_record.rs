@@ -88,6 +88,7 @@ fn test_fj012_record_success_without_tripwire() {
         post_apply: None,
         lifecycle: None,
         store: false,
+            sudo: false,
         script: None,
     };
     let mut ctx = RecordCtx {
@@ -188,6 +189,7 @@ fn test_fj012_record_success_service_resource() {
         post_apply: None,
         lifecycle: None,
         store: false,
+            sudo: false,
         script: None,
     };
     let mut ctx = RecordCtx {
@@ -310,6 +312,7 @@ fn test_fj012_build_details_file_no_content() {
         post_apply: None,
         lifecycle: None,
         store: false,
+            sudo: false,
         script: None,
     };
     let details = build_resource_details(&resource, &local_machine());
@@ -405,6 +408,7 @@ fn test_fj012_build_details_file_with_content_and_real_file() {
         post_apply: None,
         lifecycle: None,
         store: false,
+            sudo: false,
         script: None,
     };
     let details = build_resource_details(&resource, &local_machine());
