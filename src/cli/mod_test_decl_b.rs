@@ -346,3 +346,13 @@ mod tests_sovereignty;
 mod tests_cost_estimate;
 #[cfg(test)]
 mod tests_model_eval;
+#[cfg(test)]
+mod tests_fault_inject;
+#[cfg(test)]
+mod tests_runtime_invariants;
+#[cfg(test)]
+mod tests_iso_export;
+#[cfg(test)]
+mod tests_state_import_brownfield;
+#[cfg(test)]
+mod tests_cross_machine_deps;

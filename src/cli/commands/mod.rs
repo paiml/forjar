@@ -421,4 +421,24 @@ pub enum Commands {
     /// FJ-1416: Model evaluation pipeline
     #[command(name = "model-eval")]
     ModelEval(ModelEvalArgs),
+
+    /// FJ-1420: Fault injection testing
+    #[command(name = "fault-inject")]
+    FaultInject(FaultInjectArgs),
+
+    /// FJ-1421: Runtime invariant monitors
+    #[command(name = "invariants")]
+    Invariants(InvariantsArgs),
+
+    /// FJ-1422: ISO distribution export
+    #[command(name = "iso-export")]
+    IsoExport(IsoExportArgs),
+
+    /// FJ-1423: Brownfield state import
+    #[command(name = "import-brownfield")]
+    ImportBrownfield(ImportBrownfieldArgs),
+
+    /// FJ-1424: Cross-machine dependency analysis
+    #[command(name = "cross-deps")]
+    CrossDeps(CrossDepsArgs),
 }
