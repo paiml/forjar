@@ -223,8 +223,10 @@ policies:
             Commands::Rollback(RollbackArgs {
                 file: config,
                 revision: 2,
+                generation: None,
                 machine: None,
                 dry_run: true,
+                yes: false,
                 state_dir: state,
             }),
             false,
