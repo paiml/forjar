@@ -12,6 +12,7 @@ pub mod recipe;
 pub mod resolver;
 pub mod scoring;
 pub mod secrets;
+pub mod security_scanner;
 pub mod state;
 pub mod store;
 pub mod types;
@@ -19,6 +20,8 @@ pub mod types;
 mod scoring_b;
 #[cfg(test)]
 mod tests_compliance;
+#[cfg(test)]
+mod tests_security_scanner;
 #[cfg(test)]
 mod tests_proptest_handlers;
 #[cfg(test)]

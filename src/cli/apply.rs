@@ -403,6 +403,7 @@ fn apply_pre_validate(
     }
 
     check_policy_violations(config)?;
+    check_security_gate(config)?;
 
     // Run pre_apply hook
     if let Some(ref hook) = config.policy.pre_apply {
@@ -457,5 +458,38 @@ fn check_policy_violations(config: &types::ForjarConfig) -> Result<(), String> {
     }
     Err(format!(
         "policy violations block apply ({deny_count} denied)"
+    ))
+}
+
+/// FJ-1390: Run security scanner as pre-apply gate if policy.security_gate is set.
+fn check_security_gate(config: &types::ForjarConfig) -> Result<(), String> {
+    let threshold = match &config.policy.security_gate {
+        Some(t) => t.clone(),
+        None => return Ok(()),
+    };
+    let findings = crate::core::security_scanner::scan(config);
+    if findings.is_empty() {
+        return Ok(());
+    }
+    let (crit, high, med, _low) = crate::core::security_scanner::severity_counts(&findings);
+    let should_fail = match threshold.to_lowercase().as_str() {
+        "critical" => crit > 0,
+        "high" => crit + high > 0,
+        "medium" => crit + high + med > 0,
+        "low" => !findings.is_empty(),
+        _ => return Err(format!("unknown security_gate severity: {threshold}")),
+    };
+    if !should_fail {
+        return Ok(());
+    }
+    for f in &findings {
+        eprintln!(
+            "  [{:?}] {} ({}): {}",
+            f.severity, f.rule_id, f.resource_id, f.message
+        );
+    }
+    Err(format!(
+        "security gate blocks apply: {} findings at or above '{threshold}'",
+        findings.len()
     ))
 }
