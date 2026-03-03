@@ -549,11 +549,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'FJ-1375: Store bash provability example + book section'
-  status: planned
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-03-03T09:47:08Z
-  updated: 2026-03-03T09:47:08Z
+  updated: 2026-03-03T13:47:06.977103823+00:00
   spec: null
   acceptance_criteria:
   - cargo run --example store_bash_provability passes, book 12-store.md updated with I8 section
