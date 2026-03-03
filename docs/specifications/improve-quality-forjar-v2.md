@@ -3,7 +3,7 @@
 **Version**: 2.0.0-draft
 **Date**: 2026-03-03
 **Status**: Planning
-**Scorecard**: **145/166** features implemented (target: 166/166)
+**Scorecard**: **150/166** features implemented (target: 166/166)
 
 ---
 
@@ -46,7 +46,7 @@
 | 8 | **13 resource types** — Package, File, Service, Mount, User, Docker, Pepita, Network, Cron, Recipe, Model, GPU, Task | E | ✅ | Full coverage of sovereign AI infrastructure needs |
 | 9 | **`for_each` / `count` resource multiplication** — Generate multiple resources from a list or count with `{{item}}` / `{{index}}` | E | ✅ | Template interpolation for dynamic resource generation |
 | 10 | **Conditional resources** — `when:` field for conditional inclusion based on params, machine arch, or expressions | E | ✅ | Expression engine: `==`, `!=`, `contains` operators; `{{machine.arch}}`, `{{params.*}}` templates; 10+ tests |
-| 11 | **Cross-machine resource dependencies** — Resources on machine A can depend on resources on machine B | A, E | ❌ | DAG is per-machine; cross-machine deps not supported |
+| 11 | **Cross-machine resource dependencies** — Resources on machine A can depend on resources on machine B | A, E | ✅ | `forjar cross-deps` analyzes cross-machine dependency graph; builds execution waves; JSON output; 6 tests in `tests_cross_machine_deps.rs` |
 | 12 | **Resource tagging and grouping** — `tags:` and `resource_group:` for selective apply (`--tags`, `--resource-group`) | E | ✅ | Filter resources by tag or group at apply time |
 | 13 | **Output values and cross-recipe data flow** — `outputs:` section exports values for consumption by other recipes or pipelines | E | ✅ | `outputs:` declared, displayed via `forjar output`, persisted to `forjar.lock.yaml` via `persist_outputs()`; cross-stack consumption via `forjar-state` data source; 12 tests in `tests_outputs.rs` |
 
@@ -65,7 +65,7 @@
 | 22 | **Generational state with instant rollback** — Numbered generations; switch to any previous generation instantly | A, B, E | ✅ | `generation.rs`: numbered generations with atomic symlink swap; `forjar rollback --generation N`; `forjar generation list/gc`; auto-generation on apply |
 | 23 | **Merkle DAG configuration lineage** — Full history as content-addressed DAG; tamper-evident, forkable | A | ✅ | `forjar lineage` builds Merkle tree over DAG; each node hash incorporates dependency hashes; JSON/text output |
 | 24 | **Remote state backend** — Optional S3/GCS/Consul backend for team collaboration | B | ❌ | Local-only by design (sovereign-first); could add encrypted remote |
-| 25 | **State import from existing infrastructure** — `forjar import` to adopt brownfield systems without recreation | E | ⚠️ | Store imports exist (`forjar import docker/apt/cargo`); no general brownfield import |
+| 25 | **State import from existing infrastructure** — `forjar import` to adopt brownfield systems without recreation | E | ✅ | `forjar import-brownfield` scans dpkg/systemd/config dirs; generates forjar YAML config; JSON output; 9 tests in `tests_state_import_brownfield.rs` |
 | 26 | **Workspace / environment isolation** — Multiple named workspaces (dev/staging/prod) with isolated state | E | ✅ | Workspace support for multi-environment state |
 
 ### Category 2b: Infrastructure Query Engine (27–28)
@@ -149,9 +149,9 @@
 | 73 | **Simulation / plan testing** — `forjar test` runs check scripts and reports pass/fail without mutation | A, D | ✅ | Full simulation mode |
 | 74 | **Integration testing with ephemeral containers** — Spin up container targets, apply, verify, destroy | D | ✅ | Container transport with `ephemeral: true` |
 | 75 | **Compliance testing framework** — Test against CIS, NIST 800-53, SOC2, HIPAA benchmarks | D | ✅ | `core/compliance.rs`: 4 benchmarks (CIS, NIST 800-53, SOC2, HIPAA); 15+ rules (AC-3, AC-6, CM-6, SC-28, SI-7, CIS-6.1.1, etc.); 22 tests; `evaluate_benchmark()` + `count_by_severity()` |
-| 76 | **Fault injection testing** — `forjar test --fault-inject` to verify resilience of apply operations | C, D | ❌ | No fault injection framework |
+| 76 | **Fault injection testing** — `forjar test --fault-inject` to verify resilience of apply operations | C, D | ✅ | `forjar fault-inject` generates fault scenarios per resource (network, permission, disk, cascade, timeout, idempotency); JSON output; 6 tests in `tests_fault_inject.rs` |
 | 77 | **Property-based fuzz testing of resource handlers** — proptest/QuickCheck for resource handler correctness | A, C | ✅ | `tests_proptest_handlers.rs`: 6 properties (hash determinism, type affects hash, converged=noop, codegen no panic, proof obligation total, chain hash determinism); `arb_resource()` strategy covers 8 resource types |
-| 78 | **Runtime invariant monitors** — Continuous verification of declared invariants (e.g., "port 22 never open on prod") | A, D | ❌ | No runtime monitor generation; tripwire is hash-based only |
+| 78 | **Runtime invariant monitors** — Continuous verification of declared invariants (e.g., "port 22 never open on prod") | A, D | ✅ | `forjar invariants` generates invariants from policies and resources; require/deny policies, service/path/state checks; JSON output; 6 tests in `tests_runtime_invariants.rs` |
 
 ### Category 8: Observability and Operations (79–87)
 
@@ -174,7 +174,7 @@
 | 88 | **Single-binary deployment (no runtime deps)** — Statically-linked Rust binary; no Python/Ruby/Node required | B, E, F | ✅ | Pure Rust, 22 direct crates, single binary |
 | 89 | **Offline-first architecture** — Core apply works with zero network connectivity | B | ✅ | SSH-based; no cloud APIs; local state |
 | 90 | **No cloud provider APIs** — SSH-only execution; no AWS/Azure/GCP API calls | B, E | ✅ | Sovereign by design |
-| 91 | **ISO distribution generation** — `forjar export --format iso` for fully offline deployment bundles | B, D | ❌ | No ISO/bundle export |
+| 91 | **ISO distribution generation** — `forjar export --format iso` for fully offline deployment bundles | B, D | ✅ | `forjar iso-export` creates offline bundle (config, state, store, binary) with BLAKE3 manifest; JSON output; 5 tests in `tests_iso_export.rs` |
 | 92 | **Self-contained recipe bundles** — Package recipe + dependencies + store closures into distributable artifact | B | ✅ | `forjar bundle` packages config + store + state with BLAKE3 manifest; air-gap ready |
 | 93 | **Air-gap transfer bundles with integrity verification** — Sealed bundles for physical media transfer across air gaps | B, D | ✅ | `forjar bundle --verify` re-hashes all files and validates BLAKE3 integrity; reports pass/fail per file |
 | 94 | **Data sovereignty tagging** — Every piece of state tagged with jurisdiction/classification/residency zone | B, D | ✅ | `forjar sovereignty` reports jurisdiction:/classification:/residency: tags per resource; state file hashing; JSON/text |

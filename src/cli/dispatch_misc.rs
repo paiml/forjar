@@ -395,7 +395,7 @@ fn dispatch_data_cmd(cmd: Commands) -> Result<(), String> {
             resource,
             json,
         }) => super::model_eval::cmd_model_eval(&file, resource.as_deref(), json),
-        _ => Err("unknown command".to_string()),
+        other => dispatch_infra_cmd(other),
     }
 }
 
@@ -457,5 +457,43 @@ fn dispatch_generation(sub: GenerationCmd) -> Result<(), String> {
             generation::gc_generations(&state_dir, keep, true);
             Ok(())
         }
+    }
+}
+
+/// Dispatch infrastructure analysis and export commands.
+fn dispatch_infra_cmd(cmd: Commands) -> Result<(), String> {
+    match cmd {
+        Commands::FaultInject(FaultInjectArgs {
+            file,
+            resource,
+            json,
+        }) => super::fault_inject::cmd_fault_inject(&file, resource.as_deref(), json),
+        Commands::Invariants(InvariantsArgs {
+            file,
+            state_dir,
+            json,
+        }) => super::runtime_invariants::cmd_invariants(&file, &state_dir, json),
+        Commands::IsoExport(IsoExportArgs {
+            file,
+            state_dir,
+            output,
+            include_binary,
+            json,
+        }) => super::iso_export::cmd_iso_export(&file, &state_dir, &output, include_binary, json),
+        Commands::ImportBrownfield(ImportBrownfieldArgs {
+            machine,
+            scan_types,
+            output,
+            json,
+        }) => super::state_import_brownfield::cmd_import_brownfield(
+            &machine,
+            &scan_types,
+            output.as_deref(),
+            json,
+        ),
+        Commands::CrossDeps(CrossDepsArgs { file, json }) => {
+            super::cross_machine_deps::cmd_cross_deps(&file, json)
+        }
+        _ => Err("unknown command".to_string()),
     }
 }
