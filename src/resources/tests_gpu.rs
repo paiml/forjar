@@ -82,6 +82,7 @@ fn make_gpu_resource(name: &str) -> Resource {
         post_apply: None,
         lifecycle: None,
         store: false,
+            sudo: false,
         script: None,
     }
 }

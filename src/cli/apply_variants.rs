@@ -332,6 +332,7 @@ pub(crate) fn cmd_apply_from_plan(
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
+            trace: false,
     };
 
     let results = executor::apply(&cfg)?;
