@@ -287,8 +287,14 @@ fn lock_pin_uses_actual_provider_and_pin_hash() {
     let lock_path = dir.path().join("forjar.inputs.lock.yaml");
     let lock_content = std::fs::read_to_string(&lock_path).unwrap();
     // Lock pin should have apt provider, not "unknown"
-    assert!(lock_content.contains("apt"), "lock pin should use actual provider");
+    assert!(
+        lock_content.contains("apt"),
+        "lock pin should use actual provider"
+    );
     // Hash should match pin_hash(provider, name, "latest")
     let expected_hash = pin_hash("apt", "curl", "latest");
-    assert!(lock_content.contains(&expected_hash), "lock pin should use pin_hash");
+    assert!(
+        lock_content.contains(&expected_hash),
+        "lock pin should use pin_hash"
+    );
 }

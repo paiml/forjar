@@ -342,7 +342,10 @@ fn execute_derivation_live(
     machine: &Machine,
     store_dir: &Path,
 ) -> Result<DerivationResult, String> {
-    let sandbox_plan = plan.sandbox_plan.as_ref().ok_or("no sandbox plan for cache miss")?;
+    let sandbox_plan = plan
+        .sandbox_plan
+        .as_ref()
+        .ok_or("no sandbox plan for cache miss")?;
 
     let exec_result = sandbox_run::execute_sandbox_plan(
         sandbox_plan,
@@ -355,7 +358,11 @@ fn execute_derivation_live(
     Ok(DerivationResult {
         store_hash: exec_result.output_hash.clone(),
         store_path: exec_result.store_path,
-        input_closure: plan.input_paths.values().map(|p| p.display().to_string()).collect(),
+        input_closure: plan
+            .input_paths
+            .values()
+            .map(|p| p.display().to_string())
+            .collect(),
         closure_hash: plan.closure_hash.clone(),
         derivation_depth: 1,
     })

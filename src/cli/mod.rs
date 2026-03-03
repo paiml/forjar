@@ -233,6 +233,12 @@ mod tests_cov_notify_4;
 #[cfg(test)]
 mod tests_cov_remaining;
 #[cfg(test)]
+mod tests_cov_remaining_10;
+#[cfg(test)]
+mod tests_cov_remaining_11;
+#[cfg(test)]
+mod tests_cov_remaining_12;
+#[cfg(test)]
 mod tests_cov_remaining_2;
 #[cfg(test)]
 mod tests_cov_remaining_3;
@@ -289,11 +295,21 @@ mod tests_cov_validate3_c;
 #[cfg(test)]
 mod tests_cov_validate3_d;
 #[cfg(test)]
+mod tests_cov_validate_ext;
+#[cfg(test)]
+mod tests_cov_validate_ext2;
+#[cfg(test)]
+mod tests_cov_validate_ext3;
+#[cfg(test)]
+mod tests_cov_validate_ext4;
+#[cfg(test)]
 mod tests_destroy;
 #[cfg(test)]
 mod tests_destroy_1;
 #[cfg(test)]
 mod tests_diff_cmd;
+#[cfg(test)]
+mod tests_dispatch_store;
 #[cfg(test)]
 mod tests_doctor;
 #[cfg(test)]
@@ -543,6 +559,8 @@ mod tests_store_ops;
 #[cfg(test)]
 mod tests_store_pin;
 #[cfg(test)]
+mod tests_validate_analytics;
+#[cfg(test)]
 mod tests_validate_core;
 #[cfg(test)]
 mod tests_validate_core_1;
@@ -557,27 +575,9 @@ mod tests_validate_core_3;
 #[cfg(test)]
 mod tests_validate_core_b;
 #[cfg(test)]
-mod tests_cov_remaining_10;
-#[cfg(test)]
-mod tests_cov_remaining_11;
-#[cfg(test)]
-mod tests_cov_remaining_12;
-#[cfg(test)]
-mod tests_dispatch_store;
-#[cfg(test)]
-mod tests_validate_analytics;
-#[cfg(test)]
 mod tests_validate_store_purity;
 #[cfg(test)]
 mod tests_validate_transport;
-#[cfg(test)]
-mod tests_cov_validate_ext;
-#[cfg(test)]
-mod tests_cov_validate_ext2;
-#[cfg(test)]
-mod tests_cov_validate_ext3;
-#[cfg(test)]
-mod tests_cov_validate_ext4;
 #[cfg(test)]
 mod tests_workspace;
 mod validate_advanced;

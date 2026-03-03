@@ -130,6 +130,126 @@ Lock file pins are resolved by querying providers
 | docker | `docker image inspect <name>` |
 | apr | `apr info <name> --format version` |
 
+## FAR Archive Format
+
+FAR (Forjar ARchive) is a binary format for distributing store
+entries, kernel contracts, and model artifacts. Layout:
+
+```
+magic(12) → manifest_len(8) → zstd(manifest_yaml)
+          → chunk_count(8) → chunk_table(48*N)
+          → zstd(chunks) → sig_len(8) → sig
+```
+
+Key properties:
+
+- **Streaming decode** — manifest and chunk table are read without
+  loading chunk data, enabling inspection of large archives
+- **Zstd compression** — both manifest and chunks are zstd-compressed
+- **BLAKE3 per-chunk hashing** — 64KB fixed-size chunks, each with
+  its own BLAKE3 hash for verified streaming
+- **Binary Merkle tree** — tree root hash for integrity verification
+- **Kernel contract metadata** — optional field for model onboarding
+  (model type, required ops, coverage percentage)
+
+```bash
+# Pack a store entry into a FAR archive
+forjar archive pack blake3:abc123 -o output.far
+
+# Inspect a FAR archive (manifest only, no data load)
+forjar archive inspect output.far
+
+# Unpack a FAR archive into the store
+forjar archive unpack output.far
+
+# Verify archive integrity
+forjar archive verify output.far
+```
+
+See `cargo run --example store_far_archive` for a complete demo.
+
+## Secret Scanning (Phase I)
+
+All sensitive values in forjar configs must use `ENC[age,...]`
+encryption. The secret scanner enforces this with 15 regex patterns:
+
+| Pattern | Detects |
+|---------|---------|
+| `aws_access_key` | AKIA prefix + 16 alphanumeric |
+| `aws_secret_key` | aws_secret_access_key assignments |
+| `private_key_pem` | RSA/EC/DSA/OPENSSH PEM headers |
+| `github_token` | ghp_/ghs_ + 36+ chars |
+| `generic_api_key` | api_key/apikey assignments |
+| `generic_secret` | password/secret/token assignments |
+| `jwt_token` | eyJ...eyJ JWT format |
+| `slack_webhook` | hooks.slack.com/services URLs |
+| `gcp_service_key` | "type": "service_account" JSON |
+| `stripe_key` | sk_live/sk_test + 20+ chars |
+| `database_url_pass` | mysql/postgres/mongodb with password |
+| `base64_private` | private.key base64 assignments |
+| `hex_secret_32` | 32+ hex char secret/key values |
+| `ssh_password` | sshpass -p commands |
+| `age_plaintext` | AGE-SECRET-KEY-1 raw values |
+
+Scanning is integrated into config validation (`scan_yaml_str()`) and
+can be run on raw text (`scan_text()`). Age-encrypted values
+(`ENC[age,...]`) bypass all pattern checks.
+
+See `cargo run --example store_secret_scan` for a complete demo.
+
+## Bash Provability (I8 Invariant)
+
+**Invariant I8**: No raw shell execution — all shell is bashrs-
+validated before reaching the transport layer.
+
+Three validation levels:
+
+1. **`validate_script()`** — lint-based, errors only (fast path)
+2. **`lint_script()`** — full diagnostics including warnings
+3. **`purify_script()`** — parse, purify AST, reformat (strongest)
+
+The recommended entry point is `validate_or_purify()`: validates
+first (fast path), falls back to full purification if needed.
+
+I8 enforcement points:
+
+- `provider_exec.rs` — provider import commands
+- `sandbox_run.rs` — sandbox build scripts
+- `derivation_exec.rs` — derivation scripts
+- `gc_exec.rs` — GC sweep commands
+- `cache_exec.rs` — cache transport commands
+- `sync_exec.rs` — diff/sync commands
+
+See `cargo run --example store_bash_provability` for a complete demo.
+
+## Performance Benchmarks (Phase J)
+
+Store operations are benchmarked with Criterion.rs:
+
+```bash
+# Run all store benchmarks
+cargo bench --bench store_bench
+
+# Run core benchmarks
+cargo bench --bench core_bench
+```
+
+| Operation | Module | Description |
+|-----------|--------|-------------|
+| store_path_hash | `path.rs` | BLAKE3 composite path derivation |
+| purity_classify | `purity.rs` | 4-level purity classification |
+| closure_hash | `closure.rs` | Transitive dependency closure |
+| repro_score | `repro_score.rs` | Reproducibility scoring |
+| far_encode | `far.rs` | FAR archive binary encoding |
+| far_decode | `far.rs` | FAR manifest streaming decode |
+| chunk_bytes | `chunker.rs` | Fixed-size 64KB chunking |
+| tree_hash | `chunker.rs` | Binary Merkle tree root |
+| secret_scan | `secret_scan.rs` | 15-pattern regex detection |
+| bash_validate | `purifier.rs` | bashrs I8 shell validation |
+
+See `cargo run --example store_benchmarks` for a demo of all
+benchmarked operations with timing output.
+
 ## Execution Layer (Phase L)
 
 All store operations are bridged to actual execution via the transport

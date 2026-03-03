@@ -18,8 +18,10 @@ use super::derivation::{
     collect_input_hashes, compute_depth, derivation_closure_hash, derivation_purity, validate_dag,
     validate_derivation, Derivation, DerivationInput, DerivationResult,
 };
-use super::far::{decode_far_manifest, encode_far, ChunkEntry, FarFileEntry, FarManifest,
-    FarProvenance, FAR_MAGIC};
+use super::far::{
+    decode_far_manifest, encode_far, ChunkEntry, FarFileEntry, FarManifest, FarProvenance,
+    FAR_MAGIC,
+};
 use super::gc::{collect_roots, GcConfig, GcReport};
 use super::provider::{
     all_providers, capture_method, import_command, origin_ref_string, validate_import,
@@ -114,7 +116,10 @@ fn falsify_e06_ssh_command() {
     };
     let cmd = ssh_command(&source).expect("SSH source must produce command");
     assert!(cmd.contains("ssh"), "command must use ssh: {cmd}");
-    assert!(cmd.contains("deploy@cache.internal"), "must include user@host");
+    assert!(
+        cmd.contains("deploy@cache.internal"),
+        "must include user@host"
+    );
 }
 
 /// E-07: Local source returns None from ssh_command.
@@ -123,7 +128,10 @@ fn falsify_e07_local_no_ssh_command() {
     let source = CacheSource::Local {
         path: "/cache".to_string(),
     };
-    assert!(ssh_command(&source).is_none(), "local source has no SSH command");
+    assert!(
+        ssh_command(&source).is_none(),
+        "local source has no SSH command"
+    );
 }
 
 /// E-08: GC roots from profiles + lockfile + gc-roots dir.
@@ -140,7 +148,10 @@ fn falsify_e08_gc_roots_sources() {
 #[test]
 fn falsify_e09_gc_default_keep_gens() {
     let cfg = GcConfig::default();
-    assert_eq!(cfg.keep_generations, 5, "default keep_generations must be 5");
+    assert_eq!(
+        cfg.keep_generations, 5,
+        "default keep_generations must be 5"
+    );
 }
 
 /// E-10: plan_substitution local hit exits early.
@@ -230,7 +241,10 @@ fn falsify_f03_apt_import_command() {
     };
     let cmd = import_command(&cfg);
     assert!(cmd.contains("apt-get install"), "apt: {cmd}");
-    assert!(cmd.contains("--download-only"), "apt must use --download-only: {cmd}");
+    assert!(
+        cmd.contains("--download-only"),
+        "apt must use --download-only: {cmd}"
+    );
     assert!(cmd.contains("=1.24.0"), "apt must include version: {cmd}");
 }
 
@@ -289,7 +303,10 @@ fn falsify_f07_tofu_import_command() {
         options: BTreeMap::new(),
     };
     let cmd = import_command(&cfg);
-    assert!(cmd.contains("tofu -chdir=infra/ output -json"), "tofu: {cmd}");
+    assert!(
+        cmd.contains("tofu -chdir=infra/ output -json"),
+        "tofu: {cmd}"
+    );
 }
 
 /// F-08: terraform import uses "terraform -chdir=<dir> output -json".
@@ -348,7 +365,10 @@ fn falsify_f12_dag_topological_order() {
     let order = validate_dag(&graph).expect("valid DAG");
     let a_pos = order.iter().position(|x| x == "a").unwrap();
     let b_pos = order.iter().position(|x| x == "b").unwrap();
-    assert!(b_pos < a_pos, "deps must come before dependents in topo order");
+    assert!(
+        b_pos < a_pos,
+        "deps must come before dependents in topo order"
+    );
 }
 
 /// F-13: derivation_purity: Full sandbox → Pure, None → Impure.
@@ -356,9 +376,12 @@ fn falsify_f12_dag_topological_order() {
 fn falsify_f13_derivation_purity_levels() {
     use super::sandbox::{SandboxConfig, SandboxLevel};
     let mut deriv = Derivation {
-        inputs: BTreeMap::from([("x".to_string(), DerivationInput::Store {
-            store: "blake3:abc".to_string(),
-        })]),
+        inputs: BTreeMap::from([(
+            "x".to_string(),
+            DerivationInput::Store {
+                store: "blake3:abc".to_string(),
+            },
+        )]),
         script: "echo hello".to_string(),
         sandbox: Some(SandboxConfig {
             level: SandboxLevel::Full,
@@ -389,9 +412,12 @@ fn falsify_f14_derivation_depth() {
 #[test]
 fn falsify_f15_derivation_validate_empty_script() {
     let deriv = Derivation {
-        inputs: BTreeMap::from([("x".to_string(), DerivationInput::Store {
-            store: "blake3:abc".to_string(),
-        })]),
+        inputs: BTreeMap::from([(
+            "x".to_string(),
+            DerivationInput::Store {
+                store: "blake3:abc".to_string(),
+            },
+        )]),
         script: "   ".to_string(),
         sandbox: None,
         arch: "x86_64".to_string(),

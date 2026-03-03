@@ -29,7 +29,10 @@ fn falsify_k01_validate_valid_script() {
 #[test]
 fn falsify_k02_validate_or_purify_valid() {
     let result = validate_or_purify("echo hello");
-    assert!(result.is_ok(), "valid script should pass validate_or_purify");
+    assert!(
+        result.is_ok(),
+        "valid script should pass validate_or_purify"
+    );
 }
 
 /// K-03: lint_error_count returns 0 for clean scripts.

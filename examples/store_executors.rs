@@ -3,9 +3,7 @@
 //!
 //! Run: `cargo run --example store_executors`
 
-use forjar::core::store::cache::{
-    build_inventory, CacheConfig, CacheEntry, CacheSource,
-};
+use forjar::core::store::cache::{build_inventory, CacheConfig, CacheEntry, CacheSource};
 use forjar::core::store::derivation::{Derivation, DerivationInput};
 use forjar::core::store::derivation_exec::{
     execute_derivation_dag, execute_derivation_dag_live, is_store_hit, plan_derivation,

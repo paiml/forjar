@@ -3,7 +3,9 @@
 //! - `--check-recipe-purity` — report per-resource purity levels
 //! - `--check-reproducibility-score` — output 0-100 reproducibility score
 
-use crate::core::store::purity::{classify, level_label, recipe_purity, PurityLevel, PuritySignals};
+use crate::core::store::purity::{
+    classify, level_label, recipe_purity, PurityLevel, PuritySignals,
+};
 use crate::core::store::repro_score::{compute_score, grade, ReproInput};
 use std::path::Path;
 
@@ -17,11 +19,11 @@ struct PurityExtract {
 ///
 /// Parses the config, classifies each resource's purity level, and reports
 /// the aggregate recipe purity with per-resource breakdown.
-pub(crate) fn cmd_validate_check_recipe_purity(
-    file: &Path,
-    json: bool,
-) -> Result<(), String> {
-    let PurityExtract { resources, recipe_level } = extract_purity(file)?;
+pub(crate) fn cmd_validate_check_recipe_purity(file: &Path, json: bool) -> Result<(), String> {
+    let PurityExtract {
+        resources,
+        recipe_level,
+    } = extract_purity(file)?;
 
     if json {
         let j = serde_json::json!({

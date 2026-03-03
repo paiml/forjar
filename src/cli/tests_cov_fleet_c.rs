@@ -170,7 +170,14 @@ resources:
 
     #[test]
     fn canary_invalid() {
-        let r = cmd_canary(Path::new("/no.yaml"), Path::new("/s"), "x", false, &[], None);
+        let r = cmd_canary(
+            Path::new("/no.yaml"),
+            Path::new("/s"),
+            "x",
+            false,
+            &[],
+            None,
+        );
         assert!(r.is_err());
     }
 

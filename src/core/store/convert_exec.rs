@@ -73,11 +73,7 @@ pub fn apply_conversion(
                     }
                 }
                 ChangeType::GenerateLockPin => {
-                    let hash = pin_hash(
-                        &resource_conv.provider,
-                        &resource_conv.name,
-                        "latest",
-                    );
+                    let hash = pin_hash(&resource_conv.provider, &resource_conv.name, "latest");
                     lock_pins.insert(
                         resource_conv.name.clone(),
                         Pin {

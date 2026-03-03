@@ -7,8 +7,7 @@
 use super::cache_exec::CachePullResult;
 use super::convert_exec::ConversionApplyResult;
 use super::derivation::{
-    collect_input_hashes, derivation_closure_hash, validate_derivation, Derivation,
-    DerivationInput,
+    collect_input_hashes, derivation_closure_hash, validate_derivation, Derivation, DerivationInput,
 };
 use super::derivation_exec::{
     execute_derivation_dag, execute_derivation_dag_live, plan_derivation, simulate_derivation,
@@ -21,8 +20,9 @@ use super::sandbox_exec::{plan_sandbox_build, validate_plan};
 use super::sandbox_run::SandboxExecResult;
 use super::store_diff::{build_sync_plan, compute_diff, DiffResult, SyncPlan};
 use super::sync_exec::{DiffExecResult, SyncExecResult};
-use crate::core::purifier::{lint_error_count, lint_script, purify_script, validate_or_purify,
-    validate_script};
+use crate::core::purifier::{
+    lint_error_count, lint_script, purify_script, validate_or_purify, validate_script,
+};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
@@ -34,7 +34,10 @@ use std::path::PathBuf;
 #[test]
 fn falsify_k07_validate_accepts_valid_shell() {
     let result = validate_script("echo hello world");
-    assert!(result.is_ok(), "valid shell must pass validation: {result:?}");
+    assert!(
+        result.is_ok(),
+        "valid shell must pass validation: {result:?}"
+    );
     // Also verify multi-command scripts
     let result2 = validate_script("echo a && echo b");
     assert!(result2.is_ok(), "multi-command must pass: {result2:?}");
@@ -69,10 +72,15 @@ fn falsify_k11_lint_script_structure() {
     let result = lint_script("echo hello");
     // LintResult must have a diagnostics field (vec of diagnostics)
     // Clean scripts may still produce informational/warning diagnostics
-    let error_count = result.diagnostics.iter()
+    let error_count = result
+        .diagnostics
+        .iter()
         .filter(|d| d.severity == bashrs::linter::Severity::Error)
         .count();
-    assert_eq!(error_count, 0, "clean script must have 0 error-severity diagnostics");
+    assert_eq!(
+        error_count, 0,
+        "clean script must have 0 error-severity diagnostics"
+    );
 }
 
 /// K-12: sandbox plan step 6 references bashrs-purified script.
@@ -226,7 +234,9 @@ fn falsify_l24_dag_live_dry_run() {
     let mut a_inputs = BTreeMap::new();
     a_inputs.insert(
         "root".to_string(),
-        DerivationInput::Store { store: "blake3:root".to_string() },
+        DerivationInput::Store {
+            store: "blake3:root".to_string(),
+        },
     );
     let mut derivations = BTreeMap::new();
     derivations.insert(

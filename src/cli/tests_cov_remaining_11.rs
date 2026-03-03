@@ -701,7 +701,12 @@ fn print_plan_with_filter() {
         to_update: 1,
         to_destroy: 1,
         unchanged: 1,
-        execution_order: vec!["cfg".to_string(), "pkg".to_string(), "old".to_string(), "same".to_string()],
+        execution_order: vec![
+            "cfg".to_string(),
+            "pkg".to_string(),
+            "old".to_string(),
+            "same".to_string(),
+        ],
     };
     // With machine filter
     print_plan(&plan, Some("m1"), None);

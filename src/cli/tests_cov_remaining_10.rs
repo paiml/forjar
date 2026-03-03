@@ -97,12 +97,13 @@ fn compare_invalid_file() {
 fn template_text_with_vars() {
     let d = tempfile::tempdir().unwrap();
     let recipe = d.path().join("recipe.yaml");
-    std::fs::write(
+    std::fs::write(&recipe, "name: {{inputs.app}}\nport: {{inputs.port}}\n").unwrap();
+    assert!(cmd_template(
         &recipe,
-        "name: {{inputs.app}}\nport: {{inputs.port}}\n",
+        &["app=web".to_string(), "port=8080".to_string()],
+        false
     )
-    .unwrap();
-    assert!(cmd_template(&recipe, &["app=web".to_string(), "port=8080".to_string()], false).is_ok());
+    .is_ok());
 }
 
 #[test]

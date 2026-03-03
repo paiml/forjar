@@ -35,7 +35,8 @@ fn falsify_a12_rollback_at_zero_errors() {
     let err = rollback(dir.path());
     assert!(err.is_err(), "rollback at gen 0 must fail: {err:?}");
     assert!(
-        err.unwrap_err().contains("cannot rollback past generation 0"),
+        err.unwrap_err()
+            .contains("cannot rollback past generation 0"),
         "error message must mention gen 0"
     );
 }
@@ -93,8 +94,14 @@ fn falsify_a16_current_generation_symlink() {
 fn falsify_a17_valid_blake3_hash_format() {
     let valid = format!("blake3:{}", "a".repeat(64));
     assert!(is_valid_blake3_hash(&valid), "must accept valid hash");
-    assert!(!is_valid_blake3_hash("blake3:short"), "must reject short hash");
-    assert!(!is_valid_blake3_hash("sha256:abc"), "must reject non-blake3 prefix");
+    assert!(
+        !is_valid_blake3_hash("blake3:short"),
+        "must reject short hash"
+    );
+    assert!(
+        !is_valid_blake3_hash("sha256:abc"),
+        "must reject non-blake3 prefix"
+    );
     assert!(
         !is_valid_blake3_hash(&format!("blake3:{}", "g".repeat(64))),
         "must reject non-hex chars"
@@ -291,11 +298,7 @@ fn falsify_c10_pin_tripwire_missing() {
         schema: "1.0".to_string(),
         pins: BTreeMap::new(),
     };
-    let result = check_before_apply(
-        &lockfile,
-        &BTreeMap::new(),
-        &["nginx".to_string()],
-    );
+    let result = check_before_apply(&lockfile, &BTreeMap::new(), &["nginx".to_string()]);
     assert!(!result.all_fresh);
     assert_eq!(result.missing_inputs, vec!["nginx".to_string()]);
 }

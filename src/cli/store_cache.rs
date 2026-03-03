@@ -107,10 +107,12 @@ pub(crate) fn cmd_cache_pull(
     };
 
     let machine = local_machine();
-    let result =
-        cache_exec::pull_from_cache(&cache_source, hash, store_dir, &machine, Some(300))?;
+    let result = cache_exec::pull_from_cache(&cache_source, hash, store_dir, &machine, Some(300))?;
     println!("Pulled {} to {}", result.store_hash, result.store_path);
-    println!("  Bytes: {} | Verified: {}", result.bytes_transferred, result.verified);
+    println!(
+        "  Bytes: {} | Verified: {}",
+        result.bytes_transferred, result.verified
+    );
     Ok(())
 }
 

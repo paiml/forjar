@@ -498,14 +498,82 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'FJ-1366: Falsify store spec — type/enum/fn existence tests'
-  status: inprogress
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-03-02T22:33:52Z
-  updated: 2026-03-02T22:33:55.792815356+00:00
+  updated: 2026-03-02T22:49:16Z
   spec: null
   acceptance_criteria:
   - 'Falsification tests verifying all 12 phase spec claims: types exist, enums have correct variants, functions exist, numeric thresholds hold'
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-031
+  github_issue: null
+  item_type: task
+  title: 'FJ-1373: Store FAR archive example + book section'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-03-03T09:47:06Z
+  updated: 2026-03-03T09:47:13.615586198+00:00
+  spec: null
+  acceptance_criteria:
+  - cargo run --example store_far_archive passes, book 12-store.md updated with FAR section
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-032
+  github_issue: null
+  item_type: task
+  title: 'FJ-1374: Store secret scan example + book section'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-03-03T09:47:07Z
+  updated: 2026-03-03T09:47:07Z
+  spec: null
+  acceptance_criteria:
+  - cargo run --example store_secret_scan passes, book 12-store.md updated with security section
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-033
+  github_issue: null
+  item_type: task
+  title: 'FJ-1375: Store bash provability example + book section'
+  status: planned
+  priority: high
+  assigned_to: null
+  created: 2026-03-03T09:47:08Z
+  updated: 2026-03-03T09:47:08Z
+  spec: null
+  acceptance_criteria:
+  - cargo run --example store_bash_provability passes, book 12-store.md updated with I8 section
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-034
+  github_issue: null
+  item_type: task
+  title: 'FJ-1376: Store benchmarks example + cookbook update'
+  status: planned
+  priority: medium
+  assigned_to: null
+  created: 2026-03-03T09:47:08Z
+  updated: 2026-03-03T09:47:08Z
+  spec: null
+  acceptance_criteria:
+  - cargo run --example store_benchmarks passes, cookbook reproducibility.md enhanced
   phases: []
   subtasks: []
   estimated_effort: null

@@ -47,7 +47,10 @@ fn falsify_g10_chunk_blake3_hash() {
     let chunks = chunk_bytes(&data);
     assert_eq!(chunks.len(), 1);
     let expected = *blake3::hash(&data).as_bytes();
-    assert_eq!(chunks[0].hash, expected, "chunk hash must be BLAKE3 of data");
+    assert_eq!(
+        chunks[0].hash, expected,
+        "chunk hash must be BLAKE3 of data"
+    );
 }
 
 /// G-11: tree_hash() computes binary Merkle tree.
@@ -62,7 +65,10 @@ fn falsify_g11_merkle_tree_hash() {
     // Must differ from single-chunk hash
     let single = chunk_bytes(&[0u8; 10]);
     let single_root = tree_hash(&single);
-    assert_ne!(root, single_root, "different data must produce different tree hash");
+    assert_ne!(
+        root, single_root,
+        "different data must produce different tree hash"
+    );
 }
 
 /// G-12: tree_hash() on empty chunks returns hash of empty.
@@ -79,7 +85,10 @@ fn falsify_g13_reassemble_roundtrip() {
     let original = vec![42u8; CHUNK_SIZE + 500];
     let chunks = chunk_bytes(&original);
     let rebuilt = reassemble(&chunks);
-    assert_eq!(rebuilt, original, "reassemble must reconstruct original data");
+    assert_eq!(
+        rebuilt, original,
+        "reassemble must reconstruct original data"
+    );
 }
 
 /// G-14: chunk_directory() produces chunks and file entries.
@@ -100,9 +109,18 @@ fn falsify_g14_chunk_directory() {
 #[test]
 fn falsify_g15_merkle_odd_leaf_promoted() {
     // With 3 chunks: pair(0,1) → node, promote(2) → node, then pair(node, 2)
-    let c1 = ChunkData { hash: *blake3::hash(b"a").as_bytes(), data: vec![] };
-    let c2 = ChunkData { hash: *blake3::hash(b"b").as_bytes(), data: vec![] };
-    let c3 = ChunkData { hash: *blake3::hash(b"c").as_bytes(), data: vec![] };
+    let c1 = ChunkData {
+        hash: *blake3::hash(b"a").as_bytes(),
+        data: vec![],
+    };
+    let c2 = ChunkData {
+        hash: *blake3::hash(b"b").as_bytes(),
+        data: vec![],
+    };
+    let c3 = ChunkData {
+        hash: *blake3::hash(b"c").as_bytes(),
+        data: vec![],
+    };
     let root3 = tree_hash(&[c1.clone(), c2.clone(), c3.clone()]);
     // The 3-element tree should differ from 2-element
     let root2 = tree_hash(&[c1, c2]);
@@ -142,7 +160,10 @@ fn falsify_h07_llama_kernels() {
     assert!(ops.contains(&"silu"), "llama must require silu");
     assert!(ops.contains(&"rope"), "llama must require rope");
     assert!(ops.contains(&"swiglu"), "llama must require swiglu");
-    assert!(ops.contains(&"gqa"), "llama with kv_heads < heads must require gqa");
+    assert!(
+        ops.contains(&"gqa"),
+        "llama with kv_heads < heads must require gqa"
+    );
     assert!(ops.contains(&"softmax"), "all models require softmax");
     assert!(ops.contains(&"matmul"), "all models require matmul");
 }
@@ -165,9 +186,18 @@ fn falsify_h08_gpt2_kernels() {
     let ops: Vec<&str> = kernels.iter().map(|k| k.op.as_str()).collect();
     assert!(ops.contains(&"layernorm"), "gpt2 must require layernorm");
     assert!(ops.contains(&"gelu"), "gpt2 must require gelu");
-    assert!(ops.contains(&"absolute_position"), "gpt2 must require absolute_position");
-    assert!(ops.contains(&"attention"), "gpt2 MHA must require attention (not gqa)");
-    assert!(ops.contains(&"tied_embeddings"), "gpt2 must require tied_embeddings");
+    assert!(
+        ops.contains(&"absolute_position"),
+        "gpt2 must require absolute_position"
+    );
+    assert!(
+        ops.contains(&"attention"),
+        "gpt2 MHA must require attention (not gqa)"
+    );
+    assert!(
+        ops.contains(&"tied_embeddings"),
+        "gpt2 must require tied_embeddings"
+    );
     assert!(ops.contains(&"bias_add"), "gpt2 must require bias_add");
 }
 
@@ -175,8 +205,14 @@ fn falsify_h08_gpt2_kernels() {
 #[test]
 fn falsify_h09_coverage_report() {
     let required = vec![
-        KernelRequirement { op: "rmsnorm".to_string(), contract: "rmsnorm-kernel-v1".to_string() },
-        KernelRequirement { op: "silu".to_string(), contract: "silu-kernel-v1".to_string() },
+        KernelRequirement {
+            op: "rmsnorm".to_string(),
+            contract: "rmsnorm-kernel-v1".to_string(),
+        },
+        KernelRequirement {
+            op: "silu".to_string(),
+            contract: "silu-kernel-v1".to_string(),
+        },
     ];
     let registry = BindingRegistry {
         version: "1.0".to_string(),
@@ -260,10 +296,7 @@ fn falsify_i21_scan_base64_private_key() {
 /// I-22: Multiple secrets in one text produces multiple findings.
 #[test]
 fn falsify_i22_multiple_secrets() {
-    let text = format!(
-        "key1=AKIAIOSFODNN7EXAMPLE key2=ghp_{}",
-        "A".repeat(40)
-    );
+    let text = format!("key1=AKIAIOSFODNN7EXAMPLE key2=ghp_{}", "A".repeat(40));
     let findings = scan_text(&text);
     assert!(
         findings.len() >= 2,

@@ -75,16 +75,28 @@ fn falsify_a04_store_path_order_invariant() {
 fn falsify_a05_store_path_collision_resistance() {
     let h1 = store_path("r1", &["a"], "x86_64", "apt");
     let h2 = store_path("r2", &["a"], "x86_64", "apt");
-    assert_ne!(h1, h2, "different recipe hashes must produce different store paths");
+    assert_ne!(
+        h1, h2,
+        "different recipe hashes must produce different store paths"
+    );
 }
 
 /// A-06: store_entry_path() strips "blake3:" prefix and joins with STORE_BASE.
 #[test]
 fn falsify_a06_store_entry_path_format() {
     let path = store_entry_path("blake3:abc123");
-    assert!(path.starts_with(STORE_BASE), "entry path must start with STORE_BASE");
-    assert!(path.ends_with("abc123"), "entry path must end with hex hash");
-    assert!(!path.contains("blake3:"), "entry path must not contain 'blake3:' prefix");
+    assert!(
+        path.starts_with(STORE_BASE),
+        "entry path must start with STORE_BASE"
+    );
+    assert!(
+        path.ends_with("abc123"),
+        "entry path must end with hex hash"
+    );
+    assert!(
+        !path.contains("blake3:"),
+        "entry path must not contain 'blake3:' prefix"
+    );
 }
 
 /// A-07: StoreMeta has all spec-required fields.
@@ -129,7 +141,10 @@ fn falsify_a09_meta_schema_version() {
 #[test]
 fn falsify_a10_meta_references_default_empty() {
     let meta = new_meta("h", "r", &[], "x86_64", "apt");
-    assert!(meta.references.is_empty(), "references must default to empty");
+    assert!(
+        meta.references.is_empty(),
+        "references must default to empty"
+    );
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -164,7 +179,11 @@ fn falsify_b03_curl_pipe_impure() {
         dep_levels: vec![],
     };
     let result = classify("test", &signals);
-    assert_eq!(result.level, PurityLevel::Impure, "curl|bash must be Impure");
+    assert_eq!(
+        result.level,
+        PurityLevel::Impure,
+        "curl|bash must be Impure"
+    );
 }
 
 /// B-04: No version → Constrained.
@@ -225,7 +244,11 @@ fn falsify_b07_monotonicity() {
 /// B-08: recipe_purity() returns max of all resource levels.
 #[test]
 fn falsify_b08_recipe_purity_max() {
-    let levels = [PurityLevel::Pure, PurityLevel::Pinned, PurityLevel::Constrained];
+    let levels = [
+        PurityLevel::Pure,
+        PurityLevel::Pinned,
+        PurityLevel::Constrained,
+    ];
     assert_eq!(recipe_purity(&levels), PurityLevel::Constrained);
 }
 
@@ -283,7 +306,10 @@ fn falsify_c02_closure_hash_deterministic() {
 #[test]
 fn falsify_c03_closure_hash_blake3() {
     let h = closure_hash(&["a".to_string()]);
-    assert!(h.starts_with("blake3:"), "closure hash must use blake3: {h}");
+    assert!(
+        h.starts_with("blake3:"),
+        "closure hash must use blake3: {h}"
+    );
 }
 
 /// C-04: LockFile has schema "1.0" and BTreeMap pins.

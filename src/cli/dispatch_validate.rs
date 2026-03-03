@@ -22,9 +22,9 @@ use super::validate_safety::*;
 use super::validate_scoring::*;
 use super::validate_security::*;
 use super::validate_security_ext::*;
+use super::validate_store_purity::*;
 use super::validate_structural::*;
 use super::validate_topology::*;
-use super::validate_store_purity::*;
 use super::validate_transport::*;
 use std::path::Path;
 #[allow(clippy::too_many_arguments)]
