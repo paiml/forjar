@@ -269,6 +269,21 @@ pub(crate) fn dispatch_misc_cmd(cmd: Commands, verbose: bool) -> Result<(), Stri
             output.as_deref(),
             allow_collisions,
         ),
+        Commands::Extract(ExtractArgs {
+            file,
+            tags,
+            group,
+            glob,
+            output,
+            json,
+        }) => super::extract::cmd_extract(
+            &file,
+            tags.as_deref(),
+            group.as_deref(),
+            glob.as_deref(),
+            output.as_deref(),
+            json,
+        ),
         _ => Err("unknown command".to_string()),
     }
 }
