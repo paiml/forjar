@@ -40,6 +40,7 @@ mod tests {
                 forjar_version: "0.1.0".to_string(),
                 operator: None,
                 config_hash: None,
+                param_count: None,
             },
         )
         .unwrap();
@@ -74,6 +75,7 @@ mod tests {
                 forjar_version: "0.1.0".to_string(),
                 operator: None,
                 config_hash: None,
+                param_count: None,
             },
         )
         .unwrap();
@@ -95,6 +97,7 @@ mod tests {
                 forjar_version: "0.1.0".to_string(),
                 operator: None,
                 config_hash: None,
+                param_count: None,
             },
         )
         .unwrap();
@@ -107,6 +110,7 @@ mod tests {
                 forjar_version: "0.1.0".to_string(),
                 operator: None,
                 config_hash: None,
+                param_count: None,
             },
         )
         .unwrap();
@@ -130,6 +134,7 @@ mod tests {
                     forjar_version: "0.1.0".to_string(),
                     operator: None,
                     config_hash: None,
+                param_count: None,
                 },
             )
             .unwrap();
