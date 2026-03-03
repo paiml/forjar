@@ -1,0 +1,143 @@
+version: "1.0"
+name: dogfood-gpu-training
+description: "Dogfood: heterogeneous distributed training across CUDA + wgpu machines"
+
+params:
+  model_dir: /home/noah/src/models/qwen3-4b
+  data_dir: /tmp/ssc-v3-export
+  output_dir: /tmp/ssc-training
+  num_classes: "2"
+  epochs: "3"
+  batch_size: "4"
+  lora_rank: "16"
+  coordinator_port: "9000"
+
+machines:
+  intel:
+    hostname: mac-server
+    addr: 192.168.50.100
+    user: noah
+    ssh_key: ~/.ssh/id_ed25519
+    arch: x86_64
+    roles: [coordinator, gpu-worker]
+
+  lambda:
+    hostname: lambda
+    addr: 192.168.50.101
+    user: noah
+    ssh_key: ~/.ssh/id_ed25519
+    arch: x86_64
+    roles: [gpu-worker]
+
+resources:
+  # ── Directory structure ─────────────────────────────────────────
+  training-output-intel:
+    type: file
+    machine: intel
+    state: directory
+    path: "{{params.output_dir}}"
+    owner: noah
+    mode: "0755"
+
+  training-output-lambda:
+    type: file
+    machine: lambda
+    state: directory
+    path: "{{params.output_dir}}"
+    owner: noah
+    mode: "0755"
+
+  # ── Verify GPU availability ─────────────────────────────────────
+  gpu-check-intel:
+    type: exec
+    machine: intel
+    command: |
+      vulkaninfo --summary 2>/dev/null | grep -c "GPU" || echo "0"
+    check: "exit_code == 0"
+    description: "Verify AMD GPUs available via Vulkan on intel"
+
+  gpu-check-lambda:
+    type: exec
+    machine: lambda
+    command: |
+      nvidia-smi --query-gpu=name,memory.total --format=csv,noheader 2>/dev/null || echo "no-gpu"
+    check: "exit_code == 0"
+    description: "Verify NVIDIA GPU available on lambda"
+
+  # ── Model weights sync ──────────────────────────────────────────
+  model-sync-lambda:
+    type: exec
+    machine: lambda
+    command: |
+      if [ ! -d "{{params.model_dir}}" ]; then
+        rsync -avz --progress noah@192.168.50.100:{{params.model_dir}}/ {{params.model_dir}}/
+      fi
+    check: "exit_code == 0"
+    depends_on: [training-output-lambda]
+    description: "Sync model weights from intel to lambda"
+
+  # ── Training data sync ──────────────────────────────────────────
+  data-sync-lambda:
+    type: exec
+    machine: lambda
+    command: |
+      if [ ! -f "{{params.data_dir}}/train.jsonl" ]; then
+        rsync -avz noah@192.168.50.100:{{params.data_dir}}/ {{params.data_dir}}/
+      fi
+    check: "exit_code == 0"
+    depends_on: [training-output-lambda]
+    description: "Sync training data from intel to lambda"
+
+  # ── Build aprender on both machines ─────────────────────────────
+  build-apr-intel:
+    type: exec
+    machine: intel
+    command: |
+      cd /home/noah/src/aprender && cargo build -p apr-cli --features entrenar/gpu --release
+    check: "exit_code == 0"
+    depends_on: [gpu-check-intel]
+    description: "Build apr CLI with wgpu support on intel"
+
+  build-apr-lambda:
+    type: exec
+    machine: lambda
+    command: |
+      cd /home/noah/src/aprender && cargo build -p apr-cli --features entrenar/cuda --release
+    check: "exit_code == 0"
+    depends_on: [gpu-check-lambda, model-sync-lambda, data-sync-lambda]
+    description: "Build apr CLI with CUDA support on lambda"
+
+  # ── Launch coordinator (intel) ──────────────────────────────────
+  training-coordinator:
+    type: exec
+    machine: intel
+    command: |
+      apr finetune --task classify \
+        --role coordinator --bind 0.0.0.0:{{params.coordinator_port}} \
+        --expect-workers 3 \
+        --gpus 0,1 --gpu-backend wgpu \
+        --batch-size {{params.batch_size}} --lora-rank {{params.lora_rank}} \
+        --epochs {{params.epochs}} --num-classes {{params.num_classes}} \
+        {{params.model_dir}} --data {{params.data_dir}}/train.jsonl \
+        -o {{params.output_dir}}
+    check: "exit_code == 0"
+    depends_on: [build-apr-intel]
+    description: "Launch training coordinator on intel (2x Radeon Pro W5700X)"
+
+  # ── Launch worker (lambda) ─────────────────────────────────────
+  training-worker:
+    type: exec
+    machine: lambda
+    command: |
+      apr finetune --task classify \
+        --role worker --coordinator 192.168.50.100:{{params.coordinator_port}} \
+        --gpus 0 --gpu-backend cuda \
+        {{params.model_dir}} --data {{params.data_dir}}/train.jsonl
+    check: "exit_code == 0"
+    depends_on: [build-apr-lambda, training-coordinator]
+    description: "Launch training worker on lambda (RTX 4090)"
+
+policy:
+  failure: stop_on_first
+  tripwire: true
+  lock_file: true
