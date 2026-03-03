@@ -566,11 +566,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'FJ-1376: Store benchmarks example + cookbook update'
-  status: planned
+  status: completed
   priority: medium
   assigned_to: null
   created: 2026-03-03T09:47:08Z
-  updated: 2026-03-03T09:47:08Z
+  updated: 2026-03-03T13:48:47.314022166+00:00
   spec: null
   acceptance_criteria:
   - cargo run --example store_benchmarks passes, cookbook reproducibility.md enhanced
