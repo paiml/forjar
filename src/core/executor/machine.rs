@@ -71,6 +71,7 @@ pub(crate) fn apply_machine(
             forjar_version: env!("CARGO_PKG_VERSION").to_string(),
             operator: Some(get_operator_identity()),
             config_hash: None,
+            param_count: Some(cfg.config.params.len() as u32),
         },
     );
 
