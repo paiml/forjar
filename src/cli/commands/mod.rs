@@ -337,4 +337,8 @@ pub enum Commands {
     /// FJ-1333: Universal store import (apt, cargo, uv, nix, docker, tofu, terraform, apr)
     #[command(name = "store-import")]
     StoreImport(StoreImportArgs),
+
+    /// FJ-1280: Reconstruct state at a point in time from event log
+    #[command(name = "state-reconstruct")]
+    StateReconstruct(StateReconstructArgs),
 }

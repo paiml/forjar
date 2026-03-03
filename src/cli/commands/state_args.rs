@@ -51,3 +51,23 @@ pub struct StateRmArgs {
     #[arg(long)]
     pub force: bool,
 }
+
+/// FJ-1280: Reconstruct state at a point in time from event log.
+#[derive(clap::Args, Debug)]
+pub struct StateReconstructArgs {
+    /// Target machine
+    #[arg(short, long)]
+    pub machine: String,
+
+    /// ISO 8601 timestamp to reconstruct at (e.g., 2026-03-01T14:00:00Z)
+    #[arg(long)]
+    pub at: String,
+
+    /// State directory
+    #[arg(long, default_value = "state")]
+    pub state_dir: PathBuf,
+
+    /// Output as JSON
+    #[arg(long)]
+    pub json: bool,
+}

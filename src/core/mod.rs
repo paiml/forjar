@@ -17,6 +17,8 @@ pub mod types;
 
 mod scoring_b;
 #[cfg(test)]
+mod tests_proptest_idempotency;
+#[cfg(test)]
 mod tests_purifier;
 #[cfg(test)]
 mod tests_purifier_b;
