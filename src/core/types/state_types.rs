@@ -197,6 +197,12 @@ pub enum ProvenanceEvent {
         machine: String,
         run_id: String,
         forjar_version: String,
+        /// FJ-1391: Operator identity for drift forensics (e.g., "user@hostname")
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        operator: Option<String>,
+        /// FJ-1391: BLAKE3 hash of the config file used for this apply
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        config_hash: Option<String>,
     },
     ResourceStarted {
         machine: String,

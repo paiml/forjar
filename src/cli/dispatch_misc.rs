@@ -61,6 +61,9 @@ pub(crate) fn dispatch_misc_cmd(cmd: Commands, verbose: bool) -> Result<(), Stri
             resource,
             json,
         }) => cmd_diff(&from, &to, machine.as_deref(), resource.as_deref(), json),
+        Commands::StackDiff(StackDiffArgs { file1, file2, json }) => {
+            super::stack_diff::cmd_stack_diff(&file1, &file2, json)
+        }
         Commands::Check(CheckArgs {
             file,
             machine,
@@ -286,6 +289,9 @@ pub(crate) fn dispatch_misc_cmd(cmd: Commands, verbose: bool) -> Result<(), Stri
             output.as_deref(),
             json,
         ),
+        Commands::SecurityScan(SecurityScanArgs { file, json, fail_on }) => {
+            super::security_scan::cmd_security_scan(&file, json, fail_on.as_deref())
+        }
         _ => Err("unknown command".to_string()),
     }
 }

@@ -180,6 +180,20 @@ pub struct DiffArgs {
     pub json: bool,
 }
 
+/// FJ-1389: Unified stack diff — resource, machine, param comparison.
+#[derive(clap::Args, Debug)]
+pub struct StackDiffArgs {
+    /// First config file
+    pub file1: PathBuf,
+
+    /// Second config file
+    pub file2: PathBuf,
+
+    /// Output as JSON
+    #[arg(long)]
+    pub json: bool,
+}
+
 #[derive(clap::Args, Debug)]
 pub struct FmtArgs {
     /// Path to forjar.yaml
@@ -372,6 +386,22 @@ pub struct ConfigMergeArgs {
     /// Allow resource ID collisions (right takes precedence)
     #[arg(long)]
     pub allow_collisions: bool,
+}
+
+/// FJ-1390: Static IaC security scanner — detect security smells in configs.
+#[derive(clap::Args, Debug)]
+pub struct SecurityScanArgs {
+    /// Path to forjar.yaml
+    #[arg(short, long, default_value = "forjar.yaml")]
+    pub file: std::path::PathBuf,
+
+    /// Output as JSON
+    #[arg(long)]
+    pub json: bool,
+
+    /// Fail on findings at or above this severity (critical, high, medium, low)
+    #[arg(long)]
+    pub fail_on: Option<String>,
 }
 
 /// FJ-1384: Extract resources matching tag/group/glob into sub-config.
