@@ -1,5 +1,3 @@
-//! CLI Commands enum and sub-command enums.
-
 mod apply_args;
 mod graph_args;
 mod lock_core_args;
@@ -7,6 +5,7 @@ mod lock_ops_args;
 mod misc_analysis_args;
 mod misc_args;
 mod misc_ops_args;
+mod ops_intel_args;
 mod platform_args;
 mod plan_args;
 mod state_args;
@@ -14,7 +13,6 @@ mod status_args;
 mod store_args;
 mod subcmd_args;
 mod validate_args;
-
 pub use apply_args::*;
 pub use graph_args::*;
 pub use lock_core_args::*;
@@ -22,6 +20,7 @@ pub use lock_ops_args::*;
 pub use misc_analysis_args::*;
 pub use misc_args::*;
 pub use misc_ops_args::*;
+pub use ops_intel_args::*;
 pub use platform_args::*;
 pub use plan_args::*;
 pub use state_args::*;
@@ -29,7 +28,6 @@ pub use status_args::*;
 pub use store_args::*;
 pub use subcmd_args::*;
 pub use validate_args::*;
-
 use clap::Subcommand;
 
 #[derive(Subcommand, Debug)]
@@ -491,4 +489,12 @@ pub enum Commands {
     /// FJ-059+060: Pull agent / hybrid push-pull enforcement
     #[command(name = "agent")]
     PullAgent(PullAgentArgs),
+
+    /// FJ-1450: Configuration complexity analysis
+    Complexity(ComplexityArgs),
+    /// FJ-1451: Dependency impact analysis
+    Impact(ImpactArgs),
+    /// FJ-1452: Configuration drift prediction
+    #[command(name = "drift-predict")]
+    DriftPredict(DriftPredictArgs),
 }
