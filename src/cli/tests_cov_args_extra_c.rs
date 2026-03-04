@@ -198,8 +198,10 @@ mod tests {
         let a = RollbackArgs {
             file: PathBuf::from("f.yaml"),
             revision: 1,
+            generation: None,
             machine: None,
             dry_run: false,
+            yes: false,
             state_dir: PathBuf::from("s"),
         };
         let _ = format!("{:?}", a);

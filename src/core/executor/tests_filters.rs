@@ -135,6 +135,7 @@ fn test_fj064_arch_filter_skips_mismatched() {
         post_apply: None,
         lifecycle: None,
         store: false,
+            sudo: false,
         script: None,
     };
 
@@ -300,6 +301,7 @@ resources:
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
+            trace: false,
     };
     let results = apply(&cfg).unwrap();
     // Only the tagged resource should be applied
@@ -348,6 +350,7 @@ resources:
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
+            trace: false,
     };
     let results = apply(&cfg).unwrap();
     // Both resources applied

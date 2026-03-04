@@ -28,6 +28,9 @@ fn main() {
             machine: machine.to_string(),
             run_id: run_id.clone(),
             forjar_version: env!("CARGO_PKG_VERSION").to_string(),
+                operator: None,
+                config_hash: None,
+                param_count: None,
         },
     )
     .expect("write event");
