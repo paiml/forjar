@@ -1,7 +1,5 @@
 //! Phase 96 — Transport Diagnostics & Recipe Governance: validate commands.
 
-#![allow(dead_code)]
-
 use crate::core::types;
 use std::collections::HashMap;
 use std::path::Path;

@@ -273,34 +273,4 @@ mod tests {
         assert!(lock_db.resources.contains_key("pkg"));
     }
 
-    // ================================================================
-    // FJ-215: output tests
-    // ================================================================
-
-    #[allow(dead_code)]
-    fn write_output_config(dir: &Path) -> PathBuf {
-        let file = dir.join("forjar.yaml");
-        let yaml = r#"
-version: "1.0"
-name: test-outputs
-params:
-  port: "8080"
-  domain: example.com
-machines:
-  web:
-    hostname: web
-    addr: 10.0.0.1
-resources: {}
-outputs:
-  app_url:
-    value: "http://{{params.domain}}:{{params.port}}"
-    description: "App URL"
-  host_ip:
-    value: "{{machine.web.addr}}"
-  raw_param:
-    value: "{{params.port}}"
-"#;
-        std::fs::write(&file, yaml).unwrap();
-        file
-    }
 }

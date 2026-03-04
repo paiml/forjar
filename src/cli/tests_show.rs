@@ -124,38 +124,6 @@ policy:
 
     // ── forjar diff tests ──────────────────────────────────────────
 
-    #[allow(dead_code)]
-    fn make_state_dir_with_lock(
-        dir: &Path,
-        machine: &str,
-        resources: Vec<(&str, &str, types::ResourceStatus)>,
-    ) {
-        let mut res_map = indexmap::IndexMap::new();
-        for (id, hash, status) in resources {
-            res_map.insert(
-                id.to_string(),
-                types::ResourceLock {
-                    resource_type: types::ResourceType::File,
-                    status,
-                    applied_at: Some("2026-02-25T00:00:00Z".to_string()),
-                    duration_seconds: Some(0.1),
-                    hash: hash.to_string(),
-                    details: HashMap::new(),
-                },
-            );
-        }
-        let lock = types::StateLock {
-            schema: "1.0".to_string(),
-            machine: machine.to_string(),
-            hostname: "test-host".to_string(),
-            generated_at: "2026-02-25T00:00:00Z".to_string(),
-            generator: "forjar 0.1.0".to_string(),
-            blake3_version: "1.8".to_string(),
-            resources: res_map,
-        };
-        state::save_lock(dir, &lock).unwrap();
-    }
-
     #[test]
     fn test_fj017_show_json_output() {
         let dir = tempfile::tempdir().unwrap();

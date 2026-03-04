@@ -1,5 +1,4 @@
 //! Dependency Quality graph commands (Phase 101: FJ-1071/FJ-1074, Phase 107: FJ-1119/FJ-1122).
-#![allow(dead_code)]
 
 use crate::core::types;
 use std::collections::{BTreeMap, HashMap};

@@ -1,0 +1,42 @@
+# Stress testing — extended test runs with randomized scheduling
+# Catches race conditions and intermittent failures
+
+name: Stress Tests
+
+on:
+  schedule:
+    - cron: '0 4 * * 1'  # Weekly Monday 4am UTC
+  workflow_dispatch:
+
+concurrency:
+  group: stress-${{ github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  stress:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        iteration: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - name: Install Rust toolchain
+        run: rustup show
+
+      - name: Cache cargo
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684  # v4.2.3
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: stress-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Stress test iteration ${{ matrix.iteration }}
+        run: |
+          for run in $(seq 1 10); do
+            echo "=== Run $run/10 ==="
+            cargo test --lib -- --test-threads=1
+          done
+        timeout-minutes: 30

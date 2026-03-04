@@ -1,7 +1,5 @@
+#![allow(unused)]
 //! Coverage tests for status_predictive, status_operational.
-
-#![allow(unused_imports)]
-#![allow(dead_code)]
 use super::status_convergence::*;
 use super::status_fleet_detail::*;
 use super::status_insights::*;

@@ -1,7 +1,5 @@
 //! Resilience validation — lifecycle hook coverage, secret rotation, dependency depth limits.
 
-#![allow(dead_code)]
-
 use crate::core::types;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::Path;

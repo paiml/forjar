@@ -173,26 +173,17 @@ impl Handler for LintHandler {
                 ("apply", codegen::apply_script(resource)),
                 ("state_query", codegen::state_query_script(resource)),
             ] {
-                if let Ok(script) = result {
-                    let lint_result = crate::core::purifier::lint_script(&script);
-                    for d in &lint_result.diagnostics {
-                        use bashrs::linter::Severity;
-                        match d.severity {
-                            Severity::Error => {
-                                error_count += 1;
-                                warnings.push(format!(
-                                    "[ERROR] {}.{}: [{}] {}",
-                                    id, kind, d.code, d.message
-                                ));
-                            }
-                            _ => {
-                                warnings.push(format!(
-                                    "[WARN] {}.{}: [{}] {}",
-                                    id, kind, d.code, d.message
-                                ));
-                            }
-                        }
-                    }
+                let Ok(script) = result else { continue };
+                let lint_result = crate::core::purifier::lint_script(&script);
+                for d in &lint_result.diagnostics {
+                    use bashrs::linter::Severity;
+                    let prefix = match d.severity {
+                        Severity::Error => { error_count += 1; "ERROR" }
+                        _ => "WARN",
+                    };
+                    warnings.push(format!(
+                        "[{prefix}] {id}.{kind}: [{}] {}", d.code, d.message
+                    ));
                 }
             }
         }

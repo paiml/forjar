@@ -1,5 +1,4 @@
 //! Phase 100 — Resource Health & Width Analysis: graph commands.
-#![allow(dead_code)]
 
 use crate::core::types;
 use std::collections::{BTreeMap, HashMap, VecDeque};
