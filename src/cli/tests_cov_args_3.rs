@@ -199,6 +199,7 @@ mod tests {
             notify_custom_severity_filter: Some("error".to_string()),
             refresh_only: false,
             encrypt_state: false,
+            trace: false,
         };
         let debug = format!("{:?}", args);
         assert!(debug.contains("ApplyArgs"));
@@ -235,6 +236,7 @@ mod tests {
             resource_timeout: None,
             rollback_on_failure: false,
             max_parallel: None,
+            trace: false,
             notify: None,
             subset: None,
             confirm_destructive: false,

@@ -1626,6 +1626,59 @@ Example output:
 
 Checks are context-aware — SSH is only checked if your config has remote machines, Docker only if you have container machines, and age identity only if your config contains `ENC[age,...]` markers.
 
+## Security Scanning and Policy Gates
+
+Forjar includes a static IaC security scanner (`forjar security-scan`) that detects security smells in your configs before deployment.
+
+### Scan a Config
+
+```bash
+# Scan for all security issues
+forjar security-scan -f infra.yaml
+
+# JSON output for CI integration
+forjar security-scan -f infra.yaml --json
+
+# Fail CI on critical/high findings
+forjar security-scan -f infra.yaml --fail-on high
+```
+
+### Security Rules
+
+| Rule | Category | Severity | Description |
+|------|----------|----------|-------------|
+| SS-1 | Hard-coded secrets | Critical | Passwords, tokens, API keys in plain text |
+| SS-2 | HTTP without TLS | High | Unencrypted HTTP URLs (use HTTPS) |
+| SS-3 | World-accessible | High | File permissions allowing world access |
+| SS-4 | Missing integrity check | Medium | External files without BLAKE3 verification |
+| SS-5 | Privileged container | Critical | Docker running with elevated permissions |
+| SS-6 | No resource limits | Low | Containers without CPU/memory bounds |
+| SS-7 | Weak cryptography | High | MD5, SHA1, DES, RC4, SSLv3, TLSv1.0 |
+| SS-8 | Insecure protocol | High | telnet://, ftp://, rsh:// in configs |
+| SS-9 | Unrestricted network | Medium | Binding to 0.0.0.0 (all interfaces) |
+| SS-10 | Sensitive data | Critical | PII patterns (SSN, credit card numbers) |
+
+### Pre-Apply Security Gate
+
+Add `security_gate` to your policy to block applies with security findings:
+
+```yaml
+version: "1.0"
+name: secure-infra
+
+policy:
+  security_gate: high  # Block on critical or high findings
+
+resources:
+  web-config:
+    type: file
+    machine: web-server
+    target: /etc/nginx/nginx.conf
+    source: https://example.com/nginx.conf  # SS-4: needs integrity check
+```
+
+With `security_gate: high`, `forjar apply` will refuse to run if any critical or high severity findings exist. Severity thresholds: `critical`, `high`, `medium`, `low`.
+
 ## Cookbook Recipe Index
 
 The `examples/cookbook/` directory contains validated recipes covering common infrastructure patterns:
@@ -1747,3 +1800,375 @@ forjar apply -f 74-agent-deployment.yaml \
 ```
 
 Layers: base packages, model cache directory, agent config, MCP tools config, health check. All parameterized for any model/GPU combination.
+
+## Sudo Elevation and SBOM Generation
+
+### Per-Resource Sudo Elevation
+
+Use the `sudo: true` field on any resource to run its apply script with elevated privileges:
+
+```yaml
+resources:
+  system-packages:
+    type: package
+    machine: web
+    provider: apt
+    packages: [nginx, curl, htop]
+    sudo: true    # Runs apt-get with sudo when non-root
+
+  nginx-config:
+    type: file
+    machine: web
+    path: /etc/nginx/nginx.conf
+    source: configs/nginx.conf
+    sudo: true    # Needs sudo for /etc/ writes
+
+  app-config:
+    type: file
+    machine: web
+    path: /home/app/config.yaml
+    source: configs/app.yaml
+    # No sudo needed — user-writable path
+```
+
+When `sudo: true`, forjar wraps the generated script:
+- If already root (`id -u == 0`): runs script as-is
+- If non-root: wraps with `sudo bash -c '...'`
+
+### SBOM Generation
+
+Generate a Software Bill of Materials for all managed infrastructure:
+
+```bash
+# Text table output
+forjar sbom -f forjar.yaml
+
+# SPDX 2.3 JSON output (machine-readable)
+forjar sbom -f forjar.yaml --json
+
+# With state directory for BLAKE3 hashes
+forjar sbom -f forjar.yaml --state-dir state --json > sbom.spdx.json
+```
+
+The SBOM includes:
+- **Package resources**: Each package with provider and version
+- **Docker images**: Image name, tag, and content hash
+- **Model artifacts**: Source URL, version, and BLAKE3 checksum
+- **File resources with sources**: Downloaded files with state hashes
+
+## Debug Trace Mode
+
+Use `--trace` on apply to print generated scripts before execution:
+
+```bash
+forjar apply --trace
+
+# Output includes:
+# [TRACE] base-packages script:
+# set -euo pipefail
+# ...apt-get install...
+# [TRACE] nginx-config script:
+# set -euo pipefail
+# ...base64 -d...
+```
+
+Trace mode implies `--verbose` and shows the full bash script that will be sent to each transport (local, SSH, container).
+
+## Cryptographic Bill of Materials (CBOM)
+
+Generate a cryptographic inventory of all algorithms used in your infrastructure:
+
+```bash
+# Text table output
+forjar cbom
+
+# JSON output
+forjar cbom --json
+```
+
+CBOM automatically detects:
+- **BLAKE3** — State hashing and resource integrity
+- **X25519/age** — Secrets encryption
+- **Ed25519/RSA** — SSH transport keys
+- **X.509/TLS** — Certificate management
+- **SHA-256** — Docker image digests
+
+## Convergence Proof
+
+Prove that your configuration will converge from any reachable state:
+
+```bash
+# Prove convergence for all resources
+forjar prove
+
+# Prove for a specific machine
+forjar prove --machine web-01
+
+# JSON output for CI integration
+forjar prove --json
+```
+
+The convergence proof validates five properties:
+1. **Codegen completeness** — All resources produce check/apply/state_query scripts
+2. **DAG acyclicity** — No circular dependencies
+3. **State coverage** — Resources have corresponding state entries
+4. **Hash determinism** — Same config produces identical state_query scripts
+5. **Idempotency structure** — Apply scripts use `set -euo pipefail`
+
+## Least-Privilege Analysis
+
+Analyze the minimum permissions required per resource:
+
+```bash
+# Text output — shows which resources need root
+forjar privilege-analysis
+
+# Filter to a specific machine
+forjar privilege-analysis --machine web-01
+
+# JSON output for CI integration
+forjar privilege-analysis --json
+```
+
+Reports privilege levels: `unprivileged`, `system-write`, `package-manager`, `service-control`, `network-config`, `sudo`.
+
+## SLSA Provenance Attestation
+
+Generate in-toto-style SLSA Level 3 provenance attestations:
+
+```bash
+# Generate provenance attestation
+forjar provenance
+
+# JSON output (in-toto v0.1 format)
+forjar provenance --json
+
+# Scoped to one machine
+forjar provenance --machine web-01
+```
+
+Links config BLAKE3 hash -> plan hash -> state hashes in a tamper-evident chain.
+
+## Merkle DAG Lineage
+
+Visualize the Merkle tree over your dependency graph:
+
+```bash
+# Show Merkle hashes for each resource
+forjar lineage
+
+# JSON output with merkle_root
+forjar lineage --json
+```
+
+Each node's hash incorporates its dependencies' hashes, so any change propagates up the Merkle tree — enabling tamper detection of the full dependency chain.
+
+## Recipe Bundles
+
+Package your config with all dependencies for air-gap transfer:
+
+```bash
+# Dry-run: show bundle manifest
+forjar bundle
+
+# Include state files
+forjar bundle --include-state
+
+# Write to file
+forjar bundle --output my-stack.tar
+```
+
+Each file gets a BLAKE3 hash for integrity verification during transfer.
+
+## Model Card Generation
+
+Generate model cards documenting ML resources in your stack:
+
+```bash
+# Text output
+forjar model-card
+
+# JSON output
+forjar model-card --json
+```
+
+Detects model resources by type, tags (`ml`, `model`), or resource group (`models`).
+
+## Agent SBOM
+
+Generate an agent-specific bill of materials:
+
+```bash
+# Text output
+forjar agent-sbom
+
+# JSON output
+forjar agent-sbom --json
+```
+
+Detects: model resources, GPU runtimes, MCP/pforge-tagged services, agent containers, inference services.
+
+## SVG Graph Export
+
+Export your dependency graph as a standalone SVG image:
+
+```bash
+forjar graph --format svg > graph.svg
+```
+
+The SVG output includes color-coded nodes by resource type, arrow markers for dependencies, and a grid layout — no external renderer required.
+
+## Training Reproducibility Proof
+
+Generate a cryptographic reproducibility certificate for ML training runs:
+
+```bash
+# Generate reproducibility proof
+forjar repro-proof -f training.yaml --state-dir state
+
+# JSON output for CI integration
+forjar repro-proof -f training.yaml --state-dir state --json
+```
+
+The certificate includes: config BLAKE3 hash, git SHA, store artifact hashes, state hash, and a composite certificate hash. Use this to prove identical training outputs given identical inputs.
+
+## Bundle Integrity Verification
+
+Verify the integrity of a bundle's constituent files after air-gap transfer:
+
+```bash
+# Verify all files against BLAKE3 hashes
+forjar bundle -f forjar.yaml --verify
+```
+
+Re-hashes every file (config, store, state) and reports pass/fail per file — detects corruption or tampering during physical media transfer.
+
+## Data Freshness Monitoring
+
+Monitor data artifact freshness with configurable SLA thresholds:
+
+```bash
+# Check all artifacts are fresh (default 24h SLA)
+forjar data-freshness -f forjar.yaml
+
+# Custom SLA: 8 hours max age
+forjar data-freshness -f forjar.yaml --max-age 8
+
+# JSON for CI pipelines
+forjar data-freshness -f forjar.yaml --json
+```
+
+Reports stale/fresh/missing status per artifact (output_artifacts, store files, state locks). Returns non-zero if any artifact exceeds the SLA.
+
+## Data Validation
+
+Validate data integrity across your infrastructure:
+
+```bash
+# Validate all resources
+forjar data-validate -f forjar.yaml
+
+# Validate specific resource
+forjar data-validate -f forjar.yaml --resource data-loader
+```
+
+Checks: file existence, non-empty, BLAKE3 integrity hashes, store content-addressing consistency.
+
+## Training Checkpoint Management
+
+Track and manage ML training checkpoints:
+
+```bash
+# List all checkpoints (sorted newest-first)
+forjar checkpoint -f training.yaml
+
+# Garbage collect, keep latest 3
+forjar checkpoint -f training.yaml --gc --keep 3
+
+# Filter by machine
+forjar checkpoint -f training.yaml --machine gpu-box
+```
+
+Detects checkpoint resources by type (model), tags (checkpoint/training/ml), or resource_group (checkpoints).
+
+## Dataset Lineage
+
+Track data pipeline lineage with Merkle-hashed dependency graphs:
+
+```bash
+# Show dataset lineage graph
+forjar dataset-lineage -f pipeline.yaml
+
+# JSON output for tooling
+forjar dataset-lineage -f pipeline.yaml --json
+```
+
+Builds a lineage graph from data-tagged resources, tracking source → transform → output dependencies with BLAKE3 content hashes.
+
+## Data Sovereignty
+
+Audit data sovereignty compliance across your infrastructure:
+
+```bash
+# Show sovereignty report
+forjar sovereignty -f forjar.yaml
+
+# JSON for compliance tooling
+forjar sovereignty -f forjar.yaml --json
+```
+
+Tag resources with `jurisdiction:EU`, `classification:PII`, `residency:eu-west-1` to track data governance. Reports tagged vs untagged resources and state file hashes.
+
+## Cost Estimation
+
+Static cost analysis before applying:
+
+```bash
+forjar cost-estimate -f forjar.yaml
+forjar cost-estimate -f forjar.yaml --json
+```
+
+Estimates execution time per resource by type (package: ~30s, file: ~2s, model: ~300s, GPU: ~60s). Reports total sequential time and complexity classification.
+
+## Model Evaluation Pipeline
+
+Gate model promotion with evaluation checks:
+
+```bash
+forjar model-eval -f training.yaml
+forjar model-eval -f training.yaml --resource eval-run --json
+```
+
+Evaluates model/ml/eval-tagged resources. Checks that `completion_check` is defined and `output_artifacts` exist. Returns non-zero if evaluations fail.
+
+## Agent Infrastructure Recipes
+
+### Single MCP Server
+
+Deploy a pforge MCP server with health monitoring:
+
+```bash
+forjar apply -f examples/pforge-mcp-server.yaml
+```
+
+4-phase pipeline: install pforge binary → write config → start service → health check.
+
+### Full Agent Deployment
+
+Composable agent recipe: GPU + model + config + MCP + health:
+
+```bash
+forjar apply -f examples/agent-deployment.yaml
+```
+
+5-phase pipeline with template parameters for model, GPU driver, and MCP port.
+
+### Multi-Agent Fleet
+
+Deploy across GPU fleet with load balancing and tool permission policies:
+
+```bash
+forjar apply -f examples/multi-agent-fleet.yaml
+```
+
+3-machine deployment with nginx upstream load balancer, per-agent tool-policy.yaml enforcement, and fleet health checks.
