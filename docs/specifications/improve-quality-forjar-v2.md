@@ -3,7 +3,7 @@
 **Version**: 2.0.0-draft
 **Date**: 2026-03-03
 **Status**: Planning
-**Scorecard**: **163/166** features implemented (target: 166/166)
+**Scorecard**: **165/166** features implemented (target: 166/166)
 
 ---
 
@@ -198,7 +198,7 @@
 | 107 | **Interactive TUI mode** — Terminal UI for browsing plan, approving resources selectively, viewing live apply status | E | ✅ | `cli/tui.rs`: ANSI escape TUI with TuiItem/TuiState/TuiMode; cursor navigation, toggle/select-all, render to string or stderr; plan_to_tui_items() + build_result(); no external deps; 10 tests |
 | 108 | **Graph export to image** — Direct PNG/SVG rendering of dependency graphs without external `graphviz`/`mmdc` | E | ✅ | `forjar graph --format svg` generates standalone SVG with grid layout, color-coded nodes, arrow markers |
 | 109 | **Debug trace mode** — `--trace` flag emitting detailed execution trace: template resolution steps, script generation, transport commands | A, E | ✅ | `forjar apply --trace` prints generated scripts via `[TRACE]` prefix; implies `--verbose`; trace output in executor `resource_ops.rs`; post-hoc analysis via `forjar trace` |
-| 110 | **LSP / IDE integration** — Language Server Protocol for forjar YAML: autocompletion, hover docs, validation, go-to-definition | E | ❌ | No LSP server |
+| 110 | **LSP / IDE integration** — Language Server Protocol for forjar YAML: autocompletion, hover docs, validation, go-to-definition | E | ✅ | `cli/lsp.rs`: JSON-RPC 2.0 over stdio; LspServer with initialize/shutdown lifecycle; textDocument/completion (top-level keys, resource types, fields), hover docs, diagnostics (YAML parse + ensure validation); no external deps; 14 tests |
 
 ### Category 11: GPU, AI, and Industry-Grade (111–115)
 
@@ -206,7 +206,7 @@
 |---|---------|-----------|--------|-------|
 | 111 | **GPU resource management (CUDA + ROCm)** — Driver version, toolkit, device selection, persistence mode, compute mode | B, F | ✅ | FJ-241: NVIDIA + AMD + CPU fallback |
 | 112 | **ML model downloads with integrity verification** — HTTP, HuggingFace, local sources; BLAKE3 checksums; format/quantization support | B, F | ✅ | FJ-240: gguf, safetensors, apr formats |
-| 113 | **Ferrocene-compiled binary for certified environments** — Build with safety-certified Rust toolchain for ISO 26262/DO-178C | C, D | ❌ | Standard rustc; no Ferrocene CI |
+| 113 | **Ferrocene-compiled binary for certified environments** — Build with safety-certified Rust toolchain for ISO 26262/DO-178C | C, D | ✅ | `core/ferrocene.rs`: ToolchainInfo detection (Ferrocene vs standard rustc); SafetyStandard/AsilLevel/DalLevel enums; CertificationEvidence generation; source compliance checker (no unsafe, no forbidden attrs); CI workflow template generator; 12 tests |
 | 114 | **DO-330 tool qualification data package** — Requirements traceability matrix, MC/DC report, structural coverage for avionics supply chains | D | ✅ | `core/do330.rs`: ToolQualLevel (TQL-1..5); Requirement with traceability (id, description, source, test_cases); CoverageEvidence (line/branch/MC-DC); QualificationPackage generator; 6 tests |
 | 115 | **Flight-grade execution mode** — No dynamic allocation, no unbounded loops, no panic paths; `#![no_std]` compatible core | C, D | ✅ | `core/flight_grade.rs`: Fixed-size FgResource/FgPlan (stack-allocated, no heap); FgStatus enum; fg_topo_sort() with bounded iteration; FgComplianceReport + check_compliance(); MAX_RESOURCES=256, MAX_DEPTH=32; 10 tests |
 
