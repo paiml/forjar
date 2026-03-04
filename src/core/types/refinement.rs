@@ -13,7 +13,7 @@
 /// ```
 /// use forjar::core::types::refinement::Port;
 ///
-/// let port = Port::new(8080).unwrap();
+/// let port = Port::new(8080).expect("valid");
 /// assert_eq!(port.value(), 8080);
 ///
 /// // Port 0 is invalid
@@ -42,11 +42,11 @@ impl Port {
 /// ```
 /// use forjar::core::types::refinement::FileMode;
 ///
-/// let mode = FileMode::new(0o644).unwrap();
+/// let mode = FileMode::new(0o644).expect("valid");
 /// assert_eq!(mode.as_octal_string(), "0644");
 ///
 /// // Parse from an octal string
-/// let mode = FileMode::from_str("755").unwrap();
+/// let mode = FileMode::from_str("755").expect("valid");
 /// assert_eq!(mode.value(), 0o755);
 ///
 /// // Values above 0o777 are rejected
@@ -85,7 +85,7 @@ impl FileMode {
 /// ```
 /// use forjar::core::types::refinement::SemVer;
 ///
-/// let ver = SemVer::parse("1.2.3").unwrap();
+/// let ver = SemVer::parse("1.2.3").expect("valid");
 /// assert_eq!(ver.major, 1);
 /// assert_eq!(ver.minor, 2);
 /// assert_eq!(ver.patch, 3);
@@ -137,7 +137,7 @@ impl std::fmt::Display for SemVer {
 /// ```
 /// use forjar::core::types::refinement::Hostname;
 ///
-/// let host = Hostname::new("web-01.example.com").unwrap();
+/// let host = Hostname::new("web-01.example.com").expect("valid");
 /// assert_eq!(host.as_str(), "web-01.example.com");
 ///
 /// // Empty hostnames and leading dashes are rejected
@@ -178,7 +178,7 @@ impl Hostname {
 /// ```
 /// use forjar::core::types::refinement::AbsPath;
 ///
-/// let path = AbsPath::new("/etc/nginx/nginx.conf").unwrap();
+/// let path = AbsPath::new("/etc/nginx/nginx.conf").expect("valid");
 /// assert_eq!(path.as_str(), "/etc/nginx/nginx.conf");
 ///
 /// // Relative paths are rejected
@@ -210,7 +210,7 @@ impl AbsPath {
 /// ```
 /// use forjar::core::types::refinement::ResourceName;
 ///
-/// let name = ResourceName::new("pkg-nginx").unwrap();
+/// let name = ResourceName::new("pkg-nginx").expect("valid");
 /// assert_eq!(name.as_str(), "pkg-nginx");
 ///
 /// // Spaces and empty strings are rejected

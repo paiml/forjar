@@ -30,7 +30,7 @@ use super::{default_true, Resource};
 ///     machine: web
 ///     packages: [nginx]
 /// "#;
-/// let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+/// let config: ForjarConfig = serde_yaml_ng::from_str(yaml).expect("valid YAML");
 /// assert_eq!(config.name, "my-infra");
 /// assert_eq!(config.machines.len(), 1);
 /// assert_eq!(config.resources.len(), 1);
@@ -250,7 +250,7 @@ pub struct OutputValue {
 /// addr: 10.0.0.1
 /// roles: [web, app]
 /// "#;
-/// let machine: Machine = serde_yaml_ng::from_str(yaml).unwrap();
+/// let machine: Machine = serde_yaml_ng::from_str(yaml).expect("valid YAML");
 /// assert_eq!(machine.hostname, "web-01");
 /// assert_eq!(machine.user, "root"); // default
 /// assert_eq!(machine.arch, "x86_64"); // default
