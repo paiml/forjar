@@ -104,6 +104,7 @@ mod dispatch_platform;
 mod progress;
 mod pull_agent;
 mod tui;
+mod lsp;
 pub mod structured_log;
 mod pq_signing;
 mod preservation_check;
