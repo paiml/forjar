@@ -12,6 +12,7 @@ on:
     branches: [main, master]
   push:
     branches: [main, master]
+  workflow_dispatch:  # manual trigger for testing
 
 # One CI run per PR; cancel stale runs
 concurrency:
