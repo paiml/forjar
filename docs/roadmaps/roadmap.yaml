@@ -647,11 +647,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'FJ-1425: V2 spec batch 6 — fault injection, invariants, ISO export, brownfield import, cross-machine deps'
-  status: inprogress
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-03-03T23:36:44Z
-  updated: 2026-03-03T23:36:47.951758387+00:00
+  updated: 2026-03-04T12:20:34.956829651+00:00
   spec: null
   acceptance_criteria: []
   phases: []
