@@ -12,7 +12,7 @@ pub(super) fn make_mount_resource() -> Resource {
         version: None,
         path: Some("/mnt/lambda-raid".to_string()),
         content: None,
-        source: Some("192.168.50.50:/mnt/nvme-raid0".to_string()),
+        source: Some("192.168.1.1:/srv/nfs/export".to_string()),
         target: None,
         owner: None,
         group: None,
@@ -96,7 +96,7 @@ fn test_fj009_apply_mount() {
     let script = apply_script(&r);
     assert!(script.contains("mkdir -p '/mnt/lambda-raid'"));
     assert!(script.contains("mount -t 'nfs' -o 'ro,hard,intr'"));
-    assert!(script.contains("192.168.50.50:/mnt/nvme-raid0"));
+    assert!(script.contains("192.168.1.1:/srv/nfs/export"));
     assert!(script.contains("/etc/fstab"));
 }
 
@@ -171,7 +171,7 @@ fn test_fj009_fstab_entry_format() {
     let r = make_mount_resource();
     let script = apply_script(&r);
     // Verify fstab entry has correct fields: source target fstype options dump pass
-    assert!(script.contains("192.168.50.50:/mnt/nvme-raid0 /mnt/lambda-raid nfs ro,hard,intr 0 0"));
+    assert!(script.contains("192.168.1.1:/srv/nfs/export /mnt/lambda-raid nfs ro,hard,intr 0 0"));
 }
 
 #[test]
