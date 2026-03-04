@@ -93,8 +93,8 @@ pub(crate) fn cmd_status_resource_dependencies(
         }
         let content = std::fs::read_to_string(&lock_path).unwrap_or_default();
         if let Ok(lock) = serde_yaml_ng::from_str::<crate::core::types::StateLock>(&content) {
-            for (rname, _) in &lock.resources {
-                deps.push((m.clone(), rname.clone(), 0));
+            for (rname, rl) in &lock.resources {
+                deps.push((m.clone(), rname.clone(), rl.details.len()));
             }
         }
     }
@@ -117,8 +117,8 @@ pub(crate) fn cmd_status_resource_dependencies(
         println!("No resource dependency data available");
     } else {
         println!("Resource dependencies ({} resources):", deps.len());
-        for (m, r, _) in &deps {
-            println!("  {m}:{r}");
+        for (m, r, d) in &deps {
+            println!("  {m}:{r} — {d} detail(s)");
         }
     }
     Ok(())

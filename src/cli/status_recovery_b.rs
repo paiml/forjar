@@ -211,14 +211,54 @@ fn collect_health_trends(sd: &Path, targets: &[&String]) -> Vec<(String, String)
     let mut trends = Vec::new();
     for m in targets {
         let path = sd.join(m).join("state.lock.yaml");
-        if path.exists() {
-            trends.push((
-                (*m).clone(),
-                "current data only (no historical trend)".to_string(),
-            ));
+        let content = match std::fs::read_to_string(&path) {
+            Ok(c) => c,
+            Err(_) => {
+                trends.push(((*m).clone(), "no data".to_string()));
+                continue;
+            }
+        };
+        let lock: types::StateLock = match serde_yaml_ng::from_str(&content) {
+            Ok(l) => l,
+            Err(_) => {
+                trends.push(((*m).clone(), "parse error".to_string()));
+                continue;
+            }
+        };
+        let total = lock.resources.len();
+        let converged = lock
+            .resources
+            .values()
+            .filter(|r| matches!(r.status, types::ResourceStatus::Converged))
+            .count();
+        let failed = lock
+            .resources
+            .values()
+            .filter(|r| matches!(r.status, types::ResourceStatus::Failed))
+            .count();
+        let drifted = lock
+            .resources
+            .values()
+            .filter(|r| matches!(r.status, types::ResourceStatus::Drifted))
+            .count();
+        let rate = if total > 0 {
+            (converged as f64 / total as f64) * 100.0
         } else {
-            trends.push(((*m).clone(), "no data".to_string()));
-        }
+            0.0
+        };
+        let label = if failed > 0 {
+            "degraded"
+        } else if drifted > 0 {
+            "drifting"
+        } else {
+            "healthy"
+        };
+        trends.push((
+            (*m).clone(),
+            format!(
+                "{label} — {converged}/{total} converged ({rate:.0}%), {failed} failed, {drifted} drifted"
+            ),
+        ));
     }
     trends.sort_by(|a, b| a.0.cmp(&b.0));
     trends
@@ -314,10 +354,35 @@ fn collect_apply_success_trends(sd: &Path, targets: &[&String]) -> Vec<(String, 
     let mut trends = Vec::new();
     for m in targets {
         let events_path = sd.join(m).join("events.jsonl");
-        if events_path.exists() {
-            trends.push(((*m).clone(), "event history available".to_string()));
+        let content = match std::fs::read_to_string(&events_path) {
+            Ok(c) => c,
+            Err(_) => {
+                trends.push(((*m).clone(), "no event history".to_string()));
+                continue;
+            }
+        };
+        let mut started = 0usize;
+        let mut converged = 0usize;
+        let mut failed = 0usize;
+        for line in content.lines() {
+            if let Ok(val) = serde_json::from_str::<serde_json::Value>(line) {
+                match val.get("event").and_then(|v| v.as_str()).unwrap_or("") {
+                    "resource_started" => started += 1,
+                    "resource_converged" => converged += 1,
+                    "resource_failed" => failed += 1,
+                    _ => {}
+                }
+            }
+        }
+        let total_applies = converged + failed;
+        if total_applies == 0 {
+            trends.push(((*m).clone(), format!("{started} events, no apply results")));
         } else {
-            trends.push(((*m).clone(), "no event history".to_string()));
+            let rate = (converged as f64 / total_applies as f64) * 100.0;
+            trends.push((
+                (*m).clone(),
+                format!("{rate:.0}% success ({converged}/{total_applies} converged, {failed} failed)"),
+            ));
         }
     }
     trends.sort_by(|a, b| a.0.cmp(&b.0));
