@@ -289,18 +289,21 @@ mod tests {
 
     // ─── secrets.rs — find_enc_markers ────────────────────────────
 
+    #[cfg(feature = "encryption")]
     #[test]
     fn test_find_enc_markers_empty_string() {
         let markers = find_enc_markers("");
         assert!(markers.is_empty());
     }
 
+    #[cfg(feature = "encryption")]
     #[test]
     fn test_find_enc_markers_no_markers() {
         let markers = find_enc_markers("hello world, no secrets here");
         assert!(markers.is_empty());
     }
 
+    #[cfg(feature = "encryption")]
     #[test]
     fn test_find_enc_markers_single_marker() {
         let input = "password: ENC[age,abc123def456]";
@@ -310,6 +313,7 @@ mod tests {
         assert_eq!(&input[start..end], "ENC[age,abc123def456]");
     }
 
+    #[cfg(feature = "encryption")]
     #[test]
     fn test_find_enc_markers_multiple_markers() {
         let input = "a: ENC[age,aaa] b: ENC[age,bbb] c: ENC[age,ccc]";
@@ -317,12 +321,14 @@ mod tests {
         assert_eq!(markers.len(), 3);
     }
 
+    #[cfg(feature = "encryption")]
     #[test]
     fn test_find_enc_markers_incomplete_prefix() {
         let markers = find_enc_markers("ENC[age,no_closing_bracket");
         assert!(markers.is_empty());
     }
 
+    #[cfg(feature = "encryption")]
     #[test]
     fn test_find_enc_markers_adjacent_markers() {
         let input = "ENC[age,x]ENC[age,y]";
@@ -332,6 +338,7 @@ mod tests {
         assert_eq!(&input[markers[1].0..markers[1].1], "ENC[age,y]");
     }
 
+    #[cfg(feature = "encryption")]
     #[test]
     fn test_find_enc_markers_nested_text() {
         let input = "line1\npassword: ENC[age,longbase64data==]\nline3";
@@ -344,6 +351,7 @@ mod tests {
 
     // ─── secrets.rs — cmd_secrets_keygen ──────────────────────────
 
+    #[cfg(feature = "encryption")]
     #[test]
     fn test_cmd_secrets_keygen_succeeds() {
         let result = cmd_secrets_keygen();
@@ -352,6 +360,7 @@ mod tests {
 
     // ─── secrets.rs — cmd_secrets_view ────────────────────────────
 
+    #[cfg(feature = "encryption")]
     #[test]
     fn test_cmd_secrets_view_plain_file() {
         let dir = tempfile::tempdir().unwrap();
@@ -361,12 +370,14 @@ mod tests {
         assert!(result.is_ok());
     }
 
+    #[cfg(feature = "encryption")]
     #[test]
     fn test_cmd_secrets_view_nonexistent_file() {
         let result = cmd_secrets_view(Path::new("/tmp/forjar-nonexistent-12345.yaml"), None);
         assert!(result.is_err());
     }
 
+    #[cfg(feature = "encryption")]
     #[test]
     fn test_cmd_secrets_view_file_with_markers_no_identity() {
         let dir = tempfile::tempdir().unwrap();
@@ -381,12 +392,14 @@ mod tests {
 
     // ─── secrets.rs — cmd_secrets_encrypt ─────────────────────────
 
+    #[cfg(feature = "encryption")]
     #[test]
     fn test_cmd_secrets_encrypt_invalid_recipient() {
         let result = cmd_secrets_encrypt("secret_value", &["not-a-valid-recipient".to_string()]);
         assert!(result.is_err(), "invalid recipient should fail");
     }
 
+    #[cfg(feature = "encryption")]
     #[test]
     fn test_cmd_secrets_encrypt_empty_recipients() {
         let result = cmd_secrets_encrypt("secret_value", &[]);
@@ -395,6 +408,7 @@ mod tests {
 
     // ─── secrets.rs — cmd_secrets_decrypt ─────────────────────────
 
+    #[cfg(feature = "encryption")]
     #[test]
     fn test_cmd_secrets_decrypt_invalid_marker() {
         let result = cmd_secrets_decrypt("not_a_valid_marker", None);
@@ -402,6 +416,7 @@ mod tests {
         assert!(result.is_err());
     }
 
+    #[cfg(feature = "encryption")]
     #[test]
     fn test_cmd_secrets_decrypt_bad_base64() {
         let result = cmd_secrets_decrypt("ENC[age,!!!invalid!!!]", None);
@@ -410,6 +425,7 @@ mod tests {
 
     // ─── secrets.rs — cmd_secrets_rekey ───────────────────────────
 
+    #[cfg(feature = "encryption")]
     #[test]
     fn test_cmd_secrets_rekey_nonexistent_file() {
         let result = cmd_secrets_rekey(
@@ -420,6 +436,7 @@ mod tests {
         assert!(result.is_err());
     }
 
+    #[cfg(feature = "encryption")]
     #[test]
     fn test_cmd_secrets_rekey_no_markers() {
         let dir = tempfile::tempdir().unwrap();
@@ -431,6 +448,7 @@ mod tests {
 
     // ─── secrets.rs — cmd_secrets_rotate ──────────────────────────
 
+    #[cfg(feature = "encryption")]
     #[test]
     fn test_cmd_secrets_rotate_no_re_encrypt_flag() {
         let dir = tempfile::tempdir().unwrap();
@@ -448,6 +466,7 @@ mod tests {
         assert!(result.unwrap_err().contains("--re-encrypt"));
     }
 
+    #[cfg(feature = "encryption")]
     #[test]
     fn test_cmd_secrets_rotate_nonexistent_file() {
         let dir = tempfile::tempdir().unwrap();
@@ -462,6 +481,7 @@ mod tests {
         assert!(result.is_err());
     }
 
+    #[cfg(feature = "encryption")]
     #[test]
     fn test_cmd_secrets_rotate_no_markers() {
         let dir = tempfile::tempdir().unwrap();
