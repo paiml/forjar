@@ -234,9 +234,7 @@ pub(crate) fn cmd_validate_check_resource_path_depth_limit(
             })
         );
     } else if violations.is_empty() {
-        println!(
-            "Path depth: 0 resources exceed limit ({PATH_DEPTH_LIMIT} levels)"
-        );
+        println!("Path depth: 0 resources exceed limit ({PATH_DEPTH_LIMIT} levels)");
     } else {
         println!(
             "Path depth: {} resources exceed limit ({} levels)",

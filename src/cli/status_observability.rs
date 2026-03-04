@@ -200,9 +200,7 @@ pub(crate) fn cmd_status_anomalies(
         let entries: Vec<String> = anomalies
             .iter()
             .map(|(m, r, issue)| {
-                format!(
-                    "{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"issue\":\"{issue}\"}}"
-                )
+                format!("{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"issue\":\"{issue}\"}}")
             })
             .collect();
         println!("[{}]", entries.join(","));
@@ -300,9 +298,7 @@ fn print_diff_output(diffs: &[(String, String, String)], snapshot_name: &str, js
         let entries: Vec<String> = diffs
             .iter()
             .map(|(m, r, change)| {
-                format!(
-                    "{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"change\":\"{change}\"}}"
-                )
+                format!("{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"change\":\"{change}\"}}")
             })
             .collect();
         println!("[{}]", entries.join(","));

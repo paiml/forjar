@@ -20,15 +20,12 @@ pub mod types;
 pub mod do330;
 pub mod ferrocene;
 pub mod flight_grade;
-pub mod repro_build;
 mod kani_proofs;
 pub mod mcdc;
+pub mod repro_build;
 mod scoring_b;
-mod verus_spec;
 #[cfg(test)]
 mod tests_compliance;
-#[cfg(test)]
-mod tests_security_scanner;
 #[cfg(test)]
 mod tests_proptest_handlers;
 #[cfg(test)]
@@ -41,5 +38,8 @@ mod tests_purifier_b;
 mod tests_scoring;
 #[cfg(test)]
 mod tests_scoring_b;
-#[cfg(test)]
+#[cfg(all(test, feature = "encryption"))]
 mod tests_secrets;
+#[cfg(test)]
+mod tests_security_scanner;
+mod verus_spec;

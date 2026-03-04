@@ -77,11 +77,14 @@ pub(crate) fn apply_machines_parallel(
     });
 
     // Restore locks
-    *locks = lock_mutex.into_inner().unwrap();
+    *locks = lock_mutex.into_inner().unwrap_or_else(|e| e.into_inner());
 
     // Collect results, returning first error if any
     let mut all_results = Vec::new();
-    for result in results_mutex.into_inner().unwrap() {
+    for result in results_mutex
+        .into_inner()
+        .unwrap_or_else(|e| e.into_inner())
+    {
         all_results.push(result?);
     }
     Ok(all_results)

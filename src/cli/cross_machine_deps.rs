@@ -69,7 +69,12 @@ fn build_resource_machine_map(
 fn analyze_deps(
     config: &crate::core::types::ForjarConfig,
     res_machine: &BTreeMap<String, Vec<String>>,
-) -> (Vec<CrossDep>, usize, usize, std::collections::BTreeSet<String>) {
+) -> (
+    Vec<CrossDep>,
+    usize,
+    usize,
+    std::collections::BTreeSet<String>,
+) {
     let mut edges = Vec::new();
     let mut cross_count = 0usize;
     let mut same_count = 0usize;
@@ -183,4 +188,3 @@ fn print_cross_dep_report(report: &CrossDepReport) {
         println!("  Wave {i}: {}", wave.join(", "));
     }
 }
-

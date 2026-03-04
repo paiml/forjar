@@ -71,10 +71,7 @@ fn build_histogram(depths: &HashMap<String, usize>) -> BTreeMap<usize, usize> {
 }
 
 fn print_depth_histogram_json(hist: &BTreeMap<usize, usize>, max_depth: usize) {
-    let entries: Vec<String> = hist
-        .iter()
-        .map(|(d, c)| format!("\"{d}\":{c}"))
-        .collect();
+    let entries: Vec<String> = hist.iter().map(|(d, c)| format!("\"{d}\":{c}")).collect();
     println!(
         "{{\"depth_histogram\":{{{}}},\"max_depth\":{}}}",
         entries.join(","),

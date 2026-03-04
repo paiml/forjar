@@ -219,9 +219,7 @@ pub(crate) fn cmd_graph_resource_age(file: &Path, json: bool) -> Result<(), Stri
                     .get(name)
                     .map(|r| format!("{:?}", r.resource_type))
                     .unwrap_or_else(|| "unknown".to_string());
-                format!(
-                    r#"{{"resource":"{name}","type":"{rtype}","age":"unknown"}}"#
-                )
+                format!(r#"{{"resource":"{name}","type":"{rtype}","age":"unknown"}}"#)
             })
             .collect();
         println!(

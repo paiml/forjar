@@ -350,9 +350,7 @@ fn check_pre_apply_drift(
     }
     if total_drift > 0 {
         if verbose {
-            eprintln!(
-                "{total_drift} resource(s) drifted — run 'forjar drift' for details"
-            );
+            eprintln!("{total_drift} resource(s) drifted — run 'forjar drift' for details");
         }
         return Err(format!(
             "{total_drift} drift finding(s) block apply — use --force to override"

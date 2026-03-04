@@ -15,18 +15,12 @@ pub fn check_script(resource: &Resource) -> String {
     let state = resource.state.as_deref().unwrap_or("file");
 
     match state {
-        "directory" => format!(
-            "test -d '{path}' && echo 'exists:directory' || echo 'missing:directory'"
-        ),
-        "absent" => format!(
-            "test -e '{path}' && echo 'exists:present' || echo 'missing:absent'"
-        ),
-        "symlink" => format!(
-            "test -L '{path}' && echo 'exists:symlink' || echo 'missing:symlink'"
-        ),
-        "file" => format!(
-            "test -f '{path}' && echo 'exists:file' || echo 'missing:file'"
-        ),
+        "directory" => {
+            format!("test -d '{path}' && echo 'exists:directory' || echo 'missing:directory'")
+        }
+        "absent" => format!("test -e '{path}' && echo 'exists:present' || echo 'missing:absent'"),
+        "symlink" => format!("test -L '{path}' && echo 'exists:symlink' || echo 'missing:symlink'"),
+        "file" => format!("test -f '{path}' && echo 'exists:file' || echo 'missing:file'"),
         other => format!("echo 'unsupported file state: {other}'"),
     }
 }

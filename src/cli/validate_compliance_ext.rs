@@ -121,9 +121,7 @@ fn print_rollback_json(warnings: &[(String, String)]) {
     let items: Vec<String> = warnings
         .iter()
         .map(|(name, reason)| {
-            format!(
-                r#"{{"resource":"{name}","type_requires_rollback":true,"reason":"{reason}"}}"#
-            )
+            format!(r#"{{"resource":"{name}","type_requires_rollback":true,"reason":"{reason}"}}"#)
         })
         .collect();
     println!(

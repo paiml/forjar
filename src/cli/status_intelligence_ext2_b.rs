@@ -224,9 +224,7 @@ fn print_apply_latency_p95(latencies: &[(String, f64, usize)], json: bool) {
         let items: Vec<String> = latencies
             .iter()
             .map(|(m, l, t)| {
-                format!(
-                    "{{\"machine\":\"{m}\",\"p95_latency_sec\":{l:.2},\"resources\":{t}}}"
-                )
+                format!("{{\"machine\":\"{m}\",\"p95_latency_sec\":{l:.2},\"resources\":{t}}}")
             })
             .collect();
         println!("{{\"apply_latency_p95\":[{}]}}", items.join(","));
@@ -288,9 +286,7 @@ fn print_security_posture(scores: &[(String, f64, usize)], json: bool) {
         let items: Vec<String> = scores
             .iter()
             .map(|(m, s, t)| {
-                format!(
-                    "{{\"machine\":\"{m}\",\"posture_score\":{s:.4},\"resources\":{t}}}"
-                )
+                format!("{{\"machine\":\"{m}\",\"posture_score\":{s:.4},\"resources\":{t}}}")
             })
             .collect();
         println!("{{\"security_posture\":[{}]}}", items.join(","));

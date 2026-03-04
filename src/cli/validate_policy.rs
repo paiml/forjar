@@ -12,9 +12,7 @@ fn check_no_root_owner(
 ) {
     for (name, res) in &config.resources {
         if res.owner.as_deref() == Some("root") {
-            violations.push(format!(
-                "[{rule_name}] resource '{name}' has owner 'root'"
-            ));
+            violations.push(format!("[{rule_name}] resource '{name}' has owner 'root'"));
         }
     }
 }
@@ -36,9 +34,7 @@ fn check_require_depends_on(
 ) {
     for (name, res) in &config.resources {
         if res.depends_on.is_empty() && res.resource_type != types::ResourceType::Package {
-            violations.push(format!(
-                "[{rule_name}] resource '{name}' has no depends_on"
-            ));
+            violations.push(format!("[{rule_name}] resource '{name}' has no depends_on"));
         }
     }
 }
@@ -139,9 +135,7 @@ pub(crate) fn cmd_validate_connectivity(file: &Path, json: bool) -> Result<(), S
         let entries: Vec<String> = results
             .iter()
             .map(|(name, addr, ok)| {
-                format!(
-                    "{{\"machine\":\"{name}\",\"addr\":\"{addr}\",\"reachable\":{ok}}}"
-                )
+                format!("{{\"machine\":\"{name}\",\"addr\":\"{addr}\",\"reachable\":{ok}}}")
             })
             .collect();
         println!("[{}]", entries.join(","));

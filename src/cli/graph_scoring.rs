@@ -190,11 +190,7 @@ pub(crate) fn cmd_graph_resource_dependency_bottleneck(
     if json {
         let items: Vec<String> = bottlenecks
             .iter()
-            .map(|(n, fi, fo)| {
-                format!(
-                    "{{\"resource\":\"{n}\",\"fan_in\":{fi},\"fan_out\":{fo}}}"
-                )
-            })
+            .map(|(n, fi, fo)| format!("{{\"resource\":\"{n}\",\"fan_in\":{fi},\"fan_out\":{fo}}}"))
             .collect();
         println!("{{\"bottlenecks\":[{}]}}", items.join(","));
     } else if bottlenecks.is_empty() {
@@ -288,9 +284,7 @@ pub(crate) fn cmd_graph_resource_dependency_cycle_risk(
         let items: Vec<String> = risks
             .iter()
             .map(|(a, b, depth)| {
-                format!(
-                    "{{\"from\":\"{a}\",\"to\":\"{b}\",\"mutual_depth\":{depth}}}"
-                )
+                format!("{{\"from\":\"{a}\",\"to\":\"{b}\",\"mutual_depth\":{depth}}}")
             })
             .collect();
         println!("{{\"cycle_risks\":[{}]}}", items.join(","));

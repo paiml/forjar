@@ -1,5 +1,6 @@
 //! Secrets management.
 
+#[cfg(feature = "encryption")]
 use crate::core::secrets;
 use std::path::Path;
 
@@ -14,7 +15,10 @@ use crate::tripwire::eventlog;
 
 #[cfg(not(feature = "encryption"))]
 fn no_encryption_error() -> Result<(), String> {
-    Err("forjar was compiled without encryption support. Rebuild with `--features encryption`.".to_string())
+    Err(
+        "forjar was compiled without encryption support. Rebuild with `--features encryption`."
+            .to_string(),
+    )
 }
 
 #[cfg(feature = "encryption")]
@@ -39,7 +43,10 @@ pub(crate) fn cmd_secrets_decrypt(value: &str, identity_path: Option<&Path>) -> 
 }
 
 #[cfg(not(feature = "encryption"))]
-pub(crate) fn cmd_secrets_decrypt(_value: &str, _identity_path: Option<&Path>) -> Result<(), String> {
+pub(crate) fn cmd_secrets_decrypt(
+    _value: &str,
+    _identity_path: Option<&Path>,
+) -> Result<(), String> {
     no_encryption_error()
 }
 
@@ -185,6 +192,7 @@ pub(crate) fn cmd_secrets_rotate(
     no_encryption_error()
 }
 
+#[cfg(any(feature = "encryption", test))]
 pub(crate) fn find_enc_markers(s: &str) -> Vec<(usize, usize)> {
     let prefix = "ENC[age,";
     let suffix = "]";

@@ -7,11 +7,7 @@ use super::helpers::*;
 use crate::core::types;
 use std::path::Path;
 
-pub(crate) fn cmd_model_card(
-    file: &Path,
-    state_dir: &Path,
-    json: bool,
-) -> Result<(), String> {
+pub(crate) fn cmd_model_card(file: &Path, state_dir: &Path, json: bool) -> Result<(), String> {
     let config = parse_and_validate(file)?;
 
     let models = collect_model_resources(&config);
@@ -45,7 +41,10 @@ fn collect_model_resources(config: &types::ForjarConfig) -> Vec<ModelInfo> {
     let mut models = Vec::new();
     for (id, resource) in &config.resources {
         let is_model = matches!(resource.resource_type, types::ResourceType::Model)
-            || resource.tags.iter().any(|t| t.contains("model") || t.contains("ml"))
+            || resource
+                .tags
+                .iter()
+                .any(|t| t.contains("model") || t.contains("ml"))
             || resource.resource_group.as_deref() == Some("models");
 
         if !is_model {

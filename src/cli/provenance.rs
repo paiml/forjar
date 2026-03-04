@@ -17,8 +17,7 @@ pub(crate) fn cmd_provenance(
     let config = parse_and_validate(file)?;
 
     // 1. Hash the config file itself
-    let config_bytes =
-        std::fs::read(file).map_err(|e| format!("cannot read config: {e}"))?;
+    let config_bytes = std::fs::read(file).map_err(|e| format!("cannot read config: {e}"))?;
     let config_hash = blake3::hash(&config_bytes).to_hex().to_string();
 
     // 2. Compute plan hash (hash of all resource IDs + types + deps in topo order)
@@ -77,10 +76,7 @@ fn compute_plan_hash(config: &types::ForjarConfig) -> String {
     hasher.finalize().to_hex().to_string()
 }
 
-fn collect_state_hashes(
-    state_dir: &Path,
-    machine_filter: Option<&str>,
-) -> Vec<(String, String)> {
+fn collect_state_hashes(state_dir: &Path, machine_filter: Option<&str>) -> Vec<(String, String)> {
     let mut result = Vec::new();
     if let Ok(entries) = std::fs::read_dir(state_dir) {
         for entry in entries.flatten() {

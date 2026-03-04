@@ -45,17 +45,11 @@ pub(crate) fn cmd_lock_repair(state_dir: &Path, json: bool) -> Result<(), String
     }
 
     if json {
-        println!(
-            r#"{{"repaired":{repaired},"already_valid":{already_valid}}}"#
-        );
+        println!(r#"{{"repaired":{repaired},"already_valid":{already_valid}}}"#);
     } else if repaired == 0 {
-        println!(
-            "All {already_valid} lock files are valid, no repair needed"
-        );
+        println!("All {already_valid} lock files are valid, no repair needed");
     } else {
-        println!(
-            "Repaired {repaired} lock files ({already_valid} were already valid)"
-        );
+        println!("Repaired {repaired} lock files ({already_valid} were already valid)");
     }
     Ok(())
 }

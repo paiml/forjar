@@ -6,11 +6,7 @@
 use super::helpers::*;
 use std::path::Path;
 
-pub(crate) fn cmd_sovereignty(
-    file: &Path,
-    state_dir: &Path,
-    json: bool,
-) -> Result<(), String> {
+pub(crate) fn cmd_sovereignty(file: &Path, state_dir: &Path, json: bool) -> Result<(), String> {
     let config = parse_and_validate(file)?;
 
     let mut entries = Vec::new();
@@ -69,7 +65,11 @@ fn scan_state_sovereignty(state_dir: &Path) -> Vec<StateSov> {
         for entry in entries.flatten() {
             let path = entry.path();
             if path.is_file() && path.extension().map(|e| e == "yaml").unwrap_or(false) {
-                let name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
+                let name = path
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string();
                 let hash = std::fs::read(&path)
                     .ok()
                     .map(|bytes| blake3::hash(&bytes).to_hex()[..16].to_string())
@@ -122,7 +122,11 @@ fn print_sovereignty_text(entries: &[SovereigntyEntry], state: &[StateSov], name
         let j = e.jurisdiction.as_deref().unwrap_or("—");
         let c = e.classification.as_deref().unwrap_or("—");
         let r = e.residency.as_deref().unwrap_or("—");
-        let icon = if e.jurisdiction.is_some() { green("✓") } else { yellow("?") };
+        let icon = if e.jurisdiction.is_some() {
+            green("✓")
+        } else {
+            yellow("?")
+        };
         println!(
             "  {icon} {} ({}) [J:{j} C:{c} R:{r}]",
             e.id, e.resource_type

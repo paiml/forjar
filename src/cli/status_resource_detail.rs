@@ -51,9 +51,7 @@ pub(crate) fn cmd_status_resource_timeline(
         let items: Vec<String> = events
             .iter()
             .map(|(ts, m, r, s)| {
-                format!(
-                    r#"{{"timestamp":"{ts}","machine":"{m}","resource":"{r}","status":"{s}"}}"#
-                )
+                format!(r#"{{"timestamp":"{ts}","machine":"{m}","resource":"{r}","status":"{s}"}}"#)
             })
             .collect();
         println!(
@@ -102,11 +100,7 @@ pub(crate) fn cmd_status_resource_dependencies(
     if json {
         let items: Vec<String> = deps
             .iter()
-            .map(|(m, r, d)| {
-                format!(
-                    r#"{{"machine":"{m}","resource":"{r}","dependencies":{d}}}"#
-                )
-            })
+            .map(|(m, r, d)| format!(r#"{{"machine":"{m}","resource":"{r}","dependencies":{d}}}"#))
             .collect();
         println!(
             r#"{{"resource_dependencies":[{}],"count":{}}}"#,
@@ -262,9 +256,7 @@ pub(crate) fn cmd_status_resource_health(
         let items: Vec<String> = entries
             .iter()
             .map(|(m, n, s)| {
-                format!(
-                    "{{\"machine\":\"{m}\",\"resource\":\"{n}\",\"status\":\"{s}\"}}"
-                )
+                format!("{{\"machine\":\"{m}\",\"resource\":\"{n}\",\"status\":\"{s}\"}}")
             })
             .collect();
         println!("{{\"resource_health\":[{}]}}", items.join(","));
@@ -362,9 +354,7 @@ pub(crate) fn cmd_status_last_apply_status(
         let items: Vec<String> = statuses
             .iter()
             .map(|(m, s, t)| {
-                format!(
-                    "{{\"machine\":\"{m}\",\"status\":\"{s}\",\"timestamp\":\"{t}\"}}"
-                )
+                format!("{{\"machine\":\"{m}\",\"status\":\"{s}\",\"timestamp\":\"{t}\"}}")
             })
             .collect();
         println!("{{\"last_apply_status\":[{}]}}", items.join(","));
@@ -424,9 +414,7 @@ pub(crate) fn cmd_status_resource_staleness(
         let items: Vec<String> = entries
             .iter()
             .map(|(m, n, ts)| {
-                format!(
-                    "{{\"machine\":\"{m}\",\"resource\":\"{n}\",\"last_apply\":\"{ts}\"}}"
-                )
+                format!("{{\"machine\":\"{m}\",\"resource\":\"{n}\",\"last_apply\":\"{ts}\"}}")
             })
             .collect();
         println!("{{\"resource_staleness\":[{}]}}", items.join(","));

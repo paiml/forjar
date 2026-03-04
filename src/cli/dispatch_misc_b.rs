@@ -50,12 +50,7 @@ pub(super) fn dispatch_data_cmd(cmd: Commands) -> Result<(), String> {
             machine,
             limit,
             json,
-        }) => super::drift_predict::cmd_drift_predict(
-            &state_dir,
-            machine.as_deref(),
-            limit,
-            json,
-        ),
+        }) => super::drift_predict::cmd_drift_predict(&state_dir, machine.as_deref(), limit, json),
         Commands::ModelEval(ModelEvalArgs {
             file,
             resource,

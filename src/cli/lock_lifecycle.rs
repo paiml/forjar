@@ -42,15 +42,11 @@ pub(crate) fn cmd_lock_compress(state_dir: &Path, json: bool) -> Result<(), Stri
     }
 
     if json {
-        println!(
-            r#"{{"compressed":{compressed},"bytes_saved":{total_saved}}}"#
-        );
+        println!(r#"{{"compressed":{compressed},"bytes_saved":{total_saved}}}"#);
     } else if compressed == 0 {
         println!("No lock files needed compression");
     } else {
-        println!(
-            "Compressed {compressed} lock files, saved {total_saved} bytes"
-        );
+        println!("Compressed {compressed} lock files, saved {total_saved} bytes");
     }
     Ok(())
 }
@@ -127,9 +123,7 @@ pub(crate) fn cmd_lock_snapshot(state_dir: &Path, json: bool) -> Result<(), Stri
     } else if copied == 0 {
         println!("No lock files to snapshot");
     } else {
-        println!(
-            "Created snapshot '{snapshot_name}' with {copied} lock files"
-        );
+        println!("Created snapshot '{snapshot_name}' with {copied} lock files");
     }
     Ok(())
 }
@@ -171,9 +165,7 @@ pub(crate) fn cmd_lock_defrag(state_dir: &Path, json: bool) -> Result<(), String
     } else if defragged == 0 {
         println!("No lock files to defragment");
     } else {
-        println!(
-            "Defragmented {defragged} lock files (resources reordered alphabetically)"
-        );
+        println!("Defragmented {defragged} lock files (resources reordered alphabetically)");
     }
     Ok(())
 }

@@ -36,15 +36,15 @@ const REPRO_ENV: &[(&str, &str)] = &[
 
 /// Required RUSTFLAGS for reproducible builds.
 const REPRO_FLAGS: &[&str] = &[
-    "--remap-path-prefix",  // Remove absolute paths from binary
+    "--remap-path-prefix", // Remove absolute paths from binary
 ];
 
 /// Cargo profile settings that affect reproducibility.
 #[allow(dead_code)]
 const REPRO_PROFILE: &[(&str, &str)] = &[
-    ("panic", "abort"),         // Deterministic panic handling
-    ("lto", "thin or fat"),     // Link-time optimization for determinism
-    ("codegen-units", "1"),     // Single codegen unit for determinism
+    ("panic", "abort"),     // Deterministic panic handling
+    ("lto", "thin or fat"), // Link-time optimization for determinism
+    ("codegen-units", "1"), // Single codegen unit for determinism
 ];
 
 /// Check build environment for reproducibility.
@@ -150,7 +150,8 @@ pub fn hash_source_dir(dir: &std::path::Path) -> Result<String, String> {
             .map_err(|e| e.to_string())?
             .to_string_lossy();
         hasher.update(rel.as_bytes());
-        let content = std::fs::read(path).map_err(|e| format!("Failed to read {}: {e}", path.display()))?;
+        let content =
+            std::fs::read(path).map_err(|e| format!("Failed to read {}: {e}", path.display()))?;
         hasher.update(&content);
     }
 
@@ -177,11 +178,7 @@ fn collect_source_files(dir: &std::path::Path) -> Result<Vec<std::path::PathBuf>
 }
 
 /// Generate full reproducibility report.
-pub fn generate_report(
-    source_hash: &str,
-    binary_hash: &str,
-    cargo_toml: &str,
-) -> ReproReport {
+pub fn generate_report(source_hash: &str, binary_hash: &str, cargo_toml: &str) -> ReproReport {
     let mut checks = check_environment();
     checks.extend(check_cargo_profile(cargo_toml));
 
@@ -194,8 +191,7 @@ pub fn generate_report(
         .trim()
         .to_string();
 
-    let target = std::env::var("TARGET")
-        .unwrap_or_else(|_| "x86_64-unknown-linux-gnu".to_string());
+    let target = std::env::var("TARGET").unwrap_or_else(|_| "x86_64-unknown-linux-gnu".to_string());
 
     let reproducible = checks.iter().all(|c| c.passed);
 
@@ -277,7 +273,11 @@ codegen-units = 1
 
     #[test]
     fn test_generate_report() {
-        let report = generate_report("src123", "bin456", "[profile.release]\npanic = \"abort\"\nlto = true\ncodegen-units = 1");
+        let report = generate_report(
+            "src123",
+            "bin456",
+            "[profile.release]\npanic = \"abort\"\nlto = true\ncodegen-units = 1",
+        );
         assert_eq!(report.source_hash, "src123");
         assert_eq!(report.binary_hash, "bin456");
         assert_eq!(report.profile, "release");

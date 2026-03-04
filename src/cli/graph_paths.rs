@@ -65,11 +65,7 @@ pub(crate) fn cmd_graph_bottleneck_resources(file: &Path, json: bool) -> Result<
     if json {
         let items: Vec<String> = bottlenecks
             .iter()
-            .map(|(r, fi, fo)| {
-                format!(
-                    "{{\"resource\":\"{r}\",\"fanin\":{fi},\"fanout\":{fo}}}"
-                )
-            })
+            .map(|(r, fi, fo)| format!("{{\"resource\":\"{r}\",\"fanin\":{fi},\"fanout\":{fo}}}"))
             .collect();
         println!("{{\"bottleneck_resources\":[{}]}}", items.join(","));
     } else if bottlenecks.is_empty() {
@@ -246,9 +242,7 @@ pub(crate) fn cmd_graph_resource_coupling_score(file: &Path, json: bool) -> Resu
         let items: Vec<String> = scores
             .iter()
             .map(|(a, b, s)| {
-                format!(
-                    "{{\"resource_a\":\"{a}\",\"resource_b\":\"{b}\",\"score\":{s}}}"
-                )
+                format!("{{\"resource_a\":\"{a}\",\"resource_b\":\"{b}\",\"score\":{s}}}")
             })
             .collect();
         println!("{{\"coupling_scores\":[{}]}}", items.join(","));

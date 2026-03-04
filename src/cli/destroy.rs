@@ -116,9 +116,7 @@ pub(crate) fn cmd_destroy(
         let machine = match config.machines.get(machine_name) {
             Some(m) => m,
             None => {
-                eprintln!(
-                    "  SKIP {resource_id}: machine '{machine_name}' not found"
-                );
+                eprintln!("  SKIP {resource_id}: machine '{machine_name}' not found");
                 failed += 1;
                 continue;
             }
@@ -137,9 +135,7 @@ pub(crate) fn cmd_destroy(
 
     println!();
     if failed > 0 {
-        println!(
-            "Destroy completed with errors: {destroyed} destroyed, {failed} failed"
-        );
+        println!("Destroy completed with errors: {destroyed} destroyed, {failed} failed");
         return Err(format!("{failed} resource(s) failed to destroy"));
     }
 
@@ -181,9 +177,7 @@ pub(crate) fn cmd_rollback(
     let changes = compute_rollback_changes(&previous_config, &current_config, revision);
 
     if changes.is_empty() {
-        println!(
-            "No config changes between HEAD and HEAD~{revision}. Nothing to rollback."
-        );
+        println!("No config changes between HEAD and HEAD~{revision}. Nothing to rollback.");
         return Ok(());
     }
 
@@ -254,9 +248,7 @@ pub(crate) fn compute_rollback_changes(
                 changes.push(format!("  ~ {id} (modified)"));
             }
         } else {
-            changes.push(format!(
-                "  + {id} (will be re-added from HEAD~{revision})"
-            ));
+            changes.push(format!("  + {id} (will be re-added from HEAD~{revision})"));
         }
     }
     for id in current.resources.keys() {

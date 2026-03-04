@@ -203,13 +203,9 @@ pub(crate) fn cmd_graph_resource_dependency_density(file: &Path, json: bool) -> 
     let max_edges = if n > 1 { n * (n - 1) } else { 1 };
     let density = edges as f64 / max_edges as f64;
     if json {
-        println!(
-            "{{\"density\":{density:.4},\"nodes\":{n},\"edges\":{edges}}}"
-        );
+        println!("{{\"density\":{density:.4},\"nodes\":{n},\"edges\":{edges}}}");
     } else {
-        println!(
-            "Graph density: {density:.4} ({n} nodes, {edges} edges)"
-        );
+        println!("Graph density: {density:.4} ({n} nodes, {edges} edges)");
     }
     Ok(())
 }
@@ -233,9 +229,7 @@ pub(crate) fn cmd_graph_resource_dependency_transitivity(
             "{{\"total_edges\":{total},\"redundant_edges\":{redundant},\"transitivity_ratio\":{ratio:.4}}}"
         );
     } else {
-        println!(
-            "Transitivity: {redundant}/{total} edges redundant (ratio: {ratio:.4})"
-        );
+        println!("Transitivity: {redundant}/{total} edges redundant (ratio: {ratio:.4})");
     }
     Ok(())
 }

@@ -191,4 +191,3 @@ fn print_fault_report(report: &FaultReport) {
         }
     }
 }
-

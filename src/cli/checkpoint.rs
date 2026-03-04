@@ -54,11 +54,10 @@ pub(crate) fn cmd_checkpoint(
 
 fn is_checkpoint_resource(resource: &types::Resource) -> bool {
     matches!(resource.resource_type, types::ResourceType::Model)
-        || resource.tags.iter().any(|t| {
-            t.contains("checkpoint")
-                || t.contains("training")
-                || t.contains("ml")
-        })
+        || resource
+            .tags
+            .iter()
+            .any(|t| t.contains("checkpoint") || t.contains("training") || t.contains("ml"))
         || resource.resource_group.as_deref() == Some("checkpoints")
 }
 
@@ -124,7 +123,10 @@ fn gc_checkpoints(checkpoints: &[CheckpointInfo], keep: usize, json: bool) -> Re
         );
     } else {
         println!("{}\n", bold("Checkpoint GC"));
-        println!("  Total: {} | Keep: {keep} | Remove: {to_remove}", existing.len());
+        println!(
+            "  Total: {} | Keep: {keep} | Remove: {to_remove}",
+            existing.len()
+        );
         for (i, cp) in existing.iter().enumerate() {
             let icon = if i < keep { green("✓") } else { yellow("×") };
             let hash = cp.hash.as_deref().unwrap_or("n/a");
@@ -167,7 +169,11 @@ fn print_checkpoint_json(checkpoints: &[CheckpointInfo]) {
         })
         .collect();
 
-    println!(r#"{{"count":{},"checkpoints":[{}]}}"#, checkpoints.len(), items.join(","));
+    println!(
+        r#"{{"count":{},"checkpoints":[{}]}}"#,
+        checkpoints.len(),
+        items.join(",")
+    );
 }
 
 fn print_checkpoint_text(checkpoints: &[CheckpointInfo]) {

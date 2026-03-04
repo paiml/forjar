@@ -187,11 +187,7 @@ pub(crate) fn cmd_graph_resource_dependency_fan_analysis(
     if json {
         let items: Vec<String> = analysis
             .iter()
-            .map(|(n, fi, fo)| {
-                format!(
-                    "{{\"resource\":\"{n}\",\"fan_in\":{fi},\"fan_out\":{fo}}}"
-                )
-            })
+            .map(|(n, fi, fo)| format!("{{\"resource\":\"{n}\",\"fan_in\":{fi},\"fan_out\":{fo}}}"))
             .collect();
         println!("{{\"fan_analysis\":[{}]}}", items.join(","));
     } else if analysis.is_empty() {

@@ -28,11 +28,7 @@ pub(crate) fn cmd_validate_check_recipe_input_completeness(
     if json {
         let items: Vec<String> = warnings
             .iter()
-            .map(|(name, var)| {
-                format!(
-                    "{{\"resource\":\"{name}\",\"missing_input\":\"{var}\"}}"
-                )
-            })
+            .map(|(name, var)| format!("{{\"resource\":\"{name}\",\"missing_input\":\"{var}\"}}"))
             .collect();
         println!("{{\"recipe_input_warnings\":[{}]}}", items.join(","));
     } else if warnings.is_empty() {
@@ -231,9 +227,7 @@ pub(crate) fn cmd_validate_check_resource_machine_reference_validity(
         let items: Vec<String> = warnings
             .iter()
             .map(|(name, machine)| {
-                format!(
-                    "{{\"resource\":\"{name}\",\"undefined_machine\":\"{machine}\"}}"
-                )
+                format!("{{\"resource\":\"{name}\",\"undefined_machine\":\"{machine}\"}}")
             })
             .collect();
         println!("{{\"machine_affinity_warnings\":[{}]}}", items.join(","));

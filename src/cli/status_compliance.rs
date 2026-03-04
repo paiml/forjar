@@ -244,9 +244,7 @@ pub(crate) fn cmd_status_security_posture(
         let json_items: Vec<String> = items
             .iter()
             .map(|(m, r, t, s)| {
-                format!(
-                    r#"{{"machine":"{m}","resource":"{r}","type":"{t}","status":"{s}"}}"#
-                )
+                format!(r#"{{"machine":"{m}","resource":"{r}","type":"{t}","status":"{s}"}}"#)
             })
             .collect();
         println!(
@@ -322,9 +320,7 @@ pub(crate) fn cmd_status_audit_trail(
         let items: Vec<String> = entries
             .iter()
             .map(|(m, r, s, t)| {
-                format!(
-                    r#"{{"machine":"{m}","resource":"{r}","status":"{s}","timestamp":"{t}"}}"#
-                )
+                format!(r#"{{"machine":"{m}","resource":"{r}","status":"{s}","timestamp":"{t}"}}"#)
             })
             .collect();
         println!(

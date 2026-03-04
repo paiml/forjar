@@ -202,11 +202,7 @@ fn test_fj011_build_args_all_options_are_dash_o() {
     ];
     for opt in &option_values {
         let pos = args.iter().position(|a| a == opt).unwrap();
-        assert_eq!(
-            args[pos - 1],
-            "-o",
-            "option '{opt}' must be preceded by -o"
-        );
+        assert_eq!(args[pos - 1], "-o", "option '{opt}' must be preceded by -o");
     }
 }
 

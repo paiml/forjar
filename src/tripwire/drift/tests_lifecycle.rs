@@ -82,7 +82,7 @@ fn make_file_resource(lifecycle: Option<LifecycleRules>) -> Resource {
         post_apply: None,
         lifecycle,
         store: false,
-            sudo: false,
+        sudo: false,
         script: None,
     }
 }

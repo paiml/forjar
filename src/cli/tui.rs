@@ -100,7 +100,10 @@ impl TuiState {
         let mut out = String::new();
         out.push_str(&format!(
             "{}{} {}{}\n\n",
-            ansi::BOLD, ansi::CYAN, self.title, ansi::RESET
+            ansi::BOLD,
+            ansi::CYAN,
+            self.title,
+            ansi::RESET
         ));
 
         for (i, item) in self.items.iter().enumerate() {
@@ -109,13 +112,17 @@ impl TuiState {
             let color = action_color(&item.action);
             out.push_str(&format!(
                 " {cursor} {check} {color}{}{} — {}{}\n",
-                item.id, ansi::RESET, item.description, ansi::RESET
+                item.id,
+                ansi::RESET,
+                item.description,
+                ansi::RESET
             ));
         }
 
         out.push_str(&format!(
             "\n{}[j/k] move  [space] toggle  [a] all  [enter] confirm  [q] quit{}\n",
-            ansi::DIM, ansi::RESET
+            ansi::DIM,
+            ansi::RESET
         ));
         out
     }
@@ -160,8 +167,18 @@ pub struct TuiResult {
 
 /// Build result from TUI state.
 pub fn build_result(state: &TuiState) -> TuiResult {
-    let approved: Vec<String> = state.items.iter().filter(|i| i.selected).map(|i| i.id.clone()).collect();
-    let rejected: Vec<String> = state.items.iter().filter(|i| !i.selected).map(|i| i.id.clone()).collect();
+    let approved: Vec<String> = state
+        .items
+        .iter()
+        .filter(|i| i.selected)
+        .map(|i| i.id.clone())
+        .collect();
+    let rejected: Vec<String> = state
+        .items
+        .iter()
+        .filter(|i| !i.selected)
+        .map(|i| i.id.clone())
+        .collect();
     TuiResult {
         confirmed: state.mode == TuiMode::Confirm,
         approved,
@@ -175,9 +192,24 @@ mod tests {
 
     fn sample_items() -> Vec<TuiItem> {
         vec![
-            TuiItem { id: "pkg-nginx".into(), description: "install nginx".into(), action: "create".into(), selected: true },
-            TuiItem { id: "file-conf".into(), description: "write config".into(), action: "update".into(), selected: true },
-            TuiItem { id: "svc-old".into(), description: "remove service".into(), action: "destroy".into(), selected: false },
+            TuiItem {
+                id: "pkg-nginx".into(),
+                description: "install nginx".into(),
+                action: "create".into(),
+                selected: true,
+            },
+            TuiItem {
+                id: "file-conf".into(),
+                description: "write config".into(),
+                action: "update".into(),
+                selected: true,
+            },
+            TuiItem {
+                id: "svc-old".into(),
+                description: "remove service".into(),
+                action: "destroy".into(),
+                selected: false,
+            },
         ]
     }
 
@@ -249,7 +281,7 @@ mod tests {
         ];
         let items = plan_to_tui_items(&changes);
         assert_eq!(items.len(), 2);
-        assert!(items[0].selected);  // create → selected
+        assert!(items[0].selected); // create → selected
         assert!(!items[1].selected); // destroy → not selected
     }
 

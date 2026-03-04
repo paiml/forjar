@@ -105,9 +105,7 @@ fn cleanup_container_if_needed(cfg: &ApplyConfig, machine: &Machine, machine_nam
         if let Some(ref container) = machine.container {
             if container.ephemeral {
                 if let Err(e) = transport::container::cleanup_container(machine) {
-                    eprintln!(
-                        "warning: container cleanup failed for {machine_name}: {e}"
-                    );
+                    eprintln!("warning: container cleanup failed for {machine_name}: {e}");
                 }
             }
         }
@@ -189,7 +187,10 @@ fn prepare_wave_resources(
             continue;
         }
 
-        let resource = cfg.config.resources.get(&change.resource_id).unwrap();
+        let Some(resource) = cfg.config.resources.get(&change.resource_id) else {
+            skipped.push((idx, ResourceOutcome::Skipped));
+            continue;
+        };
 
         if ctx.tripwire {
             let _ = eventlog::append_event(
@@ -209,8 +210,11 @@ fn prepare_wave_resources(
             &cfg.config.machines,
         )?;
         let use_copia = resolved.resource_type == ResourceType::File
-            && resolved.source.is_some()
-            && copia::is_eligible(resolved.source.as_ref().unwrap());
+            && resolved
+                .source
+                .as_ref()
+                .map(|s| copia::is_eligible(s))
+                .unwrap_or(false);
         prepared.push(PreparedResource {
             change_idx: idx,
             resolved,

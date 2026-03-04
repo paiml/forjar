@@ -59,9 +59,7 @@ fn build_terminal_map(
             .recipe
             .as_deref()
             .ok_or_else(|| format!("recipe resource '{id}' has no recipe name"))?;
-        let recipe_path = base_dir
-            .join("recipes")
-            .join(format!("{recipe_name}.yaml"));
+        let recipe_path = base_dir.join("recipes").join(format!("{recipe_name}.yaml"));
         if recipe_path.exists() {
             if let Ok(recipe_file) = recipe::load_recipe(&recipe_path) {
                 if let Some(terminal) = recipe::recipe_terminal_id(id, &recipe_file) {
@@ -99,9 +97,7 @@ fn expand_one_level(
 
         let resolved_deps = resolve_recipe_deps(&resource.depends_on, terminal_map);
 
-        let recipe_path = base_dir
-            .join("recipes")
-            .join(format!("{recipe_name}.yaml"));
+        let recipe_path = base_dir.join("recipes").join(format!("{recipe_name}.yaml"));
         if !recipe_path.exists() {
             return Err(format!(
                 "recipe '{}' not found at {}",
@@ -148,10 +144,7 @@ fn detect_cycle(
 }
 
 /// Rewrite depends_on: replace recipe IDs with their terminal resource.
-fn resolve_recipe_deps(
-    deps: &[String],
-    terminal_map: &HashMap<String, String>,
-) -> Vec<String> {
+fn resolve_recipe_deps(deps: &[String], terminal_map: &HashMap<String, String>) -> Vec<String> {
     deps.iter()
         .map(|dep| {
             terminal_map

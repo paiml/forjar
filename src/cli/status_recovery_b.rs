@@ -279,11 +279,7 @@ pub(crate) fn cmd_status_fleet_resource_drift_velocity(
     if json {
         let items: Vec<String> = velocities
             .iter()
-            .map(|(m, d, t)| {
-                format!(
-                    "{{\"machine\":\"{m}\",\"drifted\":{d},\"total\":{t}}}"
-                )
-            })
+            .map(|(m, d, t)| format!("{{\"machine\":\"{m}\",\"drifted\":{d},\"total\":{t}}}"))
             .collect();
         println!("{{\"fleet_drift_velocity\":[{}]}}", items.join(","));
     } else if velocities.is_empty() {
@@ -381,7 +377,9 @@ fn collect_apply_success_trends(sd: &Path, targets: &[&String]) -> Vec<(String, 
             let rate = (converged as f64 / total_applies as f64) * 100.0;
             trends.push((
                 (*m).clone(),
-                format!("{rate:.0}% success ({converged}/{total_applies} converged, {failed} failed)"),
+                format!(
+                    "{rate:.0}% success ({converged}/{total_applies} converged, {failed} failed)"
+                ),
             ));
         }
     }

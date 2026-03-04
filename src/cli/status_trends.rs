@@ -166,11 +166,7 @@ pub(crate) fn cmd_status_trend(
     if json {
         let entries: Vec<String> = last_n
             .iter()
-            .map(|(ts, m, s)| {
-                format!(
-                    r#"{{"timestamp":"{ts}","machine":"{m}","event":"{s}"}}"#
-                )
-            })
+            .map(|(ts, m, s)| format!(r#"{{"timestamp":"{ts}","machine":"{m}","event":"{s}"}}"#))
             .collect();
         println!("[{}]", entries.join(","));
     } else if last_n.is_empty() {
@@ -389,11 +385,7 @@ pub(crate) fn cmd_status_mttr(
     if json {
         let entries: Vec<String> = recovery_times
             .iter()
-            .map(|(m, r, h)| {
-                format!(
-                    r#"{{"machine":"{m}","resource":"{r}","mttr_hours":{h:.2}}}"#
-                )
-            })
+            .map(|(m, r, h)| format!(r#"{{"machine":"{m}","resource":"{r}","mttr_hours":{h:.2}}}"#))
             .collect();
         println!("[{}]", entries.join(","));
     } else if recovery_times.is_empty() {

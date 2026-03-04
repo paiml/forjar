@@ -88,8 +88,7 @@ pub(super) fn collect_mttr_estimates(sd: &Path, targets: &[&String]) -> Vec<(Str
 }
 
 fn compute_event_mttr(content: &str) -> Option<f64> {
-    let mut fail_times: std::collections::HashMap<String, f64> =
-        std::collections::HashMap::new();
+    let mut fail_times: std::collections::HashMap<String, f64> = std::collections::HashMap::new();
     let mut recovery_durations: Vec<f64> = Vec::new();
 
     for line in content.lines() {
@@ -279,9 +278,7 @@ pub(crate) fn cmd_status_machine_resource_error_budget_forecast(
         println!("Machine error budget forecast:");
         for (m, f, t) in &forecasts {
             let remaining = 100.0 - pct(*f, *t);
-            println!(
-                "  {m} — {remaining:.1}% budget remaining ({f}/{t} failed)"
-            );
+            println!("  {m} — {remaining:.1}% budget remaining ({f}/{t} failed)");
         }
     }
     Ok(())

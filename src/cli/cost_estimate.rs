@@ -7,10 +7,7 @@ use super::helpers::*;
 use crate::core::types;
 use std::path::Path;
 
-pub(crate) fn cmd_cost_estimate(
-    file: &Path,
-    json: bool,
-) -> Result<(), String> {
+pub(crate) fn cmd_cost_estimate(file: &Path, json: bool) -> Result<(), String> {
     let config = parse_and_validate(file)?;
 
     let mut items = Vec::new();
@@ -38,9 +35,21 @@ pub(crate) fn cmd_cost_estimate(
     let total_seconds: u64 = items.iter().map(|i| i.estimated_seconds).sum();
 
     if json {
-        print_cost_json(&items, total_resources, total_machines.len(), total_seconds, &config.name);
+        print_cost_json(
+            &items,
+            total_resources,
+            total_machines.len(),
+            total_seconds,
+            &config.name,
+        );
     } else {
-        print_cost_text(&items, total_resources, total_machines.len(), total_seconds, &config.name);
+        print_cost_text(
+            &items,
+            total_resources,
+            total_machines.len(),
+            total_seconds,
+            &config.name,
+        );
     }
 
     Ok(())

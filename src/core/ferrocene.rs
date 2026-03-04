@@ -99,22 +99,22 @@ pub struct ToolchainInfo {
 
 /// Required build flags for certified builds.
 const CERTIFIED_FLAGS: &[&str] = &[
-    "-C", "panic=abort",        // No unwinding in safety-critical code
-    "-C", "overflow-checks=on", // Arithmetic overflow detection
-    "-C", "debug-assertions=on", // Debug assertions in test builds
+    "-C",
+    "panic=abort", // No unwinding in safety-critical code
+    "-C",
+    "overflow-checks=on", // Arithmetic overflow detection
+    "-C",
+    "debug-assertions=on", // Debug assertions in test builds
 ];
 
 /// Forbidden Cargo features for certified builds.
 const FORBIDDEN_FEATURES: &[&str] = &[
-    "unsafe_code",  // No unsafe blocks
-    "proc-macro",   // No procedural macros (non-deterministic)
+    "unsafe_code", // No unsafe blocks
+    "proc-macro",  // No procedural macros (non-deterministic)
 ];
 
 /// Forbidden crate attributes for certified builds.
-const FORBIDDEN_ATTRS: &[&str] = &[
-    "#![allow(unsafe_code)]",
-    "#![feature(",
-];
+const FORBIDDEN_ATTRS: &[&str] = &["#![allow(unsafe_code)]", "#![feature("];
 
 /// Check source code compliance for certification.
 pub fn check_source_compliance(source_content: &str) -> Vec<ComplianceViolation> {
@@ -178,10 +178,7 @@ pub fn generate_evidence(
     checks.insert("no_unsafe_code".to_string(), true);
     checks.insert("panic_abort".to_string(), true);
     checks.insert("overflow_checks".to_string(), true);
-    checks.insert(
-        "ferrocene_toolchain".to_string(),
-        toolchain.is_ferrocene,
-    );
+    checks.insert("ferrocene_toolchain".to_string(), toolchain.is_ferrocene);
     checks.insert("deterministic_build".to_string(), !binary_hash.is_empty());
 
     let compliant = checks.values().all(|v| *v);

@@ -260,11 +260,7 @@ pub(crate) fn cmd_graph_security_boundaries(file: &Path, json: bool) -> Result<(
     if json {
         let items: Vec<String> = boundaries
             .iter()
-            .map(|(r, t, b)| {
-                format!(
-                    r#"{{"resource":"{r}","type":"{t}","boundary":"{b}"}}"#
-                )
-            })
+            .map(|(r, t, b)| format!(r#"{{"resource":"{r}","type":"{t}","boundary":"{b}"}}"#))
             .collect();
         println!(
             r#"{{"security_boundaries":[{}],"count":{}}}"#,

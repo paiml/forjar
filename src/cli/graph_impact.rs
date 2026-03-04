@@ -9,11 +9,7 @@ fn print_dependency_matrix_json(names: &[String], config: &types::ForjarConfig) 
     let mut rows: Vec<String> = Vec::new();
     for name in names {
         let res = &config.resources[name];
-        let deps: Vec<String> = res
-            .depends_on
-            .iter()
-            .map(|d| format!(r#""{d}""#))
-            .collect();
+        let deps: Vec<String> = res.depends_on.iter().map(|d| format!(r#""{d}""#)).collect();
         rows.push(format!(
             r#"{{"resource":"{}","depends_on":[{}]}}"#,
             name,

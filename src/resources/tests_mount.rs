@@ -79,7 +79,7 @@ pub(super) fn make_mount_resource() -> Resource {
         post_apply: None,
         lifecycle: None,
         store: false,
-            sudo: false,
+        sudo: false,
         script: None,
     }
 }

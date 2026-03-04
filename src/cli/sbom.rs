@@ -12,11 +12,7 @@ use std::path::Path;
 ///
 /// FJ-1399: Recipes are expanded before component collection so that
 /// recipe-defined packages, containers, and models appear in the SBOM.
-pub(crate) fn cmd_sbom(
-    file: &Path,
-    state_dir: &Path,
-    json: bool,
-) -> Result<(), String> {
+pub(crate) fn cmd_sbom(file: &Path, state_dir: &Path, json: bool) -> Result<(), String> {
     let mut config = parser::parse_and_validate(file)?;
     // FJ-1399: Expand recipes so their inner resources appear in the SBOM.
     let config_dir = file.parent();
@@ -41,10 +37,7 @@ struct SbomComponent {
 }
 
 /// Collect all SBOM components from config resources and state locks.
-fn collect_components(
-    config: &types::ForjarConfig,
-    state_dir: &Path,
-) -> Vec<SbomComponent> {
+fn collect_components(config: &types::ForjarConfig, state_dir: &Path) -> Vec<SbomComponent> {
     let mut components = Vec::new();
 
     for (id, resource) in &config.resources {
@@ -74,14 +67,8 @@ fn collect_package_components(
     resource: &types::Resource,
     components: &mut Vec<SbomComponent>,
 ) {
-    let provider = resource
-        .provider
-        .as_deref()
-        .unwrap_or("unknown");
-    let version = resource
-        .version
-        .as_deref()
-        .unwrap_or("*");
+    let provider = resource.provider.as_deref().unwrap_or("unknown");
+    let version = resource.version.as_deref().unwrap_or("*");
 
     for pkg in &resource.packages {
         components.push(SbomComponent {
@@ -121,11 +108,7 @@ fn collect_model_component(
     if let Some(ref source) = resource.source {
         components.push(SbomComponent {
             name: source.clone(),
-            version: resource
-                .version
-                .as_deref()
-                .unwrap_or("unknown")
-                .to_string(),
+            version: resource.version.as_deref().unwrap_or("unknown").to_string(),
             component_type: "model".to_string(),
             supplier: format!("model:{id}"),
             hash: resource.checksum.clone().unwrap_or_default(),
@@ -225,17 +208,13 @@ fn print_sbom_json(
         "packages": packages,
     });
 
-    let output =
-        serde_json::to_string_pretty(&doc).map_err(|e| format!("JSON error: {e}"))?;
+    let output = serde_json::to_string_pretty(&doc).map_err(|e| format!("JSON error: {e}"))?;
     println!("{output}");
     Ok(())
 }
 
 /// Print SBOM as human-readable text table.
-fn print_sbom_text(
-    config: &types::ForjarConfig,
-    components: &[SbomComponent],
-) {
+fn print_sbom_text(config: &types::ForjarConfig, components: &[SbomComponent]) {
     println!("SBOM: {} ({} components)", config.name, components.len());
     println!("{:-<72}", "");
     println!(

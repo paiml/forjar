@@ -298,8 +298,7 @@ pub(crate) fn load_plan_file(
     plan_path: &Path,
     config: &types::ForjarConfig,
 ) -> Result<types::ExecutionPlan, String> {
-    let content =
-        std::fs::read_to_string(plan_path).map_err(|e| format!("read plan file: {e}"))?;
+    let content = std::fs::read_to_string(plan_path).map_err(|e| format!("read plan file: {e}"))?;
     let doc: serde_json::Value =
         serde_json::from_str(&content).map_err(|e| format!("parse plan file: {e}"))?;
 

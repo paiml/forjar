@@ -62,8 +62,7 @@ pub fn load_agent_registry(dir: &Path) -> Result<AgentRegistry, String> {
     if !index.exists() {
         return Ok(AgentRegistry::default());
     }
-    let data = std::fs::read_to_string(&index)
-        .map_err(|e| format!("read: {e}"))?;
+    let data = std::fs::read_to_string(&index).map_err(|e| format!("read: {e}"))?;
     serde_json::from_str(&data).map_err(|e| format!("parse: {e}"))
 }
 
@@ -71,18 +70,12 @@ pub fn load_agent_registry(dir: &Path) -> Result<AgentRegistry, String> {
 #[allow(dead_code)]
 pub fn save_agent_registry(dir: &Path, registry: &AgentRegistry) -> Result<(), String> {
     std::fs::create_dir_all(dir).map_err(|e| format!("mkdir: {e}"))?;
-    let data = serde_json::to_string_pretty(registry)
-        .map_err(|e| format!("serialize: {e}"))?;
-    std::fs::write(dir.join("agents.json"), data)
-        .map_err(|e| format!("write: {e}"))
+    let data = serde_json::to_string_pretty(registry).map_err(|e| format!("serialize: {e}"))?;
+    std::fs::write(dir.join("agents.json"), data).map_err(|e| format!("write: {e}"))
 }
 
 /// List agent recipes.
-pub fn cmd_agent_registry(
-    dir: &Path,
-    category: Option<&str>,
-    json: bool,
-) -> Result<(), String> {
+pub fn cmd_agent_registry(dir: &Path, category: Option<&str>, json: bool) -> Result<(), String> {
     let registry = load_agent_registry(dir)?;
     let filtered = filter_by_category(&registry, category);
     let categories = collect_categories(&filtered);
@@ -94,8 +87,7 @@ pub fn cmd_agent_registry(
     };
 
     if json {
-        let out =
-            serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {e}"))?;
+        let out = serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {e}"))?;
         println!("{out}");
     } else {
         print_agent_report(&report);
@@ -129,11 +121,18 @@ fn collect_categories(recipes: &[AgentRecipe]) -> Vec<String> {
 fn print_agent_report(report: &AgentRegistryReport) {
     println!("Agent Recipe Registry");
     println!("=====================");
-    println!("Recipes: {} | Categories: {}", report.total, report.categories.join(", "));
+    println!(
+        "Recipes: {} | Categories: {}",
+        report.total,
+        report.categories.join(", ")
+    );
     println!();
     for r in &report.recipes {
         let gpu = if r.gpu_required { " [GPU]" } else { "" };
-        println!("  {} v{} ({}){}  — {}", r.name, r.version, r.category, gpu, r.description);
+        println!(
+            "  {} v{} ({}){}  — {}",
+            r.name, r.version, r.category, gpu, r.description
+        );
     }
 }
 

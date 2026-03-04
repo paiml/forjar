@@ -70,9 +70,7 @@ pub(crate) fn cmd_status_alerts(
         let items: Vec<String> = alerts
             .iter()
             .map(|(m, r, s)| {
-                format!(
-                    "{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"status\":\"{s}\"}}"
-                )
+                format!("{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"status\":\"{s}\"}}")
             })
             .collect();
         println!("[{}]", items.join(","));
@@ -358,9 +356,7 @@ pub(crate) fn cmd_status_dependency_health(
         } else {
             red("✗")
         };
-        println!(
-            "{indicator} Dependency-weighted health score: {health_pct:.0}%"
-        );
+        println!("{indicator} Dependency-weighted health score: {health_pct:.0}%");
         println!(
             "  Resources: {}, Weighted total: {:.1}/{:.1}",
             all_resources.len(),

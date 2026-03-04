@@ -252,9 +252,7 @@ pub(crate) fn cmd_status_fleet_resource_staleness(
         let items: Vec<String> = stale
             .iter()
             .map(|(m, r, a)| {
-                format!(
-                    "{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"applied_at\":\"{a}\"}}"
-                )
+                format!("{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"applied_at\":\"{a}\"}}")
             })
             .collect();
         println!("{{\"fleet_resource_staleness\":[{}]}}", items.join(","));
@@ -313,9 +311,7 @@ pub(crate) fn cmd_status_machine_convergence_trend(
         let items: Vec<String> = trends
             .iter()
             .map(|(m, c, t, p)| {
-                format!(
-                    "{{\"machine\":\"{m}\",\"converged\":{c},\"total\":{t},\"pct\":{p:.1}}}"
-                )
+                format!("{{\"machine\":\"{m}\",\"converged\":{c},\"total\":{t},\"pct\":{p:.1}}}")
             })
             .collect();
         println!("{{\"machine_convergence_trend\":[{}]}}", items.join(","));
@@ -467,9 +463,7 @@ pub(crate) fn cmd_status_machine_resource_freshness(
         let items: Vec<String> = freshness
             .iter()
             .map(|(m, r, a)| {
-                format!(
-                    "{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"last_apply\":\"{a}\"}}"
-                )
+                format!("{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"last_apply\":\"{a}\"}}")
             })
             .collect();
         println!("{{\"machine_resource_freshness\":[{}]}}", items.join(","));

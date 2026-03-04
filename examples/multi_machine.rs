@@ -140,7 +140,11 @@ fn parse_demo_config() -> types::ForjarConfig {
         }
         std::process::exit(1);
     }
-    println!("Config: {} machines, {} resources", config.machines.len(), config.resources.len());
+    println!(
+        "Config: {} machines, {} resources",
+        config.machines.len(),
+        config.resources.len()
+    );
     config
 }
 
@@ -162,7 +166,11 @@ fn show_execution_order(config: &types::ForjarConfig) {
             types::MachineTarget::Single(m) => m.clone(),
             types::MachineTarget::Multiple(ms) => ms.join(", "),
         };
-        println!("  {}. {resource_id} (type: {:?}, machine: {machine})", i + 1, resource.resource_type);
+        println!(
+            "  {}. {resource_id} (type: {:?}, machine: {machine})",
+            i + 1,
+            resource.resource_type
+        );
     }
 }
 

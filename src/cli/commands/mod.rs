@@ -6,14 +6,15 @@ mod misc_analysis_args;
 mod misc_args;
 mod misc_ops_args;
 mod ops_intel_args;
-mod platform_args;
 mod plan_args;
+mod platform_args;
 mod state_args;
 mod status_args;
 mod store_args;
 mod subcmd_args;
 mod validate_args;
 pub use apply_args::*;
+use clap::Subcommand;
 pub use graph_args::*;
 pub use lock_core_args::*;
 pub use lock_ops_args::*;
@@ -21,14 +22,13 @@ pub use misc_analysis_args::*;
 pub use misc_args::*;
 pub use misc_ops_args::*;
 pub use ops_intel_args::*;
-pub use platform_args::*;
 pub use plan_args::*;
+pub use platform_args::*;
 pub use state_args::*;
 pub use status_args::*;
 pub use store_args::*;
 pub use subcmd_args::*;
 pub use validate_args::*;
-use clap::Subcommand;
 
 #[derive(Subcommand, Debug)]
 #[allow(clippy::large_enum_variant)]
