@@ -103,11 +103,11 @@
 | 42 | **TLA+ specification of execution model** — Model check plan-apply protocol for safety/liveness properties | A, D | ✅ | `docs/specifications/ForjarExecution.tla`: full TLA+ spec with Init/Next/Fairness; SafetyDependencyOrder, SafetyNoRegression, LivenessAllConverge, LivenessTermination, IdempotencyProperty; parameterized over RESOURCES/DEPENDENCIES; run with TLC |
 | 43 | **Flux refinement types for config values** — Compile-time verification that port numbers, permissions, versions are valid | A, C | ❌ | Runtime validation only |
 | 44 | **Verus-verified reconciliation loop** — Machine-checked proof that observe-diff-apply terminates and converges | A, C | ❌ | Tested but not formally verified |
-| 45 | **SAT/SMT-based dependency resolution** — Prove satisfiability of resource constraints; exact conflict diagnosis | A, E | ❌ | Topological sort; no SAT solver |
+| 45 | **SAT/SMT-based dependency resolution** — Prove satisfiability of resource constraints; exact conflict diagnosis | A, E | ✅ | `planner/sat_deps.rs`: DPLL SAT solver with unit propagation; `build_sat_problem()` converts deps to CNF; `solve()` returns Satisfiable with assignment or Unsatisfiable with conflict clause; 6 tests |
 | 46 | **Minimal change set computation** — SMT solver computes provably minimal set of resource mutations | A, E, F | ❌ | Hash-based change detection; not provably minimal |
 | 47 | **Automated preservation checking** — Verify pairwise resource preservation: applying A doesn't invalidate B's postcondition | A | ✅ | `forjar preservation` checks pairwise: file path conflicts, package overlaps, service name collisions; 5 tests in `tests_preservation_check.rs` |
 | 48 | **Convergence proof certificates** — Machine-verifiable certificate asserting recipe converges from any reachable state | A, D | ✅ | `forjar prove --json` emits machine-verifiable convergence proofs (5 properties) |
-| 49 | **Alloy specification of dependency graph** — Verify structural properties: no cycles, unique ordering, satisfiable deps | A | ❌ | Cycle detection exists; no Alloy model |
+| 49 | **Alloy specification of dependency graph** — Verify structural properties: no cycles, unique ordering, satisfiable deps | A | ✅ | `docs/specifications/ForjarDependencyGraph.als`: Full Alloy spec with Resource/Machine/Position sigs; no_self_loops, no_cycles, unique_names facts; transitive_order, complete_coverage, machine_locality assertions; linear_chain, diamond, independent predicates; run with Alloy Analyzer 6+ |
 | 50 | **Idempotency regression tests (property-based)** — QuickCheck/proptest-generated tests from formal idempotency spec | A, C | ✅ | `tests_proptest_idempotency.rs`: hash idempotency, lock serde roundtrip, converged-state-is-noop properties |
 | 51 | **MC/DC (Modified Condition/Decision Coverage)** — Structural coverage mandated by DO-178C DAL-A for safety-critical paths | A, D | ❌ | Line/branch coverage via llvm-cov; no MC/DC |
 | 52 | **Proof obligation taxonomy** — Classify each resource as idempotent/monotonic/convergent with machine-checkable annotations | A, D | ✅ | `planner/proof_obligation.rs`: `ProofObligation` enum, `classify()`, `is_safe()`; 13 tests |
@@ -233,11 +233,11 @@
 
 | Status | Count | Percentage |
 |--------|-------|------------|
-| ✅ Implemented | 149 | 90% |
+| ✅ Implemented | 151 | 91% |
 | ⚠️ Partial | 1 | 1% |
-| ❌ Not Implemented | 13 | 8% |
+| ❌ Not Implemented | 11 | 7% |
 | Not yet tracked | 3 | 2% |
-| **Effective Score** | **149.5/166** | **(149 full + 1×0.5 partial)** |
+| **Effective Score** | **151.5/166** | **(151 full + 1×0.5 partial)** |
 
 ### By Principle
 
