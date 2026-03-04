@@ -18,3 +18,4 @@
 - [DataOps & MLOps Pipelines](./15-dataops-mlops.md)
 - [Agent Infrastructure & pforge](./16-agent-infrastructure.md)
 - [Operational Intelligence](./17-operational-intelligence.md)
+- [Supply Chain Security & Resilience](./18-supply-chain-security.md)
