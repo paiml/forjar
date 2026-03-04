@@ -54,14 +54,13 @@ resources:
   test-file:
     type: file
     machine: local
-    path: {}
+    path: {file_path}
     content: "hello from forjar"
 policy:
   failure: stop_on_first
   tripwire: true
   lock_file: true
-"#,
-        file_path
+"#
     );
     serde_yaml_ng::from_str(&yaml).unwrap()
 }

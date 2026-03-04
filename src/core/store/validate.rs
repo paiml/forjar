@@ -116,7 +116,7 @@ pub fn format_repro_report(validation: &ReproValidation) -> String {
     lines.push(format!("  Store:   {:.1}", validation.score.store_score));
     lines.push(format!("  Lock:    {:.1}", validation.score.lock_score));
     if let Some(min) = validation.required_min {
-        lines.push(format!("  Required: >= {:.1}", min));
+        lines.push(format!("  Required: >= {min:.1}"));
     }
     lines.join("\n")
 }

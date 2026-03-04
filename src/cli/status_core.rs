@@ -81,7 +81,7 @@ fn print_status_json(
     println!(
         "{}",
         serde_json::to_string_pretty(&output)
-            .map_err(|e| format!("JSON serialization error: {}", e))?
+            .map_err(|e| format!("JSON serialization error: {e}"))?
     );
     Ok(())
 }
@@ -92,7 +92,7 @@ fn build_resource_extras(id: &str, config: &Option<types::ForjarConfig>) -> Stri
         if let Some(res) = cfg.resources.get(id) {
             let mut parts = Vec::new();
             if let Some(ref rg) = res.resource_group {
-                parts.push(format!("group={}", rg));
+                parts.push(format!("group={rg}"));
             }
             if !res.tags.is_empty() {
                 parts.push(format!("tags={}", res.tags.join(",")));
@@ -132,7 +132,7 @@ fn print_status_text(
         for (id, rl) in &lock.resources {
             let duration = rl
                 .duration_seconds
-                .map(|d| format!(" ({:.2}s)", d))
+                .map(|d| format!(" ({d:.2}s)"))
                 .unwrap_or_default();
             let extras = build_resource_extras(id, config);
             println!(
@@ -164,8 +164,7 @@ fn print_status_summary(global: &Option<types::GlobalLock>, machines: &[types::S
         .map(|g| g.name.as_str())
         .unwrap_or("unknown");
     println!(
-        "{}: {} converged, {} failed, {} drifted",
-        name, converged, failed, drifted
+        "{name}: {converged} converged, {failed} failed, {drifted} drifted"
     );
 }
 

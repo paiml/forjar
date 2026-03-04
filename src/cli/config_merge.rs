@@ -66,7 +66,7 @@ pub(crate) fn cmd_config_merge(
             std::fs::write(path, &yaml).map_err(|e| format!("write {}: {e}", path.display()))?;
             eprintln!("Merged config written to {}", path.display());
         }
-        None => print!("{}", yaml),
+        None => print!("{yaml}"),
     }
 
     let total_machines = config_a.machines.len();

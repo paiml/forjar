@@ -57,8 +57,7 @@ mod tests {
             let machine_dir = dir.path().join(name);
             std::fs::create_dir_all(&machine_dir).unwrap();
             let event = format!(
-                r#"{{"ts":"2026-02-25T00:00:00Z","event":"resource_converged","machine":"{}","resource":"pkg","duration_seconds":1.0,"hash":"blake3:abc"}}"#,
-                name
+                r#"{{"ts":"2026-02-25T00:00:00Z","event":"resource_converged","machine":"{name}","resource":"pkg","duration_seconds":1.0,"hash":"blake3:abc"}}"#
             );
             std::fs::write(machine_dir.join("events.jsonl"), event).unwrap();
         }

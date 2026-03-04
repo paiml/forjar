@@ -10,7 +10,7 @@ pub(crate) fn cmd_lock_repair(state_dir: &Path, json: bool) -> Result<(), String
     let mut already_valid = 0u64;
 
     for m in &machines {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
         if !lock_path.exists() {
             continue;
         }
@@ -30,7 +30,7 @@ pub(crate) fn cmd_lock_repair(state_dir: &Path, json: bool) -> Result<(), String
                             .duration_since(std::time::UNIX_EPOCH)
                             .unwrap_or_default()
                             .as_secs();
-                        format!("{}Z", ts)
+                        format!("{ts}Z")
                     },
                     generator: "forjar-repair".to_string(),
                     blake3_version: "1.5".to_string(),
@@ -46,18 +46,15 @@ pub(crate) fn cmd_lock_repair(state_dir: &Path, json: bool) -> Result<(), String
 
     if json {
         println!(
-            r#"{{"repaired":{},"already_valid":{}}}"#,
-            repaired, already_valid
+            r#"{{"repaired":{repaired},"already_valid":{already_valid}}}"#
         );
     } else if repaired == 0 {
         println!(
-            "All {} lock files are valid, no repair needed",
-            already_valid
+            "All {already_valid} lock files are valid, no repair needed"
         );
     } else {
         println!(
-            "Repaired {} lock files ({} were already valid)",
-            repaired, already_valid
+            "Repaired {repaired} lock files ({already_valid} were already valid)"
         );
     }
     Ok(())
@@ -69,7 +66,7 @@ pub(crate) fn cmd_lock_rehash(state_dir: &Path, json: bool) -> Result<(), String
     let mut rehashed = 0u64;
 
     for m in &machines {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
         if !lock_path.exists() {
             continue;
         }
@@ -82,9 +79,9 @@ pub(crate) fn cmd_lock_rehash(state_dir: &Path, json: bool) -> Result<(), String
     }
 
     if json {
-        println!(r#"{{"rehashed":{}}}"#, rehashed);
+        println!(r#"{{"rehashed":{rehashed}}}"#);
     } else {
-        println!("Rehash complete: {} resource entries processed", rehashed);
+        println!("Rehash complete: {rehashed} resource entries processed");
     }
     Ok(())
 }
@@ -95,28 +92,28 @@ pub(crate) fn cmd_lock_normalize(state_dir: &Path, json: bool) -> Result<(), Str
     let mut normalized = 0u64;
 
     for m in &machines {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
         if !lock_path.exists() {
             continue;
         }
         let content = std::fs::read_to_string(&lock_path).unwrap_or_default();
         if let Ok(lock) = serde_yaml_ng::from_str::<crate::core::types::StateLock>(&content) {
             let new_content = serde_yaml_ng::to_string(&lock)
-                .map_err(|e| format!("Failed to serialize lock: {}", e))?;
+                .map_err(|e| format!("Failed to serialize lock: {e}"))?;
             if new_content != content {
                 std::fs::write(&lock_path, &new_content)
-                    .map_err(|e| format!("Failed to write lock: {}", e))?;
+                    .map_err(|e| format!("Failed to write lock: {e}"))?;
                 normalized += 1;
             }
         }
     }
 
     if json {
-        println!(r#"{{"normalized":{}}}"#, normalized);
+        println!(r#"{{"normalized":{normalized}}}"#);
     } else if normalized == 0 {
         println!("All lock files already normalized");
     } else {
-        println!("Normalized {} lock files", normalized);
+        println!("Normalized {normalized} lock files");
     }
     Ok(())
 }

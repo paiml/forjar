@@ -53,7 +53,7 @@ fn test_fj1315_preset_unknown() {
 fn test_fj1315_validate_valid() {
     let cfg = preset_profile("full").unwrap();
     let errors = validate_config(&cfg);
-    assert!(errors.is_empty(), "unexpected errors: {:?}", errors);
+    assert!(errors.is_empty(), "unexpected errors: {errors:?}");
 }
 
 #[test]

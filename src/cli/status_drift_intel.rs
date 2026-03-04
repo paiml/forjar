@@ -237,8 +237,7 @@ pub(crate) fn cmd_status_machine_convergence_window(
                 yellow("~")
             };
             println!(
-                "  {} {} — {} drifted, est. {} min to converge",
-                symbol, m, drifted, window
+                "  {symbol} {m} — {drifted} drifted, est. {window} min to converge"
             );
         }
     }
@@ -310,7 +309,7 @@ pub(crate) fn cmd_status_fleet_resource_age_histogram(
         for &bucket in AGE_BUCKETS {
             let count = histogram.get(bucket).copied().unwrap_or(0);
             let bar = "#".repeat(count.min(40) as usize);
-            println!("  {:>7} | {:>4} {}", bucket, count, bar);
+            println!("  {bucket:>7} | {count:>4} {bar}");
         }
         if total > 0 {
             println!("  {:>7} | {:>4}", "total", total);

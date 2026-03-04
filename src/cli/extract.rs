@@ -69,8 +69,7 @@ pub(crate) fn cmd_extract(
     }
 
     eprintln!(
-        "Extracted: {} resources, {} machines (filter: {})",
-        count, machine_count, filter_desc
+        "Extracted: {count} resources, {machine_count} machines (filter: {filter_desc})"
     );
     Ok(())
 }

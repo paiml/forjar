@@ -8,8 +8,7 @@ use crate::core::types::Resource;
 pub fn check_script(resource: &Resource) -> String {
     let username = resource.name.as_deref().unwrap_or("unknown");
     format!(
-        "id '{}' >/dev/null 2>&1 && echo 'exists:{}' || echo 'missing:{}'",
-        username, username, username
+        "id '{username}' >/dev/null 2>&1 && echo 'exists:{username}' || echo 'missing:{username}'"
     )
 }
 
@@ -23,10 +22,9 @@ pub fn apply_script(resource: &Resource) -> String {
             "set -euo pipefail\n\
              SUDO=\"\"\n\
              [ \"$(id -u)\" -ne 0 ] && SUDO=\"sudo\"\n\
-             if id '{}' >/dev/null 2>&1; then\n\
-               $SUDO userdel -r '{}' 2>/dev/null || $SUDO userdel '{}'\n\
-             fi",
-            username, username, username
+             if id '{username}' >/dev/null 2>&1; then\n\
+               $SUDO userdel -r '{username}' 2>/dev/null || $SUDO userdel '{username}'\n\
+             fi"
         ),
         _ => {
             let mut lines = vec![
@@ -38,8 +36,7 @@ pub fn apply_script(resource: &Resource) -> String {
             // Ensure supplementary groups exist
             for g in &resource.groups {
                 lines.push(format!(
-                    "getent group '{}' >/dev/null 2>&1 || $SUDO groupadd '{}'",
-                    g, g
+                    "getent group '{g}' >/dev/null 2>&1 || $SUDO groupadd '{g}'"
                 ));
             }
 
@@ -52,39 +49,38 @@ pub fn apply_script(resource: &Resource) -> String {
             }
 
             if let Some(ref shell) = resource.shell {
-                create_args.push(format!("--shell '{}'", shell));
-                modify_args.push(format!("--shell '{}'", shell));
+                create_args.push(format!("--shell '{shell}'"));
+                modify_args.push(format!("--shell '{shell}'"));
             }
 
             if let Some(ref home) = resource.home {
-                create_args.push(format!("--home-dir '{}' --create-home", home));
-                modify_args.push(format!("--home '{}'", home));
+                create_args.push(format!("--home-dir '{home}' --create-home"));
+                modify_args.push(format!("--home '{home}'"));
             } else if !resource.system_user {
                 create_args.push("--create-home".to_string());
             }
 
             if let Some(uid) = resource.uid {
-                create_args.push(format!("--uid {}", uid));
-                modify_args.push(format!("--uid {}", uid));
+                create_args.push(format!("--uid {uid}"));
+                modify_args.push(format!("--uid {uid}"));
             }
 
             if let Some(ref group) = resource.group {
-                create_args.push(format!("--gid '{}'", group));
-                modify_args.push(format!("--gid '{}'", group));
+                create_args.push(format!("--gid '{group}'"));
+                modify_args.push(format!("--gid '{group}'"));
             }
 
             if !resource.groups.is_empty() {
                 let groups_str = resource.groups.join(",");
-                create_args.push(format!("--groups '{}'", groups_str));
-                modify_args.push(format!("--groups '{}'", groups_str));
+                create_args.push(format!("--groups '{groups_str}'"));
+                modify_args.push(format!("--groups '{groups_str}'"));
             }
 
             let create_cmd = format!("$SUDO useradd {} '{}'", create_args.join(" "), username);
             let modify_cmd = format!("$SUDO usermod {} '{}'", modify_args.join(" "), username);
 
             lines.push(format!(
-                "if ! id '{}' >/dev/null 2>&1; then\n  {}\nelse\n  {}\nfi",
-                username, create_cmd, modify_cmd
+                "if ! id '{username}' >/dev/null 2>&1; then\n  {create_cmd}\nelse\n  {modify_cmd}\nfi"
             ));
 
             // SSH authorized keys
@@ -93,10 +89,10 @@ pub fn apply_script(resource: &Resource) -> String {
                     .home
                     .as_deref()
                     .map(|h| h.to_string())
-                    .unwrap_or_else(|| format!("/home/{}", username));
+                    .unwrap_or_else(|| format!("/home/{username}"));
 
-                lines.push(format!("$SUDO mkdir -p '{}'/.ssh", home_dir));
-                lines.push(format!("$SUDO chmod 700 '{}'/.ssh", home_dir));
+                lines.push(format!("$SUDO mkdir -p '{home_dir}'/.ssh"));
+                lines.push(format!("$SUDO chmod 700 '{home_dir}'/.ssh"));
 
                 let keys = resource
                     .ssh_authorized_keys
@@ -128,14 +124,13 @@ pub fn apply_script(resource: &Resource) -> String {
 pub fn state_query_script(resource: &Resource) -> String {
     let username = resource.name.as_deref().unwrap_or("unknown");
     format!(
-        "id '{}' >/dev/null 2>&1 && {{\n  \
-         echo \"user={}\"\n  \
-         echo \"uid=$(id -u '{}')\"\n  \
-         echo \"gid=$(id -g '{}')\"\n  \
-         echo \"groups=$(id -Gn '{}' | tr ' ' ',')\"\n  \
-         echo \"shell=$(getent passwd '{}' | cut -d: -f7)\"\n  \
-         echo \"home=$(getent passwd '{}' | cut -d: -f6)\"\n\
-         }} || echo 'user=MISSING'",
-        username, username, username, username, username, username, username
+        "id '{username}' >/dev/null 2>&1 && {{\n  \
+         echo \"user={username}\"\n  \
+         echo \"uid=$(id -u '{username}')\"\n  \
+         echo \"gid=$(id -g '{username}')\"\n  \
+         echo \"groups=$(id -Gn '{username}' | tr ' ' ',')\"\n  \
+         echo \"shell=$(getent passwd '{username}' | cut -d: -f7)\"\n  \
+         echo \"home=$(getent passwd '{username}' | cut -d: -f6)\"\n\
+         }} || echo 'user=MISSING'"
     )
 }

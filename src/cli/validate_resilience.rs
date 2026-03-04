@@ -43,8 +43,7 @@ pub(crate) fn cmd_validate_check_resource_lifecycle_hook_coverage(
             .iter()
             .map(|(name, rtype, has_pre, has_post)| {
                 format!(
-                    "{{\"resource\":\"{}\",\"type\":\"{}\",\"has_pre_hook\":{},\"has_post_hook\":{}}}",
-                    name, rtype, has_pre, has_post
+                    "{{\"resource\":\"{name}\",\"type\":\"{rtype}\",\"has_pre_hook\":{has_pre},\"has_post_hook\":{has_post}}}"
                 )
             })
             .collect();
@@ -53,7 +52,7 @@ pub(crate) fn cmd_validate_check_resource_lifecycle_hook_coverage(
         println!("All side-effect resources have lifecycle hooks.");
     } else {
         for (name, rtype, _, _) in &warnings {
-            println!("warning: {} ({}) has no lifecycle hooks", name, rtype);
+            println!("warning: {name} ({rtype}) has no lifecycle hooks");
         }
     }
     Ok(())
@@ -111,8 +110,7 @@ pub(crate) fn cmd_validate_check_resource_secret_rotation_age(
             .iter()
             .map(|name| {
                 format!(
-                    "{{\"resource\":\"{}\",\"has_encrypted_content\":true}}",
-                    name
+                    "{{\"resource\":\"{name}\",\"has_encrypted_content\":true}}"
                 )
             })
             .collect();
@@ -122,8 +120,7 @@ pub(crate) fn cmd_validate_check_resource_secret_rotation_age(
     } else {
         for name in &warnings {
             println!(
-                "review: {} contains encrypted secret (rotation recommended)",
-                name
+                "review: {name} contains encrypted secret (rotation recommended)"
             );
         }
     }
@@ -169,22 +166,19 @@ pub(crate) fn cmd_validate_check_resource_dependency_chain_depth(
             .iter()
             .map(|(name, depth)| {
                 format!(
-                    "{{\"resource\":\"{}\",\"depth\":{},\"limit\":{}}}",
-                    name, depth, DEPTH_LIMIT
+                    "{{\"resource\":\"{name}\",\"depth\":{depth},\"limit\":{DEPTH_LIMIT}}}"
                 )
             })
             .collect();
         println!("{{\"depth_limit_warnings\":[{}]}}", items.join(","));
     } else if violations.is_empty() {
         println!(
-            "All dependency chains within depth limit ({}).",
-            DEPTH_LIMIT
+            "All dependency chains within depth limit ({DEPTH_LIMIT})."
         );
     } else {
         for (name, depth) in &violations {
             println!(
-                "warning: {} has dependency depth {} (limit: {})",
-                name, depth, DEPTH_LIMIT
+                "warning: {name} has dependency depth {depth} (limit: {DEPTH_LIMIT})"
             );
         }
     }

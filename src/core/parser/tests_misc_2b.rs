@@ -278,8 +278,7 @@ resources:
     let err = result.unwrap_err();
     assert!(
         err.contains("cycle") || err.contains("max depth"),
-        "error should mention cycle or max depth, got: {}",
-        err
+        "error should mention cycle or max depth, got: {err}"
     );
 }
 

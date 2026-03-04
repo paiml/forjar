@@ -147,8 +147,7 @@ fn test_fj007_cargo_install_uses_force() {
     let script = apply_script(&r);
     assert!(
         script.contains("cargo install --force"),
-        "cargo install must use --force for idempotent installs, got: {}",
-        script
+        "cargo install must use --force for idempotent installs, got: {script}"
     );
 }
 

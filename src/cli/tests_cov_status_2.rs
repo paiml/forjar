@@ -63,9 +63,9 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let sd = dir.path();
         for m in &["web", "db"] {
-            write_file(sd, &format!("{}/state.lock.yaml", m), state_lock_yaml());
-            write_file(sd, &format!("{}.lock.yaml", m), state_lock_yaml());
-            write_file(sd, &format!("{}.events.jsonl", m), events_jsonl());
+            write_file(sd, &format!("{m}/state.lock.yaml"), state_lock_yaml());
+            write_file(sd, &format!("{m}.lock.yaml"), state_lock_yaml());
+            write_file(sd, &format!("{m}.events.jsonl"), events_jsonl());
         }
         dir
     }

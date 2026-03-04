@@ -88,7 +88,7 @@ fn collect_package_components(
             name: pkg.clone(),
             version: version.to_string(),
             component_type: "library".to_string(),
-            supplier: format!("{}:{}", provider, id),
+            supplier: format!("{provider}:{id}"),
             hash: String::new(),
         });
     }
@@ -106,7 +106,7 @@ fn collect_docker_component(
             name,
             version,
             component_type: "container".to_string(),
-            supplier: format!("docker:{}", id),
+            supplier: format!("docker:{id}"),
             hash: resource.checksum.clone().unwrap_or_default(),
         });
     }
@@ -127,7 +127,7 @@ fn collect_model_component(
                 .unwrap_or("unknown")
                 .to_string(),
             component_type: "model".to_string(),
-            supplier: format!("model:{}", id),
+            supplier: format!("model:{id}"),
             hash: resource.checksum.clone().unwrap_or_default(),
         });
     }
@@ -146,7 +146,7 @@ fn collect_file_component(
             name: source.clone(),
             version: "1.0".to_string(),
             component_type: "file".to_string(),
-            supplier: format!("file:{}", id),
+            supplier: format!("file:{id}"),
             hash,
         });
     }
@@ -226,8 +226,8 @@ fn print_sbom_json(
     });
 
     let output =
-        serde_json::to_string_pretty(&doc).map_err(|e| format!("JSON error: {}", e))?;
-    println!("{}", output);
+        serde_json::to_string_pretty(&doc).map_err(|e| format!("JSON error: {e}"))?;
+    println!("{output}");
     Ok(())
 }
 
@@ -277,5 +277,5 @@ fn chrono_now() -> String {
         .unwrap_or_default()
         .as_secs();
     // Simple UTC timestamp
-    format!("1970-01-01T00:00:00Z+{}s", secs)
+    format!("1970-01-01T00:00:00Z+{secs}s")
 }

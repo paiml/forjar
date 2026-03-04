@@ -112,7 +112,7 @@ pub(crate) fn cmd_status_fleet_resource_dependency_lag_report(
             println!("  No machine state found.");
         }
         for (m, lag, total) in &rows {
-            println!("  {}: {}/{} lagging", m, lag, total);
+            println!("  {m}: {lag}/{total} lagging");
         }
     }
     Ok(())
@@ -166,7 +166,7 @@ pub(crate) fn cmd_status_machine_resource_convergence_rate_trend(
             println!("  No machine state found.");
         }
         for (m, rate, conv, total) in &rows {
-            println!("  {}: {:.1}% ({}/{})", m, rate, conv, total);
+            println!("  {m}: {rate:.1}% ({conv}/{total})");
         }
     }
     Ok(())
@@ -219,7 +219,7 @@ pub(crate) fn cmd_status_fleet_resource_apply_lag(
         for (m, _ts, age) in &rows {
             let days = *age / 86_400;
             let hours = (*age % 86_400) / 3600;
-            println!("  {}: {}d {}h ago", m, days, hours);
+            println!("  {m}: {days}d {hours}h ago");
         }
     }
     Ok(())

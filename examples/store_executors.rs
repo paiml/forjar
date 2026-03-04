@@ -211,7 +211,7 @@ fn demo_substitution_cache_miss() {
     assert!(requires_build(&plan));
     println!("  Outcome: CACHE MISS — build from scratch (auto_push enabled)");
     for step in &plan.steps {
-        println!("    {:?}", step);
+        println!("    {step:?}");
     }
     println!("  Cache miss with auto-push verified");
 }

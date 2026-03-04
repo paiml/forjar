@@ -215,7 +215,7 @@ resources:
         let mut events = String::new();
         for i in 0..5 {
             let event = serde_json::to_string(&types::TimestampedEvent {
-                ts: format!("2026-02-25T{:02}:00:00Z", i),
+                ts: format!("2026-02-25T{i:02}:00:00Z"),
                 event: types::ProvenanceEvent::ResourceConverged {
                     machine: "web".to_string(),
                     resource: "pkg".to_string(),

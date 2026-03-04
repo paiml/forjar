@@ -64,7 +64,7 @@ resources:
     // Parse and validate
     let config = parser::parse_config(yaml).expect("parse failed");
     let errors = parser::validate_config(&config);
-    assert!(errors.is_empty(), "validation errors: {:?}", errors);
+    assert!(errors.is_empty(), "validation errors: {errors:?}");
     println!(
         "Config: {} ({} machines, {} resources)",
         config.name,
@@ -82,7 +82,7 @@ resources:
     println!("\nResource arch filters:");
     for (id, resource) in &config.resources {
         if resource.arch.is_empty() {
-            println!("  {} → all architectures", id);
+            println!("  {id} → all architectures");
         } else {
             println!("  {} → {:?}", id, resource.arch);
         }
@@ -90,7 +90,7 @@ resources:
 
     // Build plan — arch filtering happens here
     let order = resolver::build_execution_order(&config).expect("DAG failed");
-    println!("\nExecution order: {:?}", order);
+    println!("\nExecution order: {order:?}");
 
     let locks = HashMap::new();
     let plan = planner::plan(&config, &order, &locks, None);

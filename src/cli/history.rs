@@ -139,7 +139,7 @@ fn compute_cutoff_iso8601(since_str: &str) -> Result<String, String> {
     let now = std::time::SystemTime::now();
     let cutoff = now
         .duration_since(std::time::UNIX_EPOCH)
-        .map_err(|e| format!("time error: {}", e))?
+        .map_err(|e| format!("time error: {e}"))?
         .as_secs()
         .saturating_sub(secs);
     Ok(epoch_secs_to_iso8601(cutoff))
@@ -171,7 +171,7 @@ fn output_history_json(
     });
     println!(
         "{}",
-        serde_json::to_string_pretty(&output).map_err(|e| format!("JSON error: {}", e))?
+        serde_json::to_string_pretty(&output).map_err(|e| format!("JSON error: {e}"))?
     );
     Ok(())
 }
@@ -259,7 +259,7 @@ pub(crate) fn cmd_history_resource(
             println!("  (no events found)");
         } else {
             for entry in &entries {
-                println!("  {}", entry);
+                println!("  {entry}");
             }
         }
     }

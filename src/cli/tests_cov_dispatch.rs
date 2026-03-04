@@ -167,8 +167,7 @@ policies:
         let err = result.unwrap_err();
         assert!(
             err.contains("git") || err.contains("cannot read"),
-            "expected git error, got: {}",
-            err
+            "expected git error, got: {err}"
         );
     }
 

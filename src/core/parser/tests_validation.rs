@@ -378,10 +378,9 @@ resources:
     type: file
     machine: m1
     path: /tmp/x
-    state: {}
+    state: {state}
     target: /tmp/y
-"#,
-            state
+"#
         );
         let config = parse_config(&yaml).unwrap();
         let errors = validate_config(&config);
@@ -389,7 +388,7 @@ resources:
             .iter()
             .filter(|e| e.message.contains("invalid state"))
             .collect();
-        assert!(state_errors.is_empty(), "state '{}' should be valid", state);
+        assert!(state_errors.is_empty(), "state '{state}' should be valid");
     }
 }
 
@@ -432,9 +431,8 @@ resources:
     type: service
     machine: m1
     name: nginx
-    state: {}
-"#,
-            state
+    state: {state}
+"#
         );
         let config = parse_config(&yaml).unwrap();
         let errors = validate_config(&config);
@@ -442,7 +440,7 @@ resources:
             .iter()
             .filter(|e| e.message.contains("invalid state"))
             .collect();
-        assert!(state_errors.is_empty(), "state '{}' should be valid", state);
+        assert!(state_errors.is_empty(), "state '{state}' should be valid");
     }
 }
 

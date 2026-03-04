@@ -4,7 +4,6 @@
 //! concurrently, respecting cross-stack dependency ordering.
 
 use super::helpers::*;
-use std::path::Path;
 
 /// A stack in the parallel execution plan.
 #[derive(Debug, Clone, serde::Serialize)]

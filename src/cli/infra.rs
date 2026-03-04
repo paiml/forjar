@@ -26,14 +26,14 @@ pub(crate) fn cmd_migrate(file: &Path, output: Option<&Path>) -> Result<(), Stri
     if !warnings.is_empty() {
         eprintln!("Migration warnings:");
         for w in &warnings {
-            eprintln!("  ⚠ {}", w);
+            eprintln!("  ⚠ {w}");
         }
         eprintln!();
     }
 
     // Serialize migrated config
     let yaml = serde_yaml_ng::to_string(&migrated)
-        .map_err(|e| format!("Failed to serialize migrated config: {}", e))?;
+        .map_err(|e| format!("Failed to serialize migrated config: {e}"))?;
 
     if let Some(out_path) = output {
         std::fs::write(out_path, &yaml)
@@ -44,7 +44,7 @@ pub(crate) fn cmd_migrate(file: &Path, output: Option<&Path>) -> Result<(), Stri
             out_path.display()
         );
     } else {
-        print!("{}", yaml);
+        print!("{yaml}");
     }
 
     println!(
@@ -57,14 +57,14 @@ pub(crate) fn cmd_migrate(file: &Path, output: Option<&Path>) -> Result<(), Stri
 
 pub(crate) fn cmd_mcp() -> Result<(), String> {
     let rt = tokio::runtime::Runtime::new()
-        .map_err(|e| format!("Failed to create tokio runtime: {}", e))?;
+        .map_err(|e| format!("Failed to create tokio runtime: {e}"))?;
     rt.block_on(crate::mcp::serve())
 }
 
 pub(crate) fn cmd_mcp_schema() -> Result<(), String> {
     let schema = crate::mcp::export_schema();
-    let json = serde_json::to_string_pretty(&schema).map_err(|e| format!("JSON error: {}", e))?;
-    println!("{}", json);
+    let json = serde_json::to_string_pretty(&schema).map_err(|e| format!("JSON error: {e}"))?;
+    println!("{json}");
     Ok(())
 }
 
@@ -80,7 +80,7 @@ pub(crate) fn cmd_bench(iterations: usize, json: bool) -> Result<(), String> {
         .as_nanos();
     let bench_dir =
         std::env::temp_dir().join(format!("forjar-bench-{}-{}", std::process::id(), bench_id));
-    std::fs::create_dir_all(&bench_dir).map_err(|e| format!("cannot create tempdir: {}", e))?;
+    std::fs::create_dir_all(&bench_dir).map_err(|e| format!("cannot create tempdir: {e}"))?;
 
     // Ensure cleanup on exit
     struct CleanupGuard(std::path::PathBuf);
@@ -119,7 +119,7 @@ pub(crate) fn cmd_bench(iterations: usize, json: bool) -> Result<(), String> {
     }
 
     let config_path = dir.join("forjar.yaml");
-    std::fs::write(&config_path, &yaml).map_err(|e| format!("write error: {}", e))?;
+    std::fs::write(&config_path, &yaml).map_err(|e| format!("write error: {e}"))?;
 
     // Build a 100-resource lock file for drift bench
     let state_dir = dir.join("state");
@@ -146,7 +146,7 @@ pub(crate) fn cmd_bench(iterations: usize, json: bool) -> Result<(), String> {
         blake3_version: "1.8".to_string(),
         resources,
     };
-    state::save_lock(&state_dir, &lock).map_err(|e| format!("lock error: {}", e))?;
+    state::save_lock(&state_dir, &lock).map_err(|e| format!("lock error: {e}"))?;
 
     struct BenchResult {
         name: &'static str,
@@ -166,7 +166,7 @@ pub(crate) fn cmd_bench(iterations: usize, json: bool) -> Result<(), String> {
             } else if us > 1_000.0 {
                 format!("{:.1}ms", us / 1_000.0)
             } else {
-                format!("{:.1}µs", us)
+                format!("{us:.1}µs")
             }
         }
     }
@@ -240,12 +240,11 @@ pub(crate) fn cmd_bench(iterations: usize, json: bool) -> Result<(), String> {
             })
             .collect();
         let output =
-            serde_json::to_string_pretty(&json_results).map_err(|e| format!("JSON: {}", e))?;
-        println!("{}", output);
+            serde_json::to_string_pretty(&json_results).map_err(|e| format!("JSON: {e}"))?;
+        println!("{output}");
     } else {
         println!(
-            "Forjar Performance Benchmarks ({} iterations)\n",
-            iterations
+            "Forjar Performance Benchmarks ({iterations} iterations)\n"
         );
         println!("  {:<28} {:>12} {:>12}", "Operation", "Average", "Target");
         println!("  {}", "-".repeat(56));
@@ -385,7 +384,7 @@ pub(crate) fn cmd_state_mv(
             lock.resources.insert(new_id.to_string(), resource_lock);
         }
 
-        state::save_lock(state_dir, &lock).map_err(|e| format!("failed to save lock: {}", e))?;
+        state::save_lock(state_dir, &lock).map_err(|e| format!("failed to save lock: {e}"))?;
 
         println!(
             "Renamed '{}' → '{}' on machine '{}'",
@@ -395,7 +394,7 @@ pub(crate) fn cmd_state_mv(
     }
 
     if !moved {
-        return Err(format!("resource '{}' not found in state", old_id));
+        return Err(format!("resource '{old_id}' not found in state"));
     }
 
     Ok(())
@@ -462,7 +461,7 @@ pub(crate) fn cmd_state_rm(
 
         lock.resources.swap_remove(resource_id);
 
-        state::save_lock(state_dir, &lock).map_err(|e| format!("failed to save lock: {}", e))?;
+        state::save_lock(state_dir, &lock).map_err(|e| format!("failed to save lock: {e}"))?;
 
         println!(
             "Removed '{}' from state on machine '{}' (resource still exists on machine)",
@@ -472,7 +471,7 @@ pub(crate) fn cmd_state_rm(
     }
 
     if !removed {
-        return Err(format!("resource '{}' not found in state", resource_id));
+        return Err(format!("resource '{resource_id}' not found in state"));
     }
 
     Ok(())

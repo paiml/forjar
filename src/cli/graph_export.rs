@@ -16,14 +16,14 @@ pub(crate) fn cmd_graph_root_resources(file: &Path, json: bool) -> Result<(), St
         .collect();
     roots.sort();
     if json {
-        let items: Vec<String> = roots.iter().map(|n| format!("\"{}\"", n)).collect();
+        let items: Vec<String> = roots.iter().map(|n| format!("\"{n}\"")).collect();
         println!("{{\"root_resources\":[{}]}}", items.join(","));
     } else if roots.is_empty() {
         println!("No root resources found (all have dependencies).");
     } else {
         println!("Root resources ({} with no dependencies):", roots.len());
         for name in &roots {
-            println!("  {}", name);
+            println!("  {name}");
         }
     }
     Ok(())
@@ -36,7 +36,7 @@ pub(crate) fn cmd_graph_edge_list(file: &Path, json: bool) -> Result<(), String>
     if json {
         let items: Vec<String> = edges
             .iter()
-            .map(|(s, t)| format!("{{\"source\":\"{}\",\"target\":\"{}\"}}", s, t))
+            .map(|(s, t)| format!("{{\"source\":\"{s}\",\"target\":\"{t}\"}}"))
             .collect();
         println!("{{\"edges\":[{}]}}", items.join(","));
     } else if edges.is_empty() {
@@ -44,7 +44,7 @@ pub(crate) fn cmd_graph_edge_list(file: &Path, json: bool) -> Result<(), String>
     } else {
         println!("Edge list ({} edges):", edges.len());
         for (source, target) in &edges {
-            println!("  {} → {}", source, target);
+            println!("  {source} → {target}");
         }
     }
     Ok(())
@@ -67,7 +67,7 @@ pub(crate) fn cmd_graph_connected_components(file: &Path, json: bool) -> Result<
     let cfg = parse_and_validate(file)?;
     let components = find_connected_components(&cfg);
     if json {
-        let items: Vec<String> = components.iter().map(|c| format!("{:?}", c)).collect();
+        let items: Vec<String> = components.iter().map(|c| format!("{c:?}")).collect();
         println!(
             "{{\"connected_components\":[{}],\"count\":{}}}",
             items.join(","),
@@ -163,7 +163,7 @@ pub(crate) fn cmd_graph_adjacency_matrix(file: &Path, json: bool) -> Result<(), 
                 )
             })
             .collect();
-        let labels: Vec<String> = names.iter().map(|n| format!("\"{}\"", n)).collect();
+        let labels: Vec<String> = names.iter().map(|n| format!("\"{n}\"")).collect();
         println!(
             "{{\"labels\":[{}],\"matrix\":[{}]}}",
             labels.join(","),
@@ -209,7 +209,7 @@ pub(super) fn print_adjacency_table(names: &[String], matrix: &[Vec<bool>]) {
     }
     println!();
     for (i, name) in names.iter().enumerate() {
-        print!("{:width$} ", name, width = max_len);
+        print!("{name:max_len$} ");
         for j in 0..names.len() {
             print!("{} ", if matrix[i][j] { "1" } else { "." });
         }
@@ -222,7 +222,7 @@ pub(crate) fn cmd_graph_longest_path(file: &Path, json: bool) -> Result<(), Stri
     let cfg = parse_and_validate(file)?;
     let (length, chain) = find_longest_chain(&cfg);
     if json {
-        let items: Vec<String> = chain.iter().map(|n| format!("\"{}\"", n)).collect();
+        let items: Vec<String> = chain.iter().map(|n| format!("\"{n}\"")).collect();
         println!(
             "{{\"longest_path_length\":{},\"chain\":[{}]}}",
             length,

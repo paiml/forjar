@@ -25,7 +25,7 @@ resources:
 "#;
     let mut config = parse_config(yaml).unwrap();
     let errors = validate_config(&config);
-    assert!(errors.is_empty(), "validation errors: {:?}", errors);
+    assert!(errors.is_empty(), "validation errors: {errors:?}");
     expand_resources(&mut config);
 
     assert_eq!(config.resources.len(), 3);
@@ -192,7 +192,7 @@ resources:
 "#;
     let mut config = parse_config(yaml).unwrap();
     let errors = validate_config(&config);
-    assert!(errors.is_empty(), "validation errors: {:?}", errors);
+    assert!(errors.is_empty(), "validation errors: {errors:?}");
     expand_resources(&mut config);
 
     assert_eq!(config.resources.len(), 3);
@@ -460,7 +460,7 @@ resources:
 "#;
     let mut config = parse_config(yaml).unwrap();
     let errors = validate_config(&config);
-    assert!(errors.is_empty(), "validation errors: {:?}", errors);
+    assert!(errors.is_empty(), "validation errors: {errors:?}");
     expand_resources(&mut config);
 
     assert_eq!(config.resources["reader"].depends_on, vec!["shards-2"]);

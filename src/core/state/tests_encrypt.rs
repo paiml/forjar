@@ -17,7 +17,7 @@ fn test_walk_yaml_files_finds_state_files() {
     std::fs::write(state.join("not-yaml.txt"), "test").unwrap();
 
     let files = walk_yaml_files(state);
-    assert_eq!(files.len(), 3, "should find 3 yaml files, got {:?}", files);
+    assert_eq!(files.len(), 3, "should find 3 yaml files, got {files:?}");
 }
 
 #[test]
@@ -39,7 +39,7 @@ fn test_walk_age_files_finds_encrypted_files() {
     std::fs::write(state.join("state.lock.yaml"), "not encrypted").unwrap();
 
     let files = walk_age_files(state);
-    assert_eq!(files.len(), 2, "should find 2 .age files, got {:?}", files);
+    assert_eq!(files.len(), 2, "should find 2 .age files, got {files:?}");
 }
 
 #[test]

@@ -80,7 +80,7 @@ pub(crate) fn cmd_status_health(
         };
         println!(
             "Health: {} ({}/{} converged, {} failed)",
-            color_fn(&format!("{}%", score)),
+            color_fn(&format!("{score}%")),
             converged,
             total_resources,
             failed
@@ -154,7 +154,7 @@ pub(crate) fn cmd_status_stale(
             serde_json::to_string_pretty(&values).unwrap_or_default()
         );
     } else if stale_items.is_empty() {
-        println!("No stale resources found (threshold: {} days).", days);
+        println!("No stale resources found (threshold: {days} days).");
     } else {
         for (name, resource_id, _) in &stale_items {
             println!(
@@ -181,7 +181,7 @@ fn collect_expired_resources(
     machine_filter: Option<&str>,
 ) -> Result<Vec<serde_json::Value>, String> {
     let entries =
-        std::fs::read_dir(state_dir).map_err(|e| format!("cannot read state dir: {}", e))?;
+        std::fs::read_dir(state_dir).map_err(|e| format!("cannot read state dir: {e}"))?;
     let mut expired = Vec::new();
     for entry in entries.flatten() {
         if !is_matching_machine(&entry, machine_filter) {
@@ -228,7 +228,7 @@ pub(crate) fn cmd_status_expired(
             serde_json::to_string_pretty(&expired).unwrap_or_else(|_| "[]".to_string())
         );
     } else {
-        println!("Resources older than {}:\n", duration);
+        println!("Resources older than {duration}:\n");
         if expired.is_empty() {
             println!("  {} No expired resources.", green("✓"));
         } else {
@@ -307,8 +307,7 @@ pub(crate) fn cmd_status_stale_resources(
             .iter()
             .map(|(m, r, at)| {
                 format!(
-                    "{{\"machine\":\"{}\",\"resource\":\"{}\",\"last_applied\":\"{}\"}}",
-                    m, r, at
+                    "{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"last_applied\":\"{at}\"}}"
                 )
             })
             .collect();
@@ -384,26 +383,23 @@ pub(crate) fn cmd_status_health_threshold(
 
     if json {
         println!(
-            "{{\"score\":{},\"threshold\":{},\"pass\":{},\"total\":{},\"converged\":{}}}",
-            score, threshold, pass, total, converged
+            "{{\"score\":{score},\"threshold\":{threshold},\"pass\":{pass},\"total\":{total},\"converged\":{converged}}}"
         );
     } else {
         let status = if pass {
-            green(&format!("PASS ({}%)", score))
+            green(&format!("PASS ({score}%)"))
         } else {
-            red(&format!("FAIL ({}%)", score))
+            red(&format!("FAIL ({score}%)"))
         };
         println!(
-            "Health score: {} (threshold: {}%, {}/{} converged)",
-            status, threshold, converged, total
+            "Health score: {status} (threshold: {threshold}%, {converged}/{total} converged)"
         );
     }
     if pass {
         Ok(())
     } else {
         Err(format!(
-            "Health score {}% below threshold {}%",
-            score, threshold
+            "Health score {score}% below threshold {threshold}%"
         ))
     }
 }
@@ -427,7 +423,7 @@ pub(crate) fn cmd_status_health_score(
     let mut drifted = 0;
 
     for m in &machines {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
         if !lock_path.exists() {
             continue;
         }
@@ -459,22 +455,21 @@ pub(crate) fn cmd_status_health_score(
 
     if json {
         println!(
-            r#"{{"health_score":{:.0},"total":{},"converged":{},"failed":{},"drifted":{}}}"#,
-            score, total_resources, converged, failed, drifted
+            r#"{{"health_score":{score:.0},"total":{total_resources},"converged":{converged},"failed":{failed},"drifted":{drifted}}}"#
         );
     } else {
         let color_score = if score >= 80.0 {
-            green(&format!("{:.0}", score))
+            green(&format!("{score:.0}"))
         } else if score >= 50.0 {
-            yellow(&format!("{:.0}", score))
+            yellow(&format!("{score:.0}"))
         } else {
-            red(&format!("{:.0}", score))
+            red(&format!("{score:.0}"))
         };
-        println!("Health Score: {}/100\n", color_score);
-        println!("  Converged: {}", converged);
-        println!("  Failed:    {}", failed);
-        println!("  Drifted:   {}", drifted);
-        println!("  Total:     {}", total_resources);
+        println!("Health Score: {color_score}/100\n");
+        println!("  Converged: {converged}");
+        println!("  Failed:    {failed}");
+        println!("  Drifted:   {drifted}");
+        println!("  Total:     {total_resources}");
     }
     Ok(())
 }

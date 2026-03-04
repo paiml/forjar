@@ -51,7 +51,7 @@ pub fn generate_mcdc_and(decision: &Decision) -> McdcReport {
     let mut pairs = Vec::new();
 
     for i in 0..n {
-        let mut true_case = vec![true; n];
+        let true_case = vec![true; n];
         let mut false_case = vec![true; n];
         false_case[i] = false;
 

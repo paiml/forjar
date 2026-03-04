@@ -207,7 +207,7 @@ policy:
         );
         assert!(marker.exists(), "notify hook should create marker file");
         let content = std::fs::read_to_string(&marker).unwrap();
-        assert!(content.contains("local 1"), "content: {}", content);
+        assert!(content.contains("local 1"), "content: {content}");
         drop(result); // silence unused
     }
 

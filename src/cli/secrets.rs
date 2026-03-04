@@ -11,14 +11,14 @@ use std::path::Path;
 pub(crate) fn cmd_secrets_encrypt(value: &str, recipients: &[String]) -> Result<(), String> {
     let recipient_refs: Vec<&str> = recipients.iter().map(|r| r.as_str()).collect();
     let encrypted = secrets::encrypt(value, &recipient_refs)?;
-    println!("{}", encrypted);
+    println!("{encrypted}");
     Ok(())
 }
 
 pub(crate) fn cmd_secrets_decrypt(value: &str, identity_path: Option<&Path>) -> Result<(), String> {
     let identities = secrets::load_identities(identity_path)?;
     let plaintext = secrets::decrypt_marker(value, &identities)?;
-    println!("{}", plaintext);
+    println!("{plaintext}");
     Ok(())
 }
 
@@ -28,7 +28,7 @@ pub(crate) fn cmd_secrets_keygen() -> Result<(), String> {
     let recipient = secrets::identity_to_recipient(&identity);
     let key_str = identity.to_string();
     eprintln!("# created: {}", chrono_date());
-    eprintln!("# public key: {}", recipient);
+    eprintln!("# public key: {recipient}");
     println!("{}", key_str.expose_secret());
     Ok(())
 }
@@ -37,12 +37,12 @@ pub(crate) fn cmd_secrets_view(file: &Path, identity_path: Option<&Path>) -> Res
     let content = std::fs::read_to_string(file)
         .map_err(|e| format!("cannot read '{}': {}", file.display(), e))?;
     if !secrets::has_encrypted_markers(&content) {
-        println!("{}", content);
+        println!("{content}");
         return Ok(());
     }
     let identities = secrets::load_identities(identity_path)?;
     let decrypted = secrets::decrypt_all(&content, &identities)?;
-    println!("{}", decrypted);
+    println!("{decrypted}");
     Ok(())
 }
 

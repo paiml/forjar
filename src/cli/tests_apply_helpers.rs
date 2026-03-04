@@ -235,7 +235,7 @@ policy:
         );
         assert!(marker.exists());
         let content = std::fs::read_to_string(&marker).unwrap();
-        assert!(content.contains("web01:5:0"), "content: {}", content);
+        assert!(content.contains("web01:5:0"), "content: {content}");
     }
 
     #[test]

@@ -174,7 +174,7 @@ pub(super) fn record_wave_outcomes(
                 );
             }
             Err(e) => {
-                let error = format!("transport error: {}", e);
+                let error = format!("transport error: {e}");
                 stop |= record_failure(
                     ctx,
                     &change.resource_id,

@@ -13,7 +13,7 @@ pub(crate) fn cmd_graph_resource_impact_radius_analysis(
     if json {
         let items: Vec<String> = radii
             .iter()
-            .map(|(n, r)| format!("{{\"resource\":\"{}\",\"impact_radius\":{}}}", n, r))
+            .map(|(n, r)| format!("{{\"resource\":\"{n}\",\"impact_radius\":{r}}}"))
             .collect();
         println!("{{\"impact_radii\":[{}]}}", items.join(","));
     } else if radii.is_empty() {
@@ -21,7 +21,7 @@ pub(crate) fn cmd_graph_resource_impact_radius_analysis(
     } else {
         println!("Resource impact radius (blast radius):");
         for (n, r) in &radii {
-            println!("  {} — impact radius {}", n, r);
+            println!("  {n} — impact radius {r}");
         }
     }
     Ok(())
@@ -67,7 +67,7 @@ pub(crate) fn cmd_graph_resource_dependency_health_map(
         let items: Vec<String> = nodes
             .iter()
             .map(|(n, deps)| {
-                let d: Vec<String> = deps.iter().map(|d| format!("\"{}\"", d)).collect();
+                let d: Vec<String> = deps.iter().map(|d| format!("\"{d}\"")).collect();
                 format!(
                     "{{\"resource\":\"{}\",\"depends_on\":[{}],\"health\":\"unknown\"}}",
                     n,
@@ -82,7 +82,7 @@ pub(crate) fn cmd_graph_resource_dependency_health_map(
         println!("Dependency health map:");
         for (name, deps) in &nodes {
             if deps.is_empty() {
-                println!("  {} (no dependencies)", name);
+                println!("  {name} (no dependencies)");
             } else {
                 println!("  {} → {}", name, deps.join(", "));
             }
@@ -99,7 +99,7 @@ pub(crate) fn cmd_graph_resource_change_propagation(file: &Path, json: bool) -> 
     if json {
         let items: Vec<String> = propagation
             .iter()
-            .map(|(n, count)| format!("{{\"resource\":\"{}\",\"propagation_depth\":{}}}", n, count))
+            .map(|(n, count)| format!("{{\"resource\":\"{n}\",\"propagation_depth\":{count}}}"))
             .collect();
         println!("{{\"change_propagation\":[{}]}}", items.join(","));
     } else if propagation.is_empty() {
@@ -107,7 +107,7 @@ pub(crate) fn cmd_graph_resource_change_propagation(file: &Path, json: bool) -> 
     } else {
         println!("Change propagation analysis (resources by impact depth):");
         for (name, depth) in &propagation {
-            println!("  {} — propagation depth {}", name, depth);
+            println!("  {name} — propagation depth {depth}");
         }
     }
     Ok(())
@@ -136,7 +136,7 @@ pub(crate) fn cmd_graph_resource_dependency_depth_analysis(
     if json {
         let items: Vec<String> = depths
             .iter()
-            .map(|(n, d)| format!("{{\"resource\":\"{}\",\"max_depth\":{}}}", n, d))
+            .map(|(n, d)| format!("{{\"resource\":\"{n}\",\"max_depth\":{d}}}"))
             .collect();
         println!("{{\"dependency_depth_analysis\":[{}]}}", items.join(","));
     } else if depths.is_empty() {
@@ -144,7 +144,7 @@ pub(crate) fn cmd_graph_resource_dependency_depth_analysis(
     } else {
         println!("Dependency depth analysis (deepest first):");
         for (name, depth) in &depths {
-            println!("  {} — depth {}", name, depth);
+            println!("  {name} — depth {depth}");
         }
     }
     Ok(())
@@ -189,8 +189,7 @@ pub(crate) fn cmd_graph_resource_dependency_fan_analysis(
             .iter()
             .map(|(n, fi, fo)| {
                 format!(
-                    "{{\"resource\":\"{}\",\"fan_in\":{},\"fan_out\":{}}}",
-                    n, fi, fo
+                    "{{\"resource\":\"{n}\",\"fan_in\":{fi},\"fan_out\":{fo}}}"
                 )
             })
             .collect();
@@ -200,7 +199,7 @@ pub(crate) fn cmd_graph_resource_dependency_fan_analysis(
     } else {
         println!("Fan-in/fan-out analysis:");
         for (name, fi, fo) in &analysis {
-            println!("  {} — fan-in: {}, fan-out: {}", name, fi, fo);
+            println!("  {name} — fan-in: {fi}, fan-out: {fo}");
         }
     }
     Ok(())
@@ -233,7 +232,7 @@ pub(crate) fn cmd_graph_resource_dependency_isolation_score(
     if json {
         let items: Vec<String> = scores
             .iter()
-            .map(|(n, s)| format!("{{\"resource\":\"{}\",\"isolation_score\":{:.2}}}", n, s))
+            .map(|(n, s)| format!("{{\"resource\":\"{n}\",\"isolation_score\":{s:.2}}}"))
             .collect();
         println!("{{\"dependency_isolation_scores\":[{}]}}", items.join(","));
     } else if scores.is_empty() {
@@ -241,7 +240,7 @@ pub(crate) fn cmd_graph_resource_dependency_isolation_score(
     } else {
         println!("Dependency isolation scores (1.0 = fully isolated):");
         for (n, s) in &scores {
-            println!("  {} — {:.2}", n, s);
+            println!("  {n} — {s:.2}");
         }
     }
     Ok(())
@@ -292,7 +291,7 @@ pub(crate) fn cmd_graph_resource_dependency_stability_score(
     if json {
         let items: Vec<String> = scores
             .iter()
-            .map(|(n, s)| format!("{{\"resource\":\"{}\",\"stability_score\":{:.2}}}", n, s))
+            .map(|(n, s)| format!("{{\"resource\":\"{n}\",\"stability_score\":{s:.2}}}"))
             .collect();
         println!("{{\"dependency_stability_scores\":[{}]}}", items.join(","));
     } else if scores.is_empty() {
@@ -300,7 +299,7 @@ pub(crate) fn cmd_graph_resource_dependency_stability_score(
     } else {
         println!("Dependency stability scores (1.0 = most stable):");
         for (n, s) in &scores {
-            println!("  {} — {:.2}", n, s);
+            println!("  {n} — {s:.2}");
         }
     }
     Ok(())

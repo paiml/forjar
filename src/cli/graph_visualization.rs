@@ -13,11 +13,11 @@ fn print_prune_dot(
     println!("digraph {{");
     println!("  rankdir=LR;");
     for name in remaining {
-        println!("  \"{}\";", name);
+        println!("  \"{name}\";");
         if let Some(res) = config.resources.get(*name) {
             for dep in &res.depends_on {
                 if !pruned.contains(dep) {
-                    println!("  \"{}\" -> \"{}\";", name, dep);
+                    println!("  \"{name}\" -> \"{dep}\";");
                 }
             }
         }
@@ -36,7 +36,7 @@ fn print_prune_mermaid(
         if let Some(res) = config.resources.get(*name) {
             for dep in &res.depends_on {
                 if !pruned.contains(dep) {
-                    println!("  {} --> {}", name, dep);
+                    println!("  {name} --> {dep}");
                 }
             }
         }
@@ -175,7 +175,7 @@ pub(crate) fn cmd_graph_critical_resources(file: &Path) -> Result<(), String> {
         if *count == 0 {
             continue;
         }
-        println!("  {:30} {} dependent(s)", name, count);
+        println!("  {name:30} {count} dependent(s)");
     }
     if ranked.iter().all(|(_, c)| *c == 0) {
         println!("  (no resources have dependents)");
@@ -192,9 +192,9 @@ fn print_weight_dot(
     println!("  rankdir=LR;");
     for (name, res) in &config.resources {
         let w = weights.get(name).unwrap_or(&0);
-        println!("  \"{}\" [label=\"{} (w={})\"];", name, name, w);
+        println!("  \"{name}\" [label=\"{name} (w={w})\"];");
         for dep in &res.depends_on {
-            println!("  \"{}\" -> \"{}\";", name, dep);
+            println!("  \"{name}\" -> \"{dep}\";");
         }
     }
     println!("}}");
@@ -211,12 +211,11 @@ fn print_weight_mermaid(
         for dep in &res.depends_on {
             let dw = weights.get(dep.as_str()).unwrap_or(&0);
             println!(
-                "  {}[\"{}(w={})\"] --> {}[\"{}(w={})\"]",
-                name, name, w, dep, dep, dw
+                "  {name}[\"{name}(w={w})\"] --> {dep}[\"{dep}(w={dw})\"]"
             );
         }
         if res.depends_on.is_empty() {
-            println!("  {}[\"{}(w={})\"]", name, name, w);
+            println!("  {name}[\"{name}(w={w})\"]");
         }
     }
 }
@@ -250,13 +249,13 @@ fn print_subgraph_dot(
     visited: &std::collections::HashSet<String>,
     config: &types::ForjarConfig,
 ) {
-    println!("digraph subgraph_{} {{", resource);
+    println!("digraph subgraph_{resource} {{");
     println!("  rankdir=LR;");
     for name in visited {
         if let Some(res) = config.resources.get(name) {
             for dep in &res.depends_on {
                 if visited.contains(dep) {
-                    println!("  \"{}\" -> \"{}\";", name, dep);
+                    println!("  \"{name}\" -> \"{dep}\";");
                 }
             }
         }
@@ -274,11 +273,11 @@ fn print_subgraph_mermaid(
         if let Some(res) = config.resources.get(name) {
             for dep in &res.depends_on {
                 if visited.contains(dep) {
-                    println!("  {} --> {}", name, dep);
+                    println!("  {name} --> {dep}");
                 }
             }
             if res.depends_on.is_empty() {
-                println!("  {}", name);
+                println!("  {name}");
             }
         }
     }
@@ -289,7 +288,7 @@ fn print_subgraph_mermaid(
 pub(crate) fn cmd_graph_subgraph(file: &Path, format: &str, resource: &str) -> Result<(), String> {
     let config = parse_and_validate(file)?;
     if !config.resources.contains_key(resource) {
-        return Err(format!("Resource '{}' not found", resource));
+        return Err(format!("Resource '{resource}' not found"));
     }
     // Collect transitive dependencies
     let mut visited: std::collections::HashSet<String> = std::collections::HashSet::new();
