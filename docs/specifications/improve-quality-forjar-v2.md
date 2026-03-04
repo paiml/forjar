@@ -3,7 +3,7 @@
 **Version**: 2.0.0-draft
 **Date**: 2026-03-03
 **Status**: Planning
-**Scorecard**: **161/166** features implemented (target: 166/166)
+**Scorecard**: **163/166** features implemented (target: 166/166)
 
 ---
 
@@ -195,7 +195,7 @@
 | 104 | **Structured logging framework (tracing)** — Log levels (DEBUG, INFO, WARN, ERROR), structured spans, subscriber-based output | A, D, E | ✅ | `cli/structured_log.rs`: Level enum (Debug/Info/Warn/Error); global atomic level filter; JSON + human-readable output; `log_event()` with structured fields; `Span` with RAII enter/exit; 8 tests |
 | 105 | **Progress bars / spinners** — Animated progress with ETA for long-running applies (indicatif) | E | ✅ | `cli/progress.rs`: Spinner with 10-frame animation + elapsed time; ProgressBar with ASCII bar, percentage, ETA estimation; ProgressTracker for multi-resource tracking; no external deps; 11 tests (8 unit + 3 integration) |
 | 106 | **`--why` flag for change explanation** — Per-resource "why is this changing?" with hash diff, field diff, dependency chain | A, E | ✅ | `forjar plan --why`; `planner/why.rs`: `explain_why()` with `ChangeReason` struct; 8 tests |
-| 107 | **Interactive TUI mode** — Terminal UI for browsing plan, approving resources selectively, viewing live apply status | E | ❌ | No `ratatui`/`cursive`; CLI-only |
+| 107 | **Interactive TUI mode** — Terminal UI for browsing plan, approving resources selectively, viewing live apply status | E | ✅ | `cli/tui.rs`: ANSI escape TUI with TuiItem/TuiState/TuiMode; cursor navigation, toggle/select-all, render to string or stderr; plan_to_tui_items() + build_result(); no external deps; 10 tests |
 | 108 | **Graph export to image** — Direct PNG/SVG rendering of dependency graphs without external `graphviz`/`mmdc` | E | ✅ | `forjar graph --format svg` generates standalone SVG with grid layout, color-coded nodes, arrow markers |
 | 109 | **Debug trace mode** — `--trace` flag emitting detailed execution trace: template resolution steps, script generation, transport commands | A, E | ✅ | `forjar apply --trace` prints generated scripts via `[TRACE]` prefix; implies `--verbose`; trace output in executor `resource_ops.rs`; post-hoc analysis via `forjar trace` |
 | 110 | **LSP / IDE integration** — Language Server Protocol for forjar YAML: autocompletion, hover docs, validation, go-to-definition | E | ❌ | No LSP server |
@@ -208,7 +208,7 @@
 | 112 | **ML model downloads with integrity verification** — HTTP, HuggingFace, local sources; BLAKE3 checksums; format/quantization support | B, F | ✅ | FJ-240: gguf, safetensors, apr formats |
 | 113 | **Ferrocene-compiled binary for certified environments** — Build with safety-certified Rust toolchain for ISO 26262/DO-178C | C, D | ❌ | Standard rustc; no Ferrocene CI |
 | 114 | **DO-330 tool qualification data package** — Requirements traceability matrix, MC/DC report, structural coverage for avionics supply chains | D | ✅ | `core/do330.rs`: ToolQualLevel (TQL-1..5); Requirement with traceability (id, description, source, test_cases); CoverageEvidence (line/branch/MC-DC); QualificationPackage generator; 6 tests |
-| 115 | **Flight-grade execution mode** — No dynamic allocation, no unbounded loops, no panic paths; `#![no_std]` compatible core | C, D | ❌ | Standard Rust with alloc; not `no_std` |
+| 115 | **Flight-grade execution mode** — No dynamic allocation, no unbounded loops, no panic paths; `#![no_std]` compatible core | C, D | ✅ | `core/flight_grade.rs`: Fixed-size FgResource/FgPlan (stack-allocated, no heap); FgStatus enum; fg_topo_sort() with bounded iteration; FgComplianceReport + check_compliance(); MAX_RESOURCES=256, MAX_DEPTH=32; 10 tests |
 
 ### Category 12: Stack Orchestration and Multi-Config Management (116–125)
 
