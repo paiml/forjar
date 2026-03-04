@@ -26,7 +26,7 @@ mod tests {
     fn test_fj1394_sudo_true_wraps_script() {
         let r = file_resource(true);
         let script = codegen::apply_script(&r).unwrap();
-        assert!(script.contains("sudo bash -c"));
+        assert!(script.contains("sudo bash <<'FORJAR_SUDO'"));
         assert!(script.contains("if [ \"$(id -u)\" -eq 0 ]"));
     }
 
@@ -40,7 +40,7 @@ mod tests {
             ..Default::default()
         };
         let script = codegen::apply_script(&r).unwrap();
-        assert!(script.contains("sudo bash -c"));
+        assert!(script.contains("sudo bash <<'FORJAR_SUDO'"));
     }
 
     #[test]
@@ -53,7 +53,7 @@ mod tests {
             ..Default::default()
         };
         let script = codegen::apply_script(&r).unwrap();
-        assert!(script.contains("sudo bash -c"));
+        assert!(script.contains("sudo bash <<'FORJAR_SUDO'"));
     }
 
     #[test]

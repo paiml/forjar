@@ -1,7 +1,9 @@
 //! Coverage tests: dispatch_notify channels, secrets, check, doctor.
 use super::check::*;
 use super::doctor::*;
+#[cfg(feature = "encryption")]
 use super::secrets::*;
+#[cfg(feature = "encryption")]
 use std::path::Path;
 
 #[cfg(test)]
@@ -9,6 +11,7 @@ mod tests {
     use super::*;
 
     // secrets.rs
+    #[cfg(feature = "encryption")]
     #[test]
     fn test_find_enc_markers() {
         assert!(find_enc_markers("").is_empty());
@@ -18,10 +21,12 @@ mod tests {
         assert!(find_enc_markers("ENC[age,no_closing").is_empty());
         assert_eq!(find_enc_markers("ENC[age,a]ENC[age,b]").len(), 2);
     }
+    #[cfg(feature = "encryption")]
     #[test]
     fn test_secrets_keygen() {
         assert!(cmd_secrets_keygen().is_ok());
     }
+    #[cfg(feature = "encryption")]
     #[test]
     fn test_secrets_view() {
         let d = tempfile::tempdir().unwrap();
@@ -33,16 +38,19 @@ mod tests {
         std::fs::write(&f2, "pw: ENC[age,fake]\n").unwrap();
         let _ = cmd_secrets_view(&f2, None);
     }
+    #[cfg(feature = "encryption")]
     #[test]
     fn test_secrets_encrypt() {
         assert!(cmd_secrets_encrypt("val", &["bad".into()]).is_err());
         assert!(cmd_secrets_encrypt("val", &[]).is_err());
     }
+    #[cfg(feature = "encryption")]
     #[test]
     fn test_secrets_decrypt() {
         assert!(cmd_secrets_decrypt("not_valid", None).is_err());
         assert!(cmd_secrets_decrypt("ENC[age,!!!]", None).is_err());
     }
+    #[cfg(feature = "encryption")]
     #[test]
     fn test_secrets_rekey() {
         assert!(cmd_secrets_rekey(Path::new("/tmp/ne-12345.yaml"), None, &["a".into()]).is_err());
@@ -51,6 +59,7 @@ mod tests {
         std::fs::write(&f, "k: v\n").unwrap();
         assert!(cmd_secrets_rekey(&f, None, &["a".into()]).is_ok());
     }
+    #[cfg(feature = "encryption")]
     #[test]
     fn test_secrets_rotate() {
         let d = tempfile::tempdir().unwrap();
