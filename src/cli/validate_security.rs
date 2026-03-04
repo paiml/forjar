@@ -1,7 +1,5 @@
 //! Phase 99 — Security Validation: secret scope, deprecation usage, when-condition coverage.
 
-#![allow(dead_code)]
-
 use crate::core::types;
 use std::path::Path;
 

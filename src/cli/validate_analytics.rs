@@ -1,7 +1,5 @@
 //! Phase 97 — State Analytics & Capacity Planning: validate commands.
 
-#![allow(dead_code)]
-
 use crate::core::types;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;

@@ -1,7 +1,5 @@
 //! Phase 102 — Resource Intelligence & Topology Insight: validate commands (FJ-1078, FJ-1081, FJ-1084).
 
-#![allow(dead_code)]
-
 use crate::core::types;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::Path;

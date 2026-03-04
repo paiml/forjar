@@ -1,7 +1,5 @@
+#![allow(unused)]
 //! Tests: Coverage for apply_variants and apply_output.
-
-#![allow(unused_imports)]
-#![allow(dead_code)]
 use super::apply_output::*;
 use super::apply_variants::*;
 use super::helpers::*;

@@ -67,7 +67,7 @@ pub fn load_agent_registry(dir: &Path) -> Result<AgentRegistry, String> {
 }
 
 /// Save agent registry.
-#[allow(dead_code)]
+#[cfg(test)]
 pub fn save_agent_registry(dir: &Path, registry: &AgentRegistry) -> Result<(), String> {
     std::fs::create_dir_all(dir).map_err(|e| format!("mkdir: {e}"))?;
     let data = serde_json::to_string_pretty(registry).map_err(|e| format!("serialize: {e}"))?;
@@ -137,7 +137,7 @@ fn print_agent_report(report: &AgentRegistryReport) {
 }
 
 /// Search agent recipes by name or tag.
-#[allow(dead_code)]
+#[cfg(test)]
 pub fn search_agents<'a>(registry: &'a AgentRegistry, query: &str) -> Vec<&'a AgentRecipe> {
     let q = query.to_lowercase();
     registry

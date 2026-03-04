@@ -229,19 +229,4 @@ resources:
         .unwrap();
     }
 
-    #[allow(dead_code)]
-    fn make_test_lock(
-        machine: &str,
-        resources: indexmap::IndexMap<String, types::ResourceLock>,
-    ) -> types::StateLock {
-        types::StateLock {
-            schema: "1.0".to_string(),
-            machine: machine.to_string(),
-            hostname: machine.to_string(),
-            generated_at: "2026-01-01T00:00:00Z".to_string(),
-            generator: "forjar 0.1.0".to_string(),
-            blake3_version: "1.8".to_string(),
-            resources,
-        }
-    }
 }

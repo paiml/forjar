@@ -4,6 +4,7 @@
 //! dependency graph, and determines execution order.
 
 use super::helpers::*;
+#[cfg(test)]
 use std::collections::BTreeMap;
 use std::path::Path;
 
@@ -149,7 +150,7 @@ fn print_multi_config_plan(plan: &MultiConfigPlan) {
 }
 
 /// Build a dependency map for stack ordering.
-#[allow(dead_code)]
+#[cfg(test)]
 pub fn build_stack_deps(configs: &[ConfigNode]) -> BTreeMap<String, Vec<String>> {
     configs
         .iter()

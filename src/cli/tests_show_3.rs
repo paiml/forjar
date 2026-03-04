@@ -166,33 +166,6 @@ resources: {}
     // FJ-211: env file loading tests
     // ================================================================
 
-    #[allow(dead_code)]
-    fn write_env_config(dir: &Path) -> PathBuf {
-        let file = dir.join("forjar.yaml");
-        std::fs::write(
-            &file,
-            r#"
-version: "1.0"
-name: env-test
-params:
-  data_dir: /default/data
-  log_level: info
-machines:
-  m1:
-    hostname: localhost
-    addr: 127.0.0.1
-resources:
-  cfg:
-    type: file
-    machine: m1
-    path: "{{params.data_dir}}/config.yaml"
-    content: "level: {{params.log_level}}"
-"#,
-        )
-        .unwrap();
-        file
-    }
-
     #[test]
     fn test_fj220_cmd_policy_no_violations() {
         let dir = tempfile::tempdir().unwrap();

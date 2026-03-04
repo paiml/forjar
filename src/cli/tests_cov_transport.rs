@@ -1,8 +1,6 @@
+#![allow(unused)]
 //! Tests: Coverage for transport, notify (part 1 of 3).
 //! Covers: exec_pepita, ensure_namespace, cleanup_namespace, send_apply_notifications.
-
-#![allow(unused_imports)]
-#![allow(dead_code)]
 use std::io::Write;
 use std::path::{Path, PathBuf};
 

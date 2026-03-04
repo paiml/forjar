@@ -12,13 +12,19 @@ keywords = ["iac", "infrastructure", "devops", "provisioning", "bare-metal"]
 categories = ["command-line-utilities", "development-tools"]
 exclude = ["benches/", ".pmat/", "/state/", "docs/", "examples/", "target/", "*.profraw", "*.profdata", ".vscode/", ".idea/", "proptest-regressions/"]
 
-[lints.rust]
+[workspace]
+resolver = "2"
+
+[workspace.lints.rust]
 unsafe_code = "forbid"
 unexpected_cfgs = { level = "allow", check-cfg = ['cfg(kani)', 'cfg(verus)'] }
 
-[lints.clippy]
+[workspace.lints.clippy]
 all = { level = "warn", priority = -1 }
 checked_conversions = "warn"
+
+[lints]
+workspace = true
 
 [dependencies]
 blake3 = "1.8"
@@ -68,6 +74,19 @@ harness = false
 encryption = ["dep:age"]
 container-test = []
 gpu-container-test = []
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--generate-link-to-definition"]
+
+[package.metadata.release]
+shared-version = true
+pre-release-replacements = [
+  { file = "CHANGELOG.md", search = "Unreleased", replace = "{{version}}" },
+]
+
+[profile.dev]
+panic = "abort"
 
 [profile.release]
 opt-level = 3

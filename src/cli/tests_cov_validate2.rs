@@ -1,7 +1,5 @@
+#![allow(unused)]
 //! Tests: Coverage for validate_core, validate_resources, lock_repair, lock_core, lock_audit, history, diff_cmd.
-
-#![allow(unused_imports)]
-#![allow(dead_code)]
 use super::diff_cmd::*;
 use super::history::*;
 use super::lock_audit::*;

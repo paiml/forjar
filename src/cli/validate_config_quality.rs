@@ -1,7 +1,5 @@
 //! Phase 103 — Fleet Analytics & Configuration Quality: validate commands (FJ-1086, FJ-1089, FJ-1092).
 
-#![allow(dead_code)]
-
 use crate::core::types;
 use std::collections::{BTreeSet, HashMap};
 use std::path::Path;

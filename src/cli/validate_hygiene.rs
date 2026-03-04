@@ -1,7 +1,5 @@
 //! Phase 105 — Resource Hygiene & Structural Depth: validate commands (FJ-1102, FJ-1105, FJ-1108).
 
-#![allow(dead_code)]
-
 use crate::core::types;
 use std::collections::HashMap;
 use std::path::Path;
