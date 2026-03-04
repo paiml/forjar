@@ -583,11 +583,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'FJ-1382: V2 spec batch 2 — drift gate, --why, budget, snapshots, reversibility, config-merge'
-  status: inprogress
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-03-03T19:38:27Z
-  updated: 2026-03-03T19:38:29.359192777+00:00
+  updated: 2026-03-04T12:20:51.725287266+00:00
   spec: null
   acceptance_criteria: []
   phases: []
