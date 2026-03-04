@@ -102,6 +102,16 @@ pub struct ResourceLock {
 }
 
 /// Resource convergence status.
+///
+/// # Examples
+///
+/// ```
+/// use forjar::core::types::ResourceStatus;
+///
+/// assert_eq!(ResourceStatus::Converged.to_string(), "CONVERGED");
+/// assert_eq!(ResourceStatus::Failed.to_string(), "FAILED");
+/// assert_eq!(ResourceStatus::Drifted.to_string(), "DRIFTED");
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ResourceStatus {
@@ -300,6 +310,17 @@ fn serialize_duration_secs<S: serde::Serializer>(
 // ============================================================================
 
 /// Convert a serde_yaml_ng::Value to a string for template resolution.
+///
+/// # Examples
+///
+/// ```
+/// use forjar::core::types::yaml_value_to_string;
+/// use serde_yaml_ng::Value;
+///
+/// assert_eq!(yaml_value_to_string(&Value::String("hello".into())), "hello");
+/// assert_eq!(yaml_value_to_string(&Value::Bool(true)), "true");
+/// assert_eq!(yaml_value_to_string(&Value::Null), "");
+/// ```
 pub fn yaml_value_to_string(val: &serde_yaml_ng::Value) -> String {
     match val {
         serde_yaml_ng::Value::String(s) => s.clone(),
