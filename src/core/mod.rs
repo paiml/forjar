@@ -19,6 +19,7 @@ pub mod types;
 
 mod kani_proofs;
 mod scoring_b;
+mod verus_spec;
 #[cfg(test)]
 mod tests_compliance;
 #[cfg(test)]
