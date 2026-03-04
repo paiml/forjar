@@ -45,7 +45,7 @@
 | 7 | **Atomic state persistence** — Lock file writes via temp-file + rename; no partial corruption possible | A, C, E | ✅ | Falsifiable claim C6; tested explicitly |
 | 8 | **13 resource types** — Package, File, Service, Mount, User, Docker, Pepita, Network, Cron, Recipe, Model, GPU, Task | E | ✅ | Full coverage of sovereign AI infrastructure needs |
 | 9 | **`for_each` / `count` resource multiplication** — Generate multiple resources from a list or count with `{{item}}` / `{{index}}` | E | ✅ | Template interpolation for dynamic resource generation |
-| 10 | **Conditional resources** — `when:` field for conditional inclusion based on params, machine arch, or expressions | E | ✅ | Expression engine: `==`, `!=`, `contains` operators; `{{machine.arch}}`, `{{params.*}}` templates; 10+ tests |
+| 10 | **Conditional resources** — `when:` field for conditional inclusion based on params, machine arch, or expressions | E | ✅ | Expression engine: `==`, `!=`, `contains` operators; `{{machine.arch}}`, `{{params.*}}` templates; 28 tests in `conditions.rs`, `tests_when.rs` |
 | 11 | **Cross-machine resource dependencies** — Resources on machine A can depend on resources on machine B | A, E | ✅ | `forjar cross-deps` analyzes cross-machine dependency graph; builds execution waves; JSON output; 6 tests in `tests_cross_machine_deps.rs` |
 | 12 | **Resource tagging and grouping** — `tags:` and `resource_group:` for selective apply (`--tags`, `--resource-group`) | E | ✅ | Filter resources by tag or group at apply time |
 | 13 | **Output values and cross-recipe data flow** — `outputs:` section exports values for consumption by other recipes or pipelines | E | ✅ | `outputs:` declared, displayed via `forjar output`, persisted to `forjar.lock.yaml` via `persist_outputs()`; cross-stack consumption via `forjar-state` data source; 12 tests in `tests_outputs.rs` |
@@ -518,18 +518,18 @@ Two independent falsification agents verified every claim in this spec against t
 
 | # | Feature | Before | After | Evidence |
 |---|---------|--------|-------|----------|
-| 10 | Conditional resources | ⚠️ "basic" | ✅ | Expression engine: `==`, `!=`, `contains`; 10+ tests in `conditions.rs`, `tests_when.rs` |
-| 13 | Output values cross-recipe | ✅ | ⚠️ | `forjar output` displays values but `GlobalLock` has no `outputs` field; never persisted to state |
+| 10 | Conditional resources | ⚠️ "basic" | ✅ | Expression engine: `==`, `!=`, `contains`; 28 tests in `conditions.rs`, `tests_when.rs` |
+| 13 | Output values cross-recipe | ✅ | ✅ | FJ-1260: `GlobalLock.outputs: IndexMap<String, String>` added; `persist_outputs()` in `state/mod.rs`; `forjar output` command; 6 tests in `tests_outputs.rs` |
 | 36 | Encrypted state files | ❌ | ✅ | `encrypt_state_files()`/`decrypt_state_files()` in `state/mod.rs:250-295`; `--encrypt-state` CLI flag; `age` crate |
 | 39 | Provable contracts count | "17" | "10" | `grep -r '#\[contract' src/` yields 10 annotations, not 17 |
 | 71 | Validation modes | "30+" | "140" | `grep -c 'check-' apply_args.rs` yields 140 `--check-*` flags |
-| 77 | Property-based testing | ❌ | ⚠️ | `proptest` in dev-deps; 7 files use it (resolver, hasher, state, recipe, executor) |
-| 83 | Rollback on failure | ✅ | ⚠️ | Restores lock YAML only; does not undo applied infrastructure changes; `--rollback-snapshot`/`--rollback-on-threshold` are stubs |
+| 77 | Property-based testing | ❌ | ✅ | `proptest` in dependencies; 10 files use it; 6 FALSIFY-HANDLER properties; `arb_resource()` covers 8 types |
+| 83 | Rollback on failure | ✅ | ✅ | Generation-based rollback in `generation.rs`; `--rollback-on-failure` flag; `maybe_rollback_generation()` in `apply.rs` restores full pre-apply generation |
 | 84 | Fleet percentiles | ⚠️ | ✅ | `cmd_status_fleet_resource_convergence_percentile` fully implemented in `status_intelligence_ext2.rs:218-272` |
 | 88 | Direct crate count | "17" | "22" | `Cargo.toml` lines 21-43: 22 `[dependencies]` entries |
-| — | Unit test count | "6295+" | "7134" | `cargo test -- --list` yields 7134 tests |
+| — | Unit test count | "6295+" | "8439" | `cargo test -- --list` yields 8439 tests |
 
-**Net score change: 62 → 64** (+2 from correcting undersold features, -0 from correctly downgrading oversold ones)
+**Net score change: 62 → 66** (+4 from correcting undersold features, -0 from correctly downgrading oversold ones)
 
 ---
 
