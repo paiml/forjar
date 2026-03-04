@@ -21,7 +21,8 @@ fn demo_structured_logging() {
     set_level(Level::Debug);
     set_json(false);
 
-    let events: Vec<(Level, &str, Vec<(&str, &str)>)> = vec![
+    type Event<'a> = (Level, &'a str, Vec<(&'a str, &'a str)>);
+    let events: Vec<Event<'_>> = vec![
         (Level::Info, "Starting apply", vec![("machine", "web-01")]),
         (Level::Debug, "Resolving deps", vec![("count", "5")]),
         (Level::Warn, "Stale data source", vec![("age_hours", "48")]),
