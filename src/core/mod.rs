@@ -17,6 +17,7 @@ pub mod state;
 pub mod store;
 pub mod types;
 
+pub mod do330;
 mod kani_proofs;
 pub mod mcdc;
 mod scoring_b;
