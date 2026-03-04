@@ -42,12 +42,13 @@ pub(crate) fn cmd_extract(
 
     // Collect referenced machines from filtered resources
     let referenced_machines = collect_referenced_machines(&extracted);
-    extracted.machines.retain(|k, _| referenced_machines.contains(k));
+    extracted
+        .machines
+        .retain(|k, _| referenced_machines.contains(k));
 
     // Filter moved entries to only those referencing extracted resources
     extracted.moved.retain(|m| {
-        extracted.resources.contains_key(&m.to)
-            || extracted.resources.contains_key(&m.from)
+        extracted.resources.contains_key(&m.to) || extracted.resources.contains_key(&m.from)
     });
 
     // Update name to reflect extraction
@@ -59,18 +60,15 @@ pub(crate) fn cmd_extract(
     let machine_count = extracted.machines.len();
 
     if json {
-        let out = serde_json::to_string_pretty(&extracted)
-            .map_err(|e| format!("JSON error: {e}"))?;
+        let out =
+            serde_json::to_string_pretty(&extracted).map_err(|e| format!("JSON error: {e}"))?;
         write_or_print(output, &out)?;
     } else {
-        let out = serde_yaml_ng::to_string(&extracted)
-            .map_err(|e| format!("YAML error: {e}"))?;
+        let out = serde_yaml_ng::to_string(&extracted).map_err(|e| format!("YAML error: {e}"))?;
         write_or_print(output, &out)?;
     }
 
-    eprintln!(
-        "Extracted: {count} resources, {machine_count} machines (filter: {filter_desc})"
-    );
+    eprintln!("Extracted: {count} resources, {machine_count} machines (filter: {filter_desc})");
     Ok(())
 }
 
@@ -86,11 +84,7 @@ fn collect_referenced_machines(config: &types::ForjarConfig) -> HashSet<String> 
 }
 
 /// Build a human-readable description of the active filters.
-fn build_filter_desc(
-    tag: Option<&str>,
-    group: Option<&str>,
-    glob: Option<&str>,
-) -> String {
+fn build_filter_desc(tag: Option<&str>, group: Option<&str>, glob: Option<&str>) -> String {
     let mut parts = Vec::new();
     if let Some(t) = tag {
         parts.push(format!("tags={t}"));
@@ -108,8 +102,7 @@ fn build_filter_desc(
 fn write_or_print(output: Option<&Path>, content: &str) -> Result<(), String> {
     match output {
         Some(path) => {
-            std::fs::write(path, content)
-                .map_err(|e| format!("write {}: {e}", path.display()))?;
+            std::fs::write(path, content).map_err(|e| format!("write {}: {e}", path.display()))?;
             eprintln!("Written to {}", path.display());
         }
         None => print!("{content}"),

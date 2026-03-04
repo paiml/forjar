@@ -51,8 +51,7 @@ pub fn cmd_query(
     };
 
     if json {
-        let out =
-            serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {e}"))?;
+        let out = serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {e}"))?;
         println!("{out}");
     } else {
         print_query_report(&report, details);
@@ -82,18 +81,21 @@ fn execute_query(
     matches
 }
 
-fn matches_filter(
-    id: &str,
-    res: &crate::core::types::Resource,
-    filter: &QueryFilter,
-) -> bool {
+fn matches_filter(id: &str, res: &crate::core::types::Resource, filter: &QueryFilter) -> bool {
     if let Some(ref pat) = filter.pattern {
-        if !id.contains(pat) && !format!("{:?}", res.resource_type).to_lowercase().contains(pat) {
+        if !id.contains(pat)
+            && !format!("{:?}", res.resource_type)
+                .to_lowercase()
+                .contains(pat)
+        {
             return false;
         }
     }
     if let Some(ref rt) = filter.resource_type {
-        if !format!("{:?}", res.resource_type).to_lowercase().contains(&rt.to_lowercase()) {
+        if !format!("{:?}", res.resource_type)
+            .to_lowercase()
+            .contains(&rt.to_lowercase())
+        {
             return false;
         }
     }

@@ -41,14 +41,19 @@ fn demo_synthetic_events() {
     }
     drop(f);
 
-    println!("  Created {} synthetic events in events.jsonl", events.len());
+    println!(
+        "  Created {} synthetic events in events.jsonl",
+        events.len()
+    );
     println!("  Resources: nginx-conf (4 drifts), postgres-conf (0 drifts), cron-job (1 drift)");
     println!();
 }
 
 fn demo_risk_scoring() {
     println!("--- Risk Scoring Algorithm ---");
-    println!("  risk = min(1.0, (drift_rate * 0.5 + min(0.3, drift_count * 0.05)) * trend_multiplier)");
+    println!(
+        "  risk = min(1.0, (drift_rate * 0.5 + min(0.3, drift_count * 0.05)) * trend_multiplier)"
+    );
     println!();
     println!("  Example: nginx-conf");
     println!("    drift_rate = 4/5 = 0.80");

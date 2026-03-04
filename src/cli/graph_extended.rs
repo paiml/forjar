@@ -173,9 +173,7 @@ fn print_highlight_mermaid(
     for name in order {
         if highlighted.contains(name) {
             println!("  {name}[\"⚡ {name}\"]");
-            println!(
-                "  style {name} fill:#ffeb3b,stroke:#f44336,stroke-width:2px"
-            );
+            println!("  style {name} fill:#ffeb3b,stroke:#f44336,stroke-width:2px");
         }
         if let Some(res) = config.resources.get(name) {
             for dep in &res.depends_on {

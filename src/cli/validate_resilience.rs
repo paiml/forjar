@@ -108,20 +108,14 @@ pub(crate) fn cmd_validate_check_resource_secret_rotation_age(
     if json {
         let items: Vec<String> = warnings
             .iter()
-            .map(|name| {
-                format!(
-                    "{{\"resource\":\"{name}\",\"has_encrypted_content\":true}}"
-                )
-            })
+            .map(|name| format!("{{\"resource\":\"{name}\",\"has_encrypted_content\":true}}"))
             .collect();
         println!("{{\"secret_rotation_warnings\":[{}]}}", items.join(","));
     } else if warnings.is_empty() {
         println!("No encrypted secrets found in resources.");
     } else {
         for name in &warnings {
-            println!(
-                "review: {name} contains encrypted secret (rotation recommended)"
-            );
+            println!("review: {name} contains encrypted secret (rotation recommended)");
         }
     }
     Ok(())
@@ -165,21 +159,15 @@ pub(crate) fn cmd_validate_check_resource_dependency_chain_depth(
         let items: Vec<String> = violations
             .iter()
             .map(|(name, depth)| {
-                format!(
-                    "{{\"resource\":\"{name}\",\"depth\":{depth},\"limit\":{DEPTH_LIMIT}}}"
-                )
+                format!("{{\"resource\":\"{name}\",\"depth\":{depth},\"limit\":{DEPTH_LIMIT}}}")
             })
             .collect();
         println!("{{\"depth_limit_warnings\":[{}]}}", items.join(","));
     } else if violations.is_empty() {
-        println!(
-            "All dependency chains within depth limit ({DEPTH_LIMIT})."
-        );
+        println!("All dependency chains within depth limit ({DEPTH_LIMIT}).");
     } else {
         for (name, depth) in &violations {
-            println!(
-                "warning: {name} has dependency depth {depth} (limit: {DEPTH_LIMIT})"
-            );
+            println!("warning: {name} has dependency depth {depth} (limit: {DEPTH_LIMIT})");
         }
     }
     Ok(())
@@ -249,7 +237,9 @@ fn compute_all_depths(config: &types::ForjarConfig) -> HashMap<String, usize> {
                 if new_depth > *entry {
                     *entry = new_depth;
                 }
-                let deg = in_degree.get_mut(dependent).unwrap();
+                let Some(deg) = in_degree.get_mut(dependent) else {
+                    continue;
+                };
                 *deg -= 1;
                 if *deg == 0 {
                     queue.push_back(dependent);

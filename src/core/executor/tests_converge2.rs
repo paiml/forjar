@@ -47,7 +47,7 @@ policy:
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
-            trace: false,
+        trace: false,
     };
     let r1 = apply(&cfg).unwrap();
     assert_eq!(r1[0].resources_converged, 1);
@@ -99,7 +99,7 @@ policy:
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
-            trace: false,
+        trace: false,
     };
     let results = apply(&cfg).unwrap();
     // No results for non-matching machine
@@ -165,7 +165,7 @@ policy:
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
-            trace: false,
+        trace: false,
     };
     let results = apply(&cfg).unwrap();
     assert_eq!(results[0].resources_converged, 3);
@@ -215,7 +215,7 @@ policy:
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
-            trace: false,
+        trace: false,
     };
     let results = apply(&cfg).unwrap();
     assert!(
@@ -267,7 +267,7 @@ policy:
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
-            trace: false,
+        trace: false,
     };
     apply(&cfg).unwrap();
 
@@ -289,7 +289,7 @@ policy:
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
-            trace: false,
+        trace: false,
     };
     let results = apply(&cfg_force).unwrap();
     assert_eq!(

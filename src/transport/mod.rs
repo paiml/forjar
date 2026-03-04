@@ -57,17 +57,20 @@ fn validate_before_exec(script: &str) -> Result<(), String> {
 /// 2. `cat > '<path>' <<'FORJAR_EOF'\n...\nFORJAR_EOF` — text file deployment
 fn strip_data_payloads(script: &str) -> String {
     // Phase 1: strip base64 blobs
-    let re_b64 = regex::Regex::new(
-        r"echo '([A-Za-z0-9+/=\n]+)' \| base64 -d > '([^']+)'"
-    ).expect("base64 regex is valid");
-    let pass1 = re_b64.replace_all(script, "echo 'FORJAR_BASE64_STRIPPED' > '$2'")
+    let re_b64 = regex::Regex::new(r"echo '([A-Za-z0-9+/=\n]+)' \| base64 -d > '([^']+)'")
+        .expect("base64 regex is valid");
+    let pass1 = re_b64
+        .replace_all(script, "echo 'FORJAR_BASE64_STRIPPED' > '$2'")
         .into_owned();
 
     // Phase 2: strip heredoc payloads (FORJAR_EOF delimiters)
-    let re_heredoc = regex::Regex::new(
-        r"(?s)<<'FORJAR_EOF'\n.*?\nFORJAR_EOF"
-    ).expect("heredoc regex is valid");
-    re_heredoc.replace_all(&pass1, "<<'FORJAR_EOF'\n# payload stripped for lint\nFORJAR_EOF")
+    let re_heredoc =
+        regex::Regex::new(r"(?s)<<'FORJAR_EOF'\n.*?\nFORJAR_EOF").expect("heredoc regex is valid");
+    re_heredoc
+        .replace_all(
+            &pass1,
+            "<<'FORJAR_EOF'\n# payload stripped for lint\nFORJAR_EOF",
+        )
         .into_owned()
 }
 
@@ -118,9 +121,7 @@ pub fn exec_script_timeout(
             });
             rx.recv_timeout(std::time::Duration::from_secs(secs))
                 .map_err(|_| {
-                    format!(
-                        "transport timeout: script on '{hostname}' exceeded {secs}s limit"
-                    )
+                    format!("transport timeout: script on '{hostname}' exceeded {secs}s limit")
                 })?
         }
         None => exec_script(machine, script),

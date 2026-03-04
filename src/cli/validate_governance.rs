@@ -291,10 +291,7 @@ fn find_machine_affinity_issues(config: &types::ForjarConfig) -> Vec<(String, St
         let machines = resource.machine.to_vec();
         for m in &machines {
             if !config.machines.contains_key(m) {
-                issues.push((
-                    name.clone(),
-                    format!("references undefined machine '{m}'"),
-                ));
+                issues.push((name.clone(), format!("references undefined machine '{m}'")));
             }
         }
     }

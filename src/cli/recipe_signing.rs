@@ -34,12 +34,8 @@ pub struct SigningReport {
 }
 
 /// Sign a recipe file.
-pub fn sign_recipe(
-    recipe_path: &Path,
-    signer: &str,
-) -> Result<RecipeSignature, String> {
-    let content =
-        std::fs::read(recipe_path).map_err(|e| format!("read recipe: {e}"))?;
+pub fn sign_recipe(recipe_path: &Path, signer: &str) -> Result<RecipeSignature, String> {
+    let content = std::fs::read(recipe_path).map_err(|e| format!("read recipe: {e}"))?;
     let blake3_hash = blake3::hash(&content).to_hex().to_string();
 
     // Generate deterministic signature (BLAKE3 of hash + signer)
@@ -57,10 +53,8 @@ pub fn sign_recipe(
 
     // Write signature file
     let sig_path = recipe_path.with_extension("sig.json");
-    let data = serde_json::to_string_pretty(&sig)
-        .map_err(|e| format!("serialize sig: {e}"))?;
-    std::fs::write(&sig_path, data)
-        .map_err(|e| format!("write sig: {e}"))?;
+    let data = serde_json::to_string_pretty(&sig).map_err(|e| format!("serialize sig: {e}"))?;
+    std::fs::write(&sig_path, data).map_err(|e| format!("write sig: {e}"))?;
 
     Ok(sig)
 }
@@ -78,13 +72,11 @@ pub fn verify_recipe(recipe_path: &Path) -> Result<VerifyResult, String> {
         });
     }
 
-    let sig_data = std::fs::read_to_string(&sig_path)
-        .map_err(|e| format!("read sig: {e}"))?;
-    let sig: RecipeSignature = serde_json::from_str(&sig_data)
-        .map_err(|e| format!("parse sig: {e}"))?;
+    let sig_data = std::fs::read_to_string(&sig_path).map_err(|e| format!("read sig: {e}"))?;
+    let sig: RecipeSignature =
+        serde_json::from_str(&sig_data).map_err(|e| format!("parse sig: {e}"))?;
 
-    let content = std::fs::read(recipe_path)
-        .map_err(|e| format!("read recipe: {e}"))?;
+    let content = std::fs::read(recipe_path).map_err(|e| format!("read recipe: {e}"))?;
     let current_hash = blake3::hash(&content).to_hex().to_string();
 
     let valid = current_hash == sig.blake3_hash;
@@ -111,8 +103,8 @@ pub fn cmd_recipe_sign(
     if verify_only {
         let result = verify_recipe(recipe_path)?;
         if json {
-            let out = serde_json::to_string_pretty(&result)
-                .map_err(|e| format!("JSON error: {e}"))?;
+            let out =
+                serde_json::to_string_pretty(&result).map_err(|e| format!("JSON error: {e}"))?;
             println!("{out}");
         } else {
             print_verify_result(&result);
@@ -124,8 +116,7 @@ pub fn cmd_recipe_sign(
         let who = signer.unwrap_or("local");
         let sig = sign_recipe(recipe_path, who)?;
         if json {
-            let out = serde_json::to_string_pretty(&sig)
-                .map_err(|e| format!("JSON error: {e}"))?;
+            let out = serde_json::to_string_pretty(&sig).map_err(|e| format!("JSON error: {e}"))?;
             println!("{out}");
         } else {
             println!("Signed: {}", sig.recipe_path);

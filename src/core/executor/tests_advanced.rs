@@ -47,7 +47,7 @@ policy:
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
-            trace: false,
+        trace: false,
     };
     let results = apply(&cfg).unwrap();
 
@@ -112,7 +112,7 @@ policy:
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
-            trace: false,
+        trace: false,
     };
     let r1 = apply(&cfg1).unwrap();
     assert_eq!(r1[0].resources_converged, 1);
@@ -136,7 +136,7 @@ policy:
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
-            trace: false,
+        trace: false,
     };
     let r2 = apply(&cfg2).unwrap();
     assert_eq!(r2[0].resources_unchanged, 1);
@@ -160,7 +160,7 @@ policy:
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
-            trace: false,
+        trace: false,
     };
     let r3 = apply(&cfg3).unwrap();
     assert_eq!(
@@ -285,7 +285,7 @@ resources:
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
-            trace: false,
+        trace: false,
     };
     let results = apply(&cfg).unwrap();
     assert_eq!(results[0].machine, "dry-run");
@@ -330,7 +330,7 @@ resources:
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
-            trace: false,
+        trace: false,
     };
 
     let results = apply(&cfg).unwrap();
@@ -392,7 +392,7 @@ resources:
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
-            trace: false,
+        trace: false,
     };
 
     let _results = apply(&cfg).unwrap();
@@ -443,7 +443,7 @@ resources:
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
-            trace: false,
+        trace: false,
     };
 
     let _results = apply(&cfg).unwrap();

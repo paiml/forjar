@@ -62,7 +62,9 @@ fn analyze_resource(resource: &types::Resource) -> PrivilegeLevel {
 
 /// Analyze file resource paths to determine if system paths are involved.
 fn analyze_file_privilege(resource: &types::Resource) -> PrivilegeLevel {
-    let system_prefixes = ["/etc/", "/usr/", "/var/", "/opt/", "/root/", "/sys/", "/proc/"];
+    let system_prefixes = [
+        "/etc/", "/usr/", "/var/", "/opt/", "/root/", "/sys/", "/proc/",
+    ];
     if let Some(ref path) = resource.path {
         for prefix in &system_prefixes {
             if path.starts_with(prefix) {
@@ -144,7 +146,10 @@ fn print_privilege_text(entries: &[(String, PrivilegeLevel, String)]) {
 
     // Resources needing elevated privileges
     if root_count > 0 {
-        println!("  {} Requires elevated privileges:", red(&format!("{root_count}")));
+        println!(
+            "  {} Requires elevated privileges:",
+            red(&format!("{root_count}"))
+        );
         for (id, level, rtype) in entries {
             if level.needs_root() {
                 println!(
@@ -161,7 +166,10 @@ fn print_privilege_text(entries: &[(String, PrivilegeLevel, String)]) {
 
     // Unprivileged resources
     if unpriv_count > 0 {
-        println!("  {} Can run unprivileged:", green(&format!("{unpriv_count}")));
+        println!(
+            "  {} Can run unprivileged:",
+            green(&format!("{unpriv_count}"))
+        );
         for (id, _level, rtype) in entries {
             if !_level.needs_root() {
                 println!("    {} {} ({})", green("*"), id, dim(rtype));
@@ -178,9 +186,6 @@ fn print_privilege_text(entries: &[(String, PrivilegeLevel, String)]) {
         entries.len()
     );
     if root_count == 0 {
-        println!(
-            "  {} This config can run entirely unprivileged",
-            green("✓")
-        );
+        println!("  {} This config can run entirely unprivileged", green("✓"));
     }
 }

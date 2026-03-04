@@ -26,10 +26,7 @@ pub struct PreservationReport {
 }
 
 /// Check pairwise resource preservation.
-pub fn cmd_preservation(
-    file: &Path,
-    json: bool,
-) -> Result<(), String> {
+pub fn cmd_preservation(file: &Path, json: bool) -> Result<(), String> {
     let config = parse_and_validate(file)?;
     let ids: Vec<String> = config.resources.keys().cloned().collect();
     let mut results = Vec::new();
@@ -53,8 +50,7 @@ pub fn cmd_preservation(
     };
 
     if json {
-        let out =
-            serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {e}"))?;
+        let out = serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {e}"))?;
         println!("{out}");
     } else {
         print_preservation_report(&report);
@@ -139,6 +135,9 @@ fn print_preservation_report(report: &PreservationReport) {
     println!();
     for p in &report.results {
         let icon = if p.preserved { "OK " } else { "ERR" };
-        println!("[{icon}] {} <-> {}: {}", p.resource_a, p.resource_b, p.reason);
+        println!(
+            "[{icon}] {} <-> {}: {}",
+            p.resource_a, p.resource_b, p.reason
+        );
     }
 }

@@ -80,9 +80,7 @@ pub(crate) fn cmd_status_machine_resource_convergence_lag(
         let items: Vec<String> = lags
             .iter()
             .map(|(m, r, s)| {
-                format!(
-                    "{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"status\":\"{s}\"}}"
-                )
+                format!("{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"status\":\"{s}\"}}")
             })
             .collect();
         println!("{{\"convergence_lag\":[{}]}}", items.join(","));
@@ -134,9 +132,7 @@ pub(crate) fn cmd_status_fleet_resource_convergence_lag(
     let lags = collect_convergence_lag(sd, &targets);
     let total_lagging = lags.len();
     if json {
-        println!(
-            "{{\"fleet_convergence_lag\":{{\"lagging_resources\":{total_lagging}}}}}"
-        );
+        println!("{{\"fleet_convergence_lag\":{{\"lagging_resources\":{total_lagging}}}}}");
     } else {
         println!("Fleet convergence lag: {total_lagging} resources lagging");
     }

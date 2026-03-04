@@ -153,9 +153,7 @@ pub(crate) fn cmd_status_machine_resource_error_classification(
             println!("  No machine state found.");
         }
         for (m, c, d, f, u) in &rows {
-            println!(
-                "  {m}: converged={c}, drifted={d}, failed={f}, unknown={u}"
-            );
+            println!("  {m}: converged={c}, drifted={d}, failed={f}, unknown={u}");
         }
     }
     Ok(())
@@ -192,9 +190,7 @@ pub(crate) fn cmd_status_fleet_resource_convergence_summary(
         ).unwrap_or_default());
     } else {
         println!("=== Fleet Convergence Summary ===");
-        println!(
-            "  Total: {total}, Converged: {converged}, Convergence: {pct:.1}%"
-        );
+        println!("  Total: {total}, Converged: {converged}, Convergence: {pct:.1}%");
     }
     Ok(())
 }

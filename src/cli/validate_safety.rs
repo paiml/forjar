@@ -176,11 +176,7 @@ pub(crate) fn cmd_validate_check_state_values(file: &Path, json: bool) -> Result
     if json {
         let items: Vec<String> = bad
             .iter()
-            .map(|(r, t, s)| {
-                format!(
-                    "{{\"resource\":\"{r}\",\"type\":\"{t}\",\"state\":\"{s}\"}}"
-                )
-            })
+            .map(|(r, t, s)| format!("{{\"resource\":\"{r}\",\"type\":\"{t}\",\"state\":\"{s}\"}}"))
             .collect();
         println!("{{\"invalid_states\":[{}]}}", items.join(","));
     } else if bad.is_empty() {
@@ -336,9 +332,7 @@ pub(crate) fn cmd_validate_check_path_conflicts_strict(
         let items: Vec<String> = conflicts
             .iter()
             .map(|(m, p, rs)| {
-                format!(
-                    "{{\"machine\":\"{m}\",\"path\":\"{p}\",\"resources\":{rs:?}}}"
-                )
+                format!("{{\"machine\":\"{m}\",\"path\":\"{p}\",\"resources\":{rs:?}}}")
             })
             .collect();
         println!("{{\"path_conflicts\":[{}]}}", items.join(","));
@@ -408,9 +402,7 @@ pub(crate) fn cmd_validate_check_duplicate_names(file: &Path, json: bool) -> Res
     if json {
         let items: Vec<String> = dupes
             .iter()
-            .map(|(base, names)| {
-                format!("{{\"base_name\":\"{base}\",\"resources\":{names:?}}}")
-            })
+            .map(|(base, names)| format!("{{\"base_name\":\"{base}\",\"resources\":{names:?}}}"))
             .collect();
         println!("{{\"duplicate_names\":[{}]}}", items.join(","));
     } else if dupes.is_empty() {

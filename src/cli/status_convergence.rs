@@ -212,9 +212,7 @@ pub(crate) fn cmd_status_since(
         let items: Vec<String> = results
             .iter()
             .map(|(m, r, s)| {
-                format!(
-                    "{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"status\":\"{s}\"}}"
-                )
+                format!("{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"status\":\"{s}\"}}")
             })
             .collect();
         println!("[{}]", items.join(","));
@@ -348,9 +346,7 @@ pub(crate) fn cmd_status_convergence_rate(
         } else {
             red("✗")
         };
-        println!(
-            "{indicator} Convergence rate: {rate:.0}% ({converged}/{total})"
-        );
+        println!("{indicator} Convergence rate: {rate:.0}% ({converged}/{total})");
     }
     Ok(())
 }
@@ -401,11 +397,7 @@ pub(crate) fn cmd_status_convergence_time(
     if json {
         let items: Vec<String> = times
             .iter()
-            .map(|(m, r, d)| {
-                format!(
-                    r#"{{"machine":"{m}","resource":"{r}","seconds":{d:.3}}}"#
-                )
-            })
+            .map(|(m, r, d)| format!(r#"{{"machine":"{m}","resource":"{r}","seconds":{d:.3}}}"#))
             .collect();
         println!(
             r#"{{"convergence_times":[{}],"average":{:.3},"count":{}}}"#,

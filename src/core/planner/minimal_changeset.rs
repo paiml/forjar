@@ -103,7 +103,11 @@ fn propagate_dependencies(
 /// Verify that a change set is truly minimal.
 /// Returns true if removing any single change would leave the system inconsistent.
 pub fn verify_minimality(changeset: &MinimalChangeSet) -> bool {
-    let necessary: Vec<&ChangeCandidate> = changeset.candidates.iter().filter(|c| c.necessary).collect();
+    let necessary: Vec<&ChangeCandidate> = changeset
+        .candidates
+        .iter()
+        .filter(|c| c.necessary)
+        .collect();
     // A set is minimal if every member is necessary (no redundant changes)
     // This is guaranteed by construction: we only mark changes that either
     // (a) have hash differences or (b) are transitively dependent on (a).

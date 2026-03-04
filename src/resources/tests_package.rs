@@ -79,7 +79,7 @@ pub(super) fn make_apt_resource(packages: &[&str]) -> Resource {
         post_apply: None,
         lifecycle: None,
         store: false,
-            sudo: false,
+        sudo: false,
         script: None,
     }
 }

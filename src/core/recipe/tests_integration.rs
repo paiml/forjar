@@ -132,7 +132,7 @@ fn test_fj019_resolve_resource_inputs_target_and_options() {
         post_apply: None,
         lifecycle: None,
         store: false,
-            sudo: false,
+        sudo: false,
         script: None,
     };
     let mut inputs = HashMap::new();
@@ -228,7 +228,7 @@ fn test_fj019_resolve_resource_inputs_content_field() {
         post_apply: None,
         lifecycle: None,
         store: false,
-            sudo: false,
+        sudo: false,
         script: None,
     };
     let mut inputs = HashMap::new();

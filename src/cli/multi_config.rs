@@ -27,10 +27,7 @@ pub struct MultiConfigPlan {
 }
 
 /// Analyze multi-config dependencies and generate execution plan.
-pub fn cmd_multi_config(
-    files: &[std::path::PathBuf],
-    json: bool,
-) -> Result<(), String> {
+pub fn cmd_multi_config(files: &[std::path::PathBuf], json: bool) -> Result<(), String> {
     let configs = load_configs(files)?;
     let order = compute_execution_order(&configs);
     let total_resources: usize = configs.iter().map(|c| c.resources).sum();
@@ -43,8 +40,7 @@ pub fn cmd_multi_config(
     };
 
     if json {
-        let out =
-            serde_json::to_string_pretty(&plan).map_err(|e| format!("JSON error: {e}"))?;
+        let out = serde_json::to_string_pretty(&plan).map_err(|e| format!("JSON error: {e}"))?;
         println!("{out}");
     } else {
         print_multi_config_plan(&plan);

@@ -121,14 +121,23 @@ fn validate_store_integrity(store_dir: &Path, checks: &mut Vec<ValidationCheck>)
         for entry in entries.flatten() {
             let path = entry.path();
             if path.is_file() {
-                let name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
+                let name = path
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string();
                 if let Ok(bytes) = std::fs::read(&path) {
                     let hash = blake3::hash(&bytes).to_hex()[..16].to_string();
                     // Verify hash matches filename prefix (content-addressed convention)
                     let name_matches = name.starts_with(&hash[..8.min(hash.len())]);
                     checks.push(ValidationCheck {
                         resource: "store".to_string(),
-                        check_type: if name_matches { "content-addressed" } else { "integrity" }.to_string(),
+                        check_type: if name_matches {
+                            "content-addressed"
+                        } else {
+                            "integrity"
+                        }
+                        .to_string(),
                         target: format!("store/{name}"),
                         passed: true,
                         detail: format!("blake3:{hash}"),

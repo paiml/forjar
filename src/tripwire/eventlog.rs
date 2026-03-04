@@ -55,9 +55,7 @@ pub fn now_iso8601() -> String {
     }
     let d = remaining + 1;
 
-    format!(
-        "{y:04}-{m:02}-{d:02}T{hours:02}:{minutes:02}:{seconds:02}Z"
-    )
+    format!("{y:04}-{m:02}-{d:02}T{hours:02}:{minutes:02}:{seconds:02}Z")
 }
 
 pub(crate) fn is_leap(y: i64) -> bool {

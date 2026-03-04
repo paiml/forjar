@@ -236,9 +236,7 @@ pub(crate) fn cmd_status_machine_convergence_window(
             } else {
                 yellow("~")
             };
-            println!(
-                "  {symbol} {m} — {drifted} drifted, est. {window} min to converge"
-            );
+            println!("  {symbol} {m} — {drifted} drifted, est. {window} min to converge");
         }
     }
     Ok(())

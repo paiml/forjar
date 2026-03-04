@@ -28,9 +28,9 @@ fn main() {
             machine: machine.to_string(),
             run_id: run_id.clone(),
             forjar_version: env!("CARGO_PKG_VERSION").to_string(),
-                operator: None,
-                config_hash: None,
-                param_count: None,
+            operator: None,
+            config_hash: None,
+            param_count: None,
         },
     )
     .expect("write event");
@@ -131,9 +131,7 @@ fn main() {
                 let converged = event["resources_converged"].as_u64().unwrap_or(0);
                 let failed = event["resources_failed"].as_u64().unwrap_or(0);
                 let total = event["total_seconds"].as_f64().unwrap_or(0.0);
-                println!(
-                    "    converged: {converged}, failed: {failed}, total: {total:.2}s"
-                );
+                println!("    converged: {converged}, failed: {failed}, total: {total:.2}s");
             }
             _ => {}
         }

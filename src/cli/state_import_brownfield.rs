@@ -71,8 +71,7 @@ pub fn cmd_import_brownfield(
     };
 
     if json {
-        let out =
-            serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {e}"))?;
+        let out = serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {e}"))?;
         println!("{out}");
     } else {
         println!("Brownfield Import: {machine}");
@@ -208,4 +207,3 @@ fn emit_resource_yaml(yaml: &mut String, machine: &str, r: &DiscoveredResource) 
     }
     yaml.push_str(&format!("    tags: [imported, {}]\n", r.source));
 }
-

@@ -26,10 +26,7 @@ pub enum FindingSeverity {
 }
 
 /// Evaluate all rules for a given benchmark against a config.
-pub fn evaluate_benchmark(
-    benchmark: &str,
-    config: &ForjarConfig,
-) -> Vec<ComplianceFinding> {
+pub fn evaluate_benchmark(benchmark: &str, config: &ForjarConfig) -> Vec<ComplianceFinding> {
     match benchmark.to_lowercase().as_str() {
         "cis" => evaluate_cis(config),
         "nist" | "nist-800-53" => evaluate_nist_800_53(config),
@@ -91,11 +88,7 @@ fn cis_root_tmp(findings: &mut Vec<ComplianceFinding>, id: &str, r: &Resource) {
     }
 }
 
-fn cis_service_no_restart_policy(
-    findings: &mut Vec<ComplianceFinding>,
-    id: &str,
-    r: &Resource,
-) {
+fn cis_service_no_restart_policy(findings: &mut Vec<ComplianceFinding>, id: &str, r: &Resource) {
     if r.resource_type == ResourceType::Service && r.restart.is_none() {
         findings.push(ComplianceFinding {
             rule_id: "CIS-5.2.1".to_string(),
@@ -107,11 +100,7 @@ fn cis_service_no_restart_policy(
     }
 }
 
-fn cis_package_no_version_pin(
-    findings: &mut Vec<ComplianceFinding>,
-    id: &str,
-    r: &Resource,
-) {
+fn cis_package_no_version_pin(findings: &mut Vec<ComplianceFinding>, id: &str, r: &Resource) {
     if r.resource_type == ResourceType::Package && r.version.is_none() {
         findings.push(ComplianceFinding {
             rule_id: "CIS-6.2.1".to_string(),
@@ -138,11 +127,7 @@ fn evaluate_nist_800_53(config: &ForjarConfig) -> Vec<ComplianceFinding> {
 }
 
 /// AC-3: Access Enforcement — files must have explicit owner/group/mode.
-fn nist_ac3_access_enforcement(
-    findings: &mut Vec<ComplianceFinding>,
-    id: &str,
-    r: &Resource,
-) {
+fn nist_ac3_access_enforcement(findings: &mut Vec<ComplianceFinding>, id: &str, r: &Resource) {
     if r.resource_type != ResourceType::File {
         return;
     }
@@ -167,11 +152,7 @@ fn nist_ac3_access_enforcement(
 }
 
 /// AC-6: Least Privilege — services should not run as root.
-fn nist_ac6_least_privilege(
-    findings: &mut Vec<ComplianceFinding>,
-    id: &str,
-    r: &Resource,
-) {
+fn nist_ac6_least_privilege(findings: &mut Vec<ComplianceFinding>, id: &str, r: &Resource) {
     if r.resource_type == ResourceType::Service && r.owner.as_deref() == Some("root") {
         findings.push(ComplianceFinding {
             rule_id: "NIST-AC-6".to_string(),
@@ -184,11 +165,7 @@ fn nist_ac6_least_privilege(
 }
 
 /// CM-6: Configuration Settings — Docker containers need explicit port bindings.
-fn nist_cm6_config_settings(
-    findings: &mut Vec<ComplianceFinding>,
-    id: &str,
-    r: &Resource,
-) {
+fn nist_cm6_config_settings(findings: &mut Vec<ComplianceFinding>, id: &str, r: &Resource) {
     if r.resource_type == ResourceType::Docker && r.ports.is_empty() && r.port.is_none() {
         findings.push(ComplianceFinding {
             rule_id: "NIST-CM-6".to_string(),
@@ -201,11 +178,7 @@ fn nist_cm6_config_settings(
 }
 
 /// SC-28: Protection of Information at Rest — sensitive paths should have restricted modes.
-fn nist_sc28_protection_at_rest(
-    findings: &mut Vec<ComplianceFinding>,
-    id: &str,
-    r: &Resource,
-) {
+fn nist_sc28_protection_at_rest(findings: &mut Vec<ComplianceFinding>, id: &str, r: &Resource) {
     if r.resource_type != ResourceType::File {
         return;
     }
@@ -316,9 +289,7 @@ fn hipaa_network_encryption(findings: &mut Vec<ComplianceFinding>, id: &str, r: 
                     benchmark: "hipaa".to_string(),
                     severity: FindingSeverity::Critical,
                     resource_id: id.to_string(),
-                    message: format!(
-                        "unencrypted port {port} (164.312(e) transmission security)"
-                    ),
+                    message: format!("unencrypted port {port} (164.312(e) transmission security)"),
                 });
             }
         }

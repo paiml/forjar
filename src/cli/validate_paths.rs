@@ -116,9 +116,7 @@ pub(crate) fn cmd_validate_check_mode_consistency(file: &Path, json: bool) -> Re
         let entries: Vec<String> = inconsistencies
             .iter()
             .map(|(dir, name, mode)| {
-                format!(
-                    "{{\"directory\":\"{dir}\",\"resource\":\"{name}\",\"mode\":\"{mode}\"}}"
-                )
+                format!("{{\"directory\":\"{dir}\",\"resource\":\"{name}\",\"mode\":\"{mode}\"}}")
             })
             .collect();
         println!(

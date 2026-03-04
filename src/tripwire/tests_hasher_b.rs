@@ -141,7 +141,7 @@ fn test_fj036_hash_desired_state_deterministic() {
         post_apply: None,
         lifecycle: None,
         store: false,
-            sudo: false,
+        sudo: false,
         script: None,
     };
     let h1 = hash_desired_state(&r);
@@ -233,7 +233,7 @@ fn test_fj036_hash_desired_state_changes_on_content() {
         post_apply: None,
         lifecycle: None,
         store: false,
-            sudo: false,
+        sudo: false,
         script: None,
     };
     let r2 = Resource {

@@ -50,11 +50,7 @@ pub struct LiveQueryReport {
 }
 
 /// Run a live query against infrastructure.
-pub fn cmd_query_live(
-    file: &Path,
-    pattern: Option<&str>,
-    json: bool,
-) -> Result<(), String> {
+pub fn cmd_query_live(file: &Path, pattern: Option<&str>, json: bool) -> Result<(), String> {
     let config = parse_and_validate(file)?;
     let results = probe_resources(&config, pattern);
 
@@ -73,8 +69,7 @@ pub fn cmd_query_live(
     };
 
     if json {
-        let out =
-            serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {e}"))?;
+        let out = serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {e}"))?;
         println!("{out}");
     } else {
         print_live_report(&report);

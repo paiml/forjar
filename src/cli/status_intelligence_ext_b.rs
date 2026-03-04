@@ -73,9 +73,7 @@ pub(crate) fn cmd_status_machine_resource_drift_velocity(
             .iter()
             .map(|(m, d, t)| {
                 let v = velocity_ratio(*d, *t);
-                format!(
-                    "{{\"machine\":\"{m}\",\"drifted\":{d},\"total\":{t},\"velocity\":{v:.4}}}"
-                )
+                format!("{{\"machine\":\"{m}\",\"drifted\":{d},\"total\":{t},\"velocity\":{v:.4}}}")
             })
             .collect();
         println!("{{\"drift_velocities\":[{}]}}", items.join(","));

@@ -21,9 +21,7 @@ pub(crate) fn cmd_status_resource_duration(
         let items: Vec<String> = entries
             .iter()
             .map(|(m, r, d)| {
-                format!(
-                    "{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"duration_s\":{d:.2}}}"
-                )
+                format!("{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"duration_s\":{d:.2}}}")
             })
             .collect();
         println!("{{\"resource_durations\":[{}]}}", items.join(","));
@@ -149,9 +147,7 @@ pub(crate) fn cmd_status_resource_hash(
         let items: Vec<String> = entries
             .iter()
             .map(|(m, r, h)| {
-                format!(
-                    "{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"hash\":\"{h}\"}}"
-                )
+                format!("{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"hash\":\"{h}\"}}")
             })
             .collect();
         println!("{{\"resource_hashes\":[{}]}}", items.join(","));
@@ -205,9 +201,7 @@ pub(crate) fn cmd_status_machine_drift_summary(
         let items: Vec<String> = data
             .iter()
             .map(|(m, p, d, t)| {
-                format!(
-                    "{{\"machine\":\"{m}\",\"drift_pct\":{p},\"drifted\":{d},\"total\":{t}}}"
-                )
+                format!("{{\"machine\":\"{m}\",\"drift_pct\":{p},\"drifted\":{d},\"total\":{t}}}")
             })
             .collect();
         println!("{{\"machine_drift\":[{}]}}", items.join(","));
@@ -272,9 +266,7 @@ pub(crate) fn cmd_status_lock_file_count(state_dir: &Path, json: bool) -> Result
     let machines = discover_machines(state_dir);
     let count = machines.len();
     if json {
-        println!(
-            "{{\"lock_file_count\":{count},\"machines\":{machines:?}}}"
-        );
+        println!("{{\"lock_file_count\":{count},\"machines\":{machines:?}}}");
     } else {
         println!("Lock files: {count} ({count} machines)");
         for m in &machines {

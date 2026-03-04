@@ -40,11 +40,7 @@ fn resolve_when_template(
                 "addr" => machine.addr.clone(),
                 "user" => machine.user.clone(),
                 "roles" => format!("{:?}", machine.roles),
-                _ => {
-                    return Err(format!(
-                        "unknown machine field in when expression: {field}"
-                    ))
-                }
+                _ => return Err(format!("unknown machine field in when expression: {field}")),
             }
         } else {
             return Err(format!(

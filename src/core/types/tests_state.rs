@@ -40,9 +40,9 @@ fn test_fj001_provenance_event_serde() {
         machine: "lambda".to_string(),
         run_id: "r-abc".to_string(),
         forjar_version: "0.1.0".to_string(),
-                operator: None,
-                config_hash: None,
-                param_count: None,
+        operator: None,
+        config_hash: None,
+        param_count: None,
     };
     let json = serde_json::to_string(&event).unwrap();
     assert!(json.contains("\"event\":\"apply_started\""));
@@ -132,9 +132,9 @@ fn test_fj131_provenance_event_all_variants_serde() {
             machine: "m".to_string(),
             run_id: "r".to_string(),
             forjar_version: "0.1".to_string(),
-                operator: None,
-                config_hash: None,
-                param_count: None,
+            operator: None,
+            config_hash: None,
+            param_count: None,
         },
         ProvenanceEvent::ResourceStarted {
             machine: "m".to_string(),

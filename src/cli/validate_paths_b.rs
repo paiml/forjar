@@ -9,10 +9,7 @@ pub(super) fn find_mount_conflicts(mount_paths: &[(String, String)]) -> Vec<(Str
         for j in (i + 1)..mount_paths.len() {
             let (ref n1, ref p1) = mount_paths[i];
             let (ref n2, ref p2) = mount_paths[j];
-            if p1 == p2
-                || p1.starts_with(&format!("{p2}/"))
-                || p2.starts_with(&format!("{p1}/"))
-            {
+            if p1 == p2 || p1.starts_with(&format!("{p2}/")) || p2.starts_with(&format!("{p1}/")) {
                 conflicts.push((n1.clone(), n2.clone()));
             }
         }
@@ -191,11 +188,7 @@ pub(crate) fn cmd_validate_check_resource_count(
     if json {
         let items: Vec<String> = over
             .iter()
-            .map(|(m, c)| {
-                format!(
-                    "{{\"machine\":\"{m}\",\"count\":{c},\"limit\":{limit}}}"
-                )
-            })
+            .map(|(m, c)| format!("{{\"machine\":\"{m}\",\"count\":{c},\"limit\":{limit}}}"))
             .collect();
         println!("{{\"resource_count_violations\":[{}]}}", items.join(","));
     } else if over.is_empty() {

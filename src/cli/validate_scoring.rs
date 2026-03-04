@@ -213,9 +213,7 @@ pub(crate) fn cmd_validate_check_resource_provider_version_pinning(
             })
         );
     } else {
-        println!(
-            "Provider version pinning: {pinned}/{total} resources have pinned versions"
-        );
+        println!("Provider version pinning: {pinned}/{total} resources have pinned versions");
     }
     Ok(())
 }

@@ -135,7 +135,11 @@ fn print_eval_text(evals: &[EvalReport], pass: usize, fail: usize, name: &str) {
         let icon = if e.passed { green("✓") } else { red("✗") };
         println!(
             "  {icon} {} ({}) [checks:{}, artifacts:{}, {}]",
-            e.id, e.resource_type, e.check_count, e.artifact_count, dim(&e.config_hash)
+            e.id,
+            e.resource_type,
+            e.check_count,
+            e.artifact_count,
+            dim(&e.config_hash)
         );
         if !e.passed {
             println!("    {} Missing output artifacts or failed checks", red("!"));
@@ -143,6 +147,9 @@ fn print_eval_text(evals: &[EvalReport], pass: usize, fail: usize, name: &str) {
     }
 
     if evals.is_empty() {
-        println!("  {} No evaluation resources found (tag with 'eval' or 'benchmark')", dim("(empty)"));
+        println!(
+            "  {} No evaluation resources found (tag with 'eval' or 'benchmark')",
+            dim("(empty)")
+        );
     }
 }

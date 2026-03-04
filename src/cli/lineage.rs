@@ -46,8 +46,7 @@ fn build_degree_map(
 ) {
     let mut in_deg: std::collections::HashMap<String, usize> =
         config.resources.keys().map(|k| (k.clone(), 0)).collect();
-    let mut fwd: std::collections::HashMap<String, Vec<String>> =
-        std::collections::HashMap::new();
+    let mut fwd: std::collections::HashMap<String, Vec<String>> = std::collections::HashMap::new();
     for (id, resource) in &config.resources {
         for dep in &resource.depends_on {
             if config.resources.contains_key(dep.as_str()) {
@@ -84,9 +83,7 @@ fn topo_sort_ids(config: &types::ForjarConfig) -> Vec<String> {
 }
 
 /// Build Merkle DAG hashes in topological order.
-fn build_merkle_dag(
-    config: &types::ForjarConfig,
-) -> Vec<(String, String, Vec<String>)> {
+fn build_merkle_dag(config: &types::ForjarConfig) -> Vec<(String, String, Vec<String>)> {
     let topo = topo_sort_ids(config);
     let mut hashes: std::collections::HashMap<String, String> = std::collections::HashMap::new();
     let mut result = Vec::new();
@@ -124,11 +121,7 @@ pub(crate) fn cmd_lineage(file: &Path, json: bool) -> Result<(), String> {
     Ok(())
 }
 
-fn print_lineage_json(
-    dag: &[(String, String, Vec<String>)],
-    root: &str,
-    name: &str,
-) {
+fn print_lineage_json(dag: &[(String, String, Vec<String>)], root: &str, name: &str) {
     let nodes: Vec<String> = dag
         .iter()
         .map(|(id, hash, deps)| {
@@ -150,11 +143,7 @@ fn print_lineage_json(
     );
 }
 
-fn print_lineage_text(
-    dag: &[(String, String, Vec<String>)],
-    root: &str,
-    name: &str,
-) {
+fn print_lineage_text(dag: &[(String, String, Vec<String>)], root: &str, name: &str) {
     println!("{}\n", bold("Merkle DAG Lineage"));
     println!("  Config:      {}", bold(name));
     println!("  Merkle root: {}", green(root));

@@ -72,9 +72,7 @@ fn print_drift_risk_json(risk_scores: &[(String, f64, String)]) {
     let entries: Vec<String> = risk_scores
         .iter()
         .map(|(name, score, reason)| {
-            format!(
-                r#"{{"resource":"{name}","risk_score":{score:.2},"reasons":"{reason}"}}"#
-            )
+            format!(r#"{{"resource":"{name}","risk_score":{score:.2},"reasons":"{reason}"}}"#)
         })
         .collect();
     println!("[{}]", entries.join(","));
@@ -134,10 +132,7 @@ fn check_cis_compliance(name: &str, res: &types::Resource, violations: &mut Vec<
         if mode.ends_with('7') || mode.ends_with('6') {
             let last = mode.chars().last().unwrap_or('0');
             if last == '7' || last == '6' {
-                violations.push((
-                    name.to_string(),
-                    format!("CIS: world-writable mode {mode}"),
-                ));
+                violations.push((name.to_string(), format!("CIS: world-writable mode {mode}")));
             }
         }
     }

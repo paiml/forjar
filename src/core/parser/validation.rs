@@ -22,9 +22,7 @@ fn validate_ref(
             .unwrap_or(false);
         if !will_expand {
             errors.push(ValidationError {
-                message: format!(
-                    "resource '{id}' {ref_type} unknown resource '{ref_id}'"
-                ),
+                message: format!("resource '{id}' {ref_type} unknown resource '{ref_id}'"),
             });
         }
     }
@@ -45,9 +43,7 @@ pub(super) fn validate_resource_refs(
     for machine_name in resource.machine.to_vec() {
         if !config.machines.contains_key(&machine_name) && machine_name != "localhost" {
             errors.push(ValidationError {
-                message: format!(
-                    "resource '{id}' references unknown machine '{machine_name}'"
-                ),
+                message: format!("resource '{id}' references unknown machine '{machine_name}'"),
             });
         }
     }

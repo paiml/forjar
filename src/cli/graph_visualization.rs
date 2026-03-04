@@ -210,9 +210,7 @@ fn print_weight_mermaid(
         let w = weights.get(name).unwrap_or(&0);
         for dep in &res.depends_on {
             let dw = weights.get(dep.as_str()).unwrap_or(&0);
-            println!(
-                "  {name}[\"{name}(w={w})\"] --> {dep}[\"{dep}(w={dw})\"]"
-            );
+            println!("  {name}[\"{name}(w={w})\"] --> {dep}[\"{dep}(w={dw})\"]");
         }
         if res.depends_on.is_empty() {
             println!("  {name}[\"{name}(w={w})\"]");

@@ -24,7 +24,7 @@ fn test_fj012_apply_result_duration_positive() {
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
-            trace: false,
+        trace: false,
     };
     let results = apply(&cfg).unwrap();
     for r in &results {
@@ -114,7 +114,7 @@ fn test_fj012_build_resource_details_empty() {
         post_apply: None,
         lifecycle: None,
         store: false,
-            sudo: false,
+        sudo: false,
         script: None,
     };
     let details = build_resource_details(&r, &local_machine());
@@ -204,7 +204,7 @@ fn test_fj012_build_resource_details_path_only() {
         post_apply: None,
         lifecycle: None,
         store: false,
-            sudo: false,
+        sudo: false,
         script: None,
     };
     let details = build_resource_details(&r, &local_machine());
@@ -237,7 +237,7 @@ fn test_fj012_apply_with_timeout() {
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
-            trace: false,
+        trace: false,
     };
     let results = apply(&cfg).unwrap();
     assert_eq!(results.len(), 1);
@@ -285,7 +285,7 @@ policy:
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
-            trace: false,
+        trace: false,
     };
     let results = apply(&cfg).unwrap();
     // Resource should be skipped due to arch mismatch
@@ -321,7 +321,7 @@ fn test_fj012_apply_force_noop_reapplies() {
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
-            trace: false,
+        trace: false,
     };
     let r1 = apply(&cfg).unwrap();
     assert_eq!(r1[0].resources_converged, 1);
@@ -344,7 +344,7 @@ fn test_fj012_apply_force_noop_reapplies() {
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
-            trace: false,
+        trace: false,
     };
     let r2 = apply(&cfg2).unwrap();
     assert_eq!(
@@ -393,7 +393,7 @@ policy:
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
-            trace: false,
+        trace: false,
     };
     let results = apply(&cfg).unwrap();
     assert_eq!(results[0].resources_converged, 1);
@@ -443,7 +443,7 @@ policy:
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
-            trace: false,
+        trace: false,
     };
     let results = apply(&cfg).unwrap();
     assert_eq!(results[0].resources_converged, 1);

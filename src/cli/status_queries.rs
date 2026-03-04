@@ -284,9 +284,7 @@ pub(crate) fn cmd_status_machines_only(
         let entries: Vec<String> = machines
             .iter()
             .map(|(m, t, c, f)| {
-                format!(
-                    "{{\"machine\":\"{m}\",\"total\":{t},\"converged\":{c},\"failed\":{f}}}"
-                )
+                format!("{{\"machine\":\"{m}\",\"total\":{t},\"converged\":{c},\"failed\":{f}}}")
             })
             .collect();
         println!("[{}]", entries.join(","));
@@ -338,9 +336,7 @@ pub(crate) fn cmd_status_resources_by_type(
                 let items: Vec<String> = resources
                     .iter()
                     .map(|(m, n, s)| {
-                        format!(
-                            "{{\"machine\":\"{m}\",\"resource\":\"{n}\",\"status\":\"{s}\"}}"
-                        )
+                        format!("{{\"machine\":\"{m}\",\"resource\":\"{n}\",\"status\":\"{s}\"}}")
                     })
                     .collect();
                 format!("\"{}\":[{}]", t, items.join(","))

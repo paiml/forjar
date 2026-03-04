@@ -46,7 +46,10 @@ fn proof_converged_state_is_noop() {
     let desired_hash = blake3::hash(&content).to_hex().to_string();
     let current_hash = blake3::hash(&content).to_hex().to_string();
     let needs_change = desired_hash != current_hash;
-    assert!(!needs_change, "identical content must produce identical hash");
+    assert!(
+        !needs_change,
+        "identical content must produce identical hash"
+    );
 }
 
 /// Resource status transitions: Converged state does not regress to Pending.
@@ -62,7 +65,10 @@ fn proof_status_transition_monotonic() {
         let hash_matches: bool = kani::any();
         if hash_matches {
             let next_status = 2u8; // stays converged
-            assert_eq!(next_status, 2, "converged + matching hash = still converged");
+            assert_eq!(
+                next_status, 2,
+                "converged + matching hash = still converged"
+            );
         }
     }
 }
@@ -111,17 +117,29 @@ fn proof_topo_sort_stability() {
 #[cfg(any(kani, test))]
 fn init_in_degree(e01: bool, e02: bool, e12: bool) -> [u8; 3] {
     let mut d = [0u8; 3];
-    if e01 { d[1] += 1; }
-    if e02 { d[2] += 1; }
-    if e12 { d[2] += 1; }
+    if e01 {
+        d[1] += 1;
+    }
+    if e02 {
+        d[2] += 1;
+    }
+    if e12 {
+        d[2] += 1;
+    }
     d
 }
 
 #[cfg(any(kani, test))]
 fn remove_edges(node: u8, in_degree: &mut [u8; 3], e01: bool, e02: bool, e12: bool) {
-    if node == 0 && e01 { in_degree[1] -= 1; }
-    if node == 0 && e02 { in_degree[2] -= 1; }
-    if node == 1 && e12 { in_degree[2] -= 1; }
+    if node == 0 && e01 {
+        in_degree[1] -= 1;
+    }
+    if node == 0 && e02 {
+        in_degree[2] -= 1;
+    }
+    if node == 1 && e12 {
+        in_degree[2] -= 1;
+    }
 }
 
 #[cfg(any(kani, test))]

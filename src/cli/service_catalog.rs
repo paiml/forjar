@@ -48,8 +48,7 @@ pub fn load_catalog(catalog_dir: &Path) -> Result<Catalog, String> {
     if !catalog_file.exists() {
         return Ok(Catalog::default());
     }
-    let data = std::fs::read_to_string(&catalog_file)
-        .map_err(|e| format!("read catalog: {e}"))?;
+    let data = std::fs::read_to_string(&catalog_file).map_err(|e| format!("read catalog: {e}"))?;
     serde_json::from_str(&data).map_err(|e| format!("parse catalog: {e}"))
 }
 
@@ -57,8 +56,7 @@ pub fn load_catalog(catalog_dir: &Path) -> Result<Catalog, String> {
 #[allow(dead_code)]
 pub fn save_catalog(catalog_dir: &Path, catalog: &Catalog) -> Result<(), String> {
     std::fs::create_dir_all(catalog_dir).map_err(|e| format!("mkdir: {e}"))?;
-    let data = serde_json::to_string_pretty(catalog)
-        .map_err(|e| format!("serialize: {e}"))?;
+    let data = serde_json::to_string_pretty(catalog).map_err(|e| format!("serialize: {e}"))?;
     std::fs::write(catalog_dir.join("catalog.json"), data)
         .map_err(|e| format!("write catalog: {e}"))
 }
@@ -80,8 +78,7 @@ pub fn cmd_catalog_list(
     let report = build_catalog_report(&filtered);
 
     if json {
-        let out =
-            serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {e}"))?;
+        let out = serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {e}"))?;
         println!("{out}");
     } else {
         print_catalog_report(&report);
@@ -130,7 +127,10 @@ fn print_catalog_report(report: &CatalogReport) {
     println!();
     for e in &report.entries {
         let status = if e.approved { "approved" } else { "pending" };
-        println!("  [{}] {} — {} ({})", status, e.name, e.description, e.category);
+        println!(
+            "  [{}] {} — {} ({})",
+            status, e.name, e.description, e.category
+        );
     }
 }
 

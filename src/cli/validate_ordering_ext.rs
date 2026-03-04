@@ -62,11 +62,7 @@ fn print_idempotency_warnings(warnings: &[String], json: bool) {
     if json {
         let items: Vec<String> = warnings
             .iter()
-            .map(|n| {
-                format!(
-                    "{{\"resource\":\"{n}\",\"hint\":\"no idempotency annotation\"}}"
-                )
-            })
+            .map(|n| format!("{{\"resource\":\"{n}\",\"hint\":\"no idempotency annotation\"}}"))
             .collect();
         println!("{{\"idempotency_warnings\":[{}]}}", items.join(","));
     } else if warnings.is_empty() {
@@ -113,16 +109,12 @@ fn print_size_warnings(warnings: &[(String, usize)], threshold: usize, json: boo
         let items: Vec<String> = warnings
             .iter()
             .map(|(n, s)| {
-                format!(
-                    "{{\"resource\":\"{n}\",\"size\":{s},\"threshold\":{threshold}}}"
-                )
+                format!("{{\"resource\":\"{n}\",\"size\":{s},\"threshold\":{threshold}}}")
             })
             .collect();
         println!("{{\"size_warnings\":[{}]}}", items.join(","));
     } else if warnings.is_empty() {
-        println!(
-            "All resource content within size limits ({threshold} bytes)."
-        );
+        println!("All resource content within size limits ({threshold} bytes).");
     } else {
         println!("Resources exceeding {threshold} byte limit:");
         for (n, s) in warnings {

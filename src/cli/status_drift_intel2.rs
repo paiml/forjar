@@ -181,9 +181,7 @@ pub(crate) fn cmd_status_fleet_resource_drift_recovery_trend(
             println!("  No machine state found.");
         }
         for (m, pct, conv, tot) in &rows {
-            println!(
-                "  {m}: {pct:.1}% recovery ({conv} converged / {tot} total)"
-            );
+            println!("  {m}: {pct:.1}% recovery ({conv} converged / {tot} total)");
         }
     }
     Ok(())

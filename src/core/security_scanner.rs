@@ -167,9 +167,10 @@ fn no_resource_limits(findings: &mut Vec<SecurityFinding>, id: &str, r: &Resourc
     if r.resource_type != ResourceType::Docker {
         return;
     }
-    let has_limits = r.environment.iter().any(|e| {
-        e.contains("MEMORY_LIMIT") || e.contains("CPU_LIMIT") || e.contains("--memory")
-    });
+    let has_limits = r
+        .environment
+        .iter()
+        .any(|e| e.contains("MEMORY_LIMIT") || e.contains("CPU_LIMIT") || e.contains("--memory"));
     if !has_limits {
         findings.push(SecurityFinding {
             rule_id: "SS-6".to_string(),

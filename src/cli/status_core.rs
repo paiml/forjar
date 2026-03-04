@@ -163,9 +163,7 @@ fn print_status_summary(global: &Option<types::GlobalLock>, machines: &[types::S
         .as_ref()
         .map(|g| g.name.as_str())
         .unwrap_or("unknown");
-    println!(
-        "{name}: {converged} converged, {failed} failed, {drifted} drifted"
-    );
+    println!("{name}: {converged} converged, {failed} failed, {drifted} drifted");
 }
 
 pub(crate) fn cmd_status(
