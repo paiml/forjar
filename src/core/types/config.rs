@@ -11,6 +11,30 @@ use super::{default_true, Resource};
 // ============================================================================
 
 /// Root configuration — the desired state of infrastructure.
+///
+/// # Examples
+///
+/// ```
+/// use forjar::core::types::ForjarConfig;
+///
+/// let yaml = r#"
+/// version: "1.0"
+/// name: my-infra
+/// machines:
+///   web:
+///     hostname: web-01
+///     addr: 10.0.0.1
+/// resources:
+///   pkg-nginx:
+///     type: package
+///     machine: web
+///     packages: [nginx]
+/// "#;
+/// let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+/// assert_eq!(config.name, "my-infra");
+/// assert_eq!(config.machines.len(), 1);
+/// assert_eq!(config.resources.len(), 1);
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ForjarConfig {
     /// Schema version (must be "1.0")
@@ -215,6 +239,23 @@ pub struct OutputValue {
 // ============================================================================
 
 /// A managed machine (bare-metal, VM, container, or edge device).
+///
+/// # Examples
+///
+/// ```
+/// use forjar::core::types::Machine;
+///
+/// let yaml = r#"
+/// hostname: web-01
+/// addr: 10.0.0.1
+/// roles: [web, app]
+/// "#;
+/// let machine: Machine = serde_yaml_ng::from_str(yaml).unwrap();
+/// assert_eq!(machine.hostname, "web-01");
+/// assert_eq!(machine.user, "root"); // default
+/// assert_eq!(machine.arch, "x86_64"); // default
+/// assert!(!machine.is_container_transport());
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Machine {
     /// Machine hostname
@@ -345,11 +386,32 @@ fn default_pepita_filesystem() -> String {
 
 impl Machine {
     /// Returns true if this machine uses container transport.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use forjar::core::types::Machine;
+    ///
+    /// let ssh: Machine = serde_yaml_ng::from_str("hostname: h\naddr: 10.0.0.1").unwrap();
+    /// assert!(!ssh.is_container_transport());
+    ///
+    /// let ct: Machine = serde_yaml_ng::from_str("hostname: h\naddr: container").unwrap();
+    /// assert!(ct.is_container_transport());
+    /// ```
     pub fn is_container_transport(&self) -> bool {
         self.transport.as_deref() == Some("container") || self.addr == "container"
     }
 
     /// Returns the effective container name (explicit or derived from hostname).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use forjar::core::types::Machine;
+    ///
+    /// let m: Machine = serde_yaml_ng::from_str("hostname: ci-01\naddr: container").unwrap();
+    /// assert_eq!(m.container_name(), "forjar-ci-01");
+    /// ```
     pub fn container_name(&self) -> String {
         self.container
             .as_ref()

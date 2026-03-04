@@ -367,6 +367,21 @@ pub struct LifecycleRules {
 }
 
 /// Resource type enum.
+///
+/// # Examples
+///
+/// ```
+/// use forjar::core::types::ResourceType;
+///
+/// let rt = ResourceType::Package;
+/// assert_eq!(rt.to_string(), "package");
+///
+/// let rt = ResourceType::File;
+/// assert_eq!(rt.to_string(), "file");
+///
+/// // Default is Package
+/// assert_eq!(ResourceType::default(), ResourceType::Package);
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum ResourceType {
@@ -410,6 +425,20 @@ impl fmt::Display for ResourceType {
 }
 
 /// Machine target — single machine or multiple.
+///
+/// # Examples
+///
+/// ```
+/// use forjar::core::types::MachineTarget;
+///
+/// let single = MachineTarget::Single("web".to_string());
+/// assert_eq!(single.to_vec(), vec!["web"]);
+/// assert_eq!(single.to_string(), "web");
+///
+/// let multi = MachineTarget::Multiple(vec!["web".into(), "db".into()]);
+/// assert_eq!(multi.to_vec(), vec!["web", "db"]);
+/// assert_eq!(multi.to_string(), "[web, db]");
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum MachineTarget {

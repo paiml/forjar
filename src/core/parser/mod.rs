@@ -71,6 +71,24 @@ pub fn parse_config_file(path: &Path) -> Result<ForjarConfig, String> {
 }
 
 /// Parse a forjar.yaml from a string.
+///
+/// # Examples
+///
+/// ```
+/// use forjar::core::parser::parse_config;
+///
+/// let yaml = r#"
+/// version: "1.0"
+/// name: my-stack
+/// resources:
+///   pkg-curl:
+///     type: package
+///     packages: [curl]
+/// "#;
+/// let config = parse_config(yaml).unwrap();
+/// assert_eq!(config.name, "my-stack");
+/// assert!(config.resources.contains_key("pkg-curl"));
+/// ```
 pub fn parse_config(yaml: &str) -> Result<ForjarConfig, String> {
     serde_yaml_ng::from_str(yaml).map_err(|e| format!("YAML parse error: {e}"))
 }
