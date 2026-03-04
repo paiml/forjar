@@ -1,6 +1,7 @@
 //! Core infrastructure logic — types, parsing, resolution, planning, execution.
 
 pub mod codegen;
+pub mod compliance;
 pub mod conditions;
 pub mod executor;
 pub mod migrate;
@@ -11,11 +12,23 @@ pub mod recipe;
 pub mod resolver;
 pub mod scoring;
 pub mod secrets;
+pub mod security_scanner;
 pub mod state;
 pub mod store;
 pub mod types;
 
+pub mod do330;
+pub mod flight_grade;
+mod kani_proofs;
+pub mod mcdc;
 mod scoring_b;
+mod verus_spec;
+#[cfg(test)]
+mod tests_compliance;
+#[cfg(test)]
+mod tests_security_scanner;
+#[cfg(test)]
+mod tests_proptest_handlers;
 #[cfg(test)]
 mod tests_proptest_idempotency;
 #[cfg(test)]

@@ -37,9 +37,9 @@ mod tests {
     fn test_fj131_cmd_graph_unknown_format() {
         let dir = tempfile::tempdir().unwrap();
         let config_path = write_simple_config(dir.path());
-        let err = cmd_graph(&config_path, "svg", None, None).unwrap_err();
+        let err = cmd_graph(&config_path, "png", None, None).unwrap_err();
         assert!(err.contains("unknown graph format"));
-        assert!(err.contains("svg"));
+        assert!(err.contains("png"));
     }
 
     #[test]
@@ -114,7 +114,7 @@ machines: {}
 resources: {}
 "#;
         std::fs::write(&file, yaml).unwrap();
-        let result = cmd_graph(&file, "svg", None, None);
+        let result = cmd_graph(&file, "png", None, None);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("unknown graph format"));
     }
