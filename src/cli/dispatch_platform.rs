@@ -26,6 +26,12 @@ pub(crate) fn dispatch_platform_cmd(cmd: Commands) -> Result<(), String> {
             max_parallel,
             json,
         }) => super::parallel_multi_stack::cmd_parallel_stacks(&file, max_parallel, json),
+        Commands::Saga(SagaArgs {
+            file,
+            state_dir,
+            json,
+        }) => super::saga_coordinator::cmd_saga_plan(&file, &state_dir, json),
+        Commands::AgentRegistry(args) => dispatch_agent_registry(args),
         _ => Err("unknown command".to_string()),
     }
 }
@@ -63,6 +69,13 @@ fn dispatch_query(args: InfraQueryArgs) -> Result<(), String> {
         tag: args.tag,
     };
     super::infra_query::cmd_query(&args.file, &args.state_dir, &filter, args.details, args.json)
+}
+
+fn dispatch_agent_registry(args: AgentRegistryArgs) -> Result<(), String> {
+    let dir = args
+        .registry_dir
+        .unwrap_or_else(super::recipe_registry::default_registry_dir);
+    super::agent_registry::cmd_agent_registry(&dir, args.category.as_deref(), args.json)
 }
 
 fn dispatch_sign(args: RecipeSignArgs) -> Result<(), String> {
