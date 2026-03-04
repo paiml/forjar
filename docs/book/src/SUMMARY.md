@@ -17,3 +17,4 @@
 - [State Safety & Disaster Recovery](./14-state-safety.md)
 - [DataOps & MLOps Pipelines](./15-dataops-mlops.md)
 - [Agent Infrastructure & pforge](./16-agent-infrastructure.md)
+- [Operational Intelligence](./17-operational-intelligence.md)

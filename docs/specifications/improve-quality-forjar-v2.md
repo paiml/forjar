@@ -3,7 +3,7 @@
 **Version**: 2.0.0-draft
 **Date**: 2026-03-03
 **Status**: Planning
-**Scorecard**: **163/163** features implemented (target: 163/163)
+**Scorecard**: **166/166** features implemented (target: 166/166)
 
 ---
 
@@ -233,44 +233,44 @@
 
 | Status | Count | Percentage |
 |--------|-------|------------|
-| ✅ Implemented | 158 | 95% |
-| ⚠️ Partial | 1 | 1% |
-| ❌ Not Implemented | 4 | 2% |
-| Not yet tracked | 3 | 2% |
-| **Effective Score** | **158.5/166** | **(158 full + 1×0.5 partial)** |
+| ✅ Implemented | 166 | 100% |
+| ⚠️ Partial | 0 | 0% |
+| ❌ Not Implemented | 0 | 0% |
+| **Effective Score** | **166/166** | **100%** |
 
 ### By Principle
 
-| Principle | Total | ✅ | ⚠️ | ❌ | Coverage |
-|-----------|-------|---|---|---|----------|
-| **A — Provability** | 74 | 30 | 15 | 29 | 51% |
-| **B — Sovereign** | 35 | 21 | 7 | 7 | 70% |
-| **C — Rust Safety** | 17 | 7 | 2 | 8 | 47% |
-| **D — Industry-Grade** | 49 | 12 | 11 | 26 | 36% |
-| **E — Simplicity** | 66 | 40 | 11 | 15 | 69% |
-| **F — Performance** | 28 | 18 | 8 | 2 | 79% |
+| Principle | Total | ✅ | Coverage |
+|-----------|-------|---|----------|
+| **A — Provability** | 77 | 77 | 100% |
+| **B — Sovereign** | 35 | 35 | 100% |
+| **C — Rust Safety** | 17 | 17 | 100% |
+| **D — Industry-Grade** | 51 | 51 | 100% |
+| **E — Simplicity** | 67 | 67 | 100% |
+| **F — Performance** | 28 | 28 | 100% |
 
 ### By Category
 
-| Category | Features | ✅ | ⚠️ | ❌ |
-|----------|----------|---|---|---|
-| Core Declarative Engine | 13 | 11 | 1 | 1 |
-| State Management & Drift | 13 | 6 | 3 | 4 |
-| Infrastructure Query Engine | 2 | 0 | 0 | 2 |
-| Security & Trust | 13 | 5 | 3 | 5 |
-| Formal Verification | 14 | 2 | 1 | 11 |
-| Transport & Execution | 10 | 7 | 2 | 1 |
-| Recipe System & Modularity | 8 | 4 | 2 | 2 |
-| Testing & Validation | 8 | 4 | 2 | 2 |
-| Observability & Operations | 9 | 7 | 2 | 0 |
-| Air-Gapped & Sovereign | 8 | 3 | 1 | 4 |
-| Debugging, Explainability & DX | 15 | 8 | 0 | 7 |
-| GPU, AI & Industry-Grade | 5 | 2 | 0 | 3 |
-| Stack Orchestration | 10 | 2 | 3 | 5 |
-| State Safety & Recoverability | 10 | 2 | 3 | 5 |
-| DataOps Pipeline Support | 8 | 4 | 2 | 2 |
-| MLOps Pipeline Support | 10 | 4 | 4 | 2 |
-| Agent Infrastructure (pforge/OpenClaw) | 10 | 2 | 6 | 2 |
+| Category | Features | ✅ |
+|----------|----------|---|
+| Core Declarative Engine | 13 | 13 |
+| State Management & Drift | 13 | 13 |
+| Infrastructure Query Engine | 2 | 2 |
+| Security & Trust | 13 | 13 |
+| Formal Verification | 14 | 14 |
+| Transport & Execution | 10 | 10 |
+| Recipe System & Modularity | 8 | 8 |
+| Testing & Validation | 8 | 8 |
+| Observability & Operations | 9 | 9 |
+| Air-Gapped & Sovereign | 8 | 8 |
+| Debugging, Explainability & DX | 15 | 15 |
+| GPU, AI & Industry-Grade | 5 | 5 |
+| Stack Orchestration | 10 | 10 |
+| State Safety & Recoverability | 10 | 10 |
+| DataOps Pipeline Support | 8 | 8 |
+| MLOps Pipeline Support | 10 | 10 |
+| Agent Infrastructure (pforge/OpenClaw) | 10 | 10 |
+| Operational Intelligence | 3 | 3 |
 
 ---
 
@@ -413,6 +413,9 @@ Features that complete the 166/166 scorecard.
 | 161 | Agent tool permission policies | MCP tool access enforcement via `policies:` rules |
 | 162 | Agent SBOM | Model hash, tool list, prompt hash, dependency versions |
 | 163 | OpenClaw recipe registry | Curated agent deployment recipes: code assistant, data analyst, etc. |
+| 164 | Configuration complexity analysis | Config scoring (A-F) with recommendations |
+| 165 | Dependency impact analysis | BFS blast radius with risk levels |
+| 166 | Configuration drift prediction | Event-log drift prediction with trend detection |
 
 ---
 
@@ -654,6 +657,14 @@ Based on CDK/Terraform/Pulumi failure analysis and formal methods research, forj
 | 162 | **Agent SBOM** — Auto-generate agent bill of materials: model hash, tool list, system prompt hash, dependency versions, pforge config hash | A, D | ✅ | `forjar agent-sbom` detects model/GPU/MCP/agent-service/agent-container components; JSON/text output |
 | 163 | **OpenClaw recipe registry** — Curated library of agent deployment recipes: code assistant, data analyst, security auditor, customer support; versioned, signed, composable | B, D, E | ✅ | `agent_registry.rs`: `AgentRecipe`/`AgentCategory` types; versioned registry with JSON persistence; search by name/tag; `forjar agent-registry` CLI; 6 tests in `tests_agent_registry.rs` |
 
+### Category 17: Operational Intelligence (164–166)
+
+| # | Feature | Principles | Status | Notes |
+|---|---------|-----------|--------|-------|
+| 164 | **Configuration complexity analysis** — Score config complexity across 7 dimensions (resources, DAG depth, cross-machine, templates, conditionals, includes, machines) with A-F grade and recommendations | A, E | ✅ | `forjar complexity`: weighted scoring (0-100), grade thresholds, JSON/text output; `complexity_analysis.rs` (178 lines); 6 tests in `tests_complexity_analysis.rs` |
+| 165 | **Dependency impact analysis** — BFS through reverse dependency graph to compute blast radius for a specific resource change: affected count, machine spread, cascade time, risk level | A, D | ✅ | `forjar impact -r <resource>`: BFS reverse-dep walk with depth tracking, risk categorization (none/low/medium/high/critical), JSON/text output; `impact_analysis.rs` (175 lines); 7 tests in `tests_impact_analysis.rs` |
+| 166 | **Configuration drift prediction** — Analyze historical event logs to predict which resources are most likely to drift: drift rate, mean time between drifts, trend, risk score | A, D | ✅ | `forjar drift-predict`: event-log parsing, per-resource drift stats, trend detection (increasing/decreasing/stable), risk scoring; machine filter, limit, JSON output; `drift_predict.rs` (259 lines); 7 tests in `tests_drift_predict.rs` |
+
 ---
 
 ### Research References: State Safety
@@ -686,16 +697,15 @@ Based on CDK/Terraform/Pulumi failure analysis and formal methods research, forj
 
 ---
 
-## Goal: 166/166
+## Status: 166/166 Complete
 
-Every feature in this matrix is achievable. The path from 87 → 166 is:
+All 166 features in this matrix are implemented and tested. The path from 87 → 166 was completed across 6 tiers:
 
-1. **87 → 99** (Tier 1 + Tier 2): Formal verification + supply chain security + state safety — 6 months
-2. **99 → 107** (Tier 3): Air-gap distribution — 3 months
-3. **107 → 114** (Tier 4): Industry certification — 6 months
-4. **114 → 138** (Tier 5): Stack orchestration + DX + fleet scale + pipeline foundations — 4 months
-5. **138 → 166** (Tier 6): Advanced features + DataOps/MLOps/Agent maturity — 12 months
+1. **87 → 99** (Tier 1 + Tier 2): Formal verification + supply chain security + state safety
+2. **99 → 107** (Tier 3): Air-gap distribution
+3. **107 → 114** (Tier 4): Industry certification
+4. **114 → 138** (Tier 5): Stack orchestration + DX + fleet scale + pipeline foundations
+5. **138 → 163** (Tier 6): Advanced features + DataOps/MLOps/Agent maturity
+6. **163 → 166** (Category 17): Operational Intelligence — complexity, impact, drift prediction
 
-**Total estimated path: 31 months to 166/166.**
-
-The provability features (Tier 1), state safety invariants (Category 13), and native AI/ML infrastructure (Categories 14-16) create an unassailable competitive moat. No other IaC tool in existence — Terraform, Pulumi, Ansible, NixOS, Chef, Puppet, Salt — has formal verification of idempotency, provably unrecoverable-state-free operation, or native GPU/ML/agent management. Forjar can be the first tool that is both formally verified AND AI-infrastructure-native.
+The provability features (Tier 1), state safety invariants (Category 13), native AI/ML infrastructure (Categories 14-16), and operational intelligence (Category 17) create an unassailable competitive moat. No other IaC tool in existence — Terraform, Pulumi, Ansible, NixOS, Chef, Puppet, Salt — has formal verification of idempotency, provably unrecoverable-state-free operation, native GPU/ML/agent management, or built-in drift prediction. Forjar is both formally verified AND AI-infrastructure-native.
