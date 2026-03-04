@@ -153,6 +153,7 @@ fn print_multi_config_plan(plan: &MultiConfigPlan) {
 }
 
 /// Build a dependency map for stack ordering.
+#[allow(dead_code)]
 pub fn build_stack_deps(configs: &[ConfigNode]) -> BTreeMap<String, Vec<String>> {
     configs
         .iter()
