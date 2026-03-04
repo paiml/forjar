@@ -95,9 +95,14 @@ pub fn resolve_template(
     }
 
     // FJ-200: Decrypt any ENC[age,...] markers after template resolution
+    #[cfg(feature = "encryption")]
     if secrets::has_encrypted_markers(&result) {
         let identities = secrets::load_identities(None)?;
         result = secrets::decrypt_all(&result, &identities)?;
+    }
+    #[cfg(not(feature = "encryption"))]
+    if secrets::has_encrypted_markers(&result) {
+        return Err("ENC[age,...] markers found but forjar was compiled without encryption support. Rebuild with `--features encryption`.".to_string());
     }
 
     Ok(result)
