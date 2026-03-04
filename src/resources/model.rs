@@ -12,18 +12,14 @@ pub fn check_script(resource: &Resource) -> String {
     let state = resource.state.as_deref().unwrap_or("present");
 
     match state {
-        "absent" => format!(
-            "[ -f '{path}' ] && echo 'exists:{name}' || echo 'absent:{name}'"
-        ),
+        "absent" => format!("[ -f '{path}' ] && echo 'exists:{name}' || echo 'absent:{name}'"),
         _ => {
             if let Some(ref checksum) = resource.checksum {
                 format!(
                     "if [ -f '{path}' ]; then\n  HASH=$(b3sum '{path}' 2>/dev/null | cut -d' ' -f1 || echo 'NOHASH')\n  if [ \"$HASH\" = '{checksum}' ]; then\n    echo 'match:{name}'\n  else\n    echo 'mismatch:{name}'\n  fi\nelse\n  echo 'missing:{name}'\nfi"
                 )
             } else {
-                format!(
-                    "[ -f '{path}' ] && echo 'exists:{name}' || echo 'missing:{name}'"
-                )
+                format!("[ -f '{path}' ] && echo 'exists:{name}' || echo 'missing:{name}'")
             }
         }
     }
@@ -38,9 +34,7 @@ pub fn apply_script(resource: &Resource) -> String {
     let cache_dir = resource.cache_dir.as_deref().unwrap_or("~/.cache/apr");
 
     match state {
-        "absent" => format!(
-            "set -euo pipefail\nrm -f '{path}'\necho 'removed:{name}'"
-        ),
+        "absent" => format!("set -euo pipefail\nrm -f '{path}'\necho 'removed:{name}'"),
         _ => {
             let mut script = String::from("set -euo pipefail\n");
 

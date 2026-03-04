@@ -226,7 +226,9 @@ fn maybe_auto_snapshot(
     dry_run: bool,
     verbose: bool,
 ) {
-    let Some(gens) = config.policy.snapshot_generations else { return };
+    let Some(gens) = config.policy.snapshot_generations else {
+        return;
+    };
     if gens == 0 || dry_run || !state_dir.exists() {
         return;
     }
@@ -267,7 +269,10 @@ fn gc_old_snapshots(state_dir: &Path, keep: u32, verbose: bool) {
     let to_remove = entries.len() - keep as usize;
     for entry in entries.iter().take(to_remove) {
         if verbose {
-            eprintln!("snapshot gc: removing {}", entry.file_name().to_string_lossy());
+            eprintln!(
+                "snapshot gc: removing {}",
+                entry.file_name().to_string_lossy()
+            );
         }
         let _ = std::fs::remove_dir_all(entry.path());
     }
@@ -332,8 +337,7 @@ fn check_pre_apply_drift(
     let locks = load_machine_locks(config, state_dir, machine_filter)?;
     let mut total_drift = 0usize;
     for (machine_name, lock) in &locks {
-        let findings =
-            crate::tripwire::drift::detect_drift(lock);
+        let findings = crate::tripwire::drift::detect_drift(lock);
         if !findings.is_empty() {
             total_drift += findings.len();
             for f in &findings {
@@ -346,9 +350,7 @@ fn check_pre_apply_drift(
     }
     if total_drift > 0 {
         if verbose {
-            eprintln!(
-                "{total_drift} resource(s) drifted — run 'forjar drift' for details"
-            );
+            eprintln!("{total_drift} resource(s) drifted — run 'forjar drift' for details");
         }
         return Err(format!(
             "{total_drift} drift finding(s) block apply — use --force to override"
@@ -447,7 +449,9 @@ fn check_policy_violations(config: &types::ForjarConfig) -> Result<(), String> {
         let sev = if is_deny(v) { "DENY" } else { "WARN" };
         eprintln!("  [{sev}] {}: {}", v.resource_id, v.rule_message);
     }
-    Err(format!("policy violations block apply ({deny_count} denied)"))
+    Err(format!(
+        "policy violations block apply ({deny_count} denied)"
+    ))
 }
 
 /// FJ-1390: Run security scanner as pre-apply gate if policy.security_gate is set.

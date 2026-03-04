@@ -172,9 +172,7 @@ pub(crate) fn cmd_status_fleet_apply_history(
         let items: Vec<String> = history
             .iter()
             .map(|(m, r, t)| {
-                format!(
-                    "{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"applied_at\":\"{t}\"}}"
-                )
+                format!("{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"applied_at\":\"{t}\"}}")
             })
             .collect();
         println!("{{\"fleet_apply_history\":[{}]}}", items.join(","));
@@ -230,9 +228,7 @@ pub(crate) fn cmd_status_resource_hash_changes(
         let items: Vec<String> = changes
             .iter()
             .map(|(m, r, h)| {
-                format!(
-                    "{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"hash\":\"{h}\"}}"
-                )
+                format!("{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"hash\":\"{h}\"}}")
             })
             .collect();
         println!("{{\"resource_hash_changes\":[{}]}}", items.join(","));

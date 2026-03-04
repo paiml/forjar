@@ -92,9 +92,7 @@ pub(crate) fn cmd_graph_resource_dependency_path_count(
         }
     }
     if json {
-        println!(
-            "{{\"total_dependency_paths\":{total_paths},\"nodes\":{n}}}"
-        );
+        println!("{{\"total_dependency_paths\":{total_paths},\"nodes\":{n}}}");
     } else {
         println!("Total dependency paths: {total_paths} ({n} nodes)");
     }

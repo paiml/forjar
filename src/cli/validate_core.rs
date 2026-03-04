@@ -103,8 +103,8 @@ pub(crate) fn cmd_validate(
                 &expanded.machines,
             )?;
         }
-        let yaml = serde_yaml_ng::to_string(&expanded)
-            .map_err(|e| format!("serialization error: {e}"))?;
+        let yaml =
+            serde_yaml_ng::to_string(&expanded).map_err(|e| format!("serialization error: {e}"))?;
         println!("{yaml}");
         return Ok(());
     }

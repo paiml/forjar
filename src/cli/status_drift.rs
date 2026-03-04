@@ -106,9 +106,7 @@ fn process_drift_summary_machine(
         } else {
             red("✗")
         };
-        println!(
-            "{indicator} {m} — {drifted}/{total} drifted ({pct:.0}%)"
-        );
+        println!("{indicator} {m} — {drifted}/{total} drifted ({pct:.0}%)");
     }
 }
 
@@ -192,9 +190,7 @@ pub(crate) fn cmd_status_drift_velocity(
             } else {
                 0.0
             };
-            println!(
-                "  {m} — {total} total events, {drift} drift events ({rate:.1}% drift rate)"
-            );
+            println!("  {m} — {total} total events, {drift} drift events ({rate:.1}% drift rate)");
         }
     }
     Ok(())
@@ -252,9 +248,7 @@ pub(crate) fn cmd_status_drift_forecast(
         let items: Vec<String> = forecasts
             .iter()
             .map(|(m, r, risk)| {
-                format!(
-                    r#"{{"machine":"{m}","resource":"{r}","drift_risk":"{risk}"}}"#
-                )
+                format!(r#"{{"machine":"{m}","resource":"{r}","drift_risk":"{risk}"}}"#)
             })
             .collect();
         println!(
@@ -430,11 +424,7 @@ pub(crate) fn cmd_status_config_drift(
     if json {
         let items: Vec<String> = drifted
             .iter()
-            .map(|(m, r, s)| {
-                format!(
-                    r#"{{"machine":"{m}","resource":"{r}","status":"{s}"}}"#
-                )
-            })
+            .map(|(m, r, s)| format!(r#"{{"machine":"{m}","resource":"{r}","status":"{s}"}}"#))
             .collect();
         println!(
             r#"{{"config_drift":[{}],"count":{}}}"#,

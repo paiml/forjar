@@ -36,7 +36,8 @@ pub(crate) fn cmd_data_freshness(
     // 3. Check state lock freshness
     let global_lock = state_dir.join("forjar.lock.yaml");
     if global_lock.exists() {
-        let entry = check_artifact_freshness(&global_lock, "state", "forjar.lock.yaml", now, max_age_secs);
+        let entry =
+            check_artifact_freshness(&global_lock, "state", "forjar.lock.yaml", now, max_age_secs);
         entries.push(entry);
     }
 
@@ -45,9 +46,21 @@ pub(crate) fn cmd_data_freshness(
     let missing_count = entries.iter().filter(|e| !e.exists).count();
 
     if json {
-        print_freshness_json(&entries, stale_count, fresh_count, missing_count, max_age_secs);
+        print_freshness_json(
+            &entries,
+            stale_count,
+            fresh_count,
+            missing_count,
+            max_age_secs,
+        );
     } else {
-        print_freshness_text(&entries, stale_count, fresh_count, missing_count, max_age_secs);
+        print_freshness_text(
+            &entries,
+            stale_count,
+            fresh_count,
+            missing_count,
+            max_age_secs,
+        );
     }
 
     if stale_count > 0 {
@@ -118,9 +131,19 @@ fn check_dir_freshness(
         for entry in dir_entries.flatten() {
             let path = entry.path();
             if path.is_file() {
-                let name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
+                let name = path
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string();
                 let artifact = format!("{label}/{name}");
-                entries.push(check_artifact_freshness(&path, label, &artifact, now, max_age_secs));
+                entries.push(check_artifact_freshness(
+                    &path,
+                    label,
+                    &artifact,
+                    now,
+                    max_age_secs,
+                ));
             }
         }
     }
@@ -188,7 +211,10 @@ fn print_freshness_text(
         } else {
             green("✓")
         };
-        let age_str = e.age_secs.map(format_age).unwrap_or_else(|| "n/a".to_string());
+        let age_str = e
+            .age_secs
+            .map(format_age)
+            .unwrap_or_else(|| "n/a".to_string());
         let hash_str = e.hash.as_deref().unwrap_or("n/a");
         println!(
             "  {icon} {}: {} (age: {}, {})",

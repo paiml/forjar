@@ -30,13 +30,14 @@ pub struct DualVerifyResult {
 
 /// Create a dual (classical + PQ) signature.
 pub fn dual_sign(file_path: &Path, signer: &str) -> Result<DualSignature, String> {
-    let content = std::fs::read(file_path)
-        .map_err(|e| format!("read: {e}"))?;
+    let content = std::fs::read(file_path).map_err(|e| format!("read: {e}"))?;
     let blake3_hash = blake3::hash(&content).to_hex().to_string();
 
     // Classical: BLAKE3-HMAC
     let classical_input = format!("{blake3_hash}:classical:{signer}");
-    let classical_sig = blake3::hash(classical_input.as_bytes()).to_hex().to_string();
+    let classical_sig = blake3::hash(classical_input.as_bytes())
+        .to_hex()
+        .to_string();
 
     // PQ: Simulated SLH-DSA (BLAKE3-based placeholder)
     let pq_input = format!("{blake3_hash}:slh-dsa:{signer}");
@@ -53,10 +54,8 @@ pub fn dual_sign(file_path: &Path, signer: &str) -> Result<DualSignature, String
     };
 
     let sig_path = file_path.with_extension("dual-sig.json");
-    let data = serde_json::to_string_pretty(&sig)
-        .map_err(|e| format!("serialize: {e}"))?;
-    std::fs::write(&sig_path, data)
-        .map_err(|e| format!("write sig: {e}"))?;
+    let data = serde_json::to_string_pretty(&sig).map_err(|e| format!("serialize: {e}"))?;
+    std::fs::write(&sig_path, data).map_err(|e| format!("write sig: {e}"))?;
 
     Ok(sig)
 }
@@ -74,13 +73,11 @@ pub fn dual_verify(file_path: &Path) -> Result<DualVerifyResult, String> {
         });
     }
 
-    let sig_data = std::fs::read_to_string(&sig_path)
-        .map_err(|e| format!("read sig: {e}"))?;
-    let sig: DualSignature = serde_json::from_str(&sig_data)
-        .map_err(|e| format!("parse sig: {e}"))?;
+    let sig_data = std::fs::read_to_string(&sig_path).map_err(|e| format!("read sig: {e}"))?;
+    let sig: DualSignature =
+        serde_json::from_str(&sig_data).map_err(|e| format!("parse sig: {e}"))?;
 
-    let content = std::fs::read(file_path)
-        .map_err(|e| format!("read: {e}"))?;
+    let content = std::fs::read(file_path).map_err(|e| format!("read: {e}"))?;
     let current_hash = blake3::hash(&content).to_hex().to_string();
 
     let hash_valid = current_hash == sig.blake3_hash;
@@ -108,8 +105,8 @@ pub fn cmd_dual_sign(
     if verify_only {
         let result = dual_verify(file_path)?;
         if json {
-            let out = serde_json::to_string_pretty(&result)
-                .map_err(|e| format!("JSON error: {e}"))?;
+            let out =
+                serde_json::to_string_pretty(&result).map_err(|e| format!("JSON error: {e}"))?;
             println!("{out}");
         } else {
             print_dual_verify(&result);
@@ -121,12 +118,15 @@ pub fn cmd_dual_sign(
         let who = signer.unwrap_or("local");
         let sig = dual_sign(file_path, who)?;
         if json {
-            let out = serde_json::to_string_pretty(&sig)
-                .map_err(|e| format!("JSON error: {e}"))?;
+            let out = serde_json::to_string_pretty(&sig).map_err(|e| format!("JSON error: {e}"))?;
             println!("{out}");
         } else {
             println!("Dual-signed: {}", sig.path);
-            println!("Classical: {} ({})", &sig.classical_sig[..16], sig.classical_alg);
+            println!(
+                "Classical: {} ({})",
+                &sig.classical_sig[..16],
+                sig.classical_alg
+            );
             println!("PQ: {} ({})", &sig.pq_sig[..16], sig.pq_alg);
         }
     }
@@ -138,7 +138,11 @@ fn print_dual_verify(r: &DualVerifyResult) {
     println!("[{icon}] {}: {}", r.path, r.reason);
     println!(
         "  Classical: {} | PQ: {}",
-        if r.classical_valid { "valid" } else { "invalid" },
+        if r.classical_valid {
+            "valid"
+        } else {
+            "invalid"
+        },
         if r.pq_valid { "valid" } else { "invalid" },
     );
 }

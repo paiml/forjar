@@ -238,11 +238,7 @@ fn print_bridge_criticality(bridges: &[(String, String, usize)], json: bool) {
     if json {
         let items: Vec<String> = bridges
             .iter()
-            .map(|(f, t, d)| {
-                format!(
-                    "{{\"from\":\"{f}\",\"to\":\"{t}\",\"downstream\":{d}}}"
-                )
-            })
+            .map(|(f, t, d)| format!("{{\"from\":\"{f}\",\"to\":\"{t}\",\"downstream\":{d}}}"))
             .collect();
         println!("{{\"bridge_criticality\":[{}]}}", items.join(","));
     } else if bridges.is_empty() {

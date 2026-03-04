@@ -45,11 +45,14 @@ fn demo_sat_solver() {
     problem.var_names.insert(1, "A".to_string());
     problem.var_names.insert(2, "B".to_string());
     problem.clauses.push(vec![1, 2]); // A or B
-    problem.clauses.push(vec![2]);    // B must be true
+    problem.clauses.push(vec![2]); // B must be true
 
     match solve(&problem) {
         SatResult::Satisfiable { assignment } => {
-            println!("  Linear deps: SAT — B={}", assignment.get("B").unwrap_or(&false));
+            println!(
+                "  Linear deps: SAT — B={}",
+                assignment.get("B").unwrap_or(&false)
+            );
         }
         SatResult::Unsatisfiable { .. } => panic!("Should be satisfiable"),
     }
@@ -81,12 +84,18 @@ fn demo_mcdc_coverage() {
     let decision = build_decision("deploy_gate", &["tests_pass", "approval", "budget_ok"]);
     let report = generate_mcdc_and(&decision);
 
-    println!("  Decision: {} ({} conditions, AND)", report.decision, report.num_conditions);
+    println!(
+        "  Decision: {} ({} conditions, AND)",
+        report.decision, report.num_conditions
+    );
     println!("  MC/DC pairs found: {}", report.pairs.len());
     println!("  Min tests needed: {}", report.min_tests_needed);
     println!("  Coverage achievable: {}", report.coverage_achievable);
     for pair in &report.pairs {
-        println!("    Condition '{}': true={:?} vs false={:?}", pair.condition, pair.true_case, pair.false_case);
+        println!(
+            "    Condition '{}': true={:?} vs false={:?}",
+            pair.condition, pair.true_case, pair.false_case
+        );
     }
     println!();
 }
@@ -100,10 +109,22 @@ fn demo_do330_qualification() {
 
     println!("  Tool: {} v{}", pkg.tool_name, pkg.tool_version);
     println!("  TQL level: {}", pkg.qualification_level);
-    println!("  Requirements: {}/{} verified", pkg.verified_requirements, pkg.total_requirements);
-    println!("  Coverage evidence: {} metrics", pkg.coverage_evidence.len());
+    println!(
+        "  Requirements: {}/{} verified",
+        pkg.verified_requirements, pkg.total_requirements
+    );
+    println!(
+        "  Coverage evidence: {} metrics",
+        pkg.coverage_evidence.len()
+    );
     for ev in &pkg.coverage_evidence {
-        println!("    {}: {:.1}% (required: {:.1}%, {})", ev.metric, ev.achieved, ev.required, if ev.satisfied { "PASS" } else { "FAIL" });
+        println!(
+            "    {}: {:.1}% (required: {:.1}%, {})",
+            ev.metric,
+            ev.achieved,
+            ev.required,
+            if ev.satisfied { "PASS" } else { "FAIL" }
+        );
     }
     println!("  Qualification complete: {}", pkg.qualification_complete);
     println!();
@@ -165,9 +186,8 @@ fn demo_repro_builds() {
         println!("  [{}] {}: {}", status, check.name, check.detail);
     }
 
-    let profile_checks = check_cargo_profile(
-        "[profile.release]\npanic = \"abort\"\nlto = true\ncodegen-units = 1",
-    );
+    let profile_checks =
+        check_cargo_profile("[profile.release]\npanic = \"abort\"\nlto = true\ncodegen-units = 1");
     for check in &profile_checks {
         let status = if check.passed { "PASS" } else { "WARN" };
         println!("  [{}] {}: {}", status, check.name, check.detail);

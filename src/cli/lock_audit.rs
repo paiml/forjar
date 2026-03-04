@@ -183,9 +183,7 @@ pub(crate) fn cmd_lock_verify_hmac(state_dir: &Path, json: bool) -> Result<(), S
     } else if unsigned == 0 && verified == 0 {
         println!("No lock files found");
     } else {
-        println!(
-            "HMAC verification: {verified} verified, {unsigned} unsigned"
-        );
+        println!("HMAC verification: {verified} verified, {unsigned} unsigned");
     }
     Ok(())
 }
@@ -200,7 +198,11 @@ fn resolve_latest_snapshot(snapshot_dir: &Path, json: bool) -> Result<Option<Str
     entries.sort_by_key(|e| e.file_name());
     match entries.last() {
         Some(e) => Ok(Some(
-            e.path().file_stem().unwrap().to_string_lossy().to_string(),
+            e.path()
+                .file_stem()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string(),
         )),
         None => {
             if json {
@@ -239,8 +241,8 @@ pub(crate) fn cmd_lock_restore(
     if !snap_path.exists() {
         return Err(format!("Snapshot not found: {snapshot_name}"));
     }
-    let data = std::fs::read_to_string(&snap_path)
-        .map_err(|e| format!("Failed to read snapshot: {e}"))?;
+    let data =
+        std::fs::read_to_string(&snap_path).map_err(|e| format!("Failed to read snapshot: {e}"))?;
     let machines = discover_machines(state_dir);
     let mut restored = 0;
     for m in &machines {
@@ -253,9 +255,7 @@ pub(crate) fn cmd_lock_restore(
             "{{\"restored\":true,\"snapshot\":\"{snapshot_name}\",\"machines_restored\":{restored}}}"
         );
     } else {
-        println!(
-            "Restored snapshot '{snapshot_name}' to {restored} machine(s)."
-        );
+        println!("Restored snapshot '{snapshot_name}' to {restored} machine(s).");
     }
     Ok(())
 }
@@ -278,9 +278,7 @@ pub(crate) fn cmd_lock_verify_schema(state_dir: &Path, json: bool) -> Result<(),
         let entries: Vec<String> = results
             .iter()
             .map(|(m, schema, ok)| {
-                format!(
-                    "{{\"machine\":\"{m}\",\"schema\":\"{schema}\",\"compatible\":{ok}}}"
-                )
+                format!("{{\"machine\":\"{m}\",\"schema\":\"{schema}\",\"compatible\":{ok}}}")
             })
             .collect();
         println!(
@@ -291,9 +289,7 @@ pub(crate) fn cmd_lock_verify_schema(state_dir: &Path, json: bool) -> Result<(),
     } else if results.is_empty() {
         println!("No lock files found.");
     } else {
-        println!(
-            "Lock file schema verification (expected: {expected_schema}):"
-        );
+        println!("Lock file schema verification (expected: {expected_schema}):");
         for (m, schema, ok) in &results {
             let status = if *ok { "OK" } else { "MISMATCH" };
             println!("  {m} — schema {schema} [{status}]");
@@ -329,9 +325,7 @@ pub(crate) fn cmd_lock_tag(
     } else if tagged == 0 {
         println!("No lock files found to tag.");
     } else {
-        println!(
-            "Tagged {tagged} lock file(s) with {tag_name}={tag_value}"
-        );
+        println!("Tagged {tagged} lock file(s) with {tag_name}={tag_value}");
     }
     Ok(())
 }

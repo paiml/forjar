@@ -40,7 +40,10 @@ fn demo_integrity_verification() {
     let intact = stored_hash == actual_hash;
     println!("  Lock file: web-01.lock.yaml");
     println!("  BLAKE3 hash: {}...", &stored_hash[..16]);
-    println!("  Integrity: {}", if intact { "VERIFIED" } else { "TAMPERED" });
+    println!(
+        "  Integrity: {}",
+        if intact { "VERIFIED" } else { "TAMPERED" }
+    );
 
     // Simulate tampering
     std::fs::write(&lock_path, "tampered content").unwrap();
@@ -67,7 +70,11 @@ fn demo_reversibility() {
         ("file write", "Partially reversible", "Backup exists"),
         ("database drop", "Irreversible", "Data permanently lost"),
         ("service restart", "Reversible", "Can restart again"),
-        ("config update", "Partially reversible", "Previous version in lock"),
+        (
+            "config update",
+            "Partially reversible",
+            "Previous version in lock",
+        ),
     ];
 
     for (op, class, reason) in operations {
@@ -117,7 +124,11 @@ fn demo_tui_plan_review() {
     println!("--- TUI Plan Review ---");
 
     let changes = vec![
-        ("pkg-nginx".into(), "create".into(), "install nginx 1.24".into()),
+        (
+            "pkg-nginx".into(),
+            "create".into(),
+            "install nginx 1.24".into(),
+        ),
         (
             "file-config".into(),
             "update".into(),

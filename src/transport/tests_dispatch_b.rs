@@ -58,10 +58,7 @@ fn test_fj132_exec_script_exit_code_preserved() {
     };
     for code in [0, 1, 2, 42, 126, 127] {
         let out = exec_script(&machine, &format!("exit {code}")).unwrap();
-        assert_eq!(
-            out.exit_code, code,
-            "exit code {code} should be preserved"
-        );
+        assert_eq!(out.exit_code, code, "exit code {code} should be preserved");
     }
 }
 
@@ -333,8 +330,7 @@ fn test_fj29_strip_data_payloads_large_binary() {
     // Generate fake base64 that contains sequences bashrs would misparse
     let fake_b64 = "doZmaQBpbg=="; // contains "do", "fi", "in" substrings
     let script = format!(
-        "set -euo pipefail\nmkdir -p '/home/noah/.cargo/bin'\necho '{}' | base64 -d > '/home/noah/.cargo/bin/forjar'\nchown 'noah' '/home/noah/.cargo/bin/forjar'\nchmod '0755' '/home/noah/.cargo/bin/forjar'",
-        fake_b64
+        "set -euo pipefail\nmkdir -p '/home/noah/.cargo/bin'\necho '{fake_b64}' | base64 -d > '/home/noah/.cargo/bin/forjar'\nchown 'noah' '/home/noah/.cargo/bin/forjar'\nchmod '0755' '/home/noah/.cargo/bin/forjar'"
     );
     let stripped = strip_data_payloads(&script);
     assert!(!stripped.contains(fake_b64));
@@ -349,7 +345,10 @@ fn test_fj29_strip_data_payloads_large_binary() {
 fn test_fj29_strip_preserves_non_base64_scripts() {
     let script = "set -euo pipefail\necho 'hello world'\nexit 0";
     let stripped = strip_data_payloads(script);
-    assert_eq!(stripped, script, "scripts without base64 should be unchanged");
+    assert_eq!(
+        stripped, script,
+        "scripts without base64 should be unchanged"
+    );
 }
 
 #[test]
@@ -358,11 +357,13 @@ fn test_fj29_validate_before_exec_accepts_base64_script() {
     // contains sequences that look like shell keywords
     let fake_b64 = "doZmaQBpbg==";
     let script = format!(
-        "set -euo pipefail\necho '{}' | base64 -d > '/tmp/test'\nchmod '0755' '/tmp/test'",
-        fake_b64
+        "set -euo pipefail\necho '{fake_b64}' | base64 -d > '/tmp/test'\nchmod '0755' '/tmp/test'"
     );
     let result = validate_before_exec(&script);
-    assert!(result.is_ok(), "base64 file deploy should pass I8: {result:?}");
+    assert!(
+        result.is_ok(),
+        "base64 file deploy should pass I8: {result:?}"
+    );
 }
 
 #[test]
@@ -388,5 +389,8 @@ fn test_fj29_validate_before_exec_accepts_heredoc_with_shebang() {
     // SC1128 false positive: shebang inside heredoc content, not at script top
     let script = "set -euo pipefail\ncat > '/tmp/install.sh' <<'FORJAR_EOF'\n#!/usr/bin/env bash\nset -euo pipefail\necho hello\nFORJAR_EOF\nchmod '0755' '/tmp/install.sh'";
     let result = validate_before_exec(script);
-    assert!(result.is_ok(), "heredoc with shebang should pass I8: {result:?}");
+    assert!(
+        result.is_ok(),
+        "heredoc with shebang should pass I8: {result:?}"
+    );
 }

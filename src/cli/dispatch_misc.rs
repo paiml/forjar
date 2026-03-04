@@ -136,12 +136,10 @@ fn cmd_state_reconstruct(
 ) -> Result<(), String> {
     let lock = crate::core::state::reconstruct::reconstruct_at(state_dir, machine, at)?;
     if json {
-        let output =
-            serde_json::to_string_pretty(&lock).map_err(|e| format!("JSON error: {e}"))?;
+        let output = serde_json::to_string_pretty(&lock).map_err(|e| format!("JSON error: {e}"))?;
         println!("{output}");
     } else {
-        let output =
-            serde_yaml_ng::to_string(&lock).map_err(|e| format!("YAML error: {e}"))?;
+        let output = serde_yaml_ng::to_string(&lock).map_err(|e| format!("YAML error: {e}"))?;
         println!("{output}");
     }
     Ok(())
@@ -197,7 +195,14 @@ fn dispatch_misc_fleet(cmd: Commands, verbose: bool) -> Result<(), String> {
             if let Some(gen) = generation {
                 super::generation::rollback_to_generation(&state_dir, gen, yes)
             } else {
-                cmd_rollback(&file, &state_dir, revision, machine.as_deref(), dry_run, verbose)
+                cmd_rollback(
+                    &file,
+                    &state_dir,
+                    revision,
+                    machine.as_deref(),
+                    dry_run,
+                    verbose,
+                )
             }
         }
         Commands::Rolling(RollingArgs {
@@ -386,9 +391,11 @@ fn dispatch_misc_core(cmd: Commands, verbose: bool) -> Result<(), String> {
 /// Dispatch analysis, security, and audit commands.
 fn dispatch_analysis_cmd(cmd: Commands) -> Result<(), String> {
     match cmd {
-        Commands::SecurityScan(SecurityScanArgs { file, json, fail_on }) => {
-            super::security_scan::cmd_security_scan(&file, json, fail_on.as_deref())
-        }
+        Commands::SecurityScan(SecurityScanArgs {
+            file,
+            json,
+            fail_on,
+        }) => super::security_scan::cmd_security_scan(&file, json, fail_on.as_deref()),
         Commands::Sbom(SbomArgs {
             file,
             state_dir,
@@ -405,18 +412,18 @@ fn dispatch_analysis_cmd(cmd: Commands) -> Result<(), String> {
             machine,
             json,
         }) => super::prove::cmd_prove(&file, &state_dir, machine.as_deref(), json),
-        Commands::PrivilegeAnalysis(PrivilegeAnalysisArgs { file, machine, json }) => {
-            super::privilege_analysis::cmd_privilege_analysis(&file, machine.as_deref(), json)
-        }
+        Commands::PrivilegeAnalysis(PrivilegeAnalysisArgs {
+            file,
+            machine,
+            json,
+        }) => super::privilege_analysis::cmd_privilege_analysis(&file, machine.as_deref(), json),
         Commands::Provenance(ProvenanceArgs {
             file,
             state_dir,
             machine,
             json,
         }) => super::provenance::cmd_provenance(&file, &state_dir, machine.as_deref(), json),
-        Commands::Lineage(LineageArgs { file, json }) => {
-            super::lineage::cmd_lineage(&file, json)
-        }
+        Commands::Lineage(LineageArgs { file, json }) => super::lineage::cmd_lineage(&file, json),
         Commands::Bundle(BundleArgs {
             file,
             output,

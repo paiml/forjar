@@ -123,9 +123,7 @@ pub(crate) fn cmd_status_fleet_compliance_score(
     } else if total == 0 {
         println!("No compliance data available.");
     } else {
-        println!(
-            "Fleet compliance score: {score:.1}% ({converged}/{total} resources converged)"
-        );
+        println!("Fleet compliance score: {score:.1}% ({converged}/{total} resources converged)");
     }
     Ok(())
 }
@@ -209,11 +207,7 @@ pub(crate) fn cmd_status_machine_resource_dependency_health(
     if json {
         let items: Vec<String> = health_data
             .iter()
-            .map(|(m, h, t)| {
-                format!(
-                    "{{\"machine\":\"{m}\",\"healthy\":{h},\"total\":{t}}}"
-                )
-            })
+            .map(|(m, h, t)| format!("{{\"machine\":\"{m}\",\"healthy\":{h},\"total\":{t}}}"))
             .collect();
         println!("{{\"resource_dependency_health\":[{}]}}", items.join(","));
     } else if health_data.is_empty() {
@@ -242,11 +236,7 @@ pub(crate) fn cmd_status_fleet_resource_type_health(
     if json {
         let items: Vec<String> = type_health
             .iter()
-            .map(|(t, c, tot)| {
-                format!(
-                    "{{\"type\":\"{t}\",\"converged\":{c},\"total\":{tot}}}"
-                )
-            })
+            .map(|(t, c, tot)| format!("{{\"type\":\"{t}\",\"converged\":{c},\"total\":{tot}}}"))
             .collect();
         println!("{{\"fleet_resource_type_health\":[{}]}}", items.join(","));
     } else if type_health.is_empty() {
@@ -380,8 +370,7 @@ fn parse_ts_epoch(s: &str) -> Option<f64> {
 
 /// Extract recovery durations from events.jsonl content.
 fn extract_recovery_durations(content: &str) -> Vec<f64> {
-    let mut fail_times: std::collections::HashMap<String, f64> =
-        std::collections::HashMap::new();
+    let mut fail_times: std::collections::HashMap<String, f64> = std::collections::HashMap::new();
     let mut durations: Vec<f64> = Vec::new();
 
     for line in content.lines() {

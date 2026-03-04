@@ -39,7 +39,7 @@ pub(super) fn execute_wave_io(
                 })
             })
             .collect();
-        handles.into_iter().map(|h| h.join().unwrap()).collect()
+        handles.into_iter().filter_map(|h| h.join().ok()).collect()
     })
 }
 
@@ -119,8 +119,12 @@ pub(super) fn record_wave_outcomes(
     let mut stop = false;
     for (idx, duration, output) in exec_results {
         let change = wave_changes[idx];
-        let resource = cfg.config.resources.get(&change.resource_id).unwrap();
-        let prep = prepared.iter().find(|p| p.change_idx == idx).unwrap();
+        let Some(resource) = cfg.config.resources.get(&change.resource_id) else {
+            continue;
+        };
+        let Some(prep) = prepared.iter().find(|p| p.change_idx == idx) else {
+            continue;
+        };
 
         match output {
             Ok(out) if out.success() => {

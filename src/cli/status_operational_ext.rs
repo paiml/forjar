@@ -123,9 +123,7 @@ fn print_drift_recurrence(drifted: &[(String, String, String)], json: bool) {
         let items: Vec<String> = drifted
             .iter()
             .map(|(r, t, s)| {
-                format!(
-                    "{{\"resource\":\"{r}\",\"type\":\"{t}\",\"status\":\"{s}\"}}"
-                )
+                format!("{{\"resource\":\"{r}\",\"type\":\"{t}\",\"status\":\"{s}\"}}")
             })
             .collect();
         println!("{{\"drift_recurrence\":[{}]}}", items.join(","));

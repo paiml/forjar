@@ -49,8 +49,7 @@ pub fn cmd_parallel_stacks(
     };
 
     if json {
-        let out =
-            serde_json::to_string_pretty(&plan).map_err(|e| format!("JSON error: {e}"))?;
+        let out = serde_json::to_string_pretty(&plan).map_err(|e| format!("JSON error: {e}"))?;
         println!("{out}");
     } else {
         print_parallel_plan(&plan);
@@ -144,7 +143,10 @@ fn partition_ready<'a>(
 fn print_parallel_plan(plan: &ParallelPlan) {
     println!("Parallel Multi-Stack Plan");
     println!("=========================");
-    println!("Stacks: {} | Max Parallelism: {}", plan.total_stacks, plan.max_parallelism);
+    println!(
+        "Stacks: {} | Max Parallelism: {}",
+        plan.total_stacks, plan.max_parallelism
+    );
     println!();
     for s in &plan.stacks {
         let deps = if s.dependencies.is_empty() {

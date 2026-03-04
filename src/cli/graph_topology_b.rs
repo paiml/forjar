@@ -189,9 +189,7 @@ pub(crate) fn cmd_graph_dependency_count(file: &Path, json: bool) -> Result<(), 
         let items: Vec<String> = degrees
             .iter()
             .map(|(n, i, o)| {
-                format!(
-                    "{{\"resource\":\"{n}\",\"in_degree\":{i},\"out_degree\":{o}}}"
-                )
+                format!("{{\"resource\":\"{n}\",\"in_degree\":{i},\"out_degree\":{o}}}")
             })
             .collect();
         println!("{{\"dependency_counts\":[{}]}}", items.join(","));

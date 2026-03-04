@@ -47,9 +47,7 @@ fn validate_bool(name: &str, value: &serde_yaml_ng::Value) -> Result<String, Str
 fn validate_path(name: &str, value: &serde_yaml_ng::Value) -> Result<String, String> {
     match value {
         serde_yaml_ng::Value::String(s) if s.starts_with('/') => Ok(s.clone()),
-        serde_yaml_ng::Value::String(_) => {
-            Err(format!("input '{name}' must be an absolute path"))
-        }
+        serde_yaml_ng::Value::String(_) => Err(format!("input '{name}' must be an absolute path")),
         _ => Err(format!("input '{name}' must be a path string")),
     }
 }

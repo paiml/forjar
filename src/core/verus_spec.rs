@@ -33,7 +33,11 @@ pub struct SystemState {
 /// Observe phase: snapshot current hashes.
 #[allow(dead_code)]
 pub fn observe(state: &SystemState) -> Vec<Option<String>> {
-    state.resources.iter().map(|r| r.current_hash.clone()).collect()
+    state
+        .resources
+        .iter()
+        .map(|r| r.current_hash.clone())
+        .collect()
 }
 
 /// Diff phase: compute which resources need changes.
@@ -178,11 +182,7 @@ mod tests {
 
     #[test]
     fn test_reconcile_terminates() {
-        let mut state = make_state(&[
-            ("h1", None),
-            ("h2", Some("old")),
-            ("h3", Some("h3")),
-        ]);
+        let mut state = make_state(&[("h1", None), ("h2", Some("old")), ("h3", Some("h3"))]);
         let iters = reconcile(&mut state);
         assert!(iters <= state.resources.len() + 1);
         assert!(is_converged(&state));

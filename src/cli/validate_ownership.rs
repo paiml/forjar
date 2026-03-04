@@ -227,9 +227,7 @@ pub(crate) fn cmd_validate_check_resource_tag_standards(
         let items: Vec<String> = violations
             .iter()
             .map(|(n, tag, reason)| {
-                format!(
-                    "{{\"resource\":\"{n}\",\"tag\":\"{tag}\",\"issue\":\"{reason}\"}}"
-                )
+                format!("{{\"resource\":\"{n}\",\"tag\":\"{tag}\",\"issue\":\"{reason}\"}}")
             })
             .collect();
         println!("{{\"tag_standard_violations\":[{}]}}", items.join(","));

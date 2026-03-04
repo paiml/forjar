@@ -133,14 +133,19 @@ pub(crate) fn cmd_complexity(file: &Path, json: bool) -> Result<(), String> {
     // Try full parse first; if includes fail, parse without includes
     // so we can still analyze the base config's complexity.
     let config = parse_and_validate(file).or_else(|_| {
-        let raw = std::fs::read_to_string(file).map_err(|e| format!("read {}: {e}", file.display()))?;
+        let raw =
+            std::fs::read_to_string(file).map_err(|e| format!("read {}: {e}", file.display()))?;
         let mut c = crate::core::parser::parse_config(&raw)?;
         // Preserve original include count for scoring even though we couldn't resolve them
         let include_count = c.includes.len();
         c.includes.clear();
         let errors = crate::core::parser::validate_config(&c);
         if !errors.is_empty() {
-            return Err(errors.iter().map(|e| format!("{e}")).collect::<Vec<_>>().join("; "));
+            return Err(errors
+                .iter()
+                .map(|e| format!("{e}"))
+                .collect::<Vec<_>>()
+                .join("; "));
         }
         c.includes = vec!["_".to_string(); include_count]; // restore count for scoring
         Ok(c)
@@ -156,12 +161,23 @@ pub(crate) fn cmd_complexity(file: &Path, json: bool) -> Result<(), String> {
 }
 
 fn print_complexity_json(r: &ComplexityReport) {
-    let recs: Vec<String> = r.recommendations.iter().map(|s| format!(r#""{s}""#)).collect();
+    let recs: Vec<String> = r
+        .recommendations
+        .iter()
+        .map(|s| format!(r#""{s}""#))
+        .collect();
     println!(
         r#"{{"resources":{},"dependency_depth":{},"cross_machine":{},"templates":{},"conditionals":{},"includes":{},"machines":{},"score":{},"grade":"{}","recommendations":[{}]}}"#,
-        r.resource_count, r.dependency_depth, r.cross_machine_count,
-        r.template_count, r.conditional_count, r.include_depth,
-        r.machine_count, r.total_score, r.grade, recs.join(","),
+        r.resource_count,
+        r.dependency_depth,
+        r.cross_machine_count,
+        r.template_count,
+        r.conditional_count,
+        r.include_depth,
+        r.machine_count,
+        r.total_score,
+        r.grade,
+        recs.join(","),
     );
 }
 

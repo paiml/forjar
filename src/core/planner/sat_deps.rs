@@ -28,10 +28,7 @@ pub enum SatResult {
 }
 
 /// Build SAT problem from dependency graph.
-pub fn build_sat_problem(
-    resources: &[String],
-    deps: &[(String, String)],
-) -> SatProblem {
+pub fn build_sat_problem(resources: &[String], deps: &[(String, String)]) -> SatProblem {
     let mut var_map: BTreeMap<String, usize> = BTreeMap::new();
     let mut var_names: BTreeMap<usize, String> = BTreeMap::new();
 
@@ -88,7 +85,9 @@ fn dpll(clauses: &[Vec<i32>], assignment: &mut [Option<bool>], num_vars: usize) 
 
     // Pick unassigned variable
     let var = pick_unassigned(assignment, num_vars);
-    let Some(var) = var else { return all_satisfied(&simplified, assignment) };
+    let Some(var) = var else {
+        return all_satisfied(&simplified, assignment);
+    };
 
     // Try true
     assignment[var] = Some(true);
@@ -162,10 +161,7 @@ fn pick_unassigned(assignment: &[Option<bool>], num_vars: usize) -> Option<usize
     (1..=num_vars).find(|&i| assignment[i].is_none())
 }
 
-fn build_sat_result(
-    assignment: &[Option<bool>],
-    var_names: &BTreeMap<usize, String>,
-) -> SatResult {
+fn build_sat_result(assignment: &[Option<bool>], var_names: &BTreeMap<usize, String>) -> SatResult {
     let mut map = BTreeMap::new();
     for (&idx, name) in var_names {
         map.insert(name.clone(), assignment[idx].unwrap_or(true));
@@ -173,10 +169,7 @@ fn build_sat_result(
     SatResult::Satisfiable { assignment: map }
 }
 
-fn build_unsat_result(
-    clauses: &[Vec<i32>],
-    var_names: &BTreeMap<usize, String>,
-) -> SatResult {
+fn build_unsat_result(clauses: &[Vec<i32>], var_names: &BTreeMap<usize, String>) -> SatResult {
     // Report first unsatisfied clause as conflict
     let conflict: Vec<String> = clauses
         .first()
@@ -184,8 +177,15 @@ fn build_unsat_result(
             c.iter()
                 .map(|&lit| {
                     let var = lit.unsigned_abs() as usize;
-                    let name = var_names.get(&var).cloned().unwrap_or_else(|| format!("v{var}"));
-                    if lit > 0 { name } else { format!("!{name}") }
+                    let name = var_names
+                        .get(&var)
+                        .cloned()
+                        .unwrap_or_else(|| format!("v{var}"));
+                    if lit > 0 {
+                        name
+                    } else {
+                        format!("!{name}")
+                    }
                 })
                 .collect()
         })

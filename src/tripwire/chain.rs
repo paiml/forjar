@@ -23,8 +23,7 @@ pub struct ChainVerification {
 /// Compute a chain hash for a JSONL event log.
 /// Returns the final hash of the chain: H(line_N || H(line_{N-1} || ...)).
 pub fn compute_chain_hash(events_path: &Path) -> Result<String, String> {
-    let content =
-        std::fs::read_to_string(events_path).map_err(|e| format!("read events: {e}"))?;
+    let content = std::fs::read_to_string(events_path).map_err(|e| format!("read events: {e}"))?;
     let mut chain_hash = String::from("genesis");
     for line in content.lines() {
         if line.trim().is_empty() {
@@ -40,15 +39,13 @@ pub fn compute_chain_hash(events_path: &Path) -> Result<String, String> {
 pub fn write_chain_sidecar(events_path: &Path) -> Result<(), String> {
     let chain_hash = compute_chain_hash(events_path)?;
     let sidecar = chain_sidecar_path(events_path);
-    std::fs::write(&sidecar, &chain_hash)
-        .map_err(|e| format!("write chain sidecar: {e}"))?;
+    std::fs::write(&sidecar, &chain_hash).map_err(|e| format!("write chain sidecar: {e}"))?;
     Ok(())
 }
 
 /// Verify a chain sidecar matches the computed chain hash.
 pub fn verify_chain(events_path: &Path) -> Result<ChainVerification, String> {
-    let content =
-        std::fs::read_to_string(events_path).map_err(|e| format!("read events: {e}"))?;
+    let content = std::fs::read_to_string(events_path).map_err(|e| format!("read events: {e}"))?;
     let lines: Vec<&str> = content.lines().filter(|l| !l.trim().is_empty()).collect();
     let total_lines = lines.len();
 
@@ -62,8 +59,8 @@ pub fn verify_chain(events_path: &Path) -> Result<ChainVerification, String> {
     let mut failures = Vec::new();
 
     if sidecar.exists() {
-        let stored = std::fs::read_to_string(&sidecar)
-            .map_err(|e| format!("read chain sidecar: {e}"))?;
+        let stored =
+            std::fs::read_to_string(&sidecar).map_err(|e| format!("read chain sidecar: {e}"))?;
         let stored = stored.trim();
         if stored != chain_hash {
             failures.push((
@@ -75,11 +72,7 @@ pub fn verify_chain(events_path: &Path) -> Result<ChainVerification, String> {
 
     Ok(ChainVerification {
         total_lines,
-        verified: if failures.is_empty() {
-            total_lines
-        } else {
-            0
-        },
+        verified: if failures.is_empty() { total_lines } else { 0 },
         failures,
         chain_hash,
     })

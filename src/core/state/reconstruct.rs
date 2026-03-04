@@ -28,8 +28,8 @@ pub fn reconstruct_at(
         ));
     }
 
-    let content = std::fs::read_to_string(&event_path)
-        .map_err(|e| format!("cannot read event log: {e}"))?;
+    let content =
+        std::fs::read_to_string(&event_path).map_err(|e| format!("cannot read event log: {e}"))?;
 
     let mut resources: IndexMap<String, ResourceLock> = IndexMap::new();
     let mut hostname = machine.to_string();

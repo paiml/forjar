@@ -80,9 +80,7 @@ fn persist_outputs_creates_lock() {
     outputs.insert("key".to_string(), "value".to_string());
     persist_outputs(state_dir, "new-config", &outputs).expect("persist");
 
-    let lock = load_global_lock(state_dir)
-        .expect("load")
-        .expect("exists");
+    let lock = load_global_lock(state_dir).expect("load").expect("exists");
     assert_eq!(lock.name, "new-config");
     assert_eq!(lock.outputs["key"], "value");
 }
@@ -102,9 +100,7 @@ fn persist_outputs_overwrites_previous() {
     v2.insert("host".to_string(), "new-host".to_string());
     persist_outputs(state_dir, "cfg", &v2).expect("persist v2");
 
-    let lock = load_global_lock(state_dir)
-        .expect("load")
-        .expect("exists");
+    let lock = load_global_lock(state_dir).expect("load").expect("exists");
     assert_eq!(lock.outputs.len(), 2);
     assert_eq!(lock.outputs["port"], "9090");
     assert_eq!(lock.outputs["host"], "new-host");

@@ -21,7 +21,11 @@ pub(crate) fn cmd_bundle(
     let config_bytes = std::fs::read(file).map_err(|e| format!("cannot read config: {e}"))?;
     let config_hash = blake3::hash(&config_bytes).to_hex()[..16].to_string();
     manifest.push(BundleEntry {
-        path: file.file_name().unwrap_or_default().to_string_lossy().to_string(),
+        path: file
+            .file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .to_string(),
         entry_type: "config".to_string(),
         hash: config_hash,
         size: config_bytes.len() as u64,
@@ -84,7 +88,10 @@ fn scan_store_dir(dir: &Path, manifest: &mut Vec<BundleEntry>, total: &mut u64) 
             if path.is_file() {
                 if let Ok(bytes) = std::fs::read(&path) {
                     let hash = blake3::hash(&bytes).to_hex()[..16].to_string();
-                    let name = format!("store/{}", path.file_name().unwrap_or_default().to_string_lossy());
+                    let name = format!(
+                        "store/{}",
+                        path.file_name().unwrap_or_default().to_string_lossy()
+                    );
                     *total += bytes.len() as u64;
                     manifest.push(BundleEntry {
                         path: name,
@@ -105,7 +112,10 @@ fn scan_state_dir(dir: &Path, manifest: &mut Vec<BundleEntry>, total: &mut u64) 
             if path.is_file() {
                 if let Ok(bytes) = std::fs::read(&path) {
                     let hash = blake3::hash(&bytes).to_hex()[..16].to_string();
-                    let name = format!("state/{}", path.file_name().unwrap_or_default().to_string_lossy());
+                    let name = format!(
+                        "state/{}",
+                        path.file_name().unwrap_or_default().to_string_lossy()
+                    );
                     *total += bytes.len() as u64;
                     manifest.push(BundleEntry {
                         path: name,
@@ -175,10 +185,7 @@ fn print_bundle_report(
             out.display()
         );
     } else {
-        println!(
-            "\n  {} Use --output to write bundle archive",
-            dim("Note:")
-        );
+        println!("\n  {} Use --output to write bundle archive", dim("Note:"));
     }
 }
 
@@ -193,7 +200,12 @@ pub(crate) fn cmd_bundle_verify(file: &Path) -> Result<(), String> {
     // Verify config file
     let config_bytes = std::fs::read(file).map_err(|e| format!("cannot read config: {e}"))?;
     let config_hash = blake3::hash(&config_bytes).to_hex()[..16].to_string();
-    println!("{} {} config {}", green("✓"), file.display(), dim(&config_hash));
+    println!(
+        "{} {} config {}",
+        green("✓"),
+        file.display(),
+        dim(&config_hash)
+    );
     ok_count += 1;
 
     // Verify store files
@@ -210,7 +222,11 @@ pub(crate) fn cmd_bundle_verify(file: &Path) -> Result<(), String> {
 
     println!(
         "\n{} {ok_count} files verified, {fail_count} failures",
-        if fail_count == 0 { green("✓") } else { red("✗") }
+        if fail_count == 0 {
+            green("✓")
+        } else {
+            red("✗")
+        }
     );
 
     if fail_count > 0 {

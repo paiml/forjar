@@ -143,9 +143,7 @@ pub(crate) fn cmd_validate_check_resource_overlap(file: &Path, json: bool) -> Re
         let items: Vec<String> = overlaps
             .iter()
             .map(|(a, b, m)| {
-                format!(
-                    "{{\"resource_a\":\"{a}\",\"resource_b\":\"{b}\",\"machine\":\"{m}\"}}"
-                )
+                format!("{{\"resource_a\":\"{a}\",\"resource_b\":\"{b}\",\"machine\":\"{m}\"}}")
             })
             .collect();
         println!("{{\"resource_overlaps\":[{}]}}", items.join(","));
@@ -360,10 +358,7 @@ fn check_machine_addrs(config: &types::ForjarConfig) -> Vec<(String, String)> {
         } else if addr == "localhost" || addr == "127.0.0.1" || addr == "container" {
             // valid sentinel values
         } else if !addr.contains('.') && !addr.contains(':') {
-            issues.push((
-                name.clone(),
-                format!("addr '{addr}' has no dots or colons"),
-            ));
+            issues.push((name.clone(), format!("addr '{addr}' has no dots or colons")));
         }
     }
     issues.sort();

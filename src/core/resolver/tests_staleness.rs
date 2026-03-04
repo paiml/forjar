@@ -129,7 +129,5 @@ fn epoch_to_iso(secs: u64) -> String {
         remaining -= md as i64;
     }
     let d = remaining + 1;
-    format!(
-        "{y:04}-{m:02}-{d:02}T{hours:02}:{minutes:02}:{seconds:02}Z"
-    )
+    format!("{y:04}-{m:02}-{d:02}T{hours:02}:{minutes:02}:{seconds:02}Z")
 }

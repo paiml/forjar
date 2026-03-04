@@ -106,9 +106,7 @@ pub(crate) fn cmd_graph_density(file: &Path, json: bool) -> Result<(), String> {
             "{{\"nodes\":{n},\"edges\":{edges},\"max_edges\":{max_edges},\"density\":{density:.4}}}"
         );
     } else {
-        println!(
-            "Graph density: {density:.4} ({edges} edges / {max_edges} max, {n} nodes)"
-        );
+        println!("Graph density: {density:.4} ({edges} edges / {max_edges} max, {n} nodes)");
     }
     Ok(())
 }

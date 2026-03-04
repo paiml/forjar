@@ -58,9 +58,9 @@ pub fn apply_script(resource: &Resource) -> String {
         ("uv", "absent") => apply_uv_absent(resource),
         ("brew", "present") => apply_brew_present(resource),
         ("brew", "absent") => apply_brew_absent(resource),
-        (other_provider, other_state) => format!(
-            "echo 'unsupported: provider={other_provider}, state={other_state}'"
-        ),
+        (other_provider, other_state) => {
+            format!("echo 'unsupported: provider={other_provider}, state={other_state}'")
+        }
     }
 }
 

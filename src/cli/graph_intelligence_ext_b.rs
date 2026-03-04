@@ -95,9 +95,7 @@ pub(crate) fn cmd_graph_resource_dependency_weak_links(
         let items: Vec<String> = weak_links
             .iter()
             .map(|(from, to, d)| {
-                format!(
-                    "{{\"from\":\"{from}\",\"to\":\"{to}\",\"dependents\":{d}}}"
-                )
+                format!("{{\"from\":\"{from}\",\"to\":\"{to}\",\"dependents\":{d}}}")
             })
             .collect();
         println!("{{\"weak_links\":[{}]}}", items.join(","));

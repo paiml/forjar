@@ -70,9 +70,7 @@ pub(crate) fn print_resource_limits_text(
     limit: usize,
 ) {
     if violations.is_empty() {
-        println!(
-            "Resource limits check passed (limit: {limit} per machine)"
-        );
+        println!("Resource limits check passed (limit: {limit} per machine)");
         for (machine, count) in counts {
             println!("  {machine} — {count} resources");
         }

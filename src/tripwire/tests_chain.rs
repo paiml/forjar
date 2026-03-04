@@ -19,10 +19,14 @@ mod tests {
     #[test]
     fn test_compute_chain_hash_deterministic() {
         let dir = tempfile::tempdir().unwrap();
-        let events = write_events(dir.path(), "m1", &[
-            r#"{"ts":"2026-01-01T00:00:00Z","event":"converged","resource":"pkg-a"}"#,
-            r#"{"ts":"2026-01-01T00:01:00Z","event":"converged","resource":"pkg-b"}"#,
-        ]);
+        let events = write_events(
+            dir.path(),
+            "m1",
+            &[
+                r#"{"ts":"2026-01-01T00:00:00Z","event":"converged","resource":"pkg-a"}"#,
+                r#"{"ts":"2026-01-01T00:01:00Z","event":"converged","resource":"pkg-b"}"#,
+            ],
+        );
         let h1 = compute_chain_hash(&events).unwrap();
         let h2 = compute_chain_hash(&events).unwrap();
         assert_eq!(h1, h2);
@@ -32,17 +36,25 @@ mod tests {
     #[test]
     fn test_chain_hash_changes_on_tamper() {
         let dir = tempfile::tempdir().unwrap();
-        let events = write_events(dir.path(), "m1", &[
-            r#"{"ts":"2026-01-01T00:00:00Z","event":"converged","resource":"pkg-a"}"#,
-            r#"{"ts":"2026-01-01T00:01:00Z","event":"converged","resource":"pkg-b"}"#,
-        ]);
+        let events = write_events(
+            dir.path(),
+            "m1",
+            &[
+                r#"{"ts":"2026-01-01T00:00:00Z","event":"converged","resource":"pkg-a"}"#,
+                r#"{"ts":"2026-01-01T00:01:00Z","event":"converged","resource":"pkg-b"}"#,
+            ],
+        );
         let h1 = compute_chain_hash(&events).unwrap();
 
         // Tamper with first line
-        let events2 = write_events(dir.path(), "m1", &[
-            r#"{"ts":"2026-01-01T00:00:00Z","event":"TAMPERED","resource":"pkg-a"}"#,
-            r#"{"ts":"2026-01-01T00:01:00Z","event":"converged","resource":"pkg-b"}"#,
-        ]);
+        let events2 = write_events(
+            dir.path(),
+            "m1",
+            &[
+                r#"{"ts":"2026-01-01T00:00:00Z","event":"TAMPERED","resource":"pkg-a"}"#,
+                r#"{"ts":"2026-01-01T00:01:00Z","event":"converged","resource":"pkg-b"}"#,
+            ],
+        );
         let h2 = compute_chain_hash(&events2).unwrap();
         assert_ne!(h1, h2);
     }
@@ -50,9 +62,11 @@ mod tests {
     #[test]
     fn test_write_and_verify_chain() {
         let dir = tempfile::tempdir().unwrap();
-        let events = write_events(dir.path(), "m1", &[
-            r#"{"ts":"2026-01-01T00:00:00Z","event":"converged","resource":"pkg-a"}"#,
-        ]);
+        let events = write_events(
+            dir.path(),
+            "m1",
+            &[r#"{"ts":"2026-01-01T00:00:00Z","event":"converged","resource":"pkg-a"}"#],
+        );
         write_chain_sidecar(&events).unwrap();
         let result = verify_chain(&events).unwrap();
         assert_eq!(result.total_lines, 1);
@@ -63,14 +77,20 @@ mod tests {
     #[test]
     fn test_verify_detects_tamper() {
         let dir = tempfile::tempdir().unwrap();
-        let events = write_events(dir.path(), "m1", &[
-            r#"{"ts":"2026-01-01T00:00:00Z","event":"converged","resource":"pkg-a"}"#,
-        ]);
+        let events = write_events(
+            dir.path(),
+            "m1",
+            &[r#"{"ts":"2026-01-01T00:00:00Z","event":"converged","resource":"pkg-a"}"#],
+        );
         write_chain_sidecar(&events).unwrap();
 
         // Tamper
         let mut f = std::fs::File::create(&events).unwrap();
-        writeln!(f, r#"{{"ts":"2026-01-01T00:00:00Z","event":"TAMPERED","resource":"pkg-a"}}"#).unwrap();
+        writeln!(
+            f,
+            r#"{{"ts":"2026-01-01T00:00:00Z","event":"TAMPERED","resource":"pkg-a"}}"#
+        )
+        .unwrap();
 
         let result = verify_chain(&events).unwrap();
         assert!(!result.failures.is_empty());
@@ -80,9 +100,11 @@ mod tests {
     #[test]
     fn test_verify_no_sidecar_passes() {
         let dir = tempfile::tempdir().unwrap();
-        let events = write_events(dir.path(), "m1", &[
-            r#"{"ts":"2026-01-01T00:00:00Z","event":"converged","resource":"pkg-a"}"#,
-        ]);
+        let events = write_events(
+            dir.path(),
+            "m1",
+            &[r#"{"ts":"2026-01-01T00:00:00Z","event":"converged","resource":"pkg-a"}"#],
+        );
         // No sidecar written
         let result = verify_chain(&events).unwrap();
         assert!(result.failures.is_empty());
@@ -100,12 +122,16 @@ mod tests {
     #[test]
     fn test_verify_all_chains() {
         let dir = tempfile::tempdir().unwrap();
-        let e1 = write_events(dir.path(), "m1", &[
-            r#"{"ts":"2026-01-01T00:00:00Z","event":"converged","resource":"a"}"#,
-        ]);
-        let e2 = write_events(dir.path(), "m2", &[
-            r#"{"ts":"2026-01-01T00:00:00Z","event":"converged","resource":"b"}"#,
-        ]);
+        let e1 = write_events(
+            dir.path(),
+            "m1",
+            &[r#"{"ts":"2026-01-01T00:00:00Z","event":"converged","resource":"a"}"#],
+        );
+        let e2 = write_events(
+            dir.path(),
+            "m2",
+            &[r#"{"ts":"2026-01-01T00:00:00Z","event":"converged","resource":"b"}"#],
+        );
         write_chain_sidecar(&e1).unwrap();
         write_chain_sidecar(&e2).unwrap();
 
@@ -120,26 +146,18 @@ mod tests {
     fn test_chain_incorporates_previous() {
         let dir = tempfile::tempdir().unwrap();
         // Single event
-        let e1 = write_events(dir.path(), "m1", &[
-            r#"{"event":"a"}"#,
-        ]);
+        let e1 = write_events(dir.path(), "m1", &[r#"{"event":"a"}"#]);
         let h1 = compute_chain_hash(&e1).unwrap();
 
         // Two events (first is same)
-        let e2 = write_events(dir.path(), "m1", &[
-            r#"{"event":"a"}"#,
-            r#"{"event":"b"}"#,
-        ]);
+        let e2 = write_events(dir.path(), "m1", &[r#"{"event":"a"}"#, r#"{"event":"b"}"#]);
         let h2 = compute_chain_hash(&e2).unwrap();
 
         // Different because chain links previous
         assert_ne!(h1, h2);
 
         // Same first event but different second
-        let e3 = write_events(dir.path(), "m1", &[
-            r#"{"event":"a"}"#,
-            r#"{"event":"c"}"#,
-        ]);
+        let e3 = write_events(dir.path(), "m1", &[r#"{"event":"a"}"#, r#"{"event":"c"}"#]);
         let h3 = compute_chain_hash(&e3).unwrap();
         assert_ne!(h2, h3);
     }

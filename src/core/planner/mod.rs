@@ -82,9 +82,7 @@ fn passes_tag_filter(resource: &Resource, tag_filter: Option<&str>) -> bool {
 fn resolve_or_fallback(resource_id: &str, resource: &Resource, config: &ForjarConfig) -> Resource {
     resolver::resolve_resource_templates(resource, &config.params, &config.machines).unwrap_or_else(
         |e| {
-            eprintln!(
-                "warning: template resolution failed for {resource_id}: {e}"
-            );
+            eprintln!("warning: template resolution failed for {resource_id}: {e}");
             resource.clone()
         },
     )
@@ -163,9 +161,7 @@ fn determine_action(
         if action == PlanAction::Destroy {
             if let Some(ref lifecycle) = resource.lifecycle {
                 if lifecycle.prevent_destroy {
-                    eprintln!(
-                        "warning: {resource_id} has prevent_destroy — skipping destroy"
-                    );
+                    eprintln!("warning: {resource_id} has prevent_destroy — skipping destroy");
                     return PlanAction::NoOp;
                 }
             }
@@ -353,18 +349,12 @@ fn apply_moved_blocks(
     result
 }
 
+pub mod minimal_changeset;
 pub mod proof_obligation;
 pub mod reversibility;
-pub mod minimal_changeset;
 pub mod sat_deps;
 pub mod why;
 
-#[cfg(test)]
-mod tests_proof_obligation;
-#[cfg(test)]
-mod tests_reversibility;
-#[cfg(test)]
-mod tests_why;
 #[cfg(test)]
 mod tests_advanced;
 #[cfg(test)]
@@ -384,6 +374,12 @@ mod tests_lifecycle;
 #[cfg(test)]
 mod tests_plan;
 #[cfg(test)]
-mod tests_when;
+mod tests_proof_obligation;
+#[cfg(test)]
+mod tests_reversibility;
 #[cfg(test)]
 mod tests_sat_deps_b;
+#[cfg(test)]
+mod tests_when;
+#[cfg(test)]
+mod tests_why;

@@ -37,8 +37,7 @@ impl FileMode {
 
     #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Result<Self, String> {
-        let v = u16::from_str_radix(s, 8)
-            .map_err(|e| format!("invalid octal mode '{s}': {e}"))?;
+        let v = u16::from_str_radix(s, 8).map_err(|e| format!("invalid octal mode '{s}': {e}"))?;
         Self::new(v)
     }
 
@@ -65,10 +64,20 @@ impl SemVer {
         if parts.len() != 3 {
             return Err(format!("expected X.Y.Z, got '{s}'"));
         }
-        let major = parts[0].parse().map_err(|_| format!("invalid major: {}", parts[0]))?;
-        let minor = parts[1].parse().map_err(|_| format!("invalid minor: {}", parts[1]))?;
-        let patch = parts[2].parse().map_err(|_| format!("invalid patch: {}", parts[2]))?;
-        Ok(SemVer { major, minor, patch })
+        let major = parts[0]
+            .parse()
+            .map_err(|_| format!("invalid major: {}", parts[0]))?;
+        let minor = parts[1]
+            .parse()
+            .map_err(|_| format!("invalid minor: {}", parts[1]))?;
+        let patch = parts[2]
+            .parse()
+            .map_err(|_| format!("invalid patch: {}", parts[2]))?;
+        Ok(SemVer {
+            major,
+            minor,
+            patch,
+        })
     }
 }
 
@@ -135,7 +144,10 @@ impl ResourceName {
         if s.is_empty() || s.len() > 128 {
             return Err(format!("name length must be 1-128, got {}", s.len()));
         }
-        if !s.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_') {
+        if !s
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+        {
             return Err(format!("name has invalid chars: '{s}'"));
         }
         Ok(ResourceName(s.to_string()))

@@ -285,9 +285,7 @@ pub(crate) fn cmd_check(
             total_skip,
         )?;
     } else {
-        println!(
-            "\nCheck: {total_pass} pass, {total_fail} fail, {total_skip} skip"
-        );
+        println!("\nCheck: {total_pass} pass, {total_fail} fail, {total_skip} skip");
     }
 
     if total_fail > 0 {

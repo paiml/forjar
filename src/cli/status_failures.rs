@@ -33,9 +33,7 @@ fn collect_failure_counts(
         if let Some(lock) = state::load_lock(state_dir, m).map_err(|e| e.to_string())? {
             for (rname, rl) in &lock.resources {
                 if rl.status == types::ResourceStatus::Failed {
-                    *failure_counts
-                        .entry(format!("{m}:{rname}"))
-                        .or_insert(0) += 1;
+                    *failure_counts.entry(format!("{m}:{rname}")).or_insert(0) += 1;
                 }
             }
         }
@@ -124,9 +122,7 @@ fn print_failed_since_output(failed: &[(String, String, String)], since: &str, j
             if i > 0 {
                 print!(",");
             }
-            print!(
-                r#"{{"machine":"{machine}","resource":"{resource}","applied_at":"{applied}"}}"#
-            );
+            print!(r#"{{"machine":"{machine}","resource":"{resource}","applied_at":"{applied}"}}"#);
         }
         println!("]}}");
     } else if failed.is_empty() {
@@ -167,9 +163,7 @@ pub(crate) fn cmd_status_failed_resources(
         let items: Vec<String> = entries
             .iter()
             .map(|(m, name, rtype)| {
-                format!(
-                    "{{\"machine\":\"{m}\",\"resource\":\"{name}\",\"type\":\"{rtype}\"}}"
-                )
+                format!("{{\"machine\":\"{m}\",\"resource\":\"{name}\",\"type\":\"{rtype}\"}}")
             })
             .collect();
         println!(
@@ -219,9 +213,7 @@ pub(crate) fn cmd_status_hash_verify(
             total - verified
         );
     } else {
-        println!(
-            "Hash verification: {verified}/{total} resources have BLAKE3 hashes"
-        );
+        println!("Hash verification: {verified}/{total} resources have BLAKE3 hashes");
     }
     Ok(())
 }
@@ -251,9 +243,7 @@ pub(crate) fn cmd_status_lock_age(
             if i > 0 {
                 print!(",");
             }
-            print!(
-                r#"{{"machine":"{m}","resource":"{rname}","applied_at":"{applied}"}}"#
-            );
+            print!(r#"{{"machine":"{m}","resource":"{rname}","applied_at":"{applied}"}}"#);
         }
         println!("]}}");
     } else {

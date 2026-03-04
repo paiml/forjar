@@ -14,7 +14,10 @@ mod tests {
             ResourceType::User,
             ResourceType::Model,
         ] {
-            assert_eq!(classify(rtype, &PlanAction::NoOp), ProofObligation::Idempotent);
+            assert_eq!(
+                classify(rtype, &PlanAction::NoOp),
+                ProofObligation::Idempotent
+            );
         }
     }
 

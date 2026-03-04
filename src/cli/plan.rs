@@ -298,8 +298,7 @@ pub(crate) fn load_plan_file(
     plan_path: &Path,
     config: &types::ForjarConfig,
 ) -> Result<types::ExecutionPlan, String> {
-    let content =
-        std::fs::read_to_string(plan_path).map_err(|e| format!("read plan file: {e}"))?;
+    let content = std::fs::read_to_string(plan_path).map_err(|e| format!("read plan file: {e}"))?;
     let doc: serde_json::Value =
         serde_json::from_str(&content).map_err(|e| format!("parse plan file: {e}"))?;
 
@@ -431,7 +430,9 @@ fn collect_why_reasons(
     use crate::core::planner::why;
     let mut results = Vec::new();
     for resource_id in execution_order {
-        let Some(resource) = config.resources.get(resource_id) else { continue };
+        let Some(resource) = config.resources.get(resource_id) else {
+            continue;
+        };
         if let Some(tag) = tag_filter {
             if !resource.tags.iter().any(|t| t == tag) {
                 continue;

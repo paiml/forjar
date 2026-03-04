@@ -102,11 +102,7 @@ pub(crate) fn cmd_status_machine_resource_apply_duration_trend(
     if json {
         let items: Vec<String> = trends
             .iter()
-            .map(|(m, avg)| {
-                format!(
-                    "{{\"machine\":\"{m}\",\"avg_duration_seconds\":{avg:.4}}}"
-                )
-            })
+            .map(|(m, avg)| format!("{{\"machine\":\"{m}\",\"avg_duration_seconds\":{avg:.4}}}"))
             .collect();
         println!("{{\"apply_duration_trends\":[{}]}}", items.join(","));
     } else if trends.is_empty() {
@@ -244,11 +240,7 @@ pub(crate) fn cmd_status_machine_resource_error_distribution(
     if json {
         let items: Vec<String> = distributions
             .iter()
-            .map(|(m, f, d)| {
-                format!(
-                    "{{\"machine\":\"{m}\",\"failed\":{f},\"drifted\":{d}}}"
-                )
-            })
+            .map(|(m, f, d)| format!("{{\"machine\":\"{m}\",\"failed\":{f},\"drifted\":{d}}}"))
             .collect();
         println!("{{\"error_distributions\":[{}]}}", items.join(","));
     } else if distributions.is_empty() {
@@ -311,9 +303,7 @@ pub(crate) fn cmd_status_machine_resource_drift_age(
         let items: Vec<String> = ages
             .iter()
             .map(|(m, r, age)| {
-                format!(
-                    "{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"drift_age_hours\":{age:.2}}}"
-                )
+                format!("{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"drift_age_hours\":{age:.2}}}")
             })
             .collect();
         println!("{{\"drift_ages\":[{}]}}", items.join(","));

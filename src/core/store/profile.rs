@@ -16,8 +16,7 @@ pub fn create_generation(profiles_dir: &Path, store_content_path: &str) -> Resul
 
     let next_gen = next_generation_number(profiles_dir)?;
     let gen_dir = profiles_dir.join(next_gen.to_string());
-    std::fs::create_dir_all(&gen_dir)
-        .map_err(|e| format!("cannot create generation dir: {e}"))?;
+    std::fs::create_dir_all(&gen_dir).map_err(|e| format!("cannot create generation dir: {e}"))?;
 
     // Write a link target file (the store path this generation points to)
     std::fs::write(gen_dir.join("target"), store_content_path)

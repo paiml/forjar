@@ -36,20 +36,16 @@ pub fn load_index(registry_dir: &Path) -> Result<RegistryIndex, String> {
     if !index_path.exists() {
         return Ok(RegistryIndex::default());
     }
-    let data =
-        std::fs::read_to_string(&index_path).map_err(|e| format!("read index: {e}"))?;
+    let data = std::fs::read_to_string(&index_path).map_err(|e| format!("read index: {e}"))?;
     serde_json::from_str(&data).map_err(|e| format!("parse index: {e}"))
 }
 
 /// Save registry index.
 #[allow(dead_code)]
 pub fn save_index(registry_dir: &Path, index: &RegistryIndex) -> Result<(), String> {
-    std::fs::create_dir_all(registry_dir)
-        .map_err(|e| format!("mkdir registry: {e}"))?;
-    let data =
-        serde_json::to_string_pretty(index).map_err(|e| format!("serialize index: {e}"))?;
-    std::fs::write(registry_dir.join("index.json"), data)
-        .map_err(|e| format!("write index: {e}"))
+    std::fs::create_dir_all(registry_dir).map_err(|e| format!("mkdir registry: {e}"))?;
+    let data = serde_json::to_string_pretty(index).map_err(|e| format!("serialize index: {e}"))?;
+    std::fs::write(registry_dir.join("index.json"), data).map_err(|e| format!("write index: {e}"))
 }
 
 /// Register a recipe file into the registry.
@@ -61,8 +57,7 @@ pub fn register_recipe(
     description: &str,
     tags: &[String],
 ) -> Result<RegistryEntry, String> {
-    let content =
-        std::fs::read(recipe_path).map_err(|e| format!("read recipe: {e}"))?;
+    let content = std::fs::read(recipe_path).map_err(|e| format!("read recipe: {e}"))?;
     let blake3 = hash_blake3(&content);
     let name = recipe_path
         .file_stem()
@@ -98,10 +93,7 @@ fn hash_blake3(data: &[u8]) -> String {
 }
 
 /// List registry contents.
-pub fn cmd_registry_list(
-    registry_dir: &Path,
-    json: bool,
-) -> Result<(), String> {
+pub fn cmd_registry_list(registry_dir: &Path, json: bool) -> Result<(), String> {
     let index = load_index(registry_dir)?;
 
     let report = RegistryReport {
@@ -111,8 +103,7 @@ pub fn cmd_registry_list(
     };
 
     if json {
-        let out =
-            serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {e}"))?;
+        let out = serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {e}"))?;
         println!("{out}");
     } else {
         print_registry_report(&report);
@@ -124,7 +115,12 @@ fn print_registry_report(report: &RegistryReport) {
     println!("Recipe Registry: {}", report.registry_dir);
     println!("Entries ({}):", report.total);
     for e in &report.entries {
-        println!("  {} v{} [{}]", e.name, e.version, e.blake3.get(..8).unwrap_or(""));
+        println!(
+            "  {} v{} [{}]",
+            e.name,
+            e.version,
+            e.blake3.get(..8).unwrap_or("")
+        );
     }
 }
 
@@ -135,7 +131,10 @@ pub fn search_registry<'a>(index: &'a RegistryIndex, pattern: &str) -> Vec<&'a R
     index
         .entries
         .iter()
-        .filter(|e| e.name.to_lowercase().contains(&pat) || e.tags.iter().any(|t| t.to_lowercase().contains(&pat)))
+        .filter(|e| {
+            e.name.to_lowercase().contains(&pat)
+                || e.tags.iter().any(|t| t.to_lowercase().contains(&pat))
+        })
         .collect()
 }
 

@@ -79,11 +79,7 @@ pub(crate) fn cmd_status_fleet_drift_summary(
     if json {
         let items: Vec<String> = summary
             .iter()
-            .map(|(m, d, t)| {
-                format!(
-                    "{{\"machine\":\"{m}\",\"drifted\":{d},\"total\":{t}}}"
-                )
-            })
+            .map(|(m, d, t)| format!("{{\"machine\":\"{m}\",\"drifted\":{d},\"total\":{t}}}"))
             .collect();
         println!("{{\"fleet_drift_summary\":[{}]}}", items.join(","));
     } else if summary.is_empty() {
@@ -145,9 +141,7 @@ pub(crate) fn cmd_status_resource_apply_duration(
         let items: Vec<String> = durations
             .iter()
             .map(|(rtype, avg)| {
-                format!(
-                    "{{\"resource_type\":\"{rtype}\",\"avg_duration_secs\":{avg:.2}}}"
-                )
+                format!("{{\"resource_type\":\"{rtype}\",\"avg_duration_secs\":{avg:.2}}}")
             })
             .collect();
         println!("{{\"resource_apply_durations\":[{}]}}", items.join(","));
@@ -209,9 +203,7 @@ pub(crate) fn cmd_status_machine_resource_health(
         let items: Vec<String> = health
             .iter()
             .map(|(m, c, f, d)| {
-                format!(
-                    "{{\"machine\":\"{m}\",\"converged\":{c},\"failed\":{f},\"drifted\":{d}}}"
-                )
+                format!("{{\"machine\":\"{m}\",\"converged\":{c},\"failed\":{f},\"drifted\":{d}}}")
             })
             .collect();
         println!("{{\"machine_resource_health\":[{}]}}", items.join(","));

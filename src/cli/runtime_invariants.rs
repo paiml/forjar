@@ -45,11 +45,7 @@ pub struct InvariantReport {
 }
 
 /// Generate and evaluate runtime invariants from config.
-pub fn cmd_invariants(
-    file: &Path,
-    state_dir: &Path,
-    json: bool,
-) -> Result<(), String> {
+pub fn cmd_invariants(file: &Path, state_dir: &Path, json: bool) -> Result<(), String> {
     let config = parse_and_validate(file)?;
     let mut invariants = Vec::new();
 
@@ -248,4 +244,3 @@ fn print_invariant_report(report: &InvariantReport) {
         println!("[{icon}] {}: {} ({})", inv.id, inv.expression, inv.category);
     }
 }
-

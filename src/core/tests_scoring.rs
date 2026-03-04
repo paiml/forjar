@@ -101,7 +101,7 @@ pub(super) fn minimal_resource(rt: ResourceType) -> Resource {
         post_apply: None,
         lifecycle: None,
         store: false,
-            sudo: false,
+        sudo: false,
         script: None,
     }
 }

@@ -158,9 +158,7 @@ pub(crate) fn cmd_validate_check_resource_machine_balance(
             println!("  {m} — {c} resources");
         }
     } else {
-        println!(
-            "Resource distribution is balanced (ratio: {imbalance:.4})."
-        );
+        println!("Resource distribution is balanced (ratio: {imbalance:.4}).");
     }
     Ok(())
 }
@@ -186,10 +184,8 @@ pub(crate) fn cmd_validate_check_resource_env_consistency(
                     if var.chars().all(|c| c.is_alphanumeric() || c == '_')
                         && !declared_params.contains(var)
                     {
-                        warnings.push((
-                            name.clone(),
-                            format!("references undeclared param '{var}'"),
-                        ));
+                        warnings
+                            .push((name.clone(), format!("references undeclared param '{var}'")));
                     }
                     rest = &rest[end + 2..];
                 } else {

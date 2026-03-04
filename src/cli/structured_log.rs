@@ -94,7 +94,10 @@ pub fn log_event(level: Level, target: &str, message: &str, fields: &[(&str, &st
         level,
         message: message.to_string(),
         target: target.to_string(),
-        fields: fields.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect(),
+        fields: fields
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect(),
     };
 
     if LOG_JSON.load(Ordering::Relaxed) != 0 {
@@ -114,10 +117,17 @@ fn emit_human(event: &LogEvent) {
     let fields_str = if event.fields.is_empty() {
         String::new()
     } else {
-        let pairs: Vec<String> = event.fields.iter().map(|(k, v)| format!("{k}={v}")).collect();
+        let pairs: Vec<String> = event
+            .fields
+            .iter()
+            .map(|(k, v)| format!("{k}={v}"))
+            .collect();
         format!(" {}", pairs.join(" "))
     };
-    eprintln!("[{}] {} {}{}", event.level, event.target, event.message, fields_str);
+    eprintln!(
+        "[{}] {} {}{}",
+        event.level, event.target, event.message, fields_str
+    );
 }
 
 /// A log span for tracking execution context.

@@ -59,8 +59,7 @@ pub fn cmd_saga_plan(
     let report = build_report(&steps);
 
     if json {
-        let out =
-            serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {e}"))?;
+        let out = serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {e}"))?;
         println!("{out}");
     } else {
         print_saga_report(&report);
@@ -127,10 +126,7 @@ fn print_saga_report(report: &SagaReport) {
     println!("Success: {}", report.success);
     println!();
     for s in &report.steps {
-        println!(
-            "  [{}] {} ({})",
-            s.status, s.stack_name, s.config_path
-        );
+        println!("  [{}] {} ({})", s.status, s.stack_name, s.config_path);
         if let Some(ref snap) = s.snapshot_path {
             println!("    snapshot: {snap}");
         }
@@ -145,8 +141,7 @@ pub fn create_snapshot(state_dir: &Path, stack_name: &str) -> Result<String, Str
     if src.exists() {
         let dest = std::path::Path::new(&snapshot_path);
         if let Some(parent) = dest.parent() {
-            std::fs::create_dir_all(parent)
-                .map_err(|e| format!("mkdir: {e}"))?;
+            std::fs::create_dir_all(parent).map_err(|e| format!("mkdir: {e}"))?;
         }
         // Copy state directory content
         copy_dir_simple(&src, dest)?;

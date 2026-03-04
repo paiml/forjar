@@ -203,8 +203,11 @@ fn execute_resource(
 
     let ssh_retries = cfg.config.policy.ssh_retries;
     let output = if resolved.resource_type == ResourceType::File
-        && resolved.source.is_some()
-        && copia::is_eligible(resolved.source.as_ref().unwrap())
+        && resolved
+            .source
+            .as_ref()
+            .map(|s| copia::is_eligible(s))
+            .unwrap_or(false)
     {
         copia_apply_file(machine, resolved, ctx.timeout_secs)
     } else {
@@ -381,8 +384,7 @@ pub(crate) fn copia_apply_file(
         }
         Some(sigs) => {
             // Read local source file
-            let new_data =
-                std::fs::read(source).map_err(|e| format!("copia read source: {e}"))?;
+            let new_data = std::fs::read(source).map_err(|e| format!("copia read source: {e}"))?;
 
             // Compute delta
             let delta = copia::compute_delta(&new_data, &sigs);

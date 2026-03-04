@@ -176,7 +176,7 @@ pub(crate) fn cmd_bench(iterations: usize, json: bool) -> Result<(), String> {
     // 1. Validate benchmark
     let start = Instant::now();
     for _ in 0..iterations {
-        let _ = parser::parse_and_validate(&config_path).unwrap();
+        let _ = parser::parse_and_validate(&config_path)?;
     }
     results.push(BenchResult {
         name: "validate (3m, 20r)",
@@ -188,8 +188,8 @@ pub(crate) fn cmd_bench(iterations: usize, json: bool) -> Result<(), String> {
     // 2. Plan benchmark
     let start = Instant::now();
     for _ in 0..iterations {
-        let config = parser::parse_and_validate(&config_path).unwrap();
-        let order = resolver::build_execution_order(&config).unwrap();
+        let config = parser::parse_and_validate(&config_path)?;
+        let order = resolver::build_execution_order(&config)?;
         let locks = std::collections::HashMap::new();
         let _ = planner::plan(&config, &order, &locks, None);
     }
@@ -203,7 +203,8 @@ pub(crate) fn cmd_bench(iterations: usize, json: bool) -> Result<(), String> {
     // 3. Drift benchmark
     let start = Instant::now();
     for _ in 0..iterations {
-        let lock_data = state::load_lock(&state_dir, "bench-host").unwrap().unwrap();
+        let lock_data =
+            state::load_lock(&state_dir, "bench-host")?.ok_or("bench lock not found")?;
         let _ = tripwire_drift::detect_drift(&lock_data);
     }
     results.push(BenchResult {
@@ -243,9 +244,7 @@ pub(crate) fn cmd_bench(iterations: usize, json: bool) -> Result<(), String> {
             serde_json::to_string_pretty(&json_results).map_err(|e| format!("JSON: {e}"))?;
         println!("{output}");
     } else {
-        println!(
-            "Forjar Performance Benchmarks ({iterations} iterations)\n"
-        );
+        println!("Forjar Performance Benchmarks ({iterations} iterations)\n");
         println!("  {:<28} {:>12} {:>12}", "Operation", "Average", "Target");
         println!("  {}", "-".repeat(56));
         for r in &results {

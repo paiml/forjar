@@ -259,9 +259,7 @@ pub(crate) fn cmd_status_executive_summary(state_dir: &Path, json: bool) -> Resu
             } else {
                 green("OK")
             };
-            println!(
-                "  [{status}] {m} — {conv}/{total} converged, {fail} failed, {drift} drifted"
-            );
+            println!("  [{status}] {m} — {conv}/{total} converged, {fail} failed, {drift} drifted");
         }
     }
     Ok(())
@@ -307,9 +305,7 @@ pub(crate) fn cmd_status_pipeline_status(
         let items: Vec<String> = statuses
             .iter()
             .map(|(m, ts, s)| {
-                format!(
-                    r#"{{"machine":"{m}","last_apply":"{ts}","pipeline":"{s}"}}"#
-                )
+                format!(r#"{{"machine":"{m}","last_apply":"{ts}","pipeline":"{s}"}}"#)
             })
             .collect();
         println!(

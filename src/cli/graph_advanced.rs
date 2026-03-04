@@ -240,11 +240,7 @@ pub(crate) fn cmd_graph_resource_weight(file: &Path, json: bool) -> Result<(), S
     if json {
         let items: Vec<String> = weights
             .iter()
-            .map(|(from, to, w)| {
-                format!(
-                    "{{\"from\":\"{from}\",\"to\":\"{to}\",\"weight\":{w}}}"
-                )
-            })
+            .map(|(from, to, w)| format!("{{\"from\":\"{from}\",\"to\":\"{to}\",\"weight\":{w}}}"))
             .collect();
         println!("{{\"weighted_edges\":[{}]}}", items.join(","));
     } else if weights.is_empty() {
