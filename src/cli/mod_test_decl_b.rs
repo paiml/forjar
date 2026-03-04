@@ -378,3 +378,7 @@ mod tests_pq_signing;
 mod tests_preservation_check;
 #[cfg(test)]
 mod tests_parallel_multi_stack;
+#[cfg(test)]
+mod tests_saga_coordinator;
+#[cfg(test)]
+mod tests_agent_registry;
