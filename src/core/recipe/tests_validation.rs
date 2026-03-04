@@ -383,8 +383,7 @@ resources: {}
     let err = result.unwrap_err();
     assert!(
         err.contains("integer"),
-        "error should mention integer type: {}",
-        err
+        "error should mention integer type: {err}"
     );
 }
 

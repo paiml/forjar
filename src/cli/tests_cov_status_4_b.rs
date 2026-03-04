@@ -66,11 +66,11 @@ mod tests {
         for m in &["web", "db"] {
             write_yaml(
                 dir.path(),
-                &format!("{}/state.lock.yaml", m),
+                &format!("{m}/state.lock.yaml"),
                 state_lock_yaml(),
             );
-            write_yaml(dir.path(), &format!("{}/lock.yaml", m), state_lock_yaml());
-            write_yaml(dir.path(), &format!("{}.lock.yaml", m), state_lock_yaml());
+            write_yaml(dir.path(), &format!("{m}/lock.yaml"), state_lock_yaml());
+            write_yaml(dir.path(), &format!("{m}.lock.yaml"), state_lock_yaml());
         }
         dir
     }

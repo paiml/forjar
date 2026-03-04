@@ -34,7 +34,7 @@ pub fn save_lock(state_dir: &Path, lock: &StateLock) -> Result<(), String> {
             .map_err(|e| format!("cannot create dir {}: {}", parent.display(), e))?;
     }
 
-    let yaml = serde_yaml_ng::to_string(lock).map_err(|e| format!("serialize error: {}", e))?;
+    let yaml = serde_yaml_ng::to_string(lock).map_err(|e| format!("serialize error: {e}"))?;
 
     // Write to temp file, then rename for crash-safe persistence
     let tmp_path = path.with_extension("lock.yaml.tmp");
@@ -79,7 +79,7 @@ pub fn save_global_lock(state_dir: &Path, lock: &GlobalLock) -> Result<(), Strin
         .map_err(|e| format!("cannot create dir {}: {}", state_dir.display(), e))?;
 
     let path = global_lock_path(state_dir);
-    let yaml = serde_yaml_ng::to_string(lock).map_err(|e| format!("serialize error: {}", e))?;
+    let yaml = serde_yaml_ng::to_string(lock).map_err(|e| format!("serialize error: {e}"))?;
 
     let tmp_path = path.with_extension("lock.yaml.tmp");
     std::fs::write(&tmp_path, &yaml)
@@ -183,7 +183,7 @@ pub fn save_apply_report(state_dir: &Path, result: &ApplyResult) -> Result<(), S
         .map_err(|e| format!("cannot create dir {}: {}", dir.display(), e))?;
     let path = dir.join("last-apply.yaml");
     let yaml =
-        serde_yaml_ng::to_string(result).map_err(|e| format!("serialize report error: {}", e))?;
+        serde_yaml_ng::to_string(result).map_err(|e| format!("serialize report error: {e}"))?;
     std::fs::write(&path, &yaml).map_err(|e| format!("cannot write {}: {}", path.display(), e))?;
     Ok(())
 }
@@ -211,14 +211,14 @@ pub(super) fn process_lock_path(state_dir: &Path) -> PathBuf {
 /// Acquire an exclusive process lock. Returns an error if another apply is running.
 /// Stale locks (PID no longer running) are automatically removed.
 pub fn acquire_process_lock(state_dir: &Path) -> Result<(), String> {
-    std::fs::create_dir_all(state_dir).map_err(|e| format!("cannot create state dir: {}", e))?;
+    std::fs::create_dir_all(state_dir).map_err(|e| format!("cannot create state dir: {e}"))?;
 
     let lock_path = process_lock_path(state_dir);
 
     // Check for existing lock
     if lock_path.exists() {
         let content = std::fs::read_to_string(&lock_path)
-            .map_err(|e| format!("cannot read lock file: {}", e))?;
+            .map_err(|e| format!("cannot read lock file: {e}"))?;
         if let Some(pid) = parse_lock_pid(&content) {
             if is_pid_running(pid) {
                 return Err(format!(
@@ -240,7 +240,7 @@ pub fn acquire_process_lock(state_dir: &Path) -> Result<(), String> {
         pid,
         crate::tripwire::eventlog::now_iso8601()
     );
-    std::fs::write(&lock_path, content).map_err(|e| format!("cannot write lock file: {}", e))?;
+    std::fs::write(&lock_path, content).map_err(|e| format!("cannot write lock file: {e}"))?;
     Ok(())
 }
 
@@ -256,7 +256,7 @@ pub fn force_unlock(state_dir: &Path) -> Result<(), String> {
     if !lock_path.exists() {
         return Ok(());
     }
-    std::fs::remove_file(&lock_path).map_err(|e| format!("cannot remove lock file: {}", e))
+    std::fs::remove_file(&lock_path).map_err(|e| format!("cannot remove lock file: {e}"))
 }
 
 /// Parse PID from lock file content.
@@ -271,7 +271,7 @@ pub(super) fn parse_lock_pid(content: &str) -> Option<u32> {
 
 /// Check if a PID is still running (Linux-specific: /proc/<pid> exists).
 fn is_pid_running(pid: u32) -> bool {
-    Path::new(&format!("/proc/{}", pid)).exists()
+    Path::new(&format!("/proc/{pid}")).exists()
 }
 
 // ============================================================================

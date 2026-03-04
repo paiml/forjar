@@ -51,7 +51,7 @@ pub fn build_sat_problem(
     }
 
     // All requested resources must be included (unit clauses)
-    for (_, &idx) in &var_map {
+    for &idx in var_map.values() {
         clauses.push(vec![idx as i32]);
     }
 

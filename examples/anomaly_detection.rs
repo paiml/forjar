@@ -41,15 +41,15 @@ fn main() {
 
     // Score a normal value
     let normal_score = anomaly::isolation_score(&population, 5.0);
-    println!("Score for normal value (5):    {:.3}", normal_score);
+    println!("Score for normal value (5):    {normal_score:.3}");
 
     // Score an outlier
     let outlier_score = anomaly::isolation_score(&population, 100.0);
-    println!("Score for outlier value (100): {:.3}", outlier_score);
+    println!("Score for outlier value (100): {outlier_score:.3}");
 
     // Score an extreme outlier
     let extreme_score = anomaly::isolation_score(&population, 1000.0);
-    println!("Score for extreme value (1000): {:.3}\n", extreme_score);
+    println!("Score for extreme value (1000): {extreme_score:.3}\n");
 
     // ── EWMA Z-Score ────────────────────────────────────────────
     println!("--- EWMA Z-Score ---\n");
@@ -58,10 +58,10 @@ fn main() {
     let alpha = 0.3; // smoothing factor
 
     let z_normal = anomaly::ewma_zscore(&history, 1.5, alpha);
-    println!("Z-score for target=1.5 (normal): {:.2}", z_normal);
+    println!("Z-score for target=1.5 (normal): {z_normal:.2}");
 
     let z_anomaly = anomaly::ewma_zscore(&history, 20.0, alpha);
-    println!("Z-score for target=20.0 (anomaly): {:.2}\n", z_anomaly);
+    println!("Z-score for target=20.0 (anomaly): {z_anomaly:.2}\n");
 
     // ── Bulk Anomaly Detection ──────────────────────────────────
     println!("--- Bulk Anomaly Detection ---\n");
@@ -95,7 +95,7 @@ fn main() {
                 finding.resource, status, finding.score
             );
             for reason in &finding.reasons {
-                println!("    - {}", reason);
+                println!("    - {reason}");
             }
         }
     }

@@ -320,7 +320,7 @@ resources:
     #[test]
     fn test_fj253_completion_shell_enum_debug() {
         let bash = CompletionShell::Bash;
-        let debug = format!("{:?}", bash);
+        let debug = format!("{bash:?}");
         assert_eq!(debug, "Bash");
     }
 
@@ -328,7 +328,7 @@ resources:
     fn test_fj253_completion_shell_clone() {
         let orig = CompletionShell::Zsh;
         let cloned = orig.clone();
-        assert_eq!(format!("{:?}", cloned), "Zsh");
+        assert_eq!(format!("{cloned:?}"), "Zsh");
     }
 
     #[test]

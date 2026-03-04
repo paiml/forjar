@@ -22,7 +22,7 @@ pub(crate) fn cmd_status_machine_resource_drift_frequency(
     if json {
         let items: Vec<String> = frequencies
             .iter()
-            .map(|(m, c)| format!("{{\"machine\":\"{}\",\"drifted_resources\":{}}}", m, c))
+            .map(|(m, c)| format!("{{\"machine\":\"{m}\",\"drifted_resources\":{c}}}"))
             .collect();
         println!("{{\"drift_frequencies\":[{}]}}", items.join(","));
     } else if frequencies.is_empty() {
@@ -30,7 +30,7 @@ pub(crate) fn cmd_status_machine_resource_drift_frequency(
     } else {
         println!("Drift frequency:");
         for (m, c) in &frequencies {
-            println!("  {} — {} drifted resources", m, c);
+            println!("  {m} — {c} drifted resources");
         }
     }
     Ok(())
@@ -104,8 +104,7 @@ pub(crate) fn cmd_status_machine_resource_apply_duration_trend(
             .iter()
             .map(|(m, avg)| {
                 format!(
-                    "{{\"machine\":\"{}\",\"avg_duration_seconds\":{:.4}}}",
-                    m, avg
+                    "{{\"machine\":\"{m}\",\"avg_duration_seconds\":{avg:.4}}}"
                 )
             })
             .collect();
@@ -115,7 +114,7 @@ pub(crate) fn cmd_status_machine_resource_apply_duration_trend(
     } else {
         println!("Apply duration trends:");
         for (m, avg) in &trends {
-            println!("  {} — avg {:.4}s", m, avg);
+            println!("  {m} — avg {avg:.4}s");
         }
     }
     Ok(())
@@ -161,7 +160,7 @@ pub(crate) fn cmd_status_machine_resource_convergence_streak(
     if json {
         let items: Vec<String> = streaks
             .iter()
-            .map(|(m, s)| format!("{{\"machine\":\"{}\",\"streak\":{}}}", m, s))
+            .map(|(m, s)| format!("{{\"machine\":\"{m}\",\"streak\":{s}}}"))
             .collect();
         println!("{{\"convergence_streaks\":[{}]}}", items.join(","));
     } else if streaks.is_empty() {
@@ -169,7 +168,7 @@ pub(crate) fn cmd_status_machine_resource_convergence_streak(
     } else {
         println!("Convergence streaks:");
         for (m, s) in &streaks {
-            println!("  {} — {} consecutive converged", m, s);
+            println!("  {m} — {s} consecutive converged");
         }
     }
     Ok(())
@@ -247,8 +246,7 @@ pub(crate) fn cmd_status_machine_resource_error_distribution(
             .iter()
             .map(|(m, f, d)| {
                 format!(
-                    "{{\"machine\":\"{}\",\"failed\":{},\"drifted\":{}}}",
-                    m, f, d
+                    "{{\"machine\":\"{m}\",\"failed\":{f},\"drifted\":{d}}}"
                 )
             })
             .collect();
@@ -258,7 +256,7 @@ pub(crate) fn cmd_status_machine_resource_error_distribution(
     } else {
         println!("Error distribution:");
         for (m, f, d) in &distributions {
-            println!("  {} — {} failed, {} drifted", m, f, d);
+            println!("  {m} — {f} failed, {d} drifted");
         }
     }
     Ok(())
@@ -314,8 +312,7 @@ pub(crate) fn cmd_status_machine_resource_drift_age(
             .iter()
             .map(|(m, r, age)| {
                 format!(
-                    "{{\"machine\":\"{}\",\"resource\":\"{}\",\"drift_age_hours\":{:.2}}}",
-                    m, r, age
+                    "{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"drift_age_hours\":{age:.2}}}"
                 )
             })
             .collect();
@@ -325,7 +322,7 @@ pub(crate) fn cmd_status_machine_resource_drift_age(
     } else {
         println!("Drift ages:");
         for (m, r, age) in &ages {
-            println!("  {}/{} — {:.2}h drifted", m, r, age);
+            println!("  {m}/{r} — {age:.2}h drifted");
         }
     }
     Ok(())

@@ -10,8 +10,8 @@ pub(super) fn find_mount_conflicts(mount_paths: &[(String, String)]) -> Vec<(Str
             let (ref n1, ref p1) = mount_paths[i];
             let (ref n2, ref p2) = mount_paths[j];
             if p1 == p2
-                || p1.starts_with(&format!("{}/", p2))
-                || p2.starts_with(&format!("{}/", p1))
+                || p1.starts_with(&format!("{p2}/"))
+                || p2.starts_with(&format!("{p1}/"))
             {
                 conflicts.push((n1.clone(), n2.clone()));
             }
@@ -51,9 +51,9 @@ fn validate_cron_field(field: &str, min: u32, max: u32) -> bool {
 
 /// FJ-731: Validate cron schedule expressions in resources.
 pub(crate) fn cmd_validate_check_cron_syntax(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
     let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
 
     let mut issues: Vec<(String, String)> = Vec::new();
     for (name, resource) in &config.resources {
@@ -82,7 +82,7 @@ pub(crate) fn cmd_validate_check_cron_syntax(file: &Path, json: bool) -> Result<
     if json {
         let entries: Vec<String> = issues
             .iter()
-            .map(|(n, m)| format!("{{\"resource\":\"{}\",\"issue\":\"{}\"}}", n, m))
+            .map(|(n, m)| format!("{{\"resource\":\"{n}\",\"issue\":\"{m}\"}}"))
             .collect();
         println!("{{\"cron_issues\":[{}]}}", entries.join(","));
     } else if issues.is_empty() {
@@ -90,7 +90,7 @@ pub(crate) fn cmd_validate_check_cron_syntax(file: &Path, json: bool) -> Result<
     } else {
         println!("Cron syntax issues ({}):", issues.len());
         for (name, msg) in &issues {
-            println!("  {} — {}", name, msg);
+            println!("  {name} — {msg}");
         }
     }
     Ok(())
@@ -118,18 +118,18 @@ fn extract_env_refs(content: &str) -> Vec<String> {
 
 /// FJ-741: Verify all {{env.*}} references have matching environment variables.
 pub(crate) fn cmd_validate_check_env_refs(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
     let refs = extract_env_refs(&content);
     let missing: Vec<&String> = refs.iter().filter(|v| std::env::var(v).is_err()).collect();
     if json {
-        let items: Vec<String> = missing.iter().map(|v| format!("\"{}\"", v)).collect();
+        let items: Vec<String> = missing.iter().map(|v| format!("\"{v}\"")).collect();
         println!("{{\"missing_env_refs\":[{}]}}", items.join(","));
     } else if missing.is_empty() {
         println!("All env references are satisfied.");
     } else {
         println!("Missing env vars ({}):", missing.len());
         for var in &missing {
-            println!("  {}", var);
+            println!("  {var}");
         }
     }
     Ok(())
@@ -141,19 +141,19 @@ pub(crate) fn cmd_validate_check_resource_names(
     json: bool,
     pattern: &str,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
     let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
     let violations = find_naming_violations(&config, pattern);
     if json {
-        let items: Vec<String> = violations.iter().map(|n| format!("\"{}\"", n)).collect();
+        let items: Vec<String> = violations.iter().map(|n| format!("\"{n}\"")).collect();
         println!("{{\"naming_violations\":[{}]}}", items.join(","));
     } else if violations.is_empty() {
-        println!("All resource names match pattern: {}", pattern);
+        println!("All resource names match pattern: {pattern}");
     } else {
         println!("Resource naming violations ({}):", violations.len());
         for name in &violations {
-            println!("  {} — does not match '{}'", name, pattern);
+            println!("  {name} — does not match '{pattern}'");
         }
     }
     Ok(())
@@ -183,9 +183,9 @@ pub(crate) fn cmd_validate_check_resource_count(
     json: bool,
     limit: usize,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
     let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
     let counts = count_resources_per_machine(&config);
     let over: Vec<(&String, &usize)> = counts.iter().filter(|(_, c)| **c > limit).collect();
     if json {
@@ -193,16 +193,15 @@ pub(crate) fn cmd_validate_check_resource_count(
             .iter()
             .map(|(m, c)| {
                 format!(
-                    "{{\"machine\":\"{}\",\"count\":{},\"limit\":{}}}",
-                    m, c, limit
+                    "{{\"machine\":\"{m}\",\"count\":{c},\"limit\":{limit}}}"
                 )
             })
             .collect();
         println!("{{\"resource_count_violations\":[{}]}}", items.join(","));
     } else if over.is_empty() {
-        println!("All machines within resource limit ({}).", limit);
+        println!("All machines within resource limit ({limit}).");
     } else {
-        println!("Resource count violations (limit: {}):", limit);
+        println!("Resource count violations (limit: {limit}):");
         for (m, c) in &over {
             println!("  {} — {} resources (over by {})", m, c, *c - limit);
         }
@@ -223,14 +222,14 @@ fn count_resources_per_machine(config: &types::ForjarConfig) -> HashMap<String, 
 
 /// FJ-753: Detect duplicate file paths across resources on same machine.
 pub(crate) fn cmd_validate_check_duplicate_paths(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
     let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
     let dupes = find_duplicate_paths(&config);
     if json {
         let items: Vec<String> = dupes
             .iter()
-            .map(|(p, names)| format!("{{\"path\":\"{}\",\"resources\":{:?}}}", p, names))
+            .map(|(p, names)| format!("{{\"path\":\"{p}\",\"resources\":{names:?}}}"))
             .collect();
         println!("{{\"duplicate_paths\":[{}]}}", items.join(","));
     } else if dupes.is_empty() {

@@ -230,7 +230,7 @@ fn run_pre_apply_hook(machine: &Machine, hook: &str, timeout: Option<u64>) -> Op
             out.exit_code,
             out.stderr.trim()
         )),
-        Err(e) => Some(format!("pre_apply hook error: {}", e)),
+        Err(e) => Some(format!("pre_apply hook error: {e}")),
         _ => None,
     }
 }
@@ -283,7 +283,7 @@ fn handle_resource_output(
             Ok(ResourceOutcome::Failed { should_stop })
         }
         Err(e) => {
-            let error = format!("transport error: {}", e);
+            let error = format!("transport error: {e}");
             let should_stop = record_failure(
                 ctx,
                 &change.resource_id,
@@ -304,7 +304,7 @@ fn check_post_hook(machine: &Machine, hook: &str, timeout: Option<u64>) -> Optio
             pout.exit_code,
             pout.stderr.trim()
         )),
-        Err(e) => Some(format!("post_apply hook error: {}", e)),
+        Err(e) => Some(format!("post_apply hook error: {e}")),
         _ => None,
     }
 }
@@ -382,7 +382,7 @@ pub(crate) fn copia_apply_file(
         Some(sigs) => {
             // Read local source file
             let new_data =
-                std::fs::read(source).map_err(|e| format!("copia read source: {}", e))?;
+                std::fs::read(source).map_err(|e| format!("copia read source: {e}"))?;
 
             // Compute delta
             let delta = copia::compute_delta(&new_data, &sigs);

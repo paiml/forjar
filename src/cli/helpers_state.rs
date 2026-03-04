@@ -30,7 +30,7 @@ pub(crate) fn load_machine_locks(
 pub(crate) fn list_state_machines(state_dir: &Path) -> Result<Vec<String>, String> {
     let mut machines = Vec::new();
     let entries =
-        std::fs::read_dir(state_dir).map_err(|e| format!("cannot read state dir: {}", e))?;
+        std::fs::read_dir(state_dir).map_err(|e| format!("cannot read state dir: {e}"))?;
     for entry in entries.flatten() {
         if entry.path().is_dir() {
             let name = entry.file_name().to_string_lossy().to_string();
@@ -79,7 +79,7 @@ pub(crate) fn collect_transitive_deps(
     target: &str,
 ) -> Result<std::collections::HashSet<String>, String> {
     if !config.resources.contains_key(target) {
-        return Err(format!("resource '{}' not found", target));
+        return Err(format!("resource '{target}' not found"));
     }
     let mut visited = std::collections::HashSet::new();
     let mut stack = vec![target.to_string()];

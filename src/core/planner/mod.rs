@@ -83,8 +83,7 @@ fn resolve_or_fallback(resource_id: &str, resource: &Resource, config: &ForjarCo
     resolver::resolve_resource_templates(resource, &config.params, &config.machines).unwrap_or_else(
         |e| {
             eprintln!(
-                "warning: template resolution failed for {}: {}",
-                resource_id, e
+                "warning: template resolution failed for {resource_id}: {e}"
             );
             resource.clone()
         },
@@ -114,8 +113,7 @@ fn passes_machine_filters(
                 Ok(false) => return false,
                 Err(e) => {
                     eprintln!(
-                        "warning: when condition failed for {} on {}: {}",
-                        resource_id, machine_name, e
+                        "warning: when condition failed for {resource_id} on {machine_name}: {e}"
                     );
                     return false;
                 }
@@ -166,8 +164,7 @@ fn determine_action(
             if let Some(ref lifecycle) = resource.lifecycle {
                 if lifecycle.prevent_destroy {
                     eprintln!(
-                        "warning: {} has prevent_destroy — skipping destroy",
-                        resource_id
+                        "warning: {resource_id} has prevent_destroy — skipping destroy"
                     );
                     return PlanAction::NoOp;
                 }
@@ -297,19 +294,19 @@ fn describe_action(resource_id: &str, resource: &Resource, action: &PlanAction) 
         PlanAction::Create => match resource.resource_type {
             ResourceType::Package => {
                 let pkgs = resource.packages.join(", ");
-                format!("{}: install {}", resource_id, pkgs)
+                format!("{resource_id}: install {pkgs}")
             }
             ResourceType::File => {
                 let path = resource.path.as_deref().unwrap_or("?");
-                format!("{}: create {}", resource_id, path)
+                format!("{resource_id}: create {path}")
             }
             ResourceType::Service => {
                 let name = resource.name.as_deref().unwrap_or("?");
-                format!("{}: start {}", resource_id, name)
+                format!("{resource_id}: start {name}")
             }
             ResourceType::Mount => {
                 let path = resource.path.as_deref().unwrap_or("?");
-                format!("{}: mount {}", resource_id, path)
+                format!("{resource_id}: mount {path}")
             }
             ResourceType::User
             | ResourceType::Docker
@@ -319,11 +316,11 @@ fn describe_action(resource_id: &str, resource: &Resource, action: &PlanAction) 
             | ResourceType::Model
             | ResourceType::Gpu
             | ResourceType::Task
-            | ResourceType::Recipe => format!("{}: create", resource_id),
+            | ResourceType::Recipe => format!("{resource_id}: create"),
         },
-        PlanAction::Update => format!("{}: update (state changed)", resource_id),
-        PlanAction::Destroy => format!("{}: destroy", resource_id),
-        PlanAction::NoOp => format!("{}: no changes", resource_id),
+        PlanAction::Update => format!("{resource_id}: update (state changed)"),
+        PlanAction::Destroy => format!("{resource_id}: destroy"),
+        PlanAction::NoOp => format!("{resource_id}: no changes"),
     }
 }
 

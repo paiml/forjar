@@ -36,13 +36,13 @@ proptest! {
 
         for i in 0..n_resources {
             lock.resources.insert(
-                format!("res-{}", i),
+                format!("res-{i}"),
                 ResourceLock {
                     resource_type: ResourceType::Package,
                     status: ResourceStatus::Converged,
                     applied_at: Some("2026-01-01T00:00:00Z".to_string()),
                     duration_seconds: Some(1.0),
-                    hash: blake3::hash(format!("res-{}", i).as_bytes()).to_hex().to_string(),
+                    hash: blake3::hash(format!("res-{i}").as_bytes()).to_hex().to_string(),
                     details: std::collections::HashMap::new(),
                 },
             );

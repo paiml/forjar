@@ -14,7 +14,7 @@ pub fn parse_duration_secs(s: &str) -> Result<u64, String> {
     let (num_str, unit) = s.split_at(s.len() - 1);
     let n: u64 = num_str
         .parse()
-        .map_err(|_| format!("invalid duration number: '{}'", num_str))?;
+        .map_err(|_| format!("invalid duration number: '{num_str}'"))?;
 
     match unit {
         "s" => Ok(n),
@@ -22,8 +22,7 @@ pub fn parse_duration_secs(s: &str) -> Result<u64, String> {
         "h" => Ok(n * 3600),
         "d" => Ok(n * 86400),
         _ => Err(format!(
-            "unknown duration unit '{}' (use s, m, h, or d)",
-            unit
+            "unknown duration unit '{unit}' (use s, m, h, or d)"
         )),
     }
 }

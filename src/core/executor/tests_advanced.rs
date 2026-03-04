@@ -257,8 +257,7 @@ resources:
     assert_eq!(
         machines.len(),
         3,
-        "should collect 3 unique machines: {:?}",
-        machines
+        "should collect 3 unique machines: {machines:?}"
     );
     assert!(machines.contains(&"web".to_string()), "should contain web");
     assert!(machines.contains(&"db".to_string()), "should contain db");

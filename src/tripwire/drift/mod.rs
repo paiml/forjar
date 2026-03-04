@@ -27,14 +27,14 @@ pub fn check_file_drift(
             resource_type: ResourceType::File,
             expected_hash: expected_hash.to_string(),
             actual_hash: "MISSING".to_string(),
-            detail: format!("{} does not exist", path),
+            detail: format!("{path} does not exist"),
         });
     }
 
     let actual = if file_path.is_dir() {
-        hasher::hash_directory(file_path).unwrap_or_else(|e| format!("ERROR:{}", e))
+        hasher::hash_directory(file_path).unwrap_or_else(|e| format!("ERROR:{e}"))
     } else {
-        hasher::hash_file(file_path).unwrap_or_else(|e| format!("ERROR:{}", e))
+        hasher::hash_file(file_path).unwrap_or_else(|e| format!("ERROR:{e}"))
     };
 
     if actual != expected_hash {
@@ -43,7 +43,7 @@ pub fn check_file_drift(
             resource_type: ResourceType::File,
             expected_hash: expected_hash.to_string(),
             actual_hash: actual,
-            detail: format!("{} content changed", path),
+            detail: format!("{path} content changed"),
         })
     } else {
         None
@@ -57,7 +57,7 @@ fn hash_remote_content(
     machine: &Machine,
 ) -> Option<String> {
     if out.stdout.trim() == "__DIR__" {
-        let ls_script = format!("ls -la '{}'", path);
+        let ls_script = format!("ls -la '{path}'");
         match crate::transport::exec_script(machine, &ls_script) {
             Ok(ls_out) if ls_out.success() => Some(hasher::hash_string(&ls_out.stdout)),
             _ => None,
@@ -92,8 +92,7 @@ pub fn check_file_drift_via_transport(
     machine: &Machine,
 ) -> Option<DriftFinding> {
     let script = format!(
-        "set -euo pipefail\nif [ -d '{}' ]; then echo '__DIR__'; else cat '{}'; fi",
-        path, path
+        "set -euo pipefail\nif [ -d '{path}' ]; then echo '__DIR__'; else cat '{path}'; fi"
     );
     match crate::transport::exec_script(machine, &script) {
         Ok(out) if out.success() => {
@@ -103,7 +102,7 @@ pub fn check_file_drift_via_transport(
                     resource_id,
                     expected_hash,
                     actual,
-                    format!("{} content changed", path),
+                    format!("{path} content changed"),
                 ))
             } else {
                 None
@@ -119,7 +118,7 @@ pub fn check_file_drift_via_transport(
             resource_id,
             expected_hash,
             "ERROR".to_string(),
-            format!("transport error: {}", e),
+            format!("transport error: {e}"),
         )),
     }
 }
@@ -175,7 +174,7 @@ fn check_nonfile_drift(
             resource_type: rl.resource_type.clone(),
             expected_hash: stored_live_hash.to_string(),
             actual_hash: "ERROR".to_string(),
-            detail: format!("transport error: {}", e),
+            detail: format!("transport error: {e}"),
         }),
     }
 }

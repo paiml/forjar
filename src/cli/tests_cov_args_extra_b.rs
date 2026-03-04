@@ -17,7 +17,7 @@ mod tests {
             fix: false,
             network: false,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -29,7 +29,7 @@ mod tests {
             apply: false,
             yes: false,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -39,7 +39,7 @@ mod tests {
             resource: "r".to_string(),
             json: false,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -48,7 +48,7 @@ mod tests {
             file: PathBuf::from("f.yaml"),
             json: false,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -61,7 +61,7 @@ mod tests {
             group: None,
             json: false,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -70,7 +70,7 @@ mod tests {
             file: PathBuf::from("f.yaml"),
             json: false,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -81,7 +81,7 @@ mod tests {
             params: vec![],
             timeout: None,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -93,7 +93,7 @@ mod tests {
             params: vec![],
             timeout: None,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -106,7 +106,7 @@ mod tests {
             params: vec![],
             timeout: None,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -117,7 +117,7 @@ mod tests {
             limit: 20,
             json: false,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -126,7 +126,7 @@ mod tests {
             file: PathBuf::from("f.yaml"),
             json: false,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -137,7 +137,7 @@ mod tests {
             machine: None,
             output: None,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -146,7 +146,7 @@ mod tests {
             file: PathBuf::from("f.yaml"),
             json: false,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -156,7 +156,7 @@ mod tests {
             file2: PathBuf::from("b.yaml"),
             json: false,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -167,7 +167,7 @@ mod tests {
             state_dir: PathBuf::from("s"),
             json: false,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -177,7 +177,7 @@ mod tests {
             vars: vec![],
             json: false,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     // ── plan_args.rs (9 uncov) ──
@@ -202,7 +202,7 @@ mod tests {
             out: None,
             why: false,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -213,7 +213,7 @@ mod tests {
             machine: None,
             json: false,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     // ── state_args.rs (8 uncov) ──
@@ -225,7 +225,7 @@ mod tests {
             machine: None,
             json: false,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -236,7 +236,7 @@ mod tests {
             state_dir: PathBuf::from("s"),
             machine: None,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -247,7 +247,7 @@ mod tests {
             machine: None,
             force: false,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     // ── commands/mod.rs (23 uncov) — Commands enum ──
@@ -257,25 +257,25 @@ mod tests {
         let cmd = Commands::Init(InitArgs {
             path: PathBuf::from("."),
         });
-        let _ = format!("{:?}", cmd);
+        let _ = format!("{cmd:?}");
     }
 
     #[test]
     fn test_cov_commands_validate_variant() {
         let cmd = Commands::Schema;
-        let _ = format!("{:?}", cmd);
+        let _ = format!("{cmd:?}");
     }
 
     #[test]
     fn test_cov_commands_workspace_variant() {
         let cmd = Commands::Workspace(WorkspaceCmd::List);
-        let _ = format!("{:?}", cmd);
+        let _ = format!("{cmd:?}");
     }
 
     #[test]
     fn test_cov_commands_workspace_current() {
         let cmd = Commands::Workspace(WorkspaceCmd::Current);
-        let _ = format!("{:?}", cmd);
+        let _ = format!("{cmd:?}");
     }
 
     #[test]
@@ -283,7 +283,7 @@ mod tests {
         let cmd = Commands::Completion(CompletionArgs {
             shell: CompletionShell::Bash,
         });
-        let _ = format!("{:?}", cmd);
+        let _ = format!("{cmd:?}");
     }
 
     #[test]
@@ -291,7 +291,7 @@ mod tests {
         let cmd = Commands::Completion(CompletionArgs {
             shell: CompletionShell::Zsh,
         });
-        let _ = format!("{:?}", cmd);
+        let _ = format!("{cmd:?}");
     }
 
     #[test]
@@ -299,7 +299,7 @@ mod tests {
         let cmd = Commands::Completion(CompletionArgs {
             shell: CompletionShell::Fish,
         });
-        let _ = format!("{:?}", cmd);
+        let _ = format!("{cmd:?}");
     }
 
     #[test]
@@ -308,7 +308,7 @@ mod tests {
             name: "s1".to_string(),
             state_dir: PathBuf::from("s"),
         });
-        let _ = format!("{:?}", cmd);
+        let _ = format!("{cmd:?}");
     }
 
     #[test]
@@ -317,7 +317,7 @@ mod tests {
             state_dir: PathBuf::from("s"),
             json: false,
         });
-        let _ = format!("{:?}", cmd);
+        let _ = format!("{cmd:?}");
     }
 
     #[test]
@@ -327,7 +327,7 @@ mod tests {
             state_dir: PathBuf::from("s"),
             yes: false,
         });
-        let _ = format!("{:?}", cmd);
+        let _ = format!("{cmd:?}");
     }
 
     #[test]
@@ -336,13 +336,13 @@ mod tests {
             name: "s1".to_string(),
             state_dir: PathBuf::from("s"),
         });
-        let _ = format!("{:?}", cmd);
+        let _ = format!("{cmd:?}");
     }
 
     #[test]
     fn test_cov_commands_secrets_keygen() {
         let cmd = Commands::Secrets(SecretsCmd::Keygen);
-        let _ = format!("{:?}", cmd);
+        let _ = format!("{cmd:?}");
     }
 
     #[test]
@@ -351,7 +351,7 @@ mod tests {
             value: "secret".to_string(),
             recipient: vec!["age1key".to_string()],
         });
-        let _ = format!("{:?}", cmd);
+        let _ = format!("{cmd:?}");
     }
 
     #[test]
@@ -360,7 +360,7 @@ mod tests {
             value: "ENC[age,abc]".to_string(),
             identity: None,
         });
-        let _ = format!("{:?}", cmd);
+        let _ = format!("{cmd:?}");
     }
 
     #[test]
@@ -369,7 +369,7 @@ mod tests {
             file: PathBuf::from("f.yaml"),
             identity: None,
         });
-        let _ = format!("{:?}", cmd);
+        let _ = format!("{cmd:?}");
     }
 
     #[test]
@@ -379,7 +379,7 @@ mod tests {
             identity: None,
             recipient: vec!["age1key".to_string()],
         });
-        let _ = format!("{:?}", cmd);
+        let _ = format!("{cmd:?}");
     }
 
     #[test]
@@ -391,7 +391,7 @@ mod tests {
             re_encrypt: false,
             state_dir: PathBuf::from("s"),
         });
-        let _ = format!("{:?}", cmd);
+        let _ = format!("{cmd:?}");
     }
 
     #[test]
@@ -399,7 +399,7 @@ mod tests {
         let cmd = Commands::Workspace(WorkspaceCmd::New {
             name: "dev".to_string(),
         });
-        let _ = format!("{:?}", cmd);
+        let _ = format!("{cmd:?}");
     }
 
     #[test]
@@ -407,7 +407,7 @@ mod tests {
         let cmd = Commands::Workspace(WorkspaceCmd::Select {
             name: "dev".to_string(),
         });
-        let _ = format!("{:?}", cmd);
+        let _ = format!("{cmd:?}");
     }
 
     #[test]
@@ -416,6 +416,6 @@ mod tests {
             name: "dev".to_string(),
             yes: false,
         });
-        let _ = format!("{:?}", cmd);
+        let _ = format!("{cmd:?}");
     }
 }

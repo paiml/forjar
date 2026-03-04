@@ -143,11 +143,11 @@ fn print_provenance_json(
 ) {
     let state_items: Vec<String> = state_hashes
         .iter()
-        .map(|(m, h)| format!(r#"{{"machine":"{}","hash":"{}"}}"#, m, h))
+        .map(|(m, h)| format!(r#"{{"machine":"{m}","hash":"{h}"}}"#))
         .collect();
     let mat_items: Vec<String> = materials
         .iter()
-        .map(|(id, h)| format!(r#"{{"resource":"{}","digest":"{}"}}"#, id, h))
+        .map(|(id, h)| format!(r#"{{"resource":"{id}","digest":"{h}"}}"#))
         .collect();
 
     println!(

@@ -92,6 +92,12 @@ const RESOURCE_FIELDS: &[(&str, &str)] = &[
     ("on_drift", "Notification when drift detected"),
 ];
 
+impl Default for LspServer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl LspServer {
     pub fn new() -> Self {
         LspServer {
@@ -351,7 +357,7 @@ fn make_error_response(id: Option<&serde_json::Value>, code: i32, msg: &str) -> 
 
 /// Write an LSP message (Content-Length header + JSON body).
 pub fn write_message<W: Write>(writer: &mut W, msg: &serde_json::Value) -> io::Result<()> {
-    let body = serde_json::to_string(msg).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+    let body = serde_json::to_string(msg).map_err(io::Error::other)?;
     write!(writer, "Content-Length: {}\r\n\r\n{}", body.len(), body)?;
     writer.flush()
 }

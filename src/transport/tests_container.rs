@@ -131,8 +131,7 @@ fn test_fj021_exec_error_includes_container_name() {
     if let Err(e) = result {
         assert!(
             e.contains("forjar-unit-test") || e.contains("container"),
-            "error should reference container: {}",
-            e
+            "error should reference container: {e}"
         );
     }
 }
@@ -171,8 +170,7 @@ fn test_fj021_exec_with_fake_runtime() {
         Ok(out) => assert!(!out.success(), "/bin/false should fail"),
         Err(e) => assert!(
             e.contains("forjar-fake") || e.contains("pipe") || e.contains("false"),
-            "error should reference container or pipe failure: {}",
-            e
+            "error should reference container or pipe failure: {e}"
         ),
     }
 }
@@ -184,8 +182,7 @@ fn test_fj021_cleanup_error_includes_container_name() {
     if let Err(e) = result {
         assert!(
             e.contains("forjar-unit-test") || e.contains("container"),
-            "cleanup error should reference container: {}",
-            e
+            "cleanup error should reference container: {e}"
         );
     }
 }
@@ -282,8 +279,7 @@ fn test_fj021_podman_runtime() {
         // Error should mention the container name
         assert!(
             e.contains("forjar-podman-test"),
-            "podman error should reference container: {}",
-            e
+            "podman error should reference container: {e}"
         );
     }
 }
@@ -354,8 +350,7 @@ fn test_fj021_ensure_with_gpus_flag() {
     let result = ensure_container(&machine);
     assert!(
         result.is_ok(),
-        "ensure with --gpus all should succeed: {:?}",
-        result
+        "ensure with --gpus all should succeed: {result:?}"
     );
 }
 
@@ -391,8 +386,7 @@ fn test_fj021_ensure_with_rocm_devices() {
     let result = ensure_container(&machine);
     assert!(
         result.is_ok(),
-        "ensure with ROCm devices should succeed: {:?}",
-        result
+        "ensure with ROCm devices should succeed: {result:?}"
     );
 }
 
@@ -428,8 +422,7 @@ fn test_fj021_ensure_with_env_vars() {
     let result = ensure_container(&machine);
     assert!(
         result.is_ok(),
-        "ensure with env vars should succeed: {:?}",
-        result
+        "ensure with env vars should succeed: {result:?}"
     );
 }
 

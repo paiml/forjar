@@ -21,7 +21,7 @@ fn main() {
     let content_hash = hasher::hash_file(&managed_file).unwrap();
     println!("1. Created managed file");
     println!("   Path: {}", managed_file.display());
-    println!("   BLAKE3 hash: {}", content_hash);
+    println!("   BLAKE3 hash: {content_hash}");
 
     let mut resources = indexmap::IndexMap::new();
     resources.insert(
@@ -119,7 +119,7 @@ fn main() {
                 }
             }
             Ok(None) => println!("No state found for 'intel'"),
-            Err(e) => println!("Error loading state: {}", e),
+            Err(e) => println!("Error loading state: {e}"),
         }
     } else {
         println!("No state/ directory found (run forjar apply first)");

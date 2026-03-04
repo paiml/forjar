@@ -7,12 +7,12 @@ use std::path::Path;
 
 /// FJ-797: Detect resources not referenced by any depends_on chain.
 pub(crate) fn cmd_validate_check_orphan_resources(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
     let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
     let orphans = find_orphan_resources(&config);
     if json {
-        let items: Vec<String> = orphans.iter().map(|o| format!("\"{}\"", o)).collect();
+        let items: Vec<String> = orphans.iter().map(|o| format!("\"{o}\"")).collect();
         println!("{{\"orphan_resources\":[{}]}}", items.join(","));
     } else if orphans.is_empty() {
         println!("No orphan resources (all participate in dependency chains).");
@@ -22,7 +22,7 @@ pub(crate) fn cmd_validate_check_orphan_resources(file: &Path, json: bool) -> Re
             orphans.len()
         );
         for o in &orphans {
-            println!("  {}", o);
+            println!("  {o}");
         }
     }
     Ok(())
@@ -52,9 +52,9 @@ fn find_orphan_resources(config: &types::ForjarConfig) -> Vec<String> {
 
 /// FJ-801: Validate machine architecture fields are consistent.
 pub(crate) fn cmd_validate_check_machine_arch(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
     let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
     let valid_archs = [
         "x86_64", "aarch64", "arm64", "armv7", "riscv64", "ppc64le", "s390x",
     ];
@@ -69,7 +69,7 @@ pub(crate) fn cmd_validate_check_machine_arch(file: &Path, json: bool) -> Result
     if json {
         let items: Vec<String> = bad
             .iter()
-            .map(|(m, a)| format!("{{\"machine\":\"{}\",\"arch\":\"{}\"}}", m, a))
+            .map(|(m, a)| format!("{{\"machine\":\"{m}\",\"arch\":\"{a}\"}}"))
             .collect();
         println!("{{\"invalid_architectures\":[{}]}}", items.join(","));
     } else if bad.is_empty() {
@@ -88,14 +88,14 @@ pub(crate) fn cmd_validate_check_resource_health_conflicts(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
     let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
     let conflicts = find_health_conflicts(&config);
     if json {
         let items: Vec<String> = conflicts
             .iter()
-            .map(|(r, reason)| format!("{{\"resource\":\"{}\",\"conflict\":\"{}\"}}", r, reason))
+            .map(|(r, reason)| format!("{{\"resource\":\"{r}\",\"conflict\":\"{reason}\"}}"))
             .collect();
         println!("{{\"health_conflicts\":[{}]}}", items.join(","));
     } else if conflicts.is_empty() {
@@ -103,7 +103,7 @@ pub(crate) fn cmd_validate_check_resource_health_conflicts(
     } else {
         println!("Resource health conflicts ({}):", conflicts.len());
         for (r, reason) in &conflicts {
-            println!("  {} — {}", r, reason);
+            println!("  {r} — {reason}");
         }
     }
     Ok(())
@@ -119,7 +119,7 @@ fn find_health_conflicts(config: &types::ForjarConfig) -> Vec<(String, String)> 
         if has_service_state && !is_service {
             conflicts.push((
                 name.clone(),
-                format!("{} has service state but is type {}", name, rtype),
+                format!("{name} has service state but is type {rtype}"),
             ));
         }
         if is_service && resource.state.as_deref() == Some("absent") {
@@ -135,17 +135,16 @@ fn find_health_conflicts(config: &types::ForjarConfig) -> Vec<(String, String)> 
 
 /// FJ-809: Detect resources with overlapping scope on same machine.
 pub(crate) fn cmd_validate_check_resource_overlap(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
     let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
     let overlaps = find_resource_overlaps(&config);
     if json {
         let items: Vec<String> = overlaps
             .iter()
             .map(|(a, b, m)| {
                 format!(
-                    "{{\"resource_a\":\"{}\",\"resource_b\":\"{}\",\"machine\":\"{}\"}}",
-                    a, b, m
+                    "{{\"resource_a\":\"{a}\",\"resource_b\":\"{b}\",\"machine\":\"{m}\"}}"
                 )
             })
             .collect();
@@ -155,7 +154,7 @@ pub(crate) fn cmd_validate_check_resource_overlap(file: &Path, json: bool) -> Re
     } else {
         println!("Overlapping resources ({}):", overlaps.len());
         for (a, b, m) in &overlaps {
-            println!("  {} <-> {} on {}", a, b, m);
+            println!("  {a} <-> {b} on {m}");
         }
     }
     Ok(())
@@ -189,14 +188,14 @@ fn find_resource_overlaps(config: &types::ForjarConfig) -> Vec<(String, String, 
 
 /// FJ-813: Enforce tag conventions (required tags, naming rules).
 pub(crate) fn cmd_validate_check_resource_tags(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
     let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
     let issues = find_tag_issues(&config);
     if json {
         let items: Vec<String> = issues
             .iter()
-            .map(|(r, issue)| format!("{{\"resource\":\"{}\",\"issue\":\"{}\"}}", r, issue))
+            .map(|(r, issue)| format!("{{\"resource\":\"{r}\",\"issue\":\"{issue}\"}}"))
             .collect();
         println!("{{\"tag_issues\":[{}]}}", items.join(","));
     } else if issues.is_empty() {
@@ -204,7 +203,7 @@ pub(crate) fn cmd_validate_check_resource_tags(file: &Path, json: bool) -> Resul
     } else {
         println!("Tag convention issues ({}):", issues.len());
         for (r, issue) in &issues {
-            println!("  {} — {}", r, issue);
+            println!("  {r} — {issue}");
         }
     }
     Ok(())
@@ -219,10 +218,10 @@ fn find_tag_issues(config: &types::ForjarConfig) -> Vec<(String, String)> {
         }
         for tag in &resource.tags {
             if tag != &tag.to_lowercase() {
-                issues.push((name.clone(), format!("tag '{}' should be lowercase", tag)));
+                issues.push((name.clone(), format!("tag '{tag}' should be lowercase")));
             }
             if tag.contains(' ') {
-                issues.push((name.clone(), format!("tag '{}' contains spaces", tag)));
+                issues.push((name.clone(), format!("tag '{tag}' contains spaces")));
             }
         }
     }
@@ -235,14 +234,14 @@ pub(crate) fn cmd_validate_check_resource_state_consistency(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
     let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
     let issues = find_state_consistency_issues(&config);
     if json {
         let items: Vec<String> = issues
             .iter()
-            .map(|(r, issue)| format!("{{\"resource\":\"{}\",\"issue\":\"{}\"}}", r, issue))
+            .map(|(r, issue)| format!("{{\"resource\":\"{r}\",\"issue\":\"{issue}\"}}"))
             .collect();
         println!("{{\"state_consistency_issues\":[{}]}}", items.join(","));
     } else if issues.is_empty() {
@@ -250,7 +249,7 @@ pub(crate) fn cmd_validate_check_resource_state_consistency(
     } else {
         println!("State consistency issues ({}):", issues.len());
         for (r, issue) in &issues {
-            println!("  {} — {}", r, issue);
+            println!("  {r} — {issue}");
         }
     }
     Ok(())
@@ -279,7 +278,7 @@ fn find_state_consistency_issues(config: &types::ForjarConfig) -> Vec<(String, S
         if !valid {
             issues.push((
                 name.clone(),
-                format!("state '{}' invalid for type {}", state, rtype),
+                format!("state '{state}' invalid for type {rtype}"),
             ));
         }
     }
@@ -292,14 +291,14 @@ pub(crate) fn cmd_validate_check_resource_dependencies_complete(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
     let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
     let missing = find_missing_deps(&config);
     if json {
         let items: Vec<String> = missing
             .iter()
-            .map(|(r, dep)| format!("{{\"resource\":\"{}\",\"missing_dep\":\"{}\"}}", r, dep))
+            .map(|(r, dep)| format!("{{\"resource\":\"{r}\",\"missing_dep\":\"{dep}\"}}"))
             .collect();
         println!("{{\"missing_dependencies\":[{}]}}", items.join(","));
     } else if missing.is_empty() {
@@ -307,7 +306,7 @@ pub(crate) fn cmd_validate_check_resource_dependencies_complete(
     } else {
         println!("Missing dependency targets ({}):", missing.len());
         for (r, dep) in &missing {
-            println!("  {} depends on '{}' (not found)", r, dep);
+            println!("  {r} depends on '{dep}' (not found)");
         }
     }
     Ok(())
@@ -331,14 +330,14 @@ pub(crate) fn cmd_validate_check_machine_connectivity(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
     let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
     let issues = check_machine_addrs(&config);
     if json {
         let items: Vec<String> = issues
             .iter()
-            .map(|(m, issue)| format!("{{\"machine\":\"{}\",\"issue\":\"{}\"}}", m, issue))
+            .map(|(m, issue)| format!("{{\"machine\":\"{m}\",\"issue\":\"{issue}\"}}"))
             .collect();
         println!("{{\"connectivity_issues\":[{}]}}", items.join(","));
     } else if issues.is_empty() {
@@ -346,7 +345,7 @@ pub(crate) fn cmd_validate_check_machine_connectivity(
     } else {
         println!("Machine connectivity issues ({}):", issues.len());
         for (m, issue) in &issues {
-            println!("  {} — {}", m, issue);
+            println!("  {m} — {issue}");
         }
     }
     Ok(())
@@ -363,7 +362,7 @@ fn check_machine_addrs(config: &types::ForjarConfig) -> Vec<(String, String)> {
         } else if !addr.contains('.') && !addr.contains(':') {
             issues.push((
                 name.clone(),
-                format!("addr '{}' has no dots or colons", addr),
+                format!("addr '{addr}' has no dots or colons"),
             ));
         }
     }

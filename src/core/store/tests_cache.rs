@@ -85,7 +85,7 @@ fn test_fj1320_validate_valid() {
         max_size_mb: 0,
     };
     let errors = validate_cache_config(&cfg);
-    assert!(errors.is_empty(), "unexpected errors: {:?}", errors);
+    assert!(errors.is_empty(), "unexpected errors: {errors:?}");
 }
 
 #[test]

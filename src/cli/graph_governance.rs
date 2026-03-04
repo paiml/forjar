@@ -159,8 +159,8 @@ fn print_sibling_json(groups: &[SiblingGroup]) {
     let items: Vec<String> = groups
         .iter()
         .map(|g| {
-            let deps_str: Vec<String> = g.deps.iter().map(|d| format!("\"{}\"", d)).collect();
-            let members_str: Vec<String> = g.members.iter().map(|m| format!("\"{}\"", m)).collect();
+            let deps_str: Vec<String> = g.deps.iter().map(|d| format!("\"{d}\"")).collect();
+            let members_str: Vec<String> = g.members.iter().map(|m| format!("\"{m}\"")).collect();
             format!(
                 "{{\"deps\":[{}],\"members\":[{}],\"count\":{}}}",
                 deps_str.join(","),

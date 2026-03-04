@@ -38,7 +38,7 @@ pub(crate) fn cmd_graph_in_degree(file: &Path, json: bool) -> Result<(), String>
     if json {
         let items: Vec<String> = degrees
             .iter()
-            .map(|(n, d)| format!("{{\"resource\":\"{}\",\"in_degree\":{}}}", n, d))
+            .map(|(n, d)| format!("{{\"resource\":\"{n}\",\"in_degree\":{d}}}"))
             .collect();
         println!("{{\"in_degrees\":[{}]}}", items.join(","));
     } else if degrees.is_empty() {
@@ -46,7 +46,7 @@ pub(crate) fn cmd_graph_in_degree(file: &Path, json: bool) -> Result<(), String>
     } else {
         println!("In-degree (dependents) per resource:");
         for (name, deg) in &degrees {
-            println!("  {} — {}", name, deg);
+            println!("  {name} — {deg}");
         }
     }
     Ok(())
@@ -80,7 +80,7 @@ pub(crate) fn cmd_graph_out_degree(file: &Path, json: bool) -> Result<(), String
     if json {
         let items: Vec<String> = degrees
             .iter()
-            .map(|(n, d)| format!("{{\"resource\":\"{}\",\"out_degree\":{}}}", n, d))
+            .map(|(n, d)| format!("{{\"resource\":\"{n}\",\"out_degree\":{d}}}"))
             .collect();
         println!("{{\"out_degrees\":[{}]}}", items.join(","));
     } else if degrees.is_empty() {
@@ -88,7 +88,7 @@ pub(crate) fn cmd_graph_out_degree(file: &Path, json: bool) -> Result<(), String
     } else {
         println!("Out-degree (dependencies) per resource:");
         for (name, deg) in &degrees {
-            println!("  {} — {}", name, deg);
+            println!("  {name} — {deg}");
         }
     }
     Ok(())
@@ -103,13 +103,11 @@ pub(crate) fn cmd_graph_density(file: &Path, json: bool) -> Result<(), String> {
     let density = edges as f64 / max_edges as f64;
     if json {
         println!(
-            "{{\"nodes\":{},\"edges\":{},\"max_edges\":{},\"density\":{:.4}}}",
-            n, edges, max_edges, density
+            "{{\"nodes\":{n},\"edges\":{edges},\"max_edges\":{max_edges},\"density\":{density:.4}}}"
         );
     } else {
         println!(
-            "Graph density: {:.4} ({} edges / {} max, {} nodes)",
-            density, edges, max_edges, n
+            "Graph density: {density:.4} ({edges} edges / {max_edges} max, {n} nodes)"
         );
     }
     Ok(())
@@ -120,7 +118,7 @@ pub(crate) fn cmd_graph_topological_sort(file: &Path, json: bool) -> Result<(), 
     let cfg = parse_and_validate(file)?;
     let order = topological_sort_resources(&cfg);
     if json {
-        let items: Vec<String> = order.iter().map(|n| format!("\"{}\"", n)).collect();
+        let items: Vec<String> = order.iter().map(|n| format!("\"{n}\"")).collect();
         println!("{{\"topological_order\":[{}]}}", items.join(","));
     } else if order.is_empty() {
         println!("No resources (empty graph).");
@@ -203,7 +201,7 @@ pub(crate) fn cmd_graph_critical_path_resources(file: &Path, json: bool) -> Resu
     let cfg = parse_and_validate(file)?;
     let (length, chain) = find_longest_chain(&cfg);
     if json {
-        let items: Vec<String> = chain.iter().map(|n| format!("\"{}\"", n)).collect();
+        let items: Vec<String> = chain.iter().map(|n| format!("\"{n}\"")).collect();
         println!(
             "{{\"critical_path_length\":{},\"resources\":[{}]}}",
             length,
@@ -235,14 +233,14 @@ pub(crate) fn cmd_graph_sink_resources(file: &Path, json: bool) -> Result<(), St
         .collect();
     sinks.sort();
     if json {
-        let items: Vec<String> = sinks.iter().map(|n| format!("\"{}\"", n)).collect();
+        let items: Vec<String> = sinks.iter().map(|n| format!("\"{n}\"")).collect();
         println!("{{\"sink_resources\":[{}]}}", items.join(","));
     } else if sinks.is_empty() {
         println!("No sink resources (all have dependents).");
     } else {
         println!("Sink resources ({} with no dependents):", sinks.len());
         for name in &sinks {
-            println!("  {}", name);
+            println!("  {name}");
         }
     }
     Ok(())

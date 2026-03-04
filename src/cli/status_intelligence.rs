@@ -30,7 +30,7 @@ pub(crate) fn cmd_status_machine_resource_mttr_estimate(
     if json {
         let items: Vec<String> = estimates
             .iter()
-            .map(|(m, s)| format!("{{\"machine\":\"{}\",\"mttr_estimate\":\"{}\"}}", m, s))
+            .map(|(m, s)| format!("{{\"machine\":\"{m}\",\"mttr_estimate\":\"{s}\"}}"))
             .collect();
         println!("{{\"machine_mttr_estimates\":[{}]}}", items.join(","));
     } else if estimates.is_empty() {
@@ -38,7 +38,7 @@ pub(crate) fn cmd_status_machine_resource_mttr_estimate(
     } else {
         println!("Machine MTTR estimates:");
         for (m, s) in &estimates {
-            println!("  {} — {}", m, s);
+            println!("  {m} — {s}");
         }
     }
     Ok(())
@@ -68,7 +68,7 @@ pub(super) fn collect_mttr_estimates(sd: &Path, targets: &[&String]) -> Vec<(Str
             .filter(|r| matches!(r.status, types::ResourceStatus::Failed))
             .count();
         let est = if failed > 0 {
-            format!("{} failed resources — estimated recovery needed", failed)
+            format!("{failed} failed resources — estimated recovery needed")
         } else {
             "all healthy — no recovery needed".to_string()
         };
@@ -197,8 +197,7 @@ pub(crate) fn cmd_status_machine_resource_error_budget_forecast(
         for (m, f, t) in &forecasts {
             let remaining = 100.0 - pct(*f, *t);
             println!(
-                "  {} — {:.1}% budget remaining ({}/{} failed)",
-                m, remaining, f, t
+                "  {m} — {remaining:.1}% budget remaining ({f}/{t} failed)"
             );
         }
     }

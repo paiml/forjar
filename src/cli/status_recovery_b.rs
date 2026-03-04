@@ -23,7 +23,7 @@ pub(crate) fn cmd_status_machine_resource_failure_correlation(
                     "{{\"resource\":\"{}\",\"failed_on\":[{}]}}",
                     r,
                     ms.iter()
-                        .map(|m| format!("\"{}\"", m))
+                        .map(|m| format!("\"{m}\""))
                         .collect::<Vec<_>>()
                         .join(",")
                 )
@@ -86,7 +86,7 @@ pub(crate) fn cmd_status_fleet_resource_age_distribution(
     if json {
         let items: Vec<String> = ages
             .iter()
-            .map(|(bucket, count)| format!("{{\"age_bucket\":\"{}\",\"count\":{}}}", bucket, count))
+            .map(|(bucket, count)| format!("{{\"age_bucket\":\"{bucket}\",\"count\":{count}}}"))
             .collect();
         println!("{{\"resource_age_distribution\":[{}]}}", items.join(","));
     } else if ages.is_empty() {
@@ -94,7 +94,7 @@ pub(crate) fn cmd_status_fleet_resource_age_distribution(
     } else {
         println!("Fleet resource age distribution:");
         for (bucket, count) in &ages {
-            println!("  {} — {} resources", bucket, count);
+            println!("  {bucket} — {count} resources");
         }
     }
     Ok(())
@@ -146,7 +146,7 @@ pub(crate) fn cmd_status_machine_resource_rollback_readiness(
     if json {
         let items: Vec<String> = readiness
             .iter()
-            .map(|(m, s)| format!("{{\"machine\":\"{}\",\"rollback_ready\":\"{}\"}}", m, s))
+            .map(|(m, s)| format!("{{\"machine\":\"{m}\",\"rollback_ready\":\"{s}\"}}"))
             .collect();
         println!("{{\"machine_rollback_readiness\":[{}]}}", items.join(","));
     } else if readiness.is_empty() {
@@ -154,7 +154,7 @@ pub(crate) fn cmd_status_machine_resource_rollback_readiness(
     } else {
         println!("Machine rollback readiness:");
         for (m, s) in &readiness {
-            println!("  {} — {}", m, s);
+            println!("  {m} — {s}");
         }
     }
     Ok(())
@@ -193,7 +193,7 @@ pub(crate) fn cmd_status_machine_resource_health_trend(
     if json {
         let items: Vec<String> = trends
             .iter()
-            .map(|(m, s)| format!("{{\"machine\":\"{}\",\"trend\":\"{}\"}}", m, s))
+            .map(|(m, s)| format!("{{\"machine\":\"{m}\",\"trend\":\"{s}\"}}"))
             .collect();
         println!("{{\"machine_health_trends\":[{}]}}", items.join(","));
     } else if trends.is_empty() {
@@ -201,7 +201,7 @@ pub(crate) fn cmd_status_machine_resource_health_trend(
     } else {
         println!("Machine resource health trends:");
         for (m, s) in &trends {
-            println!("  {} — {}", m, s);
+            println!("  {m} — {s}");
         }
     }
     Ok(())
@@ -241,8 +241,7 @@ pub(crate) fn cmd_status_fleet_resource_drift_velocity(
             .iter()
             .map(|(m, d, t)| {
                 format!(
-                    "{{\"machine\":\"{}\",\"drifted\":{},\"total\":{}}}",
-                    m, d, t
+                    "{{\"machine\":\"{m}\",\"drifted\":{d},\"total\":{t}}}"
                 )
             })
             .collect();
@@ -297,7 +296,7 @@ pub(crate) fn cmd_status_machine_resource_apply_success_trend(
     if json {
         let items: Vec<String> = trends
             .iter()
-            .map(|(m, s)| format!("{{\"machine\":\"{}\",\"trend\":\"{}\"}}", m, s))
+            .map(|(m, s)| format!("{{\"machine\":\"{m}\",\"trend\":\"{s}\"}}"))
             .collect();
         println!("{{\"machine_apply_success_trends\":[{}]}}", items.join(","));
     } else if trends.is_empty() {
@@ -305,7 +304,7 @@ pub(crate) fn cmd_status_machine_resource_apply_success_trend(
     } else {
         println!("Machine apply success trends:");
         for (m, s) in &trends {
-            println!("  {} — {}", m, s);
+            println!("  {m} — {s}");
         }
     }
     Ok(())

@@ -90,8 +90,7 @@ pub fn exec_script_timeout(
             rx.recv_timeout(std::time::Duration::from_secs(secs))
                 .map_err(|_| {
                     format!(
-                        "transport timeout: script on '{}' exceeded {}s limit",
-                        hostname, secs
+                        "transport timeout: script on '{hostname}' exceeded {secs}s limit"
                     )
                 })?
         }

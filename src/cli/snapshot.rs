@@ -11,9 +11,9 @@ pub(crate) fn cmd_snapshot_save(name: &str, state_dir: &Path) -> Result<(), Stri
     }
     let snap_dir = snapshots_dir(state_dir).join(name);
     if snap_dir.exists() {
-        return Err(format!("snapshot '{}' already exists", name));
+        return Err(format!("snapshot '{name}' already exists"));
     }
-    std::fs::create_dir_all(&snap_dir).map_err(|e| format!("cannot create snapshot dir: {}", e))?;
+    std::fs::create_dir_all(&snap_dir).map_err(|e| format!("cannot create snapshot dir: {e}"))?;
 
     // Copy all files/dirs in state_dir except "snapshots" itself
     copy_dir_recursive(state_dir, &snap_dir, "snapshots")?;
@@ -25,9 +25,9 @@ pub(crate) fn cmd_snapshot_save(name: &str, state_dir: &Path) -> Result<(), Stri
         name
     );
     std::fs::write(snap_dir.join(".snapshot.yaml"), meta)
-        .map_err(|e| format!("cannot write snapshot metadata: {}", e))?;
+        .map_err(|e| format!("cannot write snapshot metadata: {e}"))?;
 
-    println!("Snapshot saved: {}", name);
+    println!("Snapshot saved: {name}");
     Ok(())
 }
 
@@ -44,7 +44,7 @@ pub(crate) fn cmd_snapshot_list(state_dir: &Path, json: bool) -> Result<(), Stri
 
     let mut snapshots: Vec<(String, String)> = Vec::new();
     let entries =
-        std::fs::read_dir(&snap_base).map_err(|e| format!("cannot read snapshots dir: {}", e))?;
+        std::fs::read_dir(&snap_base).map_err(|e| format!("cannot read snapshots dir: {e}"))?;
     for entry in entries.flatten() {
         if entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
             let name = entry.file_name().to_string_lossy().to_string();
@@ -76,13 +76,13 @@ pub(crate) fn cmd_snapshot_list(state_dir: &Path, json: bool) -> Result<(), Stri
             .collect();
         println!(
             "{}",
-            serde_json::to_string_pretty(&items).map_err(|e| format!("JSON error: {}", e))?
+            serde_json::to_string_pretty(&items).map_err(|e| format!("JSON error: {e}"))?
         );
     } else if snapshots.is_empty() {
         println!("No snapshots.");
     } else {
         for (name, created) in &snapshots {
-            println!("  {} ({})", name, created);
+            println!("  {name} ({created})");
         }
     }
     Ok(())
@@ -91,7 +91,7 @@ pub(crate) fn cmd_snapshot_list(state_dir: &Path, json: bool) -> Result<(), Stri
 pub(crate) fn cmd_snapshot_restore(name: &str, state_dir: &Path, yes: bool) -> Result<(), String> {
     let snap_dir = snapshots_dir(state_dir).join(name);
     if !snap_dir.exists() {
-        return Err(format!("snapshot '{}' does not exist", name));
+        return Err(format!("snapshot '{name}' does not exist"));
     }
     if !yes {
         return Err("Restore will overwrite current state. Use --yes to confirm.".to_string());
@@ -99,7 +99,7 @@ pub(crate) fn cmd_snapshot_restore(name: &str, state_dir: &Path, yes: bool) -> R
 
     // Remove current state (except snapshots dir)
     let entries =
-        std::fs::read_dir(state_dir).map_err(|e| format!("cannot read state dir: {}", e))?;
+        std::fs::read_dir(state_dir).map_err(|e| format!("cannot read state dir: {e}"))?;
     for entry in entries.flatten() {
         let name_os = entry.file_name();
         if name_os.to_string_lossy() == "snapshots" {
@@ -118,17 +118,17 @@ pub(crate) fn cmd_snapshot_restore(name: &str, state_dir: &Path, yes: bool) -> R
     // Copy snapshot back (excluding .snapshot.yaml metadata)
     copy_dir_recursive(&snap_dir, state_dir, ".snapshot.yaml")?;
 
-    println!("Restored snapshot: {}", name);
+    println!("Restored snapshot: {name}");
     Ok(())
 }
 
 pub(crate) fn cmd_snapshot_delete(name: &str, state_dir: &Path) -> Result<(), String> {
     let snap_dir = snapshots_dir(state_dir).join(name);
     if !snap_dir.exists() {
-        return Err(format!("snapshot '{}' does not exist", name));
+        return Err(format!("snapshot '{name}' does not exist"));
     }
-    std::fs::remove_dir_all(&snap_dir).map_err(|e| format!("cannot delete snapshot: {}", e))?;
-    println!("Deleted snapshot: {}", name);
+    std::fs::remove_dir_all(&snap_dir).map_err(|e| format!("cannot delete snapshot: {e}"))?;
+    println!("Deleted snapshot: {name}");
     Ok(())
 }
 

@@ -27,7 +27,7 @@ pub(crate) fn cmd_validate_check_resource_dependency_refs(
     if json {
         let items: Vec<String> = missing
             .iter()
-            .map(|(n, d)| format!("{{\"resource\":\"{}\",\"missing_ref\":\"{}\"}}", n, d))
+            .map(|(n, d)| format!("{{\"resource\":\"{n}\",\"missing_ref\":\"{d}\"}}"))
             .collect();
         println!("{{\"missing_dependency_refs\":[{}]}}", items.join(","));
     } else if missing.is_empty() {
@@ -35,7 +35,7 @@ pub(crate) fn cmd_validate_check_resource_dependency_refs(
     } else {
         println!("Missing dependency references:");
         for (n, d) in &missing {
-            println!("  {} → {} (not found)", n, d);
+            println!("  {n} → {d} (not found)");
         }
     }
     Ok(())
@@ -62,7 +62,7 @@ pub(crate) fn cmd_validate_check_resource_trigger_refs(
     if json {
         let items: Vec<String> = invalid
             .iter()
-            .map(|(n, t)| format!("{{\"resource\":\"{}\",\"invalid_trigger\":\"{}\"}}", n, t))
+            .map(|(n, t)| format!("{{\"resource\":\"{n}\",\"invalid_trigger\":\"{t}\"}}"))
             .collect();
         println!("{{\"invalid_trigger_refs\":[{}]}}", items.join(","));
     } else if invalid.is_empty() {
@@ -70,7 +70,7 @@ pub(crate) fn cmd_validate_check_resource_trigger_refs(
     } else {
         println!("Invalid trigger references:");
         for (n, t) in &invalid {
-            println!("  {} → {} (not found)", n, t);
+            println!("  {n} → {t} (not found)");
         }
     }
     Ok(())
@@ -95,20 +95,20 @@ pub(crate) fn cmd_validate_check_resource_param_type_safety(
         if (name.contains("port") || name.ends_with("_port")) && val_str.parse::<u16>().is_err() {
             warnings.push((
                 name.clone(),
-                format!("expected port number, got '{}'", val_str),
+                format!("expected port number, got '{val_str}'"),
             ));
         }
         if (name.contains("path") || name.ends_with("_dir"))
             && !val_str.starts_with('/')
             && !val_str.starts_with('.')
         {
-            warnings.push((name.clone(), format!("expected path, got '{}'", val_str)));
+            warnings.push((name.clone(), format!("expected path, got '{val_str}'")));
         }
     }
     if json {
         let items: Vec<String> = warnings
             .iter()
-            .map(|(n, w)| format!("{{\"param\":\"{}\",\"warning\":\"{}\"}}", n, w))
+            .map(|(n, w)| format!("{{\"param\":\"{n}\",\"warning\":\"{w}\"}}"))
             .collect();
         println!("{{\"param_type_warnings\":[{}]}}", items.join(","));
     } else if warnings.is_empty() {
@@ -116,7 +116,7 @@ pub(crate) fn cmd_validate_check_resource_param_type_safety(
     } else {
         println!("Parameter type warnings:");
         for (n, w) in &warnings {
-            println!("  {} — {}", n, w);
+            println!("  {n} — {w}");
         }
     }
     Ok(())
@@ -145,7 +145,7 @@ pub(crate) fn cmd_validate_check_resource_machine_balance(
     if json {
         let items: Vec<String> = counts
             .iter()
-            .map(|(m, c)| format!("{{\"machine\":\"{}\",\"resources\":{}}}", m, c))
+            .map(|(m, c)| format!("{{\"machine\":\"{m}\",\"resources\":{c}}}"))
             .collect();
         println!(
             "{{\"imbalance_ratio\":{:.4},\"machines\":[{}]}}",
@@ -153,14 +153,13 @@ pub(crate) fn cmd_validate_check_resource_machine_balance(
             items.join(",")
         );
     } else if imbalance > 0.5 {
-        println!("Resource imbalance detected (ratio: {:.4}):", imbalance);
+        println!("Resource imbalance detected (ratio: {imbalance:.4}):");
         for (m, c) in &counts {
-            println!("  {} — {} resources", m, c);
+            println!("  {m} — {c} resources");
         }
     } else {
         println!(
-            "Resource distribution is balanced (ratio: {:.4}).",
-            imbalance
+            "Resource distribution is balanced (ratio: {imbalance:.4})."
         );
     }
     Ok(())
@@ -189,7 +188,7 @@ pub(crate) fn cmd_validate_check_resource_env_consistency(
                     {
                         warnings.push((
                             name.clone(),
-                            format!("references undeclared param '{}'", var),
+                            format!("references undeclared param '{var}'"),
                         ));
                     }
                     rest = &rest[end + 2..];
@@ -202,7 +201,7 @@ pub(crate) fn cmd_validate_check_resource_env_consistency(
     if json {
         let items: Vec<String> = warnings
             .iter()
-            .map(|(n, w)| format!("{{\"resource\":\"{}\",\"warning\":\"{}\"}}", n, w))
+            .map(|(n, w)| format!("{{\"resource\":\"{n}\",\"warning\":\"{w}\"}}"))
             .collect();
         println!("{{\"env_consistency_warnings\":[{}]}}", items.join(","));
     } else if warnings.is_empty() {
@@ -210,7 +209,7 @@ pub(crate) fn cmd_validate_check_resource_env_consistency(
     } else {
         println!("Environment variable warnings:");
         for (n, w) in &warnings {
-            println!("  {} — {}", n, w);
+            println!("  {n} — {w}");
         }
     }
     Ok(())
@@ -236,14 +235,14 @@ pub(crate) fn cmd_validate_check_resource_secret_rotation(
         }
     }
     if json {
-        let items: Vec<String> = warnings.iter().map(|n| format!("\"{}\"", n)).collect();
+        let items: Vec<String> = warnings.iter().map(|n| format!("\"{n}\"")).collect();
         println!("{{\"secrets_without_rotation\":[{}]}}", items.join(","));
     } else if warnings.is_empty() {
         println!("All secret resources have rotation metadata.");
     } else {
         println!("Secrets without rotation tags:");
         for n in &warnings {
-            println!("  {} — missing rotation policy tags", n);
+            println!("  {n} — missing rotation policy tags");
         }
     }
     Ok(())
@@ -263,14 +262,14 @@ pub(crate) fn cmd_validate_check_resource_lifecycle_completeness(
         }
     }
     if json {
-        let items: Vec<String> = warnings.iter().map(|n| format!("\"{}\"", n)).collect();
+        let items: Vec<String> = warnings.iter().map(|n| format!("\"{n}\"")).collect();
         println!("{{\"incomplete_lifecycle\":[{}]}}", items.join(","));
     } else if warnings.is_empty() {
         println!("All resources have complete lifecycle definitions.");
     } else {
         println!("Resources with incomplete lifecycle:");
         for n in &warnings {
-            println!("  {} — missing content/deps/tags", n);
+            println!("  {n} — missing content/deps/tags");
         }
     }
     Ok(())
@@ -304,7 +303,7 @@ pub(crate) fn cmd_validate_check_resource_provider_compatibility(
     if json {
         let items: Vec<String> = warnings
             .iter()
-            .map(|(n, t)| format!("{{\"resource\":\"{}\",\"type\":\"{}\"}}", n, t))
+            .map(|(n, t)| format!("{{\"resource\":\"{n}\",\"type\":\"{t}\"}}"))
             .collect();
         println!("{{\"provider_warnings\":[{}]}}", items.join(","));
     } else if warnings.is_empty() {
@@ -312,7 +311,7 @@ pub(crate) fn cmd_validate_check_resource_provider_compatibility(
     } else {
         println!("Provider compatibility warnings:");
         for (n, t) in &warnings {
-            println!("  {} — unknown type '{}'", n, t);
+            println!("  {n} — unknown type '{t}'");
         }
     }
     Ok(())

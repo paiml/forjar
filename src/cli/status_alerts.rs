@@ -71,8 +71,7 @@ pub(crate) fn cmd_status_alerts(
             .iter()
             .map(|(m, r, s)| {
                 format!(
-                    "{{\"machine\":\"{}\",\"resource\":\"{}\",\"status\":\"{}\"}}",
-                    m, r, s
+                    "{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"status\":\"{s}\"}}"
                 )
             })
             .collect();
@@ -82,7 +81,7 @@ pub(crate) fn cmd_status_alerts(
     } else {
         println!("{} {} alert(s):", red("⚠"), alerts.len());
         for (m, r, s) in &alerts {
-            println!("  {}/{}: {}", m, r, s);
+            println!("  {m}/{r}: {s}");
         }
     }
     Ok(())
@@ -95,7 +94,7 @@ fn collect_uptime_entries(
 ) -> Vec<(String, String, String, String)> {
     let mut entries = Vec::new();
     for m in targets {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
         if !lock_path.exists() {
             continue;
         }
@@ -134,8 +133,7 @@ pub(crate) fn cmd_status_uptime(
                 print!(",");
             }
             print!(
-                r#"{{"machine":"{}","resource":"{}","status":"{}","since":"{}"}}"#,
-                m, rname, status_str, applied
+                r#"{{"machine":"{m}","resource":"{rname}","status":"{status_str}","since":"{applied}"}}"#
             );
         }
         println!("]}}");
@@ -175,7 +173,7 @@ fn collect_diagnostic_stats(
                 continue;
             }
         }
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
         if !lock_path.exists() {
             continue;
         }
@@ -213,17 +211,15 @@ pub(crate) fn cmd_status_diagnostic(
 
     if json {
         println!(
-            r#"{{"machines":{},"resources":{},"converged":{},"failed":{},"drifted":{},"health":{:.1}}}"#,
-            machine_count, total_resources, converged, failed, drifted, health
+            r#"{{"machines":{machine_count},"resources":{total_resources},"converged":{converged},"failed":{failed},"drifted":{drifted},"health":{health:.1}}}"#
         );
     } else {
         println!("Diagnostic Report");
-        println!("  Machines: {}", machine_count);
+        println!("  Machines: {machine_count}");
         println!(
-            "  Resources: {} (converged: {}, failed: {}, drifted: {})",
-            total_resources, converged, failed, drifted
+            "  Resources: {total_resources} (converged: {converged}, failed: {failed}, drifted: {drifted})"
         );
-        println!("  Health: {:.1}%", health);
+        println!("  Health: {health:.1}%");
         if failed > 0 {
             println!(
                 "  Recommendation: Run 'forjar status --error-summary' to investigate failures"
@@ -363,8 +359,7 @@ pub(crate) fn cmd_status_dependency_health(
             red("✗")
         };
         println!(
-            "{} Dependency-weighted health score: {:.0}%",
-            indicator, health_pct
+            "{indicator} Dependency-weighted health score: {health_pct:.0}%"
         );
         println!(
             "  Resources: {}, Weighted total: {:.1}/{:.1}",

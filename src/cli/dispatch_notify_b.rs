@@ -196,8 +196,7 @@ pub(super) fn send_cloud_notifications(opts: &NotifyOpts<'_>, msg: &str) {
     if let Some(bus) = opts.eventbridge {
         let detail = msg.replace('"', "\\\"");
         let entry = format!(
-            r#"[{{"Source":"forjar","DetailType":"ApplyEvent","Detail":"{}","EventBusName":"{}"}}]"#,
-            detail, bus
+            r#"[{{"Source":"forjar","DetailType":"ApplyEvent","Detail":"{detail}","EventBusName":"{bus}"}}]"#
         );
         let _ = std::process::Command::new("aws")
             .args(["events", "put-events", "--entries", &entry])
@@ -258,8 +257,8 @@ pub(super) fn send_broker_notifications(opts: &NotifyOpts<'_>, msg: &str) {
             .args([
                 "publish",
                 "routing_key=forjar",
-                &format!("exchange={}", queue),
-                &format!("payload={}", msg),
+                &format!("exchange={queue}"),
+                &format!("payload={msg}"),
             ])
             .output();
     }

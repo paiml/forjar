@@ -306,6 +306,6 @@ pub fn yaml_value_to_string(val: &serde_yaml_ng::Value) -> String {
         serde_yaml_ng::Value::Number(n) => n.to_string(),
         serde_yaml_ng::Value::Bool(b) => b.to_string(),
         serde_yaml_ng::Value::Null => String::new(),
-        other => format!("{:?}", other),
+        other => format!("{other:?}"),
     }
 }

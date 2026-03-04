@@ -115,8 +115,8 @@ fn demo_flight_grade() {
     println!("--- Flight-Grade Execution ---");
 
     let report = check_compliance(100, 10);
-    println!("  Resources: 100 (max: {})", MAX_RESOURCES);
-    println!("  Depth: 10 (max: {})", MAX_DEPTH);
+    println!("  Resources: 100 (max: {MAX_RESOURCES})");
+    println!("  Depth: 10 (max: {MAX_DEPTH})");
     println!("  No dynamic alloc: {}", report.no_dynamic_alloc);
     println!("  Bounded loops: {}", report.bounded_loops);
     println!("  No panic paths: {}", report.no_panic_paths);
