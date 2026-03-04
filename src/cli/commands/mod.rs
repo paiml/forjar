@@ -479,4 +479,12 @@ pub enum Commands {
     /// FJ-1435: Parallel multi-stack apply
     #[command(name = "parallel-apply")]
     ParallelApply(ParallelStackArgs),
+
+    /// FJ-1436: Saga-pattern multi-stack apply
+    #[command(name = "saga")]
+    Saga(SagaArgs),
+
+    /// FJ-1437: Agent recipe registry
+    #[command(name = "agent-registry")]
+    AgentRegistry(AgentRegistryArgs),
 }

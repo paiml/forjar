@@ -163,3 +163,35 @@ pub struct ParallelStackArgs {
     #[clap(long)]
     pub json: bool,
 }
+
+/// Saga-pattern multi-stack apply.
+#[derive(Parser, Debug)]
+pub struct SagaArgs {
+    /// Config files
+    #[clap(short, long, required = true)]
+    pub file: Vec<PathBuf>,
+
+    /// State directory
+    #[clap(long, default_value = "state")]
+    pub state_dir: PathBuf,
+
+    /// JSON output
+    #[clap(long)]
+    pub json: bool,
+}
+
+/// Agent recipe registry.
+#[derive(Parser, Debug)]
+pub struct AgentRegistryArgs {
+    /// Registry directory
+    #[clap(long)]
+    pub registry_dir: Option<PathBuf>,
+
+    /// Filter by category
+    #[clap(long)]
+    pub category: Option<String>,
+
+    /// JSON output
+    #[clap(long)]
+    pub json: bool,
+}
