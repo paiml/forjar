@@ -193,7 +193,7 @@
 | 102 | **Timing breakdown** — Parse, resolve, apply, total timing with `--timing` flag | F | ✅ | FJ-276: human-readable seconds |
 | 103 | **Config comparison** — `forjar compare` shows colored diff between two config files | A, E | ✅ | `cmd_compare()` with `+`, `~`, `-`, `=` symbols |
 | 104 | **Structured logging framework (tracing)** — Log levels (DEBUG, INFO, WARN, ERROR), structured spans, subscriber-based output | A, D, E | ✅ | `cli/structured_log.rs`: Level enum (Debug/Info/Warn/Error); global atomic level filter; JSON + human-readable output; `log_event()` with structured fields; `Span` with RAII enter/exit; 8 tests |
-| 105 | **Progress bars / spinners** — Animated progress with ETA for long-running applies (indicatif) | E | ❌ | `--progress` flag exists but no `indicatif` implementation |
+| 105 | **Progress bars / spinners** — Animated progress with ETA for long-running applies (indicatif) | E | ✅ | `cli/progress.rs`: Spinner with 10-frame animation + elapsed time; ProgressBar with ASCII bar, percentage, ETA estimation; ProgressTracker for multi-resource tracking; no external deps; 11 tests (8 unit + 3 integration) |
 | 106 | **`--why` flag for change explanation** — Per-resource "why is this changing?" with hash diff, field diff, dependency chain | A, E | ✅ | `forjar plan --why`; `planner/why.rs`: `explain_why()` with `ChangeReason` struct; 8 tests |
 | 107 | **Interactive TUI mode** — Terminal UI for browsing plan, approving resources selectively, viewing live apply status | E | ❌ | No `ratatui`/`cursive`; CLI-only |
 | 108 | **Graph export to image** — Direct PNG/SVG rendering of dependency graphs without external `graphviz`/`mmdc` | E | ✅ | `forjar graph --format svg` generates standalone SVG with grid layout, color-coded nodes, arrow markers |
@@ -207,7 +207,7 @@
 | 111 | **GPU resource management (CUDA + ROCm)** — Driver version, toolkit, device selection, persistence mode, compute mode | B, F | ✅ | FJ-241: NVIDIA + AMD + CPU fallback |
 | 112 | **ML model downloads with integrity verification** — HTTP, HuggingFace, local sources; BLAKE3 checksums; format/quantization support | B, F | ✅ | FJ-240: gguf, safetensors, apr formats |
 | 113 | **Ferrocene-compiled binary for certified environments** — Build with safety-certified Rust toolchain for ISO 26262/DO-178C | C, D | ❌ | Standard rustc; no Ferrocene CI |
-| 114 | **DO-330 tool qualification data package** — Requirements traceability matrix, MC/DC report, structural coverage for avionics supply chains | D | ❌ | No qualification data package |
+| 114 | **DO-330 tool qualification data package** — Requirements traceability matrix, MC/DC report, structural coverage for avionics supply chains | D | ✅ | `core/do330.rs`: ToolQualLevel (TQL-1..5); Requirement with traceability (id, description, source, test_cases); CoverageEvidence (line/branch/MC-DC); QualificationPackage generator; 6 tests |
 | 115 | **Flight-grade execution mode** — No dynamic allocation, no unbounded loops, no panic paths; `#![no_std]` compatible core | C, D | ❌ | Standard Rust with alloc; not `no_std` |
 
 ### Category 12: Stack Orchestration and Multi-Config Management (116–125)
@@ -233,11 +233,11 @@
 
 | Status | Count | Percentage |
 |--------|-------|------------|
-| ✅ Implemented | 156 | 94% |
+| ✅ Implemented | 158 | 95% |
 | ⚠️ Partial | 1 | 1% |
-| ❌ Not Implemented | 6 | 4% |
+| ❌ Not Implemented | 4 | 2% |
 | Not yet tracked | 3 | 2% |
-| **Effective Score** | **156.5/166** | **(156 full + 1×0.5 partial)** |
+| **Effective Score** | **158.5/166** | **(158 full + 1×0.5 partial)** |
 
 ### By Principle
 
