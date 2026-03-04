@@ -233,10 +233,11 @@
 
 | Status | Count | Percentage |
 |--------|-------|------------|
-| ✅ Implemented | 85 | 51% |
-| ⚠️ Partial | 26 | 16% |
-| ❌ Not Implemented | 55 | 33% |
-| **Effective Score** | **98/166** | **(85 full + 26×0.5 partial)** |
+| ✅ Implemented | 145 | 87% |
+| ⚠️ Partial | 1 | 1% |
+| ❌ Not Implemented | 17 | 10% |
+| Not yet tracked | 3 | 2% |
+| **Effective Score** | **145.5/166** | **(145 full + 1×0.5 partial)** |
 
 ### By Principle
 
@@ -601,7 +602,7 @@ Based on CDK/Terraform/Pulumi failure analysis and formal methods research, forj
 |---|---------|-----------|--------|-------|
 | 126 | **Generational state snapshots** — Numbered generations per machine; `forjar rollback --generation N` switches instantly (Nix-style atomic symlink swap) | A, B, E | ✅ | `generation.rs`: `create_generation()`, `rollback_to_generation()`, `gc_generations()`; atomic symlink swap; `forjar generation list/gc`; 11 tests |
 | 127 | **Event-sourced state reconstruction** — Reconstruct any historical state by replaying JSONL events from genesis or last snapshot; `forjar state reconstruct --at <timestamp>` | A, D | ✅ | `forjar state-reconstruct --at <TS> --machine <M>`; `state/reconstruct.rs` replays events.jsonl |
-| 128 | **Saga-pattern multi-stack apply** — Each stack apply records a compensating snapshot; on failure, prior stacks revert to snapshot; coordinator tracks completion | A, D, E | ❌ | No multi-stack coordination or compensating transactions |
+| 128 | **Saga-pattern multi-stack apply** — Each stack apply records a compensating snapshot; on failure, prior stacks revert to snapshot; coordinator tracks completion | A, D, E | ✅ | `saga_coordinator.rs`: `SagaStep`/`SagaStepStatus` types; `cmd_saga_plan` builds compensating snapshots; `forjar saga` CLI; 5 tests in `tests_saga_coordinator.rs` |
 | 129 | **Pre-apply state snapshot** — Automatic snapshot of all lock files before every apply; retained for N generations (configurable gc) | A, D, E | ✅ | `policy.snapshot_generations: N`; auto-snapshot before apply with GC in `apply.rs::maybe_auto_snapshot()` |
 | 130 | **Reversibility classification** — Every resource operation classified as reversible (create file) or irreversible (drop database); irreversible ops gated behind `--yes-destroy-data` | A, D, E | ✅ | `planner/reversibility.rs`: `classify()`, `count_irreversible()`, `warn_irreversible()`; 10 tests |
 | 131 | **Cross-stack staleness detection** — Warn when consuming a `forjar-state` data source whose producer was last applied >N hours ago; `--max-staleness <duration>` | A, E | ✅ | `resolver/staleness.rs`: `parse_duration_secs()`, `is_stale()`; warns on stale producer outputs |
@@ -651,7 +652,7 @@ Based on CDK/Terraform/Pulumi failure analysis and formal methods research, forj
 | 160 | **Agent scaling and load balancing** — `count: N` to deploy N instances of same agent; configure load balancer across instances | F | ✅ | `examples/multi-agent-fleet.yaml`: 3-machine fleet with nginx upstream load balancer config resource |
 | 161 | **Agent tool permission policies** — `policies:` rules that enforce which MCP tools an agent can access; deny dangerous tools by default | A, D, E | ✅ | `examples/multi-agent-fleet.yaml`: tool-policy.yaml resource with allow/deny lists; `policies:` deny pattern enforcement |
 | 162 | **Agent SBOM** — Auto-generate agent bill of materials: model hash, tool list, system prompt hash, dependency versions, pforge config hash | A, D | ✅ | `forjar agent-sbom` detects model/GPU/MCP/agent-service/agent-container components; JSON/text output |
-| 163 | **OpenClaw recipe registry** — Curated library of agent deployment recipes: code assistant, data analyst, security auditor, customer support; versioned, signed, composable | B, D, E | ❌ | No recipe registry (#66); this extends it with agent-specific curated recipes |
+| 163 | **OpenClaw recipe registry** — Curated library of agent deployment recipes: code assistant, data analyst, security auditor, customer support; versioned, signed, composable | B, D, E | ✅ | `agent_registry.rs`: `AgentRecipe`/`AgentCategory` types; versioned registry with JSON persistence; search by name/tag; `forjar agent-registry` CLI; 6 tests in `tests_agent_registry.rs` |
 
 ---
 
