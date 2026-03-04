@@ -18,6 +18,7 @@ pub mod store;
 pub mod types;
 
 mod kani_proofs;
+pub mod mcdc;
 mod scoring_b;
 mod verus_spec;
 #[cfg(test)]
