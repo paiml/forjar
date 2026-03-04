@@ -37,9 +37,25 @@ impl ExecOutput {
 }
 
 /// FJ-1357: Validate script via bashrs before execution (I8 enforcement gate).
+///
+/// FJ-29: Strip base64 payloads from `source:` file resources before linting.
+/// The pattern `echo '<base64>' | base64 -d > '<path>'` contains opaque binary
+/// data that bashrs misinterprets as shell syntax. The base64 blob is always
+/// single-quoted and piped — never executed — so it is safe to skip.
 fn validate_before_exec(script: &str) -> Result<(), String> {
-    crate::core::purifier::validate_script(script)
+    let sanitised = strip_base64_payloads(script);
+    crate::core::purifier::validate_script(&sanitised)
         .map_err(|e| format!("I8 violation — script failed bashrs validation: {e}"))
+}
+
+/// Replace base64 data blobs with a harmless placeholder before bashrs linting.
+/// Matches lines of the form: `echo '<base64...>' | base64 -d > '<path>'`
+fn strip_base64_payloads(script: &str) -> String {
+    let re = regex::Regex::new(
+        r"echo '([A-Za-z0-9+/=\n]+)' \| base64 -d > '([^']+)'"
+    ).expect("base64 regex is valid");
+    re.replace_all(script, "echo 'FORJAR_BASE64_STRIPPED' > '$2'")
+        .into_owned()
 }
 
 /// Execute a purified shell script on a machine.

@@ -306,3 +306,61 @@ fn test_fj261_retry_zero_clamped_to_one() {
     assert!(out.success());
     assert_eq!(out.stdout.trim(), "zero");
 }
+
+// ── FJ-29: Base64 payload stripping for I8 lint ──
+
+#[test]
+fn test_fj29_strip_base64_payloads_simple() {
+    let script = "set -euo pipefail\necho 'SGVsbG8gV29ybGQ=' | base64 -d > '/tmp/hello'\nchmod '0755' '/tmp/hello'";
+    let stripped = strip_base64_payloads(script);
+    assert!(
+        !stripped.contains("SGVsbG8gV29ybGQ="),
+        "base64 payload should be stripped"
+    );
+    assert!(
+        stripped.contains("FORJAR_BASE64_STRIPPED"),
+        "placeholder should replace base64"
+    );
+    assert!(
+        stripped.contains("chmod '0755' '/tmp/hello'"),
+        "non-payload lines preserved"
+    );
+}
+
+#[test]
+fn test_fj29_strip_base64_payloads_large_binary() {
+    // Simulate a large binary (like a 22MB forjar ELF) base64-encoded
+    // Generate fake base64 that contains sequences bashrs would misparse
+    let fake_b64 = "doZmaQBpbg=="; // contains "do", "fi", "in" substrings
+    let script = format!(
+        "set -euo pipefail\nmkdir -p '/home/noah/.cargo/bin'\necho '{}' | base64 -d > '/home/noah/.cargo/bin/forjar'\nchown 'noah' '/home/noah/.cargo/bin/forjar'\nchmod '0755' '/home/noah/.cargo/bin/forjar'",
+        fake_b64
+    );
+    let stripped = strip_base64_payloads(&script);
+    assert!(!stripped.contains(fake_b64));
+    // The structural commands must survive
+    assert!(stripped.contains("set -euo pipefail"));
+    assert!(stripped.contains("mkdir -p"));
+    assert!(stripped.contains("chown 'noah'"));
+    assert!(stripped.contains("chmod '0755'"));
+}
+
+#[test]
+fn test_fj29_strip_preserves_non_base64_scripts() {
+    let script = "set -euo pipefail\necho 'hello world'\nexit 0";
+    let stripped = strip_base64_payloads(script);
+    assert_eq!(stripped, script, "scripts without base64 should be unchanged");
+}
+
+#[test]
+fn test_fj29_validate_before_exec_accepts_base64_script() {
+    // This script would fail I8 without the fix because the base64
+    // contains sequences that look like shell keywords
+    let fake_b64 = "doZmaQBpbg==";
+    let script = format!(
+        "set -euo pipefail\necho '{}' | base64 -d > '/tmp/test'\nchmod '0755' '/tmp/test'",
+        fake_b64
+    );
+    let result = validate_before_exec(&script);
+    assert!(result.is_ok(), "base64 file deploy should pass I8: {result:?}");
+}
