@@ -85,7 +85,7 @@ pub fn parse_config_file(path: &Path) -> Result<ForjarConfig, String> {
 ///     type: package
 ///     packages: [curl]
 /// "#;
-/// let config = parse_config(yaml).unwrap();
+/// let config = parse_config(yaml).expect("valid");
 /// assert_eq!(config.name, "my-stack");
 /// assert!(config.resources.contains_key("pkg-curl"));
 /// ```
