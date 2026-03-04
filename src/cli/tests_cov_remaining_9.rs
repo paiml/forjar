@@ -373,7 +373,7 @@ mod tests {
         .unwrap();
         // Write flat lock with bad schema
         std::fs::write(
-            td.path().join("web.lock.yaml"),
+            td.path().join("web").join("state.lock.yaml"),
             "schema: \"99\"\nmachine: web\nhostname: web\ngenerated_at: now\ngenerator: test\nresources: {}\n",
         )
         .unwrap();
@@ -391,7 +391,7 @@ mod tests {
         )
         .unwrap();
         std::fs::write(
-            td.path().join("web.lock.yaml"),
+            td.path().join("web").join("state.lock.yaml"),
             "schema: \"99\"\nmachine: web\nhostname: web\ngenerated_at: now\ngenerator: test\nresources: {}\n",
         )
         .unwrap();
@@ -413,7 +413,7 @@ mod tests {
         )
         .unwrap();
         std::fs::write(
-            td.path().join("web.lock.yaml"),
+            td.path().join("web").join("state.lock.yaml"),
             "schema: \"2\"\nmachine: web\nhostname: web\ngenerated_at: now\ngenerator: test\nresources: {}\n",
         )
         .unwrap();

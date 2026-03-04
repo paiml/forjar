@@ -77,7 +77,7 @@ fn collect_apply_ages(sd: &Path, targets: &[&String]) -> Vec<(String, String, St
     let now = std::time::SystemTime::now();
     let mut entries = Vec::new();
     for m in targets {
-        let lock_path = sd.join(format!("{m}.lock.yaml"));
+        let lock_path = sd.join(m).join("state.lock.yaml");
         if let Ok(content) = std::fs::read_to_string(&lock_path) {
             if let Ok(lock) = serde_yaml_ng::from_str::<types::StateLock>(&content) {
                 for (name, rl) in &lock.resources {

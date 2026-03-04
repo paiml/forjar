@@ -43,7 +43,7 @@ pub(crate) fn cmd_status_machine_resource_config_drift_rate(
 fn collect_config_drift_rates(sd: &Path, targets: &[&String]) -> Vec<(String, usize, usize)> {
     let mut rates = Vec::new();
     for m in targets {
-        let path = sd.join(m).join("lock.yaml");
+        let path = sd.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -100,7 +100,7 @@ pub(crate) fn cmd_status_machine_resource_convergence_lag(
 fn collect_convergence_lag(sd: &Path, targets: &[&String]) -> Vec<(String, String, String)> {
     let mut lags = Vec::new();
     for m in targets {
-        let path = sd.join(m).join("lock.yaml");
+        let path = sd.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -175,7 +175,7 @@ pub(crate) fn cmd_status_machine_resource_dependency_depth(
 fn collect_dependency_depths(sd: &Path, targets: &[&String]) -> Vec<(String, usize)> {
     let mut depths = Vec::new();
     for m in targets {
-        let path = sd.join(m).join("lock.yaml");
+        let path = sd.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&path) {
             Ok(c) => c,
             Err(_) => continue,

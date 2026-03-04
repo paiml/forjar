@@ -350,7 +350,7 @@ pub(crate) fn cmd_lock_validate(state_dir: &Path, json: bool) -> Result<(), Stri
     let mut issues: Vec<(String, String)> = Vec::new();
 
     for m in &machines {
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             continue;
         }
@@ -408,7 +408,7 @@ pub(crate) fn cmd_lock_integrity(state_dir: &Path, json: bool) -> Result<(), Str
     let mut issues = Vec::new();
 
     for m in &machines {
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             continue;
         }

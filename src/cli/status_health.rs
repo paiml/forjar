@@ -30,7 +30,7 @@ fn tally_health_resources(
         if !is_matching_machine(&entry, machine_filter) {
             continue;
         }
-        let lock_path = entry.path().join("lock.yaml");
+        let lock_path = entry.path().join("state.lock.yaml");
         if !lock_path.exists() {
             continue;
         }
@@ -119,7 +119,7 @@ fn collect_stale_by_days(
         if !entry.path().is_dir() {
             continue;
         }
-        let lock_path = entry.path().join("lock.yaml");
+        let lock_path = entry.path().join("state.lock.yaml");
         if !lock_path.exists() || !is_lock_stale(&lock_path, cutoff) {
             continue;
         }
@@ -423,7 +423,7 @@ pub(crate) fn cmd_status_health_score(
     let mut drifted = 0;
 
     for m in &machines {
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             continue;
         }
