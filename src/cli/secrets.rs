@@ -1,13 +1,23 @@
 //! Secrets management.
 
-use super::helpers_time::*;
 use crate::core::secrets;
-use crate::core::types::ProvenanceEvent;
-use crate::tripwire::eventlog;
 use std::path::Path;
 
 // ─── FJ-200: Secrets commands ─────────────────────────────────────
 
+#[cfg(feature = "encryption")]
+use super::helpers_time::*;
+#[cfg(feature = "encryption")]
+use crate::core::types::ProvenanceEvent;
+#[cfg(feature = "encryption")]
+use crate::tripwire::eventlog;
+
+#[cfg(not(feature = "encryption"))]
+fn no_encryption_error() -> Result<(), String> {
+    Err("forjar was compiled without encryption support. Rebuild with `--features encryption`.".to_string())
+}
+
+#[cfg(feature = "encryption")]
 pub(crate) fn cmd_secrets_encrypt(value: &str, recipients: &[String]) -> Result<(), String> {
     let recipient_refs: Vec<&str> = recipients.iter().map(|r| r.as_str()).collect();
     let encrypted = secrets::encrypt(value, &recipient_refs)?;
@@ -15,6 +25,12 @@ pub(crate) fn cmd_secrets_encrypt(value: &str, recipients: &[String]) -> Result<
     Ok(())
 }
 
+#[cfg(not(feature = "encryption"))]
+pub(crate) fn cmd_secrets_encrypt(_value: &str, _recipients: &[String]) -> Result<(), String> {
+    no_encryption_error()
+}
+
+#[cfg(feature = "encryption")]
 pub(crate) fn cmd_secrets_decrypt(value: &str, identity_path: Option<&Path>) -> Result<(), String> {
     let identities = secrets::load_identities(identity_path)?;
     let plaintext = secrets::decrypt_marker(value, &identities)?;
@@ -22,6 +38,12 @@ pub(crate) fn cmd_secrets_decrypt(value: &str, identity_path: Option<&Path>) -> 
     Ok(())
 }
 
+#[cfg(not(feature = "encryption"))]
+pub(crate) fn cmd_secrets_decrypt(_value: &str, _identity_path: Option<&Path>) -> Result<(), String> {
+    no_encryption_error()
+}
+
+#[cfg(feature = "encryption")]
 pub(crate) fn cmd_secrets_keygen() -> Result<(), String> {
     use age::secrecy::ExposeSecret;
     let identity = secrets::generate_identity();
@@ -33,6 +55,12 @@ pub(crate) fn cmd_secrets_keygen() -> Result<(), String> {
     Ok(())
 }
 
+#[cfg(not(feature = "encryption"))]
+pub(crate) fn cmd_secrets_keygen() -> Result<(), String> {
+    no_encryption_error()
+}
+
+#[cfg(feature = "encryption")]
 pub(crate) fn cmd_secrets_view(file: &Path, identity_path: Option<&Path>) -> Result<(), String> {
     let content = std::fs::read_to_string(file)
         .map_err(|e| format!("cannot read '{}': {}", file.display(), e))?;
@@ -46,6 +74,12 @@ pub(crate) fn cmd_secrets_view(file: &Path, identity_path: Option<&Path>) -> Res
     Ok(())
 }
 
+#[cfg(not(feature = "encryption"))]
+pub(crate) fn cmd_secrets_view(_file: &Path, _identity_path: Option<&Path>) -> Result<(), String> {
+    no_encryption_error()
+}
+
+#[cfg(feature = "encryption")]
 pub(crate) fn cmd_secrets_rekey(
     file: &Path,
     identity_path: Option<&Path>,
@@ -61,9 +95,7 @@ pub(crate) fn cmd_secrets_rekey(
     let identities = secrets::load_identities(identity_path)?;
     let recipient_refs: Vec<&str> = new_recipients.iter().map(|r| r.as_str()).collect();
 
-    // Find all markers, decrypt each, re-encrypt with new recipients
     let mut result = content.clone();
-    // Process from right to left to preserve positions
     let markers = find_enc_markers(&result);
     for (start, end) in markers.into_iter().rev() {
         let marker = &result[start..end].to_string();
@@ -79,6 +111,16 @@ pub(crate) fn cmd_secrets_rekey(
     Ok(())
 }
 
+#[cfg(not(feature = "encryption"))]
+pub(crate) fn cmd_secrets_rekey(
+    _file: &Path,
+    _identity_path: Option<&Path>,
+    _new_recipients: &[String],
+) -> Result<(), String> {
+    no_encryption_error()
+}
+
+#[cfg(feature = "encryption")]
 pub(crate) fn cmd_secrets_rotate(
     file: &Path,
     identity_path: Option<&Path>,
@@ -102,7 +144,6 @@ pub(crate) fn cmd_secrets_rotate(
     let identities = secrets::load_identities(identity_path)?;
     let recipient_refs: Vec<&str> = new_recipients.iter().map(|r| r.as_str()).collect();
 
-    // Find all markers, decrypt each, re-encrypt with new recipients
     let mut result = content.clone();
     let markers = find_enc_markers(&result);
     let marker_count = markers.len();
@@ -117,7 +158,6 @@ pub(crate) fn cmd_secrets_rotate(
     std::fs::write(file, &result)
         .map_err(|e| format!("cannot write '{}': {}", file.display(), e))?;
 
-    // FJ-201: Audit log the rotation event
     let event = ProvenanceEvent::SecretRotated {
         file: file.display().to_string(),
         marker_count: marker_count as u32,
@@ -132,6 +172,17 @@ pub(crate) fn cmd_secrets_rotate(
         new_recipients.len()
     );
     Ok(())
+}
+
+#[cfg(not(feature = "encryption"))]
+pub(crate) fn cmd_secrets_rotate(
+    _file: &Path,
+    _identity_path: Option<&Path>,
+    _new_recipients: &[String],
+    _re_encrypt: bool,
+    _state_dir: &Path,
+) -> Result<(), String> {
+    no_encryption_error()
 }
 
 pub(crate) fn find_enc_markers(s: &str) -> Vec<(usize, usize)> {
