@@ -34,23 +34,24 @@ struct EventRecord {
 
 fn parse_events(state_dir: &Path) -> Vec<EventRecord> {
     let mut events = Vec::new();
-    let entries = match std::fs::read_dir(state_dir) {
+    collect_events_recursive(state_dir, &mut events);
+    events.sort_by(|a, b| a.timestamp.partial_cmp(&b.timestamp).unwrap_or(std::cmp::Ordering::Equal));
+    events
+}
+
+fn collect_events_recursive(dir: &Path, events: &mut Vec<EventRecord>) {
+    let entries = match std::fs::read_dir(dir) {
         Ok(e) => e,
-        Err(_) => return events,
+        Err(_) => return,
     };
     for entry in entries.flatten() {
         let path = entry.path();
-        if path.extension().and_then(|e| e.to_str()) == Some("jsonl")
-            || path
-                .file_name()
-                .and_then(|n| n.to_str())
-                .is_some_and(|n| n.ends_with(".events.jsonl"))
-        {
-            parse_events_file(&path, &mut events);
+        if path.is_dir() {
+            collect_events_recursive(&path, events);
+        } else if path.extension().and_then(|e| e.to_str()) == Some("jsonl") {
+            parse_events_file(&path, events);
         }
     }
-    events.sort_by(|a, b| a.timestamp.partial_cmp(&b.timestamp).unwrap_or(std::cmp::Ordering::Equal));
-    events
 }
 
 fn parse_events_file(path: &Path, events: &mut Vec<EventRecord>) {
@@ -71,10 +72,18 @@ fn parse_events_file(path: &Path, events: &mut Vec<EventRecord>) {
         if resource.is_empty() {
             continue;
         }
-        let action = parsed["action"].as_str().unwrap_or("apply").to_string();
+        // Support both "action" (synthetic test format) and "event" (real forjar format)
+        let action = parsed["action"]
+            .as_str()
+            .or_else(|| parsed["event"].as_str())
+            .unwrap_or("apply")
+            .to_string();
+        // Support numeric timestamps and ISO 8601 strings
         let ts = parsed["timestamp"]
             .as_f64()
             .or_else(|| parsed["ts"].as_f64())
+            .or_else(|| parse_iso_timestamp(parsed["timestamp"].as_str()))
+            .or_else(|| parse_iso_timestamp(parsed["ts"].as_str()))
             .unwrap_or(0.0);
         let m = parsed["machine"]
             .as_str()
@@ -87,6 +96,40 @@ fn parse_events_file(path: &Path, events: &mut Vec<EventRecord>) {
             timestamp: ts,
         });
     }
+}
+
+/// Parse ISO 8601 timestamp string to seconds since epoch.
+fn parse_iso_timestamp(s: Option<&str>) -> Option<f64> {
+    let s = s?;
+    // Handle "YYYY-MM-DDTHH:MM:SSZ" and "YYYY-MM-DDTHH:MM:SS+00:00" formats
+    // Simple parser: split on non-digit boundaries, compute seconds
+    let s = s.trim_end_matches('Z');
+    let s = if let Some(idx) = s.rfind('+') {
+        &s[..idx]
+    } else if let Some(idx) = s.rfind('-') {
+        // Careful: don't split on date hyphens, only timezone offset
+        if idx > 19 { &s[..idx] } else { s }
+    } else {
+        s
+    };
+    let parts: Vec<&str> = s.split(|c: char| !c.is_ascii_digit()).collect();
+    if parts.len() < 6 {
+        return None;
+    }
+    let y: i64 = parts[0].parse().ok()?;
+    let mo: i64 = parts[1].parse().ok()?;
+    let d: i64 = parts[2].parse().ok()?;
+    let h: i64 = parts[3].parse().ok()?;
+    let mi: i64 = parts[4].parse().ok()?;
+    let se: i64 = parts[5].parse().ok()?;
+    // Approximate epoch seconds (good enough for drift comparison)
+    let days = (y - 1970) * 365 + (y - 1969) / 4 + month_days(mo) + d - 1;
+    Some((days * 86400 + h * 3600 + mi * 60 + se) as f64)
+}
+
+fn month_days(month: i64) -> i64 {
+    const CUMULATIVE: [i64; 12] = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
+    if (1..=12).contains(&month) { CUMULATIVE[(month - 1) as usize] } else { 0 }
 }
 
 fn compute_predictions(events: &[EventRecord], machine_filter: Option<&str>) -> DriftPredictReport {
@@ -151,7 +194,10 @@ fn compute_predictions(events: &[EventRecord], machine_filter: Option<&str>) -> 
 }
 
 fn is_drift_event(action: &str) -> bool {
-    matches!(action, "drift" | "drift_detected" | "remediate" | "changed")
+    matches!(
+        action,
+        "drift" | "drift_detected" | "resource_drifted" | "remediate" | "changed"
+    )
 }
 
 fn compute_mtbd(timestamps: &[f64]) -> f64 {
