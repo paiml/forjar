@@ -5,6 +5,63 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.1] - 2026-03-04
+
+### Fixed
+- Refactored 3 dispatch functions below TDG Grade A complexity threshold (CB-200)
+- Removed 23 unwrap() calls from production code (kaizen RUST-UNWRAP-001)
+- Fixed clippy warnings when building without encryption feature
+- Pinned GitHub Actions reusable workflow to SHA (CB-953)
+
+### Changed
+- Made `age` encryption crate optional via `encryption` feature flag
+- Reduced prod transitive dependencies from 305 to 253 (CB-081)
+- Added `.pmat.yaml` with CB-954 suppression for `secrets: inherit`
+
+## [1.1.0] - 2026-03-03
+
+### Added
+- Features #164-#166: Complexity analysis, impact analysis, drift prediction CLI commands
+- Chapter 17: Operational Intelligence in the forjar book
+- Chapter 18: Supply Chain Security & Resilience in the forjar book
+- 7 new cookbook recipes (79-85) with A-grade quality scores
+- 500+ new tests across 21 test files for 95%+ line coverage
+- 3 cargo run examples: complexity, impact, drift prediction
+
+### Fixed
+- 5 stale entries in v2 spec falsification audit log (PMAT-042 through PMAT-046)
+
+## [1.0.0] - 2026-03-01
+
+### Added
+- 163/163 v2 spec features complete
+- Reproducible binary builds (FJ-095)
+- Formal verification proofs: Kani + Verus
+- State safety with BLAKE3 integrity chains
+- MLOps/DataOps resource types (model, dataset, pipeline)
+- Agent infrastructure (pull-based, registry, SBOM)
+- Post-quantum signing (ML-DSA-65)
+- GPU container support (NVIDIA + ROCm)
+- Store system: content-addressable with GC
+- Recipe system with expansion and validation
+- 8000+ unit tests, 95%+ line coverage
+
+## [0.2.0] - 2026-02-24
+
+### Added
+- SSH transport with batch mode and connection pooling (FJ-040)
+- Container transport with Docker/Podman support (FJ-050)
+- Rolling deployment with wave-based execution (FJ-060)
+- Drift detection with anomaly scoring (FJ-070)
+- Fleet status reporting with 200+ analytics flags (FJ-080)
+- Lock file security auditing (FJ-090)
+- Configuration validation with 30+ checks (FJ-100)
+- Graph analysis: dependency visualization, impact, topology (FJ-110)
+
+### Changed
+- Upgraded to BLAKE3 1.8 for 15% faster hashing
+- Switched to serde_yaml_ng for improved YAML parsing
+
 ## [0.1.0] - 2026-02-16
 
 ### Added

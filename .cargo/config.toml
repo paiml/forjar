@@ -1,0 +1,16 @@
+# Build configuration for consistent builds across machines
+
+[build]
+# Use all available CPUs for parallel compilation
+jobs = 0
+
+[profile.dev]
+# Faster incremental builds for development
+incremental = true
+
+[profile.dev.package."*"]
+# Optimize dependencies even in dev mode for faster test execution
+opt-level = 2
+
+[target.x86_64-unknown-linux-gnu]
+rustflags = ["-C", "target-cpu=native"]
