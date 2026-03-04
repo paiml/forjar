@@ -53,7 +53,7 @@ pub fn load_catalog(catalog_dir: &Path) -> Result<Catalog, String> {
 }
 
 /// Save catalog to directory.
-#[allow(dead_code)]
+#[cfg(test)]
 pub fn save_catalog(catalog_dir: &Path, catalog: &Catalog) -> Result<(), String> {
     std::fs::create_dir_all(catalog_dir).map_err(|e| format!("mkdir: {e}"))?;
     let data = serde_json::to_string_pretty(catalog).map_err(|e| format!("serialize: {e}"))?;
@@ -62,7 +62,7 @@ pub fn save_catalog(catalog_dir: &Path, catalog: &Catalog) -> Result<(), String>
 }
 
 /// Add a blueprint to the catalog.
-#[allow(dead_code)]
+#[cfg(test)]
 pub fn add_entry(catalog: &mut Catalog, entry: CatalogEntry) {
     catalog.entries.push(entry);
 }
@@ -135,7 +135,7 @@ fn print_catalog_report(report: &CatalogReport) {
 }
 
 /// Search catalog by name or tag.
-#[allow(dead_code)]
+#[cfg(test)]
 pub fn search_catalog<'a>(catalog: &'a Catalog, query: &str) -> Vec<&'a CatalogEntry> {
     let q = query.to_lowercase();
     catalog

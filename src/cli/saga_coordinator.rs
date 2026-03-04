@@ -134,7 +134,7 @@ fn print_saga_report(report: &SagaReport) {
 }
 
 /// Create a compensating snapshot for a stack.
-#[allow(dead_code)]
+#[cfg(test)]
 pub fn create_snapshot(state_dir: &Path, stack_name: &str) -> Result<String, String> {
     let snapshot_path = compute_snapshot_path(state_dir, stack_name);
     let src = state_dir.join(stack_name);
@@ -149,7 +149,7 @@ pub fn create_snapshot(state_dir: &Path, stack_name: &str) -> Result<String, Str
     Ok(snapshot_path)
 }
 
-#[allow(dead_code)]
+#[cfg(test)]
 fn copy_dir_simple(src: &Path, dest: &Path) -> Result<(), String> {
     std::fs::create_dir_all(dest).map_err(|e| format!("mkdir: {e}"))?;
     let entries = std::fs::read_dir(src).map_err(|e| format!("readdir: {e}"))?;
