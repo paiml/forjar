@@ -40,6 +40,7 @@ const REPRO_FLAGS: &[&str] = &[
 ];
 
 /// Cargo profile settings that affect reproducibility.
+#[allow(dead_code)]
 const REPRO_PROFILE: &[(&str, &str)] = &[
     ("panic", "abort"),         // Deterministic panic handling
     ("lto", "thin or fat"),     // Link-time optimization for determinism

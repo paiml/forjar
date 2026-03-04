@@ -77,8 +77,8 @@ fn parse_iso8601_epoch(s: &str) -> Option<u64> {
         30,
         31,
     ];
-    for m in 0..(month as usize).saturating_sub(1) {
-        days += month_days[m] as u64;
+    for md in month_days.iter().take((month as usize).saturating_sub(1)) {
+        days += *md as u64;
     }
     days += day.saturating_sub(1);
 

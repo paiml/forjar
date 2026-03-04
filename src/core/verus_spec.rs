@@ -24,17 +24,20 @@ pub struct ResourceState {
 
 /// System state: collection of resource states.
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct SystemState {
     pub resources: Vec<ResourceState>,
     pub iteration: usize,
 }
 
 /// Observe phase: snapshot current hashes.
+#[allow(dead_code)]
 pub fn observe(state: &SystemState) -> Vec<Option<String>> {
     state.resources.iter().map(|r| r.current_hash.clone()).collect()
 }
 
 /// Diff phase: compute which resources need changes.
+#[allow(dead_code)]
 pub fn diff(state: &SystemState) -> Vec<bool> {
     state
         .resources
@@ -44,6 +47,7 @@ pub fn diff(state: &SystemState) -> Vec<bool> {
 }
 
 /// Apply phase: update current hashes to match desired.
+#[allow(dead_code)]
 pub fn apply(state: &mut SystemState) {
     for r in &mut state.resources {
         if r.current_hash.as_ref() != Some(&r.desired_hash) {
@@ -55,17 +59,20 @@ pub fn apply(state: &mut SystemState) {
 }
 
 /// Check if system is fully converged.
+#[allow(dead_code)]
 pub fn is_converged(state: &SystemState) -> bool {
     state.resources.iter().all(|r| r.converged)
 }
 
 /// Count changes needed.
+#[allow(dead_code)]
 pub fn changes_needed(state: &SystemState) -> usize {
     diff(state).iter().filter(|&&b| b).count()
 }
 
 /// Run the reconciliation loop to convergence.
 /// Returns the number of iterations taken.
+#[allow(dead_code)]
 pub fn reconcile(state: &mut SystemState) -> usize {
     let max_iterations = state.resources.len() + 1;
     for _ in 0..max_iterations {

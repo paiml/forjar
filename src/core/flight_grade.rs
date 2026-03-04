@@ -103,9 +103,9 @@ pub fn fg_topo_sort(plan: &mut FgPlan) -> Result<(), &'static str> {
 
     let mut in_degree = [0u16; MAX_RESOURCES];
     // in_degree[i] = number of unmet dependencies for resource i
-    for i in 0..plan.count {
+    for (i, deg) in in_degree.iter_mut().enumerate().take(plan.count) {
         let res = &plan.resources[i];
-        in_degree[i] = res.dep_count as u16;
+        *deg = res.dep_count as u16;
     }
 
     let mut order_idx = 0;
@@ -122,11 +122,11 @@ pub fn fg_topo_sort(plan: &mut FgPlan) -> Result<(), &'static str> {
         order_idx += 1;
 
         // Remove edges from selected node
-        for i in 0..plan.count {
+        for (i, deg) in in_degree.iter_mut().enumerate().take(plan.count) {
             let res = &plan.resources[i];
             for d in 0..res.dep_count as usize {
                 if res.deps[d] == next as u16 {
-                    in_degree[i] = in_degree[i].saturating_sub(1);
+                    *deg = deg.saturating_sub(1);
                 }
             }
         }
@@ -146,8 +146,8 @@ fn find_zero_degree(
 }
 
 fn already_ordered(id: u16, order: &[u16; MAX_RESOURCES], order_len: usize) -> bool {
-    for i in 0..order_len {
-        if order[i] == id {
+    for item in order.iter().take(order_len) {
+        if *item == id {
             return true;
         }
     }

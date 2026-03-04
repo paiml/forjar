@@ -6,6 +6,7 @@
 use std::path::{Path, PathBuf};
 
 /// State backend operations.
+#[allow(dead_code)]
 pub trait StateBackend: Send + Sync {
     fn name(&self) -> &str;
     fn get(&self, key: &str) -> Result<Vec<u8>, String>;

@@ -83,18 +83,16 @@ fn http_without_tls(findings: &mut Vec<SecurityFinding>, id: &str, r: &Resource)
         r.source.as_deref(),
         r.target.as_deref(),
     ];
-    for field in &fields {
-        if let Some(val) = field {
-            if val.starts_with("http://") && !val.starts_with("http://localhost") {
-                findings.push(SecurityFinding {
-                    rule_id: "SS-2".to_string(),
-                    category: "http-without-tls",
-                    severity: Severity::High,
-                    resource_id: id.to_string(),
-                    message: "unencrypted HTTP URL detected (use HTTPS)".to_string(),
-                });
-                break;
-            }
+    for val in fields.iter().flatten() {
+        if val.starts_with("http://") && !val.starts_with("http://localhost") {
+            findings.push(SecurityFinding {
+                rule_id: "SS-2".to_string(),
+                category: "http-without-tls",
+                severity: Severity::High,
+                resource_id: id.to_string(),
+                message: "unencrypted HTTP URL detected (use HTTPS)".to_string(),
+            });
+            break;
         }
     }
 }
