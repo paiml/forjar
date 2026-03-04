@@ -48,7 +48,7 @@ resources:
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
-            trace: false,
+        trace: false,
     };
     let results = apply(&cfg).unwrap();
     assert_eq!(results[0].resources_converged, 1);
@@ -98,7 +98,7 @@ resources:
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
-            trace: false,
+        trace: false,
     };
     let results = apply(&cfg).unwrap();
     // pre_apply failure → resource skipped, not applied
@@ -151,7 +151,7 @@ resources:
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
-            trace: false,
+        trace: false,
     };
     let results = apply(&cfg).unwrap();
     assert_eq!(results[0].resources_converged, 1);
@@ -202,7 +202,7 @@ resources:
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
-            trace: false,
+        trace: false,
     };
     let results = apply(&cfg).unwrap();
     // post_apply failure → resource marked as failed
@@ -258,7 +258,7 @@ resources:
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
-            trace: false,
+        trace: false,
     };
     let results = apply(&cfg).unwrap();
     assert_eq!(results[0].resources_converged, 1);

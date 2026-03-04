@@ -55,9 +55,7 @@ pub(crate) fn cmd_status_resource_apply_age(
         let items: Vec<String> = entries
             .iter()
             .map(|(m, r, age)| {
-                format!(
-                    "{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"age\":\"{age}\"}}"
-                )
+                format!("{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"age\":\"{age}\"}}")
             })
             .collect();
         println!("{{\"resource_apply_ages\":[{}]}}", items.join(","));
@@ -241,9 +239,7 @@ pub(crate) fn cmd_status_resource_churn(
         let items: Vec<String> = data
             .iter()
             .map(|(m, r, c)| {
-                format!(
-                    "{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"apply_count\":{c}}}"
-                )
+                format!("{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"apply_count\":{c}}}")
             })
             .collect();
         println!("{{\"resource_churn\":[{}]}}", items.join(","));

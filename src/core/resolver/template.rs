@@ -9,9 +9,7 @@ use std::collections::HashMap;
 pub(super) fn resolve_secret(key: &str) -> Result<String, String> {
     let env_key = format!("FORJAR_SECRET_{}", key.to_uppercase().replace('-', "_"));
     std::env::var(&env_key).map_err(|_| {
-        format!(
-            "secret '{key}' not found (set env var {env_key} or use a secrets file)"
-        )
+        format!("secret '{key}' not found (set env var {env_key} or use a secrets file)")
     })
 }
 

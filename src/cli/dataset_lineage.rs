@@ -7,10 +7,7 @@ use super::helpers::*;
 use crate::core::types;
 use std::path::Path;
 
-pub(crate) fn cmd_dataset_lineage(
-    file: &Path,
-    json: bool,
-) -> Result<(), String> {
+pub(crate) fn cmd_dataset_lineage(file: &Path, json: bool) -> Result<(), String> {
     let config = parse_and_validate(file)?;
     let config_dir = file.parent().unwrap_or(Path::new("."));
 
@@ -79,9 +76,11 @@ fn is_data_resource(resource: &types::Resource) -> bool {
             || t.contains("pipeline")
             || t.contains("transform")
             || t.contains("ml")
-    }) || resource.resource_group.as_deref().map(|g| {
-        g.contains("data") || g.contains("pipeline")
-    }).unwrap_or(false)
+    }) || resource
+        .resource_group
+        .as_deref()
+        .map(|g| g.contains("data") || g.contains("pipeline"))
+        .unwrap_or(false)
         || !resource.output_artifacts.is_empty()
 }
 
@@ -188,6 +187,9 @@ fn print_lineage_text(datasets: &[DatasetNode], edges: &[(String, String)], hash
     }
 
     if datasets.is_empty() {
-        println!("  {} No data resources found (tag resources with 'data' or 'pipeline')", dim("(empty)"));
+        println!(
+            "  {} No data resources found (tag resources with 'data' or 'pipeline')",
+            dim("(empty)")
+        );
     }
 }

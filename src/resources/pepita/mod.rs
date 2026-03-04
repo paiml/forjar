@@ -76,9 +76,7 @@ fn apply_absent(name: &str, resource: &Resource) -> String {
 
     // Remove network namespace
     if resource.netns {
-        lines.push(format!(
-            "ip netns del 'forjar-{name}' 2>/dev/null || true"
-        ));
+        lines.push(format!("ip netns del 'forjar-{name}' 2>/dev/null || true"));
     }
 
     // Remove cgroup
@@ -90,9 +88,7 @@ fn apply_absent(name: &str, resource: &Resource) -> String {
 
     // Remove chroot directory (careful — only if we created it)
     if let Some(ref chroot) = resource.chroot_dir {
-        lines.push(format!(
-            "if [ -d '{chroot}' ]; then rm -rf '{chroot}'; fi"
-        ));
+        lines.push(format!("if [ -d '{chroot}' ]; then rm -rf '{chroot}'; fi"));
     }
 
     lines.join("\n")
@@ -133,9 +129,7 @@ fn apply_present(name: &str, resource: &Resource) -> String {
             .as_deref()
             .unwrap_or("/tmp/forjar-work");
 
-        lines.push(format!(
-            "mkdir -p '{lower}' '{upper}' '{work}' '{merged}'"
-        ));
+        lines.push(format!("mkdir -p '{lower}' '{upper}' '{work}' '{merged}'"));
         lines.push(format!(
             "mount -t overlay overlay -o lowerdir='{lower}',upperdir='{upper}',workdir='{work}' '{merged}'"
         ));

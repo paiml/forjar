@@ -127,11 +127,11 @@ fn check_container_runtime(runtime: &str) -> DoctorCheck {
 fn check_age_identity() -> DoctorCheck {
     #[cfg(not(feature = "encryption"))]
     {
-        return DoctorCheck {
+        DoctorCheck {
             name: "age".to_string(),
             status: DoctorStatus::Warn,
             detail: "encryption feature not compiled in".to_string(),
-        };
+        }
     }
     #[cfg(feature = "encryption")]
     match secrets::load_identities(None) {

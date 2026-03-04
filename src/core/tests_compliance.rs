@@ -92,10 +92,9 @@ mod tests {
     #[test]
     fn test_cis_service_no_restart() {
         let mut config = minimal_config();
-        config.resources.insert(
-            "svc".to_string(),
-            service_resource("nginx", None),
-        );
+        config
+            .resources
+            .insert("svc".to_string(), service_resource("nginx", None));
         let findings = evaluate_benchmark("cis", &config);
         assert!(findings.iter().any(|f| f.rule_id == "CIS-5.2.1"));
     }
@@ -103,10 +102,9 @@ mod tests {
     #[test]
     fn test_cis_package_no_version() {
         let mut config = minimal_config();
-        config.resources.insert(
-            "pkg".to_string(),
-            package_resource(&["nginx"], None),
-        );
+        config
+            .resources
+            .insert("pkg".to_string(), package_resource(&["nginx"], None));
         let findings = evaluate_benchmark("cis", &config);
         assert!(findings.iter().any(|f| f.rule_id == "CIS-6.2.1"));
     }
@@ -149,10 +147,9 @@ mod tests {
     #[test]
     fn test_nist_ac6_root_service() {
         let mut config = minimal_config();
-        config.resources.insert(
-            "svc".to_string(),
-            service_resource("myapp", Some("root")),
-        );
+        config
+            .resources
+            .insert("svc".to_string(), service_resource("myapp", Some("root")));
         let findings = evaluate_benchmark("nist-800-53", &config);
         assert!(findings.iter().any(|f| f.rule_id == "NIST-AC-6"));
     }
@@ -224,10 +221,9 @@ mod tests {
     #[test]
     fn test_soc2_service_no_monitoring() {
         let mut config = minimal_config();
-        config.resources.insert(
-            "svc".to_string(),
-            service_resource("myapp", None),
-        );
+        config
+            .resources
+            .insert("svc".to_string(), service_resource("myapp", None));
         let findings = evaluate_benchmark("soc2", &config);
         assert!(findings.iter().any(|f| f.rule_id == "SOC2-CC7.2"));
     }
@@ -325,7 +321,10 @@ mod tests {
         let config = minimal_config();
         for benchmark in supported_benchmarks() {
             let findings = evaluate_benchmark(benchmark, &config);
-            assert!(findings.is_empty(), "expected no findings for empty config with {benchmark}");
+            assert!(
+                findings.is_empty(),
+                "expected no findings for empty config with {benchmark}"
+            );
         }
     }
 }

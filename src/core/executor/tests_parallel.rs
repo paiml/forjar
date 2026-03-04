@@ -172,7 +172,7 @@ fn test_fj012_record_success_writes_lock_and_event() {
         post_apply: None,
         lifecycle: None,
         store: false,
-            sudo: false,
+        sudo: false,
         script: None,
     };
     let machine = Machine {
@@ -232,7 +232,7 @@ fn test_fj012_resource_filter() {
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
-            trace: false,
+        trace: false,
     };
     let results = apply(&cfg).unwrap();
     // Resource filter doesn't match — everything skipped
@@ -288,7 +288,7 @@ policy:
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
-            trace: false,
+        trace: false,
     };
     let results = apply(&cfg).unwrap();
     assert_eq!(results.len(), 2);
@@ -358,7 +358,7 @@ policy:
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
-            trace: false,
+        trace: false,
     };
     let results = apply(&cfg).unwrap();
     assert_eq!(results.len(), 1);

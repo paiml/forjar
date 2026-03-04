@@ -91,10 +91,7 @@ fn demo_lsp_capabilities() {
     let resp = server.handle_message(&init_msg).unwrap();
     let server_name = resp.pointer("/result/serverInfo/name").unwrap();
     println!("  Server: {server_name}");
-    println!(
-        "  Root: {}",
-        server.root_uri.as_deref().unwrap_or("none")
-    );
+    println!("  Root: {}", server.root_uri.as_deref().unwrap_or("none"));
 
     // Open a document
     let doc = "machines:\n  - name: web-01\nresources:\n  - name: nginx\n    type: package\n    ensure: present";
@@ -118,11 +115,7 @@ fn demo_lsp_capabilities() {
         }
     });
     let comp_resp = server.handle_message(&comp_msg).unwrap();
-    let items = comp_resp
-        .pointer("/result")
-        .unwrap()
-        .as_array()
-        .unwrap();
+    let items = comp_resp.pointer("/result").unwrap().as_array().unwrap();
     println!("  Top-level completions: {}", items.len());
     for item in items.iter().take(3) {
         println!("    - {}: {}", item["label"], item["detail"]);
@@ -132,10 +125,7 @@ fn demo_lsp_capabilities() {
     let bad_diags = validate_yaml("ensure: bogus_value");
     println!("\n  Validation of 'ensure: bogus_value':");
     for d in &bad_diags {
-        println!(
-            "    [{:?}] line {}: {}",
-            d.severity, d.line, d.message
-        );
+        println!("    [{:?}] line {}: {}", d.severity, d.line, d.message);
     }
     println!();
 }

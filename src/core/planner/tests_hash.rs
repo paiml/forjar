@@ -81,7 +81,7 @@ fn test_fj004_hash_deterministic() {
         post_apply: None,
         lifecycle: None,
         store: false,
-            sudo: false,
+        sudo: false,
         script: None,
     };
     let h1 = hash_desired_state(&r);
@@ -169,7 +169,7 @@ fn test_fj004_hash_includes_all_fields() {
         post_apply: None,
         lifecycle: None,
         store: false,
-            sudo: false,
+        sudo: false,
         script: None,
     };
     // Changing any field should change the hash
@@ -265,7 +265,7 @@ fn test_fj004_hash_content_change_changes_hash() {
         post_apply: None,
         lifecycle: None,
         store: false,
-            sudo: false,
+        sudo: false,
         script: None,
     };
     let mut r2 = r1.clone();

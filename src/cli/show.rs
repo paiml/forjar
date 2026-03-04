@@ -312,9 +312,7 @@ pub(crate) fn cmd_policy(file: &Path, json: bool) -> Result<(), String> {
         }
         println!();
         if deny_count > 0 {
-            println!(
-                "Policy check failed: {deny_count} denied, {warn_count} warnings"
-            );
+            println!("Policy check failed: {deny_count} denied, {warn_count} warnings");
         } else {
             println!("Policy check passed with {warn_count} warnings");
         }

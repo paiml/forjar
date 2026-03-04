@@ -152,9 +152,7 @@ pub(crate) fn cmd_status_machine_resource_convergence_stability_index(
             println!("  No machine state found.");
         }
         for (m, stab, conv, tot) in &rows {
-            println!(
-                "  {m}: stability={stab:.1}%, converged={conv}/{tot}",
-            );
+            println!("  {m}: stability={stab:.1}%, converged={conv}/{tot}",);
         }
     }
     Ok(())

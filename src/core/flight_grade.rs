@@ -85,9 +85,9 @@ pub fn check_compliance(resource_count: usize, max_dep_depth: usize) -> FgCompli
     let within_depth_limit = max_dep_depth <= MAX_DEPTH;
 
     FgComplianceReport {
-        no_dynamic_alloc: true,  // This module uses no heap
-        bounded_loops: true,     // All loops bounded by MAX_RESOURCES
-        no_panic_paths: true,    // All operations return Result
+        no_dynamic_alloc: true, // This module uses no heap
+        bounded_loops: true,    // All loops bounded by MAX_RESOURCES
+        no_panic_paths: true,   // All operations return Result
         deterministic_memory: within_resource_limit,
         max_resources: MAX_RESOURCES,
         max_depth: MAX_DEPTH,

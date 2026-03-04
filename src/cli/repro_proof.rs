@@ -7,11 +7,7 @@ use super::helpers::*;
 use crate::core::types;
 use std::path::Path;
 
-pub(crate) fn cmd_repro_proof(
-    file: &Path,
-    state_dir: &Path,
-    json: bool,
-) -> Result<(), String> {
+pub(crate) fn cmd_repro_proof(file: &Path, state_dir: &Path, json: bool) -> Result<(), String> {
     let config = parse_and_validate(file)?;
 
     // 1. Config hash
@@ -74,7 +70,11 @@ fn collect_store_hashes(file: &Path) -> Vec<(String, String)> {
             let path = entry.path();
             if path.is_file() {
                 if let Ok(bytes) = std::fs::read(&path) {
-                    let name = path.file_name().unwrap_or_default().to_string_lossy().to_string();
+                    let name = path
+                        .file_name()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                        .to_string();
                     let hash = blake3::hash(&bytes).to_hex()[..16].to_string();
                     hashes.push((name, hash));
                 }
@@ -89,7 +89,10 @@ fn collect_training_hashes(config: &types::ForjarConfig) -> Vec<(String, String)
     let mut hashes = Vec::new();
     for (id, resource) in &config.resources {
         let is_training = matches!(resource.resource_type, types::ResourceType::Model)
-            || resource.tags.iter().any(|t| t.contains("training") || t.contains("ml"));
+            || resource
+                .tags
+                .iter()
+                .any(|t| t.contains("training") || t.contains("ml"));
         if !is_training {
             continue;
         }

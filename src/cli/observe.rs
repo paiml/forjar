@@ -344,7 +344,7 @@ fn run_watch_apply(config: &types::ForjarConfig, state_dir: &Path) {
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
-            trace: false,
+        trace: false,
     };
     match executor::apply(&cfg) {
         Ok(results) => {

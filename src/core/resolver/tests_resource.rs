@@ -106,7 +106,7 @@ fn test_fj003_resolve_all_fields() {
         post_apply: None,
         lifecycle: None,
         store: false,
-            sudo: false,
+        sudo: false,
         script: None,
     };
 
@@ -255,7 +255,7 @@ fn test_fj003_resolve_resource_templates_group_and_mode() {
         post_apply: None,
         lifecycle: None,
         store: false,
-            sudo: false,
+        sudo: false,
         script: None,
     };
 

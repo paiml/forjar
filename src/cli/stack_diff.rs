@@ -22,11 +22,7 @@ enum DiffKind {
 }
 
 /// Compare two forjar configs and print unified diff.
-pub(crate) fn cmd_stack_diff(
-    file1: &Path,
-    file2: &Path,
-    json: bool,
-) -> Result<(), String> {
+pub(crate) fn cmd_stack_diff(file1: &Path, file2: &Path, json: bool) -> Result<(), String> {
     let config1 = parse_and_validate(file1)?;
     let config2 = parse_and_validate(file2)?;
 
@@ -46,11 +42,7 @@ pub(crate) fn cmd_stack_diff(
     Ok(())
 }
 
-fn diff_resources(
-    c1: &types::ForjarConfig,
-    c2: &types::ForjarConfig,
-    diffs: &mut Vec<DiffEntry>,
-) {
+fn diff_resources(c1: &types::ForjarConfig, c2: &types::ForjarConfig, diffs: &mut Vec<DiffEntry>) {
     let keys1: std::collections::HashSet<&String> = c1.resources.keys().collect();
     let keys2: std::collections::HashSet<&String> = c2.resources.keys().collect();
 
@@ -85,11 +77,7 @@ fn diff_resources(
     }
 }
 
-fn diff_machines(
-    c1: &types::ForjarConfig,
-    c2: &types::ForjarConfig,
-    diffs: &mut Vec<DiffEntry>,
-) {
+fn diff_machines(c1: &types::ForjarConfig, c2: &types::ForjarConfig, diffs: &mut Vec<DiffEntry>) {
     let keys1: std::collections::HashSet<&String> = c1.machines.keys().collect();
     let keys2: std::collections::HashSet<&String> = c2.machines.keys().collect();
 
@@ -130,11 +118,7 @@ fn diff_machines(
     }
 }
 
-fn diff_params(
-    c1: &types::ForjarConfig,
-    c2: &types::ForjarConfig,
-    diffs: &mut Vec<DiffEntry>,
-) {
+fn diff_params(c1: &types::ForjarConfig, c2: &types::ForjarConfig, diffs: &mut Vec<DiffEntry>) {
     let keys1: std::collections::HashSet<&String> = c1.params.keys().collect();
     let keys2: std::collections::HashSet<&String> = c2.params.keys().collect();
 
@@ -168,11 +152,7 @@ fn diff_params(
     }
 }
 
-fn diff_outputs(
-    c1: &types::ForjarConfig,
-    c2: &types::ForjarConfig,
-    diffs: &mut Vec<DiffEntry>,
-) {
+fn diff_outputs(c1: &types::ForjarConfig, c2: &types::ForjarConfig, diffs: &mut Vec<DiffEntry>) {
     let keys1: std::collections::HashSet<&String> = c1.outputs.keys().collect();
     let keys2: std::collections::HashSet<&String> = c2.outputs.keys().collect();
 
@@ -251,11 +231,7 @@ fn param_value_str(v: &serde_yaml_ng::Value) -> Option<String> {
 }
 
 fn print_text(diffs: &[DiffEntry], file1: &Path, file2: &Path) {
-    println!(
-        "Stack diff: {} vs {}\n",
-        file1.display(),
-        file2.display(),
-    );
+    println!("Stack diff: {} vs {}\n", file1.display(), file2.display(),);
 
     let sections = ["resources", "machines", "params", "outputs"];
     for section in &sections {
@@ -281,9 +257,18 @@ fn print_text(diffs: &[DiffEntry], file1: &Path, file2: &Path) {
     }
 
     let total = diffs.len();
-    let added = diffs.iter().filter(|d| matches!(d.kind, DiffKind::Added)).count();
-    let removed = diffs.iter().filter(|d| matches!(d.kind, DiffKind::Removed)).count();
-    let modified = diffs.iter().filter(|d| matches!(d.kind, DiffKind::Modified)).count();
+    let added = diffs
+        .iter()
+        .filter(|d| matches!(d.kind, DiffKind::Added))
+        .count();
+    let removed = diffs
+        .iter()
+        .filter(|d| matches!(d.kind, DiffKind::Removed))
+        .count();
+    let modified = diffs
+        .iter()
+        .filter(|d| matches!(d.kind, DiffKind::Modified))
+        .count();
     if total == 0 {
         println!("  No differences found.");
     } else {

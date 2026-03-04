@@ -83,9 +83,7 @@ pub(crate) fn cmd_status_fleet_resource_apply_success_trend(
             println!("  No machine state found.");
         }
         for (m, pct, conv, tot) in &rows {
-            println!(
-                "  {m}: {pct:.1}% success ({conv} converged / {tot} total)",
-            );
+            println!("  {m}: {pct:.1}% success ({conv} converged / {tot} total)",);
         }
     }
     Ok(())

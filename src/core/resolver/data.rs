@@ -101,9 +101,10 @@ fn resolve_forjar_state_source(key: &str, source: &DataSource) -> Result<String,
     let outputs = match doc.get("outputs") {
         Some(serde_yaml_ng::Value::Mapping(m)) => m,
         _ => {
-            return source.default.clone().ok_or_else(|| {
-                format!("data source '{key}': state lock has no outputs section")
-            });
+            return source
+                .default
+                .clone()
+                .ok_or_else(|| format!("data source '{key}': state lock has no outputs section"));
         }
     };
 

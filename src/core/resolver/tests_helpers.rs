@@ -89,7 +89,7 @@ pub(super) fn dag_config(names: &[&str], edges: &[(&str, &str)]) -> ForjarConfig
                 post_apply: None,
                 lifecycle: None,
                 store: false,
-            sudo: false,
+                sudo: false,
                 script: None,
             },
         );
@@ -212,7 +212,7 @@ pub(super) fn make_base_resource() -> Resource {
         post_apply: None,
         lifecycle: None,
         store: false,
-            sudo: false,
+        sudo: false,
         script: None,
     }
 }

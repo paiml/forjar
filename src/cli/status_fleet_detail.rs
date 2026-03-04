@@ -21,9 +21,7 @@ pub(crate) fn cmd_status_last_drift_time(
         let items: Vec<String> = entries
             .iter()
             .map(|(m, r, t)| {
-                format!(
-                    "{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"last_drift\":\"{t}\"}}"
-                )
+                format!("{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"last_drift\":\"{t}\"}}")
             })
             .collect();
         println!("{{\"last_drift_times\":[{}]}}", items.join(","));
@@ -335,9 +333,7 @@ pub(crate) fn cmd_status_machine_convergence_history(
         let items: Vec<String> = history
             .iter()
             .map(|(m, ts, pct)| {
-                format!(
-                    "{{\"machine\":\"{m}\",\"time\":\"{ts}\",\"convergence_pct\":{pct:.1}}}"
-                )
+                format!("{{\"machine\":\"{m}\",\"time\":\"{ts}\",\"convergence_pct\":{pct:.1}}}")
             })
             .collect();
         println!("{{\"machine_convergence_history\":[{}]}}", items.join(","));
@@ -391,9 +387,7 @@ pub(crate) fn cmd_status_drift_history(
         let items: Vec<String> = events
             .iter()
             .map(|(ts, m, r)| {
-                format!(
-                    "{{\"time\":\"{ts}\",\"machine\":\"{m}\",\"resource\":\"{r}\"}}"
-                )
+                format!("{{\"time\":\"{ts}\",\"machine\":\"{m}\",\"resource\":\"{r}\"}}")
             })
             .collect();
         println!("{{\"drift_history\":[{}]}}", items.join(","));

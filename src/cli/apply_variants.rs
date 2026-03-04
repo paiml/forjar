@@ -230,9 +230,7 @@ pub(crate) fn cmd_refresh_only(
         state::save_lock(state_dir, &updated_lock)?;
     }
 
-    println!(
-        "Refresh complete: {refreshed} resources queried, {drift_count} drifted"
-    );
+    println!("Refresh complete: {refreshed} resources queried, {drift_count} drifted");
     Ok(())
 }
 
@@ -331,15 +329,13 @@ pub(crate) fn cmd_apply_from_plan(
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
-            trace: false,
+        trace: false,
     };
 
     let results = executor::apply(&cfg)?;
     let (converged, unchanged, failed) = super::apply_output::count_results(&results);
 
-    println!(
-        "Plan applied: {converged} converged, {unchanged} unchanged, {failed} failed"
-    );
+    println!("Plan applied: {converged} converged, {unchanged} unchanged, {failed} failed");
 
     if failed > 0 {
         return Err(format!("{failed} resource(s) failed"));

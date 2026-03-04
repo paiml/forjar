@@ -104,9 +104,7 @@ pub(crate) fn git_commit_state(
     config_name: &str,
     converged: u32,
 ) -> Result<(), String> {
-    let msg = format!(
-        "forjar: {config_name} — {converged} resource(s) converged"
-    );
+    let msg = format!("forjar: {config_name} — {converged} resource(s) converged");
     // Find the git repo root from state_dir's parent
     let repo_root = state_dir.parent().unwrap_or(Path::new("."));
     let status = std::process::Command::new("git")

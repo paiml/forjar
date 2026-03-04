@@ -38,10 +38,8 @@ pub fn cmd_iso_export(
     // Create output directory structure
     std::fs::create_dir_all(output.join("config"))
         .map_err(|e| format!("create config dir: {e}"))?;
-    std::fs::create_dir_all(output.join("state"))
-        .map_err(|e| format!("create state dir: {e}"))?;
-    std::fs::create_dir_all(output.join("store"))
-        .map_err(|e| format!("create store dir: {e}"))?;
+    std::fs::create_dir_all(output.join("state")).map_err(|e| format!("create state dir: {e}"))?;
+    std::fs::create_dir_all(output.join("store")).map_err(|e| format!("create store dir: {e}"))?;
 
     let mut files = Vec::new();
     let mut total_size = 0u64;
@@ -63,7 +61,12 @@ pub fn cmd_iso_export(
 
     // Copy state directory if it exists
     if state_dir.exists() {
-        copy_state_dir(state_dir, &output.join("state"), &mut files, &mut total_size)?;
+        copy_state_dir(
+            state_dir,
+            &output.join("state"),
+            &mut files,
+            &mut total_size,
+        )?;
     }
 
     // Collect store artifacts from resources
@@ -175,13 +178,11 @@ fn copy_state_dir(
         let name = entry.file_name();
         if path.is_dir() {
             let sub_dest = dest.join(&name);
-            std::fs::create_dir_all(&sub_dest)
-                .map_err(|e| format!("create state subdir: {e}"))?;
+            std::fs::create_dir_all(&sub_dest).map_err(|e| format!("create state subdir: {e}"))?;
             copy_state_dir(&path, &sub_dest, files, total_size)?;
         } else if path.is_file() {
             let file_dest = dest.join(&name);
-            std::fs::copy(&path, &file_dest)
-                .map_err(|e| format!("copy state file: {e}"))?;
+            std::fs::copy(&path, &file_dest).map_err(|e| format!("copy state file: {e}"))?;
             let size = std::fs::metadata(&file_dest).map(|m| m.len()).unwrap_or(0);
             let hash = hash_file_blake3(&file_dest);
             files.push(IsoFile {
@@ -195,4 +196,3 @@ fn copy_state_dir(
     }
     Ok(())
 }
-

@@ -50,7 +50,10 @@ pub struct CompletionItem {
 /// Known forjar YAML top-level keys.
 const TOP_LEVEL_KEYS: &[(&str, &str)] = &[
     ("machines", "Machine definitions (name, host, transport)"),
-    ("resources", "Resource definitions (package, file, service, etc.)"),
+    (
+        "resources",
+        "Resource definitions (package, file, service, etc.)",
+    ),
     ("data", "Data sources (file, forjar-state, environment)"),
     ("tags", "Tag assignments for resources"),
     ("policy", "Policy configuration (convergence, security)"),
@@ -77,7 +80,10 @@ const RESOURCE_TYPES: &[(&str, &str)] = &[
 const RESOURCE_FIELDS: &[(&str, &str)] = &[
     ("name", "Resource identifier (unique within config)"),
     ("type", "Resource type (package, file, service, etc.)"),
-    ("ensure", "Desired state: present, absent, latest, running, stopped"),
+    (
+        "ensure",
+        "Desired state: present, absent, latest, running, stopped",
+    ),
     ("provider", "Package provider: apt, yum, brew, cargo, pip"),
     ("content", "File content (inline string)"),
     ("source", "File source path or URL"),
@@ -137,7 +143,10 @@ impl LspServer {
             }
             "textDocument/completion" => {
                 let items = self.handle_completion(msg);
-                Some(make_response(id, serde_json::to_value(items).unwrap_or_default()))
+                Some(make_response(
+                    id,
+                    serde_json::to_value(items).unwrap_or_default(),
+                ))
             }
             "textDocument/hover" => {
                 let hover = self.handle_hover(msg);
@@ -155,8 +164,10 @@ impl LspServer {
 
     fn handle_did_open(&mut self, msg: &serde_json::Value) {
         if let (Some(uri), Some(text)) = (
-            msg.pointer("/params/textDocument/uri").and_then(|v| v.as_str()),
-            msg.pointer("/params/textDocument/text").and_then(|v| v.as_str()),
+            msg.pointer("/params/textDocument/uri")
+                .and_then(|v| v.as_str()),
+            msg.pointer("/params/textDocument/text")
+                .and_then(|v| v.as_str()),
         ) {
             self.documents.insert(uri.to_string(), text.to_string());
         }
@@ -164,11 +175,16 @@ impl LspServer {
 
     fn handle_did_change(&mut self, msg: &serde_json::Value) {
         if let (Some(uri), Some(changes)) = (
-            msg.pointer("/params/textDocument/uri").and_then(|v| v.as_str()),
-            msg.pointer("/params/contentChanges").and_then(|v| v.as_array()),
+            msg.pointer("/params/textDocument/uri")
+                .and_then(|v| v.as_str()),
+            msg.pointer("/params/contentChanges")
+                .and_then(|v| v.as_array()),
         ) {
             // Full document sync — take last change
-            if let Some(text) = changes.last().and_then(|c| c.get("text")).and_then(|t| t.as_str())
+            if let Some(text) = changes
+                .last()
+                .and_then(|c| c.get("text"))
+                .and_then(|t| t.as_str())
             {
                 self.documents.insert(uri.to_string(), text.to_string());
             }
@@ -261,7 +277,12 @@ pub(crate) fn completion_items(indent: usize, line_prefix: &str) -> Vec<Completi
 
 /// Generate hover info for a line.
 fn hover_info(line: &str) -> serde_json::Value {
-    let key = line.split(':').next().unwrap_or("").trim().trim_start_matches("- ");
+    let key = line
+        .split(':')
+        .next()
+        .unwrap_or("")
+        .trim()
+        .trim_start_matches("- ");
     let desc = TOP_LEVEL_KEYS
         .iter()
         .chain(RESOURCE_FIELDS.iter())
@@ -443,4 +464,3 @@ fn publish_diagnostics(uri: &str, diags: &[Diagnostic]) -> serde_json::Value {
         "params": { "uri": uri, "diagnostics": lsp_diags }
     })
 }
-

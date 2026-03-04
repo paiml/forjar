@@ -35,9 +35,7 @@ pub(crate) fn cmd_status_machine_resource_drift_recurrence(
         let items: Vec<String> = recurrences
             .iter()
             .map(|(m, r, c)| {
-                format!(
-                    "{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"drift_count\":{c}}}"
-                )
+                format!("{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"drift_count\":{c}}}")
             })
             .collect();
         println!("{{\"drift_recurrences\":[{}]}}", items.join(","));
@@ -145,9 +143,7 @@ pub(crate) fn cmd_status_machine_resource_convergence_trend_p90(
         let items: Vec<String> = trends
             .iter()
             .map(|(m, r, t)| {
-                format!(
-                    "{{\"machine\":\"{m}\",\"convergence_rate\":{r:.4},\"total\":{t}}}"
-                )
+                format!("{{\"machine\":\"{m}\",\"convergence_rate\":{r:.4},\"total\":{t}}}")
             })
             .collect();
         println!("{{\"convergence_trends\":[{}]}}", items.join(","));
@@ -196,9 +192,7 @@ pub(super) fn print_drift_ages(ages: &[(String, String, f64)], json: bool) {
         let items: Vec<String> = ages
             .iter()
             .map(|(m, r, h)| {
-                format!(
-                    "{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"drift_age_hours\":{h:.2}}}"
-                )
+                format!("{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"drift_age_hours\":{h:.2}}}")
             })
             .collect();
         println!("{{\"drift_ages\":[{}]}}", items.join(","));

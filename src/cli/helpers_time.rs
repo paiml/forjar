@@ -1,5 +1,6 @@
 //! Time and duration parsing helpers.
 
+#[cfg(feature = "encryption")]
 pub(crate) fn chrono_date() -> String {
     // Simple date without chrono dependency
     let output = std::process::Command::new("date").arg("+%Y-%m-%d").output();
@@ -52,9 +53,7 @@ pub(crate) fn parse_duration_string(s: &str) -> Result<u64, String> {
         "m" => Ok(num * 60),
         "h" => Ok(num * 3600),
         "d" => Ok(num * 86400),
-        _ => Err(format!(
-            "unknown duration unit '{unit}'. Use s, m, h, or d"
-        )),
+        _ => Err(format!("unknown duration unit '{unit}'. Use s, m, h, or d")),
     }
 }
 

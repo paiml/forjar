@@ -127,7 +127,11 @@ fn parse_demo_config() -> types::ForjarConfig {
         }
         std::process::exit(1);
     }
-    println!("Parsed: {} ({} resources)", config.name, config.resources.len());
+    println!(
+        "Parsed: {} ({} resources)",
+        config.name,
+        config.resources.len()
+    );
     config
 }
 
@@ -138,7 +142,10 @@ fn resolve_templates(config: &types::ForjarConfig) -> types::ForjarConfig {
     for (id, resource) in &config.resources {
         let r = resolver::resolve_resource_templates(resource, &params, &config.machines)
             .expect("resolution failed");
-        if r.content.as_ref().is_some_and(|c| c.contains("staging") || c.contains("8080")) {
+        if r.content
+            .as_ref()
+            .is_some_and(|c| c.contains("staging") || c.contains("8080"))
+        {
             println!("  {id}: templates resolved");
         }
         resolved.resources.insert(id.clone(), r);

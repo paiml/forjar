@@ -94,11 +94,7 @@ pub struct StateBackendReport {
 }
 
 /// List state backend contents.
-pub fn cmd_state_backend(
-    state_dir: &Path,
-    prefix: Option<&str>,
-    json: bool,
-) -> Result<(), String> {
+pub fn cmd_state_backend(state_dir: &Path, prefix: Option<&str>, json: bool) -> Result<(), String> {
     let backend = LocalBackend::new(state_dir);
     let pfx = prefix.unwrap_or("");
     let keys = backend.list(pfx)?;
@@ -111,8 +107,7 @@ pub fn cmd_state_backend(
     };
 
     if json {
-        let out =
-            serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {e}"))?;
+        let out = serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {e}"))?;
         println!("{out}");
     } else {
         println!("State Backend: {}", backend.name());

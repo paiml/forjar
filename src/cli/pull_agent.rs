@@ -81,8 +81,7 @@ pub fn cmd_pull_agent(
     let report = run_agent_loop(&config)?;
 
     if json {
-        let out = serde_json::to_string_pretty(&report)
-            .map_err(|e| format!("JSON error: {e}"))?;
+        let out = serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {e}"))?;
         println!("{out}");
     } else {
         print_agent_report(&report);
@@ -143,10 +142,9 @@ fn reconcile_once(config: &PullAgentConfig, iteration: u64) -> Result<ReconcileR
 
 /// Detect drift by comparing config resources against state lock files.
 pub fn detect_drift(config_file: &Path, state_dir: &Path) -> Result<Vec<String>, String> {
-    let content = std::fs::read_to_string(config_file)
-        .map_err(|e| format!("read config: {e}"))?;
-    let config: serde_yaml_ng::Value = serde_yaml_ng::from_str(&content)
-        .map_err(|e| format!("parse config: {e}"))?;
+    let content = std::fs::read_to_string(config_file).map_err(|e| format!("read config: {e}"))?;
+    let config: serde_yaml_ng::Value =
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("parse config: {e}"))?;
 
     let mut drifted = Vec::new();
     let resources = extract_resource_names(&config);
@@ -195,6 +193,9 @@ fn print_agent_report(report: &AgentReport) {
     for r in &report.results {
         let drift = if r.drift_detected { "DRIFT" } else { "ok" };
         let applied = if r.auto_applied { " [applied]" } else { "" };
-        println!("  [{:>3}] {drift}{applied} ({} drifted)", r.iteration, r.resources_drifted);
+        println!(
+            "  [{:>3}] {drift}{applied} ({} drifted)",
+            r.iteration, r.resources_drifted
+        );
     }
 }

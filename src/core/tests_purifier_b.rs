@@ -78,7 +78,7 @@ fn make_test_resource(rt: crate::core::types::ResourceType) -> crate::core::type
         post_apply: None,
         lifecycle: None,
         store: false,
-            sudo: false,
+        sudo: false,
         script: None,
     }
 }

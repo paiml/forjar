@@ -35,7 +35,11 @@ struct EventRecord {
 fn parse_events(state_dir: &Path) -> Vec<EventRecord> {
     let mut events = Vec::new();
     collect_events_recursive(state_dir, &mut events);
-    events.sort_by(|a, b| a.timestamp.partial_cmp(&b.timestamp).unwrap_or(std::cmp::Ordering::Equal));
+    events.sort_by(|a, b| {
+        a.timestamp
+            .partial_cmp(&b.timestamp)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     events
 }
 
@@ -108,7 +112,11 @@ fn parse_iso_timestamp(s: Option<&str>) -> Option<f64> {
         &s[..idx]
     } else if let Some(idx) = s.rfind('-') {
         // Careful: don't split on date hyphens, only timezone offset
-        if idx > 19 { &s[..idx] } else { s }
+        if idx > 19 {
+            &s[..idx]
+        } else {
+            s
+        }
     } else {
         s
     };
@@ -129,7 +137,11 @@ fn parse_iso_timestamp(s: Option<&str>) -> Option<f64> {
 
 fn month_days(month: i64) -> i64 {
     const CUMULATIVE: [i64; 12] = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
-    if (1..=12).contains(&month) { CUMULATIVE[(month - 1) as usize] } else { 0 }
+    if (1..=12).contains(&month) {
+        CUMULATIVE[(month - 1) as usize]
+    } else {
+        0
+    }
 }
 
 fn compute_predictions(events: &[EventRecord], machine_filter: Option<&str>) -> DriftPredictReport {
@@ -181,7 +193,11 @@ fn compute_predictions(events: &[EventRecord], machine_filter: Option<&str>) -> 
         });
     }
 
-    predictions.sort_by(|a, b| b.risk_score.partial_cmp(&a.risk_score).unwrap_or(std::cmp::Ordering::Equal));
+    predictions.sort_by(|a, b| {
+        b.risk_score
+            .partial_cmp(&a.risk_score)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
 
     let total_analyzed = groups.len();
     let high_risk_count = predictions.iter().filter(|p| p.risk_score > 0.7).count();
@@ -218,8 +234,16 @@ fn compute_trend(timestamps: &[f64]) -> &'static str {
     let mid = timestamps.len() / 2;
     let first_half = &timestamps[..mid];
     let second_half = &timestamps[mid..];
-    let avg_first = if first_half.is_empty() { 0.0 } else { first_half.len() as f64 };
-    let avg_second = if second_half.is_empty() { 0.0 } else { second_half.len() as f64 };
+    let avg_first = if first_half.is_empty() {
+        0.0
+    } else {
+        first_half.len() as f64
+    };
+    let avg_second = if second_half.is_empty() {
+        0.0
+    } else {
+        second_half.len() as f64
+    };
 
     if avg_second > avg_first * 1.3 {
         "increasing"
@@ -274,7 +298,9 @@ fn print_drift_json(r: &DriftPredictReport) {
         .collect();
     println!(
         r#"{{"total_analyzed":{},"high_risk":{},"predictions":[{}]}}"#,
-        r.total_analyzed, r.high_risk_count, items.join(","),
+        r.total_analyzed,
+        r.high_risk_count,
+        items.join(","),
     );
 }
 
@@ -294,12 +320,20 @@ fn print_drift_text(r: &DriftPredictReport) {
         };
         println!(
             "  {} on {} — risk {} | drifts {}/{} | trend {} | mtbd {:.0}s",
-            p.resource, p.machine, risk_colored,
-            p.drift_count, p.total_events, p.trend, p.mean_time_between_drifts,
+            p.resource,
+            p.machine,
+            risk_colored,
+            p.drift_count,
+            p.total_events,
+            p.trend,
+            p.mean_time_between_drifts,
         );
     }
 
     if r.predictions.is_empty() {
-        println!("  {} No drift events found in state directory", dim("Note:"));
+        println!(
+            "  {} No drift events found in state directory",
+            dim("Note:")
+        );
     }
 }

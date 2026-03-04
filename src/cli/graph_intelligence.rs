@@ -244,11 +244,7 @@ pub(crate) fn cmd_graph_resource_dependency_cluster_coefficient(
     if json {
         let items: Vec<String> = coefficients
             .iter()
-            .map(|(n, c)| {
-                format!(
-                    "{{\"resource\":\"{n}\",\"cluster_coefficient\":{c:.3}}}"
-                )
-            })
+            .map(|(n, c)| format!("{{\"resource\":\"{n}\",\"cluster_coefficient\":{c:.3}}}"))
             .collect();
         println!("{{\"cluster_coefficients\":[{}]}}", items.join(","));
     } else if coefficients.is_empty() {

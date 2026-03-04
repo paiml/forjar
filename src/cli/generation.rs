@@ -16,8 +16,7 @@ fn generations_dir(state_dir: &Path) -> PathBuf {
 /// Returns the new generation number.
 pub(crate) fn create_generation(state_dir: &Path) -> Result<u32, String> {
     let gen_dir = generations_dir(state_dir);
-    std::fs::create_dir_all(&gen_dir)
-        .map_err(|e| format!("cannot create generations dir: {e}"))?;
+    std::fs::create_dir_all(&gen_dir).map_err(|e| format!("cannot create generations dir: {e}"))?;
 
     let next = next_generation_number(&gen_dir)?;
     let target = gen_dir.join(next.to_string());
@@ -48,9 +47,7 @@ pub(crate) fn rollback_to_generation(
     yes: bool,
 ) -> Result<(), String> {
     if !yes {
-        return Err(
-            "rollback --generation requires --yes to confirm state overwrite".to_string(),
-        );
+        return Err("rollback --generation requires --yes to confirm state overwrite".to_string());
     }
     let gen_dir = generations_dir(state_dir);
     let target = gen_dir.join(generation.to_string());
@@ -108,7 +105,9 @@ pub(crate) fn gc_generations(state_dir: &Path, keep: u32, verbose: bool) {
     if !gen_dir.exists() {
         return;
     }
-    let Ok(mut gens) = collect_generation_numbers(&gen_dir) else { return };
+    let Ok(mut gens) = collect_generation_numbers(&gen_dir) else {
+        return;
+    };
     if gens.len() <= keep as usize {
         return;
     }
@@ -162,22 +161,20 @@ fn read_created_at(meta_path: &Path) -> String {
     std::fs::read_to_string(meta_path)
         .ok()
         .and_then(|c| {
-            c.lines()
-                .find(|l| l.starts_with("created_at:"))
-                .map(|l| {
-                    l.trim_start_matches("created_at:")
-                        .trim()
-                        .trim_matches('"')
-                        .to_string()
-                })
+            c.lines().find(|l| l.starts_with("created_at:")).map(|l| {
+                l.trim_start_matches("created_at:")
+                    .trim()
+                    .trim_matches('"')
+                    .to_string()
+            })
         })
         .unwrap_or_else(|| "unknown".to_string())
 }
 
 /// Copy state files into a generation directory, skipping generations/ and snapshots/.
 fn copy_state_to_generation(state_dir: &Path, target: &Path) -> Result<(), String> {
-    let entries = std::fs::read_dir(state_dir)
-        .map_err(|e| format!("cannot read state dir: {e}"))?;
+    let entries =
+        std::fs::read_dir(state_dir).map_err(|e| format!("cannot read state dir: {e}"))?;
     for entry in entries.flatten() {
         let name = entry.file_name().to_string_lossy().to_string();
         if name == "generations" || name == "snapshots" || name == ".snapshots" {
@@ -190,9 +187,8 @@ fn copy_state_to_generation(state_dir: &Path, target: &Path) -> Result<(), Strin
                 .map_err(|e| format!("cannot create {}: {e}", dst.display()))?;
             super::snapshot::copy_dir_recursive(&src, &dst, "")?;
         } else {
-            std::fs::copy(&src, &dst).map_err(|e| {
-                format!("cannot copy {} → {}: {e}", src.display(), dst.display())
-            })?;
+            std::fs::copy(&src, &dst)
+                .map_err(|e| format!("cannot copy {} → {}: {e}", src.display(), dst.display()))?;
         }
     }
     Ok(())
@@ -201,8 +197,8 @@ fn copy_state_to_generation(state_dir: &Path, target: &Path) -> Result<(), Strin
 /// Restore state from a generation directory back to state_dir.
 fn restore_generation_to_state(gen_path: &Path, state_dir: &Path) -> Result<(), String> {
     // Remove current state (except generations/ and snapshots/)
-    let entries = std::fs::read_dir(state_dir)
-        .map_err(|e| format!("cannot read state dir: {e}"))?;
+    let entries =
+        std::fs::read_dir(state_dir).map_err(|e| format!("cannot read state dir: {e}"))?;
     for entry in entries.flatten() {
         let name = entry.file_name().to_string_lossy().to_string();
         if name == "generations" || name == "snapshots" || name == ".snapshots" {
@@ -219,8 +215,8 @@ fn restore_generation_to_state(gen_path: &Path, state_dir: &Path) -> Result<(), 
     }
 
     // Copy generation contents back (skip metadata)
-    let entries = std::fs::read_dir(gen_path)
-        .map_err(|e| format!("cannot read generation: {e}"))?;
+    let entries =
+        std::fs::read_dir(gen_path).map_err(|e| format!("cannot read generation: {e}"))?;
     for entry in entries.flatten() {
         let name = entry.file_name().to_string_lossy().to_string();
         if name == ".generation.yaml" {
@@ -233,9 +229,8 @@ fn restore_generation_to_state(gen_path: &Path, state_dir: &Path) -> Result<(), 
                 .map_err(|e| format!("cannot create {}: {e}", dst.display()))?;
             super::snapshot::copy_dir_recursive(&src, &dst, "")?;
         } else {
-            std::fs::copy(&src, &dst).map_err(|e| {
-                format!("cannot copy {} → {}: {e}", src.display(), dst.display())
-            })?;
+            std::fs::copy(&src, &dst)
+                .map_err(|e| format!("cannot copy {} → {}: {e}", src.display(), dst.display()))?;
         }
     }
     Ok(())
@@ -268,10 +263,7 @@ fn atomic_symlink_switch(gen_dir: &Path, target_dir: &Path) -> Result<(), String
 }
 
 /// Print generations as JSON.
-fn print_generations_json(
-    gens: &[(u32, String)],
-    current: Option<u32>,
-) -> Result<(), String> {
+fn print_generations_json(gens: &[(u32, String)], current: Option<u32>) -> Result<(), String> {
     let items: Vec<serde_json::Value> = gens
         .iter()
         .map(|(n, c)| {

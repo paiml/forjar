@@ -306,9 +306,7 @@ pub(crate) fn cmd_status_stale_resources(
         let entries: Vec<String> = stale
             .iter()
             .map(|(m, r, at)| {
-                format!(
-                    "{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"last_applied\":\"{at}\"}}"
-                )
+                format!("{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"last_applied\":\"{at}\"}}")
             })
             .collect();
         println!("[{}]", entries.join(","));
@@ -391,9 +389,7 @@ pub(crate) fn cmd_status_health_threshold(
         } else {
             red(&format!("FAIL ({score}%)"))
         };
-        println!(
-            "Health score: {status} (threshold: {threshold}%, {converged}/{total} converged)"
-        );
+        println!("Health score: {status} (threshold: {threshold}%, {converged}/{total} converged)");
     }
     if pass {
         Ok(())

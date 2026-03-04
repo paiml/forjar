@@ -92,7 +92,11 @@ fn ss2_detects_http_url_in_source() {
     let findings = scan(&config);
     assert!(findings.iter().any(|f| f.rule_id == "SS-2"));
     assert_eq!(
-        findings.iter().find(|f| f.rule_id == "SS-2").unwrap().severity,
+        findings
+            .iter()
+            .find(|f| f.rule_id == "SS-2")
+            .unwrap()
+            .severity,
         Severity::High
     );
 }
@@ -160,7 +164,11 @@ fn ss4_detects_external_file_without_check() {
     let findings = scan(&config);
     assert!(findings.iter().any(|f| f.rule_id == "SS-4"));
     assert_eq!(
-        findings.iter().find(|f| f.rule_id == "SS-4").unwrap().severity,
+        findings
+            .iter()
+            .find(|f| f.rule_id == "SS-4")
+            .unwrap()
+            .severity,
         Severity::Medium
     );
 }
@@ -206,7 +214,9 @@ fn ss5_detects_privileged_docker() {
     r.environment = vec!["privileged=true".to_string()];
     config.resources.insert("dkr".to_string(), r);
     let findings = scan(&config);
-    assert!(findings.iter().any(|f| f.rule_id == "SS-5" && f.severity == Severity::Critical));
+    assert!(findings
+        .iter()
+        .any(|f| f.rule_id == "SS-5" && f.severity == Severity::Critical));
 }
 
 #[test]
@@ -216,7 +226,9 @@ fn ss5_detects_root_owner() {
     r.owner = Some("root".to_string());
     config.resources.insert("dkr".to_string(), r);
     let findings = scan(&config);
-    assert!(findings.iter().any(|f| f.rule_id == "SS-5" && f.severity == Severity::Medium));
+    assert!(findings
+        .iter()
+        .any(|f| f.rule_id == "SS-5" && f.severity == Severity::Medium));
 }
 
 #[test]
@@ -239,7 +251,11 @@ fn ss6_detects_no_limits() {
     let findings = scan(&config);
     assert!(findings.iter().any(|f| f.rule_id == "SS-6"));
     assert_eq!(
-        findings.iter().find(|f| f.rule_id == "SS-6").unwrap().severity,
+        findings
+            .iter()
+            .find(|f| f.rule_id == "SS-6")
+            .unwrap()
+            .severity,
         Severity::Low
     );
 }
@@ -341,7 +357,11 @@ fn ss10_detects_ssn() {
     let findings = scan(&config);
     assert!(findings.iter().any(|f| f.rule_id == "SS-10"));
     assert_eq!(
-        findings.iter().find(|f| f.rule_id == "SS-10").unwrap().severity,
+        findings
+            .iter()
+            .find(|f| f.rule_id == "SS-10")
+            .unwrap()
+            .severity,
         Severity::Critical
     );
 }

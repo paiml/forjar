@@ -27,11 +27,7 @@ pub fn exec_pepita(machine: &Machine, script: &str) -> Result<ExecOutput, String
 
     // Read the PID of the namespace init process
     let pid = std::fs::read_to_string(&pidfile)
-        .map_err(|e| {
-            format!(
-                "cannot read pidfile '{pidfile}': {e} — is the namespace running?"
-            )
-        })?
+        .map_err(|e| format!("cannot read pidfile '{pidfile}': {e} — is the namespace running?"))?
         .trim()
         .to_string();
 

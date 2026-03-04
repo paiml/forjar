@@ -19,8 +19,7 @@ fn verify_machine_sig(
         Some(l) => l,
         None => return Ok(None),
     };
-    let lock_yaml =
-        serde_yaml_ng::to_string(&lock).map_err(|e| format!("serialize error: {e}"))?;
+    let lock_yaml = serde_yaml_ng::to_string(&lock).map_err(|e| format!("serialize error: {e}"))?;
     let expected_sig = hasher::hash_string(&format!("{lock_yaml}{key}"));
     let sig_path = state_dir.join(format!("{m}.sig"));
     let actual_sig = std::fs::read_to_string(&sig_path).unwrap_or_default();
@@ -187,8 +186,7 @@ pub(crate) fn cmd_lock_rotate_keys(
                 serde_yaml_ng::to_string(&lock).map_err(|e| format!("serialize error: {e}"))?;
             let new_sig = hasher::hash_string(&format!("{lock_yaml}{new_key}"));
             let sig_path = state_dir.join(format!("{m}.sig"));
-            std::fs::write(&sig_path, &new_sig)
-                .map_err(|e| format!("Failed to write sig: {e}"))?;
+            std::fs::write(&sig_path, &new_sig).map_err(|e| format!("Failed to write sig: {e}"))?;
             rotated += 1;
         }
     }
@@ -232,8 +230,7 @@ pub(crate) fn cmd_lock_backup(state_dir: &Path, json: bool) -> Result<(), String
         if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
             if name.ends_with(".lock.yaml") || name.ends_with(".events.jsonl") {
                 let dest = backup_dir.join(name);
-                std::fs::copy(&path, &dest)
-                    .map_err(|e| format!("Failed to copy {name}: {e}"))?;
+                std::fs::copy(&path, &dest).map_err(|e| format!("Failed to copy {name}: {e}"))?;
                 backed_up.push(name.to_string());
             }
         }
@@ -294,9 +291,7 @@ pub(crate) fn cmd_lock_verify_chain(state_dir: &Path, json: bool) -> Result<(), 
             chain_results.push((
                 m.clone(),
                 false,
-                format!(
-                    "hash mismatch: expected {sig_content}, got {computed_hash}"
-                ),
+                format!("hash mismatch: expected {sig_content}, got {computed_hash}"),
             ));
         }
     }
@@ -305,9 +300,7 @@ pub(crate) fn cmd_lock_verify_chain(state_dir: &Path, json: bool) -> Result<(), 
         let entries: Vec<String> = chain_results
             .iter()
             .map(|(m, valid, detail)| {
-                format!(
-                    r#"{{"machine":"{m}","valid":{valid},"detail":"{detail}"}}"#
-                )
+                format!(r#"{{"machine":"{m}","valid":{valid},"detail":"{detail}"}}"#)
             })
             .collect();
         println!("[{}]", entries.join(","));
@@ -363,9 +356,7 @@ pub(crate) fn cmd_lock_stats(state_dir: &Path, json: bool) -> Result<(), String>
         let entries: Vec<String> = stats
             .iter()
             .map(|(m, s, c, a)| {
-                format!(
-                    r#"{{"machine":"{m}","size_bytes":{s},"resources":{c},"age":"{a}"}}"#
-                )
+                format!(r#"{{"machine":"{m}","size_bytes":{s},"resources":{c},"age":"{a}"}}"#)
             })
             .collect();
         println!("[{}]", entries.join(","));

@@ -240,7 +240,7 @@ fn make_service_resource(name: Option<&str>) -> Resource {
         post_apply: None,
         lifecycle: None,
         store: false,
-            sudo: false,
+        sudo: false,
         script: None,
     }
 }

@@ -113,8 +113,11 @@ fn prove_dag_acyclicity(config: &types::ForjarConfig) -> ProofResult {
 
 /// Run Kahn's topological sort, return (visited_count, total_count).
 fn topo_sort_count(config: &types::ForjarConfig) -> (usize, usize) {
-    let mut in_degree: std::collections::HashMap<&str, usize> =
-        config.resources.keys().map(|k| (k.as_str(), 0usize)).collect();
+    let mut in_degree: std::collections::HashMap<&str, usize> = config
+        .resources
+        .keys()
+        .map(|k| (k.as_str(), 0usize))
+        .collect();
 
     for (id, resource) in &config.resources {
         for dep in &resource.depends_on {
@@ -227,7 +230,11 @@ fn prove_hash_determinism(
         detail: if failures.is_empty() {
             format!("{tested} resources: state_query scripts are deterministic")
         } else {
-            format!("{} non-deterministic: {}", failures.len(), failures.join(", "))
+            format!(
+                "{} non-deterministic: {}",
+                failures.len(),
+                failures.join(", ")
+            )
         },
     }
 }
@@ -270,10 +277,7 @@ fn prove_idempotency_structure(
     }
 }
 
-fn print_proofs_json(
-    config: &types::ForjarConfig,
-    proofs: &[ProofResult],
-) -> Result<(), String> {
+fn print_proofs_json(config: &types::ForjarConfig, proofs: &[ProofResult]) -> Result<(), String> {
     let results: Vec<serde_json::Value> = proofs
         .iter()
         .map(|p| {
@@ -292,16 +296,12 @@ fn print_proofs_json(
         "proofs": results,
     });
 
-    let output = serde_json::to_string_pretty(&doc)
-        .map_err(|e| format!("JSON error: {e}"))?;
+    let output = serde_json::to_string_pretty(&doc).map_err(|e| format!("JSON error: {e}"))?;
     println!("{output}");
     Ok(())
 }
 
-fn print_proofs_text(
-    config: &types::ForjarConfig,
-    proofs: &[ProofResult],
-) {
+fn print_proofs_text(config: &types::ForjarConfig, proofs: &[ProofResult]) {
     println!("Convergence Proof: {}", config.name);
     println!("{:-<72}", "");
     for p in proofs {

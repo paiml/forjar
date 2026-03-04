@@ -69,7 +69,13 @@ fn dispatch_query(args: InfraQueryArgs) -> Result<(), String> {
         machine: args.machine,
         tag: args.tag,
     };
-    super::infra_query::cmd_query(&args.file, &args.state_dir, &filter, args.details, args.json)
+    super::infra_query::cmd_query(
+        &args.file,
+        &args.state_dir,
+        &filter,
+        args.details,
+        args.json,
+    )
 }
 
 fn dispatch_agent_registry(args: AgentRegistryArgs) -> Result<(), String> {

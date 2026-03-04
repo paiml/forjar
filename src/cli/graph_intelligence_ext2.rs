@@ -63,11 +63,7 @@ pub(super) fn print_resilience_scores(scores: &[(String, String, f64)], json: bo
     if json {
         let items: Vec<String> = scores
             .iter()
-            .map(|(f, t, s)| {
-                format!(
-                    "{{\"from\":\"{f}\",\"to\":\"{t}\",\"resilience\":{s:.2}}}"
-                )
-            })
+            .map(|(f, t, s)| format!("{{\"from\":\"{f}\",\"to\":\"{t}\",\"resilience\":{s:.2}}}"))
             .collect();
         println!("{{\"resilience_scores\":[{}]}}", items.join(","));
     } else if scores.is_empty() {

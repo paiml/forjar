@@ -11,11 +11,7 @@ use crate::core::{parser, state, types};
 use std::path::Path;
 
 /// Generate CBOM from config and state.
-pub(crate) fn cmd_cbom(
-    file: &Path,
-    state_dir: &Path,
-    json: bool,
-) -> Result<(), String> {
+pub(crate) fn cmd_cbom(file: &Path, state_dir: &Path, json: bool) -> Result<(), String> {
     let config = parser::parse_and_validate(file)?;
     let entries = collect_crypto_entries(&config, state_dir);
 
@@ -34,10 +30,7 @@ struct CryptoEntry {
     location: String,
 }
 
-fn collect_crypto_entries(
-    config: &types::ForjarConfig,
-    state_dir: &Path,
-) -> Vec<CryptoEntry> {
+fn collect_crypto_entries(config: &types::ForjarConfig, state_dir: &Path) -> Vec<CryptoEntry> {
     let mut entries = Vec::new();
 
     // BLAKE3 hashing — always present in forjar state
@@ -114,7 +107,11 @@ fn scan_ssh_keys(config: &types::ForjarConfig, entries: &mut Vec<CryptoEntry>) {
 fn scan_tls_resources(config: &types::ForjarConfig, entries: &mut Vec<CryptoEntry>) {
     for (id, resource) in &config.resources {
         if let Some(ref path) = resource.path {
-            if path.contains("ssl") || path.contains("tls") || path.contains(".pem") || path.contains(".crt") {
+            if path.contains("ssl")
+                || path.contains("tls")
+                || path.contains(".pem")
+                || path.contains(".crt")
+            {
                 entries.push(CryptoEntry {
                     algorithm: "X.509/TLS".to_string(),
                     usage: "certificate-management".to_string(),
@@ -168,10 +165,7 @@ fn scan_docker_digests(config: &types::ForjarConfig, entries: &mut Vec<CryptoEnt
     }
 }
 
-fn print_cbom_json(
-    config: &types::ForjarConfig,
-    entries: &[CryptoEntry],
-) -> Result<(), String> {
+fn print_cbom_json(config: &types::ForjarConfig, entries: &[CryptoEntry]) -> Result<(), String> {
     let algorithms: Vec<serde_json::Value> = entries
         .iter()
         .map(|e| {
@@ -191,17 +185,17 @@ fn print_cbom_json(
         "totalAlgorithms": entries.len(),
     });
 
-    let output = serde_json::to_string_pretty(&doc)
-        .map_err(|e| format!("JSON error: {e}"))?;
+    let output = serde_json::to_string_pretty(&doc).map_err(|e| format!("JSON error: {e}"))?;
     println!("{output}");
     Ok(())
 }
 
-fn print_cbom_text(
-    config: &types::ForjarConfig,
-    entries: &[CryptoEntry],
-) {
-    println!("CBOM: {} ({} crypto algorithms)", config.name, entries.len());
+fn print_cbom_text(config: &types::ForjarConfig, entries: &[CryptoEntry]) {
+    println!(
+        "CBOM: {} ({} crypto algorithms)",
+        config.name,
+        entries.len()
+    );
     println!("{:-<72}", "");
     println!(
         "{:<16} {:<24} {:<12} {:<20}",

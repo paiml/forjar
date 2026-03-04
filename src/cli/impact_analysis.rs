@@ -137,8 +137,11 @@ fn print_impact_json(r: &ImpactReport) {
         .collect();
     println!(
         r#"{{"source":"{}","risk":"{}","total_affected":{},"machines_affected":{},"cascade_seconds":{},"affected":[{}]}}"#,
-        r.source, r.risk_level, r.total_affected,
-        r.machines_affected, r.estimated_cascade_seconds,
+        r.source,
+        r.risk_level,
+        r.total_affected,
+        r.machines_affected,
+        r.estimated_cascade_seconds,
         items.join(","),
     );
 }

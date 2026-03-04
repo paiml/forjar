@@ -128,11 +128,7 @@ pub(crate) fn cmd_status_resource_convergence_time(
     if json {
         let items: Vec<String> = times
             .iter()
-            .map(|(r, t)| {
-                format!(
-                    "{{\"resource\":\"{r}\",\"avg_convergence_secs\":{t:.2}}}"
-                )
-            })
+            .map(|(r, t)| format!("{{\"resource\":\"{r}\",\"avg_convergence_secs\":{t:.2}}}"))
             .collect();
         println!("{{\"resource_convergence_times\":[{}]}}", items.join(","));
     } else if times.is_empty() {
@@ -299,9 +295,7 @@ pub(crate) fn cmd_status_resource_dependency_health(
         let items: Vec<String> = health
             .iter()
             .map(|(m, r, h)| {
-                format!(
-                    "{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"healthy_deps\":{h}}}"
-                )
+                format!("{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"healthy_deps\":{h}}}")
             })
             .collect();
         println!("{{\"resource_dependency_health\":[{}]}}", items.join(","));

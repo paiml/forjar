@@ -63,9 +63,7 @@ pub(crate) fn cmd_status_staleness_report(
         let entries: Vec<String> = stale
             .iter()
             .map(|(m, r, age)| {
-                format!(
-                    r#"{{"machine":"{m}","resource":"{r}","last_applied":"{age}"}}"#
-                )
+                format!(r#"{{"machine":"{m}","resource":"{r}","last_applied":"{age}"}}"#)
             })
             .collect();
         println!("[{}]", entries.join(","));
@@ -231,9 +229,7 @@ pub(crate) fn cmd_status_capacity(
     } else if capacity_data.is_empty() {
         println!("No machine state found.");
     } else {
-        println!(
-            "Resource capacity per machine (limit: {max_resources_per_machine}):\n"
-        );
+        println!("Resource capacity per machine (limit: {max_resources_per_machine}):\n");
         for (m, used, limit, pct) in &capacity_data {
             let bar_len = (*pct / 5.0) as usize;
             let bar: String = "█".repeat(bar_len);
@@ -245,9 +241,7 @@ pub(crate) fn cmd_status_capacity(
             } else {
                 format!("{pct:.0}%")
             };
-            println!(
-                "  {m} {bar}{remaining} {used}/{limit} {color_pct}"
-            );
+            println!("  {m} {bar}{remaining} {used}/{limit} {color_pct}");
         }
     }
     Ok(())

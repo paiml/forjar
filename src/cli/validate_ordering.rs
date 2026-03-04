@@ -337,9 +337,7 @@ pub(crate) fn cmd_validate_check_resource_content_hash_consistency(
         let items: Vec<String> = mismatches
             .iter()
             .map(|(n, d, c)| {
-                format!(
-                    "{{\"resource\":\"{n}\",\"declared\":\"{d}\",\"computed\":\"{c}\"}}"
-                )
+                format!("{{\"resource\":\"{n}\",\"declared\":\"{d}\",\"computed\":\"{c}\"}}")
             })
             .collect();
         println!("{{\"hash_mismatches\":[{}]}}", items.join(","));

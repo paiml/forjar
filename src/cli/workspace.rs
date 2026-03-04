@@ -30,8 +30,7 @@ pub(crate) fn cmd_workspace_current() -> Result<(), String> {
 /// Testable core: create workspace in given root + state base.
 pub(crate) fn workspace_new_in(root: &Path, state_base: &Path, name: &str) -> Result<(), String> {
     let meta = root.join(".forjar");
-    std::fs::create_dir_all(&meta)
-        .map_err(|e| format!("cannot create workspace metadata: {e}"))?;
+    std::fs::create_dir_all(&meta).map_err(|e| format!("cannot create workspace metadata: {e}"))?;
     let ws_dir = state_base.join(name);
     if ws_dir.exists() {
         return Err(format!("workspace '{name}' already exists"));
@@ -85,8 +84,7 @@ pub(crate) fn workspace_select_in(
         ));
     }
     let meta = root.join(".forjar");
-    std::fs::create_dir_all(&meta)
-        .map_err(|e| format!("cannot create workspace metadata: {e}"))?;
+    std::fs::create_dir_all(&meta).map_err(|e| format!("cannot create workspace metadata: {e}"))?;
     std::fs::write(meta.join("workspace"), name)
         .map_err(|e| format!("cannot write workspace file: {e}"))?;
     println!("Selected workspace '{name}'");
@@ -105,9 +103,7 @@ pub(crate) fn workspace_delete_in(
         return Err(format!("workspace '{name}' does not exist"));
     }
     if !yes {
-        println!(
-            "This will delete workspace '{name}' and all its state. Use --yes to confirm."
-        );
+        println!("This will delete workspace '{name}' and all its state. Use --yes to confirm.");
         return Ok(());
     }
     std::fs::remove_dir_all(&ws_dir).map_err(|e| format!("cannot delete workspace dir: {e}"))?;

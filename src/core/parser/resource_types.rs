@@ -46,9 +46,7 @@ fn validate_file(id: &str, resource: &Resource, errors: &mut Vec<ValidationError
     }
     if resource.content.is_some() && resource.source.is_some() {
         errors.push(ValidationError {
-            message: format!(
-                "resource '{id}' (file) has both content and source (pick one)"
-            ),
+            message: format!("resource '{id}' (file) has both content and source (pick one)"),
         });
     }
     if let Some(ref state) = resource.state {

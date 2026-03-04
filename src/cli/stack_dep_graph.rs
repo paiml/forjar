@@ -27,10 +27,7 @@ pub struct StackGraphReport {
 }
 
 /// Analyze stack dependency graph.
-pub fn cmd_stack_graph(
-    files: &[std::path::PathBuf],
-    json: bool,
-) -> Result<(), String> {
+pub fn cmd_stack_graph(files: &[std::path::PathBuf], json: bool) -> Result<(), String> {
     let nodes = build_graph(files)?;
     let has_cycles = detect_cycles(&nodes);
     let parallel_groups = compute_parallel_groups(&nodes);
@@ -45,8 +42,7 @@ pub fn cmd_stack_graph(
     };
 
     if json {
-        let out =
-            serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {e}"))?;
+        let out = serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {e}"))?;
         println!("{out}");
     } else {
         print_stack_graph(&report);
@@ -64,7 +60,12 @@ fn build_graph(files: &[std::path::PathBuf]) -> Result<Vec<StackNode>, String> {
     for f in files {
         let config = parse_and_validate(f)?;
         let deps = extract_deps(&config);
-        configs.push((config.name.clone(), f.display().to_string(), config.resources.len(), deps));
+        configs.push((
+            config.name.clone(),
+            f.display().to_string(),
+            config.resources.len(),
+            deps,
+        ));
     }
 
     let all_names: BTreeSet<String> = configs.iter().map(|(n, _, _, _)| n.clone()).collect();
@@ -76,7 +77,11 @@ fn build_graph(files: &[std::path::PathBuf]) -> Result<Vec<StackNode>, String> {
             name: name.clone(),
             path: path.clone(),
             resources: *resources,
-            dependencies: deps.iter().filter(|d| all_names.contains(*d)).cloned().collect(),
+            dependencies: deps
+                .iter()
+                .filter(|d| all_names.contains(*d))
+                .cloned()
+                .collect(),
             dependents,
         });
     }
@@ -97,10 +102,7 @@ fn extract_deps(config: &crate::core::types::ForjarConfig) -> Vec<String> {
     deps
 }
 
-fn find_dependents(
-    name: &str,
-    configs: &[(String, String, usize, Vec<String>)],
-) -> Vec<String> {
+fn find_dependents(name: &str, configs: &[(String, String, usize, Vec<String>)]) -> Vec<String> {
     configs
         .iter()
         .filter(|(_, _, _, deps)| deps.contains(&name.to_string()))
