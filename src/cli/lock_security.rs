@@ -268,7 +268,7 @@ pub(crate) fn cmd_lock_verify_chain(state_dir: &Path, json: bool) -> Result<(), 
     let mut chain_results: Vec<(String, bool, String)> = Vec::new(); // (machine, valid, detail)
 
     for m in &machines {
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         let sig_path = state_dir.join(format!("{m}.lock.yaml.sig"));
 
         if !lock_path.exists() {
@@ -332,7 +332,7 @@ pub(crate) fn cmd_lock_stats(state_dir: &Path, json: bool) -> Result<(), String>
         .as_secs();
 
     for m in &machines {
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             continue;
         }

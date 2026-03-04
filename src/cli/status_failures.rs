@@ -15,7 +15,7 @@ fn filter_machines<'a>(machines: &'a [String], machine: Option<&str>) -> Vec<&'a
 
 /// Load a StateLock from a lock.yaml file, returning None on any error.
 fn load_lock_from_yaml(state_dir: &Path, m: &str) -> Option<types::StateLock> {
-    let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+    let lock_path = state_dir.join(m).join("state.lock.yaml");
     let content = std::fs::read_to_string(&lock_path).ok()?;
     serde_yaml_ng::from_str(&content).ok()
 }
@@ -91,7 +91,7 @@ pub(crate) fn cmd_status_failed_since(
 
     let mut failed = Vec::new();
     for m in &targets {
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             continue;
         }
@@ -284,7 +284,7 @@ pub(crate) fn cmd_status_config_hash(
     if json {
         let mut entries = Vec::new();
         for m in &targets {
-            let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+            let lock_path = state_dir.join(m).join("state.lock.yaml");
             if let Ok(data) = std::fs::read_to_string(&lock_path) {
                 let hash = crate::tripwire::hasher::hash_string(&data);
                 entries.push(format!(
@@ -296,7 +296,7 @@ pub(crate) fn cmd_status_config_hash(
     } else {
         println!("Config hashes:");
         for m in &targets {
-            let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+            let lock_path = state_dir.join(m).join("state.lock.yaml");
             if let Ok(data) = std::fs::read_to_string(&lock_path) {
                 let hash = crate::tripwire::hasher::hash_string(&data);
                 println!("  {m} — {hash}");
