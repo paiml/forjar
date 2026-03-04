@@ -7,6 +7,18 @@
 //! Each refined type wraps a primitive and enforces invariants at construction.
 
 /// A validated TCP/UDP port number (1-65535).
+///
+/// # Examples
+///
+/// ```
+/// use forjar::core::types::refinement::Port;
+///
+/// let port = Port::new(8080).unwrap();
+/// assert_eq!(port.value(), 8080);
+///
+/// // Port 0 is invalid
+/// assert!(Port::new(0).is_err());
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Port(u16);
 
@@ -24,6 +36,22 @@ impl Port {
 }
 
 /// A validated Unix file permission mode (0o000-0o777).
+///
+/// # Examples
+///
+/// ```
+/// use forjar::core::types::refinement::FileMode;
+///
+/// let mode = FileMode::new(0o644).unwrap();
+/// assert_eq!(mode.as_octal_string(), "0644");
+///
+/// // Parse from an octal string
+/// let mode = FileMode::from_str("755").unwrap();
+/// assert_eq!(mode.value(), 0o755);
+///
+/// // Values above 0o777 are rejected
+/// assert!(FileMode::new(0o1000).is_err());
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct FileMode(u16);
 
@@ -51,6 +79,21 @@ impl FileMode {
 }
 
 /// A validated semantic version string (X.Y.Z).
+///
+/// # Examples
+///
+/// ```
+/// use forjar::core::types::refinement::SemVer;
+///
+/// let ver = SemVer::parse("1.2.3").unwrap();
+/// assert_eq!(ver.major, 1);
+/// assert_eq!(ver.minor, 2);
+/// assert_eq!(ver.patch, 3);
+/// assert_eq!(ver.to_string(), "1.2.3");
+///
+/// // Rejects non-X.Y.Z formats
+/// assert!(SemVer::parse("1.2").is_err());
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct SemVer {
     pub major: u32,
@@ -88,6 +131,19 @@ impl std::fmt::Display for SemVer {
 }
 
 /// A validated hostname (RFC 1123).
+///
+/// # Examples
+///
+/// ```
+/// use forjar::core::types::refinement::Hostname;
+///
+/// let host = Hostname::new("web-01.example.com").unwrap();
+/// assert_eq!(host.as_str(), "web-01.example.com");
+///
+/// // Empty hostnames and leading dashes are rejected
+/// assert!(Hostname::new("").is_err());
+/// assert!(Hostname::new("-invalid.com").is_err());
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Hostname(String);
 
@@ -116,6 +172,18 @@ impl Hostname {
 }
 
 /// A validated Unix path (absolute, no null bytes).
+///
+/// # Examples
+///
+/// ```
+/// use forjar::core::types::refinement::AbsPath;
+///
+/// let path = AbsPath::new("/etc/nginx/nginx.conf").unwrap();
+/// assert_eq!(path.as_str(), "/etc/nginx/nginx.conf");
+///
+/// // Relative paths are rejected
+/// assert!(AbsPath::new("relative/path").is_err());
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct AbsPath(String);
 
@@ -136,6 +204,19 @@ impl AbsPath {
 }
 
 /// A validated resource name (alphanumeric + hyphens, 1-128 chars).
+///
+/// # Examples
+///
+/// ```
+/// use forjar::core::types::refinement::ResourceName;
+///
+/// let name = ResourceName::new("pkg-nginx").unwrap();
+/// assert_eq!(name.as_str(), "pkg-nginx");
+///
+/// // Spaces and empty strings are rejected
+/// assert!(ResourceName::new("has space").is_err());
+/// assert!(ResourceName::new("").is_err());
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct ResourceName(String);
 
