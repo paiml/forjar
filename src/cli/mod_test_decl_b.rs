@@ -386,3 +386,13 @@ mod tests_agent_registry;
 mod tests_pull_agent;
 #[cfg(test)]
 mod tests_lsp;
+#[cfg(test)]
+mod tests_lsp_b;
+#[cfg(test)]
+mod tests_security_scan;
+#[cfg(test)]
+mod tests_config_merge;
+#[cfg(test)]
+mod tests_cov_validate4;
+#[cfg(test)]
+mod tests_cov_misc_11;
