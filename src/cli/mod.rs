@@ -101,6 +101,7 @@ mod privilege_analysis;
 mod provenance;
 mod agent_registry;
 mod dispatch_platform;
+mod progress;
 mod pull_agent;
 pub mod structured_log;
 mod pq_signing;
