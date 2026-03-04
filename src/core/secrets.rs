@@ -6,7 +6,6 @@
 
 pub(crate) use base64::engine::general_purpose::STANDARD as B64;
 use base64::Engine;
-use std::io::{Read, Write};
 
 /// Marker prefix for age-encrypted values.
 pub(crate) const ENC_PREFIX: &str = "ENC[age,";
@@ -29,9 +28,36 @@ pub fn has_encrypted_markers(s: &str) -> bool {
     false
 }
 
+/// Find all `ENC[age,...]` marker positions in a string.
+///
+/// Returns `(start, end)` byte positions for each marker.
+pub(crate) fn find_markers(s: &str) -> Vec<(usize, usize)> {
+    let mut markers = Vec::new();
+    let mut start = 0;
+    while let Some(pos) = s[start..].find(ENC_PREFIX) {
+        let abs_start = start + pos;
+        // Find the matching closing bracket, handling nested brackets
+        let after_prefix = abs_start + ENC_PREFIX.len();
+        if let Some(end_pos) = s[after_prefix..].find(ENC_SUFFIX) {
+            let abs_end = after_prefix + end_pos + ENC_SUFFIX.len();
+            markers.push((abs_start, abs_end));
+            start = abs_end;
+        } else {
+            break; // No closing bracket found
+        }
+    }
+    markers
+}
+
+// ─── Age encryption (requires `encryption` feature) ──────────────
+
+#[cfg(feature = "encryption")]
+use std::io::{Read, Write};
+
 /// Encrypt a plaintext value with one or more age X25519 recipients.
 ///
 /// Returns `ENC[age,<base64>]` string suitable for embedding in YAML.
+#[cfg(feature = "encryption")]
 pub fn encrypt(plaintext: &str, recipient_strs: &[&str]) -> Result<String, String> {
     if recipient_strs.is_empty() {
         return Err("at least one recipient required".to_string());
@@ -66,6 +92,7 @@ pub fn encrypt(plaintext: &str, recipient_strs: &[&str]) -> Result<String, Strin
 }
 
 /// Decrypt a single `ENC[age,<base64>]` marker.
+#[cfg(feature = "encryption")]
 pub fn decrypt_marker(
     marker: &str,
     identities: &[age::x25519::Identity],
@@ -93,14 +120,13 @@ pub fn decrypt_marker(
 }
 
 /// Find and decrypt all `ENC[age,...]` markers in a string.
-///
-/// Returns the string with all markers replaced by their plaintext values.
-/// If no markers are found, returns the string unchanged.
+#[cfg(feature = "encryption")]
 pub fn decrypt_all(s: &str, identities: &[age::x25519::Identity]) -> Result<String, String> {
     decrypt_all_counted(s, identities).map(|(s, _)| s)
 }
 
 /// Decrypt all markers and return `(decrypted_string, marker_count)`.
+#[cfg(feature = "encryption")]
 pub fn decrypt_all_counted(
     s: &str,
     identities: &[age::x25519::Identity],
@@ -110,7 +136,6 @@ pub fn decrypt_all_counted(
     }
 
     let mut result = s.to_string();
-    // Process markers from right to left to preserve positions
     let markers = find_markers(&result);
     let count = markers.len();
     for (start, end) in markers.into_iter().rev() {
@@ -121,31 +146,8 @@ pub fn decrypt_all_counted(
     Ok((result, count))
 }
 
-/// Find all `ENC[age,...]` marker positions in a string.
-///
-/// Returns `(start, end)` byte positions for each marker.
-pub(crate) fn find_markers(s: &str) -> Vec<(usize, usize)> {
-    let mut markers = Vec::new();
-    let mut start = 0;
-    while let Some(pos) = s[start..].find(ENC_PREFIX) {
-        let abs_start = start + pos;
-        // Find the matching closing bracket, handling nested brackets
-        let after_prefix = abs_start + ENC_PREFIX.len();
-        if let Some(end_pos) = s[after_prefix..].find(ENC_SUFFIX) {
-            let abs_end = after_prefix + end_pos + ENC_SUFFIX.len();
-            markers.push((abs_start, abs_end));
-            start = abs_end;
-        } else {
-            break; // No closing bracket found
-        }
-    }
-    markers
-}
-
 /// Load age identity from `FORJAR_AGE_KEY` env var.
-///
-/// The env var should contain the age secret key string
-/// (e.g., `AGE-SECRET-KEY-1...`).
+#[cfg(feature = "encryption")]
 pub fn load_identity_from_env() -> Result<age::x25519::Identity, String> {
     let key_str = std::env::var("FORJAR_AGE_KEY")
         .map_err(|_| "FORJAR_AGE_KEY not set (required for ENC[age,...] decryption)".to_string())?;
@@ -153,12 +155,10 @@ pub fn load_identity_from_env() -> Result<age::x25519::Identity, String> {
 }
 
 /// Load age identity from a file path.
-///
-/// The file should contain an age identity (one `AGE-SECRET-KEY-1...` line).
+#[cfg(feature = "encryption")]
 pub fn load_identity_file(path: &std::path::Path) -> Result<age::x25519::Identity, String> {
     let content = std::fs::read_to_string(path)
         .map_err(|e| format!("cannot read identity file '{}': {}", path.display(), e))?;
-    // Find the AGE-SECRET-KEY line (skip comments)
     for line in content.lines() {
         let trimmed = line.trim();
         if trimmed.starts_with("AGE-SECRET-KEY-") {
@@ -169,6 +169,7 @@ pub fn load_identity_file(path: &std::path::Path) -> Result<age::x25519::Identit
 }
 
 /// Parse an age X25519 identity from a key string.
+#[cfg(feature = "encryption")]
 pub(crate) fn parse_identity(key_str: &str) -> Result<age::x25519::Identity, String> {
     key_str
         .trim()
@@ -177,18 +178,19 @@ pub(crate) fn parse_identity(key_str: &str) -> Result<age::x25519::Identity, Str
 }
 
 /// Get the public key (recipient) string for an identity.
+#[cfg(feature = "encryption")]
 pub fn identity_to_recipient(identity: &age::x25519::Identity) -> String {
     identity.to_public().to_string()
 }
 
 /// Generate a new age X25519 identity (keypair).
+#[cfg(feature = "encryption")]
 pub fn generate_identity() -> age::x25519::Identity {
     age::x25519::Identity::generate()
 }
 
 /// Load identities for decryption.
-///
-/// Priority: `--identity` file path > `FORJAR_AGE_KEY` env var.
+#[cfg(feature = "encryption")]
 pub fn load_identities(
     identity_path: Option<&std::path::Path>,
 ) -> Result<Vec<age::x25519::Identity>, String> {
@@ -196,6 +198,15 @@ pub fn load_identities(
         return Ok(vec![load_identity_file(path)?]);
     }
     Ok(vec![load_identity_from_env()?])
+}
+
+/// Decrypt all markers (stub when encryption feature is disabled).
+#[cfg(not(feature = "encryption"))]
+pub fn decrypt_all_inline(s: &str) -> Result<String, String> {
+    if has_encrypted_markers(s) {
+        return Err("ENC[age,...] markers found but forjar was compiled without encryption support. Rebuild with `--features encryption`.".to_string());
+    }
+    Ok(s.to_string())
 }
 
 // ─── Tests ───────────────────────────────────────────────────────────
