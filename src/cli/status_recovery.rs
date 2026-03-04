@@ -144,11 +144,15 @@ pub(crate) fn cmd_status_machine_mean_time_to_recovery(
     let mut mttr_data: Vec<(String, String)> = Vec::new();
     for m in &targets {
         let events_path = sd.join(m).join("events.jsonl");
-        if events_path.exists() {
-            mttr_data.push(((*m).clone(), "event data present".to_string()));
-        } else {
-            mttr_data.push(((*m).clone(), "no event history".to_string()));
-        }
+        let content = match std::fs::read_to_string(&events_path) {
+            Ok(c) => c,
+            Err(_) => {
+                mttr_data.push(((*m).clone(), "no event history".to_string()));
+                continue;
+            }
+        };
+        let mttr = compute_mttr_from_events(&content);
+        mttr_data.push(((*m).clone(), mttr));
     }
     mttr_data.sort_by(|a, b| a.0.cmp(&b.0));
     if json {
@@ -351,6 +355,91 @@ pub(crate) fn cmd_status_machine_resource_convergence_rate(
         }
     }
     Ok(())
+}
+
+/// Parse ISO 8601 timestamp to epoch seconds.
+fn parse_ts_epoch(s: &str) -> Option<f64> {
+    // "2026-02-16T16:32:54Z" → epoch
+    let parts: Vec<&str> = s.split('T').collect();
+    if parts.len() != 2 {
+        return None;
+    }
+    let date_parts: Vec<u32> = parts[0].split('-').filter_map(|p| p.parse().ok()).collect();
+    let time_str = parts[1].trim_end_matches('Z');
+    let time_parts: Vec<f64> = time_str.split(':').filter_map(|p| p.parse().ok()).collect();
+    if date_parts.len() != 3 || time_parts.len() != 3 {
+        return None;
+    }
+    // Approximate epoch: days since 1970 * 86400 + time
+    let y = date_parts[0] as f64;
+    let m = date_parts[1] as f64;
+    let d = date_parts[2] as f64;
+    let days = (y - 1970.0) * 365.25 + (m - 1.0) * 30.44 + d;
+    Some(days * 86400.0 + time_parts[0] * 3600.0 + time_parts[1] * 60.0 + time_parts[2])
+}
+
+/// Extract recovery durations from events.jsonl content.
+fn extract_recovery_durations(content: &str) -> Vec<f64> {
+    let mut fail_times: std::collections::HashMap<String, f64> =
+        std::collections::HashMap::new();
+    let mut durations: Vec<f64> = Vec::new();
+
+    for line in content.lines() {
+        let val: serde_json::Value = match serde_json::from_str(line) {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+        let event = val.get("event").and_then(|v| v.as_str()).unwrap_or("");
+        let resource = val.get("resource").and_then(|v| v.as_str()).unwrap_or("");
+        let ts = val
+            .get("ts")
+            .and_then(|v| v.as_str())
+            .and_then(parse_ts_epoch);
+        let ts = match ts {
+            Some(t) => t,
+            None => continue,
+        };
+
+        if event == "resource_failed" || event == "resource_drifted" {
+            fail_times.insert(resource.to_string(), ts);
+        } else if event == "resource_converged" {
+            if let Some(fail_ts) = fail_times.remove(resource) {
+                let d = ts - fail_ts;
+                if d > 0.0 {
+                    durations.push(d);
+                }
+            }
+        }
+    }
+    durations
+}
+
+/// Format recovery duration as human-readable string.
+fn format_recovery(avg: f64, count: usize) -> String {
+    let time = if avg < 60.0 {
+        format!("{avg:.1}s")
+    } else if avg < 3600.0 {
+        format!("{:.1}m", avg / 60.0)
+    } else {
+        format!("{:.1}h", avg / 3600.0)
+    };
+    format!("{time} avg recovery ({count} incident(s))")
+}
+
+/// Compute MTTR from events.jsonl content.
+fn compute_mttr_from_events(content: &str) -> String {
+    let durations = extract_recovery_durations(content);
+    if durations.is_empty() {
+        let total_events = content.lines().count();
+        if total_events > 0 {
+            format!("no failures detected ({total_events} events analyzed)")
+        } else {
+            "no events".to_string()
+        }
+    } else {
+        let avg = durations.iter().sum::<f64>() / durations.len() as f64;
+        format_recovery(avg, durations.len())
+    }
 }
 
 pub(super) use super::status_recovery_b::*;
