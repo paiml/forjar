@@ -35,6 +35,7 @@ impl FileMode {
         Ok(FileMode(value))
     }
 
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Result<Self, String> {
         let v = u16::from_str_radix(s, 8)
             .map_err(|e| format!("invalid octal mode '{s}': {e}"))?;
@@ -146,6 +147,7 @@ impl ResourceName {
 }
 
 // Compile-time assertions for const contexts
+#[allow(clippy::eq_op)]
 const _: () = {
     // Port range: u16 max is 65535, matches our constraint
     assert!(u16::MAX == 65535);

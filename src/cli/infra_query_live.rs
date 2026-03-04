@@ -17,6 +17,7 @@ pub struct LiveQueryResult {
 
 /// Live status from SSH probe.
 #[derive(Debug, Clone, serde::Serialize)]
+#[allow(dead_code)]
 pub enum LiveStatus {
     Running,
     Stopped,
