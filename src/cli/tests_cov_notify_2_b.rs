@@ -16,72 +16,8 @@ use std::path::Path;
 mod tests {
     use super::*;
 
-    // ─── Helper: empty NotifyOpts ──────────────────────────────────
+    // ─── dispatch_notify_custom.rs — deduplicate, throttle, aggregate, priority, routing ──
 
-    fn empty_opts<'a>() -> NotifyOpts<'a> {
-        NotifyOpts {
-            slack: None,
-            email: None,
-            webhook: None,
-            teams: None,
-            discord: None,
-            opsgenie: None,
-            datadog: None,
-            newrelic: None,
-            grafana: None,
-            victorops: None,
-            msteams_adaptive: None,
-            incident: None,
-            sns: None,
-            pubsub: None,
-            eventbridge: None,
-            kafka: None,
-            azure_servicebus: None,
-            gcp_pubsub_v2: None,
-            rabbitmq: None,
-            nats: None,
-            mqtt: None,
-            redis: None,
-            amqp: None,
-            stomp: None,
-            zeromq: None,
-            grpc: None,
-            sqs: None,
-            mattermost: None,
-            ntfy: None,
-            pagerduty: None,
-            discord_webhook: None,
-            teams_webhook: None,
-            slack_blocks: None,
-            custom_template: None,
-            custom_webhook: None,
-            custom_headers: None,
-            custom_json: None,
-            custom_filter: None,
-            custom_retry: None,
-            custom_transform: None,
-            custom_batch: None,
-            custom_deduplicate: None,
-            custom_throttle: None,
-            custom_aggregate: None,
-            custom_priority: None,
-            custom_routing: None,
-            custom_dedup_window: None,
-            custom_rate_limit: None,
-            custom_backoff: None,
-            custom_circuit_breaker: None,
-            custom_dead_letter: None,
-            custom_escalation: None,
-            custom_correlation: None,
-            custom_sampling: None,
-            custom_digest: None,
-            custom_severity_filter: None,
-        }
-    }
-
-    // ─── dispatch_notify.rs — all channels failure ──────────────────
-
-    #[test]
     #[test]
     fn test_custom_deduplicate_with_window() {
         send_custom_deduplicate_notification(
