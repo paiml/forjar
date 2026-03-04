@@ -18,6 +18,7 @@ pub mod store;
 pub mod types;
 
 pub mod do330;
+pub mod ferrocene;
 pub mod flight_grade;
 mod kani_proofs;
 pub mod mcdc;

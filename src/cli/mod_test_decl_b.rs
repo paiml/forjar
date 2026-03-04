@@ -384,3 +384,5 @@ mod tests_saga_coordinator;
 mod tests_agent_registry;
 #[cfg(test)]
 mod tests_pull_agent;
+#[cfg(test)]
+mod tests_lsp;
