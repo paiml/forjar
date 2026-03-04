@@ -110,6 +110,7 @@ mod provenance;
 mod agent_registry;
 mod dispatch_platform;
 mod pull_agent;
+pub mod structured_log;
 mod pq_signing;
 mod preservation_check;
 mod recipe_registry;
