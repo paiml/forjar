@@ -59,6 +59,7 @@ pub struct AgentReport {
 }
 
 /// Run the pull agent loop (or single push iteration).
+#[allow(clippy::too_many_arguments)]
 pub fn cmd_pull_agent(
     file: &Path,
     state_dir: &Path,
