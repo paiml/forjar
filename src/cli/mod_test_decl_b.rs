@@ -430,3 +430,17 @@ mod tests_dispatch_status_b_cov;
 mod tests_dispatch_validate_c_cov;
 #[cfg(test)]
 mod tests_dispatch_graph_b_cov;
+#[cfg(test)]
+mod tests_cov_lock2;
+#[cfg(test)]
+mod tests_cov_validate_ext5;
+#[cfg(test)]
+mod tests_cov_graph_ext4;
+#[cfg(test)]
+mod tests_cov_status_ext8;
+#[cfg(test)]
+mod tests_cov_plan5;
+#[cfg(test)]
+mod tests_cov_bundle2;
+#[cfg(test)]
+mod tests_cov_fleet3;
