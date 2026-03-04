@@ -487,4 +487,8 @@ pub enum Commands {
     /// FJ-1437: Agent recipe registry
     #[command(name = "agent-registry")]
     AgentRegistry(AgentRegistryArgs),
+
+    /// FJ-059+060: Pull agent / hybrid push-pull enforcement
+    #[command(name = "agent")]
+    PullAgent(PullAgentArgs),
 }

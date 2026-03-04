@@ -122,8 +122,8 @@
 | 56 | **Pepita namespace isolation** — PID, mount, UTS, IPC, network, user, seccomp, cgroups v2, overlayfs | B, C, F | ✅ | FJ-040, FJ-230: kernel-level isolation without Docker |
 | 57 | **Delta sync (copia)** — Block-level transfer for files >1MB; 4KB blocks, rsync-style Phase 1/2 pipeline | F | ✅ | FJ-242: 1.18ms for 4MB with 2% change |
 | 58 | **Agentless execution (push model)** — No pre-installed agent required on target; SSH + POSIX shell only | B, E | ✅ | Core design: push over SSH |
-| 59 | **Agent-based continuous enforcement (pull model)** — Lightweight daemon on target pulling desired state periodically | D | ❌ | Push-only; no pull agent |
-| 60 | **Hybrid push/pull execution** — Push for development, pull for production; GitOps-compatible reconciliation | D | ❌ | Push-only |
+| 59 | **Agent-based continuous enforcement (pull model)** — Lightweight daemon on target pulling desired state periodically | D | ✅ | `pull_agent.rs`: `ExecMode::Pull` daemon loop with configurable interval; drift detection via lock file comparison; auto-apply on drift; `forjar agent --pull`; 12 tests |
+| 60 | **Hybrid push/pull execution** — Push for development, pull for production; GitOps-compatible reconciliation | D | ✅ | `pull_agent.rs`: `ExecMode::Push` (one-shot, default) vs `ExecMode::Pull` (daemon); `forjar agent` (push) vs `forjar agent --pull` (pull); shared reconciliation loop; 12 tests |
 | 61 | **Sudo elevation with policy controls** — Configurable per-resource privilege escalation with sudoers integration | E | ✅ | `sudo: true` per-resource field; codegen wraps scripts with `sudo bash -c '...'` when non-root; root check `id -u`; 6 tests |
 | 62 | **Deterministic execution scheduling (WCET)** — Bounded worst-case execution time per resource handler; timeout enforcement | A, D, F | ✅ | Per-resource `timeout:` field; `--resource-timeout` CLI; `policy.convergence_budget` for total apply; timeout enforced at transport layer (SSH/container); no formal WCET analysis but bounded enforcement is complete |
 
@@ -233,11 +233,11 @@
 
 | Status | Count | Percentage |
 |--------|-------|------------|
-| ✅ Implemented | 145 | 87% |
+| ✅ Implemented | 147 | 89% |
 | ⚠️ Partial | 1 | 1% |
-| ❌ Not Implemented | 17 | 10% |
+| ❌ Not Implemented | 15 | 9% |
 | Not yet tracked | 3 | 2% |
-| **Effective Score** | **145.5/166** | **(145 full + 1×0.5 partial)** |
+| **Effective Score** | **147.5/166** | **(147 full + 1×0.5 partial)** |
 
 ### By Principle
 
