@@ -180,6 +180,38 @@ pub struct SagaArgs {
     pub json: bool,
 }
 
+/// Pull agent / hybrid push-pull.
+#[derive(Parser, Debug)]
+pub struct PullAgentArgs {
+    /// Config file
+    #[clap(short, long, default_value = "forjar.yaml")]
+    pub file: PathBuf,
+
+    /// State directory
+    #[clap(long, default_value = "state")]
+    pub state_dir: PathBuf,
+
+    /// Poll interval in seconds (pull mode)
+    #[clap(long, default_value = "60")]
+    pub interval: u64,
+
+    /// Auto-apply when drift detected
+    #[clap(long)]
+    pub auto_apply: bool,
+
+    /// Maximum iterations (default: unlimited in pull mode, 1 in push)
+    #[clap(long)]
+    pub max_iterations: Option<u64>,
+
+    /// Pull mode (daemon loop); default is push (one-shot)
+    #[clap(long)]
+    pub pull: bool,
+
+    /// JSON output
+    #[clap(long)]
+    pub json: bool,
+}
+
 /// Agent recipe registry.
 #[derive(Parser, Debug)]
 pub struct AgentRegistryArgs {
