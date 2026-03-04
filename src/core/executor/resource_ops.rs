@@ -209,6 +209,10 @@ fn execute_resource(
         copia_apply_file(machine, resolved, ctx.timeout_secs)
     } else {
         let script = codegen::apply_script(resolved)?;
+        // FJ-1397: Debug trace mode — print generated script
+        if cfg.trace {
+            eprintln!("[TRACE] {} script:\n{}", change.resource_id, script);
+        }
         transport::exec_script_retry(machine, &script, ctx.timeout_secs, ssh_retries)
     };
     let duration = resource_start.elapsed().as_secs_f64();

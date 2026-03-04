@@ -181,7 +181,10 @@ fn load_drift_config(
     Ok(Some(cfg))
 }
 
-/// Iterate state dir machines and check each for drift.
+/// FJ-1396: Iterate state dir machines and check each for drift.
+///
+/// Uses `std::thread::scope` for parallel drift detection across machines.
+/// Each machine is checked in its own thread; results are aggregated.
 fn scan_machines_for_drift(
     state_dir: &Path,
     machine_filter: Option<&str>,
@@ -189,11 +192,46 @@ fn scan_machines_for_drift(
     json: bool,
     verbose: bool,
 ) -> Result<(u32, usize, Vec<serde_json::Value>), String> {
+    let machine_locks = collect_machine_locks(state_dir, machine_filter)?;
+
+    if machine_locks.len() <= 1 {
+        return scan_sequential(&machine_locks, config, json, verbose);
+    }
+
+    // Parallel: check each machine in its own thread
+    let results: Vec<_> = std::thread::scope(|s| {
+        let handles: Vec<_> = machine_locks
+            .iter()
+            .map(|(name, lock)| {
+                s.spawn(move || {
+                    let mut findings = Vec::new();
+                    let count =
+                        check_machine_drift(name, lock, config, json, verbose, &mut findings);
+                    (count, findings)
+                })
+            })
+            .collect();
+        handles.into_iter().map(|h| h.join().unwrap()).collect()
+    });
+
+    let machines_checked = results.len() as u32;
+    let mut total_drift = 0;
+    let mut all_findings = Vec::new();
+    for (count, mut findings) in results {
+        total_drift += count;
+        all_findings.append(&mut findings);
+    }
+    Ok((machines_checked, total_drift, all_findings))
+}
+
+/// Collect (machine_name, lock) pairs from state directory.
+fn collect_machine_locks(
+    state_dir: &Path,
+    machine_filter: Option<&str>,
+) -> Result<Vec<(String, types::StateLock)>, String> {
     let entries = std::fs::read_dir(state_dir)
         .map_err(|e| format!("cannot read state dir {}: {}", state_dir.display(), e))?;
-    let mut total_drift = 0;
-    let mut machines_checked = 0u32;
-    let mut all_findings: Vec<serde_json::Value> = Vec::new();
+    let mut locks = Vec::new();
     for entry in entries.flatten() {
         let name = entry.file_name().to_string_lossy().to_string();
         if let Some(filter) = machine_filter {
@@ -205,12 +243,25 @@ fn scan_machines_for_drift(
             continue;
         }
         if let Some(lock) = state::load_lock(state_dir, &name)? {
-            machines_checked += 1;
-            total_drift +=
-                check_machine_drift(&name, &lock, config, json, verbose, &mut all_findings);
+            locks.push((name, lock));
         }
     }
-    Ok((machines_checked, total_drift, all_findings))
+    Ok(locks)
+}
+
+/// Sequential scan fallback for 0-1 machines.
+fn scan_sequential(
+    machine_locks: &[(String, types::StateLock)],
+    config: Option<&types::ForjarConfig>,
+    json: bool,
+    verbose: bool,
+) -> Result<(u32, usize, Vec<serde_json::Value>), String> {
+    let mut total_drift = 0;
+    let mut all_findings = Vec::new();
+    for (name, lock) in machine_locks {
+        total_drift += check_machine_drift(name, lock, config, json, verbose, &mut all_findings);
+    }
+    Ok((machine_locks.len() as u32, total_drift, all_findings))
 }
 
 #[allow(clippy::too_many_arguments)]

@@ -356,9 +356,14 @@ fn apply_moved_blocks(
     result
 }
 
+pub mod proof_obligation;
 pub mod reversibility;
+pub mod minimal_changeset;
+pub mod sat_deps;
 pub mod why;
 
+#[cfg(test)]
+mod tests_proof_obligation;
 #[cfg(test)]
 mod tests_reversibility;
 #[cfg(test)]
