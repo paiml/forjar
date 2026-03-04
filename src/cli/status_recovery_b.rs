@@ -45,7 +45,7 @@ fn collect_failure_correlations(sd: &Path, targets: &[&String]) -> Vec<(String, 
     let mut failure_map: std::collections::HashMap<String, Vec<String>> =
         std::collections::HashMap::new();
     for m in targets {
-        let path = sd.join(m).join("lock.yaml");
+        let path = sd.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -104,7 +104,7 @@ fn collect_age_distribution(sd: &Path, targets: &[&String]) -> Vec<(String, usiz
     let mut total_resources = 0usize;
     let mut with_timestamp = 0usize;
     for m in targets {
-        let path = sd.join(m).join("lock.yaml");
+        let path = sd.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -163,7 +163,7 @@ pub(crate) fn cmd_status_machine_resource_rollback_readiness(
 fn collect_rollback_readiness(sd: &Path, targets: &[&String]) -> Vec<(String, String)> {
     let mut readiness = Vec::new();
     for m in targets {
-        let lock_path = sd.join(m).join("lock.yaml");
+        let lock_path = sd.join(m).join("state.lock.yaml");
         let snapshot_dir = sd.join(m).join("snapshots");
         let has_lock = lock_path.exists();
         let has_snapshots = snapshot_dir.exists() && snapshot_dir.is_dir();
@@ -210,7 +210,7 @@ pub(crate) fn cmd_status_machine_resource_health_trend(
 fn collect_health_trends(sd: &Path, targets: &[&String]) -> Vec<(String, String)> {
     let mut trends = Vec::new();
     for m in targets {
-        let path = sd.join(m).join("lock.yaml");
+        let path = sd.join(m).join("state.lock.yaml");
         if path.exists() {
             trends.push((
                 (*m).clone(),
@@ -260,7 +260,7 @@ pub(crate) fn cmd_status_fleet_resource_drift_velocity(
 fn collect_drift_velocities(sd: &Path, targets: &[&String]) -> Vec<(String, usize, usize)> {
     let mut velocities = Vec::new();
     for m in targets {
-        let path = sd.join(m).join("lock.yaml");
+        let path = sd.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -313,7 +313,7 @@ pub(crate) fn cmd_status_machine_resource_apply_success_trend(
 fn collect_apply_success_trends(sd: &Path, targets: &[&String]) -> Vec<(String, String)> {
     let mut trends = Vec::new();
     for m in targets {
-        let events_path = sd.join(m).join("events.yaml");
+        let events_path = sd.join(m).join("events.jsonl");
         if events_path.exists() {
             trends.push(((*m).clone(), "event history available".to_string()));
         } else {

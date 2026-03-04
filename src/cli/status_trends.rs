@@ -72,7 +72,7 @@ fn collect_apply_durations(
 ) -> Vec<(String, Vec<(String, f64)>)> {
     let mut result = Vec::new();
     for m in targets {
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if let Ok(data) = std::fs::read_to_string(&lock_path) {
             if let Ok(lock) = serde_yaml_ng::from_str::<types::StateLock>(&data) {
                 let resources: Vec<(String, f64)> = lock

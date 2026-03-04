@@ -54,9 +54,9 @@ mod tests {
                 state_lock_yaml(),
             );
             // status_recovery + status_intelligence read: <machine>/lock.yaml
-            write_yaml(dir.path(), &format!("{m}/lock.yaml"), state_lock_yaml());
+            write_yaml(dir.path(), &format!("{m}/state.lock.yaml"), state_lock_yaml());
             // status_diagnostics reads: <machine>.lock.yaml (flat)
-            write_yaml(dir.path(), &format!("{m}.lock.yaml"), state_lock_yaml());
+            write_yaml(dir.path(), &format!("{m}/state.lock.yaml"), state_lock_yaml());
         }
         dir
     }
@@ -65,10 +65,10 @@ mod tests {
     fn make_state_dir_with_events() -> tempfile::TempDir {
         let dir = make_state_dir();
         for m in &["web", "db"] {
-            // events.yaml used by status_recovery for MTTR and apply-success-trend
+            // events.jsonl used by status_recovery for MTTR and apply-success-trend
             write_yaml(
                 dir.path(),
-                &format!("{m}/events.yaml"),
+                &format!("{m}/events.jsonl"),
                 "some event data\n",
             );
             // events.jsonl used by status_diagnostics for apply history count and churn

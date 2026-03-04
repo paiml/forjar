@@ -64,7 +64,7 @@ mod tests {
         let sd = dir.path();
         for m in &["web", "db"] {
             write_file(sd, &format!("{m}/state.lock.yaml"), state_lock_yaml());
-            write_file(sd, &format!("{m}.lock.yaml"), state_lock_yaml());
+            write_file(sd, &format!("{m}/state.lock.yaml"), state_lock_yaml());
             write_file(sd, &format!("{m}.events.jsonl"), events_jsonl());
         }
         dir

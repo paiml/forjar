@@ -20,7 +20,7 @@ pub(crate) fn cmd_status_resource_timeline(
                 continue;
             }
         }
-        let log_path = state_dir.join(format!("{m}.events.jsonl"));
+        let log_path = state_dir.join(m).join("events.jsonl");
         if !log_path.exists() {
             continue;
         }
@@ -87,7 +87,7 @@ pub(crate) fn cmd_status_resource_dependencies(
                 continue;
             }
         }
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             continue;
         }
@@ -131,7 +131,7 @@ fn collect_resource_inputs(
 ) -> Vec<(String, String, String, usize)> {
     let mut result = Vec::new();
     for m in targets {
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if let Ok(data) = std::fs::read_to_string(&lock_path) {
             if let Ok(lock) = serde_yaml_ng::from_str::<types::StateLock>(&data) {
                 for (name, rl) in &lock.resources {
@@ -187,7 +187,7 @@ pub(crate) fn cmd_status_resource_inputs(
 fn tally_resource_types(state_dir: &Path, targets: &[&String]) -> Vec<(String, usize)> {
     let mut type_counts: HashMap<String, usize> = HashMap::new();
     for m in targets {
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if let Ok(data) = std::fs::read_to_string(&lock_path) {
             if let Ok(lock) = serde_yaml_ng::from_str::<types::StateLock>(&data) {
                 for rl in lock.resources.values() {
@@ -234,7 +234,7 @@ pub(crate) fn cmd_status_resource_types_summary(
 fn collect_resource_health(state_dir: &Path, targets: &[&String]) -> Vec<(String, String, String)> {
     let mut entries: Vec<(String, String, String)> = Vec::new();
     for m in targets {
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if let Ok(data) = std::fs::read_to_string(&lock_path) {
             if let Ok(lock) = serde_yaml_ng::from_str::<types::StateLock>(&data) {
                 for (name, rl) in &lock.resources {
@@ -398,7 +398,7 @@ fn parse_last_apply(data: &str) -> (String, String) {
 fn collect_last_apply(state_dir: &Path, targets: &[&String]) -> Vec<(String, String, String)> {
     let mut results = Vec::new();
     for m in targets {
-        let log_path = state_dir.join(format!("{m}.events.yaml"));
+        let log_path = state_dir.join(m).join("events.jsonl");
         let (status, ts) = match std::fs::read_to_string(&log_path) {
             Ok(data) => parse_last_apply(&data),
             Err(_) => ("no_history".to_string(), "—".to_string()),
@@ -445,7 +445,7 @@ pub(crate) fn cmd_status_resource_staleness(
 fn collect_staleness(state_dir: &Path, targets: &[&String]) -> Vec<(String, String, String)> {
     let mut entries = Vec::new();
     for m in targets {
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if let Ok(data) = std::fs::read_to_string(&lock_path) {
             if let Ok(lock) = serde_yaml_ng::from_str::<types::StateLock>(&data) {
                 for (name, rl) in &lock.resources {

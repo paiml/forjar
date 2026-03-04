@@ -28,7 +28,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         for m in &["web", "db"] {
             write_yaml(dir.path(), &format!("{m}/state.lock.yaml"), state_lock());
-            write_yaml(dir.path(), &format!("{m}.lock.yaml"), state_lock());
+            write_yaml(dir.path(), &format!("{m}/state.lock.yaml"), state_lock());
         }
         dir
     }
@@ -44,7 +44,7 @@ mod tests {
             );
             write_yaml(
                 dir.path(),
-                &format!("{m}.events.yaml"),
+                &format!("{m}/events.jsonl"),
                 "2026-02-28T01:00:00Z apply success\n",
             );
         }

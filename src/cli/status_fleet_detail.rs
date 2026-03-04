@@ -42,7 +42,7 @@ pub(crate) fn cmd_status_last_drift_time(
 fn collect_drift_times(sd: &Path, targets: &[&String]) -> Vec<(String, String, String)> {
     let mut entries = Vec::new();
     for m in targets {
-        let lock_path = sd.join(format!("{m}.lock.yaml"));
+        let lock_path = sd.join(m).join("state.lock.yaml");
         if let Ok(content) = std::fs::read_to_string(&lock_path) {
             if let Ok(lock) = serde_yaml_ng::from_str::<types::StateLock>(&content) {
                 for (name, rl) in &lock.resources {
@@ -177,7 +177,7 @@ pub(crate) fn cmd_status_apply_success_rate(
 fn compute_success_rates(sd: &Path, targets: &[&String]) -> Vec<(String, usize, usize)> {
     let mut rates = Vec::new();
     for m in targets {
-        let lock_path = sd.join(format!("{m}.lock.yaml"));
+        let lock_path = sd.join(m).join("state.lock.yaml");
         if let Ok(content) = std::fs::read_to_string(&lock_path) {
             if let Ok(lock) = serde_yaml_ng::from_str::<types::StateLock>(&content) {
                 let total = lock.resources.len();
@@ -243,7 +243,7 @@ pub(crate) fn cmd_status_error_rate(
 fn compute_error_rates(sd: &Path, targets: &[&String]) -> Vec<(String, usize, usize)> {
     let mut rates = Vec::new();
     for m in targets {
-        let lock_path = sd.join(format!("{m}.lock.yaml"));
+        let lock_path = sd.join(m).join("state.lock.yaml");
         if let Ok(content) = std::fs::read_to_string(&lock_path) {
             if let Ok(lock) = serde_yaml_ng::from_str::<types::StateLock>(&content) {
                 let total = lock.resources.len();
@@ -292,7 +292,7 @@ pub(crate) fn cmd_status_fleet_health_summary(state_dir: &Path, json: bool) -> R
 fn collect_convergence_history(sd: &Path, targets: &[&String]) -> Vec<(String, String, f64)> {
     let mut history = Vec::new();
     for m in targets {
-        let lock_path = sd.join(format!("{m}.lock.yaml"));
+        let lock_path = sd.join(m).join("state.lock.yaml");
         if let Ok(content) = std::fs::read_to_string(&lock_path) {
             if let Ok(lock) = serde_yaml_ng::from_str::<types::StateLock>(&content) {
                 let total = lock.resources.len();
@@ -356,7 +356,7 @@ pub(crate) fn cmd_status_machine_convergence_history(
 fn collect_drift_events(sd: &Path, targets: &[&String]) -> Vec<(String, String, String)> {
     let mut events = Vec::new();
     for m in targets {
-        let lock_path = sd.join(format!("{m}.lock.yaml"));
+        let lock_path = sd.join(m).join("state.lock.yaml");
         if let Ok(content) = std::fs::read_to_string(&lock_path) {
             if let Ok(lock) = serde_yaml_ng::from_str::<types::StateLock>(&content) {
                 for (rname, rlock) in &lock.resources {
@@ -413,7 +413,7 @@ fn collect_failure_stats(sd: &Path, targets: &[&String]) -> Vec<(String, usize, 
     let mut stats: std::collections::HashMap<String, (usize, usize)> =
         std::collections::HashMap::new();
     for m in targets {
-        let lock_path = sd.join(format!("{m}.lock.yaml"));
+        let lock_path = sd.join(m).join("state.lock.yaml");
         if let Ok(content) = std::fs::read_to_string(&lock_path) {
             if let Ok(lock) = serde_yaml_ng::from_str::<types::StateLock>(&content) {
                 for (rname, rlock) in &lock.resources {

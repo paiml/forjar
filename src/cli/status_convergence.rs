@@ -167,7 +167,7 @@ fn collect_recent_from_machine(
     cutoff: u64,
     results: &mut Vec<(String, String, String)>,
 ) -> Result<(), String> {
-    let lock_path = path.join("lock.yaml");
+    let lock_path = path.join("state.lock.yaml");
     let meta = match std::fs::metadata(&lock_path) {
         Ok(m) => m,
         Err(_) => return Ok(()),
@@ -368,7 +368,7 @@ fn collect_convergence_times(
                 continue;
             }
         }
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             continue;
         }
@@ -447,7 +447,7 @@ fn load_convergence_history(
 ) -> Vec<(String, usize, usize, f64)> {
     let mut results = Vec::new();
     for m in targets {
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if let Ok(data) = std::fs::read_to_string(&lock_path) {
             if let Ok(lock) = serde_yaml_ng::from_str::<types::StateLock>(&data) {
                 let (total, converged, rate) = compute_convergence_stats(&lock);

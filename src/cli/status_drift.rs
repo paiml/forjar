@@ -223,7 +223,7 @@ fn collect_drift_forecasts(
                 continue;
             }
         }
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             continue;
         }
@@ -279,7 +279,7 @@ pub(crate) fn cmd_status_drift_details_all(state_dir: &Path, json: bool) -> Resu
     let mut drifted = Vec::new();
 
     for m in &machines {
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             continue;
         }
@@ -344,7 +344,7 @@ fn compute_drift_stats(lock: &types::StateLock) -> (usize, usize, f64) {
 fn load_drift_trend(state_dir: &Path, targets: &[&String]) -> Vec<(String, usize, usize, f64)> {
     let mut results = Vec::new();
     for m in targets {
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if let Ok(data) = std::fs::read_to_string(&lock_path) {
             if let Ok(lock) = serde_yaml_ng::from_str::<types::StateLock>(&data) {
                 let (total, drifted, rate) = compute_drift_stats(&lock);
@@ -399,7 +399,7 @@ fn collect_config_drift(
                 continue;
             }
         }
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             continue;
         }
