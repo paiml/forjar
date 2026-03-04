@@ -30,6 +30,7 @@ impl std::fmt::Display for Level {
 }
 
 impl Level {
+    #[allow(clippy::should_implement_trait)]
     pub fn from_str(s: &str) -> Result<Self, String> {
         match s.to_lowercase().as_str() {
             "debug" => Ok(Level::Debug),
