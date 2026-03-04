@@ -103,6 +103,7 @@ mod agent_registry;
 mod dispatch_platform;
 mod progress;
 mod pull_agent;
+mod tui;
 pub mod structured_log;
 mod pq_signing;
 mod preservation_check;
