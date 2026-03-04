@@ -18,7 +18,7 @@ fn destroy_single_resource(
     let script = match codegen::apply_script(&destroy_resource) {
         Ok(s) => s,
         Err(e) => {
-            eprintln!("  SKIP {}: codegen error: {}", resource_id, e);
+            eprintln!("  SKIP {resource_id}: codegen error: {e}");
             return false;
         }
     };
@@ -42,7 +42,7 @@ fn destroy_single_resource(
             false
         }
         Err(e) => {
-            eprintln!("  FAIL {}: {}", resource_id, e);
+            eprintln!("  FAIL {resource_id}: {e}");
             false
         }
     }
@@ -117,8 +117,7 @@ pub(crate) fn cmd_destroy(
             Some(m) => m,
             None => {
                 eprintln!(
-                    "  SKIP {}: machine '{}' not found",
-                    resource_id, machine_name
+                    "  SKIP {resource_id}: machine '{machine_name}' not found"
                 );
                 failed += 1;
                 continue;
@@ -139,13 +138,12 @@ pub(crate) fn cmd_destroy(
     println!();
     if failed > 0 {
         println!(
-            "Destroy completed with errors: {} destroyed, {} failed",
-            destroyed, failed
+            "Destroy completed with errors: {destroyed} destroyed, {failed} failed"
         );
-        return Err(format!("{} resource(s) failed to destroy", failed));
+        return Err(format!("{failed} resource(s) failed to destroy"));
     }
 
-    println!("Destroy complete: {} resources removed.", destroyed);
+    println!("Destroy complete: {destroyed} resources removed.");
     Ok(())
 }
 
@@ -159,11 +157,11 @@ pub(crate) fn cmd_rollback(
     verbose: bool,
 ) -> Result<(), String> {
     let file_str = file.to_string_lossy();
-    let git_ref = format!("HEAD~{}:{}", revision, file_str);
+    let git_ref = format!("HEAD~{revision}:{file_str}");
     let output = std::process::Command::new("git")
         .args(["show", &git_ref])
         .output()
-        .map_err(|e| format!("git show failed: {}", e))?;
+        .map_err(|e| format!("git show failed: {e}"))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
@@ -177,22 +175,21 @@ pub(crate) fn cmd_rollback(
 
     let previous_yaml = String::from_utf8_lossy(&output.stdout);
     let previous_config: types::ForjarConfig = serde_yaml_ng::from_str(&previous_yaml)
-        .map_err(|e| format!("cannot parse previous config (HEAD~{}): {}", revision, e))?;
+        .map_err(|e| format!("cannot parse previous config (HEAD~{revision}): {e}"))?;
     let current_config = parse_and_validate(file)?;
 
     let changes = compute_rollback_changes(&previous_config, &current_config, revision);
 
     if changes.is_empty() {
         println!(
-            "No config changes between HEAD and HEAD~{}. Nothing to rollback.",
-            revision
+            "No config changes between HEAD and HEAD~{revision}. Nothing to rollback."
         );
         return Ok(());
     }
 
     println!("Rollback to HEAD~{} ({}):", revision, previous_config.name);
     for c in &changes {
-        println!("{}", c);
+        println!("{c}");
     }
     println!();
 
@@ -203,7 +200,7 @@ pub(crate) fn cmd_rollback(
 
     let temp_config = std::env::temp_dir().join("forjar-rollback.yaml");
     std::fs::write(&temp_config, previous_yaml.as_bytes())
-        .map_err(|e| format!("cannot write temp config: {}", e))?;
+        .map_err(|e| format!("cannot write temp config: {e}"))?;
 
     println!("Applying previous config with --force...");
     cmd_apply(
@@ -254,20 +251,18 @@ pub(crate) fn compute_rollback_changes(
             let prev_yaml = serde_yaml_ng::to_string(prev_resource).unwrap_or_default();
             let cur_yaml = serde_yaml_ng::to_string(cur_resource).unwrap_or_default();
             if prev_yaml != cur_yaml {
-                changes.push(format!("  ~ {} (modified)", id));
+                changes.push(format!("  ~ {id} (modified)"));
             }
         } else {
             changes.push(format!(
-                "  + {} (will be re-added from HEAD~{})",
-                id, revision
+                "  + {id} (will be re-added from HEAD~{revision})"
             ));
         }
     }
     for id in current.resources.keys() {
         if !previous.resources.contains_key(id) {
             changes.push(format!(
-                "  - {} (exists now but not in HEAD~{}, will remain)",
-                id, revision
+                "  - {id} (exists now but not in HEAD~{revision}, will remain)"
             ));
         }
     }

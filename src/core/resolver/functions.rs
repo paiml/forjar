@@ -9,9 +9,9 @@ pub(crate) fn resolve_function(
 ) -> Result<String, String> {
     let open_paren = expr
         .find('(')
-        .ok_or_else(|| format!("malformed function: {}", expr))?;
+        .ok_or_else(|| format!("malformed function: {expr}"))?;
     if !expr.ends_with(')') {
-        return Err(format!("unclosed parenthesis in function: {}", expr));
+        return Err(format!("unclosed parenthesis in function: {expr}"));
     }
     let func_name = expr[..open_paren].trim();
     let args_str = &expr[open_paren + 1..expr.len() - 1];
@@ -62,7 +62,7 @@ pub(crate) fn resolve_function(
             let parts: Vec<&str> = args[0].split(args[1].as_str()).collect();
             Ok(parts.join(","))
         }
-        _ => Err(format!("unknown template function: {}", func_name)),
+        _ => Err(format!("unknown template function: {func_name}")),
     }
 }
 
@@ -126,7 +126,7 @@ fn resolve_func_arg(
         return params
             .get(param_key)
             .map(yaml_value_to_string)
-            .ok_or_else(|| format!("unknown param in function arg: {}", param_key));
+            .ok_or_else(|| format!("unknown param in function arg: {param_key}"));
     }
     // Machine reference
     if arg.starts_with("machine.") {

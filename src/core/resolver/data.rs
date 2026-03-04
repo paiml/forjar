@@ -5,7 +5,7 @@ fn require_value<'a>(key: &str, source: &'a DataSource) -> Result<&'a str, Strin
     source
         .value
         .as_deref()
-        .ok_or_else(|| format!("data source '{}' requires 'value' field", key))
+        .ok_or_else(|| format!("data source '{key}' requires 'value' field"))
 }
 
 fn resolve_file_source(key: &str, source: &DataSource) -> Result<String, String> {
@@ -16,7 +16,7 @@ fn resolve_file_source(key: &str, source: &DataSource) -> Result<String, String>
             source
                 .default
                 .clone()
-                .ok_or_else(|| format!("data source '{}' file error: {}", key, e))
+                .ok_or_else(|| format!("data source '{key}' file error: {e}"))
         })
 }
 
@@ -26,7 +26,7 @@ fn resolve_command_source(key: &str, source: &DataSource) -> Result<String, Stri
         .arg("-c")
         .arg(cmd)
         .output()
-        .map_err(|e| format!("data source '{}' command error: {}", key, e))?;
+        .map_err(|e| format!("data source '{key}' command error: {e}"))?;
     if output.status.success() {
         Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
     } else {
@@ -43,7 +43,7 @@ fn resolve_command_source(key: &str, source: &DataSource) -> Result<String, Stri
 fn resolve_dns_source(key: &str, source: &DataSource) -> Result<String, String> {
     use std::net::ToSocketAddrs;
     let host = require_value(key, source)?;
-    let addr_str = format!("{}:0", host);
+    let addr_str = format!("{host}:0");
     match addr_str.to_socket_addrs() {
         Ok(mut addrs) => {
             if let Some(addr) = addrs.next() {
@@ -52,13 +52,13 @@ fn resolve_dns_source(key: &str, source: &DataSource) -> Result<String, String> 
                 source
                     .default
                     .clone()
-                    .ok_or_else(|| format!("data source '{}' DNS: no addresses", key))
+                    .ok_or_else(|| format!("data source '{key}' DNS: no addresses"))
             }
         }
         Err(e) => source
             .default
             .clone()
-            .ok_or_else(|| format!("data source '{}' DNS error: {}", key, e)),
+            .ok_or_else(|| format!("data source '{key}' DNS error: {e}")),
     }
 }
 
@@ -80,19 +80,18 @@ fn resolve_forjar_state_source(key: &str, source: &DataSource) -> Result<String,
     }
 
     let content = std::fs::read_to_string(&lock_path)
-        .map_err(|e| format!("data source '{}': read state lock: {}", key, e))?;
+        .map_err(|e| format!("data source '{key}': read state lock: {e}"))?;
     let doc: serde_yaml_ng::Value = serde_yaml_ng::from_str(&content)
-        .map_err(|e| format!("data source '{}': parse state lock: {}", key, e))?;
+        .map_err(|e| format!("data source '{key}': parse state lock: {e}"))?;
 
     // FJ-1270: Check staleness if max_staleness is configured
     if let Some(ref max_staleness) = source.max_staleness {
         if let Some(last_apply) = doc.get("last_apply").and_then(|v| v.as_str()) {
             let max_secs = super::staleness::parse_duration_secs(max_staleness)
-                .map_err(|e| format!("data source '{}': invalid max_staleness: {}", key, e))?;
+                .map_err(|e| format!("data source '{key}': invalid max_staleness: {e}"))?;
             if super::staleness::is_stale(last_apply, max_secs) {
                 eprintln!(
-                    "warning: data source '{}' is stale (last_apply: {}, max_staleness: {})",
-                    key, last_apply, max_staleness
+                    "warning: data source '{key}' is stale (last_apply: {last_apply}, max_staleness: {max_staleness})"
                 );
             }
         }
@@ -103,7 +102,7 @@ fn resolve_forjar_state_source(key: &str, source: &DataSource) -> Result<String,
         Some(serde_yaml_ng::Value::Mapping(m)) => m,
         _ => {
             return source.default.clone().ok_or_else(|| {
-                format!("data source '{}': state lock has no outputs section", key)
+                format!("data source '{key}': state lock has no outputs section")
             });
         }
     };
@@ -130,7 +129,7 @@ fn resolve_forjar_state_source(key: &str, source: &DataSource) -> Result<String,
         .filter_map(|(k, v)| Some((k.as_str()?.to_string(), v.as_str()?.to_string())))
         .collect();
     serde_json::to_string(&json_map)
-        .map_err(|e| format!("data source '{}': serialize outputs: {}", key, e))
+        .map_err(|e| format!("data source '{key}': serialize outputs: {e}"))
 }
 
 /// FJ-223: Resolve all data sources and inject values into config params.
@@ -145,7 +144,7 @@ pub fn resolve_data_sources(config: &mut ForjarConfig) -> Result<(), String> {
         }?;
 
         config.params.insert(
-            format!("__data__{}", key),
+            format!("__data__{key}"),
             serde_yaml_ng::Value::String(value),
         );
     }

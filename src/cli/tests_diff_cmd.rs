@@ -114,7 +114,7 @@ mod tests {
             let lock = types::StateLock {
                 schema: "1.0".to_string(),
                 machine: name.to_string(),
-                hostname: format!("{}-box", name),
+                hostname: format!("{name}-box"),
                 generated_at: "2026-02-25T00:00:00Z".to_string(),
                 generator: "forjar 0.1.0".to_string(),
                 blake3_version: "1.8".to_string(),

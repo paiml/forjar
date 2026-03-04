@@ -19,13 +19,13 @@ mod tests {
     #[test]
     fn test_fj139_cmd_bench_runs() {
         let result = cmd_bench(10, false);
-        assert!(result.is_ok(), "bench should succeed: {:?}", result);
+        assert!(result.is_ok(), "bench should succeed: {result:?}");
     }
 
     #[test]
     fn test_fj139_cmd_bench_json() {
         let result = cmd_bench(10, true);
-        assert!(result.is_ok(), "bench JSON should succeed: {:?}", result);
+        assert!(result.is_ok(), "bench JSON should succeed: {result:?}");
     }
 
     // ── FJ-205: --json output tests ────────────────────────────────

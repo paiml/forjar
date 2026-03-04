@@ -1,7 +1,6 @@
 //! Misc command dispatch part B — data pipeline, infra, and sub-command dispatch.
 
 use super::commands::*;
-use super::observe::*;
 use super::secrets::*;
 use super::snapshot::*;
 use super::workspace::*;

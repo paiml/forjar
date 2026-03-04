@@ -70,8 +70,7 @@ fn sudo_wrap(resource: &Resource, script: String) -> String {
     // Wrap: if already root, run as-is; otherwise elevate via sudo bash
     let escaped = script.replace('\'', "'\\''");
     format!(
-        "if [ \"$(id -u)\" -eq 0 ]; then\n{}\nelse\nsudo bash -c '{}'\nfi",
-        script, escaped
+        "if [ \"$(id -u)\" -eq 0 ]; then\n{script}\nelse\nsudo bash -c '{escaped}'\nfi"
     )
 }
 

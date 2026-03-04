@@ -20,8 +20,7 @@ pub fn check_script(resource: &Resource) -> String {
     let protocol = resource.protocol.as_deref().unwrap_or("tcp");
     let action = resource.action.as_deref().unwrap_or("allow");
     format!(
-        "{}\nufw status numbered 2>/dev/null | grep -q '{}.*{}/{}' && echo 'exists:{}' || echo 'missing:{}'",
-        UFW_GUARD, action, port, protocol, port, port
+        "{UFW_GUARD}\nufw status numbered 2>/dev/null | grep -q '{action}.*{port}/{protocol}' && echo 'exists:{port}' || echo 'missing:{port}'"
     )
 }
 
@@ -45,9 +44,9 @@ pub fn apply_script(resource: &Resource) -> String {
         "absent" => {
             let mut rule_parts = vec![];
             if let Some(ref from) = resource.from_addr {
-                rule_parts.push(format!("from '{}'", from));
+                rule_parts.push(format!("from '{from}'"));
             }
-            rule_parts.push(format!("to any port '{}' proto '{}'", port, protocol));
+            rule_parts.push(format!("to any port '{port}' proto '{protocol}'"));
 
             lines.push(format!(
                 "$SUDO ufw delete {} {} || true",
@@ -58,9 +57,9 @@ pub fn apply_script(resource: &Resource) -> String {
         _ => {
             let mut rule_parts = vec![];
             if let Some(ref from) = resource.from_addr {
-                rule_parts.push(format!("from '{}'", from));
+                rule_parts.push(format!("from '{from}'"));
             }
-            rule_parts.push(format!("to any port '{}' proto '{}'", port, protocol));
+            rule_parts.push(format!("to any port '{port}' proto '{protocol}'"));
 
             if let Some(ref comment) = resource.name {
                 lines.push(format!(
@@ -82,7 +81,6 @@ pub fn apply_script(resource: &Resource) -> String {
 pub fn state_query_script(resource: &Resource) -> String {
     let port = resource.port.as_deref().unwrap_or("0");
     format!(
-        "{}\nufw status verbose 2>/dev/null | grep '{}' || echo 'rule=MISSING:{}'",
-        UFW_GUARD, port, port
+        "{UFW_GUARD}\nufw status verbose 2>/dev/null | grep '{port}' || echo 'rule=MISSING:{port}'"
     )
 }

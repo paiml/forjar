@@ -137,7 +137,7 @@ policy:
 }
 
 fn print_gpu_machine(name: &str, machine: &Machine) {
-    println!("Machine: {}", name);
+    println!("Machine: {name}");
     println!("  roles: {:?}", machine.roles);
     println!(
         "  is_container_transport: {}",
@@ -154,7 +154,7 @@ fn print_container_config(c: &ContainerConfig) {
     println!("  runtime: {}", c.runtime);
     println!("  image: {:?}", c.image);
     if let Some(ref gpus) = c.gpus {
-        println!("  gpus: {} (NVIDIA --gpus)", gpus);
+        println!("  gpus: {gpus} (NVIDIA --gpus)");
     }
     if !c.devices.is_empty() {
         println!("  devices: {:?} (--device passthrough)", c.devices);
@@ -185,13 +185,13 @@ fn validate_and_plan(config: &ForjarConfig) {
         println!("Validation: OK");
     } else {
         for e in &errors {
-            eprintln!("  ERROR: {}", e);
+            eprintln!("  ERROR: {e}");
         }
         std::process::exit(1);
     }
 
     let order = resolver::build_execution_order(config).expect("DAG resolution failed");
-    println!("Execution order: {:?}\n", order);
+    println!("Execution order: {order:?}\n");
 
     let locks = HashMap::new();
     let plan = planner::plan(config, &order, &locks, None);

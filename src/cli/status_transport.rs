@@ -71,8 +71,7 @@ pub(crate) fn cmd_status_machine_ssh_connection_health(
             let transport = info["transport"].as_str().unwrap_or("unknown");
             let symbol = if healthy { "✓" } else { "✗" };
             println!(
-                "  {} {}: transport={}, healthy={}",
-                symbol, m, transport, healthy
+                "  {symbol} {m}: transport={transport}, healthy={healthy}"
             );
         }
     }
@@ -147,8 +146,7 @@ pub(crate) fn cmd_status_lock_file_staleness_report(
             let stale = info["stale"].as_bool().unwrap_or(true);
             let marker = if stale { " [STALE]" } else { "" };
             println!(
-                "  {}: generated={}, resources={}, size={}B{}",
-                m, generated, count, size, marker
+                "  {m}: generated={generated}, resources={count}, size={size}B{marker}"
             );
         }
     }
@@ -205,8 +203,8 @@ pub(crate) fn cmd_status_fleet_transport_method_summary(
         );
     } else {
         println!("=== Fleet Transport Method Summary ===");
-        println!("  Local: {} machines {:?}", local_count, machines_local);
-        println!("  SSH:   {} machines {:?}", ssh_count, machines_ssh);
+        println!("  Local: {local_count} machines {machines_local:?}");
+        println!("  SSH:   {ssh_count} machines {machines_ssh:?}");
     }
     Ok(())
 }

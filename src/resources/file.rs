@@ -5,7 +5,7 @@ use base64::Engine;
 
 /// Read a local file and return its base64-encoded content.
 fn source_file_base64(path: &str) -> Result<String, String> {
-    let bytes = std::fs::read(path).map_err(|e| format!("{}: {}", path, e))?;
+    let bytes = std::fs::read(path).map_err(|e| format!("{path}: {e}"))?;
     Ok(base64::engine::general_purpose::STANDARD.encode(&bytes))
 }
 
@@ -16,22 +16,18 @@ pub fn check_script(resource: &Resource) -> String {
 
     match state {
         "directory" => format!(
-            "test -d '{}' && echo 'exists:directory' || echo 'missing:directory'",
-            path
+            "test -d '{path}' && echo 'exists:directory' || echo 'missing:directory'"
         ),
         "absent" => format!(
-            "test -e '{}' && echo 'exists:present' || echo 'missing:absent'",
-            path
+            "test -e '{path}' && echo 'exists:present' || echo 'missing:absent'"
         ),
         "symlink" => format!(
-            "test -L '{}' && echo 'exists:symlink' || echo 'missing:symlink'",
-            path
+            "test -L '{path}' && echo 'exists:symlink' || echo 'missing:symlink'"
         ),
         "file" => format!(
-            "test -f '{}' && echo 'exists:file' || echo 'missing:file'",
-            path
+            "test -f '{path}' && echo 'exists:file' || echo 'missing:file'"
         ),
-        other => format!("echo 'unsupported file state: {}'", other),
+        other => format!("echo 'unsupported file state: {other}'"),
     }
 }
 
@@ -80,15 +76,15 @@ pub fn apply_script(resource: &Resource) -> String {
 
     match state {
         "directory" => {
-            lines.push(format!("mkdir -p '{}'", path));
+            lines.push(format!("mkdir -p '{path}'"));
             push_ownership_lines(&mut lines, path, resource);
         }
         "absent" => {
-            lines.push(format!("rm -rf '{}'", path));
+            lines.push(format!("rm -rf '{path}'"));
         }
         "symlink" => {
             let target = resource.target.as_deref().unwrap_or("/dev/null");
-            lines.push(format!("ln -sfn '{}' '{}'", target, path));
+            lines.push(format!("ln -sfn '{target}' '{path}'"));
         }
         "file" => {
             if let Some(parent) = std::path::Path::new(path).parent() {
@@ -100,7 +96,7 @@ pub fn apply_script(resource: &Resource) -> String {
             push_ownership_lines(&mut lines, path, resource);
         }
         other => {
-            lines.push(format!("echo 'unsupported file state: {}'", other));
+            lines.push(format!("echo 'unsupported file state: {other}'"));
         }
     }
 
@@ -111,15 +107,14 @@ pub fn apply_script(resource: &Resource) -> String {
 pub fn state_query_script(resource: &Resource) -> String {
     let path = resource.path.as_deref().unwrap_or("/dev/null");
     format!(
-        "if [ -e '{}' ]; then\n\
-           stat -c 'owner=%U group=%G mode=%a size=%s' '{}' 2>/dev/null || \
-           stat -f 'owner=%Su group=%Sg mode=%Lp size=%z' '{}' 2>/dev/null\n\
-           if [ -f '{}' ]; then\n\
-             cat '{}' | blake3sum 2>/dev/null || sha256sum '{}' | cut -d' ' -f1\n\
+        "if [ -e '{path}' ]; then\n\
+           stat -c 'owner=%U group=%G mode=%a size=%s' '{path}' 2>/dev/null || \
+           stat -f 'owner=%Su group=%Sg mode=%Lp size=%z' '{path}' 2>/dev/null\n\
+           if [ -f '{path}' ]; then\n\
+             cat '{path}' | blake3sum 2>/dev/null || sha256sum '{path}' | cut -d' ' -f1\n\
            fi\n\
          else\n\
            echo 'MISSING'\n\
-         fi",
-        path, path, path, path, path, path
+         fi"
     )
 }

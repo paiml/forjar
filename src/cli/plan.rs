@@ -39,8 +39,7 @@ pub(crate) fn cmd_plan(
             );
         } else {
             return Err(format!(
-                "invalid --what-if format '{}': expected KEY=VALUE",
-                kv
+                "invalid --what-if format '{kv}': expected KEY=VALUE"
             ));
         }
     }
@@ -153,7 +152,7 @@ fn print_plan_json(
     });
     println!(
         "{}",
-        serde_json::to_string_pretty(&output).map_err(|e| format!("JSON error: {}", e))?
+        serde_json::to_string_pretty(&output).map_err(|e| format!("JSON error: {e}"))?
     );
     Ok(())
 }
@@ -258,7 +257,7 @@ pub(crate) fn save_plan_file(
     out_path: &Path,
 ) -> Result<(), String> {
     let config_yaml =
-        serde_yaml_ng::to_string(config).map_err(|e| format!("serialize config: {}", e))?;
+        serde_yaml_ng::to_string(config).map_err(|e| format!("serialize config: {e}"))?;
     let config_hash = hasher::hash_string(&config_yaml);
 
     let changes: Vec<serde_json::Value> = plan
@@ -288,8 +287,8 @@ pub(crate) fn save_plan_file(
         "changes": changes,
     });
 
-    let json = serde_json::to_string_pretty(&output).map_err(|e| format!("JSON error: {}", e))?;
-    std::fs::write(out_path, json).map_err(|e| format!("write plan file: {}", e))?;
+    let json = serde_json::to_string_pretty(&output).map_err(|e| format!("JSON error: {e}"))?;
+    std::fs::write(out_path, json).map_err(|e| format!("write plan file: {e}"))?;
     Ok(())
 }
 
@@ -299,13 +298,13 @@ pub(crate) fn load_plan_file(
     config: &types::ForjarConfig,
 ) -> Result<types::ExecutionPlan, String> {
     let content =
-        std::fs::read_to_string(plan_path).map_err(|e| format!("read plan file: {}", e))?;
+        std::fs::read_to_string(plan_path).map_err(|e| format!("read plan file: {e}"))?;
     let doc: serde_json::Value =
-        serde_json::from_str(&content).map_err(|e| format!("parse plan file: {}", e))?;
+        serde_json::from_str(&content).map_err(|e| format!("parse plan file: {e}"))?;
 
     let format = doc.get("format").and_then(|v| v.as_str()).unwrap_or("");
     if format != "forjar-plan-v1" {
-        return Err(format!("unsupported plan format: '{}'", format));
+        return Err(format!("unsupported plan format: '{format}'"));
     }
 
     let stored_hash = doc
@@ -313,7 +312,7 @@ pub(crate) fn load_plan_file(
         .and_then(|v| v.as_str())
         .unwrap_or("");
     let config_yaml =
-        serde_yaml_ng::to_string(config).map_err(|e| format!("serialize config: {}", e))?;
+        serde_yaml_ng::to_string(config).map_err(|e| format!("serialize config: {e}"))?;
     let current_hash = hasher::hash_string(&config_yaml);
     if stored_hash != current_hash {
         return Err(

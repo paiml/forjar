@@ -12,7 +12,7 @@ pub(crate) fn cmd_status_timeline(
     json: bool,
 ) -> Result<(), String> {
     let entries =
-        std::fs::read_dir(state_dir).map_err(|e| format!("cannot read state dir: {}", e))?;
+        std::fs::read_dir(state_dir).map_err(|e| format!("cannot read state dir: {e}"))?;
 
     let mut timeline: Vec<serde_json::Value> = Vec::new();
     for entry in entries.flatten() {
@@ -78,7 +78,7 @@ fn print_timeline_text(timeline: &[serde_json::Value]) {
             t["machine"].as_str().unwrap_or("?"),
             t["duration_seconds"]
                 .as_f64()
-                .map(|d| format!("{:.2}", d))
+                .map(|d| format!("{d:.2}"))
                 .unwrap_or_else(|| "-".to_string()),
         );
     }
@@ -99,7 +99,7 @@ pub(crate) fn cmd_status_changes_since(
             &state_dir.display().to_string(),
         ])
         .output()
-        .map_err(|e| format!("git diff failed: {}", e))?;
+        .map_err(|e| format!("git diff failed: {e}"))?;
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     let changed: Vec<&str> = stdout.lines().filter(|l| !l.is_empty()).collect();
@@ -213,18 +213,17 @@ pub(crate) fn cmd_status_since(
             .iter()
             .map(|(m, r, s)| {
                 format!(
-                    "{{\"machine\":\"{}\",\"resource\":\"{}\",\"status\":\"{}\"}}",
-                    m, r, s
+                    "{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"status\":\"{s}\"}}"
                 )
             })
             .collect();
         println!("[{}]", items.join(","));
     } else if results.is_empty() {
-        println!("No resources changed within {}.", duration);
+        println!("No resources changed within {duration}.");
     } else {
         println!("{} resource(s) changed within {}:", results.len(), duration);
         for (m, r, s) in &results {
-            println!("  {}/{}: {}", m, r, s);
+            println!("  {m}/{r}: {s}");
         }
     }
     Ok(())
@@ -242,8 +241,7 @@ fn summary_dimension_key(
         "type" => Ok(format!("{:?}", rl.resource_type)),
         "status" => Ok(format!("{:?}", rl.status)),
         _ => Err(format!(
-            "Unknown dimension '{}'. Use: machine, type, status",
-            dimension
+            "Unknown dimension '{dimension}'. Use: machine, type, status"
         )),
     }
 }
@@ -255,7 +253,7 @@ pub(crate) fn cmd_status_summary_by(
     json: bool,
 ) -> Result<(), String> {
     let entries =
-        std::fs::read_dir(state_dir).map_err(|e| format!("cannot read state dir: {}", e))?;
+        std::fs::read_dir(state_dir).map_err(|e| format!("cannot read state dir: {e}"))?;
 
     let mut groups: std::collections::BTreeMap<String, Vec<String>> =
         std::collections::BTreeMap::new();
@@ -288,7 +286,7 @@ pub(crate) fn cmd_status_summary_by(
         for (group, resources) in &groups {
             println!("  {} ({}):", bold(group), resources.len());
             for r in resources {
-                println!("    {}", r);
+                println!("    {r}");
             }
         }
     }
@@ -351,8 +349,7 @@ pub(crate) fn cmd_status_convergence_rate(
             red("✗")
         };
         println!(
-            "{} Convergence rate: {:.0}% ({}/{})",
-            indicator, rate, converged, total
+            "{indicator} Convergence rate: {rate:.0}% ({converged}/{total})"
         );
     }
     Ok(())
@@ -371,7 +368,7 @@ fn collect_convergence_times(
                 continue;
             }
         }
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
         if !lock_path.exists() {
             continue;
         }
@@ -406,8 +403,7 @@ pub(crate) fn cmd_status_convergence_time(
             .iter()
             .map(|(m, r, d)| {
                 format!(
-                    r#"{{"machine":"{}","resource":"{}","seconds":{:.3}}}"#,
-                    m, r, d
+                    r#"{{"machine":"{m}","resource":"{r}","seconds":{d:.3}}}"#
                 )
             })
             .collect();
@@ -420,9 +416,9 @@ pub(crate) fn cmd_status_convergence_time(
     } else if times.is_empty() {
         println!("No convergence time data available");
     } else {
-        println!("Convergence times (avg: {:.3}s):", avg);
+        println!("Convergence times (avg: {avg:.3}s):");
         for (m, r, d) in &times {
-            println!("  {}:{} — {:.3}s", m, r, d);
+            println!("  {m}:{r} — {d:.3}s");
         }
     }
     Ok(())
@@ -451,7 +447,7 @@ fn load_convergence_history(
 ) -> Vec<(String, usize, usize, f64)> {
     let mut results = Vec::new();
     for m in targets {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
         if let Ok(data) = std::fs::read_to_string(&lock_path) {
             if let Ok(lock) = serde_yaml_ng::from_str::<types::StateLock>(&data) {
                 let (total, converged, rate) = compute_convergence_stats(&lock);
@@ -479,8 +475,7 @@ pub(crate) fn cmd_status_convergence_history(
             .iter()
             .map(|(m, total, converged, rate)| {
                 format!(
-                    "{{\"machine\":\"{}\",\"total\":{},\"converged\":{},\"rate\":{:.1}}}",
-                    m, total, converged, rate
+                    "{{\"machine\":\"{m}\",\"total\":{total},\"converged\":{converged},\"rate\":{rate:.1}}}"
                 )
             })
             .collect();
@@ -488,7 +483,7 @@ pub(crate) fn cmd_status_convergence_history(
     } else {
         println!("Convergence history:");
         for (m, total, converged, rate) in &history {
-            println!("  {} — {}/{} converged ({:.1}%)", m, converged, total, rate);
+            println!("  {m} — {converged}/{total} converged ({rate:.1}%)");
         }
     }
     Ok(())

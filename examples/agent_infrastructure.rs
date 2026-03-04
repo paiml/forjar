@@ -89,7 +89,7 @@ fn demo_lsp_capabilities() {
     });
     let resp = server.handle_message(&init_msg).unwrap();
     let server_name = resp.pointer("/result/serverInfo/name").unwrap();
-    println!("  Server: {}", server_name);
+    println!("  Server: {server_name}");
     println!(
         "  Root: {}",
         server.root_uri.as_deref().unwrap_or("none")

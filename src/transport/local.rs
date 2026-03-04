@@ -12,17 +12,17 @@ pub fn exec_local(script: &str) -> Result<ExecOutput, String> {
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .map_err(|e| format!("failed to spawn bash: {}", e))?;
+        .map_err(|e| format!("failed to spawn bash: {e}"))?;
 
     if let Some(ref mut stdin) = child.stdin {
         stdin
             .write_all(script.as_bytes())
-            .map_err(|e| format!("stdin write error: {}", e))?;
+            .map_err(|e| format!("stdin write error: {e}"))?;
     }
 
     let output = child
         .wait_with_output()
-        .map_err(|e| format!("wait error: {}", e))?;
+        .map_err(|e| format!("wait error: {e}"))?;
 
     Ok(ExecOutput {
         exit_code: output.status.code().unwrap_or(-1),
@@ -101,7 +101,7 @@ mod tests {
     #[test]
     fn test_fj010_local_exit_code_range() {
         for code in [0, 1, 2, 126, 127, 255] {
-            let out = exec_local(&format!("exit {}", code)).unwrap();
+            let out = exec_local(&format!("exit {code}")).unwrap();
             assert_eq!(out.exit_code, code);
         }
     }

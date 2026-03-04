@@ -220,8 +220,7 @@ resources:
         let err = result.unwrap_err();
         assert!(
             err.contains("pidfile") || err.contains("cannot read"),
-            "expected pidfile error, got: {}",
-            err
+            "expected pidfile error, got: {err}"
         );
     }
 

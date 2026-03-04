@@ -152,8 +152,7 @@ pub(crate) fn cmd_status_fleet_security_posture_summary(
                 _ => red("!"),
             };
             println!(
-                "  {} {} — secrets:{}, privileged:{}, tls:{}, posture:{}",
-                sym, m, sr, p, t, pos
+                "  {sym} {m} — secrets:{sr}, privileged:{p}, tls:{t}, posture:{pos}"
             );
         }
     }
@@ -205,8 +204,7 @@ pub(crate) fn cmd_status_machine_resource_freshness_index(
                 red("!")
             };
             println!(
-                "  {} {} — freshness:{}/100, generated_at:{}",
-                sym, m, score, ts
+                "  {sym} {m} — freshness:{score}/100, generated_at:{ts}"
             );
         }
     }

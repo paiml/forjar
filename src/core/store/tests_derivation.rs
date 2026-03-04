@@ -42,7 +42,7 @@ fn sample_derivation() -> Derivation {
 fn test_fj1341_validate_valid() {
     let d = sample_derivation();
     let errors = validate_derivation(&d);
-    assert!(errors.is_empty(), "unexpected errors: {:?}", errors);
+    assert!(errors.is_empty(), "unexpected errors: {errors:?}");
 }
 
 #[test]

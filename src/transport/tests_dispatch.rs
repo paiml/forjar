@@ -165,8 +165,7 @@ fn test_transport_timeout_error_includes_hostname() {
     let err = exec_script_timeout(&machine, "sleep 10", Some(1)).unwrap_err();
     assert!(
         err.contains("slow-box"),
-        "timeout error should include hostname: {}",
-        err
+        "timeout error should include hostname: {err}"
     );
 }
 
@@ -301,8 +300,7 @@ fn test_transport_timeout_error_includes_seconds() {
     let err = exec_script_timeout(&machine, "sleep 10", Some(1)).unwrap_err();
     assert!(
         err.contains("1s"),
-        "error should include timeout value: {}",
-        err
+        "error should include timeout value: {err}"
     );
 }
 
@@ -332,7 +330,7 @@ fn test_transport_exec_output_debug() {
         stdout: "test".to_string(),
         stderr: "".to_string(),
     };
-    let debug = format!("{:?}", out);
+    let debug = format!("{out:?}");
     assert!(debug.contains("exit_code: 0"));
 }
 

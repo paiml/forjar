@@ -109,7 +109,7 @@ fn is_agent_service(id: &str, resource: &types::Resource) -> bool {
 fn is_agent_container(id: &str, resource: &types::Resource) -> bool {
     let keywords = ["mcp", "agent", "inference", "llm", "model"];
     keywords.iter().any(|k| id.contains(k))
-        || resource.image.as_ref().map_or(false, |img| {
+        || resource.image.as_ref().is_some_and(|img| {
             keywords.iter().any(|k| img.contains(k))
         })
 }

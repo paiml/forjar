@@ -264,7 +264,7 @@ fn print_text(diffs: &[DiffEntry], file1: &Path, file2: &Path) {
         if section_diffs.is_empty() {
             continue;
         }
-        println!("  {}:", section);
+        println!("  {section}:");
         for d in &section_diffs {
             let icon = match d.kind {
                 DiffKind::Added => green("+"),

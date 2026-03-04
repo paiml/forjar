@@ -17,7 +17,7 @@ pub fn check_script(resource: &Resource) -> String {
     let state = resource.state.as_deref().unwrap_or("present");
 
     match resolve_backend(resource) {
-        "cpu" => format!("echo 'match:{}'", name),
+        "cpu" => format!("echo 'match:{name}'"),
         "rocm" => check_script_rocm(name, state, resource),
         _ => check_script_nvidia(name, state, resource),
     }
@@ -27,20 +27,17 @@ fn check_script_nvidia(name: &str, state: &str, resource: &Resource) -> String {
     let driver_version = resource.driver_version.as_deref().unwrap_or("");
     match state {
         "absent" => format!(
-            "if command -v nvidia-smi >/dev/null 2>&1; then\n  echo 'exists:{}'\nelse\n  echo 'absent:{}'\nfi",
-            name, name
+            "if command -v nvidia-smi >/dev/null 2>&1; then\n  echo 'exists:{name}'\nelse\n  echo 'absent:{name}'\nfi"
         ),
         _ => {
             if driver_version.is_empty() {
                 format!(
-                    "if command -v nvidia-smi >/dev/null 2>&1; then\n  echo 'exists:{}'\nelse\n  echo 'missing:{}'\nfi",
-                    name, name
+                    "if command -v nvidia-smi >/dev/null 2>&1; then\n  echo 'exists:{name}'\nelse\n  echo 'missing:{name}'\nfi"
                 )
             } else {
                 // PMAT-036: prefix match — "550" matches "550.127.05"
                 format!(
-                    "if command -v nvidia-smi >/dev/null 2>&1; then\n  VER=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1)\n  case \"$VER\" in\n    '{}'*) echo 'match:{}' ;;\n    *) echo 'mismatch:{}' ;;\n  esac\nelse\n  echo 'missing:{}'\nfi",
-                    driver_version, name, name, name
+                    "if command -v nvidia-smi >/dev/null 2>&1; then\n  VER=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1)\n  case \"$VER\" in\n    '{driver_version}'*) echo 'match:{name}' ;;\n    *) echo 'mismatch:{name}' ;;\n  esac\nelse\n  echo 'missing:{name}'\nfi"
                 )
             }
         }
@@ -51,19 +48,16 @@ fn check_script_rocm(name: &str, state: &str, resource: &Resource) -> String {
     let driver_version = resource.driver_version.as_deref().unwrap_or("");
     match state {
         "absent" => format!(
-            "if [ -e /sys/module/amdgpu ]; then\n  echo 'exists:{}'\nelse\n  echo 'absent:{}'\nfi",
-            name, name
+            "if [ -e /sys/module/amdgpu ]; then\n  echo 'exists:{name}'\nelse\n  echo 'absent:{name}'\nfi"
         ),
         _ => {
             if driver_version.is_empty() {
                 format!(
-                    "if command -v rocminfo >/dev/null 2>&1 || [ -e /sys/module/amdgpu ]; then\n  echo 'exists:{}'\nelse\n  echo 'missing:{}'\nfi",
-                    name, name
+                    "if command -v rocminfo >/dev/null 2>&1 || [ -e /sys/module/amdgpu ]; then\n  echo 'exists:{name}'\nelse\n  echo 'missing:{name}'\nfi"
                 )
             } else {
                 format!(
-                    "if [ -f /sys/module/amdgpu/version ]; then\n  VER=$(cat /sys/module/amdgpu/version 2>/dev/null)\nelif [ -e /sys/module/amdgpu ]; then\n  VER=\"kernel-$(uname -r)\"\nelse\n  echo 'missing:{}'; exit 0\nfi\nif [ \"$VER\" = '{}' ]; then\n  echo 'match:{}'\nelse\n  echo 'mismatch:{}'\nfi",
-                    name, driver_version, name, name
+                    "if [ -f /sys/module/amdgpu/version ]; then\n  VER=$(cat /sys/module/amdgpu/version 2>/dev/null)\nelif [ -e /sys/module/amdgpu ]; then\n  VER=\"kernel-$(uname -r)\"\nelse\n  echo 'missing:{name}'; exit 0\nfi\nif [ \"$VER\" = '{driver_version}' ]; then\n  echo 'match:{name}'\nelse\n  echo 'mismatch:{name}'\nfi"
                 )
             }
         }
@@ -76,7 +70,7 @@ pub fn apply_script(resource: &Resource) -> String {
     let state = resource.state.as_deref().unwrap_or("present");
 
     match resolve_backend(resource) {
-        "cpu" => format!("echo 'installed:{}'", name),
+        "cpu" => format!("echo 'installed:{name}'"),
         "rocm" => apply_script_rocm(name, state, resource),
         _ => apply_script_nvidia(name, state, resource),
     }
@@ -86,8 +80,7 @@ fn apply_script_nvidia(name: &str, state: &str, resource: &Resource) -> String {
     let driver_version = resource.driver_version.as_deref().unwrap_or("");
     match state {
         "absent" => format!(
-            "set -euo pipefail\n$SUDO apt-get remove -y 'nvidia-driver-*' 2>/dev/null || true\necho 'removed:{}'",
-            name
+            "set -euo pipefail\n$SUDO apt-get remove -y 'nvidia-driver-*' 2>/dev/null || true\necho 'removed:{name}'"
         ),
         _ => {
             let mut script = String::from("set -euo pipefail\nSUDO=\"\"\n[ \"$(id -u)\" -ne 0 ] && SUDO=\"sudo\"\n");
@@ -100,13 +93,12 @@ fn apply_script_nvidia(name: &str, state: &str, resource: &Resource) -> String {
                     "if command -v nvidia-smi >/dev/null 2>&1; then\n\
                      \x20 INSTALLED_VER=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -1)\n\
                      \x20 case \"$INSTALLED_VER\" in\n\
-                     \x20   '{}'*) ;;\n\
-                     \x20   *) $SUDO apt-get install -y 'nvidia-driver-{}' ;;\n\
+                     \x20   '{driver_version}'*) ;;\n\
+                     \x20   *) $SUDO apt-get install -y 'nvidia-driver-{driver_version}' ;;\n\
                      \x20 esac\n\
                      else\n\
-                     \x20 $SUDO apt-get install -y 'nvidia-driver-{}'\n\
-                     fi\n",
-                    driver_version, driver_version, driver_version
+                     \x20 $SUDO apt-get install -y 'nvidia-driver-{driver_version}'\n\
+                     fi\n"
                 ));
             } else {
                 script.push_str(
@@ -137,12 +129,11 @@ fn apply_script_nvidia(name: &str, state: &str, resource: &Resource) -> String {
                     _ => "0",
                 };
                 script.push_str(&format!(
-                    "$SUDO nvidia-smi -c {} 2>/dev/null || true\n",
-                    mode_val
+                    "$SUDO nvidia-smi -c {mode_val} 2>/dev/null || true\n"
                 ));
             }
 
-            script.push_str(&format!("echo 'installed:{}'", name));
+            script.push_str(&format!("echo 'installed:{name}'"));
             script
         }
     }
@@ -151,8 +142,7 @@ fn apply_script_nvidia(name: &str, state: &str, resource: &Resource) -> String {
 fn apply_script_rocm(name: &str, state: &str, resource: &Resource) -> String {
     match state {
         "absent" => format!(
-            "set -euo pipefail\n$SUDO apt-get remove -y amdgpu-dkms rocm-hip-runtime 2>/dev/null || true\necho 'removed:{}'",
-            name
+            "set -euo pipefail\n$SUDO apt-get remove -y amdgpu-dkms rocm-hip-runtime 2>/dev/null || true\necho 'removed:{name}'"
         ),
         _ => {
             let mut script = String::from("set -euo pipefail\nSUDO=\"\"\n[ \"$(id -u)\" -ne 0 ] && SUDO=\"sudo\"\n");
@@ -167,12 +157,12 @@ fn apply_script_rocm(name: &str, state: &str, resource: &Resource) -> String {
                     if rocm_ver.is_empty() {
                         String::new()
                     } else {
-                        format!("={}", rocm_ver)
+                        format!("={rocm_ver}")
                     }
                 ));
             }
 
-            script.push_str(&format!("echo 'installed:{}'", name));
+            script.push_str(&format!("echo 'installed:{name}'"));
             script
         }
     }
@@ -183,14 +173,12 @@ pub fn state_query_script(resource: &Resource) -> String {
     let name = resource.name.as_deref().unwrap_or("gpu0");
 
     match resolve_backend(resource) {
-        "cpu" => format!("echo 'gpu={}:cpu-only'", name),
+        "cpu" => format!("echo 'gpu={name}:cpu-only'"),
         "rocm" => format!(
-            "if command -v rocminfo >/dev/null 2>&1; then\n  DEV=$(rocminfo 2>/dev/null | grep -m1 'Marketing Name' | sed 's/.*: *//')\n  VER=$(cat /sys/module/amdgpu/version 2>/dev/null || echo \"kernel-$(uname -r)\")\n  echo \"gpu={}:$DEV:$VER\"\nelse\n  echo 'gpu=MISSING:{}'\nfi",
-            name, name
+            "if command -v rocminfo >/dev/null 2>&1; then\n  DEV=$(rocminfo 2>/dev/null | grep -m1 'Marketing Name' | sed 's/.*: *//')\n  VER=$(cat /sys/module/amdgpu/version 2>/dev/null || echo \"kernel-$(uname -r)\")\n  echo \"gpu={name}:$DEV:$VER\"\nelse\n  echo 'gpu=MISSING:{name}'\nfi"
         ),
         _ => format!(
-            "if command -v nvidia-smi >/dev/null 2>&1; then\n  VER=$(nvidia-smi --query-gpu=driver_version,compute_mode,memory.total --format=csv,noheader 2>/dev/null | head -1)\n  echo \"gpu={}:$VER\"\nelse\n  echo 'gpu=MISSING:{}'\nfi",
-            name, name
+            "if command -v nvidia-smi >/dev/null 2>&1; then\n  VER=$(nvidia-smi --query-gpu=driver_version,compute_mode,memory.total --format=csv,noheader 2>/dev/null | head -1)\n  echo \"gpu={name}:$VER\"\nelse\n  echo 'gpu=MISSING:{name}'\nfi"
         ),
     }
 }
