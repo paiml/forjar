@@ -426,7 +426,7 @@ impl Default for MachineTarget {
 impl fmt::Display for MachineTarget {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Single(s) => write!(f, "{}", s),
+            Self::Single(s) => write!(f, "{s}"),
             Self::Multiple(v) => write!(f, "[{}]", v.join(", ")),
         }
     }

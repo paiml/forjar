@@ -47,7 +47,7 @@ fn test_fj015_append_multiple() {
     for i in 0..3 {
         let event = ProvenanceEvent::ResourceConverged {
             machine: "m".to_string(),
-            resource: format!("r{}", i),
+            resource: format!("r{i}"),
             duration_seconds: 1.0,
             hash: "blake3:xxx".to_string(),
         };
@@ -150,7 +150,7 @@ fn test_fj015_events_are_valid_json() {
     let content = std::fs::read_to_string(dir.path().join("m/events.jsonl")).unwrap();
     for line in content.lines() {
         let parsed: serde_json::Value = serde_json::from_str(line)
-            .unwrap_or_else(|e| panic!("invalid JSON: {} in line: {}", e, line));
+            .unwrap_or_else(|e| panic!("invalid JSON: {e} in line: {line}"));
         assert!(parsed["ts"].is_string(), "every event must have ts field");
         assert!(
             parsed["event"].is_string(),
@@ -216,8 +216,7 @@ fn test_fj015_run_id_hex_format() {
     assert_eq!(hex_part.len(), 12);
     assert!(
         hex_part.chars().all(|c| c.is_ascii_hexdigit()),
-        "run ID hex part must be valid hex: {}",
-        hex_part
+        "run ID hex part must be valid hex: {hex_part}"
     );
 }
 
@@ -262,8 +261,7 @@ fn test_fj015_timestamp_year_plausible() {
     let year: i64 = ts[0..4].parse().unwrap();
     assert!(
         (2025..=2100).contains(&year),
-        "year should be plausible: {}",
-        year
+        "year should be plausible: {year}"
     );
 }
 
@@ -271,5 +269,5 @@ fn test_fj015_timestamp_year_plausible() {
 fn test_fj015_timestamp_month_range() {
     let ts = now_iso8601();
     let month: u32 = ts[5..7].parse().unwrap();
-    assert!((1..=12).contains(&month), "month should be 1-12: {}", month);
+    assert!((1..=12).contains(&month), "month should be 1-12: {month}");
 }

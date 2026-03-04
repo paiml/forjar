@@ -20,9 +20,9 @@ fn verify_machine_sig(
         None => return Ok(None),
     };
     let lock_yaml =
-        serde_yaml_ng::to_string(&lock).map_err(|e| format!("serialize error: {}", e))?;
-    let expected_sig = hasher::hash_string(&format!("{}{}", lock_yaml, key));
-    let sig_path = state_dir.join(format!("{}.sig", m));
+        serde_yaml_ng::to_string(&lock).map_err(|e| format!("serialize error: {e}"))?;
+    let expected_sig = hasher::hash_string(&format!("{lock_yaml}{key}"));
+    let sig_path = state_dir.join(format!("{m}.sig"));
     let actual_sig = std::fs::read_to_string(&sig_path).unwrap_or_default();
     let valid = actual_sig.trim() == expected_sig;
     let entry = serde_json::json!({
@@ -110,7 +110,7 @@ fn print_audit_event_text(m: &str, val: &serde_json::Value) {
     let ts = val.get("timestamp").and_then(|v| v.as_str()).unwrap_or("?");
     let resource = val.get("resource").and_then(|v| v.as_str()).unwrap_or("?");
     let action = val.get("action").and_then(|v| v.as_str()).unwrap_or("?");
-    println!("  [{}] {} — {} on {}", ts, m, action, resource);
+    println!("  [{ts}] {m} — {action} on {resource}");
 }
 
 // ── FJ-495: lock audit-trail ──
@@ -122,7 +122,7 @@ fn collect_audit_events(
     json: bool,
     entries: &mut Vec<serde_json::Value>,
 ) {
-    let log_path = state_dir.join(format!("{}.events.jsonl", m));
+    let log_path = state_dir.join(format!("{m}.events.jsonl"));
     if !log_path.exists() {
         return;
     }
@@ -162,7 +162,7 @@ pub(crate) fn cmd_lock_audit_trail(
     } else if entries.is_empty() {
         let has_any = machines
             .iter()
-            .any(|m| state_dir.join(format!("{}.events.jsonl", m)).exists());
+            .any(|m| state_dir.join(format!("{m}.events.jsonl")).exists());
         if !has_any {
             println!("No event logs found in {}", state_dir.display());
         }
@@ -184,11 +184,11 @@ pub(crate) fn cmd_lock_rotate_keys(
     for m in &machines {
         if let Some(lock) = state::load_lock(state_dir, m).map_err(|e| e.to_string())? {
             let lock_yaml =
-                serde_yaml_ng::to_string(&lock).map_err(|e| format!("serialize error: {}", e))?;
-            let new_sig = hasher::hash_string(&format!("{}{}", lock_yaml, new_key));
-            let sig_path = state_dir.join(format!("{}.sig", m));
+                serde_yaml_ng::to_string(&lock).map_err(|e| format!("serialize error: {e}"))?;
+            let new_sig = hasher::hash_string(&format!("{lock_yaml}{new_key}"));
+            let sig_path = state_dir.join(format!("{m}.sig"));
             std::fs::write(&sig_path, &new_sig)
-                .map_err(|e| format!("Failed to write sig: {}", e))?;
+                .map_err(|e| format!("Failed to write sig: {e}"))?;
             rotated += 1;
         }
     }
@@ -219,13 +219,13 @@ pub(crate) fn cmd_lock_backup(state_dir: &Path, json: bool) -> Result<(), String
     }
 
     let timestamp = chrono_now_compact();
-    let backup_dir = state_dir.join(format!("backup-{}", timestamp));
+    let backup_dir = state_dir.join(format!("backup-{timestamp}"));
     std::fs::create_dir_all(&backup_dir)
-        .map_err(|e| format!("Failed to create backup dir: {}", e))?;
+        .map_err(|e| format!("Failed to create backup dir: {e}"))?;
 
     let mut backed_up: Vec<String> = Vec::new();
     let entries =
-        std::fs::read_dir(state_dir).map_err(|e| format!("Failed to read state dir: {}", e))?;
+        std::fs::read_dir(state_dir).map_err(|e| format!("Failed to read state dir: {e}"))?;
 
     for entry in entries.flatten() {
         let path = entry.path();
@@ -233,14 +233,14 @@ pub(crate) fn cmd_lock_backup(state_dir: &Path, json: bool) -> Result<(), String
             if name.ends_with(".lock.yaml") || name.ends_with(".events.jsonl") {
                 let dest = backup_dir.join(name);
                 std::fs::copy(&path, &dest)
-                    .map_err(|e| format!("Failed to copy {}: {}", name, e))?;
+                    .map_err(|e| format!("Failed to copy {name}: {e}"))?;
                 backed_up.push(name.to_string());
             }
         }
     }
 
     if json {
-        let files: Vec<String> = backed_up.iter().map(|f| format!(r#""{}""#, f)).collect();
+        let files: Vec<String> = backed_up.iter().map(|f| format!(r#""{f}""#)).collect();
         println!(
             r#"{{"backup_dir":"{}","files":[{}],"count":{}}}"#,
             backup_dir.display(),
@@ -255,7 +255,7 @@ pub(crate) fn cmd_lock_backup(state_dir: &Path, json: bool) -> Result<(), String
             backup_dir.display()
         );
         for f in &backed_up {
-            println!("  {}", f);
+            println!("  {f}");
         }
     }
     Ok(())
@@ -268,8 +268,8 @@ pub(crate) fn cmd_lock_verify_chain(state_dir: &Path, json: bool) -> Result<(), 
     let mut chain_results: Vec<(String, bool, String)> = Vec::new(); // (machine, valid, detail)
 
     for m in &machines {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
-        let sig_path = state_dir.join(format!("{}.lock.yaml.sig", m));
+        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let sig_path = state_dir.join(format!("{m}.lock.yaml.sig"));
 
         if !lock_path.exists() {
             chain_results.push((m.clone(), false, "lock file missing".to_string()));
@@ -295,8 +295,7 @@ pub(crate) fn cmd_lock_verify_chain(state_dir: &Path, json: bool) -> Result<(), 
                 m.clone(),
                 false,
                 format!(
-                    "hash mismatch: expected {}, got {}",
-                    sig_content, computed_hash
+                    "hash mismatch: expected {sig_content}, got {computed_hash}"
                 ),
             ));
         }
@@ -307,8 +306,7 @@ pub(crate) fn cmd_lock_verify_chain(state_dir: &Path, json: bool) -> Result<(), 
             .iter()
             .map(|(m, valid, detail)| {
                 format!(
-                    r#"{{"machine":"{}","valid":{},"detail":"{}"}}"#,
-                    m, valid, detail
+                    r#"{{"machine":"{m}","valid":{valid},"detail":"{detail}"}}"#
                 )
             })
             .collect();
@@ -317,7 +315,7 @@ pub(crate) fn cmd_lock_verify_chain(state_dir: &Path, json: bool) -> Result<(), 
         println!("Lock chain verification:\n");
         for (m, valid, detail) in &chain_results {
             let icon = if *valid { green("✓") } else { red("✗") };
-            println!("  {} {} — {}", icon, m, detail);
+            println!("  {icon} {m} — {detail}");
         }
     }
     Ok(())
@@ -334,7 +332,7 @@ pub(crate) fn cmd_lock_stats(state_dir: &Path, json: bool) -> Result<(), String>
         .as_secs();
 
     for m in &machines {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
         if !lock_path.exists() {
             continue;
         }
@@ -366,8 +364,7 @@ pub(crate) fn cmd_lock_stats(state_dir: &Path, json: bool) -> Result<(), String>
             .iter()
             .map(|(m, s, c, a)| {
                 format!(
-                    r#"{{"machine":"{}","size_bytes":{},"resources":{},"age":"{}"}}"#,
-                    m, s, c, a
+                    r#"{{"machine":"{m}","size_bytes":{s},"resources":{c},"age":"{a}"}}"#
                 )
             })
             .collect();
@@ -377,7 +374,7 @@ pub(crate) fn cmd_lock_stats(state_dir: &Path, json: bool) -> Result<(), String>
     } else {
         println!("Lock file statistics:\n");
         for (m, s, c, a) in &stats {
-            println!("  {} — {} bytes, {} resources, {} old", m, s, c, a);
+            println!("  {m} — {s} bytes, {c} resources, {a} old");
         }
         let total_size: u64 = stats.iter().map(|(_, s, _, _)| s).sum();
         let total_resources: usize = stats.iter().map(|(_, _, c, _)| c).sum();

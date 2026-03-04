@@ -279,8 +279,7 @@ pub fn detect_anomalies(
         let churn_score = isolation_score(&converge_vals, converge as f64);
         if churn_score > 0.6 {
             reasons.push(format!(
-                "high churn (isolation={:.2}, {} converges)",
-                churn_score, converge
+                "high churn (isolation={churn_score:.2}, {converge} converges)"
             ));
             max_score = max_score.max(churn_score);
         }
@@ -299,7 +298,7 @@ pub fn detect_anomalies(
 
         // Any drift events are always flagged
         if drift > 0 {
-            reasons.push(format!("{} drift event(s)", drift));
+            reasons.push(format!("{drift} drift event(s)"));
             max_score = max_score.max(0.7);
         }
 

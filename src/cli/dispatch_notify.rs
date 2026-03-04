@@ -185,7 +185,7 @@ pub(super) fn send_webhook_notifications(opts: &NotifyOpts<'_>, status: &str, co
         );
     }
     if let Some(topic) = opts.ntfy {
-        let url = format!("https://ntfy.sh/{}", topic);
+        let url = format!("https://ntfy.sh/{topic}");
         let msg = format!("forjar apply {}: {}", status, config.display());
         let _ = std::process::Command::new("curl")
             .args(["-s", "-d", &msg, &url])
@@ -199,8 +199,7 @@ pub(super) fn send_webhook_notifications(opts: &NotifyOpts<'_>, status: &str, co
         send_webhook(
             url,
             &format!(
-                r#"{{"text":"forjar apply {}","tags":["forjar","deploy"],"time":{}}}"#,
-                status, ts
+                r#"{{"text":"forjar apply {status}","tags":["forjar","deploy"],"time":{ts}}}"#
             ),
         );
     }
@@ -209,7 +208,7 @@ pub(super) fn send_monitoring_notifications(opts: &NotifyOpts<'_>, status: &str,
     if let Some(key) = opts.opsgenie {
         send_webhook_with_header(
             "https://api.opsgenie.com/v2/alerts",
-            &format!("Authorization: GenieKey {}", key),
+            &format!("Authorization: GenieKey {key}"),
             &format!(
                 r#"{{"message":"forjar apply {}","description":"Apply {} for {}","priority":"P3"}}"#,
                 status,
@@ -221,7 +220,7 @@ pub(super) fn send_monitoring_notifications(opts: &NotifyOpts<'_>, status: &str,
     if let Some(key) = opts.datadog {
         send_webhook_with_header(
             "https://api.datadoghq.com/api/v1/events",
-            &format!("DD-API-KEY: {}", key),
+            &format!("DD-API-KEY: {key}"),
             &format!(
                 r#"{{"title":"forjar apply {}","text":"Apply {} for {}","alert_type":"info"}}"#,
                 status,
@@ -233,7 +232,7 @@ pub(super) fn send_monitoring_notifications(opts: &NotifyOpts<'_>, status: &str,
     if let Some(key) = opts.newrelic {
         send_webhook_with_header(
             "https://insights-collector.newrelic.com/v1/accounts/events",
-            &format!("Api-Key: {}", key),
+            &format!("Api-Key: {key}"),
             &format!(
                 r#"{{"eventType":"ForjarApply","status":"{}","config":"{}"}}"#,
                 status,
@@ -255,8 +254,7 @@ pub(super) fn send_incident_notifications(
         };
         send_webhook(
             &format!(
-                "https://alert.victorops.com/integrations/generic/20131114/alert/{}/forjar",
-                key
+                "https://alert.victorops.com/integrations/generic/20131114/alert/{key}/forjar"
             ),
             &format!(
                 r#"{{"message_type":"{}","entity_display_name":"forjar apply","state_message":"Apply {} for {}"}}"#,

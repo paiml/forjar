@@ -299,8 +299,7 @@ pub(crate) fn cmd_validate_check_resource_content_length_limit(
         );
     } else if violations.is_empty() {
         println!(
-            "Content length: 0 resources exceed limit ({} chars)",
-            CONTENT_LENGTH_LIMIT
+            "Content length: 0 resources exceed limit ({CONTENT_LENGTH_LIMIT} chars)"
         );
     } else {
         println!(
@@ -463,8 +462,7 @@ resources:
     fn test_content_length_with_violation() {
         let big_content = "x".repeat(5000);
         let yaml = format!(
-            "version: '1.0'\nname: test\nresources:\n  big-file:\n    type: file\n    content: '{}'\n",
-            big_content
+            "version: '1.0'\nname: test\nresources:\n  big-file:\n    type: file\n    content: '{big_content}'\n"
         );
         let f = write_temp_config(&yaml);
         let result = cmd_validate_check_resource_content_length_limit(f.path(), false);

@@ -240,7 +240,7 @@ mod tests {
             machine_resource_drift_pattern_classification: false,
             fleet_resource_convergence_window_analysis: false,
         };
-        let debug = format!("{:?}", args);
+        let debug = format!("{args:?}");
         assert!(debug.contains("StatusArgs"));
         assert!(debug.contains("state_dir"));
     }
@@ -466,7 +466,7 @@ mod tests {
             machine_resource_drift_pattern_classification: false,
             fleet_resource_convergence_window_analysis: false,
         };
-        let debug = format!("{:?}", args);
+        let debug = format!("{args:?}");
         assert!(debug.contains("StatusArgs"));
     }
 }

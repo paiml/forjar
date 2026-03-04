@@ -41,28 +41,28 @@ pub fn encrypt(plaintext: &str, recipient_strs: &[&str]) -> Result<String, Strin
         .map(|r| {
             r.parse::<age::x25519::Recipient>()
                 .map(|r| Box::new(r) as Box<dyn age::Recipient + Send>)
-                .map_err(|e| format!("invalid recipient '{}': {}", r, e))
+                .map_err(|e| format!("invalid recipient '{r}': {e}"))
         })
         .collect::<Result<Vec<_>, _>>()?;
 
     let encryptor = age::Encryptor::with_recipients(
         recipients.iter().map(|r| r.as_ref() as &dyn age::Recipient),
     )
-    .map_err(|e| format!("encryptor init failed: {}", e))?;
+    .map_err(|e| format!("encryptor init failed: {e}"))?;
 
     let mut encrypted = vec![];
     let mut writer = encryptor
         .wrap_output(&mut encrypted)
-        .map_err(|e| format!("encryption error: {}", e))?;
+        .map_err(|e| format!("encryption error: {e}"))?;
     writer
         .write_all(plaintext.as_bytes())
-        .map_err(|e| format!("write error: {}", e))?;
+        .map_err(|e| format!("write error: {e}"))?;
     writer
         .finish()
-        .map_err(|e| format!("encryption finish error: {}", e))?;
+        .map_err(|e| format!("encryption finish error: {e}"))?;
 
     let encoded = B64.encode(&encrypted);
-    Ok(format!("{}{}{}", ENC_PREFIX, encoded, ENC_SUFFIX))
+    Ok(format!("{ENC_PREFIX}{encoded}{ENC_SUFFIX}"))
 }
 
 /// Decrypt a single `ENC[age,<base64>]` marker.
@@ -77,18 +77,18 @@ pub fn decrypt_marker(
 
     let encrypted = B64
         .decode(inner)
-        .map_err(|e| format!("base64 decode error: {}", e))?;
+        .map_err(|e| format!("base64 decode error: {e}"))?;
 
     let decryptor =
-        age::Decryptor::new(&encrypted[..]).map_err(|e| format!("age decryptor error: {}", e))?;
+        age::Decryptor::new(&encrypted[..]).map_err(|e| format!("age decryptor error: {e}"))?;
 
     let mut reader = decryptor
         .decrypt(identities.iter().map(|i| i as &dyn age::Identity))
-        .map_err(|e| format!("decryption failed: {}", e))?;
+        .map_err(|e| format!("decryption failed: {e}"))?;
     let mut plaintext = String::new();
     reader
         .read_to_string(&mut plaintext)
-        .map_err(|e| format!("read error: {}", e))?;
+        .map_err(|e| format!("read error: {e}"))?;
     Ok(plaintext)
 }
 
@@ -173,7 +173,7 @@ pub(crate) fn parse_identity(key_str: &str) -> Result<age::x25519::Identity, Str
     key_str
         .trim()
         .parse::<age::x25519::Identity>()
-        .map_err(|e| format!("invalid age identity: {}", e))
+        .map_err(|e| format!("invalid age identity: {e}"))
 }
 
 /// Get the public key (recipient) string for an identity.

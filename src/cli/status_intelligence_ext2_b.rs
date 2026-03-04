@@ -9,8 +9,7 @@ pub(super) fn print_error_rates(rates: &[(String, f64, usize, usize)], json: boo
             .iter()
             .map(|(m, r, f, t)| {
                 format!(
-                    "{{\"machine\":\"{}\",\"error_rate\":{:.4},\"failed\":{},\"total\":{}}}",
-                    m, r, f, t
+                    "{{\"machine\":\"{m}\",\"error_rate\":{r:.4},\"failed\":{f},\"total\":{t}}}"
                 )
             })
             .collect();
@@ -63,7 +62,7 @@ fn print_convergence_gaps(gaps: &[(String, f64, usize)], json: bool) {
     if json {
         let items: Vec<String> = gaps
             .iter()
-            .map(|(m, g, t)| format!("{{\"machine\":\"{}\",\"gap\":{:.4},\"total\":{}}}", m, g, t))
+            .map(|(m, g, t)| format!("{{\"machine\":\"{m}\",\"gap\":{g:.4},\"total\":{t}}}"))
             .collect();
         println!("{{\"convergence_gaps\":[{}]}}", items.join(","));
     } else if gaps.is_empty() {
@@ -112,7 +111,7 @@ fn print_error_distribution(dist: &[(String, usize, usize)], json: bool) {
     if json {
         let items: Vec<String> = dist
             .iter()
-            .map(|(m, f, t)| format!("{{\"machine\":\"{}\",\"failed\":{},\"total\":{}}}", m, f, t))
+            .map(|(m, f, t)| format!("{{\"machine\":\"{m}\",\"failed\":{f},\"total\":{t}}}"))
             .collect();
         println!("{{\"error_distribution\":[{}]}}", items.join(","));
     } else if dist.is_empty() {
@@ -121,7 +120,7 @@ fn print_error_distribution(dist: &[(String, usize, usize)], json: bool) {
         println!("Error distribution:");
         for (m, f, t) in dist {
             let bar = "█".repeat((*f * 20).checked_div(*t).unwrap_or(0));
-            println!("  {:20} {:>3}/{:<3} {}", m, f, t, bar);
+            println!("  {m:20} {f:>3}/{t:<3} {bar}");
         }
     }
 }
@@ -226,8 +225,7 @@ fn print_apply_latency_p95(latencies: &[(String, f64, usize)], json: bool) {
             .iter()
             .map(|(m, l, t)| {
                 format!(
-                    "{{\"machine\":\"{}\",\"p95_latency_sec\":{:.2},\"resources\":{}}}",
-                    m, l, t
+                    "{{\"machine\":\"{m}\",\"p95_latency_sec\":{l:.2},\"resources\":{t}}}"
                 )
             })
             .collect();
@@ -237,7 +235,7 @@ fn print_apply_latency_p95(latencies: &[(String, f64, usize)], json: bool) {
     } else {
         println!("Apply latency p95 (estimated):");
         for (m, l, t) in latencies {
-            println!("  {:20} {:.1}s ({} resources)", m, l, t);
+            println!("  {m:20} {l:.1}s ({t} resources)");
         }
     }
 }
@@ -291,8 +289,7 @@ fn print_security_posture(scores: &[(String, f64, usize)], json: bool) {
             .iter()
             .map(|(m, s, t)| {
                 format!(
-                    "{{\"machine\":\"{}\",\"posture_score\":{:.4},\"resources\":{}}}",
-                    m, s, t
+                    "{{\"machine\":\"{m}\",\"posture_score\":{s:.4},\"resources\":{t}}}"
                 )
             })
             .collect();

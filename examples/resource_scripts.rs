@@ -94,7 +94,7 @@ fn make_resource(rt: ResourceType) -> Resource {
 }
 
 fn print_scripts(label: &str, resource: &Resource) {
-    println!("╔══ {} ══╗", label);
+    println!("╔══ {label} ══╗");
 
     println!("\n── check ──");
     println!("{}", codegen::check_script(resource).unwrap());

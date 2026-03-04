@@ -70,7 +70,7 @@ pub(crate) fn cmd_audit(
             println!("No audit events found.");
             return Ok(());
         }
-        println!("Audit trail (last {} events):\n", limit);
+        println!("Audit trail (last {limit} events):\n");
         for (machine, ev) in &all_events {
             println!("  {} [{}] {:?}", ev.ts, machine, ev.event);
         }
@@ -177,7 +177,7 @@ fn collect_export_resources(
     machine_filter: Option<&str>,
 ) -> Result<Vec<(String, String, types::ResourceLock)>, String> {
     let entries =
-        std::fs::read_dir(state_dir).map_err(|e| format!("cannot read state dir: {}", e))?;
+        std::fs::read_dir(state_dir).map_err(|e| format!("cannot read state dir: {e}"))?;
     let mut all_resources = Vec::new();
     for entry in entries.flatten() {
         let name = entry.file_name().to_string_lossy().to_string();
@@ -210,10 +210,10 @@ fn format_ansible(all_resources: &[(String, String, types::ResourceLock)]) -> St
     }
     let mut lines = vec!["all:".to_string(), "  hosts:".to_string()];
     for (machine, resources) in &machines {
-        lines.push(format!("    {}:", machine));
+        lines.push(format!("    {machine}:"));
         lines.push("      forjar_resources:".to_string());
         for res in resources {
-            lines.push(format!("        - {}", res));
+            lines.push(format!("        - {res}"));
         }
     }
     lines.join("\n")
@@ -256,8 +256,7 @@ pub(crate) fn cmd_export(
         "ansible" => format_ansible(&all_resources),
         _ => {
             return Err(format!(
-                "Unknown export format '{}'. Supported: csv, terraform, ansible",
-                format
+                "Unknown export format '{format}'. Supported: csv, terraform, ansible"
             ))
         }
     };
@@ -270,7 +269,7 @@ pub(crate) fn cmd_export(
             output_path.display()
         );
     } else {
-        println!("{}", content);
+        println!("{content}");
     }
 
     Ok(())
@@ -283,7 +282,7 @@ fn check_unused_params(
     suggestions: &mut Vec<serde_json::Value>,
 ) {
     for key in config.params.keys() {
-        let pattern = format!("{{{{params.{}}}}}", key);
+        let pattern = format!("{{{{params.{key}}}}}");
         if !config_str.contains(&pattern) {
             suggestions.push(serde_json::json!({
                 "type": "unused-param",

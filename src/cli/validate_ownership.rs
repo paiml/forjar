@@ -16,7 +16,7 @@ pub(crate) fn cmd_validate_check_resource_naming_convention(
     if json {
         let items: Vec<String> = violations
             .iter()
-            .map(|(n, reason)| format!("{{\"resource\":\"{}\",\"issue\":\"{}\"}}", n, reason))
+            .map(|(n, reason)| format!("{{\"resource\":\"{n}\",\"issue\":\"{reason}\"}}"))
             .collect();
         println!("{{\"naming_convention_violations\":[{}]}}", items.join(","));
     } else if violations.is_empty() {
@@ -24,7 +24,7 @@ pub(crate) fn cmd_validate_check_resource_naming_convention(
     } else {
         println!("Naming convention violations:");
         for (n, reason) in &violations {
-            println!("  {} — {}", n, reason);
+            println!("  {n} — {reason}");
         }
     }
     Ok(())
@@ -61,7 +61,7 @@ pub(crate) fn cmd_validate_check_resource_idempotency(
     if json {
         let items: Vec<String> = warnings
             .iter()
-            .map(|(n, reason)| format!("{{\"resource\":\"{}\",\"concern\":\"{}\"}}", n, reason))
+            .map(|(n, reason)| format!("{{\"resource\":\"{n}\",\"concern\":\"{reason}\"}}"))
             .collect();
         println!("{{\"idempotency_concerns\":[{}]}}", items.join(","));
     } else if warnings.is_empty() {
@@ -69,7 +69,7 @@ pub(crate) fn cmd_validate_check_resource_idempotency(
     } else {
         println!("Idempotency concerns:");
         for (n, reason) in &warnings {
-            println!("  {} — {}", n, reason);
+            println!("  {n} — {reason}");
         }
     }
     Ok(())
@@ -105,14 +105,14 @@ pub(crate) fn cmd_validate_check_resource_documentation(
     let config: types::ForjarConfig = serde_yaml_ng::from_str(&raw).map_err(|e| e.to_string())?;
     let undocumented = find_undocumented_resources(&config);
     if json {
-        let items: Vec<String> = undocumented.iter().map(|n| format!("\"{}\"", n)).collect();
+        let items: Vec<String> = undocumented.iter().map(|n| format!("\"{n}\"")).collect();
         println!("{{\"undocumented_resources\":[{}]}}", items.join(","));
     } else if undocumented.is_empty() {
         println!("All resources have documentation.");
     } else {
         println!("Resources missing documentation:");
         for name in &undocumented {
-            println!("  {}", name);
+            println!("  {name}");
         }
     }
     Ok(())
@@ -138,14 +138,14 @@ pub(crate) fn cmd_validate_check_resource_ownership(file: &Path, json: bool) -> 
     let config: types::ForjarConfig = serde_yaml_ng::from_str(&raw).map_err(|e| e.to_string())?;
     let unowned = find_unowned_resources(&config);
     if json {
-        let items: Vec<String> = unowned.iter().map(|n| format!("\"{}\"", n)).collect();
+        let items: Vec<String> = unowned.iter().map(|n| format!("\"{n}\"")).collect();
         println!("{{\"unowned_resources\":[{}]}}", items.join(","));
     } else if unowned.is_empty() {
         println!("All resources have ownership assigned.");
     } else {
         println!("Resources missing ownership (no tags or resource_group):");
         for name in &unowned {
-            println!("  {}", name);
+            println!("  {name}");
         }
     }
     Ok(())
@@ -176,7 +176,7 @@ pub(crate) fn cmd_validate_check_resource_secret_exposure(
     if json {
         let items: Vec<String> = exposures
             .iter()
-            .map(|(n, reason)| format!("{{\"resource\":\"{}\",\"issue\":\"{}\"}}", n, reason))
+            .map(|(n, reason)| format!("{{\"resource\":\"{n}\",\"issue\":\"{reason}\"}}"))
             .collect();
         println!("{{\"secret_exposures\":[{}]}}", items.join(","));
     } else if exposures.is_empty() {
@@ -184,7 +184,7 @@ pub(crate) fn cmd_validate_check_resource_secret_exposure(
     } else {
         println!("Potential secret exposures:");
         for (n, reason) in &exposures {
-            println!("  {} — {}", n, reason);
+            println!("  {n} — {reason}");
         }
     }
     Ok(())
@@ -205,7 +205,7 @@ pub(super) fn find_secret_exposures(config: &types::ForjarConfig) -> Vec<(String
             let lower = content.to_lowercase();
             for pat in &patterns {
                 if lower.contains(pat) {
-                    exposures.push((name.clone(), format!("content may contain '{}'", pat)));
+                    exposures.push((name.clone(), format!("content may contain '{pat}'")));
                     break;
                 }
             }
@@ -228,8 +228,7 @@ pub(crate) fn cmd_validate_check_resource_tag_standards(
             .iter()
             .map(|(n, tag, reason)| {
                 format!(
-                    "{{\"resource\":\"{}\",\"tag\":\"{}\",\"issue\":\"{}\"}}",
-                    n, tag, reason
+                    "{{\"resource\":\"{n}\",\"tag\":\"{tag}\",\"issue\":\"{reason}\"}}"
                 )
             })
             .collect();
@@ -239,7 +238,7 @@ pub(crate) fn cmd_validate_check_resource_tag_standards(
     } else {
         println!("Tag naming standard violations:");
         for (n, tag, reason) in &violations {
-            println!("  {} tag '{}' — {}", n, tag, reason);
+            println!("  {n} tag '{tag}' — {reason}");
         }
     }
     Ok(())
@@ -273,7 +272,7 @@ pub(crate) fn cmd_validate_check_resource_privilege_escalation(
     if json {
         let items: Vec<String> = risks
             .iter()
-            .map(|(n, r)| format!("{{\"resource\":\"{}\",\"risk\":\"{}\"}}", n, r))
+            .map(|(n, r)| format!("{{\"resource\":\"{n}\",\"risk\":\"{r}\"}}"))
             .collect();
         println!("{{\"privilege_escalation_risks\":[{}]}}", items.join(","));
     } else if risks.is_empty() {
@@ -281,7 +280,7 @@ pub(crate) fn cmd_validate_check_resource_privilege_escalation(
     } else {
         println!("Privilege escalation risks:");
         for (n, r) in &risks {
-            println!("  {} — {}", n, r);
+            println!("  {n} — {r}");
         }
     }
     Ok(())
@@ -301,14 +300,14 @@ pub(super) fn find_privilege_escalation_risks(cfg: &types::ForjarConfig) -> Vec<
         if let Some(ref content) = res.content {
             for pat in &priv_patterns {
                 if content.contains(pat) {
-                    risks.push((name.clone(), format!("contains '{}'", pat)));
+                    risks.push((name.clone(), format!("contains '{pat}'")));
                 }
             }
         }
         if let Some(ref path) = res.path {
             let p = path.to_lowercase();
             if p.contains("sudoers") || p.contains("/etc/shadow") {
-                risks.push((name.clone(), format!("targets sensitive path '{}'", path)));
+                risks.push((name.clone(), format!("targets sensitive path '{path}'")));
             }
         }
     }

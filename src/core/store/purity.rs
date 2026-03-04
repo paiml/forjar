@@ -80,7 +80,7 @@ pub fn classify(name: &str, signals: &PuritySignals) -> PurityResult {
     let dep_max = signals.dep_levels.iter().max().copied();
     let final_level = match dep_max {
         Some(dep) if dep > own_level => {
-            reasons.push(format!("dependency at level {:?} elevates purity", dep));
+            reasons.push(format!("dependency at level {dep:?} elevates purity"));
             dep
         }
         _ => own_level,

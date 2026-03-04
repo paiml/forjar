@@ -58,10 +58,10 @@ fn build_terminal_map(
         let recipe_name = resource
             .recipe
             .as_deref()
-            .ok_or_else(|| format!("recipe resource '{}' has no recipe name", id))?;
+            .ok_or_else(|| format!("recipe resource '{id}' has no recipe name"))?;
         let recipe_path = base_dir
             .join("recipes")
-            .join(format!("{}.yaml", recipe_name));
+            .join(format!("{recipe_name}.yaml"));
         if recipe_path.exists() {
             if let Ok(recipe_file) = recipe::load_recipe(&recipe_path) {
                 if let Some(terminal) = recipe::recipe_terminal_id(id, &recipe_file) {
@@ -92,7 +92,7 @@ fn expand_one_level(
         let recipe_name = resource
             .recipe
             .as_deref()
-            .ok_or_else(|| format!("recipe resource '{}' has no recipe name", id))?;
+            .ok_or_else(|| format!("recipe resource '{id}' has no recipe name"))?;
 
         detect_cycle(id, recipe_name, expansion_map)?;
         expansion_map.insert(id.clone(), recipe_name.to_string());
@@ -101,7 +101,7 @@ fn expand_one_level(
 
         let recipe_path = base_dir
             .join("recipes")
-            .join(format!("{}.yaml", recipe_name));
+            .join(format!("{recipe_name}.yaml"));
         if !recipe_path.exists() {
             return Err(format!(
                 "recipe '{}' not found at {}",
@@ -140,8 +140,7 @@ fn detect_cycle(
         ancestor = &ancestor[..slash_pos];
         if expansion_map.get(ancestor).map(|s| s.as_str()) == Some(recipe_name) {
             return Err(format!(
-                "recipe cycle detected: '{}' at resource '{}'",
-                recipe_name, id
+                "recipe cycle detected: '{recipe_name}' at resource '{id}'"
             ));
         }
     }
@@ -174,8 +173,7 @@ fn check_version_conflict(
         if let Some(existing_ver) = recipe_versions.get(recipe_name) {
             if existing_ver != ver {
                 return Err(format!(
-                    "recipe version conflict: '{}' required at v{} and v{} (resource '{}')",
-                    recipe_name, existing_ver, ver, resource_id
+                    "recipe version conflict: '{recipe_name}' required at v{existing_ver} and v{ver} (resource '{resource_id}')"
                 ));
             }
         } else {
@@ -193,8 +191,7 @@ fn check_expansion_complete(config: &ForjarConfig) -> Result<(), String> {
         .any(|r| r.resource_type == ResourceType::Recipe);
     if still_has {
         return Err(format!(
-            "recipe expansion exceeded max depth of {}",
-            MAX_RECIPE_DEPTH
+            "recipe expansion exceeded max depth of {MAX_RECIPE_DEPTH}"
         ));
     }
     Ok(())

@@ -183,7 +183,7 @@ pub(crate) fn cmd_lock_sign(state_dir: &Path, key: &str, json: bool) -> Result<(
                 let lock_path = path.join("lock.yaml");
                 if lock_path.exists() {
                     let content = std::fs::read_to_string(&lock_path).map_err(|e| e.to_string())?;
-                    let hash = hasher::hash_string(&format!("{}{}", content, key));
+                    let hash = hasher::hash_string(&format!("{content}{key}"));
                     let sig_path = path.join("lock.sig");
                     std::fs::write(&sig_path, &hash).map_err(|e| e.to_string())?;
                     signed += 1;

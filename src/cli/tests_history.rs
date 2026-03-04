@@ -130,7 +130,7 @@ mod tests {
                 "m1",
                 crate::core::types::ProvenanceEvent::ApplyStarted {
                     machine: "m1".to_string(),
-                    run_id: format!("r-{}", i),
+                    run_id: format!("r-{i}"),
                     forjar_version: "0.1.0".to_string(),
                     operator: None,
                     config_hash: None,
@@ -195,8 +195,7 @@ mod tests {
             let m_dir = dir.path().join(name);
             std::fs::create_dir_all(&m_dir).unwrap();
             let event = format!(
-                r#"{{"ts":"2026-02-25T10:00:00Z","event":"apply_started","machine":"{}","run_id":"r-1","forjar_version":"0.1.0"}}"#,
-                name
+                r#"{{"ts":"2026-02-25T10:00:00Z","event":"apply_started","machine":"{name}","run_id":"r-1","forjar_version":"0.1.0"}}"#
             );
             std::fs::write(m_dir.join("events.jsonl"), event).unwrap();
         }

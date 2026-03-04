@@ -27,8 +27,8 @@ mod tests {
     fn make_dir() -> tempfile::TempDir {
         let dir = tempfile::tempdir().unwrap();
         for m in &["web", "db"] {
-            write_yaml(dir.path(), &format!("{}/state.lock.yaml", m), state_lock());
-            write_yaml(dir.path(), &format!("{}.lock.yaml", m), state_lock());
+            write_yaml(dir.path(), &format!("{m}/state.lock.yaml"), state_lock());
+            write_yaml(dir.path(), &format!("{m}.lock.yaml"), state_lock());
         }
         dir
     }
@@ -39,12 +39,12 @@ mod tests {
         for m in &["web", "db"] {
             write_yaml(
                 dir.path(),
-                &format!("{}.events.jsonl", m),
+                &format!("{m}.events.jsonl"),
                 &format!("{ev}\n{ev}\n"),
             );
             write_yaml(
                 dir.path(),
-                &format!("{}.events.yaml", m),
+                &format!("{m}.events.yaml"),
                 "2026-02-28T01:00:00Z apply success\n",
             );
         }

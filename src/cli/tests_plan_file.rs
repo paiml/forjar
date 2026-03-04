@@ -70,8 +70,7 @@ resources:
             super::super::plan::save_plan_file(&plan, &config, config_path, &plan_path);
         assert!(
             save_result.is_ok(),
-            "save should succeed: {:?}",
-            save_result
+            "save should succeed: {save_result:?}"
         );
 
         // Verify file exists and is valid JSON
@@ -210,8 +209,7 @@ resources:
             let loaded = load_plan_file(&plan_path, &config).unwrap();
             assert_eq!(
                 loaded.changes[0].resource_type, *expected_type,
-                "type mismatch for {}",
-                type_str
+                "type mismatch for {type_str}"
             );
         }
     }

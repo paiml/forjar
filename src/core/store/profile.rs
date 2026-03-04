@@ -12,16 +12,16 @@ use std::path::Path;
 /// atomically switched via temp symlink + rename.
 pub fn create_generation(profiles_dir: &Path, store_content_path: &str) -> Result<u32, String> {
     std::fs::create_dir_all(profiles_dir)
-        .map_err(|e| format!("cannot create profiles dir: {}", e))?;
+        .map_err(|e| format!("cannot create profiles dir: {e}"))?;
 
     let next_gen = next_generation_number(profiles_dir)?;
     let gen_dir = profiles_dir.join(next_gen.to_string());
     std::fs::create_dir_all(&gen_dir)
-        .map_err(|e| format!("cannot create generation dir: {}", e))?;
+        .map_err(|e| format!("cannot create generation dir: {e}"))?;
 
     // Write a link target file (the store path this generation points to)
     std::fs::write(gen_dir.join("target"), store_content_path)
-        .map_err(|e| format!("cannot write target: {}", e))?;
+        .map_err(|e| format!("cannot write target: {e}"))?;
 
     // Atomically switch the `current` symlink
     atomic_symlink_switch(profiles_dir, &gen_dir)?;
@@ -41,7 +41,7 @@ pub fn rollback(profiles_dir: &Path) -> Result<u32, String> {
     let prev = current - 1;
     let prev_dir = profiles_dir.join(prev.to_string());
     if !prev_dir.exists() {
-        return Err(format!("generation {} does not exist", prev));
+        return Err(format!("generation {prev} does not exist"));
     }
     atomic_symlink_switch(profiles_dir, &prev_dir)?;
     Ok(prev)
@@ -54,7 +54,7 @@ pub fn list_generations(profiles_dir: &Path) -> Result<Vec<(u32, String)>, Strin
     }
     let mut gens = Vec::new();
     let entries =
-        std::fs::read_dir(profiles_dir).map_err(|e| format!("cannot read profiles dir: {}", e))?;
+        std::fs::read_dir(profiles_dir).map_err(|e| format!("cannot read profiles dir: {e}"))?;
     for entry in entries.flatten() {
         let name = entry.file_name().to_string_lossy().to_string();
         if let Ok(num) = name.parse::<u32>() {
@@ -78,7 +78,7 @@ pub fn current_generation(profiles_dir: &Path) -> Option<u32> {
 /// Compute the next generation number by scanning existing directories.
 fn next_generation_number(profiles_dir: &Path) -> Result<u32, String> {
     let entries =
-        std::fs::read_dir(profiles_dir).map_err(|e| format!("cannot read profiles dir: {}", e))?;
+        std::fs::read_dir(profiles_dir).map_err(|e| format!("cannot read profiles dir: {e}"))?;
     let max = entries
         .flatten()
         .filter_map(|e| e.file_name().to_string_lossy().parse::<u32>().ok())
@@ -98,7 +98,7 @@ fn atomic_symlink_switch(profiles_dir: &Path, target_dir: &Path) -> Result<(), S
 
     #[cfg(unix)]
     std::os::unix::fs::symlink(target_dir, &tmp_link)
-        .map_err(|e| format!("cannot create temp symlink: {}", e))?;
+        .map_err(|e| format!("cannot create temp symlink: {e}"))?;
 
     #[cfg(not(unix))]
     std::fs::write(&tmp_link, target_dir.to_string_lossy().as_bytes())

@@ -50,13 +50,13 @@ mod tests {
             // discover_machines needs: <machine>/state.lock.yaml
             write_yaml(
                 dir.path(),
-                &format!("{}/state.lock.yaml", m),
+                &format!("{m}/state.lock.yaml"),
                 state_lock_yaml(),
             );
             // status_recovery + status_intelligence read: <machine>/lock.yaml
-            write_yaml(dir.path(), &format!("{}/lock.yaml", m), state_lock_yaml());
+            write_yaml(dir.path(), &format!("{m}/lock.yaml"), state_lock_yaml());
             // status_diagnostics reads: <machine>.lock.yaml (flat)
-            write_yaml(dir.path(), &format!("{}.lock.yaml", m), state_lock_yaml());
+            write_yaml(dir.path(), &format!("{m}.lock.yaml"), state_lock_yaml());
         }
         dir
     }
@@ -68,7 +68,7 @@ mod tests {
             // events.yaml used by status_recovery for MTTR and apply-success-trend
             write_yaml(
                 dir.path(),
-                &format!("{}/events.yaml", m),
+                &format!("{m}/events.yaml"),
                 "some event data\n",
             );
             // events.jsonl used by status_diagnostics for apply history count and churn
@@ -78,7 +78,7 @@ mod tests {
                 r#"{"event":"resource_applied","resource":"f","timestamp":"2026-02-28T01:05:00Z"}"#;
             write_yaml(
                 dir.path(),
-                &format!("{}/events.jsonl", m),
+                &format!("{m}/events.jsonl"),
                 &format!("{ev1}\n{ev2}\n{ev1}\n"),
             );
             // snapshots dir used by rollback readiness

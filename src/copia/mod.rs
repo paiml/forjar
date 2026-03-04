@@ -95,14 +95,13 @@ pub fn signature_script(path: &str) -> String {
          fi\n\
          SIZE=$(stat -c %s \"$FILE\" 2>/dev/null || stat -f %z \"$FILE\")\n\
          echo \"SIZE:$SIZE\"\n\
-         BLOCKS=$(( (SIZE + {bs} - 1) / {bs} ))\n\
+         BLOCKS=$(( (SIZE + {BLOCK_SIZE} - 1) / {BLOCK_SIZE} ))\n\
          for i in $(seq 0 $((BLOCKS - 1))); do\n\
-           HASH=$(dd if=\"$FILE\" bs={bs} skip=$i count=1 2>/dev/null | \
+           HASH=$(dd if=\"$FILE\" bs={BLOCK_SIZE} skip=$i count=1 2>/dev/null | \
                   b3sum --no-names 2>/dev/null || \
-                  dd if=\"$FILE\" bs={bs} skip=$i count=1 2>/dev/null | sha256sum | cut -d' ' -f1)\n\
+                  dd if=\"$FILE\" bs={BLOCK_SIZE} skip=$i count=1 2>/dev/null | sha256sum | cut -d' ' -f1)\n\
            echo \"$i $HASH\"\n\
          done",
-        bs = BLOCK_SIZE,
     )
 }
 
@@ -124,7 +123,7 @@ pub fn parse_signatures(output: &str) -> Result<Option<Vec<BlockSignature>>, Str
         }
         let parts: Vec<&str> = line.splitn(2, ' ').collect();
         if parts.len() != 2 {
-            return Err(format!("invalid signature line: {}", line));
+            return Err(format!("invalid signature line: {line}"));
         }
         let index: usize = parts[0]
             .parse()
@@ -158,32 +157,31 @@ pub fn patch_script(
         match op {
             DeltaOp::Copy { index } => {
                 lines.push(format!(
-                    "dd if='{}' bs={} skip={} count=1 >> \"$TMPFILE\" 2>/dev/null",
-                    path, BLOCK_SIZE, index,
+                    "dd if='{path}' bs={BLOCK_SIZE} skip={index} count=1 >> \"$TMPFILE\" 2>/dev/null",
                 ));
             }
             DeltaOp::Literal { data } => {
                 let b64 = base64::engine::general_purpose::STANDARD.encode(data);
-                lines.push(format!("echo '{}' | base64 -d >> \"$TMPFILE\"", b64));
+                lines.push(format!("echo '{b64}' | base64 -d >> \"$TMPFILE\""));
             }
         }
     }
 
     // Atomic replace
-    lines.push(format!("mv \"$TMPFILE\" '{}'", path));
+    lines.push(format!("mv \"$TMPFILE\" '{path}'"));
 
     // Ownership
     if let Some(owner) = owner {
         if let Some(group) = group {
-            lines.push(format!("chown '{}:{}' '{}'", owner, group, path));
+            lines.push(format!("chown '{owner}:{group}' '{path}'"));
         } else {
-            lines.push(format!("chown '{}' '{}'", owner, path));
+            lines.push(format!("chown '{owner}' '{path}'"));
         }
     }
 
     // Mode
     if let Some(mode) = mode {
-        lines.push(format!("chmod '{}' '{}'", mode, path));
+        lines.push(format!("chmod '{mode}' '{path}'"));
     }
 
     lines.join("\n")
@@ -206,7 +204,7 @@ pub fn full_transfer_script(
     group: Option<&str>,
     mode: Option<&str>,
 ) -> Result<String, String> {
-    let data = std::fs::read(source_path).map_err(|e| format!("{}: {}", source_path, e))?;
+    let data = std::fs::read(source_path).map_err(|e| format!("{source_path}: {e}"))?;
     let b64 = base64::engine::general_purpose::STANDARD.encode(&data);
 
     let mut lines = vec!["set -euo pipefail".to_string()];
@@ -218,18 +216,18 @@ pub fn full_transfer_script(
         }
     }
 
-    lines.push(format!("echo '{}' | base64 -d > '{}'", b64, path));
+    lines.push(format!("echo '{b64}' | base64 -d > '{path}'"));
 
     if let Some(owner) = owner {
         if let Some(group) = group {
-            lines.push(format!("chown '{}:{}' '{}'", owner, group, path));
+            lines.push(format!("chown '{owner}:{group}' '{path}'"));
         } else {
-            lines.push(format!("chown '{}' '{}'", owner, path));
+            lines.push(format!("chown '{owner}' '{path}'"));
         }
     }
 
     if let Some(mode) = mode {
-        lines.push(format!("chmod '{}' '{}'", mode, path));
+        lines.push(format!("chmod '{mode}' '{path}'"));
     }
 
     Ok(lines.join("\n"))

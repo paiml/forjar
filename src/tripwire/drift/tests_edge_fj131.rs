@@ -43,7 +43,7 @@ fn test_fj131_drift_finding_debug() {
         actual_hash: "b".to_string(),
         detail: "changed".to_string(),
     };
-    let debug = format!("{:?}", f);
+    let debug = format!("{f:?}");
     assert!(debug.contains("test"));
     assert!(debug.contains("changed"));
 }

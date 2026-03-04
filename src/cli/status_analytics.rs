@@ -109,8 +109,7 @@ fn print_churn_table(results: &BTreeMap<String, serde_json::Value>) {
         let indicator = info["churn_indicator"].as_str().unwrap_or("unknown");
         let symbol = if drifted { "!" } else { "~" };
         println!(
-            "  {} {}: resources={}, churn={}",
-            symbol, m, count, indicator
+            "  {symbol} {m}: resources={count}, churn={indicator}"
         );
     }
 }
@@ -206,7 +205,7 @@ fn print_maturity_table(results: &BTreeMap<String, serde_json::Value>) {
             20..=39 => "D",
             _ => "F",
         };
-        println!("  {}: score={}/100 grade={}", m, score, grade);
+        println!("  {m}: score={score}/100 grade={grade}");
     }
 }
 
@@ -274,10 +273,10 @@ pub(crate) fn cmd_status_fleet_capacity_utilization(
         if total_machines == 0 {
             println!("  No machines found.");
         } else {
-            println!("  Total machines:  {}", total_machines);
-            println!("  Total resources: {}", total_resources);
-            println!("  Avg resources/machine: {:.1}", avg_resources);
-            println!("  Utilization: {:.1}%", utilization_pct);
+            println!("  Total machines:  {total_machines}");
+            println!("  Total resources: {total_resources}");
+            println!("  Avg resources/machine: {avg_resources:.1}");
+            println!("  Utilization: {utilization_pct:.1}%");
         }
     }
     Ok(())
@@ -338,7 +337,7 @@ fn print_error_rate_table(results: &[serde_json::Value]) {
         let total = info["total_resources"].as_u64().unwrap_or(0);
         let failed = info["failed_resources"].as_u64().unwrap_or(0);
         let rate = info["error_rate_pct"].as_f64().unwrap_or(0.0);
-        println!("  {}: {}/{} failed ({:.1}%)", m, failed, total, rate,);
+        println!("  {m}: {failed}/{total} failed ({rate:.1}%)",);
     }
 }
 
@@ -389,7 +388,7 @@ fn print_drift_recovery_table(results: &[serde_json::Value]) {
         let m = info["machine"].as_str().unwrap_or("?");
         let drifted = info["drifted_resources"].as_u64().unwrap_or(0);
         let secs = info["estimated_recovery_seconds"].as_u64().unwrap_or(0);
-        println!("  {}: {} drifted, est. recovery {}s", m, drifted, secs,);
+        println!("  {m}: {drifted} drifted, est. recovery {secs}s",);
     }
 }
 
@@ -443,8 +442,7 @@ fn print_complexity_table(results: &[serde_json::Value]) {
         let types = info["distinct_types"].as_u64().unwrap_or(0);
         let score = info["complexity_score"].as_u64().unwrap_or(0);
         println!(
-            "  {}: resources={}, types={}, complexity={}",
-            m, total, types, score,
+            "  {m}: resources={total}, types={types}, complexity={score}",
         );
     }
 }

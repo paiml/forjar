@@ -52,8 +52,7 @@ resources:
         errors
             .iter()
             .any(|e| e.message.contains("triggers on unknown resource")),
-        "errors: {:?}",
-        errors
+        "errors: {errors:?}"
     );
 }
 
@@ -80,8 +79,7 @@ resources:
         errors
             .iter()
             .any(|e| e.message.contains("triggers on itself")),
-        "errors: {:?}",
-        errors
+        "errors: {errors:?}"
     );
 }
 

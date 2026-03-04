@@ -275,7 +275,7 @@ pub fn format_score_report(result: &ScoringResult) -> String {
 
     if result.hard_fail {
         if let Some(ref reason) = result.hard_fail_reason {
-            out.push_str(&format!("HARD FAIL: {}\n", reason));
+            out.push_str(&format!("HARD FAIL: {reason}\n"));
         }
         return out;
     }

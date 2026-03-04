@@ -121,7 +121,7 @@ fn test_fj131_resource_status_serde_roundtrip() {
     for s in &statuses {
         let yaml = serde_yaml_ng::to_string(s).unwrap();
         let back: ResourceStatus = serde_yaml_ng::from_str(&yaml).unwrap();
-        assert_eq!(&back, s, "roundtrip failed for {:?}", s);
+        assert_eq!(&back, s, "roundtrip failed for {s:?}");
     }
 }
 
@@ -269,7 +269,7 @@ fn test_fj131_apply_result_debug() {
         total_duration: std::time::Duration::from_secs(3),
         resource_reports: Vec::new(),
     };
-    let debug = format!("{:?}", ar);
+    let debug = format!("{ar:?}");
     assert!(debug.contains("web"));
     assert!(debug.contains("5"));
 }

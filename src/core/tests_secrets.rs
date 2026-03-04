@@ -102,7 +102,7 @@ fn test_fj200_multi_recipient() {
 fn test_fj200_has_encrypted_markers() {
     let (_identity, recipient) = test_keypair();
     let real_marker = encrypt("test", &[&recipient]).unwrap();
-    assert!(has_encrypted_markers(&format!("foo {} bar", real_marker)));
+    assert!(has_encrypted_markers(&format!("foo {real_marker} bar")));
     assert!(has_encrypted_markers(&real_marker));
     // Short/invalid base64 inside markers should NOT trigger
     assert!(!has_encrypted_markers("foo ENC[age,abc] bar"));
@@ -138,7 +138,7 @@ fn test_fj200_decrypt_all() {
     let (identity, recipient) = test_keypair();
     let enc1 = encrypt("alpha", &[&recipient]).unwrap();
     let enc2 = encrypt("beta", &[&recipient]).unwrap();
-    let input = format!("key1={} key2={}", enc1, enc2);
+    let input = format!("key1={enc1} key2={enc2}");
 
     let result = decrypt_all(&input, &[identity]).unwrap();
     assert_eq!(result, "key1=alpha key2=beta");
@@ -156,7 +156,7 @@ fn test_fj200_decrypt_all_no_markers() {
 fn test_fj200_decrypt_all_mixed_content() {
     let (identity, recipient) = test_keypair();
     let enc = encrypt("secret-value", &[&recipient]).unwrap();
-    let input = format!("host: localhost\npassword: {}\nport: 5432", enc);
+    let input = format!("host: localhost\npassword: {enc}\nport: 5432");
 
     let result = decrypt_all(&input, &[identity]).unwrap();
     assert_eq!(
@@ -326,7 +326,7 @@ fn test_pmat037_comment_mentioning_enc_not_a_marker() {
 fn test_pmat037_real_marker_still_detected() {
     let (_identity, recipient) = test_keypair();
     let encrypted = encrypt("secret", &[&recipient]).unwrap();
-    let content = format!("API_KEY={}\n", encrypted);
+    let content = format!("API_KEY={encrypted}\n");
     assert!(
         has_encrypted_markers(&content),
         "real encrypted marker must still be detected"
@@ -340,7 +340,7 @@ fn test_fj201_decrypt_all_counted() {
     let (identity, recipient) = test_keypair();
     let enc1 = encrypt("alpha", &[&recipient]).unwrap();
     let enc2 = encrypt("beta", &[&recipient]).unwrap();
-    let input = format!("key1={} key2={}", enc1, enc2);
+    let input = format!("key1={enc1} key2={enc2}");
 
     let (result, count) = decrypt_all_counted(&input, &[identity]).unwrap();
     assert_eq!(result, "key1=alpha key2=beta");

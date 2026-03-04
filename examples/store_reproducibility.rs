@@ -208,7 +208,7 @@ fn demo_lock_file() {
         "python".to_string(),
     ];
     let missing = check_completeness(&lf, &inputs);
-    println!("  Missing pins: {:?}\n", missing);
+    println!("  Missing pins: {missing:?}\n");
 }
 
 fn repro(name: &str, purity: PurityLevel, store: bool, lock: bool) -> ReproInput {
@@ -361,7 +361,7 @@ fn demo_derivations() {
     dag.insert("cuda-toolkit".to_string(), vec!["base-os".to_string()]);
     dag.insert("ml-rootfs".to_string(), vec!["cuda-toolkit".to_string()]);
     let order = validate_dag(&dag).unwrap();
-    println!("  DAG order: {:?}\n", order);
+    println!("  DAG order: {order:?}\n");
 }
 
 fn demo_validation() {

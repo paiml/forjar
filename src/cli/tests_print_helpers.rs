@@ -117,7 +117,7 @@ resources:
     fn test_fj255_print_content_diff_truncation() {
         // 60 lines — should truncate at 50
         let content: String = (1..=60)
-            .map(|i| format!("line {}", i))
+            .map(|i| format!("line {i}"))
             .collect::<Vec<_>>()
             .join("\n");
         print_content_diff(&content, &types::PlanAction::Create, None);

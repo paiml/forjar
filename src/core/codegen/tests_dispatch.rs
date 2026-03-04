@@ -223,13 +223,11 @@ fn falsify_cd_002_dispatch_symmetry() {
 
         assert_eq!(
             check_ok, apply_ok,
-            "check/apply asymmetry for {:?}: check={}, apply={}",
-            rt, check_ok, apply_ok
+            "check/apply asymmetry for {rt:?}: check={check_ok}, apply={apply_ok}"
         );
         assert_eq!(
             apply_ok, query_ok,
-            "apply/query asymmetry for {:?}: apply={}, query={}",
-            rt, apply_ok, query_ok
+            "apply/query asymmetry for {rt:?}: apply={apply_ok}, query={query_ok}"
         );
     }
 }

@@ -3,7 +3,7 @@
 #[cfg(test)]
 mod tests {
     use crate::cli::extract::*;
-    use crate::core::types::*;
+    
     use std::io::Write;
 
     fn write_test_config(dir: &std::path::Path) -> std::path::PathBuf {

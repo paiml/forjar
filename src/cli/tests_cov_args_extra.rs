@@ -19,7 +19,7 @@ mod tests {
             verify: false,
             json: false,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -29,7 +29,7 @@ mod tests {
             state_dir: PathBuf::from("s"),
             yes: true,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -38,7 +38,7 @@ mod tests {
             state_dir: PathBuf::from("s"),
             json: true,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -48,7 +48,7 @@ mod tests {
             yes: false,
             json: true,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -59,7 +59,7 @@ mod tests {
             yes: false,
             json: false,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -69,7 +69,7 @@ mod tests {
             format: "json".to_string(),
             machine: Some("m".to_string()),
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -78,7 +78,7 @@ mod tests {
             state_dir: PathBuf::from("s"),
             json: false,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -88,7 +88,7 @@ mod tests {
             to: PathBuf::from("b"),
             json: true,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -99,7 +99,7 @@ mod tests {
             output: PathBuf::from("o"),
             json: false,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -110,7 +110,7 @@ mod tests {
             output: PathBuf::from("o"),
             json: false,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -120,7 +120,7 @@ mod tests {
             key: "key".to_string(),
             json: false,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -130,7 +130,7 @@ mod tests {
             key: "key".to_string(),
             json: false,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -140,7 +140,7 @@ mod tests {
             yes: true,
             json: false,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -150,7 +150,7 @@ mod tests {
             machine: None,
             json: true,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -161,7 +161,7 @@ mod tests {
             new_key: "new".to_string(),
             json: false,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -170,7 +170,7 @@ mod tests {
             state_dir: PathBuf::from("s"),
             json: false,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     // ── lock_ops_args.rs (40 uncov) ──
@@ -181,7 +181,7 @@ mod tests {
             state_dir: PathBuf::from("s"),
             json: false,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -190,7 +190,7 @@ mod tests {
             state_dir: PathBuf::from("s"),
             json: true,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -199,7 +199,7 @@ mod tests {
             state_dir: PathBuf::from("s"),
             json: false,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -208,7 +208,7 @@ mod tests {
             state_dir: PathBuf::from("s"),
             json: true,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -217,7 +217,7 @@ mod tests {
             state_dir: PathBuf::from("s"),
             json: false,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -226,7 +226,7 @@ mod tests {
             state_dir: PathBuf::from("s"),
             json: true,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -235,7 +235,7 @@ mod tests {
             state_dir: PathBuf::from("s"),
             json: false,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -244,7 +244,7 @@ mod tests {
             state_dir: PathBuf::from("s"),
             json: true,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -253,7 +253,7 @@ mod tests {
             state_dir: PathBuf::from("s"),
             json: false,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -262,7 +262,7 @@ mod tests {
             state_dir: PathBuf::from("s"),
             json: true,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -271,6 +271,6 @@ mod tests {
             state_dir: PathBuf::from("s"),
             json: false,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 }

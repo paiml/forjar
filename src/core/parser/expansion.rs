@@ -14,7 +14,7 @@ fn build_last_expanded_map(
             }
         } else if let Some(ref items) = resource.for_each {
             if let Some(last) = items.last() {
-                map.insert(id.clone(), format!("{}-{}", id, last));
+                map.insert(id.clone(), format!("{id}-{last}"));
             }
         }
     }
@@ -35,7 +35,7 @@ fn expand_count(
         cloned.count = None;
         replace_template_in_resource(&mut cloned, "{{index}}", &suffix);
         cloned.depends_on = rewrite_deps(&cloned.depends_on, last_expanded);
-        out.insert(format!("{}-{}", id, suffix), cloned);
+        out.insert(format!("{id}-{suffix}"), cloned);
     }
 }
 
@@ -52,7 +52,7 @@ fn expand_for_each(
         cloned.for_each = None;
         replace_template_in_resource(&mut cloned, "{{item}}", item);
         cloned.depends_on = rewrite_deps(&cloned.depends_on, last_expanded);
-        out.insert(format!("{}-{}", id, item), cloned);
+        out.insert(format!("{id}-{item}"), cloned);
     }
 }
 

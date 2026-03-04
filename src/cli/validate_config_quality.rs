@@ -253,11 +253,11 @@ pub(crate) fn cmd_validate_check_resource_machine_distribution_balance(
     } else if per_machine.is_empty() {
         println!("No machine assignments found.");
     } else {
-        println!("Machine distribution balance (balanced: {}):", balanced);
+        println!("Machine distribution balance (balanced: {balanced}):");
         let mut sorted_machines: Vec<(&String, &usize)> = per_machine.iter().collect();
         sorted_machines.sort_by_key(|(k, _)| (*k).clone());
         for (machine, count) in &sorted_machines {
-            println!("  {}: {} resources", machine, count);
+            println!("  {machine}: {count} resources");
         }
         if !balanced {
             println!("  warning: resource distribution is unbalanced (max/min ratio > 3)");
@@ -276,7 +276,7 @@ mod tests {
 
     /// Deserialize a minimal resource from YAML, setting only the `type` field.
     fn make_resource(rtype: &str) -> types::Resource {
-        let yaml = format!("type: {}", rtype);
+        let yaml = format!("type: {rtype}");
         serde_yaml_ng::from_str(&yaml).unwrap()
     }
 
@@ -457,7 +457,7 @@ mod tests {
         let mut a = make_resource("package");
         a.machine = types::MachineTarget::Single("web1".to_string());
         let mut resources: Vec<(&str, types::Resource)> = vec![("a", a)];
-        let names: Vec<String> = (0..4).map(|i| format!("svc-{}", i)).collect();
+        let names: Vec<String> = (0..4).map(|i| format!("svc-{i}")).collect();
         for name in &names {
             let mut r = make_resource("service");
             r.machine = types::MachineTarget::Single("web2".to_string());

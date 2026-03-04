@@ -67,8 +67,7 @@ pub(crate) fn cmd_status_count(
     let total = converged + failed + drifted + unknown;
     if json {
         println!(
-            "{{\"total\":{},\"converged\":{},\"failed\":{},\"drifted\":{},\"unknown\":{}}}",
-            total, converged, failed, drifted, unknown
+            "{{\"total\":{total},\"converged\":{converged},\"failed\":{failed},\"drifted\":{drifted},\"unknown\":{unknown}}}"
         );
     } else {
         println!("{}", bold("Resource Count by Status"));
@@ -77,7 +76,7 @@ pub(crate) fn cmd_status_count(
         println!("  {} drifted:   {}", yellow("●"), drifted);
         println!("  {} unknown:   {}", dim("●"), unknown);
         println!("  ─────────────");
-        println!("  total:      {}", total);
+        println!("  total:      {total}");
     }
     Ok(())
 }
@@ -97,7 +96,7 @@ fn format_json_output(state_dir: &Path, machine: Option<&str>) -> Result<(), Str
                 rl.status,
                 rl.applied_at
                     .as_deref()
-                    .map(|s| format!("\"{}\"", s))
+                    .map(|s| format!("\"{s}\""))
                     .unwrap_or_else(|| "null".to_string()),
             ));
         }
@@ -133,7 +132,7 @@ pub(crate) fn cmd_status_format(
         "json" => format_json_output(state_dir, machine),
         "csv" => format_csv_output(state_dir, machine),
         "table" => cmd_status(state_dir, machine, false, None, false),
-        _ => Err(format!("unknown format '{}'. Use table, json, or csv", fmt)),
+        _ => Err(format!("unknown format '{fmt}'. Use table, json, or csv")),
     }
 }
 
@@ -154,16 +153,15 @@ fn build_compact_line(m_name: &str, lock: &types::StateLock, json: bool) -> Stri
         .count();
     if json {
         format!(
-            "{{\"machine\":\"{}\",\"total\":{},\"converged\":{},\"failed\":{}}}",
-            m_name, total, converged, failed
+            "{{\"machine\":\"{m_name}\",\"total\":{total},\"converged\":{converged},\"failed\":{failed}}}"
         )
     } else {
         let status = if failed > 0 {
-            red(&format!("{}F", failed))
+            red(&format!("{failed}F"))
         } else {
             green("OK")
         };
-        format!("{}: {}/{} converged [{}]", m_name, converged, total, status)
+        format!("{m_name}: {converged}/{total} converged [{status}]")
     }
 }
 
@@ -201,7 +199,7 @@ pub(crate) fn cmd_status_compact(
         }
     }
     for line in &lines {
-        println!("{}", line);
+        println!("{line}");
     }
     Ok(())
 }
@@ -287,8 +285,7 @@ pub(crate) fn cmd_status_machines_only(
             .iter()
             .map(|(m, t, c, f)| {
                 format!(
-                    "{{\"machine\":\"{}\",\"total\":{},\"converged\":{},\"failed\":{}}}",
-                    m, t, c, f
+                    "{{\"machine\":\"{m}\",\"total\":{t},\"converged\":{c},\"failed\":{f}}}"
                 )
             })
             .collect();
@@ -302,8 +299,7 @@ pub(crate) fn cmd_status_machines_only(
                 green("HEALTHY")
             };
             println!(
-                "  {} — {} ({} resources, {} converged, {} failed)",
-                m, status, total, converged, failed
+                "  {m} — {status} ({total} resources, {converged} converged, {failed} failed)"
             );
         }
         if machines.is_empty() {
@@ -343,8 +339,7 @@ pub(crate) fn cmd_status_resources_by_type(
                     .iter()
                     .map(|(m, n, s)| {
                         format!(
-                            "{{\"machine\":\"{}\",\"resource\":\"{}\",\"status\":\"{}\"}}",
-                            m, n, s
+                            "{{\"machine\":\"{m}\",\"resource\":\"{n}\",\"status\":\"{s}\"}}"
                         )
                     })
                     .collect();
@@ -356,7 +351,7 @@ pub(crate) fn cmd_status_resources_by_type(
         for (rtype, resources) in &by_type {
             println!("{} ({}):", bold(rtype), resources.len());
             for (m, n, s) in resources {
-                println!("  {}/{} — {}", m, n, s);
+                println!("  {m}/{n} — {s}");
             }
         }
     }

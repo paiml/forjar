@@ -346,7 +346,7 @@ fn test_fj016_drift_finding_debug_and_clone() {
         detail: "changed".to_string(),
     };
     // Debug
-    let dbg = format!("{:?}", f);
+    let dbg = format!("{f:?}");
     assert!(dbg.contains("test"));
     // Clone
     let c = f.clone();

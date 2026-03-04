@@ -119,7 +119,7 @@ pub(crate) fn cmd_apply(
 
     for result in &results {
         if let Err(e) = state::save_apply_report(state_dir, result) {
-            eprintln!("warning: cannot save apply report: {}", e);
+            eprintln!("warning: cannot save apply report: {e}");
         }
     }
 
@@ -147,7 +147,7 @@ pub(crate) fn cmd_apply(
     if total_failed > 0 {
         // FJ-1388: Generation-based rollback on failure
         maybe_rollback_generation(rollback_on_failure, state_dir, pre_apply_gen, verbose);
-        return Err(format!("{} resource(s) failed", total_failed));
+        return Err(format!("{total_failed} resource(s) failed"));
     }
 
     apply_post_actions(
@@ -176,7 +176,7 @@ fn apply_filters(
             .resources
             .retain(|id, _| simple_glob_match(pattern, id));
         if config.resources.is_empty() {
-            return Err(format!("no resources match subset pattern '{}'", pattern));
+            return Err(format!("no resources match subset pattern '{pattern}'"));
         }
         if verbose {
             eprintln!(
@@ -307,12 +307,10 @@ fn check_convergence_budget(
         let elapsed = dur_apply.as_secs();
         if elapsed > budget_secs {
             eprintln!(
-                "ERROR: convergence budget exceeded — budget {}s, actual {}s",
-                budget_secs, elapsed
+                "ERROR: convergence budget exceeded — budget {budget_secs}s, actual {elapsed}s"
             );
             return Err(format!(
-                "convergence budget exceeded: {}s > {}s",
-                elapsed, budget_secs
+                "convergence budget exceeded: {elapsed}s > {budget_secs}s"
             ));
         }
     }
@@ -349,13 +347,11 @@ fn check_pre_apply_drift(
     if total_drift > 0 {
         if verbose {
             eprintln!(
-                "{} resource(s) drifted — run 'forjar drift' for details",
-                total_drift
+                "{total_drift} resource(s) drifted — run 'forjar drift' for details"
             );
         }
         return Err(format!(
-            "{} drift finding(s) block apply — use --force to override",
-            total_drift
+            "{total_drift} drift finding(s) block apply — use --force to override"
         ));
     }
     Ok(())
@@ -389,12 +385,10 @@ fn apply_pre_validate(
             .count();
         if destroy_count > 0 {
             eprintln!(
-                "WARNING: {} resource(s) will be DESTROYED. Use --yes to confirm.",
-                destroy_count
+                "WARNING: {destroy_count} resource(s) will be DESTROYED. Use --yes to confirm."
             );
             return Err(format!(
-                "{} destructive action(s) blocked by --confirm-destructive",
-                destroy_count
+                "{destroy_count} destructive action(s) blocked by --confirm-destructive"
             ));
         }
     }
@@ -423,7 +417,7 @@ fn apply_pre_validate(
             let mut answer = String::new();
             std::io::stdin()
                 .read_line(&mut answer)
-                .map_err(|e| format!("stdin error: {}", e))?;
+                .map_err(|e| format!("stdin error: {e}"))?;
             if !answer.trim().eq_ignore_ascii_case("y") {
                 return Err("aborted by user".to_string());
             }
