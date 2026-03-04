@@ -3,7 +3,7 @@
 **Version**: 2.0.0-draft
 **Date**: 2026-03-03
 **Status**: Planning
-**Scorecard**: **165/166** features implemented (target: 166/166)
+**Scorecard**: **163/163** features implemented (target: 163/163)
 
 ---
 
@@ -178,7 +178,7 @@
 | 92 | **Self-contained recipe bundles** — Package recipe + dependencies + store closures into distributable artifact | B | ✅ | `forjar bundle` packages config + store + state with BLAKE3 manifest; air-gap ready |
 | 93 | **Air-gap transfer bundles with integrity verification** — Sealed bundles for physical media transfer across air gaps | B, D | ✅ | `forjar bundle --verify` re-hashes all files and validates BLAKE3 integrity; reports pass/fail per file |
 | 94 | **Data sovereignty tagging** — Every piece of state tagged with jurisdiction/classification/residency zone | B, D | ✅ | `forjar sovereignty` reports jurisdiction:/classification:/residency: tags per resource; state file hashing; JSON/text |
-| 95 | **Reproducible binary builds** — forjar binary is bit-for-bit reproducible from source | A, B, C | ⚠️ | Rust deterministic builds possible but not verified/CI-enforced |
+| 95 | **Reproducible binary builds** — forjar binary is bit-for-bit reproducible from source | A, B, C | ✅ | `core/repro_build.rs`: Environment checks (SOURCE_DATE_EPOCH, CARGO_INCREMENTAL, strip); Cargo profile checks (codegen-units=1, LTO, panic=abort); BLAKE3 hashing of source + binary; ReproReport generation; CI workflow template for dual-build verification; 9 tests |
 
 ### Category 10: Debugging, Explainability, and Developer Experience (96–110)
 
