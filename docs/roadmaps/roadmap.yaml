@@ -599,11 +599,11 @@ roadmap:
   github_issue: null
   item_type: task
   title: 'FJ-1384: V2 spec batch 3 — extract, proof taxonomy, chain hashing'
-  status: inprogress
+  status: completed
   priority: high
   assigned_to: null
   created: 2026-03-03T19:53:14Z
-  updated: 2026-03-03T19:53:17.132201739+00:00
+  updated: 2026-03-04T12:20:58.066678475+00:00
   spec: null
   acceptance_criteria: []
   phases: []
