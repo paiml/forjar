@@ -117,9 +117,10 @@ pub(crate) fn cmd_graph(
         "mermaid" => print_graph_mermaid(&config),
         "dot" => print_graph_dot(&config),
         "ascii" => print_graph_ascii(&config)?,
+        "svg" => super::graph_svg::print_graph_svg(&config),
         other => {
             return Err(format!(
-                "unknown graph format '{}': use mermaid, dot, or ascii",
+                "unknown graph format '{}': use mermaid, dot, ascii, or svg",
                 other
             ))
         }
