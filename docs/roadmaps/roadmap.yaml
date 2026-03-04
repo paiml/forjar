@@ -579,3 +579,99 @@ roadmap:
   estimated_effort: null
   labels: []
   notes: null
+- id: PMAT-035
+  github_issue: null
+  item_type: task
+  title: 'FJ-1382: V2 spec batch 2 — drift gate, --why, budget, snapshots, reversibility, config-merge'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-03-03T19:38:27Z
+  updated: 2026-03-03T19:38:29.359192777+00:00
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-036
+  github_issue: null
+  item_type: task
+  title: 'FJ-1384: V2 spec batch 3 — extract, proof taxonomy, chain hashing'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-03-03T19:53:14Z
+  updated: 2026-03-03T19:53:17.132201739+00:00
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-037
+  github_issue: null
+  item_type: task
+  title: 'V2 spec batch 4: generational snapshots, compliance, proptest'
+  status: completed
+  priority: high
+  assigned_to: null
+  created: 2026-03-03T19:59:36Z
+  updated: 2026-03-04T12:20:23.067096630+00:00
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-038
+  github_issue: null
+  item_type: task
+  title: 'V2 spec batch 5: stack diff, output persistence, security scanner, policy engine'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-03-03T20:14:26Z
+  updated: 2026-03-03T20:14:33.026090870+00:00
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-039
+  github_issue: null
+  item_type: task
+  title: 'FJ-1425: V2 spec batch 6 — fault injection, invariants, ISO export, brownfield import, cross-machine deps'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-03-03T23:36:44Z
+  updated: 2026-03-03T23:36:47.951758387+00:00
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
+- id: PMAT-040
+  github_issue: null
+  item_type: task
+  title: 'FJ-1376: Coverage boost to 95% line coverage'
+  status: inprogress
+  priority: high
+  assigned_to: null
+  created: 2026-03-04T10:36:14Z
+  updated: 2026-03-04T10:36:17.037577122+00:00
+  spec: null
+  acceptance_criteria: []
+  phases: []
+  subtasks: []
+  estimated_effort: null
+  labels: []
+  notes: null
