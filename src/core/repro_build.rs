@@ -39,14 +39,6 @@ const REPRO_FLAGS: &[&str] = &[
     "--remap-path-prefix", // Remove absolute paths from binary
 ];
 
-/// Cargo profile settings that affect reproducibility.
-#[allow(dead_code)]
-const REPRO_PROFILE: &[(&str, &str)] = &[
-    ("panic", "abort"),     // Deterministic panic handling
-    ("lto", "thin or fat"), // Link-time optimization for determinism
-    ("codegen-units", "1"), // Single codegen unit for determinism
-];
-
 /// Check build environment for reproducibility.
 pub fn check_environment() -> Vec<ReproCheck> {
     let mut checks = Vec::new();

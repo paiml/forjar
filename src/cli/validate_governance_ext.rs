@@ -1,7 +1,5 @@
 //! Phase 101 — Fleet Insight & Dependency Quality: validate commands (FJ-1070, FJ-1073, FJ-1076).
 
-#![allow(dead_code)]
-
 use crate::core::types;
 use std::collections::HashMap;
 use std::path::Path;

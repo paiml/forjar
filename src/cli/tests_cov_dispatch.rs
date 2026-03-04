@@ -1,7 +1,5 @@
+#![allow(unused)]
 //! Tests: Coverage for destroy, infra, dispatch_misc, dispatch_lock, check, observe, apply.
-
-#![allow(unused_imports)]
-#![allow(dead_code)]
 use super::apply::*;
 use super::check::*;
 use super::commands::*;

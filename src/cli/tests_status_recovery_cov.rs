@@ -18,8 +18,6 @@ mod tests {
     }
 
     const LOCK_CONVERGED: &str = "resources:\n  nginx:\n    resource_type: Package\n    status: Converged\n    hash: abc123\n    applied_at: '2025-01-01T00:00:00Z'\n";
-    #[allow(dead_code)]
-    const LOCK_FAILED: &str = "resources:\n  nginx:\n    resource_type: Package\n    status: Failed\n    hash: abc123\n";
     const LOCK_MIXED: &str = "resources:\n  nginx:\n    resource_type: Package\n    status: Converged\n    hash: abc\n    applied_at: '2025-01-01T00:00:00Z'\n  mysql:\n    resource_type: Package\n    status: Failed\n    hash: def\n  redis:\n    resource_type: Service\n    status: Drifted\n    hash: ghi\n";
 
     const EVENTS: &str = r#"{"ts":"2026-01-01T00:00:00Z","event":"resource_failed","resource":"nginx","machine":"web1"}

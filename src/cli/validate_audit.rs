@@ -1,7 +1,5 @@
 //! Phase 106 — Resource Audit & Coverage Analysis: validate commands (FJ-1110, FJ-1113, FJ-1116).
 
-#![allow(dead_code)]
-
 use crate::core::types;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;

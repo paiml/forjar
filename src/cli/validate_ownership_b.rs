@@ -215,36 +215,36 @@ pub(crate) fn cmd_validate_check_resource_rollback_safety(
     let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
     let config: types::ForjarConfig =
         serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
-    let unsafe_resources = find_rollback_unsafe(&config);
+    let risky = find_rollback_risky(&config);
     if json {
-        let items: Vec<String> = unsafe_resources
+        let items: Vec<String> = risky
             .iter()
             .map(|(n, r)| format!("{{\"resource\":\"{n}\",\"reason\":\"{r}\"}}"))
             .collect();
-        println!("{{\"rollback_unsafe\":[{}]}}", items.join(","));
-    } else if unsafe_resources.is_empty() {
+        println!("{{\"rollback_risky\":[{}]}}", items.join(","));
+    } else if risky.is_empty() {
         println!("All resources are safe to roll back.");
     } else {
         println!("Resources with rollback safety concerns:");
-        for (n, r) in &unsafe_resources {
+        for (n, r) in &risky {
             println!("  {n} — {r}");
         }
     }
     Ok(())
 }
 
-fn find_rollback_unsafe(config: &types::ForjarConfig) -> Vec<(String, String)> {
-    let mut unsafe_res = Vec::new();
+fn find_rollback_risky(config: &types::ForjarConfig) -> Vec<(String, String)> {
+    let mut results = Vec::new();
     for (name, res) in &config.resources {
         if !res.triggers.is_empty() {
-            unsafe_res.push((
+            results.push((
                 name.clone(),
                 format!("triggers {} other resources", res.triggers.len()),
             ));
         }
     }
-    unsafe_res.sort_by(|a, b| a.0.cmp(&b.0));
-    unsafe_res
+    results.sort_by(|a, b| a.0.cmp(&b.0));
+    results
 }
 
 /// FJ-921: Score resource configuration maturity (tags, docs, versioning).
