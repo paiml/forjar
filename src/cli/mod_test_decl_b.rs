@@ -382,3 +382,5 @@ mod tests_parallel_multi_stack;
 mod tests_saga_coordinator;
 #[cfg(test)]
 mod tests_agent_registry;
+#[cfg(test)]
+mod tests_pull_agent;
