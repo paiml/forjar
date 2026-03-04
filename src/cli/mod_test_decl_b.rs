@@ -393,6 +393,12 @@ mod tests_security_scan;
 #[cfg(test)]
 mod tests_config_merge;
 #[cfg(test)]
+mod tests_complexity_analysis;
+#[cfg(test)]
+mod tests_impact_analysis;
+#[cfg(test)]
+mod tests_drift_predict;
+#[cfg(test)]
 mod tests_cov_validate4;
 #[cfg(test)]
 mod tests_cov_misc_11;
