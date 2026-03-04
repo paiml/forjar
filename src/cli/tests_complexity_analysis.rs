@@ -127,6 +127,50 @@ resources:
     }
 
     #[test]
+    fn test_complexity_with_unresolvable_includes() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = write_config(
+            dir.path(),
+            r#"
+version: "1.0"
+name: with-includes
+includes:
+  - /nonexistent/path/base.yaml
+  - /also/missing/overrides.yaml
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+resources:
+  pkg:
+    type: package
+    machine: m
+    provider: apt
+    packages: [curl]
+"#,
+        );
+        // Should succeed via fallback parsing (not crash)
+        cmd_complexity(&file, false).unwrap();
+    }
+
+    #[test]
+    fn test_complexity_with_unresolvable_includes_json() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = write_config(
+            dir.path(),
+            r#"
+version: "1.0"
+name: includes-json
+includes:
+  - /nonexistent/include.yaml
+machines: {}
+resources: {}
+"#,
+        );
+        cmd_complexity(&file, true).unwrap();
+    }
+
+    #[test]
     fn test_complexity_dispatch() {
         let dir = tempfile::tempdir().unwrap();
         let file = write_config(
