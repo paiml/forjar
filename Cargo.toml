@@ -36,7 +36,7 @@ async-trait = "0.1"
 schemars = { version = "0.8", features = ["derive"] }
 regex = "1"
 rustc-hash = "2"
-age = { version = "0.11", default-features = false }
+age = { version = "0.11", default-features = false, optional = true }
 clap_complete = "4"
 zip = { version = "2", default-features = false, features = ["deflate", "bzip2", "zstd"] }
 bzip2 = "0.5"
@@ -64,6 +64,7 @@ name = "copia_bench"
 harness = false
 
 [features]
+encryption = ["dep:age"]
 container-test = []
 gpu-container-test = []
 
