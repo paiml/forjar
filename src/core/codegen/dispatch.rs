@@ -60,17 +60,17 @@ pub fn apply_script(resource: &Resource) -> Result<String, String> {
     Ok(sudo_wrap(resource, script))
 }
 
-/// FJ-1394: Wrap script with sudo if the resource has `sudo: true`.
+/// FJ-1394 / FJ-29: Wrap script with sudo if the resource has `sudo: true`.
 ///
-/// Uses `sudo bash -c '...'` pattern with properly escaped single quotes.
+/// Uses heredoc to pass the script to sudo bash — avoids single-quote escaping
+/// that triggers bashrs SC2075 false positives.
 fn sudo_wrap(resource: &Resource, script: String) -> String {
     if !resource.sudo {
         return script;
     }
-    // Wrap: if already root, run as-is; otherwise elevate via sudo bash
-    let escaped = script.replace('\'', "'\\''");
+    // Wrap: if already root, run as-is; otherwise elevate via sudo bash with heredoc
     format!(
-        "if [ \"$(id -u)\" -eq 0 ]; then\n{script}\nelse\nsudo bash -c '{escaped}'\nfi"
+        "if [ \"$(id -u)\" -eq 0 ]; then\n{script}\nelse\nsudo bash <<'FORJAR_SUDO'\n{script}\nFORJAR_SUDO\nfi"
     )
 }
 

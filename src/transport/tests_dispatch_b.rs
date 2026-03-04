@@ -310,9 +310,9 @@ fn test_fj261_retry_zero_clamped_to_one() {
 // ── FJ-29: Base64 payload stripping for I8 lint ──
 
 #[test]
-fn test_fj29_strip_base64_payloads_simple() {
+fn test_fj29_strip_data_payloads_simple() {
     let script = "set -euo pipefail\necho 'SGVsbG8gV29ybGQ=' | base64 -d > '/tmp/hello'\nchmod '0755' '/tmp/hello'";
-    let stripped = strip_base64_payloads(script);
+    let stripped = strip_data_payloads(script);
     assert!(
         !stripped.contains("SGVsbG8gV29ybGQ="),
         "base64 payload should be stripped"
@@ -328,7 +328,7 @@ fn test_fj29_strip_base64_payloads_simple() {
 }
 
 #[test]
-fn test_fj29_strip_base64_payloads_large_binary() {
+fn test_fj29_strip_data_payloads_large_binary() {
     // Simulate a large binary (like a 22MB forjar ELF) base64-encoded
     // Generate fake base64 that contains sequences bashrs would misparse
     let fake_b64 = "doZmaQBpbg=="; // contains "do", "fi", "in" substrings
@@ -336,7 +336,7 @@ fn test_fj29_strip_base64_payloads_large_binary() {
         "set -euo pipefail\nmkdir -p '/home/noah/.cargo/bin'\necho '{}' | base64 -d > '/home/noah/.cargo/bin/forjar'\nchown 'noah' '/home/noah/.cargo/bin/forjar'\nchmod '0755' '/home/noah/.cargo/bin/forjar'",
         fake_b64
     );
-    let stripped = strip_base64_payloads(&script);
+    let stripped = strip_data_payloads(&script);
     assert!(!stripped.contains(fake_b64));
     // The structural commands must survive
     assert!(stripped.contains("set -euo pipefail"));
@@ -348,7 +348,7 @@ fn test_fj29_strip_base64_payloads_large_binary() {
 #[test]
 fn test_fj29_strip_preserves_non_base64_scripts() {
     let script = "set -euo pipefail\necho 'hello world'\nexit 0";
-    let stripped = strip_base64_payloads(script);
+    let stripped = strip_data_payloads(script);
     assert_eq!(stripped, script, "scripts without base64 should be unchanged");
 }
 
@@ -363,4 +363,30 @@ fn test_fj29_validate_before_exec_accepts_base64_script() {
     );
     let result = validate_before_exec(&script);
     assert!(result.is_ok(), "base64 file deploy should pass I8: {result:?}");
+}
+
+#[test]
+fn test_fj29_strip_heredoc_payloads() {
+    let script = "set -euo pipefail\nmkdir -p '/home/noah'\ncat > '/home/noah/.bashrc' <<'FORJAR_EOF'\n#!/usr/bin/env bash\nexport PATH=\"$HOME/.cargo/bin:$PATH\"\nFORJAR_EOF\nchown 'noah' '/home/noah/.bashrc'";
+    let stripped = strip_data_payloads(script);
+    assert!(
+        !stripped.contains("export PATH"),
+        "heredoc payload should be stripped"
+    );
+    assert!(
+        stripped.contains("# payload stripped for lint"),
+        "placeholder should replace heredoc"
+    );
+    assert!(
+        stripped.contains("chown 'noah'"),
+        "post-heredoc commands preserved"
+    );
+}
+
+#[test]
+fn test_fj29_validate_before_exec_accepts_heredoc_with_shebang() {
+    // SC1128 false positive: shebang inside heredoc content, not at script top
+    let script = "set -euo pipefail\ncat > '/tmp/install.sh' <<'FORJAR_EOF'\n#!/usr/bin/env bash\nset -euo pipefail\necho hello\nFORJAR_EOF\nchmod '0755' '/tmp/install.sh'";
+    let result = validate_before_exec(script);
+    assert!(result.is_ok(), "heredoc with shebang should pass I8: {result:?}");
 }
