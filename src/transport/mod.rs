@@ -38,23 +38,36 @@ impl ExecOutput {
 
 /// FJ-1357: Validate script via bashrs before execution (I8 enforcement gate).
 ///
-/// FJ-29: Strip base64 payloads from `source:` file resources before linting.
-/// The pattern `echo '<base64>' | base64 -d > '<path>'` contains opaque binary
-/// data that bashrs misinterprets as shell syntax. The base64 blob is always
-/// single-quoted and piped — never executed — so it is safe to skip.
+/// FJ-29: Strip opaque data payloads before linting. Two patterns:
+/// 1. Base64 blobs from `source:` file resources — binary data in single quotes
+/// 2. Heredoc payloads from `content:` file resources — user content between delimiters
+///
+/// Both contain data that bashrs misinterprets as shell syntax. The data is never
+/// executed as shell — it is written to files via pipe or heredoc redirection.
 fn validate_before_exec(script: &str) -> Result<(), String> {
-    let sanitised = strip_base64_payloads(script);
+    let sanitised = strip_data_payloads(script);
     crate::core::purifier::validate_script(&sanitised)
         .map_err(|e| format!("I8 violation — script failed bashrs validation: {e}"))
 }
 
-/// Replace base64 data blobs with a harmless placeholder before bashrs linting.
-/// Matches lines of the form: `echo '<base64...>' | base64 -d > '<path>'`
-fn strip_base64_payloads(script: &str) -> String {
-    let re = regex::Regex::new(
+/// Strip opaque data payloads that bashrs should not lint.
+///
+/// Handles two forjar codegen patterns:
+/// 1. `echo '<base64>' | base64 -d > '<path>'` — binary file deployment
+/// 2. `cat > '<path>' <<'FORJAR_EOF'\n...\nFORJAR_EOF` — text file deployment
+fn strip_data_payloads(script: &str) -> String {
+    // Phase 1: strip base64 blobs
+    let re_b64 = regex::Regex::new(
         r"echo '([A-Za-z0-9+/=\n]+)' \| base64 -d > '([^']+)'"
     ).expect("base64 regex is valid");
-    re.replace_all(script, "echo 'FORJAR_BASE64_STRIPPED' > '$2'")
+    let pass1 = re_b64.replace_all(script, "echo 'FORJAR_BASE64_STRIPPED' > '$2'")
+        .into_owned();
+
+    // Phase 2: strip heredoc payloads (FORJAR_EOF delimiters)
+    let re_heredoc = regex::Regex::new(
+        r"(?s)<<'FORJAR_EOF'\n.*?\nFORJAR_EOF"
+    ).expect("heredoc regex is valid");
+    re_heredoc.replace_all(&pass1, "<<'FORJAR_EOF'\n# payload stripped for lint\nFORJAR_EOF")
         .into_owned()
 }
 
