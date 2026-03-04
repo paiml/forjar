@@ -32,6 +32,7 @@ pub(crate) fn dispatch_platform_cmd(cmd: Commands) -> Result<(), String> {
             json,
         }) => super::saga_coordinator::cmd_saga_plan(&file, &state_dir, json),
         Commands::AgentRegistry(args) => dispatch_agent_registry(args),
+        Commands::PullAgent(args) => dispatch_pull_agent(args),
         _ => Err("unknown command".to_string()),
     }
 }
@@ -76,6 +77,23 @@ fn dispatch_agent_registry(args: AgentRegistryArgs) -> Result<(), String> {
         .registry_dir
         .unwrap_or_else(super::recipe_registry::default_registry_dir);
     super::agent_registry::cmd_agent_registry(&dir, args.category.as_deref(), args.json)
+}
+
+fn dispatch_pull_agent(args: PullAgentArgs) -> Result<(), String> {
+    let mode = if args.pull {
+        super::pull_agent::ExecMode::Pull
+    } else {
+        super::pull_agent::ExecMode::Push
+    };
+    super::pull_agent::cmd_pull_agent(
+        &args.file,
+        &args.state_dir,
+        args.interval,
+        args.auto_apply,
+        args.max_iterations,
+        mode,
+        args.json,
+    )
 }
 
 fn dispatch_sign(args: RecipeSignArgs) -> Result<(), String> {
