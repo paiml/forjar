@@ -402,3 +402,31 @@ mod tests_drift_predict;
 mod tests_cov_validate4;
 #[cfg(test)]
 mod tests_cov_misc_11;
+#[cfg(test)]
+mod tests_validate_safety_cov;
+#[cfg(test)]
+mod tests_validate_advanced_cov;
+#[cfg(test)]
+mod tests_validate_governance_cov;
+#[cfg(test)]
+mod tests_validate_ownership_cov;
+#[cfg(test)]
+mod tests_validate_ordering_cov;
+#[cfg(test)]
+mod tests_status_intelligence_cov;
+#[cfg(test)]
+mod tests_status_recovery_cov;
+#[cfg(test)]
+mod tests_dispatch_validate_cov;
+#[cfg(test)]
+mod tests_dispatch_graph_cov;
+#[cfg(test)]
+mod tests_dispatch_status_cov;
+#[cfg(test)]
+mod tests_dispatch_status_ext_cov;
+#[cfg(test)]
+mod tests_dispatch_status_b_cov;
+#[cfg(test)]
+mod tests_dispatch_validate_c_cov;
+#[cfg(test)]
+mod tests_dispatch_graph_b_cov;
