@@ -46,7 +46,7 @@ pub(crate) fn cmd_validate_check_templates(file: &Path, json: bool) -> Result<()
     if json {
         let entries: Vec<String> = unresolved
             .iter()
-            .map(|(r, v)| format!("{{\"resource\":\"{}\",\"variable\":\"{}\"}}", r, v))
+            .map(|(r, v)| format!("{{\"resource\":\"{r}\",\"variable\":\"{v}\"}}"))
             .collect();
         println!(
             "{{\"valid\":{},\"unresolved\":[{}],\"count\":{}}}",
@@ -108,7 +108,7 @@ pub(crate) fn cmd_validate_check_secrets(file: &Path, json: bool) -> Result<(), 
     if json {
         let items: Vec<String> = findings
             .iter()
-            .map(|(line, pat, _)| format!("{{\"line\":{},\"pattern\":\"{}\"}}", line, pat))
+            .map(|(line, pat, _)| format!("{{\"line\":{line},\"pattern\":\"{pat}\"}}"))
             .collect();
         let findings_json = format!("[{}]", items.join(","));
         println!(
@@ -125,7 +125,7 @@ pub(crate) fn cmd_validate_check_secrets(file: &Path, json: bool) -> Result<(), 
             findings.len()
         );
         for (line, pattern, text) in &findings {
-            println!("  line {}: pattern '{}' in: {}", line, pattern, text);
+            println!("  line {line}: pattern '{pattern}' in: {text}");
         }
     }
     if findings.is_empty() {
@@ -206,7 +206,7 @@ pub(crate) fn cmd_validate_check_cycles_deep(file: &Path, json: bool) -> Result<
             cycles.len()
         );
         for c in &cycles {
-            println!("  - {}", c);
+            println!("  - {c}");
         }
     }
     if cycles.is_empty() {
@@ -231,8 +231,7 @@ pub(crate) fn cmd_validate_check_naming(file: &Path, json: bool) -> Result<(), S
             && !name.ends_with('-');
         if !is_kebab {
             violations.push(format!(
-                "'{}' is not kebab-case (expected: lowercase letters, digits, hyphens)",
-                name
+                "'{name}' is not kebab-case (expected: lowercase letters, digits, hyphens)"
             ));
         }
     }
@@ -253,7 +252,7 @@ pub(crate) fn cmd_validate_check_naming(file: &Path, json: bool) -> Result<(), S
     } else {
         println!("{} Naming violations ({}):", red("✗"), violations.len());
         for v in &violations {
-            println!("  - {}", v);
+            println!("  - {v}");
         }
     }
     if violations.is_empty() {
@@ -321,7 +320,7 @@ pub(crate) fn cmd_validate_check_overlaps(file: &Path, json: bool) -> Result<(),
     } else {
         println!("{} Resource overlaps ({}):", red("✗"), overlaps.len());
         for o in &overlaps {
-            println!("  - {}", o);
+            println!("  - {o}");
         }
     }
     if overlaps.is_empty() {
@@ -349,8 +348,7 @@ pub(crate) fn cmd_validate_check_limits(file: &Path, json: bool) -> Result<(), S
     for (key, count) in &counts {
         if *count > max_per_type {
             violations.push(format!(
-                "{} has {} resources (limit: {})",
-                key, count, max_per_type
+                "{key} has {count} resources (limit: {max_per_type})"
             ));
         }
     }
@@ -369,7 +367,7 @@ pub(crate) fn cmd_validate_check_limits(file: &Path, json: bool) -> Result<(), S
     } else {
         println!("{} Resource limit violations:", red("✗"));
         for v in &violations {
-            println!("  - {}", v);
+            println!("  - {v}");
         }
     }
     if violations.is_empty() {
@@ -391,7 +389,7 @@ pub(crate) fn cmd_validate_check_circular_refs(file: &Path, json: bool) -> Resul
     }
 
     if json {
-        let items: Vec<String> = cycles.iter().map(|c| format!(r#""{}""#, c)).collect();
+        let items: Vec<String> = cycles.iter().map(|c| format!(r#""{c}""#)).collect();
         println!(
             r#"{{"circular_refs":[{}],"count":{}}}"#,
             items.join(","),
@@ -402,7 +400,7 @@ pub(crate) fn cmd_validate_check_circular_refs(file: &Path, json: bool) -> Resul
     } else {
         println!("Circular references found ({}):", cycles.len());
         for c in &cycles {
-            println!("  {} (circular dependency)", c);
+            println!("  {c} (circular dependency)");
         }
     }
     Ok(())
@@ -430,9 +428,9 @@ fn has_circular_dep(name: &str, config: &types::ForjarConfig) -> bool {
 
 /// FJ-641: Validate naming conventions across resources
 pub(crate) fn cmd_validate_check_naming_conventions(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
     let config: crate::core::types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
 
     let mut violations = Vec::new();
     for (name, _resource) in &config.resources {
@@ -454,7 +452,7 @@ pub(crate) fn cmd_validate_check_naming_conventions(file: &Path, json: bool) -> 
     } else {
         println!("Naming convention violations ({}):", violations.len());
         for v in &violations {
-            println!("  - {}", v);
+            println!("  - {v}");
         }
     }
     Ok(())
@@ -467,20 +465,17 @@ fn check_naming_convention(name: &str, violations: &mut Vec<String>) {
         .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-');
     if !is_kebab {
         violations.push(format!(
-            "Resource '{}': name should be kebab-case (lowercase, hyphens only)",
-            name
+            "Resource '{name}': name should be kebab-case (lowercase, hyphens only)"
         ));
     }
     if name.starts_with('-') || name.ends_with('-') {
         violations.push(format!(
-            "Resource '{}': name should not start or end with hyphen",
-            name
+            "Resource '{name}': name should not start or end with hyphen"
         ));
     }
     if name.contains("--") {
         violations.push(format!(
-            "Resource '{}': name should not contain consecutive hyphens",
-            name
+            "Resource '{name}': name should not contain consecutive hyphens"
         ));
     }
 }

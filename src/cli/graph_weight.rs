@@ -249,7 +249,7 @@ fn print_topo_json(layers: &[TopoLayer]) {
     let items: Vec<String> = layers
         .iter()
         .map(|l| {
-            let res: Vec<String> = l.resources.iter().map(|r| format!("\"{}\"", r)).collect();
+            let res: Vec<String> = l.resources.iter().map(|r| format!("\"{r}\"")).collect();
             format!(
                 "{{\"layer\":{},\"count\":{},\"resources\":[{}]}}",
                 l.layer,

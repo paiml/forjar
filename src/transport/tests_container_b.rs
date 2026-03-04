@@ -191,8 +191,7 @@ fn test_fj132_container_name_default_derivation() {
     let name = machine.container_name();
     assert!(
         name.contains("my-test-box"),
-        "derived name should contain hostname: {}",
-        name
+        "derived name should contain hostname: {name}"
     );
 }
 
@@ -234,8 +233,7 @@ fn test_fj021_ensure_uses_correct_runtime() {
     if let Err(e) = result {
         assert!(
             e.contains("forjar-podman-ensure"),
-            "ensure error should reference the container name: {}",
-            e
+            "ensure error should reference the container name: {e}"
         );
     }
     // If podman happens to be installed and succeeds, that's also fine.
@@ -278,8 +276,7 @@ fn test_fj021_cleanup_nonexistent_returns_err() {
     let err = result.unwrap_err();
     assert!(
         err.contains("forjar-nonexistent-cleanup"),
-        "error should contain container name: {}",
-        err
+        "error should contain container name: {err}"
     );
 }
 

@@ -14,6 +14,7 @@ exclude = ["benches/", ".pmat/", "/state/", "docs/", "examples/", "target/", "*.
 
 [lints.rust]
 unsafe_code = "forbid"
+unexpected_cfgs = { level = "allow", check-cfg = ['cfg(kani)', 'cfg(verus)'] }
 
 [lints.clippy]
 all = { level = "warn", priority = -1 }

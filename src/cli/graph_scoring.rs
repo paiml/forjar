@@ -7,14 +7,14 @@ use std::path::Path;
 
 /// FJ-847: Impact score based on dependents + depth.
 pub(crate) fn cmd_graph_resource_impact_score(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
     let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
     let scores = compute_impact_scores(&config);
     if json {
         let items: Vec<String> = scores
             .iter()
-            .map(|(r, s)| format!("{{\"resource\":\"{}\",\"impact_score\":{}}}", r, s))
+            .map(|(r, s)| format!("{{\"resource\":\"{r}\",\"impact_score\":{s}}}"))
             .collect();
         println!("{{\"resource_impact_scores\":[{}]}}", items.join(","));
     } else if scores.is_empty() {
@@ -22,7 +22,7 @@ pub(crate) fn cmd_graph_resource_impact_score(file: &Path, json: bool) -> Result
     } else {
         println!("Resource impact scores (dependents + depth):");
         for (r, s) in &scores {
-            println!("  {} — score {}", r, s);
+            println!("  {r} — score {s}");
         }
     }
     Ok(())
@@ -50,14 +50,14 @@ pub(super) fn compute_impact_scores(config: &types::ForjarConfig) -> Vec<(String
 
 /// FJ-851: Stability score based on status history (simulated from resource config).
 pub(crate) fn cmd_graph_resource_stability_score(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
     let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
     let scores = compute_stability_scores(&config);
     if json {
         let items: Vec<String> = scores
             .iter()
-            .map(|(r, s)| format!("{{\"resource\":\"{}\",\"stability_score\":{}}}", r, s))
+            .map(|(r, s)| format!("{{\"resource\":\"{r}\",\"stability_score\":{s}}}"))
             .collect();
         println!("{{\"resource_stability_scores\":[{}]}}", items.join(","));
     } else if scores.is_empty() {
@@ -65,7 +65,7 @@ pub(crate) fn cmd_graph_resource_stability_score(file: &Path, json: bool) -> Res
     } else {
         println!("Resource stability scores (higher = more stable):");
         for (r, s) in &scores {
-            println!("  {} — score {}", r, s);
+            println!("  {r} — score {s}");
         }
     }
     Ok(())
@@ -94,14 +94,14 @@ pub(super) fn compute_stability_scores(config: &types::ForjarConfig) -> Vec<(Str
 
 /// FJ-855: Fan-out count per resource.
 pub(crate) fn cmd_graph_resource_dependency_fanout(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
     let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
     let fanouts = compute_fanouts(&config);
     if json {
         let items: Vec<String> = fanouts
             .iter()
-            .map(|(r, f)| format!("{{\"resource\":\"{}\",\"fanout\":{}}}", r, f))
+            .map(|(r, f)| format!("{{\"resource\":\"{r}\",\"fanout\":{f}}}"))
             .collect();
         println!("{{\"resource_dependency_fanout\":[{}]}}", items.join(","));
     } else if fanouts.is_empty() {
@@ -109,7 +109,7 @@ pub(crate) fn cmd_graph_resource_dependency_fanout(file: &Path, json: bool) -> R
     } else {
         println!("Resource dependency fan-out:");
         for (r, f) in &fanouts {
-            println!("  {} — {} dependents", r, f);
+            println!("  {r} — {f} dependents");
         }
     }
     Ok(())
@@ -136,14 +136,14 @@ pub(super) fn compute_fanouts(config: &types::ForjarConfig) -> Vec<(String, usiz
 
 /// FJ-859: Weighted edges based on resource coupling.
 pub(crate) fn cmd_graph_resource_dependency_weight(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
     let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
     let weights = compute_dependency_weights(&config);
     if json {
         let items: Vec<String> = weights
             .iter()
-            .map(|(a, b, w)| format!("{{\"from\":\"{}\",\"to\":\"{}\",\"weight\":{}}}", a, b, w))
+            .map(|(a, b, w)| format!("{{\"from\":\"{a}\",\"to\":\"{b}\",\"weight\":{w}}}"))
             .collect();
         println!("{{\"dependency_weights\":[{}]}}", items.join(","));
     } else if weights.is_empty() {
@@ -151,7 +151,7 @@ pub(crate) fn cmd_graph_resource_dependency_weight(file: &Path, json: bool) -> R
     } else {
         println!("Dependency edge weights:");
         for (a, b, w) in &weights {
-            println!("  {} → {} — weight {}", a, b, w);
+            println!("  {a} → {b} — weight {w}");
         }
     }
     Ok(())
@@ -183,17 +183,16 @@ pub(crate) fn cmd_graph_resource_dependency_bottleneck(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
     let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
     let bottlenecks = find_dependency_bottlenecks(&config);
     if json {
         let items: Vec<String> = bottlenecks
             .iter()
             .map(|(n, fi, fo)| {
                 format!(
-                    "{{\"resource\":\"{}\",\"fan_in\":{},\"fan_out\":{}}}",
-                    n, fi, fo
+                    "{{\"resource\":\"{n}\",\"fan_in\":{fi},\"fan_out\":{fo}}}"
                 )
             })
             .collect();
@@ -203,7 +202,7 @@ pub(crate) fn cmd_graph_resource_dependency_bottleneck(
     } else {
         println!("Dependency bottlenecks (fan-in + fan-out):");
         for (n, fi, fo) in &bottlenecks {
-            println!("  {} — fan-in {}, fan-out {}", n, fi, fo);
+            println!("  {n} — fan-in {fi}, fan-out {fo}");
         }
     }
     Ok(())
@@ -238,15 +237,15 @@ pub(super) fn find_dependency_bottlenecks(
 
 /// FJ-867: Cluster resources by type and show interconnections.
 pub(crate) fn cmd_graph_resource_type_clustering(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
     let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
     let clusters = build_type_clusters(&config);
     if json {
         let items: Vec<String> = clusters
             .iter()
             .map(|(t, rs)| {
-                let names: Vec<String> = rs.iter().map(|r| format!("\"{}\"", r)).collect();
+                let names: Vec<String> = rs.iter().map(|r| format!("\"{r}\"")).collect();
                 format!("{{\"type\":\"{}\",\"resources\":[{}]}}", t, names.join(","))
             })
             .collect();
@@ -290,8 +289,7 @@ pub(crate) fn cmd_graph_resource_dependency_cycle_risk(
             .iter()
             .map(|(a, b, depth)| {
                 format!(
-                    "{{\"from\":\"{}\",\"to\":\"{}\",\"mutual_depth\":{}}}",
-                    a, b, depth
+                    "{{\"from\":\"{a}\",\"to\":\"{b}\",\"mutual_depth\":{depth}}}"
                 )
             })
             .collect();
@@ -301,7 +299,7 @@ pub(crate) fn cmd_graph_resource_dependency_cycle_risk(
     } else {
         println!("Dependency cycle risks:");
         for (a, b, depth) in &risks {
-            println!("  {} ↔ {} — mutual depth {}", a, b, depth);
+            println!("  {a} ↔ {b} — mutual depth {depth}");
         }
     }
     Ok(())

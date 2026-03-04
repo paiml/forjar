@@ -18,7 +18,7 @@ fn main() {
 
     // Simulate an apply run
     let run_id = eventlog::generate_run_id();
-    println!("Run ID: {}\n", run_id);
+    println!("Run ID: {run_id}\n");
 
     // 1. Apply started
     eventlog::append_event(
@@ -28,6 +28,9 @@ fn main() {
             machine: machine.to_string(),
             run_id: run_id.clone(),
             forjar_version: env!("CARGO_PKG_VERSION").to_string(),
+                operator: None,
+                config_hash: None,
+                param_count: None,
         },
     )
     .expect("write event");
@@ -117,20 +120,19 @@ fn main() {
             "resource_converged" => {
                 let res = event["resource"].as_str().unwrap_or("?");
                 let dur = event["duration_seconds"].as_f64().unwrap_or(0.0);
-                println!("    resource: {}, duration: {:.2}s", res, dur);
+                println!("    resource: {res}, duration: {dur:.2}s");
             }
             "resource_failed" => {
                 let res = event["resource"].as_str().unwrap_or("?");
                 let err = event["error"].as_str().unwrap_or("?");
-                println!("    resource: {}, error: {}", res, err);
+                println!("    resource: {res}, error: {err}");
             }
             "apply_completed" => {
                 let converged = event["resources_converged"].as_u64().unwrap_or(0);
                 let failed = event["resources_failed"].as_u64().unwrap_or(0);
                 let total = event["total_seconds"].as_f64().unwrap_or(0.0);
                 println!(
-                    "    converged: {}, failed: {}, total: {:.2}s",
-                    converged, failed, total
+                    "    converged: {converged}, failed: {failed}, total: {total:.2}s"
                 );
             }
             _ => {}

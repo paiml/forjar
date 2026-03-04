@@ -34,13 +34,12 @@ pub fn arb_resource() -> impl Strategy<Value = Resource> {
         prop::option::of("[a-z_]+"),
         prop::collection::vec("[a-z0-9-]+", 0..3),
     )
-        .prop_map(|(resource_type, machine, state, packages)| {
-            let mut r = Resource::default();
-            r.resource_type = resource_type;
-            r.machine = machine;
-            r.state = state;
-            r.packages = packages;
-            r
+        .prop_map(|(resource_type, machine, state, packages)| Resource {
+            resource_type,
+            machine,
+            state,
+            packages,
+            ..Resource::default()
         })
 }
 

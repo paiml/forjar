@@ -79,6 +79,7 @@ pub(super) fn make_apt_resource(packages: &[&str]) -> Resource {
         post_apply: None,
         lifecycle: None,
         store: false,
+            sudo: false,
         script: None,
     }
 }
@@ -146,8 +147,7 @@ fn test_fj007_cargo_install_uses_force() {
     let script = apply_script(&r);
     assert!(
         script.contains("cargo install --force"),
-        "cargo install must use --force for idempotent installs, got: {}",
-        script
+        "cargo install must use --force for idempotent installs, got: {script}"
     );
 }
 
@@ -180,15 +180,15 @@ fn test_fj006_state_query_cargo() {
 #[test]
 fn test_fj006_state_query_unknown_provider() {
     let mut r = make_apt_resource(&["tool"]);
-    r.provider = Some("brew".to_string());
+    r.provider = Some("snap".to_string());
     let script = state_query_script(&r);
-    assert!(script.contains("unsupported provider: brew"));
+    assert!(script.contains("unsupported provider: snap"));
 }
 
 #[test]
 fn test_fj006_check_unsupported_provider() {
     let mut r = make_apt_resource(&["foo"]);
-    r.provider = Some("brew".to_string());
+    r.provider = Some("snap".to_string());
     let script = check_script(&r);
     assert!(script.contains("unsupported provider"));
 }
@@ -196,7 +196,7 @@ fn test_fj006_check_unsupported_provider() {
 #[test]
 fn test_fj006_apply_unsupported_combo() {
     let mut r = make_apt_resource(&["foo"]);
-    r.provider = Some("brew".to_string());
+    r.provider = Some("snap".to_string());
     r.state = Some("present".to_string());
     let script = apply_script(&r);
     assert!(script.contains("unsupported"));
@@ -279,4 +279,83 @@ fn test_fj006_apt_check_output_format() {
     let script = check_script(&r);
     assert!(script.contains("echo 'installed:curl'"));
     assert!(script.contains("echo 'missing:curl'"));
+}
+
+// --- FJ-1398: Homebrew provider tests ---
+
+#[test]
+fn test_fj1398_brew_check() {
+    let mut r = make_apt_resource(&["jq", "ripgrep"]);
+    r.provider = Some("brew".to_string());
+    let script = check_script(&r);
+    assert!(script.contains("brew list 'jq'"));
+    assert!(script.contains("brew list 'ripgrep'"));
+    assert!(script.contains("echo 'installed:jq'"));
+    assert!(script.contains("echo 'missing:ripgrep'"));
+}
+
+#[test]
+fn test_fj1398_brew_install() {
+    let mut r = make_apt_resource(&["jq"]);
+    r.provider = Some("brew".to_string());
+    let script = apply_script(&r);
+    assert!(script.contains("set -euo pipefail"));
+    assert!(script.contains("brew install 'jq'"));
+    assert!(script.contains("NEED_INSTALL"));
+}
+
+#[test]
+fn test_fj1398_brew_install_versioned() {
+    let mut r = make_apt_resource(&["python"]);
+    r.provider = Some("brew".to_string());
+    r.version = Some("3.12".to_string());
+    let script = apply_script(&r);
+    assert!(script.contains("brew install 'python@3.12'"));
+}
+
+#[test]
+fn test_fj1398_brew_absent() {
+    let mut r = make_apt_resource(&["jq"]);
+    r.provider = Some("brew".to_string());
+    r.state = Some("absent".to_string());
+    let script = apply_script(&r);
+    assert!(script.contains("brew uninstall 'jq'"));
+}
+
+#[test]
+fn test_fj1398_brew_state_query() {
+    let mut r = make_apt_resource(&["jq", "fd"]);
+    r.provider = Some("brew".to_string());
+    let script = state_query_script(&r);
+    assert!(script.contains("brew list --versions 'jq'"));
+    assert!(script.contains("brew list --versions 'fd'"));
+    assert!(script.contains("MISSING"));
+}
+
+#[test]
+fn test_fj1398_brew_check_output_format() {
+    let mut r = make_apt_resource(&["ripgrep"]);
+    r.provider = Some("brew".to_string());
+    let script = check_script(&r);
+    assert!(script.contains("echo 'installed:ripgrep'"));
+    assert!(script.contains("echo 'missing:ripgrep'"));
+}
+
+#[test]
+fn test_fj1398_brew_multi_install() {
+    let mut r = make_apt_resource(&["jq", "fd", "bat"]);
+    r.provider = Some("brew".to_string());
+    let script = apply_script(&r);
+    assert!(script.contains("brew install 'jq'"));
+    assert!(script.contains("brew install 'fd'"));
+    assert!(script.contains("brew install 'bat'"));
+}
+
+/// Verify single-quoting prevents injection in brew provider.
+#[test]
+fn test_fj1398_brew_quoted_packages() {
+    let mut r = make_apt_resource(&["jq; rm -rf /"]);
+    r.provider = Some("brew".to_string());
+    let script = apply_script(&r);
+    assert!(script.contains("'jq; rm -rf /'"));
 }

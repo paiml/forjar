@@ -35,9 +35,12 @@ pub fn check_script(resource: &Resource) -> Result<String, String> {
 }
 
 /// Generate an apply script for a resource.
+///
+/// FJ-1394: If `resource.sudo` is true, wraps the entire script in a sudo
+/// heredoc so all commands run with elevated privileges.
 #[contract("codegen-dispatch-v1", equation = "apply_script")]
 pub fn apply_script(resource: &Resource) -> Result<String, String> {
-    match &resource.resource_type {
+    let script = match &resource.resource_type {
         ResourceType::Package => Ok(resources::package::apply_script(resource)),
         ResourceType::File => Ok(resources::file::apply_script(resource)),
         ResourceType::Service => Ok(resources::service::apply_script(resource)),
@@ -53,7 +56,22 @@ pub fn apply_script(resource: &Resource) -> Result<String, String> {
         ResourceType::Recipe => {
             Err("codegen not implemented for recipe (expand first)".to_string())
         }
+    }?;
+    Ok(sudo_wrap(resource, script))
+}
+
+/// FJ-1394: Wrap script with sudo if the resource has `sudo: true`.
+///
+/// Uses `sudo bash -c '...'` pattern with properly escaped single quotes.
+fn sudo_wrap(resource: &Resource, script: String) -> String {
+    if !resource.sudo {
+        return script;
     }
+    // Wrap: if already root, run as-is; otherwise elevate via sudo bash
+    let escaped = script.replace('\'', "'\\''");
+    format!(
+        "if [ \"$(id -u)\" -eq 0 ]; then\n{script}\nelse\nsudo bash -c '{escaped}'\nfi"
+    )
 }
 
 /// Generate a state query script for a resource.

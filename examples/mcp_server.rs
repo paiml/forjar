@@ -32,7 +32,7 @@ fn main() {
         } else {
             "[MISSING]"
         };
-        println!("  {} {} — {}", registered, name, desc);
+        println!("  {registered} {name} — {desc}");
     }
 
     // Verify schema introspection

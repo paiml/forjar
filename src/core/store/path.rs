@@ -29,5 +29,5 @@ pub fn store_path(recipe_hash: &str, input_hashes: &[&str], arch: &str, provider
 /// Returns `STORE_BASE/<hash>` (stripping the `blake3:` prefix).
 pub fn store_entry_path(store_hash: &str) -> String {
     let hash_hex = store_hash.strip_prefix("blake3:").unwrap_or(store_hash);
-    format!("{}/{}", STORE_BASE, hash_hex)
+    format!("{STORE_BASE}/{hash_hex}")
 }

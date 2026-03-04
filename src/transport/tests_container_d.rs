@@ -35,7 +35,6 @@ fn test_fj021_ensure_with_volumes() {
     let result = ensure_container(&machine);
     assert!(
         result.is_ok(),
-        "ensure with volumes should succeed: {:?}",
-        result
+        "ensure with volumes should succeed: {result:?}"
     );
 }

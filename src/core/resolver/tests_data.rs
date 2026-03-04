@@ -181,7 +181,7 @@ data:
 
     let val = config.params.get("__data__loopback").unwrap();
     let ip = yaml_value_to_string(val);
-    assert!(ip == "127.0.0.1" || ip == "::1", "got: {}", ip);
+    assert!(ip == "127.0.0.1" || ip == "::1", "got: {ip}");
 }
 
 // ============================================================================

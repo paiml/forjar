@@ -88,12 +88,13 @@ fn make_resource(rt: ResourceType) -> Resource {
         post_apply: None,
         lifecycle: None,
         store: false,
+        sudo: false,
         script: None,
     }
 }
 
 fn print_scripts(label: &str, resource: &Resource) {
-    println!("╔══ {} ══╗", label);
+    println!("╔══ {label} ══╗");
 
     println!("\n── check ──");
     println!("{}", codegen::check_script(resource).unwrap());

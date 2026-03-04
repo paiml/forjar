@@ -11,7 +11,7 @@ pub(crate) fn cmd_init(path: &Path) -> Result<(), String> {
     }
 
     let state_dir = path.join("state");
-    std::fs::create_dir_all(&state_dir).map_err(|e| format!("cannot create state dir: {}", e))?;
+    std::fs::create_dir_all(&state_dir).map_err(|e| format!("cannot create state dir: {e}"))?;
 
     let template = r#"version: "1.0"
 name: my-infrastructure
@@ -80,11 +80,11 @@ pub(crate) fn cmd_fmt(file: &Path, check: bool) -> Result<(), String> {
 
     // Parse into ForjarConfig to validate + normalize
     let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&original).map_err(|e| format!("YAML parse error: {}", e))?;
+        serde_yaml_ng::from_str(&original).map_err(|e| format!("YAML parse error: {e}"))?;
 
     // Re-serialize to canonical YAML
     let formatted =
-        serde_yaml_ng::to_string(&config).map_err(|e| format!("YAML serialize error: {}", e))?;
+        serde_yaml_ng::to_string(&config).map_err(|e| format!("YAML serialize error: {e}"))?;
 
     if check {
         if original.trim() != formatted.trim() {
@@ -242,7 +242,7 @@ pub(crate) fn cmd_schema() -> Result<(), String> {
 
     println!(
         "{}",
-        serde_json::to_string_pretty(&schema).map_err(|e| format!("JSON error: {}", e))?
+        serde_json::to_string_pretty(&schema).map_err(|e| format!("JSON error: {e}"))?
     );
     Ok(())
 }

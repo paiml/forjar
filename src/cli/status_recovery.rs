@@ -118,15 +118,13 @@ pub(crate) fn cmd_status_fleet_compliance_score(
     };
     if json {
         println!(
-            "{{\"fleet_compliance_score\":{:.1},\"converged\":{},\"total\":{}}}",
-            score, converged, total
+            "{{\"fleet_compliance_score\":{score:.1},\"converged\":{converged},\"total\":{total}}}"
         );
     } else if total == 0 {
         println!("No compliance data available.");
     } else {
         println!(
-            "Fleet compliance score: {:.1}% ({}/{} resources converged)",
-            score, converged, total
+            "Fleet compliance score: {score:.1}% ({converged}/{total} resources converged)"
         );
     }
     Ok(())
@@ -156,7 +154,7 @@ pub(crate) fn cmd_status_machine_mean_time_to_recovery(
     if json {
         let items: Vec<String> = mttr_data
             .iter()
-            .map(|(m, s)| format!("{{\"machine\":\"{}\",\"mttr_status\":\"{}\"}}", m, s))
+            .map(|(m, s)| format!("{{\"machine\":\"{m}\",\"mttr_status\":\"{s}\"}}"))
             .collect();
         println!(
             "{{\"machine_mean_time_to_recovery\":[{}]}}",
@@ -167,7 +165,7 @@ pub(crate) fn cmd_status_machine_mean_time_to_recovery(
     } else {
         println!("Machine mean time to recovery:");
         for (m, s) in &mttr_data {
-            println!("  {} — {}", m, s);
+            println!("  {m} — {s}");
         }
     }
     Ok(())
@@ -209,8 +207,7 @@ pub(crate) fn cmd_status_machine_resource_dependency_health(
             .iter()
             .map(|(m, h, t)| {
                 format!(
-                    "{{\"machine\":\"{}\",\"healthy\":{},\"total\":{}}}",
-                    m, h, t
+                    "{{\"machine\":\"{m}\",\"healthy\":{h},\"total\":{t}}}"
                 )
             })
             .collect();
@@ -220,7 +217,7 @@ pub(crate) fn cmd_status_machine_resource_dependency_health(
     } else {
         println!("Machine resource dependency health:");
         for (m, h, t) in &health_data {
-            println!("  {} — {}/{} healthy", m, h, t);
+            println!("  {m} — {h}/{t} healthy");
         }
     }
     Ok(())
@@ -243,8 +240,7 @@ pub(crate) fn cmd_status_fleet_resource_type_health(
             .iter()
             .map(|(t, c, tot)| {
                 format!(
-                    "{{\"type\":\"{}\",\"converged\":{},\"total\":{}}}",
-                    t, c, tot
+                    "{{\"type\":\"{t}\",\"converged\":{c},\"total\":{tot}}}"
                 )
             })
             .collect();
@@ -254,7 +250,7 @@ pub(crate) fn cmd_status_fleet_resource_type_health(
     } else {
         println!("Fleet resource type health:");
         for (t, c, tot) in &type_health {
-            println!("  {} — {}/{} converged", t, c, tot);
+            println!("  {t} — {c}/{tot} converged");
         }
     }
     Ok(())

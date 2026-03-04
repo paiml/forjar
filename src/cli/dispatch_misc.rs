@@ -15,10 +15,7 @@ use super::lint::*;
 use super::observe::*;
 use super::plan::*;
 use super::score::*;
-use super::secrets::*;
 use super::show::*;
-use super::snapshot::*;
-use super::workspace::*;
 
 /// Dispatch remaining commands not handled by specialized dispatchers.
 pub(crate) fn dispatch_misc_cmd(cmd: Commands, verbose: bool) -> Result<(), String> {
@@ -61,6 +58,9 @@ pub(crate) fn dispatch_misc_cmd(cmd: Commands, verbose: bool) -> Result<(), Stri
             resource,
             json,
         }) => cmd_diff(&from, &to, machine.as_deref(), resource.as_deref(), json),
+        Commands::StackDiff(StackDiffArgs { file1, file2, json }) => {
+            super::stack_diff::cmd_stack_diff(&file1, &file2, json)
+        }
         Commands::Check(CheckArgs {
             file,
             machine,
@@ -86,17 +86,18 @@ pub(crate) fn dispatch_misc_cmd(cmd: Commands, verbose: bool) -> Result<(), Stri
         Commands::Rollback(RollbackArgs {
             file,
             revision,
+            generation,
             machine,
             dry_run,
+            yes,
             state_dir,
-        }) => cmd_rollback(
-            &file,
-            &state_dir,
-            revision,
-            machine.as_deref(),
-            dry_run,
-            verbose,
-        ),
+        }) => {
+            if let Some(gen) = generation {
+                super::generation::rollback_to_generation(&state_dir, gen, yes)
+            } else {
+                cmd_rollback(&file, &state_dir, revision, machine.as_deref(), dry_run, verbose)
+            }
+        }
         Commands::Anomaly(AnomalyArgs {
             state_dir,
             machine,
@@ -143,19 +144,19 @@ pub(crate) fn dispatch_misc_cmd(cmd: Commands, verbose: bool) -> Result<(), Stri
             let lock = crate::core::state::reconstruct::reconstruct_at(&state_dir, &machine, &at)?;
             if json {
                 let output = serde_json::to_string_pretty(&lock)
-                    .map_err(|e| format!("JSON error: {}", e))?;
-                println!("{}", output);
+                    .map_err(|e| format!("JSON error: {e}"))?;
+                println!("{output}");
             } else {
                 let output = serde_yaml_ng::to_string(&lock)
-                    .map_err(|e| format!("YAML error: {}", e))?;
-                println!("{}", output);
+                    .map_err(|e| format!("YAML error: {e}"))?;
+                println!("{output}");
             }
             Ok(())
         }
         Commands::Output(OutputArgs { file, key, json }) => cmd_output(&file, key.as_deref(), json),
         Commands::Policy(PolicyArgs { file, json }) => cmd_policy(&file, json),
-        Commands::Workspace(sub) => dispatch_workspace(sub),
-        Commands::Secrets(sub) => dispatch_secrets(sub),
+        Commands::Workspace(sub) => super::dispatch_misc_b::dispatch_workspace(sub),
+        Commands::Secrets(sub) => super::dispatch_misc_b::dispatch_secrets(sub),
         Commands::Doctor(DoctorArgs {
             file,
             json,
@@ -198,7 +199,8 @@ pub(crate) fn dispatch_misc_cmd(cmd: Commands, verbose: bool) -> Result<(), Stri
             json,
             verbose,
         ),
-        Commands::Snapshot(sub) => dispatch_snapshot(sub),
+        Commands::Snapshot(sub) => super::dispatch_misc_b::dispatch_snapshot(sub),
+        Commands::Generation(sub) => super::dispatch_misc_b::dispatch_generation(sub),
         Commands::Inventory(InventoryArgs { file, json }) => cmd_inventory(&file, json),
         Commands::RetryFailed(RetryFailedArgs {
             file,
@@ -269,56 +271,86 @@ pub(crate) fn dispatch_misc_cmd(cmd: Commands, verbose: bool) -> Result<(), Stri
             output.as_deref(),
             allow_collisions,
         ),
-        _ => Err("unknown command".to_string()),
-    }
-}
-
-fn dispatch_workspace(sub: WorkspaceCmd) -> Result<(), String> {
-    match sub {
-        WorkspaceCmd::New { name } => cmd_workspace_new(&name),
-        WorkspaceCmd::List => cmd_workspace_list(),
-        WorkspaceCmd::Select { name } => cmd_workspace_select(&name),
-        WorkspaceCmd::Delete { name, yes } => cmd_workspace_delete(&name, yes),
-        WorkspaceCmd::Current => cmd_workspace_current(),
-    }
-}
-
-fn dispatch_secrets(sub: SecretsCmd) -> Result<(), String> {
-    match sub {
-        SecretsCmd::Encrypt { value, recipient } => cmd_secrets_encrypt(&value, &recipient),
-        SecretsCmd::Decrypt { value, identity } => cmd_secrets_decrypt(&value, identity.as_deref()),
-        SecretsCmd::Keygen => cmd_secrets_keygen(),
-        SecretsCmd::View { file, identity } => cmd_secrets_view(&file, identity.as_deref()),
-        SecretsCmd::Rekey {
+        Commands::Extract(ExtractArgs {
             file,
-            identity,
-            recipient,
-        } => cmd_secrets_rekey(&file, identity.as_deref(), &recipient),
-        SecretsCmd::Rotate {
-            file,
-            identity,
-            recipient,
-            re_encrypt,
-            state_dir,
-        } => cmd_secrets_rotate(
+            tags,
+            group,
+            glob,
+            output,
+            json,
+        }) => super::extract::cmd_extract(
             &file,
-            identity.as_deref(),
-            &recipient,
-            re_encrypt,
-            &state_dir,
+            tags.as_deref(),
+            group.as_deref(),
+            glob.as_deref(),
+            output.as_deref(),
+            json,
         ),
+        other => dispatch_analysis_cmd(other),
     }
 }
 
-fn dispatch_snapshot(sub: SnapshotCmd) -> Result<(), String> {
-    match sub {
-        SnapshotCmd::Save { name, state_dir } => cmd_snapshot_save(&name, &state_dir),
-        SnapshotCmd::List { state_dir, json } => cmd_snapshot_list(&state_dir, json),
-        SnapshotCmd::Restore {
-            name,
+/// Dispatch analysis, security, and audit commands.
+fn dispatch_analysis_cmd(cmd: Commands) -> Result<(), String> {
+    match cmd {
+        Commands::SecurityScan(SecurityScanArgs { file, json, fail_on }) => {
+            super::security_scan::cmd_security_scan(&file, json, fail_on.as_deref())
+        }
+        Commands::Sbom(SbomArgs {
+            file,
             state_dir,
-            yes,
-        } => cmd_snapshot_restore(&name, &state_dir, yes),
-        SnapshotCmd::Delete { name, state_dir } => cmd_snapshot_delete(&name, &state_dir),
+            json,
+        }) => super::sbom::cmd_sbom(&file, &state_dir, json),
+        Commands::Cbom(CbomArgs {
+            file,
+            state_dir,
+            json,
+        }) => super::cbom::cmd_cbom(&file, &state_dir, json),
+        Commands::Prove(ProveArgs {
+            file,
+            state_dir,
+            machine,
+            json,
+        }) => super::prove::cmd_prove(&file, &state_dir, machine.as_deref(), json),
+        Commands::PrivilegeAnalysis(PrivilegeAnalysisArgs { file, machine, json }) => {
+            super::privilege_analysis::cmd_privilege_analysis(&file, machine.as_deref(), json)
+        }
+        Commands::Provenance(ProvenanceArgs {
+            file,
+            state_dir,
+            machine,
+            json,
+        }) => super::provenance::cmd_provenance(&file, &state_dir, machine.as_deref(), json),
+        Commands::Lineage(LineageArgs { file, json }) => {
+            super::lineage::cmd_lineage(&file, json)
+        }
+        Commands::Bundle(BundleArgs {
+            file,
+            output,
+            include_state,
+            verify,
+        }) => {
+            if verify {
+                super::bundle::cmd_bundle_verify(&file)
+            } else {
+                super::bundle::cmd_bundle(&file, output.as_deref(), include_state)
+            }
+        }
+        Commands::ModelCard(ModelCardArgs {
+            file,
+            state_dir,
+            json,
+        }) => super::model_card::cmd_model_card(&file, &state_dir, json),
+        Commands::AgentSbom(AgentSbomArgs {
+            file,
+            state_dir,
+            json,
+        }) => super::agent_sbom::cmd_agent_sbom(&file, &state_dir, json),
+        Commands::ReproProof(ReproProofArgs {
+            file,
+            state_dir,
+            json,
+        }) => super::repro_proof::cmd_repro_proof(&file, &state_dir, json),
+        other => super::dispatch_misc_b::dispatch_data_cmd(other),
     }
 }

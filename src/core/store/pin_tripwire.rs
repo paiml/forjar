@@ -100,7 +100,7 @@ pub fn format_pin_report(result: &PinCheckResult) -> String {
     }
 
     for name in &result.missing_inputs {
-        lines.push(format!("  MISSING: {} — not in lock file", name));
+        lines.push(format!("  MISSING: {name} — not in lock file"));
     }
 
     lines.join("\n")

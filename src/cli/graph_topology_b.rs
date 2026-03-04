@@ -22,7 +22,7 @@ pub(crate) fn cmd_graph_fan_out(file: &Path, json: bool) -> Result<(), String> {
         let entries: Vec<String> = sorted
             .iter()
             .map(|(name, dependents)| {
-                let deps: Vec<String> = dependents.iter().map(|d| format!("\"{}\"", d)).collect();
+                let deps: Vec<String> = dependents.iter().map(|d| format!("\"{d}\"")).collect();
                 format!(
                     "{{\"resource\":\"{}\",\"fan_out\":{},\"dependents\":[{}]}}",
                     name,
@@ -36,7 +36,7 @@ pub(crate) fn cmd_graph_fan_out(file: &Path, json: bool) -> Result<(), String> {
         println!("Resource fan-out (dependents count):");
         for (name, dependents) in &sorted {
             if dependents.is_empty() {
-                println!("  {} — 0 dependents (leaf)", name);
+                println!("  {name} — 0 dependents (leaf)");
             } else {
                 println!(
                     "  {} — {} dependent(s): {}",
@@ -190,8 +190,7 @@ pub(crate) fn cmd_graph_dependency_count(file: &Path, json: bool) -> Result<(), 
             .iter()
             .map(|(n, i, o)| {
                 format!(
-                    "{{\"resource\":\"{}\",\"in_degree\":{},\"out_degree\":{}}}",
-                    n, i, o
+                    "{{\"resource\":\"{n}\",\"in_degree\":{i},\"out_degree\":{o}}}"
                 )
             })
             .collect();
@@ -199,7 +198,7 @@ pub(crate) fn cmd_graph_dependency_count(file: &Path, json: bool) -> Result<(), 
     } else {
         println!("Dependency counts ({} resources):", degrees.len());
         for (name, ind, outd) in &degrees {
-            println!("  {} — in:{} out:{}", name, ind, outd);
+            println!("  {name} — in:{ind} out:{outd}");
         }
     }
     Ok(())

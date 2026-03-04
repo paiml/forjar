@@ -28,15 +28,14 @@ pub(crate) fn cmd_status_convergence_percentage(
             .iter()
             .map(|(m, p, c, t)| {
                 format!(
-                    "{{\"machine\":\"{}\",\"converged_pct\":{},\"converged\":{},\"total\":{}}}",
-                    m, p, c, t
+                    "{{\"machine\":\"{m}\",\"converged_pct\":{p},\"converged\":{c},\"total\":{t}}}"
                 )
             })
             .collect();
         println!("{{\"convergence\":[{}]}}", items.join(","));
     } else {
         for (m, pct, c, t) in &data {
-            println!("  {} — {}% ({}/{})", m, pct, c, t);
+            println!("  {m} — {pct}% ({c}/{t})");
         }
     }
     Ok(())
@@ -57,12 +56,12 @@ fn print_count_metric(
     if json {
         let items: Vec<String> = data
             .iter()
-            .map(|(m, c)| format!("{{\"machine\":\"{}\",\"{}\":{}}}", m, label, c))
+            .map(|(m, c)| format!("{{\"machine\":\"{m}\",\"{label}\":{c}}}"))
             .collect();
         println!("{{\"{}_counts\":[{}]}}", label, items.join(","));
     } else {
         for (m, c) in &data {
-            println!("  {} — {} {}", m, c, label);
+            println!("  {m} — {c} {label}");
         }
     }
     Ok(())

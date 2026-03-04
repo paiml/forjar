@@ -94,11 +94,11 @@ mod tests {
         for m in &["web", "db"] {
             write_yaml(
                 dir.path(),
-                &format!("{}/state.lock.yaml", m),
+                &format!("{m}/state.lock.yaml"),
                 state_lock_yaml(),
             );
-            write_yaml(dir.path(), &format!("{}/lock.yaml", m), state_lock_yaml());
-            write_yaml(dir.path(), &format!("{}.lock.yaml", m), state_lock_yaml());
+            write_yaml(dir.path(), &format!("{m}/lock.yaml"), state_lock_yaml());
+            write_yaml(dir.path(), &format!("{m}.lock.yaml"), state_lock_yaml());
         }
         dir
     }
@@ -108,7 +108,7 @@ mod tests {
         for m in &["web", "db"] {
             write_yaml(
                 dir.path(),
-                &format!("{}/events.yaml", m),
+                &format!("{m}/events.yaml"),
                 "some event data\n",
             );
             let ev1 =
@@ -117,7 +117,7 @@ mod tests {
                 r#"{"event":"resource_applied","resource":"f","timestamp":"2026-02-28T01:05:00Z"}"#;
             write_yaml(
                 dir.path(),
-                &format!("{}/events.jsonl", m),
+                &format!("{m}/events.jsonl"),
                 &format!("{ev1}\n{ev2}\n{ev1}\n"),
             );
             std::fs::create_dir_all(dir.path().join(m).join("snapshots")).unwrap();

@@ -63,7 +63,7 @@ fn print_depth_mermaid(
         }
         for dep in &res.depends_on {
             if included.contains(dep.as_str()) {
-                println!("  {} --> {}", dep, name);
+                println!("  {dep} --> {name}");
             }
         }
     }
@@ -71,7 +71,7 @@ fn print_depth_mermaid(
         if included.contains(name.as_str()) {
             let res = &config.resources[name];
             if res.depends_on.is_empty() && !children.contains_key(name.as_str()) {
-                println!("  {}", name);
+                println!("  {name}");
             }
         }
     }
@@ -86,7 +86,7 @@ fn print_depth_dot(config: &types::ForjarConfig, included: &std::collections::Ha
         }
         for dep in &res.depends_on {
             if included.contains(dep.as_str()) {
-                println!("  \"{}\" -> \"{}\"", dep, name);
+                println!("  \"{dep}\" -> \"{name}\"");
             }
         }
     }
@@ -100,15 +100,15 @@ fn print_cluster_mermaid(
 ) {
     println!("graph TD");
     for (machine, resources) in by_machine {
-        println!("  subgraph {}", machine);
+        println!("  subgraph {machine}");
         for name in resources {
-            println!("    {}", name);
+            println!("    {name}");
         }
         println!("  end");
     }
     for (name, res) in &config.resources {
         for dep in &res.depends_on {
-            println!("  {} --> {}", dep, name);
+            println!("  {dep} --> {name}");
         }
     }
 }
@@ -121,15 +121,15 @@ fn print_cluster_dot(
     println!("digraph G {{");
     for (machine, resources) in by_machine {
         println!("  subgraph cluster_{} {{", machine.replace('-', "_"));
-        println!("    label=\"{}\";", machine);
+        println!("    label=\"{machine}\";");
         for name in resources {
-            println!("    \"{}\";", name);
+            println!("    \"{name}\";");
         }
         println!("  }}");
     }
     for (name, res) in &config.resources {
         for dep in &res.depends_on {
-            println!("  \"{}\" -> \"{}\";", dep, name);
+            println!("  \"{dep}\" -> \"{name}\";");
         }
     }
     println!("}}");
@@ -145,9 +145,9 @@ fn print_highlight_dot(
     println!("  rankdir=LR;");
     for name in order {
         if highlighted.contains(name) {
-            println!("  \"{}\" [style=filled, fillcolor=yellow];", name);
+            println!("  \"{name}\" [style=filled, fillcolor=yellow];");
         } else {
-            println!("  \"{}\";", name);
+            println!("  \"{name}\";");
         }
         if let Some(res) = config.resources.get(name) {
             for dep in &res.depends_on {
@@ -156,7 +156,7 @@ fn print_highlight_dot(
                 } else {
                     ""
                 };
-                println!("  \"{}\" -> \"{}\"{};", name, dep, style);
+                println!("  \"{name}\" -> \"{dep}\"{style};");
             }
         }
     }
@@ -172,18 +172,17 @@ fn print_highlight_mermaid(
     println!("graph LR");
     for name in order {
         if highlighted.contains(name) {
-            println!("  {}[\"⚡ {}\"]", name, name);
+            println!("  {name}[\"⚡ {name}\"]");
             println!(
-                "  style {} fill:#ffeb3b,stroke:#f44336,stroke-width:2px",
-                name
+                "  style {name} fill:#ffeb3b,stroke:#f44336,stroke-width:2px"
             );
         }
         if let Some(res) = config.resources.get(name) {
             for dep in &res.depends_on {
                 if highlighted.contains(name) && highlighted.contains(dep) {
-                    println!("  {} ==>|dep| {}", name, dep);
+                    println!("  {name} ==>|dep| {dep}");
                 } else {
-                    println!("  {} --> {}", name, dep);
+                    println!("  {name} --> {dep}");
                 }
             }
         }
@@ -310,13 +309,13 @@ pub(crate) fn cmd_graph_stats(file: &Path) -> Result<(), String> {
         .count();
 
     println!("{}", bold("Graph Statistics"));
-    println!("  Nodes:     {}", nodes);
-    println!("  Edges:     {}", edges);
-    println!("  Depth:     {}", max_depth);
-    println!("  Width:     {}", max_width);
-    println!("  Roots:     {}", roots);
-    println!("  Leaves:    {}", leaves);
-    println!("  Max deps:  {}", max_deps);
+    println!("  Nodes:     {nodes}");
+    println!("  Edges:     {edges}");
+    println!("  Depth:     {max_depth}");
+    println!("  Width:     {max_width}");
+    println!("  Roots:     {roots}");
+    println!("  Leaves:    {leaves}");
+    println!("  Max deps:  {max_deps}");
     if nodes > 0 {
         println!("  Density:   {:.2}", edges as f64 / nodes as f64);
     }
@@ -337,12 +336,12 @@ pub(crate) fn cmd_graph_json(file: &Path) -> Result<(), String> {
             .map(|r| {
                 r.depends_on
                     .iter()
-                    .map(|s| format!("\"{}\"", s))
+                    .map(|s| format!("\"{s}\""))
                     .collect::<Vec<_>>()
                     .join(",")
             })
             .unwrap_or_default();
-        adjacency.push(format!("\"{}\":[{}]", name, deps));
+        adjacency.push(format!("\"{name}\":[{deps}]"));
     }
     println!("{{{}}}", adjacency.join(","));
     Ok(())

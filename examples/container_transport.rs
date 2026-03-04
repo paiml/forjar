@@ -89,14 +89,14 @@ policy:
         println!("\nValidation: OK");
     } else {
         for e in &errors {
-            eprintln!("  ERROR: {}", e);
+            eprintln!("  ERROR: {e}");
         }
         std::process::exit(1);
     }
 
     // 4. Resolve DAG
     let order = resolver::build_execution_order(&config).expect("DAG resolution failed");
-    println!("Execution order: {:?}", order);
+    println!("Execution order: {order:?}");
 
     // 5. Plan (no existing state → everything is Create)
     let locks = HashMap::new();

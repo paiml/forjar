@@ -60,14 +60,14 @@ resources:
         let resolved = resolver::resolve_resource_templates(resource, &params, &config.machines)
             .expect("resolution failed");
 
-        println!("Resource: {}", id);
+        println!("Resource: {id}");
         if let Some(ref path) = resolved.path {
-            println!("  path: {}", path);
+            println!("  path: {path}");
         }
         if let Some(ref content) = resolved.content {
             println!("  content:");
             for line in content.lines() {
-                println!("    {}", line);
+                println!("    {line}");
             }
         }
         println!();
@@ -82,7 +82,7 @@ resources:
     ];
     for t in &templates {
         let result = resolver::resolve_template(t, &params, &config.machines).unwrap();
-        println!("  {} → {}", t, result);
+        println!("  {t} → {result}");
     }
 
     println!("\n=== Template Resolution Complete ===");

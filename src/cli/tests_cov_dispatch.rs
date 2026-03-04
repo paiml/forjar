@@ -167,8 +167,7 @@ policies:
         let err = result.unwrap_err();
         assert!(
             err.contains("git") || err.contains("cannot read"),
-            "expected git error, got: {}",
-            err
+            "expected git error, got: {err}"
         );
     }
 
@@ -223,8 +222,10 @@ policies:
             Commands::Rollback(RollbackArgs {
                 file: config,
                 revision: 2,
+                generation: None,
                 machine: None,
                 dry_run: true,
+                yes: false,
                 state_dir: state,
             }),
             false,

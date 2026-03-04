@@ -88,7 +88,7 @@ fn compute_risk_scores(config: &types::ForjarConfig) -> Vec<(String, usize)> {
 fn print_risk_scores_json(scores: &[(String, usize)]) {
     let items: Vec<String> = scores
         .iter()
-        .map(|(r, s)| format!("{{\"resource\":\"{}\",\"risk_score\":{}}}", r, s))
+        .map(|(r, s)| format!("{{\"resource\":\"{r}\",\"risk_score\":{s}}}"))
         .collect();
     println!(
         "{{\"resource_dependency_risk_scores\":[{}]}}",
@@ -103,7 +103,7 @@ fn print_risk_scores_text(scores: &[(String, usize)]) {
     }
     println!("Resource dependency risk scores (type_weight + depth + fan_in):");
     for (r, s) in scores {
-        println!("  {} — score {}", r, s);
+        println!("  {r} — score {s}");
     }
 }
 
@@ -161,7 +161,7 @@ fn print_layering_json(layers: &BTreeMap<&'static str, Vec<String>>) {
     let entries: Vec<String> = layers
         .iter()
         .map(|(layer, members)| {
-            let names: Vec<String> = members.iter().map(|n| format!("\"{}\"", n)).collect();
+            let names: Vec<String> = members.iter().map(|n| format!("\"{n}\"")).collect();
             format!("\"{}\":[{}]", layer, names.join(","))
         })
         .collect();

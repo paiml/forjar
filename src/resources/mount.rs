@@ -6,8 +6,7 @@ use crate::core::types::Resource;
 pub fn check_script(resource: &Resource) -> String {
     let target = resource.path.as_deref().unwrap_or("/mnt/unknown");
     format!(
-        "mountpoint -q '{}' 2>/dev/null && echo 'mounted:{}' || echo 'unmounted:{}'",
-        target, target, target
+        "mountpoint -q '{target}' 2>/dev/null && echo 'mounted:{target}' || echo 'unmounted:{target}'"
     )
 }
 
@@ -23,33 +22,28 @@ pub fn apply_script(resource: &Resource) -> String {
 
     match state {
         "mounted" => {
-            lines.push(format!("mkdir -p '{}'", target));
+            lines.push(format!("mkdir -p '{target}'"));
             // Check if already mounted
             lines.push(format!(
-                "if ! mountpoint -q '{}'; then\n  mount -t '{}' -o '{}' '{}' '{}'\nfi",
-                target, fstype, options, source, target
+                "if ! mountpoint -q '{target}'; then\n  mount -t '{fstype}' -o '{options}' '{source}' '{target}'\nfi"
             ));
             // Add to fstab if not already there
             lines.push(format!(
-                "if ! grep -q '{}' /etc/fstab 2>/dev/null; then\n  echo '{} {} {} {} 0 0' >> /etc/fstab\nfi",
-                target, source, target, fstype, options
+                "if ! grep -q '{target}' /etc/fstab 2>/dev/null; then\n  echo '{source} {target} {fstype} {options} 0 0' >> /etc/fstab\nfi"
             ));
         }
         "unmounted" => {
             lines.push(format!(
-                "if mountpoint -q '{}'; then\n  umount '{}'\nfi",
-                target, target
+                "if mountpoint -q '{target}'; then\n  umount '{target}'\nfi"
             ));
         }
         "absent" => {
             lines.push(format!(
-                "if mountpoint -q '{}'; then\n  umount '{}'\nfi",
-                target, target
+                "if mountpoint -q '{target}'; then\n  umount '{target}'\nfi"
             ));
             // Remove from fstab
             lines.push(format!(
-                "sed -i '\\|{}|d' /etc/fstab 2>/dev/null || true",
-                target
+                "sed -i '\\|{target}|d' /etc/fstab 2>/dev/null || true"
             ));
         }
         _ => {}
@@ -62,11 +56,10 @@ pub fn apply_script(resource: &Resource) -> String {
 pub fn state_query_script(resource: &Resource) -> String {
     let target = resource.path.as_deref().unwrap_or("/mnt/unknown");
     format!(
-        "if mountpoint -q '{}'; then\n\
-           findmnt -n -o SOURCE,FSTYPE,OPTIONS '{}' 2>/dev/null\n\
+        "if mountpoint -q '{target}'; then\n\
+           findmnt -n -o SOURCE,FSTYPE,OPTIONS '{target}' 2>/dev/null\n\
          else\n\
            echo 'UNMOUNTED'\n\
-         fi",
-        target, target
+         fi"
     )
 }

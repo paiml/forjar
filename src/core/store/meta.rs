@@ -99,7 +99,7 @@ pub fn write_meta(dir: &Path, meta: &StoreMeta) -> Result<(), String> {
 
     let path = dir.join("meta.yaml");
     let yaml =
-        serde_yaml_ng::to_string(meta).map_err(|e| format!("serialize meta error: {}", e))?;
+        serde_yaml_ng::to_string(meta).map_err(|e| format!("serialize meta error: {e}"))?;
 
     let tmp_path = path.with_extension("yaml.tmp");
     std::fs::write(&tmp_path, &yaml)

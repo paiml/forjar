@@ -81,14 +81,14 @@ fn test_fj051_adwin_gradual_shift() {
 fn test_fj051_isolation_score_normal() {
     let values = vec![1.0, 2.0, 3.0, 4.0, 5.0];
     let score = isolation_score(&values, 3.0); // mean
-    assert!(score < 0.3, "mean value should have low score: {}", score);
+    assert!(score < 0.3, "mean value should have low score: {score}");
 }
 
 #[test]
 fn test_fj051_isolation_score_outlier() {
     let values = vec![1.0, 2.0, 3.0, 4.0, 5.0];
     let score = isolation_score(&values, 100.0); // far outlier
-    assert!(score > 0.9, "outlier should have high score: {}", score);
+    assert!(score > 0.9, "outlier should have high score: {score}");
 }
 
 #[test]
@@ -122,7 +122,7 @@ fn test_fj051_isolation_score_identical_outlier() {
 fn test_fj051_ewma_zscore_stable() {
     let values = vec![1.0, 1.0, 1.0, 1.0, 1.0];
     let z = ewma_zscore(&values, 1.0, 0.3);
-    assert!(z < 0.5, "stable series at target should have low z: {}", z);
+    assert!(z < 0.5, "stable series at target should have low z: {z}");
 }
 
 #[test]
@@ -130,7 +130,7 @@ fn test_fj051_ewma_zscore_anomaly() {
     // Need some variance in the series so EWMA std > 0
     let values = vec![1.0, 2.0, 1.0, 2.0, 1.0, 2.0, 1.0, 2.0];
     let z = ewma_zscore(&values, 10.0, 0.3);
-    assert!(z > 2.0, "large deviation should have high z: {}", z);
+    assert!(z > 2.0, "large deviation should have high z: {z}");
 }
 
 #[test]
@@ -167,8 +167,7 @@ fn test_fj051_detect_high_churn() {
     let findings = detect_anomalies(&metrics, 3);
     assert!(
         findings.iter().any(|f| f.resource == "churny"),
-        "high churn resource should be detected: {:?}",
-        findings
+        "high churn resource should be detected: {findings:?}"
     );
 }
 
@@ -197,8 +196,7 @@ fn test_fj051_detect_high_failure() {
     let findings = detect_anomalies(&metrics, 3);
     assert!(
         findings.iter().any(|f| f.resource == "bad"),
-        "high failure rate should be detected: {:?}",
-        findings
+        "high failure rate should be detected: {findings:?}"
     );
 }
 

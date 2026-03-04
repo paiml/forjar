@@ -292,7 +292,7 @@ resources:
         );
         assert!(result.is_err());
         let err = result.unwrap_err();
-        assert!(err.contains("no resources match"), "got: {}", err);
+        assert!(err.contains("no resources match"), "got: {err}");
     }
 
     #[test]

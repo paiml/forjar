@@ -23,15 +23,14 @@ fn validate_ref(
         if !will_expand {
             errors.push(ValidationError {
                 message: format!(
-                    "resource '{}' {} unknown resource '{}'",
-                    id, ref_type, ref_id
+                    "resource '{id}' {ref_type} unknown resource '{ref_id}'"
                 ),
             });
         }
     }
     if ref_id == id {
         errors.push(ValidationError {
-            message: format!("resource '{}' {} itself", id, ref_type),
+            message: format!("resource '{id}' {ref_type} itself"),
         });
     }
 }
@@ -47,8 +46,7 @@ pub(super) fn validate_resource_refs(
         if !config.machines.contains_key(&machine_name) && machine_name != "localhost" {
             errors.push(ValidationError {
                 message: format!(
-                    "resource '{}' references unknown machine '{}'",
-                    id, machine_name
+                    "resource '{id}' references unknown machine '{machine_name}'"
                 ),
             });
         }
@@ -77,20 +75,20 @@ pub(super) fn validate_resource_refs(
 
     if resource.count.is_some() && resource.for_each.is_some() {
         errors.push(ValidationError {
-            message: format!("resource '{}' cannot have both 'count' and 'for_each'", id),
+            message: format!("resource '{id}' cannot have both 'count' and 'for_each'"),
         });
     }
     if let Some(count) = resource.count {
         if count == 0 {
             errors.push(ValidationError {
-                message: format!("resource '{}' has count: 0 (must be >= 1)", id),
+                message: format!("resource '{id}' has count: 0 (must be >= 1)"),
             });
         }
     }
     if let Some(ref items) = resource.for_each {
         if items.is_empty() {
             errors.push(ValidationError {
-                message: format!("resource '{}' has empty for_each list", id),
+                message: format!("resource '{id}' has empty for_each list"),
             });
         }
     }
@@ -113,8 +111,7 @@ pub(super) fn validate_machine(key: &str, machine: &Machine, errors: &mut Vec<Va
     if machine.is_container_transport() && machine.container.is_none() {
         errors.push(ValidationError {
             message: format!(
-                "machine '{}' uses container transport but has no 'container' block",
-                key
+                "machine '{key}' uses container transport but has no 'container' block"
             ),
         });
     }
@@ -130,7 +127,7 @@ pub(super) fn validate_machine(key: &str, machine: &Machine, errors: &mut Vec<Va
         }
         if container.ephemeral && container.image.is_none() {
             errors.push(ValidationError {
-                message: format!("machine '{}' is ephemeral but has no container image", key),
+                message: format!("machine '{key}' is ephemeral but has no container image"),
             });
         }
     }

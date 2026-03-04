@@ -34,9 +34,9 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         for m in &["web", "db"] {
             // Subdirectory pattern: {m}/state.lock.yaml
-            write_yaml(dir.path(), &format!("{}/state.lock.yaml", m), state_lock());
+            write_yaml(dir.path(), &format!("{m}/state.lock.yaml"), state_lock());
             // Flat pattern: {m}.lock.yaml
-            write_yaml(dir.path(), &format!("{}.lock.yaml", m), state_lock());
+            write_yaml(dir.path(), &format!("{m}.lock.yaml"), state_lock());
         }
         dir
     }

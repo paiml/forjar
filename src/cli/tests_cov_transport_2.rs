@@ -173,8 +173,7 @@ resources:
         let mut events = String::new();
         for i in 0..10 {
             events.push_str(&format!(
-                r#"{{"timestamp":"2026-02-28T00:{:02}:00Z","event":{{"ResourceConverged":{{"resource":"pkg-nginx","machine":"web-server","duration_seconds":0.5}}}}}}"#,
-                i
+                r#"{{"timestamp":"2026-02-28T00:{i:02}:00Z","event":{{"ResourceConverged":{{"resource":"pkg-nginx","machine":"web-server","duration_seconds":0.5}}}}}}"#
             ));
             events.push('\n');
         }
@@ -199,8 +198,7 @@ resources:
         let mut events = String::new();
         for i in 0..15 {
             events.push_str(&format!(
-                r#"{{"timestamp":"2026-02-28T00:{:02}:00Z","event":{{"DriftDetected":{{"resource":"file-config","machine":"db-server","detail":"content changed"}}}}}}"#,
-                i
+                r#"{{"timestamp":"2026-02-28T00:{i:02}:00Z","event":{{"DriftDetected":{{"resource":"file-config","machine":"db-server","detail":"content changed"}}}}}}"#
             ));
             events.push('\n');
         }
@@ -373,8 +371,7 @@ resources:
             errors
                 .iter()
                 .any(|e| e.message.contains("pepita") && e.message.contains("no name")),
-            "expected pepita no-name error, got: {:?}",
-            errors
+            "expected pepita no-name error, got: {errors:?}"
         );
     }
 
@@ -404,7 +401,7 @@ resources:
             .iter()
             .filter(|e| e.message.contains("pepita") && e.message.contains("invalid state"))
             .collect();
-        assert!(pepita_errors.is_empty(), "unexpected: {:?}", pepita_errors);
+        assert!(pepita_errors.is_empty(), "unexpected: {pepita_errors:?}");
     }
 
     #[test]
@@ -432,8 +429,7 @@ resources:
             errors
                 .iter()
                 .any(|e| e.message.contains("pepita") && e.message.contains("invalid state")),
-            "expected invalid state error, got: {:?}",
-            errors
+            "expected invalid state error, got: {errors:?}"
         );
     }
 
@@ -460,8 +456,7 @@ resources:
         let errors = parser::validate_config(&config);
         assert!(
             errors.iter().any(|e| e.message.contains("empty cpuset")),
-            "expected empty cpuset error, got: {:?}",
-            errors
+            "expected empty cpuset error, got: {errors:?}"
         );
     }
 }

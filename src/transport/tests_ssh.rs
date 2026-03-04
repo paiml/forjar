@@ -23,7 +23,7 @@ fn test_fj011_ssh_key_expansion() {
     let key = "~/.ssh/id_ed25519";
     let expanded = if let Some(rest) = key.strip_prefix("~/") {
         if let Ok(home) = std::env::var("HOME") {
-            format!("{}/{}", home, rest)
+            format!("{home}/{rest}")
         } else {
             key.to_string()
         }
@@ -40,7 +40,7 @@ fn test_fj011_ssh_key_expansion_no_tilde() {
     let key = "/home/deploy/.ssh/id_ed25519";
     let expanded = if let Some(rest) = key.strip_prefix("~/") {
         if let Ok(home) = std::env::var("HOME") {
-            format!("{}/{}", home, rest)
+            format!("{home}/{rest}")
         } else {
             key.to_string()
         }
@@ -205,8 +205,7 @@ fn test_fj011_build_args_all_options_are_dash_o() {
         assert_eq!(
             args[pos - 1],
             "-o",
-            "option '{}' must be preceded by -o",
-            opt
+            "option '{opt}' must be preceded by -o"
         );
     }
 }

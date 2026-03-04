@@ -16,7 +16,7 @@ pub(crate) fn cmd_validate_check_resource_dependency_ordering(
     if json {
         let items: Vec<String> = issues
             .iter()
-            .map(|(n, r)| format!("{{\"resource\":\"{}\",\"issue\":\"{}\"}}", n, r))
+            .map(|(n, r)| format!("{{\"resource\":\"{n}\",\"issue\":\"{r}\"}}"))
             .collect();
         println!("{{\"ordering_issues\":[{}]}}", items.join(","));
     } else if issues.is_empty() {
@@ -24,7 +24,7 @@ pub(crate) fn cmd_validate_check_resource_dependency_ordering(
     } else {
         println!("Dependency ordering issues:");
         for (n, r) in &issues {
-            println!("  {} — {}", n, r);
+            println!("  {n} — {r}");
         }
     }
     Ok(())
@@ -37,7 +37,7 @@ pub(super) fn find_ordering_issues(config: &types::ForjarConfig) -> Vec<(String,
     for (name, res) in &config.resources {
         for dep in &res.depends_on {
             if !names.contains(dep.as_str()) {
-                issues.push((name.clone(), format!("depends on non-existent '{}'", dep)));
+                issues.push((name.clone(), format!("depends on non-existent '{dep}'")));
             }
             if dep == name {
                 issues.push((name.clone(), "self-dependency".to_string()));
@@ -60,7 +60,7 @@ pub(crate) fn cmd_validate_check_resource_tag_completeness(
     if json {
         let items: Vec<String> = missing
             .iter()
-            .map(|(n, c)| format!("{{\"resource\":\"{}\",\"tag_count\":{}}}", n, c))
+            .map(|(n, c)| format!("{{\"resource\":\"{n}\",\"tag_count\":{c}}}"))
             .collect();
         println!("{{\"tag_completeness\":[{}]}}", items.join(","));
     } else if missing.is_empty() {
@@ -68,7 +68,7 @@ pub(crate) fn cmd_validate_check_resource_tag_completeness(
     } else {
         println!("Resources missing tags:");
         for (n, _) in &missing {
-            println!("  {}", n);
+            println!("  {n}");
         }
     }
     Ok(())
@@ -97,7 +97,7 @@ pub(crate) fn cmd_validate_check_resource_naming_standards(
     if json {
         let items: Vec<String> = violations
             .iter()
-            .map(|(n, r)| format!("{{\"resource\":\"{}\",\"issue\":\"{}\"}}", n, r))
+            .map(|(n, r)| format!("{{\"resource\":\"{n}\",\"issue\":\"{r}\"}}"))
             .collect();
         println!("{{\"naming_violations\":[{}]}}", items.join(","));
     } else if violations.is_empty() {
@@ -105,7 +105,7 @@ pub(crate) fn cmd_validate_check_resource_naming_standards(
     } else {
         println!("Naming convention violations:");
         for (n, r) in &violations {
-            println!("  {} — {}", n, r);
+            println!("  {n} — {r}");
         }
     }
     Ok(())
@@ -140,7 +140,7 @@ pub(crate) fn cmd_validate_check_resource_dependency_symmetry(
     if json {
         let items: Vec<String> = asymmetries
             .iter()
-            .map(|(a, b)| format!("{{\"from\":\"{}\",\"to\":\"{}\"}}", a, b))
+            .map(|(a, b)| format!("{{\"from\":\"{a}\",\"to\":\"{b}\"}}"))
             .collect();
         println!("{{\"asymmetric_dependencies\":[{}]}}", items.join(","));
     } else if asymmetries.is_empty() {
@@ -148,7 +148,7 @@ pub(crate) fn cmd_validate_check_resource_dependency_symmetry(
     } else {
         println!("Asymmetric dependencies:");
         for (a, b) in &asymmetries {
-            println!("  {} depends on {} (but not vice versa)", a, b);
+            println!("  {a} depends on {b} (but not vice versa)");
         }
     }
     Ok(())
@@ -182,7 +182,7 @@ pub(crate) fn cmd_validate_check_resource_circular_alias(
     if json {
         let items: Vec<String> = cycles
             .iter()
-            .map(|(a, b)| format!("[\"{}\",\"{}\"]", a, b))
+            .map(|(a, b)| format!("[\"{a}\",\"{b}\"]"))
             .collect();
         println!("{{\"circular_aliases\":[{}]}}", items.join(","));
     } else if cycles.is_empty() {
@@ -190,7 +190,7 @@ pub(crate) fn cmd_validate_check_resource_circular_alias(
     } else {
         println!("Circular alias references:");
         for (a, b) in &cycles {
-            println!("  {} ↔ {}", a, b);
+            println!("  {a} ↔ {b}");
         }
     }
     Ok(())
@@ -224,7 +224,7 @@ pub(crate) fn cmd_validate_check_resource_dependency_depth_limit(
     if json {
         let items: Vec<String> = violations
             .iter()
-            .map(|(r, d)| format!("{{\"resource\":\"{}\",\"depth\":{}}}", r, d))
+            .map(|(r, d)| format!("{{\"resource\":\"{r}\",\"depth\":{d}}}"))
             .collect();
         println!(
             "{{\"depth_limit\":{},\"violations\":[{}]}}",
@@ -232,11 +232,11 @@ pub(crate) fn cmd_validate_check_resource_dependency_depth_limit(
             items.join(",")
         );
     } else if violations.is_empty() {
-        println!("All dependency chains within depth limit ({}).", limit);
+        println!("All dependency chains within depth limit ({limit}).");
     } else {
-        println!("Dependency depth violations (limit {}):", limit);
+        println!("Dependency depth violations (limit {limit}):");
         for (r, d) in &violations {
-            println!("  {} — depth {}", r, d);
+            println!("  {r} — depth {d}");
         }
     }
     Ok(())
@@ -294,7 +294,7 @@ pub(crate) fn cmd_validate_check_resource_unused_params(
     for res in config.resources.values() {
         if let Some(ref c) = res.content {
             for p in &defined {
-                if c.contains(&format!("{{{{{}}}}}", p)) || c.contains(&format!("${{{}}}", p)) {
+                if c.contains(&format!("{{{{{p}}}}}")) || c.contains(&format!("${{{p}}}")) {
                     used.insert(p.clone());
                 }
             }
@@ -302,14 +302,14 @@ pub(crate) fn cmd_validate_check_resource_unused_params(
     }
     let unused: Vec<&String> = defined.iter().filter(|p| !used.contains(*p)).collect();
     if json {
-        let items: Vec<String> = unused.iter().map(|p| format!("\"{}\"", p)).collect();
+        let items: Vec<String> = unused.iter().map(|p| format!("\"{p}\"")).collect();
         println!("{{\"unused_params\":[{}]}}", items.join(","));
     } else if unused.is_empty() {
         println!("No unused parameters detected.");
     } else {
         println!("Unused parameters:");
         for p in &unused {
-            println!("  {}", p);
+            println!("  {p}");
         }
     }
     Ok(())
@@ -338,8 +338,7 @@ pub(crate) fn cmd_validate_check_resource_content_hash_consistency(
             .iter()
             .map(|(n, d, c)| {
                 format!(
-                    "{{\"resource\":\"{}\",\"declared\":\"{}\",\"computed\":\"{}\"}}",
-                    n, d, c
+                    "{{\"resource\":\"{n}\",\"declared\":\"{d}\",\"computed\":\"{c}\"}}"
                 )
             })
             .collect();

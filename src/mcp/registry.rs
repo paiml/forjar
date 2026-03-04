@@ -240,5 +240,5 @@ pub async fn serve() -> Result<(), String> {
     server
         .run()
         .await
-        .map_err(|e| format!("MCP server error: {}", e))
+        .map_err(|e| format!("MCP server error: {e}"))
 }

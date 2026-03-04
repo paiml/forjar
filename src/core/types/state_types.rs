@@ -197,6 +197,15 @@ pub enum ProvenanceEvent {
         machine: String,
         run_id: String,
         forjar_version: String,
+        /// FJ-1391: Operator identity for drift forensics (e.g., "user@hostname")
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        operator: Option<String>,
+        /// FJ-1391: BLAKE3 hash of the config file used for this apply
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        config_hash: Option<String>,
+        /// FJ-1393: Param count for experiment tracking (number of params in this apply)
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        param_count: Option<u32>,
     },
     ResourceStarted {
         machine: String,
@@ -297,6 +306,6 @@ pub fn yaml_value_to_string(val: &serde_yaml_ng::Value) -> String {
         serde_yaml_ng::Value::Number(n) => n.to_string(),
         serde_yaml_ng::Value::Bool(b) => b.to_string(),
         serde_yaml_ng::Value::Null => String::new(),
-        other => format!("{:?}", other),
+        other => format!("{other:?}"),
     }
 }

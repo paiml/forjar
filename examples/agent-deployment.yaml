@@ -1,0 +1,83 @@
+# FJ-1418: Composable agent deployment recipe
+# Downloads model → configures GPU → writes agent config → starts MCP → health check.
+#
+# Usage: forjar apply -f examples/agent-deployment.yaml
+#
+version: "1.0"
+name: agent-deployment
+description: "Full agent deployment: model + GPU + config + MCP + health"
+
+params:
+  model_name: llama-3.2-3b
+  model_path: /models/llama-3.2-3b.gguf
+  gpu_driver: "550.0"
+  mcp_port: "8080"
+  agent_name: code-assistant
+
+machines:
+  gpu-box:
+    hostname: agent-host
+    addr: 192.168.1.100
+    user: deploy
+
+resources:
+  # Phase 0: GPU driver setup
+  gpu-driver:
+    type: gpu
+    machine: gpu-box
+    driver_version: "{{params.gpu_driver}}"
+    tags: [agent, gpu, infrastructure]
+
+  # Phase 1: Download model
+  model:
+    type: model
+    machine: gpu-box
+    name: "{{params.model_name}}"
+    model_source: local
+    model_path: "{{params.model_path}}"
+    depends_on: [gpu-driver]
+    tags: [agent, model, ml]
+
+  # Phase 2: Agent configuration
+  agent-config:
+    type: file
+    machine: gpu-box
+    path: "/etc/pforge/{{params.agent_name}}.yaml"
+    content: |
+      name: {{params.agent_name}}
+      model: {{params.model_name}}
+      model_path: {{params.model_path}}
+      gpu: true
+      tools:
+        - file-read
+        - file-write
+        - shell-exec
+      server:
+        port: {{params.mcp_port}}
+    depends_on: [model]
+    tags: [agent, config]
+
+  # Phase 3: Start MCP server
+  mcp-server:
+    type: service
+    machine: gpu-box
+    name: "pforge-{{params.agent_name}}"
+    command: "pforge serve --config /etc/pforge/{{params.agent_name}}.yaml"
+    depends_on: [agent-config]
+    tags: [agent, service, mcp]
+
+  # Phase 4: Health check
+  health:
+    type: task
+    machine: gpu-box
+    command: "curl -sf http://localhost:{{params.mcp_port}}/health"
+    depends_on: [mcp-server]
+    tags: [agent, health]
+
+policies:
+  - type: require
+    message: "all resources must be tagged"
+    field: tags
+  - type: deny
+    message: "no curl|bash patterns"
+    pattern: "curl.*\\|.*bash"

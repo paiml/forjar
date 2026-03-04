@@ -11,7 +11,7 @@ proptest! {
         key in "[a-z_]{1,10}",
         value in "[a-zA-Z0-9]{1,20}",
     ) {
-        let template = format!("{{{{params.{}}}}}", key);
+        let template = format!("{{{{params.{key}}}}}");
         let mut params = HashMap::new();
         params.insert(key, serde_yaml_ng::Value::String(value.clone()));
         let machines = indexmap::IndexMap::new();
@@ -30,7 +30,7 @@ proptest! {
     fn missing_param_consistent_error(
         key in "[a-z_]{1,10}",
     ) {
-        let template = format!("{{{{params.{}}}}}", key);
+        let template = format!("{{{{params.{key}}}}}");
         let params = HashMap::new();
         let machines = indexmap::IndexMap::new();
 
