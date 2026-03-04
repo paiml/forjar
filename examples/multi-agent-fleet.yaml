@@ -1,0 +1,123 @@
+# FJ-1419: Multi-agent orchestration with fleet deployment
+# Deploys N agents across fleet with for_each; configures inter-agent communication.
+#
+# Usage: forjar apply -f examples/multi-agent-fleet.yaml
+#
+version: "1.0"
+name: multi-agent-fleet
+description: "Multi-agent deployment across GPU fleet with load balancing"
+
+params:
+  model_path: /models/llama-3.2-3b.gguf
+  mcp_port: "8080"
+  agent_count: "3"
+
+machines:
+  gpu-1:
+    hostname: gpu-1
+    addr: 192.168.1.101
+    user: deploy
+  gpu-2:
+    hostname: gpu-2
+    addr: 192.168.1.102
+    user: deploy
+  gpu-3:
+    hostname: gpu-3
+    addr: 192.168.1.103
+    user: deploy
+
+resources:
+  # GPU setup across fleet
+  gpu-driver:
+    type: gpu
+    machine: [gpu-1, gpu-2, gpu-3]
+    driver_version: "550.0"
+    tags: [agent, gpu]
+
+  # Model distribution across fleet
+  model:
+    type: model
+    machine: [gpu-1, gpu-2, gpu-3]
+    name: llama-3.2-3b
+    model_source: local
+    model_path: "{{params.model_path}}"
+    depends_on: [gpu-driver]
+    tags: [agent, model]
+
+  # Agent configs per machine
+  agent-config:
+    type: file
+    machine: [gpu-1, gpu-2, gpu-3]
+    path: /etc/pforge/agent.yaml
+    content: |
+      name: fleet-agent
+      model: llama-3.2-3b
+      server:
+        port: {{params.mcp_port}}
+    depends_on: [model]
+    tags: [agent, config]
+
+  # MCP servers across fleet
+  mcp-server:
+    type: service
+    machine: [gpu-1, gpu-2, gpu-3]
+    name: pforge-fleet-agent
+    command: "pforge serve --config /etc/pforge/agent.yaml"
+    depends_on: [agent-config]
+    tags: [agent, service, mcp]
+
+  # Load balancer configuration
+  lb-config:
+    type: file
+    machine: gpu-1
+    path: /etc/nginx/conf.d/agent-lb.conf
+    content: |
+      upstream agent_pool {
+        server 192.168.1.101:{{params.mcp_port}};
+        server 192.168.1.102:{{params.mcp_port}};
+        server 192.168.1.103:{{params.mcp_port}};
+      }
+      server {
+        listen 80;
+        location / {
+          proxy_pass http://agent_pool;
+        }
+      }
+    depends_on: [mcp-server]
+    tags: [agent, loadbalancer]
+
+  # Health check all agents
+  health:
+    type: task
+    machine: gpu-1
+    command: |
+      for host in 192.168.1.101 192.168.1.102 192.168.1.103; do
+        curl -sf http://$host:{{params.mcp_port}}/health || exit 1
+      done
+    depends_on: [lb-config]
+    tags: [agent, health]
+
+  # Tool permission policy enforcement
+  tool-policy:
+    type: file
+    machine: [gpu-1, gpu-2, gpu-3]
+    path: /etc/pforge/tool-policy.yaml
+    content: |
+      allow:
+        - file-read
+        - code-search
+        - documentation-lookup
+      deny:
+        - shell-exec
+        - network-access
+        - file-delete
+    depends_on: [mcp-server]
+    tags: [agent, policy, security]
+
+policies:
+  - type: require
+    message: "all resources must be tagged"
+    field: tags
+  - type: deny
+    message: "no curl|bash patterns"
+    pattern: "curl.*\\|.*bash"

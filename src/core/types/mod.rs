@@ -5,6 +5,7 @@
 
 mod config;
 mod policy;
+pub mod refinement;
 mod resource;
 mod state_types;
 
