@@ -43,7 +43,7 @@ pub(crate) fn cmd_status_machine_resource_age_distribution(
 fn collect_age_distribution(state_dir: &Path, targets: &[&String]) -> Vec<(String, usize, usize)> {
     let mut results = Vec::new();
     for m in targets {
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&lock_path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -100,7 +100,7 @@ fn compute_convergence_velocity(state_dir: &Path, targets: &[&String]) -> (usize
     let mut total = 0usize;
     let mut converged = 0usize;
     for m in targets {
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&lock_path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -157,7 +157,7 @@ fn find_failure_correlations(state_dir: &Path, targets: &[&String]) -> Vec<(Stri
     let mut failure_counts: std::collections::HashMap<String, usize> =
         std::collections::HashMap::new();
     for m in targets {
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&lock_path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -190,7 +190,7 @@ pub(crate) fn cmd_status_machine_resource_churn_rate(
     };
     let mut rates: Vec<(String, usize)> = Vec::new();
     for m in &targets {
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&lock_path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -233,7 +233,7 @@ pub(crate) fn cmd_status_fleet_resource_staleness(
     };
     let mut stale: Vec<(String, String, String)> = Vec::new();
     for m in &targets {
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&lock_path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -282,7 +282,7 @@ pub(crate) fn cmd_status_machine_convergence_trend(
     };
     let mut trends: Vec<(String, usize, usize, f64)> = Vec::new();
     for m in &targets {
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&lock_path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -343,7 +343,7 @@ pub(crate) fn cmd_status_machine_capacity_utilization(
     };
     let mut utilization: Vec<(String, usize)> = Vec::new();
     for m in &targets {
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&lock_path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -415,7 +415,7 @@ fn collect_type_entropy(state_dir: &Path, targets: &[&String]) -> Vec<(String, u
     let mut type_counts: std::collections::HashMap<String, usize> =
         std::collections::HashMap::new();
     for m in targets {
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&lock_path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -448,7 +448,7 @@ pub(crate) fn cmd_status_machine_resource_freshness(
     };
     let mut freshness: Vec<(String, String, String)> = Vec::new();
     for m in &targets {
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&lock_path) {
             Ok(c) => c,
             Err(_) => continue,

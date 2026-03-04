@@ -10,7 +10,7 @@ pub(crate) fn cmd_lock_compress(state_dir: &Path, json: bool) -> Result<(), Stri
     let mut total_saved = 0u64;
 
     for m in &machines {
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             continue;
         }
@@ -62,7 +62,7 @@ pub(crate) fn cmd_lock_archive(state_dir: &Path, json: bool) -> Result<(), Strin
     let mut archived = 0u64;
 
     for m in &machines {
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             continue;
         }
@@ -110,13 +110,13 @@ pub(crate) fn cmd_lock_snapshot(state_dir: &Path, json: bool) -> Result<(), Stri
     let mut copied = 0u64;
 
     for m in &machines {
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             continue;
         }
         std::fs::create_dir_all(&dest_dir)
             .map_err(|e| format!("Failed to create snapshot dir: {e}"))?;
-        let dest = dest_dir.join(format!("{m}.lock.yaml"));
+        let dest = dest_dir.join(m).join("state.lock.yaml");
         std::fs::copy(&lock_path, &dest)
             .map_err(|e| format!("Failed to snapshot {}: {}", lock_path.display(), e))?;
         copied += 1;
@@ -140,7 +140,7 @@ pub(crate) fn cmd_lock_defrag(state_dir: &Path, json: bool) -> Result<(), String
     let mut defragged = 0u64;
 
     for m in &machines {
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             continue;
         }

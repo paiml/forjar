@@ -10,7 +10,7 @@ pub(crate) fn cmd_lock_history(state_dir: &Path, json: bool, limit: usize) -> Re
     let mut entries = Vec::new();
 
     for m in &machines {
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             continue;
         }
@@ -129,7 +129,7 @@ pub(crate) fn cmd_lock_audit(state_dir: &Path, json: bool) -> Result<(), String>
     let mut results: Vec<(String, bool, String)> = Vec::new();
 
     for m in &machines {
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             results.push((m.clone(), false, "lock file missing".to_string()));
             continue;
@@ -161,7 +161,7 @@ pub(crate) fn cmd_lock_verify_hmac(state_dir: &Path, json: bool) -> Result<(), S
     let mut unsigned = 0u64;
 
     for m in &machines {
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         let sig_path = state_dir.join(format!("{m}.lock.yaml.sig"));
         if !lock_path.exists() {
             continue;
@@ -244,7 +244,7 @@ pub(crate) fn cmd_lock_restore(
     let machines = discover_machines(state_dir);
     let mut restored = 0;
     for m in &machines {
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         std::fs::write(&lock_path, &data).map_err(|e| format!("Failed to restore {m}: {e}"))?;
         restored += 1;
     }
@@ -266,7 +266,7 @@ pub(crate) fn cmd_lock_verify_schema(state_dir: &Path, json: bool) -> Result<(),
     let expected_schema = "1.0";
     let mut results: Vec<(String, String, bool)> = Vec::new();
     for m in &machines {
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if let Ok(data) = std::fs::read_to_string(&lock_path) {
             if let Ok(lock) = serde_yaml_ng::from_str::<types::StateLock>(&data) {
                 let matches = lock.schema == expected_schema;
@@ -312,7 +312,7 @@ pub(crate) fn cmd_lock_tag(
     let machines = discover_machines(state_dir);
     let mut tagged = 0;
     for m in &machines {
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if let Ok(data) = std::fs::read_to_string(&lock_path) {
             // Prepend tag as YAML comment
             let tag_line = format!("# tag:{tag_name}: {tag_value}\n");
@@ -346,7 +346,7 @@ pub(crate) fn cmd_lock_migrate(
     let target_version = "1.0";
     let mut migrated = 0;
     for m in &machines {
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if let Ok(data) = std::fs::read_to_string(&lock_path) {
             if let Ok(mut lock) = serde_yaml_ng::from_str::<types::StateLock>(&data) {
                 if lock.schema == from_version && lock.schema != target_version {

@@ -18,7 +18,7 @@ pub(super) fn pct(num: usize, den: usize) -> f64 {
 pub(super) fn collect_error_budgets(sd: &Path, targets: &[&String]) -> Vec<(String, usize, usize)> {
     let mut budgets = Vec::new();
     for m in targets {
-        let path = sd.join(m).join("lock.yaml");
+        let path = sd.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -95,7 +95,7 @@ pub(crate) fn cmd_status_fleet_compliance_score(
     };
     let (mut total, mut converged) = (0usize, 0usize);
     for m in &targets {
-        let path = sd.join(m).join("lock.yaml");
+        let path = sd.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -143,7 +143,7 @@ pub(crate) fn cmd_status_machine_mean_time_to_recovery(
     };
     let mut mttr_data: Vec<(String, String)> = Vec::new();
     for m in &targets {
-        let events_path = sd.join(m).join("events.yaml");
+        let events_path = sd.join(m).join("events.jsonl");
         if events_path.exists() {
             mttr_data.push(((*m).clone(), "event data present".to_string()));
         } else {
@@ -184,7 +184,7 @@ pub(crate) fn cmd_status_machine_resource_dependency_health(
     };
     let mut health_data: Vec<(String, usize, usize)> = Vec::new();
     for m in &targets {
-        let path = sd.join(m).join("lock.yaml");
+        let path = sd.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -260,7 +260,7 @@ pub(super) fn collect_type_health(sd: &Path, targets: &[&String]) -> Vec<(String
     let mut type_map: std::collections::HashMap<String, (usize, usize)> =
         std::collections::HashMap::new();
     for m in targets {
-        let path = sd.join(m).join("lock.yaml");
+        let path = sd.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -292,7 +292,7 @@ pub(super) fn collect_convergence_rates(
 ) -> Vec<(String, usize, usize)> {
     let mut rates: Vec<(String, usize, usize)> = Vec::new();
     for m in targets {
-        let path = sd.join(m).join("lock.yaml");
+        let path = sd.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&path) {
             Ok(c) => c,
             Err(_) => continue,

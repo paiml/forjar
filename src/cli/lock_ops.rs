@@ -148,7 +148,7 @@ pub(crate) fn cmd_lock_verify(state_dir: &Path, json: bool) -> Result<(), String
                 .unwrap_or_default()
                 .to_string_lossy()
                 .to_string();
-            let lock_path = path.join("lock.yaml");
+            let lock_path = path.join("state.lock.yaml");
             if lock_path.exists() {
                 let (v, c, checks) = verify_machine_lock(state_dir, &m_name)?;
                 verified += v;

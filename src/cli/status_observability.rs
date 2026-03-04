@@ -347,7 +347,7 @@ fn collect_errors_for_machine(
     m: &str,
     errors: &mut Vec<(String, String, String)>,
 ) {
-    let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+    let lock_path = state_dir.join(m).join("state.lock.yaml");
     if !lock_path.exists() {
         return;
     }

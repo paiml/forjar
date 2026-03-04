@@ -42,7 +42,7 @@ pub(crate) fn cmd_status_resource_duration(
 pub(super) fn collect_durations(sd: &Path, targets: &[&String]) -> Vec<(String, String, f64)> {
     let mut entries = Vec::new();
     for m in targets {
-        let lock_path = sd.join(format!("{m}.lock.yaml"));
+        let lock_path = sd.join(m).join("state.lock.yaml");
         if let Ok(content) = std::fs::read_to_string(&lock_path) {
             if let Ok(lock) = serde_yaml_ng::from_str::<types::StateLock>(&content) {
                 for (name, rl) in &lock.resources {
@@ -170,7 +170,7 @@ pub(crate) fn cmd_status_resource_hash(
 pub(super) fn collect_hashes(sd: &Path, targets: &[&String]) -> Vec<(String, String, String)> {
     let mut entries = Vec::new();
     for m in targets {
-        let lock_path = sd.join(format!("{m}.lock.yaml"));
+        let lock_path = sd.join(m).join("state.lock.yaml");
         if let Ok(content) = std::fs::read_to_string(&lock_path) {
             if let Ok(lock) = serde_yaml_ng::from_str::<types::StateLock>(&content) {
                 for (name, rl) in &lock.resources {

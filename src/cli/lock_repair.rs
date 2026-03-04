@@ -10,7 +10,7 @@ pub(crate) fn cmd_lock_repair(state_dir: &Path, json: bool) -> Result<(), String
     let mut already_valid = 0u64;
 
     for m in &machines {
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             continue;
         }
@@ -66,7 +66,7 @@ pub(crate) fn cmd_lock_rehash(state_dir: &Path, json: bool) -> Result<(), String
     let mut rehashed = 0u64;
 
     for m in &machines {
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             continue;
         }
@@ -92,7 +92,7 @@ pub(crate) fn cmd_lock_normalize(state_dir: &Path, json: bool) -> Result<(), Str
     let mut normalized = 0u64;
 
     for m in &machines {
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             continue;
         }

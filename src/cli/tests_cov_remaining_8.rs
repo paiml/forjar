@@ -164,20 +164,22 @@ mod tests {
     #[test]
     fn test_cov_lock_backup_with_files() {
         let td = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(td.path().join("web")).unwrap();
         std::fs::write(
-            td.path().join("web.lock.yaml"),
+            td.path().join("web").join("state.lock.yaml"),
             "schema: \"1\"\nmachine: web\nhostname: web\nresources: {}\n",
         )
         .unwrap();
-        std::fs::write(td.path().join("web.events.jsonl"), "{\"ts\":\"now\"}\n").unwrap();
+        std::fs::write(td.path().join("web").join("events.jsonl"), "{\"ts\":\"now\"}\n").unwrap();
         assert!(cmd_lock_backup(td.path(), false).is_ok());
     }
 
     #[test]
     fn test_cov_lock_backup_with_files_json() {
         let td = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(td.path().join("web")).unwrap();
         std::fs::write(
-            td.path().join("web.lock.yaml"),
+            td.path().join("web").join("state.lock.yaml"),
             "schema: \"1\"\nmachine: web\nhostname: web\nresources: {}\n",
         )
         .unwrap();
@@ -214,8 +216,8 @@ mod tests {
         .unwrap();
         // Create the flat lock file that verify_chain looks for
         let lock_content = "schema: \"1\"\nmachine: web\nhostname: web\nresources: {}\n";
-        std::fs::write(td.path().join("web.lock.yaml"), lock_content).unwrap();
-        std::fs::write(td.path().join("web.lock.yaml.sig"), "wrong-hash").unwrap();
+        std::fs::write(td.path().join("web").join("state.lock.yaml"), lock_content).unwrap();
+        std::fs::write(td.path().join("web/state.lock.yaml.sig"), "wrong-hash").unwrap();
         assert!(cmd_lock_verify_chain(td.path(), false).is_ok());
     }
 
@@ -249,7 +251,7 @@ mod tests {
         .unwrap();
         // Also create the flat lock file that stats reads
         std::fs::write(
-            td.path().join("web.lock.yaml"),
+            td.path().join("web").join("state.lock.yaml"),
             "schema: \"1\"\nmachine: web\nhostname: web\nresources:\n  a:\n    type: File\n    status: Converged\n    hash: abc123\n",
         )
         .unwrap();
@@ -267,7 +269,7 @@ mod tests {
         )
         .unwrap();
         std::fs::write(
-            td.path().join("web.lock.yaml"),
+            td.path().join("web").join("state.lock.yaml"),
             "schema: \"1\"\nmachine: web\nhostname: web\nresources: {}\n",
         )
         .unwrap();

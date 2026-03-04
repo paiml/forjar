@@ -42,7 +42,7 @@ pub(super) fn collect_last_apply_times(
 ) -> Vec<(String, String)> {
     let mut results = Vec::new();
     for m in targets {
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&lock_path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -108,7 +108,7 @@ pub(super) fn collect_fleet_drift(
 ) -> Vec<(String, usize, usize)> {
     let mut results = Vec::new();
     for m in targets {
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&lock_path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -166,7 +166,7 @@ pub(super) fn collect_apply_durations(state_dir: &Path, targets: &[&String]) -> 
     let mut type_durations: std::collections::HashMap<String, Vec<f64>> =
         std::collections::HashMap::new();
     for m in targets {
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&lock_path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -232,7 +232,7 @@ pub(super) fn collect_machine_health(
 ) -> Vec<(String, usize, usize, usize)> {
     let mut results = Vec::new();
     for m in targets {
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&lock_path) {
             Ok(c) => c,
             Err(_) => continue,
