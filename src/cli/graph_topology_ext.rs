@@ -116,7 +116,7 @@ pub(crate) fn cmd_graph_resource_dependency_island_detection(
             println!("  (no islands detected)");
         } else {
             for name in &islands {
-                println!("  {}", name);
+                println!("  {name}");
             }
         }
     }

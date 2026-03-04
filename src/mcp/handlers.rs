@@ -161,8 +161,7 @@ impl Handler for LintHandler {
         for name in config.machines.keys() {
             if !used_machines.contains(name) {
                 warnings.push(format!(
-                    "Machine '{}' is defined but not referenced by any resource",
-                    name
+                    "Machine '{name}' is defined but not referenced by any resource"
                 ));
             }
         }
@@ -226,9 +225,9 @@ impl Handler for GraphHandler {
                 graph.push_str("  rankdir=LR;\n");
                 for (id, resource) in &config.resources {
                     let label = format!("{}\\n({})", id, resource.resource_type);
-                    graph.push_str(&format!("  \"{}\" [label=\"{}\"];\n", id, label));
+                    graph.push_str(&format!("  \"{id}\" [label=\"{label}\"];\n"));
                     for dep in &resource.depends_on {
-                        graph.push_str(&format!("  \"{}\" -> \"{}\";\n", dep, id));
+                        graph.push_str(&format!("  \"{dep}\" -> \"{id}\";\n"));
                     }
                 }
                 graph.push_str("}\n");
@@ -241,7 +240,7 @@ impl Handler for GraphHandler {
                         id, id, resource.resource_type
                     ));
                     for dep in &resource.depends_on {
-                        graph.push_str(&format!("  {} --> {}\n", dep, id));
+                        graph.push_str(&format!("  {dep} --> {id}\n"));
                     }
                 }
             }
@@ -278,8 +277,7 @@ impl Handler for ShowHandler {
                     .map_err(|e| pforge_runtime::Error::Handler(e.to_string()))?
             } else {
                 return Err(pforge_runtime::Error::Handler(format!(
-                    "Resource '{}' not found",
-                    r
+                    "Resource '{r}' not found"
                 )));
             }
         } else {
@@ -448,15 +446,15 @@ impl Handler for AnomalyHandler {
                     if let Ok(te) = serde_json::from_str::<types::TimestampedEvent>(line) {
                         match te.event {
                             types::ProvenanceEvent::ResourceConverged { ref resource, .. } => {
-                                let key = format!("{}:{}", name, resource);
+                                let key = format!("{name}:{resource}");
                                 metrics.entry(key).or_insert((0, 0, 0)).0 += 1;
                             }
                             types::ProvenanceEvent::ResourceFailed { ref resource, .. } => {
-                                let key = format!("{}:{}", name, resource);
+                                let key = format!("{name}:{resource}");
                                 metrics.entry(key).or_insert((0, 0, 0)).1 += 1;
                             }
                             types::ProvenanceEvent::DriftDetected { ref resource, .. } => {
-                                let key = format!("{}:{}", name, resource);
+                                let key = format!("{name}:{resource}");
                                 metrics.entry(key).or_insert((0, 0, 0)).2 += 1;
                             }
                             _ => {}

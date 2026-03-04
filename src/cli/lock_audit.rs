@@ -10,7 +10,7 @@ pub(crate) fn cmd_lock_history(state_dir: &Path, json: bool, limit: usize) -> Re
     let mut entries = Vec::new();
 
     for m in &machines {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             continue;
         }
@@ -82,7 +82,7 @@ fn audit_lock_integrity(lock: &crate::core::types::StateLock) -> (bool, String) 
         let hash = &rlock.hash;
         if hash.len() != 64 || !hash.chars().all(|c| c.is_ascii_hexdigit()) {
             valid = false;
-            reason = format!("invalid hash for resource {}", rname);
+            reason = format!("invalid hash for resource {rname}");
             break;
         }
         // Verify hash by recomputing from resource type + status
@@ -104,7 +104,7 @@ fn output_audit_results(results: &[(String, bool, String)], json: bool) {
     if json {
         let items: Vec<String> = results
             .iter()
-            .map(|(m, v, r)| format!(r#"{{"machine":"{}","valid":{},"reason":"{}"}}"#, m, v, r))
+            .map(|(m, v, r)| format!(r#"{{"machine":"{m}","valid":{v},"reason":"{r}"}}"#))
             .collect();
         println!(
             r#"{{"audit":[{}],"total":{},"valid":{}}}"#,
@@ -118,7 +118,7 @@ fn output_audit_results(results: &[(String, bool, String)], json: bool) {
         println!("Lock file audit ({} files):", results.len());
         for (m, valid, reason) in results {
             let icon = if *valid { "PASS" } else { "FAIL" };
-            println!("  [{}] {} — {}", icon, m, reason);
+            println!("  [{icon}] {m} — {reason}");
         }
     }
 }
@@ -129,7 +129,7 @@ pub(crate) fn cmd_lock_audit(state_dir: &Path, json: bool) -> Result<(), String>
     let mut results: Vec<(String, bool, String)> = Vec::new();
 
     for m in &machines {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             results.push((m.clone(), false, "lock file missing".to_string()));
             continue;
@@ -145,7 +145,7 @@ pub(crate) fn cmd_lock_audit(state_dir: &Path, json: bool) -> Result<(), String>
                 results.push((m.clone(), valid, reason));
             }
             Err(e) => {
-                results.push((m.clone(), false, format!("YAML parse error: {}", e)));
+                results.push((m.clone(), false, format!("YAML parse error: {e}")));
             }
         }
     }
@@ -161,8 +161,8 @@ pub(crate) fn cmd_lock_verify_hmac(state_dir: &Path, json: bool) -> Result<(), S
     let mut unsigned = 0u64;
 
     for m in &machines {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
-        let sig_path = state_dir.join(format!("{}.lock.yaml.sig", m));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
+        let sig_path = state_dir.join(format!("{m}.lock.yaml.sig"));
         if !lock_path.exists() {
             continue;
         }
@@ -179,13 +179,12 @@ pub(crate) fn cmd_lock_verify_hmac(state_dir: &Path, json: bool) -> Result<(), S
     }
 
     if json {
-        println!(r#"{{"verified":{},"unsigned":{}}}"#, verified, unsigned);
+        println!(r#"{{"verified":{verified},"unsigned":{unsigned}}}"#);
     } else if unsigned == 0 && verified == 0 {
         println!("No lock files found");
     } else {
         println!(
-            "HMAC verification: {} verified, {} unsigned",
-            verified, unsigned
+            "HMAC verification: {verified} verified, {unsigned} unsigned"
         );
     }
     Ok(())
@@ -194,7 +193,7 @@ pub(crate) fn cmd_lock_verify_hmac(state_dir: &Path, json: bool) -> Result<(), S
 /// Resolve the most recent snapshot name from the snapshots directory.
 fn resolve_latest_snapshot(snapshot_dir: &Path, json: bool) -> Result<Option<String>, String> {
     let mut entries: Vec<_> = std::fs::read_dir(snapshot_dir)
-        .map_err(|e| format!("Failed to read snapshots: {}", e))?
+        .map_err(|e| format!("Failed to read snapshots: {e}"))?
         .filter_map(|e| e.ok())
         .filter(|e| e.path().extension().and_then(|s| s.to_str()) == Some("yaml"))
         .collect();
@@ -236,28 +235,26 @@ pub(crate) fn cmd_lock_restore(
             None => return Ok(()),
         },
     };
-    let snap_path = snapshot_dir.join(format!("{}.yaml", snapshot_name));
+    let snap_path = snapshot_dir.join(format!("{snapshot_name}.yaml"));
     if !snap_path.exists() {
-        return Err(format!("Snapshot not found: {}", snapshot_name));
+        return Err(format!("Snapshot not found: {snapshot_name}"));
     }
     let data = std::fs::read_to_string(&snap_path)
-        .map_err(|e| format!("Failed to read snapshot: {}", e))?;
+        .map_err(|e| format!("Failed to read snapshot: {e}"))?;
     let machines = discover_machines(state_dir);
     let mut restored = 0;
     for m in &machines {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
-        std::fs::write(&lock_path, &data).map_err(|e| format!("Failed to restore {}: {}", m, e))?;
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
+        std::fs::write(&lock_path, &data).map_err(|e| format!("Failed to restore {m}: {e}"))?;
         restored += 1;
     }
     if json {
         println!(
-            "{{\"restored\":true,\"snapshot\":\"{}\",\"machines_restored\":{}}}",
-            snapshot_name, restored
+            "{{\"restored\":true,\"snapshot\":\"{snapshot_name}\",\"machines_restored\":{restored}}}"
         );
     } else {
         println!(
-            "Restored snapshot '{}' to {} machine(s).",
-            snapshot_name, restored
+            "Restored snapshot '{snapshot_name}' to {restored} machine(s)."
         );
     }
     Ok(())
@@ -269,7 +266,7 @@ pub(crate) fn cmd_lock_verify_schema(state_dir: &Path, json: bool) -> Result<(),
     let expected_schema = "1.0";
     let mut results: Vec<(String, String, bool)> = Vec::new();
     for m in &machines {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if let Ok(data) = std::fs::read_to_string(&lock_path) {
             if let Ok(lock) = serde_yaml_ng::from_str::<types::StateLock>(&data) {
                 let matches = lock.schema == expected_schema;
@@ -282,8 +279,7 @@ pub(crate) fn cmd_lock_verify_schema(state_dir: &Path, json: bool) -> Result<(),
             .iter()
             .map(|(m, schema, ok)| {
                 format!(
-                    "{{\"machine\":\"{}\",\"schema\":\"{}\",\"compatible\":{}}}",
-                    m, schema, ok
+                    "{{\"machine\":\"{m}\",\"schema\":\"{schema}\",\"compatible\":{ok}}}"
                 )
             })
             .collect();
@@ -296,12 +292,11 @@ pub(crate) fn cmd_lock_verify_schema(state_dir: &Path, json: bool) -> Result<(),
         println!("No lock files found.");
     } else {
         println!(
-            "Lock file schema verification (expected: {}):",
-            expected_schema
+            "Lock file schema verification (expected: {expected_schema}):"
         );
         for (m, schema, ok) in &results {
             let status = if *ok { "OK" } else { "MISMATCH" };
-            println!("  {} — schema {} [{}]", m, schema, status);
+            println!("  {m} — schema {schema} [{status}]");
         }
     }
     Ok(())
@@ -317,11 +312,11 @@ pub(crate) fn cmd_lock_tag(
     let machines = discover_machines(state_dir);
     let mut tagged = 0;
     for m in &machines {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if let Ok(data) = std::fs::read_to_string(&lock_path) {
             // Prepend tag as YAML comment
-            let tag_line = format!("# tag:{}: {}\n", tag_name, tag_value);
-            let new_data = format!("{}{}", tag_line, data);
+            let tag_line = format!("# tag:{tag_name}: {tag_value}\n");
+            let new_data = format!("{tag_line}{data}");
             std::fs::write(&lock_path, new_data)
                 .map_err(|e| format!("Failed to write {}: {}", lock_path.display(), e))?;
             tagged += 1;
@@ -329,15 +324,13 @@ pub(crate) fn cmd_lock_tag(
     }
     if json {
         println!(
-            "{{\"tagged\":{},\"tag_name\":\"{}\",\"tag_value\":\"{}\"}}",
-            tagged, tag_name, tag_value
+            "{{\"tagged\":{tagged},\"tag_name\":\"{tag_name}\",\"tag_value\":\"{tag_value}\"}}"
         );
     } else if tagged == 0 {
         println!("No lock files found to tag.");
     } else {
         println!(
-            "Tagged {} lock file(s) with {}={}",
-            tagged, tag_name, tag_value
+            "Tagged {tagged} lock file(s) with {tag_name}={tag_value}"
         );
     }
     Ok(())
@@ -353,15 +346,15 @@ pub(crate) fn cmd_lock_migrate(
     let target_version = "1.0";
     let mut migrated = 0;
     for m in &machines {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if let Ok(data) = std::fs::read_to_string(&lock_path) {
             if let Ok(mut lock) = serde_yaml_ng::from_str::<types::StateLock>(&data) {
                 if lock.schema == from_version && lock.schema != target_version {
                     lock.schema = target_version.to_string();
                     let new_data = serde_yaml_ng::to_string(&lock)
-                        .map_err(|e| format!("Failed to serialize: {}", e))?;
+                        .map_err(|e| format!("Failed to serialize: {e}"))?;
                     std::fs::write(&lock_path, new_data)
-                        .map_err(|e| format!("Failed to write: {}", e))?;
+                        .map_err(|e| format!("Failed to write: {e}"))?;
                     migrated += 1;
                 }
             }
@@ -369,13 +362,11 @@ pub(crate) fn cmd_lock_migrate(
     }
     if json {
         println!(
-            "{{\"migrated\":{},\"from_version\":\"{}\",\"to_version\":\"{}\"}}",
-            migrated, from_version, target_version
+            "{{\"migrated\":{migrated},\"from_version\":\"{from_version}\",\"to_version\":\"{target_version}\"}}"
         );
     } else {
         println!(
-            "Migrated {} lock file(s) from schema {} to {}.",
-            migrated, from_version, target_version
+            "Migrated {migrated} lock file(s) from schema {from_version} to {target_version}."
         );
     }
     Ok(())

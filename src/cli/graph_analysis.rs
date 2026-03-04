@@ -72,7 +72,7 @@ fn print_clusters_json(clusters: &[Vec<String>]) {
         if i > 0 {
             print!(",");
         }
-        let items: Vec<_> = cluster.iter().map(|c| format!(r#""{}""#, c)).collect();
+        let items: Vec<_> = cluster.iter().map(|c| format!(r#""{c}""#)).collect();
         print!(
             "{{\"size\":{},\"resources\":[{}]}}",
             cluster.len(),
@@ -123,30 +123,30 @@ fn compute_dependency_depths(
 
 /// Print dependency depths as JSON.
 fn print_depths_json(sorted: &[(String, usize)], max_depth: usize) {
-    print!("{{\"max_depth\":{},\"resources\":[", max_depth);
+    print!("{{\"max_depth\":{max_depth},\"resources\":[");
     for (i, (name, depth)) in sorted.iter().enumerate() {
         if i > 0 {
             print!(",");
         }
-        print!(r#"{{"name":"{}","depth":{}}}"#, name, depth);
+        print!(r#"{{"name":"{name}","depth":{depth}}}"#);
     }
     println!("]}}");
 }
 
 /// Print dependency depths as text.
 fn print_depths_text(sorted: &[(String, usize)], max_depth: usize) {
-    println!("Max dependency depth: {}", max_depth);
+    println!("Max dependency depth: {max_depth}");
     for (name, depth) in sorted {
         let bar = "#".repeat(*depth);
-        println!("  {} [{}] {}", name, depth, bar);
+        println!("  {name} [{depth}] {bar}");
     }
 }
 
 /// FJ-684: Identify tightly-coupled resource clusters
 pub(crate) fn cmd_graph_resource_clusters(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
     let config: crate::core::types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
 
     let adj = build_bidirectional_adj(&config);
     let clusters = find_connected_components(&config, &adj);
@@ -181,7 +181,7 @@ pub(crate) fn cmd_graph_resource_types(file: &Path, json: bool) -> Result<(), St
         let items: Vec<String> = sorted_types
             .iter()
             .map(|(t, rs)| {
-                let r_items: Vec<String> = rs.iter().map(|r| format!(r#""{}""#, r)).collect();
+                let r_items: Vec<String> = rs.iter().map(|r| format!(r#""{r}""#)).collect();
                 format!(
                     r#"{{"type":"{}","resources":[{}],"count":{}}}"#,
                     t,
@@ -196,7 +196,7 @@ pub(crate) fn cmd_graph_resource_types(file: &Path, json: bool) -> Result<(), St
         for (type_name, resources) in &sorted_types {
             println!("  {} ({}):", type_name, resources.len());
             for r in resources {
-                println!("    {}", r);
+                println!("    {r}");
             }
         }
     }
@@ -220,8 +220,7 @@ pub(crate) fn cmd_graph_resource_age(file: &Path, json: bool) -> Result<(), Stri
                     .map(|r| format!("{:?}", r.resource_type))
                     .unwrap_or_else(|| "unknown".to_string());
                 format!(
-                    r#"{{"resource":"{}","type":"{}","age":"unknown"}}"#,
-                    name, rtype
+                    r#"{{"resource":"{name}","type":"{rtype}","age":"unknown"}}"#
                 )
             })
             .collect();
@@ -233,7 +232,7 @@ pub(crate) fn cmd_graph_resource_age(file: &Path, json: bool) -> Result<(), Stri
     } else if resource_count == 0 {
         println!("No resources found");
     } else {
-        println!("Resource age ({} resources):", resource_count);
+        println!("Resource age ({resource_count} resources):");
         println!("  (Run with --state-dir to show actual ages from lock files)");
         for name in config.resources.keys() {
             let rtype = config
@@ -241,7 +240,7 @@ pub(crate) fn cmd_graph_resource_age(file: &Path, json: bool) -> Result<(), Stri
                 .get(name)
                 .map(|r| format!("{:?}", r.resource_type))
                 .unwrap_or_else(|| "unknown".to_string());
-            println!("  {} ({}) — age unknown", name, rtype);
+            println!("  {name} ({rtype}) — age unknown");
         }
     }
     Ok(())
@@ -249,9 +248,9 @@ pub(crate) fn cmd_graph_resource_age(file: &Path, json: bool) -> Result<(), Stri
 
 /// FJ-654: Find orphan resources (no dependents or dependencies)
 pub(crate) fn cmd_graph_orphan_detection(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
     let config: crate::core::types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
 
     // Build sets: who depends on whom, who is depended upon
     let mut has_deps: std::collections::HashSet<String> = std::collections::HashSet::new();
@@ -280,7 +279,7 @@ pub(crate) fn cmd_graph_orphan_detection(file: &Path, json: bool) -> Result<(), 
             if i > 0 {
                 print!(",");
             }
-            print!(r#""{}""#, name);
+            print!(r#""{name}""#);
         }
         println!("]}}");
     } else if orphans.is_empty() {
@@ -288,7 +287,7 @@ pub(crate) fn cmd_graph_orphan_detection(file: &Path, json: bool) -> Result<(), 
     } else {
         println!("Orphan resources ({}):", orphans.len());
         for name in &orphans {
-            println!("  - {}", name);
+            println!("  - {name}");
         }
     }
     Ok(())
@@ -296,9 +295,9 @@ pub(crate) fn cmd_graph_orphan_detection(file: &Path, json: bool) -> Result<(), 
 
 /// FJ-644: Show max dependency depth per resource
 pub(crate) fn cmd_graph_dependency_depth(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
     let config: crate::core::types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
 
     let depths = compute_dependency_depths(&config);
 

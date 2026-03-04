@@ -35,7 +35,7 @@ pub fn has_control_master(machine: &Machine) -> bool {
 pub fn start_control_master(machine: &Machine) -> Result<bool, String> {
     // Ensure socket directory exists
     std::fs::create_dir_all(CONTROL_DIR)
-        .map_err(|e| format!("cannot create {}: {}", CONTROL_DIR, e))?;
+        .map_err(|e| format!("cannot create {CONTROL_DIR}: {e}"))?;
 
     let sock = control_path(machine);
     if std::path::Path::new(&sock).exists() {
@@ -46,7 +46,7 @@ pub fn start_control_master(machine: &Machine) -> Result<bool, String> {
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .status()
-            .map_err(|e| format!("ssh check failed: {}", e))?;
+            .map_err(|e| format!("ssh check failed: {e}"))?;
         if status.success() {
             return Ok(false); // already running
         }
@@ -145,12 +145,12 @@ pub fn exec_ssh(machine: &Machine, script: &str) -> Result<ExecOutput, String> {
     if let Some(ref mut stdin) = child.stdin {
         stdin
             .write_all(script.as_bytes())
-            .map_err(|e| format!("stdin write error: {}", e))?;
+            .map_err(|e| format!("stdin write error: {e}"))?;
     }
 
     let output = child
         .wait_with_output()
-        .map_err(|e| format!("ssh wait error: {}", e))?;
+        .map_err(|e| format!("ssh wait error: {e}"))?;
 
     Ok(ExecOutput {
         exit_code: output.status.code().unwrap_or(-1),
@@ -163,7 +163,7 @@ pub fn exec_ssh(machine: &Machine, script: &str) -> Result<ExecOutput, String> {
 pub(crate) fn expand_tilde(path: &str) -> String {
     if let Some(rest) = path.strip_prefix("~/") {
         if let Ok(home) = std::env::var("HOME") {
-            return format!("{}/{}", home, rest);
+            return format!("{home}/{rest}");
         }
     }
     path.to_string()
@@ -187,7 +187,7 @@ pub(crate) fn build_ssh_args(machine: &Machine) -> Vec<String> {
         args.push("-o".to_string());
         args.push("ControlMaster=auto".to_string());
         args.push("-o".to_string());
-        args.push(format!("ControlPath={}", sock));
+        args.push(format!("ControlPath={sock}"));
     }
 
     if let Some(ref key) = machine.ssh_key {

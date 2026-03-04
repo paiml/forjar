@@ -62,13 +62,13 @@ pub(crate) fn cmd_retry_failed(
 
     println!("Retrying {} failed resource(s):", failed_resources.len());
     for (machine, resource) in &failed_resources {
-        println!("  {} → {}", machine, resource);
+        println!("  {machine} → {resource}");
     }
     println!();
 
     // Apply each failed resource individually
     for (machine, resource) in &failed_resources {
-        println!("Retrying {} on {}...", resource, machine);
+        println!("Retrying {resource} on {machine}...");
         cmd_apply(
             file,
             state_dir,
@@ -221,7 +221,7 @@ pub(crate) fn cmd_canary(
     }
 
     // Phase 1: Apply to canary
-    println!("=== Canary Phase: applying to '{}' ===\n", canary_machine);
+    println!("=== Canary Phase: applying to '{canary_machine}' ===\n");
 
     cmd_apply(
         file,

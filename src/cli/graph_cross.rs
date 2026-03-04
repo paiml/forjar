@@ -42,8 +42,7 @@ fn print_cross_deps_json(cross_deps: &[(String, String, String, String)]) {
             print!(",");
         }
         print!(
-            r#"{{"resource":"{}","machine":"{}","depends_on":"{}","dep_machine":"{}"}}"#,
-            src, src_m, dep, dep_m
+            r#"{{"resource":"{src}","machine":"{src_m}","depends_on":"{dep}","dep_machine":"{dep_m}"}}"#
         );
     }
     println!("]}}");
@@ -56,7 +55,7 @@ fn print_cross_deps_text(cross_deps: &[(String, String, String, String)]) {
     } else {
         println!("Cross-machine dependencies ({}):", cross_deps.len());
         for (src, src_m, dep, dep_m) in cross_deps {
-            println!("  {} ({}) -> {} ({})", src, src_m, dep, dep_m);
+            println!("  {src} ({src_m}) -> {dep} ({dep_m})");
         }
     }
 }
@@ -68,7 +67,7 @@ fn print_machine_groups_json(groups: &std::collections::BTreeMap<String, Vec<Str
         if i > 0 {
             print!(",");
         }
-        let res_json: Vec<_> = resources.iter().map(|r| format!(r#""{}""#, r)).collect();
+        let res_json: Vec<_> = resources.iter().map(|r| format!(r#""{r}""#)).collect();
         print!(
             r#"{{"machine":"{}","resources":[{}]}}"#,
             machine,
@@ -83,7 +82,7 @@ fn print_machine_groups_text(groups: &std::collections::BTreeMap<String, Vec<Str
     for (machine, resources) in groups {
         println!("Machine: {} ({} resources)", machine, resources.len());
         for r in resources {
-            println!("  - {}", r);
+            println!("  - {r}");
         }
     }
 }
@@ -148,9 +147,9 @@ fn compute_change_impact(
 
 /// FJ-664: Visualize dependencies across machines
 pub(crate) fn cmd_graph_cross_machine_deps(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
     let config: crate::core::types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
 
     let resource_machine = build_resource_machine_map(&config);
     let cross_deps = find_cross_machine_deps(&config, &resource_machine);
@@ -165,9 +164,9 @@ pub(crate) fn cmd_graph_cross_machine_deps(file: &Path, json: bool) -> Result<()
 
 /// FJ-674: Group resources by machine in graph output
 pub(crate) fn cmd_graph_machine_groups(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
     let config: crate::core::types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
 
     let mut groups: std::collections::BTreeMap<String, Vec<String>> =
         std::collections::BTreeMap::new();
@@ -197,7 +196,7 @@ pub(crate) fn cmd_graph_change_impact(
     let config = parse_and_validate(file)?;
 
     if !config.resources.contains_key(resource) {
-        return Err(format!("Resource '{}' not found in config", resource));
+        return Err(format!("Resource '{resource}' not found in config"));
     }
 
     // Build forward dependency map: what depends on each resource?
@@ -215,8 +214,8 @@ pub(crate) fn cmd_graph_change_impact(
     let (direct, indirect) = compute_change_impact(resource, &dependents);
 
     if json {
-        let d: Vec<String> = direct.iter().map(|d| format!(r#""{}""#, d)).collect();
-        let i: Vec<String> = indirect.iter().map(|i| format!(r#""{}""#, i)).collect();
+        let d: Vec<String> = direct.iter().map(|d| format!(r#""{d}""#)).collect();
+        let i: Vec<String> = indirect.iter().map(|i| format!(r#""{i}""#)).collect();
         println!(
             r#"{{"resource":"{}","direct":[{}],"indirect":[{}],"total_impact":{}}}"#,
             resource,
@@ -225,20 +224,20 @@ pub(crate) fn cmd_graph_change_impact(
             direct.len() + indirect.len()
         );
     } else {
-        println!("Change impact for '{}':", resource);
+        println!("Change impact for '{resource}':");
         if direct.is_empty() && indirect.is_empty() {
             println!("  No downstream dependencies");
         } else {
             if !direct.is_empty() {
                 println!("  Direct ({}):", direct.len());
                 for d in &direct {
-                    println!("    → {}", d);
+                    println!("    → {d}");
                 }
             }
             if !indirect.is_empty() {
                 println!("  Indirect ({}):", indirect.len());
                 for i in &indirect {
-                    println!("    →→ {}", i);
+                    println!("    →→ {i}");
                 }
             }
         }
@@ -263,8 +262,7 @@ pub(crate) fn cmd_graph_security_boundaries(file: &Path, json: bool) -> Result<(
             .iter()
             .map(|(r, t, b)| {
                 format!(
-                    r#"{{"resource":"{}","type":"{}","boundary":"{}"}}"#,
-                    r, t, b
+                    r#"{{"resource":"{r}","type":"{t}","boundary":"{b}"}}"#
                 )
             })
             .collect();
@@ -278,7 +276,7 @@ pub(crate) fn cmd_graph_security_boundaries(file: &Path, json: bool) -> Result<(
     } else {
         println!("Security boundaries ({} resources):", boundaries.len());
         for (r, t, b) in &boundaries {
-            println!("  {} ({}) — {} boundary", r, t, b);
+            println!("  {r} ({t}) — {b} boundary");
         }
     }
     Ok(())
@@ -302,7 +300,7 @@ pub(crate) fn cmd_graph_reverse_deps(file: &Path, json: bool) -> Result<(), Stri
         let entries: Vec<String> = sorted
             .iter()
             .map(|(name, deps)| {
-                let items: Vec<String> = deps.iter().map(|d| format!("\"{}\"", d)).collect();
+                let items: Vec<String> = deps.iter().map(|d| format!("\"{d}\"")).collect();
                 format!(
                     "{{\"resource\":\"{}\",\"depended_by\":[{}]}}",
                     name,
@@ -315,7 +313,7 @@ pub(crate) fn cmd_graph_reverse_deps(file: &Path, json: bool) -> Result<(), Stri
         println!("Reverse dependencies (who depends on me):");
         for (name, deps) in &sorted {
             if deps.is_empty() {
-                println!("  {} — (none)", name);
+                println!("  {name} — (none)");
             } else {
                 println!("  {} <- {}", name, deps.join(", "));
             }
@@ -341,7 +339,7 @@ pub(crate) fn cmd_graph_leaf_resources(file: &Path, json: bool) -> Result<(), St
         .collect();
     leaves.sort();
     if json {
-        let items: Vec<String> = leaves.iter().map(|n| format!("\"{}\"", n)).collect();
+        let items: Vec<String> = leaves.iter().map(|n| format!("\"{n}\"")).collect();
         println!(
             "{{\"leaf_resources\":[{}],\"count\":{}}}",
             items.join(","),
@@ -355,7 +353,7 @@ pub(crate) fn cmd_graph_leaf_resources(file: &Path, json: bool) -> Result<(), St
                 .get(name)
                 .map(|r| format!("{:?}", r.resource_type))
                 .unwrap_or_default();
-            println!("  {} ({})", name, rtype);
+            println!("  {name} ({rtype})");
         }
     }
     Ok(())

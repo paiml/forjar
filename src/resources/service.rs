@@ -18,10 +18,9 @@ fi";
 pub fn check_script(resource: &Resource) -> String {
     let name = resource.name.as_deref().unwrap_or("unknown");
     format!(
-        "{}\n\
-         systemctl is-active '{}' 2>/dev/null && echo 'active:{}' || echo 'inactive:{}'\n\
-         systemctl is-enabled '{}' 2>/dev/null && echo 'enabled:{}' || echo 'disabled:{}'",
-        SYSTEMD_GUARD, name, name, name, name, name, name
+        "{SYSTEMD_GUARD}\n\
+         systemctl is-active '{name}' 2>/dev/null && echo 'active:{name}' || echo 'inactive:{name}'\n\
+         systemctl is-enabled '{name}' 2>/dev/null && echo 'enabled:{name}' || echo 'disabled:{name}'"
     )
 }
 
@@ -36,14 +35,12 @@ pub fn apply_script(resource: &Resource) -> String {
     match state {
         "running" => {
             lines.push(format!(
-                "if ! systemctl is-active --quiet '{}'; then\n  systemctl start '{}'\nfi",
-                name, name
+                "if ! systemctl is-active --quiet '{name}'; then\n  systemctl start '{name}'\nfi"
             ));
         }
         "stopped" => {
             lines.push(format!(
-                "if systemctl is-active --quiet '{}'; then\n  systemctl stop '{}'\nfi",
-                name, name
+                "if systemctl is-active --quiet '{name}'; then\n  systemctl stop '{name}'\nfi"
             ));
         }
         _ => {}
@@ -51,19 +48,17 @@ pub fn apply_script(resource: &Resource) -> String {
 
     if enabled {
         lines.push(format!(
-            "if ! systemctl is-enabled --quiet '{}'; then\n  systemctl enable '{}'\nfi",
-            name, name
+            "if ! systemctl is-enabled --quiet '{name}'; then\n  systemctl enable '{name}'\nfi"
         ));
     } else {
         lines.push(format!(
-            "if systemctl is-enabled --quiet '{}'; then\n  systemctl disable '{}'\nfi",
-            name, name
+            "if systemctl is-enabled --quiet '{name}'; then\n  systemctl disable '{name}'\nfi"
         ));
     }
 
     // Reload if needed (after config changes)
     if !resource.restart_on.is_empty() {
-        lines.push(format!("systemctl reload-or-restart '{}'", name));
+        lines.push(format!("systemctl reload-or-restart '{name}'"));
     }
 
     lines.join("\n")
@@ -73,9 +68,8 @@ pub fn apply_script(resource: &Resource) -> String {
 pub fn state_query_script(resource: &Resource) -> String {
     let name = resource.name.as_deref().unwrap_or("unknown");
     format!(
-        "{}\n\
-         echo \"active=$(systemctl is-active '{}' 2>/dev/null || echo 'unknown')\"\n\
-         echo \"enabled=$(systemctl is-enabled '{}' 2>/dev/null || echo 'unknown')\"",
-        SYSTEMD_GUARD, name, name
+        "{SYSTEMD_GUARD}\n\
+         echo \"active=$(systemctl is-active '{name}' 2>/dev/null || echo 'unknown')\"\n\
+         echo \"enabled=$(systemctl is-enabled '{name}' 2>/dev/null || echo 'unknown')\""
     )
 }

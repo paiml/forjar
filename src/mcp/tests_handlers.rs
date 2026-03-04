@@ -221,8 +221,7 @@ async fn test_fj063_lint_handler_clean_config() {
         .collect();
     assert!(
         structural_warnings.is_empty(),
-        "expected no structural warnings, got: {:?}",
-        structural_warnings
+        "expected no structural warnings, got: {structural_warnings:?}"
     );
     assert_eq!(output.error_count, 0);
 }

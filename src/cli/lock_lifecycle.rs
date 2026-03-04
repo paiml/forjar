@@ -10,7 +10,7 @@ pub(crate) fn cmd_lock_compress(state_dir: &Path, json: bool) -> Result<(), Stri
     let mut total_saved = 0u64;
 
     for m in &machines {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             continue;
         }
@@ -33,9 +33,9 @@ pub(crate) fn cmd_lock_compress(state_dir: &Path, json: bool) -> Result<(), Stri
 
         let new_size = minified.len() as u64;
         if new_size < original_size {
-            let compressed_path = state_dir.join(format!("{}.lock.yaml.min", m));
+            let compressed_path = state_dir.join(format!("{m}.lock.yaml.min"));
             std::fs::write(&compressed_path, &minified)
-                .map_err(|e| format!("Failed to write compressed lock: {}", e))?;
+                .map_err(|e| format!("Failed to write compressed lock: {e}"))?;
             total_saved += original_size - new_size;
             compressed += 1;
         }
@@ -43,15 +43,13 @@ pub(crate) fn cmd_lock_compress(state_dir: &Path, json: bool) -> Result<(), Stri
 
     if json {
         println!(
-            r#"{{"compressed":{},"bytes_saved":{}}}"#,
-            compressed, total_saved
+            r#"{{"compressed":{compressed},"bytes_saved":{total_saved}}}"#
         );
     } else if compressed == 0 {
         println!("No lock files needed compression");
     } else {
         println!(
-            "Compressed {} lock files, saved {} bytes",
-            compressed, total_saved
+            "Compressed {compressed} lock files, saved {total_saved} bytes"
         );
     }
     Ok(())
@@ -64,20 +62,20 @@ pub(crate) fn cmd_lock_archive(state_dir: &Path, json: bool) -> Result<(), Strin
     let mut archived = 0u64;
 
     for m in &machines {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             continue;
         }
         // Archive event logs (not the active lock files)
-        let events_path = state_dir.join(format!("{}.events.jsonl", m));
+        let events_path = state_dir.join(format!("{m}.events.jsonl"));
         if events_path.exists() {
             std::fs::create_dir_all(&archive_dir)
-                .map_err(|e| format!("Failed to create archive dir: {}", e))?;
+                .map_err(|e| format!("Failed to create archive dir: {e}"))?;
             let timestamp = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .unwrap_or_default()
                 .as_secs();
-            let archive_name = format!("{}.events.{}.jsonl", m, timestamp);
+            let archive_name = format!("{m}.events.{timestamp}.jsonl");
             let dest = archive_dir.join(&archive_name);
             std::fs::copy(&events_path, &dest)
                 .map_err(|e| format!("Failed to archive {}: {}", events_path.display(), e))?;
@@ -86,7 +84,7 @@ pub(crate) fn cmd_lock_archive(state_dir: &Path, json: bool) -> Result<(), Strin
     }
 
     if json {
-        println!(r#"{{"archived":{}}}"#, archived);
+        println!(r#"{{"archived":{archived}}}"#);
     } else if archived == 0 {
         println!("No event logs to archive");
     } else {
@@ -107,31 +105,30 @@ pub(crate) fn cmd_lock_snapshot(state_dir: &Path, json: bool) -> Result<(), Stri
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs();
-    let snapshot_name = format!("snapshot-{}", timestamp);
+    let snapshot_name = format!("snapshot-{timestamp}");
     let dest_dir = snapshot_dir.join(&snapshot_name);
     let mut copied = 0u64;
 
     for m in &machines {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             continue;
         }
         std::fs::create_dir_all(&dest_dir)
-            .map_err(|e| format!("Failed to create snapshot dir: {}", e))?;
-        let dest = dest_dir.join(format!("{}.lock.yaml", m));
+            .map_err(|e| format!("Failed to create snapshot dir: {e}"))?;
+        let dest = dest_dir.join(m).join("state.lock.yaml");
         std::fs::copy(&lock_path, &dest)
             .map_err(|e| format!("Failed to snapshot {}: {}", lock_path.display(), e))?;
         copied += 1;
     }
 
     if json {
-        println!(r#"{{"snapshot":"{}","files":{}}}"#, snapshot_name, copied);
+        println!(r#"{{"snapshot":"{snapshot_name}","files":{copied}}}"#);
     } else if copied == 0 {
         println!("No lock files to snapshot");
     } else {
         println!(
-            "Created snapshot '{}' with {} lock files",
-            snapshot_name, copied
+            "Created snapshot '{snapshot_name}' with {copied} lock files"
         );
     }
     Ok(())
@@ -143,7 +140,7 @@ pub(crate) fn cmd_lock_defrag(state_dir: &Path, json: bool) -> Result<(), String
     let mut defragged = 0u64;
 
     for m in &machines {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             continue;
         }
@@ -162,21 +159,20 @@ pub(crate) fn cmd_lock_defrag(state_dir: &Path, json: bool) -> Result<(), String
             lock.resources = sorted;
 
             let new_content = serde_yaml_ng::to_string(&lock)
-                .map_err(|e| format!("Failed to serialize lock: {}", e))?;
+                .map_err(|e| format!("Failed to serialize lock: {e}"))?;
             std::fs::write(&lock_path, &new_content)
-                .map_err(|e| format!("Failed to write lock: {}", e))?;
+                .map_err(|e| format!("Failed to write lock: {e}"))?;
             defragged += 1;
         }
     }
 
     if json {
-        println!(r#"{{"defragged":{}}}"#, defragged);
+        println!(r#"{{"defragged":{defragged}}}"#);
     } else if defragged == 0 {
         println!("No lock files to defragment");
     } else {
         println!(
-            "Defragmented {} lock files (resources reordered alphabetically)",
-            defragged
+            "Defragmented {defragged} lock files (resources reordered alphabetically)"
         );
     }
     Ok(())

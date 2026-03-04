@@ -240,7 +240,7 @@ async fn test_fj063_trace_handler_machine_filter() {
     for m in &["web1", "web2"] {
         let machine_dir = dir.path().join(m);
         std::fs::create_dir_all(&machine_dir).unwrap();
-        let mut session = tracer::TraceSession::start(&format!("r-{}", m));
+        let mut session = tracer::TraceSession::start(&format!("r-{m}"));
         session.record_noop("pkg", "package", m);
         tracer::write_trace(dir.path(), m, &session).unwrap();
     }

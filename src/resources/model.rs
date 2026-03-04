@@ -13,19 +13,16 @@ pub fn check_script(resource: &Resource) -> String {
 
     match state {
         "absent" => format!(
-            "[ -f '{}' ] && echo 'exists:{}' || echo 'absent:{}'",
-            path, name, name
+            "[ -f '{path}' ] && echo 'exists:{name}' || echo 'absent:{name}'"
         ),
         _ => {
             if let Some(ref checksum) = resource.checksum {
                 format!(
-                    "if [ -f '{}' ]; then\n  HASH=$(b3sum '{}' 2>/dev/null | cut -d' ' -f1 || echo 'NOHASH')\n  if [ \"$HASH\" = '{}' ]; then\n    echo 'match:{}'\n  else\n    echo 'mismatch:{}'\n  fi\nelse\n  echo 'missing:{}'\nfi",
-                    path, path, checksum, name, name, name
+                    "if [ -f '{path}' ]; then\n  HASH=$(b3sum '{path}' 2>/dev/null | cut -d' ' -f1 || echo 'NOHASH')\n  if [ \"$HASH\" = '{checksum}' ]; then\n    echo 'match:{name}'\n  else\n    echo 'mismatch:{name}'\n  fi\nelse\n  echo 'missing:{name}'\nfi"
                 )
             } else {
                 format!(
-                    "[ -f '{}' ] && echo 'exists:{}' || echo 'missing:{}'",
-                    path, name, name
+                    "[ -f '{path}' ] && echo 'exists:{name}' || echo 'missing:{name}'"
                 )
             }
         }
@@ -42,8 +39,7 @@ pub fn apply_script(resource: &Resource) -> String {
 
     match state {
         "absent" => format!(
-            "set -euo pipefail\nrm -f '{}'\necho 'removed:{}'",
-            path, name
+            "set -euo pipefail\nrm -f '{path}'\necho 'removed:{name}'"
         ),
         _ => {
             let mut script = String::from("set -euo pipefail\n");
@@ -52,26 +48,26 @@ pub fn apply_script(resource: &Resource) -> String {
             script.push_str("export PATH=\"$HOME/.cargo/bin:$PATH\"\n");
 
             // Ensure cache directory exists
-            script.push_str(&format!("mkdir -p '{}'\n", cache_dir));
+            script.push_str(&format!("mkdir -p '{cache_dir}'\n"));
 
             // Ensure destination directory exists
             if let Some(parent) = std::path::Path::new(path).parent() {
                 if let Some(p) = parent.to_str() {
                     if !p.is_empty() {
-                        script.push_str(&format!("mkdir -p '{}'\n", p));
+                        script.push_str(&format!("mkdir -p '{p}'\n"));
                     }
                 }
             }
 
             // Download model based on source type
             if source.starts_with("http://") || source.starts_with("https://") {
-                script.push_str(&format!("curl -fSL -o '{}' '{}'\n", path, source));
+                script.push_str(&format!("curl -fSL -o '{path}' '{source}'\n"));
             } else if source.starts_with('/')
                 || source.starts_with("./")
                 || source.starts_with("~/")
             {
                 // Local path — copy
-                script.push_str(&format!("cp '{}' '{}'\n", source, path));
+                script.push_str(&format!("cp '{source}' '{path}'\n"));
             } else if source.contains('/') {
                 // HuggingFace repo ID (e.g., "TheBloke/Llama-2-7B-GGUF")
                 // Use apr pull if available, fall back to huggingface-cli
@@ -92,34 +88,30 @@ pub fn apply_script(resource: &Resource) -> String {
                      else\n\
                      \x20 echo 'ERROR: no download tool available (need apr or huggingface-cli)' >&2; exit 1\n\
                      fi\n",
-                    source = source,
-                    path = path,
-                    cache_dir = cache_dir,
                 ));
             } else {
                 // Bare name — assume local path
-                script.push_str(&format!("cp '{}' '{}'\n", source, path));
+                script.push_str(&format!("cp '{source}' '{path}'\n"));
             }
 
             // Verify checksum if provided
             if let Some(ref checksum) = resource.checksum {
                 script.push_str(&format!(
-                    "HASH=$(b3sum '{}' | cut -d' ' -f1)\n\
-                     if [ \"$HASH\" != '{}' ]; then\n\
-                       echo 'CHECKSUM MISMATCH: expected {} got '$HASH >&2\n\
-                       rm -f '{}'\n\
+                    "HASH=$(b3sum '{path}' | cut -d' ' -f1)\n\
+                     if [ \"$HASH\" != '{checksum}' ]; then\n\
+                       echo 'CHECKSUM MISMATCH: expected {checksum} got '$HASH >&2\n\
+                       rm -f '{path}'\n\
                        exit 1\n\
-                     fi\n",
-                    path, checksum, checksum, path
+                     fi\n"
                 ));
             }
 
             // Set ownership if specified
             if let Some(ref owner) = resource.owner {
-                script.push_str(&format!("chown '{}' '{}'\n", owner, path));
+                script.push_str(&format!("chown '{owner}' '{path}'\n"));
             }
 
-            script.push_str(&format!("echo 'downloaded:{}'", name));
+            script.push_str(&format!("echo 'downloaded:{name}'"));
             script
         }
     }
@@ -131,8 +123,7 @@ pub fn state_query_script(resource: &Resource) -> String {
     let path = resource.path.as_deref().unwrap_or("/dev/null");
 
     format!(
-        "if [ -f '{}' ]; then\n  SIZE=$(stat -c%s '{}' 2>/dev/null || stat -f%z '{}')\n  HASH=$(b3sum '{}' 2>/dev/null | cut -d' ' -f1 || echo 'NOHASH')\n  echo \"model={}:size=$SIZE:hash=$HASH\"\nelse\n  echo 'model=MISSING:{}'\nfi",
-        path, path, path, path, name, name
+        "if [ -f '{path}' ]; then\n  SIZE=$(stat -c%s '{path}' 2>/dev/null || stat -f%z '{path}')\n  HASH=$(b3sum '{path}' 2>/dev/null | cut -d' ' -f1 || echo 'NOHASH')\n  echo \"model={name}:size=$SIZE:hash=$HASH\"\nelse\n  echo 'model=MISSING:{name}'\nfi"
     )
 }
 
@@ -220,6 +211,7 @@ mod tests {
             post_apply: None,
             lifecycle: None,
             store: false,
+            sudo: false,
             script: None,
         }
     }

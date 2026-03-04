@@ -126,7 +126,7 @@ pub(crate) fn cmd_status_machine_resource_apply_cadence_report(
             println!("  No machine state found.");
         }
         for (m, count, last) in &rows {
-            println!("  {}: {} resources, last apply: {}", m, count, last,);
+            println!("  {m}: {count} resources, last apply: {last}",);
         }
     }
     Ok(())
@@ -182,8 +182,7 @@ pub(crate) fn cmd_status_fleet_resource_drift_recovery_trend(
         }
         for (m, pct, conv, tot) in &rows {
             println!(
-                "  {}: {:.1}% recovery ({} converged / {} total)",
-                m, pct, conv, tot
+                "  {m}: {pct:.1}% recovery ({conv} converged / {tot} total)"
             );
         }
     }

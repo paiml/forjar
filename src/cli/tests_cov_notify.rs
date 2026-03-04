@@ -1,9 +1,6 @@
 //! Coverage tests: dispatch_notify channels, secrets, check, doctor.
-use super::check::*;
 use super::dispatch_notify::*;
 use super::dispatch_notify_custom::*;
-use super::doctor::*;
-use super::secrets::*;
 use std::path::Path;
 
 #[cfg(test)]

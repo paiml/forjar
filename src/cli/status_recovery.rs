@@ -18,7 +18,7 @@ pub(super) fn pct(num: usize, den: usize) -> f64 {
 pub(super) fn collect_error_budgets(sd: &Path, targets: &[&String]) -> Vec<(String, usize, usize)> {
     let mut budgets = Vec::new();
     for m in targets {
-        let path = sd.join(m).join("lock.yaml");
+        let path = sd.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -95,7 +95,7 @@ pub(crate) fn cmd_status_fleet_compliance_score(
     };
     let (mut total, mut converged) = (0usize, 0usize);
     for m in &targets {
-        let path = sd.join(m).join("lock.yaml");
+        let path = sd.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -118,15 +118,13 @@ pub(crate) fn cmd_status_fleet_compliance_score(
     };
     if json {
         println!(
-            "{{\"fleet_compliance_score\":{:.1},\"converged\":{},\"total\":{}}}",
-            score, converged, total
+            "{{\"fleet_compliance_score\":{score:.1},\"converged\":{converged},\"total\":{total}}}"
         );
     } else if total == 0 {
         println!("No compliance data available.");
     } else {
         println!(
-            "Fleet compliance score: {:.1}% ({}/{} resources converged)",
-            score, converged, total
+            "Fleet compliance score: {score:.1}% ({converged}/{total} resources converged)"
         );
     }
     Ok(())
@@ -145,18 +143,22 @@ pub(crate) fn cmd_status_machine_mean_time_to_recovery(
     };
     let mut mttr_data: Vec<(String, String)> = Vec::new();
     for m in &targets {
-        let events_path = sd.join(m).join("events.yaml");
-        if events_path.exists() {
-            mttr_data.push(((*m).clone(), "event data present".to_string()));
-        } else {
-            mttr_data.push(((*m).clone(), "no event history".to_string()));
-        }
+        let events_path = sd.join(m).join("events.jsonl");
+        let content = match std::fs::read_to_string(&events_path) {
+            Ok(c) => c,
+            Err(_) => {
+                mttr_data.push(((*m).clone(), "no event history".to_string()));
+                continue;
+            }
+        };
+        let mttr = compute_mttr_from_events(&content);
+        mttr_data.push(((*m).clone(), mttr));
     }
     mttr_data.sort_by(|a, b| a.0.cmp(&b.0));
     if json {
         let items: Vec<String> = mttr_data
             .iter()
-            .map(|(m, s)| format!("{{\"machine\":\"{}\",\"mttr_status\":\"{}\"}}", m, s))
+            .map(|(m, s)| format!("{{\"machine\":\"{m}\",\"mttr_status\":\"{s}\"}}"))
             .collect();
         println!(
             "{{\"machine_mean_time_to_recovery\":[{}]}}",
@@ -167,7 +169,7 @@ pub(crate) fn cmd_status_machine_mean_time_to_recovery(
     } else {
         println!("Machine mean time to recovery:");
         for (m, s) in &mttr_data {
-            println!("  {} — {}", m, s);
+            println!("  {m} — {s}");
         }
     }
     Ok(())
@@ -186,7 +188,7 @@ pub(crate) fn cmd_status_machine_resource_dependency_health(
     };
     let mut health_data: Vec<(String, usize, usize)> = Vec::new();
     for m in &targets {
-        let path = sd.join(m).join("lock.yaml");
+        let path = sd.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -209,8 +211,7 @@ pub(crate) fn cmd_status_machine_resource_dependency_health(
             .iter()
             .map(|(m, h, t)| {
                 format!(
-                    "{{\"machine\":\"{}\",\"healthy\":{},\"total\":{}}}",
-                    m, h, t
+                    "{{\"machine\":\"{m}\",\"healthy\":{h},\"total\":{t}}}"
                 )
             })
             .collect();
@@ -220,7 +221,7 @@ pub(crate) fn cmd_status_machine_resource_dependency_health(
     } else {
         println!("Machine resource dependency health:");
         for (m, h, t) in &health_data {
-            println!("  {} — {}/{} healthy", m, h, t);
+            println!("  {m} — {h}/{t} healthy");
         }
     }
     Ok(())
@@ -243,8 +244,7 @@ pub(crate) fn cmd_status_fleet_resource_type_health(
             .iter()
             .map(|(t, c, tot)| {
                 format!(
-                    "{{\"type\":\"{}\",\"converged\":{},\"total\":{}}}",
-                    t, c, tot
+                    "{{\"type\":\"{t}\",\"converged\":{c},\"total\":{tot}}}"
                 )
             })
             .collect();
@@ -254,7 +254,7 @@ pub(crate) fn cmd_status_fleet_resource_type_health(
     } else {
         println!("Fleet resource type health:");
         for (t, c, tot) in &type_health {
-            println!("  {} — {}/{} converged", t, c, tot);
+            println!("  {t} — {c}/{tot} converged");
         }
     }
     Ok(())
@@ -264,7 +264,7 @@ pub(super) fn collect_type_health(sd: &Path, targets: &[&String]) -> Vec<(String
     let mut type_map: std::collections::HashMap<String, (usize, usize)> =
         std::collections::HashMap::new();
     for m in targets {
-        let path = sd.join(m).join("lock.yaml");
+        let path = sd.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -296,7 +296,7 @@ pub(super) fn collect_convergence_rates(
 ) -> Vec<(String, usize, usize)> {
     let mut rates: Vec<(String, usize, usize)> = Vec::new();
     for m in targets {
-        let path = sd.join(m).join("lock.yaml");
+        let path = sd.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -355,6 +355,91 @@ pub(crate) fn cmd_status_machine_resource_convergence_rate(
         }
     }
     Ok(())
+}
+
+/// Parse ISO 8601 timestamp to epoch seconds.
+fn parse_ts_epoch(s: &str) -> Option<f64> {
+    // "2026-02-16T16:32:54Z" → epoch
+    let parts: Vec<&str> = s.split('T').collect();
+    if parts.len() != 2 {
+        return None;
+    }
+    let date_parts: Vec<u32> = parts[0].split('-').filter_map(|p| p.parse().ok()).collect();
+    let time_str = parts[1].trim_end_matches('Z');
+    let time_parts: Vec<f64> = time_str.split(':').filter_map(|p| p.parse().ok()).collect();
+    if date_parts.len() != 3 || time_parts.len() != 3 {
+        return None;
+    }
+    // Approximate epoch: days since 1970 * 86400 + time
+    let y = date_parts[0] as f64;
+    let m = date_parts[1] as f64;
+    let d = date_parts[2] as f64;
+    let days = (y - 1970.0) * 365.25 + (m - 1.0) * 30.44 + d;
+    Some(days * 86400.0 + time_parts[0] * 3600.0 + time_parts[1] * 60.0 + time_parts[2])
+}
+
+/// Extract recovery durations from events.jsonl content.
+fn extract_recovery_durations(content: &str) -> Vec<f64> {
+    let mut fail_times: std::collections::HashMap<String, f64> =
+        std::collections::HashMap::new();
+    let mut durations: Vec<f64> = Vec::new();
+
+    for line in content.lines() {
+        let val: serde_json::Value = match serde_json::from_str(line) {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+        let event = val.get("event").and_then(|v| v.as_str()).unwrap_or("");
+        let resource = val.get("resource").and_then(|v| v.as_str()).unwrap_or("");
+        let ts = val
+            .get("ts")
+            .and_then(|v| v.as_str())
+            .and_then(parse_ts_epoch);
+        let ts = match ts {
+            Some(t) => t,
+            None => continue,
+        };
+
+        if event == "resource_failed" || event == "resource_drifted" {
+            fail_times.insert(resource.to_string(), ts);
+        } else if event == "resource_converged" {
+            if let Some(fail_ts) = fail_times.remove(resource) {
+                let d = ts - fail_ts;
+                if d > 0.0 {
+                    durations.push(d);
+                }
+            }
+        }
+    }
+    durations
+}
+
+/// Format recovery duration as human-readable string.
+fn format_recovery(avg: f64, count: usize) -> String {
+    let time = if avg < 60.0 {
+        format!("{avg:.1}s")
+    } else if avg < 3600.0 {
+        format!("{:.1}m", avg / 60.0)
+    } else {
+        format!("{:.1}h", avg / 3600.0)
+    };
+    format!("{time} avg recovery ({count} incident(s))")
+}
+
+/// Compute MTTR from events.jsonl content.
+fn compute_mttr_from_events(content: &str) -> String {
+    let durations = extract_recovery_durations(content);
+    if durations.is_empty() {
+        let total_events = content.lines().count();
+        if total_events > 0 {
+            format!("no failures detected ({total_events} events analyzed)")
+        } else {
+            "no events".to_string()
+        }
+    } else {
+        let avg = durations.iter().sum::<f64>() / durations.len() as f64;
+        format_recovery(avg, durations.len())
+    }
 }
 
 pub(super) use super::status_recovery_b::*;

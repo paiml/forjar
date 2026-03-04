@@ -20,7 +20,7 @@ pub(crate) fn cmd_status_resource_timeline(
                 continue;
             }
         }
-        let log_path = state_dir.join(format!("{}.events.jsonl", m));
+        let log_path = state_dir.join(m).join("events.jsonl");
         if !log_path.exists() {
             continue;
         }
@@ -52,8 +52,7 @@ pub(crate) fn cmd_status_resource_timeline(
             .iter()
             .map(|(ts, m, r, s)| {
                 format!(
-                    r#"{{"timestamp":"{}","machine":"{}","resource":"{}","status":"{}"}}"#,
-                    ts, m, r, s
+                    r#"{{"timestamp":"{ts}","machine":"{m}","resource":"{r}","status":"{s}"}}"#
                 )
             })
             .collect();
@@ -67,7 +66,7 @@ pub(crate) fn cmd_status_resource_timeline(
     } else {
         println!("Resource timeline ({} events):", events.len());
         for (ts, m, r, s) in &events {
-            println!("  [{}] {}:{} — {}", ts, m, r, s);
+            println!("  [{ts}] {m}:{r} — {s}");
         }
     }
     Ok(())
@@ -88,14 +87,14 @@ pub(crate) fn cmd_status_resource_dependencies(
                 continue;
             }
         }
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             continue;
         }
         let content = std::fs::read_to_string(&lock_path).unwrap_or_default();
         if let Ok(lock) = serde_yaml_ng::from_str::<crate::core::types::StateLock>(&content) {
-            for (rname, _) in &lock.resources {
-                deps.push((m.clone(), rname.clone(), 0));
+            for (rname, rl) in &lock.resources {
+                deps.push((m.clone(), rname.clone(), rl.details.len()));
             }
         }
     }
@@ -105,8 +104,7 @@ pub(crate) fn cmd_status_resource_dependencies(
             .iter()
             .map(|(m, r, d)| {
                 format!(
-                    r#"{{"machine":"{}","resource":"{}","dependencies":{}}}"#,
-                    m, r, d
+                    r#"{{"machine":"{m}","resource":"{r}","dependencies":{d}}}"#
                 )
             })
             .collect();
@@ -119,8 +117,8 @@ pub(crate) fn cmd_status_resource_dependencies(
         println!("No resource dependency data available");
     } else {
         println!("Resource dependencies ({} resources):", deps.len());
-        for (m, r, _) in &deps {
-            println!("  {}:{}", m, r);
+        for (m, r, d) in &deps {
+            println!("  {m}:{r} — {d} detail(s)");
         }
     }
     Ok(())
@@ -133,7 +131,7 @@ fn collect_resource_inputs(
 ) -> Vec<(String, String, String, usize)> {
     let mut result = Vec::new();
     for m in targets {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if let Ok(data) = std::fs::read_to_string(&lock_path) {
             if let Ok(lock) = serde_yaml_ng::from_str::<types::StateLock>(&data) {
                 for (name, rl) in &lock.resources {
@@ -166,8 +164,7 @@ pub(crate) fn cmd_status_resource_inputs(
             .iter()
             .map(|(m, name, rtype, count)| {
                 format!(
-                    "{{\"machine\":\"{}\",\"resource\":\"{}\",\"type\":\"{}\",\"input_count\":{}}}",
-                    m, name, rtype, count
+                    "{{\"machine\":\"{m}\",\"resource\":\"{name}\",\"type\":\"{rtype}\",\"input_count\":{count}}}"
                 )
             })
             .collect();
@@ -177,10 +174,10 @@ pub(crate) fn cmd_status_resource_inputs(
         let mut current_machine = String::new();
         for (m, name, rtype, count) in &inputs {
             if *m != current_machine {
-                println!("  Machine: {}", m);
+                println!("  Machine: {m}");
                 current_machine = m.clone();
             }
-            println!("    {} ({}) — {} input(s)", name, rtype, count);
+            println!("    {name} ({rtype}) — {count} input(s)");
         }
     }
     Ok(())
@@ -190,7 +187,7 @@ pub(crate) fn cmd_status_resource_inputs(
 fn tally_resource_types(state_dir: &Path, targets: &[&String]) -> Vec<(String, usize)> {
     let mut type_counts: HashMap<String, usize> = HashMap::new();
     for m in targets {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if let Ok(data) = std::fs::read_to_string(&lock_path) {
             if let Ok(lock) = serde_yaml_ng::from_str::<types::StateLock>(&data) {
                 for rl in lock.resources.values() {
@@ -219,7 +216,7 @@ pub(crate) fn cmd_status_resource_types_summary(
     if json {
         let entries: Vec<String> = sorted
             .iter()
-            .map(|(t, c)| format!("{{\"type\":\"{}\",\"count\":{}}}", t, c))
+            .map(|(t, c)| format!("{{\"type\":\"{t}\",\"count\":{c}}}"))
             .collect();
         println!("{{\"resource_types\":[{}]}}", entries.join(","));
     } else if sorted.is_empty() {
@@ -227,7 +224,7 @@ pub(crate) fn cmd_status_resource_types_summary(
     } else {
         println!("Resource types summary:");
         for (rtype, count) in &sorted {
-            println!("  {} — {}", rtype, count);
+            println!("  {rtype} — {count}");
         }
     }
     Ok(())
@@ -237,7 +234,7 @@ pub(crate) fn cmd_status_resource_types_summary(
 fn collect_resource_health(state_dir: &Path, targets: &[&String]) -> Vec<(String, String, String)> {
     let mut entries: Vec<(String, String, String)> = Vec::new();
     for m in targets {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if let Ok(data) = std::fs::read_to_string(&lock_path) {
             if let Ok(lock) = serde_yaml_ng::from_str::<types::StateLock>(&data) {
                 for (name, rl) in &lock.resources {
@@ -266,8 +263,7 @@ pub(crate) fn cmd_status_resource_health(
             .iter()
             .map(|(m, n, s)| {
                 format!(
-                    "{{\"machine\":\"{}\",\"resource\":\"{}\",\"status\":\"{}\"}}",
-                    m, n, s
+                    "{{\"machine\":\"{m}\",\"resource\":\"{n}\",\"status\":\"{s}\"}}"
                 )
             })
             .collect();
@@ -277,7 +273,7 @@ pub(crate) fn cmd_status_resource_health(
     } else {
         println!("Resource health ({} resources):", entries.len());
         for (m, name, status) in &entries {
-            println!("  [{}] {} — {}", m, name, status);
+            println!("  [{m}] {name} — {status}");
         }
     }
     Ok(())
@@ -288,7 +284,7 @@ pub(crate) fn tally_machine_health(
     state_dir: &Path,
     machine: &str,
 ) -> (usize, usize, usize, usize) {
-    let lock_path = state_dir.join(format!("{}.lock.yaml", machine));
+    let lock_path = state_dir.join(format!("{machine}.lock.yaml"));
     let (mut total, mut converged, mut failed, mut drifted) = (0, 0, 0, 0);
     if let Ok(data) = std::fs::read_to_string(&lock_path) {
         if let Ok(lock) = serde_yaml_ng::from_str::<types::StateLock>(&data) {
@@ -328,7 +324,7 @@ pub(crate) fn cmd_status_machine_health_summary(
         let items: Vec<String> = summaries
             .iter()
             .map(|(m, t, c, f, d)| {
-                format!("{{\"machine\":\"{}\",\"total\":{},\"converged\":{},\"failed\":{},\"drifted\":{}}}", m, t, c, f, d)
+                format!("{{\"machine\":\"{m}\",\"total\":{t},\"converged\":{c},\"failed\":{f},\"drifted\":{d}}}")
             })
             .collect();
         println!("{{\"machine_health\":[{}]}}", items.join(","));
@@ -343,8 +339,7 @@ pub(crate) fn cmd_status_machine_health_summary(
                 0
             };
             println!(
-                "  {} — {} total, {} converged ({}%), {} failed, {} drifted",
-                m, total, converged, pct, failed, drifted
+                "  {m} — {total} total, {converged} converged ({pct}%), {failed} failed, {drifted} drifted"
             );
         }
     }
@@ -368,8 +363,7 @@ pub(crate) fn cmd_status_last_apply_status(
             .iter()
             .map(|(m, s, t)| {
                 format!(
-                    "{{\"machine\":\"{}\",\"status\":\"{}\",\"timestamp\":\"{}\"}}",
-                    m, s, t
+                    "{{\"machine\":\"{m}\",\"status\":\"{s}\",\"timestamp\":\"{t}\"}}"
                 )
             })
             .collect();
@@ -379,7 +373,7 @@ pub(crate) fn cmd_status_last_apply_status(
     } else {
         println!("Last apply status:");
         for (m, s, t) in &statuses {
-            println!("  {} — {} ({})", m, s, t);
+            println!("  {m} — {s} ({t})");
         }
     }
     Ok(())
@@ -404,7 +398,7 @@ fn parse_last_apply(data: &str) -> (String, String) {
 fn collect_last_apply(state_dir: &Path, targets: &[&String]) -> Vec<(String, String, String)> {
     let mut results = Vec::new();
     for m in targets {
-        let log_path = state_dir.join(format!("{}.events.yaml", m));
+        let log_path = state_dir.join(m).join("events.jsonl");
         let (status, ts) = match std::fs::read_to_string(&log_path) {
             Ok(data) => parse_last_apply(&data),
             Err(_) => ("no_history".to_string(), "—".to_string()),
@@ -431,8 +425,7 @@ pub(crate) fn cmd_status_resource_staleness(
             .iter()
             .map(|(m, n, ts)| {
                 format!(
-                    "{{\"machine\":\"{}\",\"resource\":\"{}\",\"last_apply\":\"{}\"}}",
-                    m, n, ts
+                    "{{\"machine\":\"{m}\",\"resource\":\"{n}\",\"last_apply\":\"{ts}\"}}"
                 )
             })
             .collect();
@@ -442,7 +435,7 @@ pub(crate) fn cmd_status_resource_staleness(
     } else {
         println!("Resource staleness:");
         for (m, name, ts) in &entries {
-            println!("  [{}] {} — last apply: {}", m, name, ts);
+            println!("  [{m}] {name} — last apply: {ts}");
         }
     }
     Ok(())
@@ -452,7 +445,7 @@ pub(crate) fn cmd_status_resource_staleness(
 fn collect_staleness(state_dir: &Path, targets: &[&String]) -> Vec<(String, String, String)> {
     let mut entries = Vec::new();
     for m in targets {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if let Ok(data) = std::fs::read_to_string(&lock_path) {
             if let Ok(lock) = serde_yaml_ng::from_str::<types::StateLock>(&data) {
                 for (name, rl) in &lock.resources {

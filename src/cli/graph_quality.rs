@@ -66,7 +66,7 @@ pub(super) fn find_critical_path(config: &types::ForjarConfig) -> Vec<String> {
 }
 
 pub(super) fn print_critical_path_json(path: &[String]) {
-    let names: Vec<String> = path.iter().map(|n| format!("\"{}\"", n)).collect();
+    let names: Vec<String> = path.iter().map(|n| format!("\"{n}\"")).collect();
     println!(
         "{{\"critical_path\":[{}],\"length\":{}}}",
         names.join(","),
@@ -152,7 +152,7 @@ pub(super) fn print_bottleneck_json(bottlenecks: &[BottleneckInfo]) {
     let items: Vec<String> = bottlenecks
         .iter()
         .map(|b| {
-            let deps: Vec<String> = b.dependents.iter().map(|d| format!("\"{}\"", d)).collect();
+            let deps: Vec<String> = b.dependents.iter().map(|d| format!("\"{d}\"")).collect();
             format!(
                 "{{\"name\":\"{}\",\"fan_in\":{},\"dependents\":[{}]}}",
                 b.name,
@@ -218,7 +218,7 @@ pub(super) fn print_critical_path_p107_text(path: &[String]) {
 }
 
 pub(super) fn print_critical_path_p107_json(path: &[String]) {
-    let names: Vec<String> = path.iter().map(|n| format!("\"{}\"", n)).collect();
+    let names: Vec<String> = path.iter().map(|n| format!("\"{n}\"")).collect();
     println!(
         "{{\"resource_dependency_critical_path\":{{\"length\":{},\"path\":[{}]}}}}",
         path.len(),

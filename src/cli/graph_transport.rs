@@ -35,7 +35,7 @@ fn classify_resources(config: &types::ForjarConfig) -> (GroupMap, GroupMap) {
 fn print_expansion_map_json(recipe_groups: &GroupMap, type_groups: &GroupMap) {
     let mut entries: Vec<String> = Vec::new();
     for (key, members) in recipe_groups {
-        let names: Vec<String> = members.iter().map(|n| format!("\"{}\"", n)).collect();
+        let names: Vec<String> = members.iter().map(|n| format!("\"{n}\"")).collect();
         entries.push(format!(
             "\"{}\":{{\"origin\":\"recipe\",\"resources\":[{}]}}",
             key,
@@ -43,7 +43,7 @@ fn print_expansion_map_json(recipe_groups: &GroupMap, type_groups: &GroupMap) {
         ));
     }
     for (key, members) in type_groups {
-        let names: Vec<String> = members.iter().map(|n| format!("\"{}\"", n)).collect();
+        let names: Vec<String> = members.iter().map(|n| format!("\"{n}\"")).collect();
         entries.push(format!(
             "\"{}\":{{\"origin\":\"type\",\"resources\":[{}]}}",
             key,
@@ -194,14 +194,14 @@ pub(crate) fn cmd_graph_resource_dependency_critical_chain_path(
     let longest = find_longest_path(&children_map, &roots, &all_names);
     let length = longest.len();
     if json {
-        let items: Vec<String> = longest.iter().map(|n| format!("\"{}\"", n)).collect();
+        let items: Vec<String> = longest.iter().map(|n| format!("\"{n}\"")).collect();
         println!(
             "{{\"critical_chain_path\":{{\"length\":{},\"path\":[{}]}}}}",
             length,
             items.join(",")
         );
     } else {
-        println!("Critical chain path ({} nodes):", length);
+        println!("Critical chain path ({length} nodes):");
         println!("  {}", longest.join(" -> "));
     }
     Ok(())

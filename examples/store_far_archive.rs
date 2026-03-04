@@ -74,7 +74,7 @@ fn demo_encode_decode() {
 /// 3. Chunking and Merkle tree hashing.
 fn demo_chunking_merkle() {
     println!("--- 3. Chunking and Merkle Tree ---");
-    println!("  CHUNK_SIZE = {} bytes (64KB)", CHUNK_SIZE);
+    println!("  CHUNK_SIZE = {CHUNK_SIZE} bytes (64KB)");
 
     // Single chunk
     let small = vec![42u8; 100];

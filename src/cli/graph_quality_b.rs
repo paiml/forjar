@@ -67,7 +67,7 @@ fn print_cluster_json(clusters: &[Vec<String>]) {
         .iter()
         .enumerate()
         .map(|(i, c)| {
-            let res: Vec<String> = c.iter().map(|r| format!("\"{}\"", r)).collect();
+            let res: Vec<String> = c.iter().map(|r| format!("\"{r}\"")).collect();
             format!("{{\"id\":{},\"resources\":[{}]}}", i, res.join(","))
         })
         .collect();

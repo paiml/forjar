@@ -43,7 +43,7 @@ pub(crate) fn cmd_status_machine_resource_config_drift_rate(
 fn collect_config_drift_rates(sd: &Path, targets: &[&String]) -> Vec<(String, usize, usize)> {
     let mut rates = Vec::new();
     for m in targets {
-        let path = sd.join(m).join("lock.yaml");
+        let path = sd.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -81,8 +81,7 @@ pub(crate) fn cmd_status_machine_resource_convergence_lag(
             .iter()
             .map(|(m, r, s)| {
                 format!(
-                    "{{\"machine\":\"{}\",\"resource\":\"{}\",\"status\":\"{}\"}}",
-                    m, r, s
+                    "{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"status\":\"{s}\"}}"
                 )
             })
             .collect();
@@ -92,7 +91,7 @@ pub(crate) fn cmd_status_machine_resource_convergence_lag(
     } else {
         println!("Per-resource convergence lag:");
         for (m, r, s) in &lags {
-            println!("  {} / {} — {}", m, r, s);
+            println!("  {m} / {r} — {s}");
         }
     }
     Ok(())
@@ -101,7 +100,7 @@ pub(crate) fn cmd_status_machine_resource_convergence_lag(
 fn collect_convergence_lag(sd: &Path, targets: &[&String]) -> Vec<(String, String, String)> {
     let mut lags = Vec::new();
     for m in targets {
-        let path = sd.join(m).join("lock.yaml");
+        let path = sd.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -136,11 +135,10 @@ pub(crate) fn cmd_status_fleet_resource_convergence_lag(
     let total_lagging = lags.len();
     if json {
         println!(
-            "{{\"fleet_convergence_lag\":{{\"lagging_resources\":{}}}}}",
-            total_lagging
+            "{{\"fleet_convergence_lag\":{{\"lagging_resources\":{total_lagging}}}}}"
         );
     } else {
-        println!("Fleet convergence lag: {} resources lagging", total_lagging);
+        println!("Fleet convergence lag: {total_lagging} resources lagging");
     }
     Ok(())
 }
@@ -160,7 +158,7 @@ pub(crate) fn cmd_status_machine_resource_dependency_depth(
     if json {
         let items: Vec<String> = depths
             .iter()
-            .map(|(m, c)| format!("{{\"machine\":\"{}\",\"resource_count\":{}}}", m, c))
+            .map(|(m, c)| format!("{{\"machine\":\"{m}\",\"resource_count\":{c}}}"))
             .collect();
         println!("{{\"dependency_depths\":[{}]}}", items.join(","));
     } else if depths.is_empty() {
@@ -168,7 +166,7 @@ pub(crate) fn cmd_status_machine_resource_dependency_depth(
     } else {
         println!("Machine resource dependency depth:");
         for (m, c) in &depths {
-            println!("  {} — {} resources", m, c);
+            println!("  {m} — {c} resources");
         }
     }
     Ok(())
@@ -177,7 +175,7 @@ pub(crate) fn cmd_status_machine_resource_dependency_depth(
 fn collect_dependency_depths(sd: &Path, targets: &[&String]) -> Vec<(String, usize)> {
     let mut depths = Vec::new();
     for m in targets {
-        let path = sd.join(m).join("lock.yaml");
+        let path = sd.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -207,7 +205,7 @@ pub(crate) fn cmd_status_machine_resource_convergence_velocity(
     if json {
         let items: Vec<String> = velocities
             .iter()
-            .map(|(m, v)| format!("{{\"machine\":\"{}\",\"velocity\":{:.4}}}", m, v))
+            .map(|(m, v)| format!("{{\"machine\":\"{m}\",\"velocity\":{v:.4}}}"))
             .collect();
         println!("{{\"convergence_velocities\":[{}]}}", items.join(","));
     } else if velocities.is_empty() {
@@ -215,7 +213,7 @@ pub(crate) fn cmd_status_machine_resource_convergence_velocity(
     } else {
         println!("Convergence velocity:");
         for (m, v) in &velocities {
-            println!("  {} — {:.4}", m, v);
+            println!("  {m} — {v:.4}");
         }
     }
     Ok(())
@@ -299,7 +297,7 @@ pub(crate) fn cmd_status_machine_resource_failure_recurrence(
     if json {
         let items: Vec<String> = recurrences
             .iter()
-            .map(|(m, c)| format!("{{\"machine\":\"{}\",\"failed_resources\":{}}}", m, c))
+            .map(|(m, c)| format!("{{\"machine\":\"{m}\",\"failed_resources\":{c}}}"))
             .collect();
         println!("{{\"failure_recurrences\":[{}]}}", items.join(","));
     } else if recurrences.is_empty() {
@@ -307,7 +305,7 @@ pub(crate) fn cmd_status_machine_resource_failure_recurrence(
     } else {
         println!("Failure recurrence:");
         for (m, c) in &recurrences {
-            println!("  {} — {} failed resources", m, c);
+            println!("  {m} — {c} failed resources");
         }
     }
     Ok(())

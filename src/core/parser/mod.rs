@@ -72,7 +72,7 @@ pub fn parse_config_file(path: &Path) -> Result<ForjarConfig, String> {
 
 /// Parse a forjar.yaml from a string.
 pub fn parse_config(yaml: &str) -> Result<ForjarConfig, String> {
-    serde_yaml_ng::from_str(yaml).map_err(|e| format!("YAML parse error: {}", e))
+    serde_yaml_ng::from_str(yaml).map_err(|e| format!("YAML parse error: {e}"))
 }
 
 /// Validate a parsed config. Returns a list of errors (empty = valid).
@@ -120,7 +120,7 @@ pub fn parse_and_validate(path: &Path) -> Result<ForjarConfig, String> {
             "validation errors:\n{}",
             errors
                 .iter()
-                .map(|e| format!("  - {}", e))
+                .map(|e| format!("  - {e}"))
                 .collect::<Vec<_>>()
                 .join("\n")
         ));

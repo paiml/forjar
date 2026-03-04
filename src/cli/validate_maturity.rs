@@ -275,7 +275,7 @@ mod tests {
 
     /// Deserialize a minimal resource from YAML, setting only the `type` field.
     fn make_resource(rtype: &str) -> types::Resource {
-        let yaml = format!("type: {}", rtype);
+        let yaml = format!("type: {rtype}");
         serde_yaml_ng::from_str(&yaml).unwrap()
     }
 

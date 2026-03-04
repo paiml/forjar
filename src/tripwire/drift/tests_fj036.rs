@@ -143,8 +143,7 @@ fn test_detect_drift_service_resource() {
     let findings = detect_drift(&lock);
     assert!(
         findings.is_empty(),
-        "detect_drift should skip service resources: {:?}",
-        findings
+        "detect_drift should skip service resources: {findings:?}"
     );
 }
 
@@ -192,8 +191,7 @@ fn test_detect_drift_directory_resource() {
     let findings = detect_drift(&lock);
     assert!(
         findings.is_empty(),
-        "directory with matching hash should have no drift: {:?}",
-        findings
+        "directory with matching hash should have no drift: {findings:?}"
     );
 
     std::fs::write(subdir.join("b.conf"), "new-setting=2").unwrap();

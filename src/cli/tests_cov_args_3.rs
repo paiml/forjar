@@ -199,8 +199,9 @@ mod tests {
             notify_custom_severity_filter: Some("error".to_string()),
             refresh_only: false,
             encrypt_state: false,
+            trace: false,
         };
-        let debug = format!("{:?}", args);
+        let debug = format!("{args:?}");
         assert!(debug.contains("ApplyArgs"));
         assert!(debug.contains("forjar.yaml"));
     }
@@ -235,6 +236,7 @@ mod tests {
             resource_timeout: None,
             rollback_on_failure: false,
             max_parallel: None,
+            trace: false,
             notify: None,
             subset: None,
             confirm_destructive: false,
@@ -386,7 +388,7 @@ mod tests {
             refresh_only: false,
             encrypt_state: false,
         };
-        let debug = format!("{:?}", args);
+        let debug = format!("{args:?}");
         assert!(debug.contains("ApplyArgs"));
     }
 }

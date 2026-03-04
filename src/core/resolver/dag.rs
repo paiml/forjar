@@ -95,7 +95,7 @@ fn build_dag(config: &ForjarConfig, resource_ids: &[String]) -> Result<Dag, Stri
     for (id, resource) in &config.resources {
         for dep in &resource.depends_on {
             if !config.resources.contains_key(dep) {
-                return Err(format!("resource '{}' depends on unknown '{}'", id, dep));
+                return Err(format!("resource '{id}' depends on unknown '{dep}'"));
             }
             if let Some(adj) = adjacency.get_mut(dep) {
                 adj.push(id.clone());

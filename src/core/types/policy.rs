@@ -65,6 +65,11 @@ pub struct Policy {
     #[serde(default)]
     pub snapshot_generations: Option<u32>,
 
+    /// FJ-1390: Security gate — block apply if security scan finds issues at or above
+    /// this severity. Values: "critical", "high", "medium", "low". None = disabled.
+    #[serde(default)]
+    pub security_gate: Option<String>,
+
     /// FJ-225: Notification hooks — shell commands run after apply/drift
     #[serde(default)]
     pub notify: NotifyConfig,
@@ -104,6 +109,7 @@ impl Default for Policy {
             ssh_retries: 1,
             convergence_budget: None,
             snapshot_generations: None,
+            security_gate: None,
             notify: NotifyConfig::default(),
         }
     }

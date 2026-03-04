@@ -69,8 +69,7 @@ fn test_fj1300_store_entry_path_basic() {
     assert_eq!(
         path,
         format!(
-            "{}/abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
-            STORE_BASE
+            "{STORE_BASE}/abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
         )
     );
 }

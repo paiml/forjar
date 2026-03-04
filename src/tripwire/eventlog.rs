@@ -56,8 +56,7 @@ pub fn now_iso8601() -> String {
     let d = remaining + 1;
 
     format!(
-        "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z",
-        y, m, d, hours, minutes, seconds
+        "{y:04}-{m:02}-{d:02}T{hours:02}:{minutes:02}:{seconds:02}Z"
     )
 }
 
@@ -84,14 +83,14 @@ pub fn event_log_path(state_dir: &Path, machine: &str) -> PathBuf {
 pub fn append_event(state_dir: &Path, machine: &str, event: ProvenanceEvent) -> Result<(), String> {
     let path = event_log_path(state_dir, machine);
     if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| format!("cannot create state dir: {}", e))?;
+        std::fs::create_dir_all(parent).map_err(|e| format!("cannot create state dir: {e}"))?;
     }
 
     let te = TimestampedEvent {
         ts: now_iso8601(),
         event,
     };
-    let json = serde_json::to_string(&te).map_err(|e| format!("JSON serialize error: {}", e))?;
+    let json = serde_json::to_string(&te).map_err(|e| format!("JSON serialize error: {e}"))?;
 
     let mut file = std::fs::OpenOptions::new()
         .create(true)
@@ -99,7 +98,7 @@ pub fn append_event(state_dir: &Path, machine: &str, event: ProvenanceEvent) -> 
         .open(&path)
         .map_err(|e| format!("cannot open event log {}: {}", path.display(), e))?;
 
-    writeln!(file, "{}", json).map_err(|e| format!("write error: {}", e))?;
+    writeln!(file, "{json}").map_err(|e| format!("write error: {e}"))?;
 
     Ok(())
 }

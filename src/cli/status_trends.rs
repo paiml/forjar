@@ -11,7 +11,7 @@ fn count_changes_from_logs(state_dir: &Path, targets: &[&String]) -> Vec<(String
     let mut change_counts: std::collections::HashMap<String, usize> =
         std::collections::HashMap::new();
     for m in targets {
-        let log_path = state_dir.join(format!("{}.events.jsonl", m));
+        let log_path = state_dir.join(format!("{m}.events.jsonl"));
         if !log_path.exists() {
             continue;
         }
@@ -51,7 +51,7 @@ pub(crate) fn cmd_status_change_frequency(
             if i > 0 {
                 print!(",");
             }
-            print!(r#"{{"resource":"{}","changes":{}}}"#, name, count);
+            print!(r#"{{"resource":"{name}","changes":{count}}}"#);
         }
         println!("]}}");
     } else if sorted.is_empty() {
@@ -59,7 +59,7 @@ pub(crate) fn cmd_status_change_frequency(
     } else {
         println!("Resource change frequency:");
         for (name, count) in &sorted {
-            println!("  {} — {} changes", name, count);
+            println!("  {name} — {count} changes");
         }
     }
     Ok(())
@@ -72,7 +72,7 @@ fn collect_apply_durations(
 ) -> Vec<(String, Vec<(String, f64)>)> {
     let mut result = Vec::new();
     for m in targets {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if let Ok(data) = std::fs::read_to_string(&lock_path) {
             if let Ok(lock) = serde_yaml_ng::from_str::<types::StateLock>(&data) {
                 let resources: Vec<(String, f64)> = lock
@@ -103,8 +103,7 @@ pub(crate) fn cmd_status_last_apply_duration(
         for (m, resources) in &data {
             for (name, dur) in resources {
                 entries.push(format!(
-                    "{{\"machine\":\"{}\",\"resource\":\"{}\",\"duration_seconds\":{}}}",
-                    m, name, dur
+                    "{{\"machine\":\"{m}\",\"resource\":\"{name}\",\"duration_seconds\":{dur}}}"
                 ));
             }
         }
@@ -112,9 +111,9 @@ pub(crate) fn cmd_status_last_apply_duration(
     } else {
         println!("Last apply duration per resource:");
         for (m, resources) in &data {
-            println!("  Machine: {}", m);
+            println!("  Machine: {m}");
             for (name, dur) in resources {
-                println!("    {} — {:.3}s", name, dur);
+                println!("    {name} — {dur:.3}s");
             }
         }
     }
@@ -138,7 +137,7 @@ pub(crate) fn cmd_status_trend(
     let mut trend_data: Vec<(String, String, String)> = Vec::new(); // (timestamp, machine, summary)
 
     for m in &machines {
-        let events_path = state_dir.join(format!("{}.events.jsonl", m));
+        let events_path = state_dir.join(format!("{m}.events.jsonl"));
         if !events_path.exists() {
             continue;
         }
@@ -152,7 +151,7 @@ pub(crate) fn cmd_status_trend(
             let ts = parsed["timestamp"].as_str().unwrap_or("?").to_string();
             let status = parsed["status"].as_str().unwrap_or("?").to_string();
             let resource = parsed["resource"].as_str().unwrap_or("?").to_string();
-            trend_data.push((ts, m.clone(), format!("{}={}", resource, status)));
+            trend_data.push((ts, m.clone(), format!("{resource}={status}")));
         }
     }
 
@@ -169,8 +168,7 @@ pub(crate) fn cmd_status_trend(
             .iter()
             .map(|(ts, m, s)| {
                 format!(
-                    r#"{{"timestamp":"{}","machine":"{}","event":"{}"}}"#,
-                    ts, m, s
+                    r#"{{"timestamp":"{ts}","machine":"{m}","event":"{s}"}}"#
                 )
             })
             .collect();
@@ -180,7 +178,7 @@ pub(crate) fn cmd_status_trend(
     } else {
         println!("Status trend (last {} events):\n", last_n.len());
         for (ts, m, s) in &last_n {
-            println!("  [{}] {} — {}", ts, m, s);
+            println!("  [{ts}] {m} — {s}");
         }
     }
     Ok(())
@@ -192,7 +190,7 @@ fn collect_risk_scores_for_machine(
     m: &str,
     risk_scores: &mut Vec<(String, String, f64, String)>,
 ) {
-    let events_path = state_dir.join(format!("{}.events.jsonl", m));
+    let events_path = state_dir.join(format!("{m}.events.jsonl"));
     if !events_path.exists() {
         return;
     }
@@ -262,8 +260,7 @@ pub(crate) fn cmd_status_prediction(
             .iter()
             .map(|(m, r, s, reason)| {
                 format!(
-                    r#"{{"machine":"{}","resource":"{}","risk_score":{:.3},"reason":"{}"}}"#,
-                    m, r, s, reason
+                    r#"{{"machine":"{m}","resource":"{r}","risk_score":{s:.3},"reason":"{reason}"}}"#
                 )
             })
             .collect();
@@ -277,7 +274,7 @@ pub(crate) fn cmd_status_prediction(
         println!("Failure prediction (by historical failure rate):\n");
         for (m, r, score, reason) in &risk_scores {
             let level = risk_level_label(*score);
-            println!("  [{}] {}:{} — {}", level, m, r, reason);
+            println!("  [{level}] {m}:{r} — {reason}");
         }
     }
     Ok(())
@@ -320,7 +317,7 @@ pub(crate) fn cmd_status_histogram(
         for (status, count) in &sorted {
             let bar_width = (*count * 30) / max_count.max(1);
             let bar: String = "█".repeat(bar_width);
-            println!("  {:12} {:>4} {}", status, count, bar);
+            println!("  {status:12} {count:>4} {bar}");
         }
     }
     Ok(())
@@ -379,7 +376,7 @@ pub(crate) fn cmd_status_mttr(
 
     let mut recovery_times: Vec<(String, String, f64)> = Vec::new();
     for m in &machines {
-        let events_path = state_dir.join(format!("{}.events.jsonl", m));
+        let events_path = state_dir.join(format!("{m}.events.jsonl"));
         if !events_path.exists() {
             continue;
         }
@@ -394,8 +391,7 @@ pub(crate) fn cmd_status_mttr(
             .iter()
             .map(|(m, r, h)| {
                 format!(
-                    r#"{{"machine":"{}","resource":"{}","mttr_hours":{:.2}}}"#,
-                    m, r, h
+                    r#"{{"machine":"{m}","resource":"{r}","mttr_hours":{h:.2}}}"#
                 )
             })
             .collect();
@@ -405,7 +401,7 @@ pub(crate) fn cmd_status_mttr(
     } else {
         println!("Mean Time To Recovery:\n");
         for (m, r, h) in &recovery_times {
-            println!("  {}:{} — {:.2}h MTTR", m, r, h);
+            println!("  {m}:{r} — {h:.2}h MTTR");
         }
     }
     Ok(())

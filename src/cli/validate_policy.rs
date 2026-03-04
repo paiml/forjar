@@ -13,8 +13,7 @@ fn check_no_root_owner(
     for (name, res) in &config.resources {
         if res.owner.as_deref() == Some("root") {
             violations.push(format!(
-                "[{}] resource '{}' has owner 'root'",
-                rule_name, name
+                "[{rule_name}] resource '{name}' has owner 'root'"
             ));
         }
     }
@@ -24,7 +23,7 @@ fn check_no_root_owner(
 fn check_require_tags(rule_name: &str, config: &types::ForjarConfig, violations: &mut Vec<String>) {
     for (name, res) in &config.resources {
         if res.tags.is_empty() {
-            violations.push(format!("[{}] resource '{}' has no tags", rule_name, name));
+            violations.push(format!("[{rule_name}] resource '{name}' has no tags"));
         }
     }
 }
@@ -38,8 +37,7 @@ fn check_require_depends_on(
     for (name, res) in &config.resources {
         if res.depends_on.is_empty() && res.resource_type != types::ResourceType::Package {
             violations.push(format!(
-                "[{}] resource '{}' has no depends_on",
-                rule_name, name
+                "[{rule_name}] resource '{name}' has no depends_on"
             ));
         }
     }
@@ -57,7 +55,7 @@ fn check_policy_rule(
         "require_tags" => check_require_tags(rule_name, config, violations),
         "require_depends_on" => check_require_depends_on(rule_name, config, violations),
         _ => {
-            violations.push(format!("unknown policy check: '{}'", rule_type));
+            violations.push(format!("unknown policy check: '{rule_type}'"));
         }
     }
 }
@@ -78,7 +76,7 @@ pub(crate) fn cmd_validate_policy_file(
         )
     })?;
     let policy: serde_yaml_ng::Value = serde_yaml_ng::from_str(&policy_content)
-        .map_err(|e| format!("Failed to parse policy file: {}", e))?;
+        .map_err(|e| format!("Failed to parse policy file: {e}"))?;
 
     let mut violations: Vec<String> = Vec::new();
 
@@ -128,7 +126,7 @@ pub(crate) fn cmd_validate_connectivity(file: &Path, json: bool) -> Result<(), S
     for (name, machine) in &config.machines {
         let addr = &machine.addr;
         let reachable = std::net::TcpStream::connect_timeout(
-            &format!("{}:22", addr)
+            &format!("{addr}:22")
                 .parse()
                 .unwrap_or_else(|_| std::net::SocketAddr::from(([127, 0, 0, 1], 22))),
             std::time::Duration::from_secs(3),
@@ -142,8 +140,7 @@ pub(crate) fn cmd_validate_connectivity(file: &Path, json: bool) -> Result<(), S
             .iter()
             .map(|(name, addr, ok)| {
                 format!(
-                    "{{\"machine\":\"{}\",\"addr\":\"{}\",\"reachable\":{}}}",
-                    name, addr, ok
+                    "{{\"machine\":\"{name}\",\"addr\":\"{addr}\",\"reachable\":{ok}}}"
                 )
             })
             .collect();
@@ -156,7 +153,7 @@ pub(crate) fn cmd_validate_connectivity(file: &Path, json: bool) -> Result<(), S
             } else {
                 red("✗ unreachable")
             };
-            println!("  {} ({}) — {}", name, addr, status);
+            println!("  {name} ({addr}) — {status}");
         }
     }
     Ok(())
@@ -181,8 +178,7 @@ pub(crate) fn cmd_validate_strict_deps(file: &Path, json: bool) -> Result<(), St
             if let Some(&dep_pos) = pos_map.get(dep.as_str()) {
                 if dep_pos > my_pos {
                     violations.push(format!(
-                        "{} depends on {} but {} is declared later",
-                        name, dep, dep
+                        "{name} depends on {dep} but {dep} is declared later"
                     ));
                 }
             }
@@ -207,7 +203,7 @@ pub(crate) fn cmd_validate_strict_deps(file: &Path, json: bool) -> Result<(), St
             violations.len()
         );
         for v in &violations {
-            println!("  - {}", v);
+            println!("  - {v}");
         }
     }
     if violations.is_empty() {

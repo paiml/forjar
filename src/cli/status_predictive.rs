@@ -24,8 +24,7 @@ pub(crate) fn cmd_status_machine_resource_age_distribution(
             .iter()
             .map(|(m, with, without)| {
                 format!(
-                    "{{\"machine\":\"{}\",\"with_timestamp\":{},\"without_timestamp\":{}}}",
-                    m, with, without
+                    "{{\"machine\":\"{m}\",\"with_timestamp\":{with},\"without_timestamp\":{without}}}"
                 )
             })
             .collect();
@@ -35,7 +34,7 @@ pub(crate) fn cmd_status_machine_resource_age_distribution(
     } else {
         println!("Resource age distribution per machine:");
         for (m, with, without) in &dist {
-            println!("  {} — {} with timestamp, {} without", m, with, without);
+            println!("  {m} — {with} with timestamp, {without} without");
         }
     }
     Ok(())
@@ -44,7 +43,7 @@ pub(crate) fn cmd_status_machine_resource_age_distribution(
 fn collect_age_distribution(state_dir: &Path, targets: &[&String]) -> Vec<(String, usize, usize)> {
     let mut results = Vec::new();
     for m in targets {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&lock_path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -101,7 +100,7 @@ fn compute_convergence_velocity(state_dir: &Path, targets: &[&String]) -> (usize
     let mut total = 0usize;
     let mut converged = 0usize;
     for m in targets {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&lock_path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -140,7 +139,7 @@ pub(crate) fn cmd_status_resource_failure_correlation(
     if json {
         let items: Vec<String> = correlations
             .iter()
-            .map(|(r, count)| format!("{{\"resource\":\"{}\",\"failure_count\":{}}}", r, count))
+            .map(|(r, count)| format!("{{\"resource\":\"{r}\",\"failure_count\":{count}}}"))
             .collect();
         println!("{{\"failure_correlations\":[{}]}}", items.join(","));
     } else if correlations.is_empty() {
@@ -148,7 +147,7 @@ pub(crate) fn cmd_status_resource_failure_correlation(
     } else {
         println!("Resource failure correlations (across machines):");
         for (r, count) in &correlations {
-            println!("  {} — failed on {} machines", r, count);
+            println!("  {r} — failed on {count} machines");
         }
     }
     Ok(())
@@ -158,7 +157,7 @@ fn find_failure_correlations(state_dir: &Path, targets: &[&String]) -> Vec<(Stri
     let mut failure_counts: std::collections::HashMap<String, usize> =
         std::collections::HashMap::new();
     for m in targets {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&lock_path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -191,7 +190,7 @@ pub(crate) fn cmd_status_machine_resource_churn_rate(
     };
     let mut rates: Vec<(String, usize)> = Vec::new();
     for m in &targets {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&lock_path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -207,7 +206,7 @@ pub(crate) fn cmd_status_machine_resource_churn_rate(
     if json {
         let items: Vec<String> = rates
             .iter()
-            .map(|(m, c)| format!("{{\"machine\":\"{}\",\"resource_count\":{}}}", m, c))
+            .map(|(m, c)| format!("{{\"machine\":\"{m}\",\"resource_count\":{c}}}"))
             .collect();
         println!("{{\"machine_resource_churn_rate\":[{}]}}", items.join(","));
     } else if rates.is_empty() {
@@ -215,7 +214,7 @@ pub(crate) fn cmd_status_machine_resource_churn_rate(
     } else {
         println!("Machine resource churn rate:");
         for (m, c) in &rates {
-            println!("  {} — {} resources tracked", m, c);
+            println!("  {m} — {c} resources tracked");
         }
     }
     Ok(())
@@ -234,7 +233,7 @@ pub(crate) fn cmd_status_fleet_resource_staleness(
     };
     let mut stale: Vec<(String, String, String)> = Vec::new();
     for m in &targets {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&lock_path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -254,8 +253,7 @@ pub(crate) fn cmd_status_fleet_resource_staleness(
             .iter()
             .map(|(m, r, a)| {
                 format!(
-                    "{{\"machine\":\"{}\",\"resource\":\"{}\",\"applied_at\":\"{}\"}}",
-                    m, r, a
+                    "{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"applied_at\":\"{a}\"}}"
                 )
             })
             .collect();
@@ -265,7 +263,7 @@ pub(crate) fn cmd_status_fleet_resource_staleness(
     } else {
         println!("Fleet resource staleness (oldest first):");
         for (m, r, a) in &stale {
-            println!("  {} / {} — last applied {}", m, r, a);
+            println!("  {m} / {r} — last applied {a}");
         }
     }
     Ok(())
@@ -284,7 +282,7 @@ pub(crate) fn cmd_status_machine_convergence_trend(
     };
     let mut trends: Vec<(String, usize, usize, f64)> = Vec::new();
     for m in &targets {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&lock_path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -316,8 +314,7 @@ pub(crate) fn cmd_status_machine_convergence_trend(
             .iter()
             .map(|(m, c, t, p)| {
                 format!(
-                    "{{\"machine\":\"{}\",\"converged\":{},\"total\":{},\"pct\":{:.1}}}",
-                    m, c, t, p
+                    "{{\"machine\":\"{m}\",\"converged\":{c},\"total\":{t},\"pct\":{p:.1}}}"
                 )
             })
             .collect();
@@ -327,7 +324,7 @@ pub(crate) fn cmd_status_machine_convergence_trend(
     } else {
         println!("Machine convergence trend:");
         for (m, c, t, p) in &trends {
-            println!("  {} — {}/{} converged ({:.1}%)", m, c, t, p);
+            println!("  {m} — {c}/{t} converged ({p:.1}%)");
         }
     }
     Ok(())
@@ -346,7 +343,7 @@ pub(crate) fn cmd_status_machine_capacity_utilization(
     };
     let mut utilization: Vec<(String, usize)> = Vec::new();
     for m in &targets {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&lock_path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -361,7 +358,7 @@ pub(crate) fn cmd_status_machine_capacity_utilization(
     if json {
         let items: Vec<String> = utilization
             .iter()
-            .map(|(m, c)| format!("{{\"machine\":\"{}\",\"resource_count\":{}}}", m, c))
+            .map(|(m, c)| format!("{{\"machine\":\"{m}\",\"resource_count\":{c}}}"))
             .collect();
         println!("{{\"machine_capacity_utilization\":[{}]}}", items.join(","));
     } else if utilization.is_empty() {
@@ -369,7 +366,7 @@ pub(crate) fn cmd_status_machine_capacity_utilization(
     } else {
         println!("Machine capacity utilization:");
         for (m, c) in &utilization {
-            println!("  {} — {} resources", m, c);
+            println!("  {m} — {c} resources");
         }
     }
     Ok(())
@@ -391,7 +388,7 @@ pub(crate) fn cmd_status_fleet_configuration_entropy(
     if json {
         let items: Vec<String> = entries
             .iter()
-            .map(|(t, c)| format!("{{\"type\":\"{}\",\"count\":{}}}", t, c))
+            .map(|(t, c)| format!("{{\"type\":\"{t}\",\"count\":{c}}}"))
             .collect();
         println!(
             "{{\"fleet_configuration_entropy\":{{\"total\":{},\"types\":[{}]}}}}",
@@ -401,14 +398,14 @@ pub(crate) fn cmd_status_fleet_configuration_entropy(
     } else if entries.is_empty() {
         println!("No configuration entropy data available.");
     } else {
-        println!("Fleet configuration entropy ({} total resources):", total);
+        println!("Fleet configuration entropy ({total} total resources):");
         for (t, c) in &entries {
             let pct = if total > 0 {
                 (*c as f64 / total as f64) * 100.0
             } else {
                 0.0
             };
-            println!("  {} — {} ({:.1}%)", t, c, pct);
+            println!("  {t} — {c} ({pct:.1}%)");
         }
     }
     Ok(())
@@ -418,7 +415,7 @@ fn collect_type_entropy(state_dir: &Path, targets: &[&String]) -> Vec<(String, u
     let mut type_counts: std::collections::HashMap<String, usize> =
         std::collections::HashMap::new();
     for m in targets {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&lock_path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -451,7 +448,7 @@ pub(crate) fn cmd_status_machine_resource_freshness(
     };
     let mut freshness: Vec<(String, String, String)> = Vec::new();
     for m in &targets {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&lock_path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -471,8 +468,7 @@ pub(crate) fn cmd_status_machine_resource_freshness(
             .iter()
             .map(|(m, r, a)| {
                 format!(
-                    "{{\"machine\":\"{}\",\"resource\":\"{}\",\"last_apply\":\"{}\"}}",
-                    m, r, a
+                    "{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"last_apply\":\"{a}\"}}"
                 )
             })
             .collect();
@@ -482,7 +478,7 @@ pub(crate) fn cmd_status_machine_resource_freshness(
     } else {
         println!("Machine resource freshness (oldest first):");
         for (m, r, a) in &freshness {
-            println!("  {} / {} — last applied {}", m, r, a);
+            println!("  {m} / {r} — last applied {a}");
         }
     }
     Ok(())
