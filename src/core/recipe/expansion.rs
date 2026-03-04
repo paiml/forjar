@@ -17,7 +17,7 @@ pub fn load_recipe(path: &Path) -> Result<RecipeFile, String> {
 
 /// Parse a recipe from a YAML string.
 pub fn parse_recipe(yaml: &str) -> Result<RecipeFile, String> {
-    serde_yaml_ng::from_str(yaml).map_err(|e| format!("recipe parse error: {}", e))
+    serde_yaml_ng::from_str(yaml).map_err(|e| format!("recipe parse error: {e}"))
 }
 
 /// Resolve `{{inputs.X}}` templates in a string.
@@ -32,13 +32,13 @@ pub(crate) fn resolve_input_template(
         let open = start + open;
         let close = result[open..]
             .find("}}")
-            .ok_or_else(|| format!("unclosed template at position {}", open))?;
+            .ok_or_else(|| format!("unclosed template at position {open}"))?;
         let close = open + close + 2;
         let key = result[open + 9..close - 2].trim();
 
         let value = inputs
             .get(key)
-            .ok_or_else(|| format!("unknown input: {}", key))?;
+            .ok_or_else(|| format!("unknown input: {key}"))?;
 
         result.replace_range(open..close, value);
         start = open + value.len();
@@ -150,7 +150,7 @@ pub fn expand_recipe(
     let mut first = true;
 
     for (res_name, resource) in &recipe_file.resources {
-        let namespaced_id = format!("{}/{}", recipe_id, res_name);
+        let namespaced_id = format!("{recipe_id}/{res_name}");
 
         // Resolve input templates
         let mut resolved = resolve_resource_inputs(resource, &resolved_inputs)?;
@@ -164,7 +164,7 @@ pub fn expand_recipe(
             .iter()
             .map(|dep| {
                 if recipe_file.resources.contains_key(dep) {
-                    format!("{}/{}", recipe_id, dep)
+                    format!("{recipe_id}/{dep}")
                 } else {
                     dep.clone()
                 }
@@ -185,7 +185,7 @@ pub fn expand_recipe(
             .iter()
             .map(|dep| {
                 if recipe_file.resources.contains_key(dep) {
-                    format!("{}/{}", recipe_id, dep)
+                    format!("{recipe_id}/{dep}")
                 } else {
                     dep.clone()
                 }
@@ -204,5 +204,5 @@ pub fn recipe_terminal_id(recipe_id: &str, recipe_file: &RecipeFile) -> Option<S
         .resources
         .keys()
         .last()
-        .map(|name| format!("{}/{}", recipe_id, name))
+        .map(|name| format!("{recipe_id}/{name}"))
 }

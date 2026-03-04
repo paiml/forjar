@@ -234,8 +234,7 @@ fn test_fj1333_capture_method_all() {
         let method = capture_method(provider);
         assert!(
             !method.is_empty(),
-            "empty capture method for {:?}",
-            provider
+            "empty capture method for {provider:?}"
         );
     }
 }

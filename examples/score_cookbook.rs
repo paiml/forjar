@@ -42,15 +42,15 @@ fn main() {
         let config = match parser::parse_config(&yaml) {
             Ok(c) => c,
             Err(e) => {
-                println!("\n{}: PARSE ERROR — {}", name, e);
+                println!("\n{name}: PARSE ERROR — {e}");
                 continue;
             }
         };
         let errors = parser::validate_config(&config);
         if !errors.is_empty() {
-            println!("\n{}: VALIDATION ERRORS", name);
+            println!("\n{name}: VALIDATION ERRORS");
             for err in &errors {
-                println!("  - {}", err);
+                println!("  - {err}");
             }
             continue;
         }
@@ -86,12 +86,12 @@ fn main() {
 
     // Summary
     println!("\n{}", "=".repeat(60));
-    println!("Summary: {}/{} recipes validated and scored", passed, total);
+    println!("Summary: {passed}/{total} recipes validated and scored");
     println!();
     println!("{:<35} {:>5} {:>5}", "Recipe", "Grade", "Score");
     println!("{}", "-".repeat(47));
     for (name, grade, composite) in &grades {
-        println!("{:<35} {:>5} {:>5}", name, grade, composite);
+        println!("{name:<35} {grade:>5} {composite:>5}");
     }
     println!();
 
@@ -100,5 +100,5 @@ fn main() {
         passed > 0,
         "at least one recipe should score above F (static-only)",
     );
-    println!("All {} cookbook recipes validated successfully.", total);
+    println!("All {total} cookbook recipes validated successfully.");
 }

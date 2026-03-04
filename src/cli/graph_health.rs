@@ -226,7 +226,7 @@ fn print_width_json(levels: &[LevelInfo], max_width: usize) {
     let items: Vec<String> = levels
         .iter()
         .map(|l| {
-            let names: Vec<String> = l.resources.iter().map(|n| format!("\"{}\"", n)).collect();
+            let names: Vec<String> = l.resources.iter().map(|n| format!("\"{n}\"")).collect();
             format!(
                 "{{\"level\":{},\"width\":{},\"resources\":[{}]}}",
                 l.level,
@@ -252,7 +252,7 @@ fn print_width_text(levels: &[LevelInfo], max_width: usize) {
             l.resources.join(", ")
         );
     }
-    println!("  Max width: {}", max_width);
+    println!("  Max width: {max_width}");
 }
 
 /// FJ-1066: Analyze dependency graph width per level using Kahn's algorithm.

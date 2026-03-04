@@ -82,7 +82,7 @@ fn test_fj131_resource_type_serde_roundtrip() {
     for rt in &types {
         let json = serde_json::to_string(rt).unwrap();
         let back: ResourceType = serde_json::from_str(&json).unwrap();
-        assert_eq!(&back, rt, "roundtrip failed for {:?}", rt);
+        assert_eq!(&back, rt, "roundtrip failed for {rt:?}");
     }
 }
 
@@ -152,7 +152,7 @@ fn test_fj132_machine_target_to_vec_multiple() {
 fn test_fj132_resource_type_clone() {
     let rt = ResourceType::Docker;
     let cloned = rt.clone();
-    assert_eq!(format!("{}", rt), format!("{}", cloned));
+    assert_eq!(format!("{rt}"), format!("{}", cloned));
 }
 
 #[test]
@@ -164,7 +164,7 @@ fn test_fj132_resource_status_all_variants_display() {
         ResourceStatus::Drifted,
         ResourceStatus::Unknown,
     ] {
-        let s = format!("{}", status);
+        let s = format!("{status}");
         assert!(!s.is_empty(), "ResourceStatus display should not be empty");
     }
 }
@@ -178,7 +178,7 @@ fn test_fj132_plan_action_all_variants() {
         PlanAction::Destroy,
         PlanAction::NoOp,
     ] {
-        let s = format!("{}", action);
+        let s = format!("{action}");
         assert!(!s.is_empty(), "PlanAction display should not be empty");
     }
 }
@@ -217,7 +217,7 @@ fn test_fj132_resource_type_display_all() {
         (ResourceType::Network, "network"),
     ];
     for (rt, expected) in &types {
-        assert_eq!(format!("{}", rt), *expected);
+        assert_eq!(format!("{rt}"), *expected);
     }
 }
 
@@ -225,7 +225,7 @@ fn test_fj132_resource_type_display_all() {
 fn test_fj132_machine_target_single_deserialization() {
     let yaml = "machine: web";
     let r: Resource =
-        serde_yaml_ng::from_str(&format!("type: file\n{}\npath: /tmp/x", yaml)).unwrap();
+        serde_yaml_ng::from_str(&format!("type: file\n{yaml}\npath: /tmp/x")).unwrap();
     match &r.machine {
         MachineTarget::Single(name) => assert_eq!(name, "web"),
         MachineTarget::Multiple(_) => panic!("expected Single"),
@@ -251,19 +251,19 @@ fn test_fj132_machine_target_multiple_deserialization() {
 #[test]
 fn test_fj142_machine_target_display_single() {
     let t = MachineTarget::Single("web1".to_string());
-    assert_eq!(format!("{}", t), "web1");
+    assert_eq!(format!("{t}"), "web1");
 }
 
 #[test]
 fn test_fj142_machine_target_display_multiple() {
     let t = MachineTarget::Multiple(vec!["web1".to_string(), "web2".to_string()]);
-    assert_eq!(format!("{}", t), "[web1, web2]");
+    assert_eq!(format!("{t}"), "[web1, web2]");
 }
 
 #[test]
 fn test_fj142_machine_target_display_empty_multiple() {
     let t = MachineTarget::Multiple(vec![]);
-    assert_eq!(format!("{}", t), "[]");
+    assert_eq!(format!("{t}"), "[]");
 }
 
 #[test]

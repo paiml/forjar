@@ -118,8 +118,7 @@ pub(crate) fn apply_machines_rolling(
             let pct = (failed as f64 / total_machines as f64 * 100.0) as u8;
             if pct > max_pct {
                 return Err(format!(
-                    "rolling deploy aborted: {}% failure rate exceeds max_fail_percentage {}%",
-                    pct, max_pct
+                    "rolling deploy aborted: {pct}% failure rate exceeds max_fail_percentage {max_pct}%"
                 ));
             }
         }

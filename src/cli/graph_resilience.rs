@@ -101,7 +101,7 @@ pub(crate) fn cmd_graph_resource_dependency_parallel_groups(
             .iter()
             .enumerate()
             .map(|(i, rs)| {
-                let names: Vec<String> = rs.iter().map(|r| format!("\"{}\"", r)).collect();
+                let names: Vec<String> = rs.iter().map(|r| format!("\"{r}\"")).collect();
                 format!("{{\"group\":{},\"resources\":[{}]}}", i, names.join(","))
             })
             .collect();
@@ -233,14 +233,14 @@ pub(crate) fn cmd_graph_resource_dependency_execution_cost(
         .unwrap_or((0, Vec::new()));
 
     if json {
-        let path_items: Vec<String> = critical_path.iter().map(|n| format!("\"{}\"", n)).collect();
+        let path_items: Vec<String> = critical_path.iter().map(|n| format!("\"{n}\"")).collect();
         println!(
             "{{\"execution_cost\":{{\"total_resources\":{},\"total_cost\":{},\"critical_path_cost\":{},\"critical_path\":[{}]}}}}",
             total_resources, total_cost, critical_path_cost, path_items.join(",")
         );
     } else {
-        println!("Total resources: {}", total_resources);
-        println!("Total estimated cost: {}", total_cost);
+        println!("Total resources: {total_resources}");
+        println!("Total estimated cost: {total_cost}");
         println!(
             "Critical path cost: {} (path: {})",
             critical_path_cost,

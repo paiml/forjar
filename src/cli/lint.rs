@@ -15,8 +15,7 @@ fn lint_unused_machines(config: &types::ForjarConfig) -> Vec<String> {
     for machine_name in config.machines.keys() {
         if !referenced.contains(machine_name) {
             warnings.push(format!(
-                "machine '{}' is defined but not referenced by any resource",
-                machine_name
+                "machine '{machine_name}' is defined but not referenced by any resource"
             ));
         }
     }
@@ -30,15 +29,14 @@ fn lint_untagged_resources(config: &types::ForjarConfig) -> Vec<String> {
         if resource.tags.is_empty() {
             untagged += 1;
             if config.resources.len() > 3 {
-                warnings.push(format!("resource '{}' has no tags", id));
+                warnings.push(format!("resource '{id}' has no tags"));
             }
         }
     }
     if untagged > 0 && config.resources.len() > 3 && untagged == config.resources.len() {
         warnings.retain(|w| !w.starts_with("resource '") || !w.ends_with("has no tags"));
         warnings.push(format!(
-            "all {} resources have no tags — consider adding tags for selective filtering",
-            untagged
+            "all {untagged} resources have no tags — consider adding tags for selective filtering"
         ));
     }
     warnings
@@ -73,8 +71,7 @@ fn lint_dependency_issues(config: &types::ForjarConfig) -> Vec<String> {
         for dep in &resource.depends_on {
             if !config.resources.contains_key(dep) {
                 warnings.push(format!(
-                    "resource '{}' depends on '{}' which does not exist",
-                    id, dep
+                    "resource '{id}' depends on '{dep}' which does not exist"
                 ));
             }
         }
@@ -86,8 +83,7 @@ fn lint_dependency_issues(config: &types::ForjarConfig) -> Vec<String> {
                     dep_resource.machine.to_vec().into_iter().collect();
                 if my_machines.is_disjoint(&dep_machines) {
                     warnings.push(format!(
-                        "resource '{}' depends on '{}' but they target different machines",
-                        id, dep
+                        "resource '{id}' depends on '{dep}' but they target different machines"
                     ));
                 }
             }
@@ -100,7 +96,7 @@ fn lint_empty_packages(config: &types::ForjarConfig) -> Vec<String> {
     let mut warnings = Vec::new();
     for (id, resource) in &config.resources {
         if resource.resource_type == types::ResourceType::Package && resource.packages.is_empty() {
-            warnings.push(format!("package resource '{}' has no packages listed", id));
+            warnings.push(format!("package resource '{id}' has no packages listed"));
         }
     }
     warnings
@@ -114,22 +110,20 @@ fn lint_strict_rules(config: &types::ForjarConfig) -> Vec<String> {
             && !resource.tags.iter().any(|t| t == "system")
         {
             warnings.push(format!(
-                "strict: file '{}' is owned by root — tag as 'system' or use a non-root owner",
-                id
+                "strict: file '{id}' is owned by root — tag as 'system' or use a non-root owner"
             ));
         }
     }
     for (id, resource) in &config.resources {
         if resource.tags.is_empty() {
-            warnings.push(format!("strict: resource '{}' has no tags", id));
+            warnings.push(format!("strict: resource '{id}' has no tags"));
         }
     }
     for (name, machine) in &config.machines {
         if let Some(ref container) = machine.container {
             if container.privileged {
                 warnings.push(format!(
-                    "strict: machine '{}' uses privileged container mode",
-                    name
+                    "strict: machine '{name}' uses privileged container mode"
                 ));
             }
         }
@@ -141,8 +135,7 @@ fn lint_strict_rules(config: &types::ForjarConfig) -> Vec<String> {
             && machine.ssh_key.is_none()
         {
             warnings.push(format!(
-                "strict: machine '{}' has no ssh_key configured",
-                name
+                "strict: machine '{name}' has no ssh_key configured"
             ));
         }
     }
@@ -195,7 +188,7 @@ pub(crate) fn lint_auto_fix(file: &Path) -> Result<Vec<String>, String> {
     let content = std::fs::read_to_string(file)
         .map_err(|e| format!("cannot read {}: {}", file.display(), e))?;
     let mut doc: serde_yaml_ng::Value =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("YAML parse error: {}", e))?;
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("YAML parse error: {e}"))?;
     if let Some(serde_yaml_ng::Value::Mapping(map)) = doc.get_mut("resources") {
         let mut pairs: Vec<_> = map.iter().map(|(k, v)| (k.clone(), v.clone())).collect();
         pairs.sort_by(|(a, _), (b, _)| a.as_str().unwrap_or("").cmp(b.as_str().unwrap_or("")));
@@ -207,7 +200,7 @@ pub(crate) fn lint_auto_fix(file: &Path) -> Result<Vec<String>, String> {
     }
     if !fixes_applied.is_empty() {
         let normalized =
-            serde_yaml_ng::to_string(&doc).map_err(|e| format!("serialization error: {}", e))?;
+            serde_yaml_ng::to_string(&doc).map_err(|e| format!("serialization error: {e}"))?;
         std::fs::write(file, normalized)
             .map_err(|e| format!("cannot write {}: {}", file.display(), e))?;
     }
@@ -234,13 +227,13 @@ pub(crate) fn cmd_lint(file: &Path, json: bool, strict: bool, fix: bool) -> Resu
             "findings": warnings,
         });
         let output =
-            serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {}", e))?;
-        println!("{}", output);
+            serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {e}"))?;
+        println!("{output}");
     } else if warnings.is_empty() {
         println!("No lint warnings found.");
     } else {
         for w in &warnings {
-            println!("  warn: {}", w);
+            println!("  warn: {w}");
         }
         if fix {
             let fixes = lint_auto_fix(file)?;

@@ -9,7 +9,7 @@ proptest! {
         n in 2..6usize,
         edge_seed in prop::collection::vec((0..5usize, 0..5usize), 0..4),
     ) {
-        let names: Vec<String> = (0..n).map(|i| format!("r{}", i)).collect();
+        let names: Vec<String> = (0..n).map(|i| format!("r{i}")).collect();
         let name_refs: Vec<&str> = names.iter().map(|s| s.as_str()).collect();
         // Build valid DAG edges (only forward edges to avoid cycles)
         let edges: Vec<(&str, &str)> = edge_seed.iter()
@@ -37,7 +37,7 @@ proptest! {
     #[test]
     fn falsify_dag_002_cycle_detection(n in 2..5usize) {
         // Create a cycle: r0 -> r1 -> ... -> r(n-1) -> r0
-        let names: Vec<String> = (0..n).map(|i| format!("r{}", i)).collect();
+        let names: Vec<String> = (0..n).map(|i| format!("r{i}")).collect();
         let name_refs: Vec<&str> = names.iter().map(|s| s.as_str()).collect();
         let edges: Vec<(&str, &str)> = (0..n)
             .map(|i| (name_refs[i], name_refs[(i + 1) % n]))
@@ -58,7 +58,7 @@ proptest! {
         n in 2..6usize,
         edge_seed in prop::collection::vec((0..5usize, 0..5usize), 0..4),
     ) {
-        let names: Vec<String> = (0..n).map(|i| format!("r{}", i)).collect();
+        let names: Vec<String> = (0..n).map(|i| format!("r{i}")).collect();
         let name_refs: Vec<&str> = names.iter().map(|s| s.as_str()).collect();
         let edges: Vec<(&str, &str)> = edge_seed.iter()
             .filter_map(|&(a, b)| {

@@ -34,7 +34,7 @@ fn collect_resource_ages(
 ) -> Result<Vec<(String, String, u64, String)>, String> {
     let mut ages = Vec::new();
     for m in machines {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
         let age_secs = match lock_file_age_secs(&lock_path, now) {
             Some(a) => a,
             None => continue,
@@ -76,7 +76,7 @@ pub(crate) fn cmd_status_resource_age(
         );
     } else {
         for (m, rname, _age_secs, age_str) in &ages {
-            println!("  {} {} — age: {}", m, rname, age_str);
+            println!("  {m} {rname} — age: {age_str}");
         }
     }
     Ok(())
@@ -97,7 +97,7 @@ pub(crate) fn cmd_status_resource_cost(
                 continue;
             }
         }
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
         if !lock_path.exists() {
             continue;
         }
@@ -132,7 +132,7 @@ pub(crate) fn cmd_status_resource_cost(
     if json {
         let items: Vec<String> = type_counts
             .iter()
-            .map(|(t, c)| format!(r#"{{"type":"{}","count":{}}}"#, t, c))
+            .map(|(t, c)| format!(r#"{{"type":"{t}","count":{c}}}"#))
             .collect();
         println!(
             r#"{{"resource_types":[{}],"total":{},"complexity_score":{:.1}}}"#,
@@ -143,9 +143,9 @@ pub(crate) fn cmd_status_resource_cost(
     } else if total_resources == 0 {
         println!("No resources found for cost estimate");
     } else {
-        println!("Resource cost estimate (complexity: {:.1}):", weighted_cost);
+        println!("Resource cost estimate (complexity: {weighted_cost:.1}):");
         for (t, c) in &type_counts {
-            println!("  {} — {} resources", t, c);
+            println!("  {t} — {c} resources");
         }
     }
     Ok(())
@@ -169,7 +169,7 @@ pub(crate) fn cmd_status_resource_size(
     }
     let mut first = true;
     for m in &targets {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
         if !lock_path.exists() {
             continue;
         }
@@ -221,12 +221,12 @@ pub(crate) fn cmd_status_resource_graph(
                 continue;
             }
         }
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
         if lock_path.exists() {
             let content = std::fs::read_to_string(&lock_path).unwrap_or_default();
             if let Ok(lock) = serde_yaml_ng::from_str::<crate::core::types::StateLock>(&content) {
                 for (rname, _rlock) in &lock.resources {
-                    let node_id = format!("{}:{}", m, rname);
+                    let node_id = format!("{m}:{rname}");
                     nodes.insert(node_id);
                 }
             }
@@ -234,10 +234,10 @@ pub(crate) fn cmd_status_resource_graph(
     }
 
     if json {
-        let node_items: Vec<String> = nodes.iter().map(|n| format!(r#""{}""#, n)).collect();
+        let node_items: Vec<String> = nodes.iter().map(|n| format!(r#""{n}""#)).collect();
         let edge_items: Vec<String> = edges
             .iter()
-            .map(|(from, to)| format!(r#"{{"from":"{}","to":"{}"}}"#, from, to))
+            .map(|(from, to)| format!(r#"{{"from":"{from}","to":"{to}"}}"#))
             .collect();
         println!(
             r#"{{"nodes":[{}],"edges":[{}],"node_count":{},"edge_count":{}}}"#,
@@ -253,7 +253,7 @@ pub(crate) fn cmd_status_resource_graph(
             edges.len()
         );
         for (from, to) in &edges {
-            println!("  {} → {}", from, to);
+            println!("  {from} → {to}");
         }
     }
     Ok(())

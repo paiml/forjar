@@ -91,7 +91,7 @@ fn main() {
 
     // 5. Check for non-existent machine
     let missing = state::load_lock(state_dir, "ghost-machine").expect("load ghost");
-    println!("\nLoad non-existent machine: {:?}", missing);
+    println!("\nLoad non-existent machine: {missing:?}");
 
     // 6. Global lock — tracks all machines
     println!("\n--- Global Lock ---");
@@ -117,7 +117,7 @@ fn main() {
     println!("\n--- Lock File Content ---");
     let content = std::fs::read_to_string(&lock_path).expect("read lock");
     for line in content.lines().take(15) {
-        println!("  {}", line);
+        println!("  {line}");
     }
     println!("  ...");
 

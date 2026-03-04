@@ -22,7 +22,7 @@ fn print_graph_mermaid(config: &types::ForjarConfig) {
             id, id, resource.resource_type, machine
         );
         for dep in &resource.depends_on {
-            println!("    {} --> {}", dep, id);
+            println!("    {dep} --> {id}");
         }
     }
 }
@@ -39,7 +39,7 @@ fn print_graph_dot(config: &types::ForjarConfig) {
             id, id, resource.resource_type, machine
         );
         for dep in &resource.depends_on {
-            println!("    \"{}\" -> \"{}\";", dep, id);
+            println!("    \"{dep}\" -> \"{id}\";");
         }
     }
     println!("}}");
@@ -120,8 +120,7 @@ pub(crate) fn cmd_graph(
         "svg" => super::graph_svg::print_graph_svg(&config),
         other => {
             return Err(format!(
-                "unknown graph format '{}': use mermaid, dot, ascii, or svg",
-                other
+                "unknown graph format '{other}': use mermaid, dot, ascii, or svg"
             ))
         }
     }
@@ -134,7 +133,7 @@ pub(crate) fn cmd_graph_affected(file: &Path, resource: &str) -> Result<(), Stri
     let config = parse_and_validate(file)?;
 
     if !config.resources.contains_key(resource) {
-        return Err(format!("Resource '{}' not found in config", resource));
+        return Err(format!("Resource '{resource}' not found in config"));
     }
 
     // Build reverse dependency map
@@ -168,7 +167,7 @@ pub(crate) fn cmd_graph_affected(file: &Path, resource: &str) -> Result<(), Stri
 
     println!("Resources affected by changes to '{}':\n", bold(resource));
     if affected.is_empty() {
-        println!("  (none — no resources depend on '{}')", resource);
+        println!("  (none — no resources depend on '{resource}')");
     } else {
         for a in &affected {
             println!("  {} {}", yellow("→"), a);

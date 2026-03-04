@@ -57,11 +57,10 @@ fn test_fj132_exec_script_exit_code_preserved() {
         cost: 0,
     };
     for code in [0, 1, 2, 42, 126, 127] {
-        let out = exec_script(&machine, &format!("exit {}", code)).unwrap();
+        let out = exec_script(&machine, &format!("exit {code}")).unwrap();
         assert_eq!(
             out.exit_code, code,
-            "exit code {} should be preserved",
-            code
+            "exit code {code} should be preserved"
         );
     }
 }

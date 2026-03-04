@@ -194,7 +194,7 @@ pub(crate) fn cmd_diff(
                 "diffs": diffs_to_json(&diffs),
             }));
         } else if !diffs.is_empty() {
-            println!("Machine: {}", machine_name);
+            println!("Machine: {machine_name}");
             for d in &diffs {
                 print_diff_entry(d);
             }
@@ -214,12 +214,11 @@ pub(crate) fn cmd_diff(
         });
         println!(
             "{}",
-            serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {}", e))?
+            serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {e}"))?
         );
     } else {
         println!(
-            "Diff: {} added, {} removed, {} changed, {} unchanged",
-            total_added, total_removed, total_changed, total_unchanged
+            "Diff: {total_added} added, {total_removed} removed, {total_changed} changed, {total_unchanged} unchanged"
         );
     }
 
@@ -234,7 +233,7 @@ fn load_env_resources(dir: &Path) -> Result<std::collections::HashMap<String, St
             let name = entry.file_name().to_string_lossy().to_string();
             if let Some(lock) = state::load_lock(dir, &name)? {
                 for (id, rl) in &lock.resources {
-                    resources.insert(format!("{}:{}", name, id), rl.hash.clone());
+                    resources.insert(format!("{name}:{id}"), rl.hash.clone());
                 }
             }
         }
@@ -350,7 +349,7 @@ fn print_env_json(
     }
     println!(
         "{}",
-        serde_json::to_string_pretty(&info).map_err(|e| format!("JSON error: {}", e))?
+        serde_json::to_string_pretty(&info).map_err(|e| format!("JSON error: {e}"))?
     );
     Ok(())
 }

@@ -63,7 +63,7 @@ pub(crate) fn cmd_graph_topological_levels(file: &Path, json: bool) -> Result<()
             .iter()
             .enumerate()
             .map(|(i, rs)| {
-                let r_items: Vec<String> = rs.iter().map(|r| format!(r#""{}""#, r)).collect();
+                let r_items: Vec<String> = rs.iter().map(|r| format!(r#""{r}""#)).collect();
                 format!(
                     r#"{{"level":{},"resources":[{}],"count":{}}}"#,
                     i,
@@ -134,7 +134,7 @@ pub(crate) fn cmd_graph_critical_chain(file: &Path, json: bool) -> Result<(), St
     }
 
     if json {
-        let items: Vec<String> = longest.iter().map(|n| format!(r#""{}""#, n)).collect();
+        let items: Vec<String> = longest.iter().map(|n| format!(r#""{n}""#)).collect();
         println!(
             r#"{{"critical_chain":[{}],"length":{}}}"#,
             items.join(","),
@@ -207,7 +207,7 @@ pub(crate) fn cmd_graph_parallel_groups(file: &Path, json: bool) -> Result<(), S
         let items: Vec<String> = levels
             .iter()
             .map(|(level, names)| {
-                let name_list: Vec<String> = names.iter().map(|n| format!(r#""{}""#, n)).collect();
+                let name_list: Vec<String> = names.iter().map(|n| format!(r#""{n}""#)).collect();
                 format!(
                     r#"{{"level":{},"parallel":[{}]}}"#,
                     level,

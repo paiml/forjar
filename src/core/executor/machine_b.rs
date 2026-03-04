@@ -106,8 +106,7 @@ fn cleanup_container_if_needed(cfg: &ApplyConfig, machine: &Machine, machine_nam
             if container.ephemeral {
                 if let Err(e) = transport::container::cleanup_container(machine) {
                     eprintln!(
-                        "warning: container cleanup failed for {}: {}",
-                        machine_name, e
+                        "warning: container cleanup failed for {machine_name}: {e}"
                     );
                 }
             }

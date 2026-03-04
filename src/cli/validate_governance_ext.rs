@@ -103,7 +103,7 @@ struct TagRequiredKeysWarning {
 
 /// Check if a resource's tags contain the expected namespace prefix.
 fn has_tag_namespace(tags: &[String], namespace: &str) -> bool {
-    let prefix = format!("{}:", namespace);
+    let prefix = format!("{namespace}:");
     tags.iter().any(|t| t.starts_with(&prefix))
 }
 
@@ -292,7 +292,7 @@ mod tests {
 
     /// Deserialize a minimal resource from YAML, setting only the `type` field.
     fn make_resource(rtype: &str) -> types::Resource {
-        let yaml = format!("type: {}", rtype);
+        let yaml = format!("type: {rtype}");
         serde_yaml_ng::from_str(&yaml).unwrap()
     }
 
@@ -331,7 +331,7 @@ mod tests {
     fn test_fan_out_over_threshold() {
         let base = make_resource("package");
         let mut resources: Vec<(&str, types::Resource)> = vec![("base", base)];
-        let names: Vec<String> = (0..12).map(|i| format!("svc-{}", i)).collect();
+        let names: Vec<String> = (0..12).map(|i| format!("svc-{i}")).collect();
         for name in &names {
             let mut r = make_resource("service");
             r.depends_on = vec!["base".to_string()];
@@ -348,7 +348,7 @@ mod tests {
     fn test_fan_out_exact_threshold_no_warning() {
         let base = make_resource("package");
         let mut resources: Vec<(&str, types::Resource)> = vec![("base", base)];
-        let names: Vec<String> = (0..10).map(|i| format!("svc-{}", i)).collect();
+        let names: Vec<String> = (0..10).map(|i| format!("svc-{i}")).collect();
         for name in &names {
             let mut r = make_resource("service");
             r.depends_on = vec!["base".to_string()];
@@ -471,7 +471,7 @@ mod tests {
     fn test_drift_risk_high_fan_out_increases_risk() {
         let base = make_resource("file");
         let mut resources: Vec<(&str, types::Resource)> = vec![("base", base)];
-        let names: Vec<String> = (0..5).map(|i| format!("dep-{}", i)).collect();
+        let names: Vec<String> = (0..5).map(|i| format!("dep-{i}")).collect();
         for name in &names {
             let mut r = make_resource("service");
             r.depends_on = vec!["base".to_string()];

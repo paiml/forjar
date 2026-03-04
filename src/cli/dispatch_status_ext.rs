@@ -237,7 +237,7 @@ pub(crate) fn dispatch_status_early(
             cmd_status(sd, m, json, file, summary)?;
             println!(
                 "\n{}",
-                dim(&format!("Refreshing every {}s (Ctrl+C to stop)", interval))
+                dim(&format!("Refreshing every {interval}s (Ctrl+C to stop)"))
             );
             std::thread::sleep(std::time::Duration::from_secs(interval));
         }

@@ -151,7 +151,7 @@ fn test_fj002_validation_error_display() {
     let err = ValidationError {
         message: "test error".to_string(),
     };
-    assert_eq!(format!("{}", err), "test error");
+    assert_eq!(format!("{err}"), "test error");
 }
 
 #[test]
@@ -259,7 +259,7 @@ resources:
 "#;
     let config = parse_config(yaml).unwrap();
     let errors = validate_config(&config);
-    assert!(errors.is_empty(), "diamond pattern is valid: {:?}", errors);
+    assert!(errors.is_empty(), "diamond pattern is valid: {errors:?}");
 }
 
 #[test]

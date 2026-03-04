@@ -54,7 +54,7 @@ pub(super) fn apply_dry_run_output(
         });
         println!(
             "{}",
-            serde_json::to_string_pretty(&output).map_err(|e| format!("JSON error: {}", e))?
+            serde_json::to_string_pretty(&output).map_err(|e| format!("JSON error: {e}"))?
         );
     } else {
         println!("Dry run — no changes applied.");
@@ -118,7 +118,7 @@ pub(super) fn print_apply_summary(
         println!(
             "{}",
             serde_json::to_string_pretty(&output)
-                .map_err(|e| format!("JSON serialization error: {}", e))?
+                .map_err(|e| format!("JSON serialization error: {e}"))?
         );
     } else {
         for result in results {
@@ -141,16 +141,14 @@ pub(super) fn print_apply_summary(
             println!(
                 "{}",
                 red(&format!(
-                    "Apply completed with errors: {} converged, {} unchanged, {} FAILED",
-                    total_converged, total_unchanged, total_failed
+                    "Apply completed with errors: {total_converged} converged, {total_unchanged} unchanged, {total_failed} FAILED"
                 ))
             );
         } else {
             println!(
                 "{}",
                 green(&format!(
-                    "Apply complete: {} converged, {} unchanged.",
-                    total_converged, total_unchanged
+                    "Apply complete: {total_converged} converged, {total_unchanged} unchanged."
                 ))
             );
         }
@@ -249,7 +247,7 @@ pub(super) fn apply_post_actions(
 
     if let Some(ref hook) = config.policy.post_apply {
         if let Err(e) = run_hook("post_apply", hook, verbose) {
-            eprintln!("Warning: {}", e);
+            eprintln!("Warning: {e}");
         }
     }
 
@@ -350,9 +348,9 @@ fn run_check_blocks(config: &types::ForjarConfig, verbose: bool) {
     }
 
     if failed > 0 {
-        eprintln!("warning: {}/{} post-apply checks failed", failed, total);
+        eprintln!("warning: {failed}/{total} post-apply checks failed");
     } else if verbose {
-        println!("  All {}/{} checks passed.", passed, total);
+        println!("  All {passed}/{total} checks passed.");
     }
 }
 
@@ -398,13 +396,13 @@ fn send_apply_webhook(
     match result {
         Ok(output) if output.status.success() => {
             if verbose {
-                eprintln!("Webhook notification sent to {}", url);
+                eprintln!("Webhook notification sent to {url}");
             }
         }
         Ok(output) => eprintln!(
             "Warning: webhook POST to {} failed (exit {})",
             url, output.status
         ),
-        Err(e) => eprintln!("Warning: webhook POST failed: {}", e),
+        Err(e) => eprintln!("Warning: webhook POST failed: {e}"),
     }
 }

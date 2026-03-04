@@ -201,7 +201,7 @@ mod tests {
             encrypt_state: false,
             trace: false,
         };
-        let debug = format!("{:?}", args);
+        let debug = format!("{args:?}");
         assert!(debug.contains("ApplyArgs"));
         assert!(debug.contains("forjar.yaml"));
     }
@@ -388,7 +388,7 @@ mod tests {
             refresh_only: false,
             encrypt_state: false,
         };
-        let debug = format!("{:?}", args);
+        let debug = format!("{args:?}");
         assert!(debug.contains("ApplyArgs"));
     }
 }

@@ -69,13 +69,13 @@ fn print_drift_summary(
             "findings": all_findings,
         });
         let output =
-            serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {}", e))?;
-        println!("{}", output);
+            serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {e}"))?;
+        println!("{output}");
     } else if total_drift > 0 {
         println!();
         println!(
             "{}",
-            red(&format!("Drift detected: {} resource(s)", total_drift))
+            red(&format!("Drift detected: {total_drift} resource(s)"))
         );
     } else {
         println!("{}", green("No drift detected."));
@@ -90,7 +90,7 @@ fn run_drift_alert(alert_cmd: &str, total_drift: usize) -> Result<(), String> {
         .arg(alert_cmd)
         .env("FORJAR_DRIFT_COUNT", total_drift.to_string())
         .status()
-        .map_err(|e| format!("alert-cmd failed to execute: {}", e))?;
+        .map_err(|e| format!("alert-cmd failed to execute: {e}"))?;
     if !status.success() {
         eprintln!("alert-cmd exited with code {}", status.code().unwrap_or(-1));
     }
@@ -108,7 +108,7 @@ fn run_drift_remediation(
 ) -> Result<(), String> {
     if !json {
         println!();
-        println!("Auto-remediating {} drifted resource(s)...", total_drift);
+        println!("Auto-remediating {total_drift} drifted resource(s)...");
     }
     cmd_apply(
         config_path,
@@ -316,7 +316,7 @@ pub(crate) fn cmd_drift(
     }
 
     if tripwire_mode && total_drift > 0 {
-        return Err(format!("{} drift finding(s)", total_drift));
+        return Err(format!("{total_drift} drift finding(s)"));
     }
 
     Ok(())
@@ -371,11 +371,11 @@ pub(crate) fn cmd_drift_dry_run(
             "checks": checks,
         });
         let output =
-            serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {}", e))?;
-        println!("{}", output);
+            serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {e}"))?;
+        println!("{output}");
     } else {
         println!();
-        println!("Dry run: {} resource(s) would be checked", total);
+        println!("Dry run: {total} resource(s) would be checked");
     }
 
     Ok(())

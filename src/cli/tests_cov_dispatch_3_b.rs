@@ -226,8 +226,7 @@ resources:
         let err = result.unwrap_err();
         assert!(
             err.contains("policy") || err.contains("denied") || err.contains("block"),
-            "expected policy error, got: {}",
-            err
+            "expected policy error, got: {err}"
         );
     }
 }

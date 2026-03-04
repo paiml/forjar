@@ -26,7 +26,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let f = write_config(dir.path(), "machines:\n  m1:\n    hostname: m1\n    addr: 127.0.0.1\nresources:\n  r1:\n    type: file\n    path: /tmp/r1\n    content: hello\n    machines: [m1]\n    schedule: \"0 * * * *\"\n  r2:\n    type: file\n    path: /tmp/r2\n    content: hello\n    machines: [m1]\n    schedule: \"30 2 1,15 * 0-6\"\n");
         let result = cmd_validate_check_cron_syntax(&f, false);
-        assert!(result.is_ok(), "Expected Ok, got: {:?}", result);
+        assert!(result.is_ok(), "Expected Ok, got: {result:?}");
     }
 
     #[test]
@@ -76,7 +76,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let f = write_config(dir.path(), "machines:\n  m1:\n    hostname: m1\n    addr: 127.0.0.1\nresources:\n  a:\n    type: file\n    path: /tmp/a\n    content: a\n    machines: [m1]\n  b:\n    type: file\n    path: /tmp/b\n    content: b\n    machines: [m1]\n    depends_on: [a]\n  c:\n    type: file\n    path: /tmp/c\n    content: c\n    machines: [m1]\n    depends_on: [a]\n");
         let result = cmd_graph_breadth_first(&f, false);
-        assert!(result.is_ok(), "Expected Ok, got: {:?}", result);
+        assert!(result.is_ok(), "Expected Ok, got: {result:?}");
     }
 
     #[test]

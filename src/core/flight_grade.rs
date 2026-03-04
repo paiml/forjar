@@ -142,12 +142,7 @@ fn find_zero_degree(
     order: &[u16; MAX_RESOURCES],
     order_len: usize,
 ) -> Option<usize> {
-    for i in 0..count {
-        if in_degree[i] == 0 && !already_ordered(i as u16, order, order_len) {
-            return Some(i);
-        }
-    }
-    None
+    (0..count).find(|&i| in_degree[i] == 0 && !already_ordered(i as u16, order, order_len))
 }
 
 fn already_ordered(id: u16, order: &[u16; MAX_RESOURCES], order_len: usize) -> bool {

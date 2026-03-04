@@ -28,7 +28,7 @@ pub(crate) fn cmd_validate_check_resource_health_correlation(
         let hub_items: Vec<String> = hubs
             .iter()
             .map(|(dep, dependents)| {
-                let arr: Vec<String> = dependents.iter().map(|d| format!("\"{}\"", d)).collect();
+                let arr: Vec<String> = dependents.iter().map(|d| format!("\"{d}\"")).collect();
                 format!(
                     "{{\"hub\":\"{}\",\"dependents\":[{}],\"fan_in\":{}}}",
                     dep,
@@ -40,7 +40,7 @@ pub(crate) fn cmd_validate_check_resource_health_correlation(
         let corr_items: Vec<String> = correlated
             .iter()
             .map(|(dep, resources)| {
-                let arr: Vec<String> = resources.iter().map(|r| format!("\"{}\"", r)).collect();
+                let arr: Vec<String> = resources.iter().map(|r| format!("\"{r}\"")).collect();
                 format!(
                     "{{\"shared_dependency\":\"{}\",\"correlated_resources\":[{}]}}",
                     dep,
@@ -162,8 +162,7 @@ pub(crate) fn cmd_validate_check_dependency_optimization(
             .iter()
             .map(|(resource, edge, via)| {
                 format!(
-                    "{{\"resource\":\"{}\",\"redundant_dep\":\"{}\",\"implied_via\":\"{}\"}}",
-                    resource, edge, via
+                    "{{\"resource\":\"{resource}\",\"redundant_dep\":\"{edge}\",\"implied_via\":\"{via}\"}}"
                 )
             })
             .collect();
@@ -173,8 +172,7 @@ pub(crate) fn cmd_validate_check_dependency_optimization(
     } else {
         for (resource, edge, via) in &redundant {
             println!(
-                "suggestion: {}'s dependency on '{}' is redundant — already implied through '{}'",
-                resource, edge, via
+                "suggestion: {resource}'s dependency on '{edge}' is redundant — already implied through '{via}'"
             );
         }
     }
@@ -325,7 +323,7 @@ fn find_consolidation_opportunities(config: &types::ForjarConfig) -> Vec<Consoli
                 continue;
             }
 
-            let pair_key = format!("{}:{}", name_a, name_b);
+            let pair_key = format!("{name_a}:{name_b}");
             if seen.contains(&pair_key) {
                 continue;
             }
@@ -374,8 +372,7 @@ fn check_consolidation_reason(
     let distance = levenshtein(name_a, name_b);
     if distance <= 2 && distance > 0 {
         return Some(format!(
-            "similar names (edit distance {}), may be duplicates",
-            distance
+            "similar names (edit distance {distance}), may be duplicates"
         ));
     }
 
