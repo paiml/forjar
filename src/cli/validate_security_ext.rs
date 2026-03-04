@@ -1,7 +1,5 @@
 //! Phase 100 — Extended Security Validation: dependency symmetry, tag namespace, machine capacity.
 
-#![allow(dead_code)]
-
 use crate::core::types;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::Path;

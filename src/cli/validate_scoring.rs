@@ -1,7 +1,5 @@
 //! Phase 107 — Resource Scoring & Quality Checks (FJ-1118, FJ-1121, FJ-1124).
 
-#![allow(dead_code)]
-
 use crate::core::types;
 use std::path::Path;
 

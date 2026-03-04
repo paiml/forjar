@@ -1,5 +1,4 @@
 //! Phase 99 — Resource Lifecycle & Dependency Age: graph commands.
-#![allow(dead_code)]
 
 use crate::core::types;
 use std::collections::BTreeMap;

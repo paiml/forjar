@@ -1,7 +1,5 @@
+#![allow(unused)]
 //! Tests: Coverage for secrets, doctor, plan, show.
-
-#![allow(unused_imports)]
-#![allow(dead_code)]
 use super::doctor::*;
 use super::plan::*;
 use super::secrets::*;

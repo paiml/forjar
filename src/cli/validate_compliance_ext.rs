@@ -1,7 +1,5 @@
 //! Phase 98 — Compliance Automation & Drift Intelligence: validate commands.
 
-#![allow(dead_code)]
-
 use crate::core::types;
 use std::collections::HashMap;
 use std::path::Path;
