@@ -47,7 +47,7 @@ pub(crate) fn cmd_status_machine_resource_mttr_estimate(
 pub(super) fn collect_mttr_estimates(sd: &Path, targets: &[&String]) -> Vec<(String, String)> {
     let mut estimates = Vec::new();
     for m in targets {
-        let path = sd.join(m).join("lock.yaml");
+        let path = sd.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&path) {
             Ok(c) => c,
             Err(_) => {
@@ -143,7 +143,7 @@ pub(super) fn collect_convergence_forecasts(
 ) -> Vec<(String, usize, usize)> {
     let mut forecasts = Vec::new();
     for m in targets {
-        let path = sd.join(m).join("lock.yaml");
+        let path = sd.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -210,7 +210,7 @@ pub(super) fn collect_error_budget_forecasts(
 ) -> Vec<(String, usize, usize)> {
     let mut forecasts = Vec::new();
     for m in targets {
-        let path = sd.join(m).join("lock.yaml");
+        let path = sd.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -275,7 +275,7 @@ pub(super) fn collect_dependency_lag(
 ) -> Vec<(String, usize, usize)> {
     let mut lags = Vec::new();
     for m in targets {
-        let path = sd.join(m).join("lock.yaml");
+        let path = sd.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&path) {
             Ok(c) => c,
             Err(_) => continue,

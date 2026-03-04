@@ -97,8 +97,8 @@ mod tests {
                 &format!("{m}/state.lock.yaml"),
                 state_lock_yaml(),
             );
-            write_yaml(dir.path(), &format!("{m}/lock.yaml"), state_lock_yaml());
-            write_yaml(dir.path(), &format!("{m}.lock.yaml"), state_lock_yaml());
+            write_yaml(dir.path(), &format!("{m}/state.lock.yaml"), state_lock_yaml());
+            write_yaml(dir.path(), &format!("{m}/state.lock.yaml"), state_lock_yaml());
         }
         dir
     }
@@ -108,7 +108,7 @@ mod tests {
         for m in &["web", "db"] {
             write_yaml(
                 dir.path(),
-                &format!("{m}/events.yaml"),
+                &format!("{m}/events.jsonl"),
                 "some event data\n",
             );
             let ev1 =

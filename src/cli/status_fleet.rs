@@ -14,7 +14,7 @@ pub(crate) fn cmd_status_fleet_overview(state_dir: &Path, json: bool) -> Result<
     let mut machine_count = 0usize;
 
     for m in &machines {
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             continue;
         }
@@ -80,7 +80,7 @@ fn collect_machine_health_reports(
                 continue;
             }
         }
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             reports.push((m.clone(), 0, 0, 0, 0));
             continue;
@@ -148,7 +148,7 @@ pub(crate) fn cmd_status_machine_summary(
     }
     let mut first = true;
     for m in &targets {
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             continue;
         }
@@ -208,7 +208,7 @@ pub(crate) fn cmd_status_executive_summary(state_dir: &Path, json: bool) -> Resu
     let mut summaries: Vec<(String, usize, usize, usize, usize)> = Vec::new();
 
     for m in &machines {
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             continue;
         }
@@ -282,7 +282,7 @@ pub(crate) fn cmd_status_pipeline_status(
                 continue;
             }
         }
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             continue;
         }

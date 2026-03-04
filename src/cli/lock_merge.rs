@@ -57,7 +57,7 @@ pub(crate) fn cmd_lock_merge(
                 // Right takes precedence on conflicts
                 let out_dir = output.join(m_name);
                 std::fs::create_dir_all(&out_dir).map_err(|e| e.to_string())?;
-                let lock_path = out_dir.join("lock.yaml");
+                let lock_path = out_dir.join("state.lock.yaml");
                 let yaml = serde_yaml_ng::to_string(&right_lock).map_err(|e| e.to_string())?;
                 std::fs::write(&lock_path, yaml).map_err(|e| e.to_string())?;
                 conflict_count += 1;
@@ -66,7 +66,7 @@ pub(crate) fn cmd_lock_merge(
             (Some(lock), None) | (None, Some(lock)) => {
                 let out_dir = output.join(m_name);
                 std::fs::create_dir_all(&out_dir).map_err(|e| e.to_string())?;
-                let lock_path = out_dir.join("lock.yaml");
+                let lock_path = out_dir.join("state.lock.yaml");
                 let yaml = serde_yaml_ng::to_string(&lock).map_err(|e| e.to_string())?;
                 std::fs::write(&lock_path, yaml).map_err(|e| e.to_string())?;
                 merged_count += 1;
@@ -134,7 +134,7 @@ pub(crate) fn cmd_lock_rebase(
 
                     let out_dir = output.join(&m_name);
                     std::fs::create_dir_all(&out_dir).map_err(|e| e.to_string())?;
-                    let lock_path = out_dir.join("lock.yaml");
+                    let lock_path = out_dir.join("state.lock.yaml");
                     let yaml = serde_yaml_ng::to_string(&lock).map_err(|e| e.to_string())?;
                     std::fs::write(&lock_path, yaml).map_err(|e| e.to_string())?;
                 }
@@ -180,7 +180,7 @@ pub(crate) fn cmd_lock_sign(state_dir: &Path, key: &str, json: bool) -> Result<(
                 if m_name.starts_with('.') {
                     continue;
                 }
-                let lock_path = path.join("lock.yaml");
+                let lock_path = path.join("state.lock.yaml");
                 if lock_path.exists() {
                     let content = std::fs::read_to_string(&lock_path).map_err(|e| e.to_string())?;
                     let hash = hasher::hash_string(&format!("{content}{key}"));

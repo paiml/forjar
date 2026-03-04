@@ -30,7 +30,7 @@ pub(crate) fn cmd_status_staleness_report(
     let mut stale: Vec<(String, String, String)> = Vec::new(); // (machine, resource, last_applied)
 
     for m in &machines {
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             continue;
         }
@@ -103,7 +103,7 @@ pub(crate) fn cmd_status_cost_estimate(
     let mut total_resources = 0;
 
     for m in &machines {
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             continue;
         }
@@ -201,7 +201,7 @@ pub(crate) fn cmd_status_capacity(
     let mut capacity_data: Vec<(String, usize, usize, f64)> = Vec::new(); // (machine, used, limit, pct)
 
     for m in &machines {
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             continue;
         }

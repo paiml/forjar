@@ -63,9 +63,9 @@ resources:
             "version: \"1.0\"\nname: state-bundle\nmachines: {}\nresources: {}\n",
         );
         let state_dir = dir.path().join("state");
-        std::fs::create_dir_all(&state_dir).unwrap();
+        std::fs::create_dir_all(state_dir.join("m1")).unwrap();
         std::fs::write(
-            state_dir.join("m1.lock.yaml"),
+            state_dir.join("m1").join("state.lock.yaml"),
             "resources: {}\nlast_apply: \"2024-01-01\"\n",
         )
         .unwrap();

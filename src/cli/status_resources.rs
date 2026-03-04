@@ -34,7 +34,7 @@ fn collect_resource_ages(
 ) -> Result<Vec<(String, String, u64, String)>, String> {
     let mut ages = Vec::new();
     for m in machines {
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         let age_secs = match lock_file_age_secs(&lock_path, now) {
             Some(a) => a,
             None => continue,
@@ -97,7 +97,7 @@ pub(crate) fn cmd_status_resource_cost(
                 continue;
             }
         }
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             continue;
         }
@@ -169,7 +169,7 @@ pub(crate) fn cmd_status_resource_size(
     }
     let mut first = true;
     for m in &targets {
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             continue;
         }
@@ -221,7 +221,7 @@ pub(crate) fn cmd_status_resource_graph(
                 continue;
             }
         }
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if lock_path.exists() {
             let content = std::fs::read_to_string(&lock_path).unwrap_or_default();
             if let Ok(lock) = serde_yaml_ng::from_str::<crate::core::types::StateLock>(&content) {

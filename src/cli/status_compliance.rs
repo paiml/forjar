@@ -216,7 +216,7 @@ pub(crate) fn cmd_status_security_posture(
                 continue;
             }
         }
-        let lock_path = state_dir.join(format!("{m}.lock.yaml"));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             continue;
         }
