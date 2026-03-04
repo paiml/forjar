@@ -41,7 +41,7 @@ pub fn load_index(registry_dir: &Path) -> Result<RegistryIndex, String> {
 }
 
 /// Save registry index.
-#[allow(dead_code)]
+#[cfg(test)]
 pub fn save_index(registry_dir: &Path, index: &RegistryIndex) -> Result<(), String> {
     std::fs::create_dir_all(registry_dir).map_err(|e| format!("mkdir registry: {e}"))?;
     let data = serde_json::to_string_pretty(index).map_err(|e| format!("serialize index: {e}"))?;
@@ -49,7 +49,7 @@ pub fn save_index(registry_dir: &Path, index: &RegistryIndex) -> Result<(), Stri
 }
 
 /// Register a recipe file into the registry.
-#[allow(dead_code)]
+#[cfg(test)]
 pub fn register_recipe(
     registry_dir: &Path,
     recipe_path: &Path,
@@ -86,7 +86,7 @@ pub fn register_recipe(
     Ok(entry)
 }
 
-#[allow(dead_code)]
+#[cfg(test)]
 fn hash_blake3(data: &[u8]) -> String {
     let hash = blake3::hash(data);
     hash.to_hex().to_string()
@@ -125,7 +125,7 @@ fn print_registry_report(report: &RegistryReport) {
 }
 
 /// Search registry by name pattern.
-#[allow(dead_code)]
+#[cfg(test)]
 pub fn search_registry<'a>(index: &'a RegistryIndex, pattern: &str) -> Vec<&'a RegistryEntry> {
     let pat = pattern.to_lowercase();
     index
@@ -139,7 +139,7 @@ pub fn search_registry<'a>(index: &'a RegistryIndex, pattern: &str) -> Vec<&'a R
 }
 
 /// Get the latest version of a recipe by name.
-#[allow(dead_code)]
+#[cfg(test)]
 pub fn get_latest<'a>(index: &'a RegistryIndex, name: &str) -> Option<&'a RegistryEntry> {
     index
         .entries

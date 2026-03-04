@@ -15,6 +15,7 @@
 //! - Monotonicity: converged resources stay converged
 
 /// State of a single resource.
+#[cfg(any(test, verus))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ResourceState {
     pub desired_hash: String,
@@ -23,15 +24,15 @@ pub struct ResourceState {
 }
 
 /// System state: collection of resource states.
+#[cfg(any(test, verus))]
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 pub struct SystemState {
     pub resources: Vec<ResourceState>,
     pub iteration: usize,
 }
 
 /// Observe phase: snapshot current hashes.
-#[allow(dead_code)]
+#[cfg(any(test, verus))]
 pub fn observe(state: &SystemState) -> Vec<Option<String>> {
     state
         .resources
@@ -41,7 +42,7 @@ pub fn observe(state: &SystemState) -> Vec<Option<String>> {
 }
 
 /// Diff phase: compute which resources need changes.
-#[allow(dead_code)]
+#[cfg(any(test, verus))]
 pub fn diff(state: &SystemState) -> Vec<bool> {
     state
         .resources
@@ -51,7 +52,7 @@ pub fn diff(state: &SystemState) -> Vec<bool> {
 }
 
 /// Apply phase: update current hashes to match desired.
-#[allow(dead_code)]
+#[cfg(any(test, verus))]
 pub fn apply(state: &mut SystemState) {
     for r in &mut state.resources {
         if r.current_hash.as_ref() != Some(&r.desired_hash) {
@@ -63,20 +64,20 @@ pub fn apply(state: &mut SystemState) {
 }
 
 /// Check if system is fully converged.
-#[allow(dead_code)]
+#[cfg(any(test, verus))]
 pub fn is_converged(state: &SystemState) -> bool {
     state.resources.iter().all(|r| r.converged)
 }
 
 /// Count changes needed.
-#[allow(dead_code)]
+#[cfg(any(test, verus))]
 pub fn changes_needed(state: &SystemState) -> usize {
     diff(state).iter().filter(|&&b| b).count()
 }
 
 /// Run the reconciliation loop to convergence.
 /// Returns the number of iterations taken.
-#[allow(dead_code)]
+#[cfg(any(test, verus))]
 pub fn reconcile(state: &mut SystemState) -> usize {
     let max_iterations = state.resources.len() + 1;
     for _ in 0..max_iterations {
