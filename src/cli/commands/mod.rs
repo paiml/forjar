@@ -42,19 +42,14 @@ pub enum Commands {
     Plan(PlanArgs),
     /// Converge infrastructure to desired state
     Apply(ApplyArgs),
-
     /// Detect unauthorized changes (tripwire)
     Drift(DriftArgs),
-
     /// Show current state from lock files
     Status(StatusArgs),
-
     /// Show apply history from event logs
     History(HistoryArgs),
-
     /// Remove all managed resources (reverse order)
     Destroy(DestroyArgs),
-
     /// FJ-2003: Undo last apply (active undo with re-convergence)
     Undo(UndoArgs),
     /// FJ-2005: Re-create resources from destroy log
@@ -65,37 +60,26 @@ pub enum Commands {
     Show(ShowArgs),
     /// Show resource dependency graph
     Graph(GraphArgs),
-
     /// Run check scripts to verify pre-conditions without applying
     Check(CheckArgs),
-
     /// Compare two state snapshots (show what changed between applies)
     Diff(DiffArgs),
-
-    /// FJ-1389: Unified stack diff — compare two configs (resources, machines, params)
+    /// FJ-1389: Unified stack diff — compare two configs
     StackDiff(StackDiffArgs),
-
     /// Format (normalize) a forjar.yaml config file
     Fmt(FmtArgs),
-
     /// Lint config for best practices (beyond validation)
     Lint(LintArgs),
-
     /// Rollback to a previous config revision from git history
     Rollback(RollbackArgs),
-
     /// Detect anomalous resource behavior from event history
     Anomaly(AnomalyArgs),
-
     /// View trace provenance data from apply runs (FJ-050)
     Trace(TraceArgs),
-
     /// Migrate Docker resources to pepita kernel isolation (FJ-044)
     Migrate(MigrateArgs),
-
     /// Start MCP server (pforge integration, FJ-063)
     Mcp(McpArgs),
-
     /// Run performance benchmarks (spec §9 targets)
     Bench(BenchArgs),
 
@@ -497,4 +481,11 @@ pub enum Commands {
     /// FJ-1452: Configuration drift prediction
     #[command(name = "drift-predict")]
     DriftPredict(DriftPredictArgs),
+    /// FJ-2200: Design-by-contract coverage report
+    Contracts(ContractsArgs),
+    /// FJ-2104: Build container image from resource definition
+    Build(BuildArgs),
+    /// FJ-2300: Live log streaming during apply
+    #[command(name = "logs")]
+    Logs(LogsArgs),
 }

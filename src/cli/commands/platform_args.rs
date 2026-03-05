@@ -227,3 +227,75 @@ pub struct AgentRegistryArgs {
     #[clap(long)]
     pub json: bool,
 }
+
+/// FJ-2200: CLI arguments for `contracts`.
+#[derive(clap::Args, Debug)]
+pub struct ContractsArgs {
+    /// Show contract coverage report
+    #[arg(long)]
+    pub coverage: bool,
+
+    /// Path to forjar.yaml (for handler-level analysis)
+    #[arg(short, long, default_value = "forjar.yaml")]
+    pub file: PathBuf,
+
+    /// JSON output
+    #[arg(long)]
+    pub json: bool,
+}
+
+/// FJ-2300: CLI arguments for `logs`.
+#[derive(clap::Args, Debug)]
+pub struct LogsArgs {
+    /// State directory
+    #[arg(long, default_value = "state")]
+    pub state_dir: PathBuf,
+
+    /// Filter by machine
+    #[arg(short, long)]
+    pub machine: Option<String>,
+
+    /// Filter by run ID
+    #[arg(long)]
+    pub run: Option<String>,
+
+    /// Show only failures
+    #[arg(long)]
+    pub failures: bool,
+
+    /// Follow mode — stream live during apply
+    #[arg(long)]
+    pub follow: bool,
+
+    /// Garbage-collect old logs
+    #[arg(long)]
+    pub gc: bool,
+
+    /// JSON output
+    #[arg(long)]
+    pub json: bool,
+}
+
+/// FJ-2104: CLI arguments for `build`.
+#[derive(clap::Args, Debug)]
+pub struct BuildArgs {
+    /// Path to forjar.yaml
+    #[arg(short, long, default_value = "forjar.yaml")]
+    pub file: PathBuf,
+
+    /// Resource to build (must be type: image)
+    #[arg(long)]
+    pub resource: String,
+
+    /// Load into local Docker daemon after build
+    #[arg(long)]
+    pub load: bool,
+
+    /// Push to registry after build
+    #[arg(long)]
+    pub push: bool,
+
+    /// JSON output
+    #[arg(long)]
+    pub json: bool,
+}

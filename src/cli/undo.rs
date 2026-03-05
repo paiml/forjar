@@ -48,6 +48,44 @@ fn compute_undo_diff(
     }).collect()
 }
 
+/// Write undo progress to `undo-progress.yaml` in the machine's state directory.
+fn write_undo_progress(state_dir: &Path, machine: &str, progress: &types::UndoProgress) {
+    let dir = state_dir.join(machine);
+    let _ = std::fs::create_dir_all(&dir);
+    let path = dir.join("undo-progress.yaml");
+    if let Ok(yaml) = serde_yaml_ng::to_string(progress) {
+        let _ = std::fs::write(path, yaml);
+    }
+}
+
+/// Read undo progress from a machine's state directory.
+fn read_undo_progress(state_dir: &Path, machine: &str) -> Option<types::UndoProgress> {
+    let path = state_dir.join(machine).join("undo-progress.yaml");
+    let content = std::fs::read_to_string(path).ok()?;
+    serde_yaml_ng::from_str(&content).ok()
+}
+
+/// Initialize undo progress for all affected resources.
+fn init_undo_progress(
+    current: u32, target: u32, changes: &[String],
+) -> types::UndoProgress {
+    let mut resources = std::collections::HashMap::new();
+    for c in changes {
+        let rid = c.split_whitespace().nth(1).unwrap_or("unknown");
+        resources.insert(rid.to_string(), types::ResourceProgress {
+            status: types::ResourceProgressStatus::Pending,
+            at: None,
+        });
+    }
+    types::UndoProgress {
+        generation_from: current,
+        generation_to: target,
+        started_at: crate::tripwire::eventlog::now_iso8601(),
+        status: types::UndoStatus::InProgress,
+        resources,
+    }
+}
+
 /// FJ-2003: Active undo — revert to a previous generation by re-applying its config.
 pub(crate) fn cmd_undo(
     file: &Path,
@@ -100,8 +138,75 @@ pub(crate) fn cmd_undo(
         return Err("undo requires --yes to confirm".to_string());
     }
 
+    // Write undo-progress.yaml for resume support
+    let progress = init_undo_progress(current, target, &changes);
+    for machine in target_locks.keys() {
+        write_undo_progress(state_dir, machine, &progress);
+    }
+
     super::generation::rollback_to_generation(state_dir, target, true)?;
     println!("\nRe-applying config to converge to generation {target}...");
+    let result = cmd_apply(
+        file, state_dir, machine_filter, None, None, None,
+        true, false, false, &[], false, None, false, false,
+        None, None, false, false, None, false, false, 0, true,
+        false, None, false, None, None, None, false, None, false,
+    );
+
+    // Mark progress completed or partial
+    let final_status = if result.is_ok() {
+        types::UndoStatus::Completed
+    } else {
+        types::UndoStatus::Partial
+    };
+    for machine in target_locks.keys() {
+        if let Some(mut p) = read_undo_progress(state_dir, machine) {
+            p.status = final_status;
+            write_undo_progress(state_dir, machine, &p);
+        }
+    }
+    result
+}
+
+/// FJ-2003: Resume a partial undo from undo-progress.yaml.
+pub(crate) fn cmd_undo_resume(
+    file: &Path,
+    state_dir: &Path,
+    machine_filter: Option<&str>,
+    dry_run: bool,
+    yes: bool,
+) -> Result<(), String> {
+    let config = parse_and_validate(file)?;
+    let machines: Vec<String> = config.machines.keys()
+        .filter(|&m| machine_filter.is_none_or(|f| m == f))
+        .cloned()
+        .collect();
+
+    let mut found_partial = false;
+    for machine in &machines {
+        if let Some(p) = read_undo_progress(state_dir, machine) {
+            if p.needs_resume() {
+                found_partial = true;
+                let pending = p.pending_count();
+                let failed = p.failed_count();
+                let done = p.completed_count();
+                println!("Resume {machine}: gen {} → {} ({done} done, {failed} failed, {pending} pending)",
+                    p.generation_from, p.generation_to);
+            }
+        }
+    }
+    if !found_partial {
+        return Err("no partial undo found — nothing to resume".to_string());
+    }
+    if dry_run {
+        println!("\nDry run: would resume partial undo.");
+        return Ok(());
+    }
+    if !yes {
+        return Err("undo --resume requires --yes to confirm".to_string());
+    }
+
+    println!("\nRe-applying config to complete undo...");
     cmd_apply(
         file, state_dir, machine_filter, None, None, None,
         true, false, false, &[], false, None, false, false,

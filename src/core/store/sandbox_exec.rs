@@ -316,6 +316,50 @@ pub fn simulate_sandbox_build(
     }
 }
 
+/// FJ-2103: Export overlay upper directory as an OCI-compatible layer tarball plan.
+///
+/// After a sandbox build completes, the upper directory contains all files
+/// created or modified during the build. This function generates a plan to
+/// tar the upper directory into an OCI layer, converting overlayfs whiteout
+/// files (`.wh.*`) to OCI-format whiteouts.
+pub fn export_overlay_upper(overlay: &OverlayConfig, output_path: &Path) -> Vec<SandboxStep> {
+    let upper = &overlay.upper_dir;
+    let mut steps = Vec::new();
+
+    // Step 1: Convert overlayfs whiteouts to OCI whiteouts
+    steps.push(SandboxStep {
+        step: 1,
+        description: "Convert overlayfs whiteouts to OCI format".to_string(),
+        command: Some(format!(
+            "find {} -name '.wh.*' -exec sh -c 'f=\"{{}}\" && mv \"$f\" \"$(dirname \"$f\")/$(basename \"$f\" | sed s/.wh.//)\"' \\;",
+            upper.display(),
+        )),
+    });
+
+    // Step 2: Create layer tarball from upper directory
+    steps.push(SandboxStep {
+        step: 2,
+        description: "Create OCI layer tarball from overlay upper".to_string(),
+        command: Some(format!(
+            "tar -cf {} -C {} .",
+            output_path.display(),
+            upper.display(),
+        )),
+    });
+
+    // Step 3: Compute DiffID (uncompressed sha256) — placeholder for sha2 crate
+    steps.push(SandboxStep {
+        step: 3,
+        description: "Compute DiffID (sha256 of uncompressed layer)".to_string(),
+        command: Some(format!(
+            "sha256sum {} | awk '{{print \"sha256:\"$1}}'",
+            output_path.display(),
+        )),
+    });
+
+    steps
+}
+
 /// Count the total steps in a plan (for progress reporting).
 pub fn plan_step_count(plan: &SandboxPlan) -> usize {
     plan.steps.len()
