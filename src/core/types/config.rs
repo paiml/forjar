@@ -91,6 +91,24 @@ pub struct ForjarConfig {
     /// FJ-1210: Declarative resource renames processed before planning
     #[serde(default)]
     pub moved: Vec<MovedEntry>,
+
+    /// FJ-2300: Secret provider configuration
+    #[serde(default)]
+    pub secrets: SecretsConfig,
+}
+
+/// FJ-2300: Secret provider configuration.
+///
+/// Controls how `{{secrets.*}}` template variables are resolved.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct SecretsConfig {
+    /// Provider type: "env" (default), "file"
+    #[serde(default)]
+    pub provider: Option<String>,
+
+    /// Path prefix for file-based secrets (used with `provider: file`)
+    #[serde(default)]
+    pub path: Option<String>,
 }
 
 /// FJ-1200: A post-apply health check assertion.

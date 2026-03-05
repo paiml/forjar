@@ -369,6 +369,7 @@ mod tests {
             include_provenance: HashMap::new(),
             checks: indexmap::IndexMap::new(),
             moved: vec![],
+            secrets: Default::default(),
         };
 
         let (migrated, warnings) = migrate_config(&config);
@@ -410,6 +411,7 @@ mod tests {
             include_provenance: HashMap::new(),
             checks: indexmap::IndexMap::new(),
             moved: vec![],
+            secrets: Default::default(),
         };
 
         let (migrated, warnings) = migrate_config(&config);

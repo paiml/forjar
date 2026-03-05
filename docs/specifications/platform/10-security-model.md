@@ -216,10 +216,10 @@ The state directory (`state/`) has no access control beyond filesystem permissio
 ### Phase 17: Security Model (FJ-2300)
 - [ ] Machine-level `allowed_operators` with `--operator` flag
 - [x] `policy.deny_paths` for resource path restrictions
-- [ ] `secrets.provider` with env, file, and SOPS backends
-- [ ] Secret redaction in state files, events, and query output
-- [ ] `{{ secrets.* }}` template resolution at apply time
-- [ ] Hash template (not resolved value) in `hash_desired_state`
+- [x] `secrets.provider` with env and file backends
+- [x] Secret redaction via `redact_secrets()` utility
+- [x] `{{ secrets.* }}` template resolution at apply time
+- [x] Hash template (not resolved value) in `hash_desired_state`
 - [ ] `forjar apply --force` for secret rotation
 - [ ] Document pepita privilege boundary honestly
 - **Deliverable**: Secrets never appear in state files; path policy prevents accidental writes to sensitive paths
