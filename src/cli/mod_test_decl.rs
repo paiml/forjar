@@ -131,6 +131,8 @@ mod tests_cov_dispatch_4;
 #[cfg(test)]
 mod tests_cov_dispatch_5;
 #[cfg(test)]
+mod tests_cov_dispatch_6;
+#[cfg(test)]
 mod tests_cov_fleet;
 #[cfg(test)]
 mod tests_cov_fleet_b;

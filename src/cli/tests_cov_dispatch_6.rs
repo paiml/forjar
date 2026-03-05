@@ -1,0 +1,205 @@
+//! Coverage tests for platform CLI dispatch routes (FJ-2001, FJ-2101, FJ-2104, FJ-2200, FJ-2300).
+
+use super::commands::*;
+use super::dispatch_misc::dispatch_misc_cmd;
+use std::path::PathBuf;
+
+#[test]
+fn dispatch_contracts_coverage_routes() {
+    let result = dispatch_misc_cmd(
+        Commands::Contracts(ContractsArgs {
+            coverage: true,
+            file: PathBuf::from("forjar.yaml"),
+            json: false,
+        }),
+        false,
+    );
+    assert!(result.is_ok());
+}
+
+#[test]
+fn dispatch_contracts_json_routes() {
+    let result = dispatch_misc_cmd(
+        Commands::Contracts(ContractsArgs {
+            coverage: true,
+            file: PathBuf::from("forjar.yaml"),
+            json: true,
+        }),
+        false,
+    );
+    assert!(result.is_ok());
+}
+
+#[test]
+fn dispatch_contracts_no_flag_errors() {
+    let result = dispatch_misc_cmd(
+        Commands::Contracts(ContractsArgs {
+            coverage: false,
+            file: PathBuf::from("forjar.yaml"),
+            json: false,
+        }),
+        false,
+    );
+    assert!(result.is_err());
+    assert!(result.unwrap_err().contains("--coverage"));
+}
+
+#[test]
+fn dispatch_oci_pack_missing_dir_errors() {
+    let result = dispatch_misc_cmd(
+        Commands::OciPack(OciPackArgs {
+            dir: PathBuf::from("/nonexistent/dir"),
+            tag: "test:latest".into(),
+            output: PathBuf::from("/tmp/oci-out"),
+            json: false,
+        }),
+        false,
+    );
+    assert!(result.is_err());
+    assert!(result.unwrap_err().contains("does not exist"));
+}
+
+#[test]
+fn dispatch_oci_pack_json_with_existing_dir() {
+    let result = dispatch_misc_cmd(
+        Commands::OciPack(OciPackArgs {
+            dir: PathBuf::from("/tmp"),
+            tag: "myapp:v1".into(),
+            output: PathBuf::from("/tmp/oci-out"),
+            json: true,
+        }),
+        false,
+    );
+    assert!(result.is_ok());
+}
+
+#[test]
+fn dispatch_oci_pack_text_with_existing_dir() {
+    let result = dispatch_misc_cmd(
+        Commands::OciPack(OciPackArgs {
+            dir: PathBuf::from("/tmp"),
+            tag: "myapp:v1".into(),
+            output: PathBuf::from("/tmp/oci-out"),
+            json: false,
+        }),
+        false,
+    );
+    assert!(result.is_ok());
+}
+
+#[test]
+fn dispatch_state_query_text() {
+    let result = dispatch_misc_cmd(
+        Commands::StateQuery(QueryArgs {
+            query: "bash".into(),
+            state_dir: PathBuf::from("/nonexistent"),
+            resource_type: None,
+            history: false,
+            drift: false,
+            json: false,
+            csv: false,
+        }),
+        false,
+    );
+    assert!(result.is_ok());
+}
+
+#[test]
+fn dispatch_state_query_json_with_filters() {
+    let result = dispatch_misc_cmd(
+        Commands::StateQuery(QueryArgs {
+            query: "nginx".into(),
+            state_dir: PathBuf::from("/nonexistent"),
+            resource_type: Some("package".into()),
+            history: true,
+            drift: true,
+            json: true,
+            csv: false,
+        }),
+        false,
+    );
+    assert!(result.is_ok());
+}
+
+#[test]
+fn dispatch_state_query_csv() {
+    let result = dispatch_misc_cmd(
+        Commands::StateQuery(QueryArgs {
+            query: "curl".into(),
+            state_dir: PathBuf::from("/nonexistent"),
+            resource_type: None,
+            history: false,
+            drift: false,
+            json: false,
+            csv: true,
+        }),
+        false,
+    );
+    assert!(result.is_ok());
+}
+
+#[test]
+fn dispatch_logs_gc() {
+    let result = dispatch_misc_cmd(
+        Commands::Logs(LogsArgs {
+            state_dir: PathBuf::from("/nonexistent"),
+            machine: None,
+            run: None,
+            failures: false,
+            follow: false,
+            gc: true,
+            json: false,
+        }),
+        false,
+    );
+    assert!(result.is_ok());
+}
+
+#[test]
+fn dispatch_logs_follow() {
+    let result = dispatch_misc_cmd(
+        Commands::Logs(LogsArgs {
+            state_dir: PathBuf::from("/nonexistent"),
+            machine: Some("intel".into()),
+            run: None,
+            failures: true,
+            follow: true,
+            gc: false,
+            json: false,
+        }),
+        false,
+    );
+    assert!(result.is_ok());
+}
+
+#[test]
+fn dispatch_logs_filter() {
+    let result = dispatch_misc_cmd(
+        Commands::Logs(LogsArgs {
+            state_dir: PathBuf::from("/nonexistent"),
+            machine: Some("jetson".into()),
+            run: Some("r-abc123".into()),
+            failures: true,
+            follow: false,
+            gc: false,
+            json: false,
+        }),
+        false,
+    );
+    assert!(result.is_ok());
+}
+
+#[test]
+fn dispatch_build_missing_config_errors() {
+    let result = dispatch_misc_cmd(
+        Commands::Build(BuildArgs {
+            file: PathBuf::from("/nonexistent/forjar.yaml"),
+            resource: "nginx-image".into(),
+            load: false,
+            push: false,
+            json: false,
+        }),
+        false,
+    );
+    assert!(result.is_err());
+}

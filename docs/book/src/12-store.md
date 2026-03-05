@@ -302,6 +302,41 @@ forjar convert --reproducible -f myconfig.yaml
 forjar convert --reproducible --apply -f myconfig.yaml
 ```
 
+## OCI Container Builds
+
+Forjar can build OCI-compliant container images from resource definitions.
+
+### Layer Strategy
+
+Resources map to OCI layers via a tiered build plan:
+
+| Tier | Strategy | Description |
+|------|----------|-------------|
+| 0 | `Packages` | System packages (apt, cargo, pip) |
+| 1 | `Build` | Build commands (compile, install) |
+| 2 | `Files` | Configuration files |
+| 3 | `Derivation` | Store-path references |
+
+### OCI Layout
+
+`forjar oci-pack` generates a spec-compliant [OCI Image Layout](https://github.com/opencontainers/image-spec/blob/main/image-layout.md):
+
+```
+output/
+  oci-layout          # {"imageLayoutVersion": "1.0.0"}
+  index.json          # OCI Image Index
+  blobs/sha256/       # Content-addressed blobs
+  manifest.json       # Docker-compat (for docker load)
+```
+
+### Overlay Export
+
+For sandbox-built images, `export_overlay_upper()` converts overlayfs upper directories to OCI layers:
+
+1. Convert overlayfs whiteouts to OCI format (`.wh.` prefix)
+2. Create layer tarball from upper directory
+3. Compute DiffID (sha256 of uncompressed layer)
+
 ## Key Invariants
 
 - **I8**: All shell scripts validated via bashrs before execution
