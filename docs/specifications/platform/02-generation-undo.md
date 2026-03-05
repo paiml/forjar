@@ -280,7 +280,7 @@ Undo-destroy order: `nfs-server` (intel) → `nfs-mount` (jetson)
 - [x] YAML roundtrip with skip_serializing_if for clean output
 - [x] Wire `GenerationMeta` into `create_generation()` (replaces manual YAML) — enriches with git_ref, forjar_version via builder pattern
 - [ ] Populate SQLite `generations` table from `state/generations/` on ingest
-- [ ] Enrich `forjar generations` with resource count, delta, action type
+- [x] Enrich `forjar generations` with resource count, delta, action type
 - [x] `forjar diff --generation 3 7`: `GenerationDiff`, `ResourceDiff`, `DiffAction`, `diff_resource_sets()`
 - **Extends**: `src/cli/generation.rs`
 
