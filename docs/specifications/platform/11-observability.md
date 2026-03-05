@@ -507,7 +507,7 @@ forjar logs --image training-image --layer ml-deps --tail 50  # last 50 lines
 - [x] Truncation: `LogTruncation` first N + last N bytes for oversized logs
 - [x] `forjar logs --gc`: `LogGcResult` with runs_removed, bytes_freed, mb_freed()
 - [ ] `run_logs` table + FTS5 in state.db for searchable failure history
-- [ ] Image build logs: per-layer output capture
+- [x] Image build logs: `LayerBuildLog` (per-layer capture), `ImageBuildLog` (collection with `all_succeeded()`, `cached_count()`, `total_log_bytes()`)
 - [x] Log level flags: `-v`, `-vv`, `-vvv`, `--quiet`
 - [x] `-vvv` streams raw output: `VerbosityLevel` enum with `from_count()`, `streams_raw()`
 - [x] `--json` structured output: `StructuredLogOutput` with `log_path` for CI artifact upload

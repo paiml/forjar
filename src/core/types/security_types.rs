@@ -213,6 +213,73 @@ impl fmt::Display for SecretScanFinding {
     }
 }
 
+/// FJ-2300: Operator identity for `--operator` flag on CLI commands.
+///
+/// Tracks who performed an operation for audit trail purposes.
+/// Automatically resolved from environment if not provided.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OperatorIdentity {
+    /// Operator name (user@hostname or explicit --operator value).
+    pub name: String,
+    /// How the identity was determined.
+    pub source: OperatorSource,
+}
+
+/// How operator identity was resolved.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OperatorSource {
+    /// Provided via `--operator` CLI flag.
+    CliFlag,
+    /// Resolved from `$USER@$(hostname)`.
+    Environment,
+    /// Resolved from git config.
+    GitConfig,
+    /// Unknown/unresolved.
+    Unknown,
+}
+
+impl OperatorIdentity {
+    /// Create from an explicit `--operator` flag value.
+    pub fn from_flag(name: &str) -> Self {
+        Self {
+            name: name.to_string(),
+            source: OperatorSource::CliFlag,
+        }
+    }
+
+    /// Resolve from the current environment.
+    pub fn from_env() -> Self {
+        let user = std::env::var("USER")
+            .or_else(|_| std::env::var("USERNAME"))
+            .unwrap_or_else(|_| "unknown".into());
+        let hostname = std::process::Command::new("hostname")
+            .output()
+            .ok()
+            .filter(|o| o.status.success())
+            .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+            .unwrap_or_else(|| "localhost".into());
+        Self {
+            name: format!("{user}@{hostname}"),
+            source: OperatorSource::Environment,
+        }
+    }
+
+    /// Resolve: prefer CLI flag, then environment.
+    pub fn resolve(flag: Option<&str>) -> Self {
+        match flag {
+            Some(name) => Self::from_flag(name),
+            None => Self::from_env(),
+        }
+    }
+}
+
+impl fmt::Display for OperatorIdentity {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.name)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -353,5 +420,44 @@ file: secrets.enc.yaml
         let s = finding.to_string();
         assert!(s.contains("app.content"));
         assert!(s.contains("api_key:"));
+    }
+
+    #[test]
+    fn operator_identity_from_flag() {
+        let op = OperatorIdentity::from_flag("deploy-bot");
+        assert_eq!(op.name, "deploy-bot");
+        assert_eq!(op.source, OperatorSource::CliFlag);
+        assert_eq!(op.to_string(), "deploy-bot");
+    }
+
+    #[test]
+    fn operator_identity_from_env() {
+        let op = OperatorIdentity::from_env();
+        assert!(!op.name.is_empty());
+        assert!(op.name.contains('@'));
+        assert_eq!(op.source, OperatorSource::Environment);
+    }
+
+    #[test]
+    fn operator_identity_resolve_with_flag() {
+        let op = OperatorIdentity::resolve(Some("ci-runner"));
+        assert_eq!(op.name, "ci-runner");
+        assert_eq!(op.source, OperatorSource::CliFlag);
+    }
+
+    #[test]
+    fn operator_identity_resolve_without_flag() {
+        let op = OperatorIdentity::resolve(None);
+        assert!(op.name.contains('@'));
+        assert_eq!(op.source, OperatorSource::Environment);
+    }
+
+    #[test]
+    fn operator_identity_serde() {
+        let op = OperatorIdentity::from_flag("admin");
+        let json = serde_json::to_string(&op).unwrap();
+        let parsed: OperatorIdentity = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.name, "admin");
+        assert_eq!(parsed.source, OperatorSource::CliFlag);
     }
 }
