@@ -53,14 +53,14 @@ mod tests {
     #[test]
     fn test_fj745_resource_names_kebab() {
         let dir = tempfile::tempdir().unwrap();
-        let f = write_config(dir.path(), "machines:\n  m1:\n    hostname: m1\n    addr: 127.0.0.1\nresources:\n  my-resource:\n    type: file\n    path: /tmp/a\n    content: a\n    machines: [m1]\n");
+        let f = write_config(dir.path(), "machines:\n  m1:\n    hostname: m1\n    addr: 127.0.0.1\nresources:\n  my-resource:\n    type: file\n    path: /tmp/a\n    content: a\n    machine: m1\n");
         assert!(cmd_validate_check_resource_names(&f, false, "kebab-case").is_ok());
     }
 
     #[test]
     fn test_fj745_resource_names_prefix() {
         let dir = tempfile::tempdir().unwrap();
-        let f = write_config(dir.path(), "machines:\n  m1:\n    hostname: m1\n    addr: 127.0.0.1\nresources:\n  app-web:\n    type: file\n    path: /tmp/a\n    content: a\n    machines: [m1]\n");
+        let f = write_config(dir.path(), "machines:\n  m1:\n    hostname: m1\n    addr: 127.0.0.1\nresources:\n  app-web:\n    type: file\n    path: /tmp/a\n    content: a\n    machine: m1\n");
         assert!(cmd_validate_check_resource_names(&f, false, "app-").is_ok());
     }
 
@@ -76,7 +76,7 @@ mod tests {
     #[test]
     fn test_fj743_subgraph_stats_single() {
         let dir = tempfile::tempdir().unwrap();
-        let f = write_config(dir.path(), "machines:\n  m1:\n    hostname: m1\n    addr: 127.0.0.1\nresources:\n  a:\n    type: file\n    path: /tmp/a\n    content: a\n    machines: [m1]\n  b:\n    type: file\n    path: /tmp/b\n    content: b\n    machines: [m1]\n    depends_on: [a]\n");
+        let f = write_config(dir.path(), "machines:\n  m1:\n    hostname: m1\n    addr: 127.0.0.1\nresources:\n  a:\n    type: file\n    path: /tmp/a\n    content: a\n    machine: m1\n  b:\n    type: file\n    path: /tmp/b\n    content: b\n    machine: m1\n    depends_on: [a]\n");
         assert!(cmd_graph_subgraph_stats(&f, false).is_ok());
     }
 
@@ -92,7 +92,7 @@ mod tests {
     #[test]
     fn test_fj747_dependency_count() {
         let dir = tempfile::tempdir().unwrap();
-        let f = write_config(dir.path(), "machines:\n  m1:\n    hostname: m1\n    addr: 127.0.0.1\nresources:\n  a:\n    type: file\n    path: /tmp/a\n    content: a\n    machines: [m1]\n  b:\n    type: file\n    path: /tmp/b\n    content: b\n    machines: [m1]\n    depends_on: [a]\n");
+        let f = write_config(dir.path(), "machines:\n  m1:\n    hostname: m1\n    addr: 127.0.0.1\nresources:\n  a:\n    type: file\n    path: /tmp/a\n    content: a\n    machine: m1\n  b:\n    type: file\n    path: /tmp/b\n    content: b\n    machine: m1\n    depends_on: [a]\n");
         assert!(cmd_graph_dependency_count(&f, false).is_ok());
     }
 
