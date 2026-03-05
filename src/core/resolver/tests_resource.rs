@@ -26,6 +26,7 @@ fn test_fj003_resolve_all_fields() {
             container: None,
             pepita: None,
             cost: 0,
+            allowed_operators: vec![],
         },
     );
 
@@ -145,6 +146,7 @@ fn test_fj003_resolve_machine_fields() {
             container: None,
             pepita: None,
             cost: 0,
+            allowed_operators: vec![],
         },
     );
 

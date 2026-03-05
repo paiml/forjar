@@ -366,6 +366,7 @@ fn test_machine() -> crate::core::types::Machine {
         transport: None,
         container: None,
         cost: 0,
+        allowed_operators: vec![],
         pepita: None,
     }
 }

@@ -15,6 +15,7 @@ fn make_machine(addr: &str, user: &str, ssh_key: Option<&str>) -> Machine {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     }
 }
 

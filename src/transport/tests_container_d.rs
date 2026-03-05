@@ -31,6 +31,7 @@ fn test_fj021_ensure_with_volumes() {
         }),
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     let result = ensure_container(&machine);
     assert!(

@@ -69,6 +69,7 @@ pub(super) fn localhost_machine() -> types::Machine {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     }
 }
 

@@ -227,6 +227,7 @@ pub(crate) fn cmd_import(
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
 
     let scan_set: std::collections::HashSet<&str> = scan.iter().map(|s| s.as_str()).collect();

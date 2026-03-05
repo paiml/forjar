@@ -21,6 +21,7 @@ fn test_fj016_check_file_drift_transport_local() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
 
     let finding = check_file_drift_via_transport("f", file.to_str().unwrap(), &expected, &machine);
@@ -44,6 +45,7 @@ fn test_fj016_check_file_drift_transport_drift() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
 
     // Expected hash of different content
@@ -67,6 +69,7 @@ fn test_fj016_check_file_drift_transport_missing_file() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
 
     let finding = check_file_drift_via_transport(
@@ -235,6 +238,7 @@ fn test_fj016_check_file_drift_transport_directory() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     // Using a directory path should work via transport (ls -la)
     let finding = check_file_drift_via_transport(

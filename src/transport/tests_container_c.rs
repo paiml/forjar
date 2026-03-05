@@ -27,6 +27,7 @@ fn test_fj021_cleanup_with_echo_runtime() {
         }),
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     let result = cleanup_container(&machine);
     assert!(result.is_ok(), "cleanup with echo runtime should succeed");
@@ -46,6 +47,7 @@ fn test_fj021_exec_container_error_msg_no_config() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     let err = exec_container(&machine, "echo").unwrap_err();
     assert_eq!(err, "machine 'precise-host' has no container config");
@@ -64,6 +66,7 @@ fn test_fj021_ensure_container_error_msg_no_config() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     let err = ensure_container(&machine).unwrap_err();
     assert_eq!(err, "machine 'precise-host' has no container config");
@@ -82,6 +85,7 @@ fn test_fj021_cleanup_container_error_msg_no_config() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     let err = cleanup_container(&machine).unwrap_err();
     assert_eq!(err, "machine 'precise-host' has no container config");
@@ -115,6 +119,7 @@ fn test_fj132_ensure_attached_no_image_required() {
         }),
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     // Should succeed — attached containers just verify existence
     let result = ensure_container(&machine);
@@ -153,6 +158,7 @@ fn test_fj132_ephemeral_guard_skips_non_ephemeral() {
         }),
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     // Verify the ephemeral guard pattern: non-ephemeral should NOT trigger cleanup
     let config = machine.container.as_ref().unwrap();
@@ -187,6 +193,7 @@ fn test_fj132_container_name_default_derivation() {
         }),
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     let name = machine.container_name();
     assert!(
@@ -226,6 +233,7 @@ fn test_fj021_ensure_uses_correct_runtime() {
         }),
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     let result = ensure_container(&machine);
     // In CI/unit-test env podman is typically absent, so the error should
@@ -266,6 +274,7 @@ fn test_fj021_cleanup_nonexistent_returns_err() {
         }),
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     let result = cleanup_container(&machine);
     // /bin/false always exits 1, so rm -f will "fail"
@@ -308,6 +317,7 @@ fn test_fj021_ephemeral_guard_cleans_up() {
         }),
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     let config = machine.container.as_ref().unwrap();
     assert!(config.ephemeral, "test setup: should be ephemeral");
@@ -348,6 +358,7 @@ fn test_fj021_container_name_from_machine_key() {
         }),
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     let name = machine.container_name();
     assert_eq!(

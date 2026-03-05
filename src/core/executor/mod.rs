@@ -210,6 +210,7 @@ pub fn apply(cfg: &ApplyConfig) -> Result<Vec<ApplyResult>, String> {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
 
     let result = dispatch_apply(cfg, &target_machines, &localhost_machine, &plan, &mut locks);

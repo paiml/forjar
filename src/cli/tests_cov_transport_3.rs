@@ -109,6 +109,7 @@ resources:
             container: None,
             pepita: None,
             cost: 0,
+            allowed_operators: vec![],
         }
     }
 
@@ -124,6 +125,7 @@ resources:
             container: None,
             pepita: None,
             cost: 0,
+            allowed_operators: vec![],
         }
     }
 
@@ -442,6 +444,7 @@ resources:
                 ephemeral: false,
             }),
             cost: 0,
+            allowed_operators: vec![],
         };
         // Pepita transport — should NOT retry, just fail once
         let result = transport::exec_script_retry(&machine, "echo hi", None, 3);
