@@ -26,13 +26,6 @@ pub struct VerifyResult {
     pub reason: String,
 }
 
-/// Signing report.
-#[derive(Debug, serde::Serialize)]
-pub struct SigningReport {
-    pub signatures: Vec<RecipeSignature>,
-    pub total: usize,
-}
-
 /// Sign a recipe file.
 pub fn sign_recipe(recipe_path: &Path, signer: &str) -> Result<RecipeSignature, String> {
     let content = std::fs::read(recipe_path).map_err(|e| format!("read recipe: {e}"))?;

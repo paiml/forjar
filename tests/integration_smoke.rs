@@ -14,7 +14,10 @@ fn version_flag_prints_version() {
     let out = forjar().arg("--version").output().expect("failed to run");
     assert!(out.status.success());
     let stdout = String::from_utf8_lossy(&out.stdout);
-    assert!(stdout.contains("forjar"), "expected 'forjar' in version output, got: {stdout}");
+    assert!(
+        stdout.contains("forjar"),
+        "expected 'forjar' in version output, got: {stdout}"
+    );
 }
 
 #[test]
@@ -23,8 +26,14 @@ fn help_flag_prints_usage() {
     assert!(out.status.success());
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(stdout.contains("Usage"), "expected 'Usage' in help output");
-    assert!(stdout.contains("validate"), "expected 'validate' subcommand in help");
-    assert!(stdout.contains("init"), "expected 'init' subcommand in help");
+    assert!(
+        stdout.contains("validate"),
+        "expected 'validate' subcommand in help"
+    );
+    assert!(
+        stdout.contains("init"),
+        "expected 'init' subcommand in help"
+    );
 }
 
 #[test]
@@ -72,7 +81,10 @@ fn validate_invalid_yaml_fails() {
         .args(["validate", "--file", cfg.to_str().unwrap()])
         .output()
         .expect("failed to run");
-    assert!(!out.status.success(), "validate should fail on invalid YAML");
+    assert!(
+        !out.status.success(),
+        "validate should fail on invalid YAML"
+    );
 }
 
 #[test]
@@ -81,7 +93,10 @@ fn validate_missing_file_fails() {
         .args(["validate", "--file", "/tmp/forjar-nonexistent-999.yaml"])
         .output()
         .expect("failed to run");
-    assert!(!out.status.success(), "validate should fail when file does not exist");
+    assert!(
+        !out.status.success(),
+        "validate should fail when file does not exist"
+    );
 }
 
 #[test]
@@ -105,7 +120,10 @@ fn init_creates_config_and_state() {
 
     let content = std::fs::read_to_string(&config).expect("read config");
     assert!(content.contains("version:"), "config should have version");
-    assert!(content.contains("machines:"), "config should have machines section");
+    assert!(
+        content.contains("machines:"),
+        "config should have machines section"
+    );
 }
 
 #[test]
@@ -122,5 +140,8 @@ fn init_refuses_existing_config() {
         .args(["init", dir.path().to_str().unwrap()])
         .output()
         .expect("run");
-    assert!(!second.status.success(), "init should refuse when forjar.yaml already exists");
+    assert!(
+        !second.status.success(),
+        "init should refuse when forjar.yaml already exists"
+    );
 }

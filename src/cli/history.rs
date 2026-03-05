@@ -1,4 +1,5 @@
 //! History commands.
+#![allow(clippy::manual_is_multiple_of)] // i64 doesn't support is_multiple_of
 
 use super::helpers::*;
 use super::helpers_time::*;

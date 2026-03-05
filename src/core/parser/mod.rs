@@ -7,10 +7,10 @@
 //! - Required fields per resource type
 
 mod expansion;
+mod format_validation;
 mod includes;
 mod policy;
 mod recipes;
-mod format_validation;
 mod resource_types;
 pub(crate) mod unknown_fields;
 mod validation;

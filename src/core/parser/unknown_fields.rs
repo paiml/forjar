@@ -218,8 +218,7 @@ const RECIPE_FILE_FIELDS: &[&str] = &["recipe", "resources"];
 
 const RECIPE_META_FIELDS: &[&str] = &["name", "version", "description", "inputs", "requires"];
 
-const RECIPE_INPUT_FIELDS: &[&str] =
-    &["type", "description", "default", "min", "max", "choices"];
+const RECIPE_INPUT_FIELDS: &[&str] = &["type", "description", "default", "min", "max", "choices"];
 
 const RECIPE_REQUIREMENT_FIELDS: &[&str] = &["recipe"];
 
@@ -285,11 +284,7 @@ pub fn detect_unknown_recipe_fields(yaml: &str) -> Result<Vec<UnknownField>, Str
 }
 
 /// Check recipe metadata fields including nested inputs and requires.
-fn check_recipe_meta(
-    val: &serde_yaml_ng::Value,
-    path: &str,
-    unknowns: &mut Vec<UnknownField>,
-) {
+fn check_recipe_meta(val: &serde_yaml_ng::Value, path: &str, unknowns: &mut Vec<UnknownField>) {
     let mapping = match val.as_mapping() {
         Some(m) => m,
         None => return,
@@ -451,9 +446,7 @@ fn levenshtein(a: &str, b: &str) -> usize {
             } else {
                 1
             };
-            let new_val = (row[j] + 1)
-                .min(row[j - 1] + 1)
-                .min(prev + cost);
+            let new_val = (row[j] + 1).min(row[j - 1] + 1).min(prev + cost);
             prev = row[j];
             row[j] = new_val;
         }
