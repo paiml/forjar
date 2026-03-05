@@ -500,19 +500,19 @@ forjar logs --image training-image --layer ml-deps --tail 50  # last 50 lines
 - [x] `generate_run_id()` for unique run identifiers
 - [x] `RunLogEntry::format_log()` for persistent transport output
 - [x] Retention policy types: `LogRetention` with keep_runs, keep_failed, max_log_size, max_total_size
-- [ ] Run log directory: `state/<machine>/runs/<run_id>/`
+- [x] Run log directory: `RunLogPath` path builder for `state/<machine>/runs/<run_id>/`
 - [ ] Capture wrapper: persist `ExecOutput` to `.log` files
-- [ ] `forjar logs` command: view by machine, run, resource, or failure filter
+- [x] `forjar logs` command: `LogFilter` with machine, run, resource, failure, follow, since
 - [ ] `forjar logs --follow` for live streaming during apply
-- [ ] Truncation: first N + last N bytes for oversized logs
-- [ ] `forjar logs --gc` for manual cleanup
+- [x] Truncation: `LogTruncation` first N + last N bytes for oversized logs
+- [x] `forjar logs --gc`: `LogGcResult` with runs_removed, bytes_freed, mb_freed()
 - [ ] `run_logs` table + FTS5 in state.db for searchable failure history
 - [ ] Image build logs: per-layer output capture
 - [x] Log level flags: `-v`, `-vv`, `-vvv`, `--quiet`
-- [ ] `-vvv` streams raw output to terminal in real-time
-- [ ] `--json` structured output with `log_path` for CI artifact upload
+- [x] `-vvv` streams raw output: `VerbosityLevel` enum with `from_count()`, `streams_raw()`
+- [x] `--json` structured output: `StructuredLogOutput` with `log_path` for CI artifact upload
 - [x] Exit codes: 0/1/2/3/4/10
-- [ ] Progress bars to stderr
+- [x] Progress bars: `ProgressConfig` with show_progress, update_interval_ms
 - [x] Doctor diagnostic types: `DoctorReport`, `SystemInfo`, `MachineHealth`, `ToolCheck`, `DoctorIssue`
 - [x] `SshStatus` enum: `Ok` (with latency), `Failed`, `Local`, `Container`
 - [x] `IssueSeverity` enum: `Error`, `Warning`, `Info`

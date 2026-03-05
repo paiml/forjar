@@ -3719,3 +3719,36 @@ forjar watch -f forjar.yaml --apply --yes
 ```
 
 Both `--apply` and `--yes` are required for auto-apply. Passing `--apply` alone will error, preventing accidental unattended applies.
+
+### `forjar logs`
+
+View run logs by machine, run ID, resource, or failure filter.
+
+```bash
+forjar logs [OPTIONS]
+```
+
+| Flag | Description |
+|------|-------------|
+| `--machine <NAME>` | Filter by machine name |
+| `--run <RUN_ID>` | Filter by run ID |
+| `--resource <ID>` | Filter by resource ID |
+| `--failed` | Show only failed actions |
+| `--follow` | Live streaming during apply |
+| `--since <DURATION>` | Time range (e.g., "7d", "24h") |
+| `--limit <N>` | Maximum entries to show |
+| `--gc` | Garbage collect old runs |
+| `--json` | Structured JSON output with `log_path` |
+
+Run logs are stored at `state/<machine>/runs/<run_id>/` with one `.log` file per resource action. Each log file contains delimited sections: SCRIPT, STDOUT, STDERR, and RESULT.
+
+**Verbosity levels:**
+
+| Flag | Level | Shows |
+|------|-------|-------|
+| (none) | Normal | Summary only |
+| `-v` | Verbose | Per-resource status |
+| `-vv` | Very Verbose | Script content and exit codes |
+| `-vvv` | Trace | Raw stdout/stderr streamed in real-time |
+
+**Log truncation:** Oversized logs (>16KB by default) keep the first 8KB + last 8KB with a truncation marker, preserving both the setup and error sections.
