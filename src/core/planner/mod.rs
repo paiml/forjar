@@ -273,6 +273,8 @@ fn collect_phase2_fields<'a>(components: &mut Vec<&'a str>, resource: &'a Resour
 }
 
 /// Compute a hash of the desired state for comparison.
+///
+/// FJ-2200: Contract — determinism: same resource always produces same hash.
 pub fn hash_desired_state(resource: &Resource) -> String {
     let type_str = resource.resource_type.to_string();
     let mut components: Vec<&str> = vec![&type_str];
@@ -281,7 +283,16 @@ pub fn hash_desired_state(resource: &Resource) -> String {
     collect_phase2_fields(&mut components, resource);
 
     let joined = components.join("\0");
-    hasher::hash_string(&joined)
+    let result = hasher::hash_string(&joined);
+
+    // FJ-2200: Determinism postcondition — calling again must produce same hash
+    debug_assert_eq!(
+        result,
+        hasher::hash_string(&joined),
+        "hash_desired_state: determinism violated"
+    );
+
+    result
 }
 
 /// Generate a human-readable description of a planned action.
