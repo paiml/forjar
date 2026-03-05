@@ -89,6 +89,58 @@ pub fn reconcile(state: &mut SystemState) -> usize {
     state.iteration
 }
 
+// Verus 2.0 specification attributes (only compiled with Verus toolchain)
+// Each #[requires] / #[ensures] documents pre/post-conditions for formal verification.
+#[cfg(verus)]
+mod verus_specs {
+    use super::*;
+
+    #[requires(true)]
+    #[ensures(|result: Vec<Option<String>>| result.len() == state.resources.len())]
+    fn spec_observe(state: &SystemState) -> Vec<Option<String>> { observe(state) }
+
+    #[requires(true)]
+    #[ensures(|result: Vec<bool>| result.len() == state.resources.len())]
+    fn spec_diff(state: &SystemState) -> Vec<bool> { diff(state) }
+
+    #[requires(true)]
+    #[ensures(|_| state.iteration > old(state.iteration))]
+    fn spec_apply(state: &mut SystemState) { apply(state) }
+
+    #[requires(true)]
+    #[ensures(|result: bool| result == state.resources.iter().all(|r| r.converged))]
+    fn spec_is_converged(state: &SystemState) -> bool { is_converged(state) }
+
+    #[requires(true)]
+    #[ensures(|result: usize| result <= state.resources.len())]
+    fn spec_changes_needed(state: &SystemState) -> usize { changes_needed(state) }
+
+    #[requires(state.resources.len() > 0)]
+    #[ensures(|_| is_converged(state))]
+    #[ensures(|result: usize| result <= state.resources.len() + 1)]
+    fn spec_reconcile(state: &mut SystemState) -> usize { reconcile(state) }
+
+    #[requires(is_converged(state))]
+    #[ensures(|result: usize| result == 0)]
+    fn spec_idempotency(state: &SystemState) -> usize { changes_needed(state) }
+
+    /// Monotonicity: converged resources stay converged after apply.
+    #[requires(state.resources[idx].converged)]
+    #[ensures(|_| state.resources[idx].converged)]
+    fn spec_monotonicity(state: &mut SystemState, idx: usize) { apply(state) }
+
+    /// Bounded iteration: reconcile terminates within resource count.
+    #[requires(state.resources.len() > 0)]
+    #[ensures(|result: usize| result <= state.resources.len() + 1)]
+    #[decreases(state.resources.len())]
+    fn spec_bounded_reconcile(state: &mut SystemState) -> usize { reconcile(state) }
+
+    /// Observe preserves state: observation is pure (no mutation).
+    #[requires(true)]
+    #[ensures(|_| state == old(state))]
+    fn spec_observe_pure(state: &SystemState) { let _ = observe(state); }
+}
+
 // Verus proof specifications (only compiled with Verus toolchain)
 #[cfg(verus)]
 mod verus_proofs {
