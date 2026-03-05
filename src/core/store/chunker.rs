@@ -96,13 +96,11 @@ fn hash_file_entry(base: &Path, path: &Path) -> Result<(String, u64, String), St
         .map_err(|e| format!("prefix: {e}"))?
         .to_string_lossy()
         .to_string();
-    let meta =
-        std::fs::metadata(path).map_err(|e| format!("metadata {}: {e}", path.display()))?;
-    let hash = blake3::hash(
-        &std::fs::read(path).map_err(|e| format!("read {}: {e}", path.display()))?,
-    )
-    .to_hex()
-    .to_string();
+    let meta = std::fs::metadata(path).map_err(|e| format!("metadata {}: {e}", path.display()))?;
+    let hash =
+        blake3::hash(&std::fs::read(path).map_err(|e| format!("read {}: {e}", path.display()))?)
+            .to_hex()
+            .to_string();
     Ok((rel, meta.len(), hash))
 }
 

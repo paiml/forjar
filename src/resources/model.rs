@@ -36,10 +36,7 @@ pub fn check_script(resource: &Resource) -> String {
 fn download_command(source: &str, path: &str, cache_dir: &str) -> String {
     if source.starts_with("http://") || source.starts_with("https://") {
         format!("curl -fSL -o '{}' '{}'\n", path, source)
-    } else if source.starts_with('/')
-        || source.starts_with("./")
-        || source.starts_with("~/")
-    {
+    } else if source.starts_with('/') || source.starts_with("./") || source.starts_with("~/") {
         format!("cp '{}' '{}'\n", source, path)
     } else if source.contains('/') {
         // HuggingFace repo ID — use apr pull with fallback to huggingface-cli

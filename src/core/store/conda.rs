@@ -104,8 +104,7 @@ fn process_bz2_entry<R: std::io::Read>(
 
     let dest = output_dir.join(&rel);
     if let Some(parent) = dest.parent() {
-        std::fs::create_dir_all(parent)
-            .map_err(|e| format!("mkdir {}: {e}", parent.display()))?;
+        std::fs::create_dir_all(parent).map_err(|e| format!("mkdir {}: {e}", parent.display()))?;
     }
     if !entry.header().entry_type().is_file() {
         return Ok(None);
