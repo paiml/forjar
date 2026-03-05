@@ -105,6 +105,7 @@ resources:
             dry_expand: false,
             schema_version: None,
             exhaustive: false,
+            deep: false,
             policy_file: None,
             check_connectivity: false,
             check_templates: false,

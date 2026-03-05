@@ -26,6 +26,7 @@ mod tests {
             dry_expand: false,
             schema_version: Some("1.0".to_string()),
             exhaustive: false,
+            deep: false,
             policy_file: None,
             check_connectivity: false,
             check_templates: false,

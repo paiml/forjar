@@ -54,6 +54,7 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
         dry_expand,
         schema_version: _schema_version,
         exhaustive,
+        deep,
         policy_file,
         check_connectivity,
         check_templates,
@@ -202,6 +203,11 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
     // FJ-2500: --deny-unknown-fields — reject configs with unknown YAML fields
     if deny_unknown_fields {
         return crate::core::parser::parse_and_validate_opts(&file, true).map(|_| ());
+    }
+
+    // FJ-2503: --deep runs all deep checks in a single aggregated pass
+    if deep {
+        return cmd_validate_deep(&file, json);
     }
 
     if let Some(r) = try_validate_store(

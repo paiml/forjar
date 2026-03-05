@@ -555,10 +555,10 @@ forjar apply    (all of above)            Pre-apply gates            —
 - [ ] Include provenance tracking
 - **Deliverable**: Circular includes fail with clear error
 
-### Phase 26: Default Deep Validation (FJ-2503)
+### Phase 26: Default Deep Validation (FJ-2503) -- DONE
 - [x] `forjar validate` runs fast + full by default
-- [ ] `forjar validate --deep` runs all checks
-- [ ] Template validation in `--deep`
+- [x] `forjar validate --deep` runs all checks (templates, deps, overlaps, secrets, naming, drift, idempotency, exhaustive)
+- [x] Template validation in `--deep`
 - [x] Circular dependency detection (`--check-circular-deps`)
 - [x] Overlap detection (`--check-overlaps`)
 - **Deliverable**: `forjar validate --deep` catches template and dependency errors
