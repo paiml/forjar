@@ -110,6 +110,7 @@ fn test_fj016_detect_drift_with_machine_local() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
 
     let findings = detect_drift_with_machine(&lock, &machine);
@@ -164,6 +165,7 @@ fn test_fj016_detect_drift_with_machine_local_drift() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
 
     let findings = detect_drift_with_machine(&lock, &machine);
@@ -325,6 +327,7 @@ fn test_fj016_full_drift_non_string_live_hash_skipped() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     let config_resources = indexmap::IndexMap::new();
     let findings = detect_drift_full(&lock, &machine, &config_resources);

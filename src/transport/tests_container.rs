@@ -25,6 +25,7 @@ fn container_machine() -> Machine {
         }),
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     }
 }
 
@@ -41,6 +42,7 @@ fn test_fj021_exec_no_container_config() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     let result = exec_container(&machine, "echo hi");
     assert!(result.is_err());
@@ -60,6 +62,7 @@ fn test_fj021_ensure_no_container_config() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     let result = ensure_container(&machine);
     assert!(result.is_err());
@@ -78,6 +81,7 @@ fn test_fj021_cleanup_no_container_config() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     let result = cleanup_container(&machine);
     assert!(result.is_err());
@@ -114,6 +118,7 @@ fn test_fj021_ensure_no_image() {
         }),
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     // ensure_container on a non-existent container with no image should fail
     // (unless the container already exists, which it won't in unit tests)
@@ -162,6 +167,7 @@ fn test_fj021_exec_with_fake_runtime() {
         }),
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     let result = exec_container(&machine, "echo test");
     // /bin/false doesn't accept args, so spawn will succeed but
@@ -213,6 +219,7 @@ fn test_fj021_container_name_derived_from_hostname() {
         }),
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     assert_eq!(machine.container_name(), "forjar-my-web-server");
 }
@@ -242,6 +249,7 @@ fn test_fj021_container_name_explicit_overrides() {
         }),
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     assert_eq!(machine.container_name(), "custom-name");
 }
@@ -272,6 +280,7 @@ fn test_fj021_podman_runtime() {
         }),
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     // exec_container will try to run podman, which probably isn't available
     let result = exec_container(&machine, "echo test");
@@ -310,6 +319,7 @@ fn test_fj021_ensure_with_privileged_and_init_flags() {
         }),
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     // /bin/echo as runtime: `echo inspect -f ...` succeeds but doesn't output "true"
     // So ensure_container will proceed to run, where `echo run -d --name ... --init --privileged ...`
@@ -346,6 +356,7 @@ fn test_fj021_ensure_with_gpus_flag() {
         }),
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     let result = ensure_container(&machine);
     assert!(
@@ -382,6 +393,7 @@ fn test_fj021_ensure_with_rocm_devices() {
         }),
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     let result = ensure_container(&machine);
     assert!(
@@ -418,6 +430,7 @@ fn test_fj021_ensure_with_env_vars() {
         }),
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     let result = ensure_container(&machine);
     assert!(
@@ -452,6 +465,7 @@ fn test_fj021_ensure_no_init_no_privileged() {
         }),
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     let result = ensure_container(&machine);
     assert!(

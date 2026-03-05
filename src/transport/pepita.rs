@@ -214,6 +214,7 @@ mod tests {
                 ephemeral: true,
             }),
             cost: 0,
+            allowed_operators: vec![],
         }
     }
 
@@ -230,6 +231,7 @@ mod tests {
             container: None,
             pepita: None,
             cost: 0,
+            allowed_operators: vec![],
         };
         let result = exec_pepita(&machine, "echo hi");
         assert!(result.is_err());
@@ -249,6 +251,7 @@ mod tests {
             container: None,
             pepita: None,
             cost: 0,
+            allowed_operators: vec![],
         };
         let result = ensure_namespace(&machine);
         assert!(result.is_err());
@@ -268,6 +271,7 @@ mod tests {
             container: None,
             pepita: None,
             cost: 0,
+            allowed_operators: vec![],
         };
         let result = cleanup_namespace(&machine);
         assert!(result.is_err());
@@ -307,6 +311,7 @@ mod tests {
                 ephemeral: false,
             }),
             cost: 0,
+            allowed_operators: vec![],
         };
         assert!(machine.is_pepita_transport());
     }

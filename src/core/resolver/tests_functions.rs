@@ -195,6 +195,7 @@ fn test_fj250_machine_ref_in_func() {
             container: None,
             pepita: None,
             cost: 0,
+            allowed_operators: vec![],
         },
     );
     let p = HashMap::new();

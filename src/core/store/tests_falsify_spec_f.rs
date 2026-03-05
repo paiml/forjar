@@ -86,6 +86,7 @@ fn falsify_l01_execution_context_fields() {
             transport: None,
             container: None,
             cost: 0,
+            allowed_operators: vec![],
             pepita: None,
         },
         timeout_secs: Some(600),

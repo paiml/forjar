@@ -34,6 +34,7 @@ fn test_fj003_resolve_machine_addr() {
             container: None,
             pepita: None,
             cost: 0,
+            allowed_operators: vec![],
         },
     );
     let result = resolve_template("ssh {{machine.lambda.addr}}", &params, &machines).unwrap();
@@ -173,6 +174,7 @@ fn test_fj003_mixed_template_types() {
             container: None,
             pepita: None,
             cost: 0,
+            allowed_operators: vec![],
         },
     );
     let result = resolve_template(
@@ -260,6 +262,7 @@ fn test_fj131_resolve_machine_hostname_field() {
             container: None,
             pepita: None,
             cost: 0,
+            allowed_operators: vec![],
         },
     );
     let result = resolve_template("host={{machine.db.hostname}}", &params, &machines).unwrap();
@@ -283,6 +286,7 @@ fn test_fj131_resolve_machine_user_field() {
             container: None,
             pepita: None,
             cost: 0,
+            allowed_operators: vec![],
         },
     );
     let result = resolve_template("user={{machine.db.user}}", &params, &machines).unwrap();
@@ -306,6 +310,7 @@ fn test_fj131_resolve_machine_arch_field() {
             container: None,
             pepita: None,
             cost: 0,
+            allowed_operators: vec![],
         },
     );
     let result = resolve_template("arch={{machine.arm.arch}}", &params, &machines).unwrap();
@@ -329,6 +334,7 @@ fn test_fj131_resolve_machine_invalid_field() {
             container: None,
             pepita: None,
             cost: 0,
+            allowed_operators: vec![],
         },
     );
     let result = resolve_template("{{machine.m.cost}}", &params, &machines);

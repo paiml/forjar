@@ -142,7 +142,8 @@ pub(crate) fn cmd_schema() -> Result<(), String> {
             "ssh_key": { "type": "string" },
             "roles": { "type": "array", "items": { "type": "string" } },
             "transport": { "type": "string", "enum": ["container"] },
-            "cost": { "type": "integer", "default": 0 }
+            "cost": { "type": "integer", "default": 0 },
+            "allowed_operators": { "type": "array", "items": { "type": "string" }, "default": [] }
         }
     });
 

@@ -194,6 +194,7 @@ fn test_fj012_record_success_writes_lock_and_event() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     let mut ctx = RecordCtx {
         lock: &mut lock,
