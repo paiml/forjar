@@ -21,6 +21,9 @@ pub struct ValidateArgs {
     /// FJ-391: Validate all cross-references, machine existence, and param usage
     #[arg(long)]
     pub exhaustive: bool,
+    /// FJ-2503: Run all deep validation checks (templates, deps, overlaps, secrets, naming)
+    #[arg(long)]
+    pub deep: bool,
     /// FJ-401: Validate against external policy rules file
     #[arg(long)]
     pub policy_file: Option<PathBuf>,

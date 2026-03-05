@@ -215,3 +215,41 @@ resources:
         "should warn about unknown field: {stderr}"
     );
 }
+
+#[test]
+fn validate_deep_runs_all_checks() {
+    let dir = tempfile::tempdir().expect("tmpdir");
+    let cfg = dir.path().join("forjar.yaml");
+    std::fs::write(
+        &cfg,
+        r#"version: "1.0"
+name: deep-smoke
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+resources:
+  pkg:
+    type: package
+    machine: m
+    provider: apt
+    packages: [curl]
+"#,
+    )
+    .expect("write");
+
+    let out = forjar()
+        .args(["validate", "--deep", "--file", cfg.to_str().unwrap()])
+        .output()
+        .expect("failed to run");
+    assert!(
+        out.status.success(),
+        "deep validation should pass on valid config. stderr: {}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(
+        stdout.contains("Deep validation"),
+        "should show deep validation summary: {stdout}"
+    );
+}

@@ -82,6 +82,7 @@ resources: {}
                 dry_expand: false,
                 schema_version: None,
                 exhaustive: false,
+            deep: false,
                 policy_file: None,
                 check_connectivity: false,
                 check_templates: false,
@@ -308,5 +309,57 @@ resources:
             "valid config should pass validation: {:?}",
             result.err()
         );
+    }
+
+    #[test]
+    fn test_fj2503_validate_deep_passes_valid_config() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config,
+            r#"version: "1.0"
+name: deep-test
+machines:
+  m1:
+    hostname: m1
+    addr: 127.0.0.1
+resources:
+  pkg:
+    type: package
+    machine: m1
+    provider: apt
+    packages: [curl]
+"#,
+        )
+        .unwrap();
+
+        let result = cmd_validate_deep(&config, false);
+        assert!(result.is_ok(), "deep validation should pass: {:?}", result);
+    }
+
+    #[test]
+    fn test_fj2503_validate_deep_json_output() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config,
+            r#"version: "1.0"
+name: deep-json
+machines:
+  m1:
+    hostname: m1
+    addr: 127.0.0.1
+resources:
+  pkg:
+    type: package
+    machine: m1
+    provider: apt
+    packages: [vim]
+"#,
+        )
+        .unwrap();
+
+        let result = cmd_validate_deep(&config, true);
+        assert!(result.is_ok());
     }
 }
