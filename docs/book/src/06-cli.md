@@ -572,6 +572,39 @@ forjar rollback -n 3
 forjar rollback -m web-server
 ```
 
+### `forjar undo`
+
+Active undo — revert to a previous generation by re-applying its config.
+
+```bash
+forjar undo -f <FILE> [--generations N] [-m MACHINE] [--dry-run] [--yes]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-f, --file` | `forjar.yaml` | Config file path |
+| `--generations` | `1` | Number of generations to undo |
+| `-m, --machine` | all | Filter to specific machine |
+| `--dry-run` | false | Show what would change without executing |
+| `--yes` | false | Confirm undo (required for execution) |
+| `--resume` | false | Resume a partial undo |
+
+Unlike `rollback` (which reads from git history), `undo` operates on generation snapshots stored in `state/generations/`. It shows the resource diff between the current and target generation, then restores lock files and re-applies with force.
+
+```bash
+# Preview what undo would change
+forjar undo --dry-run
+
+# Undo last apply
+forjar undo --yes
+
+# Undo last 3 applies
+forjar undo --generations 3 --yes
+
+# Undo specific machine only
+forjar undo -m web-server --yes
+```
+
 ### `forjar anomaly`
 
 Detect anomalous resource behavior from event history.

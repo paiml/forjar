@@ -1730,3 +1730,33 @@ On apply (state: absent):
 ```
 
 All teardown steps use `|| true` to tolerate already-removed resources. This is distinct from Docker container management (FJ-030) — pepita uses kernel interfaces directly without a container runtime.
+
+## WASM Bundle
+
+Deploy WASM applications (e.g., presentar apps) with size budget tracking.
+
+```yaml
+resources:
+  app-bundle:
+    type: wasm_bundle
+    machine: deploy-host
+    path: /var/www/app/bundle.wasm
+    content: "build output path"
+```
+
+WASM bundles support size budget checks via `WasmSizeBudget` and drift detection via `BundleSizeDrift`.
+
+## Image
+
+Build and deploy OCI container images.
+
+```yaml
+resources:
+  app-image:
+    type: image
+    machine: build-host
+    path: /var/lib/forjar/images/app
+    content: "Dockerfile or build context"
+```
+
+Image resources go through the layer build pipeline, converting file and package resources into OCI layers via `LayerStrategy::from_resource()`.
