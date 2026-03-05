@@ -742,16 +742,16 @@ Forjar is the **convergence primitive**. Consumers own their domain logic.
 - **Deliverable**: Federated learning manifest collection across 3 nodes
 
 ### Phase 41: Consumer Integration Testing (FJ-2705)
-- [ ] alimentar quality pipeline recipe
-- [ ] entrenar training job recipe
-- [ ] apr-cli model build pipeline recipe
-- [ ] batuta agent lifecycle recipe
-- [ ] forjar self-build pipeline recipe
+- [x] alimentar quality pipeline recipe (`examples/consumer-alimentar-quality.yaml`)
+- [x] entrenar training job recipe (`examples/consumer-entrenar-training.yaml`)
+- [x] apr-cli model build pipeline recipe (`examples/consumer-apr-model-build.yaml`)
+- [x] batuta agent lifecycle recipe (`examples/consumer-batuta-agent.yaml`)
+- [x] forjar self-build pipeline recipe (`examples/consumer-forjar-self-build.yaml`)
 - **Deliverable**: Five reference recipes proving the primitive works for all domains
 
 ### Phase 42: Task State Model (FJ-2706)
 - [x] Pipeline state with per-stage tracking
 - [x] Service state with PID, health check history
 - [x] Dispatch state with invocation history
-- [ ] State model documented in state compatibility section
+- [x] State model documented in state compatibility section (book chapter 08)
 - **Deliverable**: `forjar status` shows pipeline stage progress and service health
