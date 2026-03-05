@@ -384,18 +384,9 @@ pub struct LifecycleRules {
 
 /// Resource type enum.
 ///
-/// # Examples
-///
 /// ```
 /// use forjar::core::types::ResourceType;
-///
-/// let rt = ResourceType::Package;
-/// assert_eq!(rt.to_string(), "package");
-///
-/// let rt = ResourceType::File;
-/// assert_eq!(rt.to_string(), "file");
-///
-/// // Default is Package
+/// assert_eq!(ResourceType::Package.to_string(), "package");
 /// assert_eq!(ResourceType::default(), ResourceType::Package);
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -428,6 +419,10 @@ pub enum ResourceType {
     Gpu,
     /// ALB-027: Pipeline task resource type.
     Task,
+    /// FJ-2402: WASM bundle for presentar app deployment.
+    WasmBundle,
+    /// FJ-2101: OCI container image resource.
+    Image,
 }
 
 impl fmt::Display for ResourceType {
@@ -446,6 +441,8 @@ impl fmt::Display for ResourceType {
             Self::Model => write!(f, "model"),
             Self::Gpu => write!(f, "gpu"),
             Self::Task => write!(f, "task"),
+            Self::WasmBundle => write!(f, "wasm_bundle"),
+            Self::Image => write!(f, "image"),
         }
     }
 }

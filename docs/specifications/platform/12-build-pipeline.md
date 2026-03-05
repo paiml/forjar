@@ -552,7 +552,7 @@ presentar (separate binary)
 - [x] CDN deploy targets: `CdnTarget` (S3/Cloudflare/Local) with Display
 - [x] Cache policies: `CachePolicy::defaults()` per extension
 - [x] Size budget checks: `check_core()`, `check_full_app()`
-- [ ] `type: wasm_bundle` resource for deploying presentar apps via forjar
+- [x] `type: wasm_bundle` resource for deploying presentar apps via forjar
 - [x] S3 deployment with CloudFront invalidation via forjar resources — `examples/s3-cloudfront-deploy.yaml` (build → size-check → s3-sync → invalidation)
 - [x] Bundle size drift detection: `BundleSizeDrift::check()` with budget + 20% growth limit alerting
 - **Deliverable**: Presentar WASM apps deployable via `forjar apply`

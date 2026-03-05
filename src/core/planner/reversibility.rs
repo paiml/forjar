@@ -52,6 +52,8 @@ fn classify_destroy(resource: &Resource) -> Reversibility {
         ResourceType::Task => Reversibility::Irreversible,
         // Recipe destruction is complex — treat as irreversible
         ResourceType::Recipe => Reversibility::Irreversible,
+        // WasmBundle/Image are re-deployable files
+        ResourceType::WasmBundle | ResourceType::Image => Reversibility::Reversible,
     }
 }
 

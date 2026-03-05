@@ -20,6 +20,8 @@ fn type_cost(rt: &types::ResourceType) -> u32 {
         types::ResourceType::Gpu => 5,
         types::ResourceType::Task => 3,
         types::ResourceType::Recipe => 1,
+        types::ResourceType::WasmBundle => 1,
+        types::ResourceType::Image => 1,
     }
 }
 
