@@ -731,14 +731,14 @@ Forjar is the **convergence primitive**. Consumers own their domain logic.
 ### Phase 39: GPU Device Targeting (FJ-2703)
 - [x] `gpu_device:` field → `CUDA_VISIBLE_DEVICES` injection
 - [x] `gpu_memory:` `GpuMemoryInfo` with total_bytes, used_bytes, utilization_pct()
-- [ ] Multi-GPU parallel tasks in same wave
+- [x] Multi-GPU parallel tasks in same wave: `GpuSchedule` with `round_robin()`, `cuda_visible_devices()`, `fully_utilized()`
 - **Deliverable**: Two training tasks run on GPU 0 and GPU 1 simultaneously
 
 ### Phase 40: Distributed Coordination (FJ-2704)
 - [x] `gather:` — collect artifacts from multiple machines
 - [x] `scatter:` — distribute artifacts to multiple machines
 - [x] `machine: [list]` fan-out execution (MachineTarget::Multiple)
-- [ ] Barrier via `depends_on` multi-machine task
+- [x] Barrier via `depends_on` multi-machine task: `BarrierTask` with `mark_complete()`, `is_satisfied()`, `pending_machines()`, `progress_pct()`
 - **Deliverable**: Federated learning manifest collection across 3 nodes
 
 ### Phase 41: Consumer Integration Testing (FJ-2705)

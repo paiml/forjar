@@ -175,6 +175,141 @@ pub struct DispatchState {
     pub total_invocations: u64,
 }
 
+/// FJ-2703: Multi-GPU parallel scheduling for tasks in the same wave.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct GpuSchedule {
+    /// GPU device assignments: task_id → device indices.
+    pub assignments: std::collections::HashMap<String, Vec<u32>>,
+    /// Total available GPU devices.
+    pub total_devices: u32,
+}
+
+impl GpuSchedule {
+    /// Create a schedule for N devices.
+    pub fn new(total_devices: u32) -> Self {
+        Self {
+            assignments: std::collections::HashMap::new(),
+            total_devices,
+        }
+    }
+
+    /// Assign a task to specific GPU devices.
+    pub fn assign(&mut self, task_id: &str, devices: Vec<u32>) {
+        self.assignments.insert(task_id.to_string(), devices);
+    }
+
+    /// Get the `CUDA_VISIBLE_DEVICES` value for a task.
+    pub fn cuda_visible_devices(&self, task_id: &str) -> Option<String> {
+        self.assignments.get(task_id).map(|devs| {
+            devs.iter()
+                .map(|d| d.to_string())
+                .collect::<Vec<_>>()
+                .join(",")
+        })
+    }
+
+    /// Number of devices currently assigned.
+    pub fn assigned_device_count(&self) -> usize {
+        let mut seen = std::collections::HashSet::new();
+        for devs in self.assignments.values() {
+            for &d in devs {
+                seen.insert(d);
+            }
+        }
+        seen.len()
+    }
+
+    /// Whether all devices are assigned.
+    pub fn fully_utilized(&self) -> bool {
+        self.assigned_device_count() >= self.total_devices as usize
+    }
+
+    /// Round-robin assignment across available devices.
+    pub fn round_robin(tasks: &[&str], total_devices: u32) -> Self {
+        let mut schedule = Self::new(total_devices);
+        for (i, task) in tasks.iter().enumerate() {
+            let device = (i as u32) % total_devices;
+            schedule.assign(task, vec![device]);
+        }
+        schedule
+    }
+}
+
+/// FJ-2704: Barrier task for multi-machine synchronization.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BarrierTask {
+    /// Barrier task identifier.
+    pub task_id: String,
+    /// Machine names that must complete before barrier releases.
+    pub wait_for_machines: Vec<String>,
+    /// Optional timeout in seconds (0 = no timeout).
+    #[serde(default)]
+    pub timeout_secs: u64,
+    /// Machines that have reported completion.
+    #[serde(default)]
+    pub completed: Vec<String>,
+}
+
+impl BarrierTask {
+    /// Create a new barrier waiting for the given machines.
+    pub fn new(task_id: &str, machines: Vec<String>) -> Self {
+        Self {
+            task_id: task_id.to_string(),
+            wait_for_machines: machines,
+            timeout_secs: 0,
+            completed: Vec::new(),
+        }
+    }
+
+    /// Mark a machine as completed.
+    pub fn mark_complete(&mut self, machine: &str) {
+        if !self.completed.contains(&machine.to_string()) {
+            self.completed.push(machine.to_string());
+        }
+    }
+
+    /// Whether the barrier is satisfied (all machines completed).
+    pub fn is_satisfied(&self) -> bool {
+        self.wait_for_machines
+            .iter()
+            .all(|m| self.completed.contains(m))
+    }
+
+    /// Machines still pending.
+    pub fn pending_machines(&self) -> Vec<&str> {
+        self.wait_for_machines
+            .iter()
+            .filter(|m| !self.completed.contains(m))
+            .map(|m| m.as_str())
+            .collect()
+    }
+
+    /// Completion percentage.
+    pub fn progress_pct(&self) -> f64 {
+        if self.wait_for_machines.is_empty() {
+            return 100.0;
+        }
+        (self.completed.len() as f64 / self.wait_for_machines.len() as f64) * 100.0
+    }
+}
+
+impl std::fmt::Display for BarrierTask {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let pending = self.pending_machines();
+        if pending.is_empty() {
+            write!(f, "barrier/{}: SATISFIED", self.task_id)
+        } else {
+            write!(
+                f,
+                "barrier/{}: waiting for {} ({:.0}%)",
+                self.task_id,
+                pending.join(", "),
+                self.progress_pct()
+            )
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -286,5 +421,80 @@ retries: 3
     #[test]
     fn stage_status_default_is_pending() {
         assert_eq!(StageStatus::default(), StageStatus::Pending);
+    }
+
+    #[test]
+    fn gpu_schedule_round_robin() {
+        let schedule = GpuSchedule::round_robin(&["train-a", "train-b", "train-c"], 2);
+        assert_eq!(schedule.cuda_visible_devices("train-a"), Some("0".into()));
+        assert_eq!(schedule.cuda_visible_devices("train-b"), Some("1".into()));
+        assert_eq!(schedule.cuda_visible_devices("train-c"), Some("0".into()));
+        assert!(schedule.fully_utilized());
+    }
+
+    #[test]
+    fn gpu_schedule_assign() {
+        let mut schedule = GpuSchedule::new(4);
+        schedule.assign("big-model", vec![0, 1, 2, 3]);
+        assert_eq!(schedule.cuda_visible_devices("big-model"), Some("0,1,2,3".into()));
+        assert!(schedule.fully_utilized());
+        assert_eq!(schedule.assigned_device_count(), 4);
+    }
+
+    #[test]
+    fn gpu_schedule_partial() {
+        let mut schedule = GpuSchedule::new(4);
+        schedule.assign("small", vec![0]);
+        assert!(!schedule.fully_utilized());
+        assert_eq!(schedule.assigned_device_count(), 1);
+    }
+
+    #[test]
+    fn gpu_schedule_no_task() {
+        let schedule = GpuSchedule::new(2);
+        assert_eq!(schedule.cuda_visible_devices("missing"), None);
+    }
+
+    #[test]
+    fn barrier_task_lifecycle() {
+        let mut barrier = BarrierTask::new("sync-all", vec!["intel".into(), "jetson".into(), "lambda".into()]);
+        assert!(!barrier.is_satisfied());
+        assert_eq!(barrier.pending_machines().len(), 3);
+        assert!((barrier.progress_pct() - 0.0).abs() < 0.01);
+
+        barrier.mark_complete("intel");
+        assert!(!barrier.is_satisfied());
+        assert_eq!(barrier.pending_machines(), vec!["jetson", "lambda"]);
+        assert!((barrier.progress_pct() - 33.3).abs() < 0.5);
+
+        barrier.mark_complete("jetson");
+        barrier.mark_complete("lambda");
+        assert!(barrier.is_satisfied());
+        assert!(barrier.pending_machines().is_empty());
+        assert!((barrier.progress_pct() - 100.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn barrier_task_display() {
+        let mut barrier = BarrierTask::new("sync", vec!["a".into(), "b".into()]);
+        assert!(barrier.to_string().contains("waiting for"));
+        barrier.mark_complete("a");
+        barrier.mark_complete("b");
+        assert!(barrier.to_string().contains("SATISFIED"));
+    }
+
+    #[test]
+    fn barrier_task_duplicate_complete() {
+        let mut barrier = BarrierTask::new("sync", vec!["a".into()]);
+        barrier.mark_complete("a");
+        barrier.mark_complete("a"); // duplicate — should not add twice
+        assert_eq!(barrier.completed.len(), 1);
+    }
+
+    #[test]
+    fn barrier_task_empty() {
+        let barrier = BarrierTask::new("noop", vec![]);
+        assert!(barrier.is_satisfied());
+        assert!((barrier.progress_pct() - 100.0).abs() < 0.01);
     }
 }
