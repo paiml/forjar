@@ -10,7 +10,7 @@ forjar [OPTIONS] <COMMAND>
 
 | Flag | Description |
 |------|-------------|
-| `-v, --verbose` | Enable verbose output (diagnostic info to stderr) |
+| `-v, --verbose` | Increase verbosity (`-v` info, `-vv` debug, `-vvv` trace) |
 | `--no-color` | Disable colored output (also honors `NO_COLOR` env) |
 | `-h, --help` | Print help |
 | `-V, --version` | Print version |
@@ -1442,13 +1442,16 @@ If bashrs reports Error-severity diagnostics (as opposed to warnings), those are
 
 ## Exit Code Reference
 
-Forjar uses a minimal set of exit codes. The main binary (`src/main.rs`) dispatches to command handlers; if any handler returns `Err`, the process exits with code 1. Success always returns code 0. The `drift` command with `--tripwire` uses code 2 to signal drift detection without implying an error in the tool itself.
+Forjar uses structured exit codes to distinguish error categories. The main binary classifies errors and returns the appropriate code.
 
-| Code | Meaning | Commands |
-|------|---------|----------|
-| 0 | Success: operation completed without errors or findings | All commands |
-| 1 | Error: validation failure, apply failure, parse error, I/O error, or unformatted file (`fmt --check`) | All commands |
-| 2 | Drift detected: live state does not match lock file (not an error in forjar itself) | `drift --tripwire` |
+| Code | Meaning | Example |
+|------|---------|---------|
+| 0 | Success — all resources converged | `apply`, `validate`, `plan` |
+| 1 | General error | Unexpected failures, I/O errors |
+| 2 | Partial failure — some resources failed | `apply` with mixed results |
+| 3 | Configuration error — invalid YAML or missing fields | `validate`, `plan` |
+| 4 | Connection error — SSH or container transport | `apply`, `drift` |
+| 10 | Drift detected — non-zero diff | `drift --tripwire` |
 
 ### Per-Command Details
 

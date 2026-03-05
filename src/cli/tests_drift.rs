@@ -193,7 +193,7 @@ mod tests {
                 env_file: None,
                 workspace: None,
             }),
-            false,
+            0,
             true,
         )
         .unwrap();

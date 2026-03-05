@@ -110,7 +110,7 @@ resources:
                 keep: 5,
                 json: false,
             }),
-            false,
+            0,
             true,
         )
         .unwrap();

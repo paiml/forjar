@@ -409,7 +409,7 @@ resources:
                 refresh_only: false,
                 encrypt_state: false,
             }),
-            false,
+            0,
             true,
         )
         .unwrap();

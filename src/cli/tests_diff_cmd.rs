@@ -179,7 +179,7 @@ mod tests {
                 file: PathBuf::from("/tmp/nonexistent-forjar.yaml"),
                 json: false,
             }),
-            false,
+            0,
             true,
         );
         assert!(result.is_ok());
@@ -195,7 +195,7 @@ mod tests {
                 file: config_path,
                 json: false,
             }),
-            false,
+            0,
             true,
         );
         assert!(result.is_ok());
@@ -211,7 +211,7 @@ mod tests {
                 file: config_path,
                 json: true,
             }),
-            false,
+            0,
             true,
         );
         assert!(result.is_ok());
