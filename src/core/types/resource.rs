@@ -1,5 +1,6 @@
 //! Resource type definitions: Resource, ResourceType, MachineTarget.
 
+use super::task_types::{PipelineStage, TaskMode};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
@@ -300,50 +301,55 @@ pub struct Resource {
     #[serde(default)]
     pub gpu_memory_limit_mb: Option<u64>,
 
-    // -- Task fields (ALB-027: pipeline orchestration) --
-    // Note: `command` field is shared with cron (line 132)
-    /// Output artifacts to hash for idempotency (glob paths relative to cwd)
+    // -- Task fields (FJ-2700: task framework) --
+    /// Task execution mode (batch/pipeline/service/dispatch).
+    #[serde(default)]
+    pub task_mode: Option<TaskMode>,
+    /// Input file patterns for content-addressed caching.
+    #[serde(default)]
+    pub task_inputs: Vec<String>,
+    /// Output artifacts to hash for idempotency.
     #[serde(default)]
     pub output_artifacts: Vec<String>,
-
-    /// Shell command to check if task already completed (exit 0 = done, skip apply)
+    /// Completion check command (exit 0 = done).
     #[serde(default)]
     pub completion_check: Option<String>,
-
-    /// Timeout in seconds for command execution (default: no limit)
+    /// Timeout in seconds.
     #[serde(default)]
     pub timeout: Option<u64>,
-
-    /// Working directory for the command
+    /// Working directory for the command.
     #[serde(default)]
     pub working_dir: Option<String>,
+    /// Pipeline stages (mode: pipeline).
+    #[serde(default)]
+    pub stages: Vec<PipelineStage>,
+    /// Enable content-addressed stage caching.
+    #[serde(default)]
+    pub cache: bool,
+    /// GPU device index for CUDA_VISIBLE_DEVICES.
+    #[serde(default)]
+    pub gpu_device: Option<u32>,
+    /// Restart delay in seconds (mode: service).
+    #[serde(default)]
+    pub restart_delay: Option<u64>,
 
-    // -- Lifecycle hooks (FJ-265) --
-    /// Shell command to run on the target before the resource's main script.
-    /// If pre_apply exits non-zero, the resource is skipped (not applied).
+    // -- Lifecycle hooks + protection --
+    /// Pre-apply hook (exit non-zero skips resource).
     #[serde(default)]
     pub pre_apply: Option<String>,
-
-    /// Shell command to run on the target after the resource's main script succeeds.
+    /// Post-apply hook.
     #[serde(default)]
     pub post_apply: Option<String>,
-
-    // -- Lifecycle protection rules (FJ-1220) --
-    /// OpenTofu-style lifecycle rules: prevent_destroy, create_before_destroy, ignore_drift.
+    /// Lifecycle protection rules.
     #[serde(default)]
     pub lifecycle: Option<LifecycleRules>,
-
-    // -- Privilege escalation (FJ-1394) --
-    /// Run this resource's apply script with sudo (per-resource privilege escalation).
+    /// Run apply with sudo.
     #[serde(default)]
     pub sudo: bool,
-
-    // -- Store fields (FJ-1303: reproducible package manager) --
-    /// Enable content-addressed store for this resource's outputs.
+    /// Enable content-addressed store.
     #[serde(default)]
     pub store: bool,
-
-    /// Build script for derivation resources (executed with $out set to output dir).
+    /// Build script for derivation resources.
     #[serde(default)]
     pub script: Option<String>,
 }
