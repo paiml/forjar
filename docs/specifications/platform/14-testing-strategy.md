@@ -662,8 +662,8 @@ Every CI test run produces:
 - **Deliverable**: `forjar test mutate` with mutation score >= 80%
 
 ### Phase 33: Coverage Model (FJ-2605)
-- [ ] Five-level resource coverage tracking (L0-L5)
-- [ ] `forjar test coverage` report
+- [x] Five-level resource coverage tracking (L0-L5)
+- [x] `forjar test coverage` report (CoverageReport type)
 - [ ] Coverage badge generation
 - [ ] CI threshold enforcement
 - **Deliverable**: Resource coverage report alongside code coverage
