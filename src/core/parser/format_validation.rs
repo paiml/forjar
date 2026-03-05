@@ -19,11 +19,7 @@ pub fn validate_formats(config: &ForjarConfig) -> Vec<ValidationError> {
     errors
 }
 
-fn validate_resource_formats(
-    id: &str,
-    resource: &Resource,
-    errors: &mut Vec<ValidationError>,
-) {
+fn validate_resource_formats(id: &str, resource: &Resource, errors: &mut Vec<ValidationError>) {
     validate_mode(id, resource, errors);
     validate_port(id, resource, errors);
     validate_path_absolute(id, resource, errors);
@@ -73,11 +69,7 @@ fn validate_port(id: &str, resource: &Resource, errors: &mut Vec<ValidationError
 }
 
 /// File path must be absolute (start with /) unless it's a template.
-fn validate_path_absolute(
-    id: &str,
-    resource: &Resource,
-    errors: &mut Vec<ValidationError>,
-) {
+fn validate_path_absolute(id: &str, resource: &Resource, errors: &mut Vec<ValidationError>) {
     if let Some(ref path) = resource.path {
         if path.contains("{{") {
             return;
@@ -93,11 +85,7 @@ fn validate_path_absolute(
 }
 
 /// Owner and group must be valid Unix names: ^[a-z_][a-z0-9_-]*$
-fn validate_owner_group(
-    id: &str,
-    resource: &Resource,
-    errors: &mut Vec<ValidationError>,
-) {
+fn validate_owner_group(id: &str, resource: &Resource, errors: &mut Vec<ValidationError>) {
     if let Some(ref owner) = resource.owner {
         if !owner.contains("{{") && !is_valid_unix_name(owner) {
             errors.push(ValidationError {
@@ -132,11 +120,7 @@ fn is_valid_unix_name(name: &str) -> bool {
 }
 
 /// Machine addr must look like an IP or hostname (not empty, no spaces).
-fn validate_machine_addr(
-    key: &str,
-    addr: &str,
-    errors: &mut Vec<ValidationError>,
-) {
+fn validate_machine_addr(key: &str, addr: &str, errors: &mut Vec<ValidationError>) {
     // Skip special transport markers
     if addr == "container" || addr == "pepita" || addr == "localhost" || addr == "127.0.0.1" {
         return;

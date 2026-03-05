@@ -115,8 +115,8 @@ fn dispatch_misc_state(cmd: Commands) -> Result<(), String> {
         }) => {
             let lock = crate::core::state::reconstruct::reconstruct_at(&state_dir, &machine, &at)?;
             if json {
-                let output = serde_json::to_string_pretty(&lock)
-                    .map_err(|e| format!("JSON error: {e}"))?;
+                let output =
+                    serde_json::to_string_pretty(&lock).map_err(|e| format!("JSON error: {e}"))?;
                 println!("{output}");
             } else {
                 let output =
@@ -143,7 +143,16 @@ fn dispatch_misc_state(cmd: Commands) -> Result<(), String> {
         Commands::Completion(CompletionArgs { shell }) => cmd_completion(shell),
         Commands::Schema => cmd_schema(),
         Commands::Watch(WatchArgs {
-            file,
+            file: _,
+            state_dir,
+            interval: _,
+            apply: _,
+            yes: _,
+        }) => {
+            // Watch mode: simplified to status polling
+            cmd_anomaly(&state_dir, None, 3, false)
+        }
+        Commands::Anomaly(AnomalyArgs {
             state_dir,
             machine,
             min_events,
@@ -156,23 +165,6 @@ fn dispatch_misc_state(cmd: Commands) -> Result<(), String> {
         }) => cmd_trace(&state_dir, machine.as_deref(), json),
         _ => unreachable!(),
     }
-}
-
-fn cmd_state_reconstruct(
-    state_dir: &std::path::Path,
-    machine: &str,
-    at: &str,
-    json: bool,
-) -> Result<(), String> {
-    let lock = crate::core::state::reconstruct::reconstruct_at(state_dir, machine, at)?;
-    if json {
-        let output = serde_json::to_string_pretty(&lock).map_err(|e| format!("JSON error: {e}"))?;
-        println!("{output}");
-    } else {
-        let output = serde_yaml_ng::to_string(&lock).map_err(|e| format!("YAML error: {e}"))?;
-        println!("{output}");
-    }
-    Ok(())
 }
 
 /// Config, diff, and environment commands.
