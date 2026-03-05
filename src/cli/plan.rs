@@ -432,7 +432,9 @@ fn collect_why_reasons(
     use crate::core::planner::why;
     let mut results = Vec::new();
     for resource_id in execution_order {
-        let Some(resource) = config.resources.get(resource_id) else { continue };
+        let Some(resource) = config.resources.get(resource_id) else {
+            continue;
+        };
         if let Some(tag) = tag_filter {
             if !resource.tags.iter().any(|t| t == tag) {
                 continue;

@@ -58,13 +58,12 @@ pub(crate) fn cmd_config_merge(
     // Update name
     config_a.name = format!("{} + {}", config_a.name, config_b.name);
 
-    let yaml = serde_yaml_ng::to_string(&config_a)
-        .map_err(|e| format!("serialize merged config: {e}"))?;
+    let yaml =
+        serde_yaml_ng::to_string(&config_a).map_err(|e| format!("serialize merged config: {e}"))?;
 
     match output {
         Some(path) => {
-            std::fs::write(path, &yaml)
-                .map_err(|e| format!("write {}: {e}", path.display()))?;
+            std::fs::write(path, &yaml).map_err(|e| format!("write {}: {e}", path.display()))?;
             eprintln!("Merged config written to {}", path.display());
         }
         None => print!("{}", yaml),

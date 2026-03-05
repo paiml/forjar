@@ -111,10 +111,7 @@ fn explain_present(
     if rl.hash == desired_hash {
         return ChangeReason {
             action: PlanAction::NoOp,
-            reasons: vec![format!(
-                "hash unchanged ({})",
-                truncate_hash(&desired_hash)
-            )],
+            reasons: vec![format!("hash unchanged ({})", truncate_hash(&desired_hash))],
             ..base
         };
     }
