@@ -1437,3 +1437,58 @@ if !violations.is_empty() {
 ```
 
 Use in CI to fail the build when the binary grows beyond acceptable bounds.
+
+## Unified Test Runner (FJ-2606)
+
+Run all infrastructure tests with a single command:
+
+```bash
+forjar test all -f forjar.yaml --parallel
+```
+
+### Subcommands
+
+| Command | What It Tests |
+|---------|--------------|
+| `forjar test behavior` | Behavior-driven specs (`.spec.yaml`) |
+| `forjar test convergence` | Apply-twice idempotency in sandbox |
+| `forjar test mutation` | Infrastructure mutation detection |
+| `forjar test all` | All test types |
+
+### Test Report
+
+```
+2 passed, 1 failed, 0 skipped (12.7s) — 67%
+  [PASS] nginx is installed (behavior, 1.20s)
+  [PASS] convergence: nginx stack (convergence, 8.50s)
+  [FAIL] mutation: file content (mutation, 3.00s) — mutation survived
+```
+
+### Sandbox Isolation
+
+Tests run in isolated sandboxes (Pepita overlay filesystem by default, container fallback):
+
+```yaml
+sandbox:
+  backend: pepita     # pepita | container | chroot
+  cleanup: true       # destroy after test
+  timeout_secs: 300   # 5-minute timeout
+```
+
+### Coverage Thresholds
+
+CI enforcement with color-coded badges:
+
+| Coverage | Badge Color |
+|----------|------------|
+| >= 95% | bright green |
+| >= 90% | green |
+| >= 80% | yellow-green |
+| >= 70% | yellow |
+| >= 60% | orange |
+| < 60% | red |
+
+```bash
+# CI gate: fail if line coverage drops below 95%
+forjar test coverage --min-line 95 --enforce
+```
