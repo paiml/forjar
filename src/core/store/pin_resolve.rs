@@ -59,7 +59,11 @@ fn parse_cargo_version(output: &str) -> Option<String> {
     let eq_pos = first_line.find('=')?;
     let after_eq = first_line[eq_pos + 1..].trim();
     let version = after_eq.trim_start_matches('"').split('"').next()?;
-    if version.is_empty() { None } else { Some(version.to_string()) }
+    if version.is_empty() {
+        None
+    } else {
+        Some(version.to_string())
+    }
 }
 
 /// Parse pip/uv "Available versions:" output, falling back to the first line.
