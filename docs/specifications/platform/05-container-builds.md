@@ -314,12 +314,12 @@ resources:
 - [x] Dual digest: `DualDigest` BLAKE3 + SHA-256 with `oci_digest()`, `forjar_digest()`
 
 ### Phase 9: Pepita-to-OCI (FJ-2103) — PARTIAL
-- [ ] `export_overlay_upper()` in sandbox_exec.rs
+- [x] `export_overlay_upper()` in sandbox_exec.rs
 - [x] Overlay-to-OCI whiteout conversion: `WhiteoutEntry` (FileDelete, OpaqueDir)
-- [ ] Multi-tier layer stacking
+- [x] Multi-tier layer stacking
 
 ### Phase 10: Image Resource Type (FJ-2104) — PARTIAL
 - [x] `ResourceType::Image`
 - [x] Layer dispatch: `LayerStrategy` enum (Packages, Files, Build, Derivation)
 - [x] Base image resolution: `BaseImageRef` with registry(), platform, resolved
-- [ ] `forjar build` CLI command
+- [x] `forjar build` CLI command
