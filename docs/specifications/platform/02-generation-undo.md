@@ -291,8 +291,8 @@ Undo-destroy order: `nfs-server` (intel) → `nfs-mount` (jetson)
 - [x] `UndoProgress` counts: `completed_count()`, `failed_count()`, `pending_count()`
 - [x] YAML serialization for `undo-progress.yaml` resume file
 - [x] Generation diff: `diff_resource_sets()` compares resource sets between gen N and gen N-K
-- [ ] `forjar undo --dry-run`
-- [ ] Active undo: config snapshot from target gen, re-run `cmd_apply` with force
+- [x] `forjar undo --dry-run`
+- [x] Active undo: config snapshot from target gen, re-run `cmd_apply` with force
 - [ ] Multi-machine coordination: phased execution with pre-flight SSH check
 - [ ] Undo-resume: record progress, `--resume` picks up
 - **Extends**: `src/cli/destroy.rs:cmd_rollback`

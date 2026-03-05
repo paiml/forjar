@@ -309,7 +309,7 @@ resources:
 ### Phase 8: Direct Layer Assembly (FJ-2102) — PARTIAL
 - [x] `OciLayerConfig` — compression, deterministic, epoch mtime, sort order
 - [x] Deterministic tar: `TarSortOrder` enum (Lexicographic, DirectoryFirst)
-- [ ] File → layer, Package → layer (`LayerStrategy` enum defined)
+- [x] File → layer, Package → layer (`LayerStrategy` enum defined)
 - [x] Layer caching: `LayerCacheEntry` with content_hash, oci_digest, store path
 - [x] Dual digest: `DualDigest` BLAKE3 + SHA-256 with `oci_digest()`, `forjar_digest()`
 

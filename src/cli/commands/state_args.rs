@@ -1,6 +1,38 @@
-//! CLI Args structs for state-related commands.
+//! CLI Args structs for state-related commands (including undo).
 
 use std::path::PathBuf;
+
+/// FJ-2003: CLI arguments for the `undo` command.
+#[derive(clap::Args, Debug)]
+pub struct UndoArgs {
+    /// Path to forjar.yaml
+    #[arg(short, long, default_value = "forjar.yaml")]
+    pub file: PathBuf,
+
+    /// State directory
+    #[arg(long, default_value = "state")]
+    pub state_dir: PathBuf,
+
+    /// Number of generations to undo (default: 1)
+    #[arg(long, default_value = "1")]
+    pub generations: u32,
+
+    /// Target specific machine
+    #[arg(short, long)]
+    pub machine: Option<String>,
+
+    /// Show what would change without executing
+    #[arg(long)]
+    pub dry_run: bool,
+
+    /// Resume a partial undo
+    #[arg(long)]
+    pub resume: bool,
+
+    /// Confirm undo
+    #[arg(long)]
+    pub yes: bool,
+}
 
 /// CLI arguments for `state list`.
 #[derive(clap::Args, Debug)]

@@ -225,6 +225,17 @@ pub enum LayerStrategy {
     },
 }
 
+impl LayerStrategy {
+    /// Convert a Resource into a LayerStrategy based on its type.
+    pub fn from_resource(resource: &super::resource::Resource) -> Option<Self> {
+        match resource.resource_type {
+            super::resource::ResourceType::Package => Some(Self::Packages { names: resource.packages.clone() }),
+            super::resource::ResourceType::File => resource.path.as_ref().map(|p| Self::Files { paths: vec![p.clone()] }),
+            _ => None,
+        }
+    }
+}
+
 /// FJ-2105: Base image reference with resolution state.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BaseImageRef {
@@ -342,42 +353,21 @@ mod tests {
     }
 
     #[test]
-    fn oci_compression_display() {
+    fn oci_compression_display_and_serde() {
         assert_eq!(OciCompression::None.to_string(), "none");
         assert_eq!(OciCompression::Gzip.to_string(), "gzip");
         assert_eq!(OciCompression::Zstd.to_string(), "zstd");
+        let parsed: OciCompression = serde_json::from_str(&serde_json::to_string(&OciCompression::Zstd).unwrap()).unwrap();
+        assert_eq!(parsed, OciCompression::Zstd);
     }
 
     #[test]
-    fn oci_compression_serde() {
-        let c = OciCompression::Zstd;
-        let json = serde_json::to_string(&c).unwrap();
-        let parsed: OciCompression = serde_json::from_str(&json).unwrap();
-        assert_eq!(c, parsed);
-    }
-
-    #[test]
-    fn dual_digest_oci_format() {
-        let d = DualDigest {
-            blake3: "abcdef0123456789".into(),
-            sha256: "deadbeef01234567".into(),
-            size_bytes: 4096,
-        };
+    fn dual_digest_formats() {
+        let d = DualDigest { blake3: "abcdef0123456789".into(), sha256: "deadbeef01234567".into(), size_bytes: 4096 };
         assert_eq!(d.oci_digest(), "sha256:deadbeef01234567");
         assert_eq!(d.forjar_digest(), "blake3:abcdef0123456789");
-    }
-
-    #[test]
-    fn dual_digest_display() {
-        let d = DualDigest {
-            blake3: "abcdef0123456789".into(),
-            sha256: "deadbeef01234567".into(),
-            size_bytes: 4096,
-        };
         let s = d.to_string();
-        assert!(s.contains("blake3:abcdef01"));
-        assert!(s.contains("sha256:deadbeef"));
-        assert!(s.contains("4096B"));
+        assert!(s.contains("blake3:abcdef01") && s.contains("sha256:deadbeef") && s.contains("4096B"));
     }
 
     #[test]
@@ -481,12 +471,27 @@ mod tests {
         let pkg = LayerStrategy::Packages { names: vec!["nginx".into()] };
         let json = serde_json::to_string(&pkg).unwrap();
         assert!(json.contains("packages"));
+        let build = LayerStrategy::Build { command: "make".into(), workdir: Some("/src".into()) };
+        assert!(serde_json::to_string(&build).unwrap().contains("build"));
+    }
 
-        let build = LayerStrategy::Build {
-            command: "make".into(),
-            workdir: Some("/src".into()),
-        };
-        let json = serde_json::to_string(&build).unwrap();
-        assert!(json.contains("build"));
+    #[test]
+    fn layer_strategy_from_resource() {
+        use crate::core::types::{Resource, ResourceType};
+        let mut r = Resource::default();
+        r.resource_type = ResourceType::Package;
+        r.packages = vec!["nginx".into(), "curl".into()];
+        let ls = LayerStrategy::from_resource(&r).unwrap();
+        assert!(matches!(ls, LayerStrategy::Packages { names } if names.len() == 2));
+
+        let mut r2 = Resource::default();
+        r2.resource_type = ResourceType::File;
+        r2.path = Some("/etc/app.conf".into());
+        let ls2 = LayerStrategy::from_resource(&r2).unwrap();
+        assert!(matches!(ls2, LayerStrategy::Files { paths } if paths[0] == "/etc/app.conf"));
+
+        let mut r3 = Resource::default();
+        r3.resource_type = ResourceType::Service;
+        assert!(LayerStrategy::from_resource(&r3).is_none());
     }
 }
