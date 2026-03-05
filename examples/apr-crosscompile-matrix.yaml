@@ -1,0 +1,51 @@
+# FJ-2401: Cross-compilation matrix recipe
+# Builds inference server for multiple targets
+version: "1.0"
+name: apr-crosscompile
+description: Cross-compile inference server for multiple architectures
+
+machines:
+  build-x86:
+    hostname: build-01.internal
+    addr: 10.0.1.10
+    user: deploy
+    arch: x86_64
+
+  build-arm:
+    hostname: build-02.internal
+    addr: 10.0.1.11
+    user: deploy
+    arch: aarch64
+
+resources:
+  compile-x86:
+    type: task
+    machine: build-x86
+    command: |
+      apr compile \
+        --model models/llama-3.2-1b.gguf \
+        --target x86_64-unknown-linux-gnu \
+        --output dist/x86_64/
+    depends_on: []
+
+  compile-arm:
+    type: task
+    machine: build-arm
+    command: |
+      apr compile \
+        --model models/llama-3.2-1b.gguf \
+        --target aarch64-unknown-linux-gnu \
+        --output dist/aarch64/
+    depends_on: []
+
+  verify-x86:
+    type: task
+    machine: build-x86
+    command: "apr verify --binary dist/x86_64/inference-server --expected-arch x86_64"
+    depends_on: [compile-x86]
+
+  verify-arm:
+    type: task
+    machine: build-arm
+    command: "apr verify --binary dist/aarch64/inference-server --expected-arch aarch64"
+    depends_on: [compile-arm]
