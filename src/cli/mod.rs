@@ -20,6 +20,7 @@ mod data_freshness;
 mod data_validate;
 mod dataset_lineage;
 mod destroy;
+mod undo;
 mod diff_cmd;
 pub mod dispatch;
 mod dispatch_apply;

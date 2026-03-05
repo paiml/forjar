@@ -2,6 +2,7 @@
 
 use super::check::*;
 use super::destroy::*;
+use super::undo::*;
 use super::diff_cmd::*;
 use super::doctor::*;
 use super::fleet_ops::*;
@@ -43,7 +44,8 @@ pub(crate) fn dispatch_misc_cmd(cmd: Commands, verbose: bool) -> Result<(), Stri
         | Commands::PlanCompact(..)
         | Commands::Compliance(..)
         | Commands::Export(..)
-        | Commands::Undo(..)) => dispatch_misc_fleet(cmd, verbose),
+        | Commands::Undo(..)
+        | Commands::UndoDestroy(..)) => dispatch_misc_fleet(cmd, verbose),
 
         cmd @ (Commands::Check(..)
         | Commands::Fmt(..)
@@ -268,15 +270,12 @@ fn dispatch_misc_fleet(cmd: Commands, verbose: bool) -> Result<(), String> {
             machine,
             output,
         }) => cmd_export(&state_dir, &format, machine.as_deref(), output.as_deref()),
-        Commands::Undo(UndoArgs {
-            file,
-            state_dir,
-            generations,
-            machine,
-            dry_run,
-            yes,
-            ..
-        }) => cmd_undo(&file, &state_dir, generations, machine.as_deref(), dry_run, yes),
+        Commands::Undo(UndoArgs { file, state_dir, generations, machine, dry_run, yes, .. }) => {
+            cmd_undo(&file, &state_dir, generations, machine.as_deref(), dry_run, yes)
+        }
+        Commands::UndoDestroy(UndoDestroyArgs {
+            state_dir, machine, force, dry_run,
+        }) => cmd_undo_destroy(&state_dir, machine.as_deref(), force, dry_run),
         _ => unreachable!(),
     }
 }
