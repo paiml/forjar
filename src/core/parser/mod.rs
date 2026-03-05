@@ -134,6 +134,14 @@ pub fn check_unknown_fields(yaml: &str) -> Vec<ValidationError> {
     }
 }
 
+/// Validate recipe YAML for unknown fields and return warnings (FJ-2500).
+pub fn check_unknown_recipe_fields(yaml: &str) -> Vec<ValidationError> {
+    match unknown_fields::detect_unknown_recipe_fields(yaml) {
+        Ok(unknowns) => unknown_fields::unknown_fields_to_errors(&unknowns),
+        Err(_) => Vec::new(),
+    }
+}
+
 /// Parse, validate, and expand recipes in a config file.
 /// This is the main entry point for loading a config for plan/apply.
 pub fn parse_and_validate(path: &Path) -> Result<ForjarConfig, String> {
