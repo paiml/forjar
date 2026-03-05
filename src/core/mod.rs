@@ -27,6 +27,8 @@ mod scoring_b;
 #[cfg(test)]
 mod tests_compliance;
 #[cfg(test)]
+mod tests_proptest_convergence;
+#[cfg(test)]
 mod tests_proptest_handlers;
 #[cfg(test)]
 mod tests_proptest_idempotency;
