@@ -640,11 +640,12 @@ Every CI test run produces:
 - [x] Known violation documentation per resource type (spec section "Known Idempotency Violations")
 - **Deliverable**: Idempotency violations detected before merge
 
-### Phase 30: Behavior-Driven Infrastructure Specs (FJ-2602)
-- [ ] `.spec.yaml` format definition and parser
-- [ ] Assertion types: state, verify.command, verify.stdout, convergence
-- [ ] Soft assertions (collect all failures)
-- [ ] Retry with backoff for async resources
+### Phase 30: Behavior-Driven Infrastructure Specs (FJ-2602) -- PARTIAL
+- [x] `.spec.yaml` format: `BehaviorSpec`, `BehaviorEntry`, `VerifyCommand`, `ConvergenceAssert` types
+- [x] Assertion types: state, verify.command, verify.stdout, verify.stderr_contains, convergence, port_open, file_exists
+- [x] Soft assertions: `BehaviorReport::from_results()` collects all failures
+- [x] Retry config: `VerifyCommand.retries` and `retry_delay_secs` fields
+- [ ] `forjar test behavior` CLI command and runtime execution
 - **Deliverable**: `forjar test behavior` executes YAML behavior specs
 
 ### Phase 31: Sandbox Testing Infrastructure (FJ-2603)
