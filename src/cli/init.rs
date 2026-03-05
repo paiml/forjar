@@ -146,38 +146,19 @@ pub(crate) fn cmd_schema() -> Result<(), String> {
         }
     });
 
-    let resource_schema = serde_json::json!({
+    let stage_schema = serde_json::json!({
         "type": "object",
-        "required": ["type", "machine"],
+        "required": ["name"],
         "properties": {
-            "type": { "type": "string", "enum": [
-                "package", "file", "service", "mount", "user",
-                "docker", "cron", "network", "pepita", "model", "gpu"
-            ]},
-            "machine": { "type": "string" },
-            "state": { "type": "string" },
-            "depends_on": { "type": "array", "items": { "type": "string" } },
-            "triggers": { "type": "array", "items": { "type": "string" } },
-            "tags": { "type": "array", "items": { "type": "string" } },
-            "when": { "type": "string" },
-            "arch": { "type": "array", "items": { "type": "string" } },
-            "provider": { "type": "string", "enum": ["apt", "cargo", "uv"] },
-            "packages": { "type": "array", "items": { "type": "string" } },
-            "path": { "type": "string" },
-            "content": { "type": "string" },
-            "source": { "type": "string" },
-            "owner": { "type": "string" },
-            "group": { "type": "string" },
-            "mode": { "type": "string" },
             "name": { "type": "string" },
-            "enabled": { "type": "boolean" },
-            "schedule": { "type": "string" },
             "command": { "type": "string" },
-            "image": { "type": "string" },
-            "ports": { "type": "array", "items": { "type": "string" } },
-            "volumes": { "type": "array", "items": { "type": "string" } }
+            "inputs": { "type": "array", "items": { "type": "string" } },
+            "outputs": { "type": "array", "items": { "type": "string" } },
+            "gate": { "type": "boolean", "default": false }
         }
     });
+
+    let resource_schema = build_resource_schema(stage_schema);
 
     let policy_schema = serde_json::json!({
         "type": "object",
@@ -236,6 +217,24 @@ pub(crate) fn cmd_schema() -> Result<(), String> {
                     "condition": { "type": "string" },
                     "message": { "type": "string" }
                 }
+            }},
+            "checks": { "type": "object", "additionalProperties": {
+                "type": "object",
+                "required": ["machine", "command"],
+                "properties": {
+                    "machine": { "type": "string" },
+                    "command": { "type": "string" },
+                    "expect_exit": { "type": "integer" },
+                    "description": { "type": "string" }
+                }
+            }},
+            "moved": { "type": "array", "items": {
+                "type": "object",
+                "required": ["from", "to"],
+                "properties": {
+                    "from": { "type": "string" },
+                    "to": { "type": "string" }
+                }
             }}
         }
     });
@@ -245,4 +244,59 @@ pub(crate) fn cmd_schema() -> Result<(), String> {
         serde_json::to_string_pretty(&schema).map_err(|e| format!("JSON error: {e}"))?
     );
     Ok(())
+}
+
+/// Build the resource JSON Schema, split to avoid macro recursion limit.
+fn build_resource_schema(stage_schema: serde_json::Value) -> serde_json::Value {
+    let mut props = serde_json::Map::new();
+    let s = |t: &str| serde_json::json!({ "type": t });
+    let arr_s = || serde_json::json!({ "type": "array", "items": { "type": "string" } });
+
+    // Core fields
+    props.insert("type".into(), serde_json::json!({ "type": "string", "enum": [
+        "package","file","service","mount","user","docker","cron","network","pepita","model","gpu","task"
+    ]}));
+    props.insert("machine".into(), s("string"));
+    props.insert("state".into(), s("string"));
+    props.insert("depends_on".into(), arr_s());
+    props.insert("triggers".into(), arr_s());
+    props.insert("tags".into(), arr_s());
+    props.insert("when".into(), s("string"));
+    props.insert("arch".into(), arr_s());
+    // Package fields
+    props.insert("provider".into(), serde_json::json!({ "type": "string", "enum": ["apt","cargo","uv"] }));
+    props.insert("packages".into(), arr_s());
+    // File fields
+    for k in ["path", "content", "source", "owner", "group", "mode", "name"] {
+        props.insert(k.into(), s("string"));
+    }
+    props.insert("enabled".into(), s("boolean"));
+    // Cron / task / service
+    for k in ["schedule", "command", "image", "completion_check", "protocol", "action"] {
+        props.insert(k.into(), s("string"));
+    }
+    props.insert("ports".into(), arr_s());
+    props.insert("volumes".into(), arr_s());
+    // FJ-2700 task framework
+    props.insert("task_mode".into(), serde_json::json!({ "type": "string", "enum": ["batch","pipeline","service","dispatch"] }));
+    props.insert("stages".into(), serde_json::json!({ "type": "array", "items": stage_schema }));
+    props.insert("task_inputs".into(), arr_s());
+    props.insert("cache".into(), serde_json::json!({ "type": "boolean", "default": false }));
+    props.insert("gpu_device".into(), s("integer"));
+    props.insert("restart_delay".into(), s("integer"));
+    props.insert("timeout".into(), s("integer"));
+    props.insert("restart".into(), serde_json::json!({ "type": "string", "enum": ["always","on_failure","never"] }));
+    props.insert("output_artifacts".into(), arr_s());
+    props.insert("port".into(), serde_json::json!({ "type": ["string","integer"] }));
+    // Notify hooks
+    for k in ["on_success", "on_failure", "on_drift"] {
+        props.insert(k.into(), s("string"));
+    }
+    props.insert("inputs".into(), serde_json::json!({ "type": "object", "additionalProperties": true }));
+
+    serde_json::json!({
+        "type": "object",
+        "required": ["type"],
+        "properties": serde_json::Value::Object(props)
+    })
 }
