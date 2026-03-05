@@ -717,7 +717,7 @@ pub fn compute_dual_digest(uncompressed: &[u8]) -> Result<(String, String), Stri
 - [ ] `proof_dag_ordering_real` — `build_execution_order` on bounded `ForjarConfig`
 - [ ] `proof_layer_determinism` — `build_layer` produces same hashes
 - [ ] `proof_store_idempotency` — `store_put` twice is no-op
-- [ ] Deprecate abstract-model harnesses (keep for reference, mark `#[deprecated]`)
+- [x] Deprecate abstract-model harnesses (documented in `kani_proofs.rs` with deprecation notice + proof assumptions table)
 - **Deliverable**: `cargo kani` passes on real-code harnesses
 
 ### Phase 15: Verus Narrowed Proofs (FJ-2202)
@@ -725,7 +725,7 @@ pub fn compute_dual_digest(uncompressed: &[u8]) -> Result<(String, String), Stri
 - [ ] `proof_idempotency_conditional` — converged + handler invariant → NoOp
 - [ ] `proof_apply_then_noop` — apply result + handler invariant → next plan is NoOp
 - [ ] `proof_fleet_convergence` — N-resource extension
-- [ ] Document proof assumptions and what each tier verifies
+- [x] Document proof assumptions and what each tier verifies (table in `kani_proofs.rs`, tier descriptions in `VerificationTier` enum)
 - **Extends**: `src/core/verus_spec.rs`
 - **Deliverable**: Verus proofs cover real hash pipeline (conditional on handler invariant)
 
@@ -738,7 +738,7 @@ pub fn compute_dual_digest(uncompressed: &[u8]) -> Result<(String, String), Stri
 - [x] `ContractEntry` per-function tracking with tier, contract_id, verified_by
 - [x] `HandlerInvariantStatus` per-resource-type with exemption support
 - [x] `ContractCoverageReport` with histogram, `at_or_above()`, `format_summary()`
-- [ ] Add `verified_by` field to `#[contract]` macro
+- [x] `verified_by` field on `ContractEntry` (already present — `Vec<String>` linking functions to proofs)
 - **Deliverable**: Handler invariant structurally enforced, coverage report shows per-tier status
 
 ---

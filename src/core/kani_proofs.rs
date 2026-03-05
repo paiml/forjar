@@ -7,6 +7,26 @@
 //! resource handler — the fundamental idempotency contract.
 //!
 //! Proofs are gated behind `#[cfg(kani)]` so normal `cargo build` ignores them.
+//!
+//! ## Deprecation Notice (FJ-2201)
+//!
+//! These are **abstract-model harnesses** that operate on simplified state
+//! (u8 arrays, u32 hashes). They prove properties of the abstract model,
+//! not the real code. The next step is real-code harnesses:
+//! - `proof_planner_idempotency_real` on actual `PlannerState`
+//! - `proof_handler_invariant_{file,package,...}` per resource type
+//! - `proof_hash_determinism_real` on bounded `Resource`
+//!
+//! ## Proof Assumptions
+//!
+//! | Proof | Assumes | Verifies |
+//! |-------|---------|----------|
+//! | `proof_blake3_idempotency` | 4-byte input bound | BLAKE3 determinism |
+//! | `proof_blake3_collision_resistance` | 4-byte inputs differ | No 4-byte collisions |
+//! | `proof_converged_state_is_noop` | Same content | Hash equality → no change |
+//! | `proof_status_transition_monotonic` | Status ∈ {0,1,2,3} | Converged stays converged |
+//! | `proof_plan_determinism` | ≤3 resources | Same input → same plan |
+//! | `proof_topo_sort_stability` | 3-node DAG | Deterministic ordering |
 
 /// BLAKE3 hash idempotency: same input always produces same output.
 /// This is the foundation of all state comparison.
