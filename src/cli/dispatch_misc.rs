@@ -146,8 +146,8 @@ pub(crate) fn dispatch_misc_cmd(cmd: Commands, verbose: bool) -> Result<(), Stri
                     .map_err(|e| format!("JSON error: {}", e))?;
                 println!("{}", output);
             } else {
-                let output = serde_yaml_ng::to_string(&lock)
-                    .map_err(|e| format!("YAML error: {}", e))?;
+                let output =
+                    serde_yaml_ng::to_string(&lock).map_err(|e| format!("YAML error: {}", e))?;
                 println!("{}", output);
             }
             Ok(())

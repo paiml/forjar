@@ -56,10 +56,7 @@ fn classify_destroy(resource: &Resource) -> Reversibility {
 }
 
 /// Count irreversible operations in a plan.
-pub fn count_irreversible(
-    config: &ForjarConfig,
-    plan: &ExecutionPlan,
-) -> usize {
+pub fn count_irreversible(config: &ForjarConfig, plan: &ExecutionPlan) -> usize {
     plan.changes
         .iter()
         .filter(|c| c.action == PlanAction::Destroy)
@@ -74,10 +71,7 @@ pub fn count_irreversible(
 }
 
 /// Format irreversible warnings for display.
-pub fn warn_irreversible(
-    config: &ForjarConfig,
-    plan: &ExecutionPlan,
-) -> Vec<String> {
+pub fn warn_irreversible(config: &ForjarConfig, plan: &ExecutionPlan) -> Vec<String> {
     plan.changes
         .iter()
         .filter(|c| c.action == PlanAction::Destroy)
