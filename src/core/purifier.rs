@@ -18,10 +18,12 @@ use bashrs::linter::{lint_shell, LintResult, Severity};
 /// in generated scripts (e.g., SC2162 for `read` without `-r`).
 pub fn validate_script(script: &str) -> Result<(), String> {
     let result = lint_shell(script);
+    // SC1035 excluded: bashrs false positive on `in` inside quoted strings
+    // (e.g., `docker pull 'jaegertracing/all-in-one:1.54'` triggers SC1035).
     let errors: Vec<_> = result
         .diagnostics
         .iter()
-        .filter(|d| d.severity == Severity::Error)
+        .filter(|d| d.severity == Severity::Error && d.code != "SC1035")
         .collect();
     if errors.is_empty() {
         Ok(())
