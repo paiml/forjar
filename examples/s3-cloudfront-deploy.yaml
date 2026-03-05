@@ -1,0 +1,59 @@
+# FJ-2402: S3 deployment with CloudFront invalidation recipe
+# Demonstrates deploying WASM apps via forjar resources
+version: "1.0"
+name: presentar-deploy
+description: Deploy WASM app to S3 with CloudFront cache invalidation
+
+machines:
+  deploy:
+    hostname: localhost
+    addr: 127.0.0.1
+    user: deploy
+    arch: x86_64
+
+resources:
+  wasm-build:
+    type: task
+    machine: deploy
+    command: |
+      cd crates/presentar
+      wasm-pack build --target web --release
+      wasm-opt -Oz -o dist/presentar_bg.wasm pkg/presentar_bg.wasm
+    depends_on: []
+
+  size-check:
+    type: task
+    machine: deploy
+    command: |
+      SIZE=$(stat -c%s dist/presentar_bg.wasm)
+      MAX=$((100 * 1024))
+      if [ "$SIZE" -gt "$MAX" ]; then
+        echo "BUDGET EXCEEDED: $SIZE bytes > $MAX bytes"
+        exit 1
+      fi
+      echo "OK: $SIZE bytes / $MAX bytes budget"
+    depends_on: [wasm-build]
+
+  s3-sync:
+    type: task
+    machine: deploy
+    command: |
+      aws s3 sync dist/ s3://interactive.paiml.com-production/ \
+        --delete \
+        --cache-control "public, max-age=31536000, immutable" \
+        --exclude "*.html" \
+        --exclude "*.json"
+      aws s3 sync dist/ s3://interactive.paiml.com-production/ \
+        --cache-control "public, max-age=300" \
+        --include "*.html" \
+        --include "*.json"
+    depends_on: [size-check]
+
+  cloudfront-invalidation:
+    type: task
+    machine: deploy
+    command: |
+      aws cloudfront create-invalidation \
+        --distribution-id "${CLOUDFRONT_DIST_ID}" \
+        --paths "/*"
+    depends_on: [s3-sync]

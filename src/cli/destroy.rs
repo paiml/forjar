@@ -64,7 +64,7 @@ fn cleanup_state_files(state_dir: &Path, machines: &[String], machine_filter: Op
 }
 
 /// FJ-2005: Remove only succeeded resource entries from lock files on partial failure.
-fn cleanup_succeeded_entries(
+pub(crate) fn cleanup_succeeded_entries(
     state_dir: &Path,
     succeeded: &std::collections::HashMap<String, Vec<String>>,
 ) {
@@ -90,7 +90,7 @@ fn cleanup_succeeded_entries(
 }
 
 /// FJ-2005: Write a destroy log entry with pre-state for undo-destroy recovery.
-fn write_destroy_log_entry(
+pub(crate) fn write_destroy_log_entry(
     log_path: &Path,
     resource_id: &str,
     resource: &types::Resource,
