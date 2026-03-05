@@ -3817,3 +3817,28 @@ forjar build -f <FILE> --resource <NAME> [--load] [--push] [--json]
 | `--load` | false | Load into local Docker daemon after build |
 | `--push` | false | Push to registry after build |
 | `--json` | false | JSON output |
+
+### `forjar test`
+
+Run check scripts, behavior specs, convergence tests, or mutation testing.
+
+```bash
+forjar test -f <FILE> [-m MACHINE] [-r RESOURCE] [-t TAG] [-g GROUP] [--json]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-f, --file` | `forjar.yaml` | Config file path |
+| `-m, --machine` | all | Filter to specific machine |
+| `-r, --resource` | all | Filter to specific resource |
+| `-t, --tag` | all | Filter by resource tag |
+| `-g, --group` | all | Test mode: `behavior`, `mutation`, `convergence`, or resource group |
+| `--json` | false | JSON output |
+
+Special `--group` values activate test modes:
+
+```bash
+forjar test --group behavior     # Load .spec.yaml behavior specs
+forjar test --group mutation     # Show mutation operators and report
+forjar test --group convergence  # Report convergence property status
+```

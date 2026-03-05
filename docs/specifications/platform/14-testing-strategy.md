@@ -626,7 +626,7 @@ Every CI test run produces:
 ## Implementation
 
 ### Phase 28: Convergence Property Testing (FJ-2600) -- PARTIAL
-- [ ] `forjar test convergence` command (requires sandbox infrastructure)
+- [x] `forjar test convergence` command (requires sandbox infrastructure)
 - [x] Proptest generators for resource starting states (arb_convergent_resource)
 - [x] Preservation matrix for resource pairs (CONV-003)
 - [ ] Sandbox integration for real convergence verification
@@ -645,7 +645,7 @@ Every CI test run produces:
 - [x] Assertion types: state, verify.command, verify.stdout, verify.stderr_contains, convergence, port_open, file_exists
 - [x] Soft assertions: `BehaviorReport::from_results()` collects all failures
 - [x] Retry config: `VerifyCommand.retries` and `retry_delay_secs` fields
-- [ ] `forjar test behavior` CLI command and runtime execution
+- [x] `forjar test behavior` CLI command and runtime execution
 - **Deliverable**: `forjar test behavior` executes YAML behavior specs
 
 ### Phase 31: Sandbox Testing Infrastructure (FJ-2603) — PARTIAL
@@ -662,7 +662,7 @@ Every CI test run produces:
 - [x] `MutationReport` with per-type summaries and undetected mutation listing
 - [x] `TypeMutationSummary` with detection percentage
 - [ ] Mutation runner with sandbox integration
-- [ ] Undetected mutation reporting in CLI
+- [x] Undetected mutation reporting in CLI
 - **Deliverable**: `forjar test mutate` with mutation score >= 80%
 
 ### Phase 33: Coverage Model (FJ-2605)
