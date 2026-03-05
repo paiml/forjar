@@ -69,10 +69,7 @@ pub struct CompletionItem {
 /// Known forjar YAML top-level keys.
 const TOP_LEVEL_KEYS: &[(&str, &str)] = &[
     ("machines", "Machine definitions (name, host, transport)"),
-    (
-        "resources",
-        "Resource definitions (package, file, service, etc.)",
-    ),
+    ("resources", "Resource definitions (package, file, service)"),
     ("data", "Data sources (file, forjar-state, environment)"),
     ("tags", "Tag assignments for resources"),
     ("policy", "Policy configuration (convergence, security)"),
@@ -101,7 +98,7 @@ const RESOURCE_FIELDS: &[(&str, &str)] = &[
     ("type", "Resource type (package, file, service, etc.)"),
     (
         "ensure",
-        "Desired state: present, absent, latest, running, stopped",
+        "Desired state: present|absent|latest|running|stopped",
     ),
     ("provider", "Package provider: apt, yum, brew, cargo, pip"),
     ("content", "File content (inline string)"),
@@ -335,36 +332,49 @@ pub fn validate_yaml(content: &str) -> Vec<Diagnostic> {
         return diags;
     }
 
-    // Check for common issues
+    // Check for common line-level issues
     for (i, line) in content.lines().enumerate() {
         let trimmed = line.trim();
-        if trimmed.contains("\t") {
-            diags.push(Diagnostic {
-                line: i as u32,
-                character: 0,
-                end_line: i as u32,
-                end_character: line.len() as u32,
-                severity: DiagnosticSeverity::Warning,
-                message: "Tabs should not be used in YAML; use spaces".to_string(),
-                source: "forjar-lsp".to_string(),
-            });
+        if trimmed.contains('\t') {
+            diags.push(make_diag(
+                i,
+                line,
+                DiagnosticSeverity::Warning,
+                "Tabs should not be used in YAML; use spaces",
+            ));
         }
         if trimmed.starts_with("ensure:") {
             let val = trimmed.trim_start_matches("ensure:").trim();
             if !["present", "absent", "latest", "running", "stopped", ""].contains(&val) {
-                diags.push(Diagnostic {
-                    line: i as u32,
-                    character: 0,
-                    end_line: i as u32,
-                    end_character: line.len() as u32,
-                    severity: DiagnosticSeverity::Warning,
-                    message: format!("Unknown ensure value '{val}'; expected present|absent|latest|running|stopped"),
-                    source: "forjar-lsp".to_string(),
-                });
+                diags.push(make_diag(i, line, DiagnosticSeverity::Warning,
+                    &format!("Unknown ensure value '{val}'; expected present|absent|latest|running|stopped")));
             }
         }
     }
+
+    // FJ-2504: Unknown field detection + structural validation
+    for w in &crate::core::parser::check_unknown_fields(content) {
+        diags.push(make_diag(0, "", DiagnosticSeverity::Warning, &w.message));
+    }
+    if let Ok(config) = crate::core::parser::parse_config(content) {
+        for e in &crate::core::parser::validate_config(&config) {
+            diags.push(make_diag(0, "", DiagnosticSeverity::Error, &e.message));
+        }
+    }
+
     diags
+}
+
+fn make_diag(line_idx: usize, line: &str, severity: DiagnosticSeverity, msg: &str) -> Diagnostic {
+    Diagnostic {
+        line: line_idx as u32,
+        character: 0,
+        end_line: line_idx as u32,
+        end_character: line.len() as u32,
+        severity,
+        message: msg.to_string(),
+        source: "forjar-lsp".to_string(),
+    }
 }
 
 /// Build an LSP initialize result.
