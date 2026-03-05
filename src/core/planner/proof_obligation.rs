@@ -46,6 +46,7 @@ fn classify_create(rtype: &ResourceType) -> ProofObligation {
         ResourceType::Model => ProofObligation::Monotonic,
         ResourceType::Recipe => ProofObligation::Convergent,
         ResourceType::Task => ProofObligation::Convergent,
+        ResourceType::WasmBundle | ResourceType::Image => ProofObligation::Idempotent,
     }
 }
 
@@ -74,6 +75,7 @@ fn classify_destroy(rtype: &ResourceType) -> ProofObligation {
         ResourceType::Gpu => ProofObligation::Convergent,
         ResourceType::Recipe => ProofObligation::Convergent,
         ResourceType::Task => ProofObligation::Destructive,
+        ResourceType::WasmBundle | ResourceType::Image => ProofObligation::Destructive,
     }
 }
 

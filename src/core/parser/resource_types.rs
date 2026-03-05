@@ -22,6 +22,7 @@ pub(super) fn validate_resource_type(
         ResourceType::Gpu => validate_gpu(id, resource, errors),
         ResourceType::Recipe => validate_recipe(id, resource, errors),
         ResourceType::Task => validate_task(id, resource, errors),
+        ResourceType::WasmBundle | ResourceType::Image => validate_file(id, resource, errors),
     }
 }
 

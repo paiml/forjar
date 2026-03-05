@@ -138,7 +138,9 @@ fn default_state(resource_type: &ResourceType) -> &'static str {
         | ResourceType::Model
         | ResourceType::Gpu
         | ResourceType::Task
-        | ResourceType::Recipe => "present",
+        | ResourceType::Recipe
+        | ResourceType::WasmBundle
+        | ResourceType::Image => "present",
     }
 }
 
@@ -338,7 +340,9 @@ fn describe_action(resource_id: &str, resource: &Resource, action: &PlanAction) 
             | ResourceType::Model
             | ResourceType::Gpu
             | ResourceType::Task
-            | ResourceType::Recipe => format!("{resource_id}: create"),
+            | ResourceType::Recipe
+            | ResourceType::WasmBundle
+            | ResourceType::Image => format!("{resource_id}: create"),
         },
         PlanAction::Update => format!("{resource_id}: update (state changed)"),
         PlanAction::Destroy => format!("{resource_id}: destroy"),
