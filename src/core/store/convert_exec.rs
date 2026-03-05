@@ -56,39 +56,7 @@ pub fn apply_conversion(
         serde_yaml_ng::from_str(&content).map_err(|e| format!("parse config YAML: {e}"))?;
 
     // Steps 3-4: Apply changes
-    let mut applied = 0usize;
-    let mut lock_pins = BTreeMap::new();
-
-    for resource_conv in &report.resources {
-        for change in &resource_conv.auto_changes {
-            match change.change_type {
-                ChangeType::AddVersionPin => {
-                    if apply_version_pin(&mut doc, &resource_conv.name) {
-                        applied += 1;
-                    }
-                }
-                ChangeType::EnableStore => {
-                    if apply_store_flag(&mut doc, &resource_conv.name) {
-                        applied += 1;
-                    }
-                }
-                ChangeType::GenerateLockPin => {
-                    let hash = pin_hash(&resource_conv.provider, &resource_conv.name, "latest");
-                    lock_pins.insert(
-                        resource_conv.name.clone(),
-                        Pin {
-                            provider: resource_conv.provider.clone(),
-                            version: None,
-                            hash,
-                            git_rev: None,
-                            pin_type: None,
-                        },
-                    );
-                    applied += 1;
-                }
-            }
-        }
-    }
+    let (applied, lock_pins) = apply_report_changes(&mut doc, report);
 
     // Step 5: Write updated config atomically
     let yaml_out =
@@ -112,6 +80,48 @@ pub fn apply_conversion(
         new_purity: report.projected_purity,
         lock_pins_generated: lock_count,
     })
+}
+
+/// Apply all auto-changes from a conversion report, returning (count, lock_pins).
+fn apply_report_changes(
+    doc: &mut serde_yaml_ng::Value,
+    report: &ConversionReport,
+) -> (usize, BTreeMap<String, Pin>) {
+    let mut applied = 0usize;
+    let mut lock_pins = BTreeMap::new();
+
+    for resource_conv in &report.resources {
+        for change in &resource_conv.auto_changes {
+            match change.change_type {
+                ChangeType::AddVersionPin => {
+                    if apply_version_pin(doc, &resource_conv.name) {
+                        applied += 1;
+                    }
+                }
+                ChangeType::EnableStore => {
+                    if apply_store_flag(doc, &resource_conv.name) {
+                        applied += 1;
+                    }
+                }
+                ChangeType::GenerateLockPin => {
+                    let hash = pin_hash(&resource_conv.provider, &resource_conv.name, "latest");
+                    lock_pins.insert(
+                        resource_conv.name.clone(),
+                        Pin {
+                            provider: resource_conv.provider.clone(),
+                            version: None,
+                            hash,
+                            git_rev: None,
+                            pin_type: None,
+                        },
+                    );
+                    applied += 1;
+                }
+            }
+        }
+    }
+
+    (applied, lock_pins)
 }
 
 /// Apply a version pin to a resource in the YAML document.
