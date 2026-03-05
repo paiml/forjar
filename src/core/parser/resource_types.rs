@@ -292,9 +292,19 @@ fn validate_recipe(id: &str, resource: &Resource, errors: &mut Vec<ValidationErr
 }
 
 fn validate_task(id: &str, resource: &Resource, errors: &mut Vec<ValidationError>) {
-    if resource.command.is_none() {
+    // FJ-2700: Pipeline tasks use stages instead of command
+    let is_pipeline = resource
+        .task_mode
+        .as_ref()
+        .is_some_and(|m| *m == crate::core::types::TaskMode::Pipeline);
+    if resource.command.is_none() && !is_pipeline {
         errors.push(ValidationError {
             message: format!("resource '{id}' (task) has no command"),
+        });
+    }
+    if is_pipeline && resource.stages.is_empty() {
+        errors.push(ValidationError {
+            message: format!("resource '{id}' (task pipeline) has no stages"),
         });
     }
     if let Some(ref timeout) = resource.timeout {

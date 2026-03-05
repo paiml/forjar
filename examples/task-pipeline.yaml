@@ -1,0 +1,54 @@
+# FJ-2700: Task Framework Example — CI Build Pipeline
+#
+# Demonstrates pipeline mode with stages, quality gates, and service mode.
+# Usage: forjar validate --file examples/task-pipeline.yaml
+#        forjar validate --deep --file examples/task-pipeline.yaml
+
+version: "1.0"
+name: ci-build-pipeline
+machines:
+  build-server:
+    hostname: build-server
+    addr: 10.0.1.10
+
+resources:
+  # Pipeline task: multi-stage build with gates
+  ci-pipeline:
+    type: task
+    machine: build-server
+    task_mode: pipeline
+    stages:
+      - name: lint
+        command: "cargo fmt --check && cargo clippy -- -D warnings"
+      - name: test
+        command: "cargo test"
+        gate: true
+      - name: coverage
+        command: "cargo llvm-cov --summary-only --fail-under-lines 95"
+        gate: true
+      - name: build
+        command: "cargo build --release --locked"
+        inputs: ["src/**/*.rs", "Cargo.toml", "Cargo.lock"]
+        outputs: ["target/release/app"]
+    cache: true
+    timeout: 600
+
+  # Batch task: database migration (run once)
+  db-migrate:
+    type: task
+    machine: build-server
+    task_mode: batch
+    command: "alembic upgrade head"
+    completion_check: "alembic current | grep -q head"
+    output_artifacts: ["/var/lib/app/alembic.stamp"]
+    depends_on: [ci-pipeline]
+
+  # Service task: long-running app server
+  app-server:
+    type: task
+    machine: build-server
+    task_mode: service
+    command: "./target/release/app serve --port 8080"
+    restart: on_failure
+    restart_delay: 10
+    depends_on: [db-migrate]
