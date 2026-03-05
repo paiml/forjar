@@ -39,8 +39,11 @@ fn truncated_yaml_detected() {
     let state_dir = tmp.path();
     let lock_path = state_dir.join("forjar.lock.yaml");
 
-    std::fs::write(&lock_path, "schema: \"1.0\"\nname: \"bad\"\n: {\ninvalid yaml{{{{")
-        .expect("write");
+    std::fs::write(
+        &lock_path,
+        "schema: \"1.0\"\nname: \"bad\"\n: {\ninvalid yaml{{{{",
+    )
+    .expect("write");
 
     let results = verify_state_integrity(state_dir);
     assert!(has_errors(&results));

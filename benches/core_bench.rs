@@ -228,13 +228,19 @@ fn build_3m_20r_config_with_deps() -> String {
         ));
     }
     for i in 0..6 {
-        let dep = if i > 0 { format!("\n    depends_on: [db-file-{}]", i - 1) } else { String::new() };
+        let dep = if i > 0 {
+            format!("\n    depends_on: [db-file-{}]", i - 1)
+        } else {
+            String::new()
+        };
         yaml.push_str(&format!(
             "  db-file-{i}:\n    type: file\n    machine: db\n    path: /etc/db/conf-{i}.yml\n    content: \"key: value-{i}\"{dep}\n"
         ));
     }
     for i in 0..4 {
-        yaml.push_str(&format!("  cache-svc-{i}:\n    type: service\n    machine: cache\n    name: svc-{i}\n"));
+        yaml.push_str(&format!(
+            "  cache-svc-{i}:\n    type: service\n    machine: cache\n    name: svc-{i}\n"
+        ));
     }
     for i in 0..2 {
         yaml.push_str(&format!(
@@ -263,10 +269,7 @@ fn bench_spec9_plan(c: &mut Criterion) {
 }
 
 /// Build a 3-machine, 20-resource YAML config and return (yaml, resource_names).
-fn build_3m_20r_config() -> (
-    String,
-    Vec<(String, forjar::core::types::ResourceType)>,
-) {
+fn build_3m_20r_config() -> (String, Vec<(String, forjar::core::types::ResourceType)>) {
     use forjar::core::types::ResourceType;
 
     let mut yaml = String::from(

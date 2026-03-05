@@ -360,10 +360,6 @@ pub mod reversibility;
 pub mod why;
 
 #[cfg(test)]
-mod tests_reversibility;
-#[cfg(test)]
-mod tests_why;
-#[cfg(test)]
 mod tests_advanced;
 #[cfg(test)]
 mod tests_describe;
@@ -382,4 +378,8 @@ mod tests_lifecycle;
 #[cfg(test)]
 mod tests_plan;
 #[cfg(test)]
+mod tests_reversibility;
+#[cfg(test)]
 mod tests_when;
+#[cfg(test)]
+mod tests_why;
