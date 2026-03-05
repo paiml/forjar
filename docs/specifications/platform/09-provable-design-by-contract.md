@@ -729,12 +729,15 @@ pub fn compute_dual_digest(uncompressed: &[u8]) -> Result<(String, String), Stri
 - **Extends**: `src/core/verus_spec.rs`
 - **Deliverable**: Verus proofs cover real hash pipeline (conditional on handler invariant)
 
-### Phase 16: Structural Enforcement (FJ-2203)
+### Phase 16: Structural Enforcement (FJ-2203) -- PARTIAL
 - [ ] Define `ResourceHandler` trait with documented hash contract
 - [ ] Refactor resource handlers to implement `ResourceHandler`
 - [ ] Add `debug_assert_eq` in executor for handler hash vs `hash_desired_state`
 - [ ] Document any exempted handlers with justification
-- [ ] Extend `contract_coverage.rs` with 6-level coverage model
+- [x] 6-level `VerificationTier` enum (Unlabeled→Structural) with ordering, serde, Display
+- [x] `ContractEntry` per-function tracking with tier, contract_id, verified_by
+- [x] `HandlerInvariantStatus` per-resource-type with exemption support
+- [x] `ContractCoverageReport` with histogram, `at_or_above()`, `format_summary()`
 - [ ] Add `verified_by` field to `#[contract]` macro
 - **Deliverable**: Handler invariant structurally enforced, coverage report shows per-tier status
 
