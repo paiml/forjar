@@ -145,3 +145,73 @@ fn init_refuses_existing_config() {
         "init should refuse when forjar.yaml already exists"
     );
 }
+
+#[test]
+fn validate_format_errors_detected() {
+    let dir = tempfile::tempdir().expect("tmpdir");
+    let cfg = dir.path().join("forjar.yaml");
+    std::fs::write(
+        &cfg,
+        r#"version: "1.0"
+name: format-test
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+resources:
+  bad:
+    type: file
+    machine: m
+    path: relative/path
+    mode: "9999"
+    owner: "Bad User"
+"#,
+    )
+    .expect("write");
+
+    let out = forjar()
+        .args(["validate", "--file", cfg.to_str().unwrap()])
+        .output()
+        .expect("failed to run");
+    assert!(!out.status.success(), "should fail on format errors");
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        stderr.contains("invalid mode") || stderr.contains("must be absolute"),
+        "should report format errors: {stderr}"
+    );
+}
+
+#[test]
+fn validate_unknown_fields_warned() {
+    let dir = tempfile::tempdir().expect("tmpdir");
+    let cfg = dir.path().join("forjar.yaml");
+    std::fs::write(
+        &cfg,
+        r#"version: "1.0"
+name: unknown-field-test
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+resources:
+  pkg:
+    type: package
+    machine: m
+    provider: apt
+    packages: [curl]
+    packges: [typo]
+"#,
+    )
+    .expect("write");
+
+    let out = forjar()
+        .args(["validate", "--file", cfg.to_str().unwrap()])
+        .output()
+        .expect("failed to run");
+    // Should succeed (warnings only) but print warnings to stderr
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(
+        stderr.contains("unknown field") || stderr.contains("packges"),
+        "should warn about unknown field: {stderr}"
+    );
+}
