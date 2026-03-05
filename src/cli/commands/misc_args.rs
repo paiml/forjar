@@ -236,6 +236,10 @@ pub struct LintArgs {
     /// FJ-374: Custom lint rules from YAML file
     #[arg(long)]
     pub rules: Option<PathBuf>,
+
+    /// FJ-2400: Show bashrs version used for script purification
+    #[arg(long)]
+    pub bashrs_version: bool,
 }
 
 /// CLI arguments for the `rollback` command.

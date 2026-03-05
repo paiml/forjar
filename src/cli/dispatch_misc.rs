@@ -295,7 +295,16 @@ fn dispatch_misc_tools(cmd: Commands, verbose: bool) -> Result<(), String> {
             strict,
             fix,
             rules: _rules,
-        }) => cmd_lint(&file, json, strict, fix),
+            bashrs_version,
+        }) => {
+            if bashrs_version {
+                // Version extracted from Cargo.toml dependency
+                const BASHRS_VERSION: &str = "6.64.0";
+                println!("bashrs {BASHRS_VERSION}");
+                return Ok(());
+            }
+            cmd_lint(&file, json, strict, fix)
+        }
         Commands::Doctor(DoctorArgs {
             file,
             json,
