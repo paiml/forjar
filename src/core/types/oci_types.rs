@@ -36,7 +36,8 @@ pub struct OciManifest {
 impl OciManifest {
     /// Create a new manifest with a config digest and layers.
     pub fn new(config_digest: String, layers: Vec<OciDescriptor>) -> Self {
-        Self {
+        let layer_count = layers.len();
+        let result = Self {
             schema_version: 2,
             media_type: "application/vnd.oci.image.manifest.v1+json".into(),
             config: OciDescriptor {
@@ -47,7 +48,10 @@ impl OciManifest {
             },
             layers,
             annotations: HashMap::new(),
-        }
+        };
+        debug_assert_eq!(result.schema_version, 2, "OCI manifest schema must be 2");
+        debug_assert_eq!(result.layers.len(), layer_count, "layer count must be preserved");
+        result
     }
 
     /// Total compressed size of all layers.
@@ -113,7 +117,8 @@ pub struct OciImageConfig {
 impl OciImageConfig {
     /// Create a minimal Linux amd64 config.
     pub fn linux_amd64(diff_ids: Vec<String>) -> Self {
-        Self {
+        let id_count = diff_ids.len();
+        let result = Self {
             architecture: "amd64".into(),
             os: "linux".into(),
             config: OciRuntimeConfig::default(),
@@ -122,7 +127,10 @@ impl OciImageConfig {
                 diff_ids,
             },
             history: Vec::new(),
-        }
+        };
+        debug_assert_eq!(result.rootfs.rootfs_type, "layers", "rootfs type must be layers");
+        debug_assert_eq!(result.layer_count(), id_count, "diff_id count must be preserved");
+        result
     }
 
     /// Number of layers.
