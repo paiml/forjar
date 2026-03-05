@@ -88,6 +88,8 @@ fn make_file_resource(path: &str, content: Option<&str>) -> Resource {
         store: false,
         sudo: false,
         script: None,
+        gather: vec![],
+        scatter: vec![],
     }
 }
 

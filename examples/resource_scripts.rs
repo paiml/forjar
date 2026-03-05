@@ -96,6 +96,8 @@ fn make_resource(rt: ResourceType) -> Resource {
         store: false,
         sudo: false,
         script: None,
+        gather: vec![],
+        scatter: vec![],
     }
 }
 

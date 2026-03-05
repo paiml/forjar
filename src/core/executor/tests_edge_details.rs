@@ -91,6 +91,8 @@ fn test_fj012_build_details_nonexistent_file_no_hash() {
         store: false,
         sudo: false,
         script: None,
+        gather: vec![],
+        scatter: vec![],
     };
     let details = build_resource_details(&resource, &local_machine());
     assert!(
@@ -186,6 +188,8 @@ fn test_fj012_build_details_all_fields() {
         store: false,
         sudo: false,
         script: None,
+        gather: vec![],
+        scatter: vec![],
     };
     let details = build_resource_details(&resource, &local_machine());
     assert_eq!(

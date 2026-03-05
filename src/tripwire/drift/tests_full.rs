@@ -248,6 +248,8 @@ fn make_service_resource(name: Option<&str>) -> Resource {
         store: false,
         sudo: false,
         script: None,
+        gather: vec![],
+        scatter: vec![],
     }
 }
 

@@ -87,6 +87,8 @@ fn make_service_resource(name: &str, state: &str) -> Resource {
         store: false,
         sudo: false,
         script: None,
+        gather: vec![],
+        scatter: vec![],
     }
 }
 

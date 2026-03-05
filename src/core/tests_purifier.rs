@@ -307,5 +307,7 @@ fn make_test_resource(rt: crate::core::types::ResourceType) -> crate::core::type
         store: false,
         sudo: false,
         script: None,
+        gather: vec![],
+        scatter: vec![],
     }
 }

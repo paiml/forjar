@@ -134,6 +134,8 @@ const RESOURCE_FIELDS: &[&str] = &[
     "sudo",
     "store",
     "script",
+    "gather",
+    "scatter",
 ];
 
 const MACHINE_FIELDS: &[&str] = &[
