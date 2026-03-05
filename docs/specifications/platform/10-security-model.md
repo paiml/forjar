@@ -223,6 +223,8 @@ The state directory (`state/`) has no access control beyond filesystem permissio
 - [x] Secret redaction via `redact_secrets()` utility
 - [x] `{{ secrets.* }}` template resolution at apply time
 - [x] Hash template (not resolved value) in `hash_desired_state`
+- [x] Security types: `SecretProvider`, `SecretRef`, `SecretConfig`, `PathPolicy`, `AuthzResult`
+- [x] Secret scan types: `SecretScanResult`, `SecretScanFinding` with structured output
 - [ ] `forjar apply --force` for secret rotation
 - [ ] Document pepita privilege boundary honestly
 - **Deliverable**: Secrets never appear in state files; path policy prevents accidental writes to sensitive paths
