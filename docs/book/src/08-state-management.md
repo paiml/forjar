@@ -1156,6 +1156,57 @@ The result is a `StateLock` representing the machine's state at that moment.
 - **Audit**: Verify what resources were active during an incident
 - **Debugging**: Compare reconstructed state at two timestamps to find what changed
 
+## SQLite Query Engine
+
+Forjar can ingest flat-file state into a SQLite database for sub-second queries across the entire stack (FJ-2001).
+
+### Configuration
+
+```rust
+use forjar::core::types::SqliteConfig;
+
+let config = SqliteConfig::default();
+// DB at state/forjar.db, WAL mode, FTS5 enabled, 8MB cache
+```
+
+The database is configured with WAL mode for concurrent reads, FTS5 for full-text search, and tuned PRAGMAs (busy_timeout, mmap, cache_size).
+
+### Schema
+
+The `SchemaV1` DDL creates three core tables plus a FTS5 virtual table:
+
+| Table | Purpose |
+|-------|---------|
+| `resources` | Resource state per machine and generation |
+| `generations` | Generation metadata with config hashes |
+| `run_logs` | Per-resource execution logs |
+| `resources_fts` | FTS5 full-text search over resources |
+
+Seven indexes cover the common query patterns (by machine, type, status, generation, run_id).
+
+### Incremental Ingest
+
+The `IngestCursor` tracks which generations have been ingested per machine, enabling incremental ingest without re-processing:
+
+```
+Ingest: 120 resources, 8 generations, 45 run logs from 3 machines (1.23s)
+```
+
+### Query Enrichments
+
+The `QueryEnrichments` flags control which additional data is joined into query results:
+
+| Flag | Description |
+|------|-------------|
+| `--history` | Generation history |
+| `--drift` | Drift findings |
+| `--timing` | Duration statistics |
+| `--churn` | Change frequency |
+| `--health` | Health summary |
+| `--destroy-log` | Destroy history |
+| `--reversibility` | Reversibility analysis |
+| `-G` | Git history fusion via RRF |
+
 ## Generation Diff
 
 Compare resources across generations to see what changed:
