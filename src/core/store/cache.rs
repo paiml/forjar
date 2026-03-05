@@ -14,15 +14,22 @@ pub enum CacheSource {
     /// SSH remote cache (sovereign — no HTTP)
     #[serde(rename = "ssh")]
     Ssh {
+        /// SSH hostname.
         host: String,
+        /// SSH user.
         user: String,
+        /// Remote store path.
         path: String,
+        /// SSH port override.
         #[serde(default)]
         port: Option<u16>,
     },
     /// Local filesystem cache (the store itself)
     #[serde(rename = "local")]
-    Local { path: String },
+    Local {
+        /// Local filesystem path.
+        path: String,
+    },
 }
 
 /// Top-level cache configuration.
@@ -44,10 +51,15 @@ pub struct CacheConfig {
 #[derive(Debug, Clone, PartialEq)]
 pub enum SubstitutionResult {
     /// Found in local store
-    LocalHit { store_path: String },
+    LocalHit {
+        /// Filesystem path to the local store entry.
+        store_path: String,
+    },
     /// Found in remote cache
     CacheHit {
+        /// Index of the cache source that had the entry.
         source_index: usize,
+        /// Content-addressed store hash.
         store_hash: String,
     },
     /// Not found — must build from scratch
@@ -57,17 +69,24 @@ pub enum SubstitutionResult {
 /// A cache entry's metadata (what we store alongside the artifact).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CacheEntry {
+    /// Content-addressed store hash.
     pub store_hash: String,
+    /// Entry size in bytes.
     pub size_bytes: u64,
+    /// ISO 8601 creation timestamp.
     pub created_at: String,
+    /// Provider that built this entry.
     pub provider: String,
+    /// Target architecture.
     pub arch: String,
 }
 
 /// A cache inventory — what's available in a given cache source.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CacheInventory {
+    /// Name or identifier of this cache source.
     pub source_name: String,
+    /// Map of store hash to cache entry.
     pub entries: BTreeMap<String, CacheEntry>,
 }
 

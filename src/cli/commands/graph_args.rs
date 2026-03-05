@@ -2,6 +2,7 @@
 
 use std::path::PathBuf;
 
+/// CLI arguments for the `graph` command.
 #[derive(clap::Args, Debug)]
 pub struct GraphArgs {
     /// Path to forjar.yaml

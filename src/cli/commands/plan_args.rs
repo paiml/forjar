@@ -2,6 +2,7 @@
 
 use std::path::PathBuf;
 
+/// CLI arguments for the `plan` command.
 #[derive(clap::Args, Debug)]
 pub struct PlanArgs {
     /// Path to forjar.yaml
@@ -69,6 +70,7 @@ pub struct PlanArgs {
     pub why: bool,
 }
 
+/// CLI arguments for the `plan --compact` command.
 #[derive(clap::Args, Debug)]
 pub struct PlanCompactArgs {
     /// Path to forjar.yaml

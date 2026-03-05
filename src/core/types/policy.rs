@@ -119,8 +119,10 @@ impl Default for Policy {
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum FailurePolicy {
+    /// Halt on first resource failure (default).
     #[default]
     StopOnFirst,
+    /// Continue applying independent resources after a failure.
     ContinueIndependent,
 }
 

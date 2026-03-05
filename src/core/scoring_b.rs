@@ -298,6 +298,7 @@ pub fn format_score_report(result: &ScoringResult) -> String {
     out
 }
 
+/// Render a 20-char ASCII bar for a score (0-100).
 pub fn score_bar(score: u32) -> String {
     let filled = (score / 5) as usize;
     let empty = 20_usize.saturating_sub(filled);

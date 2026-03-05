@@ -11,40 +11,59 @@ use std::io::{self, BufRead, Write};
 /// LSP server state.
 #[derive(Debug)]
 pub struct LspServer {
+    /// Whether the client has sent `initialize`.
     pub initialized: bool,
+    /// Open document URIs mapped to their content.
     pub documents: HashMap<String, String>,
+    /// Workspace root URI.
     pub root_uri: Option<String>,
+    /// Whether a shutdown was requested.
     pub shutdown_requested: bool,
 }
 
 /// LSP diagnostic severity.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum DiagnosticSeverity {
+    /// Error severity.
     Error = 1,
+    /// Warning severity.
     Warning = 2,
+    /// Informational severity.
     Information = 3,
+    /// Hint severity.
     Hint = 4,
 }
 
 /// LSP diagnostic.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct Diagnostic {
+    /// Start line (0-based).
     pub line: u32,
+    /// Start character offset.
     pub character: u32,
+    /// End line (0-based).
     pub end_line: u32,
+    /// End character offset.
     pub end_character: u32,
+    /// Diagnostic severity level.
     pub severity: DiagnosticSeverity,
+    /// Diagnostic message.
     pub message: String,
+    /// Source identifier (e.g., "forjar-lsp").
     pub source: String,
 }
 
 /// LSP completion item.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct CompletionItem {
+    /// Display label.
     pub label: String,
+    /// Detail description.
     pub detail: String,
+    /// Text to insert on accept.
     pub insert_text: String,
-    pub kind: u32, // 1=Text, 6=Variable, 14=Keyword, 15=Snippet
+    /// Completion kind (1=Text, 6=Variable, 14=Keyword, 15=Snippet).
+    pub kind: u32,
 }
 
 /// Known forjar YAML top-level keys.
@@ -105,6 +124,7 @@ impl Default for LspServer {
 }
 
 impl LspServer {
+    /// Create a new LSP server instance.
     pub fn new() -> Self {
         LspServer {
             initialized: false,

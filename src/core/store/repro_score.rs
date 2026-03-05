@@ -11,29 +11,43 @@ use serde::{Deserialize, Serialize};
 /// Per-resource breakdown for the reproducibility report.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ResourceScore {
+    /// Resource name.
     pub name: String,
+    /// Classified purity level.
     pub purity: PurityLevel,
+    /// Whether the resource has a store entry.
     pub has_store: bool,
+    /// Whether the resource is pinned in a lock file.
     pub has_lock_pin: bool,
+    /// Computed reproducibility score (0-100).
     pub score: f64,
 }
 
 /// Overall reproducibility score for a recipe.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ReproScore {
+    /// Weighted composite score (0-100).
     pub composite: f64,
+    /// Purity dimension score (0-100).
     pub purity_score: f64,
+    /// Store coverage score (0-100).
     pub store_score: f64,
+    /// Lock pin coverage score (0-100).
     pub lock_score: f64,
+    /// Per-resource breakdown.
     pub resources: Vec<ResourceScore>,
 }
 
 /// Signals for a single resource needed to compute its reproducibility.
 #[derive(Debug, Clone)]
 pub struct ReproInput {
+    /// Resource name.
     pub name: String,
+    /// Classified purity level.
     pub purity: PurityLevel,
+    /// Whether a store entry exists.
     pub has_store: bool,
+    /// Whether a lock file pin exists.
     pub has_lock_pin: bool,
 }
 

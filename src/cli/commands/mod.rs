@@ -1,3 +1,4 @@
+//! CLI command definitions, argument structs, and subcommand dispatch.
 mod apply_args;
 mod graph_args;
 mod lock_core_args;
@@ -29,19 +30,16 @@ pub use status_args::*;
 pub use store_args::*;
 pub use subcmd_args::*;
 pub use validate_args::*;
-
+/// Top-level CLI subcommands.
 #[derive(Subcommand, Debug)]
 #[allow(clippy::large_enum_variant)]
 pub enum Commands {
     /// Initialize a new forjar project
     Init(InitArgs),
-
     /// Validate forjar.yaml without connecting to machines
     Validate(ValidateArgs),
-
     /// Show execution plan (diff desired vs current)
     Plan(PlanArgs),
-
     /// Converge infrastructure to desired state
     Apply(ApplyArgs),
 

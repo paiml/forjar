@@ -323,8 +323,8 @@ fn falsify_j04_core_bench_exists() {
 #[test]
 fn falsify_j05_bench_criterion_macros() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
-    let content = std::fs::read_to_string(root.join("benches/store_bench.rs"))
-        .expect("read store bench");
+    let content =
+        std::fs::read_to_string(root.join("benches/store_bench.rs")).expect("read store bench");
     assert!(
         content.contains("criterion_group!") || content.contains("criterion_group"),
         "must have criterion_group macro"

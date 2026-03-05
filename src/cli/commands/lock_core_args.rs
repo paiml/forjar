@@ -2,6 +2,7 @@
 
 use std::path::PathBuf;
 
+/// CLI arguments for the `lock` command.
 #[derive(clap::Args, Debug)]
 pub struct LockArgs {
     /// Path to forjar.yaml
@@ -29,6 +30,7 @@ pub struct LockArgs {
     pub json: bool,
 }
 
+/// CLI arguments for `lock prune`.
 #[derive(clap::Args, Debug)]
 pub struct LockPruneArgs {
     /// Path to forjar.yaml
@@ -44,6 +46,7 @@ pub struct LockPruneArgs {
     pub yes: bool,
 }
 
+/// CLI arguments for `lock info`.
 #[derive(clap::Args, Debug)]
 pub struct LockInfoArgs {
     /// State directory
@@ -55,6 +58,7 @@ pub struct LockInfoArgs {
     pub json: bool,
 }
 
+/// CLI arguments for `lock compact`.
 #[derive(clap::Args, Debug)]
 pub struct LockCompactArgs {
     /// State directory
@@ -70,6 +74,7 @@ pub struct LockCompactArgs {
     pub json: bool,
 }
 
+/// CLI arguments for `lock gc`.
 #[derive(clap::Args, Debug)]
 pub struct LockGcArgs {
     /// Path to forjar.yaml
@@ -89,6 +94,7 @@ pub struct LockGcArgs {
     pub json: bool,
 }
 
+/// CLI arguments for `lock export`.
 #[derive(clap::Args, Debug)]
 pub struct LockExportArgs {
     /// State directory
@@ -104,6 +110,7 @@ pub struct LockExportArgs {
     pub machine: Option<String>,
 }
 
+/// CLI arguments for `lock verify`.
 #[derive(clap::Args, Debug)]
 pub struct LockVerifyArgs {
     /// State directory
@@ -115,6 +122,7 @@ pub struct LockVerifyArgs {
     pub json: bool,
 }
 
+/// CLI arguments for `lock diff`.
 #[derive(clap::Args, Debug)]
 pub struct LockDiffArgs {
     /// First state directory (older)
@@ -128,6 +136,7 @@ pub struct LockDiffArgs {
     pub json: bool,
 }
 
+/// CLI arguments for `lock merge`.
 #[derive(clap::Args, Debug)]
 pub struct LockMergeArgs {
     /// First state directory
@@ -145,6 +154,7 @@ pub struct LockMergeArgs {
     pub json: bool,
 }
 
+/// CLI arguments for `lock rebase`.
 #[derive(clap::Args, Debug)]
 pub struct LockRebaseArgs {
     /// Source state directory
@@ -163,6 +173,7 @@ pub struct LockRebaseArgs {
     pub json: bool,
 }
 
+/// CLI arguments for `lock sign`.
 #[derive(clap::Args, Debug)]
 pub struct LockSignArgs {
     /// State directory
@@ -178,6 +189,7 @@ pub struct LockSignArgs {
     pub json: bool,
 }
 
+/// CLI arguments for `lock verify-sig`.
 #[derive(clap::Args, Debug)]
 pub struct LockVerifySigArgs {
     /// State directory
@@ -193,6 +205,7 @@ pub struct LockVerifySigArgs {
     pub json: bool,
 }
 
+/// CLI arguments for `lock compact-all`.
 #[derive(clap::Args, Debug)]
 pub struct LockCompactAllArgs {
     /// State directory
@@ -208,6 +221,7 @@ pub struct LockCompactAllArgs {
     pub json: bool,
 }
 
+/// CLI arguments for `lock audit-trail`.
 #[derive(clap::Args, Debug)]
 pub struct LockAuditTrailArgs {
     /// State directory
@@ -223,6 +237,7 @@ pub struct LockAuditTrailArgs {
     pub json: bool,
 }
 
+/// CLI arguments for `lock rotate-keys`.
 #[derive(clap::Args, Debug)]
 pub struct LockRotateKeysArgs {
     /// State directory
@@ -242,6 +257,7 @@ pub struct LockRotateKeysArgs {
     pub json: bool,
 }
 
+/// CLI arguments for `lock backup`.
 #[derive(clap::Args, Debug)]
 pub struct LockBackupArgs {
     /// State directory

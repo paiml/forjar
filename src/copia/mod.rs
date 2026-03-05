@@ -15,7 +15,9 @@ pub const SIZE_THRESHOLD: u64 = 1_048_576;
 /// A remote block signature (index + BLAKE3 hash).
 #[derive(Debug, Clone, PartialEq)]
 pub struct BlockSignature {
+    /// Zero-based block index.
     pub index: usize,
+    /// BLAKE3 hash of the block content.
     pub hash: String,
 }
 
@@ -23,9 +25,15 @@ pub struct BlockSignature {
 #[derive(Debug, Clone)]
 pub enum DeltaOp {
     /// Copy block at `index` from the existing remote file.
-    Copy { index: usize },
+    Copy {
+        /// Zero-based block index to copy.
+        index: usize,
+    },
     /// Replace block with new literal data.
-    Literal { data: Vec<u8> },
+    Literal {
+        /// Raw block content bytes.
+        data: Vec<u8>,
+    },
 }
 
 /// Compute per-block BLAKE3 signatures for local data.

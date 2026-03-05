@@ -15,16 +15,27 @@ use std::collections::BTreeMap;
 /// Positive literal = variable must be true, negative = must be false.
 #[derive(Debug, Clone)]
 pub struct SatProblem {
+    /// Number of boolean variables.
     pub num_vars: usize,
+    /// CNF clauses (each is a disjunction of literals).
     pub clauses: Vec<Vec<i32>>,
+    /// Mapping from variable index to resource name.
     pub var_names: BTreeMap<usize, String>,
 }
 
 /// Result of SAT solving.
 #[derive(Debug, Clone, serde::Serialize)]
 pub enum SatResult {
-    Satisfiable { assignment: BTreeMap<String, bool> },
-    Unsatisfiable { conflict_clause: Vec<String> },
+    /// All constraints can be satisfied.
+    Satisfiable {
+        /// Variable assignments (resource name to inclusion).
+        assignment: BTreeMap<String, bool>,
+    },
+    /// Constraints are contradictory.
+    Unsatisfiable {
+        /// Resources involved in the first conflict.
+        conflict_clause: Vec<String>,
+    },
 }
 
 /// Build SAT problem from dependency graph.

@@ -81,6 +81,7 @@ pub fn export_schema() -> serde_json::Value {
     })
 }
 
+/// Build the MCP handler registry with all forjar tool handlers.
 pub fn build_registry() -> HandlerRegistry {
     let mut registry = HandlerRegistry::new();
     registry.register("forjar_validate", ValidateHandler);

@@ -115,9 +115,13 @@ pub struct ResourceLock {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ResourceStatus {
+    /// Resource matches desired state.
     Converged,
+    /// Resource apply failed.
     Failed,
+    /// Resource state drifted from lock.
     Drifted,
+    /// Resource status not yet determined.
     Unknown,
 }
 
@@ -140,9 +144,13 @@ impl fmt::Display for ResourceStatus {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PlanAction {
+    /// Resource will be created.
     Create,
+    /// Resource will be updated.
     Update,
+    /// Resource will be destroyed.
     Destroy,
+    /// Resource is already converged.
     NoOp,
 }
 
@@ -188,10 +196,13 @@ pub struct ExecutionPlan {
     /// Topological execution order (resource IDs)
     pub execution_order: Vec<String>,
 
-    /// Summary counts
+    /// Number of resources to create.
     pub to_create: u32,
+    /// Number of resources to update.
     pub to_update: u32,
+    /// Number of resources to destroy.
     pub to_destroy: u32,
+    /// Number of unchanged resources.
     pub unchanged: u32,
 }
 
@@ -204,8 +215,11 @@ pub struct ExecutionPlan {
 #[serde(tag = "event", rename_all = "snake_case")]
 pub enum ProvenanceEvent {
     ApplyStarted {
+        /// Target machine name.
         machine: String,
+        /// Unique run identifier.
         run_id: String,
+        /// Forjar CLI version.
         forjar_version: String,
         /// FJ-1391: Operator identity for drift forensics (e.g., "user@hostname")
         #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -218,45 +232,71 @@ pub enum ProvenanceEvent {
         param_count: Option<u32>,
     },
     ResourceStarted {
+        /// Target machine name.
         machine: String,
+        /// Resource identifier.
         resource: String,
+        /// Action being performed.
         action: String,
     },
     ResourceConverged {
+        /// Target machine name.
         machine: String,
+        /// Resource identifier.
         resource: String,
+        /// Time taken to converge in seconds.
         duration_seconds: f64,
+        /// BLAKE3 hash of the converged state.
         hash: String,
     },
     ResourceFailed {
+        /// Target machine name.
         machine: String,
+        /// Resource identifier.
         resource: String,
+        /// Error message describing the failure.
         error: String,
     },
     ApplyCompleted {
+        /// Target machine name.
         machine: String,
+        /// Unique run identifier.
         run_id: String,
+        /// Number of resources that converged.
         resources_converged: u32,
+        /// Number of resources unchanged.
         resources_unchanged: u32,
+        /// Number of resources that failed.
         resources_failed: u32,
+        /// Total apply duration in seconds.
         total_seconds: f64,
     },
     DriftDetected {
+        /// Target machine name.
         machine: String,
+        /// Resource identifier.
         resource: String,
+        /// Expected content hash.
         expected_hash: String,
+        /// Actual content hash found.
         actual_hash: String,
     },
     /// FJ-201: Secret decryption audit event.
     SecretAccessed {
+        /// Resource that accessed the secret.
         resource: String,
+        /// Number of encrypted markers decrypted.
         marker_count: u32,
+        /// Age identity recipient used for decryption.
         identity_recipient: String,
     },
     /// FJ-201: Secret rotation audit event.
     SecretRotated {
+        /// Config file containing rotated secrets.
         file: String,
+        /// Number of markers re-encrypted.
         marker_count: u32,
+        /// New age recipient public keys.
         new_recipients: Vec<String>,
     },
 }
@@ -264,7 +304,9 @@ pub enum ProvenanceEvent {
 /// Timestamped event wrapper.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TimestampedEvent {
+    /// ISO 8601 timestamp.
     pub ts: String,
+    /// The provenance event.
     #[serde(flatten)]
     pub event: ProvenanceEvent,
 }
@@ -276,22 +318,34 @@ pub struct TimestampedEvent {
 /// FJ-262: Per-resource timing report entry.
 #[derive(Debug, Clone, Serialize)]
 pub struct ResourceReport {
+    /// Resource identifier.
     pub resource_id: String,
+    /// Resource type string.
     pub resource_type: String,
+    /// Apply status (e.g., "converged", "failed").
     pub status: String,
+    /// Apply duration in seconds.
     pub duration_seconds: f64,
+    /// Process exit code, if applicable.
     pub exit_code: Option<i32>,
+    /// BLAKE3 hash of the converged state.
     pub hash: Option<String>,
+    /// Error message on failure.
     pub error: Option<String>,
 }
 
 /// Result of applying to a single machine.
 #[derive(Debug, Clone, Serialize)]
 pub struct ApplyResult {
+    /// Target machine name.
     pub machine: String,
+    /// Number of resources that converged.
     pub resources_converged: u32,
+    /// Number of resources unchanged.
     pub resources_unchanged: u32,
+    /// Number of resources that failed.
     pub resources_failed: u32,
+    /// Total apply duration.
     #[serde(serialize_with = "serialize_duration_secs")]
     pub total_duration: std::time::Duration,
     /// FJ-262: Per-resource reports for timing + status

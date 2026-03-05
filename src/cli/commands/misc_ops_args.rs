@@ -3,6 +3,7 @@
 use super::CompletionShell;
 use std::path::PathBuf;
 
+/// CLI arguments for the `doctor` command.
 #[derive(clap::Args, Debug)]
 pub struct DoctorArgs {
     /// Path to forjar.yaml (optional — checks system basics without it)
@@ -22,6 +23,7 @@ pub struct DoctorArgs {
     pub network: bool,
 }
 
+/// CLI arguments for the `completion` command.
 #[derive(clap::Args, Debug)]
 pub struct CompletionArgs {
     /// Shell to generate completions for
@@ -29,6 +31,7 @@ pub struct CompletionArgs {
     pub shell: CompletionShell,
 }
 
+/// CLI arguments for the `watch` command.
 #[derive(clap::Args, Debug)]
 pub struct WatchArgs {
     /// Path to forjar.yaml
@@ -52,6 +55,7 @@ pub struct WatchArgs {
     pub yes: bool,
 }
 
+/// CLI arguments for the `explain` command.
 #[derive(clap::Args, Debug)]
 pub struct ExplainArgs {
     /// Path to forjar.yaml
@@ -66,6 +70,7 @@ pub struct ExplainArgs {
     pub json: bool,
 }
 
+/// CLI arguments for the `env` command.
 #[derive(clap::Args, Debug)]
 pub struct EnvArgs {
     /// Path to forjar.yaml
@@ -77,6 +82,7 @@ pub struct EnvArgs {
     pub json: bool,
 }
 
+/// CLI arguments for the `test` command.
 #[derive(clap::Args, Debug)]
 pub struct TestArgs {
     /// Path to forjar.yaml
@@ -104,6 +110,7 @@ pub struct TestArgs {
     pub json: bool,
 }
 
+/// CLI arguments for the `inventory` command.
 #[derive(clap::Args, Debug)]
 pub struct InventoryArgs {
     /// Path to forjar.yaml
@@ -115,6 +122,7 @@ pub struct InventoryArgs {
     pub json: bool,
 }
 
+/// CLI arguments for the `retry-failed` command.
 #[derive(clap::Args, Debug)]
 pub struct RetryFailedArgs {
     /// Path to forjar.yaml
@@ -134,6 +142,7 @@ pub struct RetryFailedArgs {
     pub timeout: Option<u64>,
 }
 
+/// CLI arguments for the `rolling` command.
 #[derive(clap::Args, Debug)]
 pub struct RollingArgs {
     /// Path to forjar.yaml
@@ -157,6 +166,7 @@ pub struct RollingArgs {
     pub timeout: Option<u64>,
 }
 
+/// CLI arguments for the `canary` command.
 #[derive(clap::Args, Debug)]
 pub struct CanaryArgs {
     /// Path to forjar.yaml
@@ -184,6 +194,7 @@ pub struct CanaryArgs {
     pub timeout: Option<u64>,
 }
 
+/// CLI arguments for the `audit` command.
 #[derive(clap::Args, Debug)]
 pub struct AuditArgs {
     /// State directory
@@ -203,6 +214,7 @@ pub struct AuditArgs {
     pub json: bool,
 }
 
+/// CLI arguments for the `compliance` command.
 #[derive(clap::Args, Debug)]
 pub struct ComplianceArgs {
     /// Path to forjar.yaml
@@ -214,6 +226,7 @@ pub struct ComplianceArgs {
     pub json: bool,
 }
 
+/// CLI arguments for the `export` command.
 #[derive(clap::Args, Debug)]
 pub struct ExportArgs {
     /// State directory
@@ -233,6 +246,7 @@ pub struct ExportArgs {
     pub output: Option<PathBuf>,
 }
 
+/// CLI arguments for the `suggest` command.
 #[derive(clap::Args, Debug)]
 pub struct SuggestArgs {
     /// Path to forjar.yaml
@@ -244,6 +258,7 @@ pub struct SuggestArgs {
     pub json: bool,
 }
 
+/// CLI arguments for the `compare` command.
 #[derive(clap::Args, Debug)]
 pub struct CompareArgs {
     /// First config file
@@ -257,6 +272,7 @@ pub struct CompareArgs {
     pub json: bool,
 }
 
+/// CLI arguments for the `env-diff` command.
 #[derive(clap::Args, Debug)]
 pub struct EnvDiffArgs {
     /// First workspace name
@@ -274,6 +290,7 @@ pub struct EnvDiffArgs {
     pub json: bool,
 }
 
+/// CLI arguments for the `template` command.
 #[derive(clap::Args, Debug)]
 pub struct TemplateArgs {
     /// Path to recipe YAML file

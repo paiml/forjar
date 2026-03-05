@@ -1,5 +1,6 @@
 //! CLI Args structs for validate-related commands.
 use std::path::PathBuf;
+/// CLI arguments for the `validate` command.
 #[derive(clap::Args, Debug)]
 pub struct ValidateArgs {
     /// Path to forjar.yaml
