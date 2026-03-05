@@ -10,6 +10,8 @@ mod resource;
 mod state_types;
 mod task_types;
 mod coverage_types;
+mod run_log_types;
+mod behavior_types;
 
 pub use config::*;
 pub use policy::*;
@@ -17,6 +19,8 @@ pub use resource::*;
 pub use state_types::*;
 pub use task_types::*;
 pub use coverage_types::*;
+pub use run_log_types::*;
+pub use behavior_types::*;
 
 // Shared default functions used by serde across multiple submodules.
 fn default_true() -> bool {

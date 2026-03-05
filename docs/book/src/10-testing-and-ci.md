@@ -1277,3 +1277,98 @@ Every resource type has a five-level coverage maturity scale:
 ```bash
 cargo run --example coverage_model
 ```
+
+## Behavior-Driven Infrastructure Specs (FJ-2602)
+
+Behavior specs describe **what the system should look like after convergence**, not how to get there. They use `.spec.yaml` files with verifiable assertions.
+
+### Spec Format
+
+```yaml
+# tests/behaviors/nginx-web-server.spec.yaml
+name: nginx web server
+config: examples/nginx.yaml
+machine: web-1
+
+behaviors:
+  - name: nginx package is installed
+    resource: nginx-pkg
+    state: present
+    verify:
+      command: "dpkg -l nginx | grep -q '^ii'"
+      exit_code: 0
+
+  - name: nginx service is running
+    resource: nginx-service
+    state: running
+    verify:
+      command: "systemctl is-active nginx"
+      stdout: "active"
+
+  - name: idempotency holds
+    type: convergence
+    convergence:
+      second_apply: noop
+      state_unchanged: true
+```
+
+### Assertion Types
+
+| Type | Field | Description |
+|------|-------|-------------|
+| State | `state` | Expected resource state (present, running, file) |
+| Command | `verify.command` | Shell command with expected exit code |
+| Stdout | `verify.stdout` | Expected stdout content |
+| Stderr | `verify.stderr_contains` | Expected substring in stderr |
+| File | `verify.file_exists` | Path must exist on target |
+| Port | `verify.port_open` | TCP port accepting connections |
+| Convergence | `type: convergence` | Second apply is no-op |
+
+### Soft Assertions
+
+Behavior specs use **soft assertions** — all behaviors are checked before reporting, even if earlier ones fail. This gives a complete picture of the system state.
+
+```bash
+cargo run --example behavior_spec
+```
+
+## Run Log Capture (FJ-2301)
+
+Every `forjar apply` creates a **run log** that captures the full output of every script execution. See the types in action:
+
+```bash
+cargo run --example run_log
+```
+
+Run logs use structured delimiters for machine-parseable output:
+
+```
+=== FORJAR TRANSPORT LOG ===
+resource: cargo-tools
+type: package
+action: apply
+
+=== SCRIPT ===
+apt-get install -y cargo-watch
+
+=== STDOUT ===
+Reading package lists...
+
+=== STDERR ===
+E: Unable to locate package cargo-watch
+
+=== RESULT ===
+exit_code: 100
+duration_secs: 1.800
+```
+
+### Retention Policy
+
+Log storage is bounded by configurable retention:
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `keep_runs` | 10 | Last N runs per machine |
+| `keep_failed` | 50 | Failed runs kept regardless |
+| `max_log_size` | 10 MB | Per-log file truncation |
+| `max_total_size` | 500 MB | Total budget per machine |
