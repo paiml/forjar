@@ -92,6 +92,29 @@ The `core/verus_spec.rs` module contains machine-checked proofs (when compiled w
 3. **Is idempotent** — Applying to an already-converged state is a no-op
 4. **Is monotonic** — Each iteration reduces the diff, never increases it
 
+## Verification Tier Model (FJ-2203)
+
+Forjar tracks verification maturity across six tiers per critical-path function:
+
+| Tier | Label | What It Proves |
+|------|-------|---------------|
+| L0 | Unlabeled | No contract annotation |
+| L1 | Labeled | `#[contract]` macro present, no verification |
+| L2 | Runtime | `#[ensures]` / `debug_assert!` active |
+| L3 | Bounded | Kani harness covers this function |
+| L4 | Proved | Verus spec with proof block (machine-checked) |
+| L5 | Structural | Trait + executor enforcement (unbreakable) |
+
+```rust
+use forjar::core::types::{ContractCoverageReport, VerificationTier};
+
+// Query coverage at a tier
+let report = ContractCoverageReport::default();
+let bounded_or_above = report.at_or_above(VerificationTier::Bounded);
+```
+
+Handler invariants are tracked per resource type. Exempt handlers (like `task` — imperative by nature) are documented with justification.
+
 ## Proof Obligation Taxonomy
 
 Forjar classifies proof obligations by type (`core/compliance.rs`):
