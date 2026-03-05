@@ -19,23 +19,33 @@ pub const MAX_HASH_LEN: usize = 64;
 /// Resource status in flight-grade mode (no heap allocation).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FgStatus {
+    /// Resource not yet processed.
     Pending,
+    /// Resource converged successfully.
     Converged,
+    /// Resource failed to converge.
     Failed,
+    /// Resource skipped (dependency failure).
     Skipped,
 }
 
 /// A fixed-size resource entry.
 #[derive(Debug, Clone, Copy)]
 pub struct FgResource {
+    /// Resource index.
     pub id: u16,
+    /// Current convergence status.
     pub status: FgStatus,
-    pub hash: [u8; 32], // BLAKE3 raw bytes (no hex string)
-    pub deps: [u16; 8], // max 8 dependencies per resource
+    /// BLAKE3 raw bytes (no hex string).
+    pub hash: [u8; 32],
+    /// Dependency indices (max 8 per resource).
+    pub deps: [u16; 8],
+    /// Number of active dependencies.
     pub dep_count: u8,
 }
 
 impl FgResource {
+    /// Create a zeroed resource entry.
     pub const fn empty() -> Self {
         FgResource {
             id: 0,
@@ -50,13 +60,18 @@ impl FgResource {
 /// Flight-grade execution plan (fixed-size, stack-allocated).
 #[derive(Debug)]
 pub struct FgPlan {
+    /// Fixed-size resource array.
     pub resources: [FgResource; MAX_RESOURCES],
+    /// Number of active resources.
     pub count: usize,
+    /// Topological execution order.
     pub order: [u16; MAX_RESOURCES],
+    /// Number of entries in order array.
     pub order_len: usize,
 }
 
 impl FgPlan {
+    /// Create an empty plan with no resources.
     pub const fn empty() -> Self {
         FgPlan {
             resources: [FgResource::empty(); MAX_RESOURCES],
@@ -70,12 +85,19 @@ impl FgPlan {
 /// Flight-grade compliance check result.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct FgComplianceReport {
+    /// No heap allocations in critical path.
     pub no_dynamic_alloc: bool,
+    /// All loops have compile-time bounds.
     pub bounded_loops: bool,
+    /// No panic paths in critical code.
     pub no_panic_paths: bool,
+    /// Memory usage is deterministic.
     pub deterministic_memory: bool,
+    /// Maximum supported resource count.
     pub max_resources: usize,
+    /// Maximum supported dependency depth.
     pub max_depth: usize,
+    /// Overall compliance verdict.
     pub compliant: bool,
 }
 

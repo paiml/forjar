@@ -10,19 +10,26 @@ use std::path::Path;
 /// Lock file schema.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct LockFile {
+    /// Lock file schema version.
     pub schema: String,
+    /// Map of input name to pinned version/hash.
     pub pins: BTreeMap<String, Pin>,
 }
 
 /// A single pinned input.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Pin {
+    /// Import provider (e.g., "apt", "cargo").
     pub provider: String,
+    /// Pinned version string.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub version: Option<String>,
+    /// BLAKE3 content hash.
     pub hash: String,
+    /// Git revision for source-based pins.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub git_rev: Option<String>,
+    /// Pin type discriminator.
     #[serde(rename = "type", default, skip_serializing_if = "Option::is_none")]
     pub pin_type: Option<String>,
 }
@@ -57,8 +64,11 @@ pub fn write_lockfile(path: &Path, lockfile: &LockFile) -> Result<(), String> {
 /// Stale pin: a pin whose hash no longer matches a given current hash.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct StalenessEntry {
+    /// Input name.
     pub name: String,
+    /// Hash recorded in the lock file.
     pub locked_hash: String,
+    /// Current resolved hash.
     pub current_hash: String,
 }
 

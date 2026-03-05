@@ -15,52 +15,80 @@ use std::path::Path;
 
 /// Configuration for the substitution protocol.
 pub struct SubstitutionContext<'a> {
+    /// Content-addressed hash of the input closure.
     pub closure_hash: &'a str,
+    /// BLAKE3 hashes of all inputs.
     pub input_hashes: &'a [String],
+    /// Store hashes present in the local store.
     pub local_entries: &'a [String],
+    /// Cache source configuration.
     pub cache_config: &'a CacheConfig,
+    /// Inventories of available cache entries.
     pub cache_inventories: &'a [CacheInventory],
+    /// Optional sandbox configuration for builds.
     pub sandbox: Option<&'a SandboxConfig>,
+    /// Local store directory path.
     pub store_dir: &'a Path,
 }
 
 /// A step in the substitution protocol.
 #[derive(Debug, Clone, PartialEq)]
 pub enum SubstitutionStep {
-    /// Compute closure hash from inputs
+    /// Compute closure hash from inputs.
     ComputeClosureHash {
+        /// All input hashes that compose the closure.
         input_hashes: Vec<String>,
+        /// Resulting closure hash.
         closure_hash: String,
     },
-    /// Check local store for existing entry
-    CheckLocalStore { store_hash: String, found: bool },
-    /// Check SSH cache for existing entry
-    CheckSshCache {
-        host: String,
-        user: String,
+    /// Check local store for existing entry.
+    CheckLocalStore {
+        /// Store hash to look up.
         store_hash: String,
+        /// Whether the entry was found.
         found: bool,
     },
-    /// Pull entry from SSH cache
-    PullFromCache {
-        source: String,
+    /// Check SSH cache for existing entry.
+    CheckSshCache {
+        /// SSH hostname.
+        host: String,
+        /// SSH user.
+        user: String,
+        /// Store hash to look up.
         store_hash: String,
+        /// Whether the entry was found.
+        found: bool,
+    },
+    /// Pull entry from SSH cache.
+    PullFromCache {
+        /// Cache source identifier.
+        source: String,
+        /// Store hash to pull.
+        store_hash: String,
+        /// Shell command to execute the pull.
         command: String,
     },
-    /// Build from scratch (cache miss)
+    /// Build from scratch (cache miss).
     BuildFromScratch {
+        /// Store hash of the artifact to build.
         store_hash: String,
+        /// Sandbox isolation level.
         sandbox_level: String,
     },
-    /// Store the build result
+    /// Store the build result.
     StoreResult {
+        /// Store hash of the stored artifact.
         store_hash: String,
+        /// Filesystem path where the artifact was stored.
         store_path: String,
     },
-    /// Push result to SSH cache (auto_push)
+    /// Push result to SSH cache (auto_push).
     PushToCache {
+        /// Cache source identifier.
         source: String,
+        /// Store hash to push.
         store_hash: String,
+        /// Shell command to execute the push.
         command: String,
     },
 }
@@ -79,12 +107,23 @@ pub struct SubstitutionPlan {
 /// Outcome of the substitution protocol.
 #[derive(Debug, Clone, PartialEq)]
 pub enum SubstitutionOutcome {
-    /// Found in local store — no work needed
-    LocalHit { store_path: String },
-    /// Found in SSH cache — pull required
-    CacheHit { source: String, store_hash: String },
-    /// Not found anywhere — build required
-    CacheMiss { store_hash: String },
+    /// Found in local store — no work needed.
+    LocalHit {
+        /// Filesystem path to the local store entry.
+        store_path: String,
+    },
+    /// Found in SSH cache — pull required.
+    CacheHit {
+        /// Cache source identifier.
+        source: String,
+        /// Store hash found in the cache.
+        store_hash: String,
+    },
+    /// Not found anywhere — build required.
+    CacheMiss {
+        /// Store hash that must be built.
+        store_hash: String,
+    },
 }
 
 /// Plan the full substitution protocol for a given store hash.

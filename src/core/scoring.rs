@@ -12,6 +12,7 @@ use std::path::Path;
 
 /// Input data for scoring. Static fields come from config analysis;
 /// runtime fields come from actual apply results (optional).
+/// Input data for scoring a recipe across 8 quality dimensions.
 pub struct ScoringInput {
     /// Recipe qualification status: "qualified", "blocked", "pending".
     pub status: String,
@@ -25,36 +26,57 @@ pub struct ScoringInput {
 
 /// Runtime data collected from actual apply/qualify runs.
 pub struct RuntimeData {
+    /// Whether config validation passed.
     pub validate_pass: bool,
+    /// Whether plan generation passed.
     pub plan_pass: bool,
+    /// Whether first apply succeeded.
     pub first_apply_pass: bool,
+    /// Whether second (idempotency) apply succeeded.
     pub second_apply_pass: bool,
+    /// Whether re-apply produced zero changes.
     pub zero_changes_on_reapply: bool,
+    /// Whether state hashes are stable across runs.
     pub hash_stable: bool,
+    /// Whether all resources converged.
     pub all_resources_converged: bool,
+    /// Whether the state lock file was written.
     pub state_lock_written: bool,
+    /// Number of warnings emitted.
     pub warning_count: u32,
+    /// Number of resources changed on re-apply.
     pub changed_on_reapply: u32,
+    /// First apply duration in milliseconds.
     pub first_apply_ms: u64,
+    /// Second apply duration in milliseconds.
     pub second_apply_ms: u64,
 }
 
 /// Per-dimension score (0–100).
 #[derive(Debug, Clone)]
 pub struct DimensionScore {
+    /// Short code (e.g., "COR", "IDM").
     pub code: &'static str,
+    /// Full dimension name.
     pub name: &'static str,
+    /// Score value (0-100).
     pub score: u32,
+    /// Weight in composite calculation.
     pub weight: f64,
 }
 
 /// Complete scoring result.
 #[derive(Debug, Clone)]
 pub struct ScoringResult {
+    /// Per-dimension score breakdown.
     pub dimensions: Vec<DimensionScore>,
+    /// Weighted composite score (0-100).
     pub composite: u32,
+    /// Letter grade (A-F).
     pub grade: char,
+    /// Whether a hard-fail condition was triggered.
     pub hard_fail: bool,
+    /// Reason for hard failure, if any.
     pub hard_fail_reason: Option<String>,
 }
 

@@ -7,14 +7,18 @@
 /// A boolean condition in a decision.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct Condition {
+    /// Condition name (e.g., "a", "b").
     pub name: String,
+    /// Zero-based index in the decision.
     pub index: usize,
 }
 
 /// A decision (boolean expression) composed of conditions.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct Decision {
+    /// Decision expression name (e.g., "a && b").
     pub name: String,
+    /// Conditions composing the decision.
     pub conditions: Vec<Condition>,
 }
 
@@ -22,18 +26,26 @@ pub struct Decision {
 /// and the decision outcome changes.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct McdcPair {
+    /// Condition name being tested.
     pub condition: String,
+    /// Input vector where the condition is true.
     pub true_case: Vec<bool>,
+    /// Input vector where the condition is false.
     pub false_case: Vec<bool>,
 }
 
 /// MC/DC coverage report.
 #[derive(Debug, serde::Serialize)]
 pub struct McdcReport {
+    /// Decision expression name.
     pub decision: String,
+    /// Number of conditions in the decision.
     pub num_conditions: usize,
+    /// Generated test pairs.
     pub pairs: Vec<McdcPair>,
+    /// Minimum number of test cases for MC/DC.
     pub min_tests_needed: usize,
+    /// Whether full MC/DC coverage is achievable.
     pub coverage_achievable: bool,
 }
 

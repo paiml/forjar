@@ -20,8 +20,11 @@ pub struct SecretFinding {
 /// Result of scanning a config for secrets.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ScanResult {
+    /// Detected secret findings.
     pub findings: Vec<SecretFinding>,
+    /// Number of YAML fields scanned.
     pub scanned_fields: usize,
+    /// True if no secrets were found.
     pub clean: bool,
 }
 

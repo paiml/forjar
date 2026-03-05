@@ -15,9 +15,15 @@ use std::collections::{BTreeMap, BTreeSet};
 #[serde(untagged)]
 pub enum DerivationInput {
     /// Direct store hash reference
-    Store { store: String },
+    Store {
+        /// Content-addressed store hash.
+        store: String,
+    },
     /// Reference to another resource's output
-    Resource { resource: String },
+    Resource {
+        /// Resource identifier to resolve.
+        resource: String,
+    },
 }
 
 /// A store derivation definition.

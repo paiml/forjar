@@ -25,12 +25,16 @@ use crate::core::types::Machine;
 /// Output from executing a script on a target.
 #[derive(Debug, Clone)]
 pub struct ExecOutput {
+    /// Process exit code.
     pub exit_code: i32,
+    /// Captured standard output.
     pub stdout: String,
+    /// Captured standard error.
     pub stderr: String,
 }
 
 impl ExecOutput {
+    /// Returns true if the process exited with code 0.
     pub fn success(&self) -> bool {
         self.exit_code == 0
     }

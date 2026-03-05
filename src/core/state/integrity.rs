@@ -32,8 +32,11 @@ pub enum IntegrityResult {
     MissingSidecar(PathBuf),
     /// Hash mismatch — file was tampered or corrupted.
     HashMismatch {
+        /// Path to the lock file that failed verification.
         file: PathBuf,
+        /// Expected BLAKE3 hash from sidecar.
         expected: String,
+        /// Actual BLAKE3 hash computed from file contents.
         actual: String,
     },
     /// Lock file is invalid YAML — likely corrupted.

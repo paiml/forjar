@@ -12,23 +12,36 @@ pub const FAR_MAGIC: &[u8; 12] = b"FORJAR-FAR\x00\x01";
 /// A single chunk entry in the chunk table.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ChunkEntry {
+    /// BLAKE3 hash of the chunk content.
     pub hash: [u8; 32],
+    /// Byte offset within the archive data section.
     pub offset: u64,
+    /// Compressed length in bytes.
     pub length: u64,
 }
 
 /// Manifest embedded in a FAR archive.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct FarManifest {
+    /// Package or artifact name.
     pub name: String,
+    /// Version string.
     pub version: String,
+    /// Target architecture (e.g., "x86_64").
     pub arch: String,
+    /// Content-addressed store hash.
     pub store_hash: String,
+    /// Merkle tree hash for streaming verification.
     pub tree_hash: String,
+    /// Number of files in the archive.
     pub file_count: u64,
+    /// Total uncompressed size in bytes.
     pub total_size: u64,
+    /// Per-file entries with path, size, and hash.
     pub files: Vec<FarFileEntry>,
+    /// Build provenance metadata.
     pub provenance: FarProvenance,
+    /// Optional kernel contract metadata (for ML models).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub kernel_contracts: Option<KernelContractInfo>,
 }
@@ -36,28 +49,39 @@ pub struct FarManifest {
 /// Kernel contract metadata embedded in a FAR manifest.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct KernelContractInfo {
+    /// Model type identifier (e.g., "llama", "qwen2").
     pub model_type: String,
+    /// Required kernel operations.
     pub required_ops: Vec<String>,
+    /// Contract coverage percentage.
     pub coverage_pct: f64,
 }
 
 /// A file entry within the FAR manifest.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct FarFileEntry {
+    /// Relative file path within the archive.
     pub path: String,
+    /// File size in bytes.
     pub size: u64,
+    /// BLAKE3 hash of the file content.
     pub blake3: String,
 }
 
 /// Provenance metadata for the FAR archive.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct FarProvenance {
+    /// Provider that produced this archive (e.g., "apt", "conda").
     pub origin_provider: String,
+    /// Upstream reference for traceability.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub origin_ref: Option<String>,
+    /// Upstream content hash at build time.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub origin_hash: Option<String>,
+    /// ISO 8601 creation timestamp.
     pub created_at: String,
+    /// Generator string (e.g., "forjar 1.0.0").
     pub generator: String,
 }
 
