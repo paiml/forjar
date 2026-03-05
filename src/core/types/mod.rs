@@ -22,6 +22,8 @@ mod distribution_types;
 mod security_types;
 mod validation_types;
 mod mutation_types;
+mod contract_tier_types;
+mod wasm_types;
 
 pub use config::*;
 pub use policy::*;
@@ -41,6 +43,8 @@ pub use distribution_types::*;
 pub use security_types::*;
 pub use validation_types::*;
 pub use mutation_types::*;
+pub use contract_tier_types::*;
+pub use wasm_types::*;
 
 // Shared default functions used by serde across multiple submodules.
 fn default_true() -> bool {

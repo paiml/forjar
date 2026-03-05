@@ -547,7 +547,11 @@ presentar (separate binary)
 - [ ] `forjar query --type model --drift` for model integrity monitoring
 - **Deliverable**: Full pull-convert-compile-serve pipeline in forjar recipes
 
-### Phase 21: WASM Deployment (FJ-2402)
+### Phase 21: WASM Deployment (FJ-2402) -- PARTIAL
+- [x] WASM types: `WasmOptLevel`, `WasmBuildConfig`, `WasmSizeBudget`, `WasmBuildResult`
+- [x] CDN deploy targets: `CdnTarget` (S3/Cloudflare/Local) with Display
+- [x] Cache policies: `CachePolicy::defaults()` per extension
+- [x] Size budget checks: `check_core()`, `check_full_app()`
 - [ ] `type: wasm_bundle` resource for deploying presentar apps via forjar
 - [ ] S3 deployment with CloudFront invalidation via forjar resources
 - [ ] Bundle size drift detection (alert if WASM exceeds budget)
