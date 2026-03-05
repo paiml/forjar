@@ -34,6 +34,26 @@ pub struct UndoArgs {
     pub yes: bool,
 }
 
+/// FJ-2005: CLI arguments for `undo-destroy`.
+#[derive(clap::Args, Debug)]
+pub struct UndoDestroyArgs {
+    /// State directory
+    #[arg(long, default_value = "state")]
+    pub state_dir: PathBuf,
+
+    /// Target specific machine
+    #[arg(short, long)]
+    pub machine: Option<String>,
+
+    /// Force re-creation of irreversible resources
+    #[arg(long)]
+    pub force: bool,
+
+    /// Show what would be recreated without executing
+    #[arg(long)]
+    pub dry_run: bool,
+}
+
 /// CLI arguments for `state list`.
 #[derive(clap::Args, Debug)]
 pub struct StateListArgs {
