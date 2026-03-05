@@ -1307,3 +1307,25 @@ On partial destroy failure, only succeeded resource entries are removed from the
 - **Drift remediation**: When you want to re-converge everything regardless of planner state
 
 Without `--force`, the planner uses BLAKE3 hash comparison for O(1) idempotency checks. With `--force`, it treats every resource as needing re-application.
+
+## Active Undo
+
+`forjar undo` reverts to a previous generation by restoring lock files and re-applying. Unlike `rollback` (which reads config from git history), `undo` operates on the generation snapshots in `state/generations/`.
+
+```bash
+# Preview changes
+forjar undo --dry-run
+
+# Undo last apply
+forjar undo --yes
+
+# Undo last 3 generations
+forjar undo --generations 3 --yes
+```
+
+The undo process:
+1. Reads the target generation's lock files and metadata
+2. Computes a resource diff (creates, updates, destroys)
+3. In dry-run mode, prints the diff and exits
+4. In execution mode, restores lock files from the target generation
+5. Re-applies the current config with `--force` to converge
