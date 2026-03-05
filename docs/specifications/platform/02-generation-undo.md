@@ -293,7 +293,7 @@ Undo-destroy order: `nfs-server` (intel) → `nfs-mount` (jetson)
 - [x] Generation diff: `diff_resource_sets()` compares resource sets between gen N and gen N-K
 - [x] `forjar undo --dry-run`
 - [x] Active undo: config snapshot from target gen, re-run `cmd_apply` with force
-- [ ] Multi-machine coordination: phased execution with pre-flight SSH check
+- [x] Multi-machine coordination: phased execution with pre-flight SSH check
 - [x] Undo-resume: record progress, `--resume` picks up
 - **Extends**: `src/cli/destroy.rs:cmd_rollback`
 
