@@ -32,6 +32,42 @@ pub fn check_script(resource: &Resource) -> String {
     }
 }
 
+/// Generate the download command fragment based on source type.
+fn download_command(source: &str, path: &str, cache_dir: &str) -> String {
+    if source.starts_with("http://") || source.starts_with("https://") {
+        format!("curl -fSL -o '{}' '{}'\n", path, source)
+    } else if source.starts_with('/')
+        || source.starts_with("./")
+        || source.starts_with("~/")
+    {
+        format!("cp '{}' '{}'\n", source, path)
+    } else if source.contains('/') {
+        // HuggingFace repo ID — use apr pull with fallback to huggingface-cli
+        format!(
+            "if command -v apr >/dev/null 2>&1; then\n\
+             \x20 APR_OUT=$(apr pull '{source}' 2>&1)\n\
+             \x20 CACHED=$(echo \"$APR_OUT\" | sed 's/\\x1b\\[[0-9;]*m//g' | grep 'Path:' | head -1 | sed 's/.*Path: *//')\n\
+             \x20 if [ -n \"$CACHED\" ] && [ -f \"$CACHED\" ]; then\n\
+             \x20   ln -sf \"$CACHED\" '{path}'\n\
+             \x20 else\n\
+             \x20   echo \"ERROR: apr pull did not return a valid cached path\" >&2\n\
+             \x20   echo \"apr output: $APR_OUT\" >&2\n\
+             \x20   exit 1\n\
+             \x20 fi\n\
+             elif command -v huggingface-cli >/dev/null 2>&1; then\n\
+             \x20 huggingface-cli download '{source}' --local-dir '{cache_dir}'\n\
+             else\n\
+             \x20 echo 'ERROR: no download tool available (need apr or huggingface-cli)' >&2; exit 1\n\
+             fi\n",
+            source = source,
+            path = path,
+            cache_dir = cache_dir,
+        )
+    } else {
+        format!("cp '{}' '{}'\n", source, path)
+    }
+}
+
 /// Generate shell script to download/remove a model.
 pub fn apply_script(resource: &Resource) -> String {
     let name = resource.name.as_deref().unwrap_or("unknown");
@@ -47,14 +83,9 @@ pub fn apply_script(resource: &Resource) -> String {
         ),
         _ => {
             let mut script = String::from("set -euo pipefail\n");
-
-            // Ensure cargo-installed binaries (apr, huggingface-cli) are in PATH
             script.push_str("export PATH=\"$HOME/.cargo/bin:$PATH\"\n");
-
-            // Ensure cache directory exists
             script.push_str(&format!("mkdir -p '{}'\n", cache_dir));
 
-            // Ensure destination directory exists
             if let Some(parent) = std::path::Path::new(path).parent() {
                 if let Some(p) = parent.to_str() {
                     if !p.is_empty() {
@@ -63,45 +94,8 @@ pub fn apply_script(resource: &Resource) -> String {
                 }
             }
 
-            // Download model based on source type
-            if source.starts_with("http://") || source.starts_with("https://") {
-                script.push_str(&format!("curl -fSL -o '{}' '{}'\n", path, source));
-            } else if source.starts_with('/')
-                || source.starts_with("./")
-                || source.starts_with("~/")
-            {
-                // Local path — copy
-                script.push_str(&format!("cp '{}' '{}'\n", source, path));
-            } else if source.contains('/') {
-                // HuggingFace repo ID (e.g., "TheBloke/Llama-2-7B-GGUF")
-                // Use apr pull if available, fall back to huggingface-cli
-                // apr pull prints "Path: /path/to/cached/file" — parse it to find the cached model
-                script.push_str(&format!(
-                    "if command -v apr >/dev/null 2>&1; then\n\
-                     \x20 APR_OUT=$(apr pull '{source}' 2>&1)\n\
-                     \x20 CACHED=$(echo \"$APR_OUT\" | sed 's/\\x1b\\[[0-9;]*m//g' | grep 'Path:' | head -1 | sed 's/.*Path: *//')\n\
-                     \x20 if [ -n \"$CACHED\" ] && [ -f \"$CACHED\" ]; then\n\
-                     \x20   ln -sf \"$CACHED\" '{path}'\n\
-                     \x20 else\n\
-                     \x20   echo \"ERROR: apr pull did not return a valid cached path\" >&2\n\
-                     \x20   echo \"apr output: $APR_OUT\" >&2\n\
-                     \x20   exit 1\n\
-                     \x20 fi\n\
-                     elif command -v huggingface-cli >/dev/null 2>&1; then\n\
-                     \x20 huggingface-cli download '{source}' --local-dir '{cache_dir}'\n\
-                     else\n\
-                     \x20 echo 'ERROR: no download tool available (need apr or huggingface-cli)' >&2; exit 1\n\
-                     fi\n",
-                    source = source,
-                    path = path,
-                    cache_dir = cache_dir,
-                ));
-            } else {
-                // Bare name — assume local path
-                script.push_str(&format!("cp '{}' '{}'\n", source, path));
-            }
+            script.push_str(&download_command(source, path, cache_dir));
 
-            // Verify checksum if provided
             if let Some(ref checksum) = resource.checksum {
                 script.push_str(&format!(
                     "HASH=$(b3sum '{}' | cut -d' ' -f1)\n\
@@ -114,7 +108,6 @@ pub fn apply_script(resource: &Resource) -> String {
                 ));
             }
 
-            // Set ownership if specified
             if let Some(ref owner) = resource.owner {
                 script.push_str(&format!("chown '{}' '{}'\n", owner, path));
             }

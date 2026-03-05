@@ -26,14 +26,12 @@ fn resolve_list(
         .collect()
 }
 
-/// Resolve all templates in a resource's string fields.
-pub fn resolve_resource_templates(
-    resource: &Resource,
+/// Resolve core string fields (path, content, ownership, etc.).
+fn resolve_core_fields(
+    r: &mut Resource,
     params: &HashMap<String, serde_yaml_ng::Value>,
     machines: &indexmap::IndexMap<String, Machine>,
-) -> Result<Resource, String> {
-    let mut r = resource.clone();
-
+) -> Result<(), String> {
     r.content = resolve_opt(&r.content, params, machines)?;
     r.source = resolve_opt(&r.source, params, machines)?;
     r.path = resolve_opt(&r.path, params, machines)?;
@@ -54,7 +52,15 @@ pub fn resolve_resource_templates(
     r.home = resolve_opt(&r.home, params, machines)?;
     r.restart = resolve_opt(&r.restart, params, machines)?;
     r.version = resolve_opt(&r.version, params, machines)?;
+    Ok(())
+}
 
+/// Resolve GPU, task, and extended string fields.
+fn resolve_extended_fields(
+    r: &mut Resource,
+    params: &HashMap<String, serde_yaml_ng::Value>,
+    machines: &indexmap::IndexMap<String, Machine>,
+) -> Result<(), String> {
     // PMAT-039: GPU / ML model fields
     r.driver_version = resolve_opt(&r.driver_version, params, machines)?;
     r.cuda_version = resolve_opt(&r.cuda_version, params, machines)?;
@@ -68,6 +74,19 @@ pub fn resolve_resource_templates(
     r.pre_apply = resolve_opt(&r.pre_apply, params, machines)?;
     r.post_apply = resolve_opt(&r.post_apply, params, machines)?;
     r.script = resolve_opt(&r.script, params, machines)?;
+    Ok(())
+}
+
+/// Resolve all templates in a resource's string fields.
+pub fn resolve_resource_templates(
+    resource: &Resource,
+    params: &HashMap<String, serde_yaml_ng::Value>,
+    machines: &indexmap::IndexMap<String, Machine>,
+) -> Result<Resource, String> {
+    let mut r = resource.clone();
+
+    resolve_core_fields(&mut r, params, machines)?;
+    resolve_extended_fields(&mut r, params, machines)?;
 
     r.ports = resolve_list(&r.ports, params, machines)?;
     r.environment = resolve_list(&r.environment, params, machines)?;

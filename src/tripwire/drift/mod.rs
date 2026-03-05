@@ -189,12 +189,21 @@ pub fn detect_drift_full(
     resources: &indexmap::IndexMap<String, Resource>,
 ) -> Vec<DriftFinding> {
     let mut findings = detect_drift_with_lifecycle(lock, Some(machine), resources);
+    findings.extend(detect_nonfile_drift(lock, machine, resources));
+    findings
+}
 
+/// Check all non-file converged resources for drift via state_query_script.
+fn detect_nonfile_drift(
+    lock: &StateLock,
+    machine: &Machine,
+    resources: &indexmap::IndexMap<String, Resource>,
+) -> Vec<DriftFinding> {
+    let mut findings = Vec::new();
     for (id, rl) in &lock.resources {
         if rl.status != ResourceStatus::Converged || rl.resource_type == ResourceType::File {
             continue;
         }
-        // FJ-1220: skip resources with ignore_drift containing "*" or the resource type
         if should_ignore_drift(id, resources) {
             continue;
         }
@@ -210,7 +219,6 @@ pub fn detect_drift_full(
             findings.push(f);
         }
     }
-
     findings
 }
 

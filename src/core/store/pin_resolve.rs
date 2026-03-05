@@ -40,6 +40,40 @@ pub fn resolution_command(provider: &str, name: &str) -> Option<String> {
     }
 }
 
+/// Parse apt-cache policy output for the Candidate version.
+fn parse_apt_version(output: &str) -> Option<String> {
+    for line in output.lines() {
+        let line = line.trim();
+        if line.starts_with("Candidate:") {
+            return line
+                .strip_prefix("Candidate:")
+                .map(|v| v.trim().to_string());
+        }
+    }
+    None
+}
+
+/// Parse cargo search output: 'name = "version"   # ...'.
+fn parse_cargo_version(output: &str) -> Option<String> {
+    let first_line = output.lines().next()?;
+    let eq_pos = first_line.find('=')?;
+    let after_eq = first_line[eq_pos + 1..].trim();
+    let version = after_eq.trim_start_matches('"').split('"').next()?;
+    if version.is_empty() { None } else { Some(version.to_string()) }
+}
+
+/// Parse pip/uv "Available versions:" output, falling back to the first line.
+fn parse_pip_version(output: &str) -> Option<String> {
+    for line in output.lines() {
+        let line = line.trim();
+        if line.starts_with("Available versions:") {
+            let versions = line.strip_prefix("Available versions:")?;
+            return versions.split(',').next().map(|v| v.trim().to_string());
+        }
+    }
+    output.lines().next().map(|l| l.trim().to_string())
+}
+
 /// Parse a version from provider CLI output.
 ///
 /// Each provider has a different output format; this function extracts
@@ -51,55 +85,11 @@ pub fn parse_resolved_version(provider: &str, stdout: &str) -> Option<String> {
     }
 
     match provider {
-        "apt" => {
-            // apt-cache policy output: "  Candidate: 1.2.3-4ubuntu1"
-            for line in trimmed.lines() {
-                let line = line.trim();
-                if line.starts_with("Candidate:") {
-                    return line
-                        .strip_prefix("Candidate:")
-                        .map(|v| v.trim().to_string());
-                }
-            }
-            None
-        }
-        "cargo" => {
-            // cargo search output: 'ripgrep = "14.1.0"    # ...'
-            let first_line = trimmed.lines().next()?;
-            // Extract version from "name = \"version\""
-            let eq_pos = first_line.find('=')?;
-            let after_eq = first_line[eq_pos + 1..].trim();
-            let version = after_eq.trim_start_matches('"').split('"').next()?;
-            if version.is_empty() {
-                None
-            } else {
-                Some(version.to_string())
-            }
-        }
-        "nix" => {
-            // nix eval --raw outputs just the version string
-            Some(trimmed.to_string())
-        }
-        "uv" | "pip" => {
-            // pip index versions: "Available versions: 1.2.3, 1.2.2, ..."
-            for line in trimmed.lines() {
-                let line = line.trim();
-                if line.starts_with("Available versions:") {
-                    let versions = line.strip_prefix("Available versions:")?;
-                    return versions.split(',').next().map(|v| v.trim().to_string());
-                }
-            }
-            // Fallback: first line might be the version
-            trimmed.lines().next().map(|l| l.trim().to_string())
-        }
-        "docker" => {
-            // docker inspect outputs digest
-            Some(trimmed.to_string())
-        }
-        "apr" => {
-            // apr info --format version outputs version directly
-            Some(trimmed.lines().next()?.trim().to_string())
-        }
+        "apt" => parse_apt_version(trimmed),
+        "cargo" => parse_cargo_version(trimmed),
+        "nix" | "docker" => Some(trimmed.to_string()),
+        "uv" | "pip" => parse_pip_version(trimmed),
+        "apr" => Some(trimmed.lines().next()?.trim().to_string()),
         _ => None,
     }
 }

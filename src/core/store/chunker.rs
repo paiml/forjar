@@ -89,6 +89,23 @@ pub fn reassemble(chunks: &[ChunkData]) -> Vec<u8> {
 
 // --- internal helpers ---
 
+/// Hash a single file and return (relative_path, size, blake3_hex).
+fn hash_file_entry(base: &Path, path: &Path) -> Result<(String, u64, String), String> {
+    let rel = path
+        .strip_prefix(base)
+        .map_err(|e| format!("prefix: {e}"))?
+        .to_string_lossy()
+        .to_string();
+    let meta =
+        std::fs::metadata(path).map_err(|e| format!("metadata {}: {e}", path.display()))?;
+    let hash = blake3::hash(
+        &std::fs::read(path).map_err(|e| format!("read {}: {e}", path.display()))?,
+    )
+    .to_hex()
+    .to_string();
+    Ok((rel, meta.len(), hash))
+}
+
 fn walk_files(
     base: &Path,
     current: &Path,
@@ -105,20 +122,8 @@ fn walk_files(
             continue;
         }
         let path = entry.path();
-        let rel = path
-            .strip_prefix(base)
-            .map_err(|e| format!("prefix: {e}"))?
-            .to_string_lossy()
-            .to_string();
         if ft.is_file() {
-            let meta = std::fs::metadata(&path)
-                .map_err(|e| format!("metadata {}: {e}", path.display()))?;
-            let hash = blake3::hash(
-                &std::fs::read(&path).map_err(|e| format!("read {}: {e}", path.display()))?,
-            )
-            .to_hex()
-            .to_string();
-            entries.push((rel, meta.len(), hash));
+            entries.push(hash_file_entry(base, &path)?);
         } else if ft.is_dir() {
             walk_files(base, &path, entries)?;
         }

@@ -99,6 +99,15 @@ pub fn exec_script_timeout(
     }
 }
 
+/// Check if a machine uses SSH transport (not pepita, container, or local).
+fn is_ssh_transport(machine: &Machine) -> bool {
+    !machine.is_pepita_transport()
+        && !machine.is_container_transport()
+        && machine.addr != "127.0.0.1"
+        && machine.addr != "localhost"
+        && !is_local_addr(&machine.addr)
+}
+
 /// FJ-261: Execute a script with SSH retry on transient failures.
 /// `ssh_retries` is total attempt count (1 = no retry, 3 = up to 3 attempts).
 /// Retries only apply to SSH transport; local/container calls are not retried.
@@ -109,19 +118,12 @@ pub fn exec_script_retry(
     timeout_secs: Option<u64>,
     ssh_retries: u32,
 ) -> Result<ExecOutput, String> {
-    let is_ssh = !machine.is_pepita_transport()
-        && !machine.is_container_transport()
-        && machine.addr != "127.0.0.1"
-        && machine.addr != "localhost"
-        && !is_local_addr(&machine.addr);
-
-    // For non-SSH targets or retries disabled, just run once
+    let is_ssh = is_ssh_transport(machine);
     let max_attempts = if is_ssh { ssh_retries.clamp(1, 4) } else { 1 };
 
     let mut last_err = String::new();
     for attempt in 0..max_attempts {
         if attempt > 0 {
-            // Exponential backoff: 200ms × 2^(attempt-1) = 200ms, 400ms, 800ms
             let backoff_ms = 200u64 * (1u64 << (attempt - 1));
             std::thread::sleep(std::time::Duration::from_millis(backoff_ms));
             eprintln!(

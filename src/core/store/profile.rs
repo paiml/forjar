@@ -93,7 +93,7 @@ fn atomic_symlink_switch(profiles_dir: &Path, target_dir: &Path) -> Result<(), S
     let current_link = profiles_dir.join("current");
     let tmp_link = profiles_dir.join("current.tmp");
 
-    // Remove stale temp link if present
+    // Clear any leftover temp symlink from a prior interrupted switch
     let _ = std::fs::remove_file(&tmp_link);
 
     #[cfg(unix)]

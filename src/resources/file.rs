@@ -35,6 +35,42 @@ pub fn check_script(resource: &Resource) -> String {
     }
 }
 
+/// Append chown/chmod lines for the given resource ownership and mode.
+fn push_ownership_lines(lines: &mut Vec<String>, path: &str, resource: &Resource) {
+    if let Some(ref owner) = resource.owner {
+        if let Some(ref group) = resource.group {
+            lines.push(format!("chown '{}:{}' '{}'", owner, group, path));
+        } else {
+            lines.push(format!("chown '{}' '{}'", owner, path));
+        }
+    }
+    if let Some(ref mode) = resource.mode {
+        lines.push(format!("chmod '{}' '{}'", mode, path));
+    }
+}
+
+/// Generate the file-content write commands (source or inline content).
+fn push_file_content_lines(lines: &mut Vec<String>, path: &str, resource: &Resource) {
+    if let Some(ref source) = resource.source {
+        match source_file_base64(source) {
+            Ok(b64) => {
+                lines.push(format!("echo '{}' | base64 -d > '{}'", b64, path));
+            }
+            Err(e) => {
+                lines.push(format!(
+                    "echo 'ERROR: cannot read source file: {}'; exit 1",
+                    e
+                ));
+            }
+        }
+    } else if let Some(ref content) = resource.content {
+        lines.push(format!(
+            "cat > '{}' <<'FORJAR_EOF'\n{}\nFORJAR_EOF",
+            path, content
+        ));
+    }
+}
+
 /// Generate shell to converge file to desired state.
 pub fn apply_script(resource: &Resource) -> String {
     let path = resource.path.as_deref().unwrap_or("/dev/null");
@@ -45,16 +81,7 @@ pub fn apply_script(resource: &Resource) -> String {
     match state {
         "directory" => {
             lines.push(format!("mkdir -p '{}'", path));
-            if let Some(ref owner) = resource.owner {
-                if let Some(ref group) = resource.group {
-                    lines.push(format!("chown '{}:{}' '{}'", owner, group, path));
-                } else {
-                    lines.push(format!("chown '{}' '{}'", owner, path));
-                }
-            }
-            if let Some(ref mode) = resource.mode {
-                lines.push(format!("chmod '{}' '{}'", mode, path));
-            }
+            push_ownership_lines(&mut lines, path, resource);
         }
         "absent" => {
             lines.push(format!("rm -rf '{}'", path));
@@ -64,42 +91,13 @@ pub fn apply_script(resource: &Resource) -> String {
             lines.push(format!("ln -sfn '{}' '{}'", target, path));
         }
         "file" => {
-            // Regular file
             if let Some(parent) = std::path::Path::new(path).parent() {
                 if parent != std::path::Path::new("/") {
                     lines.push(format!("mkdir -p '{}'", parent.display()));
                 }
             }
-            if let Some(ref source) = resource.source {
-                // Read local file and base64-encode for safe transport
-                match source_file_base64(source) {
-                    Ok(b64) => {
-                        lines.push(format!("echo '{}' | base64 -d > '{}'", b64, path));
-                    }
-                    Err(e) => {
-                        lines.push(format!(
-                            "echo 'ERROR: cannot read source file: {}'; exit 1",
-                            e
-                        ));
-                    }
-                }
-            } else if let Some(ref content) = resource.content {
-                // Write content via heredoc (safe, no injection)
-                lines.push(format!(
-                    "cat > '{}' <<'FORJAR_EOF'\n{}\nFORJAR_EOF",
-                    path, content
-                ));
-            }
-            if let Some(ref owner) = resource.owner {
-                if let Some(ref group) = resource.group {
-                    lines.push(format!("chown '{}:{}' '{}'", owner, group, path));
-                } else {
-                    lines.push(format!("chown '{}' '{}'", owner, path));
-                }
-            }
-            if let Some(ref mode) = resource.mode {
-                lines.push(format!("chmod '{}' '{}'", mode, path));
-            }
+            push_file_content_lines(&mut lines, path, resource);
+            push_ownership_lines(&mut lines, path, resource);
         }
         other => {
             lines.push(format!("echo 'unsupported file state: {}'", other));

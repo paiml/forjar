@@ -43,6 +43,21 @@ pub fn read_conda(path: &Path, output_dir: &Path) -> Result<CondaPackageInfo, St
     }
 }
 
+/// Decompress a zip entry by name and return the raw tar bytes.
+fn decompress_zst_entry(
+    archive: &mut zip::ZipArchive<std::fs::File>,
+    name: &str,
+) -> Result<Vec<u8>, String> {
+    let mut entry = archive
+        .by_name(name)
+        .map_err(|e| format!("zip entry {name}: {e}"))?;
+    let mut compressed = Vec::new();
+    entry
+        .read_to_end(&mut compressed)
+        .map_err(|e| format!("read {name}: {e}"))?;
+    zstd::decode_all(compressed.as_slice()).map_err(|e| format!("zstd {name}: {e}"))
+}
+
 /// Read a modern `.conda` file (ZIP containing tar.zst members).
 pub fn read_conda_zip(path: &Path, output_dir: &Path) -> Result<CondaPackageInfo, String> {
     let file = std::fs::File::open(path).map_err(|e| format!("open {}: {e}", path.display()))?;
@@ -55,44 +70,60 @@ pub fn read_conda_zip(path: &Path, output_dir: &Path) -> Result<CondaPackageInfo
     let mut info: Option<CondaPackageInfo> = None;
     let mut all_files: Vec<CondaFileEntry> = Vec::new();
 
-    // First pass: find and extract tar.zst members
     let names: Vec<String> = (0..archive.len())
         .filter_map(|i| archive.by_index(i).ok().map(|f| f.name().to_string()))
         .collect();
 
     for name in &names {
         if name.starts_with("pkg-") && name.ends_with(".tar.zst") {
-            let mut entry = archive
-                .by_name(name)
-                .map_err(|e| format!("zip entry {name}: {e}"))?;
-            let mut compressed = Vec::new();
-            entry
-                .read_to_end(&mut compressed)
-                .map_err(|e| format!("read {name}: {e}"))?;
-            let decompressed =
-                zstd::decode_all(compressed.as_slice()).map_err(|e| format!("zstd {name}: {e}"))?;
-            let files = extract_tar_bytes(&decompressed, output_dir)?;
-            all_files.extend(files);
+            let decompressed = decompress_zst_entry(&mut archive, name)?;
+            all_files.extend(extract_tar_bytes(&decompressed, output_dir)?);
         } else if name.starts_with("info-") && name.ends_with(".tar.zst") {
-            let mut entry = archive
-                .by_name(name)
-                .map_err(|e| format!("zip entry {name}: {e}"))?;
-            let mut compressed = Vec::new();
-            entry
-                .read_to_end(&mut compressed)
-                .map_err(|e| format!("read {name}: {e}"))?;
-            let decompressed =
-                zstd::decode_all(compressed.as_slice()).map_err(|e| format!("zstd {name}: {e}"))?;
-            // Extract info tar and look for index.json
+            let decompressed = decompress_zst_entry(&mut archive, name)?;
             info = find_index_in_tar(&decompressed)?;
-            let files = extract_tar_bytes(&decompressed, output_dir)?;
-            all_files.extend(files);
+            all_files.extend(extract_tar_bytes(&decompressed, output_dir)?);
         }
     }
 
     let mut pkg = info.ok_or_else(|| "no index.json in conda package".to_string())?;
     pkg.files = all_files;
     Ok(pkg)
+}
+
+/// Process a single bz2 tar entry: extract to output_dir and optionally parse index.json.
+fn process_bz2_entry<R: std::io::Read>(
+    entry: &mut tar::Entry<R>,
+    output_dir: &Path,
+) -> Result<Option<(CondaFileEntry, Option<CondaPackageInfo>)>, String> {
+    let path_buf = entry
+        .path()
+        .map_err(|e| format!("entry path: {e}"))?
+        .to_path_buf();
+    let rel = path_buf.to_string_lossy().to_string();
+    let size = entry.size();
+
+    let dest = output_dir.join(&rel);
+    if let Some(parent) = dest.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| format!("mkdir {}: {e}", parent.display()))?;
+    }
+    if !entry.header().entry_type().is_file() {
+        return Ok(None);
+    }
+
+    let mut buf = Vec::with_capacity(size as usize);
+    entry
+        .read_to_end(&mut buf)
+        .map_err(|e| format!("read {rel}: {e}"))?;
+
+    let index_info = if rel == "info/index.json" {
+        Some(parse_conda_index(&String::from_utf8_lossy(&buf))?)
+    } else {
+        None
+    };
+
+    std::fs::write(&dest, &buf).map_err(|e| format!("write {}: {e}", dest.display()))?;
+    Ok(Some((CondaFileEntry { path: rel, size }, index_info)))
 }
 
 /// Read a legacy `.tar.bz2` conda package.
@@ -109,33 +140,11 @@ pub fn read_conda_bz2(path: &Path, output_dir: &Path) -> Result<CondaPackageInfo
 
     for entry in archive.entries().map_err(|e| format!("tar entries: {e}"))? {
         let mut entry = entry.map_err(|e| format!("tar entry: {e}"))?;
-        let path_buf = entry
-            .path()
-            .map_err(|e| format!("entry path: {e}"))?
-            .to_path_buf();
-        let rel = path_buf.to_string_lossy().to_string();
-        let size = entry.size();
-
-        // Extract file contents
-        let dest = output_dir.join(&rel);
-        if let Some(parent) = dest.parent() {
-            std::fs::create_dir_all(parent)
-                .map_err(|e| format!("mkdir {}: {e}", parent.display()))?;
-        }
-        if entry.header().entry_type().is_file() {
-            // Read all content first (needed for index.json parsing)
-            let mut buf = Vec::with_capacity(size as usize);
-            entry
-                .read_to_end(&mut buf)
-                .map_err(|e| format!("read {rel}: {e}"))?;
-
-            if rel == "info/index.json" {
-                let content = String::from_utf8_lossy(&buf);
-                info = Some(parse_conda_index(&content)?);
+        if let Some((file_entry, index_info)) = process_bz2_entry(&mut entry, output_dir)? {
+            if let Some(pkg_info) = index_info {
+                info = Some(pkg_info);
             }
-
-            std::fs::write(&dest, &buf).map_err(|e| format!("write {}: {e}", dest.display()))?;
-            files.push(CondaFileEntry { path: rel, size });
+            files.push(file_entry);
         }
     }
 
@@ -249,7 +258,7 @@ pub fn conda_to_far(conda_path: &Path, far_output: &Path) -> Result<FarManifest,
     let writer = std::io::BufWriter::new(file);
     encode_far(&manifest, &chunk_pairs, writer)?;
 
-    // Clean up temp dir
+    // Remove the extraction staging directory
     let _ = std::fs::remove_dir_all(&tmp);
 
     Ok(manifest)

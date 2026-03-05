@@ -36,7 +36,7 @@ pub fn save_lock(state_dir: &Path, lock: &StateLock) -> Result<(), String> {
 
     let yaml = serde_yaml_ng::to_string(lock).map_err(|e| format!("serialize error: {}", e))?;
 
-    // Atomic write: temp file + rename
+    // Write to temp file, then rename for crash-safe persistence
     let tmp_path = path.with_extension("lock.yaml.tmp");
     std::fs::write(&tmp_path, &yaml)
         .map_err(|e| format!("cannot write {}: {}", tmp_path.display(), e))?;

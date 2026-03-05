@@ -133,16 +133,10 @@ pub fn execute_sync(
     })
 }
 
-/// Diff all entries in a store directory that have provenance metadata.
-pub fn diff_all_entries(
-    store_dir: &Path,
-    machine: &Machine,
-    timeout_secs: Option<u64>,
-) -> Result<Vec<DiffExecResult>, String> {
+/// Collect store subdirectories that have diffable provenance metadata.
+fn collect_diffable_entries(store_dir: &Path) -> Result<Vec<StoreMeta>, String> {
     let entries = std::fs::read_dir(store_dir).map_err(|e| format!("read store dir: {e}"))?;
-
-    let mut results = Vec::new();
-
+    let mut metas = Vec::new();
     for entry in entries.flatten() {
         let path = entry.path();
         if !path.is_dir() {
@@ -152,17 +146,28 @@ pub fn diff_all_entries(
         if name.starts_with('.') {
             continue;
         }
-
         if let Ok(meta) = read_meta(&path) {
             if super::store_diff::has_diffable_provenance(&meta) {
-                match execute_diff(&meta, machine, store_dir, timeout_secs) {
-                    Ok(result) => results.push(result),
-                    Err(_) => continue,
-                }
+                metas.push(meta);
             }
         }
     }
+    Ok(metas)
+}
 
+/// Diff all entries in a store directory that have provenance metadata.
+pub fn diff_all_entries(
+    store_dir: &Path,
+    machine: &Machine,
+    timeout_secs: Option<u64>,
+) -> Result<Vec<DiffExecResult>, String> {
+    let metas = collect_diffable_entries(store_dir)?;
+    let mut results = Vec::new();
+    for meta in &metas {
+        if let Ok(result) = execute_diff(meta, machine, store_dir, timeout_secs) {
+            results.push(result);
+        }
+    }
     Ok(results)
 }
 
