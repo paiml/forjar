@@ -1,0 +1,45 @@
+# FJ-2607: Infrastructure mutation testing
+# Runs mutation tests to verify detection coverage
+name: mutation
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "mutants.toml"
+      - ".github/workflows/mutation.yml"
+  pull_request:
+    paths:
+      - "src/**"
+      - "mutants.toml"
+
+concurrency:
+  group: mutation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mutation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install cargo-mutants
+        run: cargo install cargo-mutants
+
+      - name: Run mutation tests
+        run: cargo mutants --timeout 120
+
+      - name: Upload mutation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-results
+          path: mutants.out/
+          retention-days: 14
+          if-no-files-found: ignore

@@ -278,7 +278,7 @@ Undo-destroy order: `nfs-server` (intel) → `nfs-mount` (jetson)
 - [x] `get_git_ref()` and `git_is_dirty()` helpers for config recovery
 - [x] Backward-compatible YAML parsing (old format still works)
 - [x] YAML roundtrip with skip_serializing_if for clean output
-- [ ] Wire `GenerationMeta` into `create_generation()` (replaces manual YAML)
+- [x] Wire `GenerationMeta` into `create_generation()` (replaces manual YAML) — enriches with git_ref, forjar_version via builder pattern
 - [ ] Populate SQLite `generations` table from `state/generations/` on ingest
 - [ ] Enrich `forjar generations` with resource count, delta, action type
 - [x] `forjar diff --generation 3 7`: `GenerationDiff`, `ResourceDiff`, `DiffAction`, `diff_resource_sets()`
@@ -301,7 +301,7 @@ Undo-destroy order: `nfs-server` (intel) → `nfs-mount` (jetson)
 - [x] `DestroyLogEntry` type with JSONL serialization for undo-destroy recovery
 - [x] Pre-destroy state recording: machine, resource_id, pre_hash, config_fragment, reliable_recreate
 - [ ] Extend `destroy_single_resource()` to write pre-state to `destroy-log.jsonl`
-- [ ] Fix `cleanup_state_files()` — only remove lock entries for succeeded resources
+- [x] Fix `cleanup_state_files()` — only remove lock entries for succeeded resources — `cleanup_succeeded_entries()` reads lock YAML, removes succeeded entries, preserves failed
 - [ ] `forjar undo-destroy` — replay from destroy-log.jsonl
 - [ ] Reversibility gate: skip irreversible, warn with `--force`
 - [ ] Round-trip test: `apply → destroy → undo-destroy → verify` (files with `content:`)

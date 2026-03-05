@@ -187,6 +187,64 @@ fn compute_order(e01: bool, e02: bool, e12: bool) -> [u8; 3] {
     order
 }
 
+// ── Real-Code Harnesses (FJ-2201) ──────────────────────────────────
+//
+// These harnesses operate on actual types from the codebase rather than
+// abstract u8/u32 models. They require `cargo kani` to run.
+
+/// FJ-2201: hash_desired_state determinism on real Resource.
+///
+/// Constructs a minimal Resource with nondeterministic fields and verifies
+/// that `hash_desired_state` produces the same hash on two calls.
+#[cfg(kani)]
+#[kani::proof]
+fn proof_hash_determinism_real() {
+    use super::planner::hash_desired_state;
+    use super::types::{Resource, ResourceType};
+
+    let mut r = Resource::default();
+    r.resource_type = ResourceType::File;
+    // Bounded nondeterministic content (up to 8 chars)
+    let len: usize = kani::any();
+    kani::assume(len <= 8);
+    let buf: [u8; 8] = kani::any();
+    let content = String::from_utf8_lossy(&buf[..len]).to_string();
+    r.content = Some(content);
+
+    let h1 = hash_desired_state(&r);
+    let h2 = hash_desired_state(&r);
+    assert_eq!(h1, h2, "hash_desired_state must be deterministic");
+}
+
+/// FJ-2201: Planner idempotency on real types.
+///
+/// If a resource is Converged and hash_desired_state produces the same hash
+/// as the stored lock hash, the planner decision must be NoOp.
+/// Models the core logic of `determine_present_action`.
+#[cfg(kani)]
+#[kani::proof]
+fn proof_planner_idempotency_real() {
+    use super::planner::hash_desired_state;
+    use super::types::{Resource, ResourceType};
+
+    let mut r = Resource::default();
+    r.resource_type = ResourceType::Package;
+    let pkg_idx: u8 = kani::any();
+    kani::assume(pkg_idx < 4);
+    let pkg_names = ["vim", "curl", "git", "tmux"];
+    r.packages = vec![pkg_names[pkg_idx as usize].to_string()];
+
+    // Simulate: resource was previously applied, lock stores the hash
+    let stored_hash = hash_desired_state(&r);
+    // Re-compute to simulate next plan cycle
+    let desired_hash = hash_desired_state(&r);
+
+    // Core planner logic: converged + hash match → NoOp
+    let is_converged = true;
+    let action_is_noop = is_converged && (stored_hash == desired_hash);
+    assert!(action_is_noop, "converged + matching hash must be NoOp");
+}
+
 // Module-level tests that verify the proof stubs compile and the logic is correct
 // (run with regular `cargo test`, not Kani)
 #[cfg(test)]

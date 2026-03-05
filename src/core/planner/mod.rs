@@ -188,6 +188,11 @@ fn determine_absent_action(
 }
 
 /// Determine action for a resource with a present/running/mounted state.
+///
+/// # Postcondition (FJ-2200)
+///
+/// If status is `Converged` and `rl.hash == hash_desired_state(resource)`,
+/// the result MUST be `NoOp`. This is the idempotency contract.
 fn determine_present_action(
     resource_id: &str,
     resource: &Resource,
@@ -208,11 +213,21 @@ fn determine_present_action(
     }
 
     let desired_hash = hash_desired_state(resource);
-    if rl.hash == desired_hash {
+    let result = if rl.hash == desired_hash {
         PlanAction::NoOp
     } else {
         PlanAction::Update
-    }
+    };
+
+    // FJ-2200: Idempotency postcondition — converged + matching hash → NoOp
+    debug_assert!(
+        rl.status != ResourceStatus::Converged
+            || rl.hash != desired_hash
+            || result == PlanAction::NoOp,
+        "idempotency violation: converged resource with matching hash must be NoOp"
+    );
+
+    result
 }
 
 /// Push an optional field's value onto the components list.
