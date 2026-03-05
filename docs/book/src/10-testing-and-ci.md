@@ -1372,3 +1372,34 @@ Log storage is bounded by configurable retention:
 | `keep_failed` | 50 | Failed runs kept regardless |
 | `max_log_size` | 10 MB | Per-log file truncation |
 | `max_total_size` | 500 MB | Total budget per machine |
+
+## Build Metrics & Size Regression (FJ-2403)
+
+Track binary sizes across releases and detect regressions automatically:
+
+```bash
+cargo run --example build_metrics
+```
+
+### BuildMetrics
+
+`BuildMetrics::current()` captures compile-time metadata: version, target triple, profile (debug/release), LTO status, and Rust toolchain version. After building, populate `binary_size` and `dependency_count` for tracking.
+
+### SizeThreshold
+
+`SizeThreshold` defines two limits:
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `max_bytes` | 10 MB | Absolute binary size limit |
+| `max_growth_pct` | 10% | Maximum growth from previous release |
+
+```rust
+let threshold = SizeThreshold::default();
+let violations = threshold.check(&current_build, Some(&previous_build));
+if !violations.is_empty() {
+    // Block release: binary size regressed
+}
+```
+
+Use in CI to fail the build when the binary grows beyond acceptable bounds.

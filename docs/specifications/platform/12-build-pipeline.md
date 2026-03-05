@@ -555,7 +555,11 @@ presentar (separate binary)
 
 ### Phase 22: Self-Build Hardening (FJ-2403)
 - [ ] Reproducible builds: `cargo build --locked` in CI
-- [ ] Binary size tracking per release (alert on >10% growth)
+- [x] Binary size tracking per release (`BuildMetrics`, `SizeThreshold` types)
+- [x] `BuildMetrics::current()` compile-time metric collection
+- [x] `SizeThreshold::check()` regression detection with absolute + growth limits
+- [x] `BuildMetrics::size_change_pct()` for release-over-release comparison
+- [x] `BuildMetrics::format_summary()` human-readable build report
 - [ ] MSRV CI enforcement
 - [ ] Feature flag matrix testing in CI
 - **Deliverable**: Every forjar release is reproducible and size-tracked
