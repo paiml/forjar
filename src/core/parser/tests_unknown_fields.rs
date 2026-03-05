@@ -137,10 +137,7 @@ resources:
     let unknowns = detect_unknown_fields(yaml).unwrap();
     assert_eq!(unknowns.len(), 1);
     assert_eq!(unknowns[0].key, "prevent_destory");
-    assert_eq!(
-        unknowns[0].suggestion.as_deref(),
-        Some("prevent_destroy")
-    );
+    assert_eq!(unknowns[0].suggestion.as_deref(), Some("prevent_destroy"));
 }
 
 #[test]
@@ -154,10 +151,7 @@ policy:
     let unknowns = detect_unknown_fields(yaml).unwrap();
     assert_eq!(unknowns.len(), 1);
     assert_eq!(unknowns[0].key, "parllel_machines");
-    assert_eq!(
-        unknowns[0].suggestion.as_deref(),
-        Some("parallel_machines")
-    );
+    assert_eq!(unknowns[0].suggestion.as_deref(), Some("parallel_machines"));
 }
 
 #[test]

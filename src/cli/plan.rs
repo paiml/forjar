@@ -10,7 +10,6 @@ use crate::tripwire::hasher;
 use std::path::Path;
 
 #[allow(clippy::too_many_arguments)]
-#[allow(clippy::too_many_arguments)]
 pub(crate) fn cmd_plan(
     file: &Path,
     state_dir: &Path,

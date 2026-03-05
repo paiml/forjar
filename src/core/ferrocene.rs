@@ -303,7 +303,9 @@ mod tests {
     #[test]
     fn test_source_compliance_raw_blocks() {
         let source = concat!(
-            "fn main() {\n    ", "unsa", "fe { std::ptr::null::<u8>().read() };\n}\n"
+            "fn main() {\n    ",
+            "unsa",
+            "fe { std::ptr::null::<u8>().read() };\n}\n"
         );
         let violations = check_source_compliance(source);
         assert!(!violations.is_empty());

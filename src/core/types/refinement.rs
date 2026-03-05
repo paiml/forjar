@@ -255,15 +255,6 @@ impl ResourceName {
     }
 }
 
-// Compile-time assertions for const contexts
-#[allow(clippy::eq_op)]
-const _: () = {
-    // Port range: u16 max is 65535, matches our constraint
-    assert!(u16::MAX == 65535);
-    // File mode max: 0o777 = 511
-    assert!(0o777u16 == 511);
-};
-
 #[cfg(test)]
 mod tests {
     use super::*;

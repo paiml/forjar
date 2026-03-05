@@ -187,11 +187,15 @@ impl Handler for LintHandler {
                 for d in &lint_result.diagnostics {
                     use bashrs::linter::Severity;
                     let prefix = match d.severity {
-                        Severity::Error => { error_count += 1; "ERROR" }
+                        Severity::Error => {
+                            error_count += 1;
+                            "ERROR"
+                        }
                         _ => "WARN",
                     };
                     warnings.push(format!(
-                        "[{prefix}] {id}.{kind}: [{}] {}", d.code, d.message
+                        "[{prefix}] {id}.{kind}: [{}] {}",
+                        d.code, d.message
                     ));
                 }
             }
