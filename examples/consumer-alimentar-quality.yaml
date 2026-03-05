@@ -1,0 +1,32 @@
+# FJ-2705: alimentar quality pipeline recipe
+# Demonstrates pipeline task mode for data quality scoring.
+name: alimentar-quality-pipeline
+machines:
+  data-server:
+    hostname: data-server
+    transport: local
+
+resources:
+  quality-pipeline:
+    type: task
+    task_mode: pipeline
+    stages:
+      - name: ingest
+        command: "alimentar ingest --source raw/ --output staging/"
+        inputs: ["raw/**/*.csv"]
+        outputs: ["staging/ingested.parquet"]
+        gate: true
+      - name: validate
+        command: "alimentar validate --input staging/ingested.parquet --rules rules.yaml"
+        inputs: ["staging/ingested.parquet", "rules.yaml"]
+        outputs: ["staging/validation-report.json"]
+        gate: true
+      - name: score
+        command: "alimentar score --input staging/validation-report.json"
+        inputs: ["staging/validation-report.json"]
+        outputs: ["output/quality-score.json"]
+    quality_gate:
+      parse: json
+      field: grade
+      threshold: ["A", "B"]
+      on_fail: block

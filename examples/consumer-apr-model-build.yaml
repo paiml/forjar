@@ -1,0 +1,36 @@
+# FJ-2705: apr-cli model build pipeline recipe
+# Demonstrates pipeline task mode for model compilation and packaging.
+name: apr-model-build
+machines:
+  build-server:
+    hostname: build-0
+    transport: local
+
+resources:
+  model-build:
+    type: task
+    task_mode: pipeline
+    stages:
+      - name: compile
+        command: "apr compile --model model.onnx --target cuda --output build/"
+        inputs: ["model.onnx", "apr.toml"]
+        outputs: ["build/model.engine"]
+        gate: true
+      - name: quantize
+        command: "apr quantize --input build/model.engine --bits 8 --output build/model-q8.engine"
+        inputs: ["build/model.engine"]
+        outputs: ["build/model-q8.engine"]
+      - name: benchmark
+        command: "apr bench --model build/model-q8.engine --iterations 100"
+        inputs: ["build/model-q8.engine"]
+        outputs: ["bench/results.json"]
+      - name: package
+        command: "apr package --model build/model-q8.engine --meta model-card.yaml --output dist/"
+        inputs: ["build/model-q8.engine", "model-card.yaml"]
+        outputs: ["dist/model.far"]
+        gate: true
+    quality_gate:
+      parse: json
+      field: p99_latency_ms
+      threshold: ["50"]
+      on_fail: warn

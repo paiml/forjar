@@ -1,0 +1,33 @@
+# FJ-2705: entrenar training job recipe
+# Demonstrates pipeline + GPU task mode for ML training.
+name: entrenar-training-job
+machines:
+  gpu-node:
+    hostname: gpu-0
+    transport: local
+
+resources:
+  training-pipeline:
+    type: task
+    task_mode: pipeline
+    gpu_device: 0
+    stages:
+      - name: prepare
+        command: "entrenar prepare --dataset data/ --output prepared/"
+        inputs: ["data/**/*.jsonl"]
+        outputs: ["prepared/train.bin", "prepared/eval.bin"]
+        gate: true
+      - name: train
+        command: "entrenar train --config train.yaml --data prepared/ --output checkpoints/"
+        inputs: ["prepared/train.bin", "train.yaml"]
+        outputs: ["checkpoints/final/model.safetensors"]
+        gate: true
+      - name: evaluate
+        command: "entrenar eval --model checkpoints/final/ --data prepared/eval.bin"
+        inputs: ["checkpoints/final/model.safetensors", "prepared/eval.bin"]
+        outputs: ["eval/metrics.json"]
+    quality_gate:
+      parse: json
+      field: accuracy
+      threshold: ["0.85"]
+      on_fail: warn

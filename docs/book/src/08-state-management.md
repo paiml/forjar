@@ -1227,3 +1227,61 @@ Diff: generation 5 → 8 (intel)
 Each resource is classified as added (`+`), modified (`~`), removed (`-`), or unchanged. Modified resources show old and new BLAKE3 hashes for auditing.
 
 Use `--json` for machine-readable output in CI pipelines.
+
+## Task State Model
+
+Task resources (`type: task`) use extended state tracking beyond simple converged/failed status. Each task mode stores different state:
+
+### Pipeline State
+
+Pipeline tasks track per-stage status in the lock file:
+
+| Field | Description |
+|-------|-------------|
+| `stages[].name` | Stage name |
+| `stages[].status` | `pending`, `running`, `passed`, `failed`, `skipped` |
+| `stages[].exit_code` | Command exit code |
+| `stages[].duration_ms` | Execution time |
+| `stages[].input_hash` | BLAKE3 hash of inputs (for cache skip) |
+| `last_completed` | Index of last passed stage |
+
+### Service State
+
+Long-running service tasks track health:
+
+| Field | Description |
+|-------|-------------|
+| `pid` | Process ID (if running) |
+| `healthy` | Last health check result |
+| `consecutive_failures` | Consecutive failed health checks |
+| `restart_count` | Total restarts since initial start |
+
+### Dispatch State
+
+Parameterized tasks track invocation history:
+
+| Field | Description |
+|-------|-------------|
+| `invocations[]` | Recent invocations with timestamp, exit_code, duration, caller |
+| `total_invocations` | Lifetime invocation count |
+
+### GPU Scheduling
+
+Multi-GPU tasks use `GpuSchedule` for device assignment:
+
+```
+CUDA_VISIBLE_DEVICES=0  train-a
+CUDA_VISIBLE_DEVICES=1  train-b
+CUDA_VISIBLE_DEVICES=0  train-c  (round-robin wraps)
+```
+
+### Barrier Tasks
+
+Cross-machine synchronization uses `BarrierTask`:
+
+```
+barrier/sync-training: waiting for gpu-1, gpu-2 (33%)
+barrier/sync-training: SATISFIED
+```
+
+All task state is stored in `state/<machine>/state.lock.yaml` under the task resource's `details` map, maintaining compatibility with the existing lock file schema.

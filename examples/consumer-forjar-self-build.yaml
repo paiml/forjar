@@ -1,0 +1,38 @@
+# FJ-2705: forjar self-build pipeline recipe
+# Demonstrates pipeline task mode for building forjar itself.
+name: forjar-self-build
+machines:
+  ci-runner:
+    hostname: ci-0
+    transport: local
+
+resources:
+  build-pipeline:
+    type: task
+    task_mode: pipeline
+    stages:
+      - name: lint
+        command: "cargo clippy -- -D warnings"
+        inputs: ["src/**/*.rs", "Cargo.toml"]
+        gate: true
+      - name: test
+        command: "cargo test"
+        inputs: ["src/**/*.rs", "tests/**/*.rs"]
+        gate: true
+      - name: coverage
+        command: "cargo llvm-cov --summary-only"
+        inputs: ["src/**/*.rs"]
+        outputs: ["target/llvm-cov/coverage.json"]
+      - name: build
+        command: "cargo build --release --locked"
+        inputs: ["src/**/*.rs", "Cargo.toml", "Cargo.lock"]
+        outputs: ["target/release/forjar"]
+        gate: true
+      - name: package
+        command: "tar czf dist/forjar-$(uname -m).tar.gz -C target/release forjar"
+        inputs: ["target/release/forjar"]
+        outputs: ["dist/forjar-*.tar.gz"]
+    quality_gate:
+      parse: exit_code
+      threshold: ["0"]
+      on_fail: block
