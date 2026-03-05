@@ -10,6 +10,7 @@ mod expansion;
 mod includes;
 mod policy;
 mod recipes;
+mod format_validation;
 mod resource_types;
 pub(crate) mod unknown_fields;
 mod validation;
@@ -121,6 +122,9 @@ pub fn validate_config(config: &ForjarConfig) -> Vec<ValidationError> {
     for (key, machine) in &config.machines {
         validation::validate_machine(key, machine, &mut errors);
     }
+
+    // FJ-2501: Format validation (mode, port, path, owner/group, addr)
+    errors.extend(format_validation::validate_formats(config));
 
     errors
 }
