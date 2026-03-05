@@ -304,7 +304,7 @@ resources:
 - [x] Layer compression enum: `Gzip`, `Zstd`, `None`
 - [x] Determinism level enum: `False`, `Network`, `Strict`, `True`
 - [ ] OCI layout writer, Docker compat `manifest.json`
-- [ ] `forjar oci pack <dir> --tag name:tag`
+- [x] `forjar oci pack <dir> --tag name:tag`
 
 ### Phase 8: Direct Layer Assembly (FJ-2102) — PARTIAL
 - [x] `OciLayerConfig` — compression, deterministic, epoch mtime, sort order

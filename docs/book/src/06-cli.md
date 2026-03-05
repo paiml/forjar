@@ -3842,3 +3842,36 @@ forjar test --group behavior     # Load .spec.yaml behavior specs
 forjar test --group mutation     # Show mutation operators and report
 forjar test --group convergence  # Report convergence property status
 ```
+
+### `forjar oci-pack`
+
+Pack a directory into an OCI image layout.
+
+```bash
+forjar oci-pack <DIR> --tag <NAME:TAG> [--output <DIR>] [--json]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `DIR` | required | Directory to pack |
+| `--tag` | required | Image tag (`name:tag`) |
+| `--output` | `oci-output` | Output directory for OCI layout |
+| `--json` | false | JSON output with manifest |
+
+### `forjar state-query`
+
+Query the state database (requires rusqlite for full support).
+
+```bash
+forjar state-query <QUERY> [--state-dir <DIR>] [--type <TYPE>] [--history] [--drift] [--json] [--csv]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `QUERY` | required | Search query (e.g., `"bash"`, `"nginx"`) |
+| `--state-dir` | `state` | State directory |
+| `--type` | all | Filter by resource type |
+| `--history` | false | Show resource history |
+| `--drift` | false | Show drift status |
+| `--json` | false | JSON output |
+| `--csv` | false | CSV output |
