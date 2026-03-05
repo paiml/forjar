@@ -25,6 +25,7 @@ mod tests {
             dry_expand: false,
             schema_version: None,
             exhaustive: false,
+            deep: false,
             policy_file: None,
             check_connectivity: false,
             check_templates: false,
@@ -167,6 +168,7 @@ mod tests {
             check_resource_provider_version_pinning: false,
             check_recipe_purity: false,
             check_reproducibility_score: false,
+            deny_unknown_fields: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { check_secrets, .. }) => assert!(check_secrets),
@@ -183,6 +185,7 @@ mod tests {
             dry_expand: false,
             schema_version: None,
             exhaustive: false,
+            deep: false,
             policy_file: None,
             check_connectivity: false,
             check_templates: false,
@@ -325,6 +328,7 @@ mod tests {
             check_resource_provider_version_pinning: false,
             check_recipe_purity: false,
             check_reproducibility_score: false,
+            deny_unknown_fields: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs {

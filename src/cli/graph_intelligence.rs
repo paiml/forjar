@@ -17,7 +17,7 @@ pub(crate) fn cmd_graph_resource_dependency_centrality_score(
     if json {
         let items: Vec<String> = scores
             .iter()
-            .map(|(n, s)| format!("{{\"resource\":\"{}\",\"centrality_score\":{:.3}}}", n, s))
+            .map(|(n, s)| format!("{{\"resource\":\"{n}\",\"centrality_score\":{s:.3}}}"))
             .collect();
         println!("{{\"centrality_scores\":[{}]}}", items.join(","));
     } else if scores.is_empty() {
@@ -25,7 +25,7 @@ pub(crate) fn cmd_graph_resource_dependency_centrality_score(
     } else {
         println!("Betweenness centrality scores:");
         for (n, s) in &scores {
-            println!("  {} — {:.3}", n, s);
+            println!("  {n} — {s:.3}");
         }
     }
     Ok(())
@@ -141,7 +141,7 @@ pub(crate) fn cmd_graph_resource_dependency_bridge_detection(
     if json {
         let items: Vec<String> = bridges
             .iter()
-            .map(|(a, b)| format!("{{\"from\":\"{}\",\"to\":\"{}\"}}", a, b))
+            .map(|(a, b)| format!("{{\"from\":\"{a}\",\"to\":\"{b}\"}}"))
             .collect();
         println!(
             "{{\"bridge_edges\":[{}],\"count\":{}}}",
@@ -153,7 +153,7 @@ pub(crate) fn cmd_graph_resource_dependency_bridge_detection(
     } else {
         println!("Bridge edges ({}):", bridges.len());
         for (a, b) in &bridges {
-            println!("  {} → {}", a, b);
+            println!("  {a} → {b}");
         }
     }
     Ok(())
@@ -244,12 +244,7 @@ pub(crate) fn cmd_graph_resource_dependency_cluster_coefficient(
     if json {
         let items: Vec<String> = coefficients
             .iter()
-            .map(|(n, c)| {
-                format!(
-                    "{{\"resource\":\"{}\",\"cluster_coefficient\":{:.3}}}",
-                    n, c
-                )
-            })
+            .map(|(n, c)| format!("{{\"resource\":\"{n}\",\"cluster_coefficient\":{c:.3}}}"))
             .collect();
         println!("{{\"cluster_coefficients\":[{}]}}", items.join(","));
     } else if coefficients.is_empty() {
@@ -257,7 +252,7 @@ pub(crate) fn cmd_graph_resource_dependency_cluster_coefficient(
     } else {
         println!("Clustering coefficients:");
         for (n, c) in &coefficients {
-            println!("  {} — {:.3}", n, c);
+            println!("  {n} — {c:.3}");
         }
     }
     Ok(())

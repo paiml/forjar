@@ -378,8 +378,7 @@ resources: {}
     let result = parse_and_validate(&dir.path().join("main.yaml"));
     assert!(
         result.is_ok(),
-        "should succeed with included machines: {:?}",
-        result
+        "should succeed with included machines: {result:?}"
     );
     let config = result.unwrap();
     assert!(config.machines.contains_key("web"));
@@ -420,8 +419,7 @@ resources:
     let result = parse_and_validate(&dir.path().join("main.yaml"));
     assert!(
         result.is_ok(),
-        "include without resources field should work: {:?}",
-        result
+        "include without resources field should work: {result:?}"
     );
     let config = result.unwrap();
     assert_eq!(

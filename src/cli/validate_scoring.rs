@@ -1,7 +1,5 @@
 //! Phase 107 — Resource Scoring & Quality Checks (FJ-1118, FJ-1121, FJ-1124).
 
-#![allow(dead_code)]
-
 use crate::core::types;
 use std::path::Path;
 
@@ -213,10 +211,7 @@ pub(crate) fn cmd_validate_check_resource_provider_version_pinning(
             })
         );
     } else {
-        println!(
-            "Provider version pinning: {}/{} resources have pinned versions",
-            pinned, total
-        );
+        println!("Provider version pinning: {pinned}/{total} resources have pinned versions");
     }
     Ok(())
 }

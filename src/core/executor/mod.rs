@@ -76,15 +76,23 @@ pub(crate) use strategies::{
 
 /// Configuration for an apply run.
 pub struct ApplyConfig<'a> {
+    /// Parsed forjar configuration.
     pub config: &'a ForjarConfig,
+    /// State directory for lock files.
     pub state_dir: &'a std::path::Path,
+    /// Force apply even if resources are converged.
     pub force: bool,
+    /// Dry-run mode (plan only, no execution).
     pub dry_run: bool,
+    /// Filter to a single machine.
     pub machine_filter: Option<&'a str>,
+    /// Filter to a single resource.
     pub resource_filter: Option<&'a str>,
+    /// Filter to resources with a specific tag.
     pub tag_filter: Option<&'a str>,
     /// FJ-281: Filter to resources in this group
     pub group_filter: Option<&'a str>,
+    /// Global timeout in seconds.
     pub timeout_secs: Option<u64>,
     /// FJ-266: Force-remove stale lock before apply
     pub force_unlock: bool,
@@ -100,6 +108,8 @@ pub struct ApplyConfig<'a> {
     pub rollback_on_failure: bool,
     /// FJ-313: Max concurrent resources per wave (None = unlimited)
     pub max_parallel: Option<usize>,
+    /// FJ-1397: Debug trace mode — print generated scripts before execution
+    pub trace: bool,
 }
 
 /// Load existing locks for machines matching the filter.
@@ -200,6 +210,7 @@ pub fn apply(cfg: &ApplyConfig) -> Result<Vec<ApplyResult>, String> {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
 
     let result = dispatch_apply(cfg, &target_machines, &localhost_machine, &plan, &mut locks);

@@ -10,7 +10,7 @@ forjar [OPTIONS] <COMMAND>
 
 | Flag | Description |
 |------|-------------|
-| `-v, --verbose` | Enable verbose output (diagnostic info to stderr) |
+| `-v, --verbose` | Increase verbosity (`-v` info, `-vv` debug, `-vvv` trace) |
 | `--no-color` | Disable colored output (also honors `NO_COLOR` env) |
 | `-h, --help` | Print help |
 | `-V, --version` | Print version |
@@ -42,21 +42,29 @@ forjar validate -f <FILE>
 | Flag | Default | Description |
 |------|---------|-------------|
 | `-f, --file` | `forjar.yaml` | Config file path |
+| `--strict` | off | Extended validation (machine refs, paths, deps, templates) |
+| `--deep` | off | Run all deep checks (templates, deps, overlaps, secrets, naming) |
+| `--exhaustive` | off | Cross-reference and param usage validation |
+| `--json` | off | Output as JSON |
+| `--deny-unknown-fields` | off | Reject configs with unknown YAML fields |
 
-Checks:
-- YAML parse validity
-- Version is "1.0"
-- Name is non-empty
-- Resources reference valid machines
-- Dependencies reference valid resources
+**Default checks** (always run):
+- YAML parse validity, unknown field warnings (FJ-2500)
+- Version is "1.0", name is non-empty
+- Resources reference valid machines and dependencies
 - No circular dependencies
-- File state is valid (file, directory, symlink, absent)
-- Service state is valid (running, stopped, enabled, disabled)
-- Mount state is valid (mounted, unmounted, absent)
-- Docker state is valid (running, stopped, absent)
-- Network protocol is valid (tcp, udp) and action is valid (allow, deny, reject)
-- Cron schedule has exactly 5 fields (min hour dom mon dow)
-- Symlink resources have a target field
+- Type-specific required fields and valid states
+- Format validation: mode, port, path, owner/group, addr (FJ-2501)
+
+**Deep checks** (`--deep`):
+- Template variable resolution (`--check-templates`)
+- Circular dependency detection (`--check-circular-deps`)
+- Resource overlap detection (`--check-overlaps`)
+- Hardcoded secret scan (`--check-secrets`)
+- Naming convention enforcement (`--check-naming`)
+- Drift coverage verification (`--check-drift-coverage`)
+- Idempotency verification (`--check-idempotency`)
+- Exhaustive cross-reference validation
 
 **Extended validation checks:**
 
@@ -1434,13 +1442,16 @@ If bashrs reports Error-severity diagnostics (as opposed to warnings), those are
 
 ## Exit Code Reference
 
-Forjar uses a minimal set of exit codes. The main binary (`src/main.rs`) dispatches to command handlers; if any handler returns `Err`, the process exits with code 1. Success always returns code 0. The `drift` command with `--tripwire` uses code 2 to signal drift detection without implying an error in the tool itself.
+Forjar uses structured exit codes to distinguish error categories. The main binary classifies errors and returns the appropriate code.
 
-| Code | Meaning | Commands |
-|------|---------|----------|
-| 0 | Success: operation completed without errors or findings | All commands |
-| 1 | Error: validation failure, apply failure, parse error, I/O error, or unformatted file (`fmt --check`) | All commands |
-| 2 | Drift detected: live state does not match lock file (not an error in forjar itself) | `drift --tripwire` |
+| Code | Meaning | Example |
+|------|---------|---------|
+| 0 | Success — all resources converged | `apply`, `validate`, `plan` |
+| 1 | General error | Unexpected failures, I/O errors |
+| 2 | Partial failure — some resources failed | `apply` with mixed results |
+| 3 | Configuration error — invalid YAML or missing fields | `validate`, `plan` |
+| 4 | Connection error — SSH or container transport | `apply`, `drift` |
+| 10 | Drift detected — non-zero diff | `drift --tripwire` |
 
 ### Per-Command Details
 
@@ -3708,3 +3719,36 @@ forjar watch -f forjar.yaml --apply --yes
 ```
 
 Both `--apply` and `--yes` are required for auto-apply. Passing `--apply` alone will error, preventing accidental unattended applies.
+
+### `forjar logs`
+
+View run logs by machine, run ID, resource, or failure filter.
+
+```bash
+forjar logs [OPTIONS]
+```
+
+| Flag | Description |
+|------|-------------|
+| `--machine <NAME>` | Filter by machine name |
+| `--run <RUN_ID>` | Filter by run ID |
+| `--resource <ID>` | Filter by resource ID |
+| `--failed` | Show only failed actions |
+| `--follow` | Live streaming during apply |
+| `--since <DURATION>` | Time range (e.g., "7d", "24h") |
+| `--limit <N>` | Maximum entries to show |
+| `--gc` | Garbage collect old runs |
+| `--json` | Structured JSON output with `log_path` |
+
+Run logs are stored at `state/<machine>/runs/<run_id>/` with one `.log` file per resource action. Each log file contains delimited sections: SCRIPT, STDOUT, STDERR, and RESULT.
+
+**Verbosity levels:**
+
+| Flag | Level | Shows |
+|------|-------|-------|
+| (none) | Normal | Summary only |
+| `-v` | Verbose | Per-resource status |
+| `-vv` | Very Verbose | Script content and exit codes |
+| `-vvv` | Trace | Raw stdout/stderr streamed in real-time |
+
+**Log truncation:** Oversized logs (>16KB by default) keep the first 8KB + last 8KB with a truncation marker, preserving both the setup and error sections.

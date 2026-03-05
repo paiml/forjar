@@ -9,8 +9,7 @@ pub fn check_script(resource: &Resource) -> String {
     let name = resource.name.as_deref().unwrap_or("unknown");
     let user = resource.owner.as_deref().unwrap_or("root");
     format!(
-        "crontab -u '{}' -l 2>/dev/null | grep -qF '# forjar:{}' && echo 'exists:{}' || echo 'missing:{}'",
-        user, name, name, name
+        "crontab -u '{user}' -l 2>/dev/null | grep -qF '# forjar:{name}' && echo 'exists:{name}' || echo 'missing:{name}'"
     )
 }
 
@@ -25,9 +24,8 @@ pub fn apply_script(resource: &Resource) -> String {
             "set -euo pipefail\n\
              SUDO=\"\"\n\
              [ \"$(id -u)\" -ne 0 ] && SUDO=\"sudo\"\n\
-             EXISTING=$($SUDO crontab -u '{}' -l 2>/dev/null || true)\n\
-             echo \"$EXISTING\" | grep -v '# forjar:{}' | grep -v '# forjar-cmd:{}' | $SUDO crontab -u '{}' -",
-            user, name, name, user
+             EXISTING=$($SUDO crontab -u '{user}' -l 2>/dev/null || true)\n\
+             echo \"$EXISTING\" | grep -v '# forjar:{name}' | grep -v '# forjar-cmd:{name}' | $SUDO crontab -u '{user}' -"
         ),
         _ => {
             let schedule = resource.schedule.as_deref().unwrap_or("* * * * *");
@@ -37,14 +35,13 @@ pub fn apply_script(resource: &Resource) -> String {
                 "set -euo pipefail\n\
                  SUDO=\"\"\n\
                  [ \"$(id -u)\" -ne 0 ] && SUDO=\"sudo\"\n\
-                 EXISTING=$($SUDO crontab -u '{}' -l 2>/dev/null | grep -v '# forjar:{}' | grep -v '# forjar-cmd:{}' || true)\n\
+                 EXISTING=$($SUDO crontab -u '{user}' -l 2>/dev/null | grep -v '# forjar:{name}' | grep -v '# forjar-cmd:{name}' || true)\n\
                  {{\n\
                    echo \"$EXISTING\"\n\
-                   echo '# forjar:{}'\n\
-                   echo '# forjar-cmd:{}'  \n\
-                   echo '{} {}'\n\
-                 }} | $SUDO crontab -u '{}' -",
-                user, name, name, name, name, schedule, command, user
+                   echo '# forjar:{name}'\n\
+                   echo '# forjar-cmd:{name}'  \n\
+                   echo '{schedule} {command}'\n\
+                 }} | $SUDO crontab -u '{user}' -"
             )
         }
     }
@@ -55,8 +52,7 @@ pub fn state_query_script(resource: &Resource) -> String {
     let name = resource.name.as_deref().unwrap_or("unknown");
     let user = resource.owner.as_deref().unwrap_or("root");
     format!(
-        "crontab -u '{}' -l 2>/dev/null | grep -A1 '# forjar:{}' || echo 'cron=MISSING:{}'",
-        user, name, name
+        "crontab -u '{user}' -l 2>/dev/null | grep -A1 '# forjar:{name}' || echo 'cron=MISSING:{name}'"
     )
 }
 
@@ -139,11 +135,20 @@ mod tests {
             completion_check: None,
             timeout: None,
             working_dir: None,
+        task_mode: None,
+        task_inputs: vec![],
+        stages: vec![],
+        cache: false,
+        gpu_device: None,
+        restart_delay: None,
             pre_apply: None,
             post_apply: None,
             lifecycle: None,
             store: false,
+            sudo: false,
             script: None,
+            gather: vec![],
+            scatter: vec![],
         }
     }
 

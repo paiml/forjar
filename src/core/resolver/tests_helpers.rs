@@ -85,11 +85,20 @@ pub(super) fn dag_config(names: &[&str], edges: &[(&str, &str)]) -> ForjarConfig
                 completion_check: None,
                 timeout: None,
                 working_dir: None,
+        task_mode: None,
+        task_inputs: vec![],
+        stages: vec![],
+        cache: false,
+        gpu_device: None,
+        restart_delay: None,
                 pre_apply: None,
                 post_apply: None,
                 lifecycle: None,
                 store: false,
+                sudo: false,
                 script: None,
+                gather: vec![],
+                scatter: vec![],
             },
         );
     }
@@ -107,6 +116,7 @@ pub(super) fn dag_config(names: &[&str], edges: &[(&str, &str)]) -> ForjarConfig
             container: None,
             pepita: None,
             cost: 0,
+            allowed_operators: vec![],
         },
     );
     ForjarConfig {
@@ -121,8 +131,10 @@ pub(super) fn dag_config(names: &[&str], edges: &[(&str, &str)]) -> ForjarConfig
         policies: vec![],
         data: indexmap::IndexMap::new(),
         includes: vec![],
+            include_provenance: HashMap::new(),
         checks: indexmap::IndexMap::new(),
         moved: vec![],
+            secrets: Default::default(),
     }
 }
 
@@ -207,10 +219,19 @@ pub(super) fn make_base_resource() -> Resource {
         completion_check: None,
         timeout: None,
         working_dir: None,
+        task_mode: None,
+        task_inputs: vec![],
+        stages: vec![],
+        cache: false,
+        gpu_device: None,
+        restart_delay: None,
         pre_apply: None,
         post_apply: None,
         lifecycle: None,
         store: false,
+        sudo: false,
         script: None,
+        gather: vec![],
+        scatter: vec![],
     }
 }

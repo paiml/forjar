@@ -140,7 +140,7 @@ fn print_test_json(
     });
     println!(
         "{}",
-        serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {}", e))?
+        serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {e}"))?
     );
     Ok(())
 }
@@ -247,7 +247,7 @@ pub(crate) fn cmd_test(
     }
 
     if total_fail > 0 {
-        Err(format!("{} test(s) failed", total_fail))
+        Err(format!("{total_fail} test(s) failed"))
     } else {
         Ok(())
     }

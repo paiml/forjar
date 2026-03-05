@@ -70,17 +70,14 @@ pub(crate) fn print_resource_limits_text(
     limit: usize,
 ) {
     if violations.is_empty() {
-        println!(
-            "Resource limits check passed (limit: {} per machine)",
-            limit
-        );
+        println!("Resource limits check passed (limit: {limit} per machine)");
         for (machine, count) in counts {
-            println!("  {} — {} resources", machine, count);
+            println!("  {machine} — {count} resources");
         }
     } else {
         println!("Resource limit violations:");
         for (machine, count) in violations {
-            println!("  {} — {} resources (limit: {})", machine, count, limit);
+            println!("  {machine} — {count} resources (limit: {limit})");
         }
     }
 }
@@ -105,7 +102,7 @@ pub(crate) fn cmd_validate_check_unused(file: &Path, json: bool) -> Result<(), S
     unused.sort();
 
     if json {
-        let items: Vec<String> = unused.iter().map(|u| format!(r#""{}""#, u)).collect();
+        let items: Vec<String> = unused.iter().map(|u| format!(r#""{u}""#)).collect();
         println!(
             r#"{{"unused":[{}],"count":{}}}"#,
             items.join(","),
@@ -116,7 +113,7 @@ pub(crate) fn cmd_validate_check_unused(file: &Path, json: bool) -> Result<(), S
     } else {
         println!("Unused resources ({}):", unused.len());
         for u in &unused {
-            println!("  {}", u);
+            println!("  {u}");
         }
     }
     Ok(())
@@ -141,7 +138,7 @@ pub(crate) fn cmd_validate_check_dependencies(file: &Path, json: bool) -> Result
     if json {
         let items: Vec<String> = issues
             .iter()
-            .map(|(r, d)| format!(r#"{{"resource":"{}","missing":"{}"}}"#, r, d))
+            .map(|(r, d)| format!(r#"{{"resource":"{r}","missing":"{d}"}}"#))
             .collect();
         println!(
             r#"{{"dependency_issues":[{}],"count":{}}}"#,
@@ -153,7 +150,7 @@ pub(crate) fn cmd_validate_check_dependencies(file: &Path, json: bool) -> Result
     } else {
         println!("Dependency issues found ({}):", issues.len());
         for (r, d) in &issues {
-            println!("  {} -> {} (missing)", r, d);
+            println!("  {r} -> {d} (missing)");
         }
     }
     Ok(())
@@ -170,7 +167,7 @@ fn check_resource_permissions(
             if let Some(last) = mode.chars().last() {
                 let val = last.to_digit(8).unwrap_or(0);
                 if val & 2 != 0 {
-                    issues.push((rname.to_string(), format!("world-writable mode: {}", mode)));
+                    issues.push((rname.to_string(), format!("world-writable mode: {mode}")));
                 }
             }
         }
@@ -193,7 +190,7 @@ fn check_root_on_nonsystem_path(
                 {
                     issues.push((
                         rname.to_string(),
-                        format!("root ownership on non-system path: {}", path),
+                        format!("root ownership on non-system path: {path}"),
                     ));
                 }
             }
@@ -213,7 +210,7 @@ pub(crate) fn cmd_validate_check_permissions(file: &Path, json: bool) -> Result<
     if json {
         let items: Vec<String> = issues
             .iter()
-            .map(|(r, msg)| format!(r#"{{"resource":"{}","issue":"{}"}}"#, r, msg))
+            .map(|(r, msg)| format!(r#"{{"resource":"{r}","issue":"{msg}"}}"#))
             .collect();
         println!(
             r#"{{"permission_issues":[{}],"count":{}}}"#,
@@ -225,7 +222,7 @@ pub(crate) fn cmd_validate_check_permissions(file: &Path, json: bool) -> Result<
     } else {
         println!("Permission issues found ({}):", issues.len());
         for (r, msg) in &issues {
-            println!("  {} — {}", r, msg);
+            println!("  {r} — {msg}");
         }
     }
     Ok(())
@@ -257,7 +254,7 @@ pub(crate) fn cmd_validate_check_machine_reachability(
     if json {
         let items: Vec<String> = unreachable
             .iter()
-            .map(|(m, a)| format!(r#"{{"machine":"{}","addr":"{}"}}"#, m, a))
+            .map(|(m, a)| format!(r#"{{"machine":"{m}","addr":"{a}"}}"#))
             .collect();
         println!(
             r#"{{"reachable":{},"unreachable":[{}],"count":{}}}"#,
@@ -266,7 +263,7 @@ pub(crate) fn cmd_validate_check_machine_reachability(
             unreachable.len()
         );
     } else if unreachable.is_empty() {
-        println!("All {} machines appear reachable", reachable);
+        println!("All {reachable} machines appear reachable");
     } else {
         println!(
             "Machine reachability ({} ok, {} suspect):",
@@ -274,7 +271,7 @@ pub(crate) fn cmd_validate_check_machine_reachability(
             unreachable.len()
         );
         for (m, a) in &unreachable {
-            println!("  {} — invalid addr: {}", m, a);
+            println!("  {m} — invalid addr: {a}");
         }
     }
     Ok(())
@@ -282,9 +279,9 @@ pub(crate) fn cmd_validate_check_machine_reachability(
 
 /// FJ-661: Validate owner consistency across resources
 pub(crate) fn cmd_validate_check_owner_consistency(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
     let config: crate::core::types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
 
     let mut machine_owners: std::collections::HashMap<String, Vec<(String, String)>> =
         std::collections::HashMap::new();
@@ -328,7 +325,7 @@ pub(crate) fn cmd_validate_check_owner_consistency(file: &Path, json: bool) -> R
     } else {
         println!("Owner inconsistencies ({}):", inconsistencies.len());
         for inc in &inconsistencies {
-            println!("  - {}", inc);
+            println!("  - {inc}");
         }
     }
     Ok(())
@@ -336,9 +333,9 @@ pub(crate) fn cmd_validate_check_owner_consistency(file: &Path, json: bool) -> R
 
 /// FJ-681: Validate service dependency chains
 pub(crate) fn cmd_validate_check_service_deps(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
     let config: crate::core::types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
 
     let resource_names: std::collections::HashSet<String> =
         config.resources.keys().cloned().collect();
@@ -348,8 +345,7 @@ pub(crate) fn cmd_validate_check_service_deps(file: &Path, json: bool) -> Result
         for dep in &resource.depends_on {
             if !resource_names.contains(dep) {
                 missing_deps.push(format!(
-                    "Resource '{}' depends on '{}' which does not exist",
-                    name, dep
+                    "Resource '{name}' depends on '{dep}' which does not exist"
                 ));
             }
         }
@@ -369,7 +365,7 @@ pub(crate) fn cmd_validate_check_service_deps(file: &Path, json: bool) -> Result
     } else {
         println!("Missing dependencies ({}):", missing_deps.len());
         for d in &missing_deps {
-            println!("  - {}", d);
+            println!("  - {d}");
         }
     }
     Ok(())

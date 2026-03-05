@@ -66,7 +66,7 @@ resources:
         let default = input
             .default
             .as_ref()
-            .map(|v| format!(" (default: {:?})", v))
+            .map(|v| format!(" (default: {v:?})"))
             .unwrap_or_default();
         println!("  {}: {}{}", name, input.input_type, default);
     }
@@ -88,7 +88,7 @@ resources:
     let resolved = recipe::validate_inputs(meta, &user_inputs).expect("Validation failed");
     println!("\nResolved inputs:");
     for (k, v) in &resolved {
-        println!("  {} = {}", k, v);
+        println!("  {k} = {v}");
     }
 
     // 4. Expand into namespaced resources
@@ -112,7 +112,7 @@ resources:
             println!("    depends_on: {:?}", resource.depends_on);
         }
         if let Some(ref path) = resource.path {
-            println!("    path: {}", path);
+            println!("    path: {path}");
         }
     }
 }

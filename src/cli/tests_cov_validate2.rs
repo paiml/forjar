@@ -1,7 +1,5 @@
+#![allow(unused)]
 //! Tests: Coverage for validate_core, validate_resources, lock_repair, lock_core, lock_audit, history, diff_cmd.
-
-#![allow(unused_imports)]
-#![allow(dead_code)]
 use super::diff_cmd::*;
 use super::history::*;
 use super::lock_audit::*;
@@ -201,7 +199,7 @@ mod tests {
         // Nested structure: {machine}/state.lock.yaml (for discover_machines)
         write_yaml(dir.path(), "web/state.lock.yaml", state_lock_yaml());
         // Flat structure: {machine}.lock.yaml (for lock_repair / lock_normalize)
-        write_yaml(dir.path(), "web.lock.yaml", state_lock_yaml());
+        write_yaml(dir.path(), "web/state.lock.yaml", state_lock_yaml());
         dir
     }
 
@@ -209,7 +207,7 @@ mod tests {
     fn make_state_dir_corrupted() -> tempfile::TempDir {
         let dir = tempfile::tempdir().unwrap();
         write_yaml(dir.path(), "web/state.lock.yaml", state_lock_yaml());
-        write_yaml(dir.path(), "web.lock.yaml", "NOT VALID YAML: {{{{");
+        write_yaml(dir.path(), "web/state.lock.yaml", "NOT VALID YAML: {{{{");
         dir
     }
 
@@ -232,7 +230,7 @@ mod tests {
     fn make_state_dir_with_snapshots() -> tempfile::TempDir {
         let dir = tempfile::tempdir().unwrap();
         write_yaml(dir.path(), "web/state.lock.yaml", state_lock_yaml());
-        write_yaml(dir.path(), "web.lock.yaml", state_lock_yaml());
+        write_yaml(dir.path(), "web/state.lock.yaml", state_lock_yaml());
         write_yaml(dir.path(), "snapshots/2026-02-01.yaml", state_lock_yaml());
         write_yaml(dir.path(), "snapshots/2026-02-15.yaml", state_lock_yaml());
         dir

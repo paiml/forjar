@@ -63,7 +63,7 @@ fn print_fan_in_hotspots_json(hotspots: &[FanInEntry]) {
     let items: Vec<String> = hotspots
         .iter()
         .map(|e| {
-            let deps: Vec<String> = e.dependents.iter().map(|d| format!("\"{}\"", d)).collect();
+            let deps: Vec<String> = e.dependents.iter().map(|d| format!("\"{d}\"")).collect();
             format!(
                 "{{\"resource\":\"{}\",\"fan_in\":{},\"dependents\":[{}]}}",
                 e.resource,

@@ -50,6 +50,7 @@ policy:
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
+        trace: false,
     };
     let results = apply(&cfg).unwrap();
     // At least one resource should converge even if one fails
@@ -138,11 +139,20 @@ fn test_fj131_record_success_no_live_hash_for_package() {
         completion_check: None,
         timeout: None,
         working_dir: None,
+        task_mode: None,
+        task_inputs: vec![],
+        stages: vec![],
+        cache: false,
+        gpu_device: None,
+        restart_delay: None,
         pre_apply: None,
         post_apply: None,
         lifecycle: None,
         store: false,
+        sudo: false,
         script: None,
+        gather: vec![],
+        scatter: vec![],
     };
     let mut ctx = RecordCtx {
         lock: &mut lock,
@@ -193,6 +203,7 @@ fn test_fj131_apply_dry_run_returns_unchanged_count() {
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
+        trace: false,
     };
     apply(&cfg).unwrap();
 
@@ -214,6 +225,7 @@ fn test_fj131_apply_dry_run_returns_unchanged_count() {
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
+        trace: false,
     };
     let results = apply(&cfg2).unwrap();
     assert_eq!(results[0].machine, "dry-run");

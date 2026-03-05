@@ -14,7 +14,7 @@ mod tests {
             json: true,
             limit: 20,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -23,7 +23,7 @@ mod tests {
             state_dir: PathBuf::from("s"),
             json: false,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -32,7 +32,7 @@ mod tests {
             state_dir: PathBuf::from("s"),
             json: true,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -42,7 +42,7 @@ mod tests {
             name: Some("snap1".to_string()),
             json: false,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -51,7 +51,7 @@ mod tests {
             state_dir: PathBuf::from("s"),
             json: true,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -62,7 +62,7 @@ mod tests {
             value: "prod".to_string(),
             json: false,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -72,7 +72,7 @@ mod tests {
             from_version: "1.0".to_string(),
             json: false,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     // ── misc_args.rs (47 uncov) ──
@@ -82,7 +82,7 @@ mod tests {
         let a = InitArgs {
             path: PathBuf::from("."),
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -99,7 +99,7 @@ mod tests {
             env_file: None,
             workspace: None,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -112,7 +112,7 @@ mod tests {
             since: None,
             resource: None,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -123,7 +123,7 @@ mod tests {
             yes: false,
             state_dir: PathBuf::from("s"),
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -135,7 +135,7 @@ mod tests {
             output: PathBuf::from("f.yaml"),
             scan: vec!["packages".to_string()],
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -145,7 +145,7 @@ mod tests {
             resource: None,
             json: false,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -157,7 +157,7 @@ mod tests {
             tag: None,
             json: false,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -169,7 +169,7 @@ mod tests {
             resource: None,
             json: false,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -178,7 +178,7 @@ mod tests {
             file: PathBuf::from("f.yaml"),
             check: false,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -189,8 +189,9 @@ mod tests {
             strict: false,
             fix: false,
             rules: None,
+            bashrs_version: false,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -198,11 +199,13 @@ mod tests {
         let a = RollbackArgs {
             file: PathBuf::from("f.yaml"),
             revision: 1,
+            generation: None,
             machine: None,
             dry_run: false,
+            yes: false,
             state_dir: PathBuf::from("s"),
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -213,7 +216,7 @@ mod tests {
             min_events: 3,
             json: false,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -223,7 +226,7 @@ mod tests {
             machine: None,
             json: false,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -232,13 +235,13 @@ mod tests {
             file: PathBuf::from("f.yaml"),
             output: None,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
     fn test_cov_mcp_args_construct() {
         let a = McpArgs { schema: false };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -247,7 +250,7 @@ mod tests {
             iterations: 1000,
             json: false,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -257,7 +260,7 @@ mod tests {
             key: None,
             json: false,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 
     #[test]
@@ -266,6 +269,6 @@ mod tests {
             file: PathBuf::from("f.yaml"),
             json: false,
         };
-        let _ = format!("{:?}", a);
+        let _ = format!("{a:?}");
     }
 }

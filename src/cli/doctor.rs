@@ -65,7 +65,7 @@ fn check_bash() -> DoctorCheck {
                     DoctorCheck {
                         name: "bash".to_string(),
                         status: DoctorStatus::Fail,
-                        detail: format!("bash {} (need >= 4.0)", major),
+                        detail: format!("bash {major} (need >= 4.0)"),
                     }
                 }
             } else {
@@ -119,12 +119,21 @@ fn check_container_runtime(runtime: &str) -> DoctorCheck {
         Err(_) => DoctorCheck {
             name: runtime.to_string(),
             status: DoctorStatus::Fail,
-            detail: format!("{} not found (needed for container machines)", runtime),
+            detail: format!("{runtime} not found (needed for container machines)"),
         },
     }
 }
 
 fn check_age_identity() -> DoctorCheck {
+    #[cfg(not(feature = "encryption"))]
+    {
+        DoctorCheck {
+            name: "age".to_string(),
+            status: DoctorStatus::Warn,
+            detail: "encryption feature not compiled in".to_string(),
+        }
+    }
+    #[cfg(feature = "encryption")]
     match secrets::load_identities(None) {
         Ok(ids) if !ids.is_empty() => DoctorCheck {
             name: "age".to_string(),
@@ -139,7 +148,7 @@ fn check_age_identity() -> DoctorCheck {
         Err(e) => DoctorCheck {
             name: "age".to_string(),
             status: DoctorStatus::Fail,
-            detail: format!("age identity error: {}", e),
+            detail: format!("age identity error: {e}"),
         },
     }
 }
@@ -205,7 +214,7 @@ fn check_stale_lock(state_dir: &Path, fix: bool) -> Option<DoctorCheck> {
             Err(e) => Some(DoctorCheck {
                 name: "lock".to_string(),
                 status: DoctorStatus::Fail,
-                detail: format!("cannot remove lock: {}", e),
+                detail: format!("cannot remove lock: {e}"),
             }),
         }
     } else {
@@ -243,7 +252,7 @@ fn check_git() -> DoctorCheck {
                 DoctorCheck {
                     name: "git".to_string(),
                     status: DoctorStatus::Warn,
-                    detail: format!("{} uncommitted changes", line_count),
+                    detail: format!("{line_count} uncommitted changes"),
                 }
             }
         }
@@ -313,7 +322,7 @@ pub(crate) fn cmd_doctor(file: Option<&Path>, json: bool, fix: bool) -> Result<(
                 checks.push(DoctorCheck {
                     name: "config".to_string(),
                     status: DoctorStatus::Fail,
-                    detail: format!("parse error: {}", e),
+                    detail: format!("parse error: {e}"),
                 });
                 None
             }

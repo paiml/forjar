@@ -10,7 +10,7 @@ pub(crate) fn cmd_status_prometheus(
     machine_filter: Option<&str>,
 ) -> Result<(), String> {
     let entries =
-        std::fs::read_dir(state_dir).map_err(|e| format!("cannot read state dir: {}", e))?;
+        std::fs::read_dir(state_dir).map_err(|e| format!("cannot read state dir: {e}"))?;
 
     let mut converged = 0u64;
     let mut failed = 0u64;
@@ -42,16 +42,16 @@ pub(crate) fn cmd_status_prometheus(
 
     println!("# HELP forjar_resources_total Total managed resources");
     println!("# TYPE forjar_resources_total gauge");
-    println!("forjar_resources_total {}", total);
+    println!("forjar_resources_total {total}");
     println!("# HELP forjar_resources_converged Converged resources");
     println!("# TYPE forjar_resources_converged gauge");
-    println!("forjar_resources_converged {}", converged);
+    println!("forjar_resources_converged {converged}");
     println!("# HELP forjar_resources_failed Failed resources");
     println!("# TYPE forjar_resources_failed gauge");
-    println!("forjar_resources_failed {}", failed);
+    println!("forjar_resources_failed {failed}");
     println!("# HELP forjar_resources_drifted Drifted resources");
     println!("# TYPE forjar_resources_drifted gauge");
-    println!("forjar_resources_drifted {}", drifted);
+    println!("forjar_resources_drifted {drifted}");
 
     Ok(())
 }
@@ -200,10 +200,7 @@ pub(crate) fn cmd_status_anomalies(
         let entries: Vec<String> = anomalies
             .iter()
             .map(|(m, r, issue)| {
-                format!(
-                    "{{\"machine\":\"{}\",\"resource\":\"{}\",\"issue\":\"{}\"}}",
-                    m, r, issue
-                )
+                format!("{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"issue\":\"{issue}\"}}")
             })
             .collect();
         println!("[{}]", entries.join(","));
@@ -301,10 +298,7 @@ fn print_diff_output(diffs: &[(String, String, String)], snapshot_name: &str, js
         let entries: Vec<String> = diffs
             .iter()
             .map(|(m, r, change)| {
-                format!(
-                    "{{\"machine\":\"{}\",\"resource\":\"{}\",\"change\":\"{}\"}}",
-                    m, r, change
-                )
+                format!("{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"change\":\"{change}\"}}")
             })
             .collect();
         println!("[{}]", entries.join(","));
@@ -315,7 +309,7 @@ fn print_diff_output(diffs: &[(String, String, String)], snapshot_name: &str, js
             snapshot_name
         );
     } else {
-        println!("Changes since snapshot '{}':", snapshot_name);
+        println!("Changes since snapshot '{snapshot_name}':");
         for (m, r, change) in diffs {
             let prefix = match change.as_str() {
                 "added" => green("+"),
@@ -323,7 +317,7 @@ fn print_diff_output(diffs: &[(String, String, String)], snapshot_name: &str, js
                 "modified" => yellow("~"),
                 _ => dim("?"),
             };
-            println!("  {} {}/{}", prefix, m, r);
+            println!("  {prefix} {m}/{r}");
         }
     }
 }
@@ -335,7 +329,7 @@ pub(crate) fn cmd_status_diff_from(
 ) -> Result<(), String> {
     let snap_dir = state_dir.join(".snapshots").join(snapshot_name);
     if !snap_dir.exists() {
-        return Err(format!("snapshot '{}' not found", snapshot_name));
+        return Err(format!("snapshot '{snapshot_name}' not found"));
     }
 
     let diffs = collect_diffs(state_dir, &snap_dir)?;
@@ -349,7 +343,7 @@ fn collect_errors_for_machine(
     m: &str,
     errors: &mut Vec<(String, String, String)>,
 ) {
-    let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+    let lock_path = state_dir.join(m).join("state.lock.yaml");
     if !lock_path.exists() {
         return;
     }
@@ -363,7 +357,7 @@ fn collect_errors_for_machine(
                     rlock
                         .details
                         .iter()
-                        .map(|(k, v)| format!("{}={:?}", k, v))
+                        .map(|(k, v)| format!("{k}={v:?}"))
                         .collect::<Vec<_>>()
                         .join(", ")
                 };
@@ -412,7 +406,7 @@ pub(crate) fn cmd_status_error_summary(
     } else {
         println!("Error summary ({} failures):", errors.len());
         for (m, r, d) in &errors {
-            println!("  {}:{} — {}", m, r, d);
+            println!("  {m}:{r} — {d}");
         }
     }
     Ok(())

@@ -117,11 +117,20 @@ fn test_fj012_build_resource_details() {
         completion_check: None,
         timeout: None,
         working_dir: None,
+        task_mode: None,
+        task_inputs: vec![],
+        stages: vec![],
+        cache: false,
+        gpu_device: None,
+        restart_delay: None,
         pre_apply: None,
         post_apply: None,
         lifecycle: None,
         store: false,
+        sudo: false,
         script: None,
+        gather: vec![],
+        scatter: vec![],
     };
     let details = build_resource_details(&r, &local_machine());
     assert!(details.contains_key("path"));
@@ -213,11 +222,20 @@ fn test_fj012_build_resource_details_service() {
         completion_check: None,
         timeout: None,
         working_dir: None,
+        task_mode: None,
+        task_inputs: vec![],
+        stages: vec![],
+        cache: false,
+        gpu_device: None,
+        restart_delay: None,
         pre_apply: None,
         post_apply: None,
         lifecycle: None,
         store: false,
+        sudo: false,
         script: None,
+        gather: vec![],
+        scatter: vec![],
     };
     let details = build_resource_details(&r, &local_machine());
     assert!(details.contains_key("service_name"));
@@ -248,6 +266,7 @@ fn test_fj012_dry_run() {
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
+        trace: false,
     };
     let results = apply(&cfg).unwrap();
     assert_eq!(results.len(), 1);
@@ -275,6 +294,7 @@ fn test_fj012_apply_local_file() {
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
+        trace: false,
     };
     let results = apply(&cfg).unwrap();
     assert_eq!(results.len(), 1);
@@ -314,6 +334,7 @@ fn test_fj012_apply_idempotent() {
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
+        trace: false,
     };
     let r1 = apply(&cfg).unwrap();
     assert_eq!(r1[0].resources_converged, 1);
@@ -336,6 +357,7 @@ fn test_fj012_apply_idempotent() {
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
+        trace: false,
     };
     let r2 = apply(&cfg2).unwrap();
     assert_eq!(r2[0].resources_unchanged, 1);
@@ -367,6 +389,7 @@ fn test_fj012_force_reapply() {
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
+        trace: false,
     };
     apply(&cfg).unwrap();
 
@@ -388,6 +411,7 @@ fn test_fj012_force_reapply() {
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
+        trace: false,
     };
     let r2 = apply(&cfg2).unwrap();
     assert_eq!(r2[0].resources_converged, 1);
@@ -438,6 +462,7 @@ resources:
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
+        trace: false,
     };
     let results = apply(&cfg).unwrap();
     assert_eq!(results.len(), 1);

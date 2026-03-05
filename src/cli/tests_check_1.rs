@@ -415,11 +415,13 @@ resources:
             Commands::Rollback(RollbackArgs {
                 file,
                 revision: 1,
+                generation: None,
                 machine: None,
                 dry_run: true,
+                yes: false,
                 state_dir: state,
             }),
-            false,
+            0,
             true,
         );
         assert!(result.is_err()); // Expected: no git history

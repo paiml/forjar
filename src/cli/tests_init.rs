@@ -40,7 +40,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let sub = dir.path().join("dispatch-test");
         std::fs::create_dir_all(&sub).unwrap();
-        dispatch(Commands::Init(InitArgs { path: sub.clone() }), false, true).unwrap();
+        dispatch(Commands::Init(InitArgs { path: sub.clone() }), 0, true).unwrap();
         assert!(sub.join("forjar.yaml").exists());
     }
 
@@ -123,36 +123,6 @@ resources:
         let config: types::ForjarConfig = serde_yaml_ng::from_str(&content).unwrap();
         assert_eq!(config.version, "1.0");
         assert_eq!(config.name, "my-infrastructure");
-    }
-
-    #[allow(dead_code)]
-    fn write_simple_config(dir: &std::path::Path) -> std::path::PathBuf {
-        let config_path = dir.join("forjar.yaml");
-        std::fs::write(
-            &config_path,
-            r#"
-version: "1.0"
-name: graph-test
-machines:
-  web:
-    hostname: web
-    addr: 1.1.1.1
-resources:
-  setup:
-    type: file
-    machine: web
-    path: /tmp/setup
-    state: directory
-  app:
-    type: file
-    machine: web
-    path: /tmp/setup/app.conf
-    content: "config"
-    depends_on: [setup]
-"#,
-        )
-        .unwrap();
-        config_path
     }
 
     #[test]
@@ -320,7 +290,7 @@ resources:
     #[test]
     fn test_fj253_completion_shell_enum_debug() {
         let bash = CompletionShell::Bash;
-        let debug = format!("{:?}", bash);
+        let debug = format!("{bash:?}");
         assert_eq!(debug, "Bash");
     }
 
@@ -328,12 +298,12 @@ resources:
     fn test_fj253_completion_shell_clone() {
         let orig = CompletionShell::Zsh;
         let cloned = orig.clone();
-        assert_eq!(format!("{:?}", cloned), "Zsh");
+        assert_eq!(format!("{cloned:?}"), "Zsh");
     }
 
     #[test]
     fn test_fj264_schema_dispatch() {
-        let result = dispatch(Commands::Schema, false, true);
+        let result = dispatch(Commands::Schema, 0, true);
         assert!(result.is_ok());
     }
 

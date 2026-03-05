@@ -75,11 +75,20 @@ fn make_file_resource(path: &str, content: Option<&str>) -> Resource {
         completion_check: None,
         timeout: None,
         working_dir: None,
+        task_mode: None,
+        task_inputs: vec![],
+        stages: vec![],
+        cache: false,
+        gpu_device: None,
+        restart_delay: None,
         pre_apply: None,
         post_apply: None,
         lifecycle: None,
         store: false,
+        sudo: false,
         script: None,
+        gather: vec![],
+        scatter: vec![],
     }
 }
 

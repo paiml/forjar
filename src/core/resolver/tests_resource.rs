@@ -26,6 +26,7 @@ fn test_fj003_resolve_all_fields() {
             container: None,
             pepita: None,
             cost: 0,
+            allowed_operators: vec![],
         },
     );
 
@@ -102,11 +103,20 @@ fn test_fj003_resolve_all_fields() {
         completion_check: None,
         timeout: None,
         working_dir: None,
+        task_mode: None,
+        task_inputs: vec![],
+        stages: vec![],
+        cache: false,
+        gpu_device: None,
+        restart_delay: None,
         pre_apply: None,
         post_apply: None,
         lifecycle: None,
         store: false,
+        sudo: false,
         script: None,
+        gather: vec![],
+        scatter: vec![],
     };
 
     let resolved = resolve_resource_templates(&resource, &params, &machines).unwrap();
@@ -136,6 +146,7 @@ fn test_fj003_resolve_machine_fields() {
             container: None,
             pepita: None,
             cost: 0,
+            allowed_operators: vec![],
         },
     );
 
@@ -250,11 +261,20 @@ fn test_fj003_resolve_resource_templates_group_and_mode() {
         completion_check: None,
         timeout: None,
         working_dir: None,
+        task_mode: None,
+        task_inputs: vec![],
+        stages: vec![],
+        cache: false,
+        gpu_device: None,
+        restart_delay: None,
         pre_apply: None,
         post_apply: None,
         lifecycle: None,
         store: false,
+        sudo: false,
         script: None,
+        gather: vec![],
+        scatter: vec![],
     };
 
     let resolved = resolve_resource_templates(&resource, &params, &machines).unwrap();

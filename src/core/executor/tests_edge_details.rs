@@ -79,11 +79,20 @@ fn test_fj012_build_details_nonexistent_file_no_hash() {
         completion_check: None,
         timeout: None,
         working_dir: None,
+        task_mode: None,
+        task_inputs: vec![],
+        stages: vec![],
+        cache: false,
+        gpu_device: None,
+        restart_delay: None,
         pre_apply: None,
         post_apply: None,
         lifecycle: None,
         store: false,
+        sudo: false,
         script: None,
+        gather: vec![],
+        scatter: vec![],
     };
     let details = build_resource_details(&resource, &local_machine());
     assert!(
@@ -167,11 +176,20 @@ fn test_fj012_build_details_all_fields() {
         completion_check: None,
         timeout: None,
         working_dir: None,
+        task_mode: None,
+        task_inputs: vec![],
+        stages: vec![],
+        cache: false,
+        gpu_device: None,
+        restart_delay: None,
         pre_apply: None,
         post_apply: None,
         lifecycle: None,
         store: false,
+        sudo: false,
         script: None,
+        gather: vec![],
+        scatter: vec![],
     };
     let details = build_resource_details(&resource, &local_machine());
     assert_eq!(
@@ -306,6 +324,7 @@ resources:
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
+        trace: false,
     };
     let results = apply(&cfg).unwrap();
     // Dry run returns a single result
@@ -354,6 +373,7 @@ resources:
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
+        trace: false,
     };
     let results = apply(&cfg).unwrap();
     // Only the tagged resource should be applied
@@ -379,6 +399,9 @@ fn test_fj012_log_tripwire_enabled() {
             machine: "machine1".to_string(),
             run_id: "test-run".to_string(),
             forjar_version: "0.1.0".to_string(),
+            operator: None,
+            config_hash: None,
+            param_count: None,
         },
     );
     let events = dir.path().join("machine1").join("events.jsonl");
@@ -396,6 +419,9 @@ fn test_fj012_log_tripwire_disabled() {
             machine: "machine1".to_string(),
             run_id: "test-run".to_string(),
             forjar_version: "0.1.0".to_string(),
+            operator: None,
+            config_hash: None,
+            param_count: None,
         },
     );
     let events = dir.path().join("machine1").join("events.jsonl");

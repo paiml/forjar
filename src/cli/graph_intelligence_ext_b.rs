@@ -22,7 +22,7 @@ pub(crate) fn cmd_graph_resource_dependency_topological_depth(
     if json {
         let items: Vec<String> = depths
             .iter()
-            .map(|(n, d)| format!("{{\"resource\":\"{}\",\"depth\":{}}}", n, d))
+            .map(|(n, d)| format!("{{\"resource\":\"{n}\",\"depth\":{d}}}"))
             .collect();
         println!(
             "{{\"max_depth\":{},\"resources\":[{}]}}",
@@ -32,9 +32,9 @@ pub(crate) fn cmd_graph_resource_dependency_topological_depth(
     } else if depths.is_empty() {
         println!("No resources found.");
     } else {
-        println!("Topological depth (max: {}):", max);
+        println!("Topological depth (max: {max}):");
         for (n, d) in &depths {
-            println!("  {} — depth {}", n, d);
+            println!("  {n} — depth {d}");
         }
     }
     Ok(())
@@ -95,10 +95,7 @@ pub(crate) fn cmd_graph_resource_dependency_weak_links(
         let items: Vec<String> = weak_links
             .iter()
             .map(|(from, to, d)| {
-                format!(
-                    "{{\"from\":\"{}\",\"to\":\"{}\",\"dependents\":{}}}",
-                    from, to, d
-                )
+                format!("{{\"from\":\"{from}\",\"to\":\"{to}\",\"dependents\":{d}}}")
             })
             .collect();
         println!("{{\"weak_links\":[{}]}}", items.join(","));
@@ -107,7 +104,7 @@ pub(crate) fn cmd_graph_resource_dependency_weak_links(
     } else {
         println!("Weak links (shared dependencies, cascading risk):");
         for (from, to, d) in &weak_links {
-            println!("  {} → {} ({} dependents)", from, to, d);
+            println!("  {from} → {to} ({d} dependents)");
         }
     }
     Ok(())
@@ -130,7 +127,7 @@ pub(crate) fn cmd_graph_resource_dependency_minimum_cut(
     if json {
         let items: Vec<String> = bridges
             .iter()
-            .map(|(a, b)| format!("{{\"from\":\"{}\",\"to\":\"{}\"}}", a, b))
+            .map(|(a, b)| format!("{{\"from\":\"{a}\",\"to\":\"{b}\"}}"))
             .collect();
         println!(
             "{{\"minimum_cut_edges\":[{}],\"total_edges\":{}}}",
@@ -142,7 +139,7 @@ pub(crate) fn cmd_graph_resource_dependency_minimum_cut(
     } else {
         println!("Minimum cut edges (bridges):");
         for (a, b) in &bridges {
-            println!("  {} → {}", a, b);
+            println!("  {a} → {b}");
         }
     }
     Ok(())
@@ -246,7 +243,7 @@ pub(crate) fn cmd_graph_resource_dependency_dominator_tree(
     if json {
         let items: Vec<String> = dom_list
             .iter()
-            .map(|(name, d)| format!("{{\"resource\":\"{}\",\"dominates\":{}}}", name, d))
+            .map(|(name, d)| format!("{{\"resource\":\"{name}\",\"dominates\":{d}}}"))
             .collect();
         println!("{{\"dominator_tree\":[{}]}}", items.join(","));
     } else if dom_list.is_empty() {
@@ -254,7 +251,7 @@ pub(crate) fn cmd_graph_resource_dependency_dominator_tree(
     } else {
         println!("Dominator tree (single points of failure):");
         for (name, d) in &dom_list {
-            println!("  {} — dominates {} resources", name, d);
+            println!("  {name} — dominates {d} resources");
         }
     }
     Ok(())

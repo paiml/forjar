@@ -257,9 +257,13 @@ mod tests_dispatch_store;
 #[cfg(test)]
 mod tests_doctor;
 #[cfg(test)]
+mod tests_doctor_b;
+#[cfg(test)]
 mod tests_drift;
 #[cfg(test)]
 mod tests_drift_b;
+#[cfg(test)]
+mod tests_apply_variants;
 #[cfg(test)]
 mod tests_fleet_ops;
 #[cfg(test)]
@@ -270,3 +274,9 @@ mod tests_fleet_ops_b;
 mod tests_fleet_reporting;
 #[cfg(test)]
 mod tests_apply_drift_gate;
+#[cfg(test)]
+mod tests_extract;
+#[cfg(test)]
+mod tests_generation;
+#[cfg(test)]
+mod tests_stack_diff;

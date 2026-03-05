@@ -43,6 +43,7 @@ fn test_fj132_detect_drift_full_non_file_non_string_live_hash() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
 
     let config_resources = indexmap::IndexMap::new();
@@ -94,6 +95,7 @@ fn test_fj132_detect_drift_full_non_file_missing_config_resource() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
 
     // Empty config resources — the lock has a resource that config doesn't

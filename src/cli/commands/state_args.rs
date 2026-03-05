@@ -2,6 +2,7 @@
 
 use std::path::PathBuf;
 
+/// CLI arguments for `state list`.
 #[derive(clap::Args, Debug)]
 pub struct StateListArgs {
     /// State directory
@@ -17,6 +18,7 @@ pub struct StateListArgs {
     pub json: bool,
 }
 
+/// CLI arguments for `state mv`.
 #[derive(clap::Args, Debug)]
 pub struct StateMvArgs {
     /// Current resource ID
@@ -34,6 +36,7 @@ pub struct StateMvArgs {
     pub machine: Option<String>,
 }
 
+/// CLI arguments for `state rm`.
 #[derive(clap::Args, Debug)]
 pub struct StateRmArgs {
     /// Resource ID to remove

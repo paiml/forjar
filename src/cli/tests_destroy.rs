@@ -351,7 +351,7 @@ resources:
                 yes: true,
                 state_dir: state,
             }),
-            false,
+            0,
             true,
         )
         .unwrap();

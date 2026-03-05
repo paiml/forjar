@@ -170,7 +170,7 @@ fn write_import_meta(
     let meta = StoreMeta {
         schema: "1.0".to_string(),
         store_hash: store_hash.to_string(),
-        recipe_hash: format!("import:{}", provider_str),
+        recipe_hash: format!("import:{provider_str}"),
         input_hashes: vec![origin_ref.to_string()],
         arch: config.arch.clone(),
         provider: provider_str.clone(),

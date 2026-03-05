@@ -14,6 +14,7 @@ pub fn local_machine() -> Machine {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     }
 }
 
@@ -54,14 +55,13 @@ resources:
   test-file:
     type: file
     machine: local
-    path: {}
+    path: {file_path}
     content: "hello from forjar"
 policy:
   failure: stop_on_first
   tripwire: true
   lock_file: true
-"#,
-        file_path
+"#
     );
     serde_yaml_ng::from_str(&yaml).unwrap()
 }

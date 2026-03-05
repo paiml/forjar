@@ -26,6 +26,19 @@ pub fn build_execution_order(config: &ForjarConfig) -> Result<Vec<String>, Strin
         ));
     }
 
+    // FJ-2200: Postcondition — valid topological order:
+    // every resource appears before its dependents
+    debug_assert!({
+        let pos: HashMap<&str, usize> = order.iter().enumerate().map(|(i, s)| (s.as_str(), i)).collect();
+        config.resources.iter().all(|(id, res)| {
+            res.depends_on.iter().all(|dep| {
+                pos.get(dep.as_str()).is_none_or(|&dep_pos| {
+                    pos.get(id.as_str()).is_none_or(|&id_pos| dep_pos < id_pos)
+                })
+            })
+        })
+    }, "build_execution_order: topological ordering violated");
+
     Ok(order)
 }
 
@@ -95,7 +108,7 @@ fn build_dag(config: &ForjarConfig, resource_ids: &[String]) -> Result<Dag, Stri
     for (id, resource) in &config.resources {
         for dep in &resource.depends_on {
             if !config.resources.contains_key(dep) {
-                return Err(format!("resource '{}' depends on unknown '{}'", id, dep));
+                return Err(format!("resource '{id}' depends on unknown '{dep}'"));
             }
             if let Some(adj) = adjacency.get_mut(dep) {
                 adj.push(id.clone());

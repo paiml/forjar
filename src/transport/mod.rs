@@ -25,21 +25,57 @@ use crate::core::types::Machine;
 /// Output from executing a script on a target.
 #[derive(Debug, Clone)]
 pub struct ExecOutput {
+    /// Process exit code.
     pub exit_code: i32,
+    /// Captured standard output.
     pub stdout: String,
+    /// Captured standard error.
     pub stderr: String,
 }
 
 impl ExecOutput {
+    /// Returns true if the process exited with code 0.
     pub fn success(&self) -> bool {
         self.exit_code == 0
     }
 }
 
 /// FJ-1357: Validate script via bashrs before execution (I8 enforcement gate).
+///
+/// FJ-29: Strip opaque data payloads before linting. Two patterns:
+/// 1. Base64 blobs from `source:` file resources — binary data in single quotes
+/// 2. Heredoc payloads from `content:` file resources — user content between delimiters
+///
+/// Both contain data that bashrs misinterprets as shell syntax. The data is never
+/// executed as shell — it is written to files via pipe or heredoc redirection.
 fn validate_before_exec(script: &str) -> Result<(), String> {
-    crate::core::purifier::validate_script(script)
+    let sanitised = strip_data_payloads(script);
+    crate::core::purifier::validate_script(&sanitised)
         .map_err(|e| format!("I8 violation — script failed bashrs validation: {e}"))
+}
+
+/// Strip opaque data payloads that bashrs should not lint.
+///
+/// Handles two forjar codegen patterns:
+/// 1. `echo '<base64>' | base64 -d > '<path>'` — binary file deployment
+/// 2. `cat > '<path>' <<'FORJAR_EOF'\n...\nFORJAR_EOF` — text file deployment
+fn strip_data_payloads(script: &str) -> String {
+    // Phase 1: strip base64 blobs
+    let re_b64 = regex::Regex::new(r"echo '([A-Za-z0-9+/=\n]+)' \| base64 -d > '([^']+)'")
+        .expect("base64 regex is valid");
+    let pass1 = re_b64
+        .replace_all(script, "echo 'FORJAR_BASE64_STRIPPED' > '$2'")
+        .into_owned();
+
+    // Phase 2: strip heredoc payloads (FORJAR_EOF delimiters)
+    let re_heredoc =
+        regex::Regex::new(r"(?s)<<'FORJAR_EOF'\n.*?\nFORJAR_EOF").expect("heredoc regex is valid");
+    re_heredoc
+        .replace_all(
+            &pass1,
+            "<<'FORJAR_EOF'\n# payload stripped for lint\nFORJAR_EOF",
+        )
+        .into_owned()
 }
 
 /// Execute a purified shell script on a machine.
@@ -89,10 +125,7 @@ pub fn exec_script_timeout(
             });
             rx.recv_timeout(std::time::Duration::from_secs(secs))
                 .map_err(|_| {
-                    format!(
-                        "transport timeout: script on '{}' exceeded {}s limit",
-                        hostname, secs
-                    )
+                    format!("transport timeout: script on '{hostname}' exceeded {secs}s limit")
                 })?
         }
         None => exec_script(machine, script),

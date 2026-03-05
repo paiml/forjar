@@ -1,5 +1,6 @@
 //! CLI Args structs for validate-related commands.
 use std::path::PathBuf;
+/// CLI arguments for the `validate` command.
 #[derive(clap::Args, Debug)]
 pub struct ValidateArgs {
     /// Path to forjar.yaml
@@ -20,6 +21,9 @@ pub struct ValidateArgs {
     /// FJ-391: Validate all cross-references, machine existence, and param usage
     #[arg(long)]
     pub exhaustive: bool,
+    /// FJ-2503: Run all deep validation checks (templates, deps, overlaps, secrets, naming)
+    #[arg(long)]
+    pub deep: bool,
     /// FJ-401: Validate against external policy rules file
     #[arg(long)]
     pub policy_file: Option<PathBuf>,
@@ -497,4 +501,7 @@ pub struct ValidateArgs {
     /// FJ-1329: Output reproducibility score (0-100)
     #[arg(long)]
     pub check_reproducibility_score: bool,
+    /// FJ-2500: Reject configs with unknown YAML fields (typo detection)
+    #[arg(long)]
+    pub deny_unknown_fields: bool,
 }

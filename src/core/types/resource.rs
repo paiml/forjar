@@ -1,5 +1,6 @@
 //! Resource type definitions: Resource, ResourceType, MachineTarget.
 
+use super::task_types::{PipelineStage, TaskMode};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
@@ -300,45 +301,65 @@ pub struct Resource {
     #[serde(default)]
     pub gpu_memory_limit_mb: Option<u64>,
 
-    // -- Task fields (ALB-027: pipeline orchestration) --
-    // Note: `command` field is shared with cron (line 132)
-    /// Output artifacts to hash for idempotency (glob paths relative to cwd)
+    // -- Task fields (FJ-2700: task framework) --
+    /// Task execution mode (batch/pipeline/service/dispatch).
+    #[serde(default)]
+    pub task_mode: Option<TaskMode>,
+    /// Input file patterns for content-addressed caching.
+    #[serde(default)]
+    pub task_inputs: Vec<String>,
+    /// Output artifacts to hash for idempotency.
     #[serde(default)]
     pub output_artifacts: Vec<String>,
-
-    /// Shell command to check if task already completed (exit 0 = done, skip apply)
+    /// Completion check command (exit 0 = done).
     #[serde(default)]
     pub completion_check: Option<String>,
-
-    /// Timeout in seconds for command execution (default: no limit)
+    /// Timeout in seconds.
     #[serde(default)]
     pub timeout: Option<u64>,
-
-    /// Working directory for the command
+    /// Working directory for the command.
     #[serde(default)]
     pub working_dir: Option<String>,
+    /// Pipeline stages (mode: pipeline).
+    #[serde(default)]
+    pub stages: Vec<PipelineStage>,
+    /// Enable content-addressed stage caching.
+    #[serde(default)]
+    pub cache: bool,
+    /// GPU device index for CUDA_VISIBLE_DEVICES.
+    #[serde(default)]
+    pub gpu_device: Option<u32>,
+    /// Restart delay in seconds (mode: service).
+    #[serde(default)]
+    pub restart_delay: Option<u64>,
 
-    // -- Lifecycle hooks (FJ-265) --
-    /// Shell command to run on the target before the resource's main script.
-    /// If pre_apply exits non-zero, the resource is skipped (not applied).
+    // -- FJ-2704: Distributed coordination --
+    /// Gather artifacts from remote machines after execution.
+    /// Maps remote path → local destination.
+    #[serde(default)]
+    pub gather: Vec<String>,
+    /// Scatter local artifacts to remote machines before execution.
+    /// Maps local path → remote destination.
+    #[serde(default)]
+    pub scatter: Vec<String>,
+
+    // -- Lifecycle hooks + protection --
+    /// Pre-apply hook (exit non-zero skips resource).
     #[serde(default)]
     pub pre_apply: Option<String>,
-
-    /// Shell command to run on the target after the resource's main script succeeds.
+    /// Post-apply hook.
     #[serde(default)]
     pub post_apply: Option<String>,
-
-    // -- Lifecycle protection rules (FJ-1220) --
-    /// OpenTofu-style lifecycle rules: prevent_destroy, create_before_destroy, ignore_drift.
+    /// Lifecycle protection rules.
     #[serde(default)]
     pub lifecycle: Option<LifecycleRules>,
-
-    // -- Store fields (FJ-1303: reproducible package manager) --
-    /// Enable content-addressed store for this resource's outputs.
+    /// Run apply with sudo.
+    #[serde(default)]
+    pub sudo: bool,
+    /// Enable content-addressed store.
     #[serde(default)]
     pub store: bool,
-
-    /// Build script for derivation resources (executed with $out set to output dir).
+    /// Build script for derivation resources.
     #[serde(default)]
     pub script: Option<String>,
 }
@@ -362,25 +383,50 @@ pub struct LifecycleRules {
 }
 
 /// Resource type enum.
+///
+/// # Examples
+///
+/// ```
+/// use forjar::core::types::ResourceType;
+///
+/// let rt = ResourceType::Package;
+/// assert_eq!(rt.to_string(), "package");
+///
+/// let rt = ResourceType::File;
+/// assert_eq!(rt.to_string(), "file");
+///
+/// // Default is Package
+/// assert_eq!(ResourceType::default(), ResourceType::Package);
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum ResourceType {
+    /// System package (apt, cargo, uv).
     #[default]
     Package,
+    /// File or directory.
     File,
+    /// Systemd service unit.
     Service,
+    /// Filesystem mount point.
     Mount,
+    /// Unix user account.
     User,
+    /// Docker container.
     Docker,
+    /// Pepita namespace-isolated process.
     Pepita,
+    /// Network/firewall rule.
     Network,
+    /// Cron scheduled job.
     Cron,
+    /// Nested recipe inclusion.
     Recipe,
-    /// FJ-240: ML model resource type
+    /// FJ-240: ML model resource type.
     Model,
-    /// FJ-241: GPU hardware resource type
+    /// FJ-241: GPU hardware resource type.
     Gpu,
-    /// ALB-027: Pipeline task resource type
+    /// ALB-027: Pipeline task resource type.
     Task,
 }
 
@@ -405,10 +451,26 @@ impl fmt::Display for ResourceType {
 }
 
 /// Machine target — single machine or multiple.
+///
+/// # Examples
+///
+/// ```
+/// use forjar::core::types::MachineTarget;
+///
+/// let single = MachineTarget::Single("web".to_string());
+/// assert_eq!(single.to_vec(), vec!["web"]);
+/// assert_eq!(single.to_string(), "web");
+///
+/// let multi = MachineTarget::Multiple(vec!["web".into(), "db".into()]);
+/// assert_eq!(multi.to_vec(), vec!["web", "db"]);
+/// assert_eq!(multi.to_string(), "[web, db]");
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum MachineTarget {
+    /// A single machine name.
     Single(String),
+    /// Multiple machine names.
     Multiple(Vec<String>),
 }
 
@@ -421,7 +483,7 @@ impl Default for MachineTarget {
 impl fmt::Display for MachineTarget {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Single(s) => write!(f, "{}", s),
+            Self::Single(s) => write!(f, "{s}"),
             Self::Multiple(v) => write!(f, "[{}]", v.join(", ")),
         }
     }

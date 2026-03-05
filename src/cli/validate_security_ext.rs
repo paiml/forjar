@@ -1,7 +1,5 @@
 //! Phase 100 — Extended Security Validation: dependency symmetry, tag namespace, machine capacity.
 
-#![allow(dead_code)]
-
 use crate::core::types;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::Path;
@@ -29,7 +27,7 @@ fn has_cycle_from(start: &str, adj: &HashMap<String, Vec<String>>) -> Option<Str
     if let Some(deps) = adj.get(start) {
         for dep in deps {
             if dep == start {
-                return Some(format!("{}->>{}", start, start));
+                return Some(format!("{start}->>{start}"));
             }
             if visited.insert(dep.clone()) {
                 queue.push_back(dep.clone());
@@ -41,8 +39,7 @@ fn has_cycle_from(start: &str, adj: &HashMap<String, Vec<String>>) -> Option<Str
             for dep in deps {
                 if dep == start {
                     return Some(format!(
-                        "bidirectional path: {}>>...>>{}>>...>>{}",
-                        start, current, start
+                        "bidirectional path: {start}>>...>>{current}>>...>>{start}"
                     ));
                 }
                 if visited.insert(dep.clone()) {
@@ -86,7 +83,7 @@ pub(crate) fn cmd_validate_check_resource_dependency_symmetry_deep(
     if json {
         let items: Vec<String> = warnings
             .iter()
-            .map(|(n, d)| format!(r#"{{"resource":"{}","detail":"{}"}}"#, n, d))
+            .map(|(n, d)| format!(r#"{{"resource":"{n}","detail":"{d}"}}"#))
             .collect();
         println!(
             r#"{{"dependency_symmetry_warnings":[{}],"count":{}}}"#,
@@ -98,7 +95,7 @@ pub(crate) fn cmd_validate_check_resource_dependency_symmetry_deep(
     } else {
         println!("Dependency symmetry warnings ({}):", warnings.len());
         for (name, detail) in &warnings {
-            println!("  warning: resource '{}' — {}", name, detail);
+            println!("  warning: resource '{name}' — {detail}");
         }
     }
     Ok(())
@@ -159,7 +156,7 @@ pub(crate) fn cmd_validate_check_resource_tag_namespace(
                 let tags: Vec<String> = w
                     .unnamespaced_tags
                     .iter()
-                    .map(|t| format!(r#""{}""#, t))
+                    .map(|t| format!(r#""{t}""#))
                     .collect();
                 format!(
                     r#"{{"resource":"{}","unnamespaced_tags":[{}]}}"#,
@@ -281,7 +278,7 @@ mod tests {
 
     /// Deserialize a minimal resource from YAML, setting only the `type` field.
     fn make_resource(rtype: &str) -> types::Resource {
-        let yaml = format!("type: {}", rtype);
+        let yaml = format!("type: {rtype}");
         serde_yaml_ng::from_str(&yaml).unwrap()
     }
 
@@ -417,7 +414,7 @@ mod tests {
         let mut resources = Vec::new();
         for i in 0..5 {
             let r = make_resource("file");
-            resources.push((format!("res-{}", i), r));
+            resources.push((format!("res-{i}"), r));
         }
         let pairs: Vec<(&str, types::Resource)> = resources
             .iter()
@@ -434,7 +431,7 @@ mod tests {
         for i in 0..25 {
             let mut r = make_resource("file");
             r.machine = types::MachineTarget::Single("web".to_string());
-            resources.push((format!("res-{}", i), r));
+            resources.push((format!("res-{i}"), r));
         }
         let pairs: Vec<(&str, types::Resource)> = resources
             .iter()
@@ -454,7 +451,7 @@ mod tests {
         for i in 0..25 {
             let mut r = make_resource("file");
             r.machine = types::MachineTarget::Multiple(vec!["web".to_string(), "db".to_string()]);
-            resources.push((format!("res-{}", i), r));
+            resources.push((format!("res-{i}"), r));
         }
         let pairs: Vec<(&str, types::Resource)> = resources
             .iter()
@@ -472,7 +469,7 @@ mod tests {
         for i in 0..20 {
             let mut r = make_resource("file");
             r.machine = types::MachineTarget::Single("app".to_string());
-            resources.push((format!("res-{}", i), r));
+            resources.push((format!("res-{i}"), r));
         }
         let pairs: Vec<(&str, types::Resource)> = resources
             .iter()

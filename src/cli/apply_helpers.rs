@@ -6,13 +6,13 @@ use std::path::Path;
 /// Run a local shell hook command. Returns Ok if the command succeeds, Err if it fails.
 pub(crate) fn run_hook(name: &str, command: &str, verbose: bool) -> Result<(), String> {
     if verbose {
-        eprintln!("Running {} hook: {}", name, command);
+        eprintln!("Running {name} hook: {command}");
     }
     let output = std::process::Command::new("sh")
         .arg("-c")
         .arg(command)
         .output()
-        .map_err(|e| format!("{} hook failed to start: {}", name, e))?;
+        .map_err(|e| format!("{name} hook failed to start: {e}"))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
@@ -26,7 +26,7 @@ pub(crate) fn run_hook(name: &str, command: &str, verbose: bool) -> Result<(), S
 
     let stdout = String::from_utf8_lossy(&output.stdout);
     if !stdout.is_empty() {
-        print!("{}", stdout);
+        print!("{stdout}");
     }
     Ok(())
 }
@@ -35,7 +35,7 @@ pub(crate) fn run_hook(name: &str, command: &str, verbose: bool) -> Result<(), S
 pub(crate) fn run_notify(template: &str, vars: &[(&str, &str)]) {
     let mut cmd = template.to_string();
     for (key, value) in vars {
-        cmd = cmd.replace(&format!("{{{{{}}}}}", key), value);
+        cmd = cmd.replace(&format!("{{{{{key}}}}}"), value);
     }
     let output = std::process::Command::new("sh")
         .arg("-c")
@@ -45,7 +45,7 @@ pub(crate) fn run_notify(template: &str, vars: &[(&str, &str)]) {
         Ok(out) => {
             let stdout = String::from_utf8_lossy(&out.stdout);
             if !stdout.is_empty() {
-                print!("{}", stdout);
+                print!("{stdout}");
             }
             if !out.status.success() {
                 let stderr = String::from_utf8_lossy(&out.stderr);
@@ -57,7 +57,7 @@ pub(crate) fn run_notify(template: &str, vars: &[(&str, &str)]) {
             }
         }
         Err(e) => {
-            eprintln!("Warning: notify hook failed to start: {}", e);
+            eprintln!("Warning: notify hook failed to start: {e}");
         }
     }
 }
@@ -70,7 +70,7 @@ pub(crate) fn apply_param_overrides(
     for kv in overrides {
         let (key, value) = kv
             .split_once('=')
-            .ok_or_else(|| format!("invalid param '{}': expected KEY=VALUE", kv))?;
+            .ok_or_else(|| format!("invalid param '{kv}': expected KEY=VALUE"))?;
         config.params.insert(
             key.to_string(),
             serde_yaml_ng::Value::String(value.to_string()),
@@ -104,17 +104,14 @@ pub(crate) fn git_commit_state(
     config_name: &str,
     converged: u32,
 ) -> Result<(), String> {
-    let msg = format!(
-        "forjar: {} — {} resource(s) converged",
-        config_name, converged
-    );
+    let msg = format!("forjar: {config_name} — {converged} resource(s) converged");
     // Find the git repo root from state_dir's parent
     let repo_root = state_dir.parent().unwrap_or(Path::new("."));
     let status = std::process::Command::new("git")
         .current_dir(repo_root)
         .args(["add", "state"])
         .status()
-        .map_err(|e| format!("git add failed: {}", e))?;
+        .map_err(|e| format!("git add failed: {e}"))?;
     if !status.success() {
         return Err("git add state/ failed".to_string());
     }
@@ -122,10 +119,10 @@ pub(crate) fn git_commit_state(
         .current_dir(repo_root)
         .args(["commit", "--no-verify", "-m", &msg])
         .status()
-        .map_err(|e| format!("git commit failed: {}", e))?;
+        .map_err(|e| format!("git commit failed: {e}"))?;
     if !status.success() {
         return Err("git commit failed".to_string());
     }
-    println!("Auto-committed state: {}", msg);
+    println!("Auto-committed state: {msg}");
     Ok(())
 }

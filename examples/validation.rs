@@ -110,7 +110,7 @@ resources: {}
     let errors = parser::validate_config(&config);
     println!("Errors: {}", errors.len());
     for e in &errors {
-        println!("  - {}", e);
+        println!("  - {e}");
     }
     assert!(errors.iter().any(|e| e.message.contains("ephemeral")));
 

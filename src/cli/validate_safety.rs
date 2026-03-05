@@ -7,12 +7,12 @@ use std::path::Path;
 
 /// FJ-757: Detect circular dependency chains.
 pub(crate) fn cmd_validate_check_circular_deps(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
     let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
     let cycles = find_cycles(&config);
     if json {
-        let items: Vec<String> = cycles.iter().map(|c| format!("{:?}", c)).collect();
+        let items: Vec<String> = cycles.iter().map(|c| format!("{c:?}")).collect();
         println!("{{\"circular_deps\":[{}]}}", items.join(","));
     } else if cycles.is_empty() {
         println!("No circular dependencies detected.");
@@ -79,14 +79,14 @@ fn dfs_cycle<'a>(
 
 /// FJ-761: Verify all machine references in resources exist.
 pub(crate) fn cmd_validate_check_machine_refs(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
     let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
     let bad = find_bad_machine_refs(&config);
     if json {
         let items: Vec<String> = bad
             .iter()
-            .map(|(r, m)| format!("{{\"resource\":\"{}\",\"machine\":\"{}\"}}", r, m))
+            .map(|(r, m)| format!("{{\"resource\":\"{r}\",\"machine\":\"{m}\"}}"))
             .collect();
         println!("{{\"bad_machine_refs\":[{}]}}", items.join(","));
     } else if bad.is_empty() {
@@ -94,7 +94,7 @@ pub(crate) fn cmd_validate_check_machine_refs(file: &Path, json: bool) -> Result
     } else {
         println!("Invalid machine references ({}):", bad.len());
         for (resource, machine) in &bad {
-            println!("  {} → {} (not defined)", resource, machine);
+            println!("  {resource} → {machine} (not defined)");
         }
     }
     Ok(())
@@ -120,14 +120,14 @@ pub(crate) fn cmd_validate_check_provider_consistency(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
     let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
     let conflicts = find_provider_conflicts(&config);
     if json {
         let items: Vec<String> = conflicts
             .iter()
-            .map(|(m, ps)| format!("{{\"machine\":\"{}\",\"providers\":{:?}}}", m, ps))
+            .map(|(m, ps)| format!("{{\"machine\":\"{m}\",\"providers\":{ps:?}}}"))
             .collect();
         println!("{{\"provider_conflicts\":[{}]}}", items.join(","));
     } else if conflicts.is_empty() {
@@ -169,19 +169,14 @@ fn find_provider_conflicts(config: &types::ForjarConfig) -> Vec<(String, Vec<Str
 
 /// FJ-769: Verify state field values are valid for each resource type.
 pub(crate) fn cmd_validate_check_state_values(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
     let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
     let bad = find_bad_states(&config);
     if json {
         let items: Vec<String> = bad
             .iter()
-            .map(|(r, t, s)| {
-                format!(
-                    "{{\"resource\":\"{}\",\"type\":\"{}\",\"state\":\"{}\"}}",
-                    r, t, s
-                )
-            })
+            .map(|(r, t, s)| format!("{{\"resource\":\"{r}\",\"type\":\"{t}\",\"state\":\"{s}\"}}"))
             .collect();
         println!("{{\"invalid_states\":[{}]}}", items.join(","));
     } else if bad.is_empty() {
@@ -189,7 +184,7 @@ pub(crate) fn cmd_validate_check_state_values(file: &Path, json: bool) -> Result
     } else {
         println!("Invalid state values ({}):", bad.len());
         for (r, t, s) in &bad {
-            println!("  {} (type {}) — invalid state \"{}\"", r, t, s);
+            println!("  {r} (type {t}) — invalid state \"{s}\"");
         }
     }
     Ok(())
@@ -227,19 +222,19 @@ fn find_bad_states(config: &types::ForjarConfig) -> Vec<(String, String, String)
 
 /// FJ-773: Detect machines defined but not referenced by any resource.
 pub(crate) fn cmd_validate_check_unused_machines(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
     let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
     let unused = find_unused_machines(&config);
     if json {
-        let items: Vec<String> = unused.iter().map(|m| format!("\"{}\"", m)).collect();
+        let items: Vec<String> = unused.iter().map(|m| format!("\"{m}\"")).collect();
         println!("{{\"unused_machines\":[{}]}}", items.join(","));
     } else if unused.is_empty() {
         println!("All defined machines are referenced by resources.");
     } else {
         println!("Unused machines ({}):", unused.len());
         for m in &unused {
-            println!("  {}", m);
+            println!("  {m}");
         }
     }
     Ok(())
@@ -265,14 +260,14 @@ fn find_unused_machines(config: &types::ForjarConfig) -> Vec<String> {
 
 /// FJ-777: Verify resource tags follow naming conventions (kebab-case).
 pub(crate) fn cmd_validate_check_tag_consistency(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
     let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
     let bad = find_bad_tags(&config);
     if json {
         let items: Vec<String> = bad
             .iter()
-            .map(|(r, t)| format!("{{\"resource\":\"{}\",\"tag\":\"{}\"}}", r, t))
+            .map(|(r, t)| format!("{{\"resource\":\"{r}\",\"tag\":\"{t}\"}}"))
             .collect();
         println!("{{\"tag_violations\":[{}]}}", items.join(","));
     } else if bad.is_empty() {
@@ -280,7 +275,7 @@ pub(crate) fn cmd_validate_check_tag_consistency(file: &Path, json: bool) -> Res
     } else {
         println!("Tag naming violations ({}):", bad.len());
         for (r, t) in &bad {
-            println!("  {} — tag \"{}\" (expected kebab-case)", r, t);
+            println!("  {r} — tag \"{t}\" (expected kebab-case)");
         }
     }
     Ok(())
@@ -288,14 +283,14 @@ pub(crate) fn cmd_validate_check_tag_consistency(file: &Path, json: bool) -> Res
 
 /// FJ-781: Verify all depends_on targets reference existing resources.
 pub(crate) fn cmd_validate_check_dependency_exists(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
     let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
     let bad = find_missing_deps(&config);
     if json {
         let items: Vec<String> = bad
             .iter()
-            .map(|(r, d)| format!("{{\"resource\":\"{}\",\"missing_dep\":\"{}\"}}", r, d))
+            .map(|(r, d)| format!("{{\"resource\":\"{r}\",\"missing_dep\":\"{d}\"}}"))
             .collect();
         println!("{{\"missing_dependencies\":[{}]}}", items.join(","));
     } else if bad.is_empty() {
@@ -303,7 +298,7 @@ pub(crate) fn cmd_validate_check_dependency_exists(file: &Path, json: bool) -> R
     } else {
         println!("Missing dependency targets ({}):", bad.len());
         for (r, d) in &bad {
-            println!("  {} → {} (not defined)", r, d);
+            println!("  {r} → {d} (not defined)");
         }
     }
     Ok(())
@@ -329,18 +324,15 @@ pub(crate) fn cmd_validate_check_path_conflicts_strict(
     file: &Path,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
     let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
     let conflicts = find_strict_path_conflicts(&config);
     if json {
         let items: Vec<String> = conflicts
             .iter()
             .map(|(m, p, rs)| {
-                format!(
-                    "{{\"machine\":\"{}\",\"path\":\"{}\",\"resources\":{:?}}}",
-                    m, p, rs
-                )
+                format!("{{\"machine\":\"{m}\",\"path\":\"{p}\",\"resources\":{rs:?}}}")
             })
             .collect();
         println!("{{\"path_conflicts\":[{}]}}", items.join(","));
@@ -403,16 +395,14 @@ fn find_bad_tags(config: &types::ForjarConfig) -> Vec<(String, String)> {
 
 /// FJ-789: Detect duplicate resource names (same base name in different groups).
 pub(crate) fn cmd_validate_check_duplicate_names(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
     let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
     let dupes = find_duplicate_base_names(&config);
     if json {
         let items: Vec<String> = dupes
             .iter()
-            .map(|(base, names)| {
-                format!("{{\"base_name\":\"{}\",\"resources\":{:?}}}", base, names)
-            })
+            .map(|(base, names)| format!("{{\"base_name\":\"{base}\",\"resources\":{names:?}}}"))
             .collect();
         println!("{{\"duplicate_names\":[{}]}}", items.join(","));
     } else if dupes.is_empty() {
@@ -447,9 +437,9 @@ fn find_duplicate_base_names(config: &types::ForjarConfig) -> Vec<(String, Vec<S
 
 /// FJ-793: Verify resource groups are non-empty.
 pub(crate) fn cmd_validate_check_resource_groups(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
     let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
     let groups = collect_resource_groups(&config);
     let empty: Vec<&String> = groups
         .iter()
@@ -459,7 +449,7 @@ pub(crate) fn cmd_validate_check_resource_groups(file: &Path, json: bool) -> Res
     if json {
         let items: Vec<String> = groups
             .iter()
-            .map(|(g, c)| format!("{{\"group\":\"{}\",\"count\":{}}}", g, c))
+            .map(|(g, c)| format!("{{\"group\":\"{g}\",\"count\":{c}}}"))
             .collect();
         println!(
             "{{\"resource_groups\":[{}],\"empty_count\":{}}}",
@@ -471,7 +461,7 @@ pub(crate) fn cmd_validate_check_resource_groups(file: &Path, json: bool) -> Res
     } else {
         println!("Resource groups ({}):", groups.len());
         for (g, c) in &groups {
-            println!("  {} — {} resources", g, c);
+            println!("  {g} — {c} resources");
         }
         if !empty.is_empty() {
             println!("Warning: {} empty group(s)", empty.len());

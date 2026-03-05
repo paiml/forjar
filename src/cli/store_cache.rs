@@ -228,9 +228,9 @@ fn dir_size(path: &Path) -> u64 {
         .map(|rd| {
             rd.flatten()
                 .map(|e| {
-                    let m = e
-                        .metadata()
-                        .unwrap_or_else(|_| std::fs::metadata(e.path()).unwrap());
+                    let Ok(m) = e.metadata().or_else(|_| std::fs::metadata(e.path())) else {
+                        return 0;
+                    };
                     if m.is_file() {
                         m.len()
                     } else {
@@ -264,5 +264,6 @@ fn local_machine() -> Machine {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     }
 }

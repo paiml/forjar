@@ -28,12 +28,12 @@ pub(super) fn validate_resource_type(
 fn validate_package(id: &str, resource: &Resource, errors: &mut Vec<ValidationError>) {
     if resource.packages.is_empty() {
         errors.push(ValidationError {
-            message: format!("resource '{}' (package) has no packages", id),
+            message: format!("resource '{id}' (package) has no packages"),
         });
     }
     if resource.provider.is_none() {
         errors.push(ValidationError {
-            message: format!("resource '{}' (package) has no provider", id),
+            message: format!("resource '{id}' (package) has no provider"),
         });
     }
 }
@@ -41,15 +41,12 @@ fn validate_package(id: &str, resource: &Resource, errors: &mut Vec<ValidationEr
 fn validate_file(id: &str, resource: &Resource, errors: &mut Vec<ValidationError>) {
     if resource.path.is_none() {
         errors.push(ValidationError {
-            message: format!("resource '{}' (file) has no path", id),
+            message: format!("resource '{id}' (file) has no path"),
         });
     }
     if resource.content.is_some() && resource.source.is_some() {
         errors.push(ValidationError {
-            message: format!(
-                "resource '{}' (file) has both content and source (pick one)",
-                id
-            ),
+            message: format!("resource '{id}' (file) has both content and source (pick one)"),
         });
     }
     if let Some(ref state) = resource.state {
@@ -67,7 +64,7 @@ fn validate_file(id: &str, resource: &Resource, errors: &mut Vec<ValidationError
     }
     if resource.state.as_deref() == Some("symlink") && resource.target.is_none() {
         errors.push(ValidationError {
-            message: format!("resource '{}' (file) state=symlink requires a target", id),
+            message: format!("resource '{id}' (file) state=symlink requires a target"),
         });
     }
 }
@@ -75,7 +72,7 @@ fn validate_file(id: &str, resource: &Resource, errors: &mut Vec<ValidationError
 fn validate_service(id: &str, resource: &Resource, errors: &mut Vec<ValidationError>) {
     if resource.name.is_none() {
         errors.push(ValidationError {
-            message: format!("resource '{}' (service) has no name", id),
+            message: format!("resource '{id}' (service) has no name"),
         });
     }
     if let Some(ref state) = resource.state {
@@ -96,12 +93,12 @@ fn validate_service(id: &str, resource: &Resource, errors: &mut Vec<ValidationEr
 fn validate_mount(id: &str, resource: &Resource, errors: &mut Vec<ValidationError>) {
     if resource.source.is_none() {
         errors.push(ValidationError {
-            message: format!("resource '{}' (mount) has no source", id),
+            message: format!("resource '{id}' (mount) has no source"),
         });
     }
     if resource.path.is_none() {
         errors.push(ValidationError {
-            message: format!("resource '{}' (mount) has no path", id),
+            message: format!("resource '{id}' (mount) has no path"),
         });
     }
     if let Some(ref state) = resource.state {
@@ -122,7 +119,7 @@ fn validate_mount(id: &str, resource: &Resource, errors: &mut Vec<ValidationErro
 fn validate_user(id: &str, resource: &Resource, errors: &mut Vec<ValidationError>) {
     if resource.name.is_none() {
         errors.push(ValidationError {
-            message: format!("resource '{}' (user) has no name", id),
+            message: format!("resource '{id}' (user) has no name"),
         });
     }
 }
@@ -130,12 +127,12 @@ fn validate_user(id: &str, resource: &Resource, errors: &mut Vec<ValidationError
 fn validate_docker(id: &str, resource: &Resource, errors: &mut Vec<ValidationError>) {
     if resource.name.is_none() {
         errors.push(ValidationError {
-            message: format!("resource '{}' (docker) has no name", id),
+            message: format!("resource '{id}' (docker) has no name"),
         });
     }
     if resource.image.is_none() && resource.state.as_deref() != Some("absent") {
         errors.push(ValidationError {
-            message: format!("resource '{}' (docker) has no image", id),
+            message: format!("resource '{id}' (docker) has no image"),
         });
     }
     if let Some(ref state) = resource.state {
@@ -156,28 +153,32 @@ fn validate_docker(id: &str, resource: &Resource, errors: &mut Vec<ValidationErr
 fn validate_cron(id: &str, resource: &Resource, errors: &mut Vec<ValidationError>) {
     if resource.name.is_none() {
         errors.push(ValidationError {
-            message: format!("resource '{}' (cron) has no name", id),
+            message: format!("resource '{id}' (cron) has no name"),
         });
     }
     if resource.schedule.is_none() && resource.state.as_deref() != Some("absent") {
         errors.push(ValidationError {
-            message: format!("resource '{}' (cron) has no schedule", id),
+            message: format!("resource '{id}' (cron) has no schedule"),
         });
     }
     if let Some(ref sched) = resource.schedule {
-        let fields: Vec<&str> = sched.split_whitespace().collect();
-        if fields.len() != 5 {
-            errors.push(ValidationError {
-                message: format!(
-                    "resource '{}' (cron) schedule '{}' must have exactly 5 fields (min hour dom mon dow)",
-                    id, sched
-                ),
-            });
+        // Skip templates and cron keywords (@daily, @weekly, etc.)
+        let is_keyword = sched.starts_with('@');
+        let is_template = sched.contains("{{");
+        if !is_keyword && !is_template {
+            let fields: Vec<&str> = sched.split_whitespace().collect();
+            if fields.len() != 5 {
+                errors.push(ValidationError {
+                    message: format!(
+                        "resource '{id}' (cron) schedule '{sched}' must have exactly 5 fields (min hour dom mon dow)"
+                    ),
+                });
+            }
         }
     }
     if resource.command.is_none() && resource.state.as_deref() != Some("absent") {
         errors.push(ValidationError {
-            message: format!("resource '{}' (cron) has no command", id),
+            message: format!("resource '{id}' (cron) has no command"),
         });
     }
     if let Some(ref state) = resource.state {
@@ -185,8 +186,7 @@ fn validate_cron(id: &str, resource: &Resource, errors: &mut Vec<ValidationError
         if !valid.contains(&state.as_str()) {
             errors.push(ValidationError {
                 message: format!(
-                    "resource '{}' (cron) has invalid state '{}' (expected: present, absent)",
-                    id, state
+                    "resource '{id}' (cron) has invalid state '{state}' (expected: present, absent)"
                 ),
             });
         }
@@ -196,7 +196,7 @@ fn validate_cron(id: &str, resource: &Resource, errors: &mut Vec<ValidationError
 fn validate_network(id: &str, resource: &Resource, errors: &mut Vec<ValidationError>) {
     if resource.port.is_none() {
         errors.push(ValidationError {
-            message: format!("resource '{}' (network) has no port", id),
+            message: format!("resource '{id}' (network) has no port"),
         });
     }
     if let Some(ref proto) = resource.protocol {
@@ -204,8 +204,7 @@ fn validate_network(id: &str, resource: &Resource, errors: &mut Vec<ValidationEr
         if !valid.contains(&proto.as_str()) {
             errors.push(ValidationError {
                 message: format!(
-                    "resource '{}' (network) has invalid protocol '{}' (expected: tcp, udp)",
-                    id, proto
+                    "resource '{id}' (network) has invalid protocol '{proto}' (expected: tcp, udp)"
                 ),
             });
         }
@@ -215,8 +214,7 @@ fn validate_network(id: &str, resource: &Resource, errors: &mut Vec<ValidationEr
         if !valid.contains(&action.as_str()) {
             errors.push(ValidationError {
                 message: format!(
-                    "resource '{}' (network) has invalid action '{}' (expected: allow, deny, reject)",
-                    id, action
+                    "resource '{id}' (network) has invalid action '{action}' (expected: allow, deny, reject)"
                 ),
             });
         }
@@ -226,7 +224,7 @@ fn validate_network(id: &str, resource: &Resource, errors: &mut Vec<ValidationEr
 fn validate_pepita(id: &str, resource: &Resource, errors: &mut Vec<ValidationError>) {
     if resource.name.is_none() {
         errors.push(ValidationError {
-            message: format!("resource '{}' (pepita) has no name", id),
+            message: format!("resource '{id}' (pepita) has no name"),
         });
     }
     if let Some(ref state) = resource.state {
@@ -234,8 +232,7 @@ fn validate_pepita(id: &str, resource: &Resource, errors: &mut Vec<ValidationErr
         if !valid.contains(&state.as_str()) {
             errors.push(ValidationError {
                 message: format!(
-                    "resource '{}' (pepita) has invalid state '{}' (expected: present, absent)",
-                    id, state
+                    "resource '{id}' (pepita) has invalid state '{state}' (expected: present, absent)"
                 ),
             });
         }
@@ -249,7 +246,7 @@ fn validate_pepita(id: &str, resource: &Resource, errors: &mut Vec<ValidationErr
     if let Some(ref cpuset) = resource.cpuset {
         if cpuset.is_empty() {
             errors.push(ValidationError {
-                message: format!("resource '{}' (pepita) has empty cpuset", id),
+                message: format!("resource '{id}' (pepita) has empty cpuset"),
             });
         }
     }
@@ -258,7 +255,7 @@ fn validate_pepita(id: &str, resource: &Resource, errors: &mut Vec<ValidationErr
 fn validate_model(id: &str, resource: &Resource, errors: &mut Vec<ValidationError>) {
     if resource.name.is_none() {
         errors.push(ValidationError {
-            message: format!("resource '{}' (model) has no name", id),
+            message: format!("resource '{id}' (model) has no name"),
         });
     }
     if let Some(ref state) = resource.state {
@@ -266,8 +263,7 @@ fn validate_model(id: &str, resource: &Resource, errors: &mut Vec<ValidationErro
         if !valid.contains(&state.as_str()) {
             errors.push(ValidationError {
                 message: format!(
-                    "resource '{}' (model) has invalid state '{}' (expected: present, absent)",
-                    id, state
+                    "resource '{id}' (model) has invalid state '{state}' (expected: present, absent)"
                 ),
             });
         }
@@ -277,7 +273,7 @@ fn validate_model(id: &str, resource: &Resource, errors: &mut Vec<ValidationErro
 fn validate_gpu(id: &str, resource: &Resource, errors: &mut Vec<ValidationError>) {
     if resource.driver_version.is_none() {
         errors.push(ValidationError {
-            message: format!("resource '{}' (gpu) has no driver_version", id),
+            message: format!("resource '{id}' (gpu) has no driver_version"),
         });
     }
     if let Some(ref state) = resource.state {
@@ -285,8 +281,7 @@ fn validate_gpu(id: &str, resource: &Resource, errors: &mut Vec<ValidationError>
         if !valid.contains(&state.as_str()) {
             errors.push(ValidationError {
                 message: format!(
-                    "resource '{}' (gpu) has invalid state '{}' (expected: present, absent)",
-                    id, state
+                    "resource '{id}' (gpu) has invalid state '{state}' (expected: present, absent)"
                 ),
             });
         }
@@ -296,23 +291,32 @@ fn validate_gpu(id: &str, resource: &Resource, errors: &mut Vec<ValidationError>
 fn validate_recipe(id: &str, resource: &Resource, errors: &mut Vec<ValidationError>) {
     if resource.recipe.is_none() {
         errors.push(ValidationError {
-            message: format!("resource '{}' (recipe) has no recipe name", id),
+            message: format!("resource '{id}' (recipe) has no recipe name"),
         });
     }
 }
 
 fn validate_task(id: &str, resource: &Resource, errors: &mut Vec<ValidationError>) {
-    if resource.command.is_none() {
+    // FJ-2700: Pipeline tasks use stages instead of command
+    let is_pipeline = resource
+        .task_mode
+        .as_ref()
+        .is_some_and(|m| *m == crate::core::types::TaskMode::Pipeline);
+    if resource.command.is_none() && !is_pipeline {
         errors.push(ValidationError {
-            message: format!("resource '{}' (task) has no command", id),
+            message: format!("resource '{id}' (task) has no command"),
+        });
+    }
+    if is_pipeline && resource.stages.is_empty() {
+        errors.push(ValidationError {
+            message: format!("resource '{id}' (task pipeline) has no stages"),
         });
     }
     if let Some(ref timeout) = resource.timeout {
         if *timeout == 0 {
             errors.push(ValidationError {
                 message: format!(
-                    "resource '{}' (task) has timeout of 0 (use no timeout or a positive value)",
-                    id
+                    "resource '{id}' (task) has timeout of 0 (use no timeout or a positive value)"
                 ),
             });
         }

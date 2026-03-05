@@ -15,7 +15,7 @@ pub(crate) fn cmd_validate_check_idempotency(file: &Path, json: bool) -> Result<
         if let Some(res) = config.resources.get(name) {
             let rt = format!("{:?}", res.resource_type);
             if rt == "Unknown" {
-                non_idempotent.push(format!("{}: unknown resource type", name));
+                non_idempotent.push(format!("{name}: unknown resource type"));
             }
         }
     }
@@ -39,7 +39,7 @@ pub(crate) fn cmd_validate_check_idempotency(file: &Path, json: bool) -> Result<
             non_idempotent.len()
         );
         for issue in &non_idempotent {
-            println!("  - {}", issue);
+            println!("  - {issue}");
         }
     }
     Ok(())
@@ -54,8 +54,7 @@ pub(crate) fn cmd_validate_check_drift_coverage(file: &Path, json: bool) -> Resu
 
     if json {
         println!(
-            "{{\"check_drift_coverage\":true,\"total\":{},\"covered\":{},\"ok\":true}}",
-            total, covered
+            "{{\"check_drift_coverage\":true,\"total\":{total},\"covered\":{covered},\"ok\":true}}"
         );
     } else {
         println!(
@@ -88,7 +87,7 @@ pub(crate) fn cmd_validate_check_complexity(file: &Path, json: bool) -> Result<(
     if json {
         let entries: Vec<String> = warnings
             .iter()
-            .map(|(name, count)| format!(r#"{{"resource":"{}","fan_out_or_in":{}}}"#, name, count))
+            .map(|(name, count)| format!(r#"{{"resource":"{name}","fan_out_or_in":{count}}}"#))
             .collect();
         println!("[{}]", entries.join(","));
     } else if warnings.is_empty() {
@@ -98,7 +97,7 @@ pub(crate) fn cmd_validate_check_complexity(file: &Path, json: bool) -> Result<(
             threshold
         );
     } else {
-        println!("Complexity warnings (threshold: {}):\n", threshold);
+        println!("Complexity warnings (threshold: {threshold}):\n");
         for (name, count) in &warnings {
             println!(
                 "  {} {} — {} dependencies/dependents",
@@ -150,7 +149,7 @@ fn check_world_writable_mode(
     };
     if let Some(c) = last_three.chars().last() {
         if c == '7' || c == '6' {
-            warnings.push((name.to_string(), format!("world-writable mode: {}", mode)));
+            warnings.push((name.to_string(), format!("world-writable mode: {mode}")));
         }
     }
 }
@@ -163,7 +162,7 @@ fn check_privileged_port(name: &str, res: &types::Resource, warnings: &mut Vec<(
     if let Some(ref port_str) = res.port {
         if let Ok(port) = port_str.parse::<u16>() {
             if port < 1024 {
-                warnings.push((name.to_string(), format!("privileged port: {}", port)));
+                warnings.push((name.to_string(), format!("privileged port: {port}")));
             }
         }
     }
@@ -192,7 +191,7 @@ fn check_root_ownership_security(
                 if path.starts_with("/tmp") || path.starts_with("/var/tmp") {
                     warnings.push((
                         name.to_string(),
-                        format!("root-owned file in temp directory: {}", path),
+                        format!("root-owned file in temp directory: {path}"),
                     ));
                 }
             }
@@ -212,7 +211,7 @@ pub(crate) fn cmd_validate_check_security(file: &Path, json: bool) -> Result<(),
     if json {
         let entries: Vec<String> = warnings
             .iter()
-            .map(|(name, warning)| format!(r#"{{"resource":"{}","warning":"{}"}}"#, name, warning))
+            .map(|(name, warning)| format!(r#"{{"resource":"{name}","warning":"{warning}"}}"#))
             .collect();
         println!("[{}]", entries.join(","));
     } else if warnings.is_empty() {
@@ -237,7 +236,7 @@ pub(crate) fn cmd_validate_check_deprecation(file: &Path, json: bool) -> Result<
         let type_str = format!("{:?}", res.resource_type).to_lowercase();
         for dep_type in &deprecated_types {
             if type_str.contains(dep_type) {
-                warnings.push((name.clone(), format!("deprecated type: {}", type_str)));
+                warnings.push((name.clone(), format!("deprecated type: {type_str}")));
             }
         }
 
@@ -257,7 +256,7 @@ pub(crate) fn cmd_validate_check_deprecation(file: &Path, json: bool) -> Result<
     if json {
         let entries: Vec<String> = warnings
             .iter()
-            .map(|(name, msg)| format!(r#"{{"resource":"{}","warning":"{}"}}"#, name, msg))
+            .map(|(name, msg)| format!(r#"{{"resource":"{name}","warning":"{msg}"}}"#))
             .collect();
         println!("[{}]", entries.join(","));
     } else if warnings.is_empty() {

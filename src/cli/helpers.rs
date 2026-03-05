@@ -13,7 +13,7 @@ pub(crate) fn color_enabled() -> bool {
 
 pub(crate) fn green(s: &str) -> String {
     if color_enabled() {
-        format!("\x1b[32m{}\x1b[0m", s)
+        format!("\x1b[32m{s}\x1b[0m")
     } else {
         s.to_string()
     }
@@ -21,7 +21,7 @@ pub(crate) fn green(s: &str) -> String {
 
 pub(crate) fn red(s: &str) -> String {
     if color_enabled() {
-        format!("\x1b[31m{}\x1b[0m", s)
+        format!("\x1b[31m{s}\x1b[0m")
     } else {
         s.to_string()
     }
@@ -29,7 +29,7 @@ pub(crate) fn red(s: &str) -> String {
 
 pub(crate) fn yellow(s: &str) -> String {
     if color_enabled() {
-        format!("\x1b[33m{}\x1b[0m", s)
+        format!("\x1b[33m{s}\x1b[0m")
     } else {
         s.to_string()
     }
@@ -37,7 +37,7 @@ pub(crate) fn yellow(s: &str) -> String {
 
 pub(crate) fn dim(s: &str) -> String {
     if color_enabled() {
-        format!("\x1b[2m{}\x1b[0m", s)
+        format!("\x1b[2m{s}\x1b[0m")
     } else {
         s.to_string()
     }
@@ -45,7 +45,7 @@ pub(crate) fn dim(s: &str) -> String {
 
 pub(crate) fn bold(s: &str) -> String {
     if color_enabled() {
-        format!("\x1b[1m{}\x1b[0m", s)
+        format!("\x1b[1m{s}\x1b[0m")
     } else {
         s.to_string()
     }

@@ -1,7 +1,5 @@
 //! Phase 104 — Operational Maturity & Dependency Governance: validate commands (FJ-1094, FJ-1097, FJ-1100).
 
-#![allow(dead_code)]
-
 use crate::core::types;
 use std::collections::HashMap;
 use std::path::Path;
@@ -275,7 +273,7 @@ mod tests {
 
     /// Deserialize a minimal resource from YAML, setting only the `type` field.
     fn make_resource(rtype: &str) -> types::Resource {
-        let yaml = format!("type: {}", rtype);
+        let yaml = format!("type: {rtype}");
         serde_yaml_ng::from_str(&yaml).unwrap()
     }
 

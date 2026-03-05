@@ -46,6 +46,7 @@ mod tests {
             resource_timeout: None,
             rollback_on_failure: true,
             max_parallel: None,
+            trace: false,
             notify: None,
             subset: None,
             confirm_destructive: false,
@@ -249,6 +250,7 @@ resources:
             resource_timeout: None,
             rollback_on_failure: true,
             max_parallel: None,
+            trace: false,
         };
         assert!(cfg.rollback_on_failure);
     }

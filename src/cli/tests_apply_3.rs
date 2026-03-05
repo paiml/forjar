@@ -69,6 +69,7 @@ resources:
                 resource_timeout: None,
                 rollback_on_failure: false,
                 max_parallel: None,
+            trace: false,
                 notify: None,
                 subset: None,
                 confirm_destructive: false,
@@ -220,7 +221,7 @@ resources:
                 refresh_only: false,
                 encrypt_state: false,
             }),
-            false,
+            0,
             true,
         );
         assert!(result.is_ok());

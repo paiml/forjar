@@ -15,7 +15,7 @@ fn filter_machines<'a>(machines: &'a [String], machine: Option<&str>) -> Vec<&'a
 
 /// Load a StateLock from a lock.yaml file, returning None on any error.
 fn load_lock_from_yaml(state_dir: &Path, m: &str) -> Option<types::StateLock> {
-    let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+    let lock_path = state_dir.join(m).join("state.lock.yaml");
     let content = std::fs::read_to_string(&lock_path).ok()?;
     serde_yaml_ng::from_str(&content).ok()
 }
@@ -33,9 +33,7 @@ fn collect_failure_counts(
         if let Some(lock) = state::load_lock(state_dir, m).map_err(|e| e.to_string())? {
             for (rname, rl) in &lock.resources {
                 if rl.status == types::ResourceStatus::Failed {
-                    *failure_counts
-                        .entry(format!("{}:{}", m, rname))
-                        .or_insert(0) += 1;
+                    *failure_counts.entry(format!("{m}:{rname}")).or_insert(0) += 1;
                 }
             }
         }
@@ -73,7 +71,7 @@ pub(crate) fn cmd_status_top_failures(
         println!("Top Failing Resources");
         println!("{}", "─".repeat(40));
         for (name, count) in &ranked {
-            println!("  {:40} {} failure(s)", name, count);
+            println!("  {name:40} {count} failure(s)");
         }
     }
     Ok(())
@@ -91,7 +89,7 @@ pub(crate) fn cmd_status_failed_since(
 
     let mut failed = Vec::new();
     for m in &targets {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             continue;
         }
@@ -124,18 +122,15 @@ fn print_failed_since_output(failed: &[(String, String, String)], since: &str, j
             if i > 0 {
                 print!(",");
             }
-            print!(
-                r#"{{"machine":"{}","resource":"{}","applied_at":"{}"}}"#,
-                machine, resource, applied
-            );
+            print!(r#"{{"machine":"{machine}","resource":"{resource}","applied_at":"{applied}"}}"#);
         }
         println!("]}}");
     } else if failed.is_empty() {
-        println!("No failed resources since {}", since);
+        println!("No failed resources since {since}");
     } else {
         println!("Failed resources since {} ({}):", since, failed.len());
         for (machine, resource, applied) in failed {
-            println!("  {}/{} (at {})", machine, resource, applied);
+            println!("  {machine}/{resource} (at {applied})");
         }
     }
 }
@@ -168,10 +163,7 @@ pub(crate) fn cmd_status_failed_resources(
         let items: Vec<String> = entries
             .iter()
             .map(|(m, name, rtype)| {
-                format!(
-                    "{{\"machine\":\"{}\",\"resource\":\"{}\",\"type\":\"{}\"}}",
-                    m, name, rtype
-                )
+                format!("{{\"machine\":\"{m}\",\"resource\":\"{name}\",\"type\":\"{rtype}\"}}")
             })
             .collect();
         println!(
@@ -184,7 +176,7 @@ pub(crate) fn cmd_status_failed_resources(
     } else {
         println!("Failed resources:");
         for (m, name, rtype) in &entries {
-            println!("  {} / {} ({})", m, name, rtype);
+            println!("  {m} / {name} ({rtype})");
         }
     }
     Ok(())
@@ -221,10 +213,7 @@ pub(crate) fn cmd_status_hash_verify(
             total - verified
         );
     } else {
-        println!(
-            "Hash verification: {}/{} resources have BLAKE3 hashes",
-            verified, total
-        );
+        println!("Hash verification: {verified}/{total} resources have BLAKE3 hashes");
     }
     Ok(())
 }
@@ -254,10 +243,7 @@ pub(crate) fn cmd_status_lock_age(
             if i > 0 {
                 print!(",");
             }
-            print!(
-                r#"{{"machine":"{}","resource":"{}","applied_at":"{}"}}"#,
-                m, rname, applied
-            );
+            print!(r#"{{"machine":"{m}","resource":"{rname}","applied_at":"{applied}"}}"#);
         }
         println!("]}}");
     } else {
@@ -288,12 +274,11 @@ pub(crate) fn cmd_status_config_hash(
     if json {
         let mut entries = Vec::new();
         for m in &targets {
-            let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+            let lock_path = state_dir.join(m).join("state.lock.yaml");
             if let Ok(data) = std::fs::read_to_string(&lock_path) {
                 let hash = crate::tripwire::hasher::hash_string(&data);
                 entries.push(format!(
-                    "{{\"machine\":\"{}\",\"config_hash\":\"{}\"}}",
-                    m, hash
+                    "{{\"machine\":\"{m}\",\"config_hash\":\"{hash}\"}}"
                 ));
             }
         }
@@ -301,10 +286,10 @@ pub(crate) fn cmd_status_config_hash(
     } else {
         println!("Config hashes:");
         for m in &targets {
-            let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+            let lock_path = state_dir.join(m).join("state.lock.yaml");
             if let Ok(data) = std::fs::read_to_string(&lock_path) {
                 let hash = crate::tripwire::hasher::hash_string(&data);
-                println!("  {} — {}", m, hash);
+                println!("  {m} — {hash}");
             }
         }
     }
@@ -347,14 +332,12 @@ fn build_recommendations(total: u64, failed: u64, drifted: u64) -> Vec<String> {
     let mut recommendations = Vec::new();
     if failed > 0 {
         recommendations.push(format!(
-            "HIGH: {} failed resources need attention. Run 'forjar apply' to reconverge.",
-            failed
+            "HIGH: {failed} failed resources need attention. Run 'forjar apply' to reconverge."
         ));
     }
     if drifted > 0 {
         recommendations.push(format!(
-            "MEDIUM: {} drifted resources detected. Run 'forjar drift' for details.",
-            drifted
+            "MEDIUM: {drifted} drifted resources detected. Run 'forjar drift' for details."
         ));
     }
     if total == 0 {
@@ -363,8 +346,7 @@ fn build_recommendations(total: u64, failed: u64, drifted: u64) -> Vec<String> {
     }
     if failed == 0 && drifted == 0 && total > 0 {
         recommendations.push(format!(
-            "OK: All {} resources are converged. No action needed.",
-            total
+            "OK: All {total} resources are converged. No action needed."
         ));
     }
     recommendations
@@ -384,7 +366,7 @@ fn print_recommendations(recommendations: &[String], json: bool) {
     } else {
         println!("Recommendations:");
         for r in recommendations {
-            println!("  {}", r);
+            println!("  {r}");
         }
     }
 }

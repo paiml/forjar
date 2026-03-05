@@ -170,6 +170,7 @@ resources:
             strict: false,
             fix: true,
             rules: None,
+            bashrs_version: false,
         });
         match cmd {
             Commands::Lint(LintArgs { fix, .. }) => assert!(fix),
@@ -185,6 +186,7 @@ resources:
             strict: false,
             fix: false,
             rules: Some(PathBuf::from("rules.yaml")),
+            bashrs_version: false,
         });
         match cmd {
             Commands::Lint(LintArgs { rules, .. }) => {

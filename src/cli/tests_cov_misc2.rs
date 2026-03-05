@@ -1,7 +1,5 @@
+#![allow(unused)]
 //! Tests: Coverage for secrets, doctor, plan, show.
-
-#![allow(unused_imports)]
-#![allow(dead_code)]
 use super::doctor::*;
 use super::plan::*;
 use super::secrets::*;
@@ -75,6 +73,7 @@ resources:
     // secrets::cmd_secrets_rotate
     // ========================================================================
 
+    #[cfg(feature = "encryption")]
     #[test]
     fn test_secrets_rotate_no_re_encrypt_flag() {
         let dir = tempfile::tempdir().unwrap();
@@ -92,6 +91,7 @@ resources:
         assert!(result.unwrap_err().contains("--re-encrypt"));
     }
 
+    #[cfg(feature = "encryption")]
     #[test]
     fn test_secrets_rotate_no_markers() {
         let dir = tempfile::tempdir().unwrap();
@@ -108,6 +108,7 @@ resources:
         assert!(result.is_ok());
     }
 
+    #[cfg(feature = "encryption")]
     #[test]
     fn test_secrets_rotate_empty_file() {
         let dir = tempfile::tempdir().unwrap();
@@ -124,6 +125,7 @@ resources:
         assert!(result.is_ok());
     }
 
+    #[cfg(feature = "encryption")]
     #[test]
     fn test_secrets_rotate_nonexistent_file() {
         let dir = tempfile::tempdir().unwrap();
@@ -141,6 +143,7 @@ resources:
         assert!(result.unwrap_err().contains("cannot read"));
     }
 
+    #[cfg(feature = "encryption")]
     #[test]
     fn test_secrets_rotate_no_re_encrypt_with_empty() {
         let dir = tempfile::tempdir().unwrap();
@@ -155,6 +158,7 @@ resources:
     // secrets::cmd_secrets_rekey
     // ========================================================================
 
+    #[cfg(feature = "encryption")]
     #[test]
     fn test_secrets_rekey_no_markers() {
         let dir = tempfile::tempdir().unwrap();
@@ -167,6 +171,7 @@ resources:
         assert!(result.is_ok());
     }
 
+    #[cfg(feature = "encryption")]
     #[test]
     fn test_secrets_rekey_empty_file() {
         let dir = tempfile::tempdir().unwrap();
@@ -179,6 +184,7 @@ resources:
         assert!(result.is_ok());
     }
 
+    #[cfg(feature = "encryption")]
     #[test]
     fn test_secrets_rekey_nonexistent_file() {
         let dir = tempfile::tempdir().unwrap();
@@ -192,6 +198,7 @@ resources:
         assert!(result.unwrap_err().contains("cannot read"));
     }
 
+    #[cfg(feature = "encryption")]
     #[test]
     fn test_secrets_rekey_multiline_no_markers() {
         let dir = tempfile::tempdir().unwrap();

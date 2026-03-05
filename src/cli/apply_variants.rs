@@ -26,7 +26,7 @@ pub(crate) fn cmd_apply_dry_run_graph(file: &Path) -> Result<(), String> {
     println!();
     for (name, deps) in &graph {
         if deps.is_empty() {
-            println!("  {} (no dependencies — runs first)", name);
+            println!("  {name} (no dependencies — runs first)");
         } else {
             println!("  {} → depends on: {}", name, deps.join(", "));
         }
@@ -56,7 +56,7 @@ pub(crate) fn cmd_apply_canary_machine(
         ));
     }
 
-    println!("=== Canary: applying to '{}' first ===\n", canary);
+    println!("=== Canary: applying to '{canary}' first ===\n");
     cmd_apply(
         file,
         state_dir,
@@ -214,7 +214,7 @@ pub(crate) fn cmd_refresh_only(
                 if hash != old_hash {
                     drift_count += 1;
                     if verbose {
-                        eprintln!("  drift: {} on {} (hash changed)", id, machine_name);
+                        eprintln!("  drift: {id} on {machine_name} (hash changed)");
                     }
                 }
                 if let Some(entry) = updated_lock.resources.get_mut(id) {
@@ -230,10 +230,7 @@ pub(crate) fn cmd_refresh_only(
         state::save_lock(state_dir, &updated_lock)?;
     }
 
-    println!(
-        "Refresh complete: {} resources queried, {} drifted",
-        refreshed, drift_count
-    );
+    println!("Refresh complete: {refreshed} resources queried, {drift_count} drifted");
     Ok(())
 }
 
@@ -270,10 +267,10 @@ pub(crate) fn cmd_apply_dry_run_cost(
         .count();
 
     println!("Dry run cost estimate:\n");
-    println!("  Create:  {}", creates);
-    println!("  Update:  {}", updates);
-    println!("  Destroy: {}", deletes);
-    println!("  No-op:   {}", noops);
+    println!("  Create:  {creates}");
+    println!("  Update:  {updates}");
+    println!("  Destroy: {deletes}");
+    println!("  No-op:   {noops}");
     println!("  ─────────────");
     println!("  Total changes: {}", creates + updates + deletes);
     Ok(())
@@ -332,18 +329,16 @@ pub(crate) fn cmd_apply_from_plan(
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
+        trace: false,
     };
 
     let results = executor::apply(&cfg)?;
     let (converged, unchanged, failed) = super::apply_output::count_results(&results);
 
-    println!(
-        "Plan applied: {} converged, {} unchanged, {} failed",
-        converged, unchanged, failed
-    );
+    println!("Plan applied: {converged} converged, {unchanged} unchanged, {failed} failed");
 
     if failed > 0 {
-        return Err(format!("{} resource(s) failed", failed));
+        return Err(format!("{failed} resource(s) failed"));
     }
     Ok(())
 }

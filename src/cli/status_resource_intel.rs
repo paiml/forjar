@@ -20,14 +20,14 @@ pub(super) fn parse_rfc3339_to_epoch(s: &str) -> Option<u64> {
     let sec: u64 = s.get(17..19)?.parse().ok()?;
     let mut days: u64 = 0;
     for y in 1970..year {
-        days += if (y % 4 == 0 && y % 100 != 0) || y % 400 == 0 {
+        days += if (y.is_multiple_of(4) && !y.is_multiple_of(100)) || y.is_multiple_of(400) {
             366
         } else {
             365
         };
     }
     let table = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30];
-    let leap = (year % 4 == 0 && year % 100 != 0) || year % 400 == 0;
+    let leap = (year.is_multiple_of(4) && !year.is_multiple_of(100)) || year.is_multiple_of(400);
     let mut md: u64 = 0;
     for m in 1..month.min(13) {
         md += table[m as usize];
@@ -112,7 +112,7 @@ pub(crate) fn cmd_status_fleet_resource_dependency_lag_report(
             println!("  No machine state found.");
         }
         for (m, lag, total) in &rows {
-            println!("  {}: {}/{} lagging", m, lag, total);
+            println!("  {m}: {lag}/{total} lagging");
         }
     }
     Ok(())
@@ -166,7 +166,7 @@ pub(crate) fn cmd_status_machine_resource_convergence_rate_trend(
             println!("  No machine state found.");
         }
         for (m, rate, conv, total) in &rows {
-            println!("  {}: {:.1}% ({}/{})", m, rate, conv, total);
+            println!("  {m}: {rate:.1}% ({conv}/{total})");
         }
     }
     Ok(())
@@ -219,7 +219,7 @@ pub(crate) fn cmd_status_fleet_resource_apply_lag(
         for (m, _ts, age) in &rows {
             let days = *age / 86_400;
             let hours = (*age % 86_400) / 3600;
-            println!("  {}: {}d {}h ago", m, days, hours);
+            println!("  {m}: {days}d {hours}h ago");
         }
     }
     Ok(())

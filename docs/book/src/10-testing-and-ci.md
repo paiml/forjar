@@ -40,6 +40,24 @@ Checks:
 - Network protocol (tcp, udp) and action (allow, deny, reject) are valid
 - Cron schedule has exactly 5 fields
 - Symlink resources have a target field
+- Format validation: octal mode, port range, absolute paths, Unix owner/group names (FJ-2501)
+- Unknown field detection with "did you mean?" suggestions (FJ-2500)
+
+### Deep Validation
+
+```bash
+forjar validate --deep -f forjar.yaml
+```
+
+Runs all deep checks in a single aggregated pass:
+- Template variable resolution
+- Circular dependency detection (transitive closure)
+- Resource overlap detection (same path/port on same machine)
+- Hardcoded secret scan
+- Naming convention enforcement (kebab-case)
+- Drift coverage verification
+- Idempotency verification
+- Exhaustive cross-reference validation
 
 ### Lint
 
@@ -1242,3 +1260,180 @@ PROPTEST_CASES=1000 cargo test proptest
 ```
 
 Property tests generate random `Resource`, `StateLock`, and `GlobalLock` values using strategies defined in `src/core/types/tests_proptest_resource.rs`.
+
+## Resource Coverage Model (FJ-2605)
+
+Every resource type has a five-level coverage maturity scale:
+
+| Level | Name | What It Proves |
+|-------|------|---------------|
+| L0 | No tests | Resource is completely untested |
+| L1 | Unit tested | Codegen produces valid script, planner produces correct action |
+| L2 | Behavior spec | YAML `.spec.yaml` with verify commands |
+| L3 | Convergence tested | Apply-verify-reapply-verify in sandbox |
+| L4 | Mutation tested | All applicable mutations detected |
+| L5 | Preservation tested | Pairwise preservation with co-located resources |
+
+```bash
+cargo run --example coverage_model
+```
+
+## Behavior-Driven Infrastructure Specs (FJ-2602)
+
+Behavior specs describe **what the system should look like after convergence**, not how to get there. They use `.spec.yaml` files with verifiable assertions.
+
+### Spec Format
+
+```yaml
+# tests/behaviors/nginx-web-server.spec.yaml
+name: nginx web server
+config: examples/nginx.yaml
+machine: web-1
+
+behaviors:
+  - name: nginx package is installed
+    resource: nginx-pkg
+    state: present
+    verify:
+      command: "dpkg -l nginx | grep -q '^ii'"
+      exit_code: 0
+
+  - name: nginx service is running
+    resource: nginx-service
+    state: running
+    verify:
+      command: "systemctl is-active nginx"
+      stdout: "active"
+
+  - name: idempotency holds
+    type: convergence
+    convergence:
+      second_apply: noop
+      state_unchanged: true
+```
+
+### Assertion Types
+
+| Type | Field | Description |
+|------|-------|-------------|
+| State | `state` | Expected resource state (present, running, file) |
+| Command | `verify.command` | Shell command with expected exit code |
+| Stdout | `verify.stdout` | Expected stdout content |
+| Stderr | `verify.stderr_contains` | Expected substring in stderr |
+| File | `verify.file_exists` | Path must exist on target |
+| Port | `verify.port_open` | TCP port accepting connections |
+| Convergence | `type: convergence` | Second apply is no-op |
+
+### Soft Assertions
+
+Behavior specs use **soft assertions** — all behaviors are checked before reporting, even if earlier ones fail. This gives a complete picture of the system state.
+
+```bash
+cargo run --example behavior_spec
+```
+
+## Run Log Capture (FJ-2301)
+
+Every `forjar apply` creates a **run log** that captures the full output of every script execution. See the types in action:
+
+```bash
+cargo run --example run_log
+```
+
+Run logs use structured delimiters for machine-parseable output:
+
+```
+=== FORJAR TRANSPORT LOG ===
+resource: cargo-tools
+type: package
+action: apply
+
+=== SCRIPT ===
+apt-get install -y cargo-watch
+
+=== STDOUT ===
+Reading package lists...
+
+=== STDERR ===
+E: Unable to locate package cargo-watch
+
+=== RESULT ===
+exit_code: 100
+duration_secs: 1.800
+```
+
+### Retention Policy
+
+Log storage is bounded by configurable retention:
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `keep_runs` | 10 | Last N runs per machine |
+| `keep_failed` | 50 | Failed runs kept regardless |
+| `max_log_size` | 10 MB | Per-log file truncation |
+| `max_total_size` | 500 MB | Total budget per machine |
+
+## Infrastructure Mutation Testing (FJ-2604)
+
+Verify drift detection catches real-world infrastructure mutations:
+
+```bash
+cargo run --example mutation_testing
+```
+
+### Mutation Operators
+
+Eight mutation operators simulate common infrastructure drift:
+
+| Operator | Targets | What It Tests |
+|----------|---------|---------------|
+| `delete_file` | file | File presence detection |
+| `modify_content` | file | Content hash comparison |
+| `change_permissions` | file | Mode drift detection |
+| `stop_service` | service | Service state detection |
+| `remove_package` | package | Package presence detection |
+| `kill_process` | service | Process recovery |
+| `unmount_filesystem` | mount | Mount state detection |
+| `corrupt_config` | file | Partial content modification |
+
+### Mutation Score
+
+```
+Grade A: >= 90% mutations detected
+Grade B: >= 80%
+Grade C: >= 60%
+Grade F: < 60% — drift detection broken
+```
+
+`MutationReport::from_results()` builds per-type summaries and lists undetected mutations for targeted improvement.
+
+## Build Metrics & Size Regression (FJ-2403)
+
+Track binary sizes across releases and detect regressions automatically:
+
+```bash
+cargo run --example build_metrics
+```
+
+### BuildMetrics
+
+`BuildMetrics::current()` captures compile-time metadata: version, target triple, profile (debug/release), LTO status, and Rust toolchain version. After building, populate `binary_size` and `dependency_count` for tracking.
+
+### SizeThreshold
+
+`SizeThreshold` defines two limits:
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `max_bytes` | 10 MB | Absolute binary size limit |
+| `max_growth_pct` | 10% | Maximum growth from previous release |
+
+```rust
+let threshold = SizeThreshold::default();
+let violations = threshold.check(&current_build, Some(&previous_build));
+if !violations.is_empty() {
+    // Block release: binary size regressed
+}
+```
+
+Use in CI to fail the build when the binary grows beyond acceptable bounds.

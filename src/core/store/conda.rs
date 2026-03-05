@@ -12,18 +12,26 @@ use std::path::Path;
 /// Parsed conda package metadata from `index.json`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct CondaPackageInfo {
+    /// Package name.
     pub name: String,
+    /// Package version.
     pub version: String,
+    /// Build string identifier.
     pub build: String,
+    /// Target architecture (e.g., "x86_64", "noarch").
     pub arch: String,
+    /// Conda subdirectory (e.g., "linux-64", "noarch").
     pub subdir: String,
+    /// Extracted file entries.
     pub files: Vec<CondaFileEntry>,
 }
 
 /// A file entry extracted from a conda package.
 #[derive(Debug, Clone, PartialEq)]
 pub struct CondaFileEntry {
+    /// Relative file path within the package.
     pub path: String,
+    /// File size in bytes.
     pub size: u64,
 }
 

@@ -40,6 +40,9 @@ fn test_fj001_provenance_event_serde() {
         machine: "lambda".to_string(),
         run_id: "r-abc".to_string(),
         forjar_version: "0.1.0".to_string(),
+        operator: None,
+        config_hash: None,
+        param_count: None,
     };
     let json = serde_json::to_string(&event).unwrap();
     assert!(json.contains("\"event\":\"apply_started\""));
@@ -118,7 +121,7 @@ fn test_fj131_resource_status_serde_roundtrip() {
     for s in &statuses {
         let yaml = serde_yaml_ng::to_string(s).unwrap();
         let back: ResourceStatus = serde_yaml_ng::from_str(&yaml).unwrap();
-        assert_eq!(&back, s, "roundtrip failed for {:?}", s);
+        assert_eq!(&back, s, "roundtrip failed for {s:?}");
     }
 }
 
@@ -129,6 +132,9 @@ fn test_fj131_provenance_event_all_variants_serde() {
             machine: "m".to_string(),
             run_id: "r".to_string(),
             forjar_version: "0.1".to_string(),
+            operator: None,
+            config_hash: None,
+            param_count: None,
         },
         ProvenanceEvent::ResourceStarted {
             machine: "m".to_string(),
@@ -263,7 +269,7 @@ fn test_fj131_apply_result_debug() {
         total_duration: std::time::Duration::from_secs(3),
         resource_reports: Vec::new(),
     };
-    let debug = format!("{:?}", ar);
+    let debug = format!("{ar:?}");
     assert!(debug.contains("web"));
     assert!(debug.contains("5"));
 }

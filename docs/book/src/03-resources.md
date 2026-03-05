@@ -9,7 +9,7 @@ resources:
   dev-tools:
     type: package
     machine: m1
-    provider: apt          # apt | cargo | uv
+    provider: apt          # apt | cargo | uv | brew
     packages: [curl, git, htop]
     state: present         # present (default) | absent
     version: "1.2.3"       # optional version pin
@@ -22,6 +22,29 @@ resources:
 | `apt` | `apt-get install -y` (auto-sudo if non-root) | `package=version` | `apt-get remove -y` |
 | `cargo` | `cargo install --force` | `package@version` | — |
 | `uv` | `uv tool install --force` | `package==version` | `uv tool uninstall` |
+| `brew` | `brew install` | `package@version` | `brew uninstall` |
+
+### Cross-Platform Packages (Homebrew)
+
+Use the `brew` provider for cross-platform package management on macOS and Linux:
+
+```yaml
+resources:
+  dev-tools:
+    type: package
+    machine: m1
+    provider: brew
+    packages: [jq, ripgrep, fd, bat]
+
+  python-pinned:
+    type: package
+    machine: m1
+    provider: brew
+    packages: [python]
+    version: "3.12"
+```
+
+The brew provider generates idempotent scripts that check `brew list` before installing, avoiding redundant operations.
 
 ### Version Pinning
 
@@ -794,6 +817,268 @@ resources:
     depends_on: [gpu-driver]
     when: '{{inputs.gpu_backend}} != "cpu"'  # skipped in cpu mode
 ```
+
+## Task
+
+Run arbitrary commands with idempotency checks, timeouts, and output artifact tracking. Tasks are the escape hatch for operations that don't fit other resource types.
+
+```yaml
+resources:
+  build-app:
+    type: task
+    machine: m1
+    command: |
+      gcc -o /opt/app/bin src/main.c -Wall -Wextra
+    working_dir: /opt/app
+    timeout: 120
+    completion_check: "test -x /opt/app/bin"
+    output_artifacts:
+      - /opt/app/bin
+```
+
+### Idempotency
+
+Tasks are not inherently idempotent. Use `completion_check` or `output_artifacts` to make them so:
+
+- **`completion_check`**: A shell command that exits 0 if the task is already done. If it exits 0, the task command is skipped.
+- **`output_artifacts`**: A list of file paths. If all exist, the task is considered complete.
+- If neither is set, the task runs on every apply.
+
+### Timeout
+
+The `timeout` field (in seconds) wraps the command with `timeout(1)`. If the command exceeds the limit, it is killed and the resource fails:
+
+```yaml
+resources:
+  long-build:
+    type: task
+    machine: m1
+    command: "make -j$(nproc) all"
+    working_dir: /opt/project
+    timeout: 300
+```
+
+### Pipeline Pattern
+
+Chain tasks with `depends_on` to build multi-stage pipelines:
+
+```yaml
+resources:
+  generate:
+    type: task
+    machine: m1
+    command: "python3 generate.py > output.json"
+    working_dir: /opt/pipeline
+    output_artifacts: [/opt/pipeline/output.json]
+
+  validate:
+    type: task
+    machine: m1
+    command: "python3 validate.py output.json"
+    working_dir: /opt/pipeline
+    completion_check: "test -f /opt/pipeline/validated.ok"
+    depends_on: [generate]
+
+  deploy:
+    type: task
+    machine: m1
+    command: "cp output.json /srv/data/"
+    working_dir: /opt/pipeline
+    depends_on: [validate]
+```
+
+### Task Modes (FJ-2700)
+
+Tasks support four execution modes via the `task_mode` field:
+
+| Mode | Description | Key Fields |
+|------|-------------|------------|
+| `batch` | Run-once task (default) | `command`, `completion_check`, `output_artifacts` |
+| `pipeline` | Multi-stage execution | `stages`, `cache` |
+| `service` | Long-running process | `command`, `restart`, `restart_delay` |
+| `dispatch` | On-demand via `forjar run` | `command`, `params` |
+
+**Pipeline mode** replaces `command` with `stages`:
+
+```yaml
+resources:
+  ci-pipeline:
+    type: task
+    machine: m1
+    task_mode: pipeline
+    stages:
+      - name: test
+        command: "cargo test"
+        gate: true           # Pipeline stops if this stage fails
+      - name: build
+        command: "cargo build --release"
+        inputs: ["src/**/*.rs"]
+        outputs: ["target/release/app"]
+    cache: true               # Skip stages whose inputs haven't changed
+```
+
+**Service mode** manages long-running processes:
+
+```yaml
+resources:
+  app-server:
+    type: task
+    machine: m1
+    task_mode: service
+    command: "app serve --port 8080"
+    gpu_device: 0             # Injects CUDA_VISIBLE_DEVICES=0
+    restart: on_failure
+    restart_delay: 10
+```
+
+### Task Fields
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `command` | string | required* | Shell command to execute (*optional for pipeline mode) |
+| `task_mode` | string | `batch` | Execution mode: batch, pipeline, service, dispatch |
+| `working_dir` | string | — | Working directory (cd before execution) |
+| `timeout` | u64 | — | Timeout in seconds |
+| `completion_check` | string | — | Shell command that exits 0 if already done |
+| `output_artifacts` | list | `[]` | Files that must exist for task to be considered complete |
+| `stages` | list | `[]` | Pipeline stages (pipeline mode only) |
+| `cache` | bool | `false` | Content-addressed stage caching (pipeline mode) |
+| `gpu_device` | u32 | — | GPU device index for CUDA_VISIBLE_DEVICES |
+| `restart` | string | — | Restart policy: on_failure, always, never (service mode) |
+| `restart_delay` | u64 | — | Seconds before restart (service mode) |
+
+### Quality Gates (FJ-2702)
+
+Pipeline stages can include quality gates that control pipeline flow:
+
+- **Exit code**: Non-zero exit stops the pipeline (when `gate: true`)
+- **JSON field**: Parse stdout as JSON, check a field value against allowed thresholds
+- **Regex**: Match stdout against a regex pattern
+- **Numeric threshold**: Verify a JSON field meets a minimum value
+
+The `on_fail` field controls behavior: `block` (default), `warn`, or `skip_dependents`.
+
+### Input/Output Tracking (FJ-2701)
+
+Pipeline stages support content-addressed caching via BLAKE3 hashing:
+
+```yaml
+stages:
+  - name: build
+    command: cargo build --release
+    inputs: ["src/**/*.rs", "Cargo.toml"]
+    outputs: ["target/release/app"]
+    gate: true
+```
+
+When `cache: true`, forjar hashes all input files before execution. If the input hash matches the stored hash from the previous run, the stage is skipped. Output artifacts are also hashed for drift detection.
+
+### Pipeline Execution Engine
+
+The pipeline engine processes stages sequentially with cache-aware skipping:
+
+```
+for each stage:
+    if cache enabled AND inputs unchanged (BLAKE3 match) → SKIP
+    execute stage command
+    if gate AND exit_code != 0 → FAIL pipeline
+    record stage state (exit_code, duration, input_hash)
+```
+
+Run the pipeline execution example:
+
+```bash
+cargo run --example pipeline_execution
+```
+
+### Task State Model (FJ-2706)
+
+Each task mode tracks specific state in the lock file:
+
+| Mode | State | Key Metrics |
+|------|-------|-------------|
+| Pipeline | Per-stage status (pending/running/passed/failed/skipped) | `last_completed` stage index, per-stage duration, `input_hash` |
+| Service | PID, health status, restart count | `consecutive_failures`, `last_check` timestamp |
+| Dispatch | Invocation history | `total_invocations`, per-invocation duration and exit code |
+
+## Recipe (Composition)
+
+Compose reusable child recipes into larger configurations. Recipe resources reference external recipe YAML files and forward inputs.
+
+```yaml
+resources:
+  web-stack:
+    type: recipe
+    machine: m1
+    recipe: web-server
+    inputs:
+      domain: example.com
+      port: 8080
+```
+
+### How Expansion Works
+
+When forjar encounters a `type: recipe` resource, it:
+
+1. Loads the child recipe file from `recipes/{recipe_name}.yaml`
+2. Validates provided inputs against the recipe's `inputs:` declarations
+3. Expands child resources with namespaced IDs (e.g., `web-stack/nginx-pkg`)
+4. Rewrites internal `depends_on` references to use namespaced IDs
+5. Propagates the parent's `machine` target to all child resources
+
+### Input Forwarding
+
+Forward parent params to child recipe inputs:
+
+```yaml
+params:
+  app_name: myapp
+  listen_port: "8080"
+
+resources:
+  app-scaffold:
+    type: recipe
+    machine: m1
+    recipe: app-scaffold
+    inputs:
+      name: "{{params.app_name}}"
+      port: "{{params.listen_port}}"
+
+  app-config:
+    type: recipe
+    machine: m1
+    recipe: app-config
+    inputs:
+      name: "{{params.app_name}}"
+    depends_on: [app-scaffold]
+```
+
+### Nested Recipes
+
+Recipes can include other recipes up to 8 levels deep. Cycle detection prevents infinite recursion:
+
+```yaml
+# recipes/full-stack.yaml — includes web-server which includes logrotate
+recipe:
+  name: full-stack
+  inputs:
+    domain: { type: string }
+
+resources:
+  web:
+    type: recipe
+    recipe: web-server
+    inputs:
+      domain: "{{inputs.domain}}"
+```
+
+### Recipe Fields
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `recipe` | string | required | Recipe name (resolves to `recipes/{name}.yaml`) |
+| `inputs` | map | `{}` | Key-value inputs forwarded to the child recipe |
+| `machine` | string | — | Target machine (propagated to all child resources) |
 
 ## Common Patterns
 

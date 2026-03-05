@@ -1,0 +1,13 @@
+# cargo-mutants configuration
+# Run: cargo mutants --jobs 4
+
+[filter]
+# Exclude test and example code from mutation testing
+exclude_path = ["tests/", "benches/", "examples/"]
+# Exclude files that are primarily generated or declarative
+exclude_path_regex = ["tests_.*\\.rs$"]
+
+[timeout]
+# Allow up to 120s per mutation
+test = "120s"
+build = "60s"

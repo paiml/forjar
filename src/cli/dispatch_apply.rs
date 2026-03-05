@@ -16,7 +16,7 @@ use std::path::Path;
 pub(super) fn maybe_encrypt_state(encrypt: bool, result: &Result<(), String>, state_dir: &Path) {
     if encrypt && result.is_ok() {
         if let Err(e) = state::encrypt_state_files(state_dir) {
-            eprintln!("warning: state encryption failed: {}", e);
+            eprintln!("warning: state encryption failed: {e}");
         }
     }
 }
@@ -39,7 +39,7 @@ pub(super) fn run_pre_script(script: &Path) -> Result<(), String> {
     let status = std::process::Command::new("bash")
         .arg(script)
         .status()
-        .map_err(|e| format!("Failed to run pre-script: {}", e))?;
+        .map_err(|e| format!("Failed to run pre-script: {e}"))?;
     if !status.success() {
         return Err(format!(
             "Pre-script {} exited with code {}",
@@ -102,8 +102,7 @@ pub(super) fn check_cost_limit(
         .count();
     if change_count > limit {
         return Err(format!(
-            "Cost limit exceeded: {} changes planned, limit is {}. Use --cost-limit {} or higher to proceed.",
-            change_count, limit, change_count
+            "Cost limit exceeded: {change_count} changes planned, limit is {limit}. Use --cost-limit {change_count} or higher to proceed."
         ));
     }
     Ok(())

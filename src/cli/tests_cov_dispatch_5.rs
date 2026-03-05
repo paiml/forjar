@@ -107,6 +107,7 @@ fn dispatch_lint_routes() {
             strict: false,
             fix: false,
             rules: None,
+            bashrs_version: false,
         }),
         false,
     );
@@ -119,8 +120,10 @@ fn dispatch_rollback_routes() {
         Commands::Rollback(RollbackArgs {
             file: PathBuf::from("/nonexistent/forjar.yaml"),
             revision: 1,
+            generation: None,
             machine: None,
             dry_run: false,
+            yes: false,
             state_dir: PathBuf::from("/nonexistent/state"),
         }),
         false,

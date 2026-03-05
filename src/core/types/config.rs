@@ -11,6 +11,30 @@ use super::{default_true, Resource};
 // ============================================================================
 
 /// Root configuration — the desired state of infrastructure.
+///
+/// # Examples
+///
+/// ```
+/// use forjar::core::types::ForjarConfig;
+///
+/// let yaml = r#"
+/// version: "1.0"
+/// name: my-infra
+/// machines:
+///   web:
+///     hostname: web-01
+///     addr: 10.0.0.1
+/// resources:
+///   pkg-nginx:
+///     type: package
+///     machine: web
+///     packages: [nginx]
+/// "#;
+/// let config: ForjarConfig = serde_yaml_ng::from_str(yaml).expect("valid YAML");
+/// assert_eq!(config.name, "my-infra");
+/// assert_eq!(config.machines.len(), 1);
+/// assert_eq!(config.resources.len(), 1);
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ForjarConfig {
     /// Schema version (must be "1.0")
@@ -55,6 +79,11 @@ pub struct ForjarConfig {
     #[serde(default)]
     pub includes: Vec<String>,
 
+    /// FJ-2502: Include provenance — maps "resource:id" / "machine:id" / "param:id"
+    /// to the include file that contributed it. Not serialized to YAML.
+    #[serde(skip)]
+    pub include_provenance: HashMap<String, String>,
+
     /// FJ-1200: Post-apply health check blocks (OpenTofu-style check blocks)
     #[serde(default)]
     pub checks: IndexMap<String, CheckBlock>,
@@ -62,6 +91,24 @@ pub struct ForjarConfig {
     /// FJ-1210: Declarative resource renames processed before planning
     #[serde(default)]
     pub moved: Vec<MovedEntry>,
+
+    /// FJ-2300: Secret provider configuration
+    #[serde(default)]
+    pub secrets: SecretsConfig,
+}
+
+/// FJ-2300: Secret provider configuration.
+///
+/// Controls how `{{secrets.*}}` template variables are resolved.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct SecretsConfig {
+    /// Provider type: "env" (default), "file"
+    #[serde(default)]
+    pub provider: Option<String>,
+
+    /// Path prefix for file-based secrets (used with `provider: file`)
+    #[serde(default)]
+    pub path: Option<String>,
 }
 
 /// FJ-1200: A post-apply health check assertion.
@@ -215,6 +262,23 @@ pub struct OutputValue {
 // ============================================================================
 
 /// A managed machine (bare-metal, VM, container, or edge device).
+///
+/// # Examples
+///
+/// ```
+/// use forjar::core::types::Machine;
+///
+/// let yaml = r#"
+/// hostname: web-01
+/// addr: 10.0.0.1
+/// roles: [web, app]
+/// "#;
+/// let machine: Machine = serde_yaml_ng::from_str(yaml).expect("valid YAML");
+/// assert_eq!(machine.hostname, "web-01");
+/// assert_eq!(machine.user, "root"); // default
+/// assert_eq!(machine.arch, "x86_64"); // default
+/// assert!(!machine.is_container_transport());
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Machine {
     /// Machine hostname
@@ -254,6 +318,11 @@ pub struct Machine {
     /// Relative cost weight (lower = cheaper, preferred first). Default: 0.
     #[serde(default)]
     pub cost: u32,
+
+    /// FJ-2300: Operators allowed to apply to this machine.
+    /// Empty = no restriction (backward compatible).
+    #[serde(default)]
+    pub allowed_operators: Vec<String>,
 }
 
 /// Container execution target configuration.
@@ -345,11 +414,32 @@ fn default_pepita_filesystem() -> String {
 
 impl Machine {
     /// Returns true if this machine uses container transport.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use forjar::core::types::Machine;
+    ///
+    /// let ssh: Machine = serde_yaml_ng::from_str("hostname: h\naddr: 10.0.0.1").unwrap();
+    /// assert!(!ssh.is_container_transport());
+    ///
+    /// let ct: Machine = serde_yaml_ng::from_str("hostname: h\naddr: container").unwrap();
+    /// assert!(ct.is_container_transport());
+    /// ```
     pub fn is_container_transport(&self) -> bool {
         self.transport.as_deref() == Some("container") || self.addr == "container"
     }
 
     /// Returns the effective container name (explicit or derived from hostname).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use forjar::core::types::Machine;
+    ///
+    /// let m: Machine = serde_yaml_ng::from_str("hostname: ci-01\naddr: container").unwrap();
+    /// assert_eq!(m.container_name(), "forjar-ci-01");
+    /// ```
     pub fn container_name(&self) -> String {
         self.container
             .as_ref()
@@ -365,6 +455,14 @@ impl Machine {
     /// Returns the effective pepita namespace name (derived from hostname).
     pub fn pepita_name(&self) -> String {
         format!("forjar-ns-{}", self.hostname)
+    }
+
+    /// FJ-2300: Check if an operator is authorized for this machine.
+    ///
+    /// Returns true if `allowed_operators` is empty (no restriction)
+    /// or the operator is in the allowed list.
+    pub fn is_operator_allowed(&self, operator: &str) -> bool {
+        self.allowed_operators.is_empty() || self.allowed_operators.iter().any(|o| o == operator)
     }
 }
 

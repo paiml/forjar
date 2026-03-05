@@ -26,6 +26,7 @@ mod tests {
             dry_expand: true,
             schema_version: None,
             exhaustive: false,
+            deep: false,
             policy_file: None,
             check_connectivity: false,
             check_templates: false,
@@ -168,6 +169,7 @@ mod tests {
             check_resource_provider_version_pinning: false,
             check_recipe_purity: false,
             check_reproducibility_score: false,
+            deny_unknown_fields: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { dry_expand, .. }) => assert!(dry_expand),
@@ -184,6 +186,7 @@ mod tests {
             dry_expand: false,
             schema_version: None,
             exhaustive: true,
+            deep: false,
             policy_file: None,
             check_connectivity: false,
             check_templates: false,
@@ -326,6 +329,7 @@ mod tests {
             check_resource_provider_version_pinning: false,
             check_recipe_purity: false,
             check_reproducibility_score: false,
+            deny_unknown_fields: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { exhaustive, .. }) => assert!(exhaustive),
@@ -342,6 +346,7 @@ mod tests {
             dry_expand: false,
             schema_version: None,
             exhaustive: false,
+            deep: false,
             policy_file: Some(PathBuf::from("policy.yaml")),
             check_connectivity: false,
             check_templates: false,
@@ -484,6 +489,7 @@ mod tests {
             check_resource_provider_version_pinning: false,
             check_recipe_purity: false,
             check_reproducibility_score: false,
+            deny_unknown_fields: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { policy_file, .. }) => {

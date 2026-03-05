@@ -28,6 +28,7 @@ mod tests {
             dry_expand: true,
             schema_version: Some("1.0".to_string()),
             exhaustive: true,
+            deep: false,
             policy_file: Some(PathBuf::from("policy.yaml")),
             check_connectivity: true,
             check_templates: true,
@@ -170,8 +171,9 @@ mod tests {
             check_resource_provider_version_pinning: false,
             check_recipe_purity: false,
             check_reproducibility_score: false,
+            deny_unknown_fields: false,
         };
-        let debug = format!("{:?}", args);
+        let debug = format!("{args:?}");
         assert!(debug.contains("ValidateArgs"));
         assert!(debug.contains("strict: true"));
     }
@@ -185,6 +187,7 @@ mod tests {
             dry_expand: false,
             schema_version: None,
             exhaustive: false,
+            deep: false,
             policy_file: None,
             check_connectivity: false,
             check_templates: false,
@@ -327,8 +330,9 @@ mod tests {
             check_resource_provider_version_pinning: false,
             check_recipe_purity: false,
             check_reproducibility_score: false,
+            deny_unknown_fields: false,
         };
-        let debug = format!("{:?}", args);
+        let debug = format!("{args:?}");
         assert!(debug.contains("ValidateArgs"));
     }
 
@@ -476,7 +480,7 @@ mod tests {
             resource_dependency_critical_path: false,
             resource_dependency_cluster_analysis: false,
         };
-        let debug = format!("{:?}", args);
+        let debug = format!("{args:?}");
         assert!(debug.contains("GraphArgs"));
         assert!(debug.contains("dot"));
     }

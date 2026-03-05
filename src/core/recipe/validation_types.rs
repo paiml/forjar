@@ -6,7 +6,7 @@ use super::types::RecipeInput;
 fn validate_string(value: &serde_yaml_ng::Value) -> Result<String, String> {
     match value {
         serde_yaml_ng::Value::String(s) => Ok(s.clone()),
-        other => Ok(format!("{:?}", other)),
+        other => Ok(format!("{other:?}")),
     }
 }
 
@@ -19,17 +19,17 @@ pub(crate) fn validate_int(
     let n = match value {
         serde_yaml_ng::Value::Number(n) => n
             .as_i64()
-            .ok_or_else(|| format!("input '{}' must be an integer", name))?,
-        _ => return Err(format!("input '{}' must be an integer", name)),
+            .ok_or_else(|| format!("input '{name}' must be an integer"))?,
+        _ => return Err(format!("input '{name}' must be an integer")),
     };
     if let Some(min) = decl.min {
         if n < min {
-            return Err(format!("input '{}' must be >= {}", name, min));
+            return Err(format!("input '{name}' must be >= {min}"));
         }
     }
     if let Some(max) = decl.max {
         if n > max {
-            return Err(format!("input '{}' must be <= {}", name, max));
+            return Err(format!("input '{name}' must be <= {max}"));
         }
     }
     Ok(n.to_string())
@@ -39,7 +39,7 @@ pub(crate) fn validate_int(
 fn validate_bool(name: &str, value: &serde_yaml_ng::Value) -> Result<String, String> {
     match value {
         serde_yaml_ng::Value::Bool(b) => Ok(b.to_string()),
-        _ => Err(format!("input '{}' must be a boolean", name)),
+        _ => Err(format!("input '{name}' must be a boolean")),
     }
 }
 
@@ -47,10 +47,8 @@ fn validate_bool(name: &str, value: &serde_yaml_ng::Value) -> Result<String, Str
 fn validate_path(name: &str, value: &serde_yaml_ng::Value) -> Result<String, String> {
     match value {
         serde_yaml_ng::Value::String(s) if s.starts_with('/') => Ok(s.clone()),
-        serde_yaml_ng::Value::String(_) => {
-            Err(format!("input '{}' must be an absolute path", name))
-        }
-        _ => Err(format!("input '{}' must be a path string", name)),
+        serde_yaml_ng::Value::String(_) => Err(format!("input '{name}' must be an absolute path")),
+        _ => Err(format!("input '{name}' must be a path string")),
     }
 }
 
@@ -71,7 +69,7 @@ fn validate_enum(
             }
             Ok(s.clone())
         }
-        _ => Err(format!("input '{}' must be a string", name)),
+        _ => Err(format!("input '{name}' must be a string")),
     }
 }
 
@@ -88,6 +86,6 @@ pub(crate) fn validate_input_type(
         "bool" => validate_bool(name, value),
         "path" => validate_path(name, value),
         "enum" => validate_enum(name, value, decl),
-        _ => Err(format!("unknown input type '{}' for '{}'", type_name, name)),
+        _ => Err(format!("unknown input type '{type_name}' for '{name}'")),
     }
 }

@@ -14,6 +14,7 @@ fn test_fj132_exec_script_large_output() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     let out = exec_script(&machine, "seq 1 10000").unwrap();
     assert!(out.success());
@@ -34,6 +35,7 @@ fn test_fj132_exec_script_env_isolation() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     exec_script(&machine, "export FORJAR_TEST_LEAK=yes").unwrap();
     let out = exec_script(&machine, "echo ${FORJAR_TEST_LEAK:-unset}").unwrap();
@@ -55,14 +57,11 @@ fn test_fj132_exec_script_exit_code_preserved() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     for code in [0, 1, 2, 42, 126, 127] {
-        let out = exec_script(&machine, &format!("exit {}", code)).unwrap();
-        assert_eq!(
-            out.exit_code, code,
-            "exit code {} should be preserved",
-            code
-        );
+        let out = exec_script(&machine, &format!("exit {code}")).unwrap();
+        assert_eq!(out.exit_code, code, "exit code {code} should be preserved");
     }
 }
 
@@ -80,6 +79,7 @@ fn test_fj132_timeout_zero_seconds_fails() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     // sleep 5 with 0s timeout should error — but 0-second timeout
     // may or may not catch "echo ok" depending on scheduling
@@ -111,6 +111,7 @@ fn test_fj036_local_script_echo() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     let out = exec_script(&machine, "echo 'hello from forjar'").unwrap();
     assert!(out.success());
@@ -133,6 +134,7 @@ fn test_fj036_local_script_exit_code() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     let out = exec_script(&machine, "exit 1").unwrap();
     assert!(!out.success());
@@ -223,6 +225,7 @@ fn test_fj261_retry_local_skips_retry() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     let out = exec_script_retry(&machine, "echo ok", None, 3).unwrap();
     assert!(out.success());
@@ -243,6 +246,7 @@ fn test_fj261_retry_default_one_is_no_retry() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     let out = exec_script_retry(&machine, "echo once", None, 1).unwrap();
     assert!(out.success());
@@ -263,6 +267,7 @@ fn test_fj261_retry_clamped_to_max_4() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     let out = exec_script_retry(&machine, "echo clamped", None, 100).unwrap();
     assert!(out.success());
@@ -282,6 +287,7 @@ fn test_fj261_retry_with_timeout() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     let out = exec_script_retry(&machine, "echo fast", Some(10), 2).unwrap();
     assert!(out.success());
@@ -302,8 +308,100 @@ fn test_fj261_retry_zero_clamped_to_one() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     let out = exec_script_retry(&machine, "echo zero", None, 0).unwrap();
     assert!(out.success());
     assert_eq!(out.stdout.trim(), "zero");
+}
+
+// ── FJ-29: Base64 payload stripping for I8 lint ──
+
+#[test]
+fn test_fj29_strip_data_payloads_simple() {
+    let script = "set -euo pipefail\necho 'SGVsbG8gV29ybGQ=' | base64 -d > '/tmp/hello'\nchmod '0755' '/tmp/hello'";
+    let stripped = strip_data_payloads(script);
+    assert!(
+        !stripped.contains("SGVsbG8gV29ybGQ="),
+        "base64 payload should be stripped"
+    );
+    assert!(
+        stripped.contains("FORJAR_BASE64_STRIPPED"),
+        "placeholder should replace base64"
+    );
+    assert!(
+        stripped.contains("chmod '0755' '/tmp/hello'"),
+        "non-payload lines preserved"
+    );
+}
+
+#[test]
+fn test_fj29_strip_data_payloads_large_binary() {
+    // Simulate a large binary (like a 22MB forjar ELF) base64-encoded
+    // Generate fake base64 that contains sequences bashrs would misparse
+    let fake_b64 = "doZmaQBpbg=="; // contains "do", "fi", "in" substrings
+    let script = format!(
+        "set -euo pipefail\nmkdir -p '/home/noah/.cargo/bin'\necho '{fake_b64}' | base64 -d > '/home/noah/.cargo/bin/forjar'\nchown 'noah' '/home/noah/.cargo/bin/forjar'\nchmod '0755' '/home/noah/.cargo/bin/forjar'"
+    );
+    let stripped = strip_data_payloads(&script);
+    assert!(!stripped.contains(fake_b64));
+    // The structural commands must survive
+    assert!(stripped.contains("set -euo pipefail"));
+    assert!(stripped.contains("mkdir -p"));
+    assert!(stripped.contains("chown 'noah'"));
+    assert!(stripped.contains("chmod '0755'"));
+}
+
+#[test]
+fn test_fj29_strip_preserves_non_base64_scripts() {
+    let script = "set -euo pipefail\necho 'hello world'\nexit 0";
+    let stripped = strip_data_payloads(script);
+    assert_eq!(
+        stripped, script,
+        "scripts without base64 should be unchanged"
+    );
+}
+
+#[test]
+fn test_fj29_validate_before_exec_accepts_base64_script() {
+    // This script would fail I8 without the fix because the base64
+    // contains sequences that look like shell keywords
+    let fake_b64 = "doZmaQBpbg==";
+    let script = format!(
+        "set -euo pipefail\necho '{fake_b64}' | base64 -d > '/tmp/test'\nchmod '0755' '/tmp/test'"
+    );
+    let result = validate_before_exec(&script);
+    assert!(
+        result.is_ok(),
+        "base64 file deploy should pass I8: {result:?}"
+    );
+}
+
+#[test]
+fn test_fj29_strip_heredoc_payloads() {
+    let script = "set -euo pipefail\nmkdir -p '/home/noah'\ncat > '/home/noah/.bashrc' <<'FORJAR_EOF'\n#!/usr/bin/env bash\nexport PATH=\"$HOME/.cargo/bin:$PATH\"\nFORJAR_EOF\nchown 'noah' '/home/noah/.bashrc'";
+    let stripped = strip_data_payloads(script);
+    assert!(
+        !stripped.contains("export PATH"),
+        "heredoc payload should be stripped"
+    );
+    assert!(
+        stripped.contains("# payload stripped for lint"),
+        "placeholder should replace heredoc"
+    );
+    assert!(
+        stripped.contains("chown 'noah'"),
+        "post-heredoc commands preserved"
+    );
+}
+
+#[test]
+fn test_fj29_validate_before_exec_accepts_heredoc_with_shebang() {
+    // SC1128 false positive: shebang inside heredoc content, not at script top
+    let script = "set -euo pipefail\ncat > '/tmp/install.sh' <<'FORJAR_EOF'\n#!/usr/bin/env bash\nset -euo pipefail\necho hello\nFORJAR_EOF\nchmod '0755' '/tmp/install.sh'";
+    let result = validate_before_exec(script);
+    assert!(
+        result.is_ok(),
+        "heredoc with shebang should pass I8: {result:?}"
+    );
 }

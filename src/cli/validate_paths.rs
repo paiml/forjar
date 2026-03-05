@@ -6,9 +6,9 @@ use std::path::Path;
 
 /// FJ-671: Detect overlapping file paths across resources
 pub(crate) fn cmd_validate_check_path_conflicts(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
     let config: crate::core::types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
 
     let mut path_owners: std::collections::HashMap<String, Vec<String>> =
         std::collections::HashMap::new();
@@ -42,7 +42,7 @@ pub(crate) fn cmd_validate_check_path_conflicts(file: &Path, json: bool) -> Resu
     } else {
         println!("Path conflicts ({}):", conflicts.len());
         for c in &conflicts {
-            println!("  - {}", c);
+            println!("  - {c}");
         }
     }
     Ok(())
@@ -91,7 +91,7 @@ pub(crate) fn cmd_validate_check_template_vars(file: &Path, json: bool) -> Resul
             undefined.len(),
             undefined
                 .iter()
-                .map(|(r, v)| format!("{{\"resource\":\"{}\",\"var\":\"{}\"}}", r, v))
+                .map(|(r, v)| format!("{{\"resource\":\"{r}\",\"var\":\"{v}\"}}"))
                 .collect::<Vec<_>>()
                 .join(",")
         );
@@ -100,7 +100,7 @@ pub(crate) fn cmd_validate_check_template_vars(file: &Path, json: bool) -> Resul
     } else {
         println!("Undefined template variables:");
         for (resource, var) in &undefined {
-            println!("  {} -> {}", resource, var);
+            println!("  {resource} -> {var}");
         }
     }
     Ok(())
@@ -116,10 +116,7 @@ pub(crate) fn cmd_validate_check_mode_consistency(file: &Path, json: bool) -> Re
         let entries: Vec<String> = inconsistencies
             .iter()
             .map(|(dir, name, mode)| {
-                format!(
-                    "{{\"directory\":\"{}\",\"resource\":\"{}\",\"mode\":\"{}\"}}",
-                    dir, name, mode
-                )
+                format!("{{\"directory\":\"{dir}\",\"resource\":\"{name}\",\"mode\":\"{mode}\"}}")
             })
             .collect();
         println!(
@@ -132,7 +129,7 @@ pub(crate) fn cmd_validate_check_mode_consistency(file: &Path, json: bool) -> Re
     } else {
         println!("File mode inconsistencies found:");
         for (dir, name, mode) in &inconsistencies {
-            println!("  {} in {} — mode {}", name, dir, mode);
+            println!("  {name} in {dir} — mode {mode}");
         }
     }
     Ok(())
@@ -197,7 +194,7 @@ pub(crate) fn cmd_validate_check_group_consistency(file: &Path, json: bool) -> R
         let entries: Vec<String> = owner_groups
             .iter()
             .map(|(owner, resources)| {
-                let res: Vec<String> = resources.iter().map(|r| format!("\"{}\"", r)).collect();
+                let res: Vec<String> = resources.iter().map(|r| format!("\"{r}\"")).collect();
                 format!(
                     "{{\"owner\":\"{}\",\"resource_count\":{},\"resources\":[{}]}}",
                     owner,
@@ -241,7 +238,7 @@ pub(crate) fn cmd_validate_check_mount_points(file: &Path, json: bool) -> Result
     if json {
         let entries: Vec<String> = conflicts
             .iter()
-            .map(|(a, b)| format!("{{\"resource_a\":\"{}\",\"resource_b\":\"{}\"}}", a, b))
+            .map(|(a, b)| format!("{{\"resource_a\":\"{a}\",\"resource_b\":\"{b}\"}}"))
             .collect();
         println!(
             "{{\"check\":\"mount_points\",\"conflict_count\":{},\"conflicts\":[{}]}}",
@@ -253,7 +250,7 @@ pub(crate) fn cmd_validate_check_mount_points(file: &Path, json: bool) -> Result
     } else {
         println!("Mount point conflicts:");
         for (a, b) in &conflicts {
-            println!("  {} <-> {}", a, b);
+            println!("  {a} <-> {b}");
         }
     }
     Ok(())

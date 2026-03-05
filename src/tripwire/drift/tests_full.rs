@@ -39,6 +39,7 @@ fn test_fj016_full_drift_skips_non_file_without_live_hash() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
 
     let config_resources = indexmap::IndexMap::new();
@@ -89,6 +90,7 @@ fn test_fj016_full_drift_skips_non_converged() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     let config_resources = indexmap::IndexMap::new();
     let findings = detect_drift_full(&lock, &machine, &config_resources);
@@ -135,6 +137,7 @@ fn test_fj016_full_drift_skips_missing_resource_config() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     // Empty config — resource not found
     let config_resources = indexmap::IndexMap::new();
@@ -159,6 +162,7 @@ fn make_test_machine() -> Machine {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     }
 }
 
@@ -236,11 +240,20 @@ fn make_service_resource(name: Option<&str>) -> Resource {
         completion_check: None,
         timeout: None,
         working_dir: None,
+        task_mode: None,
+        task_inputs: vec![],
+        stages: vec![],
+        cache: false,
+        gpu_device: None,
+        restart_delay: None,
         pre_apply: None,
         post_apply: None,
         lifecycle: None,
         store: false,
+        sudo: false,
         script: None,
+        gather: vec![],
+        scatter: vec![],
     }
 }
 

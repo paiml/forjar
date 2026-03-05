@@ -14,7 +14,7 @@ pub(crate) fn cmd_status_fleet_overview(state_dir: &Path, json: bool) -> Result<
     let mut machine_count = 0usize;
 
     for m in &machines {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             continue;
         }
@@ -35,20 +35,18 @@ pub(crate) fn cmd_status_fleet_overview(state_dir: &Path, json: bool) -> Result<
 
     if json {
         println!(
-            r#"{{"fleet":{{"machines":{},"resources":{},"converged":{},"failed":{},"drifted":{}}}}}"#,
-            machine_count, total_resources, total_converged, total_failed, total_drifted
+            r#"{{"fleet":{{"machines":{machine_count},"resources":{total_resources},"converged":{total_converged},"failed":{total_failed},"drifted":{total_drifted}}}}}"#
         );
     } else {
         println!("Fleet overview:");
-        println!("  Machines: {}", machine_count);
+        println!("  Machines: {machine_count}");
         println!(
-            "  Resources: {} (converged: {}, failed: {}, drifted: {})",
-            total_resources, total_converged, total_failed, total_drifted
+            "  Resources: {total_resources} (converged: {total_converged}, failed: {total_failed}, drifted: {total_drifted})"
         );
         if total_resources > 0 {
             let health =
                 (total_converged as f64 / total_resources as f64 * 100.0).clamp(0.0, 100.0);
-            println!("  Fleet health: {:.0}%", health);
+            println!("  Fleet health: {health:.0}%");
         }
     }
     Ok(())
@@ -82,7 +80,7 @@ fn collect_machine_health_reports(
                 continue;
             }
         }
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             reports.push((m.clone(), 0, 0, 0, 0));
             continue;
@@ -116,7 +114,7 @@ pub(crate) fn cmd_status_machine_health(
         let items: Vec<String> = reports.iter()
             .map(|(m, t, c, f, d)| {
                 let health = machine_health_pct(*t, *c);
-                format!(r#"{{"machine":"{}","total":{},"converged":{},"failed":{},"drifted":{},"health":{:.0}}}"#, m, t, c, f, d, health)
+                format!(r#"{{"machine":"{m}","total":{t},"converged":{c},"failed":{f},"drifted":{d},"health":{health:.0}}}"#)
             })
             .collect();
         println!(r#"{{"machine_health":[{}]}}"#, items.join(","));
@@ -125,8 +123,7 @@ pub(crate) fn cmd_status_machine_health(
         for (m, total, converged, failed, drifted) in &reports {
             let health = machine_health_pct(*total, *converged);
             println!(
-                "  {} — {:.0}% ({} resources: {} converged, {} failed, {} drifted)",
-                m, health, total, converged, failed, drifted
+                "  {m} — {health:.0}% ({total} resources: {converged} converged, {failed} failed, {drifted} drifted)"
             );
         }
     }
@@ -151,7 +148,7 @@ pub(crate) fn cmd_status_machine_summary(
     }
     let mut first = true;
     for m in &targets {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             continue;
         }
@@ -184,8 +181,7 @@ pub(crate) fn cmd_status_machine_summary(
             }
             first = false;
             print!(
-                r#"{{"machine":"{}","total":{},"converged":{},"failed":{},"drifted":{}}}"#,
-                m, total, converged, failed, drifted
+                r#"{{"machine":"{m}","total":{total},"converged":{converged},"failed":{failed},"drifted":{drifted}}}"#
             );
         } else {
             let health = if failed > 0 {
@@ -196,8 +192,7 @@ pub(crate) fn cmd_status_machine_summary(
                 "HEALTHY"
             };
             println!(
-                "{}: {} resources ({} converged, {} failed, {} drifted) [{}]",
-                m, total, converged, failed, drifted, health
+                "{m}: {total} resources ({converged} converged, {failed} failed, {drifted} drifted) [{health}]"
             );
         }
     }
@@ -213,7 +208,7 @@ pub(crate) fn cmd_status_executive_summary(state_dir: &Path, json: bool) -> Resu
     let mut summaries: Vec<(String, usize, usize, usize, usize)> = Vec::new();
 
     for m in &machines {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             continue;
         }
@@ -248,8 +243,7 @@ pub(crate) fn cmd_status_executive_summary(state_dir: &Path, json: bool) -> Resu
             .iter()
             .map(|(m, t, c, f, d)| {
                 format!(
-                    r#"{{"machine":"{}","total":{},"converged":{},"failed":{},"drifted":{}}}"#,
-                    m, t, c, f, d
+                    r#"{{"machine":"{m}","total":{t},"converged":{c},"failed":{f},"drifted":{d}}}"#
                 )
             })
             .collect();
@@ -265,10 +259,7 @@ pub(crate) fn cmd_status_executive_summary(state_dir: &Path, json: bool) -> Resu
             } else {
                 green("OK")
             };
-            println!(
-                "  [{}] {} — {}/{} converged, {} failed, {} drifted",
-                status, m, conv, total, fail, drift
-            );
+            println!("  [{status}] {m} — {conv}/{total} converged, {fail} failed, {drift} drifted");
         }
     }
     Ok(())
@@ -289,7 +280,7 @@ pub(crate) fn cmd_status_pipeline_status(
                 continue;
             }
         }
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             continue;
         }
@@ -314,10 +305,7 @@ pub(crate) fn cmd_status_pipeline_status(
         let items: Vec<String> = statuses
             .iter()
             .map(|(m, ts, s)| {
-                format!(
-                    r#"{{"machine":"{}","last_apply":"{}","pipeline":"{}"}}"#,
-                    m, ts, s
-                )
+                format!(r#"{{"machine":"{m}","last_apply":"{ts}","pipeline":"{s}"}}"#)
             })
             .collect();
         println!(
@@ -330,7 +318,7 @@ pub(crate) fn cmd_status_pipeline_status(
     } else {
         println!("Pipeline status ({} machines):", statuses.len());
         for (m, ts, s) in &statuses {
-            println!("  {} — {} (last: {})", m, s, ts);
+            println!("  {m} — {s} (last: {ts})");
         }
     }
     Ok(())

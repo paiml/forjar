@@ -57,6 +57,7 @@ fn test_fj064_arch_filter_skips_mismatched() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     let resource = Resource {
         resource_type: ResourceType::File,
@@ -131,11 +132,20 @@ fn test_fj064_arch_filter_skips_mismatched() {
         completion_check: None,
         timeout: None,
         working_dir: None,
+        task_mode: None,
+        task_inputs: vec![],
+        stages: vec![],
+        cache: false,
+        gpu_device: None,
+        restart_delay: None,
         pre_apply: None,
         post_apply: None,
         lifecycle: None,
         store: false,
+        sudo: false,
         script: None,
+        gather: vec![],
+        scatter: vec![],
     };
 
     // arch filter should reject: aarch64 resource on x86_64 machine
@@ -158,6 +168,7 @@ fn test_fj064_arch_filter_allows_matching() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     let arch = ["aarch64".to_string()];
     assert!(arch.contains(&machine.arch));
@@ -176,6 +187,7 @@ fn test_fj064_empty_arch_allows_all() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     let arch: Vec<String> = vec![];
     // Empty arch means "runs on all architectures"
@@ -300,6 +312,7 @@ resources:
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
+        trace: false,
     };
     let results = apply(&cfg).unwrap();
     // Only the tagged resource should be applied
@@ -348,6 +361,7 @@ resources:
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
+        trace: false,
     };
     let results = apply(&cfg).unwrap();
     // Both resources applied

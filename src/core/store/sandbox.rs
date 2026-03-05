@@ -62,7 +62,9 @@ pub struct BindMount {
 /// An environment variable for the sandbox.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct EnvVar {
+    /// Environment variable name.
     pub name: String,
+    /// Environment variable value.
     pub value: String,
 }
 

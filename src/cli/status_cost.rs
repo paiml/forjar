@@ -30,7 +30,7 @@ pub(crate) fn cmd_status_staleness_report(
     let mut stale: Vec<(String, String, String)> = Vec::new(); // (machine, resource, last_applied)
 
     for m in &machines {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             continue;
         }
@@ -63,10 +63,7 @@ pub(crate) fn cmd_status_staleness_report(
         let entries: Vec<String> = stale
             .iter()
             .map(|(m, r, age)| {
-                format!(
-                    r#"{{"machine":"{}","resource":"{}","last_applied":"{}"}}"#,
-                    m, r, age
-                )
+                format!(r#"{{"machine":"{m}","resource":"{r}","last_applied":"{age}"}}"#)
             })
             .collect();
         println!("[{}]", entries.join(","));
@@ -77,7 +74,7 @@ pub(crate) fn cmd_status_staleness_report(
             days
         );
     } else {
-        println!("Stale resources (not applied within {}d):\n", days);
+        println!("Stale resources (not applied within {days}d):\n");
         for (m, r, age) in &stale {
             println!("  {} {}:{} — last applied {}", yellow("⚠"), m, r, age);
         }
@@ -104,7 +101,7 @@ pub(crate) fn cmd_status_cost_estimate(
     let mut total_resources = 0;
 
     for m in &machines {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             continue;
         }
@@ -180,7 +177,7 @@ pub(crate) fn cmd_status_cost_estimate(
                 cost
             );
         }
-        println!("\n  Total: {:.1} complexity units", total_cost);
+        println!("\n  Total: {total_cost:.1} complexity units");
     }
     Ok(())
 }
@@ -202,7 +199,7 @@ pub(crate) fn cmd_status_capacity(
     let mut capacity_data: Vec<(String, usize, usize, f64)> = Vec::new(); // (machine, used, limit, pct)
 
     for m in &machines {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             continue;
         }
@@ -224,8 +221,7 @@ pub(crate) fn cmd_status_capacity(
             .iter()
             .map(|(m, used, limit, pct)| {
                 format!(
-                    r#"{{"machine":"{}","used":{},"limit":{},"utilization_pct":{:.1}}}"#,
-                    m, used, limit, pct
+                    r#"{{"machine":"{m}","used":{used},"limit":{limit},"utilization_pct":{pct:.1}}}"#
                 )
             })
             .collect();
@@ -233,25 +229,19 @@ pub(crate) fn cmd_status_capacity(
     } else if capacity_data.is_empty() {
         println!("No machine state found.");
     } else {
-        println!(
-            "Resource capacity per machine (limit: {}):\n",
-            max_resources_per_machine
-        );
+        println!("Resource capacity per machine (limit: {max_resources_per_machine}):\n");
         for (m, used, limit, pct) in &capacity_data {
             let bar_len = (*pct / 5.0) as usize;
             let bar: String = "█".repeat(bar_len);
             let remaining: String = "░".repeat(20 - bar_len.min(20));
             let color_pct = if *pct > 80.0 {
-                red(&format!("{:.0}%", pct))
+                red(&format!("{pct:.0}%"))
             } else if *pct > 50.0 {
-                yellow(&format!("{:.0}%", pct))
+                yellow(&format!("{pct:.0}%"))
             } else {
-                format!("{:.0}%", pct)
+                format!("{pct:.0}%")
             };
-            println!(
-                "  {} {}{} {}/{} {}",
-                m, bar, remaining, used, limit, color_pct
-            );
+            println!("  {m} {bar}{remaining} {used}/{limit} {color_pct}");
         }
     }
     Ok(())

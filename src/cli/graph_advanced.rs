@@ -11,7 +11,7 @@ pub(crate) fn cmd_graph_bipartite_check(file: &Path, json: bool) -> Result<(), S
     let cfg = parse_and_validate(file)?;
     let is_bip = check_bipartite(&cfg);
     if json {
-        println!("{{\"is_bipartite\":{}}}", is_bip);
+        println!("{{\"is_bipartite\":{is_bip}}}");
     } else if is_bip {
         println!("The dependency graph is bipartite.");
     } else {
@@ -68,7 +68,7 @@ pub(crate) fn cmd_graph_strongly_connected(file: &Path, json: bool) -> Result<()
     let sccs = tarjan_scc(&cfg);
     let nontrivial: Vec<&Vec<String>> = sccs.iter().filter(|c| c.len() > 1).collect();
     if json {
-        let items: Vec<String> = sccs.iter().map(|c| format!("{:?}", c)).collect();
+        let items: Vec<String> = sccs.iter().map(|c| format!("{c:?}")).collect();
         println!(
             "{{\"strongly_connected_components\":[{}],\"total\":{},\"nontrivial\":{}}}",
             items.join(","),
@@ -198,7 +198,7 @@ pub(crate) fn cmd_graph_dependency_matrix_csv(file: &Path, json: bool) -> Result
                 )
             })
             .collect();
-        let labels: Vec<String> = names.iter().map(|n| format!("\"{}\"", n)).collect();
+        let labels: Vec<String> = names.iter().map(|n| format!("\"{n}\"")).collect();
         println!(
             "{{\"labels\":[{}],\"matrix\":[{}]}}",
             labels.join(","),
@@ -212,9 +212,9 @@ pub(crate) fn cmd_graph_dependency_matrix_csv(file: &Path, json: bool) -> Result
         println!("{}", names.join(","));
         // CSV rows
         for (i, name) in names.iter().enumerate() {
-            print!("{}", name);
-            for j in 0..names.len() {
-                print!(",{}", if matrix[i][j] { 1 } else { 0 });
+            print!("{name}");
+            for cell in &matrix[i] {
+                print!(",{}", if *cell { 1 } else { 0 });
             }
             println!();
         }
@@ -240,12 +240,7 @@ pub(crate) fn cmd_graph_resource_weight(file: &Path, json: bool) -> Result<(), S
     if json {
         let items: Vec<String> = weights
             .iter()
-            .map(|(from, to, w)| {
-                format!(
-                    "{{\"from\":\"{}\",\"to\":\"{}\",\"weight\":{}}}",
-                    from, to, w
-                )
-            })
+            .map(|(from, to, w)| format!("{{\"from\":\"{from}\",\"to\":\"{to}\",\"weight\":{w}}}"))
             .collect();
         println!("{{\"weighted_edges\":[{}]}}", items.join(","));
     } else if weights.is_empty() {
@@ -253,7 +248,7 @@ pub(crate) fn cmd_graph_resource_weight(file: &Path, json: bool) -> Result<(), S
     } else {
         println!("Weighted dependency edges ({}):", weights.len());
         for (from, to, w) in &weights {
-            println!("  {} -> {} (weight: {})", from, to, w);
+            println!("  {from} -> {to} (weight: {w})");
         }
     }
     Ok(())

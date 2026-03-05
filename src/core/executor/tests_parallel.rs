@@ -168,11 +168,20 @@ fn test_fj012_record_success_writes_lock_and_event() {
         completion_check: None,
         timeout: None,
         working_dir: None,
+        task_mode: None,
+        task_inputs: vec![],
+        stages: vec![],
+        cache: false,
+        gpu_device: None,
+        restart_delay: None,
         pre_apply: None,
         post_apply: None,
         lifecycle: None,
         store: false,
+        sudo: false,
         script: None,
+        gather: vec![],
+        scatter: vec![],
     };
     let machine = Machine {
         hostname: "localhost".to_string(),
@@ -185,6 +194,7 @@ fn test_fj012_record_success_writes_lock_and_event() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     let mut ctx = RecordCtx {
         lock: &mut lock,
@@ -231,6 +241,7 @@ fn test_fj012_resource_filter() {
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
+        trace: false,
     };
     let results = apply(&cfg).unwrap();
     // Resource filter doesn't match — everything skipped
@@ -286,6 +297,7 @@ policy:
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
+        trace: false,
     };
     let results = apply(&cfg).unwrap();
     assert_eq!(results.len(), 2);
@@ -355,6 +367,7 @@ policy:
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
+        trace: false,
     };
     let results = apply(&cfg).unwrap();
     assert_eq!(results.len(), 1);

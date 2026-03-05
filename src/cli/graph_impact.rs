@@ -9,11 +9,7 @@ fn print_dependency_matrix_json(names: &[String], config: &types::ForjarConfig) 
     let mut rows: Vec<String> = Vec::new();
     for name in names {
         let res = &config.resources[name];
-        let deps: Vec<String> = res
-            .depends_on
-            .iter()
-            .map(|d| format!(r#""{}""#, d))
-            .collect();
+        let deps: Vec<String> = res.depends_on.iter().map(|d| format!(r#""{d}""#)).collect();
         rows.push(format!(
             r#"{{"resource":"{}","depends_on":[{}]}}"#,
             name,
@@ -85,11 +81,11 @@ fn count_events_in_file(
 /// Format a hotspot count with appropriate coloring.
 fn format_hotspot_heat(count: usize, max_count: usize) -> String {
     if count > max_count / 2 {
-        red(&format!("{:>4}", count))
+        red(&format!("{count:>4}"))
     } else if count > max_count / 4 {
-        yellow(&format!("{:>4}", count))
+        yellow(&format!("{count:>4}"))
     } else {
-        format!("{:>4}", count)
+        format!("{count:>4}")
     }
 }
 
@@ -170,7 +166,7 @@ fn bfs_blast_radius(
 pub(crate) fn cmd_graph_impact_radius(file: &Path, resource: &str) -> Result<(), String> {
     let config = parse_and_validate(file)?;
     if !config.resources.contains_key(resource) {
-        return Err(format!("Resource '{}' not found", resource));
+        return Err(format!("Resource '{resource}' not found"));
     }
     let dependents = find_transitive_dependents(resource, &config);
     let total = config.resources.len();
@@ -179,7 +175,7 @@ pub(crate) fn cmd_graph_impact_radius(file: &Path, resource: &str) -> Result<(),
     } else {
         0.0
     };
-    println!("Impact radius for '{}':", resource);
+    println!("Impact radius for '{resource}':");
     println!(
         "  {} dependent resource(s) ({:.0}% of total)",
         dependents.len(),
@@ -188,7 +184,7 @@ pub(crate) fn cmd_graph_impact_radius(file: &Path, resource: &str) -> Result<(),
     let mut sorted: Vec<&String> = dependents.iter().collect();
     sorted.sort();
     for d in &sorted {
-        println!("  - {}", d);
+        println!("  - {d}");
     }
     Ok(())
 }
@@ -229,7 +225,7 @@ pub(crate) fn cmd_graph_hotspots(file: &Path) -> Result<(), String> {
         let bar_len = (*count as f64 / max_count as f64 * 20.0) as usize;
         let bar: String = "█".repeat(bar_len);
         let heat = format_hotspot_heat(*count, max_count);
-        println!("  {} {} {}", heat, bar, name);
+        println!("  {heat} {bar} {name}");
     }
     Ok(())
 }
@@ -262,7 +258,7 @@ pub(crate) fn cmd_graph_timeline(file: &Path) -> Result<(), String> {
             "├"
         };
         let type_str = format!("{:?}", res.resource_type).to_lowercase();
-        println!("{}{}── {} [{}]", indent, marker, name, type_str);
+        println!("{indent}{marker}── {name} [{type_str}]");
 
         prev_deps = vec![name.clone()];
     }
@@ -299,7 +295,7 @@ pub(crate) fn cmd_graph_what_if(file: &Path, resource: &str) -> Result<(), Strin
         }
     }
 
-    println!("What-if analysis: removing '{}'\n", resource);
+    println!("What-if analysis: removing '{resource}'\n");
 
     if affected.is_empty() {
         println!(
@@ -330,14 +326,14 @@ pub(crate) fn cmd_graph_blast_radius(
     let config = parse_and_validate(file)?;
 
     if !config.resources.contains_key(resource) {
-        return Err(format!("Resource '{}' not found in config", resource));
+        return Err(format!("Resource '{resource}' not found in config"));
     }
 
     let dependents = build_reverse_deps(&config);
     let affected = bfs_blast_radius(resource, &dependents);
 
     if json {
-        let items: Vec<String> = affected.iter().map(|a| format!(r#""{}""#, a)).collect();
+        let items: Vec<String> = affected.iter().map(|a| format!(r#""{a}""#)).collect();
         println!(
             r#"{{"resource":"{}","blast_radius":[{}],"count":{}}}"#,
             resource,
@@ -345,7 +341,7 @@ pub(crate) fn cmd_graph_blast_radius(
             affected.len()
         );
     } else if affected.is_empty() {
-        println!("Blast radius for '{}': no dependent resources", resource);
+        println!("Blast radius for '{resource}': no dependent resources");
     } else {
         println!(
             "Blast radius for '{}' ({} affected):",
@@ -353,7 +349,7 @@ pub(crate) fn cmd_graph_blast_radius(
             affected.len()
         );
         for a in &affected {
-            println!("  → {}", a);
+            println!("  → {a}");
         }
     }
     Ok(())

@@ -31,7 +31,7 @@ mod tests {
                 format: "json".to_string(),
                 machine: None,
             }),
-            false,
+            0,
             true,
         );
         assert!(result.is_ok());
@@ -63,7 +63,7 @@ resources: {}
                 yes: false,
                 json: true,
             }),
-            false,
+            0,
             true,
         );
         assert!(result.is_ok());

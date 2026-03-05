@@ -244,11 +244,10 @@ resources:
   test-file:
     type: file
     machine: local
-    path: {}
+    path: {target}
     content: "original content"
     mode: "0644"
-"#,
-                target
+"#
             ),
         )
         .unwrap();

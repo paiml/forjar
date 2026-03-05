@@ -17,7 +17,8 @@ use super::workspace::resolve_state_dir;
 use std::sync::atomic::Ordering;
 
 /// Dispatch a CLI command.
-pub fn dispatch(cmd: Commands, verbose: bool, no_color: bool) -> Result<(), String> {
+pub fn dispatch(cmd: Commands, verbose: u8, no_color: bool) -> Result<(), String> {
+    let verbose = verbose > 0;
     NO_COLOR.store(no_color, Ordering::Relaxed);
     match cmd {
         Commands::Init(InitArgs { path }) => cmd_init(&path),

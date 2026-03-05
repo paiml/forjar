@@ -1,7 +1,5 @@
+#![allow(unused)]
 //! Tests: Coverage for remaining validate, lock, destroy, observe (part 4).
-
-#![allow(unused_imports)]
-#![allow(dead_code)]
 use super::lock_core::*;
 use super::lock_security::*;
 use std::io::Write;
@@ -393,9 +391,9 @@ mod tests {
     fn test_cov_lock_verify_chain_with_sig() {
         let dir = make_state_dir();
         // Create a signature file for the lock
-        let lock_content = std::fs::read_to_string(dir.path().join("web.lock.yaml")).unwrap();
+        let lock_content = std::fs::read_to_string(dir.path().join("web").join("state.lock.yaml")).unwrap();
         let hash = crate::tripwire::hasher::hash_string(&lock_content);
-        write_yaml(dir.path(), "web.lock.yaml.sig", &hash);
+        write_yaml(dir.path(), "web/state.lock.yaml.sig", &hash);
         let result = cmd_lock_verify_chain(dir.path(), false);
         assert!(result.is_ok());
     }

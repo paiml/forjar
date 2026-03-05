@@ -26,7 +26,7 @@ fn compute_drift_risk(
         .count();
     if dependent_count >= 3 {
         score += 0.2;
-        reasons.push(format!("{} dependents", dependent_count));
+        reasons.push(format!("{dependent_count} dependents"));
     }
 
     if state_dir.exists() {
@@ -49,7 +49,7 @@ fn score_from_event_history(
 ) {
     let machines = discover_machines(state_dir);
     for m in &machines {
-        let events_path = state_dir.join(format!("{}.events.jsonl", m));
+        let events_path = state_dir.join(format!("{m}.events.jsonl"));
         if !events_path.exists() {
             continue;
         }
@@ -62,7 +62,7 @@ fn score_from_event_history(
             .count();
         if fail_count > 0 {
             *score += 0.1 * fail_count.min(5) as f64;
-            reasons.push(format!("{} past failures", fail_count));
+            reasons.push(format!("{fail_count} past failures"));
         }
     }
 }
@@ -72,10 +72,7 @@ fn print_drift_risk_json(risk_scores: &[(String, f64, String)]) {
     let entries: Vec<String> = risk_scores
         .iter()
         .map(|(name, score, reason)| {
-            format!(
-                r#"{{"resource":"{}","risk_score":{:.2},"reasons":"{}"}}"#,
-                name, score, reason
-            )
+            format!(r#"{{"resource":"{name}","risk_score":{score:.2},"reasons":"{reason}"}}"#)
         })
         .collect();
     println!("[{}]", entries.join(","));
@@ -135,10 +132,7 @@ fn check_cis_compliance(name: &str, res: &types::Resource, violations: &mut Vec<
         if mode.ends_with('7') || mode.ends_with('6') {
             let last = mode.chars().last().unwrap_or('0');
             if last == '7' || last == '6' {
-                violations.push((
-                    name.to_string(),
-                    format!("CIS: world-writable mode {}", mode),
-                ));
+                violations.push((name.to_string(), format!("CIS: world-writable mode {mode}")));
             }
         }
     }
@@ -166,7 +160,7 @@ fn check_hipaa_compliance(
             if other != '0' {
                 violations.push((
                     name.to_string(),
-                    format!("HIPAA: other permissions not zero in mode {}", mode),
+                    format!("HIPAA: other permissions not zero in mode {mode}"),
                 ));
             }
         }
@@ -200,8 +194,7 @@ pub(crate) fn cmd_validate_check_compliance(
             "HIPAA" => check_hipaa_compliance(name, res, &mut violations),
             _ => {
                 return Err(format!(
-                    "Unknown compliance policy: {}. Supported: CIS, SOC2, HIPAA",
-                    policy
+                    "Unknown compliance policy: {policy}. Supported: CIS, SOC2, HIPAA"
                 ));
             }
         }
@@ -210,7 +203,7 @@ pub(crate) fn cmd_validate_check_compliance(
     if json {
         let items: Vec<String> = violations
             .iter()
-            .map(|(n, v)| format!(r#"{{"resource":"{}","violation":"{}"}}"#, n, v))
+            .map(|(n, v)| format!(r#"{{"resource":"{n}","violation":"{v}"}}"#))
             .collect();
         println!(
             r#"{{"policy":"{}","violations":[{}],"count":{}}}"#,
@@ -219,11 +212,11 @@ pub(crate) fn cmd_validate_check_compliance(
             violations.len()
         );
     } else if violations.is_empty() {
-        println!("Compliance check ({}) passed: no violations found", policy);
+        println!("Compliance check ({policy}) passed: no violations found");
     } else {
-        println!("Compliance violations ({}):", policy);
+        println!("Compliance violations ({policy}):");
         for (name, violation) in &violations {
-            println!("  {} — {}", name, violation);
+            println!("  {name} — {violation}");
         }
     }
     Ok(())
@@ -237,7 +230,7 @@ pub(crate) fn cmd_validate_check_portability(file: &Path, json: bool) -> Result<
     for (name, res) in &config.resources {
         if let Some(ref path) = res.path {
             if path.starts_with("/proc") || path.starts_with("/sys") {
-                warnings.push((name.clone(), format!("Linux-specific path: {}", path)));
+                warnings.push((name.clone(), format!("Linux-specific path: {path}")));
             }
         }
         if let Some(ref provider) = res.provider {
@@ -259,7 +252,7 @@ pub(crate) fn cmd_validate_check_portability(file: &Path, json: bool) -> Result<
     if json {
         let items: Vec<String> = warnings
             .iter()
-            .map(|(n, w)| format!(r#"{{"resource":"{}","warning":"{}"}}"#, n, w))
+            .map(|(n, w)| format!(r#"{{"resource":"{n}","warning":"{w}"}}"#))
             .collect();
         println!(
             r#"{{"portability_warnings":[{}],"count":{}}}"#,
@@ -271,7 +264,7 @@ pub(crate) fn cmd_validate_check_portability(file: &Path, json: bool) -> Result<
     } else {
         println!("Portability warnings ({}):", warnings.len());
         for (name, warning) in &warnings {
-            println!("  {} — {}", name, warning);
+            println!("  {name} — {warning}");
         }
     }
     Ok(())
@@ -308,7 +301,7 @@ pub(crate) fn cmd_validate_check_idempotency_deep(file: &Path, json: bool) -> Re
     if json {
         let items: Vec<String> = suspects
             .iter()
-            .map(|(r, reason)| format!(r#"{{"resource":"{}","reason":"{}"}}"#, r, reason))
+            .map(|(r, reason)| format!(r#"{{"resource":"{r}","reason":"{reason}"}}"#))
             .collect();
         println!(
             r#"{{"idempotency_suspects":[{}],"count":{}}}"#,
@@ -320,7 +313,7 @@ pub(crate) fn cmd_validate_check_idempotency_deep(file: &Path, json: bool) -> Re
     } else {
         println!("Idempotency suspects ({}):", suspects.len());
         for (r, reason) in &suspects {
-            println!("  {} — {}", r, reason);
+            println!("  {r} — {reason}");
         }
     }
     Ok(())

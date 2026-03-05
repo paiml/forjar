@@ -17,7 +17,7 @@ pub(crate) fn cmd_status_machine_resource_recovery_rate(
     if json {
         let items: Vec<String> = rates
             .iter()
-            .map(|(m, rate)| format!("{{\"machine\":\"{}\",\"recovery_rate\":{:.4}}}", m, rate))
+            .map(|(m, rate)| format!("{{\"machine\":\"{m}\",\"recovery_rate\":{rate:.4}}}"))
             .collect();
         println!("{{\"recovery_rates\":[{}]}}", items.join(","));
     } else if rates.is_empty() {
@@ -73,10 +73,7 @@ pub(crate) fn cmd_status_machine_resource_drift_velocity(
             .iter()
             .map(|(m, d, t)| {
                 let v = velocity_ratio(*d, *t);
-                format!(
-                    "{{\"machine\":\"{}\",\"drifted\":{},\"total\":{},\"velocity\":{:.4}}}",
-                    m, d, t, v
-                )
+                format!("{{\"machine\":\"{m}\",\"drifted\":{d},\"total\":{t},\"velocity\":{v:.4}}}")
             })
             .collect();
         println!("{{\"drift_velocities\":[{}]}}", items.join(","));
@@ -187,7 +184,7 @@ pub(crate) fn cmd_status_machine_resource_convergence_efficiency(
     if json {
         let items: Vec<String> = efficiencies
             .iter()
-            .map(|(m, eff)| format!("{{\"machine\":\"{}\",\"efficiency\":{:.4}}}", m, eff))
+            .map(|(m, eff)| format!("{{\"machine\":\"{m}\",\"efficiency\":{eff:.4}}}"))
             .collect();
         println!("{{\"convergence_efficiencies\":[{}]}}", items.join(","));
     } else if efficiencies.is_empty() {
@@ -195,7 +192,7 @@ pub(crate) fn cmd_status_machine_resource_convergence_efficiency(
     } else {
         println!("Convergence efficiency:");
         for (m, eff) in &efficiencies {
-            println!("  {} — {:.4} converged/sec", m, eff);
+            println!("  {m} — {eff:.4} converged/sec");
         }
     }
     Ok(())
@@ -251,7 +248,7 @@ pub(crate) fn cmd_status_machine_resource_apply_frequency(
     if json {
         let items: Vec<String> = freqs
             .iter()
-            .map(|(m, count)| format!("{{\"machine\":\"{}\",\"resource_count\":{}}}", m, count))
+            .map(|(m, count)| format!("{{\"machine\":\"{m}\",\"resource_count\":{count}}}"))
             .collect();
         println!("{{\"apply_frequencies\":[{}]}}", items.join(","));
     } else if freqs.is_empty() {
@@ -259,7 +256,7 @@ pub(crate) fn cmd_status_machine_resource_apply_frequency(
     } else {
         println!("Apply frequencies:");
         for (m, count) in &freqs {
-            println!("  {} — {} resources applied", m, count);
+            println!("  {m} — {count} resources applied");
         }
     }
     Ok(())
@@ -303,13 +300,12 @@ pub(crate) fn cmd_status_fleet_resource_health_score(
         total_failed,
     );
     if json {
-        println!("{{\"fleet_health_score\":{},\"total_resources\":{},\"converged\":{},\"drifted\":{},\"failed\":{}}}", score, total_resources, total_converged, total_drifted, total_failed);
+        println!("{{\"fleet_health_score\":{score},\"total_resources\":{total_resources},\"converged\":{total_converged},\"drifted\":{total_drifted},\"failed\":{total_failed}}}");
     } else if total_resources == 0 {
         println!("No fleet health data available.");
     } else {
         println!(
-            "Fleet health score: {:.0}% ({} converged, {} drifted, {} failed of {} total)",
-            score, total_converged, total_drifted, total_failed, total_resources
+            "Fleet health score: {score:.0}% ({total_converged} converged, {total_drifted} drifted, {total_failed} failed of {total_resources} total)"
         );
     }
     Ok(())
@@ -365,7 +361,7 @@ pub(crate) fn cmd_status_machine_resource_staleness_index(
     if json {
         let items: Vec<String> = staleness
             .iter()
-            .map(|(m, idx)| format!("{{\"machine\":\"{}\",\"staleness_index\":{:.4}}}", m, idx))
+            .map(|(m, idx)| format!("{{\"machine\":\"{m}\",\"staleness_index\":{idx:.4}}}"))
             .collect();
         println!("{{\"staleness_indices\":[{}]}}", items.join(","));
     } else if staleness.is_empty() {
@@ -373,7 +369,7 @@ pub(crate) fn cmd_status_machine_resource_staleness_index(
     } else {
         println!("Staleness index (higher = more stale):");
         for (m, idx) in &staleness {
-            println!("  {} — {:.4}", m, idx);
+            println!("  {m} — {idx:.4}");
         }
     }
     Ok(())

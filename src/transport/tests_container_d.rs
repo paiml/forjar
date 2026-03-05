@@ -31,11 +31,11 @@ fn test_fj021_ensure_with_volumes() {
         }),
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     let result = ensure_container(&machine);
     assert!(
         result.is_ok(),
-        "ensure with volumes should succeed: {:?}",
-        result
+        "ensure with volumes should succeed: {result:?}"
     );
 }

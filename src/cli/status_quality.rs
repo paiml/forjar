@@ -253,7 +253,7 @@ pub(super) fn print_convergence_text(rows: &[ConvergenceRow], avg: f64) {
         );
     }
     if !rows.is_empty() {
-        println!("  fleet_average: {:.1}%", avg);
+        println!("  fleet_average: {avg:.1}%");
     }
 }
 pub(super) fn print_convergence_json(rows: &[ConvergenceRow], avg: f64) {

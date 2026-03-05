@@ -71,10 +71,7 @@ fn build_histogram(depths: &HashMap<String, usize>) -> BTreeMap<usize, usize> {
 }
 
 fn print_depth_histogram_json(hist: &BTreeMap<usize, usize>, max_depth: usize) {
-    let entries: Vec<String> = hist
-        .iter()
-        .map(|(d, c)| format!("\"{}\":{}", d, c))
-        .collect();
+    let entries: Vec<String> = hist.iter().map(|(d, c)| format!("\"{d}\":{c}")).collect();
     println!(
         "{{\"depth_histogram\":{{{}}},\"max_depth\":{}}}",
         entries.join(","),
@@ -83,9 +80,9 @@ fn print_depth_histogram_json(hist: &BTreeMap<usize, usize>, max_depth: usize) {
 }
 
 fn print_depth_histogram_text(hist: &BTreeMap<usize, usize>, max_depth: usize) {
-    println!("Dependency depth histogram (max_depth={}):", max_depth);
+    println!("Dependency depth histogram (max_depth={max_depth}):");
     for (depth, count) in hist {
-        println!("  depth {}: {} resource(s)", depth, count);
+        println!("  depth {depth}: {count} resource(s)");
     }
 }
 

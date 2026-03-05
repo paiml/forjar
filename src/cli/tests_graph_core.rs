@@ -88,7 +88,7 @@ resources: {}
 "#,
         )
         .unwrap();
-        let result = cmd_graph(&config, "svg", None, None);
+        let result = cmd_graph(&config, "png", None, None);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("unknown graph format"));
     }
@@ -246,7 +246,7 @@ resources: {}
                 resource_dependency_critical_path: false,
                 resource_dependency_cluster_analysis: false,
             }),
-            false,
+            0,
             true,
         )
         .unwrap();
@@ -415,9 +415,58 @@ resources: {}
                 resource_dependency_critical_path: false,
                 resource_dependency_cluster_analysis: false,
             }),
-            false,
+            0,
             true,
         );
         assert!(result.is_ok());
+    }
+
+    /// FJ-1402: SVG graph rendering.
+    #[test]
+    fn test_fj1402_graph_svg() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config,
+            r#"
+version: "1.0"
+name: svg-test
+machines:
+  m1:
+    hostname: m1
+    addr: 1.1.1.1
+resources:
+  pkg:
+    type: package
+    machine: m1
+    provider: apt
+    packages: [curl]
+  config:
+    type: file
+    machine: m1
+    path: /etc/test
+    content: "data"
+    depends_on: [pkg]
+"#,
+        )
+        .unwrap();
+        cmd_graph(&config, "svg", None, None).unwrap();
+    }
+
+    #[test]
+    fn test_fj1402_graph_svg_empty() {
+        let dir = tempfile::tempdir().unwrap();
+        let config = dir.path().join("forjar.yaml");
+        std::fs::write(
+            &config,
+            r#"
+version: "1.0"
+name: svg-empty
+machines: {}
+resources: {}
+"#,
+        )
+        .unwrap();
+        cmd_graph(&config, "svg", None, None).unwrap();
     }
 }

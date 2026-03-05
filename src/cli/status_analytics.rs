@@ -41,8 +41,9 @@ fn parse_lock_content(content: &str) -> LockMetrics {
 /// Iterate state_dir entries, applying optional machine filter, yielding (name, content) pairs.
 fn iter_lock_files(state_dir: &Path, machine: Option<&str>) -> Vec<(String, String)> {
     let mut results = Vec::new();
-    let entries =
-        std::fs::read_dir(state_dir).unwrap_or_else(|_| std::fs::read_dir("/dev/null").unwrap());
+    let Ok(entries) = std::fs::read_dir(state_dir) else {
+        return results;
+    };
     for entry in entries.flatten() {
         let name = entry.file_name().to_string_lossy().to_string();
         if let Some(filter) = machine {
@@ -89,7 +90,7 @@ pub(crate) fn cmd_status_fleet_state_churn_analysis(
             serde_json::to_string_pretty(&serde_json::json!({
                 "fleet_state_churn_analysis": results
             }))
-            .unwrap()
+            .unwrap_or_default()
         );
     } else {
         print_churn_table(&results);
@@ -108,10 +109,7 @@ fn print_churn_table(results: &BTreeMap<String, serde_json::Value>) {
         let drifted = info["has_drifted"].as_bool().unwrap_or(false);
         let indicator = info["churn_indicator"].as_str().unwrap_or("unknown");
         let symbol = if drifted { "!" } else { "~" };
-        println!(
-            "  {} {}: resources={}, churn={}",
-            symbol, m, count, indicator
-        );
+        println!("  {symbol} {m}: resources={count}, churn={indicator}");
     }
 }
 
@@ -152,7 +150,7 @@ pub(crate) fn cmd_status_config_maturity_score(
             serde_json::to_string_pretty(&serde_json::json!({
                 "config_maturity_score": results
             }))
-            .unwrap()
+            .unwrap_or_default()
         );
     } else {
         print_maturity_table(&results);
@@ -206,7 +204,7 @@ fn print_maturity_table(results: &BTreeMap<String, serde_json::Value>) {
             20..=39 => "D",
             _ => "F",
         };
-        println!("  {}: score={}/100 grade={}", m, score, grade);
+        println!("  {m}: score={score}/100 grade={grade}");
     }
 }
 
@@ -267,17 +265,17 @@ pub(crate) fn cmd_status_fleet_capacity_utilization(
                     "utilization_pct": format!("{:.1}", utilization_pct),
                 }
             }))
-            .unwrap()
+            .unwrap_or_default()
         );
     } else {
         println!("=== Fleet Capacity Utilization ===");
         if total_machines == 0 {
             println!("  No machines found.");
         } else {
-            println!("  Total machines:  {}", total_machines);
-            println!("  Total resources: {}", total_resources);
-            println!("  Avg resources/machine: {:.1}", avg_resources);
-            println!("  Utilization: {:.1}%", utilization_pct);
+            println!("  Total machines:  {total_machines}");
+            println!("  Total resources: {total_resources}");
+            println!("  Avg resources/machine: {avg_resources:.1}");
+            println!("  Utilization: {utilization_pct:.1}%");
         }
     }
     Ok(())
@@ -319,7 +317,7 @@ pub(crate) fn cmd_status_fleet_resource_error_rate_trend(
             serde_json::to_string_pretty(&serde_json::json!({
                 "error_rate_trend": results
             }))
-            .unwrap()
+            .unwrap_or_default()
         );
     } else {
         print_error_rate_table(&results);
@@ -338,7 +336,7 @@ fn print_error_rate_table(results: &[serde_json::Value]) {
         let total = info["total_resources"].as_u64().unwrap_or(0);
         let failed = info["failed_resources"].as_u64().unwrap_or(0);
         let rate = info["error_rate_pct"].as_f64().unwrap_or(0.0);
-        println!("  {}: {}/{} failed ({:.1}%)", m, failed, total, rate,);
+        println!("  {m}: {failed}/{total} failed ({rate:.1}%)",);
     }
 }
 
@@ -371,7 +369,7 @@ pub(crate) fn cmd_status_machine_resource_drift_recovery_time(
             serde_json::to_string_pretty(&serde_json::json!({
                 "drift_recovery_time": results
             }))
-            .unwrap()
+            .unwrap_or_default()
         );
     } else {
         print_drift_recovery_table(&results);
@@ -389,7 +387,7 @@ fn print_drift_recovery_table(results: &[serde_json::Value]) {
         let m = info["machine"].as_str().unwrap_or("?");
         let drifted = info["drifted_resources"].as_u64().unwrap_or(0);
         let secs = info["estimated_recovery_seconds"].as_u64().unwrap_or(0);
-        println!("  {}: {} drifted, est. recovery {}s", m, drifted, secs,);
+        println!("  {m}: {drifted} drifted, est. recovery {secs}s",);
     }
 }
 
@@ -423,7 +421,7 @@ pub(crate) fn cmd_status_fleet_resource_config_complexity_score(
             serde_json::to_string_pretty(&serde_json::json!({
                 "config_complexity": results
             }))
-            .unwrap()
+            .unwrap_or_default()
         );
     } else {
         print_complexity_table(&results);
@@ -442,9 +440,6 @@ fn print_complexity_table(results: &[serde_json::Value]) {
         let total = info["total_resources"].as_u64().unwrap_or(0);
         let types = info["distinct_types"].as_u64().unwrap_or(0);
         let score = info["complexity_score"].as_u64().unwrap_or(0);
-        println!(
-            "  {}: resources={}, types={}, complexity={}",
-            m, total, types, score,
-        );
+        println!("  {m}: resources={total}, types={types}, complexity={score}",);
     }
 }

@@ -69,13 +69,13 @@ fn print_drift_summary(
             "findings": all_findings,
         });
         let output =
-            serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {}", e))?;
-        println!("{}", output);
+            serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {e}"))?;
+        println!("{output}");
     } else if total_drift > 0 {
         println!();
         println!(
             "{}",
-            red(&format!("Drift detected: {} resource(s)", total_drift))
+            red(&format!("Drift detected: {total_drift} resource(s)"))
         );
     } else {
         println!("{}", green("No drift detected."));
@@ -90,7 +90,7 @@ fn run_drift_alert(alert_cmd: &str, total_drift: usize) -> Result<(), String> {
         .arg(alert_cmd)
         .env("FORJAR_DRIFT_COUNT", total_drift.to_string())
         .status()
-        .map_err(|e| format!("alert-cmd failed to execute: {}", e))?;
+        .map_err(|e| format!("alert-cmd failed to execute: {e}"))?;
     if !status.success() {
         eprintln!("alert-cmd exited with code {}", status.code().unwrap_or(-1));
     }
@@ -108,7 +108,7 @@ fn run_drift_remediation(
 ) -> Result<(), String> {
     if !json {
         println!();
-        println!("Auto-remediating {} drifted resource(s)...", total_drift);
+        println!("Auto-remediating {total_drift} drifted resource(s)...");
     }
     cmd_apply(
         config_path,
@@ -181,7 +181,10 @@ fn load_drift_config(
     Ok(Some(cfg))
 }
 
-/// Iterate state dir machines and check each for drift.
+/// FJ-1396: Iterate state dir machines and check each for drift.
+///
+/// Uses `std::thread::scope` for parallel drift detection across machines.
+/// Each machine is checked in its own thread; results are aggregated.
 fn scan_machines_for_drift(
     state_dir: &Path,
     machine_filter: Option<&str>,
@@ -189,11 +192,46 @@ fn scan_machines_for_drift(
     json: bool,
     verbose: bool,
 ) -> Result<(u32, usize, Vec<serde_json::Value>), String> {
+    let machine_locks = collect_machine_locks(state_dir, machine_filter)?;
+
+    if machine_locks.len() <= 1 {
+        return scan_sequential(&machine_locks, config, json, verbose);
+    }
+
+    // Parallel: check each machine in its own thread
+    let results: Vec<_> = std::thread::scope(|s| {
+        let handles: Vec<_> = machine_locks
+            .iter()
+            .map(|(name, lock)| {
+                s.spawn(move || {
+                    let mut findings = Vec::new();
+                    let count =
+                        check_machine_drift(name, lock, config, json, verbose, &mut findings);
+                    (count, findings)
+                })
+            })
+            .collect();
+        handles.into_iter().filter_map(|h| h.join().ok()).collect()
+    });
+
+    let machines_checked = results.len() as u32;
+    let mut total_drift = 0;
+    let mut all_findings = Vec::new();
+    for (count, mut findings) in results {
+        total_drift += count;
+        all_findings.append(&mut findings);
+    }
+    Ok((machines_checked, total_drift, all_findings))
+}
+
+/// Collect (machine_name, lock) pairs from state directory.
+fn collect_machine_locks(
+    state_dir: &Path,
+    machine_filter: Option<&str>,
+) -> Result<Vec<(String, types::StateLock)>, String> {
     let entries = std::fs::read_dir(state_dir)
         .map_err(|e| format!("cannot read state dir {}: {}", state_dir.display(), e))?;
-    let mut total_drift = 0;
-    let mut machines_checked = 0u32;
-    let mut all_findings: Vec<serde_json::Value> = Vec::new();
+    let mut locks = Vec::new();
     for entry in entries.flatten() {
         let name = entry.file_name().to_string_lossy().to_string();
         if let Some(filter) = machine_filter {
@@ -205,12 +243,25 @@ fn scan_machines_for_drift(
             continue;
         }
         if let Some(lock) = state::load_lock(state_dir, &name)? {
-            machines_checked += 1;
-            total_drift +=
-                check_machine_drift(&name, &lock, config, json, verbose, &mut all_findings);
+            locks.push((name, lock));
         }
     }
-    Ok((machines_checked, total_drift, all_findings))
+    Ok(locks)
+}
+
+/// Sequential scan fallback for 0-1 machines.
+fn scan_sequential(
+    machine_locks: &[(String, types::StateLock)],
+    config: Option<&types::ForjarConfig>,
+    json: bool,
+    verbose: bool,
+) -> Result<(u32, usize, Vec<serde_json::Value>), String> {
+    let mut total_drift = 0;
+    let mut all_findings = Vec::new();
+    for (name, lock) in machine_locks {
+        total_drift += check_machine_drift(name, lock, config, json, verbose, &mut all_findings);
+    }
+    Ok((machine_locks.len() as u32, total_drift, all_findings))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -265,7 +316,7 @@ pub(crate) fn cmd_drift(
     }
 
     if tripwire_mode && total_drift > 0 {
-        return Err(format!("{} drift finding(s)", total_drift));
+        return Err(format!("{total_drift} drift finding(s)"));
     }
 
     Ok(())
@@ -320,11 +371,11 @@ pub(crate) fn cmd_drift_dry_run(
             "checks": checks,
         });
         let output =
-            serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {}", e))?;
-        println!("{}", output);
+            serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {e}"))?;
+        println!("{output}");
     } else {
         println!();
-        println!("Dry run: {} resource(s) would be checked", total);
+        println!("Dry run: {total} resource(s) would be checked");
     }
 
     Ok(())

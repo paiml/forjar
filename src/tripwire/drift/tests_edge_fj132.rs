@@ -52,6 +52,7 @@ fn test_fj132_detect_drift_with_local_machine() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
 
     let findings = detect_drift_with_machine(&lock, &machine);
@@ -112,6 +113,7 @@ fn test_fj132_detect_drift_with_machine_drift_detected() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
 
     let findings = detect_drift_with_machine(&lock, &machine);
@@ -251,6 +253,7 @@ fn test_fj132_detect_drift_full_skips_file_resources() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
 
     let config_resources = indexmap::IndexMap::new();
@@ -298,6 +301,7 @@ fn test_fj132_detect_drift_full_non_file_no_live_hash() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
 
     let config_resources = indexmap::IndexMap::new();

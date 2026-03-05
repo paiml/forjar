@@ -1,7 +1,5 @@
 //! Phase 96 — Transport Diagnostics & Recipe Governance: validate commands.
 
-#![allow(dead_code)]
-
 use crate::core::types;
 use std::collections::HashMap;
 use std::path::Path;
@@ -28,12 +26,7 @@ pub(crate) fn cmd_validate_check_recipe_input_completeness(
     if json {
         let items: Vec<String> = warnings
             .iter()
-            .map(|(name, var)| {
-                format!(
-                    "{{\"resource\":\"{}\",\"missing_input\":\"{}\"}}",
-                    name, var
-                )
-            })
+            .map(|(name, var)| format!("{{\"resource\":\"{name}\",\"missing_input\":\"{var}\"}}"))
             .collect();
         println!("{{\"recipe_input_warnings\":[{}]}}", items.join(","));
     } else if warnings.is_empty() {
@@ -41,8 +34,7 @@ pub(crate) fn cmd_validate_check_recipe_input_completeness(
     } else {
         for (name, var) in &warnings {
             println!(
-                "warning: {} references {{{{inputs.{}}}}} but no such input is defined",
-                name, var
+                "warning: {name} references {{{{inputs.{var}}}}} but no such input is defined"
             );
         }
     }
@@ -136,8 +128,8 @@ pub(crate) fn cmd_validate_check_resource_cross_machine_content_duplicates(
         let items: Vec<String> = warnings
             .iter()
             .map(|(names, machines, hash)| {
-                let name_arr: Vec<String> = names.iter().map(|n| format!("\"{}\"", n)).collect();
-                let mach_arr: Vec<String> = machines.iter().map(|m| format!("\"{}\"", m)).collect();
+                let name_arr: Vec<String> = names.iter().map(|n| format!("\"{n}\"")).collect();
+                let mach_arr: Vec<String> = machines.iter().map(|m| format!("\"{m}\"")).collect();
                 format!(
                     "{{\"resources\":[{}],\"machines\":[{}],\"content_hash\":\"{}\"}}",
                     name_arr.join(","),
@@ -168,7 +160,7 @@ pub(crate) fn hash_content(s: &str) -> String {
         h ^= u64::from(b);
         h = h.wrapping_mul(0x0100_0000_01b3);
     }
-    format!("{:016x}", h)
+    format!("{h:016x}")
 }
 
 /// Returns groups of `(resource_names, machine_names, content_hash)` where
@@ -233,10 +225,7 @@ pub(crate) fn cmd_validate_check_resource_machine_reference_validity(
         let items: Vec<String> = warnings
             .iter()
             .map(|(name, machine)| {
-                format!(
-                    "{{\"resource\":\"{}\",\"undefined_machine\":\"{}\"}}",
-                    name, machine
-                )
+                format!("{{\"resource\":\"{name}\",\"undefined_machine\":\"{machine}\"}}")
             })
             .collect();
         println!("{{\"machine_affinity_warnings\":[{}]}}", items.join(","));
@@ -245,8 +234,7 @@ pub(crate) fn cmd_validate_check_resource_machine_reference_validity(
     } else {
         for (name, machine) in &warnings {
             println!(
-                "warning: {} targets machine '{}' which is not defined in machines section",
-                name, machine
+                "warning: {name} targets machine '{machine}' which is not defined in machines section"
             );
         }
     }

@@ -66,7 +66,7 @@ fn print_apply_order_json(levels: &[Vec<String>]) {
         .iter()
         .enumerate()
         .map(|(i, members)| {
-            let names: Vec<String> = members.iter().map(|n| format!("\"{}\"", n)).collect();
+            let names: Vec<String> = members.iter().map(|n| format!("\"{n}\"")).collect();
             format!(
                 "{{\"level\":{},\"parallel_count\":{},\"resources\":[{}]}}",
                 i,

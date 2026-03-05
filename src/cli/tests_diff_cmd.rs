@@ -114,7 +114,7 @@ mod tests {
             let lock = types::StateLock {
                 schema: "1.0".to_string(),
                 machine: name.to_string(),
-                hostname: format!("{}-box", name),
+                hostname: format!("{name}-box"),
                 generated_at: "2026-02-25T00:00:00Z".to_string(),
                 generator: "forjar 0.1.0".to_string(),
                 blake3_version: "1.8".to_string(),
@@ -179,7 +179,7 @@ mod tests {
                 file: PathBuf::from("/tmp/nonexistent-forjar.yaml"),
                 json: false,
             }),
-            false,
+            0,
             true,
         );
         assert!(result.is_ok());
@@ -195,7 +195,7 @@ mod tests {
                 file: config_path,
                 json: false,
             }),
-            false,
+            0,
             true,
         );
         assert!(result.is_ok());
@@ -211,7 +211,7 @@ mod tests {
                 file: config_path,
                 json: true,
             }),
-            false,
+            0,
             true,
         );
         assert!(result.is_ok());
@@ -321,6 +321,7 @@ resources:
             resource_timeout: None,
             rollback_on_failure: false,
             max_parallel: None,
+            trace: false,
             notify: None,
             subset: None,
             confirm_destructive: false,

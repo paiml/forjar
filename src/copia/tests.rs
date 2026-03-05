@@ -258,8 +258,8 @@ fn test_fj242_full_transfer_script_valid() {
 #[test]
 fn test_fj242_roundtrip_delta_reconstruction() {
     // Simulate: old file on remote, new file locally, verify delta correctness
-    let mut old_data = vec![0u8; BLOCK_SIZE * 10]; // 10 blocks
-                                                   // Make blocks unique
+    // 10 blocks — make each unique
+    let mut old_data = vec![0u8; BLOCK_SIZE * 10];
     for i in 0..10 {
         old_data[i * BLOCK_SIZE] = i as u8;
     }

@@ -82,10 +82,7 @@ fn passes_tag_filter(resource: &Resource, tag_filter: Option<&str>) -> bool {
 fn resolve_or_fallback(resource_id: &str, resource: &Resource, config: &ForjarConfig) -> Resource {
     resolver::resolve_resource_templates(resource, &config.params, &config.machines).unwrap_or_else(
         |e| {
-            eprintln!(
-                "warning: template resolution failed for {}: {}",
-                resource_id, e
-            );
+            eprintln!("warning: template resolution failed for {resource_id}: {e}");
             resource.clone()
         },
     )
@@ -114,8 +111,7 @@ fn passes_machine_filters(
                 Ok(false) => return false,
                 Err(e) => {
                     eprintln!(
-                        "warning: when condition failed for {} on {}: {}",
-                        resource_id, machine_name, e
+                        "warning: when condition failed for {resource_id} on {machine_name}: {e}"
                     );
                     return false;
                 }
@@ -165,10 +161,7 @@ fn determine_action(
         if action == PlanAction::Destroy {
             if let Some(ref lifecycle) = resource.lifecycle {
                 if lifecycle.prevent_destroy {
-                    eprintln!(
-                        "warning: {} has prevent_destroy — skipping destroy",
-                        resource_id
-                    );
+                    eprintln!("warning: {resource_id} has prevent_destroy — skipping destroy");
                     return PlanAction::NoOp;
                 }
             }
@@ -280,6 +273,8 @@ fn collect_phase2_fields<'a>(components: &mut Vec<&'a str>, resource: &'a Resour
 }
 
 /// Compute a hash of the desired state for comparison.
+///
+/// FJ-2200: Contract — determinism: same resource always produces same hash.
 pub fn hash_desired_state(resource: &Resource) -> String {
     let type_str = resource.resource_type.to_string();
     let mut components: Vec<&str> = vec![&type_str];
@@ -288,7 +283,16 @@ pub fn hash_desired_state(resource: &Resource) -> String {
     collect_phase2_fields(&mut components, resource);
 
     let joined = components.join("\0");
-    hasher::hash_string(&joined)
+    let result = hasher::hash_string(&joined);
+
+    // FJ-2200: Determinism postcondition — calling again must produce same hash
+    debug_assert_eq!(
+        result,
+        hasher::hash_string(&joined),
+        "hash_desired_state: determinism violated"
+    );
+
+    result
 }
 
 /// Generate a human-readable description of a planned action.
@@ -297,19 +301,19 @@ fn describe_action(resource_id: &str, resource: &Resource, action: &PlanAction) 
         PlanAction::Create => match resource.resource_type {
             ResourceType::Package => {
                 let pkgs = resource.packages.join(", ");
-                format!("{}: install {}", resource_id, pkgs)
+                format!("{resource_id}: install {pkgs}")
             }
             ResourceType::File => {
                 let path = resource.path.as_deref().unwrap_or("?");
-                format!("{}: create {}", resource_id, path)
+                format!("{resource_id}: create {path}")
             }
             ResourceType::Service => {
                 let name = resource.name.as_deref().unwrap_or("?");
-                format!("{}: start {}", resource_id, name)
+                format!("{resource_id}: start {name}")
             }
             ResourceType::Mount => {
                 let path = resource.path.as_deref().unwrap_or("?");
-                format!("{}: mount {}", resource_id, path)
+                format!("{resource_id}: mount {path}")
             }
             ResourceType::User
             | ResourceType::Docker
@@ -319,11 +323,11 @@ fn describe_action(resource_id: &str, resource: &Resource, action: &PlanAction) 
             | ResourceType::Model
             | ResourceType::Gpu
             | ResourceType::Task
-            | ResourceType::Recipe => format!("{}: create", resource_id),
+            | ResourceType::Recipe => format!("{resource_id}: create"),
         },
-        PlanAction::Update => format!("{}: update (state changed)", resource_id),
-        PlanAction::Destroy => format!("{}: destroy", resource_id),
-        PlanAction::NoOp => format!("{}: no changes", resource_id),
+        PlanAction::Update => format!("{resource_id}: update (state changed)"),
+        PlanAction::Destroy => format!("{resource_id}: destroy"),
+        PlanAction::NoOp => format!("{resource_id}: no changes"),
     }
 }
 
@@ -356,7 +360,10 @@ fn apply_moved_blocks(
     result
 }
 
+pub mod minimal_changeset;
+pub mod proof_obligation;
 pub mod reversibility;
+pub mod sat_deps;
 pub mod why;
 
 #[cfg(test)]

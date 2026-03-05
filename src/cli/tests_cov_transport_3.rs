@@ -109,6 +109,7 @@ resources:
             container: None,
             pepita: None,
             cost: 0,
+            allowed_operators: vec![],
         }
     }
 
@@ -124,6 +125,7 @@ resources:
             container: None,
             pepita: None,
             cost: 0,
+            allowed_operators: vec![],
         }
     }
 
@@ -151,8 +153,7 @@ resources:
             errors
                 .iter()
                 .any(|e| e.message.contains("model") && e.message.contains("no name")),
-            "expected model no-name error, got: {:?}",
-            errors
+            "expected model no-name error, got: {errors:?}"
         );
     }
 
@@ -178,7 +179,7 @@ resources:
             .iter()
             .filter(|e| e.message.contains("model") && e.message.contains("invalid state"))
             .collect();
-        assert!(model_errors.is_empty(), "unexpected: {:?}", model_errors);
+        assert!(model_errors.is_empty(), "unexpected: {model_errors:?}");
     }
 
     #[test]
@@ -203,8 +204,7 @@ resources:
             errors
                 .iter()
                 .any(|e| e.message.contains("model") && e.message.contains("invalid state")),
-            "expected invalid state error, got: {:?}",
-            errors
+            "expected invalid state error, got: {errors:?}"
         );
     }
 
@@ -230,7 +230,7 @@ resources:
             .iter()
             .filter(|e| e.message.contains("model") && e.message.contains("invalid state"))
             .collect();
-        assert!(model_errors.is_empty(), "unexpected: {:?}", model_errors);
+        assert!(model_errors.is_empty(), "unexpected: {model_errors:?}");
     }
 
     // ===================================================================
@@ -444,6 +444,7 @@ resources:
                 ephemeral: false,
             }),
             cost: 0,
+            allowed_operators: vec![],
         };
         // Pepita transport — should NOT retry, just fail once
         let result = transport::exec_script_retry(&machine, "echo hi", None, 3);

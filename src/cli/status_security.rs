@@ -56,14 +56,14 @@ pub(super) fn parse_rfc3339_to_epoch(s: &str) -> Option<u64> {
     let sec: u64 = s.get(17..19)?.parse().ok()?;
     let mut days: u64 = 0;
     for y in 1970..year {
-        days += if (y % 4 == 0 && y % 100 != 0) || y % 400 == 0 {
+        days += if (y.is_multiple_of(4) && !y.is_multiple_of(100)) || y.is_multiple_of(400) {
             366
         } else {
             365
         };
     }
     let table = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30];
-    let leap = (year % 4 == 0 && year % 100 != 0) || year % 400 == 0;
+    let leap = (year.is_multiple_of(4) && !year.is_multiple_of(100)) || year.is_multiple_of(400);
     let mut md: u64 = 0;
     for m in 1..month.min(13) {
         md += table[m as usize];
@@ -85,23 +85,16 @@ pub(super) fn now_epoch() -> u64 {
 
 /// Compute freshness index (0-100) based on age of `generated_at`.
 pub(super) fn freshness_score(generated_at: &str, now: u64) -> u64 {
-    match parse_rfc3339_to_epoch(generated_at) {
-        Some(epoch) if now >= epoch => {
-            let age = now - epoch;
-            if age < 3600 {
-                100
-            } else if age < 86_400 {
-                80
-            } else if age < 604_800 {
-                60
-            } else if age < 2_592_000 {
-                30
-            } else {
-                0
-            }
-        }
-        _ => 0,
-    }
+    let epoch = match parse_rfc3339_to_epoch(generated_at) {
+        Some(e) if now >= e => e,
+        _ => return 0,
+    };
+    let age = now - epoch;
+    const BUCKETS: &[(u64, u64)] = &[(3600, 100), (86_400, 80), (604_800, 60), (2_592_000, 30)];
+    BUCKETS
+        .iter()
+        .find(|(threshold, _)| age < *threshold)
+        .map_or(0, |(_, score)| *score)
 }
 
 /// Load machines respecting an optional filter.
@@ -151,16 +144,23 @@ pub(crate) fn cmd_status_fleet_security_posture_summary(
                 "moderate" => yellow("~"),
                 _ => red("!"),
             };
-            println!(
-                "  {} {} — secrets:{}, privileged:{}, tls:{}, posture:{}",
-                sym, m, sr, p, t, pos
-            );
+            println!("  {sym} {m} — secrets:{sr}, privileged:{p}, tls:{t}, posture:{pos}");
         }
     }
     Ok(())
 }
 
 // ── FJ-1056: Machine Resource Freshness Index ──────────────────────────────
+
+fn score_symbol(score: u64) -> String {
+    if score >= 60 {
+        green("*")
+    } else if score >= 30 {
+        yellow("~")
+    } else {
+        red("!")
+    }
+}
 
 /// FJ-1056: `status --machine-resource-freshness-index`
 pub(crate) fn cmd_status_machine_resource_freshness_index(
@@ -197,17 +197,8 @@ pub(crate) fn cmd_status_machine_resource_freshness_index(
             println!("  No machine state found.");
         }
         for (m, score, ts) in &rows {
-            let sym = if *score >= 60 {
-                green("*")
-            } else if *score >= 30 {
-                yellow("~")
-            } else {
-                red("!")
-            };
-            println!(
-                "  {} {} — freshness:{}/100, generated_at:{}",
-                sym, m, score, ts
-            );
+            let sym = score_symbol(*score);
+            println!("  {sym} {m} — freshness:{score}/100, generated_at:{ts}");
         }
     }
     Ok(())

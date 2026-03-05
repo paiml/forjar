@@ -34,6 +34,7 @@ fn test_fj003_resolve_machine_addr() {
             container: None,
             pepita: None,
             cost: 0,
+            allowed_operators: vec![],
         },
     );
     let result = resolve_template("ssh {{machine.lambda.addr}}", &params, &machines).unwrap();
@@ -173,6 +174,7 @@ fn test_fj003_mixed_template_types() {
             container: None,
             pepita: None,
             cost: 0,
+            allowed_operators: vec![],
         },
     );
     let result = resolve_template(
@@ -260,6 +262,7 @@ fn test_fj131_resolve_machine_hostname_field() {
             container: None,
             pepita: None,
             cost: 0,
+            allowed_operators: vec![],
         },
     );
     let result = resolve_template("host={{machine.db.hostname}}", &params, &machines).unwrap();
@@ -283,6 +286,7 @@ fn test_fj131_resolve_machine_user_field() {
             container: None,
             pepita: None,
             cost: 0,
+            allowed_operators: vec![],
         },
     );
     let result = resolve_template("user={{machine.db.user}}", &params, &machines).unwrap();
@@ -306,6 +310,7 @@ fn test_fj131_resolve_machine_arch_field() {
             container: None,
             pepita: None,
             cost: 0,
+            allowed_operators: vec![],
         },
     );
     let result = resolve_template("arch={{machine.arm.arch}}", &params, &machines).unwrap();
@@ -329,6 +334,7 @@ fn test_fj131_resolve_machine_invalid_field() {
             container: None,
             pepita: None,
             cost: 0,
+            allowed_operators: vec![],
         },
     );
     let result = resolve_template("{{machine.m.cost}}", &params, &machines);
@@ -420,4 +426,66 @@ fn test_resolve_template_multiple() {
     let machines = indexmap::IndexMap::new();
     let result = resolve_template("{{params.a}}-{{params.b}}", &params, &machines).unwrap();
     assert_eq!(result, "hello-world");
+}
+
+// ── FJ-2300: Secret provider tests ──
+
+#[test]
+fn test_secret_file_provider() {
+    let dir = tempfile::tempdir().unwrap();
+    let secret_file = dir.path().join("db_password");
+    std::fs::write(&secret_file, "s3cret\n").unwrap();
+
+    let result = super::template::resolve_secret_with_provider(
+        "db_password",
+        Some("file"),
+        Some(dir.path().to_str().unwrap()),
+    );
+    assert_eq!(result.unwrap(), "s3cret"); // trims trailing newline
+}
+
+#[test]
+fn test_secret_file_provider_missing() {
+    let result = super::template::resolve_secret_with_provider(
+        "nonexistent",
+        Some("file"),
+        Some("/tmp/forjar-test-no-such-dir"),
+    );
+    assert!(result.is_err());
+    assert!(result.unwrap_err().contains("not found"));
+}
+
+#[test]
+fn test_secret_env_provider_explicit() {
+    std::env::set_var("FORJAR_SECRET_TEST_KEY_2300", "env-secret");
+    let result = super::template::resolve_secret_with_provider(
+        "test_key_2300",
+        Some("env"),
+        None,
+    );
+    assert_eq!(result.unwrap(), "env-secret");
+    std::env::remove_var("FORJAR_SECRET_TEST_KEY_2300");
+}
+
+#[test]
+fn test_redact_secrets() {
+    let text = "password is s3cret and token is abc123";
+    let secrets = vec!["s3cret".to_string(), "abc123".to_string()];
+    let redacted = super::template::redact_secrets(text, &secrets);
+    assert_eq!(redacted, "password is *** and token is ***");
+}
+
+#[test]
+fn test_redact_secrets_empty() {
+    let text = "no secrets here";
+    let redacted = super::template::redact_secrets(text, &[]);
+    assert_eq!(redacted, "no secrets here");
+}
+
+#[test]
+fn test_redact_secrets_empty_value() {
+    let text = "keep me";
+    let secrets = vec!["".to_string()];
+    let redacted = super::template::redact_secrets(text, &secrets);
+    assert_eq!(redacted, "keep me"); // empty secrets are skipped
 }

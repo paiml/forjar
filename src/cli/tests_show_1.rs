@@ -123,6 +123,7 @@ resources:
             resource_timeout: None,
             rollback_on_failure: false,
             max_parallel: None,
+            trace: false,
             notify: None,
             subset: None,
             confirm_destructive: false,
@@ -297,7 +298,7 @@ resources:
                 resource: "nonexistent".to_string(),
                 json: false,
             }),
-            false,
+            0,
             true,
         );
         assert!(result.is_err());
@@ -315,7 +316,7 @@ resources:
                 resource: "test".to_string(),
                 json: false,
             }),
-            false,
+            0,
             true,
         );
         assert!(result.is_ok());
@@ -332,7 +333,7 @@ resources:
                 resource: "cfg".to_string(),
                 json: false,
             }),
-            false,
+            0,
             true,
         );
         assert!(result.is_ok());

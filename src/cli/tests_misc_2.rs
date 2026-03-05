@@ -92,7 +92,8 @@ resources:
         let result = cmd_validate(&file, true, false, false);
         assert!(result.is_err());
         let msg = result.unwrap_err();
-        assert!(msg.contains("strict validation failed"));
+        // FJ-2501: relative paths now caught by format validation in validate_config
+        assert!(msg.contains("must be absolute") || msg.contains("strict validation failed"));
     }
 
     #[test]
@@ -104,6 +105,7 @@ resources:
             dry_expand: false,
             schema_version: None,
             exhaustive: false,
+            deep: false,
             policy_file: None,
             check_connectivity: false,
             check_templates: false,
@@ -246,6 +248,7 @@ resources:
             check_resource_provider_version_pinning: false,
             check_recipe_purity: false,
             check_reproducibility_score: false,
+            deny_unknown_fields: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { strict, .. }) => assert!(strict),

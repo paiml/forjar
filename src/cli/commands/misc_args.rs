@@ -2,6 +2,7 @@
 
 use std::path::PathBuf;
 
+/// CLI arguments for the `init` command.
 #[derive(clap::Args, Debug)]
 pub struct InitArgs {
     /// Directory to initialize (default: current)
@@ -9,6 +10,7 @@ pub struct InitArgs {
     pub path: PathBuf,
 }
 
+/// CLI arguments for the `drift` command.
 #[derive(clap::Args, Debug)]
 pub struct DriftArgs {
     /// Path to forjar.yaml
@@ -52,6 +54,7 @@ pub struct DriftArgs {
     pub workspace: Option<String>,
 }
 
+/// CLI arguments for the `history` command.
 #[derive(clap::Args, Debug)]
 pub struct HistoryArgs {
     /// State directory
@@ -79,6 +82,7 @@ pub struct HistoryArgs {
     pub resource: Option<String>,
 }
 
+/// CLI arguments for the `destroy` command.
 #[derive(clap::Args, Debug)]
 pub struct DestroyArgs {
     /// Path to forjar.yaml
@@ -98,6 +102,7 @@ pub struct DestroyArgs {
     pub state_dir: PathBuf,
 }
 
+/// CLI arguments for the `import` command.
 #[derive(clap::Args, Debug)]
 pub struct ImportArgs {
     /// Machine address (IP, hostname, or 'localhost')
@@ -121,6 +126,7 @@ pub struct ImportArgs {
     pub scan: Vec<String>,
 }
 
+/// CLI arguments for the `show` command.
 #[derive(clap::Args, Debug)]
 pub struct ShowArgs {
     /// Path to forjar.yaml
@@ -136,6 +142,7 @@ pub struct ShowArgs {
     pub json: bool,
 }
 
+/// CLI arguments for the `check` command.
 #[derive(clap::Args, Debug)]
 pub struct CheckArgs {
     /// Path to forjar.yaml
@@ -159,6 +166,7 @@ pub struct CheckArgs {
     pub json: bool,
 }
 
+/// CLI arguments for the `diff` command.
 #[derive(clap::Args, Debug)]
 pub struct DiffArgs {
     /// First state directory (older)
@@ -180,6 +188,21 @@ pub struct DiffArgs {
     pub json: bool,
 }
 
+/// FJ-1389: Unified stack diff — resource, machine, param comparison.
+#[derive(clap::Args, Debug)]
+pub struct StackDiffArgs {
+    /// First config file
+    pub file1: PathBuf,
+
+    /// Second config file
+    pub file2: PathBuf,
+
+    /// Output as JSON
+    #[arg(long)]
+    pub json: bool,
+}
+
+/// CLI arguments for the `fmt` command.
 #[derive(clap::Args, Debug)]
 pub struct FmtArgs {
     /// Path to forjar.yaml
@@ -191,6 +214,7 @@ pub struct FmtArgs {
     pub check: bool,
 }
 
+/// CLI arguments for the `lint` command.
 #[derive(clap::Args, Debug)]
 pub struct LintArgs {
     /// Path to forjar.yaml
@@ -212,8 +236,13 @@ pub struct LintArgs {
     /// FJ-374: Custom lint rules from YAML file
     #[arg(long)]
     pub rules: Option<PathBuf>,
+
+    /// FJ-2400: Show bashrs version used for script purification
+    #[arg(long)]
+    pub bashrs_version: bool,
 }
 
+/// CLI arguments for the `rollback` command.
 #[derive(clap::Args, Debug)]
 pub struct RollbackArgs {
     /// Path to forjar.yaml
@@ -224,6 +253,10 @@ pub struct RollbackArgs {
     #[arg(short = 'n', long, default_value = "1")]
     pub revision: u32,
 
+    /// FJ-1386: Rollback to a specific state generation (Nix-style)
+    #[arg(long)]
+    pub generation: Option<u32>,
+
     /// Target specific machine
     #[arg(short, long)]
     pub machine: Option<String>,
@@ -232,11 +265,16 @@ pub struct RollbackArgs {
     #[arg(long)]
     pub dry_run: bool,
 
+    /// Confirm destructive operation
+    #[arg(long)]
+    pub yes: bool,
+
     /// State directory
     #[arg(long, default_value = "state")]
     pub state_dir: PathBuf,
 }
 
+/// CLI arguments for the `anomaly` command.
 #[derive(clap::Args, Debug)]
 pub struct AnomalyArgs {
     /// State directory
@@ -256,6 +294,7 @@ pub struct AnomalyArgs {
     pub json: bool,
 }
 
+/// CLI arguments for the `trace` command.
 #[derive(clap::Args, Debug)]
 pub struct TraceArgs {
     /// State directory
@@ -271,6 +310,7 @@ pub struct TraceArgs {
     pub json: bool,
 }
 
+/// CLI arguments for the `migrate` command.
 #[derive(clap::Args, Debug)]
 pub struct MigrateArgs {
     /// Path to forjar.yaml
@@ -282,6 +322,7 @@ pub struct MigrateArgs {
     pub output: Option<PathBuf>,
 }
 
+/// CLI arguments for the `mcp` command.
 #[derive(clap::Args, Debug)]
 pub struct McpArgs {
     /// Export tool schemas as JSON instead of starting server
@@ -289,6 +330,7 @@ pub struct McpArgs {
     pub schema: bool,
 }
 
+/// CLI arguments for the `bench` command.
 #[derive(clap::Args, Debug)]
 pub struct BenchArgs {
     /// Number of iterations per benchmark (default: 1000)
@@ -300,6 +342,7 @@ pub struct BenchArgs {
     pub json: bool,
 }
 
+/// CLI arguments for the `output` command.
 #[derive(clap::Args, Debug)]
 pub struct OutputArgs {
     /// Path to forjar.yaml
@@ -314,6 +357,7 @@ pub struct OutputArgs {
     pub json: bool,
 }
 
+/// CLI arguments for the `policy` command.
 #[derive(clap::Args, Debug)]
 pub struct PolicyArgs {
     /// Path to forjar.yaml
@@ -325,6 +369,7 @@ pub struct PolicyArgs {
     pub json: bool,
 }
 
+/// CLI arguments for the `score` command.
 #[derive(clap::Args, Debug)]
 pub struct ScoreArgs {
     /// Path to forjar.yaml
@@ -365,3 +410,6 @@ pub struct ConfigMergeArgs {
     #[arg(long)]
     pub allow_collisions: bool,
 }
+
+// SecurityScan, Sbom, Cbom, Prove, Extract, PrivilegeAnalysis, Provenance, Lineage
+// args moved to misc_analysis_args.rs

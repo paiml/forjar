@@ -23,16 +23,11 @@ pub fn exec_pepita(machine: &Machine, script: &str) -> Result<ExecOutput, String
         .ok_or_else(|| format!("machine '{}' has no pepita config", machine.hostname))?;
 
     let ns_name = machine.pepita_name();
-    let pidfile = format!("/run/forjar/{}.pid", ns_name);
+    let pidfile = format!("/run/forjar/{ns_name}.pid");
 
     // Read the PID of the namespace init process
     let pid = std::fs::read_to_string(&pidfile)
-        .map_err(|e| {
-            format!(
-                "cannot read pidfile '{}': {} — is the namespace running?",
-                pidfile, e
-            )
-        })?
+        .map_err(|e| format!("cannot read pidfile '{pidfile}': {e} — is the namespace running?"))?
         .trim()
         .to_string();
 
@@ -56,17 +51,17 @@ pub fn exec_pepita(machine: &Machine, script: &str) -> Result<ExecOutput, String
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .map_err(|e| format!("failed to nsenter namespace '{}': {}", ns_name, e))?;
+        .map_err(|e| format!("failed to nsenter namespace '{ns_name}': {e}"))?;
 
     if let Some(ref mut stdin) = child.stdin {
         stdin
             .write_all(script.as_bytes())
-            .map_err(|e| format!("stdin write error: {}", e))?;
+            .map_err(|e| format!("stdin write error: {e}"))?;
     }
 
     let output = child
         .wait_with_output()
-        .map_err(|e| format!("wait error: {}", e))?;
+        .map_err(|e| format!("wait error: {e}"))?;
 
     Ok(ExecOutput {
         exit_code: output.status.code().unwrap_or(-1),
@@ -87,13 +82,13 @@ pub fn ensure_namespace(machine: &Machine) -> Result<(), String> {
         .ok_or_else(|| format!("machine '{}' has no pepita config", machine.hostname))?;
 
     let ns_name = machine.pepita_name();
-    let pidfile = format!("/run/forjar/{}.pid", ns_name);
+    let pidfile = format!("/run/forjar/{ns_name}.pid");
 
     // Check if namespace already exists
     if std::path::Path::new(&pidfile).exists() {
         if let Ok(pid) = std::fs::read_to_string(&pidfile) {
             let pid = pid.trim();
-            if std::path::Path::new(&format!("/proc/{}", pid)).exists() {
+            if std::path::Path::new(&format!("/proc/{pid}")).exists() {
                 return Ok(()); // Already running
             }
         }
@@ -101,7 +96,7 @@ pub fn ensure_namespace(machine: &Machine) -> Result<(), String> {
 
     // Create /run/forjar directory
     std::fs::create_dir_all("/run/forjar")
-        .map_err(|e| format!("cannot create /run/forjar: {}", e))?;
+        .map_err(|e| format!("cannot create /run/forjar: {e}"))?;
 
     // Build unshare command
     let mut args = vec!["--fork", "--pid", "--mount"];
@@ -120,11 +115,11 @@ pub fn ensure_namespace(machine: &Machine) -> Result<(), String> {
         .stdout(Stdio::null())
         .stderr(Stdio::piped())
         .spawn()
-        .map_err(|e| format!("failed to create namespace '{}': {}", ns_name, e))?;
+        .map_err(|e| format!("failed to create namespace '{ns_name}': {e}"))?;
 
     // Write PID file
     std::fs::write(&pidfile, child.id().to_string())
-        .map_err(|e| format!("cannot write pidfile '{}': {}", pidfile, e))?;
+        .map_err(|e| format!("cannot write pidfile '{pidfile}': {e}"))?;
 
     // Apply cgroup limits if configured
     if config.memory_mb.is_some() || config.cpus.is_some() {
@@ -140,15 +135,15 @@ fn apply_cgroup_limits(
     memory_mb: Option<u64>,
     cpus: Option<f64>,
 ) -> Result<(), String> {
-    let cgroup_path = format!("/sys/fs/cgroup/forjar/{}", ns_name);
+    let cgroup_path = format!("/sys/fs/cgroup/forjar/{ns_name}");
 
     std::fs::create_dir_all(&cgroup_path)
-        .map_err(|e| format!("cannot create cgroup '{}': {}", cgroup_path, e))?;
+        .map_err(|e| format!("cannot create cgroup '{cgroup_path}': {e}"))?;
 
     if let Some(mb) = memory_mb {
         let bytes = mb * 1024 * 1024;
-        std::fs::write(format!("{}/memory.max", cgroup_path), bytes.to_string())
-            .map_err(|e| format!("cannot set memory limit: {}", e))?;
+        std::fs::write(format!("{cgroup_path}/memory.max"), bytes.to_string())
+            .map_err(|e| format!("cannot set memory limit: {e}"))?;
     }
 
     if let Some(cpus) = cpus {
@@ -156,10 +151,10 @@ fn apply_cgroup_limits(
         let period = 100_000u64; // 100ms
         let quota = (cpus * period as f64) as u64;
         std::fs::write(
-            format!("{}/cpu.max", cgroup_path),
-            format!("{} {}", quota, period),
+            format!("{cgroup_path}/cpu.max"),
+            format!("{quota} {period}"),
         )
-        .map_err(|e| format!("cannot set cpu limit: {}", e))?;
+        .map_err(|e| format!("cannot set cpu limit: {e}"))?;
     }
 
     Ok(())
@@ -176,7 +171,7 @@ pub fn cleanup_namespace(machine: &Machine) -> Result<(), String> {
         .ok_or_else(|| format!("machine '{}' has no pepita config", machine.hostname))?;
 
     let ns_name = machine.pepita_name();
-    let pidfile = format!("/run/forjar/{}.pid", ns_name);
+    let pidfile = format!("/run/forjar/{ns_name}.pid");
 
     // Kill the init process if the pidfile exists
     if let Ok(pid_str) = std::fs::read_to_string(&pidfile) {
@@ -189,7 +184,7 @@ pub fn cleanup_namespace(machine: &Machine) -> Result<(), String> {
     let _ = std::fs::remove_file(&pidfile);
 
     // Remove cgroup directory
-    let cgroup_path = format!("/sys/fs/cgroup/forjar/{}", ns_name);
+    let cgroup_path = format!("/sys/fs/cgroup/forjar/{ns_name}");
     let _ = std::fs::remove_dir_all(&cgroup_path);
 
     Ok(())
@@ -219,6 +214,7 @@ mod tests {
                 ephemeral: true,
             }),
             cost: 0,
+            allowed_operators: vec![],
         }
     }
 
@@ -235,6 +231,7 @@ mod tests {
             container: None,
             pepita: None,
             cost: 0,
+            allowed_operators: vec![],
         };
         let result = exec_pepita(&machine, "echo hi");
         assert!(result.is_err());
@@ -254,6 +251,7 @@ mod tests {
             container: None,
             pepita: None,
             cost: 0,
+            allowed_operators: vec![],
         };
         let result = ensure_namespace(&machine);
         assert!(result.is_err());
@@ -273,6 +271,7 @@ mod tests {
             container: None,
             pepita: None,
             cost: 0,
+            allowed_operators: vec![],
         };
         let result = cleanup_namespace(&machine);
         assert!(result.is_err());
@@ -312,6 +311,7 @@ mod tests {
                 ephemeral: false,
             }),
             cost: 0,
+            allowed_operators: vec![],
         };
         assert!(machine.is_pepita_transport());
     }
@@ -338,8 +338,7 @@ rootfs: "debootstrap:jammy"
         let err = result.unwrap_err();
         assert!(
             err.contains("pidfile") || err.contains("namespace"),
-            "error should mention pidfile: {}",
-            err
+            "error should mention pidfile: {err}"
         );
     }
 

@@ -18,8 +18,10 @@ pub(super) fn minimal_config() -> ForjarConfig {
         policies: Vec::new(),
         data: IndexMap::new(),
         includes: Vec::new(),
+            include_provenance: HashMap::new(),
         checks: IndexMap::new(),
         moved: Vec::new(),
+            secrets: Default::default(),
     }
 }
 
@@ -97,11 +99,20 @@ pub(super) fn minimal_resource(rt: ResourceType) -> Resource {
         completion_check: None,
         timeout: None,
         working_dir: None,
+        task_mode: None,
+        task_inputs: vec![],
+        stages: vec![],
+        cache: false,
+        gpu_device: None,
+        restart_delay: None,
         pre_apply: None,
         post_apply: None,
         lifecycle: None,
         store: false,
+        sudo: false,
         script: None,
+        gather: vec![],
+        scatter: vec![],
     }
 }
 

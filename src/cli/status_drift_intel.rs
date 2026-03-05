@@ -67,7 +67,7 @@ fn parse_rfc3339_to_epoch(s: &str) -> Option<u64> {
 }
 
 fn is_leap(y: u64) -> bool {
-    (y % 4 == 0 && y % 100 != 0) || y % 400 == 0
+    (y.is_multiple_of(4) && !y.is_multiple_of(100)) || y.is_multiple_of(400)
 }
 
 fn days_before_month(year: u64, month: u64) -> u64 {
@@ -236,10 +236,7 @@ pub(crate) fn cmd_status_machine_convergence_window(
             } else {
                 yellow("~")
             };
-            println!(
-                "  {} {} — {} drifted, est. {} min to converge",
-                symbol, m, drifted, window
-            );
+            println!("  {symbol} {m} — {drifted} drifted, est. {window} min to converge");
         }
     }
     Ok(())
@@ -310,7 +307,7 @@ pub(crate) fn cmd_status_fleet_resource_age_histogram(
         for &bucket in AGE_BUCKETS {
             let count = histogram.get(bucket).copied().unwrap_or(0);
             let bar = "#".repeat(count.min(40) as usize);
-            println!("  {:>7} | {:>4} {}", bucket, count, bar);
+            println!("  {bucket:>7} | {count:>4} {bar}");
         }
         if total > 0 {
             println!("  {:>7} | {:>4}", "total", total);

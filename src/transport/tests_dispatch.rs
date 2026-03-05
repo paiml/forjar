@@ -24,6 +24,7 @@ fn test_transport_exec_local_127() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     let out = exec_script(&machine, "echo ok").unwrap();
     assert!(out.success());
@@ -44,6 +45,7 @@ fn test_transport_exec_local_localhost() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     let out = exec_script(&machine, "echo local").unwrap();
     assert!(out.success());
@@ -85,6 +87,7 @@ fn test_transport_query_delegates() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     let out = query(&machine, "echo query-test").unwrap();
     assert!(out.success());
@@ -104,6 +107,7 @@ fn test_timeout_none_succeeds() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     let out = exec_script_timeout(&machine, "echo ok", None).unwrap();
     assert!(out.success());
@@ -123,6 +127,7 @@ fn test_timeout_generous_succeeds() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     let out = exec_script_timeout(&machine, "echo fast", Some(10)).unwrap();
     assert!(out.success());
@@ -142,6 +147,7 @@ fn test_timeout_exceeded_returns_error() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     let result = exec_script_timeout(&machine, "sleep 10", Some(1));
     assert!(result.is_err());
@@ -161,12 +167,12 @@ fn test_transport_timeout_error_includes_hostname() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     let err = exec_script_timeout(&machine, "sleep 10", Some(1)).unwrap_err();
     assert!(
         err.contains("slow-box"),
-        "timeout error should include hostname: {}",
-        err
+        "timeout error should include hostname: {err}"
     );
 }
 
@@ -197,6 +203,7 @@ fn test_transport_container_dispatch_priority() {
         }),
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     // With container transport, exec_script dispatches to container, not local
     // /bin/echo as runtime won't run bash properly, so it will fail or produce empty output
@@ -238,6 +245,7 @@ fn test_transport_exec_captures_both_streams() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     let out = exec_script(&machine, "echo OUT; echo ERR >&2").unwrap();
     assert!(out.success());
@@ -258,6 +266,7 @@ fn test_transport_exec_multiline_script() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     let script = "A=hello\nB=world\necho \"$A $B\"";
     let out = exec_script(&machine, script).unwrap();
@@ -278,6 +287,7 @@ fn test_transport_exec_nonzero_exit_code() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     let out = exec_script(&machine, "exit 77").unwrap();
     assert!(!out.success());
@@ -297,12 +307,12 @@ fn test_transport_timeout_error_includes_seconds() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     let err = exec_script_timeout(&machine, "sleep 10", Some(1)).unwrap_err();
     assert!(
         err.contains("1s"),
-        "error should include timeout value: {}",
-        err
+        "error should include timeout value: {err}"
     );
 }
 
@@ -319,6 +329,7 @@ fn test_transport_exec_empty_script() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     let out = exec_script(&machine, "").unwrap();
     assert!(out.success());
@@ -332,7 +343,7 @@ fn test_transport_exec_output_debug() {
         stdout: "test".to_string(),
         stderr: "".to_string(),
     };
-    let debug = format!("{:?}", out);
+    let debug = format!("{out:?}");
     assert!(debug.contains("exit_code: 0"));
 }
 
@@ -364,6 +375,7 @@ fn test_transport_query_is_readonly_alias() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     let q = query(&machine, "echo q").unwrap();
     let e = exec_script(&machine, "echo q").unwrap();
@@ -387,6 +399,7 @@ fn test_fj132_exec_script_special_chars_in_output() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     let out = exec_script(&machine, r#"printf 'tab\there\nnewline'"#).unwrap();
     assert!(out.success());

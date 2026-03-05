@@ -49,16 +49,22 @@ pub struct SyncPlan {
 /// A re-import step: re-invoke the origin provider.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ReImportStep {
+    /// Store hash of the entry to re-import.
     pub store_hash: String,
+    /// Provider to invoke (e.g., "apt", "cargo").
     pub provider: String,
+    /// Upstream reference string.
     pub origin_ref: String,
 }
 
 /// A derivation replay step: re-derive with updated inputs.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DerivationReplayStep {
+    /// Store hash of the derived entry.
     pub store_hash: String,
+    /// Store hash of the parent entry.
     pub derived_from: String,
+    /// Number of derivation steps from the source.
     pub derivation_depth: u32,
 }
 

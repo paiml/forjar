@@ -1,7 +1,5 @@
 //! Phase 102 — Resource Intelligence & Topology Insight: validate commands (FJ-1078, FJ-1081, FJ-1084).
 
-#![allow(dead_code)]
-
 use crate::core::types;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::Path;
@@ -195,7 +193,7 @@ pub(crate) fn cmd_validate_check_resource_orphan_detection_deep(
     } else {
         println!("Orphan resources ({}):", orphans.len());
         for name in &orphans {
-            println!("  orphan: '{}' is not reachable from any root", name);
+            println!("  orphan: '{name}' is not reachable from any root");
         }
     }
     Ok(())
@@ -281,7 +279,7 @@ mod tests {
 
     /// Deserialize a minimal resource from YAML, setting only the `type` field.
     fn make_resource(rtype: &str) -> types::Resource {
-        let yaml = format!("type: {}", rtype);
+        let yaml = format!("type: {rtype}");
         serde_yaml_ng::from_str(&yaml).unwrap()
     }
 

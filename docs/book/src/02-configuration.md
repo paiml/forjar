@@ -722,6 +722,34 @@ Unresolved templates (no matching param/secret/machine) pass through unchanged �
 | Self-dependency | Resource depends on itself |
 | Circular dependency | Cycle detected in dependency graph (e.g., A → B → C → A) |
 
+### Unknown Field Detection (FJ-2500)
+
+Forjar uses two-pass YAML parsing to detect typos in config files. After serde deserializes
+into typed structs, the raw YAML is walked and keys are compared against known field sets.
+Unknown fields produce warnings with Levenshtein-based "did you mean?" suggestions.
+
+**Why this matters**: Without unknown field detection, YAML typos are silently ignored.
+For example, `packges: [nginx]` silently becomes an empty list because serde defaults
+the `packages` field to `[]` and drops the unknown `packges` key.
+
+```bash
+# Default: warnings to stderr (non-blocking)
+forjar validate --file forjar.yaml
+
+# Strict mode: unknown fields are hard errors
+forjar validate --file forjar.yaml --deny-unknown-fields
+```
+
+Example output:
+```
+warning: unknown field 'packges' at 'resources.pkg.packges' -- did you mean 'packages'?
+warning: unknown field 'tranport' at 'machines.web.tranport' -- did you mean 'transport'?
+```
+
+Detection covers all config structs: `ForjarConfig`, `Resource`, `Machine`, `Policy`,
+`ContainerConfig`, `PepitaTransportConfig`, `DataSource`, `PolicyRule`, `CheckBlock`,
+`MovedEntry`, `LifecycleRules`, `NotifyConfig`, and `OutputValue`.
+
 ## Complete Example
 
 A full config exercising multiple features:

@@ -1,7 +1,5 @@
+#![allow(unused)]
 //! Tests: Coverage for destroy, infra, dispatch_misc, dispatch_lock, check, observe, apply.
-
-#![allow(unused_imports)]
-#![allow(dead_code)]
 use super::apply::*;
 use super::check::*;
 use super::commands::*;
@@ -167,8 +165,7 @@ policies:
         let err = result.unwrap_err();
         assert!(
             err.contains("git") || err.contains("cannot read"),
-            "expected git error, got: {}",
-            err
+            "expected git error, got: {err}"
         );
     }
 
@@ -223,11 +220,13 @@ policies:
             Commands::Rollback(RollbackArgs {
                 file: config,
                 revision: 2,
+                generation: None,
                 machine: None,
                 dry_run: true,
+                yes: false,
                 state_dir: state,
             }),
-            false,
+            0,
             true,
         );
         assert!(result.is_err());
@@ -428,6 +427,7 @@ resources:
                 strict: false,
                 fix: false,
                 rules: None,
+            bashrs_version: false,
             }),
             false,
         );
@@ -444,6 +444,7 @@ resources:
                 strict: false,
                 fix: false,
                 rules: None,
+            bashrs_version: false,
             }),
             false,
         );

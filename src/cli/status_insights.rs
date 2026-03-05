@@ -22,7 +22,7 @@ pub(crate) fn cmd_status_machine_uptime_estimate(
     if json {
         let items: Vec<String> = estimates
             .iter()
-            .map(|(m, count)| format!("{{\"machine\":\"{}\",\"tracked_resources\":{}}}", m, count))
+            .map(|(m, count)| format!("{{\"machine\":\"{m}\",\"tracked_resources\":{count}}}"))
             .collect();
         println!("{{\"machine_uptime_estimates\":[{}]}}", items.join(","));
     } else if estimates.is_empty() {
@@ -30,7 +30,7 @@ pub(crate) fn cmd_status_machine_uptime_estimate(
     } else {
         println!("Machine uptime estimates (by tracked resources):");
         for (m, count) in &estimates {
-            println!("  {} — {} resources with apply history", m, count);
+            println!("  {m} — {count} resources with apply history");
         }
     }
     Ok(())
@@ -39,7 +39,7 @@ pub(crate) fn cmd_status_machine_uptime_estimate(
 fn collect_uptime_estimates(state_dir: &Path, targets: &[&String]) -> Vec<(String, usize)> {
     let mut results = Vec::new();
     for m in targets {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&lock_path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -74,7 +74,7 @@ pub(crate) fn cmd_status_fleet_resource_type_breakdown(
     if json {
         let items: Vec<String> = breakdown
             .iter()
-            .map(|(t, c)| format!("{{\"type\":\"{}\",\"count\":{}}}", t, c))
+            .map(|(t, c)| format!("{{\"type\":\"{t}\",\"count\":{c}}}"))
             .collect();
         println!(
             "{{\"fleet_resource_type_breakdown\":[{}]}}",
@@ -85,7 +85,7 @@ pub(crate) fn cmd_status_fleet_resource_type_breakdown(
     } else {
         println!("Fleet resource type breakdown:");
         for (t, c) in &breakdown {
-            println!("  {} — {}", t, c);
+            println!("  {t} — {c}");
         }
     }
     Ok(())
@@ -94,7 +94,7 @@ pub(crate) fn cmd_status_fleet_resource_type_breakdown(
 fn collect_type_breakdown(state_dir: &Path, targets: &[&String]) -> Vec<(String, usize)> {
     let mut counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
     for m in targets {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&lock_path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -128,12 +128,7 @@ pub(crate) fn cmd_status_resource_convergence_time(
     if json {
         let items: Vec<String> = times
             .iter()
-            .map(|(r, t)| {
-                format!(
-                    "{{\"resource\":\"{}\",\"avg_convergence_secs\":{:.2}}}",
-                    r, t
-                )
-            })
+            .map(|(r, t)| format!("{{\"resource\":\"{r}\",\"avg_convergence_secs\":{t:.2}}}"))
             .collect();
         println!("{{\"resource_convergence_times\":[{}]}}", items.join(","));
     } else if times.is_empty() {
@@ -141,7 +136,7 @@ pub(crate) fn cmd_status_resource_convergence_time(
     } else {
         println!("Average convergence time per resource:");
         for (r, t) in &times {
-            println!("  {} — {:.2}s", r, t);
+            println!("  {r} — {t:.2}s");
         }
     }
     Ok(())
@@ -151,7 +146,7 @@ fn collect_convergence_times(state_dir: &Path, targets: &[&String]) -> Vec<(Stri
     let mut durations: std::collections::HashMap<String, Vec<f64>> =
         std::collections::HashMap::new();
     for m in targets {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&lock_path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -194,7 +189,7 @@ pub(crate) fn cmd_status_machine_drift_age(
     if json {
         let items: Vec<String> = ages
             .iter()
-            .map(|(m, count)| format!("{{\"machine\":\"{}\",\"drifted_resources\":{}}}", m, count))
+            .map(|(m, count)| format!("{{\"machine\":\"{m}\",\"drifted_resources\":{count}}}"))
             .collect();
         println!("{{\"machine_drift_ages\":[{}]}}", items.join(","));
     } else if ages.is_empty() {
@@ -202,7 +197,7 @@ pub(crate) fn cmd_status_machine_drift_age(
     } else {
         println!("Machine drift age (drifted resource count):");
         for (m, count) in &ages {
-            println!("  {} — {} drifted resources", m, count);
+            println!("  {m} — {count} drifted resources");
         }
     }
     Ok(())
@@ -211,7 +206,7 @@ pub(crate) fn cmd_status_machine_drift_age(
 fn collect_drift_ages(state_dir: &Path, targets: &[&String]) -> Vec<(String, usize)> {
     let mut results = Vec::new();
     for m in targets {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&lock_path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -248,7 +243,7 @@ pub(crate) fn cmd_status_fleet_failed_resources(
     if json {
         let items: Vec<String> = failed
             .iter()
-            .map(|(m, r)| format!("{{\"machine\":\"{}\",\"resource\":\"{}\"}}", m, r))
+            .map(|(m, r)| format!("{{\"machine\":\"{m}\",\"resource\":\"{r}\"}}"))
             .collect();
         println!("{{\"fleet_failed_resources\":[{}]}}", items.join(","));
     } else if failed.is_empty() {
@@ -256,7 +251,7 @@ pub(crate) fn cmd_status_fleet_failed_resources(
     } else {
         println!("Failed resources across fleet ({}):", failed.len());
         for (m, r) in &failed {
-            println!("  {} / {}", m, r);
+            println!("  {m} / {r}");
         }
     }
     Ok(())
@@ -265,7 +260,7 @@ pub(crate) fn cmd_status_fleet_failed_resources(
 fn collect_failed_resources(state_dir: &Path, targets: &[&String]) -> Vec<(String, String)> {
     let mut results = Vec::new();
     for m in targets {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&lock_path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -300,10 +295,7 @@ pub(crate) fn cmd_status_resource_dependency_health(
         let items: Vec<String> = health
             .iter()
             .map(|(m, r, h)| {
-                format!(
-                    "{{\"machine\":\"{}\",\"resource\":\"{}\",\"healthy_deps\":{}}}",
-                    m, r, h
-                )
+                format!("{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"healthy_deps\":{h}}}")
             })
             .collect();
         println!("{{\"resource_dependency_health\":[{}]}}", items.join(","));
@@ -312,7 +304,7 @@ pub(crate) fn cmd_status_resource_dependency_health(
     } else {
         println!("Resource dependency health:");
         for (m, r, h) in &health {
-            println!("  {} / {} — {} converged deps", m, r, h);
+            println!("  {m} / {r} — {h} converged deps");
         }
     }
     Ok(())
@@ -324,7 +316,7 @@ fn collect_dependency_health(
 ) -> Vec<(String, String, usize)> {
     let mut results = Vec::new();
     for m in targets {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&lock_path) {
             Ok(c) => c,
             Err(_) => continue,

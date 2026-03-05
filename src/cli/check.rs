@@ -69,6 +69,7 @@ pub(super) fn localhost_machine() -> types::Machine {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     }
 }
 
@@ -99,7 +100,7 @@ fn make_check_result(
 
 /// Print check failure in text mode.
 fn print_check_failure(resource_id: &str, machine_name: &str, detail: &str) {
-    println!("  FAIL {} ({}) — {}", resource_id, machine_name, detail);
+    println!("  FAIL {resource_id} ({machine_name}) — {detail}");
 }
 
 /// Run a check script on one machine and record the result.
@@ -134,17 +135,17 @@ fn run_single_check(
 
     if !json {
         if passed {
-            println!("  ok {} ({})", resource_id, machine_name);
+            println!("  ok {resource_id} ({machine_name})");
         } else {
             let msg = if let Some(code) = exit_code {
-                format!("exit {}", code)
+                format!("exit {code}")
             } else {
                 detail.clone()
             };
             print_check_failure(resource_id, machine_name, &msg);
             if exit_code.is_some() {
                 for line in detail.lines().filter(|l| !l.is_empty()) {
-                    println!("       {}", line);
+                    println!("       {line}");
                 }
             }
         }
@@ -197,7 +198,7 @@ fn format_check_json(
     });
     println!(
         "{}",
-        serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {}", e))?
+        serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {e}"))?
     );
     Ok(())
 }
@@ -252,7 +253,7 @@ pub(crate) fn cmd_check(
             Err(_) => {
                 total_skip += 1;
                 if !json {
-                    println!("  ? {} (no check script)", resource_id);
+                    println!("  ? {resource_id} (no check script)");
                 }
                 continue;
             }
@@ -285,14 +286,11 @@ pub(crate) fn cmd_check(
             total_skip,
         )?;
     } else {
-        println!(
-            "\nCheck: {} pass, {} fail, {} skip",
-            total_pass, total_fail, total_skip
-        );
+        println!("\nCheck: {total_pass} pass, {total_fail} fail, {total_skip} skip");
     }
 
     if total_fail > 0 {
-        Err(format!("{} check(s) failed", total_fail))
+        Err(format!("{total_fail} check(s) failed"))
     } else {
         Ok(())
     }

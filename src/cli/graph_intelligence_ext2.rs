@@ -63,12 +63,7 @@ pub(super) fn print_resilience_scores(scores: &[(String, String, f64)], json: bo
     if json {
         let items: Vec<String> = scores
             .iter()
-            .map(|(f, t, s)| {
-                format!(
-                    "{{\"from\":\"{}\",\"to\":\"{}\",\"resilience\":{:.2}}}",
-                    f, t, s
-                )
-            })
+            .map(|(f, t, s)| format!("{{\"from\":\"{f}\",\"to\":\"{t}\",\"resilience\":{s:.2}}}"))
             .collect();
         println!("{{\"resilience_scores\":[{}]}}", items.join(","));
     } else if scores.is_empty() {
@@ -76,7 +71,7 @@ pub(super) fn print_resilience_scores(scores: &[(String, String, f64)], json: bo
     } else {
         println!("Edge resilience scores (0=bridge, 1=resilient):");
         for (f, t, s) in scores {
-            println!("  {} → {} — {:.2}", f, t, s);
+            println!("  {f} → {t} — {s:.2}");
         }
     }
 }
@@ -115,13 +110,13 @@ pub(crate) fn cmd_graph_resource_dependency_pagerank(
     if json {
         let items: Vec<String> = ranked
             .iter()
-            .map(|(n, r)| format!("{{\"resource\":\"{}\",\"pagerank\":{:.6}}}", n, r))
+            .map(|(n, r)| format!("{{\"resource\":\"{n}\",\"pagerank\":{r:.6}}}"))
             .collect();
         println!("{{\"pagerank\":[{}]}}", items.join(","));
     } else {
         println!("PageRank importance scores:");
         for (n, r) in &ranked {
-            println!("  {} — {:.6}", n, r);
+            println!("  {n} — {r:.6}");
         }
     }
     Ok(())
@@ -290,13 +285,13 @@ pub(super) fn print_betweenness(ranked: &[(String, f64)], json: bool) {
     if json {
         let items: Vec<String> = ranked
             .iter()
-            .map(|(n, s)| format!("{{\"resource\":\"{}\",\"betweenness\":{:.4}}}", n, s))
+            .map(|(n, s)| format!("{{\"resource\":\"{n}\",\"betweenness\":{s:.4}}}"))
             .collect();
         println!("{{\"betweenness\":[{}]}}", items.join(","));
     } else {
         println!("Betweenness centrality:");
         for (n, s) in ranked {
-            println!("  {} — {:.4}", n, s);
+            println!("  {n} — {s:.4}");
         }
     }
 }

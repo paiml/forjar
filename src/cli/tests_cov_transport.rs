@@ -1,8 +1,6 @@
+#![allow(unused)]
 //! Tests: Coverage for transport, notify (part 1 of 3).
 //! Covers: exec_pepita, ensure_namespace, cleanup_namespace, send_apply_notifications.
-
-#![allow(unused_imports)]
-#![allow(dead_code)]
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
@@ -126,6 +124,7 @@ resources:
             container: None,
             pepita: None,
             cost: 0,
+            allowed_operators: vec![],
         }
     }
 
@@ -141,6 +140,7 @@ resources:
             container: None,
             pepita: None,
             cost: 0,
+            allowed_operators: vec![],
         }
     }
 
@@ -161,6 +161,7 @@ resources:
             container: None,
             pepita: None,
             cost: 0,
+            allowed_operators: vec![],
         };
         let result = transport::pepita::exec_pepita(&machine, "echo ok");
         assert!(result.is_err());
@@ -187,6 +188,7 @@ resources:
                 ephemeral: false,
             }),
             cost: 0,
+            allowed_operators: vec![],
         };
         let result = transport::pepita::exec_pepita(&machine, "echo hi");
         assert!(result.is_err());
@@ -214,14 +216,14 @@ resources:
                 ephemeral: true,
             }),
             cost: 0,
+            allowed_operators: vec![],
         };
         let result = transport::pepita::exec_pepita(&machine, "echo hi");
         assert!(result.is_err());
         let err = result.unwrap_err();
         assert!(
             err.contains("pidfile") || err.contains("cannot read"),
-            "expected pidfile error, got: {}",
-            err
+            "expected pidfile error, got: {err}"
         );
     }
 
@@ -245,6 +247,7 @@ resources:
                 ephemeral: false,
             }),
             cost: 0,
+            allowed_operators: vec![],
         };
         // Will fail reading the pidfile, but exercises the config extraction path
         let result = transport::pepita::exec_pepita(&machine, "");
@@ -268,6 +271,7 @@ resources:
             container: None,
             pepita: None,
             cost: 0,
+            allowed_operators: vec![],
         };
         let result = transport::pepita::ensure_namespace(&machine);
         assert!(result.is_err());
@@ -295,6 +299,7 @@ resources:
                 ephemeral: false,
             }),
             cost: 0,
+            allowed_operators: vec![],
         };
         // In CI/non-root, this will fail at creating /run/forjar or unshare
         let result = transport::pepita::ensure_namespace(&machine);
@@ -322,6 +327,7 @@ resources:
                 ephemeral: true,
             }),
             cost: 0,
+            allowed_operators: vec![],
         };
         let result = transport::pepita::ensure_namespace(&machine);
         // exercise code path — may fail without root
@@ -348,6 +354,7 @@ resources:
                 ephemeral: false,
             }),
             cost: 0,
+            allowed_operators: vec![],
         };
         let result = transport::pepita::ensure_namespace(&machine);
         let _ = result;
@@ -370,6 +377,7 @@ resources:
             container: None,
             pepita: None,
             cost: 0,
+            allowed_operators: vec![],
         };
         let result = transport::pepita::cleanup_namespace(&machine);
         assert!(result.is_err());
@@ -396,6 +404,7 @@ resources:
                 ephemeral: false,
             }),
             cost: 0,
+            allowed_operators: vec![],
         };
         let result = transport::pepita::cleanup_namespace(&machine);
         assert!(result.is_ok());

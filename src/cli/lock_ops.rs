@@ -25,7 +25,7 @@ fn compact_machine_events(path: &Path, yes: bool) -> Result<Option<(String, usiz
     let removed = lines.len() - 1;
     if yes {
         let last = lines.last().unwrap_or(&"");
-        std::fs::write(&log_path, format!("{}\n", last)).map_err(|e| e.to_string())?;
+        std::fs::write(&log_path, format!("{last}\n")).map_err(|e| e.to_string())?;
     }
     Ok(Some((m_name, removed)))
 }
@@ -55,7 +55,7 @@ pub(crate) fn cmd_lock_compact(state_dir: &Path, yes: bool, json: bool) -> Resul
     if json {
         let entries: Vec<String> = machines_compacted
             .iter()
-            .map(|(m, n)| format!("{{\"machine\":\"{}\",\"removed\":{}}}", m, n))
+            .map(|(m, n)| format!("{{\"machine\":\"{m}\",\"removed\":{n}}}"))
             .collect();
         println!(
             "{{\"compacted\":{},\"total_removed\":{},\"dry_run\":{},\"machines\":[{}]}}",
@@ -69,12 +69,12 @@ pub(crate) fn cmd_lock_compact(state_dir: &Path, yes: bool, json: bool) -> Resul
     } else if yes {
         println!("{} Compacted {} event(s):", green("✓"), total_removed);
         for (m, n) in &machines_compacted {
-            println!("  {} — {} old event(s) removed", m, n);
+            println!("  {m} — {n} old event(s) removed");
         }
     } else {
-        println!("Dry run — would compact {} event(s):", total_removed);
+        println!("Dry run — would compact {total_removed} event(s):");
         for (m, n) in &machines_compacted {
-            println!("  {} — {} old event(s)", m, n);
+            println!("  {m} — {n} old event(s)");
         }
         println!("\nRun with {} to compact.", bold("--yes"));
     }
@@ -119,7 +119,7 @@ fn verify_machine_lock(
         }
         Err(e) => {
             corrupt += 1;
-            checks.push((m_name.to_string(), String::new(), format!("corrupt: {}", e)));
+            checks.push((m_name.to_string(), String::new(), format!("corrupt: {e}")));
         }
     }
     Ok((verified, corrupt, checks))
@@ -148,7 +148,7 @@ pub(crate) fn cmd_lock_verify(state_dir: &Path, json: bool) -> Result<(), String
                 .unwrap_or_default()
                 .to_string_lossy()
                 .to_string();
-            let lock_path = path.join("lock.yaml");
+            let lock_path = path.join("state.lock.yaml");
             if lock_path.exists() {
                 let (v, c, checks) = verify_machine_lock(state_dir, &m_name)?;
                 verified += v;
@@ -188,7 +188,7 @@ pub(crate) fn cmd_lock_verify(state_dir: &Path, json: bool) -> Result<(), String
     if corrupt == 0 {
         Ok(())
     } else {
-        Err(format!("{} lock integrity issue(s)", corrupt))
+        Err(format!("{corrupt} lock integrity issue(s)"))
     }
 }
 
@@ -246,8 +246,7 @@ pub(crate) fn cmd_lock_export(
                 .iter()
                 .map(|(m, n, s, h)| {
                     format!(
-                        "{{\"machine\":\"{}\",\"resource\":\"{}\",\"status\":\"{}\",\"hash\":\"{}\"}}",
-                        m, n, s, h
+                        "{{\"machine\":\"{m}\",\"resource\":\"{n}\",\"status\":\"{s}\",\"hash\":\"{h}\"}}"
                     )
                 })
                 .collect();
@@ -256,20 +255,20 @@ pub(crate) fn cmd_lock_export(
         "csv" => {
             println!("machine,resource,status,hash");
             for (m, n, s, h) in &all_resources {
-                println!("{},{},{},{}", m, n, s, h);
+                println!("{m},{n},{s},{h}");
             }
         }
         "yaml" => {
             println!("resources:");
             for (m, n, s, h) in &all_resources {
-                println!("  - machine: {}", m);
-                println!("    resource: {}", n);
-                println!("    status: {}", s);
-                println!("    hash: {}", h);
+                println!("  - machine: {m}");
+                println!("    resource: {n}");
+                println!("    status: {s}");
+                println!("    hash: {h}");
             }
         }
         _ => {
-            return Err(format!("unknown format '{}'. Use json, csv, or yaml", fmt));
+            return Err(format!("unknown format '{fmt}'. Use json, csv, or yaml"));
         }
     }
     Ok(())
@@ -325,7 +324,7 @@ pub(crate) fn cmd_lock_gc(
     if json {
         let entries: Vec<String> = orphaned
             .iter()
-            .map(|(m, r)| format!("{{\"machine\":\"{}\",\"resource\":\"{}\"}}", m, r))
+            .map(|(m, r)| format!("{{\"machine\":\"{m}\",\"resource\":\"{r}\"}}"))
             .collect();
         println!(
             "{{\"orphaned\":{},\"dry_run\":{},\"entries\":[{}]}}",
@@ -401,9 +400,9 @@ fn compute_lock_diffs(
                 .and_then(|r| r.get(rname))
                 .map(|l| l.hash.as_str());
             match left_hash {
-                None => diffs.push(format!("+ {}/{} (added)", machine, rname)),
+                None => diffs.push(format!("+ {machine}/{rname} (added)")),
                 Some(h) if h != rl.hash => {
-                    diffs.push(format!("~ {}/{} (changed)", machine, rname));
+                    diffs.push(format!("~ {machine}/{rname} (changed)"));
                 }
                 _ => {}
             }
@@ -412,7 +411,7 @@ fn compute_lock_diffs(
     for (machine, resources) in left {
         for (rname, _) in resources {
             if !right.get(machine).is_some_and(|r| r.contains_key(rname)) {
-                diffs.push(format!("- {}/{} (removed)", machine, rname));
+                diffs.push(format!("- {machine}/{rname} (removed)"));
             }
         }
     }
@@ -425,7 +424,7 @@ pub(crate) fn cmd_lock_diff(from: &Path, to: &Path, json: bool) -> Result<(), St
     let diffs = compute_lock_diffs(&left, &right);
 
     if json {
-        let items: Vec<String> = diffs.iter().map(|d| format!("\"{}\"", d)).collect();
+        let items: Vec<String> = diffs.iter().map(|d| format!("\"{d}\"")).collect();
         println!(
             "{{\"diffs\":[{}],\"count\":{}}}",
             items.join(","),
@@ -436,7 +435,7 @@ pub(crate) fn cmd_lock_diff(from: &Path, to: &Path, json: bool) -> Result<(), St
     } else {
         println!("{} difference(s):", diffs.len());
         for d in &diffs {
-            println!("  {}", d);
+            println!("  {d}");
         }
     }
     Ok(())

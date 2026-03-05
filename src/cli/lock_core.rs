@@ -16,7 +16,7 @@ fn collect_verify_mismatches(
     for (res_id, new_res_lock) in &lock.resources {
         match existing_lock.resources.get(res_id) {
             None => {
-                mismatches.push(format!("{}:{}: not in lock file", machine_name, res_id));
+                mismatches.push(format!("{machine_name}:{res_id}: not in lock file"));
             }
             Some(existing_res) => {
                 if existing_res.hash != new_res_lock.hash {
@@ -35,8 +35,7 @@ fn collect_verify_mismatches(
     for res_id in existing_lock.resources.keys() {
         if !lock.resources.contains_key(res_id) {
             mismatches.push(format!(
-                "{}:{}: in lock but not in config",
-                machine_name, res_id
+                "{machine_name}:{res_id}: in lock but not in config"
             ));
         }
     }
@@ -58,17 +57,16 @@ fn output_verify_results(
         });
         println!(
             "{}",
-            serde_json::to_string_pretty(&result).map_err(|e| format!("JSON error: {}", e))?
+            serde_json::to_string_pretty(&result).map_err(|e| format!("JSON error: {e}"))?
         );
     } else if mismatches.is_empty() {
         println!(
-            "Lock verified: {} machines, {} resources — all hashes match",
-            total_machines, total_resources
+            "Lock verified: {total_machines} machines, {total_resources} resources — all hashes match"
         );
     } else {
         println!("Lock verification FAILED:");
         for m in mismatches {
-            println!("  - {}", m);
+            println!("  - {m}");
         }
     }
     if !mismatches.is_empty() {
@@ -103,7 +101,7 @@ fn output_lock_results(
         });
         println!(
             "{}",
-            serde_json::to_string_pretty(&result).map_err(|e| format!("JSON error: {}", e))?
+            serde_json::to_string_pretty(&result).map_err(|e| format!("JSON error: {e}"))?
         );
     } else {
         println!(
@@ -187,7 +185,7 @@ pub(crate) fn cmd_lock(
             let existing = state::load_lock(state_dir, machine_name)?;
             match existing {
                 None => {
-                    mismatches.push(format!("{}: no existing lock file", machine_name));
+                    mismatches.push(format!("{machine_name}: no existing lock file"));
                 }
                 Some(existing_lock) => {
                     collect_verify_mismatches(machine_name, &lock, &existing_lock, &mut mismatches);
@@ -219,7 +217,7 @@ pub(crate) fn cmd_lock(
 // FJ-384: Lock file metadata
 pub(crate) fn cmd_lock_info(state_dir: &Path, json: bool) -> Result<(), String> {
     let entries =
-        std::fs::read_dir(state_dir).map_err(|e| format!("cannot read state dir: {}", e))?;
+        std::fs::read_dir(state_dir).map_err(|e| format!("cannot read state dir: {e}"))?;
 
     let mut machines = Vec::new();
     let mut total_resources = 0usize;
@@ -254,7 +252,7 @@ pub(crate) fn cmd_lock_info(state_dir: &Path, json: bool) -> Result<(), String> 
     } else {
         println!("Lock Info:\n");
         println!("  Total machines: {}", machines.len());
-        println!("  Total resources: {}", total_resources);
+        println!("  Total resources: {total_resources}");
         for m in &machines {
             println!(
                 "\n  {} ({}): {} resources, schema {}, generated {}",
@@ -276,7 +274,7 @@ pub(crate) fn cmd_lock_prune(file: &Path, state_dir: &Path, yes: bool) -> Result
     let config_resources: std::collections::HashSet<&String> = config.resources.keys().collect();
 
     let entries =
-        std::fs::read_dir(state_dir).map_err(|e| format!("cannot read state dir: {}", e))?;
+        std::fs::read_dir(state_dir).map_err(|e| format!("cannot read state dir: {e}"))?;
 
     let mut pruned = 0usize;
     for entry in entries.flatten() {
@@ -339,7 +337,7 @@ fn validate_single_lock(m: &str, lock: &crate::core::types::StateLock) -> Vec<(S
     }
     for (rname, rlock) in &lock.resources {
         if rlock.hash.is_empty() {
-            issues.push((m.to_string(), format!("empty hash for resource: {}", rname)));
+            issues.push((m.to_string(), format!("empty hash for resource: {rname}")));
         }
     }
     issues
@@ -352,7 +350,7 @@ pub(crate) fn cmd_lock_validate(state_dir: &Path, json: bool) -> Result<(), Stri
     let mut issues: Vec<(String, String)> = Vec::new();
 
     for m in &machines {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             continue;
         }
@@ -368,7 +366,7 @@ pub(crate) fn cmd_lock_validate(state_dir: &Path, json: bool) -> Result<(), Stri
                 }
             }
             Err(e) => {
-                issues.push((m.clone(), format!("parse error: {}", e)));
+                issues.push((m.clone(), format!("parse error: {e}")));
                 invalid += 1;
             }
         }
@@ -392,11 +390,11 @@ pub(crate) fn cmd_lock_validate(state_dir: &Path, json: bool) -> Result<(), Stri
             items.join(",")
         );
     } else if issues.is_empty() {
-        println!("All {} lock files are valid", valid);
+        println!("All {valid} lock files are valid");
     } else {
-        println!("Lock validation: {} valid, {} invalid", valid, invalid);
+        println!("Lock validation: {valid} valid, {invalid} invalid");
         for (m, msg) in &issues {
-            println!("  {} — {}", m, msg);
+            println!("  {m} — {msg}");
         }
     }
     Ok(())
@@ -410,7 +408,7 @@ pub(crate) fn cmd_lock_integrity(state_dir: &Path, json: bool) -> Result<(), Str
     let mut issues = Vec::new();
 
     for m in &machines {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             continue;
         }
@@ -428,7 +426,7 @@ pub(crate) fn cmd_lock_integrity(state_dir: &Path, json: bool) -> Result<(), Str
                 }
             }
             Err(e) => {
-                issues.push(format!("{}: parse error — {}", m, e));
+                issues.push(format!("{m}: parse error — {e}"));
                 invalid += 1;
             }
         }
@@ -442,11 +440,11 @@ pub(crate) fn cmd_lock_integrity(state_dir: &Path, json: bool) -> Result<(), Str
             issues.len()
         );
     } else if issues.is_empty() {
-        println!("All {} lock files pass integrity check", valid);
+        println!("All {valid} lock files pass integrity check");
     } else {
-        println!("Integrity check: {} valid, {} invalid", valid, invalid);
+        println!("Integrity check: {valid} valid, {invalid} invalid");
         for issue in &issues {
-            println!("  - {}", issue);
+            println!("  - {issue}");
         }
     }
     Ok(())

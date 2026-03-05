@@ -68,10 +68,7 @@ fn test_fj1300_store_entry_path_basic() {
     let path = store_entry_path(hash);
     assert_eq!(
         path,
-        format!(
-            "{}/abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890",
-            STORE_BASE
-        )
+        format!("{STORE_BASE}/abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890")
     );
 }
 

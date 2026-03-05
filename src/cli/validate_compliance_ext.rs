@@ -1,7 +1,5 @@
 //! Phase 98 — Compliance Automation & Drift Intelligence: validate commands.
 
-#![allow(dead_code)]
-
 use crate::core::types;
 use std::collections::HashMap;
 use std::path::Path;
@@ -37,7 +35,7 @@ fn find_resources_missing_compliance_tags(config: &types::ForjarConfig) -> Vec<S
 
 /// Print compliance-tag warnings as JSON.
 fn print_compliance_tags_json(missing: &[String]) {
-    let items: Vec<String> = missing.iter().map(|n| format!("\"{}\"", n)).collect();
+    let items: Vec<String> = missing.iter().map(|n| format!("\"{n}\"")).collect();
     println!(
         r#"{{"compliance_tag_warnings":[{}],"count":{}}}"#,
         items.join(","),
@@ -53,8 +51,7 @@ fn print_compliance_tags_text(missing: &[String]) {
         println!("Resources missing compliance tags ({}):", missing.len());
         for name in missing {
             println!(
-                "  warning: {} has no tags matching compliance keywords (pci, hipaa, sox, gdpr, iso27001)",
-                name
+                "  warning: {name} has no tags matching compliance keywords (pci, hipaa, sox, gdpr, iso27001)"
             );
         }
     }
@@ -122,10 +119,7 @@ fn print_rollback_json(warnings: &[(String, String)]) {
     let items: Vec<String> = warnings
         .iter()
         .map(|(name, reason)| {
-            format!(
-                r#"{{"resource":"{}","type_requires_rollback":true,"reason":"{}"}}"#,
-                name, reason
-            )
+            format!(r#"{{"resource":"{name}","type_requires_rollback":true,"reason":"{reason}"}}"#)
         })
         .collect();
     println!(
@@ -142,7 +136,7 @@ fn print_rollback_text(warnings: &[(String, String)]) {
     } else {
         println!("Resources lacking rollback coverage ({}):", warnings.len());
         for (name, reason) in warnings {
-            println!("  warning: {} — {}", name, reason);
+            println!("  warning: {name} — {reason}");
         }
     }
 }
@@ -222,10 +216,10 @@ fn find_imbalanced_resources(config: &types::ForjarConfig) -> Vec<FanMetrics> {
     for (name, &(fi, fo)) in &metrics {
         let mut reasons = Vec::new();
         if fi > MAX_FAN {
-            reasons.push(format!("fan-in {} exceeds {}", fi, MAX_FAN));
+            reasons.push(format!("fan-in {fi} exceeds {MAX_FAN}"));
         }
         if fo > MAX_FAN {
-            reasons.push(format!("fan-out {} exceeds {}", fo, MAX_FAN));
+            reasons.push(format!("fan-out {fo} exceeds {MAX_FAN}"));
         }
         if !reasons.is_empty() {
             warnings.push(FanMetrics {
@@ -318,7 +312,7 @@ mod tests {
 
     /// Deserialize a minimal resource from YAML, setting only the `type` field.
     fn make_resource(rtype: &str) -> types::Resource {
-        let yaml = format!("type: {}", rtype);
+        let yaml = format!("type: {rtype}");
         serde_yaml_ng::from_str(&yaml).unwrap()
     }
 

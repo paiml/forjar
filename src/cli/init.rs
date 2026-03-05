@@ -11,7 +11,7 @@ pub(crate) fn cmd_init(path: &Path) -> Result<(), String> {
     }
 
     let state_dir = path.join("state");
-    std::fs::create_dir_all(&state_dir).map_err(|e| format!("cannot create state dir: {}", e))?;
+    std::fs::create_dir_all(&state_dir).map_err(|e| format!("cannot create state dir: {e}"))?;
 
     let template = r#"version: "1.0"
 name: my-infrastructure
@@ -80,11 +80,11 @@ pub(crate) fn cmd_fmt(file: &Path, check: bool) -> Result<(), String> {
 
     // Parse into ForjarConfig to validate + normalize
     let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&original).map_err(|e| format!("YAML parse error: {}", e))?;
+        serde_yaml_ng::from_str(&original).map_err(|e| format!("YAML parse error: {e}"))?;
 
     // Re-serialize to canonical YAML
     let formatted =
-        serde_yaml_ng::to_string(&config).map_err(|e| format!("YAML serialize error: {}", e))?;
+        serde_yaml_ng::to_string(&config).map_err(|e| format!("YAML serialize error: {e}"))?;
 
     if check {
         if original.trim() != formatted.trim() {
@@ -142,42 +142,24 @@ pub(crate) fn cmd_schema() -> Result<(), String> {
             "ssh_key": { "type": "string" },
             "roles": { "type": "array", "items": { "type": "string" } },
             "transport": { "type": "string", "enum": ["container"] },
-            "cost": { "type": "integer", "default": 0 }
+            "cost": { "type": "integer", "default": 0 },
+            "allowed_operators": { "type": "array", "items": { "type": "string" }, "default": [] }
         }
     });
 
-    let resource_schema = serde_json::json!({
+    let stage_schema = serde_json::json!({
         "type": "object",
-        "required": ["type", "machine"],
+        "required": ["name"],
         "properties": {
-            "type": { "type": "string", "enum": [
-                "package", "file", "service", "mount", "user",
-                "docker", "cron", "network", "pepita", "model", "gpu"
-            ]},
-            "machine": { "type": "string" },
-            "state": { "type": "string" },
-            "depends_on": { "type": "array", "items": { "type": "string" } },
-            "triggers": { "type": "array", "items": { "type": "string" } },
-            "tags": { "type": "array", "items": { "type": "string" } },
-            "when": { "type": "string" },
-            "arch": { "type": "array", "items": { "type": "string" } },
-            "provider": { "type": "string", "enum": ["apt", "cargo", "uv"] },
-            "packages": { "type": "array", "items": { "type": "string" } },
-            "path": { "type": "string" },
-            "content": { "type": "string" },
-            "source": { "type": "string" },
-            "owner": { "type": "string" },
-            "group": { "type": "string" },
-            "mode": { "type": "string" },
             "name": { "type": "string" },
-            "enabled": { "type": "boolean" },
-            "schedule": { "type": "string" },
             "command": { "type": "string" },
-            "image": { "type": "string" },
-            "ports": { "type": "array", "items": { "type": "string" } },
-            "volumes": { "type": "array", "items": { "type": "string" } }
+            "inputs": { "type": "array", "items": { "type": "string" } },
+            "outputs": { "type": "array", "items": { "type": "string" } },
+            "gate": { "type": "boolean", "default": false }
         }
     });
+
+    let resource_schema = build_resource_schema(stage_schema);
 
     let policy_schema = serde_json::json!({
         "type": "object",
@@ -191,7 +173,8 @@ pub(crate) fn cmd_schema() -> Result<(), String> {
             "serial": { "type": "integer", "minimum": 1 },
             "max_fail_percentage": { "type": "integer", "minimum": 0, "maximum": 100 },
             "pre_apply": { "type": "string" },
-            "post_apply": { "type": "string" }
+            "post_apply": { "type": "string" },
+            "deny_paths": { "type": "array", "items": { "type": "string" } }
         }
     });
 
@@ -236,13 +219,96 @@ pub(crate) fn cmd_schema() -> Result<(), String> {
                     "condition": { "type": "string" },
                     "message": { "type": "string" }
                 }
-            }}
+            }},
+            "checks": { "type": "object", "additionalProperties": {
+                "type": "object",
+                "required": ["machine", "command"],
+                "properties": {
+                    "machine": { "type": "string" },
+                    "command": { "type": "string" },
+                    "expect_exit": { "type": "integer" },
+                    "description": { "type": "string" }
+                }
+            }},
+            "moved": { "type": "array", "items": {
+                "type": "object",
+                "required": ["from", "to"],
+                "properties": {
+                    "from": { "type": "string" },
+                    "to": { "type": "string" }
+                }
+            }},
+            "secrets": {
+                "type": "object",
+                "properties": {
+                    "provider": { "type": "string", "enum": ["env", "file"] },
+                    "path": { "type": "string", "description": "Path prefix for file-based secrets" }
+                }
+            }
         }
     });
 
     println!(
         "{}",
-        serde_json::to_string_pretty(&schema).map_err(|e| format!("JSON error: {}", e))?
+        serde_json::to_string_pretty(&schema).map_err(|e| format!("JSON error: {e}"))?
     );
     Ok(())
+}
+
+/// Build the resource JSON Schema, split to avoid macro recursion limit.
+fn build_resource_schema(stage_schema: serde_json::Value) -> serde_json::Value {
+    let mut props = serde_json::Map::new();
+    let s = |t: &str| serde_json::json!({ "type": t });
+    let arr_s = || serde_json::json!({ "type": "array", "items": { "type": "string" } });
+
+    // Core fields
+    props.insert("type".into(), serde_json::json!({ "type": "string", "enum": [
+        "package","file","service","mount","user","docker","cron","network","pepita","model","gpu","task"
+    ]}));
+    props.insert("machine".into(), s("string"));
+    props.insert("state".into(), s("string"));
+    props.insert("depends_on".into(), arr_s());
+    props.insert("triggers".into(), arr_s());
+    props.insert("tags".into(), arr_s());
+    props.insert("when".into(), s("string"));
+    props.insert("arch".into(), arr_s());
+    // Package fields
+    props.insert("provider".into(), serde_json::json!({ "type": "string", "enum": ["apt","cargo","uv"] }));
+    props.insert("packages".into(), arr_s());
+    // File fields
+    for k in ["path", "content", "source", "owner", "group", "mode", "name"] {
+        props.insert(k.into(), s("string"));
+    }
+    props.insert("enabled".into(), s("boolean"));
+    // Cron / task / service
+    for k in ["schedule", "command", "image", "completion_check", "protocol", "action"] {
+        props.insert(k.into(), s("string"));
+    }
+    props.insert("ports".into(), arr_s());
+    props.insert("volumes".into(), arr_s());
+    // FJ-2700 task framework
+    props.insert("task_mode".into(), serde_json::json!({ "type": "string", "enum": ["batch","pipeline","service","dispatch"] }));
+    props.insert("stages".into(), serde_json::json!({ "type": "array", "items": stage_schema }));
+    props.insert("task_inputs".into(), arr_s());
+    props.insert("cache".into(), serde_json::json!({ "type": "boolean", "default": false }));
+    props.insert("gpu_device".into(), s("integer"));
+    props.insert("restart_delay".into(), s("integer"));
+    props.insert("timeout".into(), s("integer"));
+    props.insert("restart".into(), serde_json::json!({ "type": "string", "enum": ["always","on_failure","never"] }));
+    props.insert("output_artifacts".into(), arr_s());
+    props.insert("port".into(), serde_json::json!({ "type": ["string","integer"] }));
+    // Notify hooks
+    for k in ["on_success", "on_failure", "on_drift"] {
+        props.insert(k.into(), s("string"));
+    }
+    props.insert("inputs".into(), serde_json::json!({ "type": "object", "additionalProperties": true }));
+    // FJ-2704: Distributed coordination
+    props.insert("gather".into(), arr_s());
+    props.insert("scatter".into(), arr_s());
+
+    serde_json::json!({
+        "type": "object",
+        "required": ["type"],
+        "properties": serde_json::Value::Object(props)
+    })
 }

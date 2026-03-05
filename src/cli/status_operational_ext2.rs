@@ -20,14 +20,14 @@ pub(super) fn parse_rfc3339_to_epoch(s: &str) -> Option<u64> {
     let sec: u64 = s.get(17..19)?.parse().ok()?;
     let mut days: u64 = 0;
     for y in 1970..year {
-        days += if (y % 4 == 0 && y % 100 != 0) || y % 400 == 0 {
+        days += if (y.is_multiple_of(4) && !y.is_multiple_of(100)) || y.is_multiple_of(400) {
             366
         } else {
             365
         };
     }
     let table = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30];
-    let leap = (year % 4 == 0 && year % 100 != 0) || year % 400 == 0;
+    let leap = (year.is_multiple_of(4) && !year.is_multiple_of(100)) || year.is_multiple_of(400);
     let mut md: u64 = 0;
     for m in 1..month.min(13) {
         md += table[m as usize];
@@ -153,10 +153,7 @@ pub(crate) fn cmd_status_machine_resource_error_classification(
             println!("  No machine state found.");
         }
         for (m, c, d, f, u) in &rows {
-            println!(
-                "  {}: converged={}, drifted={}, failed={}, unknown={}",
-                m, c, d, f, u
-            );
+            println!("  {m}: converged={c}, drifted={d}, failed={f}, unknown={u}");
         }
     }
     Ok(())
@@ -193,10 +190,7 @@ pub(crate) fn cmd_status_fleet_resource_convergence_summary(
         ).unwrap_or_default());
     } else {
         println!("=== Fleet Convergence Summary ===");
-        println!(
-            "  Total: {}, Converged: {}, Convergence: {:.1}%",
-            total, converged, pct
-        );
+        println!("  Total: {total}, Converged: {converged}, Convergence: {pct:.1}%");
     }
     Ok(())
 }
