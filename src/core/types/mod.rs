@@ -8,11 +8,13 @@ mod policy;
 pub mod refinement;
 mod resource;
 mod state_types;
+mod task_types;
 
 pub use config::*;
 pub use policy::*;
 pub use resource::*;
 pub use state_types::*;
+pub use task_types::*;
 
 // Shared default functions used by serde across multiple submodules.
 fn default_true() -> bool {

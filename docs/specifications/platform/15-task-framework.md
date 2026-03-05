@@ -699,12 +699,17 @@ Forjar is the **convergence primitive**. Consumers own their domain logic.
 
 ## Implementation
 
-### Phase 36: Task Modes (FJ-2700)
-- [ ] `mode: batch` (backward compatible, default)
-- [ ] `mode: pipeline` with `stages:` array
-- [ ] `mode: service` with `health_check:` and `restart:`
-- [ ] `mode: dispatch` with `params:` and `forjar run` CLI
-- **Deliverable**: Four task modes executing in pepita/container/SSH sandboxes
+### Phase 36: Task Modes (FJ-2700) -- PARTIAL
+- [x] `TaskMode` enum (batch/pipeline/service/dispatch) with serde roundtrip
+- [x] `PipelineStage` struct (name, command, inputs, outputs, gate)
+- [x] `QualityGate` + `HealthCheck` structs defined
+- [x] `task_mode` field on Resource, validated in parser
+- [x] Pipeline mode: `stages:` array, no `command:` required
+- [x] Known field detection updated for all new fields
+- [ ] Runtime execution of pipeline stages with caching
+- [ ] Service mode health check loop and restart policy
+- [ ] `mode: dispatch` with `forjar run` CLI
+- **Deliverable**: Types and validation complete; runtime execution pending
 
 ### Phase 37: Input/Output Tracking (FJ-2701)
 - [ ] `inputs:` glob pattern hashing (BLAKE3)
