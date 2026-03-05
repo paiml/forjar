@@ -227,7 +227,7 @@ resources: {}
                 check_reproducibility_score: false,
             deny_unknown_fields: false,
             }),
-            false,
+            0,
             true,
         )
         .unwrap();

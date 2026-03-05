@@ -212,7 +212,7 @@ resources:
                 resource: "a".to_string(),
                 json: false,
             }),
-            false,
+            0,
             true,
         )
         .unwrap();

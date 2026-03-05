@@ -153,7 +153,7 @@ mod tests {
                 apply: true,
                 yes: false,
             }),
-            false,
+            0,
             true,
         );
         assert!(result.is_err());

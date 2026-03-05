@@ -441,7 +441,7 @@ resources:
                 yes: false,
                 json: true,
             }),
-            false,
+            0,
             true,
         );
         assert!(result.is_ok());
@@ -459,7 +459,7 @@ resources:
                 state_dir: state,
                 json: true,
             }),
-            false,
+            0,
             true,
         );
         assert!(result.is_ok());

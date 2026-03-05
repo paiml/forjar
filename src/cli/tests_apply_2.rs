@@ -415,7 +415,7 @@ resources:
                 refresh_only: false,
                 encrypt_state: false,
             }),
-            false,
+            0,
             true,
         );
         // cmd_check connects to machines, which may fail in test env

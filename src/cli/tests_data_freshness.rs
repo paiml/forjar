@@ -88,7 +88,7 @@ mod tests {
                 max_age: Some(24),
                 json: false,
             }),
-            false,
+            0,
             true,
         )
         .unwrap();

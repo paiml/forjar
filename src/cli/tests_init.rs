@@ -40,7 +40,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let sub = dir.path().join("dispatch-test");
         std::fs::create_dir_all(&sub).unwrap();
-        dispatch(Commands::Init(InitArgs { path: sub.clone() }), false, true).unwrap();
+        dispatch(Commands::Init(InitArgs { path: sub.clone() }), 0, true).unwrap();
         assert!(sub.join("forjar.yaml").exists());
     }
 
@@ -303,7 +303,7 @@ resources:
 
     #[test]
     fn test_fj264_schema_dispatch() {
-        let result = dispatch(Commands::Schema, false, true);
+        let result = dispatch(Commands::Schema, 0, true);
         assert!(result.is_ok());
     }
 

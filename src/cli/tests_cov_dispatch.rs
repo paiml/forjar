@@ -226,7 +226,7 @@ policies:
                 yes: false,
                 state_dir: state,
             }),
-            false,
+            0,
             true,
         );
         assert!(result.is_err());
