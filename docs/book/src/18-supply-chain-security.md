@@ -231,6 +231,42 @@ forjar repro-proof -f forjar.yaml -s state/ --json
 
 Verifies that the configuration + state + content hashes form a reproducible deployment — the same inputs will always produce the same infrastructure state.
 
+## Secret Management (FJ-2300)
+
+Forjar resolves secrets at apply time without storing them in state files:
+
+```yaml
+resources:
+  db-config:
+    type: file
+    path: /etc/app/db.yaml
+    content: |
+      host: db.internal
+      password: {{ secrets.db_password }}
+```
+
+Four secret provider backends are supported:
+
+| Provider | Resolution |
+|---------|-----------|
+| `env` (default) | `$FORJAR_SECRET_<name>` |
+| `file` | Read from `/run/secrets/<name>` |
+| `sops` | `sops -d secrets.enc.yaml` |
+| `op` | 1Password CLI `op read` |
+
+**Key behavior**: `hash_desired_state` hashes the template (`{{ secrets.db_password }}`), not the resolved value. This means secret rotation requires `forjar apply --force`.
+
+Path policies restrict writes to sensitive system paths:
+
+```yaml
+policy:
+  deny_paths:
+    - /etc/shadow
+    - /etc/sudoers.d/*
+```
+
+`forjar validate --check-secrets` scans for hardcoded credentials in resource content fields.
+
 ## CI/CD Integration
 
 All commands support `--json` for pipeline integration:
