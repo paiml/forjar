@@ -15,6 +15,7 @@ pub mod secrets;
 pub mod security_scanner;
 pub mod state;
 pub mod store;
+pub mod task;
 pub mod types;
 
 pub mod do330;
