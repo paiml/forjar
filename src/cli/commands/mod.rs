@@ -488,4 +488,10 @@ pub enum Commands {
     /// FJ-2300: Live log streaming during apply
     #[command(name = "logs")]
     Logs(LogsArgs),
+    /// FJ-2101: Pack directory into OCI image layout
+    #[command(name = "oci-pack")]
+    OciPack(OciPackArgs),
+    /// FJ-2001: Query state database (requires rusqlite)
+    #[command(name = "state-query")]
+    StateQuery(QueryArgs),
 }
