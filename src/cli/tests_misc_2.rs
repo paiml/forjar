@@ -92,7 +92,8 @@ resources:
         let result = cmd_validate(&file, true, false, false);
         assert!(result.is_err());
         let msg = result.unwrap_err();
-        assert!(msg.contains("strict validation failed"));
+        // FJ-2501: relative paths now caught by format validation in validate_config
+        assert!(msg.contains("must be absolute") || msg.contains("strict validation failed"));
     }
 
     #[test]
