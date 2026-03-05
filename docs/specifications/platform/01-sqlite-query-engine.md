@@ -295,6 +295,9 @@ This ensures ingest never reads a half-written state. The worst case is a slight
 ## Implementation
 
 ### Phase 1: SQLite Foundation (FJ-2001)
+- [x] Query result types: `QueryResult`, `QueryParams`, `QueryOutputFormat`
+- [x] Health summary types: `HealthSummary`, `MachineHealthRow` with `stack_health_pct()`
+- [x] `HealthSummary::format_table()` for human-readable output
 - [ ] Add `rusqlite` with `bundled-full` (includes FTS5)
 - [ ] `src/core/store/db.rs` — schema creation, WAL, pragma tuning
 - [ ] Ingest pipeline from existing state files
@@ -305,6 +308,8 @@ This ensures ingest never reads a half-written state. The worst case is a slight
 - **Deliverable**: `forjar query "bash"` from real state data
 
 ### Phase 4: Query Enrichments (FJ-2004)
+- [x] Timing stats types: `TimingStats::from_sorted()` with percentiles
+- [x] Churn metric types: `ChurnMetric` with `churn_pct()`
 - [ ] `--history`, `--drift`, `--timing`, `--churn`, `--health`
 - [ ] `-G` git history fusion via RRF
 - [ ] `--json`, `--csv`, `--sql` output modes

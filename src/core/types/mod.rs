@@ -14,6 +14,9 @@ mod run_log_types;
 mod behavior_types;
 mod generation_types;
 mod build_metrics;
+mod oci_types;
+mod doctor_types;
+mod query_types;
 
 pub use config::*;
 pub use policy::*;
@@ -25,6 +28,9 @@ pub use run_log_types::*;
 pub use behavior_types::*;
 pub use generation_types::*;
 pub use build_metrics::*;
+pub use oci_types::*;
+pub use doctor_types::*;
+pub use query_types::*;
 
 // Shared default functions used by serde across multiple submodules.
 fn default_true() -> bool {
