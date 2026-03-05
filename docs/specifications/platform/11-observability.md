@@ -495,13 +495,15 @@ forjar logs --image training-image --layer ml-deps --tail 50  # last 50 lines
 ## Implementation
 
 ### Phase 18: Observability (FJ-2301)
+- [x] Run log types: `RunMeta`, `RunLogEntry`, `ResourceRunStatus`, `RunSummary`
+- [x] Structured log format: delimited sections (SCRIPT, STDOUT, STDERR, RESULT)
+- [x] `generate_run_id()` for unique run identifiers
+- [x] `RunLogEntry::format_log()` for persistent transport output
+- [x] Retention policy types: `LogRetention` with keep_runs, keep_failed, max_log_size, max_total_size
 - [ ] Run log directory: `state/<machine>/runs/<run_id>/`
-- [ ] Capture wrapper: persist `ExecOutput` to `.log` files with structured delimiters
-- [ ] Script capture: save executed script as `.script` file for reproduction
-- [ ] `meta.yaml` per run with resource-level exit codes and durations
+- [ ] Capture wrapper: persist `ExecOutput` to `.log` files
 - [ ] `forjar logs` command: view by machine, run, resource, or failure filter
 - [ ] `forjar logs --follow` for live streaming during apply
-- [ ] Retention policy: `keep_runs`, `keep_failed`, `max_log_size`, `max_total_size`
 - [ ] Truncation: first N + last N bytes for oversized logs
 - [ ] `forjar logs --gc` for manual cleanup
 - [ ] `run_logs` table + FTS5 in state.db for searchable failure history
