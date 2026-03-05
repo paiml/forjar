@@ -13,6 +13,7 @@ mod coverage_types;
 mod run_log_types;
 mod behavior_types;
 mod generation_types;
+mod build_metrics;
 
 pub use config::*;
 pub use policy::*;
@@ -23,6 +24,7 @@ pub use coverage_types::*;
 pub use run_log_types::*;
 pub use behavior_types::*;
 pub use generation_types::*;
+pub use build_metrics::*;
 
 // Shared default functions used by serde across multiple submodules.
 fn default_true() -> bool {
