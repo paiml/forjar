@@ -238,6 +238,34 @@ fn run_pre_apply_hook(machine: &Machine, hook: &str, timeout: Option<u64>) -> Op
     }
 }
 
+/// FJ-2301: Persist ExecOutput to .log files for post-mortem debugging.
+fn capture_exec_output(
+    ctx: &RecordCtx,
+    resource_id: &str,
+    action: &str,
+    output: &transport::ExecOutput,
+    duration: f64,
+) {
+    let run_log = RunLogPath::new(
+        &ctx.state_dir.to_string_lossy(),
+        ctx.machine_name,
+        &format!("run-{}", crate::tripwire::eventlog::now_iso8601().replace(':', "-")),
+    );
+    let run_dir = run_log.run_dir();
+    let log_dir = std::path::Path::new(&run_dir);
+    if std::fs::create_dir_all(log_dir).is_err() {
+        return;
+    }
+    let log_path = run_log.resource_log(resource_id, action);
+    let content = format!(
+        "--- FORJAR RESOURCE LOG ---\nresource: {resource_id}\naction: {action}\n\
+         machine: {}\nexit_code: {}\nduration: {duration:.3}s\n\n\
+         --- STDOUT ---\n{}\n--- STDERR ---\n{}\n--- END ---\n",
+        ctx.machine_name, output.exit_code, output.stdout, output.stderr,
+    );
+    let _ = std::fs::write(log_path, content);
+}
+
 /// Handle the output of a resource execution, including post_apply hook.
 #[allow(clippy::too_many_arguments)]
 fn handle_resource_output(
@@ -250,6 +278,11 @@ fn handle_resource_output(
     ctx: &mut RecordCtx,
     duration: f64,
 ) -> Result<ResourceOutcome, String> {
+    // FJ-2301: Capture output to log files
+    if let Ok(ref out) = output {
+        let action_str = format!("{:?}", change.action).to_lowercase();
+        capture_exec_output(ctx, &change.resource_id, &action_str, out, duration);
+    }
     match output {
         Ok(out) if out.success() => {
             if let Some(ref post_hook) = resolved.post_apply {

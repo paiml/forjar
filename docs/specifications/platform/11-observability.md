@@ -501,7 +501,7 @@ forjar logs --image training-image --layer ml-deps --tail 50  # last 50 lines
 - [x] `RunLogEntry::format_log()` for persistent transport output
 - [x] Retention policy types: `LogRetention` with keep_runs, keep_failed, max_log_size, max_total_size
 - [x] Run log directory: `RunLogPath` path builder for `state/<machine>/runs/<run_id>/`
-- [ ] Capture wrapper: persist `ExecOutput` to `.log` files
+- [x] Capture wrapper: `capture_exec_output()` persists ExecOutput to `.log` files in `state/<machine>/runs/<run_id>/` with structured STDOUT/STDERR/RESULT sections
 - [x] `forjar logs` command: `LogFilter` with machine, run, resource, failure, follow, since
 - [ ] `forjar logs --follow` for live streaming during apply
 - [x] Truncation: `LogTruncation` first N + last N bytes for oversized logs
