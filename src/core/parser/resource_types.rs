@@ -162,13 +162,18 @@ fn validate_cron(id: &str, resource: &Resource, errors: &mut Vec<ValidationError
         });
     }
     if let Some(ref sched) = resource.schedule {
-        let fields: Vec<&str> = sched.split_whitespace().collect();
-        if fields.len() != 5 {
-            errors.push(ValidationError {
-                message: format!(
-                    "resource '{id}' (cron) schedule '{sched}' must have exactly 5 fields (min hour dom mon dow)"
-                ),
-            });
+        // Skip templates and cron keywords (@daily, @weekly, etc.)
+        let is_keyword = sched.starts_with('@');
+        let is_template = sched.contains("{{");
+        if !is_keyword && !is_template {
+            let fields: Vec<&str> = sched.split_whitespace().collect();
+            if fields.len() != 5 {
+                errors.push(ValidationError {
+                    message: format!(
+                        "resource '{id}' (cron) schedule '{sched}' must have exactly 5 fields (min hour dom mon dow)"
+                    ),
+                });
+            }
         }
     }
     if resource.command.is_none() && resource.state.as_deref() != Some("absent") {
