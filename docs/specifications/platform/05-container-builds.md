@@ -296,7 +296,13 @@ resources:
 
 ### Phase 7: OCI Assembly (FJ-2101)
 - [ ] `sha2` + `flate2` crates
-- [ ] `src/core/oci/` module: layout, manifest, config, layer
+- [x] OCI types: `OciManifest`, `OciDescriptor`, `OciImageConfig`, `OciRuntimeConfig`, `OciRootfs`
+- [x] OCI index type: `OciIndex` with single-manifest constructor
+- [x] OCI history entry: `OciHistoryEntry` for build provenance
+- [x] Layer build result: `LayerBuildResult` with dual digest (BLAKE3 + SHA-256)
+- [x] Image build config: `ImageBuildConfig` with determinism levels
+- [x] Layer compression enum: `Gzip`, `Zstd`, `None`
+- [x] Determinism level enum: `False`, `Network`, `Strict`, `True`
 - [ ] OCI layout writer, Docker compat `manifest.json`
 - [ ] `forjar oci pack <dir> --tag name:tag`
 

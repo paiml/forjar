@@ -513,5 +513,9 @@ forjar logs --image training-image --layer ml-deps --tail 50  # last 50 lines
 - [ ] `--json` structured output with `log_path` for CI artifact upload
 - [x] Exit codes: 0/1/2/3/4/10
 - [ ] Progress bars to stderr
-- [ ] `forjar doctor` — system + log health check
+- [x] Doctor diagnostic types: `DoctorReport`, `SystemInfo`, `MachineHealth`, `ToolCheck`, `DoctorIssue`
+- [x] `SshStatus` enum: `Ok` (with latency), `Failed`, `Local`, `Container`
+- [x] `IssueSeverity` enum: `Error`, `Warning`, `Info`
+- [x] `DoctorReport::is_healthy()`, `issue_counts()`, `format_summary()`
+- [ ] `forjar doctor` CLI command wiring
 - **Deliverable**: Every script execution is captured to disk; `forjar logs --failed` shows full context for debugging; CI can upload `log_path` artifacts on failure
