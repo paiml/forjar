@@ -306,7 +306,7 @@ This ensures ingest never reads a half-written state. The worst case is a slight
 - [ ] Add `rusqlite` with `bundled-full` (includes FTS5)
 - [ ] `src/core/store/db.rs` — schema creation, WAL, pragma tuning
 - [ ] Ingest pipeline from existing state files
-- [ ] Wire `forjar query` subcommand
+- [x] Wire `forjar query` subcommand
 - [ ] FTS5 search: `forjar query "bash"` → sub-100ms
 - **Extends**: `src/core/store/`
 - **Deliverable**: `forjar query "bash"` from real state data

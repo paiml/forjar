@@ -60,6 +60,12 @@ pub(super) fn dispatch_data_cmd(cmd: Commands) -> Result<(), String> {
         Commands::Logs(LogsArgs { state_dir, machine, run, failures, follow, gc, json }) => {
             cmd_logs(&state_dir, machine.as_deref(), run.as_deref(), failures, follow, gc, json)
         }
+        Commands::OciPack(OciPackArgs { dir, tag, output, json }) => {
+            cmd_oci_pack(&dir, &tag, &output, json)
+        }
+        Commands::StateQuery(QueryArgs { query, state_dir, resource_type, history, drift, json, csv }) => {
+            cmd_query_state(&query, &state_dir, resource_type.as_deref(), history, drift, json, csv)
+        }
         other => dispatch_infra_cmd(other),
     }
 }
@@ -234,5 +240,63 @@ fn cmd_logs(
     println!("Logs (filter: {filter_str}):");
     println!("  state_dir: {}", state_dir.display());
     println!("  (no run logs found — apply has not been executed with logging enabled)");
+    Ok(())
+}
+
+/// FJ-2101: Pack a directory into an OCI image layout.
+fn cmd_oci_pack(
+    dir: &std::path::Path, tag: &str, output: &std::path::Path, json: bool,
+) -> Result<(), String> {
+    if !dir.is_dir() {
+        return Err(format!("directory '{}' does not exist", dir.display()));
+    }
+    let manifest = serde_json::json!({
+        "schemaVersion": 2,
+        "mediaType": "application/vnd.oci.image.manifest.v1+json",
+        "config": { "mediaType": "application/vnd.oci.image.config.v1+json" },
+        "layers": [{ "mediaType": "application/vnd.oci.image.layer.v1.tar" }],
+        "annotations": { "org.opencontainers.image.ref.name": tag }
+    });
+    if json {
+        println!("{}", serde_json::to_string_pretty(&serde_json::json!({
+            "source": dir, "tag": tag, "output": output, "manifest": manifest
+        })).unwrap_or_default());
+    } else {
+        println!("OCI Pack: {} -> {}", dir.display(), output.display());
+        println!("  tag: {tag}");
+        println!("  output: {}", output.display());
+        println!("\nOCI layout generation requires sha2+flate2 crates.");
+        println!("Use `forjar apply` with type: image resources for full builds.");
+    }
+    Ok(())
+}
+
+/// FJ-2001: Query state database.
+#[allow(clippy::too_many_arguments)]
+fn cmd_query_state(
+    query: &str, state_dir: &std::path::Path, resource_type: Option<&str>,
+    history: bool, drift: bool, json: bool, csv: bool,
+) -> Result<(), String> {
+    let filter_parts: Vec<String> = [
+        resource_type.map(|t| format!("type={t}")),
+        history.then(|| "history".into()),
+        drift.then(|| "drift".into()),
+    ].into_iter().flatten().collect();
+    let filter_str = if filter_parts.is_empty() { "none".to_string() } else { filter_parts.join(", ") };
+    if json {
+        println!("{}", serde_json::to_string_pretty(&serde_json::json!({
+            "query": query, "state_dir": state_dir, "filters": filter_str,
+            "results": [], "note": "rusqlite required for full query support"
+        })).unwrap_or_default());
+    } else if csv {
+        println!("resource,type,machine,status,hash");
+        println!("# (no results — rusqlite required for state query index)");
+    } else {
+        println!("Query: \"{query}\"");
+        println!("  state_dir: {}", state_dir.display());
+        println!("  filters: {filter_str}");
+        println!("\n  (no results — state query requires rusqlite for indexed search)");
+        println!("  Use `forjar status` for current lock-file based state view.");
+    }
     Ok(())
 }

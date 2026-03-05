@@ -299,3 +299,53 @@ pub struct BuildArgs {
     #[arg(long)]
     pub json: bool,
 }
+
+/// FJ-2101: CLI arguments for `oci-pack`.
+#[derive(clap::Args, Debug)]
+pub struct OciPackArgs {
+    /// Directory to pack into an OCI image
+    pub dir: PathBuf,
+
+    /// Image tag (name:tag)
+    #[arg(long)]
+    pub tag: String,
+
+    /// Output directory for OCI layout
+    #[arg(long, default_value = "oci-output")]
+    pub output: PathBuf,
+
+    /// JSON output
+    #[arg(long)]
+    pub json: bool,
+}
+
+/// FJ-2001: CLI arguments for `query`.
+#[derive(clap::Args, Debug)]
+pub struct QueryArgs {
+    /// Search query (e.g., "bash", "nginx")
+    pub query: String,
+
+    /// State directory
+    #[arg(long, default_value = "state")]
+    pub state_dir: PathBuf,
+
+    /// Filter by resource type
+    #[arg(long, name = "type")]
+    pub resource_type: Option<String>,
+
+    /// Show history
+    #[arg(long)]
+    pub history: bool,
+
+    /// Show drift status
+    #[arg(long)]
+    pub drift: bool,
+
+    /// JSON output
+    #[arg(long)]
+    pub json: bool,
+
+    /// CSV output
+    #[arg(long)]
+    pub csv: bool,
+}
