@@ -165,7 +165,7 @@ pub(crate) fn cmd_status_machine_resource_type_distribution(
             println!("  No machine state found.");
         }
         for (m, counts) in &rows {
-            let parts: Vec<String> = counts.iter().map(|(t, c)| format!("{}={}", t, c)).collect();
+            let parts: Vec<String> = counts.iter().map(|(t, c)| format!("{t}={c}")).collect();
             println!("  {}: {}", m, parts.join(", "));
         }
     }
@@ -233,8 +233,7 @@ pub(crate) fn cmd_status_fleet_machine_health_score(
         }
         for (m, score, conv, drift, fail) in &rows {
             println!(
-                "  {}: score={:.1}, converged={:.1}%, drifted={:.1}%, failed={:.1}%",
-                m, score, conv, drift, fail,
+                "  {m}: score={score:.1}, converged={conv:.1}%, drifted={drift:.1}%, failed={fail:.1}%",
             );
         }
     }

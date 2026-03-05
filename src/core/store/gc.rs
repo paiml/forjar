@@ -30,8 +30,11 @@ impl Default for GcConfig {
 /// Result of a GC analysis (mark phase).
 #[derive(Debug, Clone)]
 pub struct GcReport {
+    /// Store hashes reachable from GC roots.
     pub live: BTreeSet<String>,
+    /// Store hashes not reachable (candidates for deletion).
     pub dead: BTreeSet<String>,
+    /// Total number of store entries.
     pub total: usize,
 }
 

@@ -35,15 +35,13 @@ pub fn docker_to_pepita(id: &str, docker: &Resource) -> MigrationResult {
         Some("stopped") => {
             pepita.state = Some("absent".to_string());
             warnings.push(format!(
-                "{}: Docker 'stopped' has no pepita equivalent — mapped to 'absent'",
-                id
+                "{id}: Docker 'stopped' has no pepita equivalent — mapped to 'absent'"
             ));
         }
         Some("absent") => pepita.state = Some("absent".to_string()),
         Some(other) => {
             warnings.push(format!(
-                "{}: unknown Docker state '{}' — defaulting to 'present'",
-                id, other
+                "{id}: unknown Docker state '{other}' — defaulting to 'present'"
             ));
             pepita.state = Some("present".to_string());
         }
@@ -61,8 +59,7 @@ pub fn docker_to_pepita(id: &str, docker: &Resource) -> MigrationResult {
     // Image → overlay lower hint
     if let Some(ref image) = docker.image {
         warnings.push(format!(
-            "{}: Docker image '{}' — extract rootfs to use as overlay_lower",
-            id, image
+            "{id}: Docker image '{image}' — extract rootfs to use as overlay_lower"
         ));
         // Clear docker-specific fields
         pepita.image = None;
@@ -210,6 +207,7 @@ mod tests {
             post_apply: None,
             lifecycle: None,
             store: false,
+            sudo: false,
             script: None,
         }
     }

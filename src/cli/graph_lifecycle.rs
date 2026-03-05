@@ -1,5 +1,4 @@
 //! Phase 99 — Resource Lifecycle & Dependency Age: graph commands.
-#![allow(dead_code)]
 
 use crate::core::types;
 use std::collections::BTreeMap;
@@ -38,7 +37,7 @@ fn print_stage_map_json(stages: &BTreeMap<&'static str, Vec<String>>) {
     let entries: Vec<String> = stages
         .iter()
         .map(|(stage, members)| {
-            let names: Vec<String> = members.iter().map(|n| format!("\"{}\"", n)).collect();
+            let names: Vec<String> = members.iter().map(|n| format!("\"{n}\"")).collect();
             format!("\"{}\":[{}]", stage, names.join(","))
         })
         .collect();

@@ -134,7 +134,7 @@ mod tests {
         for m in &["web", "db", "cache"] {
             let md = state_dir.join(m);
             std::fs::create_dir_all(&md).unwrap();
-            std::fs::write(md.join("state.lock.yaml"), format!("machine: {}", m)).unwrap();
+            std::fs::write(md.join("state.lock.yaml"), format!("machine: {m}")).unwrap();
         }
 
         cmd_snapshot_save("multi", &state_dir).unwrap();

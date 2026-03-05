@@ -16,7 +16,7 @@ pub(crate) fn cmd_graph_resource_dependency_modularity_score(
         let items: Vec<String> = communities
             .iter()
             .map(|(c, members)| {
-                let ms: Vec<String> = members.iter().map(|m| format!("\"{}\"", m)).collect();
+                let ms: Vec<String> = members.iter().map(|m| format!("\"{m}\"")).collect();
                 format!("{{\"community\":{},\"members\":[{}]}}", c, ms.join(","))
             })
             .collect();
@@ -26,7 +26,7 @@ pub(crate) fn cmd_graph_resource_dependency_modularity_score(
             items.join(",")
         );
     } else {
-        println!("Modularity score: {:.3}", score);
+        println!("Modularity score: {score:.3}");
         if communities.is_empty() {
             println!("No communities detected.");
         } else {
@@ -115,13 +115,13 @@ pub(crate) fn cmd_graph_resource_dependency_diameter(
         serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
     let (diameter, eccentricities) = compute_eccentricities(&config);
     if json {
-        println!("{{\"diameter\":{}}}", diameter);
+        println!("{{\"diameter\":{diameter}}}");
     } else {
-        println!("Graph diameter: {}", diameter);
+        println!("Graph diameter: {diameter}");
         if !eccentricities.is_empty() {
             println!("Max eccentricity resources:");
             for (n, e) in eccentricities.iter().filter(|(_, e)| *e == diameter) {
-                println!("  {} — eccentricity {}", n, e);
+                println!("  {n} — eccentricity {e}");
             }
         }
     }
@@ -140,7 +140,7 @@ pub(crate) fn cmd_graph_resource_dependency_eccentricity(
     if json {
         let items: Vec<String> = eccentricities
             .iter()
-            .map(|(n, e)| format!("{{\"resource\":\"{}\",\"eccentricity\":{}}}", n, e))
+            .map(|(n, e)| format!("{{\"resource\":\"{n}\",\"eccentricity\":{e}}}"))
             .collect();
         println!("{{\"eccentricities\":[{}]}}", items.join(","));
     } else if eccentricities.is_empty() {
@@ -148,7 +148,7 @@ pub(crate) fn cmd_graph_resource_dependency_eccentricity(
     } else {
         println!("Resource eccentricities:");
         for (n, e) in &eccentricities {
-            println!("  {} — {}", n, e);
+            println!("  {n} — {e}");
         }
     }
     Ok(())
@@ -203,15 +203,9 @@ pub(crate) fn cmd_graph_resource_dependency_density(file: &Path, json: bool) -> 
     let max_edges = if n > 1 { n * (n - 1) } else { 1 };
     let density = edges as f64 / max_edges as f64;
     if json {
-        println!(
-            "{{\"density\":{:.4},\"nodes\":{},\"edges\":{}}}",
-            density, n, edges
-        );
+        println!("{{\"density\":{density:.4},\"nodes\":{n},\"edges\":{edges}}}");
     } else {
-        println!(
-            "Graph density: {:.4} ({} nodes, {} edges)",
-            density, n, edges
-        );
+        println!("Graph density: {density:.4} ({n} nodes, {edges} edges)");
     }
     Ok(())
 }
@@ -232,14 +226,10 @@ pub(crate) fn cmd_graph_resource_dependency_transitivity(
     };
     if json {
         println!(
-            "{{\"total_edges\":{},\"redundant_edges\":{},\"transitivity_ratio\":{:.4}}}",
-            total, redundant, ratio
+            "{{\"total_edges\":{total},\"redundant_edges\":{redundant},\"transitivity_ratio\":{ratio:.4}}}"
         );
     } else {
-        println!(
-            "Transitivity: {}/{} edges redundant (ratio: {:.4})",
-            redundant, total, ratio
-        );
+        println!("Transitivity: {redundant}/{total} edges redundant (ratio: {ratio:.4})");
     }
     Ok(())
 }

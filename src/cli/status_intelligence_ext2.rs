@@ -35,10 +35,7 @@ pub(crate) fn cmd_status_machine_resource_drift_recurrence(
         let items: Vec<String> = recurrences
             .iter()
             .map(|(m, r, c)| {
-                format!(
-                    "{{\"machine\":\"{}\",\"resource\":\"{}\",\"drift_count\":{}}}",
-                    m, r, c
-                )
+                format!("{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"drift_count\":{c}}}")
             })
             .collect();
         println!("{{\"drift_recurrences\":[{}]}}", items.join(","));
@@ -47,7 +44,7 @@ pub(crate) fn cmd_status_machine_resource_drift_recurrence(
     } else {
         println!("Drift recurrence:");
         for (m, r, c) in &recurrences {
-            println!("  {}/{} — {} drift events", m, r, c);
+            println!("  {m}/{r} — {c} drift events");
         }
     }
     Ok(())
@@ -104,7 +101,7 @@ pub(crate) fn cmd_status_fleet_resource_drift_heatmap(
         for (m, d, t) in &heatmap {
             let pct = *d as f64 / *t as f64 * 100.0;
             let bar = "█".repeat((*d * 20).checked_div(*t).unwrap_or(0));
-            println!("  {:20} {:>3}/{:<3} ({:5.1}%) {}", m, d, t, pct, bar);
+            println!("  {m:20} {d:>3}/{t:<3} ({pct:5.1}%) {bar}");
         }
     }
     Ok(())
@@ -146,10 +143,7 @@ pub(crate) fn cmd_status_machine_resource_convergence_trend_p90(
         let items: Vec<String> = trends
             .iter()
             .map(|(m, r, t)| {
-                format!(
-                    "{{\"machine\":\"{}\",\"convergence_rate\":{:.4},\"total\":{}}}",
-                    m, r, t
-                )
+                format!("{{\"machine\":\"{m}\",\"convergence_rate\":{r:.4},\"total\":{t}}}")
             })
             .collect();
         println!("{{\"convergence_trends\":[{}]}}", items.join(","));
@@ -198,10 +192,7 @@ pub(super) fn print_drift_ages(ages: &[(String, String, f64)], json: bool) {
         let items: Vec<String> = ages
             .iter()
             .map(|(m, r, h)| {
-                format!(
-                    "{{\"machine\":\"{}\",\"resource\":\"{}\",\"drift_age_hours\":{:.2}}}",
-                    m, r, h
-                )
+                format!("{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"drift_age_hours\":{h:.2}}}")
             })
             .collect();
         println!("{{\"drift_ages\":[{}]}}", items.join(","));
@@ -210,7 +201,7 @@ pub(super) fn print_drift_ages(ages: &[(String, String, f64)], json: bool) {
     } else {
         println!("Drift age (hours):");
         for (m, r, h) in ages {
-            println!("  {}/{} — {:.2}h", m, r, h);
+            println!("  {m}/{r} — {h:.2}h");
         }
     }
 }

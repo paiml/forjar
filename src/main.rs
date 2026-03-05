@@ -27,7 +27,7 @@ fn main() {
     // Also honors NO_COLOR env per https://no-color.org/
     let no_color = cli.no_color || std::env::var("NO_COLOR").is_ok();
     if let Err(e) = forjar::cli::dispatch(cli.command, cli.verbose, no_color) {
-        eprintln!("error: {}", e);
+        eprintln!("error: {e}");
         std::process::exit(1);
     }
 }

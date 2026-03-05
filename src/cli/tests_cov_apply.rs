@@ -1,7 +1,5 @@
+#![allow(unused)]
 //! Tests: Coverage for apply_variants and apply_output.
-
-#![allow(unused_imports)]
-#![allow(dead_code)]
 use super::apply_output::*;
 use super::apply_variants::*;
 use super::helpers::*;
@@ -117,13 +115,11 @@ mod tests {
         let err = result.unwrap_err();
         assert!(
             err.contains("nonexistent"),
-            "error should mention the missing machine name: {}",
-            err
+            "error should mention the missing machine name: {err}"
         );
         assert!(
             err.contains("not found"),
-            "error should say 'not found': {}",
-            err
+            "error should say 'not found': {err}"
         );
     }
 
@@ -140,8 +136,7 @@ mod tests {
         // Should list available machines
         assert!(
             err.contains("alpha") || err.contains("beta"),
-            "error should list available machines: {}",
-            err
+            "error should list available machines: {err}"
         );
     }
 
@@ -397,12 +392,12 @@ mod tests {
         let results: Vec<types::ApplyResult> = (0..5)
             .map(|i| {
                 let rpts = vec![make_resource_report(
-                    &format!("r{}", i),
+                    &format!("r{i}"),
                     "file",
                     "converged",
                     0.1 * i as f64,
                 )];
-                make_apply_result_with_reports(&format!("m{}", i), 1, 0, 0, rpts)
+                make_apply_result_with_reports(&format!("m{i}"), 1, 0, 0, rpts)
             })
             .collect();
         let result = print_events_output(&results);

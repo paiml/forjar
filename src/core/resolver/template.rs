@@ -9,10 +9,7 @@ use std::collections::HashMap;
 pub(super) fn resolve_secret(key: &str) -> Result<String, String> {
     let env_key = format!("FORJAR_SECRET_{}", key.to_uppercase().replace('-', "_"));
     std::env::var(&env_key).map_err(|_| {
-        format!(
-            "secret '{}' not found (set env var {} or use a secrets file)",
-            key, env_key
-        )
+        format!("secret '{key}' not found (set env var {env_key} or use a secrets file)")
     })
 }
 
@@ -27,7 +24,7 @@ fn resolve_variable<'a>(
             params
                 .get(param_key)
                 .map(yaml_value_to_string)
-                .ok_or_else(|| format!("unknown param: {}", param_key))?,
+                .ok_or_else(|| format!("unknown param: {param_key}"))?,
         ));
     }
     if let Some(secret_key) = key.strip_prefix("secrets.") {
@@ -39,9 +36,9 @@ fn resolve_variable<'a>(
     if let Some(data_key) = key.strip_prefix("data.") {
         return Ok(Cow::Owned(
             params
-                .get(&format!("__data__{}", data_key))
+                .get(&format!("__data__{data_key}"))
                 .map(yaml_value_to_string)
-                .ok_or_else(|| format!("unknown data source: {}", data_key))?,
+                .ok_or_else(|| format!("unknown data source: {data_key}"))?,
         ));
     }
     if key.contains('(') {
@@ -49,7 +46,7 @@ fn resolve_variable<'a>(
             key, params, machines,
         )?));
     }
-    Err(format!("unknown template variable: {}", key))
+    Err(format!("unknown template variable: {key}"))
 }
 
 /// Resolve a machine.NAME.FIELD reference.
@@ -59,7 +56,7 @@ fn resolve_machine_ref<'a>(
 ) -> Result<Cow<'a, str>, String> {
     let parts: Vec<&str> = key.splitn(3, '.').collect();
     if parts.len() != 3 {
-        return Err(format!("invalid machine ref: {}", key));
+        return Err(format!("invalid machine ref: {key}"));
     }
     let machine = machines
         .get(parts[1])
@@ -86,7 +83,7 @@ pub fn resolve_template(
         let open = start + open;
         let close = result[open..]
             .find("}}")
-            .ok_or_else(|| format!("unclosed template at position {}", open))?;
+            .ok_or_else(|| format!("unclosed template at position {open}"))?;
         let close = open + close + 2;
         let key = result[open + 2..close - 2].trim();
 
@@ -96,9 +93,14 @@ pub fn resolve_template(
     }
 
     // FJ-200: Decrypt any ENC[age,...] markers after template resolution
+    #[cfg(feature = "encryption")]
     if secrets::has_encrypted_markers(&result) {
         let identities = secrets::load_identities(None)?;
         result = secrets::decrypt_all(&result, &identities)?;
+    }
+    #[cfg(not(feature = "encryption"))]
+    if secrets::has_encrypted_markers(&result) {
+        return Err("ENC[age,...] markers found but forjar was compiled without encryption support. Rebuild with `--features encryption`.".to_string());
     }
 
     Ok(result)

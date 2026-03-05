@@ -151,8 +151,7 @@ resources:
             errors
                 .iter()
                 .any(|e| e.message.contains("model") && e.message.contains("no name")),
-            "expected model no-name error, got: {:?}",
-            errors
+            "expected model no-name error, got: {errors:?}"
         );
     }
 
@@ -178,7 +177,7 @@ resources:
             .iter()
             .filter(|e| e.message.contains("model") && e.message.contains("invalid state"))
             .collect();
-        assert!(model_errors.is_empty(), "unexpected: {:?}", model_errors);
+        assert!(model_errors.is_empty(), "unexpected: {model_errors:?}");
     }
 
     #[test]
@@ -203,8 +202,7 @@ resources:
             errors
                 .iter()
                 .any(|e| e.message.contains("model") && e.message.contains("invalid state")),
-            "expected invalid state error, got: {:?}",
-            errors
+            "expected invalid state error, got: {errors:?}"
         );
     }
 
@@ -230,7 +228,7 @@ resources:
             .iter()
             .filter(|e| e.message.contains("model") && e.message.contains("invalid state"))
             .collect();
-        assert!(model_errors.is_empty(), "unexpected: {:?}", model_errors);
+        assert!(model_errors.is_empty(), "unexpected: {model_errors:?}");
     }
 
     // ===================================================================

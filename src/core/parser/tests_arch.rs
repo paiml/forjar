@@ -119,8 +119,7 @@ resources: {}
     let errors = validate_config(&config);
     assert!(
         errors.is_empty(),
-        "aarch64 should be valid, got: {:?}",
-        errors
+        "aarch64 should be valid, got: {errors:?}"
     );
 }
 
@@ -135,10 +134,9 @@ machines:
   m1:
     hostname: m1
     addr: 1.1.1.1
-    arch: {}
+    arch: {arch}
 resources: {{}}
-"#,
-            arch
+"#
         );
         let config = parse_config(&yaml).unwrap();
         let errors = validate_config(&config);

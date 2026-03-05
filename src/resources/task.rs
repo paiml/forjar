@@ -42,7 +42,7 @@ pub fn apply_script(resource: &Resource) -> String {
 
     // Change to working directory if specified
     if let Some(ref dir) = resource.working_dir {
-        script.push_str(&format!("cd '{}'\n", dir));
+        script.push_str(&format!("cd '{dir}'\n"));
     }
 
     // Wrap command with timeout if specified.
@@ -50,8 +50,7 @@ pub fn apply_script(resource: &Resource) -> String {
     // without escaping issues that break bashrs linting.
     if let Some(timeout_secs) = resource.timeout {
         script.push_str(&format!(
-            "timeout {} bash <<'FORJAR_TIMEOUT'\n{}\nFORJAR_TIMEOUT\n",
-            timeout_secs, command
+            "timeout {timeout_secs} bash <<'FORJAR_TIMEOUT'\n{command}\nFORJAR_TIMEOUT\n"
         ));
     } else {
         script.push_str(command);
@@ -75,7 +74,7 @@ pub fn state_query_script(resource: &Resource) -> String {
     }
 
     let command = resource.command.as_deref().unwrap_or("true");
-    format!("echo 'command={}'", command)
+    format!("echo 'command={command}'")
 }
 
 #[cfg(test)]

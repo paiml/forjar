@@ -28,8 +28,8 @@ pub fn reconstruct_at(
         ));
     }
 
-    let content = std::fs::read_to_string(&event_path)
-        .map_err(|e| format!("cannot read event log: {}", e))?;
+    let content =
+        std::fs::read_to_string(&event_path).map_err(|e| format!("cannot read event log: {e}"))?;
 
     let mut resources: IndexMap<String, ResourceLock> = IndexMap::new();
     let mut hostname = machine.to_string();
@@ -42,7 +42,7 @@ pub fn reconstruct_at(
         }
 
         let te: TimestampedEvent =
-            serde_json::from_str(line).map_err(|e| format!("parse event: {}", e))?;
+            serde_json::from_str(line).map_err(|e| format!("parse event: {e}"))?;
 
         // Stop replaying if we've passed the target timestamp
         if te.ts.as_str() > timestamp {

@@ -24,7 +24,7 @@ fn resolve_when_template(
         let open = start + open;
         let close = result[open..]
             .find("}}")
-            .ok_or_else(|| format!("unclosed template in when expression at position {}", open))?;
+            .ok_or_else(|| format!("unclosed template in when expression at position {open}"))?;
         let close = open + close + 2;
         let key = result[open + 2..close - 2].trim();
 
@@ -32,7 +32,7 @@ fn resolve_when_template(
             params
                 .get(param_key)
                 .map(yaml_value_to_string)
-                .ok_or_else(|| format!("unknown param in when expression: {}", param_key))?
+                .ok_or_else(|| format!("unknown param in when expression: {param_key}"))?
         } else if let Some(field) = key.strip_prefix("machine.") {
             match field {
                 "arch" => machine.arch.clone(),
@@ -40,17 +40,11 @@ fn resolve_when_template(
                 "addr" => machine.addr.clone(),
                 "user" => machine.user.clone(),
                 "roles" => format!("{:?}", machine.roles),
-                _ => {
-                    return Err(format!(
-                        "unknown machine field in when expression: {}",
-                        field
-                    ))
-                }
+                _ => return Err(format!("unknown machine field in when expression: {field}")),
             }
         } else {
             return Err(format!(
-                "unknown template variable in when expression: {}",
-                key
+                "unknown template variable in when expression: {key}"
             ));
         };
 
@@ -109,8 +103,7 @@ fn evaluate_expression(resolved: &str) -> Result<bool, String> {
     }
 
     Err(format!(
-        "invalid when expression: '{}' (expected: EXPR == VALUE, EXPR != VALUE, EXPR contains VALUE, true, or false)",
-        trimmed
+        "invalid when expression: '{trimmed}' (expected: EXPR == VALUE, EXPR != VALUE, EXPR contains VALUE, true, or false)"
     ))
 }
 

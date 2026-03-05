@@ -71,7 +71,7 @@ resources:
 
     // Resolve and plan
     let order = resolver::build_execution_order(&config).expect("DAG failed");
-    println!("\nExecution order: {:?}", order);
+    println!("\nExecution order: {order:?}");
 
     let plan = planner::plan(&config, &order, &HashMap::new(), None);
     println!("\nPlan summary:");
@@ -95,17 +95,17 @@ resources:
 
         match codegen::check_script(&resolved) {
             Ok(script) => println!("Check:\n{}\n", indent(&script)),
-            Err(e) => println!("Check: {}\n", e),
+            Err(e) => println!("Check: {e}\n"),
         }
 
         match codegen::apply_script(&resolved) {
             Ok(script) => println!("Apply:\n{}\n", indent(&script)),
-            Err(e) => println!("Apply: {}\n", e),
+            Err(e) => println!("Apply: {e}\n"),
         }
 
         match codegen::state_query_script(&resolved) {
             Ok(script) => println!("State Query:\n{}\n", indent(&script)),
-            Err(e) => println!("State Query: {}\n", e),
+            Err(e) => println!("State Query: {e}\n"),
         }
     }
 
@@ -114,7 +114,7 @@ resources:
 
 fn indent(s: &str) -> String {
     s.lines()
-        .map(|l| format!("  {}", l))
+        .map(|l| format!("  {l}"))
         .collect::<Vec<_>>()
         .join("\n")
 }

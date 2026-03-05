@@ -43,7 +43,7 @@ resources:
         fs::create_dir_all(&state_dir).unwrap();
 
         let result = cmd_pin(&file, &state_dir, false);
-        assert!(result.is_ok(), "cmd_pin failed: {:?}", result);
+        assert!(result.is_ok(), "cmd_pin failed: {result:?}");
 
         let lock_path = state_dir.join("forjar.inputs.lock.yaml");
         assert!(lock_path.exists(), "lock file not created");
@@ -114,7 +114,7 @@ resources:
 
         cmd_pin(&file, &state, false).unwrap();
         let result = cmd_pin_check(&file, &state, false);
-        assert!(result.is_ok(), "fresh lock should pass: {:?}", result);
+        assert!(result.is_ok(), "fresh lock should pass: {result:?}");
     }
 
     #[test]

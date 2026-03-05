@@ -83,10 +83,7 @@ pub(crate) fn cmd_status_fleet_resource_apply_success_trend(
             println!("  No machine state found.");
         }
         for (m, pct, conv, tot) in &rows {
-            println!(
-                "  {}: {:.1}% success ({} converged / {} total)",
-                m, pct, conv, tot,
-            );
+            println!("  {m}: {pct:.1}% success ({conv} converged / {tot} total)",);
         }
     }
     Ok(())
@@ -135,7 +132,7 @@ pub(crate) fn cmd_status_machine_resource_drift_age_distribution(
             println!("  No machine state found.");
         }
         for (m, c, d, f) in &rows {
-            println!("  {}: {} converged, {} drifted, {} failed", m, c, d, f,);
+            println!("  {m}: {c} converged, {d} drifted, {f} failed",);
         }
     }
     Ok(())
@@ -197,10 +194,10 @@ pub(crate) fn cmd_status_fleet_resource_convergence_gap_analysis(
         if rows.is_empty() {
             println!("  No machine state found.");
         } else {
-            println!("  fleet_average: {:.1}%", fleet_avg);
+            println!("  fleet_average: {fleet_avg:.1}%");
             for (m, pct, _c, _t) in &rows {
                 let gap = fleet_avg - *pct;
-                println!("  {}: {:.1}% (gap: {:.1}%)", m, pct, gap,);
+                println!("  {m}: {pct:.1}% (gap: {gap:.1}%)",);
             }
         }
     }

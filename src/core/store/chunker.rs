@@ -12,7 +12,9 @@ pub const CHUNK_SIZE: usize = 65536;
 /// A chunk of data with its BLAKE3 hash.
 #[derive(Debug, Clone)]
 pub struct ChunkData {
+    /// BLAKE3 hash of the chunk.
     pub hash: [u8; 32],
+    /// Raw chunk bytes.
     pub data: Vec<u8>,
 }
 

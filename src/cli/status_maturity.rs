@@ -97,8 +97,7 @@ pub(crate) fn cmd_status_fleet_resource_maturity_index(
         }
         for (m, score, conv, dist, tot) in &rows {
             println!(
-                "  {}: score={:.1}, converged={:.1}%, types={}, resources={}",
-                m, score, conv, dist, tot,
+                "  {m}: score={score:.1}, converged={conv:.1}%, types={dist}, resources={tot}",
             );
         }
     }
@@ -153,10 +152,7 @@ pub(crate) fn cmd_status_machine_resource_convergence_stability_index(
             println!("  No machine state found.");
         }
         for (m, stab, conv, tot) in &rows {
-            println!(
-                "  {}: stability={:.1}%, converged={}/{}",
-                m, stab, conv, tot,
-            );
+            println!("  {m}: stability={stab:.1}%, converged={conv}/{tot}",);
         }
     }
     Ok(())
@@ -222,7 +218,7 @@ pub(crate) fn cmd_status_fleet_resource_drift_pattern_analysis(
             println!("  No machine state found.");
         }
         for (m, pat, dr, tot) in &rows {
-            println!("  {}: pattern={}, drifted={}/{}", m, pat, dr, tot,);
+            println!("  {m}: pattern={pat}, drifted={dr}/{tot}",);
         }
     }
     Ok(())

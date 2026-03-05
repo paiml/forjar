@@ -23,17 +23,17 @@ pub fn exec_container(machine: &Machine, script: &str) -> Result<ExecOutput, Str
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .map_err(|e| format!("failed to exec in container '{}': {}", container_name, e))?;
+        .map_err(|e| format!("failed to exec in container '{container_name}': {e}"))?;
 
     if let Some(ref mut stdin) = child.stdin {
         stdin
             .write_all(script.as_bytes())
-            .map_err(|e| format!("stdin write error: {}", e))?;
+            .map_err(|e| format!("stdin write error: {e}"))?;
     }
 
     let output = child
         .wait_with_output()
-        .map_err(|e| format!("wait error: {}", e))?;
+        .map_err(|e| format!("wait error: {e}"))?;
 
     Ok(ExecOutput {
         exit_code: output.status.code().unwrap_or(-1),
@@ -57,7 +57,7 @@ pub fn ensure_container(machine: &Machine) -> Result<(), String> {
     let check = Command::new(&config.runtime)
         .args(["inspect", "-f", "{{.State.Running}}", &container_name])
         .output()
-        .map_err(|e| format!("failed to inspect container '{}': {}", container_name, e))?;
+        .map_err(|e| format!("failed to inspect container '{container_name}': {e}"))?;
 
     if check.status.success() {
         let running = String::from_utf8_lossy(&check.stdout);
@@ -105,11 +105,7 @@ pub fn ensure_container(machine: &Machine) -> Result<(), String> {
     }
 
     // Environment variables (CUDA_VISIBLE_DEVICES, ROCR_VISIBLE_DEVICES, etc.)
-    let env_pairs: Vec<String> = config
-        .env
-        .iter()
-        .map(|(k, v)| format!("{}={}", k, v))
-        .collect();
+    let env_pairs: Vec<String> = config.env.iter().map(|(k, v)| format!("{k}={v}")).collect();
     for pair in &env_pairs {
         args.push("--env");
         args.push(pair);
@@ -129,7 +125,7 @@ pub fn ensure_container(machine: &Machine) -> Result<(), String> {
     let run = Command::new(&config.runtime)
         .args(&args)
         .output()
-        .map_err(|e| format!("failed to start container '{}': {}", container_name, e))?;
+        .map_err(|e| format!("failed to start container '{container_name}': {e}"))?;
 
     if !run.status.success() {
         return Err(format!(
@@ -154,7 +150,7 @@ pub fn cleanup_container(machine: &Machine) -> Result<(), String> {
     let rm = Command::new(&config.runtime)
         .args(["rm", "-f", &container_name])
         .output()
-        .map_err(|e| format!("failed to remove container '{}': {}", container_name, e))?;
+        .map_err(|e| format!("failed to remove container '{container_name}': {e}"))?;
 
     if !rm.status.success() {
         return Err(format!(

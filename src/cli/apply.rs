@@ -99,9 +99,13 @@ pub(crate) fn cmd_apply(
         resource_timeout,
         rollback_on_failure,
         max_parallel,
+        trace: verbose,
     };
 
     maybe_auto_snapshot(&config, state_dir, dry_run, verbose);
+
+    // FJ-1388: Record pre-apply generation for rollback-on-failure
+    let pre_apply_gen = pre_apply_generation(state_dir);
 
     let t_apply = Instant::now();
     let results = executor::apply(&cfg)?;
@@ -115,7 +119,7 @@ pub(crate) fn cmd_apply(
 
     for result in &results {
         if let Err(e) = state::save_apply_report(state_dir, result) {
-            eprintln!("warning: cannot save apply report: {}", e);
+            eprintln!("warning: cannot save apply report: {e}");
         }
     }
 
@@ -141,7 +145,9 @@ pub(crate) fn cmd_apply(
     }
     check_convergence_budget(&config, dur_apply)?;
     if total_failed > 0 {
-        return Err(format!("{} resource(s) failed", total_failed));
+        // FJ-1388: Generation-based rollback on failure
+        maybe_rollback_generation(rollback_on_failure, state_dir, pre_apply_gen, verbose);
+        return Err(format!("{total_failed} resource(s) failed"));
     }
 
     apply_post_actions(
@@ -170,7 +176,7 @@ fn apply_filters(
             .resources
             .retain(|id, _| simple_glob_match(pattern, id));
         if config.resources.is_empty() {
-            return Err(format!("no resources match subset pattern '{}'", pattern));
+            return Err(format!("no resources match subset pattern '{pattern}'"));
         }
         if verbose {
             eprintln!(
@@ -220,7 +226,9 @@ fn maybe_auto_snapshot(
     dry_run: bool,
     verbose: bool,
 ) {
-    let Some(gens) = config.policy.snapshot_generations else { return };
+    let Some(gens) = config.policy.snapshot_generations else {
+        return;
+    };
     if gens == 0 || dry_run || !state_dir.exists() {
         return;
     }
@@ -231,11 +239,22 @@ fn maybe_auto_snapshot(
         eprintln!("snapshot: saved {snap_name}");
     }
     gc_old_snapshots(state_dir, gens, verbose);
+
+    // FJ-1386: Also create a numbered generation for instant rollback
+    match super::generation::create_generation(state_dir) {
+        Ok(gen) => {
+            if verbose {
+                eprintln!("generation: created gen {gen}");
+            }
+            super::generation::gc_generations(state_dir, gens, verbose);
+        }
+        Err(e) => eprintln!("warning: generation creation failed: {e}"),
+    }
 }
 
 /// FJ-1381: Garbage-collect old snapshots, keeping only the newest `keep` snapshots.
 fn gc_old_snapshots(state_dir: &Path, keep: u32, verbose: bool) {
-    let snap_dir = state_dir.join(".snapshots");
+    let snap_dir = super::snapshot::snapshots_dir(state_dir);
     if !snap_dir.exists() {
         return;
     }
@@ -250,9 +269,37 @@ fn gc_old_snapshots(state_dir: &Path, keep: u32, verbose: bool) {
     let to_remove = entries.len() - keep as usize;
     for entry in entries.iter().take(to_remove) {
         if verbose {
-            eprintln!("snapshot gc: removing {}", entry.file_name().to_string_lossy());
+            eprintln!(
+                "snapshot gc: removing {}",
+                entry.file_name().to_string_lossy()
+            );
         }
         let _ = std::fs::remove_dir_all(entry.path());
+    }
+}
+
+/// FJ-1388: Get the current generation number before apply starts.
+fn pre_apply_generation(state_dir: &Path) -> Option<u32> {
+    let gen_dir = state_dir.join("generations");
+    super::generation::current_generation(&gen_dir)
+}
+
+/// FJ-1388: Rollback to pre-apply generation on failure.
+fn maybe_rollback_generation(
+    rollback_on_failure: bool,
+    state_dir: &Path,
+    pre_apply_gen: Option<u32>,
+    verbose: bool,
+) {
+    if !rollback_on_failure {
+        return;
+    }
+    let Some(gen) = pre_apply_gen else { return };
+    eprintln!("rollback: restoring state to generation {gen}");
+    if let Err(e) = super::generation::rollback_to_generation(state_dir, gen, true) {
+        eprintln!("warning: generation rollback failed: {e}");
+    } else if verbose {
+        eprintln!("rollback: restored to generation {gen}");
     }
 }
 
@@ -265,12 +312,10 @@ fn check_convergence_budget(
         let elapsed = dur_apply.as_secs();
         if elapsed > budget_secs {
             eprintln!(
-                "ERROR: convergence budget exceeded — budget {}s, actual {}s",
-                budget_secs, elapsed
+                "ERROR: convergence budget exceeded — budget {budget_secs}s, actual {elapsed}s"
             );
             return Err(format!(
-                "convergence budget exceeded: {}s > {}s",
-                elapsed, budget_secs
+                "convergence budget exceeded: {elapsed}s > {budget_secs}s"
             ));
         }
     }
@@ -292,8 +337,7 @@ fn check_pre_apply_drift(
     let locks = load_machine_locks(config, state_dir, machine_filter)?;
     let mut total_drift = 0usize;
     for (machine_name, lock) in &locks {
-        let findings =
-            crate::tripwire::drift::detect_drift(lock);
+        let findings = crate::tripwire::drift::detect_drift(lock);
         if !findings.is_empty() {
             total_drift += findings.len();
             for f in &findings {
@@ -306,14 +350,10 @@ fn check_pre_apply_drift(
     }
     if total_drift > 0 {
         if verbose {
-            eprintln!(
-                "{} resource(s) drifted — run 'forjar drift' for details",
-                total_drift
-            );
+            eprintln!("{total_drift} resource(s) drifted — run 'forjar drift' for details");
         }
         return Err(format!(
-            "{} drift finding(s) block apply — use --force to override",
-            total_drift
+            "{total_drift} drift finding(s) block apply — use --force to override"
         ));
     }
     Ok(())
@@ -347,17 +387,16 @@ fn apply_pre_validate(
             .count();
         if destroy_count > 0 {
             eprintln!(
-                "WARNING: {} resource(s) will be DESTROYED. Use --yes to confirm.",
-                destroy_count
+                "WARNING: {destroy_count} resource(s) will be DESTROYED. Use --yes to confirm."
             );
             return Err(format!(
-                "{} destructive action(s) blocked by --confirm-destructive",
-                destroy_count
+                "{destroy_count} destructive action(s) blocked by --confirm-destructive"
             ));
         }
     }
 
     check_policy_violations(config)?;
+    check_security_gate(config)?;
 
     // Run pre_apply hook
     if let Some(ref hook) = config.policy.pre_apply {
@@ -380,7 +419,7 @@ fn apply_pre_validate(
             let mut answer = String::new();
             std::io::stdin()
                 .read_line(&mut answer)
-                .map_err(|e| format!("stdin error: {}", e))?;
+                .map_err(|e| format!("stdin error: {e}"))?;
             if !answer.trim().eq_ignore_ascii_case("y") {
                 return Err("aborted by user".to_string());
             }
@@ -410,5 +449,40 @@ fn check_policy_violations(config: &types::ForjarConfig) -> Result<(), String> {
         let sev = if is_deny(v) { "DENY" } else { "WARN" };
         eprintln!("  [{sev}] {}: {}", v.resource_id, v.rule_message);
     }
-    Err(format!("policy violations block apply ({deny_count} denied)"))
+    Err(format!(
+        "policy violations block apply ({deny_count} denied)"
+    ))
+}
+
+/// FJ-1390: Run security scanner as pre-apply gate if policy.security_gate is set.
+fn check_security_gate(config: &types::ForjarConfig) -> Result<(), String> {
+    let threshold = match &config.policy.security_gate {
+        Some(t) => t.clone(),
+        None => return Ok(()),
+    };
+    let findings = crate::core::security_scanner::scan(config);
+    if findings.is_empty() {
+        return Ok(());
+    }
+    let (crit, high, med, _low) = crate::core::security_scanner::severity_counts(&findings);
+    let should_fail = match threshold.to_lowercase().as_str() {
+        "critical" => crit > 0,
+        "high" => crit + high > 0,
+        "medium" => crit + high + med > 0,
+        "low" => !findings.is_empty(),
+        _ => return Err(format!("unknown security_gate severity: {threshold}")),
+    };
+    if !should_fail {
+        return Ok(());
+    }
+    for f in &findings {
+        eprintln!(
+            "  [{:?}] {} ({}): {}",
+            f.severity, f.rule_id, f.resource_id, f.message
+        );
+    }
+    Err(format!(
+        "security gate blocks apply: {} findings at or above '{threshold}'",
+        findings.len()
+    ))
 }

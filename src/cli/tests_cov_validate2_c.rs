@@ -37,14 +37,14 @@ mod tests {
     fn make_state_dir() -> tempfile::TempDir {
         let dir = tempfile::tempdir().unwrap();
         write_yaml(dir.path(), "web/state.lock.yaml", state_lock_yaml());
-        write_yaml(dir.path(), "web.lock.yaml", state_lock_yaml());
+        write_yaml(dir.path(), "web/state.lock.yaml", state_lock_yaml());
         dir
     }
 
     fn make_state_dir_corrupted() -> tempfile::TempDir {
         let dir = tempfile::tempdir().unwrap();
         write_yaml(dir.path(), "web/state.lock.yaml", state_lock_yaml());
-        write_yaml(dir.path(), "web.lock.yaml", "NOT VALID YAML: {{{{");
+        write_yaml(dir.path(), "web/state.lock.yaml", "NOT VALID YAML: {{{{");
         dir
     }
 
@@ -137,7 +137,7 @@ mod tests {
             "    status: converged\n",
             "    hash: \"abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789\"\n",
         );
-        write_yaml(dir.path(), "web.lock.yaml", messy_lock);
+        write_yaml(dir.path(), "web/state.lock.yaml", messy_lock);
         let result = cmd_lock_normalize(dir.path(), false);
         assert!(result.is_ok());
     }
@@ -159,7 +159,7 @@ mod tests {
             "    status: converged\n",
             "    hash: \"abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789\"\n",
         );
-        write_yaml(dir.path(), "web.lock.yaml", messy_lock);
+        write_yaml(dir.path(), "web/state.lock.yaml", messy_lock);
         let result = cmd_lock_normalize(dir.path(), true);
         assert!(result.is_ok());
     }

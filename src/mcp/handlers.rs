@@ -10,14 +10,23 @@ use super::types::*;
 
 // ── Handler structs ─────────────────────────────────────────────────
 
+/// MCP handler for config validation.
 pub struct ValidateHandler;
+/// MCP handler for execution planning.
 pub struct PlanHandler;
+/// MCP handler for drift detection.
 pub struct DriftHandler;
+/// MCP handler for recipe linting.
 pub struct LintHandler;
+/// MCP handler for dependency graph generation.
 pub struct GraphHandler;
+/// MCP handler for resolved config display.
 pub struct ShowHandler;
+/// MCP handler for lock file status.
 pub struct StatusHandler;
+/// MCP handler for trace provenance.
 pub struct TraceHandler;
+/// MCP handler for anomaly detection.
 pub struct AnomalyHandler;
 
 // ── Handler trait implementations ───────────────────────────────────
@@ -161,8 +170,7 @@ impl Handler for LintHandler {
         for name in config.machines.keys() {
             if !used_machines.contains(name) {
                 warnings.push(format!(
-                    "Machine '{}' is defined but not referenced by any resource",
-                    name
+                    "Machine '{name}' is defined but not referenced by any resource"
                 ));
             }
         }
@@ -174,26 +182,17 @@ impl Handler for LintHandler {
                 ("apply", codegen::apply_script(resource)),
                 ("state_query", codegen::state_query_script(resource)),
             ] {
-                if let Ok(script) = result {
-                    let lint_result = crate::core::purifier::lint_script(&script);
-                    for d in &lint_result.diagnostics {
-                        use bashrs::linter::Severity;
-                        match d.severity {
-                            Severity::Error => {
-                                error_count += 1;
-                                warnings.push(format!(
-                                    "[ERROR] {}.{}: [{}] {}",
-                                    id, kind, d.code, d.message
-                                ));
-                            }
-                            _ => {
-                                warnings.push(format!(
-                                    "[WARN] {}.{}: [{}] {}",
-                                    id, kind, d.code, d.message
-                                ));
-                            }
-                        }
-                    }
+                let Ok(script) = result else { continue };
+                let lint_result = crate::core::purifier::lint_script(&script);
+                for d in &lint_result.diagnostics {
+                    use bashrs::linter::Severity;
+                    let prefix = match d.severity {
+                        Severity::Error => { error_count += 1; "ERROR" }
+                        _ => "WARN",
+                    };
+                    warnings.push(format!(
+                        "[{prefix}] {id}.{kind}: [{}] {}", d.code, d.message
+                    ));
                 }
             }
         }
@@ -226,9 +225,9 @@ impl Handler for GraphHandler {
                 graph.push_str("  rankdir=LR;\n");
                 for (id, resource) in &config.resources {
                     let label = format!("{}\\n({})", id, resource.resource_type);
-                    graph.push_str(&format!("  \"{}\" [label=\"{}\"];\n", id, label));
+                    graph.push_str(&format!("  \"{id}\" [label=\"{label}\"];\n"));
                     for dep in &resource.depends_on {
-                        graph.push_str(&format!("  \"{}\" -> \"{}\";\n", dep, id));
+                        graph.push_str(&format!("  \"{dep}\" -> \"{id}\";\n"));
                     }
                 }
                 graph.push_str("}\n");
@@ -241,7 +240,7 @@ impl Handler for GraphHandler {
                         id, id, resource.resource_type
                     ));
                     for dep in &resource.depends_on {
-                        graph.push_str(&format!("  {} --> {}\n", dep, id));
+                        graph.push_str(&format!("  {dep} --> {id}\n"));
                     }
                 }
             }
@@ -278,8 +277,7 @@ impl Handler for ShowHandler {
                     .map_err(|e| pforge_runtime::Error::Handler(e.to_string()))?
             } else {
                 return Err(pforge_runtime::Error::Handler(format!(
-                    "Resource '{}' not found",
-                    r
+                    "Resource '{r}' not found"
                 )));
             }
         } else {
@@ -448,15 +446,15 @@ impl Handler for AnomalyHandler {
                     if let Ok(te) = serde_json::from_str::<types::TimestampedEvent>(line) {
                         match te.event {
                             types::ProvenanceEvent::ResourceConverged { ref resource, .. } => {
-                                let key = format!("{}:{}", name, resource);
+                                let key = format!("{name}:{resource}");
                                 metrics.entry(key).or_insert((0, 0, 0)).0 += 1;
                             }
                             types::ProvenanceEvent::ResourceFailed { ref resource, .. } => {
-                                let key = format!("{}:{}", name, resource);
+                                let key = format!("{name}:{resource}");
                                 metrics.entry(key).or_insert((0, 0, 0)).1 += 1;
                             }
                             types::ProvenanceEvent::DriftDetected { ref resource, .. } => {
-                                let key = format!("{}:{}", name, resource);
+                                let key = format!("{name}:{resource}");
                                 metrics.entry(key).or_insert((0, 0, 0)).2 += 1;
                             }
                             _ => {}

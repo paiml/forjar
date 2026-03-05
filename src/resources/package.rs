@@ -1,4 +1,5 @@
-//! FJ-006: Package resource handler (apt + cargo + uv).
+//! FJ-006: Package resource handler (apt + cargo + uv + brew).
+//! FJ-1398: Cross-platform resource abstraction via brew provider.
 
 use crate::core::types::Resource;
 
@@ -13,8 +14,7 @@ pub fn check_script(resource: &Resource) -> String {
                 .iter()
                 .map(|p| {
                     format!(
-                        "dpkg -l '{}' >/dev/null 2>&1 && echo 'installed:{}' || echo 'missing:{}'",
-                        p, p, p
+                        "dpkg -l '{p}' >/dev/null 2>&1 && echo 'installed:{p}' || echo 'missing:{p}'"
                     )
                 })
                 .collect();
@@ -23,18 +23,25 @@ pub fn check_script(resource: &Resource) -> String {
         "cargo" => {
             let checks: Vec<String> = packages
                 .iter()
-                .map(|p| format!("command -v '{}' >/dev/null 2>&1 && echo 'installed:{}' || echo 'missing:{}'", p, p, p))
+                .map(|p| format!("command -v '{p}' >/dev/null 2>&1 && echo 'installed:{p}' || echo 'missing:{p}'"))
                 .collect();
             checks.join("\n")
         }
         "uv" => {
             let checks: Vec<String> = packages
                 .iter()
-                .map(|p| format!("uv tool list 2>/dev/null | grep -q '^{}' && echo 'installed:{}' || echo 'missing:{}'", p, p, p))
+                .map(|p| format!("uv tool list 2>/dev/null | grep -q '^{p}' && echo 'installed:{p}' || echo 'missing:{p}'"))
                 .collect();
             checks.join("\n")
         }
-        other => format!("echo 'unsupported provider: {}'", other),
+        "brew" => {
+            let checks: Vec<String> = packages
+                .iter()
+                .map(|p| format!("brew list '{p}' >/dev/null 2>&1 && echo 'installed:{p}' || echo 'missing:{p}'"))
+                .collect();
+            checks.join("\n")
+        }
+        other => format!("echo 'unsupported provider: {other}'"),
     }
 }
 
@@ -49,10 +56,11 @@ pub fn apply_script(resource: &Resource) -> String {
         ("cargo", "present") => apply_cargo_present(resource),
         ("uv", "present") => apply_uv_present(resource),
         ("uv", "absent") => apply_uv_absent(resource),
-        (other_provider, other_state) => format!(
-            "echo 'unsupported: provider={}, state={}'",
-            other_provider, other_state
-        ),
+        ("brew", "present") => apply_brew_present(resource),
+        ("brew", "absent") => apply_brew_absent(resource),
+        (other_provider, other_state) => {
+            format!("echo 'unsupported: provider={other_provider}, state={other_state}'")
+        }
     }
 }
 
@@ -62,11 +70,11 @@ fn apply_apt_present(resource: &Resource) -> String {
     let pkg_list: Vec<String> = packages
         .iter()
         .map(|p| match version {
-            Some(v) => format!("'{}={}'", p, v),
-            None => format!("'{}'", p),
+            Some(v) => format!("'{p}={v}'"),
+            None => format!("'{p}'"),
         })
         .collect();
-    let check_list: Vec<String> = packages.iter().map(|p| format!("'{}'", p)).collect();
+    let check_list: Vec<String> = packages.iter().map(|p| format!("'{p}'")).collect();
     let joined = pkg_list.join(" ");
     let check_joined = check_list.join(" ");
     format!(
@@ -93,7 +101,7 @@ fn apply_apt_present(resource: &Resource) -> String {
 
 fn apply_apt_absent(resource: &Resource) -> String {
     let packages = &resource.packages;
-    let pkg_list: Vec<String> = packages.iter().map(|p| format!("'{}'", p)).collect();
+    let pkg_list: Vec<String> = packages.iter().map(|p| format!("'{p}'")).collect();
     let joined = pkg_list.join(" ");
     format!(
         "set -euo pipefail\n\
@@ -118,9 +126,9 @@ fn apply_cargo_present(resource: &Resource) -> String {
     let installs: Vec<String> = packages
         .iter()
         .map(|p| match (source, version) {
-            (Some(s), _) => format!("cargo install --force --path '{}'", s),
-            (None, Some(v)) => format!("cargo install --force '{}@{}'", p, v),
-            (None, None) => format!("cargo install --force '{}'", p),
+            (Some(s), _) => format!("cargo install --force --path '{s}'"),
+            (None, Some(v)) => format!("cargo install --force '{p}@{v}'"),
+            (None, None) => format!("cargo install --force '{p}'"),
         })
         .collect();
     // Limit build parallelism to avoid OOM on high-core-count machines.
@@ -153,8 +161,8 @@ fn apply_uv_present(resource: &Resource) -> String {
     let installs: Vec<String> = packages
         .iter()
         .map(|p| match version {
-            Some(v) => format!("uv tool install --force '{}=={}'", p, v),
-            None => format!("uv tool install --force '{}'", p),
+            Some(v) => format!("uv tool install --force '{p}=={v}'"),
+            None => format!("uv tool install --force '{p}'"),
         })
         .collect();
     format!("set -euo pipefail\n{}", installs.join("\n"))
@@ -164,7 +172,42 @@ fn apply_uv_absent(resource: &Resource) -> String {
     let packages = &resource.packages;
     let removals: Vec<String> = packages
         .iter()
-        .map(|p| format!("uv tool uninstall '{}' 2>/dev/null || true", p))
+        .map(|p| format!("uv tool uninstall '{p}' 2>/dev/null || true"))
+        .collect();
+    format!("set -euo pipefail\n{}", removals.join("\n"))
+}
+
+/// FJ-1398: Homebrew install (macOS/Linux cross-platform).
+fn apply_brew_present(resource: &Resource) -> String {
+    let packages = &resource.packages;
+    let version = resource.version.as_deref();
+    let check_list: Vec<String> = packages.iter().map(|p| format!("'{p}'")).collect();
+    let installs: Vec<String> = packages
+        .iter()
+        .map(|p| match version {
+            Some(v) => format!("brew install '{p}@{v}'"),
+            None => format!("brew install '{p}'"),
+        })
+        .collect();
+    let check_joined = check_list.join(" ");
+    format!(
+        "set -euo pipefail\n\
+         NEED_INSTALL=0\n\
+         for pkg in {check_joined}; do\n\
+           brew list \"$pkg\" >/dev/null 2>&1 || NEED_INSTALL=1\n\
+         done\n\
+         if [ \"$NEED_INSTALL\" = \"1\" ]; then\n\
+           {}\n\
+         fi",
+        installs.join("\n  ")
+    )
+}
+
+fn apply_brew_absent(resource: &Resource) -> String {
+    let packages = &resource.packages;
+    let removals: Vec<String> = packages
+        .iter()
+        .map(|p| format!("brew uninstall '{p}' 2>/dev/null || true"))
         .collect();
     format!("set -euo pipefail\n{}", removals.join("\n"))
 }
@@ -178,24 +221,31 @@ pub fn state_query_script(resource: &Resource) -> String {
         "apt" => {
             let queries: Vec<String> = packages
                 .iter()
-                .map(|p| format!("dpkg-query -W -f '${{Package}}=${{Version}}\\n' '{}' 2>/dev/null || echo '{}=MISSING'", p, p))
+                .map(|p| format!("dpkg-query -W -f '${{Package}}=${{Version}}\\n' '{p}' 2>/dev/null || echo '{p}=MISSING'"))
                 .collect();
             queries.join("\n")
         }
         "cargo" => {
             let queries: Vec<String> = packages
                 .iter()
-                .map(|p| format!("command -v '{}' >/dev/null 2>&1 && echo '{}=installed' || echo '{}=MISSING'", p, p, p))
+                .map(|p| format!("command -v '{p}' >/dev/null 2>&1 && echo '{p}=installed' || echo '{p}=MISSING'"))
                 .collect();
             queries.join("\n")
         }
         "uv" => {
             let queries: Vec<String> = packages
                 .iter()
-                .map(|p| format!("uv tool list 2>/dev/null | grep -q '^{}' && echo '{}=installed' || echo '{}=MISSING'", p, p, p))
+                .map(|p| format!("uv tool list 2>/dev/null | grep -q '^{p}' && echo '{p}=installed' || echo '{p}=MISSING'"))
                 .collect();
             queries.join("\n")
         }
-        other => format!("echo 'unsupported provider: {}'", other),
+        "brew" => {
+            let queries: Vec<String> = packages
+                .iter()
+                .map(|p| format!("brew list --versions '{p}' 2>/dev/null || echo '{p}=MISSING'"))
+                .collect();
+            queries.join("\n")
+        }
+        other => format!("echo 'unsupported provider: {other}'"),
     }
 }

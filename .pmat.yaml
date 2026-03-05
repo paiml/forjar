@@ -1,0 +1,5 @@
+comply:
+  suppressions:
+    - rules: ["CB-954"]
+      files: [".github/workflows/*.yml"]
+      reason: "secrets: inherit is a GitHub Actions keyword for forwarding secrets to reusable workflows, not plaintext"

@@ -29,6 +29,7 @@ fn test_fj132_force_apply_reconverges() {
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
+        trace: false,
     };
     let r1 = apply(&cfg).unwrap();
     assert_eq!(r1[0].resources_converged, 1);
@@ -56,6 +57,7 @@ fn test_fj132_force_apply_reconverges() {
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
+        trace: false,
     };
     let r3 = apply(&force_cfg).unwrap();
     assert_eq!(r3[0].resources_converged, 1);
@@ -112,6 +114,7 @@ policy:
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
+        trace: false,
     };
     let results = apply(&cfg).unwrap();
     // Only file-a should be applied
@@ -173,6 +176,7 @@ policy:
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
+        trace: false,
     };
     let results = apply(&cfg).unwrap();
     assert_eq!(results[0].resources_converged, 1);
@@ -241,6 +245,7 @@ policy:
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
+        trace: false,
     };
     let results = apply(&cfg).unwrap();
     assert_eq!(results[0].resources_converged, 3);
@@ -281,6 +286,7 @@ fn test_fj132_global_lock_written_after_apply() {
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
+        trace: false,
     };
     apply(&cfg).unwrap();
 
@@ -331,6 +337,7 @@ resources:
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
+        trace: false,
     };
     let results = apply(&cfg).unwrap();
     assert_eq!(results[0].machine, "dry-run");

@@ -1,7 +1,5 @@
 //! Phase 99 — Security Validation: secret scope, deprecation usage, when-condition coverage.
 
-#![allow(dead_code)]
-
 use crate::core::types;
 use std::path::Path;
 
@@ -54,7 +52,7 @@ fn has_secret_reference(resource: &types::Resource) -> bool {
 fn print_warnings_json(key: &str, warnings: &[(String, String)]) {
     let items: Vec<String> = warnings
         .iter()
-        .map(|(n, d)| format!(r#"{{"resource":"{}","detail":"{}"}}"#, n, d))
+        .map(|(n, d)| format!(r#"{{"resource":"{n}","detail":"{d}"}}"#))
         .collect();
     println!(
         r#"{{"{}":[{}],"count":{}}}"#,
@@ -67,11 +65,11 @@ fn print_warnings_json(key: &str, warnings: &[(String, String)]) {
 /// Print warnings as text with the given label.
 fn print_warnings_text(label: &str, ok_msg: &str, warnings: &[(String, String)]) {
     if warnings.is_empty() {
-        println!("{}", ok_msg);
+        println!("{ok_msg}");
     } else {
         println!("{} ({}):", label, warnings.len());
         for (name, detail) in warnings {
-            println!("  warning: {} — {}", name, detail);
+            println!("  warning: {name} — {detail}");
         }
     }
 }
@@ -132,7 +130,7 @@ fn find_deprecation_usage_warnings(config: &types::ForjarConfig) -> Vec<(String,
             if deprecated.contains(dep) {
                 warnings.push((
                     name.clone(),
-                    format!("depends on deprecated resource '{}'", dep),
+                    format!("depends on deprecated resource '{dep}'"),
                 ));
             }
         }
@@ -210,8 +208,7 @@ fn find_when_condition_coverage_warnings(config: &types::ForjarConfig) -> Vec<(S
                 warnings.push((
                     dep_name.clone(),
                     format!(
-                        "depends on '{}' which has a when condition, but has no when condition itself",
-                        name
+                        "depends on '{name}' which has a when condition, but has no when condition itself"
                     ),
                 ));
             }
@@ -260,7 +257,7 @@ mod tests {
 
     /// Deserialize a minimal resource from YAML, setting only the `type` field.
     fn make_resource(rtype: &str) -> types::Resource {
-        let yaml = format!("type: {}", rtype);
+        let yaml = format!("type: {rtype}");
         serde_yaml_ng::from_str(&yaml).unwrap()
     }
 

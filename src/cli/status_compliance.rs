@@ -93,7 +93,7 @@ pub(crate) fn cmd_status_compliance(
             violations.len()
         );
         for v in &violations {
-            println!("  - {}", v);
+            println!("  - {v}");
         }
     }
     if pass {
@@ -145,8 +145,7 @@ fn print_compliance_text(
         yellow("⚠")
     };
     println!(
-        "{} Compliance report for '{}': {:.0}% ({}/{})",
-        indicator, policy, compliance_pct, compliant_count, total
+        "{indicator} Compliance report for '{policy}': {compliance_pct:.0}% ({compliant_count}/{total})"
     );
     for f in findings {
         if !f["compliant"].as_bool().unwrap_or(true) {
@@ -217,7 +216,7 @@ pub(crate) fn cmd_status_security_posture(
                 continue;
             }
         }
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             continue;
         }
@@ -245,10 +244,7 @@ pub(crate) fn cmd_status_security_posture(
         let json_items: Vec<String> = items
             .iter()
             .map(|(m, r, t, s)| {
-                format!(
-                    r#"{{"machine":"{}","resource":"{}","type":"{}","status":"{}"}}"#,
-                    m, r, t, s
-                )
+                format!(r#"{{"machine":"{m}","resource":"{r}","type":"{t}","status":"{s}"}}"#)
             })
             .collect();
         println!(
@@ -261,7 +257,7 @@ pub(crate) fn cmd_status_security_posture(
     } else {
         println!("Security posture ({} resources):", items.len());
         for (m, r, t, s) in &items {
-            println!("  {}:{} ({}) — {}", m, r, t, s);
+            println!("  {m}:{r} ({t}) — {s}");
         }
     }
     Ok(())
@@ -280,7 +276,7 @@ fn collect_audit_entries(
                 continue;
             }
         }
-        let log_path = state_dir.join(format!("{}.events.jsonl", m));
+        let log_path = state_dir.join(format!("{m}.events.jsonl"));
         if !log_path.exists() {
             continue;
         }
@@ -324,10 +320,7 @@ pub(crate) fn cmd_status_audit_trail(
         let items: Vec<String> = entries
             .iter()
             .map(|(m, r, s, t)| {
-                format!(
-                    r#"{{"machine":"{}","resource":"{}","status":"{}","timestamp":"{}"}}"#,
-                    m, r, s, t
-                )
+                format!(r#"{{"machine":"{m}","resource":"{r}","status":"{s}","timestamp":"{t}"}}"#)
             })
             .collect();
         println!(
@@ -340,7 +333,7 @@ pub(crate) fn cmd_status_audit_trail(
     } else {
         println!("Audit trail ({} entries):", entries.len());
         for (m, r, s, t) in &entries {
-            println!("  {} | {} | {} | {}", t, m, r, s);
+            println!("  {t} | {m} | {r} | {s}");
         }
     }
     Ok(())

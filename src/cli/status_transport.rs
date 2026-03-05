@@ -13,8 +13,14 @@ pub(crate) fn cmd_status_machine_ssh_connection_health(
     // Report SSH connection health (latency estimates based on lock timestamps)
     let mut results: BTreeMap<String, serde_json::Value> = BTreeMap::new();
 
-    let entries =
-        std::fs::read_dir(state_dir).unwrap_or_else(|_| std::fs::read_dir("/dev/null").unwrap());
+    let Ok(entries) = std::fs::read_dir(state_dir) else {
+        if json {
+            println!("{{}}");
+        } else {
+            println!("  No machine state found.");
+        }
+        return Ok(());
+    };
     for entry in entries.flatten() {
         let name = entry.file_name().to_string_lossy().to_string();
         if let Some(filter) = machine {
@@ -59,7 +65,7 @@ pub(crate) fn cmd_status_machine_ssh_connection_health(
             serde_json::to_string_pretty(&serde_json::json!({
                 "machine_ssh_connection_health": results
             }))
-            .unwrap()
+            .unwrap_or_default()
         );
     } else {
         println!("=== Machine SSH Connection Health ===");
@@ -70,10 +76,7 @@ pub(crate) fn cmd_status_machine_ssh_connection_health(
             let healthy = info["healthy"].as_bool().unwrap_or(false);
             let transport = info["transport"].as_str().unwrap_or("unknown");
             let symbol = if healthy { "✓" } else { "✗" };
-            println!(
-                "  {} {}: transport={}, healthy={}",
-                symbol, m, transport, healthy
-            );
+            println!("  {symbol} {m}: transport={transport}, healthy={healthy}");
         }
     }
     Ok(())
@@ -87,8 +90,14 @@ pub(crate) fn cmd_status_lock_file_staleness_report(
 ) -> Result<(), String> {
     let mut results: BTreeMap<String, serde_json::Value> = BTreeMap::new();
 
-    let entries =
-        std::fs::read_dir(state_dir).unwrap_or_else(|_| std::fs::read_dir("/dev/null").unwrap());
+    let Ok(entries) = std::fs::read_dir(state_dir) else {
+        if json {
+            println!("{{}}");
+        } else {
+            println!("  No machine state found.");
+        }
+        return Ok(());
+    };
     for entry in entries.flatten() {
         let name = entry.file_name().to_string_lossy().to_string();
         if let Some(filter) = machine {
@@ -133,7 +142,7 @@ pub(crate) fn cmd_status_lock_file_staleness_report(
             serde_json::to_string_pretty(&serde_json::json!({
                 "lock_file_staleness_report": results
             }))
-            .unwrap()
+            .unwrap_or_default()
         );
     } else {
         println!("=== Lock File Staleness Report ===");
@@ -146,10 +155,7 @@ pub(crate) fn cmd_status_lock_file_staleness_report(
             let size = info["file_size_bytes"].as_u64().unwrap_or(0);
             let stale = info["stale"].as_bool().unwrap_or(true);
             let marker = if stale { " [STALE]" } else { "" };
-            println!(
-                "  {}: generated={}, resources={}, size={}B{}",
-                m, generated, count, size, marker
-            );
+            println!("  {m}: generated={generated}, resources={count}, size={size}B{marker}");
         }
     }
     Ok(())
@@ -166,8 +172,14 @@ pub(crate) fn cmd_status_fleet_transport_method_summary(
     let mut machines_local: Vec<String> = Vec::new();
     let mut machines_ssh: Vec<String> = Vec::new();
 
-    let entries =
-        std::fs::read_dir(state_dir).unwrap_or_else(|_| std::fs::read_dir("/dev/null").unwrap());
+    let Ok(entries) = std::fs::read_dir(state_dir) else {
+        if json {
+            println!("{{}}");
+        } else {
+            println!("  No machine state found.");
+        }
+        return Ok(());
+    };
     for entry in entries.flatten() {
         let name = entry.file_name().to_string_lossy().to_string();
         if let Some(filter) = machine {
@@ -201,12 +213,12 @@ pub(crate) fn cmd_status_fleet_transport_method_summary(
                     "ssh": { "count": ssh_count, "machines": machines_ssh },
                 }
             }))
-            .unwrap()
+            .unwrap_or_default()
         );
     } else {
         println!("=== Fleet Transport Method Summary ===");
-        println!("  Local: {} machines {:?}", local_count, machines_local);
-        println!("  SSH:   {} machines {:?}", ssh_count, machines_ssh);
+        println!("  Local: {local_count} machines {machines_local:?}");
+        println!("  SSH:   {ssh_count} machines {machines_ssh:?}");
     }
     Ok(())
 }

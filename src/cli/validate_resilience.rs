@@ -1,7 +1,5 @@
 //! Resilience validation — lifecycle hook coverage, secret rotation, dependency depth limits.
 
-#![allow(dead_code)]
-
 use crate::core::types;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::Path;
@@ -43,8 +41,7 @@ pub(crate) fn cmd_validate_check_resource_lifecycle_hook_coverage(
             .iter()
             .map(|(name, rtype, has_pre, has_post)| {
                 format!(
-                    "{{\"resource\":\"{}\",\"type\":\"{}\",\"has_pre_hook\":{},\"has_post_hook\":{}}}",
-                    name, rtype, has_pre, has_post
+                    "{{\"resource\":\"{name}\",\"type\":\"{rtype}\",\"has_pre_hook\":{has_pre},\"has_post_hook\":{has_post}}}"
                 )
             })
             .collect();
@@ -53,7 +50,7 @@ pub(crate) fn cmd_validate_check_resource_lifecycle_hook_coverage(
         println!("All side-effect resources have lifecycle hooks.");
     } else {
         for (name, rtype, _, _) in &warnings {
-            println!("warning: {} ({}) has no lifecycle hooks", name, rtype);
+            println!("warning: {name} ({rtype}) has no lifecycle hooks");
         }
     }
     Ok(())
@@ -109,22 +106,14 @@ pub(crate) fn cmd_validate_check_resource_secret_rotation_age(
     if json {
         let items: Vec<String> = warnings
             .iter()
-            .map(|name| {
-                format!(
-                    "{{\"resource\":\"{}\",\"has_encrypted_content\":true}}",
-                    name
-                )
-            })
+            .map(|name| format!("{{\"resource\":\"{name}\",\"has_encrypted_content\":true}}"))
             .collect();
         println!("{{\"secret_rotation_warnings\":[{}]}}", items.join(","));
     } else if warnings.is_empty() {
         println!("No encrypted secrets found in resources.");
     } else {
         for name in &warnings {
-            println!(
-                "review: {} contains encrypted secret (rotation recommended)",
-                name
-            );
+            println!("review: {name} contains encrypted secret (rotation recommended)");
         }
     }
     Ok(())
@@ -168,24 +157,15 @@ pub(crate) fn cmd_validate_check_resource_dependency_chain_depth(
         let items: Vec<String> = violations
             .iter()
             .map(|(name, depth)| {
-                format!(
-                    "{{\"resource\":\"{}\",\"depth\":{},\"limit\":{}}}",
-                    name, depth, DEPTH_LIMIT
-                )
+                format!("{{\"resource\":\"{name}\",\"depth\":{depth},\"limit\":{DEPTH_LIMIT}}}")
             })
             .collect();
         println!("{{\"depth_limit_warnings\":[{}]}}", items.join(","));
     } else if violations.is_empty() {
-        println!(
-            "All dependency chains within depth limit ({}).",
-            DEPTH_LIMIT
-        );
+        println!("All dependency chains within depth limit ({DEPTH_LIMIT}).");
     } else {
         for (name, depth) in &violations {
-            println!(
-                "warning: {} has dependency depth {} (limit: {})",
-                name, depth, DEPTH_LIMIT
-            );
+            println!("warning: {name} has dependency depth {depth} (limit: {DEPTH_LIMIT})");
         }
     }
     Ok(())
@@ -255,7 +235,9 @@ fn compute_all_depths(config: &types::ForjarConfig) -> HashMap<String, usize> {
                 if new_depth > *entry {
                     *entry = new_depth;
                 }
-                let deg = in_degree.get_mut(dependent).unwrap();
+                let Some(deg) = in_degree.get_mut(dependent) else {
+                    continue;
+                };
                 *deg -= 1;
                 if *deg == 0 {
                     queue.push_back(dependent);

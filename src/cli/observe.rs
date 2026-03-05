@@ -50,17 +50,17 @@ pub(crate) fn cmd_anomaly(
             if let Ok(te) = serde_json::from_str::<types::TimestampedEvent>(line) {
                 match te.event {
                     types::ProvenanceEvent::ResourceConverged { ref resource, .. } => {
-                        let key = format!("{}:{}", name, resource);
+                        let key = format!("{name}:{resource}");
                         let entry = metrics.entry(key).or_insert((0, 0, 0));
                         entry.0 += 1;
                     }
                     types::ProvenanceEvent::ResourceFailed { ref resource, .. } => {
-                        let key = format!("{}:{}", name, resource);
+                        let key = format!("{name}:{resource}");
                         let entry = metrics.entry(key).or_insert((0, 0, 0));
                         entry.1 += 1;
                     }
                     types::ProvenanceEvent::DriftDetected { ref resource, .. } => {
-                        let key = format!("{}:{}", name, resource);
+                        let key = format!("{name}:{resource}");
                         let entry = metrics.entry(key).or_insert((0, 0, 0));
                         entry.2 += 1;
                     }
@@ -85,8 +85,7 @@ pub(crate) fn cmd_anomaly(
         } else {
             let total = metrics_vec.len();
             println!(
-                "No anomalies detected ({} resources analyzed, min {} events).",
-                total, min_events
+                "No anomalies detected ({total} resources analyzed, min {min_events} events)."
             );
         }
         return Ok(());
@@ -115,8 +114,8 @@ fn output_anomaly_findings(findings: &[anomaly::AnomalyFinding], json: bool) -> 
             "findings": json_findings,
         });
         let output =
-            serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {}", e))?;
-        println!("{}", output);
+            serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {e}"))?;
+        println!("{output}");
     } else {
         for finding in findings {
             let status_label = match finding.status {
@@ -164,8 +163,8 @@ fn output_trace_json(all_spans: &[(String, tracer::TraceSpan)]) -> Result<(), St
         "traces": all_spans.iter().map(|(_, s)| &s.trace_id).collect::<std::collections::HashSet<_>>().len(),
         "spans": json_spans,
     });
-    let output = serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {}", e))?;
-    println!("{}", output);
+    let output = serde_json::to_string_pretty(&report).map_err(|e| format!("JSON error: {e}"))?;
+    println!("{output}");
     Ok(())
 }
 
@@ -176,7 +175,7 @@ fn format_duration_us(us: u64) -> String {
     } else if us > 1_000 {
         format!("{:.1}ms", us as f64 / 1_000.0)
     } else if us > 0 {
-        format!("{}us", us)
+        format!("{us}us")
     } else {
         "0".to_string()
     }
@@ -305,14 +304,14 @@ pub(crate) fn handle_watch_change(file: &Path, state_dir: &Path, auto_apply: boo
     let config = match parse_and_validate(file) {
         Ok(c) => c,
         Err(e) => {
-            eprintln!("watch: parse error: {}", e);
+            eprintln!("watch: parse error: {e}");
             return;
         }
     };
     let execution_order = match resolver::build_execution_order(&config) {
         Ok(o) => o,
         Err(e) => {
-            eprintln!("watch: resolve error: {}", e);
+            eprintln!("watch: resolve error: {e}");
             return;
         }
     };
@@ -345,6 +344,7 @@ fn run_watch_apply(config: &types::ForjarConfig, state_dir: &Path) {
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
+        trace: false,
     };
     match executor::apply(&cfg) {
         Ok(results) => {
@@ -353,11 +353,10 @@ fn run_watch_apply(config: &types::ForjarConfig, state_dir: &Path) {
             println!(
                 "{}",
                 green(&format!(
-                    "Apply complete: {} converged, {} unchanged.",
-                    total_converged, total_unchanged
+                    "Apply complete: {total_converged} converged, {total_unchanged} unchanged."
                 ))
             );
         }
-        Err(e) => eprintln!("{}", red(&format!("Apply error: {}", e))),
+        Err(e) => eprintln!("{}", red(&format!("Apply error: {e}"))),
     }
 }

@@ -19,7 +19,7 @@ pub(crate) fn cmd_graph_resource_dependency_fan_out(file: &Path, json: bool) -> 
     if json {
         let items: Vec<String> = fan_outs
             .iter()
-            .map(|(n, c)| format!("{{\"resource\":\"{}\",\"fan_out\":{}}}", n, c))
+            .map(|(n, c)| format!("{{\"resource\":\"{n}\",\"fan_out\":{c}}}"))
             .collect();
         println!(
             "{{\"max_fan_out\":{},\"resources\":[{}]}}",
@@ -29,9 +29,9 @@ pub(crate) fn cmd_graph_resource_dependency_fan_out(file: &Path, json: bool) -> 
     } else if fan_outs.is_empty() {
         println!("No resources found.");
     } else {
-        println!("Fan-out analysis (max: {}):", max);
+        println!("Fan-out analysis (max: {max}):");
         for (n, c) in &fan_outs {
-            println!("  {} — {} outgoing", n, c);
+            println!("  {n} — {c} outgoing");
         }
     }
     Ok(())
@@ -56,7 +56,7 @@ pub(crate) fn cmd_graph_resource_dependency_fan_in(file: &Path, json: bool) -> R
     if json {
         let items: Vec<String> = fan_ins
             .iter()
-            .map(|(n, c)| format!("{{\"resource\":\"{}\",\"fan_in\":{}}}", n, c))
+            .map(|(n, c)| format!("{{\"resource\":\"{n}\",\"fan_in\":{c}}}"))
             .collect();
         println!(
             "{{\"max_fan_in\":{},\"resources\":[{}]}}",
@@ -66,9 +66,9 @@ pub(crate) fn cmd_graph_resource_dependency_fan_in(file: &Path, json: bool) -> R
     } else if fan_ins.is_empty() {
         println!("No resources found.");
     } else {
-        println!("Fan-in analysis (max: {}):", max);
+        println!("Fan-in analysis (max: {max}):");
         for (n, c) in &fan_ins {
-            println!("  {} — {} incoming", n, c);
+            println!("  {n} — {c} incoming");
         }
     }
     Ok(())
@@ -92,12 +92,9 @@ pub(crate) fn cmd_graph_resource_dependency_path_count(
         }
     }
     if json {
-        println!(
-            "{{\"total_dependency_paths\":{},\"nodes\":{}}}",
-            total_paths, n
-        );
+        println!("{{\"total_dependency_paths\":{total_paths},\"nodes\":{n}}}");
     } else {
-        println!("Total dependency paths: {} ({} nodes)", total_paths, n);
+        println!("Total dependency paths: {total_paths} ({n} nodes)");
     }
     Ok(())
 }
@@ -136,14 +133,14 @@ pub(crate) fn cmd_graph_resource_dependency_articulation_points(
     }
     points.sort();
     if json {
-        let items: Vec<String> = points.iter().map(|p| format!("\"{}\"", p)).collect();
+        let items: Vec<String> = points.iter().map(|p| format!("\"{p}\"")).collect();
         println!("{{\"articulation_points\":[{}]}}", items.join(","));
     } else if points.is_empty() {
         println!("No articulation points found.");
     } else {
         println!("Articulation points:");
         for p in &points {
-            println!("  {}", p);
+            println!("  {p}");
         }
     }
     Ok(())
@@ -240,7 +237,7 @@ pub(crate) fn cmd_graph_resource_dependency_longest_path(
         }
     }
     if json {
-        let path_items: Vec<String> = longest_path.iter().map(|p| format!("\"{}\"", p)).collect();
+        let path_items: Vec<String> = longest_path.iter().map(|p| format!("\"{p}\"")).collect();
         println!(
             "{{\"longest_path_length\":{},\"path\":[{}]}}",
             longest,
@@ -249,7 +246,7 @@ pub(crate) fn cmd_graph_resource_dependency_longest_path(
     } else if longest == 0 {
         println!("No dependency paths found.");
     } else {
-        println!("Longest dependency path ({} hops):", longest);
+        println!("Longest dependency path ({longest} hops):");
         println!("  {}", longest_path.join(" → "));
     }
     Ok(())
@@ -297,7 +294,7 @@ pub(crate) fn cmd_graph_resource_dependency_strongly_connected(
         let items: Vec<String> = non_trivial
             .iter()
             .map(|c| {
-                let members: Vec<String> = c.iter().map(|n| format!("\"{}\"", n)).collect();
+                let members: Vec<String> = c.iter().map(|n| format!("\"{n}\"")).collect();
                 format!("[{}]", members.join(","))
             })
             .collect();

@@ -79,6 +79,7 @@ fn make_docker_resource(name: &str, image: &str) -> Resource {
         post_apply: None,
         lifecycle: None,
         store: false,
+        sudo: false,
         script: None,
     }
 }
@@ -350,7 +351,7 @@ fn test_fj153_env_with_special_chars() {
 #[test]
 fn test_fj153_large_port_list() {
     let mut r = make_docker_resource("web", "nginx:latest");
-    r.ports = (8000..8006).map(|p| format!("{}:{}", p, p)).collect();
+    r.ports = (8000..8006).map(|p| format!("{p}:{p}")).collect();
     let script = apply_script(&r);
     assert_eq!(script.matches("-p '").count(), 6);
 }

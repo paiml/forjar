@@ -1,7 +1,5 @@
 //! Phase 106 — Resource Audit & Coverage Analysis: validate commands (FJ-1110, FJ-1113, FJ-1116).
 
-#![allow(dead_code)]
-
 use crate::core::types;
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
@@ -234,10 +232,7 @@ pub(crate) fn cmd_validate_check_resource_path_depth_limit(
             })
         );
     } else if violations.is_empty() {
-        println!(
-            "Path depth: 0 resources exceed limit ({} levels)",
-            PATH_DEPTH_LIMIT
-        );
+        println!("Path depth: 0 resources exceed limit ({PATH_DEPTH_LIMIT} levels)");
     } else {
         println!(
             "Path depth: {} resources exceed limit ({} levels)",

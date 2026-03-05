@@ -61,8 +61,7 @@ fn print_apply_success_rates(rates: &[(String, f64, usize, usize)], json: bool) 
             .iter()
             .map(|(m, rate, ok, total)| {
                 format!(
-                    "{{\"machine\":\"{}\",\"success_rate\":{:.1},\"ok\":{},\"total\":{}}}",
-                    m, rate, ok, total
+                    "{{\"machine\":\"{m}\",\"success_rate\":{rate:.1},\"ok\":{ok},\"total\":{total}}}"
                 )
             })
             .collect();
@@ -74,7 +73,7 @@ fn print_apply_success_rates(rates: &[(String, f64, usize, usize)], json: bool) 
         println!("No apply events found.");
     } else {
         for (m, rate, ok, total) in rates {
-            println!("{}: {:.1}% ({}/{})", m, rate, ok, total);
+            println!("{m}: {rate:.1}% ({ok}/{total})");
         }
     }
 }
@@ -124,10 +123,7 @@ fn print_drift_recurrence(drifted: &[(String, String, String)], json: bool) {
         let items: Vec<String> = drifted
             .iter()
             .map(|(r, t, s)| {
-                format!(
-                    "{{\"resource\":\"{}\",\"type\":\"{}\",\"status\":\"{}\"}}",
-                    r, t, s
-                )
+                format!("{{\"resource\":\"{r}\",\"type\":\"{t}\",\"status\":\"{s}\"}}")
             })
             .collect();
         println!("{{\"drift_recurrence\":[{}]}}", items.join(","));
@@ -135,7 +131,7 @@ fn print_drift_recurrence(drifted: &[(String, String, String)], json: bool) {
         println!("No recurring drift detected.");
     } else {
         for (r, t, _) in drifted {
-            println!("{}: drifted ({})", r, t);
+            println!("{r}: drifted ({t})");
         }
     }
 }
@@ -196,8 +192,7 @@ fn print_type_drift_heatmap(heatmap: &[(String, usize, usize)], json: bool) {
             .iter()
             .map(|(rtype, count, machines)| {
                 format!(
-                    "{{\"resource_type\":\"{}\",\"drift_count\":{},\"machine_count\":{}}}",
-                    rtype, count, machines
+                    "{{\"resource_type\":\"{rtype}\",\"drift_count\":{count},\"machine_count\":{machines}}}"
                 )
             })
             .collect();
@@ -206,7 +201,7 @@ fn print_type_drift_heatmap(heatmap: &[(String, usize, usize)], json: bool) {
         println!("No drift detected across fleet.");
     } else {
         for (rtype, count, machines) in heatmap {
-            println!("{}: {} drifted across {} machines", rtype, count, machines);
+            println!("{rtype}: {count} drifted across {machines} machines");
         }
     }
 }

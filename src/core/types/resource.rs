@@ -333,6 +333,11 @@ pub struct Resource {
     #[serde(default)]
     pub lifecycle: Option<LifecycleRules>,
 
+    // -- Privilege escalation (FJ-1394) --
+    /// Run this resource's apply script with sudo (per-resource privilege escalation).
+    #[serde(default)]
+    pub sudo: bool,
+
     // -- Store fields (FJ-1303: reproducible package manager) --
     /// Enable content-addressed store for this resource's outputs.
     #[serde(default)]
@@ -362,25 +367,50 @@ pub struct LifecycleRules {
 }
 
 /// Resource type enum.
+///
+/// # Examples
+///
+/// ```
+/// use forjar::core::types::ResourceType;
+///
+/// let rt = ResourceType::Package;
+/// assert_eq!(rt.to_string(), "package");
+///
+/// let rt = ResourceType::File;
+/// assert_eq!(rt.to_string(), "file");
+///
+/// // Default is Package
+/// assert_eq!(ResourceType::default(), ResourceType::Package);
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum ResourceType {
+    /// System package (apt, cargo, uv).
     #[default]
     Package,
+    /// File or directory.
     File,
+    /// Systemd service unit.
     Service,
+    /// Filesystem mount point.
     Mount,
+    /// Unix user account.
     User,
+    /// Docker container.
     Docker,
+    /// Pepita namespace-isolated process.
     Pepita,
+    /// Network/firewall rule.
     Network,
+    /// Cron scheduled job.
     Cron,
+    /// Nested recipe inclusion.
     Recipe,
-    /// FJ-240: ML model resource type
+    /// FJ-240: ML model resource type.
     Model,
-    /// FJ-241: GPU hardware resource type
+    /// FJ-241: GPU hardware resource type.
     Gpu,
-    /// ALB-027: Pipeline task resource type
+    /// ALB-027: Pipeline task resource type.
     Task,
 }
 
@@ -405,10 +435,26 @@ impl fmt::Display for ResourceType {
 }
 
 /// Machine target — single machine or multiple.
+///
+/// # Examples
+///
+/// ```
+/// use forjar::core::types::MachineTarget;
+///
+/// let single = MachineTarget::Single("web".to_string());
+/// assert_eq!(single.to_vec(), vec!["web"]);
+/// assert_eq!(single.to_string(), "web");
+///
+/// let multi = MachineTarget::Multiple(vec!["web".into(), "db".into()]);
+/// assert_eq!(multi.to_vec(), vec!["web", "db"]);
+/// assert_eq!(multi.to_string(), "[web, db]");
+/// ```
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum MachineTarget {
+    /// A single machine name.
     Single(String),
+    /// Multiple machine names.
     Multiple(Vec<String>),
 }
 
@@ -421,7 +467,7 @@ impl Default for MachineTarget {
 impl fmt::Display for MachineTarget {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Single(s) => write!(f, "{}", s),
+            Self::Single(s) => write!(f, "{s}"),
             Self::Multiple(v) => write!(f, "[{}]", v.join(", ")),
         }
     }

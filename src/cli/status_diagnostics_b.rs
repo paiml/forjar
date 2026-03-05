@@ -4,23 +4,23 @@ use std::path::Path;
 
 /// FJ-780: Show resource type breakdown across fleet.
 pub(crate) fn cmd_status_resource_type_distribution(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
     let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
     let dist = count_resource_types(&config);
     if json {
         let items: Vec<String> = dist
             .iter()
-            .map(|(t, c)| format!("{{\"type\":\"{}\",\"count\":{}}}", t, c))
+            .map(|(t, c)| format!("{{\"type\":\"{t}\",\"count\":{c}}}"))
             .collect();
         println!("{{\"resource_types\":[{}]}}", items.join(","));
     } else if dist.is_empty() {
         println!("No resources.");
     } else {
         let total: usize = dist.iter().map(|(_, c)| c).sum();
-        println!("Resource type distribution ({} total):", total);
+        println!("Resource type distribution ({total} total):");
         for (t, c) in &dist {
-            println!("  {} — {}", t, c);
+            println!("  {t} — {c}");
         }
     }
     Ok(())
@@ -55,10 +55,7 @@ pub(crate) fn cmd_status_resource_apply_age(
         let items: Vec<String> = entries
             .iter()
             .map(|(m, r, age)| {
-                format!(
-                    "{{\"machine\":\"{}\",\"resource\":\"{}\",\"age\":\"{}\"}}",
-                    m, r, age
-                )
+                format!("{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"age\":\"{age}\"}}")
             })
             .collect();
         println!("{{\"resource_apply_ages\":[{}]}}", items.join(","));
@@ -67,7 +64,7 @@ pub(crate) fn cmd_status_resource_apply_age(
     } else {
         println!("Resource apply ages:");
         for (m, r, age) in &entries {
-            println!("  {} / {} — {}", m, r, age);
+            println!("  {m} / {r} — {age}");
         }
     }
     Ok(())
@@ -78,7 +75,7 @@ fn collect_apply_ages(sd: &Path, targets: &[&String]) -> Vec<(String, String, St
     let now = std::time::SystemTime::now();
     let mut entries = Vec::new();
     for m in targets {
-        let lock_path = sd.join(format!("{}.lock.yaml", m));
+        let lock_path = sd.join(m).join("state.lock.yaml");
         if let Ok(content) = std::fs::read_to_string(&lock_path) {
             if let Ok(lock) = serde_yaml_ng::from_str::<types::StateLock>(&content) {
                 for (name, rl) in &lock.resources {
@@ -109,7 +106,7 @@ fn format_age_from_timestamp(ts: Option<&str>, now: &std::time::SystemTime) -> S
 /// Format seconds into human-readable age string.
 fn format_duration_human(secs: u64) -> String {
     if secs < 60 {
-        format!("{}s ago", secs)
+        format!("{secs}s ago")
     } else if secs < 3600 {
         format!("{}m ago", secs / 60)
     } else if secs < 86400 {
@@ -191,7 +188,7 @@ pub(crate) fn cmd_status_machine_uptime(
     if json {
         let items: Vec<String> = data
             .iter()
-            .map(|(m, a)| format!("{{\"machine\":\"{}\",\"uptime\":\"{}\"}}", m, a))
+            .map(|(m, a)| format!("{{\"machine\":\"{m}\",\"uptime\":\"{a}\"}}"))
             .collect();
         println!("{{\"machine_uptime\":[{}]}}", items.join(","));
     } else if data.is_empty() {
@@ -199,7 +196,7 @@ pub(crate) fn cmd_status_machine_uptime(
     } else {
         println!("Machine uptime (since first apply):");
         for (m, a) in &data {
-            println!("  {} — {}", m, a);
+            println!("  {m} — {a}");
         }
     }
     Ok(())
@@ -242,10 +239,7 @@ pub(crate) fn cmd_status_resource_churn(
         let items: Vec<String> = data
             .iter()
             .map(|(m, r, c)| {
-                format!(
-                    "{{\"machine\":\"{}\",\"resource\":\"{}\",\"apply_count\":{}}}",
-                    m, r, c
-                )
+                format!("{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"apply_count\":{c}}}")
             })
             .collect();
         println!("{{\"resource_churn\":[{}]}}", items.join(","));
@@ -254,7 +248,7 @@ pub(crate) fn cmd_status_resource_churn(
     } else {
         println!("Resource churn (apply counts):");
         for (m, r, c) in &data {
-            println!("  {} / {} — {} applies", m, r, c);
+            println!("  {m} / {r} — {c} applies");
         }
     }
     Ok(())

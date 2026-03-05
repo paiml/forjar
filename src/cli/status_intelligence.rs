@@ -30,7 +30,7 @@ pub(crate) fn cmd_status_machine_resource_mttr_estimate(
     if json {
         let items: Vec<String> = estimates
             .iter()
-            .map(|(m, s)| format!("{{\"machine\":\"{}\",\"mttr_estimate\":\"{}\"}}", m, s))
+            .map(|(m, s)| format!("{{\"machine\":\"{m}\",\"mttr_estimate\":\"{s}\"}}"))
             .collect();
         println!("{{\"machine_mttr_estimates\":[{}]}}", items.join(","));
     } else if estimates.is_empty() {
@@ -38,7 +38,7 @@ pub(crate) fn cmd_status_machine_resource_mttr_estimate(
     } else {
         println!("Machine MTTR estimates:");
         for (m, s) in &estimates {
-            println!("  {} — {}", m, s);
+            println!("  {m} — {s}");
         }
     }
     Ok(())
@@ -47,35 +47,117 @@ pub(crate) fn cmd_status_machine_resource_mttr_estimate(
 pub(super) fn collect_mttr_estimates(sd: &Path, targets: &[&String]) -> Vec<(String, String)> {
     let mut estimates = Vec::new();
     for m in targets {
-        let path = sd.join(m).join("lock.yaml");
-        let content = match std::fs::read_to_string(&path) {
-            Ok(c) => c,
-            Err(_) => {
-                estimates.push(((*m).clone(), "no data".to_string()));
-                continue;
+        // Read events to compute actual MTTR
+        let events_path = sd.join(m).join("events.jsonl");
+        let events_content = std::fs::read_to_string(&events_path).ok();
+
+        // Read lock to get current failure count
+        let lock_path = sd.join(m).join("state.lock.yaml");
+        let lock_content = std::fs::read_to_string(&lock_path).ok();
+
+        let failed = lock_content
+            .as_ref()
+            .and_then(|c| serde_yaml_ng::from_str::<types::StateLock>(c).ok())
+            .map(|lock| {
+                lock.resources
+                    .values()
+                    .filter(|r| matches!(r.status, types::ResourceStatus::Failed))
+                    .count()
+            })
+            .unwrap_or(0);
+
+        let est = match events_content {
+            Some(ref content) if !content.is_empty() => {
+                let mttr = compute_event_mttr(content);
+                match (mttr, failed) {
+                    (Some(seconds), f) if f > 0 => format_mttr(seconds, f),
+                    (Some(seconds), _) => format_mttr_healthy(seconds),
+                    (None, f) if f > 0 => {
+                        format!("{f} currently failed — no prior recovery data")
+                    }
+                    _ => "all healthy — no recovery needed".to_string(),
+                }
             }
-        };
-        let lock: types::StateLock = match serde_yaml_ng::from_str(&content) {
-            Ok(l) => l,
-            Err(_) => {
-                estimates.push(((*m).clone(), "parse error".to_string()));
-                continue;
-            }
-        };
-        let failed = lock
-            .resources
-            .values()
-            .filter(|r| matches!(r.status, types::ResourceStatus::Failed))
-            .count();
-        let est = if failed > 0 {
-            format!("{} failed resources — estimated recovery needed", failed)
-        } else {
-            "all healthy — no recovery needed".to_string()
+            _ if failed > 0 => format!("{failed} failed — no event history for MTTR"),
+            _ => "no data".to_string(),
         };
         estimates.push(((*m).clone(), est));
     }
     estimates.sort_by(|a, b| a.0.cmp(&b.0));
     estimates
+}
+
+fn compute_event_mttr(content: &str) -> Option<f64> {
+    let mut fail_times: std::collections::HashMap<String, f64> = std::collections::HashMap::new();
+    let mut recovery_durations: Vec<f64> = Vec::new();
+
+    for line in content.lines() {
+        let val: serde_json::Value = match serde_json::from_str(line) {
+            Ok(v) => v,
+            Err(_) => continue,
+        };
+        let event = val.get("event").and_then(|v| v.as_str()).unwrap_or("");
+        let resource = val.get("resource").and_then(|v| v.as_str()).unwrap_or("");
+        let ts_str = val.get("ts").and_then(|v| v.as_str()).unwrap_or("");
+        let ts = match parse_event_ts(ts_str) {
+            Some(t) => t,
+            None => continue,
+        };
+
+        if event == "resource_failed" || event == "resource_drifted" {
+            fail_times.insert(resource.to_string(), ts);
+        } else if event == "resource_converged" {
+            if let Some(fail_ts) = fail_times.remove(resource) {
+                let duration = ts - fail_ts;
+                if duration > 0.0 {
+                    recovery_durations.push(duration);
+                }
+            }
+        }
+    }
+
+    if recovery_durations.is_empty() {
+        None
+    } else {
+        Some(recovery_durations.iter().sum::<f64>() / recovery_durations.len() as f64)
+    }
+}
+
+fn parse_event_ts(s: &str) -> Option<f64> {
+    let parts: Vec<&str> = s.split('T').collect();
+    if parts.len() != 2 {
+        return None;
+    }
+    let date: Vec<u32> = parts[0].split('-').filter_map(|p| p.parse().ok()).collect();
+    let time_str = parts[1].trim_end_matches('Z');
+    let time: Vec<f64> = time_str.split(':').filter_map(|p| p.parse().ok()).collect();
+    if date.len() != 3 || time.len() != 3 {
+        return None;
+    }
+    let days = (date[0] as f64 - 1970.0) * 365.25 + (date[1] as f64 - 1.0) * 30.44 + date[2] as f64;
+    Some(days * 86400.0 + time[0] * 3600.0 + time[1] * 60.0 + time[2])
+}
+
+fn format_mttr(seconds: f64, current_failed: usize) -> String {
+    let time = if seconds < 60.0 {
+        format!("{seconds:.1}s")
+    } else if seconds < 3600.0 {
+        format!("{:.1}m", seconds / 60.0)
+    } else {
+        format!("{:.1}h", seconds / 3600.0)
+    };
+    format!("MTTR {time} avg — {current_failed} currently failed")
+}
+
+fn format_mttr_healthy(seconds: f64) -> String {
+    let time = if seconds < 60.0 {
+        format!("{seconds:.1}s")
+    } else if seconds < 3600.0 {
+        format!("{:.1}m", seconds / 60.0)
+    } else {
+        format!("{:.1}h", seconds / 3600.0)
+    };
+    format!("MTTR {time} avg — all healthy now")
 }
 
 /// FJ-914: Forecast convergence trajectory based on current state.
@@ -143,7 +225,7 @@ pub(super) fn collect_convergence_forecasts(
 ) -> Vec<(String, usize, usize)> {
     let mut forecasts = Vec::new();
     for m in targets {
-        let path = sd.join(m).join("lock.yaml");
+        let path = sd.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -196,10 +278,7 @@ pub(crate) fn cmd_status_machine_resource_error_budget_forecast(
         println!("Machine error budget forecast:");
         for (m, f, t) in &forecasts {
             let remaining = 100.0 - pct(*f, *t);
-            println!(
-                "  {} — {:.1}% budget remaining ({}/{} failed)",
-                m, remaining, f, t
-            );
+            println!("  {m} — {remaining:.1}% budget remaining ({f}/{t} failed)");
         }
     }
     Ok(())
@@ -211,7 +290,7 @@ pub(super) fn collect_error_budget_forecasts(
 ) -> Vec<(String, usize, usize)> {
     let mut forecasts = Vec::new();
     for m in targets {
-        let path = sd.join(m).join("lock.yaml");
+        let path = sd.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -276,7 +355,7 @@ pub(super) fn collect_dependency_lag(
 ) -> Vec<(String, usize, usize)> {
     let mut lags = Vec::new();
     for m in targets {
-        let path = sd.join(m).join("lock.yaml");
+        let path = sd.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&path) {
             Ok(c) => c,
             Err(_) => continue,

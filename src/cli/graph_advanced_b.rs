@@ -34,7 +34,7 @@ pub(crate) fn cmd_graph_dependency_depth_per_resource(
     if json {
         let items: Vec<String> = depths
             .iter()
-            .map(|(r, d)| format!("{{\"resource\":\"{}\",\"depth\":{}}}", r, d))
+            .map(|(r, d)| format!("{{\"resource\":\"{r}\",\"depth\":{d}}}"))
             .collect();
         println!("{{\"dependency_depths\":[{}]}}", items.join(","));
     } else if depths.is_empty() {
@@ -42,7 +42,7 @@ pub(crate) fn cmd_graph_dependency_depth_per_resource(
     } else {
         println!("Dependency depth per resource:");
         for (r, d) in &depths {
-            println!("  {} — depth {}", r, d);
+            println!("  {r} — depth {d}");
         }
     }
     Ok(())
@@ -64,9 +64,9 @@ fn compute_max_depth(node: usize, adj: &[Vec<usize>], cache: &mut [Option<usize>
 
 /// FJ-815: Fan-in count per resource (how many depend on it).
 pub(crate) fn cmd_graph_resource_fanin(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
     let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
     let mut fanin: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
     for name in config.resources.keys() {
         fanin.insert(name.clone(), 0);
@@ -81,7 +81,7 @@ pub(crate) fn cmd_graph_resource_fanin(file: &Path, json: bool) -> Result<(), St
     if json {
         let items: Vec<String> = sorted
             .iter()
-            .map(|(r, c)| format!("{{\"resource\":\"{}\",\"fanin\":{}}}", r, c))
+            .map(|(r, c)| format!("{{\"resource\":\"{r}\",\"fanin\":{c}}}"))
             .collect();
         println!("{{\"resource_fanin\":[{}]}}", items.join(","));
     } else if sorted.is_empty() {
@@ -89,7 +89,7 @@ pub(crate) fn cmd_graph_resource_fanin(file: &Path, json: bool) -> Result<(), St
     } else {
         println!("Fan-in per resource:");
         for (r, c) in &sorted {
-            println!("  {} — {} dependents", r, c);
+            println!("  {r} — {c} dependents");
         }
     }
     Ok(())
@@ -97,15 +97,15 @@ pub(crate) fn cmd_graph_resource_fanin(file: &Path, json: bool) -> Result<(), St
 
 /// FJ-819: Detect disconnected subgraphs in the DAG.
 pub(crate) fn cmd_graph_isolated_subgraphs(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
     let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
     let components = find_connected_components(&config);
     if json {
         let items: Vec<String> = components
             .iter()
             .map(|c| {
-                let members: Vec<String> = c.iter().map(|s| format!("\"{}\"", s)).collect();
+                let members: Vec<String> = c.iter().map(|s| format!("\"{s}\"")).collect();
                 format!("[{}]", members.join(","))
             })
             .collect();
@@ -192,7 +192,7 @@ pub(crate) fn cmd_graph_resource_dependency_critical_path_length(
     if json {
         let items: Vec<String> = paths
             .iter()
-            .map(|(n, l)| format!("{{\"resource\":\"{}\",\"critical_path_length\":{}}}", n, l))
+            .map(|(n, l)| format!("{{\"resource\":\"{n}\",\"critical_path_length\":{l}}}"))
             .collect();
         println!("{{\"critical_path_lengths\":[{}]}}", items.join(","));
     } else if paths.is_empty() {
@@ -200,7 +200,7 @@ pub(crate) fn cmd_graph_resource_dependency_critical_path_length(
     } else {
         println!("Critical path lengths (longest chain to root):");
         for (n, l) in &paths {
-            println!("  {} — {}", n, l);
+            println!("  {n} — {l}");
         }
     }
     Ok(())
@@ -253,7 +253,7 @@ pub(crate) fn cmd_graph_resource_dependency_redundancy_score(
     if json {
         let items: Vec<String> = scores
             .iter()
-            .map(|(n, s)| format!("{{\"resource\":\"{}\",\"redundancy_score\":{:.2}}}", n, s))
+            .map(|(n, s)| format!("{{\"resource\":\"{n}\",\"redundancy_score\":{s:.2}}}"))
             .collect();
         println!("{{\"redundancy_scores\":[{}]}}", items.join(","));
     } else if scores.is_empty() {
@@ -261,7 +261,7 @@ pub(crate) fn cmd_graph_resource_dependency_redundancy_score(
     } else {
         println!("Redundancy scores (higher = more redundant paths):");
         for (n, s) in &scores {
-            println!("  {} — {:.2}", n, s);
+            println!("  {n} — {s:.2}");
         }
     }
     Ok(())

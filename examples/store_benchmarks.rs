@@ -102,7 +102,7 @@ fn bench_demo_closure() {
     let start = Instant::now();
     for _ in 0..10_000 {
         let closures = all_closures(&graph);
-        for (_name, closure) in &closures {
+        for closure in closures.values() {
             let _ = closure_hash(closure);
         }
     }

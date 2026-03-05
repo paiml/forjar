@@ -69,7 +69,7 @@ impl TraceSession {
         let trace_id = format!("{:0>32}", format!("{:x}", hash_str(run_id)));
         let run_span_id = format!(
             "{:0>16}",
-            format!("{:x}", hash_str(&format!("{}-root", run_id)))
+            format!("{:x}", hash_str(&format!("{run_id}-root")))
         );
 
         Self {
@@ -122,7 +122,7 @@ impl TraceSession {
             trace_id: self.trace_id.clone(),
             span_id,
             parent_span_id: Some(self.run_span_id.clone()),
-            name: format!("apply:{}", resource_id),
+            name: format!("apply:{resource_id}"),
             start_time: crate::tripwire::eventlog::now_iso8601(),
             duration_us: duration.as_micros() as u64,
             exit_code,
@@ -187,13 +187,13 @@ impl TraceSession {
 pub fn write_trace(state_dir: &Path, machine: &str, session: &TraceSession) -> Result<(), String> {
     let path = trace_path(state_dir, machine);
     if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent).map_err(|e| format!("cannot create trace dir: {}", e))?;
+        std::fs::create_dir_all(parent).map_err(|e| format!("cannot create trace dir: {e}"))?;
     }
 
     let mut output = String::new();
     for span in &session.spans {
         let json =
-            serde_json::to_string(span).map_err(|e| format!("trace serialize error: {}", e))?;
+            serde_json::to_string(span).map_err(|e| format!("trace serialize error: {e}"))?;
         output.push_str(&json);
         output.push('\n');
     }
@@ -220,7 +220,7 @@ pub fn read_trace(state_dir: &Path, machine: &str) -> Result<Vec<TraceSpan>, Str
             continue;
         }
         let span: TraceSpan =
-            serde_json::from_str(line).map_err(|e| format!("trace parse error: {}", e))?;
+            serde_json::from_str(line).map_err(|e| format!("trace parse error: {e}"))?;
         spans.push(span);
     }
 

@@ -30,18 +30,26 @@ pub enum PurityLevel {
 /// Result of purity classification for a single resource.
 #[derive(Debug, Clone, PartialEq)]
 pub struct PurityResult {
+    /// Resource name.
     pub name: String,
+    /// Classified purity level.
     pub level: PurityLevel,
+    /// Reasons for this classification.
     pub reasons: Vec<String>,
 }
 
 /// Signals that influence purity classification.
 #[derive(Debug, Clone, Default)]
 pub struct PuritySignals {
+    /// Whether the resource has a version pin.
     pub has_version: bool,
+    /// Whether the resource uses the content store.
     pub has_store: bool,
+    /// Whether the resource has sandbox isolation.
     pub has_sandbox: bool,
+    /// Whether a curl|bash or wget|sh pattern was detected.
     pub has_curl_pipe: bool,
+    /// Purity levels of transitive dependencies.
     pub dep_levels: Vec<PurityLevel>,
 }
 
@@ -80,7 +88,7 @@ pub fn classify(name: &str, signals: &PuritySignals) -> PurityResult {
     let dep_max = signals.dep_levels.iter().max().copied();
     let final_level = match dep_max {
         Some(dep) if dep > own_level => {
-            reasons.push(format!("dependency at level {:?} elevates purity", dep));
+            reasons.push(format!("dependency at level {dep:?} elevates purity"));
             dep
         }
         _ => own_level,

@@ -155,7 +155,7 @@ mod tests {
             resource_dependency_critical_path: false,
             resource_dependency_cluster_analysis: false,
         };
-        let debug = format!("{:?}", args);
+        let debug = format!("{args:?}");
         assert!(debug.contains("GraphArgs"));
     }
 }

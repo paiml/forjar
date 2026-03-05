@@ -30,11 +30,11 @@ mod tests_helpers;
 #[cfg(test)]
 mod tests_proptest;
 #[cfg(test)]
+mod tests_proptest_templates;
+#[cfg(test)]
 mod tests_resource;
 #[cfg(test)]
 mod tests_resource_b;
-#[cfg(test)]
-mod tests_proptest_templates;
 #[cfg(test)]
 mod tests_staleness;
 #[cfg(test)]

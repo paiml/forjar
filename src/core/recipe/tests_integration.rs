@@ -132,6 +132,7 @@ fn test_fj019_resolve_resource_inputs_target_and_options() {
         post_apply: None,
         lifecycle: None,
         store: false,
+        sudo: false,
         script: None,
     };
     let mut inputs = HashMap::new();
@@ -227,6 +228,7 @@ fn test_fj019_resolve_resource_inputs_content_field() {
         post_apply: None,
         lifecycle: None,
         store: false,
+        sudo: false,
         script: None,
     };
     let mut inputs = HashMap::new();
@@ -241,7 +243,7 @@ fn test_fj019_recipe_source_debug_clone() {
         path: "recipes/test.yaml".to_string(),
     };
     let cloned = local.clone();
-    let _ = format!("{:?}", cloned);
+    let _ = format!("{cloned:?}");
 
     let git = RecipeSource::Git {
         git: "https://github.com/example/recipes.git".to_string(),
@@ -249,7 +251,7 @@ fn test_fj019_recipe_source_debug_clone() {
         path: Some("nfs.yaml".to_string()),
     };
     let cloned = git.clone();
-    let _ = format!("{:?}", cloned);
+    let _ = format!("{cloned:?}");
 }
 
 #[test]
@@ -301,8 +303,7 @@ fn test_fj132_expand_recipe_namespaces_resource_ids() {
     for key in expanded.keys() {
         assert!(
             key.starts_with("web/"),
-            "expanded key '{}' should be namespaced with 'web/'",
-            key
+            "expanded key '{key}' should be namespaced with 'web/'"
         );
     }
 }
@@ -433,9 +434,7 @@ fn test_fj036_expand_recipe_inherits_machine() {
         assert_eq!(
             machines,
             vec!["staging-box"],
-            "resource '{}' should inherit machine 'staging-box', got {:?}",
-            key,
-            machines
+            "resource '{key}' should inherit machine 'staging-box', got {machines:?}"
         );
     }
 }
@@ -447,7 +446,6 @@ fn test_fj036_load_recipe_file_missing() {
     let err = result.unwrap_err();
     assert!(
         err.contains("cannot read recipe"),
-        "error should mention cannot read recipe: {}",
-        err
+        "error should mention cannot read recipe: {err}"
     );
 }

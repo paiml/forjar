@@ -12,19 +12,28 @@ use serde::{Deserialize, Serialize};
 /// A single resource's purity validation result.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ResourcePurityReport {
+    /// Resource name.
     pub name: String,
+    /// Classified purity level.
     pub level: PurityLevel,
+    /// Human-readable purity label.
     pub label: String,
+    /// Reasons for this classification.
     pub reasons: Vec<String>,
 }
 
 /// Overall recipe purity validation result.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PurityValidation {
+    /// Per-resource purity reports.
     pub resources: Vec<ResourcePurityReport>,
+    /// Overall recipe purity level.
     pub recipe_purity: PurityLevel,
+    /// Human-readable recipe purity label.
     pub recipe_label: String,
+    /// Whether the validation passed.
     pub pass: bool,
+    /// Minimum required purity level (if set).
     pub required_level: Option<PurityLevel>,
 }
 
@@ -75,9 +84,13 @@ pub fn validate_repro_score(inputs: &[ReproInput], min_score: Option<f64>) -> Re
 /// Reproducibility score validation result.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ReproValidation {
+    /// Reproducibility score breakdown.
     pub score: ReproScore,
+    /// Letter grade (A-F).
     pub grade: String,
+    /// Whether the validation passed.
     pub pass: bool,
+    /// Minimum required score (if set).
     pub required_min: Option<f64>,
 }
 
@@ -116,7 +129,7 @@ pub fn format_repro_report(validation: &ReproValidation) -> String {
     lines.push(format!("  Store:   {:.1}", validation.score.store_score));
     lines.push(format!("  Lock:    {:.1}", validation.score.lock_score));
     if let Some(min) = validation.required_min {
-        lines.push(format!("  Required: >= {:.1}", min));
+        lines.push(format!("  Required: >= {min:.1}"));
     }
     lines.join("\n")
 }

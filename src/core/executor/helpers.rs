@@ -184,7 +184,7 @@ pub(crate) fn build_resource_details(
         if let Some(ref path) = resource.path {
             let hash = if machine.is_container_transport() {
                 // Read file content via transport for container machines
-                let script = format!("cat '{}'", path);
+                let script = format!("cat '{path}'");
                 transport::exec_script(machine, &script)
                     .ok()
                     .filter(|out| out.success())

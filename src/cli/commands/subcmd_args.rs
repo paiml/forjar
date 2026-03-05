@@ -44,11 +44,37 @@ pub enum SnapshotCmd {
     },
 }
 
+/// FJ-1386: Generation subcommands — Nix-style generational state snapshots.
+#[derive(Subcommand, Debug)]
+pub enum GenerationCmd {
+    /// List all state generations
+    List {
+        /// State directory
+        #[arg(long, default_value = "state")]
+        state_dir: PathBuf,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
+    /// Garbage-collect old generations
+    Gc {
+        /// Number of generations to keep
+        #[arg(long, default_value = "5")]
+        keep: u32,
+        /// State directory
+        #[arg(long, default_value = "state")]
+        state_dir: PathBuf,
+    },
+}
+
 /// Shell types for completion generation.
 #[derive(Debug, Clone, clap::ValueEnum)]
 pub enum CompletionShell {
+    /// Generate bash completions.
     Bash,
+    /// Generate zsh completions.
     Zsh,
+    /// Generate fish completions.
     Fish,
 }
 
@@ -56,14 +82,22 @@ pub enum CompletionShell {
 #[derive(Subcommand, Debug)]
 pub enum WorkspaceCmd {
     /// Create a new workspace
-    New { name: String },
+    New {
+        /// Workspace name
+        name: String,
+    },
     /// List all workspaces
     List,
     /// Select (activate) a workspace
-    Select { name: String },
+    Select {
+        /// Workspace name
+        name: String,
+    },
     /// Delete a workspace and its state
     Delete {
+        /// Workspace name
         name: String,
+        /// Skip confirmation
         #[arg(long)]
         yes: bool,
     },
@@ -76,13 +110,17 @@ pub enum WorkspaceCmd {
 pub enum SecretsCmd {
     /// Encrypt a value with age recipients
     Encrypt {
+        /// Plaintext value to encrypt
         value: String,
+        /// Age recipient public key(s)
         #[arg(short, long, required = true)]
         recipient: Vec<String>,
     },
     /// Decrypt an ENC[age,...] marker
     Decrypt {
+        /// Encrypted marker to decrypt
         value: String,
+        /// Path to age identity file
         #[arg(short, long)]
         identity: Option<PathBuf>,
     },
@@ -90,30 +128,40 @@ pub enum SecretsCmd {
     Keygen,
     /// Decrypt and display all secrets in a forjar.yaml
     View {
+        /// Path to forjar.yaml
         #[arg(short, long, default_value = "forjar.yaml")]
         file: PathBuf,
+        /// Path to age identity file
         #[arg(short, long)]
         identity: Option<PathBuf>,
     },
     /// Re-encrypt all ENC[age,...] markers with new recipients
     Rekey {
+        /// Path to forjar.yaml
         #[arg(short, long, default_value = "forjar.yaml")]
         file: PathBuf,
+        /// Path to age identity file
         #[arg(short, long)]
         identity: Option<PathBuf>,
+        /// Age recipient public key(s)
         #[arg(short, long, required = true)]
         recipient: Vec<String>,
     },
     /// FJ-201: Rotate all secrets — decrypt and re-encrypt with new keys
     Rotate {
+        /// Path to forjar.yaml
         #[arg(short, long, default_value = "forjar.yaml")]
         file: PathBuf,
+        /// Path to age identity file
         #[arg(short, long)]
         identity: Option<PathBuf>,
+        /// Age recipient public key(s)
         #[arg(short, long, required = true)]
         recipient: Vec<String>,
+        /// Re-encrypt after rotation
         #[arg(long)]
         re_encrypt: bool,
+        /// State directory
         #[arg(long, default_value = "state")]
         state_dir: PathBuf,
     },

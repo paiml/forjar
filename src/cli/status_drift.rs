@@ -10,7 +10,7 @@ fn collect_drift_details(
     machine_filter: Option<&str>,
 ) -> Result<Vec<serde_json::Value>, String> {
     let entries =
-        std::fs::read_dir(state_dir).map_err(|e| format!("cannot read state dir: {}", e))?;
+        std::fs::read_dir(state_dir).map_err(|e| format!("cannot read state dir: {e}"))?;
     let mut details = Vec::new();
     for entry in entries.flatten() {
         let name = entry.file_name().to_string_lossy().to_string();
@@ -106,10 +106,7 @@ fn process_drift_summary_machine(
         } else {
             red("✗")
         };
-        println!(
-            "{} {} — {}/{} drifted ({:.0}%)",
-            indicator, m, drifted, total, pct
-        );
+        println!("{indicator} {m} — {drifted}/{total} drifted ({pct:.0}%)");
     }
 }
 
@@ -155,7 +152,7 @@ pub(crate) fn cmd_status_drift_velocity(
                 continue;
             }
         }
-        let log_path = state_dir.join(format!("{}.events.jsonl", m));
+        let log_path = state_dir.join(format!("{m}.events.jsonl"));
         if !log_path.exists() {
             events_per_machine.push((m.clone(), 0, 0));
             continue;
@@ -193,10 +190,7 @@ pub(crate) fn cmd_status_drift_velocity(
             } else {
                 0.0
             };
-            println!(
-                "  {} — {} total events, {} drift events ({:.1}% drift rate)",
-                m, total, drift, rate
-            );
+            println!("  {m} — {total} total events, {drift} drift events ({rate:.1}% drift rate)");
         }
     }
     Ok(())
@@ -225,7 +219,7 @@ fn collect_drift_forecasts(
                 continue;
             }
         }
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             continue;
         }
@@ -254,10 +248,7 @@ pub(crate) fn cmd_status_drift_forecast(
         let items: Vec<String> = forecasts
             .iter()
             .map(|(m, r, risk)| {
-                format!(
-                    r#"{{"machine":"{}","resource":"{}","drift_risk":"{}"}}"#,
-                    m, r, risk
-                )
+                format!(r#"{{"machine":"{m}","resource":"{r}","drift_risk":"{risk}"}}"#)
             })
             .collect();
         println!(
@@ -270,7 +261,7 @@ pub(crate) fn cmd_status_drift_forecast(
     } else {
         println!("Drift forecast ({} at-risk resources):", forecasts.len());
         for (m, r, risk) in &forecasts {
-            println!("  {}:{} — {} risk", m, r, risk);
+            println!("  {m}:{r} — {risk} risk");
         }
     }
     Ok(())
@@ -282,7 +273,7 @@ pub(crate) fn cmd_status_drift_details_all(state_dir: &Path, json: bool) -> Resu
     let mut drifted = Vec::new();
 
     for m in &machines {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             continue;
         }
@@ -347,7 +338,7 @@ fn compute_drift_stats(lock: &types::StateLock) -> (usize, usize, f64) {
 fn load_drift_trend(state_dir: &Path, targets: &[&String]) -> Vec<(String, usize, usize, f64)> {
     let mut results = Vec::new();
     for m in targets {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if let Ok(data) = std::fs::read_to_string(&lock_path) {
             if let Ok(lock) = serde_yaml_ng::from_str::<types::StateLock>(&data) {
                 let (total, drifted, rate) = compute_drift_stats(&lock);
@@ -375,8 +366,7 @@ pub(crate) fn cmd_status_drift_trend(
             .iter()
             .map(|(m, total, drifted, rate)| {
                 format!(
-                    "{{\"machine\":\"{}\",\"total\":{},\"drifted\":{},\"drift_rate\":{:.1}}}",
-                    m, total, drifted, rate
+                    "{{\"machine\":\"{m}\",\"total\":{total},\"drifted\":{drifted},\"drift_rate\":{rate:.1}}}"
                 )
             })
             .collect();
@@ -384,7 +374,7 @@ pub(crate) fn cmd_status_drift_trend(
     } else {
         println!("Drift trend:");
         for (m, total, drifted, rate) in &trend {
-            println!("  {} — {}/{} drifted ({:.1}%)", m, drifted, total, rate);
+            println!("  {m} — {drifted}/{total} drifted ({rate:.1}%)");
         }
     }
     Ok(())
@@ -403,7 +393,7 @@ fn collect_config_drift(
                 continue;
             }
         }
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         if !lock_path.exists() {
             continue;
         }
@@ -434,12 +424,7 @@ pub(crate) fn cmd_status_config_drift(
     if json {
         let items: Vec<String> = drifted
             .iter()
-            .map(|(m, r, s)| {
-                format!(
-                    r#"{{"machine":"{}","resource":"{}","status":"{}"}}"#,
-                    m, r, s
-                )
-            })
+            .map(|(m, r, s)| format!(r#"{{"machine":"{m}","resource":"{r}","status":"{s}"}}"#))
             .collect();
         println!(
             r#"{{"config_drift":[{}],"count":{}}}"#,
@@ -451,7 +436,7 @@ pub(crate) fn cmd_status_config_drift(
     } else {
         println!("Config drift detected ({} resources):", drifted.len());
         for (m, r, s) in &drifted {
-            println!("  {}:{} — {}", m, r, s);
+            println!("  {m}:{r} — {s}");
         }
     }
     Ok(())

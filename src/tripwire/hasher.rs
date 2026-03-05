@@ -47,16 +47,14 @@ pub fn hash_directory(path: &Path) -> Result<String, String> {
         children.sort_by_key(|e| e.file_name());
 
         for entry in children {
-            let ft = entry
-                .file_type()
-                .map_err(|e| format!("stat error: {}", e))?;
+            let ft = entry.file_type().map_err(|e| format!("stat error: {e}"))?;
             if ft.is_symlink() {
                 continue;
             }
             let path = entry.path();
             let rel = path
                 .strip_prefix(base)
-                .map_err(|e| format!("path prefix error: {}", e))?
+                .map_err(|e| format!("path prefix error: {e}"))?
                 .to_string_lossy()
                 .to_string();
             if ft.is_file() {

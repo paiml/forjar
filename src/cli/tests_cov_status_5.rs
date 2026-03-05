@@ -1,7 +1,5 @@
+#![allow(unused)]
 //! Coverage tests for status_predictive, status_operational.
-
-#![allow(unused_imports)]
-#![allow(dead_code)]
 use super::status_convergence::*;
 use super::status_fleet_detail::*;
 use super::status_insights::*;
@@ -34,9 +32,9 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         for m in &["web", "db"] {
             // Subdirectory pattern: {m}/state.lock.yaml
-            write_yaml(dir.path(), &format!("{}/state.lock.yaml", m), state_lock());
+            write_yaml(dir.path(), &format!("{m}/state.lock.yaml"), state_lock());
             // Flat pattern: {m}.lock.yaml
-            write_yaml(dir.path(), &format!("{}.lock.yaml", m), state_lock());
+            write_yaml(dir.path(), &format!("{m}/state.lock.yaml"), state_lock());
         }
         dir
     }

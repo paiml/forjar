@@ -312,3 +312,135 @@ mod tests_validate_store_purity;
 mod tests_validate_transport;
 #[cfg(test)]
 mod tests_workspace;
+#[cfg(test)]
+mod tests_sbom;
+#[cfg(test)]
+mod tests_cbom;
+#[cfg(test)]
+mod tests_prove;
+#[cfg(test)]
+mod tests_privilege_analysis;
+#[cfg(test)]
+mod tests_provenance;
+#[cfg(test)]
+mod tests_lineage;
+#[cfg(test)]
+mod tests_bundle;
+#[cfg(test)]
+mod tests_model_card;
+#[cfg(test)]
+mod tests_agent_sbom;
+#[cfg(test)]
+mod tests_repro_proof;
+#[cfg(test)]
+mod tests_data_freshness;
+#[cfg(test)]
+mod tests_data_validate;
+#[cfg(test)]
+mod tests_checkpoint;
+#[cfg(test)]
+mod tests_dataset_lineage;
+#[cfg(test)]
+mod tests_sovereignty;
+#[cfg(test)]
+mod tests_cost_estimate;
+#[cfg(test)]
+mod tests_model_eval;
+#[cfg(test)]
+mod tests_fault_inject;
+#[cfg(test)]
+mod tests_runtime_invariants;
+#[cfg(test)]
+mod tests_iso_export;
+#[cfg(test)]
+mod tests_state_import_brownfield;
+#[cfg(test)]
+mod tests_cross_machine_deps;
+#[cfg(test)]
+mod tests_remote_state;
+#[cfg(test)]
+mod tests_recipe_registry;
+#[cfg(test)]
+mod tests_service_catalog;
+#[cfg(test)]
+mod tests_multi_config;
+#[cfg(test)]
+mod tests_stack_dep_graph;
+#[cfg(test)]
+mod tests_infra_query;
+#[cfg(test)]
+mod tests_infra_query_live;
+#[cfg(test)]
+mod tests_recipe_signing;
+#[cfg(test)]
+mod tests_pq_signing;
+#[cfg(test)]
+mod tests_preservation_check;
+#[cfg(test)]
+mod tests_parallel_multi_stack;
+#[cfg(test)]
+mod tests_saga_coordinator;
+#[cfg(test)]
+mod tests_agent_registry;
+#[cfg(test)]
+mod tests_pull_agent;
+#[cfg(test)]
+mod tests_lsp;
+#[cfg(test)]
+mod tests_lsp_b;
+#[cfg(test)]
+mod tests_security_scan;
+#[cfg(test)]
+mod tests_config_merge;
+#[cfg(test)]
+mod tests_complexity_analysis;
+#[cfg(test)]
+mod tests_impact_analysis;
+#[cfg(test)]
+mod tests_drift_predict;
+#[cfg(test)]
+mod tests_cov_validate4;
+#[cfg(test)]
+mod tests_cov_misc_11;
+#[cfg(test)]
+mod tests_validate_safety_cov;
+#[cfg(test)]
+mod tests_validate_advanced_cov;
+#[cfg(test)]
+mod tests_validate_governance_cov;
+#[cfg(test)]
+mod tests_validate_ownership_cov;
+#[cfg(test)]
+mod tests_validate_ordering_cov;
+#[cfg(test)]
+mod tests_status_intelligence_cov;
+#[cfg(test)]
+mod tests_status_recovery_cov;
+#[cfg(test)]
+mod tests_dispatch_validate_cov;
+#[cfg(test)]
+mod tests_dispatch_graph_cov;
+#[cfg(test)]
+mod tests_dispatch_status_cov;
+#[cfg(test)]
+mod tests_dispatch_status_ext_cov;
+#[cfg(test)]
+mod tests_dispatch_status_b_cov;
+#[cfg(test)]
+mod tests_dispatch_validate_c_cov;
+#[cfg(test)]
+mod tests_dispatch_graph_b_cov;
+#[cfg(test)]
+mod tests_cov_lock2;
+#[cfg(test)]
+mod tests_cov_validate_ext5;
+#[cfg(test)]
+mod tests_cov_graph_ext4;
+#[cfg(test)]
+mod tests_cov_status_ext8;
+#[cfg(test)]
+mod tests_cov_plan5;
+#[cfg(test)]
+mod tests_cov_bundle2;
+#[cfg(test)]
+mod tests_cov_fleet3;

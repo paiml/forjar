@@ -3,11 +3,23 @@
 //!
 //! Usage: cargo run --example multi_machine
 
-use forjar::core::{codegen, parser, planner, resolver};
+use forjar::core::{codegen, parser, planner, resolver, types};
 use std::collections::HashMap;
 
 fn main() {
-    let yaml = r#"
+    println!("=== Multi-Machine Orchestration Example ===\n");
+    let config = parse_demo_config();
+    show_machines(&config);
+    show_execution_order(&config);
+    show_plan(&config);
+    show_dependency_edges(&config);
+    show_template_resolution(&config);
+    show_mount_script(&config);
+    println!("\n=== Multi-Machine Example Complete ===");
+}
+
+fn demo_yaml() -> &'static str {
+    r#"
 version: "1.0"
 name: multi-machine-demo
 description: "3-machine infrastructure with cross-machine dependencies"
@@ -31,7 +43,6 @@ machines:
     cost: 5
 
 resources:
-  # NFS server setup (runs first, cheapest machine)
   nfs-packages:
     type: package
     machine: nfs-server
@@ -56,7 +67,6 @@ resources:
     depends_on: [nfs-exports]
     restart_on: [nfs-exports]
 
-  # App server mounts NFS (depends on NFS service being up)
   app-packages:
     type: package
     machine: app-server
@@ -94,7 +104,6 @@ resources:
     depends_on: [app-config]
     restart_on: [app-config]
 
-  # Monitoring server watches both (highest cost = runs last)
   monitor-packages:
     type: package
     machine: monitor
@@ -119,12 +128,11 @@ resources:
     action: allow
     from_addr: 192.168.50.0/24
     depends_on: [monitor-packages]
-"#;
+"#
+}
 
-    println!("=== Multi-Machine Orchestration Example ===\n");
-
-    // Parse and validate
-    let config = parser::parse_config(yaml).expect("parse failed");
+fn parse_demo_config() -> types::ForjarConfig {
+    let config = parser::parse_config(demo_yaml()).expect("parse failed");
     let errors = parser::validate_config(&config);
     if !errors.is_empty() {
         for e in &errors {
@@ -137,52 +145,54 @@ resources:
         config.machines.len(),
         config.resources.len()
     );
+    config
+}
 
-    // Show machines sorted by cost
+fn show_machines(config: &types::ForjarConfig) {
     println!("\nMachines (sorted by cost):");
     let mut machines: Vec<_> = config.machines.iter().collect();
     machines.sort_by_key(|(_, m)| m.cost);
     for (name, machine) in &machines {
-        println!(
-            "  {} (addr: {}, cost: {})",
-            name, machine.addr, machine.cost
-        );
+        println!("  {name} (addr: {}, cost: {})", machine.addr, machine.cost);
     }
+}
 
-    // Build execution order (DAG toposort)
-    let order = resolver::build_execution_order(&config).expect("DAG failed");
+fn show_execution_order(config: &types::ForjarConfig) {
+    let order = resolver::build_execution_order(config).expect("DAG failed");
     println!("\nExecution order (topological + alphabetical tie-break):");
     for (i, resource_id) in order.iter().enumerate() {
         let resource = &config.resources[resource_id];
         let machine = match &resource.machine {
-            forjar::core::types::MachineTarget::Single(m) => m.clone(),
-            forjar::core::types::MachineTarget::Multiple(ms) => ms.join(", "),
+            types::MachineTarget::Single(m) => m.clone(),
+            types::MachineTarget::Multiple(ms) => ms.join(", "),
         };
         println!(
-            "  {}. {} (type: {:?}, machine: {})",
+            "  {}. {resource_id} (type: {:?}, machine: {machine})",
             i + 1,
-            resource_id,
-            resource.resource_type,
-            machine
+            resource.resource_type
         );
     }
+}
 
-    // Plan
-    let plan = planner::plan(&config, &order, &HashMap::new(), None);
+fn show_plan(config: &types::ForjarConfig) {
+    let order = resolver::build_execution_order(config).expect("DAG failed");
+    let plan = planner::plan(config, &order, &HashMap::new(), None);
     println!(
         "\nPlan: {} create, {} update, {} destroy, {} unchanged",
         plan.to_create, plan.to_update, plan.to_destroy, plan.unchanged
     );
+}
 
-    // Show dependency graph
+fn show_dependency_edges(config: &types::ForjarConfig) {
     println!("\nDependency edges:");
     for (name, resource) in &config.resources {
         if !resource.depends_on.is_empty() {
-            println!("  {} depends_on: {:?}", name, resource.depends_on);
+            println!("  {name} depends_on: {:?}", resource.depends_on);
         }
     }
+}
 
-    // Template resolution demo
+fn show_template_resolution(config: &types::ForjarConfig) {
     println!("\n=== Template Resolution ===\n");
     let resource = &config.resources["app-config"];
     let resolved = resolver::resolve_resource_templates(resource, &config.params, &config.machines)
@@ -190,23 +200,21 @@ resources:
     println!("app-config content (resolved):");
     if let Some(ref content) = resolved.content {
         for line in content.lines() {
-            println!("  {}", line);
+            println!("  {line}");
         }
     }
+}
 
-    // Generate scripts for a sample resource
+fn show_mount_script(config: &types::ForjarConfig) {
     println!("\n=== Generated Scripts (app-nfs-mount) ===\n");
     let mount_resource = &config.resources["app-nfs-mount"];
     let mount_resolved =
         resolver::resolve_resource_templates(mount_resource, &config.params, &config.machines)
             .expect("resolve failed");
-
     if let Ok(script) = codegen::apply_script(&mount_resolved) {
         println!("Apply script:");
         for line in script.lines() {
-            println!("  {}", line);
+            println!("  {line}");
         }
     }
-
-    println!("\n=== Multi-Machine Example Complete ===");
 }

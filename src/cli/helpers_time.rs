@@ -1,5 +1,6 @@
 //! Time and duration parsing helpers.
 
+#[cfg(feature = "encryption")]
 pub(crate) fn chrono_date() -> String {
     // Simple date without chrono dependency
     let output = std::process::Command::new("date").arg("+%Y-%m-%d").output();
@@ -16,25 +17,25 @@ pub(crate) fn chrono_now_compact() -> String {
         .unwrap_or_default()
         .as_secs();
     // Simple Unix timestamp — good enough for unique naming
-    format!("{}", now)
+    format!("{now}")
 }
 
 /// FJ-284: Parse a human duration string like "24h", "7d", "30m" into seconds.
 pub(crate) fn parse_duration_secs(s: &str) -> Result<u64, String> {
     let s = s.trim();
     if s.len() < 2 {
-        return Err(format!("invalid duration: '{}'", s));
+        return Err(format!("invalid duration: '{s}'"));
     }
     let (num, unit) = s.split_at(s.len() - 1);
     let n: u64 = num
         .parse()
-        .map_err(|_| format!("invalid duration number: '{}'", num))?;
+        .map_err(|_| format!("invalid duration number: '{num}'"))?;
     match unit {
         "s" => Ok(n),
         "m" => Ok(n * 60),
         "h" => Ok(n * 3600),
         "d" => Ok(n * 86400),
-        _ => Err(format!("unknown duration unit '{}' (use s/m/h/d)", unit)),
+        _ => Err(format!("unknown duration unit '{unit}' (use s/m/h/d)")),
     }
 }
 
@@ -46,16 +47,13 @@ pub(crate) fn parse_duration_string(s: &str) -> Result<u64, String> {
     let (num_str, unit) = s.split_at(s.len() - 1);
     let num: u64 = num_str
         .parse()
-        .map_err(|_| format!("invalid duration: {}", s))?;
+        .map_err(|_| format!("invalid duration: {s}"))?;
     match unit {
         "s" => Ok(num),
         "m" => Ok(num * 60),
         "h" => Ok(num * 3600),
         "d" => Ok(num * 86400),
-        _ => Err(format!(
-            "unknown duration unit '{}'. Use s, m, h, or d",
-            unit
-        )),
+        _ => Err(format!("unknown duration unit '{unit}'. Use s, m, h, or d")),
     }
 }
 

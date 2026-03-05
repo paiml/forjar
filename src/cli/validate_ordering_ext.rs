@@ -34,7 +34,7 @@ fn print_naming_violations(violations: &[(String, String)], json: bool) {
     if json {
         let items: Vec<String> = violations
             .iter()
-            .map(|(n, r)| format!("{{\"resource\":\"{}\",\"reason\":\"{}\"}}", n, r))
+            .map(|(n, r)| format!("{{\"resource\":\"{n}\",\"reason\":\"{r}\"}}"))
             .collect();
         println!("{{\"naming_violations\":[{}]}}", items.join(","));
     } else if violations.is_empty() {
@@ -42,7 +42,7 @@ fn print_naming_violations(violations: &[(String, String)], json: bool) {
     } else {
         println!("Naming convention violations:");
         for (n, r) in violations {
-            println!("  {} — {}", n, r);
+            println!("  {n} — {r}");
         }
     }
 }
@@ -62,12 +62,7 @@ fn print_idempotency_warnings(warnings: &[String], json: bool) {
     if json {
         let items: Vec<String> = warnings
             .iter()
-            .map(|n| {
-                format!(
-                    "{{\"resource\":\"{}\",\"hint\":\"no idempotency annotation\"}}",
-                    n
-                )
-            })
+            .map(|n| format!("{{\"resource\":\"{n}\",\"hint\":\"no idempotency annotation\"}}"))
             .collect();
         println!("{{\"idempotency_warnings\":[{}]}}", items.join(","));
     } else if warnings.is_empty() {
@@ -78,7 +73,7 @@ fn print_idempotency_warnings(warnings: &[String], json: bool) {
             warnings.len()
         );
         for n in warnings {
-            println!("  {} — no annotation", n);
+            println!("  {n} — no annotation");
         }
     }
 }
@@ -114,22 +109,16 @@ fn print_size_warnings(warnings: &[(String, usize)], threshold: usize, json: boo
         let items: Vec<String> = warnings
             .iter()
             .map(|(n, s)| {
-                format!(
-                    "{{\"resource\":\"{}\",\"size\":{},\"threshold\":{}}}",
-                    n, s, threshold
-                )
+                format!("{{\"resource\":\"{n}\",\"size\":{s},\"threshold\":{threshold}}}")
             })
             .collect();
         println!("{{\"size_warnings\":[{}]}}", items.join(","));
     } else if warnings.is_empty() {
-        println!(
-            "All resource content within size limits ({} bytes).",
-            threshold
-        );
+        println!("All resource content within size limits ({threshold} bytes).");
     } else {
-        println!("Resources exceeding {} byte limit:", threshold);
+        println!("Resources exceeding {threshold} byte limit:");
         for (n, s) in warnings {
-            println!("  {} — {} bytes", n, s);
+            println!("  {n} — {s} bytes");
         }
     }
 }
@@ -175,18 +164,17 @@ fn print_fan_warnings(warnings: &[(String, usize, &str)], max_fan: usize, json: 
             .iter()
             .map(|(n, c, d)| {
                 format!(
-                    "{{\"resource\":\"{}\",\"count\":{},\"direction\":\"{}\",\"limit\":{}}}",
-                    n, c, d, max_fan
+                    "{{\"resource\":\"{n}\",\"count\":{c},\"direction\":\"{d}\",\"limit\":{max_fan}}}"
                 )
             })
             .collect();
         println!("{{\"fan_warnings\":[{}]}}", items.join(","));
     } else if warnings.is_empty() {
-        println!("All resources within fan-in/fan-out limit ({}).", max_fan);
+        println!("All resources within fan-in/fan-out limit ({max_fan}).");
     } else {
-        println!("Resources exceeding fan limit ({}):", max_fan);
+        println!("Resources exceeding fan limit ({max_fan}):");
         for (n, c, d) in warnings {
-            println!("  {} — {} {}", n, c, d);
+            println!("  {n} — {c} {d}");
         }
     }
 }
@@ -210,7 +198,7 @@ pub(crate) fn cmd_validate_check_resource_gpu_backend_consistency(
     if json {
         let items: Vec<String> = backends
             .iter()
-            .map(|(n, b)| format!("{{\"resource\":\"{}\",\"gpu_backend\":\"{}\"}}", n, b))
+            .map(|(n, b)| format!("{{\"resource\":\"{n}\",\"gpu_backend\":\"{b}\"}}"))
             .collect();
         println!(
             "{{\"gpu_backend_consistency\":{{\"consistent\":{},\"backends\":[{}]}}}}",
@@ -228,7 +216,7 @@ pub(crate) fn cmd_validate_check_resource_gpu_backend_consistency(
     } else {
         println!("GPU backend inconsistency detected:");
         for (n, b) in &backends {
-            println!("  {} — {}", n, b);
+            println!("  {n} — {b}");
         }
     }
     Ok(())
@@ -255,7 +243,7 @@ pub(crate) fn cmd_validate_check_resource_when_condition_syntax(
     if json {
         let items: Vec<String> = issues
             .iter()
-            .map(|(n, r)| format!("{{\"resource\":\"{}\",\"issue\":\"{}\"}}", n, r))
+            .map(|(n, r)| format!("{{\"resource\":\"{n}\",\"issue\":\"{r}\"}}"))
             .collect();
         println!("{{\"when_syntax_issues\":[{}]}}", items.join(","));
     } else if issues.is_empty() {
@@ -263,7 +251,7 @@ pub(crate) fn cmd_validate_check_resource_when_condition_syntax(
     } else {
         println!("When condition syntax issues:");
         for (n, r) in &issues {
-            println!("  {} — {}", n, r);
+            println!("  {n} — {r}");
         }
     }
     Ok(())

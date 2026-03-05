@@ -21,23 +21,23 @@ pub(crate) fn cmd_show(
         let resource = config
             .resources
             .get(resource_id)
-            .ok_or_else(|| format!("resource '{}' not found", resource_id))?;
+            .ok_or_else(|| format!("resource '{resource_id}' not found"))?;
         if json {
             let output =
-                serde_json::to_string_pretty(resource).map_err(|e| format!("JSON error: {}", e))?;
-            println!("{}", output);
+                serde_json::to_string_pretty(resource).map_err(|e| format!("JSON error: {e}"))?;
+            println!("{output}");
         } else {
             let output =
-                serde_yaml_ng::to_string(resource).map_err(|e| format!("YAML error: {}", e))?;
-            println!("{}:\n{}", resource_id, output);
+                serde_yaml_ng::to_string(resource).map_err(|e| format!("YAML error: {e}"))?;
+            println!("{resource_id}:\n{output}");
         }
     } else if json {
         let output =
-            serde_json::to_string_pretty(&config).map_err(|e| format!("JSON error: {}", e))?;
-        println!("{}", output);
+            serde_json::to_string_pretty(&config).map_err(|e| format!("JSON error: {e}"))?;
+        println!("{output}");
     } else {
-        let output = serde_yaml_ng::to_string(&config).map_err(|e| format!("YAML error: {}", e))?;
-        println!("{}", output);
+        let output = serde_yaml_ng::to_string(&config).map_err(|e| format!("YAML error: {e}"))?;
+        println!("{output}");
     }
 
     Ok(())
@@ -98,7 +98,7 @@ fn explain_json(
     }
     println!(
         "{}",
-        serde_json::to_string_pretty(&info).map_err(|e| format!("JSON error: {}", e))?
+        serde_json::to_string_pretty(&info).map_err(|e| format!("JSON error: {e}"))?
     );
     Ok(())
 }
@@ -110,7 +110,7 @@ pub(crate) fn cmd_explain(file: &Path, resource_id: &str, json: bool) -> Result<
     let resource = config
         .resources
         .get(resource_id)
-        .ok_or_else(|| format!("resource '{}' not found", resource_id))?;
+        .ok_or_else(|| format!("resource '{resource_id}' not found"))?;
 
     let machine_name = match &resource.machine {
         types::MachineTarget::Single(m) => m.clone(),
@@ -138,32 +138,32 @@ pub(crate) fn cmd_explain(file: &Path, resource_id: &str, json: bool) -> Result<
 
     // Text output
     let raw_yaml =
-        serde_yaml_ng::to_string(resource).map_err(|e| format!("serialize error: {}", e))?;
+        serde_yaml_ng::to_string(resource).map_err(|e| format!("serialize error: {e}"))?;
     println!("{}", bold("1. Raw Resource Definition"));
     println!("{}", dim("─────────────────────────────"));
-    println!("{}", raw_yaml);
+    println!("{raw_yaml}");
 
     println!("{}", bold("2. After Template Resolution"));
     println!("{}", dim("─────────────────────────────"));
     let resolved_yaml =
-        serde_yaml_ng::to_string(&resolved).map_err(|e| format!("serialize error: {}", e))?;
-    println!("{}", resolved_yaml);
+        serde_yaml_ng::to_string(&resolved).map_err(|e| format!("serialize error: {e}"))?;
+    println!("{resolved_yaml}");
 
     println!("{}", bold("3. Generated Shell Script"));
     println!("{}", dim("─────────────────────────────"));
     match apply_script {
-        Some(ref script) => println!("{}", script),
+        Some(ref script) => println!("{script}"),
         None => println!("{}", red("codegen error")),
     }
 
     println!("{}", bold("4. Transport"));
     println!("{}", dim("─────────────────────────────"));
-    println!("machine: {}", machine_name);
-    println!("transport: {}", transport_type);
+    println!("machine: {machine_name}");
+    println!("transport: {transport_type}");
     if let Some(m) = config.machines.get(&machine_name) {
         println!("addr: {}", m.addr);
         if let Some(ref key) = m.ssh_key {
-            println!("ssh_key: {}", key);
+            println!("ssh_key: {key}");
         }
     }
 
@@ -172,7 +172,7 @@ pub(crate) fn cmd_explain(file: &Path, resource_id: &str, json: bool) -> Result<
         println!("{}", bold("5. Dependencies"));
         println!("{}", dim("─────────────────────────────"));
         for dep in &resource.depends_on {
-            println!("  → {}", dep);
+            println!("  → {dep}");
         }
     }
 
@@ -196,8 +196,8 @@ pub(crate) fn cmd_compare(file1: &Path, file2: &Path, json: bool) -> Result<(), 
         let r1 = &config1.resources[**key];
         let r2 = &config2.resources[**key];
         // Compare by hashing the serialized forms
-        let s1 = format!("{:?}", r1);
-        let s2 = format!("{:?}", r2);
+        let s1 = format!("{r1:?}");
+        let s2 = format!("{r2:?}");
         if s1 != s2 {
             changed.push(**key);
         }
@@ -250,7 +250,7 @@ pub(crate) fn cmd_template(recipe: &Path, vars: &[String], json: bool) -> Result
     // Simple template expansion: replace {{inputs.KEY}} with value
     let mut expanded = content.clone();
     for (key, val) in &var_map {
-        let pattern = format!("{{{{inputs.{}}}}}", key);
+        let pattern = format!("{{{{inputs.{key}}}}}");
         expanded = expanded.replace(&pattern, val);
     }
 
@@ -264,7 +264,7 @@ pub(crate) fn cmd_template(recipe: &Path, vars: &[String], json: bool) -> Result
             })
         );
     } else {
-        println!("{}", expanded);
+        println!("{expanded}");
     }
 
     Ok(())
@@ -288,7 +288,7 @@ pub(crate) fn cmd_policy(file: &Path, json: bool) -> Result<(), String> {
             .collect();
         println!(
             "{}",
-            serde_json::to_string_pretty(&output).map_err(|e| format!("JSON error: {}", e))?
+            serde_json::to_string_pretty(&output).map_err(|e| format!("JSON error: {e}"))?
         );
     } else {
         if violations.is_empty() {
@@ -312,12 +312,9 @@ pub(crate) fn cmd_policy(file: &Path, json: bool) -> Result<(), String> {
         }
         println!();
         if deny_count > 0 {
-            println!(
-                "Policy check failed: {} denied, {} warnings",
-                deny_count, warn_count
-            );
+            println!("Policy check failed: {deny_count} denied, {warn_count} warnings");
         } else {
-            println!("Policy check passed with {} warnings", warn_count);
+            println!("Policy check passed with {warn_count} warnings");
         }
     }
 
@@ -339,7 +336,7 @@ fn print_single_output(k: &str, v: &str, json: bool) {
     if json {
         println!("{}", serde_json::json!({ k: v }));
     } else {
-        println!("{}", v);
+        println!("{v}");
     }
 }
 
@@ -356,9 +353,9 @@ fn print_all_outputs(
     } else {
         for (k, v) in resolved {
             if let Some(desc) = outputs.get(k).and_then(|o| o.description.as_deref()) {
-                println!("{}: {} ({})", k, v, desc);
+                println!("{k}: {v} ({desc})");
             } else {
-                println!("{}: {}", k, v);
+                println!("{k}: {v}");
             }
         }
     }
@@ -383,7 +380,7 @@ pub(crate) fn cmd_output(file: &Path, key: Option<&str>, json: bool) -> Result<(
     if let Some(k) = key {
         match resolved.get(k) {
             Some(v) => print_single_output(k, v, json),
-            None => return Err(format!("output '{}' not defined", k)),
+            None => return Err(format!("output '{k}' not defined")),
         }
     } else {
         print_all_outputs(&resolved, &config.outputs, json);

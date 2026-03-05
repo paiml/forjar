@@ -20,6 +20,9 @@ mod tests {
 
     fn write_yaml(dir: &std::path::Path, name: &str, content: &str) -> std::path::PathBuf {
         let p = dir.join(name);
+        if let Some(parent) = p.parent() {
+            std::fs::create_dir_all(parent).unwrap();
+        }
         let mut f = std::fs::File::create(&p).unwrap();
         f.write_all(content.as_bytes()).unwrap();
         p
@@ -55,14 +58,14 @@ mod tests {
     #[test]
     fn test_fj846_drift_age_with_drift() {
         let dir = tempfile::tempdir().unwrap();
-        write_yaml(dir.path(), "web1.lock.yaml", "resources:\n  nginx:\n    resource_type: Package\n    status: Drifted\n    hash: abc123\n    applied_at: '2025-01-01T00:00:00Z'\n");
+        write_yaml(dir.path(), "web1/state.lock.yaml", "resources:\n  nginx:\n    resource_type: Package\n    status: Drifted\n    hash: abc123\n    applied_at: '2025-01-01T00:00:00Z'\n");
         assert!(cmd_status_machine_drift_age(dir.path(), None, false).is_ok());
     }
 
     #[test]
     fn test_fj846_drift_age_json() {
         let dir = tempfile::tempdir().unwrap();
-        write_yaml(dir.path(), "web1.lock.yaml", "resources:\n  nginx:\n    resource_type: Package\n    status: Drifted\n    hash: abc123\n    applied_at: '2025-01-01T00:00:00Z'\n");
+        write_yaml(dir.path(), "web1/state.lock.yaml", "resources:\n  nginx:\n    resource_type: Package\n    status: Drifted\n    hash: abc123\n    applied_at: '2025-01-01T00:00:00Z'\n");
         assert!(cmd_status_machine_drift_age(dir.path(), None, true).is_ok());
     }
 
@@ -229,21 +232,21 @@ mod tests {
     #[test]
     fn test_fj850_fleet_failed_none() {
         let dir = tempfile::tempdir().unwrap();
-        write_yaml(dir.path(), "web1.lock.yaml", "resources:\n  nginx:\n    resource_type: Package\n    status: Converged\n    hash: abc123\n");
+        write_yaml(dir.path(), "web1/state.lock.yaml", "resources:\n  nginx:\n    resource_type: Package\n    status: Converged\n    hash: abc123\n");
         assert!(cmd_status_fleet_failed_resources(dir.path(), None, false).is_ok());
     }
 
     #[test]
     fn test_fj850_fleet_failed_with_failures() {
         let dir = tempfile::tempdir().unwrap();
-        write_yaml(dir.path(), "web1.lock.yaml", "resources:\n  nginx:\n    resource_type: Package\n    status: Failed\n    hash: abc123\n");
+        write_yaml(dir.path(), "web1/state.lock.yaml", "resources:\n  nginx:\n    resource_type: Package\n    status: Failed\n    hash: abc123\n");
         assert!(cmd_status_fleet_failed_resources(dir.path(), None, false).is_ok());
     }
 
     #[test]
     fn test_fj850_fleet_failed_json() {
         let dir = tempfile::tempdir().unwrap();
-        write_yaml(dir.path(), "web1.lock.yaml", "resources:\n  nginx:\n    resource_type: Package\n    status: Failed\n    hash: abc123\n");
+        write_yaml(dir.path(), "web1/state.lock.yaml", "resources:\n  nginx:\n    resource_type: Package\n    status: Failed\n    hash: abc123\n");
         assert!(cmd_status_fleet_failed_resources(dir.path(), None, true).is_ok());
     }
 
@@ -270,14 +273,14 @@ mod tests {
     #[test]
     fn test_fj852_dep_health_with_data() {
         let dir = tempfile::tempdir().unwrap();
-        write_yaml(dir.path(), "web1.lock.yaml", "resources:\n  nginx:\n    resource_type: Package\n    status: Converged\n    hash: abc123\n    applied_at: '2025-01-01T00:00:00Z'\n    duration_seconds: 1.5\n");
+        write_yaml(dir.path(), "web1/state.lock.yaml", "resources:\n  nginx:\n    resource_type: Package\n    status: Converged\n    hash: abc123\n    applied_at: '2025-01-01T00:00:00Z'\n    duration_seconds: 1.5\n");
         assert!(cmd_status_resource_dependency_health(dir.path(), None, false).is_ok());
     }
 
     #[test]
     fn test_fj852_dep_health_json() {
         let dir = tempfile::tempdir().unwrap();
-        write_yaml(dir.path(), "web1.lock.yaml", "resources:\n  nginx:\n    resource_type: Package\n    status: Converged\n    hash: abc123\n");
+        write_yaml(dir.path(), "web1/state.lock.yaml", "resources:\n  nginx:\n    resource_type: Package\n    status: Converged\n    hash: abc123\n");
         assert!(cmd_status_resource_dependency_health(dir.path(), None, true).is_ok());
     }
 }

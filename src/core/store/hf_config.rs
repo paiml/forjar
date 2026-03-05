@@ -10,22 +10,33 @@ use std::path::Path;
 /// Parsed fields from a HuggingFace `config.json`.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct HfModelConfig {
+    /// Model type identifier (e.g., "llama", "qwen2").
     pub model_type: String,
+    /// Architecture class names.
     #[serde(default)]
     pub architectures: Vec<String>,
+    /// Hidden layer dimension.
     pub hidden_size: Option<u64>,
+    /// Number of attention heads.
     pub num_attention_heads: Option<u64>,
+    /// Number of key-value heads (for GQA).
     pub num_key_value_heads: Option<u64>,
+    /// Number of hidden layers.
     pub num_hidden_layers: Option<u64>,
+    /// Intermediate MLP dimension.
     pub intermediate_size: Option<u64>,
+    /// Vocabulary size.
     pub vocab_size: Option<u64>,
+    /// Maximum sequence length.
     pub max_position_embeddings: Option<u64>,
 }
 
 /// A kernel operation required by a model architecture.
 #[derive(Debug, Clone, PartialEq)]
 pub struct KernelRequirement {
+    /// Operation name (e.g., "softmax", "matmul").
     pub op: String,
+    /// Contract name (e.g., "softmax-kernel-v1").
     pub contract: String,
 }
 

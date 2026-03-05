@@ -23,7 +23,7 @@ pub(crate) fn cmd_status_machine_resource_failure_correlation(
                     "{{\"resource\":\"{}\",\"failed_on\":[{}]}}",
                     r,
                     ms.iter()
-                        .map(|m| format!("\"{}\"", m))
+                        .map(|m| format!("\"{m}\""))
                         .collect::<Vec<_>>()
                         .join(",")
                 )
@@ -45,7 +45,7 @@ fn collect_failure_correlations(sd: &Path, targets: &[&String]) -> Vec<(String, 
     let mut failure_map: std::collections::HashMap<String, Vec<String>> =
         std::collections::HashMap::new();
     for m in targets {
-        let path = sd.join(m).join("lock.yaml");
+        let path = sd.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -86,7 +86,7 @@ pub(crate) fn cmd_status_fleet_resource_age_distribution(
     if json {
         let items: Vec<String> = ages
             .iter()
-            .map(|(bucket, count)| format!("{{\"age_bucket\":\"{}\",\"count\":{}}}", bucket, count))
+            .map(|(bucket, count)| format!("{{\"age_bucket\":\"{bucket}\",\"count\":{count}}}"))
             .collect();
         println!("{{\"resource_age_distribution\":[{}]}}", items.join(","));
     } else if ages.is_empty() {
@@ -94,7 +94,7 @@ pub(crate) fn cmd_status_fleet_resource_age_distribution(
     } else {
         println!("Fleet resource age distribution:");
         for (bucket, count) in &ages {
-            println!("  {} — {} resources", bucket, count);
+            println!("  {bucket} — {count} resources");
         }
     }
     Ok(())
@@ -104,7 +104,7 @@ fn collect_age_distribution(sd: &Path, targets: &[&String]) -> Vec<(String, usiz
     let mut total_resources = 0usize;
     let mut with_timestamp = 0usize;
     for m in targets {
-        let path = sd.join(m).join("lock.yaml");
+        let path = sd.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -146,7 +146,7 @@ pub(crate) fn cmd_status_machine_resource_rollback_readiness(
     if json {
         let items: Vec<String> = readiness
             .iter()
-            .map(|(m, s)| format!("{{\"machine\":\"{}\",\"rollback_ready\":\"{}\"}}", m, s))
+            .map(|(m, s)| format!("{{\"machine\":\"{m}\",\"rollback_ready\":\"{s}\"}}"))
             .collect();
         println!("{{\"machine_rollback_readiness\":[{}]}}", items.join(","));
     } else if readiness.is_empty() {
@@ -154,7 +154,7 @@ pub(crate) fn cmd_status_machine_resource_rollback_readiness(
     } else {
         println!("Machine rollback readiness:");
         for (m, s) in &readiness {
-            println!("  {} — {}", m, s);
+            println!("  {m} — {s}");
         }
     }
     Ok(())
@@ -163,7 +163,7 @@ pub(crate) fn cmd_status_machine_resource_rollback_readiness(
 fn collect_rollback_readiness(sd: &Path, targets: &[&String]) -> Vec<(String, String)> {
     let mut readiness = Vec::new();
     for m in targets {
-        let lock_path = sd.join(m).join("lock.yaml");
+        let lock_path = sd.join(m).join("state.lock.yaml");
         let snapshot_dir = sd.join(m).join("snapshots");
         let has_lock = lock_path.exists();
         let has_snapshots = snapshot_dir.exists() && snapshot_dir.is_dir();
@@ -193,7 +193,7 @@ pub(crate) fn cmd_status_machine_resource_health_trend(
     if json {
         let items: Vec<String> = trends
             .iter()
-            .map(|(m, s)| format!("{{\"machine\":\"{}\",\"trend\":\"{}\"}}", m, s))
+            .map(|(m, s)| format!("{{\"machine\":\"{m}\",\"trend\":\"{s}\"}}"))
             .collect();
         println!("{{\"machine_health_trends\":[{}]}}", items.join(","));
     } else if trends.is_empty() {
@@ -201,7 +201,7 @@ pub(crate) fn cmd_status_machine_resource_health_trend(
     } else {
         println!("Machine resource health trends:");
         for (m, s) in &trends {
-            println!("  {} — {}", m, s);
+            println!("  {m} — {s}");
         }
     }
     Ok(())
@@ -210,15 +210,55 @@ pub(crate) fn cmd_status_machine_resource_health_trend(
 fn collect_health_trends(sd: &Path, targets: &[&String]) -> Vec<(String, String)> {
     let mut trends = Vec::new();
     for m in targets {
-        let path = sd.join(m).join("lock.yaml");
-        if path.exists() {
-            trends.push((
-                (*m).clone(),
-                "current data only (no historical trend)".to_string(),
-            ));
+        let path = sd.join(m).join("state.lock.yaml");
+        let content = match std::fs::read_to_string(&path) {
+            Ok(c) => c,
+            Err(_) => {
+                trends.push(((*m).clone(), "no data".to_string()));
+                continue;
+            }
+        };
+        let lock: types::StateLock = match serde_yaml_ng::from_str(&content) {
+            Ok(l) => l,
+            Err(_) => {
+                trends.push(((*m).clone(), "parse error".to_string()));
+                continue;
+            }
+        };
+        let total = lock.resources.len();
+        let converged = lock
+            .resources
+            .values()
+            .filter(|r| matches!(r.status, types::ResourceStatus::Converged))
+            .count();
+        let failed = lock
+            .resources
+            .values()
+            .filter(|r| matches!(r.status, types::ResourceStatus::Failed))
+            .count();
+        let drifted = lock
+            .resources
+            .values()
+            .filter(|r| matches!(r.status, types::ResourceStatus::Drifted))
+            .count();
+        let rate = if total > 0 {
+            (converged as f64 / total as f64) * 100.0
         } else {
-            trends.push(((*m).clone(), "no data".to_string()));
-        }
+            0.0
+        };
+        let label = if failed > 0 {
+            "degraded"
+        } else if drifted > 0 {
+            "drifting"
+        } else {
+            "healthy"
+        };
+        trends.push((
+            (*m).clone(),
+            format!(
+                "{label} — {converged}/{total} converged ({rate:.0}%), {failed} failed, {drifted} drifted"
+            ),
+        ));
     }
     trends.sort_by(|a, b| a.0.cmp(&b.0));
     trends
@@ -239,12 +279,7 @@ pub(crate) fn cmd_status_fleet_resource_drift_velocity(
     if json {
         let items: Vec<String> = velocities
             .iter()
-            .map(|(m, d, t)| {
-                format!(
-                    "{{\"machine\":\"{}\",\"drifted\":{},\"total\":{}}}",
-                    m, d, t
-                )
-            })
+            .map(|(m, d, t)| format!("{{\"machine\":\"{m}\",\"drifted\":{d},\"total\":{t}}}"))
             .collect();
         println!("{{\"fleet_drift_velocity\":[{}]}}", items.join(","));
     } else if velocities.is_empty() {
@@ -261,7 +296,7 @@ pub(crate) fn cmd_status_fleet_resource_drift_velocity(
 fn collect_drift_velocities(sd: &Path, targets: &[&String]) -> Vec<(String, usize, usize)> {
     let mut velocities = Vec::new();
     for m in targets {
-        let path = sd.join(m).join("lock.yaml");
+        let path = sd.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -297,7 +332,7 @@ pub(crate) fn cmd_status_machine_resource_apply_success_trend(
     if json {
         let items: Vec<String> = trends
             .iter()
-            .map(|(m, s)| format!("{{\"machine\":\"{}\",\"trend\":\"{}\"}}", m, s))
+            .map(|(m, s)| format!("{{\"machine\":\"{m}\",\"trend\":\"{s}\"}}"))
             .collect();
         println!("{{\"machine_apply_success_trends\":[{}]}}", items.join(","));
     } else if trends.is_empty() {
@@ -305,7 +340,7 @@ pub(crate) fn cmd_status_machine_resource_apply_success_trend(
     } else {
         println!("Machine apply success trends:");
         for (m, s) in &trends {
-            println!("  {} — {}", m, s);
+            println!("  {m} — {s}");
         }
     }
     Ok(())
@@ -314,11 +349,38 @@ pub(crate) fn cmd_status_machine_resource_apply_success_trend(
 fn collect_apply_success_trends(sd: &Path, targets: &[&String]) -> Vec<(String, String)> {
     let mut trends = Vec::new();
     for m in targets {
-        let events_path = sd.join(m).join("events.yaml");
-        if events_path.exists() {
-            trends.push(((*m).clone(), "event history available".to_string()));
+        let events_path = sd.join(m).join("events.jsonl");
+        let content = match std::fs::read_to_string(&events_path) {
+            Ok(c) => c,
+            Err(_) => {
+                trends.push(((*m).clone(), "no event history".to_string()));
+                continue;
+            }
+        };
+        let mut started = 0usize;
+        let mut converged = 0usize;
+        let mut failed = 0usize;
+        for line in content.lines() {
+            if let Ok(val) = serde_json::from_str::<serde_json::Value>(line) {
+                match val.get("event").and_then(|v| v.as_str()).unwrap_or("") {
+                    "resource_started" => started += 1,
+                    "resource_converged" => converged += 1,
+                    "resource_failed" => failed += 1,
+                    _ => {}
+                }
+            }
+        }
+        let total_applies = converged + failed;
+        if total_applies == 0 {
+            trends.push(((*m).clone(), format!("{started} events, no apply results")));
         } else {
-            trends.push(((*m).clone(), "no event history".to_string()));
+            let rate = (converged as f64 / total_applies as f64) * 100.0;
+            trends.push((
+                (*m).clone(),
+                format!(
+                    "{rate:.0}% success ({converged}/{total_applies} converged, {failed} failed)"
+                ),
+            ));
         }
     }
     trends.sort_by(|a, b| a.0.cmp(&b.0));

@@ -2,6 +2,7 @@
 
 use std::path::PathBuf;
 
+/// CLI arguments for the `apply` command.
 #[derive(clap::Args, Debug)]
 pub struct ApplyArgs {
     /// Path to forjar.yaml
@@ -135,6 +136,10 @@ pub struct ApplyArgs {
     /// FJ-347: Force sequential execution (no parallel waves)
     #[arg(long)]
     pub sequential: bool,
+
+    /// FJ-1397: Debug trace mode — print generated scripts and transport details
+    #[arg(long)]
+    pub trace: bool,
 
     /// FJ-350: Show what would change without generating scripts (faster than dry-run)
     #[arg(long)]

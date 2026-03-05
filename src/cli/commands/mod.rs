@@ -1,45 +1,45 @@
-//! CLI Commands enum and sub-command enums.
-
+//! CLI command definitions, argument structs, and subcommand dispatch.
 mod apply_args;
 mod graph_args;
 mod lock_core_args;
 mod lock_ops_args;
+mod misc_analysis_args;
 mod misc_args;
 mod misc_ops_args;
+mod ops_intel_args;
 mod plan_args;
+mod platform_args;
 mod state_args;
 mod status_args;
 mod store_args;
 mod subcmd_args;
 mod validate_args;
-
 pub use apply_args::*;
+use clap::Subcommand;
 pub use graph_args::*;
 pub use lock_core_args::*;
 pub use lock_ops_args::*;
+pub use misc_analysis_args::*;
 pub use misc_args::*;
 pub use misc_ops_args::*;
+pub use ops_intel_args::*;
 pub use plan_args::*;
+pub use platform_args::*;
 pub use state_args::*;
 pub use status_args::*;
 pub use store_args::*;
 pub use subcmd_args::*;
 pub use validate_args::*;
-
-use clap::Subcommand;
-
+/// Top-level CLI subcommands.
 #[derive(Subcommand, Debug)]
 #[allow(clippy::large_enum_variant)]
 pub enum Commands {
     /// Initialize a new forjar project
     Init(InitArgs),
-
     /// Validate forjar.yaml without connecting to machines
     Validate(ValidateArgs),
-
     /// Show execution plan (diff desired vs current)
     Plan(PlanArgs),
-
     /// Converge infrastructure to desired state
     Apply(ApplyArgs),
 
@@ -69,6 +69,9 @@ pub enum Commands {
 
     /// Compare two state snapshots (show what changed between applies)
     Diff(DiffArgs),
+
+    /// FJ-1389: Unified stack diff — compare two configs (resources, machines, params)
+    StackDiff(StackDiffArgs),
 
     /// Format (normalize) a forjar.yaml config file
     Fmt(FmtArgs),
@@ -148,6 +151,10 @@ pub enum Commands {
     /// FJ-260: Manage state snapshots
     #[command(subcommand)]
     Snapshot(SnapshotCmd),
+
+    /// FJ-1386: Manage state generations (Nix-style numbered snapshots)
+    #[command(subcommand)]
+    Generation(GenerationCmd),
 
     /// FJ-326: List all machines with connection status
     Inventory(InventoryArgs),
@@ -345,4 +352,147 @@ pub enum Commands {
     /// FJ-1383: Merge two forjar config files into one
     #[command(name = "config-merge")]
     ConfigMerge(ConfigMergeArgs),
+
+    /// FJ-1384: Extract resources matching tag/group/glob into sub-config
+    Extract(ExtractArgs),
+
+    /// FJ-1390: Static IaC security scanner
+    #[command(name = "security-scan")]
+    SecurityScan(SecurityScanArgs),
+
+    /// FJ-1395: Generate SBOM (Software Bill of Materials) for managed infrastructure
+    Sbom(SbomArgs),
+
+    /// FJ-1400: Generate CBOM (Cryptographic Bill of Materials) for managed infrastructure
+    Cbom(CbomArgs),
+
+    /// FJ-1401: Prove convergence from current or arbitrary state
+    Prove(ProveArgs),
+
+    /// FJ-1403: Analyze minimum privileges required per resource
+    #[command(name = "privilege-analysis")]
+    PrivilegeAnalysis(PrivilegeAnalysisArgs),
+
+    /// FJ-1404: Generate SLSA provenance attestation
+    Provenance(ProvenanceArgs),
+
+    /// FJ-1405: Show Merkle DAG configuration lineage
+    Lineage(LineageArgs),
+
+    /// FJ-1406: Package config + dependencies into self-contained bundle
+    Bundle(BundleArgs),
+
+    /// FJ-1407: Generate model card for ML resources
+    #[command(name = "model-card")]
+    ModelCard(ModelCardArgs),
+
+    /// FJ-1408: Generate agent-specific SBOM
+    #[command(name = "agent-sbom")]
+    AgentSbom(AgentSbomArgs),
+
+    /// FJ-1409: Generate training reproducibility certificate
+    #[command(name = "repro-proof")]
+    ReproProof(ReproProofArgs),
+
+    /// FJ-1410: Data freshness monitoring — detect stale artifacts
+    #[command(name = "data-freshness")]
+    DataFreshness(DataFreshnessArgs),
+
+    /// FJ-1411: Declarative data validation checks
+    #[command(name = "data-validate")]
+    DataValidate(DataValidateArgs),
+
+    /// FJ-1412: Training checkpoint management
+    Checkpoint(CheckpointArgs),
+
+    /// FJ-1413: Dataset versioning and lineage tracking
+    #[command(name = "dataset-lineage")]
+    DatasetLineage(DatasetLineageArgs),
+
+    /// FJ-1414: Data sovereignty tagging and compliance
+    Sovereignty(SovereigntyArgs),
+
+    /// FJ-1415: Cost estimation and resource budgeting
+    #[command(name = "cost-estimate")]
+    CostEstimate(CostEstimateArgs),
+
+    /// FJ-1416: Model evaluation pipeline
+    #[command(name = "model-eval")]
+    ModelEval(ModelEvalArgs),
+
+    /// FJ-1420: Fault injection testing
+    #[command(name = "fault-inject")]
+    FaultInject(FaultInjectArgs),
+
+    /// FJ-1421: Runtime invariant monitors
+    #[command(name = "invariants")]
+    Invariants(InvariantsArgs),
+
+    /// FJ-1422: ISO distribution export
+    #[command(name = "iso-export")]
+    IsoExport(IsoExportArgs),
+
+    /// FJ-1423: Brownfield state import
+    #[command(name = "import-brownfield")]
+    ImportBrownfield(ImportBrownfieldArgs),
+
+    /// FJ-1424: Cross-machine dependency analysis
+    #[command(name = "cross-deps")]
+    CrossDeps(CrossDepsArgs),
+
+    /// FJ-1425: Remote state backend operations
+    #[command(name = "state-backend")]
+    StateBackend(StateBackendArgs),
+
+    /// FJ-1426: Recipe registry listing
+    #[command(name = "registry-list")]
+    RegistryList(RegistryListArgs),
+
+    /// FJ-1427: Service catalog listing
+    #[command(name = "catalog-list")]
+    CatalogList(CatalogListArgs),
+
+    /// FJ-1428: Multi-config apply ordering
+    #[command(name = "multi-apply")]
+    MultiApply(MultiConfigArgs),
+
+    /// FJ-1429: Stack dependency graph
+    #[command(name = "stack-graph")]
+    StackGraph(StackGraphArgs),
+
+    /// FJ-1430+1431: Infrastructure query
+    #[command(name = "query")]
+    InfraQuery(InfraQueryArgs),
+
+    /// FJ-1432+1433: Recipe signing
+    #[command(name = "sign")]
+    RecipeSign(RecipeSignArgs),
+
+    /// FJ-1434: Preservation checking
+    #[command(name = "preservation")]
+    Preservation(PreservationArgs),
+
+    /// FJ-1435: Parallel multi-stack apply
+    #[command(name = "parallel-apply")]
+    ParallelApply(ParallelStackArgs),
+
+    /// FJ-1436: Saga-pattern multi-stack apply
+    #[command(name = "saga")]
+    Saga(SagaArgs),
+
+    /// FJ-1437: Agent recipe registry
+    #[command(name = "agent-registry")]
+    AgentRegistry(AgentRegistryArgs),
+
+    /// FJ-059+060: Pull agent / hybrid push-pull enforcement
+    #[command(name = "agent")]
+    PullAgent(PullAgentArgs),
+
+    /// FJ-1450: Configuration complexity analysis
+    Complexity(ComplexityArgs),
+    /// FJ-1451: Dependency impact analysis
+    Impact(ImpactArgs),
+    /// FJ-1452: Configuration drift prediction
+    #[command(name = "drift-predict")]
+    DriftPredict(DriftPredictArgs),
 }

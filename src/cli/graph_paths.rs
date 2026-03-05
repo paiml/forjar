@@ -11,24 +11,24 @@ pub(crate) fn cmd_graph_resource_dependency_chain(
     target: &str,
     json: bool,
 ) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
     let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
     if !config.resources.contains_key(target) {
-        return Err(format!("Resource '{}' not found", target));
+        return Err(format!("Resource '{target}' not found"));
     }
     let chain = collect_dep_chain(&config, target);
     if json {
-        let items: Vec<String> = chain.iter().map(|s| format!("\"{}\"", s)).collect();
+        let items: Vec<String> = chain.iter().map(|s| format!("\"{s}\"")).collect();
         println!(
             "{{\"resource\":\"{}\",\"chain\":[{}]}}",
             target,
             items.join(",")
         );
     } else if chain.is_empty() {
-        println!("{} has no dependencies.", target);
+        println!("{target} has no dependencies.");
     } else {
-        println!("Dependency chain for {}:", target);
+        println!("Dependency chain for {target}:");
         for (i, dep) in chain.iter().enumerate() {
             println!("  {} {}", "  ".repeat(i), dep);
         }
@@ -58,19 +58,14 @@ fn collect_dep_chain(config: &types::ForjarConfig, target: &str) -> Vec<String> 
 
 /// FJ-827: Resources with highest fan-in AND fan-out (bottlenecks).
 pub(crate) fn cmd_graph_bottleneck_resources(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
     let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
     let bottlenecks = find_bottlenecks(&config);
     if json {
         let items: Vec<String> = bottlenecks
             .iter()
-            .map(|(r, fi, fo)| {
-                format!(
-                    "{{\"resource\":\"{}\",\"fanin\":{},\"fanout\":{}}}",
-                    r, fi, fo
-                )
-            })
+            .map(|(r, fi, fo)| format!("{{\"resource\":\"{r}\",\"fanin\":{fi},\"fanout\":{fo}}}"))
             .collect();
         println!("{{\"bottleneck_resources\":[{}]}}", items.join(","));
     } else if bottlenecks.is_empty() {
@@ -78,7 +73,7 @@ pub(crate) fn cmd_graph_bottleneck_resources(file: &Path, json: bool) -> Result<
     } else {
         println!("Bottleneck resources (high fan-in + fan-out):");
         for (r, fi, fo) in &bottlenecks {
-            println!("  {} — fan-in: {}, fan-out: {}", r, fi, fo);
+            println!("  {r} — fan-in: {fi}, fan-out: {fo}");
         }
     }
     Ok(())
@@ -112,12 +107,12 @@ fn find_bottlenecks(config: &types::ForjarConfig) -> Vec<(String, usize, usize)>
 
 /// FJ-831: Longest weighted path through the DAG (critical dependency path).
 pub(crate) fn cmd_graph_critical_dependency_path(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
     let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
     let path = find_critical_dep_path(&config);
     if json {
-        let items: Vec<String> = path.iter().map(|s| format!("\"{}\"", s)).collect();
+        let items: Vec<String> = path.iter().map(|s| format!("\"{s}\"")).collect();
         println!(
             "{{\"critical_dependency_path\":[{}],\"length\":{}}}",
             items.join(","),
@@ -176,14 +171,14 @@ fn longest_path_from(start: usize, adj: &[Vec<usize>], visited: &mut [bool]) -> 
 
 /// FJ-835: Histogram of dependency depths across all resources.
 pub(crate) fn cmd_graph_resource_depth_histogram(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
     let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
     let histogram = build_depth_histogram(&config);
     if json {
         let items: Vec<String> = histogram
             .iter()
-            .map(|(d, c)| format!("{{\"depth\":{},\"count\":{}}}", d, c))
+            .map(|(d, c)| format!("{{\"depth\":{d},\"count\":{c}}}"))
             .collect();
         println!("{{\"depth_histogram\":[{}]}}", items.join(","));
     } else if histogram.is_empty() {
@@ -192,7 +187,7 @@ pub(crate) fn cmd_graph_resource_depth_histogram(file: &Path, json: bool) -> Res
         println!("Resource depth histogram:");
         for (d, c) in &histogram {
             let bar = "#".repeat(*c);
-            println!("  depth {} — {} {}", d, c, bar);
+            println!("  depth {d} — {c} {bar}");
         }
     }
     Ok(())
@@ -239,18 +234,15 @@ fn compute_depth(node: usize, adj: &[Vec<usize>], cache: &mut [Option<usize>]) -
 
 /// FJ-839: Coupling score between resource pairs.
 pub(crate) fn cmd_graph_resource_coupling_score(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
     let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
     let scores = compute_coupling_scores(&config);
     if json {
         let items: Vec<String> = scores
             .iter()
             .map(|(a, b, s)| {
-                format!(
-                    "{{\"resource_a\":\"{}\",\"resource_b\":\"{}\",\"score\":{}}}",
-                    a, b, s
-                )
+                format!("{{\"resource_a\":\"{a}\",\"resource_b\":\"{b}\",\"score\":{s}}}")
             })
             .collect();
         println!("{{\"coupling_scores\":[{}]}}", items.join(","));
@@ -259,7 +251,7 @@ pub(crate) fn cmd_graph_resource_coupling_score(file: &Path, json: bool) -> Resu
     } else {
         println!("Resource coupling scores:");
         for (a, b, s) in &scores {
-            println!("  {} <-> {} — score {}", a, b, s);
+            println!("  {a} <-> {b} — score {s}");
         }
     }
     Ok(())
@@ -295,14 +287,14 @@ fn compute_coupling_scores(config: &types::ForjarConfig) -> Vec<(String, String,
 
 /// FJ-843: Overlay change frequency on dependency graph (simulated from deps count).
 pub(crate) fn cmd_graph_resource_change_frequency(file: &Path, json: bool) -> Result<(), String> {
-    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {}", e))?;
+    let content = std::fs::read_to_string(file).map_err(|e| format!("Read error: {e}"))?;
     let config: types::ForjarConfig =
-        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {}", e))?;
+        serde_yaml_ng::from_str(&content).map_err(|e| format!("Parse error: {e}"))?;
     let freqs = estimate_change_frequency(&config);
     if json {
         let items: Vec<String> = freqs
             .iter()
-            .map(|(r, f)| format!("{{\"resource\":\"{}\",\"change_score\":{}}}", r, f))
+            .map(|(r, f)| format!("{{\"resource\":\"{r}\",\"change_score\":{f}}}"))
             .collect();
         println!("{{\"change_frequency\":[{}]}}", items.join(","));
     } else if freqs.is_empty() {
@@ -310,7 +302,7 @@ pub(crate) fn cmd_graph_resource_change_frequency(file: &Path, json: bool) -> Re
     } else {
         println!("Estimated change frequency (by dependency impact):");
         for (r, f) in &freqs {
-            println!("  {} — score {}", r, f);
+            println!("  {r} — score {f}");
         }
     }
     Ok(())

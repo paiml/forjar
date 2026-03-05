@@ -66,8 +66,7 @@ resources:
     let bullet_count = err.matches("  - ").count();
     assert!(
         bullet_count >= 2,
-        "expected multiple errors, got {} bullets",
-        bullet_count
+        "expected multiple errors, got {bullet_count} bullets"
     );
 }
 
@@ -159,8 +158,7 @@ resources:
     let errors = validate_config(&config);
     assert!(
         errors.is_empty(),
-        "valid container config should have no errors: {:?}",
-        errors
+        "valid container config should have no errors: {errors:?}"
     );
 }
 

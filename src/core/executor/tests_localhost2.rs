@@ -50,6 +50,7 @@ policy:
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
+        trace: false,
     };
     let results = apply(&cfg).unwrap();
     // At least one resource should converge even if one fails
@@ -142,6 +143,7 @@ fn test_fj131_record_success_no_live_hash_for_package() {
         post_apply: None,
         lifecycle: None,
         store: false,
+        sudo: false,
         script: None,
     };
     let mut ctx = RecordCtx {
@@ -193,6 +195,7 @@ fn test_fj131_apply_dry_run_returns_unchanged_count() {
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
+        trace: false,
     };
     apply(&cfg).unwrap();
 
@@ -214,6 +217,7 @@ fn test_fj131_apply_dry_run_returns_unchanged_count() {
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
+        trace: false,
     };
     let results = apply(&cfg2).unwrap();
     assert_eq!(results[0].machine, "dry-run");

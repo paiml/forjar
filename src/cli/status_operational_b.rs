@@ -17,7 +17,7 @@ pub(crate) fn cmd_status_fleet_convergence_trend(
     if json {
         let items: Vec<String> = trend
             .iter()
-            .map(|(m, pct)| format!("{{\"machine\":\"{}\",\"convergence_pct\":{:.1}}}", m, pct))
+            .map(|(m, pct)| format!("{{\"machine\":\"{m}\",\"convergence_pct\":{pct:.1}}}"))
             .collect();
         println!("{{\"fleet_convergence_trend\":[{}]}}", items.join(","));
     } else if trend.is_empty() {
@@ -25,7 +25,7 @@ pub(crate) fn cmd_status_fleet_convergence_trend(
     } else {
         println!("Fleet convergence trend:");
         for (m, pct) in &trend {
-            println!("  {} — {:.1}% converged", m, pct);
+            println!("  {m} — {pct:.1}% converged");
         }
     }
     Ok(())
@@ -34,7 +34,7 @@ pub(crate) fn cmd_status_fleet_convergence_trend(
 fn collect_convergence_trend(state_dir: &Path, targets: &[&String]) -> Vec<(String, f64)> {
     let mut results = Vec::new();
     for m in targets {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&lock_path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -74,7 +74,7 @@ pub(crate) fn cmd_status_resource_state_distribution(
     if json {
         let items: Vec<String> = dist
             .iter()
-            .map(|(s, c)| format!("{{\"state\":\"{}\",\"count\":{}}}", s, c))
+            .map(|(s, c)| format!("{{\"state\":\"{s}\",\"count\":{c}}}"))
             .collect();
         println!("{{\"resource_state_distribution\":[{}]}}", items.join(","));
     } else if dist.is_empty() {
@@ -82,7 +82,7 @@ pub(crate) fn cmd_status_resource_state_distribution(
     } else {
         println!("Resource state distribution:");
         for (s, c) in &dist {
-            println!("  {} — {}", s, c);
+            println!("  {s} — {c}");
         }
     }
     Ok(())
@@ -91,7 +91,7 @@ pub(crate) fn cmd_status_resource_state_distribution(
 fn collect_state_distribution(state_dir: &Path, targets: &[&String]) -> Vec<(String, usize)> {
     let mut counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
     for m in targets {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&lock_path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -124,7 +124,7 @@ pub(crate) fn cmd_status_machine_apply_count(
     if json {
         let items: Vec<String> = counts
             .iter()
-            .map(|(m, c)| format!("{{\"machine\":\"{}\",\"resource_count\":{}}}", m, c))
+            .map(|(m, c)| format!("{{\"machine\":\"{m}\",\"resource_count\":{c}}}"))
             .collect();
         println!("{{\"machine_apply_counts\":[{}]}}", items.join(","));
     } else if counts.is_empty() {
@@ -132,7 +132,7 @@ pub(crate) fn cmd_status_machine_apply_count(
     } else {
         println!("Apply counts per machine:");
         for (m, c) in &counts {
-            println!("  {} — {} resources tracked", m, c);
+            println!("  {m} — {c} resources tracked");
         }
     }
     Ok(())
@@ -141,7 +141,7 @@ pub(crate) fn cmd_status_machine_apply_count(
 fn collect_apply_counts(state_dir: &Path, targets: &[&String]) -> Vec<(String, usize)> {
     let mut results = Vec::new();
     for m in targets {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&lock_path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -172,10 +172,7 @@ pub(crate) fn cmd_status_fleet_apply_history(
         let items: Vec<String> = history
             .iter()
             .map(|(m, r, t)| {
-                format!(
-                    "{{\"machine\":\"{}\",\"resource\":\"{}\",\"applied_at\":\"{}\"}}",
-                    m, r, t
-                )
+                format!("{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"applied_at\":\"{t}\"}}")
             })
             .collect();
         println!("{{\"fleet_apply_history\":[{}]}}", items.join(","));
@@ -184,7 +181,7 @@ pub(crate) fn cmd_status_fleet_apply_history(
     } else {
         println!("Fleet apply history (most recent):");
         for (m, r, t) in &history {
-            println!("  {} / {} — {}", m, r, t);
+            println!("  {m} / {r} — {t}");
         }
     }
     Ok(())
@@ -196,7 +193,7 @@ fn collect_fleet_apply_history(
 ) -> Vec<(String, String, String)> {
     let mut results = Vec::new();
     for m in targets {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&lock_path) {
             Ok(c) => c,
             Err(_) => continue,
@@ -231,10 +228,7 @@ pub(crate) fn cmd_status_resource_hash_changes(
         let items: Vec<String> = changes
             .iter()
             .map(|(m, r, h)| {
-                format!(
-                    "{{\"machine\":\"{}\",\"resource\":\"{}\",\"hash\":\"{}\"}}",
-                    m, r, h
-                )
+                format!("{{\"machine\":\"{m}\",\"resource\":\"{r}\",\"hash\":\"{h}\"}}")
             })
             .collect();
         println!("{{\"resource_hash_changes\":[{}]}}", items.join(","));
@@ -243,7 +237,7 @@ pub(crate) fn cmd_status_resource_hash_changes(
     } else {
         println!("Resource hashes ({} tracked):", changes.len());
         for (m, r, h) in &changes {
-            println!("  {} / {} — {}", m, r, h);
+            println!("  {m} / {r} — {h}");
         }
     }
     Ok(())
@@ -252,7 +246,7 @@ pub(crate) fn cmd_status_resource_hash_changes(
 fn collect_hash_changes(state_dir: &Path, targets: &[&String]) -> Vec<(String, String, String)> {
     let mut results = Vec::new();
     for m in targets {
-        let lock_path = state_dir.join(format!("{}.lock.yaml", m));
+        let lock_path = state_dir.join(m).join("state.lock.yaml");
         let content = match std::fs::read_to_string(&lock_path) {
             Ok(c) => c,
             Err(_) => continue,

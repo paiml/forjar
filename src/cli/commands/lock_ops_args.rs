@@ -2,6 +2,7 @@
 
 use std::path::PathBuf;
 
+/// CLI arguments for `lock verify-chain`.
 #[derive(clap::Args, Debug)]
 pub struct LockVerifyChainArgs {
     /// State directory
@@ -13,6 +14,7 @@ pub struct LockVerifyChainArgs {
     pub json: bool,
 }
 
+/// CLI arguments for `lock stats`.
 #[derive(clap::Args, Debug)]
 pub struct LockStatsArgs {
     /// State directory
@@ -24,6 +26,7 @@ pub struct LockStatsArgs {
     pub json: bool,
 }
 
+/// CLI arguments for `lock audit`.
 #[derive(clap::Args, Debug)]
 pub struct LockAuditArgs {
     /// State directory
@@ -35,6 +38,7 @@ pub struct LockAuditArgs {
     pub json: bool,
 }
 
+/// CLI arguments for `lock compress`.
 #[derive(clap::Args, Debug)]
 pub struct LockCompressArgs {
     /// State directory
@@ -46,6 +50,7 @@ pub struct LockCompressArgs {
     pub json: bool,
 }
 
+/// CLI arguments for `lock defrag`.
 #[derive(clap::Args, Debug)]
 pub struct LockDefragArgs {
     /// State directory
@@ -57,6 +62,7 @@ pub struct LockDefragArgs {
     pub json: bool,
 }
 
+/// CLI arguments for `lock normalize`.
 #[derive(clap::Args, Debug)]
 pub struct LockNormalizeArgs {
     /// State directory
@@ -68,6 +74,7 @@ pub struct LockNormalizeArgs {
     pub json: bool,
 }
 
+/// CLI arguments for `lock validate`.
 #[derive(clap::Args, Debug)]
 pub struct LockValidateArgs {
     /// State directory
@@ -79,6 +86,7 @@ pub struct LockValidateArgs {
     pub json: bool,
 }
 
+/// CLI arguments for `lock verify-hmac`.
 #[derive(clap::Args, Debug)]
 pub struct LockVerifyHmacArgs {
     /// State directory
@@ -90,6 +98,7 @@ pub struct LockVerifyHmacArgs {
     pub json: bool,
 }
 
+/// CLI arguments for `lock archive`.
 #[derive(clap::Args, Debug)]
 pub struct LockArchiveArgs {
     /// State directory
@@ -101,6 +110,7 @@ pub struct LockArchiveArgs {
     pub json: bool,
 }
 
+/// CLI arguments for `lock snapshot`.
 #[derive(clap::Args, Debug)]
 pub struct LockSnapshotArgs {
     /// State directory
@@ -112,6 +122,7 @@ pub struct LockSnapshotArgs {
     pub json: bool,
 }
 
+/// CLI arguments for `lock repair`.
 #[derive(clap::Args, Debug)]
 pub struct LockRepairArgs {
     /// State directory
@@ -123,6 +134,7 @@ pub struct LockRepairArgs {
     pub json: bool,
 }
 
+/// CLI arguments for `lock history`.
 #[derive(clap::Args, Debug)]
 pub struct LockHistoryArgs {
     /// State directory
@@ -138,6 +150,7 @@ pub struct LockHistoryArgs {
     pub limit: usize,
 }
 
+/// CLI arguments for `lock integrity`.
 #[derive(clap::Args, Debug)]
 pub struct LockIntegrityArgs {
     /// State directory
@@ -149,6 +162,7 @@ pub struct LockIntegrityArgs {
     pub json: bool,
 }
 
+/// CLI arguments for `lock rehash`.
 #[derive(clap::Args, Debug)]
 pub struct LockRehashArgs {
     /// State directory
@@ -160,6 +174,7 @@ pub struct LockRehashArgs {
     pub json: bool,
 }
 
+/// CLI arguments for `lock restore`.
 #[derive(clap::Args, Debug)]
 pub struct LockRestoreArgs {
     /// State directory
@@ -175,6 +190,7 @@ pub struct LockRestoreArgs {
     pub json: bool,
 }
 
+/// CLI arguments for `lock verify-schema`.
 #[derive(clap::Args, Debug)]
 pub struct LockVerifySchemaArgs {
     /// State directory
@@ -186,6 +202,7 @@ pub struct LockVerifySchemaArgs {
     pub json: bool,
 }
 
+/// CLI arguments for `lock tag`.
 #[derive(clap::Args, Debug)]
 pub struct LockTagArgs {
     /// State directory
@@ -205,6 +222,7 @@ pub struct LockTagArgs {
     pub json: bool,
 }
 
+/// CLI arguments for `lock migrate`.
 #[derive(clap::Args, Debug)]
 pub struct LockMigrateArgs {
     /// State directory

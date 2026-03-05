@@ -94,7 +94,7 @@ pub(crate) fn print_plan(
         }
         if change.machine != current_machine {
             current_machine.clone_from(&change.machine);
-            println!("{}:", current_machine);
+            println!("{current_machine}:");
         }
         print_plan_change(change, config);
     }
@@ -130,7 +130,7 @@ pub(crate) fn print_content_diff(
     let show = lines.len().min(max_lines);
     println!("    ---");
     for line in &lines[..show] {
-        println!("    {} {}", prefix, line);
+        println!("    {prefix} {line}");
     }
     if lines.len() > max_lines {
         println!("    [... {} more lines]", lines.len() - max_lines);
@@ -155,7 +155,7 @@ pub(crate) fn print_unified_diff(old: &str, new: &str) {
         }
         match (old_lines.get(i), new_lines.get(i)) {
             (Some(o), Some(n)) if o == n => {
-                println!("      {}", o);
+                println!("      {o}");
                 shown += 1;
             }
             (Some(o), Some(n)) => {
@@ -202,7 +202,7 @@ pub(crate) fn export_scripts(config: &types::ForjarConfig, dir: &Path) -> Result
             id, config.name, machine_str, resource.resource_type
         );
         if let Some(ref rg) = resource.resource_group {
-            header.push_str(&format!("# group: {}\n", rg));
+            header.push_str(&format!("# group: {rg}\n"));
         }
         if !resource.tags.is_empty() {
             header.push_str(&format!("# tags: {}\n", resource.tags.join(", ")));
@@ -215,22 +215,22 @@ pub(crate) fn export_scripts(config: &types::ForjarConfig, dir: &Path) -> Result
         }
 
         if let Ok(script) = codegen::check_script(&resolved) {
-            let path = dir.join(format!("{}.check.sh", safe_id));
-            std::fs::write(&path, format!("{}{}", header, script))
+            let path = dir.join(format!("{safe_id}.check.sh"));
+            std::fs::write(&path, format!("{header}{script}"))
                 .map_err(|e| format!("write {}: {}", path.display(), e))?;
             count += 1;
         }
 
         if let Ok(script) = codegen::apply_script(&resolved) {
-            let path = dir.join(format!("{}.apply.sh", safe_id));
-            std::fs::write(&path, format!("{}{}", header, script))
+            let path = dir.join(format!("{safe_id}.apply.sh"));
+            std::fs::write(&path, format!("{header}{script}"))
                 .map_err(|e| format!("write {}: {}", path.display(), e))?;
             count += 1;
         }
 
         if let Ok(script) = codegen::state_query_script(&resolved) {
-            let path = dir.join(format!("{}.state_query.sh", safe_id));
-            std::fs::write(&path, format!("{}{}", header, script))
+            let path = dir.join(format!("{safe_id}.state_query.sh"));
+            std::fs::write(&path, format!("{header}{script}"))
                 .map_err(|e| format!("write {}: {}", path.display(), e))?;
             count += 1;
         }

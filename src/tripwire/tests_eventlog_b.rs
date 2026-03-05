@@ -6,14 +6,14 @@ use std::path::{Path, PathBuf};
 fn test_fj015_timestamp_day_range() {
     let ts = now_iso8601();
     let day: u32 = ts[8..10].parse().unwrap();
-    assert!((1..=31).contains(&day), "day should be 1-31: {}", day);
+    assert!((1..=31).contains(&day), "day should be 1-31: {day}");
 }
 
 #[test]
 fn test_fj015_timestamp_hour_range() {
     let ts = now_iso8601();
     let hour: u32 = ts[11..13].parse().unwrap();
-    assert!(hour < 24, "hour should be 0-23: {}", hour);
+    assert!(hour < 24, "hour should be 0-23: {hour}");
 }
 
 #[test]
@@ -40,6 +40,9 @@ fn test_fj015_append_all_event_types_roundtrip() {
                 machine: "m".to_string(),
                 run_id: "r-1".to_string(),
                 forjar_version: "0.1.0".to_string(),
+                operator: None,
+                config_hash: None,
+                param_count: None,
             },
             "apply_started",
         ),
@@ -94,9 +97,7 @@ fn test_fj015_append_all_event_types_roundtrip() {
         let content = std::fs::read_to_string(dir.path().join("m/events.jsonl")).unwrap();
         assert!(
             content.contains(expected_tag),
-            "event log should contain tag '{}': {}",
-            expected_tag,
-            content,
+            "event log should contain tag '{expected_tag}': {content}",
         );
     }
 }
@@ -108,8 +109,7 @@ fn test_fj015_generate_run_id_prefix_length() {
         assert_eq!(
             id.len(),
             14,
-            "run ID should be r- + 12 hex = 14 chars: {}",
-            id
+            "run ID should be r- + 12 hex = 14 chars: {id}"
         );
     }
 }
@@ -134,6 +134,9 @@ fn test_fj132_append_event_idempotent_dir_creation() {
         machine: "m".to_string(),
         run_id: "r-1".to_string(),
         forjar_version: "0.1.0".to_string(),
+        operator: None,
+        config_hash: None,
+        param_count: None,
     };
     let event2 = ProvenanceEvent::ApplyCompleted {
         machine: "m".to_string(),
@@ -162,14 +165,14 @@ fn test_fj132_event_log_path_with_dots() {
 fn test_fj132_timestamp_minute_range() {
     let ts = now_iso8601();
     let minute: u32 = ts[14..16].parse().unwrap();
-    assert!(minute < 60, "minute should be 0-59: {}", minute);
+    assert!(minute < 60, "minute should be 0-59: {minute}");
 }
 
 #[test]
 fn test_fj132_timestamp_second_range() {
     let ts = now_iso8601();
     let second: u32 = ts[17..19].parse().unwrap();
-    assert!(second < 60, "second should be 0-59: {}", second);
+    assert!(second < 60, "second should be 0-59: {second}");
 }
 
 #[test]
@@ -197,11 +200,17 @@ fn test_fj132_multiple_machines_separate_logs() {
         machine: "web".to_string(),
         run_id: "r-1".to_string(),
         forjar_version: "0.1.0".to_string(),
+        operator: None,
+        config_hash: None,
+        param_count: None,
     };
     let event2 = ProvenanceEvent::ApplyStarted {
         machine: "db".to_string(),
         run_id: "r-2".to_string(),
         forjar_version: "0.1.0".to_string(),
+        operator: None,
+        config_hash: None,
+        param_count: None,
     };
     append_event(dir.path(), "web", event1).unwrap();
     append_event(dir.path(), "db", event2).unwrap();
@@ -235,6 +244,9 @@ fn test_fj132_append_event_creates_directory() {
         machine: "new-machine".to_string(),
         run_id: "run-123".to_string(),
         forjar_version: "0.1.0".to_string(),
+        operator: None,
+        config_hash: None,
+        param_count: None,
     };
     append_event(dir.path(), "new-machine", event).unwrap();
     assert!(dir.path().join("new-machine/events.jsonl").exists());
@@ -246,7 +258,7 @@ fn test_fj132_append_multiple_events_jsonl_format() {
     for i in 0..3 {
         let event = ProvenanceEvent::ResourceConverged {
             machine: "m".to_string(),
-            resource: format!("r-{}", i),
+            resource: format!("r-{i}"),
             duration_seconds: 0.1,
             hash: "blake3:abc".to_string(),
         };

@@ -12,7 +12,7 @@ pub(crate) fn cmd_validate_check_resource_update_safety(
     if json {
         let items: Vec<String> = warnings
             .iter()
-            .map(|(n, w)| format!("{{\"resource\":\"{}\",\"warning\":\"{}\"}}", n, w))
+            .map(|(n, w)| format!("{{\"resource\":\"{n}\",\"warning\":\"{w}\"}}"))
             .collect();
         println!("{{\"update_safety_warnings\":[{}]}}", items.join(","));
     } else if warnings.is_empty() {
@@ -20,7 +20,7 @@ pub(crate) fn cmd_validate_check_resource_update_safety(
     } else {
         println!("Update safety warnings:");
         for (n, w) in &warnings {
-            println!("  {} — {}", n, w);
+            println!("  {n} — {w}");
         }
     }
     Ok(())
@@ -58,7 +58,7 @@ pub(crate) fn cmd_validate_check_resource_cross_machine_consistency(
     if json {
         let items: Vec<String> = issues
             .iter()
-            .map(|(n, i)| format!("{{\"resource\":\"{}\",\"issue\":\"{}\"}}", n, i))
+            .map(|(n, i)| format!("{{\"resource\":\"{n}\",\"issue\":\"{i}\"}}"))
             .collect();
         println!(
             "{{\"cross_machine_inconsistencies\":[{}]}}",
@@ -69,7 +69,7 @@ pub(crate) fn cmd_validate_check_resource_cross_machine_consistency(
     } else {
         println!("Cross-machine inconsistencies:");
         for (n, i) in &issues {
-            println!("  {} — {}", n, i);
+            println!("  {n} — {i}");
         }
     }
     Ok(())
@@ -108,14 +108,14 @@ pub(crate) fn cmd_validate_check_resource_version_pinning(
         serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
     let unpinned = find_unpinned_resources(&config);
     if json {
-        let items: Vec<String> = unpinned.iter().map(|n| format!("\"{}\"", n)).collect();
+        let items: Vec<String> = unpinned.iter().map(|n| format!("\"{n}\"")).collect();
         println!("{{\"unpinned_resources\":[{}]}}", items.join(","));
     } else if unpinned.is_empty() {
         println!("All package resources have pinned versions.");
     } else {
         println!("Resources without pinned versions:");
         for n in &unpinned {
-            println!("  {}", n);
+            println!("  {n}");
         }
     }
     Ok(())
@@ -146,7 +146,7 @@ pub(crate) fn cmd_validate_check_resource_dependency_completeness(
     if json {
         let items: Vec<String> = missing
             .iter()
-            .map(|(n, dep)| format!("{{\"resource\":\"{}\",\"missing_dep\":\"{}\"}}", n, dep))
+            .map(|(n, dep)| format!("{{\"resource\":\"{n}\",\"missing_dep\":\"{dep}\"}}"))
             .collect();
         println!("{{\"incomplete_dependencies\":[{}]}}", items.join(","));
     } else if missing.is_empty() {
@@ -154,7 +154,7 @@ pub(crate) fn cmd_validate_check_resource_dependency_completeness(
     } else {
         println!("Incomplete dependency references:");
         for (n, dep) in &missing {
-            println!("  {} → missing '{}'", n, dep);
+            println!("  {n} → missing '{dep}'");
         }
     }
     Ok(())
@@ -183,14 +183,14 @@ pub(crate) fn cmd_validate_check_resource_state_coverage(
         serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
     let missing = find_missing_state_coverage(&config);
     if json {
-        let items: Vec<String> = missing.iter().map(|n| format!("\"{}\"", n)).collect();
+        let items: Vec<String> = missing.iter().map(|n| format!("\"{n}\"")).collect();
         println!("{{\"resources_without_state\":[{}]}}", items.join(","));
     } else if missing.is_empty() {
         println!("All resources have explicit state coverage.");
     } else {
         println!("Resources without explicit state:");
         for n in &missing {
-            println!("  {}", n);
+            println!("  {n}");
         }
     }
     Ok(())
@@ -215,36 +215,36 @@ pub(crate) fn cmd_validate_check_resource_rollback_safety(
     let content = std::fs::read_to_string(file).map_err(|e| e.to_string())?;
     let config: types::ForjarConfig =
         serde_yaml_ng::from_str(&content).map_err(|e| e.to_string())?;
-    let unsafe_resources = find_rollback_unsafe(&config);
+    let risky = find_rollback_risky(&config);
     if json {
-        let items: Vec<String> = unsafe_resources
+        let items: Vec<String> = risky
             .iter()
-            .map(|(n, r)| format!("{{\"resource\":\"{}\",\"reason\":\"{}\"}}", n, r))
+            .map(|(n, r)| format!("{{\"resource\":\"{n}\",\"reason\":\"{r}\"}}"))
             .collect();
-        println!("{{\"rollback_unsafe\":[{}]}}", items.join(","));
-    } else if unsafe_resources.is_empty() {
+        println!("{{\"rollback_risky\":[{}]}}", items.join(","));
+    } else if risky.is_empty() {
         println!("All resources are safe to roll back.");
     } else {
         println!("Resources with rollback safety concerns:");
-        for (n, r) in &unsafe_resources {
-            println!("  {} — {}", n, r);
+        for (n, r) in &risky {
+            println!("  {n} — {r}");
         }
     }
     Ok(())
 }
 
-fn find_rollback_unsafe(config: &types::ForjarConfig) -> Vec<(String, String)> {
-    let mut unsafe_res = Vec::new();
+fn find_rollback_risky(config: &types::ForjarConfig) -> Vec<(String, String)> {
+    let mut results = Vec::new();
     for (name, res) in &config.resources {
         if !res.triggers.is_empty() {
-            unsafe_res.push((
+            results.push((
                 name.clone(),
                 format!("triggers {} other resources", res.triggers.len()),
             ));
         }
     }
-    unsafe_res.sort_by(|a, b| a.0.cmp(&b.0));
-    unsafe_res
+    results.sort_by(|a, b| a.0.cmp(&b.0));
+    results
 }
 
 /// FJ-921: Score resource configuration maturity (tags, docs, versioning).
@@ -259,7 +259,7 @@ pub(crate) fn cmd_validate_check_resource_config_maturity(
     if json {
         let items: Vec<String> = scores
             .iter()
-            .map(|(n, s)| format!("{{\"resource\":\"{}\",\"maturity_score\":{}}}", n, s))
+            .map(|(n, s)| format!("{{\"resource\":\"{n}\",\"maturity_score\":{s}}}"))
             .collect();
         println!("{{\"config_maturity\":[{}]}}", items.join(","));
     } else if scores.is_empty() {
@@ -267,7 +267,7 @@ pub(crate) fn cmd_validate_check_resource_config_maturity(
     } else {
         println!("Resource configuration maturity scores:");
         for (n, s) in &scores {
-            println!("  {} — {}/5", n, s);
+            println!("  {n} — {s}/5");
         }
     }
     Ok(())

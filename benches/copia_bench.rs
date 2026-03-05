@@ -104,7 +104,7 @@ fn bench_copia_parse_signatures(c: &mut Criterion) {
     let mut output = String::from("SIZE:4194304\n");
     for i in 0..1024 {
         let hash = blake3::hash(&[i as u8; copia::BLOCK_SIZE]).to_hex();
-        output.push_str(&format!("{} {}\n", i, hash));
+        output.push_str(&format!("{i} {hash}\n"));
     }
 
     c.bench_function("copia_parse_signatures_1024_blocks", |b| {

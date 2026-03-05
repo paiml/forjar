@@ -1,0 +1,68 @@
+# FJ-1417: pforge MCP server deployment recipe
+# Deploys a pforge-defined MCP server as a forjar-managed resource.
+#
+# Usage: forjar apply -f examples/pforge-mcp-server.yaml
+#
+version: "1.0"
+name: pforge-mcp-server
+description: "Deploy pforge MCP server with health monitoring"
+
+params:
+  pforge_version: "0.2.0"
+  mcp_port: "8080"
+  config_dir: /etc/pforge
+
+machines:
+  server:
+    hostname: mcp-host
+    addr: 127.0.0.1
+
+resources:
+  # Phase 1: Install pforge binary
+  pforge-binary:
+    type: package
+    machine: server
+    provider: cargo
+    packages: [pforge-runtime]
+    tags: [agent, infrastructure]
+
+  # Phase 2: Write MCP server configuration
+  pforge-config:
+    type: file
+    machine: server
+    path: "{{params.config_dir}}/pforge.yaml"
+    content: |
+      name: code-assistant
+      model: llama-3.2-3b
+      tools:
+        - name: file-read
+          allowed: true
+        - name: file-write
+          allowed: false
+      server:
+        port: {{params.mcp_port}}
+        host: 0.0.0.0
+    depends_on: [pforge-binary]
+    tags: [agent, config]
+
+  # Phase 3: Create systemd service
+  pforge-service:
+    type: service
+    machine: server
+    name: pforge-mcp
+    command: "pforge serve --config {{params.config_dir}}/pforge.yaml"
+    depends_on: [pforge-config]
+    tags: [agent, service]
+
+  # Phase 4: Health check
+  health-check:
+    type: task
+    machine: server
+    command: "curl -sf http://localhost:{{params.mcp_port}}/health || exit 1"
+    depends_on: [pforge-service]
+    tags: [agent, health]
+
+policies:
+  - type: require
+    message: "all resources must be tagged"
+    field: tags

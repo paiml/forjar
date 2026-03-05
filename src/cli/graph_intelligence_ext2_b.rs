@@ -23,7 +23,7 @@ pub(super) fn print_closure_sizes(sizes: &[(String, usize)], json: bool) {
     if json {
         let items: Vec<String> = sizes
             .iter()
-            .map(|(n, s)| format!("{{\"resource\":\"{}\",\"closure_size\":{}}}", n, s))
+            .map(|(n, s)| format!("{{\"resource\":\"{n}\",\"closure_size\":{s}}}"))
             .collect();
         println!("{{\"closure_sizes\":[{}]}}", items.join(","));
     } else if sizes.is_empty() {
@@ -31,7 +31,7 @@ pub(super) fn print_closure_sizes(sizes: &[(String, usize)], json: bool) {
     } else {
         println!("Transitive closure sizes:");
         for (n, s) in sizes {
-            println!("  {} — {} reachable", n, s);
+            println!("  {n} — {s} reachable");
         }
     }
 }
@@ -91,13 +91,13 @@ fn print_eccentricities(eccs: &[(String, usize)], json: bool) {
     if json {
         let items: Vec<String> = eccs
             .iter()
-            .map(|(n, e)| format!("{{\"resource\":\"{}\",\"eccentricity\":{}}}", n, e))
+            .map(|(n, e)| format!("{{\"resource\":\"{n}\",\"eccentricity\":{e}}}"))
             .collect();
         println!("{{\"eccentricities\":[{}]}}", items.join(","));
     } else {
         println!("Eccentricity map (max distance from each node):");
         for (n, e) in eccs {
-            println!("  {} — {}", n, e);
+            println!("  {n} — {e}");
         }
     }
 }
@@ -172,7 +172,7 @@ fn reconstruct_path(prev: &[usize], start: usize, end: usize, names: &[String]) 
 }
 fn print_diameter_path(diameter: usize, path: &[String], json: bool) {
     if json {
-        let items: Vec<String> = path.iter().map(|n| format!("\"{}\"", n)).collect();
+        let items: Vec<String> = path.iter().map(|n| format!("\"{n}\"")).collect();
         println!(
             "{{\"diameter\":{},\"path\":[{}]}}",
             diameter,
@@ -238,12 +238,7 @@ fn print_bridge_criticality(bridges: &[(String, String, usize)], json: bool) {
     if json {
         let items: Vec<String> = bridges
             .iter()
-            .map(|(f, t, d)| {
-                format!(
-                    "{{\"from\":\"{}\",\"to\":\"{}\",\"downstream\":{}}}",
-                    f, t, d
-                )
-            })
+            .map(|(f, t, d)| format!("{{\"from\":\"{f}\",\"to\":\"{t}\",\"downstream\":{d}}}"))
             .collect();
         println!("{{\"bridge_criticality\":[{}]}}", items.join(","));
     } else if bridges.is_empty() {
@@ -251,7 +246,7 @@ fn print_bridge_criticality(bridges: &[(String, String, usize)], json: bool) {
     } else {
         println!("Bridge criticality (downstream subtree size):");
         for (f, t, d) in bridges {
-            println!("  {} → {} — {} downstream", f, t, d);
+            println!("  {f} → {t} — {d} downstream");
         }
     }
 }
@@ -293,7 +288,7 @@ fn print_conditional_subgraph(
                 )
             })
             .collect();
-        let uncond: Vec<String> = unconditional.iter().map(|n| format!("\"{}\"", n)).collect();
+        let uncond: Vec<String> = unconditional.iter().map(|n| format!("\"{n}\"")).collect();
         println!(
             "{{\"conditional\":[{}],\"unconditional\":[{}]}}",
             cond.join(","),
@@ -302,11 +297,11 @@ fn print_conditional_subgraph(
     } else {
         println!("Conditional resources ({}):", conditional.len());
         for (n, w) in conditional {
-            println!("  {} — when: {}", n, w);
+            println!("  {n} — when: {w}");
         }
         println!("Unconditional resources ({}):", unconditional.len());
         for n in unconditional {
-            println!("  {}", n);
+            println!("  {n}");
         }
     }
 }

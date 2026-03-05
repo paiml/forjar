@@ -22,11 +22,11 @@ fn scan_packages(machine: &types::Machine, machine_name: &str, verbose: bool) ->
             if !packages.is_empty() {
                 yaml.push_str("  imported-packages:\n");
                 yaml.push_str("    type: package\n");
-                yaml.push_str(&format!("    machine: {}\n", machine_name));
+                yaml.push_str(&format!("    machine: {machine_name}\n"));
                 yaml.push_str("    provider: apt\n");
                 yaml.push_str("    packages:\n");
                 for pkg in &packages {
-                    yaml.push_str(&format!("      - {}\n", pkg));
+                    yaml.push_str(&format!("      - {pkg}\n"));
                 }
                 yaml.push('\n');
                 count += 1;
@@ -37,7 +37,7 @@ fn scan_packages(machine: &types::Machine, machine_name: &str, verbose: bool) ->
         }
         Err(e) => {
             if verbose {
-                eprintln!("  Package scan failed: {}", e);
+                eprintln!("  Package scan failed: {e}");
             }
         }
     }
@@ -62,10 +62,10 @@ fn scan_services(machine: &types::Machine, machine_name: &str, verbose: bool) ->
                 .collect();
             for svc in &services {
                 let id = format!("svc-{}", svc.replace('.', "-"));
-                yaml.push_str(&format!("  {}:\n", id));
+                yaml.push_str(&format!("  {id}:\n"));
                 yaml.push_str("    type: service\n");
-                yaml.push_str(&format!("    machine: {}\n", machine_name));
-                yaml.push_str(&format!("    name: {}\n", svc));
+                yaml.push_str(&format!("    machine: {machine_name}\n"));
+                yaml.push_str(&format!("    name: {svc}\n"));
                 yaml.push_str("    state: running\n");
                 yaml.push_str("    enabled: true\n\n");
                 count += 1;
@@ -76,7 +76,7 @@ fn scan_services(machine: &types::Machine, machine_name: &str, verbose: bool) ->
         }
         Err(e) => {
             if verbose {
-                eprintln!("  Service scan failed: {}", e);
+                eprintln!("  Service scan failed: {e}");
             }
         }
     }
@@ -99,11 +99,11 @@ fn scan_files(machine: &types::Machine, machine_name: &str, verbose: bool) -> (S
                     .and_then(|s| s.to_str())
                     .unwrap_or("config");
                 let id = format!("file-{}", basename.replace('.', "-"));
-                yaml.push_str(&format!("  {}:\n", id));
+                yaml.push_str(&format!("  {id}:\n"));
                 yaml.push_str("    type: file\n");
-                yaml.push_str(&format!("    machine: {}\n", machine_name));
-                yaml.push_str(&format!("    path: {}\n", file_path));
-                yaml.push_str(&format!("    # source: configs{}\n", file_path));
+                yaml.push_str(&format!("    machine: {machine_name}\n"));
+                yaml.push_str(&format!("    path: {file_path}\n"));
+                yaml.push_str(&format!("    # source: configs{file_path}\n"));
                 yaml.push_str("    owner: root\n");
                 yaml.push_str("    group: root\n");
                 yaml.push_str("    mode: \"0644\"\n\n");
@@ -115,7 +115,7 @@ fn scan_files(machine: &types::Machine, machine_name: &str, verbose: bool) -> (S
         }
         Err(e) => {
             if verbose {
-                eprintln!("  File scan failed: {}", e);
+                eprintln!("  File scan failed: {e}");
             }
         }
     }
@@ -138,13 +138,13 @@ fn scan_users(machine: &types::Machine, machine_name: &str, verbose: bool) -> (S
                     let uname = parts[0];
                     let home = parts[1];
                     let shell = parts[2];
-                    let id = format!("user-{}", uname);
-                    yaml.push_str(&format!("  {}:\n", id));
+                    let id = format!("user-{uname}");
+                    yaml.push_str(&format!("  {id}:\n"));
                     yaml.push_str("    type: user\n");
-                    yaml.push_str(&format!("    machine: {}\n", machine_name));
-                    yaml.push_str(&format!("    name: {}\n", uname));
-                    yaml.push_str(&format!("    home: {}\n", home));
-                    yaml.push_str(&format!("    shell: {}\n\n", shell));
+                    yaml.push_str(&format!("    machine: {machine_name}\n"));
+                    yaml.push_str(&format!("    name: {uname}\n"));
+                    yaml.push_str(&format!("    home: {home}\n"));
+                    yaml.push_str(&format!("    shell: {shell}\n\n"));
                     count += 1;
                 }
             }
@@ -154,7 +154,7 @@ fn scan_users(machine: &types::Machine, machine_name: &str, verbose: bool) -> (S
         }
         Err(e) => {
             if verbose {
-                eprintln!("  User scan failed: {}", e);
+                eprintln!("  User scan failed: {e}");
             }
         }
     }
@@ -177,12 +177,12 @@ fn scan_cron(machine: &types::Machine, machine_name: &str, verbose: bool) -> (St
                     let schedule = parts[..5].join(" ");
                     let command = parts[5];
                     let id = format!("cron-job-{}", i + 1);
-                    yaml.push_str(&format!("  {}:\n", id));
+                    yaml.push_str(&format!("  {id}:\n"));
                     yaml.push_str("    type: cron\n");
-                    yaml.push_str(&format!("    machine: {}\n", machine_name));
+                    yaml.push_str(&format!("    machine: {machine_name}\n"));
                     yaml.push_str(&format!("    name: imported-cron-{}\n", i + 1));
-                    yaml.push_str(&format!("    schedule: \"{}\"\n", schedule));
-                    yaml.push_str(&format!("    command: {}\n", command));
+                    yaml.push_str(&format!("    schedule: \"{schedule}\"\n"));
+                    yaml.push_str(&format!("    command: {command}\n"));
                     yaml.push_str("    owner: root\n\n");
                     count += 1;
                 }
@@ -193,7 +193,7 @@ fn scan_cron(machine: &types::Machine, machine_name: &str, verbose: bool) -> (St
         }
         Err(e) => {
             if verbose {
-                eprintln!("  Cron scan failed: {}", e);
+                eprintln!("  Cron scan failed: {e}");
             }
         }
     }
@@ -261,25 +261,24 @@ pub(crate) fn cmd_import(
     }
 
     let config_yaml = format!(
-        r#"# Generated by: forjar import --addr {}
+        r#"# Generated by: forjar import --addr {addr}
 # Review and customize before applying.
 version: "1.0"
-name: imported-{}
+name: imported-{machine_name}
 
 machines:
-  {}:
-    hostname: {}
-    addr: {}
-    user: {}
+  {machine_name}:
+    hostname: {machine_name}
+    addr: {addr}
+    user: {user}
 
 resources:
-{}
+{resources_yaml}
 policy:
   failure: stop_on_first
   tripwire: true
   lock_file: true
 "#,
-        addr, machine_name, machine_name, machine_name, addr, user, resources_yaml,
     );
 
     std::fs::write(output, &config_yaml)

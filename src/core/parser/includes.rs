@@ -13,7 +13,7 @@ pub(super) fn merge_includes(base: ForjarConfig, base_dir: &Path) -> Result<Forj
     for include_path in &base.includes {
         let full_path = base_dir.join(include_path);
         let included = super::parse_config_file(&full_path)
-            .map_err(|e| format!("include '{}': {}", include_path, e))?;
+            .map_err(|e| format!("include '{include_path}': {e}"))?;
 
         // Merge params (later overrides earlier)
         for (k, v) in included.params {

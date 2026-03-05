@@ -121,6 +121,7 @@ fn test_fj012_build_resource_details() {
         post_apply: None,
         lifecycle: None,
         store: false,
+        sudo: false,
         script: None,
     };
     let details = build_resource_details(&r, &local_machine());
@@ -217,6 +218,7 @@ fn test_fj012_build_resource_details_service() {
         post_apply: None,
         lifecycle: None,
         store: false,
+        sudo: false,
         script: None,
     };
     let details = build_resource_details(&r, &local_machine());
@@ -248,6 +250,7 @@ fn test_fj012_dry_run() {
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
+        trace: false,
     };
     let results = apply(&cfg).unwrap();
     assert_eq!(results.len(), 1);
@@ -275,6 +278,7 @@ fn test_fj012_apply_local_file() {
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
+        trace: false,
     };
     let results = apply(&cfg).unwrap();
     assert_eq!(results.len(), 1);
@@ -314,6 +318,7 @@ fn test_fj012_apply_idempotent() {
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
+        trace: false,
     };
     let r1 = apply(&cfg).unwrap();
     assert_eq!(r1[0].resources_converged, 1);
@@ -336,6 +341,7 @@ fn test_fj012_apply_idempotent() {
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
+        trace: false,
     };
     let r2 = apply(&cfg2).unwrap();
     assert_eq!(r2[0].resources_unchanged, 1);
@@ -367,6 +373,7 @@ fn test_fj012_force_reapply() {
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
+        trace: false,
     };
     apply(&cfg).unwrap();
 
@@ -388,6 +395,7 @@ fn test_fj012_force_reapply() {
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
+        trace: false,
     };
     let r2 = apply(&cfg2).unwrap();
     assert_eq!(r2[0].resources_converged, 1);
@@ -438,6 +446,7 @@ resources:
         resource_timeout: None,
         rollback_on_failure: false,
         max_parallel: None,
+        trace: false,
     };
     let results = apply(&cfg).unwrap();
     assert_eq!(results.len(), 1);

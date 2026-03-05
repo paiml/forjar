@@ -203,12 +203,19 @@ fn execute_resource(
 
     let ssh_retries = cfg.config.policy.ssh_retries;
     let output = if resolved.resource_type == ResourceType::File
-        && resolved.source.is_some()
-        && copia::is_eligible(resolved.source.as_ref().unwrap())
+        && resolved
+            .source
+            .as_ref()
+            .map(|s| copia::is_eligible(s))
+            .unwrap_or(false)
     {
         copia_apply_file(machine, resolved, ctx.timeout_secs)
     } else {
         let script = codegen::apply_script(resolved)?;
+        // FJ-1397: Debug trace mode — print generated script
+        if cfg.trace {
+            eprintln!("[TRACE] {} script:\n{}", change.resource_id, script);
+        }
         transport::exec_script_retry(machine, &script, ctx.timeout_secs, ssh_retries)
     };
     let duration = resource_start.elapsed().as_secs_f64();
@@ -226,7 +233,7 @@ fn run_pre_apply_hook(machine: &Machine, hook: &str, timeout: Option<u64>) -> Op
             out.exit_code,
             out.stderr.trim()
         )),
-        Err(e) => Some(format!("pre_apply hook error: {}", e)),
+        Err(e) => Some(format!("pre_apply hook error: {e}")),
         _ => None,
     }
 }
@@ -279,7 +286,7 @@ fn handle_resource_output(
             Ok(ResourceOutcome::Failed { should_stop })
         }
         Err(e) => {
-            let error = format!("transport error: {}", e);
+            let error = format!("transport error: {e}");
             let should_stop = record_failure(
                 ctx,
                 &change.resource_id,
@@ -300,7 +307,7 @@ fn check_post_hook(machine: &Machine, hook: &str, timeout: Option<u64>) -> Optio
             pout.exit_code,
             pout.stderr.trim()
         )),
-        Err(e) => Some(format!("post_apply hook error: {}", e)),
+        Err(e) => Some(format!("post_apply hook error: {e}")),
         _ => None,
     }
 }
@@ -377,8 +384,7 @@ pub(crate) fn copia_apply_file(
         }
         Some(sigs) => {
             // Read local source file
-            let new_data =
-                std::fs::read(source).map_err(|e| format!("copia read source: {}", e))?;
+            let new_data = std::fs::read(source).map_err(|e| format!("copia read source: {e}"))?;
 
             // Compute delta
             let delta = copia::compute_delta(&new_data, &sigs);

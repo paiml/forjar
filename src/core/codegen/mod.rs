@@ -13,3 +13,5 @@ mod tests_completeness;
 mod tests_coverage;
 #[cfg(test)]
 mod tests_dispatch;
+#[cfg(test)]
+mod tests_sudo;
