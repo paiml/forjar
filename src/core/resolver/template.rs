@@ -2,15 +2,49 @@ use crate::core::{secrets, types::*};
 use std::borrow::Cow;
 use std::collections::HashMap;
 
-/// Resolve a secret value from environment variables.
+/// FJ-2300: Resolve a secret value using the configured provider.
 ///
-/// Looks for `FORJAR_SECRET_<KEY>` (uppercase, hyphens become underscores).
-/// Example: `{{secrets.db-password}}` resolves from `FORJAR_SECRET_DB_PASSWORD`.
+/// Default (env): `FORJAR_SECRET_<KEY>` (uppercase, hyphens → underscores).
+/// File provider: reads `/run/secrets/<key>` (or configured path prefix).
 pub(super) fn resolve_secret(key: &str) -> Result<String, String> {
-    let env_key = format!("FORJAR_SECRET_{}", key.to_uppercase().replace('-', "_"));
-    std::env::var(&env_key).map_err(|_| {
-        format!("secret '{key}' not found (set env var {env_key} or use a secrets file)")
-    })
+    resolve_secret_with_provider(key, None, None)
+}
+
+/// Resolve secret with explicit provider config.
+pub fn resolve_secret_with_provider(
+    key: &str,
+    provider: Option<&str>,
+    path_prefix: Option<&str>,
+) -> Result<String, String> {
+    match provider.unwrap_or("env") {
+        "file" => {
+            let prefix = path_prefix.unwrap_or("/run/secrets");
+            let path = std::path::Path::new(prefix).join(key);
+            std::fs::read_to_string(&path)
+                .map(|s| s.trim_end().to_string())
+                .map_err(|e| format!("secret '{key}' not found at {}: {e}", path.display()))
+        }
+        _ => {
+            // Default: env provider
+            let env_key = format!("FORJAR_SECRET_{}", key.to_uppercase().replace('-', "_"));
+            std::env::var(&env_key).map_err(|_| {
+                format!("secret '{key}' not found (set env var {env_key} or use a secrets file)")
+            })
+        }
+    }
+}
+
+/// FJ-2300: Redact secret values from a string.
+///
+/// Replaces all occurrences of secret values with `***`.
+pub fn redact_secrets(text: &str, secret_values: &[String]) -> String {
+    let mut result = text.to_string();
+    for secret in secret_values {
+        if !secret.is_empty() {
+            result = result.replace(secret.as_str(), "***");
+        }
+    }
+    result
 }
 
 /// Resolve a single template variable key to its value.

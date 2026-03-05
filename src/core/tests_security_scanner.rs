@@ -21,6 +21,7 @@ fn minimal_config() -> ForjarConfig {
             include_provenance: HashMap::new(),
         checks: IndexMap::new(),
         moved: Vec::new(),
+            secrets: Default::default(),
     }
 }
 

@@ -46,6 +46,7 @@ const CONFIG_FIELDS: &[&str] = &[
     "includes",
     "checks",
     "moved",
+    "secrets",
 ];
 
 const RESOURCE_FIELDS: &[&str] = &[
