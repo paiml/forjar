@@ -15,7 +15,7 @@ fn print_undo_meta(meta: &types::GenerationMeta) {
 }
 
 /// Compute resource diff for a single machine between current and target locks.
-fn diff_machine_locks(
+pub(super) fn diff_machine_locks(
     machine: &str,
     current_lock: Option<&types::StateLock>,
     target_lock: &types::StateLock,
@@ -39,7 +39,7 @@ fn diff_machine_locks(
 }
 
 /// Compute resource diff between current locks and target generation locks.
-fn compute_undo_diff(
+pub(super) fn compute_undo_diff(
     current_locks: &std::collections::HashMap<String, types::StateLock>,
     target_locks: &std::collections::HashMap<String, types::StateLock>,
 ) -> Vec<String> {
@@ -91,7 +91,7 @@ fn preflight_ssh_check(
 }
 
 /// Write undo progress to `undo-progress.yaml` in the machine's state directory.
-fn write_undo_progress(state_dir: &Path, machine: &str, progress: &types::UndoProgress) {
+pub(super) fn write_undo_progress(state_dir: &Path, machine: &str, progress: &types::UndoProgress) {
     let dir = state_dir.join(machine);
     let _ = std::fs::create_dir_all(&dir);
     let path = dir.join("undo-progress.yaml");
@@ -101,14 +101,14 @@ fn write_undo_progress(state_dir: &Path, machine: &str, progress: &types::UndoPr
 }
 
 /// Read undo progress from a machine's state directory.
-fn read_undo_progress(state_dir: &Path, machine: &str) -> Option<types::UndoProgress> {
+pub(super) fn read_undo_progress(state_dir: &Path, machine: &str) -> Option<types::UndoProgress> {
     let path = state_dir.join(machine).join("undo-progress.yaml");
     let content = std::fs::read_to_string(path).ok()?;
     serde_yaml_ng::from_str(&content).ok()
 }
 
 /// Initialize undo progress for all affected resources.
-fn init_undo_progress(
+pub(super) fn init_undo_progress(
     current: u32, target: u32, changes: &[String],
 ) -> types::UndoProgress {
     let mut resources = std::collections::HashMap::new();
