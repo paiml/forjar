@@ -18,9 +18,13 @@ use std::path::Path;
 /// Result of the full onboarding pipeline.
 #[derive(Debug)]
 pub struct OnboardResult {
+    /// Parsed HuggingFace model configuration.
     pub config: HfModelConfig,
+    /// Kernel contract coverage report.
     pub coverage: CoverageReport,
+    /// Filenames of newly scaffolded contract stubs.
     pub scaffolded: Vec<String>,
+    /// FAR archive manifest.
     pub far_manifest: FarManifest,
 }
 

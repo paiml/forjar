@@ -7,10 +7,15 @@ use std::path::Path;
 /// A single drift finding.
 #[derive(Debug, Clone)]
 pub struct DriftFinding {
+    /// Resource identifier.
     pub resource_id: String,
+    /// Type of resource that drifted.
     pub resource_type: ResourceType,
+    /// Expected hash from the lock file.
     pub expected_hash: String,
+    /// Actual hash from live state.
     pub actual_hash: String,
+    /// Human-readable drift description.
     pub detail: String,
 }
 

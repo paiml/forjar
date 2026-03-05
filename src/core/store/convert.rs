@@ -55,12 +55,19 @@ pub enum ChangeType {
 /// Signals from a recipe resource for conversion analysis.
 #[derive(Debug, Clone)]
 pub struct ConversionSignals {
+    /// Resource name.
     pub name: String,
+    /// Whether the resource has a version pin.
     pub has_version: bool,
+    /// Whether the resource uses the content store.
     pub has_store: bool,
+    /// Whether the resource has sandbox isolation.
     pub has_sandbox: bool,
+    /// Whether a curl|bash pattern was detected.
     pub has_curl_pipe: bool,
+    /// Package provider (e.g., "apt", "cargo").
     pub provider: String,
+    /// Currently pinned version, if any.
     pub current_version: Option<String>,
 }
 

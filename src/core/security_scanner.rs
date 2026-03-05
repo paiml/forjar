@@ -8,19 +8,28 @@ use super::types::*;
 /// A security finding from scanning a config.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SecurityFinding {
+    /// Rule identifier (e.g., SS-1).
     pub rule_id: String,
+    /// Security smell category.
     pub category: &'static str,
+    /// Finding severity.
     pub severity: Severity,
+    /// Resource that triggered the finding.
     pub resource_id: String,
+    /// Human-readable finding message.
     pub message: String,
 }
 
 /// Finding severity level.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Severity {
+    /// Critical security issue.
     Critical,
+    /// High severity issue.
     High,
+    /// Medium severity issue.
     Medium,
+    /// Low severity issue.
     Low,
 }
 

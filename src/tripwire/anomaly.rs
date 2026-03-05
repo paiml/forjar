@@ -27,10 +27,15 @@ pub enum DriftStatus {
 /// Statistics from drift detection.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DriftStats {
+    /// Number of observations in the window.
     pub n_samples: u64,
+    /// Error rate (fraction of drift events).
     pub error_rate: f64,
+    /// Mean of observations.
     pub mean: f64,
+    /// Standard deviation of observations.
     pub std_dev: f64,
+    /// Current drift status.
     pub status: DriftStatus,
 }
 
@@ -245,9 +250,13 @@ pub fn ewma_zscore(values: &[f64], target: f64, alpha: f64) -> f64 {
 /// and returns anomaly findings.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AnomalyFinding {
+    /// Resource identifier (machine:resource).
     pub resource: String,
+    /// Anomaly score (0.0-1.0, higher = more anomalous).
     pub score: f64,
+    /// Drift status classification.
     pub status: DriftStatus,
+    /// Human-readable reasons for the anomaly.
     pub reasons: Vec<String>,
 }
 

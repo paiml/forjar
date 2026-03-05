@@ -23,6 +23,7 @@
 pub struct Port(u16);
 
 impl Port {
+    /// Create a validated port from a raw u16.
     pub fn new(value: u16) -> Result<Self, String> {
         if value == 0 {
             return Err("port must be 1-65535, got 0".to_string());
@@ -30,6 +31,7 @@ impl Port {
         Ok(Port(value))
     }
 
+    /// Return the port number.
     pub fn value(self) -> u16 {
         self.0
     }
@@ -56,6 +58,7 @@ impl Port {
 pub struct FileMode(u16);
 
 impl FileMode {
+    /// Create a validated file mode from a raw u16.
     pub fn new(value: u16) -> Result<Self, String> {
         if value > 0o777 {
             return Err(format!("mode must be 0-0o777, got {value:#o}"));
@@ -64,15 +67,18 @@ impl FileMode {
     }
 
     #[allow(clippy::should_implement_trait)]
+    /// Parse a file mode from an octal string.
     pub fn from_str(s: &str) -> Result<Self, String> {
         let v = u16::from_str_radix(s, 8).map_err(|e| format!("invalid octal mode '{s}': {e}"))?;
         Self::new(v)
     }
 
+    /// Return the raw mode value.
     pub fn value(self) -> u16 {
         self.0
     }
 
+    /// Format as a zero-padded 4-digit octal string.
     pub fn as_octal_string(self) -> String {
         format!("{:04o}", self.0)
     }
@@ -96,12 +102,16 @@ impl FileMode {
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct SemVer {
+    /// Major version number.
     pub major: u32,
+    /// Minor version number.
     pub minor: u32,
+    /// Patch version number.
     pub patch: u32,
 }
 
 impl SemVer {
+    /// Parse a semantic version from a string.
     pub fn parse(s: &str) -> Result<Self, String> {
         let parts: Vec<&str> = s.split('.').collect();
         if parts.len() != 3 {
@@ -148,6 +158,7 @@ impl std::fmt::Display for SemVer {
 pub struct Hostname(String);
 
 impl Hostname {
+    /// Create a validated hostname from a string.
     pub fn new(s: &str) -> Result<Self, String> {
         if s.is_empty() || s.len() > 253 {
             return Err(format!("hostname length must be 1-253, got {}", s.len()));
@@ -166,6 +177,7 @@ impl Hostname {
         Ok(Hostname(s.to_string()))
     }
 
+    /// Return the hostname as a string slice.
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -188,6 +200,7 @@ impl Hostname {
 pub struct AbsPath(String);
 
 impl AbsPath {
+    /// Create a validated absolute path from a string.
     pub fn new(s: &str) -> Result<Self, String> {
         if !s.starts_with('/') {
             return Err(format!("path must be absolute: '{s}'"));
@@ -198,6 +211,7 @@ impl AbsPath {
         Ok(AbsPath(s.to_string()))
     }
 
+    /// Return the path as a string slice.
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -221,6 +235,7 @@ impl AbsPath {
 pub struct ResourceName(String);
 
 impl ResourceName {
+    /// Create a validated resource name from a string.
     pub fn new(s: &str) -> Result<Self, String> {
         if s.is_empty() || s.len() > 128 {
             return Err(format!("name length must be 1-128, got {}", s.len()));
@@ -234,6 +249,7 @@ impl ResourceName {
         Ok(ResourceName(s.to_string()))
     }
 
+    /// Return the resource name as a string slice.
     pub fn as_str(&self) -> &str {
         &self.0
     }

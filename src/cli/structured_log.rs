@@ -12,9 +12,13 @@ use std::time::SystemTime;
 /// Log level.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, serde::Serialize)]
 pub enum Level {
+    /// Verbose debugging information.
     Debug = 0,
+    /// Informational messages.
     Info = 1,
+    /// Warning conditions.
     Warn = 2,
+    /// Error conditions.
     Error = 3,
 }
 
@@ -31,6 +35,7 @@ impl std::fmt::Display for Level {
 
 impl Level {
     #[allow(clippy::should_implement_trait)]
+    /// Parse a log level from a string.
     pub fn from_str(s: &str) -> Result<Self, String> {
         match s.to_lowercase().as_str() {
             "debug" => Ok(Level::Debug),
@@ -75,10 +80,15 @@ pub fn is_enabled(level: Level) -> bool {
 /// A structured log event.
 #[derive(Debug, serde::Serialize)]
 pub struct LogEvent {
+    /// ISO timestamp of the event.
     pub timestamp: String,
+    /// Log level.
     pub level: Level,
+    /// Log message text.
     pub message: String,
+    /// Module or subsystem target.
     pub target: String,
+    /// Key-value structured fields.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub fields: Vec<(String, String)>,
 }
@@ -133,11 +143,14 @@ fn emit_human(event: &LogEvent) {
 /// A log span for tracking execution context.
 #[derive(Debug)]
 pub struct Span {
+    /// Span name (module or operation).
     pub name: String,
+    /// Key-value fields attached to the span.
     pub fields: Vec<(String, String)>,
 }
 
 impl Span {
+    /// Enter a new named span.
     pub fn new(name: &str) -> Self {
         log_event(Level::Debug, name, "span:enter", &[]);
         Span {
@@ -146,6 +159,7 @@ impl Span {
         }
     }
 
+    /// Attach a key-value field to the span.
     pub fn with_field(mut self, key: &str, value: &str) -> Self {
         self.fields.push((key.to_string(), value.to_string()));
         self

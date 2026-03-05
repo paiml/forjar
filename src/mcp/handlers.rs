@@ -10,14 +10,23 @@ use super::types::*;
 
 // ── Handler structs ─────────────────────────────────────────────────
 
+/// MCP handler for config validation.
 pub struct ValidateHandler;
+/// MCP handler for execution planning.
 pub struct PlanHandler;
+/// MCP handler for drift detection.
 pub struct DriftHandler;
+/// MCP handler for recipe linting.
 pub struct LintHandler;
+/// MCP handler for dependency graph generation.
 pub struct GraphHandler;
+/// MCP handler for resolved config display.
 pub struct ShowHandler;
+/// MCP handler for lock file status.
 pub struct StatusHandler;
+/// MCP handler for trace provenance.
 pub struct TraceHandler;
+/// MCP handler for anomaly detection.
 pub struct AnomalyHandler;
 
 // ── Handler trait implementations ───────────────────────────────────

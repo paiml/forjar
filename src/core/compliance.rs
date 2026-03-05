@@ -8,20 +8,30 @@ use super::types::*;
 /// A compliance finding from evaluating a rule against a resource.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ComplianceFinding {
+    /// Rule identifier (e.g., CIS-6.1.1).
     pub rule_id: String,
+    /// Benchmark name (e.g., cis, nist-800-53).
     pub benchmark: String,
+    /// Finding severity.
     pub severity: FindingSeverity,
+    /// Resource that triggered the finding.
     pub resource_id: String,
+    /// Human-readable finding message.
     pub message: String,
 }
 
 /// Severity of a compliance finding.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FindingSeverity {
+    /// Critical security issue.
     Critical,
+    /// High severity issue.
     High,
+    /// Medium severity issue.
     Medium,
+    /// Low severity issue.
     Low,
+    /// Informational note.
     Info,
 }
 

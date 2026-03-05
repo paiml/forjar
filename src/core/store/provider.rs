@@ -11,13 +11,21 @@ use std::collections::BTreeMap;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ImportProvider {
+    /// Debian/Ubuntu apt package manager.
     Apt,
+    /// Rust cargo package manager.
     Cargo,
+    /// Python uv package installer.
     Uv,
+    /// Nix flake-based builds.
     Nix,
+    /// Docker container images.
     Docker,
+    /// OpenTofu infrastructure outputs.
     Tofu,
+    /// Terraform infrastructure outputs.
     Terraform,
+    /// Apr model registry.
     Apr,
 }
 

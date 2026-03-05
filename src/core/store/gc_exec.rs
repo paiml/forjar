@@ -20,7 +20,9 @@ pub struct GcSweepResult {
 /// Dry-run entry: what would be deleted.
 #[derive(Debug, Clone)]
 pub struct DryRunEntry {
+    /// Store hash that would be removed.
     pub hash: String,
+    /// Size in bytes that would be freed.
     pub size_bytes: u64,
 }
 
