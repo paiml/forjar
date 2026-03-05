@@ -5,6 +5,7 @@
 //! symlink pointing to the active generation. Rollback switches the symlink
 //! atomically via temp-symlink + rename(2).
 
+use crate::core::types::GenerationMeta;
 use std::path::{Path, PathBuf};
 
 /// Directory holding numbered generation snapshots.
@@ -26,12 +27,14 @@ pub(crate) fn create_generation(state_dir: &Path) -> Result<u32, String> {
     // Copy state files (skip generations/ and snapshots/ directories)
     copy_state_to_generation(state_dir, &target)?;
 
-    // Write metadata
-    let meta = format!(
-        "generation: {next}\ncreated_at: \"{}\"\n",
-        crate::tripwire::eventlog::now_iso8601(),
-    );
-    std::fs::write(target.join(".generation.yaml"), meta)
+    // Write metadata using GenerationMeta (FJ-2002)
+    let mut meta = GenerationMeta::new(next, crate::tripwire::eventlog::now_iso8601());
+    if let Some(git_ref) = crate::core::types::get_git_ref() {
+        meta = meta.with_git_ref(git_ref);
+    }
+    meta.forjar_version = Some(env!("CARGO_PKG_VERSION").to_string());
+    let meta_yaml = meta.to_yaml()?;
+    std::fs::write(target.join(".generation.yaml"), meta_yaml)
         .map_err(|e| format!("cannot write generation metadata: {e}"))?;
 
     // Atomically switch current symlink

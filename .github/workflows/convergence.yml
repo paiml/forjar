@@ -1,0 +1,47 @@
+# FJ-2607: Convergence property testing
+# Runs proptest-based convergence verification
+name: convergence
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/core/**"
+      - "src/resources/**"
+      - ".github/workflows/convergence.yml"
+  pull_request:
+    paths:
+      - "src/core/**"
+      - "src/resources/**"
+
+concurrency:
+  group: convergence-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  convergence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Run convergence proptests
+        run: cargo test --lib convergence -- --nocapture
+        env:
+          PROPTEST_CASES: 1000
+
+      - name: Run hash stability tests
+        run: cargo test --lib hash_stability -- --nocapture
+
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: convergence-results
+          path: state/test-artifacts/convergence/
+          retention-days: 14
+          if-no-files-found: ignore

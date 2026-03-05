@@ -63,6 +63,32 @@ fn cleanup_state_files(state_dir: &Path, machines: &[String], machine_filter: Op
     }
 }
 
+/// FJ-2005: Remove only succeeded resource entries from lock files on partial failure.
+fn cleanup_succeeded_entries(
+    state_dir: &Path,
+    succeeded: &std::collections::HashMap<String, Vec<String>>,
+) {
+    for (machine_name, resource_ids) in succeeded {
+        let lock_path = state_dir.join(machine_name).join("state.lock.yaml");
+        let Ok(content) = std::fs::read_to_string(&lock_path) else {
+            continue;
+        };
+        let Ok(mut lock) =
+            serde_yaml_ng::from_str::<crate::core::types::StateLock>(&content)
+        else {
+            continue;
+        };
+        for rid in resource_ids {
+            lock.resources.shift_remove(rid);
+        }
+        if lock.resources.is_empty() {
+            let _ = std::fs::remove_file(&lock_path);
+        } else if let Ok(yaml) = serde_yaml_ng::to_string(&lock) {
+            let _ = std::fs::write(&lock_path, yaml);
+        }
+    }
+}
+
 pub(crate) fn cmd_destroy(
     file: &Path,
     state_dir: &Path,
@@ -90,6 +116,8 @@ pub(crate) fn cmd_destroy(
     let all_machines = executor::collect_machines(&config);
     let mut destroyed = 0u32;
     let mut failed = 0u32;
+    let mut succeeded_resources: std::collections::HashMap<String, Vec<String>> =
+        std::collections::HashMap::new();
 
     for resource_id in &reverse_order {
         let resource = match config.resources.get(resource_id) {
@@ -124,13 +152,21 @@ pub(crate) fn cmd_destroy(
 
         if destroy_single_resource(resource_id, resource, machine) {
             destroyed += 1;
+            succeeded_resources
+                .entry(machine_name.to_string())
+                .or_default()
+                .push(resource_id.clone());
         } else {
             failed += 1;
         }
     }
 
     if failed == 0 {
+        // All succeeded — remove entire lock files
         cleanup_state_files(state_dir, &all_machines, machine_filter);
+    } else {
+        // FJ-2005: Partial failure — only remove lock entries for succeeded resources
+        cleanup_succeeded_entries(state_dir, &succeeded_resources);
     }
 
     println!();
