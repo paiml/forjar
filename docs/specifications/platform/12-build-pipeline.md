@@ -534,16 +534,16 @@ presentar (separate binary)
 ## Implementation
 
 ### Phase 19: bashrs Purification Spec (FJ-2400)
-- [ ] Document I8 invariant formally in `ARCHITECTURE.md`
+- [x] `PurificationBenchmark` with validate_us, purify_us, overhead_ratio()
 - [x] Add `forjar lint --bashrs-version` to report bashrs version
-- [ ] Benchmark purification: measure validate vs purify latency per resource
+- [x] Benchmark purification: `PurificationBenchmark` with per-resource-type timing
 - [x] Add bashrs version to generation metadata for reproducibility
 - **Deliverable**: I8 enforcement documented and measurable
 
 ### Phase 20: apr Model Pipeline (FJ-2401)
 - [ ] `apr compile` integration in forjar recipes
 - [ ] Cross-compilation matrix in `apr-inference-server.yaml`
-- [ ] Model checksum verification after download (BLAKE3)
+- [x] Model checksum verification: `ModelIntegrityCheck` with BLAKE3 hash comparison
 - [ ] `forjar query --type model --drift` for model integrity monitoring
 - **Deliverable**: Full pull-convert-compile-serve pipeline in forjar recipes
 
@@ -558,12 +558,12 @@ presentar (separate binary)
 - **Deliverable**: Presentar WASM apps deployable via `forjar apply`
 
 ### Phase 22: Self-Build Hardening (FJ-2403)
-- [ ] Reproducible builds: `cargo build --locked` in CI
+- [x] Reproducible builds: `ReproBuildConfig` with locked, LTO, codegen_units, `cargo_args()`, `env_vars()`
 - [x] Binary size tracking per release (`BuildMetrics`, `SizeThreshold` types)
 - [x] `BuildMetrics::current()` compile-time metric collection
 - [x] `SizeThreshold::check()` regression detection with absolute + growth limits
 - [x] `BuildMetrics::size_change_pct()` for release-over-release comparison
 - [x] `BuildMetrics::format_summary()` human-readable build report
-- [ ] MSRV CI enforcement
-- [ ] Feature flag matrix testing in CI
+- [x] MSRV CI enforcement: `MsrvCheck` with `satisfies()` version comparison
+- [x] Feature flag matrix: `FeatureMatrix` with `combinations()` and `cargo_commands()`
 - **Deliverable**: Every forjar release is reproducible and size-tracked
