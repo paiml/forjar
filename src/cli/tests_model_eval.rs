@@ -45,8 +45,8 @@ resources:
     type: model
     machine: gpu
     name: llama
-    model_source: local
-    model_path: /models/llama.gguf
+    source: /models/llama.gguf
+    format: gguf
 "#,
         );
         cmd_model_eval(&file, None, false).unwrap();
