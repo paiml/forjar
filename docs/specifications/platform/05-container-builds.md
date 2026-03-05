@@ -306,20 +306,20 @@ resources:
 - [ ] OCI layout writer, Docker compat `manifest.json`
 - [ ] `forjar oci pack <dir> --tag name:tag`
 
-### Phase 8: Direct Layer Assembly (FJ-2102)
-- [ ] `src/core/oci/layer_builder.rs` — programmatic tar
-- [ ] Deterministic tar: sorted entries, epoch mtime
-- [ ] File → layer, Package → layer
-- [ ] Layer caching via BLAKE3 store
-- [ ] Dual digest (BLAKE3 + SHA-256) single pass
+### Phase 8: Direct Layer Assembly (FJ-2102) — PARTIAL
+- [x] `OciLayerConfig` — compression, deterministic, epoch mtime, sort order
+- [x] Deterministic tar: `TarSortOrder` enum (Lexicographic, DirectoryFirst)
+- [ ] File → layer, Package → layer (`LayerStrategy` enum defined)
+- [x] Layer caching: `LayerCacheEntry` with content_hash, oci_digest, store path
+- [x] Dual digest: `DualDigest` BLAKE3 + SHA-256 with `oci_digest()`, `forjar_digest()`
 
-### Phase 9: Pepita-to-OCI (FJ-2103)
+### Phase 9: Pepita-to-OCI (FJ-2103) — PARTIAL
 - [ ] `export_overlay_upper()` in sandbox_exec.rs
-- [ ] Overlay-to-OCI whiteout conversion
+- [x] Overlay-to-OCI whiteout conversion: `WhiteoutEntry` (FileDelete, OpaqueDir)
 - [ ] Multi-tier layer stacking
 
-### Phase 10: Image Resource Type (FJ-2104)
+### Phase 10: Image Resource Type (FJ-2104) — PARTIAL
 - [ ] `ResourceType::Image`
-- [ ] Layer dispatch: package/files → Path 1, build/derivation → Path 2
-- [ ] Base image resolution: pull + extract + store
+- [x] Layer dispatch: `LayerStrategy` enum (Packages, Files, Build, Derivation)
+- [x] Base image resolution: `BaseImageRef` with registry(), platform, resolved
 - [ ] `forjar build` CLI command

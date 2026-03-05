@@ -1225,3 +1225,43 @@ your MCP client (e.g., Claude Desktop, VS Code) with:
   }
 }
 ```
+
+## Container Build Pipeline (FJ-2101)
+
+Forjar builds OCI-compliant container images using a layered assembly pipeline:
+
+```
+ImageBuildPlan
+    │
+    ▼
+┌──────────────┐
+│ Base Image    │  Pull + extract (or scratch)
+└────┬─────────┘
+     │
+     ▼
+┌──────────────┐
+│ Layer Builder │  Deterministic tar (sorted, epoch mtime)
+│              │  Dual digest: BLAKE3 (internal) + SHA-256 (OCI)
+└────┬─────────┘
+     │
+     ▼
+┌──────────────┐
+│ Layer Cache   │  Content-addressed via BLAKE3 store
+└────┬─────────┘
+     │
+     ▼
+┌──────────────┐
+│ OCI Layout    │  manifest.json + blobs/sha256/
+└──────────────┘
+```
+
+**Layer strategies:**
+
+| Strategy | Source | Use Case |
+|----------|--------|----------|
+| Packages | Package manager | System dependencies |
+| Files | File paths | Configuration files |
+| Build | Shell command + overlay diff | Application builds |
+| Derivation | Store derivation output | Nix-style hermetic builds |
+
+**Overlay-to-OCI whiteout conversion**: When building from overlay filesystem diffs, deleted files are converted to OCI whiteout markers (`.wh.<name>`) and opaque directories (`.wh..wh..opq`).
