@@ -55,6 +55,8 @@ pub enum Commands {
     /// Remove all managed resources (reverse order)
     Destroy(DestroyArgs),
 
+    /// FJ-2003: Undo last apply (active undo with re-convergence)
+    Undo(UndoArgs),
     /// Import existing infrastructure from a machine into forjar.yaml
     Import(ImportArgs),
 
