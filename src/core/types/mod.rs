@@ -19,6 +19,9 @@ mod doctor_types;
 mod query_types;
 mod undo_types;
 mod distribution_types;
+mod security_types;
+mod validation_types;
+mod mutation_types;
 
 pub use config::*;
 pub use policy::*;
@@ -35,6 +38,9 @@ pub use doctor_types::*;
 pub use query_types::*;
 pub use undo_types::*;
 pub use distribution_types::*;
+pub use security_types::*;
+pub use validation_types::*;
+pub use mutation_types::*;
 
 // Shared default functions used by serde across multiple submodules.
 fn default_true() -> bool {
