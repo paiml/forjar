@@ -228,6 +228,24 @@ mod tests {
         assert_eq!(plan_step_count(&plan), plan.steps.len());
     }
 
+    // ── export_overlay_upper ────────────────────────────────────
+
+    #[test]
+    fn export_overlay_upper_produces_three_steps() {
+        let overlay = OverlayConfig {
+            lower_dirs: vec![PathBuf::from("/lower")],
+            upper_dir: PathBuf::from("/tmp/upper"),
+            work_dir: PathBuf::from("/tmp/work"),
+            merged_dir: PathBuf::from("/tmp/merged"),
+        };
+        let steps = export_overlay_upper(&overlay, Path::new("/out/layer.tar"));
+        assert_eq!(steps.len(), 3);
+        assert!(steps[0].description.contains("whiteout"));
+        assert!(steps[1].description.contains("tarball"));
+        assert!(steps[2].description.contains("DiffID"));
+        assert!(steps[1].command.as_ref().unwrap().contains("/out/layer.tar"));
+    }
+
     // ── multi-input overlay ────────────────────────────────────
 
     #[test]

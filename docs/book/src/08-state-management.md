@@ -1327,5 +1327,17 @@ The undo process:
 1. Reads the target generation's lock files and metadata
 2. Computes a resource diff (creates, updates, destroys)
 3. In dry-run mode, prints the diff and exits
-4. In execution mode, restores lock files from the target generation
-5. Re-applies the current config with `--force` to converge
+4. Writes `undo-progress.yaml` per machine for resume support
+5. Restores lock files from the target generation
+6. Re-applies the current config with `--force` to converge
+7. Updates progress status to `completed` or `partial`
+
+### Undo Resume
+
+If an undo fails partway (e.g., SSH timeout), use `--resume` to pick up where it left off:
+
+```bash
+forjar undo --resume --yes
+```
+
+Resume reads `state/<machine>/undo-progress.yaml`, identifies pending and failed resources, and re-applies. Running `--resume` on a completed undo is a no-op.

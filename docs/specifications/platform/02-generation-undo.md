@@ -294,7 +294,7 @@ Undo-destroy order: `nfs-server` (intel) → `nfs-mount` (jetson)
 - [x] `forjar undo --dry-run`
 - [x] Active undo: config snapshot from target gen, re-run `cmd_apply` with force
 - [ ] Multi-machine coordination: phased execution with pre-flight SSH check
-- [ ] Undo-resume: record progress, `--resume` picks up
+- [x] Undo-resume: record progress, `--resume` picks up
 - **Extends**: `src/cli/destroy.rs:cmd_rollback`
 
 ### Phase 5: Undo-Destroy (FJ-2005) -- PARTIAL

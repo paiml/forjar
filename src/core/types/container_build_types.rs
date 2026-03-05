@@ -194,6 +194,24 @@ impl ImageBuildPlan {
     pub fn is_scratch(&self) -> bool {
         self.base_image.is_none()
     }
+
+    /// FJ-2103: Multi-tier layer stacking — group layers into tiers.
+    ///
+    /// Tier 0: Package layers (sandbox build, each uses previous as lower).
+    /// Tier 1: Build layers (sandbox build with overlay).
+    /// Tier 2: File layers (direct tar, no sandbox needed).
+    /// Tier 3: Derivation layers (store path copy).
+    pub fn tier_plan(&self) -> Vec<(u8, &LayerStrategy)> {
+        self.layers.iter().map(|l| {
+            let tier = match l {
+                LayerStrategy::Packages { .. } => 0,
+                LayerStrategy::Build { .. } => 1,
+                LayerStrategy::Files { .. } => 2,
+                LayerStrategy::Derivation { .. } => 3,
+            };
+            (tier, l)
+        }).collect()
+    }
 }
 
 /// FJ-2104: Layer strategy — how to build each layer.
@@ -386,84 +404,52 @@ mod tests {
     }
 
     #[test]
-    fn image_build_plan_layer_count() {
+    fn image_build_plan_basics() {
         let plan = ImageBuildPlan {
-            tag: "app:v1".into(),
-            base_image: Some("ubuntu:22.04".into()),
+            tag: "app:v1".into(), base_image: Some("ubuntu:22.04".into()),
             layers: vec![
                 LayerStrategy::Packages { names: vec!["nginx".into()] },
                 LayerStrategy::Files { paths: vec!["/etc/app.conf".into()] },
             ],
-            labels: vec![],
-            entrypoint: None,
+            labels: vec![], entrypoint: None,
         };
         assert_eq!(plan.layer_count(), 2);
         assert!(!plan.is_scratch());
-    }
-
-    #[test]
-    fn image_build_plan_scratch() {
-        let plan = ImageBuildPlan {
-            tag: "static:latest".into(),
-            base_image: None,
+        let scratch = ImageBuildPlan {
+            tag: "s:latest".into(), base_image: None,
             layers: vec![LayerStrategy::Files { paths: vec!["/app".into()] }],
-            labels: vec![],
-            entrypoint: Some(vec!["/app".into()]),
+            labels: vec![], entrypoint: Some(vec!["/app".into()]),
         };
-        assert!(plan.is_scratch());
+        assert!(scratch.is_scratch());
     }
 
     #[test]
     fn base_image_ref_registry() {
-        let r = BaseImageRef::new("ubuntu:22.04");
-        assert_eq!(r.registry(), "docker.io");
-        assert!(!r.resolved);
-
-        let r = BaseImageRef::new("ghcr.io/org/app:v1");
-        assert_eq!(r.registry(), "ghcr.io");
-
-        let r = BaseImageRef::new("localhost:5000/myimage");
-        assert_eq!(r.registry(), "localhost:5000");
+        assert_eq!(BaseImageRef::new("ubuntu:22.04").registry(), "docker.io");
+        assert!(!BaseImageRef::new("ubuntu:22.04").resolved);
+        assert_eq!(BaseImageRef::new("ghcr.io/org/app:v1").registry(), "ghcr.io");
+        assert_eq!(BaseImageRef::new("localhost:5000/myimage").registry(), "localhost:5000");
     }
 
     #[test]
     fn oci_build_result_display() {
         let r = OciBuildResult {
-            tag: "app:v1".into(),
-            manifest_digest: "sha256:abc".into(),
-            layer_count: 3,
-            total_size: 50 * 1024 * 1024,
-            duration_secs: 12.5,
-            layout_path: "out/oci".into(),
+            tag: "app:v1".into(), manifest_digest: "sha256:abc".into(),
+            layer_count: 3, total_size: 50 * 1024 * 1024,
+            duration_secs: 12.5, layout_path: "out/oci".into(),
         };
         let s = r.to_string();
-        assert!(s.contains("app:v1"));
-        assert!(s.contains("3 layers"));
-        assert!(s.contains("50.0 MB"));
+        assert!(s.contains("app:v1") && s.contains("3 layers") && s.contains("50.0 MB"));
     }
 
     #[test]
-    fn whiteout_file_delete() {
-        let w = WhiteoutEntry::FileDelete {
-            path: "etc/nginx/old.conf".into(),
-        };
-        assert_eq!(w.oci_path(), "etc/nginx/.wh.old.conf");
-    }
-
-    #[test]
-    fn whiteout_file_delete_root() {
-        let w = WhiteoutEntry::FileDelete {
-            path: "orphan.txt".into(),
-        };
-        assert_eq!(w.oci_path(), ".wh.orphan.txt");
-    }
-
-    #[test]
-    fn whiteout_opaque_dir() {
-        let w = WhiteoutEntry::OpaqueDir {
-            path: "var/cache".into(),
-        };
-        assert_eq!(w.oci_path(), "var/cache/.wh..wh..opq");
+    fn whiteout_oci_paths() {
+        let w1 = WhiteoutEntry::FileDelete { path: "etc/nginx/old.conf".into() };
+        assert_eq!(w1.oci_path(), "etc/nginx/.wh.old.conf");
+        let w2 = WhiteoutEntry::FileDelete { path: "orphan.txt".into() };
+        assert_eq!(w2.oci_path(), ".wh.orphan.txt");
+        let w3 = WhiteoutEntry::OpaqueDir { path: "var/cache".into() };
+        assert_eq!(w3.oci_path(), "var/cache/.wh..wh..opq");
     }
 
     #[test]
@@ -493,5 +479,22 @@ mod tests {
         let mut r3 = Resource::default();
         r3.resource_type = ResourceType::Service;
         assert!(LayerStrategy::from_resource(&r3).is_none());
+    }
+
+    #[test]
+    fn tier_plan_ordering() {
+        let plan = ImageBuildPlan {
+            tag: "app:v1".into(), base_image: Some("ubuntu:22.04".into()),
+            layers: vec![
+                LayerStrategy::Packages { names: vec!["nginx".into()] },
+                LayerStrategy::Build { command: "make".into(), workdir: None },
+                LayerStrategy::Files { paths: vec!["/etc/app.conf".into()] },
+            ],
+            labels: vec![], entrypoint: None,
+        };
+        let tiers = plan.tier_plan();
+        assert_eq!(tiers[0].0, 0); // Packages → tier 0
+        assert_eq!(tiers[1].0, 1); // Build → tier 1
+        assert_eq!(tiers[2].0, 2); // Files → tier 2
     }
 }

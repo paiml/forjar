@@ -3785,3 +3785,35 @@ Run logs are stored at `state/<machine>/runs/<run_id>/` with one `.log` file per
 | `-vvv` | Trace | Raw stdout/stderr streamed in real-time |
 
 **Log truncation:** Oversized logs (>16KB by default) keep the first 8KB + last 8KB with a truncation marker, preserving both the setup and error sections.
+
+### `forjar contracts`
+
+Design-by-contract coverage report showing verification level per function.
+
+```bash
+forjar contracts --coverage [-f FILE] [--json]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--coverage` | required | Show contract coverage report |
+| `-f, --file` | `forjar.yaml` | Config file for handler analysis |
+| `--json` | false | JSON output |
+
+Reports how many critical-path functions are verified at each level (structural, proved, bounded, runtime, labeled, unlabeled).
+
+### `forjar build`
+
+Build a container image from an `image` resource definition.
+
+```bash
+forjar build -f <FILE> --resource <NAME> [--load] [--push] [--json]
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-f, --file` | `forjar.yaml` | Config file path |
+| `--resource` | required | Resource name (must be `type: image`) |
+| `--load` | false | Load into local Docker daemon after build |
+| `--push` | false | Push to registry after build |
+| `--json` | false | JSON output |

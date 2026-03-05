@@ -270,7 +270,10 @@ fn dispatch_misc_fleet(cmd: Commands, verbose: bool) -> Result<(), String> {
             machine,
             output,
         }) => cmd_export(&state_dir, &format, machine.as_deref(), output.as_deref()),
-        Commands::Undo(UndoArgs { file, state_dir, generations, machine, dry_run, yes, .. }) => {
+        Commands::Undo(UndoArgs { file, state_dir, generations, machine, dry_run, resume, yes }) => {
+            if resume {
+                return cmd_undo_resume(&file, &state_dir, machine.as_deref(), dry_run, yes);
+            }
             cmd_undo(&file, &state_dir, generations, machine.as_deref(), dry_run, yes)
         }
         Commands::UndoDestroy(UndoDestroyArgs {

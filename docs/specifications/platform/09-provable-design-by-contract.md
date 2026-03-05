@@ -707,7 +707,7 @@ pub fn compute_dual_digest(uncompressed: &[u8]) -> Result<(String, String), Stri
 - [x] `debug_assert!` on `build_execution_order` — valid topological order
 - [x] `debug_assert!` on `composite_hash`, `hash_file`, `hash_string` — determinism
 - [x] `#[debug_ensures]` on OCI `build_layer`, `assemble_manifest` — validity
-- [ ] Wire `forjar contracts --coverage` command
+- [x] Wire `forjar contracts --coverage` command
 - **Deliverable**: All critical-path functions have runtime contracts, coverage report available
 
 ### Phase 14: Kani Real-Code Harnesses (FJ-2201)
