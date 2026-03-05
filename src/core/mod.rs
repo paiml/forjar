@@ -44,5 +44,7 @@ mod tests_scoring_b;
 #[cfg(all(test, feature = "encryption"))]
 mod tests_secrets;
 #[cfg(test)]
+mod tests_kani_proofs;
+#[cfg(test)]
 mod tests_security_scanner;
 mod verus_spec;

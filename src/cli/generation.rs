@@ -85,11 +85,11 @@ pub(crate) fn list_generations(state_dir: &Path, json: bool) -> Result<(), Strin
     gens.sort_by_key(|(n, _)| *n);
 
     if json {
-        print_generations_json(&gens, current)?;
+        print_generations_json(&gens, current, &gen_dir)?;
     } else if gens.is_empty() {
         println!("No generations.");
     } else {
-        print_generations_text(&gens, current);
+        print_generations_text(&gens, current, &gen_dir);
     }
     Ok(())
 }
@@ -143,7 +143,16 @@ fn collect_generation_numbers(gen_dir: &Path) -> Result<Vec<u32>, String> {
         .collect())
 }
 
-/// Collect generations as (number, created_at) pairs.
+/// Enriched generation info for display.
+struct GenInfo {
+    num: u32,
+    created_at: String,
+    action: String,
+    changes: u32,
+    resource_count: usize,
+}
+
+/// Collect generations with enriched metadata (FJ-2002).
 fn collect_generations(gen_dir: &Path) -> Result<Vec<(u32, String)>, String> {
     let entries =
         std::fs::read_dir(gen_dir).map_err(|e| format!("cannot read generations dir: {e}"))?;
@@ -157,6 +166,43 @@ fn collect_generations(gen_dir: &Path) -> Result<Vec<(u32, String)>, String> {
         }
     }
     Ok(gens)
+}
+
+/// Read enriched metadata from a generation directory.
+fn read_gen_info(gen_dir: &Path, num: u32) -> GenInfo {
+    let meta_path = gen_dir.join(num.to_string()).join(".generation.yaml");
+    let content = std::fs::read_to_string(&meta_path).unwrap_or_default();
+    match GenerationMeta::from_yaml(&content) {
+        Ok(meta) => {
+            let resource_count = count_lock_resources(&gen_dir.join(num.to_string()));
+            let changes = meta.total_changes();
+            GenInfo { num, created_at: meta.created_at, action: meta.action, changes, resource_count }
+        }
+        Err(_) => GenInfo {
+            num,
+            created_at: read_created_at(&meta_path),
+            action: "apply".into(),
+            changes: 0,
+            resource_count: 0,
+        },
+    }
+}
+
+/// Count resources in lock files within a generation snapshot.
+fn count_lock_resources(gen_path: &Path) -> usize {
+    let mut count = 0;
+    if let Ok(entries) = std::fs::read_dir(gen_path) {
+        for entry in entries.flatten() {
+            let lock_path = entry.path().join("state.lock.yaml");
+            if let Ok(content) = std::fs::read_to_string(&lock_path) {
+                if let Ok(lock) = serde_yaml_ng::from_str::<crate::core::types::StateLock>(&content)
+                {
+                    count += lock.resources.len();
+                }
+            }
+        }
+    }
+    count
 }
 
 /// Read created_at from a .generation.yaml metadata file.
@@ -266,14 +312,22 @@ fn atomic_symlink_switch(gen_dir: &Path, target_dir: &Path) -> Result<(), String
 }
 
 /// Print generations as JSON.
-fn print_generations_json(gens: &[(u32, String)], current: Option<u32>) -> Result<(), String> {
+fn print_generations_json(
+    gens: &[(u32, String)],
+    current: Option<u32>,
+    gen_dir: &Path,
+) -> Result<(), String> {
     let items: Vec<serde_json::Value> = gens
         .iter()
-        .map(|(n, c)| {
+        .map(|(n, _)| {
+            let info = read_gen_info(gen_dir, *n);
             serde_json::json!({
                 "generation": n,
-                "created_at": c,
+                "created_at": info.created_at,
                 "current": current == Some(*n),
+                "action": info.action,
+                "changes": info.changes,
+                "resources": info.resource_count,
             })
         })
         .collect();
@@ -284,10 +338,18 @@ fn print_generations_json(gens: &[(u32, String)], current: Option<u32>) -> Resul
     Ok(())
 }
 
-/// Print generations as text table.
-fn print_generations_text(gens: &[(u32, String)], current: Option<u32>) {
-    for (num, created) in gens {
+/// Print generations as enriched text table (FJ-2002).
+fn print_generations_text(gens: &[(u32, String)], current: Option<u32>, gen_dir: &Path) {
+    for (num, _) in gens {
+        let info = read_gen_info(gen_dir, *num);
         let marker = if current == Some(*num) { " *" } else { "" };
-        println!("  gen {num}{marker} ({created})");
+        let delta = if info.changes > 0 {
+            format!(" ({} changes, {} resources)", info.changes, info.resource_count)
+        } else if info.resource_count > 0 {
+            format!(" ({} resources)", info.resource_count)
+        } else {
+            String::new()
+        };
+        println!("  gen {}{marker} [{}] ({}){delta}", info.num, info.action, info.created_at);
     }
 }

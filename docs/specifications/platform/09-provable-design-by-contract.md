@@ -722,9 +722,9 @@ pub fn compute_dual_digest(uncompressed: &[u8]) -> Result<(String, String), Stri
 
 ### Phase 15: Verus Narrowed Proofs (FJ-2202)
 - [ ] Replace toy `ResourceState` with `PlannerState` modeling real dual-hash
-- [ ] `proof_idempotency_conditional` — converged + handler invariant → NoOp
-- [ ] `proof_apply_then_noop` — apply result + handler invariant → next plan is NoOp
-- [ ] `proof_fleet_convergence` — N-resource extension
+- [x] `proof_idempotency_conditional` — converged + handler invariant → NoOp
+- [x] `proof_apply_then_noop` — apply result + handler invariant → next plan is NoOp
+- [x] `proof_fleet_convergence` — N-resource extension
 - [x] Document proof assumptions and what each tier verifies (table in `kani_proofs.rs`, tier descriptions in `VerificationTier` enum)
 - **Extends**: `src/core/verus_spec.rs`
 - **Deliverable**: Verus proofs cover real hash pipeline (conditional on handler invariant)
