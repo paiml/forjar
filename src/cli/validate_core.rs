@@ -256,3 +256,99 @@ pub(crate) fn cmd_validate_exhaustive(file: &Path, json: bool) -> Result<(), Str
         Err(format!("{} validation issue(s) found", issues.len()))
     }
 }
+
+// ── FJ-2503: validate --deep ──
+
+type CheckFn = fn(&Path, bool) -> Result<(), String>;
+
+/// Run all deep validation checks and aggregate results.
+pub(crate) fn cmd_validate_deep(file: &Path, json: bool) -> Result<(), String> {
+    use super::validate_quality::*;
+    use super::validate_structural::*;
+
+    // First run the base validation
+    let config = parse_and_validate(file)?;
+
+    let checks: &[(&str, CheckFn)] = &[
+        ("templates", cmd_validate_check_templates),
+        ("overlaps", cmd_validate_check_overlaps),
+        ("circular-deps", cmd_validate_check_cycles_deep),
+        ("secrets", cmd_validate_check_secrets),
+        ("naming", cmd_validate_check_naming),
+        ("drift-coverage", cmd_validate_check_drift_coverage),
+        ("idempotency", cmd_validate_check_idempotency),
+    ];
+
+    let mut passed = 0usize;
+    let mut failed = 0usize;
+    let mut failures: Vec<(String, String)> = Vec::new();
+
+    if !json {
+        println!(
+            "=== Deep Validation: {} ({} machines, {} resources) ===",
+            config.name,
+            config.machines.len(),
+            config.resources.len()
+        );
+        println!();
+    }
+
+    for (name, check_fn) in checks {
+        match check_fn(file, false) {
+            Ok(()) => {
+                passed += 1;
+            }
+            Err(e) => {
+                failed += 1;
+                failures.push((name.to_string(), e));
+            }
+        }
+        if !json {
+            println!();
+        }
+    }
+
+    // Also run exhaustive cross-reference check
+    match cmd_validate_exhaustive(file, false) {
+        Ok(()) => passed += 1,
+        Err(e) => {
+            failed += 1;
+            failures.push(("exhaustive".to_string(), e));
+        }
+    }
+
+    if json {
+        let result = serde_json::json!({
+            "deep_validation": {
+                "passed": passed,
+                "failed": failed,
+                "total": passed + failed,
+                "failures": failures.iter().map(|(n, e)| {
+                    serde_json::json!({"check": n, "error": e})
+                }).collect::<Vec<_>>(),
+            }
+        });
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&result).unwrap_or_default()
+        );
+    } else {
+        println!("─────────────────────────────────────");
+        println!(
+            "Deep validation: {}/{} checks passed",
+            passed,
+            passed + failed
+        );
+        if !failures.is_empty() {
+            for (name, _) in &failures {
+                println!("  {} {name}", red("✗"));
+            }
+        }
+    }
+
+    if failed > 0 {
+        Err(format!("{failed} deep validation check(s) failed"))
+    } else {
+        Ok(())
+    }
+}
