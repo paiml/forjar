@@ -541,6 +541,10 @@ forjar apply    (all of above)            Pre-apply gates            —
 - [x] Levenshtein "did you mean?" suggestions (threshold <= 2)
 - [x] `parse_and_validate_opts(path, deny_unknown)` for strict mode
 - [x] LSP unknown field diagnostics
+- [x] Structured output types: `ValidateOutput`, `ValidationFinding`, `ValidationSeverity`
+- [x] Builder pattern: `ValidationFinding::error()`, `.for_resource()`, `.with_suggestion()`
+- [x] `FieldSuggestion` with `should_suggest()` (distance <= 2)
+- [x] `DeepCheckFlags` for `--exhaustive` / per-flag deep validation
 - **Deliverable**: Typos in field names produce warnings (default) or errors (strict)
 
 ### Phase 24: Format Validation (FJ-2501) -- DONE

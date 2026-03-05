@@ -655,11 +655,14 @@ Every CI test run produces:
 - [ ] Parallel sandbox execution
 - **Deliverable**: Tests run in isolated sandboxes with real system state
 
-### Phase 32: Infrastructure Mutation Testing (FJ-2604)
-- [ ] Mutation operators per resource type (delete, modify, stop, remove)
+### Phase 32: Infrastructure Mutation Testing (FJ-2604) -- PARTIAL
+- [x] Mutation operator types: `MutationOperator` enum (8 operators with resource type applicability)
+- [x] `MutationResult` with detected/reconverged tracking
+- [x] `MutationScore` with grade calculation (A/B/C/F)
+- [x] `MutationReport` with per-type summaries and undetected mutation listing
+- [x] `TypeMutationSummary` with detection percentage
 - [ ] Mutation runner with sandbox integration
-- [ ] Mutation score calculation and grading
-- [ ] Undetected mutation reporting
+- [ ] Undetected mutation reporting in CLI
 - **Deliverable**: `forjar test mutate` with mutation score >= 80%
 
 ### Phase 33: Coverage Model (FJ-2605)
