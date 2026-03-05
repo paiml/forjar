@@ -648,10 +648,10 @@ Every CI test run produces:
 - [ ] `forjar test behavior` CLI command and runtime execution
 - **Deliverable**: `forjar test behavior` executes YAML behavior specs
 
-### Phase 31: Sandbox Testing Infrastructure (FJ-2603)
-- [ ] Pepita sandbox lifecycle (create, apply, verify, destroy)
-- [ ] Container sandbox fallback
-- [ ] Overlay filesystem for clean-state isolation
+### Phase 31: Sandbox Testing Infrastructure (FJ-2603) — PARTIAL
+- [x] `SandboxConfig` with backend, cleanup, timeout, capture_overlay
+- [x] `SandboxBackend` enum: Pepita, Container, Chroot
+- [x] `SandboxPhase` lifecycle: Created → Applied → Verified → Destroyed
 - [ ] Parallel sandbox execution
 - **Deliverable**: Tests run in isolated sandboxes with real system state
 
@@ -668,15 +668,15 @@ Every CI test run produces:
 ### Phase 33: Coverage Model (FJ-2605)
 - [x] Five-level resource coverage tracking (L0-L5)
 - [x] `forjar test coverage` report (CoverageReport type)
-- [ ] Coverage badge generation
-- [ ] CI threshold enforcement
+- [x] Coverage badge: `CoverageBadge` with `BadgeColor::from_pct()` (6 color tiers)
+- [x] CI threshold: `CoverageThreshold` with `check(line_pct, branch_pct)` enforcement
 - **Deliverable**: Resource coverage report alongside code coverage
 
-### Phase 34: Test Runner and CLI (FJ-2606)
-- [ ] `forjar test` unified command with subcommands
-- [ ] Human-readable and JSON output formats
+### Phase 34: Test Runner and CLI (FJ-2606) — PARTIAL
+- [x] `forjar test` types: `TestCommand`, `TestSubcommand` (behavior/convergence/mutation/all)
+- [x] `TestResult`, `TestArtifact`, `TestSuiteReport` with `pass_rate()` and `format_summary()`
 - [ ] Parallel execution engine
-- [ ] Test artifact collection
+- [ ] Test artifact collection (runtime wiring)
 - **Deliverable**: Single command runs all test types
 
 ### Phase 35: CI Integration (FJ-2607)

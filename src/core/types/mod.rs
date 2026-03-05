@@ -28,6 +28,8 @@ mod observability_types;
 mod container_build_types;
 mod generation_diff_types;
 mod service_mode_types;
+mod test_runner_types;
+mod handler_contract_types;
 
 pub use config::*;
 pub use policy::*;
@@ -53,6 +55,8 @@ pub use observability_types::*;
 pub use container_build_types::*;
 pub use generation_diff_types::*;
 pub use service_mode_types::*;
+pub use test_runner_types::*;
+pub use handler_contract_types::*;
 
 // Shared default functions used by serde across multiple submodules.
 fn default_true() -> bool {
