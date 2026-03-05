@@ -131,6 +131,7 @@ pub(super) fn dag_config(names: &[&str], edges: &[(&str, &str)]) -> ForjarConfig
             include_provenance: HashMap::new(),
         checks: indexmap::IndexMap::new(),
         moved: vec![],
+            secrets: Default::default(),
     }
 }
 

@@ -64,6 +64,7 @@ fn make_config(resources: Vec<(String, Resource)>) -> ForjarConfig {
         policy: Policy::default(),
         policies: vec![],
         moved: vec![],
+            secrets: Default::default(),
         includes: vec![],
             include_provenance: HashMap::new(),
         data: indexmap::IndexMap::new(),
