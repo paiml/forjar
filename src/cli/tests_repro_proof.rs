@@ -122,7 +122,7 @@ resources:
                 state_dir,
                 json: true,
             }),
-            false,
+            0,
             true,
         )
         .unwrap();

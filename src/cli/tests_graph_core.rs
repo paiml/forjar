@@ -246,7 +246,7 @@ resources: {}
                 resource_dependency_critical_path: false,
                 resource_dependency_cluster_analysis: false,
             }),
-            false,
+            0,
             true,
         )
         .unwrap();
@@ -415,7 +415,7 @@ resources: {}
                 resource_dependency_critical_path: false,
                 resource_dependency_cluster_analysis: false,
             }),
-            false,
+            0,
             true,
         );
         assert!(result.is_ok());

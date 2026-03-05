@@ -272,7 +272,7 @@ mod tests {
                 machine_resource_drift_pattern_classification: false,
                 fleet_resource_convergence_window_analysis: false,
             }),
-            false,
+            0,
             true,
         )
         .unwrap();

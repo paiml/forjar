@@ -158,7 +158,7 @@ mod tests {
                 since: None,
                 resource: None,
             }),
-            false,
+            0,
             true,
         )
         .unwrap();

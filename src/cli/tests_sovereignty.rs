@@ -100,7 +100,7 @@ resources:
                 state_dir,
                 json: false,
             }),
-            false,
+            0,
             true,
         )
         .unwrap();

@@ -221,7 +221,7 @@ resources:
                 refresh_only: false,
                 encrypt_state: false,
             }),
-            false,
+            0,
             true,
         );
         assert!(result.is_ok());

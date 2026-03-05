@@ -140,7 +140,7 @@ mod tests {
                 min_events: 3,
                 json: false,
             }),
-            false,
+            0,
             true,
         );
         assert!(result.is_ok());
@@ -270,7 +270,7 @@ resources:
                 group: None,
                 json: false,
             }),
-            false,
+            0,
             true,
         );
         // Will fail (file doesn't exist) or pass — either way it runs without panic
@@ -295,7 +295,7 @@ resources:
                 group: None,
                 json: true,
             }),
-            false,
+            0,
             true,
         );
         let _ = result;
@@ -312,7 +312,7 @@ resources:
                 group: None,
                 json: false,
             }),
-            false,
+            0,
             true,
         );
         assert!(result.is_err());

@@ -506,10 +506,10 @@ forjar logs --image training-image --layer ml-deps --tail 50  # last 50 lines
 - [ ] `forjar logs --gc` for manual cleanup
 - [ ] `run_logs` table + FTS5 in state.db for searchable failure history
 - [ ] Image build logs: per-layer output capture
-- [ ] Log level flags: `-v`, `-vv`, `-vvv`, `--quiet`
+- [x] Log level flags: `-v`, `-vv`, `-vvv`, `--quiet`
 - [ ] `-vvv` streams raw output to terminal in real-time
 - [ ] `--json` structured output with `log_path` for CI artifact upload
-- [ ] Exit codes: 0/1/2/3/4/10
+- [x] Exit codes: 0/1/2/3/4/10
 - [ ] Progress bars to stderr
 - [ ] `forjar doctor` — system + log health check
 - **Deliverable**: Every script execution is captured to disk; `forjar logs --failed` shows full context for debugging; CI can upload `log_path` artifacts on failure
