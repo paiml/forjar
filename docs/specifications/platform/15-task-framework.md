@@ -748,8 +748,8 @@ Forjar is the **convergence primitive**. Consumers own their domain logic.
 - **Deliverable**: Five reference recipes proving the primitive works for all domains
 
 ### Phase 42: Task State Model (FJ-2706)
-- [ ] Pipeline state with per-stage tracking
-- [ ] Service state with PID, health check history
-- [ ] Dispatch state with invocation history
+- [x] Pipeline state with per-stage tracking
+- [x] Service state with PID, health check history
+- [x] Dispatch state with invocation history
 - [ ] State model documented in state compatibility section
 - **Deliverable**: `forjar status` shows pipeline stage progress and service health

@@ -947,6 +947,27 @@ resources:
 | `restart` | string | — | Restart policy: on_failure, always, never (service mode) |
 | `restart_delay` | u64 | — | Seconds before restart (service mode) |
 
+### Quality Gates (FJ-2702)
+
+Pipeline stages can include quality gates that control pipeline flow:
+
+- **Exit code**: Non-zero exit stops the pipeline (when `gate: true`)
+- **JSON field**: Parse stdout as JSON, check a field value against allowed thresholds
+- **Regex**: Match stdout against a regex pattern
+- **Numeric threshold**: Verify a JSON field meets a minimum value
+
+The `on_fail` field controls behavior: `block` (default), `warn`, or `skip_dependents`.
+
+### Task State Model (FJ-2706)
+
+Each task mode tracks specific state in the lock file:
+
+| Mode | State | Key Metrics |
+|------|-------|-------------|
+| Pipeline | Per-stage status (pending/running/passed/failed/skipped) | `last_completed` stage index, per-stage duration |
+| Service | PID, health status, restart count | `consecutive_failures`, `last_check` timestamp |
+| Dispatch | Invocation history | `total_invocations`, per-invocation duration and exit code |
+
 ## Recipe (Composition)
 
 Compose reusable child recipes into larger configurations. Recipe resources reference external recipe YAML files and forward inputs.
