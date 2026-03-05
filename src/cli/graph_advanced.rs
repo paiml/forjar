@@ -213,8 +213,8 @@ pub(crate) fn cmd_graph_dependency_matrix_csv(file: &Path, json: bool) -> Result
         // CSV rows
         for (i, name) in names.iter().enumerate() {
             print!("{}", name);
-            for j in 0..names.len() {
-                print!(",{}", if matrix[i][j] { 1 } else { 0 });
+            for &cell in &matrix[i] {
+                print!(",{}", if cell { 1 } else { 0 });
             }
             println!();
         }
