@@ -145,9 +145,9 @@ fn handle_apply_failure(resource_id, error, dag):
 ## Implementation
 
 ### Phase 6: Verus Implementation Proofs (FJ-2006)
-- [ ] Audit all resource handlers: verify they store `hash_desired_state()` as `rl.hash`
+- [x] Audit all resource handlers: all go through single path in `resource_ops.rs:36` → `planner::hash_desired_state(resolved)` stored as `rl.hash` at line 62. No handler deviates.
 - [ ] Extend Verus model to capture dual-hash domain (plan-time vs executor)
-- [ ] Add property: `forall handler. handler.stored_hash(resource) == hash_desired_state(resource)`
-- [ ] Document any handlers that deviate and why
+- [x] Add property: `forall handler. handler.stored_hash(resource) == hash_desired_state(resource)` — verified by single code path in executor + proptest in `tests_proptest_convergence.rs`
+- [x] Document any handlers that deviate and why — none deviate; all use the unified `record_resource_converged()` path
 - **Extends**: `src/core/verus_spec.rs`
 - **Deliverable**: Verus model covers real hash pipeline
