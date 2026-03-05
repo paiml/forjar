@@ -92,6 +92,89 @@ pub struct HealthCheck {
     pub retries: Option<u32>,
 }
 
+// ── FJ-2706: Task state model ──
+
+/// Per-stage execution state in a pipeline.
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum StageStatus {
+    #[default]
+    Pending,
+    Running,
+    Passed,
+    Failed,
+    Skipped,
+}
+
+/// FJ-2706: Pipeline state — per-stage tracking stored in lock file.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct PipelineState {
+    /// Per-stage status (stage_name → status).
+    pub stages: Vec<StageState>,
+    /// Overall pipeline status.
+    pub status: StageStatus,
+    /// Last completed stage index (0-based).
+    #[serde(default)]
+    pub last_completed: Option<usize>,
+}
+
+/// State of a single pipeline stage.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StageState {
+    pub name: String,
+    pub status: StageStatus,
+    #[serde(default)]
+    pub exit_code: Option<i32>,
+    #[serde(default)]
+    pub duration_ms: Option<u64>,
+    /// BLAKE3 hash of inputs (for cache invalidation).
+    #[serde(default)]
+    pub input_hash: Option<String>,
+}
+
+/// FJ-2706: Service state — PID and health check history.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ServiceState {
+    /// Process ID (if running).
+    #[serde(default)]
+    pub pid: Option<u32>,
+    /// Whether the service is currently healthy.
+    #[serde(default)]
+    pub healthy: bool,
+    /// Number of consecutive health check failures.
+    #[serde(default)]
+    pub consecutive_failures: u32,
+    /// Last health check timestamp.
+    #[serde(default)]
+    pub last_check: Option<String>,
+    /// Number of restarts since initial start.
+    #[serde(default)]
+    pub restart_count: u32,
+}
+
+/// FJ-2706: Dispatch invocation record.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DispatchInvocation {
+    /// When the dispatch was triggered.
+    pub timestamp: String,
+    /// Exit code of the dispatched command.
+    pub exit_code: i32,
+    /// Duration in milliseconds.
+    pub duration_ms: u64,
+    /// Caller identifier (user/CI/trigger).
+    #[serde(default)]
+    pub caller: Option<String>,
+}
+
+/// FJ-2706: Dispatch state — invocation history.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct DispatchState {
+    /// Recent invocation history (most recent first).
+    pub invocations: Vec<DispatchInvocation>,
+    /// Total invocation count.
+    pub total_invocations: u64,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -156,5 +239,52 @@ retries: 3
         assert_eq!(TaskMode::Pipeline.to_string(), "pipeline");
         assert_eq!(TaskMode::Service.to_string(), "service");
         assert_eq!(TaskMode::Dispatch.to_string(), "dispatch");
+    }
+
+    #[test]
+    fn pipeline_state_serde() {
+        let state = PipelineState {
+            stages: vec![
+                StageState { name: "lint".into(), status: StageStatus::Passed, exit_code: Some(0), duration_ms: Some(1200), input_hash: None },
+                StageState { name: "test".into(), status: StageStatus::Failed, exit_code: Some(1), duration_ms: Some(5000), input_hash: None },
+            ],
+            status: StageStatus::Failed,
+            last_completed: Some(0),
+        };
+        let yaml = serde_yaml_ng::to_string(&state).unwrap();
+        let parsed: PipelineState = serde_yaml_ng::from_str(&yaml).unwrap();
+        assert_eq!(parsed.stages.len(), 2);
+        assert_eq!(parsed.status, StageStatus::Failed);
+        assert_eq!(parsed.last_completed, Some(0));
+    }
+
+    #[test]
+    fn service_state_defaults() {
+        let state = ServiceState::default();
+        assert!(!state.healthy);
+        assert_eq!(state.restart_count, 0);
+        assert!(state.pid.is_none());
+    }
+
+    #[test]
+    fn dispatch_state_serde() {
+        let state = DispatchState {
+            invocations: vec![DispatchInvocation {
+                timestamp: "2026-03-05T12:00:00Z".into(),
+                exit_code: 0,
+                duration_ms: 350,
+                caller: Some("ci".into()),
+            }],
+            total_invocations: 1,
+        };
+        let yaml = serde_yaml_ng::to_string(&state).unwrap();
+        let parsed: DispatchState = serde_yaml_ng::from_str(&yaml).unwrap();
+        assert_eq!(parsed.total_invocations, 1);
+        assert_eq!(parsed.invocations[0].exit_code, 0);
+    }
+
+    #[test]
+    fn stage_status_default_is_pending() {
+        assert_eq!(StageStatus::default(), StageStatus::Pending);
     }
 }
