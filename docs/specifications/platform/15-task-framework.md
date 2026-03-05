@@ -706,10 +706,12 @@ Forjar is the **convergence primitive**. Consumers own their domain logic.
 - [x] `task_mode` field on Resource, validated in parser
 - [x] Pipeline mode: `stages:` array, no `command:` required
 - [x] Known field detection updated for all new fields
-- [ ] Runtime execution of pipeline stages with caching
+- [x] Pipeline execution engine: `plan_pipeline()`, `build_pipeline_state()`, `format_pipeline_summary()`
+- [x] Stage cache skip logic: `should_skip_stage()` compares BLAKE3 input hashes
+- [x] Stage command generation: `stage_command()` wraps with strict mode
 - [ ] Service mode health check loop and restart policy
 - [ ] `mode: dispatch` with `forjar run` CLI
-- **Deliverable**: Types and validation complete; runtime execution pending
+- **Deliverable**: Pipeline engine implemented; service/dispatch runtime pending
 
 ### Phase 37: Input/Output Tracking (FJ-2701)
 - [x] `inputs:` glob pattern hashing (BLAKE3)
