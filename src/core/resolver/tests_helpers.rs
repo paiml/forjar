@@ -128,6 +128,7 @@ pub(super) fn dag_config(names: &[&str], edges: &[(&str, &str)]) -> ForjarConfig
         policies: vec![],
         data: indexmap::IndexMap::new(),
         includes: vec![],
+            include_provenance: HashMap::new(),
         checks: indexmap::IndexMap::new(),
         moved: vec![],
     }

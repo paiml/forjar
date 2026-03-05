@@ -4,6 +4,7 @@
 mod tests {
     use crate::core::compliance::*;
     use crate::core::types::*;
+    use std::collections::HashMap;
 
     fn minimal_config() -> ForjarConfig {
         ForjarConfig {
@@ -18,6 +19,7 @@ mod tests {
             policies: vec![],
             moved: vec![],
             includes: vec![],
+            include_provenance: HashMap::new(),
             data: indexmap::IndexMap::new(),
             checks: indexmap::IndexMap::new(),
         }

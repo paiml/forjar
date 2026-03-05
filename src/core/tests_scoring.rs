@@ -18,6 +18,7 @@ pub(super) fn minimal_config() -> ForjarConfig {
         policies: Vec::new(),
         data: IndexMap::new(),
         includes: Vec::new(),
+            include_provenance: HashMap::new(),
         checks: IndexMap::new(),
         moved: Vec::new(),
     }

@@ -152,6 +152,7 @@ fn test_fj132_build_dag_unknown_dependency() {
         policies: vec![],
         data: indexmap::IndexMap::new(),
         includes: vec![],
+            include_provenance: HashMap::new(),
         checks: indexmap::IndexMap::new(),
         moved: vec![],
     };
@@ -191,6 +192,7 @@ fn test_fj132_kahn_sort_diamond_dependency() {
         policies: vec![],
         data: indexmap::IndexMap::new(),
         includes: vec![],
+            include_provenance: HashMap::new(),
         checks: indexmap::IndexMap::new(),
         moved: vec![],
     };
@@ -212,6 +214,7 @@ fn test_fj132_build_execution_order_empty() {
         policies: vec![],
         data: indexmap::IndexMap::new(),
         includes: vec![],
+            include_provenance: HashMap::new(),
         checks: indexmap::IndexMap::new(),
         moved: vec![],
     };

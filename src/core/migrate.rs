@@ -366,6 +366,7 @@ mod tests {
             policies: vec![],
             data: indexmap::IndexMap::new(),
             includes: vec![],
+            include_provenance: HashMap::new(),
             checks: indexmap::IndexMap::new(),
             moved: vec![],
         };
@@ -406,6 +407,7 @@ mod tests {
             policies: vec![],
             data: indexmap::IndexMap::new(),
             includes: vec![],
+            include_provenance: HashMap::new(),
             checks: indexmap::IndexMap::new(),
             moved: vec![],
         };

@@ -545,14 +545,14 @@ forjar apply    (all of above)            Pre-apply gates            —
 
 ### Phase 24: Format Validation (FJ-2501) -- DONE
 - [x] `validate_formats()` for mode, port, path, addr, owner/group
-- [ ] Cron schedule field range validation
+- [x] Cron schedule field range validation
 - [x] LSP format diagnostics (via validate_config in LSP)
 - **Deliverable**: `mode: "banana"` is an error, not silently accepted
 
 ### Phase 25: Include Hardening (FJ-2502) -- DONE
 - [x] Circular include detection (visited path set)
 - [x] Conflict warnings on key overwrite (params, machines, resources, outputs, data)
-- [ ] Include provenance tracking
+- [x] Include provenance tracking
 - **Deliverable**: Circular includes fail with clear error
 
 ### Phase 26: Default Deep Validation (FJ-2503) -- DONE
@@ -565,6 +565,6 @@ forjar apply    (all of above)            Pre-apply gates            —
 
 ### Phase 27: LSP Enrichment (FJ-2504) -- DONE
 - [x] Full structural validation in LSP (validate_config + check_unknown_fields)
-- [ ] `ForjarConfig` JSON Schema export for editor autocompletion
+- [x] `ForjarConfig` JSON Schema export for editor autocompletion
 - [x] Real-time unknown field + "did you mean?" diagnostics
 - **Deliverable**: VS Code / Neovim show errors as you type

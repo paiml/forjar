@@ -6,6 +6,7 @@
 use crate::core::planner;
 use crate::core::types::*;
 use proptest::prelude::*;
+use std::collections::HashMap;
 
 /// Strategy for generating valid resource types.
 fn arb_resource_type() -> impl Strategy<Value = ResourceType> {
@@ -143,6 +144,7 @@ proptest! {
             policies: vec![],
             moved: vec![],
             includes: vec![],
+            include_provenance: HashMap::new(),
             data: indexmap::IndexMap::new(),
             checks: indexmap::IndexMap::new(),
         };
