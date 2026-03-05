@@ -1285,3 +1285,25 @@ barrier/sync-training: SATISFIED
 ```
 
 All task state is stored in `state/<machine>/state.lock.yaml` under the task resource's `details` map, maintaining compatibility with the existing lock file schema.
+
+## Destroy Log
+
+When `forjar destroy` removes resources, it writes a destroy log to `state/destroy-log.jsonl` for undo-destroy recovery:
+
+```jsonl
+{"timestamp":"2026-03-05T14:30:00Z","machine":"web-01","resource_id":"nginx-config","resource_type":"file","pre_hash":"blake3:abc123","generation":5,"config_fragment":"type: file\npath: /etc/nginx/nginx.conf\n","reliable_recreate":true}
+```
+
+Each entry records the pre-destroy state: the resource's hash, config fragment, and whether it can be reliably recreated. Resources with inline `content:` are flagged as `reliable_recreate: true`.
+
+On partial destroy failure, only succeeded resource entries are removed from the lock file. Failed resources keep their lock entries so the next `forjar apply` can re-converge them.
+
+## Force Re-Apply
+
+`forjar apply --force` bypasses the planner's hash comparison, forcing all resources to be re-applied even if their config hasn't changed. This is essential for:
+
+- **Secret rotation**: When `{{ secrets.PASSWORD }}` resolves to a new value but the template hash is unchanged
+- **External state recovery**: When the target machine's state was modified outside forjar
+- **Drift remediation**: When you want to re-converge everything regardless of planner state
+
+Without `--force`, the planner uses BLAKE3 hash comparison for O(1) idempotency checks. With `--force`, it treats every resource as needing re-application.

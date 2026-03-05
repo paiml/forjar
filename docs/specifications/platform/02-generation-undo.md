@@ -300,7 +300,7 @@ Undo-destroy order: `nfs-server` (intel) → `nfs-mount` (jetson)
 ### Phase 5: Undo-Destroy (FJ-2005) -- PARTIAL
 - [x] `DestroyLogEntry` type with JSONL serialization for undo-destroy recovery
 - [x] Pre-destroy state recording: machine, resource_id, pre_hash, config_fragment, reliable_recreate
-- [ ] Extend `destroy_single_resource()` to write pre-state to `destroy-log.jsonl`
+- [x] Extend `destroy_single_resource()` to write pre-state to `destroy-log.jsonl` — `write_destroy_log_entry()` captures pre_hash, config_fragment, reliable_recreate
 - [x] Fix `cleanup_state_files()` — only remove lock entries for succeeded resources — `cleanup_succeeded_entries()` reads lock YAML, removes succeeded entries, preserves failed
 - [ ] `forjar undo-destroy` — replay from destroy-log.jsonl
 - [ ] Reversibility gate: skip irreversible, warn with `--force`

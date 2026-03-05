@@ -89,6 +89,42 @@ fn cleanup_succeeded_entries(
     }
 }
 
+/// FJ-2005: Write a destroy log entry with pre-state for undo-destroy recovery.
+fn write_destroy_log_entry(
+    log_path: &Path,
+    resource_id: &str,
+    resource: &types::Resource,
+    machine_name: &str,
+    locks: &std::collections::HashMap<String, types::StateLock>,
+) {
+    let pre_hash = locks
+        .get(machine_name)
+        .and_then(|l| l.resources.get(resource_id))
+        .map(|rl| rl.hash.clone())
+        .unwrap_or_default();
+
+    let entry = types::DestroyLogEntry {
+        timestamp: crate::tripwire::eventlog::now_iso8601(),
+        machine: machine_name.to_string(),
+        resource_id: resource_id.to_string(),
+        resource_type: resource.resource_type.to_string(),
+        pre_hash,
+        generation: 0, // filled by caller if known
+        config_fragment: serde_yaml_ng::to_string(resource).ok(),
+        reliable_recreate: resource.content.is_some(),
+    };
+    if let Ok(line) = entry.to_jsonl() {
+        use std::io::Write;
+        if let Ok(mut f) = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(log_path)
+        {
+            let _ = writeln!(f, "{line}");
+        }
+    }
+}
+
 pub(crate) fn cmd_destroy(
     file: &Path,
     state_dir: &Path,
@@ -114,6 +150,10 @@ pub(crate) fn cmd_destroy(
     }
 
     let all_machines = executor::collect_machines(&config);
+    // FJ-2005: Load locks to capture pre-hash for destroy log
+    let locks = super::helpers_state::load_machine_locks(&config, state_dir, machine_filter)
+        .unwrap_or_default();
+    let destroy_log_path = state_dir.join("destroy-log.jsonl");
     let mut destroyed = 0u32;
     let mut failed = 0u32;
     let mut succeeded_resources: std::collections::HashMap<String, Vec<String>> =
@@ -156,6 +196,14 @@ pub(crate) fn cmd_destroy(
                 .entry(machine_name.to_string())
                 .or_default()
                 .push(resource_id.clone());
+            // FJ-2005: Write pre-state to destroy-log.jsonl
+            write_destroy_log_entry(
+                &destroy_log_path,
+                resource_id,
+                resource,
+                machine_name,
+                &locks,
+            );
         } else {
             failed += 1;
         }

@@ -225,6 +225,6 @@ The state directory (`state/`) has no access control beyond filesystem permissio
 - [x] Hash template (not resolved value) in `hash_desired_state`
 - [x] Security types: `SecretProvider`, `SecretRef`, `SecretConfig`, `PathPolicy`, `AuthzResult`
 - [x] Secret scan types: `SecretScanResult`, `SecretScanFinding` with structured output
-- [ ] `forjar apply --force` for secret rotation
+- [x] `forjar apply --force` for secret rotation — bypasses planner hash comparison, re-applies all resources (empty locks passed to planner)
 - [x] Document pepita privilege boundary honestly (see "Pepita Privilege Boundary" section above)
 - **Deliverable**: Secrets never appear in state files; path policy prevents accidental writes to sensitive paths
