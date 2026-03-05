@@ -1,198 +1,291 @@
 # DataOps & MLOps Pipelines
 
-Forjar manages the full lifecycle of data and ML infrastructure: data sources, validation, GPU provisioning, model training, evaluation, and deployment.
+Forjar manages infrastructure for data and ML workloads using its convergence primitives.
+The `task` resource type provides pipeline orchestration, while `model` and `gpu` resources
+handle ML-specific infrastructure. Upstream consumers (alimentar, entrenar, apr-cli, batuta)
+build domain-specific pipelines on these primitives.
+
+## Architecture: Forjar as Convergence Primitive
+
+Forjar provides the infrastructure layer. Domain tools compose on top:
+
+| Layer | Tool | Responsibility |
+|-------|------|----------------|
+| Infrastructure | **forjar** | Converge packages, files, services, GPU drivers, models |
+| DataOps | alimentar | Data quality gates, lineage, schema validation |
+| MLOps | entrenar | Distributed training, checkpoints, hyperparameters |
+| LLMOps | apr-cli | Model pull, convert, compile, serve |
+| AgentOps | batuta | Agent lifecycle, dispatch, coordination |
+
+Forjar does NOT embed data validation, model evaluation, or training orchestration.
+Those are consumer responsibilities. Forjar ensures the infrastructure converges.
 
 ## Data Sources
 
-Forjar supports four data source types for parameterizing configurations:
+Four data source types parameterize configurations at plan time:
 
 ```yaml
 data:
-  - name: db-creds
+  db-password:
     type: file
-    path: secrets/db.yaml
-
-  - name: git-sha
+    value: secrets/db-password.txt
+  git-sha:
     type: command
-    command: git rev-parse HEAD
-
-  - name: dns-check
+    value: git rev-parse HEAD
+  api-ip:
     type: dns
-    hostname: api.example.com
-
-  - name: prod-state
+    value: api.example.com
+  prod-outputs:
     type: forjar-state
-    path: ../production/state
+    config: production
+    state_dir: ../production/state
+    outputs: [web_ip, db_ip]
     max_staleness: "1h"
 ```
 
-Data sources are resolved before planning, making their values available as `{{data.db-creds.password}}` in resource templates.
-
-## Data Validation Resources
-
-Declarative data quality checks ensure data integrity before downstream consumption:
-
-```yaml
-resources:
-  - name: validate-training-data
-    type: data_validation
-    schema: schemas/training.json
-    source: /data/training/latest.parquet
-    checks:
-      - no_nulls: [label, features]
-      - freshness: 24h
-      - min_rows: 10000
-```
-
-## Dataset Versioning & Lineage
-
-Content-addressed dataset snapshots track data provenance:
-
-```yaml
-resources:
-  - name: training-dataset-v3
-    type: dataset
-    path: /data/training/v3
-    lineage:
-      parent: training-dataset-v2
-      transform: scripts/augment.py
-      hash_algorithm: blake3
-```
-
-Lineage graphs show the full transformation chain from raw data to model input, enabling reproducibility audits.
+Values resolve before planning: `{{data.git-sha}}`, `{{data.db-password}}`.
 
 ## GPU Resource Management
 
-Forjar natively manages GPU infrastructure:
+The `gpu` resource type converges GPU driver and toolkit state:
 
 ```yaml
 resources:
-  - name: gpu-driver
-    type: gpu_driver
-    gpu_backend: nvidia    # or: rocm, cpu
-    version: "550.54.14"
-    ensure: present
-
-  - name: cuda-toolkit
-    type: package
-    name: cuda-toolkit-12-4
-    depends_on: [gpu-driver]
+  gpu-setup:
+    type: gpu
+    machine: gpu-node
+    gpu_backend: nvidia        # nvidia (default), rocm, cpu
+    driver_version: "550"
+    cuda_version: "12.4"
+    persistence_mode: true
+    compute_mode: default
+    devices: [0, 1]            # GPU device indices
 ```
 
-GPU backends are auto-detected. The `gpu_backend` field supports `nvidia` (default), `rocm` (AMD), and `cpu` (fallback).
-
-## ML Model Resources
-
-Model lifecycle management from training to serving:
+For AMD ROCm:
 
 ```yaml
 resources:
-  - name: sentiment-model
+  rocm-setup:
+    type: gpu
+    machine: amd-node
+    gpu_backend: rocm
+    rocm_version: "6.0"
+    devices: [0]
+```
+
+## Model Resources
+
+The `model` resource type manages ML model artifacts:
+
+```yaml
+resources:
+  llama-model:
     type: model
-    format: safetensors           # or: gguf, pytorch, onnx
-    source: huggingface://org/model-name
-    version: "2.1.0"
-    registry: /models/registry
-    ensure: present
-
-  - name: model-eval-gate
-    type: model_eval
-    model: sentiment-model
-    metrics:
-      accuracy: ">= 0.92"
-      latency_p99: "<= 50ms"
-    dataset: /data/eval/holdout.parquet
+    machine: inference-node
+    name: llama-3.2-1b
+    source: huggingface://meta-llama/Llama-3.2-1B
+    format: gguf
+    quantization: q4_k_m
+    checksum: "blake3:abc123..."   # Pin exact version
+    cache_dir: /models/cache
+    depends_on: [gpu-setup]
 ```
 
-## Training Reproducibility
+Model drift detection uses BLAKE3 checksums. If a model file changes on disk
+(corruption, unauthorized modification), `forjar drift` reports it.
 
-Forjar ensures training runs are reproducible by managing the full environment:
+## Task Resources for Pipelines
+
+The `task` resource type runs arbitrary commands with convergence guarantees:
 
 ```yaml
-# dogfood-gpu-training.yaml
 resources:
-  # Phase 1: GPU infrastructure
-  - name: gpu-driver
-    type: gpu_driver
+  download-data:
+    type: task
+    machine: data-node
+    command: "scripts/download-dataset.sh"
+    output_artifacts:
+      - /data/training/dataset.parquet
+    completion_check: "test -f /data/training/dataset.parquet"
+    timeout: 3600
+
+  train-model:
+    type: task
+    machine: gpu-node
+    command: "python train.py --epochs 10 --seed 42"
+    working_dir: /opt/training
+    output_artifacts:
+      - /models/checkpoints/latest.pt
+    completion_check: "test -f /models/checkpoints/latest.pt"
+    depends_on: [download-data, gpu-setup]
+    timeout: 7200
+
+  deploy-model:
+    type: task
+    machine: inference-node
+    command: "systemctl restart model-server"
+    depends_on: [train-model, llama-model]
+```
+
+Key task fields:
+- `completion_check`: skip apply if already done (idempotency)
+- `output_artifacts`: glob paths hashed for drift detection
+- `timeout`: seconds before command is killed
+- `working_dir`: execution directory
+
+## Full ML Pipeline Example
+
+A complete GPU training pipeline using real forjar resources:
+
+```yaml
+version: "1.0"
+name: ml-training-pipeline
+
+machines:
+  gpu:
+    hostname: gpu-01
+    addr: 10.0.0.50
+    roles: [training]
+  inference:
+    hostname: inf-01
+    addr: 10.0.0.51
+    roles: [serving]
+
+resources:
+  # Infrastructure: GPU drivers
+  gpu-driver:
+    type: gpu
+    machine: gpu
     gpu_backend: nvidia
+    driver_version: "550"
+    cuda_version: "12.4"
 
-  # Phase 2: Training environment
-  - name: conda-env
+  # Infrastructure: Python environment
+  python-env:
     type: package
-    provider: conda
-    name: training-env
-    source: environment.yml
+    machine: gpu
+    provider: apt
+    packages: [python3-pip, python3-venv]
 
-  # Phase 3: Data preparation
-  - name: training-data
-    type: dataset
-    path: /data/training
-    hash_algorithm: blake3
+  # Infrastructure: Training dependencies
+  pip-deps:
+    type: task
+    machine: gpu
+    command: "pip install torch transformers datasets"
+    completion_check: "python -c 'import torch'"
+    depends_on: [python-env]
 
-  # Phase 4: Training
-  - name: train-model
-    type: command
-    command: python train.py --seed 42
-    depends_on: [gpu-driver, conda-env, training-data]
+  # Data: Download training data
+  training-data:
+    type: task
+    machine: gpu
+    command: "python scripts/download_data.py"
+    output_artifacts: [/data/training/train.parquet]
+    completion_check: "test -f /data/training/train.parquet"
+    working_dir: /opt/ml
 
-  # Phase 5: Evaluation gate
-  - name: eval-gate
-    type: model_eval
-    model: train-model
-    metrics:
-      loss: "< 0.05"
+  # Training: Run training job
+  train:
+    type: task
+    machine: gpu
+    command: "python train.py --seed 42 --epochs 10"
+    output_artifacts: [/models/latest/model.safetensors]
+    depends_on: [gpu-driver, pip-deps, training-data]
+    working_dir: /opt/ml
+    timeout: 14400  # 4 hours
+
+  # Model: Deploy trained model
+  model-artifact:
+    type: model
+    machine: inference
+    name: fine-tuned-llama
+    source: /models/latest/model.safetensors
+    format: safetensors
+    depends_on: [train]
+
+  # Service: Model serving
+  model-server:
+    type: service
+    machine: inference
+    name: model-server
+    state: running
+    enabled: true
+    restart_on: [model-artifact]
+    depends_on: [model-artifact]
+
+policy:
+  failure: stop_on_first
+  tripwire: true
+  convergence_budget: 18000  # 5 hours total
 ```
 
-Data parity contracts verify that training data on all machines has identical BLAKE3 hashes before training begins.
+## Training Checkpoint Management
 
-## Pipeline DAG Orchestration
-
-Multi-stage pipelines are expressed as dependency chains:
-
-```yaml
-resources:
-  - name: extract
-    type: command
-    command: scripts/extract.sh
-
-  - name: transform
-    type: command
-    command: scripts/transform.py
-    depends_on: [extract]
-
-  - name: validate
-    type: data_validation
-    source: /data/transformed
-    depends_on: [transform]
-
-  - name: load
-    type: command
-    command: scripts/load.sh
-    depends_on: [validate]
-```
-
-Forjar's topological sorter ensures stages execute in the correct order, and the saga pattern handles failures gracefully across stages.
-
-## Model Registry & Checkpoints
-
-Content-addressed model storage with checkpoint management:
+Use the checkpoint command to manage training artifacts:
 
 ```bash
-# Pin a model version
-forjar pin add sentiment-model@2.1.0 --hash abc123
+# List checkpoints for a resource
+forjar checkpoint --file pipeline.yaml --resource train
 
-# List model versions
-forjar store list --type model
+# Garbage collect old checkpoints (keep last 3)
+forjar checkpoint --file pipeline.yaml --gc --keep 3
 
-# Checkpoint during training
-forjar store gc --keep-generations 5  # Keep last 5 checkpoints
+# JSON output for CI integration
+forjar checkpoint --file pipeline.yaml --json
 ```
 
-Models are stored in forjar's content-addressed store, enabling deduplication across versions and instant rollback to any checkpoint.
+## Drift Detection for ML Assets
+
+BLAKE3 hashing catches unauthorized model or data changes:
+
+```bash
+# Check if models or data have drifted
+forjar drift --file pipeline.yaml
+
+# Auto-remediate: re-converge drifted resources
+forjar apply --file pipeline.yaml --only-drifted
+```
+
+## Consumer Integration Patterns
+
+### alimentar (DataOps)
+
+alimentar calls `forjar apply` to converge data infrastructure, then adds data quality gates:
+
+```bash
+# alimentar workflow:
+forjar apply -f data-infra.yaml          # converge infra
+alimentar validate /data/training         # data quality
+alimentar lineage /data/training --graph  # lineage tracking
+```
+
+### entrenar (MLOps)
+
+entrenar coordinates distributed training across forjar-managed GPU nodes:
+
+```bash
+# entrenar workflow:
+forjar apply -f gpu-cluster.yaml         # converge GPU infra
+entrenar train --config training.yaml    # distributed training
+entrenar eval --model latest --gate 0.92 # evaluation gate
+```
+
+### apr-cli (LLMOps)
+
+apr-cli manages model lifecycle on forjar-converged infrastructure:
+
+```bash
+# apr-cli workflow:
+forjar apply -f inference-infra.yaml     # converge infra
+apr pull meta-llama/Llama-3.2-1B         # download model
+apr compile model.gguf --target cuda     # compile for GPU
+apr serve --port 8080                    # start inference
+```
 
 ## GPU Clean-Room CI
 
-For reproducible GPU testing in CI:
+For reproducible GPU testing in CI environments:
 
 ```yaml
 # .github/workflows/gpu-test.yml
@@ -207,4 +300,5 @@ jobs:
       - run: forjar apply -f dogfood-gpu-training.yaml
 ```
 
-The clean-room CI environment ensures GPU tests run in isolation with deterministic CUDA/ROCm versions.
+The clean-room CI environment ensures GPU tests run in isolation with deterministic
+CUDA/ROCm versions. The `rust-cuda:1.89` image provides cargo at `/root/.cargo/bin/`.
