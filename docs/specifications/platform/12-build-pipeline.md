@@ -541,8 +541,8 @@ presentar (separate binary)
 - **Deliverable**: I8 enforcement documented and measurable
 
 ### Phase 20: apr Model Pipeline (FJ-2401)
-- [ ] `apr compile` integration in forjar recipes
-- [ ] Cross-compilation matrix in `apr-inference-server.yaml`
+- [x] `apr compile` integration in forjar recipes — `examples/apr-compile-integration.yaml` (pull → compile → checksum → serve)
+- [x] Cross-compilation matrix in `apr-crosscompile-matrix.yaml` — x86_64 + aarch64 parallel builds with verification
 - [x] Model checksum verification: `ModelIntegrityCheck` with BLAKE3 hash comparison
 - [ ] `forjar query --type model --drift` for model integrity monitoring
 - **Deliverable**: Full pull-convert-compile-serve pipeline in forjar recipes
@@ -554,7 +554,7 @@ presentar (separate binary)
 - [x] Size budget checks: `check_core()`, `check_full_app()`
 - [ ] `type: wasm_bundle` resource for deploying presentar apps via forjar
 - [ ] S3 deployment with CloudFront invalidation via forjar resources
-- [ ] Bundle size drift detection (alert if WASM exceeds budget)
+- [x] Bundle size drift detection: `BundleSizeDrift::check()` with budget + 20% growth limit alerting
 - **Deliverable**: Presentar WASM apps deployable via `forjar apply`
 
 ### Phase 22: Self-Build Hardening (FJ-2403)

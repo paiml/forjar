@@ -1,0 +1,39 @@
+# FJ-2401: apr compile integration recipe
+# Demonstrates model compilation pipeline with cross-compilation support
+version: "1.0"
+name: apr-model-pipeline
+description: Pull → Convert → Compile → Serve model pipeline
+
+machines:
+  build-server:
+    hostname: build-01.internal
+    addr: 10.0.1.10
+    user: deploy
+    arch: x86_64
+
+resources:
+  model-pull:
+    type: task
+    machine: build-server
+    command: "apr pull --model llama-3.2-1b --format gguf --output models/"
+    depends_on: []
+
+  model-compile:
+    type: task
+    machine: build-server
+    command: "apr compile --input models/llama-3.2-1b.gguf --target inference --output compiled/"
+    depends_on: [model-pull]
+
+  model-checksum:
+    type: task
+    machine: build-server
+    command: |
+      blake3sum compiled/llama-3.2-1b.compiled > compiled/checksum.txt
+      echo "Model integrity verified"
+    depends_on: [model-compile]
+
+  inference-server:
+    type: task
+    machine: build-server
+    command: "apr serve --model compiled/llama-3.2-1b.compiled --port 8080"
+    depends_on: [model-checksum]
