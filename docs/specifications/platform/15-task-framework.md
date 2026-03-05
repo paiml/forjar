@@ -719,15 +719,15 @@ Forjar is the **convergence primitive**. Consumers own their domain logic.
 - **Deliverable**: Pipeline stages skip when inputs unchanged
 
 ### Phase 38: Quality Gates (FJ-2702)
-- [ ] Exit code gates
-- [ ] JSON field parsing gates
-- [ ] Regex stdout gates
-- [ ] Numeric threshold gates
-- [ ] `on_fail:` actions (block, warn, skip_dependents)
+- [x] Exit code gates
+- [x] JSON field parsing gates
+- [x] Regex stdout gates
+- [x] Numeric threshold gates
+- [x] `on_fail:` actions (block, warn, skip_dependents)
 - **Deliverable**: `alimentar quality score` output gates downstream training
 
 ### Phase 39: GPU Device Targeting (FJ-2703)
-- [ ] `gpu_device:` field → `CUDA_VISIBLE_DEVICES` injection
+- [x] `gpu_device:` field → `CUDA_VISIBLE_DEVICES` injection
 - [ ] `gpu_memory:` informational field in state
 - [ ] Multi-GPU parallel tasks in same wave
 - **Deliverable**: Two training tasks run on GPU 0 and GPU 1 simultaneously
