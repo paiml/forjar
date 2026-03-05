@@ -210,8 +210,8 @@ pub(super) fn print_adjacency_table(names: &[String], matrix: &[Vec<bool>]) {
     println!();
     for (i, name) in names.iter().enumerate() {
         print!("{:width$} ", name, width = max_len);
-        for j in 0..names.len() {
-            print!("{} ", if matrix[i][j] { "1" } else { "." });
+        for &cell in &matrix[i] {
+            print!("{} ", if cell { "1" } else { "." });
         }
         println!();
     }
