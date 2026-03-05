@@ -1,39 +1,80 @@
 # Agent Infrastructure & pforge Integration
 
-Forjar manages AI agent infrastructure as declarative resources: MCP servers, model deployments, tool permissions, and health monitoring.
+Forjar manages AI agent infrastructure using its standard resource types: `package` for
+dependencies, `file` for configuration, `service` for processes, `model` for ML artifacts,
+`gpu` for hardware, and `task` for orchestration steps.
 
-## MCP Server as a Resource
+## Architecture
 
-Deploy [Model Context Protocol](https://modelcontextprotocol.io) servers as forjar resources:
+Forjar converges the infrastructure layer. Agent tools compose on top:
 
-```yaml
-resources:
-  - name: filesystem-mcp
-    type: mcp_server
-    package: "@anthropic/mcp-server-filesystem"
-    transport: stdio
-    config:
-      allowed_paths: ["/data", "/config"]
-    ensure: running
-
-  - name: database-mcp
-    type: mcp_server
-    package: "@anthropic/mcp-server-sqlite"
-    transport: sse
-    port: 3001
-    config:
-      database: /data/app.db
-    ensure: running
+```
+batuta (AgentOps)    ─── agent lifecycle, tool routing, dispatch
+apr-cli (LLMOps)     ─── model pull/convert/compile/serve
+pforge               ─── MCP server framework, tool registry
+  ↓ all call ↓
+forjar               ─── converge packages, files, services, GPU, models
 ```
 
-## pforge YAML Deployment
+Forjar does NOT manage agent logic, tool permissions, or MCP protocol details.
+Those are pforge/batuta responsibilities. Forjar ensures the infrastructure converges.
 
-Deploy complete pforge agent configurations:
+## MCP Server Deployment
+
+Deploy MCP servers as standard forjar resources:
+
+```yaml
+version: "1.0"
+name: mcp-servers
+
+machines:
+  agent-host:
+    hostname: agent-01
+    addr: 10.0.0.50
+
+resources:
+  # Install Node.js for MCP servers
+  node-runtime:
+    type: package
+    machine: agent-host
+    provider: apt
+    packages: [nodejs, npm]
+
+  # Deploy MCP server config
+  mcp-config:
+    type: file
+    machine: agent-host
+    path: /etc/pforge/mcp-servers.json
+    content: |
+      {
+        "servers": [
+          {"name": "filesystem", "command": "npx @anthropic/mcp-server-filesystem /data"},
+          {"name": "sqlite", "command": "npx @anthropic/mcp-server-sqlite /data/app.db"}
+        ]
+      }
+    mode: "0644"
+    depends_on: [node-runtime]
+
+  # pforge agent service
+  pforge-service:
+    type: service
+    machine: agent-host
+    name: pforge-agent
+    state: running
+    enabled: true
+    restart_on: [mcp-config]
+    depends_on: [mcp-config]
+```
+
+## pforge Configuration via File Resources
+
+Deploy pforge agent configurations as file resources:
 
 ```yaml
 resources:
-  - name: pforge-config
+  pforge-config:
     type: file
+    machine: agent-host
     path: /etc/pforge/config.yaml
     content: |
       name: ops-agent
@@ -46,218 +87,212 @@ resources:
       tools:
         allow: [read_file, write_file, query]
         deny: [delete_file, drop_table]
-
-  - name: pforge-service
-    type: service
-    name: pforge-agent
-    command: pforge serve --config /etc/pforge/config.yaml
-    depends_on: [pforge-config, filesystem-mcp, database-mcp]
-    ensure: running
+    mode: "0600"
+    owner: pforge
 ```
 
-## Agent Deployment Patterns
+## GPU-Accelerated Agent with Local Model
 
-### Single-Agent with MCP Tools
-
-```yaml
-resources:
-  - name: gpu-driver
-    type: gpu_driver
-    gpu_backend: nvidia
-
-  - name: model-download
-    type: model
-    format: gguf
-    source: huggingface://TheBloke/Llama-2-7B-GGUF
-    path: /models/llama2
-
-  - name: inference-mcp
-    type: mcp_server
-    package: custom-inference-server
-    config:
-      model_path: /models/llama2
-    depends_on: [model-download, gpu-driver]
-
-  - name: agent
-    type: command
-    command: pforge serve --config agent.yaml
-    depends_on: [inference-mcp]
-```
-
-### Multi-Agent Fleet
+A complete stack: GPU drivers, local model, and inference agent:
 
 ```yaml
+version: "1.0"
+name: gpu-agent
+
 machines:
-  - name: agent-01
-    host: 10.0.1.1
-  - name: agent-02
-    host: 10.0.1.2
-  - name: agent-03
-    host: 10.0.1.3
+  gpu-node:
+    hostname: gpu-01
+    addr: 10.0.0.50
 
 resources:
-  - name: agent-config
-    type: file
-    path: /etc/agent/config.yaml
-    template: templates/agent-config.yaml
-    machine: all
+  # GPU infrastructure
+  gpu-setup:
+    type: gpu
+    machine: gpu-node
+    gpu_backend: nvidia
+    driver_version: "550"
+    cuda_version: "12.4"
 
-  - name: agent-service
+  # Download and verify model
+  llama-model:
+    type: model
+    machine: gpu-node
+    name: llama-3.2-1b
+    source: /models/llama-3.2-1b.gguf
+    format: gguf
+    quantization: q4_k_m
+    checksum: "blake3:a1b2c3..."
+    depends_on: [gpu-setup]
+
+  # Install pforge
+  pforge-pkg:
+    type: package
+    machine: gpu-node
+    provider: cargo
+    packages: [pforge-runtime]
+
+  # Agent config pointing to local model
+  agent-config:
+    type: file
+    machine: gpu-node
+    path: /etc/pforge/agent.yaml
+    content: |
+      name: local-inference-agent
+      model_path: /models/llama-3.2-1b.gguf
+      gpu: true
+    depends_on: [llama-model]
+
+  # Run agent as service
+  agent-service:
     type: service
+    machine: gpu-node
     name: pforge-agent
-    depends_on: [agent-config]
-    machine: all
-    ensure: running
+    state: running
+    enabled: true
+    restart_on: [agent-config, llama-model]
+    depends_on: [pforge-pkg, agent-config]
+
+  # Health verification
+  health-check:
+    type: task
+    machine: gpu-node
+    command: "curl -sf http://localhost:8080/health"
+    depends_on: [agent-service]
+    timeout: 30
 ```
 
-## Agent Tool Permission Policies
+## Multi-Agent Fleet
 
-Control which MCP tools agents can access:
+Deploy agent configurations across multiple machines:
 
 ```yaml
-policy:
-  agent_tools:
-    allow:
-      - read_file
-      - list_directory
-      - query_database
-    deny:
-      - delete_file
-      - drop_table
-      - execute_command
-    require_approval:
-      - write_file
-      - create_table
-```
+version: "1.0"
+name: agent-fleet
 
-Permissions are enforced at the MCP server level. Denied tools return an error; approval-required tools pause for human confirmation.
+machines:
+  agent-01:
+    hostname: agent-01
+    addr: 10.0.1.1
+  agent-02:
+    hostname: agent-02
+    addr: 10.0.1.2
+  agent-03:
+    hostname: agent-03
+    addr: 10.0.1.3
+
+resources:
+  # Deploy config to ALL agents
+  agent-config:
+    type: file
+    machine: [agent-01, agent-02, agent-03]
+    path: /etc/pforge/config.yaml
+    content: |
+      name: fleet-agent
+      model: claude-sonnet-4-6
+    mode: "0600"
+
+  # Start service on ALL agents
+  agent-service:
+    type: service
+    machine: [agent-01, agent-02, agent-03]
+    name: pforge-agent
+    state: running
+    enabled: true
+    restart_on: [agent-config]
+    depends_on: [agent-config]
+
+policy:
+  parallel_machines: true
+  serial: 1            # Rolling deploy: 1 machine at a time
+  max_fail_percentage: 33
+```
 
 ## Agent Health Monitoring
 
-Monitor agent fleet health with forjar's drift detection:
+Monitor agent fleet health using forjar's built-in commands:
 
 ```bash
-# Check agent health across fleet
-forjar status -f agents.yaml --machine-health
+# Check agent service status across fleet
+forjar status -f agent-fleet.yaml
 
-# Detect drifted agent configurations
-forjar check -f agents.yaml --drift-details
+# Detect drifted configurations
+forjar drift -f agent-fleet.yaml
 
-# Watch for real-time changes
-forjar status -f agents.yaml --watch
+# Plan and verify before rolling out config changes
+forjar plan -f agent-fleet.yaml
+forjar apply -f agent-fleet.yaml
 ```
 
-Agent health checks verify:
-- MCP server processes are running
-- Model files exist and have correct BLAKE3 hashes
-- Configuration files match desired state
-- GPU drivers are at expected versions
+Drift detection catches:
+- Configuration file modifications (BLAKE3 hash mismatch)
+- Model file corruption or unauthorized changes
+- Service stopped or disabled
+- Package version changes
 
-## Agent SBOM Generation
+## batuta Integration
 
-Generate a Software Bill of Materials for deployed agents:
+batuta (AgentOps) orchestrates agent lifecycle on forjar-converged infrastructure:
 
 ```bash
-forjar agent-sbom -f agents.yaml --json
+# batuta workflow:
+forjar apply -f agent-infra.yaml       # converge infrastructure
+batuta deploy --agent ops-agent        # register agent with batuta
+batuta dispatch ops-agent --task "analyze logs" --param date=today
+batuta status --fleet                  # monitor agent fleet
 ```
 
-Output includes:
-- All MCP server packages and versions
-- Model files with BLAKE3 hashes
-- System dependencies (CUDA, Python, Node.js)
-- Configuration file checksums
-- Tool permission policies
+Forjar owns infrastructure convergence. batuta owns agent dispatch, tool routing,
+and coordination. The boundary is clean: forjar ensures files, services, and models
+are in the desired state; batuta decides what the agent does.
 
-## Agent Recipe Registry
+## Agent Recipe
 
-Browse and deploy curated agent recipes:
-
-```bash
-# List available agent recipes
-forjar agent-registry --category ml-ops
-
-# Deploy a recipe
-forjar recipe apply --recipe agent-deployment --inputs model=llama2
-```
-
-Recipes are composable — combine GPU setup, model download, MCP server configuration, and health monitoring into a single declarative deployment.
-
-## Cookbook: Complete Agent Deployment
-
-A full agent deployment from bare metal to running service:
+Use forjar recipes for reusable agent deployment patterns:
 
 ```yaml
-# agent-full-stack.yaml
-machines:
-  - name: agent-host
-    host: 10.0.1.1
-    transport: ssh
-
-data:
-  - name: model-version
-    type: command
-    command: curl -s https://api.example.com/latest-model
+# recipes/pforge-agent.yaml
+recipe:
+  name: pforge-agent
+  version: "1.0"
+  description: Deploy a pforge MCP agent
+  inputs:
+    agent_name:
+      type: string
+      required: true
+    model:
+      type: string
+      default: "claude-sonnet-4-6"
+    port:
+      type: string
+      default: "8080"
 
 resources:
-  # Infrastructure
-  - name: gpu-driver
-    type: gpu_driver
-    gpu_backend: nvidia
-    version: "550.54.14"
-
-  - name: cuda-toolkit
-    type: package
-    name: cuda-toolkit-12-4
-    depends_on: [gpu-driver]
-
-  # Model
-  - name: model
-    type: model
-    format: safetensors
-    source: "huggingface://org/{{data.model-version}}"
-    path: /models/latest
-    depends_on: [cuda-toolkit]
-
-  # MCP Servers
-  - name: inference-server
-    type: mcp_server
-    package: custom-inference
-    config:
-      model_path: /models/latest
-      gpu: true
-    depends_on: [model]
-
-  - name: filesystem-server
-    type: mcp_server
-    package: "@anthropic/mcp-server-filesystem"
-    config:
-      allowed_paths: ["/data"]
-
-  # Agent
-  - name: agent-config
+  config:
     type: file
-    path: /etc/pforge/config.yaml
+    path: "/etc/pforge/{{inputs.agent_name}}.yaml"
     content: |
-      name: production-agent
-      model: claude-sonnet-4-6
-      mcp_servers:
-        - name: inference
-          url: http://localhost:3001
-        - name: filesystem
-          command: npx @anthropic/mcp-server-filesystem /data
+      name: {{inputs.agent_name}}
+      model: {{inputs.model}}
+      port: {{inputs.port}}
 
-  - name: agent-service
+  service:
     type: service
-    name: pforge-agent
-    command: pforge serve --config /etc/pforge/config.yaml
-    depends_on: [agent-config, inference-server, filesystem-server]
-    ensure: running
-
-  # Health check
-  - name: health-check
-    type: command
-    command: curl -sf http://localhost:8080/health
-    depends_on: [agent-service]
+    name: "pforge-{{inputs.agent_name}}"
+    state: running
+    enabled: true
+    restart_on: [config]
+    depends_on: [config]
 ```
 
-Apply with: `forjar apply -f agent-full-stack.yaml --progress`
+Use the recipe:
+
+```yaml
+resources:
+  my-agent:
+    type: recipe
+    recipe: recipes/pforge-agent.yaml
+    inputs:
+      agent_name: ops-agent
+      model: claude-sonnet-4-6
+      port: "8080"
+```
