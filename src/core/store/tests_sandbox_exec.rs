@@ -263,4 +263,15 @@ mod tests {
         let bind_steps = plan.steps.iter().filter(|s| s.step == 3).count();
         assert_eq!(bind_steps, 2);
     }
+
+    #[test]
+    fn oci_layout_plan_creates_four_steps() {
+        let steps = oci_layout_plan(Path::new("/tmp/oci-out"), "myapp:1.0");
+        assert_eq!(steps.len(), 4);
+        assert!(steps[0].command.as_ref().unwrap().contains("mkdir"));
+        assert!(steps[1].command.as_ref().unwrap().contains("imageLayoutVersion"));
+        assert!(steps[2].command.as_ref().unwrap().contains("index.json"));
+        assert!(steps[3].command.as_ref().unwrap().contains("RepoTags"));
+        assert!(steps[3].command.as_ref().unwrap().contains("myapp:1.0"));
+    }
 }

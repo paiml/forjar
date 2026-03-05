@@ -360,6 +360,56 @@ pub fn export_overlay_upper(overlay: &OverlayConfig, output_path: &Path) -> Vec<
     steps
 }
 
+/// FJ-2101: Generate OCI Image Layout directory structure.
+///
+/// Creates the spec-compliant layout:
+/// ```text
+/// <output>/
+///   oci-layout          # {"imageLayoutVersion": "1.0.0"}
+///   index.json          # OCI Image Index pointing to manifest
+///   blobs/sha256/       # content-addressed blobs
+/// ```
+///
+/// Also writes a Docker-compat `manifest.json` for `docker load`.
+pub fn oci_layout_plan(output_dir: &std::path::Path, tag: &str) -> Vec<SandboxStep> {
+    let blobs = output_dir.join("blobs/sha256");
+    let oci_layout = output_dir.join("oci-layout");
+    let index_json = output_dir.join("index.json");
+    let docker_manifest = output_dir.join("manifest.json");
+
+    vec![
+        SandboxStep {
+            step: 1,
+            description: "Create OCI layout directory structure".into(),
+            command: Some(format!("mkdir -p {}", blobs.display())),
+        },
+        SandboxStep {
+            step: 2,
+            description: "Write oci-layout version file".into(),
+            command: Some(format!(
+                r#"echo '{{"imageLayoutVersion":"1.0.0"}}' > {}"#,
+                oci_layout.display(),
+            )),
+        },
+        SandboxStep {
+            step: 3,
+            description: "Write OCI index.json".into(),
+            command: Some(format!(
+                r#"echo '{{"schemaVersion":2,"manifests":[]}}' > {}"#,
+                index_json.display(),
+            )),
+        },
+        SandboxStep {
+            step: 4,
+            description: "Write Docker-compat manifest.json".into(),
+            command: Some(format!(
+                r#"echo '[{{"RepoTags":["{tag}"],"Layers":[]}}]' > {}"#,
+                docker_manifest.display(),
+            )),
+        },
+    ]
+}
+
 /// Count the total steps in a plan (for progress reporting).
 pub fn plan_step_count(plan: &SandboxPlan) -> usize {
     plan.steps.len()
