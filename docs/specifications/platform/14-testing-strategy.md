@@ -680,10 +680,10 @@ Every CI test run produces:
 - **Deliverable**: Single command runs all test types
 
 ### Phase 35: CI Integration (FJ-2607)
-- [ ] `behavior.yml` workflow
-- [ ] `convergence.yml` workflow
-- [ ] `mutation.yml` workflow
-- [ ] Test artifact upload and retention
+- [x] `behavior.yml` workflow — runs behavior specs with artifact upload
+- [x] `convergence.yml` workflow — runs proptest convergence + hash stability
+- [x] `mutation.yml` workflow — runs cargo-mutants with report upload
+- [x] Test artifact upload and retention — all 3 workflows use `upload-artifact@v4` with 14-day retention
 - **Deliverable**: Full test pyramid in CI with appropriate triggers
 
 ---

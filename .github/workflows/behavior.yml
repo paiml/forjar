@@ -1,0 +1,49 @@
+# FJ-2607: Behavior-driven infrastructure specs
+# Runs forjar behavior tests against spec YAML files
+name: behavior
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "tests/**/*.spec.yaml"
+      - ".github/workflows/behavior.yml"
+  pull_request:
+    paths:
+      - "src/**"
+      - "tests/**/*.spec.yaml"
+
+concurrency:
+  group: behavior-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  behavior:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build forjar
+        run: cargo build --release
+
+      - name: Run behavior specs
+        run: |
+          for spec in tests/**/*.spec.yaml; do
+            echo "--- Running: $spec"
+            ./target/release/forjar test behavior --spec "$spec" || exit 1
+          done
+
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: behavior-results
+          path: state/test-artifacts/behavior/
+          retention-days: 14
+          if-no-files-found: ignore

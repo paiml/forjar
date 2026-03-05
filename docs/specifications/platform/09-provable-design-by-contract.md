@@ -701,7 +701,7 @@ pub fn compute_dual_digest(uncompressed: &[u8]) -> Result<(String, String), Stri
 
 ### Phase 13: Runtime Contracts (FJ-2200)
 - [x] Runtime contract postconditions (using `debug_assert!` — lighter than `contracts` crate)
-- [ ] `#[debug_ensures]` on `determine_present_action` — idempotency postcondition
+- [x] `#[debug_ensures]` on `determine_present_action` — idempotency postcondition (debug_assert! verifying converged + matching hash → NoOp)
 - [x] `debug_assert!` on `hash_desired_state` — determinism
 - [x] `debug_assert!` on `save_lock` — atomicity postcondition
 - [x] `debug_assert!` on `build_execution_order` — valid topological order
@@ -711,9 +711,9 @@ pub fn compute_dual_digest(uncompressed: &[u8]) -> Result<(String, String), Stri
 - **Deliverable**: All critical-path functions have runtime contracts, coverage report available
 
 ### Phase 14: Kani Real-Code Harnesses (FJ-2201)
-- [ ] `proof_planner_idempotency_real` — plan → apply → re-plan is NoOp
+- [x] `proof_planner_idempotency_real` — converged + matching hash → NoOp on bounded Resource (in `kani_proofs.rs`)
 - [ ] `proof_handler_invariant_{file,package,service,cron,mount,docker,gpu}` — per-type
-- [ ] `proof_hash_determinism_real` — `hash_desired_state` on bounded `Resource`
+- [x] `proof_hash_determinism_real` — `hash_desired_state` on bounded `Resource` with nondeterministic content (in `kani_proofs.rs`)
 - [ ] `proof_dag_ordering_real` — `build_execution_order` on bounded `ForjarConfig`
 - [ ] `proof_layer_determinism` — `build_layer` produces same hashes
 - [ ] `proof_store_idempotency` — `store_put` twice is no-op
