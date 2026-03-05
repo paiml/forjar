@@ -215,7 +215,7 @@ The state directory (`state/`) has no access control beyond filesystem permissio
 
 ### Phase 17: Security Model (FJ-2300)
 - [ ] Machine-level `allowed_operators` with `--operator` flag
-- [ ] `policy.deny_paths` for resource path restrictions
+- [x] `policy.deny_paths` for resource path restrictions
 - [ ] `secrets.provider` with env, file, and SOPS backends
 - [ ] Secret redaction in state files, events, and query output
 - [ ] `{{ secrets.* }}` template resolution at apply time

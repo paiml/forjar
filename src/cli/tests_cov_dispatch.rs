@@ -427,6 +427,7 @@ resources:
                 strict: false,
                 fix: false,
                 rules: None,
+            bashrs_version: false,
             }),
             false,
         );
@@ -443,6 +444,7 @@ resources:
                 strict: false,
                 fix: false,
                 rules: None,
+            bashrs_version: false,
             }),
             false,
         );

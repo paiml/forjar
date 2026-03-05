@@ -162,6 +162,7 @@ const POLICY_FIELDS: &[&str] = &[
     "convergence_budget",
     "snapshot_generations",
     "security_gate",
+    "deny_paths",
     "notify",
 ];
 

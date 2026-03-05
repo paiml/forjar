@@ -535,9 +535,9 @@ presentar (separate binary)
 
 ### Phase 19: bashrs Purification Spec (FJ-2400)
 - [ ] Document I8 invariant formally in `ARCHITECTURE.md`
-- [ ] Add `forjar lint --bashrs-version` to report bashrs version
+- [x] Add `forjar lint --bashrs-version` to report bashrs version
 - [ ] Benchmark purification: measure validate vs purify latency per resource
-- [ ] Add bashrs version to generation metadata for reproducibility
+- [x] Add bashrs version to generation metadata for reproducibility
 - **Deliverable**: I8 enforcement documented and measurable
 
 ### Phase 20: apr Model Pipeline (FJ-2401)

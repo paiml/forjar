@@ -107,6 +107,7 @@ fn dispatch_lint_routes() {
             strict: false,
             fix: false,
             rules: None,
+            bashrs_version: false,
         }),
         false,
     );
