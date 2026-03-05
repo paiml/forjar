@@ -12,6 +12,7 @@ pub fn validate_formats(config: &ForjarConfig) -> Vec<ValidationError> {
     let mut errors = Vec::new();
     for (id, resource) in &config.resources {
         validate_resource_formats(id, resource, &mut errors);
+        validate_deny_paths(id, resource, &config.policy.deny_paths, &mut errors);
     }
     for (key, machine) in &config.machines {
         validate_machine_addr(key, &machine.addr, &mut errors);
@@ -194,6 +195,48 @@ pub(crate) fn validate_cron_field(field: &str, min: u32, max: u32) -> Result<(),
         }
     }
     Ok(())
+}
+
+/// FJ-2300: Check resource path against `policy.deny_paths` glob patterns.
+fn validate_deny_paths(
+    id: &str,
+    resource: &Resource,
+    deny_paths: &[String],
+    errors: &mut Vec<ValidationError>,
+) {
+    if deny_paths.is_empty() {
+        return;
+    }
+    let path = match resource.path.as_deref() {
+        Some(p) if !p.contains("{{") => p,
+        _ => return,
+    };
+    for pattern in deny_paths {
+        if path_matches_glob(path, pattern) {
+            errors.push(ValidationError {
+                message: format!(
+                    "resource '{id}': path '{path}' is denied by policy.deny_paths pattern '{pattern}'"
+                ),
+            });
+        }
+    }
+}
+
+/// Simple glob matching: supports `*` (any segment) and `**` (any depth).
+pub(crate) fn path_matches_glob(path: &str, pattern: &str) -> bool {
+    if pattern.contains("**") {
+        let prefix = pattern.split("**").next().unwrap_or("");
+        path.starts_with(prefix)
+    } else if pattern.contains('*') {
+        let parts: Vec<&str> = pattern.split('*').collect();
+        if parts.len() == 2 {
+            path.starts_with(parts[0]) && path.ends_with(parts[1])
+        } else {
+            path == pattern
+        }
+    } else {
+        path == pattern
+    }
 }
 
 /// Machine addr must look like an IP or hostname (not empty, no spaces).

@@ -189,6 +189,7 @@ mod tests {
             strict: false,
             fix: false,
             rules: None,
+            bashrs_version: false,
         };
         let _ = format!("{a:?}");
     }

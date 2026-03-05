@@ -297,6 +297,73 @@ resources:
 }
 
 #[test]
+fn deny_paths_blocks_forbidden_path() {
+    let yaml = r#"
+version: "1.0"
+name: deny-test
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+policy:
+  deny_paths:
+    - /etc/shadow
+    - /root/**
+resources:
+  shadow:
+    type: file
+    machine: m
+    path: /etc/shadow
+    content: "x"
+  root-cfg:
+    type: file
+    machine: m
+    path: /root/.bashrc
+    content: "x"
+  allowed:
+    type: file
+    machine: m
+    path: /opt/app/config.yaml
+    content: "x"
+"#;
+    let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+    let errors = validate_formats(&config);
+    let deny_errors: Vec<_> = errors.iter().filter(|e| e.message.contains("denied")).collect();
+    assert_eq!(deny_errors.len(), 2, "should deny /etc/shadow and /root/.bashrc: {deny_errors:?}");
+}
+
+#[test]
+fn deny_paths_empty_no_errors() {
+    let yaml = r#"
+version: "1.0"
+name: no-deny
+machines:
+  m:
+    hostname: m
+    addr: 127.0.0.1
+resources:
+  cfg:
+    type: file
+    machine: m
+    path: /etc/shadow
+    content: "x"
+"#;
+    let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+    let errors = validate_formats(&config);
+    assert!(errors.iter().all(|e| !e.message.contains("denied")));
+}
+
+#[test]
+fn path_glob_matching() {
+    assert!(path_matches_glob("/etc/shadow", "/etc/shadow"));
+    assert!(path_matches_glob("/root/.bashrc", "/root/**"));
+    assert!(path_matches_glob("/root/deep/path", "/root/**"));
+    assert!(!path_matches_glob("/home/user/.bashrc", "/root/**"));
+    assert!(path_matches_glob("/etc/passwd", "/etc/*"));
+    assert!(!path_matches_glob("/var/etc/file", "/etc/*"));
+}
+
+#[test]
 fn format_port_out_of_range() {
     let yaml = r#"
 version: "1.0"

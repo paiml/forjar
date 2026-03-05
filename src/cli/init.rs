@@ -172,7 +172,8 @@ pub(crate) fn cmd_schema() -> Result<(), String> {
             "serial": { "type": "integer", "minimum": 1 },
             "max_fail_percentage": { "type": "integer", "minimum": 0, "maximum": 100 },
             "pre_apply": { "type": "string" },
-            "post_apply": { "type": "string" }
+            "post_apply": { "type": "string" },
+            "deny_paths": { "type": "array", "items": { "type": "string" } }
         }
     });
 

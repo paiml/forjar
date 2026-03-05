@@ -70,6 +70,11 @@ pub struct Policy {
     #[serde(default)]
     pub security_gate: Option<String>,
 
+    /// FJ-2300: Paths that resources are forbidden from writing to.
+    /// Glob patterns like "/etc/shadow", "/root/**".
+    #[serde(default)]
+    pub deny_paths: Vec<String>,
+
     /// FJ-225: Notification hooks — shell commands run after apply/drift
     #[serde(default)]
     pub notify: NotifyConfig,
@@ -110,6 +115,7 @@ impl Default for Policy {
             convergence_budget: None,
             snapshot_generations: None,
             security_gate: None,
+            deny_paths: vec![],
             notify: NotifyConfig::default(),
         }
     }
