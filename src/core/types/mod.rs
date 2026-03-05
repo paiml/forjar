@@ -30,6 +30,7 @@ mod generation_diff_types;
 mod service_mode_types;
 mod test_runner_types;
 mod handler_contract_types;
+mod ci_pipeline_types;
 
 pub use config::*;
 pub use policy::*;
@@ -57,6 +58,7 @@ pub use generation_diff_types::*;
 pub use service_mode_types::*;
 pub use test_runner_types::*;
 pub use handler_contract_types::*;
+pub use ci_pipeline_types::*;
 
 // Shared default functions used by serde across multiple submodules.
 fn default_true() -> bool {
