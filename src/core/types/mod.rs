@@ -32,6 +32,7 @@ mod test_runner_types;
 mod handler_contract_types;
 mod ci_pipeline_types;
 mod sqlite_schema_types;
+mod image_log_types;
 
 pub use config::*;
 pub use policy::*;
@@ -61,6 +62,7 @@ pub use test_runner_types::*;
 pub use handler_contract_types::*;
 pub use ci_pipeline_types::*;
 pub use sqlite_schema_types::*;
+pub use image_log_types::*;
 
 // Shared default functions used by serde across multiple submodules.
 fn default_true() -> bool {

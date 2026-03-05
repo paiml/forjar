@@ -217,7 +217,7 @@ The state directory (`state/`) has no access control beyond filesystem permissio
 - [x] Machine-level `allowed_operators` field on Machine struct
 - [x] `is_operator_allowed()` authorization check (empty = no restriction, backward compatible)
 - [x] Known field detection and JSON Schema updated for `allowed_operators`
-- [ ] `--operator` flag on CLI commands
+- [x] `--operator` flag: `OperatorIdentity` with `from_flag()`, `from_env()`, `resolve()` and `OperatorSource` enum
 - [x] `policy.deny_paths` for resource path restrictions
 - [x] `secrets.provider` with env and file backends
 - [x] Secret redaction via `redact_secrets()` utility
