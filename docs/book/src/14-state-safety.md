@@ -80,9 +80,11 @@ When consuming outputs from another stack via `forjar-state` data sources, forja
 
 ```yaml
 data:
-  - name: producer-state
+  producer-state:
     type: forjar-state
-    path: ../producer/state
+    config: producer
+    state_dir: ../producer/state
+    outputs: [web_ip, db_ip]
     max_staleness: "24h"  # Warn if producer state is older than 24 hours
 ```
 
