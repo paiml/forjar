@@ -196,7 +196,14 @@ pub(crate) fn dispatch_validate(args: ValidateArgs) -> Result<(), String> {
         check_resource_provider_version_pinning,
         check_recipe_purity,
         check_reproducibility_score,
+        deny_unknown_fields,
     } = args;
+
+    // FJ-2500: --deny-unknown-fields — reject configs with unknown YAML fields
+    if deny_unknown_fields {
+        return crate::core::parser::parse_and_validate_opts(&file, true).map(|_| ());
+    }
+
     if let Some(r) = try_validate_store(
         &file,
         json,

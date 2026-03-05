@@ -224,6 +224,7 @@ resources: {}
                 check_resource_provider_version_pinning: false,
                 check_recipe_purity: false,
                 check_reproducibility_score: false,
+            deny_unknown_fields: false,
             }),
             false,
             true,
