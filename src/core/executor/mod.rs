@@ -185,7 +185,10 @@ pub fn apply(cfg: &ApplyConfig) -> Result<Vec<ApplyResult>, String> {
         HashMap::new()
     };
 
-    let plan = planner::plan(cfg.config, &execution_order, &locks, cfg.tag_filter);
+    // FJ-2300: --force bypasses hash comparison — all resources re-applied
+    // (used for secret rotation where template values changed but hash is same)
+    let plan_locks = if cfg.force { HashMap::new() } else { locks.clone() };
+    let plan = planner::plan(cfg.config, &execution_order, &plan_locks, cfg.tag_filter);
 
     if cfg.dry_run {
         return Ok(vec![ApplyResult {
