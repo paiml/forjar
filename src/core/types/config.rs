@@ -79,6 +79,11 @@ pub struct ForjarConfig {
     #[serde(default)]
     pub includes: Vec<String>,
 
+    /// FJ-2502: Include provenance — maps "resource:id" / "machine:id" / "param:id"
+    /// to the include file that contributed it. Not serialized to YAML.
+    #[serde(skip)]
+    pub include_provenance: HashMap<String, String>,
+
     /// FJ-1200: Post-apply health check blocks (OpenTofu-style check blocks)
     #[serde(default)]
     pub checks: IndexMap<String, CheckBlock>,

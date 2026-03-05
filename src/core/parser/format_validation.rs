@@ -24,6 +24,7 @@ fn validate_resource_formats(id: &str, resource: &Resource, errors: &mut Vec<Val
     validate_port(id, resource, errors);
     validate_path_absolute(id, resource, errors);
     validate_owner_group(id, resource, errors);
+    validate_cron_schedule(id, resource, errors);
 }
 
 /// Mode must be octal string: exactly 3 or 4 octal digits, optionally prefixed with 0.
@@ -45,7 +46,7 @@ fn validate_mode(id: &str, resource: &Resource, errors: &mut Vec<ValidationError
 
 /// Check if a mode string is valid octal: 4 digits where each is 0-7.
 /// Accepts "0644", "0755", "1755" (setuid), "0000", etc.
-fn is_valid_mode(mode: &str) -> bool {
+pub(crate) fn is_valid_mode(mode: &str) -> bool {
     mode.len() == 4 && mode.bytes().all(|b| b.is_ascii_digit() && b < b'8')
 }
 
@@ -107,7 +108,7 @@ fn validate_owner_group(id: &str, resource: &Resource, errors: &mut Vec<Validati
 }
 
 /// Valid Unix username/group: starts with [a-z_], followed by [a-z0-9_-].
-fn is_valid_unix_name(name: &str) -> bool {
+pub(crate) fn is_valid_unix_name(name: &str) -> bool {
     if name.is_empty() || name.len() > 32 {
         return false;
     }
@@ -117,6 +118,82 @@ fn is_valid_unix_name(name: &str) -> bool {
     }
     name.bytes()
         .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_' || b == b'-')
+}
+
+/// FJ-2501: Cron schedule must have 5 fields with valid ranges.
+/// Accepts: number, *, */N, N-N, and comma-separated lists thereof.
+fn validate_cron_schedule(id: &str, resource: &Resource, errors: &mut Vec<ValidationError>) {
+    let schedule = match resource.schedule {
+        Some(ref s) => s,
+        None => return,
+    };
+    if schedule.contains("{{") {
+        return;
+    }
+    // Special keywords
+    if matches!(
+        schedule.as_str(),
+        "@yearly" | "@annually" | "@monthly" | "@weekly" | "@daily" | "@midnight" | "@hourly"
+    ) {
+        return;
+    }
+    let fields: Vec<&str> = schedule.split_whitespace().collect();
+    if fields.len() != 5 {
+        errors.push(ValidationError {
+            message: format!(
+                "resource '{id}': cron schedule '{schedule}' must have exactly 5 fields"
+            ),
+        });
+        return;
+    }
+    let ranges: [(u32, u32); 5] = [(0, 59), (0, 23), (1, 31), (1, 12), (0, 7)];
+    let names = ["minute", "hour", "day-of-month", "month", "day-of-week"];
+    for (i, field) in fields.iter().enumerate() {
+        if let Err(msg) = validate_cron_field(field, ranges[i].0, ranges[i].1) {
+            errors.push(ValidationError {
+                message: format!(
+                    "resource '{id}': cron {name} field '{field}': {msg}",
+                    name = names[i]
+                ),
+            });
+        }
+    }
+}
+
+/// Validate a single cron field against min..=max range.
+pub(crate) fn validate_cron_field(field: &str, min: u32, max: u32) -> Result<(), String> {
+    for part in field.split(',') {
+        if part == "*" {
+            continue;
+        }
+        if let Some(step) = part.strip_prefix("*/") {
+            let n: u32 = step
+                .parse()
+                .map_err(|_| format!("invalid step '{step}'"))?;
+            if n == 0 || n > max {
+                return Err(format!("step {n} out of range (1-{max})"));
+            }
+            continue;
+        }
+        if part.contains('-') {
+            let (lo, hi) = part
+                .split_once('-')
+                .ok_or_else(|| format!("invalid range '{part}'"))?;
+            let lo: u32 = lo.parse().map_err(|_| format!("invalid number '{lo}'"))?;
+            let hi: u32 = hi.parse().map_err(|_| format!("invalid number '{hi}'"))?;
+            if lo < min || hi > max || lo > hi {
+                return Err(format!("range {lo}-{hi} out of bounds ({min}-{max})"));
+            }
+            continue;
+        }
+        let n: u32 = part
+            .parse()
+            .map_err(|_| format!("invalid value '{part}'"))?;
+        if n < min || n > max {
+            return Err(format!("value {n} out of range ({min}-{max})"));
+        }
+    }
+    Ok(())
 }
 
 /// Machine addr must look like an IP or hostname (not empty, no spaces).
@@ -134,196 +211,5 @@ fn validate_machine_addr(key: &str, addr: &str, errors: &mut Vec<ValidationError
                 "machine '{key}': invalid addr '{addr}' (must be an IP address or hostname)"
             ),
         });
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn valid_modes() {
-        assert!(is_valid_mode("0644"));
-        assert!(is_valid_mode("0755"));
-        assert!(is_valid_mode("0600"));
-        assert!(is_valid_mode("0777"));
-        assert!(is_valid_mode("0000"));
-        assert!(is_valid_mode("1755")); // setuid
-    }
-
-    #[test]
-    fn invalid_modes() {
-        assert!(!is_valid_mode("644")); // no leading zero, 3 chars but without 0 prefix
-        assert!(!is_valid_mode("0888")); // 8 not valid octal
-        assert!(!is_valid_mode("abcd"));
-        assert!(!is_valid_mode(""));
-        assert!(!is_valid_mode("07777")); // too long
-    }
-
-    #[test]
-    fn valid_unix_names() {
-        assert!(is_valid_unix_name("root"));
-        assert!(is_valid_unix_name("www-data"));
-        assert!(is_valid_unix_name("_apt"));
-        assert!(is_valid_unix_name("nobody"));
-        assert!(is_valid_unix_name("user123"));
-    }
-
-    #[test]
-    fn invalid_unix_names() {
-        assert!(!is_valid_unix_name(""));
-        assert!(!is_valid_unix_name("123user")); // starts with digit
-        assert!(!is_valid_unix_name("Root")); // uppercase
-        assert!(!is_valid_unix_name("user.name")); // dot
-        assert!(!is_valid_unix_name("a".repeat(33).as_str())); // too long
-    }
-
-    #[test]
-    fn format_validation_on_config() {
-        let yaml = r#"
-version: "1.0"
-name: format-test
-machines:
-  web:
-    hostname: web-01
-    addr: 10.0.0.1
-resources:
-  cfg:
-    type: file
-    machine: web
-    path: /etc/nginx.conf
-    mode: "0644"
-    owner: www-data
-    group: www-data
-"#;
-        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
-        let errors = validate_formats(&config);
-        assert!(errors.is_empty(), "expected no errors: {errors:?}");
-    }
-
-    #[test]
-    fn format_bad_mode_detected() {
-        let yaml = r#"
-version: "1.0"
-name: bad-mode
-machines:
-  m:
-    hostname: m
-    addr: 127.0.0.1
-resources:
-  cfg:
-    type: file
-    machine: m
-    path: /etc/test
-    mode: "0999"
-"#;
-        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
-        let errors = validate_formats(&config);
-        assert!(!errors.is_empty());
-        assert!(errors[0].message.contains("invalid mode"));
-    }
-
-    #[test]
-    fn format_bad_owner_detected() {
-        let yaml = r#"
-version: "1.0"
-name: bad-owner
-machines:
-  m:
-    hostname: m
-    addr: 127.0.0.1
-resources:
-  cfg:
-    type: file
-    machine: m
-    path: /etc/test
-    owner: "Bad User"
-"#;
-        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
-        let errors = validate_formats(&config);
-        assert!(!errors.is_empty());
-        assert!(errors[0].message.contains("invalid owner"));
-    }
-
-    #[test]
-    fn format_relative_path_detected() {
-        let yaml = r#"
-version: "1.0"
-name: rel-path
-machines:
-  m:
-    hostname: m
-    addr: 127.0.0.1
-resources:
-  cfg:
-    type: file
-    machine: m
-    path: relative/path.txt
-"#;
-        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
-        let errors = validate_formats(&config);
-        assert!(!errors.is_empty());
-        assert!(errors[0].message.contains("must be absolute"));
-    }
-
-    #[test]
-    fn format_bad_machine_addr() {
-        let yaml = r#"
-version: "1.0"
-name: bad-addr
-machines:
-  m:
-    hostname: m
-    addr: "has spaces"
-resources: {}
-"#;
-        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
-        let errors = validate_formats(&config);
-        assert!(!errors.is_empty());
-        assert!(errors[0].message.contains("invalid addr"));
-    }
-
-    #[test]
-    fn format_template_expressions_skipped() {
-        let yaml = r#"
-version: "1.0"
-name: template
-machines:
-  m:
-    hostname: m
-    addr: 127.0.0.1
-resources:
-  cfg:
-    type: file
-    machine: m
-    path: "{{params.config_path}}"
-    mode: "{{params.file_mode}}"
-    owner: "{{params.owner}}"
-"#;
-        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
-        let errors = validate_formats(&config);
-        assert!(errors.is_empty(), "templates should be skipped: {errors:?}");
-    }
-
-    #[test]
-    fn format_port_out_of_range() {
-        let yaml = r#"
-version: "1.0"
-name: port-test
-machines:
-  m:
-    hostname: m
-    addr: 127.0.0.1
-resources:
-  fw:
-    type: network
-    machine: m
-    port: 99999
-    protocol: tcp
-    action: allow
-"#;
-        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
-        let errors = validate_formats(&config);
-        assert!(errors.iter().any(|e| e.message.contains("port")));
     }
 }

@@ -4,6 +4,7 @@
 mod tests {
     use crate::core::planner::reversibility::*;
     use crate::core::types::*;
+    use std::collections::HashMap;
 
     fn minimal_resource(rtype: ResourceType) -> Resource {
         Resource {
@@ -100,6 +101,7 @@ mod tests {
             policies: vec![],
             moved: vec![],
             includes: vec![],
+            include_provenance: HashMap::new(),
             data: indexmap::IndexMap::new(),
             checks: indexmap::IndexMap::new(),
         };

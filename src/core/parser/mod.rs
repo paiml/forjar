@@ -22,6 +22,8 @@ mod tests_core;
 #[cfg(test)]
 mod tests_expansion;
 #[cfg(test)]
+mod tests_format_validation;
+#[cfg(test)]
 mod tests_includes;
 #[cfg(test)]
 mod tests_misc;

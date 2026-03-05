@@ -56,7 +56,10 @@ fn merge_includes_inner(
             if merged.params.contains_key(&k) {
                 eprintln!("warning: include '{include_path}' overwrites param '{k}'");
             }
-            merged.params.insert(k, v);
+            merged.params.insert(k.clone(), v);
+            merged
+                .include_provenance
+                .insert(format!("param:{k}"), include_path.clone());
         }
 
         // Merge machines (later overrides earlier)
@@ -64,7 +67,10 @@ fn merge_includes_inner(
             if merged.machines.contains_key(&k) {
                 eprintln!("warning: include '{include_path}' overwrites machine '{k}'");
             }
-            merged.machines.insert(k, v);
+            merged.machines.insert(k.clone(), v);
+            merged
+                .include_provenance
+                .insert(format!("machine:{k}"), include_path.clone());
         }
 
         // Merge resources (later overrides earlier)
@@ -72,7 +78,10 @@ fn merge_includes_inner(
             if merged.resources.contains_key(&k) {
                 eprintln!("warning: include '{include_path}' overwrites resource '{k}'");
             }
-            merged.resources.insert(k, v);
+            merged.resources.insert(k.clone(), v);
+            merged
+                .include_provenance
+                .insert(format!("resource:{k}"), include_path.clone());
         }
 
         // Policy: replace wholesale from include
@@ -83,7 +92,10 @@ fn merge_includes_inner(
             if merged.outputs.contains_key(&k) {
                 eprintln!("warning: include '{include_path}' overwrites output '{k}'");
             }
-            merged.outputs.insert(k, v);
+            merged.outputs.insert(k.clone(), v);
+            merged
+                .include_provenance
+                .insert(format!("output:{k}"), include_path.clone());
         }
 
         // Merge policy rules
@@ -94,7 +106,10 @@ fn merge_includes_inner(
             if merged.data.contains_key(&k) {
                 eprintln!("warning: include '{include_path}' overwrites data source '{k}'");
             }
-            merged.data.insert(k, v);
+            merged.data.insert(k.clone(), v);
+            merged
+                .include_provenance
+                .insert(format!("data:{k}"), include_path.clone());
         }
     }
 
@@ -173,6 +188,34 @@ mod tests_includes_hardening {
         let merged = result.unwrap();
         let packages = &merged.resources["shared"].packages;
         assert!(packages.contains(&"nginx".to_string()));
+    }
+
+    #[test]
+    fn include_provenance_tracked() {
+        let dir = tempfile::tempdir().unwrap();
+        let inc = dir.path().join("infra.yaml");
+        std::fs::write(
+            &inc,
+            "version: \"1.0\"\nname: inc\nmachines:\n  web:\n    hostname: web\n    addr: 10.0.0.1\nresources:\n  pkg:\n    type: package\n    provider: apt\n    packages: [curl]\n",
+        )
+        .unwrap();
+
+        let base_yaml = format!(
+            "version: \"1.0\"\nname: base\nincludes:\n  - {}\nresources: {{}}\n",
+            inc.display()
+        );
+        let config: ForjarConfig = serde_yaml_ng::from_str(&base_yaml).unwrap();
+        let result = merge_includes(config, dir.path());
+        assert!(result.is_ok());
+        let merged = result.unwrap();
+        assert_eq!(
+            merged.include_provenance.get("resource:pkg").map(String::as_str),
+            Some(inc.to_str().unwrap())
+        );
+        assert_eq!(
+            merged.include_provenance.get("machine:web").map(String::as_str),
+            Some(inc.to_str().unwrap())
+        );
     }
 
     #[test]

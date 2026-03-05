@@ -10,6 +10,7 @@
 
 use crate::core::{codegen, planner, types::*};
 use proptest::prelude::*;
+use std::collections::HashMap;
 
 /// Strategy for generating valid resource types (subset that supports codegen).
 fn arb_convergent_type() -> impl Strategy<Value = ResourceType> {
@@ -64,6 +65,7 @@ fn make_config(resources: Vec<(String, Resource)>) -> ForjarConfig {
         policies: vec![],
         moved: vec![],
         includes: vec![],
+            include_provenance: HashMap::new(),
         data: indexmap::IndexMap::new(),
         checks: indexmap::IndexMap::new(),
     };
