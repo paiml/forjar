@@ -1260,3 +1260,20 @@ PROPTEST_CASES=1000 cargo test proptest
 ```
 
 Property tests generate random `Resource`, `StateLock`, and `GlobalLock` values using strategies defined in `src/core/types/tests_proptest_resource.rs`.
+
+## Resource Coverage Model (FJ-2605)
+
+Every resource type has a five-level coverage maturity scale:
+
+| Level | Name | What It Proves |
+|-------|------|---------------|
+| L0 | No tests | Resource is completely untested |
+| L1 | Unit tested | Codegen produces valid script, planner produces correct action |
+| L2 | Behavior spec | YAML `.spec.yaml` with verify commands |
+| L3 | Convergence tested | Apply-verify-reapply-verify in sandbox |
+| L4 | Mutation tested | All applicable mutations detected |
+| L5 | Preservation tested | Pairwise preservation with co-located resources |
+
+```bash
+cargo run --example coverage_model
+```
