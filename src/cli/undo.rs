@@ -48,6 +48,48 @@ fn compute_undo_diff(
     }).collect()
 }
 
+/// FJ-2003: Pre-flight SSH connectivity check for multi-machine undo.
+///
+/// Verifies all target machines are reachable before making any changes.
+/// Returns Err if any machine is unreachable (fail fast).
+fn preflight_ssh_check(
+    config: &types::ForjarConfig,
+    machine_filter: Option<&str>,
+) -> Result<(), String> {
+    let machines: Vec<(&String, &types::Machine)> = config.machines.iter()
+        .filter(|(name, _)| machine_filter.is_none_or(|f| name.as_str() == f))
+        .collect();
+
+    let mut unreachable = Vec::new();
+    for (name, machine) in &machines {
+        let is_local = machine.addr == "localhost" || machine.addr == "127.0.0.1"
+            || machine.transport.as_deref() == Some("local");
+        if is_local || machine.is_container_transport() {
+            println!("  ✓ {name}: local/container (skip SSH)");
+            continue;
+        }
+        let host = &machine.addr;
+        let status = std::process::Command::new("ssh")
+            .args(["-o", "ConnectTimeout=5", "-o", "BatchMode=yes", host, "true"])
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status();
+        match status {
+            Ok(s) if s.success() => println!("  ✓ {name}: {host} reachable"),
+            _ => {
+                eprintln!("  ✗ {name}: {host} unreachable");
+                unreachable.push(name.as_str());
+            }
+        }
+    }
+    if unreachable.is_empty() {
+        Ok(())
+    } else {
+        Err(format!("pre-flight failed: {} machine(s) unreachable: {}",
+            unreachable.len(), unreachable.join(", ")))
+    }
+}
+
 /// Write undo progress to `undo-progress.yaml` in the machine's state directory.
 fn write_undo_progress(state_dir: &Path, machine: &str, progress: &types::UndoProgress) {
     let dir = state_dir.join(machine);
@@ -137,6 +179,10 @@ pub(crate) fn cmd_undo(
     if !yes {
         return Err("undo requires --yes to confirm".to_string());
     }
+
+    // Phase 1: Pre-flight SSH check (multi-machine coordination)
+    println!("\nPre-flight check:");
+    preflight_ssh_check(&current_config, machine_filter)?;
 
     // Write undo-progress.yaml for resume support
     let progress = init_undo_progress(current, target, &changes);
