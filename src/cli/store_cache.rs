@@ -264,5 +264,6 @@ fn local_machine() -> Machine {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     }
 }

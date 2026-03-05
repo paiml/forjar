@@ -318,6 +318,11 @@ pub struct Machine {
     /// Relative cost weight (lower = cheaper, preferred first). Default: 0.
     #[serde(default)]
     pub cost: u32,
+
+    /// FJ-2300: Operators allowed to apply to this machine.
+    /// Empty = no restriction (backward compatible).
+    #[serde(default)]
+    pub allowed_operators: Vec<String>,
 }
 
 /// Container execution target configuration.
@@ -450,6 +455,14 @@ impl Machine {
     /// Returns the effective pepita namespace name (derived from hostname).
     pub fn pepita_name(&self) -> String {
         format!("forjar-ns-{}", self.hostname)
+    }
+
+    /// FJ-2300: Check if an operator is authorized for this machine.
+    ///
+    /// Returns true if `allowed_operators` is empty (no restriction)
+    /// or the operator is in the allowed list.
+    pub fn is_operator_allowed(&self, operator: &str) -> bool {
+        self.allowed_operators.is_empty() || self.allowed_operators.iter().any(|o| o == operator)
     }
 }
 

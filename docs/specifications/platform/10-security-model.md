@@ -213,8 +213,11 @@ The state directory (`state/`) has no access control beyond filesystem permissio
 
 ## Implementation
 
-### Phase 17: Security Model (FJ-2300)
-- [ ] Machine-level `allowed_operators` with `--operator` flag
+### Phase 17: Security Model (FJ-2300) -- PARTIAL
+- [x] Machine-level `allowed_operators` field on Machine struct
+- [x] `is_operator_allowed()` authorization check (empty = no restriction, backward compatible)
+- [x] Known field detection and JSON Schema updated for `allowed_operators`
+- [ ] `--operator` flag on CLI commands
 - [x] `policy.deny_paths` for resource path restrictions
 - [x] `secrets.provider` with env and file backends
 - [x] Secret redaction via `redact_secrets()` utility

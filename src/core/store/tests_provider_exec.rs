@@ -158,6 +158,7 @@ fn execution_context_fields() {
             container: None,
             pepita: None,
             cost: 0,
+            allowed_operators: vec![],
         },
         timeout_secs: Some(300),
     };

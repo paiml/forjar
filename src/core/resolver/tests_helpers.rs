@@ -116,6 +116,7 @@ pub(super) fn dag_config(names: &[&str], edges: &[(&str, &str)]) -> ForjarConfig
             container: None,
             pepita: None,
             cost: 0,
+            allowed_operators: vec![],
         },
     );
     ForjarConfig {

@@ -136,6 +136,7 @@ mod tests {
             container: None,
             pepita: None,
             cost: 0,
+            allowed_operators: vec![],
         }
     }
 

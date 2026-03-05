@@ -149,6 +149,7 @@ const MACHINE_FIELDS: &[&str] = &[
     "container",
     "pepita",
     "cost",
+    "allowed_operators",
 ];
 
 const POLICY_FIELDS: &[&str] = &[

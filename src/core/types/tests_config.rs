@@ -116,6 +116,7 @@ fn test_fj001_machine_container_name_derived() {
         }),
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     assert_eq!(m.container_name(), "forjar-test-box");
 }
@@ -134,6 +135,7 @@ fn test_fj001_is_container_transport() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     assert!(m1.is_container_transport());
 
@@ -149,6 +151,7 @@ fn test_fj001_is_container_transport() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     assert!(m2.is_container_transport());
 
@@ -164,6 +167,7 @@ fn test_fj001_is_container_transport() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     assert!(!m3.is_container_transport());
 }
@@ -298,6 +302,7 @@ fn test_fj131_machine_container_name_no_container_block() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     assert_eq!(m.container_name(), "forjar-bare-metal");
 }
@@ -358,6 +363,7 @@ fn test_fj132_machine_is_container_transport() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     assert!(m.is_container_transport());
 }
@@ -375,6 +381,7 @@ fn test_fj132_machine_is_not_container_transport() {
         container: None,
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     assert!(!m.is_container_transport());
 }
@@ -404,6 +411,7 @@ fn test_fj132_machine_container_name_explicit() {
         }),
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     assert_eq!(m.container_name(), "my-custom-name");
 }
@@ -433,6 +441,7 @@ fn test_fj132_machine_container_name_derived() {
         }),
         pepita: None,
         cost: 0,
+        allowed_operators: vec![],
     };
     assert_eq!(m.container_name(), "forjar-test-box");
 }
@@ -444,4 +453,39 @@ fn test_fj132_policy_defaults() {
     assert!(policy.tripwire);
     assert!(policy.lock_file);
     assert!(!policy.parallel_machines);
+}
+
+#[test]
+fn test_fj2300_allowed_operators_empty() {
+    let m: Machine = serde_yaml_ng::from_str("hostname: h\naddr: 10.0.0.1").unwrap();
+    assert!(m.allowed_operators.is_empty());
+    assert!(m.is_operator_allowed("anyone"));
+}
+
+#[test]
+fn test_fj2300_allowed_operators_restricted() {
+    let yaml = r#"
+hostname: prod-db
+addr: 10.0.1.5
+allowed_operators:
+  - noah
+  - ci-bot
+"#;
+    let m: Machine = serde_yaml_ng::from_str(yaml).unwrap();
+    assert!(m.is_operator_allowed("noah"));
+    assert!(m.is_operator_allowed("ci-bot"));
+    assert!(!m.is_operator_allowed("attacker"));
+}
+
+#[test]
+fn test_fj2300_allowed_operators_serde() {
+    let yaml = r#"
+hostname: h
+addr: a
+allowed_operators: [alice, bob]
+"#;
+    let m: Machine = serde_yaml_ng::from_str(yaml).unwrap();
+    assert_eq!(m.allowed_operators, vec!["alice", "bob"]);
+    let out = serde_yaml_ng::to_string(&m).unwrap();
+    assert!(out.contains("alice"));
 }
