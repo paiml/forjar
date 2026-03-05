@@ -186,3 +186,28 @@ Required settings for reproducible builds:
 - `codegen-units = 1` in `[profile.release]`
 - `lto = true`
 - `panic = "abort"`
+
+## Dual-Hash PlannerState Model
+
+The real planner uses two hashes: a plan-time `hash_desired_state` and an executor-time stored hash. The **handler invariant** bridges them:
+
+> ∀ r: handler(r).stored_hash == hash_desired_state(r)
+
+The `PlannerState` model in `verus_spec.rs` captures this dual-hash domain:
+
+```rust
+pub struct PlannerState {
+    pub desired_hash: String,     // plan-time hash
+    pub stored_hash: Option<String>,  // executor lock hash
+    pub converged: bool,
+}
+```
+
+Under the handler invariant, three Kani proofs verify idempotency:
+- `proof_idempotency_conditional`: converged + handler invariant → NoOp
+- `proof_apply_then_noop`: apply stores matching hash → next plan is NoOp
+- `proof_fleet_convergence`: N converged resources → all-NoOp fleet plan
+
+Additional proofs cover the OCI build pipeline:
+- `proof_layer_determinism`: same files produce same layer digest
+- `proof_store_idempotency`: content-addressable put is idempotent
