@@ -712,9 +712,9 @@ Forjar is the **convergence primitive**. Consumers own their domain logic.
 - **Deliverable**: Types and validation complete; runtime execution pending
 
 ### Phase 37: Input/Output Tracking (FJ-2701)
-- [ ] `inputs:` glob pattern hashing (BLAKE3)
-- [ ] `outputs:` artifact hashing and storage
-- [ ] `cache: true` for stage-level skip logic
+- [x] `inputs:` glob pattern hashing (BLAKE3)
+- [x] `outputs:` artifact hashing and storage
+- [x] `cache: true` for stage-level skip logic
 - [ ] Input/output hashes in `state.lock.yaml`
 - **Deliverable**: Pipeline stages skip when inputs unchanged
 

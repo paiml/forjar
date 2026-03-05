@@ -958,13 +958,28 @@ Pipeline stages can include quality gates that control pipeline flow:
 
 The `on_fail` field controls behavior: `block` (default), `warn`, or `skip_dependents`.
 
+### Input/Output Tracking (FJ-2701)
+
+Pipeline stages support content-addressed caching via BLAKE3 hashing:
+
+```yaml
+stages:
+  - name: build
+    command: cargo build --release
+    inputs: ["src/**/*.rs", "Cargo.toml"]
+    outputs: ["target/release/app"]
+    gate: true
+```
+
+When `cache: true`, forjar hashes all input files before execution. If the input hash matches the stored hash from the previous run, the stage is skipped. Output artifacts are also hashed for drift detection.
+
 ### Task State Model (FJ-2706)
 
 Each task mode tracks specific state in the lock file:
 
 | Mode | State | Key Metrics |
 |------|-------|-------------|
-| Pipeline | Per-stage status (pending/running/passed/failed/skipped) | `last_completed` stage index, per-stage duration |
+| Pipeline | Per-stage status (pending/running/passed/failed/skipped) | `last_completed` stage index, per-stage duration, `input_hash` |
 | Service | PID, health status, restart count | `consecutive_failures`, `last_check` timestamp |
 | Dispatch | Invocation history | `total_invocations`, per-invocation duration and exit code |
 
