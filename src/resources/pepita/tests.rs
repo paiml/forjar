@@ -91,6 +91,8 @@ fn make_pepita_resource(name: &str) -> Resource {
         store: false,
         sudo: false,
         script: None,
+        gather: vec![],
+        scatter: vec![],
     }
 }
 
