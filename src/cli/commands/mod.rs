@@ -57,12 +57,12 @@ pub enum Commands {
 
     /// FJ-2003: Undo last apply (active undo with re-convergence)
     Undo(UndoArgs),
+    /// FJ-2005: Re-create resources from destroy log
+    UndoDestroy(UndoDestroyArgs),
     /// Import existing infrastructure from a machine into forjar.yaml
     Import(ImportArgs),
-
     /// Show fully resolved config (recipes expanded, templates resolved)
     Show(ShowArgs),
-
     /// Show resource dependency graph
     Graph(GraphArgs),
 

@@ -302,7 +302,7 @@ Undo-destroy order: `nfs-server` (intel) → `nfs-mount` (jetson)
 - [x] Pre-destroy state recording: machine, resource_id, pre_hash, config_fragment, reliable_recreate
 - [x] Extend `destroy_single_resource()` to write pre-state to `destroy-log.jsonl` — `write_destroy_log_entry()` captures pre_hash, config_fragment, reliable_recreate
 - [x] Fix `cleanup_state_files()` — only remove lock entries for succeeded resources — `cleanup_succeeded_entries()` reads lock YAML, removes succeeded entries, preserves failed
-- [ ] `forjar undo-destroy` — replay from destroy-log.jsonl
-- [ ] Reversibility gate: skip irreversible, warn with `--force`
+- [x] `forjar undo-destroy` — replay from destroy-log.jsonl
+- [x] Reversibility gate: skip irreversible, warn with `--force`
 - [x] Round-trip test: `destroy_log_roundtrip` + `cleanup_succeeded_entries_partial` in tests_destroy.rs — verify destroy-log.jsonl writing/parsing and partial lock cleanup
 - **Extends**: `src/cli/destroy.rs:cmd_destroy`
