@@ -327,6 +327,8 @@ mod tests_lineage;
 #[cfg(test)]
 mod tests_bundle;
 #[cfg(test)]
+mod tests_bundle_b;
+#[cfg(test)]
 mod tests_model_card;
 #[cfg(test)]
 mod tests_agent_sbom;
@@ -444,3 +446,5 @@ mod tests_cov_plan5;
 mod tests_cov_bundle2;
 #[cfg(test)]
 mod tests_cov_fleet3;
+#[cfg(test)]
+mod tests_dispatch_platform;
