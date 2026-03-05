@@ -1,0 +1,29 @@
+# FJ-2705: batuta agent lifecycle recipe
+# Demonstrates service task mode for long-running agent processes.
+name: batuta-agent-lifecycle
+machines:
+  agent-host:
+    hostname: agent-0
+    transport: local
+
+resources:
+  agent-service:
+    type: task
+    task_mode: service
+    command: "batuta agent serve --config agent.yaml --port 8080"
+    health_check:
+      command: "curl -sf http://localhost:8080/health"
+      interval: "30s"
+      timeout: "5s"
+      retries: 3
+    restart_policy:
+      max_restarts: 5
+      backoff_base_secs: 2
+      backoff_cap_secs: 60
+
+  agent-monitor:
+    type: task
+    task_mode: dispatch
+    command: "batuta agent status --json"
+    depends_on:
+      - agent-service
