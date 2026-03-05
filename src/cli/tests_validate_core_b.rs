@@ -168,6 +168,7 @@ mod tests {
             check_resource_provider_version_pinning: false,
             check_recipe_purity: false,
             check_reproducibility_score: false,
+            deny_unknown_fields: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { dry_expand, .. }) => assert!(dry_expand),
@@ -326,6 +327,7 @@ mod tests {
             check_resource_provider_version_pinning: false,
             check_recipe_purity: false,
             check_reproducibility_score: false,
+            deny_unknown_fields: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { exhaustive, .. }) => assert!(exhaustive),
@@ -484,6 +486,7 @@ mod tests {
             check_resource_provider_version_pinning: false,
             check_recipe_purity: false,
             check_reproducibility_score: false,
+            deny_unknown_fields: false,
         });
         match cmd {
             Commands::Validate(ValidateArgs { policy_file, .. }) => {

@@ -498,4 +498,7 @@ pub struct ValidateArgs {
     /// FJ-1329: Output reproducibility score (0-100)
     #[arg(long)]
     pub check_reproducibility_score: bool,
+    /// FJ-2500: Reject configs with unknown YAML fields (typo detection)
+    #[arg(long)]
+    pub deny_unknown_fields: bool,
 }
