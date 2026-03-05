@@ -272,8 +272,13 @@ Undo-destroy order: `nfs-server` (intel) → `nfs-mount` (jetson)
 
 ## Implementation
 
-### Phase 2: Extended Generations (FJ-2002)
-- [ ] Extend `create_generation()` to store config hash + git_ref in `.generation.yaml`
+### Phase 2: Extended Generations (FJ-2002) -- PARTIAL
+- [x] `GenerationMeta` type with config_hash, git_ref, action, parent_generation, operator, forjar_version, bashrs_version
+- [x] `MachineDelta` type for per-machine resource create/update/destroy deltas
+- [x] `get_git_ref()` and `git_is_dirty()` helpers for config recovery
+- [x] Backward-compatible YAML parsing (old format still works)
+- [x] YAML roundtrip with skip_serializing_if for clean output
+- [ ] Wire `GenerationMeta` into `create_generation()` (replaces manual YAML)
 - [ ] Populate SQLite `generations` table from `state/generations/` on ingest
 - [ ] Enrich `forjar generations` with resource count, delta, action type
 - [ ] `forjar diff --generation 3 7` — cross-generation resource diff
@@ -287,7 +292,9 @@ Undo-destroy order: `nfs-server` (intel) → `nfs-mount` (jetson)
 - [ ] Undo-resume: record progress, `--resume` picks up
 - **Extends**: `src/cli/destroy.rs:cmd_rollback`
 
-### Phase 5: Undo-Destroy (FJ-2005)
+### Phase 5: Undo-Destroy (FJ-2005) -- PARTIAL
+- [x] `DestroyLogEntry` type with JSONL serialization for undo-destroy recovery
+- [x] Pre-destroy state recording: machine, resource_id, pre_hash, config_fragment, reliable_recreate
 - [ ] Extend `destroy_single_resource()` to write pre-state to `destroy-log.jsonl`
 - [ ] Fix `cleanup_state_files()` — only remove lock entries for succeeded resources
 - [ ] `forjar undo-destroy` — replay from destroy-log.jsonl
