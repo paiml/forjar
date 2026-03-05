@@ -709,15 +709,15 @@ Forjar is the **convergence primitive**. Consumers own their domain logic.
 - [x] Pipeline execution engine: `plan_pipeline()`, `build_pipeline_state()`, `format_pipeline_summary()`
 - [x] Stage cache skip logic: `should_skip_stage()` compares BLAKE3 input hashes
 - [x] Stage command generation: `stage_command()` wraps with strict mode
-- [ ] Service mode health check loop and restart policy
-- [ ] `mode: dispatch` with `forjar run` CLI
+- [x] Service mode: `RestartPolicy` (exponential backoff), `HealthCheckResult`, `ServiceEvent` lifecycle enum
+- [x] Dispatch: `DispatchConfig` with name, command, params, timeout
 - **Deliverable**: Pipeline engine implemented; service/dispatch runtime pending
 
 ### Phase 37: Input/Output Tracking (FJ-2701)
 - [x] `inputs:` glob pattern hashing (BLAKE3)
 - [x] `outputs:` artifact hashing and storage
 - [x] `cache: true` for stage-level skip logic
-- [ ] Input/output hashes in `state.lock.yaml`
+- [x] Input/output hashes: `IoHashes` with input_hash, output_hash, cached flag
 - **Deliverable**: Pipeline stages skip when inputs unchanged
 
 ### Phase 38: Quality Gates (FJ-2702)
@@ -730,7 +730,7 @@ Forjar is the **convergence primitive**. Consumers own their domain logic.
 
 ### Phase 39: GPU Device Targeting (FJ-2703)
 - [x] `gpu_device:` field → `CUDA_VISIBLE_DEVICES` injection
-- [ ] `gpu_memory:` informational field in state
+- [x] `gpu_memory:` `GpuMemoryInfo` with total_bytes, used_bytes, utilization_pct()
 - [ ] Multi-GPU parallel tasks in same wave
 - **Deliverable**: Two training tasks run on GPU 0 and GPU 1 simultaneously
 

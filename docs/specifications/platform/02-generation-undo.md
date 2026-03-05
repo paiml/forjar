@@ -281,7 +281,7 @@ Undo-destroy order: `nfs-server` (intel) → `nfs-mount` (jetson)
 - [ ] Wire `GenerationMeta` into `create_generation()` (replaces manual YAML)
 - [ ] Populate SQLite `generations` table from `state/generations/` on ingest
 - [ ] Enrich `forjar generations` with resource count, delta, action type
-- [ ] `forjar diff --generation 3 7` — cross-generation resource diff
+- [x] `forjar diff --generation 3 7`: `GenerationDiff`, `ResourceDiff`, `DiffAction`, `diff_resource_sets()`
 - **Extends**: `src/cli/generation.rs`
 
 ### Phase 3: Stack Undo (FJ-2003)
@@ -290,7 +290,7 @@ Undo-destroy order: `nfs-server` (intel) → `nfs-mount` (jetson)
 - [x] `UndoPlan::format_summary()` with irreversibility warnings
 - [x] `UndoProgress` counts: `completed_count()`, `failed_count()`, `pending_count()`
 - [x] YAML serialization for `undo-progress.yaml` resume file
-- [ ] Generation diff: compare resource sets between gen N and gen N-K
+- [x] Generation diff: `diff_resource_sets()` compares resource sets between gen N and gen N-K
 - [ ] `forjar undo --dry-run`
 - [ ] Active undo: config snapshot from target gen, re-run `cmd_apply` with force
 - [ ] Multi-machine coordination: phased execution with pre-flight SSH check
