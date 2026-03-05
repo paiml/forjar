@@ -428,4 +428,66 @@ resources:
         // f1 modified, f2 will be re-added, f3 exists now
         assert_eq!(changes.len(), 3);
     }
+
+    /// FJ-2005: Verify destroy-log.jsonl is written and parseable.
+    #[test]
+    fn destroy_log_roundtrip() {
+        let dir = tempfile::tempdir().unwrap();
+        let state_dir = dir.path().join("state");
+        std::fs::create_dir_all(&state_dir).unwrap();
+        let log_path = state_dir.join("destroy-log.jsonl");
+        let mut resource = types::Resource::default();
+        resource.resource_type = types::ResourceType::File;
+        resource.machine = types::MachineTarget::Single("local".into());
+        resource.path = Some("/tmp/test.txt".into());
+        resource.content = Some("hello".into());
+        write_destroy_log_entry(&log_path, "f1", &resource, "local", &Default::default());
+        let content = std::fs::read_to_string(&log_path).unwrap();
+        let entry = types::DestroyLogEntry::from_jsonl(content.lines().next().unwrap()).unwrap();
+        assert_eq!(entry.resource_id, "f1");
+        assert_eq!(entry.resource_type, "file");
+        assert!(entry.reliable_recreate);
+        assert!(entry.config_fragment.is_some());
+    }
+
+    /// FJ-2005: cleanup_succeeded_entries removes only specified entries.
+    #[test]
+    fn cleanup_succeeded_entries_partial() {
+        let dir = tempfile::tempdir().unwrap();
+        let state_dir = dir.path();
+        let machine_dir = state_dir.join("m1");
+        std::fs::create_dir_all(&machine_dir).unwrap();
+
+        let rl = |hash: &str| types::ResourceLock {
+            resource_type: types::ResourceType::File,
+            status: types::ResourceStatus::Converged,
+            applied_at: None,
+            duration_seconds: None,
+            hash: hash.into(),
+            details: std::collections::HashMap::new(),
+        };
+        let mut resources = indexmap::IndexMap::new();
+        resources.insert("r1".into(), rl("h1"));
+        resources.insert("r2".into(), rl("h2"));
+        let lock = types::StateLock {
+            schema: "1.0".into(),
+            machine: "m1".into(),
+            hostname: "m1".into(),
+            generated_at: "now".into(),
+            generator: "forjar".into(),
+            blake3_version: "1.8".into(),
+            resources,
+        };
+        let yaml = serde_yaml_ng::to_string(&lock).unwrap();
+        std::fs::write(machine_dir.join("state.lock.yaml"), yaml).unwrap();
+
+        let mut succeeded = std::collections::HashMap::new();
+        succeeded.insert("m1".to_string(), vec!["r1".to_string()]);
+        cleanup_succeeded_entries(state_dir, &succeeded);
+
+        let remaining = std::fs::read_to_string(machine_dir.join("state.lock.yaml")).unwrap();
+        let remaining_lock: types::StateLock = serde_yaml_ng::from_str(&remaining).unwrap();
+        assert!(!remaining_lock.resources.contains_key("r1"));
+        assert!(remaining_lock.resources.contains_key("r2"));
+    }
 }

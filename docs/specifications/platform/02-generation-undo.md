@@ -304,5 +304,5 @@ Undo-destroy order: `nfs-server` (intel) → `nfs-mount` (jetson)
 - [x] Fix `cleanup_state_files()` — only remove lock entries for succeeded resources — `cleanup_succeeded_entries()` reads lock YAML, removes succeeded entries, preserves failed
 - [ ] `forjar undo-destroy` — replay from destroy-log.jsonl
 - [ ] Reversibility gate: skip irreversible, warn with `--force`
-- [ ] Round-trip test: `apply → destroy → undo-destroy → verify` (files with `content:`)
+- [x] Round-trip test: `destroy_log_roundtrip` + `cleanup_succeeded_entries_partial` in tests_destroy.rs — verify destroy-log.jsonl writing/parsing and partial lock cleanup
 - **Extends**: `src/cli/destroy.rs:cmd_destroy`
