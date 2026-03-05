@@ -89,6 +89,75 @@ pub fn reconcile(state: &mut SystemState) -> usize {
     state.iteration
 }
 
+// ── Dual-Hash PlannerState Model (FJ-2202) ──────────────────────────
+//
+// The real planner uses two hashes: plan-time `hash_desired_state` and
+// executor-time stored hash. The handler invariant bridges them:
+//   ∀ r: handler(r).stored_hash == hash_desired_state(r)
+
+/// Planner state modeling real dual-hash domain (replaces toy ResourceState).
+#[cfg(any(test, verus))]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PlannerState {
+    /// Plan-time hash of desired resource config.
+    pub desired_hash: String,
+    /// Executor-stored hash from last apply (lock file).
+    pub stored_hash: Option<String>,
+    /// Whether the resource status is Converged.
+    pub converged: bool,
+}
+
+#[cfg(any(test, verus))]
+impl PlannerState {
+    /// Whether the handler invariant holds (stored_hash == desired_hash after apply).
+    pub fn handler_invariant_holds(&self) -> bool {
+        self.stored_hash.as_ref() == Some(&self.desired_hash)
+    }
+
+    /// Planner decision: does this resource need re-apply?
+    pub fn needs_apply(&self) -> bool {
+        !self.converged || !self.handler_invariant_holds()
+    }
+
+    /// Simulate apply: update stored_hash and set converged.
+    pub fn apply(&mut self) {
+        self.stored_hash = Some(self.desired_hash.clone());
+        self.converged = true;
+    }
+}
+
+/// Fleet-level planner state.
+#[cfg(any(test, verus))]
+#[derive(Debug, Clone)]
+pub struct FleetPlannerState {
+    pub resources: Vec<PlannerState>,
+}
+
+#[cfg(any(test, verus))]
+impl FleetPlannerState {
+    /// Count resources needing apply.
+    pub fn pending_count(&self) -> usize {
+        self.resources.iter().filter(|r| r.needs_apply()).count()
+    }
+
+    /// Apply all pending resources. Returns number applied.
+    pub fn apply_all(&mut self) -> usize {
+        let mut count = 0;
+        for r in &mut self.resources {
+            if r.needs_apply() {
+                r.apply();
+                count += 1;
+            }
+        }
+        count
+    }
+
+    /// Check full fleet convergence.
+    pub fn is_converged(&self) -> bool {
+        self.resources.iter().all(|r| !r.needs_apply())
+    }
+}
+
 // Verus 2.0 specification attributes (only compiled with Verus toolchain)
 // Each #[requires] / #[ensures] documents pre/post-conditions for formal verification.
 #[cfg(verus)]
@@ -275,5 +344,55 @@ mod tests {
     fn test_changes_needed_count() {
         let state = make_state(&[("a", None), ("b", Some("b")), ("c", Some("old"))]);
         assert_eq!(changes_needed(&state), 2); // a (new) and c (changed)
+    }
+
+    // ── PlannerState (dual-hash) tests ────────────────────────
+
+    #[test]
+    fn test_planner_state_handler_invariant() {
+        let mut ps = PlannerState {
+            desired_hash: "abc".into(),
+            stored_hash: None,
+            converged: false,
+        };
+        assert!(!ps.handler_invariant_holds());
+        assert!(ps.needs_apply());
+
+        ps.apply();
+        assert!(ps.handler_invariant_holds());
+        assert!(!ps.needs_apply());
+    }
+
+    #[test]
+    fn test_planner_state_idempotency() {
+        let mut ps = PlannerState {
+            desired_hash: "hash1".into(),
+            stored_hash: Some("hash1".into()),
+            converged: true,
+        };
+        assert!(!ps.needs_apply());
+        ps.apply(); // should be no-op semantically
+        assert!(!ps.needs_apply());
+    }
+
+    #[test]
+    fn test_fleet_convergence() {
+        let mut fleet = FleetPlannerState {
+            resources: vec![
+                PlannerState { desired_hash: "a".into(), stored_hash: None, converged: false },
+                PlannerState { desired_hash: "b".into(), stored_hash: Some("old".into()), converged: true },
+            ],
+        };
+        assert_eq!(fleet.pending_count(), 2);
+        assert!(!fleet.is_converged());
+
+        let applied = fleet.apply_all();
+        assert_eq!(applied, 2);
+        assert!(fleet.is_converged());
+        assert_eq!(fleet.pending_count(), 0);
+
+        // Second apply is idempotent
+        let applied2 = fleet.apply_all();
+        assert_eq!(applied2, 0);
     }
 }

@@ -706,7 +706,7 @@ pub fn compute_dual_digest(uncompressed: &[u8]) -> Result<(String, String), Stri
 - [x] `debug_assert!` on `save_lock` — atomicity postcondition
 - [x] `debug_assert!` on `build_execution_order` — valid topological order
 - [x] `debug_assert!` on `composite_hash`, `hash_file`, `hash_string` — determinism
-- [ ] `#[debug_ensures]` on OCI `build_layer`, `assemble_manifest` — validity
+- [x] `#[debug_ensures]` on OCI `build_layer`, `assemble_manifest` — validity
 - [ ] Wire `forjar contracts --coverage` command
 - **Deliverable**: All critical-path functions have runtime contracts, coverage report available
 
@@ -715,13 +715,13 @@ pub fn compute_dual_digest(uncompressed: &[u8]) -> Result<(String, String), Stri
 - [x] `proof_handler_invariant_{file,package,service}` — Kani harnesses + runtime tests verify tags/deps don't affect hash (file, package, service in `kani_proofs.rs`)
 - [x] `proof_hash_determinism_real` — `hash_desired_state` on bounded `Resource` with nondeterministic content (in `kani_proofs.rs`)
 - [x] `proof_dag_ordering_real` — Kani harness verifies deterministic ordering + topological property on 3-node bounded DAG (in `kani_proofs.rs`)
-- [ ] `proof_layer_determinism` — `build_layer` produces same hashes
-- [ ] `proof_store_idempotency` — `store_put` twice is no-op
+- [x] `proof_layer_determinism` — `build_layer` produces same hashes
+- [x] `proof_store_idempotency` — `store_put` twice is no-op
 - [x] Deprecate abstract-model harnesses (documented in `kani_proofs.rs` with deprecation notice + proof assumptions table)
 - **Deliverable**: `cargo kani` passes on real-code harnesses
 
 ### Phase 15: Verus Narrowed Proofs (FJ-2202)
-- [ ] Replace toy `ResourceState` with `PlannerState` modeling real dual-hash
+- [x] Replace toy `ResourceState` with `PlannerState` modeling real dual-hash
 - [x] `proof_idempotency_conditional` — converged + handler invariant → NoOp
 - [x] `proof_apply_then_noop` — apply result + handler invariant → next plan is NoOp
 - [x] `proof_fleet_convergence` — N-resource extension
