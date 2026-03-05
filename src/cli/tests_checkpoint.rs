@@ -47,8 +47,8 @@ resources:
     type: model
     machine: gpu
     name: llama
-    model_source: local
-    model_path: /models/llama.gguf
+    source: /models/llama.gguf
+    format: gguf
     output_artifacts:
       - checkpoint-1.pt
 "#,
@@ -75,8 +75,8 @@ resources:
     type: model
     machine: gpu
     name: llama
-    model_source: local
-    model_path: /models/llama.gguf
+    source: /models/llama.gguf
+    format: gguf
     output_artifacts:
       - ckpt-1.pt
       - ckpt-2.pt

@@ -91,8 +91,8 @@ resources:
     type: model
     machine: gpu
     name: llama
-    model_source: local
-    model_path: /models/llama.gguf
+    source: /models/llama.gguf
+    format: gguf
 "#,
         );
         cmd_cost_estimate(&file, false).unwrap();
