@@ -236,7 +236,14 @@ pub(crate) fn cmd_schema() -> Result<(), String> {
                     "from": { "type": "string" },
                     "to": { "type": "string" }
                 }
-            }}
+            }},
+            "secrets": {
+                "type": "object",
+                "properties": {
+                    "provider": { "type": "string", "enum": ["env", "file"] },
+                    "path": { "type": "string", "description": "Path prefix for file-based secrets" }
+                }
+            }
         }
     });
 
@@ -294,6 +301,9 @@ fn build_resource_schema(stage_schema: serde_json::Value) -> serde_json::Value {
         props.insert(k.into(), s("string"));
     }
     props.insert("inputs".into(), serde_json::json!({ "type": "object", "additionalProperties": true }));
+    // FJ-2704: Distributed coordination
+    props.insert("gather".into(), arr_s());
+    props.insert("scatter".into(), arr_s());
 
     serde_json::json!({
         "type": "object",

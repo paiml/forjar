@@ -143,6 +143,8 @@ fn test_fj064_arch_filter_skips_mismatched() {
         store: false,
         sudo: false,
         script: None,
+        gather: vec![],
+        scatter: vec![],
     };
 
     // arch filter should reject: aarch64 resource on x86_64 machine

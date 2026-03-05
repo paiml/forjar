@@ -147,6 +147,8 @@ mod tests {
             store: false,
             sudo: false,
             script: None,
+            gather: vec![],
+            scatter: vec![],
         }
     }
 

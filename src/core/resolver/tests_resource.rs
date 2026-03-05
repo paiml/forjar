@@ -114,6 +114,8 @@ fn test_fj003_resolve_all_fields() {
         store: false,
         sudo: false,
         script: None,
+        gather: vec![],
+        scatter: vec![],
     };
 
     let resolved = resolve_resource_templates(&resource, &params, &machines).unwrap();
@@ -269,6 +271,8 @@ fn test_fj003_resolve_resource_templates_group_and_mode() {
         store: false,
         sudo: false,
         script: None,
+        gather: vec![],
+        scatter: vec![],
     };
 
     let resolved = resolve_resource_templates(&resource, &params, &machines).unwrap();

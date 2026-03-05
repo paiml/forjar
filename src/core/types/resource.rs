@@ -333,6 +333,16 @@ pub struct Resource {
     #[serde(default)]
     pub restart_delay: Option<u64>,
 
+    // -- FJ-2704: Distributed coordination --
+    /// Gather artifacts from remote machines after execution.
+    /// Maps remote path → local destination.
+    #[serde(default)]
+    pub gather: Vec<String>,
+    /// Scatter local artifacts to remote machines before execution.
+    /// Maps local path → remote destination.
+    #[serde(default)]
+    pub scatter: Vec<String>,
+
     // -- Lifecycle hooks + protection --
     /// Pre-apply hook (exit non-zero skips resource).
     #[serde(default)]

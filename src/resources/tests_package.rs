@@ -87,6 +87,8 @@ pub(super) fn make_apt_resource(packages: &[&str]) -> Resource {
         store: false,
         sudo: false,
         script: None,
+        gather: vec![],
+        scatter: vec![],
     }
 }
 

@@ -120,6 +120,8 @@ fn main() {
         store: false,
         sudo: false,
         script: None,
+        gather: vec![],
+        scatter: vec![],
     })
     .unwrap();
 

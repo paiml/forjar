@@ -149,6 +149,8 @@ fn test_fj036_hash_desired_state_deterministic() {
         store: false,
         sudo: false,
         script: None,
+        gather: vec![],
+        scatter: vec![],
     };
     let h1 = hash_desired_state(&r);
     let h2 = hash_desired_state(&r);
@@ -247,6 +249,8 @@ fn test_fj036_hash_desired_state_changes_on_content() {
         store: false,
         sudo: false,
         script: None,
+        gather: vec![],
+        scatter: vec![],
     };
     let r2 = Resource {
         content: Some("changed content".to_string()),

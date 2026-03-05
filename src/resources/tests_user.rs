@@ -87,6 +87,8 @@ fn make_user_resource(name: &str) -> Resource {
         store: false,
         sudo: false,
         script: None,
+        gather: vec![],
+        scatter: vec![],
     }
 }
 

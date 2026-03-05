@@ -97,6 +97,8 @@ pub(super) fn dag_config(names: &[&str], edges: &[(&str, &str)]) -> ForjarConfig
                 store: false,
                 sudo: false,
                 script: None,
+                gather: vec![],
+                scatter: vec![],
             },
         );
     }
@@ -228,5 +230,7 @@ pub(super) fn make_base_resource() -> Resource {
         store: false,
         sudo: false,
         script: None,
+        gather: vec![],
+        scatter: vec![],
     }
 }

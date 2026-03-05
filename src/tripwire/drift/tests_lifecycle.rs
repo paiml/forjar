@@ -90,6 +90,8 @@ fn make_file_resource(lifecycle: Option<LifecycleRules>) -> Resource {
         store: false,
         sudo: false,
         script: None,
+        gather: vec![],
+        scatter: vec![],
     }
 }
 

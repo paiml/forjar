@@ -88,6 +88,8 @@ pub fn make_package() -> Resource {
         store: false,
         sudo: false,
         script: None,
+        gather: vec![],
+        scatter: vec![],
     }
 }
 
@@ -177,6 +179,8 @@ pub fn make_file() -> Resource {
         store: false,
         sudo: false,
         script: None,
+        gather: vec![],
+        scatter: vec![],
     }
 }
 
@@ -266,6 +270,8 @@ pub fn make_service() -> Resource {
         store: false,
         sudo: false,
         script: None,
+        gather: vec![],
+        scatter: vec![],
     }
 }
 
@@ -355,5 +361,7 @@ pub fn make_mount() -> Resource {
         store: false,
         sudo: false,
         script: None,
+        gather: vec![],
+        scatter: vec![],
     }
 }

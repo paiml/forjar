@@ -90,6 +90,8 @@ fn make_gpu_resource(name: &str) -> Resource {
         store: false,
         sudo: false,
         script: None,
+        gather: vec![],
+        scatter: vec![],
     }
 }
 

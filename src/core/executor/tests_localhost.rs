@@ -248,6 +248,8 @@ fn test_fj131_build_details_group_only() {
         store: false,
         sudo: false,
         script: None,
+        gather: vec![],
+        scatter: vec![],
     };
     let details = build_resource_details(&r, &local_machine());
     assert_eq!(

@@ -77,6 +77,44 @@ pub fn state_query_script(resource: &Resource) -> String {
     format!("echo 'command={command}'")
 }
 
+/// FJ-2704: Generate shell script to scatter local artifacts to remote paths.
+///
+/// Each scatter entry is a "local:remote" mapping. Returns a script that copies
+/// local files to their remote destinations before task execution.
+pub fn scatter_script(resource: &Resource) -> Option<String> {
+    if resource.scatter.is_empty() {
+        return None;
+    }
+    let mut script = String::from("set -euo pipefail\n# FJ-2704: scatter artifacts\n");
+    for mapping in &resource.scatter {
+        if let Some((local, remote)) = mapping.split_once(':') {
+            script.push_str(&format!(
+                "mkdir -p \"$(dirname '{remote}')\"\ncp -r '{local}' '{remote}'\n"
+            ));
+        }
+    }
+    Some(script)
+}
+
+/// FJ-2704: Generate shell script to gather remote artifacts to local paths.
+///
+/// Each gather entry is a "remote:local" mapping. Returns a script that copies
+/// remote files to their local destinations after task execution.
+pub fn gather_script(resource: &Resource) -> Option<String> {
+    if resource.gather.is_empty() {
+        return None;
+    }
+    let mut script = String::from("set -euo pipefail\n# FJ-2704: gather artifacts\n");
+    for mapping in &resource.gather {
+        if let Some((remote, local)) = mapping.split_once(':') {
+            script.push_str(&format!(
+                "mkdir -p \"$(dirname '{local}')\"\ncp -r '{remote}' '{local}'\n"
+            ));
+        }
+    }
+    Some(script)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -188,5 +226,48 @@ mod tests {
         r.command = None;
         let script = apply_script(&r);
         assert!(script.contains("true"));
+    }
+
+    #[test]
+    fn test_scatter_empty() {
+        let r = make_task_resource("train");
+        assert!(scatter_script(&r).is_none());
+    }
+
+    #[test]
+    fn test_scatter_with_mappings() {
+        let mut r = make_task_resource("train");
+        r.scatter = vec![
+            "/local/data.csv:/remote/data.csv".to_string(),
+            "/local/config.yaml:/remote/config.yaml".to_string(),
+        ];
+        let script = scatter_script(&r).unwrap();
+        assert!(script.contains("cp -r '/local/data.csv' '/remote/data.csv'"));
+        assert!(script.contains("cp -r '/local/config.yaml' '/remote/config.yaml'"));
+        assert!(script.contains("mkdir -p"));
+    }
+
+    #[test]
+    fn test_gather_empty() {
+        let r = make_task_resource("train");
+        assert!(gather_script(&r).is_none());
+    }
+
+    #[test]
+    fn test_gather_with_mappings() {
+        let mut r = make_task_resource("train");
+        r.gather = vec!["/remote/model.bin:/local/model.bin".to_string()];
+        let script = gather_script(&r).unwrap();
+        assert!(script.contains("cp -r '/remote/model.bin' '/local/model.bin'"));
+        assert!(script.contains("# FJ-2704: gather artifacts"));
+    }
+
+    #[test]
+    fn test_scatter_invalid_mapping_skipped() {
+        let mut r = make_task_resource("train");
+        r.scatter = vec!["no-colon-here".to_string()];
+        let script = scatter_script(&r).unwrap();
+        // Invalid mapping is skipped — no cp command generated
+        assert!(!script.contains("cp"));
     }
 }

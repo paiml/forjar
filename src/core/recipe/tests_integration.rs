@@ -140,6 +140,8 @@ fn test_fj019_resolve_resource_inputs_target_and_options() {
         store: false,
         sudo: false,
         script: None,
+        gather: vec![],
+        scatter: vec![],
     };
     let mut inputs = HashMap::new();
     inputs.insert("vol".to_string(), "raid".to_string());
@@ -242,6 +244,8 @@ fn test_fj019_resolve_resource_inputs_content_field() {
         store: false,
         sudo: false,
         script: None,
+        gather: vec![],
+        scatter: vec![],
     };
     let mut inputs = HashMap::new();
     inputs.insert("user".to_string(), "admin".to_string());
