@@ -253,6 +253,79 @@ impl fmt::Display for WasmBuildResult {
     }
 }
 
+/// FJ-2402: Bundle size drift detection.
+///
+/// Compares current build size against budget and previous build to detect
+/// regressions. Used to alert when WASM exceeds budget or grows too fast.
+///
+/// # Examples
+///
+/// ```
+/// use forjar::core::types::{WasmSizeBudget, BundleSizeDrift};
+///
+/// let budget = WasmSizeBudget::default();
+/// let drift = BundleSizeDrift::check(&budget, 90 * 1024, Some(85 * 1024));
+/// assert!(drift.is_ok());
+/// ```
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BundleSizeDrift {
+    /// Current build size in bytes.
+    pub current_bytes: u64,
+    /// Previous build size in bytes (if available).
+    pub previous_bytes: Option<u64>,
+    /// Budget limit in bytes.
+    pub budget_bytes: u64,
+    /// Whether current size exceeds budget.
+    pub exceeds_budget: bool,
+    /// Whether growth from previous build exceeds 20%.
+    pub exceeds_growth_limit: bool,
+}
+
+impl BundleSizeDrift {
+    /// Check bundle size against budget and previous build.
+    pub fn check(budget: &WasmSizeBudget, current_bytes: u64, previous_bytes: Option<u64>) -> Self {
+        let budget_bytes = budget.core_kb * 1024;
+        let exceeds_budget = current_bytes > budget_bytes;
+        let exceeds_growth_limit = previous_bytes
+            .map(|prev| prev > 0 && current_bytes > prev + prev / 5) // >20% growth
+            .unwrap_or(false);
+        Self {
+            current_bytes,
+            previous_bytes,
+            budget_bytes,
+            exceeds_budget,
+            exceeds_growth_limit,
+        }
+    }
+
+    /// Whether the bundle is within all limits.
+    pub fn is_ok(&self) -> bool {
+        !self.exceeds_budget && !self.exceeds_growth_limit
+    }
+
+    /// Current size in KB.
+    pub fn current_kb(&self) -> u64 {
+        self.current_bytes / 1024
+    }
+}
+
+impl fmt::Display for BundleSizeDrift {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let (cur, bud) = (self.current_kb(), self.budget_bytes / 1024);
+        if self.exceeds_budget {
+            write!(f, "BUDGET EXCEEDED: {cur} KB > {bud} KB budget")?;
+        } else {
+            write!(f, "OK: {cur} KB / {bud} KB budget")?;
+        }
+        if let Some(prev) = self.previous_bytes {
+            let p = prev / 1024;
+            let pct = if prev > 0 { ((cur as f64 - p as f64) / p as f64 * 100.0) as i32 } else { 0 };
+            write!(f, " (prev: {p} KB, {pct:+}%)")?;
+        }
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -382,5 +455,24 @@ optimize: true
         assert_eq!(config.crate_path, "crates/presentar");
         assert_eq!(config.opt_level, WasmOptLevel::MinSize);
         assert!(config.optimize);
+    }
+
+    #[test]
+    fn bundle_drift_scenarios() {
+        let budget = WasmSizeBudget::default();
+        // Within budget
+        let d = BundleSizeDrift::check(&budget, 90 * 1024, Some(85 * 1024));
+        assert!(d.is_ok());
+        // Exceeds budget
+        let d = BundleSizeDrift::check(&budget, 110 * 1024, Some(90 * 1024));
+        assert!(d.exceeds_budget && !d.is_ok());
+        assert!(d.to_string().contains("BUDGET EXCEEDED"));
+        // Growth >20% (within budget)
+        let big = WasmSizeBudget { core_kb: 200, ..Default::default() };
+        let d = BundleSizeDrift::check(&big, 130 * 1024, Some(100 * 1024));
+        assert!(!d.exceeds_budget && d.exceeds_growth_limit && !d.is_ok());
+        // No previous
+        let d = BundleSizeDrift::check(&budget, 90 * 1024, None);
+        assert!(d.is_ok());
     }
 }
