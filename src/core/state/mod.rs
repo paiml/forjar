@@ -52,6 +52,10 @@ pub fn save_lock(state_dir: &Path, lock: &StateLock) -> Result<(), String> {
     // FJ-1270: Write BLAKE3 integrity sidecar
     let _ = integrity::write_b3_sidecar(&path);
 
+    // FJ-2200: Atomicity postcondition — file exists and temp is gone
+    debug_assert!(path.exists(), "save_lock: file does not exist after write");
+    debug_assert!(!tmp_path.exists(), "save_lock: temp file still exists after rename");
+
     Ok(())
 }
 

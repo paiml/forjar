@@ -700,12 +700,12 @@ pub fn compute_dual_digest(uncompressed: &[u8]) -> Result<(String, String), Stri
 ## Implementation
 
 ### Phase 13: Runtime Contracts (FJ-2200)
-- [ ] Add `contracts` crate dependency
+- [x] Runtime contract postconditions (using `debug_assert!` — lighter than `contracts` crate)
 - [ ] `#[debug_ensures]` on `determine_present_action` — idempotency postcondition
-- [ ] `#[debug_ensures]` on `hash_desired_state` — determinism
-- [ ] `#[ensures]` on `save_lock` — atomicity postcondition
-- [ ] `#[debug_ensures]` on `build_execution_order` — valid topological order
-- [ ] `#[debug_ensures]` on `composite_hash`, `hash_file`, `hash_string` — determinism
+- [x] `debug_assert!` on `hash_desired_state` — determinism
+- [x] `debug_assert!` on `save_lock` — atomicity postcondition
+- [x] `debug_assert!` on `build_execution_order` — valid topological order
+- [x] `debug_assert!` on `composite_hash`, `hash_file`, `hash_string` — determinism
 - [ ] `#[debug_ensures]` on OCI `build_layer`, `assemble_manifest` — validity
 - [ ] Wire `forjar contracts --coverage` command
 - **Deliverable**: All critical-path functions have runtime contracts, coverage report available

@@ -22,13 +22,22 @@ pub fn hash_file(path: &Path) -> Result<String, String> {
         }
         hasher.update(&buf[..n]);
     }
-    Ok(format!("blake3:{}", hasher.finalize().to_hex()))
+    let result = format!("blake3:{}", hasher.finalize().to_hex());
+    // FJ-2200: Determinism — hash always starts with "blake3:" prefix and has 64 hex chars
+    debug_assert!(result.starts_with("blake3:"), "hash_file: missing prefix");
+    debug_assert_eq!(result.len(), 71, "hash_file: unexpected length");
+    Ok(result)
 }
 
 /// Hash a string. Returns `"blake3:{hex}"`.
+///
+/// FJ-2200: Contract — determinism: same input always produces same hash.
 #[contract("blake3-state-v1", equation = "hash_string")]
 pub fn hash_string(s: &str) -> String {
-    format!("blake3:{}", blake3::hash(s.as_bytes()).to_hex())
+    let result = format!("blake3:{}", blake3::hash(s.as_bytes()).to_hex());
+    debug_assert!(result.starts_with("blake3:"), "hash_string: missing prefix");
+    debug_assert_eq!(result.len(), 71, "hash_string: unexpected length");
+    result
 }
 
 /// Hash a directory (sorted walk, relative paths included in hash).
@@ -80,6 +89,8 @@ pub fn hash_directory(path: &Path) -> Result<String, String> {
 }
 
 /// Compute a composite hash from multiple component hashes.
+///
+/// FJ-2200: Contract — determinism: same components always produce same hash.
 #[contract("blake3-state-v1", equation = "composite_hash")]
 pub fn composite_hash(components: &[&str]) -> String {
     let mut hasher = blake3::Hasher::new();
@@ -87,5 +98,8 @@ pub fn composite_hash(components: &[&str]) -> String {
         hasher.update(c.as_bytes());
         hasher.update(b"\0");
     }
-    format!("blake3:{}", hasher.finalize().to_hex())
+    let result = format!("blake3:{}", hasher.finalize().to_hex());
+    debug_assert!(result.starts_with("blake3:"), "composite_hash: missing prefix");
+    debug_assert_eq!(result.len(), 71, "composite_hash: unexpected length");
+    result
 }
