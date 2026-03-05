@@ -366,3 +366,118 @@ includes: []
     let unknowns = detect_unknown_fields(yaml).unwrap();
     assert!(unknowns.is_empty(), "expected no unknowns: {unknowns:?}");
 }
+
+// -- Recipe unknown field tests --
+
+#[test]
+fn recipe_valid_no_unknowns() {
+    let yaml = r#"
+recipe:
+  name: my-recipe
+  version: "1.0"
+  description: Test recipe
+  inputs:
+    port:
+      type: string
+      default: "8080"
+      description: Port number
+  requires:
+    - recipe: base-recipe
+resources:
+  config:
+    type: file
+    path: /etc/config
+"#;
+    let unknowns = detect_unknown_recipe_fields(yaml).unwrap();
+    assert!(unknowns.is_empty(), "expected no unknowns: {unknowns:?}");
+}
+
+#[test]
+fn recipe_top_level_typo() {
+    let yaml = r#"
+recpe:
+  name: test
+resources: {}
+"#;
+    let unknowns = detect_unknown_recipe_fields(yaml).unwrap();
+    assert_eq!(unknowns.len(), 1);
+    assert_eq!(unknowns[0].key, "recpe");
+    assert_eq!(unknowns[0].suggestion.as_deref(), Some("recipe"));
+}
+
+#[test]
+fn recipe_meta_unknown_field() {
+    let yaml = r#"
+recipe:
+  name: test
+  vesion: "1.0"
+"#;
+    let unknowns = detect_unknown_recipe_fields(yaml).unwrap();
+    assert_eq!(unknowns.len(), 1);
+    assert_eq!(unknowns[0].key, "vesion");
+    assert_eq!(unknowns[0].suggestion.as_deref(), Some("version"));
+}
+
+#[test]
+fn recipe_input_unknown_field() {
+    let yaml = r#"
+recipe:
+  name: test
+  inputs:
+    port:
+      type: string
+      defalt: "8080"
+"#;
+    let unknowns = detect_unknown_recipe_fields(yaml).unwrap();
+    assert_eq!(unknowns.len(), 1);
+    assert_eq!(unknowns[0].key, "defalt");
+    assert_eq!(unknowns[0].suggestion.as_deref(), Some("default"));
+}
+
+#[test]
+fn recipe_requirement_unknown_field() {
+    let yaml = r#"
+recipe:
+  name: test
+  requires:
+    - recpe: base
+"#;
+    let unknowns = detect_unknown_recipe_fields(yaml).unwrap();
+    assert_eq!(unknowns.len(), 1);
+    assert_eq!(unknowns[0].key, "recpe");
+    assert_eq!(unknowns[0].suggestion.as_deref(), Some("recipe"));
+}
+
+#[test]
+fn recipe_resource_typo() {
+    let yaml = r#"
+recipe:
+  name: test
+resources:
+  svc:
+    type: service
+    enbled: true
+"#;
+    let unknowns = detect_unknown_recipe_fields(yaml).unwrap();
+    assert_eq!(unknowns.len(), 1);
+    assert_eq!(unknowns[0].key, "enbled");
+    assert_eq!(unknowns[0].suggestion.as_deref(), Some("enabled"));
+}
+
+#[test]
+fn recipe_input_all_valid_fields() {
+    let yaml = r#"
+recipe:
+  name: test
+  inputs:
+    count:
+      type: int
+      description: Number of instances
+      default: 3
+      min: 1
+      max: 10
+      choices: ["1", "3", "5"]
+"#;
+    let unknowns = detect_unknown_recipe_fields(yaml).unwrap();
+    assert!(unknowns.is_empty(), "expected no unknowns: {unknowns:?}");
+}

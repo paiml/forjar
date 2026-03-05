@@ -212,6 +212,17 @@ const MOVED_FIELDS: &[&str] = &["from", "to"];
 
 const LIFECYCLE_FIELDS: &[&str] = &["prevent_destroy", "create_before_destroy", "ignore_drift"];
 
+// -- Recipe known fields --
+
+const RECIPE_FILE_FIELDS: &[&str] = &["recipe", "resources"];
+
+const RECIPE_META_FIELDS: &[&str] = &["name", "version", "description", "inputs", "requires"];
+
+const RECIPE_INPUT_FIELDS: &[&str] =
+    &["type", "description", "default", "min", "max", "choices"];
+
+const RECIPE_REQUIREMENT_FIELDS: &[&str] = &["recipe"];
+
 /// Detect unknown fields in raw YAML by comparing against known field sets.
 pub fn detect_unknown_fields(yaml: &str) -> Result<Vec<UnknownField>, String> {
     let value: serde_yaml_ng::Value =
@@ -244,6 +255,58 @@ pub fn detect_unknown_fields(yaml: &str) -> Result<Vec<UnknownField>, String> {
         }
     }
     Ok(unknowns)
+}
+
+/// Detect unknown fields in a recipe YAML file.
+pub fn detect_unknown_recipe_fields(yaml: &str) -> Result<Vec<UnknownField>, String> {
+    let value: serde_yaml_ng::Value =
+        serde_yaml_ng::from_str(yaml).map_err(|e| format!("YAML parse error: {e}"))?;
+
+    let mut unknowns = Vec::new();
+
+    let mapping = match value.as_mapping() {
+        Some(m) => m,
+        None => return Ok(unknowns),
+    };
+
+    for (key, val) in mapping {
+        let key_str = yaml_key_str(key);
+        if !RECIPE_FILE_FIELDS.contains(&key_str.as_str()) {
+            unknowns.push(make_unknown(&key_str, &key_str, RECIPE_FILE_FIELDS));
+            continue;
+        }
+        match key_str.as_str() {
+            "recipe" => check_recipe_meta(val, "recipe", &mut unknowns),
+            "resources" => check_named_map(val, "resources", RESOURCE_FIELDS, &mut unknowns),
+            _ => {}
+        }
+    }
+    Ok(unknowns)
+}
+
+/// Check recipe metadata fields including nested inputs and requires.
+fn check_recipe_meta(
+    val: &serde_yaml_ng::Value,
+    path: &str,
+    unknowns: &mut Vec<UnknownField>,
+) {
+    let mapping = match val.as_mapping() {
+        Some(m) => m,
+        None => return,
+    };
+    for (key, child) in mapping {
+        let key_str = yaml_key_str(key);
+        let full = format!("{path}.{key_str}");
+        if !RECIPE_META_FIELDS.contains(&key_str.as_str()) {
+            unknowns.push(make_unknown(&full, &key_str, RECIPE_META_FIELDS));
+            continue;
+        }
+        match key_str.as_str() {
+            "inputs" => check_named_map(child, &full, RECIPE_INPUT_FIELDS, unknowns),
+            "requires" => check_list(child, &full, RECIPE_REQUIREMENT_FIELDS, unknowns),
+            _ => {}
+        }
+    }
 }
 
 /// Convert unknown fields into validation errors.
