@@ -92,9 +92,7 @@ fn merge_includes_inner(
         // Merge data sources
         for (k, v) in included.data {
             if merged.data.contains_key(&k) {
-                eprintln!(
-                    "warning: include '{include_path}' overwrites data source '{k}'"
-                );
+                eprintln!("warning: include '{include_path}' overwrites data source '{k}'");
             }
             merged.data.insert(k, v);
         }
@@ -141,11 +139,7 @@ mod tests_includes_hardening {
     fn duplicate_include_detected() {
         let dir = tempfile::tempdir().unwrap();
         let inc = dir.path().join("inc.yaml");
-        std::fs::write(
-            &inc,
-            "version: \"1.0\"\nname: inc\nresources: {}\n",
-        )
-        .unwrap();
+        std::fs::write(&inc, "version: \"1.0\"\nname: inc\nresources: {}\n").unwrap();
 
         let base_yaml = format!(
             "version: \"1.0\"\nname: base\nincludes:\n  - {p}\n  - {p}\nresources: {{}}\n",
