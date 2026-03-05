@@ -302,3 +302,28 @@ jobs:
 
 The clean-room CI environment ensures GPU tests run in isolation with deterministic
 CUDA/ROCm versions. The `rust-cuda:1.89` image provides cargo at `/root/.cargo/bin/`.
+
+## Service Mode for Long-Running Tasks
+
+Training jobs and inference servers can use service mode with health checks and automatic restart:
+
+```yaml
+resources:
+  training-server:
+    type: task
+    task_mode: service
+    machine: gpu-node
+    command: "python train.py --checkpoint-dir /data/checkpoints"
+    gpu_device: "0"
+    health_check:
+      command: "curl -sf http://localhost:8080/health"
+      interval: "30s"
+      timeout: "5s"
+      retries: 3
+```
+
+Service mode provides:
+- **Exponential backoff** on restart (1s, 2s, 4s, 8s... up to 60s cap)
+- **Health check loop** with configurable interval, timeout, and failure threshold
+- **Restart counter reset** after sustained healthy period (default: 5 minutes)
+- **GPU memory tracking** via `gpu_memory:` informational field in state

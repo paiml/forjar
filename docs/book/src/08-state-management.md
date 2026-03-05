@@ -1155,3 +1155,24 @@ The result is a `StateLock` representing the machine's state at that moment.
 - **Point-in-time recovery**: Understand what was deployed at a specific moment
 - **Audit**: Verify what resources were active during an incident
 - **Debugging**: Compare reconstructed state at two timestamps to find what changed
+
+## Generation Diff
+
+Compare resources across generations to see what changed:
+
+```bash
+forjar diff --generation 5 8
+```
+
+Output:
+```
+Diff: generation 5 → 8 (intel)
+1 added, 1 modified, 1 removed, 2 unchanged
+  + monitoring-agent (package)
+  ~ bash-aliases (file) — hash changed
+  - legacy-cron (service)
+```
+
+Each resource is classified as added (`+`), modified (`~`), removed (`-`), or unchanged. Modified resources show old and new BLAKE3 hashes for auditing.
+
+Use `--json` for machine-readable output in CI pipelines.
