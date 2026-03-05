@@ -196,6 +196,10 @@ forjar query --type image --drift                  # stale deployments
 ## Implementation
 
 ### Phase 11: Distribution (FJ-2105)
+- [x] Distribution target types: `DistTarget` (Load/Push/Far)
+- [x] Push result types: `PushResult`, `PushKind` (Layer/Config/Manifest/Index)
+- [x] Multi-arch types: `ArchBuild` with linux/amd64 and linux/arm64 constructors
+- [x] Build report: `BuildReport`, `LayerReport`, `DistResult` with `format_summary()`
 - [ ] `--load`: pipe OCI tar to `docker load` / `podman load`
 - [ ] `--push`: OCI Distribution v1.1 (HEAD check + blob upload + manifest PUT)
 - [ ] `--far`: wrap OCI image in FAR archive

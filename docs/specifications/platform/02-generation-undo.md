@@ -285,6 +285,11 @@ Undo-destroy order: `nfs-server` (intel) → `nfs-mount` (jetson)
 - **Extends**: `src/cli/generation.rs`
 
 ### Phase 3: Stack Undo (FJ-2003)
+- [x] Undo plan types: `UndoPlan`, `UndoResourceAction`, `UndoAction` (Destroy/Create/Update)
+- [x] Undo progress types: `UndoProgress`, `ResourceProgress`, `ResourceProgressStatus`, `UndoStatus`
+- [x] `UndoPlan::format_summary()` with irreversibility warnings
+- [x] `UndoProgress` counts: `completed_count()`, `failed_count()`, `pending_count()`
+- [x] YAML serialization for `undo-progress.yaml` resume file
 - [ ] Generation diff: compare resource sets between gen N and gen N-K
 - [ ] `forjar undo --dry-run`
 - [ ] Active undo: config snapshot from target gen, re-run `cmd_apply` with force
