@@ -298,10 +298,14 @@ This ensures ingest never reads a half-written state. The worst case is a slight
 - [x] Query result types: `QueryResult`, `QueryParams`, `QueryOutputFormat`
 - [x] Health summary types: `HealthSummary`, `MachineHealthRow` with `stack_health_pct()`
 - [x] `HealthSummary::format_table()` for human-readable output
+- [x] `SqliteConfig` with `db_path()`, `pragma_statements()` (WAL, cache, mmap)
+- [x] `SchemaV1` DDL constants: resources, generations, run_logs, FTS5, indexes
+- [x] `IngestCursor` with `is_ingested()`, `mark_ingested()` for incremental ingest
+- [x] `IngestResult` with Display for ingest summary
+- [x] `QueryEnrichments` with 8 boolean flags and `any_enabled()`
 - [ ] Add `rusqlite` with `bundled-full` (includes FTS5)
 - [ ] `src/core/store/db.rs` — schema creation, WAL, pragma tuning
 - [ ] Ingest pipeline from existing state files
-- [ ] Incremental ingest with `ingest_cursor`
 - [ ] Wire `forjar query` subcommand
 - [ ] FTS5 search: `forjar query "bash"` → sub-100ms
 - **Extends**: `src/core/store/`
