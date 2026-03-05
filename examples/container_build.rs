@@ -103,4 +103,27 @@ fn main() {
     };
     println!("  {result}");
     println!("  Size: {:.1} MB", result.size_mb());
+
+    // Multi-tier layer stacking
+    println!("\n=== Multi-Tier Layer Stacking ===");
+    let multi_plan = ImageBuildPlan {
+        tag: "app:latest".into(),
+        base_image: Some("ubuntu:22.04".into()),
+        layers: vec![
+            LayerStrategy::Packages { names: vec!["nginx".into(), "curl".into()] },
+            LayerStrategy::Build { command: "make install".into(), workdir: Some("/src".into()) },
+            LayerStrategy::Files { paths: vec!["/etc/app/config.yaml".into()] },
+        ],
+        labels: vec![("maintainer".into(), "team@example.com".into())],
+        entrypoint: None,
+    };
+    for (tier, strategy) in multi_plan.tier_plan() {
+        let desc = match strategy {
+            LayerStrategy::Packages { names } => format!("packages: {}", names.join(", ")),
+            LayerStrategy::Build { command, .. } => format!("build: {command}"),
+            LayerStrategy::Files { paths } => format!("files: {}", paths.join(", ")),
+            LayerStrategy::Derivation { store_path } => format!("derivation: {store_path}"),
+        };
+        println!("  Tier {tier}: {desc}");
+    }
 }
