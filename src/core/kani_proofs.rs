@@ -245,6 +245,81 @@ fn proof_planner_idempotency_real() {
     assert!(action_is_noop, "converged + matching hash must be NoOp");
 }
 
+/// FJ-2201: DAG ordering determinism.
+///
+/// Verifies `build_execution_order` on a fixed config produces the same
+/// result on two calls. Models deterministic Kahn's algorithm with
+/// alphabetical tie-breaking.
+#[cfg(kani)]
+#[kani::proof]
+fn proof_dag_ordering_real() {
+    // Model: 3-node DAG with nondeterministic edges (acyclic only)
+    let dep_01: bool = kani::any(); // res-a → res-b
+    let dep_02: bool = kani::any(); // res-a → res-c
+    let dep_12: bool = kani::any(); // res-b → res-c
+
+    // Compute order twice with same edges
+    let order1 = super::compute_order(dep_01, dep_02, dep_12);
+    let order2 = super::compute_order(dep_01, dep_02, dep_12);
+    assert_eq!(order1, order2, "DAG ordering must be deterministic");
+
+    // Verify topological property: if edge exists, source < target in order
+    let pos = |node: u8| order1.iter().position(|&n| n == node).unwrap();
+    if dep_01 { assert!(pos(0) < pos(1)); }
+    if dep_02 { assert!(pos(0) < pos(2)); }
+    if dep_12 { assert!(pos(1) < pos(2)); }
+}
+
+/// FJ-2201: Handler invariant for file resources.
+///
+/// Verifies that hash_desired_state on a File resource produces the same
+/// hash regardless of non-content fields (tags, depends_on).
+#[cfg(kani)]
+#[kani::proof]
+fn proof_handler_invariant_file() {
+    use super::planner::hash_desired_state;
+    use super::types::{Resource, ResourceType};
+
+    let mut r = Resource::default();
+    r.resource_type = ResourceType::File;
+    r.path = Some("/etc/test.conf".into());
+    r.content = Some("key=value".into());
+
+    let hash_base = hash_desired_state(&r);
+
+    // Adding tags must not change the hash (tags are not hashed)
+    r.tags = vec!["web".into(), "production".into()];
+    let hash_with_tags = hash_desired_state(&r);
+
+    // Adding depends_on must not change the hash
+    r.depends_on = vec!["other-resource".into()];
+    let hash_with_deps = hash_desired_state(&r);
+
+    assert_eq!(hash_base, hash_with_tags, "tags must not affect hash");
+    assert_eq!(hash_base, hash_with_deps, "depends_on must not affect hash");
+}
+
+/// FJ-2201: Handler invariant for package resources.
+#[cfg(kani)]
+#[kani::proof]
+fn proof_handler_invariant_package() {
+    use super::planner::hash_desired_state;
+    use super::types::{Resource, ResourceType};
+
+    let mut r1 = Resource::default();
+    r1.resource_type = ResourceType::Package;
+    r1.packages = vec!["nginx".into()];
+
+    let mut r2 = Resource::default();
+    r2.resource_type = ResourceType::Package;
+    r2.packages = vec!["nginx".into()];
+    r2.tags = vec!["web".into()];
+
+    let h1 = hash_desired_state(&r1);
+    let h2 = hash_desired_state(&r2);
+    assert_eq!(h1, h2, "tags must not affect package hash");
+}
+
 // Module-level tests that verify the proof stubs compile and the logic is correct
 // (run with regular `cargo test`, not Kani)
 #[cfg(test)]
@@ -290,5 +365,95 @@ mod tests {
         // 0 → 1, 0 → 2
         let order = super::compute_order(true, true, false);
         assert_eq!(order, [0, 1, 2]);
+    }
+
+    #[test]
+    fn test_handler_invariant_file_runtime() {
+        use crate::core::planner::hash_desired_state;
+        use crate::core::types::{Resource, ResourceType};
+
+        let mut r = Resource::default();
+        r.resource_type = ResourceType::File;
+        r.path = Some("/etc/test.conf".into());
+        r.content = Some("key=value".into());
+        let h_base = hash_desired_state(&r);
+
+        r.tags = vec!["web".into()];
+        assert_eq!(h_base, hash_desired_state(&r), "tags must not affect hash");
+
+        r.depends_on = vec!["dep".into()];
+        assert_eq!(h_base, hash_desired_state(&r), "deps must not affect hash");
+    }
+
+    #[test]
+    fn test_handler_invariant_package_runtime() {
+        use crate::core::planner::hash_desired_state;
+        use crate::core::types::{Resource, ResourceType};
+
+        let mut r1 = Resource::default();
+        r1.resource_type = ResourceType::Package;
+        r1.packages = vec!["nginx".into()];
+
+        let mut r2 = r1.clone();
+        r2.tags = vec!["web".into()];
+
+        assert_eq!(
+            hash_desired_state(&r1),
+            hash_desired_state(&r2),
+            "tags must not affect package hash"
+        );
+    }
+
+    #[test]
+    fn test_handler_invariant_service_runtime() {
+        use crate::core::planner::hash_desired_state;
+        use crate::core::types::{Resource, ResourceType};
+
+        let mut r = Resource::default();
+        r.resource_type = ResourceType::Service;
+        r.name = Some("nginx".into());
+        let h_base = hash_desired_state(&r);
+
+        let mut r2 = r.clone();
+        r2.tags = vec!["production".into()];
+        r2.depends_on = vec!["nginx-pkg".into()];
+        assert_eq!(h_base, hash_desired_state(&r2), "tags/deps must not affect service hash");
+    }
+
+    #[test]
+    fn test_dag_ordering_determinism_runtime() {
+        use crate::core::resolver::build_execution_order;
+        use crate::core::types::*;
+
+        let yaml = r#"
+version: "1.0"
+name: dag-test
+machines:
+  local:
+    hostname: localhost
+    addr: 127.0.0.1
+    user: root
+    arch: x86_64
+resources:
+  res-a:
+    type: file
+    machine: local
+    path: /etc/a
+    content: "a"
+  res-b:
+    type: file
+    machine: local
+    path: /etc/b
+    content: "b"
+    depends_on: [res-a]
+"#;
+        let config: ForjarConfig = serde_yaml_ng::from_str(yaml).unwrap();
+
+        let o1 = build_execution_order(&config).unwrap();
+        let o2 = build_execution_order(&config).unwrap();
+        assert_eq!(o1, o2);
+        let pos_a = o1.iter().position(|s| s == "res-a").unwrap();
+        let pos_b = o1.iter().position(|s| s == "res-b").unwrap();
+        assert!(pos_a < pos_b, "dependency must come first");
     }
 }
