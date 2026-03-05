@@ -319,7 +319,7 @@ resources:
 - [ ] Multi-tier layer stacking
 
 ### Phase 10: Image Resource Type (FJ-2104) — PARTIAL
-- [ ] `ResourceType::Image`
+- [x] `ResourceType::Image`
 - [x] Layer dispatch: `LayerStrategy` enum (Packages, Files, Build, Derivation)
 - [x] Base image resolution: `BaseImageRef` with registry(), platform, resolved
 - [ ] `forjar build` CLI command
