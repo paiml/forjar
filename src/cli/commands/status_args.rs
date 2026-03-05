@@ -2,6 +2,7 @@
 
 use std::path::PathBuf;
 
+/// CLI arguments for the `status` command.
 #[derive(clap::Args, Debug)]
 pub struct StatusArgs {
     /// State directory

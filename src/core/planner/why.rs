@@ -7,9 +7,13 @@ use crate::tripwire::hasher;
 /// A structured explanation of why a resource is changing.
 #[derive(Debug, Clone)]
 pub struct ChangeReason {
+    /// Resource identifier.
     pub resource_id: String,
+    /// Target machine.
     pub machine: String,
+    /// Planned action for this resource.
     pub action: PlanAction,
+    /// Human-readable reasons for the action.
     pub reasons: Vec<String>,
 }
 

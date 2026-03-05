@@ -38,32 +38,49 @@ impl std::fmt::Display for ToolQualLevel {
 /// A requirement with traceability.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct Requirement {
+    /// Requirement identifier (e.g., REQ-001).
     pub id: String,
+    /// Human-readable requirement description.
     pub description: String,
+    /// Source reference (e.g., DO-330 section).
     pub source: String,
+    /// Associated test case names.
     pub test_cases: Vec<String>,
+    /// Whether the requirement has been verified.
     pub verified: bool,
 }
 
 /// Structural coverage evidence.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct CoverageEvidence {
+    /// Coverage metric name.
     pub metric: String,
+    /// Achieved coverage percentage.
     pub achieved: f64,
+    /// Required coverage percentage.
     pub required: f64,
+    /// Whether requirement is met.
     pub satisfied: bool,
 }
 
 /// Tool qualification data package.
 #[derive(Debug, serde::Serialize)]
 pub struct QualificationPackage {
+    /// Tool name (e.g., "forjar").
     pub tool_name: String,
+    /// Tool version string.
     pub tool_version: String,
+    /// DO-330 qualification level.
     pub qualification_level: ToolQualLevel,
+    /// Traceability matrix entries.
     pub requirements: Vec<Requirement>,
+    /// Structural coverage results.
     pub coverage_evidence: Vec<CoverageEvidence>,
+    /// Total number of requirements.
     pub total_requirements: usize,
+    /// Number of verified requirements.
     pub verified_requirements: usize,
+    /// Whether qualification is complete.
     pub qualification_complete: bool,
 }
 

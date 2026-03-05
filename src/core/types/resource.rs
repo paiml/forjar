@@ -385,22 +385,32 @@ pub struct LifecycleRules {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum ResourceType {
+    /// System package (apt, cargo, uv).
     #[default]
     Package,
+    /// File or directory.
     File,
+    /// Systemd service unit.
     Service,
+    /// Filesystem mount point.
     Mount,
+    /// Unix user account.
     User,
+    /// Docker container.
     Docker,
+    /// Pepita namespace-isolated process.
     Pepita,
+    /// Network/firewall rule.
     Network,
+    /// Cron scheduled job.
     Cron,
+    /// Nested recipe inclusion.
     Recipe,
-    /// FJ-240: ML model resource type
+    /// FJ-240: ML model resource type.
     Model,
-    /// FJ-241: GPU hardware resource type
+    /// FJ-241: GPU hardware resource type.
     Gpu,
-    /// ALB-027: Pipeline task resource type
+    /// ALB-027: Pipeline task resource type.
     Task,
 }
 
@@ -442,7 +452,9 @@ impl fmt::Display for ResourceType {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum MachineTarget {
+    /// A single machine name.
     Single(String),
+    /// Multiple machine names.
     Multiple(Vec<String>),
 }
 

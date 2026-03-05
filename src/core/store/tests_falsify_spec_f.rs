@@ -272,9 +272,6 @@ fn falsify_l14_all_phase_modules_exist() {
         "src/core/store/sandbox_run.rs",
     ];
     for module in &modules {
-        assert!(
-            root.join(module).exists(),
-            "module must exist: {module}"
-        );
+        assert!(root.join(module).exists(), "module must exist: {module}");
     }
 }

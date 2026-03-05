@@ -8,44 +8,65 @@ use std::io::Write;
 
 /// ANSI escape sequences.
 pub mod ansi {
+    /// Clear the entire screen.
     pub const CLEAR_SCREEN: &str = "\x1b[2J";
+    /// Move cursor to top-left.
     pub const CURSOR_HOME: &str = "\x1b[H";
+    /// Bold text.
     pub const BOLD: &str = "\x1b[1m";
+    /// Reset all attributes.
     pub const RESET: &str = "\x1b[0m";
+    /// Green foreground.
     pub const GREEN: &str = "\x1b[32m";
+    /// Red foreground.
     pub const RED: &str = "\x1b[31m";
+    /// Yellow foreground.
     pub const YELLOW: &str = "\x1b[33m";
+    /// Cyan foreground.
     pub const CYAN: &str = "\x1b[36m";
+    /// Dim text.
     pub const DIM: &str = "\x1b[2m";
 }
 
 /// A TUI item that can be selected/approved.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct TuiItem {
+    /// Resource identifier.
     pub id: String,
+    /// Human-readable description.
     pub description: String,
+    /// Planned action (create, update, destroy).
     pub action: String,
+    /// Whether the item is selected for approval.
     pub selected: bool,
 }
 
 /// TUI view state.
 #[derive(Debug)]
 pub struct TuiState {
+    /// Selectable items.
     pub items: Vec<TuiItem>,
+    /// Current cursor position.
     pub cursor: usize,
+    /// View title.
     pub title: String,
+    /// Current interaction mode.
     pub mode: TuiMode,
 }
 
 /// TUI interaction mode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TuiMode {
+    /// Browsing items.
     Browse,
+    /// Selecting items for approval.
     Select,
+    /// Confirming selection.
     Confirm,
 }
 
 impl TuiState {
+    /// Create a new TUI state with the given title and items.
     pub fn new(title: &str, items: Vec<TuiItem>) -> Self {
         TuiState {
             cursor: 0,
@@ -160,8 +181,11 @@ pub fn plan_to_tui_items(changes: &[(String, String, String)]) -> Vec<TuiItem> {
 /// TUI result after user interaction.
 #[derive(Debug, serde::Serialize)]
 pub struct TuiResult {
+    /// IDs of approved items.
     pub approved: Vec<String>,
+    /// IDs of rejected items.
     pub rejected: Vec<String>,
+    /// Whether the user confirmed.
     pub confirmed: bool,
 }
 

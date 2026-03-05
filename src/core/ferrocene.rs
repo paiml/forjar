@@ -25,42 +25,64 @@ pub enum SafetyStandard {
 /// Automotive Safety Integrity Level.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum AsilLevel {
+    /// Quality Management (no safety requirement).
     QM,
+    /// ASIL A (lowest safety integrity).
     A,
+    /// ASIL B.
     B,
+    /// ASIL C.
     C,
+    /// ASIL D (highest safety integrity).
     D,
 }
 
 /// DO-178C Design Assurance Level.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum DalLevel {
+    /// DAL E (no safety effect).
     E,
+    /// DAL D (minor).
     D,
+    /// DAL C (major).
     C,
+    /// DAL B (hazardous).
     B,
+    /// DAL A (catastrophic).
     A,
 }
 
 /// Ferrocene toolchain metadata.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct FerrroceneToolchain {
+    /// Rustc version string.
     pub version: String,
+    /// Toolchain channel (ferrocene, nightly, stable).
     pub channel: String,
+    /// Compilation targets.
     pub targets: Vec<String>,
+    /// Ferrocene qualification certificate ID.
     pub qualification_id: Option<String>,
 }
 
 /// Certification evidence for a build.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct CertificationEvidence {
+    /// Target safety standard.
     pub standard: SafetyStandard,
+    /// Toolchain used for the build.
     pub toolchain: FerrroceneToolchain,
+    /// BLAKE3 hash of the produced binary.
     pub binary_hash: String,
+    /// BLAKE3 hash of the source tree.
     pub source_hash: String,
+    /// Compiler flags used.
     pub build_flags: Vec<String>,
+    /// Cargo features that are forbidden.
     pub forbidden_features: Vec<String>,
+    /// Named compliance checks and their pass/fail status.
     pub compliance_checks: HashMap<String, bool>,
+    /// Overall compliance verdict.
     pub compliant: bool,
 }
 
@@ -92,8 +114,11 @@ pub fn detect_toolchain() -> ToolchainInfo {
 /// Toolchain detection result.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct ToolchainInfo {
+    /// Full rustc --version output.
     pub version: String,
+    /// Whether the toolchain is Ferrocene.
     pub is_ferrocene: bool,
+    /// Channel name (ferrocene, nightly, stable).
     pub channel: String,
 }
 
@@ -150,15 +175,20 @@ pub fn check_source_compliance(source_content: &str) -> Vec<ComplianceViolation>
 /// Source compliance violation.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct ComplianceViolation {
+    /// Source line number (1-based).
     pub line: u32,
+    /// Violation description.
     pub message: String,
+    /// Error or warning severity.
     pub severity: ViolationSeverity,
 }
 
 /// Violation severity.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 pub enum ViolationSeverity {
+    /// Blocks certification.
     Error,
+    /// Advisory, does not block.
     Warning,
 }
 

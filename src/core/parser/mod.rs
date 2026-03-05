@@ -54,6 +54,7 @@ const KNOWN_ARCHITECTURES: &[&str] =
 /// Validation error.
 #[derive(Debug, Clone)]
 pub struct ValidationError {
+    /// Human-readable error description.
     pub message: String,
 }
 

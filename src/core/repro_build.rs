@@ -9,22 +9,34 @@ use std::collections::HashMap;
 /// Build reproducibility report.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ReproReport {
+    /// BLAKE3 hash of the source tree.
     pub source_hash: String,
+    /// BLAKE3 hash of the built binary.
     pub binary_hash: String,
+    /// Rust toolchain version string.
     pub toolchain: String,
+    /// Compilation target triple.
     pub target: String,
+    /// Cargo build profile.
     pub profile: String,
+    /// RUSTFLAGS used.
     pub rustflags: Vec<String>,
+    /// Relevant environment variables.
     pub env_vars: HashMap<String, String>,
+    /// Individual reproducibility checks.
     pub checks: Vec<ReproCheck>,
+    /// Overall reproducibility verdict.
     pub reproducible: bool,
 }
 
 /// Individual reproducibility check.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ReproCheck {
+    /// Check name (e.g., SOURCE_DATE_EPOCH).
     pub name: String,
+    /// Whether the check passed.
     pub passed: bool,
+    /// Human-readable detail message.
     pub detail: String,
 }
 

@@ -12,35 +12,50 @@ use std::path::Path;
 /// A single binding entry from `binding.yaml`.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct BindingEntry {
+    /// Contract name.
     pub contract: String,
+    /// Mathematical equation reference.
     pub equation: String,
+    /// Implementation status (implemented, partial, missing).
     pub status: String,
 }
 
 /// Top-level structure of a `binding.yaml` file.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct BindingRegistry {
+    /// Registry schema version.
     pub version: String,
+    /// Target crate for the bindings.
     pub target_crate: String,
+    /// Binding entries.
     pub bindings: Vec<BindingEntry>,
 }
 
 /// Verification status of a kernel contract.
 #[derive(Debug, Clone, PartialEq)]
 pub enum ContractStatus {
+    /// Contract fully implemented and available.
     Implemented,
+    /// Contract partially implemented.
     Partial,
+    /// Contract not yet implemented.
     Missing,
 }
 
 /// Coverage report for a model's kernel requirements.
 #[derive(Debug, Clone)]
 pub struct CoverageReport {
+    /// Model architecture type.
     pub model_type: String,
+    /// Total required contracts.
     pub total_required: usize,
+    /// Number of covered contracts.
     pub covered: usize,
+    /// Number of missing contracts.
     pub missing: usize,
+    /// Coverage percentage (0-100).
     pub coverage_pct: f64,
+    /// Per-contract status map.
     pub contracts: BTreeMap<String, ContractStatus>,
 }
 

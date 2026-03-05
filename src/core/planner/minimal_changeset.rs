@@ -10,20 +10,30 @@ use std::collections::BTreeMap;
 /// A resource change candidate.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct ChangeCandidate {
+    /// Resource name.
     pub resource: String,
+    /// Target machine.
     pub machine: String,
+    /// Current hash from the lock file (None if new).
     pub current_hash: Option<String>,
+    /// Desired hash from the config.
     pub desired_hash: String,
+    /// Whether this change is necessary.
     pub necessary: bool,
 }
 
 /// Minimal change set result.
 #[derive(Debug, serde::Serialize)]
 pub struct MinimalChangeSet {
+    /// Total number of resources evaluated.
     pub total_resources: usize,
+    /// Number of changes that must be applied.
     pub changes_needed: usize,
+    /// Number of resources that can be skipped.
     pub changes_skipped: usize,
+    /// All evaluated change candidates.
     pub candidates: Vec<ChangeCandidate>,
+    /// Whether the set is provably minimal.
     pub is_provably_minimal: bool,
 }
 

@@ -2,6 +2,7 @@
 
 use std::path::PathBuf;
 
+/// CLI arguments for the `apply` command.
 #[derive(clap::Args, Debug)]
 pub struct ApplyArgs {
     /// Path to forjar.yaml

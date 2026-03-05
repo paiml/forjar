@@ -9,7 +9,9 @@ use std::path::Path;
 /// A generated contract stub ready to be written to disk.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ContractStub {
+    /// Output filename (e.g., "softmax-kernel-v1.yaml").
     pub filename: String,
+    /// Generated YAML contract content.
     pub yaml_content: String,
 }
 

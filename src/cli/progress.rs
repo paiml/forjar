@@ -18,6 +18,7 @@ pub struct Spinner {
 }
 
 impl Spinner {
+    /// Create a new spinner with the given message.
     pub fn new(message: &str) -> Self {
         Spinner {
             message: message.to_string(),
@@ -64,6 +65,7 @@ pub struct ProgressBar {
 }
 
 impl ProgressBar {
+    /// Create a new progress bar with the given total and message.
     pub fn new(total: usize, message: &str) -> Self {
         ProgressBar {
             total,
@@ -142,10 +144,15 @@ fn format_duration(d: Duration) -> String {
 /// A multi-resource progress tracker.
 #[derive(Debug, serde::Serialize)]
 pub struct ProgressReport {
+    /// Total number of items.
     pub total: usize,
+    /// Number completed successfully.
     pub completed: usize,
+    /// Number that failed.
     pub failed: usize,
+    /// Number skipped.
     pub skipped: usize,
+    /// Elapsed wall-clock seconds.
     pub elapsed_secs: f64,
 }
 
@@ -160,6 +167,7 @@ pub fn track_progress(total: usize) -> ProgressTracker {
     }
 }
 
+/// Tracks progress across multiple resource operations.
 pub struct ProgressTracker {
     total: usize,
     completed: usize,
@@ -169,18 +177,22 @@ pub struct ProgressTracker {
 }
 
 impl ProgressTracker {
+    /// Record a successful completion.
     pub fn complete(&mut self) {
         self.completed += 1;
     }
 
+    /// Record a failure.
     pub fn fail(&mut self) {
         self.failed += 1;
     }
 
+    /// Record a skipped item.
     pub fn skip(&mut self) {
         self.skipped += 1;
     }
 
+    /// Generate a summary report.
     pub fn report(&self) -> ProgressReport {
         ProgressReport {
             total: self.total,

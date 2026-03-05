@@ -1,3 +1,5 @@
+//! CLI dispatch, subcommands, and output formatting.
+
 mod agent_registry;
 mod agent_sbom;
 mod apply;
