@@ -303,7 +303,7 @@ resources:
 - [x] Image build config: `ImageBuildConfig` with determinism levels
 - [x] Layer compression enum: `Gzip`, `Zstd`, `None`
 - [x] Determinism level enum: `False`, `Network`, `Strict`, `True`
-- [ ] OCI layout writer, Docker compat `manifest.json`
+- [x] OCI layout writer, Docker compat `manifest.json`
 - [x] `forjar oci pack <dir> --tag name:tag`
 
 ### Phase 8: Direct Layer Assembly (FJ-2102) — PARTIAL

@@ -126,4 +126,17 @@ fn main() {
         };
         println!("  Tier {tier}: {desc}");
     }
+
+    // OCI layout plan generation
+    println!("\n=== OCI Layout Plan ===");
+    let layout_steps = forjar::core::store::sandbox_exec::oci_layout_plan(
+        std::path::Path::new("/tmp/oci-output"),
+        "myapp:v1.2.3",
+    );
+    for step in &layout_steps {
+        println!("  Step {}: {}", step.step, step.description);
+        if let Some(cmd) = &step.command {
+            println!("    cmd: {cmd}");
+        }
+    }
 }
