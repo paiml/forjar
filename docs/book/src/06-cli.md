@@ -42,21 +42,29 @@ forjar validate -f <FILE>
 | Flag | Default | Description |
 |------|---------|-------------|
 | `-f, --file` | `forjar.yaml` | Config file path |
+| `--strict` | off | Extended validation (machine refs, paths, deps, templates) |
+| `--deep` | off | Run all deep checks (templates, deps, overlaps, secrets, naming) |
+| `--exhaustive` | off | Cross-reference and param usage validation |
+| `--json` | off | Output as JSON |
+| `--deny-unknown-fields` | off | Reject configs with unknown YAML fields |
 
-Checks:
-- YAML parse validity
-- Version is "1.0"
-- Name is non-empty
-- Resources reference valid machines
-- Dependencies reference valid resources
+**Default checks** (always run):
+- YAML parse validity, unknown field warnings (FJ-2500)
+- Version is "1.0", name is non-empty
+- Resources reference valid machines and dependencies
 - No circular dependencies
-- File state is valid (file, directory, symlink, absent)
-- Service state is valid (running, stopped, enabled, disabled)
-- Mount state is valid (mounted, unmounted, absent)
-- Docker state is valid (running, stopped, absent)
-- Network protocol is valid (tcp, udp) and action is valid (allow, deny, reject)
-- Cron schedule has exactly 5 fields (min hour dom mon dow)
-- Symlink resources have a target field
+- Type-specific required fields and valid states
+- Format validation: mode, port, path, owner/group, addr (FJ-2501)
+
+**Deep checks** (`--deep`):
+- Template variable resolution (`--check-templates`)
+- Circular dependency detection (`--check-circular-deps`)
+- Resource overlap detection (`--check-overlaps`)
+- Hardcoded secret scan (`--check-secrets`)
+- Naming convention enforcement (`--check-naming`)
+- Drift coverage verification (`--check-drift-coverage`)
+- Idempotency verification (`--check-idempotency`)
+- Exhaustive cross-reference validation
 
 **Extended validation checks:**
 

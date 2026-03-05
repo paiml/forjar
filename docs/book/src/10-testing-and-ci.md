@@ -40,6 +40,24 @@ Checks:
 - Network protocol (tcp, udp) and action (allow, deny, reject) are valid
 - Cron schedule has exactly 5 fields
 - Symlink resources have a target field
+- Format validation: octal mode, port range, absolute paths, Unix owner/group names (FJ-2501)
+- Unknown field detection with "did you mean?" suggestions (FJ-2500)
+
+### Deep Validation
+
+```bash
+forjar validate --deep -f forjar.yaml
+```
+
+Runs all deep checks in a single aggregated pass:
+- Template variable resolution
+- Circular dependency detection (transitive closure)
+- Resource overlap detection (same path/port on same machine)
+- Hardcoded secret scan
+- Naming convention enforcement (kebab-case)
+- Drift coverage verification
+- Idempotency verification
+- Exhaustive cross-reference validation
 
 ### Lint
 
