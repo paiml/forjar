@@ -887,15 +887,65 @@ resources:
     depends_on: [validate]
 ```
 
+### Task Modes (FJ-2700)
+
+Tasks support four execution modes via the `task_mode` field:
+
+| Mode | Description | Key Fields |
+|------|-------------|------------|
+| `batch` | Run-once task (default) | `command`, `completion_check`, `output_artifacts` |
+| `pipeline` | Multi-stage execution | `stages`, `cache` |
+| `service` | Long-running process | `command`, `restart`, `restart_delay` |
+| `dispatch` | On-demand via `forjar run` | `command`, `params` |
+
+**Pipeline mode** replaces `command` with `stages`:
+
+```yaml
+resources:
+  ci-pipeline:
+    type: task
+    machine: m1
+    task_mode: pipeline
+    stages:
+      - name: test
+        command: "cargo test"
+        gate: true           # Pipeline stops if this stage fails
+      - name: build
+        command: "cargo build --release"
+        inputs: ["src/**/*.rs"]
+        outputs: ["target/release/app"]
+    cache: true               # Skip stages whose inputs haven't changed
+```
+
+**Service mode** manages long-running processes:
+
+```yaml
+resources:
+  app-server:
+    type: task
+    machine: m1
+    task_mode: service
+    command: "app serve --port 8080"
+    gpu_device: 0             # Injects CUDA_VISIBLE_DEVICES=0
+    restart: on_failure
+    restart_delay: 10
+```
+
 ### Task Fields
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `command` | string | required | Shell command to execute |
+| `command` | string | required* | Shell command to execute (*optional for pipeline mode) |
+| `task_mode` | string | `batch` | Execution mode: batch, pipeline, service, dispatch |
 | `working_dir` | string | — | Working directory (cd before execution) |
 | `timeout` | u64 | — | Timeout in seconds |
 | `completion_check` | string | — | Shell command that exits 0 if already done |
 | `output_artifacts` | list | `[]` | Files that must exist for task to be considered complete |
+| `stages` | list | `[]` | Pipeline stages (pipeline mode only) |
+| `cache` | bool | `false` | Content-addressed stage caching (pipeline mode) |
+| `gpu_device` | u32 | — | GPU device index for CUDA_VISIBLE_DEVICES |
+| `restart` | string | — | Restart policy: on_failure, always, never (service mode) |
+| `restart_delay` | u64 | — | Seconds before restart (service mode) |
 
 ## Recipe (Composition)
 
