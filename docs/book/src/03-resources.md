@@ -973,6 +973,24 @@ stages:
 
 When `cache: true`, forjar hashes all input files before execution. If the input hash matches the stored hash from the previous run, the stage is skipped. Output artifacts are also hashed for drift detection.
 
+### Pipeline Execution Engine
+
+The pipeline engine processes stages sequentially with cache-aware skipping:
+
+```
+for each stage:
+    if cache enabled AND inputs unchanged (BLAKE3 match) → SKIP
+    execute stage command
+    if gate AND exit_code != 0 → FAIL pipeline
+    record stage state (exit_code, duration, input_hash)
+```
+
+Run the pipeline execution example:
+
+```bash
+cargo run --example pipeline_execution
+```
+
 ### Task State Model (FJ-2706)
 
 Each task mode tracks specific state in the lock file:
