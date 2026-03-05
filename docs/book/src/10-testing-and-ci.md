@@ -1373,6 +1373,40 @@ Log storage is bounded by configurable retention:
 | `max_log_size` | 10 MB | Per-log file truncation |
 | `max_total_size` | 500 MB | Total budget per machine |
 
+## Infrastructure Mutation Testing (FJ-2604)
+
+Verify drift detection catches real-world infrastructure mutations:
+
+```bash
+cargo run --example mutation_testing
+```
+
+### Mutation Operators
+
+Eight mutation operators simulate common infrastructure drift:
+
+| Operator | Targets | What It Tests |
+|----------|---------|---------------|
+| `delete_file` | file | File presence detection |
+| `modify_content` | file | Content hash comparison |
+| `change_permissions` | file | Mode drift detection |
+| `stop_service` | service | Service state detection |
+| `remove_package` | package | Package presence detection |
+| `kill_process` | service | Process recovery |
+| `unmount_filesystem` | mount | Mount state detection |
+| `corrupt_config` | file | Partial content modification |
+
+### Mutation Score
+
+```
+Grade A: >= 90% mutations detected
+Grade B: >= 80%
+Grade C: >= 60%
+Grade F: < 60% — drift detection broken
+```
+
+`MutationReport::from_results()` builds per-type summaries and lists undetected mutations for targeted improvement.
+
 ## Build Metrics & Size Regression (FJ-2403)
 
 Track binary sizes across releases and detect regressions automatically:
