@@ -533,14 +533,14 @@ presentar (separate binary)
 
 ## Implementation
 
-### Phase 19: bashrs Purification Spec (FJ-2400)
+### Phase 19: bashrs Purification Spec (FJ-2400) -- IMPLEMENTED
 - [x] `PurificationBenchmark` with validate_us, purify_us, overhead_ratio()
 - [x] Add `forjar lint --bashrs-version` to report bashrs version
 - [x] Benchmark purification: `PurificationBenchmark` with per-resource-type timing
 - [x] Add bashrs version to generation metadata for reproducibility
 - **Deliverable**: I8 enforcement documented and measurable
 
-### Phase 20: apr Model Pipeline (FJ-2401)
+### Phase 20: apr Model Pipeline (FJ-2401) -- IMPLEMENTED
 - [x] `apr compile` integration in forjar recipes — `examples/apr-compile-integration.yaml` (pull → compile → checksum → serve)
 - [x] Cross-compilation matrix in `apr-crosscompile-matrix.yaml` — x86_64 + aarch64 parallel builds with verification
 - [x] Model checksum verification: `ModelIntegrityCheck` with BLAKE3 hash comparison
@@ -557,7 +557,7 @@ presentar (separate binary)
 - [x] Bundle size drift detection: `BundleSizeDrift::check()` with budget + 20% growth limit alerting
 - **Deliverable**: Presentar WASM apps deployable via `forjar apply`
 
-### Phase 22: Self-Build Hardening (FJ-2403)
+### Phase 22: Self-Build Hardening (FJ-2403) -- IMPLEMENTED
 - [x] Reproducible builds: `ReproBuildConfig` with locked, LTO, codegen_units, `cargo_args()`, `env_vars()`
 - [x] Binary size tracking per release (`BuildMetrics`, `SizeThreshold` types)
 - [x] `BuildMetrics::current()` compile-time metric collection

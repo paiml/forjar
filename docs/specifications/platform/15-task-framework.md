@@ -716,14 +716,14 @@ Forjar is the **convergence primitive**. Consumers own their domain logic.
 - [x] Full service lifecycle: start → health check → restart → max restarts → stop
 - [x] 30 tests across service + dispatch modules
 
-### Phase 37: Input/Output Tracking (FJ-2701)
+### Phase 37: Input/Output Tracking (FJ-2701) -- IMPLEMENTED
 - [x] `inputs:` glob pattern hashing (BLAKE3)
 - [x] `outputs:` artifact hashing and storage
 - [x] `cache: true` for stage-level skip logic
 - [x] Input/output hashes: `IoHashes` with input_hash, output_hash, cached flag
 - **Deliverable**: Pipeline stages skip when inputs unchanged
 
-### Phase 38: Quality Gates (FJ-2702)
+### Phase 38: Quality Gates (FJ-2702) -- IMPLEMENTED
 - [x] Exit code gates
 - [x] JSON field parsing gates
 - [x] Regex stdout gates
@@ -731,20 +731,20 @@ Forjar is the **convergence primitive**. Consumers own their domain logic.
 - [x] `on_fail:` actions (block, warn, skip_dependents)
 - **Deliverable**: `alimentar quality score` output gates downstream training
 
-### Phase 39: GPU Device Targeting (FJ-2703)
+### Phase 39: GPU Device Targeting (FJ-2703) -- IMPLEMENTED
 - [x] `gpu_device:` field → `CUDA_VISIBLE_DEVICES` injection
 - [x] `gpu_memory:` `GpuMemoryInfo` with total_bytes, used_bytes, utilization_pct()
 - [x] Multi-GPU parallel tasks in same wave: `GpuSchedule` with `round_robin()`, `cuda_visible_devices()`, `fully_utilized()`
 - **Deliverable**: Two training tasks run on GPU 0 and GPU 1 simultaneously
 
-### Phase 40: Distributed Coordination (FJ-2704)
+### Phase 40: Distributed Coordination (FJ-2704) -- IMPLEMENTED
 - [x] `gather:` — collect artifacts from multiple machines
 - [x] `scatter:` — distribute artifacts to multiple machines
 - [x] `machine: [list]` fan-out execution (MachineTarget::Multiple)
 - [x] Barrier via `depends_on` multi-machine task: `BarrierTask` with `mark_complete()`, `is_satisfied()`, `pending_machines()`, `progress_pct()`
 - **Deliverable**: Federated learning manifest collection across 3 nodes
 
-### Phase 41: Consumer Integration Testing (FJ-2705)
+### Phase 41: Consumer Integration Testing (FJ-2705) -- IMPLEMENTED
 - [x] alimentar quality pipeline recipe (`examples/consumer-alimentar-quality.yaml`)
 - [x] entrenar training job recipe (`examples/consumer-entrenar-training.yaml`)
 - [x] apr-cli model build pipeline recipe (`examples/consumer-apr-model-build.yaml`)
@@ -752,7 +752,7 @@ Forjar is the **convergence primitive**. Consumers own their domain logic.
 - [x] forjar self-build pipeline recipe (`examples/consumer-forjar-self-build.yaml`)
 - **Deliverable**: Five reference recipes proving the primitive works for all domains
 
-### Phase 42: Task State Model (FJ-2706)
+### Phase 42: Task State Model (FJ-2706) -- IMPLEMENTED
 - [x] Pipeline state with per-stage tracking
 - [x] Service state with PID, health check history
 - [x] Dispatch state with invocation history

@@ -494,7 +494,7 @@ forjar logs --image training-image --layer ml-deps --tail 50  # last 50 lines
 
 ## Implementation
 
-### Phase 18: Observability (FJ-2301)
+### Phase 18: Observability (FJ-2301) -- IMPLEMENTED
 - [x] Run log types: `RunMeta`, `RunLogEntry`, `ResourceRunStatus`, `RunSummary`
 - [x] Structured log format: delimited sections (SCRIPT, STDOUT, STDERR, RESULT)
 - [x] `generate_run_id()` for unique run identifiers

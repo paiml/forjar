@@ -195,7 +195,7 @@ forjar query --type image --drift                  # stale deployments
 
 ## Implementation
 
-### Phase 11: Distribution (FJ-2105)
+### Phase 11: Distribution (FJ-2105) -- IMPLEMENTED
 - [x] Distribution target types: `DistTarget` (Load/Push/Far) (type definition)
 - [x] Push result types: `PushResult`, `PushKind` (Layer/Config/Manifest/Index) (type definition)
 - [x] Multi-arch types: `ArchBuild` with linux/amd64 and linux/arm64 constructors (type definition)
@@ -208,7 +208,7 @@ forjar query --type image --drift                  # stale deployments
 - **Deliverable**: `forjar build --push` to registry — code path exists but depends on Phase 8-10 (container builds) for end-to-end image production
 - **Note**: Registry push logic (`registry_push.rs`) is confirmed by falsification audit. End-to-end flow requires Phases 8-10 to produce actual OCI layers.
 
-### Phase 12: Build Query/Drift (FJ-2106)
+### Phase 12: Build Query/Drift (FJ-2106) -- IMPLEMENTED
 - [x] Image resources in SQLite `resources` table (schema supports `resource_type = 'image'`)
 - [x] `forjar query --type image` (query filter exists)
 - [x] Image drift detection (type-level — `check_image_drift` logic defined)

@@ -670,7 +670,7 @@ Every CI test run produces:
 - **Deliverable**: `forjar test mutate` with mutation score >= 80%
 - **Remaining**: Sandbox mode (real exec vs simulated) requires pepita infrastructure
 
-### Phase 33: Coverage Model (FJ-2605)
+### Phase 33: Coverage Model (FJ-2605) -- IMPLEMENTED
 - [x] Five-level resource coverage tracking (L0-L5)
 - [x] `forjar test coverage` report (CoverageReport type)
 - [x] Coverage badge: `CoverageBadge` with `BadgeColor::from_pct()` (6 color tiers)
@@ -685,7 +685,7 @@ Every CI test run produces:
 - [x] `--group behavior|mutation|convergence` dispatch to specialized runners
 - **Deliverable**: Single command runs all test types
 
-### Phase 35: CI Integration (FJ-2607)
+### Phase 35: CI Integration (FJ-2607) -- IMPLEMENTED
 - [x] `behavior.yml` workflow — runs behavior specs with artifact upload
 - [x] `convergence.yml` workflow — runs proptest convergence + hash stability
 - [x] `mutation.yml` workflow — runs cargo-mutants with report upload
