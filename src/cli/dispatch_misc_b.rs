@@ -63,20 +63,7 @@ pub(super) fn dispatch_data_cmd(cmd: Commands) -> Result<(), String> {
         Commands::OciPack(OciPackArgs { dir, tag, output, json }) => {
             cmd_oci_pack(&dir, &tag, &output, json)
         }
-        Commands::StateQuery(QueryArgs {
-            query, state_dir, resource_type, history, drift, health, timing, churn, json, csv,
-        }) => {
-            if health {
-                cmd_query_health(&state_dir, json)
-            } else if drift && query.is_none() {
-                cmd_query_drift(&state_dir, json)
-            } else if churn && query.is_none() {
-                cmd_query_churn(&state_dir, json)
-            } else {
-                let q = query.as_deref().unwrap_or("*");
-                cmd_query_state(q, &state_dir, resource_type.as_deref(), history, drift, timing, json, csv)
-            }
-        }
+        Commands::StateQuery(args) => dispatch_state_query(args),
         other => dispatch_infra_cmd(other),
     }
 }
@@ -304,6 +291,23 @@ fn cmd_oci_pack(
     Ok(())
 }
 
+/// Route state-query subcommand to the right handler.
+fn dispatch_state_query(args: QueryArgs) -> Result<(), String> {
+    let QueryArgs {
+        query, state_dir, resource_type, history, drift, health,
+        timing, churn, reversibility, json, csv, sql,
+    } = args;
+    if sql {
+        super::query_format::print_sql(query.as_deref().unwrap_or("*"), resource_type.as_deref());
+        return Ok(());
+    }
+    if health { return cmd_query_health(&state_dir, json); }
+    if drift && query.is_none() { return cmd_query_drift(&state_dir, json); }
+    if churn && query.is_none() { return cmd_query_churn(&state_dir, json); }
+    let q = query.as_deref().unwrap_or("*");
+    cmd_query_state(q, &state_dir, resource_type.as_deref(), history, drift, timing, reversibility, json, csv)
+}
+
 /// Open state DB with fallback to :memory: if state dir is missing.
 fn open_state_conn(state_dir: &std::path::Path) -> Result<rusqlite::Connection, String> {
     use crate::core::store::db;
@@ -322,108 +326,47 @@ fn open_state_conn(state_dir: &std::path::Path) -> Result<rusqlite::Connection, 
 #[allow(clippy::too_many_arguments)]
 fn cmd_query_state(
     query: &str, state_dir: &std::path::Path, resource_type: Option<&str>,
-    history: bool, _drift: bool, timing: bool, json: bool, csv: bool,
+    history: bool, _drift: bool, timing: bool, reversibility: bool, json: bool, csv: bool,
 ) -> Result<(), String> {
     use crate::core::store::db;
-    use crate::core::store::ingest;
+    use super::query_format as qf;
 
     let conn = open_state_conn(state_dir)?;
     let mut results = db::fts5_search(&conn, query, 50)?;
-
     if let Some(rtype) = resource_type {
         results.retain(|r| r.resource_type == rtype);
     }
 
     if json {
-        let mut rows: Vec<serde_json::Value> = results.iter().map(|r| {
-            serde_json::json!({
-                "resource_id": r.resource_id, "type": r.resource_type,
-                "status": r.status, "path": r.path, "rank": r.rank,
-            })
-        }).collect();
-        if history {
-            for row in &mut rows {
-                let rid = row["resource_id"].as_str().unwrap_or("");
-                let events = ingest::query_history(&conn, rid).unwrap_or_default();
-                row["history"] = serde_json::to_value(&events).unwrap_or_default();
-            }
-        }
-        println!("{}", serde_json::to_string_pretty(&serde_json::json!({
-            "query": query, "results": rows, "count": results.len()
-        })).unwrap_or_default());
+        qf::print_json(&conn, query, &results, history);
     } else if csv {
-        println!("resource,type,status,path,rank");
-        for r in &results {
-            println!("{},{},{},{},{:.4}",
-                r.resource_id, r.resource_type, r.status,
-                r.path.as_deref().unwrap_or(""), r.rank);
-        }
-    } else if results.is_empty() {
-        println!("No results for \"{query}\"");
+        qf::print_csv(&results);
     } else {
-        println!(" {:20} {:10} {:10} PATH", "RESOURCE", "TYPE", "STATUS");
-        for r in &results {
-            println!(" {:20} {:10} {:10} {}",
-                r.resource_id, r.resource_type, r.status,
-                r.path.as_deref().unwrap_or("—"));
-        }
-        if history {
-            print_history(&conn, &results)?;
-        }
-        if timing {
-            print_timing_stats(&conn, &results)?;
-        }
-        println!("\n {} result(s)", results.len());
+        print_table_results(query, &conn, &results, history, timing, reversibility)?;
     }
     Ok(())
 }
 
-/// Print event history for matched resources.
-fn print_history(
-    conn: &rusqlite::Connection, results: &[crate::core::store::db::FtsResult],
+fn print_table_results(
+    query: &str, conn: &rusqlite::Connection,
+    results: &[crate::core::store::db::FtsResult],
+    history: bool, timing: bool, reversibility: bool,
 ) -> Result<(), String> {
-    use crate::core::store::ingest;
-    println!("\n History:");
+    use super::query_format as qf;
+    if results.is_empty() {
+        println!("No results for \"{query}\"");
+        return Ok(());
+    }
+    println!(" {:20} {:10} {:10} PATH", "RESOURCE", "TYPE", "STATUS");
     for r in results {
-        let events = ingest::query_history(conn, &r.resource_id)?;
-        if events.is_empty() { continue; }
-        println!("  {}: {} event(s)", r.resource_id, events.len());
-        for ev in events.iter().take(3) {
-            let dur = ev.duration_ms.map(|d| format!(" ({d}ms)")).unwrap_or_default();
-            println!("    {} {} [{}]{dur}", ev.timestamp, ev.event_type, ev.run_id);
-        }
+        println!(" {:20} {:10} {:10} {}",
+            r.resource_id, r.resource_type, r.status,
+            r.path.as_deref().unwrap_or("—"));
     }
-    Ok(())
-}
-
-/// Print timing stats for matched resources.
-fn print_timing_stats(
-    conn: &rusqlite::Connection, results: &[crate::core::store::db::FtsResult],
-) -> Result<(), String> {
-    let rids: Vec<&str> = results.iter().map(|r| r.resource_id.as_str()).collect();
-    if rids.is_empty() { return Ok(()); }
-
-    let placeholders: Vec<String> = (1..=rids.len()).map(|i| format!("?{i}")).collect();
-    let sql = format!(
-        "SELECT duration_secs FROM resources WHERE resource_id IN ({}) ORDER BY duration_secs",
-        placeholders.join(",")
-    );
-    let mut stmt = conn.prepare(&sql).map_err(|e| format!("timing prepare: {e}"))?;
-    let params: Vec<&dyn rusqlite::types::ToSql> = rids.iter()
-        .map(|s| s as &dyn rusqlite::types::ToSql)
-        .collect();
-    let durations: Vec<f64> = stmt
-        .query_map(params.as_slice(), |row| row.get(0))
-        .map_err(|e| format!("timing query: {e}"))?
-        .filter_map(|r| r.ok())
-        .collect();
-
-    if durations.is_empty() { return Ok(()); }
-    let n = durations.len();
-    let avg = durations.iter().sum::<f64>() / n as f64;
-    let p50 = durations[n / 2];
-    let p95 = durations[(n as f64 * 0.95) as usize];
-    println!("\n Timing: avg={avg:.2}s p50={p50:.2}s p95={p95:.2}s (n={n})");
+    if history { qf::print_history(conn, results)?; }
+    if timing { qf::print_timing_stats(conn, results)?; }
+    if reversibility { qf::print_reversibility(conn, results)?; }
+    println!("\n {} result(s)", results.len());
     Ok(())
 }
 

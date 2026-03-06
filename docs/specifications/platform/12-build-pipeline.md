@@ -544,7 +544,7 @@ presentar (separate binary)
 - [x] `apr compile` integration in forjar recipes — `examples/apr-compile-integration.yaml` (pull → compile → checksum → serve)
 - [x] Cross-compilation matrix in `apr-crosscompile-matrix.yaml` — x86_64 + aarch64 parallel builds with verification
 - [x] Model checksum verification: `ModelIntegrityCheck` with BLAKE3 hash comparison
-- [ ] `forjar query --type model --drift` for model integrity monitoring
+- [x] `forjar query --type model --drift` for model integrity monitoring
 - **Deliverable**: Full pull-convert-compile-serve pipeline in forjar recipes
 
 ### Phase 21: WASM Deployment (FJ-2402) -- PARTIAL

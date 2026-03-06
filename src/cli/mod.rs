@@ -123,6 +123,7 @@ pub mod progress;
 mod prove;
 mod provenance;
 mod pull_agent;
+mod query_format;
 mod recipe_registry;
 mod recipe_signing;
 mod remote_state;
