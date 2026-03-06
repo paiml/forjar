@@ -139,4 +139,19 @@ fn main() {
             println!("    cmd: {cmd}");
         }
     }
+
+    // SHA-256 + gzip compression (OCI layer pipeline)
+    println!("\n=== OCI Layer Pipeline ===");
+    let layer_data = b"sample layer content for OCI image";
+    let digest = forjar::core::store::sandbox_exec::sha256_digest(layer_data);
+    println!("  DiffID (uncompressed): {digest}");
+    let compressed = forjar::core::store::sandbox_exec::gzip_compress(layer_data).unwrap();
+    let compressed_digest = forjar::core::store::sandbox_exec::sha256_digest(&compressed);
+    println!("  Digest (compressed):   {compressed_digest}");
+    println!(
+        "  Compression: {} -> {} bytes ({:.0}% ratio)",
+        layer_data.len(),
+        compressed.len(),
+        compressed.len() as f64 / layer_data.len() as f64 * 100.0,
+    );
 }
