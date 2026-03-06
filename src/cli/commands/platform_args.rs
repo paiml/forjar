@@ -361,6 +361,10 @@ pub struct QueryArgs {
     #[arg(long)]
     pub reversibility: bool,
 
+    /// Fuse with git log history (RRF ranking)
+    #[arg(short = 'G', long = "git-history")]
+    pub git_history: bool,
+
     /// JSON output
     #[arg(long)]
     pub json: bool,

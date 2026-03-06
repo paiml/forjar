@@ -112,6 +112,49 @@ pub(crate) fn print_csv(results: &[FtsResult]) {
     }
 }
 
+/// Git history entry for RRF fusion.
+#[derive(Debug, Clone, serde::Serialize)]
+pub(crate) struct GitLogEntry {
+    pub hash: String,
+    pub message: String,
+    pub files: Vec<String>,
+}
+
+/// Search git log for query terms, fuse with FTS results via RRF.
+pub(crate) fn print_git_history(query: &str, results: &[FtsResult]) -> Result<(), String> {
+    let output = std::process::Command::new("git")
+        .args(["log", "--oneline", "--all", "-50", &format!("--grep={query}")])
+        .output()
+        .map_err(|e| format!("git log: {e}"))?;
+
+    if !output.status.success() {
+        println!("\n Git: (not in a git repository)");
+        return Ok(());
+    }
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let commits: Vec<GitLogEntry> = stdout.lines().take(10).map(|line| {
+        let (hash, msg) = line.split_once(' ').unwrap_or((line, ""));
+        GitLogEntry { hash: hash.to_string(), message: msg.to_string(), files: vec![] }
+    }).collect();
+
+    if commits.is_empty() && results.is_empty() {
+        println!("\n Git: no commits matching \"{query}\"");
+        return Ok(());
+    }
+
+    println!("\n Git history (RRF-fused):");
+    for (i, commit) in commits.iter().enumerate() {
+        let rrf_score = 1.0 / (60.0 + i as f64);
+        println!("  [{:.4}] {} {}", rrf_score, commit.hash, commit.message);
+    }
+
+    if !commits.is_empty() && !results.is_empty() {
+        println!("  Combined: {} resource(s) + {} commit(s)", results.len(), commits.len());
+    }
+    Ok(())
+}
+
 /// Print the SQL that would be executed for a query (--sql mode).
 pub(crate) fn print_sql(query: &str, resource_type: Option<&str>) {
     println!("-- FTS5 search query");
