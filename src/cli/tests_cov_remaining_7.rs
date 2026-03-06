@@ -306,21 +306,21 @@ mod tests {
     fn test_cov_lock_cmd_basic() {
         let td = tempfile::tempdir().unwrap();
         let f = write_temp_config(&basic_config());
-        assert!(cmd_lock(f.path(), td.path(), None, None, false, false).is_ok());
+        assert!(cmd_lock(f.path(), td.path(), None, None, false, false, false).is_ok());
     }
 
     #[test]
     fn test_cov_lock_cmd_json() {
         let td = tempfile::tempdir().unwrap();
         let f = write_temp_config(&basic_config());
-        assert!(cmd_lock(f.path(), td.path(), None, None, false, true).is_ok());
+        assert!(cmd_lock(f.path(), td.path(), None, None, false, false, true).is_ok());
     }
 
     #[test]
     fn test_cov_lock_cmd_empty() {
         let td = tempfile::tempdir().unwrap();
         let f = write_temp_config(&empty_config());
-        assert!(cmd_lock(f.path(), td.path(), None, None, false, false).is_ok());
+        assert!(cmd_lock(f.path(), td.path(), None, None, false, false, false).is_ok());
     }
 
     #[test]
@@ -371,8 +371,8 @@ mod tests {
     fn test_cov_lock_verify_after_lock() {
         let td = tempfile::tempdir().unwrap();
         let f = write_temp_config(&basic_config());
-        cmd_lock(f.path(), td.path(), None, None, false, false).unwrap();
-        assert!(cmd_lock(f.path(), td.path(), None, None, true, false).is_ok());
+        cmd_lock(f.path(), td.path(), None, None, false, false, false).unwrap();
+        assert!(cmd_lock(f.path(), td.path(), None, None, true, false, false).is_ok());
     }
 
     /// Lock then verify with JSON.
@@ -380,7 +380,7 @@ mod tests {
     fn test_cov_lock_verify_after_lock_json() {
         let td = tempfile::tempdir().unwrap();
         let f = write_temp_config(&basic_config());
-        cmd_lock(f.path(), td.path(), None, None, false, false).unwrap();
-        assert!(cmd_lock(f.path(), td.path(), None, None, true, true).is_ok());
+        cmd_lock(f.path(), td.path(), None, None, false, false, false).unwrap();
+        assert!(cmd_lock(f.path(), td.path(), None, None, true, false, true).is_ok());
     }
 }

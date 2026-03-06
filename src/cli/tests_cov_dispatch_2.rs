@@ -253,6 +253,7 @@ resources:
             env_file: None,
             workspace: None,
             verify: false,
+            dry_run: false,
             json: false,
         }));
         assert!(result.is_ok());
@@ -270,6 +271,7 @@ resources:
             env_file: None,
             workspace: None,
             verify: false,
+            dry_run: false,
             json: true,
         }));
         assert!(result.is_ok());
