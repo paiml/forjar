@@ -322,11 +322,16 @@ resources:
 - [x] `cargo run --example layer_builder` — end-to-end demo
 - [x] `build_layer()` wired into `forjar build` via `assemble_image()` which calls `build_layer()` for each `LayerEntry` set
 
-### Phase 9: Pepita-to-OCI (FJ-2103) — PARTIAL (types only, no runtime export)
+### Phase 9: Pepita-to-OCI (FJ-2103) — PARTIAL (types + runtime, no pepita integration)
 - [x] `export_overlay_upper()` in sandbox_exec.rs (type definition)
 - [x] Overlay-to-OCI whiteout conversion: `WhiteoutEntry` (FileDelete, OpaqueDir) (type definition)
 - [x] Multi-tier layer stacking (type definition)
-- **Missing for completion**: Runtime overlay → tar conversion; whiteout rewriting against real overlayfs upper directory; integration test with pepita sandbox
+- [x] `scan_overlay_upper()` — walks overlay upper dir, detects `.wh.*` whiteouts, produces `LayerEntry` + `WhiteoutEntry` (`store/overlay_export.rs`)
+- [x] `whiteouts_to_entries()` — converts `WhiteoutEntry` to OCI whiteout marker `LayerEntry` objects
+- [x] `merge_overlay_entries()` — combines regular files + whiteout entries into single layer set
+- [x] `format_overlay_scan()` — human-readable scan summary
+- [x] 11 tests: empty dir, regular files, file whiteout, opaque dir, mixed, nested, root whiteout, missing dir
+- **Remaining**: Integration with pepita sandbox (requires namespaces + overlayfs); `docker load` end-to-end test
 
 ### Phase 10: Image Resource Type (FJ-2104) — IMPLEMENTED
 - [x] `ResourceType::Image` (enum variant exists)

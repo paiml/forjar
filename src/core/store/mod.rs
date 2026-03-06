@@ -28,6 +28,7 @@ pub mod layer_builder;
 pub mod lockfile;
 pub mod meta;
 pub mod mutation_runner;
+pub mod overlay_export;
 pub mod path;
 pub mod pin_resolve;
 pub mod pin_tripwire;
