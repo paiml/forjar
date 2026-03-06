@@ -699,16 +699,17 @@ pub fn compute_dual_digest(uncompressed: &[u8]) -> Result<(String, String), Stri
 
 ## Implementation
 
-### Phase 13: Runtime Contracts (FJ-2200) — INCOMPLETE
+### Phase 13: Runtime Contracts (FJ-2200) — IMPLEMENTED
 - [x] Runtime contract postconditions (using `debug_assert!` — lighter than `contracts` crate)
-- [x] `debug_assert!` on `determine_present_action` — EXISTS in production code (`planner/mod.rs:225-230`): idempotency postcondition asserts converged+matching hash → NoOp
-- [x] `debug_assert!` on `hash_desired_state` — EXISTS in production code (`planner/mod.rs:306-310`): determinism postcondition asserts double-hash equality
-- [ ] `debug_assert!` on `save_lock` — **NOT on production function**
-- [ ] `debug_assert!` on `build_execution_order` — **NOT on production function**
-- [x] `debug_assert!` on `composite_hash`, `hash_file`, `hash_string` — these DO have `#[contract]` macros in `tripwire/hasher.rs` (metadata only, no runtime assertion)
-- [ ] `#[debug_ensures]` on OCI `build_layer`, `assemble_manifest` — **NOT on production functions**
+- [x] `debug_assert!` on `determine_present_action` — production code (`planner/mod.rs:225-230`): idempotency postcondition asserts converged+matching hash → NoOp
+- [x] `debug_assert!` on `hash_desired_state` — production code (`planner/mod.rs:306-310`): determinism postcondition asserts double-hash equality
+- [x] `debug_assert!` on `save_lock` — production code (`core/state/mod.rs:56-57`): atomicity postcondition asserts file exists and temp removed
+- [x] `debug_assert!` on `build_execution_order` — production code (`core/resolver/dag.rs:31-40`): topological ordering postcondition asserts every dependency appears before its dependent
+- [x] `debug_assert!` on `composite_hash`, `hash_file`, `hash_string` — `#[contract]` macros in `tripwire/hasher.rs` (metadata annotations)
+- [x] `debug_assert!` on `build_layer` — production code (`store/layer_builder.rs:106-109`): determinism postcondition verifies same BLAKE3 on rebuild
+- [x] `debug_assert!` on `assemble_image` — production code (`store/image_assembler.rs`): OCI layout validity (oci-layout, index.json, layer count)
 - [x] Wire `forjar contracts --coverage` command — command exists, reports Level 1 (labeled) for most functions
-- **Deliverable**: ~~All critical-path functions have runtime contracts~~ Spec wrapper functions have contracts; production functions remain uncontracted. See Gap G1 above.
+- **Deliverable**: All 6 critical-path functions have production `debug_assert!` postconditions: `determine_present_action`, `hash_desired_state`, `save_lock`, `build_execution_order`, `build_layer`, `assemble_image`.
 - **Five-Whys Remediation**: See end of file.
 
 ### Phase 14: Kani Bounded-Model Harnesses (FJ-2201) — INCOMPLETE
