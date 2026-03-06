@@ -270,9 +270,10 @@ fn falsify_l14_all_phase_modules_exist() {
         "src/core/store/sync_exec.rs",
         "src/core/store/sandbox_run.rs",
     ];
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
     for module in &modules {
         assert!(
-            std::path::Path::new(module).exists(),
+            root.join(module).exists(),
             "module must exist: {module}"
         );
     }

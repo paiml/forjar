@@ -312,14 +312,16 @@ fn falsify_i22_multiple_secrets() {
 /// J-04: Core bench file exists with store benchmarks.
 #[test]
 fn falsify_j04_core_bench_exists() {
-    let path = std::path::Path::new("benches/core_bench.rs");
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let path = root.join("benches/core_bench.rs");
     assert!(path.exists(), "benches/core_bench.rs must exist");
 }
 
 /// J-05: Store bench has criterion_group and criterion_main macros.
 #[test]
 fn falsify_j05_bench_criterion_macros() {
-    let content = std::fs::read_to_string("benches/store_bench.rs").expect("read store bench");
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    let content = std::fs::read_to_string(root.join("benches/store_bench.rs")).expect("read store bench");
     assert!(
         content.contains("criterion_group!") || content.contains("criterion_group"),
         "must have criterion_group macro"
@@ -333,6 +335,7 @@ fn falsify_j05_bench_criterion_macros() {
 /// J-06: Both benchmark files exist (store_bench + core_bench).
 #[test]
 fn falsify_j06_both_bench_files() {
-    assert!(std::path::Path::new("benches/store_bench.rs").exists());
-    assert!(std::path::Path::new("benches/core_bench.rs").exists());
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+    assert!(root.join("benches/store_bench.rs").exists());
+    assert!(root.join("benches/core_bench.rs").exists());
 }
