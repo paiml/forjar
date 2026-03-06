@@ -197,9 +197,52 @@ fn dispatch_build_missing_config_errors() {
             resource: "nginx-image".into(),
             load: false,
             push: false,
+            far: false,
             json: false,
         }),
         false,
     );
     assert!(result.is_err());
+}
+
+// --- Test artifact collection (FJ-2606) ---
+
+#[test]
+fn collect_test_artifacts_writes_json() {
+    use super::check_test::{collect_test_artifacts, TestRow};
+
+    let dir = tempfile::tempdir().expect("tmpdir");
+    let results = vec![
+        TestRow {
+            resource_id: "pkg-curl".into(),
+            machine: "intel".into(),
+            resource_type: "package".into(),
+            status: "pass".into(),
+            detail: String::new(),
+            duration_secs: 0.12,
+        },
+        TestRow {
+            resource_id: "svc-nginx".into(),
+            machine: "intel".into(),
+            resource_type: "service".into(),
+            status: "FAIL".into(),
+            detail: "exit 1".into(),
+            duration_secs: 0.55,
+        },
+    ];
+    let artifacts = collect_test_artifacts(&results, dir.path());
+    assert_eq!(artifacts.len(), 1);
+    assert_eq!(artifacts[0].name, "test-results.json");
+    assert!(artifacts[0].size_bytes.unwrap() > 0);
+    let content = std::fs::read_to_string(dir.path().join("test-results.json")).unwrap();
+    assert!(content.contains("pkg-curl"));
+    assert!(content.contains("FAIL"));
+}
+
+#[test]
+fn parallel_runner_returns_results() {
+    use super::check_test::run_tests_parallel;
+    // Empty input → empty output
+    let results = run_tests_parallel(vec![]);
+    assert!(results.is_empty());
 }

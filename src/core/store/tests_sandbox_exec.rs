@@ -265,6 +265,37 @@ mod tests {
     }
 
     #[test]
+    fn multi_arch_index_builds_from_platforms() {
+        use crate::core::types::ArchBuild;
+        let platforms = vec![
+            ArchBuild {
+                manifest_digest: Some("sha256:amd64digest".into()),
+                ..ArchBuild::linux_amd64()
+            },
+            ArchBuild {
+                manifest_digest: Some("sha256:arm64digest".into()),
+                ..ArchBuild::linux_arm64()
+            },
+        ];
+        let index = multi_arch_index(&platforms);
+        assert_eq!(index.schema_version, 2);
+        assert_eq!(index.manifests.len(), 2);
+        assert_eq!(index.manifests[0].digest, "sha256:amd64digest");
+        assert_eq!(index.manifests[1].digest, "sha256:arm64digest");
+        assert!(index.manifests[0].annotations.contains_key("org.opencontainers.image.platform"));
+    }
+
+    #[test]
+    fn multi_arch_index_skips_without_digest() {
+        use crate::core::types::ArchBuild;
+        let platforms = vec![
+            ArchBuild::linux_amd64(), // no digest set
+        ];
+        let index = multi_arch_index(&platforms);
+        assert!(index.manifests.is_empty());
+    }
+
+    #[test]
     fn oci_layout_plan_creates_four_steps() {
         let steps = oci_layout_plan(Path::new("/tmp/oci-out"), "myapp:1.0");
         assert_eq!(steps.len(), 4);

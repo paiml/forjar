@@ -54,8 +54,8 @@ pub(super) fn dispatch_data_cmd(cmd: Commands) -> Result<(), String> {
         Commands::Contracts(ContractsArgs { coverage, file, json }) => {
             cmd_contracts(coverage, &file, json)
         }
-        Commands::Build(BuildArgs { file, resource, load, push, json }) => {
-            cmd_build(&file, &resource, load, push, json)
+        Commands::Build(BuildArgs { file, resource, load, push, far, json }) => {
+            cmd_build(&file, &resource, load, push, far, json)
         }
         Commands::Logs(LogsArgs { state_dir, machine, run, failures, follow, gc, json }) => {
             cmd_logs(&state_dir, machine.as_deref(), run.as_deref(), failures, follow, gc, json)
@@ -199,8 +199,9 @@ fn cmd_contracts(coverage: bool, _file: &std::path::Path, json: bool) -> Result<
 }
 
 /// FJ-2104: Build container image from a resource definition.
+#[allow(clippy::too_many_arguments)]
 fn cmd_build(
-    file: &std::path::Path, resource: &str, _load: bool, _push: bool, _json: bool,
+    file: &std::path::Path, resource: &str, load: bool, _push: bool, far: bool, _json: bool,
 ) -> Result<(), String> {
     let config = super::helpers::parse_and_validate(file)?;
     let res = config.resources.get(resource)
@@ -210,8 +211,29 @@ fn cmd_build(
     }
     println!("Building image for resource '{resource}'...");
     println!("  type: image");
+    if load {
+        println!("\n--load: would pipe OCI tarball to `docker load`");
+        let runtime = if which_runtime("docker") { "docker" }
+            else if which_runtime("podman") { "podman" }
+            else { return Err("--load requires docker or podman".into()); };
+        println!("  runtime: {runtime}");
+    }
+    if far {
+        println!("\n--far: would wrap OCI layout in FAR archive");
+        println!("  Use `forjar archive pack <hash>` for existing store entries.");
+    }
     println!("\nOCI image build requires container runtime — use `forjar apply` for now.");
     Ok(())
+}
+
+/// Check if a container runtime binary is available on PATH.
+fn which_runtime(name: &str) -> bool {
+    std::process::Command::new("which")
+        .arg(name)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .is_ok_and(|s| s.success())
 }
 
 /// FJ-2300: Log viewer with optional follow mode.
