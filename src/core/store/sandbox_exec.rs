@@ -433,6 +433,23 @@ pub fn multi_arch_index(platforms: &[crate::core::types::ArchBuild]) -> crate::c
     }
 }
 
+/// FJ-2101: Compute SHA-256 digest of a byte slice (for OCI DiffID).
+pub fn sha256_digest(data: &[u8]) -> String {
+    use sha2::{Digest, Sha256};
+    let hash = Sha256::digest(data);
+    format!("sha256:{:x}", hash)
+}
+
+/// FJ-2101: Gzip-compress a byte slice (for OCI layer compression).
+pub fn gzip_compress(data: &[u8]) -> Result<Vec<u8>, String> {
+    use flate2::write::GzEncoder;
+    use flate2::Compression;
+    use std::io::Write;
+    let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
+    encoder.write_all(data).map_err(|e| format!("gzip write: {e}"))?;
+    encoder.finish().map_err(|e| format!("gzip finish: {e}"))
+}
+
 /// Count the total steps in a plan (for progress reporting).
 pub fn plan_step_count(plan: &SandboxPlan) -> usize {
     plan.steps.len()
