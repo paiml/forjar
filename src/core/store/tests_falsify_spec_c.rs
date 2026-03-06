@@ -277,7 +277,8 @@ fn falsify_j01_bench_file_exists() {
 #[test]
 fn falsify_j02_bench_contains_criterion() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
-    let content = std::fs::read_to_string(root.join("benches/store_bench.rs")).expect("read bench file");
+    let content =
+        std::fs::read_to_string(root.join("benches/store_bench.rs")).expect("read bench file");
     assert!(
         content.contains("criterion"),
         "must use criterion benchmarks"
@@ -292,7 +293,8 @@ fn falsify_j02_bench_contains_criterion() {
 #[test]
 fn falsify_j03_bench_store_benchmarks() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
-    let content = std::fs::read_to_string(root.join("benches/store_bench.rs")).expect("read bench file");
+    let content =
+        std::fs::read_to_string(root.join("benches/store_bench.rs")).expect("read bench file");
     // Check for key spec-required benchmarks
     assert!(content.contains("store_path"), "must bench store_path");
     assert!(
