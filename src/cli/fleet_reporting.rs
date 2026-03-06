@@ -255,9 +255,25 @@ pub(crate) fn cmd_export(
             blocks.join("\n\n")
         }
         "ansible" => format_ansible(&all_resources),
+        "json" => {
+            let entries: Vec<serde_json::Value> = all_resources
+                .iter()
+                .map(|(id, machine, rl)| {
+                    serde_json::json!({
+                        "resource": id,
+                        "machine": machine,
+                        "type": format!("{:?}", rl.resource_type),
+                        "status": format!("{:?}", rl.status),
+                        "hash": rl.hash,
+                        "applied_at": rl.applied_at,
+                    })
+                })
+                .collect();
+            serde_json::to_string_pretty(&entries).unwrap_or_else(|_| "[]".to_string())
+        }
         _ => {
             return Err(format!(
-                "Unknown export format '{format}'. Supported: csv, terraform, ansible"
+                "Unknown export format '{format}'. Supported: csv, terraform, ansible, json"
             ))
         }
     };
