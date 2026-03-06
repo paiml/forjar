@@ -5,7 +5,7 @@ use crate::core::{codegen, parser, resolver, types};
 use std::path::Path;
 
 /// Strip null values, empty arrays, empty maps, and false booleans from a JSON value.
-fn strip_defaults(val: &mut serde_json::Value) {
+pub(crate) fn strip_defaults(val: &mut serde_json::Value) {
     match val {
         serde_json::Value::Object(map) => {
             map.retain(|_, v| {
