@@ -19,3 +19,4 @@
 - [Agent Infrastructure & pforge](./16-agent-infrastructure.md)
 - [Operational Intelligence](./17-operational-intelligence.md)
 - [Supply Chain Security & Resilience](./18-supply-chain-security.md)
+- [Competitive Positioning](./19-competitive-positioning.md)
