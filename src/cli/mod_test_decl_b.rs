@@ -490,3 +490,5 @@ mod tests_cov_show2;
 mod tests_cov_plan2;
 #[cfg(test)]
 mod tests_cov_graph_scoring2;
+#[cfg(test)]
+mod tests_cov_gen_diff;

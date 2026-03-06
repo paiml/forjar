@@ -65,6 +65,19 @@ pub enum GenerationCmd {
         #[arg(long, default_value = "state")]
         state_dir: PathBuf,
     },
+    /// FJ-2003: Diff two generations
+    Diff {
+        /// Source generation number
+        from: u32,
+        /// Target generation number
+        to: u32,
+        /// State directory
+        #[arg(long, default_value = "state")]
+        state_dir: PathBuf,
+        /// Output as JSON
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 /// Shell types for completion generation.
